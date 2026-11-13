@@ -110,6 +110,49 @@ export const SCREENS = {
     // PDFium here, so left out of the pixel budget.
     content: [".welcome-desk-sheet[data-kind=\"page\"] > img"],
   },
+  // The History panel (`scenes.history`): the paper's versions on the
+  // mock backend (`?versions=compare`), History opened from the titlebar
+  // into the documents' panel. The GPUI side makes the same versions real
+  // in a Git repository (crates/lattice-gpui/src/scenario/parity_history.rs).
+  history: {
+    label: "History",
+    regions: [
+      { name: "titlebar", css: "header.titlebar", chrome: true },
+      { name: "workspace", css: "main.workspace", chrome: true },
+      ...group("History"),
+      { name: "history/toolbar", css: ".versions-toolbar" },
+      { name: "history/view/active", css: '.history-view[aria-pressed="true"]', text: true, chrome: true },
+      { name: "history/compare", css: ".history-compare", text: true },
+      { name: "history/save", css: ".versions-toolbar .versions-save", text: true },
+      { name: "history/refresh", css: ".versions-toolbar .versions-icon-button" },
+      { name: "history/day", css: ".history-day-label", text: true, chrome: true },
+      { name: "history/row", css: ".history-row" },
+      { name: "history/row/glyph", css: ".history-row-glyph", chrome: true },
+      { name: "history/row/head", css: ".history-row-head" },
+      { name: "history/row/title", css: ".history-row-title", text: true },
+      { name: "history/row/time", css: ".history-row-time", text: true },
+      { name: "history/fold", css: ".history-fold" },
+      { name: "history/fold/title", css: ".history-fold .history-row-title", text: true },
+    ],
+    content: [".pdf-viewer-host"],
+  },
+  // Compare… pressed on that panel (`scenes.historyCompare`): the version
+  // picker, the range, the counts and the first changed passage.
+  historyCompare: {
+    label: "History · compare",
+    regions: [
+      ...group("History"),
+      { name: "compare/back", css: ".compare-back", text: true },
+      { name: "compare/heading", css: ".compare-heading h2", text: true },
+      { name: "compare/picker", css: ".compare-picker", chrome: true },
+      { name: "compare/picker/head", css: ".compare-picker-head" },
+      { name: "compare/picker/row", css: ".compare-picker-row" },
+      { name: "compare/bar", css: ".compare-bar" },
+      { name: "compare/counts", css: ".compare-counts" },
+      { name: "compare/passage", css: ".compare-passage" },
+    ],
+    content: [".pdf-viewer-host"],
+  },
   settings: {
     label: "Settings",
     // Settings over the Main window, on Appearance (scenes.mjs `settings`).

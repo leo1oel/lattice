@@ -45,6 +45,7 @@ impl Render for Shell {
             })
             .children(self.window_overlays())
             .child(self.tex_setup.clone())
+            .children(self.conflict.as_ref().map(|(resolver, _)| resolver.clone()))
             .child(self.confirm.clone())
     }
 }

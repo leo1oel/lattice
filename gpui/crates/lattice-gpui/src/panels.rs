@@ -74,6 +74,12 @@ pub fn present_tabs(cx: &mut App) {
             }
         } else if view.clone().downcast::<BuildPanel>().is_ok() {
             look(Icon::HAMMER, Surface::Sheet)
+        } else if view
+            .clone()
+            .downcast::<crate::history::HistoryPanel>()
+            .is_ok()
+        {
+            look(Icon::TOOL_HISTORY, Surface::Sheet)
         } else if view.downcast::<EmptySlotPanel>().is_ok() {
             // A document's place: a document's tab, with the empty state's icon.
             TabLook {

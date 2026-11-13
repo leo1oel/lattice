@@ -309,3 +309,27 @@ msgstr "PDF 无法读取：这不是 PDF 文件。"
 msgid "The PDF could not be read: {0}"
 msgstr "PDF 无法读取：{0}"
 
+
+#: lattice-gpui/src/shell/commands/projects.rs
+msgid "Resolve conflicts…"
+msgstr "解决冲突…"
+
+#: lattice-gpui/src/shell/history_flow.rs
+msgid "Git left conflict markers in {files}."
+msgstr "Git 在 {files} 里留下了冲突标记。"
+
+#: lattice-gpui/src/shell/history_flow.rs
+msgid "No file in this project has conflict markers."
+msgstr "这个项目里没有带冲突标记的文件。"
+
+#: lattice-gpui/src/history/conflict_resolver.rs
+msgid "Incoming text"
+msgstr "传入的文字"
+
+#: lattice-gpui/src/history/conflict_resolver.rs
+msgid "Keeping {name}"
+msgstr "保留 {name}"
+
+#: lattice-gpui/src/history/conflict_resolver.rs
+msgid "{name} removed this part."
+msgstr "{name} 删掉了这部分。"

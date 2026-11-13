@@ -21,6 +21,7 @@ mod documents;
 mod editor_events;
 mod entries;
 mod ground;
+mod history_flow;
 mod imports;
 mod layers;
 pub(crate) mod menus;
@@ -132,6 +133,14 @@ pub struct Shell {
     agent: Entity<StandInPanel>,
     pdf: Entity<PdfPanel>,
     build_panel: Entity<BuildPanel>,
+    /// The History tool panel (`crate::history`), one for the window.
+    pub(crate) history: Entity<crate::history::HistoryPanel>,
+    /// The conflict resolver, while it is open.
+    pub(crate) conflict: Option<(Entity<crate::history::ConflictResolver>, Subscription)>,
+    /// The files Git named as conflicts when last told (`history_flow`).
+    pub(crate) conflicts_noticed: std::collections::BTreeSet<String>,
+    /// Watches the open project for Git's conflicts.
+    _project_git: Option<Subscription>,
     /// The TeX doctor, setup and package installs (one for the app).
     tex_setup: Entity<TexSetupCenter>,
     /// The open project's manuscript word count (one for the app).
@@ -258,6 +267,15 @@ impl Shell {
         let pdf = cx.new(|cx| PdfPanel::new(PdfPanelKind::Live, window, cx));
         let build_panel = cx.new(BuildPanel::new);
         let card = cx.new(|cx| DiagnosticsCard::new(build_panel.clone(), cx));
+        let history = cx.new(|cx| crate::history::HistoryPanel::new(window, cx));
+        let shown_in = workspace.downgrade();
+        history.update(cx, |history, _| {
+            history.watch_screen(move |cx| {
+                shown_in
+                    .upgrade()
+                    .is_some_and(|workspace| arrange::on_screen(workspace.read(cx), "history"))
+            })
+        });
         pdf.update(cx, |pdf, cx| pdf.set_build_output(card.into(), cx));
         let tex_setup = tex_setup::install(cx);
         tex_setup.update(cx, |center, cx| center.check_at_launch(cx));
@@ -328,6 +346,10 @@ impl Shell {
         })
         .detach();
         cx.subscribe_in(&pdf, window, Self::on_pdf_event).detach();
+        cx.subscribe_in(&history, window, |this, _, event, window, cx| {
+            this.on_history_event(event, window, cx)
+        })
+        .detach();
         cx.observe(&notices, |_, _, cx| cx.notify()).detach();
         cx.observe(&confirm, |_, _, cx| cx.notify()).detach();
         let workspace_events = cx.subscribe_in(&workspace, window, Self::on_workspace_event);
@@ -346,7 +368,11 @@ impl Shell {
             this.refresh_dirty(cx);
             cx.notify();
         });
-        cx.on_release(|this, cx| this.flush_layout(cx)).detach();
+        cx.on_release(|this, cx| {
+            this.flush_layout(cx);
+            this.drop_conflict_notice(cx);
+        })
+        .detach();
         cx.on_app_quit(|this, cx| {
             this.flush_layout(cx);
             async {}
@@ -369,6 +395,10 @@ impl Shell {
             agent,
             pdf,
             build_panel,
+            history,
+            conflict: None,
+            conflicts_noticed: Default::default(),
+            _project_git: None,
             tex_setup,
             words,
             cleaning: false,
@@ -568,6 +598,7 @@ impl Shell {
                 None => self.projects.push(open),
             }
         }
+        self.drop_conflict_notice(cx);
         self.project = Some(project.clone());
         // The editors of the project open before go with its arrangement.
         self.editors.clear();
@@ -601,6 +632,14 @@ impl Shell {
         self.reset_undo = None;
         self.live_document = project.read(cx).main_document().map(str::to_string);
         self.refresh_outline(window, cx);
+        self.history
+            .update(cx, |history, cx| history.set_project(project.clone(), cx));
+        self._project_git = Some(cx.subscribe(&project, |this, _, event, cx| {
+            if matches!(event, crate::project::ProjectEvent::GitChanged) {
+                this.notice_conflicts(cx);
+            }
+        }));
+        self.notice_conflicts(cx);
         self.file_tree
             .update(cx, |tree, cx| tree.set_project(project, cx));
         self.set_window_title(window, cx);

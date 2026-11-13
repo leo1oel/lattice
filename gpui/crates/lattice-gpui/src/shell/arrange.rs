@@ -185,7 +185,7 @@ impl Shell {
     }
 
     /// Where `view` is now.
-    fn placement(&self, view: &str, cx: &App) -> Option<(ViewPlacement, String, bool)> {
+    pub(crate) fn placement(&self, view: &str, cx: &App) -> Option<(ViewPlacement, String, bool)> {
         let engine = self.workspace.read(cx).engine();
         let state = engine.view_state(view)?;
         Some((state.placement, state.panel_id.clone(), state.visible))
@@ -391,8 +391,7 @@ impl Shell {
     /// On screen: in the layout, not hidden, and neither behind another tab
     /// nor outside a zoomed-in view.
     pub(crate) fn view_on_screen(&self, kind: &str, cx: &App) -> bool {
-        self.placement(kind, cx)
-            .is_some_and(|(placement, _, visible)| placement != ViewPlacement::Hidden && visible)
+        on_screen(self.workspace.read(cx), kind)
     }
 
     /// The Panels menu's toggles (`togglePanel`): hide a panel on screen;
@@ -544,4 +543,13 @@ impl Shell {
 /// other document is written (`isReading`).
 pub(crate) fn is_reading(key: &str) -> bool {
     key.starts_with("paper:") || key.to_ascii_lowercase().ends_with(".pdf")
+}
+
+/// Whether `workspace` shows `view`: in the layout, not hidden, and neither
+/// behind another tab nor outside a zoomed-in view.
+pub(crate) fn on_screen(workspace: &TrellisWorkspace, view: &str) -> bool {
+    workspace
+        .engine()
+        .view_state(view)
+        .is_some_and(|state| state.placement != ViewPlacement::Hidden && state.visible)
 }

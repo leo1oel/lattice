@@ -117,6 +117,16 @@ impl Run {
             sleep(cx, Duration::from_millis(600)).await;
             self.with_window(cx, |_, window, cx| window.blur(cx))?;
         }
+        // The History screens (`scenes.history`, `scenes.historyCompare`):
+        // the paper's versions, History opened, and Compare… pressed.
+        let screen = std::env::var("LATTICE_PARITY_SCREEN").unwrap_or_default();
+        let history_loaded = if screen == "history" || screen == "historyCompare" {
+            let loaded = self.parity_history(cx, screen == "historyCompare").await?;
+            self.park_pointer(cx)?;
+            Some(loaded)
+        } else {
+            None
+        };
         // The HTML screen (`scenes.html`): the tutorial's HTML demo opened,
         // in Preview, once its page has loaded.
         let html_loaded = if std::env::var("LATTICE_PARITY_SCREEN").as_deref() == Ok("html") {
@@ -205,6 +215,7 @@ impl Run {
             "uiFont": ui_font.as_ref(),
             "pdfShown": pdf_shown,
             "htmlLoaded": html_loaded,
+            "historyLoaded": history_loaded,
             "regions": regions,
         }))
     }
