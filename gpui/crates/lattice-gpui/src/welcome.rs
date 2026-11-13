@@ -188,6 +188,8 @@ fn more_action(
         .px(px(10.))
         .rounded(px(6.))
         .text_role(TextRole::Caption, cx)
+        // A button's own `line-height: normal`, not the caption's 16px.
+        .line_height(px(15.))
         .font_weight(FONT_WEIGHT_REGULAR)
         .text_color(palette.text_secondary)
         .whitespace_nowrap()
@@ -250,7 +252,7 @@ impl Render for Welcome {
                     div()
                         .flex_none()
                         .pt(px(1.5))
-                        .child(Icon::TRIANGLE_ALERT.element(px(13.), palette.warning)),
+                        .child(Icon::CIRCLE_ALERT.element(px(13.), palette.warning)),
                 )
                 .child(
                     div()
@@ -338,6 +340,9 @@ impl Render for Welcome {
                     .children(parity::probe("welcome/mark"))
                     .size(px(50.))
                     .rounded(px(14.))
+                    // A plate resting on the ground (surfaces.css `.brand-mark`).
+                    .bg(palette.raised)
+                    .shadow(lattice_ui::Elevation::Raised.shadows(&palette))
                     .flex()
                     .items_center()
                     .justify_center()
@@ -427,6 +432,7 @@ impl Render for Welcome {
                             .children(parity::probe("welcome/settings"))
                             .child(
                                 IconButton::new("welcome-settings", Icon::SETTINGS)
+                                    .frame(px(32.), px(32.))
                                     .icon_size(ICON_LARGE)
                                     .tooltip("Settings")
                                     .on_click(
