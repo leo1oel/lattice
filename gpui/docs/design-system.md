@@ -95,11 +95,24 @@ plate.strip(strip)
 It takes any `gpui_kit::base::ScrollbarHandle` (a `ScrollHandle`, a uniform list's, a Kit tree's `TreeState::scroll_handle`).
 
 - A 10px track flush with the edge, a hit target even while the bar is invisible, and nothing when the content fits.
-- Shown while the pointer is over the area and for 500 ms after a scroll, fading in over 160 ms; it hides over 80 ms after a 160 ms wait.
-- A pill thumb 4px wide and 2px off the edge, 6px over the track, in the ink at 8%, 12% over the track and 16% held, moving on the moderate tier; 4px in from the ends, never under 16px.
+- Shown while the pointer is over the area (or the bar, for a document) and for a moment after a scroll, fading in over 160 ms; it hides over 80 ms after a 160 ms wait.
+- A pill thumb 4px wide and 2px off the edge, 6px over the track, in the ink at 8%, 12% over the track and 16% held, moving on the moderate tier; 4px in from the ends, never shorter than its feel's shortest thumb.
 - Dragging the thumb scrolls; pressing the track jumps the thumb's middle to the pointer.
 
-Kit's tree draws it with `.scrollbar(false)`; Kit's other scrollbars and Zed's editor keep their own, themed in Lattice's inks (`kit.rs`, `editor_theme`).
+The app has four feels of the one bar, which differ only in what reveals it, how long it lingers after a scroll, its shortest thumb and what a press on the track does; pick the surface's with `.feel(..)`:
+
+| Feel | The app's | Revealed by | Lingers | Shortest thumb | Track press |
+| --- | --- | --- | --- | --- | --- |
+| `ScrollbarFeel::AREA` (default) | `scroll-area.tsx` | the pointer over the area | 500 ms | 16px | the thumb's middle to the pointer |
+| `ScrollbarFeel::LIST` | `external-scrollbar.tsx` (the Project tree) | the pointer over the list | 500 ms | 18px | the same |
+| `ScrollbarFeel::DOCUMENT` | `overlay-scrollbar.tsx` (the PDF) | the pointer on the bar | 180 ms | 24px | the same |
+| `ScrollbarFeel::EDITOR` | `codemirror-scrollbar.tsx` | the pointer on the bar | 180 ms | 24px | the document to the pointer's share of the track |
+
+`.ink(color)` sets the thumb's ink before its 8/12/16% share: the source editor's bar takes the code ink.
+A wheel over any track scrolls what is under it (the app's overlay and list bars forward it by hand; the editor's did not, which this unifies).
+
+Kit's tree draws it with `.scrollbar(false)` (in the list feel); Kit's other scrollbars and Zed's editor keep their own, themed in Lattice's inks (`kit.rs`, `editor_theme`).
+The editor's overlay scrollbar (`lattice-editor`) moves onto `FluidScrollbar` with `ScrollbarFeel::EDITOR` and the code ink.
 
 ## Corners
 

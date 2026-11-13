@@ -18,6 +18,17 @@
 //! - dragging the thumb scrolls with it; pressing the track jumps the thumb's
 //!   middle to the pointer and goes on dragging.
 //!
+//! The app has four feels of that one bar, which differ only in what reveals
+//! it, how long it lingers after a scroll, its shortest thumb and what a
+//! press on the track does ([`ScrollbarFeel`]): a scroll area's
+//! ([`ScrollbarFeel::AREA`], the above), a virtualized list's
+//! (`external-scrollbar.tsx`, [`ScrollbarFeel::LIST`]), a document's overlay
+//! (`overlay-scrollbar.tsx`, the PDF: [`ScrollbarFeel::DOCUMENT`]) and the
+//! source editor's (`codemirror-scrollbar.tsx`: [`ScrollbarFeel::EDITOR`]). A
+//! document's bar shows only under the pointer on the bar itself, so a page
+//! does not light its edge whenever the pointer crosses it, and lingers 180
+//! ms after a scroll. A wheel over any of them scrolls what is under it.
+//!
 //! Put it last in the positioned element that holds the scroll container,
 //! covering it ([`FluidScrollbar::vertical`] is laid out `absolute`,
 //! `inset_0`); the container itself draws no scrollbar of its own.
@@ -66,6 +77,59 @@ const SHOW: MotionToken = MotionToken::new(DURATION_MODERATE, EASE_FAST);
 const HIDE: MotionToken = MotionToken::new(DURATION_FAST, EASE_FAST);
 const HIDE_DELAY: Duration = DURATION_MODERATE;
 
+/// What a press on the track, off the thumb, does.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum TrackPress {
+    /// The thumb's middle jumps to the pointer (Base UI, the overlay bars).
+    CenterThumb,
+    /// The document jumps to the pointer's share of the track
+    /// (`codemirror-scrollbar.tsx`).
+    Ratio,
+}
+
+/// One of the app's scrollbar feels.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ScrollbarFeel {
+    /// The pointer anywhere over the area reveals the bar; otherwise only
+    /// the pointer on the bar does.
+    pub reveal_on_area: bool,
+    /// How long the bar stays after the last scroll.
+    pub linger: Duration,
+    /// The shortest thumb.
+    pub min_thumb: Pixels,
+    pub press: TrackPress,
+}
+
+impl ScrollbarFeel {
+    /// A scroll area (`scroll-area.tsx`, Base UI).
+    pub const AREA: ScrollbarFeel = ScrollbarFeel {
+        reveal_on_area: true,
+        linger: SCROLL_TIMEOUT,
+        min_thumb: MIN_THUMB,
+        press: TrackPress::CenterThumb,
+    };
+    /// A virtualized list drawn by its own scroller, such as the Project
+    /// tree (`external-scrollbar.tsx`): revealed over the list, an 18px thumb.
+    pub const LIST: ScrollbarFeel = ScrollbarFeel {
+        min_thumb: px(18.),
+        ..Self::AREA
+    };
+    /// A document's overlay bar (`overlay-scrollbar.tsx`, the PDF): revealed
+    /// on the bar, 180 ms after a scroll, a 24px thumb.
+    pub const DOCUMENT: ScrollbarFeel = ScrollbarFeel {
+        reveal_on_area: false,
+        linger: Duration::from_millis(180),
+        min_thumb: px(24.),
+        press: TrackPress::CenterThumb,
+    };
+    /// The source editor's bar (`codemirror-scrollbar.tsx`): the document's,
+    /// with a track press that goes to the pointer's share of the document.
+    pub const EDITOR: ScrollbarFeel = ScrollbarFeel {
+        press: TrackPress::Ratio,
+        ..Self::DOCUMENT
+    };
+}
+
 /// Which way the bar scrolls.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum ScrollAxis {
@@ -82,6 +146,7 @@ struct Drag {
 /// The bar's state between frames.
 #[derive(Debug)]
 pub struct ScrollbarState {
+    feel: ScrollbarFeel,
     last_offset: Option<Point<Pixels>>,
     last_scroll: Option<Instant>,
     over_area: bool,
@@ -95,8 +160,9 @@ pub struct ScrollbarState {
 }
 
 impl ScrollbarState {
-    fn new(now: Instant) -> Self {
+    fn new(feel: ScrollbarFeel, now: Instant) -> Self {
         Self {
+            feel,
             last_offset: None,
             last_scroll: None,
             over_area: false,
@@ -111,13 +177,18 @@ impl ScrollbarState {
 
     fn scrolling(&self, now: Instant) -> bool {
         self.last_scroll
-            .is_some_and(|at| now.saturating_duration_since(at) < SCROLL_TIMEOUT)
+            .is_some_and(|at| now.saturating_duration_since(at) < self.feel.linger)
     }
 
     /// Bring the tweens in line with the pointer and the scroll at `now`;
     /// whether anything still moves.
     fn reconcile(&mut self, now: Instant, reduce_motion: bool) -> bool {
-        let shown = self.over_area || self.drag.is_some() || self.scrolling(now);
+        let pointer = if self.feel.reveal_on_area {
+            self.over_area
+        } else {
+            self.over_track
+        };
+        let shown = pointer || self.drag.is_some() || self.scrolling(now);
         if shown {
             self.opacity.retarget_on(1., SHOW, Duration::ZERO, now);
         } else {
@@ -155,6 +226,7 @@ pub struct ThumbGeometry {
 /// The thumb in a track `track` long, for a viewport `viewport` long over
 /// content `content` long, scrolled `scrolled` (a positive distance).
 pub fn thumb_geometry(
+    min_thumb: Pixels,
     track: Pixels,
     viewport: Pixels,
     content: Pixels,
@@ -164,7 +236,7 @@ pub fn thumb_geometry(
         return None;
     }
     let room = (track - THUMB_MARGIN * 2.).max(px(0.));
-    let length = (room * (viewport / content)).max(MIN_THUMB).min(room);
+    let length = (room * (viewport / content)).max(min_thumb).min(room);
     let travel = (room - length).max(px(0.));
     let max_scroll = content - viewport;
     let progress = (scrolled / max_scroll).clamp(0., 1.);
@@ -195,6 +267,8 @@ pub struct FluidScrollbar {
     id: ElementId,
     handle: Rc<dyn ScrollbarHandle>,
     axis: ScrollAxis,
+    feel: ScrollbarFeel,
+    ink: Option<Hsla>,
 }
 
 impl FluidScrollbar {
@@ -203,7 +277,22 @@ impl FluidScrollbar {
             id: id.into(),
             handle: Rc::new(handle.clone()),
             axis: ScrollAxis::Vertical,
+            feel: ScrollbarFeel::AREA,
+            ink: None,
         }
+    }
+
+    /// The feel of the surface it scrolls (a scroll area's by default).
+    pub fn feel(mut self, feel: ScrollbarFeel) -> Self {
+        self.feel = feel;
+        self
+    }
+
+    /// The thumb's ink, before its 8/12/16% share: the primary text by
+    /// default, the code ink over the source editor (`--code-ink`).
+    pub fn ink(mut self, ink: Hsla) -> Self {
+        self.ink = Some(ink);
+        self
     }
 
     pub fn horizontal(id: impl Into<ElementId>, handle: &(impl ScrollbarHandle + Clone)) -> Self {
@@ -225,7 +314,13 @@ impl IntoElement for FluidScrollbar {
     type Element = AnyElement;
 
     fn into_element(self) -> Self::Element {
-        let FluidScrollbar { id, handle, axis } = self;
+        let FluidScrollbar {
+            id,
+            handle,
+            axis,
+            feel,
+            ink: thumb_ink,
+        } = self;
         div()
             .absolute()
             .inset_0()
@@ -235,7 +330,7 @@ impl IntoElement for FluidScrollbar {
                         let handle = handle.clone();
                         move |bounds, window, cx| {
                             let state = window.use_keyed_state(id, cx, |_, _| {
-                                ScrollbarState::new(Instant::now())
+                                ScrollbarState::new(feel, Instant::now())
                             });
                             // Reading the offset here tells a retained view
                             // that its frame depends on the scroll, so a
@@ -255,29 +350,34 @@ impl IntoElement for FluidScrollbar {
                                 }
                             };
                             let area = window.insert_hitbox(bounds, HitboxBehavior::Normal);
-                            let track =
-                                thumb_geometry(track_len, viewport_len, content_len, scrolled).map(
-                                    |geometry| {
-                                        let track_bounds = match axis {
-                                            ScrollAxis::Vertical => Bounds::new(
-                                                point(bounds.right() - TRACK, bounds.top()),
-                                                size(TRACK, bounds.size.height),
-                                            ),
-                                            ScrollAxis::Horizontal => Bounds::new(
-                                                point(bounds.left(), bounds.bottom() - TRACK),
-                                                size(bounds.size.width, TRACK),
-                                            ),
-                                        };
-                                        // The track takes the pointer even while
-                                        // the bar is invisible, as the web
-                                        // scrollbar's does at opacity 0.
-                                        let hitbox = window.insert_hitbox(
-                                            track_bounds,
-                                            HitboxBehavior::BlockMouse,
-                                        );
-                                        (hitbox, geometry, track_bounds)
-                                    },
+                            let track = thumb_geometry(
+                                feel.min_thumb,
+                                track_len,
+                                viewport_len,
+                                content_len,
+                                scrolled,
+                            )
+                            .map(|geometry| {
+                                let track_bounds = match axis {
+                                    ScrollAxis::Vertical => Bounds::new(
+                                        point(bounds.right() - TRACK, bounds.top()),
+                                        size(TRACK, bounds.size.height),
+                                    ),
+                                    ScrollAxis::Horizontal => Bounds::new(
+                                        point(bounds.left(), bounds.bottom() - TRACK),
+                                        size(bounds.size.width, TRACK),
+                                    ),
+                                };
+                                // The track takes the pointer even while
+                                // the bar is invisible, as the web
+                                // scrollbar's does at opacity 0, but a
+                                // wheel over it scrolls what is under it.
+                                let hitbox = window.insert_hitbox(
+                                    track_bounds,
+                                    HitboxBehavior::BlockMouseExceptScroll,
                                 );
+                                (hitbox, geometry, track_bounds)
+                            });
                             Prepainted {
                                 state,
                                 area,
@@ -296,7 +396,7 @@ impl IntoElement for FluidScrollbar {
                             }
                             state.last_offset = Some(offset);
                         });
-                        listen(&state, &handle, axis, &prepainted, window);
+                        listen(&state, &handle, axis, feel.press, &prepainted, window);
                         let reduce = cx.reduce_motion();
                         let running = state.update(cx, |state, _| state.reconcile(now, reduce));
                         schedule_timeout(&state, now, window, cx);
@@ -312,7 +412,7 @@ impl IntoElement for FluidScrollbar {
                             )
                         };
                         if opacity > 0. {
-                            let mut colour: Hsla = cx.palette().text;
+                            let mut colour: Hsla = thumb_ink.unwrap_or(cx.palette().text);
                             colour.a = ink * opacity.clamp(0., 1.);
                             let thumb = thumb_bounds(axis, track, geometry, width);
                             window.paint_quad(
@@ -369,6 +469,7 @@ fn listen(
     state: &Entity<ScrollbarState>,
     handle: &Rc<dyn ScrollbarHandle>,
     axis: ScrollAxis,
+    press: TrackPress,
     prepainted: &Prepainted,
     window: &mut Window,
 ) {
@@ -428,11 +529,28 @@ fn listen(
             let grab = if on_thumb {
                 at - geometry.start
             } else {
-                // The track: the thumb's middle jumps to the pointer.
-                let grab = geometry.length / 2.;
-                let scrolled = scroll_for_thumb(geometry, at - grab, viewport_len, content_len);
-                handle.set_offset(with_scroll(axis, handle.offset(), scrolled));
-                grab
+                match press {
+                    // The thumb's middle jumps to the pointer.
+                    TrackPress::CenterThumb => {
+                        let grab = geometry.length / 2.;
+                        let scrolled =
+                            scroll_for_thumb(geometry, at - grab, viewport_len, content_len);
+                        handle.set_offset(with_scroll(axis, handle.offset(), scrolled));
+                        grab
+                    }
+                    // The document goes to the pointer's share of the track,
+                    // and the thumb is held where that leaves it.
+                    TrackPress::Ratio => {
+                        let length = match axis {
+                            ScrollAxis::Vertical => bounds.size.height,
+                            ScrollAxis::Horizontal => bounds.size.width,
+                        };
+                        let share = (at / length).clamp(0., 1.);
+                        let scrolled = (content_len - viewport_len) * share;
+                        handle.set_offset(with_scroll(axis, handle.offset(), scrolled));
+                        at - (THUMB_MARGIN + geometry.travel * share)
+                    }
+                }
             };
             handle.start_drag();
             state.update(cx, |state, _| state.drag = Some(Drag { grab }));
@@ -507,31 +625,37 @@ mod tests {
 
     #[test]
     fn content_that_fits_draws_no_bar() {
-        assert_eq!(thumb_geometry(px(300.), px(300.), px(300.), px(0.)), None);
-        assert_eq!(thumb_geometry(px(300.), px(300.), px(300.5), px(0.)), None);
+        assert_eq!(
+            thumb_geometry(MIN_THUMB, px(300.), px(300.), px(300.), px(0.)),
+            None
+        );
+        assert_eq!(
+            thumb_geometry(MIN_THUMB, px(300.), px(300.), px(300.5), px(0.)),
+            None
+        );
     }
 
     #[test]
     fn the_thumb_is_the_viewports_share_of_the_track_inside_its_margins() {
         // A 308px track: 300px between the 4px margins; a third of the
         // content in view.
-        let g = thumb_geometry(px(308.), px(300.), px(900.), px(0.)).unwrap();
+        let g = thumb_geometry(MIN_THUMB, px(308.), px(300.), px(900.), px(0.)).unwrap();
         assert_eq!(g.start, THUMB_MARGIN);
         assert_eq!(g.length, px(100.));
         assert_eq!(g.travel, px(200.));
-        let end = thumb_geometry(px(308.), px(300.), px(900.), px(600.)).unwrap();
+        let end = thumb_geometry(MIN_THUMB, px(308.), px(300.), px(900.), px(600.)).unwrap();
         assert_eq!(end.start, px(204.));
     }
 
     #[test]
     fn a_long_document_keeps_a_16px_thumb() {
-        let g = thumb_geometry(px(308.), px(300.), px(300_000.), px(0.)).unwrap();
+        let g = thumb_geometry(MIN_THUMB, px(308.), px(300.), px(300_000.), px(0.)).unwrap();
         assert_eq!(g.length, MIN_THUMB);
     }
 
     #[test]
     fn dragging_the_thumb_maps_back_to_the_scroll() {
-        let g = thumb_geometry(px(308.), px(300.), px(900.), px(0.)).unwrap();
+        let g = thumb_geometry(MIN_THUMB, px(308.), px(300.), px(900.), px(0.)).unwrap();
         assert_eq!(scroll_for_thumb(g, px(104.), px(300.), px(900.)), px(300.));
         assert_eq!(scroll_for_thumb(g, px(-50.), px(300.), px(900.)), px(0.));
         assert_eq!(scroll_for_thumb(g, px(999.), px(300.), px(900.)), px(600.));
@@ -540,7 +664,7 @@ mod tests {
     #[test]
     fn the_thumb_stands_two_pixels_off_the_edge_and_widens_inward() {
         let track = Bounds::new(point(px(90.), px(0.)), size(TRACK, px(308.)));
-        let g = thumb_geometry(px(308.), px(300.), px(900.), px(0.)).unwrap();
+        let g = thumb_geometry(MIN_THUMB, px(308.), px(300.), px(900.), px(0.)).unwrap();
         let rest = thumb_bounds(ScrollAxis::Vertical, track, g, THUMB);
         assert_eq!(rest.left(), px(91.));
         assert_eq!(track.right() - rest.right(), px(5.));
@@ -552,7 +676,7 @@ mod tests {
     #[test]
     fn the_bar_fades_in_on_hover_and_out_after_a_pause() {
         let start = Instant::now();
-        let mut state = ScrollbarState::new(start);
+        let mut state = ScrollbarState::new(ScrollbarFeel::AREA, start);
         state.over_area = true;
         assert!(state.reconcile(start, false));
         assert_eq!(state.opacity.value(start + DURATION_MODERATE), 1.);
@@ -567,7 +691,7 @@ mod tests {
     #[test]
     fn a_scroll_shows_the_bar_until_the_timeout() {
         let start = Instant::now();
-        let mut state = ScrollbarState::new(start);
+        let mut state = ScrollbarState::new(ScrollbarFeel::AREA, start);
         state.last_scroll = Some(start);
         state.reconcile(start, false);
         assert!(state.scrolling(start + Duration::from_millis(499)));
@@ -577,7 +701,7 @@ mod tests {
     #[test]
     fn the_thumb_widens_and_darkens_over_the_track_and_while_held() {
         let start = Instant::now();
-        let mut state = ScrollbarState::new(start);
+        let mut state = ScrollbarState::new(ScrollbarFeel::AREA, start);
         state.over_area = true;
         state.over_track = true;
         state.reconcile(start, false);
@@ -587,5 +711,39 @@ mod tests {
         state.drag = Some(Drag { grab: px(3.) });
         state.reconcile(settled, false);
         assert_eq!(state.ink.value(settled + DURATION_MODERATE), INK_HELD);
+    }
+
+    #[test]
+    fn a_documents_bar_shows_only_on_the_bar_and_lingers_180_ms() {
+        let start = Instant::now();
+        let mut state = ScrollbarState::new(ScrollbarFeel::DOCUMENT, start);
+        state.over_area = true;
+        state.reconcile(start, false);
+        assert_eq!(
+            state.opacity.target(),
+            0.,
+            "the page under the pointer does not reveal it"
+        );
+        state.over_track = true;
+        state.reconcile(start, false);
+        assert_eq!(state.opacity.target(), 1.);
+        state.over_track = false;
+        state.last_scroll = Some(start);
+        assert!(state.scrolling(start + Duration::from_millis(179)));
+        assert!(!state.scrolling(start + Duration::from_millis(180)));
+    }
+
+    #[test]
+    fn the_editors_and_documents_thumb_is_never_under_24px() {
+        let g = thumb_geometry(
+            ScrollbarFeel::EDITOR.min_thumb,
+            px(308.),
+            px(300.),
+            px(300_000.),
+            px(0.),
+        )
+        .unwrap();
+        assert_eq!(g.length, px(24.));
+        assert_eq!(ScrollbarFeel::LIST.min_thumb, px(18.));
     }
 }

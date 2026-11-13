@@ -39,7 +39,7 @@ use lattice_ui::{
     components::{IconButton, Surface, TAB_RADIUS, TreeRow},
     fluid_hover::{FluidHover, ItemKind},
     icons::{ICON, file_glyph},
-    scrollbar::FluidScrollbar,
+    scrollbar::{FluidScrollbar, ScrollbarFeel},
     shape,
 };
 
@@ -558,7 +558,9 @@ impl Render for FileTreePanel {
                 // Lattice's scrollbar, below, in place of Kit's.
                 .scrollbar(false),
             )
-            .child(FluidScrollbar::vertical("file-tree-scrollbar", &scroll))
+            .child(
+                FluidScrollbar::vertical("file-tree-scrollbar", &scroll).feel(ScrollbarFeel::LIST),
+            )
             .into_any_element()
     }
 }
