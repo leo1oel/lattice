@@ -8676,8 +8676,8 @@ msgid "Lattice builds your PDF with the LaTeX on this Mac, and BasicTeX is about
 msgstr "Lattice builds your PDF with the LaTeX on this Mac, and BasicTeX is about 1 GB."
 
 #: src/onboarding/get-started-steps.ts
-msgid "Lattice builds your PDF with the TeX Live on this computer. Install it from your distribution’s packages."
-msgstr "Lattice builds your PDF with the TeX Live on this computer. Install it from your distribution’s packages."
+msgid "Lattice builds your PDF with the TeX Live on this computer. Install it from your distribution’s packages, then choose Recheck."
+msgstr "Lattice builds your PDF with the TeX Live on this computer. Install it from your distribution’s packages, then choose Recheck."
 
 #: src/overleaf/overleaf-realtime-model.ts
 msgid "Lattice cannot yet identify which replayed edits to {activeFile} are its own. Syncing remains paused for this file."

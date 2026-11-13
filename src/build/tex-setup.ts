@@ -1,7 +1,7 @@
 import { msg } from "@lingui/core/macro";
 import { i18n } from "../i18n";
 import { hostErrorText } from "../platform/host-error-text";
-import { isWindowsHost } from "../platform/host-platform";
+import { hostPlatform, type HostPlatform } from "../platform/host-platform";
 import { mentionsAny } from "../platform/ipc-error-phrases";
 
 type DoctorCheckLike = { name: string; detail: string; ok: boolean };
@@ -11,9 +11,15 @@ export type DoctorReportLike = { ok: boolean; summary: string; checks: DoctorChe
 // eslint-disable-next-line lingui/no-unlocalized-strings -- a size with a unit, the same in every locale
 export const TEX_INSTALL_SIZE_HINT = "1 GB";
 
-/** The distribution the one-click install sets up: TeX Live (per user) on Windows, BasicTeX on a Mac. */
+/**
+ * The distribution each host builds with: what the one-click install sets up
+ * on a Mac (BasicTeX) and Windows (TeX Live, per user), and on Linux the TeX
+ * Live from the distribution's packages, which Lattice does not install.
+ */
+const TEX_DISTRIBUTIONS: Record<HostPlatform, string> = { mac: "BasicTeX", windows: "TeX Live", linux: "TeX Live" };
+
 export function texDistributionName(): string {
-  return isWindowsHost() ? "TeX Live" : "BasicTeX";
+  return TEX_DISTRIBUTIONS[hostPlatform()];
 }
 
 /* eslint-disable lingui/no-unlocalized-strings -- phrase matched in backend error text */

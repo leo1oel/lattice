@@ -46,7 +46,7 @@ export function useSettingsSearchIndex(hasProject: boolean, knownAuthorName: str
   return [
     { tab: "appearance", label: appearance, place: t`General` },
     { tab: "appearance", place: appearance, id: "interface-language", label: t`Interface language`, terms: `${t`English`} ${t`Simplified Chinese`}` },
-    { tab: "appearance", place: appearance, id: "interface-size", label: t`Interface size`, terms: `${t({ message: "zoom scale bigger smaller", comment: "Search words for the Interface size setting, space-separated" })} ⌘+ ⌘− ⌘0` },
+    { tab: "appearance", place: appearance, id: "interface-size", label: t`Interface size`, terms: `${t({ message: "zoom scale bigger smaller", comment: "Search words for the Interface size setting, space-separated" })} ⌘+ ⌘− ⌘0 Ctrl+ Ctrl− Ctrl0 Ctrl+0` },
     { tab: "appearance", place: appearance, id: "interface-sounds", label: t`Interface sounds`, terms: t({ message: "sound", comment: "Search words for the Interface sounds setting, space-separated" }) },
     { tab: "appearance", place: appearance, id: "toast-position", label: t`Notification position`, terms: `${t`Top right`} ${t`Top center`} ${t`Bottom right`} ${t`Bottom center`} ${t({ message: "toast notification", comment: "Search words for the Notification position setting, space-separated" })}` },
     { tab: "appearance", place: sourceEditor, id: "source-font", label: t`Font`, terms: `${sourceTerms} SF Mono Menlo Inter Atkinson Hyperlegible OpenDyslexic` },
@@ -72,7 +72,7 @@ export function useSettingsSearchIndex(hasProject: boolean, knownAuthorName: str
     { tab: "editor", place: editor, id: "grammar-style", label: t`Grammar style`, terms: `${t`Grammar`} ${t`Academic`} ${t`Standard`} Harper`, description: t`Automatic checks LaTeX as academic writing and other files as everyday prose` },
     { tab: "editor", place: editor, id: "grammar-rules", label: t`Grammar rules`, terms: `${t`Grammar`} Harper`, description: t`Filter to find a rule; these apply to every project` },
     { tab: "editor", place: editor, id: "grammar-ignored", label: t`Ignored in this project`, terms: `${t`Grammar`} ${t`Ignored sentences`} Harper`, description: `${t`Open a project to ignore rules or sentences`} ${t`Choose Ignore on a grammar suggestion to add one`}` },
-    { tab: "editor", place: editor, id: "auto-build", label: t`Automatic build`, terms: `${t`Manual only`} ⌘S` },
+    { tab: "editor", place: editor, id: "auto-build", label: t`Automatic build`, terms: `${t`Manual only`} ⌘S Ctrl+S` },
     { tab: "editor", place: editor, id: "aux-files", label: t`Auxiliary files`, terms: `${builds} ${t`Clean`} .aux .log` },
     ...(hasProject ? [
       { tab: "editor", place: editor, id: "compile-engine", label: t`Compile engine`, terms: `${builds} pdfLaTeX XeLaTeX LuaLaTeX latexmk`, description: t`A project latexmkrc overrides this` },

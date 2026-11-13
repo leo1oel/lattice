@@ -300,7 +300,7 @@ export const TrellisTitlebar = memo(function TrellisTitlebar({ controller, onSea
           <DropdownMenuItem onSelect={frameAction.run}>
             <frameAction.Icon size={14} />
             <span className="flex-1">{frameAction.label}</span>
-            <span className="trellis-menu-shortcut">⌘⇧↩</span>
+            <span className="trellis-menu-shortcut">{comboText({ key: "Enter", mod: true, shift: true })}</span>
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => void controller.resetLayout()}><RotateCcw size={14} />{t`Reset layout`}</DropdownMenuItem>
         </DropdownMenuContent>

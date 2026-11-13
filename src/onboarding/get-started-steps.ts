@@ -162,7 +162,7 @@ const HOST_STEPS: Record<HostPlatform, HostSteps> = {
     without: ["agent"],
     rewrite: (id) => {
       switch (id) {
-        case "latex": return { why: msg`Lattice builds your PDF with the TeX Live on this computer. Install it from your distribution’s packages.` };
+        case "latex": return { why: msg`Lattice builds your PDF with the TeX Live on this computer. Install it from your distribution’s packages, then choose Recheck.` };
         case "own": return { why: ANOTHER_COMPUTER };
         default: return undefined;
       }
