@@ -49,7 +49,7 @@ pub(crate) use citation::{
     official_arxiv_citation, validate_resolved_identity, verify_title_citation,
 };
 pub(crate) use ids::{arxiv_base_id, explicit_arxiv_id};
-pub use import::import_reference;
+pub use import::{import_reference, FullText};
 pub use library::{
     list_bibliography_downloads, list_papers, read_paper, read_paper_blog_local,
     refresh_citation_health,

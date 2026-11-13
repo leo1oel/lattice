@@ -1931,15 +1931,14 @@ msgstr "Added to {path}"
 msgid "Added what {entryPath} now needs to the preamble of {rootPath}"
 msgstr "Added what {entryPath} now needs to the preamble of {rootPath}"
 
-#. placeholder {0}: position || done + 1
-#. placeholder {1}: queue.length
-#: src/papers/add-papers-sheet.tsx
-msgid "Adding {0} of {1}"
-msgstr "Adding {0} of {1}"
-
 #: src/project/paper-library.tsx
 msgid "Adding paper"
 msgstr "Adding paper"
+
+#: src/settings/literature-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Adding papers"
+msgstr "Adding papers"
 
 #: src/build/tex-setup-wizard.tsx
 msgid "Adding papers and looking up citations run on uv, a 45 MB Python tool. Writing and compiling work without it."
@@ -2143,6 +2142,12 @@ msgstr "Already in Papers"
 #: src/papers/bibliography-audit.tsx
 msgid "Also changes: {0}"
 msgstr "Also changes: {0}"
+
+#: src/papers/add-papers-sheet.tsx
+#: src/settings/literature-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Also save full text (Markdown)"
+msgstr "Also save full text (Markdown)"
 
 #: src/editor/markdown/engine/views/image-view.tsx
 msgid "Alt text"
@@ -3845,6 +3850,7 @@ msgstr "Citation key `{key}` is not in the primary bibliography."
 
 #: src/project/paper-inspector.tsx
 #: src/project/paper-library.tsx
+#: src/settings/settings-search-index.ts
 msgid "Citation only"
 msgstr "Citation only"
 
@@ -17450,6 +17456,7 @@ msgstr "Try"
 #: src/editor/presentation/open-slide-workspace.tsx
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-connect.tsx
+#: src/papers/add-papers-sheet.tsx
 #: src/papers/linked-library-sheet.tsx
 #: src/papers/zotero-browser.tsx
 #: src/project/paper-library-status.tsx
@@ -18325,6 +18332,10 @@ msgstr "What’s New in {name}"
 #: src/app/use-command-table.ts
 msgid "What’s new in Lattice"
 msgstr "What’s new in Lattice"
+
+#: src/settings/literature-settings.tsx
+msgid "When off, adding a paper adds only its citation. Its full text can still be saved later from the paper’s row."
+msgstr "When off, adding a paper adds only its citation. Its full text can still be saved later from the paper’s row."
 
 #: src/overleaf/overleaf-connect.tsx
 #: src/settings/settings-search-index.ts

@@ -2,14 +2,20 @@
 //!
 //! Every kind of input (arXiv id, DOI, URL, title, BibTeX) resolves through
 //! the same path; the arXiv and webpage branches exist because those sources
-//! can also bring a full text. A work without one is still a full citation.
+//! can also bring a full text. A work without one is still a full citation,
+//! and the writer may ask for the citation alone (`FullText::Skip`): then
+//! only the metadata is resolved, and nothing is downloaded or converted.
+//!
+//! Resolving (the network) and committing (the file) are separate steps, so
+//! several imports can resolve at once: each merges into the bibliography as
+//! it is when it commits, one at a time (`commit_merged`).
 //!
 //! `progress` receives a stage id ("resolving", "fulltext", "overview")
 //! whenever the pipeline enters a network-bound step, so the UI can say what
 //! the spinner is waiting on. The agent path and tests pass a no-op.
 
 use super::bibliography::{
-    bibcite_report_field, commit_bibliography, run_bibcite_input, HistoryMode, ScratchBibliography,
+    bibcite_report_field, commit_merged, run_bibcite_input, HistoryMode, MergedText,
 };
 use super::bundle::{fetch_arxiv_bundle, fetch_web_bundle, is_pdf_url};
 use super::citation::{
@@ -51,9 +57,19 @@ pub(super) fn cancelled(title: &str) -> ImportResult {
     }
 }
 
-/// Resolve a citation and attach full text when its source is supported.
+/// Whether an import also saves the work's full text (its Markdown and the
+/// overview) or adds only the citation.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FullText {
+    Save,
+    Skip,
+}
+
+/// Resolve a citation and, with `FullText::Save`, attach full text when its
+/// source is supported.
 pub fn import_reference(
-    root: &Path, query: &str, history: HistoryMode, progress: &dyn Fn(&str), cancel: &AtomicBool,
+    root: &Path, query: &str, history: HistoryMode, full_text: FullText, progress: &dyn Fn(&str),
+    cancel: &AtomicBool,
 ) -> Result<ImportResult, String> {
     let manifest = &project::read_manifest(root)?;
     // A numeric AlphaXiv URL is still an arXiv work and should retain the
@@ -74,15 +90,18 @@ pub fn import_reference(
     } else {
         String::new()
     };
-    if let Some(result) = import_existing_arxiv_citation(root, &before, query, progress, cancel) {
+    if let Some(result) =
+        import_existing_arxiv_citation(root, &before, query, full_text, progress, cancel)
+    {
         return Ok(result);
     }
+    // A bare PDF is its own only source of metadata: its citation is read
+    // from its text, so it is converted whatever `full_text` asks.
     if is_pdf_url(query) && alphaxiv::paper_id_from_url(query).is_none() {
         return super::import_pdf::import_pdf_citation(
             root, manifest, query, history, progress, cancel,
         );
     }
-    let scratch = ScratchBibliography::new("research-writer-cite", Some(&before))?;
 
     progress("resolving");
     let bibcite_query = bibcite_query_for_input(query, &resolve_arxiv_title);
@@ -111,15 +130,12 @@ pub fn import_reference(
         return Ok(cancelled(query));
     }
     let mut rendered_page = None;
-    let citation_output = if let Some(citation) = supplied {
+    let resolution = if let Some(citation) = supplied {
         rendered_page = citation.page;
-        let (bibliography, key, already_imported) =
-            merge_supplied_bibtex(&before, &citation.bibtex)?;
-        fs::write(&scratch.path, bibliography).map_err(err)?;
-        import_report(&key, "webpage", if already_imported { "exists" } else { "added" })
+        Resolved::Supplied(citation.bibtex)
     } else {
-        let output = match add_citation(&scratch.path, &bibcite_query, cancel) {
-            Ok(output) => output,
+        let resolution = match resolve_citation(&bibcite_query, cancel) {
+            Ok(resolution) => resolution,
             Err(_) if cancel.load(Ordering::Acquire) => return Ok(cancelled(query)),
             Err(error) => {
                 return Err(match &web_error {
@@ -130,23 +146,33 @@ pub fn import_reference(
         };
         // DOI and other scholarly resolvers may succeed despite blocked HTML.
         // A generic webpage fallback must not resurrect a rejected app-shell title.
-        if bibcite_report_field(&output, "source").as_deref() == Some("webpage") {
+        if resolution.source() == Some("webpage") {
             if let Some(error) = web_error {
                 return Err(error);
             }
         }
-        output
+        resolution
     };
-    let bibliography = scratch.read()?;
-    let citation_key = bibcite_report_field(&citation_output, "key")
-        .ok_or_else(|| "bibcite did not return a citation key.".to_string())?;
+    if cancel.load(Ordering::Acquire) {
+        return Ok(cancelled(query));
+    }
+    // The bibliography is the deliverable; the fetched text is enrichment.
+    // Commit it before attempting any download: a work whose text cannot be
+    // fetched (no HTML rendering, network trouble) is still a full citation,
+    // and failing the import after bibcite already resolved the entry threw
+    // the user's citation away over a download problem.
+    let merged = commit_merged(root, &manifest.primary_bibliography, history, &|before| {
+        resolution.merge(before)
+    })?;
+    let citation_key = merged.key;
+    let citation_output = resolution.report(&citation_key, merged.existed);
     // Whether the work was already cited, asked of the bibliography rather
     // than of the file's bytes: bibcite may tidy an entry it decides to keep,
     // and a reformat is not a new reference.
-    let already_imported = project::parse_bibliography(&before)
+    let already_imported = project::parse_bibliography(&merged.before)
         .iter()
         .any(|entry| entry.key.eq_ignore_ascii_case(&citation_key));
-    let resolved_entry = project::parse_bibliography(&bibliography)
+    let resolved_entry = project::parse_bibliography(&merged.after)
         .into_iter()
         .find(|entry| entry.key.eq_ignore_ascii_case(&citation_key))
         .ok_or_else(|| "bibcite reported a key absent from its bibliography.".to_string())?;
@@ -159,32 +185,12 @@ pub fn import_reference(
         arxiv_id: resolved_arxiv.clone().unwrap_or_default(),
         citation_output,
         already_imported,
+        cancelled: false,
         ..cancelled(&title)
     };
-    if cancel.load(Ordering::Acquire) {
-        return Ok(resolved);
-    }
-    // The bibliography is the deliverable; the fetched text is enrichment.
-    // Commit it before attempting any download: a work whose text cannot be
-    // fetched (no HTML rendering, network trouble) is still a full citation,
-    // and failing the import after bibcite already resolved the entry threw
-    // the user's citation away over a download problem.
-    let label = format!("Cite {citation_key}");
-    if bibliography != before
-        && !commit_bibliography(
-            root,
-            &manifest.primary_bibliography,
-            &before,
-            &bibliography,
-            &label,
-            history,
-        )?
-    {
-        return Err(BIBLIOGRAPHY_CHANGED.into());
-    }
     let resolved = ImportResult { citation_key: Some(citation_key), ..resolved };
-    if cancel.load(Ordering::Acquire) {
-        return Ok(resolved);
+    if full_text == FullText::Skip || cancel.load(Ordering::Acquire) {
+        return Ok(ImportResult { cancelled: cancel.load(Ordering::Acquire), ..resolved });
     }
     // A DOI/title may resolve to an entry carrying an arXiv eprint. Attach its
     // cache only after bibcite has told us the identity; fetching never edits
@@ -239,18 +245,30 @@ fn existing_explicit_arxiv_citation(
 }
 
 fn import_existing_arxiv_citation(
-    root: &Path, bibliography: &str, query: &str, progress: &dyn Fn(&str), cancel: &AtomicBool,
+    root: &Path, bibliography: &str, query: &str, full_text: FullText, progress: &dyn Fn(&str),
+    cancel: &AtomicBool,
 ) -> Option<ImportResult> {
     let (arxiv_id, citation_key, entry_title) =
         existing_explicit_arxiv_citation(bibliography, query)?;
+    let citation_output = import_report(&citation_key, "arxiv", "already-present");
+    let title = super::title_or_key(entry_title, &citation_key);
+    if full_text == FullText::Skip {
+        return Some(ImportResult {
+            arxiv_id,
+            citation_key: Some(citation_key),
+            citation_output,
+            already_imported: true,
+            cancelled: false,
+            ..cancelled(&title)
+        });
+    }
     // Ask for the canonical id so any complete bundle for another version is
     // reusable. If the bundle is absent or incomplete, the normal fetch path
     // repairs it without allowing bibcite to rewrite the existing entry.
     let fetched = fetch_arxiv_bundle(root, &arxiv_id, progress, cancel);
-    let citation_output = import_report(&citation_key, "arxiv", "already-present");
     Some(ImportResult {
         arxiv_id,
-        title: super::title_or_key(entry_title, &citation_key),
+        title,
         paper_path: fetched.as_ref().map(|item| item.paper_path.clone()).unwrap_or_default(),
         citation_key: Some(citation_key),
         citation_output,
@@ -259,10 +277,6 @@ fn import_existing_arxiv_citation(
         cancelled: cancel.load(Ordering::Acquire),
     })
 }
-
-/// Why an import gave up: the bibliography kept changing under it.
-pub(super) const BIBLIOGRAPHY_CHANGED: &str =
-    "The bibliography changed while resolving the citation. Retry the import.";
 
 /// Prefer an arXiv identity for a title before asking bibcite to choose the
 /// canonical publication record. Published DBLP/OpenReview records often omit
@@ -299,15 +313,59 @@ fn bibcite_query_for_input(
     }
 }
 
-/// Resolve `query` into the bibliography at `path`, returning a bibcite-style
-/// JSON report.
-fn add_citation(path: &Path, query: &str, cancel: &AtomicBool) -> Result<String, String> {
-    let before = fs::read_to_string(path).map_err(err)?;
+/// A resolved work, not yet merged: it merges into the bibliography as it is
+/// when the import commits, which may be after other imports committed.
+enum Resolved {
+    /// A webpage's or alphaXiv's own entry, kept field for field.
+    Supplied(String),
+    /// The one entry a resolver (or a supplied snapshot) gave, its key, and
+    /// the report it came with.
+    Entry { raw: String, key: String, report: Value },
+}
+
+impl Resolved {
+    /// The merged bibliography, the entry's key, and whether it already existed.
+    fn merge(&self, before: &str) -> Result<MergedText, String> {
+        match self {
+            Self::Supplied(bibtex) => merge_supplied_bibtex(before, bibtex),
+            Self::Entry { raw, key, .. } => merge_resolved_citation(before, raw, key),
+        }
+    }
+
+    /// What resolved it: "arxiv", "doi", "webpage", ….
+    fn source(&self) -> Option<&str> {
+        match self {
+            Self::Supplied(_) => Some("webpage"),
+            Self::Entry { report, .. } => report["source"].as_str(),
+        }
+    }
+
+    /// The bibcite-style JSON report for the entry as merged under `key`.
+    fn report(&self, key: &str, existed: bool) -> String {
+        let action = if existed { "exists" } else { "added" };
+        match self {
+            Self::Supplied(_) => import_report(key, "webpage", action),
+            Self::Entry { report, .. } => {
+                let mut report = report.clone();
+                report["key"] = Value::String(key.into());
+                report["action"] = Value::String(action.into());
+                report.to_string()
+            }
+        }
+    }
+}
+
+/// Resolve `query` to exactly one checked entry, touching no bibliography.
+fn resolve_citation(query: &str, cancel: &AtomicBool) -> Result<Resolved, String> {
     if query.trim_start().starts_with('@') {
         // A chosen record keeps its identity; its fields are only verified.
         validate_resolved_identity("", query)?;
-        let query = &crate::citation_audit::prepare_supplied(query);
-        let entry = project::parse_bibliography(query).remove(0);
+        let raw = crate::citation_audit::prepare_supplied(query);
+        let mut entries = project::parse_bibliography(&raw);
+        if entries.is_empty() {
+            return Err("Invalid citation entry.".into());
+        }
+        let entry = entries.remove(0);
         let webpage = entry.url.as_deref().is_some_and(|url| {
             is_web_url(url)
                 && project::normalize_doi(url).is_none()
@@ -316,37 +374,42 @@ fn add_citation(path: &Path, query: &str, cancel: &AtomicBool) -> Result<String,
                     || alphaxiv::paper_id_from_url(url).is_some())
         });
         let source = if webpage { "webpage" } else { "bibtex" };
-        let (merged, key, exists) = merge_resolved_citation(&before, query, &entry.key)?;
-        fs::write(path, merged).map_err(err)?;
-        return Ok(import_report(&key, source, if exists { "exists" } else { "added" }));
+        let report = json!({"key": entry.key, "source": source, "action": "added"});
+        return Ok(Resolved::Entry { raw, key: entry.key, report });
     }
     // Never give bibcite existing entries: its fuzzy upsert can overwrite a
     // different paper while retaining the old key used in the manuscript.
-    let isolated = path.with_extension(format!("{}.bib", Uuid::new_v4()));
+    let scratch = std::env::temp_dir().join(format!("lattice-cite-{}.bib", Uuid::new_v4()));
     let result = (|| {
         let output = if let Some(raw) = official_arxiv_citation(query)? {
             let key = project::parse_bibliography(&raw)[0].key.clone();
-            fs::write(&isolated, raw).map_err(err)?;
+            fs::write(&scratch, raw).map_err(err)?;
             import_report(&key, "arxiv", "added")
         } else {
-            run_bibcite_input(&isolated, query, false, cancel)?
+            run_bibcite_input(&scratch, query, false, cancel)?
         };
-        let bibliography = fs::read_to_string(&isolated).map_err(err)?;
+        let bibliography = fs::read_to_string(&scratch).map_err(err)?;
         let bibliography = crate::citation_audit::prepare_import(&bibliography)?;
         let key = bibcite_report_field(&output, "key")
             .ok_or_else(|| "bibcite did not return a citation key.".to_string())?;
         validate_resolved_identity(query, &bibliography)?;
         verify_title_citation(query, &bibliography)?;
-        let (merged, new_key, exists) = merge_resolved_citation(&before, &bibliography, &key)?;
-        fs::write(path, merged).map_err(err)?;
-        let mut report: Value = serde_json::from_str(&output).map_err(err)?;
-        report["key"] = Value::String(new_key);
-        report["action"] = Value::String(if exists { "exists" } else { "added" }.into());
-        report["file"] = json!(path);
-        Ok(report.to_string())
+        let report: Value = serde_json::from_str(&output).map_err(err)?;
+        Ok(Resolved::Entry { raw: bibliography, key, report })
     })();
-    let _ = fs::remove_file(isolated);
+    let _ = fs::remove_file(scratch);
     result
+}
+
+/// Resolve `query` into the bibliography at `path`, returning a bibcite-style
+/// JSON report.
+#[cfg(test)]
+fn add_citation(path: &Path, query: &str, cancel: &AtomicBool) -> Result<String, String> {
+    let resolved = resolve_citation(query, cancel)?;
+    let before = fs::read_to_string(path).map_err(err)?;
+    let (merged, key, exists) = resolved.merge(&before)?;
+    fs::write(path, merged).map_err(err)?;
+    Ok(resolved.report(&key, exists))
 }
 
 /// Preserve existing entries byte-for-byte; a metadata update is a separate,

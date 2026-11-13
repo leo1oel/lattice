@@ -126,3 +126,9 @@
   .add-papers-footer { flex-wrap: wrap; }
   .add-papers-summary { flex-basis: 100%; white-space: normal; }
 }
+
+/* The full-text switch sits at the end of the tools row; it outranks the
+   sheet's stacked `.modal label`, like the Zotero browser's labels. */
+.add-papers-sheet .add-papers-full-text { flex-direction: row; margin-inline-start: auto; align-self: center; font-weight: var(--weight-regular); color: var(--text-secondary); font-size: var(--type-caption-size); }
+.add-papers-retry { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: var(--radius-control); background: transparent; color: inherit; }
+.add-papers-retry:hover { background: var(--control-hover-surface); }

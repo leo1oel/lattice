@@ -40,6 +40,8 @@ describe("adding papers from the Papers box", () => {
     }
     await expectInvoked("import_reference", {
       input: ambiguous ? expect.stringContaining("eprint = {2601.01234}") : bibtex, requestId: expect.any(String),
+      // Adding cites alone unless the writer turned on saving full text.
+      fullText: false,
     });
     await waitFor(() => expect(screen.queryByRole("button", { name: "Save entry" })).not.toBeInTheDocument());
     expect(invokeCalls("resolve_citation_query")).toHaveLength(1);
@@ -157,7 +159,7 @@ describe("adding papers from the Papers box", () => {
     // Enter adds an identifier, as the add row under the box says.
     fireEvent.keyDown(box, { key: "Enter" });
 
-    await expectInvoked("import_reference", { input: "10.1109/CVPR.2016.90", requestId: expect.any(String) });
+    await expectInvoked("import_reference", { input: "10.1109/CVPR.2016.90", requestId: expect.any(String), fullText: false });
     expect(box).toHaveValue("10.1109/CVPR.2016.90");
     // No toast: the row settles as just added, a citation with no full text
     // to open, its key out to copy.

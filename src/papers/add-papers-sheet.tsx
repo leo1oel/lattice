@@ -3,15 +3,21 @@
  * IDs, links, titles or BibTeX, one per line or a whole .bib — and each
  * reference becomes a card, looked up as it lands. What the library already
  * holds is set aside, a title that matches more than one record waits for a
- * choice, and nothing is written until the writer adds; then each paper
- * imports in turn with its own progress, and the sheet can close while the
- * writer keeps writing.
+ * choice, and nothing is written until the writer adds; then the papers
+ * import a few at a time, each with its own progress and a retry if it
+ * fails, and the sheet can close while the writer keeps writing. An
+ * identifier is addable before its lookup answers (the import resolves it
+ * itself), so a paste and Enter add the lot. Whether the batch also saves
+ * each paper's full text is the switch beside the box, remembered for next time.
  */
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useLingui } from "@lingui/react/macro";
-import { BookMarked, Check, CircleAlert, CircleDot, Library, Link2, PenLine, Plus } from "lucide-react";
+import { BookMarked, Check, CircleAlert, CircleDot, Library, Link2, PenLine, Plus, RotateCw } from "lucide-react";
 import type { PaperSummary } from "../app-types";
-import { addQueueRunning, clearAddQueue, getAddQueue, subscribeAddQueue, type PaperAddRequest } from "./add-papers-queue";
+import { addQueueRunning, clearAddQueue, getAddQueue, retryAddItem, subscribeAddQueue, type PaperAddRequest } from "./add-papers-queue";
+import { saveFullTextSetting } from "./save-full-text-setting";
+import { useSharedSetting } from "../settings/shared-setting";
+import { CheckboxField } from "../components/ui/checkbox-field";
 import { Button } from "../components/ui/button";
 import { PanelHeader } from "../components/ui/panel-header";
 import { SheetDialog } from "../components/ui/sheet-dialog";
@@ -75,11 +81,13 @@ export function AddPapersSheet(props: {
   const { t } = useLingui();
   // The batch being added, kept while it runs even if the sheet closed and reopened.
   const queue = useSyncExternalStore(subscribeAddQueue, getAddQueue);
+  const [saveFullText, setSaveFullText] = useSharedSetting(saveFullTextSetting);
   const onClose = () => {
     clearAddQueue();
     props.onClose();
   };
   const [text, setText] = useState(props.seed);
+
   // The box is read once typing pauses (a paste at once), so a half-typed
   // DOI is not looked up letter by letter.
   const [settled, setSettled] = useState(props.seed);
@@ -178,13 +186,20 @@ export function AddPapersSheet(props: {
   const counts = { all: rows.length, new: count("new"), duplicate: count("duplicate"), choose: count("choose") };
   const resolving = count("resolving");
   const failed = count("failed");
-  const addable = rows.filter((row) => row.state === "new" && row.importInput);
+  // An identifier still being looked up is addable already: its import
+  // resolves it anyway. A title waits for its lookup, which may need a choice.
+  const addable = rows.filter((row) => (row.state === "new" && row.importInput)
+    || (row.state === "resolving" && row.reference.kind !== "title"));
   const shown = tab === "all" ? rows : rows.filter((row) => row.state === tab);
   // A tab with nothing in it is left out (All aside, and the one in view).
   const tabs: Array<[Tab, string]> = ([["all", t`All`], ["new", t`New`], ["duplicate", t`Already in Papers`], ["choose", t`Several matches`]] as Array<[Tab, string]>)
     .filter(([id]) => id === "all" || id === tab || counts[id] > 0);
   const kindLabels: Record<ReferenceKind, string> = { arxiv: "arXiv", doi: "DOI", url: t`Link`, bibtex: "BibTeX", title: t`Title` };
 
+  // Opened with references already addable (a list pasted into the Papers
+  // box), the Add button takes the focus, so Enter adds them all; otherwise
+  // the box does. Decided once, as the sheet opens.
+  const [focusAdd] = useState(() => addable.length > 0);
   const add = () => {
     if (!addable.length || adding || importingElsewhere) return;
     setAddedFrom(addable);
@@ -230,13 +245,17 @@ export function AddPapersSheet(props: {
     ? queue.map((item) => addedFrom.find((row) => row.reference.id === item.id)
       ?? { reference: { id: item.id, kind: "title" as const, input: item.input, label: item.label }, state: "new" as const, title: item.label, byline: "" })
     : null;
-  const listed = batch ?? shown;
+  // A row added before its lookup answered takes the title its import found.
+  const listed = (batch ?? shown).map((row) => {
+    const item = progress.get(row.reference.id);
+    if (item?.title) return { ...row, title: item.title, byline: row.state === "resolving" ? "" : row.byline };
+    return row.state === "resolving" && batch ? { ...row, byline: "" } : row;
+  });
   const done = queue.filter((item) => item.state === "added").length;
-  const position = queue.findIndex((item) => item.state === "adding") + 1;
 
   const summary = queued
     ? adding
-      ? t`Adding ${position || done + 1} of ${queue.length}`
+      ? t`Added ${done} of ${queue.length}`
       : done === queue.length
         ? done === 1 ? t`Added 1 paper` : t`Added ${done} papers`
         : t`Added ${done} of ${queue.length}`
@@ -252,20 +271,37 @@ export function AddPapersSheet(props: {
     if (item) {
       if (item.state === "added") {
         return (
-          <span className="add-papers-state" data-tone="done">
-            <Check size={12} aria-hidden="true" />
-            {t`Added`}
+          <span className="add-papers-state" data-tone={item.alreadyImported ? undefined : "done"}>
+            {!item.alreadyImported && <Check size={12} aria-hidden="true" />}
+            <span className="add-papers-state-label">{item.alreadyImported ? t`Already in Papers` : t`Added`}</span>
             {item.citationKey && <CiteCopy citationKey={item.citationKey} />}
           </span>
         );
       }
       if (item.state === "adding") return <span className="add-papers-state" data-tone="active"><InfinityLoader size={12} />{t`Adding…`}</span>;
       if (item.state === "waiting") return <span className="add-papers-state"><CircleDot size={12} aria-hidden="true" />{t`Waiting`}</span>;
-      if (item.state === "failed") return <span className="add-papers-state" data-tone="failed" title={item.note}><CircleAlert size={12} aria-hidden="true" />{t`Couldn't add`}</span>;
+      if (item.state === "failed") {
+        return (
+          <span className="add-papers-state" data-tone="failed" title={item.note}>
+            <CircleAlert size={12} aria-hidden="true" />
+            {t`Couldn't add`}
+            <RetryButton onRetry={() => retryAddItem(item.id)} />
+          </span>
+        );
+      }
       return <span className="add-papers-state">{t`Not added`}</span>;
     }
     if (row.state === "resolving") return <span className="add-papers-state"><InfinityLoader size={12} /></span>;
-    if (row.state === "failed") return <span className="add-papers-state" data-tone="failed" title={row.error}><CircleAlert size={12} aria-hidden="true" />{t`Not found`}</span>;
+    if (row.state === "failed") {
+      const { id } = row.reference;
+      return (
+        <span className="add-papers-state" data-tone="failed" title={row.error}>
+          <CircleAlert size={12} aria-hidden="true" />
+          {t`Not found`}
+          <RetryButton onRetry={() => setLookups(({ [id]: _failed, ...rest }) => rest)} />
+        </span>
+      );
+    }
     if (row.state === "duplicate") {
       const key = row.existing?.citationKey;
       return (
@@ -317,7 +353,7 @@ export function AddPapersSheet(props: {
           <label className="add-papers-paste">
             <span>{t`Paste references`}</span>
             <textarea
-              autoFocus
+              autoFocus={!focusAdd}
               rows={rows.length ? 4 : 5}
               value={text}
               spellCheck={false}
@@ -351,6 +387,12 @@ export function AddPapersSheet(props: {
               <Library size={13} aria-hidden="true" />
               {t`Zotero…`}
             </Button>
+            <CheckboxField
+              className="add-papers-full-text"
+              checked={saveFullText}
+              onChange={(event) => setSaveFullText(event.target.checked)}
+              label={t`Also save full text (Markdown)`}
+            />
           </div>
         )}
         {!(batch ?? rows).length ? (
@@ -440,6 +482,7 @@ export function AddPapersSheet(props: {
           <>
             <Button variant="ghost" onClick={onClose}>{t`Cancel`}</Button>
             <Button
+              autoFocus={focusAdd}
               variant="primary"
               disabled={!addable.length || importingElsewhere}
               title={importingElsewhere ? t`Another paper is being added` : undefined}
@@ -453,6 +496,16 @@ export function AddPapersSheet(props: {
       </div>
       </>)}
     </SheetDialog>
+  );
+}
+
+/** Tries a failed lookup or import again. */
+function RetryButton({ onRetry }: { onRetry: () => void }) {
+  const { t } = useLingui();
+  return (
+    <button type="button" className="add-papers-retry" onClick={onRetry} title={t`Try again`} aria-label={t`Try again`}>
+      <RotateCw size={11} aria-hidden="true" />
+    </button>
   );
 }
 

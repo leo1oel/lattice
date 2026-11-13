@@ -32,9 +32,10 @@ pub struct AppState {
     pub overleaf_download_started: Arc<Mutex<Option<std::time::Instant>>>,
     /// Overleaf sign-ins under way, which Cancel and Sign out end.
     pub overleaf_logins: Arc<crate::overleaf::LoginAttempts>,
-    /// One import per window. The request id prevents a late Cancel click from
-    /// stopping the next import after the UI has already moved on.
-    pub paper_imports: Mutex<HashMap<String, (String, Arc<AtomicBool>)>>,
+    /// Imports under way, by window and request id: a batch imports several
+    /// at once, and each Cancel stops only its own, so a late click never
+    /// stops the next import after the UI has already moved on.
+    pub paper_imports: Mutex<HashMap<(String, String), Arc<AtomicBool>>>,
     /// Full-text downloads under way, by window and request id: several papers
     /// can download at once, and each Cancel stops only its own.
     pub paper_fetches: Mutex<HashMap<(String, String), Arc<AtomicBool>>>,

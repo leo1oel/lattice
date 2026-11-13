@@ -16,6 +16,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::AtomicBool;
+use std::sync::{Mutex, PoisonError};
 use std::time::Duration;
 use uuid::Uuid;
 
@@ -197,6 +198,54 @@ pub(super) fn commit_bibliography(
         (HistoryMode::Defer, _) => fs::write(path, contents).map_err(err)?,
     }
     Ok(true)
+}
+
+/// Serializes the read-merge-commit step of every import in this process.
+/// Imports resolve over the network in parallel (a batch runs several at
+/// once), but each lands on top of the last: without this, two imports that
+/// read the same text would each see the other's commit as a concurrent
+/// change and retry against each other.
+static COMMITS: Mutex<()> = Mutex::new(());
+
+/// What `commit_merged` committed: the text it merged into and the result,
+/// the entry's key, and whether the work was already in it.
+pub(super) struct Merged {
+    pub before: String,
+    pub after: String,
+    pub key: String,
+    pub existed: bool,
+}
+
+/// A merge's result: the merged bibliography, the entry's key, and whether
+/// the work was already in it.
+pub(super) type MergedText = (String, String, bool);
+
+/// Why an import gave up: the bibliography kept changing under it.
+const BIBLIOGRAPHY_CHANGED: &str =
+    "The bibliography changed while resolving the citation. Retry the import.";
+
+/// Merge a resolved work into the primary bibliography as it is now, never
+/// as it was when the import began, and commit it; merge again when the file
+/// changes between the read and the commit (the writer, Overleaf or the
+/// agent writing from another process). `merge` maps the current text to
+/// the merged text, the entry's key, and whether the work was already there.
+pub(super) fn commit_merged(
+    root: &Path, relative: &str, history: HistoryMode,
+    merge: &dyn Fn(&str) -> Result<MergedText, String>,
+) -> Result<Merged, String> {
+    let _serial = COMMITS.lock().unwrap_or_else(PoisonError::into_inner);
+    let path = project::safe_path(root, relative)?;
+    for _ in 0..3 {
+        let before =
+            if path.exists() { fs::read_to_string(&path).map_err(err)? } else { String::new() };
+        let (after, key, existed) = merge(&before)?;
+        let label = format!("Cite {key}");
+        if after == before || commit_bibliography(root, relative, &before, &after, &label, history)?
+        {
+            return Ok(Merged { before, after, key, existed });
+        }
+    }
+    Err(BIBLIOGRAPHY_CHANGED.into())
 }
 
 /// What a removal does about manuscript citations of the key.

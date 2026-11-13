@@ -10,6 +10,9 @@ import { InlineMessage, type InlineMessageLevel } from "../components/ui/inline-
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { SettingsSectionHeader } from "../components/ui/settings-section-header";
 import { SettingsGroup, SettingsRow } from "../components/ui/settings-row";
+import { SwitchField } from "../components/ui/switch-field";
+import { saveFullTextSetting } from "../papers/save-full-text-setting";
+import { useSharedSetting } from "./shared-setting";
 import "./literature-settings.css";
 
 type Provider = "openalex" | "semanticscholar" | "firecrawl";
@@ -27,6 +30,7 @@ const providers = [
 
 export function LiteratureSettings() {
   const { t } = useLingui();
+  const [saveFullText, setSaveFullText] = useSharedSetting(saveFullTextSetting);
   const [credentials, setCredentials] = useState<Credentials | null>(null);
   const [drafts, setDrafts] = useState<Record<Provider, string>>({ openalex: "", semanticscholar: "", firecrawl: "" });
   const [email, setEmail] = useState("");
@@ -93,6 +97,16 @@ export function LiteratureSettings() {
   return (
     <div className="settings-section literature-settings" aria-busy={busy !== null}>
       <SettingsSectionHeader title={t`Literature services`} />
+      {/* The same choice as the Add papers sheet's checkbox (save-full-text-setting.ts). */}
+      <SettingsGroup title={t`Adding papers`}>
+        <SwitchField
+          data-setting="literature-full-text"
+          label={t`Also save full text (Markdown)`}
+          description={t`When off, adding a paper adds only its citation. Its full text can still be saved later from the paper’s row.`}
+          checked={saveFullText}
+          onChange={setSaveFullText}
+        />
+      </SettingsGroup>
       {busy === "load" && <InfinityLoader size={16} />}
       {message("load")}
       {/* A group per service, titled with its name: the page holds four, so

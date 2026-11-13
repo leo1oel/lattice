@@ -74,3 +74,51 @@ describe("AddPapersSheet lookups", () => {
     expect(stateOf("failed")?.getAttribute("title")).toContain("404 Not Found");
   });
 });
+
+describe("AddPapersSheet batches", () => {
+  afterEach(() => localStorage.removeItem("lattice.papers.save-full-text.v1"));
+
+  function open(seed: string, onAdd = vi.fn(), onResolve = vi.fn(() => new Promise<ResolvedCitationDraft>(() => undefined))) {
+    render(
+      <AddPapersSheet
+        seed={seed} papers={[]} importing={false}
+        onResolve={onResolve}
+        onAdd={onAdd} onStop={vi.fn()} onEnterManually={vi.fn()} onLinkLibrary={vi.fn()} onClose={vi.fn()}
+      />,
+    );
+    return onAdd;
+  }
+
+  it("adds pasted identifiers at once, before their lookups answer, with Enter on the focused Add button", () => {
+    // Opened from a list pasted into the Papers box; the lookups never answer.
+    const onAdd = open("arXiv:1706.03762\n10.1038/s41586-021-03819-2\narXiv:1706.03762");
+    const add = screen.getByRole("button", { name: "Add 2 papers" });
+    expect(add).toHaveFocus();
+    fireEvent.click(add);
+    expect(onAdd).toHaveBeenCalledWith([
+      expect.objectContaining({ input: "arXiv:1706.03762" }),
+      expect.objectContaining({ input: "10.1038/s41586-021-03819-2" }),
+    ]);
+  });
+
+  it("remembers whether to save full text, off until turned on", () => {
+    open("");
+    const box = screen.getByRole("checkbox", { name: "Also save full text (Markdown)" });
+    expect(box).not.toBeChecked();
+    fireEvent.click(box);
+    expect(localStorage.getItem("lattice.papers.save-full-text.v1")).toBe("true");
+    cleanup();
+    open("");
+    expect(screen.getByRole("checkbox", { name: "Also save full text (Markdown)" })).toBeChecked();
+  });
+
+  it("looks up a failed reference again on retry", async () => {
+    const onResolve = vi.fn()
+      .mockRejectedValueOnce("Network down")
+      .mockResolvedValue(RECORD);
+    open(LINK, vi.fn(), onResolve);
+    fireEvent.click(await screen.findByRole("button", { name: "Try again" }));
+    expect(await screen.findByText(TITLE)).toBeInTheDocument();
+    expect(onResolve).toHaveBeenCalledTimes(2);
+  });
+});
