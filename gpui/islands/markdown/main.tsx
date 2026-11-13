@@ -30,6 +30,7 @@
  *   md:reveal         { id, line }      land on a 1-based line of the file
  *   md:assets-changed                   project files changed: images load again
  *   md:project        { files, texSources }   the project's tree and TeX sources changed
+ *   md:pages-changed  { paths }       these Markdown files' text changed (null: any may have): the page index reads them again
  *   md:scroll-to      { center, min, max }   Split: the line at the source's centre, and its range
  * Page to host:
  *   md:change         { source, base }  the whole file after an edit made against `base`
@@ -167,6 +168,12 @@ function Markdown() {
 
   const workspaceIndex = useMemo(() => new MarkdownWorkspaceIndex(readProjectFile), []);
   useEffect(() => { void workspaceIndex.update(files); }, [files, workspaceIndex]);
+  const filesRef = useRef(files);
+  useLayoutEffect(() => { filesRef.current = files; }, [files]);
+  // The open file's headings and title follow its text, as the canvas's do.
+  useEffect(() => {
+    if (opened) workspaceIndex.noteDocumentContent(opened.path, settled);
+  }, [opened, settled, workspaceIndex]);
   const macros = useMemo(() => katexMacrosFromSources(texSources), [texSources]);
 
   useEffect(() => {
@@ -201,6 +208,18 @@ function Markdown() {
         const { files: nextFiles, texSources: nextSources } = payload as { files: FileNode[]; texSources: string[] };
         dispatch({ type: "project", files: nextFiles, texSources: nextSources });
       }),
+      bridge.on("md:pages-changed", (payload) => {
+        const { paths } = payload as { paths: string[] | null };
+        if (!paths) {
+          void workspaceIndex.update(filesRef.current);
+          return;
+        }
+        for (const path of paths) {
+          void readProjectFile(path)
+            .then((content) => workspaceIndex.noteDocumentContent(path, content))
+            .catch(() => {});
+        }
+      }),
       bridge.on("md:scroll-to", (payload) => {
         const { center, min, max } = payload as { center: number; min: number; max: number };
         splitScrollRef.current?.followSource(center, min, max);
@@ -208,7 +227,7 @@ function Markdown() {
     ];
     bridge.ready();
     return () => { for (const stop of stops) stop(); };
-  }, []);
+  }, [workspaceIndex]);
 
   useEffect(() => {
     if (!opened || !ready) return;

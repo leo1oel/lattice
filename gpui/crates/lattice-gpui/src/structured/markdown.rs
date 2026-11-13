@@ -12,8 +12,9 @@
 //!   the source editor's caret and history ([`MarkdownEvent::Edit`]);
 //! - undo and redo through the buffer's history, which the source shares;
 //! - View in source, a project link followed, the caret, the Split's scroll;
-//! - the project's files for its page index, its TeX sources for KaTeX's
-//!   macros, its images through the island's asset protocol (granted one by
+//! - the project's files for its page index (`md:project` when the tree
+//!   changes, `md:pages-changed` when another Markdown file's text does),
+//!   its TeX sources for KaTeX's macros, its images through the island's asset protocol (granted one by
 //!   one, with the file's time so an edit on disk loads again), and an image
 //!   pasted or dropped into the text saved in `figures/` by lattice-core's
 //!   `import_image_bytes`, as the Tauri app's `import_clipboard_image`;
@@ -111,6 +112,24 @@ fn page_tree(mut nodes: Vec<FileNode>) -> Value {
     serde_json::to_value(&nodes).unwrap_or(json!([]))
 }
 
+/// The Markdown pages among the changed `paths` other than the open file,
+/// for the page index to read again: `Some(None)` when any may have
+/// changed, `None` when none did.
+fn changed_pages(paths: Option<&[String]>, open: &str) -> Option<Option<Vec<String>>> {
+    let Some(paths) = paths else {
+        return Some(None);
+    };
+    let pages = paths
+        .iter()
+        .filter(|path| {
+            let lower = path.to_ascii_lowercase();
+            path.as_str() != open && (lower.ends_with(".md") || lower.ends_with(".mdx"))
+        })
+        .cloned()
+        .collect::<Vec<_>>();
+    (!pages.is_empty()).then_some(Some(pages))
+}
+
 fn is_tex(path: &str) -> bool {
     path.to_ascii_lowercase().ends_with(".tex")
 }
@@ -178,14 +197,17 @@ impl StructuredDocument {
     }
 
     /// Files changed on disk (this one's own saves among them): a changed TeX
-    /// file is read again with the next tree, and images other than the
-    /// file load again.
+    /// file is read again with the next tree, other Markdown pages are read
+    /// again into the page index, and images other than the file load again.
     fn markdown_files_changed(&mut self, paths: Option<&[String]>, cx: &mut Context<Self>) {
         let Some(session) = &mut self.markdown else {
             return;
         };
         if paths.is_none_or(|paths| paths.iter().any(|path| is_tex(path))) {
             session.tex_changes += 1;
+        }
+        if let Some(pages) = changed_pages(paths, &self.relative) {
+            self.post("md:pages-changed", json!({ "paths": pages }), cx);
         }
         if paths.is_none_or(|paths| paths.iter().any(|path| *path != self.relative)) {
             self.post("md:assets-changed", Value::Null, cx);
@@ -515,6 +537,28 @@ mod tests {
         let mut paths = Vec::new();
         tex_paths(&tree, &mut paths);
         assert_eq!(paths, ["main.tex", "chapters/intro.TEX"]);
+    }
+
+    #[test]
+    fn the_page_index_rereads_only_other_markdown_pages() {
+        let changed = |paths: &[&str]| {
+            changed_pages(
+                Some(
+                    &paths
+                        .iter()
+                        .map(|path| path.to_string())
+                        .collect::<Vec<_>>(),
+                ),
+                "notes/open.md",
+            )
+        };
+        assert_eq!(changed_pages(None, "notes/open.md"), Some(None));
+        assert_eq!(
+            changed(&["notes/b.md", "Talk.MDX", "main.tex", "fig.png"]),
+            Some(Some(vec!["notes/b.md".into(), "Talk.MDX".into()]))
+        );
+        assert_eq!(changed(&["main.tex", "figures/fig.png"]), None);
+        assert_eq!(changed(&["notes/open.md"]), None);
     }
 
     #[test]
