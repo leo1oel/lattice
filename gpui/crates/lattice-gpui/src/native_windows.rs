@@ -24,7 +24,7 @@ use windows::Win32::{
     UI::{
         Input::KeyboardAndMouse::{
             GetKeyboardState, MAPVK_VK_TO_VSC, MapVirtualKeyW, SetKeyboardState, VK_CONTROL,
-            VK_ESCAPE, VK_LCONTROL, VK_LSHIFT, VK_RETURN, VK_SHIFT, VkKeyScanW,
+            VK_ESCAPE, VK_LCONTROL, VK_LSHIFT, VK_RETURN, VK_RIGHT, VK_SHIFT, VkKeyScanW,
         },
         WindowsAndMessaging::{
             PostMessageW, SendMessageW, SetForegroundWindow, WM_CLOSE, WM_KEYDOWN, WM_KEYUP,
@@ -63,6 +63,10 @@ pub fn native(window: &Window) -> Result<Native> {
     })
 }
 
+/// The → key, spelled as the macOS runs spell it, so a scenario sends it
+/// the same way on both.
+pub const RIGHT_ARROW: char = '\u{f703}';
+
 /// Posts a key press and release for `character`, with Ctrl held when
 /// `command` (Windows' shortcut modifier, where macOS has ⌘). Call
 /// `release_keys` after `QUEUE_SETTLE`.
@@ -72,6 +76,7 @@ pub fn send_key(native: Native, character: char, command: bool) -> Result<()> {
     let (virtual_key, shift) = match character {
         '\u{1b}' => (u32::from(VK_ESCAPE.0), false),
         '\n' | '\r' => (u32::from(VK_RETURN.0), false),
+        RIGHT_ARROW => (u32::from(VK_RIGHT.0), false),
         _ => {
             let mut units = [0u16; 2];
             let [unit] = character.encode_utf16(&mut units) else {
@@ -165,6 +170,18 @@ pub fn send_mouse(native: Native, kind: Mouse, position: Point<Pixels>) -> Resul
         );
     }
     Ok(())
+}
+
+/// A left click at `position`.
+pub fn send_click(native: Native, position: Point<Pixels>) -> Result<()> {
+    send_mouse(native, Mouse::Down, position)?;
+    send_mouse(native, Mouse::Up, position)
+}
+
+/// A left click on a control in the title bar. The messages go straight to
+/// the window's client handler, as everywhere else, so this is a plain click.
+pub fn send_titlebar_click(native: Native, position: Point<Pixels>) -> Result<()> {
+    send_click(native, position)
 }
 
 /// A right click at `position`, which opens a context menu.

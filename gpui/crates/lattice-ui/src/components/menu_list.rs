@@ -29,9 +29,9 @@
 use std::rc::Rc;
 
 use gpui::{
-    Action, AnyElement, App, AsKeystroke as _, ElementId, FocusHandle, InteractiveElement as _,
-    IntoElement, KeyContext, KeyDownEvent, MouseButton, ParentElement, Pixels, RenderOnce,
-    ScrollHandle, SharedString, StatefulInteractiveElement as _, Styled as _, Window, anchored,
+    Action, AnyElement, App, AsKeystroke as _, Bounds, ElementId, Entity, FocusHandle, Global,
+    InteractiveElement as _, IntoElement, KeyContext, KeyDownEvent, MouseButton, ParentElement,
+    Pixels, RenderOnce, ScrollHandle, SharedString, StatefulInteractiveElement as _, Styled as _, Window, anchored,
     deferred, div, point, prelude::FluentBuilder as _, px,
 };
 use gpui_kit::{base::POPUP_PRIORITY, component::Selectable as _};
@@ -310,6 +310,62 @@ impl Menu {
     }
 }
 
+/// The menus drawn while a scripted run records them ([`record_menus`]):
+/// each menu's latest frame, by its id, the newest last.
+#[derive(Default)]
+struct MenuProbes(Vec<(ElementId, MenuProbe)>);
+
+impl Global for MenuProbes {}
+
+struct MenuProbe {
+    labels: Vec<Option<SharedString>>,
+    hover: FluidHover,
+    secondary: Entity<Option<usize>>,
+}
+
+/// What a menu shows now, for a scripted check.
+#[derive(Clone, Debug, Default)]
+pub struct MenuSnapshot {
+    /// The rows the pointer and keys can reach, laid out in the last frame:
+    /// index, label, and bounds in window coordinates.
+    pub rows: Vec<(usize, SharedString, Bounds<Pixels>)>,
+    /// The row the fill is on.
+    pub lit: Option<usize>,
+    /// The row whose secondary glyph the keys are on.
+    pub on_secondary: Option<usize>,
+}
+
+/// Record every menu drawn from now on, for [`menu_snapshot`]. Only a
+/// scripted run calls it; a menu records nothing otherwise.
+pub fn record_menus(cx: &mut App) {
+    if !cx.has_global::<MenuProbes>() {
+        cx.set_global(MenuProbes::default());
+    }
+}
+
+/// The menu drawn last with a row labelled `label`, as it shows now.
+pub fn menu_snapshot(label: &str, cx: &App) -> Option<MenuSnapshot> {
+    let (_, probe) = cx.try_global::<MenuProbes>()?.0.iter().rev().find(|(_, probe)| {
+        probe
+            .labels
+            .iter()
+            .any(|row| row.as_ref().is_some_and(|row| row == label))
+    })?;
+    let hover = probe.hover.snapshot(cx);
+    Some(MenuSnapshot {
+        rows: hover
+            .rows
+            .into_iter()
+            .filter_map(|(ix, bounds, _)| {
+                let label = probe.labels.get(ix).cloned().flatten()?;
+                Some((ix, label, bounds))
+            })
+            .collect(),
+        lit: hover.lit,
+        on_secondary: *probe.secondary.read(cx),
+    })
+}
+
 /// The keys bound to `command` where `context` is focused, else anywhere,
 /// spelled as the menus spell them (`⌘B`, `Ctrl+B`).
 fn keys_for(
@@ -400,6 +456,25 @@ impl RenderOnce for Menu {
             on_secondary.update(cx, |at, _| *at = None);
         }
         let keyed_secondary = *on_secondary.read(cx);
+        if cx.has_global::<MenuProbes>() {
+            let labels = self
+                .entries
+                .iter()
+                .map(|entry| match entry {
+                    Entry::Item(action) => Some(action.label.clone()),
+                    Entry::Submenu(submenu) => Some(submenu.label.clone()),
+                    Entry::Label(_) | Entry::Separator => None,
+                })
+                .collect();
+            let probe = MenuProbe {
+                labels,
+                hover: hover.clone(),
+                secondary: on_secondary.clone(),
+            };
+            let probes = &mut cx.global_mut::<MenuProbes>().0;
+            probes.retain(|(id, _)| *id != self.id);
+            probes.push((self.id.clone(), probe));
+        }
         let dismiss = self.on_dismiss.clone();
         // Running an item closes the menu first, so the action finds focus
         // back where it was before the menu opened.

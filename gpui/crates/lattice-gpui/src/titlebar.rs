@@ -90,6 +90,13 @@ impl TitlebarDrag {
     pub fn tools_start(&self) -> Option<f32> {
         self.measured.get().tools_start
     }
+
+    /// Where the title bar's left group (the project switcher first) began,
+    /// last frame, in window coordinates.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn left_start(&self) -> Option<f32> {
+        self.measured.get().left_start
+    }
 }
 
 /// What the titlebar measured of itself last frame, in window coordinates:

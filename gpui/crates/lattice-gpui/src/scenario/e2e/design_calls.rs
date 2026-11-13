@@ -3,6 +3,12 @@
 //! - a right-click on a Project tree row opens Lattice's menu
 //!   (`lattice_ui::components::ContextMenu`) on that row and moves focus
 //!   into it; a press outside closes it and gives focus back (call 4);
+//! - the menu occludes what lies under it: a click on its Copy path, over
+//!   another tree row, copies the path and opens nothing, and the tree's
+//!   hover does not track the pointer under it;
+//! - in the project switcher's menu, → puts the keys on a row's
+//!   open-in-this-window glyph, and the pointer leaving that row ends it, so
+//!   coming back and pressing Enter runs the row, not the glyph;
 //! - the PDF toolbar's buttons share one hover fill that glides from one
 //!   button to the next instead of each fading its own (call 2).
 //!
@@ -15,6 +21,9 @@ use anyhow::Result;
 use gpui::{AsyncApp, point, px};
 use serde_json::json;
 
+use lattice_i18n::t;
+use lattice_ui::components::{menu_snapshot, record_menus};
+
 use super::Steps;
 use crate::{native, scenario::Run};
 
@@ -23,7 +32,10 @@ const SETTLE: Duration = Duration::from_millis(250);
 
 impl Run {
     pub(super) async fn design_calls(&self, cx: &mut AsyncApp, steps: &mut Steps) -> Result<()> {
+        cx.update(record_menus);
         self.tree_context_menu(cx, steps).await?;
+        self.menu_item_over_row(cx, steps).await?;
+        self.switcher_glyph_keys(cx, steps).await?;
         self.pdf_toolbar_glide(cx, steps).await
     }
 
@@ -68,6 +80,203 @@ impl Run {
             "a press outside the tree's menu closes it",
             closed,
             json!({ "closed": closed }),
+        );
+        Ok(())
+    }
+
+    /// A click on the tree menu's Copy path, where another file's row lies
+    /// under the item, runs the item alone: the menu occludes the rows.
+    async fn menu_item_over_row(&self, cx: &mut AsyncApp, steps: &mut Steps) -> Result<()> {
+        const NAME: &str = "a click on a menu item over another tree row runs the item alone: \
+                            the path is copied, the menu closes, and no file opens";
+        let root = self.root(cx).await?;
+        // Enough rows that a row's menu drops over the rows below it.
+        let extra: Vec<String> = (1..=8).map(|n| format!("menu-check-{n}.tex")).collect();
+        for name in &extra {
+            std::fs::write(root.join(name), "Menu check.\n")?;
+        }
+        let tree = cx.update(|cx| self.shell.read(cx).file_tree().clone());
+        cx.update(|cx| {
+            self.shell.update(cx, |shell, cx| {
+                if let Some(project) = shell.project() {
+                    project.update(cx, |project, cx| project.rescan(cx));
+                }
+            })
+        });
+        let listed = self
+            .wait_for(cx, Duration::from_secs(5), |_, cx| {
+                let rows = tree.read(cx).row_paths(cx);
+                extra.iter().all(|name| rows.contains(name))
+            })
+            .await;
+        self.pause(cx, SETTLE).await;
+        let (paths, rows) = cx.update(|cx| {
+            let tree = tree.read(cx);
+            (
+                tree.row_paths(cx),
+                tree.hover_snapshot(cx).unwrap_or_default().rows,
+            )
+        });
+        let path_of = |ix: usize| paths.get(ix).cloned().unwrap_or_default();
+        let is_file = |ix: usize| root.join(path_of(ix)).is_file();
+        // The topmost file row the menu can open on.
+        let opened_on = rows
+            .iter()
+            .filter(|(ix, _, target)| *target && is_file(*ix))
+            .min_by(|a, b| f32::from(a.1.top()).total_cmp(&f32::from(b.1.top())))
+            .copied();
+        let Some((on_ix, on_row, _)) = opened_on.filter(|_| listed) else {
+            steps.check(NAME, false, json!({ "listed": listed, "rows": paths }));
+            return self.remove_menu_checks(cx, &root, &extra, &tree).await;
+        };
+        let native = self.native(cx)?;
+        let press = point(on_row.left() + px(8.), on_row.center().y);
+        native::send_mouse(native, native::Mouse::Moved, press)?;
+        native::send_right_click(native, press)?;
+        self.pause(cx, SETTLE).await;
+        let copy_label = t!("Copy path").to_string();
+        let item = cx.update(|cx| {
+            menu_snapshot(&copy_label, cx).and_then(|menu| {
+                menu.rows
+                    .into_iter()
+                    .find(|(_, label, _)| *label == copy_label)
+                    .map(|(_, _, bounds)| bounds.center())
+            })
+        });
+        // The file row under the item, which a click through would open.
+        let under = item.and_then(|item| {
+            rows.iter()
+                .find(|(ix, bounds, _)| *ix != on_ix && is_file(*ix) && bounds.contains(&item))
+                .map(|(ix, _, _)| path_of(*ix))
+        });
+        let (Some(item), Some(under)) = (item, under) else {
+            steps.check(
+                NAME,
+                false,
+                json!({ "item": item.map(|at| (f32::from(at.x), f32::from(at.y))), "rows": paths }),
+            );
+            native::send_key(native, '\u{1b}', false)?;
+            self.pause(cx, SETTLE).await;
+            return self.remove_menu_checks(cx, &root, &extra, &tree).await;
+        };
+        let documents = |cx: &mut AsyncApp| {
+            cx.update(|cx| {
+                let shell = self.shell.read(cx);
+                (shell.current_arrangement(cx).documents(), shell.active_editor_path(cx))
+            })
+        };
+        let before = documents(cx);
+        cx.update(|cx| cx.write_to_clipboard(gpui::ClipboardItem::new_string("before".into())));
+        native::send_mouse(native, native::Mouse::Moved, item)?;
+        self.pause(cx, SETTLE).await;
+        // The tree under the menu does not light the row beneath the pointer.
+        let tree_lit = cx.update(|cx| tree.read(cx).hover_snapshot(cx).unwrap_or_default().lit);
+        native::send_click(native, item)?;
+        self.pause(cx, SETTLE).await;
+        let after = documents(cx);
+        let clipboard = cx.update(|cx| cx.read_from_clipboard().and_then(|item| item.text()));
+        let closed = cx.update(|cx| tree.read(cx).row_menu_target(cx).is_none());
+        let copied = root.join(path_of(on_ix));
+        steps.check(
+            NAME,
+            clipboard.as_deref() == Some(copied.to_string_lossy().as_ref())
+                && closed
+                && after == before
+                && tree_lit.is_none(),
+            json!({
+                "menu_on": path_of(on_ix),
+                "row_under_item": under,
+                "clipboard": clipboard,
+                "closed": closed,
+                "documents": [before, after],
+                "tree_lit_under_menu": tree_lit,
+            }),
+        );
+        self.remove_menu_checks(cx, &root, &extra, &tree).await
+    }
+
+    async fn remove_menu_checks(
+        &self,
+        cx: &mut AsyncApp,
+        root: &std::path::Path,
+        extra: &[String],
+        tree: &gpui::Entity<crate::file_tree::FileTreePanel>,
+    ) -> Result<()> {
+        for name in extra {
+            std::fs::remove_file(root.join(name)).ok();
+        }
+        cx.update(|cx| {
+            self.shell.update(cx, |shell, cx| {
+                if let Some(project) = shell.project() {
+                    project.update(cx, |project, cx| project.rescan(cx));
+                }
+            })
+        });
+        self.wait_for(cx, Duration::from_secs(5), |_, cx| {
+            let rows = tree.read(cx).row_paths(cx);
+            !extra.iter().any(|name| rows.contains(name))
+        })
+        .await;
+        Ok(())
+    }
+
+    /// The project switcher's menu: → from Open another folder puts the
+    /// keys on its open-in-this-window glyph; the pointer moving to another
+    /// row and back ends that, so Enter there would run the row itself.
+    async fn switcher_glyph_keys(&self, cx: &mut AsyncApp, steps: &mut Steps) -> Result<()> {
+        const NAME: &str = "in the project switcher's menu, → puts the keys on a row's \
+                            open-here glyph, and the pointer leaving the row and coming back ends it";
+        let start = cx.update(|cx| self.shell.read(cx).titlebar_drag().left_start());
+        let Some(start) = start else {
+            steps.check(NAME, false, json!({ "left_start": null }));
+            return Ok(());
+        };
+        let native = self.native(cx)?;
+        // The switcher: 28px tall, 4px under the titlebar's top.
+        native::send_titlebar_click(native, point(px(start + 16.), px(18.)))?;
+        self.pause(cx, SETTLE).await;
+        self.design_shot(cx, "project-switcher-menu").await;
+        let label = t!("Open another folder").to_string();
+        let snapshot = |cx: &mut AsyncApp| cx.update(|cx| menu_snapshot(&label, cx));
+        let opened = snapshot(cx);
+        let drawn = opened.is_some();
+        let rows = opened.map(|menu| menu.rows).unwrap_or_default();
+        let row = rows.iter().find(|(_, text, _)| *text == label).cloned();
+        let other = rows.iter().find(|(_, text, _)| *text != label).cloned();
+        let (Some((row, _, row_bounds)), Some((_, _, other_bounds))) = (row, other) else {
+            steps.check(
+                NAME,
+                false,
+                json!({
+                    "switcher_at": start,
+                    "menu_drawn": drawn,
+                    "rows": rows.iter().map(|(_, text, _)| text.to_string()).collect::<Vec<_>>(),
+                }),
+            );
+            native::send_key(native, '\u{1b}', false)?;
+            self.pause(cx, SETTLE).await;
+            return Ok(());
+        };
+        native::send_mouse(native, native::Mouse::Moved, row_bounds.center())?;
+        self.pause(cx, SETTLE).await;
+        self.press(cx, native::RIGHT_ARROW, false).await?;
+        self.pause(cx, SETTLE).await;
+        let keyed = snapshot(cx).unwrap_or_default();
+        native::send_mouse(native, native::Mouse::Moved, other_bounds.center())?;
+        self.pause(cx, SETTLE).await;
+        native::send_mouse(native, native::Mouse::Moved, row_bounds.center())?;
+        self.pause(cx, SETTLE).await;
+        let back = snapshot(cx).unwrap_or_default();
+        native::send_key(native, '\u{1b}', false)?;
+        self.pause(cx, SETTLE).await;
+        steps.check(
+            NAME,
+            keyed.on_secondary == Some(row) && back.lit == Some(row) && back.on_secondary.is_none(),
+            json!({
+                "row": row,
+                "keys_on_glyph": keyed.on_secondary,
+                "back": { "lit": back.lit, "keys_on_glyph": back.on_secondary },
+            }),
         );
         Ok(())
     }

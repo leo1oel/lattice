@@ -85,9 +85,13 @@ fn uptime() -> f64 {
     }
 }
 
+/// The → key, as AppKit spells it in a key event's characters
+/// (`NSRightArrowFunctionKey`).
+pub const RIGHT_ARROW: char = '\u{f703}';
+
 /// The ANSI virtual key code for a character, as Lattice's perf lab maps it.
 pub fn key_code(character: char) -> u16 {
-    const CODES: [(char, u16); 34] = [
+    const CODES: [(char, u16); 35] = [
         ('a', 0x00),
         ('s', 0x01),
         ('d', 0x02),
@@ -123,6 +127,7 @@ pub fn key_code(character: char) -> u16 {
         ('=', 0x18),
         ('-', 0x1B),
         ('0', 0x1D),
+        (RIGHT_ARROW, 0x7C),
     ];
     CODES
         .iter()
@@ -226,11 +231,32 @@ pub fn send_double_click(native: Native, position: Point<Pixels>) -> Result<()> 
     Ok(())
 }
 
+/// A left click on a control in the title bar: the press and release go
+/// to GPUI's view, as the move does. Sent through the window, a synthetic
+/// press in the title bar's strip is the window's own (AppKit starts a
+/// window drag there), and the control under it never sees it.
+pub fn send_titlebar_click(native: Native, position: Point<Pixels>) -> Result<()> {
+    send_mouse_event(native, Mouse::Down, position, 1, true)?;
+    send_mouse_event(native, Mouse::Up, position, 1, true)
+}
+
 fn send_mouse_clicks(
     native: Native,
     kind: Mouse,
     position: Point<Pixels>,
     clicks: isize,
+) -> Result<()> {
+    send_mouse_event(native, kind, position, clicks, false)
+}
+
+/// One mouse event; a press or release goes through the window unless
+/// `to_view`.
+fn send_mouse_event(
+    native: Native,
+    kind: Mouse,
+    position: Point<Pixels>,
+    clicks: isize,
+    to_view: bool,
 ) -> Result<()> {
     use std::sync::atomic::{AtomicIsize, Ordering};
     static EVENT_NUMBER: AtomicIsize = AtomicIsize::new(1);
@@ -263,6 +289,12 @@ fn send_mouse_clicks(
             // so the move goes where the tracking area sends it.
             Mouse::Moved => {
                 let _: () = msg_send![native.view, mouseMoved: &*event];
+            }
+            Mouse::Down if to_view => {
+                let _: () = msg_send![native.view, mouseDown: &*event];
+            }
+            Mouse::Up if to_view => {
+                let _: () = msg_send![native.view, mouseUp: &*event];
             }
             _ => {
                 let _: () = msg_send![native.window, sendEvent: &*event];
