@@ -17,7 +17,6 @@ use lattice_ui::{
 use crate::history::{
     diff_view::{FileChange, LoadedDiff, history_diff},
     inline_edits::passage_text,
-    prose::section_at,
     widgets::Control,
 };
 
@@ -166,17 +165,11 @@ impl CompareView {
                     .children(counts),
             )
             .children(step_pill);
-        let after = file
-            .diff
-            .after
-            .clone()
-            .or_else(|| file.diff.before.clone())
-            .unwrap_or_default();
         let items = passages
             .iter()
             .enumerate()
             .map(|(index, passage)| {
-                let section = section_at(&after, passage.line);
+                let section = file.sections.get(index).cloned().flatten();
                 let line = t!("Line {0}", passage.line);
                 let label = join_phrases(
                     &section

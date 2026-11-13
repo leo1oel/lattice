@@ -24,7 +24,7 @@ use gpui::{
     SharedString, Styled as _, Subscription, Task, WeakEntity, Window, div,
     prelude::FluentBuilder as _, px,
 };
-use lattice_core::git::{GitFileDiff, GitLogEntry, GitLogFile};
+use lattice_core::git::{GitLogEntry, GitLogFile};
 use lattice_i18n::t;
 use lattice_ui::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
@@ -38,7 +38,7 @@ use super::{
     export_changes::ExportChangesSheet,
     messages,
     panel::{HistoryPanel, Latest},
-    prose::{ProsePassage, changed_words, is_prose_file, joined_passage, prose_passages},
+    prose::{ProsePassage, changed_words, is_prose_file, joined_passage, prose_passages, section_at},
     time,
     widgets::{Control, inline_message, loading_line},
 };
@@ -52,12 +52,13 @@ const NOW_SETTLE: Duration = Duration::from_millis(300);
 
 /// The open file between the two sides.
 pub struct ComparedFile {
-    pub diff: GitFileDiff,
     pub loaded: Option<LoadedDiff>,
     /// Its changed passages, read with the short words between edits joined.
     pub passages: Option<Vec<ProsePassage>>,
     /// Prose words added and removed, counted before the joining.
     pub counts: Option<(usize, usize)>,
+    /// The section each passage is in, in step with `passages`.
+    pub sections: Vec<Option<String>>,
 }
 
 pub struct CompareView {
@@ -309,13 +310,19 @@ impl CompareView {
             let counts = passages.as_ref().map(|passages| changed_words(passages));
             let readable =
                 passages.map(|passages| passages.iter().map(joined_passage).collect::<Vec<_>>());
-            Ok::<_, String>((diff, readable, counts))
+            let source = diff.after.as_deref().or(diff.before.as_deref()).unwrap_or("");
+            let sections = readable
+                .iter()
+                .flatten()
+                .map(|passage| section_at(source, passage.line))
+                .collect();
+            Ok::<_, String>((diff, readable, counts, sections))
         });
         let path = file.path.clone();
         cx.spawn(async move |this, cx| {
             let result = read.await;
             this.update(cx, |this, cx| {
-                let result = result.map(|(diff, passages, counts)| {
+                let result = result.map(|(diff, passages, counts, sections)| {
                     let loaded = (!diff.binary).then(|| {
                         LoadedDiff::new(
                             FileChange {
@@ -327,10 +334,10 @@ impl CompareView {
                         )
                     });
                     ComparedFile {
-                        diff,
                         loaded,
                         passages,
                         counts,
+                        sections,
                     }
                 });
                 if this.file.settle(generation, result) {

@@ -57,7 +57,8 @@ impl Run {
                 history.read(cx).versions_shown() >= 1
             })
             .await;
-        std::fs::write(&chapter, original.replacen("intro", "introduction", 1))?;
+        let named = original.replacen("intro", "introduction", 1);
+        std::fs::write(&chapter, &named)?;
         cx.update(|cx| {
             history.update(cx, |history, cx| {
                 history.save_version("Draft for review".into(), cx)
@@ -129,7 +130,7 @@ impl Run {
             let restored = self
                 .wait_for(cx, Duration::from_secs(15), |_, _| {
                     std::fs::read_to_string(&chapter)
-                        .is_ok_and(|text| text.contains("introduction"))
+                        .is_ok_and(|text| text == named)
                 })
                 .await;
             steps.check(
