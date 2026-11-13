@@ -68,5 +68,10 @@ describe("app commands", () => {
     expect(commandShortcutText(commands, "quick-open")).toBe("⌘P");
     expect(commandShortcutText(commands, "reset")).toBeNull();
     expect(commandShortcutText(commands, "missing")).toBeNull();
+    // Named modifiers are joined as the palette joins them, not run together ("CtrlP").
+    const userAgent = vi.spyOn(navigator, "userAgent", "get").mockReturnValue("Windows NT 10.0");
+    try {
+      expect(commandShortcutText(commands, "quick-open")).toBe("Ctrl+P");
+    } finally { userAgent.mockRestore(); }
   });
 });
