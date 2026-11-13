@@ -544,6 +544,39 @@ fn a_document_the_tauri_app_saved_reads_as_the_same_layout() {
     let framings = navigation.framings.as_ref().unwrap();
     assert_eq!(framings[0].name, "Writing");
     assert_eq!(framings[0].frame, ["panel-documents", "panel-pdf"]);
+    // Written back, a float's and a hidden panel's node keep the `kind`
+    // Trellis's sanitize requires of them.
+    let written = serde_json::to_value(&doc).unwrap();
+    assert_eq!(written["floating"][0]["panel"]["kind"], "panel");
+    assert_eq!(written["hidden"][0]["panel"]["kind"], "panel");
+    assert_eq!(written["hidden"][1]["panel"]["kind"], "panel");
+    assert_eq!(
+        serde_json::from_value::<LayoutDocument>(written).unwrap(),
+        doc
+    );
+}
+
+#[test]
+fn hiding_the_only_child_of_a_split_leaves_the_document_alone() {
+    let doc = LayoutDocument {
+        root: Some(LayoutNode::Split(SplitNode {
+            id: "s".into(),
+            axis: Axis::X,
+            weights: vec![1.],
+            children: vec![LayoutNode::Panel(panel("p", &["a"]))],
+        })),
+        views: [(
+            "a".to_string(),
+            ViewRecord {
+                kind: "x".into(),
+                ..Default::default()
+            },
+        )]
+        .into_iter()
+        .collect(),
+        ..Default::default()
+    };
+    assert_eq!(hide_panel(&doc, "p"), doc);
 }
 
 #[test]

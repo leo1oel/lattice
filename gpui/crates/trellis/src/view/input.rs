@@ -5,9 +5,9 @@
 //! The pointer, wheel, pinch and Escape, turned into engine calls.
 
 use gpui::{
-    AnyElement, Context, DispatchPhase, InteractiveElement as _, IntoElement, KeyDownEvent,
-    Modifiers, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, ParentElement as _,
-    PinchEvent, ScrollDelta, ScrollEvent, Stateful, Styled as _, WeakEntity, Window, canvas, div,
+    AnyElement, Context, DispatchPhase, InteractiveElement as _, IntoElement, Modifiers,
+    MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, ParentElement as _, PinchEvent,
+    ScrollDelta, ScrollEvent, Stateful, Styled as _, Subscription, WeakEntity, Window, canvas, div,
 };
 
 use crate::runtime::engine::ResizeDir;
@@ -58,7 +58,7 @@ impl TrellisWorkspace {
         panel: &str,
         view: Option<&str>,
         event: &MouseDownEvent,
-        window: &mut Window,
+        _: &mut Window,
         cx: &mut Context<Self>,
     ) {
         if self.held.is_some() {
@@ -75,7 +75,6 @@ impl TrellisWorkspace {
             cx.notify();
             return;
         }
-        self.press_panel(panel, event, false, window, cx);
         if !plain(&event.modifiers) {
             return;
         }
@@ -153,8 +152,27 @@ impl TrellisWorkspace {
         }
     }
 
+    /// Escape lets go of whatever the pointer holds, wherever the keyboard
+    /// is: the window's focus may be in a view's content or nowhere.
+    pub(crate) fn watch_escape(cx: &mut Context<Self>) -> Subscription {
+        let entity = cx.entity().downgrade();
+        cx.intercept_keystrokes(move |event, _, cx| {
+            if event.keystroke.key != "escape" {
+                return;
+            }
+            entity
+                .update(cx, |this, cx| {
+                    if this.held.is_some() {
+                        cx.stop_propagation();
+                        this.pointer_released(gpui::Point::default(), false, cx);
+                    }
+                })
+                .ok();
+        })
+    }
+
     /// The workspace's own listeners: the held pointer anywhere in the
-    /// window, Escape while held, wheels and pinches over its chrome.
+    /// window, wheels and pinches over its chrome.
     pub(crate) fn wire_root(
         &mut self,
         root: Stateful<gpui::Div>,
@@ -177,7 +195,7 @@ impl TrellisWorkspace {
                     });
                     let up_entity = entity.clone();
                     window.on_mouse_event(move |event: &MouseUpEvent, phase, _, cx| {
-                        if phase == DispatchPhase::Capture {
+                        if phase == DispatchPhase::Capture && event.button == MouseButton::Left {
                             up_entity
                                 .update(cx, |this, cx| {
                                     this.pointer_released(event.position, true, cx)
@@ -185,39 +203,23 @@ impl TrellisWorkspace {
                                 .ok();
                         }
                     });
-                    let key_entity = entity.clone();
-                    window.on_key_event(move |event: &KeyDownEvent, phase, _, cx| {
-                        if phase == DispatchPhase::Capture && event.keystroke.key == "escape" {
-                            key_entity
-                                .update(cx, |this, cx| {
-                                    if this.held.is_some() {
-                                        cx.stop_propagation();
-                                        this.pointer_released(gpui::Point::default(), false, cx);
-                                    }
-                                })
-                                .ok();
-                        }
-                    });
-                    let pinch_entity = entity.clone();
-                    window.on_mouse_event(move |event: &PinchEvent, phase, window, cx| {
-                        if phase != DispatchPhase::Bubble {
-                            return;
-                        }
-                        pinch_entity
-                            .update(cx, |this, cx| this.pinch(event, window, cx))
-                            .ok();
-                    });
                 },
             )
             .absolute()
             .size_full()
         };
         let wheel_entity = entity.clone();
+        let pinch_entity = entity.clone();
         let nav_entity = entity;
         root.child(listeners)
             .on_scroll(move |event: &ScrollEvent, _, cx| {
                 wheel_entity
                     .update(cx, |this, cx| this.wheel(event, cx))
+                    .ok();
+            })
+            .on_pinch(move |event: &PinchEvent, _, cx| {
+                pinch_entity
+                    .update(cx, |this, cx| this.pinch(event, cx))
                     .ok();
             })
             // Shift or Alt on the gutters between panels: the navigator's.
@@ -286,11 +288,7 @@ impl TrellisWorkspace {
         }
     }
 
-    fn pinch(&mut self, event: &PinchEvent, _: &mut Window, cx: &mut Context<Self>) {
-        let Some(bounds) = self.bounds() else { return };
-        if !bounds.contains(&event.position) {
-            return;
-        }
+    fn pinch(&mut self, event: &PinchEvent, cx: &mut Context<Self>) {
         let p = self.local(event.position);
         if let Some(view) = self.over_content(p)
             && self.skin.owns_gestures(&view, cx)

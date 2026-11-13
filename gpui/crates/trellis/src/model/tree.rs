@@ -485,7 +485,7 @@ fn insert_beside_inner(
             weights,
             children,
         }))
-        .expect("a split of two nodes is never empty");
+        .unwrap_or_else(|| root.clone());
     }
     match root {
         LayoutNode::Panel(_) => root.clone(),
@@ -519,7 +519,7 @@ fn insert_beside_inner(
                 children,
                 ..split.clone()
             }))
-            .expect("a split that gained a node is never empty")
+            .unwrap_or_else(|| root.clone())
         }
     }
 }

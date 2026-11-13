@@ -17,7 +17,8 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use gpui::{
     App, Bounds, Context, EventEmitter, FocusHandle, Focusable, InteractiveElement as _,
-    IntoElement, ParentElement as _, Pixels, Render, Styled as _, Window, canvas, deferred, div, point, px,
+    IntoElement, ParentElement as _, Pixels, Render, Styled as _, Subscription, Window, canvas,
+    deferred, div, point, px,
 };
 
 use crate::model::{LayoutDocument, Point, Rect};
@@ -73,6 +74,7 @@ pub struct TrellisWorkspace {
     pub(crate) divider_hover: Option<((String, usize), std::time::Instant)>,
     pub(crate) frame: Frame,
     focus_handle: FocusHandle,
+    _escape: Subscription,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -100,6 +102,7 @@ impl TrellisWorkspace {
             divider_hover: None,
             frame: Frame::default(),
             focus_handle: cx.focus_handle(),
+            _escape: Self::watch_escape(cx),
         }
     }
 

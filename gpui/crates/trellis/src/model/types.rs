@@ -215,6 +215,7 @@ pub enum FloatingLayer {
 /// a missing `rect`, an unknown `layer`) read as something it can repair.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct FloatingPanel {
+    #[serde(serialize_with = "panel_with_kind")]
     pub panel: PanelNode,
     /// Fractions of the stage (layer `stage`) or of the workspace (layer `overlay`).
     #[serde(default = "default_float_rect")]
@@ -223,6 +224,12 @@ pub struct FloatingPanel {
     pub z: f64,
     #[serde(default = "overlay", deserialize_with = "layer_or_overlay")]
     pub layer: FloatingLayer,
+}
+
+/// A float's or hidden panel's node as Trellis writes it, `kind` and all:
+/// its `sanitize` drops a panel without one.
+fn panel_with_kind<S: serde::Serializer>(panel: &PanelNode, s: S) -> Result<S::Ok, S::Error> {
+    LayoutNode::Panel(panel.clone()).serialize(s)
 }
 
 fn default_float_rect() -> Rect {
@@ -270,6 +277,7 @@ pub enum RestoreTarget {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct HiddenPanel {
+    #[serde(serialize_with = "panel_with_kind")]
     pub panel: PanelNode,
     /// Without one, it comes back as a float.
     #[serde(default = "float_back")]

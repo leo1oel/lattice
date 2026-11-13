@@ -121,7 +121,8 @@ impl Run {
             pdf.update(cx, |pdf, cx| pdf.detach(window, cx));
         })?;
         sleep(cx, Duration::from_millis(1500)).await;
-        // The panel hides as the PDF leaves; bring it back to see the panel.
+        // The panel stays put and shows its placeholder while the PDF is in
+        // its own window; make sure it is shown for the shot.
         self.with_window(cx, |shell, window, cx| {
             shell.update(cx, |shell, cx| shell.show_view("pdf", false, window, cx));
         })?;

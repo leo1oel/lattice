@@ -441,7 +441,11 @@ pub fn restore_target_for(doc: &LayoutDocument, panel_id: &str) -> Option<Restor
     };
     let index = parent.children.iter().position(|c| c.id() == panel_id)?;
     let after = index + 1 < parent.children.len();
-    let neighbour_index = if after { index + 1 } else { index - 1 };
+    let neighbour_index = if after {
+        index + 1
+    } else {
+        index.checked_sub(1)?
+    };
     let neighbour = &parent.children[neighbour_index];
     // The neighbour absorbs this panel's space, so restore the same fraction
     // of their combined size.
@@ -483,7 +487,9 @@ pub fn hide_panel(doc: &LayoutDocument, panel_id: &str) -> LayoutDocument {
     if location.is_hidden() {
         return doc.clone();
     }
-    let restore = restore_target_for(doc, panel_id).expect("a located panel has a restore target");
+    let Some(restore) = restore_target_for(doc, panel_id) else {
+        return doc.clone();
+    };
     let mut removed = remove_panel(doc, panel_id);
     removed.hidden.push(HiddenPanel {
         panel: location.panel().clone(),

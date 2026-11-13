@@ -51,7 +51,7 @@ impl TrellisWorkspace {
             .shadow(shadow)
             // A press anywhere in a panel focuses its selected view and raises
             // it if it floats; a frame too small to use drags from anywhere.
-            .on_any_mouse_down({
+            .capture_any_mouse_down({
                 let entity = entity.clone();
                 let panel = panel_id.clone();
                 let frame_only = p.frame_only;
@@ -239,7 +239,13 @@ impl TrellisWorkspace {
                             cx.stop_propagation();
                             entity
                                 .update(cx, |this, cx| {
-                                    this.press_strip(&panel, Some(&view), event, window, cx)
+                                    if event.click_count == 2 {
+                                        if !this.engine.suppress_clicks() {
+                                            this.update_engine(cx, |e| e.toggle_frame(&panel));
+                                        }
+                                    } else {
+                                        this.press_strip(&panel, Some(&view), event, window, cx)
+                                    }
                                 })
                                 .ok();
                         }
