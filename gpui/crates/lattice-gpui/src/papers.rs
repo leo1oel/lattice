@@ -51,10 +51,12 @@ use lattice_core::papers::{self as core_papers, PaperSummary};
 use crate::project::{Project, ProjectEvent};
 
 pub mod add_sheet;
+pub mod audit;
 mod batch;
 mod downloads;
 mod field;
 mod inspector;
+pub mod literature;
 pub mod model;
 mod removal;
 mod row;
@@ -85,6 +87,8 @@ pub enum PapersEvent {
     AddPapers(String),
     /// Search the literature for a title the library does not hold.
     SearchLiterature(String),
+    /// Check the bibliography's references.
+    CheckReferences,
 }
 
 /// What a stage id of the literature pipeline is doing, in words; an id it
@@ -570,6 +574,60 @@ impl Panel for PapersPanel {
 
     fn title(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl gpui::IntoElement {
         "Papers"
+    }
+
+    /// The strip's tools before ⋯, as the Tauri app's Papers panel has them
+    /// (`trellis-panel-actions.tsx`): Discover literature, Add papers and
+    /// Check references, each a 28px square on the panel's chrome with the
+    /// tab's corners, a hairline apart.
+    fn title_suffix(
+        &mut self,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Option<impl gpui::IntoElement> {
+        use gpui::{ParentElement as _, Styled as _};
+        use lattice_ui::{
+            Icon,
+            components::{IconButton, Surface, TAB_RADIUS},
+        };
+        let tool = |id: &'static str,
+                    icon: Icon,
+                    label: &'static str,
+                    event: fn(&mut Self, &mut Window, &mut Context<Self>),
+                    cx: &mut Context<Self>| {
+            IconButton::new(id, icon)
+                .radius(TAB_RADIUS)
+                .surface(Surface::Chrome)
+                .tooltip(label)
+                .on_click(cx.listener(move |this, _, window, cx| event(this, window, cx)))
+        };
+        Some(
+            gpui::div()
+                .flex()
+                .items_center()
+                .gap(gpui::px(1.))
+                .child(tool(
+                    "papers-discover",
+                    Icon::BOOK_OPEN,
+                    "Discover literature",
+                    |_, _, cx| cx.emit(PapersEvent::SearchLiterature(String::new())),
+                    cx,
+                ))
+                .child(tool(
+                    "papers-add-sheet",
+                    Icon::BOOK_MARKED,
+                    "Add papers",
+                    |this, window, cx| this.open_add_sheet(window, cx),
+                    cx,
+                ))
+                .child(tool(
+                    "papers-check",
+                    Icon::CLIPBOARD_CHECK,
+                    "Check references",
+                    |_, _, cx| cx.emit(PapersEvent::CheckReferences),
+                    cx,
+                )),
+        )
     }
 
     fn inner_padding(&self, _: &App) -> bool {
