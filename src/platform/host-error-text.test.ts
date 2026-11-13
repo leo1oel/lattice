@@ -25,7 +25,7 @@ describe("hostErrorText", () => {
     expect(hostErrorText("This file is not UTF-8 text, so Lattice cannot open it. Convert it to UTF-8 (for example, re-save it as UTF-8 in another text editor) and open it again."))
       .toMatch(/^此文件不是 UTF-8 文本/);
     expect(hostErrorText("That folder already exists and is not empty.")).toBe("该文件夹已存在且不为空");
-    expect(hostErrorText("The document being compiled and its bibliography cannot be deleted.")).toBe("正在编译的主文档及其参考文献文件不能删除");
+    expect(hostErrorText("The primary bibliography cannot be deleted.")).toBe("主参考文献文件不能删除");
     expect(hostErrorText("The citation key “vaswani2017” already exists.")).toBe("引用名“vaswani2017”已存在");
     expect(hostErrorText("The label “fig:model” already exists.")).toBe("标签“fig:model”已存在");
   });

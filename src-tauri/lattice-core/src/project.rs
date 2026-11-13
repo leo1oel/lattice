@@ -34,6 +34,7 @@ mod bibliography;
 mod build_pdf;
 mod citation_lookup;
 mod create;
+mod deleted_root;
 mod editable_figure;
 mod editor_save;
 mod entries;

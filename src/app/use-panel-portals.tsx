@@ -38,6 +38,7 @@ import type { useProjectTree } from "./use-project-tree";
 import type { ReferenceImport } from "./use-reference-import";
 import type { SynaraHost } from "./use-synara-host";
 import type { ToolDrawers } from "./use-tool-drawers";
+import { deletionProtectedPaths } from "../project/deletion-protection";
 
 /** Papers' read state while the window's paper list is still another project's. */
 const PAPERS_LOADING = { status: "loading" } as const;
@@ -45,7 +46,7 @@ const PAPERS_LOADING = { status: "loading" } as const;
 /** The portals, or nothing on the welcome screen. */
 export function usePanelPortals({
   project, documents, trellis, agentPresent, theme, appLocale, tree, prewarm, projectSearch, newEntry, gitFiles,
-  rootDocumentPath, library, overleafSyncing, paperActions, referenceImport, openSymbolOccurrence, synara, tools,
+  library, overleafSyncing, paperActions, referenceImport, openSymbolOccurrence, synara, tools,
   checkReferences, citationReasons,
 }: {
   project: ProjectSnapshot | null;
@@ -59,7 +60,6 @@ export function usePanelPortals({
   projectSearch: { open: boolean; setOpen: Dispatch<SetStateAction<boolean>>; openFind: ProjectSearch["openFind"] };
   newEntry: { request: NewEntryRequest | null; requestNew: (type: NewEntryType) => void };
   gitFiles: GitStatus["files"];
-  rootDocumentPath: string | null | undefined;
   library: Pick<ReturnType<typeof useProjectLibrary>, "papers" | "paperLoad" | "retryPapers" | "citations" | "unusedSymbols" | "refreshProject">;
   overleafSyncing: boolean;
   paperActions: ReturnType<typeof usePaperActions>;
@@ -77,8 +77,8 @@ export function usePanelPortals({
   const requestNewEntry = newEntry.requestNew;
   const primaryBibliography = project?.manifest.primaryBibliography ?? "";
   const protectedProjectPaths = useMemo(
-    () => [...(rootDocumentPath ? [rootDocumentPath] : []), primaryBibliography],
-    [primaryBibliography, rootDocumentPath],
+    () => deletionProtectedPaths({ primaryBibliography }),
+    [primaryBibliography],
   );
   // Panel action rows (Trellis tab-bar accessories): memoized, because App
   // re-renders on every keystroke and each row is a set of tooltip buttons.

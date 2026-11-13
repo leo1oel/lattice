@@ -39,6 +39,7 @@ import {
 import { notifyCopied } from "../telemetry/app-notify";
 import { useTrellisController } from "../trellis/trellis-controller";
 import { baseName } from "../lib/base-name";
+import { deletesProtectedPath } from "./deletion-protection";
 
 // @pierre/trees virtualizes by a numeric item height, so this mirrors the
 // design-system `--row-height-tree` (28px, the compact control height).
@@ -364,9 +365,7 @@ export function ProjectFileTree(props: ProjectFileTreeProps) {
     const path = fromPierrePath(item.path);
     const directory = item.kind === "directory";
     const deletionPaths = selectionIncluding(model, item.path).map(fromPierrePath);
-    const protectedEntry = deletionPaths.some((deletedPath) => props.protectedPaths.some(
-      (protectedPath) => protectedPath === deletedPath || protectedPath.startsWith(`${deletedPath}/`),
-    ));
+    const protectedEntry = deletesProtectedPath(deletionPaths, props.protectedPaths);
     const figureEntry = directory ? null : figureEntryBeside(path, tree.paths);
     // Grouped as make, change, locate, view; a folder's imports make things too.
     // A PDF opens beside the document in front, to read the two side by side.
