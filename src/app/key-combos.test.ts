@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { comboKeys, comboText, parseKeyName } from "./key-combos";
+import { comboKeys, comboText, parseKeyName, shiftKeyLabel } from "./key-combos";
 
 describe("key combinations", () => {
   it("reads every keymap's notation alike", () => {
@@ -34,4 +34,15 @@ it("draws Windows modifier names and keeps shortcut modifiers intact", () => {
     expect(comboText({ key: "j", mod: true, shift: true })).toBe("Ctrl+Shift+J");
     expect(comboText({ key: "p", mod: true, alt: true })).toBe("Ctrl+Alt+P");
   } finally { userAgent.mockRestore(); }
+});
+
+it("draws a Linux window's modifiers by name too: ⌘ there would be the Super key", () => {
+  const userAgent = vi.spyOn(navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15");
+  try {
+    expect(comboKeys({ key: "j", mod: true, shift: true })).toEqual(["Ctrl", "Shift", "J"]);
+    expect(comboText({ key: "s", mod: true })).toBe("Ctrl+S");
+    expect(comboText({ key: "m", ctrl: true })).toBe("Ctrl+M");
+    expect(shiftKeyLabel()).toBe("Shift");
+  } finally { userAgent.mockRestore(); }
+  expect(shiftKeyLabel()).toBe("⇧");
 });

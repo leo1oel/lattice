@@ -1053,6 +1053,10 @@ msgstr "{replacementCount} 处"
 msgid "{revisableAnnotations} annotations"
 msgstr "{revisableAnnotations} 条批注"
 
+#: src/trellis/trellis-header-tools.tsx
+msgid "{saveKeys}, or {shiftKey}-click for a clean rebuild"
+msgstr "{saveKeys}，按住 {shiftKey} 点击则从头编译"
+
 #: src/project/arxiv-export.ts
 msgid "{seconds} s"
 msgstr "{seconds} 秒"
@@ -1197,10 +1201,6 @@ msgstr "% 注释"
 #: src/build/build-log-messages.ts
 msgid "`{command}` only works in pdfLaTeX, but this document was built with {engine}. Switch the project to pdfLaTeX to build it."
 msgstr "`{command}` 只能在 pdfLaTeX 中使用，但这份文档是用 {engine} 编译的。将项目切换到 pdfLaTeX 即可编译。"
-
-#: src/trellis/trellis-header-tools.tsx
-msgid "⌘S, or ⇧-click for a clean rebuild"
-msgstr "⌘S，按住 ⇧ 点击则从头编译"
 
 #: src/papers/bibliography-audit.tsx
 msgid "1 {BIBITEM}"
@@ -3981,12 +3981,8 @@ msgid "Clear terminal"
 msgstr "清空终端"
 
 #: src/onboarding/get-started-steps.ts
-msgid "Click in the text, then press ⌘⇧K"
-msgstr "在正文里点一下，再按 ⌘⇧K"
-
-#: src/onboarding/get-started-steps.ts
-msgid "Click in the text, then press Ctrl+Shift+K"
-msgstr "点击正文，然后按 Ctrl+Shift+K"
+msgid "Click in the text, then press {citeKeys}"
+msgstr "在正文里点一下，再按 {citeKeys}"
 
 #: src/pdf/pdf-compound-key-hover.tsx
 msgid "Click to copy the LaTeX command"
@@ -5702,12 +5698,8 @@ msgid "Double-click a sentence"
 msgstr "双击任意一句"
 
 #: src/onboarding/get-started-steps.ts
-msgid "Double-click any sentence in the PDF to land on the line that wrote it, and press ⌘⇧J to jump back."
-msgstr "双击 PDF 里任意一句，光标会跳到写出它的那一行，在源码里按 ⌘⇧J 跳回 PDF。"
-
-#: src/onboarding/get-started-steps.ts
-msgid "Double-click any sentence in the PDF to land on the line that wrote it, and press Ctrl+Shift+J to jump back."
-msgstr "双击 PDF 中的任意句子即可跳转到对应源码行，按 Ctrl+Shift+J 跳回 PDF。"
+msgid "Double-click any sentence in the PDF to land on the line that wrote it, and press {jumpKeys} to jump back."
+msgstr "双击 PDF 里任意一句，光标会跳到写出它的那一行，在源码里按 {jumpKeys} 跳回 PDF。"
 
 #: src/terminal/terminal-panel.tsx
 msgid "Double-click to rename"
@@ -6029,20 +6021,16 @@ msgid "Edit table"
 msgstr "编辑表格"
 
 #: src/onboarding/get-started-steps.ts
-msgid "Edit the \\title line in main.tex and press ⌘S to see the PDF beside it update in about a second."
-msgstr "改一下 main.tex 里的 \\title 这一行并按 ⌘S，旁边的 PDF 大约一秒后就会更新。"
+msgid "Edit the \\title line in main.tex and press {saveKeys} to see the PDF beside it update in about a second."
+msgstr "改一下 main.tex 里的 \\title 这一行并按 {saveKeys}，旁边的 PDF 大约一秒后就会更新。"
 
 #: src/onboarding/get-started-steps.ts
-msgid "Edit the title line in main.tex and press Ctrl+S to update the PDF beside it."
-msgstr "修改 main.tex 中的标题行，然后按 Ctrl+S 更新旁边的 PDF。"
+msgid "Edit the title line in main.tex and press {saveKeys} to update the PDF beside it."
+msgstr "修改 main.tex 中的标题行，然后按 {saveKeys} 更新旁边的 PDF。"
 
 #: src/onboarding/get-started-steps.ts
-msgid "Edit the title, then press ⌘S"
-msgstr "改好标题，按 ⌘S"
-
-#: src/onboarding/get-started-steps.ts
-msgid "Edit the title, then press Ctrl+S"
-msgstr "修改标题，然后按 Ctrl+S"
+msgid "Edit the title, then press {saveKeys}"
+msgstr "改好标题，按 {saveKeys}"
 
 #: src/history/file-diff-view.tsx
 #: src/overleaf/overleaf-history.tsx
@@ -7174,8 +7162,8 @@ msgid "Go to line"
 msgstr "跳到行"
 
 #: src/canvas/editor-status-bar.tsx
-msgid "Go to line (⌘G)"
-msgstr "跳到行 (⌘G)"
+msgid "Go to line ({gotoLineKeys})"
+msgstr "跳到行 ({gotoLineKeys})"
 
 #. placeholder {0}: node.line
 #. placeholder {0}: row.line
@@ -7761,12 +7749,8 @@ msgid "In Terminal:"
 msgstr "在终端中运行："
 
 #: src/onboarding/get-started-steps.ts
-msgid "In the editor, press ⌘⇧K and pick one of this project’s papers, or add your own in Papers by arXiv ID, DOI or title."
-msgstr "在编辑器里按 ⌘⇧K，从本项目的论文里选一篇，或在论文库里用 arXiv 号、DOI 或标题添加自己的论文。"
-
-#: src/onboarding/get-started-steps.ts
-msgid "In the editor, press Ctrl+Shift+K and pick one of this project’s papers, or add your own in Papers by arXiv ID, DOI or title."
-msgstr "在编辑器中按 Ctrl+Shift+K 选择项目中的论文，或在论文面板通过 arXiv ID、DOI 或标题添加论文。"
+msgid "In the editor, press {citeKeys} and pick one of this project’s papers, or add your own in Papers by arXiv ID, DOI or title."
+msgstr "在编辑器里按 {citeKeys}，从本项目的论文里选一篇，或在论文库里用 arXiv 号、DOI 或标题添加自己的论文。"
 
 #: src/platform/host-errors-workspace.ts
 msgid "In the newer version, {chain} read each other with \\input, so latexdiff would never finish. Remove the \\input that closes the loop, then export again."
@@ -8676,6 +8660,10 @@ msgstr "Lattice {version} 已就绪"
 #: src/onboarding/get-started-steps.ts
 msgid "Lattice builds your PDF with the LaTeX on this Mac, and BasicTeX is about 1 GB."
 msgstr "Lattice 用这台 Mac 上的 LaTeX 编译 PDF，BasicTeX 约 1 GB。"
+
+#: src/onboarding/get-started-steps.ts
+msgid "Lattice builds your PDF with the TeX Live on this computer. Install it from your distribution’s packages."
+msgstr "Lattice 用这台电脑上的 TeX Live 编译 PDF，请从发行版的软件源安装。"
 
 #: src/overleaf/overleaf-realtime-model.ts
 msgid "Lattice cannot yet identify which replayed edits to {activeFile} are its own. Syncing remains paused for this file."

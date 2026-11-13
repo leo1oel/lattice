@@ -1,3 +1,4 @@
+import { i18n } from "@lingui/core";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { invoke } from "@tauri-apps/api/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -5,6 +6,7 @@ import { SmallStore } from "../trellis/trellis-small-store";
 import type { BuildOutcome } from "../app/use-build-pipeline";
 import type { TrellisController, TrellisDocToolsState } from "../trellis/trellis-controller";
 import GetStartedPanel, { type GetStartedPanelProps } from "./get-started-panel";
+import { getStartedSteps } from "./get-started-steps";
 import {
   GET_STARTED_KEY, markGetStartedStep, SAMPLE_MANUSCRIPT, skipGetStartedStep, watchGetStartedBuild,
 } from "./get-started-progress";
@@ -303,4 +305,28 @@ it("offers Windows setup without a Mac installer or unsupported Agent step", () 
     expect(document.querySelector('[data-step="agent"]')).toBeNull();
     expect(screen.getByText("0/5")).toBeInTheDocument();
   } finally { userAgent.mockRestore(); }
+});
+
+it("names a Linux window's own keys, TeX Live from the distribution, and no Agent step", () => {
+  // Every sentence of the checklist as this host reads it: a step's reason shows only while it is the open one.
+  const sentences = () => getStartedSteps().flatMap((step) => [i18n._(step.why), ...(step.hint ? [i18n._(step.hint)] : [])]);
+  const userAgent = vi.spyOn(navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15");
+  try {
+    markGetStartedStep("agent");
+    renderPanel({}, doctor(["pdflatex"]));
+    expect(screen.getByText(/TeX Live on this computer/)).toBeInTheDocument();
+    expect(document.querySelector('[data-step="agent"]')).toBeNull();
+    expect(screen.getByText("0/5")).toBeInTheDocument();
+    const linux = sentences().join("\n");
+    expect(linux).toContain("press Ctrl+S to see the PDF beside it update");
+    expect(linux).toContain("Edit the title, then press Ctrl+S");
+    expect(linux).toContain("press Ctrl+Shift+J to jump back");
+    expect(linux).toContain("press Ctrl+Shift+K and pick one");
+    expect(linux).not.toMatch(/[⌘⇧]|this Mac|BasicTeX/);
+  } finally { userAgent.mockRestore(); }
+  // The same sentences on a Mac keep its glyphs.
+  const mac = sentences().join("\n");
+  expect(mac).toContain("press ⌘S to see the PDF beside it update");
+  expect(mac).toContain("press ⌘⇧J to jump back");
+  expect(mac).toContain("Click in the text, then press ⌘⇧K");
 });

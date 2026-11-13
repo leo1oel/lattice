@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { Minus, Plus } from "lucide-react";
 import { renderKeycaps } from "../components/ui/render-keycaps";
+import { comboKeys } from "./key-combos";
 import { INTERFACE_SCALE_STEPS, interfaceScalePercent, nearestInterfaceStep, type InterfaceZoomChange } from "../settings/interface-scale";
 
 /** How long the pill stays after the last change, unless the pointer is on it. */
@@ -49,7 +50,7 @@ export function InterfaceZoomHud({ scale, revealKey, onChange }: {
       </button>
       <span className="interface-zoom-divider" aria-hidden="true" />
       <button type="button" className="interface-zoom-reset" disabled={step === 1} onClick={() => onChange("reset")}>
-        {t`Reset`}{renderKeycaps(["⌘", "0"], undefined, "run")}
+        {t`Reset`}{renderKeycaps(comboKeys({ key: "0", mod: true }), undefined, "run")}
       </button>
     </div>
   );
