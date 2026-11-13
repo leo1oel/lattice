@@ -1,6 +1,5 @@
 //! A panel's spare tools: what its strip shows before its own tools only in
-//! room to spare (`strip::room_to_spare`), as the Trellis header shows a
-//! .tex file's Source / Visual switch only with `data-tools="named"`.
+//! room to spare, as the Trellis header shows a .tex file's Source / Visual switch only with `data-tools="named"`.
 
 use std::{collections::HashMap, rc::Rc};
 
@@ -8,7 +7,7 @@ use gpui::{AnyElement, App, Global, Pixels, Window};
 use gpui_kit::component::dock::PanelId;
 
 /// A panel's spare tools: what it shows before its tools only in room to
-/// spare (`strip::room_to_spare`), and how wide that is.
+/// spare, and how wide that is.
 #[derive(Clone)]
 pub struct SpareTools {
     pub width: Rc<dyn Fn(&Window, &App) -> Pixels>,

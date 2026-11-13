@@ -92,7 +92,7 @@ done
 
 # The diffs, in order.
 for diff in gpui-fast-vendoring gpui-fast-lab-occlusion gpui-fast-motion-and-type gpui-fast-overlay-first-mouse gpui-fast-interface-zoom \
-  gpui-component-overlays gpui-component-lattice-hooks gpui-base-dock-drag-out gpui-webview-interface-zoom; do
+  gpui-component-overlays gpui-component-lattice-hooks gpui-webview-interface-zoom; do
   git -C "$out" apply --whitespace=nowarn "$patches/$diff.diff"
 done
 

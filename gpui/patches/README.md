@@ -1,6 +1,6 @@
 # Patched upstream crates
 
-Five crates the app builds on are vendored here with Lattice's changes, and swapped in through the workspace manifest's `[patch]` tables.
+Five crates the app builds on are vendored here, four of them with Lattice's changes, and swapped in through the workspace manifest's `[patch]` tables.
 Each is upstream's source at an exact pin plus the diffs in this directory, nothing else; `script/check-patches` rebuilds them from upstream and fails on any difference (CI runs it), and `script/check-patches --write` rebuilds them after a diff is edited or a pin moves.
 
 | Crate | Upstream | Pin | License | Diffs |
@@ -8,7 +8,7 @@ Each is upstream's source at an exact pin plus the diffs in this directory, noth
 | `gpui-fast/crates/gpui` | [longbridge/gpui-fast](https://github.com/longbridge/gpui-fast) `crates/gpui` | commit `bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa` | Apache-2.0 | `gpui-fast-vendoring.diff`, `gpui-fast-motion-and-type.diff`, `gpui-fast-interface-zoom.diff` |
 | `gpui-fast/crates/gpui_macos` | the same repository's `crates/gpui_macos` | the same commit | Apache-2.0 | `gpui-fast-lab-occlusion.diff`, `gpui-fast-overlay-first-mouse.diff` |
 | `gpui-component` | [crates.io `gpui-component`](https://crates.io/crates/gpui-component) (GPUI Kit's components) | 0.9.1, crate SHA-256 `e155c4914bd809d966660610d596f7b57c5cd38979ca2c132215057a91f23f03` | Apache-2.0 | `gpui-component-overlays.diff`, `gpui-component-lattice-hooks.diff` |
-| `gpui-base` | [crates.io `gpui-base`](https://crates.io/crates/gpui-base) (GPUI Kit's foundation: the dock's behaviour) | 0.9.1, crate SHA-256 `f3e9ae5237737cfd110d0ff513fcd9c20f97d98ebabd0a73164068177f0aca4f` | Apache-2.0 | `gpui-base-dock-drag-out.diff` |
+| `gpui-base` | [crates.io `gpui-base`](https://crates.io/crates/gpui-base) (GPUI Kit's foundation, which `gpui-component` builds on) | 0.9.1, crate SHA-256 `f3e9ae5237737cfd110d0ff513fcd9c20f97d98ebabd0a73164068177f0aca4f` | Apache-2.0 | none (vendored as upstream, kept so the workspace builds from one source) |
 | `gpui-webview` | [crates.io `gpui-webview`](https://crates.io/crates/gpui-webview) (GPUI Kit's webview: the islands' native page) | 0.9.1, crate SHA-256 `6b355bcda56e128a7c2e27257653a6441ab792dcfbdae49c63ce329c846f4b5d` | Apache-2.0 | `gpui-webview-interface-zoom.diff` |
 
 What is copied: each crate's sources, manifest, build script, README and license (a copy of the repository's, which upstream links), without examples, benches and docs, and for the crates.io crates without their packaging files (`Cargo.lock`, `Cargo.toml.orig`); `gpui-base` keeps the tests and benches its manifest names.
@@ -35,7 +35,6 @@ The vendored copies cannot run their own tests where they sit (the gpui crate's 
   The frame and its offset are scaled by the window's interface zoom, and the page is zoomed with the interface (on top of `WebView::set_zoom`'s own zoom), so it keeps the island's size in its own pixels, as the Tauri app's interface zoom zooms its pages.
   This is macOS with `gpui-fast` only; elsewhere the crate behaves as upstream.
   The `e2e` scenario checks the page's frame and viewport at 120% and 90%.
-- **`gpui-base-dock-drag-out.diff`**: a group with nothing beside it in its region no longer keeps its last panel. GPUI Kit refused to drag a dock's (or the center's) last panel out, or to close it, so the dock could never be emptied; Trellis lets a column's last panel go and its neighbours take the room. Lattice's shell now lays its panels out with the Trellis port (`crates/trellis`) instead of GPUI Kit's dock, so no app path exercises this patch any more. It is one constant in `plan_tree`'s constraints (`KEEP_LAST_PANEL`), so the change reads in one place; upstream's own test `the_only_groups_last_visible_panel_cannot_be_dragged_out` sets the constraint directly and still describes the group, not the dock.
 - **`gpui-component-lattice-hooks.diff`**: two seams for Lattice's design system, each inert until the app uses it.
   - *A host-drawn menu highlight*: with a `GlobalMenuHighlight` installed, a `PopupMenu`'s rows draw no hover or selection fill of their own; the menu records each row's bounds, section (rows between two separators or labels) and whether it can be highlighted as it is laid out, and hands them with its highlighted item to the host's `MenuHighlight::paint`, behind the rows.
     Lattice draws the fluid hover there (`lattice_ui::fluid_hover::KitMenuGlide`): one fill gliding between rows, as the Tauri app's menus have it.
