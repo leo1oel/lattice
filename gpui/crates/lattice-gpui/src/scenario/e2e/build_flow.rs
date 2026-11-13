@@ -16,7 +16,7 @@
 use std::{path::Path, sync::Arc, time::Duration};
 
 use anyhow::Result;
-use gpui::AsyncApp;
+use gpui::{AsyncApp, Focusable as _};
 use serde_json::json;
 
 use super::Steps;
@@ -84,6 +84,20 @@ impl Run {
         self.pause(cx, Duration::from_millis(700)).await;
         self.snapshot(cx, "build-card").await;
         Ok(())
+    }
+
+    /// Send `action` to the shell's own node rather than to the window's
+    /// focus. A window routes an action through the focus path of the last
+    /// frame it drew and falls back to its root, which holds none of the
+    /// shell's handlers: after the package chooser closes, focus is not in
+    /// the shell's path, and an idle window on the macOS runner may draw no
+    /// frame before the dispatch, so Clean, Stop and the rest reached
+    /// nothing there. The shell's node is in every frame since the first.
+    fn dispatch_to_shell(&self, cx: &mut AsyncApp, action: &dyn gpui::Action) -> Result<()> {
+        self.with_window(cx, |shell, window, cx| {
+            let focus = shell.read(cx).focus_handle(cx);
+            focus.dispatch_action(action, window, cx)
+        })
     }
 
     fn builds(&self, cx: &mut AsyncApp) -> usize {
@@ -364,23 +378,62 @@ impl Run {
         self.rewrite_open_file(cx, &main, &original_main).await?;
 
         // Clean deletes the auxiliary files; a clean rebuild writes them anew.
+        // `latexmk -c` deletes main.aux before it exits, and a clean rebuild
+        // asked for while the clean runs is turned away (`clean_rebuild`), so
+        // wait for the clean itself to finish, not only for the file to go.
+        // Clean also does nothing while a build runs, so a build the removed
+        // .sty or the rewrite set off late settles first.
         let aux = root.join("main.aux");
-        self.with_window(cx, |_, window, cx| {
-            window.dispatch_action(Box::new(CleanBuildFiles), cx)
-        })?;
-        let cleaned = self
-            .wait_for(cx, Duration::from_secs(30), |_, _| !aux.exists())
+        let started = std::time::Instant::now();
+        let state = |shell: &gpui::Entity<crate::shell::Shell>, cx: &mut gpui::App| {
+            let shell = shell.read(cx);
+            json!({
+                "ms": started.elapsed().as_millis() as u64,
+                "building": shell.building(),
+                "cleaning": shell.cleaning(),
+                "builds": shell.build_panel().read(cx).builds(),
+                "aux": aux.exists(),
+            })
+        };
+        let settled = self
+            .wait_for(cx, Duration::from_secs(180), |shell, cx| {
+                let shell = shell.read(cx);
+                !shell.building() && !shell.cleaning()
+            })
             .await;
-        let before = self.builds(cx);
-        self.with_window(cx, |_, window, cx| {
-            window.dispatch_action(Box::new(CleanRebuild), cx)
+        let at_clean = cx.update(|cx| state(&self.shell, cx));
+        // Whether the window's focus would have reached the shell
+        // (`dispatch_to_shell`).
+        let focus_in_shell = self.with_window(cx, |shell, window, cx| {
+            shell.read(cx).focus_handle(cx).contains_focused(window, cx)
         })?;
+        self.dispatch_to_shell(cx, &CleanBuildFiles)?;
+        let cleaned = self
+            .wait_for(cx, Duration::from_secs(30), |shell, cx| {
+                !aux.exists() && !shell.read(cx).cleaning()
+            })
+            .await;
+        let at_rebuild = cx.update(|cx| state(&self.shell, cx));
+        let before = self.builds(cx);
+        self.dispatch_to_shell(cx, &CleanRebuild)?;
         let rebuilt = self.built_after(cx, before).await;
+        let at_end = cx.update(|cx| state(&self.shell, cx));
         let clean_build = cx.update(|cx| self.shell.read(cx).build_panel().read(cx).succeeded());
+        let rewritten = aux.exists();
         steps.check(
             "Clean deletes the build files, and a clean rebuild writes them again",
-            cleaned && rebuilt && clean_build == Some(true) && aux.exists(),
-            json!({ "cleaned": cleaned, "succeeded": clean_build }),
+            cleaned && rebuilt && clean_build == Some(true) && rewritten,
+            json!({
+                "settled": settled,
+                "focus_in_shell": focus_in_shell,
+                "cleaned": cleaned,
+                "rebuilt": rebuilt,
+                "succeeded": clean_build,
+                "aux_written": rewritten,
+                "at_clean": at_clean,
+                "at_rebuild": at_rebuild,
+                "at_end": at_end,
+            }),
         );
 
         // A document that loops: Stop ends the build, which reports nothing.
@@ -406,9 +459,7 @@ impl Run {
             started = self.wait_for(cx, Duration::from_secs(20), running).await;
         }
         self.pause(cx, Duration::from_millis(1500)).await;
-        self.with_window(cx, |_, window, cx| {
-            window.dispatch_action(Box::new(StopBuild), cx)
-        })?;
+        self.dispatch_to_shell(cx, &StopBuild)?;
         let stopped = self.built_after(cx, before).await;
         let report = cx.update(|cx| {
             let panel = self.shell.read(cx).build_panel().read(cx);
@@ -439,9 +490,7 @@ impl Run {
         stub: &StubTexSetup,
     ) -> Result<()> {
         let center = cx.update(|cx| self.shell.read(cx).tex_setup().clone());
-        self.with_window(cx, |_, window, cx| {
-            window.dispatch_action(Box::new(OpenTexDoctor), cx)
-        })?;
+        self.dispatch_to_shell(cx, &OpenTexDoctor)?;
         let reported = self
             .wait_for(cx, Duration::from_secs(10), |_, cx| {
                 let center = center.read(cx);
@@ -485,9 +534,7 @@ impl Run {
             StubTexSetup::report(&["latexmk"]),
             StubTexSetup::report(&[]),
         ]);
-        self.with_window(cx, |_, window, cx| {
-            window.dispatch_action(Box::new(InstallLatexTools), cx)
-        })?;
+        self.dispatch_to_shell(cx, &InstallLatexTools)?;
         let opened = self
             .wait_for(cx, Duration::from_secs(10), |_, cx| {
                 let center = center.read(cx);

@@ -298,15 +298,15 @@ purpose.
   (`preciseOps` and `rebaseOnto` in `src/overleaf/ot.ts`), never as one span
   from a line's first change to its last, which would put back what the
   other side removed in between. The editor hands over the keystroke itself.
-- **A rejoin merges only from the last shared text.** When the document is
-  still held and its last shared text is the one at its version, the writer's
-  work since is carried onto the joined snapshot as OT would place it and goes
-  out as operations. The copy the last sync agreed on is not a merge ancestor:
-  an edit can have reached both sides after it, and merging from it would add
-  that edit twice. It only decides the cases where one side alone moved on (a
-  buffer still holding it takes the snapshot; a snapshot still equal to it
-  takes the buffer's work as operations). A buffer already showing the
-  snapshot takes it as it is; anything else is left to regular sync.
+- **A rejoin merges only from text both sides provably grew from.**
+  `OtDocument.serverText` is Overleaf's text at the document's version, and the leave checkpoint writes it as the sync base whenever the local copy has taken every operation applied to the document.
+  When an operation reached the document but not the disk (it arrived while the document drained off screen, or its delivery was crossing IPC as the writer moved on), the checkpoint is instead the local copy's own text once everything typed in it is acknowledged, so a sync never reads the co-author's text as deleted here (`DocumentProof` in `src/overleaf/overleaf-document-proof.ts`).
+  A document left settled with that checkpoint is parked, and coming back joins from its version: when the replay lands exactly on the server's version and text and no sync has moved the checkpoint since, the local copy is carried forward by exactly the replayed operations, the writer's own work since riding on top as OT would place it.
+  A held document that resumes is carried forward the same way.
+  Anything less (a version the server can no longer replay from, a replay with an update missing, a checkpoint a sync replaced) starts over with a full join.
+  The copy the last sync agreed on is not a merge ancestor: an edit can have reached both sides after it, and merging from it would add that edit twice.
+  It only decides the cases where one side alone moved on (a buffer still holding it takes the snapshot; a snapshot still equal to it takes the buffer's work as operations).
+  A buffer already showing the snapshot takes it as it is; anything else is left to regular sync.
 - **A timeout is not proof of rejection.** A document whose send outcome is
   unknown stays owned by OT until a late ack or a rejoin/catch-up proves what
   happened. Ordinary file sync must not resend it blindly.

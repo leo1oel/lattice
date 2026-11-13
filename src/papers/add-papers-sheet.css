@@ -92,12 +92,13 @@
 .zotero-paper-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; border: 1px solid var(--border-subtle); border-radius: var(--radius-panel); background: var(--surface-panel-raised); }
 .zotero-paper-list > li + li { border-top: 1px solid var(--border-subtle); }
 .zotero-browser .zotero-paper { font-weight: var(--weight-regular); padding: var(--space-4) var(--space-5); display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--space-4); align-items: center; cursor: default; }
-.zotero-paper-list > li:not([data-existing]) .zotero-paper:hover { background: var(--control-hover-surface); }
+.zotero-paper-list > li:not([data-locked]) .zotero-paper:hover { background: var(--control-hover-surface); }
 .zotero-paper-list > li[data-existing] .zotero-paper-main { opacity: .62; }
 .zotero-paper-main { min-width: 0; display: grid; gap: var(--space-1); }
 .zotero-paper-main > strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); font-family: var(--reading-font); font-size: var(--type-typeset-size); line-height: var(--type-body-line-height); font-weight: var(--weight-regular); }
 .zotero-paper-main > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .zotero-paper-badges { display: inline-flex; gap: var(--space-2); }
+.zotero-annotations { font-variant-numeric: tabular-nums; }
 .zotero-empty { flex: 1; padding: var(--space-12) var(--space-6); }
 .zotero-error { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4); margin: 0; padding: var(--space-4); color: color-mix(in srgb, var(--status-danger) 80%, var(--text-primary)); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .zotero-error > span:first-child { flex: 1 1 200px; min-width: 0; overflow-wrap: anywhere; }

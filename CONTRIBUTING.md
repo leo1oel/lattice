@@ -203,7 +203,15 @@ pnpm gate:changed
 `pnpm gate:changed` (`scripts/gate-changed.mjs`) runs lint, typecheck, the i18n
 catalogs, and the tests that `vitest related` finds from what your branch
 changed against `origin/main`, plus the invariant tests no import leads to. It
-builds no Rust; CI's `rust` job covers a `src-tauri/` change.
+builds no Rust.
+
+Pull requests run no CI: no GitHub checks, and no required local status.
+The full CI (`ci.yml`, `gpui.yml`) runs for a release tag, weekly on main, and
+by hand from the Actions tab.
+`pnpm signoff` (`scripts/signoff.mjs`) is an optional, slower local check you
+may run when a change reaches further: the same stages, plus the bundle
+budgets, clippy and the tests of the changed Rust crates, and the GPUI app
+when `gpui/` changed. Nothing waits for it before merge.
 [`docs/agent-validation.md`](docs/agent-validation.md) has the details.
 
 Vitest caches transformed modules in `node_modules/.experimental-vitest-cache`, so a repeat focused run skips most of its startup; `pnpm vitest --clearCache` empties it.
@@ -237,7 +245,7 @@ Playwright's WebKit and a few quiet minutes. The environments are not interchang
 a stage passes locally and fails in CI, suspect the freshness cache first —
 `mise run --force check` re-runs everything.
 
-[`.no-mistakes.yaml`](.no-mistakes.yaml) configures the no-mistakes pipeline's test and lint commands and forbids its test step from launching the desktop app.
+[`.no-mistakes.yaml`](.no-mistakes.yaml) configures the no-mistakes pipeline's test and lint commands and forbids its test step from launching the installed or release desktop app (a locally built GPUI binary on a scratch fixture with a scratch `HOME` is allowed).
 
 ## Work in the right area
 

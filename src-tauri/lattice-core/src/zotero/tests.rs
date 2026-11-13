@@ -8,7 +8,7 @@ INSERT INTO version VALUES ('userdata', 131);
 CREATE TABLE libraries (libraryID INTEGER PRIMARY KEY, type TEXT);
 INSERT INTO libraries VALUES (1, 'user'), (2, 'group');
 CREATE TABLE itemTypesCombined (itemTypeID INT, typeName TEXT);
-INSERT INTO itemTypesCombined VALUES (1, 'journalArticle'), (2, 'preprint'), (3, 'conferencePaper'), (4, 'attachment'), (5, 'note');
+INSERT INTO itemTypesCombined VALUES (1, 'journalArticle'), (2, 'preprint'), (3, 'conferencePaper'), (4, 'attachment'), (5, 'note'), (6, 'annotation');
 CREATE TABLE fieldsCombined (fieldID INT, fieldName TEXT);
 INSERT INTO fieldsCombined VALUES (1, 'title'), (2, 'date'), (3, 'publicationTitle'), (4, 'DOI'), (5, 'archiveID'),
   (6, 'url'), (7, 'extra'), (8, 'citationKey'), (9, 'pages'), (10, 'proceedingsTitle'), (11, 'volume');
@@ -24,6 +24,9 @@ CREATE TABLE collectionItems (collectionID INT, itemID INT, orderIndex INT);
 CREATE TABLE deletedCollections (collectionID INT);
 CREATE TABLE itemAttachments (itemID INT, parentItemID INT, linkMode INT, contentType TEXT, path TEXT);
 CREATE TABLE deletedItems (itemID INT);
+CREATE TABLE itemAnnotations (itemID INTEGER PRIMARY KEY, parentItemID INT NOT NULL, type INTEGER NOT NULL,
+  authorName TEXT, text TEXT, textNormalized TEXT, comment TEXT, commentNormalized TEXT, color TEXT, pageLabel TEXT,
+  sortIndex TEXT NOT NULL, position TEXT NOT NULL, isExternal INT NOT NULL);
 ";
 
 /// A Zotero data directory with a small library, Zotero's own way: in WAL
@@ -427,6 +430,148 @@ fn the_default_profile_names_the_data_directory() {
     assert_eq!(attachment_base(&support), Some(PathBuf::from("/Volumes/Research/Papers")));
 }
 
+impl Library {
+    /// An annotation `key` of Zotero type `kind` on the attachment
+    /// `attachment`, on the page with index `page_index`.
+    #[allow(clippy::too_many_arguments)]
+    fn annotation(
+        &self, id: i64, key: &str, attachment: i64, kind: i64, text: Option<&str>,
+        comment: Option<&str>, page_index: u32, page_label: &str, sort: &str,
+    ) {
+        self.item(id, 6, key, &[], &[]);
+        self.live
+            .execute(
+                "INSERT INTO itemAnnotations (itemID, parentItemID, type, text, comment, color, pageLabel, sortIndex, position, isExternal)
+                 VALUES (?1, ?2, ?3, ?4, ?5, '#ffd400', ?6, ?7, ?8, 0)",
+                params![
+                    id,
+                    attachment,
+                    kind,
+                    text,
+                    comment,
+                    page_label,
+                    sort,
+                    format!("{{\"pageIndex\":{page_index},\"rects\":[[72,600,300,612]]}}")
+                ],
+            )
+            .unwrap();
+    }
+}
+
+#[test]
+fn annotations_come_in_reading_order_with_their_pages_and_are_counted() {
+    let library = library();
+    // BERT's PDF (attachment 15) carries a highlight with a comment, a sticky
+    // note, an underline, an image region with a comment, and three that a note
+    // cannot quote: an ink stroke, an empty highlight and one in the trash.
+    library.annotation(
+        30,
+        "ANNHIGH1",
+        15,
+        1,
+        Some("  masked language model  "),
+        Some("Key idea"),
+        2,
+        "3",
+        "00002|000100|00050",
+    );
+    library.annotation(
+        31,
+        "ANNNOTE1",
+        15,
+        2,
+        None,
+        Some("Read with <b>care</b>"),
+        0,
+        "1",
+        "00000|000010|00700",
+    );
+    library.annotation(
+        32,
+        "ANNUNDR1",
+        15,
+        5,
+        Some("next sentence prediction"),
+        None,
+        2,
+        "3",
+        "00002|000400|00050",
+    );
+    library.annotation(33, "ANNIMAG1", 15, 3, None, Some("Figure 1"), 1, "", "00001|000000|00100");
+    library.annotation(34, "ANNINK01", 15, 4, None, None, 1, "2", "00001|000000|00200");
+    library.annotation(35, "ANNEMPTY", 15, 1, Some("  "), Some(""), 1, "2", "00001|000000|00300");
+    library.annotation(36, "ANNTRASH", 15, 1, Some("deleted"), None, 1, "2", "00001|000000|00400");
+    library.live.execute("INSERT INTO deletedItems VALUES (36)", []).unwrap();
+
+    let items = items(&library);
+    let count = |citation_key: &str| {
+        items.iter().find(|item| item.citation_key == citation_key).unwrap().annotations
+    };
+    assert_eq!(count("devlin2019bert"), 4);
+    assert_eq!(count("He2016ResNet"), 0);
+    let bert = items.iter().find(|item| item.citation_key == "devlin2019bert").unwrap();
+    assert_eq!(bert.key, "BERT0001");
+
+    let read = annotations(library.path(), &["BERT0001".into(), "RESNET01".into()]).unwrap();
+    assert!(!read.contains_key("RESNET01"));
+    // Key, kind, passage, comment, page and its printed number.
+    type Kept<'a> = (&'a str, &'a str, &'a str, &'a str, Option<u32>, Option<&'a str>);
+    let kept: Vec<Kept> = read["BERT0001"]
+        .iter()
+        .map(|annotation| {
+            assert_eq!(annotation.attachment, "PDF00001");
+            assert_eq!(annotation.color.as_deref(), Some("#ffd400"));
+            (
+                annotation.key.as_str(),
+                annotation.kind,
+                annotation.text.as_str(),
+                annotation.comment.as_str(),
+                annotation.page,
+                annotation.page_label.as_deref(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        kept,
+        [
+            ("ANNNOTE1", "note", "", "Read with <b>care</b>", Some(1), Some("1")),
+            ("ANNIMAG1", "image", "", "Figure 1", Some(2), None),
+            ("ANNHIGH1", "highlight", "masked language model", "Key idea", Some(3), Some("3")),
+            ("ANNUNDR1", "underline", "next sentence prediction", "", Some(3), Some("3")),
+        ]
+    );
+}
+
+#[test]
+fn a_library_from_before_zoteros_reader_has_no_annotations() {
+    let library = library();
+    library.live.execute_batch("DROP TABLE itemAnnotations;").unwrap();
+    assert!(items(&library).iter().all(|item| item.annotations == 0));
+    assert!(annotations(library.path(), &["BERT0001".into()]).unwrap().is_empty());
+}
+
+#[test]
+fn only_a_link_into_zoteros_pdf_reader_is_opened() {
+    for url in [
+        "zotero://open-pdf/library/items/PDF00001",
+        "zotero://open-pdf/library/items/PDF00001?page=3",
+        "zotero://open-pdf/library/items/PDF00001?page=3&annotation=ANNHIGH1",
+    ] {
+        assert!(is_annotation_link(url), "{url}");
+    }
+    for url in [
+        "zotero://select/library/items/PDF00001",
+        "zotero://open-pdf/groups/1/items/PDF00001?page=3",
+        "zotero://open-pdf/library/items/PDF00001/extra",
+        "zotero://open-pdf/library/items/PDF00001?page=3&sel=x",
+        "zotero://open-pdf/library/items/PDF00001?page=",
+        "zotero://open-pdf/library/items/PDF00001?annotation=../../x",
+        "https://example.org/?zotero://open-pdf/library/items/PDF00001",
+    ] {
+        assert!(!is_annotation_link(url), "{url}");
+    }
+}
+
 /// Reads the Zotero library on this Mac (or `ZOTERO_DATA_DIR`) and prints
 /// what the picker and the import would get, for checking against a real
 /// Zotero: `cargo test --lib zotero::tests::real -- --ignored --nocapture`.
@@ -434,14 +579,31 @@ fn the_default_profile_names_the_data_directory() {
 #[ignore = "reads the Zotero library of whoever runs it"]
 fn real_library() {
     let chosen = std::env::var("ZOTERO_DATA_DIR").ok();
+    let started = std::time::Instant::now();
     let read = super::library(chosen.as_deref()).unwrap();
-    println!("{} collections", read.collections.len());
+    println!("{} collections, read in {:?}", read.collections.len(), started.elapsed());
     let items = read.items;
     println!(
-        "{} items, {} with a PDF on this Mac",
+        "{} items, {} with a PDF on this Mac, {} annotations",
         items.len(),
-        items.iter().filter(|item| item.pdf.is_some()).count()
+        items.iter().filter(|item| item.pdf.is_some()).count(),
+        items.iter().map(|item| item.annotations).sum::<usize>()
     );
+    let annotated: Vec<String> =
+        items.iter().filter(|item| item.annotations > 0).map(|item| item.key.clone()).collect();
+    let started = std::time::Instant::now();
+    let annotations = annotations(chosen.as_deref(), &annotated).unwrap();
+    let most = annotations.values().map(Vec::len).max().unwrap_or(0);
+    println!(
+        "{} items' annotations ({} in all, at most {} on one item) read in {:?}",
+        annotations.len(),
+        annotations.values().map(Vec::len).sum::<usize>(),
+        most,
+        started.elapsed()
+    );
+    for item in items.iter().filter(|item| item.annotations > 0) {
+        assert_eq!(annotations[&item.key].len(), item.annotations, "{}", item.key);
+    }
     let filter = std::env::var("ZOTERO_TITLE_FILTER").unwrap_or_default().to_lowercase();
     for item in items.iter().filter(|item| {
         filter.is_empty() || filter.split('|').any(|word| item.bibtex.to_lowercase().contains(word))

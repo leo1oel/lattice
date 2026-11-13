@@ -26,22 +26,23 @@ const COLLECTIONS: ZoteroCollection[] = [
 const entry = (key: string, title: string, extra = "") => `@article{${key},\n  title = {${title}},\n  author = {Lee, Ada},\n  year = {2024}${extra}\n}`;
 // Sparse attention sits in Thesis and in its Chapter 3 both.
 const CHAPTER: ZoteroItem[] = [
-  { citationKey: "Lee2024Sparse", pdf: "PDF00001", collections: ["THESIS01", "CHAP0003"], bibtex: entry("Lee2024Sparse", "Sparse attention for long documents", ",\n  doi = {10.1000/sparse}") },
-  { citationKey: "lee_dense_2024", pdf: null, collections: ["CHAP0003"], bibtex: entry("lee_dense_2024", "Dense retrieval for drafting") },
-  { citationKey: "vaswani2017attention", pdf: null, collections: ["CHAP0003"], bibtex: entry("vaswani2017attention", "Attention Is All You Need", ",\n  eprint = {1706.03762}") },
+  { key: "SPARSE01", citationKey: "Lee2024Sparse", pdf: "PDF00001", collections: ["THESIS01", "CHAP0003"], annotations: 12, bibtex: entry("Lee2024Sparse", "Sparse attention for long documents", ",\n  doi = {10.1000/sparse}") },
+  { key: "DENSE001", citationKey: "lee_dense_2024", pdf: null, collections: ["CHAP0003"], annotations: 0, bibtex: entry("lee_dense_2024", "Dense retrieval for drafting") },
+  { key: "ATTN0001", citationKey: "vaswani2017attention", pdf: null, collections: ["CHAP0003"], annotations: 0, bibtex: entry("vaswani2017attention", "Attention Is All You Need", ",\n  eprint = {1706.03762}") },
 ];
-const MAMBA: ZoteroItem = { citationKey: "gu_mamba_2023", pdf: null, collections: ["THESIS01"], bibtex: entry("gu_mamba_2023", "Mamba") };
-const LOOSE: ZoteroItem = { citationKey: "lee_loose_2024", pdf: null, collections: [], bibtex: entry("lee_loose_2024", "In no folder") };
+const MAMBA: ZoteroItem = { key: "MAMBA001", citationKey: "gu_mamba_2023", pdf: null, collections: ["THESIS01"], annotations: 0, bibtex: entry("gu_mamba_2023", "Mamba") };
+const LOOSE: ZoteroItem = { key: "LOOSE001", citationKey: "lee_loose_2024", pdf: null, collections: [], annotations: 0, bibtex: entry("lee_loose_2024", "In no folder") };
 const LIBRARY: ZoteroLibrary = { collections: COLLECTIONS, items: [...CHAPTER, MAMBA, LOOSE] };
 const IN_PAPERS = {
   arxivId: "1706.03762", title: "Attention Is All You Need", authors: "Vaswani, Ashish", citationKey: "vaswani2017attention",
   hasFullText: true, hasBlog: false, assetPaths: [],
 } as PaperSummary;
 
-/** Zotero answering with LIBRARY, its one read. */
-function zotero(command: string) {
-  return command === "zotero_library" ? Promise.resolve(LIBRARY) : Promise.reject(new Error(`unexpected ${command}`));
-}
+/** Zotero answering with `library`, its one read. */
+const zoteroWith = (library: ZoteroLibrary) => (command: string) =>
+  command === "zotero_library" ? Promise.resolve(library) : Promise.reject(new Error(`unexpected ${command}`));
+/** Zotero answering with LIBRARY. */
+const zotero = zoteroWith(LIBRARY);
 
 function sheet(onAdd = vi.fn(), onClose = vi.fn()) {
   render(
@@ -115,7 +116,9 @@ describe("Add papers from Zotero", () => {
     const held = screen.getByRole("checkbox", { name: "Attention Is All You Need" });
     expect(held).toBeDisabled();
     expect(within(held.closest("li")!).getByText("In Papers")).toBeInTheDocument();
-    expect(within(screen.getByRole("checkbox", { name: "Sparse attention for long documents" }).closest("li")!).getByText("PDF")).toBeInTheDocument();
+    const sparse = within(screen.getByRole("checkbox", { name: "Sparse attention for long documents" }).closest("li")!);
+    expect(sparse.getByText("PDF")).toBeInTheDocument();
+    expect(sparse.getByTitle("12 annotations")).toHaveTextContent("12");
     expect(screen.getByRole("button", { name: /^Add papers$/ })).toBeDisabled();
 
     fireEvent.click(screen.getByRole("checkbox", { name: "Sparse attention for long documents" }));
@@ -124,10 +127,35 @@ describe("Add papers from Zotero", () => {
     expect(screen.getByRole("status")).toHaveTextContent("2 papers selected");
     fireEvent.click(screen.getByRole("button", { name: "Add 2 papers" }));
     expect(onAdd).toHaveBeenCalledWith([
-      { id: "zotero:Lee2024Sparse", input: CHAPTER[0].bibtex, label: "Sparse attention for long documents", pdf: "PDF00001" },
+      {
+        id: "zotero:Lee2024Sparse", input: CHAPTER[0].bibtex, label: "Sparse attention for long documents", pdf: "PDF00001",
+        annotations: { item: "SPARSE01", dataDir: null },
+      },
       { id: "zotero:lee_dense_2024", input: CHAPTER[1].bibtex, label: "Dense retrieval for drafting", pdf: undefined },
     ]);
     expect(invoke.mock.calls).toEqual([["zotero_library", { dataDir: null }]]);
+  });
+
+  it("ticks a paper Papers holds only for the annotations it has in Zotero", async () => {
+    const annotated = { ...LIBRARY, items: LIBRARY.items.map((item) => item.key === "ATTN0001" ? { ...item, annotations: 3 } : item) };
+    invoke.mockImplementation(zoteroWith(annotated));
+    const onAdd = sheet();
+    await screen.findByRole("tree", { name: "Zotero folders" });
+    fireEvent.click(screen.getByRole("button", { name: "Expand Thesis" }));
+    openFolder(LONG_NAME);
+    const held = await screen.findByRole("checkbox", { name: "Attention Is All You Need" });
+    expect(held).toBeEnabled();
+    expect(within(held.closest("li")!).getByText("In Papers")).toBeInTheDocument();
+    // With new papers beside it, the button counts the papers it adds.
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select all" }));
+    expect(screen.getByRole("button", { name: "Add 3 papers" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select all" }));
+    fireEvent.click(held);
+    fireEvent.click(screen.getByRole("button", { name: "Add annotations" }));
+    expect(onAdd).toHaveBeenCalledWith([{
+      id: "zotero:vaswani2017attention", input: annotated.items[2].bibtex, label: "Attention Is All You Need", pdf: undefined,
+      existing: "vaswani2017attention", annotations: { item: "ATTN0001", dataDir: null },
+    }]);
   });
 
   it("says an empty folder is empty, with nothing to add", async () => {

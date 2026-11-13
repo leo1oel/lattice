@@ -211,7 +211,14 @@ export async function createAppSizeReport(workspace = process.cwd()) {
 // Raised from 1.39 MiB for the model endpoint (#825): its five Settings search
 // rows live in the index the command palette builds at startup; the pane and
 // its probe load on demand, +0.66 KB (1,457,662 bytes on CI).
-const EAGER_JS_BUDGET_BYTES = Math.floor(1.391 * 1024 * 1024);
+// Raised from 1.391 MiB for resuming a switched-away Overleaf document from
+// its proven text: the proof rides in the live-editing hook every project
+// mounts, +2.1 KB (1,456,461 -> 1,458,653 bytes, a local build and CI alike).
+// Raised once from 1.392 MiB to 1.4 MiB, with headroom, after #864 and the
+// Zotero annotations (#862) each fit on its own but merged to 1,460,097 bytes
+// on CI: #862 already loads its note writer and link opener on demand, and
+// what stays eager is the Add papers batch in the app hook that runs it.
+const EAGER_JS_BUDGET_BYTES = Math.floor(1.4 * 1024 * 1024);
 // A perf-lab build (VITE_PERF_LAB=1, scripts/perf-lab.mjs) compiles in the
 // lab's hooks (~0.3 KB eager on 2026-11-04). They never ship, so they must not
 // spend the release budget: a release at its limit would fail every lab build.

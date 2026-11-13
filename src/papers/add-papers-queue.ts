@@ -15,14 +15,21 @@ export type PaperAddItem = {
   label: string;
   /** The Zotero attachment whose PDF becomes its text (zotero-browser.tsx). */
   pdf?: string;
+  /** The Zotero item whose annotations go to the paper's note, and the data folder the browser read (null: the one Lattice finds). */
+  annotations?: { item: string; dataDir: string | null };
+  /** The citation key of the paper Papers already holds: only its annotations come in. */
+  existing?: string;
   state: "waiting" | "adding" | "added" | "failed" | "cancelled";
   citationKey?: string;
-  /** Why it failed, or what was added without its full text. */
+  /** Why it failed, what was added without its full text, or where its annotations went. */
   note?: string;
 };
 
-/** What one import answered, as much of it as a row says. */
-export type PaperAddOutcome = { citationKey?: string; cancelled?: boolean; fetchError?: string } | undefined;
+/** What one import answered, as much of it as a row says; `note` says where its annotations went. */
+export type PaperAddOutcome = { citationKey?: string; cancelled?: boolean; fetchError?: string; note?: string } | undefined;
+
+/** What a batch is given for each paper. */
+export type PaperAddRequest = Pick<PaperAddItem, "id" | "input" | "label" | "pdf" | "annotations" | "existing">;
 
 let queue: readonly PaperAddItem[] = [];
 let running = false;
@@ -59,8 +66,8 @@ export function clearAddQueue() {
  * the batch began in is still open; once it is not, the batch stops.
  */
 export async function runAddQueue(
-  items: ReadonlyArray<Pick<PaperAddItem, "id" | "input" | "label" | "pdf">>,
-  importOne: (item: Pick<PaperAddItem, "input" | "label" | "pdf">) => Promise<PaperAddOutcome>,
+  items: ReadonlyArray<PaperAddRequest>,
+  importOne: (item: Omit<PaperAddRequest, "id">) => Promise<PaperAddOutcome>,
   current: () => boolean,
 ) {
   if (running || !items.length) return;
@@ -85,7 +92,8 @@ export async function runAddQueue(
         if (!result || (result.cancelled && !result.citationKey)) update(item.id, { state: "cancelled" });
         else {
           // The converter's stderr ends with its one meaningful "Error: …" line.
-          const note = result.fetchError?.trim().split("\n").filter((line) => line.trim()).pop()?.replace(/^Error:\s*/, "");
+          const failure = result.fetchError?.trim().split("\n").filter((line) => line.trim()).pop()?.replace(/^Error:\s*/, "");
+          const note = [failure, result.note].filter(Boolean).join(" · ") || undefined;
           update(item.id, { state: "added", citationKey: result.citationKey, note });
         }
       } catch (reason) {

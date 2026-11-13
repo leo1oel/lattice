@@ -8,33 +8,11 @@ name: Bench harness
 # blank page before anyone saw why. The ci.yml benchmark jobs do not cover it:
 # they never serve, switch language or stop a server.
 #
-# It costs a production build and three Chrome sessions, so it runs only when
-# a harness input changes rather than on every pull request.
-# scripts/perf-bench/bench-harness-paths.test.mjs fails when a file the
-# harness imports is missing from these filters; keep the two lists equal.
+# It costs a production build and three Chrome sessions, so it runs on demand
+# only (Actions > Bench harness > Run workflow). `pnpm signoff`
+# (docs/agent-validation.md) runs the same test locally when a file the
+# harness imports changes (scripts/perf-bench/harness-inputs.mjs).
 on:
-  push:
-    branches: [main]
-    paths: &harness-paths
-      - "scripts/perf-bench.mjs"
-      - "scripts/perf-bench/**"
-      - "scripts/lib/util.mjs"
-      - "scripts/perf-fixture.mjs"
-      - "scripts/private-fonts.ts"
-      - "scripts/react-compiler-suppressions.ts"
-      - "scripts/vitest-balanced-shards.ts"
-      - "scripts/vitest-fs-cache-key.ts"
-      - "tools/mock-backend/**"
-      - "tools/perf-bench/**"
-      - "src/index.css"
-      - "vite.config.ts"
-      - "vitest.config.ts"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - ".github/actions/setup-pnpm/**"
-      - ".github/workflows/bench-harness.yml"
-  pull_request:
-    paths: *harness-paths
   workflow_dispatch:
 
 jobs:

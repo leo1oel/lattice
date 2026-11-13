@@ -76,6 +76,14 @@ const isHighSurrogate = (code: number) => code >= 0xd800 && code <= 0xdbff;
 
 const segmentCache = new WeakMap<PmNode, { source: string; paperSpans: boolean; segments: Segment[] }>();
 
+type TableRows = { cells: { from: number; to: number }[] }[];
+// A table maps a caret through its whole source: splitting a large table's
+// rows again on every lookup cost ~75 µs a call in docs/codebase-map.md's
+// tables, against ~1 µs in prose. A table and its cells are immutable nodes,
+// so each keeps its rows, and each cell its segments, while its source holds.
+const tableRowsCache = new WeakMap<PmNode, { source: string; rows: TableRows | null }>();
+const cellSegmentCache = new WeakMap<PmNode, { source: string; segments: Segment[] }>();
+
 export type Placement = Pick<Block, "bodyFrom" | "textFrom" | "textTo" | "row" | "column">;
 const placementCache = new WeakMap<MarkdownBaseline, Placement[]>();
 
@@ -572,8 +580,26 @@ function sourceInSegments(segments: readonly Segment[], offset: number, snap: Sn
   return snap === "backward" && previous ? previous.pmTo : null;
 }
 
+/** `tableRows` of `table`, split once per source. */
+function cachedTableRows(table: PmNode, source: string, rowCount: number): TableRows | null {
+  const cached = tableRowsCache.get(table);
+  if (cached && cached.source === source) return cached.rows;
+  const rows = tableRows(source, rowCount);
+  tableRowsCache.set(table, { source, rows });
+  return rows;
+}
+
+/** `alignBlock` of a table cell against its source, aligned once per source. */
+function cellSegments(cell: PmNode, source: string): Segment[] {
+  const cached = cellSegmentCache.get(cell);
+  if (cached && cached.source === source) return cached.segments;
+  const segments = alignBlock(cell, source);
+  cellSegmentCache.set(cell, { source, segments });
+  return segments;
+}
+
 /** The table's source rows (header, delimiter, body…) with each cell's content range, block-relative. */
-function tableRows(source: string, rowCount: number): { cells: { from: number; to: number }[] }[] | null {
+function tableRows(source: string, rowCount: number): TableRows | null {
   const lines: { from: number; text: string }[] = [];
   let from = 0;
   for (const text of source.split("\n")) {
@@ -617,7 +643,7 @@ function tableCell(table: PmNode, map: TableMap, row: number, column: number) {
 
 function tablePositionToSource(table: PmNode, source: string, relative: number): number | null {
   const map = TableMap.get(table);
-  const rows = tableRows(source, map.height);
+  const rows = cachedTableRows(table, source, map.height);
   if (!rows) return null;
   const $pos = table.resolve(relative - 1);
   let depth = $pos.depth;
@@ -629,14 +655,14 @@ function tablePositionToSource(table: PmNode, source: string, relative: number):
   const range = sourceRow?.cells[rect.left];
   if (!range) return null;
   const cell = $pos.node(depth);
-  const segments = alignBlock(cell, source.slice(range.from, range.to));
+  const segments = cellSegments(cell, source.slice(range.from, range.to));
   const inside = positionInSegments(segments, relative - 1 - cellOffset);
   return inside == null ? null : range.from + inside;
 }
 
 function tableSourceToPosition(table: PmNode, source: string, offset: number, explicit: boolean, snap: Snap): number | null {
   const map = TableMap.get(table);
-  const rows = tableRows(source, map.height);
+  const rows = cachedTableRows(table, source, map.height);
   if (!rows) return null;
   for (const [sourceRow, row] of rows.entries()) {
     const index = row.cells.findIndex((cell) => offset >= cell.from - 1 && offset <= cell.to);
@@ -651,7 +677,7 @@ function tableSourceToPosition(table: PmNode, source: string, offset: number, ex
     if (sourceRow === 1) return start;
     // A cell merged away: its origin for an authored layout; omitted for an inferred one.
     if (target.covered) return explicit ? start : null;
-    const segments = alignBlock(target.cell, source.slice(range.from, range.to));
+    const segments = cellSegments(target.cell, source.slice(range.from, range.to));
     const inside = sourceInSegments(segments, Math.max(0, offset - range.from), snap);
     return inside == null ? (snap === "exact" ? null : start) : target.pos + inside;
   }
