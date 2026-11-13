@@ -24,7 +24,7 @@ use windows::Win32::{
     UI::{
         Input::KeyboardAndMouse::{
             GetKeyboardState, MAPVK_VK_TO_VSC, MapVirtualKeyW, SetKeyboardState, VK_CONTROL,
-            VK_LCONTROL, VK_LSHIFT, VK_SHIFT, VkKeyScanW,
+            VK_ESCAPE, VK_LCONTROL, VK_LSHIFT, VK_RETURN, VK_SHIFT, VkKeyScanW,
         },
         WindowsAndMessaging::{
             PostMessageW, SendMessageW, SetForegroundWindow, WM_CLOSE, WM_KEYDOWN, WM_KEYUP,
@@ -65,18 +65,25 @@ pub fn native(window: &Window) -> Result<Native> {
 /// `command` (Windows' shortcut modifier, where macOS has ⌘). Call
 /// `release_keys` after `QUEUE_SETTLE`.
 pub fn send_key(native: Native, character: char, command: bool) -> Result<()> {
-    let mut units = [0u16; 2];
-    let [unit] = character.encode_utf16(&mut units) else {
-        return Err(anyhow!("{character:?} is not one UTF-16 unit"));
+    // Escape and Enter are their own keys: the layout would type the
+    // control characters with Ctrl ([ and J).
+    let (virtual_key, shift) = match character {
+        '\u{1b}' => (u32::from(VK_ESCAPE.0), false),
+        '\n' | '\r' => (u32::from(VK_RETURN.0), false),
+        _ => {
+            let mut units = [0u16; 2];
+            let [unit] = character.encode_utf16(&mut units) else {
+                return Err(anyhow!("{character:?} is not one UTF-16 unit"));
+            };
+            // The low byte is the virtual key of the current layout; bit 0
+            // of the high byte says the character needs Shift.
+            let scan = unsafe { VkKeyScanW(*unit) };
+            if scan == -1 {
+                return Err(anyhow!("{character:?} has no key on this keyboard layout"));
+            }
+            ((scan & 0xff) as u32, scan & 0x100 != 0)
+        }
     };
-    // The low byte is the virtual key of the current layout; bit 0 of the
-    // high byte says the character needs Shift.
-    let scan = unsafe { VkKeyScanW(*unit) };
-    if scan == -1 {
-        return Err(anyhow!("{character:?} has no key on this keyboard layout"));
-    }
-    let virtual_key = (scan & 0xff) as u32;
-    let shift = scan & 0x100 != 0;
 
     let mut state = [0u8; 256];
     unsafe { GetKeyboardState(&mut state)? };

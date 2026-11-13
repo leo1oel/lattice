@@ -120,7 +120,8 @@ jobs:
       - run: cargo test --release --locked --workspace -- --include-ignored
       # The scenario ends by quitting with text typed and not yet saved
       # (its result's `after_quit`); once the app has exited, the file must
-      # hold that text.
+      # hold that text. A PDF step that finds the window drawing no frames
+      # captures the screen once, to show what was in front of it.
       # The editor-adapter steps wait for the window to paint carets, gutter
       # marks and cards. A CAMetalDisplayLink stops delivering frames once
       # the runner's display stops compositing the window, which left those
@@ -131,6 +132,7 @@ jobs:
         timeout-minutes: 10
         env:
           GPUI_LAB_IGNORE_OCCLUSION: "1"
+          LATTICE_E2E_FRAMELESS_SHOT: ${{ runner.temp }}/e2e-macos-frameless.png
         run: |
           project="$RUNNER_TEMP/e2e-project"
           out="$RUNNER_TEMP/e2e-macos.json"
@@ -145,7 +147,9 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: gpui-e2e-macos
-          path: ${{ runner.temp }}/e2e-macos.json
+          path: |
+            ${{ runner.temp }}/e2e-macos.json
+            ${{ runner.temp }}/e2e-macos-frameless.png
           if-no-files-found: ignore
       # The parity report (gpui/README.md, "Parity harness"): the Main window
       # in light and dark, against the Tauri frontend on the mock-backend

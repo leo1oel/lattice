@@ -23,6 +23,7 @@ mod native;
 #[path = "native_windows.rs"]
 mod native;
 mod notices;
+mod outline;
 mod paint_probe;
 mod panels;
 mod pdf;

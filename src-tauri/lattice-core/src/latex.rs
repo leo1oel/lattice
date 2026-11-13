@@ -171,6 +171,12 @@ pub fn read_kept_pdf(root: &Path, document: &str) -> Result<Vec<u8>, String> {
     Ok(bytes)
 }
 
+/// Where the copy `read_kept_pdf` reads lives, for a viewer that reads the
+/// file itself: `None` until this copy has built `document`.
+pub fn kept_pdf_path(root: &Path, document: &str) -> Option<PathBuf> {
+    shown_pdf::kept(root, document)
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BuildResult {

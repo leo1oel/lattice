@@ -34,6 +34,7 @@ impl Shell {
             return;
         }
         self.queued_build = None;
+        self.build_target = None;
         let Some(project) = &self.project else {
             return;
         };

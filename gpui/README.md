@@ -8,19 +8,21 @@ Its backend is the Tauri app's own: `lattice-core` (`../src-tauri/lattice-core`)
 1. Opens a project folder as the Tauri app does (a folder Lattice did not create is adopted the same way), with the Project tree on the left: the same files shown and hidden, New file, New folder, Rename, a dragged row moved into a folder, Delete, Set as main document, Show hidden files.
 2. Edits sources in Zed's editor with LaTeX highlighting in Lattice's code themes, search (Zed's buffer search bar) and an optional Vim mode (Zed's Vim); in a `.tex` file, a card for the citation key or `\ref` label under the pointer, completion of commands, citation keys and labels, and TexLab's diagnostics (when `texlab` is installed), through Lattice's editor adapter (below).
 3. Saves as the Tauri app does: after a pause in typing, on leaving the editor, and before a tab or window closes, another project opens in its window or the app quits, merging an edit made outside Lattice since the file was loaded rather than writing over it; an outside edit reloads a clean buffer, and a file moved or deleted outside Lattice is followed, closed or held with its edits.
-4. Shows the PDF on the right, rendered natively by PDFium, and jumps between it and the source with SyncTeX: ⌘⇧J / Ctrl+Shift+J (or the PDF toolbar's locate button) marks the caret's line in the PDF, and a double-click in the PDF opens its source line.
+4. Shows the PDF on the right, rendered natively by PDFium, in the Tauri app's viewer: page navigation and a typed page, Back and Forward over link jumps, the outline, Find in PDF (Match case, Whole word, the match counter), zoom steps, a typed zoom, ⌘-wheel / Ctrl-wheel and pinch around the pointer, Fit width and Fit height, dark pages and Save PDF as…; a toolbar 640px or narrower folds the secondary controls into a ⋯ menu, as the Tauri app's does. A drag selects text and ⌘C / Ctrl+C copies it; a link jumps (Back returns) or opens in the browser. A rebuild redraws only the pages it changed. The live PDF can move into a window of its own, which opens again, behind the workspace, when the project opens next; each other root document built keeps its last PDF in a tab of its own; a PDF of the project opens from the tree in a tab among the documents.
+   It jumps between the PDF and the source with SyncTeX: ⌘⇧J / Ctrl+Shift+J (or the PDF toolbar's locate button) marks the caret's line in the PDF, a double-click in the PDF opens its source line, and an Outline row opens its heading and marks it in the PDF; the Outline marks the section the caret of the editor in front is in.
 5. Builds with lattice-core's latexmk build on one click (or ⌘B / Ctrl+B; ⇧-click rebuilds clean), and after each save and each outside edit it loads (the Tauri app's default automatic builds), and reloads the PDF in place. The Build button's hover card lists the passes latexmk ran; a build can be stopped, and the build files cleaned. The build's diagnostics are the Tauri app's card over the PDF (or docked under it): TeX's messages in plain words with the failing line quoted, a typo's one-click fix, a missing package's install, and errors that jump to their line (F8 / ⇧F8 step through them).
 6. The TeX doctor (the Tauri app's Settings › TeX doctor, in a sheet of its own until Settings is ported), the setup wizard that installs BasicTeX (TeX Live on Windows) when a build finds no TeX, and the status bar's word counts (the manuscript's through TeXcount, this file's, the selection's).
 7. Lays the window out as the Tauri app does (Trellis on GPUI Kit's dock): Project and the Agent over Papers on the left, the documents in the center, the PDF on the right, each a rounded card with a 40px strip of tabs. Tabs drag between groups and out of a region (whose neighbours take its room), panels float, split, maximize, hide and close from their ⋯ menu, and a narrow strip ellipsizes documents' tabs, drops named panels to their icons and lets the Build chip go before anything clips.
 8. Keeps named workspaces, shared by every project (a dot while the project's layout differs; "+", rename in place, save, revert, duplicate, move, delete with undo), the Writing and Reading presets and focus mode over them, and each project's own layout, restored when it opens again.
 9. Reaches every command from the command palette (⌘K), the keymap, the shortcut sheet (⌘?) and the menu bar; opens projects in new windows or as tabs in one.
 
-Not yet: the visual Markdown editor, Overleaf, the papers library and the Agent (their panels hold their places with a note), canvas, spreadsheet, slides, live preview and i18n.
+Not yet: the visual Markdown editor, Overleaf, the papers library and the Agent (their panels hold their places with a note), canvas, spreadsheet, slides, live preview, i18n, and in the PDF its annotations, comment column, review export and citation hover cards.
 
 ## License
 
 This directory is GPL-3.0-or-later ([`LICENSE`](LICENSE)), because the app links Zed's GPL-3.0-or-later crates (editor, search, Vim, workspace).
 `compat/` is Apache-2.0 ([`LICENSE-APACHE`](LICENSE-APACHE)), and the upstream crates in `patches/` keep their Apache-2.0 license, with Lattice's diffs under it.
+Two Lucide icons, `crates/lattice-ui/assets/icons/download.svg` and `ellipsis.svg`, are copied unmodified from GPUI Kit's assets and keep Lucide's license ([`crates/lattice-ui/assets/LICENSE-LUCIDE`](crates/lattice-ui/assets/LICENSE-LUCIDE)).
 Everything outside `gpui/`, the Tauri app and the backend crate the two apps share (`lattice-core`) included, stays Apache-2.0 ([`../LICENSE`](../LICENSE)); Apache-2.0 code can be part of this GPL work, not the other way round, so nothing under `gpui/` may be copied out of it into the Apache-2.0 tree.
 
 ## Running it
@@ -47,7 +49,7 @@ The first build fetches Zed at the pinned revision and compiles about 1,200 crat
 | ⌘B / Ctrl+B | Save edited files and build |
 | ⌘S / Ctrl+S | Save edited files and build |
 | ⌘⇧J / Ctrl+Shift+J | Mark the caret's line in the PDF (SyncTeX); a double-click in the PDF goes back |
-| ⌘F / Ctrl+F | Find in the current file (Zed's search bar: regex, case, whole word, replace) |
+| ⌘F / Ctrl+F | Find in the current file (Zed's search bar: regex, case, whole word, replace); in a focused PDF, Find in PDF |
 | ⌘K or ⌘⇧P | Command palette: every command, and the project's files |
 | ⌘⇧/ (⌘?) | Keyboard shortcuts |
 | ⌘1 … ⌘9 | The workspace at that place |
@@ -156,9 +158,12 @@ Zed's community LaTeX extension was not used: it carries no license.
 
 ### The PDF preview
 
-PDFium (through `pdfium-render`) runs on a dedicated thread, because neither PDFium nor its documents may cross threads.
+PDFium (through `pdfium-render`) runs on a dedicated thread, because neither PDFium nor its documents may cross threads; one worker serves every viewer (the live PDF, the root documents' tabs, the separate window). Drawing what is on screen goes first, and a search reads the pages one at a time behind it, so a long document's search never holds up a scroll.
 The PDF is read into memory on every (re)load, so latexmk can rewrite it while it is shown, and Windows does not refuse the write.
-Pages are laid out from their sizes at once and drawn only near the viewport; images two pages beyond the visible ones are released from memory and from the GPU atlas.
+Pages are laid out from their sizes at once (`pdf/layout.rs`, the Tauri viewer's column: 8px of border, 10px between pages) and scroll in one container; only the pages near the viewport are drawn, and images two pages beyond the visible ones are released from memory and from the GPU atlas. A page larger than 6 million device pixels at its zoom is drawn at that size, with the part on screen drawn again at full size on top, as PDF.js caps its canvases.
+A zoom stretches the pages' images at once and draws them again once it rests (80 ms), as the Tauri app previews a zoom as a transform.
+A rebuild compares each page's signature (`lattice-core`'s `pdf_pages`) with the last copy's: a page that draws the same keeps its image and text, and a changed one keeps its old image until the new one is drawn. A new page count, outline or page size shows the document anew.
+Dark pages are the Tauri app's CSS filter, `invert(0.86) hue-rotate(180deg)`, applied to PDFium's bitmap, so hues keep and the SyncTeX mark, search hits and the selection keep their own colours. The choice, the fit and zoom a viewer opens with, and, per project, whether its PDF is in the separate window and where that window was left are kept in `pdf.json` in the app's state directory (`LATTICE_GPUI_STATE_DIR`; a scripted run keeps them in memory).
 
 ### The build
 
@@ -176,6 +181,7 @@ The editor saves the way the Tauri app's open documents do (`../src/app/use-docu
 ### SyncTeX
 
 Both directions are `lattice-core`'s (`latex::forward_search`, `latex::inverse_search`). A jump to the PDF saves first and builds when the PDF is older than the sources, as the Tauri app's `ensureCompiled` does; the PDF scrolls the line's box to the middle of the panel and marks it with an accent box that fades after 1.44 s.
+When the live PDF is in its own window, that window comes forward with the mark and the workspace's right dock stays shut.
 
 ## Scripted runs
 
@@ -184,7 +190,7 @@ cp -R fixtures/e2e /tmp/lattice-gpui-e2e        # the scenario edits and builds 
 target/release/lattice-gpui /tmp/lattice-gpui-e2e --scenario e2e --out e2e.json
 ```
 
-`e2e` runs on macOS and Windows; `perf`, `memory`, `ime`, `ime-protocol`, `shot` and `parity` are macOS only.
+`e2e` runs on macOS and Windows; `perf`, `memory`, `ime`, `ime-protocol`, `shot`, `parity` and `pdf-shots` are macOS only.
 
 A scripted run keeps the workspaces and the projects' layouts in memory, so it neither reads nor changes the writer's own; `LATTICE_GPUI_STATE_DIR` names a directory for them instead (an ordinary run keeps them in the system's data directory, under `lattice-gpui/`). `LATTICE_WINDOW_SIZE=1015x680` opens the window at another size, as a smaller screen would (GitHub's runners shrink it to about 1015px wide).
 
@@ -193,6 +199,7 @@ A scripted run keeps the workspaces and the projects' layouts in memory, so it n
   A native drag has a frame drawn before its press and after every event, since input lands on the last frame's hitboxes; a window the platform is not presenting (covered, or on a locked screen) draws none itself, so the scenario draws it, and the step's detail records how many the window drew.
   It also jumps from a `.bib` entry to the PDF, and checks that closing a dirty tab or a window within the autosave pause saves what was typed, that closing the tab of a file deleted outside Lattice takes down its notice, and that with edits that cannot be saved, "Open in New Window" keeps the window and opens no other, and opening another project keeps the one shown.
   In `main.tex` it checks the editor adapter: the citation and reference cards open when native mouse moves rest on a key or label and close when the pointer leaves, remote carets draw and name themselves and fade, a block widget pushes the lines below it down, a gutter mark set on a line is painted there and opens its card, TexLab's diagnostic for an unknown `\ref` shows as a mark whose card opens and clears once the reference goes, and with the bibliography unlinked, TexLab's diagnostic on the cited key opens its lint card under the citation card (both skipped without `texlab`), a card opens over its range's last character and not from the space past its line's end, a `.tex` file renamed to `.txt` is never synced to TexLab, and native keys complete a citation key, `\textbf`, and a package in the middle of `\usepackage`'s list (prefix matches first, the bare name inserted). With `LATTICE_E2E_SHOTS=DIR` (macOS) it saves the window at each card, the carets and the completion menus.
+  Its PDF steps write and build a second root document of twelve pages (`scenario/e2e/pdf.rs`): its PDF becomes the live one and main.tex keeps a tab of its own; then the outline (its heading lines kept past a comment block of wide characters), page navigation and a typed page, zoom and both fits, ⌘F / Ctrl+F with the query typed and Enter, a section link clicked with the native mouse and undone with Back (and links to a file or an app's own scheme left unfollowed), a selection dragged with the native mouse and copied with ⌘C / Ctrl+C, dark pages, a rebuild that changes one page and redraws only that one, the page window letting go of far pages, and the separate window, opened again when its project is shown again; building main.tex again trades the two tabs back.
   It ends by quitting with text typed and not yet saved, naming the file and the text in the result's `after_quit`; the file holds the text once the app has exited, which CI checks.
   It needs `chapters/intro.tex` and `references.bib` in the project, and `main.tex` as the fixture has it.
 - `perf`: Lattice's perf-lab `longTex` scenario: open `long.tex`, fling 200 wheel events of 120 px 8 ms apart with a per-frame meter, click a line, type with 110 ms between keys, then read `footprint`.
@@ -200,6 +207,7 @@ A scripted run keeps the workspaces and the projects' layouts in memory, so it n
 - `ime`: selects a Pinyin input method for the window and types `nihao` + space with native key events.
 - `ime-protocol`: makes the `NSTextInputClient` calls an input method makes (marked text per keystroke, then the commit) directly on the view.
 - `shot`: waits for the project's PDF to draw, then saves the window as `LATTICE_SHOT_OUT` (a PNG), for side-by-side look reviews against Paper's App screens. Built with `--features offscreen-shots` it draws and reads the frame back itself, so the screen may be locked; otherwise it uses `screencapture`, which needs the window on an unlocked screen.
+- `pdf-shots`: the PDF viewer's states one after another (at rest, Find with its hits, the ⋯ menu, the Outline, a selection, dark pages, the wide toolbar, the panel while the PDF is in its own window and that window, no PDF yet), saved as PNGs in `LATTICE_SHOT_DIR`, for a look review against the Tauri app.
 - `parity`: the parity harness's half of a scene (below): the pointer parked, the PDF shown and the build chip staged as a clean 1.2 s build; then it saves the window as `LATTICE_SHOT_OUT` and lists every named region's bounds and the text style of each run of text in it in the result.
 
 On macOS the keys go through the active input source, so select an ASCII layout (ABC, U.S.) before running `e2e`; a Pinyin input method turns the typed macro into candidates.
