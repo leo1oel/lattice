@@ -192,6 +192,7 @@ impl Shell {
         for panel in gone_panels {
             panel.on_removed(window, cx);
         }
+        self.sync_shown(&doc, window, cx);
         self.titles_changed(cx);
         if !gone.is_empty() {
             self.workspace.update(cx, |workspace, cx| {
@@ -201,6 +202,40 @@ impl Shell {
                     }
                 })
             });
+        }
+    }
+
+    /// Tell each panel when it becomes, or stops being, the selected tab of
+    /// a docked or floating panel, as GPUI Kit's tab groups did (an HTML
+    /// file's preview island runs only while its tab is shown). A hidden
+    /// panel's views are not shown; a panel gone heard `on_removed` instead.
+    fn sync_shown(&mut self, doc: &LayoutDocument, window: &mut Window, cx: &mut Context<Self>) {
+        let registry = self.views.borrow().clone();
+        let now: std::collections::HashMap<gpui::EntityId, Arc<dyn BasePanelView>> =
+            trellis_layout::panels_of(doc, false)
+                .into_iter()
+                .filter_map(|panel| registry.get(&panel.selected))
+                .map(|panel| (panel.view().entity_id(), panel.clone()))
+                .collect();
+        let left: Vec<_> = registry
+            .values()
+            .filter(|panel| {
+                let id = panel.view().entity_id();
+                self.shown_panels.contains(&id) && !now.contains_key(&id)
+            })
+            .cloned()
+            .collect();
+        let came: Vec<_> = now
+            .iter()
+            .filter(|(id, _)| !self.shown_panels.contains(id))
+            .map(|(_, panel)| panel.clone())
+            .collect();
+        self.shown_panels = now.keys().copied().collect();
+        for panel in left {
+            panel.set_active(false, window, cx);
+        }
+        for panel in came {
+            panel.set_active(true, window, cx);
         }
     }
 

@@ -121,6 +121,9 @@ pub struct Shell {
     reset_undo: Option<workspace_flow::ResetUndo>,
     /// Each view's panel taking the keyboard focuses its view.
     view_focus: std::collections::HashMap<String, Subscription>,
+    /// The panels shown as their panel's selected tab, last told so
+    /// ([`Shell::sync_shown`]).
+    shown_panels: std::collections::HashSet<gpui::EntityId>,
     titlebar_drag: TitlebarDrag,
     /// A panel is being dragged: the webview islands stand aside.
     panel_dragging: bool,
@@ -358,6 +361,7 @@ impl Shell {
             last_document: LayoutDocument::default(),
             reset_undo: None,
             view_focus: Default::default(),
+            shown_panels: Default::default(),
             titlebar_drag: TitlebarDrag::default(),
             panel_dragging: false,
             file_tree,
