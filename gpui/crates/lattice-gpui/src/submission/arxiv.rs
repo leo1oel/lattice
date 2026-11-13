@@ -256,25 +256,38 @@ impl ArxivExportSheet {
     }
 
     fn export(&mut self, cx: &mut Context<Self>) {
-        let Some(digest) = self.pack().map(|pack| pack.digest.clone()) else {
+        if self.pack().is_none() {
             return;
-        };
+        }
         let name = archive_name(&self.project_name);
         let directory = dirs::download_dir()
             .or_else(dirs::home_dir)
             .unwrap_or_else(|| self.root.clone());
         let chosen = cx.prompt_for_new_path(&directory, Some(name.as_str()));
-        let root = self.root.clone();
-        let options = self.options;
         cx.spawn(async move |this, cx| {
             let Ok(Ok(Some(zip_path))) = chosen.await else {
                 return;
             };
-            this.update(cx, |this, cx| {
-                this.exporting = true;
-                cx.notify();
-            })
-            .ok();
+            this.update(cx, |this, cx| this.export_to(zip_path, cx))
+                .ok();
+        })
+        .detach();
+    }
+
+    /// Write the checked pack to `zip_path` (the path the save panel gave).
+    pub fn export_to(&mut self, zip_path: PathBuf, cx: &mut Context<Self>) {
+        let Some(digest) = self.pack().map(|pack| pack.digest.clone()) else {
+            return;
+        };
+        let name = zip_path
+            .file_name()
+            .map(|name| name.to_string_lossy().to_string())
+            .unwrap_or_else(|| archive_name(&self.project_name));
+        let root = self.root.clone();
+        let options = self.options;
+        self.exporting = true;
+        cx.notify();
+        cx.spawn(async move |this, cx| {
             let written = cx
                 .background_executor()
                 .spawn({
@@ -315,6 +328,18 @@ impl ArxivExportSheet {
             .ok();
         })
         .detach();
+    }
+
+    /// Show `check` as the result, the check under way dropped: the parity
+    /// harness stages the Tauri bench's pack (`bench-arxiv.ts`) this way.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn stage_for_parity(&mut self, check: ArxivCheck, cx: &mut Context<Self>) {
+        self.generation += 1;
+        self.checks.cancel();
+        self._check = None;
+        self._staged = None;
+        self.phase = Phase::Checked(check);
+        cx.notify();
     }
 
     fn close(&mut self, cx: &mut Context<Self>) {

@@ -121,6 +121,7 @@ impl Shell {
                 |this, dialog, event, window, cx| match event {
                     RenameEvent::Close => {
                         this.rename = None;
+                        this.focus_front(window, cx);
                         cx.notify();
                     }
                     RenameEvent::Submit(name) => {
@@ -134,7 +135,7 @@ impl Shell {
 
     /// Save the open edits, rename on disk (the editors reload what changed
     /// from the watcher), then list the renamed symbol.
-    fn submit_rename(
+    pub(crate) fn submit_rename(
         &mut self,
         dialog: gpui::Entity<RenameSymbolDialog>,
         name: String,
@@ -165,6 +166,7 @@ impl Shell {
                 Ok(()) => {
                     this.update_in(cx, |this, window, cx| {
                         this.rename = None;
+                        this.focus_front(window, cx);
                         this.history.update(cx, |history, cx| history.reload(cx));
                         this.show_references(kind, name, window, cx);
                     })

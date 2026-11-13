@@ -398,12 +398,13 @@ impl BasePanel for TodosPanel {
 }
 
 impl Panel for TodosPanel {
+    /// The tab's title, as Trellis names the tool (`trellis-titles.ts`).
     fn tab_name(&self, _: &App) -> Option<SharedString> {
-        Some(t!("Manuscript TODOs").into())
+        Some(t!("TODOs").into())
     }
 
     fn title(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
-        t!("Manuscript TODOs")
+        t!("TODOs")
     }
 
     fn inner_padding(&self, _: &App) -> bool {

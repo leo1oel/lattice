@@ -125,12 +125,16 @@ impl Shell {
                 .unwrap_or_else(|_| Task::ready(()))
         });
         let sheet = cx.new(|cx| ArxivExportSheet::new(root, name, save, build, cx));
-        let subscription = cx.subscribe_in(&sheet, window, |this, _, event, _, cx| match event {
-            ArxivEvent::Close => {
-                this.arxiv = None;
-                cx.notify();
-            }
-        });
+        // Closed, the keyboard goes back to the document in front, as the
+        // Tauri app's dialogs return it.
+        let subscription =
+            cx.subscribe_in(&sheet, window, |this, _, event, window, cx| match event {
+                ArxivEvent::Close => {
+                    this.arxiv = None;
+                    this.focus_front(window, cx);
+                    cx.notify();
+                }
+            });
         self.arxiv = Some((sheet, subscription));
         cx.notify();
     }

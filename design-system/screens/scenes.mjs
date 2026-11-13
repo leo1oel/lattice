@@ -55,6 +55,13 @@ async function project(env, theme, extra = "") {
   return staged;
 }
 
+/** Run a command from the ⌘K palette by its label. */
+const palette = async (page, label) => {
+  await page.keyboard.press("Meta+k");
+  await page.keyboard.type(label);
+  await page.waitForTimeout(300);
+  await page.keyboard.press("Enter");
+};
 const openFile = async (page, path) => { await page.locator(`[data-item-path="${path}"]`).click(); await page.waitForTimeout(1500); };
 const viewMode = (page, mode) => page.locator(`button.ui-segmented-tab[title=${mode}]`).click();
 
@@ -164,6 +171,24 @@ export const scenes = {
     const staged = await scenes.history(env, theme);
     await staged.page.getByRole("button", { name: "Compare…" }).click();
     await staged.page.waitForSelector(".compare-passage", { timeout: 30_000 });
+    await rest(staged.page);
+    return staged;
+  },
+  // Manuscript TODOs from the palette: the tutorial has none, so the empty
+  // state. The parity harness's screens only; not on the App screens page.
+  async todos(env, theme) {
+    const staged = await project(env, theme);
+    await palette(staged.page, "Manuscript TODOs");
+    await staged.page.waitForSelector(".todo-empty", { timeout: 30_000 });
+    await rest(staged.page);
+    return staged;
+  },
+  // Export for arXiv… with the bench's checked pack (`?arxiv=ready`,
+  // tools/perf-bench/bench-arxiv.ts), once its test build has answered.
+  async arxivExport(env, theme) {
+    const staged = await project(env, theme, "&arxiv=ready");
+    await palette(staged.page, "Export for arXiv…");
+    await staged.page.waitForSelector('.arxiv-export-checks [data-check="compile"][data-state="ok"]', { timeout: 30_000 });
     await rest(staged.page);
     return staged;
   },
