@@ -106,6 +106,22 @@ export const scenes = {
     await rest(staged.page, 3000);
     return staged;
   },
+  // The tutorial's spreadsheet and board, for the GPUI parity report
+  // (gpui/parity/regions.mjs); not App screens artboards.
+  async sheet(env, theme) {
+    const staged = await project(env, theme);
+    await openFile(staged.page, "attention-results.lattice-sheet");
+    await staged.page.waitForSelector(".spreadsheet-univer-host canvas", { timeout: 30_000 });
+    await rest(staged.page, 3000);
+    return staged;
+  },
+  async board(env, theme) {
+    const staged = await project(env, theme);
+    await openFile(staged.page, "attention-map.tldr");
+    await staged.page.waitForSelector(".board-editor-root .tl-shape", { timeout: 30_000 });
+    await rest(staged.page, 3000);
+    return staged;
+  },
   async slides(env, theme) {
     const staged = await project(env, theme);
     if (env.slides) {

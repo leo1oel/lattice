@@ -23,6 +23,8 @@ mod saves;
 mod settings;
 mod source_chrome;
 mod status_bar;
+#[cfg(target_os = "macos")]
+mod structured;
 
 /// Each step's name, whether it passed, and what it saw.
 struct Steps(Vec<Value>);
@@ -263,6 +265,8 @@ impl Run {
         // checks run on macOS.
         #[cfg(target_os = "macos")]
         self.webview_islands(cx, &mut steps, &root).await?;
+        #[cfg(target_os = "macos")]
+        self.structured_islands(cx, &mut steps, &root).await?;
         self.pdf_viewer(cx, &mut steps, &root).await?;
         self.second_window_pdf(cx, &mut steps, &root).await?;
 
@@ -318,6 +322,7 @@ impl Run {
         let root = self.root(cx).await?;
         self.pause(cx, Duration::from_millis(800)).await;
         self.webview_islands(cx, &mut steps, &root).await?;
+        self.structured_islands(cx, &mut steps, &root).await?;
         let passed = steps.0.iter().all(|step| step["passed"] == true);
         Ok(json!({ "scenario": "islands", "passed": passed, "steps": steps.0 }))
     }

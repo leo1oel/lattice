@@ -27,6 +27,9 @@ if [ -z "${LATTICE_GPUI_E2E_LOCK_HELD:-}" ]; then
 fi
 app="$root/target/release/lattice-gpui"
 [ -x "$app" ] || { echo "e2e: $app is missing; build the release binary first" >&2; exit 1; }
+# The island pages the board, spreadsheet and deck checks open, from the
+# Tauri app's modules as they are now.
+"$root/script/build-islands"
 
 scratch="$(mktemp -d -t lattice-gpui-e2e)"
 trap 'rm -rf "$scratch"' EXIT

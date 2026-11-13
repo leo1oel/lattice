@@ -101,8 +101,11 @@ impl Run {
         );
 
         // The image through the asset protocol, the relative link disabled.
+        // The srcdoc frame requests the image only after the island reports
+        // loaded, and on a loaded machine (right after a rebuild) that request
+        // has taken longer than 5 s to reach the protocol handler.
         let served = self
-            .wait_for(cx, Duration::from_secs(5), |_, cx| {
+            .wait_for(cx, Duration::from_secs(15), |_, cx| {
                 island
                     .read(cx)
                     .served_files()
@@ -170,7 +173,8 @@ impl Run {
         );
 
         #[cfg(target_os = "macos")]
-        self.island_interface_zoom(cx, steps, &island).await?;
+        self.island_interface_zoom(cx, steps, &island, "the HTML preview")
+            .await?;
 
         // The theme reaches the page.
         cx.update(|cx| LatticeTheme::set_appearance(Appearance::Dark, cx));
@@ -266,11 +270,12 @@ impl Run {
     /// of the island's size in its own pixels, zoomed as the interface is, as
     /// the Tauri app's interface zoom zooms its pages.
     #[cfg(target_os = "macos")]
-    async fn island_interface_zoom(
+    pub(super) async fn island_interface_zoom(
         &self,
         cx: &mut AsyncApp,
         steps: &mut Steps,
         island: &Entity<lattice_webview::Island>,
+        subject: &str,
     ) -> Result<()> {
         let before = cx.update(|cx| crate::settings::get(cx).appearance.interface_scale);
         let mut seen = Vec::new();
@@ -325,7 +330,7 @@ impl Run {
         cx.update(|cx| crate::settings::update_appearance(cx, |a| a.interface_scale = before));
         self.wait_for_zoom(cx, before).await;
         steps.check(
-            "at 120% and 90% the page fills its island where GPUI laid it out, and is zoomed with the interface",
+            &format!("at 120% and 90% {subject} fills its island where GPUI laid it out, and is zoomed with the interface"),
             passed,
             json!(seen),
         );
@@ -522,28 +527,60 @@ impl Run {
         // app's shortcuts again.
         let relayed = match cx.update(|cx| island.read(cx).bounds(cx)) {
             Some(bounds) => {
-                native::send_click(self.native(cx)?, bounds.center())?;
-                self.wait_for(cx, Duration::from_secs(3), |_, cx| {
-                    island.read(cx).page_focused()
-                })
-                .await;
-                self.pause(cx, Duration::from_millis(200)).await;
-                self.evaluate(cx, &island, "window.latticeHost.relay().length")
-                    .await
+                // The page is unmasked in the frame after it reports loaded,
+                // and a click in that frame reaches no page: click again
+                // until one lands.
+                for _ in 0..3 {
+                    native::send_click(self.native(cx)?, bounds.center())?;
+                    if self
+                        .wait_for(cx, Duration::from_secs(2), |_, cx| {
+                            island.read(cx).page_focused()
+                        })
+                        .await
+                    {
+                        break;
+                    }
+                }
+                // The relay lands with the page's focus report, which can
+                // trail the click on a loaded runner: ask until it is there.
+                let mut relayed = Value::Null;
+                let started = std::time::Instant::now();
+                while started.elapsed() < Duration::from_secs(3) {
+                    relayed = self
+                        .evaluate(cx, &island, "window.latticeHost.relay().length")
+                        .await;
+                    if relayed.as_u64().is_some_and(|count| count > 0) {
+                        break;
+                    }
+                    self.pause(cx, Duration::from_millis(150)).await;
+                }
+                relayed
             }
             None => Value::Null,
         };
         steps.check(
             "the page built again after its hibernation gets the app's shortcuts when it takes the keyboard",
             relayed.as_u64().is_some_and(|count| count > 0),
-            json!({ "relayed": relayed }),
+            json!({
+                "relayed": relayed,
+                "island": cx.update(|cx| {
+                    let island = island.read(cx);
+                    json!({
+                        "page_focused": island.page_focused(),
+                        "revealed": island.is_revealed(),
+                        "visible": island.native_visible(cx),
+                        "state": format!("{:?}", island.state()),
+                        "stats": island.stats(),
+                    })
+                }),
+            }),
         );
         Ok(())
     }
 
     /// Evaluate `script` in the island's page; its value as JSON (a string
     /// the script built with `JSON.stringify` is parsed once more).
-    async fn evaluate(
+    pub(super) async fn evaluate(
         &self,
         cx: &mut AsyncApp,
         island: &Entity<lattice_webview::Island>,

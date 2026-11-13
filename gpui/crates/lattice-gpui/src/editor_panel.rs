@@ -34,19 +34,15 @@ use futures::{channel::oneshot, future::Shared};
 use gpui::{
     AnyElement, App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, Focusable,
     InteractiveElement as _, IntoElement, ParentElement as _, Render, SharedString, Styled as _,
-    Subscription, Task, Window, div, prelude::*,
+    Subscription, Task, Window, div,
 };
-use gpui_kit::component::{
-    dock::{BasePanel, Panel, PanelEvent},
-    menu::PopupMenu,
-};
+use gpui_kit::component::dock::{BasePanel, PanelEvent};
 use language::{Buffer, BufferEvent, Point};
 use lattice_core::project::{self as core_project, ProjectFileStat};
 use lattice_editor::{
     LatticeEditor, LatticeEditorEvent,
     latex::{self, diagnostics::TexlabDiagnostics},
 };
-use lattice_i18n::t;
 use lattice_ui::ActiveLattice as _;
 use search::{BufferSearchBar, buffer_search::DivRegistrar};
 use workspace::ToolbarItemView as _;
@@ -59,6 +55,8 @@ pub mod rail_outline;
 mod save;
 mod source_chrome;
 mod spelling;
+mod strip;
+mod structured_view;
 pub mod views;
 
 use disk_sync::vanished_key;
@@ -79,12 +77,7 @@ gpui::actions!(
     ]
 );
 
-use crate::{
-    build_panel::BuildPanel,
-    editor_status,
-    project::Project,
-    shell::{Build, CleanRebuild, ForwardSync, StopBuild, ToggleVimMode},
-};
+use crate::{build_panel::BuildPanel, editor_status, project::Project};
 
 /// How often the open file is checked for an edit made behind the editor.
 const DISK_POLL: Duration = Duration::from_millis(2500);
@@ -197,6 +190,11 @@ pub struct EditorPanel {
     /// An HTML file's Edit, Split and Preview views; `None` for a file
     /// that is only ever its source.
     views: Option<DocumentViews>,
+    /// A board, spreadsheet or Open Slide deck: its island in place of the
+    /// editor (`crate::structured`).
+    structured: Option<Entity<crate::structured::StructuredDocument>>,
+    /// A closing tab waits for its page to hand over its edits.
+    page_flushed: Option<oneshot::Sender<()>>,
     status: SaveStatus,
     /// Saves run one at a time; this settles when the last one queued has.
     save_queue: Option<Shared<Task<()>>>,
@@ -286,6 +284,7 @@ impl EditorPanel {
                     this.schedule_autosave(cx);
                     this.scan_todos(TODO_SETTLE, cx);
                     this.views_source_changed(cx);
+                    this.structured_source_changed(cx);
                 }
                 BufferEvent::DirtyChanged | BufferEvent::Saved => cx.notify(),
                 _ => {}
@@ -369,6 +368,7 @@ impl EditorPanel {
                     {
                         this.check_disk(cx);
                     }
+                    this.structured_files_changed(paths.as_deref(), cx);
                     // An image the HTML preview shows may be among them.
                     if paths
                         .as_ref()
@@ -423,6 +423,8 @@ impl EditorPanel {
             looking_for_file: false,
             closed: false,
             views,
+            structured: None,
+            page_flushed: None,
             status: SaveStatus::Saved,
             save_queue: None,
             saves_pending: 0,
@@ -443,6 +445,7 @@ impl EditorPanel {
         // its page is built when the tab is first shown.
         this.ensure_preview(window, cx);
         this.attach_spelling(cx);
+        this.attach_structured(window, cx);
         this
     }
 
@@ -520,6 +523,10 @@ impl EditorPanel {
                 relative.clone(),
                 cx,
             ));
+        }
+        if let Some(document) = self.structured.clone() {
+            let relative = relative.clone();
+            document.update(cx, |document, cx| document.moved_to(relative, cx));
         }
         self.relative = relative;
         // The spell check follows the file, or starts once it is prose.
@@ -652,6 +659,13 @@ impl EventEmitter<EditorPanelEvent> for EditorPanel {}
 impl Focusable for EditorPanel {
     /// The editor's, except while an HTML file shows only its preview.
     fn focus_handle(&self, cx: &App) -> FocusHandle {
+        if let Some(focus) = self
+            .structured
+            .as_ref()
+            .and_then(|document| document.read(cx).focus_handle(cx))
+        {
+            return focus;
+        }
         match self.views.as_ref() {
             Some(views) if views.view() == DocumentView::Preview => views
                 .preview()
@@ -678,7 +692,10 @@ impl BasePanel for EditorPanel {
 
     fn on_removed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.views_shown(false, window, cx);
-        self.flush(cx);
+        // A structured document's page hands over its edits first.
+        if !self.close_structured(cx) {
+            self.flush(cx);
+        }
         let panel = gpui_kit::component::dock::PanelId::from(cx.entity_id());
         lattice_ui::dock::set_spare_tools(panel, None, cx);
     }
@@ -686,95 +703,7 @@ impl BasePanel for EditorPanel {
     /// An HTML file's preview is shown only while its tab is the displayed one.
     fn set_active(&mut self, active: bool, window: &mut Window, cx: &mut Context<Self>) {
         self.views_shown(active, window, cx);
-    }
-}
-
-impl Panel for EditorPanel {
-    fn tab_name(&self, _: &App) -> Option<SharedString> {
-        Some(file_name(&self.path).into())
-    }
-
-    fn title(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let name = file_name(&self.path);
-        if self.is_dirty(cx) {
-            format!("{name} •")
-        } else {
-            name
-        }
-    }
-
-    /// The build chip, at the strip's trailing end as the app puts it; an
-    /// HTML file's view switch in its place (`documentTools`: "views").
-    fn title_suffix(
-        &mut self,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> Option<impl IntoElement> {
-        Some(
-            self.view_switch(window, cx)
-                .unwrap_or_else(|| editor_status::build_chip(&self.build, window, cx)),
-        )
-    }
-
-    fn dropdown_menu(
-        &mut self,
-        menu: PopupMenu,
-        _: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> PopupMenu {
-        // An HTML file's menu repeats its view switch, and has no build.
-        if let Some(current) = self.document_view() {
-            return menu
-                .menu_with_check(
-                    "Edit",
-                    current == DocumentView::Source,
-                    Box::new(ViewSource),
-                )
-                .menu_with_check("Split", current == DocumentView::Split, Box::new(ViewSplit))
-                .menu_with_check(
-                    "Preview",
-                    current == DocumentView::Preview,
-                    Box::new(ViewPreview),
-                )
-                .separator()
-                .menu("Find", Box::new(Deploy::find()))
-                .separator()
-                .menu_with_check(
-                    "Vim mode",
-                    crate::app::vim_mode_enabled(cx),
-                    Box::new(ToggleVimMode),
-                );
-        }
-        let building = self.build.read(cx).is_running();
-        menu.menu(t!("Build"), Box::new(Build))
-            .menu(t!("Clean rebuild"), Box::new(CleanRebuild))
-            .when(building, |menu| {
-                menu.menu(t!("Stop the build"), Box::new(StopBuild))
-            })
-            .menu(t!("Reveal cursor in PDF"), Box::new(ForwardSync))
-            .menu(t!("Find"), Box::new(Deploy::find()))
-            // The strip's Source / Visual switch, which goes first when the
-            // strip is short of room.
-            .when(latex::is_tex_source(&self.path), |menu| {
-                menu.separator()
-                    .menu_with_check("Source", true, Box::new(ShowSourceView))
-                    .menu_with_check_and_disabled(
-                        VISUAL_NOT_PORTED,
-                        false,
-                        Box::new(ShowVisualView),
-                        true,
-                    )
-            })
-            .separator()
-            .menu_with_check(
-                t!("Vim mode"),
-                crate::app::vim_mode_enabled(cx),
-                Box::new(ToggleVimMode),
-            )
-    }
-
-    fn inner_padding(&self, _: &App) -> bool {
-        false
+        self.structured_shown(active, cx);
     }
 }
 
@@ -782,6 +711,17 @@ impl Render for EditorPanel {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         // Zed's search bar registers its key handlers on whatever element
         // hosts it; in Zed that is a pane, here it is this panel.
+        // A board, sheet or deck fills its panel alone: no status bar.
+        if let Some(document) = self.structured.clone() {
+            return div()
+                .key_context("LatticeEditor")
+                .size_full()
+                .flex()
+                .flex_col()
+                .child(div().flex_1().min_h_0().child(document))
+                .child(crate::paint_probe::probe())
+                .into_any_element();
+        }
         let palette = cx.palette().clone();
         let status: AnyElement = editor_status::status_bar(self, cx).into_any_element();
         let search = self.search_visible.then(|| {
@@ -821,6 +761,7 @@ impl Render for EditorPanel {
             .flex_col()
             .child(div().flex_1().min_h_0().child(body))
             .child(crate::paint_probe::probe())
+            .into_any_element()
     }
 }
 

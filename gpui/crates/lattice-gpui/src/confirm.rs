@@ -15,6 +15,7 @@ use lattice_ui::{
 };
 
 type Answer = Rc<dyn Fn(&mut Window, &mut App)>;
+type Dismissal = Box<dyn FnOnce(&mut App)>;
 
 pub struct Confirm {
     title: SharedString,
@@ -22,6 +23,9 @@ pub struct Confirm {
     confirm_label: SharedString,
     destructive: bool,
     on_confirm: Answer,
+    /// The question went unanswered: Cancel, a click outside, Escape, or
+    /// another question asked over it.
+    on_cancel: Option<Dismissal>,
 }
 
 impl Confirm {
@@ -32,6 +36,7 @@ impl Confirm {
             confirm_label: tc!("dialog button", "OK").into(),
             destructive: false,
             on_confirm: Rc::new(|_, _| {}),
+            on_cancel: None,
         }
     }
 
@@ -52,6 +57,13 @@ impl Confirm {
 
     pub fn on_confirm(mut self, answer: impl Fn(&mut Window, &mut App) + 'static) -> Self {
         self.on_confirm = Rc::new(answer);
+        self
+    }
+
+    /// What to do when the question goes unanswered; an island's page waits
+    /// for one answer or the other.
+    pub fn on_cancel(mut self, cancel: impl FnOnce(&mut App) + 'static) -> Self {
+        self.on_cancel = Some(Box::new(cancel));
         self
     }
 }
@@ -81,17 +93,24 @@ pub fn install(cx: &mut App) -> Entity<ConfirmHost> {
 
 pub fn ask(question: Confirm, cx: &mut App) {
     let host = install(cx);
-    host.update(cx, |host, cx| {
-        host.pending = Some(question);
+    let replaced = host.update(cx, |host, cx| {
         host.serial += 1;
         cx.notify();
+        host.pending.replace(question)
     });
+    if let Some(cancel) = replaced.and_then(|question| question.on_cancel) {
+        cx.defer(cancel);
+    }
 }
 
 impl ConfirmHost {
+    /// The question goes unanswered.
     fn close(&mut self, cx: &mut Context<Self>) {
-        self.pending = None;
+        let cancel = self.pending.take().and_then(|question| question.on_cancel);
         cx.notify();
+        if let Some(cancel) = cancel {
+            cx.defer(cancel);
+        }
     }
 
     /// Answer the open question as a click on its answer would, for a
@@ -124,7 +143,9 @@ impl Render for ConfirmHost {
             question.confirm_label.clone(),
         )
         .on_click(cx.listener(move |this, _, window, cx| {
-            this.close(cx);
+            // Answered: the question goes without its cancel.
+            this.pending = None;
+            cx.notify();
             answer(window, cx);
         }));
         confirm = if question.destructive {

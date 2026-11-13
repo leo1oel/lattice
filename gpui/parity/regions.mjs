@@ -87,6 +87,33 @@ export const SCREENS = {
     ],
     content: [".html-preview-frame", ".pdf-viewer-host"],
   },
+  // The tutorial's spreadsheet and board opened (`scenes.sheet`,
+  // `scenes.board`): the document's card, strip and tab, and the surface,
+  // alone in the panel with no status bar or strip tools, as the Tauri
+  // canvas shows a structured document. The editor itself is a webview
+  // island in the GPUI app, which an offscreen capture does not include, so
+  // it is left out of the pixel budget; the composited capture beside the
+  // report shows it.
+  sheet: {
+    label: "Spreadsheet",
+    regions: [
+      { name: "titlebar", css: "header.titlebar", chrome: true },
+      { name: "workspace", css: "main.workspace", chrome: true },
+      ...group("attention-results.lattice-sheet"),
+      { name: "sheet/surface", css: ".spreadsheet-editor-root" },
+    ],
+    content: [".spreadsheet-editor-root", ".pdf-viewer-host"],
+  },
+  board: {
+    label: "Board",
+    regions: [
+      { name: "titlebar", css: "header.titlebar", chrome: true },
+      { name: "workspace", css: "main.workspace", chrome: true },
+      ...group("attention-map.tldr"),
+      { name: "board/surface", css: ".board-editor-root" },
+    ],
+    content: [".board-editor-root", ".pdf-viewer-host"],
+  },
   // A window without a project (`?welcome=1&recents=1`): the newest recent
   // project's folder is gone, so the welcome screen says so; the desk lays
   // out the next three. The GPUI side stages the same list

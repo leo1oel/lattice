@@ -46,9 +46,16 @@
 //!   panel is dragged anywhere in the window every island steps aside
 //!   ([`set_dock_dragging`]), since the page would hide the drop targets.
 //!
-//! What only later islands need lands with the first of them, with its tests:
-//! the write path and reads beyond the granted files (the sheets and boards
-//! lane), and an island that never hibernates (the Agent).
+//! - **Frames from elsewhere.** A page may frame another origin only once its
+//!   owner allows that origin ([`Island::allow_frame_origin`]): the slides
+//!   island frames the Open Slide runtime, a loopback server whose port is
+//!   known only after it starts.
+//!
+//! The sheet and board islands write nothing through the bridge: their owner
+//! holds the file's text and saves it as every document is saved
+//! (lattice-core's editor transaction), and the slides island's saves are
+//! mutations its owner applies through lattice-core too. An island that never
+//! hibernates (the Agent) lands with the Agent.
 
 use std::time::Duration;
 
@@ -69,9 +76,10 @@ use crate::{
     keys,
     masked::Masked,
     native::{keep_drawing_when_occluded, lab_ignore_occlusion, native_frame, native_page_focused},
+    navigation::{FrameOrigins, exact_origin, navigable, origin_of},
     protocol::{self, Bundle, Served},
     registry::Registry,
-    theme::theme_payload,
+    theme::{IslandTheme, theme_payload},
 };
 
 /// How long a hidden island keeps its page: the Tauri app's
@@ -95,6 +103,8 @@ pub struct IslandConfig {
     /// Reveal the page as soon as its script reports ready, rather than when
     /// the owner calls [`Island::reveal`].
     pub reveal_on_ready: bool,
+    /// How the page takes the host's theme.
+    pub theme: IslandTheme,
 }
 
 /// Where the island is in its life.
@@ -154,6 +164,7 @@ pub struct IslandStats {
 pub struct Island {
     config: IslandConfig,
     served: Served,
+    frame_origins: FrameOrigins,
     state: IslandState,
     webview: Option<Entity<WebView>>,
     /// The raw page, held with the entity and dropped with it.
@@ -185,7 +196,7 @@ pub struct Island {
 
 impl Island {
     pub fn new(config: IslandConfig, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let served = Served::new(config.bundle, config.files.clone());
+        let served = Served::new(config.bundle.clone(), config.files.clone());
         let subscriptions = vec![
             cx.observe_global_in::<lattice_ui::LatticeTheme>(window, |this, _, cx| {
                 this.push_theme(cx);
@@ -200,6 +211,7 @@ impl Island {
         Self {
             config,
             served,
+            frame_origins: FrameOrigins::default(),
             state: IslandState::Cold,
             webview: None,
             handle: None,
@@ -278,6 +290,19 @@ impl Island {
     pub fn grant(&self, relative: &str) -> String {
         self.served.grants.borrow_mut().grant(relative);
         protocol::asset_url(relative)
+    }
+
+    /// Let the page's frames load `origin` (`http://127.0.0.1:52011`), its
+    /// pages and their navigations within it. Only an exact
+    /// `scheme://host[:port]` is accepted; anything else is ignored.
+    pub fn allow_frame_origin(&mut self, origin: &str) {
+        let Some(origin) = exact_origin(origin) else {
+            log::warn!("{}: not an origin: {origin:?}", self.config.name);
+            return;
+        };
+        if let Ok(mut origins) = self.frame_origins.lock() {
+            origins.insert(origin);
+        }
     }
 
     /// Show or hide the island. The owner calls this whenever its panel
@@ -440,7 +465,7 @@ impl Island {
             }
         }
         if self.page_ready {
-            let payload = theme_payload(cx);
+            let payload = theme_payload(self.config.theme, cx);
             self.deliver(Outbound::event("host:theme", payload));
         }
     }
@@ -467,6 +492,7 @@ impl Island {
     fn build_webview(&mut self, window: &mut Window, cx: &mut Context<Self>) -> Result<()> {
         let (sender, mut receiver) = mpsc::unbounded::<(String, String)>();
         let served = self.served.clone();
+        let frame_origins = self.frame_origins.clone();
         let token = bridge::new_token()?;
         let mut builder = wry::WebViewBuilder::new()
             .with_url(protocol::url(&format!("bundle/{}", self.config.entry)))
@@ -483,7 +509,12 @@ impl Island {
             // The page never leaves the island; its links go through the
             // bridge to the system browser. No frame loads a project file as
             // a document either: one would have an island URL.
-            .with_navigation_handler(|url| navigable(&url))
+            .with_navigation_handler(move |url| {
+                navigable(&url)
+                    || frame_origins
+                        .lock()
+                        .is_ok_and(|origins| origins.contains(&origin_of(&url)))
+            })
             .with_new_window_req_handler(|_, _| wry::NewWindowResponse::Deny)
             .with_incognito(true)
             .with_accept_first_mouse(true)
@@ -560,7 +591,7 @@ impl Island {
             Inbound::Ready => {
                 self.page_ready = true;
                 self.state = IslandState::Ready;
-                let theme = theme_payload(cx);
+                let theme = theme_payload(self.config.theme, cx);
                 self.deliver(Outbound::event("host:theme", theme));
                 for message in std::mem::take(&mut self.queue) {
                     self.deliver(message);
@@ -688,15 +719,6 @@ impl Island {
     }
 }
 
-/// Whether a frame may navigate to `url`: the island's own bundle, or an
-/// empty or srcdoc document, its fragment included (an authored page's hash
-/// routing).
-fn navigable(url: &str) -> bool {
-    let document = url.split('#').next().unwrap_or_default();
-    document.starts_with(&protocol::url("bundle/"))
-        || matches!(document, "about:blank" | "about:srcdoc")
-}
-
 /// Hold `message` until the page listens: every response in order, and of
 /// each event only the latest, in the place of the first, since a page that
 /// has not loaded needs only where things stand (an island never shown would
@@ -800,23 +822,6 @@ mod tests {
                 Outbound::response(2, Err("b".into())),
             ]
         );
-    }
-
-    #[test]
-    fn frames_navigate_only_within_the_island() {
-        assert!(navigable(&protocol::url("bundle/html-preview/index.html")));
-        assert!(navigable("about:blank"));
-        assert!(navigable("about:srcdoc"));
-        assert!(navigable("about:srcdoc#section-2"));
-        assert!(navigable("about:blank#top"));
-        assert!(!navigable(&protocol::asset_url("x.svg")));
-        assert!(!navigable(&format!(
-            "{}#bundle/",
-            protocol::asset_url("x.svg")
-        )));
-        assert!(!navigable("about:srcdocx"));
-        assert!(!navigable("https://example.com/"));
-        assert!(!navigable("javascript:alert(1)"));
     }
 
     #[test]
