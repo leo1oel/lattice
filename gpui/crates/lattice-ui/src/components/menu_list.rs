@@ -13,7 +13,12 @@
 //!   menu interrupted, and shows the keys bound to it there, as the app's
 //!   menus show the command table's keys;
 //! - a submenu, which opens beside its row when the pointer or the keys
-//!   reach it (→, Enter or Space) and closes on ← or Escape.
+//!   reach it (→, Enter or Space) and closes on ← or Escape;
+//! - a secondary action: a small glyph at the row's end that runs something
+//!   other than the row (the project switcher's open-in-this-window). The
+//!   pointer presses it; the keys reach it with → from its row, go back
+//!   with ←, and run it with Enter or Space, as the app's glyph is an item
+//!   of its own the keys can land on.
 //!
 //! A menu taller than the window less 8px each side scrolls inside its
 //! surface under Lattice's scrollbar (`ScrollbarFeel::LIST`), as every other
@@ -29,12 +34,15 @@ use gpui::{
     ScrollHandle, SharedString, StatefulInteractiveElement as _, Styled as _, Window, anchored,
     deferred, div, point, prelude::FluentBuilder as _, px,
 };
-use gpui_kit::base::POPUP_PRIORITY;
+use gpui_kit::{base::POPUP_PRIORITY, component::Selectable as _};
 
 use crate::{
     ActiveLattice as _, Icon,
-    components::{MenuItem, MenuLabel, MenuSeparator, MenuSurface, PopFrom, Step, pop_in},
+    components::{
+        IconButton, MenuItem, MenuLabel, MenuSeparator, MenuSurface, PopFrom, Step, pop_in,
+    },
     fluid_hover::{FluidHover, ItemKind},
+    icons::ICON_SMALL,
     scrollbar::{FluidScrollbar, ScrollbarFeel},
     shape,
 };
@@ -55,8 +63,16 @@ pub struct MenuAction {
     command: Option<Box<dyn Action>>,
     command_focus: Option<FocusHandle>,
     checked: Option<bool>,
+    secondary: Option<Secondary>,
     disabled: bool,
     destructive: bool,
+    run: Action0,
+}
+
+/// A row's secondary action: its glyph, the glyph's tooltip, and what it runs.
+struct Secondary {
+    icon: Icon,
+    label: SharedString,
     run: Action0,
 }
 
@@ -72,6 +88,7 @@ impl MenuAction {
             command: None,
             command_focus: None,
             checked: None,
+            secondary: None,
             disabled: false,
             destructive: false,
             run: Rc::new(run),
@@ -114,6 +131,22 @@ impl MenuAction {
 
     pub fn shortcut(mut self, keys: impl Into<SharedString>) -> Self {
         self.shortcut = Some(keys.into());
+        self
+    }
+
+    /// A second action on the row, `icon` at its end with `label` as its
+    /// tooltip. It runs as the row does: the menu closes first.
+    pub fn secondary(
+        mut self,
+        icon: Icon,
+        label: impl Into<SharedString>,
+        run: impl Fn(&mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.secondary = Some(Secondary {
+            icon,
+            label: label.into(),
+            run: Rc::new(run),
+        });
         self
     }
 
@@ -307,6 +340,8 @@ impl RenderOnce for Menu {
         let initial = self.highlighted;
         let highlight = window.use_keyed_state(child("highlight"), cx, move |_, _| initial);
         let open_sub = window.use_keyed_state(child("submenu"), cx, |_, _| None::<(usize, bool)>);
+        // The row whose secondary action the keys moved onto.
+        let on_secondary = window.use_keyed_state(child("secondary"), cx, |_, _| None::<usize>);
         let sub_focus = window
             .use_keyed_state(child("submenu-focus"), cx, |_, cx| cx.focus_handle())
             .read(cx)
@@ -350,6 +385,18 @@ impl RenderOnce for Menu {
                 _ => None,
             })
             .collect();
+        let secondaries: Rc<[Option<Action0>]> = self
+            .entries
+            .iter()
+            .map(|entry| match entry {
+                Entry::Item(action) if !action.disabled => action
+                    .secondary
+                    .as_ref()
+                    .map(|secondary| secondary.run.clone()),
+                _ => None,
+            })
+            .collect();
+        let keyed_secondary = (*on_secondary.read(cx)).filter(|at| lit == Some(*at));
         let dismiss = self.on_dismiss.clone();
         // Running an item closes the menu first, so the action finds focus
         // back where it was before the menu opened.
@@ -427,10 +474,26 @@ impl RenderOnce for Menu {
                         })
                     });
                     let gutter = checks.then(|| action.checked.unwrap_or(false));
+                    let secondary = action.secondary.map(|secondary| {
+                        let runner = run.clone();
+                        IconButton::new(child(&format!("secondary-{ix}")), secondary.icon)
+                            .frame(px(22.), px(22.))
+                            .icon_size(ICON_SMALL)
+                            .radius(px(4.))
+                            .my(px(-1.))
+                            .disabled(action.disabled)
+                            .selected(keyed_secondary == Some(ix))
+                            .tooltip(secondary.label)
+                            .on_click(move |_, window, cx| {
+                                cx.stop_propagation();
+                                runner(&secondary.run, window, cx);
+                            })
+                    });
                     let item = MenuItem::new(id, action.label)
                         .when_some(action.icon, MenuItem::icon)
                         .when_some(shortcut, MenuItem::shortcut)
                         .check_gutter(gutter)
+                        .when_some(secondary, MenuItem::accessory)
                         .disabled(action.disabled)
                         .destructive(action.destructive)
                         .highlighted(hover.lit(cx) == Some(ix))
@@ -481,6 +544,7 @@ impl RenderOnce for Menu {
                             // must not reach the dismissal of what opened it.
                             div()
                                 .id(child(&format!("sub-layer-{at}")))
+                                .occlude()
                                 .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                                 .on_mouse_down(MouseButton::Right, |_, _, cx| cx.stop_propagation())
                                 .child(pop_in(
@@ -500,12 +564,39 @@ impl RenderOnce for Menu {
             let hover = hover.clone();
             let back = self.on_back.clone();
             let submenus = submenus.clone();
+            let on_secondary = on_secondary.clone();
             move |event: &KeyDownEvent, window: &mut Window, cx: &mut App| {
                 // The keys go on from the row the pointer lit, as a menu's
                 // roving highlight does in the app.
                 let at = hover.lit(cx);
                 let on_submenu = at.is_some_and(|at| submenus.get(at).copied().unwrap_or(false));
+                let secondary = at.and_then(|at| secondaries.get(at).cloned().flatten());
+                let keyed = keyed_secondary.is_some() && keyed_secondary == at;
+                let key_to_secondary = |row: Option<usize>, cx: &mut App| {
+                    on_secondary.update(cx, |current, cx| {
+                        *current = row;
+                        cx.notify();
+                    });
+                };
                 let step = match event.keystroke.key.as_str() {
+                    "right" if secondary.is_some() && !keyed => {
+                        cx.stop_propagation();
+                        key_to_secondary(at, cx);
+                        return;
+                    }
+                    "left" if keyed => {
+                        cx.stop_propagation();
+                        key_to_secondary(None, cx);
+                        return;
+                    }
+                    "enter" | "space" if keyed && secondary.is_some() => {
+                        cx.stop_propagation();
+                        key_to_secondary(None, cx);
+                        if let Some(action) = secondary {
+                            run(&action, window, cx);
+                        }
+                        return;
+                    }
                     "down" => Step::Next,
                     "up" => Step::Previous,
                     "home" => Step::First,
@@ -537,6 +628,7 @@ impl RenderOnce for Menu {
                     _ => return,
                 };
                 cx.stop_propagation();
+                key_to_secondary(None, cx);
                 let next = step_highlight(&enabled, at, step);
                 hover.key_to(next, cx);
                 highlight.update(cx, |current, cx| {

@@ -123,6 +123,9 @@ pub struct MenuItem {
     check_gutter: Option<bool>,
     /// The row opens a submenu: a chevron at the end.
     submenu: bool,
+    /// A control at the row's end, before the shortcut (the project
+    /// switcher's open-in-this-window glyph).
+    accessory: Option<AnyElement>,
     highlighted: bool,
     /// The list draws the hover fill (fluid hover): the row draws none, but
     /// a destructive row's own danger wash.
@@ -143,6 +146,7 @@ impl MenuItem {
             checked: None,
             check_gutter: None,
             submenu: false,
+            accessory: None,
             highlighted: false,
             fluid: false,
             on_click: None,
@@ -193,6 +197,12 @@ impl MenuItem {
     /// row's label lines up.
     pub fn check_gutter(mut self, checked: Option<bool>) -> Self {
         self.check_gutter = checked;
+        self
+    }
+
+    /// A control at the row's end, before the shortcut.
+    pub fn accessory(mut self, accessory: impl IntoElement) -> Self {
+        self.accessory = Some(accessory.into_any_element());
         self
     }
 
@@ -288,6 +298,7 @@ impl RenderOnce for MenuItem {
                 this.child(icon.element(ICON, icon_ink))
             })
             .child(div().flex_1().min_w_0().child(self.label))
+            .children(self.accessory)
             .when_some(self.shortcut, |this, keys| {
                 this.child(
                     div()

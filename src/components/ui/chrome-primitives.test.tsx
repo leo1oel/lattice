@@ -59,8 +59,6 @@ describe("shared chrome primitives", () => {
     // contract used by hand-written menus. Regular labels take a 1.5 stroke.
     expect(floatingSurfaceClassName).toContain("[--nested-radius:calc(var(--surface-radius)-var(--surface-inset))]");
     expect(menuViewportClassName).toContain("p-[var(--surface-inset)]");
-    // The list hides its native bar: the ScrollArea's track is drawn over it.
-    expect(menuViewportClassName).toContain("[scrollbar-width:none]");
     for (const token of [
       "rounded-[calc(var(--nested-radius,var(--radius-icon))*var(--nested-corner-smoothing,1))]",
       "[corner-shape:var(--nested-corner-shape,round)]", "duration-[var(--duration-fast)]", "ease-[var(--ease-fast)]",

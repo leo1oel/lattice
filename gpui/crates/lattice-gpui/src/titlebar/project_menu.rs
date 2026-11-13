@@ -1,19 +1,17 @@
 //! The project switcher's menu, as the Tauri app's (`src/project/project-menu.tsx`):
 //! the recent projects other than this one (five at most), each opened in a
-//! window of its own; then Open another folder, New project, Clone
-//! repository…, and the Guided tutorial.
+//! window of its own by its row or in this window by the row's trailing
+//! window glyph; then Open another folder (with its own in-this-window
+//! glyph), New project, Clone repository…, and the Guided tutorial.
 //!
-//! The app's rows carry a trailing window glyph that opens the project in
-//! this window instead. Lattice's menu (`components::Menu`, design call 4)
-//! has one action per row, so the switcher's rows open a window of their
-//! own, as the app's row does; opening in this window stays with the
-//! command palette and the app menu (`OpenRecentProject { here }`,
-//! `OpenFolderHere`). Export ZIP, Export for arXiv, Open from Overleaf and
-//! Settings belong to other lanes of the port.
+//! The glyph is the row's secondary action (`MenuAction::secondary`): the
+//! keys reach it with → from its row and run it with Enter, as the app's
+//! glyph is an item of its own. Export ZIP, Export for arXiv, Open from
+//! Overleaf and Settings belong to other lanes of the port.
 
 use std::path::PathBuf;
 
-use gpui::{App, WeakEntity, Window, px};
+use gpui::{Action as _, App, WeakEntity, Window, px};
 use lattice_i18n::t;
 use lattice_ui::{
     Icon,
@@ -24,7 +22,7 @@ use crate::{
     recents::RecentProjects,
     shell::{
         Shell,
-        commands::{CloneRepository, NewProject, OpenFolder, OpenRecentProject},
+        commands::{CloneRepository, NewProject, OpenFolder, OpenFolderHere, OpenRecentProject},
     },
 };
 
@@ -54,16 +52,33 @@ pub(super) fn project_menu(
     if !recents.is_empty() {
         menu = menu.label("Recent projects");
         for (name, path) in recents {
+            let here = OpenRecentProject {
+                path: path.clone(),
+                here: true,
+            };
             menu = menu.item(
-                MenuAction::dispatch(name, Box::new(OpenRecentProject { path, here: false }))
-                    .icon(Icon::FOLDER),
+                MenuAction::dispatch(
+                    name.clone(),
+                    Box::new(OpenRecentProject { path, here: false }),
+                )
+                .icon(Icon::FOLDER)
+                .secondary(
+                    Icon::APP_WINDOW,
+                    format!("Open {name} in this window"),
+                    move |window, cx| window.dispatch_action(here.boxed_clone(), cx),
+                ),
             );
         }
         menu = menu.separator();
     }
     menu.item(
         MenuAction::dispatch(t!("Open another folder"), Box::new(OpenFolder))
-            .icon(Icon::FOLDER_OPEN),
+            .icon(Icon::FOLDER_OPEN)
+            .secondary(
+                Icon::APP_WINDOW,
+                "Open a folder in this window",
+                |window, cx| window.dispatch_action(Box::new(OpenFolderHere), cx),
+            ),
     )
     .item(MenuAction::dispatch("New project", Box::new(NewProject)).icon(Icon::PLUS))
     .item(

@@ -23,7 +23,7 @@
 use gpui::{
     AnyElement, App, Context, ElementId, Empty, Entity, FocusHandle, InteractiveElement,
     IntoElement, KeyDownEvent, MouseButton, ParentElement as _, Pixels, Point, RenderOnce,
-    Styled as _, Window, anchored, deferred, div, px,
+    Styled as _, Window, anchored, deferred, div, point, px,
 };
 use gpui_kit::base::POPUP_PRIORITY;
 
@@ -126,7 +126,7 @@ impl<T: Clone + 'static> ContextMenu<T> {
         let escape = this.clone();
         Some(
             deferred(
-                anchored().child(
+                anchored().position(point(px(0.), px(0.))).child(
                     // The window under an open menu does not scroll, as
                     // under the app's.
                     div()
@@ -141,6 +141,7 @@ impl<T: Clone + 'static> ContextMenu<T> {
                                 .child(
                                     div()
                                         .id(child("layer"))
+                                        .occlude()
                                         .on_mouse_down_out(move |_, window, cx| {
                                             outside.update(cx, |menu, cx| menu.close(window, cx))
                                         })

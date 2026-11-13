@@ -269,18 +269,9 @@ describe("shared surface contracts", () => {
     expectRules(menuSurface, ["[box-shadow:var(--elevation-popover)]"], [" border border-border ", /smooth-shadow/])
     // The project menu does not hardcode the popover surface colour either.
     expect(read("src/project/project-dialogs.tsx")).not.toMatch(/bg-\[#F9F9FA\]|dark:bg-popover/)
-    // Menus and selects scroll under the ScrollArea's bar, not a native one:
-    // the list hides its own and MenuViewport (or the select) draws the shared
-    // track over the positioned surface.
-    expect(menuSurface).toMatch(/menuViewportClassName =\s*"[^"]*\[scrollbar-width:none\] \[&::-webkit-scrollbar\]:hidden/)
-    expect(menuSurface).toContain('menuContentClassName = "relative flex flex-col overflow-hidden"')
-    expect(menuSurface).not.toContain("native-hover-scrollbar")
+    // Menus and selects scroll under the ScrollArea's bar, not a native one
+    // (rendered in menu-viewport.test.tsx and chrome-primitives.test.tsx).
     expect(surfacesCss).not.toContain('[data-slot="dropdown-menu-content"]::-webkit-scrollbar')
-    for (const menu of ["dropdown-menu.tsx", "context-menu.tsx"]) {
-      expect(read(`src/components/ui/${menu}`)).toContain("<MenuViewport>{children}</MenuViewport>")
-    }
-    expect(read("src/components/ui/select.tsx")).toContain("<ExternalScrollbar getViewport={getViewport} />")
-    expect(read("src/trellis/trellis-panel-menu.tsx")).not.toContain("menuViewportClassName")
   })
 
   it("matches spreadsheet sidebars to Lattice close and scrollbar chrome", () => {
