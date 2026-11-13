@@ -175,6 +175,49 @@ impl Run {
         detail
     }
 
+    /// ⌘W on another document's tab rearranges the window without it, and
+    /// main.tex's root tab, which the arrangement has no view for, stays
+    /// docked and in the shell's root tabs. (A deleted file's editor closing
+    /// late, after the first build, once let the root tab go.)
+    async fn closing_a_tab_keeps_root_tabs(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+        root: &Path,
+    ) -> Result<()> {
+        let main_tab = |shell: &crate::shell::Shell| {
+            shell.root_pdf_tabs().iter().any(|(document, panel)| {
+                document == "main.tex" && shell.view_of_panel(panel.entity_id()).is_some()
+            })
+        };
+        let before = cx.update(|cx| main_tab(self.shell.read(cx)));
+        let scratch = root.join("tab-close-check.tex");
+        std::fs::write(&scratch, "A tab to close.\n")?;
+        let editor = self.open(cx, &scratch, None)?;
+        self.with_window(cx, |_, window, cx| {
+            window.focus(&editor.read(cx).editor().focus_handle(cx), cx);
+        })?;
+        self.frame_after_input(cx).await?;
+        self.with_window(cx, |_, window, cx| {
+            window.dispatch_action(Box::new(crate::shell::commands::CloseTab), cx)
+        })?;
+        self.frame_after_input(cx).await?;
+        let (closed, after) = cx.update(|cx| {
+            let shell = self.shell.read(cx);
+            (
+                shell.view_of_panel(editor.entity_id()).is_none(),
+                main_tab(shell),
+            )
+        });
+        std::fs::remove_file(&scratch).ok();
+        steps.check(
+            "closing another document's tab keeps main.tex's root PDF tab docked",
+            before && closed && after,
+            json!({ "before": before, "closed": closed, "after": after }),
+        );
+        Ok(())
+    }
+
     /// Each check from `from` on records the window's frames after it, so a
     /// run shows where they stop.
     async fn note_frames(&self, cx: &mut AsyncApp, steps: &mut Steps, from: usize) {
@@ -222,6 +265,7 @@ impl Run {
         );
         let last = steps.0.len() - 1;
         self.note_frames(cx, steps, last).await;
+        self.closing_a_tab_keeps_root_tabs(cx, steps, root).await?;
 
         macro_rules! pdf_step {
             ($step:expr) => {{

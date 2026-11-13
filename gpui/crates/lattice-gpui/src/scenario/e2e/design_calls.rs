@@ -162,7 +162,10 @@ impl Run {
         let documents = |cx: &mut AsyncApp| {
             cx.update(|cx| {
                 let shell = self.shell.read(cx);
-                (shell.current_arrangement(cx).documents(), shell.active_editor_path(cx))
+                (
+                    crate::shell::views::documents_of(&shell.document(cx)),
+                    shell.active_editor_path(cx),
+                )
             })
         };
         let before = documents(cx);
