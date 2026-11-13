@@ -1,0 +1,1322 @@
+{
+  "scenario": "e2e",
+  "passed": false,
+  "steps": [
+    {
+      "step": "the project opens through lattice-core, adopted with main.tex as its main document",
+      "passed": true,
+      "detail": {
+        "root": "$TMPDIR/lattice-gpui-e2e.K55Ammhl6k/project",
+        "main": "main.tex",
+        "rows": [
+          "chapters",
+          "main.tex",
+          "references.bib"
+        ]
+      }
+    },
+    {
+      "step": "build succeeds and the PDF shows",
+      "passed": true,
+      "detail": {
+        "seconds": 1.6401735544204712,
+        "pages": 1
+      }
+    },
+    {
+      "step": "the tree hides the build's output, as the Tauri app's does",
+      "passed": true,
+      "detail": {
+        "rows": [
+          "chapters",
+          "main.tex",
+          "references.bib"
+        ]
+      }
+    },
+    {
+      "step": "the Build button's card lists the passes latexmk ran",
+      "passed": true,
+      "detail": {
+        "passes": [
+          "pdflatex -ini 1",
+          "pdflatex 1",
+          "bibtex 1",
+          "pdflatex 2",
+          "bibtex 2",
+          "pdflatex 3"
+        ]
+      }
+    },
+    {
+      "step": "the status bar counts the manuscript's words (TeXcount, or an estimate without it)",
+      "passed": true,
+      "detail": {
+        "count": [
+          30,
+          "texcount"
+        ]
+      }
+    },
+    {
+      "step": "a .tex file opens with LaTeX highlighting",
+      "passed": true,
+      "detail": {
+        "language": "LaTeX"
+      }
+    },
+    {
+      "step": "SyncTeX: the caret's line is found and marked in the PDF",
+      "passed": true,
+      "detail": {
+        "mark": 1
+      }
+    },
+    {
+      "step": "SyncTeX: a double-click in the PDF opens its source line",
+      "passed": true,
+      "detail": {
+        "at": [
+          1191.7918701171875,
+          363.4147644042969
+        ],
+        "row": 2
+      }
+    },
+    {
+      "step": "SyncTeX from a .bib entry (⌘⇧J) marks its reference in the PDF",
+      "passed": true,
+      "detail": {
+        "top": 407.6910095214844,
+        "intro_top": 286.7557678222656
+      }
+    },
+    {
+      "step": "a pause in typing saves the file and builds",
+      "passed": true,
+      "detail": {
+        "saved": true,
+        "built": true
+      }
+    },
+    {
+      "step": "an edit made outside Lattice reloads a clean buffer",
+      "passed": true,
+      "detail": {}
+    },
+    {
+      "step": "an outside edit made while the buffer holds edits is merged by the save, not lost",
+      "passed": true,
+      "detail": {
+        "disk": "Typed here.\n\\section{Introduction}\nThis paragraph introduces the document.\nA second line, changed outside.\nAutosaved. The last line, edited outside.\n"
+      }
+    },
+    {
+      "step": "typing with native key events edits the buffer",
+      "passed": true,
+      "detail": {
+        "dirty": true
+      }
+    },
+    {
+      "step": "the save shortcut (⌘S / Ctrl+S) saves the file",
+      "passed": true,
+      "detail": {}
+    },
+    {
+      "step": "a broken build reports the error at its file and line",
+      "passed": true,
+      "detail": {
+        "seconds": 3.1504318714141846,
+        "error": "Some(\"chapters/intro.tex\"):Some(3) Undefined control sequence."
+      }
+    },
+    {
+      "step": "a failed build's card floats over the PDF, explaining the error on its quoted line",
+      "passed": true,
+      "detail": {
+        "card": {
+          "shown": true,
+          "docked": false,
+          "expanded": true,
+          "headline": "Unknown command \\undefinedmacro",
+          "marked": [
+            3,
+            "\\undefinedmacro"
+          ]
+        }
+      }
+    },
+    {
+      "step": "an unattended build of the unchanged failing document restates its errors without typesetting",
+      "passed": true,
+      "detail": {
+        "replay": [
+          true,
+          false,
+          1,
+          0
+        ]
+      }
+    },
+    {
+      "step": "following the error puts the cursor on its line",
+      "passed": true,
+      "detail": {
+        "row": 3
+      }
+    },
+    {
+      "step": "buffer search finds the text",
+      "passed": true,
+      "detail": {}
+    },
+    {
+      "step": "Vim mode: x deletes the character under the cursor",
+      "passed": true,
+      "detail": {
+        "text": "bc\n"
+      }
+    },
+    {
+      "step": "repairing the file outside Lattice reloads it and builds cleanly again",
+      "passed": true,
+      "detail": {
+        "reloaded": true
+      }
+    },
+    {
+      "step": "a typo's explanation offers the paper's command, and Replace saves and builds clean",
+      "passed": true,
+      "detail": {
+        "offered": 0,
+        "fixed": true
+      }
+    },
+    {
+      "step": "a missing package's Install offers its providers, installs the pick and builds (stand-in installer)",
+      "passed": true,
+      "detail": {
+        "offered": true,
+        "choices": true,
+        "installed": true,
+        "calls": [
+          "install_dependency latticee2emissing.sty -",
+          "install_dependency latticee2emissing.sty lattice-e2e-a"
+        ]
+      }
+    },
+    {
+      "step": "Clean deletes the build files, and a clean rebuild writes them again",
+      "passed": true,
+      "detail": {
+        "settled": true,
+        "focus_in_shell": true,
+        "cleaned": true,
+        "rebuilt": true,
+        "succeeded": true,
+        "aux_written": true,
+        "at_clean": {
+          "ms": 0,
+          "building": false,
+          "cleaning": false,
+          "builds": 18,
+          "aux": true
+        },
+        "at_rebuild": {
+          "ms": 116,
+          "building": false,
+          "cleaning": false,
+          "builds": 18,
+          "aux": false
+        },
+        "at_end": {
+          "ms": 1422,
+          "building": false,
+          "cleaning": false,
+          "builds": 19,
+          "aux": true
+        }
+      }
+    },
+    {
+      "step": "Stop ends a build that loops, which then reports nothing but that it stopped",
+      "passed": true,
+      "detail": {
+        "started": true,
+        "stopped": true,
+        "no_outcome": true,
+        "cancelled": true
+      }
+    },
+    {
+      "step": "the TeX doctor reports every check",
+      "passed": true,
+      "detail": {}
+    },
+    {
+      "step": "the TeX doctor finds a package update, and its one-click update runs and rechecks (stand-in installer)",
+      "passed": true,
+      "detail": {
+        "found": true,
+        "updated": true
+      }
+    },
+    {
+      "step": "a check that finds TeX missing opens setup, whose install verifies and closes it (stand-in installer)",
+      "passed": true,
+      "detail": {
+        "opened": true,
+        "installed": true,
+        "calls": [
+          "install_dependency latticee2emissing.sty -",
+          "install_dependency latticee2emissing.sty lattice-e2e-a",
+          "update_packages",
+          "install_tex Full"
+        ]
+      }
+    },
+    {
+      "step": "hovering a citation key opens its card (key, title, authors, actions) by the key",
+      "passed": true,
+      "detail": {
+        "offset": 223,
+        "shown": {
+          "range": [
+            219,
+            228
+          ],
+          "card": [
+            391.0,
+            111.0,
+            360.0,
+            147.0
+          ]
+        }
+      }
+    },
+    {
+      "step": "the citation card closes when the pointer leaves the key and the card",
+      "passed": true,
+      "detail": {}
+    },
+    {
+      "step": "a hover card rises above its key with room inside the editor above it, and hangs below a key near the editor's top",
+      "passed": true,
+      "detail": {
+        "needed": 159.0,
+        "above": {
+          "key": [
+            424.16802978515625,
+            267.0,
+            6.579998970031738,
+            22.0
+          ],
+          "card": [
+            391.0,
+            116.0,
+            360.0,
+            147.0
+          ],
+          "editor": [
+            291.0,
+            86.0,
+            646.0,
+            775.0
+          ]
+        },
+        "below": {
+          "key": [
+            424.16802978515625,
+            223.0,
+            6.579998970031738,
+            22.0
+          ],
+          "card": [
+            391.0,
+            249.0,
+            360.0,
+            147.0
+          ],
+          "editor": [
+            291.0,
+            86.0,
+            646.0,
+            775.0
+          ]
+        }
+      }
+    },
+    {
+      "step": "hovering a \\ref label opens the reference card for what it names",
+      "passed": true,
+      "detail": {
+        "shown": [
+          255,
+          265
+        ]
+      }
+    },
+    {
+      "step": "a shown stack follows the targets under the pointer: a card joins on its target and goes when the pointer leaves it",
+      "passed": true,
+      "detail": {
+        "alone": true,
+        "joined": true,
+        "dropped": true,
+        "shown": [
+          {
+            "id": "e2e-span",
+            "range": [
+              213,
+              229
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "step": "a target opens over its last character (on a wrapped row too) and not from the space past its line's end",
+      "passed": true,
+      "detail": {
+        "wrapped": true,
+        "first": [
+          340.16802978515625,
+          240.0,
+          6.579998970031738,
+          22.0
+        ],
+        "last": [
+          785.3680419921875,
+          262.0,
+          6.579998970031738,
+          22.0
+        ],
+        "on_last": true,
+        "closed": true,
+        "past": [
+          851.9480590820312,
+          273.0
+        ],
+        "room_past_end": true,
+        "past_shown": []
+      }
+    },
+    {
+      "step": "remote carets draw as Overleaf's: bar, dot and a name tag that shows, fades, shows while the pointer is on the caret's line beside it, and shows again when the caret moves",
+      "passed": true,
+      "detail": {
+        "first": [
+          {
+            "id": "ada",
+            "bar": [
+              381.16802978515625,
+              88.75,
+              2.0,
+              16.5
+            ],
+            "label": [
+              382.16802978515625,
+              107.25,
+              81.36572265625,
+              15.200000762939453
+            ],
+            "hover": [
+              376.16802978515625,
+              86.0,
+              12.0,
+              22.0
+            ],
+            "opacity": 1.0,
+            "below": true
+          },
+          {
+            "id": "grace",
+            "bar": [
+              423.16802978515625,
+              242.75,
+              2.0,
+              16.5
+            ],
+            "label": [
+              424.16802978515625,
+              227.89999389648438,
+              84.0029296875,
+              15.200000762939453
+            ],
+            "hover": [
+              418.16802978515625,
+              240.0,
+              12.0,
+              22.0
+            ],
+            "opacity": 1.0,
+            "below": false
+          }
+        ],
+        "moved": [
+          {
+            "id": "ada",
+            "bar": [
+              381.16802978515625,
+              88.75,
+              2.0,
+              16.5
+            ],
+            "label": [
+              382.16802978515625,
+              107.25,
+              81.36572265625,
+              15.200000762939453
+            ],
+            "hover": [
+              376.16802978515625,
+              86.0,
+              12.0,
+              22.0
+            ],
+            "opacity": 0.0,
+            "below": true
+          },
+          {
+            "id": "grace",
+            "bar": [
+              439.968017578125,
+              242.75,
+              2.0,
+              16.5
+            ],
+            "label": [
+              440.968017578125,
+              227.89999389648438,
+              84.0029296875,
+              15.200000762939453
+            ],
+            "hover": [
+              434.968017578125,
+              240.0,
+              12.0,
+              22.0
+            ],
+            "opacity": 1.0,
+            "below": false
+          }
+        ],
+        "faded": true,
+        "hover_point": [
+          424.16802978515625,
+          241.0
+        ],
+        "hover_tag": true
+      }
+    },
+    {
+      "step": "a block widget between lines pushes the lines below it down by its height, and goes again",
+      "passed": true,
+      "detail": {
+        "before": 240.0,
+        "with_block": 284.0,
+        "after": 240.0,
+        "line_height": 22.0
+      }
+    },
+    {
+      "step": "a gutter mark is painted beside its line, opens its card on hover, and goes with its layer",
+      "passed": true,
+      "detail": {
+        "mark": {
+          "row": 7,
+          "bounds": [
+            295.0,
+            248.0,
+            6.0,
+            6.0
+          ]
+        },
+        "line_top": 240.0,
+        "card": true,
+        "cleared": true
+      }
+    },
+    {
+      "step": "TexLab's diagnostics show as wavy marks, with nothing in the gutter",
+      "passed": true,
+      "detail": {
+        "writer": {
+          "focused": true,
+          "window_active": false
+        },
+        "texlab_document": "main.tex",
+        "located": [
+          {
+            "range": [
+              0,
+              12
+            ],
+            "message": "LaTeX Warning: No \\author given.",
+            "severity": "Warning"
+          },
+          {
+            "range": [
+              273,
+              280
+            ],
+            "message": "Undefined reference",
+            "severity": "Error"
+          }
+        ],
+        "marks": [
+          [
+            0,
+            12
+          ],
+          [
+            273,
+            280
+          ]
+        ],
+        "gutter": []
+      }
+    },
+    {
+      "step": "a diagnostic's underline opens the lint card",
+      "passed": true,
+      "detail": {
+        "underline_card": true
+      }
+    },
+    {
+      "step": "fixing the reference clears its diagnostic",
+      "passed": true,
+      "detail": {
+        "found": true,
+        "cleared": true
+      }
+    },
+    {
+      "step": "a TexLab diagnostic on a citation key the index knows opens the citation card over its lint card",
+      "passed": true,
+      "detail": {
+        "found": true,
+        "shown": [
+          {
+            "id": "citation",
+            "range": [
+              219,
+              228
+            ]
+          },
+          {
+            "id": "diagnostic",
+            "range": [
+              219,
+              228
+            ]
+          }
+        ],
+        "located": [
+          {
+            "range": [
+              0,
+              12
+            ],
+            "message": "LaTeX Warning: No \\author given."
+          },
+          {
+            "range": [
+              160,
+              172
+            ],
+            "message": "LaTeX Warning: Reference `nolabel' on page 1 undefined on input line 8."
+          },
+          {
+            "range": [
+              219,
+              228
+            ],
+            "message": "Undefined reference"
+          }
+        ]
+      }
+    },
+    {
+      "step": "typing in a \\cite slot lists the project's entries by title; Enter inserts the key",
+      "passed": true,
+      "detail": {
+        "menu": [
+          "The TeXbook"
+        ]
+      }
+    },
+    {
+      "step": "typing a command lists the vocabulary (\\textbf first for \\textb); Enter puts the caret in its braces",
+      "passed": true,
+      "detail": {
+        "menu": [
+          "\\textbf"
+        ],
+        "line": "Some text with an equation $e^{i\\pi} + 1 = 0$, as in \\cite{knuth1984}, set out in Section~\\ref{sec:method}. \\cite{knuth1984} \\textbf{x}"
+      }
+    },
+    {
+      "step": "typing a package mid-list ranks prefix matches first (xcolor before graphicx); Enter inserts the bare name",
+      "passed": true,
+      "detail": {
+        "menu": [
+          "xcolor",
+          "xspace",
+          "biblatex",
+          "graphicx",
+          "siunitx"
+        ],
+        "line": "\\usepackage{xcolor,amsmath}"
+      }
+    },
+    {
+      "step": "New file names an untitled row in place, creates chapters/methods.tex and opens it",
+      "passed": true,
+      "detail": {
+        "placeholder": [
+          "chapters/untitled",
+          "untitled",
+          true
+        ]
+      }
+    },
+    {
+      "step": "Rename renames the file in place and its tab follows",
+      "passed": true,
+      "detail": {
+        "renaming": [
+          "chapters/methods.tex",
+          "methods.tex",
+          true
+        ]
+      }
+    },
+    {
+      "step": "a row dropped on the top level moves there and its tab follows",
+      "passed": true,
+      "detail": {}
+    },
+    {
+      "step": "a .tex file renamed to .txt is never synced to TexLab under its new name",
+      "passed": true,
+      "detail": {
+        "renamed": true,
+        "texlab_document": "main.tex"
+      }
+    },
+    {
+      "step": "Delete asks first, then deletes the file and closes its tab",
+      "passed": true,
+      "detail": {
+        "question": "Delete “results.tex” from this project?"
+      }
+    },
+    {
+      "step": "a second root document's build shows its PDF, and main.tex keeps its last PDF in a tab of its own",
+      "passed": true,
+      "detail": {
+        "built": true,
+        "pages": true,
+        "main_tab": true,
+        "live": "supplement.tex",
+        "frames": {
+          "active": false,
+          "visibility": "Hidden",
+          "drew": true
+        }
+      }
+    },
+    {
+      "step": "PDF: the Outline lists the headings, and a row opens its line and marks it in the PDF",
+      "passed": true,
+      "detail": {
+        "target": 27,
+        "marked": true,
+        "frames": {
+          "active": false,
+          "visibility": "Hidden",
+          "drew": true
+        }
+      }
+    },
+    {
+      "step": "PDF: a comment block of wide characters before the headings hides its own heading and keeps every heading's line",
+      "passed": true,
+      "detail": {
+        "expected": [
+          [
+            "Overview",
+            9
+          ],
+          [
+            "Two",
+            13
+          ],
+          [
+            "Three",
+            15
+          ],
+          [
+            "Four",
+            17
+          ],
+          [
+            "Five",
+            19
+          ],
+          [
+            "Six",
+            21
+          ],
+          [
+            "Seven",
+            23
+          ],
+          [
+            "Eight",
+            25
+          ],
+          [
+            "Target",
+            27
+          ],
+          [
+            "Ten",
+            29
+          ],
+          [
+            "Eleven",
+            31
+          ],
+          [
+            "Twelve",
+            33
+          ]
+        ],
+        "listed": [
+          [
+            "Overview",
+            9
+          ],
+          [
+            "Two",
+            13
+          ],
+          [
+            "Three",
+            15
+          ],
+          [
+            "Four",
+            17
+          ],
+          [
+            "Five",
+            19
+          ],
+          [
+            "Six",
+            21
+          ],
+          [
+            "Seven",
+            23
+          ],
+          [
+            "Eight",
+            25
+          ],
+          [
+            "Target",
+            27
+          ],
+          [
+            "Ten",
+            29
+          ],
+          [
+            "Eleven",
+            31
+          ],
+          [
+            "Twelve",
+            33
+          ]
+        ],
+        "frames": {
+          "active": false,
+          "visibility": "Hidden",
+          "drew": true
+        }
+      }
+    },
+    {
+      "step": "PDF: Next page and a page jump move the view",
+      "passed": true,
+      "detail": {
+        "page": 6,
+        "frames": {
+          "active": false,
+          "visibility": "Hidden",
+          "drew": true
+        }
+      }
+    },
+    {
+      "step": "PDF: a zoom step leaves the fit, the height fit shows the whole page, and the width fit comes back",
+      "passed": true,
+      "detail": {
+        "fitted": 0.766339898109436,
+        "zoomed": 0.8999999761581421,
+        "height": 0.766339898109436,
+        "back": 0.766339898109436,
+        "frames": {
+          "active": false,
+          "visibility": "Hidden",
+          "drew": true
+        }
+      }
+    },
+    {
+      "step": "PDF: ⌘F / Ctrl+F and typing find the matches, Enter moves to the next, Whole word drops \"zebracorns\", Escape clears",
+      "passed": true,
+      "detail": {
+        "found": true,
+        "landed": true,
+        "next": true,
+        "words": true,
+        "cleared": true,
+        "matches": 3,
+        "current": 1,
+        "frames": {
+          "active": false,
+          "visibility": "Hidden",
+          "drew": true
+        }
+      }
+    },
+    {
+      "step": "PDF: a page number typed into the page value and Enter go there, and Escape drops a draft",
+      "passed": true,
+      "detail": {
+        "went": true,
+        "stayed": true,
+        "frames": {
+          "active": false,
+          "visibility": "Hidden",
+          "drew": true
+        }
+      }
+    },
+    {
+      "step": "PDF: a click on a section link jumps to it, Back returns, and the web link is read",
+      "passed": true,
+      "detail": {
+        "links": 2,
+        "followed": true,
+        "back": true,
+        "web": true,
+        "frames": {
+          "active": false,
+          "visibility": "Hidden",
+          "drew": true
+        }
+      }
+    },
+    {
+      "step": "PDF: a link to a file or to an app's own scheme is not followed",
+      "passed": true,
+      "detail": {
+        "text_read": true,
+        "page": 0,
+        "file_covered": false,
+        "scheme_covered": false,
+        "other_uris": [],
+        "frames": {
+          "active": false,
+          "visibility": "Hidden",
+          "drew": true
+        }
+      }
+    },
+    {
+      "step": "PDF: a drag selects text and ⌘C / Ctrl+C copies it",
+      "passed": true,
+      "detail": {
+        "selected": true,
+        "clipboard": "Selectable sentence here.",
+        "frames": {
+          "active": false,
+          "visibility": "Hidden",
+          "drew": true
+        }
+      }
+    },
+    {
+      "step": "PDF: Dark pages draws the pages dark, and back",
+      "passed": true,
+      "detail": {
+        "dark": true,
+        "light": true,
+        "frames": {
+          "active": false,
+          "visibility": "Hidden",
+          "drew": true
+        }
+      }
+    },
+    {
+      "step": "PDF: a rebuild that changed one page redraws only that page and keeps the others",
+      "passed": true,
+      "detail": {
+        "reloads": [
+          [
+            9
+          ],
+          []
+        ],
+        "frames": {
+          "active": false,
+          "visibility": "Hidden",
+          "drew": true
+        }
+      }
+    },
+    {
+      "step": "PDF: pages more than two away from the screen let go of their images",
+      "passed": true,
+      "detail": {
+        "held": [
+          8,
+          9,
+          10,
+          11
+        ],
+        "visible": [
+          10,
+          12
+        ],
+        "drew": true,
+        "frames": {
+          "active": false,
+          "visibility": "Hidden",
+          "drew": true
+        }
+      }
+    },
+    {
+      "step": "PDF: Open in separate window shows the PDF in a window of its own at the same page, and Return to workspace brings it back",
+      "passed": false,
+      "detail": {
+        "opened": true,
+        "shown": false,
+        "docked": true,
+        "back": false,
+        "carried_out": "ViewPlace { page: 6, scale: 0.7663399, fit: Some(Width), top: (6, 0.0, 0.0) }",
+        "window": {
+          "page": 6,
+          "visible": [
+            0,
+            1
+          ],
+          "viewport": [
+            0.0,
+            0.0
+          ],
+          "scale": 0.766339898109436,
+          "fit": "Some(Width)",
+          "pending_scroll": true
+        },
+        "carried_back": "ViewPlace { page: 6, scale: 0.7663399, fit: Some(Width), top: (0, -0.0, -0.0) }",
+        "panel": {
+          "page": 0,
+          "visible": [
+            0,
+            2
+          ],
+          "viewport": [
+            469.0,
+            747.0
+          ],
+          "scale": 0.766339898109436,
+          "fit": "Some(Width)",
+          "pending_scroll": false
+        },
+        "frames": {
+          "active": false,
+          "visibility": "Hidden",
+          "drew": true
+        }
+      }
+    },
+    {
+      "step": "PDF: the project remembers its PDF in its own window, and Return to workspace clears that",
+      "passed": true,
+      "detail": {
+        "remembered": true,
+        "forgotten": true,
+        "frames": {
+          "active": false,
+          "visibility": "Hidden",
+          "drew": true
+        }
+      }
+    },
+    {
+      "step": "PDF: another project shown opens its own PDF at its start, and a project that left its PDF in its own window opens it again behind the workspace",
+      "passed": true,
+      "detail": {
+        "detached": true,
+        "left": true,
+        "kept": true,
+        "other_at_start": true,
+        "restored": true,
+        "pages": true,
+        "behind": true,
+        "docked": true,
+        "frames": {
+          "active": false,
+          "visibility": "Hidden",
+          "drew": true
+        }
+      }
+    },
+    {
+      "step": "PDF: sharing the right dock with Project, Open in separate window and Return to workspace leave the dock open at its width with Project in it",
+      "passed": true,
+      "detail": {
+        "shared": true,
+        "opened": true,
+        "docked": true,
+        "before": {
+          "open": true,
+          "width": "Some(491px)",
+          "with_project": true
+        },
+        "during": {
+          "open": true,
+          "width": "Some(491px)",
+          "with_project": true
+        },
+        "after": {
+          "open": true,
+          "width": "Some(491px)",
+          "with_project": true
+        },
+        "frames": {
+          "active": false,
+          "visibility": "Hidden",
+          "drew": true
+        }
+      }
+    },
+    {
+      "step": "PDF: Build this document on a root tab while a build runs, then Stop: the next build compiles the document in front, not that tab's",
+      "passed": true,
+      "detail": {
+        "running": true,
+        "stopped": true,
+        "built": true,
+        "live": "supplement.tex",
+        "main_tab": true,
+        "frames": {
+          "active": false,
+          "visibility": "Hidden",
+          "drew": true
+        }
+      }
+    },
+    {
+      "step": "building main.tex again makes it the live PDF and gives the supplement its own tab",
+      "passed": true,
+      "detail": {
+        "built": true
+      }
+    },
+    {
+      "step": "the PDF drags out of its dock into the center, and the dock goes",
+      "passed": true,
+      "detail": {
+        "presented": false,
+        "frames_drawn_by_window": "0/27",
+        "dragging": true,
+        "from": [
+          970.0,
+          61.0
+        ],
+        "to": [
+          614.0,
+          467.5
+        ],
+        "right_dock": false,
+        "pdf_in_center": true,
+        "arrangement": {
+          "center": {
+            "kind": "tabs",
+            "views": [
+              {
+                "file": "main.tex"
+              },
+              {
+                "file": "chapters/intro.tex"
+              },
+              {
+                "file": "references.bib"
+              },
+              {
+                "file": "supplement.tex"
+              },
+              "pdf"
+            ],
+            "active": 4,
+            "slot": 1794573061710833007
+          },
+          "left": {
+            "node": {
+              "kind": "split",
+              "axis": "column",
+              "children": [
+                {
+                  "kind": "tabs",
+                  "views": [
+                    "project",
+                    "agent"
+                  ],
+                  "active": 0,
+                  "slot": 1794573061710833008
+                },
+                {
+                  "kind": "tabs",
+                  "views": [
+                    "papers"
+                  ],
+                  "active": 0,
+                  "slot": 1794573061710833009
+                }
+              ],
+              "sizes": [
+                526.0,
+                null
+              ]
+            },
+            "size": 279.0,
+            "open": true
+          }
+        }
+      }
+    },
+    {
+      "step": "the Writing preset puts the documents beside the PDF and returns",
+      "passed": true,
+      "detail": {
+        "laid": true,
+        "back": true
+      }
+    },
+    {
+      "step": "a new workspace keeps its own arrangement, the dot until it is saved",
+      "passed": true,
+      "detail": {
+        "original": 279.0,
+        "dirty_after_resize": true,
+        "clean_after_save": true,
+        "first": 279.0,
+        "second": 400.0
+      }
+    },
+    {
+      "step": "closing Project's tab hides it and the Panels toggle brings it back",
+      "passed": true,
+      "detail": {
+        "closed": true,
+        "back": true
+      }
+    },
+    {
+      "step": "the PDF floats over the dock and docks back on the right",
+      "passed": true,
+      "detail": {
+        "floated": true,
+        "docked": true
+      }
+    },
+    {
+      "step": "the command palette lists the commands",
+      "passed": true,
+      "detail": {
+        "rows": 26
+      }
+    },
+    {
+      "step": "closing the focused document's tab leaves the keyboard in the window",
+      "passed": true,
+      "detail": {
+        "focus_before": "the active editor",
+        "closed": true,
+        "focus_after": "the active editor",
+        "palette_rows": 26,
+        "reopened": true
+      }
+    },
+    {
+      "step": "closing a tab within the autosave pause saves what was typed",
+      "passed": true,
+      "detail": {
+        "unsaved_before": true,
+        "disk": "Kept on close. draft\n"
+      }
+    },
+    {
+      "step": "closing the tab of a file deleted outside Lattice discards its edits and its notice",
+      "passed": true,
+      "detail": {
+        "announced": true,
+        "dismissed": true,
+        "recreated": false
+      }
+    },
+    {
+      "step": "closing a window within the autosave pause saves what was typed, then closes it",
+      "passed": true,
+      "detail": {
+        "unsaved_before": true,
+        "disk": "Saved on window close. draft\n"
+      }
+    },
+    {
+      "step": "Open in New Window with edits that cannot be saved keeps the window and opens none",
+      "passed": true,
+      "detail": {
+        "announced": true,
+        "stayed": true,
+        "before": 2,
+        "after": 2
+      }
+    },
+    {
+      "step": "switching projects with edits that cannot be saved keeps the project, its editor and the notice",
+      "passed": true,
+      "detail": {
+        "before": "$TMPDIR/lattice-gpui-e2e.K55Ammhl6k/project",
+        "after": "$TMPDIR/lattice-gpui-e2e.K55Ammhl6k/project",
+        "editor_shown": true,
+        "dirty": true,
+        "notice": true
+      }
+    },
+    {
+      "step": "text typed just before quitting is still unsaved when the app quits",
+      "passed": true,
+      "detail": {
+        "file": "$TMPDIR/lattice-gpui-e2e.K55Ammhl6k/project/quit-check.txt"
+      }
+    }
+  ],
+  "after_quit": {
+    "file": "$TMPDIR/lattice-gpui-e2e.K55Ammhl6k/project/quit-check.txt",
+    "text": "Saved on quit."
+  }
+}
