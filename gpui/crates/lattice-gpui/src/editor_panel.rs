@@ -136,6 +136,9 @@ pub struct EditorPanel {
     /// the status bar's counter (`status_counters`); `None` for a file
     /// counted from the disk scan alone.
     buffer_todos: Option<usize>,
+    /// The status bar's width as last drawn, which decides what it folds
+    /// (`editor_status::StatusFolds`).
+    status_width: std::rc::Rc<std::cell::Cell<Option<gpui::Pixels>>>,
     /// The text the buffer grew from, as of the last load or save, with "\n"
     /// line breaks: the base the next save merges against.
     saved_text: String,
@@ -324,6 +327,7 @@ impl EditorPanel {
             cursor: (1, 1),
             words: None,
             buffer_todos: None,
+            status_width: Default::default(),
             saved_text,
             last_file_id: stat
                 .as_ref()
@@ -389,6 +393,10 @@ impl EditorPanel {
 
     pub(crate) fn words(&self) -> Option<usize> {
         self.words
+    }
+
+    pub(crate) fn status_width(&self) -> &std::rc::Rc<std::cell::Cell<Option<gpui::Pixels>>> {
+        &self.status_width
     }
 
     pub(crate) fn buffer_todos(&self) -> Option<usize> {

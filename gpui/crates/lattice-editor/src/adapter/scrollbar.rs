@@ -137,6 +137,18 @@ impl LatticeEditor {
         }));
     }
 
+    /// Whether the overlay scrollbar is showing (or fading in): the text
+    /// overflows, and it scrolled within the last 180 ms, or the pointer is
+    /// over the strip, or the thumb is held.
+    pub fn scrollbar_shown(&mut self, cx: &mut Context<Self>) -> bool {
+        let scrolling = self
+            .scrollbar
+            .scrolled_at
+            .is_some_and(|at| at.elapsed() < SCROLL_IDLE);
+        self.extent(cx).overflows()
+            && (self.scrollbar.hovered || scrolling || self.scrollbar.drag.is_some())
+    }
+
     fn extent(&self, cx: &mut Context<Self>) -> Extent {
         self.editor.update(cx, |editor, cx| {
             let top = editor.scroll_position(cx).y;

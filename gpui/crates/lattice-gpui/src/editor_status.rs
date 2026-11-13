@@ -24,8 +24,8 @@
 
 use gpui::{
     AnyElement, App, BoxShadow, Edges, Entity, InteractiveElement as _, IntoElement,
-    ParentElement as _, SharedString, StatefulInteractiveElement as _, Styled as _, Window, div,
-    prelude::FluentBuilder as _, px,
+    ParentElement as _, SharedString, StatefulInteractiveElement as _, Styled as _, Window, canvas,
+    div, prelude::FluentBuilder as _, px,
 };
 use language::Rope;
 use lattice_ui::{
@@ -50,8 +50,42 @@ use crate::{
     shell::{Build, CleanRebuild},
 };
 
+/// What the status bar leaves out as it narrows, as the Tauri app's
+/// container queries fold `.editor-status-bar` (`app-shell.css`): the
+/// counters' nouns at 520px, the save state's label and the word count's
+/// scope at 420px, the word count at 340px, the caret's words at 240px (it
+/// reads "61:2"), and the counters at 180px, so the bar never spills past
+/// its end. Until the bar has been drawn once, nothing folds.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct StatusFolds {
+    pub counter_labels: bool,
+    pub save_label: bool,
+    pub word_scope: bool,
+    pub words: bool,
+    pub caret_words: bool,
+    pub counters: bool,
+}
+
+impl StatusFolds {
+    pub fn at(width: Option<f32>) -> Self {
+        let Some(width) = width else {
+            return Self::default();
+        };
+        Self {
+            counter_labels: width <= 520.,
+            save_label: width <= 420.,
+            word_scope: width <= 420.,
+            words: width <= 340.,
+            caret_words: width <= 240.,
+            counters: width <= 180.,
+        }
+    }
+}
+
 pub fn status_bar(panel: &EditorPanel, cx: &App) -> impl IntoElement {
     let palette = cx.palette();
+    let measured = panel.status_width().clone();
+    let folds = StatusFolds::at(measured.get().map(f32::from));
     let (line, column) = panel.cursor();
     let (save_icon, save_label) = match panel.save_status() {
         SaveStatus::Saved => (Icon::HARD_DRIVE, "Saved"),
@@ -59,32 +93,54 @@ pub fn status_bar(panel: &EditorPanel, cx: &App) -> impl IntoElement {
         SaveStatus::Failed(_) => (Icon::CIRCLE_ALERT, "Couldn’t save"),
     };
     // The caret's words and numbers, each its own run, as the app's
-    // `.status-caret` spans are.
-    let runs: [(SharedString, &str); 4] = [
-        ("Ln ".into(), "Ln"),
-        (line.to_string().into(), ""),
-        (", Col ".into(), ", Col"),
-        (column.to_string().into(), ""),
-    ];
-    let caret = div()
-        .flex()
-        .children(runs.into_iter().enumerate().map(|(slot, (shown, word))| {
-            let content: SharedString = if word.is_empty() {
-                shown.clone()
-            } else {
-                word.into()
-            };
-            div()
-                .children(parity::text_probe("status/position", slot, content))
-                .child(shown)
-        }));
+    // `.status-caret` spans are; folded, the numbers with a colon between.
+    let runs: [(SharedString, &str); 4] = if folds.caret_words {
+        [
+            ("".into(), ""),
+            (line.to_string().into(), ""),
+            (":".into(), ":"),
+            (column.to_string().into(), ""),
+        ]
+    } else {
+        [
+            ("Ln ".into(), "Ln"),
+            (line.to_string().into(), ""),
+            (", Col ".into(), ", Col"),
+            (column.to_string().into(), ""),
+        ]
+    };
+    let caret = div().flex().children(
+        runs.into_iter()
+            .enumerate()
+            .filter(|(_, (shown, _))| !shown.is_empty())
+            .map(|(slot, (shown, word))| {
+                let content: SharedString = if word.is_empty() {
+                    shown.clone()
+                } else {
+                    word.into()
+                };
+                div()
+                    .children(parity::text_probe("status/position", slot, content))
+                    .child(shown)
+            }),
+    );
+    let save = StatusItem::new("save-state")
+        .icon(save_icon)
+        .parity("status/save");
+    let save = if folds.save_label {
+        save
+    } else {
+        save.label(save_label)
+    };
     div()
+        .relative()
         .flex()
         .flex_none()
         .items_center()
         .h(px(28.))
         .px(px(6.))
         .gap(px(2.))
+        .overflow_hidden()
         .border_t_1()
         .border_color(palette.line)
         // The bar's numbers are tabular, as `.editor-status-bar` sets them.
@@ -98,21 +154,31 @@ pub fn status_bar(panel: &EditorPanel, cx: &App) -> impl IntoElement {
                 ..Edges::default()
             },
         ))
+        // The bar's width for the next frame's folds; a change redraws.
+        .child(
+            canvas(
+                |_, _, _| (),
+                move |bounds, _, window, _| {
+                    if measured.replace(Some(bounds.size.width)) != Some(bounds.size.width) {
+                        window.refresh();
+                    }
+                },
+            )
+            .absolute()
+            .size_full(),
+        )
         .child(
             StatusItem::new("caret-position")
                 .parity("status/position")
                 .child(caret),
         )
-        .child(
-            StatusItem::new("save-state")
-                .icon(save_icon)
-                .label(save_label)
-                .parity("status/save"),
-        )
+        .child(save)
         .child(div().flex_1())
-        .children(counters(panel, cx))
-        .when_some(panel.words(), |this, words| {
-            this.child(word_count(panel, words, cx))
+        .when(!folds.counters, |this| {
+            this.children(counters(panel, folds.counter_labels, cx))
+        })
+        .when_some(panel.words().filter(|_| !folds.words), |this, words| {
+            this.child(word_count(panel, words, !folds.word_scope, cx))
         })
 }
 
@@ -120,7 +186,7 @@ pub fn status_bar(panel: &EditorPanel, cx: &App) -> impl IntoElement {
 /// noun and, when there is something open, the count in medium weight, the
 /// icon and the count in the accent. The panels they open (Annotations, the
 /// TODO scavenger) are not in the GPUI app yet, which their tooltips say.
-fn counters(panel: &EditorPanel, cx: &App) -> [AnyElement; 2] {
+fn counters(panel: &EditorPanel, nouns_folded: bool, cx: &App) -> [AnyElement; 2] {
     let palette = cx.palette();
     let counts = crate::status_counters::counts(
         &panel.project_root(cx),
@@ -132,7 +198,7 @@ fn counters(panel: &EditorPanel, cx: &App) -> [AnyElement; 2] {
         StatusItem::new(id)
             .icon(icon)
             .accent_icon(count > 0)
-            .label(noun)
+            .when(!nouns_folded, |item| item.label(noun))
             .when(count > 0, |item| {
                 item.child(
                     div()
@@ -165,7 +231,7 @@ fn counters(panel: &EditorPanel, cx: &App) -> [AnyElement; 2] {
 
 /// The selection while there is one, else the manuscript, else this file
 /// (`crate::build::word_count`).
-fn word_count(panel: &EditorPanel, file_words: usize, cx: &App) -> AnyElement {
+fn word_count(panel: &EditorPanel, file_words: usize, scoped: bool, cx: &App) -> AnyElement {
     use editor::ToOffset as _;
     let editor = panel.editor().read(cx);
     let buffer = editor.buffer().read(cx).snapshot(cx);
@@ -185,7 +251,7 @@ fn word_count(panel: &EditorPanel, file_words: usize, cx: &App) -> AnyElement {
     let manuscript = word_count::manuscript_count(&root, cx);
     let file_chars = buffer.text_summary().len_utf16.0;
     let labels = word_count::labels(manuscript.as_ref(), file_words, file_chars, &selected);
-    crate::build::word_count_item::item(labels, cx)
+    crate::build::word_count_item::item(labels, scoped, cx)
 }
 
 pub fn build_chip(build: &Entity<BuildPanel>, window: &mut Window, cx: &mut App) -> AnyElement {
@@ -312,6 +378,22 @@ pub fn caret_column<'a>(before_caret: impl IntoIterator<Item = &'a str>) -> u32 
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn the_status_bar_folds_at_the_app_s_widths() {
+        assert_eq!(StatusFolds::at(None), StatusFolds::default());
+        assert_eq!(StatusFolds::at(Some(640.)), StatusFolds::default());
+        let at_500 = StatusFolds::at(Some(500.));
+        assert!(at_500.counter_labels && !at_500.save_label);
+        let at_400 = StatusFolds::at(Some(400.));
+        assert!(at_400.save_label && at_400.word_scope && !at_400.words);
+        let at_300 = StatusFolds::at(Some(300.));
+        assert!(at_300.words && !at_300.caret_words);
+        let at_200 = StatusFolds::at(Some(200.));
+        assert!(at_200.caret_words && !at_200.counters);
+        assert!(StatusFolds::at(Some(170.)).counters);
+    }
+
     use super::*;
 
     #[test]

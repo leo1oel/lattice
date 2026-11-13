@@ -114,9 +114,14 @@ impl Run {
                     line_height: size * settings.line_height(),
                 };
                 let base = settings.buffer_font.weight.0;
-                let runs = shell
-                    .read(cx)
-                    .active_editor()
+                // The front document's editor, from the arrangement: the
+                // shell's last-focused editor follows focus-in events, which
+                // a window that is never the key window does not get.
+                let front = shell.update(cx, |shell, cx| {
+                    let path = shell.root(cx)?.join(shell.active_document(cx)?);
+                    shell.open_editor(&path, cx)
+                });
+                let runs = front
                     .map(|editor| first_line_runs(&editor, base, cx))
                     .unwrap_or_default();
                 let texts = if runs.is_empty() {
