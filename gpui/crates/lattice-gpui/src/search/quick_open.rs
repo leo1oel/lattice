@@ -20,20 +20,20 @@ use std::{collections::HashMap, ops::Range};
 use gpui::{
     AnyElement, App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, Focusable,
     HighlightStyle, InteractiveElement as _, IntoElement, KeyDownEvent, MouseButton,
-    MouseMoveEvent, ParentElement as _, Point, Render, ScrollHandle, SharedString,
-    StatefulInteractiveElement as _, Styled as _, StyledText, Subscription, Task, UnderlineStyle,
-    WeakEntity, Window, div, prelude::FluentBuilder as _, px,
+    ParentElement as _, Render, ScrollHandle, SharedString, StatefulInteractiveElement as _,
+    Styled as _, StyledText, Subscription, Task, UnderlineStyle, WeakEntity, Window, div,
+    prelude::FluentBuilder as _, px,
 };
 use gpui_kit::component::input::{Input, InputEvent, InputState};
 use lattice_ui::{
     ActiveLattice as _, Elevation, GlyphKind, Icon, TextRole, TextRoleStyle as _,
     components::{Keycap, rise_in},
+    fluid_hover::FluidHover,
     icons::{ICON, ICON_SMALL, file_glyph},
     tokens::{FONT_WEIGHT_MEDIUM, FONT_WEIGHT_SEMIBOLD},
 };
 
 use super::{
-    glide::Glide,
     ranking::{RankedRow, match_ranges, rank, score_item, score_path},
     symbols::{Symbol, project_symbols},
 };
@@ -106,10 +106,9 @@ pub struct QuickOpen {
     query: String,
     active: usize,
     scroll: ScrollHandle,
-    glide: Glide,
-    /// Where the pointer last was: only a real move takes the highlight
-    /// from the keys, not rows scrolling under a resting pointer.
-    pointer: Option<Point<gpui::Pixels>>,
+    /// The row the fluid hover lit when this last drew: a row it lights
+    /// afterwards (a pointer that really moved) becomes the current one.
+    adopted: Option<usize>,
     _subscription: Subscription,
 }
 
@@ -158,8 +157,7 @@ impl QuickOpen {
             query: String::new(),
             active: 0,
             scroll: ScrollHandle::new(),
-            glide: Glide::default(),
-            pointer: None,
+            adopted: None,
             _subscription: subscription,
         };
         this.search(cx);
@@ -242,7 +240,6 @@ impl QuickOpen {
             })
             .collect();
         self.active = 0;
-        self.glide.reset();
         self.scroll.scroll_to_item(0);
         cx.notify();
     }
@@ -396,7 +393,13 @@ impl QuickOpen {
         });
     }
 
-    fn render_row(&self, ix: usize, row: &Row, cx: &mut Context<Self>) -> AnyElement {
+    fn render_row(
+        &self,
+        ix: usize,
+        row: &Row,
+        hover: &FluidHover,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         let palette = cx.palette().clone();
         let active = ix == self.active;
         let ink = if active {
@@ -468,17 +471,11 @@ impl QuickOpen {
             .overflow_hidden()
             .cursor_pointer()
             .text_role(TextRole::Body, cx)
-            .child(self.glide.probe(ix))
-            .on_mouse_move(cx.listener(move |this, event: &MouseMoveEvent, _, cx| {
-                if this.pointer == Some(event.position) {
-                    return;
-                }
-                this.pointer = Some(event.position);
-                if this.active != ix {
-                    this.active = ix;
-                    cx.notify();
-                }
-            }))
+            // The current row's own wash, shown while the gliding fill is
+            // elsewhere or gone, as the palette's.
+            .when(active && !hover.is_lit(ix, cx), |row| {
+                row.rounded(px(ROW_RADIUS)).bg(palette.accent_soft)
+            })
             .on_click(cx.listener(move |this, _, window, cx| this.select(ix, window, cx)))
             .child(div().flex_none().flex().child(icon))
             .child(
@@ -584,15 +581,23 @@ impl Render for QuickOpen {
         let palette = cx.palette().clone();
         let viewport = window.viewport_size();
         let width = px(WIDTH).min(viewport.width - px(40.));
-        let mut list: Vec<AnyElement> = vec![
-            self.glide
-                .fill(
-                    (!self.rows.is_empty()).then_some(self.active),
-                    palette.accent_soft,
-                    px(ROW_RADIUS),
-                )
-                .into_any_element(),
-        ];
+        // One fill for the pointer and the keys, gliding between rows, as
+        // the app's picker (`search-picker-dialog.tsx`) and the command
+        // palette: the row the pointer lights becomes the current one, as a
+        // pointer that really moves does there; rows scrolled under a
+        // resting pointer change nothing.
+        let hover = FluidHover::new("quick-open-hover", window, cx)
+            .fill(palette.accent_soft)
+            .radius(px(ROW_RADIUS));
+        let lit = hover.lit(cx);
+        if lit != self.adopted {
+            if let Some(lit) = lit.filter(|lit| *lit < self.rows.len()) {
+                self.active = lit;
+            }
+        }
+        let hover = hover.follow((!self.rows.is_empty()).then_some(self.active), cx);
+        self.adopted = hover.lit(cx);
+        let mut list: Vec<AnyElement> = vec![hover.highlight()];
         for (ix, row) in self.rows.iter().enumerate() {
             let group = self.group_of(row);
             if self.sectioned && (ix == 0 || group != self.group_of(&self.rows[ix - 1])) {
@@ -608,7 +613,7 @@ impl Render for QuickOpen {
                         .into_any_element(),
                 );
             }
-            list.push(self.render_row(ix, row, cx));
+            list.push(hover.item(ix, self.render_row(ix, row, &hover, cx)));
         }
         let has_query = !self.input.read(cx).value().is_empty();
         let header = div()

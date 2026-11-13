@@ -18,20 +18,21 @@ use std::{collections::HashSet, ops::Range, path::PathBuf, time::Duration};
 
 use gpui::{
     AnyElement, App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, Focusable,
-    HighlightStyle, InteractiveElement as _, IntoElement, KeyDownEvent, MouseMoveEvent,
-    ParentElement as _, Point, Render, ScrollHandle, SharedString, StatefulInteractiveElement as _,
-    Styled as _, StyledText, Subscription, Task, Window, div, prelude::FluentBuilder as _, px,
+    HighlightStyle, InteractiveElement as _, IntoElement, KeyDownEvent, ParentElement as _, Render,
+    ScrollHandle, SharedString, StatefulInteractiveElement as _, Styled as _, StyledText,
+    Subscription, Task, Window, div, prelude::FluentBuilder as _, px,
 };
 use gpui_kit::component::input::{InputEvent, InputState};
 use lattice_core::models::ProjectSearchResult;
 use lattice_ui::{
     ActiveLattice as _, GlyphKind, Icon, TextRole, TextRoleStyle as _,
     components::Button,
+    fluid_hover::FluidHover,
     icons::{ICON, file_glyph},
     tokens::{FONT_WEIGHT_MEDIUM, FONT_WEIGHT_SEMIBOLD},
 };
 
-use super::{field::search_field, glide::Glide, sheet::SheetFrame};
+use super::{field::search_field, sheet::SheetFrame};
 
 const DEBOUNCE: Duration = Duration::from_millis(180);
 
@@ -77,8 +78,9 @@ pub struct ProjectFind {
     generation: u64,
     search_task: Option<Task<()>>,
     scroll: ScrollHandle,
-    glide: Glide,
-    pointer: Option<Point<gpui::Pixels>>,
+    /// The hit the fluid hover lit when this last drew: a hit it lights
+    /// afterwards (a pointer that really moved) becomes the current one.
+    adopted: Option<usize>,
     _subscription: Subscription,
 }
 
@@ -120,8 +122,7 @@ impl ProjectFind {
             generation: 0,
             search_task: None,
             scroll: ScrollHandle::new(),
-            glide: Glide::default(),
-            pointer: None,
+            adopted: None,
             _subscription: subscription,
         };
         // Reopening runs the kept query again; until it answers it shows as
@@ -200,7 +201,6 @@ impl ProjectFind {
                 }
                 this.answered = query;
                 this.active = 0;
-                this.glide.reset();
                 this.scroll.scroll_to_item(0);
                 cx.notify();
             })
@@ -250,7 +250,6 @@ impl ProjectFind {
     fn set_scope(&mut self, scope: FindScope, cx: &mut Context<Self>) {
         self.scope = scope;
         self.active = 0;
-        self.glide.reset();
         cx.notify();
     }
 
@@ -351,20 +350,28 @@ impl ProjectFind {
         self.cycle(false, window, cx);
     }
 
-    fn render_hits(&self, cx: &mut Context<Self>) -> Vec<AnyElement> {
+    fn render_hits(&mut self, window: &mut Window, cx: &mut Context<Self>) -> Vec<AnyElement> {
         let palette = cx.palette().clone();
+        let count = self.selectable().len();
+        // One fill for the pointer and the keys, gliding between hits, as
+        // the app's picker: the hit the pointer lights becomes the current
+        // one; hits scrolled under a resting pointer change nothing.
+        let hover = FluidHover::new("project-find-hover", window, cx)
+            .fill(palette.accent_soft)
+            .radius(px(6.));
+        let lit = hover.lit(cx);
+        if lit != self.adopted {
+            if let Some(lit) = lit.filter(|lit| *lit < count) {
+                self.active = lit;
+            }
+        }
+        let hover = hover.follow((count > 0).then_some(self.active), cx);
+        self.adopted = hover.lit(cx);
+        let active = self.active;
         let hits = self.selectable();
         let terms = terms(&self.answered);
         let editor_font = cx.lattice().fonts.editor.clone();
-        let mut out: Vec<AnyElement> = vec![
-            self.glide
-                .fill(
-                    (!hits.is_empty()).then_some(self.active),
-                    palette.accent_soft,
-                    px(6.),
-                )
-                .into_any_element(),
-        ];
+        let mut out: Vec<AnyElement> = vec![hover.highlight()];
         for (ix, hit) in hits.iter().enumerate() {
             let paper = hit.kind == "paper";
             if !paper && (ix == 0 || hits[ix - 1].path != hit.path) {
@@ -444,17 +451,9 @@ impl ProjectFind {
                 .min_w_0()
                 .rounded(px(6.))
                 .cursor_pointer()
-                .child(self.glide.probe(ix))
-                .on_mouse_move(cx.listener(move |this, event: &MouseMoveEvent, _, cx| {
-                    if this.pointer == Some(event.position) {
-                        return;
-                    }
-                    this.pointer = Some(event.position);
-                    if this.active != ix {
-                        this.active = ix;
-                        cx.notify();
-                    }
-                }))
+                .when(ix == active && !hover.is_lit(ix, cx), |row| {
+                    row.bg(palette.accent_soft)
+                })
                 .on_click(cx.listener(move |this, _, window, cx| this.open(ix, window, cx)));
             let row = if paper {
                 row.flex()
@@ -499,7 +498,7 @@ impl ProjectFind {
                     )
                     .child(div().flex_1().min_w_0().child(preview))
             };
-            out.push(row.into_any_element());
+            out.push(hover.item(ix, row));
         }
         out
     }
@@ -754,7 +753,7 @@ impl Render for ProjectFind {
                 .flex_col()
                 .gap(px(2.))
                 .pr(px(10.))
-                .children(self.render_hits(cx))
+                .children(self.render_hits(window, cx))
                 .into_any_element()
         } else {
             div().flex_1().into_any_element()

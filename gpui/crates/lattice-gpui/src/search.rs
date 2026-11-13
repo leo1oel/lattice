@@ -7,7 +7,6 @@
 
 mod field;
 pub mod find;
-mod glide;
 pub mod quick_open;
 mod ranking;
 pub mod replace;
