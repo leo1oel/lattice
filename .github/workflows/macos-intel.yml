@@ -28,26 +28,15 @@ name: macOS Intel
 #   darwin-x86_64 added to latest.json (scripts/add-updater-platform.mjs
 #   verifies the archive's signature against the app's updater key first).
 #
-# A pull request that changes this packaging, or a run by hand, runs the same
-# build, signing, notarization and smoke with the open-licensed fonts, no
-# baked-in keys and no updater key (so no updater archive), and publishes
-# nothing. Without the signing secrets (a fork) it builds ad hoc signed and
-# skips notarization.
+# A run by hand (Actions > Run workflow, the way to prove a change to this
+# packaging; pull requests no longer run it) runs the same build, signing,
+# notarization and smoke with the open-licensed fonts, no baked-in keys and
+# no updater key (so no updater archive), and publishes nothing. Without the
+# signing secrets it builds ad hoc signed and skips notarization.
 on:
   workflow_run:
     workflows: [Release]
     types: [completed]
-  pull_request:
-    paths:
-      - ".github/workflows/macos-intel.yml"
-      - ".github/scripts/check-macos-arch.sh"
-      - ".github/scripts/retry-stapler.sh"
-      - ".github/scripts/smoke-macos-dmg.sh"
-      - ".github/scripts/staple-dmg-app.sh"
-      - "scripts/add-updater-platform.mjs"
-      - "scripts/prepare-synara-sidecar.mjs"
-      - "scripts/check-font-leaks.mjs"
-      - "scripts/lib/runtime-prune.mjs"
   workflow_dispatch:
 
 permissions:

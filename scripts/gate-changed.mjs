@@ -29,7 +29,9 @@
  * .tmp/gate-changed/. A stage that outlives its timeout is killed and fails.
  * Nothing here opens a browser or builds Rust. When a change reaches the Rust
  * crate — src-tauri/, or a file elsewhere that Rust `include_str!`s — it says
- * so, and CI's `rust` job is the check.
+ * so; `pnpm signoff` (scripts/signoff.mjs) runs these same stages and adds the
+ * bundle budget, the Rust crates and the GPUI app, then records the result on
+ * the pull request.
  *
  * Options:
  *   --base REF   compare against REF instead of origin/main (its merge base)
@@ -37,7 +39,7 @@
 import { spawn, execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { invariantTests } from "./test-invariants.mjs";
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -60,7 +62,7 @@ const git = (...args) => execFileSync("git", args, { cwd: repo, encoding: "utf8"
  * tests that imported it fail in `vitest related` through their own edits, or
  * in CI.
  */
-function changedFiles(base) {
+export function changedFiles(base) {
   const mergeBase = git("merge-base", "HEAD", base).trim();
   const lines = [
     ...git("-c", "core.quotePath=false", "diff", "--name-only", "--no-renames", mergeBase).split("\n"),
@@ -81,7 +83,7 @@ const PERF_EVIDENCE_INPUTS = /^(docs\/performance(\.md|-data\/.*)|scripts\/check
  * stylesheets this way). A `concat!` path keeps only its literal prefix,
  * which then names a directory.
  */
-function rustIncludes() {
+export function rustIncludes() {
   const includes = [];
   const sources = git("ls-files", "-z", "src-tauri/*.rs").split("\0").filter(Boolean);
   for (const source of sources) {
@@ -98,10 +100,15 @@ function rustIncludes() {
  * Runs one stage in its own process group, so a timeout kills everything it
  * started (pnpm, then Vitest's workers), and resolves with its status and log.
  */
-function run(name, command, args, timeoutMs) {
+function run({ name, command, args, timeout: timeoutMs, cwd = ".", env = {} }) {
   return new Promise((resolve) => {
     const started = Date.now();
-    const child = spawn(command, args, { cwd: repo, detached: true, stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, FORCE_COLOR: "0" } });
+    const child = spawn(command, args, {
+      cwd: path.join(repo, cwd),
+      detached: true,
+      stdio: ["ignore", "pipe", "pipe"],
+      env: { ...process.env, FORCE_COLOR: "0", ...env },
+    });
     running.add(child);
     let log = "";
     child.stdout.on("data", (chunk) => (log += chunk));
@@ -152,17 +159,13 @@ function excerpt(log) {
   return [...lines.slice(0, 30), `… ${lines.length - 60} lines omitted …`, ...lines.slice(-30)];
 }
 
-async function main() {
-  const options = parseArgs(process.argv.slice(2));
-  const { mergeBase, files } = changedFiles(options.base);
-  mkdirSync(logDir, { recursive: true });
-  console.log(`gate:changed: ${files.length} changed file(s) against ${options.base} (${mergeBase.slice(0, 9)})`);
-
+/** The stages for these changed files; a skipped one carries its reason. */
+export function gateStages(files) {
   const code = files.filter((file) => /^(src|tools|scripts)\/.*\.(ts|tsx|mts|js|jsx|mjs|css|json)$/.test(file));
   const sources = files.filter((file) => /^src\/.*\.tsx?$/.test(file) || file.startsWith("src/locales/"));
-  // gpui/ is a Cargo workspace of its own, checked by .github/workflows/gpui.yml.
+  // gpui/ is a Cargo workspace of its own, checked by `pnpm signoff`.
   const rust = files.filter((file) => file.startsWith("src-tauri/") && file.endsWith(".rs"));
-  const stages = [
+  return [
     { name: "lint", why: "oxlint, src and tools", command: "pnpm", args: ["lint"], timeout: 180_000 },
     { name: "knip", why: "unused files, exports and dependencies", command: "pnpm", args: ["knip"], timeout: 180_000 },
     {
@@ -198,35 +201,62 @@ async function main() {
       timeout: 900_000,
     },
   ];
+}
 
-  let failed = 0;
+/**
+ * Runs the stages one after another, printing a line each, and returns how
+ * many failed. A stage with `needs` is skipped when the stage it names failed;
+ * one with `before`/`after` runs them around itself (signoff's machine-wide
+ * lock), and `after` runs however the stage ended.
+ */
+export async function runStages(stages) {
+  mkdirSync(logDir, { recursive: true });
+  const failedNames = new Set();
   for (const stage of stages) {
-    if (stage.skip) {
-      console.log(`  ${stage.name.padEnd(10)} skipped  (${stage.skip})`);
+    const skip = stage.skip ?? (failedNames.has(stage.needs) && `${stage.needs} failed`);
+    if (skip) {
+      console.log(`  ${stage.name.padEnd(10)} skipped  (${skip})`);
+      if (!stage.skip) failedNames.add(stage.name);
       continue;
     }
-    const result = await run(stage.name, stage.command, stage.args, stage.timeout);
+    await stage.before?.();
+    let result;
+    try {
+      result = await run(stage);
+    } finally {
+      stage.after?.();
+    }
     const verdict = result.ok ? "ok" : result.timedOut ? `TIMED OUT after ${stage.timeout / 1000} s` : "FAILED";
     console.log(`  ${stage.name.padEnd(10)} ${verdict.padEnd(8)} ${result.seconds.toFixed(1).padStart(6)} s  (${stage.why})`);
     if (!result.ok) {
-      failed += 1;
+      failedNames.add(stage.name);
       console.log(excerpt(result.log).map((line) => `    | ${line}`).join("\n"));
       console.log(`    full log: ${path.relative(repo, result.file)}`);
     }
   }
+  return failedNames.size;
+}
+
+async function main() {
+  const options = parseArgs(process.argv.slice(2));
+  const { mergeBase, files } = changedFiles(options.base);
+  console.log(`gate:changed: ${files.length} changed file(s) against ${options.base} (${mergeBase.slice(0, 9)})`);
+  const failed = await runStages(gateStages(files));
   const included = rustIncludes().filter(({ target, prefix }) => files.some((file) => (prefix ? file.startsWith(target) : file === target)));
   if (files.some((file) => file.startsWith("src-tauri/")) || included.length) {
     const reach = [
       files.some((file) => file.startsWith("src-tauri/")) && "src-tauri/ changed",
       included.length && `${[...new Set(included.map(({ source }) => source))].join(", ")} compiles in ${[...new Set(included.map(({ target }) => target))].join(", ")}`,
     ].filter(Boolean).join("; ");
-    console.log(`  rust       not run  (${reach}: run the touched module's \`cargo test\` through pueue; CI's \`rust\` job runs the rest)`);
+    console.log(`  rust       not run  (${reach}: the optional \`pnpm signoff\` runs the Rust stages)`);
   }
-  console.log(failed ? `gate:changed: ${failed} stage(s) failed` : "gate:changed: ok; CI runs everything else");
+  console.log(failed ? `gate:changed: ${failed} stage(s) failed` : "gate:changed: ok; release CI runs everything else (`pnpm signoff` is the optional wider local check)");
   process.exitCode = failed ? 1 : 0;
 }
 
-await main().catch((error) => {
-  console.error(`gate:changed: ${error.message}`);
-  process.exit(1);
-});
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  await main().catch((error) => {
+    console.error(`gate:changed: ${error.message}`);
+    process.exit(1);
+  });
+}
