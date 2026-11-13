@@ -166,7 +166,7 @@ pub(crate) fn shape_label(
     cx: &App,
 ) -> (gpui::ShapedLine, Pixels) {
     let text: SharedString = if name.trim().is_empty() {
-        "Anonymous".into()
+        lattice_i18n::t!("Anonymous").into()
     } else {
         SharedString::from(name.to_string())
     };

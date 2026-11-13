@@ -70,8 +70,8 @@ try {
       // GPUI first: the reference is captured at the size and scale the GPUI window got.
       log(`${screen} ${theme}: GPUI…`);
       const gpui = [
-        captureGpui({ app, project, theme, dir: runs, name: `${screen}-${theme}-gpui-1` }),
-        captureGpui({ app, project, theme, dir: runs, name: `${screen}-${theme}-gpui-2` }),
+        captureGpui({ app, project, theme, dir: runs, name: `${screen}-${theme}-gpui-1`, screen }),
+        captureGpui({ app, project, theme, dir: runs, name: `${screen}-${theme}-gpui-2`, screen }),
       ];
       const env = { benchUrl: bench.url, pdfUrl: served.url, viewport: gpui[0].viewport, deviceScaleFactor: gpui[0].scale };
       log(`${screen} ${theme}: reference at ${env.viewport.width}×${env.viewport.height} @${env.deviceScaleFactor}x…`);

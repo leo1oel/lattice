@@ -10,6 +10,8 @@ use lattice_core::{
     models::Diagnostic,
 };
 
+use lattice_i18n::{join_phrases, t, tc};
+
 use super::diagnostics::{self, Counts};
 
 #[derive(Clone, Debug)]
@@ -90,21 +92,27 @@ pub fn counts_text(counts: &Counts) -> String {
     // The cap counts errors and warnings together; the "+" goes on errors when there are any.
     let more_errors = counts.capped && counts.error > 0;
     let more_warnings = counts.capped && counts.error == 0;
-    let phrase = |count: usize, more: bool, one: &str, many: &str| match (count, more) {
-        (0, _) => None,
-        (count, true) => Some(format!("{count}+ {many}")),
-        (1, false) => Some(format!("1 {one}")),
-        (count, false) => Some(format!("{count} {many}")),
+    let errors = counts.error;
+    let warnings = counts.warning;
+    let notes = counts.info;
+    let error_text = match (errors, more_errors) {
+        (0, _) => String::new(),
+        (_, true) => t!("{errors}+ errors", errors = errors),
+        (1, false) => t!("{errors} error", errors = errors),
+        (_, false) => t!("{errors} errors", errors = errors),
     };
-    [
-        phrase(counts.error, more_errors, "error", "errors"),
-        phrase(counts.warning, more_warnings, "warning", "warnings"),
-        phrase(counts.info, false, "note", "notes"),
-    ]
-    .into_iter()
-    .flatten()
-    .collect::<Vec<_>>()
-    .join(", ")
+    let warning_text = match (warnings, more_warnings) {
+        (0, _) => String::new(),
+        (_, true) => t!("{warnings}+ warnings", warnings = warnings),
+        (1, false) => t!("{warnings} warning", warnings = warnings),
+        (_, false) => t!("{warnings} warnings", warnings = warnings),
+    };
+    let note_text = match notes {
+        0 => String::new(),
+        1 => t!("{notes} note", notes = notes),
+        _ => t!("{notes} notes", notes = notes),
+    };
+    join_phrases(&[error_text, warning_text, note_text])
 }
 
 /// How a build ended, in the one sentence the Build button and the
@@ -116,11 +124,16 @@ pub fn counts_text(counts: &Counts) -> String {
 pub fn headline(succeeded: bool, counts: &Counts, wrote_pdf: bool) -> String {
     let issues = counts_text(counts);
     match (succeeded, issues.is_empty()) {
-        (true, true) => "Built".into(),
-        (true, false) => format!("Built with {issues}"),
-        (false, false) if wrote_pdf && counts.error > 0 => format!("Built with {issues}"),
-        (false, false) => format!("Build failed: {issues}"),
-        (false, true) => "Build failed".into(),
+        (true, true) => t!("Built").into(),
+        (true, false) => t!("Built with {issues}", issues = issues),
+        // Its own message: zh-CN's success sentence says the build succeeded.
+        (false, false) if wrote_pdf && counts.error > 0 => tc!(
+            "a failed build whose PDF was still written",
+            "Built with {issues}",
+            issues = issues
+        ),
+        (false, false) => t!("Build failed: {issues}", issues = issues),
+        (false, true) => t!("Build failed").into(),
     }
 }
 

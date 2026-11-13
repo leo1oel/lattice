@@ -20,6 +20,7 @@ use lattice_core::{
     latex::{self, BuildResult, BuildStep, BuildSteps},
     models::{Diagnostic, FileNode},
 };
+use lattice_i18n::{n, t, tr};
 use lattice_ui::components::ToastLevel;
 
 use super::{Build, Shell};
@@ -29,8 +30,10 @@ use crate::{
     project::Project,
 };
 
-const NO_DOCUMENT: &str = "This project has no LaTeX document to build yet. Add a .tex file, or \
-                           set one as the root document in project settings.";
+const NO_DOCUMENT: &str = n!(
+    "This project has no LaTeX document to build yet. Add a .tex file, or \
+     set one as the root document in project settings."
+);
 
 /// How long a build runs before Lattice says so and offers to stop it.
 const SLOW_BUILD: Duration = Duration::from_secs(10 * 60);
@@ -189,7 +192,7 @@ impl Shell {
             // Autosave and a jump to the PDF reach here too; only the writer
             // pressing Build is told what to add.
             if request.requested {
-                notices::error("Build", NO_DOCUMENT, cx);
+                notices::error(t!("Build"), tr(NO_DOCUMENT), cx);
             }
             self.settle_builds();
             return;
@@ -234,13 +237,16 @@ impl Shell {
         self.slow_build = Some(cx.spawn(async move |_, cx| {
             cx.background_executor().timer(SLOW_BUILD).await;
             cx.update(|cx| {
-                let stop = NoticeAction::new("Stop", |window, cx| {
+                let stop = NoticeAction::new(t!("Stop"), |window, cx| {
                     window.dispatch_action(Box::new(super::StopBuild), cx)
                 });
                 let notice = Notice::new(
                     ToastLevel::Warning,
-                    "Still building after 10 minutes. Something in the document may be looping; \
-                     stop the build if it does not finish.",
+                    t!(
+                        "Still building after {minutes} minutes. Something in the document may be \
+                         looping; stop the build if it does not finish.",
+                        minutes = SLOW_BUILD.as_secs() / 60
+                    ),
                 )
                 .action(stop)
                 .key(SLOW_BUILD_NOTICE)
@@ -266,7 +272,7 @@ impl Shell {
                     .await;
                 if let Err(error) = cleaned {
                     this.update_in(cx, |this, window, cx| {
-                        notices::error("Couldn’t clean the build files", error, cx);
+                        notices::error(t!("Couldn’t clean the build files"), error, cx);
                         this.finish_build(&project, 0, request, None, window, cx);
                     })
                     .ok();
@@ -451,7 +457,7 @@ impl Shell {
                 project.update(cx, |project, _| project.forget_compiled());
                 self.build_panel.update(cx, |panel, cx| panel.failed(cx));
                 notices::show(
-                    Notice::new(ToastLevel::Error, "LaTeX compilation failed.")
+                    Notice::new(ToastLevel::Error, t!("LaTeX compilation failed."))
                         .detail(error.clone())
                         .key(BUILD_FAILED_NOTICE),
                     cx,

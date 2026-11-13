@@ -18,6 +18,7 @@ use gpui::{
     WeakEntity, Window, div, prelude::FluentBuilder as _, px,
 };
 use gpui_kit::component::input::{Input, InputEvent, InputState};
+use lattice_i18n::t;
 use lattice_ui::{
     ActiveLattice as _, Elevation, GlyphKind, Icon, TextRole, TextRoleStyle as _,
     components::{Keycap, rise_in},
@@ -58,7 +59,7 @@ impl Entry {
     fn group(&self) -> &'static str {
         match self {
             Entry::Command { section, .. } => section.label(),
-            Entry::File { .. } => "Files",
+            Entry::File { .. } => t!("Files"),
         }
     }
 
@@ -103,9 +104,9 @@ impl CommandPaletteView {
         let in_project = shell.project.is_some();
         let input = cx.new(|cx| {
             InputState::new(window, cx).placeholder(if in_project {
-                "Search commands and files…"
+                t!("Search commands and files…")
             } else {
-                "Search commands…"
+                t!("Search commands…")
             })
         });
         let subscription =
@@ -440,7 +441,7 @@ impl Render for CommandPaletteView {
                     div()
                         .text_role(TextRole::Subtitle, cx)
                         .text_color(palette.text)
-                        .child(format!("No commands or files match “{query}”")),
+                        .child(t!("No commands or files match “{query}”", query = query)),
                 )
         });
         let card = div()
@@ -529,12 +530,7 @@ impl ShortcutSheet {
             let Some(keys) = commands::keys_label(command.action.as_ref(), window) else {
                 continue;
             };
-            let label =
-                if command.id.starts_with("workspace-") && command.label.starts_with("Switch") {
-                    "Switch to a workspace by its place".into()
-                } else {
-                    command.label
-                };
+            let label = command.label;
             match groups
                 .iter_mut()
                 .find(|(name, _)| *name == command.section.label())
@@ -649,7 +645,7 @@ impl Render for ShortcutSheet {
                         div()
                             .text_role(TextRole::Title, cx)
                             .text_color(palette.text)
-                            .child("Keyboard shortcuts"),
+                            .child(t!("Keyboard shortcuts")),
                     )
                     .children(groups),
             ))
@@ -691,6 +687,51 @@ impl Shell {
         window.focus(&view.focus_handle(cx), cx);
         self.shortcuts = Some(view);
         cx.notify();
+    }
+
+    /// Open Settings (on `tab`, else where it was left), or bring it to
+    /// that page if it is open.
+    pub(crate) fn open_settings(
+        &mut self,
+        tab: Option<lattice_settings::SettingsTab>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if let Some(settings) = &self.settings {
+            if let Some(tab) = tab {
+                settings.update(cx, |settings, cx| settings.open_tab(tab, cx));
+            }
+            return;
+        }
+        self.palette = None;
+        self.shortcuts = None;
+        let weak = cx.entity().downgrade();
+        let project = self.project.clone();
+        let view =
+            cx.new(|cx| crate::settings::SettingsDialog::new(weak, project, tab, window, cx));
+        cx.subscribe_in(
+            &view,
+            window,
+            |this, _, event: &crate::settings::SettingsEvent, window, cx| match event {
+                crate::settings::SettingsEvent::Close => {
+                    this.settings = None;
+                    this.focus_front(window, cx);
+                    cx.notify();
+                }
+                crate::settings::SettingsEvent::CleanBuildFiles => {
+                    window.dispatch_action(Box::new(super::CleanBuildFiles), cx)
+                }
+            },
+        )
+        .detach();
+        self.settings = Some(view);
+        cx.notify();
+    }
+
+    /// Whether this window is cleaning its build files, and building, for
+    /// Settings' Clean button.
+    pub(crate) fn settings_busy(&self, _: &App) -> (bool, bool) {
+        (self.cleaning, self.build_task.is_some())
     }
 
     pub(crate) fn close_overlays(&mut self, window: &mut Window, cx: &mut Context<Self>) {

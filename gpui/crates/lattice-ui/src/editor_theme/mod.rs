@@ -21,7 +21,7 @@
 //! `string`, key-value keys `property`, label and reference keys `label`,
 //! citation keys `citation`.
 
-mod code_palette;
+pub mod code_palette;
 #[cfg(test)]
 mod tests;
 
@@ -98,6 +98,45 @@ impl CodeTheme {
                 Appearance::Dark => "Dark",
             }
         )
+    }
+}
+
+/// A code theme's colours for Settings' preview card, in one of its
+/// variants (`codeThemeProperties`).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CodePreview {
+    pub kind: Appearance,
+    pub ground: gpui::Hsla,
+    pub ink: gpui::Hsla,
+    pub syntax: code_palette::CodeSyntax<gpui::Hsla>,
+}
+
+impl CodeTheme {
+    /// The appearances the theme comes in: both, or only dark.
+    pub fn kinds(self) -> Vec<Appearance> {
+        match self.source() {
+            None => vec![Appearance::Light, Appearance::Dark],
+            Some(source) => {
+                let mut kinds = vec![source.light_app.kind];
+                if source.dark_app.kind != source.light_app.kind {
+                    kinds.push(source.dark_app.kind);
+                }
+                kinds
+            }
+        }
+    }
+
+    /// The theme as it is drawn in an app of appearance `kind`, tinted
+    /// `tint` (Weft & Warp's colours are the app's own).
+    pub fn preview(self, kind: Appearance, tint: Tint, accent: Accent) -> CodePreview {
+        let palette = Palette::new(kind, tint, accent);
+        let code = CodePalette::new(self, &palette);
+        CodePreview {
+            kind: code.kind,
+            ground: code.ground,
+            ink: code.ink,
+            syntax: code.syntax,
+        }
     }
 }
 

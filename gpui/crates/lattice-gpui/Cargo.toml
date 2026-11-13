@@ -34,6 +34,8 @@ image.workspace = true
 language.workspace = true
 lattice-core.workspace = true
 lattice-editor.workspace = true
+lattice-i18n.workspace = true
+lattice-settings.workspace = true
 lattice-ui.workspace = true
 log.workspace = true
 pdfium-render.workspace = true
@@ -59,7 +61,7 @@ raw-window-handle = "0.6"
 [target.'cfg(target_os = "macos")'.dependencies]
 libc = "0.2"
 objc2 = "0.6"
-objc2-foundation = { version = "0.3", features = ["NSString", "NSGeometry"] }
+objc2-foundation = { version = "0.3", features = ["NSArray", "NSGeometry", "NSLocale", "NSString"] }
 
 # The version Zed's gpui_windows already uses, so it adds no crate.
 [target.'cfg(target_os = "windows")'.dependencies]

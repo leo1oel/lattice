@@ -13,6 +13,7 @@ use crate::{editor_panel::EditorPanel, native};
 mod build_flow;
 mod editor_adapter;
 mod saves;
+mod settings;
 
 /// Each step's name, whether it passed, and what it saw.
 struct Steps(Vec<Value>);
@@ -35,7 +36,8 @@ impl Run {
     /// citation and a reference, draw remote carets and a block widget, show
     /// TexLab's diagnostics and complete a citation and a command; then create,
     /// rename, move and delete files in the tree, drag a tab into a dock,
-    /// close a dirty tab, a vanished file's tab and a window, and type
+    /// open Settings and change it (the interface language included), close
+    /// a dirty tab, a vanished file's tab and a window, and type
     /// before the quit that ends the run, which the result's `after_quit`
     /// names for the CI workflow to check on disk.
     pub(super) async fn e2e(&self, cx: &mut AsyncApp) -> Result<Value> {
@@ -267,6 +269,7 @@ impl Run {
             steps.check(name, passed, detail);
         }
 
+        self.settings_and_language(cx, &mut steps).await?;
         self.closing_saves(cx, &mut steps, &root).await?;
         // Last: `scenario::start` quits once the result is written.
         let quit = self.type_before_quit(cx, &mut steps, &root).await?;

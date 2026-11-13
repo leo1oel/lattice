@@ -15,11 +15,12 @@
 use std::time::Duration;
 
 use gpui::{
-    AnyElement, App, Entity, FontWeight, Hsla, InteractiveElement as _, IntoElement, ListState,
-    ParentElement as _, Pixels, SharedString, StatefulInteractiveElement as _, Styled as _, Window,
-    div, list, prelude::*, px, relative,
+    AnyElement, App, Entity, FontWeight, Hsla, InteractiveElement as _, IntoElement,
+    ParentElement as _, SharedString, StatefulInteractiveElement as _, Styled as _, Window, div,
+    prelude::*, px, relative,
 };
 use lattice_core::models::Diagnostic;
+use lattice_i18n::t;
 use lattice_ui::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
     components::{Button, IconButton, Segmented},
@@ -35,6 +36,9 @@ use super::{
     outcome::headline,
 };
 use crate::build_panel::{BuildAction, BuildPanel, LastBuild, OutputTab};
+
+mod log;
+use log::{log_lines, log_view};
 
 /// How long a copy button shows its check.
 pub const COPIED_FOR: Duration = Duration::from_millis(1500);
@@ -71,10 +75,16 @@ fn tone_hover(cx: &App) -> Hsla {
     cx.palette().text_secondary.opacity(0.08)
 }
 
+/// A catalog message's text without its rich-text slots: the Tauri app wraps
+/// the replacement in `<0>…</0>` to set it in code; here it reads inline.
+fn strip_tags(message: &str) -> String {
+    message.replace("<0>", "").replace("</0>", "")
+}
+
 fn title(last: &LastBuild) -> String {
     let counts = diagnostics::summarize(&last.diagnostics);
     if last.diagnostics.is_empty() && last.success {
-        "Build notes".into()
+        t!("Build notes").into()
     } else {
         headline(last.success, &counts, last.wrote_pdf)
     }
@@ -195,9 +205,9 @@ fn bar(
         .frame(px(24.), px(24.))
         .icon_size(px(13.))
         .tooltip(if docked {
-            "Float over the page"
+            t!("Float over the page")
         } else {
-            "Dock below the page"
+            t!("Dock below the page")
         })
         .on_click(move |_, _, cx| build.update(cx, |build, cx| build.set_docked(!docked, cx)))
     };
@@ -206,7 +216,7 @@ fn bar(
         IconButton::new("compile-diagnostics-dismiss", icons::X)
             .frame(px(24.), px(24.))
             .icon_size(px(14.))
-            .tooltip("Dismiss diagnostics")
+            .tooltip(t!("Dismiss diagnostics"))
             .on_click(move |_, _, cx| build.update(cx, |build, cx| build.dismiss(cx)))
     };
     div()
@@ -241,20 +251,20 @@ fn body(
             let (to_messages, to_log) = (build.clone(), build.clone());
             Segmented::new("compile-diagnostics-tabs")
                 .label(
-                    "Messages",
+                    t!("Messages"),
                     panel.tab == OutputTab::Messages,
                     move |_, _, cx| {
                         to_messages.update(cx, |build, cx| build.set_tab(OutputTab::Messages, cx));
                     },
                 )
-                .label("Log", panel.tab == OutputTab::Log, move |_, _, cx| {
+                .label(t!("Log"), panel.tab == OutputTab::Log, move |_, _, cx| {
                     to_log.update(cx, |build, cx| build.set_tab(OutputTab::Log, cx));
                 })
         });
         let copy = on_log.then(|| {
             let (build, log) = (build.clone(), last.log.clone());
             let copied = panel.copied.is_some_and(|(slot, _)| slot == LOG_COPY);
-            Button::new("compile-log-copy", "Copy log")
+            Button::new("compile-log-copy", t!("Copy log"))
                 .ghost()
                 .compact()
                 .icon(if copied {
@@ -284,7 +294,7 @@ fn body(
         div()
             .px(px(8.))
             .text_role(TextRole::Caption, cx)
-            .child("Build failed without a captured log")
+            .child(t!("Build failed without a captured log"))
     });
     div()
         .flex()
@@ -306,9 +316,9 @@ pub fn panel(panel: &BuildPanel, build: &Entity<BuildPanel>, cx: &App) -> AnyEle
     let palette = cx.palette().clone();
     let Some(last) = panel.last() else {
         let text = match panel.document() {
-            Some(document) => format!("Building {document}…"),
-            None => format!(
-                "Not built yet. Press {} to build",
+            Some(document) => t!("Building {document}…", document = document),
+            None => t!(
+                "Not built yet. Press {0} to build",
                 crate::shell::BUILD_SHORTCUT_LABEL
             ),
         };
@@ -325,10 +335,10 @@ pub fn panel(panel: &BuildPanel, build: &Entity<BuildPanel>, cx: &App) -> AnyEle
     let tabs = has_messages.then(|| {
         let (to_messages, to_log) = (build.clone(), build.clone());
         Segmented::new("build-panel-tabs")
-            .label("Messages", !on_log, move |_, _, cx| {
+            .label(t!("Messages"), !on_log, move |_, _, cx| {
                 to_messages.update(cx, |build, cx| build.set_tab(OutputTab::Messages, cx));
             })
-            .label("Log", on_log, move |_, _, cx| {
+            .label(t!("Log"), on_log, move |_, _, cx| {
                 to_log.update(cx, |build, cx| build.set_tab(OutputTab::Log, cx));
             })
     });
@@ -417,7 +427,7 @@ fn message_list(
             .text_role(TextRole::Micro, cx)
             .font_weight(FONT_WEIGHT_MEDIUM)
             .text_color(palette.text_secondary)
-            .child(group.file.clone().unwrap_or_else(|| "Build log".into()))
+            .child(group.file.clone().unwrap_or_else(|| t!("Build log").into()))
             .when(count > 1, |header| {
                 header.child(
                     div()
@@ -455,7 +465,7 @@ fn line_label(diagnostic: &Diagnostic, cx: &App) -> Option<AnyElement> {
             .text_role(TextRole::Micro, cx)
             .line_height(px(17.6))
             .text_color(cx.palette().text_secondary)
-            .child(format!("line {line}"))
+            .child(t!("line {line}", line = line))
             .into_any_element()
     })
 }
@@ -542,7 +552,7 @@ fn copy_button(
     )
     .frame(px(24.), px(24.))
     .icon_size(px(12.))
-    .tooltip("Copy error message")
+    .tooltip(t!("Copy error message"))
     .on_click(move |_, _, cx| {
         let text = text.clone();
         build.update(cx, |build, cx| build.copy(ix, text, cx));
@@ -606,9 +616,10 @@ fn row(
                     .text_role(TextRole::Caption, cx)
                     .line_height(px(18.))
                     .text_color(palette.text_secondary)
-                    .child(format!(
-                        "Replaced with {replacement}. Building again to confirm the fix."
-                    )),
+                    .child(strip_tags(&t!(
+                        "Replaced with <0>{replacement}</0>. Building again to confirm the fix.",
+                        replacement = replacement
+                    ))),
             )
             .into_any_element();
     }
@@ -617,12 +628,16 @@ fn row(
     }
     let shown = explained.map_or_else(|| diagnostic.message.clone(), |e| e.headline.clone());
     let tooltip = Some(match explained {
-        Some(explained) => format!("{}\n\nTeX: {}", explained.explanation, diagnostic.message),
+        Some(explained) => format!(
+            "{}\n\n{}",
+            explained.explanation,
+            t!("TeX: {0}", diagnostic.message)
+        ),
         None => diagnostic.message.clone(),
     });
     let install = install_target(diagnostic).map(|file| {
         let build = build.clone();
-        Button::new(("compile-diagnostic-install", ix), "Install")
+        Button::new(("compile-diagnostic-install", ix), t!("Install"))
             .ghost()
             .compact()
             .on_click(move |_, _, cx| {
@@ -632,18 +647,21 @@ fn row(
     });
     let switch = (diagnostic.code == Some("pdftex-only-command")).then(|| {
         let build = build.clone();
-        Button::new(("compile-diagnostic-pdflatex", ix), "Switch to pdfLaTeX")
-            .ghost()
-            .compact()
-            .on_click(move |_, _, cx| {
-                build.update(cx, |build, cx| {
-                    let action = BuildAction::SwitchEngine {
-                        engine: "pdf".into(),
-                        keep: false,
-                    };
-                    build.act(action, cx);
-                });
-            })
+        Button::new(
+            ("compile-diagnostic-pdflatex", ix),
+            t!("Switch to pdfLaTeX"),
+        )
+        .ghost()
+        .compact()
+        .on_click(move |_, _, cx| {
+            build.update(cx, |build, cx| {
+                let action = BuildAction::SwitchEngine {
+                    engine: "pdf".into(),
+                    keep: false,
+                };
+                build.act(action, cx);
+            });
+        })
     });
     // `lineno-outdated`: only an update fixes it, the doctor's, behind the
     // same administrator prompt, so either place shows its progress.
@@ -655,7 +673,7 @@ fn row(
         .flatten()
         .map(|previous| {
             let build = build.clone();
-            Button::new(("compile-diagnostic-undo", ix), "Undo")
+            Button::new(("compile-diagnostic-undo", ix), t!("Undo"))
                 .ghost()
                 .compact()
                 .on_click(move |_, _, cx| {
@@ -710,9 +728,9 @@ fn package_update(ix: usize, cx: &App) -> Option<AnyElement> {
         Some(run) if run.running => {
             let waiting = run.progress.stage == "authorizing";
             let what = if waiting {
-                "Waiting for administrator approval…"
+                t!("Waiting for administrator approval…")
             } else {
-                "Updating LaTeX packages…"
+                t!("Updating LaTeX packages…")
             };
             status(
                 format!("{what} {}%", run.progress.percent()),
@@ -720,7 +738,7 @@ fn package_update(ix: usize, cx: &App) -> Option<AnyElement> {
             )
         }
         Some(run) if run.error.is_none() => status(
-            "TeX packages updated. Build again to use them.".into(),
+            t!("TeX packages updated. Build again to use them.").into(),
             palette.text_secondary,
         ),
         run => {
@@ -733,7 +751,7 @@ fn package_update(ix: usize, cx: &App) -> Option<AnyElement> {
                 .gap(px(2.))
                 .children(failure.map(|failure| status(failure, palette.danger)))
                 .child(
-                    Button::new(("compile-diagnostic-update", ix), "Update TeX packages")
+                    Button::new(("compile-diagnostic-update", ix), t!("Update TeX packages"))
                         .ghost()
                         .compact()
                         .on_click(move |_, _, cx| {
@@ -763,7 +781,10 @@ fn explained_row(
             let build = build.clone();
             Button::new(
                 ("compile-explained-replace", ix),
-                format!("Replace with {suggestion}"),
+                strip_tags(&t!(
+                    "Replace with <0>{suggestion}</0>",
+                    suggestion = suggestion
+                )),
             )
             .compact()
             .on_click(move |_, _, cx| build.update(cx, |build, cx| build.replace(ix, cx)))
@@ -781,7 +802,7 @@ fn explained_row(
                 weight: FONT_WEIGHT_MEDIUM,
                 mark: severity_icon(Severity::Error, cx),
                 // TeX's own words stay a hover away (and in the row's Copy).
-                tooltip: Some(format!("TeX: {}", diagnostic.message)),
+                tooltip: Some(t!("TeX: {0}", diagnostic.message)),
             },
             build,
             cx,
@@ -906,60 +927,4 @@ fn floor_char(text: &str, at: usize) -> usize {
         at -= 1;
     }
     at
-}
-
-/// The raw log's type and insets, which the floating box sizes itself by.
-const LOG_TEXT_SIZE: f32 = 11.;
-const LOG_LINE_HEIGHT: f32 = 1.45;
-const LOG_PADDING_Y: f32 = 8.;
-/// The floating log's cap (`.compile-log`'s `max-height`).
-const LOG_MAX_HEIGHT: f32 = 220.;
-
-fn log_view(panel: &BuildPanel, last: &LastBuild, docked: bool, cx: &App) -> AnyElement {
-    let lines = log_lines(&panel.card_log, last, cx);
-    if docked {
-        lines.flex_1().min_h_0().into_any_element()
-    } else {
-        lines
-            .h(floating_log_height(last.log_lines.len()))
-            .into_any_element()
-    }
-}
-
-/// The floating log fits a short log and stops at its cap. The list only
-/// measures the rows in view, so the box is sized from the line count: a
-/// line that wraps only makes the log taller than this.
-fn floating_log_height(lines: usize) -> Pixels {
-    let content = lines as f32 * LOG_TEXT_SIZE * LOG_LINE_HEIGHT;
-    px((content + 2. * LOG_PADDING_Y + 2.).min(LOG_MAX_HEIGHT))
-}
-
-/// The raw log, opened where a failed build went wrong rather than at
-/// TeX's banner (the build panel scrolls it to the error's line). Its
-/// lines wrap, so they are not one height: a `list` lays out only the
-/// rows in view.
-fn log_lines(rows: &ListState, last: &LastBuild, cx: &App) -> gpui::Div {
-    let palette = cx.palette().clone();
-    let font = cx.lattice().fonts.editor.clone();
-    let lines = last.log_lines.clone();
-    div()
-        .flex()
-        .flex_col()
-        .border_1()
-        .border_color(palette.line_strong)
-        .rounded(px(6.))
-        .bg(palette.raised.opacity(0.9))
-        .font_family(font)
-        .text_size(px(LOG_TEXT_SIZE))
-        .line_height(relative(LOG_LINE_HEIGHT))
-        .text_color(palette.text)
-        .child(
-            list(rows.clone(), move |ix, _, _| {
-                div().child(lines[ix].clone()).into_any_element()
-            })
-            .flex_1()
-            .min_h_0()
-            .py(px(LOG_PADDING_Y))
-            .px(px(10.)),
-        )
 }

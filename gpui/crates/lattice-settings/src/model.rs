@@ -281,7 +281,9 @@ pub fn normalize_font_name(value: Option<&Value>) -> String {
     };
     let kept: String = text
         .chars()
-        .filter(|c| !matches!(c, '"' | '\'' | '\\' | ';' | '{' | '}' | '<' | '>') && !c.is_control())
+        .filter(|c| {
+            !matches!(c, '"' | '\'' | '\\' | ';' | '{' | '}' | '<' | '>') && !c.is_control()
+        })
         .collect();
     kept.trim().chars().take(80).collect()
 }
@@ -344,7 +346,11 @@ impl Appearance {
                 TitlebarTool::ALL
                     .iter()
                     .copied()
-                    .filter(|tool| tools.iter().any(|stored| stored.as_str() == Some(tool.tag())))
+                    .filter(|tool| {
+                        tools
+                            .iter()
+                            .any(|stored| stored.as_str() == Some(tool.tag()))
+                    })
                     .collect()
             })
             .unwrap_or_default();

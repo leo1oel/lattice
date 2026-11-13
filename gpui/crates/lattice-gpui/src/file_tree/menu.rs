@@ -4,24 +4,25 @@
 
 use gpui::{App, ClipboardItem, Context, WeakEntity, Window};
 use gpui_kit::component::menu::{PopupMenu, PopupMenuItem};
+use lattice_i18n::{n, t, tr};
 
 use super::{FileTreeEvent, FileTreePanel};
 use crate::confirm::{self, Confirm};
 
 #[cfg(target_os = "macos")]
-const REVEAL_LABEL: &str = "Show in Finder";
+const REVEAL_LABEL: &str = n!("Show in Finder");
 #[cfg(target_os = "windows")]
-const REVEAL_LABEL: &str = "Show in Explorer";
+const REVEAL_LABEL: &str = n!("Show in Explorer");
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-const REVEAL_LABEL: &str = "Show in file manager";
+const REVEAL_LABEL: &str = n!("Show in file manager");
 
 impl FileTreePanel {
     pub(crate) fn ask_delete(&mut self, path: String, cx: &mut Context<Self>) {
         let view = cx.entity().downgrade();
         confirm::ask(
-            Confirm::new(format!("Delete “{path}” from this project?"))
-                .body("This action cannot be undone.")
-                .confirm_label("Delete")
+            Confirm::new(t!("Delete “{path}” from this project?", path = path))
+                .body(t!("This action cannot be undone."))
+                .confirm_label(t!("Delete"))
                 .destructive()
                 .on_confirm(move |_, cx| {
                     view.update(cx, |_, cx| {
@@ -72,11 +73,11 @@ impl FileTreePanel {
             })
         };
         let mut menu = menu
-            .item(item("New file", {
+            .item(item(t!("New file"), {
                 let directory = directory.clone();
                 Box::new(move |this, window, cx| this.begin_create(&directory, false, window, cx))
             }))
-            .item(item("New folder", {
+            .item(item(t!("New folder"), {
                 let directory = directory.clone();
                 Box::new(move |this, window, cx| this.begin_create(&directory, true, window, cx))
             }));
@@ -87,7 +88,7 @@ impl FileTreePanel {
             let view = view.clone();
             let path = path.clone();
             menu = menu.separator().item(
-                PopupMenuItem::new("Set as main document")
+                PopupMenuItem::new(t!("Set as main document"))
                     .checked(chosen)
                     .on_click(move |_, _, cx| {
                         if chosen {
@@ -109,11 +110,11 @@ impl FileTreePanel {
         let absolute = root.map(|root| root.join(&path));
         menu = menu
             .separator()
-            .item(item("Rename", {
+            .item(item(t!("Rename"), {
                 let path = path.clone();
                 Box::new(move |this, window, cx| this.begin_rename(path.clone(), window, cx))
             }))
-            .item(PopupMenuItem::new("Copy path").on_click({
+            .item(PopupMenuItem::new(t!("Copy path")).on_click({
                 let absolute = absolute.clone();
                 move |_, _, cx| {
                     if let Some(absolute) = &absolute {
@@ -123,14 +124,16 @@ impl FileTreePanel {
                     }
                 }
             }))
-            .item(PopupMenuItem::new(REVEAL_LABEL).on_click(move |_, _, cx| {
-                if let Some(absolute) = &absolute {
-                    cx.reveal_path(absolute);
-                }
-            }))
+            .item(
+                PopupMenuItem::new(tr(REVEAL_LABEL)).on_click(move |_, _, cx| {
+                    if let Some(absolute) = &absolute {
+                        cx.reveal_path(absolute);
+                    }
+                }),
+            )
             .separator()
             .item(
-                PopupMenuItem::new("Show hidden files")
+                PopupMenuItem::new(t!("Show hidden files"))
                     .checked(show_hidden)
                     .on_click({
                         let view = view.clone();
@@ -140,11 +143,11 @@ impl FileTreePanel {
                     }),
             )
             .item(item(
-                "Refresh file tree",
+                t!("Refresh file tree"),
                 Box::new(|this, _, cx| this.refresh(cx)),
             ));
         if !protected {
-            menu = menu.separator().item(item("Delete", {
+            menu = menu.separator().item(item(t!("Delete"), {
                 let path = path.clone();
                 Box::new(move |this, _, cx| this.ask_delete(path.clone(), cx))
             }));
@@ -166,15 +169,15 @@ impl FileTreePanel {
                     view.update(cx, |this, cx| run(this, window, cx)).ok();
                 })
             };
-        menu.item(item("New file", |this, window, cx| {
+        menu.item(item(t!("New file"), |this, window, cx| {
             this.begin_create("", false, window, cx)
         }))
-        .item(item("New folder", |this, window, cx| {
+        .item(item(t!("New folder"), |this, window, cx| {
             this.begin_create("", true, window, cx)
         }))
         .separator()
         .item(
-            PopupMenuItem::new("Show hidden files")
+            PopupMenuItem::new(t!("Show hidden files"))
                 .checked(show_hidden)
                 .on_click({
                     let view = view.clone();
@@ -183,7 +186,9 @@ impl FileTreePanel {
                     }
                 }),
         )
-        .item(item("Refresh file tree", |this, _, cx| this.refresh(cx)))
+        .item(item(t!("Refresh file tree"), |this, _, cx| {
+            this.refresh(cx)
+        }))
     }
 
     fn toggle_hidden(&mut self, cx: &mut Context<Self>) {

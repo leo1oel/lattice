@@ -9,6 +9,7 @@
 //! or restore on ⌘⇧↩, the palette on ⌘K (and ⌘⇧P).
 
 use gpui::{Action, App, KeyBinding, SharedString, actions};
+use lattice_i18n::{space_mixed_script, t};
 use lattice_ui::Icon;
 
 use super::layout::Preset;
@@ -33,6 +34,7 @@ actions!(
         PreviousProblem,
         OpenTexDoctor,
         InstallLatexTools,
+        OpenSettings,
         CommandPalette,
         ShowShortcuts,
         NewWindow,
@@ -105,13 +107,13 @@ pub enum Section {
 impl Section {
     pub fn label(self) -> &'static str {
         match self {
-            Section::Navigate => "Navigate",
-            Section::Edit => "Edit",
-            Section::Build => "Build",
-            Section::View => "View",
-            Section::Layout => "Layout",
-            Section::Project => "Project",
-            Section::Appearance => "Appearance",
+            Section::Navigate => t!("Navigate"),
+            Section::Edit => t!("Edit"),
+            Section::Build => t!("Build"),
+            Section::View => t!("View"),
+            Section::Layout => t!("Layout"),
+            Section::Project => t!("Project"),
+            Section::Appearance => t!("Appearance"),
         }
     }
 
@@ -146,6 +148,9 @@ pub struct CommandContext {
 
 /// One row of the table.
 pub struct Command {
+    /// The Tauri command table's id; the tests, and the recent commands
+    /// once the palette keeps them, name a command by it.
+    #[cfg_attr(not(test), allow(dead_code))]
     pub id: SharedString,
     pub label: SharedString,
     pub section: Section,
@@ -207,38 +212,38 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
     if project {
         out.push(Command::new(
             "build",
-            "Build project",
+            t!("Build project"),
             Section::Build,
             Build,
         ));
-        out.push(Command::new("save", "Save and build", Section::Build, Save).keys_only());
+        out.push(Command::new("save", t!("Save and build"), Section::Build, Save).keys_only());
         out.push(
-            Command::new("rebuild", "Clean rebuild", Section::Build, CleanRebuild)
+            Command::new("rebuild", t!("Clean rebuild"), Section::Build, CleanRebuild)
                 .keywords("latexmk"),
         );
         out.push(Command::new(
             "clean",
-            "Clean aux files",
+            t!("Clean aux files"),
             Section::Build,
             CleanBuildFiles,
         ));
         if context.building {
             out.push(Command::new(
                 "stop-build",
-                "Stop build",
+                t!("Stop build"),
                 Section::Build,
                 StopBuild,
             ));
         }
         out.push(Command::new(
             "reveal-cursor",
-            "Reveal cursor in PDF",
+            t!("Reveal cursor in PDF"),
             Section::Build,
             ForwardSync,
         ));
         out.push(Command::new(
             "build-panel",
-            "Show or hide the build log",
+            t!("Show or hide the build log"),
             Section::Build,
             ToggleBuildPanel,
         ));
@@ -247,7 +252,7 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
         out.push(
             Command::new(
                 "close-tab",
-                "Close the document tab, or the window when none is open",
+                t!("Close the document tab, or the window when none is open"),
                 Section::Navigate,
                 CloseTab,
             )
@@ -256,7 +261,7 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
         out.push(
             Command::new(
                 "next-problem",
-                "Next build problem",
+                t!("Next build problem"),
                 Section::Navigate,
                 NextProblem,
             )
@@ -265,7 +270,7 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
         out.push(
             Command::new(
                 "previous-problem",
-                "Previous build problem",
+                t!("Previous build problem"),
                 Section::Navigate,
                 PreviousProblem,
             )
@@ -274,17 +279,17 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
         out.push(
             Command::new(
                 "reopen-tab",
-                "Reopen the closed tab",
+                t!("Reopen the closed tab"),
                 Section::Navigate,
                 ReopenClosedTab,
             )
             .keys_only(),
         );
-        out.push(Command::new("next-tab", "Next tab", Section::Navigate, NextTab).keys_only());
+        out.push(Command::new("next-tab", t!("Next tab"), Section::Navigate, NextTab).keys_only());
         out.push(
             Command::new(
                 "previous-tab",
-                "Previous tab",
+                t!("Previous tab"),
                 Section::Navigate,
                 PreviousTab,
             )
@@ -294,7 +299,7 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
     out.push(
         Command::new(
             "palette",
-            "Command palette",
+            t!("Command palette"),
             Section::Project,
             CommandPalette,
         )
@@ -302,23 +307,23 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
     );
     out.push(Command::new(
         "shortcuts",
-        "Keyboard shortcuts",
+        t!("Keyboard shortcuts"),
         Section::Project,
         ShowShortcuts,
     ));
     if project {
         out.push(Command::new(
             "layout-reset",
-            "Reset panel layout",
+            t!("Reset panel layout"),
             Section::Layout,
             ResetLayout,
         ));
         out.push(Command::new(
             "frame",
             if context.maximized {
-                "Restore the layout"
+                t!("Restore the layout")
             } else {
-                "Maximize focused panel"
+                t!("Maximize focused panel")
             },
             Section::Layout,
             ToggleMaximize,
@@ -326,7 +331,7 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
         for (id, name) in &context.workspaces {
             out.push(Command::new(
                 format!("switch-{id}"),
-                format!("Switch to {name}"),
+                space_mixed_script(&t!("Switch to {name}", name = name)),
                 Section::Layout,
                 SwitchWorkspace { id: id.clone() },
             ));
@@ -335,7 +340,7 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
             if let Some(action) = switch_workspace_action(index) {
                 out.push(Command {
                     id: format!("workspace-{}", index + 1).into(),
-                    label: format!("Switch to workspace {}", index + 1).into(),
+                    label: t!("Switch to a workspace by its place").into(),
                     section: Section::Layout,
                     action,
                     palette: false,
@@ -346,29 +351,29 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
         out.push(Command::new(
             "focus-mode",
             if context.focus_mode {
-                "Leave focus mode"
+                t!("Leave focus mode")
             } else {
-                "Focus mode"
+                t!("Focus mode")
             },
             Section::Layout,
             ToggleFocusMode,
         ));
         out.push(Command::new(
             "workspace-new",
-            "New workspace",
+            t!("New workspace"),
             Section::Layout,
             NewWorkspace,
         ));
         if context.dirty {
             out.push(Command::new(
                 "workspace-save",
-                "Save to workspace",
+                t!("Save to workspace"),
                 Section::Layout,
                 SaveWorkspace,
             ));
             out.push(Command::new(
                 "workspace-revert",
-                "Revert to saved",
+                t!("Revert to saved"),
                 Section::Layout,
                 RevertWorkspace,
             ));
@@ -382,11 +387,13 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
             };
             out.push(Command {
                 id: id.into(),
-                label: if on {
-                    format!("Leave the {} layout", preset.label()).into()
-                } else {
-                    format!("{} layout", preset.label()).into()
-                },
+                label: match (preset, on) {
+                    (Preset::Writing, true) => t!("Leave the Writing layout"),
+                    (Preset::Reading, true) => t!("Leave the Reading layout"),
+                    (Preset::Writing, false) => t!("Writing layout"),
+                    (Preset::Reading, false) => t!("Reading layout"),
+                }
+                .into(),
                 section: Section::Layout,
                 action,
                 palette: true,
@@ -396,22 +403,22 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
         for (id, label, action) in [
             (
                 "panel-project",
-                "Show or hide Project",
+                t!("Show or hide Project"),
                 Box::new(ToggleProjectPanel) as Box<dyn Action>,
             ),
             (
                 "panel-papers",
-                "Show or hide Papers",
+                t!("Show or hide Papers"),
                 Box::new(TogglePapersPanel),
             ),
             (
                 "panel-agent",
-                "Show or hide the Agent",
+                t!("Show or hide the Agent"),
                 Box::new(ToggleAgentPanel),
             ),
             (
                 "panel-pdf",
-                "Show or hide the PDF",
+                t!("Show or hide the PDF"),
                 Box::new(TogglePdfPanel),
             ),
         ] {
@@ -425,51 +432,57 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
             });
         }
         out.push(
-            Command::new("vim", "Vim mode", Section::Edit, ToggleVimMode).keywords("vi modal"),
+            Command::new("vim", t!("Vim mode"), Section::Edit, ToggleVimMode).keywords("vi modal"),
         );
     }
     out.push(Command::new(
         "open-folder",
-        "Open another folder",
+        t!("Open another folder"),
         Section::Project,
         OpenFolder,
     ));
     out.push(Command::new(
         "new-window",
-        "New window",
+        t!("New window"),
         Section::Project,
         NewWindow,
     ));
     if project {
         out.push(Command::new(
             "open-in-new-window",
-            "Open this project in a new window",
+            t!("Open this project in a new window"),
             Section::Project,
             OpenInNewWindow,
         ));
     }
     out.push(Command::new(
         "doctor",
-        "Run TeX doctor",
+        t!("Run TeX doctor"),
         Section::Project,
         OpenTexDoctor,
+    ));
+    out.push(Command::new(
+        "settings",
+        t!("Open settings"),
+        Section::Project,
+        OpenSettings,
     ));
     if context.projects > 1 {
         out.push(Command::new(
             "next-project",
-            "Next project",
+            t!("Next project in this window"),
             Section::Project,
             NextProject,
         ));
         out.push(Command::new(
             "previous-project",
-            "Previous project",
+            t!("Previous project in this window"),
             Section::Project,
             PreviousProject,
         ));
         out.push(Command::new(
             "close-project",
-            "Close this project",
+            t!("Close this project"),
             Section::Project,
             CloseProject,
         ));
@@ -477,13 +490,13 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
     for (id, label, action) in [
         (
             "theme-light",
-            "Light appearance",
+            t!("Use the light theme"),
             Box::new(ThemeLight) as Box<dyn Action>,
         ),
-        ("theme-dark", "Dark appearance", Box::new(ThemeDark)),
+        ("theme-dark", t!("Use the dark theme"), Box::new(ThemeDark)),
         (
             "theme-system",
-            "Appearance follows the system",
+            t!("Match the system theme"),
             Box::new(ThemeSystem),
         ),
     ] {
@@ -552,6 +565,7 @@ fn default_bindings() -> Vec<KeyBinding> {
             beside_vim("!(vim_mode == insert || vim_mode == replace || vim_mode == waiting)"),
         ),
         KeyBinding::new(m!("shift-/"), ShowShortcuts, None),
+        KeyBinding::new(m!(","), OpenSettings, None),
         KeyBinding::new(m!("w"), CloseTab, beside_vim("!vim_mode")),
         KeyBinding::new(m!("shift-w"), CloseWindow, None),
         KeyBinding::new(m!("shift-t"), ReopenClosedTab, None),

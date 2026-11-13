@@ -10,12 +10,14 @@ Its backend is the Tauri app's own: `lattice-core` (`../src-tauri/lattice-core`)
 3. Saves as the Tauri app does: after a pause in typing, on leaving the editor, and before a tab or window closes, another project opens in its window or the app quits, merging an edit made outside Lattice since the file was loaded rather than writing over it; an outside edit reloads a clean buffer, and a file moved or deleted outside Lattice is followed, closed or held with its edits.
 4. Shows the PDF on the right, rendered natively by PDFium, and jumps between it and the source with SyncTeX: ⌘⇧J / Ctrl+Shift+J (or the PDF toolbar's locate button) marks the caret's line in the PDF, and a double-click in the PDF opens its source line.
 5. Builds with lattice-core's latexmk build on one click (or ⌘B / Ctrl+B; ⇧-click rebuilds clean), and after each save and each outside edit it loads (the Tauri app's default automatic builds), and reloads the PDF in place. The Build button's hover card lists the passes latexmk ran; a build can be stopped, and the build files cleaned. The build's diagnostics are the Tauri app's card over the PDF (or docked under it): TeX's messages in plain words with the failing line quoted, a typo's one-click fix, a missing package's install, and errors that jump to their line (F8 / ⇧F8 step through them).
-6. The TeX doctor (the Tauri app's Settings › TeX doctor, in a sheet of its own until Settings is ported), the setup wizard that installs BasicTeX (TeX Live on Windows) when a build finds no TeX, and the status bar's word counts (the manuscript's through TeXcount, this file's, the selection's).
+6. The TeX doctor (Settings › TeX doctor, and in a sheet of its own from the palette), the setup wizard that installs BasicTeX (TeX Live on Windows) when a build finds no TeX, and the status bar's word counts (the manuscript's through TeXcount, this file's, the selection's).
 7. Lays the window out as the Tauri app does (Trellis on GPUI Kit's dock): Project and the Agent over Papers on the left, the documents in the center, the PDF on the right, each a rounded card with a 40px strip of tabs. Tabs drag between groups and out of a region (whose neighbours take its room), panels float, split, maximize, hide and close from their ⋯ menu, and a narrow strip ellipsizes documents' tabs, drops named panels to their icons and lets the Build chip go before anything clips.
 8. Keeps named workspaces, shared by every project (a dot while the project's layout differs; "+", rename in place, save, revert, duplicate, move, delete with undo), the Writing and Reading presets and focus mode over them, and each project's own layout, restored when it opens again.
 9. Reaches every command from the command palette (⌘K), the keymap, the shortcut sheet (⌘?) and the menu bar; opens projects in new windows or as tabs in one.
+10. Settings (⌘,): Appearance (interface language, notification position, both editors' type, the theme's appearance, tint, accent and code theme, the title bar's tools) and Editor & builds (keymap, your name, the project dictionary, the automatic build, cleaning, the project's engine, shell escape and halt on error), searchable, applied as each choice is made, kept in `settings.json` and watched; the first run imports the Tauri app's own choices.
+11. Speaks English and Simplified Chinese, from the Tauri app's own catalog (`crates/lattice-i18n`), menus included.
 
-Not yet: the visual Markdown editor, Overleaf, the papers library and the Agent (their panels hold their places with a note), canvas, spreadsheet, slides, live preview and i18n.
+Not yet: the visual Markdown editor, Overleaf, the papers library and the Agent (their panels hold their places with a note), canvas, spreadsheet, slides, live preview; and of Settings, the interface size (kept, not yet applied), translucency, sounds and spell checking (kept for when those surfaces arrive) and the agent, integration and about pages.
 
 ## License
 
@@ -88,6 +90,12 @@ crates/lattice-editor the adapter over Zed's editor every editor feature
                       widgets, hover cards, completion sources, remote carets),
                       the LaTeX language and the LaTeX extensions on it, the
                       project's citation and label index, TexLab
+crates/lattice-i18n   English and Simplified Chinese: the Tauri app's Lingui
+                      catalog read at build time, a catalog of the GPUI app's
+                      own strings, `t!`, and the coverage check
+crates/lattice-settings
+                      the Tauri app's preferences typed, the settings file,
+                      and the import from the Tauri app's WebKit storage
 crates/lattice-ui     Lattice's look: design tokens generated from
                       ../design-system/tokens.json, the palette, GPUI Kit and
                       Zed editor themes, fonts, type roles, motion, elevation,
@@ -131,6 +139,12 @@ The app draws what the Tauri app draws: the parity target is the running app as 
 - Fonts: Inter, Ioskeley Mono and Instrument Serif are bundled (`script/make-fonts` writes them). The private Timeless faces are embedded at build time by `crates/lattice-ui/build.rs` when `LATTICE_PRIVATE_FONTS_DIR` (default `~/Downloads/Timeless-Type-Family-1.094`, empty for none) holds the complete download, as the Tauri build embeds them; `LATTICE_PRIVATE_FONTS_REQUIRED=1` fails the build without them. The download's `LICENSE.pdf` is embedded, unmodified, with them (`lattice_ui::fonts::font_license()`); a download without it counts as incomplete, so the faces are not embedded. The app never reads them at run time, and they are never committed.
 - `LATTICE_APPEARANCE=light|dark` fixes the appearance instead of following the system's.
 - Components (`lattice-ui/src/components/`) follow Paper's Components boards; hover and press fade on the motion tiers (`interaction.rs`). Menus, selects and popovers spring from their trigger from 95%, tooltips grow from 98%, dialogs and sheets rise from 98%, and toasts drop in from 96%, each on its tier as the Tauri app's CSS has it (`motion::Entrance`, drawn with GPUI's element scale). Type roles set normal tracking, and an uppercase micro label opens it to the caps tracking (`Tracking::Caps`). `lattice-gpui --gallery` draws them all on one sheet (`LATTICE_GALLERY_PAGE=2` for the overlays and surfaces) and, with `LATTICE_SHOT_OUT` and `--features offscreen-shots`, saves it.
+
+### Settings and languages
+
+The settings are the Tauri app's (`src/settings/app-settings.ts`), field for field and read the same way (`crates/lattice-settings`): each field is read on its own, and one that is missing or unusable takes its default. They live in `settings.json` in the state directory (`LATTICE_GPUI_STATE_DIR` moves it; a scripted run keeps them in memory), written whole on every change and checked every second, so an edit made outside the app applies. When there is no file, the first run reads the Tauri app's choices from its WebKit storage (`~/Library/WebKit/app.leo1oel.researchwriter/WebsiteData`, a copy of each LocalStorage database, never the database itself; `LATTICE_GPUI_TAURI_STORAGE` names another directory, empty for none) and writes them as the file.
+
+Every string the app shows goes through `lattice-i18n`'s `t!`, keyed by its English as Lingui keys it, so the Chinese is the Tauri app's own (`../src/locales/zh-CN/messages.po`, read at build time) wherever the two apps share a string; what only the GPUI app says is in `crates/lattice-i18n/locales/zh-CN.po`. `cargo test -p lattice-i18n` fails while a string the app translates has no Chinese, the port of `scripts/check-i18n-coverage.mjs`. The interface follows the system's first preferred language unless Settings fixes one; a scripted run is in English unless its settings say otherwise.
 
 ### The editor adapter
 
@@ -193,6 +207,7 @@ A scripted run keeps the workspaces and the projects' layouts in memory, so it n
   A native drag has a frame drawn before its press and after every event, since input lands on the last frame's hitboxes; a window the platform is not presenting (covered, or on a locked screen) draws none itself, so the scenario draws it, and the step's detail records how many the window drew.
   It also jumps from a `.bib` entry to the PDF, and checks that closing a dirty tab or a window within the autosave pause saves what was typed, that closing the tab of a file deleted outside Lattice takes down its notice, and that with edits that cannot be saved, "Open in New Window" keeps the window and opens no other, and opening another project keeps the one shown.
   In `main.tex` it checks the editor adapter: the citation and reference cards open when native mouse moves rest on a key or label and close when the pointer leaves, remote carets draw and name themselves and fade, a block widget pushes the lines below it down, a gutter mark set on a line is painted there and opens its card, TexLab's diagnostic for an unknown `\ref` shows as a mark whose card opens and clears once the reference goes, and with the bibliography unlinked, TexLab's diagnostic on the cited key opens its lint card under the citation card (both skipped without `texlab`), a card opens over its range's last character and not from the space past its line's end, a `.tex` file renamed to `.txt` is never synced to TexLab, and native keys complete a citation key, `\textbf`, and a package in the middle of `\usepackage`'s list (prefix matches first, the bare name inserted). With `LATTICE_E2E_SHOTS=DIR` (macOS) it saves the window at each card, the carets and the completion menus.
+  It opens Settings with ⌘, (native keys), searches it and opens the row found with Enter, checks that a tint, an accent, a code theme and the editor's size apply at once, that the keymap turns Vim and Emacs on, that the interface switches to Simplified Chinese and back, that an edit to the settings file made outside the app applies, and that Escape closes it.
   It ends by quitting with text typed and not yet saved, naming the file and the text in the result's `after_quit`; the file holds the text once the app has exited, which CI checks.
   It needs `chapters/intro.tex` and `references.bib` in the project, and `main.tex` as the fixture has it.
 - `perf`: Lattice's perf-lab `longTex` scenario: open `long.tex`, fling 200 wheel events of 120 px 8 ms apart with a per-frame meter, click a line, type with 110 ms between keys, then read `footprint`.
@@ -200,7 +215,7 @@ A scripted run keeps the workspaces and the projects' layouts in memory, so it n
 - `ime`: selects a Pinyin input method for the window and types `nihao` + space with native key events.
 - `ime-protocol`: makes the `NSTextInputClient` calls an input method makes (marked text per keystroke, then the commit) directly on the view.
 - `shot`: waits for the project's PDF to draw, then saves the window as `LATTICE_SHOT_OUT` (a PNG), for side-by-side look reviews against Paper's App screens. Built with `--features offscreen-shots` it draws and reads the frame back itself, so the screen may be locked; otherwise it uses `screencapture`, which needs the window on an unlocked screen.
-- `parity`: the parity harness's half of a scene (below): the pointer parked, the PDF shown and the build chip staged as a clean 1.2 s build; then it saves the window as `LATTICE_SHOT_OUT` and lists every named region's bounds and the text style of each run of text in it in the result.
+- `parity`: the parity harness's half of a scene (below; `LATTICE_PARITY_SCREEN=settings` for Settings): the pointer parked, the PDF shown and the build chip staged as a clean 1.2 s build; then it saves the window as `LATTICE_SHOT_OUT` and lists every named region's bounds and the text style of each run of text in it in the result.
 
 On macOS the keys go through the active input source, so select an ASCII layout (ABC, U.S.) before running `e2e`; a Pinyin input method turns the typed macro into candidates.
 On macOS, input is sent the way Lattice's perf lab sends it (`../src-tauri/src/perf_lab.rs`): `NSEvent`s through `-[NSWindow sendEvent:]`.
@@ -212,7 +227,7 @@ On Windows, keys are posted to the window's message queue, so GPUI's own message
 
 ```sh
 cargo build --release --features lattice-gpui/offscreen-shots   # or without the feature, on an unlocked screen
-node parity/run.mjs --out /tmp/lattice-parity                    # from gpui/; --theme light,dark --screen mainWindow
+node parity/run.mjs --out /tmp/lattice-parity                    # from gpui/; --theme light,dark --screen mainWindow,settings
 ```
 
 - The reference is the Tauri frontend on the mock-backend page (`pnpm perf:bench --serve`, which `run.mjs` starts unless given `--bench-url`), staged by the functions that draw Paper's App screens (`../design-system/screens/scenes.mjs`), at the GPUI window's size and scale (1440×900 @2x on a Retina Mac). Every run also saves the page as `serialize.js` draws it into Paper, its layers named after the regions.
@@ -221,7 +236,7 @@ node parity/run.mjs --out /tmp/lattice-parity                    # from gpui/; -
 - Checks, per screen and theme: each region's bounds within ±1 px; each run of text's family, size (after the face's `size-adjust`), weight and line height, the two apps' runs in a region matched by their text, then in order; each chrome region's ground colour within ΔE2000 1; and the share of pixels that differ visibly (ΔE2000 > 2.3) outside text, the PDF pages and what changed between the reference's two runs, within three times that run-to-run noise (at least 0.1%). What changed between the GPUI app's two runs is reported on its own line and stays in the comparison.
 - It writes `report.md` and `report.json`, and per screen and theme a side-by-side image (reference, GPUI, heatmap) and the full-resolution heatmap; the captures are under `runs/`. It exits 0 once the report is written, whatever it found.
 
-CI's macos job writes the report after the e2e scenario and uploads it as the `gpui-parity-macos` artifact; it does not fail the job yet. The runner's screen shrinks the window to about 1015 px wide, so CI compares the two apps at that width. Only the Main window is ported so far; the other App screens follow in `parity/regions.mjs`.
+CI's macos job writes the report after the e2e scenario and uploads it as the `gpui-parity-macos` artifact; it does not fail the job yet. The runner's screen shrinks the window to about 1015 px wide, so CI compares the two apps at that width. The Main window and Settings are ported so far (`LATTICE_PARITY_SCREEN=settings` opens Settings over the window in the scenario); the other App screens follow in `parity/regions.mjs`.
 
 ## Reference projects
 

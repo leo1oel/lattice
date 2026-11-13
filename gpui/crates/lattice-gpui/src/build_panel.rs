@@ -28,6 +28,7 @@ use lattice_core::{
     latex::{BuildResult, BuildStep},
     models::Diagnostic,
 };
+use lattice_i18n::t;
 
 use crate::build::{
     card,
@@ -619,11 +620,11 @@ impl BasePanel for BuildPanel {
 
 impl Panel for BuildPanel {
     fn tab_name(&self, _: &App) -> Option<SharedString> {
-        Some("Build".into())
+        Some(t!("Build").into())
     }
 
     fn title(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
-        "Build"
+        t!("Build")
     }
 
     fn inner_padding(&self, _: &App) -> bool {

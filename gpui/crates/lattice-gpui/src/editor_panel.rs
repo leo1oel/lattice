@@ -46,6 +46,7 @@ use lattice_editor::{
     LatticeEditor, LatticeEditorEvent,
     latex::{self, diagnostics::TexlabDiagnostics},
 };
+use lattice_i18n::t;
 use lattice_ui::ActiveLattice as _;
 use search::{BufferSearchBar, buffer_search::DivRegistrar};
 use workspace::ToolbarItemView as _;
@@ -507,16 +508,16 @@ impl Panel for EditorPanel {
         cx: &mut Context<Self>,
     ) -> PopupMenu {
         let building = self.build.read(cx).is_running();
-        menu.menu("Build", Box::new(Build))
-            .menu("Clean rebuild", Box::new(CleanRebuild))
+        menu.menu(t!("Build"), Box::new(Build))
+            .menu(t!("Clean rebuild"), Box::new(CleanRebuild))
             .when(building, |menu| {
-                menu.menu("Stop the build", Box::new(StopBuild))
+                menu.menu(t!("Stop the build"), Box::new(StopBuild))
             })
-            .menu("Reveal cursor in PDF", Box::new(ForwardSync))
-            .menu("Find", Box::new(Deploy::find()))
+            .menu(t!("Reveal cursor in PDF"), Box::new(ForwardSync))
+            .menu(t!("Find"), Box::new(Deploy::find()))
             .separator()
             .menu_with_check(
-                "Vim mode",
+                t!("Vim mode"),
                 crate::app::vim_mode_enabled(cx),
                 Box::new(ToggleVimMode),
             )

@@ -13,6 +13,7 @@ use lattice_core::{
     latex,
     project::{self, ManifestSettings},
 };
+use lattice_i18n::t;
 use lattice_ui::components::ToastLevel;
 
 use super::{
@@ -38,7 +39,7 @@ impl Shell {
             return;
         };
         if let Err(error) = latex::abort(project.read(cx).active_build()) {
-            notices::error("Couldn’t stop the build", error, cx);
+            notices::error(t!("Couldn’t stop the build"), error, cx);
         }
     }
 
@@ -65,10 +66,11 @@ impl Shell {
             this.update(cx, |this, cx| {
                 this.cleaning = false;
                 match cleaned {
-                    Ok(_) => {
-                        notices::show(Notice::new(ToastLevel::Success, "Build files cleaned"), cx)
-                    }
-                    Err(error) => notices::error("Couldn’t clean the build files", error, cx),
+                    Ok(_) => notices::show(
+                        Notice::new(ToastLevel::Success, t!("Build files cleaned")),
+                        cx,
+                    ),
+                    Err(error) => notices::error(t!("Couldn’t clean the build files"), error, cx),
                 }
             })
             .ok();
@@ -241,7 +243,7 @@ impl Shell {
                 project.update(cx, |project, cx| project.reload_manifest(cx));
                 self.run_build(BuildRequest::requested(), window, cx);
             }
-            Err(error) => notices::error("Couldn’t change the engine", error, cx),
+            Err(error) => notices::error(t!("Couldn’t change the engine"), error, cx),
         }
     }
 }

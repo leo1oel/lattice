@@ -57,6 +57,30 @@ export const SCREENS = {
     // Drawn by different engines in the two apps (pdf.js and PDFium), so left out of the pixel budget.
     content: [".pdf-viewer-host"],
   },
+  settings: {
+    label: "Settings",
+    // Settings over the Main window, on Appearance (scenes.mjs `settings`).
+    // The GPUI app lists only the sections it has (Appearance, Editor &
+    // builds, TeX doctor), so the left column's lower groups differ; the
+    // regions are the dialog's frame, its columns, the page's title and
+    // first group, and the first rows.
+    regions: [
+      { name: "settings/modal", css: ".settings-modal", chrome: true },
+      { name: "settings/nav", css: ".settings-nav", chrome: true },
+      { name: "settings/content", css: ".settings-content", chrome: true },
+      { name: "settings/search", css: ".settings-search" },
+      { name: "settings/nav/active", css: ".settings-nav-group > button.active", text: true, chrome: true },
+      { name: "settings/nav/label", css: ".settings-nav-group-label", text: true },
+      { name: "settings/title", css: ".settings-section .ui-settings-section-header-title", text: true },
+      { name: "settings/group", css: ".settings-section .ui-settings-group-body", chrome: true },
+      { name: "settings/row/interface-language", css: '[data-setting="interface-language"]' },
+      { name: "settings/row/interface-language/label", css: '[data-setting="interface-language"] .ui-settings-row-label', text: true },
+      { name: "settings/row/interface-size", css: '[data-setting="interface-size"]' },
+      { name: "settings/row/interface-sounds", css: '[data-setting="interface-sounds"]' },
+      { name: "settings/row/toast-position", css: '[data-setting="toast-position"]' },
+    ],
+    content: [],
+  },
 };
 
 /**

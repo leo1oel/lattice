@@ -74,7 +74,7 @@ fn uptime() -> f64 {
 
 /// The ANSI virtual key code for a character, as Lattice's perf lab maps it.
 pub fn key_code(character: char) -> u16 {
-    const CODES: [(char, u16); 30] = [
+    const CODES: [(char, u16); 31] = [
         ('a', 0x00),
         ('s', 0x01),
         ('d', 0x02),
@@ -104,6 +104,7 @@ pub fn key_code(character: char) -> u16 {
         (' ', 0x31),
         ('\n', 0x24),
         ('\\', 0x2A),
+        (',', 0x2B),
         ('\u{1b}', 0x35),
     ];
     CODES
@@ -430,4 +431,13 @@ fn primary_screen_height() -> f64 {
         let frame: NSRect = msg_send![primary, frame];
         frame.size.height
     }
+}
+
+/// The system's preferred languages, first choice first, as BCP 47 tags
+/// (`navigator.languages` in the Tauri app's web view).
+pub fn preferred_languages() -> Vec<String> {
+    objc2_foundation::NSLocale::preferredLanguages()
+        .iter()
+        .map(|language| language.to_string())
+        .collect()
 }

@@ -11,6 +11,7 @@ use std::{path::PathBuf, sync::LazyLock};
 
 use gpui::{App, AppContext as _, Context, Entity, Global, Task};
 use lattice_core::texcount::{self, WordCount};
+use lattice_i18n::{join_phrases, space_mixed_script, t};
 use regex::Regex;
 
 /// The Tauri app's word: letters and digits, joined by an apostrophe or a
@@ -40,25 +41,38 @@ pub fn text_stats(text: &str) -> TextStats {
     }
 }
 
-/// `120400` → `120,400`.
+/// `120400` → `120,400`, and in Chinese from 10,000 on in 万 and 亿
+/// (`formatCount`).
 pub fn format_count(count: usize) -> String {
-    let digits = count.to_string();
-    let mut out = String::new();
-    for (ix, digit) in digits.chars().enumerate() {
-        if ix > 0 && (digits.len() - ix).is_multiple_of(3) {
-            out.push(',');
-        }
-        out.push(digit);
-    }
-    out
+    lattice_i18n::format_count(count as i64)
 }
 
-fn plural(count: usize, one: &str, many: &str) -> String {
-    if count == 1 {
-        format!("1 {one}")
+// A count over 10,000 reads in 万 in Chinese ("12.04 万词"); see format_count.
+fn words(count: usize) -> String {
+    let count_text = format_count(count);
+    space_mixed_script(&if count == 1 {
+        t!("{count} word", count = count_text)
     } else {
-        format!("{} {many}", format_count(count))
-    }
+        t!("{count} words", count = count_text)
+    })
+}
+
+fn characters(count: usize) -> String {
+    let count_text = format_count(count);
+    space_mixed_script(&if count == 1 {
+        t!("{count} character", count = count_text)
+    } else {
+        t!("{count} characters", count = count_text)
+    })
+}
+
+fn lines(count: usize) -> String {
+    let count_text = format_count(count);
+    space_mixed_script(&if count == 1 {
+        t!("{count} line", count = count_text)
+    } else {
+        t!("{count} lines", count = count_text)
+    })
 }
 
 /// What the footer and its popover say.
@@ -85,7 +99,6 @@ pub fn labels(
 ) -> WordCountLabels {
     let selection = text_stats(selected);
     let estimated = manuscript.is_some_and(|count| count.source != "texcount");
-    let words = |count: usize| plural(count, "word", "words");
     // An estimate reads as one in the footer too, not only in the details.
     let manuscript_words = |count: usize| {
         if estimated {
@@ -95,11 +108,14 @@ pub fn labels(
         }
     };
     let (scope, count) = if !selected.is_empty() {
-        ("Selection", words(selection.words))
+        (t!("Selection"), words(selection.words))
     } else if let Some(manuscript) = manuscript {
-        ("Manuscript", manuscript_words(manuscript.total as usize))
+        (
+            t!("Manuscript"),
+            manuscript_words(manuscript.total as usize),
+        )
     } else {
-        ("This file", words(file_words))
+        (t!("This file"), words(file_words))
     };
     WordCountLabels {
         scope,
@@ -108,23 +124,19 @@ pub fn labels(
         // The ≈ marks an estimate; only a missing count needs a note.
         manuscript_note: manuscript
             .is_none()
-            .then_some("Needs a root document to count from"),
+            .then(|| t!("Needs a root document to count from")),
         manuscript_breakdown: manuscript.filter(|_| !estimated).map(|count| {
-            format!(
-                "Text {}, headings {}, captions {}",
-                format_count(count.text as usize),
-                format_count(count.headers as usize),
-                format_count(count.captions as usize)
-            )
+            space_mixed_script(&t!(
+                "Text {text}, headings {headers}, captions {captions}",
+                text = format_count(count.text as usize),
+                headers = format_count(count.headers as usize),
+                captions = format_count(count.captions as usize)
+            ))
         }),
         file: words(file_words),
-        file_note: plural(file_chars, "character", "characters"),
+        file_note: characters(file_chars),
         selection: (!selected.is_empty()).then(|| words(selection.words)),
-        selection_note: [
-            plural(selection.chars, "character", "characters"),
-            plural(selection.lines, "line", "lines"),
-        ]
-        .join(", "),
+        selection_note: join_phrases(&[characters(selection.chars), lines(selection.lines)]),
     }
 }
 

@@ -1,4 +1,5 @@
-//! `parity`: the Main window staged as the parity harness (`gpui/parity/`)
+//! `parity`: the Main window (or, with `LATTICE_PARITY_SCREEN=settings`,
+//! Settings over it) staged as the parity harness (`gpui/parity/`)
 //! stages it in the Tauri app, captured, with the bounds and text styles of
 //! its named regions (`lattice_ui::parity`).
 //!
@@ -90,6 +91,17 @@ impl Run {
                 build.stage_succeeded(Duration::from_millis(1200), cx)
             });
         })?;
+        // The Settings screen: ⌘, over the window, on Appearance, with
+        // nothing focused (the scene blurs the search Settings opens in).
+        if std::env::var("LATTICE_PARITY_SCREEN").as_deref() == Ok("settings") {
+            self.with_window(cx, |shell, window, cx| {
+                shell.update(cx, |shell, cx| {
+                    shell.open_settings(Some(lattice_settings::SettingsTab::Appearance), window, cx)
+                });
+            })?;
+            sleep(cx, Duration::from_millis(600)).await;
+            self.with_window(cx, |_, window, cx| window.blur(cx))?;
+        }
         // Page images, the editor's highlighting and the fonts settle.
         sleep(cx, Duration::from_millis(2500)).await;
         let out = std::env::var("LATTICE_SHOT_OUT").unwrap_or_else(|_| "parity.png".into());

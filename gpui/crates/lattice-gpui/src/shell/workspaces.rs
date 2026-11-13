@@ -32,6 +32,33 @@ const DEFAULT_NAME: &str = "Workspace";
 const LIBRARY_VERSION: u32 = 1;
 const LAYOUT_VERSION: u32 = 1;
 
+/// A workspace's name as the titlebar, the Panels menu and the palette show
+/// it. The default name and "+"'s numbered ones ("Workspace 2"…) are stored
+/// in English and shown in the interface language, so they follow a change
+/// of language while a name the writer gave stays as given; the Tauri app's
+/// Chinese default names ("工作区", the former "布局") read as the default
+/// too (`asDefault` in `src/trellis/trellis-workspaces.ts`).
+pub fn shown_name(name: &str) -> String {
+    let base = lattice_i18n::t!("Workspace");
+    let number = [DEFAULT_NAME, "工作区", "布局"]
+        .iter()
+        .find_map(|default| name.strip_prefix(default));
+    match number {
+        Some("") => base.to_string(),
+        Some(rest) => match rest.strip_prefix(' ') {
+            Some(digits)
+                if !digits.starts_with('0')
+                    && digits.parse::<u64>().is_ok_and(|n| n >= 2)
+                    && digits.bytes().all(|b| b.is_ascii_digit()) =>
+            {
+                format!("{base} {digits}")
+            }
+            _ => name.to_string(),
+        },
+        None => name.to_string(),
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Workspace {
     pub id: String,
@@ -290,7 +317,7 @@ impl Workspaces {
     pub fn duplicate(&mut self, id: &str) -> Option<String> {
         let source = self.get(id)?.clone();
         Some(self.add(
-            &format!("{} copy", source.name),
+            &lattice_i18n::t!("{name} copy", name = shown_name(&source.name)),
             source.arrangement,
             Some(id),
         ))
@@ -390,7 +417,7 @@ fn clip_to(name: &str, chars: usize) -> String {
 }
 
 /// The state directory, or none for a run that keeps everything in memory.
-fn state_dir(scripted: bool) -> Option<PathBuf> {
+pub(crate) fn state_dir(scripted: bool) -> Option<PathBuf> {
     match std::env::var_os("LATTICE_GPUI_STATE_DIR") {
         Some(dir) if dir.is_empty() => None,
         Some(dir) => Some(PathBuf::from(dir)),

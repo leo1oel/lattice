@@ -28,6 +28,7 @@ use gpui_kit::component::{
     menu::{PopupMenu, PopupMenuItem},
 };
 use lattice_core::latex::PdfSyncTarget;
+use lattice_i18n::t;
 use lattice_ui::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
     components::{IconButton, SearchField},
@@ -288,7 +289,7 @@ impl PdfPanel {
                 match result {
                     Ok(Ok(info)) => this.set_document(info, reload, window),
                     Ok(Err(error)) => this.message = Some(format!("{error:#}").into()),
-                    Err(_) => this.message = Some("The PDFium worker stopped.".into()),
+                    Err(_) => this.message = Some(t!("The PDFium worker stopped.").into()),
                 }
                 cx.notify();
             })
@@ -611,7 +612,7 @@ impl PdfPanel {
                     .child(
                         nav("pdf-previous", Icon::CHEVRON_LEFT)
                             .disabled(!has_document || current == 0)
-                            .tooltip("Previous page")
+                            .tooltip(t!("Previous page"))
                             .on_click(cx.listener(move |this, _, _, cx| {
                                 this.go_to_page(current.saturating_sub(1), cx)
                             })),
@@ -647,7 +648,7 @@ impl PdfPanel {
                     .child(
                         nav("pdf-next", Icon::CHEVRON_RIGHT)
                             .disabled(!has_document || current + 1 >= count)
-                            .tooltip("Next page")
+                            .tooltip(t!("Next page"))
                             .on_click(
                                 cx.listener(move |this, _, _, cx| this.go_to_page(current + 1, cx)),
                             ),
@@ -662,13 +663,13 @@ impl PdfPanel {
                     .gap(px(4.))
                     .child(
                         nav("pdf-outline", Icon::LIST_TREE)
-                            .tooltip("Outline — not in the GPUI preview yet"),
+                            .tooltip(t!("Outline — not in the GPUI preview yet")),
                     )
                     .child(
                         div().flex_1().min_w_0().child(
-                            SearchField::new("pdf-find", "Find in PDF")
+                            SearchField::new("pdf-find", t!("Find in PDF"))
                                 .parity("pdf/find")
-                                .tooltip("Find in PDF — not in the GPUI preview yet"),
+                                .tooltip(t!("Find in PDF — not in the GPUI preview yet")),
                         ),
                     ),
             )
@@ -681,7 +682,7 @@ impl PdfPanel {
                     .child(
                         nav("pdf-locate", Icon::LOCATE_FIXED)
                             .disabled(!has_document)
-                            .tooltip("Reveal cursor in PDF")
+                            .tooltip(t!("Reveal cursor in PDF"))
                             .on_click(|_, window, cx| {
                                 window.dispatch_action(Box::new(ForwardSync), cx)
                             }),
@@ -690,7 +691,7 @@ impl PdfPanel {
                     .child(
                         nav("pdf-fit", Icon::RECTANGLE_HORIZONTAL)
                             .on((self.zoom - 1.0).abs() < f32::EPSILON)
-                            .tooltip("Fit width")
+                            .tooltip(t!("Fit page to width"))
                             .on_click(cx.listener(|this, _, _, cx| this.set_zoom(1.0, cx))),
                     ),
             )
@@ -728,9 +729,9 @@ impl Panel for PdfPanel {
                 .ok();
             })
         };
-        menu.item(zoom("Zoom in", Some(ZOOM_STEP)))
-            .item(zoom("Zoom out", Some(1. / ZOOM_STEP)))
-            .item(zoom("Fit width", None))
+        menu.item(zoom(t!("Zoom in"), Some(ZOOM_STEP)))
+            .item(zoom(t!("Zoom out"), Some(1. / ZOOM_STEP)))
+            .item(zoom(t!("Fit page to width"), None))
     }
 
     fn inner_padding(&self, _: &App) -> bool {
@@ -753,7 +754,7 @@ impl Render for PdfPanel {
             centered_message(message.clone(), cx).into_any_element()
         } else if self.document.is_none() {
             centered_message(
-                "Build the project, or pick a PDF in the file tree".into(),
+                t!("Build the project, or pick a PDF in the file tree").into(),
                 cx,
             )
             .into_any_element()

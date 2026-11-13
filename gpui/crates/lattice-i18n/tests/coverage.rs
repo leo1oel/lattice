@@ -1,5 +1,5 @@
 //! The port of the Tauri app's `scripts/check-i18n-coverage.mjs` for the GPUI
-//! app: every message its sources translate (`t!`, `tc!`, `tr`,
+//! app: every message its sources translate (`t!`, `tc!`, `n!`, `tr`,
 //! `tr_context`) has Chinese in the catalogs, unless it reads the same in
 //! every language (a product or format name, listed in the Tauri app's
 //! `scripts/i18n-unlocalized-baseline.txt` or this crate's
@@ -15,7 +15,12 @@ use std::{
 use lattice_i18n::{GPUI_CATALOG, chinese, po};
 
 fn crates_dir() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("..")
+    // Canonical, so no path under it starts with this crate's own directory
+    // by way of `lattice-i18n/..`.
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .canonicalize()
+        .unwrap()
 }
 
 fn rust_files(dir: &Path, out: &mut Vec<PathBuf>) {
@@ -64,6 +69,7 @@ fn translated_messages(source: &str) -> Vec<(Option<String>, String)> {
     let mut out = Vec::new();
     for (opener, with_context) in [
         ("t!(", false),
+        ("n!(", false),
         ("tr(", false),
         ("tc!(", true),
         ("tr_context(", true),
@@ -134,7 +140,11 @@ fn every_translated_message_has_chinese() {
     let mut missing = BTreeSet::new();
     for file in &files {
         // This crate's own tests and docs exercise the macros with samples.
-        if file.starts_with(Path::new(env!("CARGO_MANIFEST_DIR"))) {
+        if file.starts_with(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .canonicalize()
+                .unwrap(),
+        ) {
             continue;
         }
         let source = fs::read_to_string(file).unwrap();
@@ -171,7 +181,9 @@ fn the_gpui_catalog_is_translated() {
     let untranslated: Vec<_> = po::parse(GPUI_CATALOG)
         .into_iter()
         .filter(|entry| {
-            has_words(&entry.msgid) && !gpui_allowed.contains(&entry.msgid) && !has_han(&entry.msgstr)
+            has_words(&entry.msgid)
+                && !gpui_allowed.contains(&entry.msgid)
+                && !has_han(&entry.msgstr)
         })
         .map(|entry| entry.msgid)
         .collect();

@@ -17,6 +17,8 @@ use lattice_ui::{
     tokens::FONT_WEIGHT_SEMIBOLD,
 };
 
+use lattice_i18n::t;
+
 use super::word_count::WordCountLabels;
 
 /// One scope's rows: its name and count, and the notes under them.
@@ -71,17 +73,17 @@ fn details(labels: &WordCountLabels, cx: &App) -> AnyElement {
         .collect();
     let mut rows = vec![
         scope(
-            "Manuscript",
+            t!("Manuscript"),
             labels
                 .manuscript
                 .clone()
-                .unwrap_or_else(|| "Unavailable".into()),
+                .unwrap_or_else(|| t!("Unavailable").into()),
             manuscript_notes,
             true,
             cx,
         ),
         scope(
-            "This file",
+            t!("This file"),
             labels.file.clone(),
             vec![labels.file_note.clone()],
             false,
@@ -90,7 +92,7 @@ fn details(labels: &WordCountLabels, cx: &App) -> AnyElement {
     ];
     if let Some(selection) = &labels.selection {
         rows.push(scope(
-            "Selection",
+            t!("Selection"),
             selection.clone(),
             vec![labels.selection_note.clone()],
             false,

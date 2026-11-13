@@ -8,6 +8,7 @@ use gpui::{
     ParentElement as _, Render, SharedString, Styled as _, Window, div, px,
 };
 use gpui_kit::component::dock::{BasePanel, Panel, PanelEvent};
+use lattice_i18n::t;
 use lattice_ui::{ActiveLattice as _, Icon, TextRole, TextRoleStyle as _, icons::ICON};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -19,8 +20,8 @@ pub enum StandIn {
 impl StandIn {
     pub fn name(self) -> &'static str {
         match self {
-            StandIn::Papers => "Papers",
-            StandIn::Agent => "Agent",
+            StandIn::Papers => t!("Papers"),
+            StandIn::Agent => t!("Agent"),
         }
     }
 
@@ -33,8 +34,8 @@ impl StandIn {
 
     fn note(self) -> &'static str {
         match self {
-            StandIn::Papers => "The papers library is not in the GPUI preview yet.",
-            StandIn::Agent => "The Agent is not in the GPUI preview yet.",
+            StandIn::Papers => t!("The papers library is not in the GPUI preview yet."),
+            StandIn::Agent => t!("The Agent is not in the GPUI preview yet."),
         }
     }
 }
@@ -92,7 +93,7 @@ impl Render for StandInPanel {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let palette = cx.palette().clone();
         div()
-            .id(self.kind.name())
+            .id(self.panel_name())
             .track_focus(&self.focus_handle)
             .size_full()
             .flex()

@@ -283,6 +283,17 @@ macro_rules! t {
     };
 }
 
+/// Mark a message in a static table (a vocabulary, a command list) for
+/// translation where it is shown, with [`tr`]: `n!("Bold text command")` is
+/// the literal itself, as Lingui's `msg` is a descriptor, and the coverage
+/// test asks the catalog for it like any other.
+#[macro_export]
+macro_rules! n {
+    ($msgid:literal) => {
+        $msgid
+    };
+}
+
 /// [`t!`] with Lingui's context: `tc!("tab", "Close")`.
 #[macro_export]
 macro_rules! tc {
@@ -313,7 +324,10 @@ mod tests {
         set_locale(Locale::ZhCn);
         assert_eq!(t!("Build"), "编译");
         assert_eq!(t!("A message nobody wrote"), "A message nobody wrote");
-        assert_eq!(tc!("tracked changes waiting for review", "{0} changes", 3), "3 处改动");
+        assert_eq!(
+            tc!("tracked changes waiting for review", "{0} changes", 3),
+            "3 处改动"
+        );
         set_locale(Locale::En);
     }
 
@@ -322,7 +336,10 @@ mod tests {
         let _guard = LOCALE_LOCK.lock().unwrap();
         set_locale(Locale::En);
         assert_eq!(t!("{0} of {1}", 2, 5), "2 of 5");
-        assert_eq!(fill_named("Hi {name}, {name}", &[("name", &"Ada")]), "Hi Ada, Ada");
+        assert_eq!(
+            fill_named("Hi {name}, {name}", &[("name", &"Ada")]),
+            "Hi Ada, Ada"
+        );
         // Unknown and unclosed braces stay as written.
         assert_eq!(fill("{x} {0} {", &[&1]), "{x} 1 {");
     }
