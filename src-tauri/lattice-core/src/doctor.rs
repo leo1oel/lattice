@@ -217,7 +217,8 @@ fn project_pdf_fonts(root: &Path) -> Option<DoctorCheck> {
     Some(match pdf_fonts::inspect_pdf_path(&pdf_path) {
         Ok(report) => {
             // The log of the build that wrote this PDF says what replaced Times.
-            let log = std::fs::read_to_string(pdf_path.with_extension("log")).unwrap_or_default();
+            let log = crate::latex::aux_files::file(root, &document.path, "log");
+            let log = std::fs::read_to_string(log).unwrap_or_default();
             match pdf_fonts::times_problem(&report, &log) {
                 // In Times, or an inconclusive scan (compressed streams it
                 // cannot name), which is not a failure.

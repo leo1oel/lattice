@@ -18,6 +18,7 @@
 //! copy's build by construction, where the PDF beside the document may be a
 //! collaborator's that a sync brought in.
 
+use super::aux_files::{self, AuxFiles, SYNCTEX};
 use crate::project;
 use crate::util::sha256_hex;
 use std::collections::BTreeMap;
@@ -30,21 +31,19 @@ const DIRECTORY: &str = ".research/cache/shown-pdf";
 /// so building another root document or a standalone figure in between
 /// never forgets it.
 const HASHES: &str = ".research/cache/build-pdf-hashes.json";
-/// A `-synctex=1` build compresses the map; an rc file's `-synctex=-1` does not.
-const SYNCTEX: [&str; 2] = ["synctex.gz", "synctex"];
 
-/// After a build of `document` (relative to `root`): keep the PDF it wrote,
-/// or put back the last one when it wrote none. Returns whether it put one
-/// back.
-pub(super) fn settle(root: &Path, document: &str, wrote_pdf: bool) -> bool {
+/// After a build of `document` (relative to `root`) in `layout`: keep the PDF
+/// it wrote, or put back the last one when it wrote none, with its map where
+/// `layout` keeps maps (`aux_files`). Returns whether it put one back.
+pub(super) fn settle(root: &Path, document: &str, wrote_pdf: bool, layout: AuxFiles) -> bool {
     let pdf = root.join(document).with_extension("pdf");
     let kept = root.join(DIRECTORY).join(document).with_extension("pdf");
     if wrote_pdf {
-        keep(root, &pdf, &kept);
+        keep(root, document, &pdf, &kept);
         record_hash(root, document, &pdf);
         false
     } else {
-        !pdf.exists() && restore(&kept, &pdf)
+        !pdf.exists() && restore(root, document, layout, &kept, &pdf)
     }
 }
 
@@ -92,7 +91,7 @@ pub(super) fn kept(root: &Path, document: &str) -> Option<PathBuf> {
 /// Each root document keeps its own copy, replaced by its next build; copies
 /// of documents whose `.tex` is gone are dropped, so a project holds one per
 /// root document at most.
-fn keep(root: &Path, pdf: &Path, kept: &Path) {
+fn keep(root: &Path, document: &str, pdf: &Path, kept: &Path) {
     let directory = root.join(DIRECTORY);
     forget_deleted(root, &directory, &directory);
     for extension in ["pdf", SYNCTEX[0], SYNCTEX[1]] {
@@ -102,7 +101,7 @@ fn keep(root: &Path, pdf: &Path, kept: &Path) {
     if fs::create_dir_all(parent).is_err() || clone(pdf, kept).is_err() {
         return;
     }
-    if let Some(synctex) = synctex_of(pdf) {
+    if let Some(synctex) = aux_files::synctex(root, document) {
         let _ = clone(&synctex, &with_synctex(kept, &synctex));
     }
 }
@@ -130,16 +129,18 @@ fn forget_deleted(root: &Path, directory: &Path, folder: &Path) {
     }
 }
 
-fn restore(kept: &Path, pdf: &Path) -> bool {
+fn restore(root: &Path, document: &str, layout: AuxFiles, kept: &Path, pdf: &Path) -> bool {
     if clone(kept, pdf).is_err() {
         return false;
     }
     // A map from another build would point clicks at the wrong lines.
-    for extension in SYNCTEX {
-        let _ = fs::remove_file(pdf.with_extension(extension));
-    }
+    aux_files::remove_synctex(root, document);
     if let Some(synctex) = synctex_of(kept) {
-        let _ = clone(&synctex, &with_synctex(pdf, &synctex));
+        let gz = synctex.extension().is_some_and(|extension| extension == "gz");
+        let target = aux_files::synctex_in(root, document, layout, gz);
+        if target.parent().is_some_and(|parent| fs::create_dir_all(parent).is_ok()) {
+            let _ = clone(&synctex, &target);
+        }
     }
     true
 }
@@ -165,24 +166,26 @@ mod tests {
     use super::*;
     use crate::test_support::TempDir;
 
+    const BESIDE: AuxFiles = AuxFiles::Beside;
+
     #[test]
     fn a_build_that_writes_no_pdf_gets_the_last_one_and_its_map_back() {
         let root = TempDir::new("shown-pdf");
         root.write("paper/main.pdf", "%PDF-1.5 first");
         root.write("paper/main.synctex.gz", "first map");
-        assert!(!settle(&root, "paper/main.tex", true));
+        assert!(!settle(&root, "paper/main.tex", true, BESIDE));
 
         // The next build ends in a fatal error: pdfTeX deleted both.
         fs::remove_file(root.join("paper/main.pdf")).unwrap();
         fs::remove_file(root.join("paper/main.synctex.gz")).unwrap();
-        assert!(settle(&root, "paper/main.tex", false));
+        assert!(settle(&root, "paper/main.tex", false, BESIDE));
         let read = |path: &str| fs::read_to_string(root.join(path)).unwrap();
         assert_eq!(read("paper/main.pdf"), "%PDF-1.5 first");
         assert_eq!(read("paper/main.synctex.gz"), "first map");
 
         // A PDF still on disk (a stopped build's) is left alone.
         root.write("paper/main.pdf", "%PDF-1.5 partial");
-        assert!(!settle(&root, "paper/main.tex", false));
+        assert!(!settle(&root, "paper/main.tex", false, BESIDE));
         assert_eq!(read("paper/main.pdf"), "%PDF-1.5 partial");
     }
 
@@ -192,7 +195,7 @@ mod tests {
         assert!(!replaced(&root, "cvpr/main.tex"), "no PDF and no copy");
         root.write("cvpr/main.pdf", "%PDF-1.5 mine");
         assert!(!replaced(&root, "cvpr/main.tex"), "no build has left a copy yet");
-        settle(&root, "cvpr/main.tex", true);
+        settle(&root, "cvpr/main.tex", true, BESIDE);
         assert!(!replaced(&root, "cvpr/main.tex"));
 
         // A collaborator's build, pulled in by a sync: same size, other bytes.
@@ -210,7 +213,7 @@ mod tests {
         for document in ["cvpr/main.tex", "arxiv/main.tex", "figures/plot.tex"] {
             root.write(document, "\\documentclass{article}");
             root.write(&document.replace(".tex", ".pdf"), format!("%PDF-1.5 {document}"));
-            settle(&root, document, true);
+            settle(&root, document, true, BESIDE);
         }
         root.write("cvpr/main.pdf", "%PDF-1.5 a collaborator's");
         assert!(replaced(&root, "cvpr/main.tex"));
@@ -219,7 +222,7 @@ mod tests {
 
         // A document deleted since is forgotten at the next build.
         fs::remove_file(root.join("cvpr/main.tex")).unwrap();
-        settle(&root, "arxiv/main.tex", true);
+        settle(&root, "arxiv/main.tex", true, BESIDE);
         assert!(!replaced(&root, "cvpr/main.tex"));
         assert!(!read_hashes(&root).contains_key("cvpr/main.tex"));
     }
@@ -233,16 +236,16 @@ mod tests {
         root.write("supplement/SI.tex", "\\documentclass{article}");
         root.write("main.pdf", "%PDF-1.5 main");
         root.write("main.synctex.gz", "main map");
-        settle(&root, "main.tex", true);
+        settle(&root, "main.tex", true, BESIDE);
         root.write("supplement/SI.pdf", "%PDF-1.5 SI");
-        settle(&root, "supplement/SI.tex", true);
+        settle(&root, "supplement/SI.tex", true, BESIDE);
         let read = |path: &Path| fs::read_to_string(path).unwrap();
         assert_eq!(read(&kept(&root, "main.tex").unwrap()), "%PDF-1.5 main");
         assert_eq!(read(&kept(&root, "supplement/SI.tex").unwrap()), "%PDF-1.5 SI");
 
         fs::remove_file(root.join("main.pdf")).unwrap();
         fs::remove_file(root.join("main.synctex.gz")).unwrap();
-        assert!(settle(&root, "main.tex", false));
+        assert!(settle(&root, "main.tex", false, BESIDE));
         assert_eq!(read(&root.join("main.pdf")), "%PDF-1.5 main");
         assert_eq!(read(&root.join("main.synctex.gz")), "main map");
 
@@ -250,14 +253,14 @@ mod tests {
         // stale map left beside it.
         fs::remove_file(root.join("supplement/SI.pdf")).unwrap();
         root.write("supplement/SI.synctex", "older map");
-        assert!(settle(&root, "supplement/SI.tex", false));
+        assert!(settle(&root, "supplement/SI.tex", false, BESIDE));
         assert!(!root.join("supplement/SI.synctex").exists());
 
         // A rebuild that drops its map drops the kept one too.
-        settle(&root, "main.tex", true);
+        settle(&root, "main.tex", true, BESIDE);
         root.write("main.pdf", "%PDF-1.5 main, no map");
         fs::remove_file(root.join("main.synctex.gz")).unwrap();
-        settle(&root, "main.tex", true);
+        settle(&root, "main.tex", true, BESIDE);
         let copy = kept(&root, "main.tex").unwrap();
         assert!(!copy.with_extension("synctex.gz").exists());
     }
@@ -269,15 +272,36 @@ mod tests {
             root.write(document, "\\documentclass{article}");
             root.write(&document.replace(".tex", ".pdf"), "%PDF-1.5");
             root.write(&document.replace(".tex", ".synctex.gz"), "map");
-            settle(&root, document, true);
+            settle(&root, document, true, BESIDE);
         }
         fs::remove_file(root.join("SI.tex")).unwrap();
-        settle(&root, "main.tex", true);
+        settle(&root, "main.tex", true, BESIDE);
         assert!(kept(&root, "SI.tex").is_none());
         assert!(!root.join(DIRECTORY).join("SI.synctex.gz").exists());
         assert!(kept(&root, "main.tex").is_some());
         for refused in ["main.pdf", "../main.tex", "/main.tex", ""] {
             assert!(kept(&root, refused).is_none(), "{refused}");
         }
+    }
+
+    /// With the hidden build folder the map lives there: it is kept from
+    /// there, and a build that writes no PDF gets it back there.
+    #[test]
+    fn the_hidden_folders_map_is_kept_and_put_back_there() {
+        let root = TempDir::new("shown-pdf-hidden");
+        root.write("paper/main.tex", "\\documentclass{article}");
+        root.write("paper/main.pdf", "%PDF-1.5 first");
+        root.write(".research/build/paper/main.synctex.gz", "first map");
+        assert!(!settle(&root, "paper/main.tex", true, AuxFiles::Hidden));
+
+        fs::remove_file(root.join("paper/main.pdf")).unwrap();
+        fs::remove_file(root.join(".research/build/paper/main.synctex.gz")).unwrap();
+        // A map left beside the PDF from before the switch is not this build's.
+        root.write("paper/main.synctex.gz", "stale map");
+        assert!(settle(&root, "paper/main.tex", false, AuxFiles::Hidden));
+        let read = |path: &str| fs::read_to_string(root.join(path)).unwrap();
+        assert_eq!(read("paper/main.pdf"), "%PDF-1.5 first");
+        assert_eq!(read(".research/build/paper/main.synctex.gz"), "first map");
+        assert!(!root.join("paper/main.synctex.gz").exists());
     }
 }

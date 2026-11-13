@@ -3,6 +3,7 @@ import type { Dispatch, SetStateAction } from "react";
 import { afterEach, describe, expect, it, vi, type Mock } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import type { BuildResult, ProjectSnapshot } from "../app-types";
+import { BUILD_PREFERENCES_KEY } from "../settings/app-settings";
 import type { CompileDiagnostic } from "../build/compile-diagnostics";
 import { clearAppLogs, getAppLogEntry, getAppToastOptions, getVisibleAppToastIds } from "../telemetry/app-log-store";
 import { useBuildPipeline } from "./use-build-pipeline";
@@ -71,6 +72,22 @@ function renderPipeline(
     openDiagnosticRef: ref(openDiagnostic), onMissingTex: vi.fn(), autoBuildModeRef: ref("automatic" as const),
   }));
 }
+
+describe("where a build leaves its intermediate files", () => {
+  afterEach(() => localStorage.clear());
+
+  it("asks for the hidden build folder while Settings hides auxiliary files, from the next build on", async () => {
+    const view = renderPipeline(async () => result());
+    const buildArgs = () => vi.mocked(invoke).mock.calls.filter(([command]) => command === "build_project").map(([, args]) => args);
+    await act(() => view.result.current.runBuild(false, { requested: true }));
+    localStorage.setItem(BUILD_PREFERENCES_KEY, JSON.stringify({ autoBuildMode: "automatic", hiddenBuildFiles: true }));
+    await act(() => view.result.current.runBuild(false, { requested: true }));
+    expect(buildArgs()).toEqual([
+      expect.objectContaining({ auxFiles: "beside" }),
+      expect.objectContaining({ auxFiles: "hidden" }),
+    ]);
+  });
+});
 
 describe("the build outcome the Build button reports", () => {
   it("reports a success with its time once the build ends", async () => {

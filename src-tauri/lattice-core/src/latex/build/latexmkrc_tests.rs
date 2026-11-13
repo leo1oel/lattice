@@ -25,7 +25,9 @@ fn a_project_rc_out_dir_still_builds_the_pdf_beside_the_document() {
     project::write_manifest(&root, &project::default_manifest("paper")).unwrap();
     root.write(".latexmkrc", "$out_dir = 'build';\n$aux_dir = 'build';\n");
     root.write("main.tex", HELLO);
-    let result = run_latexmk(&root, false, &ActiveBuild::default(), &BuildSteps::silent()).unwrap();
+    let result =
+        run_latexmk(&root, false, &ActiveBuild::default(), &BuildSteps::silent(), AuxFiles::Beside)
+            .unwrap();
     assert!(result.success && result.has_pdf, "{}", result.log);
     assert!(root.join("main.pdf").is_file());
     assert!(root.join("main.synctex.gz").is_file());

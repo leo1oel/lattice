@@ -24,8 +24,16 @@ fn a_document_with_two_errors_reports_both_and_its_pdf_answers_synctex() {
     let root = TempDir::new("latex");
     project::write_manifest(&root, &project::default_manifest("paper")).unwrap();
     root.write("main.tex", three_page_document(true));
-    let result =
-        build(&root, false, false, &ActiveBuild::default(), None, &BuildSteps::silent()).unwrap();
+    let result = build(
+        &root,
+        false,
+        false,
+        &ActiveBuild::default(),
+        None,
+        &BuildSteps::silent(),
+        AuxFiles::Beside,
+    )
+    .unwrap();
     assert!(!result.success && result.has_pdf, "{}", result.log);
     assert_eq!(result.synctex, Some(true));
     assert_eq!(error_lines(&result), [Some(7), Some(9)], "{:?}", result.diagnostics);
@@ -45,7 +53,17 @@ fn a_document_with_two_errors_reports_both_and_its_pdf_answers_synctex() {
 fn stop_on_first_error_reports_one_and_the_pdf_on_screen_still_answers_synctex() {
     let root = TempDir::new("latex");
     project::write_manifest(&root, &project::default_manifest("paper")).unwrap();
-    let build = || build(&root, false, false, &ActiveBuild::default(), None, &BuildSteps::silent());
+    let build = || {
+        build(
+            &root,
+            false,
+            false,
+            &ActiveBuild::default(),
+            None,
+            &BuildSteps::silent(),
+            AuxFiles::Beside,
+        )
+    };
     root.write("main.tex", three_page_document(false));
     assert!(build().unwrap().success);
     let shown = fs::read(root.join("main.pdf")).unwrap();

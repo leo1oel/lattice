@@ -284,6 +284,12 @@ export type BuildResult = {
    * SyncTeX map on disk are of these same inputs (latex/build/unchanged.rs).
    */
   unchanged?: boolean;
+  /**
+   * The project-relative folder holding the build's `.aux` and other
+   * intermediate files: the document's own folder, or its mirror under the
+   * hidden `.research/build/` (latex/aux_files.rs). Empty for the project root.
+   */
+  auxFolder?: string;
 };
 
 export type PaperSummary = {

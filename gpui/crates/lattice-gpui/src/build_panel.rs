@@ -231,6 +231,7 @@ impl BuildPanel {
             synctex: Some(true),
             outputs: Vec::new(),
             unchanged: false,
+            aux_folder: String::new(),
         };
         self.finished(&result, true, false, HashMap::new(), cx);
     }

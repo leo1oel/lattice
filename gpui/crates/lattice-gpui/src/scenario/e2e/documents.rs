@@ -249,6 +249,14 @@ impl Run {
             json!({ "previewed": previewed, "disk": std::fs::read_to_string(&file).ok() }),
         );
         std::fs::remove_file(&file).ok();
+        // The watcher closes the deleted file's tab a moment later, and that
+        // rearranges the docks. Waiting for it here keeps the rearrangement
+        // from landing in the middle of a later step (the PDF steps' root
+        // tabs, in particular).
+        self.wait_for(cx, Duration::from_secs(10), |shell, cx| {
+            shell.update(cx, |shell, cx| shell.open_editor(&file, cx).is_none())
+        })
+        .await;
         Ok(())
     }
 

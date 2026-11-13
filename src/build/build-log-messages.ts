@@ -49,6 +49,8 @@ export function compileDiagnosticText(diagnostic: CodedMessage): string {
       const { command = "", from = "" } = params;
       return i18n._(msg`Switched this project from ${from} to pdfLaTeX: the document uses \`${command}\`, which only works in pdfLaTeX, and loads nothing that needs ${from}.`);
     }
+    case "built-beside":
+      return i18n._(msg`This document builds beside itself rather than in the hidden build folder: it uses a package that ignores TeX's output directory, such as minted 2.x, imakeidx, glossaries or pythontex.`);
     case "cjk-glyphs-missing":
     case "cjk-needs-unicode-engine":
       return cjkTextAdvice(diagnostic.code, params);

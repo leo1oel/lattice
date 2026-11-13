@@ -406,6 +406,10 @@ pub struct Settings {
     pub theme_preference: ThemePreference,
     pub appearance: Appearance,
     pub auto_build_mode: AutoBuildMode,
+    /// Builds keep their intermediate files (`.aux`, `.log`, the SyncTeX
+    /// map, …) in the project's hidden `.research/build/` folder instead of
+    /// beside each document: lattice-core's `AuxFiles::Hidden`.
+    pub hidden_build_files: bool,
     /// "Your name": what signs comments when no Git or Overleaf name does.
     pub author_name: String,
     pub settings_tab: SettingsTab,
@@ -425,6 +429,7 @@ impl Settings {
                 .map(|appearance| Appearance::from_value(appearance, false))
                 .unwrap_or_default(),
             auto_build_mode: choice(field("autoBuildMode"), defaults.auto_build_mode),
+            hidden_build_files: field("hiddenBuildFiles") == Some(&Value::Bool(true)),
             author_name: field("authorName")
                 .and_then(Value::as_str)
                 .unwrap_or_default()
@@ -527,11 +532,13 @@ mod tests {
         settings.appearance.accent = Accent::Preset(AccentPreset::Teal);
         settings.appearance.hidden_titlebar_tools = vec![TitlebarTool::Browser];
         settings.auto_build_mode = AutoBuildMode::Manual;
+        settings.hidden_build_files = true;
         settings.author_name = "Ada".into();
         settings.settings_tab = SettingsTab::Editor;
         let value = settings.to_value();
         assert_eq!(value["version"], json!(1));
         assert_eq!(value["appearance"]["accent"], json!("teal"));
+        assert_eq!(value["hiddenBuildFiles"], json!(true));
         assert_eq!(value["appearance"]["interfaceLanguage"], json!("system"));
         assert_eq!(Settings::from_value(&value), settings);
     }

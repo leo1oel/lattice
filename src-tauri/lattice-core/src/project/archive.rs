@@ -309,6 +309,9 @@ mod tests {
             ".research/annotations.json",
             ".research/overleaf.json",
             ".research/papers/smith2024/paper.md",
+            ".research/build/main.aux",
+            ".research/build/main.bbl",
+            ".research/build/chapters/intro.aux",
             "vendor/.git/HEAD",
             "draft.tex-SAVE-ERROR",
         ] {

@@ -219,9 +219,16 @@ fn build_and_export(name: &str, files: &[(&str, &str)]) -> (JournalExport, PathB
         fixture.write(path, text);
     }
     crate::project::open(&fixture.root).unwrap();
-    let result =
-        build(&fixture.root, false, false, &ActiveBuild::default(), None, &BuildSteps::silent())
-            .unwrap();
+    let result = build(
+        &fixture.root,
+        false,
+        false,
+        &ActiveBuild::default(),
+        None,
+        &BuildSteps::silent(),
+        crate::latex::AuxFiles::Beside,
+    )
+    .unwrap();
     assert!(result.success, "{}", result.log);
     let parent = Fixture::empty(&format!("{name}-out"));
     let options = JournalOptions { tiff: false, dpi: 300, article: true };

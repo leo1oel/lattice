@@ -437,6 +437,9 @@ mod tests {
             (&[".git/index"], true),
             (&[".research/history/x.json"], false),
             (&[".research/papers/2401.00001/paper.md"], false),
+            // A build into the hidden build folder writes only there: no
+            // rebuild follows it.
+            (&[".research/build/main.aux", ".research/build/main.log"], false),
             // Mixed bursts stay relevant if any path matters.
             (&[".research/cache/fts.sqlite", "notes.md"], true),
         ] {

@@ -234,10 +234,11 @@ fn typeset(
             fs::create_dir_all(scratch.join(relative)).map_err(|error| error.to_string())?;
         }
     }
-    // The last build's references and bibliography, so pages break as they did.
+    // The last build's references and bibliography, so pages break as they
+    // did: beside the document, or in the hidden build folder.
     for extension in ["aux", "bbl"] {
-        let _ =
-            fs::copy(source.with_extension(extension), scratch.join(format!("{job}.{extension}")));
+        let last = crate::latex::aux_files::file(root, document, extension);
+        let _ = fs::copy(last, scratch.join(format!("{job}.{extension}")));
     }
     let names: Vec<String> =
         entries.keys().map(|path| path.rsplit('/').next().unwrap_or(path).to_string()).collect();

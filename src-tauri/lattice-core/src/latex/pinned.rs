@@ -15,7 +15,7 @@
 
 use super::build::{abort, cancelled_build, run_tracked, ActiveBuild};
 use super::build_log::{log_conference_template, pages_written, parse_diagnostics, trim_log};
-use super::{BuildResult, BuildSteps};
+use super::{AuxFiles, BuildResult, BuildSteps};
 use crate::{commands, project};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -121,6 +121,8 @@ pub fn build_pinned(root: &Path, options: &PinnedBuild) -> Result<BuildResult, S
         synctex: has_pdf.then(|| synctex_beside(&pdf)),
         outputs: Vec::new(),
         unchanged: false,
+        // Graded builds keep latexmk's own layout, beside the document.
+        aux_folder: super::aux_files::relative_folder(options.document, AuxFiles::Beside),
     })
 }
 

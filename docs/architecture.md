@@ -407,7 +407,8 @@ creates it.
 | `.research/history/<id>.json` | `project/history.rs` | transaction history records (schema v2, `HISTORY_SCHEMA_VERSION`); capped at 100 (`MAX_HISTORY_ENTRIES`) |
 | `.research/sessions/` | `project/create.rs` | agent session records |
 | `.research/checkpoints/` | agent runtime | turn checkpoints; capped at 100 per session / 256 MB (`project/history.rs`) |
-| `.research/cache/` | various | `fts.sqlite` (full-text index), `paper-index/` (the tantivy index of the cited papers' cached text; `papers/search_index.rs`), `citation-health-v1.json`, `linked-bibliography.json` (the linked library's source path, target `.bib` and last-imported baseline; `project/linked_bibliography.rs`), `shown-pdf/` (a copy of each root document's last built PDF and its SyncTeX file, put back when a build leaves none, and what that document's own PDF tab reads when the project opens again; `latex/shown_pdf.rs`), `build-pdf-hashes.json` (the SHA-256 of each root document's PDF as this copy's last build of it left it, so a build that finds nothing to do still typesets again when something else wrote over that PDF; `latex/shown_pdf.rs`) |
+| `.research/cache/` | various | `fts.sqlite` (full-text index), `paper-index/` (the tantivy index of the cited papers' cached text; `papers/search_index.rs`), `citation-health-v1.json`, `linked-bibliography.json` (the linked library's source path, target `.bib` and last-imported baseline; `project/linked_bibliography.rs`), `shown-pdf/` (a copy of each root document's last built PDF and its SyncTeX file, put back when a build leaves none, and what that document's own PDF tab reads when the project opens again; `latex/shown_pdf.rs`), `build-pdf-hashes.json` (the SHA-256 of each root document's PDF as this copy's last build of it left it, so a build that finds nothing to do still typesets again when something else wrote over that PDF; `latex/shown_pdf.rs`), `build-beside.json` and `build-beside-failed.json` (the documents that build only beside themselves under Hide auxiliary files, and those whose try beside failed) and `hidden-build-aside/` (the hidden build folder, set aside during that try; `latex/build/beside.rs`) |
+| `.research/build/` | `latex/aux_files.rs` (`HIDDEN_FOLDER`) | with Settings › Hide auxiliary files on, each root document's intermediate build files (`.aux`, `.log`, `.fls`, `.fdb_latexmk`, `.bbl`, the SyncTeX map), mirroring the project's folders; the PDF stays beside the document. Never committed, synced to Overleaf, exported or written by `write_bytes` |
 | `.research/licenses/` | `project/create.rs` | license texts for imported material |
 | `.research/overleaf.json` | `overleaf/link.rs` | Overleaf link state: project id, file hashes, sync mode |
 | `.research/overleaf-base/` | `overleaf/files.rs` (`BASE_DIR`) | pristine copies of every synced text file — the merge base for three-way sync |
@@ -426,12 +427,12 @@ known to hold a linked copy (`overleaf-local-copies.json`,
 `.research/overleaf.json` before use.
 
 Two gitignore files are written at project creation (`project/create.rs`):
-`.research/.gitignore` contains `history/ sessions/ checkpoints/ cache/ review/`
+`.research/.gitignore` contains `history/ sessions/ checkpoints/ cache/ review/ build/`
 (`RESEARCH_GITIGNORE`), and the project's root `.gitignore`
-gets the same five paths plus `/main.pdf` and the LaTeX build-artifact list.
+gets the same six paths plus `/main.pdf` and the LaTeX build-artifact list.
 Every open (`project/manifest.rs`) writes `.research/.gitignore` only if it is
 missing (an existing one is left as is), and `ensure_ignore_line` adds
-`.research/checkpoints/`, `.research/cache/`, `.research/review/` and the
+`.research/checkpoints/`, `.research/cache/`, `.research/review/`, `.research/build/` and the
 build-artifact list to the root `.gitignore`. That covers folders Lattice did not create; otherwise the first commit would adopt every
 `.log` and `.fls` in the directory. Exporting a PDF with changes marked (`latex/changes.rs`) adds its `/<root>-changes.pdf` to the root `.gitignore` the same way.
 
@@ -442,7 +443,7 @@ root document's PDF and the usual TeX artifacts (`EXPORT_EXCLUDED_DIRS` and
 the project files the last build read (its `.fls`), never `.research/` or
 `.git/`. Raw byte writes
 (`write_project_bytes`, used by Open Slide) refuse history, sessions, `omp-*`,
-checkpoints, cache and paper bundles (`UNSYNCED_RESEARCH_PREFIXES` in
+checkpoints, cache, review mode, the hidden build folder and paper bundles (`UNSYNCED_RESEARCH_PREFIXES` in
 `project/imports.rs`).
 
 ---

@@ -24,15 +24,16 @@ use std::path::Path;
 /// 72.27 TeX points per 72 big points.
 const SP_PER_BP: f64 = 65781.76;
 
-/// The SyncTeX data beside `pdf`, decompressed; `None` when there is none to
-/// read.
-pub(super) fn read(pdf: &Path) -> Option<String> {
-    if let Ok(file) = std::fs::File::open(pdf.with_extension("synctex.gz")) {
+/// The SyncTeX data in `map` (a `.synctex.gz` or `.synctex`, see
+/// `aux_files::synctex`), decompressed; `None` when it cannot be read.
+pub(super) fn read(map: &Path) -> Option<String> {
+    if map.extension().is_some_and(|extension| extension == "gz") {
+        let file = std::fs::File::open(map).ok()?;
         let mut text = String::new();
         flate2::read::MultiGzDecoder::new(file).read_to_string(&mut text).ok()?;
         return Some(text);
     }
-    std::fs::read_to_string(pdf.with_extension("synctex")).ok()
+    std::fs::read_to_string(map).ok()
 }
 
 /// One horizontal box on a page: the rectangle `synctex view` reports for it

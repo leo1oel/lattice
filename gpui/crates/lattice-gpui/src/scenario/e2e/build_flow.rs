@@ -470,6 +470,49 @@ impl Run {
             }),
         );
 
+        // Hide auxiliary files: the next build moves main.tex's files into
+        // the hidden build folder, the PDF stays and SyncTeX still answers;
+        // switched off again, the one after moves them back beside it.
+        let hidden = root.join(".research/build");
+        let mut layouts = Vec::new();
+        for on in [true, false] {
+            cx.update(|cx| {
+                crate::settings::update(cx, |settings| settings.hidden_build_files = on)
+            });
+            let before = self.builds(cx);
+            self.with_window(cx, |shell, window, cx| {
+                shell.update(cx, |shell, cx| {
+                    shell.build(&crate::shell::Build, window, cx)
+                })
+            })?;
+            let built = self.built_after(cx, before).await;
+            let succeeded = cx.update(|cx| self.shell.read(cx).build_panel().read(cx).succeeded());
+            let synced = lattice_core::latex::forward_search(&root, "main.tex", 1, 0).is_ok();
+            let (inside, beside) = (hidden.join("main.aux").is_file(), aux.is_file());
+            let maps = (
+                hidden.join("main.synctex.gz").is_file(),
+                root.join("main.synctex.gz").is_file(),
+            );
+            let placed = if on {
+                inside && !beside && maps == (true, false)
+            } else {
+                beside && !inside && maps == (false, true)
+            };
+            layouts.push(json!({
+                "hidden": on, "built": built, "succeeded": succeeded, "synctex": synced,
+                "aux_in_hidden_folder": inside, "aux_beside": beside, "maps": [maps.0, maps.1],
+                "pdf": root.join("main.pdf").is_file(), "placed": placed,
+            }));
+            if !(built && succeeded == Some(true) && synced && placed) {
+                break;
+            }
+        }
+        steps.check(
+            "Hide auxiliary files moves the build files into .research/build at the next build, and back",
+            layouts.len() == 2 && layouts.iter().all(|layout| layout["placed"] == json!(true) && layout["synctex"] == json!(true)),
+            json!({ "layouts": layouts }),
+        );
+
         // A document that loops: Stop ends the build, which reports nothing.
         // The outside edit builds it on its own (main.tex is open); only
         // when it does not is it built here, so no second build of the loop

@@ -2,6 +2,7 @@
 //! and warnings, which never reach TeX's log. A syntax error in a `.bib` file
 //! left only "Citation undefined" in the problem list, nowhere near its cause.
 
+use super::aux_files;
 use super::build_log::{diagnostic, normalize_log_path};
 use crate::models::Diagnostic;
 use regex::Regex;
@@ -12,16 +13,17 @@ use std::path::Path;
 /// TeX errors beside them.
 const LIMIT: usize = 40;
 
-/// What the bibliography run for `root_document` reported, when this build
-/// still has one. A `.blg` outlives the bibliography that made it, so it
-/// counts only while the document still asks for one: BibTeX's `\bibdata` in
-/// the `.aux`, or biblatex's `.bcf`.
-pub(super) fn bibliography_diagnostics(root_document: &Path) -> Vec<Diagnostic> {
-    let Ok(log) = fs::read_to_string(root_document.with_extension("blg")) else {
+/// What the bibliography run for `document` (relative to `root`) reported,
+/// when this build still has one. A `.blg` outlives the bibliography that
+/// made it, so it counts only while the document still asks for one:
+/// BibTeX's `\bibdata` in the `.aux`, or biblatex's `.bcf`. All three are
+/// where the last build left them (`aux_files`).
+pub(super) fn bibliography_diagnostics(root: &Path, document: &str) -> Vec<Diagnostic> {
+    let Ok(log) = fs::read_to_string(aux_files::file(root, document, "blg")) else {
         return Vec::new();
     };
-    let aux = fs::read_to_string(root_document.with_extension("aux")).unwrap_or_default();
-    if !aux.contains("\\bibdata") && !root_document.with_extension("bcf").is_file() {
+    let aux = fs::read_to_string(aux_files::file(root, document, "aux")).unwrap_or_default();
+    if !aux.contains("\\bibdata") && !aux_files::file(root, document, "bcf").is_file() {
         return Vec::new();
     }
     parse_bib_log(&log)
@@ -198,10 +200,19 @@ and the built_in function-call counts, 219 in all, are:
     #[test]
     fn reads_a_blg_only_while_the_document_still_has_a_bibliography() {
         let root = crate::test_support::TempDir::new("bib-log");
-        let document = root.write("paper/main.tex", "");
+        root.write("paper/main.tex", "");
         root.write("paper/main.blg", BIBTEX_LOG);
-        assert!(bibliography_diagnostics(&document).is_empty());
+        assert!(bibliography_diagnostics(&root, "paper/main.tex").is_empty());
         root.write("paper/main.aux", "\\bibstyle{plain}\n\\bibdata{refs}\n");
-        assert_eq!(bibliography_diagnostics(&document).len(), 4);
+        assert_eq!(bibliography_diagnostics(&root, "paper/main.tex").len(), 4);
+    }
+
+    #[test]
+    fn reads_the_blg_a_build_left_in_the_hidden_folder() {
+        let root = crate::test_support::TempDir::new("bib-log-hidden");
+        root.write("paper/main.tex", "");
+        root.write(".research/build/paper/main.blg", BIBTEX_LOG);
+        root.write(".research/build/paper/main.aux", "\\bibstyle{plain}\n\\bibdata{refs}\n");
+        assert_eq!(bibliography_diagnostics(&root, "paper/main.tex").len(), 4);
     }
 }

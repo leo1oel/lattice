@@ -48,12 +48,14 @@ pub fn open(root: &Path) -> Result<ProjectSnapshot, String> {
     // project is born with. Version tracking usually starts here, so without
     // them the first commit adopts every .log and .fls in the folder, and from
     // then on each build dirties them and each agent turn diffs them. Review
-    // mode's bases and marked build (`.research/review/`) are local state
+    // mode's bases and marked build (`.research/review/`) and the hidden
+    // build folder (`.research/build/`, latex/aux_files.rs) are local state
     // too; a `.research/.gitignore` from an older build does not name them.
-    for line in [".research/checkpoints/", ".research/cache/", ".research/review/"]
-        .into_iter()
-        .map(str::to_string)
-        .chain(build_artifact_ignore_lines())
+    for line in
+        [".research/checkpoints/", ".research/cache/", ".research/review/", ".research/build/"]
+            .into_iter()
+            .map(str::to_string)
+            .chain(build_artifact_ignore_lines())
     {
         ensure_ignore_line(&root.join(".gitignore"), &line)?;
     }
@@ -571,6 +573,7 @@ mod tests {
             "*.run.xml",
             "*-SAVE-ERROR",
             ".research/review/",
+            ".research/build/",
             "node_modules/",
         ] {
             assert!(

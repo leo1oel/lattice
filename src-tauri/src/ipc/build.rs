@@ -20,12 +20,15 @@ use std::sync::Arc;
 use tauri::{Emitter, Manager, State, Window};
 
 /// `unattended`: Lattice started the build itself (autosave, the project
-/// watcher), not the writer; see `latex::build`.
+/// watcher), not the writer; see `latex::build`. `aux_files`: the global
+/// setting for where the intermediate files go, beside the document when
+/// absent.
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
 pub async fn build_project(
     state: State<'_, AppState>, window: Window, force: Option<bool>, unattended: Option<bool>,
     project_root: String, document_path: Option<String>, progress_id: Option<u32>,
+    aux_files: Option<latex::AuxFiles>,
     diagnostic_context: Option<command_diagnostics::DiagnosticContext>,
 ) -> Result<BuildResult, String> {
     let operation = wide_event::Operation::start("latex.compile", latex::classify_build_error);
@@ -39,7 +42,8 @@ pub async fn build_project(
             let steps = build_progress(window, project_root, progress_id);
             // Quietly: the operation's event already carries any failure.
             run_quietly("The LaTeX build task", move || {
-                latex::build(&root, force, unattended, &active, document_path.as_deref(), &steps)
+                let (document, layout) = (document_path.as_deref(), aux_files.unwrap_or_default());
+                latex::build(&root, force, unattended, &active, document, &steps, layout)
             })
             .await
         }))

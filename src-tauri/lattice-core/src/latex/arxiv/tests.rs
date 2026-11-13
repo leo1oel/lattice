@@ -314,3 +314,50 @@ fn the_pack_builds_alone_without_bibtex() {
     assert_eq!(compile.outcome, CompileOutcome::Failed);
     assert!(compile.error.unwrap().message.contains("Undefined control sequence"));
 }
+
+/// A build that kept its files in the hidden build folder read the `.bbl`
+/// there, and wrote its `.aux` and `.log` there: the `.bbl` ships beside the
+/// document, where arXiv's own build reads it, and the rest stays behind.
+#[test]
+fn a_hidden_folder_builds_bbl_ships_beside_the_document() {
+    let fixture = Fixture::empty("arxiv-hidden-build");
+    fixture.write("paper/main.tex", MAIN);
+    project::open(&fixture.root).unwrap();
+    let mut manifest = project::read_manifest(&fixture.root).unwrap();
+    manifest.root_documents[0].path = "paper/main.tex".to_string();
+    project::write_manifest(&fixture.root, &manifest).unwrap();
+    for (path, contents) in [
+        ("paper/sections/intro.tex", "Intro text.\n"),
+        ("paper/figures/plot.pdf", "%PDF-1.5 figure\n"),
+        ("paper/refs.bib", "@misc{a}\n"),
+        ("paper/main.pdf", "%PDF-1.5 paper\n"),
+        (".research/build/paper/main.bbl", "\\begin{thebibliography}{1}\\end{thebibliography}\n"),
+        (".research/build/paper/main.aux", "\\relax\n"),
+        (".research/build/paper/main.log", "log\n"),
+    ] {
+        fixture.write(path, contents);
+    }
+    let root = fixture.root.canonicalize().unwrap();
+    let (paper, hidden) = (root.join("paper"), root.join(".research/build/paper"));
+    let tex = |path: &Path| crate::host_paths::tex_path(path);
+    let recorder = format!(
+        "PWD {paper}\nINPUT main.tex\nOUTPUT {hidden}/main.log\nINPUT {hidden}/main.aux\nOUTPUT {hidden}/main.aux\nINPUT ./sections/intro.tex\nINPUT ./figures/plot.pdf\nINPUT {hidden}/main.bbl\nOUTPUT {hidden}/main.pdf\n",
+        paper = tex(&paper),
+        hidden = tex(&hidden),
+    );
+    fixture.write(".research/build/paper/main.fls", recorder);
+
+    let pack = staged(&fixture, options(false, false));
+    assert_eq!(
+        pack.files.keys().map(String::as_str).collect::<Vec<_>>(),
+        ["paper/figures/plot.pdf", "paper/main.bbl", "paper/main.tex", "paper/sections/intro.tex"]
+    );
+    assert!(
+        matches!(pack.bibliography, Bibliography::Included { ref file } if file == "paper/main.bbl")
+    );
+    assert_eq!(
+        pack.files["paper/main.bbl"],
+        b"\\begin{thebibliography}{1}\\end{thebibliography}\n"
+    );
+    assert!(pack.missing.is_empty(), "{:?}", pack.missing);
+}

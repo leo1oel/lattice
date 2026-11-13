@@ -37,6 +37,21 @@ describe("compiled label numbers", () => {
     expect(invoke).toHaveBeenCalledTimes(2);
     expect((await compiledLabels("/p", { rootDocument: "other.tex" })).size).toBe(0);
   });
+
+  it("reads them from the hidden build folder a build kept them in", async () => {
+    const files: Record<string, string> = {
+      ".research/build/paper/main.aux": "\\newlabel{eq:a}{{1}{2}}\n\\@input{chapters/b.aux}\n",
+      ".research/build/paper/chapters/b.aux": "\\newlabel{eq:b}{{2.1}{9}}\n",
+      "paper/main.aux": "\\newlabel{eq:a}{{stale}{1}}\n",
+    };
+    invoke.mockImplementation((_command: string, { path }: { path: string }) =>
+      path in files ? Promise.resolve(files[path]) : Promise.reject(new Error("missing")));
+    const labels = await compiledLabels("/p", { rootDocument: "paper/main.tex", auxFolder: ".research/build/paper" });
+    expect(Object.fromEntries(labels)).toEqual({ "eq:a": { number: "1", page: "2" }, "eq:b": { number: "2.1", page: "9" } });
+    const atRoot = await compiledLabels("/p", { rootDocument: "main.tex", auxFolder: "" });
+    expect(atRoot.size).toBe(0);
+    expect(invoke).toHaveBeenLastCalledWith("read_project_file", { path: "main.aux", projectRoot: "/p" });
+  });
 });
 
 describe("equation math for KaTeX", () => {
