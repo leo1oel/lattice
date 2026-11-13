@@ -93,19 +93,23 @@ impl Run {
     /// the shell's path, and an idle window on the macOS runner may draw no
     /// frame before the dispatch, so Clean, Stop and the rest reached
     /// nothing there. The shell's node is in every frame since the first.
-    fn dispatch_to_shell(&self, cx: &mut AsyncApp, action: &dyn gpui::Action) -> Result<()> {
+    pub(super) fn dispatch_to_shell(
+        &self,
+        cx: &mut AsyncApp,
+        action: &dyn gpui::Action,
+    ) -> Result<()> {
         self.with_window(cx, |shell, window, cx| {
             let focus = shell.read(cx).focus_handle(cx);
             focus.dispatch_action(action, window, cx)
         })
     }
 
-    fn builds(&self, cx: &mut AsyncApp) -> usize {
+    pub(super) fn builds(&self, cx: &mut AsyncApp) -> usize {
         cx.update(|cx| self.shell.read(cx).build_panel().read(cx).builds())
     }
 
     /// Wait for a build after the `before`th to finish, with nothing queued.
-    async fn built_after(&self, cx: &mut AsyncApp, before: usize) -> bool {
+    pub(super) async fn built_after(&self, cx: &mut AsyncApp, before: usize) -> bool {
         self.wait_for(cx, Duration::from_secs(180), |shell, cx| {
             let shell = shell.read(cx);
             !shell.building() && shell.build_panel().read(cx).builds() > before

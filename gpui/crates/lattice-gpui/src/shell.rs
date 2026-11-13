@@ -9,8 +9,8 @@
 //! named workspaces (`layout`, `workspaces`, `arrange`, `workspace_flow`),
 //! the command table, keymap and palette (`commands`, `actions`, `palette`),
 //! the menu bar (`menus`), windows and project tabs (`windows`), floating
-//! panels (`floating`), builds (`build`, `build_tools`), the tree's operations (`entries`)
-//! and SyncTeX (`synctex`).
+//! panels (`floating`), builds (`build`, `build_tools`), the tree's operations (`entries`),
+//! the PDFs (`pdfs`) and SyncTeX (`synctex`).
 
 mod actions;
 mod arrange;
@@ -22,6 +22,7 @@ mod floating;
 pub mod layout;
 pub(crate) mod menus;
 mod palette;
+mod pdfs;
 mod synctex;
 pub mod windows;
 mod workspace_flow;
@@ -58,7 +59,7 @@ use crate::{
     editor_panel::{EditorPanel, EditorPanelEvent},
     file_tree::FileTreePanel,
     notices::{self, NoticeStack},
-    pdf::{PdfEvent, PdfPanel},
+    pdf::{PdfPanel, PdfPanelKind},
     project::Project,
     stand_in_panels::{StandIn, StandInPanel},
     titlebar::TitlebarDrag,
@@ -134,6 +135,18 @@ pub struct Shell {
     queued_build: Option<BuildRequest>,
     /// Told when the builds under way, queued ones included, are over.
     build_waiters: Vec<oneshot::Sender<()>>,
+    /// The root document the next build compiles, asked for from its PDF
+    /// tab; otherwise the editor's or the project's.
+    build_target: Option<String>,
+    /// The root document whose PDF the live panel shows.
+    live_document: Option<String>,
+    /// The other root documents' tabs, each with its last PDF.
+    root_pdfs: Vec<(String, Entity<PdfPanel>)>,
+    /// The project's PDFs opened from the tree.
+    file_pdfs: Vec<Entity<PdfPanel>>,
+    /// The live document's outline.
+    outline: std::rc::Rc<[crate::outline::Heading]>,
+    _outline_task: Option<Task<()>>,
     _open_task: Option<Task<()>>,
     vim_mode: bool,
     pub(crate) layout: LayoutState,
@@ -213,7 +226,7 @@ impl Shell {
         let file_tree = cx.new(FileTreePanel::new);
         let papers = cx.new(|cx| StandInPanel::new(StandIn::Papers, cx));
         let agent = cx.new(|cx| StandInPanel::new(StandIn::Agent, cx));
-        let pdf = cx.new(PdfPanel::new);
+        let pdf = cx.new(|cx| PdfPanel::new(PdfPanelKind::Live, window, cx));
         let build_panel = cx.new(BuildPanel::new);
         let card = cx.new(|cx| DiagnosticsCard::new(build_panel.clone(), cx));
         pdf.update(cx, |pdf, cx| pdf.set_build_output(card.into(), cx));
@@ -269,18 +282,12 @@ impl Shell {
             }
         })
         .detach();
-        cx.subscribe_in(
-            &pdf,
-            window,
-            |this, _, event: &PdfEvent, window, cx| match event {
-                PdfEvent::SourceAt { page, x, y } => this.inverse_sync(*page, *x, *y, window, cx),
-            },
-        )
-        .detach();
+        cx.subscribe_in(&pdf, window, Self::on_pdf_event).detach();
         cx.observe(&notices, |_, _, cx| cx.notify()).detach();
         cx.observe(&confirm, |_, _, cx| cx.notify()).detach();
         let dock_events = cx.subscribe_in(&dock_area, window, |this, _, event, window, cx| {
             if let DockEvent::LayoutChanged = event {
+                this.forget_closed_pdfs(cx);
                 this.layout_changed(window, cx);
             }
         });
@@ -317,6 +324,12 @@ impl Shell {
             build_task: None,
             queued_build: None,
             build_waiters: Vec::new(),
+            build_target: None,
+            live_document: None,
+            root_pdfs: Vec::new(),
+            file_pdfs: Vec::new(),
+            outline: std::rc::Rc::from([]),
+            _outline_task: None,
             _open_task: None,
             vim_mode: crate::app::vim_mode_enabled(cx),
             layout: LayoutState::default(),
@@ -496,6 +509,10 @@ impl Shell {
         self.tex_setup
             .update(cx, |center, _| center.set_root(Some(root.clone())));
         self.refresh_words(cx);
+        self.build_target = None;
+        self.close_root_pdfs(window, cx);
+        self.live_document = project.read(cx).main_document().map(str::to_string);
+        self.refresh_outline(window, cx);
         self.file_tree
             .update(cx, |tree, cx| tree.set_project(project, cx));
         window.set_window_title(&format!(
@@ -506,10 +523,9 @@ impl Shell {
         if let Some(main) = main.filter(|_| !restored) {
             self.open_path(main, None, window, cx);
         }
-        self.pdf.update(cx, |panel, cx| match pdf {
-            Some(pdf) => panel.open(pdf, window, cx),
-            None => panel.close(window, cx),
-        });
+        self.label_pdfs(cx);
+        self.pdf
+            .update(cx, |panel, cx| panel.show_project(root, pdf, window, cx));
         cx.notify();
     }
 
@@ -568,10 +584,11 @@ impl Shell {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Option<Entity<EditorPanel>> {
-        if path.extension().is_some_and(|extension| extension == "pdf") {
-            self.pdf
-                .update(cx, |panel, cx| panel.open(path, window, cx));
-            self.show_view(layout::View::Pdf, window, cx);
+        if path
+            .extension()
+            .is_some_and(|extension| extension.eq_ignore_ascii_case("pdf"))
+        {
+            self.open_file_pdf(path, window, cx);
             return None;
         }
         let path = path.canonicalize().unwrap_or(path);
@@ -593,6 +610,7 @@ impl Shell {
             Some(line) => editor.go_to_line(line, window, cx),
             None => window.focus(&editor.editor().focus_handle(cx), cx),
         });
+        self.refresh_outline(window, cx);
         self.file_tree
             .update(cx, |tree, cx| tree.set_current(Some(path.clone()), cx));
         Some(editor)
@@ -662,6 +680,7 @@ impl Shell {
                     project.update(cx, |project, _| project.mark_inputs_changed());
                 }
                 self.refresh_words(cx);
+                self.refresh_outline(window, cx);
             }
             EditorPanelEvent::SavedForBuild | EditorPanelEvent::DiskEdit => {
                 self.run_build(BuildRequest::automatic(), window, cx);
@@ -670,6 +689,18 @@ impl Shell {
             EditorPanelEvent::OpenLocation { path, line } => {
                 if let Some(root) = self.root(cx) {
                     self.open_path(root.join(path), Some(*line), window, cx);
+                }
+            }
+            EditorPanelEvent::Focused => {
+                self.active_editor = Some(editor.downgrade());
+                let path = editor.read(cx).path().to_path_buf();
+                self.file_tree
+                    .update(cx, |tree, cx| tree.set_current(Some(path), cx));
+                self.show_outline(cx);
+            }
+            EditorPanelEvent::CaretLine => {
+                if self.active_editor().as_ref() == Some(editor) {
+                    self.show_outline(cx);
                 }
             }
         }
@@ -692,6 +723,7 @@ impl Shell {
             .is_some_and(|active| active.upgrade().as_ref() == Some(editor))
         {
             self.active_editor = None;
+            self.show_outline(cx);
         }
         cx.notify();
     }

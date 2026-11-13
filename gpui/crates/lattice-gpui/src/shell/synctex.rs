@@ -64,7 +64,9 @@ impl Shell {
                     Ok(Some(target)) => {
                         this.pdf
                             .update(cx, |pdf, cx| pdf.show_sync_target(&target, cx));
-                        this.reveal_pdf(window, cx);
+                        if !this.pdf.read(cx).in_window() {
+                            this.reveal_pdf(window, cx);
+                        }
                     }
                     Ok(None) => notices::warning(NO_MATCH, cx),
                     Err(error)
@@ -87,9 +89,12 @@ impl Shell {
         self.show_view(View::Pdf, window, cx);
     }
 
-    /// From a double-click in the PDF to its source line.
+    /// From a double-click in the PDF to its source line: in the live PDF
+    /// through the compiled document's SyncTeX map, in a root document's tab
+    /// through that document's (`document`).
     pub(super) fn inverse_sync(
         &mut self,
+        document: Option<String>,
         page: u32,
         x: f64,
         y: f64,
@@ -101,7 +106,7 @@ impl Shell {
         };
         let lookup = cx.background_spawn({
             let root = root.clone();
-            async move { latex::inverse_search(&root, page, x, y) }
+            async move { latex::inverse_search_in(&root, page, x, y, document.as_deref()) }
         });
         cx.spawn_in(window, async move |this, cx| {
             let target = lookup.await;
@@ -113,6 +118,9 @@ impl Shell {
                 match target {
                     Ok(target) => {
                         this.open_path(root.join(&target.path), Some(target.line), window, cx);
+                        // A jump from the PDF's own window brings the
+                        // workspace forward, to the line.
+                        window.activate_window();
                     }
                     Err(error) => notices::error("SyncTeX", error, cx),
                 }

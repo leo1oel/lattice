@@ -66,8 +66,13 @@ impl View {
     /// A paper or PDF the Reading preset puts with the Papers library; every
     /// other document is written (`isReading` in trellis-layout.ts).
     fn is_reading(&self) -> bool {
-        matches!(self, View::File(path) if path.to_ascii_lowercase().ends_with(".pdf"))
+        matches!(self, View::File(path) if is_pdf(path))
     }
+}
+
+/// Whether a document is a PDF, which opens in a PDF tab, not an editor.
+pub fn is_pdf(path: &str) -> bool {
+    path.to_ascii_lowercase().ends_with(".pdf")
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
