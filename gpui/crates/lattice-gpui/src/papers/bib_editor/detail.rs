@@ -116,6 +116,27 @@ impl BibEditor {
         Some(field.input.focus_handle(cx))
     }
 
+    /// Tell the form's box for `name` that the writer left it, for a
+    /// scenario. GPUI sends a box's `Blur` only in an active window, and on
+    /// a locked screen nothing can become active, so a scenario that moved
+    /// the focus on in an inactive window sends it as GPUI would once the
+    /// window became key.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn field_left(&self, name: &str, cx: &mut gpui::App) {
+        let Some(field) = self
+            .detail
+            .iter()
+            .flat_map(|detail| &detail.fields)
+            .find(|field| field.name == name)
+        else {
+            return;
+        };
+        match &field.input {
+            FieldBox::Line(input) => input.update(cx, |_, cx| cx.emit(InputEvent::Blur)),
+            FieldBox::Long(input) => input.update(cx, |_, cx| cx.emit(InputEvent::Blur)),
+        }
+    }
+
     /// The form for the reference in front, built again when another comes
     /// to the front or its text changed under it. Rebuilt for the same
     /// reference (an edit, a rename, a field added or removed), it keeps each
