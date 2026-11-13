@@ -61,7 +61,7 @@ const NODE_LIMIT = 300;
 const DEPTH_LIMIT = 8;
 
 /** A width as a share of the line: `0.49\linewidth` is 0.49, `5cm` a share of a 16.5 cm column. */
-export function widthShare(value: string): number | null {
+function widthShare(value: string): number | null {
   const text = value.replace(/\s+/g, "");
   const relative = /^([\d.]*)\\(?:linewidth|textwidth|columnwidth|hsize|paperwidth)$/.exec(text);
   if (relative) {
@@ -76,7 +76,7 @@ export function widthShare(value: string): number | null {
 }
 
 /** The share of its box a graphic takes: `width=0.6\linewidth`, `width=\textwidth`, `scale=0.5`. */
-export function imageShare(options: string): number | null {
+function imageShare(options: string): number | null {
   const width = /(?:^|,)\s*width\s*=\s*([^,]+)/.exec(options);
   if (width) return widthShare(width[1]);
   const scale = /(?:^|,)\s*scale\s*=\s*([\d.]+)/.exec(options);

@@ -154,12 +154,12 @@ export function referenceParts(construct: Extract<Construct, { kind: "reference"
 const plain = (parts: readonly ChipPart[]) => parts.map((part) => part.text).join("");
 
 /** A citation's words as plain text, for the rich text of a caption or a cell. */
-export function citationText(construct: Extract<Construct, { kind: "citation" }>, citations: Map<string, CitationInfo>): string {
+function citationText(construct: Extract<Construct, { kind: "citation" }>, citations: Map<string, CitationInfo>): string {
   return plain(citationParts(construct, citations));
 }
 
 /** A reference's words as plain text: "Section 2, 3". */
-export function referenceText(construct: Extract<Construct, { kind: "reference" }>, context: DrawContext): string {
+function referenceText(construct: Extract<Construct, { kind: "reference" }>, context: DrawContext): string {
   return plain(referenceParts(construct, context));
 }
 

@@ -100,7 +100,7 @@ function argument(text: string, at: number): { value: string; end: number } | nu
  * `\textsuperscript{1}`), a bounded number of levels deep. Math is left as
  * it is: KaTeX reads the same macros itself.
  */
-export function expandMacros(text: string, macros: Record<string, string> | undefined): string {
+function expandMacros(text: string, macros: Record<string, string> | undefined): string {
   if (!macros) return text;
   let current = text;
   for (let depth = 0; depth < EXPANSION_DEPTH; depth++) {

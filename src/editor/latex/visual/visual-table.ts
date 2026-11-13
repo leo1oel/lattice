@@ -10,11 +10,11 @@ import { TABLE_ENVIRONMENTS } from "./visual-symbols";
 
 export { TABLE_ENVIRONMENTS };
 
-export type ColumnAlign = "left" | "center" | "right";
+type ColumnAlign = "left" | "center" | "right";
 /** A rule across a row's edge: booktabs' heavy top and bottom rules, or a light one. */
-export type Rule = "heavy" | "light" | null;
+type Rule = "heavy" | "light" | null;
 
-export type TableCell = {
+type TableCell = {
   /** The cell's LaTeX. */
   text: string;
   align: ColumnAlign;
@@ -29,7 +29,7 @@ export type TableCell = {
   from: number;
 };
 
-export type TableRow = {
+type TableRow = {
   cells: TableCell[];
   /** The rule over the row, and the partial ones (`\cmidrule{2-3}`) under it, by column. */
   above: Rule;
@@ -59,7 +59,7 @@ const ROW_LIMIT = 400;
 const COLUMN_LIMIT = 60;
 
 /** Columns from a tabular preamble (`l|cc|p{3cm}`, `*{3}{c}`, `@{}lX@{}`). */
-export function parseColumns(spec: string): Table["columns"] {
+function parseColumns(spec: string): Table["columns"] {
   const columns: Table["columns"] = [];
   let bar = false;
   const expand = (text: string, depth: number) => {
@@ -290,7 +290,7 @@ function readCell(raw: string, from: number, column: Table["columns"][number] | 
  * `text` split at each `separator` outside braces, math and environments
  * (`\\` inside a `\makecell{…}` or a nested tabular is not a row's end).
  */
-export function splitTop(text: string, separator: string, offset = 0): { text: string; from: number }[] {
+function splitTop(text: string, separator: string, offset = 0): { text: string; from: number }[] {
   const parts: { text: string; from: number }[] = [];
   let depth = 0;
   let environments = 0;

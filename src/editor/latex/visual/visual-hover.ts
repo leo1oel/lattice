@@ -37,7 +37,7 @@ function drawnRangeAt(replacements: DecorationSet, position: number, side: -1 | 
 }
 
 /** The citation or reference chip drawn under the pointer, if any. */
-export function chipAt(drawn: DrawnState, position: number, side: -1 | 1): Chip | null {
+function chipAt(drawn: DrawnState, position: number, side: -1 | 1): Chip | null {
   const range = drawnRangeAt(drawn.replacements, position, side);
   if (!range) return null;
   for (const construct of drawn.constructs) {
@@ -62,7 +62,7 @@ function citationKeySpans(text: string, chip: Chip): { key: string; from: number
 }
 
 /** Where a chip's key leads: its `\label`, or its bibliography entry. */
-export function chipTarget(chip: Chip, key: string, host: LatexVisualHost): DefinitionTarget | null {
+function chipTarget(chip: Chip, key: string, host: LatexVisualHost): DefinitionTarget | null {
   if (chip.kind === "citation") return { kind: "citation", key };
   // The last definition of a label wins, as in the project index and the card.
   const reference = [...host.data().references].reverse().find((item) => item.label === key);
