@@ -621,6 +621,8 @@ impl Shell {
         }
         self.drop_conflict_notice(cx);
         self.references = Default::default();
+        self.arxiv = None;
+        self.conflict = None;
         self.project = Some(project.clone());
         // The editors of the project open before go with its arrangement.
         self.editors.clear();

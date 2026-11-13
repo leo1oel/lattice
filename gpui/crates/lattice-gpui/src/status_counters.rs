@@ -156,7 +156,7 @@ pub fn counts(root: &Path, relative: &str, buffer_todos: Option<usize>, cx: &App
 }
 
 /// The TODO hits of the project at `root`: the scan's, each open editor's
-/// file replaced by its buffer's markers, by file and then line.
+/// file's markers replaced by its buffer's, in the scan's order.
 pub fn todo_hits(root: &Path, cx: &App) -> Vec<TodoHit> {
     cx.try_global::<ProjectCountersGlobal>()
         .map(|global| global.0.read(cx).todo_hits(root))
@@ -172,16 +172,27 @@ pub fn set_buffer(root: PathBuf, relative: String, hits: Option<Vec<TodoHit>>, c
 }
 
 fn merged_hits(scanned: &[TodoHit], buffers: &HashMap<String, Vec<TodoHit>>) -> Vec<TodoHit> {
-    if buffers.is_empty() {
-        return scanned.to_vec();
+    let mut hits = Vec::with_capacity(scanned.len());
+    let mut placed = std::collections::HashSet::new();
+    for hit in scanned {
+        match buffers.get(&hit.path) {
+            Some(buffer) => {
+                if placed.insert(hit.path.as_str()) {
+                    hits.extend(buffer.iter().cloned());
+                }
+            }
+            None => hits.push(hit.clone()),
+        }
     }
-    let mut hits: Vec<TodoHit> = scanned
+    let mut rest: Vec<_> = buffers
         .iter()
-        .filter(|hit| !buffers.contains_key(&hit.path))
-        .cloned()
-        .chain(buffers.values().flatten().cloned())
+        .filter(|(path, _)| !placed.contains(path.as_str()))
         .collect();
-    hits.sort_by(|a, b| a.path.cmp(&b.path).then(a.line.cmp(&b.line)));
+    rest.sort_by(|a, b| a.0.cmp(b.0));
+    hits.extend(
+        rest.into_iter()
+            .flat_map(|(_, buffer)| buffer.iter().cloned()),
+    );
     hits
 }
 
@@ -243,13 +254,32 @@ mod tests {
 
     #[test]
     fn the_panel_lists_each_open_buffer_in_place_of_its_scan() {
-        let scanned = [hit("main.tex", 3), hit("main.tex", 9), hit("intro.tex", 1)];
-        let buffers = HashMap::from([("main.tex".to_string(), vec![hit("main.tex", 5)])]);
+        // The scan's tree order: main.tex before chapters/, which a plain
+        // path sort would flip.
+        let scanned = [
+            hit("main.tex", 3),
+            hit("main.tex", 9),
+            hit("chapters/intro.tex", 1),
+        ];
+        let buffers = HashMap::from([
+            ("main.tex".to_string(), vec![hit("main.tex", 5)]),
+            ("z.md".to_string(), vec![hit("z.md", 2)]),
+            ("b.tex".to_string(), vec![hit("b.tex", 4)]),
+            ("empty.tex".to_string(), vec![]),
+        ]);
         let merged: Vec<_> = merged_hits(&scanned, &buffers)
             .into_iter()
             .map(|hit| (hit.path, hit.line))
             .collect();
-        assert_eq!(merged, [("intro.tex".into(), 1), ("main.tex".into(), 5)]);
+        assert_eq!(
+            merged,
+            [
+                ("main.tex".into(), 5),
+                ("chapters/intro.tex".into(), 1),
+                ("b.tex".into(), 4),
+                ("z.md".into(), 2),
+            ]
+        );
         assert_eq!(merged_hits(&scanned, &HashMap::new()).len(), 3);
     }
 
