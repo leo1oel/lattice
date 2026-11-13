@@ -10,22 +10,32 @@
 //! file and app-scheme links left unfollowed), a selection
 //! dragged with the native mouse and copied with ⌘C / Ctrl+C, dark pages, a
 //! rebuild that changes one page and redraws only that one, the page window
-//! letting go of pages far from the screen, and the separate window (opened
-//! again when its project is shown again). Building
-//! main.tex again trades the two tabs back.
+//! letting go of pages far from the screen, the separate window (opened
+//! again when its project is shown again, and leaving a right dock it shares
+//! with Project as it was), and main.tex's tab asking for a build that Stop
+//! then drops. Building main.tex again trades the two tabs back.
 
 use std::{cell::Cell, path::Path, rc::Rc, time::Duration};
 
 use anyhow::{Context as _, Result};
 use gpui::{App, AsyncApp, Entity, Focusable as _};
+use gpui_kit::component::dock::{DockPlacement, InsertTarget, PaneRef, PanelId};
 use serde_json::{Value, json};
 
 use super::Steps;
 use crate::{
     native,
-    pdf::{FindOptions, FitMode, LinkTarget, PdfView},
+    pdf::{FindOptions, FitMode, LinkTarget, PdfEvent, PdfView},
     scenario::Run,
+    shell::{StopBuild, layout::View},
 };
+
+/// The dock regions a panel can be in.
+const PLACES: [DockPlacement; 3] = [
+    DockPlacement::Left,
+    DockPlacement::Right,
+    DockPlacement::Bottom,
+];
 
 /// Twelve pages: a link to section 9, a web link, and a link to a file and
 /// one to an app's own scheme (neither may open) on the first, the word
@@ -239,6 +249,8 @@ impl Run {
         pdf_step!(self.page_swap(cx, steps, &supplement));
         pdf_step!(self.page_window(cx, steps));
         pdf_step!(self.separate_window(cx, steps));
+        pdf_step!(self.separate_window_shared_dock(cx, steps));
+        pdf_step!(self.stopped_tab_build(cx, steps, &supplement));
 
         // main.tex built again: the two trade places back.
         self.open(cx, &root.join("main.tex"), Some(1))?;
@@ -893,6 +905,216 @@ impl Run {
                 "pages": restored_pages,
                 "behind": behind,
                 "docked": docked,
+            }),
+        );
+        Ok(())
+    }
+
+    /// The PDF sharing the right dock with Project: Open in separate window
+    /// takes only the PDF away, the dock staying open at its width with
+    /// Project in it, and Return to workspace leaves them as they were too.
+    async fn separate_window_shared_dock(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+    ) -> Result<()> {
+        let windows = cx.update(|cx| cx.windows().len());
+        // Project's place, to put it back after.
+        let home = cx.update(|cx| {
+            let shell = self.shell.read(cx);
+            let project = shell.singleton_panel(&View::Project)?;
+            let area = shell.dock_area().read(cx);
+            PLACES.into_iter().find_map(|placement| {
+                let tree = area.layout(placement)?;
+                let node = tree.find_panel_node(project)?;
+                match tree.find_node(node)?.kind() {
+                    PaneRef::Tabs { panels, .. } => {
+                        let ix = panels.iter().position(|open| *open == project)?;
+                        Some((project, node, ix))
+                    }
+                    _ => None,
+                }
+            })
+        });
+        // Project joins the PDF's tab group, behind the PDF.
+        let shared = self.with_window(cx, |shell, window, cx| {
+            let shell = shell.read(cx);
+            let Some(project) = shell.singleton_panel(&View::Project) else {
+                return false;
+            };
+            let pdf = PanelId::from(shell.pdf().entity_id());
+            shell.dock_area().clone().update(cx, |area, cx| {
+                let Some(node) = area
+                    .layout(DockPlacement::Right)
+                    .and_then(|tree| tree.find_panel_node(pdf))
+                else {
+                    return false;
+                };
+                area.move_panel(
+                    project,
+                    InsertTarget::Tabs {
+                        node,
+                        ix: None,
+                        activate: false,
+                    },
+                    window,
+                    cx,
+                );
+                area.select_panel(pdf, window, cx);
+                area.layout(DockPlacement::Right)
+                    .is_some_and(|tree| tree.find_panel_node(project) == Some(node))
+            })
+        })?;
+        // The right dock: open, its width, and Project in it.
+        let dock = |cx: &mut AsyncApp| {
+            cx.update(|cx| {
+                let shell = self.shell.read(cx);
+                let area = shell.dock_area().read(cx);
+                let project = shell.singleton_panel(&View::Project);
+                let open = area.is_dock_open(DockPlacement::Right);
+                let width = area.dock_size(DockPlacement::Right);
+                let with_project = project.is_some_and(|project| {
+                    area.layout(DockPlacement::Right)
+                        .is_some_and(|tree| tree.find_panel_node(project).is_some())
+                });
+                (open, width, with_project)
+            })
+        };
+        let in_window = |open: bool| {
+            move |shell: &Entity<crate::shell::Shell>, cx: &mut App| {
+                let count = if open { windows + 1 } else { windows };
+                shell.read(cx).pdf().read(cx).in_window() == open && cx.windows().len() == count
+            }
+        };
+        let before = dock(cx);
+        self.detach_pdf(cx)?;
+        let opened = self
+            .wait_for(cx, Duration::from_secs(10), in_window(true))
+            .await;
+        self.pause(cx, Duration::from_millis(300)).await;
+        let during = dock(cx);
+        self.dock_pdf(cx)?;
+        let docked = self
+            .wait_for(cx, Duration::from_secs(10), in_window(false))
+            .await;
+        self.pause(cx, Duration::from_millis(300)).await;
+        let after = dock(cx);
+
+        // Project goes back where it was.
+        self.with_window(cx, |shell, window, cx| {
+            let Some((project, node, ix)) = home else {
+                return;
+            };
+            let area = shell.read(cx).dock_area().clone();
+            let there = PLACES.into_iter().any(|placement| {
+                area.read(cx)
+                    .layout(placement)
+                    .is_some_and(|tree| tree.find_node(node).is_some())
+            });
+            if there {
+                area.update(cx, |area, cx| {
+                    area.move_panel(
+                        project,
+                        InsertTarget::Tabs {
+                            node,
+                            ix: Some(ix),
+                            activate: true,
+                        },
+                        window,
+                        cx,
+                    )
+                });
+            } else {
+                shell.update(cx, |shell, cx| shell.reset_layout(window, cx));
+            }
+        })?;
+        self.pause(cx, Duration::from_millis(300)).await;
+
+        let shown = |state: &(bool, Option<gpui::Pixels>, bool)| json!({ "open": state.0, "width": format!("{:?}", state.1), "with_project": state.2 });
+        steps.check(
+            "PDF: sharing the right dock with Project, Open in separate window and Return to workspace leave the dock open at its width with Project in it",
+            shared && opened && docked && before.0 && before.2 && during == before && after == before,
+            json!({
+                "shared": shared,
+                "opened": opened,
+                "docked": docked,
+                "before": shown(&before),
+                "during": shown(&during),
+                "after": shown(&after),
+            }),
+        );
+        Ok(())
+    }
+
+    /// Build this document on main.tex's tab while a build runs, then Stop:
+    /// the ask ends with the stopped build, so the next build compiles the
+    /// document in front (supplement.tex), not main.tex.
+    async fn stopped_tab_build(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+        supplement: &Path,
+    ) -> Result<()> {
+        const STEP: &str = "PDF: Build this document on a root tab while a build runs, then Stop: the next build compiles the document in front, not that tab's";
+        self.open(cx, supplement, Some(1))?;
+        self.pause(cx, Duration::from_millis(300)).await;
+        // Nothing left running from the steps before.
+        self.wait_for(cx, Duration::from_secs(60), |shell, cx| {
+            !shell.read(cx).building()
+        })
+        .await;
+        let tab = cx.update(|cx| {
+            self.shell
+                .read(cx)
+                .root_pdf_tabs()
+                .into_iter()
+                .find(|(document, _)| document == "main.tex")
+                .map(|(_, panel)| panel)
+        });
+        let Some(tab) = tab else {
+            steps.check(STEP, false, json!({ "main_tab": false }));
+            return Ok(());
+        };
+        let before = self.builds(cx);
+        self.with_window(cx, |shell, window, cx| {
+            shell.update(cx, |shell, cx| {
+                shell.build(&crate::shell::Build, window, cx)
+            })
+        })?;
+        let running = cx.update(|cx| self.shell.read(cx).building());
+        // The tab's menu item, while that build runs: it waits behind it.
+        cx.update(|cx| {
+            tab.update(cx, |_, cx| {
+                cx.emit(PdfEvent::Build {
+                    document: Some("main.tex".into()),
+                })
+            })
+        });
+        self.dispatch_to_shell(cx, &StopBuild)?;
+        let stopped = self.built_after(cx, before).await;
+        // An ordinary build next, with supplement.tex in front.
+        let (built, _) = self.build(cx).await?;
+        let live = cx.update(|cx| self.shell.read(cx).live_document().map(str::to_string));
+        let main_tab_kept = cx.update(|cx| {
+            self.shell
+                .read(cx)
+                .root_pdf_tabs()
+                .iter()
+                .any(|(document, _)| document == "main.tex")
+        });
+        steps.check(
+            STEP,
+            running
+                && stopped
+                && built
+                && live.as_deref() == Some("supplement.tex")
+                && main_tab_kept,
+            json!({
+                "running": running,
+                "stopped": stopped,
+                "built": built,
+                "live": live,
+                "main_tab": main_tab_kept,
             }),
         );
         Ok(())

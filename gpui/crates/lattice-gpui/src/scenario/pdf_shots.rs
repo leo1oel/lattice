@@ -68,13 +68,21 @@ impl Run {
         self.update_view(cx, &view, |view, window, cx| view.clear_find(window, cx))?;
         sleep(cx, Duration::from_millis(500)).await;
 
-        // The narrow toolbar's ⋯ and the Outline, opened with clicks.
+        // The narrow toolbar's ⋯ and the Outline, opened with clicks, where
+        // the toolbar is now that the dock has its width back. The pages'
+        // bounds are those the last layout measured, a frame behind a resize,
+        // so two frames: with one, the Outline point was still the 360px
+        // panel's and the click missed it.
+        self.draw_frame(cx).await?;
+        self.draw_frame(cx).await?;
         let toolbar = cx.update(|cx| toolbar_points(view.read(cx)));
         if let Some((outline, overflow)) = toolbar {
             self.click(cx, overflow).await?;
             sleep(cx, Duration::from_millis(600)).await;
             shots.push(self.snap(cx, &dir, "overflow-menu").await?);
-            self.click(cx, overflow).await?;
+            // Closed with a click outside it, on the empty tab bar above.
+            self.click(cx, point(outline.x, outline.y - px(40.)))
+                .await?;
             sleep(cx, Duration::from_millis(400)).await;
             self.click(cx, outline).await?;
             sleep(cx, Duration::from_millis(600)).await;
@@ -110,7 +118,17 @@ impl Run {
         sleep(cx, Duration::from_millis(1500)).await;
         shots.push(self.snap(cx, &dir, "wide-toolbar").await?);
 
-        // In its own window: the panel's way back, and the window.
+        // In its own window: the panel's way back, and the window. The dock
+        // goes back to its width first, so the panel shows the width the
+        // writer's dock keeps (the wide toolbar's 760px was set here).
+        if let Some(width) = width {
+            self.with_window(cx, |shell, window, cx| {
+                let area = shell.read(cx).dock_area().clone();
+                area.update(cx, |area, cx| {
+                    area.set_dock_size(DockPlacement::Right, width, window, cx)
+                });
+            })?;
+        }
         self.with_window(cx, |shell, window, cx| {
             let pdf = shell.read(cx).pdf().clone();
             pdf.update(cx, |pdf, cx| pdf.detach(window, cx));
@@ -172,11 +190,28 @@ impl Run {
         Ok(out)
     }
 
+    /// A click lands on the hitboxes of the last frame drawn. A covered or
+    /// locked window draws none on its own, so after a resize or a popover
+    /// the click would hit the frame before (the ⋯ shot then showed no menu
+    /// and the Outline shot the ⋯ menu): a frame is drawn first.
     async fn click(&self, cx: &mut AsyncApp, at: Point<Pixels>) -> Result<()> {
+        self.draw_frame(cx).await?;
         let native = self.native(cx)?;
         native::send_mouse(native, native::Mouse::Down, at)?;
         sleep(cx, Duration::from_millis(40)).await;
         native::send_mouse(native, native::Mouse::Up, at)?;
+        Ok(())
+    }
+
+    /// Draw a frame now: hitboxes and the pages' viewport are those of the
+    /// last frame drawn, and a covered window draws none of its own.
+    async fn draw_frame(&self, cx: &mut AsyncApp) -> Result<()> {
+        self.with_window(cx, |_, window, _cx| {
+            window.refresh();
+            #[cfg(feature = "offscreen-shots")]
+            let _ = window.draw(_cx);
+        })?;
+        sleep(cx, Duration::from_millis(50)).await;
         Ok(())
     }
 
