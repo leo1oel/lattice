@@ -62,6 +62,16 @@ impl PapersPanel {
         self.import(query, cx);
     }
 
+    /// Import `input` as the box's Enter would, for Discover literature's
+    /// Add; false when another import holds the pipeline.
+    pub(crate) fn import_id(&mut self, input: String, cx: &mut Context<Self>) -> bool {
+        if self.importing.is_some() || self.batch.running {
+            return false;
+        }
+        self.import(input, cx);
+        self.importing.is_some()
+    }
+
     fn import(&mut self, query: String, cx: &mut Context<Self>) {
         let Some(root) = self.root.clone() else {
             return;

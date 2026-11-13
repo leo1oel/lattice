@@ -162,6 +162,7 @@ impl Run {
         }
 
         self.add_papers_sheet(cx, steps, &papers).await?;
+        self.check_references(cx, steps, &papers).await?;
 
         std::fs::write(&bibliography, original)?;
         self.wait_for(cx, Duration::from_secs(15), |_, cx| {
@@ -237,6 +238,55 @@ impl Run {
         );
         self.with_window(cx, |_, window, cx| {
             sheet.update(cx, |sheet, cx| sheet.cancel(window, cx))
+        })?;
+        Ok(())
+    }
+
+    /// Check references, offline: opening reads the references and leaves
+    /// each unchecked until the writer asks (the checks reach the network).
+    async fn check_references(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+        papers: &gpui::Entity<crate::papers::PapersPanel>,
+    ) -> Result<()> {
+        cx.update(|cx| {
+            papers.update(cx, |_, cx| {
+                cx.emit(crate::papers::PapersEvent::CheckReferences)
+            })
+        });
+        let read = self
+            .wait_for(cx, Duration::from_secs(10), |shell, cx| {
+                shell
+                    .read(cx)
+                    .audit()
+                    .is_some_and(|audit| audit.read(cx).loaded())
+            })
+            .await;
+        let rows = cx.update(|cx| {
+            self.shell
+                .read(cx)
+                .audit()
+                .map(|audit| {
+                    audit
+                        .read(cx)
+                        .rows()
+                        .into_iter()
+                        .map(|(key, bucket)| json!({ "key": key, "bucket": format!("{bucket:?}") }))
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default()
+        });
+        self.papers_shot(cx, "papers-5-check-references").await;
+        steps.check(
+            "Check references reads every reference and leaves each unchecked until asked",
+            read && rows
+                .iter()
+                .any(|row| row["key"] == "knuth1984" && row["bucket"] == "Unchecked"),
+            json!({ "rows": rows }),
+        );
+        self.with_window(cx, |shell, window, cx| {
+            shell.update(cx, |shell, cx| shell.close_document_overlays(window, cx))
         })?;
         Ok(())
     }
