@@ -10,7 +10,7 @@
 .pdf-toolbar-frame { flex: none; container: pdf-toolbar / inline-size; }
 .pdf-toolbar { min-height: var(--toolbar-height); flex: none; padding: var(--space-2) var(--space-4); border-bottom: 1px solid var(--border-subtle); background: var(--editor-bg); contain: layout paint; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--space-2); align-items: center; }
 .pdf-toolbar button { width: var(--toolbar-icon-width); height: var(--toolbar-icon-height); border-radius: var(--toolbar-icon-radius); padding: 0; background: transparent; color: var(--text-secondary); display: grid; place-items: center; transition: color var(--motion-fast), background-color var(--motion-fast-exit); }
-.pdf-toolbar button:hover:not(:disabled) { background: var(--toolbar-hover-surface); color: var(--text-primary); transition-duration: var(--duration-fast); }
+.pdf-toolbar button:hover:not(:disabled) { background: var(--toolbar-hover-surface); color: var(--text-primary); transition: color var(--motion-fast), background-color var(--motion-fast); }
 .pdf-toolbar button:active:not(:disabled) { background: var(--control-pressed-surface); }
 .pdf-find-controls { min-width: 0; grid-column: 2; display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; gap: var(--space-2); }
 /* `outline` can be a React component that ultimately renders null. Base the

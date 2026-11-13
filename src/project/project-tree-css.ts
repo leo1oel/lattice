@@ -139,7 +139,10 @@ button[data-type="item"][data-lattice-pointer-drag-preview="true"] {
 button[data-type="item"]:hover:not([data-item-selected="true"]),
 button[data-type="item"][data-item-context-hover="true"]:not([data-item-selected="true"]) {
   background: var(--trees-bg-muted);
-  transition-duration: var(--duration-fast);
+  transition: background-color var(--motion-fast),
+    box-shadow var(--motion-moderate),
+    color var(--motion-fast),
+    opacity var(--motion-fast);
 }
 
 button[data-type="item"][data-item-selected="true"] {
@@ -298,6 +301,8 @@ button[data-item-type="folder"]:is([aria-expanded="true"], [data-file-tree-stick
 
 @media (prefers-reduced-motion: reduce) {
   button[data-type="item"],
+  button[data-type="item"]:hover:not([data-item-selected="true"]),
+  button[data-type="item"][data-item-context-hover="true"]:not([data-item-selected="true"]),
   button[data-type="item"][data-lattice-pointer-drag-preview="true"] {
     transition: none;
   }

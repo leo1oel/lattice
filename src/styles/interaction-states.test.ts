@@ -60,19 +60,47 @@ function computed(element: Element, property: string): string {
 /** The resolved value of a design token at `element`. */
 const token = (element: Element, name: string) => resolve(`var(${name})`, element)
 
+/** The shorthand `transition` entry for `property` at `element`, its variables resolved. */
+function transitionEntry(element: Element, property: string): string | undefined {
+  const entries: string[] = []
+  let depth = 0
+  let current = ""
+  for (const char of resolve(getComputedStyle(element).getPropertyValue("transition"), element)) {
+    if (char === "(") depth++
+    if (char === ")") depth--
+    if (char === "," && depth === 0) {
+      entries.push(current.trim())
+      current = ""
+    } else current += char
+  }
+  entries.push(current.trim())
+  return entries.find((entry) => entry.startsWith(`${property} `))
+}
+
 /**
  * The duration of `property`'s transition at `element`, in ms. A duration set
  * on its own applies to every property; jsdom expands a shorthand holding
  * var() into the initial 0s, so that 0s defers to the shorthand's entry.
  */
 function transitionMs(element: Element, property: string): number {
-  const style = getComputedStyle(element)
-  const own = style.getPropertyValue("transition-duration").trim()
-  const entry = resolve(style.getPropertyValue("transition"), element).split(",").find((part) => part.startsWith(property))
-  const source = own && own !== "0s" ? resolve(own, element) : entry
+  const own = getComputedStyle(element).getPropertyValue("transition-duration").trim()
+  const source = own && own !== "0s" ? resolve(own, element) : transitionEntry(element, property)
   const raw = source?.match(/([\d.]+)(ms|s)\b/)
   expect(raw, `the ${property} transition of ${element.outerHTML}`).toBeTruthy()
   return Number(raw![1]) * (raw![2] === "s" ? 1000 : 1)
+}
+
+/**
+ * The curve of `property`'s transition at `element`. A curve set on its own
+ * applies to every property; jsdom expands a shorthand holding var() into the
+ * initial `ease`, so that defers to the shorthand's entry, after its duration.
+ */
+function transitionEase(element: Element, property: string): string {
+  const own = getComputedStyle(element).getPropertyValue("transition-timing-function").trim()
+  if (own && own !== "ease") return resolve(own, element)
+  const entry = transitionEntry(element, property)
+  expect(entry, `the ${property} transition of ${element.outerHTML}`).toBeTruthy()
+  return entry!.replace(/^\S+\s+[\d.]+m?s\s*/, "")
 }
 
 const mixPercent = (value: string) => Number(value.match(/(\d+(?:\.\d+)?)%/)?.[1])
@@ -113,11 +141,18 @@ describe("interaction states", () => {
     // Design call 7: the exit tier is quicker than the entry tier.
     expect(fastExit).toBeLessThan(fast)
 
+    const easeFast = token(row, "--ease-fast")
+    const easeExit = token(row, "--ease-exit")
+    expect(easeFast).not.toBe(easeExit)
+
     setState(row, "hover")
     expect(transitionMs(row, "background-color")).toBe(fast)
+    expect(transitionEase(row, "background-color")).toBe(easeFast)
     setState(row)
     expect(transitionMs(row, "background-color")).toBe(fastExit)
+    expect(transitionEase(row, "background-color")).toBe(easeExit)
     expect(transitionMs(paper, "background-color")).toBe(fastExit)
+    expect(transitionEase(paper, "background-color")).toBe(easeExit)
   })
 
   it("fades a control's own hover wash in on the fast tier and out a tier quicker, as a row's does", () => {
@@ -133,11 +168,15 @@ describe("interaction states", () => {
     // Design call 7: hover exits are a tier quicker than entries everywhere.
     expect(fastExit).toBeLessThan(fast)
 
+    const easeFast = token(document.body, "--ease-fast")
+    const easeExit = token(document.body, "--ease-exit")
     for (const control of document.querySelectorAll("button")) {
       setState(control, "hover")
       expect(transitionMs(control, "background-color"), control.outerHTML).toBe(fast)
+      expect(transitionEase(control, "background-color"), control.outerHTML).toBe(easeFast)
       setState(control)
       expect(transitionMs(control, "background-color"), control.outerHTML).toBe(fastExit)
+      expect(transitionEase(control, "background-color"), control.outerHTML).toBe(easeExit)
     }
   })
 
