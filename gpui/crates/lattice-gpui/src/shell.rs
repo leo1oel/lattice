@@ -334,7 +334,9 @@ impl Shell {
             let dragging = workspace.read(cx).engine().dragging();
             if dragging != this.panel_dragging {
                 this.panel_dragging = dragging;
-                window.defer(cx, move |_, cx| lattice_webview::set_dock_dragging(dragging, cx));
+                window.defer(cx, move |_, cx| {
+                    lattice_webview::set_dock_dragging(dragging, cx)
+                });
             }
         });
         let library = cx.observe_global::<workspaces::Workspaces>(|this, cx| {

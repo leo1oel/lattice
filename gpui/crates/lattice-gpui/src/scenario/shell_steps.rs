@@ -433,7 +433,9 @@ impl Run {
         })?;
         self.settle_workspace(cx).await?;
         let float = panel_with(&self.document(cx), "pdf").context("the PDF is in no panel")?;
-        let float_bounds = self.panel_bounds(cx, &float).context("the float is not drawn")?;
+        let float_bounds = self
+            .panel_bounds(cx, &float)
+            .context("the float is not drawn")?;
         let at = gpui::point(
             float_bounds.left() + gpui::px(6. + 14.) + lattice_ui::icons::ICON / 2.,
             float_bounds.top() + gpui::px(20.),
