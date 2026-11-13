@@ -1,11 +1,13 @@
-//! An HTML file's three views, as the Tauri app's file panel has them
-//! (`src/app/document-view-modes.ts`, `trellis-header-tools.tsx`): Edit (the
-//! source), Split (the source beside its preview) and Preview (the page
-//! alone). Each HTML file keeps the view it was last shown in, Preview until
-//! one is chosen; the switch rides in the panel's strip, and its ⋯ menu
+//! An HTML or `.bib` file's three views, as the Tauri app's file panel has
+//! them (`src/app/document-view-modes.ts`, `trellis-header-tools.tsx`): Edit
+//! (the source), Split (the source beside its preview) and Preview (the
+//! page, or the bibliography's references, alone). Each HTML file keeps the
+//! view it was last shown in, Preview until one is chosen; every `.bib` file
+//! opens in the view a bibliography was last shown in, Edit at first
+//! (`bib_view.rs`). The switch rides in the panel's strip, and its ⋯ menu
 //! repeats it.
 //!
-//! The preview is a webview island (`html_preview.rs`), made the first time
+//! An HTML file's preview is a webview island (`html_preview.rs`), made the first time
 //! a view needs it and shown only while its panel is the displayed tab and
 //! the view includes it: an island's page does not hide by not being drawn.
 
@@ -59,10 +61,11 @@ impl DocumentView {
 }
 
 /// Whether `path` is a document with views here: an HTML file
-/// (`isHtmlFilePath`).
+/// (`isHtmlFilePath`) or a bibliography (`isBibFilePath`).
 pub fn has_views(path: &std::path::Path) -> bool {
-    path.extension()
-        .is_some_and(|extension| extension.eq_ignore_ascii_case("html"))
+    path.extension().is_some_and(|extension| {
+        extension.eq_ignore_ascii_case("html") || extension.eq_ignore_ascii_case("bib")
+    })
 }
 
 /// The view each HTML file was last shown in, this session.
@@ -131,7 +134,11 @@ pub(super) struct DocumentViews {
 impl DocumentViews {
     pub fn new(path: &std::path::Path, cx: &App) -> Self {
         Self {
-            view: remembered(path, cx),
+            view: if super::bib_view::is_bib_path(path) {
+                super::bib_view::remembered_bib_view(cx)
+            } else {
+                remembered(path, cx)
+            },
             preview: None,
             shown: false,
             width: Default::default(),
@@ -155,7 +162,8 @@ impl EditorPanel {
         let Some(views) = &self.views else {
             return;
         };
-        if views.preview.is_some() || !views.view.previews() {
+        // A bibliography's preview is its own (`bib_for_view`).
+        if self.is_bib() || views.preview.is_some() || !views.view.previews() {
             return;
         }
         let root = self.project_root(cx);
@@ -222,14 +230,19 @@ impl EditorPanel {
             return;
         }
         views.view = view;
-        cx.default_global::<RememberedViews>()
-            .0
-            .insert(self.path.clone(), view);
+        if self.is_bib() {
+            super::bib_view::remember_bib_view(view, cx);
+        } else {
+            cx.default_global::<RememberedViews>()
+                .0
+                .insert(self.path.clone(), view);
+        }
         self.sync_preview(window, cx);
         // Writing goes on in the source when it comes back.
         if view != DocumentView::Preview {
             window.focus(&self.editor.focus_handle(cx), cx);
         }
+        self.bib_view_chosen(view, window, cx);
         lattice_webview::check_drawn_after_frame(window, cx);
         cx.notify();
     }
@@ -259,8 +272,7 @@ impl EditorPanel {
         cx: &mut Context<Self>,
     ) -> Option<AnyElement> {
         let current = self.views.as_ref()?.view;
-        let mut switch = Segmented::new("document-view")
-            .parity("html/views");
+        let mut switch = Segmented::new("document-view").parity("html/views");
         for view in DocumentView::ALL {
             let this = cx.entity().downgrade();
             switch = switch.icon_choice(
@@ -287,11 +299,13 @@ impl EditorPanel {
     }
 
     /// The panel's body: the editor over its status bar, and for a document
-    /// with views, that beside or instead of its preview.
+    /// with views, that beside or instead of its preview (`bib`, a
+    /// bibliography's references, or else the HTML file's page).
     pub(super) fn render_views(
         &mut self,
         editor: AnyElement,
         status: AnyElement,
+        bib: Option<AnyElement>,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let source = div()
@@ -305,7 +319,12 @@ impl EditorPanel {
         let Some(views) = self.views.as_ref() else {
             return source.size_full().into_any_element();
         };
-        let preview = views.preview.clone();
+        let preview = bib.or_else(|| {
+            views
+                .preview
+                .clone()
+                .map(|preview| preview.into_any_element())
+        });
         match (views.view, preview) {
             (DocumentView::Source, _) | (_, None) => source.size_full().into_any_element(),
             (DocumentView::Preview, Some(preview)) => {
@@ -441,8 +460,9 @@ mod tests {
     }
 
     #[test]
-    fn only_html_files_have_views() {
+    fn html_and_bib_files_have_views() {
         assert!(has_views(std::path::Path::new("a/b/page.HTML")));
+        assert!(has_views(std::path::Path::new("references.bib")));
         assert!(!has_views(std::path::Path::new("main.tex")));
     }
 }
