@@ -152,12 +152,9 @@ impl FileTreePanel {
         menu
     }
 
-    /// The menu for the empty area around the rows, and the panel's ⋯ menu.
-    pub(super) fn background_menu(view: &WeakEntity<Self>, menu: PopupMenu, cx: &App) -> PopupMenu {
-        let show_hidden = view
-            .upgrade()
-            .and_then(|this| this.read(cx).project.clone())
-            .is_some_and(|project| project.read(cx).show_hidden());
+    /// What can be added at the project's top level: the ⋯ menu's first
+    /// items, and the whole of the strip's + menu.
+    pub(super) fn new_entries_menu(view: &WeakEntity<Self>, menu: PopupMenu) -> PopupMenu {
         let item =
             |label: &'static str,
              run: fn(&mut FileTreePanel, &mut Window, &mut Context<FileTreePanel>)| {
@@ -172,18 +169,35 @@ impl FileTreePanel {
         .item(item("New folder", |this, window, cx| {
             this.begin_create("", true, window, cx)
         }))
-        .separator()
-        .item(
-            PopupMenuItem::new("Show hidden files")
-                .checked(show_hidden)
-                .on_click({
-                    let view = view.clone();
-                    move |_, _, cx| {
-                        view.update(cx, |this, cx| this.toggle_hidden(cx)).ok();
-                    }
-                }),
-        )
-        .item(item("Refresh file tree", |this, _, cx| this.refresh(cx)))
+    }
+
+    /// The menu for the empty area around the rows, and the panel's ⋯ menu.
+    pub(super) fn background_menu(view: &WeakEntity<Self>, menu: PopupMenu, cx: &App) -> PopupMenu {
+        let show_hidden = view
+            .upgrade()
+            .and_then(|this| this.read(cx).project.clone())
+            .is_some_and(|project| project.read(cx).show_hidden());
+        let item =
+            |label: &'static str,
+             run: fn(&mut FileTreePanel, &mut Window, &mut Context<FileTreePanel>)| {
+                let view = view.clone();
+                PopupMenuItem::new(label).on_click(move |_, window, cx| {
+                    view.update(cx, |this, cx| run(this, window, cx)).ok();
+                })
+            };
+        Self::new_entries_menu(view, menu)
+            .separator()
+            .item(
+                PopupMenuItem::new("Show hidden files")
+                    .checked(show_hidden)
+                    .on_click({
+                        let view = view.clone();
+                        move |_, _, cx| {
+                            view.update(cx, |this, cx| this.toggle_hidden(cx)).ok();
+                        }
+                    }),
+            )
+            .item(item("Refresh file tree", |this, _, cx| this.refresh(cx)))
     }
 
     fn toggle_hidden(&mut self, cx: &mut Context<Self>) {

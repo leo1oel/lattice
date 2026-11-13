@@ -19,20 +19,20 @@
 use std::{collections::HashSet, path::PathBuf};
 
 use gpui::{
-    App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, Focusable,
+    Anchor, App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, Focusable,
     InteractiveElement as _, IntoElement, KeyDownEvent, ParentElement as _, Render, SharedString,
     StatefulInteractiveElement as _, Styled as _, Subscription, Window, div, px,
 };
 use gpui_kit::component::{
     dock::{BasePanel, Panel, PanelEvent},
     input::Input,
-    menu::{ContextMenuExt as _, PopupMenu},
+    menu::{ContextMenuExt as _, DropdownMenu as _, PopupMenu},
     tree::{TreeItem, TreeState, tree},
 };
 use lattice_core::models::FileNode;
 use lattice_ui::{
-    ActiveLattice as _, GlyphKind, TextRole, TextRoleStyle as _,
-    components::TreeRow,
+    ActiveLattice as _, GlyphKind, Icon, TextRole, TextRoleStyle as _,
+    components::{IconButton, Surface, TAB_RADIUS, TreeRow},
     icons::{ICON, file_glyph},
 };
 
@@ -268,19 +268,40 @@ impl FileTreePanel {
     }
 }
 
+/// The tree's rows. A folder whose only entry is a folder shows as one row
+/// with its descendant, down the chain, as the Tauri app's tree flattens
+/// them (`flattenEmptyDirectories`): "slides / understanding-attention",
+/// which stands for the deepest folder (its id, its children, opening,
+/// renaming and dropping into it).
 fn tree_items(nodes: &[FileNode], expanded: &HashSet<String>) -> Vec<TreeItem> {
     nodes
         .iter()
         .map(|node| {
-            let item = TreeItem::new(node.path.clone(), node.name.clone());
-            if node.kind == "directory" {
-                item.children(tree_items(&node.children, expanded))
-                    .expanded(expanded.contains(&node.path))
-            } else {
-                item
+            if node.kind != "directory" {
+                return TreeItem::new(node.path.clone(), node.name.clone());
             }
+            let (deepest, label) = flattened(node);
+            TreeItem::new(deepest.path.clone(), label)
+                .children(tree_items(&deepest.children, expanded))
+                .expanded(expanded.contains(&deepest.path))
         })
         .collect()
+}
+
+/// A folder and the chain of single folders under it: the deepest one and
+/// the names on the way, joined by "/".
+fn flattened(node: &FileNode) -> (&FileNode, String) {
+    let mut deepest = node;
+    let mut label = node.name.clone();
+    while let [only] = deepest.children.as_slice() {
+        if only.kind != "directory" {
+            break;
+        }
+        label.push('/');
+        label.push_str(&only.name);
+        deepest = only;
+    }
+    (deepest, label)
 }
 
 impl Focusable for FileTreePanel {
@@ -318,6 +339,36 @@ impl Panel for FileTreePanel {
     ) -> PopupMenu {
         let view = cx.entity().downgrade();
         Self::background_menu(&view, menu, cx)
+    }
+
+    /// The strip's tools before ⋯, as the Tauri app's Project panel has them
+    /// (`trellis-panel-actions.tsx`): + opens what can be added, and Find in
+    /// project, which is not in the GPUI app yet. Each is a 28px square on
+    /// the panel's chrome with the tab's corners, a hairline apart
+    /// (`.trellis-accessory-host`).
+    fn title_suffix(&mut self, _: &mut Window, cx: &mut Context<Self>) -> Option<impl IntoElement> {
+        let view = cx.entity().downgrade();
+        Some(
+            div()
+                .flex()
+                .items_center()
+                .gap(px(1.))
+                .child(
+                    IconButton::new("project-new-entry", Icon::PLUS)
+                        .radius(TAB_RADIUS)
+                        .surface(Surface::Chrome)
+                        .tooltip("New…")
+                        .dropdown_menu_with_anchor(Anchor::TopRight, move |menu, _, _| {
+                            Self::new_entries_menu(&view, menu)
+                        }),
+                )
+                .child(
+                    IconButton::new("project-find", Icon::SEARCH)
+                        .radius(TAB_RADIUS)
+                        .surface(Surface::Chrome)
+                        .tooltip("Find in project — not in the GPUI preview yet"),
+                ),
+        )
     }
 
     fn inner_padding(&self, _: &App) -> bool {
@@ -470,5 +521,59 @@ impl Render for FileTreePanel {
                 }),
             )
             .into_any_element()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn node(path: &str, kind: &str, children: Vec<FileNode>) -> FileNode {
+        FileNode {
+            name: path.rsplit('/').next().unwrap_or(path).to_string(),
+            path: path.to_string(),
+            kind: kind.to_string(),
+            content_kind: String::new(),
+            size: 0,
+            children,
+        }
+    }
+
+    #[test]
+    fn a_chain_of_single_folders_is_one_row_for_the_deepest() {
+        let deck = node(
+            "slides/understanding-attention",
+            "directory",
+            vec![node(
+                "slides/understanding-attention/index.tsx",
+                "file",
+                vec![],
+            )],
+        );
+        let slides = node("slides", "directory", vec![deck]);
+        let (deepest, label) = flattened(&slides);
+        assert_eq!(deepest.path, "slides/understanding-attention");
+        assert_eq!(label, "slides/understanding-attention");
+        let items = tree_items(&[slides], &HashSet::new());
+        assert_eq!(items[0].id.as_ref(), "slides/understanding-attention");
+    }
+
+    #[test]
+    fn a_folder_holding_a_file_stays_its_own_row() {
+        let chapters = node(
+            "chapters",
+            "directory",
+            vec![node("chapters/intro.tex", "file", vec![])],
+        );
+        assert_eq!(flattened(&chapters).1, "chapters");
+        let two = node(
+            "figures",
+            "directory",
+            vec![
+                node("figures/a", "directory", vec![]),
+                node("figures/b", "directory", vec![]),
+            ],
+        );
+        assert_eq!(flattened(&two).1, "figures");
     }
 }

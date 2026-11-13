@@ -101,6 +101,17 @@ impl CodeTheme {
     }
 }
 
+/// The ground `theme` draws the editor on in an app painted with `palette`:
+/// the window's editor sheet, or the theme's own in the other appearance.
+pub fn ground(theme: CodeTheme, palette: &Palette) -> Hsla {
+    CodePalette::new(theme, palette).ground
+}
+
+/// The current line's wash in `theme`, over [`ground`].
+pub fn current_line(theme: CodeTheme, palette: &Palette) -> Hsla {
+    CodePalette::new(theme, palette).line
+}
+
 /// One Zed theme family per code theme, holding its light-app and dark-app
 /// themes, as the bytes `theme_settings::load_user_theme` reads.
 pub fn zed_theme_families(tint: Tint, accent: Accent) -> Vec<Vec<u8>> {
@@ -185,14 +196,18 @@ fn zed_theme(theme: CodeTheme, p: &Palette) -> Value {
         "icon.accent": hex(p.accent),
         "link_text.hover": hex(p.accent),
 
-        "editor.background": hex(code.ground),
+        // The ground and the current line are painted under Zed's editor
+        // by the adapter (`lattice-editor`, [`ground`] and [`current_line`]):
+        // Zed draws its active line from edge to edge, where the app's is a
+        // rounded wash inset from the right, so the editor itself is clear.
+        "editor.background": transparent,
         "editor.foreground": hex(code.ink),
-        "editor.gutter.background": hex(code.ground),
+        "editor.gutter.background": transparent,
         "editor.subheader.background": hex(code.ground),
         "editor.line_number": hex(code.line_number),
         "editor.active_line_number": hex(code.ink),
         "editor.hover_line_number": hex(code.ink),
-        "editor.active_line.background": hex(code.line),
+        "editor.active_line.background": transparent,
         "editor.highlighted_line.background": hex(code.line),
         "editor.document_highlight.read_background": hex(w.hover),
         "editor.document_highlight.write_background": hex(w.pressed),

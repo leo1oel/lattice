@@ -14,6 +14,7 @@ mod build_flow;
 mod editor_adapter;
 mod pdf;
 mod saves;
+mod status_bar;
 
 /// Each step's name, whether it passed, and what it saw.
 struct Steps(Vec<Value>);
@@ -217,6 +218,7 @@ impl Run {
         })
         .await;
         std::fs::remove_file(&scratch).ok();
+        self.status_bar_and_scrollbar(cx, &mut steps, &root).await?;
 
         // Repairing the file outside Lattice reloads the clean buffer.
         std::fs::write(&chapter, &merged)?;

@@ -126,7 +126,9 @@ pub use review_mode::{
 pub(crate) use search::{
     file_search_result, matches_search, search_terms, searchable_text_lines, searchable_text_path,
 };
-pub use search::{list_todos, preview_replace_in_project, replace_in_project, search_files};
+pub use search::{
+    list_todos, preview_replace_in_project, replace_in_project, search_files, todos_in_text,
+};
 pub use search::{ReplacePreview, ReplaceResult, TodoHit};
 pub(crate) use symbols::remove_citation_usages;
 pub use symbols::{citation_usages, find_citation_usages, unused_symbols, Symbol};

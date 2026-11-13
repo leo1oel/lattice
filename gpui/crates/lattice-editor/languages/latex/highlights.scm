@@ -10,10 +10,13 @@
 ;   string       a path or URL argument
 ;   label        a label or cross-reference and its keys
 ;   citation     a citation and its keys
+;   operator     a control symbol (`\,`, `\%`); the grammar reads `&` and `~`
+;                as part of the words around them, so those stay in the ink
 ;
 ; Structural commands Lattice draws as plain text, like the prose around them
 ; (\item, \caption, \maketitle, \newcommand, \includegraphics, ...), take no
-; capture. Arguments stay in the ink unless a rule below names them.
+; capture. Arguments stay in the ink unless a rule below names them: a
+; package's options and key=value keys too, as the app's mode leaves them.
 
 [
   (line_comment)
@@ -30,7 +33,14 @@
     "\\affil" "\\affiliation" "\\maketitle" "\\textsf" "\\textmd" "\\textrm"
     "\\textsuperscript" "\\textsubscript" "\\sout" "\\nameref" "\\newline"
     "\\noindent" "\\left" "\\right" "\\text"
-    "\\date" "\\book"))
+    "\\date" "\\book")
+  ; A control symbol (`\\`, `\,`, `\%`) is not a command word: see below.
+  (#match? @keyword "^\\\\[A-Za-z@]"))
+
+; Control symbols are operators (`\,`, `\%`, `\&`), except `\\`, a plain
+; line break, which stays in the ink (latex-language.ts's `refineStyle`).
+((command_name) @operator
+  (#match? @operator "^\\\\[^A-Za-z@\\\\]"))
 
 ; Headings and the title block.
 ((command_name) @function
@@ -70,8 +80,6 @@
 (latex_include path: (curly_group_path (path) @string))
 (graphics_include path: (curly_group_path (path) @string))
 (hyperlink uri: (curly_group_uri (uri) @string))
-
-(key_value_pair key: (text) @property)
 
 [
   "{"

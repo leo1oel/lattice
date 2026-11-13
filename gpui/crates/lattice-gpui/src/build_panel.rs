@@ -234,6 +234,23 @@ impl BuildPanel {
         self.finished(&result, true, false, HashMap::new(), cx);
     }
 
+    /// The last outcome's moment, while it may still arrive (`chip_mark`):
+    /// its key, one per build, and how long ago it ended.
+    pub fn chip_moment(&self) -> Option<(usize, Duration)> {
+        let outcome = self.outcome.as_ref()?;
+        let age = outcome.finished_at.elapsed();
+        (!self.is_running() && age < crate::build::chip_mark::FRESH_WINDOW)
+            .then_some((self.builds, age))
+    }
+
+    /// A success that left errors or warnings to read: its check carries a
+    /// warning dot, as the Tauri app's `has-warnings` does.
+    pub fn chip_warned(&self) -> bool {
+        self.outcome.as_ref().is_some_and(|outcome| {
+            outcome.succeeded && outcome.counts.error + outcome.counts.warning > 0
+        })
+    }
+
     pub fn chip(&self) -> ChipState {
         match &self.status {
             Status::Idle => ChipState::Idle,

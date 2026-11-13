@@ -108,16 +108,21 @@ fn details(labels: &WordCountLabels, cx: &App) -> AnyElement {
 }
 
 /// The footer's item: "Manuscript 120,400 words", and its popover.
-pub fn item(labels: WordCountLabels, cx: &App) -> AnyElement {
+/// `scoped`: the scope's name shows (a narrow bar leaves the count alone).
+pub fn item(labels: WordCountLabels, scoped: bool, cx: &App) -> AnyElement {
     let palette = cx.palette().clone();
     let count: SharedString = labels.count.clone().into();
-    let trigger = StatusItem::new("word-count")
-        .parity("status/words")
-        .label(labels.scope)
+    let trigger = StatusItem::new("word-count").parity("status/words");
+    let trigger = if scoped {
+        trigger.label(labels.scope)
+    } else {
+        trigger
+    };
+    let trigger = trigger
         .child(
             div()
                 // The scope's trailing no-break space and its 4px margin.
-                .ml(px(7.))
+                .when(scoped, |count| count.ml(px(7.)))
                 .text_color(palette.text)
                 .children(parity::text_probe("status/words", 1, count.clone()))
                 .child(count),

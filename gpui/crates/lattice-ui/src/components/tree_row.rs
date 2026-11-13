@@ -147,8 +147,43 @@ impl TreeRow {
     }
 }
 
-/// The name's two runs: the head ellipsizes, the tail stays whole.
+/// The name's two runs: the head ellipsizes, the tail stays whole. A
+/// folder row that stands for a chain of folders each holding only the next
+/// (`slides/understanding-attention`, as the app's tree flattens them) shows
+/// each name with a "/" between, 2px either side; only the last name gives
+/// way to a narrow panel. A real name never holds a "/", so one in `name`
+/// always marks such a chain.
 fn label(name: SharedString, parity: Option<SharedString>, cx: &App) -> gpui::Div {
+    if name.contains('/') {
+        let segments: Vec<&str> = name.split('/').collect();
+        let last = segments.len() - 1;
+        let mut chain = div()
+            .flex()
+            .flex_1()
+            .min_w_0()
+            .items_center()
+            .gap(px(2.))
+            .overflow_hidden()
+            .whitespace_nowrap()
+            .text_role(TextRole::Body, cx)
+            .line_height(px(28.));
+        for (ix, segment) in segments.into_iter().enumerate() {
+            if ix > 0 {
+                chain = chain.child(div().flex_none().child("/"));
+            }
+            let name = SharedString::from(segment.to_string());
+            chain = chain.child(if ix == last {
+                one_name(name, None, cx)
+            } else {
+                one_name(name, None, cx).flex_none()
+            });
+        }
+        return chain;
+    }
+    one_name(name, parity, cx)
+}
+
+fn one_name(name: SharedString, parity: Option<SharedString>, cx: &App) -> gpui::Div {
     let (head, tail) = split_name(&name);
     let run = |slot: usize, text: String| {
         let text = SharedString::from(text);

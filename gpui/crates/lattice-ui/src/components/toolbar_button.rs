@@ -2,10 +2,18 @@
 //! "Panels" menu.
 //!
 //! Measured on the Main window: "Panels" is 28px tall with control corners,
-//! 8px in, a 14px icon 6px before its 12/16 label, both in secondary ink.
-//! The project switcher is the same button at 32px with the project's name
-//! in 13px semibold and a 12px chevron 8px after it. It is a tab stop with
-//! the one focus ring, and Enter or Space press it.
+//! 8px in, a 14px icon 6px before its 12px label, both in secondary ink; the
+//! label's line is 15px, the bar's normal line height it inherits. The
+//! project switcher is the same button at 32px with the project's name in
+//! 13px semibold and a 12px chevron 8px after it. It is a tab stop with the
+//! one focus ring, and Enter or Space press it.
+//!
+//! Under the pointer it takes the chrome's hover fill, easing on the fast
+//! tier as the app's buttons transition their background and colour; "Panels"
+//! also steps its ink up to the primary (`.trellis-titlebar button:hover`),
+//! while the switcher keeps its own (`.project-title:hover`). Neither has a
+//! pressed fill of its own; a trigger whose menu is open keeps the pressed
+//! wash.
 
 use std::rc::Rc;
 
@@ -20,7 +28,7 @@ use crate::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
     components::{Surface, focus_ring},
     icons::{ICON, ICON_SMALL},
-    interaction::tab_stop,
+    interaction::{mix, tab_stop, track_pointer, use_interaction},
     parity,
 };
 
@@ -28,6 +36,7 @@ type ClickHandler = Rc<dyn Fn(&ClickEvent, &mut Window, &mut App)>;
 
 #[derive(IntoElement)]
 pub struct ToolbarButton {
+    id: ElementId,
     base: Stateful<Div>,
     label: SharedString,
     icon: Option<Icon>,
@@ -43,8 +52,10 @@ pub struct ToolbarButton {
 
 impl ToolbarButton {
     pub fn new(id: impl Into<ElementId>, label: impl Into<SharedString>) -> Self {
+        let id = id.into();
         Self {
-            base: div().id(id),
+            base: div().id(id.clone()),
+            id,
             label: label.into(),
             icon: None,
             chevron: false,
@@ -122,21 +133,29 @@ impl Selectable for ToolbarButton {
 impl gpui_kit::component::menu::DropdownMenu for ToolbarButton {}
 
 impl RenderOnce for ToolbarButton {
-    fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
+    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let palette = cx.palette().clone();
-        let pressed = palette.pressed;
-        // A selected trigger (its menu open) keeps the pressed wash under the
-        // pointer.
+        let (interaction, pointer) = use_interaction(self.id.clone(), window, cx);
+        let rest = if self.selected {
+            palette.pressed
+        } else {
+            gpui::transparent_black()
+        };
         let hover = if self.selected {
-            pressed
+            palette.pressed
         } else {
             self.surface.hover(&palette)
         };
-        let ink = palette.text_secondary;
+        let bg = mix(rest, hover, interaction.hover);
+        let ink = if self.chevron {
+            palette.text_secondary
+        } else {
+            mix(palette.text_secondary, palette.text, interaction.hover)
+        };
         let focus = focus_ring(&palette, self.surface.ground(&palette));
         // Always a button: its click is its own `on_click` or the one a
         // dropdown menu gives it.
-        tab_stop(self.base)
+        track_pointer(tab_stop(self.base), pointer)
             .flex()
             .flex_none()
             .items_center()
@@ -146,12 +165,10 @@ impl RenderOnce for ToolbarButton {
             .rounded(px(6.))
             .whitespace_nowrap()
             .text_role(self.role, cx)
-            .when(self.chevron, |this| this.line_height(px(16.)))
+            .line_height(px(if self.chevron { 16. } else { 15. }))
             .when_some(self.weight, |this, weight| this.font_weight(weight))
             .text_color(ink)
-            .when(self.selected, |this| this.bg(pressed))
-            .hover(move |style| style.bg(hover))
-            .active(move |style| style.bg(pressed))
+            .bg(bg)
             .focus_visible(move |style| style.shadow(focus))
             .when_some(self.icon, |this, icon| this.child(icon.element(ICON, ink)))
             .children(self.parity.clone().and_then(parity::probe))

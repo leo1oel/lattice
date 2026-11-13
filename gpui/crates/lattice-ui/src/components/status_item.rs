@@ -2,19 +2,25 @@
 //!
 //! Measured on the Main window: 22px tall with control corners, 6px of
 //! padding, 4px from the icon to its 12/16 caption, all in secondary ink.
-//! A clickable item is a tab stop with the one focus ring.
+//! A clickable item is a tab stop with the one focus ring. As
+//! `.editor-status-bar .status-item` has it, a clickable item under the
+//! pointer takes the control hover fill and steps its ink up to the primary,
+//! the pressed fill while held, both easing on the fast tier.
 
 use std::rc::Rc;
 
 use gpui::{
-    AnyElement, App, ClickEvent, ElementId, InteractiveElement as _, IntoElement,
+    AnyElement, AnyView, App, ClickEvent, ElementId, InteractiveElement as _, IntoElement,
     ParentElement as _, RenderOnce, SharedString, StatefulInteractiveElement as _, Styled as _,
     Window, div, prelude::FluentBuilder as _, px,
 };
 
 use crate::{
-    ActiveLattice as _, Icon, TextRole, TextRoleStyle as _, components::focus_ring,
-    icons::ICON_SMALL, interaction::tab_stop, parity,
+    ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
+    components::{LatticeTooltip, focus_ring},
+    icons::ICON_SMALL,
+    interaction::{mix, tab_stop, track_pointer, use_interaction},
+    parity,
 };
 
 type ClickHandler = Rc<dyn Fn(&ClickEvent, &mut Window, &mut App)>;
@@ -27,6 +33,9 @@ pub struct StatusItem {
     /// Each caption with its place among `children`, for the parity probes.
     labels: Vec<(usize, SharedString)>,
     on_click: Option<ClickHandler>,
+    tooltip: Option<SharedString>,
+    /// The icon in the accent: a counter with something open.
+    accent_icon: bool,
     parity: Option<SharedString>,
 }
 
@@ -38,8 +47,23 @@ impl StatusItem {
             children: Vec::new(),
             labels: Vec::new(),
             on_click: None,
+            tooltip: None,
+            accent_icon: false,
             parity: None,
         }
+    }
+
+    /// The item's name on hover, as its `title` gives it in the app.
+    pub fn tooltip(mut self, tooltip: impl Into<SharedString>) -> Self {
+        self.tooltip = Some(tooltip.into());
+        self
+    }
+
+    /// Set the icon in the accent, as an open counter's is
+    /// (`.status-counter[data-active]`).
+    pub fn accent_icon(mut self, accent: bool) -> Self {
+        self.accent_icon = accent;
+        self
     }
 
     /// Name this control as a parity-harness region (`crate::parity`): its
@@ -79,15 +103,25 @@ impl StatusItem {
 }
 
 impl RenderOnce for StatusItem {
-    fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
-        let palette = cx.palette();
-        let hover = palette.hover;
-        let focus = focus_ring(palette, palette.editor);
-        let item = div().id(self.id);
-        let item = if self.on_click.is_some() {
-            tab_stop(item)
+    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
+        let palette = cx.palette().clone();
+        let focus = focus_ring(&palette, palette.editor);
+        let clickable = self.on_click.is_some();
+        let item = div().id(self.id.clone());
+        let (bg, ink) = if clickable {
+            let (interaction, pointer) = use_interaction(self.id, window, cx);
+            let wash = interaction.wash(gpui::transparent_black(), palette.hover, palette.pressed);
+            let lit = interaction.hover.max(interaction.press);
+            (
+                Some((wash, pointer)),
+                mix(palette.text_secondary, palette.text, lit),
+            )
         } else {
-            item
+            (None, palette.text_secondary)
+        };
+        let item = match &bg {
+            Some((_, pointer)) => track_pointer(tab_stop(item), pointer.clone()),
+            None => item,
         };
         item.flex()
             .flex_none()
@@ -98,9 +132,20 @@ impl RenderOnce for StatusItem {
             .rounded(px(6.))
             .whitespace_nowrap()
             .text_role(TextRole::Caption, cx)
-            .text_color(palette.text_secondary)
+            .text_color(ink)
+            .when_some(bg.map(|(wash, _)| wash), |this, wash| this.bg(wash))
             .when_some(self.icon, |this, icon| {
-                this.child(icon.element(ICON_SMALL, palette.text_secondary))
+                let ink = if self.accent_icon {
+                    palette.accent
+                } else {
+                    ink
+                };
+                this.child(icon.element(ICON_SMALL, ink))
+            })
+            .when_some(self.tooltip, |this, tooltip| {
+                this.tooltip(move |_, cx| -> AnyView {
+                    LatticeTooltip::view(tooltip.clone(), None, cx)
+                })
             })
             .children(self.children)
             .children(self.parity.clone().and_then(parity::probe))
@@ -115,8 +160,7 @@ impl RenderOnce for StatusItem {
                     .flatten(),
             )
             .when_some(self.on_click, |this, on_click| {
-                this.hover(move |style| style.bg(hover))
-                    .focus_visible(move |style| style.shadow(focus))
+                this.focus_visible(move |style| style.shadow(focus))
                     .on_click(move |event, window, cx| on_click(event, window, cx))
             })
     }

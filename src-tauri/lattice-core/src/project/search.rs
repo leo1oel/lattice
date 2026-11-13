@@ -203,21 +203,34 @@ pub fn list_todos(root: &Path) -> Result<Vec<TodoHit>, String> {
             continue;
         }
         let content = fs::read_to_string(&absolute).unwrap_or_default();
-        let latex = extension(&relative).as_deref() == Some("tex");
-        hits.extend(content.lines().enumerate().filter_map(|(index, line)| {
-            Some(TodoHit {
-                path: relative.replace('\\', "/"),
-                line: (index + 1) as u32,
-                kind: todo_kind_in_line(line, latex)?.to_string(),
-                preview: clip_line(line, 160),
-            })
-        }));
+        hits.extend(todos_in_text(&relative, &content));
         if hits.len() >= 400 {
             hits.truncate(400);
             break;
         }
     }
     Ok(hits)
+}
+
+/// The TODO markers in one file's text, `relative` its path in the project:
+/// what [`list_todos`] finds in it on disk, and what an editor holding the
+/// file with unsaved edits counts in its buffer instead (as the Tauri app's
+/// `mergeTodosWithBuffer` rescans the open file). A `.tex` file's markers
+/// are in its `%` comments; elsewhere only a line starting with `%` counts.
+pub fn todos_in_text(relative: &str, content: &str) -> Vec<TodoHit> {
+    let latex = extension(relative).as_deref() == Some("tex");
+    content
+        .lines()
+        .enumerate()
+        .filter_map(|(index, line)| {
+            Some(TodoHit {
+                path: relative.replace('\\', "/"),
+                line: (index + 1) as u32,
+                kind: todo_kind_in_line(line, latex)?.to_string(),
+                preview: clip_line(line, 160),
+            })
+        })
+        .collect()
 }
 
 /// A marker in a `%` comment (first in priority order), else a `\todo`
@@ -445,6 +458,19 @@ mod tests {
             let results = search_files_linear(root, excluded).unwrap();
             assert!(results.is_empty(), "unexpected search result for {excluded}");
         }
+    }
+
+    #[test]
+    fn todos_in_text_reads_a_buffer_as_the_disk_scan_reads_its_file() {
+        let text = "Results. % TODO cite\n50% done\n% Mastodon dataset\n\\todo{check}\n";
+        let hits = todos_in_text("chapters\\intro.tex", text);
+        let found: Vec<(u32, &str)> =
+            hits.iter().map(|hit| (hit.line, hit.kind.as_str())).collect();
+        assert_eq!(found, [(1, "TODO"), (4, "todo")]);
+        assert_eq!(hits[0].path, "chapters/intro.tex");
+        // Outside LaTeX a `%` is text unless it starts the line.
+        let notes = todos_in_text("notes.md", "50% TODO later\n% FIXME here\n");
+        assert_eq!(notes.iter().map(|hit| hit.line).collect::<Vec<_>>(), [2]);
     }
 
     #[test]

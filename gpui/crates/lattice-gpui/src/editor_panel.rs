@@ -66,6 +66,9 @@ use crate::{
 
 /// How often the open file is checked for an edit made behind the editor.
 const DISK_POLL: Duration = Duration::from_millis(2500);
+/// The pause in typing after which the buffer's TODOs are counted again, as
+/// the Tauri app settles the source it counts them in (`use-settled-source.ts`).
+const TODO_SETTLE: Duration = Duration::from_millis(500);
 /// What the panel tells the shell.
 pub enum EditorPanelEvent {
     /// A save wrote the file: the PDF is older than the sources now.
@@ -133,6 +136,13 @@ pub struct EditorPanel {
     /// The file's word count as of opening or the last save; counted off the
     /// main thread.
     words: Option<usize>,
+    /// The TODO markers in the buffer as of the last pause in typing, for
+    /// the status bar's counter (`status_counters`); `None` for a file
+    /// counted from the disk scan alone.
+    buffer_todos: Option<usize>,
+    /// The status bar's width as last drawn, which decides what it folds
+    /// (`editor_status::StatusFolds`).
+    status_width: std::rc::Rc<std::cell::Cell<Option<gpui::Pixels>>>,
     /// The text the buffer grew from, as of the last load or save, with "\n"
     /// line breaks: the base the next save merges against.
     saved_text: String,
@@ -155,6 +165,7 @@ pub struct EditorPanel {
     writing: Option<Shared<oneshot::Receiver<Option<String>>>>,
     _autosave: Option<Task<()>>,
     _count: Option<Task<()>>,
+    _todos: Option<Task<()>>,
     _poll: Task<()>,
     _subscriptions: Vec<Subscription>,
 }
@@ -210,11 +221,17 @@ impl EditorPanel {
             bar.set_active_pane_item(Some(&editor), window, cx);
             bar
         });
+        let counters = crate::status_counters::project_counters(cx);
         let subscriptions = vec![
+            // The status bar's counters land after the project's scan.
+            cx.observe(&counters, |_, _, cx| cx.notify()),
             // The tab shows whether the file has unsaved edits; an edit
             // arms the autosave.
             cx.subscribe(&buffer, |this, _, event: &BufferEvent, cx| match event {
-                BufferEvent::Edited { .. } => this.schedule_autosave(cx),
+                BufferEvent::Edited { .. } => {
+                    this.schedule_autosave(cx);
+                    this.scan_todos(TODO_SETTLE, cx);
+                }
                 BufferEvent::DirtyChanged | BufferEvent::Saved => cx.notify(),
                 _ => {}
             }),
@@ -319,6 +336,8 @@ impl EditorPanel {
             build,
             cursor: (1, 1),
             words: None,
+            buffer_todos: None,
+            status_width: Default::default(),
             saved_text,
             last_file_id: stat
                 .as_ref()
@@ -335,10 +354,12 @@ impl EditorPanel {
             writing: None,
             _autosave: None,
             _count: None,
+            _todos: None,
             _poll: poll,
             _subscriptions: subscriptions,
         };
         this.count_words(cx);
+        this.scan_todos(Duration::ZERO, cx);
         this
     }
 
@@ -382,6 +403,14 @@ impl EditorPanel {
 
     pub(crate) fn words(&self) -> Option<usize> {
         self.words
+    }
+
+    pub(crate) fn status_width(&self) -> &std::rc::Rc<std::cell::Cell<Option<gpui::Pixels>>> {
+        &self.status_width
+    }
+
+    pub(crate) fn buffer_todos(&self) -> Option<usize> {
+        self.buffer_todos
     }
 
     /// The folder of the project the file belongs to.
@@ -439,6 +468,30 @@ impl EditorPanel {
             this.update(cx, |this, cx| {
                 this.words = Some(words);
                 cx.notify();
+            })
+            .ok();
+        }));
+    }
+
+    /// Count the buffer's TODO markers again once typing has paused for
+    /// `delay`, off the main thread; the next edit restarts the wait.
+    fn scan_todos(&mut self, delay: Duration, cx: &mut Context<Self>) {
+        let relative = self.relative.clone();
+        let text = self.buffer.read(cx).as_rope().clone();
+        self._todos = Some(cx.spawn(async move |this, cx| {
+            if !delay.is_zero() {
+                cx.background_executor().timer(delay).await;
+            }
+            let found = cx
+                .background_spawn(async move {
+                    crate::status_counters::buffer_todos(&relative, &text.to_string())
+                })
+                .await;
+            this.update(cx, |this, cx| {
+                if this.buffer_todos != found {
+                    this.buffer_todos = found;
+                    cx.notify();
+                }
             })
             .ok();
         }));

@@ -10,6 +10,7 @@
 //! lattice-core's, the one the Tauri app's commands call.
 
 pub mod card;
+pub mod chip_mark;
 pub mod diagnostics;
 pub mod doctor;
 pub mod explain;

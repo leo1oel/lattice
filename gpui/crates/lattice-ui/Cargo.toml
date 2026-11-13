@@ -11,6 +11,9 @@ anyhow.workspace = true
 gpui.workspace = true
 gpui-kit.workspace = true
 log.workspace = true
+# Round caps and joins for the marks that draw themselves (stroke.rs): the
+# tessellator GPUI strokes paths with, at the version it uses.
+lyon = "1.0"
 # preserve_order: the token codegen writes tokens in the JSON's order, which is
 # Paper's, whatever else in the graph turns the feature on.
 serde_json = { workspace = true, features = ["preserve_order"] }
