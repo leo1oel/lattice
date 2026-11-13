@@ -3,7 +3,7 @@
 //! one) are listed with how often the manuscript cites each; typing narrows
 //! the list by metadata and by the saved text, whose matching lines come
 //! back under the paper; the Cited filter keeps what the manuscript cites;
-//! a click opens the paper's text and marks its row as the open one. The
+//! a click opens the paper in its reader and marks its row as the open one. The
 //! bibliography is put back afterwards, so the steps after this one see the
 //! project as it was. With `LATTICE_E2E_SHOTS=DIR` (macOS) it saves the
 //! panel listing, searching and filtered, for a look review.
@@ -139,7 +139,8 @@ impl Run {
             json!({ "shown": cited }),
         );
 
-        // A click opens the saved text and marks its row as the open one.
+        // A click opens the saved text in the paper's reader, without the
+        // converter's front matter, and marks its row as the open one.
         let opened = self.with_window(cx, |_, window, cx| {
             papers.update(cx, |panel, cx| {
                 panel.open_titled("Attention Is All You Need", window, cx)
@@ -148,16 +149,22 @@ impl Run {
         let reading = format!("{BUNDLE}/paper.md");
         let open = self
             .wait_for(cx, Duration::from_secs(5), |shell, cx| {
-                shell.read(cx).active_editor_path(cx).as_deref() == Some(reading.as_str())
+                shell.read(cx).front_reader(cx).is_some_and(|(path, text)| {
+                    path == reading && text.starts_with("# Attention Is All You Need")
+                })
             })
             .await;
         let marked = cx.update(|cx| papers.read(cx).active_key());
+        let shown = self.with_window(cx, |shell, _, cx| {
+            shell.read(cx).front_reader(cx).map(|(path, _)| path)
+        })?;
         steps.check(
-            "a click on a saved paper opens its text and marks its row as the open one",
+            "a click on a saved paper opens it in its reader and marks its row as the open one",
             opened && open && marked.as_deref() == Some("1706.03762"),
-            json!({ "opened": opened, "open": open, "marked": marked }),
+            json!({ "opened": opened, "open": open, "reader": shown, "marked": marked }),
         );
         if open {
+            self.papers_shot(cx, "papers-reader").await;
             self.press(cx, 'w', true).await?;
         }
 

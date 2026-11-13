@@ -3,7 +3,9 @@
 
 use std::path::Path;
 
-use gpui::{AppContext as _, Context, Entity, Window};
+use gpui::{AppContext as _, Context, Entity, Focusable as _, Window};
+use gpui_kit::component::dock::{DockPlacement, PaneRef, PanelId, panel_handle};
+use lattice_core::papers::PaperSummary;
 
 use super::Shell;
 use crate::papers::{
@@ -11,6 +13,7 @@ use crate::papers::{
     add_sheet::{AddPapers, AddPapersEvent},
     audit::{Audit, AuditEvent},
     literature::{Literature, LiteratureEvent},
+    reader::{PaperReader, PaperReaderEvent, ReaderView},
 };
 
 impl Shell {
@@ -27,9 +30,124 @@ impl Shell {
                     self.open_path(root.join(path), *line, window, cx);
                 }
             }
+            PapersEvent::Read(paper) => self.open_reader(paper.clone(), window, cx),
             PapersEvent::AddPapers(seed) => self.open_add_papers(seed.clone(), window, cx),
             PapersEvent::SearchLiterature(query) => self.open_literature(query.clone(), window, cx),
             PapersEvent::CheckReferences => self.open_audit(window, cx),
+        }
+    }
+
+    /// A saved paper in its reader, a document tab of its own; a paper
+    /// already open there comes to the front, with the texts it has now.
+    fn open_reader(&mut self, paper: PaperSummary, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(root) = self.root(cx) else {
+            return;
+        };
+        let open = self
+            .documents
+            .readers
+            .iter()
+            .find(|reader| reader.read(cx).paper().arxiv_id == paper.arxiv_id)
+            .cloned();
+        let reader = match open {
+            Some(reader) => {
+                reader.update(cx, |reader, cx| reader.set_paper(paper, cx));
+                reader
+            }
+            None => {
+                let view = if paper.has_full_text {
+                    ReaderView::FullText
+                } else {
+                    ReaderView::Overview
+                };
+                let reader = cx.new(|cx| PaperReader::new(root.clone(), paper, view, cx));
+                cx.subscribe_in(&reader, window, |this, _, event, window, cx| match event {
+                    PaperReaderEvent::OpenPdf(path) => {
+                        if let Some(root) = this.root(cx) {
+                            this.open_file_pdf(root.join(path), window, cx);
+                        }
+                    }
+                })
+                .detach();
+                self.documents.readers.push(reader.clone());
+                reader
+            }
+        };
+        let id = PanelId::from(reader.entity_id());
+        if !self.panel_shown(id, cx) {
+            self.dock_area.update(cx, |area, cx| {
+                area.add_panel_view(
+                    panel_handle(reader.clone()),
+                    DockPlacement::Center,
+                    None,
+                    window,
+                    cx,
+                );
+            });
+        }
+        self.dock_area
+            .update(cx, |area, cx| area.select_panel(id, window, cx));
+        window.focus(&reader.focus_handle(cx), cx);
+        let path = root.join(reader.read(cx).path());
+        self.mark_paper(&path, cx);
+    }
+
+    /// The reader in front, if a paper's: its reading file and the text it
+    /// shows (for scenarios).
+    pub(crate) fn front_reader(&self, cx: &gpui::App) -> Option<(String, String)> {
+        let area = self.dock_area.read(cx);
+        let mut front = Vec::new();
+        for placement in [
+            DockPlacement::Center,
+            DockPlacement::Left,
+            DockPlacement::Right,
+        ] {
+            if let Some(tree) = area.layout(placement) {
+                tree.root().walk(&mut |node| {
+                    if let PaneRef::Tabs { panels, active_ix } = node.kind()
+                        && let Some(id) = panels.get(active_ix)
+                    {
+                        front.push(*id);
+                    }
+                });
+            }
+        }
+        self.documents
+            .readers
+            .iter()
+            .find(|reader| front.contains(&PanelId::from(reader.entity_id())))
+            .map(|reader| {
+                let reader = reader.read(cx);
+                (
+                    reader.path(),
+                    reader.text(cx).unwrap_or_default().to_string(),
+                )
+            })
+    }
+
+    /// The reader the writer is in, which ⌘W closes.
+    pub(super) fn focused_reader(&self, window: &Window, cx: &gpui::App) -> Option<PanelId> {
+        self.documents
+            .readers
+            .iter()
+            .find(|reader| reader.focus_handle(cx).contains_focused(window, cx))
+            .map(|reader| PanelId::from(reader.entity_id()))
+    }
+
+    /// Readers the writer closed are let go of; they open anew.
+    pub(super) fn forget_closed_readers(&mut self, cx: &mut Context<Self>) {
+        let readers = std::mem::take(&mut self.documents.readers);
+        self.documents.readers = readers
+            .into_iter()
+            .filter(|reader| self.panel_shown(PanelId::from(reader.entity_id()), cx))
+            .collect();
+    }
+
+    /// The readers go with the project their papers are of.
+    pub(super) fn close_readers(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        for reader in std::mem::take(&mut self.documents.readers) {
+            self.dock_area
+                .update(cx, |area, cx| area.remove_panel(reader, window, cx));
         }
     }
 

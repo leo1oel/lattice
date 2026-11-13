@@ -36,6 +36,9 @@ lattice-settings.workspace = true
 lattice-ui.workspace = true
 lattice-webview.workspace = true
 log.workspace = true
+# The paper reader renders a saved paper's Markdown (papers/reader.rs); the
+# editor already depends on it.
+markdown.workspace = true
 pdfium-render.workspace = true
 # The Tauri app's TeX message and word patterns (crate::build).
 regex = "1"

@@ -58,6 +58,7 @@ mod field;
 mod inspector;
 pub mod literature;
 pub mod model;
+pub mod reader;
 mod removal;
 mod row;
 mod search;
@@ -83,6 +84,8 @@ pub const WIDE: f32 = 860.;
 pub enum PapersEvent {
     /// Open a reading file of the project (project-relative), at a line.
     Open { path: String, line: Option<u32> },
+    /// Read a saved paper in its reader (its full text, else its overview).
+    Read(PaperSummary),
     /// Open Add papers, seeded with what the box holds.
     AddPapers(String),
     /// Search the literature for a title the library does not hold.

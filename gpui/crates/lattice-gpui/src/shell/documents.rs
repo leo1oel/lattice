@@ -36,6 +36,8 @@ pub(crate) struct Documents {
     pub(super) literature: Option<Entity<crate::papers::literature::Literature>>,
     /// Check references, opened from the Papers strip.
     pub(super) audit: Option<Entity<crate::papers::audit::Audit>>,
+    /// Saved papers open in their reader, one tab each.
+    pub(super) readers: Vec<Entity<crate::papers::reader::PaperReader>>,
     /// The places the writer went (project-relative path, line), oldest
     /// first, and the one back and forward stand on.
     history: Vec<(String, u32)>,

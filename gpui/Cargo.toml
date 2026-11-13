@@ -47,6 +47,7 @@ gpui = { git = "https://github.com/zed-industries/zed", rev = "d2a4fb6ded7c470be
 gpui_macros = { git = "https://github.com/zed-industries/zed", rev = "d2a4fb6ded7c470be25d1541281da3882495b65b" }
 gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "d2a4fb6ded7c470be25d1541281da3882495b65b", features = ["font-kit", "runtime_shaders"] }
 language = { git = "https://github.com/zed-industries/zed", rev = "d2a4fb6ded7c470be25d1541281da3882495b65b" }
+markdown = { git = "https://github.com/zed-industries/zed", rev = "d2a4fb6ded7c470be25d1541281da3882495b65b" }
 multi_buffer = { git = "https://github.com/zed-industries/zed", rev = "d2a4fb6ded7c470be25d1541281da3882495b65b" }
 project = { git = "https://github.com/zed-industries/zed", rev = "d2a4fb6ded7c470be25d1541281da3882495b65b" }
 release_channel = { git = "https://github.com/zed-industries/zed", rev = "d2a4fb6ded7c470be25d1541281da3882495b65b" }
