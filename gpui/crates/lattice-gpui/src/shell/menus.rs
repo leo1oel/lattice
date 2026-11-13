@@ -1,10 +1,16 @@
-//! The menu bar (`src-tauri/src/native_locale.rs`): Lattice, File, Edit,
-//! View, Window and Help, each item an action from the command table, so the
-//! menus show the same keys the keymap binds and run what the palette runs.
-//! The app-wide actions (quit, hide, about, a new window) are handled here;
-//! the rest reach the window in front.
+//! The menu bar (`src-tauri/src/native_locale.rs`, `src/app/native-locale.ts`):
+//! Lattice, File, Edit, View, Window and Help, each item an action from the
+//! command table, so the menus show the same keys the keymap binds and run
+//! what the palette runs. The app-wide actions (quit, hide, about, a new
+//! window) are handled here; the rest reach the window in front.
+//!
+//! The titles follow the interface language, as the Tauri app's do. Its
+//! menu keeps Apple's own wording, which can differ from the same English
+//! word inside the app, so those titles take the catalog's "macOS menu bar"
+//! context; the menus' other items are the GPUI app's own.
 
 use gpui::{App, Menu, MenuItem, OsAction, SystemMenuType};
+use lattice_i18n::{t, tc};
 
 use super::{commands::*, windows};
 
@@ -20,22 +26,32 @@ pub fn install(cx: &mut App) {
                 .update(cx, |_, window, cx| {
                     let _ = window.prompt(
                         gpui::PromptLevel::Info,
-                        "Lattice (GPUI preview)",
-                        Some("A native preview of Lattice, growing beside the Tauri app."),
-                        &["OK"],
+                        t!("Lattice (GPUI preview)"),
+                        Some(t!(
+                            "A native preview of Lattice, growing beside the Tauri app."
+                        )),
+                        &[tc!("dialog button", "OK")],
                         cx,
                     );
                 })
                 .ok();
         }
     });
+    install_menus(cx);
+}
+
+/// Set the menu bar in the interface language now; called again when it
+/// changes.
+pub fn install_menus(cx: &mut App) {
     cx.set_menus(menus(cx));
+    #[cfg(target_os = "macos")]
+    crate::native::set_windows_menu(tc!("macOS menu bar", "Window"));
 }
 
 /// Lay the menus out again: File ▸ Open Recent follows the recent projects
 /// and the window in front.
 pub fn refresh(cx: &mut App) {
-    cx.defer(|cx| cx.set_menus(menus(cx)));
+    cx.defer(install_menus);
 }
 
 /// File ▸ Open Recent: the recent projects, newest first, at most five, the
@@ -59,75 +75,99 @@ fn open_recent(cx: &App) -> MenuItem {
             )
         })
         .collect();
-    MenuItem::submenu(Menu::new("Open Recent").items(items))
+    MenuItem::submenu(Menu::new(tc!("macOS menu bar", "Open Recent")).items(items))
 }
 
 fn menus(cx: &App) -> Vec<Menu> {
+    let name = "Lattice";
     vec![
         Menu::new("Lattice").items([
-            MenuItem::action("About Lattice", About),
+            MenuItem::action(tc!("macOS menu bar", "About {name}", name = name), About),
             MenuItem::separator(),
-            MenuItem::os_submenu("Services", SystemMenuType::Services),
+            MenuItem::action(tc!("macOS menu bar", "Settings…"), OpenSettings),
             MenuItem::separator(),
-            MenuItem::action("Hide Lattice", Hide),
-            MenuItem::action("Hide Others", HideOthers),
-            MenuItem::action("Show All", ShowAll),
+            MenuItem::os_submenu(tc!("macOS menu bar", "Services"), SystemMenuType::Services),
             MenuItem::separator(),
-            MenuItem::action("Quit Lattice", Quit),
+            MenuItem::action(tc!("macOS menu bar", "Hide {name}", name = name), Hide),
+            MenuItem::action(tc!("macOS menu bar", "Hide Others"), HideOthers),
+            MenuItem::action(tc!("macOS menu bar", "Show All"), ShowAll),
+            MenuItem::separator(),
+            MenuItem::action(tc!("macOS menu bar", "Quit {name}", name = name), Quit),
         ]),
-        Menu::new("File").items([
-            MenuItem::action("New Project…", NewProject),
-            MenuItem::action("Open…", OpenFolder),
+        Menu::new(tc!("macOS menu bar", "File")).items([
+            MenuItem::action(tc!("macOS menu bar", "New Project…"), NewProject),
+            MenuItem::action(tc!("macOS menu bar", "Open…"), OpenFolder),
             open_recent(cx),
             MenuItem::separator(),
-            MenuItem::action("Clone Repository…", CloneRepository),
-            MenuItem::action("Import Overleaf ZIP…", ImportZip),
+            MenuItem::action(tc!("macOS menu bar", "Clone Repository…"), CloneRepository),
+            MenuItem::action(tc!("macOS menu bar", "Import Overleaf ZIP…"), ImportZip),
             MenuItem::separator(),
-            MenuItem::action("New Window", NewWindow),
-            MenuItem::action("Open in New Window", OpenInNewWindow),
+            MenuItem::action(t!("New Window"), NewWindow),
+            MenuItem::action(t!("Open in New Window"), OpenInNewWindow),
             MenuItem::separator(),
-            MenuItem::action("Save and Build", Save),
-            MenuItem::action("Build", Build),
+            MenuItem::action(t!("Save and Build"), Save),
+            MenuItem::action(t!("Build"), Build),
             MenuItem::separator(),
-            MenuItem::action("Close Tab", CloseTab),
-            MenuItem::action("Close Window", CloseWindow),
+            MenuItem::action(tc!("macOS menu bar", "Close Tab"), CloseTab),
+            MenuItem::action(tc!("macOS menu bar", "Close Window"), CloseWindow),
         ]),
-        Menu::new("Edit").items([
-            MenuItem::os_action("Undo", editor::actions::Undo, OsAction::Undo),
-            MenuItem::os_action("Redo", editor::actions::Redo, OsAction::Redo),
-            MenuItem::separator(),
-            MenuItem::os_action("Cut", editor::actions::Cut, OsAction::Cut),
-            MenuItem::os_action("Copy", editor::actions::Copy, OsAction::Copy),
-            MenuItem::os_action("Paste", editor::actions::Paste, OsAction::Paste),
+        Menu::new(tc!("macOS menu bar", "Edit")).items([
             MenuItem::os_action(
-                "Select All",
+                tc!("macOS menu bar", "Undo"),
+                editor::actions::Undo,
+                OsAction::Undo,
+            ),
+            MenuItem::os_action(
+                tc!("macOS menu bar", "Redo"),
+                editor::actions::Redo,
+                OsAction::Redo,
+            ),
+            MenuItem::separator(),
+            MenuItem::os_action(
+                tc!("macOS menu bar", "Cut"),
+                editor::actions::Cut,
+                OsAction::Cut,
+            ),
+            MenuItem::os_action(
+                tc!("macOS menu bar", "Copy"),
+                editor::actions::Copy,
+                OsAction::Copy,
+            ),
+            MenuItem::os_action(
+                tc!("macOS menu bar", "Paste"),
+                editor::actions::Paste,
+                OsAction::Paste,
+            ),
+            MenuItem::os_action(
+                tc!("macOS menu bar", "Select All"),
                 editor::actions::SelectAll,
                 OsAction::SelectAll,
             ),
         ]),
-        Menu::new("View").items([
-            MenuItem::action("Command Palette…", CommandPalette),
-            MenuItem::action("Keyboard Shortcuts", ShowShortcuts),
+        Menu::new(tc!("macOS menu bar", "View")).items([
+            MenuItem::action(t!("Command Palette…"), CommandPalette),
+            MenuItem::action(t!("Keyboard Shortcuts"), ShowShortcuts),
             MenuItem::separator(),
-            MenuItem::action("Project", ToggleProjectPanel),
-            MenuItem::action("Papers", TogglePapersPanel),
-            MenuItem::action("Agent", ToggleAgentPanel),
-            MenuItem::action("PDF", TogglePdfPanel),
-            MenuItem::action("Build Log", ToggleBuildPanel),
+            MenuItem::action(t!("Project"), ToggleProjectPanel),
+            MenuItem::action(t!("Papers"), TogglePapersPanel),
+            MenuItem::action(t!("Agent"), ToggleAgentPanel),
+            MenuItem::action(t!("PDF"), TogglePdfPanel),
+            MenuItem::action(t!("Build Log"), ToggleBuildPanel),
             MenuItem::separator(),
-            MenuItem::action("Writing Layout", WritingPreset),
-            MenuItem::action("Reading Layout", ReadingPreset),
-            MenuItem::action("Focus Mode", ToggleFocusMode),
-            MenuItem::action("Maximize Focused Panel", ToggleMaximize),
-            MenuItem::action("Reset Layout", ResetLayout),
+            MenuItem::action(t!("Writing Layout"), WritingPreset),
+            MenuItem::action(t!("Reading Layout"), ReadingPreset),
+            MenuItem::action(t!("Focus Mode"), ToggleFocusMode),
+            MenuItem::action(t!("Maximize Focused Panel"), ToggleMaximize),
+            MenuItem::action(t!("Reset Layout"), ResetLayout),
         ]),
-        Menu::new("Window").items([
-            MenuItem::action("Minimize", Minimize),
-            MenuItem::action("Zoom", Zoom),
+        Menu::new(tc!("macOS menu bar", "Window")).items([
+            MenuItem::action(tc!("macOS menu bar", "Minimize"), Minimize),
+            MenuItem::action(tc!("macOS menu bar", "Zoom"), Zoom),
             MenuItem::separator(),
-            MenuItem::action("Next Project", NextProject),
-            MenuItem::action("Previous Project", PreviousProject),
+            MenuItem::action(t!("Next Project"), NextProject),
+            MenuItem::action(t!("Previous Project"), PreviousProject),
         ]),
-        Menu::new("Help").items([MenuItem::action("Keyboard Shortcuts", ShowShortcuts)]),
+        Menu::new(tc!("macOS menu bar", "Help"))
+            .items([MenuItem::action(t!("Keyboard Shortcuts"), ShowShortcuts)]),
     ]
 }

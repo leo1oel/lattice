@@ -25,6 +25,7 @@ use gpui_kit::component::{
     menu::{PopupMenu, PopupMenuItem},
 };
 use lattice_core::latex::PdfSyncTarget;
+use lattice_i18n::{n, t};
 use lattice_ui::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _, components::Button, dock::PANEL_RADIUS,
     icons::ICON_LARGE,
@@ -399,7 +400,7 @@ impl PdfPanel {
             Err(error) => {
                 log::error!("could not open the PDF window: {error:#}");
                 crate::notices::error(
-                    "Could not open the PDF in a new window",
+                    t!("Could not open the PDF in a new window"),
                     format!("{error:#}"),
                     cx,
                 );
@@ -462,7 +463,7 @@ impl PdfPanel {
 /// The live panel's toolbar action.
 fn open_in_window() -> ToolbarAction {
     ToolbarAction {
-        label: "Open in separate window".into(),
+        label: n!("Open in separate window"),
         icon: Icon::SQUARE_ARROW_OUT_UP_RIGHT,
     }
 }
@@ -520,10 +521,12 @@ impl Panel for PdfPanel {
                     .ok();
             })
         };
-        let menu = menu.item(zoom("Zoom in", 1.)).item(zoom("Zoom out", -1.));
+        let menu = menu
+            .item(zoom(t!("Zoom in"), 1.))
+            .item(zoom(t!("Zoom out"), -1.));
         let fit = {
             let view = view.downgrade();
-            PopupMenuItem::new("Fit width").on_click(move |_, _, cx| {
+            PopupMenuItem::new(t!("Fit page to width")).on_click(move |_, _, cx| {
                 view.update(cx, |view, cx| {
                     if view.fit() != Some(super::layout::FitMode::Width) {
                         view.toggle_fit(super::layout::FitMode::Width, cx)
@@ -537,8 +540,8 @@ impl Panel for PdfPanel {
             PdfPanelKind::Root(document) => {
                 let panel = cx.entity().downgrade();
                 let document = document.clone();
-                menu.item(
-                    PopupMenuItem::new("Build this document").on_click(move |_, _, cx| {
+                menu.item(PopupMenuItem::new(t!("Build this document")).on_click(
+                    move |_, _, cx| {
                         panel
                             .update(cx, |_, cx| {
                                 cx.emit(PdfEvent::Build {
@@ -546,8 +549,8 @@ impl Panel for PdfPanel {
                                 })
                             })
                             .ok();
-                    }),
-                )
+                    },
+                ))
             }
             PdfPanelKind::Live | PdfPanelKind::File(_) => menu,
         }
@@ -596,10 +599,10 @@ impl Render for PdfPanel {
                     .text_role(TextRole::BodyCompact, cx)
                     .font_weight(lattice_ui::tokens::FONT_WEIGHT_SEMIBOLD)
                     .text_color(palette.text)
-                    .child("The PDF is in a separate window"),
+                    .child(t!("The PDF is in a separate window")),
             )
             .child(
-                Button::new("pdf-return", "Return to workspace")
+                Button::new("pdf-return", t!("Return to workspace"))
                     .compact()
                     .icon(Icon::SQUARE_ARROW_DOWN_LEFT)
                     .on_click(cx.listener(|this, _, window, cx| this.dock(true, window, cx))),

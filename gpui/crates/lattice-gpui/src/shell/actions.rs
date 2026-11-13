@@ -161,7 +161,12 @@ impl Shell {
             workspaces: Workspaces::global(cx)
                 .list()
                 .iter()
-                .map(|entry| (entry.id.clone(), entry.name.clone().into()))
+                .map(|entry| {
+                    (
+                        entry.id.clone(),
+                        super::workspaces::shown_name(&entry.name).into(),
+                    )
+                })
                 .collect(),
             projects: self.projects.len(),
         }
@@ -231,6 +236,9 @@ impl Shell {
                     this.go_back_or_forward(1, window, cx)
                 }),
             )
+            .on_action(cx.listener(|this, _: &OpenSettings, window, cx| {
+                this.open_settings(None, window, cx)
+            }))
             .on_action(cx.listener(|this, _: &CloseTab, window, cx| this.close_tab(window, cx)))
             .on_action(cx.listener(|this, _: &ReopenClosedTab, window, cx| {
                 this.reopen_closed_tab(window, cx)
@@ -291,22 +299,22 @@ impl Shell {
                     this.close_project(&root, window, cx);
                 }
             }))
-            .on_action(cx.listener(|_, _: &ThemeLight, window, cx| {
-                crate::app::choose_appearance(
-                    Some(lattice_ui::Appearance::Light),
-                    window.appearance().into(),
-                    cx,
-                )
+            // The palette's appearance commands are Settings › Appearance ›
+            // Color theme, kept with every other setting.
+            .on_action(cx.listener(|_, _: &ThemeLight, _, cx| {
+                crate::settings::update(cx, |settings| {
+                    settings.theme_preference = lattice_settings::ThemePreference::Light
+                })
             }))
-            .on_action(cx.listener(|_, _: &ThemeDark, window, cx| {
-                crate::app::choose_appearance(
-                    Some(lattice_ui::Appearance::Dark),
-                    window.appearance().into(),
-                    cx,
-                )
+            .on_action(cx.listener(|_, _: &ThemeDark, _, cx| {
+                crate::settings::update(cx, |settings| {
+                    settings.theme_preference = lattice_settings::ThemePreference::Dark
+                })
             }))
-            .on_action(cx.listener(|_, _: &ThemeSystem, window, cx| {
-                crate::app::choose_appearance(None, window.appearance().into(), cx)
+            .on_action(cx.listener(|_, _: &ThemeSystem, _, cx| {
+                crate::settings::update(cx, |settings| {
+                    settings.theme_preference = lattice_settings::ThemePreference::System
+                })
             }))
             .on_action(cx.listener(|this, action: &SwitchWorkspace, window, cx| {
                 this.switch_workspace(&action.id, window, cx)

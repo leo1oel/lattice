@@ -8,36 +8,171 @@ use gpui::{AnyElement, App, Hsla, IntoElement, ParentElement as _, Styled as _, 
 use lattice_core::doctor::{DoctorCheck, DoctorReport};
 use lattice_ui::{ActiveLattice as _, TextRole, TextRoleStyle as _, tokens::FONT_WEIGHT_SEMIBOLD};
 
+use lattice_i18n::t;
+
 use super::icons;
 
 /// The row title of a check: a tool's own name, or what the check verifies.
 pub fn check_label(name: &str) -> &str {
     match name {
-        "project-root" => "Root document",
-        "bibliography" => "Bibliography",
-        "latexmk-version" => "latexmk version",
-        "conference-fonts" => "Conference fonts",
-        "icml-packages" => "ICML packages",
-        "neurips-packages" => "NeurIPS packages",
-        "pdf-embedded-fonts" => "PDF embedded fonts",
+        "project-root" => t!("Root document"),
+        "bibliography" => t!("Bibliography"),
+        "latexmk-version" => t!("latexmk version"),
+        "conference-fonts" => t!("Conference fonts"),
+        "icml-packages" => t!("ICML packages"),
+        "neurips-packages" => t!("NeurIPS packages"),
+        "pdf-embedded-fonts" => t!("PDF embedded fonts"),
         name => name,
     }
 }
 
-/// A check's detail as the interface words it. The doctor writes its
-/// details in the interface's English already, except the root document's,
-/// which the Tauri app lists with commas.
+/// What each tool the doctor probes is for, by check name (doctor.rs).
+fn tool_description(name: &str) -> Option<&'static str> {
+    Some(match name {
+        "latexmk" => t!("LaTeX build driver"),
+        "pdflatex" => t!("pdfLaTeX engine"),
+        "xelatex" => t!("XeLaTeX engine"),
+        "lualatex" => t!("LuaLaTeX engine"),
+        "synctex" => t!("SyncTeX bidirectional search"),
+        "bibtex" => t!("BibTeX bibliography processor"),
+        "biber" => t!("Biber bibliography processor"),
+        "texlab" => t!("TexLab language server (optional editor diagnostics)"),
+        "git" => t!("Git (optional project status / commit panel)"),
+        "texcount" => t!("TeXcount body word counts (optional status bar)"),
+        "uv" => t!("Python tooling used for literature and bibliography tools"),
+        "uvx" => t!("Runner used for Lattice's pinned literature tools"),
+        _ => return None,
+    })
+}
+
+fn missing_files_text(name: &str, files: &str) -> Option<String> {
+    Some(match name {
+        "conference-fonts" => t!(
+            "Missing {files} — PDF text will look wrong even if .tfm exists. Click Install BasicTeX in Lattice (watch Terminal for FONTS OK), then Shift-click Build.",
+            files = files
+        ),
+        "icml-packages" => t!(
+            "Missing {files} — ICML Build will Emergency stop. In Terminal: sudo tlmgr install algorithms   (or click Install BasicTeX in Lattice).",
+            files = files
+        ),
+        "neurips-packages" => t!(
+            "Missing {files} — NeurIPS Build will Emergency stop. In Terminal: sudo tlmgr install collection-latexextra   (or click Install BasicTeX in Lattice).",
+            files = files
+        ),
+        _ => return None,
+    })
+}
+
+fn kpsewhich_missing_text(name: &str) -> Option<&'static str> {
+    Some(match name {
+        "conference-fonts" => {
+            t!("Cannot verify fonts (kpsewhich missing). Install BasicTeX from Lattice.")
+        }
+        "icml-packages" => {
+            t!("Cannot verify ICML packages (kpsewhich missing). Install BasicTeX from Lattice.")
+        }
+        "neurips-packages" => {
+            t!("Cannot verify NeurIPS packages (kpsewhich missing). Install BasicTeX from Lattice.")
+        }
+        _ => return None,
+    })
+}
+
+/// A conference PDF typeset in the wrong fonts and what replaced Times
+/// (`pdfFontsText` in the Tauri app's `build-log-messages.ts`).
+fn pdf_fonts_text(venue: &str, fonts: &str, cause: &str) -> String {
+    let problem = if fonts.is_empty() {
+        t!(
+            "PDF fonts are not the Times that {venue} requires.",
+            venue = venue
+        )
+    } else {
+        t!(
+            "PDF fonts are not the Times that {venue} requires ({fonts}).",
+            venue = venue,
+            fonts = fonts
+        )
+    };
+    // The LaTeX goes in as a value: its braces would read as placeholders.
+    let fix = match cause {
+        "lmodern" => t!(
+            "The document loads lmodern after Times, which replaces it with Latin Modern: remove {command}, then Build.",
+            command = "\\usepackage{lmodern}"
+        ),
+        "fontspec" => t!(
+            "The document loads fontspec, which makes Latin Modern the main font: add {command} after it, or build with pdfLaTeX.",
+            command = "\\setmainfont{Times New Roman}"
+        ),
+        "unicode-encoding" => t!(
+            "XeLaTeX and LuaLaTeX have no Times in their default encoding, so LaTeX fell back to Latin Modern: add {command} after the template, or build with pdfLaTeX.",
+            command = "\\usepackage[T1]{fontenc}"
+        ),
+        "fonts-missing" => t!(
+            "Times is not installed, so LaTeX fell back to Computer Modern: click Install required tools in the TeX doctor, then Shift-click Build."
+        )
+        .to_string(),
+        "not-loaded" => t!(
+            "The document never loads Times: add {command} after the template, then Build.",
+            command = "\\usepackage{times}"
+        ),
+        _ => t!("Expected NimbusRomNo9L-*.").to_string(),
+    };
+    format!("{problem} {fix}")
+}
+
+/// A check's detail in the interface language, from its code and values as
+/// the Tauri app words it (`doctorCheckDetail`); an uncoded detail stays as
+/// the doctor wrote it.
 pub fn check_detail(check: &DoctorCheck) -> String {
-    if check.code == Some("root-document-missing") {
-        let param = |name: &str| check.params.get(name).map_or("", String::as_str);
-        return format!(
-            "Project {}, engine {}, root {} (missing)",
-            param("project"),
-            param("engine"),
-            param("document")
-        );
-    }
-    check.detail.clone()
+    let param = |name: &str| check.params.get(name).map_or("", String::as_str);
+    let description = tool_description(&check.name);
+    let coded = match check.code {
+        Some("tool-not-found") => description.map(|description| {
+            t!(
+                "{description}: not found on PATH",
+                description = description
+            )
+        }),
+        Some("tool-failed") => description.map(|description| {
+            t!(
+                "{description}: {path} could not run: {error}",
+                description = description,
+                path = param("path"),
+                error = param("error")
+            )
+        }),
+        Some("managed-tool-failed") => description.map(|description| {
+            t!(
+                "{description}: {error}",
+                description = description,
+                error = param("error")
+            )
+        }),
+        Some("root-document-missing") => Some(t!(
+            "Project {project}, engine {engine}, root {document} (missing)",
+            project = param("project"),
+            engine = param("engine"),
+            document = param("document")
+        )),
+        Some("bibliography-missing") => Some(t!(
+            "Primary bibliography {file} (missing)",
+            file = param("file")
+        )),
+        Some("kpsewhich-missing") => kpsewhich_missing_text(&check.name).map(str::to_string),
+        Some("files-missing") => missing_files_text(&check.name, param("files")),
+        Some("pdf-fonts-not-times") => Some(pdf_fonts_text(
+            param("venue"),
+            param("fonts"),
+            param("cause"),
+        )),
+        Some("pdf-unreadable") => Some(t!(
+            "Could not read {path}: {error}",
+            path = param("path"),
+            error = param("error")
+        )),
+        _ => None,
+    };
+    coded.unwrap_or_else(|| check.detail.clone())
 }
 
 fn mix(color: Hsla, amount: f32, ground: Hsla) -> Hsla {
@@ -164,13 +299,13 @@ pub fn report_view(
         (
             palette.success,
             mix(palette.success, 0.14, palette.window),
-            "Ready to compile",
+            t!("Ready to compile"),
         )
     } else {
         (
             palette.danger,
             mix(palette.danger, 0.12, palette.window),
-            "Missing required tools",
+            t!("Missing required tools"),
         )
     };
     // The checklist's grid: two columns at the sheet's width (170px at the
@@ -229,7 +364,7 @@ pub fn not_checked(install: AnyElement, cx: &App) -> AnyElement {
             div()
                 .text_role(TextRole::Caption, cx)
                 .text_color(palette.text_secondary)
-                .child("Not checked yet"),
+                .child(t!("Not checked yet")),
         )
         .child(install)
         .into_any_element()

@@ -2769,6 +2769,7 @@ msgstr "参考文献"
 
 #: src/build/tex-doctor-messages.ts
 #: src/papers/bib-visual-editor.tsx
+#: src/trellis/trellis-titlebar.tsx
 msgid "Bibliography"
 msgstr "参考文献"
 
@@ -15256,6 +15257,10 @@ msgstr "切换到 pdfLaTeX"
 #: src/editor/presentation/open-slide-workspace.tsx
 msgid "Switch to that window"
 msgstr "切换到那个窗口"
+
+#: src/app/use-command-table.ts
+msgid "Switch to the Bibliography layout"
+msgstr "参考文献布局"
 
 #: src/app/use-command-table.ts
 msgid "Switch to the Reading layout"

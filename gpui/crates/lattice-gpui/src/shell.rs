@@ -27,6 +27,7 @@ pub(crate) mod menus;
 mod palette;
 mod papers;
 mod pdfs;
+mod render;
 mod saving;
 mod synctex;
 mod welcome_flow;
@@ -47,6 +48,7 @@ use gpui_kit::component::{
     dock::{DockArea, DockEvent, PanelId},
     v_flex,
 };
+use lattice_i18n::{t, tc};
 use lattice_ui::{ActiveLattice as _, Appearance, LatticeTheme, dock::LatticeDock};
 
 use build::BuildRequest;
@@ -155,7 +157,6 @@ pub struct Shell {
     outline: std::rc::Rc<[crate::outline::Heading]>,
     _outline_task: Option<Task<()>>,
     _open_task: Option<Task<()>>,
-    vim_mode: bool,
     pub(crate) layout: LayoutState,
     pub(crate) floating: floating::FloatingLayer,
     /// Each of the dock's groups' own id (`layout::Node::Tabs`'s `slot`),
@@ -167,6 +168,8 @@ pub struct Shell {
     documents: documents::Documents,
     /// The welcome screen and New project, without a project or over one.
     lobby: welcome_flow::Lobby,
+    /// Settings, while it is open in this window.
+    pub(crate) settings: Option<Entity<crate::settings::SettingsDialog>>,
     /// The projects open in this window, in tab order; the open one is
     /// `project`'s.
     pub(crate) projects: Vec<OpenProject>,
@@ -351,7 +354,6 @@ impl Shell {
             outline: std::rc::Rc::from([]),
             _outline_task: None,
             _open_task: None,
-            vim_mode: crate::app::vim_mode_enabled(cx),
             layout: LayoutState::default(),
             floating: floating::FloatingLayer::default(),
             slots: Default::default(),
@@ -359,6 +361,7 @@ impl Shell {
             shortcuts: None,
             documents: Default::default(),
             lobby: Default::default(),
+            settings: None,
             projects: Vec::new(),
             closed_tabs: Vec::new(),
             save_task: None,
@@ -445,7 +448,17 @@ impl Shell {
     pub fn project_name(&self, cx: &App) -> SharedString {
         match &self.project {
             Some(project) => project.read(cx).manifest().name.clone().into(),
-            None => "Open a project".into(),
+            None => t!("Open a project").into(),
+        }
+    }
+
+    /// The window's title, in the interface language: the project's folder.
+    pub(crate) fn set_window_title(&self, window: &mut Window, cx: &App) {
+        if let Some(root) = self.root(cx) {
+            window.set_window_title(&t!(
+                "{0} — Lattice (GPUI preview)",
+                root.file_name().unwrap_or_default().to_string_lossy()
+            ));
         }
     }
 
@@ -488,7 +501,7 @@ impl Shell {
                 }
                 Err(error) => {
                     log::error!("could not open {}: {error}", root.display());
-                    cx.update(|_, cx| notices::error("Could not open the project", error, cx))
+                    cx.update(|_, cx| notices::error(t!("Could not open the project"), error, cx))
                         .ok();
                 }
             }
@@ -546,10 +559,7 @@ impl Shell {
             .update(cx, |papers, cx| papers.set_project(project.clone(), cx));
         self.file_tree
             .update(cx, |tree, cx| tree.set_project(project, cx));
-        window.set_window_title(&format!(
-            "{} — Lattice (GPUI preview)",
-            root.file_name().unwrap_or_default().to_string_lossy()
-        ));
+        self.set_window_title(window, cx);
         let restored = self.restore_layout(&root, main.as_deref(), window, cx);
         if let Some(main) = main.filter(|_| !restored) {
             self.open_path(main, None, window, cx);
@@ -647,9 +657,9 @@ impl Shell {
                 log::error!("{error:#}");
                 let _ = window.prompt(
                     PromptLevel::Critical,
-                    "Could not open the file",
+                    t!("Could not open the file"),
                     Some(&format!("{error:#}")),
-                    &["OK"],
+                    &[tc!("dialog button", "OK")],
                     cx,
                 );
                 None
@@ -672,8 +682,12 @@ impl Shell {
                 self.refresh_words(cx);
                 self.refresh_outline(window, cx);
             }
+            // Settings › Editor & builds › Automatic build: "Manual only"
+            // leaves every build to the Build button and ⌘B.
             EditorPanelEvent::SavedForBuild | EditorPanelEvent::DiskEdit => {
-                self.run_build(BuildRequest::automatic(), window, cx);
+                if crate::settings::builds_automatically(cx) {
+                    self.run_build(BuildRequest::automatic(), window, cx);
+                }
             }
             EditorPanelEvent::Close => self.close_editor(editor, window, cx),
             EditorPanelEvent::OpenLocation { path, line } => {
@@ -750,8 +764,7 @@ impl Shell {
     }
 
     fn toggle_vim_mode(&mut self, _: &ToggleVimMode, _: &mut Window, cx: &mut Context<Self>) {
-        self.vim_mode = !self.vim_mode;
-        crate::app::set_vim_mode(self.vim_mode, cx);
+        crate::app::set_vim_mode(!crate::settings::vim_mode(cx), cx);
         cx.notify();
     }
 
@@ -787,43 +800,5 @@ impl Shell {
 impl Focusable for Shell {
     fn focus_handle(&self, _: &App) -> FocusHandle {
         self.focus_handle.clone()
-    }
-}
-
-impl Render for Shell {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let palette = cx.palette().clone();
-        let shell = v_flex()
-            .id("lattice-shell")
-            .key_context("LatticeShell")
-            .track_focus(&self.focus_handle)
-            .on_action(cx.listener(Self::build))
-            .on_action(cx.listener(Self::save_all))
-            .on_action(cx.listener(Self::forward_sync))
-            .on_action(cx.listener(Self::toggle_vim_mode))
-            .on_action(cx.listener(Self::stop_build))
-            .on_action(cx.listener(Self::clean_rebuild))
-            .on_action(cx.listener(Self::clean_build_files))
-            .on_action(cx.listener(Self::next_problem))
-            .on_action(cx.listener(Self::previous_problem))
-            .on_action(cx.listener(Self::open_tex_doctor))
-            .on_action(cx.listener(Self::install_latex_tools));
-        self.register_commands(shell, cx)
-            .relative()
-            .size_full()
-            .bg(palette.window)
-            .text_color(palette.text)
-            .children(self.welcome().cloned())
-            .when(self.welcome().is_none(), |this| {
-                this.child(crate::titlebar::render(self, window, cx))
-                    .child(self.workspace(window, cx))
-            })
-            .children(self.palette.clone())
-            .children(self.shortcuts.clone())
-            .children(self.document_overlays())
-            .children(self.lobby_dialogs())
-            .child(self.notices.clone())
-            .child(self.tex_setup.clone())
-            .child(self.confirm.clone())
     }
 }

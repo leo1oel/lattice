@@ -7,6 +7,8 @@ publish.workspace = true
 license.workspace = true
 
 [dependencies]
+# The interface languages (English, Simplified Chinese).
+lattice-i18n.workspace = true
 anyhow.workspace = true
 codebook-tree-sitter-latex.workspace = true
 editor.workspace = true

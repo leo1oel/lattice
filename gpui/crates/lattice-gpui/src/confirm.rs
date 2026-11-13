@@ -8,6 +8,7 @@ use std::rc::Rc;
 use gpui::{
     App, AppContext as _, Context, Entity, Global, IntoElement, Render, SharedString, Window, div,
 };
+use lattice_i18n::{t, tc};
 use lattice_ui::{
     ActiveLattice as _, Icon,
     components::{Button, DialogCard, LayerPlacement, ModalLayer},
@@ -32,7 +33,7 @@ impl Confirm {
         Self {
             title: title.into(),
             body: None,
-            confirm_label: "OK".into(),
+            confirm_label: tc!("dialog button", "OK").into(),
             destructive: false,
             on_confirm: Rc::new(|_, _| {}),
             alternative: None,
@@ -155,7 +156,7 @@ impl Render for ConfirmHost {
             card = card.body(body.clone());
         }
         let mut card = card.action(
-            Button::new(("confirm-cancel", self.serial), "Cancel")
+            Button::new(("confirm-cancel", self.serial), t!("Cancel"))
                 .ghost()
                 .on_click(cx.listener(|this, _, _, cx| this.close(cx))),
         );

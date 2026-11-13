@@ -15,6 +15,7 @@ use gpui::{
     StatefulInteractiveElement as _, Styled as _, Window, div, prelude::FluentBuilder as _, px,
 };
 use gpui_kit::base::Popover as BasePopover;
+use lattice_i18n::t;
 use lattice_ui::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
     components::{IconButton, MenuItem, MenuSeparator, MenuSurface, PopFrom, pop_in},
@@ -133,7 +134,7 @@ impl PdfView {
             .trigger(
                 IconButton::new("pdf-overflow-trigger", Icon::ELLIPSIS)
                     .frame(px(24.), px(28.))
-                    .tooltip("More PDF actions"),
+                    .tooltip(t!("More PDF actions")),
             )
             .content(move |_, window, cx| {
                 let popover = cx.entity();
@@ -185,12 +186,12 @@ impl PdfView {
                     let (id, label, icon) = match mode {
                         FitMode::Width => (
                             "pdf-menu-fit-width",
-                            "Fit page to width",
+                            t!("Fit page to width"),
                             Icon::RECTANGLE_HORIZONTAL,
                         ),
                         FitMode::Height => (
                             "pdf-menu-fit-height",
-                            "Fit page to height",
+                            t!("Fit page to height"),
                             Icon::RECTANGLE_VERTICAL,
                         ),
                     };
@@ -215,7 +216,7 @@ impl PdfView {
                         menu = menu
                             .child(item(
                                 "pdf-menu-reveal",
-                                "Reveal cursor in PDF",
+                                t!("Reveal cursor in PDF"),
                                 Icon::LOCATE_FIXED,
                                 None,
                                 false,
@@ -236,7 +237,7 @@ impl PdfView {
                     .child(separator())
                     .child(item(
                         "pdf-menu-dark",
-                        "Dark pages",
+                        t!("Dark pages"),
                         Icon::MOON,
                         Some(super::dark::enabled()),
                         false,
@@ -245,7 +246,7 @@ impl PdfView {
                     .child(separator())
                     .child(item(
                         "pdf-menu-back",
-                        "Previous PDF location",
+                        t!("Previous PDF location"),
                         Icon::CORNER_UP_LEFT,
                         None,
                         !can_back,
@@ -253,7 +254,7 @@ impl PdfView {
                     ))
                     .child(item(
                         "pdf-menu-forward",
-                        "Next PDF location",
+                        t!("Next PDF location"),
                         Icon::CORNER_UP_RIGHT,
                         None,
                         !can_forward,
@@ -265,7 +266,7 @@ impl PdfView {
                     let close = close.clone();
                     menu = menu.child(row(
                         ItemKind::target(),
-                        MenuItem::new("pdf-menu-action", action.label)
+                        MenuItem::new("pdf-menu-action", lattice_i18n::tr(action.label))
                             .icon(action.icon)
                             .on_click(move |_, window, cx| {
                                 close(window, cx);
@@ -275,7 +276,7 @@ impl PdfView {
                 }
                 menu = menu.child(item(
                     "pdf-menu-save",
-                    "Save PDF as…",
+                    t!("Save PDF as…"),
                     Icon::DOWNLOAD,
                     None,
                     !can_save,
@@ -338,12 +339,12 @@ fn zoom_row(
                 .flex_1()
                 .text_role(TextRole::Body, cx)
                 .text_color(palette.text_secondary)
-                .child("Zoom"),
+                .child(t!("Zoom")),
         )
         .child(step(
             "pdf-menu-zoom-out",
             Icon::ZOOM_OUT,
-            "Zoom out",
+            t!("Zoom out"),
             -1.,
             scale <= MIN_SCALE,
         ))
@@ -351,7 +352,7 @@ fn zoom_row(
         .child(step(
             "pdf-menu-zoom-in",
             Icon::ZOOM_IN,
-            "Zoom in",
+            t!("Zoom in"),
             1.,
             scale >= MAX_SCALE,
         ))

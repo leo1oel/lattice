@@ -8,6 +8,7 @@
 use std::{cmp::Ordering, ops::Range, sync::LazyLock};
 
 use lattice_core::models::Diagnostic;
+use lattice_i18n::t;
 use regex::Regex;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -248,8 +249,8 @@ pub fn location_label(diagnostic: &Diagnostic) -> String {
     match (normalize_path(diagnostic.file.as_deref()), diagnostic.line) {
         (Some(file), Some(line)) if line > 0 => format!("{file}:{line}"),
         (Some(file), _) => file,
-        (None, Some(line)) if line > 0 => format!("line {line}"),
-        _ => "Build log".to_string(),
+        (None, Some(line)) if line > 0 => t!("line {line}", line = line),
+        _ => t!("Build log").to_string(),
     }
 }
 

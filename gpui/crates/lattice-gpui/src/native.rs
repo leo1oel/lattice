@@ -74,7 +74,7 @@ fn uptime() -> f64 {
 
 /// The ANSI virtual key code for a character, as Lattice's perf lab maps it.
 pub fn key_code(character: char) -> u16 {
-    const CODES: [(char, u16); 30] = [
+    const CODES: [(char, u16); 31] = [
         ('a', 0x00),
         ('s', 0x01),
         ('d', 0x02),
@@ -104,6 +104,7 @@ pub fn key_code(character: char) -> u16 {
         (' ', 0x31),
         ('\n', 0x24),
         ('\\', 0x2A),
+        (',', 0x2B),
         ('\u{1b}', 0x35),
     ];
     CODES
@@ -429,5 +430,49 @@ fn primary_screen_height() -> f64 {
         let primary: *mut AnyObject = msg_send![screens, objectAtIndex: 0usize];
         let frame: NSRect = msg_send![primary, frame];
         frame.size.height
+    }
+}
+
+/// The system's preferred languages, first choice first, as BCP 47 tags
+/// (`navigator.languages` in the Tauri app's web view).
+pub fn preferred_languages() -> Vec<String> {
+    objc2_foundation::NSLocale::preferredLanguages()
+        .iter()
+        .map(|language| language.to_string())
+        .collect()
+}
+
+/// Register the main menu's submenu titled `title` as NSApp's windows menu,
+/// so macOS lists the open windows in it whatever the interface language;
+/// GPUI registers it only under the English title.
+pub fn set_windows_menu(title: &str) {
+    unsafe {
+        let app: *mut AnyObject = msg_send![class!(NSApplication), sharedApplication];
+        let main: *mut AnyObject = msg_send![app, mainMenu];
+        if main.is_null() {
+            return;
+        }
+        let title = NSString::from_str(title);
+        let item: *mut AnyObject = msg_send![main, itemWithTitle: &*title];
+        if item.is_null() {
+            return;
+        }
+        let submenu: *mut AnyObject = msg_send![item, submenu];
+        if !submenu.is_null() {
+            let _: () = msg_send![app, setWindowsMenu: submenu];
+        }
+    }
+}
+
+/// The title of NSApp's windows menu, if one is registered.
+pub fn windows_menu_title() -> Option<String> {
+    unsafe {
+        let app: *mut AnyObject = msg_send![class!(NSApplication), sharedApplication];
+        let menu: *mut AnyObject = msg_send![app, windowsMenu];
+        if menu.is_null() {
+            return None;
+        }
+        let title: Option<Retained<NSString>> = msg_send![menu, title];
+        title.map(|title| title.to_string())
     }
 }

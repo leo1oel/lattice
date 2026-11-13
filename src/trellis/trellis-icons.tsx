@@ -20,6 +20,7 @@ import { TERMINAL_ICON } from "../terminal/terminal-icon";
 export const PRESETS = [
   { value: "writing", icon: PenLine },
   { value: "reading", icon: BookOpen },
+  { value: "bibliography", icon: Library },
 ] as const satisfies ReadonlyArray<{ value: LayoutPreset; icon: unknown }>;
 
 /**

@@ -20,7 +20,7 @@ use crate::{
     interaction::{mix, tab_stop, track_pointer, use_interaction},
     parity, shape,
     sliding::SlidingPlate,
-    tokens::FONT_WEIGHT_MEDIUM,
+    tokens::{FONT_WEIGHT_MEDIUM, OPACITY_DISABLED},
 };
 
 type ClickHandler = Rc<dyn Fn(&ClickEvent, &mut Window, &mut App)>;
@@ -267,6 +267,8 @@ pub struct Segmented {
     id: ElementId,
     segments: Vec<Segment>,
     parity: Option<SharedString>,
+    filled: bool,
+    disabled: bool,
 }
 
 pub struct Segment {
@@ -282,7 +284,26 @@ impl Segmented {
             id: id.into(),
             segments: Vec::new(),
             parity: None,
+            filled: false,
+            disabled: false,
         }
+    }
+
+    /// Faded, with no segment to press, hover or tab to.
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.disabled = disabled;
+        self
+    }
+
+    /// The app's plain `.ui-segmented` (chrome.css), as Settings draws it:
+    /// a track of the hairline's grey, 28px with 2px of padding on the 6px
+    /// corner; segments on the nested 4px corner (6 less the inset), 10px
+    /// in, micro type at medium weight in the tertiary ink; the selected one
+    /// on the editor's surface with the raised shadow, in the primary ink.
+    /// Without it the control wears the titlebar's workspace switcher skin.
+    pub fn filled(mut self) -> Self {
+        self.filled = true;
+        self
     }
 
     /// Name this control as a parity-harness region (`crate::parity`): its
@@ -326,10 +347,27 @@ impl Segmented {
 impl RenderOnce for Segmented {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let palette = cx.palette().clone();
-        let mut raised = vec![ring(palette.line_strong)];
-        raised.extend(Elevation::Raised.shadows(&palette).into_iter().skip(1));
+        let filled = self.filled;
+        let raised = if filled {
+            Elevation::Raised.shadows(&palette)
+        } else {
+            let mut raised = vec![ring(palette.line_strong)];
+            raised.extend(Elevation::Raised.shadows(&palette).into_iter().skip(1));
+            raised
+        };
         let focus = focus_ring(&palette, palette.titlebar);
-        let (track_radius, chip_radius) = shape::SEGMENTED.painted(shape::CHROME);
+        // Filled, the corners are Settings' plain 6px and 4px; otherwise the
+        // titlebar's, smoothed.
+        let (track_radius, chip_radius) = if filled {
+            (shape::SEGMENTED.radius, shape::SEGMENTED.inner())
+        } else {
+            shape::SEGMENTED.painted(shape::CHROME)
+        };
+        let selected_surface = if filled {
+            palette.editor
+        } else {
+            palette.panel
+        };
         let selected = self.segments.iter().position(|segment| segment.selected);
         let plate = SlidingPlate::new(
             ElementId::NamedChild(std::sync::Arc::new(self.id.clone()), "plate".into()),
@@ -352,11 +390,12 @@ impl RenderOnce for Segmented {
         let chip = plate.plate(
             |chip| {
                 chip.rounded(chip_radius)
-                    .bg(palette.panel)
+                    .bg(selected_surface)
                     .shadow(raised.clone())
             },
             cx,
         );
+        let disabled = self.disabled;
         let track = div()
             .id(self.id)
             .relative()
@@ -365,14 +404,24 @@ impl RenderOnce for Segmented {
             .h(px(28.))
             .p(shape::SEGMENTED.inset)
             .rounded(track_radius)
-            .shadow(vec![inset_ring(palette.line)])
+            .when(disabled, |this| this.opacity(OPACITY_DISABLED))
+            .map(|this| {
+                if filled {
+                    this.bg(palette.line)
+                } else {
+                    this.shadow(vec![inset_ring(palette.line)])
+                }
+            })
             .children(self.parity.clone().and_then(parity::probe))
             .children(chip)
             .children(
                 self.segments
                     .into_iter()
                     .enumerate()
-                    .map(|(ix, segment)| {
+                    .map(|(ix, mut segment)| {
+                        if disabled {
+                            segment.on_click = None;
+                        }
                         let hover = palette.hover;
                         let focus = focus.clone();
                         let segment_box = div().id(ix);
@@ -398,18 +447,27 @@ impl RenderOnce for Segmented {
                             // Until the sliding chip has been measured, the
                             // selected segment draws its own.
                             .when(segment.selected && !plate_drawn, |this| {
-                                this.bg(palette.panel).shadow(raised.clone())
+                                this.bg(selected_surface).shadow(raised.clone())
                             })
-                            .when(!segment.selected, |this| {
+                            .when(!segment.selected && !filled && !disabled, |this| {
                                 this.bg(mix(transparent_black(), hover, interaction.hover))
                             })
                             .when_some(segment.label, |this, label| {
-                                this.px(px(10.))
-                                    .text_role(TextRole::Caption, cx)
-                                    .line_height(px(14.))
-                                    .text_color(palette.text)
-                                    .child(label)
-                                    .children(text_probe)
+                                let this = this.px(px(10.));
+                                let this = if filled {
+                                    this.text_role(TextRole::Micro, cx).text_color(
+                                        if segment.selected {
+                                            palette.text
+                                        } else {
+                                            palette.text_secondary
+                                        },
+                                    )
+                                } else {
+                                    this.text_role(TextRole::Caption, cx)
+                                        .line_height(px(14.))
+                                        .text_color(palette.text)
+                                };
+                                this.child(label).children(text_probe)
                             })
                             .when_some(segment.icon, |this, icon| {
                                 this.w(px(28.))

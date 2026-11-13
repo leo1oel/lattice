@@ -14,6 +14,7 @@ use std::{cell::Cell, path::PathBuf, rc::Rc};
 
 use gpui::{Action, App, Context, ParentElement as _, Styled as _, WeakEntity, Window, div, px};
 use gpui_kit::component::menu::{PopupMenu, PopupMenuItem};
+use lattice_i18n::t;
 use lattice_ui::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _, components::IconButton,
     icons::ICON_SMALL,
@@ -119,7 +120,7 @@ pub(super) fn project_menu(
         "folder-here",
         0,
         Icon::FOLDER_OPEN,
-        "Open another folder".into(),
+        t!("Open another folder").into(),
         "Open a folder in this window".into(),
         |here| {
             if here {

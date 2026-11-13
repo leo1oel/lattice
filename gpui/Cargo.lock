@@ -8242,6 +8242,7 @@ dependencies = [
  "gpui-kit",
  "language",
  "lattice-core",
+ "lattice-i18n",
  "lattice-ui",
  "log",
  "project",
@@ -8269,6 +8270,8 @@ dependencies = [
  "language",
  "lattice-core",
  "lattice-editor",
+ "lattice-i18n",
+ "lattice-settings",
  "lattice-ui",
  "libc",
  "log",
@@ -8294,12 +8297,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "lattice-i18n"
+version = "0.1.0"
+
+[[package]]
+name = "lattice-settings"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "dirs",
+ "log",
+ "rusqlite",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "lattice-ui"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "gpui",
  "gpui-kit",
+ "lattice-i18n",
  "log",
  "lyon",
  "serde_json",

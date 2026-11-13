@@ -23,7 +23,7 @@ import { ROOT_PDF } from "./compiled-pdf-tabs";
  * views a preset brought in that `previous` lacked and the writer has not
  * asked for since: they leave again on the return.
  */
-export type LayoutPreset = "writing" | "reading";
+export type LayoutPreset = "writing" | "reading" | "bibliography";
 export type ActivePreset = { preset: LayoutPreset; previous: LayoutDocument; supplied: string[] };
 
 /**
@@ -110,7 +110,10 @@ function panelsOf(doc: LayoutDocument, { hidden = false } = {}): PanelNode[] {
  * tab), only regrouped: Writing gathers them into one panel before the PDF,
  * selecting the source being written; Reading gathers papers with the Papers
  * library before a panel of everything else, selecting the paper and the
- * notes. Every other view (navigators, the Agent, tools) is parked hidden in
+ * notes; Bibliography puts the Papers library (with the Project navigator and
+ * any open papers) beside a panel of the written documents, selecting the
+ * first open `.bib` (else the first written document), and shows the Project
+ * navigator there when nothing is open. Every other view (navigators, the Agent, tools) is parked hidden in
  * its own panel rather than dropped, so its content stays mounted: the Agent's
  * frame must not reload a running turn.
  */
@@ -157,6 +160,17 @@ export function presetLayout(preset: LayoutPreset | "focus", doc: LayoutDocument
       ids.length ? panel("panel-writing", ids, source) : panel("panel-project", ["project"], undefined),
       panel("panel-pdf", ["pdf"], undefined),
     ], [0.5, 0.5]);
+  } else if (preset === "bibliography") {
+    views.papers = { type: "papers" };
+    views.project = { type: "project" };
+    const read = keys.filter(isReading);
+    const written = keys.filter((key) => !isReading(key));
+    const bibliography = written.find((key) => key.toLocaleLowerCase().endsWith(".bib"));
+    root = row("split-bibliography", [
+      panel("panel-library", ["papers", ...(written.length ? ["project"] : []), ...read.map((key) => byKey.get(key)!)], undefined),
+      written.length ? panel("panel-bibliography", written.map((key) => byKey.get(key)!), bibliography ?? written[0])
+        : panel("panel-bibliography", ["project"], undefined),
+    ], [0.35, 0.65]);
   } else {
     views.papers = { type: "papers" };
     const read = keys.filter(isReading);
@@ -504,7 +518,7 @@ export function loadLayout(projectRoot: string): ProjectLayout | null {
       const saved = JSON.parse(raw) as SavedLayout;
       const document = migrateLayout(saved);
       if (document) {
-        const preset = saved.preset?.previous && (saved.preset.preset === "writing" || saved.preset.preset === "reading")
+        const preset = saved.preset?.previous && (saved.preset.preset === "writing" || saved.preset.preset === "reading" || saved.preset.preset === "bibliography")
           ? {
             preset: saved.preset.preset,
             previous: sanitize(saved.preset.previous, knownType),

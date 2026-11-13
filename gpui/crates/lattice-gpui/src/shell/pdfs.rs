@@ -17,6 +17,7 @@ use std::path::PathBuf;
 use gpui::{AppContext as _, Context, Entity, Window};
 use gpui_kit::component::dock::{DockPlacement, InsertTarget, PaneRef, PanelId, panel_handle};
 use lattice_core::latex;
+use lattice_i18n::t;
 
 use super::{Shell, build::BuildRequest};
 use crate::{
@@ -406,7 +407,7 @@ impl Shell {
                         panel.update(cx, |panel, cx| panel.show_sync_target(&target, cx))
                     }
                     (Ok(None), _) => notices::warning(
-                        "This source line has no matching position in the PDF.",
+                        t!("This source line has no matching position in the PDF."),
                         cx,
                     ),
                     (Err(error), _) => notices::error("SyncTeX", error, cx),

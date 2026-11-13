@@ -16,6 +16,7 @@ use gpui::{
     ParentElement as _, Render, SharedString, Styled as _, WeakEntity, Window, WindowBounds,
     WindowOptions, div, point, px, size,
 };
+use lattice_i18n::n;
 use lattice_ui::{ActiveLattice as _, Icon};
 
 use super::{
@@ -79,7 +80,7 @@ impl PdfWindow {
                     view.set_build(true, building, cx);
                     view.set_action(
                         Some(ToolbarAction {
-                            label: "Return to workspace".into(),
+                            label: n!("Return to workspace"),
                             icon: Icon::SQUARE_ARROW_DOWN_LEFT,
                         }),
                         cx,

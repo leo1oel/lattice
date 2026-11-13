@@ -259,10 +259,10 @@ export function useCommandTable({
       { id: "workspace-save", when: inProject, label: t`Save to workspace`, group: "layout" as const, run: () => trellis.saveWorkspace() },
       { id: "workspace-revert", when: inProject, label: t`Revert to saved`, group: "layout" as const, recent: false as const, run: () => trellis.revertWorkspace() },
     ] : []),
-    // Writing and Reading, the layout presets (also in the Panels menu); the one in use is not offered again.
-    ...(["writing", "reading"] as const).filter((preset) => trellisUi.preset !== preset).map((preset): AppCommand => ({
+    // Layout presets (also in the Panels menu); the one in use is not offered again.
+    ...(["writing", "reading", "bibliography"] as const).filter((preset) => trellisUi.preset !== preset).map((preset): AppCommand => ({
       id: `preset-${preset}`, when: inProject, group: "layout",
-      label: preset === "writing" ? t`Switch to the Writing layout` : t`Switch to the Reading layout`,
+      label: preset === "writing" ? t`Switch to the Writing layout` : preset === "reading" ? t`Switch to the Reading layout` : t`Switch to the Bibliography layout`,
       run: () => trellis.setPreset(preset),
     })),
     // A panel with a toggle key (app/panel-toggles.ts) toggles, as its Panels menu entry does; the rest are shown.
