@@ -49,6 +49,15 @@ describe("layout presets", () => {
   const keys = ["main.tex", "notes.md", PAPER];
   const documents = { activeKey: "notes.md", openTabs: keys, isReading };
 
+  it("Bibliography keeps the library beside the bibliography and preserves all documents", () => {
+    const tabs = ["main.tex", "references.bib", PAPER];
+    const doc = presetLayout("bibliography", workspaceWith(tabs), { activeKey: "main.tex", openTabs: tabs, isReading });
+    expect(panels(doc)).toEqual([
+      { id: "panel-library", views: ["papers", "project", "doc-2"], selected: "papers" },
+      { id: "panel-bibliography", views: ["doc-0", "doc-1"], selected: "doc-1" },
+    ]);
+  });
+
   it("Writing keeps every open document beside the PDF, with the LaTeX source in front", () => {
     const doc = presetLayout("writing", workspaceWith(keys), documents);
     expect(panels(doc)).toEqual([

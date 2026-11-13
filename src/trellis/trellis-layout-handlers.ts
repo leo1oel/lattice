@@ -12,6 +12,7 @@ import {
   arrangeDocuments, defaultLayout, enterFocus, enterPreset, loadFocusPdf, persistFocusPdf, placesOf, returnLayout, undoReset,
   workspaceArrangement, type ActiveFocus, type ActivePreset, type DocumentPlaces,
 } from "./trellis-layout";
+import { rememberWorkflowDocument, workflowDocument } from "./workflow-document";
 import { notifyInfo } from "../telemetry/app-notify";
 import { arrangementOf, layoutShape } from "./trellis-workspaces";
 
@@ -160,6 +161,7 @@ export function installLayoutHandlers({
     const { activeKey, openTabs: tabs, tabsReady } = controller.app.get();
     const openTabs = tabsReady ? tabs : Object.keys(placesOf(current));
     const active = presetRef.current;
+    rememberWorkflowDocument(controller.app.get().projectRoot, active?.preset ?? null, activeKey);
     const shown = unfocused(current, { activeKey, openTabs });
     const own = active ? returnLayout(active.previous, shown, { activeKey, openTabs }, active.supplied) : shown;
     const next = arrangeDocuments(workspaceArrangement(controller.workspaces, id), own, { activeKey, openTabs }, placesFor(own));
@@ -199,6 +201,8 @@ export function installLayoutHandlers({
       if (!handle || ((current?.preset ?? null) === preset && !focusRef.current)) return;
       withdrawUndo();
       const { activeKey, openTabs } = controller.app.get();
+      const projectRoot = controller.app.get().projectRoot;
+      rememberWorkflowDocument(projectRoot, current?.preset ?? null, activeKey);
       // Choosing a layout leaves focus mode, for the layout it was entered from.
       const document = unfocused(handle.getDocument(), { activeKey, openTabs });
       focusRef.current = null;
@@ -221,8 +225,8 @@ export function installLayoutHandlers({
       // The document the layout is for becomes the active one: the source to
       // write, the paper to read. Keyboard focus stays where it was.
       const root = handle.getDocument().root;
-      const lead = root && preset ? findPanel(root, preset === "writing" ? "panel-writing" : "panel-reading")?.selected : null;
-      const key = lead ? handle.view(lead)?.params.key : null;
+      const lead = root && preset ? findPanel(root, preset === "writing" ? "panel-writing" : preset === "bibliography" ? "panel-bibliography" : "panel-reading")?.selected : null;
+      const key = workflowDocument(projectRoot, preset, openTabs) ?? (lead ? handle.view(lead)?.params.key : null);
       if (typeof key === "string" && key !== activeKey) controller.activate(key);
     },
     // Entering another workspace loads its saved arrangement, re-placing

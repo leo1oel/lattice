@@ -2769,6 +2769,7 @@ msgstr "bibliography"
 
 #: src/build/tex-doctor-messages.ts
 #: src/papers/bib-visual-editor.tsx
+#: src/trellis/trellis-titlebar.tsx
 msgid "Bibliography"
 msgstr "Bibliography"
 
@@ -15256,6 +15257,10 @@ msgstr "Switch to pdfLaTeX"
 #: src/editor/presentation/open-slide-workspace.tsx
 msgid "Switch to that window"
 msgstr "Switch to that window"
+
+#: src/app/use-command-table.ts
+msgid "Switch to the Bibliography layout"
+msgstr "Switch to the Bibliography layout"
 
 #: src/app/use-command-table.ts
 msgid "Switch to the Reading layout"
