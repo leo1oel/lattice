@@ -147,7 +147,7 @@ struct Saved {
     kept: bool,
 }
 
-pub(super) fn audit_key(entry: &AuditEntry) -> String {
+fn audit_key(entry: &AuditEntry) -> String {
     format!("{}\0{}", entry.path, entry.key)
 }
 
@@ -177,9 +177,9 @@ pub struct Audit {
     pub(super) applying: bool,
     pub(super) error: Option<String>,
     pub(super) view: Option<Bucket>,
-    /// The reference whose finding is open, by `audit_key`: a rescan
-    /// renumbers the references.
-    pub(super) open: Option<String>,
+    /// The reference whose finding is open; `set_entries` keeps it on the
+    /// same reference when a rescan renumbers them.
+    pub(super) open: Option<usize>,
     pub(super) scroll: ScrollHandle,
     generation: u64,
     focus: FocusHandle,
@@ -248,7 +248,7 @@ impl Audit {
                             .iter()
                             .map(|file| (file.path.clone(), file.kind.to_string(), file.entries))
                             .collect();
-                        this.entries = scan.entries;
+                        this.set_entries(scan.entries);
                         let saved: HashMap<String, Saved> = saved
                             .into_iter()
                             .filter_map(|(key, value)| {
@@ -438,7 +438,7 @@ impl Audit {
                 }
                 match scan {
                     Ok(scan) => {
-                        this.entries = scan.entries;
+                        this.set_entries(scan.entries);
                         this.carry_over(&saved, false);
                         cx.notify();
                         Some(
@@ -683,15 +683,34 @@ impl Audit {
     }
 
     pub(super) fn toggle(&mut self, index: usize, cx: &mut Context<Self>) {
-        let Some(key) = self.entries.get(index).map(audit_key) else {
-            return;
-        };
-        self.open = if self.open.as_ref() == Some(&key) {
+        self.open = if self.open == Some(index) {
             None
         } else {
-            Some(key)
+            Some(index)
         };
         cx.notify();
+    }
+
+    /// A fresh scan's references: the open one stays open by its file, key
+    /// and place among references sharing both.
+    fn set_entries(&mut self, entries: Vec<AuditEntry>) {
+        let open = self.open.and_then(|index| {
+            let key = audit_key(self.entries.get(index)?);
+            let nth = self.entries[..index]
+                .iter()
+                .filter(|entry| audit_key(entry) == key)
+                .count();
+            Some((key, nth))
+        });
+        self.entries = entries;
+        self.open = open.and_then(|(key, nth)| {
+            self.entries
+                .iter()
+                .enumerate()
+                .filter(|(_, entry)| audit_key(entry) == key)
+                .nth(nth)
+                .map(|(index, _)| index)
+        });
     }
 
     pub(super) fn open_source(&mut self, index: usize, cx: &mut Context<Self>) {

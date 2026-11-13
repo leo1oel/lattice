@@ -17,7 +17,7 @@ use lattice_ui::{
     icons::ICON, interaction::mix, tokens::FONT_WEIGHT_MEDIUM,
 };
 
-use super::{Audit, Bucket, audit_key};
+use super::{Audit, Bucket};
 use crate::search::sheet::SheetFrame;
 
 fn mark(bucket: Bucket, checking: bool, palette: &Palette) -> (Icon, Hsla) {
@@ -246,7 +246,7 @@ impl Audit {
             .get(&index)
             .map(|result| super::messages::result_message(&result.message))
             .unwrap_or_default();
-        let open = self.open.as_deref() == Some(audit_key(entry).as_str());
+        let open = self.open == Some(index);
         div()
             .flex()
             .flex_col()

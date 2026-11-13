@@ -324,7 +324,7 @@ impl BibEditor {
                 .ghost()
                 .icon(Icon::EXTERNAL_LINK)
                 .tooltip(url.clone())
-                .on_click(move |_, _, cx| cx.open_url(&url))
+                .on_click(move |_, _, cx| crate::papers::model::open_link(&url, cx))
         };
         let open_key = entry.key.clone();
         let (path, line) = (self.path.clone(), entry.line as u32);

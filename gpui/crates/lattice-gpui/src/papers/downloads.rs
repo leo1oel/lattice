@@ -217,7 +217,7 @@ impl PapersPanel {
         } else if let Some(url) = model::link_url(paper) {
             // Only a web address: a shared bibliography's `file://` or
             // `smb://` url would have the system launch what it names.
-            cx.open_url(&url);
+            model::open_link(&url, cx);
         }
     }
 

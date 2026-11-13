@@ -176,7 +176,7 @@ impl PapersPanel {
             actions = actions.child(
                 IconButton::new("paper-inspector-link", Icon::EXTERNAL_LINK)
                     .tooltip(t!("Open link in browser"))
-                    .on_click(move |_, _, cx| cx.open_url(&link)),
+                    .on_click(move |_, _, cx| model::open_link(&link, cx)),
             );
         }
 
@@ -392,14 +392,18 @@ impl PapersPanel {
                         .font_weight(FONT_WEIGHT_MEDIUM)
                         .text_color(ink)
                         .child(kind);
-                    if let Some(link) = health.link.clone() {
+                    if let Some(link) = health
+                        .link
+                        .clone()
+                        .filter(|link| model::openable_link(link))
+                    {
                         flag = flag
                             .px(px(2.))
                             .mx(px(-2.))
                             .rounded(px(4.))
                             .cursor_pointer()
                             .hover(|style| style.bg(palette.hover))
-                            .on_click(move |_, _, cx| cx.open_url(&link))
+                            .on_click(move |_, _, cx| model::open_link(&link, cx))
                             .child(Icon::ARROW_UP_RIGHT.element(ICON_SMALL, ink));
                     }
                     div()

@@ -177,6 +177,10 @@ pub struct BibEditor {
     /// A line the source moved to while the list was still drawn from an
     /// older text, followed once the parse catches up.
     follow: Option<u32>,
+    /// The buffer's edits as counted, and the count when the text the rows
+    /// were parsed from was read: they differ while a parse is due.
+    edits: u64,
+    parsed_edits: u64,
     pub(super) focus: FocusHandle,
     _parse: Option<Task<()>>,
     _usages: Option<Task<()>>,
@@ -197,6 +201,7 @@ impl BibEditor {
         let mut subscriptions = vec![
             cx.subscribe(&buffer, |this, _, event: &BufferEvent, cx| {
                 if matches!(event, BufferEvent::Edited { .. } | BufferEvent::Reloaded) {
+                    this.edits += 1;
                     this.schedule_parse(PARSE_SETTLE, cx);
                 }
             }),
@@ -237,12 +242,14 @@ impl BibEditor {
             deleted: None,
             deletes: 0,
             follow: None,
+            edits: 0,
+            parsed_edits: 0,
             focus: cx.focus_handle(),
             _parse: None,
             _usages: None,
             _subscriptions: subscriptions,
         };
-        this.apply_parse(parsed, cx);
+        this.apply_parse(parsed, 0, cx);
         this.scan_usages(cx);
         this
     }
@@ -336,16 +343,20 @@ impl BibEditor {
     fn schedule_parse(&mut self, delay: Duration, cx: &mut Context<Self>) {
         self._parse = Some(cx.spawn(async move |this, cx| {
             cx.background_executor().timer(delay).await;
-            let Ok(text) = this.update(cx, |this, cx| this.buffer.read(cx).text()) else {
+            let Ok((text, edits)) =
+                this.update(cx, |this, cx| (this.buffer.read(cx).text(), this.edits))
+            else {
                 return;
             };
             let parsed = cx.background_spawn(async move { parse_rows(text) }).await;
-            this.update(cx, |this, cx| this.apply_parse(parsed, cx))
+            this.update(cx, |this, cx| this.apply_parse(parsed, edits, cx))
                 .ok();
         }));
     }
 
-    fn apply_parse(&mut self, parsed: Parsed, cx: &mut Context<Self>) {
+    /// `edits`: the buffer's edit count when `parsed`'s text was read.
+    fn apply_parse(&mut self, parsed: Parsed, edits: u64, cx: &mut Context<Self>) {
+        self.parsed_edits = edits;
         if parsed.text != self.text || self.error.is_some() || parsed.error.is_some() {
             self.text = parsed.text;
             self.rows = parsed.rows;
@@ -422,7 +433,7 @@ impl BibEditor {
     pub fn follow_line(&mut self, line: u32, cx: &mut Context<Self>) {
         // The rows' offsets are the parsed text's: the line means nothing in
         // them until the parse of the buffer as it is now lands.
-        if self.buffer.read(cx).text() != self.text {
+        if self.parsed_edits != self.edits {
             self.follow = Some(line);
             return;
         }
@@ -494,7 +505,7 @@ impl BibEditor {
         self.buffer
             .update(cx, |buffer, cx| buffer.edit([(range, insert)], None, cx));
         let text = self.buffer.read(cx).text();
-        self.apply_parse(parse_rows(text), cx);
+        self.apply_parse(parse_rows(text), self.edits, cx);
     }
 
     /// Replace the whole text with `next`, computed from `base`; refused
@@ -601,6 +612,11 @@ impl BibEditor {
             self.buffer.update(cx, |buffer, cx| buffer.undo(cx));
         } else {
             let Some(at) = restore_at(&current, &deleted) else {
+                notices::error(
+                    t!("Could not restore “{key}”", key = deleted.key),
+                    t!("The references around it changed since it was deleted."),
+                    cx,
+                );
                 return;
             };
             self.splice(
@@ -613,7 +629,7 @@ impl BibEditor {
             );
         }
         let text = self.buffer.read(cx).text();
-        self.apply_parse(parse_rows(text), cx);
+        self.apply_parse(parse_rows(text), self.edits, cx);
         self.selected = Some(deleted.key.clone());
         self.reveal = Some(deleted.key);
         self.detail_open = true;

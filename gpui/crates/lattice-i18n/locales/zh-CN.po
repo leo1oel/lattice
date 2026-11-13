@@ -353,3 +353,11 @@ msgstr "打开项目后可查看它的论文"
 #: lattice-gpui/src/papers/linked/view.rs
 msgid "{target} changed while this was open. Its changes were compared again."
 msgstr "{target} 在此期间有改动，已重新比较其更改。"
+
+#: lattice-gpui/src/papers/bib_editor.rs
+msgid "Could not restore “{key}”"
+msgstr "没能恢复“{key}”"
+
+#: lattice-gpui/src/papers/bib_editor.rs
+msgid "The references around it changed since it was deleted."
+msgstr "删除后它周围的文献已有改动。"
