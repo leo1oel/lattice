@@ -206,7 +206,9 @@ fn document_name(relative: &str, fallback: &str) -> String {
 
 /// Make `relative` the only default root document, listing it if it is new.
 /// Returns whether the manifest changed.
-fn make_default_root(manifest: &mut ProjectManifest, relative: &str, fallback_name: &str) -> bool {
+pub(super) fn make_default_root(
+    manifest: &mut ProjectManifest, relative: &str, fallback_name: &str,
+) -> bool {
     let mut changed = false;
     if !manifest.root_documents.iter().any(|document| document.path == relative) {
         manifest.root_documents.push(RootDocument {
@@ -227,8 +229,7 @@ fn make_default_root(manifest: &mut ProjectManifest, relative: &str, fallback_na
 }
 
 /// In a project linked to Overleaf, a sync applies Overleaf's rename or delete
-/// of a root document (`main.tex` → `main_v2.tex`), which a local delete is
-/// refused. Still named here, it was restored into the editor and read as a
+/// of a root document (`main.tex` → `main_v2.tex`). Still named here, it was restored into the editor and read as a
 /// file that is gone ("No such file or directory"). Overleaf's copy decides
 /// what exists, so the roots that are gone are dropped, and a default that went
 /// with them, or a list left empty, is filled: by Overleaf's main document as
@@ -409,7 +410,7 @@ pub fn resolve_compile_root(root: &Path, open_path: &str) -> Option<CompileRoot>
 /// document by itself: `standalone` (a figure, a TikZ picture) or `subfiles`
 /// (a chapter that names its main document in the class option). The option
 /// list may span lines, so the uncommented text is read as one.
-fn compiles_alone(content: &str) -> bool {
+pub(super) fn compiles_alone(content: &str) -> bool {
     let code: String = content
         .lines()
         .map(|line| line.split('%').next().unwrap_or(""))

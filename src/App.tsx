@@ -607,7 +607,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
     compiledPdf: build?.success ? pdfUrl : null,
   });
   const {
-    rootDocumentPath, outlineNodes, liveReferences, todoHits, bodyBoundary, forgetIncludedSources,
+    outlineNodes, liveReferences, todoHits, bodyBoundary, forgetIncludedSources,
   } = latex;
   const tree = useProjectTree({
     projectState, documents, library: { refreshProject, refreshHistory }, setGitStatus,
@@ -712,7 +712,7 @@ function App({ surfaces }: { surfaces: AppSurfaces }) {
   // renders rather than by components of their own (see each hook).
   const panelPortals = usePanelPortals({
     project, documents, trellis, agentPresent, theme, appLocale, tree, library, overleafSyncing, paperActions,
-    referenceImport, openSymbolOccurrence, synara, tools, checkReferences, rootDocumentPath, gitFiles: projectGit.gitFiles,
+    referenceImport, openSymbolOccurrence, synara, tools, checkReferences, gitFiles: projectGit.gitFiles,
     citationReasons: editorComments.citationReasons,
     prewarm: { prewarmLikelyProjectFile, prewarmLikelyPaper },
     projectSearch: { open: projectSearchOpen, setOpen: setProjectSearchOpen, openFind: openProjectFind },

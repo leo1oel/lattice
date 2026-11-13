@@ -16026,10 +16026,6 @@ msgstr "The disk is full."
 msgid "The disk is read-only."
 msgstr "The disk is read-only."
 
-#: src/platform/host-errors-project.ts
-msgid "The document being compiled and its bibliography cannot be deleted."
-msgstr "The document being compiled and its bibliography cannot be deleted."
-
 #: src/editor/latex/latex-command-completions.ts
 msgid "The document body"
 msgstr "The document body"
@@ -16479,6 +16475,10 @@ msgstr "The presentation project must be a directory."
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "The previous Overleaf document could not be released. Syncing remains paused."
 msgstr "The previous Overleaf document could not be released. Syncing remains paused."
+
+#: src/platform/host-errors-project.ts
+msgid "The primary bibliography cannot be deleted."
+msgstr "The primary bibliography cannot be deleted."
 
 #: src/platform/host-errors-overleaf.ts
 msgid "The project changed before Overleaf could connect."
