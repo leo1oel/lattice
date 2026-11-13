@@ -92,6 +92,18 @@ impl EditorPanel {
         }
     }
 
+    /// A bibliography opening in Preview or Split has its visual form at
+    /// once, so the panel's focus is the form's before its first frame.
+    pub(super) fn ensure_bib_for_view(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.is_bib()
+            && self
+                .document_view()
+                .is_some_and(|view| view != DocumentView::Source)
+        {
+            self.ensure_bib(window, cx);
+        }
+    }
+
     /// A bibliography's visual form, when its view shows it.
     pub(super) fn bib_for_view(
         &mut self,

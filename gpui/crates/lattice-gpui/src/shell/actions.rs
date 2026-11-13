@@ -96,8 +96,7 @@ impl Shell {
     /// ⌘W: the focused editor, else the document in front, else any document
     /// on screen; the window when no document is open.
     pub(crate) fn close_tab(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(reader) = self.focused_reader(window, cx) {
-            self.close_panel(reader, window, cx);
+        if self.close_focused_reader(window, cx) {
             return;
         }
         let editors = self.open_editors();

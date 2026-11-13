@@ -324,7 +324,9 @@ impl Shell {
             && let Some(root) = self.root(cx)
             && let Some(editor) = self.open_editor(&root.join(active), cx)
         {
-            window.focus(&editor.read(cx).editor().focus_handle(cx), cx);
+            // The panel's own: a file showing only its visual form or
+            // preview takes the keys there, not in the hidden source.
+            window.focus(&editor.read(cx).focus_handle(cx), cx);
         } else {
             window.focus(&self.focus_handle, cx);
         }

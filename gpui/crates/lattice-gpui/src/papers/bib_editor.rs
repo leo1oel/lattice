@@ -129,10 +129,16 @@ pub(super) fn unreadable_reason(error: &BibParseError) -> String {
 
 /// The last delete, for its notice's Undo.
 struct Deleted {
+    /// Which delete it was: an older notice's Undo finds it gone.
+    id: u64,
     /// The text the delete left.
     text: String,
     removed: String,
-    at: usize,
+    /// The references that followed and preceded it in the file, by key:
+    /// once the text has moved on, it goes back beside them, never at an
+    /// old offset that may now fall inside another entry.
+    next: Option<String>,
+    previous: Option<String>,
     key: String,
 }
 
@@ -167,6 +173,10 @@ pub struct BibEditor {
     pub(super) detail: Option<detail::Detail>,
     pub(super) adding: Option<Entity<add::AddReference>>,
     deleted: Option<Deleted>,
+    deletes: u64,
+    /// A line the source moved to while the list was still drawn from an
+    /// older text, followed once the parse catches up.
+    follow: Option<u32>,
     pub(super) focus: FocusHandle,
     _parse: Option<Task<()>>,
     _usages: Option<Task<()>>,
@@ -225,6 +235,8 @@ impl BibEditor {
             detail: None,
             adding: None,
             deleted: None,
+            deletes: 0,
+            follow: None,
             focus: cx.focus_handle(),
             _parse: None,
             _usages: None,
@@ -254,6 +266,11 @@ impl BibEditor {
 
     pub(super) fn papers(&self) -> Option<&Entity<PapersPanel>> {
         self.papers.as_ref()
+    }
+
+    /// The form's width as it was last laid out; zero before it is drawn.
+    pub fn laid_out_width(&self) -> f32 {
+        self.width.get()
     }
 
     /// The references' keys, in file order.
@@ -329,14 +346,16 @@ impl BibEditor {
     }
 
     fn apply_parse(&mut self, parsed: Parsed, cx: &mut Context<Self>) {
-        if parsed.text == self.text && self.error.is_none() && parsed.error.is_none() {
-            return;
+        if parsed.text != self.text || self.error.is_some() || parsed.error.is_some() {
+            self.text = parsed.text;
+            self.rows = parsed.rows;
+            self.macros = parsed.macros;
+            self.error = parsed.error;
+            cx.notify();
         }
-        self.text = parsed.text;
-        self.rows = parsed.rows;
-        self.macros = parsed.macros;
-        self.error = parsed.error;
-        cx.notify();
+        if let Some(line) = self.follow.take() {
+            self.follow_line(line, cx);
+        }
     }
 
     /// Where the manuscript cites each key, read again.
@@ -401,6 +420,12 @@ impl BibEditor {
     /// The source beside the list moved to `line`: the list follows the
     /// reference under it (`use-bib-source-sync.ts`).
     pub fn follow_line(&mut self, line: u32, cx: &mut Context<Self>) {
+        // The rows' offsets are the parsed text's: the line means nothing in
+        // them until the parse of the buffer as it is now lands.
+        if self.buffer.read(cx).text() != self.text {
+            self.follow = Some(line);
+            return;
+        }
         let offset = line_offset(&self.text, line);
         let Some(row) = self
             .rows
@@ -494,18 +519,12 @@ impl BibEditor {
     }
 
     pub(super) fn delete(&mut self, key: String, index: usize, cx: &mut Context<Self>) {
+        // The next reference down takes its place, else the one above: read
+        // from the list before the delete parses the text again.
         let shown = self.shown(cx);
-        let at = shown.iter().position(|row| *row == index);
-        let Some((base, change)) = self.edit_entry(
-            &key,
-            index,
-            |source, entry| Some(bib_document::delete_entry_edit(source, entry)),
-            cx,
-        ) else {
-            return;
-        };
-        // The next reference down takes its place, else the one above.
-        let neighbour = at
+        let neighbour = shown
+            .iter()
+            .position(|row| *row == index)
             .and_then(|at| {
                 shown
                     .get(at + 1)
@@ -517,11 +536,34 @@ impl BibEditor {
                     .find(|row| row.index == *index && row.entry.key != key)
             })
             .map(|row| row.entry.key.clone());
+        let Some((base, change)) = self.edit_entry(
+            &key,
+            index,
+            |source, entry| Some(bib_document::delete_entry_edit(source, entry)),
+            cx,
+        ) else {
+            return;
+        };
         self.selected = neighbour;
+        self.deletes += 1;
+        let id = self.deletes;
+        let next = self
+            .rows
+            .iter()
+            .find(|row| row.entry.from >= change.from)
+            .map(|row| row.entry.key.clone());
+        let previous = self
+            .rows
+            .iter()
+            .rev()
+            .find(|row| row.entry.to <= change.from)
+            .map(|row| row.entry.key.clone());
         self.deleted = Some(Deleted {
+            id,
             text: self.text.clone(),
             removed: base[change.from..change.to].to_string(),
-            at: change.from,
+            next,
+            previous,
             key: key.clone(),
         });
         let cited = self
@@ -535,7 +577,7 @@ impl BibEditor {
         )
         .key(format!("bib-delete:{}:{key}", self.path))
         .action(NoticeAction::new(t!("Undo"), move |_, cx| {
-            view.update(cx, |this, cx| this.undo_delete(cx)).ok();
+            view.update(cx, |this, cx| this.undo_delete(id, cx)).ok();
         }));
         if cited > 0 {
             notice = notice.detail(t!(
@@ -546,7 +588,10 @@ impl BibEditor {
         notices::show(notice, cx);
     }
 
-    fn undo_delete(&mut self, cx: &mut Context<Self>) {
+    fn undo_delete(&mut self, id: u64, cx: &mut Context<Self>) {
+        if self.deleted.as_ref().is_none_or(|deleted| deleted.id != id) {
+            return;
+        }
         let Some(deleted) = self.deleted.take() else {
             return;
         };
@@ -555,11 +600,9 @@ impl BibEditor {
         if current == deleted.text {
             self.buffer.update(cx, |buffer, cx| buffer.undo(cx));
         } else {
-            let at = deleted.at.min(current.len());
-            let at = (0..=at)
-                .rev()
-                .find(|at| current.is_char_boundary(*at))
-                .unwrap_or(0);
+            let Some(at) = restore_at(&current, &deleted) else {
+                return;
+            };
             self.splice(
                 &BibEdit {
                     from: at,
@@ -603,6 +646,7 @@ impl BibEditor {
             .into());
         }
         self.show_all(window, cx);
+        window.focus(&self.focus, cx);
         self.selected = Some(key.to_string());
         self.reveal = Some(key.to_string());
         self.detail_open = true;
@@ -720,6 +764,41 @@ impl BibEditor {
                 .scroll_to_item(target, gpui::ScrollStrategy::Nearest);
         }
     }
+}
+
+/// Where a deleted reference goes back into `current`, a text edited since
+/// the delete: before the reference that followed it, else after the line
+/// of the one that preceded it, else at the end when it was the only one.
+/// None when those are gone, or the text would not read whole with it back.
+fn restore_at(current: &str, deleted: &Deleted) -> Option<usize> {
+    let document = bib_document::parse(current).ok()?;
+    let find = |key: &Option<String>| {
+        let key = key.as_deref()?;
+        document.entries.iter().find(|entry| entry.key == key)
+    };
+    let at = if let Some(next) = find(&deleted.next) {
+        if deleted.removed.ends_with('\n') {
+            current[..next.from].rfind('\n').map_or(0, |at| at + 1)
+        } else {
+            next.from
+        }
+    } else if let Some(previous) = find(&deleted.previous) {
+        current[previous.to..]
+            .find('\n')
+            .map_or(current.len(), |at| previous.to + at + 1)
+    } else if deleted.next.is_none() && deleted.previous.is_none() {
+        current.len()
+    } else {
+        return None;
+    };
+    let mut restored = current.to_string();
+    restored.insert_str(at, &deleted.removed);
+    bib_document::parse(&restored)
+        .ok()?
+        .entries
+        .iter()
+        .any(|entry| entry.key == deleted.key)
+        .then_some(at)
 }
 
 /// The byte offset of the start of the 1-based `line` in `text`.

@@ -237,17 +237,15 @@ fn decode_entities(text: &str) -> String {
 /// A Zotero comment as Markdown: its words escaped, its bold and italic
 /// kept, a blank line between its paragraphs (`zoteroCommentMarkdown`).
 pub fn comment_markdown(comment: &str) -> String {
+    // Only a tag's shape is a tag: `p<0.05` and `<p2>` are words.
+    static TAG: std::sync::LazyLock<regex::Regex> =
+        std::sync::LazyLock::new(|| regex::Regex::new(r"(?i)</?[a-z]+(?:\s[^<>]*)?/?>").unwrap());
     let mut out = String::new();
     let mut rest = comment;
-    while let Some(open) = rest.find('<') {
-        out.push_str(&markdown_text(&decode_entities(&rest[..open])));
-        let Some(close) = rest[open..].find('>') else {
-            out.push_str(&markdown_text(&decode_entities(&rest[open..])));
-            rest = "";
-            break;
-        };
-        let tag = &rest[open + 1..open + close];
-        rest = &rest[open + close + 1..];
+    while let Some(found) = TAG.find(rest) {
+        out.push_str(&markdown_text(&decode_entities(&rest[..found.start()])));
+        let tag = &rest[found.start() + 1..found.end() - 1];
+        rest = &rest[found.end()..];
         let closing = tag.starts_with('/');
         let name: String = tag
             .trim_start_matches('/')
@@ -462,5 +460,8 @@ mod tests {
             comment_markdown("<p>Costs $5 &amp; <i>more</i></p><p># not a heading</p>"),
             "Costs \\$5 & *more*\n\\# not a heading"
         );
+        let bold = comment_markdown("p<0.05, <b>significant</b>");
+        assert!(bold.ends_with(", **significant**"), "{bold}");
+        assert_eq!(comment_markdown("<p2>x"), "\\<p2\\>x");
     }
 }

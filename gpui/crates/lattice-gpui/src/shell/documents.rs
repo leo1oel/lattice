@@ -226,7 +226,11 @@ impl Shell {
             self.documents.find_memory = find.read(cx).memory(cx);
         }
         self.documents.replace = None;
-        self.documents.add_papers = None;
+        // However Add papers goes (Cancel, the palette, another surface), a
+        // finished batch goes with it, as its own Cancel clears it.
+        if self.documents.add_papers.take().is_some() {
+            self.papers.update(cx, |papers, cx| papers.clear_batch(cx));
+        }
         self.documents.literature = None;
         self.documents.audit = None;
         self.documents.add_reference = None;

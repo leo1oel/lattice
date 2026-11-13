@@ -62,7 +62,7 @@ pub(super) struct FieldRow {
 
 pub(in crate::papers) struct Detail {
     /// The reference it was built for, and its text then.
-    key: String,
+    pub(super) key: String,
     signature: String,
     key_input: Entity<InputState>,
     pub(super) key_error: Option<String>,

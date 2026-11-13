@@ -75,21 +75,26 @@ impl Run {
             json!({ "written": written, "landed": after.contains("year = {1986}"), "undone": undone }),
         );
 
+        // Alone, the form spans the panel; beside the source it is laid out
+        // narrower, the source taking the rest.
+        let alone = cx.update(|cx| bib.read(cx).laid_out_width());
         self.with_window(cx, |_, window, cx| {
             editor.update(cx, |editor, cx| {
                 editor.set_document_view(DocumentView::Split, window, cx)
             })
         })?;
-        self.pause(cx, Duration::from_millis(200)).await;
+        let split = self
+            .wait_for(cx, Duration::from_secs(2), |_, cx| {
+                let beside = bib.read(cx).laid_out_width();
+                beside > 0. && beside < alone - 100.
+            })
+            .await;
         self.papers_shot(cx, "bib-2-split").await;
-        let split = cx.update(|cx| {
-            editor.read(cx).document_view() == Some(DocumentView::Split)
-                && editor.read(cx).bib_editor().is_some()
-        });
+        let beside = cx.update(|cx| bib.read(cx).laid_out_width());
         steps.check(
             "Split shows the .bib source beside its list",
-            split,
-            json!({ "split": split }),
+            alone > 0. && split,
+            json!({ "alone": alone, "beside": beside }),
         );
         // The next bibliography opens in the source again.
         self.with_window(cx, |_, window, cx| {

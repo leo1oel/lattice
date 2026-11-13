@@ -18,7 +18,7 @@ use lattice_ui::{
     tokens::FONT_WEIGHT_MEDIUM,
 };
 
-use super::{ZoteroBrowser, ZoteroPaper, folder_counts, folder_rows};
+use super::{ZoteroBrowser, ZoteroPaper, folder_rows};
 
 /// A sheet this narrow shows the folders or the papers, not both.
 const ONE_PANE: f32 = 560.;
@@ -195,7 +195,7 @@ impl ZoteroBrowser {
                 .into_any_element();
         };
         let query = self.folder_query.read(cx).value().to_string();
-        let counts = folder_counts(&library, self.subfolders);
+        let counts = self.folder_counts();
         let rows = folder_rows(&library.collections, &self.expanded, &query);
         let mut tree = div()
             .id("zotero-tree")

@@ -45,6 +45,8 @@ struct Loaded {
     /// The library as last taken in; none before the first update from
     /// this file.
     base: Option<String>,
+    /// The project's `.bib` as compared: the changes are measured on it.
+    local: String,
     changes: Vec<LibraryChange>,
 }
 
@@ -178,7 +180,7 @@ impl LinkedLibrary {
                 &file_name(&into),
                 cited.as_ref(),
             )?;
-            Ok::<_, String>((library, changes))
+            Ok::<_, String>((library, local, changes))
         });
         self._task = Some(cx.spawn(async move |this, cx| {
             let read = read.await;
@@ -187,7 +189,7 @@ impl LinkedLibrary {
                     return;
                 }
                 match read {
-                    Ok((library, changes)) => {
+                    Ok((library, local, changes)) => {
                         // New papers come in unless unticked; a library's
                         // update does once the link has a base to tell it
                         // from the writer's own edits. Nothing is removed
@@ -205,6 +207,7 @@ impl LinkedLibrary {
                             source,
                             library,
                             base,
+                            local,
                             changes,
                         });
                     }
@@ -300,12 +303,19 @@ impl LinkedLibrary {
         let chosen = self.chosen();
         let (root, target) = (self.root.clone(), self.target());
         let (source, library) = (loaded.source.clone(), loaded.library.clone());
+        let compared = loaded.local.clone();
+        let again = source.clone();
         let relinking = self.link.as_ref().is_none_or(|link| link.source != source);
         let write = cx.background_spawn(async move {
             let changed = if chosen.is_empty() {
                 false
             } else {
                 let current = core_project::read_file(&root, &target)?;
+                // Edited since the comparison: the ticked changes may now
+                // overwrite those edits, or remove an entry newly cited.
+                if current != compared {
+                    return Ok(None);
+                }
                 let next = apply_library_changes(&current, &library, &chosen)?;
                 if next != current {
                     core_project::apply_editor_transaction(
@@ -321,14 +331,26 @@ impl LinkedLibrary {
                 }
             };
             let link = core_project::save_linked_bibliography(&root, &source, &target, library)?;
-            Ok::<_, String>((changed, link))
+            Ok::<_, String>(Some((changed, link)))
         });
         let library_name = file_name(&loaded.source);
         let target = self.target();
         cx.spawn(async move |this, cx| {
             let written = write.await;
             this.update(cx, |this, cx| match written {
-                Ok((changed, link)) => {
+                Ok(None) => {
+                    notices::info(
+                        t!("Linked library"),
+                        t!(
+                            "{target} changed while this was open. Its changes were compared again.",
+                            target = target
+                        ),
+                        cx,
+                    );
+                    this.busy = false;
+                    this.load(again, cx);
+                }
+                Ok(Some((changed, link))) => {
                     this.link = Some(link);
                     let message = if changed {
                         t!(
