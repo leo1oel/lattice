@@ -16,9 +16,9 @@
 use std::path::PathBuf;
 
 use gpui::{
-    App, AppContext as _, Context, Entity, EventEmitter, InteractiveElement as _, IntoElement,
-    ParentElement as _, Render, SharedString, StatefulInteractiveElement as _, Styled as _,
-    Subscription, Task, Window, div, prelude::FluentBuilder as _, px,
+    App, AppContext as _, Context, Entity, EventEmitter, Focusable as _, InteractiveElement as _,
+    IntoElement, ParentElement as _, Render, SharedString, StatefulInteractiveElement as _,
+    Styled as _, Subscription, Task, Window, div, prelude::FluentBuilder as _, px,
 };
 use gpui_kit::component::input::{InputEvent, InputState};
 use lattice_core::{models::SymbolOccurrence, project::Symbol};
@@ -416,7 +416,6 @@ impl RenameSymbolDialog {
                 this.submit(cx);
             }
         });
-        field.update(cx, |field, cx| field.focus(window, cx));
         Self {
             kind,
             old,
@@ -425,6 +424,11 @@ impl RenameSymbolDialog {
             busy: false,
             _field: subscription,
         }
+    }
+
+    /// Whether the keyboard is in the name.
+    pub fn name_focused(&self, window: &Window, cx: &App) -> bool {
+        self.field.read(cx).focus_handle(cx).is_focused(window)
     }
 
     fn name(&self, cx: &App) -> String {
@@ -547,6 +551,7 @@ impl Render for RenameSymbolDialog {
             },
         )
         .closable_by_scrim(!busy)
+        .initial_focus(self.field.focus_handle(cx))
     }
 }
 

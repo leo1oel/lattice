@@ -141,16 +141,8 @@ pub struct Shell {
     pub(crate) history: Entity<crate::history::HistoryPanel>,
     /// The manuscript's TODOs tool panel (`crate::submission::todos`).
     pub(crate) todos: Entity<crate::submission::todos::TodosPanel>,
-    /// A symbol's occurrences, in the bar under the titlebar, while shown.
-    pub(crate) references: Option<(
-        Entity<crate::submission::references::ReferencesBar>,
-        Subscription,
-    )>,
-    /// The rename dialog, while it is open.
-    pub(crate) rename: Option<(
-        Entity<crate::submission::references::RenameSymbolDialog>,
-        Subscription,
-    )>,
+    /// A symbol's occurrences bar and rename dialog (`references_flow`).
+    pub(crate) references: references_flow::References,
     /// The arXiv export sheet, while it is open.
     pub(crate) arxiv: Option<(
         Entity<crate::submission::arxiv::ArxivExportSheet>,
@@ -424,8 +416,7 @@ impl Shell {
             history,
             todos,
             arxiv: None,
-            references: None,
-            rename: None,
+            references: Default::default(),
             conflict: None,
             conflicts_noticed: Default::default(),
             _project_git: None,
@@ -629,6 +620,7 @@ impl Shell {
             }
         }
         self.drop_conflict_notice(cx);
+        self.references = Default::default();
         self.project = Some(project.clone());
         // The editors of the project open before go with its arrangement.
         self.editors.clear();

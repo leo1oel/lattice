@@ -26,9 +26,9 @@
 use std::rc::Rc;
 
 use gpui::{
-    AnimationExt as _, AnyElement, App, ElementId, Hsla, InteractiveElement as _, IntoElement,
-    ParentElement, Pixels, RenderOnce, SharedString, StatefulInteractiveElement as _, Styled as _,
-    Window, deferred, div, hsla, prelude::FluentBuilder as _, px,
+    AnimationExt as _, AnyElement, App, ElementId, FocusHandle, Hsla, InteractiveElement as _,
+    IntoElement, ParentElement, Pixels, RenderOnce, SharedString, StatefulInteractiveElement as _,
+    Styled as _, Window, deferred, div, hsla, prelude::FluentBuilder as _, px,
 };
 use gpui_kit::base::Sheet as SheetHost;
 
@@ -277,6 +277,7 @@ pub struct ModalLayer {
     placement: LayerPlacement,
     surface: AnyElement,
     closable: bool,
+    initial_focus: Option<FocusHandle>,
     on_close: CloseHandler,
 }
 
@@ -292,8 +293,16 @@ impl ModalLayer {
             placement,
             surface: surface.into_any_element(),
             closable: true,
+            initial_focus: None,
             on_close: Rc::new(on_close),
         }
+    }
+
+    /// Give focus, when the layer first draws, to this handle inside the
+    /// surface (a dialog's field, for typing at once) instead of the layer.
+    pub fn initial_focus(mut self, handle: FocusHandle) -> Self {
+        self.initial_focus = Some(handle);
+        self
     }
 
     /// Keep a press on the scrim from closing a surface that holds unsaved
@@ -312,10 +321,11 @@ impl RenderOnce for ModalLayer {
         // The layer takes focus once, when it first draws, so Escape reaches
         // the host; after that focus moves only inside it. What held focus
         // before is kept to be given it back on close.
+        let initial = self.initial_focus;
         let focus = window.use_keyed_state(child("focus"), cx, |window, cx| {
             let previous = window.focused(cx);
             let focus = cx.focus_handle();
-            focus.focus(window, cx);
+            initial.as_ref().unwrap_or(&focus).focus(window, cx);
             (focus, previous)
         });
         let (focus, previous) = focus.read(cx).clone();

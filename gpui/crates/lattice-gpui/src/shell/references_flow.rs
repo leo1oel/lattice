@@ -4,7 +4,7 @@
 //! `.tex` editor, the bar under the titlebar, and the rename dialog over the
 //! window.
 
-use gpui::{AppContext as _, Context, Window, actions};
+use gpui::{AppContext as _, Context, Entity, Subscription, Task, Window, actions};
 use lattice_ui::components::ToastLevel;
 
 use super::Shell;
@@ -17,6 +17,20 @@ use crate::{
 };
 
 actions!(lattice, [FindReferences, RenameSymbol]);
+
+/// The window's symbol tools, all of the open project: a project switch
+/// drops them together, so nothing listed or renamed in one project acts on
+/// the next.
+#[derive(Default)]
+pub(crate) struct References {
+    /// A symbol's occurrences, in the bar under the titlebar, while shown.
+    pub(crate) bar: Option<(Entity<ReferencesBar>, Subscription)>,
+    /// The rename dialog, while it is open.
+    pub(crate) rename: Option<(Entity<RenameSymbolDialog>, Subscription)>,
+    /// The find whose occurrences the bar shows next; a newer find, or the
+    /// project going, drops it before it lands.
+    find: Option<Task<()>>,
+}
 
 impl Shell {
     /// The label or citation key under the caret of the editor in front,
@@ -73,7 +87,7 @@ impl Shell {
     ) {
         let Some(root) = self.root(cx) else { return };
         let found = references::find_occurrences(root, kind, symbol.clone(), cx);
-        cx.spawn_in(window, async move |this, cx| {
+        self.references.find = Some(cx.spawn_in(window, async move |this, cx| {
             let found = found.await;
             this.update_in(cx, |this, window, cx| match found {
                 Ok(occurrences) => {
@@ -92,18 +106,17 @@ impl Shell {
                                 this.begin_rename(kind, symbol, window, cx);
                             }
                             ReferencesEvent::Dismiss => {
-                                this.references = None;
+                                this.references.bar = None;
                                 cx.notify();
                             }
                         });
-                    this.references = Some((bar, subscription));
+                    this.references.bar = Some((bar, subscription));
                     cx.notify();
                 }
                 Err(error) => notices::show(Notice::new(ToastLevel::Error, error), cx),
             })
             .ok();
-        })
-        .detach();
+        }));
     }
 
     pub(crate) fn begin_rename(
@@ -120,7 +133,7 @@ impl Shell {
                 window,
                 |this, dialog, event, window, cx| match event {
                     RenameEvent::Close => {
-                        this.rename = None;
+                        this.references.rename = None;
                         this.focus_front(window, cx);
                         cx.notify();
                     }
@@ -129,7 +142,7 @@ impl Shell {
                     }
                 },
             );
-        self.rename = Some((dialog, subscription));
+        self.references.rename = Some((dialog, subscription));
         cx.notify();
     }
 
@@ -165,7 +178,11 @@ impl Shell {
             match renamed.await {
                 Ok(()) => {
                     this.update_in(cx, |this, window, cx| {
-                        this.rename = None;
+                        let open = this.references.rename.as_ref();
+                        if open.is_none_or(|(open, _)| *open != dialog) {
+                            return;
+                        }
+                        this.references.rename = None;
                         this.focus_front(window, cx);
                         this.history.update(cx, |history, cx| history.reload(cx));
                         this.show_references(kind, name, window, cx);

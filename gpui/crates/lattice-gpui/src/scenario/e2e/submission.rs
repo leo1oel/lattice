@@ -8,7 +8,7 @@
 use std::{path::Path, time::Duration};
 
 use anyhow::{Context as _, Result};
-use gpui::{AppContext as _, AsyncApp};
+use gpui::AsyncApp;
 use serde_json::json;
 
 use super::Steps;
@@ -115,6 +115,7 @@ impl Run {
                 shell
                     .read(cx)
                     .references
+                    .bar
                     .as_ref()
                     .is_some_and(|(bar, _)| bar.read(cx).occurrences.len() >= 2)
             })
@@ -123,6 +124,7 @@ impl Run {
             self.shell
                 .read(cx)
                 .references
+                .bar
                 .as_ref()
                 .map(|(bar, _)| {
                     bar.read(cx)
@@ -145,8 +147,24 @@ impl Run {
         // the new name.
         self.with_window(cx, |shell, window, cx| {
             shell.update(cx, |shell, cx| {
-                shell.begin_rename(SymbolKind::Label, "sec:method".into(), window, cx);
-                if let Some(dialog) = shell.rename.as_ref().map(|(dialog, _)| dialog.clone()) {
+                shell.begin_rename(SymbolKind::Label, "sec:method".into(), window, cx)
+            })
+        })?;
+        self.frame_after_input(cx).await?;
+        let typing = self.with_window(cx, |shell, window, cx| {
+            let shell = shell.read(cx);
+            let dialog = shell.references.rename.as_ref().map(|(dialog, _)| dialog);
+            dialog.is_some_and(|dialog| dialog.read(cx).name_focused(window, cx))
+        })?;
+        steps.check(
+            "the rename dialog opens with the keyboard in the name",
+            typing,
+            json!({}),
+        );
+        self.with_window(cx, |shell, window, cx| {
+            shell.update(cx, |shell, cx| {
+                let dialog = shell.references.rename.as_ref();
+                if let Some(dialog) = dialog.map(|(dialog, _)| dialog.clone()) {
                     shell.submit_rename(dialog, "sec:approach".into(), window, cx);
                 }
             })
@@ -154,9 +172,10 @@ impl Run {
         let renamed = self
             .wait_for(cx, Duration::from_secs(10), |shell, cx| {
                 let shell = shell.read(cx);
-                shell.rename.is_none()
+                shell.references.rename.is_none()
                     && shell
                         .references
+                        .bar
                         .as_ref()
                         .is_some_and(|(bar, _)| bar.read(cx).symbol == "sec:approach")
             })
@@ -185,7 +204,7 @@ impl Run {
         .map_err(anyhow::Error::msg)?;
         cx.update(|cx| {
             self.shell.update(cx, |shell, cx| {
-                shell.references = None;
+                shell.references.bar = None;
                 cx.notify();
             })
         });
@@ -257,8 +276,6 @@ impl Run {
             json!({ "bytes": size }),
         );
         std::fs::remove_file(&zip).ok();
-        // The sheet's own entity is gone with it.
-        let _ = cx.update(|cx| cx.new(|_| ()));
         Ok(())
     }
 }
