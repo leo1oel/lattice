@@ -247,6 +247,9 @@ impl TexlabDiagnostics {
         // the sync reads the new one when it fires.
         self.schedule_sync(cx);
         self.path = path;
+        if !self.path.ends_with(".tex") {
+            self._sync = None;
+        }
         self.raw.clear();
         self.show(cx);
     }

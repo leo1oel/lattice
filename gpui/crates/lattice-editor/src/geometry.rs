@@ -78,6 +78,28 @@ pub(crate) fn caret_rect(
     })
 }
 
+/// The rectangle the character at `offset` covers: from its caret to the
+/// next one's on the same display row, or an em wide where the row ends
+/// (at a wrap or the line's end).
+pub(crate) fn character_rect(
+    editor: &Entity<Editor>,
+    text: &BufferSnapshot,
+    offset: usize,
+    bounds: Bounds<Pixels>,
+    window: &mut Window,
+    cx: &mut App,
+) -> Option<Bounds<Pixels>> {
+    let start = caret_rect(editor, text, offset, bounds, window, cx)?;
+    let next = offset + text.chars_at(offset).next().map_or(0, char::len_utf8);
+    let width = caret_rect(editor, text, next, bounds, window, cx)
+        .filter(|end| end.top() == start.top() && end.left() > start.left())
+        .map_or(start.size.width, |end| end.left() - start.left());
+    Some(Bounds {
+        origin: start.origin,
+        size: size(width, start.size.height),
+    })
+}
+
 /// The rectangle a range covers on its first display row: from its start's
 /// caret to its end's when both are on that row, else to the row's end.
 pub(crate) fn first_row_rect(

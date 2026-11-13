@@ -163,18 +163,14 @@ impl LatticeEditor {
         let Some(offset) = geometry::offset_at(&self.editor, &text, position, window, cx) else {
             return Vec::new();
         };
-        let mut targets = self.text_targets(&text, offset, cx);
         // `character_index_for_point` clamps a point past a line's end to
-        // the end: the pointer must be over each target's own text.
-        targets.retain(|target| {
-            let range = target.offsets(&text);
-            let multi_row =
-                text.offset_to_point(range.end).row != text.offset_to_point(range.start).row;
-            multi_row
-                || geometry::first_row_rect(&self.editor, &text, range, bounds, window, cx)
-                    .is_some_and(|rect| geometry::near(rect, position, px(1.)))
-        });
-        targets
+        // the end: the pointer must be over the character it names.
+        let over_text = geometry::character_rect(&self.editor, &text, offset, bounds, window, cx)
+            .is_some_and(|rect| geometry::near(rect, position, px(1.)));
+        if !over_text {
+            return Vec::new();
+        }
+        self.text_targets(&text, offset, cx)
     }
 
     /// The gutter mark whose line the pointer is beside, when it has a card.
@@ -279,7 +275,7 @@ impl LatticeEditor {
                 .cloned()
                 .collect();
             let moved_on = !candidates.is_empty() && kept.is_empty();
-            if on_card || (near_target && !moved_on) {
+            if on_card || !kept.is_empty() || (near_target && !moved_on) {
                 let follow = !on_card
                     && !candidates.is_empty()
                     && !same_places(&targets, &candidates, &text);
