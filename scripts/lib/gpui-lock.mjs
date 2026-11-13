@@ -1,49 +1,63 @@
 /**
- * A lock every checkout on this machine shares, held for one GPUI release
- * build or test run: the host has 16 GB of memory, a GPUI release build takes
- * several GB of rustc per job, and two of them at once, from two worktrees,
- * swapped the machine to a crawl. `scripts/gpui-build.mjs` holds it around
- * the shared build tree as well, which only one build may write at a time.
+ * Locks every checkout on this machine shares. Each is a directory, which
+ * mkdir creates atomically; the owner's pid inside lets a waiter take over a
+ * lock its holder died holding.
  *
- * It is a directory, which mkdir creates atomically; the owner's pid inside
- * lets a waiter take over a lock its holder died holding.
+ * - The build lock is held for one GPUI release build or test run: the host
+ *   has 16 GB of memory, a GPUI release build takes several GB of rustc per
+ *   job, and two of them at once, from two worktrees, swapped the machine to
+ *   a crawl. `scripts/gpui-build.mjs` holds it around the shared build tree
+ *   as well, which only one build may write at a time.
+ * - The input lock is held while a scenario drives the GPUI app with native
+ *   input or brings its window to the front (`gpui/script/e2e`, the parity
+ *   harness): two at once steal each other's focus, clicks and keys, so steps
+ *   fail spuriously (a context-menu click landing in the other app's tree).
+ *   It is separate from the build lock, so one worktree's build and
+ *   another's e2e run overlap.
  */
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
-// /tmp, not os.tmpdir(): macOS gives each user session its own TMPDIR.
-const LOCK = "/tmp/lattice-gpui-release.lock";
-let holding = false;
+const held = new Set();
 
-/** Waits for the lock, then takes it; `who` is shown to anyone waiting. */
-export async function acquireGpuiLock(who) {
-  let announced = false;
-  for (;;) {
-    try {
-      mkdirSync(LOCK);
-      writeFileSync(path.join(LOCK, "owner"), `${process.pid} ${who}\n`);
-      holding = true;
-      return;
-    } catch (error) {
-      if (error.code !== "EEXIST") throw error;
-    }
-    let owner = "";
-    try {
-      owner = readFileSync(path.join(LOCK, "owner"), "utf8").trim();
-    } catch {
-      // Created but not yet written; the next poll reads it.
-    }
-    const pid = Number(owner.split(" ")[0]);
-    if (pid && !alive(pid)) {
-      rmSync(LOCK, { recursive: true, force: true });
-      continue;
-    }
-    if (!announced) {
-      console.log(`  (waiting for another GPUI release build to finish: ${owner || "starting"})`);
-      announced = true;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 5_000));
-  }
+function machineLock(dir, waitingFor) {
+  return {
+    /** Waits for the lock, then takes it; `who` is shown to anyone waiting. */
+    async acquire(who) {
+      let announced = false;
+      for (;;) {
+        try {
+          mkdirSync(dir);
+          writeFileSync(path.join(dir, "owner"), `${process.pid} ${who}\n`);
+          held.add(dir);
+          return;
+        } catch (error) {
+          if (error.code !== "EEXIST") throw error;
+        }
+        let owner = "";
+        try {
+          owner = readFileSync(path.join(dir, "owner"), "utf8").trim();
+        } catch {
+          // Created but not yet written; the next poll reads it.
+        }
+        const pid = Number(owner.split(" ")[0]);
+        if (pid && !alive(pid)) {
+          console.log(`  (taking over ${dir} from pid ${pid}, which died holding it)`);
+          rmSync(dir, { recursive: true, force: true });
+          continue;
+        }
+        if (!announced) {
+          console.log(`  (waiting for ${waitingFor} held by ${owner || "a process starting up"})`);
+          announced = true;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 5_000));
+      }
+    },
+    release() {
+      if (!held.delete(dir)) return;
+      rmSync(dir, { recursive: true, force: true });
+    },
+  };
 }
 
 function alive(pid) {
@@ -55,16 +69,23 @@ function alive(pid) {
   }
 }
 
-export function releaseGpuiLock() {
-  if (!holding) return;
-  holding = false;
-  rmSync(LOCK, { recursive: true, force: true });
-}
+// /tmp, not os.tmpdir(): macOS gives each user session its own TMPDIR.
+const build = machineLock("/tmp/lattice-gpui-release.lock", "the GPUI release build lock");
+export const acquireGpuiLock = build.acquire;
+export const releaseGpuiLock = build.release;
+
+const input = machineLock("/tmp/lattice-gpui-e2e.lock", "the GPUI e2e lock");
+export const acquireGpuiInputLock = input.acquire;
+export const releaseGpuiInputLock = input.release;
+
 // An `exit` handler runs on a normal exit and after process.exit(); a signal's
 // default action skips it, so the signals a stage timeout or Ctrl-C sends exit
 // through it instead. A SIGKILL leaves the lock behind for the next waiter to
 // take over from the dead pid.
-process.on("exit", releaseGpuiLock);
+process.on("exit", () => {
+  build.release();
+  input.release();
+});
 for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
   process.on(signal, () => process.exit(128 + { SIGHUP: 1, SIGINT: 2, SIGTERM: 15 }[signal]));
 }

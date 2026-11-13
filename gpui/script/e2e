@@ -10,9 +10,21 @@
 # release build with offscreen-shots, in the machine's shared build tree, copied
 # back to target/release/lattice-gpui; a plain cargo build here starts cold in
 # every new worktree).
+#
+# Only one e2e run on the machine drives input at a time: the scenario's
+# native clicks, keys and window focus land in whichever app is in front, so
+# two runs at once (two worktrees, two validation runs) fail each other's
+# steps. The script re-executes itself under the machine-wide e2e lock
+# (scripts/with-gpui-e2e-lock.mjs, the lock in scripts/lib/gpui-lock.mjs, at
+# /tmp/lattice-gpui-e2e.lock), printing "waiting for the GPUI e2e lock held by
+# <pid> <worktree>" while another run holds it; a lock left by a process that
+# died is taken over. It is not the build lock, so builds run alongside.
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+if [ -z "${LATTICE_GPUI_E2E_LOCK_HELD:-}" ]; then
+  exec node "$root/../scripts/with-gpui-e2e-lock.mjs" "$(cd "$root/.." && pwd)" -- "${BASH_SOURCE[0]}" "$@"
+fi
 app="$root/target/release/lattice-gpui"
 [ -x "$app" ] || { echo "e2e: $app is missing; build the release binary first" >&2; exit 1; }
 

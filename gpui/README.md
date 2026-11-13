@@ -290,6 +290,12 @@ On macOS the keys go through the active input source, so select an ASCII layout 
 On macOS, input is sent the way Lattice's perf lab sends it (`../src-tauri/src/perf_lab.rs`): `NSEvent`s through `-[NSWindow sendEvent:]`.
 On Windows, keys are posted to the window's message queue, so GPUI's own message loop translates them as it does typed keys, and mouse messages are sent to the window procedure; neither needs the window in front.
 
+Only one scenario on the machine drives input at a time.
+Native clicks, keys and window focus land in whichever app is in front, so two `e2e` runs at once (two worktrees, two validation runs) fail each other's steps.
+`script/e2e` runs under a machine-wide e2e lock (`../scripts/with-gpui-e2e-lock.mjs`, a directory at `/tmp/lattice-gpui-e2e.lock` that `../scripts/lib/gpui-lock.mjs` manages the way it manages the build lock), and the parity harness takes it around its GPUI captures, since the `parity` scenario brings its window to the front.
+A second run prints `waiting for the GPUI e2e lock held by <pid> <worktree>` and starts when the first finishes; a lock left by a process that died is taken over.
+The e2e lock is separate from the build lock, so one worktree's build runs alongside another's e2e run.
+
 ## Parity harness
 
 `parity/` renders the same scene in the Tauri app's frontend and in this app, and diffs them region by region:
