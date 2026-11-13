@@ -38,6 +38,8 @@ const LOOKUPS_AT_ONCE: usize = 3;
 const SETTLE: Duration = Duration::from_millis(450);
 
 pub enum AddPapersEvent {
+    /// Enter a reference by hand, in its own sheet.
+    EnterManually,
     Dismiss,
 }
 

@@ -12,6 +12,7 @@ use crate::papers::{
     PapersEvent, PapersPanel,
     add_sheet::{AddPapers, AddPapersEvent},
     audit::{Audit, AuditEvent},
+    bib_editor::add::{AddReference, AddReferenceEvent, AddTarget},
     literature::{Literature, LiteratureEvent},
     reader::{PaperReader, PaperReaderEvent, ReaderView},
 };
@@ -161,10 +162,32 @@ impl Shell {
         let view = cx.new(|cx| AddPapers::new(papers, seed, window, cx));
         cx.subscribe_in(&view, window, |this, _, event, window, cx| match event {
             AddPapersEvent::Dismiss => this.close_document_overlays(window, cx),
+            AddPapersEvent::EnterManually => this.open_add_reference(window, cx),
         })
         .detach();
         view.update(cx, |view, cx| view.focus_input(window, cx));
         self.documents.add_papers = Some(view);
+        cx.notify();
+    }
+
+    /// A reference entered by hand for the project's bibliography, in place
+    /// of Add papers.
+    fn open_add_reference(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(root) = self.root(cx) else {
+            return;
+        };
+        self.dismiss_overlays_for_documents(cx);
+        let target = AddTarget::Project {
+            root,
+            papers: self.papers.downgrade(),
+        };
+        let view = cx.new(|cx| AddReference::new(target, window, cx));
+        cx.subscribe_in(&view, window, |this, _, event, window, cx| match event {
+            AddReferenceEvent::Dismiss => this.close_document_overlays(window, cx),
+        })
+        .detach();
+        view.update(cx, |view, cx| view.focus_lookup(window, cx));
+        self.documents.add_reference = Some(view);
         cx.notify();
     }
 

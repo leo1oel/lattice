@@ -33,7 +33,7 @@ use lattice_i18n::t;
 use super::PapersPanel;
 use crate::notices::{self, Notice, NoticeAction};
 
-mod add;
+pub mod add;
 mod detail;
 mod edits;
 mod list;
@@ -579,7 +579,7 @@ impl BibEditor {
 
     pub(super) fn open_add(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let view = cx.entity().downgrade();
-        let sheet = cx.new(|cx| add::AddReference::new(view, window, cx));
+        let sheet = cx.new(|cx| add::AddReference::new(add::AddTarget::Bib(view), window, cx));
         sheet.update(cx, |sheet, cx| sheet.focus_lookup(window, cx));
         self.adding = Some(sheet);
         cx.notify();
