@@ -117,6 +117,8 @@ pub struct FileTreePanel {
     naming: Option<Naming>,
     /// Folders the writer opened, kept across rescans.
     expanded: HashSet<String>,
+    /// The rows' fluid hover, as last drawn, for a scenario's check.
+    hover: Option<FluidHover>,
     _project_subscription: Option<Subscription>,
 }
 
@@ -131,6 +133,7 @@ impl FileTreePanel {
             state: cx.new(|cx| TreeState::new(cx)),
             focus_handle: cx.focus_handle(),
             naming: None,
+            hover: None,
             expanded: HashSet::new(),
             _project_subscription: None,
         }
@@ -272,6 +275,12 @@ impl FileTreePanel {
             .map_while(|ix| state.entry(ix))
             .map(|entry| entry.item().id.to_string())
             .collect()
+    }
+
+    /// What the rows' fluid hover shows, for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn hover_snapshot(&self, cx: &App) -> Option<lattice_ui::fluid_hover::FluidHoverSnapshot> {
+        self.hover.as_ref().map(|hover| hover.snapshot(cx))
     }
 }
 
@@ -417,6 +426,7 @@ impl Render for FileTreePanel {
             .radius(shape::RADIUS_TARGET)
             .quiet_after_scroll(Duration::from_millis(150), cx);
         let rows_hover = hover.clone();
+        self.hover = Some(hover.clone());
         let scroll = self.state.read(cx).scroll_handle().clone();
         // Measured on the Main window: rows 12px in from both sides, the
         // first 7px under the tab strip.

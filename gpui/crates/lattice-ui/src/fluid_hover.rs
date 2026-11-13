@@ -167,6 +167,8 @@ pub struct FluidHoverState {
     followed: Option<Option<usize>>,
     quiet_after_scroll: Option<Duration>,
     quiet_until: Option<Instant>,
+    /// How many fills have faded in: a glide adds none.
+    sessions: u64,
 }
 
 impl FluidHoverState {
@@ -293,6 +295,7 @@ impl FluidHoverState {
             }
             (Some((ix, slot)), _) => {
                 self.retire(now);
+                self.sessions += 1;
                 let mut opacity = Tween::settled(0., now);
                 opacity.retarget(1., Motion::Fast, now);
                 self.lit = Some(Lit {
@@ -392,6 +395,23 @@ pub fn pick(
     inside.or(nearest)
 }
 
+/// What a list's highlight shows, for a scripted check.
+#[derive(Clone, Debug, Default)]
+pub struct FluidHoverSnapshot {
+    /// The row the fill is on (or travelling to).
+    pub lit: Option<usize>,
+    /// Where the fill is drawn now.
+    pub fill: Option<Bounds<Pixels>>,
+    /// Fills fading out.
+    pub leaving: usize,
+    /// How many fills have faded in since the list was first drawn: a glide
+    /// to another row adds none.
+    pub sessions: u64,
+    /// The rows laid out in the last frame: index, bounds, and whether the
+    /// fill may land there.
+    pub rows: Vec<(usize, Bounds<Pixels>, bool)>,
+}
+
 /// A list's fluid hover, for one frame: built in the view's render.
 #[derive(Clone)]
 pub struct FluidHover {
@@ -460,6 +480,22 @@ impl FluidHover {
                 .copied()
                 .flatten()
                 .is_some_and(|slot| slot.kind.role == Role::Target)
+    }
+
+    /// What the highlight shows now, for a scripted check.
+    pub fn snapshot(&self, cx: &App) -> FluidHoverSnapshot {
+        let state = self.state.read(cx);
+        let now = Instant::now();
+        FluidHoverSnapshot {
+            lit: state.lit.map(|lit| lit.index),
+            fill: state.lit.map(|lit| lit.rect.value(now)),
+            leaving: state.leaving.len(),
+            sessions: state.sessions,
+            rows: state
+                .live()
+                .map(|(ix, slot)| (ix, slot.bounds, slot.kind.role == Role::Target))
+                .collect(),
+        }
     }
 
     /// The row the pointer or keys lit, for a list that runs it on Enter.

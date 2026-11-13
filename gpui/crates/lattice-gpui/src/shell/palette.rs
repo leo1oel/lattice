@@ -21,7 +21,10 @@ use gpui_kit::component::input::{Input, InputEvent, InputState};
 use lattice_ui::{
     ActiveLattice as _, Elevation, GlyphKind, Icon, TextRole, TextRoleStyle as _,
     components::{Keycap, rise_in},
+    fluid_hover::FluidHover,
     icons::{ICON, file_glyph},
+    scrollbar::FluidScrollbar,
+    shape,
     tokens::FONT_WEIGHT_MEDIUM,
 };
 
@@ -326,6 +329,18 @@ impl Render for CommandPaletteView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let palette = cx.palette().clone();
         let width = px(WIDTH).min(window.viewport_size().width - px(40.));
+        // The app's picker runs the fluid hover over its results
+        // (`search-picker-dialog.tsx`): one fill for the pointer and the
+        // keys, gliding between rows. The row the pointer lights becomes
+        // the current one, as a pointer that really moves does there; a
+        // list scrolled under a resting pointer changes nothing.
+        let hover = FluidHover::new("command-palette-hover", window, cx)
+            .fill(palette.accent_soft)
+            .radius(shape::PALETTE_LIST.inner());
+        if let Some(lit) = hover.lit(cx).filter(|lit| *lit < self.shown.len()) {
+            self.highlighted = lit;
+        }
+        let hover = hover.follow(Some(self.highlighted), cx);
         let mut rows: Vec<AnyElement> = Vec::new();
         let mut group = None;
         for (ix, entry) in self.shown.iter().enumerate() {
@@ -379,53 +394,53 @@ impl Render for CommandPaletteView {
                 ),
             };
             rows.push(
-                div()
-                    .id(("palette-row", ix))
-                    .flex()
-                    .items_center()
-                    .gap(px(8.))
-                    .min_h(px(28.))
-                    .px(px(10.))
-                    .py(px(6.))
-                    .rounded(px(8.))
-                    .when(active, |row| row.bg(palette.row_selected))
-                    .cursor_pointer()
-                    .on_hover(cx.listener(move |this, hovered: &bool, _, cx| {
-                        if *hovered && this.highlighted != ix {
-                            this.highlighted = ix;
-                            cx.notify();
-                        }
-                    }))
-                    .on_click(cx.listener(move |this, _, window, cx| this.run(ix, window, cx)))
-                    .child(icon)
-                    .child(
-                        div()
-                            .flex_1()
-                            .min_w_0()
-                            .flex()
-                            .items_baseline()
-                            .justify_between()
-                            .gap(px(16.))
-                            .child(
-                                div()
-                                    .min_w_0()
-                                    .truncate()
-                                    .text_role(TextRole::Body, cx)
-                                    .text_color(palette.text)
-                                    .child(label),
-                            )
-                            .children(detail.map(|detail| {
-                                div()
-                                    .flex_shrink_1()
-                                    .min_w_0()
-                                    .truncate()
-                                    .text_role(TextRole::Caption, cx)
-                                    .text_color(palette.text_secondary)
-                                    .child(detail)
-                            })),
-                    )
-                    .children(keys.map(|keys| div().ml(px(4.)).child(Keycap::new(keys))))
-                    .into_any_element(),
+                hover.item(
+                    ix,
+                    div()
+                        .id(("palette-row", ix))
+                        .flex()
+                        .items_center()
+                        .gap(px(8.))
+                        .min_h(px(28.))
+                        .px(px(10.))
+                        .py(px(6.))
+                        .rounded(shape::PALETTE_LIST.inner())
+                        // The current row's own wash (`button.active`), shown
+                        // while the gliding fill is elsewhere or gone.
+                        .when(active && !hover.is_lit(ix, cx), |row| {
+                            row.bg(palette.accent_soft)
+                        })
+                        .cursor_pointer()
+                        .on_click(cx.listener(move |this, _, window, cx| this.run(ix, window, cx)))
+                        .child(icon)
+                        .child(
+                            div()
+                                .flex_1()
+                                .min_w_0()
+                                .flex()
+                                .items_baseline()
+                                .justify_between()
+                                .gap(px(16.))
+                                .child(
+                                    div()
+                                        .min_w_0()
+                                        .truncate()
+                                        .text_role(TextRole::Body, cx)
+                                        .text_color(palette.text)
+                                        .child(label),
+                                )
+                                .children(detail.map(|detail| {
+                                    div()
+                                        .flex_shrink_1()
+                                        .min_w_0()
+                                        .truncate()
+                                        .text_role(TextRole::Caption, cx)
+                                        .text_color(palette.text_secondary)
+                                        .child(detail)
+                                })),
+                        )
+                        .children(keys.map(|keys| div().ml(px(4.)).child(Keycap::new(keys)))),
+                ),
             );
         }
         let empty = self.shown.is_empty().then(|| {
@@ -473,13 +488,24 @@ impl Render for CommandPaletteView {
             .children(empty)
             .when(!self.shown.is_empty(), |card| {
                 card.child(
+                    // The fill and Lattice's scrollbar are laid over the
+                    // list's viewport.
                     div()
-                        .id("command-palette-list")
-                        .max_h(px(LIST_HEIGHT).min(window.viewport_size().height * 0.6))
-                        .overflow_y_scroll()
-                        .track_scroll(&self.scroll)
-                        .p(px(6.))
-                        .children(rows),
+                        .relative()
+                        .child(hover.highlight())
+                        .child(
+                            div()
+                                .id("command-palette-list")
+                                .max_h(px(LIST_HEIGHT).min(window.viewport_size().height * 0.6))
+                                .overflow_y_scroll()
+                                .track_scroll(&self.scroll)
+                                .p(shape::PALETTE_LIST.inset)
+                                .children(rows),
+                        )
+                        .child(FluidScrollbar::vertical(
+                            "command-palette-scrollbar",
+                            &self.scroll,
+                        )),
                 )
             });
         div()
