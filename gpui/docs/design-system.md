@@ -58,6 +58,7 @@ div()
 - Leaving, pressing and scrolling under a resting pointer clear the fill; only a pointer that really moves lights a row again.
   `quiet_after_scroll(duration, cx)` keeps a list dark for a moment after each scroll (the Project tree's 150 ms).
 - `follow(current, cx)` gives the keys the same fill; whichever hand moved last owns it.
+  It only acts when `current` changes, so a key handler also calls `key_to(row, cx)` with the row it moved to: the fill goes there even when the keys chose that row before and the pointer has lit another since.
   A list whose keyboard answer is a focus ring (a tree) does not follow.
 - `lit(cx)` is the row the pointer or keys lit (run it on Enter, step the keys on from it); `is_lit(ix, cx)` lets a row change its ink.
 - Rows draw no hover fill of their own: `components::MenuItem::fluid()` and `TreeRow::fluid(probe)` do that for the shared rows.
