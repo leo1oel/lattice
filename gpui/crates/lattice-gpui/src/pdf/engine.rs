@@ -290,7 +290,7 @@ fn worker(pdfium: Pdfium, queue: &(Mutex<Queue>, Condvar)) {
                 generation += 1;
                 let result = pdfium
                     .load_pdf_from_byte_vec(bytes, None)
-                    .map_err(|error| anyhow!("The PDF could not be read: {error}"))
+                    .map_err(|error| anyhow!("{error}"))
                     .map(|document| {
                         let page_sizes = document
                             .pages()

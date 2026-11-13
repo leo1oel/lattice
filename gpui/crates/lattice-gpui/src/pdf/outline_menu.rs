@@ -14,6 +14,7 @@ use gpui::{
     prelude::FluentBuilder as _, px,
 };
 use gpui_kit::base::Popover as BasePopover;
+use lattice_i18n::t;
 use lattice_ui::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
     components::{IconButton, MenuSurface, PopFrom, pop_in},
@@ -45,7 +46,7 @@ impl PdfView {
         let view = cx.entity();
         let trigger = IconButton::new("pdf-outline", Icon::LIST_TREE)
             .frame(px(24.), px(28.))
-            .tooltip("Show outline");
+            .tooltip(t!("Show outline"));
         Some(
             BasePopover::new("pdf-outline-popover")
                 .anchor(gpui::Anchor::TopLeft)
@@ -87,14 +88,14 @@ fn outline_card(
         .font_weight(gpui::FontWeight(650.))
         .text_color(palette.text_secondary)
         .child(Icon::LIST_TREE.element(px(13.), palette.text_secondary))
-        .child("Outline");
+        .child(t!("Outline"));
     let body = if outline.headings.is_empty() {
         div()
             .mx(px(10.))
             .my(px(12.))
             .text_role(TextRole::Micro, cx)
             .text_color(palette.text_secondary)
-            .child("No sections yet")
+            .child(t!("No sections yet"))
             .into_any_element()
     } else {
         let rows: Vec<AnyElement> = outline
