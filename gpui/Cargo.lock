@@ -8297,6 +8297,18 @@ name = "lattice-i18n"
 version = "0.1.0"
 
 [[package]]
+name = "lattice-settings"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "dirs",
+ "log",
+ "rusqlite",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "lattice-ui"
 version = "0.1.0"
 dependencies = [
