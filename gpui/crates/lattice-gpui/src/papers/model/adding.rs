@@ -197,14 +197,14 @@ mod tests {
             with(paper("Attention Is All You Need"), |p| {
                 p.arxiv_id = "1706.03762".into()
             }),
-            with(paper("Other"), |p| p.doi = Some("10.1/ABC".into())),
+            with(paper("Other"), |p| p.doi = Some("10.1000/ABC".into())),
         ];
         let found = find_in_library(&papers, &identity_of_input("arXiv:1706.03762v7"));
         assert_eq!(
             found.map(|p| p.title.as_str()),
             Some("Attention Is All You Need")
         );
-        let found = find_in_library(&papers, &identity_of_input("https://doi.org/10.1/abc"));
+        let found = find_in_library(&papers, &identity_of_input("https://doi.org/10.1000/abc"));
         assert_eq!(found.map(|p| p.title.as_str()), Some("Other"));
         let short = WorkIdentity {
             title: Some("Other".into()),
