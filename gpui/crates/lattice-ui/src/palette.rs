@@ -87,6 +87,9 @@ pub enum Accent {
     Orange,
     Green,
     Teal,
+    /// A colour the writer picked, as `0xRRGGBB`; each appearance uses it
+    /// fitted to the presets' contrast floor (`accent_fit::fit_accent`).
+    Custom(u32),
 }
 
 impl Accent {
@@ -100,8 +103,19 @@ impl Accent {
         Accent::Teal,
     ];
 
+    /// The accent's colour in `appearance`.
+    pub fn srgb(self, appearance: Appearance) -> Srgb {
+        match self {
+            Accent::Custom(rgb) => {
+                crate::accent_fit::srgb(crate::accent_fit::fit_accent(rgb, appearance))
+            }
+            preset => preset.token().get(appearance),
+        }
+    }
+
     fn token(self) -> ColorToken {
         match self {
+            Accent::Custom(_) => COLOR_ACCENT,
             Accent::Graphite => COLOR_ACCENT,
             Accent::Blue => COLOR_ACCENT_BLUE,
             Accent::Purple => COLOR_ACCENT_PURPLE,
@@ -338,7 +352,7 @@ impl Palette {
         };
 
         let text = get(COLOR_TEXT);
-        let accent_srgb = get(accent_preset.token());
+        let accent_srgb = accent_preset.srgb(appearance);
         let graphite = accent_preset == Accent::Graphite;
         let accent_soft = if graphite {
             paint(COLOR_ACCENT_SOFT)

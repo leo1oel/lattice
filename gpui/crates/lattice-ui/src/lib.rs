@@ -17,6 +17,7 @@
 // keys each, deeper than the macro's default expansion limit.
 #![recursion_limit = "512"]
 
+pub mod accent_fit;
 pub mod components;
 pub mod dock;
 pub mod editor_theme;

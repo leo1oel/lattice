@@ -3,14 +3,17 @@
 
 use gpui::{AppContext as _, Context, Window};
 use lattice_core::latex;
+use lattice_i18n::{n, t, tr};
 
 use super::{ForwardSync, Shell, layout::View};
 use crate::notices;
 
 /// Said when a jump to the PDF cannot be made from the PDF on screen.
-const NOT_COMPILED: &str = "The PDF is not compiled from this source yet, so Lattice cannot find \
-                            the line in it. Fix the build, then try again.";
-const NO_MATCH: &str = "This source line has no matching position in the PDF.";
+const NOT_COMPILED: &str = n!(
+    "The PDF is not compiled from this source yet, so Lattice cannot find \
+     the line in it. Fix the build, then try again."
+);
+const NO_MATCH: &str = n!("This source line has no matching position in the PDF.");
 
 impl Shell {
     /// From the caret to its place in the PDF, saving first and building
@@ -36,7 +39,8 @@ impl Shell {
                 return;
             }
             if !Self::ensure_compiled(&this, cx).await {
-                cx.update(|_, cx| notices::warning(NOT_COMPILED, cx)).ok();
+                cx.update(|_, cx| notices::warning(tr(NOT_COMPILED), cx))
+                    .ok();
                 return;
             }
             let Ok(Some(root)) = this.update(cx, |this, cx| this.root(cx)) else {
@@ -68,12 +72,15 @@ impl Shell {
                             this.reveal_pdf(window, cx);
                         }
                     }
-                    Ok(None) => notices::warning(NO_MATCH, cx),
+                    Ok(None) => notices::warning(tr(NO_MATCH), cx),
                     Err(error)
                         if error
                             == "This bibliography entry is not included in the compiled PDF." =>
                     {
-                        notices::warning(error, cx)
+                        notices::warning(
+                            t!("This bibliography entry is not included in the compiled PDF."),
+                            cx,
+                        )
                     }
                     Err(error) => notices::error("SyncTeX", error, cx),
                 }

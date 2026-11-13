@@ -6,6 +6,7 @@ use std::collections::HashSet;
 
 use gpui::{AppContext as _, Context, Entity, Window};
 use lattice_core::{models::FileNode, project as core_project};
+use lattice_i18n::t;
 
 use super::Shell;
 use crate::{
@@ -68,7 +69,7 @@ impl Shell {
                         this.open_path(root.join(created), None, window, cx);
                     }
                     Ok(_) => {}
-                    Err(error) => notices::error("Could not create it", error, cx),
+                    Err(error) => notices::error(t!("Could not create it"), error, cx),
                 }
             })
             .ok();
@@ -97,7 +98,7 @@ impl Shell {
                 project.update(cx, |project, cx| project.entries_changed(cx));
                 match renamed {
                     Ok(renamed) => this.apply_path_changes(&[(path, renamed)], cx),
-                    Err(error) => notices::error("Could not rename it", error, cx),
+                    Err(error) => notices::error(t!("Could not rename it"), error, cx),
                 }
             })
             .ok();
@@ -199,7 +200,7 @@ impl Shell {
                             }
                         }
                     }
-                    Err(error) => notices::error("Could not move it", error, cx),
+                    Err(error) => notices::error(t!("Could not move it"), error, cx),
                 }
             })
             .ok();
@@ -226,7 +227,7 @@ impl Shell {
             this.update_in(cx, |this, window, cx| {
                 project.update(cx, |project, cx| project.entries_changed(cx));
                 if let Err(error) = &deleted {
-                    notices::error("Could not delete it", error.clone(), cx);
+                    notices::error(t!("Could not delete it"), error.clone(), cx);
                 }
                 // Whatever went from disk takes its tabs with it.
                 let gone: Vec<_> = this

@@ -10,6 +10,7 @@ use anyhow::Result;
 use futures::{FutureExt as _, channel::oneshot};
 use gpui::{AppContext as _, Context, Task};
 use lattice_core::project as core_project;
+use lattice_i18n::t;
 
 use super::{DiskVersion, EditorPanel, EditorPanelEvent, SaveStatus, vanished_key};
 use crate::notices;
@@ -196,7 +197,11 @@ impl EditorPanel {
                     Ok(result) => result,
                     Err(error) => {
                         this.status = SaveStatus::Failed(error.clone().into());
-                        notices::error(format!("Could not save {relative}"), error, cx);
+                        notices::error(
+                            t!("Could not save {failedPath}", failedPath = relative),
+                            error,
+                            cx,
+                        );
                         cx.notify();
                         return None;
                     }
@@ -210,8 +215,9 @@ impl EditorPanel {
                 let typed_on = this.buffer.read(cx).version() != version;
                 if result.had_conflicts {
                     notices::warning(
-                        format!(
-                            "Kept overlapping external edits in {relative} with conflict markers."
+                        t!(
+                            "Kept overlapping external edits in {path} with conflict markers.",
+                            path = relative
                         ),
                         cx,
                     );

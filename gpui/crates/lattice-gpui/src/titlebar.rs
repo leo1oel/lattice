@@ -32,6 +32,7 @@ use gpui_kit::component::{
     InteractiveElementExt as _,
     menu::{ContextMenuExt as _, DropdownMenu as _, PopupMenuItem},
 };
+use lattice_i18n::{space_mixed_script, t};
 use lattice_ui::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
     components::{IconButton, Keycap, LatticeTooltip, SearchField, Surface, ToolbarButton},
@@ -57,7 +58,7 @@ use crate::shell::{
         ToggleMaximize, TogglePapersPanel, TogglePdfPanel, ToggleProjectPanel, keys_label,
     },
     layout::{Preset, View},
-    workspaces::Workspaces,
+    workspaces::{Workspaces, shown_name},
 };
 
 /// Room for the traffic lights, as the app leaves it.
@@ -70,8 +71,6 @@ const GROUP_GAP: f32 = 12.;
 /// The search field's width, and the least it gives up to before folding.
 const SEARCH_WIDTH: f32 = 320.;
 const SEARCH_MIN: f32 = 200.;
-
-const NOT_YET: &str = "not in the GPUI preview yet";
 
 /// Whether a press on the titlebar's empty space should move the window on
 /// the next mouse move (a double click zooms it instead), and what the
@@ -163,7 +162,13 @@ fn unfolded_left_width(shell: &Shell, window: &Window, cx: &gpui::App) -> f32 {
             }
         })
         .collect();
-    let panels = f32::from(shaped_width("Panels", TextRole::Caption, None, window, cx));
+    let panels = f32::from(shaped_width(
+        t!("Panels"),
+        TextRole::Caption,
+        None,
+        window,
+        cx,
+    ));
     project_group_width(switcher, &tabs)
         + PANELS_START
         + PANELS_CHROME
@@ -311,7 +316,7 @@ pub fn render(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> im
             weak.clone(),
         ));
 
-    let search_tooltip = "Search files, papers and commands";
+    let search_tooltip = t!("Search files, papers and commands");
     let search_keys = keys_label(&CommandPalette, window).unwrap_or_else(|| "⌘K".into());
     let open_palette = cx.listener(|shell, _, window, cx| shell.open_palette(window, cx));
     let (search_inline, search_folded): (Option<AnyElement>, Option<AnyElement>) = if folds >= 1 {
@@ -328,7 +333,7 @@ pub fn render(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> im
             .top(px(6.))
             .left(px(x))
             .child(controls(
-                SearchField::new("titlebar-search", "Search")
+                SearchField::new("titlebar-search", t!("Search"))
                     .filled()
                     .keycap(search_keys)
                     .parity("titlebar/search")
@@ -342,7 +347,7 @@ pub fn render(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> im
     let not_yet = |id: &'static str, icon: Icon, name: &str| {
         IconButton::new(id, icon)
             .surface(Surface::Titlebar)
-            .tooltip(format!("{name} — {NOT_YET}"))
+            .tooltip(t!("{name} — not in the GPUI preview yet", name = name))
     };
     let tools = div()
         .relative()
@@ -354,19 +359,19 @@ pub fn render(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> im
         .child(not_yet(
             "track-changes",
             Icon::FILE_PEN_LINE,
-            "Track changes",
+            t!("Track changes"),
         ))
-        .child(not_yet("annotations", Icon::ANNOTATIONS, "Annotations"))
+        .child(not_yet("annotations", Icon::ANNOTATIONS, t!("Annotations")))
         .child(not_yet(
             "overleaf",
             Icon::CLOUD,
-            "Open a project from Overleaf",
+            t!("Open a project from Overleaf"),
         ))
-        .child(not_yet("git", Icon::GIT, "Git status and commit"))
-        .child(not_yet("history", Icon::HISTORY, "Project history"))
+        .child(not_yet("git", Icon::GIT, t!("Git status and commit")))
+        .child(not_yet("history", Icon::HISTORY, t!("Project history")))
         // Moves the workspace into a browser tab (`canvas-toolbar.tsx`,
         // `onMoveWorkspace`), the last of the app's tools.
-        .child(not_yet("browser", Icon::GLOBE, "Open in browser"))
+        .child(not_yet("browser", Icon::GLOBE, t!("Open in browser")))
         .child(edge_probe(
             room_cell,
             |room, left, _| room.tools_start = Some(left),
@@ -476,7 +481,11 @@ fn project_group(shell: &Shell, cx: &mut Context<Shell>) -> AnyElement {
                     })
                     .hover(|style| style.bg(palette.chrome_hover))
                     .tooltip(move |_, cx| -> AnyView {
-                        LatticeTooltip::view(format!("Close {close_name}"), None, cx)
+                        LatticeTooltip::view(
+                            space_mixed_script(&t!("Close {name}", name = close_name)),
+                            None,
+                            cx,
+                        )
                     })
                     .on_click(move |_, window, cx| {
                         let root = move_root.clone();
@@ -492,7 +501,7 @@ fn project_group(shell: &Shell, cx: &mut Context<Shell>) -> AnyElement {
                 let weak = menu_weak.clone();
                 let close = menu_weak.clone();
                 menu.item(
-                    PopupMenuItem::new("Open in New Window")
+                    PopupMenuItem::new(t!("Open in New Window"))
                         .icon(Icon::APP_WINDOW.kit())
                         .on_click(move |_, window, cx| {
                             weak.update(cx, |shell, cx| {
@@ -501,13 +510,17 @@ fn project_group(shell: &Shell, cx: &mut Context<Shell>) -> AnyElement {
                             .ok();
                         }),
                 )
-                .item(PopupMenuItem::new("Close").icon(Icon::X.kit()).on_click(
-                    move |_, window, cx| {
-                        close
-                            .update(cx, |shell, cx| shell.close_project(&close_root, window, cx))
-                            .ok();
-                    },
-                ))
+                .item(
+                    PopupMenuItem::new(t!("Close"))
+                        .icon(Icon::X.kit())
+                        .on_click(move |_, window, cx| {
+                            close
+                                .update(cx, |shell, cx| {
+                                    shell.close_project(&close_root, window, cx)
+                                })
+                                .ok();
+                        }),
+                )
             })
             .into_any_element()
     });
@@ -529,7 +542,7 @@ fn switcher_for(shell: &Shell, weak: WeakEntity<Shell>, cx: &gpui::App) -> impl 
         .dropdown_menu(move |menu, window, cx| {
             project_menu(weak.clone(), menu, window, cx)
                 .separator()
-                .menu("Close Project", Box::new(CloseProject))
+                .menu(t!("Close this project"), Box::new(CloseProject))
         })
 }
 
@@ -544,45 +557,45 @@ fn panels_menu(shell: &Shell, cx: &mut Context<Shell>) -> impl IntoElement {
     let workspaces: Vec<(String, String)> = Workspaces::global(cx)
         .list()
         .iter()
-        .map(|entry| (entry.id.clone(), entry.name.clone()))
+        .map(|entry| (entry.id.clone(), shown_name(&entry.name)))
         .collect();
     let current = shell.layout.workspace.clone();
     let preset = shell.layout.preset.as_ref().map(|active| active.preset);
     let maximized = shell.dock_area().read(cx).is_zoomed();
     let weak = cx.entity().downgrade();
-    ToolbarButton::new("panels", "Panels")
+    ToolbarButton::new("panels", t!("Panels"))
         .icon(Icon::LAYOUT_PANEL_LEFT)
         .parity("titlebar/panels")
         .dropdown_menu(move |menu, _, _| {
             let mut menu = menu
                 .min_w(px(224.))
-                .label("Panels")
+                .label(t!("Panels"))
                 .item(toggle_item(
-                    "Project",
+                    t!("Project"),
                     Icon::FOLDER_TREE,
                     on_screen[0],
                     Box::new(ToggleProjectPanel),
                 ))
                 .item(toggle_item(
-                    "Papers",
+                    t!("Papers"),
                     Icon::LIBRARY,
                     on_screen[1],
                     Box::new(TogglePapersPanel),
                 ))
                 .item(toggle_item(
-                    "Agent",
+                    t!("Agent"),
                     Icon::BOT,
                     on_screen[2],
                     Box::new(ToggleAgentPanel),
                 ))
                 .item(toggle_item(
-                    "PDF",
+                    t!("PDF"),
                     Icon::FILE_TEXT,
                     on_screen[3],
                     Box::new(TogglePdfPanel),
                 ))
                 .separator()
-                .label("Layout");
+                .label(t!("Layout"));
             for (ix, (id, name)) in workspaces.iter().enumerate() {
                 let chosen = preset.is_none() && current.as_deref() == Some(id.as_str());
                 let weak = weak.clone();
@@ -613,27 +626,31 @@ fn panels_menu(shell: &Shell, cx: &mut Context<Shell>) -> impl IntoElement {
                         }),
                 );
             }
-            menu.menu_with_icon("Focus mode", Icon::FOCUS.kit(), Box::new(ToggleFocusMode))
-                .separator()
-                .menu_with_icon(
-                    if maximized {
-                        "Restore the layout"
-                    } else {
-                        "Maximize focused panel"
-                    },
-                    if maximized {
-                        Icon::MINIMIZE
-                    } else {
-                        Icon::MAXIMIZE
-                    }
-                    .kit(),
-                    Box::new(ToggleMaximize),
-                )
-                .menu_with_icon(
-                    "Reset layout",
-                    Icon::ROTATE_CCW.kit(),
-                    Box::new(ResetLayout),
-                )
+            menu.menu_with_icon(
+                t!("Focus mode"),
+                Icon::FOCUS.kit(),
+                Box::new(ToggleFocusMode),
+            )
+            .separator()
+            .menu_with_icon(
+                if maximized {
+                    t!("Restore the layout")
+                } else {
+                    t!("Maximize focused panel")
+                },
+                if maximized {
+                    Icon::MINIMIZE
+                } else {
+                    Icon::MAXIMIZE
+                }
+                .kit(),
+                Box::new(ToggleMaximize),
+            )
+            .menu_with_icon(
+                t!("Reset layout"),
+                Icon::ROTATE_CCW.kit(),
+                Box::new(ResetLayout),
+            )
         })
 }
 
@@ -692,7 +709,7 @@ fn focus_bar(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> imp
                     cx.listener(|shell, _, window, cx| shell.set_focus_mode(false, window, cx)),
                 )
                 .child(Icon::MINIMIZE.element(ICON, palette.text_secondary))
-                .child("Leave focus mode")
+                .child(t!("Leave focus mode"))
                 .children(keys.map(Keycap::new)),
         ))
 }

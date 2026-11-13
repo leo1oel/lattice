@@ -7,6 +7,8 @@
 
 use lattice_core::tex_setup::TexPackageUpdates;
 
+use lattice_i18n::t;
+
 use super::center::InstallProgress;
 
 /// What the writer runs for a TeX Lattice does not manage (lattice-core's
@@ -68,12 +70,18 @@ pub fn check_detail(report: &TexPackageUpdates) -> Option<String> {
         .collect::<Vec<_>>()
         .join(", ");
     Some(if count > NAMED_PACKAGES {
-        format!(
-            "Updates available ({count}): {named}, and {} more",
-            count - NAMED_PACKAGES
+        t!(
+            "Updates available ({count}): {named}, and {more} more",
+            count = count,
+            named = named,
+            more = count - NAMED_PACKAGES
         )
     } else {
-        format!("Updates available ({count}): {named}")
+        t!(
+            "Updates available ({count}): {named}",
+            count = count,
+            named = named
+        )
     })
 }
 
@@ -85,7 +93,7 @@ pub fn check_problem(error: &str) -> (String, String) {
     let lowercase = error.to_lowercase();
     if lowercase.contains("older than remote repository") {
         return (
-            "This TeX Live release is older than the package repository. Install the current TeX Live release, then try again.".into(),
+            t!("This TeX Live release is older than the package repository. Install the current TeX Live release, then try again.").into(),
             error.trim().to_string(),
         );
     }
@@ -100,13 +108,13 @@ pub fn check_problem(error: &str) -> (String, String) {
     ];
     if unreachable.iter().any(|sign| lowercase.contains(sign)) {
         return (
-            "Couldn’t check for updates. Check the network connection, then run the TeX doctor again."
+            t!("Couldn’t check for updates. Check the network connection, then run the TeX doctor again.")
                 .into(),
             String::new(),
         );
     }
     (
-        "Couldn’t check for updates".into(),
+        t!("Couldn’t check for updates").into(),
         error.trim().to_string(),
     )
 }
@@ -117,7 +125,7 @@ pub fn update_failure(message: &str) -> (String, String) {
     let (first, rest) = message.split_once('\n').unwrap_or((message, ""));
     let summary = match first {
         "TeX Live's package manager could not update the packages." => {
-            "TeX Live’s package manager could not update the packages.".to_string()
+            t!("TeX Live’s package manager could not update the packages.").to_string()
         }
         first => first.to_string(),
     };

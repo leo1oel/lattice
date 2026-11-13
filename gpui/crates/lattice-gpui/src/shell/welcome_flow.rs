@@ -10,6 +10,7 @@
 use std::path::PathBuf;
 
 use gpui::{AppContext as _, Context, Entity, Focusable as _, PathPromptOptions, Window};
+use lattice_i18n::t;
 
 use super::{InstallLatexTools, Shell, windows};
 use crate::{
@@ -113,11 +114,7 @@ impl Shell {
                 self.install_latex_tools(&InstallLatexTools, window, cx)
             }
             WelcomeEvent::CloneRepository => self.open_clone(window, cx),
-            WelcomeEvent::Settings => notices::info(
-                "Settings come to the GPUI preview later",
-                "The appearance commands are in the command palette (⌘K).",
-                cx,
-            ),
+            WelcomeEvent::Settings => self.open_settings(None, window, cx),
         }
     }
 
@@ -337,7 +334,7 @@ impl Shell {
             files: false,
             directories: true,
             multiple: false,
-            prompt: Some("Open a LaTeX project".into()),
+            prompt: Some(t!("Open a LaTeX project").into()),
         });
         cx.spawn_in(window, async move |this, cx| {
             let Ok(Ok(Some(paths))) = paths.await else {

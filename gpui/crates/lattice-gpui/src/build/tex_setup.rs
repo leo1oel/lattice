@@ -5,6 +5,7 @@
 //! the paper tools are, and which of those hold the app in setup.
 
 use lattice_core::doctor::DoctorReport;
+use lattice_i18n::{n, t, tr};
 
 pub mod backend;
 pub mod center;
@@ -104,27 +105,55 @@ pub fn is_missing_tex_build_error(message: &str) -> bool {
 
 /// The first lines lattice-core's `dependency_install_error` gives a failed
 /// package install, which read as the summary; tlmgr's own words follow.
-const DEPENDENCY_FAILURES: [&str; 8] = [
-    "Administrator approval was cancelled, so nothing was installed.",
-    "There is not enough disk space to install the package. Free up some space, then try again.",
-    "Lattice could not write to the TeX installation folder.",
-    "This TeX Live release is older than the package repository. Install the current TeX Live release, then try again.",
-    "The package repository does not have this package.",
-    "Could not reach the TeX Live package repository. Check the network connection, then try again.",
-    "TeX Live's package manager needs an update, and the update did not finish.",
-    "TeX Live's package manager could not install the package.",
+/// Keys are the backend's exact English and must change with it; values are
+/// the interface's words for them.
+const DEPENDENCY_FAILURES: [(&str, &str); 8] = [
+    (
+        "Administrator approval was cancelled, so nothing was installed.",
+        n!("Administrator approval was cancelled, so nothing was installed."),
+    ),
+    (
+        "There is not enough disk space to install the package. Free up some space, then try again.",
+        n!(
+            "There is not enough disk space to install the package. Free up some space, then try again."
+        ),
+    ),
+    (
+        "Lattice could not write to the TeX installation folder.",
+        n!("Lattice could not write to the TeX installation folder."),
+    ),
+    (
+        "This TeX Live release is older than the package repository. Install the current TeX Live release, then try again.",
+        n!(
+            "This TeX Live release is older than the package repository. Install the current TeX Live release, then try again."
+        ),
+    ),
+    (
+        "The package repository does not have this package.",
+        n!("The package repository does not have this package."),
+    ),
+    (
+        "Could not reach the TeX Live package repository. Check the network connection, then try again.",
+        n!(
+            "Could not reach the TeX Live package repository. Check the network connection, then try again."
+        ),
+    ),
+    (
+        "TeX Live's package manager needs an update, and the update did not finish.",
+        n!("TeX Live’s package manager needs an update, and the update did not finish."),
+    ),
+    (
+        "TeX Live's package manager could not install the package.",
+        n!("TeX Live’s package manager could not install the package."),
+    ),
 ];
 
-/// A failed package install's message as a summary and the installer's own
-/// words behind it.
+/// A failed package install's message as a summary in the interface
+/// language and the installer's own words behind it.
 pub fn dependency_install_failure(message: &str) -> (String, String) {
     let (first, rest) = message.split_once('\n').unwrap_or((message, ""));
-    if let Some(known) = DEPENDENCY_FAILURES.iter().find(|known| **known == first) {
-        // The interface's spelling of the one known line with an apostrophe.
-        return (
-            known.replace("TeX Live's", "TeX Live’s"),
-            rest.trim().to_string(),
-        );
+    if let Some((_, known)) = DEPENDENCY_FAILURES.iter().find(|(key, _)| *key == first) {
+        return (tr(*known).to_string(), rest.trim().to_string());
     }
     (first.to_string(), rest.trim().to_string())
 }
@@ -133,21 +162,27 @@ pub fn dependency_install_failure(message: &str) -> (String, String) {
 pub fn stage_copy(stage: &str) -> (&'static str, &'static str) {
     let windows = cfg!(windows);
     match stage {
-        "downloading" if windows => ("Downloading TeX Live…", ""),
-        "downloading" => ("Downloading BasicTeX…", ""),
+        "downloading" if windows => (t!("Downloading TeX Live…"), ""),
+        "downloading" => (t!("Downloading BasicTeX…"), ""),
         "authorizing" => (
-            "Waiting for administrator approval…",
-            "Approve the macOS prompt to continue",
+            t!("Waiting for administrator approval…"),
+            t!("Approve the macOS prompt to continue"),
         ),
-        "installing-base" if windows => ("Installing TeX Live…", ""),
-        "installing-base" => ("Installing BasicTeX…", ""),
-        "updating-base" => ("Updating LaTeX packages…", "Can take up to 15 minutes"),
-        "installing-packages" => ("Installing LaTeX packages…", "Can take up to 15 minutes"),
-        "installing-tools" => ("Installing required tools…", ""),
-        "verifying" | "verifying-dependency" => ("Verifying installation…", ""),
-        "searching-packages" => ("Resolving…", ""),
-        "installing-dependency" => ("Installing LaTeX packages…", ""),
-        _ => ("Finishing setup…", ""),
+        "installing-base" if windows => (t!("Installing TeX Live…"), ""),
+        "installing-base" => (t!("Installing BasicTeX…"), ""),
+        "updating-base" => (
+            t!("Updating LaTeX packages…"),
+            t!("Can take up to 15 minutes"),
+        ),
+        "installing-packages" => (
+            t!("Installing LaTeX packages…"),
+            t!("Can take up to 15 minutes"),
+        ),
+        "installing-tools" => (t!("Installing required tools…"), ""),
+        "verifying" | "verifying-dependency" => (t!("Verifying installation…"), ""),
+        "searching-packages" => (t!("Resolving…"), ""),
+        "installing-dependency" => (t!("Installing LaTeX packages…"), ""),
+        _ => (t!("Finishing setup…"), ""),
     }
 }
 

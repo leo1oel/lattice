@@ -28,6 +28,7 @@ use gpui::{
     div, prelude::FluentBuilder as _, px,
 };
 use language::Rope;
+use lattice_i18n::t;
 use lattice_ui::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
     components::StatusItem,
@@ -88,27 +89,38 @@ pub fn status_bar(panel: &EditorPanel, cx: &App) -> impl IntoElement {
     let folds = StatusFolds::at(measured.get().map(f32::from));
     let (line, column) = panel.cursor();
     let (save_icon, save_label) = match panel.save_status() {
-        SaveStatus::Saved => (Icon::HARD_DRIVE, "Saved"),
-        SaveStatus::Saving => (Icon::LOADER, "Saving…"),
-        SaveStatus::Failed(_) => (Icon::CIRCLE_ALERT, "Couldn’t save"),
+        SaveStatus::Saved => (Icon::HARD_DRIVE, t!("Saved")),
+        SaveStatus::Saving => (Icon::LOADER, t!("Saving…")),
+        SaveStatus::Failed(_) => (Icon::CIRCLE_ALERT, t!("Couldn’t save")),
     };
     // The caret's words and numbers, each its own run, as the app's
     // `.status-caret` spans are; folded, the numbers with a colon between.
-    let runs: [(SharedString, &str); 4] = if folds.caret_words {
-        [
-            ("".into(), ""),
-            (line.to_string().into(), ""),
-            (":".into(), ":"),
-            (column.to_string().into(), ""),
-        ]
+    // The words come from the one translated sentence split at its numbers,
+    // as the app splits it ("Ln 1, Col 1", "第 1 行，第 1 列").
+    const LINE_MARK: char = '\u{1}';
+    const COLUMN_MARK: char = '\u{2}';
+    let mut runs: Vec<(SharedString, String)> = Vec::with_capacity(5);
+    if folds.caret_words {
+        runs.push(("".into(), String::new()));
+        runs.push((line.to_string().into(), String::new()));
+        runs.push((":".into(), ":".to_string()));
+        runs.push((column.to_string().into(), String::new()));
     } else {
-        [
-            ("Ln ".into(), "Ln"),
-            (line.to_string().into(), ""),
-            (", Col ".into(), ", Col"),
-            (column.to_string().into(), ""),
-        ]
-    };
+        let sentence = t!(
+            "Ln {line}, Col {column}",
+            line = LINE_MARK,
+            column = COLUMN_MARK
+        );
+        for (ix, word) in sentence.split([LINE_MARK, COLUMN_MARK]).enumerate() {
+            if ix > 0 {
+                let number = if ix == 1 { line } else { column };
+                runs.push((number.to_string().into(), String::new()));
+            }
+            if !word.is_empty() {
+                runs.push((word.to_string().into(), word.trim_end().to_string()));
+            }
+        }
+    }
     let caret = div().flex().children(
         runs.into_iter()
             .enumerate()
@@ -262,10 +274,10 @@ pub fn build_chip(build: &Entity<BuildPanel>, window: &mut Window, cx: &mut App)
     let warned = panel.chip_warned();
     let seconds = |took: std::time::Duration| format!("{:.1} s", took.as_secs_f32());
     let (mark, label) = match state {
-        ChipState::Idle => (None, "Build".to_string()),
-        ChipState::Running(_) => (Some(Mark::Running), "Build".to_string()),
+        ChipState::Idle => (None, t!("Build").to_string()),
+        ChipState::Running(_) => (Some(Mark::Running), t!("Build").to_string()),
         ChipState::Succeeded(took) => (Some(Mark::Succeeded { warned }), seconds(took)),
-        ChipState::Failed(_) => (Some(Mark::Failed), "Failed".to_string()),
+        ChipState::Failed(_) => (Some(Mark::Failed), t!("Failed").to_string()),
     };
     let label_ink = if matches!(state, ChipState::Failed(_)) {
         palette.danger
@@ -274,8 +286,8 @@ pub fn build_chip(build: &Entity<BuildPanel>, window: &mut Window, cx: &mut App)
     };
     // The chip's width: its widest state, as the app's hidden sizer makes it.
     let widest = [
-        "Build".to_string(),
-        "Failed".to_string(),
+        t!("Build").to_string(),
+        t!("Failed").to_string(),
         seconds(std::time::Duration::from_secs_f32(999.9)),
     ]
     .into_iter()

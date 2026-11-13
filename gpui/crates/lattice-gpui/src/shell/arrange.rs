@@ -48,24 +48,28 @@ pub(super) fn install_dock_hooks(cx: &mut App) {
         let floated = shell.read(cx).floating.contains(panel);
         let float = shell.downgrade();
         menu = menu.item(
-            gpui_kit::component::menu::PopupMenuItem::new(if floated { "Dock" } else { "Float" })
-                .icon(
-                    if floated {
-                        lattice_ui::Icon::MINIMIZE
-                    } else {
-                        lattice_ui::Icon::PICTURE_IN_PICTURE
-                    }
-                    .kit(),
-                )
-                .on_click(move |_, window, cx| {
-                    float
-                        .update(cx, |shell, cx| shell.toggle_float(panel, window, cx))
-                        .ok();
-                }),
+            gpui_kit::component::menu::PopupMenuItem::new(if floated {
+                lattice_i18n::t!("Dock")
+            } else {
+                lattice_i18n::t!("Float")
+            })
+            .icon(
+                if floated {
+                    lattice_ui::Icon::MINIMIZE
+                } else {
+                    lattice_ui::Icon::PICTURE_IN_PICTURE
+                }
+                .kit(),
+            )
+            .on_click(move |_, window, cx| {
+                float
+                    .update(cx, |shell, cx| shell.toggle_float(panel, window, cx))
+                    .ok();
+            }),
         );
         let hide = shell.downgrade();
         menu.item(
-            gpui_kit::component::menu::PopupMenuItem::new("Hide")
+            gpui_kit::component::menu::PopupMenuItem::new(lattice_i18n::t!("Hide"))
                 .icon(lattice_ui::Icon::EYE_OFF.kit())
                 .on_click(move |_, window, cx| {
                     hide.update(cx, |shell, cx| {
@@ -752,9 +756,9 @@ pub(super) fn empty_center(shell: &Shell, cx: &mut Context<Shell>) -> AnyElement
         .filter(|_| area.is_dock_open(DockPlacement::Bottom))
         .unwrap_or_default();
     let message = if shell.project.is_some() {
-        "Open a file from Project to start writing"
+        lattice_i18n::t!("Open a file from Project to start writing")
     } else {
-        "Open a LaTeX project folder to start"
+        lattice_i18n::t!("Open a LaTeX project folder to start")
     };
     div()
         .absolute()

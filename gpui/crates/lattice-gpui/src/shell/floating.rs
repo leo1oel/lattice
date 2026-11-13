@@ -261,7 +261,7 @@ impl FloatingPanel {
                             let dock = weak.clone();
                             let close = weak.clone();
                             menu.item(
-                                PopupMenuItem::new("Dock")
+                                PopupMenuItem::new(lattice_i18n::t!("Dock"))
                                     .icon(Icon::MINIMIZE.kit())
                                     .on_click(move |_, window, cx| {
                                         dock.update(cx, |shell, cx| {
@@ -272,15 +272,15 @@ impl FloatingPanel {
                             )
                             .separator()
                             .item(
-                                PopupMenuItem::new("Close").icon(Icon::X.kit()).on_click(
-                                    move |_, window, cx| {
+                                PopupMenuItem::new(lattice_i18n::t!("Close"))
+                                    .icon(Icon::X.kit())
+                                    .on_click(move |_, window, cx| {
                                         close
                                             .update(cx, |shell, cx| {
                                                 shell.close_panel(id, window, cx)
                                             })
                                             .ok();
-                                    },
-                                ),
+                                    }),
                             )
                         }
                     }),

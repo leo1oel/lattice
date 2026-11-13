@@ -272,7 +272,7 @@ impl RenderOnce for Toast {
                 this.child(
                     IconButton::new(self.id, Icon::CLOSE)
                         .frame(px(24.), px(24.))
-                        .tooltip("Dismiss")
+                        .tooltip(lattice_i18n::t!("Dismiss"))
                         .on_click(on_dismiss),
                 )
             })

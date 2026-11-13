@@ -24,6 +24,8 @@ use lattice_ui::{
     tokens::FONT_WEIGHT_SEMIBOLD,
 };
 
+use lattice_i18n::{join_phrases, n, space_mixed_script, t, tr};
+
 use super::{icons, outcome::counts_text};
 use crate::build_panel::BuildPanel;
 
@@ -39,9 +41,9 @@ const PDF_OUTPUT: [&str; 5] = ["xdvipdfmx", "dvipdfmx", "dvipdfm", "dvipdf", "ps
 const PREAMBLE_FORMAT: &str = "pdflatex -ini";
 
 #[cfg(target_os = "macos")]
-const HINT: &str = "⌘S, or ⇧-click for a clean rebuild";
+const HINT: &str = n!("⌘S, or ⇧-click for a clean rebuild");
 #[cfg(not(target_os = "macos"))]
-const HINT: &str = "Ctrl+S, or Shift-click for a clean rebuild";
+const HINT: &str = n!("Ctrl+S, or Shift-click for a clean rebuild");
 
 /// "0.6 s"; a pass too quick to show a tenth still took some time.
 pub fn step_seconds(ms: u64) -> String {
@@ -57,23 +59,23 @@ pub fn role(step: &BuildStep) -> Option<String> {
     let tool = step.tool.as_str();
     let run = step.run;
     Some(if step.draft {
-        format!("draft pass {run}")
+        t!("draft pass {run}", run = run)
     } else if tool == PREAMBLE_FORMAT {
-        "preamble".into()
+        t!("preamble").into()
     } else if ENGINES.contains(&tool) {
-        format!("pass {run}")
+        t!("pass {run}", run = run)
     } else if BIBLIOGRAPHY.contains(&tool) {
-        "bibliography".into()
+        t!("bibliography").into()
     } else if INDEX.contains(&tool) {
-        "index".into()
+        t!("index").into()
     } else if tool == "makeglossaries" {
-        "glossary".into()
+        t!("glossary").into()
     } else if PDF_OUTPUT.contains(&tool) {
-        "PDF output".into()
+        t!("PDF output").into()
     } else if tool == "dvips" {
-        "PostScript output".into()
+        t!("PostScript output").into()
     } else if run > 1 {
-        format!("run {run}")
+        t!("run {run}", run = run)
     } else {
         return None;
     })
@@ -83,23 +85,25 @@ pub fn role(step: &BuildStep) -> Option<String> {
 /// `Intl.RelativeTimeFormat` with `numeric: "auto"` says it.
 pub fn age(elapsed: Duration) -> String {
     let seconds = elapsed.as_secs_f64();
-    let ago = |count: f64, one: &str, many: &str, previous: &str| {
-        let count = count.round() as u64;
-        match count {
-            0 => format!("this {one}"),
-            1 if !previous.is_empty() => previous.to_string(),
-            1 => format!("1 {one} ago"),
-            count => format!("{count} {many} ago"),
-        }
-    };
+    // Every count here is at least 1: under 45 seconds is "just now".
+    let count = |unit: f64| ((seconds / unit).round() as u64).max(1);
     if seconds < 45. {
-        "just now".into()
+        t!("just now").into()
     } else if seconds < 3600. {
-        ago(seconds / 60., "minute", "minutes", "")
+        match count(60.) {
+            1 => t!("1 minute ago").into(),
+            count => t!("{count} minutes ago", count = count),
+        }
     } else if seconds < 86_400. {
-        ago(seconds / 3600., "hour", "hours", "")
+        match count(3600.) {
+            1 => t!("1 hour ago").into(),
+            count => t!("{count} hours ago", count = count),
+        }
     } else {
-        ago(seconds / 86_400., "day", "days", "yesterday")
+        match count(86_400.) {
+            1 => t!("yesterday").into(),
+            count => t!("{count} days ago", count = count),
+        }
     }
 }
 
@@ -231,7 +235,7 @@ pub fn card(build: &Entity<BuildPanel>, cx: &App) -> AnyElement {
                 .when(!idle, |hint| hint.border_t_1().border_color(palette.line))
                 .text_role(TextRole::Caption, cx)
                 .text_color(palette.text_secondary)
-                .child(HINT)
+                .child(tr(HINT))
         };
         let Some((elapsed, steps, outcome)) = (match (running, &outcome) {
             (Some((started, steps)), _) => Some((Some(started.elapsed()), steps.to_vec(), None)),
@@ -271,31 +275,36 @@ pub fn card(build: &Entity<BuildPanel>, cx: &App) -> AnyElement {
             .and_then(|outcome| outcome.pages)
             .map(|pages| {
                 if pages == 1 {
-                    "1 page".to_string()
+                    t!("1 page").to_string()
                 } else {
-                    format!("{} pages", super::word_count::format_count(pages as usize))
+                    space_mixed_script(&t!(
+                        "{0} pages",
+                        super::word_count::format_count(pages as usize)
+                    ))
                 }
             });
-        let facts = [pages, total_ms.map(step_seconds)]
-            .into_iter()
-            .flatten()
-            .collect::<Vec<_>>()
-            .join(", ");
+        let facts = join_phrases(
+            &[pages, total_ms.map(step_seconds)]
+                .into_iter()
+                .flatten()
+                .collect::<Vec<_>>(),
+        );
         let verdict = match &outcome {
-            None => "Building…",
-            Some(outcome) if outcome.succeeded => "Built",
-            Some(outcome) if outcome.wrote_pdf => "Built with errors",
-            Some(_) => "Build failed",
+            None => t!("Building…"),
+            Some(outcome) if outcome.succeeded => t!("Built"),
+            Some(outcome) if outcome.wrote_pdf => t!("Built with errors"),
+            Some(_) => t!("Build failed"),
         };
         let place = outcome.as_ref().map(|outcome| {
-            [
-                outcome.root_document.clone(),
-                Some(age(Instant::now().duration_since(outcome.finished_at))),
-            ]
-            .into_iter()
-            .flatten()
-            .collect::<Vec<_>>()
-            .join(", ")
+            join_phrases(
+                &[
+                    outcome.root_document.clone(),
+                    Some(age(Instant::now().duration_since(outcome.finished_at))),
+                ]
+                .into_iter()
+                .flatten()
+                .collect::<Vec<_>>(),
+            )
         });
         let head = div()
             .flex()
@@ -372,7 +381,7 @@ pub fn card(build: &Entity<BuildPanel>, cx: &App) -> AnyElement {
             rows.push(step_row(
                 StepState::Running,
                 "latexmk".into(),
-                Some("starting".into()),
+                Some(t!("starting").into()),
                 None,
                 cx,
             ));
@@ -381,7 +390,7 @@ pub fn card(build: &Entity<BuildPanel>, cx: &App) -> AnyElement {
             if steps.is_empty() {
                 rows.push(step_row(
                     StepState::None,
-                    "Nothing to rerun".into(),
+                    t!("Nothing to rerun").into(),
                     None,
                     None,
                     cx,
@@ -394,7 +403,7 @@ pub fn card(build: &Entity<BuildPanel>, cx: &App) -> AnyElement {
                 } else {
                     StepState::None
                 };
-                let what = (!synctex).then(|| "not written".to_string());
+                let what = (!synctex).then(|| t!("not written").to_string());
                 rows.push(step_row(state, "SyncTeX".into(), what, None, cx));
             }
         }

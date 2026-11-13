@@ -10,6 +10,7 @@
 use std::{collections::HashMap, sync::LazyLock};
 
 use lattice_core::models::Diagnostic;
+use lattice_i18n::t;
 use regex::{Captures, Regex};
 
 use super::diagnostics::{Severity, severity, token_offset};
@@ -198,6 +199,10 @@ fn is_cjk_character(text: &str) -> bool {
 }
 
 const BEGIN_DOCUMENT: &str = "\\begin{document}";
+// LaTeX's braces go into messages as values, as the Tauri app passes them:
+// written into a message they would read as placeholders.
+const BRACE_OPEN: &str = "{";
+const BRACE_CLOSE: &str = "}";
 
 type Explain = fn(&Captures, &Context) -> Option<Explanation>;
 
@@ -220,22 +225,29 @@ static ENTRIES: LazyLock<Vec<Entry>> = LazyLock::new(|| {
                 .on_line
                 .then(|| closest_command(&token, context.source))
                 .flatten();
-            let headline = format!("Unknown command {token}");
+            let headline = t!("Unknown command {token}", token = token);
             let Some((name, uses)) = close else {
                 return Some(
                     Explanation::new(
                         headline,
-                        format!("LaTeX doesn’t know {token}. Check its spelling, or load the package that defines it."),
+                        t!("LaTeX doesn’t know {token}. Check its spelling, or load the package that defines it.", token = token),
                     )
                     .token(token),
                 );
             };
             let explanation = if uses > 1 {
-                format!(
-                    "LaTeX doesn’t know {token}. It looks like a typo for {name}, which this paper uses {uses} times."
+                t!(
+                    "LaTeX doesn’t know {token}. It looks like a typo for {name}, which this paper uses {uses} times.",
+                    token = token,
+                    name = name,
+                    uses = uses
                 )
             } else {
-                format!("LaTeX doesn’t know {token}. It looks like a typo for {name}.")
+                t!(
+                    "LaTeX doesn’t know {token}. It looks like a typo for {name}.",
+                    token = token,
+                    name = name
+                )
             };
             let mut explained = Explanation::new(headline, explanation).token(token);
             explained.suggestion = Some(name);
@@ -245,8 +257,8 @@ static ENTRIES: LazyLock<Vec<Entry>> = LazyLock::new(|| {
             let name = &found[1];
             Some(
                 Explanation::new(
-                    format!("Unknown environment {name}"),
-                    format!("LaTeX doesn’t know the environment {name}. Check its spelling in \\begin and \\end, or load the package that defines it."),
+                    t!("Unknown environment {name}", name = name),
+                    t!("LaTeX doesn’t know the environment {name}. Check its spelling in \\begin and \\end, or load the package that defines it.", name = name),
                 )
                 .token(name),
             )
@@ -255,11 +267,18 @@ static ENTRIES: LazyLock<Vec<Entry>> = LazyLock::new(|| {
             r"\\begin\{([^}]+)\} on input line (\d+) ended by \\end\{([^}]+)\}",
             |found, _| {
                 let (opened, line, closed) = (&found[1], &found[2], &found[3]);
+                let begin = format!("\\begin{{{opened}}}");
                 let end = format!("\\end{{{closed}}}");
+                let missing = format!("\\end{{{opened}}}");
                 Some(
                     Explanation::new(
-                        format!("\\begin{{{opened}}} is closed by {end}"),
-                        format!("Environments close in the reverse order they open. The {opened} environment from line {line} needs its \\end{{{opened}}} before this one."),
+                        t!("{begin} is closed by {end}", begin = begin, end = end),
+                        t!(
+                            "Environments close in the reverse order they open. The {opened} environment from line {line} needs its {missing} before this one.",
+                            opened = opened,
+                            line = line,
+                            missing = missing
+                        ),
                     )
                     .token(end),
                 )
@@ -267,33 +286,47 @@ static ENTRIES: LazyLock<Vec<Entry>> = LazyLock::new(|| {
         ),
         entry(r"^Missing \$ inserted", |_, _| {
             Some(Explanation::new(
-                "Math outside math mode".into(),
-                "This line uses a math-only command or character, such as _ or ^, outside $…$. Put the math in $…$, or write \\_ for a literal underscore.".into(),
+                t!("Math outside math mode").into(),
+                t!("This line uses a math-only command or character, such as _ or ^, outside $…$. Put the math in $…$, or write \\_ for a literal underscore.").into(),
             ))
         }),
         entry(r"^Extra \}, or forgotten \$", |_, _| {
             Some(Explanation::new(
-                "A } with no { before it".into(),
-                "This line closes a group that was never opened, or leaves math mode with a } before its $. Remove the extra }, or add the { it closes.".into(),
+                t!(
+                    "A {BRACE_CLOSE} with no {BRACE_OPEN} before it",
+                    BRACE_CLOSE = BRACE_CLOSE,
+                    BRACE_OPEN = BRACE_OPEN
+                ),
+                t!(
+                    "This line closes a group that was never opened, or leaves math mode with a {BRACE_CLOSE} before its $. Remove the extra {BRACE_CLOSE}, or add the {BRACE_OPEN} it closes.",
+                    BRACE_CLOSE = BRACE_CLOSE,
+                    BRACE_OPEN = BRACE_OPEN
+                ),
             ))
         }),
         entry(
             r"^(?:Missing \} inserted|File ended while scanning use of (\\\S+?)\.?$)",
             |found, _| {
-                let headline = "A { is never closed".to_string();
+                let headline = t!("A {BRACE_OPEN} is never closed", BRACE_OPEN = BRACE_OPEN);
                 Some(match found.get(1) {
                     Some(command) => {
                         let command = command.as_str();
                         Explanation::new(
                             headline,
-                            format!("The argument of {command} runs to the end of the file. Add the }} it is missing."),
+                            t!(
+                                "The argument of {command} runs to the end of the file. Add the {BRACE_CLOSE} it is missing.",
+                                command = command,
+                                BRACE_CLOSE = BRACE_CLOSE
+                            ),
                         )
                         .token(command)
                     }
                     None => Explanation::new(
                         headline,
-                        "A group opened before this point is still open. Add the } it is missing."
-                            .into(),
+                        t!(
+                            "A group opened before this point is still open. Add the {BRACE_CLOSE} it is missing.",
+                            BRACE_CLOSE = BRACE_CLOSE
+                        ),
                     ),
                 })
             },
@@ -304,8 +337,12 @@ static ENTRIES: LazyLock<Vec<Entry>> = LazyLock::new(|| {
                 let command = &found[1];
                 Some(
                 Explanation::new(
-                    format!("{command} runs past a blank line"),
-                    format!("The argument of {command} contains a blank line, which usually means a missing }}. Close the argument before the paragraph ends."),
+                    t!("{command} runs past a blank line", command = command),
+                    t!(
+                        "The argument of {command} contains a blank line, which usually means a missing {BRACE_CLOSE}. Close the argument before the paragraph ends.",
+                        command = command,
+                        BRACE_CLOSE = BRACE_CLOSE
+                    ),
                 )
                 .token(command),
             )
@@ -314,8 +351,8 @@ static ENTRIES: LazyLock<Vec<Entry>> = LazyLock::new(|| {
         entry(r"^Extra alignment tab has been changed", |_, _| {
             Some(
                 Explanation::new(
-                    "Too many & in a table row".into(),
-                    "This row has more cells than the table has columns. Remove an &, or add a column to the table’s column spec.".into(),
+                    t!("Too many & in a table row").into(),
+                    t!("This row has more cells than the table has columns. Remove an &, or add a column to the table’s column spec.").into(),
                 )
                 .token("&"),
             )
@@ -323,8 +360,8 @@ static ENTRIES: LazyLock<Vec<Entry>> = LazyLock::new(|| {
         entry(r"^Misplaced alignment tab character &", |_, _| {
             Some(
                 Explanation::new(
-                    "An & outside a table".into(),
-                    "& separates the cells of a table or an aligned equation. To print an ampersand, write \\&.".into(),
+                    t!("An & outside a table").into(),
+                    t!("& separates the cells of a table or an aligned equation. To print an ampersand, write \\&.").into(),
                 )
                 .token("&"),
             )
@@ -338,12 +375,16 @@ static ENTRIES: LazyLock<Vec<Entry>> = LazyLock::new(|| {
             };
             Some(Explanation::new(
                 if sub {
-                    "Two subscripts in a row"
+                    t!("Two subscripts in a row")
                 } else {
-                    "Two superscripts in a row"
+                    t!("Two superscripts in a row")
                 }
                 .into(),
-                format!("Group a nested script in braces: write {grouped} rather than {flat}."),
+                t!(
+                    "Group a nested script in braces: write {grouped} rather than {flat}.",
+                    grouped = grouped,
+                    flat = flat
+                ),
             ))
         }),
         entry(r"File [`']([^`']+)' not found", |found, _| {
@@ -355,8 +396,8 @@ static ENTRIES: LazyLock<Vec<Entry>> = LazyLock::new(|| {
                 .any(|extension| file.ends_with(extension));
             (!package).then(|| {
                 Explanation::new(
-                    format!("File not found: {file}"),
-                    format!("Nothing in the project is called {file}. Check the path and its letter case; paths are relative to the root document."),
+                    t!("File not found: {file}", file = file),
+                    t!("Nothing in the project is called {file}. Check the path and its letter case; paths are relative to the root document.", file = file),
                 )
                 .token(file)
             })
@@ -369,8 +410,11 @@ static ENTRIES: LazyLock<Vec<Entry>> = LazyLock::new(|| {
                 let character = &found[1];
                 is_cjk_character(character).then(|| {
                 Explanation::new(
-                    format!("pdfLaTeX can’t typeset {character}"),
-                    "pdfLaTeX has no fonts for Chinese, Japanese or Korean text. Add \\usepackage{ctex} to the preamble and switch the project to XeLaTeX.".into(),
+                    t!("pdfLaTeX can’t typeset {character}", character = character),
+                    t!(
+                        "pdfLaTeX has no fonts for Chinese, Japanese or Korean text. Add {command} to the preamble and switch the project to XeLaTeX.",
+                        command = "\\usepackage{ctex}"
+                    ),
                 )
                 .token(character)
             })
@@ -378,17 +422,22 @@ static ENTRIES: LazyLock<Vec<Entry>> = LazyLock::new(|| {
         ),
         entry(r"Missing \\begin\{document\}", |_, _| {
             Some(Explanation::new(
-                format!("Text before {BEGIN_DOCUMENT}"),
-                format!(
-                    "Only definitions and \\usepackage belong in the preamble. Move this text after {BEGIN_DOCUMENT}, or check for a stray character above it."
+                t!(
+                    "Text before {BEGIN_DOCUMENT}",
+                    BEGIN_DOCUMENT = BEGIN_DOCUMENT
+                ),
+                t!(
+                    "Only definitions and \\usepackage belong in the preamble. Move this text after {BEGIN_DOCUMENT}, or check for a stray character above it.",
+                    BEGIN_DOCUMENT = BEGIN_DOCUMENT
                 ),
             ))
         }),
         entry(r"Can be used only in preamble", |_, context| {
             let explained = Explanation::new(
-                "A preamble command inside the document".into(),
-                format!(
-                    "Commands such as \\usepackage only work before {BEGIN_DOCUMENT}. Move this line into the preamble."
+                t!("A preamble command inside the document").into(),
+                t!(
+                    "Commands such as \\usepackage only work before {BEGIN_DOCUMENT}. Move this line into the preamble.",
+                    BEGIN_DOCUMENT = BEGIN_DOCUMENT
                 ),
             );
             Some(match &context.stopped_at {
@@ -399,16 +448,17 @@ static ENTRIES: LazyLock<Vec<Entry>> = LazyLock::new(|| {
         entry(r"Option clash for package (\S+?)\.?$", |found, _| {
             let name = &found[1];
             Some(Explanation::new(
-                format!("{name} is loaded twice with different options"),
-                format!(
-                    "Another package or the template already loads {name}. Pass your options with \\PassOptionsToPackage before \\documentclass, or remove the second \\usepackage."
+                t!("{name} is loaded twice with different options", name = name),
+                t!(
+                    "Another package or the template already loads {name}. Pass your options with \\PassOptionsToPackage before \\documentclass, or remove the second \\usepackage.",
+                    name = name
                 ),
             ))
         }),
         entry(r"^Illegal unit of measure", |_, _| {
             Some(Explanation::new(
-                "A length without a unit".into(),
-                "Lengths need a unit: write 0.5\\linewidth, 2em or 10pt rather than a bare number."
+                t!("A length without a unit").into(),
+                t!("Lengths need a unit: write 0.5\\linewidth, 2em or 10pt rather than a bare number.")
                     .into(),
             ))
         }),
@@ -417,15 +467,17 @@ static ENTRIES: LazyLock<Vec<Entry>> = LazyLock::new(|| {
             |found, context| {
                 let key = &found[1];
                 let explanation = if context.after_error {
-                    format!(
-                        "No bibliography entry has the key {key} yet. A build that stops at an error never reads the bibliography, so this may clear once the error above is fixed."
+                    t!(
+                        "No bibliography entry has the key {key} yet. A build that stops at an error never reads the bibliography, so this may clear once the error above is fixed.",
+                        key = key
                     )
                 } else {
-                    format!(
-                        "No bibliography entry has the key {key}. Check the key, or add the entry to the .bib file."
+                    t!(
+                        "No bibliography entry has the key {key}. Check the key, or add the entry to the .bib file.",
+                        key = key
                     )
                 };
-                Some(Explanation::new(format!("No entry for {key}"), explanation).token(key))
+                Some(Explanation::new(t!("No entry for {key}", key = key), explanation).token(key))
             },
         ),
         entry(
@@ -434,8 +486,11 @@ static ENTRIES: LazyLock<Vec<Entry>> = LazyLock::new(|| {
                 let label = &found[1];
                 Some(
                     Explanation::new(
-                        format!("No label {label}"),
-                        format!("Nothing in the paper has \\label{{{label}}}. Check the spelling, or add the label where the reference should point."),
+                        t!("No label {label}", label = label),
+                        t!(
+                            "Nothing in the paper has {command}. Check the spelling, or add the label where the reference should point.",
+                            command = format!("\\label{{{label}}}")
+                        ),
                     )
                     .token(label),
                 )
@@ -445,22 +500,25 @@ static ENTRIES: LazyLock<Vec<Entry>> = LazyLock::new(|| {
             let label = &found[1];
             Some(
                 Explanation::new(
-                    format!("The label {label} is used twice"),
-                    format!("Two places set \\label{{{label}}}, so references to it may point at the wrong one. Rename one of them."),
+                    t!("The label {label} is used twice", label = label),
+                    t!(
+                        "Two places set {command}, so references to it may point at the wrong one. Rename one of them.",
+                        command = format!("\\label{{{label}}}")
+                    ),
                 )
                 .token(label),
             )
         }),
         entry(r"^Overfull \\hbox \(([\d.]+)pt too wide\)", |found, _| {
             Some(Explanation::new(
-                format!("A line runs {} pt into the margin", &found[1]),
-                "LaTeX couldn’t break this line inside the text width. Rephrasing it, or allowing a hyphen in a long word, usually fixes it.".into(),
+                t!("A line runs {points} pt into the margin", points = &found[1]),
+                t!("LaTeX couldn’t break this line inside the text width. Rephrasing it, or allowing a hyphen in a long word, usually fixes it.").into(),
             ))
         }),
         entry(r"^Float too large for page by ([\d.]+)pt", |found, _| {
             Some(Explanation::new(
-                format!("A figure or table is {} pt taller than the page", &found[1]),
-                "Scale it down, for example with width=\\linewidth or a smaller height, so it fits on one page.".into(),
+                t!("A figure or table is {points} pt taller than the page", points = &found[1]),
+                t!("Scale it down, for example with width=\\linewidth or a smaller height, so it fits on one page.").into(),
             ))
         }),
     ]
@@ -477,8 +535,11 @@ static TABLE_END: LazyLock<Regex> = LazyLock::new(|| pattern(r"\\end\{tabular[^}
 
 fn table_clash(token: String) -> Explanation {
     Explanation::new(
-        "arydshln and colortbl clash at this table’s end".into(),
-        "LaTeX 2026-11 ends every table with this error when arydshln is loaded after colortbl; the table is fine. Load arydshln before colortbl in the preamble, or remove \\usepackage{arydshln} if no table draws dashed rules.".into(),
+        t!("arydshln and colortbl clash at this table’s end").into(),
+        t!(
+            "LaTeX 2026-11 ends every table with this error when arydshln is loaded after colortbl; the table is fine. Load arydshln before colortbl in the preamble, or remove {command} if no table draws dashed rules.",
+            command = "\\usepackage{arydshln}"
+        ),
     )
     .token(token)
 }

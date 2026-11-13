@@ -15,7 +15,7 @@ pub(super) fn project_commands(context: &CommandContext, out: &mut Vec<Command>)
     ));
     out.push(Command::new(
         "open-folder",
-        "Open another folder",
+        t!("Open another folder"),
         Section::Project,
         OpenFolder,
     ));
@@ -70,40 +70,46 @@ pub(super) fn project_commands(context: &CommandContext, out: &mut Vec<Command>)
     ));
     out.push(Command::new(
         "new-window",
-        "New window",
+        t!("New window"),
         Section::Project,
         NewWindow,
     ));
     if context.in_project {
         out.push(Command::new(
             "open-in-new-window",
-            "Open this project in a new window",
+            t!("Open this project in a new window"),
             Section::Project,
             OpenInNewWindow,
         ));
     }
     out.push(Command::new(
         "doctor",
-        "Run TeX doctor",
+        t!("Run TeX doctor"),
         Section::Project,
         OpenTexDoctor,
+    ));
+    out.push(Command::new(
+        "settings",
+        t!("Open settings"),
+        Section::Project,
+        OpenSettings,
     ));
     if context.projects > 1 {
         out.push(Command::new(
             "next-project",
-            "Next project",
+            t!("Next project in this window"),
             Section::Project,
             NextProject,
         ));
         out.push(Command::new(
             "previous-project",
-            "Previous project",
+            t!("Previous project in this window"),
             Section::Project,
             PreviousProject,
         ));
         out.push(Command::new(
             "close-project",
-            "Close this project",
+            t!("Close this project"),
             Section::Project,
             CloseProject,
         ));

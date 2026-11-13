@@ -22,8 +22,8 @@ impl Preset {
 
     pub fn label(self) -> &'static str {
         match self {
-            Preset::Writing => "Writing",
-            Preset::Reading => "Reading",
+            Preset::Writing => lattice_i18n::t!("Writing"),
+            Preset::Reading => lattice_i18n::t!("Reading"),
         }
     }
 

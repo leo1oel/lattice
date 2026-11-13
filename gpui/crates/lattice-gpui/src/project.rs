@@ -337,7 +337,11 @@ impl Project {
                     cx.emit(ProjectEvent::ManifestChanged);
                     cx.notify();
                 }
-                Err(error) => crate::notices::error("Could not set the main document", error, cx),
+                Err(error) => crate::notices::error(
+                    lattice_i18n::t!("Could not set the main document"),
+                    error,
+                    cx,
+                ),
             })
             .ok();
         })

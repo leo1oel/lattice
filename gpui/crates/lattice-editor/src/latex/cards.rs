@@ -29,6 +29,7 @@ use gpui::{
     WeakEntity, Window, div, prelude::FluentBuilder as _, px, relative,
 };
 use language::BufferSnapshot;
+use lattice_i18n::t;
 use lattice_ui::{
     ActiveLattice as _, Elevation, TextRole, TextRoleStyle as _,
     components::{Badge, Button},
@@ -155,9 +156,9 @@ pub fn byline_authors(authors: &str) -> Option<String> {
         .join(", ");
     let more = people.len().saturating_sub(3);
     Some(if more > 0 {
-        format!("{names} +{more}")
+        t!("{names} +{more}", names = names, more = more)
     } else if others {
-        format!("{names} et al.")
+        t!("{names} et al.", names = names)
     } else {
         names
     })
@@ -186,6 +187,19 @@ pub fn source_label(citation: &Citation) -> Option<String> {
         .next()?
         .trim_start_matches("www.");
     (!host.is_empty()).then(|| host.to_string())
+}
+
+/// The reference kind as cards and completions show it (`referenceKindLabel`);
+/// the kind itself stays an identifier, and one this list lacks reads as is.
+pub(crate) fn reference_kind_label(kind: &str) -> &str {
+    match kind {
+        "figure" => t!("figure"),
+        "table" => t!("table"),
+        "equation" => t!("equation"),
+        "section" => t!("section"),
+        "reference" => t!("reference"),
+        other => other,
+    }
 }
 
 /// CSS `text-transform: capitalize`: each word's first letter in capitals.
@@ -354,7 +368,7 @@ impl RenderOnce for CitationCard {
                     .flex_wrap()
                     .gap(px(4.))
                     .child(
-                        Button::new("citation-card-goto", "Go to entry")
+                        Button::new("citation-card-goto", t!("Go to entry"))
                             .ghost()
                             .compact()
                             .on_click(goto),
@@ -362,7 +376,11 @@ impl RenderOnce for CitationCard {
                     .child(
                         Button::new(
                             "citation-card-copy",
-                            if is_copied { "Copied" } else { "Copy key" },
+                            if is_copied {
+                                t!("Copied")
+                            } else {
+                                t!("Copy key")
+                            },
                         )
                         .ghost()
                         .compact()
@@ -408,10 +426,11 @@ impl RenderOnce for ReferenceCard {
                     .text_color(palette.accent)
                     .font_family(editor_font.clone())
                     .text_size(lattice_ui::tokens::TEXT_MICRO)
-                    .child(capitalize(&format!(
+                    .child(format!(
                         "{} {}",
-                        reference.kind, reference.label
-                    ))),
+                        capitalize(reference_kind_label(&reference.kind)),
+                        reference.label
+                    )),
             )
             .child(
                 div()

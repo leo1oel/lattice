@@ -94,11 +94,7 @@ pub fn space_mixed_script(text: &str) -> String {
     let chars: Vec<char> = text.chars().collect();
     let mut out = String::with_capacity(text.len() + 8);
     for (i, &c) in chars.iter().enumerate() {
-        if c == ' '
-            && i > 0
-            && i + 1 < chars.len()
-            && is_han(chars[i - 1])
-            && is_han(chars[i + 1])
+        if c == ' ' && i > 0 && i + 1 < chars.len() && is_han(chars[i - 1]) && is_han(chars[i + 1])
         {
             continue;
         }

@@ -58,7 +58,12 @@ pub fn settings_from_items(items: &BTreeMap<String, String>) -> Settings {
         ),
     };
     let auto_build_mode = json("lattice.build-preferences.v2")
-        .and_then(|value| value.get("autoBuildMode").and_then(Value::as_str).map(str::to_owned))
+        .and_then(|value| {
+            value
+                .get("autoBuildMode")
+                .and_then(Value::as_str)
+                .map(str::to_owned)
+        })
         // Only "manual" is kept; everything else is the automatic default.
         .filter(|mode| mode == AutoBuildMode::Manual.tag())
         .map(|_| AutoBuildMode::Manual)
@@ -230,7 +235,10 @@ mod tests {
         for (key, value) in items {
             let blob: Vec<u8> = value.encode_utf16().flat_map(u16::to_le_bytes).collect();
             connection
-                .execute("INSERT INTO ItemTable VALUES (?1, ?2)", rusqlite::params![key, blob])
+                .execute(
+                    "INSERT INTO ItemTable VALUES (?1, ?2)",
+                    rusqlite::params![key, blob],
+                )
                 .unwrap();
         }
         // Left open while the import reads: the rows are still in the WAL,
@@ -250,7 +258,10 @@ mod tests {
                     "lattice.appearance.v5",
                     r##"{"interfaceLanguage":"zh-CN","editorKeymap":"vim","accent":"teal","codeTheme":"nord","editorFontSize":16}"##,
                 ),
-                ("lattice.build-preferences.v2", r#"{"autoBuildMode":"manual"}"#),
+                (
+                    "lattice.build-preferences.v2",
+                    r#"{"autoBuildMode":"manual"}"#,
+                ),
                 ("lattice.author-name.v1", "Ada Lovelace"),
                 ("lattice.settings-tab.v1", "editor"),
                 ("lattice.recent-projects.v1", "[]"),
@@ -267,15 +278,25 @@ mod tests {
         assert_eq!(imported.source, release);
         let settings = imported.settings;
         assert_eq!(settings.theme_preference, ThemePreference::Dark);
-        assert_eq!(settings.appearance.interface_language, InterfaceLanguage::ZhCn);
+        assert_eq!(
+            settings.appearance.interface_language,
+            InterfaceLanguage::ZhCn
+        );
         assert_eq!(settings.appearance.editor_keymap, EditorKeymap::Vim);
-        assert_eq!(settings.appearance.accent, Accent::Preset(AccentPreset::Teal));
+        assert_eq!(
+            settings.appearance.accent,
+            Accent::Preset(AccentPreset::Teal)
+        );
         assert_eq!(settings.appearance.code_theme, CodeTheme::Nord);
         assert_eq!(settings.appearance.editor_font_size, 16.);
         assert_eq!(settings.auto_build_mode, AutoBuildMode::Manual);
         assert_eq!(settings.author_name, "Ada Lovelace");
         assert_eq!(settings.settings_tab, SettingsTab::Editor);
-        assert!(!imported.keys.contains(&"lattice.recent-projects.v1".to_owned()));
+        assert!(
+            !imported
+                .keys
+                .contains(&"lattice.recent-projects.v1".to_owned())
+        );
         assert_eq!(std::fs::read(&release).unwrap(), before);
         let _ = std::fs::remove_dir_all(&website_data);
     }
@@ -283,9 +304,15 @@ mod tests {
     #[test]
     fn a_legacy_appearance_and_the_shares_name_are_read_when_nothing_newer_is() {
         let items: BTreeMap<String, String> = [
-            ("lattice.appearance.v4", r#"{"interfaceScale":1.1,"tint":"dusk"}"#),
+            (
+                "lattice.appearance.v4",
+                r#"{"interfaceScale":1.1,"tint":"dusk"}"#,
+            ),
             ("lattice.collab.name", "Grace"),
-            ("lattice.build-preferences.v2", r#"{"autoBuildMode":"sometimes"}"#),
+            (
+                "lattice.build-preferences.v2",
+                r#"{"autoBuildMode":"sometimes"}"#,
+            ),
         ]
         .into_iter()
         .map(|(key, value)| (key.to_owned(), value.to_owned()))

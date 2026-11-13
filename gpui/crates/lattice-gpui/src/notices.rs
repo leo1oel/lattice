@@ -1,6 +1,7 @@
 //! Notifications, as the Tauri app's toast stack shows them
-//! (`src/telemetry/toast-stack.tsx`): 320px cards at the bottom right, 44px
-//! up so they stay off the panels' status row and 32px in; an error stays
+//! (`src/telemetry/toast-stack.tsx`): 320px cards where Settings › Appearance
+//! puts them (the bottom right by default, 44px up so they stay off the
+//! panels' status row and 16px in); an error stays
 //! 9 s and anything else 6 s, unless it waits for an answer, which stays
 //! until it is given or dismissed. A notice with a key replaces the one
 //! already showing under it.
@@ -12,8 +13,9 @@ use std::{rc::Rc, time::Duration};
 
 use gpui::{
     AnyElement, App, AppContext as _, Context, Entity, Global, IntoElement, ParentElement as _,
-    Render, SharedString, Styled as _, Task, Window, div, px,
+    Render, SharedString, Styled as _, Task, Window, div, prelude::FluentBuilder as _, px,
 };
+use lattice_settings::ToastPosition;
 use lattice_ui::components::{Button, PopFrom, Toast, ToastLevel, toast_in};
 
 const ERROR_TIMEOUT: Duration = Duration::from_secs(9);
@@ -238,13 +240,34 @@ impl Render for NoticeStack {
                 toast_in(("notice-in", id), PopFrom::Below, toast)
             })
             .collect();
-        div()
-            .absolute()
-            .bottom(px(44.))
-            .right(px(32.))
+        // Settings › Appearance › Notification position (toast-stack.css):
+        // 52px clears the 40px title bar at the top, 44px keeps the cards
+        // off the panels' status row at the bottom; 16px in at the right,
+        // or centred.
+        let position = crate::settings::get(cx).appearance.toast_position;
+        let (top, centered) = match position {
+            ToastPosition::TopRight => (true, false),
+            ToastPosition::TopCenter => (true, true),
+            ToastPosition::BottomRight => (false, false),
+            ToastPosition::BottomCenter => (false, true),
+        };
+        let stack = div()
             .flex()
             .flex_col()
             .gap(px(16.))
-            .children(cards)
+            .w(px(320.))
+            .children(cards);
+        div()
+            .absolute()
+            .when(top, |this| this.top(px(52.)))
+            .when(!top, |this| this.bottom(px(44.)))
+            .map(|this| {
+                if centered {
+                    this.left_0().right_0().flex().justify_center()
+                } else {
+                    this.right(px(16.))
+                }
+            })
+            .child(stack)
     }
 }
