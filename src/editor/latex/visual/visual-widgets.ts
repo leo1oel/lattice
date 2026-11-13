@@ -120,6 +120,44 @@ export class TextWidget extends WidgetType {
   }
 }
 
+/** A piece of a chip's text: a key's own words carry the key, separators and brackets none. */
+export type ChipPart = { text: string; key?: string };
+
+/**
+ * A reference's or citation's chip, each key's words in a span of their own
+ * (`data-key`), so a ⌘-click jumps to the key under the pointer. It has no
+ * title: the hover card (visual-hover.ts) says what the keys name.
+ */
+export class KeyedChipWidget extends WidgetType {
+  private readonly signature: string;
+
+  constructor(readonly parts: readonly ChipPart[], readonly className: string) {
+    super();
+    this.signature = JSON.stringify(parts);
+  }
+
+  eq(other: KeyedChipWidget): boolean {
+    return other.className === this.className && other.signature === this.signature;
+  }
+
+  toDOM(): HTMLElement {
+    const dom = element("span", this.className);
+    for (const part of this.parts) {
+      if (part.key === undefined) dom.append(part.text);
+      else {
+        const span = element("span", "lx-tex-chip-key", part.text);
+        span.dataset.key = part.key;
+        dom.append(span);
+      }
+    }
+    return dom;
+  }
+
+  ignoreEvent(): boolean {
+    return false;
+  }
+}
+
 /**
  * Text standing for an empty construct to fill in (`\caption{}`): a click puts
  * the caret `offset` into its source, between the braces, rather than at the

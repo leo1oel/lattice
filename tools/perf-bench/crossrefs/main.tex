@@ -1,0 +1,42 @@
+\documentclass{article}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{natbib}
+\usepackage{hyperref}
+\usepackage{cleveref}
+
+\begin{document}
+
+\section{Introduction}\label{sec:intro}
+Attention replaced recurrence in sequence models \citep{vaswani2017attention}, and later work scaled it to pretraining \citep{devlin2019bert,brown2020language,missing2024key}.
+Section~\ref{sec:method} describes the method, \autoref{sec:results} reports the results, and \cref{fig:case-failure,fig:cost} compare two cases.
+The objective is \eqref{eq:loss}, and \Cref{tab:main} lists the scores; \ref{sec:missing} names nothing.
+
+\section{Method}\label{sec:method}
+We minimise the negative log-likelihood of the targets.
+\begin{equation}
+  \mathcal{L} = -\sum_i \log p(y_i \mid x_i)
+  \label{eq:loss}
+\end{equation}
+
+\begin{figure}[t]
+  \centering
+  \begin{minipage}{0.48\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{figures/scaled-dot-product-attention.png}
+    \captionof{figure}{A failure case: the retrieved context misleads the model into an answer it would not otherwise give}
+    \label{fig:case-failure}
+  \end{minipage}\hfill
+  \begin{minipage}{0.48\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{figures/multi-head-attention.png}
+    \caption{Inference cost against sequence length}
+    \label{fig:cost}
+  \end{minipage}
+\end{figure}
+
+\input{sections/results}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+\end{document}

@@ -75,8 +75,13 @@ fn parse_latex_references(
             })
             .max_by_key(|(_, start, _)| *start);
         let (kind, title, snippet, image_path) = if let Some((kind, start, finish)) = environment {
+            // A label in its own minipage or subfigure names that panel: its
+            // caption, graphic and lines, when the panel has a caption.
+            let (start, finish) = subfloat_around(source, position, start)
+                .filter(|(from, to)| !captions(&source[*from..*to]).is_empty())
+                .unwrap_or((start, finish));
             let body = &source[start..finish];
-            let caption = command_argument(body, "\\caption")
+            let caption = caption_for_label(body, position - start)
                 .map(|value| crate::util::collapse_whitespace(&value))
                 .filter(|value| !value.is_empty());
             let image_path = (kind == "figure")
@@ -115,9 +120,89 @@ fn enclosing_environment(source: &str, position: usize, name: &str) -> Option<(u
     Some((start, finish))
 }
 
-fn command_argument(source: &str, command: &str) -> Option<String> {
-    let position = source.find(command)? + command.len();
-    command_argument_at(source, position).map(|(value, _)| value)
+/// Environments that hold one panel of a float, each with its own caption and label.
+const SUBFLOAT_ENVIRONMENTS: &[&str] = &["minipage", "subfigure", "subtable"];
+
+/// The innermost panel environment around `position` that opens inside the float starting at `float_start`.
+fn subfloat_around(source: &str, position: usize, float_start: usize) -> Option<(usize, usize)> {
+    SUBFLOAT_ENVIRONMENTS
+        .iter()
+        .filter_map(|name| enclosing_environment(source, position, name))
+        .filter(|(start, _)| *start > float_start)
+        .max_by_key(|(start, _)| *start)
+}
+
+/// Every caption in `body` with its offset: `\caption`, `\subcaption` and
+/// `\captionof{type}`, starred or with a `[short]` form, but not
+/// `\captionsetup` and its relatives.
+fn captions(body: &str) -> Vec<(usize, String)> {
+    let bytes = body.as_bytes();
+    let mut found = Vec::new();
+    let mut cursor = 0;
+    while let Some(offset) = body[cursor..].find("caption") {
+        let at = cursor + offset;
+        cursor = at + "caption".len();
+        let start = if body[..at].ends_with("\\sub") {
+            at - 4
+        } else if body[..at].ends_with('\\') {
+            at - 1
+        } else {
+            continue;
+        };
+        let mut position = cursor;
+        if body[position..].starts_with("of") {
+            position += 2;
+            if bytes.get(position).is_some_and(u8::is_ascii_alphabetic) {
+                continue;
+            }
+            // `\captionof{figure}`: the float type comes before the caption.
+            position = skip_bytes(bytes, position, |byte| *byte == b'*');
+            let Some((_, end)) = command_argument_at(body, position) else { continue };
+            position = end;
+        } else if bytes.get(position).is_some_and(u8::is_ascii_alphabetic) {
+            continue;
+        }
+        position = skip_bytes(bytes, position, |byte| *byte == b'*' || byte.is_ascii_whitespace());
+        if bytes.get(position) == Some(&b'[') {
+            position = optional_argument_end(bytes, position);
+        }
+        if let Some((caption, end)) = command_argument_at(body, position) {
+            found.push((start, caption));
+            cursor = end;
+        }
+    }
+    found
+}
+
+/// Just past the `[…]` opening at `position`, nested brackets and braces included.
+fn optional_argument_end(bytes: &[u8], mut position: usize) -> usize {
+    let mut depth = 0usize;
+    while position < bytes.len() {
+        match bytes[position] {
+            b'\\' => position += 1,
+            b'[' | b'{' => depth += 1,
+            b']' | b'}' => {
+                depth = depth.saturating_sub(1);
+                if depth == 0 {
+                    return position + 1;
+                }
+            }
+            _ => {}
+        }
+        position += 1;
+    }
+    position
+}
+
+/// The caption a label at `label_at` in `body` numbers, as LaTeX does: the
+/// last one before it, or the first after it for a label written above its caption.
+fn caption_for_label(body: &str, label_at: usize) -> Option<String> {
+    let all = captions(body);
+    all.iter()
+        .rev()
+        .find(|(at, _)| *at < label_at)
+        .or_else(|| all.first())
+        .map(|(_, caption)| caption.clone())
 }
 
 /// The brace-balanced `{…}` argument starting at `position` (after optional
@@ -334,5 +419,74 @@ mod tests {
         let section = find("sec:intro");
         assert_eq!((section.kind.as_str(), section.title.as_str()), ("section", "Introduction"));
         assert_eq!((section.line, figure.line, table.line), (1, 5, 13));
+    }
+
+    /// The bench's cross-reference project (tools/perf-bench/crossrefs)
+    /// answers `list_references` with `index.json`; this keeps that answer
+    /// what the backend reports for the same files.
+    #[test]
+    fn bench_crossrefs_index_is_what_the_backend_reports() {
+        const BENCH: &str =
+            concat!(env!("CARGO_MANIFEST_DIR"), "/../../tools/perf-bench/crossrefs");
+        let read = |path: &str| std::fs::read_to_string(format!("{BENCH}/{path}")).unwrap();
+        let fixture = Fixture::project("bench-crossrefs");
+        fixture.write("main.tex", read("main.tex"));
+        fixture.write("sections/results.tex", read("sections/results.tex"));
+        fixture.write("figures/scaled-dot-product-attention.png", b"png");
+        fixture.write("figures/multi-head-attention.png", b"png");
+
+        let indexed = references(&fixture.root).unwrap().references;
+        let ours = indexed
+            .iter()
+            .filter(|item| item.path == "main.tex" || item.path == "sections/results.tex")
+            .collect::<Vec<_>>();
+        let find = |label: &str| *ours.iter().find(|item| item.label == label).unwrap();
+        // Each minipage's label names its own panel: its caption and its graphic.
+        let failure = find("fig:case-failure");
+        assert_eq!(
+            (failure.kind.as_str(), failure.title.as_str(), failure.image_path.as_deref()),
+            (
+                "figure",
+                "A failure case: the retrieved context misleads the model into an answer it would not otherwise give",
+                Some("figures/scaled-dot-product-attention.png"),
+            )
+        );
+        let cost = find("fig:cost");
+        assert_eq!(
+            (cost.title.as_str(), cost.image_path.as_deref()),
+            ("Inference cost against sequence length", Some("figures/multi-head-attention.png"))
+        );
+        let table = find("tab:main");
+        assert_eq!(
+            (table.kind.as_str(), table.path.as_str(), table.line),
+            ("table", "sections/results.tex", 5)
+        );
+        assert_eq!(find("sec:results").title, "Results");
+
+        let actual = serde_json::to_value(&ours).unwrap();
+        let staged: serde_json::Value = serde_json::from_str(&read("index.json")).unwrap();
+        assert_eq!(
+            actual,
+            staged,
+            "tools/perf-bench/crossrefs/index.json is stale:\n{}",
+            serde_json::to_string_pretty(&actual).unwrap()
+        );
+    }
+
+    #[test]
+    fn a_label_names_the_caption_before_it_in_its_own_panel() {
+        let body = r"\begin{figure}
+  \begin{subfigure}{.5\linewidth}\caption[Short]{Left {panel}}\label{fig:left}\end{subfigure}
+  \begin{subfigure}{.5\linewidth}\label{fig:right}\subcaption{Right panel}\end{subfigure}
+  \captionsetup{font=small}
+  \caption*{Both panels}\label{fig:both}
+\end{figure}";
+        let indexed =
+            parse_latex_references(Path::new("/nowhere"), Path::new("main.tex"), "main.tex", body);
+        let title =
+            |label: &str| indexed.iter().find(|item| item.label == label).unwrap().title.clone();
+        assert_eq!(title("fig:left"), "Left {panel}");
+        assert_eq!(title("fig:right"), "Right panel");
+        assert_eq!(title("fig:both"), "Both panels");
     }
 }

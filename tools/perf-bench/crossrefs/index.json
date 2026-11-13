@@ -1,0 +1,65 @@
+[
+  {
+    "imagePath": null,
+    "kind": "equation",
+    "label": "eq:loss",
+    "line": 19,
+    "path": "main.tex",
+    "snippet": "\\mathcal{L} = -\\sum_i \\log p(y_i \\mid x_i)",
+    "title": ""
+  },
+  {
+    "imagePath": "figures/scaled-dot-product-attention.png",
+    "kind": "figure",
+    "label": "fig:case-failure",
+    "line": 28,
+    "path": "main.tex",
+    "snippet": "",
+    "title": "A failure case: the retrieved context misleads the model into an answer it would not otherwise give"
+  },
+  {
+    "imagePath": "figures/multi-head-attention.png",
+    "kind": "figure",
+    "label": "fig:cost",
+    "line": 34,
+    "path": "main.tex",
+    "snippet": "",
+    "title": "Inference cost against sequence length"
+  },
+  {
+    "imagePath": null,
+    "kind": "section",
+    "label": "sec:intro",
+    "line": 10,
+    "path": "main.tex",
+    "snippet": "",
+    "title": "Introduction"
+  },
+  {
+    "imagePath": null,
+    "kind": "section",
+    "label": "sec:method",
+    "line": 15,
+    "path": "main.tex",
+    "snippet": "",
+    "title": "Method"
+  },
+  {
+    "imagePath": null,
+    "kind": "section",
+    "label": "sec:results",
+    "line": 1,
+    "path": "sections/results.tex",
+    "snippet": "",
+    "title": "Results"
+  },
+  {
+    "imagePath": null,
+    "kind": "table",
+    "label": "tab:main",
+    "line": 5,
+    "path": "sections/results.tex",
+    "snippet": "Method & Score \\\\\nOurs & 91.2",
+    "title": "Main results on the long-context retrieval benchmark, averaged over five seeds and three prompt templates"
+  }
+]

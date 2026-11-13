@@ -24,7 +24,10 @@ import { overlaysTouch } from "../../source-overlays";
 import type { Construct, ScanFrame, Span } from "./visual-scan";
 import { BOXED_ENVIRONMENTS, FIGURE_ENVIRONMENTS, LIST_ENVIRONMENTS, REFERENCE_COMMANDS } from "./visual-symbols";
 import { macroRevision, mathHtml, visualMathSource } from "./visual-math";
-import { BarWidget, FigureWidget, ImageWidget, IncludeWidget, MarkerWidget, MathWidget, PlaceholderWidget, TextWidget, TitleWidget, type FigurePicture } from "./visual-widgets";
+import {
+  BarWidget, FigureWidget, ImageWidget, IncludeWidget, KeyedChipWidget, MarkerWidget, MathWidget, PlaceholderWidget, TextWidget, TitleWidget,
+  type ChipPart, type FigurePicture,
+} from "./visual-widgets";
 import { figureEntryGraphic, figureEntryLabels } from "./visual-figure";
 import { frontMatter } from "./visual-front-matter";
 
@@ -158,34 +161,45 @@ function indexed<T>(cache: WeakMap<T[], Map<string, T>>, list: T[] | undefined, 
   return index;
 }
 
-function citationText(construct: Extract<Construct, { kind: "citation" }>, citations: Map<string, CitationInfo>): string {
+/** Parts joined with `separator` between them. */
+function joined(parts: readonly ChipPart[], separator: string): ChipPart[] {
+  return parts.flatMap((part, index) => (index ? [{ text: separator }, part] : [part]));
+}
+
+/** A citation chip's words, each key's own: "[Vaswani et al., 2017; Devlin et al., 2019]". */
+export function citationParts(construct: Extract<Construct, { kind: "citation" }>, citations: Map<string, CitationInfo>): ChipPart[] {
   const textual = /^(?:citet|Citet|textcite|Textcite|citealt|Citealt)$/.test(construct.command);
   const entries = construct.keys.map((key) => {
     const info = citations.get(key);
     const authors = info ? citationAuthors(info.authors) : "";
-    if (!info || !authors) return { label: key, year: "" };
-    return { label: authors, year: info.year };
+    if (!info || !authors) return { key, label: key, year: "" };
+    return { key, label: authors, year: info.year };
   });
-  if (construct.command === "citeauthor" || construct.command === "Citeauthor") return entries.map((entry) => entry.label).join("; ");
-  if (construct.command === "citeyear" || construct.command === "citeyearpar") return entries.map((entry) => entry.year || entry.label).join("; ");
+  if (construct.command === "citeauthor" || construct.command === "Citeauthor") {
+    return joined(entries.map(({ key, label }) => ({ key, text: label })), "; ");
+  }
+  if (construct.command === "citeyear" || construct.command === "citeyearpar") {
+    return joined(entries.map(({ key, label, year }) => ({ key, text: year || label })), "; ");
+  }
   const note = construct.notes.at(-1)?.replace(/~/g, " ").trim();
-  if (textual) return entries.map((entry) => (entry.year ? `${entry.label} (${entry.year})` : entry.label)).join("; ");
-  const inner = entries.map((entry) => (entry.year ? `${entry.label}, ${entry.year}` : entry.label)).join("; ");
-  return note ? `[${inner}, ${note}]` : `[${inner}]`;
+  if (textual) return joined(entries.map(({ key, label, year }) => ({ key, text: year ? `${label} (${year})` : label })), "; ");
+  const inner = joined(entries.map(({ key, label, year }) => ({ key, text: year ? `${label}, ${year}` : label })), "; ");
+  return [{ text: "[" }, ...inner, { text: note ? `, ${note}]` : "]" }];
 }
 
-function referenceText(construct: Extract<Construct, { kind: "reference" }>, context: DrawContext): string {
+/** A reference chip's words, each label's own: "Section 2, 3". */
+function referenceParts(construct: Extract<Construct, { kind: "reference" }>, context: DrawContext): ChipPart[] {
   const style = REFERENCE_COMMANDS.get(construct.command) ?? "number";
   const references = indexed(referenceIndex, context.host.data().references, (reference) => reference.label);
   const parts = construct.keys.map((key) => {
     const compiled = context.labels?.get(key);
     const number = (style === "page" ? compiled?.page : compiled?.number) || "?";
-    if (style === "parenthesized") return `(${number})`;
-    if (style !== "named") return number;
+    if (style === "parenthesized") return { key, text: `(${number})` };
+    if (style !== "named") return { key, text: number };
     const kind = references.get(key)?.kind;
-    return kind ? `${referenceKindLabel(kind)} ${number}` : number;
+    return { key, text: kind ? `${referenceKindLabel(kind)} ${number}` : number };
   });
-  return parts.join(", ");
+  return joined(parts, ", ");
 }
 
 /** A labelled equation's number from the last build: "?" before one, or for a label it never saw. */
@@ -320,13 +334,13 @@ export function buildReplacements(
       case "reference":
         if (touched) return;
         add(construct.from, construct.to, Decoration.replace({
-          widget: new TextWidget(referenceText(construct, context), classes("lx-tex-chip", "lx-tex-ref"), construct.keys.join(", ")),
+          widget: new KeyedChipWidget(referenceParts(construct, context), classes("lx-tex-chip", "lx-tex-ref")),
         }));
         return;
       case "citation":
         if (touched) return;
         add(construct.from, construct.to, Decoration.replace({
-          widget: new TextWidget(citationText(construct, citations), classes("lx-tex-chip", "lx-tex-cite"), construct.keys.join(", ")),
+          widget: new KeyedChipWidget(citationParts(construct, citations), classes("lx-tex-chip", "lx-tex-cite")),
         }));
         return;
       case "compound": {

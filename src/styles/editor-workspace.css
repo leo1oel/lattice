@@ -1043,10 +1043,61 @@ button.citation-card-use-page:hover { background: var(--control-hover-surface); 
 .citation-reason-actions { display: flex; align-items: center; gap: var(--space-2); }
 .citation-reason-spacer { flex: 1; }
 .citation-reason-remove { color: var(--status-danger); }
-.reference-hover-card { width: min(360px, calc(100vw - 32px)); padding: var(--space-5) var(--space-6) 11px; }
-.reference-hover-card small, .reference-hover-card strong, .reference-hover-card em { display: block; }
-.reference-hover-card small { margin-bottom: 5px; color: var(--control-active); font-family: var(--editor-font); font-size: var(--type-micro-size); text-transform: capitalize; }
-.reference-hover-card strong { font-size: var(--type-caption-size); font-weight: 650; line-height: 1.35; }
+.reference-hover-card {
+  width: min(360px, calc(100vw - 32px));
+  max-height: 100%;
+  padding: var(--space-5) var(--space-6) 11px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* Its own type, not the editor's: in a monospaced editor the caption read as code. */
+  font-family: var(--ui-font);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line-height);
+}
+.reference-hover-card small, .reference-hover-card strong, .reference-hover-card em { display: block; max-width: 100%; }
+/* The kind and label, and the file, keep one line each; a long caption keeps three. Their titles hold them whole. */
+.reference-hover-card small,
+.reference-hover-card em { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.reference-hover-card small { margin-bottom: 5px; color: var(--control-active); font-family: var(--editor-font); font-size: var(--type-micro-size); }
+/* The kind reads "Figure"; the label beside it stays as written. */
+.reference-hover-kind { text-transform: capitalize; }
+.reference-hover-card strong {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  font-size: var(--type-caption-size);
+  font-weight: 650;
+  line-height: 1.35;
+}
+.reference-hover-card .citation-card-actions { margin-inline: calc(-1 * var(--space-3)); }
+/* A command naming several keys (\cite{a,b}, \cref{a,b}) gets one card, a
+   section per key in the order written, each on a hairline below the last. */
+.hover-card-sections > .hover-card-section {
+  align-self: stretch;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.reference-hover-card.hover-card-sections > .hover-card-section { display: block; }
+.hover-card-sections > .hover-card-section + .hover-card-section {
+  margin-top: var(--space-4);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--border-subtle);
+}
+/* A key or label the project never defines: said quietly, in the warning tone. */
+.hover-card-unresolved {
+  max-width: 100%;
+  margin-top: var(--space-2);
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  color: var(--status-warning);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
+}
+.hover-card-unresolved svg { width: 12px; height: 12px; flex: none; align-self: center; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .reference-hover-card pre { max-height: 132px; margin: 7px 0 0; overflow: hidden; color: var(--text-secondary); font-family: var(--editor-font); font-size: var(--type-micro-size); line-height: 1.45; white-space: pre-wrap; }
 .reference-hover-card em { margin-top: var(--space-3); color: var(--text-tertiary); font-size: var(--type-micro-size); font-style: normal; }
 .reference-hover-number { display: block; margin-top: var(--space-2); color: var(--text-secondary); font-size: var(--type-micro-size); font-variant-numeric: tabular-nums; }
