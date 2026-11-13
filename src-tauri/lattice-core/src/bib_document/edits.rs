@@ -166,23 +166,11 @@ pub fn delete_entry_edit(source: &str, entry: &BibEntry) -> BibEdit {
     if !source[to..].trim().is_empty() {
         return BibEdit { from: start, to: to + blanks, insert: String::new() };
     }
-    // The last entry: the blank lines before it go, keeping the line break
-    // that ends the entry before it.
+    // The last entry: the blank lines before it go, keeping what ends the
+    // line before them (`(?:\r?\n[\t ]*)+$`).
     let before = &source[..start];
-    let trimmed = before.trim_end_matches(['\n', '\r', ' ', '\t']);
-    let from = if trimmed.len() < before.len() {
-        let gap = &before[trimmed.len()..];
-        let keep = if gap.starts_with("\r\n") {
-            2
-        } else if gap.starts_with('\n') {
-            1
-        } else {
-            0
-        };
-        trimmed.len() + keep
-    } else {
-        start
-    };
+    let trimmed = before.trim_end_matches(['\n', '\r', ' ', '\t']).len();
+    let from = before[trimmed..].find('\n').map_or(start, |at| trimmed + at + 1);
     BibEdit { from, to, insert: String::new() }
 }
 
@@ -251,5 +239,9 @@ mod tests {
         let document = parse(source).unwrap();
         let last = apply_edit(source, &delete_entry_edit(source, &document.entries[1]));
         assert_eq!(last, "@misc{a, title={A}}\n");
+        let spaced = "@misc{a,t={A}} \n\n@misc{b,t={B}}\n";
+        let document = parse(spaced).unwrap();
+        let last = apply_edit(spaced, &delete_entry_edit(spaced, &document.entries[1]));
+        assert_eq!(last, "@misc{a,t={A}} \n");
     }
 }

@@ -131,6 +131,10 @@ pub(super) fn unreadable_reason(error: &BibParseError) -> String {
 struct Deleted {
     /// Which delete it was: an older notice's Undo finds it gone.
     id: u64,
+    /// The delete's own step in the buffer's history: Undo steps back only
+    /// while it is the last one, never an edit made since that left the
+    /// same text.
+    transaction: Option<language::TransactionId>,
     /// The text the delete left.
     text: String,
     removed: String,
@@ -293,51 +297,6 @@ impl BibEditor {
     /// Bring `key` to the front, as a click on its row does.
     pub fn pick(&mut self, key: &str, cx: &mut Context<Self>) {
         self.select(key.to_string(), true, cx);
-    }
-
-    /// Write `value` into the field `name` of `key`, as its box does on
-    /// leaving it (delimiters kept); false when nothing was written.
-    pub fn set_field(
-        &mut self,
-        key: &str,
-        name: &str,
-        value: &str,
-        cx: &mut Context<Self>,
-    ) -> bool {
-        let Some(row) = self.rows.iter().find(|row| row.entry.key == key) else {
-            return false;
-        };
-        let index = row.index;
-        let Some(field) = row
-            .entry
-            .fields
-            .iter()
-            .position(|field| field.name.eq_ignore_ascii_case(name))
-        else {
-            return false;
-        };
-        let raw = self
-            .text
-            .get(row.entry.fields[field].value_from..row.entry.fields[field].value_to)
-            .unwrap_or("");
-        let (_, style) = bib_document::editable_value(raw);
-        let Some(raw) = bib_document::encode_value(value, style, &self.macros) else {
-            return false;
-        };
-        let name = name.to_string();
-        self.edit_entry(
-            key,
-            index,
-            |_, entry| {
-                let field = entry
-                    .fields
-                    .get(field)
-                    .filter(|field| field.name.eq_ignore_ascii_case(&name))?;
-                Some(bib_document::replace_value_edit(field, &raw))
-            },
-            cx,
-        )
-        .is_some()
     }
 
     fn schedule_parse(&mut self, delay: Duration, cx: &mut Context<Self>) {
@@ -547,6 +506,9 @@ impl BibEditor {
                     .find(|row| row.index == *index && row.entry.key != key)
             })
             .map(|row| row.entry.key.clone());
+        self.buffer.update(cx, |buffer, _| {
+            buffer.finalize_last_transaction();
+        });
         let Some((base, change)) = self.edit_entry(
             &key,
             index,
@@ -555,6 +517,11 @@ impl BibEditor {
         ) else {
             return;
         };
+        let transaction = self.buffer.update(cx, |buffer, _| {
+            buffer
+                .finalize_last_transaction()
+                .map(|transaction| transaction.id)
+        });
         self.selected = neighbour;
         self.deletes += 1;
         let id = self.deletes;
@@ -571,6 +538,7 @@ impl BibEditor {
             .map(|row| row.entry.key.clone());
         self.deleted = Some(Deleted {
             id,
+            transaction,
             text: self.text.clone(),
             removed: base[change.from..change.to].to_string(),
             next,
@@ -608,7 +576,12 @@ impl BibEditor {
         };
         let current = self.buffer.read(cx).text();
         // Nothing changed since: step the history back, so redo still works.
-        if current == deleted.text {
+        let last = self
+            .buffer
+            .read(cx)
+            .peek_undo_stack()
+            .map(|entry| entry.transaction_id());
+        if current == deleted.text && deleted.transaction.is_some() && last == deleted.transaction {
             self.buffer.update(cx, |buffer, cx| buffer.undo(cx));
         } else {
             let Some(at) = restore_at(&current, &deleted) else {

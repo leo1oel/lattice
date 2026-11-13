@@ -201,6 +201,15 @@ pub fn parse_pasted_references(text: &str) -> Vec<PastedReference> {
         && let Ok(document) = bib_document::parse(text)
     {
         let mut blanked = text.as_bytes().to_vec();
+        // `@string`, `@comment` and `@preamble` blocks are no references,
+        // and no line inside one is either.
+        for directive in &document.directives {
+            for byte in &mut blanked[directive.clone()] {
+                if *byte != b'\n' {
+                    *byte = b' ';
+                }
+            }
+        }
         for entry in &document.entries {
             // The entry's bytes stand blank for the line pass, keeping
             // its line breaks so offsets stay put.
@@ -375,5 +384,16 @@ mod tests {
         assert_eq!(record.title, "Attention Is All You Need");
         assert_eq!(record.byline, "Vaswani, 2017, arXiv");
         assert_eq!(record.identity.arxiv_id.as_deref(), Some("1706.03762"));
+    }
+
+    #[test]
+    fn a_pasted_bib_s_strings_and_comments_are_no_references() {
+        let pasted = "@string{nips = \"NeurIPS\"}\n@comment{\n10.1038/s41586-021-03819-2\n}\n@inproceedings{a,\n  title = {A},\n  booktitle = nips\n}\n";
+        let references = parse_pasted_references(pasted);
+        let labels: Vec<(ReferenceKind, &str)> = references
+            .iter()
+            .map(|reference| (reference.kind, reference.label.as_str()))
+            .collect();
+        assert_eq!(labels, [(ReferenceKind::Bibtex, "a")]);
     }
 }

@@ -46,15 +46,31 @@ impl FieldBox {
             FieldBox::Long(input) => input.read(cx).focus_handle(cx).is_focused(window),
         }
     }
+
+    fn focus_handle(&self, cx: &gpui::App) -> gpui::FocusHandle {
+        match self {
+            FieldBox::Line(input) => input.read(cx).focus_handle(cx),
+            FieldBox::Long(input) => input.read(cx).focus_handle(cx),
+        }
+    }
+
+    fn set_value(&self, text: String, window: &mut Window, cx: &mut gpui::App) {
+        match self {
+            FieldBox::Line(input) => {
+                input.update(cx, |input, cx| input.set_value(text, window, cx))
+            }
+            FieldBox::Long(input) => {
+                input.update(cx, |input, cx| input.set_value(text, window, cx))
+            }
+        }
+    }
 }
 
 pub(super) struct FieldRow {
     pub(super) name: String,
-    /// Its place among the entry's fields as built; an edit checks the name
-    /// is still there.
+    /// Its place among the entry's fields as built: of two fields with one
+    /// name, the one an edit finds.
     pub(super) index: usize,
-    /// The value as the box opened with it.
-    pub(super) text: String,
     pub(super) style: BibValueStyle,
     pub(super) input: FieldBox,
     pub(super) invalid: bool,
@@ -74,22 +90,32 @@ pub(in crate::papers) struct Detail {
     _subscriptions: Vec<Subscription>,
 }
 
-impl Detail {
-    fn focused(&self, window: &Window, cx: &gpui::App) -> bool {
-        self.key_input.read(cx).focus_handle(cx).is_focused(window)
-            || self
-                .fields
-                .iter()
-                .any(|field| field.input.focused(window, cx))
-            || self.new_name.read(cx).focus_handle(cx).is_focused(window)
-            || self.new_value.read(cx).focus_handle(cx).is_focused(window)
-    }
-}
-
 impl BibEditor {
+    /// The form's boxes as drawn, each field's name and what its box holds,
+    /// for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn form_fields(&self, cx: &gpui::App) -> Vec<(String, String)> {
+        self.detail
+            .iter()
+            .flat_map(|detail| &detail.fields)
+            .map(|field| (field.name.clone(), field.input.value(cx)))
+            .collect()
+    }
+
+    /// The focus of the form's box for the field `name`, for a scenario to
+    /// type into it.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn field_focus(&self, name: &str, cx: &gpui::App) -> Option<gpui::FocusHandle> {
+        let detail = self.detail.as_ref()?;
+        let field = detail.fields.iter().find(|field| field.name == name)?;
+        Some(field.input.focus_handle(cx))
+    }
+
     /// The form for the reference in front, built again when another comes
-    /// to the front or its text changed under it (unless the writer is in
-    /// one of its boxes).
+    /// to the front or its text changed under it. Rebuilt for the same
+    /// reference (an edit, a rename, a field added or removed), it keeps each
+    /// box by its field's name, so the box the writer is in keeps its focus
+    /// and what they typed; the others show the file as it is now.
     pub(super) fn ensure_detail(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(row) = self.selected_row().cloned() else {
             self.detail = None;
@@ -102,16 +128,48 @@ impl BibEditor {
             .to_string();
         if let Some(detail) = &self.detail
             && detail.key == row.entry.key
-            && (detail.signature == signature || detail.focused(window, cx))
+            && detail.signature == signature
         {
             return;
         }
+        let previous = self
+            .detail
+            .take()
+            .filter(|detail| detail.key == row.entry.key);
+        let (key_input, mut kept, new_name, new_value, scroll) = match previous {
+            Some(previous) => {
+                let input = previous.key_input.clone();
+                if !input.read(cx).focus_handle(cx).is_focused(window) {
+                    input.update(cx, |input, cx| {
+                        input.set_value(row.entry.key.clone(), window, cx)
+                    });
+                }
+                let boxes: Vec<(String, FieldBox)> = previous
+                    .fields
+                    .into_iter()
+                    .map(|field| (field.name, field.input))
+                    .collect();
+                (
+                    input,
+                    boxes,
+                    previous.new_name,
+                    previous.new_value,
+                    previous.scroll,
+                )
+            }
+            None => (
+                cx.new(|cx| {
+                    let mut input = InputState::new(window, cx);
+                    input.set_value(row.entry.key.clone(), window, cx);
+                    input
+                }),
+                Vec::new(),
+                cx.new(|cx| InputState::new(window, cx).placeholder(t!("Field"))),
+                cx.new(|cx| InputState::new(window, cx).placeholder(t!("Value"))),
+                ScrollHandle::default(),
+            ),
+        };
         let mut subscriptions = Vec::new();
-        let key_input = cx.new(|cx| {
-            let mut input = InputState::new(window, cx);
-            input.set_value(row.entry.key.clone(), window, cx);
-            input
-        });
         subscriptions.push(cx.subscribe_in(
             &key_input,
             window,
@@ -132,58 +190,64 @@ impl BibEditor {
                 .get(field.value_from..field.value_to)
                 .unwrap_or("");
             let (text, style) = bib_document::editable_value(raw);
-            let input = if model::long_field(&field.name, &text) {
-                let input = cx.new(|cx| {
+            let reused = kept
+                .iter()
+                .position(|(name, _)| *name == field.name)
+                .map(|at| kept.remove(at).1);
+            let input = match reused {
+                Some(input) => {
+                    if !input.focused(window, cx) && input.value(cx) != text {
+                        input.set_value(text, window, cx);
+                    }
+                    input
+                }
+                None if model::long_field(&field.name, &text) => FieldBox::Long(cx.new(|cx| {
                     let mut input = TextareaState::new(window, cx).auto_grow(1, 12);
-                    input.set_value(text.clone(), window, cx);
+                    input.set_value(text, window, cx);
                     input
-                });
-                subscriptions.push(cx.subscribe_in(
-                    &input,
-                    window,
-                    move |this, _, event, window, cx| match event {
-                        InputEvent::Blur => this.commit_field(index, cx),
-                        InputEvent::PressEnter {
-                            secondary: true, ..
-                        } => {
-                            this.commit_field(index, cx);
-                            window.focus(&this.focus, cx);
-                        }
-                        _ => {}
-                    },
-                ));
-                FieldBox::Long(input)
-            } else {
-                let input = cx.new(|cx| {
+                })),
+                None => FieldBox::Line(cx.new(|cx| {
                     let mut input = InputState::new(window, cx);
-                    input.set_value(text.clone(), window, cx);
+                    input.set_value(text, window, cx);
                     input
-                });
-                subscriptions.push(cx.subscribe_in(
-                    &input,
-                    window,
-                    move |this, _, event, window, cx| match event {
-                        InputEvent::Blur => this.commit_field(index, cx),
-                        InputEvent::PressEnter { .. } => {
-                            this.commit_field(index, cx);
-                            window.focus(&this.focus, cx);
-                        }
-                        _ => {}
-                    },
-                ));
-                FieldBox::Line(input)
+                })),
             };
+            let at = fields.len();
+            // Enter leaves a one-line box; a long one takes ⌘Enter.
+            let line = matches!(input, FieldBox::Line(_));
+            let on_event = move |this: &mut Self,
+                                 event: &InputEvent,
+                                 window: &mut Window,
+                                 cx: &mut Context<Self>| {
+                match event {
+                    InputEvent::Blur => this.commit_field(at, cx),
+                    InputEvent::PressEnter { secondary, .. } if *secondary || line => {
+                        this.commit_field(at, cx);
+                        window.focus(&this.focus, cx);
+                    }
+                    _ => {}
+                }
+            };
+            subscriptions.push(match &input {
+                FieldBox::Line(input) => {
+                    cx.subscribe_in(input, window, move |this, _, event, window, cx| {
+                        on_event(this, event, window, cx)
+                    })
+                }
+                FieldBox::Long(input) => {
+                    cx.subscribe_in(input, window, move |this, _, event, window, cx| {
+                        on_event(this, event, window, cx)
+                    })
+                }
+            });
             fields.push(FieldRow {
                 name: field.name.clone(),
                 index,
-                text,
                 style,
                 input,
                 invalid: false,
             });
         }
-        let new_name = cx.new(|cx| InputState::new(window, cx).placeholder(t!("Field")));
-        let new_value = cx.new(|cx| InputState::new(window, cx).placeholder(t!("Value")));
         for input in [&new_name, &new_value] {
             subscriptions.push(
                 cx.subscribe_in(input, window, |this, _, event, window, cx| match event {
@@ -198,12 +262,6 @@ impl BibEditor {
                 }),
             );
         }
-        let scroll = self
-            .detail
-            .as_ref()
-            .filter(|detail| detail.key == row.entry.key)
-            .map(|detail| detail.scroll.clone())
-            .unwrap_or_default();
         self.detail = Some(Detail {
             key: row.entry.key.clone(),
             signature,

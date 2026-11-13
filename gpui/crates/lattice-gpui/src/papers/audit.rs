@@ -643,8 +643,26 @@ impl Audit {
                     .update(cx, |this, cx| match written {
                         Ok(()) => {
                             this.applied.insert(index);
-                            if let Some(entry) = this.entries.get_mut(index) {
+                            // The entries below it in the file move by the
+                            // lines the fix added or took away.
+                            let moved = (index < this.entries.len()).then(|| {
+                                let entry = &mut this.entries[index];
+                                let lines = |text: &str| text.matches('\n').count() as isize;
+                                let delta = lines(&after) - lines(&entry.bibtex);
                                 entry.bibtex = after;
+                                (entry.path.clone(), entry.line, delta)
+                            });
+                            if let Some((path, Some(line), delta)) = moved
+                                && delta != 0
+                            {
+                                for entry in &mut this.entries {
+                                    if entry.path == path
+                                        && let Some(below) = entry.line.as_mut()
+                                        && *below > line
+                                    {
+                                        *below = below.saturating_add_signed(delta);
+                                    }
+                                }
                             }
                             cx.emit(AuditEvent::Applied);
                             cx.notify();
