@@ -31,6 +31,7 @@ mod project;
 mod scenario;
 mod shell;
 mod stand_in_panels;
+mod status_counters;
 mod titlebar;
 
 fn main() {

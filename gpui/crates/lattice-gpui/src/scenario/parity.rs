@@ -71,6 +71,10 @@ const SIDEBAR_CARD: f32 = 329.;
 impl Run {
     pub(super) async fn parity(&self, cx: &mut AsyncApp) -> Result<Value> {
         native::order_front(self.native(cx)?);
+        // The project opens on its own task and lays the window out as its
+        // workspace has it, so the sidebar is widened only once that is done
+        // (its PDF is shown), or the arrangement would put it back.
+        let pdf_shown = self.wait_for_pdf(cx).await;
         self.with_window(cx, |shell, window, cx| {
             let area = shell.read(cx).dock_area().clone();
             area.update(cx, |area, cx| {
@@ -83,7 +87,6 @@ impl Run {
             });
         })?;
         self.park_pointer(cx)?;
-        let pdf_shown = self.wait_for_pdf(cx).await;
         self.with_window(cx, |shell, _, cx| {
             let build = shell.read(cx).build_panel().clone();
             build.update(cx, |build, cx| {

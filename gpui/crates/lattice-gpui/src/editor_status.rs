@@ -14,15 +14,18 @@
 //! at 9% laid on the sheet (#E7E7E7 light, #313134 dark, as measured) under
 //! an inset hairline; a 13px mark 8px in, 6px to its label in 12px semibold,
 //! 10px to the end. Idle it reads "Build" beside a filled play mark, a
-//! running build spins its mark, and the last build's result follows: a
-//! green check and its time, or "Failed". It is as wide as its widest state
-//! (the longest label, a time up to 999.9 s included), so the strip never
-//! shifts as it changes. It builds on click, as ⌘B does.
+//! running build runs the infinity loader, and the last build's result
+//! follows: a green check and its time (with a warning dot when it left
+//! warnings), or a cross and "Failed", drawing themselves the first time
+//! they show (`build::chip_mark`). It is as wide as its widest state (the
+//! longest label, a time up to 999.9 s included), so the strip never shifts
+//! as it changes. Its fill eases under the pointer and a press shrinks it to
+//! 96%, both on the fast tier. It builds on click, as ⌘B does.
 
 use gpui::{
-    AnimationExt as _, AnyElement, App, BoxShadow, Edges, Entity, InteractiveElement as _,
-    IntoElement, ParentElement as _, SharedString, StatefulInteractiveElement as _, Styled as _,
-    Window, div, prelude::FluentBuilder as _, px,
+    AnyElement, App, BoxShadow, Edges, Entity, InteractiveElement as _, IntoElement,
+    ParentElement as _, SharedString, StatefulInteractiveElement as _, Styled as _, Window, div,
+    prelude::FluentBuilder as _, px,
 };
 use language::Rope;
 use lattice_ui::{
@@ -30,13 +33,18 @@ use lattice_ui::{
     components::StatusItem,
     dock::PANEL_RADIUS,
     elevation::ring,
+    interaction::{mix, track_pointer, use_interaction},
     parity,
-    tokens::{FONT_WEIGHT_SEMIBOLD, OPACITY_PRESSED},
+    tokens::{FONT_WEIGHT_MEDIUM, FONT_WEIGHT_SEMIBOLD, OPACITY_PRESSED},
     typography::{shaped_width_with, tabular_nums},
 };
 
 use crate::{
-    build::{hover_card::HoverCard, sequence, word_count},
+    build::{
+        chip_mark::{self, Mark},
+        hover_card::HoverCard,
+        sequence, word_count,
+    },
     build_panel::{BuildPanel, ChipState},
     editor_panel::{EditorPanel, SaveStatus},
     shell::{Build, CleanRebuild},
@@ -102,9 +110,57 @@ pub fn status_bar(panel: &EditorPanel, cx: &App) -> impl IntoElement {
                 .parity("status/save"),
         )
         .child(div().flex_1())
+        .children(counters(panel, cx))
         .when_some(panel.words(), |this, words| {
             this.child(word_count(panel, words, cx))
         })
+}
+
+/// The two counters before the word count (`useCounters`): an icon, its
+/// noun and, when there is something open, the count in medium weight, the
+/// icon and the count in the accent. The panels they open (Annotations, the
+/// TODO scavenger) are not in the GPUI app yet, which their tooltips say.
+fn counters(panel: &EditorPanel, cx: &App) -> [AnyElement; 2] {
+    let palette = cx.palette();
+    let counts = crate::status_counters::counts(
+        &panel.project_root(cx),
+        panel.relative(),
+        panel.buffer_todos(),
+        cx,
+    );
+    let item = |id: &'static str, icon: Icon, noun: &'static str, title: &str, count: usize| {
+        StatusItem::new(id)
+            .icon(icon)
+            .accent_icon(count > 0)
+            .label(noun)
+            .when(count > 0, |item| {
+                item.child(
+                    div()
+                        .font_weight(FONT_WEIGHT_MEDIUM)
+                        .text_color(palette.accent)
+                        .child(crate::status_counters::format_count(count)),
+                )
+            })
+            .tooltip(format!("{title} — not in the GPUI preview yet"))
+            .on_click(|_, _, _| {})
+            .into_any_element()
+    };
+    [
+        item(
+            "status-comments",
+            Icon::MESSAGE_SQUARE_TEXT,
+            "Annotations",
+            "Annotations",
+            counts.annotations,
+        ),
+        item(
+            "status-manuscript-todos",
+            Icon::LIST_TODO,
+            "TODOs",
+            "Manuscript TODOs",
+            counts.todos,
+        ),
+    ]
 }
 
 /// The selection while there is one, else the manuscript, else this file
@@ -132,25 +188,18 @@ fn word_count(panel: &EditorPanel, file_words: usize, cx: &App) -> AnyElement {
     crate::build::word_count_item::item(labels, cx)
 }
 
-pub fn build_chip(build: &Entity<BuildPanel>, window: &Window, cx: &App) -> AnyElement {
+pub fn build_chip(build: &Entity<BuildPanel>, window: &mut Window, cx: &mut App) -> AnyElement {
     let palette = cx.palette().clone();
-    let state = build.read(cx).chip();
+    let panel = build.read(cx);
+    let state = panel.chip();
+    let moment = panel.chip_moment();
+    let warned = panel.chip_warned();
     let seconds = |took: std::time::Duration| format!("{:.1} s", took.as_secs_f32());
-    let (icon, icon_size, ink, label) = match state {
-        ChipState::Idle => (
-            Icon::PLAY_FILLED,
-            px(11.),
-            palette.text,
-            "Build".to_string(),
-        ),
-        ChipState::Running(_) => (
-            Icon::LOADER,
-            px(13.),
-            palette.text_secondary,
-            "Build".to_string(),
-        ),
-        ChipState::Succeeded(took) => (Icon::CHECK_HEAVY, px(13.), palette.success, seconds(took)),
-        ChipState::Failed(_) => (Icon::X, px(13.), palette.danger, "Failed".to_string()),
+    let (mark, label) = match state {
+        ChipState::Idle => (None, "Build".to_string()),
+        ChipState::Running(_) => (Some(Mark::Running), "Build".to_string()),
+        ChipState::Succeeded(took) => (Some(Mark::Succeeded { warned }), seconds(took)),
+        ChipState::Failed(_) => (Some(Mark::Failed), "Failed".to_string()),
     };
     let label_ink = if matches!(state, ChipState::Failed(_)) {
         palette.danger
@@ -176,72 +225,70 @@ pub fn build_chip(build: &Entity<BuildPanel>, window: &Window, cx: &App) -> AnyE
         )
     })
     .fold(px(0.), |widest, width| widest.max(width));
-    let width = px(8.) + px(13.) + px(6.) + widest + px(10.);
+    let width = px(8.) + chip_mark::MARK + px(6.) + widest + px(10.);
+    // `.trellis-build-button`: the ink at 9% on the sheet, 14% under the
+    // pointer, the fill easing on the fast tier; a press shrinks it to 96%
+    // on the same tier (`scale` is in its transition too).
     let ground = palette.ink_on(0.09, palette.editor_srgb);
     let hover = palette.ink_on(0.09 + OPACITY_PRESSED / 2., palette.editor_srgb);
+    let (interaction, pointer) = use_interaction("build-chip", window, cx);
     let edge = BoxShadow {
         inset: true,
         ..ring(palette.line)
     };
-    let chip = div()
-        .id("build-chip")
-        .flex()
-        .flex_none()
-        .items_center()
-        .justify_center()
-        .gap(px(6.))
-        .w(width.ceil())
-        .h(px(24.))
-        .rounded(px(6.))
-        .bg(ground)
-        .shadow(vec![edge])
-        .cursor_pointer()
-        .hover(move |style| style.bg(hover))
-        .child(
-            div()
-                .flex()
-                .flex_none()
-                .items_center()
-                .justify_center()
-                .size(px(13.))
-                .map(|slot| {
-                    let mark = icon.element(icon_size, ink);
-                    if matches!(state, ChipState::Running(_)) {
-                        // A running build turns its mark once a second.
-                        slot.child(mark.with_animation(
-                            "build-chip-spin",
-                            gpui::Animation::new(std::time::Duration::from_secs(1)).repeat(),
-                            |mark, t| {
-                                mark.with_transformation(gpui::Transformation::rotate(
-                                    gpui::percentage(t),
-                                ))
-                            },
-                        ))
-                    } else {
-                        slot.child(mark)
-                    }
-                }),
-        )
-        .child(
-            div()
-                .whitespace_nowrap()
-                .text_role(TextRole::Caption, cx)
-                .line_height(px(15.6))
-                .font_weight(FONT_WEIGHT_SEMIBOLD)
-                .font_features(tabular_nums())
-                .text_color(label_ink)
-                .children(parity::text_probe("build-chip", 0, label.clone()))
-                .child(label),
-        )
-        .children(parity::probe("build-chip"))
-        // ⇧-click is the clean rebuild, as the Tauri app's Build button has it.
-        .on_click(|event, window, cx| {
-            if event.modifiers().shift {
-                window.dispatch_action(Box::new(CleanRebuild), cx);
-            } else {
-                window.dispatch_action(Box::new(Build), cx);
-            }
-        });
+    let glyph = match mark {
+        // Idle: the filled play mark, 11px in the 13px slot.
+        None => div()
+            .flex()
+            .flex_none()
+            .items_center()
+            .justify_center()
+            .size(chip_mark::MARK)
+            .child(Icon::PLAY_FILLED.element(px(11.), palette.text))
+            .into_any_element(),
+        Some(mark) => chip_mark::mark(mark, moment, &palette),
+    };
+    let wash = mark.and_then(|mark| chip_mark::wash(mark, moment, &palette));
+    let chip = track_pointer(
+        div()
+            .id("build-chip")
+            .relative()
+            .flex()
+            .flex_none()
+            .items_center()
+            .justify_center()
+            .gap(px(6.))
+            .w(width.ceil())
+            .h(px(24.))
+            .rounded(px(6.))
+            .bg(mix(ground, hover, interaction.hover))
+            .shadow(vec![edge])
+            .cursor_pointer(),
+        pointer,
+    )
+    .child(glyph)
+    .child(
+        div()
+            .whitespace_nowrap()
+            .text_role(TextRole::Caption, cx)
+            .line_height(px(15.6))
+            .font_weight(FONT_WEIGHT_SEMIBOLD)
+            .font_features(tabular_nums())
+            .text_color(label_ink)
+            .children(parity::text_probe("build-chip", 0, label.clone()))
+            .child(label),
+    )
+    .children(wash)
+    .children(parity::probe("build-chip"))
+    // ⇧-click is the clean rebuild, as the Tauri app's Build button has it.
+    .on_click(|event, window, cx| {
+        if event.modifiers().shift {
+            window.dispatch_action(Box::new(CleanRebuild), cx);
+        } else {
+            window.dispatch_action(Box::new(Build), cx);
+        }
+    });
+    let chip = gpui::scaled(chip).scale(1. - 0.04 * interaction.press);
     // The build as the sequence it was, in a card under the chip's end.
     let build = build.clone();
     HoverCard::new("build-card", chip, move |_, cx| sequence::card(&build, cx)).into_any_element()

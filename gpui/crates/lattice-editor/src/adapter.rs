@@ -1,8 +1,10 @@
 //! [`LatticeEditor`]: Zed's editor over one buffer, with every Lattice
 //! extension point on it.
 //!
-//! The view is the editor with an overlay on top of it, laid over the same
-//! bounds: the overlay paints gutter marks and remote carets in the
+//! The view is the editor over its ground and current line (painted here,
+//! `current_line.rs`, as the Tauri app draws its line), with an overlay on
+//! top of it, laid over the same bounds, and Lattice's overlay scrollbar at
+//! its right edge (`scrollbar.rs`; Zed's own is turned off): the overlay paints gutter marks and remote carets in the
 //! editor's coordinates, runs the pointer for hover cards (Zed's editor
 //! hovers only for its language servers), and holds the open card. Marks,
 //! highlights and block widgets are Zed's own, set through the editor's
@@ -31,9 +33,12 @@ use gpui::{
     Subscription, Window, canvas, div,
 };
 use language::{Buffer, BufferEvent, BufferSnapshot};
+use lattice_ui::ActiveLattice as _;
 
+mod current_line;
 mod overlay;
 mod pointer;
+mod scrollbar;
 
 pub use overlay::{Painted, PaintedCursor};
 use pointer::Hover;
@@ -82,6 +87,7 @@ pub struct LatticeEditor {
     cursors: Vec<AnchoredCursor>,
     hovered_cursor: Option<SharedString>,
     painted: Rc<RefCell<Painted>>,
+    scrollbar: scrollbar::Scrollbar,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -103,10 +109,11 @@ impl LatticeEditor {
         let subscriptions = vec![
             // The overlay follows the editor's layout.
             cx.observe(&editor, |_, _, cx| cx.notify()),
-            cx.subscribe(&editor, |this, _, event: &EditorEvent, _| {
-                if matches!(event, EditorEvent::Blurred) {
-                    this.hovered_cursor = None;
-                }
+            cx.subscribe(&editor, |this, _, event: &EditorEvent, cx| match event {
+                EditorEvent::Blurred => this.hovered_cursor = None,
+                // The overlay scrollbar shows while the text scrolls.
+                EditorEvent::ScrollPositionChanged { .. } => this.note_scroll(cx),
+                _ => {}
             }),
             // An edit closes the card, as typing into a key closes the
             // Tauri app's.
@@ -130,6 +137,7 @@ impl LatticeEditor {
             cursors: Vec::new(),
             hovered_cursor: None,
             painted: Rc::default(),
+            scrollbar: scrollbar::Scrollbar::default(),
             _subscriptions: subscriptions,
         }
     }
@@ -403,10 +411,29 @@ impl Focusable for LatticeEditor {
 impl Render for LatticeEditor {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let card = self.render_card(window, cx);
+        let scrollbar = self.render_scrollbar(window, cx);
         let this = cx.entity();
+        let under = cx.entity();
+        let lattice = cx.lattice();
+        let ground = lattice_ui::editor_theme::ground(lattice.code_theme, &lattice.palette);
         div()
             .relative()
             .size_full()
+            // Zed's editor is clear (the code theme leaves its ground to the
+            // adapter): the ground, then the current line under the text.
+            .bg(ground)
+            .child(
+                canvas(
+                    |_, _, _| (),
+                    move |bounds, _, window, cx| {
+                        under.update(cx, |this, cx| this.paint_current_line(bounds, window, cx));
+                    },
+                )
+                .absolute()
+                .top_0()
+                .left_0()
+                .size_full(),
+            )
             // Any key closes the card, as typing does in the Tauri app.
             .capture_key_down(cx.listener(|this, _, _, cx| this.dismiss_hover(cx)))
             .child(self.editor.clone())
@@ -424,6 +451,7 @@ impl Render for LatticeEditor {
                 .left_0()
                 .size_full(),
             )
+            .child(scrollbar)
             .children(card)
     }
 }

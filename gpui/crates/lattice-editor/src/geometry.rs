@@ -56,6 +56,19 @@ impl Frame {
         self.row_zero_top + self.line_height * display_row as f32
     }
 
+    /// The top and bottom of buffer `row`, `len` long, across every
+    /// display row it wraps to (a block below it not included).
+    pub fn row_span(&self, row: u32, len: u32) -> (Pixels, Pixels) {
+        let last = language::Point::new(row, len)
+            .to_display_point(&self.display.display_snapshot)
+            .row()
+            .0;
+        (
+            self.row_top(row),
+            self.row_zero_top + self.line_height * (last + 1) as f32,
+        )
+    }
+
     /// Whether a row starting at `top` shows in the editor.
     pub fn shows_row(&self, top: Pixels) -> bool {
         top + self.line_height > self.bounds.top() && top < self.bounds.bottom()

@@ -68,10 +68,17 @@ fn every_theme_has_a_family_with_both_appearances() {
 fn github_draws_on_the_lattice_sheet_with_its_own_selection_and_line() {
     let palette = Palette::new(Appearance::Light, Tint::Sage, Accent::Graphite);
     let style = &zed_theme(CodeTheme::Github, &palette)["style"];
-    assert_eq!(style["editor.background"], hex(palette.editor));
+    assert_eq!(
+        hex(ground(CodeTheme::Github, &palette)),
+        hex(palette.editor)
+    );
+    // Zed's editor is clear: the adapter paints the ground and the line.
+    assert_eq!(style["editor.background"], "#00000000");
+    assert_eq!(style["editor.gutter.background"], "#00000000");
+    assert_eq!(style["editor.active_line.background"], "#00000000");
     // #0969da33, and GitHub's ink at 5% (0.05 × 255 rounds to 0x0d).
     assert_eq!(style["players"][0]["selection"], "#0969da33");
-    assert_eq!(style["editor.active_line.background"], "#1f23280d");
+    assert_eq!(hex(current_line(CodeTheme::Github, &palette)), "#1f23280d");
     assert_eq!(style["players"][0]["cursor"], "#0969daff");
     assert_eq!(style["editor.line_number"], "#89929cff");
     assert_eq!(style["syntax"]["keyword"]["color"], "#cf222eff");
@@ -80,7 +87,11 @@ fn github_draws_on_the_lattice_sheet_with_its_own_selection_and_line() {
 
     let dark = style_of(CodeTheme::Github, Appearance::Dark);
     assert_eq!(dark["players"][0]["selection"], "#388bfd33");
-    assert_eq!(dark["editor.active_line.background"], "#e6edf30d");
+    let dark_palette = Palette::new(Appearance::Dark, Tint::Sage, Accent::Graphite);
+    assert_eq!(
+        hex(current_line(CodeTheme::Github, &dark_palette)),
+        "#e6edf30d"
+    );
 }
 
 #[test]
@@ -99,9 +110,8 @@ fn a_dark_only_theme_keeps_its_own_ground_in_a_light_app() {
     let theme = zed_theme(CodeTheme::Dracula, &palette);
     let style = &theme["style"];
     assert_eq!(theme["appearance"], "light");
-    assert_eq!(style["editor.background"], "#282a36ff");
-    assert_eq!(style["editor.gutter.background"], "#282a36ff");
-    assert_eq!(style["editor.active_line.background"], "#32343fff");
+    assert_eq!(hex(ground(CodeTheme::Dracula, &palette)), "#282a36ff");
+    assert_eq!(hex(current_line(CodeTheme::Dracula, &palette)), "#32343fff");
     assert_eq!(style["players"][0]["selection"], "#44475aff");
     // Fitted on Dracula's own ground and line only: #6272a4 lightened.
     assert_eq!(style["syntax"]["comment"]["color"], "#899bcfff");
@@ -116,13 +126,17 @@ fn a_dark_only_theme_keeps_its_own_ground_in_a_light_app() {
 fn a_dark_only_theme_stands_on_the_window_in_a_dark_app() {
     let palette = Palette::new(Appearance::Dark, Tint::Mist, Accent::Graphite);
     let style = &zed_theme(CodeTheme::Dracula, &palette)["style"];
-    assert_eq!(style["editor.background"], hex(palette.editor));
-    assert_eq!(style["editor.active_line.background"], "#f8f8f20d");
+    assert_eq!(
+        hex(ground(CodeTheme::Dracula, &palette)),
+        hex(palette.editor)
+    );
+    assert_eq!(hex(current_line(CodeTheme::Dracula, &palette)), "#f8f8f20d");
     // Fitted on all five dark tints' grounds and lines at once.
     assert_eq!(style["syntax"]["comment"]["color"], "#7e8fc3ff");
 
     let nord = style_of(CodeTheme::Nord, Appearance::Light);
-    assert_eq!(nord["editor.background"], "#2e3440ff");
+    let light = Palette::new(Appearance::Light, Tint::Mist, Accent::Graphite);
+    assert_eq!(hex(ground(CodeTheme::Nord, &light)), "#2e3440ff");
     assert_eq!(nord["syntax"]["keyword"]["color"], "#89aacaff");
 }
 
@@ -141,10 +155,13 @@ fn weft_and_warp_keeps_the_lattice_palette() {
     for appearance in [Appearance::Light, Appearance::Dark] {
         let palette = Palette::new(appearance, Tint::Dusk, Accent::Blue);
         let style = &zed_theme(CodeTheme::WeftAndWarp, &palette)["style"];
-        assert_eq!(style["editor.background"], hex(palette.editor));
+        assert_eq!(
+            hex(ground(CodeTheme::WeftAndWarp, &palette)),
+            hex(palette.editor)
+        );
         assert_eq!(style["players"][0]["selection"], hex(palette.selection));
         assert_eq!(
-            style["editor.active_line.background"],
+            hex(current_line(CodeTheme::WeftAndWarp, &palette)),
             hex(palette.current_line)
         );
         assert_eq!(

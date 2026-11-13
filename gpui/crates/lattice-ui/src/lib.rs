@@ -28,6 +28,7 @@ pub mod kit;
 pub mod motion;
 pub mod palette;
 pub mod parity;
+pub mod stroke;
 pub mod theme;
 pub mod token_types;
 #[rustfmt::skip]

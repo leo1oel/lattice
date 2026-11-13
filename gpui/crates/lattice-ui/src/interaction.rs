@@ -143,6 +143,27 @@ pub fn fade(
     transition(id.into(), if on { 1.0f32 } else { 0.0 }, policy, window, cx)
 }
 
+/// A 0..1 value easing toward `target` as a CSS transition does: over
+/// `duration` on `motion`'s curve, after `delay`, the same curve both ways
+/// (where [`fade`] leaves on the exit tier). A change mid-way starts from
+/// where the value is.
+pub fn ease_to(
+    id: impl Into<ElementId>,
+    target: f32,
+    motion: Motion,
+    duration: std::time::Duration,
+    delay: std::time::Duration,
+    window: &mut Window,
+    cx: &mut App,
+) -> f32 {
+    let token = motion.token();
+    let policy = Transition::new(duration)
+        .delay(delay)
+        .ease(move |t| token.ease.sample(t))
+        .reduced_motion(ReducedMotion::Continue);
+    transition(id.into(), target, policy, window, cx)
+}
+
 /// `a` toward `b` by `t`, in sRGB with premultiplied alpha, as CSS
 /// transitions a colour: a wash fading in from transparent keeps its hue.
 pub fn mix(a: Hsla, b: Hsla, t: f32) -> Hsla {
