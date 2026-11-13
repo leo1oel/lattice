@@ -595,7 +595,7 @@ impl BibEditor {
                             .child(
                                 div()
                                     .flex_none()
-                                    .w(px(112.))
+                                    .w(px(84.))
                                     .pt(px(5.))
                                     .truncate()
                                     .font_family(editor_font.clone())
