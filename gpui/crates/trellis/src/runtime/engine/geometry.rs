@@ -126,3 +126,16 @@ impl Engine {
         }
     }
 }
+
+impl Engine {
+    /// The host's measurement of a panel's strip as last drawn: the bar, the
+    /// tab list inside it and each tab's box (workspace pixels). Tab drops
+    /// and tab sorting read them.
+    pub fn set_tab_boxes(&mut self, panel_id: &str, tabbar: Rect, tablist: Rect, tabs: Vec<(String, Rect)>) {
+        if let Some(state) = self.panels.get_mut(panel_id) {
+            state.tabbar = Some(tabbar);
+            state.tablist = Some(tablist);
+            state.tabs = tabs;
+        }
+    }
+}

@@ -34,8 +34,14 @@ use super::keymap::{Keymap, default_keymap};
 use super::motion::{LayoutTween, RectSpring};
 use super::navigation::Navigator;
 
+pub use dividers::{ResizeDir, ResizeKind};
 pub use frame::Frame;
-pub use menu::{MenuAction, MenuEntry, MenuItem};
+pub use keys::{KeyOutcome, TabKeyOutcome};
+pub use menu::{MenuAction, MenuEntry, MenuItem, tidy_menu};
+pub use ops::{OpenOptions, Reuse};
+
+#[cfg(test)]
+mod tests;
 
 /// Below this size a panel shows only its icon ("frame only").
 pub const FRAME_ONLY: (f64, f64) = (160., 64.);
