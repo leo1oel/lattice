@@ -156,6 +156,7 @@ fn menus(cx: &App) -> Vec<Menu> {
             MenuItem::separator(),
             MenuItem::action(t!("Writing Layout"), WritingPreset),
             MenuItem::action(t!("Reading Layout"), ReadingPreset),
+            MenuItem::action(t!("Bibliography Layout"), BibliographyPreset),
             MenuItem::action(t!("Focus Mode"), ToggleFocusMode),
             MenuItem::action(t!("Maximize Focused Panel"), ToggleMaximize),
             MenuItem::action(t!("Reset Layout"), ResetLayout),

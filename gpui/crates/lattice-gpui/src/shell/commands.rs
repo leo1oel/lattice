@@ -63,6 +63,7 @@ actions!(
         RevertWorkspace,
         WritingPreset,
         ReadingPreset,
+        BibliographyPreset,
         ReturnToWorkspace,
         SwitchWorkspace1,
         SwitchWorkspace2,
@@ -415,14 +416,19 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
                 (_, true) => ("preset-return", Box::new(ReturnToWorkspace)),
                 (Preset::Writing, false) => ("preset-writing", Box::new(WritingPreset)),
                 (Preset::Reading, false) => ("preset-reading", Box::new(ReadingPreset)),
+                (Preset::Bibliography, false) => {
+                    ("preset-bibliography", Box::new(BibliographyPreset))
+                }
             };
             out.push(Command {
                 id: id.into(),
                 label: match (preset, on) {
                     (Preset::Writing, true) => t!("Leave the Writing layout"),
                     (Preset::Reading, true) => t!("Leave the Reading layout"),
+                    (Preset::Bibliography, true) => t!("Leave the Bibliography layout"),
                     (Preset::Writing, false) => t!("Writing layout"),
                     (Preset::Reading, false) => t!("Reading layout"),
+                    (Preset::Bibliography, false) => t!("Bibliography layout"),
                 }
                 .into(),
                 section: Section::Layout,

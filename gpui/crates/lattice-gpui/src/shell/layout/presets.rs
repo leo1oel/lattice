@@ -1,10 +1,13 @@
-//! The Writing and Reading presets (`presetLayout` and `returnLayout` in
+//! The Writing, Reading and Bibliography presets (`presetLayout` and `returnLayout` in
 //! `src/trellis/trellis-layout.ts`): arrangements laid over a project's own
 //! layout, and the way back to it.
 
 use serde::{Deserialize, Serialize};
 
 use super::{Arrangement, Dock, Node, PRESET_SHARE, Room, View};
+
+/// The library's share of the width under Bibliography (`split-bibliography`).
+const BIBLIOGRAPHY_SHARE: f32 = 0.35;
 
 /// The Writing and Reading presets: temporary arrangements over the
 /// project's own layout, which is kept to return to.
@@ -15,23 +18,28 @@ pub enum Preset {
     Writing,
     /// A paper beside your notes.
     Reading,
+    /// The Papers library beside the bibliography.
+    Bibliography,
 }
 
 impl Preset {
-    pub const ALL: [Preset; 2] = [Preset::Writing, Preset::Reading];
+    pub const ALL: [Preset; 3] = [Preset::Writing, Preset::Reading, Preset::Bibliography];
 
     pub fn label(self) -> &'static str {
         match self {
             Preset::Writing => lattice_i18n::t!("Writing"),
             Preset::Reading => lattice_i18n::t!("Reading"),
+            Preset::Bibliography => lattice_i18n::t!("Bibliography"),
         }
     }
 
     /// `own` rearranged as the preset (`presetLayout` in trellis-layout.ts):
     /// Writing gathers every open document into the center, the .tex being
     /// written in front, beside the PDF; Reading gathers papers with the
-    /// Papers library beside a group of everything else. The navigators and
-    /// tools leave the screen and come back on the return.
+    /// Papers library beside a group of everything else; Bibliography puts
+    /// the library (with Project, when there is something written, and the
+    /// papers being read) beside what is written, the .bib in front. The
+    /// navigators and tools leave the screen and come back on the return.
     pub fn arrange(self, own: &Arrangement, active: Option<&str>, room: Room) -> Arrangement {
         let documents: Vec<View> = own
             .views()
@@ -70,6 +78,41 @@ impl Preset {
                         size: half,
                         open: true,
                     }),
+                    bottom: None,
+                    floating: Vec::new(),
+                }
+            }
+            Preset::Bibliography => {
+                let (read, written): (Vec<View>, Vec<View>) =
+                    documents.into_iter().partition(View::is_reading);
+                let mut library = vec![View::Papers];
+                if !written.is_empty() {
+                    library.push(View::Project);
+                }
+                library.extend(read);
+                let bib = written
+                    .iter()
+                    .position(
+                        |v| matches!(v, View::File(p) if p.to_ascii_lowercase().ends_with(".bib")),
+                    )
+                    .unwrap_or(0);
+                let center = if written.is_empty() {
+                    Node::tabs([View::Project])
+                } else {
+                    Node::Tabs {
+                        views: written,
+                        active: bib,
+                        slot: None,
+                    }
+                };
+                Arrangement {
+                    center,
+                    left: Some(Dock {
+                        node: Node::tabs(library),
+                        size: (room.area() * BIBLIOGRAPHY_SHARE).round(),
+                        open: true,
+                    }),
+                    right: None,
                     bottom: None,
                     floating: Vec::new(),
                 }
@@ -215,6 +258,28 @@ mod tests {
             }
         );
         assert_eq!(reading.center, Node::tabs([file("notes.md")]));
+    }
+
+    #[test]
+    fn bibliography_puts_papers_beside_the_bib_in_front() {
+        let mut own = Arrangement::default_for(room());
+        own.center = Node::tabs([file("main.tex"), file("refs.bib"), file("paper.pdf")]);
+        let bibliography = Preset::Bibliography.arrange(&own, Some("main.tex"), room());
+        assert_eq!(
+            bibliography.left.unwrap().node,
+            Node::tabs([View::Papers, View::Project, file("paper.pdf")])
+        );
+        assert_eq!(
+            bibliography.center,
+            Node::Tabs {
+                views: vec![file("main.tex"), file("refs.bib")],
+                active: 1,
+                slot: None,
+            }
+        );
+        let empty = Preset::Bibliography.arrange(&Arrangement::default_for(room()), None, room());
+        assert_eq!(empty.center, Node::tabs([View::Project]));
+        assert_eq!(empty.left.unwrap().node, Node::tabs([View::Papers]));
     }
 
     #[test]

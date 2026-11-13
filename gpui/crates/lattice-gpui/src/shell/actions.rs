@@ -274,6 +274,9 @@ impl Shell {
             .on_action(cx.listener(|this, _: &ReadingPreset, window, cx| {
                 this.set_preset(Preset::Reading, window, cx)
             }))
+            .on_action(cx.listener(|this, _: &BibliographyPreset, window, cx| {
+                this.set_preset(Preset::Bibliography, window, cx)
+            }))
             .on_action(
                 cx.listener(|this, _: &ReturnToWorkspace, window, cx| {
                     this.leave_preset(window, cx)
