@@ -219,7 +219,7 @@ fn counters(panel: &EditorPanel, nouns_folded: bool, cx: &App) -> [AnyElement; 2
                         .child(crate::status_counters::format_count(count)),
                 )
             })
-            .tooltip(format!("{title} — not in the GPUI preview yet"))
+            .tooltip(t!("{name} — not in the GPUI preview yet", name = title))
             .on_click(|_, _, _| {})
             .into_any_element()
     };
@@ -227,15 +227,15 @@ fn counters(panel: &EditorPanel, nouns_folded: bool, cx: &App) -> [AnyElement; 2
         item(
             "status-comments",
             Icon::MESSAGE_SQUARE_TEXT,
-            "Annotations",
-            "Annotations",
+            t!("Annotations"),
+            t!("Annotations"),
             counts.annotations,
         ),
         item(
             "status-manuscript-todos",
             Icon::LIST_TODO,
-            "TODOs",
-            "Manuscript TODOs",
+            t!("TODOs"),
+            t!("Manuscript TODOs"),
             counts.todos,
         ),
     ]
