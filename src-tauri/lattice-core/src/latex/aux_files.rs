@@ -3,7 +3,7 @@
 //! By default latexmk writes them beside the document (`latexmk`'s `-cd`):
 //! `paper/main.aux`, `.log`, `.fls`, `.fdb_latexmk`, `.bbl`, `.blg`, the
 //! `.aux` of each `\include`d chapter, and the SyncTeX map beside the PDF.
-//! With the global "Keep build files in a hidden folder" setting
+//! With the global "Hide auxiliary files" setting
 //! ([`AuxFiles::Hidden`]) they go to `.research/build/`, which mirrors the
 //! project's folders: `paper/main.tex` builds into `.research/build/paper/`,
 //! its chapters' `.aux` into `.research/build/paper/chapters/`, the same
