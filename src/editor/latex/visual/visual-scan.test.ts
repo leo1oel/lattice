@@ -165,6 +165,8 @@ describe("scanConstructs", () => {
   it("hides the braces of a bare group across lines, but not those of a command's argument", () => {
     const braces = (text: string) => covered(text).filter(([kind, source]) => kind === "symbol" && /^[{}]$/.test(source));
     expect(braces("{\\centering\\small\nx\\par\n}")).toHaveLength(2);
+    expect(braces("\\vspace{-18pt}\n{\\centering\nx\\par\n}")).toHaveLength(2);
+    expect(braces("\\maketitle\n  {\\centering\nx\\par\n}")).toHaveLength(2);
     expect(braces("\\todo{\nlong note\n}")).toEqual([]);
     expect(braces("\\newcommand{\\foo}{%\nbody\n}")).toEqual([]);
     expect(braces("\\makebox[2cm]{\nboxed\n}")).toEqual([]);

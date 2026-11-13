@@ -158,6 +158,19 @@ describe("Visual mode floats and tables", () => {
     expect(text(view)).not.toMatch(/\\(?:resizebox|toprule|multicolumn)/);
   });
 
+  it("draws every row of a table outside a float whose cells hold tables", async () => {
+    const doc = String.raw`\begin{tabular}{lc}
+Name & \begin{tabular}{@{}c@{}}top\\bottom\end{tabular} \\
+Last & y \\
+\end{tabular}
+
+After.`;
+    const view = await visualView(doc);
+    const rows = [...view.contentDOM.querySelectorAll(".lx-tex-float-block .lx-tex-table > tbody > tr")];
+    expect(rows.map((row) => row.firstElementChild?.textContent)).toEqual(["Name", "Last"]);
+    expect(text(view)).not.toContain("\\end{tabular}");
+  });
+
   it("draws a table outside a float as a table, and an unknown picture as a named placeholder", async () => {
     const doc = String.raw`\begin{tabularx}{\linewidth}{lX}
 a & b \\
@@ -234,6 +247,9 @@ After.`;
     const shown = text(view)!;
     expect(shown).not.toMatch(/\\(?:vspace|hypersetup|centering|small|bibliographystyle|newpage|raggedbottom|appendix|bibliography|url)/);
     expect(view.contentDOM.querySelector(".lx-tex-link")?.textContent).toBe("https://example.org/ssl/");
+    // The bare `{\centering … \par}` group scopes its switches: braces print nothing, its lines are centered.
+    expect(shown).not.toMatch(/[{}]/);
+    expect(view.contentDOM.querySelector(".lx-tex-link")?.closest(".cm-line")?.classList.contains("lx-tex-center")).toBe(true);
     expect(shown).toContain("Acknowledgments");
     expect([...view.contentDOM.querySelectorAll(".lx-tex-marker-bar")].map((bar) => bar.textContent)).toEqual(["References", "Appendix"]);
     expect(view.state.doc.toString()).toBe(BODY);

@@ -578,10 +578,14 @@ class Scanner {
   }
 }
 
-/** Whether the `{` at `at` opens a group of its own, not the argument of a command (`\todo{`, `]{`, `}{`). */
+/**
+ * Whether the `{` at `at` opens a group of its own, not the argument of a
+ * command (`\todo{`, `]{`, `}{`): one that starts its line always does.
+ */
 function bareGroupAt(text: string, at: number): boolean {
   let before = at - 1;
-  while (before >= 0 && /\s/.test(text[before])) before--;
+  while (text[before] === " " || text[before] === "\t") before--;
+  if (before < 0 || text[before] === "\n") return true;
   const char = text[before];
   if (char === "]" || char === "}") return false;
   if (char === "*") before--;
