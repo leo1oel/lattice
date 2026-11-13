@@ -417,8 +417,7 @@ fn walk(
         return;
     };
     visiting.push(path.to_string());
-    let line_at =
-        |offset: usize| source[..offset.min(source.len())].matches('\n').count() as u32 + 1;
+    let mut lines = LineCounter::new(&source);
     for event in events(&source) {
         match event {
             Event::Appendix => *appendix = true,
@@ -440,7 +439,7 @@ fn walk(
                     level,
                     title,
                     path: path.to_string(),
-                    line: line_at(offset),
+                    line: lines.line_at(offset),
                     depth: levels.iter().filter(|open| **open != 0).count(),
                     starred,
                     appendix: *appendix,
@@ -470,12 +469,40 @@ fn walk(
     visiting.pop();
 }
 
+/// The 1-based line of a byte offset, counted on from the previous query so
+/// a scan whose offsets ascend reads the source once rather than once per
+/// heading.
+struct LineCounter<'a> {
+    source: &'a str,
+    offset: usize,
+    line: u32,
+}
+
+impl<'a> LineCounter<'a> {
+    fn new(source: &'a str) -> Self {
+        Self {
+            source,
+            offset: 0,
+            line: 1,
+        }
+    }
+
+    fn line_at(&mut self, offset: usize) -> u32 {
+        let offset = offset.min(self.source.len());
+        if offset < self.offset {
+            *self = Self::new(self.source);
+        }
+        self.line += self.source[self.offset..offset].matches('\n').count() as u32;
+        self.offset = offset;
+        self.line
+    }
+}
+
 /// One file's own headings, read from `source` without following its
 /// `\input`s: the outline a `.tex` outside the manuscript (notes, a
 /// standalone figure) shows of itself (`parseLatexOutline(source, path)`).
 pub fn file_outline(source: &str, path: &str) -> Vec<Heading> {
-    let line_at =
-        |offset: usize| source[..offset.min(source.len())].matches('\n').count() as u32 + 1;
+    let mut lines = LineCounter::new(source);
     let mut headings = Vec::new();
     let mut levels: Vec<u8> = Vec::new();
     let mut appendix = false;
@@ -495,7 +522,7 @@ pub fn file_outline(source: &str, path: &str) -> Vec<Heading> {
                     level,
                     title,
                     path: path.to_string(),
-                    line: line_at(offset),
+                    line: lines.line_at(offset),
                     depth: levels.len(),
                     starred,
                     appendix,

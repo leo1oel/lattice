@@ -607,6 +607,15 @@ impl BasePanel for EditorPanel {
         "EditorPanel"
     }
 
+    fn on_added_to(
+        &mut self,
+        _: gpui::WeakEntity<gpui_kit::component::dock::TabGroup>,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.offer_view_switch(cx);
+    }
+
     fn on_removed(&mut self, _: &mut Window, cx: &mut Context<Self>) {
         self.flush(cx);
         let panel = gpui_kit::component::dock::PanelId::from(cx.entity_id());

@@ -411,6 +411,7 @@ impl OutlineRail {
             .collect();
         div()
             .id("outline-rail-marks")
+            .occlude()
             .relative()
             .flex()
             .flex_col()

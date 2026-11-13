@@ -197,6 +197,7 @@ impl OutlineRail {
             ));
         let panel = div()
             .id("outline-rail-panel")
+            .occlude()
             .flex()
             .flex_col()
             .max_h_full()
