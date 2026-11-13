@@ -49,7 +49,12 @@ export function activateLocale(locale: "en" | "zh-CN"): Promise<void> {
   return localeActivated;
 }
 
-/** Mount `render`'s tree in the page's root, inside the app's providers. */
+/**
+ * Mount `render`'s tree in the page's root, inside the app's providers.
+ * Lingui's provider renders nothing until a language is active, and the host
+ * names the writer's only once the page is listening (`doc:open`), so the
+ * tree starts in English and switches when the host's language arrives.
+ */
 export function mount(render: () => ReactNode): void {
   installPointerFocus();
   registerConfirmActionHandler((options: ConfirmActionOptions) =>
@@ -61,7 +66,7 @@ export function mount(render: () => ReactNode): void {
       {render()}
     </I18nProvider>,
   );
-  draw();
+  void activateLocale("en").then(draw);
   // A new language re-renders the tree under the provider.
   i18n.on("change", draw);
 }

@@ -37,9 +37,19 @@ const DECK: &str = include_str!(
     "../../../../../../src-tauri/templates/tutorial/slides/understanding-attention/index.tsx"
 );
 
-/// What a `.tldr` holds of shapes.
+/// How many shapes a `.tldr` holds.
 fn shape_count(text: &str) -> usize {
-    text.matches("\"typeName\":\"shape\"").count()
+    serde_json::from_str::<Value>(text)
+        .ok()
+        .and_then(|file| {
+            file["records"].as_array().map(|records| {
+                records
+                    .iter()
+                    .filter(|record| record["typeName"] == "shape")
+                    .count()
+            })
+        })
+        .unwrap_or(0)
 }
 
 impl Run {
@@ -203,6 +213,8 @@ impl Run {
         );
 
         self.confirm_over_island(cx, steps, &island).await?;
+        self.island_interface_zoom(cx, steps, &island, "the spreadsheet")
+            .await?;
 
         // Hidden past the delay: torn down, and back with the edit.
         self.open(cx, &root.join("chapters/intro.tex"), None)?;
@@ -246,7 +258,7 @@ impl Run {
         steps: &mut Steps,
         island: &Entity<Island>,
     ) -> Result<()> {
-        let before = self.window_pixel_at_center(cx).await?;
+        let before = self.window_capture(cx).await?;
         self.evaluate(
             cx,
             island,
@@ -262,26 +274,34 @@ impl Run {
             })
             .await;
         self.pause(cx, Duration::from_millis(400)).await;
-        let during = self.window_pixel_at_center(cx).await?;
+        let during = self.window_capture(cx).await?;
         let answered = self.with_window(cx, {
             let host = host.clone();
             move |_, window, cx| host.update(cx, |host, cx| host.accept(window, cx))
         })?;
         self.pause(cx, Duration::from_millis(200)).await;
         let answer = self.evaluate(cx, island, "window.__e2e").await;
-        let covered = match (before, during) {
-            (Some(before), Some(during)) => Some(
-                before
-                    .iter()
-                    .zip(during.iter())
-                    .take(3)
-                    .map(|(a, b)| (i32::from(*a) - i32::from(*b)).abs())
-                    .max()
-                    .unwrap_or(0)
-                    > 8,
-            ),
+        // The dialog's card, title and buttons over the window's middle:
+        // pixels there change strongly once it is drawn above the page.
+        let changed = match (&before, &during) {
+            (Some(before), Some(during)) if before.dimensions() == during.dimensions() => {
+                let (width, height) = before.dimensions();
+                let mut changed = 0usize;
+                for y in height * 3 / 8..height * 5 / 8 {
+                    for x in width / 3..width * 2 / 3 {
+                        let (a, b) = (before.get_pixel(x, y).0, during.get_pixel(x, y).0);
+                        let delta = (0..3)
+                            .map(|channel| (i32::from(a[channel]) - i32::from(b[channel])).abs())
+                            .max()
+                            .unwrap_or(0);
+                        changed += usize::from(delta > 40);
+                    }
+                }
+                Some(changed)
+            }
             _ => None,
         };
+        let covered = changed.map(|changed| changed > 200);
         steps.check(
             "a question the page asks is GPUI's confirm dialog, drawn above the page, and the page gets the answer",
             asked && answered && answer == "confirm" && covered != Some(false),
@@ -289,43 +309,31 @@ impl Run {
                 "asked": asked,
                 "answer": answer,
                 "covered": covered.map_or(json!("skipped: the screen could not be captured"), Value::Bool),
-                "before": before,
-                "during": during,
+                "changed_pixels": changed,
             }),
         );
         Ok(())
     }
 
-    /// The window as the screen composes it, sampled at its center; `None`
-    /// where the screen cannot be captured (locked, or no permission).
-    async fn window_pixel_at_center(&self, cx: &mut AsyncApp) -> Result<Option<[u8; 4]>> {
-        #[cfg(target_os = "macos")]
-        {
-            let number = native::window_number(self.native(cx)?);
-            native::order_front(self.native(cx)?);
-            self.pause(cx, Duration::from_millis(200)).await;
-            let out =
-                std::env::temp_dir().join(format!("lattice-structured-{}.png", std::process::id()));
-            let captured = std::process::Command::new("screencapture")
-                .args(["-x", "-o", &format!("-l{number}")])
-                .arg(&out)
-                .status()
-                .is_ok_and(|status| status.success());
-            let pixel = captured
-                .then(|| image::open(&out).ok())
-                .flatten()
-                .map(|image| {
-                    let image = image.to_rgba8();
-                    image.get_pixel(image.width() / 2, image.height() / 2).0
-                });
-            std::fs::remove_file(&out).ok();
-            Ok(pixel)
-        }
-        #[cfg(not(target_os = "macos"))]
-        {
-            let _ = cx;
-            Ok(None)
-        }
+    /// The window as the screen composes it; `None` where the screen cannot
+    /// be captured (locked, or no permission).
+    async fn window_capture(&self, cx: &mut AsyncApp) -> Result<Option<image::RgbaImage>> {
+        let number = native::window_number(self.native(cx)?);
+        native::order_front(self.native(cx)?);
+        self.pause(cx, Duration::from_millis(200)).await;
+        let out =
+            std::env::temp_dir().join(format!("lattice-structured-{}.png", std::process::id()));
+        let captured = std::process::Command::new("screencapture")
+            .args(["-x", "-o", &format!("-l{number}")])
+            .arg(&out)
+            .status()
+            .is_ok_and(|status| status.success());
+        let image = captured
+            .then(|| image::open(&out).ok())
+            .flatten()
+            .map(|image| image.to_rgba8());
+        std::fs::remove_file(&out).ok();
+        Ok(image)
     }
 
     async fn close_panel(&self, cx: &mut AsyncApp, panel: &Entity<EditorPanel>) -> Result<()> {
@@ -372,8 +380,17 @@ impl Run {
             json!({ "shapes": drawn_shapes, "light_dark_class": light, "dark_dark_class": dark }),
         );
 
-        // A shape taken out of the file on disk leaves the board.
-        let mut file: Value = serde_json::from_str(BOARD)?;
+        // A shape taken out of the file on disk leaves the board. The board
+        // writes the file once on opening (tldraw settles its records), so
+        // the edit waits for that save: an edit on disk reloads only a clean
+        // buffer, and merges into an edited one on its next save.
+        let clean = self
+            .wait_for(cx, Duration::from_secs(10), |_, cx| {
+                !panel.read(cx).is_dirty(cx)
+            })
+            .await;
+        self.pause(cx, Duration::from_millis(500)).await;
+        let mut file: Value = serde_json::from_str(&std::fs::read_to_string(&path)?)?;
         let removed = file["records"].as_array_mut().and_then(|records| {
             let parents: Vec<String> = records
                 .iter()
@@ -405,7 +422,7 @@ impl Run {
         steps.check(
             "a shape taken out of the .tldr on disk leaves the board",
             removed.is_some() && after < before,
-            json!({ "before": before, "after": after, "removed": removed.map(|record| record["id"].clone()) }),
+            json!({ "clean_first": clean, "before": before, "after": after, "removed": removed.map(|record| record["id"].clone()) }),
         );
 
         // A rectangle drawn with native input; the tab closed at once.
@@ -428,6 +445,7 @@ impl Run {
             }
             None => false,
         };
+        let on_board = self.evaluate(cx, &island, shapes_on_board).await;
         self.close_panel(cx, &panel).await?;
         let saved = self
             .wait_for(cx, Duration::from_secs(8), |_, _| {
@@ -437,7 +455,7 @@ impl Run {
         steps.check(
             "a rectangle drawn with native input on the board is in the .tldr after its tab closes at once",
             drew && saved,
-            json!({ "drew": drew, "saved": saved, "shapes_before": on_disk,
+            json!({ "drew": drew, "saved": saved, "shapes_before": on_disk, "on_board_before_close": on_board,
                     "shapes_after": std::fs::read_to_string(&path).map(|text| shape_count(&text)).ok() }),
         );
         Ok(())

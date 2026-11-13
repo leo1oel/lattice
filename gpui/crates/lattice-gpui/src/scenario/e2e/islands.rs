@@ -170,7 +170,8 @@ impl Run {
         );
 
         #[cfg(target_os = "macos")]
-        self.island_interface_zoom(cx, steps, &island).await?;
+        self.island_interface_zoom(cx, steps, &island, "the HTML preview")
+            .await?;
 
         // The theme reaches the page.
         cx.update(|cx| LatticeTheme::set_appearance(Appearance::Dark, cx));
@@ -266,11 +267,12 @@ impl Run {
     /// of the island's size in its own pixels, zoomed as the interface is, as
     /// the Tauri app's interface zoom zooms its pages.
     #[cfg(target_os = "macos")]
-    async fn island_interface_zoom(
+    pub(super) async fn island_interface_zoom(
         &self,
         cx: &mut AsyncApp,
         steps: &mut Steps,
         island: &Entity<lattice_webview::Island>,
+        subject: &str,
     ) -> Result<()> {
         let before = cx.update(|cx| crate::settings::get(cx).appearance.interface_scale);
         let mut seen = Vec::new();
@@ -325,7 +327,7 @@ impl Run {
         cx.update(|cx| crate::settings::update_appearance(cx, |a| a.interface_scale = before));
         self.wait_for_zoom(cx, before).await;
         steps.check(
-            "at 120% and 90% the page fills its island where GPUI laid it out, and is zoomed with the interface",
+            &format!("at 120% and 90% {subject} fills its island where GPUI laid it out, and is zoomed with the interface"),
             passed,
             json!(seen),
         );

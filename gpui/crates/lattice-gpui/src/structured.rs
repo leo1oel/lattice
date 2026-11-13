@@ -328,6 +328,7 @@ impl StructuredDocument {
     }
 
     fn on_message(&mut self, kind: &str, payload: &Value, cx: &mut Context<Self>) {
+        log::debug!("{}: {kind}", self.kind.island());
         match kind {
             "doc:change" => {
                 let Some(source) = payload.get("source").and_then(Value::as_str) else {

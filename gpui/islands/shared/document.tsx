@@ -61,6 +61,9 @@ type Action<ViewState> =
   | { type: "active"; active: boolean }
   | { type: "locale-ready" };
 
+/** How long after its commit the editor is taken to have drawn. */
+const DRAWN_DELAY_MS = 120;
+
 function reduce<ViewState>(state: State<ViewState>, action: Action<ViewState>): State<ViewState> {
   switch (action.type) {
     case "open":
@@ -113,12 +116,11 @@ export function DocumentIsland<ViewState>({ editor }: { editor: (document: Docum
 
   useEffect(() => {
     if (!opened || !localeReady) return;
-    // Two frames: React's commit, then the editor's own first layout.
-    let second = 0;
-    const first = requestAnimationFrame(() => {
-      second = requestAnimationFrame(() => host().post("doc:drawn"));
-    });
-    return () => { cancelAnimationFrame(first); cancelAnimationFrame(second); };
+    // A timer, not animation frames: WebKit runs no frames for a page still
+    // clipped away, and the host reveals it only on this. The editor has
+    // committed by now; its own first layout follows within the delay.
+    const timer = window.setTimeout(() => host().post("doc:drawn"), DRAWN_DELAY_MS);
+    return () => window.clearTimeout(timer);
   }, [opened, localeReady]);
 
   if (!opened || !localeReady) return null;

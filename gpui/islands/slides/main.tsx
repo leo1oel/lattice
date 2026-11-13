@@ -46,6 +46,9 @@ type Action =
   | { type: "locale"; locale: Locale }
   | { type: "ready" };
 
+/** How long after its commit the editor is taken to have drawn. */
+const DRAWN_DELAY_MS = 120;
+
 function reduce(state: State, action: Action): State {
   switch (action.type) {
     case "open":
@@ -95,11 +98,11 @@ function Slides() {
 
   useEffect(() => {
     if (!opened || !ready) return;
-    let second = 0;
-    const first = requestAnimationFrame(() => {
-      second = requestAnimationFrame(() => host().post("doc:drawn"));
-    });
-    return () => { cancelAnimationFrame(first); cancelAnimationFrame(second); };
+    // A timer, not animation frames: WebKit runs no frames for a page still
+    // clipped away, and the host reveals it only on this. The editor has
+    // committed by now; its own first layout follows within the delay.
+    const timer = window.setTimeout(() => host().post("doc:drawn"), DRAWN_DELAY_MS);
+    return () => window.clearTimeout(timer);
   }, [opened, ready]);
 
   if (!opened || !ready) return null;
