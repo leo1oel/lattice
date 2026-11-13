@@ -13,9 +13,10 @@
 //! editor's face, size and line height reach Zed's settings; the keymap
 //! turns Vim on or off; the language switches every string and the menu
 //! bar; the automatic build decides whether a save builds; the notification
-//! position moves the stack. Choices the GPUI app has no surface for yet
-//! (spell checking, the visual Markdown editor's type, sounds, translucency,
-//! the title bar's tools) are kept, so they carry over unchanged.
+//! position moves the stack; the title bar's tools hide and show. Choices
+//! the GPUI app has no surface for yet (the interface size, spell checking,
+//! the visual Markdown editor's type, sounds, translucency) are kept, so
+//! they carry over unchanged.
 //!
 //! A scripted run keeps its settings in memory (unless
 //! `LATTICE_GPUI_STATE_DIR` names a directory), imports nothing, and shows
@@ -355,7 +356,15 @@ fn apply(before: Option<&Settings>, cx: &mut App) {
     }) {
         crate::app::apply_editor_settings(cx);
     }
-    if changed(|was, now| was.appearance.toast_position == now.appearance.toast_position) {
+    if changed(|was, now| {
+        (
+            was.appearance.toast_position,
+            &was.appearance.hidden_titlebar_tools,
+        ) == (
+            now.appearance.toast_position,
+            &now.appearance.hidden_titlebar_tools,
+        )
+    }) {
         cx.refresh_windows();
     }
 }

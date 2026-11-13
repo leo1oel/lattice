@@ -10,7 +10,7 @@
 
 use gpui::{
     AnyElement, App, ClickEvent, Context, Entity, IntoElement, ParentElement as _, Styled as _,
-    Window, div, prelude::FluentBuilder as _, px,
+    Window, div, px,
 };
 use lattice_core::project::{self, ManifestSettings};
 use lattice_i18n::t;
@@ -366,22 +366,11 @@ fn updates(
 }
 
 /// Settings › TeX doctor: the doctor's report, as its sheet shows it.
-pub fn doctor(
-    dialog: &mut SettingsDialog,
-    width: PageWidth,
-    _window: &mut Window,
-    cx: &mut Context<SettingsDialog>,
-) -> AnyElement {
+pub fn doctor(width: PageWidth, cx: &mut Context<SettingsDialog>) -> AnyElement {
     let center = crate::build::tex_setup::center::center(cx);
     let body = center
         .as_ref()
         .map(|center| center.read(cx).doctor_page(center, cx))
         .unwrap_or_else(|| div().into_any_element());
-    let _ = dialog;
     controls::page(t!("TeX doctor"), width, vec![body], cx)
-}
-
-#[allow(dead_code)]
-fn when_unused(this: gpui::Div) -> gpui::Div {
-    this.when(false, |this| this)
 }

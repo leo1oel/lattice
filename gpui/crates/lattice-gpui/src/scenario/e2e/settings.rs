@@ -14,7 +14,7 @@ use gpui::AsyncApp;
 use lattice_i18n::{Locale, t};
 use lattice_settings::{
     Accent as StoredAccent, AccentPreset, AutoBuildMode, Choice as _, CodeTheme, EditorKeymap,
-    InterfaceLanguage, SettingsTab, Tint,
+    InterfaceLanguage, SettingsTab, Tint, TitlebarTool,
 };
 use lattice_ui::ActiveLattice as _;
 use serde_json::json;
@@ -147,6 +147,7 @@ impl Run {
 
         self.manual_builds(cx, steps, before.auto_build_mode)
             .await?;
+        self.titlebar_tools(cx, steps).await;
 
         // The interface in Simplified Chinese, then back.
         cx.update(|cx| {
@@ -226,6 +227,57 @@ impl Run {
         cx.update(|cx| settings::update(cx, |settings| *settings = before));
         let _ = std::fs::remove_file(&file);
         Ok(())
+    }
+
+    /// Title bar tools: turning Git off takes its button out of the title
+    /// bar, so the tools begin one button further right; turning it on puts
+    /// it back.
+    async fn titlebar_tools(&self, cx: &mut AsyncApp, steps: &mut Steps) {
+        fn start(shell: &gpui::Entity<crate::shell::Shell>, cx: &gpui::App) -> Option<f32> {
+            shell.read(cx).titlebar_drag().tools_start()
+        }
+        fn set_git(shown: bool, cx: &mut AsyncApp) {
+            cx.update(|cx| {
+                settings::update_appearance(cx, |a| {
+                    a.hidden_titlebar_tools
+                        .retain(|tool| *tool != TitlebarTool::Git);
+                    if !shown {
+                        a.hidden_titlebar_tools.push(TitlebarTool::Git);
+                    }
+                })
+            })
+        }
+        let kept = cx.update(|cx| settings::get(cx).appearance.hidden_titlebar_tools.clone());
+        set_git(true, cx);
+        self.wait_for(cx, Duration::from_secs(2), |shell, cx| {
+            start(shell, cx).is_some()
+        })
+        .await;
+        self.pause(cx, Duration::from_millis(200)).await;
+        let shown = cx.update(|cx| start(&self.shell, cx));
+        set_git(false, cx);
+        let hidden = self
+            .wait_for(cx, Duration::from_secs(3), |shell, cx| {
+                start(shell, cx)
+                    .zip(shown)
+                    .is_some_and(|(now, was)| now > was + 20.)
+            })
+            .await;
+        let without = cx.update(|cx| start(&self.shell, cx));
+        set_git(true, cx);
+        let back = self
+            .wait_for(cx, Duration::from_secs(3), |shell, cx| {
+                start(shell, cx)
+                    .zip(shown)
+                    .is_some_and(|(now, was)| (now - was).abs() < 0.5)
+            })
+            .await;
+        cx.update(|cx| settings::update_appearance(cx, |a| a.hidden_titlebar_tools = kept));
+        steps.check(
+            "Settings: Title bar tools hide and show the Git button",
+            hidden && back,
+            json!({ "tools_start": shown, "without_git": without, "hidden": hidden, "back": back }),
+        );
     }
 
     /// "Manual only": an edit made outside the app reloads the open file,

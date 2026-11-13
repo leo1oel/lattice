@@ -589,7 +589,7 @@ impl SettingsDialog {
         };
         let page = match self.tab {
             SettingsTab::Editor => super::editor_pane::render(self, page_width, window, cx),
-            SettingsTab::Doctor => super::editor_pane::doctor(self, page_width, window, cx),
+            SettingsTab::Doctor => super::editor_pane::doctor(page_width, cx),
             _ => super::appearance_pane::render(self, page_width, window, cx),
         };
         let viewport = self.viewport.clone();

@@ -33,6 +33,7 @@ use gpui_kit::component::{
     menu::{ContextMenuExt as _, DropdownMenu as _, PopupMenuItem},
 };
 use lattice_i18n::{space_mixed_script, t};
+use lattice_settings::TitlebarTool;
 use lattice_ui::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
     components::{IconButton, Keycap, LatticeTooltip, SearchField, Surface, ToolbarButton},
@@ -79,6 +80,14 @@ const SEARCH_MIN: f32 = 200.;
 pub struct TitlebarDrag {
     pressed: Cell<bool>,
     measured: Rc<Cell<Measured>>,
+}
+
+impl TitlebarDrag {
+    /// Where the title bar's tools began, last frame, in window coordinates.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn tools_start(&self) -> Option<f32> {
+        self.measured.get().tools_start
+    }
 }
 
 /// What the titlebar measured of itself last frame, in window coordinates:
@@ -344,10 +353,18 @@ pub fn render(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> im
         (Some(inline), None)
     };
 
+    let hidden = crate::settings::get(cx)
+        .appearance
+        .hidden_titlebar_tools
+        .clone();
     let not_yet = |id: &'static str, icon: Icon, name: &str| {
         IconButton::new(id, icon)
             .surface(Surface::Titlebar)
             .tooltip(t!("{name} — not in the GPUI preview yet", name = name))
+    };
+    // Settings › Appearance › Title bar tools hides each of these.
+    let tool = |tool: TitlebarTool, id: &'static str, icon: Icon, name: &str| {
+        (!hidden.contains(&tool)).then(|| not_yet(id, icon, name))
     };
     let tools = div()
         .relative()
@@ -361,17 +378,38 @@ pub fn render(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> im
             Icon::FILE_PEN_LINE,
             t!("Track changes"),
         ))
-        .child(not_yet("annotations", Icon::ANNOTATIONS, t!("Annotations")))
-        .child(not_yet(
+        .children(tool(
+            TitlebarTool::Comments,
+            "annotations",
+            Icon::ANNOTATIONS,
+            t!("Annotations"),
+        ))
+        .children(tool(
+            TitlebarTool::Overleaf,
             "overleaf",
             Icon::CLOUD,
             t!("Open a project from Overleaf"),
         ))
-        .child(not_yet("git", Icon::GIT, t!("Git status and commit")))
-        .child(not_yet("history", Icon::HISTORY, t!("Project history")))
+        .children(tool(
+            TitlebarTool::Git,
+            "git",
+            Icon::GIT,
+            t!("Git status and commit"),
+        ))
+        .children(tool(
+            TitlebarTool::History,
+            "history",
+            Icon::HISTORY,
+            t!("Project history"),
+        ))
         // Moves the workspace into a browser tab (`canvas-toolbar.tsx`,
         // `onMoveWorkspace`), the last of the app's tools.
-        .child(not_yet("browser", Icon::GLOBE, t!("Open in browser")))
+        .children(tool(
+            TitlebarTool::Browser,
+            "browser",
+            Icon::GLOBE,
+            t!("Open in browser"),
+        ))
         .child(edge_probe(
             room_cell,
             |room, left, _| room.tools_start = Some(left),

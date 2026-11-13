@@ -57,8 +57,8 @@ pub fn render(
 ) -> AnyElement {
     let groups = vec![
         general(dialog, width, cx),
-        fonts(dialog, width, true, window, cx),
-        fonts(dialog, width, false, window, cx),
+        fonts(dialog, width, true, cx),
+        fonts(dialog, width, false, cx),
         theme(dialog, width, window, cx),
         code_theme(dialog, width, window, cx),
         titlebar_tools(dialog, width, cx),
@@ -162,7 +162,6 @@ fn fonts(
     dialog: &mut SettingsDialog,
     width: PageWidth,
     source: bool,
-    window: &mut Window,
     cx: &mut Context<SettingsDialog>,
 ) -> AnyElement {
     let appearance = super::get(cx).appearance.clone();
@@ -314,7 +313,6 @@ fn fonts(
         width,
         cx,
     ));
-    let _ = window;
     controls::group(
         Some(
             if source {
@@ -481,25 +479,15 @@ fn theme(
         accent_row = accent_row.wrap(Wrap::Line);
     }
 
-    let mut translucency = Segmented::new("translucency").filled();
+    let mut translucency = Segmented::new("translucency").filled().disabled(true);
     for (level, label) in [
         (Translucency::Off, t!("Off")),
         (Translucency::Subtle, t!("Subtle")),
         (Translucency::Strong, t!("Strong")),
     ] {
-        translucency =
-            translucency.label(label, appearance.translucency == level, move |_, _, cx| {
-                super::update_appearance(cx, |a| a.translucency = level)
-            });
+        translucency = translucency.label(label, appearance.translucency == level, |_, _, _| {});
     }
-    // GPUI draws the window opaque for now, as the Tauri app does where
-    // vibrancy is unavailable; the choice is kept for when it is not.
-    let translucency_note = if cfg!(target_os = "macos") {
-        t!("Off while Reduce transparency is on in System Settings")
-    } else {
-        t!("Only in the Lattice window on macOS")
-    };
-    let _ = translucency_note;
+    let translucency = controls::not_yet("translucency", t!("Translucency").into(), translucency);
 
     let mut rows = vec![
         row(
@@ -592,7 +580,6 @@ fn custom_accent(
                 );
         }
     }
-    let _ = dialog;
     Row::new("custom-accent", t!("Custom accent"))
         .description_element(note)
         .control(
