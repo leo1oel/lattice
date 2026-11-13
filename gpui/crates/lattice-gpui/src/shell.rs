@@ -22,6 +22,7 @@ mod floating;
 pub mod layout;
 pub(crate) mod menus;
 mod palette;
+mod saving;
 mod synctex;
 pub mod windows;
 mod workspace_flow;
@@ -513,52 +514,6 @@ impl Shell {
         cx.notify();
     }
 
-    /// The window is closing: unsaved edits are saved first, and the window
-    /// closes once they are, staying open (with the save's notice) when one
-    /// could not be.
-    fn should_close(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
-        let Some(saved) = self.save_before_leaving(cx) else {
-            return true;
-        };
-        cx.spawn_in(window, async move |_, cx| {
-            if saved.await {
-                cx.update(|window, _| window.remove_window()).ok();
-            }
-        })
-        .detach();
-        false
-    }
-
-    /// Save every editor holding unsaved edits: `None` when none does, else
-    /// a task that resolves true once each is saved, false when one could
-    /// not be (its notice says why).
-    fn save_before_leaving(&mut self, cx: &mut Context<Self>) -> Option<Task<bool>> {
-        let saves = Self::save_dirty(&self.open_editors(), cx);
-        if saves.is_empty() {
-            return None;
-        }
-        Some(cx.spawn(async move |_, _| {
-            for save in saves {
-                match save.await {
-                    Ok(true) => {}
-                    Ok(false) => return false,
-                    Err(error) => {
-                        log::error!("{error:#}");
-                        return false;
-                    }
-                }
-            }
-            true
-        }))
-    }
-
-    /// Close the window as its close button does (`should_close`).
-    pub(crate) fn close_window(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.should_close(window, cx) {
-            window.remove_window();
-        }
-    }
-
     /// Open a source file in an editor tab (or switch to its tab), or a PDF in
     /// the preview, then go to `line` when given.
     pub fn open_path(
@@ -729,51 +684,9 @@ impl Shell {
             .collect()
     }
 
-    /// Start saving each of `editors` that holds unsaved edits.
-    fn save_dirty(
-        editors: &[Entity<EditorPanel>],
-        cx: &mut Context<Self>,
-    ) -> Vec<Task<anyhow::Result<bool>>> {
-        let dirty: Vec<_> = editors
-            .iter()
-            .filter(|editor| editor.read(cx).is_dirty(cx))
-            .cloned()
-            .collect();
-        dirty
-            .into_iter()
-            .map(|editor| editor.update(cx, |editor, cx| editor.save(cx)))
-            .collect()
-    }
-
-    fn save_in_background(&mut self, cx: &mut Context<Self>) {
-        let editors = self.open_editors();
-        for save in Self::save_dirty(&editors, cx) {
-            cx.spawn(async move |_, _| {
-                if let Err(error) = save.await {
-                    log::error!("{error:#}");
-                }
-            })
-            .detach();
-        }
-    }
-
     /// The editor the writer was last in, if it is still open.
     pub(crate) fn active_editor(&self) -> Option<Entity<EditorPanel>> {
         self.active_editor.as_ref().and_then(WeakEntity::upgrade)
-    }
-
-    /// ⌘S: save, then build, as the Tauri app's "Save and build" does; only
-    /// a save when there is no document to build. A build under way queues
-    /// the next one, which would save only once it starts, so the save is
-    /// made now.
-    fn save_all(&mut self, _: &Save, window: &mut Window, cx: &mut Context<Self>) {
-        let build = self.has_document(cx);
-        if !build || self.build_task.is_some() {
-            self.save_in_background(cx);
-        }
-        if build {
-            self.run_build(BuildRequest::requested(), window, cx);
-        }
     }
 
     /// Count the manuscript's words again, and redraw the status bars that
