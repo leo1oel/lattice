@@ -12,3 +12,8 @@ pub mod model;
 pub mod runtime;
 
 pub use runtime::engine::{Engine, Event, Options};
+#[cfg(feature = "gpui")]
+pub mod view;
+
+#[cfg(feature = "gpui")]
+pub use view::{Skin, TrellisWorkspace, WorkspaceEvent};

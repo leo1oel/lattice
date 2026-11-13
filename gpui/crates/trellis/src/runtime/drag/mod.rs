@@ -240,6 +240,14 @@ impl Engine {
         self.drag.is_some()
     }
 
+    /// Whether the press tracked so far is a click: it never lifted and never
+    /// sorted a tab.
+    pub fn press_is_click(&self) -> bool {
+        self.drag
+            .as_ref()
+            .is_some_and(|d| !d.active && d.tab_sort.as_ref().is_none_or(|s| !s.started))
+    }
+
     pub fn drag_move(&mut self, p: Point) {
         let Some(mut d) = self.drag.take() else {
             return;

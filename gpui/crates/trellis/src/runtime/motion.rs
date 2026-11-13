@@ -24,8 +24,9 @@ pub const SPRING: Spring = Spring {
 pub const LAYOUT_MS: f64 = 460.;
 /// The lifted window easing to a compact card.
 pub const PICKUP_MS: f64 = 280.;
-/// A new panel's appearance.
-pub const APPEAR_MS: f64 = 220.;
+/// A new panel's appearance: Trellis's 220ms, as Lattice's trellis.css
+/// draws it on the slow tier (240ms).
+pub const APPEAR_MS: f64 = 240.;
 
 pub fn ease_out_quint(t: f64) -> f64 {
     1. - (1. - t.clamp(0., 1.)).powi(5)
