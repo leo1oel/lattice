@@ -34,6 +34,7 @@ mod panels;
 mod pdf;
 mod project;
 mod recents;
+mod research_art;
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 mod scenario;
 mod search;
@@ -43,6 +44,7 @@ mod sounds;
 mod stand_in_panels;
 mod status_counters;
 mod structured;
+mod submission;
 mod titlebar;
 mod welcome;
 mod window_material;

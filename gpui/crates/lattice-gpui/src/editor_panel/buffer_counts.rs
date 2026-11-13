@@ -1,7 +1,7 @@
 //! The status bar's counts of the open buffer: its words, as of opening or
 //! the last save, and its TODO markers, as of the last pause in typing (the
-//! Tauri app counts them in its settled source, `use-settled-source.ts`).
-//! Both are counted off the main thread.
+//! Tauri app counts them in its settled source, `use-settled-source.ts`), which
+//! the TODOs panel also lists. Both are counted off the main thread.
 
 use std::time::Duration;
 
@@ -33,6 +33,7 @@ impl EditorPanel {
     /// `delay`, off the main thread; the next edit restarts the wait.
     pub(super) fn scan_todos(&mut self, delay: Duration, cx: &mut Context<Self>) {
         let relative = self.relative.clone();
+        let relative_now = relative.clone();
         let text = self.buffer.read(cx).as_rope().clone();
         self._todos = Some(cx.spawn(async move |this, cx| {
             if !delay.is_zero() {
@@ -48,9 +49,16 @@ impl EditorPanel {
                 })
                 .await;
             this.update(cx, |this, cx| {
-                if this.buffer_todos != found {
-                    this.buffer_todos = found;
+                let count = found.as_ref().map(Vec::len);
+                if this.buffer_todos != count {
+                    this.buffer_todos = count;
                     cx.notify();
+                }
+                // The TODOs panel lists this buffer's markers in place of
+                // what the scan read of the file.
+                if this.relative == relative_now {
+                    let root = this.project_root(cx);
+                    crate::status_counters::set_buffer(root, relative_now, found, cx);
                 }
                 // The rail reads the file's own headings from the text as of
                 // this pause, as the Tauri app's settled source.

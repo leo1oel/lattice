@@ -196,8 +196,8 @@ pub fn status_bar(panel: &EditorPanel, cx: &App) -> impl IntoElement {
 
 /// The two counters before the word count (`useCounters`): an icon, its
 /// noun and, when there is something open, the count in medium weight, the
-/// icon and the count in the accent. The panels they open (Annotations, the
-/// TODO scavenger) are not in the GPUI app yet, which their tooltips say.
+/// icon and the count in the accent. TODOs opens the TODOs tool panel;
+/// Annotations is not in the GPUI app yet, which its tooltip says.
 fn counters(panel: &EditorPanel, nouns_folded: bool, cx: &App) -> [AnyElement; 2] {
     let palette = cx.palette();
     let counts = crate::status_counters::counts(
@@ -206,7 +206,12 @@ fn counters(panel: &EditorPanel, nouns_folded: bool, cx: &App) -> [AnyElement; 2
         panel.buffer_todos(),
         cx,
     );
-    let item = |id: &'static str, icon: Icon, noun: &'static str, title: &str, count: usize| {
+    let item = |id: &'static str,
+                icon: Icon,
+                noun: &'static str,
+                title: String,
+                count: usize,
+                open: Option<Box<dyn gpui::Action>>| {
         StatusItem::new(id)
             .icon(icon)
             .accent_icon(count > 0)
@@ -219,8 +224,12 @@ fn counters(panel: &EditorPanel, nouns_folded: bool, cx: &App) -> [AnyElement; 2
                         .child(crate::status_counters::format_count(count)),
                 )
             })
-            .tooltip(t!("{name} — not in the GPUI preview yet", name = title))
-            .on_click(|_, _, _| {})
+            .tooltip(title)
+            .on_click(move |_, window, cx| {
+                if let Some(open) = &open {
+                    window.dispatch_action(open.boxed_clone(), cx);
+                }
+            })
             .into_any_element()
     };
     [
@@ -228,15 +237,20 @@ fn counters(panel: &EditorPanel, nouns_folded: bool, cx: &App) -> [AnyElement; 2
             "status-comments",
             Icon::MESSAGE_SQUARE_TEXT,
             t!("Annotations"),
-            t!("Annotations"),
+            t!(
+                "{name} — not in the GPUI preview yet",
+                name = t!("Annotations")
+            ),
             counts.annotations,
+            None,
         ),
         item(
             "status-manuscript-todos",
             Icon::LIST_TODO,
             t!("TODOs"),
-            t!("Manuscript TODOs"),
+            t!("Manuscript TODOs").to_string(),
             counts.todos,
+            Some(Box::new(crate::shell::OpenTodos)),
         ),
     ]
 }

@@ -17,6 +17,7 @@ mod appearance;
 mod key_labels;
 mod projects;
 mod section;
+mod submission;
 
 pub use key_labels::keys_label;
 pub use section::Section;
@@ -462,6 +463,7 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
             Section::Edit,
             ReplaceInProject,
         ));
+        submission::edit_commands(&mut out);
     }
     projects::project_commands(context, &mut out);
     appearance::appearance_commands(&mut out);
@@ -566,6 +568,7 @@ fn default_bindings() -> Vec<KeyBinding> {
         KeyBinding::new("ctrl-tab", NextProject, None),
         KeyBinding::new("ctrl-shift-tab", PreviousProject, None),
     ];
+    bindings.extend(submission::bindings());
     #[cfg(target_os = "macos")]
     bindings.extend([
         KeyBinding::new("cmd-q", Quit, None),

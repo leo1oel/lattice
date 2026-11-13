@@ -60,6 +60,7 @@ pub use arxiv::journal::{export as export_journal, JournalExport, JournalOptions
 pub(crate) use arxiv::written_by_recorder;
 pub use arxiv::{
     check as check_arxiv, export as export_arxiv, ArxivCheck, ArxivChecks, ArxivOptions,
+    ArxivPackage, Bibliography, CommentLine, CompileOutcome,
 };
 pub use aux_files::AuxFiles;
 /// Register an already-running process as a project's build, for tests that

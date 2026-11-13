@@ -532,7 +532,7 @@ impl Shell {
     }
 
     /// Resolves once no build is under way or queued.
-    fn builds_settled(&mut self, cx: &mut Context<Self>) -> oneshot::Receiver<()> {
+    pub(super) fn builds_settled(&mut self, cx: &mut Context<Self>) -> oneshot::Receiver<()> {
         let (settled, receiver) = oneshot::channel();
         self.build_waiters.push(settled);
         self.settle_builds(cx);

@@ -8,7 +8,9 @@
 //! word count is. The file in the editor counts its buffer's markers in
 //! place of what the scan read of it on disk, as `mergeTodosWithBuffer`
 //! rescans the open file, so a marker counts as it is typed (the editor
-//! rescans its buffer once typing settles, `EditorPanel::scan_todos`).
+//! rescans its buffer once typing settles, `EditorPanel::scan_todos`). The
+//! TODOs panel lists the same hits (`todo_hits`): the scan's, with each open
+//! editor's file read from its buffer.
 
 use std::{
     collections::HashMap,
@@ -29,6 +31,9 @@ pub struct ProjectCounters {
 #[derive(Default)]
 struct ProjectEntry {
     todos: Vec<TodoHit>,
+    /// The markers of each open editor's buffer, by its path in the project,
+    /// as last scanned.
+    buffers: HashMap<String, Vec<TodoHit>>,
     /// Each annotation's file and whether it is resolved.
     annotations: Vec<(String, bool)>,
     generation: u64,
@@ -91,6 +96,33 @@ impl ProjectCounters {
         }));
     }
 
+    /// An open editor's buffer scanned to `hits` (`None` when it closed, or
+    /// is neither TeX nor Markdown): the TODOs panel lists them in place of
+    /// what the scan read of its file.
+    pub fn set_buffer(
+        &mut self,
+        root: PathBuf,
+        relative: String,
+        hits: Option<Vec<TodoHit>>,
+        cx: &mut Context<Self>,
+    ) {
+        let entry = self.projects.entry(root).or_default();
+        let changed = match hits {
+            Some(hits) => entry.buffers.insert(relative, hits.clone()).as_ref() != Some(&hits),
+            None => entry.buffers.remove(&relative).is_some(),
+        };
+        if changed {
+            cx.notify();
+        }
+    }
+
+    fn todo_hits(&self, root: &Path) -> Vec<TodoHit> {
+        let Some(entry) = self.projects.get(root) else {
+            return Vec::new();
+        };
+        merged_hits(&entry.todos, &entry.buffers)
+    }
+
     fn counts(&self, root: &Path, relative: &str, buffer_todos: Option<usize>) -> Counts {
         let Some(entry) = self.projects.get(root) else {
             return Counts::default();
@@ -123,6 +155,36 @@ pub fn counts(root: &Path, relative: &str, buffer_todos: Option<usize>, cx: &App
         .unwrap_or_default()
 }
 
+/// The TODO hits of the project at `root`: the scan's, each open editor's
+/// file replaced by its buffer's markers, by file and then line.
+pub fn todo_hits(root: &Path, cx: &App) -> Vec<TodoHit> {
+    cx.try_global::<ProjectCountersGlobal>()
+        .map(|global| global.0.read(cx).todo_hits(root))
+        .unwrap_or_default()
+}
+
+/// Tell the counters what an open editor's buffer holds (`None` once it
+/// closes).
+pub fn set_buffer(root: PathBuf, relative: String, hits: Option<Vec<TodoHit>>, cx: &mut App) {
+    project_counters(cx).update(cx, |counters, cx| {
+        counters.set_buffer(root, relative, hits, cx)
+    });
+}
+
+fn merged_hits(scanned: &[TodoHit], buffers: &HashMap<String, Vec<TodoHit>>) -> Vec<TodoHit> {
+    if buffers.is_empty() {
+        return scanned.to_vec();
+    }
+    let mut hits: Vec<TodoHit> = scanned
+        .iter()
+        .filter(|hit| !buffers.contains_key(&hit.path))
+        .cloned()
+        .chain(buffers.values().flatten().cloned())
+        .collect();
+    hits.sort_by(|a, b| a.path.cmp(&b.path).then(a.line.cmp(&b.line)));
+    hits
+}
+
 /// The scan's markers with the open file's replaced by its buffer's, once
 /// the buffer has been scanned.
 fn merged_todos(scanned: &[TodoHit], relative: &str, buffer_todos: Option<usize>) -> usize {
@@ -135,10 +197,10 @@ fn merged_todos(scanned: &[TodoHit], relative: &str, buffer_todos: Option<usize>
 /// The markers in an open file's buffer, as the scan would read the file:
 /// only a `.tex` or Markdown file is rescanned from its buffer, as the Tauri
 /// app's `mergeTodosWithBuffer` rescans only those.
-pub fn buffer_todos(relative: &str, text: &str) -> Option<usize> {
+pub fn buffer_todos(relative: &str, text: &str) -> Option<Vec<TodoHit>> {
     let lower = relative.to_ascii_lowercase();
     (lower.ends_with(".tex") || lower.ends_with(".md"))
-        .then(|| project::todos_in_text(relative, text).len())
+        .then(|| project::todos_in_text(relative, text))
 }
 
 /// A count as the bar writes it (`formatCount`): grouped thousands.
@@ -171,12 +233,24 @@ mod tests {
     fn the_open_file_counts_its_buffer_in_place_of_its_scan() {
         let scanned = [hit("main.tex", 3), hit("main.tex", 9), hit("intro.tex", 1)];
         // The buffer lost one of main.tex's markers and gained none.
-        let here = buffer_todos("main.tex", "% TODO one\nplain\n");
+        let here = buffer_todos("main.tex", "% TODO one\nplain\n").map(|hits| hits.len());
         assert_eq!(here, Some(1));
         assert_eq!(merged_todos(&scanned, "main.tex", here), 2);
         // A file that is neither TeX nor Markdown keeps the scan.
-        assert_eq!(buffer_todos("refs.bib", "% TODO"), None);
+        assert!(buffer_todos("refs.bib", "% TODO").is_none());
         assert_eq!(merged_todos(&scanned, "refs.bib", None), 3);
+    }
+
+    #[test]
+    fn the_panel_lists_each_open_buffer_in_place_of_its_scan() {
+        let scanned = [hit("main.tex", 3), hit("main.tex", 9), hit("intro.tex", 1)];
+        let buffers = HashMap::from([("main.tex".to_string(), vec![hit("main.tex", 5)])]);
+        let merged: Vec<_> = merged_hits(&scanned, &buffers)
+            .into_iter()
+            .map(|hit| (hit.path, hit.line))
+            .collect();
+        assert_eq!(merged, [("intro.tex".into(), 1), ("main.tex".into(), 5)]);
+        assert_eq!(merged_hits(&scanned, &HashMap::new()).len(), 3);
     }
 
     #[test]

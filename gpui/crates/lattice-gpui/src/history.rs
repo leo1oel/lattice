@@ -29,3 +29,4 @@ type OnLine = std::rc::Rc<dyn Fn(usize, &mut gpui::Window, &mut gpui::App)>;
 
 pub use conflict_resolver::{ConflictEvent, ConflictResolver};
 pub use panel::{HistoryEvent, HistoryPanel};
+pub use widgets::inline_message;

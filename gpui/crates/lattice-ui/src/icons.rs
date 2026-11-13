@@ -132,6 +132,9 @@ lucide! {
     GIT_COMPARE_ARROWS = "icons" / "git-compare-arrows";
     MOVE_RIGHT = "icons" / "move-right";
     PENCIL_LINE = "icons" / "pencil-line";
+    // Getting a manuscript ready to send (src/project/).
+    CIRCLE_DASHED = "icons" / "circle-dashed";
+    LINK_2 = "icons" / "link-2";
     // Names Zed's icon set also has, which the app's asset source finds
     // first: Lucide's own, copied unmodified from GPUI Kit 0.9.1's assets
     // (ISC, `assets/LICENSE-LUCIDE`).
