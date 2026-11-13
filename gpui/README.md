@@ -34,7 +34,19 @@ Not yet: the visual LaTeX and Markdown editors, Overleaf, the papers library and
 This directory is GPL-3.0-or-later ([`LICENSE`](LICENSE)), because the app links Zed's GPL-3.0-or-later crates (editor, search, Vim, workspace).
 `compat/` is Apache-2.0 ([`LICENSE-APACHE`](LICENSE-APACHE)), and the upstream crates in `patches/` keep their Apache-2.0 license, with Lattice's diffs under it.
 The interface sounds (`crates/lattice-gpui/src/sounds.rs`) port two of Cuelume's sound recipes and its audio graph, which are MIT ([`crates/lattice-gpui/LICENSE-CUELUME`](crates/lattice-gpui/LICENSE-CUELUME)).
-`crates/trellis` is Trellis by Dan Fessler (github.com/DanFessler/trellis), version 0.2.0, ported to GPUI with Lattice's patch, and stays under Trellis's own non-commercial license, not the GPL and not Apache-2.0 ([`crates/trellis/README.md`](crates/trellis/README.md), [`crates/trellis/LICENSE.md`](crates/trellis/LICENSE.md)): the window's panels are laid out with it, so using the GPUI app commercially needs a Trellis license from its author, as the Tauri app's use of Trellis does.
+`crates/trellis` is a port of Trellis by Dan Fessler ([github.com/DanFessler/trellis](https://github.com/DanFessler/trellis)), version 0.2.0, to Rust and GPUI, with the behaviour of Lattice's patch to it.
+It is under the Trellis Public License v1.0 (Non-Commercial), not the GPL and not Apache-2.0; its license files are in [`crates/trellis/`](crates/trellis/README.md) ([`LICENSE.md`](crates/trellis/LICENSE.md), [`LICENSE-NONCOMMERCIAL.md`](crates/trellis/LICENSE-NONCOMMERCIAL.md), [`LICENSE-COMMERCIAL.md`](crates/trellis/LICENSE-COMMERCIAL.md)), and every ported file names the Trellis file it came from.
+The window's panels are laid out with it, so the GPUI app as built includes Trellis code.
+
+### Trellis and the GPUI app
+
+- `crates/trellis`: Trellis Public License v1.0, Non-Commercial.
+- The rest of the GPUI app: GPL-3.0-or-later.
+- Lattice is free software, distributed without charge and for non-commercial use.
+- Anyone who redistributes the GPUI app, or builds on `crates/trellis`, must also respect Trellis's non-commercial terms: keep its license files and the attribution "Uses Trellis by DanFessler - github.com/DanFessler/trellis", and use it commercially only under a Trellis commercial license from its author.
+
+These are the facts of how the code is licensed, not legal advice; the license texts themselves are what apply.
+
 Two Lucide icons, `crates/lattice-ui/assets/icons/download.svg` and `ellipsis.svg`, are copied unmodified from GPUI Kit's assets and keep Lucide's license ([`crates/lattice-ui/assets/LICENSE-LUCIDE`](crates/lattice-ui/assets/LICENSE-LUCIDE)).
 Everything outside `gpui/`, the Tauri app and the backend crate the two apps share (`lattice-core`) included, stays Apache-2.0 ([`../LICENSE`](../LICENSE)); Apache-2.0 code can be part of this GPL work, not the other way round, so nothing under `gpui/` may be copied out of it into the Apache-2.0 tree.
 
