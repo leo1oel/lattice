@@ -21,7 +21,8 @@ fn plain(m: &Modifiers) -> bool {
 
 impl TrellisWorkspace {
     /// A press anywhere in a panel: its selected view takes focus and a float
-    /// rises; a frame too small to use drags from anywhere.
+    /// rises; a frame too small to use drags from anywhere, and Shift or Alt
+    /// on it starts the navigator (it has no strip or controls to take it).
     pub(crate) fn press_panel(
         &mut self,
         panel: &str,
