@@ -24,6 +24,42 @@ use super::{
 };
 use crate::notices;
 
+/// What a cancelled import, or one of a paper the library already held,
+/// came to (`use-reference-import.ts`); none for a plain add, whose row says
+/// it.
+fn import_notice(imported: &core_papers::ImportResult) -> Option<String> {
+    let command = imported
+        .citation_key
+        .as_deref()
+        .map(|key| format!("\\cite{{{key}}}"));
+    let title = &imported.title;
+    let full_text = !imported.paper_path.is_empty();
+    Some(match (imported.cancelled, imported.already_imported, command) {
+        (true, _, Some(command)) if full_text => t!(
+            "Cancellation arrived after “{0}” was added — cite it with {citationCommand}; its full text had already finished importing.",
+            title
+        )
+        .replace("{citationCommand}", &command),
+        (true, _, Some(command)) => t!(
+            "Import cancelled. “{0}” remains in the bibliography — cite it with {citationCommand}; full-text enrichment stopped.",
+            title
+        )
+        .replace("{citationCommand}", &command),
+        (true, _, None) if full_text => t!(
+            "Paper import cancelled before changing the bibliography; the downloaded full text remains available."
+        )
+        .to_string(),
+        (true, _, None) => t!("Paper import cancelled before making changes.").to_string(),
+        (false, true, Some(command)) => t!(
+            "“{title}” is already in Papers — cite it with {citationCommand}.",
+            title = title,
+            citationCommand = command
+        ),
+        (false, true, None) => t!("“{title}” is already in Papers.", title = title),
+        (false, false, _) => return None,
+    })
+}
+
 impl PapersPanel {
     /// The paper the library already holds for an id typed in the box.
     pub(crate) fn duplicate(&self, cx: &App) -> Option<&PaperSummary> {
@@ -137,12 +173,19 @@ impl PapersPanel {
         match result {
             Ok(imported) => {
                 // The row says it was added, with its key to copy, in place
-                // of a toast; a search for what was typed keeps it first.
-                if let Some(key) = &imported.citation_key {
-                    self.just_added.insert(key.clone());
+                // of a toast; a search for what was typed keeps it first. A
+                // paper the library held, or an import cancelled, is no new
+                // row: a notice says what came of it instead.
+                if !imported.cancelled && !imported.already_imported {
+                    if let Some(key) = &imported.citation_key {
+                        self.just_added.insert(key.clone());
+                    }
+                    if !imported.arxiv_id.is_empty() {
+                        self.just_added.insert(imported.arxiv_id.clone());
+                    }
                 }
-                if !imported.arxiv_id.is_empty() {
-                    self.just_added.insert(imported.arxiv_id.clone());
+                if let Some(said) = import_notice(&imported) {
+                    notices::info(t!("Papers"), said, cx);
                 }
                 self.recent = Some(RecentImport {
                     query,
@@ -355,5 +398,48 @@ impl PapersPanel {
         self.fetching.started = None;
         self.fetching.tasks.clear();
         cx.notify();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn result(edit: impl FnOnce(&mut core_papers::ImportResult)) -> core_papers::ImportResult {
+        let mut result = core_papers::ImportResult {
+            arxiv_id: String::new(),
+            title: "Attention".into(),
+            paper_path: String::new(),
+            citation_key: Some("vaswani2017".into()),
+            citation_output: String::new(),
+            already_imported: false,
+            fetch_error: None,
+            cancelled: false,
+        };
+        edit(&mut result);
+        result
+    }
+
+    #[test]
+    fn a_held_or_cancelled_import_says_so_and_a_plain_add_leaves_it_to_its_row() {
+        assert_eq!(import_notice(&result(|_| {})), None);
+        assert_eq!(
+            import_notice(&result(|r| r.already_imported = true)).as_deref(),
+            Some("“Attention” is already in Papers — cite it with \\cite{vaswani2017}.")
+        );
+        assert_eq!(
+            import_notice(&result(|r| {
+                r.cancelled = true;
+                r.citation_key = None;
+            }))
+            .as_deref(),
+            Some("Paper import cancelled before making changes.")
+        );
+        assert_eq!(
+            import_notice(&result(|r| r.cancelled = true)).as_deref(),
+            Some(
+                "Import cancelled. “Attention” remains in the bibliography — cite it with \\cite{vaswani2017}; full-text enrichment stopped."
+            )
+        );
     }
 }

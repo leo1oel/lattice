@@ -563,6 +563,8 @@ impl Shell {
             }
         }
         self.project = Some(project.clone());
+        // Sheets over the window hold the project they were opened in.
+        self.take_document_overlays(cx);
         // The editors of the project open before go with its arrangement.
         self.editors.clear();
         self.active_editor = None;

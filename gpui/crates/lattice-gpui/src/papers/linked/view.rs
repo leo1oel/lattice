@@ -312,7 +312,9 @@ impl LinkedLibrary {
             } else {
                 let current = core_project::read_file(&root, &target)?;
                 // Edited since the comparison: the ticked changes may now
-                // overwrite those edits, or remove an entry newly cited.
+                // overwrite those edits. Which entries are cited was read
+                // when the sheet opened, as the Tauri app reads it, and is
+                // not read again here.
                 if current != compared {
                     return Ok(None);
                 }

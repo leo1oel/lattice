@@ -193,11 +193,15 @@ impl Shell {
     }
 
     /// Mark the paper in front: a reader's when one is, else the paper
-    /// `document` (the document in front) is the text of.
-    pub(super) fn mark_front_paper(&mut self, document: &Path, cx: &mut Context<Self>) {
-        match (self.front_reader(cx), self.root(cx)) {
-            (Some((reading, _)), Some(root)) => self.mark_paper(&root.join(reading), cx),
-            _ => self.mark_paper(document, cx),
+    /// `document` (the document in front) is the text of; none when neither
+    /// is open.
+    pub(super) fn mark_front_paper(&mut self, document: Option<&Path>, cx: &mut Context<Self>) {
+        match (self.front_reader(cx), self.root(cx), document) {
+            (Some((reading, _)), Some(root), _) => self.mark_paper(&root.join(reading), cx),
+            (_, _, Some(document)) => self.mark_paper(document, cx),
+            (_, _, None) => self
+                .papers
+                .update(cx, |papers, cx| papers.set_active_path(None, cx)),
         }
     }
 

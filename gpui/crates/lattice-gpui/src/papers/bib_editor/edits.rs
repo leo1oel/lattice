@@ -85,6 +85,21 @@ impl BibEditor {
         cx.notify();
     }
 
+    /// Write every box of the form as it stands: its fields, then its key.
+    pub(super) fn commit_form(&mut self, cx: &mut Context<Self>) {
+        let Some(detail) = self.detail.as_ref() else {
+            return;
+        };
+        let (count, key) = (
+            detail.fields.len(),
+            detail.key_input.read(cx).value().to_string(),
+        );
+        for at in 0..count {
+            self.commit_field(at, cx);
+        }
+        self.rename_key(key, cx);
+    }
+
     pub(super) fn commit_field(&mut self, at: usize, cx: &mut Context<Self>) {
         let Some((key, index)) = self.front() else {
             return;
