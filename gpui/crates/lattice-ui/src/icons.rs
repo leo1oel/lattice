@@ -125,7 +125,6 @@ lucide! {
     INFO = "lattice" / "info";
     PENCIL = "lattice" / "pencil";
     PLUS = "lattice" / "plus";
-    REGEX = "lattice" / "regex";
     REPLACE = "lattice" / "replace";
     SETTINGS = "lattice" / "settings";
     TRASH = "lattice" / "trash";
@@ -246,7 +245,6 @@ const BUNDLED: &[(&str, &[u8])] = bundled![
     // Lucide's, whose names Zed's icon set shadows (LICENSE-LUCIDE).
     "folder.svg",
     "hash.svg",
-    "regex.svg",
     "replace.svg",
     "settings.svg",
     "glyph-bib-body.svg",

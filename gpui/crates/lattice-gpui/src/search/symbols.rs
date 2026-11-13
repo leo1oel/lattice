@@ -160,6 +160,8 @@ fn outline_events(source: &str) -> Vec<Event> {
     let bytes = source.as_bytes();
     let mut events = Vec::new();
     let mut at = 0;
+    let mut line = 1u32;
+    let mut counted = 0;
     while let Some(found) = source[at..].find('\\') {
         let start = at + found;
         let name_start = start + 1;
@@ -167,11 +169,17 @@ fn outline_events(source: &str) -> Vec<Event> {
             .find(|c: char| !c.is_ascii_alphabetic() && c != '@')
             .map_or(source.len(), |end| name_start + end);
         let name = &source[name_start..name_end];
-        at = name_end.max(name_start + 1).min(source.len());
         if name.is_empty() {
+            at = name_start
+                + source[name_start..]
+                    .chars()
+                    .next()
+                    .map_or(0, char::len_utf8);
             continue;
         }
-        let line = source[..start].matches('\n').count() as u32 + 1;
+        at = name_end;
+        line += source[counted..start].matches('\n').count() as u32;
+        counted = start;
         if SECTION_COMMANDS.contains(&name) {
             let mut cursor = name_end;
             if bytes.get(cursor) == Some(&b'*') {
@@ -259,6 +267,18 @@ mod tests {
                     line: 2
                 },
             ]
+        );
+    }
+
+    #[test]
+    fn a_backslash_before_a_multibyte_character_is_stepped_over() {
+        let events = outline_events("\\é \\标题\n\\\\\n\\section{Résumé}\n\\");
+        assert_eq!(
+            events,
+            vec![Event::Section {
+                title: "Résumé".into(),
+                line: 3
+            }]
         );
     }
 

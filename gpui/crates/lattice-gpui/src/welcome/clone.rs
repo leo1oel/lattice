@@ -36,6 +36,8 @@ pub struct CloneDialog {
     parent: PathBuf,
     /// The destination was typed or chosen, rather than following the URL.
     typed: bool,
+    /// What following the URL last wrote in the destination.
+    followed: String,
     progress: Option<CloneProgress>,
     error: Option<CloneError>,
     /// The name lattice-core knows this dialog's clone by, for Cancel.
@@ -70,6 +72,23 @@ pub fn repository_name(url: &str) -> String {
     } else {
         name.to_string()
     }
+}
+
+/// Where the clone goes while the destination follows `url`: its name
+/// inside `parent`, or nothing while either is missing.
+fn followed_destination(parent: &Path, url: &str) -> String {
+    let name = repository_name(url);
+    if name.is_empty() || parent.as_os_str().is_empty() {
+        String::new()
+    } else {
+        parent.join(name).to_string_lossy().into_owned()
+    }
+}
+
+/// A destination `shown` was typed when it is neither empty nor what
+/// following the URL last wrote.
+fn is_typed(shown: &str, followed: &str) -> bool {
+    !shown.is_empty() && shown != followed
 }
 
 impl CloneDialog {
@@ -108,6 +127,7 @@ impl CloneDialog {
             destination,
             parent,
             typed: false,
+            followed: String::new(),
             progress: None,
             error: None,
             label: format!("gpui-clone-{}", cx.entity_id()),
@@ -127,31 +147,17 @@ impl CloneDialog {
         if self.typed_destination(cx) {
             return;
         }
-        let name = repository_name(&self.url.read(cx).value());
-        let destination = if name.is_empty() || self.parent.as_os_str().is_empty() {
-            String::new()
-        } else {
-            self.parent.join(name).to_string_lossy().into_owned()
-        };
+        let destination = followed_destination(&self.parent, &self.url.read(cx).value());
+        self.followed = destination.clone();
         self.destination
             .update(cx, |input, cx| input.set_value(destination, window, cx));
         cx.notify();
     }
 
-    /// Whether the destination field holds something other than what the
-    /// URL would give it.
+    /// Whether the destination field holds something other than what
+    /// following the URL last wrote there.
     fn typed_destination(&self, cx: &App) -> bool {
-        if self.typed {
-            return true;
-        }
-        let shown = self.destination.read(cx).value().to_string();
-        let name = repository_name(&self.url.read(cx).value());
-        let followed = if name.is_empty() {
-            String::new()
-        } else {
-            self.parent.join(name).to_string_lossy().into_owned()
-        };
-        !shown.is_empty() && shown != followed
+        self.typed || is_typed(&self.destination.read(cx).value(), &self.followed)
     }
 
     fn choose_parent(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -507,7 +513,39 @@ impl Render for CloneDialog {
 
 #[cfg(test)]
 mod tests {
-    use super::repository_name;
+    use std::path::Path;
+
+    use super::{followed_destination, is_typed, repository_name};
+
+    /// The destination after typing `url` one character at a time into the
+    /// URL field, starting from `shown`, as `follow_url` updates it.
+    fn type_url(parent: &Path, url: &str, mut shown: String) -> String {
+        let mut followed = String::new();
+        for end in 1..=url.len() {
+            if !is_typed(&shown, &followed) {
+                followed = followed_destination(parent, &url[..end]);
+                shown = followed.clone();
+            }
+        }
+        shown
+    }
+
+    #[test]
+    fn the_destination_follows_a_url_typed_key_by_key() {
+        let parent = Path::new("/Users/writer/Documents");
+        assert_eq!(
+            type_url(parent, "https://github.com/owner/paper.git", String::new()),
+            "/Users/writer/Documents/paper"
+        );
+        assert_eq!(
+            type_url(
+                parent,
+                "https://github.com/owner/paper.git",
+                "/tmp/mine".into()
+            ),
+            "/tmp/mine"
+        );
+    }
 
     #[test]
     fn the_folder_is_the_repositorys_name() {

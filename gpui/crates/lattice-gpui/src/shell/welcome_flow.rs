@@ -198,7 +198,10 @@ impl Shell {
             this.update_in(cx, |this, window, cx| {
                 this.set_busy(None, cx);
                 match created {
-                    Ok(root) => this.reveal_project(root, false, window, cx),
+                    Ok(root) => {
+                        this.dismiss_new_project(window, cx);
+                        this.reveal_project(root, false, window, cx);
+                    }
                     Err(error) => dialog.update(cx, |dialog, cx| dialog.set_error(Some(error), cx)),
                 }
             })
@@ -293,7 +296,10 @@ impl Shell {
             this.update_in(cx, |this, window, cx| {
                 this.set_busy(None, cx);
                 match imported {
-                    Ok(root) => this.reveal_project(root, false, window, cx),
+                    Ok(root) => {
+                        this.dismiss_new_project(window, cx);
+                        this.reveal_project(root, false, window, cx);
+                    }
                     Err(error) => notices::error("Could not import the ZIP", error, cx),
                 }
             })

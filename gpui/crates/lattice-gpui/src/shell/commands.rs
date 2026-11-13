@@ -539,9 +539,10 @@ fn default_bindings() -> Vec<KeyBinding> {
         KeyBinding::new(m!("shift-f"), FindInProject, None),
         // Back and forward through the places visited, over Zed's outdent
         // and indent in the editor, as the Tauri app's are over
-        // CodeMirror's.
-        KeyBinding::new(m!("["), GoBack, None),
-        KeyBinding::new(m!("]"), GoForward, None),
+        // CodeMirror's. Off macOS every Vim mode keeps Ctrl+[ as its Escape
+        // and Ctrl+] as go to definition.
+        KeyBinding::new(m!("["), GoBack, beside_vim("!vim_mode")),
+        KeyBinding::new(m!("]"), GoForward, beside_vim("!vim_mode")),
         KeyBinding::new(m!("shift-h"), ReplaceInProject, None),
         KeyBinding::new(m!("shift-n"), NewProject, None),
         KeyBinding::new(m!("s"), Save, beside_vim("!(vim_mode == insert)")),
@@ -916,6 +917,42 @@ mod keymap_tests {
         assert_eq!(resolve_in_editor(outdent, m!("[")), Some(GoBack.name()));
         let indent = KeyBinding::new(m!("]"), editor::actions::Indent, Some("Editor"));
         assert_eq!(resolve_in_editor(indent, m!("]")), Some(GoForward.name()));
+    }
+
+    #[test]
+    fn vim_keeps_ctrl_brackets_in_its_editor() {
+        // vim.json, "vim_mode == insert": ctrl-[ is Escape; "VimControl &&
+        // !menu": ctrl-] goes to the definition.
+        let bindings = || {
+            let mut bindings = vec![
+                KeyBinding::new(
+                    "ctrl-[",
+                    editor::actions::Cancel,
+                    Some("vim_mode == insert"),
+                ),
+                KeyBinding::new(
+                    "ctrl-]",
+                    editor::actions::GoToDefinition::default(),
+                    Some("VimControl && !menu"),
+                ),
+            ];
+            bindings.extend(default_bindings());
+            bindings
+        };
+        let insert = "Editor mode = full vim_mode = insert";
+        let normal = "Editor mode = full vim_mode = normal VimControl";
+        assert_eq!(
+            resolve(bindings(), insert, "ctrl-["),
+            Some(editor::actions::Cancel.name())
+        );
+        assert_eq!(
+            resolve(bindings(), normal, "ctrl-]"),
+            Some(editor::actions::GoToDefinition::default().name())
+        );
+        assert_eq!(
+            resolve(bindings(), "Editor mode = full", m!("[")),
+            Some(GoBack.name())
+        );
     }
 
     #[test]
