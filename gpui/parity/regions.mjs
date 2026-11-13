@@ -76,9 +76,9 @@ export const SCREENS = {
       { name: "welcome/card/2", css: ".welcome-desk > li:nth-child(3) .welcome-desk-card", text: true },
       { name: "welcome/more", css: ".welcome-more", text: true },
     ],
-    // The desk's first page is the PDF a build last wrote, drawn by pdf.js
-    // into the web view's store; the GPUI preview keeps no such pages yet.
-    content: [".welcome-desk-sheet[data-kind=\"page\"]"],
+    // The desk's first page is drawn by pdf.js in the Tauri app and by
+    // PDFium here, so left out of the pixel budget.
+    content: [".welcome-desk-sheet[data-kind=\"page\"] > img"],
   },
 };
 

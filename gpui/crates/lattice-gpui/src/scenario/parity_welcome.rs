@@ -14,6 +14,7 @@ use serde_json::{Value, json};
 
 use super::{Run, parity::regions_json, sleep};
 use crate::{
+    first_pages::FirstPages,
     recents::{RecentProject, RecentProjects, now_ms},
     welcome::Unopened,
 };
@@ -24,7 +25,7 @@ impl Run {
     pub(super) async fn parity_welcome(&self, cx: &mut AsyncApp) -> Result<Value> {
         // The project the harness passed opens first; the welcome screen is
         // then laid over the window, as a window without one shows it.
-        self.root(cx).await?;
+        let root = self.root(cx).await?;
         let now = now_ms();
         let moved = RecentProject {
             name: "Thesis draft".into(),
@@ -52,6 +53,14 @@ impl Run {
         self.with_window(cx, |shell, window, cx| {
             cx.set_reduce_motion(true);
             RecentProjects::stage(recents, cx);
+            // The next project has built the tutorial's PDF, typeset in
+            // ICML's template.
+            FirstPages::stage(
+                "/Users/writer/Papers/sparse-attention".into(),
+                root.join("main.pdf"),
+                "ICML",
+                cx,
+            );
             shell.update(cx, |shell, cx| {
                 shell.show_welcome(
                     Some(Unopened {
@@ -64,7 +73,8 @@ impl Run {
             });
         })?;
         self.park_pointer(cx)?;
-        sleep(cx, Duration::from_millis(1500)).await;
+        // The page is drawn by the PDF worker, then fades in.
+        sleep(cx, Duration::from_millis(2500)).await;
         let out = std::env::var("LATTICE_SHOT_OUT").unwrap_or_else(|_| "parity.png".into());
         self.capture(cx, &out).await?;
         let (viewport, scale, appearance, ui_font) = self.with_window(cx, |_, window, cx| {

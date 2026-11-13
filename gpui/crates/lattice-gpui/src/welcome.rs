@@ -20,12 +20,15 @@ mod field;
 mod mark;
 pub mod new_project;
 
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 use gpui::{
     Animation, AnimationExt as _, AnyElement, App, AppContext as _, Context, ElementId, Entity,
     EventEmitter, FocusHandle, Focusable, InteractiveElement as _, IntoElement, MouseButton,
-    ParentElement as _, Render, StatefulInteractiveElement as _, Styled as _, Window,
+    ParentElement as _, Render, StatefulInteractiveElement as _, Styled as _, Task, Window,
     WindowControlArea, div, prelude::FluentBuilder as _, px, relative,
 };
 use gpui_kit::component::InteractiveElementExt as _;
@@ -38,6 +41,7 @@ use lattice_ui::{
 };
 
 use crate::{
+    first_pages::{FirstPages, ShownPage},
     recents::{RecentProject, RecentProjects, now_ms},
     shell::commands::{SwitchWorkspace1, SwitchWorkspace2, SwitchWorkspace3},
 };
@@ -73,13 +77,36 @@ pub struct Welcome {
     busy: Option<String>,
     /// When the desk's ages are read against: when it was laid out.
     now: u64,
+    /// The desk's first pages, once read (none until then).
+    pages: Option<HashMap<PathBuf, ShownPage>>,
+    _pages_task: Task<()>,
 }
 
 impl EventEmitter<WelcomeEvent> for Welcome {}
 
 impl Welcome {
     pub fn new(unopened: Option<Unopened>, cx: &mut Context<Self>) -> Self {
+        let skipped = unopened
+            .as_ref()
+            .map(|unopened| unopened.project.path.clone());
+        let roots: Vec<PathBuf> = RecentProjects::list(cx)
+            .iter()
+            .filter(|project| Some(&project.path) != skipped.as_ref())
+            .take(desk::DESK_SIZE)
+            .map(|project| project.path.clone())
+            .collect();
+        let load = FirstPages::load(&roots, cx);
+        let pages_task = cx.spawn(async move |this, cx| {
+            let pages = load.await;
+            this.update(cx, |this, cx| {
+                this.pages = Some(pages);
+                cx.notify();
+            })
+            .ok();
+        });
         Self {
+            pages: None,
+            _pages_task: pages_task,
             focus: cx.focus_handle(),
             field: cx.new(LatticeField::new),
             mark: cx.new(|cx| LatticeMark::new(34., cx)),
@@ -226,6 +253,7 @@ impl Render for Welcome {
         let desk = show_desk.then(|| {
             desk::desk(
                 &desk_projects,
+                self.pages.as_ref(),
                 recents_width,
                 self.now,
                 busy,

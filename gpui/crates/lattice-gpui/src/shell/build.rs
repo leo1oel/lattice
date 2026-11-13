@@ -414,6 +414,17 @@ impl Shell {
                             result.root_document.clone(),
                             result.one_off,
                         );
+                        // The welcome desk's page: the main document's PDF.
+                        if !result.one_off {
+                            let root = project.root().to_path_buf();
+                            let pdf = root.join(&result.root_document).with_extension("pdf");
+                            crate::first_pages::FirstPages::record(
+                                root,
+                                pdf,
+                                result.venue.map(str::to_string),
+                                cx,
+                            );
+                        }
                     } else {
                         project.forget_compiled();
                     }

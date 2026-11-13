@@ -15,6 +15,7 @@ mod confirm;
 mod editor_panel;
 mod editor_status;
 mod file_tree;
+mod first_pages;
 mod gallery;
 mod moved_paths;
 #[cfg(target_os = "macos")]

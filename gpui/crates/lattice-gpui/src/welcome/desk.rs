@@ -6,16 +6,21 @@
 //! fewer than three shrink the desk around them. A card rises 2px onto the
 //! floating shadow under the pointer, on the moderate tier.
 //!
-//! The Tauri app shows the first page of each project's last PDF on its
-//! card, rendered after a build into its web view's IndexedDB. This
-//! preview has no store of those pages yet, so every card is the app's
-//! "no PDF yet" card: the page glyph on the lift.
+//! A project a build has made a PDF of shows that PDF's first page, paper
+//! coloured in both appearances with its top (the title, the authors, the
+//! abstract) in view, the venue it typeset on a badge, and when it last
+//! changed (`crate::first_pages`); one without shows the page glyph on the
+//! lift. Until the pages are read the cards' sheets stay clear, and a page
+//! fades in when it lands, rather than a blank card flashing first.
 
-use std::path::Path;
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 use gpui::{
     AnyElement, App, ElementId, InteractiveElement as _, IntoElement, ParentElement as _,
-    StatefulInteractiveElement as _, Styled as _, Window, div, px,
+    StatefulInteractiveElement as _, Styled as _, Window, div, prelude::FluentBuilder as _, px,
 };
 use lattice_ui::{
     ActiveLattice as _, Elevation, Icon, Motion, TextRole, TextRoleStyle as _,
@@ -24,7 +29,7 @@ use lattice_ui::{
     tokens::FONT_WEIGHT_MEDIUM,
 };
 
-use crate::recents::RecentProject;
+use crate::{first_pages::ShownPage, recents::RecentProject};
 
 /// The desk holds three pages, one for each of ⌘1 to ⌘3.
 pub const DESK_SIZE: usize = 3;
@@ -81,11 +86,13 @@ pub fn parent_folder_label(path: &Path) -> String {
     }
 }
 
-/// What a card says under its name.
-fn when(project: &RecentProject, now: u64) -> String {
-    match project.opened_at {
-        Some(opened) => format!("Opened {}", age(opened, now)),
-        None => parent_folder_label(&project.path),
+/// What a card says under its name: when the paper last changed, else
+/// when it was last opened, else where it lives.
+fn when(project: &RecentProject, page: Option<&ShownPage>, now: u64) -> String {
+    match (page.and_then(|page| page.edited_at), project.opened_at) {
+        (Some(edited), _) => format!("Edited {}", age(edited, now)),
+        (None, Some(opened)) => format!("Opened {}", age(opened, now)),
+        (None, None) => parent_folder_label(&project.path),
     }
 }
 
@@ -93,6 +100,7 @@ fn when(project: &RecentProject, now: u64) -> String {
 /// project.
 pub fn desk(
     projects: &[RecentProject],
+    pages: Option<&HashMap<PathBuf, ShownPage>>,
     width: gpui::Pixels,
     now: u64,
     disabled: bool,
@@ -119,15 +127,35 @@ pub fn desk(
                 window,
                 cx,
             );
-            let mut shadows = Elevation::Raised.shadows(&palette);
+            let name = project.name.clone();
+            let page = pages.and_then(|pages| pages.get(&project.path)).cloned();
+            let when = if pages.is_some() {
+                when(project, page.as_ref(), now)
+            } else {
+                String::new()
+            };
+            let landed = fade(
+                ElementId::Name(format!("welcome-desk-page-{ix}").into()),
+                pages.is_some(),
+                Motion::Moderate,
+                window,
+                cx,
+            );
+            // A page rests on the PDF's own shadow; the glyph card on the
+            // lift's. Either takes the floating shadow under the pointer.
+            let mut shadows = if page.is_some() {
+                let mut page_shadow = vec![lattice_ui::elevation::ring(palette.ring)];
+                page_shadow.extend(lattice_ui::elevation::pdf_page(&palette));
+                page_shadow
+            } else {
+                Elevation::Raised.shadows(&palette)
+            };
             if lift > 0.5 {
                 shadows = Elevation::Floating.shadows(&palette);
             }
             let path = project.path.clone();
             let open = open.clone();
             let shortcut = format!("{}{}", crate::shell::commands::MOD_LABEL, ix + 1);
-            let name = project.name.clone();
-            let when = when(project, now);
             let region = format!("welcome/card/{ix}");
             div()
                 .id(id)
@@ -162,12 +190,36 @@ pub fn desk(
                         .mb(px(10.))
                         .rounded(px(4.))
                         .overflow_hidden()
-                        .bg(palette.raised)
+                        .opacity(landed)
+                        .bg(if page.is_some() {
+                            palette.pdf_page
+                        } else {
+                            palette.raised
+                        })
                         .shadow(shadows)
                         .flex()
                         .items_center()
                         .justify_center()
-                        .child(Icon::FILE_TEXT.element(px(20.), palette.text_secondary)),
+                        .when_some(page.clone(), |sheet, page| {
+                            sheet
+                                .items_start()
+                                .child(
+                                    gpui::img(gpui::ImageSource::Render(page.image.clone()))
+                                        .w_full(),
+                                )
+                                .children(page.venue.clone().map(|venue| {
+                                    div()
+                                        .absolute()
+                                        .left(px(8.))
+                                        .bottom(px(8.))
+                                        .rounded(px(4.))
+                                        .shadow(Elevation::Raised.shadows(&palette))
+                                        .child(lattice_ui::components::Badge::new(venue).compact())
+                                }))
+                        })
+                        .when(page.is_none() && pages.is_some(), |sheet| {
+                            sheet.child(Icon::FILE_TEXT.element(px(20.), palette.text_secondary))
+                        }),
                 )
                 .child(
                     div()
