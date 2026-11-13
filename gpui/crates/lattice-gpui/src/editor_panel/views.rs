@@ -352,12 +352,11 @@ impl EditorPanel {
         cx: &mut Context<Self>,
     ) -> Option<AnyElement> {
         let current = self.views.as_ref()?.view;
-        let mut switch = Segmented::new("document-view")
-            .parity(if is_html(&self.path) {
-                "html/views"
-            } else {
-                "markdown/views"
-            });
+        let mut switch = Segmented::new("document-view").parity(if is_html(&self.path) {
+            "html/views"
+        } else {
+            "markdown/views"
+        });
         for view in DocumentView::ALL {
             let this = cx.entity().downgrade();
             switch = switch.icon_choice(

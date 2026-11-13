@@ -98,6 +98,19 @@ fn tex_paths(nodes: &[FileNode], into: &mut Vec<String>) {
     }
 }
 
+/// The tree as the page reads it: its paths and kinds. Sizes are dropped, so
+/// a save that only changes a file's length leaves the tree as it was.
+fn page_tree(mut nodes: Vec<FileNode>) -> Value {
+    fn clear_sizes(nodes: &mut [FileNode]) {
+        for node in nodes {
+            node.size = 0;
+            clear_sizes(&mut node.children);
+        }
+    }
+    clear_sizes(&mut nodes);
+    serde_json::to_value(&nodes).unwrap_or(json!([]))
+}
+
 fn is_tex(path: &str) -> bool {
     path.to_ascii_lowercase().ends_with(".tex")
 }
@@ -203,11 +216,7 @@ impl StructuredDocument {
                             .filter_map(|path| lattice_core::project::read_file(&root, path).ok())
                             .collect::<Vec<_>>()
                     });
-                    (
-                        serde_json::to_value(&files).unwrap_or(json!([])),
-                        paths,
-                        read,
-                    )
+                    (page_tree(files), paths, read)
                 })
                 .await;
             this.update(cx, |this, cx| {

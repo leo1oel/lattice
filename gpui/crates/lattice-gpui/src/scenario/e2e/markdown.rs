@@ -501,14 +501,18 @@ impl Run {
             let started = std::time::Instant::now();
             while started.elapsed() < Duration::from_secs(15) {
                 image = self.markdown_image(cx, island).await;
-                if image["src"].as_str().is_some_and(|src| src.starts_with(&wanted))
+                if image["src"]
+                    .as_str()
+                    .is_some_and(|src| src.starts_with(&wanted))
                     && image["width"] == 4
                 {
                     break;
                 }
                 self.pause(cx, Duration::from_millis(200)).await;
             }
-            let resolved = image["src"].as_str().is_some_and(|src| src.starts_with(&wanted))
+            let resolved = image["src"]
+                .as_str()
+                .is_some_and(|src| src.starts_with(&wanted))
                 && image["width"] == 4;
             results.push(json!({ "to": moved_to, "followed": followed, "resolved": resolved, "image": image }));
         }
