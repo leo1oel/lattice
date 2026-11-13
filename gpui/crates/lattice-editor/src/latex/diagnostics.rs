@@ -241,7 +241,8 @@ impl TexlabDiagnostics {
         })
     }
 
-    /// The file was renamed or moved: sync it under its new path.
+    /// The file was renamed or moved: sync it under its new path, or not at
+    /// all once that path is no longer a `.tex` file.
     pub fn set_path(&mut self, path: String, cx: &mut Context<Self>) {
         // Scheduled under the old path, which decides whether it may sync;
         // the sync reads the new one when it fires.

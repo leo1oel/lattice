@@ -519,6 +519,63 @@ impl Run {
             json!({}),
         );
 
+        // Renamed off .tex while the writer is in it: TexLab, which only
+        // ever holds a LaTeX document, is never handed the plain-text file.
+        let editor = cx
+            .update(|cx| {
+                self.shell
+                    .read(cx)
+                    .active_editor()
+                    .map(|panel| panel.read(cx).editor().clone())
+            })
+            .context("results.tex is open")?;
+        self.writer_in(cx, &editor).await?;
+        self.with_window(cx, |_, window, cx| {
+            tree.update(cx, |tree, cx| {
+                tree.begin_rename("results.tex".into(), window, cx)
+            })
+        })?;
+        self.pause(cx, Duration::from_millis(200)).await;
+        self.with_window(cx, |_, window, cx| {
+            tree.update(cx, |tree, cx| tree.confirm_name("results.txt", window, cx))
+        })?;
+        let to_text = self
+            .wait_for(cx, Duration::from_secs(8), |shell, cx| {
+                root.join("results.txt").is_file()
+                    && shell
+                        .read(cx)
+                        .active_editor_path(cx)
+                        .is_some_and(|path| path == "results.txt")
+            })
+            .await;
+        // Past the sync delay that a rename schedules.
+        self.pause(
+            cx,
+            lattice_editor::latex::diagnostics::SYNC_DELAY + Duration::from_millis(600),
+        )
+        .await;
+        let document = cx.update(|cx| {
+            self.shell.read(cx).project().and_then(|project| {
+                project.read(cx).texlab().read(cx).document().map(str::to_string)
+            })
+        });
+        steps.check(
+            "a .tex file renamed to .txt is never synced to TexLab under its new name",
+            to_text && document.as_deref() != Some("results.txt"),
+            json!({ "renamed": to_text, "texlab_document": document }),
+        );
+        self.with_window(cx, |_, window, cx| {
+            tree.update(cx, |tree, cx| {
+                tree.begin_rename("results.txt".into(), window, cx)
+            })
+        })?;
+        self.pause(cx, Duration::from_millis(200)).await;
+        self.with_window(cx, |_, window, cx| {
+            tree.update(cx, |tree, cx| tree.confirm_name("results.tex", window, cx))
+        })?;
+        self.wait_for(cx, Duration::from_secs(8), |_, _| root.join("results.tex").is_file())
+            .await;
+
         // Delete: asked first; the tab closes with the file.
         cx.update(|cx| tree.update(cx, |tree, cx| tree.ask_delete("results.tex".into(), cx)));
         self.pause(cx, Duration::from_millis(200)).await;

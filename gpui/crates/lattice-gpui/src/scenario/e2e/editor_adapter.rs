@@ -252,7 +252,83 @@ impl Run {
         );
         self.park(cx)?;
         self.pause(cx, Duration::from_millis(400)).await;
-        self.following_stack(cx, steps, panel, lattice).await
+        self.following_stack(cx, steps, panel, lattice).await?;
+        self.line_hover(cx, steps, panel, lattice).await
+    }
+
+    /// A target is hovered over any of its characters, on whichever display
+    /// row the editor's soft wrap puts them, and never from the empty space
+    /// past a line's end, where the editor clamps the pointer's offset to the
+    /// line's last one: a scenario provider's span over the whole
+    /// `Some text with ...` line (which also answers at the clamped end)
+    /// opens on its last character and stays closed to the right of it.
+    async fn line_hover(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+        panel: &Entity<EditorPanel>,
+        lattice: &Entity<LatticeEditor>,
+    ) -> Result<()> {
+        let text = self.editor_text(cx, panel);
+        let start = text.find("Some text with").context("main.tex has the text line")?;
+        let end = start + text[start..].find('\n').context("the line ends")?;
+        let enabled = std::rc::Rc::new(std::cell::Cell::new(true));
+        let provider_on = enabled.clone();
+        lattice.update(cx, |lattice, _| {
+            lattice.add_hover_provider(std::rc::Rc::new(
+                move |_: &language::BufferSnapshot, offset: usize, _: &gpui::App| {
+                    (provider_on.get() && (start..=end).contains(&offset)).then(|| HoverTarget {
+                        range: start..end,
+                        id: "e2e-line",
+                        card: std::rc::Rc::new(|_, _, _| {
+                            use gpui::{IntoElement as _, ParentElement as _};
+                            gpui::div().child("A line card").into_any_element()
+                        }),
+                    })
+                },
+            ))
+        });
+        let (_, first) = self.text_point(cx, panel, lattice, "Some text with", 0).await?;
+        let (_, last) = self.text_point(cx, panel, lattice, "sec:method}.", 11).await?;
+        let wrapped = last.top() > first.top();
+        self.hover_at(cx, last.center()).await?;
+        let on_last = self.wait_for_stack(cx, lattice, &["e2e-line"]).await;
+        self.adapter_shot(cx, "line-card-last-row").await;
+        self.park(cx)?;
+        let lattice_wait = lattice.clone();
+        let closed = self
+            .wait_for(cx, CARD_WAIT, move |_, cx| {
+                lattice_wait.read(cx).shown_hover(cx).is_empty()
+            })
+            .await;
+        let editor = cx
+            .update(|cx| lattice.read(cx).painted().bounds)
+            .context("the editor was drawn")?;
+        let past_x = (last.right() + px(60.)).min(editor.right() - px(4.));
+        let past = point(past_x, last.center().y);
+        let room_past_end = past_x > last.right() + px(4.);
+        self.hover_at(cx, past).await?;
+        // Well past the hover delay and a card's entrance.
+        self.pause(cx, Duration::from_millis(900)).await;
+        let past_shown = cx.update(|cx| lattice.read(cx).shown_hover(cx));
+        enabled.set(false);
+        self.park(cx)?;
+        self.pause(cx, Duration::from_millis(400)).await;
+        steps.check(
+            "a target opens over its last character (on a wrapped row too) and not from the space past its line's end",
+            on_last && closed && room_past_end && past_shown.is_empty(),
+            json!({
+                "wrapped": wrapped,
+                "first": bounds_json(first),
+                "last": bounds_json(last),
+                "on_last": on_last,
+                "closed": closed,
+                "past": [f32::from(past.x), f32::from(past.y)],
+                "room_past_end": room_past_end,
+                "past_shown": past_shown.iter().map(|(id, range)| json!({ "id": id, "range": [range.start, range.end] })).collect::<Vec<_>>(),
+            }),
+        );
+        Ok(())
     }
 
     /// Wait for the shown cards to be `expected`, top to bottom.
@@ -944,7 +1020,7 @@ impl Run {
     /// GPUI emits that only in an active window, and on a locked screen
     /// nothing can become active, so in an inactive window the scenario
     /// emits it, as GPUI would once the window became key.
-    async fn writer_in(&self, cx: &mut AsyncApp, editor: &Entity<editor::Editor>) -> Result<Value> {
+    pub(super) async fn writer_in(&self, cx: &mut AsyncApp, editor: &Entity<editor::Editor>) -> Result<Value> {
         let handle = cx.update(|cx| editor.read(cx).focus_handle(cx));
         let focus = handle.clone();
         self.with_window(cx, move |_, window, cx| window.focus(&focus, cx))?;
