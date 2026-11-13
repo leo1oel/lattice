@@ -30,6 +30,7 @@ mod notices;
 mod outline;
 mod paint_probe;
 mod panels;
+mod papers;
 mod pdf;
 mod project;
 mod recents;

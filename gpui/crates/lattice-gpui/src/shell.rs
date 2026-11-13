@@ -25,6 +25,7 @@ mod imports;
 mod layers;
 pub(crate) mod menus;
 mod palette;
+mod papers;
 mod pdfs;
 mod render;
 mod saving;
@@ -67,6 +68,7 @@ use crate::{
     editor_panel::EditorPanel,
     file_tree::FileTreePanel,
     notices::{self, NoticeStack},
+    papers::PapersPanel,
     pdf::{PdfPanel, PdfPanelKind},
     project::Project,
     stand_in_panels::{StandIn, StandInPanel},
@@ -128,7 +130,7 @@ pub struct Shell {
     /// A panel is being dragged: the webview islands stand aside.
     panel_dragging: bool,
     file_tree: Entity<FileTreePanel>,
-    papers: Entity<StandInPanel>,
+    papers: Entity<PapersPanel>,
     agent: Entity<StandInPanel>,
     pdf: Entity<PdfPanel>,
     build_panel: Entity<BuildPanel>,
@@ -253,7 +255,7 @@ impl Shell {
             TrellisWorkspace::new(views::engine_options(), LayoutDocument::default(), skin, cx)
         });
         let file_tree = cx.new(FileTreePanel::new);
-        let papers = cx.new(|cx| StandInPanel::new(StandIn::Papers, cx));
+        let papers = cx.new(|cx| PapersPanel::new(window, cx));
         let agent = cx.new(|cx| StandInPanel::new(StandIn::Agent, cx));
         let pdf = cx.new(|cx| PdfPanel::new(PdfPanelKind::Live, window, cx));
         let build_panel = cx.new(BuildPanel::new);
@@ -292,6 +294,8 @@ impl Shell {
         crate::interface_zoom::apply(window, cx);
         crate::interface_zoom::align_traffic_lights(window, cx);
         cx.subscribe_in(&file_tree, window, Self::on_tree_event)
+            .detach();
+        cx.subscribe_in(&papers, window, Self::on_papers_event)
             .detach();
         cx.subscribe_in(
             &build_panel,
@@ -438,6 +442,11 @@ impl Shell {
     }
 
     #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn papers(&self) -> &Entity<PapersPanel> {
+        &self.papers
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     pub fn confirm(&self) -> &Entity<ConfirmHost> {
         &self.confirm
     }
@@ -569,6 +578,8 @@ impl Shell {
             }
         }
         self.project = Some(project.clone());
+        // Sheets over the window hold the project they were opened in.
+        self.take_document_overlays(cx);
         // The editors of the project open before go with its arrangement.
         self.editors.clear();
         self.active_editor = None;
@@ -601,6 +612,8 @@ impl Shell {
         self.reset_undo = None;
         self.live_document = project.read(cx).main_document().map(str::to_string);
         self.refresh_outline(window, cx);
+        self.papers
+            .update(cx, |papers, cx| papers.set_project(project.clone(), cx));
         self.file_tree
             .update(cx, |tree, cx| tree.set_project(project, cx));
         self.set_window_title(window, cx);
@@ -645,6 +658,7 @@ impl Shell {
         });
         self.record_visit(&path, line, in_front, cx);
         self.refresh_outline(window, cx);
+        self.mark_paper(&path, cx);
         self.file_tree
             .update(cx, |tree, cx| tree.set_current(Some(path.clone()), cx));
         Some(editor)
@@ -677,6 +691,8 @@ impl Shell {
             cx,
         ) {
             Ok(editor) => {
+                let papers = self.papers.clone();
+                editor.update(cx, |editor, cx| editor.set_papers(papers, cx));
                 self.adopt_editor(&editor, window, cx);
                 let weak = editor.downgrade();
                 cx.on_focus_in(&editor.focus_handle(cx), window, move |this, _, _| {

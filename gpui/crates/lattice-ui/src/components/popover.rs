@@ -15,9 +15,9 @@
 use std::rc::Rc;
 
 use gpui::{
-    AnyElement, App, ElementId, FocusHandle, InteractiveElement as _, IntoElement, KeyDownEvent,
-    ParentElement, RenderOnce, SharedString, Styled as _, Window, div, prelude::FluentBuilder as _,
-    px,
+    Anchor, AnyElement, App, ElementId, FocusHandle, InteractiveElement as _, IntoElement,
+    KeyDownEvent, ParentElement, RenderOnce, SharedString, Styled as _, Window, div,
+    prelude::FluentBuilder as _, px,
 };
 use gpui_kit::base::{Popover as BasePopover, Selectable};
 
@@ -40,6 +40,7 @@ pub struct MenuAction {
     shortcut: Option<SharedString>,
     disabled: bool,
     destructive: bool,
+    checked: Option<bool>,
     run: Action,
 }
 
@@ -54,6 +55,7 @@ impl MenuAction {
             shortcut: None,
             disabled: false,
             destructive: false,
+            checked: None,
             run: Rc::new(run),
         }
     }
@@ -76,6 +78,19 @@ impl MenuAction {
     pub fn destructive(mut self) -> Self {
         self.destructive = true;
         self
+    }
+
+    /// One of a group of choices (a filter, a sort): the chosen one carries
+    /// the select's check at the end, and every choice keeps its gutter.
+    pub fn checked(mut self, checked: bool) -> Self {
+        self.checked = Some(checked);
+        self
+    }
+
+    /// A quiet fact at the row's end, in the shortcut's place (how many
+    /// papers a filter keeps).
+    pub fn detail(self, detail: impl Into<SharedString>) -> Self {
+        self.shortcut(detail)
     }
 }
 
@@ -225,6 +240,7 @@ impl RenderOnce for Menu {
                         let item = MenuItem::new(id, action.label)
                             .when_some(action.icon, MenuItem::icon)
                             .when_some(action.shortcut, MenuItem::shortcut)
+                            .when_some(action.checked, MenuItem::checked)
                             .disabled(action.disabled)
                             .destructive(action.destructive)
                             .highlighted(hover.lit(cx) == Some(ix))
@@ -284,6 +300,7 @@ pub struct MenuPopover<T: Selectable + IntoElement + 'static> {
     id: ElementId,
     trigger: T,
     menu: Rc<dyn Fn(Menu) -> Menu>,
+    anchor: Option<Anchor>,
 }
 
 impl<T: Selectable + IntoElement + 'static> MenuPopover<T> {
@@ -296,7 +313,15 @@ impl<T: Selectable + IntoElement + 'static> MenuPopover<T> {
             id: id.into(),
             trigger,
             menu: Rc::new(menu),
+            anchor: None,
         }
+    }
+
+    /// Which corner of the trigger the menu hangs from: `TopRight` lines
+    /// its right edge up with the trigger's, as Radix's `align="end"`.
+    pub fn anchor(mut self, anchor: Anchor) -> Self {
+        self.anchor = Some(anchor);
+        self
     }
 }
 
@@ -313,6 +338,7 @@ impl<T: Selectable + IntoElement + 'static> RenderOnce for MenuPopover<T> {
         let menu_id = ElementId::NamedChild(std::sync::Arc::new(self.id.clone()), "menu".into());
         let build = self.menu;
         BasePopover::new(self.id)
+            .when_some(self.anchor, |popover, anchor| popover.anchor(anchor))
             .offset(MENU_OFFSET)
             .trigger(self.trigger)
             .track_focus(&focus)

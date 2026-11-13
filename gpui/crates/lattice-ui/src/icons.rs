@@ -113,6 +113,18 @@ lucide! {
     SQUARE_ARROW_DOWN_LEFT = "icons" / "square-arrow-down-left";
     SQUARE_ARROW_OUT_UP_RIGHT = "icons" / "square-arrow-out-up-right";
     WHOLE_WORD = "icons" / "whole-word";
+    // The Papers panel's rows, toolbar and add rows.
+    ARROW_DOWN = "icons" / "arrow-down";
+    ARROW_DOWN_UP = "icons" / "arrow-down-up";
+    ARROW_UP_RIGHT = "icons" / "arrow-up-right";
+    BOOK_MARKED = "icons" / "book-marked";
+    CIRCLE_DOT = "icons" / "circle-dot";
+    HIGHLIGHTER = "icons" / "highlighter";
+    LINK_2 = "icons" / "link-2";
+    CORNER_DOWN_LEFT = "icons" / "corner-down-left";
+    EXTERNAL_LINK = "icons" / "external-link";
+    FILE_DOWN = "icons" / "file-down";
+    LIST_FILTER = "icons" / "list-filter";
     /// A .tex file's Source / Visual switch.
     CODE_XML = "icons" / "code-xml";
     TYPE = "icons" / "type";
@@ -124,6 +136,7 @@ lucide! {
     DOWNLOAD = "lattice" / "download";
     ELLIPSIS = "lattice" / "ellipsis";
     EYE = "lattice" / "eye";
+    FILE = "lattice" / "file";
     FOLDER = "lattice" / "folder";
     HASH = "lattice" / "hash";
     INFO = "lattice" / "info";
@@ -255,6 +268,7 @@ const BUNDLED: &[(&str, &[u8])] = bundled![
     "plus.svg",
     "trash.svg",
     // Lucide's, whose names Zed's icon set shadows (LICENSE-LUCIDE).
+    "file.svg",
     "folder.svg",
     "hash.svg",
     "replace.svg",

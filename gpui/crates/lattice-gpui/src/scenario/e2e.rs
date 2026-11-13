@@ -10,6 +10,7 @@ use serde_json::{Value, json};
 use super::Run;
 use crate::{editor_panel::EditorPanel, native};
 
+mod bib;
 mod build_flow;
 mod documents;
 mod editor_adapter;
@@ -17,6 +18,7 @@ mod fluid;
 #[cfg(target_os = "macos")]
 mod islands;
 mod live_controls;
+mod papers;
 mod pdf;
 mod saves;
 mod settings;
@@ -290,6 +292,8 @@ impl Run {
             steps.check(name, passed, detail);
         }
 
+        self.papers_panel(cx, &mut steps, &root).await?;
+        self.bib_visual_editor(cx, &mut steps, &root).await?;
         self.settings_and_language(cx, &mut steps).await?;
         self.live_controls(cx, &mut steps).await?;
         self.closing_saves(cx, &mut steps, &root).await?;

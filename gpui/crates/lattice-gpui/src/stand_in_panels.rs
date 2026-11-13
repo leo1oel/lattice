@@ -1,7 +1,7 @@
-//! Papers and the Agent hold their places in the dock before their content
-//! is ported: each is a real panel with its tab, card and strip where the
-//! Tauri app puts it (Papers under Project, the Agent beside it), and a body
-//! that says plainly it is not in the GPUI preview yet.
+//! The Agent holds its place in the dock before its content is ported: a
+//! real panel with its tab, card and strip where the Tauri app puts it
+//! (beside Project, over Papers), and a body that says plainly it is not in
+//! the GPUI preview yet.
 
 use gpui::{
     App, Context, EventEmitter, FocusHandle, Focusable, InteractiveElement as _, IntoElement,
@@ -13,28 +13,24 @@ use lattice_ui::{ActiveLattice as _, Icon, TextRole, TextRoleStyle as _, icons::
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum StandIn {
-    Papers,
     Agent,
 }
 
 impl StandIn {
     pub fn name(self) -> &'static str {
         match self {
-            StandIn::Papers => t!("Papers"),
             StandIn::Agent => t!("Agent"),
         }
     }
 
     pub fn icon(self) -> Icon {
         match self {
-            StandIn::Papers => Icon::LIBRARY,
             StandIn::Agent => Icon::BOT,
         }
     }
 
     fn note(self) -> &'static str {
         match self {
-            StandIn::Papers => t!("The papers library is not in the GPUI preview yet."),
             StandIn::Agent => t!("The Agent is not in the GPUI preview yet."),
         }
     }
@@ -69,7 +65,6 @@ impl Focusable for StandInPanel {
 impl BasePanel for StandInPanel {
     fn panel_name(&self) -> &'static str {
         match self.kind {
-            StandIn::Papers => "PapersPanel",
             StandIn::Agent => "AgentPanel",
         }
     }

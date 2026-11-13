@@ -22,6 +22,10 @@ pub struct Confirm {
     confirm_label: SharedString,
     destructive: bool,
     on_confirm: Answer,
+    /// A second answer between Cancel and the first, as the Tauri app's
+    /// `chooseAction` offers one ("Keep citations" beside "Remove citations
+    /// too").
+    alternative: Option<(SharedString, Answer)>,
 }
 
 impl Confirm {
@@ -32,6 +36,7 @@ impl Confirm {
             confirm_label: tc!("dialog button", "OK").into(),
             destructive: false,
             on_confirm: Rc::new(|_, _| {}),
+            alternative: None,
         }
     }
 
@@ -52,6 +57,17 @@ impl Confirm {
 
     pub fn on_confirm(mut self, answer: impl Fn(&mut Window, &mut App) + 'static) -> Self {
         self.on_confirm = Rc::new(answer);
+        self
+    }
+
+    /// Offer a second answer, drawn as the first is (danger when the
+    /// question destroys).
+    pub fn alternative(
+        mut self,
+        label: impl Into<SharedString>,
+        answer: impl Fn(&mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.alternative = Some((label.into(), Rc::new(answer)));
         self
     }
 }
@@ -139,13 +155,25 @@ impl Render for ConfirmHost {
         if let Some(body) = &question.body {
             card = card.body(body.clone());
         }
-        let card = card
-            .action(
-                Button::new(("confirm-cancel", self.serial), t!("Cancel"))
-                    .ghost()
-                    .on_click(cx.listener(|this, _, _, cx| this.close(cx))),
-            )
-            .action(confirm);
+        let mut card = card.action(
+            Button::new(("confirm-cancel", self.serial), t!("Cancel"))
+                .ghost()
+                .on_click(cx.listener(|this, _, _, cx| this.close(cx))),
+        );
+        if let Some((label, answer)) = question.alternative.clone() {
+            let button = Button::new(("confirm-alternative", self.serial), label).on_click(
+                cx.listener(move |this, _, window, cx| {
+                    this.close(cx);
+                    answer(window, cx);
+                }),
+            );
+            card = card.action(if question.destructive {
+                button.danger()
+            } else {
+                button.primary()
+            });
+        }
+        let card = card.action(confirm);
         let view = cx.entity().downgrade();
         ModalLayer::new(
             ("confirm", self.serial),

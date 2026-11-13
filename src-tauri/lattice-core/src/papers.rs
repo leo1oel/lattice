@@ -55,7 +55,7 @@ pub use library::{
     refresh_citation_health,
 };
 pub use library_search::{refresh_search_index, search_library, search_library_text};
-pub use search_index::PaperTextMatch;
+pub use search_index::{LineHit, PaperTextMatch};
 pub use upgrade::upgrade_bibliography;
 pub(crate) use web_citation::alphaxiv_bibtex;
 
