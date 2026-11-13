@@ -6,7 +6,7 @@ The Tauri app in `../src` and `../src-tauri` keeps shipping; nothing here is bui
 Its backend is the Tauri app's own: `lattice-core` (`../src-tauri/lattice-core`), the crate both apps share. What it does so far, and nothing more:
 
 1. Opens a project folder as the Tauri app does (a folder Lattice did not create is adopted the same way), with the Project tree on the left: the same files shown and hidden, New file, New folder, Rename, a dragged row moved into a folder, Delete, Set as main document, Show hidden files.
-2. Edits sources in Zed's editor with LaTeX highlighting in Lattice's code themes, search (Zed's buffer search bar) and an optional Vim mode (Zed's Vim).
+2. Edits sources in Zed's editor with LaTeX highlighting in Lattice's code themes, search (Zed's buffer search bar) and an optional Vim mode (Zed's Vim); in a `.tex` file, a card for the citation key or `\ref` label under the pointer, completion of commands, citation keys and labels, and TexLab's diagnostics (when `texlab` is installed), through Lattice's editor adapter (below).
 3. Saves as the Tauri app does: after a pause in typing, on leaving the editor, and before a tab or window closes, another project opens in its window or the app quits, merging an edit made outside Lattice since the file was loaded rather than writing over it; an outside edit reloads a clean buffer, and a file moved or deleted outside Lattice is followed, closed or held with its edits.
 4. Shows the PDF on the right, rendered natively by PDFium, and jumps between it and the source with SyncTeX: ⌘⇧J / Ctrl+Shift+J (or the PDF toolbar's locate button) marks the caret's line in the PDF, and a double-click in the PDF opens its source line.
 5. Builds with lattice-core's latexmk build on one click (or ⌘B / Ctrl+B; ⇧-click rebuilds clean), and after each save and each outside edit it loads (the Tauri app's default automatic builds), and reloads the PDF in place. The Build button's hover card lists the passes latexmk ran; a build can be stopped, and the build files cleaned. The build's diagnostics are the Tauri app's card over the PDF (or docked under it): TeX's messages in plain words with the failing line quoted, a typo's one-click fix, a missing package's install, and errors that jump to their line (F8 / ⇧F8 step through them).
@@ -35,6 +35,7 @@ Requirements:
 
 - Rust 1.99.1 (`rust-toolchain.toml`; Zed at the pinned revision asks for 1.98.1).
 - A TeX distribution with `latexmk` (MacTeX, TeX Live, MiKTeX or TinyTeX); it is found the way Lattice finds it, so a GUI launch without `/Library/TeX/texbin` on `PATH` still works.
+- Optionally TexLab (`brew install texlab`), found the same way, for the editor's diagnostics; without it the editor shows none.
 - macOS: the Command Line Tools are enough, because GPUI compiles its Metal shaders at run time (`runtime_shaders`).
 - Windows: MSVC, and `script/fetch-pdfium.ps1` for `pdfium.dll`. MiKTeX's `latexmk` needs Perl.
 
@@ -69,7 +70,8 @@ Pull requests do not run `.github/workflows/gpui.yml`; it runs for a release tag
 Only one GPUI release build runs at a time on the machine; a second worktree's waits for it.
 Its `code-themes` job fails while `code-themes.json` is stale (`node design-system/code-themes.mjs --check`), and its `patches` job while `patches/` is not upstream plus its diffs (`script/check-patches`). A separate workflow, `.github/workflows/gpui-patches.yml`, run by hand for a change to `patches/`, it applies the diffs to gpui-fast at the pin and runs the tests they add (element scale, letter spacing).
 On macOS and Windows it builds the app (release profile), runs the unit tests and the `e2e` scenario on `fixtures/e2e`; on macOS it then writes the parity report (below), which does not fail the job and is skipped for a release tag. `lattice-core`'s own tests run with the Tauri app's (`ci.yml`).
-macOS builds with TeX Live; Windows builds with MiKTeX.
+macOS builds with TeX Live and TexLab (so the e2e scenario checks TexLab's diagnostics); Windows builds with MiKTeX and no TexLab, where that step reports itself skipped.
+The macOS e2e step sets `GPUI_LAB_IGNORE_OCCLUSION`, so the window keeps drawing the editor's carets, gutter marks and cards even when the runner's display stops compositing it.
 The Chinese input method (Microsoft Pinyin on Windows) and MiKTeX's own package-install prompts are checked by hand; CI cannot drive them.
 
 ## How it is put together
@@ -79,8 +81,13 @@ crates/lattice-gpui   the app: shell (titlebar, dock, workspaces and presets,
                       command table, palette, menu bar, windows and project
                       tabs, floating panels: src/shell/), project, file tree,
                       editor panel, PDF panel (PDFium on its own thread), build
-                      panel, notices and confirmations, LaTeX language,
-                      scripted scenarios (macOS, Windows)
+                      panel, notices and confirmations, scripted scenarios
+                      (macOS, Windows)
+crates/lattice-editor the adapter over Zed's editor every editor feature
+                      decorates through (marks, highlights, gutter marks, block
+                      widgets, hover cards, completion sources, remote carets),
+                      the LaTeX language and the LaTeX extensions on it, the
+                      project's citation and label index, TexLab
 crates/lattice-ui     Lattice's look: design tokens generated from
                       ../design-system/tokens.json, the palette, GPUI Kit and
                       Zed editor themes, fonts, type roles, motion, elevation,
@@ -125,9 +132,26 @@ The app draws what the Tauri app draws: the parity target is the running app as 
 - `LATTICE_APPEARANCE=light|dark` fixes the appearance instead of following the system's.
 - Components (`lattice-ui/src/components/`) follow Paper's Components boards; hover and press fade on the motion tiers (`interaction.rs`). Menus, selects and popovers spring from their trigger from 95%, tooltips grow from 98%, dialogs and sheets rise from 98%, and toasts drop in from 96%, each on its tier as the Tauri app's CSS has it (`motion::Entrance`, drawn with GPUI's element scale). Type roles set normal tracking, and an uppercase micro label opens it to the caps tracking (`Tracking::Caps`). `lattice-gpui --gallery` draws them all on one sheet (`LATTICE_GALLERY_PAGE=2` for the overlays and surfaces) and, with `LATTICE_SHOT_OUT` and `--features offscreen-shots`, saves it.
 
+### The editor adapter
+
+`crates/lattice-editor` puts one Lattice-shaped API over Zed's editor, the way the Tauri app builds its source editor out of CodeMirror extensions (`../src/editor/`). `LatticeEditor` wraps Zed's `Editor` over a buffer, and a feature says what to show in buffer offsets, in named layers that it replaces whole:
+
+- marks (an underline, wavy or straight, the ink, a strike, the weight) and highlights (a wash behind the text): Zed's text and background highlights, anchored so they follow later edits; Zed keys them by a closed enum, so each layer's styles take slots of a key nothing else in the app sets;
+- gutter marks: a dot beside a line, painted over the gutter's free left edge by the adapter's overlay (Zed's gutter draws only its own indicators), with an optional hover card; nothing in the app sets one yet (the Tauri app's annotation pins will), so the end-to-end scenario proves them with a layer of its own;
+- block widgets: Zed's blocks, between lines;
+- hover cards: Zed's editor hovers only for language servers, so the overlay runs the pointer itself: each provider names its range and builds its card, and every provider's card at the pointer (over one of the range's characters, on any row soft wrap puts it, never past a line's end) opens after it rests 300 ms (CodeMirror's `hoverTime`), stacked in provider order as CodeMirror's hover host stacks its sources' tooltips (a citation card over the lint card of a diagnostic on the same key).
+  The stack rises above its ranges on the pop tier (below them when the editor has no room above) and stays inside the editor.
+  While the pointer stays by the stack, it follows the ranges under the pointer: a card whose range the pointer comes onto joins after the hover delay with its own entrance, and one whose range it leaves goes after a 150 ms grace; on ranges none of which has a card shown, the stack closes at once and their cards open after the hover delay.
+  The stack closes when the pointer leaves the ranges and the cards, on a key or an edit;
+- completion sources, given to Zed's completion menu through one provider; each source filters and orders its own options, as the Tauri app's citation source must, and a pick can put the caret inside the inserted template and open the menu again (a `\cite{}` lists the keys next);
+- remote carets, drawn as Overleaf draws them (`../src/overleaf/overleaf-editor-extensions.ts`): a 2px bar and dot in the person's colour, the name for a moment when the caret arrives or moves (2 s, then a short fade) and while the pointer rests on it, below the caret near the top edge.
+
+Positions come from the two questions Zed's editor answers for input methods (`bounds_for_range`, `character_index_for_point`) and its display snapshot, read in the same frame as the editor's own paint.
+The proof of the others is a real Lattice use in `src/latex/`: TexLab's diagnostics (lattice-core's TexLab pool) as wavy marks in CodeMirror lint's colours with the lint card, and no gutter marker, as in the Tauri app; the citation card (key, title in the reading face, authors, venue, source, Go to entry, Copy key) and the reference card from the project's index (lattice-core's `citations` and `references`); command, environment, package, citation-key and label completion, with the Tauri app's vocabulary ported entry for entry. Not yet (later editor slices): the rest of the Tauri app's LaTeX features, Vim's ex commands, spelling and grammar.
+
 ### The LaTeX language
 
-`crates/lattice-gpui/languages/latex` holds the language config and a highlight query written for this prototype against the latex-lsp tree-sitter grammar (`codebook-tree-sitter-latex`, MIT).
+`crates/lattice-editor/languages/latex` holds the language config and a highlight query written for this prototype against the latex-lsp tree-sitter grammar (`codebook-tree-sitter-latex`, MIT).
 Zed's community LaTeX extension was not used: it carries no license.
 
 ### The PDF preview
@@ -168,8 +192,9 @@ A scripted run keeps the workspaces and the projects' layouts in memory, so it n
   Before those checks it runs the window's own steps: the PDF dragged by its tab out of its dock with native mouse events (the dock goes), the Writing preset and the way back, a new workspace keeping its own arrangement (the dot until it is saved), Project closed from its tab and brought back from the Panels toggle, the PDF floated and docked, the command palette listing the commands, and ⌘W on the focused document closing its tab with the keyboard left in the window (the palette still opens, ⌘⇧T brings the tab back).
   A native drag has a frame drawn before its press and after every event, since input lands on the last frame's hitboxes; a window the platform is not presenting (covered, or on a locked screen) draws none itself, so the scenario draws it, and the step's detail records how many the window drew.
   It also jumps from a `.bib` entry to the PDF, and checks that closing a dirty tab or a window within the autosave pause saves what was typed, that closing the tab of a file deleted outside Lattice takes down its notice, and that with edits that cannot be saved, "Open in New Window" keeps the window and opens no other, and opening another project keeps the one shown.
+  In `main.tex` it checks the editor adapter: the citation and reference cards open when native mouse moves rest on a key or label and close when the pointer leaves, remote carets draw and name themselves and fade, a block widget pushes the lines below it down, a gutter mark set on a line is painted there and opens its card, TexLab's diagnostic for an unknown `\ref` shows as a mark whose card opens and clears once the reference goes, and with the bibliography unlinked, TexLab's diagnostic on the cited key opens its lint card under the citation card (both skipped without `texlab`), a card opens over its range's last character and not from the space past its line's end, a `.tex` file renamed to `.txt` is never synced to TexLab, and native keys complete a citation key, `\textbf`, and a package in the middle of `\usepackage`'s list (prefix matches first, the bare name inserted). With `LATTICE_E2E_SHOTS=DIR` (macOS) it saves the window at each card, the carets and the completion menus.
   It ends by quitting with text typed and not yet saved, naming the file and the text in the result's `after_quit`; the file holds the text once the app has exited, which CI checks.
-  It needs `chapters/intro.tex` and `references.bib` in the project.
+  It needs `chapters/intro.tex` and `references.bib` in the project, and `main.tex` as the fixture has it.
 - `perf`: Lattice's perf-lab `longTex` scenario: open `long.tex`, fling 200 wheel events of 120 px 8 ms apart with a per-frame meter, click a line, type with 110 ms between keys, then read `footprint`.
 - `memory`: `footprint` after opening the project, after opening `long.tex`, and after scrolling through the whole PDF.
 - `ime`: selects a Pinyin input method for the window and types `nihao` + space with native key events.
@@ -206,7 +231,7 @@ Only GPUI Kit, gpui-webview, gpui-fast, Zed's crates, pdfium-render, the LaTeX g
 | Project | License | GPUI it pins | Used here |
 |---|---|---|---|
 | [GPUI Kit](https://github.com/longbridge/gpui-kit) 0.9.1 | Apache-2.0 | `gpui-pre =0.3.12` (Zed `d2a4fb6`), or gpui-fast 0.1.14 with its `gpui-fast` feature | dependency: dock, tree, buttons, theme (feature `gpui-fast`; its components crate vendored with a diff, `patches/`) |
-| [Zed](https://github.com/zed-industries/zed) `d2a4fb6` | GPL-3.0-or-later (editor, search, Vim, workspace, project); Apache-2.0 (GPUI) | in-tree `gpui` 0.2.2 | dependency: GPUI, editor, search, Vim |
+| [Zed](https://github.com/zed-industries/zed) `d2a4fb6` | GPL-3.0-or-later (editor, search, Vim, workspace, project); Apache-2.0 (GPUI) | in-tree `gpui` 0.2.2 | dependency: GPUI, editor, search, Vim, project (the completion menu's items) |
 | [gpui-fast](https://github.com/longbridge/gpui-fast) `bbf6dea` | Apache-2.0 (modified fork of Zed's GPUI) | tracks Zed `d2a4fb6` | dependency: the app's GPUI (two crates vendored with diffs, `patches/`) |
 | [gpui-webview](https://crates.io/crates/gpui-webview) 0.9.1 | Apache-2.0 | `gpui-kit` 0.9.1, feature `gpui-fast` | dependency, for the webview islands to come |
 | [Ely GPUI Components](https://github.com/ELY-Open-Source/Ely-GPUI-Components) | MIT | `gpui-pre =0.3.11` (Zed `f816e1f`) | not needed: nothing was missing from GPUI Kit |

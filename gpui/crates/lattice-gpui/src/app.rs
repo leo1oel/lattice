@@ -8,8 +8,9 @@ use settings::{KeymapFile, Settings as _, SettingsStore};
 
 /// Settings the app runs Zed's editor with. Soft wrap matches Lattice's
 /// CodeMirror editor, which wraps lines; the gutter shows line numbers only,
-/// as Lattice's does; Zed's AI, git and telemetry features have nothing to
-/// attach to here. The theme, the fonts and Vim are filled in from Lattice's
+/// as Lattice's does; completion offers only what Lattice's sources answer
+/// (`lattice-editor`), not every word in the buffer; Zed's AI, git and
+/// telemetry features have nothing to attach to here. The theme, the fonts and Vim are filled in from Lattice's
 /// theme and the toggle.
 const BASE_SETTINGS: &str = r#"{
   "theme": { "mode": "THEME_MODE", "light": "LIGHT_THEME", "dark": "DARK_THEME" },
@@ -20,6 +21,7 @@ const BASE_SETTINGS: &str = r#"{
   "ui_font_size": 13,
   "soft_wrap": "editor_width",
   "show_edit_predictions": false,
+  "completions": { "words": "disabled" },
   "minimap": { "show": "never" },
   "git": { "inline_blame": { "enabled": false }, "git_gutter": "hide" },
   "gutter": {
@@ -99,7 +101,7 @@ pub fn init(scripted: bool, cx: &mut App) {
     editor::init(cx);
     search::init(cx);
     vim::init(cx);
-    crate::latex::init(cx);
+    lattice_editor::init(cx);
     load_keymaps(cx);
     crate::shell::workspaces::Workspaces::init(scripted, cx);
     crate::shell::menus::install(cx);

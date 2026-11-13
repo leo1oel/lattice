@@ -1,6 +1,7 @@
 //! The open project, on lattice-core: what opening the folder found (its
 //! manifest and file tree), the watcher that reports changes made to it, its
-//! build handle, and how current the shown PDF is.
+//! build handle, how current the shown PDF is, and what its editors read:
+//! the citation and label index and the TexLab server (`lattice-editor`).
 //!
 //! Everything here is the Tauri app's own backend (`../src-tauri/lattice-core`):
 //! opening adopts a folder Lattice did not create exactly as the Tauri app
@@ -17,6 +18,7 @@ use lattice_core::{
     models::{FileNode, ProjectManifest},
     project::{self, TreeView},
 };
+use lattice_editor::{ProjectIndex, TexlabService};
 
 /// What the watcher or an operation here changed.
 pub enum ProjectEvent {
@@ -45,6 +47,10 @@ pub struct Project {
     /// document it compiled, and whether that was a one-off (a standalone
     /// figure) rather than the main document.
     compiled: Option<Compiled>,
+    /// The citation keys and labels the editors' cards and completions read.
+    index: Entity<ProjectIndex>,
+    /// The project's TexLab, for the editors' diagnostics.
+    texlab: Entity<TexlabService>,
     _watcher: Option<ProjectWatcher>,
     _watch_task: Option<Task<()>>,
     _scan: Option<Task<()>>,
@@ -107,10 +113,14 @@ impl Project {
                 }
             }
         });
+        let index = cx.new(|cx| ProjectIndex::new(root.clone(), cx));
+        let texlab = cx.new(|cx| TexlabService::new(root.clone(), cx));
         Self {
             root,
             manifest,
             files,
+            index,
+            texlab,
             show_hidden: false,
             active_build: ActiveBuild::default(),
             input_revision: 0,
@@ -123,6 +133,14 @@ impl Project {
 
     pub fn root(&self) -> &Path {
         &self.root
+    }
+
+    pub fn index(&self) -> &Entity<ProjectIndex> {
+        &self.index
+    }
+
+    pub fn texlab(&self) -> &Entity<TexlabService> {
+        &self.texlab
     }
 
     pub fn manifest(&self) -> &ProjectManifest {
@@ -212,6 +230,16 @@ impl Project {
 
     fn files_changed(&mut self, paths: Option<Vec<String>>, cx: &mut Context<Self>) {
         self.rescan(cx);
+        // A source or bibliography changed on disk (a save here, an outside
+        // edit): the keys and labels may have too.
+        let sources_changed = paths.as_ref().is_none_or(|paths| {
+            paths
+                .iter()
+                .any(|path| path.ends_with(".tex") || path.ends_with(".bib"))
+        });
+        if sources_changed {
+            self.index.update(cx, |index, cx| index.refresh(cx));
+        }
         cx.emit(ProjectEvent::FilesChanged(paths));
     }
 

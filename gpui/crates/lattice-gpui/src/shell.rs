@@ -667,6 +667,11 @@ impl Shell {
                 self.run_build(BuildRequest::automatic(), window, cx);
             }
             EditorPanelEvent::Close => self.close_editor(editor, window, cx),
+            EditorPanelEvent::OpenLocation { path, line } => {
+                if let Some(root) = self.root(cx) {
+                    self.open_path(root.join(path), Some(*line), window, cx);
+                }
+            }
         }
     }
 

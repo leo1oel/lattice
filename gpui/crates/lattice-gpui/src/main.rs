@@ -16,7 +16,6 @@ mod editor_panel;
 mod editor_status;
 mod file_tree;
 mod gallery;
-mod latex;
 mod moved_paths;
 #[cfg(target_os = "macos")]
 mod native;

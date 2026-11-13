@@ -33,6 +33,7 @@ hdrhistogram = { version = "7", default-features = false }
 image.workspace = true
 language.workspace = true
 lattice-core.workspace = true
+lattice-editor.workspace = true
 lattice-ui.workspace = true
 log.workspace = true
 pdfium-render.workspace = true

@@ -110,13 +110,27 @@ jobs:
             scheme-basic
             latexmk
             synctex
+      # TexLab, for the editor's diagnostics, which the e2e scenario checks
+      # (the Windows job has none and skips that step).
+      - name: Install TexLab
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+        run: brew install texlab
       # --include-ignored runs the latexmk build test, which needs TeX.
       - run: cargo test --release --locked --workspace -- --include-ignored
       # The scenario ends by quitting with text typed and not yet saved
       # (its result's `after_quit`); once the app has exited, the file must
       # hold that text.
+      # The editor-adapter steps wait for the window to paint carets, gutter
+      # marks and cards. A CAMetalDisplayLink stops delivering frames once
+      # the runner's display stops compositing the window, which left those
+      # steps with nothing painted partway through; the lab switch
+      # (patches/README.md) paces the window by the display's CVDisplayLink
+      # and keeps it drawing.
       - name: e2e scenario
         timeout-minutes: 10
+        env:
+          GPUI_LAB_IGNORE_OCCLUSION: "1"
         run: |
           project="$RUNNER_TEMP/e2e-project"
           out="$RUNNER_TEMP/e2e-macos.json"

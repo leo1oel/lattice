@@ -180,6 +180,8 @@ pub fn send_wheel(native: Native, position: Point<Pixels>, dy: i32) -> Result<()
 pub enum Mouse {
     Down = 1,
     Up = 2,
+    /// The pointer moving with no button held, as for a hover.
+    Moved = 5,
     Dragged = 6,
 }
 
@@ -216,7 +218,7 @@ fn send_mouse_clicks(
     static EVENT_NUMBER: AtomicIsize = AtomicIsize::new(1);
     let pressure = match kind {
         Mouse::Down | Mouse::Dragged => 1.0f32,
-        Mouse::Up => 0.0f32,
+        Mouse::Up | Mouse::Moved => 0.0f32,
     };
     unsafe {
         let location = to_window(
@@ -236,7 +238,18 @@ fn send_mouse_clicks(
             clickCount: clicks,
             pressure: pressure];
         let event = event.context("NSEvent refused the mouse event")?;
-        let _: () = msg_send![native.window, sendEvent: &*event];
+        match kind {
+            // A normal window takes no mouse-moved events itself (GPUI
+            // leaves `acceptsMouseMovedEvents` off and tracks the pointer
+            // with a tracking area, which calls the view's `mouseMoved:`),
+            // so the move goes where the tracking area sends it.
+            Mouse::Moved => {
+                let _: () = msg_send![native.view, mouseMoved: &*event];
+            }
+            _ => {
+                let _: () = msg_send![native.window, sendEvent: &*event];
+            }
+        }
     }
     Ok(())
 }

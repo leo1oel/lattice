@@ -11,6 +11,7 @@ use super::Run;
 use crate::{editor_panel::EditorPanel, native};
 
 mod build_flow;
+mod editor_adapter;
 mod saves;
 
 /// Each step's name, whether it passed, and what it saw.
@@ -30,7 +31,9 @@ impl Run {
     /// and back (SyncTeX), and from a .bib entry to the PDF, autosave, take
     /// an outside edit into a clean buffer and merge one into an edited
     /// buffer, break the document by typing, save with the shortcut, build,
-    /// follow the error to its line, search, Vim, repair, build; then create,
+    /// follow the error to its line, search, Vim, repair, build; hover a
+    /// citation and a reference, draw remote carets and a block widget, show
+    /// TexLab's diagnostics and complete a citation and a command; then create,
     /// rename, move and delete files in the tree, drag a tab into a dock,
     /// close a dirty tab, a vanished file's tab and a window, and type
     /// before the quit that ends the run, which the result's `after_quit`
@@ -233,6 +236,9 @@ impl Run {
         );
         self.build_fixes(cx, &mut steps, &root, &stub).await?;
         self.doctor_and_setup(cx, &mut steps, &stub).await?;
+
+        // The editor adapter's extension points, through their LaTeX uses.
+        self.editor_adapter(cx, &mut steps, &root).await?;
 
         self.tree_operations(cx, &mut steps, &root).await?;
 
@@ -515,6 +521,70 @@ impl Run {
             moved,
             json!({}),
         );
+
+        // Renamed off .tex while the writer is in it: TexLab, which only
+        // ever holds a LaTeX document, is never handed the plain-text file.
+        let editor = cx
+            .update(|cx| {
+                self.shell
+                    .read(cx)
+                    .active_editor()
+                    .map(|panel| panel.read(cx).editor().clone())
+            })
+            .context("results.tex is open")?;
+        self.writer_in(cx, &editor).await?;
+        self.with_window(cx, |_, window, cx| {
+            tree.update(cx, |tree, cx| {
+                tree.begin_rename("results.tex".into(), window, cx)
+            })
+        })?;
+        self.pause(cx, Duration::from_millis(200)).await;
+        self.with_window(cx, |_, window, cx| {
+            tree.update(cx, |tree, cx| tree.confirm_name("results.txt", window, cx))
+        })?;
+        let to_text = self
+            .wait_for(cx, Duration::from_secs(8), |shell, cx| {
+                root.join("results.txt").is_file()
+                    && shell
+                        .read(cx)
+                        .active_editor_path(cx)
+                        .is_some_and(|path| path == "results.txt")
+            })
+            .await;
+        // Past the sync delay that a rename schedules.
+        self.pause(
+            cx,
+            lattice_editor::latex::diagnostics::SYNC_DELAY + Duration::from_millis(600),
+        )
+        .await;
+        let document = cx.update(|cx| {
+            self.shell.read(cx).project().and_then(|project| {
+                project
+                    .read(cx)
+                    .texlab()
+                    .read(cx)
+                    .document()
+                    .map(str::to_string)
+            })
+        });
+        steps.check(
+            "a .tex file renamed to .txt is never synced to TexLab under its new name",
+            to_text && document.as_deref() != Some("results.txt"),
+            json!({ "renamed": to_text, "texlab_document": document }),
+        );
+        self.with_window(cx, |_, window, cx| {
+            tree.update(cx, |tree, cx| {
+                tree.begin_rename("results.txt".into(), window, cx)
+            })
+        })?;
+        self.pause(cx, Duration::from_millis(200)).await;
+        self.with_window(cx, |_, window, cx| {
+            tree.update(cx, |tree, cx| tree.confirm_name("results.tex", window, cx))
+        })?;
+        self.wait_for(cx, Duration::from_secs(8), |_, _| {
+            root.join("results.tex").is_file()
+        })
+        .await;
 
         // Delete: asked first; the tab closes with the file.
         cx.update(|cx| tree.update(cx, |tree, cx| tree.ask_delete("results.tex".into(), cx)));
