@@ -18,7 +18,10 @@ name: GPUI
 # theme-customization.ts) by design-system/code-themes.mjs, and the
 # code-themes job fails while the JSON is stale. The macos job also writes the
 # parity report (gpui/parity/), which stages its scenes with
-# design-system/screens/.
+# design-system/screens/. The webview islands (gpui/islands/) are built from
+# the Tauri app's own modules: the board, spreadsheet, presentation and
+# Markdown editors in src/editor/, src/canvas/markdown-preview-sync.ts,
+# src/editor/latex/latex-text.ts, and the app's styles, i18n and utilities.
 on:
   push:
     tags: ["v*"]

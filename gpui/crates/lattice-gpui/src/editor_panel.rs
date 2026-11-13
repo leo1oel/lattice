@@ -48,7 +48,9 @@ use search::{BufferSearchBar, buffer_search::DivRegistrar};
 use workspace::ToolbarItemView as _;
 use zed_actions::buffer_search::Deploy;
 
+mod buffer_counts;
 mod disk_sync;
+mod markdown_view;
 mod outline_panel;
 pub mod outline_rail;
 pub mod rail_outline;
@@ -78,12 +80,10 @@ gpui::actions!(
 );
 
 use crate::{build_panel::BuildPanel, editor_status, project::Project};
+use buffer_counts::TODO_SETTLE;
 
 /// How often the open file is checked for an edit made behind the editor.
 const DISK_POLL: Duration = Duration::from_millis(2500);
-/// The pause in typing after which the buffer's TODOs are counted again, as
-/// the Tauri app settles the source it counts them in (`use-settled-source.ts`).
-const TODO_SETTLE: Duration = Duration::from_millis(500);
 gpui::actions!(
     lattice_editor_panel,
     [
@@ -115,6 +115,9 @@ pub enum EditorPanelEvent {
     CaretLine,
     /// The editor took focus: it is the one the reader works in now.
     Focused,
+    /// Open the project-relative `path` (a link followed in a Markdown file's
+    /// visual editor).
+    OpenFile { path: String },
     /// An outline rail row: open `path` at the 1-based `line`, then show
     /// the same place in the PDF.
     OutlineJump { path: String, line: u32 },
@@ -195,6 +198,9 @@ pub struct EditorPanel {
     structured: Option<Entity<crate::structured::StructuredDocument>>,
     /// A closing tab waits for its page to hand over its edits.
     page_flushed: Option<oneshot::Sender<()>>,
+    /// Which side of a Markdown file's Split moved last, and when: `true` for
+    /// the source (`markdown_view.rs`).
+    markdown_led: Option<(bool, std::time::Instant)>,
     status: SaveStatus,
     /// Saves run one at a time; this settles when the last one queued has.
     save_queue: Option<Shared<Task<()>>>,
@@ -251,7 +257,13 @@ impl EditorPanel {
         let saved_text = normalize_breaks(&text);
         let buffer = cx.new(|cx| Buffer::local(text, cx));
         let buffered = started.elapsed();
-        buffer.update(cx, |buffer, cx| buffer.set_language(language, cx));
+        // A Markdown file's inline text and fenced blocks are injections,
+        // resolved through the registry; a buffer moved to `.md` needs it too.
+        let registry = lattice_editor::markdown::registry(cx);
+        buffer.update(cx, |buffer, cx| {
+            buffer.set_language_registry(registry);
+            buffer.set_language(language, cx);
+        });
         let languaged = started.elapsed();
         let lattice = cx.new(|cx| LatticeEditor::new(buffer.clone(), window, cx));
         let editor = lattice.read(cx).editor().clone();
@@ -341,6 +353,8 @@ impl EditorPanel {
                         }
                         cx.emit(EditorPanelEvent::Focused);
                     }
+                    // A Markdown file's Split: the visual editor follows.
+                    EditorEvent::ScrollPositionChanged { .. } => this.markdown_source_scrolled(cx),
                     // Leaving the editor saves at once, as the Tauri app does.
                     EditorEvent::Blurred => {
                         if let Some(diagnostics) = &this.diagnostics {
@@ -425,6 +439,7 @@ impl EditorPanel {
             views,
             structured: None,
             page_flushed: None,
+            markdown_led: None,
             status: SaveStatus::Saved,
             save_queue: None,
             saves_pending: 0,
@@ -444,8 +459,8 @@ impl EditorPanel {
         // An HTML file opening in Preview or Split has its preview at once;
         // its page is built when the tab is first shown.
         this.ensure_preview(window, cx);
-        this.attach_spelling(cx);
         this.attach_structured(window, cx);
+        this.attach_spelling(cx);
         this
     }
 
@@ -524,7 +539,11 @@ impl EditorPanel {
                 cx,
             ));
         }
-        if let Some(document) = self.structured.clone() {
+        if let Some(document) = self
+            .structured
+            .clone()
+            .or_else(|| self.markdown_document().cloned())
+        {
             let relative = relative.clone();
             document.update(cx, |document, cx| document.moved_to(relative, cx));
         }
@@ -581,57 +600,17 @@ impl EditorPanel {
         self.replace_text(normalize_breaks(&text), cx);
     }
 
-    /// Recount the words from the buffer's text, off the main thread.
-    fn count_words(&mut self, cx: &mut Context<Self>) {
-        let text = self.buffer.read(cx).as_rope().clone();
-        let counted = cx.background_spawn(async move { editor_status::count_words(&text) });
-        self._count = Some(cx.spawn(async move |this, cx| {
-            let words = counted.await;
-            this.update(cx, |this, cx| {
-                this.words = Some(words);
-                cx.notify();
-            })
-            .ok();
-        }));
-    }
-
-    /// Count the buffer's TODO markers again once typing has paused for
-    /// `delay`, off the main thread; the next edit restarts the wait.
-    fn scan_todos(&mut self, delay: Duration, cx: &mut Context<Self>) {
-        let relative = self.relative.clone();
-        let text = self.buffer.read(cx).as_rope().clone();
-        self._todos = Some(cx.spawn(async move |this, cx| {
-            if !delay.is_zero() {
-                cx.background_executor().timer(delay).await;
-            }
-            let (found, source) = cx
-                .background_spawn(async move {
-                    let source = text.to_string();
-                    (
-                        crate::status_counters::buffer_todos(&relative, &source),
-                        source,
-                    )
-                })
-                .await;
-            this.update(cx, |this, cx| {
-                if this.buffer_todos != found {
-                    this.buffer_todos = found;
-                    cx.notify();
-                }
-                // The rail reads the file's own headings from the text as of
-                // this pause, as the Tauri app's settled source.
-                if let Some(rail) = &this.rail {
-                    let path = this.relative.clone();
-                    rail.update(cx, |rail, cx| rail.set_source(path, source, cx));
-                }
-            })
-            .ok();
-        }));
-    }
-
     /// Put the cursor at the start of the 1-based `line` and scroll it to the
     /// middle of the editor.
     pub fn go_to_line(&mut self, line: u32, window: &mut Window, cx: &mut Context<Self>) {
+        // Markdown's Preview is its visual editor, which takes the jump.
+        if let Some(document) = self.jumps_in_preview() {
+            document.update(cx, |document, cx| document.reveal_line(line, cx));
+            if let Some(focus) = document.read(cx).focus_handle(cx) {
+                window.focus(&focus, cx);
+            }
+            return;
+        }
         let point = Point::new(line.saturating_sub(1), 0);
         self.editor.update(cx, |editor, cx| {
             editor.change_selections(
@@ -669,7 +648,7 @@ impl Focusable for EditorPanel {
         match self.views.as_ref() {
             Some(views) if views.view() == DocumentView::Preview => views
                 .preview()
-                .map(|preview| preview.read(cx).island().focus_handle(cx))
+                .and_then(|preview| preview.focus_handle(cx))
                 .unwrap_or_else(|| self.editor.focus_handle(cx)),
             _ => self.editor.focus_handle(cx),
         }

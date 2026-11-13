@@ -87,6 +87,23 @@ export const SCREENS = {
     ],
     content: [".html-preview-frame", ".pdf-viewer-host"],
   },
+  // The tutorial's notes opened in Preview (`scenes.markdown`): the
+  // document's card, strip and tab, its Edit / Split / Preview switch, and
+  // the visual editor's surface. The GPUI app draws the visual editor in a
+  // webview island, which an offscreen capture does not include, so it is
+  // left out of the pixel budget; the composited capture beside the report
+  // shows it.
+  markdown: {
+    label: "Markdown",
+    regions: [
+      { name: "titlebar", css: "header.titlebar", chrome: true },
+      { name: "workspace", css: "main.workspace", chrome: true },
+      ...group("notes.md"),
+      { name: "markdown/views", css: "[data-trellis-part=\"accessory\"]:not([data-inactive]) .trellis-view-switcher" },
+      { name: "markdown/surface", css: ".markdown-preview" },
+    ],
+    content: [".markdown-preview", ".pdf-viewer-host"],
+  },
   // The tutorial's spreadsheet and board opened (`scenes.sheet`,
   // `scenes.board`): the document's card, strip and tab, and the surface,
   // alone in the panel with no status bar or strip tools, as the Tauri

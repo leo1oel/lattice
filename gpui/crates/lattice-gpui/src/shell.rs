@@ -680,7 +680,9 @@ impl Shell {
         self.active_editor = Some(editor.downgrade());
         editor.update(cx, |editor, cx| match line {
             Some(line) => editor.go_to_line(line, window, cx),
-            None => window.focus(&editor.editor().focus_handle(cx), cx),
+            // The panel's own: a structured document's page, or a Markdown or
+            // HTML file's preview while it shows only that.
+            None => window.focus(&gpui::Focusable::focus_handle(editor, cx), cx),
         });
         self.record_visit(&path, line, in_front, cx);
         self.refresh_outline(window, cx);

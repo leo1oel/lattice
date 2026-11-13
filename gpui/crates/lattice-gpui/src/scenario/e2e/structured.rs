@@ -364,7 +364,11 @@ impl Run {
         Ok(())
     }
 
-    async fn close_panel(&self, cx: &mut AsyncApp, panel: &Entity<EditorPanel>) -> Result<()> {
+    pub(super) async fn close_panel(
+        &self,
+        cx: &mut AsyncApp,
+        panel: &Entity<EditorPanel>,
+    ) -> Result<()> {
         self.with_window(cx, {
             let panel = panel.clone();
             move |shell, _, cx| {

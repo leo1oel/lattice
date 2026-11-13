@@ -84,6 +84,13 @@ fn github_draws_on_the_lattice_sheet_with_its_own_selection_and_line() {
     assert_eq!(style["syntax"]["keyword"]["color"], "#cf222eff");
     // #8250df, fitted to 4.5:1 on every light tint's editor ground.
     assert_eq!(style["syntax"]["function"]["color"], "#804ddcff");
+    // Markdown's headings take the function colour at 600, its marks the
+    // keyword colour at the text's weight (`markdownHighlightStyle`).
+    assert_eq!(style["syntax"]["markup.heading"]["color"], "#804ddcff");
+    assert_eq!(style["syntax"]["markup.heading"]["font_weight"], 600);
+    assert_eq!(style["syntax"]["markup.meta"]["color"], "#cf222eff");
+    assert_eq!(style["syntax"]["markup.meta"]["font_weight"], Value::Null);
+    assert_eq!(style["syntax"]["markup.quote"]["font_style"], "italic");
 
     let dark = style_of(CodeTheme::Github, Appearance::Dark);
     assert_eq!(dark["players"][0]["selection"], "#388bfd33");

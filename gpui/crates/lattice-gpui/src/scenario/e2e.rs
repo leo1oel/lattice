@@ -18,6 +18,12 @@ mod history;
 #[cfg(target_os = "macos")]
 mod islands;
 mod live_controls;
+#[cfg(target_os = "macos")]
+mod markdown;
+#[cfg(target_os = "macos")]
+mod markdown_pages;
+#[cfg(target_os = "macos")]
+mod markdown_scroll;
 mod pdf;
 mod saves;
 mod settings;
@@ -267,6 +273,8 @@ impl Run {
         self.webview_islands(cx, &mut steps, &root).await?;
         #[cfg(target_os = "macos")]
         self.structured_islands(cx, &mut steps, &root).await?;
+        #[cfg(target_os = "macos")]
+        self.markdown_island(cx, &mut steps, &root).await?;
         self.pdf_viewer(cx, &mut steps, &root).await?;
         self.second_window_pdf(cx, &mut steps, &root).await?;
 
@@ -323,6 +331,7 @@ impl Run {
         self.pause(cx, Duration::from_millis(800)).await;
         self.webview_islands(cx, &mut steps, &root).await?;
         self.structured_islands(cx, &mut steps, &root).await?;
+        self.markdown_island(cx, &mut steps, &root).await?;
         let passed = steps.0.iter().all(|step| step["passed"] == true);
         Ok(json!({ "scenario": "islands", "passed": passed, "steps": steps.0 }))
     }
