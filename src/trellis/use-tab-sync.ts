@@ -28,13 +28,16 @@ export function useTabSync(controller: TrellisController, ws: WorkspaceHandle | 
       // In the Reading layout a document keeps to its side instead: papers
       // join the paper being read (with the library), everything else the
       // notes, and a first note gets a panel of its own beside the paper.
+      // Bibliography keeps the same sides: papers join the library, the rest
+      // the written documents.
       const isReading = (key: string) => controller.isReading(key);
       // Opened to the side: the other side's panel, else the panel it was
       // asked from, which it then leaves for a new split (open-beside.ts).
       const anchorPanel = (key: string) => {
         const beside = controller.tabs.besideFor(key);
         if (beside) return besideTarget(ws.views(), beside.from, isReading) ?? beside.from;
-        if (controller.ui.get().preset === "reading") {
+        const preset = controller.ui.get().preset;
+        if (preset === "reading" || preset === "bibliography") {
           const reading = controller.isReading(key);
           const library = ws.view("papers");
           if (reading && library && library.placement !== "hidden") return library.panelId;

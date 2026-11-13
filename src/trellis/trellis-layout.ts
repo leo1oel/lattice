@@ -110,7 +110,10 @@ function panelsOf(doc: LayoutDocument, { hidden = false } = {}): PanelNode[] {
  * tab), only regrouped: Writing gathers them into one panel before the PDF,
  * selecting the source being written; Reading gathers papers with the Papers
  * library before a panel of everything else, selecting the paper and the
- * notes. Every other view (navigators, the Agent, tools) is parked hidden in
+ * notes; Bibliography puts the Papers library (with the Project navigator and
+ * any open papers) beside a panel of the written documents, selecting the
+ * first open `.bib` (else the first written document), and shows the Project
+ * navigator there when nothing is open. Every other view (navigators, the Agent, tools) is parked hidden in
  * its own panel rather than dropped, so its content stays mounted: the Agent's
  * frame must not reload a running turn.
  */

@@ -15260,7 +15260,7 @@ msgstr "切换到那个窗口"
 
 #: src/app/use-command-table.ts
 msgid "Switch to the Bibliography layout"
-msgstr "切换到参考文献布局"
+msgstr "参考文献布局"
 
 #: src/app/use-command-table.ts
 msgid "Switch to the Reading layout"
