@@ -181,7 +181,7 @@ The editor saves the way the Tauri app's open documents do (`../src/app/use-docu
 ### SyncTeX
 
 Both directions are `lattice-core`'s (`latex::forward_search`, `latex::inverse_search`). A jump to the PDF saves first and builds when the PDF is older than the sources, as the Tauri app's `ensureCompiled` does; the PDF scrolls the line's box to the middle of the panel and marks it with an accent box that fades after 1.44 s.
-When the live PDF is in its own window, that window comes forward with the mark and the workspace's right dock stays shut.
+When the live PDF is in its own window, that window comes forward with the mark, and the jump does not reveal the PDF in the workspace.
 
 ## Scripted runs
 
