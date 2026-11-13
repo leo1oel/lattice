@@ -270,7 +270,9 @@ impl Run {
         lattice: &Entity<LatticeEditor>,
     ) -> Result<()> {
         let text = self.editor_text(cx, panel);
-        let start = text.find("Some text with").context("main.tex has the text line")?;
+        let start = text
+            .find("Some text with")
+            .context("main.tex has the text line")?;
         let end = start + text[start..].find('\n').context("the line ends")?;
         let enabled = std::rc::Rc::new(std::cell::Cell::new(true));
         let provider_on = enabled.clone();
@@ -288,8 +290,12 @@ impl Run {
                 },
             ))
         });
-        let (_, first) = self.text_point(cx, panel, lattice, "Some text with", 0).await?;
-        let (_, last) = self.text_point(cx, panel, lattice, "sec:method}.", 11).await?;
+        let (_, first) = self
+            .text_point(cx, panel, lattice, "Some text with", 0)
+            .await?;
+        let (_, last) = self
+            .text_point(cx, panel, lattice, "sec:method}.", 11)
+            .await?;
         let wrapped = last.top() > first.top();
         self.hover_at(cx, last.center()).await?;
         let on_last = self.wait_for_stack(cx, lattice, &["e2e-line"]).await;
@@ -1020,7 +1026,11 @@ impl Run {
     /// GPUI emits that only in an active window, and on a locked screen
     /// nothing can become active, so in an inactive window the scenario
     /// emits it, as GPUI would once the window became key.
-    pub(super) async fn writer_in(&self, cx: &mut AsyncApp, editor: &Entity<editor::Editor>) -> Result<Value> {
+    pub(super) async fn writer_in(
+        &self,
+        cx: &mut AsyncApp,
+        editor: &Entity<editor::Editor>,
+    ) -> Result<Value> {
         let handle = cx.update(|cx| editor.read(cx).focus_handle(cx));
         let focus = handle.clone();
         self.with_window(cx, move |_, window, cx| window.focus(&focus, cx))?;

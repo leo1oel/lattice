@@ -559,7 +559,12 @@ impl Run {
         .await;
         let document = cx.update(|cx| {
             self.shell.read(cx).project().and_then(|project| {
-                project.read(cx).texlab().read(cx).document().map(str::to_string)
+                project
+                    .read(cx)
+                    .texlab()
+                    .read(cx)
+                    .document()
+                    .map(str::to_string)
             })
         });
         steps.check(
@@ -576,8 +581,10 @@ impl Run {
         self.with_window(cx, |_, window, cx| {
             tree.update(cx, |tree, cx| tree.confirm_name("results.tex", window, cx))
         })?;
-        self.wait_for(cx, Duration::from_secs(8), |_, _| root.join("results.tex").is_file())
-            .await;
+        self.wait_for(cx, Duration::from_secs(8), |_, _| {
+            root.join("results.tex").is_file()
+        })
+        .await;
 
         // Delete: asked first; the tab closes with the file.
         cx.update(|cx| tree.update(cx, |tree, cx| tree.ask_delete("results.tex".into(), cx)));
