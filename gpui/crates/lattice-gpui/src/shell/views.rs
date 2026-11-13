@@ -3,7 +3,7 @@
 //! The Trellis document names views by id: the singletons by their kind
 //! (`project`, `papers`, `agent`, `pdf`, `build`), a document as a `file`
 //! view whose `params.key` is its path in the project (an editor, or a PDF
-//! viewer for a `.pdf`), another root document's compiled PDF as a
+//! viewer for a `.pdf`) or a paper's reader's `paper:<arXiv id>`, another root document's compiled PDF as a
 //! `root-pdf` view (`root-pdf:<document>`), and a document panel's empty
 //! place as a `slot`. The shell keeps a panel for every view in the
 //! document ([`Shell::sync_views`]), in a registry the skin draws from, so
@@ -239,13 +239,17 @@ impl Shell {
         }
     }
 
-    /// The panel for document `key`: its editor, or its PDF viewer.
+    /// The panel for document `key`: its editor, its PDF viewer, or a
+    /// paper's open reader.
     fn document_panel(
         &mut self,
         key: &str,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Option<Arc<dyn BasePanelView>> {
+        if super::papers::is_reader_key(key) {
+            return self.reader_of(key, cx).map(panel_handle);
+        }
         let path = self.root(cx)?.join(key);
         if !path.is_file() {
             return None;

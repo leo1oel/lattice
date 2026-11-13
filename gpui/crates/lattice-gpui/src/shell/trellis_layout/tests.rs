@@ -144,6 +144,42 @@ const WRITING: Laid = Laid::Preset(Preset::Writing);
 const READING: Laid = Laid::Preset(Preset::Reading);
 
 #[test]
+fn bibliography_keeps_the_library_beside_the_bibliography_and_preserves_all_documents() {
+    let open = strings(&["main.tex", "references.bib", PAPER]);
+    let doc = preset(
+        Laid::Preset(Preset::Bibliography),
+        &workspace_with(&["main.tex", "references.bib", PAPER]),
+        "main.tex",
+        &open,
+    );
+    assert_eq!(
+        panels(&doc),
+        vec![
+            row("panel-library", &["papers", "project", "doc-2"], "papers"),
+            row("panel-bibliography", &["doc-0", "doc-1"], "doc-1"),
+        ]
+    );
+    let Some(LayoutNode::Split(split)) = &doc.root else {
+        panic!("Bibliography lays out a row");
+    };
+    assert_eq!(split.weights, vec![0.35, 0.65]);
+    // With nothing written, Project stands in for the bibliography.
+    let empty = preset(
+        Laid::Preset(Preset::Bibliography),
+        &default_layout(),
+        "",
+        &[],
+    );
+    assert_eq!(
+        panels(&empty),
+        vec![
+            row("panel-library", &["papers"], "papers"),
+            row("panel-bibliography", &["project"], "project"),
+        ]
+    );
+}
+
+#[test]
 fn writing_keeps_every_open_document_beside_the_pdf_with_the_latex_source_in_front() {
     let open = open_tabs();
     let doc = preset(WRITING, &workspace_with(KEYS), "notes.md", &open);

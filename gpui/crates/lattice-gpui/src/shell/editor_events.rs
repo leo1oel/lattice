@@ -57,6 +57,7 @@ impl Shell {
             EditorPanelEvent::Focused => {
                 self.active_editor = Some(editor.downgrade());
                 let path = editor.read(cx).path().to_path_buf();
+                self.mark_paper(&path, cx);
                 self.file_tree
                     .update(cx, |tree, cx| tree.set_current(Some(path), cx));
                 self.show_outline(cx);
@@ -75,9 +76,12 @@ impl Shell {
         let Some(root) = self.root(cx) else {
             return;
         };
-        let Some(active) = self.active_document(cx) else {
-            // A reader closed with no document behind it leaves no paper
-            // open.
+        let Some(active) = self
+            .active_document(cx)
+            .filter(|key| !super::papers::is_reader_key(key))
+        else {
+            // A reader in front marks its paper; one closed with no
+            // document behind it leaves no paper open.
             self.mark_front_paper(None, cx);
             return;
         };

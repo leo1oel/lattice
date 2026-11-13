@@ -438,6 +438,7 @@ impl Shell {
         let lead = match preset {
             Preset::Writing => "panel-writing",
             Preset::Reading => "panel-reading",
+            Preset::Bibliography => "panel-bibliography",
         };
         let doc = self.document(cx);
         let selected = trellis::model::panels_of(doc.root.as_ref())

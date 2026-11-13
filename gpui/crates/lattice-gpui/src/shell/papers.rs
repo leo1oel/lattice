@@ -1,15 +1,19 @@
 //! The Papers panel's requests of the shell: open a reading file (at a
 //! line), and the open document's paper marked in the list.
+//!
+//! A paper's reader is a document of the layout: a `file` view keyed
+//! `paper:<arXiv id>` ([`reader_key`]), so it joins the documents' panels
+//! and the presets put it with the papers being read (`is_reading`), as the
+//! Tauri app's paper tab does, under a key no project file has.
 
 use std::path::Path;
 
 use gpui::{AppContext as _, Context, Entity, Focusable as _, Window};
-use gpui_kit::component::dock::{DockPlacement, PaneRef, PanelId, panel_handle};
 use lattice_core::papers::PaperSummary;
-
 use lattice_i18n::t;
+use trellis::runtime::engine::ViewPlacement;
 
-use super::{Shell, layout::View};
+use super::Shell;
 use crate::notices;
 use crate::papers::{
     PapersEvent, PapersPanel,
@@ -88,13 +92,8 @@ impl Shell {
         let Some(root) = self.root(cx) else {
             return;
         };
-        let open = self
-            .documents
-            .readers
-            .iter()
-            .find(|reader| reader.read(cx).paper().arxiv_id == paper.arxiv_id)
-            .cloned();
-        let reader = match open {
+        let key = reader_key(&paper.arxiv_id);
+        let reader = match self.reader_of(&key, cx) {
             Some(reader) => {
                 reader.update(cx, |reader, cx| reader.set_paper(paper, cx));
                 reader
@@ -118,46 +117,22 @@ impl Shell {
                 reader
             }
         };
-        let id = PanelId::from(reader.entity_id());
-        if !self.panel_shown(id, cx) {
-            self.dock_area.update(cx, |area, cx| {
-                area.add_panel_view(
-                    panel_handle(reader.clone()),
-                    DockPlacement::Center,
-                    None,
-                    window,
-                    cx,
-                );
-            });
-        }
-        self.dock_area
-            .update(cx, |area, cx| area.select_panel(id, window, cx));
+        self.place_document(&key, true, cx);
+        self.sync_views(window, cx);
         window.focus(&reader.focus_handle(cx), cx);
         let path = root.join(reader.read(cx).path());
         self.mark_paper(&path, cx);
     }
 
-    /// The reader a dock panel is, as an arrangement names it: by the
-    /// reading file it shows, so every rearrangement keeps it.
-    pub(super) fn reader_view(&self, panel: PanelId, cx: &gpui::App) -> Option<View> {
+    /// The open reader of the layout's document `key`. A reader is made
+    /// only when the writer opens a paper, so a saved layout's paper tab
+    /// with none open leaves the layout.
+    pub(super) fn reader_of(&self, key: &str, cx: &gpui::App) -> Option<Entity<PaperReader>> {
         self.documents
             .readers
             .iter()
-            .find(|reader| PanelId::from(reader.entity_id()) == panel)
-            .map(|reader| View::Reader(reader.read(cx).path()))
-    }
-
-    /// The open reader showing `path`, where an arrangement puts it back.
-    pub(super) fn reader_panel(
-        &self,
-        path: &str,
-        cx: &gpui::App,
-    ) -> Option<std::sync::Arc<dyn gpui_kit::component::dock::BasePanelView>> {
-        self.documents
-            .readers
-            .iter()
-            .find(|reader| reader.read(cx).path() == path)
-            .map(|reader| panel_handle(reader.clone()))
+            .find(|reader| reader_key(&reader.read(cx).paper().arxiv_id) == key)
+            .cloned()
     }
 
     /// What takes the keyboard back when a sheet closes: the editor of the
@@ -170,8 +145,10 @@ impl Shell {
         editor: Option<&Entity<crate::editor_panel::EditorPanel>>,
         cx: &gpui::App,
     ) -> Option<gpui::FocusHandle> {
-        let shown =
-            editor.filter(|editor| self.panel_in_front(PanelId::from(editor.entity_id()), cx));
+        let shown = editor.filter(|editor| {
+            self.view_of_editor(editor)
+                .is_some_and(|view| self.in_front(&view, cx))
+        });
         match (shown, self.front_reader_entity(cx), editor) {
             (Some(editor), _, _) => Some(editor.read(cx).focus_handle(cx)),
             (None, Some(reader), _) => Some(reader.focus_handle(cx)),
@@ -191,51 +168,18 @@ impl Shell {
         })
     }
 
+    /// The reader selected in a panel on screen.
     fn front_reader_entity(&self, cx: &gpui::App) -> Option<Entity<PaperReader>> {
-        let area = self.dock_area.read(cx);
-        let mut front = Vec::new();
-        for placement in [
-            DockPlacement::Center,
-            DockPlacement::Left,
-            DockPlacement::Right,
-        ] {
-            if let Some(tree) = area.layout(placement) {
-                tree.root().walk(&mut |node| {
-                    if let PaneRef::Tabs { panels, active_ix } = node.kind()
-                        && let Some(id) = panels.get(active_ix)
-                    {
-                        front.push(*id);
-                    }
-                });
-            }
-        }
+        let engine = self.workspace.read(cx).engine();
         self.documents
             .readers
             .iter()
-            .find(|reader| front.contains(&PanelId::from(reader.entity_id())))
+            .find(|reader| {
+                self.view_of_panel(reader.entity_id()).is_some_and(|view| {
+                    engine.placement_of(&view) != ViewPlacement::Hidden && self.in_front(&view, cx)
+                })
+            })
             .cloned()
-    }
-
-    /// ⌘W in a reader: its tab goes, and the reader with it. A reader is
-    /// no view of the arrangement, so it is taken off the dock directly.
-    /// False when the writer is in none.
-    pub(super) fn close_focused_reader(
-        &mut self,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> bool {
-        let Some(at) = self
-            .documents
-            .readers
-            .iter()
-            .position(|reader| reader.focus_handle(cx).contains_focused(window, cx))
-        else {
-            return false;
-        };
-        let reader = self.documents.readers.remove(at);
-        self.dock_area
-            .update(cx, |area, cx| area.remove_panel(reader, window, cx));
-        true
     }
 
     /// Mark the paper in front: a reader's when one is, else the paper
@@ -252,20 +196,14 @@ impl Shell {
     }
 
     /// Readers the writer closed are let go of; they open anew.
-    pub(super) fn forget_closed_readers(&mut self, cx: &mut Context<Self>) {
-        let readers = std::mem::take(&mut self.documents.readers);
-        self.documents.readers = readers
-            .into_iter()
-            .filter(|reader| self.panel_shown(PanelId::from(reader.entity_id()), cx))
-            .collect();
-    }
-
-    /// The readers go with the project their papers are of.
-    pub(super) fn close_readers(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        for reader in std::mem::take(&mut self.documents.readers) {
-            self.dock_area
-                .update(cx, |area, cx| area.remove_panel(reader, window, cx));
-        }
+    pub(super) fn forget_closed_readers(&mut self) {
+        let views = self.views.clone();
+        self.documents.readers.retain(|reader| {
+            views
+                .borrow()
+                .values()
+                .any(|view| view.view().entity_id() == reader.entity_id())
+        });
     }
 
     /// Add papers, over the window like the project's other sheets.
@@ -401,4 +339,16 @@ impl Shell {
             papers.set_active_path(relative.as_deref(), cx)
         });
     }
+}
+
+const READER_PREFIX: &str = "paper:";
+
+/// The layout's key for the reader of the paper `arxiv_id`.
+pub(super) fn reader_key(arxiv_id: &str) -> String {
+    format!("{READER_PREFIX}{arxiv_id}")
+}
+
+/// Whether a layout's document key is a paper's reader.
+pub(super) fn is_reader_key(key: &str) -> bool {
+    key.starts_with(READER_PREFIX)
 }

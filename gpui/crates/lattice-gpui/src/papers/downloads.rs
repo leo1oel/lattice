@@ -125,6 +125,7 @@ impl PapersPanel {
                 &root,
                 &input,
                 HistoryMode::Record,
+                core_papers::FullText::Save,
                 &progress,
                 &job_cancel,
             )

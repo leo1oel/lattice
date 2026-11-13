@@ -1,4 +1,4 @@
-//! The Writing and Reading presets and focus mode (`presetLayout`,
+//! The Writing, Reading and Bibliography presets and focus mode (`presetLayout`,
 //! `enterPreset`, `enterFocus`, `returnLayout` and `undoReset` in
 //! `src/trellis/trellis-layout.ts`): arrangements laid over the writer's own
 //! layout, and the way back to it brought up to date.
@@ -16,23 +16,26 @@ use super::{
 };
 
 /// Writing puts the source beside the compiled PDF; Reading puts a paper
-/// beside the notes. Either is a temporary arrangement over the writer's
-/// own layout, which is kept until they return to it.
+/// beside the notes; Bibliography puts the Papers library beside the
+/// bibliography. Each is a temporary arrangement over the writer's own
+/// layout, which is kept until they return to it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Preset {
     Writing,
     Reading,
+    Bibliography,
 }
 
 impl Preset {
-    pub const ALL: [Preset; 2] = [Preset::Writing, Preset::Reading];
+    pub const ALL: [Preset; 3] = [Preset::Writing, Preset::Reading, Preset::Bibliography];
 
     /// The titlebar's name for it.
     pub fn label(self) -> &'static str {
         match self {
             Preset::Writing => lattice_i18n::t!("Writing"),
             Preset::Reading => lattice_i18n::t!("Reading"),
+            Preset::Bibliography => lattice_i18n::t!("Bibliography"),
         }
     }
 }
@@ -121,7 +124,10 @@ fn views_by_key(views: &Views) -> IndexMap<String, String> {
 /// its tab), only regrouped: Writing gathers them into one panel before the
 /// PDF, selecting the source being written; Reading gathers papers with the
 /// Papers library before a panel of everything else, selecting the paper
-/// and the notes; focus mode gathers them in one panel, the one in front
+/// and the notes; Bibliography puts the Papers library (with the Project
+/// navigator and any open papers) beside a panel of the written documents,
+/// selecting the first open `.bib` (else the first written document), and
+/// shows the Project navigator there when nothing is written; focus mode gathers them in one panel, the one in front
 /// kept in front. Every other view (navigators, the Agent, tools) is parked
 /// hidden in its own panel rather than dropped, so its content stays
 /// mounted: the Agent must not lose a running turn.
@@ -243,6 +249,41 @@ pub fn preset_layout(
                     LayoutNode::Panel(PanelNode::single("panel-pdf", "pdf")),
                 ],
             )
+        }
+        Laid::Preset(Preset::Bibliography) => {
+            views.insert("papers".into(), record("papers"));
+            views.insert("project".into(), record("project"));
+            let (read, written): (Vec<String>, Vec<String>) =
+                keys.iter().cloned().partition(|key| is_reading(key));
+            let bibliography = written
+                .iter()
+                .find(|key| key.to_lowercase().ends_with(".bib"))
+                .or(written.first())
+                .cloned();
+            let mut library = vec!["papers".to_string()];
+            if !written.is_empty() {
+                library.push("project".into());
+            }
+            library.extend(read.iter().map(|key| id_of(key)));
+            let written_panel = if written.is_empty() {
+                PanelNode::single("panel-bibliography", "project")
+            } else {
+                let members = written.iter().map(|key| id_of(key)).collect();
+                panel("panel-bibliography", members, bibliography.as_deref())
+            };
+            LayoutNode::Split(SplitNode {
+                id: "split-bibliography".into(),
+                axis: Axis::X,
+                weights: vec![0.35, 0.65],
+                children: vec![
+                    LayoutNode::Panel(PanelNode {
+                        id: "panel-library".into(),
+                        selected: "papers".into(),
+                        views: library,
+                    }),
+                    LayoutNode::Panel(written_panel),
+                ],
+            })
         }
         Laid::Preset(Preset::Reading) => {
             views.insert("papers".into(), record("papers"));
