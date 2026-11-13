@@ -15,7 +15,7 @@
 //! hidden build's files and PDF are put back as they were, so latexmk still
 //! knows that build, and the same inputs built again unasked are restated
 //! (`unchanged`) rather than tried beside again. Nor is an edited one, until
-//! its preamble changes or it builds in the hidden folder.
+//! its preamble or latexmkrc changes or it builds in the hidden folder.
 
 use super::super::aux_files::{self, AuxFiles};
 use super::super::build_log::advice;
@@ -59,8 +59,8 @@ pub(super) fn layout_for(root: &Path, layout: AuxFiles) -> AuxFiles {
 /// Whether a failed hidden build may have failed only because of the folder:
 /// a package's output, named after the document, was not there, and the
 /// build may run the tool that makes it. Not a failure restated with nothing
-/// changed, and not again once building beside failed for the same preamble
-/// (`inputs`): until that changes, the error is the document's own.
+/// changed, and not again once building beside failed for the same inputs
+/// (`inputs`): until those change, the error is the document's own.
 pub(super) fn worth_trying(root: &Path, result: &BuildResult) -> bool {
     let document = &result.root_document;
     !result.success
@@ -87,14 +87,17 @@ fn runs_shell_commands(root: &Path) -> bool {
 }
 
 /// What decides whether `document` builds beside itself: its preamble, where
-/// packages are loaded, and the engine and trust it is built with.
+/// packages are loaded, the engine and trust it is built with, and the
+/// project's latexmkrc (`runs_shell_commands`).
 fn inputs(root: &Path, document: &str) -> String {
-    let text = fs::read_to_string(root.join(document)).unwrap_or_default();
+    let read = |path: &str| fs::read_to_string(root.join(path)).unwrap_or_default();
+    let text = read(document);
     let preamble = text.split("\\begin{document}").next().unwrap_or_default();
     let (engine, trusted) = project::read_manifest(root)
         .map(|manifest| (manifest.engine, manifest.trusted))
         .unwrap_or_default();
-    sha256_hex(format!("{engine}\n{trusted}\n{preamble}"))
+    let rc = [read("latexmkrc"), read(".latexmkrc")];
+    sha256_hex(format!("{engine}\n{trusted}\n{rc:?}\n{preamble}"))
 }
 
 /// Whether TeX or a package looked for an output named after `document` (its
@@ -356,6 +359,27 @@ mod tests {
         fs::write(root.join("main.tex"), main).unwrap();
         assert!(!worth_trying(&root, &failed_hidden_build("main.tex")));
         forget_failure(&root, "main.tex");
+        assert!(worth_trying(&root, &failed_hidden_build("main.tex")));
+    }
+
+    #[test]
+    fn a_failed_build_beside_is_tried_again_once_the_latexmkrc_changes() {
+        let parent = TempDir::new("latex-beside-failed-rc");
+        let root = project::create(&parent, "Beside").unwrap();
+        set_trusted(&root, false);
+        fs::write(root.join(".latexmkrc"), "$pdf_mode = 1;\n").unwrap();
+        let (_, layout) = retry(&root, failed_hidden_build("main.tex"), |layout| {
+            Ok((failed_hidden_build("main.tex"), layout))
+        })
+        .unwrap();
+        assert_eq!(layout, AuxFiles::Hidden);
+        assert!(!worth_trying(&root, &failed_hidden_build("main.tex")));
+
+        fs::write(
+            root.join(".latexmkrc"),
+            "$pdf_mode = 1;\n$pdflatex = 'pdflatex -shell-escape %O %S';\n",
+        )
+        .unwrap();
         assert!(worth_trying(&root, &failed_hidden_build("main.tex")));
     }
 
