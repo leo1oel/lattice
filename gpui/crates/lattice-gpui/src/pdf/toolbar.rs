@@ -18,6 +18,7 @@ use gpui::{
     Styled as _, Window, div, prelude::FluentBuilder as _, px,
 };
 use gpui_kit::component::input::Input;
+use lattice_i18n::t;
 use lattice_ui::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _, components::IconButton, icons::ICON,
     tokens::FONT_WEIGHT_REGULAR,
@@ -115,13 +116,13 @@ impl PdfView {
                     .items_center()
                     .gap(px(1.))
                     .child(
-                        tool("pdf-previous", Icon::CHEVRON_LEFT, "Previous page")
+                        tool("pdf-previous", Icon::CHEVRON_LEFT, t!("Previous page"))
                             .disabled(current == 0)
                             .on_click(cx.listener(|this, _, _, cx| this.step_page(-1, cx))),
                     )
                     .child(self.page_value(count, current, cx))
                     .child(
-                        tool("pdf-next", Icon::CHEVRON_RIGHT, "Next page")
+                        tool("pdf-next", Icon::CHEVRON_RIGHT, t!("Next page"))
                             .disabled(current + 1 >= count)
                             .on_click(cx.listener(|this, _, _, cx| this.step_page(1, cx))),
                     ),
@@ -134,14 +135,22 @@ impl PdfView {
                         .items_center()
                         .gap(px(1.))
                         .child(
-                            tool("pdf-back", Icon::CORNER_UP_LEFT, "Previous PDF location")
-                                .disabled(!self.can_go_back())
-                                .on_click(cx.listener(|this, _, _, cx| this.navigate(false, cx))),
+                            tool(
+                                "pdf-back",
+                                Icon::CORNER_UP_LEFT,
+                                t!("Previous PDF location"),
+                            )
+                            .disabled(!self.can_go_back())
+                            .on_click(cx.listener(|this, _, _, cx| this.navigate(false, cx))),
                         )
                         .child(
-                            tool("pdf-forward", Icon::CORNER_UP_RIGHT, "Next PDF location")
-                                .disabled(!self.can_go_forward())
-                                .on_click(cx.listener(|this, _, _, cx| this.navigate(true, cx))),
+                            tool(
+                                "pdf-forward",
+                                Icon::CORNER_UP_RIGHT,
+                                t!("Next PDF location"),
+                            )
+                            .disabled(!self.can_go_forward())
+                            .on_click(cx.listener(|this, _, _, cx| this.navigate(true, cx))),
                         ),
                 )
             })
@@ -318,7 +327,7 @@ impl PdfView {
                         .items_center()
                         .gap(px(2.))
                         .child(
-                            search_tool("pdf-match-case", Icon::CASE_SENSITIVE, "Match case")
+                            search_tool("pdf-match-case", Icon::CASE_SENSITIVE, t!("Match case"))
                                 .on(options.match_case)
                                 .on_click(cx.listener(move |this, _, _, cx| {
                                     this.set_find_options(
@@ -331,7 +340,7 @@ impl PdfView {
                                 })),
                         )
                         .child(
-                            search_tool("pdf-whole-word", Icon::WHOLE_WORD, "Whole word")
+                            search_tool("pdf-whole-word", Icon::WHOLE_WORD, t!("Whole word"))
                                 .on(options.whole_word)
                                 .on_click(cx.listener(move |this, _, _, cx| {
                                     this.set_find_options(
@@ -357,20 +366,25 @@ impl PdfView {
                             search_tool(
                                 "pdf-find-previous",
                                 Icon::CHEVRON_UP,
-                                "Previous search result",
+                                t!("Previous search result"),
                             )
                             .disabled(total == 0)
                             .on_click(cx.listener(|this, _, _, cx| this.find_again(true, cx))),
                         )
                         .child(
-                            search_tool("pdf-find-next", Icon::CHEVRON_DOWN, "Next search result")
-                                .disabled(total == 0)
-                                .on_click(cx.listener(|this, _, _, cx| this.find_again(false, cx))),
+                            search_tool(
+                                "pdf-find-next",
+                                Icon::CHEVRON_DOWN,
+                                t!("Next search result"),
+                            )
+                            .disabled(total == 0)
+                            .on_click(cx.listener(|this, _, _, cx| this.find_again(false, cx))),
                         )
                         .child(
-                            search_tool("pdf-find-clear", Icon::X, "Clear PDF search").on_click(
-                                cx.listener(|this, _, window, cx| this.clear_find(window, cx)),
-                            ),
+                            search_tool("pdf-find-clear", Icon::X, t!("Clear PDF search"))
+                                .on_click(
+                                    cx.listener(|this, _, window, cx| this.clear_find(window, cx)),
+                                ),
                         ),
                 )
             })
@@ -400,12 +414,12 @@ impl PdfView {
                 FitMode::Width => (
                     "pdf-fit-width",
                     Icon::RECTANGLE_HORIZONTAL,
-                    "Fit page to width",
+                    t!("Fit page to width"),
                 ),
                 FitMode::Height => (
                     "pdf-fit-height",
                     Icon::RECTANGLE_VERTICAL,
-                    "Fit page to height",
+                    t!("Fit page to height"),
                 ),
             };
             tool(id, icon, label)
@@ -420,13 +434,13 @@ impl PdfView {
             .gap(px(if narrow { 2. } else { 4. }))
             .when(!narrow, |this| {
                 this.child(
-                    tool("pdf-zoom-out", Icon::ZOOM_OUT, "Zoom out")
+                    tool("pdf-zoom-out", Icon::ZOOM_OUT, t!("Zoom out"))
                         .disabled(scale <= MIN_SCALE)
                         .on_click(cx.listener(|this, _, _, cx| this.step_zoom(-1., cx))),
                 )
                 .child(self.zoom_value(window, cx))
                 .child(
-                    tool("pdf-zoom-in", Icon::ZOOM_IN, "Zoom in")
+                    tool("pdf-zoom-in", Icon::ZOOM_IN, t!("Zoom in"))
                         .disabled(scale >= MAX_SCALE)
                         .on_click(cx.listener(|this, _, _, cx| this.step_zoom(1., cx))),
                 )
@@ -449,7 +463,7 @@ impl PdfView {
             })
             .when(self.can_reveal && !folded, |this| {
                 this.child(
-                    tool("pdf-locate", Icon::LOCATE_FIXED, "Reveal cursor in PDF")
+                    tool("pdf-locate", Icon::LOCATE_FIXED, t!("Reveal cursor in PDF"))
                         .on_click(cx.listener(|_, _, _, cx| cx.emit(PdfViewEvent::RevealCursor))),
                 )
                 .child(divider(cx))
@@ -464,7 +478,7 @@ impl PdfView {
             )
             .when(!narrow, |this| {
                 this.child(
-                    tool("pdf-dark-pages", Icon::MOON, "Dark pages")
+                    tool("pdf-dark-pages", Icon::MOON, t!("Dark pages"))
                         .on(dark)
                         .on_click(cx.listener(|this, _, _, cx| this.toggle_dark_pages(cx))),
                 )
@@ -472,12 +486,12 @@ impl PdfView {
                     this.child(
                         IconButton::new("pdf-action", action.icon)
                             .frame(px(24.), px(28.))
-                            .tooltip(action.label)
+                            .tooltip(lattice_i18n::tr(action.label))
                             .on_click(cx.listener(|_, _, _, cx| cx.emit(PdfViewEvent::Action))),
                     )
                 })
                 .child(
-                    tool("pdf-save", Icon::DOWNLOAD, "Save PDF as…")
+                    tool("pdf-save", Icon::DOWNLOAD, t!("Save PDF as…"))
                         .disabled(self.source.is_none())
                         .on_click(cx.listener(|this, _, window, cx| this.save_as(window, cx))),
                 )
@@ -567,12 +581,12 @@ impl PdfView {
                 .await;
             cx.update(|_, cx| match copied {
                 Ok(_) => crate::notices::info(
-                    "PDF saved",
-                    format!("Saved to {}", destination.display()),
+                    t!("PDF saved"),
+                    t!("Saved to {path}", path = destination.display()),
                     cx,
                 ),
                 Err(error) => {
-                    crate::notices::error("Could not save the PDF", error.to_string(), cx)
+                    crate::notices::error(t!("Could not save the PDF"), error.to_string(), cx)
                 }
             })
             .ok();

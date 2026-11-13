@@ -36,6 +36,7 @@ use gpui::{
 };
 use gpui_kit::component::input::{InputEvent, InputState};
 use lattice_core::{latex::PdfSyncTarget, pdf_pages::PageSignatures};
+use lattice_i18n::t;
 
 mod drafts;
 mod links;
@@ -83,7 +84,8 @@ pub enum PdfViewEvent {
 /// window of its own; a narrow toolbar moves it into the overflow menu.
 #[derive(Clone)]
 pub struct ToolbarAction {
-    pub label: SharedString,
+    /// An `n!` message, translated where shown.
+    pub label: &'static str,
     pub icon: lattice_ui::Icon,
 }
 
@@ -207,7 +209,7 @@ impl PdfView {
         preferences::load();
         let preference = preferences::get();
         let engine = PdfEngine::global(cx);
-        let find_input = cx.new(|cx| InputState::new(window, cx).placeholder("Find in PDF"));
+        let find_input = cx.new(|cx| InputState::new(window, cx).placeholder(t!("Find in PDF")));
         let page_input = cx.new(|cx| InputState::new(window, cx));
         let zoom_input = cx.new(|cx| InputState::new(window, cx));
         let subscriptions = vec![
@@ -381,14 +383,14 @@ impl PdfView {
                 Ok(bytes) if bytes.starts_with(b"%PDF-") => bytes,
                 Ok(_) => {
                     this.update(cx, |this, cx| {
-                        this.failed("The PDF could not be read: it is not a PDF.".into(), cx)
+                        this.failed(t!("The PDF could not be read: it is not a PDF.").into(), cx)
                     })
                     .ok();
                     return;
                 }
                 Err(error) => {
                     this.update(cx, |this, cx| {
-                        this.failed(format!("The PDF could not be read: {error}").into(), cx)
+                        this.failed(t!("The PDF could not be read: {0}", error).into(), cx)
                     })
                     .ok();
                     return;
@@ -408,8 +410,11 @@ impl PdfView {
                 }
                 match opened {
                     Ok(Ok(info)) => this.set_document(info, signatures, reload, window, cx),
-                    Ok(Err(error)) => this.failed(format!("{error:#}").into(), cx),
-                    Err(_) => this.failed("The PDFium worker stopped.".into(), cx),
+                    Ok(Err(error)) => this.failed(
+                        t!("The PDF could not be read: {0}", format!("{error:#}")).into(),
+                        cx,
+                    ),
+                    Err(_) => this.failed(t!("The PDFium worker stopped.").into(), cx),
                 }
             })
             .ok();

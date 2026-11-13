@@ -277,3 +277,31 @@ msgstr "GPUI 预览版暂未提供 AI 助手。"
 msgid "{name} — not in the GPUI preview yet"
 msgstr "{name} — GPUI 预览版暂未提供"
 
+#: lattice-gpui/src/pdf/panel.rs
+msgid "Build this document"
+msgstr "编译此文档"
+
+#: lattice-gpui/src/pdf/panel.rs
+msgid "Could not open the PDF in a new window"
+msgstr "无法在新窗口中打开 PDF"
+
+#: lattice-gpui/src/pdf/sheet.rs
+msgid "PDFium was not found"
+msgstr "找不到 PDFium"
+
+#: lattice-gpui/src/pdf/toolbar.rs
+msgid "PDF saved"
+msgstr "PDF 已保存"
+
+#: lattice-gpui/src/pdf/toolbar.rs
+msgid "Could not save the PDF"
+msgstr "PDF 没保存成功"
+
+#: lattice-gpui/src/pdf/view.rs
+msgid "The PDF could not be read: it is not a PDF."
+msgstr "PDF 无法读取：这不是 PDF 文件。"
+
+#: lattice-gpui/src/pdf/view.rs
+msgid "The PDF could not be read: {0}"
+msgstr "PDF 无法读取：{0}"
+
