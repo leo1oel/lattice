@@ -11,9 +11,17 @@ use lattice_i18n::t;
 use super::{BibEditor, model};
 
 impl BibEditor {
+    /// The reference the form was built for, by key, and its place as last
+    /// read: a box left as another row comes to the front still writes
+    /// into the reference it showed.
     pub(super) fn front(&self) -> Option<(String, usize)> {
-        self.selected_row()
-            .map(|row| (row.entry.key.clone(), row.index))
+        let key = &self.detail.as_ref()?.key;
+        let index = self
+            .rows
+            .iter()
+            .find(|row| &row.entry.key == key)
+            .map_or(usize::MAX, |row| row.index);
+        Some((key.clone(), index))
     }
 
     pub(super) fn rename_key(&mut self, value: String, cx: &mut Context<Self>) {
@@ -46,6 +54,10 @@ impl BibEditor {
                     cx,
                 )
                 .is_some()
+                && self
+                    .selected
+                    .as_deref()
+                    .is_some_and(|selected| selected.eq_ignore_ascii_case(&current))
             {
                 self.selected = Some(key);
             }
@@ -149,7 +161,9 @@ impl BibEditor {
         let name = detail.new_name.read(cx).value().trim().to_string();
         let value = detail.new_value.read(cx).value().to_string();
         let entry_fields: Vec<String> = self
-            .selected_row()
+            .rows
+            .iter()
+            .find(|row| row.entry.key == key)
             .map(|row| {
                 row.entry
                     .fields

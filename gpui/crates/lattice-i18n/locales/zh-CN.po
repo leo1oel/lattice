@@ -349,3 +349,7 @@ msgstr "从文献中删除"
 #: lattice-gpui/src/papers/view.rs
 msgid "Open a project to see its papers"
 msgstr "打开项目后可查看它的论文"
+
+#: lattice-gpui/src/papers/linked/view.rs
+msgid "{target} changed while this was open. Its changes were compared again."
+msgstr "{target} 在此期间有改动，已重新比较其更改。"

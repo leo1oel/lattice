@@ -256,6 +256,12 @@ impl Run {
                 })
             })
             .await;
+        let not_found = cx.update(|cx| {
+            sheet.read(cx).zotero().is_some_and(|browser| {
+                let (read, error) = browser.read(cx).read_state();
+                !read && error.is_some()
+            })
+        });
         let state = cx.update(|cx| {
             sheet.read(cx).zotero().map(|browser| {
                 let (read, error) = browser.read(cx).read_state();
@@ -264,8 +270,8 @@ impl Run {
         });
         self.papers_shot(cx, "papers-4b-zotero").await;
         steps.check(
-            "Add papers' Zotero… opens the library browser, which reads the library or says why not",
-            answered,
+            "Add papers' Zotero… opens the library browser, which says this HOME has no library",
+            answered && not_found,
             json!({ "zotero": state }),
         );
         self.with_window(cx, |_, window, cx| {

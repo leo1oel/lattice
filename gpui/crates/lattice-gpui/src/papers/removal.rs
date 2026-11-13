@@ -1,13 +1,15 @@
 //! Removing a paper's entry from the primary bibliography
 //! (`remove-reference-action.ts`): the writer confirms first, and when the
 //! manuscript cites it chooses whether its citations go too or stay
-//! unresolved. Downloaded paper files are kept either way.
+//! unresolved. Downloaded paper files are kept either way. The scan for its
+//! citations reads the files on disk, so the window saves its editors
+//! before it starts, and they read the files again after.
 
 use gpui::{App, AppContext as _, Context};
 use lattice_core::papers::{self as core_papers, CitationRemovalMode, PaperSummary};
 use lattice_i18n::t;
 
-use super::PapersPanel;
+use super::{PapersEvent, PapersPanel};
 use crate::{
     confirm::{self, Confirm},
     notices,
@@ -18,12 +20,20 @@ impl PapersPanel {
     /// confirms (and chooses what happens to its citations, when it is
     /// cited). Downloaded files are kept.
     pub(crate) fn remove(&mut self, paper: &PaperSummary, cx: &mut Context<Self>) {
-        let Some(key) = paper.citation_key.clone() else {
+        if paper.citation_key.is_none() {
             notices::error(
                 t!("Could not remove the paper"),
                 t!("This bibliography entry has no citation key to remove."),
                 cx,
             );
+            return;
+        }
+        cx.emit(PapersEvent::Remove(Box::new(paper.clone())));
+    }
+
+    /// `remove`, once what the editors held is on disk.
+    pub(crate) fn remove_saved(&mut self, paper: &PaperSummary, cx: &mut Context<Self>) {
+        let Some(key) = paper.citation_key.clone() else {
             return;
         };
         let Some(root) = self.root.clone() else {
@@ -71,7 +81,11 @@ impl PapersPanel {
                                         notices::error(t!("Could not remove the paper"), error, cx)
                                     }
                                 }
-                                view.update(cx, |this, cx| this.reload(cx)).ok();
+                                view.update(cx, |this, cx| {
+                                    this.reload(cx);
+                                    cx.emit(PapersEvent::Removed);
+                                })
+                                .ok();
                             });
                         })
                         .detach();

@@ -56,7 +56,7 @@ impl PapersPanel {
             return;
         }
         let query = self.query(cx).trim().to_string();
-        if query.is_empty() || self.importing.is_some() {
+        if query.is_empty() || self.importing.is_some() || self.batch.running {
             return;
         }
         self.import(query, cx);
@@ -80,6 +80,7 @@ impl PapersPanel {
         let (stages, mut stage_events) = mpsc::unbounded::<String>();
         let job_cancel = cancel.clone();
         let input = query.clone();
+        let label = query.clone();
         let job = cx.background_spawn(async move {
             let progress = |stage: &str| {
                 stages.unbounded_send(stage.to_string()).ok();
@@ -114,7 +115,7 @@ impl PapersPanel {
                 .ok();
         });
         self.importing = Some(Importing {
-            label: self.query(cx).trim().to_string(),
+            label,
             stage: None,
             started: Instant::now(),
             cancel,
@@ -213,8 +214,10 @@ impl PapersPanel {
             });
         } else if model::can_download(paper) {
             self.fetch(paper.clone(), cx);
-        } else if let Some(url) = paper.url.as_deref() {
-            cx.open_url(url);
+        } else if let Some(url) = model::link_url(paper) {
+            // Only a web address: a shared bibliography's `file://` or
+            // `smb://` url would have the system launch what it names.
+            cx.open_url(&url);
         }
     }
 
@@ -311,7 +314,8 @@ impl PapersPanel {
                     (None, Some(path)) => cx.emit(PapersEvent::Open { path, line: None }),
                     (_, None) => {}
                 }
-                self._settle = Some(cx.spawn(async move |this, cx| {
+                let linger_key = key.clone();
+                let linger = cx.spawn(async move |this, cx| {
                     cx.background_executor().timer(FETCHED_LINGER).await;
                     this.update(cx, |this, cx| {
                         if this.fetching.states.get(&key) == Some(&FetchState::Fetched) {
@@ -320,7 +324,8 @@ impl PapersPanel {
                         }
                     })
                     .ok();
-                }));
+                });
+                self.fetching.lingers.insert(linger_key, linger);
                 self.reload(cx);
             }
             Err(error) => {

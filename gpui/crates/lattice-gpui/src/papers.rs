@@ -96,6 +96,11 @@ pub enum PapersEvent {
     SearchLiterature(String),
     /// Check the bibliography's references.
     CheckReferences,
+    /// Remove a paper's entry: the window saves what its editors hold
+    /// first, then hands it back to `remove_saved`.
+    Remove(Box<PaperSummary>),
+    /// A removal may have rewritten the manuscript's files.
+    Removed,
 }
 
 /// What a stage id of the literature pipeline is doing, in words; an id it
@@ -158,6 +163,9 @@ pub struct Fetching {
     started: Option<Instant>,
     cancels: HashMap<String, Arc<AtomicBool>>,
     tasks: Vec<Task<()>>,
+    /// Each download's Fetched mark, cleared a moment after it lands; its
+    /// own timer, so a reload or another download does not cancel it.
+    lingers: HashMap<String, Task<()>>,
 }
 
 impl Fetching {
@@ -177,6 +185,9 @@ pub struct PapersPanel {
     /// Counts the scans of the manuscript's citations, for views that read
     /// them too (a `.bib` file's visual form).
     pub(crate) usage_revision: u64,
+    /// Counts the times the list of papers was replaced, for views that
+    /// match against it (the Zotero browser).
+    pub(crate) list_revision: u64,
     input: Entity<InputState>,
     /// The query the text hits answer, and the hits by search identity.
     text_query: String,
@@ -233,6 +244,7 @@ impl PapersPanel {
             load: Load::Loading,
             facts: Facts::default(),
             usage_revision: 0,
+            list_revision: 0,
             input,
             text_query: String::new(),
             text_hits: HashMap::new(),
@@ -279,6 +291,7 @@ impl PapersPanel {
         self.project = Some(project);
         self.root = Some(root);
         self.papers.clear();
+        self.list_revision += 1;
         self.load = Load::Loading;
         self.facts = Facts::default();
         self.text_hits.clear();
@@ -291,6 +304,7 @@ impl PapersPanel {
         self.expanded_hits.clear();
         self.abstracts = inspector::Abstracts::default();
         self.cancel_fetches(cx);
+        self.fetching = Fetching::default();
         if let Some(importing) = self.importing.take() {
             importing.cancel.store(true, Ordering::Release);
         }
@@ -310,11 +324,18 @@ impl PapersPanel {
     /// The paper whose reading file is open in the editor in front, whose
     /// row is drawn as the open one.
     pub fn set_active_path(&mut self, path: Option<&str>, cx: &mut Context<Self>) {
+        // An id may hold a slash itself (`hep-th/9901001`), so the paper's
+        // own folder is matched whole.
         let active = path.and_then(|path| {
-            let id = path.strip_prefix(".research/papers/")?.split('/').next()?;
+            let rest = path.strip_prefix(".research/papers/")?;
             self.papers
                 .iter()
-                .find(|paper| paper.arxiv_id == id)
+                .find(|paper| {
+                    !paper.arxiv_id.is_empty()
+                        && rest
+                            .strip_prefix(paper.arxiv_id.as_str())
+                            .is_some_and(|after| after.starts_with('/'))
+                })
                 .map(paper_key)
         });
         if self.active != active {
@@ -370,6 +391,7 @@ impl PapersPanel {
                 match listed {
                     Ok(papers) => {
                         this.papers = papers;
+                        this.list_revision += 1;
                         this.load = Load::Ready;
                     }
                     Err(error) => this.load = Load::Failed(error),

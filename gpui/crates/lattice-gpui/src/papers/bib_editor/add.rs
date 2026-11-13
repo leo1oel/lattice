@@ -22,7 +22,10 @@ use lattice_ui::{
     tokens::FONT_WEIGHT_MEDIUM,
 };
 
-use super::{BibEditor, model::Draft};
+use super::{
+    BibEditor,
+    model::{self, Draft, QueryFill},
+};
 use crate::search::sheet::SheetFrame;
 
 /// The types the form offers, as BibTeX writes them.
@@ -279,26 +282,12 @@ impl AddReference {
     /// says about the work fills the fields still empty.
     fn enter_manually(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.abandon(cx);
-        let query = self.lookup.read(cx).value().trim().to_string();
-        let lower = query.to_lowercase();
-        let field = if lower.starts_with("10.")
-            || lower.starts_with("doi:")
-            || lower.contains("doi.org/")
-        {
-            Some((
-                Field::Doi,
-                query.trim_start_matches("doi:").trim().to_string(),
-            ))
-        } else if lower.starts_with("http://") || lower.starts_with("https://") {
-            Some((Field::Url, query.clone()))
-        } else if lower.starts_with("arxiv:") {
-            Some((
-                Field::Url,
-                format!("https://arxiv.org/abs/{}", query[6..].trim()),
-            ))
-        } else {
-            (!query.is_empty()).then(|| (Field::Title, query.clone()))
-        };
+        let query = self.lookup.read(cx).value().to_string();
+        let field = model::fields_from_query(&query).map(|fill| match fill {
+            QueryFill::Doi(doi) => (Field::Doi, doi),
+            QueryFill::Url(url) => (Field::Url, url),
+            QueryFill::Title(title) => (Field::Title, title),
+        });
         if let Some((field, value)) = field
             && self.value(field, cx).trim().is_empty()
         {
@@ -317,6 +306,16 @@ impl AddReference {
         let draft = self.draft(cx);
         let entry = draft.format();
         let key = draft.key();
+        if !lattice_core::bib_document::valid_citation_key(&key) {
+            self.error = Some(
+                t!(
+                    "A citation key cannot be empty or contain spaces, commas, braces, quotes or %."
+                )
+                .to_string(),
+            );
+            cx.notify();
+            return;
+        }
         match &self.target {
             AddTarget::Bib(editor) => {
                 let saved =
@@ -357,13 +356,15 @@ impl AddReference {
                 });
                 cx.spawn(async move |this, cx| {
                     let saved = write.await;
+                    // The library reads the entry even when the sheet was
+                    // cancelled while it was being written.
+                    if saved.is_ok() {
+                        papers.update(cx, |papers, cx| papers.reload(cx)).ok();
+                    }
                     this.update(cx, |this, cx| {
                         this.saving = false;
                         match saved {
-                            Ok(()) => {
-                                papers.update(cx, |papers, cx| papers.reload(cx)).ok();
-                                cx.emit(AddReferenceEvent::Dismiss);
-                            }
+                            Ok(()) => cx.emit(AddReferenceEvent::Dismiss),
                             Err(error) => this.error = Some(error),
                         }
                         cx.notify();

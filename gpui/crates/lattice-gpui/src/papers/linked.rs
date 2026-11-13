@@ -87,7 +87,11 @@ fn index(source: &str, name: &str) -> Result<Indexed, String> {
     let mut by_key = HashMap::new();
     let mut by_identity: HashMap<String, Vec<usize>> = HashMap::new();
     for (at, entry) in document.entries.iter().enumerate() {
-        by_key.entry(entry.key.to_lowercase()).or_insert(at);
+        // A key's later duplicates are never paired: a change is applied to
+        // the entry its key finds, which is the first.
+        if *by_key.entry(entry.key.to_lowercase()).or_insert(at) != at {
+            continue;
+        }
         for identity in identities(source, entry, &document) {
             by_identity.entry(identity).or_default().push(at);
         }
@@ -611,6 +615,20 @@ mod tests {
                 .unwrap()
                 .contains("Beta")
         );
+    }
+
+    #[test]
+    fn a_duplicate_key_here_is_never_the_one_an_update_lands_on() {
+        let local = "@article{a,\n  title = {First},\n  doi = {10.1/one}\n}\n\n@article{a,\n  title = {Second},\n  doi = {10.1/two}\n}\n";
+        let library = "@article{z,\n  title = {Second},\n  doi = {10.1/two},\n  pages = {3}\n}\n";
+        let changes = compare(None, library, local, &[]);
+        let kinds: Vec<(ChangeKind, &str)> = changes
+            .iter()
+            .map(|change| (change.kind, change.key.as_str()))
+            .collect();
+        assert_eq!(kinds, [(ChangeKind::New, "z")]);
+        let next = apply_library_changes(local, library, &changes).unwrap();
+        assert!(next.starts_with("@article{a,\n  title = {First},\n  doi = {10.1/one}\n}"));
     }
 
     #[test]

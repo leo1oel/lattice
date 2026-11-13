@@ -13,8 +13,14 @@
 //! nor added, and opening another folder starts with nothing ticked. The
 //! ticked papers go to Add papers' queue, each with its PDF attachment and
 //! annotations for the import to bring.
+//!
+//! Each item's BibTeX is read once, with the library; the folder in view's
+//! papers are matched against Papers again only when the folder, the
+//! subfolder switch or the Papers list changes, and the folders' counts
+//! once per read, so a keystroke in a search box redraws without either.
 
 use std::{
+    cell::RefCell,
     collections::{HashMap, HashSet},
     rc::Rc,
 };
@@ -29,7 +35,7 @@ use lattice_i18n::t;
 
 use super::{
     PapersPanel,
-    model::{find_in_library, keeps_no_pdf, parse_pasted_references},
+    model::{ReferenceRecord, find_in_library, keeps_no_pdf, parse_pasted_references},
 };
 
 pub mod notes;
@@ -263,8 +269,22 @@ pub struct ZoteroBrowser {
     pub(super) ticked: HashSet<String>,
     /// In a narrow sheet, the papers stand in place of the folders.
     pub(super) papers_pane: bool,
+    /// Each item's record, by its place in the library's items.
+    records: Vec<Option<ReferenceRecord>>,
+    listed: RefCell<Option<Listed>>,
+    /// The folders' counts for this read, by the subfolder switch.
+    counts: RefCell<HashMap<bool, Rc<HashMap<String, usize>>>>,
     _read: Option<Task<()>>,
     _subscriptions: Vec<Subscription>,
+}
+
+/// The folder in view's papers, as matched against the Papers list at
+/// `revision`.
+struct Listed {
+    folder: String,
+    subfolders: bool,
+    revision: u64,
+    papers: Rc<Vec<ZoteroPaper>>,
 }
 
 impl EventEmitter<ZoteroBrowserEvent> for ZoteroBrowser {}
@@ -299,6 +319,9 @@ impl ZoteroBrowser {
             subfolders: false,
             ticked: HashSet::new(),
             papers_pane: false,
+            records: Vec::new(),
+            listed: RefCell::default(),
+            counts: RefCell::default(),
             _read: None,
             _subscriptions: subscriptions,
         };
@@ -310,14 +333,32 @@ impl ZoteroBrowser {
     pub(super) fn read(&mut self, cx: &mut Context<Self>) {
         self.library = None;
         self.error = None;
+        self.records.clear();
+        self.listed.take();
+        self.counts.take();
         let chosen = self.chosen_dir.clone();
-        let read =
-            cx.background_spawn(async move { lattice_core::zotero::library(chosen.as_deref()) });
+        let read = cx.background_spawn(async move {
+            let library = lattice_core::zotero::library(chosen.as_deref())?;
+            let records: Vec<Option<ReferenceRecord>> = library
+                .items
+                .iter()
+                .map(|item| {
+                    parse_pasted_references(&item.bibtex)
+                        .into_iter()
+                        .next()
+                        .and_then(|reference| reference.record)
+                })
+                .collect();
+            Ok::<_, String>((library, records))
+        });
         self._read = Some(cx.spawn(async move |this, cx| {
             let library = read.await;
             this.update(cx, |this, cx| {
                 match library {
-                    Ok(library) => this.library = Some(Rc::new(library)),
+                    Ok((library, records)) => {
+                        this.library = Some(Rc::new(library));
+                        this.records = records;
+                    }
                     Err(error) => this.error = Some(error),
                 }
                 cx.notify();
@@ -375,20 +416,36 @@ impl ZoteroBrowser {
         cx.notify();
     }
 
-    /// The papers of the folder in view, each with what Papers holds of it.
-    pub(super) fn folder_papers(&self, cx: &App) -> Vec<ZoteroPaper> {
-        let (Some(library), Some(folder)) = (&self.library, &self.folder) else {
-            return Vec::new();
+    /// How many items each folder lists, under the subfolder switch.
+    pub(super) fn folder_counts(&self) -> Rc<HashMap<String, usize>> {
+        let Some(library) = &self.library else {
+            return Rc::default();
         };
-        let held = &self.papers.read(cx).papers;
-        folder_items(library, folder, self.subfolders)
+        self.counts
+            .borrow_mut()
+            .entry(self.subfolders)
+            .or_insert_with(|| Rc::new(folder_counts(library, self.subfolders)))
+            .clone()
+    }
+
+    /// The papers of the folder in view, each with what Papers holds of it.
+    pub(super) fn folder_papers(&self, cx: &App) -> Rc<Vec<ZoteroPaper>> {
+        let (Some(library), Some(folder)) = (&self.library, &self.folder) else {
+            return Rc::default();
+        };
+        let held = self.papers.read(cx);
+        if let Some(listed) = self.listed.borrow().as_ref()
+            && listed.folder == *folder
+            && listed.subfolders == self.subfolders
+            && listed.revision == held.list_revision
+        {
+            return listed.papers.clone();
+        }
+        let papers: Rc<Vec<ZoteroPaper>> = folder_items(library, folder, self.subfolders)
             .into_iter()
             .map(|at| {
                 let item = &library.items[at];
-                let record = parse_pasted_references(&item.bibtex)
-                    .into_iter()
-                    .next()
-                    .and_then(|reference| reference.record);
+                let record = self.records.get(at).and_then(Option::as_ref);
                 ZoteroPaper {
                     item: at,
                     citation_key: item.citation_key.clone(),
@@ -404,25 +461,33 @@ impl ZoteroBrowser {
                     pdf: item.pdf.clone(),
                     annotations: item.annotations,
                     existing: record
-                        .as_ref()
-                        .and_then(|record| find_in_library(held, &record.identity))
+                        .and_then(|record| find_in_library(&held.papers, &record.identity))
                         .cloned(),
                 }
             })
-            .collect()
+            .collect::<Vec<_>>()
+            .into();
+        *self.listed.borrow_mut() = Some(Listed {
+            folder: folder.clone(),
+            subfolders: self.subfolders,
+            revision: held.list_revision,
+            papers: papers.clone(),
+        });
+        papers
     }
 
     /// The folder's papers the paper search keeps.
     pub(super) fn shown_papers(&self, cx: &App) -> Vec<ZoteroPaper> {
         let needle = self.paper_query.read(cx).value().trim().to_lowercase();
         self.folder_papers(cx)
-            .into_iter()
+            .iter()
             .filter(|paper| {
                 needle.is_empty()
                     || format!("{} {} {}", paper.title, paper.byline, paper.citation_key)
                         .to_lowercase()
                         .contains(&needle)
             })
+            .cloned()
             .collect()
     }
 

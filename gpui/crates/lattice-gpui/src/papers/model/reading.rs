@@ -57,11 +57,23 @@ fn strip_frontmatter(markdown: &str) -> &str {
     }
 }
 
+/// Whether a link in a paper's text may be handed to the system: a web
+/// page or a mail address, never a `file://` or other scheme the system
+/// would open or launch.
+pub fn openable_link(url: &str) -> bool {
+    let lower = url.trim_start().to_ascii_lowercase();
+    ["http://", "https://", "mailto:"]
+        .iter()
+        .any(|scheme| lower.starts_with(scheme))
+}
+
 /// A use's line from just before its citation command, so the command is
 /// in view however long the sentence before it runs (`citeContext`).
 pub fn cite_context(snippet: &str, key: &str) -> String {
     let text = snippet.trim();
-    let Some(at) = text.to_lowercase().find(&key.to_lowercase()) else {
+    // ASCII case only: a full lowercase can change a character's length
+    // (İ grows a byte), and the offset is read back in the original.
+    let Some(at) = text.to_ascii_lowercase().find(&key.to_ascii_lowercase()) else {
         return text.to_string();
     };
     let anchor = text[..at].rfind('\\').unwrap_or(at);
@@ -98,11 +110,23 @@ mod tests {
     }
 
     #[test]
+    fn only_web_and_mail_links_open() {
+        assert!(openable_link("https://arxiv.org/abs/1706.03762"));
+        assert!(openable_link("HTTP://example.com"));
+        assert!(openable_link("mailto:a@b.c"));
+        assert!(!openable_link("file:///System/Applications/Calculator.app"));
+        assert!(!openable_link("smb://server/share"));
+        assert!(!openable_link("#section-2"));
+    }
+
+    #[test]
     fn a_use_reads_from_just_before_its_citation() {
         let snippet = "A very long sentence that runs on and on before we finally cite \\cite{knuth1984} here.";
         let context = cite_context(snippet, "knuth1984");
         assert!(context.starts_with('…'));
         assert!(context.contains("\\cite{knuth1984}"));
         assert_eq!(cite_context("Short \\cite{a}.", "a"), "Short \\cite{a}.");
+        let wide = "İİİİİİİİİİİİİİİİİİİİİİİİİİİİİİİİİİİİİİ and then \\cite{a} é";
+        assert!(cite_context(wide, "A").ends_with("\\cite{a} é"));
     }
 }

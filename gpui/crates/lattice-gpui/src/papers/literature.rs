@@ -75,7 +75,6 @@ pub struct Literature {
     pub(super) open: Option<String>,
     /// The result being added to Papers.
     pub(super) busy: Option<String>,
-    just_imported: HashSet<String>,
     searched: Option<Searched>,
     page: u32,
     seen: HashSet<String>,
@@ -84,6 +83,9 @@ pub struct Literature {
     pub(super) list_end: std::rc::Rc<std::cell::Cell<f32>>,
     focus: FocusHandle,
     _search: Option<Task<()>>,
+    /// Load more's page, apart from the search's: a new search drops it
+    /// (and its spinner) itself.
+    _load_more: Option<Task<()>>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -122,7 +124,6 @@ impl Literature {
             shown_query: String::new(),
             open: None,
             busy: None,
-            just_imported: HashSet::new(),
             searched: None,
             page: 0,
             seen: HashSet::new(),
@@ -130,6 +131,7 @@ impl Literature {
             list_end: Default::default(),
             focus: cx.focus_handle(),
             _search: None,
+            _load_more: None,
             _subscriptions: vec![enter, refresh],
         };
         // A query handed over from the Papers box is searched as it opens.
@@ -163,6 +165,8 @@ impl Literature {
             precise: self.precise,
         };
         self.loading = true;
+        self.loading_more = false;
+        self._load_more = None;
         self.error = None;
         self.notice = None;
         self.page = 0;
@@ -209,6 +213,10 @@ impl Literature {
     /// Reveal results already fetched first; only once they run out, fetch
     /// the next page of the search on screen.
     pub(super) fn load_more(&mut self, cx: &mut Context<Self>) {
+        // The results on screen are about to be replaced.
+        if self.loading {
+            return;
+        }
         if self.visible < self.results.len() {
             self.visible = (self.visible + REVEAL_STEP).min(self.results.len());
             cx.notify();
@@ -228,7 +236,7 @@ impl Literature {
             cx.background_spawn(
                 async move { lattice_core::literature::search(&query, precise, next) },
             );
-        self._search = Some(cx.spawn(async move |this, cx| {
+        self._load_more = Some(cx.spawn(async move |this, cx| {
             let page = page.await;
             this.update(cx, |this, cx| {
                 this.loading_more = false;
@@ -271,16 +279,20 @@ impl Literature {
         cx.notify();
     }
 
-    /// Whether Papers already holds the work.
+    /// Whether Papers already holds the work: listed, or added by an import
+    /// that has returned but whose reload has not yet landed. An import
+    /// that failed or was cancelled leaves the result to add again.
     pub(super) fn imported(&self, hit: &LiteratureHit, cx: &App) -> bool {
         let Some(id) = hit.arxiv_id.as_deref() else {
             return false;
         };
         let base = base_arxiv_id(id);
-        self.just_imported.contains(base)
-            || self
-                .papers
-                .read(cx)
+        let library = self.papers.read(cx);
+        library
+            .just_added
+            .iter()
+            .any(|added| base_arxiv_id(added).eq_ignore_ascii_case(base))
+            || library
                 .papers
                 .iter()
                 .any(|paper| base_arxiv_id(&paper.arxiv_id).eq_ignore_ascii_case(base))
@@ -296,7 +308,6 @@ impl Literature {
             .update(cx, |papers, cx| papers.import_id(format!("arXiv:{id}"), cx));
         if started {
             self.busy = Some(hit_key(hit));
-            self.just_imported.insert(base_arxiv_id(&id).to_string());
         }
         cx.notify();
     }

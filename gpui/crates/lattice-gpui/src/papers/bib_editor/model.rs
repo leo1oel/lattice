@@ -338,27 +338,17 @@ pub fn slug_key(title: &str, author: &str, year: &str) -> String {
     format!("{surname}{year}{}", word.to_lowercase())
 }
 
-/// Braces that do not pair are dropped, as a TeX escape's are kept
-/// (`escapeBibValue`).
+/// Braces that do not pair are dropped (`escapeBibValue`). An escaped one
+/// (`\{`) counts too: BibTeX pairs every brace in a value, so a lone one
+/// kept would leave the file unreadable.
 fn escape_value(value: &str) -> String {
     let chars: Vec<char> = value.chars().collect();
     let mut unmatched = std::collections::HashSet::new();
     let mut openings = Vec::new();
     for (index, ch) in chars.iter().enumerate() {
-        if *ch != '{' && *ch != '}' {
-            continue;
-        }
-        let backslashes = chars[..index]
-            .iter()
-            .rev()
-            .take_while(|c| **c == '\\')
-            .count();
-        if backslashes % 2 == 1 {
-            continue;
-        }
         if *ch == '{' {
             openings.push(index);
-        } else if openings.pop().is_none() {
+        } else if *ch == '}' && openings.pop().is_none() {
             unmatched.insert(index);
         }
     }
@@ -454,6 +444,46 @@ impl Draft {
             .join(",\n");
         format!("@{}{{{},\n{body}\n}}\n", self.entry_type, self.key())
     }
+}
+
+/// What a lookup query already says about the work (`fieldsFromQuery`):
+/// only a query that is wholly a DOI, a link or an arXiv id fills that
+/// field; anything else is taken as the title.
+#[derive(Debug, PartialEq, Eq)]
+pub enum QueryFill {
+    Doi(String),
+    Url(String),
+    Title(String),
+}
+
+pub fn fields_from_query(query: &str) -> Option<QueryFill> {
+    use std::sync::LazyLock;
+
+    use regex::Regex;
+    static DOI: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?i)^(?:https?://(?:dx\.)?doi\.org/|doi:\s*)?(10\.\d{4,9}/\S+)$").unwrap()
+    });
+    static LINK: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?i)^https?://\S+$").unwrap());
+    static ARXIV: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(
+            r"(?i)^(?:arxiv:\s*)?(\d{4}\.\d{4,5}(?:v\d+)?|[a-z-]+(?:\.[a-z]{2})?/\d{7}(?:v\d+)?)$",
+        )
+        .unwrap()
+    });
+    let value = query.trim();
+    if let Some(doi) = DOI.captures(value) {
+        return Some(QueryFill::Doi(doi[1].to_string()));
+    }
+    if LINK.is_match(value) {
+        return Some(QueryFill::Url(value.to_string()));
+    }
+    if let Some(arxiv) = ARXIV.captures(value) {
+        return Some(QueryFill::Url(format!(
+            "https://arxiv.org/abs/{}",
+            &arxiv[1]
+        )));
+    }
+    (!value.is_empty()).then(|| QueryFill::Title(value.to_string()))
 }
 
 /// `existing` with `entry` appended after a blank line (`appendBibEntry`);
@@ -623,6 +653,54 @@ mod tests {
             "@misc{a}\n\n@misc{b}\n"
         );
         assert!(append_entry("@misc{a}", "@misc{A}", "A", &["a".into()]).is_err());
+    }
+
+    #[test]
+    fn a_lone_brace_is_dropped_even_when_escaped() {
+        let draft = Draft {
+            entry_type: "misc".into(),
+            title: r"Set \{x".into(),
+            key: "k".into(),
+            ..Default::default()
+        };
+        let entry = draft.format();
+        assert!(lattice_core::bib_document::parse(&entry).is_ok(), "{entry}");
+        let paired = Draft {
+            title: r"Set \{x\}".into(),
+            ..draft
+        };
+        assert!(paired.format().contains(r"title = {Set \{x\}}"));
+    }
+
+    #[test]
+    fn a_query_fills_the_field_it_names_in_any_case() {
+        assert_eq!(
+            fields_from_query("DOI:10.1234/abc"),
+            Some(QueryFill::Doi("10.1234/abc".into()))
+        );
+        assert_eq!(
+            fields_from_query("https://DX.doi.org/10.1234/abc"),
+            Some(QueryFill::Doi("10.1234/abc".into()))
+        );
+        assert_eq!(
+            fields_from_query("1706.03762"),
+            Some(QueryFill::Url("https://arxiv.org/abs/1706.03762".into()))
+        );
+        assert_eq!(
+            fields_from_query("ArXiv:hep-th/9901001v2"),
+            Some(QueryFill::Url(
+                "https://arxiv.org/abs/hep-th/9901001v2".into()
+            ))
+        );
+        assert_eq!(
+            fields_from_query("https://example.com/p"),
+            Some(QueryFill::Url("https://example.com/p".into()))
+        );
+        assert_eq!(
+            fields_from_query(" Attention "),
+            Some(QueryFill::Title("Attention".into()))
+        );
+        assert_eq!(fields_from_query("  "), None);
     }
 
     #[test]

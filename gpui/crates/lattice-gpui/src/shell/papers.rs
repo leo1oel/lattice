@@ -7,7 +7,10 @@ use gpui::{AppContext as _, Context, Entity, Focusable as _, Window};
 use gpui_kit::component::dock::{DockPlacement, PaneRef, PanelId, panel_handle};
 use lattice_core::papers::PaperSummary;
 
+use lattice_i18n::t;
+
 use super::Shell;
+use crate::notices;
 use crate::papers::{
     PapersEvent, PapersPanel,
     add_sheet::{AddPapers, AddPapersEvent},
@@ -36,7 +39,44 @@ impl Shell {
             PapersEvent::AddPapers(seed) => self.open_add_papers(seed.clone(), window, cx),
             PapersEvent::SearchLiterature(query) => self.open_literature(query.clone(), window, cx),
             PapersEvent::CheckReferences => self.open_audit(window, cx),
+            PapersEvent::Remove(paper) => self.remove_paper((**paper).clone(), cx),
+            PapersEvent::Removed => {
+                for editor in self.open_editors() {
+                    editor.update(cx, |editor, cx| editor.check_disk(cx));
+                }
+            }
         }
+    }
+
+    /// The removal's scan for citations reads the files on disk: what the
+    /// editors hold is saved first, and a save that fails stops it, as
+    /// `remove-reference-action.ts` does.
+    fn remove_paper(&mut self, paper: PaperSummary, cx: &mut Context<Self>) {
+        let saves = Self::save_dirty(&self.open_editors(), cx);
+        let papers = self.papers.downgrade();
+        cx.spawn(async move |_, cx| {
+            for save in saves {
+                match save.await {
+                    Ok(true) => {}
+                    // A write held or failed has said why already.
+                    Ok(false) => return,
+                    Err(error) => {
+                        cx.update(|cx| {
+                            notices::error(
+                                t!("Could not remove the paper"),
+                                format!("{error:#}"),
+                                cx,
+                            )
+                        });
+                        return;
+                    }
+                }
+            }
+            papers
+                .update(cx, |papers, cx| papers.remove_saved(&paper, cx))
+                .ok();
+        })
+        .detach();
     }
 
     /// A saved paper in its reader, a document tab of its own; a paper
@@ -127,13 +167,26 @@ impl Shell {
             })
     }
 
-    /// The reader the writer is in, which ⌘W closes.
-    pub(super) fn focused_reader(&self, window: &Window, cx: &gpui::App) -> Option<PanelId> {
-        self.documents
+    /// ⌘W in a reader: its tab goes, and the reader with it. A reader is
+    /// no view of the arrangement, so it is taken off the dock directly.
+    /// False when the writer is in none.
+    pub(super) fn close_focused_reader(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        let Some(at) = self
+            .documents
             .readers
             .iter()
-            .find(|reader| reader.focus_handle(cx).contains_focused(window, cx))
-            .map(|reader| PanelId::from(reader.entity_id()))
+            .position(|reader| reader.focus_handle(cx).contains_focused(window, cx))
+        else {
+            return false;
+        };
+        let reader = self.documents.readers.remove(at);
+        self.dock_area
+            .update(cx, |area, cx| area.remove_panel(reader, window, cx));
+        true
     }
 
     /// Mark the paper in front: a reader's when one is, else the paper

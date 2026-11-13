@@ -22,6 +22,10 @@
 use std::{
     collections::{HashMap, HashSet},
     path::PathBuf,
+    sync::{
+        Mutex,
+        atomic::{AtomicU64, Ordering},
+    },
 };
 
 use gpui::{
@@ -143,9 +147,14 @@ struct Saved {
     kept: bool,
 }
 
-fn audit_key(entry: &AuditEntry) -> String {
+pub(super) fn audit_key(entry: &AuditEntry) -> String {
     format!("{}\0{}", entry.path, entry.key)
 }
+
+/// The order the reports were asked for in, and the newest written: a save
+/// that reaches the disk after a newer one is dropped.
+static REPORTS_ASKED: AtomicU64 = AtomicU64::new(0);
+static REPORT_WRITTEN: Mutex<u64> = Mutex::new(0);
 
 pub struct Audit {
     root: PathBuf,
@@ -168,7 +177,9 @@ pub struct Audit {
     pub(super) applying: bool,
     pub(super) error: Option<String>,
     pub(super) view: Option<Bucket>,
-    pub(super) open: Option<usize>,
+    /// The reference whose finding is open, by `audit_key`: a rescan
+    /// renumbers the references.
+    pub(super) open: Option<String>,
     pub(super) scroll: ScrollHandle,
     generation: u64,
     focus: FocusHandle,
@@ -260,8 +271,15 @@ impl Audit {
         self.results.clear();
         self.applied.clear();
         self.kept.clear();
+        // The report keys a reference by its file and key: a duplicate key
+        // in one file is the first's alone.
+        let mut seen = HashSet::new();
         for (index, entry) in self.entries.iter().enumerate() {
-            let Some(prior) = saved.get(&audit_key(entry)) else {
+            let key = audit_key(entry);
+            if !seen.insert(key.clone()) {
+                continue;
+            }
+            let Some(prior) = saved.get(&key) else {
                 continue;
             };
             let same_text = prior.snapshot == entry.bibtex;
@@ -297,10 +315,15 @@ impl Audit {
     }
 
     fn report(&self) -> Vec<(String, serde_json::Value)> {
+        let mut seen = HashSet::new();
         self.entries
             .iter()
             .enumerate()
             .filter_map(|(index, entry)| {
+                let key = audit_key(entry);
+                if !seen.insert(key.clone()) {
+                    return None;
+                }
                 let result = self.results.get(&index)?;
                 let saved = Saved {
                     snapshot: entry.bibtex.clone(),
@@ -309,7 +332,7 @@ impl Audit {
                     applied: self.applied.contains(&index),
                     kept: self.kept.contains(&index),
                 };
-                Some((audit_key(entry), serde_json::to_value(saved).ok()?))
+                Some((key, serde_json::to_value(saved).ok()?))
             })
             .collect()
     }
@@ -319,7 +342,15 @@ impl Audit {
             return;
         };
         let (root, report) = (self.root.clone(), self.report());
+        let asked = REPORTS_ASKED.fetch_add(1, Ordering::Relaxed) + 1;
         cx.background_spawn(async move {
+            let mut written = REPORT_WRITTEN
+                .lock()
+                .unwrap_or_else(|poison| poison.into_inner());
+            if *written > asked {
+                return;
+            }
+            *written = asked;
             if let Err(error) = citation_audit::save_report(&store, &root, report) {
                 log::warn!("the reference check's report was not saved: {error}");
             }
@@ -652,10 +683,13 @@ impl Audit {
     }
 
     pub(super) fn toggle(&mut self, index: usize, cx: &mut Context<Self>) {
-        self.open = if self.open == Some(index) {
+        let Some(key) = self.entries.get(index).map(audit_key) else {
+            return;
+        };
+        self.open = if self.open.as_ref() == Some(&key) {
             None
         } else {
-            Some(index)
+            Some(key)
         };
         cx.notify();
     }

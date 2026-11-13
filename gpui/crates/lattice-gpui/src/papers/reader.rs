@@ -370,7 +370,11 @@ impl Render for PaperReader {
                 .child(error.clone())
                 .into_any_element(),
             None => MarkdownElement::new(self.markdown.clone(), style)
-                .on_url_click(|url, _, cx| cx.open_url(&url))
+                .on_url_click(|url, _, cx| {
+                    if model::openable_link(&url) {
+                        cx.open_url(&url);
+                    }
+                })
                 .into_any_element(),
         };
         div()
