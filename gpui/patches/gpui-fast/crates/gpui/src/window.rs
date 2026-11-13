@@ -1290,6 +1290,8 @@ pub struct Window {
     modifiers: Modifiers,
     capslock: Capslock,
     scale_factor: f32,
+    /// `Window::set_interface_zoom` (`fast::interface_zoom`).
+    pub(crate) fast_interface_zoom: f32,
     pub(crate) bounds_observers: SingleSubscriberSet<AnyObserver>,
     appearance: WindowAppearance,
     pub(crate) appearance_observers: SingleSubscriberSet<AnyObserver>,
@@ -2419,6 +2421,7 @@ impl Window {
             modifiers,
             capslock,
             scale_factor,
+            fast_interface_zoom: 1.,
             bounds_observers: SingleSubscriberSet::new(),
             appearance,
             appearance_observers: SingleSubscriberSet::new(),
@@ -3027,9 +3030,15 @@ impl Window {
     /// the platform window, then notifies observers. Normally called automatically
     /// by the platform's resize callback, but exposed publicly for test infrastructure.
     pub fn bounds_changed(&mut self, cx: &mut App) {
-        self.scale_factor = self.platform_window.scale_factor();
-        self.viewport_size = self.platform_window.content_size();
-        self.mouse_position = self.platform_window.mouse_position();
+        // The platform measures in points; the window in its zoomed pixels.
+        let zoom = self.fast_interface_zoom;
+        self.scale_factor = self.platform_window.scale_factor() * zoom;
+        self.viewport_size =
+            crate::fast::interface_zoom::unzoomed_size(self.platform_window.content_size(), zoom);
+        self.mouse_position = crate::fast::interface_zoom::unzoomed_point(
+            self.platform_window.mouse_position(),
+            zoom,
+        );
 
         self.refresh();
 
@@ -3192,7 +3201,10 @@ impl Window {
     /// During drawing this is a consistent frame snapshot. Outside drawing it
     /// reflects the latest platform sample, not a synchronous geometry query.
     pub fn visual_viewport_bounds(&self) -> Bounds<Pixels> {
-        self.platform_window.visual_viewport_bounds()
+        crate::fast::interface_zoom::unzoomed_bounds(
+            self.platform_window.visual_viewport_bounds(),
+            self.fast_interface_zoom,
+        )
     }
 
     /// Returns a conservative rectangle avoiding platform-known obscured content.
@@ -3201,11 +3213,12 @@ impl Window {
     /// safe areas and keyboard occlusion. Unknown overlays cannot be excluded.
     pub fn fully_visible_bounds(&self) -> Bounds<Pixels> {
         let insets = self.platform_window.insets().effective();
+        let zoom = self.fast_interface_zoom;
         let viewport = self.viewport_size();
-        let left = insets.left.max(Pixels::ZERO).min(viewport.width);
-        let top = insets.top.max(Pixels::ZERO).min(viewport.height);
-        let right = (viewport.width - insets.right.max(Pixels::ZERO)).max(left);
-        let bottom = (viewport.height - insets.bottom.max(Pixels::ZERO)).max(top);
+        let left = (insets.left / zoom).max(Pixels::ZERO).min(viewport.width);
+        let top = (insets.top / zoom).max(Pixels::ZERO).min(viewport.height);
+        let right = (viewport.width - (insets.right / zoom).max(Pixels::ZERO)).max(left);
+        let bottom = (viewport.height - (insets.bottom / zoom).max(Pixels::ZERO)).max(top);
         let safe_bounds = Bounds::from_corners(point(left, top), point(right, bottom));
         let mut visible = safe_bounds.intersect(&self.visual_viewport_bounds());
         visible.size.width = visible.size.width.max(Pixels::ZERO);
@@ -3253,7 +3266,11 @@ impl Window {
 
     /// Opens the native title bar context menu, useful when implementing client side decorations (Wayland and X11)
     pub fn show_window_menu(&self, position: Point<Pixels>) {
-        self.platform_window.show_window_menu(position)
+        self.platform_window
+            .show_window_menu(crate::fast::interface_zoom::zoomed_point(
+                position,
+                self.fast_interface_zoom,
+            ))
     }
 
     /// Handle window movement for Linux and macOS.
@@ -5920,6 +5937,9 @@ impl Window {
         #[cfg(feature = "profiler")]
         self.window_profiler.begin_input(event.kind_name());
         let update_count_before = self.invalidator.update_count();
+        // The platform's points, as the window's zoomed pixels.
+        let event =
+            crate::fast::interface_zoom::unzoomed_input(event, self.fast_interface_zoom);
         // Track input modality for focus-visible styling and hover suppression.
         // Hover is suppressed during keyboard modality so that keyboard navigation
         // doesn't show hover highlights on the item under the mouse cursor.

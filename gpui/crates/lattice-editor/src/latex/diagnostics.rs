@@ -55,7 +55,7 @@ impl Severity {
     }
 
     /// CodeMirror lint's underline colours, which the Tauri app keeps.
-    fn underline(self) -> Hsla {
+    pub(crate) fn underline(self) -> Hsla {
         match self {
             Severity::Error => rgb(0xdd1111).into(),
             Severity::Warning => rgb(0xffa500).into(),
@@ -65,7 +65,7 @@ impl Severity {
 
     /// The lint tooltip's left edge: danger, the code theme's attribute
     /// colour, the accent (`.cm-diagnostic-*` in editor-workspace.css).
-    fn edge(self, cx: &App) -> Hsla {
+    pub(crate) fn edge(self, cx: &App) -> Hsla {
         let palette = cx.palette();
         match self {
             Severity::Error => palette.danger,

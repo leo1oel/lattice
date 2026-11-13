@@ -28,6 +28,10 @@ project.workspace = true
 # The Tauri app's LaTeX patterns (src/editor/latex/latex-symbols.ts) need no
 # lookaround; already in the graph through Zed.
 regex = "1"
+# The zh-CN grammar rule names (`src/locales/zh-CN/grammar-rules.json`) and a
+# TeX accent's precomposed letter; both already in the graph through Zed.
+serde_json.workspace = true
+unicode-normalization = "0.1"
 settings.workspace = true
 theme.workspace = true
 # The buffer font, which the source gutter's digits are drawn and measured in.

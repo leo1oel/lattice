@@ -126,6 +126,7 @@ gpui-fast-platform = { path = "compat/gpui-fast/gpui-fast-platform" }
 gpui-fast-web = { path = "compat/gpui-fast/gpui-fast-web" }
 gpui-component = { path = "patches/gpui-component" }
 gpui-base = { path = "patches/gpui-base" }
+gpui-webview = { path = "patches/gpui-webview" }
 # One SQLite: Zed's `sqlez` asks for libsqlite3-sys 0.30 and lattice-core's
 # rusqlite for 0.38, and only one crate in a graph may link `sqlite3`. The
 # shim carries 0.30's name and version and re-exports 0.38

@@ -49,6 +49,9 @@ pub struct Notice {
     key: Option<SharedString>,
     /// Stays until dismissed or answered.
     persistent: bool,
+    /// An operation under way, which a notice under the same key replaces
+    /// when it ends (a progress toast in the Tauri app).
+    running: bool,
 }
 
 impl Notice {
@@ -60,6 +63,7 @@ impl Notice {
             actions: Vec::new(),
             key: None,
             persistent: false,
+            running: false,
         }
     }
 
@@ -79,6 +83,15 @@ impl Notice {
     }
 
     pub fn persistent(mut self) -> Self {
+        self.persistent = true;
+        self
+    }
+
+    /// An operation under way: it stays until the notice under its key that
+    /// says how it ended replaces it, and that ending, a success or an
+    /// error, is heard (`app-log-store.ts`: the one moment a toast speaks).
+    pub fn running(mut self) -> Self {
+        self.running = true;
         self.persistent = true;
         self
     }
@@ -162,8 +175,19 @@ pub fn info(title: impl Into<SharedString>, detail: impl Into<SharedString>, cx:
 impl NoticeStack {
     fn push(&mut self, notice: Notice, cx: &mut Context<Self>) {
         if let Some(key) = &notice.key {
+            let was_running = self
+                .shown
+                .iter()
+                .any(|shown| shown.notice.key.as_ref() == Some(key) && shown.notice.running);
             self.shown
                 .retain(|shown| shown.notice.key.as_ref() != Some(key));
+            if was_running && !notice.running {
+                match notice.level {
+                    ToastLevel::Success => crate::sounds::play(crate::sounds::Cue::Success, cx),
+                    ToastLevel::Error => crate::sounds::play(crate::sounds::Cue::Error, cx),
+                    ToastLevel::Info | ToastLevel::Warning => {}
+                }
+            }
         }
         let id = self.next_id;
         self.next_id += 1;

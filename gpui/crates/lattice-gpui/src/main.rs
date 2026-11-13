@@ -18,6 +18,7 @@ mod file_tree;
 mod first_pages;
 mod gallery;
 mod html_preview;
+mod interface_zoom;
 mod moved_paths;
 #[cfg(target_os = "macos")]
 mod native;
@@ -36,10 +37,12 @@ mod scenario;
 mod search;
 mod settings;
 mod shell;
+mod sounds;
 mod stand_in_panels;
 mod status_counters;
 mod titlebar;
 mod welcome;
+mod window_material;
 
 fn main() {
     init_logging();

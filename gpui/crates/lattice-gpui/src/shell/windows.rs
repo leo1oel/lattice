@@ -129,6 +129,28 @@ impl Shell {
         .detach();
     }
 
+    /// Step the interface size from a key, the menu or the palette, and
+    /// raise this window's size pill.
+    pub(crate) fn zoom_interface(
+        &mut self,
+        change: crate::interface_zoom::Change,
+        cx: &mut Context<Self>,
+    ) {
+        crate::interface_zoom::zoom(change, cx);
+        self.reveal_zoom_hud(cx);
+    }
+
+    /// Raise this window's interface size pill.
+    pub(crate) fn reveal_zoom_hud(&mut self, cx: &mut Context<Self>) {
+        self.zoom_hud.update(cx, |hud, cx| hud.reveal(cx));
+    }
+
+    /// The interface size pill, for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub(crate) fn zoom_hud(&self) -> &Entity<crate::interface_zoom::ZoomHud> {
+        &self.zoom_hud
+    }
+
     /// The project `step` tabs along, round the window's projects.
     pub(crate) fn step_project(
         &mut self,

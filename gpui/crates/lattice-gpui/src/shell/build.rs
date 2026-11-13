@@ -28,6 +28,7 @@ use crate::{
     build::{diagnostics, tex_setup},
     notices::{self, Notice, NoticeAction},
     project::Project,
+    sounds,
 };
 
 const NO_DOCUMENT: &str = n!(
@@ -384,6 +385,15 @@ impl Shell {
         self.slow_build = None;
         notices::dismiss(SLOW_BUILD_NOTICE, cx);
         let current = self.project.as_ref() == Some(project);
+        // What the pass sounds like if it is the last one: a cancelled pass
+        // fails like any other (use-build-pipeline.ts), and a failed clean
+        // before it started nothing.
+        self.build_sound |= request.requested;
+        let cue = match &outcome {
+            Some(Ok(finished)) if finished.result.success => Some(sounds::Cue::Success),
+            Some(_) => Some(sounds::Cue::Error),
+            None => None,
+        };
         match outcome {
             // A build of the project open before shows nothing in this one.
             _ if !current => self.build_panel.update(cx, |panel, cx| panel.cleared(cx)),
@@ -492,7 +502,17 @@ impl Shell {
         // the project open now.
         match self.queued_build.take() {
             Some(queued) => self.run_build(queued, window, cx),
-            None => self.settle_builds(cx),
+            None => {
+                // The writer asked for a build: they hear how the last pass
+                // of it ended, once, unless the project changed under it.
+                if std::mem::take(&mut self.build_sound)
+                    && current
+                    && let Some(cue) = cue
+                {
+                    sounds::play(cue, cx);
+                }
+                self.settle_builds(cx)
+            }
         }
         cx.notify();
     }

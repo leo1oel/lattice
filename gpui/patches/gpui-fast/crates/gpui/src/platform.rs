@@ -2166,7 +2166,12 @@ impl PlatformInputHandler {
 
     pub fn bounds_for_range(&mut self, range_utf16: Range<usize>) -> Option<Bounds<Pixels>> {
         self.cx
-            .update(|window, cx| self.handler.bounds_for_range(range_utf16, window, cx))
+            .update(|window, cx| {
+                let zoom = window.interface_zoom();
+                self.handler
+                    .bounds_for_range(range_utf16, window, cx)
+                    .map(|bounds| crate::fast::interface_zoom::zoomed_bounds(bounds, zoom))
+            })
             .ok()
             .flatten()
     }
@@ -2174,8 +2179,12 @@ impl PlatformInputHandler {
     pub fn selection_bounds_for_range(&mut self, range_utf16: Range<usize>) -> Vec<Bounds<Pixels>> {
         self.cx
             .update(|window, cx| {
+                let zoom = window.interface_zoom();
                 self.handler
                     .selection_bounds_for_range(range_utf16, window, cx)
+                    .into_iter()
+                    .map(|bounds| crate::fast::interface_zoom::zoomed_bounds(bounds, zoom))
+                    .collect()
             })
             .unwrap_or_default()
     }
@@ -2227,9 +2236,11 @@ impl PlatformInputHandler {
     pub fn selected_bounds(&mut self, window: &mut Window, cx: &mut App) -> Option<Bounds<Pixels>> {
         let marked_range = self.handler.marked_text_range(window, cx);
         let selection = self.handler.selected_text_range(true, window, cx)?;
+        let zoom = window.interface_zoom();
         Self::compute_ime_candidate_bounds(marked_range, &selection, |range| {
             self.handler.bounds_for_range(range, window, cx)
         })
+        .map(|bounds| crate::fast::interface_zoom::zoomed_bounds(bounds, zoom))
     }
 
     pub fn ime_candidate_bounds(&mut self) -> Option<Bounds<Pixels>> {
@@ -2243,7 +2254,11 @@ impl PlatformInputHandler {
     #[allow(unused)]
     pub fn character_index_for_point(&mut self, point: Point<Pixels>) -> Option<usize> {
         self.cx
-            .update(|window, cx| self.handler.character_index_for_point(point, window, cx))
+            .update(|window, cx| {
+                let point =
+                    crate::fast::interface_zoom::unzoomed_point(point, window.interface_zoom());
+                self.handler.character_index_for_point(point, window, cx)
+            })
             .ok()
             .flatten()
     }

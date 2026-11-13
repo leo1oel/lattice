@@ -135,6 +135,8 @@ pub struct Shell {
     /// Says a build has run for minutes, and offers to stop it.
     slow_build: Option<Task<()>>,
     notices: Entity<NoticeStack>,
+    /// The interface size pill (`interface_zoom::ZoomHud`).
+    zoom_hud: Entity<crate::interface_zoom::ZoomHud>,
     confirm: Entity<ConfirmHost>,
     editors: Vec<WeakEntity<EditorPanel>>,
     /// The editor the writer was last in (opened, or holding the keyboard),
@@ -144,6 +146,9 @@ pub struct Shell {
     build_task: Option<Task<()>>,
     /// The build to run once the one under way ends.
     queued_build: Option<BuildRequest>,
+    /// A build the writer asked for is under way or queued: when the last
+    /// pass ends, its outcome is heard (`crate::sounds`).
+    build_sound: bool,
     /// Told when the builds under way, queued ones included, are over.
     build_waiters: Vec<oneshot::Sender<()>>,
     /// The root document the next build compiles, asked for from its PDF
@@ -266,9 +271,19 @@ impl Shell {
         cx.observe_window_activation(window, |_, window, cx| {
             if window.is_window_active() {
                 menus::refresh(cx);
+                // Reduce transparency is only reported when asked.
+                crate::window_material::apply(window, cx);
+                crate::interface_zoom::apply(window, cx);
+                crate::interface_zoom::align_traffic_lights(window, cx);
             }
         })
         .detach();
+        crate::window_material::apply(window, cx);
+        // The stored size from the first frame, as the PDF window takes it:
+        // a window that opens without becoming key (behind another, or on a
+        // locked screen) would otherwise lay out at 100% until activated.
+        crate::interface_zoom::apply(window, cx);
+        crate::interface_zoom::align_traffic_lights(window, cx);
         cx.subscribe_in(&file_tree, window, Self::on_tree_event)
             .detach();
         cx.subscribe_in(
@@ -342,11 +357,13 @@ impl Shell {
             setup_dialog_open: false,
             slow_build: None,
             notices,
+            zoom_hud: crate::interface_zoom::new_hud(cx),
             confirm,
             editors: Vec::new(),
             active_editor: None,
             build_task: None,
             queued_build: None,
+            build_sound: false,
             build_waiters: Vec::new(),
             build_target: None,
             live_document: None,
@@ -541,6 +558,7 @@ impl Shell {
         self.editors.clear();
         self.active_editor = None;
         self.queued_build = None;
+        self.build_sound = false;
         self.closed_tabs.clear();
         self.forget_visits();
         self.entered_project(&windows::project_display_name(&root), cx);
@@ -658,7 +676,7 @@ impl Shell {
         }
     }
 
-    pub(super) fn open_editors(&mut self) -> Vec<Entity<EditorPanel>> {
+    pub(crate) fn open_editors(&mut self) -> Vec<Entity<EditorPanel>> {
         self.editors.retain(|editor| editor.upgrade().is_some());
         self.editors
             .iter()

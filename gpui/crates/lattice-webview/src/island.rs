@@ -68,7 +68,7 @@ use crate::{
     files::FileScope,
     keys,
     masked::Masked,
-    native::{keep_drawing_when_occluded, lab_ignore_occlusion, native_page_focused},
+    native::{keep_drawing_when_occluded, lab_ignore_occlusion, native_frame, native_page_focused},
     protocol::{self, Bundle, Served},
     registry::Registry,
     theme::theme_payload,
@@ -264,6 +264,14 @@ impl Island {
         self.webview
             .as_ref()
             .map(|webview| webview.read(cx).bounds())
+    }
+
+    /// The page's native view in the window, in points (macOS), for a
+    /// scenario to check it against [`Island::bounds`].
+    pub fn native_frame(&self, cx: &App) -> Option<Bounds<Pixels>> {
+        self.webview
+            .as_ref()
+            .and_then(|webview| native_frame(webview.read(cx)))
     }
 
     /// Let the page load the project file `relative` through the protocol.

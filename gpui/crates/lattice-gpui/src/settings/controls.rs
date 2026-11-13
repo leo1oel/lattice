@@ -19,13 +19,11 @@
 
 use gpui::{
     AnyElement, App, Edges, ElementId, InteractiveElement as _, IntoElement, ParentElement as _,
-    Pixels, SharedString, StatefulInteractiveElement as _, Styled as _, Window, div,
-    prelude::FluentBuilder as _, px,
+    Pixels, SharedString, Styled as _, Window, div, prelude::FluentBuilder as _, px,
 };
-use lattice_i18n::t;
 use lattice_ui::{
     ActiveLattice as _, TextRole, TextRoleStyle as _, TypeScale,
-    components::{LatticeTooltip, Select, Switch},
+    components::{Select, Switch},
     parity,
     tokens::FONT_WEIGHT_SEMIBOLD,
 };
@@ -327,17 +325,6 @@ pub fn select<T: Copy + PartialEq + 'static>(
                 }
             }),
         )
-        .into_any_element()
-}
-
-/// A control the GPUI preview draws but does not act on yet, shown
-/// disabled with the titlebar's stand-in tools' tooltip.
-pub fn not_yet(id: &'static str, name: SharedString, control: impl IntoElement) -> AnyElement {
-    let tip: SharedString = t!("{name} — not in the GPUI preview yet", name = name).into();
-    div()
-        .id(ElementId::Name(format!("settings-not-yet-{id}").into()))
-        .child(control)
-        .tooltip(move |_, cx| LatticeTooltip::view(tip.clone(), None, cx))
         .into_any_element()
 }
 
