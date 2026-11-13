@@ -293,7 +293,7 @@ impl Engine {
         }
     }
 
-    fn default_placement(&self, kind: &str) -> Placement {
+    pub(crate) fn default_placement(&self, kind: &str) -> Placement {
         if let Some(p) = self
             .options
             .types

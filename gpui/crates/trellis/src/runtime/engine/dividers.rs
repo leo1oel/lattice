@@ -196,6 +196,11 @@ impl Engine {
             .as_ref()
             .and_then(|s| find_node(base.root.as_ref(), &s.split_id))
             .and_then(|n| n.as_split())
+            .filter(|n| {
+                stretched
+                    .as_ref()
+                    .is_some_and(|s| s.index + 1 < n.children.len())
+            })
             .cloned();
         let (Some(stretched), Some(node)) = (stretched, node) else {
             return self.layout_rects_of(base.root.as_ref());
@@ -276,6 +281,20 @@ impl Engine {
         self.dividers.elastic = None;
         if !self.gesture {
             self.dividers.active = None;
+        }
+    }
+
+    /// A commit from outside a held divider or float resize ends it, and
+    /// any spring-back: the gesture's origin is stale, and the split it
+    /// holds may have lost the boundary.
+    pub(crate) fn release_resizes(&mut self) {
+        let held = self.dividers.drag.take().is_some();
+        let resizing = self.dividers.float_resize.take().is_some();
+        if held || resizing {
+            self.gesture = false;
+        }
+        if held || self.dividers.spring.is_some() {
+            self.stop_spring();
         }
     }
 
@@ -510,13 +529,18 @@ impl Engine {
         }
     }
 
-    pub fn float_resize_up(&mut self) {
+    /// The resize handle is released (`cancelled`: Escape or a lost pointer).
+    pub fn float_resize_up(&mut self, cancelled: bool) {
         let Some(resize) = self.dividers.float_resize.take() else {
             return;
         };
         self.gesture = false;
         let next = std::mem::replace(&mut self.doc, resize.origin);
-        self.commit(next, false, None);
+        if cancelled {
+            self.sync();
+        } else {
+            self.commit(next, false, None);
+        }
     }
 
     pub fn resizing(&self) -> Option<ResizeKind> {

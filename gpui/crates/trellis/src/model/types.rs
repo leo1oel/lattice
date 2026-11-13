@@ -211,13 +211,41 @@ pub enum FloatingLayer {
     Overlay,
 }
 
+/// A float's fields that Trellis's `sanitize` repairs (a `z` saved as `null`,
+/// a missing `rect`, an unknown `layer`) read as something it can repair.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct FloatingPanel {
     pub panel: PanelNode,
     /// Fractions of the stage (layer `stage`) or of the workspace (layer `overlay`).
+    #[serde(default = "default_float_rect")]
     pub rect: Rect,
+    #[serde(default = "not_a_number", deserialize_with = "number_or_nan")]
     pub z: f64,
+    #[serde(default = "overlay", deserialize_with = "layer_or_overlay")]
     pub layer: FloatingLayer,
+}
+
+fn default_float_rect() -> Rect {
+    Rect::new(0.25, 0.25, 0.5, 0.5)
+}
+
+fn not_a_number() -> f64 {
+    f64::NAN
+}
+
+fn overlay() -> FloatingLayer {
+    FloatingLayer::Overlay
+}
+
+fn number_or_nan<'de, D: serde::Deserializer<'de>>(d: D) -> Result<f64, D::Error> {
+    Ok(Option::<f64>::deserialize(d)?.unwrap_or(f64::NAN))
+}
+
+fn layer_or_overlay<'de, D: serde::Deserializer<'de>>(d: D) -> Result<FloatingLayer, D::Error> {
+    Ok(
+        FloatingLayer::deserialize(serde_json::Value::deserialize(d)?)
+            .unwrap_or(FloatingLayer::Overlay),
+    )
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -243,7 +271,16 @@ pub enum RestoreTarget {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct HiddenPanel {
     pub panel: PanelNode,
+    /// Without one, it comes back as a float.
+    #[serde(default = "float_back")]
     pub restore: RestoreTarget,
+}
+
+fn float_back() -> RestoreTarget {
+    RestoreTarget::Floating {
+        rect: default_float_rect(),
+        layer: overlay(),
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]

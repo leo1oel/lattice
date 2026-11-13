@@ -414,10 +414,11 @@ impl Workspaces {
             .as_ref()
             .and_then(|dir| {
                 let path = project_file(dir, root);
-                // A layout from before Trellis documents (v1) starts again
-                // from its workspace; the next save replaces it.
+                // A layout from before Trellis documents (v1) keeps only its
+                // workspace, and starts again from that workspace's own
+                // arrangement; the next save replaces it.
                 if read_version(&path) == Some(1) {
-                    return None;
+                    return legacy_project(&path);
                 }
                 read_json(&path, |layout: &ProjectLayout| {
                     layout.version == LAYOUT_VERSION
@@ -514,6 +515,21 @@ fn legacy_library(path: &Path) -> Option<Library> {
 /// The value saved at `path`. A file this build cannot read (`usable`
 /// refuses it, or it does not parse) is moved aside to `<name>.unreadable`
 /// before the caller falls back, so the next save does not overwrite it.
+/// A v1 project layout (GPUI Kit's arrangement) as a v2 one: its workspace
+/// kept, the rest left to the default.
+fn legacy_project(path: &Path) -> Option<ProjectLayout> {
+    let text = std::fs::read_to_string(path).ok()?;
+    let legacy: serde_json::Value = serde_json::from_str(&text).ok()?;
+    Some(ProjectLayout {
+        version: LAYOUT_VERSION,
+        workspace: legacy
+            .get("workspace")
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_string),
+        ..ProjectLayout::default()
+    })
+}
+
 fn read_json<T: serde::de::DeserializeOwned>(
     path: &Path,
     usable: impl Fn(&T) -> bool,
@@ -786,16 +802,22 @@ mod tests {
         );
         assert_eq!(library.recent(), "ws-4");
         assert_eq!(library.add("Drafts", None, None), "ws-5");
-        // A project layout saved before Trellis starts again from its workspace.
+        // A project layout saved before Trellis reopens in its own workspace,
+        // its GPUI Kit arrangement and places dropped.
         let root = PathBuf::from("/projects/paper");
         std::fs::create_dir_all(dir.join("layouts")).unwrap();
         std::fs::write(
             project_file(&dir, &root),
-            r#"{"version": 1, "workspace": "ws-4"}"#,
+            r#"{"version": 1, "root": "/projects/paper", "workspace": "ws-1",
+                "arrangement": {"center": {"kind": "tabs", "views": [], "active": 0}},
+                "places": {"ws-1": {"main.tex": 3}}}"#,
         )
         .unwrap();
         let layout = library.project(&root);
         std::fs::remove_dir_all(&dir).ok();
-        assert_eq!(layout, ProjectLayout::default());
+        assert_eq!(layout.workspace.as_deref(), Some("ws-1"));
+        assert_eq!(layout.document, None);
+        assert_eq!(layout.preset, None);
+        assert!(layout.places.is_empty());
     }
 }

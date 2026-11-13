@@ -204,21 +204,23 @@ impl TrellisWorkspace {
             let strips = strips.clone();
             let panel = panel_id.clone();
             let measured = view.clone();
+            let offset = px(tab.offset as f32);
             list = list.child(
                 div()
                     .id(("trellis-tab", hash(&format!("{}\n{}", p.id, view))))
                     .relative()
                     .flex_shrink_1()
                     .min_w_0()
-                    .left(px(tab.offset as f32))
+                    .left(offset)
                     .when(tab.sorting, |tab| tab.cursor(CursorStyle::ClosedHand))
                     .child(element)
                     .child(
                         canvas(
-                            move |b, _, _| {
+                            move |mut b, _, _| {
                                 let mut strips = strips.borrow_mut();
                                 let boxes = strips.entry(panel.clone()).or_default();
                                 // At rest, not where a sort or settle moved it.
+                                b.origin.x -= offset;
                                 match boxes.tabs.iter_mut().find(|(v, _)| *v == measured) {
                                     Some(entry) => entry.1 = b,
                                     None => boxes.tabs.push((measured.clone(), b)),

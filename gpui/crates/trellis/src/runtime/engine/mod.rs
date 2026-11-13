@@ -582,6 +582,8 @@ impl Engine {
         if next == self.doc {
             return;
         }
+        let (next, held) = self.abandon_drag(next);
+        self.release_resizes();
         let previous = std::mem::replace(&mut self.doc, next);
         if animate && !self.reduced() {
             let mut start = self.last_rects.clone();
@@ -591,7 +593,9 @@ impl Engine {
             let now = self.now();
             self.tween.begin(start, now);
         }
-        let before: HashSet<String> = view_ids(&previous).into_iter().collect();
+        let mut open_before = view_ids(&previous);
+        open_before.extend(held);
+        let before: HashSet<String> = open_before.iter().cloned().collect();
         let after: HashSet<String> = view_ids(&self.doc).into_iter().collect();
         self.sync();
         for id in view_ids(&self.doc) {
@@ -600,7 +604,7 @@ impl Engine {
             }
         }
         let lifted: Vec<String> = self.lifted().map(|l| l.views.clone()).unwrap_or_default();
-        for id in view_ids(&previous) {
+        for id in open_before {
             if !after.contains(&id) && !lifted.contains(&id) {
                 self.events.push(Event::Close(id));
             }

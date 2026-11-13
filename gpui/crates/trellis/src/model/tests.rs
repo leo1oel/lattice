@@ -452,14 +452,123 @@ fn sanitizes_broken_documents() {
     assert_eq!(json.matches("\"kind\":\"stage\"").count(), 1);
 }
 
+/// A layout document in the JSON the Tauri app's Trellis persists (the
+/// `document` of a saved project layout: `JSON.stringify` of Trellis's
+/// `LayoutDocument`, nodes tagged by `kind`, views by `type`).
+const TAURI_SAVED_DOCUMENT: &str = include_str!("fixtures/tauri-saved-document.json");
+
 #[test]
-fn a_document_round_trips_through_trellis_json() {
-    let doc = ide();
-    let json = serde_json::to_string(&doc).unwrap();
-    assert!(json.contains("\"kind\":\"stage\""));
-    assert!(json.contains("\"type\":\"editor\""));
-    let back: LayoutDocument = serde_json::from_str(&json).unwrap();
-    assert_eq!(back, doc);
+fn a_document_the_tauri_app_saved_reads_as_the_same_layout() {
+    let doc: LayoutDocument = serde_json::from_str(TAURI_SAVED_DOCUMENT).unwrap();
+    assert_eq!(doc.schema, 1);
+    assert_eq!(doc.version, Some(serde_json::json!(3)));
+    let Some(LayoutNode::Split(row)) = &doc.root else {
+        panic!("a row at the root: {:?}", doc.root)
+    };
+    assert_eq!((row.id.as_str(), row.axis), ("split-row", Axis::X));
+    assert_eq!(row.weights, [0.2, 0.46, 0.34]);
+    let LayoutNode::Split(column) = &row.children[0] else {
+        panic!("a column first")
+    };
+    assert_eq!(
+        (column.axis, column.weights.as_slice()),
+        (Axis::Y, &[0.62, 0.38][..])
+    );
+    assert_eq!(
+        column.children[0],
+        LayoutNode::Panel(PanelNode {
+            id: "panel-project".into(),
+            views: vec!["project".into(), "agent".into()],
+            selected: "agent".into(),
+        })
+    );
+    assert_eq!(row.children[1].id(), "panel-documents");
+    assert_eq!(
+        row.children[2],
+        LayoutNode::Stage(StageNode {
+            id: "stage".into(),
+            child: None,
+        })
+    );
+    assert_eq!(
+        doc.floating,
+        [FloatingPanel {
+            panel: PanelNode::single("panel-pdf", "pdf"),
+            rect: Rect::new(0.55, 0.1, 0.4, 0.7),
+            z: 3.,
+            layer: FloatingLayer::Overlay,
+        }]
+    );
+    assert_eq!(
+        doc.hidden[0].restore,
+        RestoreTarget::Docked {
+            beside: "split-row".into(),
+            edge: Edge::Bottom,
+            share: 0.3,
+        }
+    );
+    assert_eq!(
+        doc.hidden[1].restore,
+        RestoreTarget::Tab {
+            panel: "panel-project".into(),
+            index: Some(1),
+        }
+    );
+    let order: Vec<&str> = doc.views.keys().map(String::as_str).collect();
+    assert_eq!(
+        order,
+        [
+            "project",
+            "agent",
+            "papers",
+            "file-main",
+            "file-notes",
+            "pdf",
+            "terminal",
+            "git"
+        ]
+    );
+    let main = &doc.views["file-main"];
+    assert_eq!(main.kind, "file");
+    assert_eq!(main.title.as_deref(), Some("main.tex"));
+    assert_eq!(
+        main.params.as_ref().and_then(|p| p.get("key")),
+        Some(&serde_json::json!("main.tex"))
+    );
+    assert_eq!(doc.views["file-notes"].title, None);
+    let navigation = doc.navigation.as_ref().unwrap();
+    assert_eq!(
+        navigation.frame.as_deref(),
+        Some(&["panel-documents".to_string()][..])
+    );
+    let framings = navigation.framings.as_ref().unwrap();
+    assert_eq!(framings[0].name, "Writing");
+    assert_eq!(framings[0].frame, ["panel-documents", "panel-pdf"]);
+}
+
+#[test]
+fn a_saved_float_or_hidden_panel_with_fields_sanitize_repairs_still_reads() {
+    // `JSON.stringify` writes a non-finite `z` as `null`; Trellis's sanitize
+    // repairs it, a missing rect, an unknown layer and a missing restore.
+    let json = r#"{"schema":1,"root":{"kind":"panel","id":"p","views":["a"],"selected":"a"},
+        "floating":[
+            {"panel":{"id":"f1","views":["b"],"selected":"b"},"rect":{"x":0.1,"y":0.1,"w":0.3,"h":0.3},"z":null,"layer":"overlay"},
+            {"panel":{"id":"f2","views":["c"],"selected":"c"},"z":2,"layer":"sideways"}
+        ],
+        "hidden":[{"panel":{"id":"h","views":["d"],"selected":"d"}}],
+        "views":{"a":{"type":"x"},"b":{"type":"x"},"c":{"type":"x"},"d":{"type":"x"}}}"#;
+    let doc = sanitize(&serde_json::from_str(json).unwrap(), &|_| true);
+    assert_eq!(doc.floating[0].z, 1.);
+    assert_eq!(doc.floating[1].layer, FloatingLayer::Overlay);
+    let rect = doc.floating[1].rect;
+    assert!(
+        rect.w > 0.02 && rect.w <= 1. && rect.h > 0.02 && rect.h <= 1.,
+        "{rect:?}"
+    );
+    // A hidden panel with nowhere to go comes back as a float.
+    let back = restore_panel(&doc, "h", FloatingLayer::Overlay);
+    assert!(back.floating.iter().any(|f| f.panel.id == "h"));
+    assert_eq!(view_ids(&back).len(), 4);
 }
 
 // ---------------------------------------------------------------- Lattice's patch

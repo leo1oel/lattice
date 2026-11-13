@@ -119,7 +119,7 @@ impl Engine {
                     (body.w / target.0).max(body.h / target.1),
                 )
             }
-            Reflow::Keep if surface.layout.is_some() => {
+            Reflow::Keep if surface.layout.is_some_and(|(w, h)| w > 1. && h > 1.) => {
                 surface.held = None;
                 let target = surface.layout.expect("checked");
                 (

@@ -21,8 +21,9 @@ use std::rc::Rc;
 
 use gpui::{
     AnyElement, App, ClickEvent, Div, ElementId, InteractiveElement, Interactivity, IntoElement,
-    ParentElement as _, Pixels, RenderOnce, SharedString, Stateful, StatefulInteractiveElement,
-    StyleRefinement, Styled, Window, div, prelude::FluentBuilder as _, px, transparent_black,
+    MouseButton, ParentElement as _, Pixels, RenderOnce, SharedString, Stateful,
+    StatefulInteractiveElement, StyleRefinement, Styled, Window, div, prelude::FluentBuilder as _,
+    px, transparent_black,
 };
 
 use crate::{
@@ -342,6 +343,7 @@ impl RenderOnce for PanelTab {
                                 .group_hover(group, |style| style.visible())
                                 .focus_visible(move |style| style.visible().shadow(close_focus))
                                 .bg(close_bg)
+                                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                                 .on_click(move |event, window, cx| {
                                     cx.stop_propagation();
                                     on_close(event, window, cx);

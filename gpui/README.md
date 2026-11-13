@@ -44,6 +44,7 @@ The window's panels are laid out with it, so the GPUI app as built includes Trel
 - The rest of the GPUI app: GPL-3.0-or-later.
 - Lattice is free software, distributed without charge and for non-commercial use.
 - Anyone who redistributes the GPUI app, or builds on `crates/trellis`, must also respect Trellis's non-commercial terms: keep its license files and the attribution "Uses Trellis by DanFessler - github.com/DanFessler/trellis", and use it commercially only under a Trellis commercial license from its author.
+- GPL-3.0 forbids imposing further restrictions on a distributed work (sections 7 and 10), so Trellis's non-commercial terms conflict with it for a distributed GPUI binary that combines the two; the maintainer intends to ask Trellis's author for a GPL-compatible grant before any public release of the GPUI app.
 
 These are the facts of how the code is licensed, not legal advice; the license texts themselves are what apply.
 

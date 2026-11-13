@@ -18,7 +18,7 @@ use std::collections::HashMap;
 use crate::model::{
     DockTarget, DockTargetSpec, Entries, FloatingLayer, LayoutDocument, LayoutNode, PanelNode,
     Point, Rect, apply_dock_target, detach_view, find_stage, float_panel, insert_panel,
-    remove_panel, reorder_tabs, select_view, uid,
+    locate_panel, remove_panel, reorder_tabs, select_view, uid,
 };
 use preview::resting_layout;
 
@@ -89,6 +89,8 @@ pub(crate) struct TabSort {
     pub list: Rect,
     pub items: Vec<TabSortItem>,
     pub order: Vec<String>,
+    /// The space between neighbouring tabs, as measured.
+    pub gap: f64,
     pub grab: f64,
     pub started: bool,
     /// Each tab's offset from its resting place, as last drawn.
@@ -179,9 +181,14 @@ impl Engine {
                 })
                 .collect();
             let grabbed = items.iter().find(|i| i.id == *tab)?;
+            let gap = items
+                .windows(2)
+                .next()
+                .map_or(0., |pair| pair[1].x - pair[0].x - pair[0].width);
             Some(TabSort {
                 row: state.tabbar?,
                 list: state.tablist.or(state.tabbar)?,
+                gap,
                 grab: p.x - grabbed.x,
                 order: items.iter().map(|i| i.id.clone()).collect(),
                 items,
@@ -316,7 +323,7 @@ impl Engine {
             if *id != dragged.id && p.x > x + item.width / 2. {
                 index += 1;
             }
-            x += item.width;
+            x += item.width + sort.gap;
         }
         sort.order.retain(|id| *id != dragged.id);
         sort.order
@@ -327,7 +334,7 @@ impl Engine {
             let item = sort.items.iter().find(|i| i.id == *id).expect("sorted");
             let at = if *id == dragged.id { left } else { x };
             sort.offsets.insert(id.clone(), at - item.x);
-            x += item.width;
+            x += item.width + sort.gap;
         }
         sort.dragged_left = left;
     }
@@ -567,6 +574,34 @@ impl Engine {
         )
     }
 
+    /// A commit from outside the press (a view opened or closed while a tab
+    /// or panel is held) ends it, so a later cancel or drop never puts back
+    /// the stale document the press started from. `next` was made from the
+    /// document as the drag left it, so a torn-out tab goes back into its
+    /// panel; its view is returned to count as open before the commit.
+    pub(crate) fn abandon_drag(&mut self, next: LayoutDocument) -> (LayoutDocument, Vec<String>) {
+        let Some(d) = self.drag.take() else {
+            return (next, Vec::new());
+        };
+        if !d.active || d.in_doc {
+            return (next, Vec::new());
+        }
+        let view = d.lifted.selected.clone();
+        let Some(kind) = next.views.get(&view).map(|r| r.kind.clone()) else {
+            return (next, vec![view]);
+        };
+        let host = d.excluded_host.clone().unwrap_or_default();
+        let next = if locate_panel(&next, &host).is_some() {
+            let index = locate_panel(&d.origin, &host)
+                .and_then(|l| l.panel().views.iter().position(|v| *v == view));
+            insert_panel(&next, &d.lifted, &DockTarget::Into { into: host, index })
+        } else {
+            let placement = self.default_placement(&kind);
+            self.place_panel(&next, &d.lifted, &placement)
+        };
+        (next, vec![view])
+    }
+
     /// A press that never became a drag: a click, or a finished tab sort.
     fn end_pending(&mut self, d: DragSession, commit: bool) {
         let Some(sort) = d.tab_sort else { return };
@@ -594,7 +629,7 @@ impl Engine {
                         },
                     );
                 }
-                x += item.width;
+                x += item.width + sort.gap;
             }
         }
         self.drag_commit_sorted(next);

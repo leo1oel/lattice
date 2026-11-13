@@ -11,7 +11,7 @@ use crate::model::{
     Axis, LayoutNode, PanelNode, Rect, TabbarMode, find_stage, panel_of_view, panels_of,
 };
 use crate::runtime::drag::{DROP_SLOT, SORT_SETTLE_MS, SOURCE_SLOT};
-use crate::runtime::header::{HeaderMeasure, HeaderTools, plan_header};
+use crate::runtime::header::{HeaderItem, HeaderMeasure, HeaderTools, plan_header};
 use crate::runtime::motion::{APPEAR_MS, cubic_bezier};
 
 use super::dividers::ResizeKind;
@@ -538,12 +538,18 @@ impl Engine {
                 })
                 .collect(),
         };
-        let has = self
+        let same_tabs = self
             .panels
             .get(&panel.id)
-            .is_some_and(|s| s.header.is_some());
+            .and_then(|s| s.header.as_ref())
+            .is_some_and(|h| {
+                h.items
+                    .iter()
+                    .map(HeaderItem::view_id)
+                    .eq(panel.views.iter())
+            });
         if !unmeasurable
-            && !(held && has)
+            && !(held && same_tabs)
             && let Some(measured) = measure(&input)
             && let Some(state) = self.panels.get_mut(&panel.id)
         {

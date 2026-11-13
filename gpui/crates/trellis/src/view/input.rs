@@ -132,7 +132,9 @@ impl TrellisWorkspace {
             Some(Held::Press { view, .. }) => {
                 let click = self.engine.press_is_click();
                 self.update_engine(cx, |e| {
-                    e.drag_move(p);
+                    if commit {
+                        e.drag_move(p);
+                    }
                     e.drag_end(commit)
                 });
                 // A press that never became a drag is a click on its tab.
@@ -145,14 +147,14 @@ impl TrellisWorkspace {
                 }
             }
             Some(Held::Divider) => self.update_engine(cx, |e| e.divider_up(!commit)),
-            Some(Held::FloatResize) => self.update_engine(cx, |e| e.float_resize_up()),
+            Some(Held::FloatResize) => self.update_engine(cx, |e| e.float_resize_up(!commit)),
             Some(Held::Navigation) => self.update_engine(cx, |e| e.nav_release(p, commit)),
             None => {}
         }
     }
 
     /// The workspace's own listeners: the held pointer anywhere in the
-    /// window, Escape while dragging, wheels and pinches over its chrome.
+    /// window, Escape while held, wheels and pinches over its chrome.
     pub(crate) fn wire_root(
         &mut self,
         root: Stateful<gpui::Div>,
@@ -160,47 +162,42 @@ impl TrellisWorkspace {
         _: &mut Window,
         _: &mut Context<Self>,
     ) -> Stateful<gpui::Div> {
-        let held = self.held.is_some();
         let listeners = {
             let entity = entity.clone();
             canvas(
                 |_, _, _| {},
                 move |_, _, window, _| {
-                    if held {
-                        let move_entity = entity.clone();
-                        window.on_mouse_event(move |event: &MouseMoveEvent, phase, _, cx| {
-                            if phase == DispatchPhase::Capture {
-                                move_entity
-                                    .update(cx, |this, cx| this.pointer_moved(event, cx))
-                                    .ok();
-                            }
-                        });
-                        let up_entity = entity.clone();
-                        window.on_mouse_event(move |event: &MouseUpEvent, phase, _, cx| {
-                            if phase == DispatchPhase::Capture {
-                                up_entity
-                                    .update(cx, |this, cx| {
-                                        this.pointer_released(event.position, true, cx)
-                                    })
-                                    .ok();
-                            }
-                        });
-                        let key_entity = entity.clone();
-                        window.on_key_event(move |event: &KeyDownEvent, phase, _, cx| {
-                            if phase == DispatchPhase::Capture && event.keystroke.key == "escape" {
-                                key_entity
-                                    .update(cx, |this, cx| {
+                    let move_entity = entity.clone();
+                    window.on_mouse_event(move |event: &MouseMoveEvent, phase, _, cx| {
+                        if phase == DispatchPhase::Capture {
+                            move_entity
+                                .update(cx, |this, cx| this.pointer_moved(event, cx))
+                                .ok();
+                        }
+                    });
+                    let up_entity = entity.clone();
+                    window.on_mouse_event(move |event: &MouseUpEvent, phase, _, cx| {
+                        if phase == DispatchPhase::Capture {
+                            up_entity
+                                .update(cx, |this, cx| {
+                                    this.pointer_released(event.position, true, cx)
+                                })
+                                .ok();
+                        }
+                    });
+                    let key_entity = entity.clone();
+                    window.on_key_event(move |event: &KeyDownEvent, phase, _, cx| {
+                        if phase == DispatchPhase::Capture && event.keystroke.key == "escape" {
+                            key_entity
+                                .update(cx, |this, cx| {
+                                    if this.held.is_some() {
                                         cx.stop_propagation();
-                                        let position = gpui::Point::default();
-                                        if this.engine.dragging() || this.engine.nav_pointer_held()
-                                        {
-                                            this.pointer_released(position, false, cx);
-                                        }
-                                    })
-                                    .ok();
-                            }
-                        });
-                    }
+                                        this.pointer_released(gpui::Point::default(), false, cx);
+                                    }
+                                })
+                                .ok();
+                        }
+                    });
                     let pinch_entity = entity.clone();
                     window.on_mouse_event(move |event: &PinchEvent, phase, window, cx| {
                         if phase != DispatchPhase::Bubble {
@@ -232,6 +229,7 @@ impl TrellisWorkspace {
                     .update(cx, |this, cx| {
                         let p = this.local(event.position);
                         if this.held.is_none()
+                            && this.over_content(p).is_none()
                             && this
                                 .engine
                                 .nav_press(p, event.modifiers.shift, event.modifiers.alt)

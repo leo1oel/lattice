@@ -112,9 +112,13 @@ struct Rig {
 
 impl Rig {
     fn new() -> Rig {
+        Rig::with(lattice_doc())
+    }
+
+    fn with(doc: LayoutDocument) -> Rig {
         let clock = Rc::new(Cell::new(1000.));
         let time = clock.clone();
-        let engine = Engine::new(options(), lattice_doc(), W, H).with_clock(move || time.get());
+        let engine = Engine::new(options(), doc, W, H).with_clock(move || time.get());
         let mut rig = Rig { engine, clock };
         rig.settle();
         rig
@@ -277,6 +281,52 @@ fn escape_cancels_a_drag_and_everything_returns() {
     assert_eq!(rig.engine.doc(), &before);
 }
 
+/// The documents panel with a third tab.
+fn three_documents() -> LayoutDocument {
+    let mut doc = lattice_doc();
+    doc.views.insert(
+        "c".into(),
+        ViewRecord {
+            kind: "file".into(),
+            ..Default::default()
+        },
+    );
+    let LayoutNode::Split(row) = doc.root.as_mut().unwrap() else {
+        unreachable!()
+    };
+    row.children[1] = panel("docs", &["a", "b", "c"]);
+    doc
+}
+
+#[test]
+fn a_sorted_tab_moves_only_the_tabs_it_passes() {
+    // The rig's tabs are 100px wide and 2px apart, as the strip draws them.
+    let mut rig = Rig::with(three_documents());
+    let from = rig.tab("docs", 0);
+    let offsets = |rig: &Rig| {
+        let (offsets, dragged) = rig.engine.tab_sort_offsets("docs").expect("sorting");
+        assert_eq!(dragged, "a");
+        let at = |id: &str| offsets.get(id).copied().unwrap_or(0.);
+        (at("a"), at("b"), at("c"))
+    };
+    rig.engine.drag_begin("docs", Some("a"), from);
+    // Short of b's centre (102px on): a follows the pointer, b and c stay.
+    rig.engine.drag_move(Point::new(from.x + 40., from.y));
+    assert_eq!(offsets(&rig), (40., 0., 0.));
+    // Past it: b takes a's slot, a slides 102px on, c stays.
+    rig.engine.drag_move(Point::new(from.x + 110., from.y));
+    assert_eq!(offsets(&rig), (110., -102., 0.));
+    rig.engine.drag_end(true);
+    rig.settle();
+    assert_eq!(
+        locate_panel(rig.engine.doc(), "docs")
+            .unwrap()
+            .panel()
+            .views,
+        ["b", "a", "c"]
+    );
+}
+
 #[test]
 fn sorting_a_tab_inside_its_strip_reorders_without_lifting_it() {
     let mut rig = Rig::new();
@@ -426,6 +476,8 @@ fn the_menu_lists_trellis_items_in_order() {
 #[test]
 fn maximize_zooms_the_camera_and_restores_the_layout() {
     let mut rig = Rig::new();
+    let ids = ["panel-project", "panel-papers", "docs", "panel-pdf"];
+    let before: Vec<Rect> = ids.iter().map(|id| rig.rect(id)).collect();
     rig.engine.focus("docs");
     let press = KeyPress {
         key: "Enter".into(),
@@ -443,26 +495,130 @@ fn maximize_zooms_the_camera_and_restores_the_layout() {
     rig.engine.key_down(&press, false, true);
     rig.advance(1200.);
     assert_eq!(rig.engine.framed(), None);
-    assert_eq!(rig.rect("docs").w, docs.w.min(rig.rect("docs").w));
-    assert!(rig.rect("docs").w < W / 2.);
+    let after: Vec<Rect> = ids.iter().map(|id| rig.rect(id)).collect();
+    assert_eq!(after, before, "every panel back where it was");
 }
 
 #[test]
 fn a_divider_stops_at_the_minimums_then_springs_back_from_its_stretch() {
     let mut rig = Rig::new();
-    rig.engine.divider_down("row", 0);
+    let column = rig.rect("panel-project");
     let docs = rig.rect("docs");
+    rig.engine.divider_down("row", 0);
     rig.engine.divider_move(Point::new(20., 300.));
     rig.frame();
-    // Stretched past the limit while held.
-    let column = rig.rect("panel-project");
+    // Stretched past the limit while held: narrower than the minimum.
+    assert!(rig.rect("panel-project").w < 220. - 1.);
     rig.engine.divider_up(false);
     rig.advance(800.);
+    assert!(!rig.engine.dividers.springing());
+    // Project and the Agent settle at the Agent's 220px minimum, and the
+    // documents take exactly the room the column gave up.
     let settled = rig.rect("panel-project");
-    assert!(settled.w >= column.w, "springs back out to the limit");
-    // Project and the Agent keep the Agent's 220px minimum.
-    assert!(settled.w >= 220. - 0.5, "{}", settled.w);
-    assert!(rig.rect("docs").w > docs.w);
+    assert!((settled.w - 220.).abs() < 0.5, "{}", settled.w);
+    let grown = rig.rect("docs");
+    assert!((grown.x - (6. + 220. + 6.)).abs() < 0.5, "{}", grown.x);
+    assert!(
+        ((grown.x + grown.w) - (docs.x + docs.w)).abs() < 0.5,
+        "the documents' right edge stays"
+    );
+    assert!(column.w > 220.);
+    let weights: f64 = rig.root().weights.iter().sum();
+    assert!((weights - 1.).abs() < 1e-9, "{weights}");
+}
+
+#[test]
+fn closing_a_panel_while_its_divider_springs_back_lays_out_the_rest() {
+    let mut rig = Rig::new();
+    // The divider between the documents and the PDF, pulled far past the
+    // PDF's minimum and let go.
+    rig.engine.divider_down("row", 1);
+    rig.engine.divider_move(Point::new(W - 10., 300.));
+    rig.frame();
+    rig.engine.divider_up(false);
+    assert!(rig.engine.dividers.springing());
+    rig.advance(48.);
+    assert!(rig.engine.close("pdf"));
+    rig.advance(800.);
+    assert_eq!(ids(rig.root()), ["column", "docs"]);
+    let docs = rig.rect("docs");
+    assert!(((docs.x + docs.w) - (W - 6.)).abs() < 0.5, "{docs:?}");
+}
+
+#[test]
+fn closing_a_panel_while_a_divider_is_held_lets_go_of_the_divider() {
+    let mut rig = Rig::new();
+    rig.engine.divider_down("row", 1);
+    rig.engine.divider_move(Point::new(W - 10., 300.));
+    rig.engine.drain_events();
+    assert!(rig.engine.close("pdf"));
+    assert_eq!(rig.engine.resizing(), None);
+    rig.engine.divider_move(Point::new(W - 300., 300.));
+    rig.engine.divider_up(false);
+    rig.settle();
+    assert_eq!(ids(rig.root()), ["column", "docs"]);
+    let closes = rig
+        .engine
+        .drain_events()
+        .into_iter()
+        .filter(|e| matches!(e, Event::Close(_) | Event::Open(_)))
+        .count();
+    assert_eq!(closes, 1, "the PDF closes once and nothing reopens");
+}
+
+#[test]
+fn a_view_closed_while_a_tab_is_torn_out_stays_closed_and_the_tab_goes_home() {
+    let mut rig = Rig::new();
+    let from = rig.tab("docs", 1);
+    let pdf = rig.rect("panel-pdf");
+    rig.engine.drag_begin("docs", Some("b"), from);
+    rig.engine.drag_move(Point::new(pdf.x + 40., pdf.y + 200.));
+    rig.advance(300.);
+    assert!(rig.engine.dragging());
+    rig.engine.drain_events();
+    assert!(rig.engine.close("pdf"));
+    assert!(!rig.engine.dragging(), "the press is over");
+    // The release that follows changes nothing.
+    rig.engine.drag_end(true);
+    rig.settle();
+    let events: Vec<Event> = rig
+        .engine
+        .drain_events()
+        .into_iter()
+        .filter(|e| matches!(e, Event::Close(_) | Event::Open(_)))
+        .collect();
+    assert_eq!(events, [Event::Close("pdf".into())]);
+    assert_eq!(
+        locate_panel(rig.engine.doc(), "docs")
+            .unwrap()
+            .panel()
+            .views,
+        ["a", "b"]
+    );
+    assert!(panel_of_view(rig.engine.doc(), "pdf").is_none());
+}
+
+#[test]
+fn the_torn_out_tab_closed_mid_drag_is_reported_closed() {
+    let mut rig = Rig::new();
+    let from = rig.tab("docs", 1);
+    let pdf = rig.rect("panel-pdf");
+    rig.engine.drag_begin("docs", Some("b"), from);
+    rig.engine.drag_move(Point::new(pdf.x + 40., pdf.y + 200.));
+    rig.advance(300.);
+    rig.engine.drain_events();
+    assert!(rig.engine.close("b"));
+    rig.engine.drag_end(true);
+    rig.settle();
+    let events: Vec<Event> = rig
+        .engine
+        .drain_events()
+        .into_iter()
+        .filter(|e| matches!(e, Event::Close(_) | Event::Open(_)))
+        .collect();
+    assert_eq!(events, [Event::Close("b".into())]);
+    assert!(!rig.engine.doc().views.contains_key("b"));
+    assert!(panel_of_view(rig.engine.doc(), "b").is_none());
 }
 
 #[test]
@@ -477,8 +633,14 @@ fn f6_moves_the_keyboard_through_the_panels() {
 #[test]
 fn the_window_minimum_follows_the_layouts_minimums() {
     let rig = Rig::new();
-    // Three columns of their widest minimums and the gaps between them.
-    assert!(rig.engine.min_width() > 220. + 180. + 220.);
+    // Three columns at their minimums with 6px gutters and edges: the
+    // Agent's 220px, the two-tab documents' unmeasured header (41 + 4 +
+    // 80 per tab + 2 between, 207px, over the files' 180px) and the PDF's
+    // 220px.
+    assert_eq!(
+        rig.engine.min_width(),
+        6. + 220. + 6. + 207. + 6. + 220. + 6.
+    );
 }
 
 #[test]
