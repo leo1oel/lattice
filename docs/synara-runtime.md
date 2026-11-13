@@ -86,6 +86,9 @@ A source-editor selection also carries the optional `editor.selectionLines` (`{ 
 The visual Markdown editor and older Lattice builds omit it, and the embed then names the file alone.
 The Agent panel's empty thread names the selection with it ("Selection · main.tex lines 23–25"), and its starters fill the composer with editing prompts that act on that selection.
 As the panel shortens, the empty thread compacts its starters (single-line cards, then pills, then one row of icons) so they stay clear of the composer and of the selection's context bar above it; the Agent panel's minimum height (`MIN_SIZE.agent` in `src/trellis/trellis-workspace.tsx`) leaves room for that last row.
+An open Paper whose bundle keeps its PDF (a Zotero attachment's `original.pdf`) also carries `paper.pdfPath`, and its `list_papers` entry carries the same path as `pdfPath`.
+The embed passes both through unchanged.
+Text converted from a PDF tells its reader to check the PDF, so without the path an agent asked for a table or formula searched the project for a PDF and said it could not open one.
 
 Writing comments are included in the optional `editorComments` field: up to ten unresolved comments for the current document, with quoted source, authors, replies, anchor validity, and explicit omission counts.
 Before dispatching an embedded message, Synara requests a correlated host-context refresh; Lattice refreshes both Overleaf threads and project-wide anchors and reports unavailable/cached data honestly on failure.

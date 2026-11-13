@@ -7,7 +7,7 @@ import { isMissingPaperToolsError } from "../build/tex-setup";
 import { appendBibEntry, formatBibEntry, type BibEntryDraft } from "../papers/bib-entry";
 import type { ResolvedCitationDraft } from "../papers/bib-entry-dialog";
 import { PAPER_IMPORT_PROGRESS_EVENT } from "../papers/paper-import-progress";
-import { isTitleQuery, paperPdfUrl } from "../papers/paper-source";
+import { isTitleQuery, keepsNoPdf } from "../papers/paper-source";
 import { addQueueRunning, cancelAddQueue, runAddQueue, type PaperAddOutcome, type PaperAddRequest } from "../papers/add-papers-queue";
 import type { ZoteroAnnotation } from "../papers/zotero";
 import { refreshCitedEntry } from "../papers/refresh-cited-entry";
@@ -315,8 +315,9 @@ export function useReferenceImport({
       // citation stands either way, so a PDF that cannot be read is the
       // row's note, not a failure.
       const existing = item.existing && item.pdf ? await paperFor() : undefined;
+      // The Zotero browser lets a held paper be ticked by the same rule.
       const needsPdf = item.pdf && (item.existing
-        ? existing && !existing.hasLocalPdf && !paperPdfUrl(existing)
+        ? existing && keepsNoPdf(existing)
         : !imported.alreadyImported && !imported.paperPath);
       if (needsPdf) {
         try {

@@ -7,7 +7,7 @@
 //! not searched. When the index cannot be used, a linear scan of the same
 //! files answers instead.
 
-use super::library::{library_entries, LibraryPaper};
+use super::agent_library::{library_entries, LibraryPaper};
 use super::search_index::{self, Limits, LineHit, PaperFile, PaperText, PaperTextMatch};
 use crate::models::ProjectSearchResult;
 use crate::project;
