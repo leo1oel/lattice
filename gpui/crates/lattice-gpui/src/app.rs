@@ -251,28 +251,43 @@ fn load_chosen_keymap(keymap: lattice_settings::EditorKeymap, cx: &mut App) {
     }
 }
 
-/// Zed's Emacs keymap, each section's context put under [`EMACS_CONTEXT`].
+/// Zed's Emacs keymap (from Zed's own embedded keymaps, as the default and
+/// Vim keymaps are loaded), each binding put under [`EMACS_CONTEXT`]: its
+/// context must hold below the shell's, which carries that context only
+/// while Emacs is the chosen keymap.
 fn bind_emacs_keymap(cx: &mut App) {
-    let text = match gpui::AssetSource::load(&crate::assets::Assets, EMACS_KEYMAP_PATH) {
-        Ok(Some(bytes)) => String::from_utf8_lossy(&bytes).into_owned(),
-        _ => {
-            log::warn!("no {EMACS_KEYMAP_PATH} among the assets");
+    use gpui::{KeyBinding, KeyBindingContextPredicate as Predicate};
+    let bindings = match KeymapFile::load_asset_allow_partial_failure(EMACS_KEYMAP_PATH, cx) {
+        Ok(bindings) => bindings,
+        Err(error) => {
+            log::warn!("{error:#}");
             return;
         }
     };
-    let context = regex::Regex::new(r#""context":\s*"([^"]*)""#).expect("a valid pattern");
-    let scoped = context.replace_all(&text, |captures: &regex::Captures| {
-        format!(r#""context": "{EMACS_CONTEXT} > ({})""#, &captures[1])
-    });
-    match KeymapFile::load(&scoped, cx) {
-        settings::KeymapFileLoadResult::Success { key_bindings }
-        | settings::KeymapFileLoadResult::SomeFailedToLoad { key_bindings, .. } => {
-            cx.bind_keys(key_bindings)
-        }
-        settings::KeymapFileLoadResult::JsonParseFailure { error } => {
-            log::warn!("the Emacs keymap did not parse: {error:#}")
-        }
-    }
+    let os = cx.platform_info().os;
+    let scope = Predicate::Identifier(EMACS_CONTEXT.into());
+    let scoped: Vec<KeyBinding> = bindings
+        .iter()
+        .filter_map(|binding| {
+            let keys: Vec<String> = binding.keystrokes().iter().map(|k| k.unparse(os)).collect();
+            let predicate = match binding.predicate() {
+                Some(own) => {
+                    Predicate::Descendant(Box::new(scope.clone()), Box::new((*own).clone()))
+                }
+                None => scope.clone(),
+            };
+            KeyBinding::load(
+                &keys.join(" "),
+                binding.action().boxed_clone(),
+                Some(std::rc::Rc::new(predicate)),
+                false,
+                binding.action_input(),
+                cx,
+            )
+            .ok()
+        })
+        .collect();
+    cx.bind_keys(scoped);
 }
 
 pub fn vim_mode_enabled(cx: &App) -> bool {

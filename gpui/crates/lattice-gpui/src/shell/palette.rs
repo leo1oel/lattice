@@ -764,6 +764,10 @@ impl Shell {
             },
         )
         .detach();
+        let dialog = view.clone();
+        window.on_next_frame(move |window, cx| {
+            dialog.update(cx, |dialog, cx| dialog.focus_search(window, cx))
+        });
         self.settings = Some(view);
         cx.notify();
     }
