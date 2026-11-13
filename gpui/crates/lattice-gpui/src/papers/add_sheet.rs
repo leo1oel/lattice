@@ -40,6 +40,8 @@ const SETTLE: Duration = Duration::from_millis(450);
 pub enum AddPapersEvent {
     /// Enter a reference by hand, in its own sheet.
     EnterManually,
+    /// Link a reference manager's `.bib`, in its own sheet.
+    LinkLibrary,
     Dismiss,
 }
 

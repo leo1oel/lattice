@@ -37,6 +37,8 @@ pub(crate) struct Documents {
     /// Add papers' Enter manually: a reference for the project's
     /// bibliography, typed or looked up.
     pub(super) add_reference: Option<Entity<crate::papers::bib_editor::add::AddReference>>,
+    /// Linked library, from Add papers.
+    pub(super) linked: Option<Entity<crate::papers::linked::LinkedLibrary>>,
     /// Check references, opened from the Papers strip.
     pub(super) audit: Option<Entity<crate::papers::audit::Audit>>,
     /// Saved papers open in their reader, one tab each.
@@ -228,6 +230,7 @@ impl Shell {
         self.documents.literature = None;
         self.documents.audit = None;
         self.documents.add_reference = None;
+        self.documents.linked = None;
     }
 
     /// Close whichever search surface is open, and give the keyboard back to
@@ -248,6 +251,7 @@ impl Shell {
             || self.documents.literature.is_some()
             || self.documents.audit.is_some()
             || self.documents.add_reference.is_some()
+            || self.documents.linked.is_some()
     }
 
     /// Quick open, while it is up, for a scenario.
@@ -374,6 +378,7 @@ impl Shell {
                     .clone()
                     .map(|view| view.into_any_element()),
             )
+            .chain(documents.linked.clone().map(|view| view.into_any_element()))
             .chain(
                 documents
                     .add_papers
