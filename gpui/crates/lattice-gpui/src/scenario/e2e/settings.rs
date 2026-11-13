@@ -145,13 +145,8 @@ impl Run {
             json!({ "vim": vim, "emacs_vim_off": !emacs.0, "emacs_bound": emacs.1 }),
         );
 
-        // Manual builds: a save no longer builds on its own.
-        cx.update(|cx| {
-            settings::update(cx, |settings| {
-                settings.auto_build_mode = AutoBuildMode::Manual
-            })
-        });
-        let manual = cx.update(|cx| !settings::builds_automatically(cx));
+        self.manual_builds(cx, steps, before.auto_build_mode)
+            .await?;
 
         // The interface in Simplified Chinese, then back.
         cx.update(|cx| {
@@ -182,13 +177,12 @@ impl Run {
             cx.update(|_| lattice_i18n::locale() == Locale::En && t!("Appearance") == "Appearance");
         steps.check(
             "the interface switches to Simplified Chinese (commands, Settings) and back",
-            manual
-                && chinese["locale"] == "zh-CN"
+            chinese["locale"] == "zh-CN"
                 && chinese["appearance"] == "外观"
                 && !chinese["build"].is_null()
                 && !chinese["settings"].is_null()
                 && english,
-            json!({ "manual_builds": manual, "chinese": chinese, "english_again": english }),
+            json!({ "chinese": chinese, "english_again": english }),
         );
 
         // An edit made to the file outside the app applies.
@@ -225,6 +219,63 @@ impl Run {
         // Back to how the run started.
         cx.update(|cx| settings::update(cx, |settings| *settings = before));
         let _ = std::fs::remove_file(&file);
+        Ok(())
+    }
+
+    /// "Manual only": an edit made outside the app reloads the open file,
+    /// as it does with automatic builds, and no build follows it.
+    async fn manual_builds(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+        restore: AutoBuildMode,
+    ) -> Result<()> {
+        const MARK: &str = "% saved with manual builds\n";
+        let editor = cx.update(|cx| self.shell.read(cx).active_editor());
+        let Some(editor) = editor else {
+            steps.check(
+                "Manual only: an edit to the open file does not build",
+                false,
+                json!({ "error": "no editor is open" }),
+            );
+            return Ok(());
+        };
+        cx.update(|cx| {
+            settings::update(cx, |settings| {
+                settings.auto_build_mode = AutoBuildMode::Manual
+            })
+        });
+        self.wait_for(cx, Duration::from_secs(120), |shell, cx| {
+            !shell.read(cx).building()
+        })
+        .await;
+        let path = cx.update(|cx| editor.read(cx).path().to_path_buf());
+        let original = std::fs::read_to_string(&path)?;
+        let builds = self.builds(cx);
+        std::fs::write(&path, format!("{original}{MARK}"))?;
+        let reloaded = self
+            .wait_for(cx, Duration::from_secs(8), |_, cx| {
+                editor.read(cx).editor().read(cx).text(cx).contains(MARK)
+            })
+            .await;
+        // An automatic build would have started as the reload landed.
+        self.pause(cx, Duration::from_secs(2)).await;
+        let built = cx.update(|cx| {
+            let shell = self.shell.read(cx);
+            shell.building() || shell.build_panel().read(cx).builds() > builds
+        });
+        std::fs::write(&path, &original)?;
+        let restored = self
+            .wait_for(cx, Duration::from_secs(8), |_, cx| {
+                !editor.read(cx).editor().read(cx).text(cx).contains(MARK)
+            })
+            .await;
+        steps.check(
+            "Manual only: an edit to the open file reloads it and does not build",
+            reloaded && !built && restored,
+            json!({ "reloaded": reloaded, "built": built, "restored": restored }),
+        );
+        cx.update(|cx| settings::update(cx, |settings| settings.auto_build_mode = restore));
         Ok(())
     }
 }
