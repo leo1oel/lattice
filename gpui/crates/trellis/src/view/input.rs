@@ -31,10 +31,10 @@ impl TrellisWorkspace {
         cx: &mut Context<Self>,
     ) {
         let p = self.local(event.position);
-        if event.button == MouseButton::Left
+        if frame_only
+            && event.button == MouseButton::Left
             && (event.modifiers.shift || event.modifiers.alt)
             && self.held.is_none()
-            && self.over_content(p).is_none()
             && self
                 .engine
                 .nav_press(p, event.modifiers.shift, event.modifiers.alt)
