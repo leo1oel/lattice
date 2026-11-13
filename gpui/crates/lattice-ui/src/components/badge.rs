@@ -24,6 +24,7 @@ pub struct Badge {
     label: SharedString,
     tone: BadgeTone,
     compact: bool,
+    elevated: bool,
 }
 
 impl Badge {
@@ -32,6 +33,7 @@ impl Badge {
             label: label.into(),
             tone: BadgeTone::Neutral,
             compact: false,
+            elevated: false,
         }
     }
 
@@ -44,12 +46,21 @@ impl Badge {
         self.compact = true;
         self
     }
+
+    /// On the elevated surface with the primary ink, 6px either side: a
+    /// label laid over a picture, which the neutral wash would let show
+    /// through (`.welcome-desk-venue`).
+    pub fn elevated(mut self) -> Self {
+        self.elevated = true;
+        self
+    }
 }
 
 impl RenderOnce for Badge {
     fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
         let palette = cx.palette();
         let (bg, ink) = match self.tone {
+            _ if self.elevated => (palette.raised, palette.text),
             BadgeTone::Neutral => (palette.pressed, palette.text_secondary),
             BadgeTone::Success => (palette.success_soft, palette.success),
             BadgeTone::Warning => (palette.warning_soft, palette.warning),
@@ -65,7 +76,11 @@ impl RenderOnce for Badge {
             .flex_none()
             .items_center()
             .h(height)
-            .px(px(if self.compact { 4. } else { 6. }))
+            .px(px(if self.compact && !self.elevated {
+                4.
+            } else {
+                6.
+            }))
             .rounded(px(6.))
             .bg(bg)
             .whitespace_nowrap()

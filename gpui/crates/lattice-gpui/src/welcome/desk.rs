@@ -203,18 +203,29 @@ pub fn desk(
                         .when_some(page.clone(), |sheet, page| {
                             sheet
                                 .items_start()
+                                // The card's width in points, so the image takes the
+                                // page's height at that width and its top shows
+                                // (`object-fit: cover; object-position: top`). A
+                                // relative width leaves the height at the bitmap's
+                                // pixels, and the contained page is then centred in
+                                // that box, below the card's bottom.
                                 .child(
                                     gpui::img(gpui::ImageSource::Render(page.image.clone()))
-                                        .w_full(),
+                                        .flex_none()
+                                        .w(card_width),
                                 )
                                 .children(page.venue.clone().map(|venue| {
                                     div()
                                         .absolute()
                                         .left(px(8.))
                                         .bottom(px(8.))
-                                        .rounded(px(4.))
+                                        .rounded(px(6.))
                                         .shadow(Elevation::Raised.shadows(&palette))
-                                        .child(lattice_ui::components::Badge::new(venue).compact())
+                                        .child(
+                                            lattice_ui::components::Badge::new(venue)
+                                                .compact()
+                                                .elevated(),
+                                        )
                                 }))
                         })
                         .when(page.is_none() && pages.is_some(), |sheet| {
