@@ -202,8 +202,10 @@ pub struct PapersPanel {
     pub(crate) group: Group,
     /// The paper selected in a wide panel, shown in the inspector.
     pub(crate) selected: Option<String>,
-    /// The paper whose reading file is the open document.
+    /// The paper whose reading file is the open document, and that
+    /// document's path, read against each new listing.
     pub(crate) active: Option<String>,
+    active_path: Option<String>,
     pub(crate) fetching: Fetching,
     pub(crate) importing: Option<Importing>,
     pub(crate) recent: Option<RecentImport>,
@@ -257,6 +259,7 @@ impl PapersPanel {
             group: Group::default(),
             selected: None,
             active: None,
+            active_path: None,
             fetching: Fetching::default(),
             importing: None,
             recent: None,
@@ -299,6 +302,7 @@ impl PapersPanel {
         self.text_search = TextSearch::Idle;
         self.selected = None;
         self.active = None;
+        self.active_path = None;
         self.recent = None;
         self.just_added.clear();
         self.expanded_hits.clear();
@@ -324,6 +328,12 @@ impl PapersPanel {
     /// The paper whose reading file is open in the editor in front, whose
     /// row is drawn as the open one.
     pub fn set_active_path(&mut self, path: Option<&str>, cx: &mut Context<Self>) {
+        self.active_path = path.map(str::to_string);
+        self.resolve_active(cx);
+    }
+
+    fn resolve_active(&mut self, cx: &mut Context<Self>) {
+        let path = self.active_path.as_deref();
         // An id may hold a slash itself (`hep-th/9901001`), so the paper's
         // own folder is matched whole.
         let active = path.and_then(|path| {
@@ -397,6 +407,7 @@ impl PapersPanel {
                     Err(error) => this.load = Load::Failed(error),
                 }
                 this.prune_selection();
+                this.resolve_active(cx);
                 cx.notify();
             })
             .ok();
