@@ -256,6 +256,12 @@ impl Shell {
             .detach();
         }
 
+        cx.observe_window_activation(window, |_, window, cx| {
+            if window.is_window_active() {
+                menus::refresh(cx);
+            }
+        })
+        .detach();
         cx.subscribe_in(&file_tree, window, Self::on_tree_event)
             .detach();
         cx.subscribe_in(

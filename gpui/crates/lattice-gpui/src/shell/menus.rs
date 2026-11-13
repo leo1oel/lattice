@@ -32,9 +32,10 @@ pub fn install(cx: &mut App) {
     cx.set_menus(menus(cx));
 }
 
-/// Lay the menus out again: File ▸ Open Recent follows the recent projects.
+/// Lay the menus out again: File ▸ Open Recent follows the recent projects
+/// and the window in front.
 pub fn refresh(cx: &mut App) {
-    cx.set_menus(menus(cx));
+    cx.defer(|cx| cx.set_menus(menus(cx)));
 }
 
 /// File ▸ Open Recent: the recent projects, newest first, at most five, the
