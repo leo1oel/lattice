@@ -130,8 +130,22 @@ export function parsePastedReferences(text: string): PastedReference[] {
     if (kind && !value.startsWith("%")) found.push({ at: offset, reference: { id: `${kind}:${value}`, kind, input: value, label: value } });
     offset += line.length + 1;
   }
+  // The same work pasted twice is read once, whatever shape each copy took
+  // (arXiv:1706.03762, its abs or PDF link, another version, its arXiv DOI):
+  // a line counts as its arXiv id or DOI, an entry as its text.
   const seen = new Set<string>();
-  return found.sort((a, b) => a.at - b.at).map(({ reference }) => reference).filter(({ id }) => !seen.has(id) && Boolean(seen.add(id)));
+  const workOf = (reference: PastedReference) => {
+    if (reference.kind === "bibtex") return [reference.id];
+    const { arxivId, doi } = identityOfInput(reference.input);
+    const ids = [arxivId && `arxiv:${baseArxivId(arxivId).toLowerCase()}`, doi && `doi:${doi}`].filter((id): id is string => Boolean(id));
+    return ids.length ? ids : [reference.id];
+  };
+  return found.sort((a, b) => a.at - b.at).map(({ reference }) => reference).filter((reference) => {
+    const ids = workOf(reference);
+    if (ids.some((id) => seen.has(id))) return false;
+    ids.forEach((id) => seen.add(id));
+    return true;
+  });
 }
 
 /** The resolver's record, in the fields a card needs. */

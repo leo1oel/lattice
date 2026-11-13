@@ -30,43 +30,54 @@ pub async fn search_literature(
         .await
 }
 
+/// Import one reference. Several can run at once (the Add papers sheet adds
+/// a batch a few at a time), each under its own `request_id`, which
+/// `cancel_reference_import` stops. `full_text` false adds the citation
+/// alone: only its metadata is resolved, and nothing is downloaded.
 #[tauri::command]
 pub async fn import_reference(
     app: AppHandle, state: State<'_, AppState>, window: Window, input: String, request_id: String,
+    full_text: Option<bool>,
 ) -> Result<ImportResult, String> {
     let root = current_root(&state, &window)?;
     let window_label = window.label().to_string();
+    let key = (window_label.clone(), request_id);
     let cancel = Arc::new(AtomicBool::new(false));
     state
         .paper_imports
         .lock()
         .map_err(|_| "Paper import state is unavailable.".to_string())?
-        .insert(window_label.clone(), (request_id.clone(), Arc::clone(&cancel)));
+        .insert(key.clone(), Arc::clone(&cancel));
+    let full_text =
+        if full_text.unwrap_or(true) { papers::FullText::Save } else { papers::FullText::Skip };
     let result = run_blocking("The paper import task", move || {
         let progress = |stage: &str| emit_paper_progress(&app, &window_label, stage);
-        papers::import_reference(&root, &input, papers::HistoryMode::Record, &progress, &cancel)
+        papers::import_reference(
+            &root,
+            &input,
+            papers::HistoryMode::Record,
+            full_text,
+            &progress,
+            &cancel,
+        )
     })
     .await;
     if let Ok(mut imports) = state.paper_imports.lock() {
-        if imports.get(window.label()).is_some_and(|(id, _)| id == &request_id) {
-            imports.remove(window.label());
-        }
+        imports.remove(&key);
     }
     result
 }
 
+/// Stop the import started under `request_id`; false when it already ended.
 #[tauri::command]
 pub fn cancel_reference_import(
     state: State<'_, AppState>, window: Window, request_id: String,
 ) -> Result<bool, String> {
     let imports =
         state.paper_imports.lock().map_err(|_| "Paper import state is unavailable.".to_string())?;
-    let Some((active_id, cancel)) = imports.get(window.label()) else {
+    let Some(cancel) = imports.get(&(window.label().to_string(), request_id)) else {
         return Ok(false);
     };
-    if active_id != &request_id {
-        return Ok(false);
-    }
     cancel.store(true, Ordering::Release);
     Ok(true)
 }

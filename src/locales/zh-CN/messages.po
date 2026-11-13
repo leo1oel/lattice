@@ -1931,15 +1931,14 @@ msgstr "已加到 {path}"
 msgid "Added what {entryPath} now needs to the preamble of {rootPath}"
 msgstr "已将 {entryPath} 现在需要的内容加入 {rootPath} 的导言区"
 
-#. placeholder {0}: position || done + 1
-#. placeholder {1}: queue.length
-#: src/papers/add-papers-sheet.tsx
-msgid "Adding {0} of {1}"
-msgstr "正在添加第 {0} / {1} 篇"
-
 #: src/project/paper-library.tsx
 msgid "Adding paper"
 msgstr "正在添加论文"
+
+#: src/settings/literature-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Adding papers"
+msgstr "添加文献"
 
 #: src/build/tex-setup-wizard.tsx
 msgid "Adding papers and looking up citations run on uv, a 45 MB Python tool. Writing and compiling work without it."
@@ -2143,6 +2142,12 @@ msgstr "已在论文库"
 #: src/papers/bibliography-audit.tsx
 msgid "Also changes: {0}"
 msgstr "另外还改：{0}"
+
+#: src/papers/add-papers-sheet.tsx
+#: src/settings/literature-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Also save full text (Markdown)"
+msgstr "同时保存全文（Markdown）"
 
 #: src/editor/markdown/engine/views/image-view.tsx
 msgid "Alt text"
@@ -3845,6 +3850,7 @@ msgstr "主参考文献文件中没有引用名“{key}”"
 
 #: src/project/paper-inspector.tsx
 #: src/project/paper-library.tsx
+#: src/settings/settings-search-index.ts
 msgid "Citation only"
 msgstr "仅引用"
 
@@ -17450,6 +17456,7 @@ msgstr "试试"
 #: src/editor/presentation/open-slide-workspace.tsx
 #: src/history/versions-timeline.tsx
 #: src/overleaf/overleaf-connect.tsx
+#: src/papers/add-papers-sheet.tsx
 #: src/papers/linked-library-sheet.tsx
 #: src/papers/zotero-browser.tsx
 #: src/project/paper-library-status.tsx
@@ -18325,6 +18332,10 @@ msgstr "{name} 新功能"
 #: src/app/use-command-table.ts
 msgid "What’s new in Lattice"
 msgstr "Lattice 新功能"
+
+#: src/settings/literature-settings.tsx
+msgid "When off, adding a paper adds only its citation. Its full text can still be saved later from the paper’s row."
+msgstr "关闭时，添加文献只会加入它的引用条目。之后仍可在该文献所在行保存它的全文。"
 
 #: src/overleaf/overleaf-connect.tsx
 #: src/settings/settings-search-index.ts

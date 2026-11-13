@@ -1,5 +1,5 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import type { ComponentProps } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
@@ -185,7 +185,27 @@ describe("PaperLibrary", () => {
     expect(screen.getByText(titles.length ? "1 of 2 papers" : "Look up and add")).toBeInTheDocument();
   });
 
+  it("shows only the metadata step while adding a citation alone", () => {
+    renderLibrary({ importInput: "1706.03762", importing: true, importStageId: "resolving" });
+    const steps = Array.from(document.querySelectorAll(".paper-pending-steps > li")).map((step) => step.textContent);
+    expect(steps).toEqual(["Metadata"]);
+  });
+
+  it("opens the Add papers sheet with a pasted list instead of squashing it into the box", () => {
+    const { props } = renderLibrary({});
+    const pasted = "arXiv:1706.03762\n10.1038/s41586-021-03819-2";
+    const notCancelled = fireEvent.paste(searchbox(), { clipboardData: { getData: () => pasted } });
+    expect(notCancelled).toBe(false);
+    expect(props.onAddPapers).toHaveBeenCalledWith(pasted);
+    // One identifier pastes into the box as usual.
+    fireEvent.paste(searchbox(), { clipboardData: { getData: () => "arXiv:1706.03762" } });
+    expect(props.onAddPapers).toHaveBeenCalledOnce();
+  });
+
   it("starts empty and shows pipeline stages in a pending row without changing the submitted query", () => {
+    // The three steps are those of an import that also saves the full text.
+    localStorage.setItem("lattice.papers.save-full-text.v1", "true");
+    onTestFinished(() => localStorage.removeItem("lattice.papers.save-full-text.v1"));
     const { props, rerenderWith } = renderLibrary({
       importInput: "graph transformers",
       importLabel: "graph transformers",

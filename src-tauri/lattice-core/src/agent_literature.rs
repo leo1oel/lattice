@@ -118,6 +118,7 @@ impl LiteratureRequest {
                 root,
                 &query,
                 HistoryMode::Defer,
+                papers::FullText::Save,
                 &|_| {},
                 &AtomicBool::new(false),
             )),

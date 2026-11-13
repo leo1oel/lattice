@@ -11,6 +11,7 @@ import { isTitleQuery, keepsNoPdf } from "../papers/paper-source";
 import { addQueueRunning, cancelAddQueue, runAddQueue, type PaperAddOutcome, type PaperAddRequest } from "../papers/add-papers-queue";
 import type { ZoteroAnnotation } from "../papers/zotero";
 import { refreshCitedEntry } from "../papers/refresh-cited-entry";
+import { saveFullTextSetting } from "../papers/save-full-text-setting";
 import { subscribeTauriEvent } from "./effect-helpers";
 import { showError, showNotice, showWarning } from "./notify";
 
@@ -74,6 +75,8 @@ export function useReferenceImport({
   const [importing, setImporting] = useState(false);
   const inFlightRef = useRef(false);
   const requestIdRef = useRef<string | null>(null);
+  // The Add papers batch's imports under way, which Cancel stops together.
+  const batchRequestsRef = useRef(new Set<string>());
   const [recentImport, setRecentImport] = useState<{
     projectRoot: string; query: string; citationKey?: string; arxivId: string;
   } | null>(null);
@@ -162,7 +165,9 @@ export function useReferenceImport({
         }
         importInput = resolved.bibtex;
       }
-      const result = await invoke<ImportResult>("import_reference", { input: importInput, requestId });
+      // Whether to save the full text too, as the writer last chose (save-full-text-setting.ts).
+      const fullText = saveFullTextSetting.get();
+      const result = await invoke<ImportResult>("import_reference", { input: importInput, requestId, fullText });
       if (projectRootRef.current !== importRoot) return;
       if (importRoot) {
         setRecentImport({ projectRoot: importRoot, query: trimmed, citationKey: result.citationKey, arxivId: result.arxivId });
@@ -238,9 +243,13 @@ export function useReferenceImport({
     }
   }, [projectRootRef, refreshHistory, refreshProject, showBibEntry, t, onExternalEdits, onMissingPaperTools, refreshEntry]);
 
-  // Cancel stops the paper being imported and, in a batch, every one still waiting.
+  // Cancel stops the paper being imported and, in a batch, every one under way or still waiting.
   const cancelImport = useCallback(() => {
     cancelAddQueue();
+    for (const requestId of batchRequestsRef.current) {
+      void invoke("cancel_reference_import", { requestId }).catch(() => undefined);
+    }
+    batchRequestsRef.current.clear();
     const requestId = requestIdRef.current;
     if (!requestId) return;
     requestIdRef.current = null;
@@ -277,16 +286,76 @@ export function useReferenceImport({
   }, [importReference, input, startBatch]);
 
   /**
-   * The Add papers sheet's batch (papers/add-papers-queue.ts): one import
-   * after another, so each gets the pipeline's progress and its own Cancel,
-   * while the writer keeps writing with the sheet closed. A Zotero paper
-   * brings its PDF and its annotations; one Papers already holds brings only
-   * what it lacks of them.
+   * The Add papers sheet's batch (papers/add-papers-queue.ts): a few imports
+   * at once, each committing as it resolves, while the writer keeps writing
+   * with the sheet closed. The whole batch saves full text or not, as the
+   * sheet's switch said when it began. A Zotero paper brings its PDF (as
+   * its full text, when that is wanted) and its annotations; one Papers
+   * already holds brings only what it lacks of them.
    */
   const addPapers = (items: ReadonlyArray<PaperAddRequest>) => {
     if (inFlightRef.current || addQueueRunning()) return;
     const root = projectRootRef.current;
+    const fullText = saveFullTextSetting.get();
     startBatch();
+    // The project, the bibliography handed to Overleaf sync, and History
+    // follow the batch's commits: once per settled paper at most, and never
+    // two at a time, however many papers land together.
+    let bibliographyChanged = false;
+    let refreshing: Promise<void> | null = null;
+    let again = false;
+    const refreshAfterAdd = () => {
+      if (refreshing) {
+        again = true;
+        return;
+      }
+      refreshing = (async () => {
+        do {
+          again = false;
+          if (projectRootRef.current !== root) return;
+          const snapshot = await refreshProject();
+          if (bibliographyChanged) {
+            bibliographyChanged = false;
+            onExternalEdits.current([snapshot.manifest.primaryBibliography]);
+          }
+          await refreshHistory();
+        } while (again);
+      })().catch((reason: unknown) => showError(toMessage(reason))).finally(() => { refreshing = null; });
+    };
+    // Missing paper tools fail every paper alike; offer the install once.
+    let toolsOffered = false;
+    // One paper's import, under its own request id so several run at once.
+    const importOne = async (input: string): Promise<ImportResult | undefined> => {
+      const requestId = crypto.randomUUID();
+      const requests = batchRequestsRef.current;
+      requests.add(requestId);
+      try {
+        const result = await invoke<ImportResult>("import_reference", { input, requestId, fullText });
+        if (projectRootRef.current !== root) return undefined;
+        const added = result.citationKey || result.arxivId;
+        if (root && added && !result.cancelled && !result.alreadyImported) {
+          setAdding((current) => ({
+            ...current,
+            justAdded: {
+              projectRoot: root,
+              keys: new Set([...(current.justAdded?.projectRoot === root ? current.justAdded.keys : []), added]),
+            },
+          }));
+        }
+        if (!result.alreadyImported && result.citationKey) bibliographyChanged = true;
+        refreshAfterAdd();
+        return result;
+      } catch (reason) {
+        const message = toMessage(reason);
+        if (isMissingPaperToolsError(message) && !toolsOffered) {
+          toolsOffered = true;
+          onMissingPaperTools(message);
+        }
+        throw reason instanceof Error ? reason : new Error(message);
+      } finally {
+        requests.delete(requestId);
+      }
+    };
     // One read of Zotero for the whole batch, made when the first paper with
     // annotations needs it; every item of a batch comes from one library.
     const wanted = items.filter((item) => item.annotations);
@@ -301,9 +370,9 @@ export function useReferenceImport({
     };
     const labels = { heading: t`Zotero annotations`, page: (page: string) => t`p. ${page}` };
     void runAddQueue(items, async (item) => {
-      const imported: (PaperAddOutcome & { alreadyImported?: boolean; paperPath?: string }) | undefined = item.existing
+      const imported: (PaperAddOutcome & { paperPath?: string }) | undefined = item.existing
         ? { citationKey: item.existing, alreadyImported: true }
-        : await importReference(item.input, { notices: "none", label: item.label });
+        : await importOne(item.input);
       if (!imported?.citationKey || imported.cancelled || projectRootRef.current !== root) return imported;
       const citationKey = imported.citationKey;
       let result: PaperAddOutcome = imported;
@@ -315,8 +384,9 @@ export function useReferenceImport({
       // citation stands either way, so a PDF that cannot be read is the
       // row's note, not a failure.
       const existing = item.existing && item.pdf ? await paperFor() : undefined;
-      // The Zotero browser lets a held paper be ticked by the same rule.
-      const needsPdf = item.pdf && (item.existing
+      // The Zotero browser lets a held paper be ticked by the same rule. A
+      // batch adding citations alone saves no text, a Zotero PDF's included.
+      const needsPdf = fullText && item.pdf && (item.existing
         ? existing && keepsNoPdf(existing)
         : !imported.alreadyImported && !imported.paperPath);
       if (needsPdf) {

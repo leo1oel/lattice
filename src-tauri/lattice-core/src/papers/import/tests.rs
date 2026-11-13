@@ -9,7 +9,14 @@ use crate::papers::test_support::TestProject;
 use crate::papers::test_support::{fake_bibcite, tool_lock, write_test_tool, ToolOverride};
 
 fn import(root: &Path, input: &str) -> Result<ImportResult, String> {
-    import_reference(root, input, HistoryMode::Record, &|_| {}, &AtomicBool::new(false))
+    import_reference(
+        root,
+        input,
+        HistoryMode::Record,
+        FullText::Save,
+        &|_| {},
+        &AtomicBool::new(false),
+    )
 }
 
 #[test]
@@ -150,6 +157,7 @@ fn an_import_after_a_quote_inside_braces_finds_its_new_key() {
         &project.root,
         "10.1234/example",
         HistoryMode::Record,
+        FullText::Save,
         &cancel_at,
         &cancel,
     )
@@ -268,6 +276,7 @@ fn duplicate_pdf_url_reuses_complete_version_equivalent_cache_without_resolution
         &project.root,
         "https://arxiv.org/pdf/1706.03762v3",
         HistoryMode::Record,
+        FullText::Save,
         &|stage| stages.borrow_mut().push(stage.to_string()),
         &AtomicBool::new(false),
     )
@@ -309,8 +318,15 @@ fn a_committed_citation_survives_a_failed_or_cancelled_full_text_download() {
                 cancel.store(true, Ordering::Release);
             }
         };
-        let result =
-            import_reference(&project.root, "10.1234/example", mode, &cancel_at, &cancel).unwrap();
+        let result = import_reference(
+            &project.root,
+            "10.1234/example",
+            mode,
+            FullText::Save,
+            &cancel_at,
+            &cancel,
+        )
+        .unwrap();
         assert_eq!(result.cancelled, cancel_stage.is_some(), "{label}");
         assert_eq!(result.citation_key.as_deref(), cited.then_some("stub2024"), "{label}");
         assert!(result.paper_path.is_empty(), "{label}");
@@ -327,8 +343,9 @@ fn a_committed_citation_survives_a_failed_or_cancelled_full_text_download() {
     }
 }
 
-/// A resolved citation is committed only over the text it was resolved
-/// against; a bibliography changed while bibcite ran is left as it is.
+/// A resolved citation merges into the bibliography as it is when it
+/// commits: an entry added while bibcite ran is kept, never reverted to the
+/// text the import began from.
 #[cfg(unix)]
 #[test]
 fn a_citation_resolved_against_an_old_bibliography_never_reverts_the_new_one() {
@@ -351,17 +368,103 @@ fn a_citation_resolved_against_an_old_bibliography_never_reverts_the_new_one() {
     let _bibcite = ToolOverride::set(&commands::BIBCITE, &tool);
     for mode in [HistoryMode::Record, HistoryMode::Defer] {
         project.write("references.bib", "");
-        let error = import_reference(
+        let result = import_reference(
             &project.root,
             "10.1234/example",
             mode,
+            FullText::Skip,
             &|_| {},
             &AtomicBool::new(false),
         )
-        .unwrap_err();
-        assert_eq!(error, BIBLIOGRAPHY_CHANGED);
-        assert_eq!(project.bibliography(), "@misc{during, title={Added meanwhile}}\n");
+        .unwrap();
+        assert_eq!(result.citation_key.as_deref(), Some("stub2024"));
+        let text = project.bibliography();
+        assert!(text.starts_with("@misc{during, title={Added meanwhile}}\n"), "{text}");
+        let keys: Vec<_> =
+            project::parse_bibliography(&text).into_iter().map(|entry| entry.key).collect();
+        assert_eq!(keys, ["during", "stub2024"]);
     }
+}
+
+/// A batch adds citations alone, several at once: each resolves its
+/// metadata in parallel and commits on top of the others, and none of them
+/// downloads or converts a full text, though each carries an arXiv id that
+/// would otherwise be fetched.
+#[cfg(unix)]
+#[test]
+fn parallel_citation_only_imports_all_commit_and_save_no_full_text() {
+    let _lock = tool_lock();
+    let project = TestProject::new("@misc{first, title={First}}\n");
+    let tools = &project.parent;
+    let bibcite = tools.join("bibcite-by-doi");
+    // Slow enough that the imports overlap; the entry follows the DOI asked for.
+    write_test_tool(
+        &bibcite,
+        concat!(
+            "#!/bin/sh\nset -eu\nsleep 0.3\n",
+            "name=${4##*/}\n",
+            "case \"$name\" in alpha) id=2401.00001 ;; *) id=2401.00002 ;; esac\n",
+            "printf '@article{stub_%s, title={Paper %s}, author={Ada Smith}, year={2024}, doi={%s}, eprint={%s}}\\n' \"$name\" \"$name\" \"$4\" \"$id\" > \"$3\"\n",
+            "printf '{\"key\": \"stub_%s\", \"source\": \"doi\"}\\n' \"$name\"\n",
+        ),
+    );
+    let _bibcite = ToolOverride::set(&commands::BIBCITE, &bibcite);
+    let converter = tools.join("converter");
+    write_test_tool(&converter, "#!/bin/sh\ntouch \"$0.called\"\nexit 1\n");
+    let _converter = ToolOverride::set(&commands::ARXIV2MD, &converter);
+    let stages = std::sync::Mutex::new(Vec::new());
+    let results: Vec<_> = std::thread::scope(|scope| {
+        let handles: Vec<_> = ["10.1234/alpha", "10.1234/beta"]
+            .map(|doi| {
+                let (root, stages) = (&project.root, &stages);
+                scope.spawn(move || {
+                    import_reference(
+                        root,
+                        doi,
+                        HistoryMode::Record,
+                        FullText::Skip,
+                        &|stage| stages.lock().unwrap().push(stage.to_string()),
+                        &AtomicBool::new(false),
+                    )
+                })
+            })
+            .into_iter()
+            .collect();
+        handles.into_iter().map(|handle| handle.join().unwrap().unwrap()).collect()
+    });
+    let mut keys: Vec<_> =
+        results.iter().map(|result| result.citation_key.clone().unwrap()).collect();
+    keys.sort();
+    assert_eq!(keys, ["stub_alpha", "stub_beta"]);
+    for result in &results {
+        assert!(!result.already_imported && !result.cancelled);
+        assert!(result.paper_path.is_empty() && result.fetch_error.is_none());
+        assert!(result.arxiv_id.starts_with("2401.0000"), "{}", result.arxiv_id);
+    }
+    let text = project.bibliography();
+    assert!(text.starts_with("@misc{first, title={First}}\n"), "{text}");
+    assert_eq!(project::parse_bibliography(&text).len(), 3);
+    assert!(stages.lock().unwrap().iter().all(|stage| stage == "resolving"));
+    assert!(!tools.join("converter.called").exists());
+    // The project scaffold makes the papers folder; no paper may land in it.
+    let bundles = fs::read_dir(project.root.join(".research/papers"))
+        .map(|entries| entries.filter_map(Result::ok).filter(|entry| entry.path().is_dir()).count())
+        .unwrap_or(0);
+    assert_eq!(bundles, 0);
+    assert!(list_papers(&project.root).unwrap().iter().all(|paper| !paper.has_full_text));
+    // Citing an arXiv work the bibliography already holds fetches nothing either.
+    let again = import_reference(
+        &project.root,
+        "arXiv:2401.00001",
+        HistoryMode::Record,
+        FullText::Skip,
+        &|_| {},
+        &AtomicBool::new(false),
+    )
+    .unwrap();
+    assert!(again.already_imported);
+    assert_eq!(again.citation_key.as_deref(), Some("stub_alpha"));
+    assert!(!tools.join("converter.called").exists());
 }
 
 #[test]
@@ -392,6 +495,7 @@ fn live_mimo_import_downloads_blog_and_pdf_without_arxiv() {
         root,
         "https://www.alphaxiv.org/abs/2609.mimo-scaling-reinforcement-learning",
         HistoryMode::Record,
+        FullText::Save,
         &|stage| println!("{stage}"),
         &AtomicBool::new(false),
     )

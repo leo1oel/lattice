@@ -12,7 +12,9 @@ import type { PaperSummary } from "../app-types";
 import type { PaperView } from "../app/paper-documents";
 import type { CitationInfo } from "../editor/latex/latex-text";
 import { formatCount } from "../i18n";
-import { findInLibrary, identityOfInput, referenceKind, type ReferenceKind } from "../papers/paper-add";
+import { findInLibrary, identityOfInput, parsePastedReferences, referenceKind, type ReferenceKind } from "../papers/paper-add";
+import { saveFullTextSetting } from "../papers/save-full-text-setting";
+import { useSharedSetting } from "../settings/shared-setting";
 import { paperLinkUrl } from "../papers/paper-source";
 import { usePaperImportProgressFill } from "../papers/paper-import-progress";
 import { paperSearchIdentity, rankPapers, usePaperTextSearch, type PaperLineHit, type RecentPaperImport } from "./paper-library-search";
@@ -127,7 +129,10 @@ export function PaperLibrary(props: PaperLibraryProps) {
 
   // The import under way, in a row of its own: what was given, the
   // pipeline's three steps, Cancel, and a hairline of progress.
-  const stages = [["resolving", t`Metadata`], ["fulltext", t`Full text`], ["overview", t`Overview`]] as const;
+  // Adding the citation alone has only the first step.
+  const [savesFullText] = useSharedSetting(saveFullTextSetting);
+  const stages = ([["resolving", t`Metadata`], ["fulltext", t`Full text`], ["overview", t`Overview`]] as const)
+    .slice(0, savesFullText ? 3 : 1);
   const stageIndex = Math.max(0, stages.findIndex(([id]) => id === props.importStageId));
   const pending = props.importing && (
     <div className="paper-pending">
@@ -213,6 +218,14 @@ export function PaperLibrary(props: PaperLibraryProps) {
             placeholder={t`Search or add papers`}
             value={props.importInput}
             onChange={(event) => props.setImportInput(event.target.value)}
+            // The box holds one line: a pasted list (several identifiers, or
+            // a .bib) goes to the Add papers sheet whole, where Enter adds it.
+            onPaste={(event) => {
+              const pasted = event.clipboardData.getData("text");
+              if (fetching || parsePastedReferences(pasted).length < 2) return;
+              event.preventDefault();
+              props.onAddPapers(pasted);
+            }}
             onClear={fetching ? undefined : () => props.setImportInput("")}
             // Enter adds an identifier the library does not hold yet, as the
             // add row under the box says it will. A title only searches: the

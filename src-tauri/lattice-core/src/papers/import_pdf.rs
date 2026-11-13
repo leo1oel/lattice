@@ -2,9 +2,9 @@
 //! and its citation is built from what the PDF and its metadata supply rather
 //! than by treating a binary URL as an HTML webpage.
 
-use super::bibliography::{commit_bibliography, HistoryMode};
+use super::bibliography::{commit_merged, HistoryMode};
 use super::bundle::{fetch_web_bundle, PaperMetadata};
-use super::import::{cancelled, import_report, BIBLIOGRAPHY_CHANGED};
+use super::import::{cancelled, import_report};
 use super::web_citation::{merge_supplied_bibtex, pdf_citation_bibtex};
 use crate::models::ProjectManifest;
 use crate::papers::ImportResult;
@@ -46,34 +46,11 @@ pub(super) fn import_pdf_citation(
     }
     // The download can take a minute, and the bibliography is the writer's
     // meanwhile: merge into the file as it is now, never as it was when the
-    // import began, and merge again if it changes before the commit lands.
-    let bibliography_path = project::safe_path(root, &manifest.primary_bibliography)?;
-    let mut attempts = 0;
-    let (key, already_imported) = loop {
-        let base = if bibliography_path.exists() {
-            fs::read_to_string(&bibliography_path).map_err(err)?
-        } else {
-            String::new()
-        };
-        let (bibliography, key, already_imported) = merge_supplied_bibtex(&base, &raw)?;
-        let label = format!("Cite {key}");
-        if bibliography == base
-            || commit_bibliography(
-                root,
-                &manifest.primary_bibliography,
-                &base,
-                &bibliography,
-                &label,
-                history,
-            )?
-        {
-            break (key, already_imported);
-        }
-        attempts += 1;
-        if attempts == 3 {
-            return Err(BIBLIOGRAPHY_CHANGED.into());
-        }
-    };
+    // import began (`commit_merged`).
+    let merged = commit_merged(root, &manifest.primary_bibliography, history, &|base| {
+        merge_supplied_bibtex(base, &raw)
+    })?;
+    let (key, already_imported) = (merged.key, merged.existed);
     Ok(ImportResult {
         citation_output: import_report(
             &key,
@@ -90,7 +67,7 @@ pub(super) fn import_pdf_citation(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::papers::import::import_reference;
+    use crate::papers::import::{import_reference, FullText};
     #[cfg(unix)]
     use crate::papers::library::list_papers;
     use crate::papers::library::read_paper;
@@ -102,7 +79,14 @@ mod tests {
     };
 
     fn import(root: &Path, input: &str) -> Result<ImportResult, String> {
-        import_reference(root, input, HistoryMode::Record, &|_| {}, &AtomicBool::new(false))
+        import_reference(
+            root,
+            input,
+            HistoryMode::Record,
+            FullText::Save,
+            &|_| {},
+            &AtomicBool::new(false),
+        )
     }
 
     /// A complete one-page PDF, with asymmetric title/body and enough text to
@@ -195,6 +179,7 @@ mod tests {
             &project.root,
             &url,
             HistoryMode::Record,
+            FullText::Save,
             &|stage| {
                 if stage == "resolving" {
                     project.write("references.bib", during);

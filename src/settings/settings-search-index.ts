@@ -104,6 +104,7 @@ export function useSettingsSearchIndex(hasProject: boolean, knownAuthorName: str
     { tab: "overleaf", place: overleaf, id: "overleaf-sync-mode", label: t`Sync mode`, terms: `${t`Live sync`} ${t`Manual`}` },
     { tab: "overleaf", place: overleaf, id: "overleaf-remote-delete", label: t`When you delete a file here`, terms: `${t`Ask before deleting`} ${t`Delete on Overleaf too`} ${t`Keep it on Overleaf`}`, description: t`Overleaf history keeps a copy` },
     { tab: "literature", label: literature, place: t`Integrations` },
+    { tab: "literature", place: literature, id: "literature-full-text", label: t`Also save full text (Markdown)`, terms: `${t`Adding papers`} ${t`Citation only`} arXiv PDF` },
     ...[["openalex", "OpenAlex"], ["semanticscholar", "Semantic Scholar"], ["firecrawl", "Firecrawl"]].map(([id, name]) => (
       { tab: "literature", place: literature, id: `literature-${id}`, label: name, terms: t`API key` } satisfies SettingsSearchEntry
     )),
