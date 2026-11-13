@@ -197,6 +197,9 @@ impl Shell {
                     this.toggle_replace(window, cx)
                 }),
             )
+            .on_action(
+                cx.listener(|this, _: &NewProject, window, cx| this.open_new_project(window, cx)),
+            )
             .on_action(cx.listener(|this, _: &CloseTab, window, cx| this.close_tab(window, cx)))
             .on_action(cx.listener(|this, _: &ReopenClosedTab, window, cx| {
                 this.reopen_closed_tab(window, cx)

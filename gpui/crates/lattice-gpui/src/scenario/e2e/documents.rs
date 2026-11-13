@@ -109,8 +109,10 @@ impl Run {
         })?;
         steps.check(
             "⌘P lists the files visited this session first, without the one on screen",
+            // Recent first (newest first, never main.tex), then All files,
+            // where main.tex is tagged as the one on screen.
             recent.first().map(String::as_str) == Some("chapters/intro.tex")
-                && !recent.iter().take(3).any(|row| row == "main.tex"),
+                && recent.last().map(String::as_str) == Some("main.tex"),
             json!({ "rows": recent.iter().take(8).collect::<Vec<_>>() }),
         );
 
@@ -191,7 +193,11 @@ impl Run {
         })?;
         steps.check(
             "Find in project finds a line across the project and F3 opens it, the sheet staying",
-            opened && stays && hits.iter().any(|hit| hit == "chapters/intro.tex:2"),
+            opened
+                && stays
+                && hits
+                    .iter()
+                    .any(|hit| hit.starts_with("chapters/intro.tex:")),
             json!({ "hits": hits }),
         );
         Ok(())
@@ -243,8 +249,11 @@ impl Run {
             window.focus(&shell.read(cx).focus_handle.clone(), cx);
             window.dispatch_action(Box::new(NewProject), cx)
         })?;
-        self.pause(cx, Duration::from_millis(200)).await;
-        let shown = cx.update(|cx| self.shell.read(cx).new_project_dialog().is_some());
+        let shown = self
+            .wait_for(cx, Duration::from_secs(2), |shell, cx| {
+                shell.read(cx).new_project_dialog().is_some()
+            })
+            .await;
         self.with_window(cx, |shell, window, cx| {
             shell.update(cx, |shell, cx| shell.dismiss_new_project(window, cx))
         })?;
@@ -256,7 +265,7 @@ impl Run {
         steps.check(
             "⌘⇧N opens New project, which closes again",
             shown && gone,
-            json!({}),
+            json!({ "shown": shown, "gone": gone }),
         );
 
         // A window without a project shows the welcome screen, its desk

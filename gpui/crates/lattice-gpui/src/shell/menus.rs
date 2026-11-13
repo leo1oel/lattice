@@ -46,6 +46,7 @@ fn menus() -> Vec<Menu> {
             MenuItem::action("Quit Lattice", Quit),
         ]),
         Menu::new("File").items([
+            MenuItem::action("New Project…", NewProject),
             MenuItem::action("New Window", NewWindow),
             MenuItem::action("Open Folder…", OpenFolder),
             MenuItem::action("Open in New Window", OpenInNewWindow),
