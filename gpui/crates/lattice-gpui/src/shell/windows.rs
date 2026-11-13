@@ -129,7 +129,6 @@ impl Shell {
         .detach();
     }
 
-    /// The project `step` tabs along, round the window's projects.
     /// Step the interface size from a key, the menu or the palette, and
     /// raise this window's size pill.
     pub(crate) fn zoom_interface(
@@ -152,6 +151,7 @@ impl Shell {
         &self.zoom_hud
     }
 
+    /// The project `step` tabs along, round the window's projects.
     pub(crate) fn step_project(
         &mut self,
         step: isize,

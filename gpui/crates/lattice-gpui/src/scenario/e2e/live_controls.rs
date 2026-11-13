@@ -373,7 +373,9 @@ impl Run {
             (Translucency::Strong, Glass::Strong),
             (Translucency::Off, Glass::Off),
         ] {
-            cx.update(|cx| settings::update_appearance(cx, |a| a.translucency = level));
+            self.with_window(cx, |_, _, cx| {
+                settings::update_appearance(cx, |a| a.translucency = level)
+            })?;
             self.pause(cx, Duration::from_millis(200)).await;
             let shown =
                 self.with_window(cx, |_, window, _| window_material::material_shown(window))?;

@@ -391,8 +391,6 @@ pub struct Spelling {
     shown: Rc<RefCell<Vec<Anchored>>>,
     /// Bumped by every pass, so an overtaken one is dropped.
     generation: u64,
-    /// The passes finished, for a scenario.
-    passes: u64,
     _lint: Option<Task<()>>,
     _subscriptions: Vec<Subscription>,
 }
@@ -433,7 +431,6 @@ impl Spelling {
                 input,
                 shown,
                 generation: 0,
-                passes: 0,
                 _lint: None,
                 _subscriptions: subscriptions,
             };
@@ -462,11 +459,6 @@ impl Spelling {
     /// Check again now: a dictionary arrived.
     pub fn relint(&mut self, cx: &mut Context<Self>) {
         self.schedule(Duration::ZERO, cx);
-    }
-
-    /// How many passes have finished, for a scenario.
-    pub fn passes(&self) -> u64 {
-        self.passes
     }
 
     /// What is shown now, in buffer offsets as the buffer is.
@@ -517,7 +509,6 @@ impl Spelling {
                 if this.generation != generation {
                     return;
                 }
-                this.passes += 1;
                 match outcome {
                     Outcome::Findings(findings) => {
                         let anchored = findings

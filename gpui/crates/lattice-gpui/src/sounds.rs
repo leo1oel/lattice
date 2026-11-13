@@ -493,7 +493,7 @@ mod platform {
     use std::sync::Mutex;
 
     use windows::{
-        Win32::Media::Audio::{PlaySoundW, SND_ASYNC, SND_MEMORY, SND_NODEFAULT},
+        Win32::Media::Audio::{PlaySoundW, SND_ASYNC, SND_MEMORY, SND_NODEFAULT, SND_PURGE},
         core::PCWSTR,
     };
 
@@ -504,6 +504,9 @@ mod platform {
         let Ok(mut playing) = PLAYING.lock() else {
             return;
         };
+        unsafe {
+            let _ = PlaySoundW(PCWSTR::null(), None, SND_PURGE);
+        }
         *playing = wav;
         unsafe {
             let _ = PlaySoundW(

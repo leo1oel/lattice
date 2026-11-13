@@ -80,7 +80,9 @@ pub fn apply(window: &mut Window, cx: &mut App) {
 
 /// Apply the material to every workspace window.
 pub fn apply_all(cx: &mut App) {
-    crate::shell::windows::for_shells(cx, |_| true, |_, window, cx| apply(window, cx));
+    cx.defer(|cx| {
+        crate::shell::windows::for_shells(cx, |_| true, |_, window, cx| apply(window, cx));
+    });
 }
 
 #[cfg(target_os = "macos")]
