@@ -1,19 +1,21 @@
 //! Project filesystem watcher.
 //!
-//! `notify` (FSEvents) reports changes, a debounce thread coalesces bursts,
-//! and one `project-fs-changed` event tells every window showing that root to
-//! refresh, instead of the frontend polling `refresh_project` + `git_status`.
-//! The frontend keeps a slow fallback poll as a safety net.
+//! `notify` (FSEvents, inotify on Linux) reports changes, a debounce thread
+//! coalesces bursts, and one `project-fs-changed` event tells every window
+//! showing that root to refresh, instead of the frontend polling
+//! `refresh_project` + `git_status`. The frontend keeps a slow fallback poll
+//! as a safety net.
 //!
 //! `.research/` churn is filtered out: app state writes (history, FTS
 //! indexes, caches, the paper library) fire on every save and are invisible to
 //! the project tree anyway (`scan_tree` excludes them). `.git/` events stay:
 //! they are how commits and stages reach the source-control badge without
 //! polling. So are reports about a folder itself that change no file in it
-//! (`folder_echo`).
+//! (`folder_echo`), and inotify's reports of a file being opened or read
+//! (`only_looked`).
 
 use crate::host::EventSink;
-use notify::event::{CreateKind, ModifyKind};
+use notify::event::{AccessKind, AccessMode, CreateKind, ModifyKind};
 use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::Serialize;
 use std::collections::BTreeSet;
@@ -109,6 +111,20 @@ fn folder_echo(event: &Event, watching_since: SystemTime) -> bool {
     }
 }
 
+/// A report that someone looked at a file or a folder, which changes nothing
+/// in it.
+///
+/// inotify, unlike FSEvents, reports every open, and a window answers a
+/// report by reading the project again (the tree, `.gitignore`, the files the
+/// manuscript includes): each of those reads was the next report, so a Linux
+/// window rescanned its project and drew its outline again three times a
+/// second for as long as the project stayed open. The end of a write is an
+/// access too (`Close(Write)`), and the one that is kept: it is how inotify
+/// says a save is complete.
+fn only_looked(event: &Event) -> bool {
+    matches!(event.kind, EventKind::Access(kind) if kind != AccessKind::Close(AccessMode::Write))
+}
+
 /// What a watcher callback hands the debounce thread, or `None` to drop it.
 fn batch_for(
     event: Result<Event, notify::Error>, root: &Path, watching_since: SystemTime,
@@ -120,6 +136,7 @@ fn batch_for(
         Ok(event) if event.need_rescan() && (event.paths.is_empty() || relevant(&event, root)) => {
             Some(WatchBatch { paths: Vec::new(), reconcile: true })
         }
+        Ok(event) if only_looked(&event) => None,
         Ok(event) if folder_echo(&event, watching_since) => None,
         Ok(event) if relevant(&event, root) => {
             Some(WatchBatch { paths: event.paths, reconcile: false })
@@ -238,7 +255,7 @@ pub fn spawn(events: impl EventSink + 'static, root: PathBuf) -> Result<ProjectW
 #[cfg(test)]
 mod tests {
     use super::*;
-    use notify::event::{MetadataKind, RemoveKind, RenameMode};
+    use notify::event::{AccessKind, AccessMode, MetadataKind, RemoveKind, RenameMode};
 
     /// The watcher on `root` with the reports it sends the windows, once the
     /// stream has attached and anything from creating the fixture has passed.
@@ -357,6 +374,53 @@ mod tests {
         assert!(kept(EventKind::Create(CreateKind::Folder), "appendix"));
         assert!(kept(EventKind::Modify(ModifyKind::Name(RenameMode::Any)), "section"));
         assert!(kept(EventKind::Remove(RemoveKind::Folder), "chapters"));
+    }
+
+    /// A window answers a report by reading the project again, and inotify
+    /// reports each of those reads: an open counted as a change kept every
+    /// Linux window rescanning its project three times a second for as long
+    /// as it stayed open (`only_looked`).
+    #[test]
+    fn reading_a_file_reaches_no_window() {
+        let project = crate::test_support::TempDir::new("watch-reads");
+        project.write("main.tex", "\\documentclass{article}");
+        project.write("section/intro.tex", "Intro");
+        let root = project.canonicalize().unwrap();
+        let (_watcher, reports) = watched(&root);
+
+        // What a rescan does: list the folders and read the files.
+        for folder in [root.clone(), root.join("section")] {
+            assert!(std::fs::read_dir(folder).unwrap().count() > 0);
+        }
+        for file in ["main.tex", "section/intro.tex"] {
+            std::fs::read_to_string(root.join(file)).unwrap();
+        }
+        if let Ok(report) = reports.recv_timeout(Duration::from_secs(2)) {
+            panic!("a read was reported as a change: {report}");
+        }
+        // The watcher is still reporting changes to files.
+        project.write("main.tex", "\\documentclass{book}");
+        let report =
+            reports.recv_timeout(Duration::from_secs(10)).expect("main.tex went unreported");
+        assert_eq!(report["paths"], serde_json::json!(["main.tex"]));
+    }
+
+    #[test]
+    fn looking_at_a_file_is_not_a_change_but_the_end_of_a_write_is() {
+        let root = PathBuf::from("/tmp/project");
+        let kept = |kind: EventKind| {
+            let mut event = Event::new(kind);
+            event.paths = vec![root.join("main.tex")];
+            batch_for(Ok(event), &root, SystemTime::now()).is_some()
+        };
+        // What inotify reports of a reader: the open, and where the backend
+        // asks for it, the close of a file nobody wrote to.
+        assert!(!kept(EventKind::Access(AccessKind::Open(AccessMode::Any))));
+        assert!(!kept(EventKind::Access(AccessKind::Close(AccessMode::Read))));
+        assert!(!kept(EventKind::Access(AccessKind::Read)));
+        // A writer closing the file is how inotify says a save is complete.
+        assert!(kept(EventKind::Access(AccessKind::Close(AccessMode::Write))));
+        assert!(kept(EventKind::Modify(ModifyKind::Data(notify::event::DataChange::Any))));
     }
 
     fn event_for(paths: Vec<PathBuf>) -> Event {
