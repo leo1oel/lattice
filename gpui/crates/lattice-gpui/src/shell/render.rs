@@ -35,7 +35,8 @@ impl Render for Shell {
         self.register_commands(shell, cx)
             .relative()
             .size_full()
-            .bg(palette.window)
+            // The window's colour, or nothing over its vibrancy.
+            .bg(palette.window_material)
             .text_color(palette.text)
             .children(self.welcome().cloned())
             .when(self.welcome().is_none(), |this| {

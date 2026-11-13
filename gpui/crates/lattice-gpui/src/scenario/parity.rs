@@ -71,6 +71,14 @@ const SIDEBAR_CARD: f32 = 329.;
 
 impl Run {
     pub(super) async fn parity(&self, cx: &mut AsyncApp) -> Result<Value> {
+        // The reference is the Tauri frontend in a browser, which is never
+        // translucent (theme.css sets `data-glass` only over the native
+        // window's vibrancy), so the window is opaque here too.
+        cx.update(|cx| {
+            crate::settings::update_appearance(cx, |appearance| {
+                appearance.translucency = lattice_settings::Translucency::Off
+            })
+        });
         if std::env::var("LATTICE_PARITY_SCREEN").as_deref() == Ok("welcome") {
             return self.parity_welcome(cx).await;
         }

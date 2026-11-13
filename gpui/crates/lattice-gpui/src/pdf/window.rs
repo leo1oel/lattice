@@ -73,6 +73,8 @@ impl PdfWindow {
             ..Default::default()
         };
         let (handle, window_view) = gpui_kit::open_window(options, cx, |window, cx| {
+            // The interface size every window takes.
+            crate::interface_zoom::apply(window, cx);
             cx.new(|cx| {
                 let view = cx.new(|cx| {
                     let mut view = PdfView::new(window, cx);

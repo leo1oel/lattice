@@ -13,10 +13,13 @@
 //! editor's face, size and line height reach Zed's settings; the keymap
 //! turns Vim on or off; the language switches every string and the menu
 //! bar; the automatic build decides whether a save builds; the notification
-//! position moves the stack; the title bar's tools hide and show. Choices
-//! the GPUI app has no surface for yet (the interface size, spell checking,
-//! the visual Markdown editor's type, sounds, translucency) are kept, so
-//! they carry over unchanged.
+//! position moves the stack; the title bar's tools hide and show; the
+//! interface size zooms every window (`interface_zoom`), translucency puts
+//! the window's vibrancy behind its frosted surfaces (`window_material`),
+//! interface sounds decide whether a cue plays (`sounds`) and spell
+//! checking whether editors check (`editor_panel/spelling.rs`). Choices the
+//! GPUI app has no surface for yet (the visual Markdown editor's type) are
+//! kept, so they carry over unchanged.
 //!
 //! A scripted run keeps its settings in memory (unless
 //! `LATTICE_GPUI_STATE_DIR` names a directory), imports nothing, and shows
@@ -45,6 +48,7 @@ use lattice_settings::{
 use lattice_ui::{Accent, Appearance, CodeTheme, LatticeTheme, Tint};
 
 pub use dialog::{SettingsDialog, SettingsEvent};
+pub use editor_pane::set_spelling_words;
 
 /// How often the file is checked for an edit made outside this app.
 const WATCH_INTERVAL: Duration = Duration::from_secs(1);
@@ -356,6 +360,18 @@ fn apply(before: Option<&Settings>, cx: &mut App) {
     }) {
         crate::app::apply_editor_settings(cx);
     }
+    if changed(|was, now| was.appearance.interface_scale == now.appearance.interface_scale)
+        && before.is_some()
+    {
+        crate::interface_zoom::apply_all(cx);
+    }
+    if changed(|was, now| {
+        (was.appearance.translucency, was.theme_preference)
+            == (now.appearance.translucency, now.theme_preference)
+    }) && before.is_some()
+    {
+        crate::window_material::apply_all(cx);
+    }
     if changed(|was, now| {
         (
             was.appearance.toast_position,
@@ -367,6 +383,12 @@ fn apply(before: Option<&Settings>, cx: &mut App) {
     }) {
         cx.refresh_windows();
     }
+}
+
+/// Whether this is a scripted run, which plays no sound and reads no system
+/// preference.
+pub fn scripted(cx: &App) -> bool {
+    cx.global::<AppSettings>().scripted
 }
 
 /// Whether a save (or an outside edit) builds on its own.

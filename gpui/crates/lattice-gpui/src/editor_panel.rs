@@ -34,7 +34,7 @@ use futures::{channel::oneshot, future::Shared};
 use gpui::{
     AnyElement, App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, Focusable,
     InteractiveElement as _, IntoElement, ParentElement as _, Render, SharedString, Styled as _,
-    Subscription, Task, Window, div, prelude::*,
+    Subscription, Task, Window, div,
 };
 use gpui_kit::component::{
     dock::{BasePanel, Panel, PanelEvent},
@@ -46,7 +46,6 @@ use lattice_editor::{
     LatticeEditor, LatticeEditorEvent,
     latex::{self, diagnostics::TexlabDiagnostics},
 };
-use lattice_i18n::t;
 use lattice_ui::ActiveLattice as _;
 use search::{BufferSearchBar, buffer_search::DivRegistrar};
 use workspace::ToolbarItemView as _;
@@ -54,11 +53,13 @@ use zed_actions::buffer_search::Deploy;
 
 mod bib_view;
 mod disk_sync;
+mod menu;
 mod outline_panel;
 pub mod outline_rail;
 pub mod rail_outline;
 mod save;
 mod source_chrome;
+mod spelling;
 pub mod views;
 
 use disk_sync::vanished_key;
@@ -79,12 +80,7 @@ gpui::actions!(
     ]
 );
 
-use crate::{
-    build_panel::BuildPanel,
-    editor_status,
-    project::Project,
-    shell::{Build, CleanRebuild, ForwardSync, StopBuild, ToggleVimMode},
-};
+use crate::{build_panel::BuildPanel, editor_status, project::Project};
 
 /// How often the open file is checked for an edit made behind the editor.
 const DISK_POLL: Duration = Duration::from_millis(2500);
@@ -164,6 +160,9 @@ pub struct EditorPanel {
     editor: Entity<Editor>,
     /// TexLab's diagnostics, for a `.tex` file.
     diagnostics: Option<Entity<TexlabDiagnostics>>,
+    /// The spell check, for a `.tex`, `.md` or `.txt` file (`spelling`).
+    spelling: Option<Entity<lattice_editor::latex::spelling::Spelling>>,
+    _spelling_events: Option<Subscription>,
     /// Builds seen finishing; each one has TexLab read the new log.
     builds_seen: usize,
     search_bar: Entity<BufferSearchBar>,
@@ -376,7 +375,13 @@ impl EditorPanel {
                         this.views_assets_changed(cx);
                     }
                 }
+                // The project's dictionary or ignores may have changed.
+                if matches!(event, crate::project::ProjectEvent::ManifestChanged) {
+                    this.refresh_spelling(cx);
+                }
             }),
+            // Check spelling turned on or off.
+            cx.observe_global::<crate::settings::AppSettings>(|this, cx| this.refresh_spelling(cx)),
         ];
         let poll = cx.spawn(async move |this, cx| {
             loop {
@@ -396,6 +401,8 @@ impl EditorPanel {
             lattice,
             editor,
             diagnostics,
+            spelling: None,
+            _spelling_events: None,
             builds_seen,
             search_bar,
             search_visible: false,
@@ -434,6 +441,7 @@ impl EditorPanel {
         // An HTML file opening in Preview or Split has its preview at once;
         // its page is built when the tab is first shown.
         this.ensure_preview(window, cx);
+        this.attach_spelling(cx);
         this
     }
 
@@ -513,6 +521,14 @@ impl EditorPanel {
             ));
         }
         self.relative = relative;
+        // The spell check follows the file, or starts once it is prose.
+        match &self.spelling {
+            Some(spelling) => {
+                let relative = self.relative.clone();
+                spelling.update(cx, |spelling, cx| spelling.set_path(relative, cx));
+            }
+            None => self.attach_spelling(cx),
+        }
         self.disk = DiskVersion::Unread;
         let language = latex::language_for_path(&self.path, cx);
         self.buffer
@@ -706,55 +722,7 @@ impl Panel for EditorPanel {
         _: &mut Window,
         cx: &mut Context<Self>,
     ) -> PopupMenu {
-        // A file with views: its menu repeats the switch, and has no build.
-        if let Some(current) = self.document_view() {
-            return menu
-                .menu_with_check(
-                    "Edit",
-                    current == DocumentView::Source,
-                    Box::new(ViewSource),
-                )
-                .menu_with_check("Split", current == DocumentView::Split, Box::new(ViewSplit))
-                .menu_with_check(
-                    "Preview",
-                    current == DocumentView::Preview,
-                    Box::new(ViewPreview),
-                )
-                .separator()
-                .menu("Find", Box::new(Deploy::find()))
-                .separator()
-                .menu_with_check(
-                    "Vim mode",
-                    crate::app::vim_mode_enabled(cx),
-                    Box::new(ToggleVimMode),
-                );
-        }
-        let building = self.build.read(cx).is_running();
-        menu.menu(t!("Build"), Box::new(Build))
-            .menu(t!("Clean rebuild"), Box::new(CleanRebuild))
-            .when(building, |menu| {
-                menu.menu(t!("Stop the build"), Box::new(StopBuild))
-            })
-            .menu(t!("Reveal cursor in PDF"), Box::new(ForwardSync))
-            .menu(t!("Find"), Box::new(Deploy::find()))
-            // The strip's Source / Visual switch, which goes first when the
-            // strip is short of room.
-            .when(latex::is_tex_source(&self.path), |menu| {
-                menu.separator()
-                    .menu_with_check("Source", true, Box::new(ShowSourceView))
-                    .menu_with_check_and_disabled(
-                        VISUAL_NOT_PORTED,
-                        false,
-                        Box::new(ShowVisualView),
-                        true,
-                    )
-            })
-            .separator()
-            .menu_with_check(
-                t!("Vim mode"),
-                crate::app::vim_mode_enabled(cx),
-                Box::new(ToggleVimMode),
-            )
+        self.panel_menu(menu, cx)
     }
 
     fn inner_padding(&self, _: &App) -> bool {

@@ -259,6 +259,9 @@ pub fn render(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> im
     let palette = cx.palette().clone();
     let fullscreen = window.is_fullscreen();
     let weak = cx.entity().downgrade();
+    // In focus mode the bar is the shell itself, with no rule under it
+    // (`.titlebar.titlebar-focus`), so it melts into the gutters.
+    let focus = shell.layout.focus.is_some();
     let bar = div()
         .id("titlebar")
         .relative()
@@ -266,9 +269,19 @@ pub fn render(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> im
         .flex_none()
         .items_start()
         .h(STRIP_HEIGHT)
-        .pl(px(if fullscreen { 6. } else { TRAFFIC_LIGHTS }))
-        .bg(palette.titlebar)
-        .shadow(vec![bottom_hairline(palette.line)])
+        .pl(px(if fullscreen {
+            6.
+        } else {
+            crate::interface_zoom::traffic_light_room(TRAFFIC_LIGHTS, cx)
+        }))
+        .bg(if focus {
+            palette.shell
+        } else {
+            palette.titlebar
+        })
+        .when(!focus, |bar| {
+            bar.shadow(vec![bottom_hairline(palette.line)])
+        })
         .children(parity::probe("titlebar"))
         .window_control_area(WindowControlArea::Drag)
         .on_double_click(|_, window, _| window.titlebar_double_click())
@@ -286,7 +299,7 @@ pub fn render(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> im
             }
         }));
 
-    if shell.layout.focus.is_some() {
+    if focus {
         return bar.child(focus_bar(shell, window, cx)).into_any_element();
     }
 

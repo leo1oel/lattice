@@ -3,8 +3,8 @@
 //! They draw deferred, on gpui-fast's overlay surface, so a webview island
 //! (a native view between GPUI's base content and its overlays) never
 //! covers them: the palette, the shortcut sheet, quick open and find in
-//! project, Settings, the welcome flow's dialogs and, above them all, the
-//! toasts.
+//! project, Settings, the welcome flow's dialogs, the interface-size pill
+//! and, above them all, the toasts.
 //! (Dialogs built on `ModalLayer` defer themselves.)
 
 use gpui::{AnyElement, IntoElement as _, deferred};
@@ -36,7 +36,8 @@ impl Shell {
                     .map(|settings| settings.into_any_element()),
             )
             .chain(self.document_overlays())
-            .chain(self.lobby_dialogs());
+            .chain(self.lobby_dialogs())
+            .chain(Some(self.zoom_hud.clone().into_any_element()));
         for dialog in dialogs {
             overlays.push(
                 deferred(dialog)

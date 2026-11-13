@@ -62,6 +62,7 @@ lucide! {
     LIST_TREE = "icons" / "list-tree";
     LOADER = "icons" / "loader-circle";
     LOCATE_FIXED = "icons" / "locate-fixed";
+    MINUS = "icons" / "minus";
     MESSAGE_SQUARE_TEXT = "icons" / "message-square-text";
     RECTANGLE_HORIZONTAL = "icons" / "rectangle-horizontal";
     REFRESH = "icons" / "refresh-cw";

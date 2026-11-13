@@ -34,6 +34,7 @@ pub fn present_tabs(cx: &mut App) {
                     dirty: editor.is_dirty(cx),
                     surface: Surface::Sheet,
                     document: true,
+                    frosted: false,
                 };
             }
             Err(view) => view,
@@ -43,11 +44,20 @@ pub fn present_tabs(cx: &mut App) {
             dirty: false,
             surface,
             document: false,
+            frosted: false,
         };
+        // Project and Papers frost over a translucent window; the Agent
+        // stays on its opaque sidebar (trellis.css `data-glass`).
         if view.clone().downcast::<FileTreePanel>().is_ok() {
-            look(Icon::FOLDER_TREE, Surface::Chrome)
+            TabLook {
+                frosted: true,
+                ..look(Icon::FOLDER_TREE, Surface::Chrome)
+            }
         } else if view.clone().downcast::<PapersPanel>().is_ok() {
-            look(Icon::LIBRARY, Surface::Chrome)
+            TabLook {
+                frosted: true,
+                ..look(Icon::LIBRARY, Surface::Chrome)
+            }
         } else if let Ok(stand_in) = view.clone().downcast::<StandInPanel>() {
             look(stand_in.read(cx).kind().icon(), Surface::Chrome)
         } else if let Ok(pdf) = view.clone().downcast::<PdfPanel>() {
@@ -59,6 +69,7 @@ pub fn present_tabs(cx: &mut App) {
                     dirty: false,
                     surface: Surface::Sheet,
                     document: true,
+                    frosted: false,
                 },
                 _ => look(Icon::FILE_TEXT, Surface::Sheet),
             }

@@ -120,6 +120,7 @@ pub fn init(scripted: bool, cx: &mut App) {
     // is drawn: appearance, tint, accent, code theme, editor type, keymap,
     // language.
     crate::settings::init(scripted, cx);
+    crate::interface_zoom::init(cx);
     if std::env::var_os("LATTICE_GPUI_VIM").is_some() {
         crate::settings::use_vim_for_this_run(cx);
     }

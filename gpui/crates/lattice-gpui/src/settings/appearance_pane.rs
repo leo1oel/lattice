@@ -93,15 +93,15 @@ fn general(
         |language, _, cx| super::update_appearance(cx, |a| a.interface_language = language),
     );
     let chosen = nearest_interface_step(appearance.interface_scale);
-    let mut size = Segmented::new("interface-size").filled().disabled(true);
+    // Settings changes the size without the pill a key raises.
+    let mut size = Segmented::new("interface-size").filled();
     for step in INTERFACE_SCALE_STEPS {
         size = size.label(
             format!("{}%", (step * 100.).round()),
             (step - chosen).abs() < 1e-3,
-            |_, _, _| {},
+            move |_, _, cx| super::update_appearance(cx, |a| a.interface_scale = step),
         );
     }
-    let size = controls::not_yet("interface-size", t!("Interface size").into(), size);
     let toast = controls::select(
         "toast-position",
         vec![
@@ -113,15 +113,11 @@ fn general(
         appearance.toast_position,
         |position, _, cx| super::update_appearance(cx, |a| a.toast_position = position),
     );
-    let sounds = controls::not_yet(
+    let sounds = controls::switch(
         "interface-sounds",
-        t!("Interface sounds").into(),
-        controls::switch(
-            "interface-sounds",
-            appearance.interface_sounds,
-            true,
-            |_, _, _| {},
-        ),
+        appearance.interface_sounds,
+        false,
+        |on, _, cx| super::update_appearance(cx, |a| a.interface_sounds = on),
     );
     let rows = vec![
         row(
@@ -479,15 +475,28 @@ fn theme(
         accent_row = accent_row.wrap(Wrap::Line);
     }
 
-    let mut translucency = Segmented::new("translucency").filled().disabled(true);
+    // Off, Subtle and Strong apply live behind the dialog, so only a window
+    // that ignores the choice says why (theme-settings.tsx).
+    let mut translucency = Segmented::new("translucency").filled();
     for (level, label) in [
         (Translucency::Off, t!("Off")),
         (Translucency::Subtle, t!("Subtle")),
         (Translucency::Strong, t!("Strong")),
     ] {
-        translucency = translucency.label(label, appearance.translucency == level, |_, _, _| {});
+        translucency =
+            translucency.label(label, appearance.translucency == level, move |_, _, cx| {
+                super::update_appearance(cx, |a| a.translucency = level)
+            });
     }
-    let translucency = controls::not_yet("translucency", t!("Translucency").into(), translucency);
+    let translucency_note: Option<SharedString> = match crate::window_material::backing(cx) {
+        crate::window_material::Backing::ReducedTransparency => {
+            Some(t!("Off while Reduce transparency is on in System Settings").into())
+        }
+        crate::window_material::Backing::Unsupported => {
+            Some(t!("Only in the Lattice window on macOS").into())
+        }
+        _ => None,
+    };
 
     let mut rows = vec![
         row(
@@ -513,14 +522,13 @@ fn theme(
     if dialog.fields.custom_accent_open {
         rows.push(custom_accent(dialog, width, cx));
     }
-    rows.push(row(
-        dialog,
-        Row::new("translucency", t!("Translucency"))
-            .control(translucency)
-            .wrap(Wrap::Line),
-        width,
-        cx,
-    ));
+    let mut translucency_row = Row::new("translucency", t!("Translucency"))
+        .control(translucency)
+        .wrap(Wrap::Line);
+    if let Some(note) = translucency_note {
+        translucency_row = translucency_row.description(note, cx);
+    }
+    rows.push(row(dialog, translucency_row, width, cx));
     controls::group(Some(t!("Theme").into()), rows, cx)
 }
 

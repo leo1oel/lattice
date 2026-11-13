@@ -3,7 +3,9 @@
 //!
 //! - TexLab's diagnostics as marks and hover cards ([`diagnostics`]);
 //! - the citation card and the reference card ([`cards`]);
-//! - command and citation completion ([`completions`]).
+//! - command and citation completion ([`completions`]);
+//! - spell and grammar checking with Harper, or a language's dictionary,
+//!   as marks and lint cards ([`spelling`], over [`prose`]).
 //!
 //! The language is the latex-lsp tree-sitter grammar
 //! (`codebook-tree-sitter-latex`, MIT) with Lattice's own highlight query
@@ -24,6 +26,8 @@ pub mod cards;
 pub mod completions;
 pub mod diagnostics;
 pub mod folding;
+pub mod prose;
+pub mod spelling;
 pub mod syntax;
 pub mod vocabulary;
 

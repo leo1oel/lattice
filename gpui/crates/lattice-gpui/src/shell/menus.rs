@@ -160,6 +160,12 @@ fn menus(cx: &App) -> Vec<Menu> {
             MenuItem::action(t!("Focus Mode"), ToggleFocusMode),
             MenuItem::action(t!("Maximize Focused Panel"), ToggleMaximize),
             MenuItem::action(t!("Reset Layout"), ResetLayout),
+            // The interface size (native_locale.rs's View ▸ Actual Size,
+            // Bigger and Smaller).
+            MenuItem::separator(),
+            MenuItem::action(tc!("macOS menu bar", "Actual Size"), ResetInterfaceSize),
+            MenuItem::action(tc!("macOS menu bar", "Bigger"), LargerInterface),
+            MenuItem::action(tc!("macOS menu bar", "Smaller"), SmallerInterface),
         ]),
         Menu::new(tc!("macOS menu bar", "Window")).items([
             MenuItem::action(tc!("macOS menu bar", "Minimize"), Minimize),

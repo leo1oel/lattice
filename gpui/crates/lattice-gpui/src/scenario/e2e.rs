@@ -17,6 +17,7 @@ mod editor_adapter;
 mod fluid;
 #[cfg(target_os = "macos")]
 mod islands;
+mod live_controls;
 mod papers;
 mod pdf;
 mod saves;
@@ -294,6 +295,7 @@ impl Run {
         self.papers_panel(cx, &mut steps, &root).await?;
         self.bib_visual_editor(cx, &mut steps, &root).await?;
         self.settings_and_language(cx, &mut steps).await?;
+        self.live_controls(cx, &mut steps).await?;
         self.closing_saves(cx, &mut steps, &root).await?;
         // Last: `scenario::start` quits once the result is written.
         let quit = self.type_before_quit(cx, &mut steps, &root).await?;

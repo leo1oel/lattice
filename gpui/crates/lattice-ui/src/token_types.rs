@@ -79,6 +79,54 @@ impl Srgb {
         let mixed = ground.mix(Srgb { a: 1., ..self }, self.a);
         Srgb { a: 1., ..mixed }
     }
+
+    /// `color-mix(in srgb, self <amount>, other)` as CSS mixes colours that
+    /// may be translucent: the channels are mixed premultiplied by their
+    /// alpha, so `color-mix(in srgb, #fff 34%, transparent)` is white at 34%
+    /// and a veil over a translucent sheet keeps the sheet's hue.
+    pub fn color_mix(self, amount: f32, other: Srgb) -> Srgb {
+        let (p, q) = (amount, 1. - amount);
+        let a = self.a * p + other.a * q;
+        if a <= 0. {
+            return Srgb { a: 0., ..other };
+        }
+        let channel = |x: u8, y: u8| {
+            ((x as f32 * self.a * p + y as f32 * other.a * q) / a)
+                .round()
+                .clamp(0., 255.) as u8
+        };
+        Srgb {
+            r: channel(self.r, other.r),
+            g: channel(self.g, other.g),
+            b: channel(self.b, other.b),
+            a,
+        }
+    }
+
+    /// This colour painted over `ground`, either of them translucent
+    /// (source-over): one fill that looks like the two layers.
+    pub fn composite_over(self, ground: Srgb) -> Srgb {
+        let a = self.a + ground.a * (1. - self.a);
+        if a <= 0. {
+            return Srgb { a: 0., ..ground };
+        }
+        let channel = |x: u8, y: u8| {
+            ((x as f32 * self.a + y as f32 * ground.a * (1. - self.a)) / a)
+                .round()
+                .clamp(0., 255.) as u8
+        };
+        Srgb {
+            r: channel(self.r, ground.r),
+            g: channel(self.g, ground.g),
+            b: channel(self.b, ground.b),
+            a,
+        }
+    }
+
+    /// This colour with alpha `a`.
+    pub fn with_alpha(self, a: f32) -> Srgb {
+        Srgb { a, ..self }
+    }
 }
 
 /// A colour with its light and dark values. Tokens with one value (a PDF page,

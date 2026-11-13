@@ -433,7 +433,9 @@ impl Render for Welcome {
             .relative()
             .size_full()
             .overflow_hidden()
-            .bg(palette.window)
+            // `--surface-backdrop`: the window's colour, or part of it over
+            // the vibrancy.
+            .bg(palette.backdrop)
             .on_action(cx.listener(|this, _: &SwitchWorkspace1, _, cx| this.open_at(0, cx)))
             .on_action(cx.listener(|this, _: &SwitchWorkspace2, _, cx| this.open_at(1, cx)))
             .on_action(cx.listener(|this, _: &SwitchWorkspace3, _, cx| this.open_at(2, cx)))

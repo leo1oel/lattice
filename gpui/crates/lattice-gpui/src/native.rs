@@ -49,6 +49,13 @@ pub struct Native {
     window: *mut AnyObject,
 }
 
+impl Native {
+    /// The `NSWindow`.
+    pub fn ns_window(self) -> *mut AnyObject {
+        self.window
+    }
+}
+
 pub fn native(window: &Window) -> Result<Native> {
     let handle = HasWindowHandle::window_handle(window).map_err(|error| anyhow!("{error}"))?;
     let RawWindowHandle::AppKit(handle) = handle.as_raw() else {
@@ -74,7 +81,7 @@ fn uptime() -> f64 {
 
 /// The ANSI virtual key code for a character, as Lattice's perf lab maps it.
 pub fn key_code(character: char) -> u16 {
-    const CODES: [(char, u16); 31] = [
+    const CODES: [(char, u16); 34] = [
         ('a', 0x00),
         ('s', 0x01),
         ('d', 0x02),
@@ -106,6 +113,10 @@ pub fn key_code(character: char) -> u16 {
         ('\\', 0x2A),
         (',', 0x2B),
         ('\u{1b}', 0x35),
+        // The interface size's ⌘=, ⌘- and ⌘0.
+        ('=', 0x18),
+        ('-', 0x1B),
+        ('0', 0x1D),
     ];
     CODES
         .iter()

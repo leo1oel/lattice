@@ -48,7 +48,7 @@ jobs:
           # the checkout's root. The vendoring diff only reshapes manifests
           # for building out of the repository, so it is not applied here.
           cd "$work"
-          for diff in gpui-fast-lab-occlusion gpui-fast-motion-and-type gpui-fast-overlay-first-mouse; do
+          for diff in gpui-fast-lab-occlusion gpui-fast-motion-and-type gpui-fast-overlay-first-mouse gpui-fast-interface-zoom; do
             git apply "$GITHUB_WORKSPACE/gpui/patches/$diff.diff"
           done
           echo "GPUI_FAST_DIR=$work/gpui-fast" >> "$GITHUB_ENV"
@@ -62,8 +62,10 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' }}
       # fast::scale: every primitive kind transformed, nesting, the outer clip
       # kept, a view replayed inside a scale; fast::letter_spacing: clusters
-      # and marks spaced, tracked text measured wider. runtime_shaders: GPUI
+      # and marks spaced, tracked text measured wider; fast::interface_zoom:
+      # events and the input method's rectangles converted, a zoomed window's
+      # viewport and scale. runtime_shaders: GPUI
       # compiles its Metal shaders at run time, so no Metal toolchain is needed.
       - name: Run the patch tests
         working-directory: ${{ env.GPUI_FAST_DIR }}
-        run: cargo test -p gpui --lib --features test-support,gpui_platform/runtime_shaders -- fast::scale fast::letter_spacing
+        run: cargo test -p gpui --lib --features test-support,gpui_platform/runtime_shaders -- fast::scale fast::letter_spacing fast::interface_zoom

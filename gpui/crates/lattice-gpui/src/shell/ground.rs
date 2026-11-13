@@ -18,7 +18,8 @@ impl Shell {
             .relative()
             .flex_1()
             .min_h_0()
-            .bg(palette.chrome)
+            // The chrome, or its translucent shell over the vibrancy.
+            .bg(palette.shell)
             .pt(px(WORKSPACE_TOP))
             .px(px(WORKSPACE_SIDE))
             .pb(px(WORKSPACE_SIDE))

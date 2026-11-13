@@ -23,6 +23,7 @@ pub(crate) mod em_metrics;
 pub(crate) mod global_id;
 pub(crate) mod glyphs;
 pub(crate) mod interactive_text;
+pub(crate) mod interface_zoom;
 pub(crate) mod interactivity;
 pub(crate) mod layers;
 pub(crate) mod layout;
