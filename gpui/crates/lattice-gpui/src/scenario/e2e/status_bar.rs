@@ -68,7 +68,9 @@ impl Run {
                 zed.set_scroll_position(point(0., 120.), window, cx)
             });
         })?;
-        self.pause(cx, Duration::from_millis(50)).await;
+        // Read right away: the strip counts as scrolling for only 180 ms,
+        // and a pause on a window that is not on screen (as here, offscreen)
+        // can overrun that, so a pause before reading would fail at random.
         let scrolling =
             cx.update(|cx| lattice.update(cx, |lattice, cx| lattice.scrollbar_shown(cx)));
         self.pause(cx, Duration::from_millis(400)).await;
