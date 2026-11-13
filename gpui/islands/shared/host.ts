@@ -64,36 +64,3 @@ const subscribeTheme = (changed: () => void) => onThemeChange(changed);
 export function useHostTheme(): "light" | "dark" {
   return useSyncExternalStore(subscribeTheme, currentTheme);
 }
-
-/**
- * Run `callback` once the tree the page just committed has laid out: after
- * two animation frames while the page is seen, and after two tasks while it
- * is not. The host keeps a page unseen (its native view hidden) until it
- * says it has drawn (`doc:drawn`), and a hidden page gets no animation
- * frames, so waiting for frames alone would never end. The callback forces
- * the layout it reports on.
- */
-export function afterLayout(callback: () => void): () => void {
-  let cancelled = false;
-  let frame = 0;
-  const step = (remaining: number) => {
-    if (cancelled) return;
-    if (remaining === 0) {
-      void document.documentElement.offsetHeight;
-      callback();
-      return;
-    }
-    if (document.visibilityState === "visible") {
-      frame = requestAnimationFrame(() => step(remaining - 1));
-    } else {
-      const channel = new MessageChannel();
-      channel.port1.onmessage = () => step(remaining - 1);
-      channel.port2.postMessage(null);
-    }
-  };
-  step(2);
-  return () => {
-    cancelled = true;
-    cancelAnimationFrame(frame);
-  };
-}

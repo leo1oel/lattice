@@ -459,8 +459,8 @@ impl EditorPanel {
         // An HTML file opening in Preview or Split has its preview at once;
         // its page is built when the tab is first shown.
         this.ensure_preview(window, cx);
-        this.attach_spelling(cx);
         this.attach_structured(window, cx);
+        this.attach_spelling(cx);
         this
     }
 

@@ -45,7 +45,7 @@
 import "../shared/install";
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef } from "react";
 import { mount, activateLocale } from "../shared/boot";
-import { afterLayout, host } from "../shared/host";
+import { host } from "../shared/host";
 import { LineIndex, SplitScroll } from "./split-scroll";
 import "./markdown.css";
 import { ScrollArea } from "../../../src/components/ui/scroll-area";
@@ -118,6 +118,9 @@ function reduce(state: State, action: Action): State {
       return { ...state, files: action.files, texSources: action.texSources };
   }
 }
+
+/** How long after its commit the editor is taken to have drawn (`shared/document.tsx`). */
+const DRAWN_DELAY_MS = 120;
 
 /** The editor's flush of an edit it is still holding (`onFlushPendingChange`). */
 let pendingFlush: (() => boolean) | null = null;
@@ -209,7 +212,12 @@ function Markdown() {
 
   useEffect(() => {
     if (!opened || !ready) return;
-    return afterLayout(() => host().post("doc:drawn"));
+    // A timer, as the structured pages' (`shared/document.tsx`): WebKit runs
+    // no frames for a page still clipped away, and the host reveals it only on
+    // this. The editor has committed by now; its first layout follows within
+    // the delay.
+    const timer = window.setTimeout(() => host().post("doc:drawn"), DRAWN_DELAY_MS);
+    return () => window.clearTimeout(timer);
   }, [opened, ready]);
 
   // The reader's place: kept by the owner for the session, so a woken page
