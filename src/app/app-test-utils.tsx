@@ -676,8 +676,8 @@ export function waitForSelectedTab(path: string) {
   return waitFor(() => expect(tab()).toHaveAttribute("aria-selected", "true"));
 }
 
-/** Enters the Writing or Reading layout from the Panels menu (the titlebar's switch lists only workspaces). */
-export async function chooseLayoutPreset(name: "Writing" | "Reading") {
+/** Enters a layout preset from the Panels menu; the titlebar lists only workspaces. */
+export async function chooseLayoutPreset(name: "Writing" | "Reading" | "Bibliography") {
   fireEvent.pointerDown(screen.getByRole("button", { name: "Panels" }), { button: 0, ctrlKey: false, pointerType: "mouse" });
   fireEvent.click(await screen.findByRole("menuitemradio", { name }));
 }

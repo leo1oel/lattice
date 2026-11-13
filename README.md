@@ -35,7 +35,7 @@ Source and PDF side by side (or the PDF in a window of its own, for a second scr
 Switch a `.tex` tab from **Source** to **Visual** to read and edit it with its headings, emphasis, equations, lists and figures drawn in place, in the same editor.
 An outline rail follows your sections, `\cite` keys show their reference on hover, and six highlighters with meanings mark what still needs work.
 Start from a NeurIPS, ICML, ICLR, ACL, CVPR or AAAI template or one of two thesis classes, and **Export for arXiv** writes one ZIP that builds on its own.
-Dock any panel anywhere, keep Writing and Reading layouts, or save your own workspaces.
+Dock any panel anywhere, keep Writing, Reading and Bibliography layouts, or save your own workspaces.
 
 ## Revise
 
