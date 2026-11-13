@@ -186,6 +186,17 @@ impl Shell {
             .on_action(
                 cx.listener(|this, _: &ShowShortcuts, window, cx| this.open_shortcuts(window, cx)),
             )
+            .on_action(
+                cx.listener(|this, _: &QuickOpen, window, cx| this.toggle_quick_open(window, cx)),
+            )
+            .on_action(
+                cx.listener(|this, _: &FindInProject, window, cx| this.toggle_find(window, cx)),
+            )
+            .on_action(
+                cx.listener(|this, _: &ReplaceInProject, window, cx| {
+                    this.toggle_replace(window, cx)
+                }),
+            )
             .on_action(cx.listener(|this, _: &CloseTab, window, cx| this.close_tab(window, cx)))
             .on_action(cx.listener(|this, _: &ReopenClosedTab, window, cx| {
                 this.reopen_closed_tab(window, cx)

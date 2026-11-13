@@ -17,6 +17,7 @@ mod arrange;
 mod build;
 mod build_tools;
 pub mod commands;
+mod documents;
 mod entries;
 mod floating;
 pub mod layout;
@@ -144,6 +145,8 @@ pub struct Shell {
     slots: std::collections::HashMap<gpui_kit::component::dock::NodeId, u64>,
     palette: Option<Entity<palette::CommandPaletteView>>,
     shortcuts: Option<Entity<palette::ShortcutSheet>>,
+    /// Quick open, Find and Replace in project, and the files visited.
+    documents: documents::Documents,
     /// The projects open in this window, in tab order; the open one is
     /// `project`'s.
     pub(crate) projects: Vec<OpenProject>,
@@ -325,6 +328,7 @@ impl Shell {
             slots: Default::default(),
             palette: None,
             shortcuts: None,
+            documents: Default::default(),
             projects: Vec::new(),
             closed_tabs: Vec::new(),
             save_task: None,
@@ -494,6 +498,7 @@ impl Shell {
         self.active_editor = None;
         self.queued_build = None;
         self.closed_tabs.clear();
+        self.forget_visits();
         self.tex_setup
             .update(cx, |center, _| center.set_root(Some(root.clone())));
         self.refresh_words(cx);
@@ -548,6 +553,7 @@ impl Shell {
             Some(line) => editor.go_to_line(line, window, cx),
             None => window.focus(&editor.editor().focus_handle(cx), cx),
         });
+        self.record_visit(&path, cx);
         self.file_tree
             .update(cx, |tree, cx| tree.set_current(Some(path.clone()), cx));
         Some(editor)
@@ -676,7 +682,7 @@ impl Shell {
         .detach();
     }
 
-    fn open_editors(&mut self) -> Vec<Entity<EditorPanel>> {
+    pub(super) fn open_editors(&mut self) -> Vec<Entity<EditorPanel>> {
         self.editors.retain(|editor| editor.upgrade().is_some());
         self.editors
             .iter()
@@ -839,6 +845,7 @@ impl Render for Shell {
             )
             .children(self.palette.clone())
             .children(self.shortcuts.clone())
+            .children(self.document_overlays())
             .child(self.notices.clone())
             .child(self.tex_setup.clone())
             .child(self.confirm.clone())

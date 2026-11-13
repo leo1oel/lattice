@@ -92,15 +92,27 @@ lucide! {
     X = "icons" / "x";
     CIRCLE_X = "icons" / "circle-x";
     APP_WINDOW = "icons" / "app-window";
+    CASE_SENSITIVE = "icons" / "case-sensitive";
+    FILE_ARCHIVE = "icons" / "file-archive";
+    FOLDER_PLUS = "icons" / "folder-plus";
+    GIT_BRANCH = "icons" / "git-branch";
+    SPARKLES = "icons" / "sparkles";
+    TEXT_CURSOR_INPUT = "icons" / "text-cursor-input";
+    WRENCH = "icons" / "wrench";
     // Names Zed's icon set also has, which the app's asset source finds
     // first: Lucide's own, copied unmodified from GPUI Kit 0.9.1's assets
     // (ISC, `assets/LICENSE-LUCIDE`).
     CHECK = "lattice" / "check";
     COPY = "lattice" / "copy";
     EYE = "lattice" / "eye";
+    FOLDER = "lattice" / "folder";
+    HASH = "lattice" / "hash";
     INFO = "lattice" / "info";
     PENCIL = "lattice" / "pencil";
     PLUS = "lattice" / "plus";
+    REGEX = "lattice" / "regex";
+    REPLACE = "lattice" / "replace";
+    SETTINGS = "lattice" / "settings";
     TRASH = "lattice" / "trash";
 }
 
@@ -214,6 +226,12 @@ const BUNDLED: &[(&str, &[u8])] = bundled![
     "pencil.svg",
     "plus.svg",
     "trash.svg",
+    // Lucide's, whose names Zed's icon set shadows (LICENSE-LUCIDE).
+    "folder.svg",
+    "hash.svg",
+    "regex.svg",
+    "replace.svg",
+    "settings.svg",
     "glyph-bib-body.svg",
     "glyph-bib.svg",
     "glyph-board-body.svg",

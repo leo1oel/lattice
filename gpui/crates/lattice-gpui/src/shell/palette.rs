@@ -668,6 +668,9 @@ impl Shell {
             return;
         }
         self.shortcuts = None;
+        if self.document_overlay_open() {
+            self.close_document_overlays(window, cx);
+        }
         let weak = cx.entity().downgrade();
         let view = cx.new(|cx| CommandPaletteView::new(self, weak, window, cx));
         cx.subscribe_in(&view, window, |this, _, _: &PaletteEvent, window, cx| {
@@ -683,6 +686,9 @@ impl Shell {
 
     pub(crate) fn open_shortcuts(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.palette = None;
+        if self.document_overlay_open() {
+            self.close_document_overlays(window, cx);
+        }
         let view = cx.new(|cx| ShortcutSheet::new(self, window, cx));
         cx.subscribe_in(&view, window, |this, _, _: &PaletteEvent, window, cx| {
             this.close_overlays(window, cx)

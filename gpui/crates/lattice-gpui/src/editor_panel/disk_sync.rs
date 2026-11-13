@@ -20,7 +20,7 @@ const VANISH_CONFIRM: Duration = Duration::from_millis(1000);
 impl EditorPanel {
     /// Compare the file on disk with the version last seen, as the Tauri
     /// app's disk poll does.
-    pub(super) fn check_disk(&mut self, cx: &mut Context<Self>) {
+    pub(crate) fn check_disk(&mut self, cx: &mut Context<Self>) {
         if self.saves_pending > 0 || self.looking_for_file || self.closed {
             return;
         }

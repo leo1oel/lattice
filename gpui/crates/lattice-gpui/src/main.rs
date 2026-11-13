@@ -29,6 +29,7 @@ mod pdf;
 mod project;
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 mod scenario;
+mod search;
 mod shell;
 mod stand_in_panels;
 mod titlebar;

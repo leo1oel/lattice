@@ -17,6 +17,10 @@ actions!(
     lattice,
     [
         OpenFolder,
+        NewProject,
+        QuickOpen,
+        FindInProject,
+        ReplaceInProject,
         Build,
         Save,
         ForwardSync,
@@ -244,6 +248,12 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
         ));
     }
     if project {
+        out.push(Command::new(
+            "quick-open",
+            "Quick open file",
+            Section::Navigate,
+            QuickOpen,
+        ));
         out.push(
             Command::new(
                 "close-tab",
@@ -427,7 +437,25 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
         out.push(
             Command::new("vim", "Vim mode", Section::Edit, ToggleVimMode).keywords("vi modal"),
         );
+        out.push(Command::new(
+            "find",
+            "Find in project",
+            Section::Edit,
+            FindInProject,
+        ));
+        out.push(Command::new(
+            "replace",
+            "Replace in project",
+            Section::Edit,
+            ReplaceInProject,
+        ));
     }
+    out.push(Command::new(
+        "new-project",
+        "New project",
+        Section::Project,
+        NewProject,
+    ));
     out.push(Command::new(
         "open-folder",
         "Open another folder",
@@ -536,6 +564,11 @@ fn default_bindings() -> Vec<KeyBinding> {
     let mut bindings = vec![
         KeyBinding::new(m!("o"), OpenFolder, beside_vim("!(vim_mode == insert)")),
         KeyBinding::new(m!("b"), Build, beside_vim("!VimControl")),
+        // Vim's insert mode keeps Ctrl+P for its word completion.
+        KeyBinding::new(m!("p"), QuickOpen, beside_vim("!(vim_mode == insert)")),
+        KeyBinding::new(m!("shift-f"), FindInProject, None),
+        KeyBinding::new(m!("shift-h"), ReplaceInProject, None),
+        KeyBinding::new(m!("shift-n"), NewProject, None),
         KeyBinding::new(m!("s"), Save, beside_vim("!(vim_mode == insert)")),
         KeyBinding::new(m!("shift-j"), ForwardSync, None),
         // The Tauri app's next and previous build problem, in the editor
