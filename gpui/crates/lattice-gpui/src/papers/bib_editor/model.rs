@@ -311,14 +311,15 @@ pub struct Draft {
 /// A key from the first author's surname, the year and the title's first
 /// word: `vaswani2017attention` (`slugifyCitationKey`).
 pub fn slug_key(title: &str, author: &str, year: &str) -> String {
-    let first_author = author
-        .split(" and ")
-        .next()
-        .unwrap_or(author)
+    let lower = author.to_ascii_lowercase();
+    let first_author = &author[..lower.find(" and ").unwrap_or(author.len())];
+    let last = first_author
         .split(',')
         .next()
+        .unwrap_or("")
+        .split_whitespace()
+        .last()
         .unwrap_or("");
-    let last = first_author.split_whitespace().last().unwrap_or("key");
     let word = title
         .split(|ch: char| !ch.is_ascii_alphanumeric())
         .find(|word| !word.is_empty())
@@ -336,6 +337,20 @@ pub fn slug_key(title: &str, author: &str, year: &str) -> String {
         .filter(|ch| ch.is_ascii_alphanumeric())
         .collect();
     format!("{surname}{year}{}", word.to_lowercase())
+}
+
+/// A DOI as the form links it: `10.`, four to nine digits, a slash and no
+/// space after (`/^10\.\d{4,9}\/\S+$/`).
+pub fn is_doi(doi: &str) -> bool {
+    let Some(rest) = doi.strip_prefix("10.") else {
+        return false;
+    };
+    let digits = rest.bytes().take_while(u8::is_ascii_digit).count();
+    let suffix = &rest[digits..];
+    (4..=9).contains(&digits)
+        && suffix
+            .strip_prefix('/')
+            .is_some_and(|suffix| !suffix.is_empty() && !suffix.contains(char::is_whitespace))
 }
 
 /// Braces that do not pair are dropped (`escapeBibValue`). An escaped one
@@ -413,7 +428,7 @@ impl Draft {
         // A resolver returns only fields the form does not model; checking
         // here keeps a stale one from overriding what was typed. They are
         // parsed BibTeX values, so their braces stay as they are.
-        const MODELED: [&str; 9] = [
+        const MODELED: [&str; 8] = [
             "title",
             "author",
             "year",
@@ -422,7 +437,6 @@ impl Draft {
             "publisher",
             "url",
             "doi",
-            "note",
         ];
         let extra = self.extra.iter().filter(|(name, value)| {
             !MODELED.contains(&name.to_lowercase().as_str())
@@ -724,5 +738,45 @@ mod tests {
         assert!(valid_field_name("bdsk-url-1"));
         assert!(!valid_field_name("1st"));
         assert!(!valid_field_name("two words"));
+    }
+
+    /// `slugifyCitationKey` (bib-entry.ts), worked by hand: the first
+    /// author's surname however "and" is cased, and nothing for no author.
+    #[test]
+    fn a_key_is_made_as_the_tauri_app_makes_it() {
+        let title = "Attention Is All You Need";
+        let authors = "Vaswani, Ashish AND Shazeer, Noam";
+        assert_eq!(slug_key(title, authors, "2017"), "vaswani2017attention");
+        assert_eq!(slug_key(title, "", "2017"), "2017attention");
+    }
+
+    /// A looked-up record's note is written, as `formatBibEntry` writes it
+    /// when the form has no note box of its own.
+    #[test]
+    fn a_resolved_note_is_kept() {
+        let draft = Draft {
+            entry_type: "misc".into(),
+            key: "k".into(),
+            title: "T".into(),
+            extra: vec![("note".into(), "Accepted".into())],
+            ..Default::default()
+        };
+        assert!(
+            draft.format().contains("note = {Accepted}"),
+            "{}",
+            draft.format()
+        );
+    }
+
+    /// The Tauri form's `/^10\.\d{4,9}\/\S+$/`, case by case.
+    #[test]
+    fn a_doi_is_linked_as_the_tauri_form_links_it() {
+        assert!(is_doi("10.1234/abc"));
+        assert!(is_doi("10.123456789/x.y"));
+        assert!(!is_doi("10.1234"));
+        assert!(!is_doi("10.123/abc"));
+        assert!(!is_doi("10.1234567890/abc"));
+        assert!(!is_doi("10.1234/a b"));
+        assert!(!is_doi("doi:10.1234/abc"));
     }
 }

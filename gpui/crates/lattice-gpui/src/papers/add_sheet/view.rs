@@ -514,18 +514,9 @@ impl Render for AddPapers {
             .iter()
             .filter(|item| item.state == ItemState::Added)
             .count();
-        let position = batch
-            .iter()
-            .position(|item| item.state == ItemState::Adding)
-            .map(|at| at + 1);
         let summary = if !batch.is_empty() {
-            if adding {
-                t!(
-                    "Adding {0} of {1}",
-                    position.unwrap_or(done + 1),
-                    batch.len()
-                )
-            } else if done == batch.len() {
+            // The batch adds in parallel: it counts what has landed.
+            if !adding && done == batch.len() {
                 if done == 1 {
                     t!("Added 1 paper").to_string()
                 } else {

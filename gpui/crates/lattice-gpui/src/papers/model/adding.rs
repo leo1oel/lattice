@@ -281,11 +281,40 @@ pub fn parse_pasted_references(text: &str) -> Vec<PastedReference> {
         offset += line.len() + 1;
     }
     found.sort_by_key(|(at, _)| *at);
+    // A repeat is the same work, however it was written (`workOf`): a line
+    // counts as its arXiv id or DOI, an entry as its text.
+    let work_of = |reference: &PastedReference| {
+        if reference.kind == ReferenceKind::Bibtex {
+            return vec![reference.id.clone()];
+        }
+        let identity = identity_of_input(&reference.input);
+        let ids: Vec<String> = [
+            identity
+                .arxiv_id
+                .map(|id| format!("arxiv:{}", base_arxiv_id(&id).to_lowercase())),
+            identity.doi.map(|doi| format!("doi:{doi}")),
+        ]
+        .into_iter()
+        .flatten()
+        .collect();
+        if ids.is_empty() {
+            vec![reference.id.clone()]
+        } else {
+            ids
+        }
+    };
     let mut seen = HashSet::new();
     found
         .into_iter()
         .map(|(_, reference)| reference)
-        .filter(|reference| seen.insert(reference.id.clone()))
+        .filter(|reference| {
+            let ids = work_of(reference);
+            if ids.iter().any(|id| seen.contains(id)) {
+                return false;
+            }
+            seen.extend(ids);
+            true
+        })
         .collect()
 }
 
@@ -402,5 +431,19 @@ mod tests {
             .map(|reference| (reference.kind, reference.label.as_str()))
             .collect();
         assert_eq!(labels, [(ReferenceKind::Bibtex, "a")]);
+    }
+
+    /// One paper written three ways is one card, as `parsePastedReferences`
+    /// shows it; another paper stays.
+    #[test]
+    fn a_paste_names_each_work_once() {
+        let pasted = parse_pasted_references(
+            "arXiv:1706.03762\nhttps://arxiv.org/abs/1706.03762v5\n10.48550/arXiv.1706.03762\n10.1145/3442188.3445922",
+        );
+        let inputs: Vec<&str> = pasted
+            .iter()
+            .map(|reference| reference.input.as_str())
+            .collect();
+        assert_eq!(inputs, ["arXiv:1706.03762", "10.1145/3442188.3445922"]);
     }
 }

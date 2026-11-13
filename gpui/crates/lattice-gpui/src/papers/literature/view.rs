@@ -27,24 +27,42 @@ use lattice_ui::{
 use super::{Literature, hit_key};
 use crate::papers::row::tooltip;
 
-/// "9.2K" as Elicit and Matter print counts beside a byline.
+/// "9.2K" as Elicit and Matter print counts beside a byline; Chinese keeps
+/// whole numbers up to 9,999, then counts in 万 ("22.8 万") (`compactCount`).
 fn compact(value: u32) -> String {
-    match value {
-        0..=999 => value.to_string(),
-        1_000..=999_999 => trim(format!("{:.1}K", value as f32 / 1_000.)),
-        _ => trim(format!("{:.1}M", value as f32 / 1_000_000.)),
-    }
+    compact_in(value, lattice_i18n::locale().is_chinese())
 }
 
-fn trim(text: String) -> String {
-    text.replace(".0K", "K").replace(".0M", "M")
+fn compact_in(value: u32, chinese: bool) -> String {
+    let (units, step, space): (&[(f64, &str)], f64, &str) = if chinese {
+        (&[(1e8, "亿"), (1e4, "万")], 1e4, " ")
+    } else {
+        (&[(1e9, "B"), (1e6, "M"), (1e3, "K")], 1e3, "")
+    };
+    let magnitude = f64::from(value);
+    let Some(mut index) = units.iter().position(|(size, _)| magnitude >= *size) else {
+        return if chinese {
+            lattice_i18n::format_count(i64::from(value))
+        } else {
+            value.to_string()
+        };
+    };
+    let mut scaled = (magnitude / units[index].0 * 10.).round() / 10.;
+    // 999,950 rounds to 1000K, which reads as 1M.
+    if scaled >= step && index > 0 {
+        index -= 1;
+        scaled = (magnitude / units[index].0 * 10.).round() / 10.;
+    }
+    let digits = format!("{scaled:.1}");
+    let digits = digits.trim_end_matches(".0");
+    format!("{digits}{space}{}", units[index].1)
 }
 
 /// How the work ranks where it came from: alphaXiv votes, OpenAlex cites.
 fn signal(hit: &LiteratureHit, full: bool) -> Option<String> {
     let count = |value: u32| {
         if full {
-            value.to_string()
+            lattice_i18n::format_count(i64::from(value))
         } else {
             compact(value)
         }
@@ -72,7 +90,7 @@ fn byline(hit: &LiteratureHit) -> Vec<String> {
     let authors = if !hit.authors.is_empty() {
         let mut names = hit.authors[..hit.authors.len().min(2)].join(", ");
         if hit.authors.len() > 2 {
-            names.push_str(" et al.");
+            names.push_str(&t!(" et al."));
         }
         names
     } else {
@@ -572,7 +590,7 @@ impl Render for Literature {
             let count = if self.has_more {
                 t!(
                     "{count}+ results for “{shownQuery}”",
-                    count = self.results.len(),
+                    count = lattice_i18n::format_count(self.results.len() as i64),
                     shownQuery = self.shown_query
                 )
             } else if self.results.len() == 1 {
@@ -580,14 +598,16 @@ impl Render for Literature {
             } else {
                 t!(
                     "{count} results for “{shownQuery}”",
-                    count = self.results.len(),
+                    count = lattice_i18n::format_count(self.results.len() as i64),
                     shownQuery = self.shown_query
                 )
             };
-            let mut sources: Vec<&str> = self.results.iter().map(source_name).collect();
-            sources.dedup();
-            sources.sort_unstable();
-            sources.dedup();
+            let mut sources: Vec<&str> = Vec::new();
+            for source in self.results.iter().map(source_name) {
+                if !sources.contains(&source) {
+                    sources.push(source);
+                }
+            }
             body.push(
                 div()
                     .flex()
@@ -692,5 +712,22 @@ impl Render for Literature {
                 view.update(cx, |this, cx| this.close(cx)).ok();
             },
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::compact_in;
+
+    /// What `Intl.NumberFormat(locale, { notation: "compact",
+    /// maximumFractionDigits: 1 })` prints, as the Tauri panel shows it.
+    #[test]
+    fn counts_read_as_intl_compact_notation_prints_them() {
+        assert_eq!(compact_in(950, false), "950");
+        assert_eq!(compact_in(9_214, false), "9.2K");
+        assert_eq!(compact_in(999_950, false), "1M");
+        assert_eq!(compact_in(2_500_000_000, false), "2.5B");
+        assert_eq!(compact_in(228_000, true), "22.8 万");
+        assert_eq!(compact_in(99_999_999, true), "1 亿");
     }
 }

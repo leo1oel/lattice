@@ -102,21 +102,24 @@ pub fn folder_items(library: &ZoteroLibrary, folder: &str, subfolders: bool) -> 
 /// How many items each folder lists, as `folder_items` lists them.
 pub fn folder_counts(library: &ZoteroLibrary, subfolders: bool) -> HashMap<String, usize> {
     let children = children_of(&library.collections);
+    let mut filed: HashMap<&str, Vec<usize>> = HashMap::new();
+    for (at, item) in library.items.iter().enumerate() {
+        for key in &item.collections {
+            filed.entry(key.as_str()).or_default().push(at);
+        }
+    }
     library
         .collections
         .iter()
         .map(|collection| {
             let keys = folder_keys(&children, &collection.key, subfolders);
-            let count = library
-                .items
+            let items: HashSet<usize> = keys
                 .iter()
-                .filter(|item| {
-                    item.collections
-                        .iter()
-                        .any(|key| keys.contains(key.as_str()))
-                })
-                .count();
-            (collection.key.clone(), count)
+                .filter_map(|key| filed.get(key))
+                .flatten()
+                .copied()
+                .collect();
+            (collection.key.clone(), items.len())
         })
         .collect()
 }
@@ -592,5 +595,32 @@ mod tests {
                 ("Transformers".to_string(), 2)
             ]
         );
+    }
+
+    /// Counted by hand: an item filed in a folder and its subfolder counts
+    /// once for the folder, and a subfolder's items count for its parent only
+    /// with subfolders on.
+    #[test]
+    fn a_folder_counts_each_item_once() {
+        let item = |key: &str, folders: &[&str]| lattice_core::zotero::ZoteroItem {
+            key: key.into(),
+            bibtex: String::new(),
+            citation_key: key.into(),
+            pdf: None,
+            collections: folders.iter().map(|folder| folder.to_string()).collect(),
+            annotations: 0,
+        };
+        let library = ZoteroLibrary {
+            collections: vec![
+                collection("A", "Thesis", None),
+                collection("B", "Chapter 1", Some("A")),
+                collection("D", "Reading", None),
+            ],
+            items: vec![item("x", &["A", "B"]), item("y", &["B"]), item("z", &["D"])],
+        };
+        let with = folder_counts(&library, true);
+        assert_eq!((with["A"], with["B"], with["D"]), (2, 2, 1));
+        let without = folder_counts(&library, false);
+        assert_eq!((without["A"], without["B"], without["D"]), (1, 2, 1));
     }
 }

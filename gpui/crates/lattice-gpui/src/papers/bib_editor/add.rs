@@ -70,10 +70,12 @@ const FIELDS: [Field; 8] = [
 pub enum AddTarget {
     /// The `.bib` file whose visual form opened it.
     Bib(WeakEntity<BibEditor>),
-    /// The project's bibliography, from Add papers.
+    /// The project's bibliography, from Add papers, or its entry under the
+    /// key the sheet opened with when `editing` (Edit bibliography entry).
     Project {
         root: std::path::PathBuf,
         papers: WeakEntity<crate::papers::PapersPanel>,
+        editing: bool,
     },
 }
 
@@ -167,6 +169,28 @@ impl AddReference {
             _lookup: None,
             _subscriptions: subscriptions,
         }
+    }
+
+    /// The project's entry `record`, to edit in place: its key stays.
+    pub fn edit(
+        root: std::path::PathBuf,
+        papers: WeakEntity<crate::papers::PapersPanel>,
+        record: ResolvedCitation,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Self {
+        let target = AddTarget::Project {
+            root,
+            papers,
+            editing: true,
+        };
+        let mut this = Self::new(target, window, cx);
+        this.apply_with_window(record, window, cx);
+        this
+    }
+
+    fn editing(&self) -> bool {
+        matches!(self.target, AddTarget::Project { editing: true, .. })
     }
 
     pub fn focus_lookup(&self, window: &mut Window, cx: &mut gpui::App) {
@@ -338,21 +362,26 @@ impl AddReference {
                     cx.notify();
                 }
             }
-            AddTarget::Project { root, papers } => {
+            AddTarget::Project {
+                root,
+                papers,
+                editing,
+            } => {
                 if self.saving {
                     return;
                 }
-                let taken = papers
-                    .upgrade()
-                    .map(|papers| {
-                        papers.read(cx).papers.iter().any(|paper| {
-                            paper
-                                .citation_key
-                                .as_deref()
-                                .is_some_and(|own| own.eq_ignore_ascii_case(&key))
+                let taken = !*editing
+                    && papers
+                        .upgrade()
+                        .map(|papers| {
+                            papers.read(cx).papers.iter().any(|paper| {
+                                paper
+                                    .citation_key
+                                    .as_deref()
+                                    .is_some_and(|own| own.eq_ignore_ascii_case(&key))
+                            })
                         })
-                    })
-                    .unwrap_or(false);
+                        .unwrap_or(false);
                 if taken {
                     self.error = Some(t!(
                         "Citation key ''{key}'' already exists. Choose a different key or edit the existing reference.",
@@ -428,6 +457,7 @@ impl AddReference {
                     .border_color(palette.field_border)
                     .child(
                         Input::new(self.input(field))
+                            .disabled(field == Field::Key && self.editing())
                             .appearance(false)
                             .bordered(false)
                             .px_0(),
@@ -583,11 +613,13 @@ impl Render for AddReference {
         let palette = cx.palette().clone();
         let resolving = self.resolving;
         let has_query = !self.lookup.read(cx).value().trim().is_empty();
+        let editing = self.editing();
         let mut body: Vec<AnyElement> = vec![
             div()
                 .flex()
                 .items_center()
                 .gap(px(8.))
+                .when(editing, |row| row.hidden())
                 .child(
                     div()
                         .flex_1()
@@ -760,11 +792,20 @@ impl Render for AddReference {
             );
         } else if self.show_fields {
             actions.push(
-                Button::new("bib-save-entry", t!("Save entry"))
-                    .primary()
-                    .disabled(!complete || resolving || self.saving)
-                    .on_click(cx.listener(|this, _: &ClickEvent, window, cx| this.save(window, cx)))
-                    .into_any_element(),
+                Button::new(
+                    "bib-save-entry",
+                    if self.saving {
+                        t!("Saving…")
+                    } else if editing {
+                        t!("Save changes")
+                    } else {
+                        t!("Save entry")
+                    },
+                )
+                .primary()
+                .disabled(!complete || resolving || self.saving)
+                .on_click(cx.listener(|this, _: &ClickEvent, window, cx| this.save(window, cx)))
+                .into_any_element(),
             );
         }
         let view = cx.entity().downgrade();
@@ -772,7 +813,11 @@ impl Render for AddReference {
         let sheet = SheetFrame {
             id: "add-reference",
             icon: Icon::BOOK_MARKED,
-            title: t!("Add bibliography entry"),
+            title: if editing {
+                t!("Edit bibliography entry")
+            } else {
+                t!("Add bibliography entry")
+            },
             body,
             actions,
             scrim_closes: !self.show_fields,

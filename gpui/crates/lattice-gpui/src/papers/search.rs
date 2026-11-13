@@ -122,9 +122,23 @@ impl PapersPanel {
         }));
     }
 
-    /// Run the full-text pass now (Enter on a title), or again after it
-    /// failed (Try again).
+    /// Enter on a title: the pass waiting out its pause runs now; one under
+    /// way or answered is left as it is (`searchNow`).
     pub(crate) fn search_now(&mut self, cx: &mut Context<Self>) {
+        if self.text_search != TextSearch::Pending {
+            return;
+        }
+        let text = self.query(cx);
+        let query = text.trim().to_string();
+        if query.is_empty() {
+            return;
+        }
+        self.text_generation += 1;
+        self.run_text_search(query, text.trim_start().to_string(), Duration::ZERO, cx);
+    }
+
+    /// The pass again after it failed (Try again).
+    pub(crate) fn retry_search(&mut self, cx: &mut Context<Self>) {
         let text = self.query(cx);
         let query = text.trim().to_string();
         if query.is_empty() {

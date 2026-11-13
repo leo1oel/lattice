@@ -39,7 +39,7 @@ use lattice_ui::{
     tokens::FONT_WEIGHT_REGULAR,
 };
 
-use super::{FetchState, PapersPanel, model};
+use super::{FetchState, PapersEvent, PapersPanel, model};
 
 #[cfg(target_os = "macos")]
 const REVEAL_LABEL: &str = lattice_i18n::n!("Show in Finder");
@@ -263,8 +263,25 @@ impl PapersPanel {
                 move |_, _, cx| model::open_link(&link, cx),
             ));
         }
-        // Only an entry with a key can be removed from the bibliography.
+        // Only an entry with a key can be edited, or removed from the
+        // bibliography.
         if paper.citation_key.is_some() {
+            let (edit_view, edited) = (view.clone(), paper.clone());
+            actions.push(action(
+                child_id(row_id, "edit"),
+                Icon::PENCIL,
+                t!("Edit bibliography entry"),
+                false,
+                window,
+                cx,
+                move |_, _, cx| {
+                    edit_view
+                        .update(cx, |_, cx| {
+                            cx.emit(PapersEvent::EditEntry(Box::new(edited.clone())))
+                        })
+                        .ok();
+                },
+            ));
             let remove_view = view;
             let removed = paper.clone();
             actions.push(action(
@@ -414,7 +431,7 @@ impl PapersPanel {
                     // narrower, a click opens.
                     if wide && event.click_count() == 1 {
                         this.select(Some(select_key.clone()), cx);
-                    } else {
+                    } else if model::can_activate(&opened) {
                         this.activate(&opened, None, window, cx);
                     }
                 })

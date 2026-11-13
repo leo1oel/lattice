@@ -101,6 +101,8 @@ pub enum PapersEvent {
     Remove(Box<PaperSummary>),
     /// A removal may have rewritten the manuscript's files.
     Removed,
+    /// Edit a paper's entry in the bibliography, as Add reference shows it.
+    EditEntry(Box<PaperSummary>),
 }
 
 /// What a stage id of the literature pipeline is doing, in words; an id it

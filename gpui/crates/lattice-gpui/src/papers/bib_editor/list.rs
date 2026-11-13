@@ -12,9 +12,9 @@
 
 use gpui::{
     Anchor, AnyElement, App, ClickEvent, Context, Hsla, InteractiveElement as _, IntoElement,
-    MouseButton, MouseDownEvent, MouseMoveEvent, ParentElement as _, Render, SharedString,
-    StatefulInteractiveElement as _, Styled as _, Window, canvas, div, prelude::FluentBuilder as _,
-    px, uniform_list,
+    KeyDownEvent, MouseButton, MouseDownEvent, MouseMoveEvent, ParentElement as _, Render,
+    SharedString, StatefulInteractiveElement as _, Styled as _, Window, canvas, div,
+    prelude::FluentBuilder as _, px, uniform_list,
 };
 use gpui_kit::component::input::Input;
 use lattice_i18n::{format_count, t};
@@ -117,6 +117,16 @@ impl BibEditor {
                     .bg(palette.input)
                     .border_1()
                     .border_color(palette.field_border)
+                    // ↓ and ↑ step the list from the search, and take the
+                    // keys there (bib-preview.tsx).
+                    .capture_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
+                        let keys = &event.keystroke;
+                        if matches!(keys.key.as_str(), "down" | "up") && !keys.modifiers.modified()
+                        {
+                            window.focus(&this.focus, cx);
+                            this.list_key(event, cx);
+                        }
+                    }))
                     .child(Icon::SEARCH.element(ICON_SMALL, palette.text_secondary))
                     .child(
                         div().flex_1().min_w_0().child(

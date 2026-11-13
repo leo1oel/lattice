@@ -72,13 +72,16 @@ impl PapersPanel {
                             return;
                         }
                         let (root, key) = (root.clone(), key.clone());
-                        let view = view.clone();
+                        let (view, current) = (view.clone(), current.clone());
                         let removal = cx.background_spawn(async move {
                             core_papers::remove_reference(&root, &key, mode)
                         });
                         cx.spawn(async move |cx| {
                             let result = removal.await;
                             cx.update(|cx| {
+                                if !current(cx) {
+                                    return;
+                                }
                                 match result {
                                     Ok(result) if result.removed => {}
                                     Ok(result) => {

@@ -188,6 +188,9 @@ mod tests {
         assert!(context.contains("\\cite{knuth1984}"));
         assert_eq!(cite_context("Short \\cite{a}.", "a"), "Short \\cite{a}.");
         let wide = "İİİİİİİİİİİİİİİİİİİİİİİİİİİİİİİİİİİİİİ and then \\cite{a} é";
-        assert!(cite_context(wide, "A").ends_with("\\cite{a} é"));
+        // `citeContext` worked by hand: the command stands 48 characters in,
+        // the lead starts at the 17th, and the first space after it cuts
+        // the word it lands in.
+        assert_eq!(cite_context(wide, "A"), "…and then \\cite{a} é");
     }
 }

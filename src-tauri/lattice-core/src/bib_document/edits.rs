@@ -71,14 +71,21 @@ pub fn add_field_edit(source: &str, entry: &BibEntry, name: &str, raw: &str) -> 
     let Layout { indent, equals, newline } = field_layout(source, entry);
     let field = format!("{indent}{name}{equals}{raw}");
     let Some(last) = entry.fields.last() else {
-        // After the key: `@misc{key}` or `@misc{key,` become one field long.
-        let at = entry.key_to;
-        let comma = if comma_after(source, at).is_some() { "," } else { "" };
-        return BibEdit {
-            from: at,
-            to: entry.to - 1,
-            insert: format!(",{newline}{field}{comma}{newline}"),
-        };
+        // After the key and its comma, if it has one; what the body holds
+        // (a comment) stays, and an empty body makes room for the field.
+        let comma = comma_after(source, entry.key_to);
+        let at = comma.map_or(entry.key_to, |comma| comma + 1);
+        let close = entry.to - 1;
+        let lead = if comma.is_some() { "" } else { "," };
+        let tail = if comma.is_some() { "," } else { "" };
+        if source[at..close].trim().is_empty() {
+            return BibEdit {
+                from: at,
+                to: close,
+                insert: format!("{lead}{newline}{field}{tail}{newline}"),
+            };
+        }
+        return BibEdit { from: at, to: at, insert: format!("{lead}{newline}{field}{tail}") };
     };
     if entry.trailing_comma {
         let comma = comma_after(source, last.value_to).unwrap_or(last.value_to);
@@ -94,49 +101,50 @@ fn comma_after(source: &str, at: usize) -> Option<usize> {
     (source.as_bytes().get(comma) == Some(&b',')).then_some(comma)
 }
 
+/// The end of `at`'s line, past its line break, when nothing but spaces or
+/// a comment is left on it.
+fn rest_of_line(source: &str, at: usize) -> Option<usize> {
+    let end = source[at..].find('\n').map_or(source.len(), |found| at + found + 1);
+    let rest = source[at..end].trim();
+    (rest.is_empty() || rest.starts_with('%')).then_some(end)
+}
+
 /// Remove a field with its separating comma and, when it stands on its own
-/// line, that line.
+/// line, that line. Comment lines around it stay where they are.
 pub fn remove_field_edit(source: &str, entry: &BibEntry, field: &BibField) -> BibEdit {
     let index = entry.fields.iter().position(|candidate| candidate == field).unwrap_or(0);
-    let next = entry.fields.get(index + 1);
     let previous = index.checked_sub(1).and_then(|before| entry.fields.get(before));
     let own_start = line_start(source, field.from);
     let own_line = only_indent(&source[own_start..field.from]);
-    if let Some(next) = next {
-        // Up to the next field, so its own indentation (now this one's) stays.
-        let next_start = line_start(source, next.from);
-        let next_own_line = only_indent(&source[next_start..next.from]);
-        return if own_line && next_own_line {
-            BibEdit { from: own_start, to: next_start, insert: String::new() }
-        } else {
-            BibEdit { from: field.from, to: next.from, insert: String::new() }
+    let after = comma_after(source, field.value_to).filter(|after| *after < entry.to);
+    let last = index + 1 == entry.fields.len();
+    if let Some(comma) = after.filter(|_| !last || entry.trailing_comma) {
+        // Its own comma follows it: the field goes up to and with it, and
+        // with its line when it has one to itself.
+        let end = comma + 1;
+        return match rest_of_line(source, end).filter(|_| own_line) {
+            Some(line_end) => BibEdit { from: own_start, to: line_end, insert: String::new() },
+            None => {
+                let spaces =
+                    source[end..].len() - source[end..].trim_start_matches([' ', '\t']).len();
+                BibEdit { from: field.from, to: end + spaces, insert: String::new() }
+            }
         };
     }
-    // The last field: take the comma before it (unless the entry keeps a
-    // trailing one) and its line.
-    let after = comma_after(source, field.value_to);
-    let end = match after {
-        Some(after) if entry.trailing_comma && after < entry.to => after + 1,
-        _ => field.value_to,
+    // The last field without a comma of its own: the comma before it goes
+    // with it, and its line; what stands between (a comment) stays.
+    let before = previous.map_or(entry.key_to, |previous| previous.value_to);
+    let Some(comma) = comma_after(source, before) else {
+        return BibEdit { from: before, to: field.value_to, insert: String::new() };
     };
-    if entry.trailing_comma {
-        let rest = &source[end..];
-        let indent = rest.len() - rest.trim_start_matches([' ', '\t']).len();
-        let line_end = if rest[indent..].starts_with("\r\n") {
-            indent + 2
-        } else if rest[indent..].starts_with('\n') {
-            indent + 1
-        } else {
-            0
-        };
-        return if own_line {
-            BibEdit { from: own_start, to: end + line_end, insert: String::new() }
-        } else {
-            BibEdit { from: field.from, to: end, insert: String::new() }
-        };
-    }
-    let start = previous.map_or(entry.key_to, |previous| previous.value_to);
-    BibEdit { from: start, to: end, insert: String::new() }
+    let keep_to = if own_line && own_start > comma + 1 {
+        let newline = if source[..own_start].ends_with("\r\n") { 2 } else { 1 };
+        own_start - newline
+    } else {
+        source[..field.from].trim_end_matches([' ', '\t']).len()
+    };
+    let kept = source.get(comma + 1..keep_to.max(comma + 1)).unwrap_or("");
+    BibEdit { from: comma, to: field.value_to, insert: kept.to_string() }
 }
 
 /// Remove the entry. Standing on lines of its own, it goes with them and the
@@ -259,6 +267,27 @@ mod tests {
         let removed =
             edited(source, |text, entry| remove_field_edit(text, entry, &entry.fields[1]));
         assert_eq!(fields(&removed), [("title".to_string(), "{T}".to_string())]);
+    }
+
+    #[test]
+    fn a_field_edit_keeps_the_comment_lines_around_it() {
+        // A field between others goes with its own line only.
+        let middle = "@article{a,\n  title = {T},\n  % why\n  year = 2017,\n  doi = {d}\n}\n";
+        assert_eq!(
+            edited(middle, |text, entry| remove_field_edit(text, entry, &entry.fields[0])),
+            "@article{a,\n  % why\n  year = 2017,\n  doi = {d}\n}\n"
+        );
+        // The last field takes the comma before it, not the comment between.
+        let last = "@article{a,\n  title = {T},\n  % why\n  year = 2017\n}\n";
+        assert_eq!(
+            edited(last, |text, entry| remove_field_edit(text, entry, &entry.fields[1])),
+            "@article{a,\n  title = {T}\n  % why\n}\n"
+        );
+        // A first field goes in after the key, the body's comment kept.
+        let empty = "@misc{k, % fill in later\n}";
+        let added = edited(empty, |text, entry| add_field_edit(text, entry, "title", "{X}"));
+        assert_eq!(added, "@misc{k,\n  title = {X}, % fill in later\n}");
+        assert_eq!(parse(&added).unwrap().entries[0].fields.len(), 1);
     }
 
     #[test]

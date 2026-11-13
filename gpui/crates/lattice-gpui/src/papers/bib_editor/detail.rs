@@ -7,8 +7,8 @@
 
 use gpui::{
     AnyElement, AppContext as _, ClickEvent, Context, Entity, Focusable as _,
-    InteractiveElement as _, IntoElement, ParentElement as _, ScrollHandle, SharedString,
-    StatefulInteractiveElement as _, Styled as _, Subscription, Window, div,
+    InteractiveElement as _, IntoElement, KeyDownEvent, ParentElement as _, ScrollHandle,
+    SharedString, StatefulInteractiveElement as _, Styled as _, Subscription, Window, div,
     prelude::FluentBuilder as _, px,
 };
 use gpui_kit::component::input::{Input, InputEvent, InputState, Textarea, TextareaState};
@@ -20,6 +20,8 @@ use lattice_ui::{
     interaction::mix,
     tokens::FONT_WEIGHT_MEDIUM,
 };
+
+mod usages;
 
 use super::{
     BibEditor,
@@ -173,18 +175,21 @@ impl BibEditor {
             .detail
             .take()
             .filter(|detail| detail.key == row.entry.key);
+        // A refused key or value keeps its typing and its error.
+        let mut key_error = None;
         let (key_input, mut kept, new_name, new_value, scroll) = match previous {
             Some(previous) => {
                 let input = previous.key_input.clone();
-                if !input.read(cx).focus_handle(cx).is_focused(window) {
+                key_error = previous.key_error.clone();
+                if key_error.is_none() && !input.read(cx).focus_handle(cx).is_focused(window) {
                     input.update(cx, |input, cx| {
                         input.set_value(row.entry.key.clone(), window, cx)
                     });
                 }
-                let boxes: Vec<(String, FieldBox, String)> = previous
+                let boxes: Vec<(String, FieldBox, String, bool)> = previous
                     .fields
                     .into_iter()
-                    .map(|field| (field.name, field.input, field.filled))
+                    .map(|field| (field.name, field.input, field.filled, field.invalid))
                     .collect();
                 (
                     input,
@@ -229,15 +234,18 @@ impl BibEditor {
             let (text, style) = bib_document::editable_value(raw);
             let reused = kept
                 .iter()
-                .position(|(name, _, _)| *name == field.name)
+                .position(|(name, ..)| *name == field.name)
                 .map(|at| kept.remove(at));
-            // The box the writer is in keeps what it was filled with: what
-            // they typed there is still theirs to write.
+            // The box the writer is in, or one whose typing was refused,
+            // keeps what it was filled with: what they typed there is still
+            // theirs to write.
             let mut filled = text.clone();
+            let mut invalid = false;
             let input = match reused {
-                Some((_, input, before)) => {
-                    if input.focused(window, cx) {
+                Some((_, input, before, refused)) => {
+                    if input.focused(window, cx) || refused {
                         filled = before;
+                        invalid = refused;
                     } else if input.value(cx) != text {
                         input.set_value(text, window, cx);
                     }
@@ -288,7 +296,7 @@ impl BibEditor {
                 style,
                 input,
                 filled,
-                invalid: false,
+                invalid,
             });
         }
         for input in [&new_name, &new_value] {
@@ -309,7 +317,7 @@ impl BibEditor {
             key: row.entry.key.clone(),
             signature,
             key_input,
-            key_error: None,
+            key_error,
             fields,
             new_name,
             new_value,
@@ -317,6 +325,46 @@ impl BibEditor {
             scroll,
             _subscriptions: subscriptions,
         });
+    }
+
+    /// Escape in a field's box: what the file holds, the keys back to the
+    /// form (`revert` in bib-entry-detail.tsx).
+    fn revert_field(&mut self, at: usize, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(row) = self.selected_row().cloned() else {
+            return;
+        };
+        let Some(detail) = self.detail.as_mut() else {
+            return;
+        };
+        let Some(field) = detail.fields.get_mut(at) else {
+            return;
+        };
+        let raw = row
+            .entry
+            .fields
+            .get(field.index)
+            .and_then(|written| self.text.get(written.value_from..written.value_to))
+            .unwrap_or("");
+        let saved = bib_document::editable_value(raw).0;
+        field.input.set_value(saved.clone(), window, cx);
+        field.filled = saved;
+        field.invalid = false;
+        window.focus(&self.focus, cx);
+        cx.notify();
+    }
+
+    /// Escape in the key's box: the key as written, its error gone.
+    fn revert_key(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(detail) = self.detail.as_mut() else {
+            return;
+        };
+        let key = detail.key.clone();
+        detail.key_error = None;
+        detail
+            .key_input
+            .update(cx, |input, cx| input.set_value(key, window, cx));
+        window.focus(&self.focus, cx);
+        cx.notify();
     }
 
     /// The reference in front, drawn; `back` gives a pane too narrow for
@@ -388,6 +436,12 @@ impl BibEditor {
                         palette.field_border
                     })
                     .font_family(editor_font.clone())
+                    .capture_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
+                        if event.keystroke.key == "escape" {
+                            this.revert_key(window, cx);
+                            cx.stop_propagation();
+                        }
+                    }))
                     .child(
                         Input::new(&detail.key_input)
                             .appearance(false)
@@ -402,11 +456,17 @@ impl BibEditor {
                         cx.write_to_clipboard(gpui::ClipboardItem::new_string(copy_key.clone()))
                     }),
             );
-        let doi_url = (!summary.doi.is_empty() && summary.doi.starts_with("10."))
-            .then(|| format!("https://doi.org/{}", summary.doi));
+        let doi_url =
+            model::is_doi(&summary.doi).then(|| format!("https://doi.org/{}", summary.doi));
         let arxiv_url = (!summary.arxiv_id.is_empty())
             .then(|| format!("https://arxiv.org/abs/{}", summary.arxiv_id));
-        let web_url = (summary.url.starts_with("http://") || summary.url.starts_with("https://"))
+        let scheme = |prefix: &str| {
+            summary
+                .url
+                .get(..prefix.len())
+                .is_some_and(|start| start.eq_ignore_ascii_case(prefix))
+        };
+        let web_url = (scheme("http://") || scheme("https://"))
             .then(|| summary.url.clone())
             .filter(|url| Some(url) != doi_url.as_ref() && Some(url) != arxiv_url.as_ref());
         let paper_state = self.papers().map(|papers| {
@@ -576,85 +636,6 @@ impl BibEditor {
             .into_any_element()
     }
 
-    fn usages_section(&self, key: &str, cx: &mut Context<Self>) -> AnyElement {
-        let palette = cx.palette().clone();
-        let editor_font = cx.lattice().fonts.editor.clone();
-        let mut section = div()
-            .flex()
-            .flex_col()
-            .child(Self::section_title(t!("Cited in"), cx));
-        let quiet = |text: String, ink: gpui::Hsla, cx: &Context<Self>| {
-            div()
-                .text_role(TextRole::Caption, cx)
-                .text_color(ink)
-                .child(text)
-        };
-        let Some(usages) = &self.usages else {
-            return section
-                .child(quiet(
-                    t!("Looking through the manuscript…").into(),
-                    palette.text_secondary,
-                    cx,
-                ))
-                .into_any_element();
-        };
-        let list = usages.of(key);
-        if list.is_empty() {
-            let text = if usages.everything {
-                t!(
-                    "Not cited by key, but {nociteAll} includes every entry",
-                    nociteAll = "\\nocite{*}"
-                )
-            } else {
-                t!("Not cited in any .tex file").to_string()
-            };
-            return section
-                .child(quiet(text, mix(palette.warning, palette.text, 0.3), cx))
-                .into_any_element();
-        }
-        for (at, usage) in list.iter().enumerate() {
-            let (path, line) = (usage.path.clone(), usage.line);
-            section = section.child(
-                div()
-                    .id(("bib-usage", at))
-                    .flex()
-                    .items_baseline()
-                    .gap(px(10.))
-                    .px(px(8.))
-                    .py(px(6.))
-                    .rounded(px(6.))
-                    .cursor_pointer()
-                    .hover(|style| style.bg(palette.hover))
-                    .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                        this.open_line(path.clone(), line, cx)
-                    }))
-                    .child(
-                        div()
-                            .flex_none()
-                            .max_w(px(200.))
-                            .truncate()
-                            .px(px(4.))
-                            .rounded(px(4.))
-                            .bg(palette.hover)
-                            .text_role(TextRole::Micro, cx)
-                            .text_color(palette.text)
-                            .child(format!("{}:{}", usage.path, usage.line)),
-                    )
-                    .child(
-                        div()
-                            .flex_1()
-                            .min_w_0()
-                            .font_family(editor_font.clone())
-                            .text_size(px(12.))
-                            .line_height(px(18.))
-                            .text_color(palette.text_secondary)
-                            .child(usage.snippet.trim().to_string()),
-                    ),
-            );
-        }
-        section.into_any_element()
-    }
-
     fn fields_section(&self, detail: &Detail, cx: &mut Context<Self>) -> AnyElement {
         let palette = cx.palette().clone();
         let editor_font = cx.lattice().fonts.editor.clone();
@@ -681,6 +662,15 @@ impl BibEditor {
                     .px_0()
                     .into_any_element(),
             };
+            let value = div()
+                .capture_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| {
+                    if event.keystroke.key == "escape" {
+                        this.revert_field(at, window, cx);
+                        cx.stop_propagation();
+                    }
+                }))
+                .child(value)
+                .into_any_element();
             let invalid = field.invalid;
             card = card.child(
                 div()

@@ -20,21 +20,25 @@ impl EditorPanel {
         if let Some(current) = self.document_view() {
             return menu
                 .menu_with_check(
-                    "Edit",
+                    t!("Edit"),
                     current == DocumentView::Source,
                     Box::new(ViewSource),
                 )
-                .menu_with_check("Split", current == DocumentView::Split, Box::new(ViewSplit))
                 .menu_with_check(
-                    "Preview",
+                    t!("Split"),
+                    current == DocumentView::Split,
+                    Box::new(ViewSplit),
+                )
+                .menu_with_check(
+                    t!("Preview"),
                     current == DocumentView::Preview,
                     Box::new(ViewPreview),
                 )
                 .separator()
-                .menu("Find", Box::new(Deploy::find()))
+                .menu(t!("Find"), Box::new(Deploy::find()))
                 .separator()
                 .menu_with_check(
-                    "Vim mode",
+                    t!("Vim mode"),
                     crate::app::vim_mode_enabled(cx),
                     Box::new(ToggleVimMode),
                 );

@@ -170,7 +170,7 @@ impl Batch {
 }
 
 /// The converter's stderr ends with its one meaningful "Error: …" line.
-fn failure_line(error: &str) -> Option<String> {
+pub(super) fn failure_line(error: &str) -> Option<String> {
     error
         .trim()
         .lines()

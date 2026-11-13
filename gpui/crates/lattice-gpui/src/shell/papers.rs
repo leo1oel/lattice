@@ -44,6 +44,7 @@ impl Shell {
             PapersEvent::SearchLiterature(query) => self.open_literature(query.clone(), window, cx),
             PapersEvent::CheckReferences => self.open_audit(window, cx),
             PapersEvent::Remove(paper) => self.remove_paper((**paper).clone(), cx),
+            PapersEvent::EditEntry(paper) => self.edit_entry((**paper).clone(), window, cx),
             PapersEvent::Removed => {
                 for editor in self.open_editors() {
                     editor.update(cx, |editor, cx| editor.check_disk(cx));
@@ -253,13 +254,64 @@ impl Shell {
         let target = AddTarget::Project {
             root,
             papers: self.papers.downgrade(),
+            editing: false,
         };
         let view = cx.new(|cx| AddReference::new(target, window, cx));
+        view.update(cx, |view, cx| view.focus_lookup(window, cx));
+        self.show_add_reference(view, window, cx);
+    }
+
+    /// Edit bibliography entry (`editBibEntry`): the entry as the file holds
+    /// it, in Add reference's form, saved back under its key.
+    fn edit_entry(&mut self, paper: PaperSummary, window: &mut Window, cx: &mut Context<Self>) {
+        let (Some(root), Some(key)) = (self.root(cx), paper.citation_key) else {
+            return;
+        };
+        let (read_root, read_key) = (root.clone(), key.clone());
+        let read = cx.background_spawn(async move {
+            lattice_core::project::read_bib_entry(&read_root, &read_key)
+        });
+        cx.spawn_in(window, async move |this, cx| {
+            let read = read.await;
+            this.update_in(cx, |this, window, cx| {
+                if this.root(cx).as_ref() != Some(&root) {
+                    return;
+                }
+                let record = match read {
+                    Ok(Some(record)) => record,
+                    Ok(None) => {
+                        let detail = t!(
+                            "Couldn't find a bibliography entry for {citationCommand}.",
+                            citationCommand = format!("\\cite{{{key}}}")
+                        );
+                        notices::error(t!("Edit bibliography entry"), detail, cx);
+                        return;
+                    }
+                    Err(error) => {
+                        notices::error(t!("Edit bibliography entry"), error, cx);
+                        return;
+                    }
+                };
+                this.dismiss_overlays_for_documents(cx);
+                let papers = this.papers.downgrade();
+                let view = cx.new(|cx| AddReference::edit(root, papers, record, window, cx));
+                this.show_add_reference(view, window, cx);
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    fn show_add_reference(
+        &mut self,
+        view: Entity<AddReference>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         cx.subscribe_in(&view, window, |this, _, event, window, cx| match event {
             AddReferenceEvent::Dismiss => this.close_document_overlays(window, cx),
         })
         .detach();
-        view.update(cx, |view, cx| view.focus_lookup(window, cx));
         self.documents.add_reference = Some(view);
         cx.notify();
     }

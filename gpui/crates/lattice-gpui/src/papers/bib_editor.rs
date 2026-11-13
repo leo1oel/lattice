@@ -681,9 +681,14 @@ impl BibEditor {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if !self.focus.is_focused(window) {
-            return;
+        if self.focus.is_focused(window) {
+            self.list_key(event, cx);
         }
+    }
+
+    /// A key for the list: Undo and Redo, a step through the references,
+    /// Enter to open one, Delete to remove it.
+    fn list_key(&mut self, event: &KeyDownEvent, cx: &mut Context<Self>) {
         let keystroke = &event.keystroke;
         let modifiers = keystroke.modifiers;
         if (modifiers.platform || modifiers.control) && !modifiers.alt && keystroke.key == "z" {

@@ -320,7 +320,11 @@ impl Literature {
     }
 
     pub(super) fn add_citation(&mut self, hit: &LiteratureHit, cx: &mut Context<Self>) {
-        let seed = hit.doi.clone().unwrap_or_else(|| hit.title.clone());
+        let seed = hit
+            .doi
+            .clone()
+            .filter(|doi| !doi.is_empty())
+            .unwrap_or_else(|| hit.title.clone());
         cx.emit(LiteratureEvent::AddCitation(seed));
     }
 

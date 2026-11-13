@@ -127,7 +127,7 @@ impl PapersPanel {
                         Button::new("papers-text-retry", t!("Try again"))
                             .compact()
                             .on_click(move |_, _, cx| {
-                                view.update(cx, |this, cx| this.search_now(cx)).ok();
+                                view.update(cx, |this, cx| this.retry_search(cx)).ok();
                             }),
                     )
                     .into_any_element(),

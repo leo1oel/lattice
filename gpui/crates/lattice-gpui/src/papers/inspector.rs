@@ -172,6 +172,20 @@ impl PapersPanel {
                     }),
             );
         }
+        if cite_key.is_some() {
+            let (edit_view, edited) = (view.clone(), paper.clone());
+            actions = actions.child(
+                IconButton::new("paper-inspector-edit", Icon::PENCIL)
+                    .tooltip(t!("Edit bibliography entry"))
+                    .on_click(move |_, _, cx| {
+                        edit_view
+                            .update(cx, |_, cx| {
+                                cx.emit(PapersEvent::EditEntry(Box::new(edited.clone())))
+                            })
+                            .ok();
+                    }),
+            );
+        }
         if let Some(link) = model::link_url(paper) {
             actions = actions.child(
                 IconButton::new("paper-inspector-link", Icon::EXTERNAL_LINK)
@@ -373,7 +387,7 @@ impl PapersPanel {
                 cx,
             ));
         }
-        if let Some(doi) = paper.doi.clone() {
+        if let Some(doi) = paper.doi.clone().filter(|doi| !doi.is_empty()) {
             rows = rows.child(record_row("DOI", div().child(doi).into_any_element(), cx));
         }
         if let Some(health) = paper.citation_health.as_ref() {

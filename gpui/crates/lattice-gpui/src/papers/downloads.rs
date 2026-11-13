@@ -195,7 +195,11 @@ impl PapersPanel {
                 });
                 self.scroll
                     .set_offset(gpui::point(gpui::px(0.), gpui::px(0.)));
-                if let Some(error) = imported.fetch_error.filter(|_| !imported.cancelled) {
+                if let Some(error) = imported
+                    .fetch_error
+                    .filter(|_| !imported.cancelled)
+                    .and_then(|error| super::batch::failure_line(&error))
+                {
                     notices::show(
                         notices::Notice::new(
                             lattice_ui::components::ToastLevel::Info,
