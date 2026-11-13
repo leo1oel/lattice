@@ -88,11 +88,15 @@ fn editor(
         settings.appearance.editor_keymap,
         |keymap, _, cx| super::update_appearance(cx, |a| a.editor_keymap = keymap),
     );
-    let spellcheck = controls::switch(
+    let spellcheck = controls::not_yet(
         "spellcheck",
-        settings.appearance.editor_spellcheck,
-        false,
-        |on, _, cx| super::update_appearance(cx, |a| a.editor_spellcheck = on),
+        t!("Check spelling").into(),
+        controls::switch(
+            "spellcheck",
+            settings.appearance.editor_spellcheck,
+            true,
+            |_, _, _| {},
+        ),
     );
     let project = dialog.project.clone();
     let words = project

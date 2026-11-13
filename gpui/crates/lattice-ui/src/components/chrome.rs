@@ -20,7 +20,7 @@ use crate::{
     interaction::{mix, tab_stop, track_pointer, use_interaction},
     parity, shape,
     sliding::SlidingPlate,
-    tokens::FONT_WEIGHT_MEDIUM,
+    tokens::{FONT_WEIGHT_MEDIUM, OPACITY_DISABLED},
 };
 
 type ClickHandler = Rc<dyn Fn(&ClickEvent, &mut Window, &mut App)>;
@@ -268,6 +268,7 @@ pub struct Segmented {
     segments: Vec<Segment>,
     parity: Option<SharedString>,
     filled: bool,
+    disabled: bool,
 }
 
 pub struct Segment {
@@ -284,7 +285,14 @@ impl Segmented {
             segments: Vec::new(),
             parity: None,
             filled: false,
+            disabled: false,
         }
+    }
+
+    /// Faded, with no segment to press, hover or tab to.
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.disabled = disabled;
+        self
     }
 
     /// The app's plain `.ui-segmented` (chrome.css), as Settings draws it:
@@ -387,6 +395,7 @@ impl RenderOnce for Segmented {
             },
             cx,
         );
+        let disabled = self.disabled;
         let track = div()
             .id(self.id)
             .relative()
@@ -395,6 +404,7 @@ impl RenderOnce for Segmented {
             .h(px(28.))
             .p(shape::SEGMENTED.inset)
             .rounded(track_radius)
+            .when(disabled, |this| this.opacity(OPACITY_DISABLED))
             .map(|this| {
                 if filled {
                     this.bg(palette.line)
@@ -408,7 +418,10 @@ impl RenderOnce for Segmented {
                 self.segments
                     .into_iter()
                     .enumerate()
-                    .map(|(ix, segment)| {
+                    .map(|(ix, mut segment)| {
+                        if disabled {
+                            segment.on_click = None;
+                        }
                         let hover = palette.hover;
                         let focus = focus.clone();
                         let segment_box = div().id(ix);
@@ -436,7 +449,7 @@ impl RenderOnce for Segmented {
                             .when(segment.selected && !plate_drawn, |this| {
                                 this.bg(selected_surface).shadow(raised.clone())
                             })
-                            .when(!segment.selected && !filled, |this| {
+                            .when(!segment.selected && !filled && !disabled, |this| {
                                 this.bg(mix(transparent_black(), hover, interaction.hover))
                             })
                             .when_some(segment.label, |this, label| {

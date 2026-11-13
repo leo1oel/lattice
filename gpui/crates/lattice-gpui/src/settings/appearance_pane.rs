@@ -93,14 +93,15 @@ fn general(
         |language, _, cx| super::update_appearance(cx, |a| a.interface_language = language),
     );
     let chosen = nearest_interface_step(appearance.interface_scale);
-    let mut size = Segmented::new("interface-size").filled();
+    let mut size = Segmented::new("interface-size").filled().disabled(true);
     for step in INTERFACE_SCALE_STEPS {
         size = size.label(
             format!("{}%", (step * 100.).round()),
             (step - chosen).abs() < 1e-3,
-            move |_, _, cx| super::update_appearance(cx, |a| a.interface_scale = step),
+            |_, _, _| {},
         );
     }
+    let size = controls::not_yet("interface-size", t!("Interface size").into(), size);
     let toast = controls::select(
         "toast-position",
         vec![
@@ -112,11 +113,15 @@ fn general(
         appearance.toast_position,
         |position, _, cx| super::update_appearance(cx, |a| a.toast_position = position),
     );
-    let sounds = controls::switch(
+    let sounds = controls::not_yet(
         "interface-sounds",
-        appearance.interface_sounds,
-        false,
-        |on, _, cx| super::update_appearance(cx, |a| a.interface_sounds = on),
+        t!("Interface sounds").into(),
+        controls::switch(
+            "interface-sounds",
+            appearance.interface_sounds,
+            true,
+            |_, _, _| {},
+        ),
     );
     let rows = vec![
         row(
