@@ -84,6 +84,9 @@ pub struct TabLook {
     /// A document's tab, which ellipsizes in a narrow strip; a named panel's
     /// (Project, PDF) shows its whole name or only its icon.
     pub document: bool,
+    /// A navigator (Project, Papers) whose card frosts over the window's
+    /// vibrancy when the window is translucent (trellis.css `data-glass`).
+    pub frosted: bool,
 }
 
 impl Default for TabLook {
@@ -93,6 +96,7 @@ impl Default for TabLook {
             dirty: false,
             surface: Surface::Sheet,
             document: false,
+            frosted: false,
         }
     }
 }
@@ -287,17 +291,19 @@ struct LatticeTabs {
     area: WeakEntity<DockArea>,
 }
 
-/// The group's card surface, from its displayed panel.
-fn group_surface(group: &TabGroupContext, palette: &Palette, cx: &App) -> (Surface, Srgb) {
-    let surface = group
+/// The group's card surface, from its displayed panel, and whether the card
+/// is frosted: a navigator's while the window is translucent.
+fn group_surface(group: &TabGroupContext, palette: &Palette, cx: &App) -> (Surface, Srgb, bool) {
+    let look = group
         .active_panel()
-        .map(|panel| TabPresenter::look(panel, cx).surface)
+        .map(|panel| TabPresenter::look(panel, cx))
         .unwrap_or_default();
-    let color = match surface {
+    let color = match look.surface {
         Surface::Chrome | Surface::Titlebar => palette.chrome_srgb,
         Surface::Sheet => palette.editor_srgb,
     };
-    (surface, color)
+    let frosted = look.frosted && palette.glass != crate::Glass::Off;
+    (look.surface, color, frosted)
 }
 
 /// A panel's name on its tab.
@@ -317,7 +323,13 @@ fn group_parity_name(group: &TabGroupContext, cx: &App) -> Option<SharedString> 
 impl TabGroupRenderer for LatticeTabs {
     fn frame(&self, group: &TabGroupContext, _: &mut Window, cx: &mut App) -> Stateful<Div> {
         let palette = cx.palette();
-        let (_, surface) = group_surface(group, palette, cx);
+        let (_, surface, frosted) = group_surface(group, palette, cx);
+        // A frosted card is the navigator sheet under its veil.
+        let card = if frosted {
+            palette.navigator
+        } else {
+            surface.hsla()
+        };
         let close = group.clone();
         let card_probe =
             group_parity_name(group, cx).and_then(|name| parity::probe(format!("card/{name}")));
@@ -334,7 +346,7 @@ impl TabGroupRenderer for LatticeTabs {
                     .right(GROUP_INSET)
                     .bottom(GROUP_INSET)
                     .rounded(PANEL_RADIUS)
-                    .bg(surface.hsla())
+                    .bg(card)
                     .shadow(panel_ring(palette))
                     .children(card_probe),
             )
@@ -359,7 +371,7 @@ impl TabGroupRenderer for LatticeTabs {
         cx: &mut App,
     ) -> AnyElement {
         let palette = cx.palette().clone();
-        let (surface_kind, surface) = group_surface(group, &palette, cx);
+        let (surface_kind, surface, frosted) = group_surface(group, &palette, cx);
         let collapsed = group.is_collapsed();
         let droppable = group.is_droppable();
         let displayed = group.active_panel().map(|panel| panel.panel_id(cx));
@@ -445,6 +457,7 @@ impl TabGroupRenderer for LatticeTabs {
                 };
                 let refocus = selected.then(|| panel.focus_handle(cx));
                 PanelTab::new(("lattice-tab", ix), name.clone(), surface)
+                    .frosted(frosted)
                     .icon(icon)
                     .selected(selected)
                     .strong(focused)

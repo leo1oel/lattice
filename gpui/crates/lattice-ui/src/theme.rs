@@ -3,7 +3,7 @@
 
 use gpui::{App, Global, WindowAppearance};
 
-use crate::{Accent, Appearance, Palette, Tint, editor_theme::CodeTheme, fonts::Fonts, kit};
+use crate::{Accent, Appearance, Glass, Palette, Tint, editor_theme::CodeTheme, fonts::Fonts, kit};
 
 pub struct LatticeTheme {
     pub palette: Palette,
@@ -59,6 +59,7 @@ impl LatticeTheme {
         Self::update(cx, |theme| {
             theme.palette =
                 Palette::new(appearance, theme.palette.tint, theme.palette.accent_preset)
+                    .with_glass(theme.palette.glass)
         });
     }
 
@@ -66,12 +67,22 @@ impl LatticeTheme {
         Self::update(cx, |theme| {
             theme.palette =
                 Palette::new(theme.palette.appearance, tint, theme.palette.accent_preset)
+                    .with_glass(theme.palette.glass)
         });
     }
 
     pub fn set_accent(accent: Accent, cx: &mut App) {
         Self::update(cx, |theme| {
             theme.palette = Palette::new(theme.palette.appearance, theme.palette.tint, accent)
+                .with_glass(theme.palette.glass)
+        });
+    }
+
+    /// Lay the palette over the window material at `glass`, or make it
+    /// opaque again (`Glass::Off`).
+    pub fn set_glass(glass: Glass, cx: &mut App) {
+        Self::update(cx, |theme| {
+            theme.palette = theme.palette.clone().with_glass(glass)
         });
     }
 

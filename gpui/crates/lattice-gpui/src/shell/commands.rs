@@ -14,6 +14,7 @@ use lattice_ui::Icon;
 
 use super::layout::Preset;
 
+mod appearance;
 mod projects;
 
 actions!(
@@ -76,6 +77,9 @@ actions!(
         ThemeLight,
         ThemeDark,
         ThemeSystem,
+        LargerInterface,
+        SmallerInterface,
+        ResetInterfaceSize,
         NextProject,
         PreviousProject,
         CloseProject,
@@ -479,28 +483,7 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
         ));
     }
     projects::project_commands(context, &mut out);
-    for (id, label, action) in [
-        (
-            "theme-light",
-            t!("Use the light theme"),
-            Box::new(ThemeLight) as Box<dyn Action>,
-        ),
-        ("theme-dark", t!("Use the dark theme"), Box::new(ThemeDark)),
-        (
-            "theme-system",
-            t!("Match the system theme"),
-            Box::new(ThemeSystem),
-        ),
-    ] {
-        out.push(Command {
-            id: id.into(),
-            label: label.into(),
-            section: Section::Appearance,
-            action,
-            palette: true,
-            keywords: "theme appearance",
-        });
-    }
+    appearance::appearance_commands(&mut out);
     out
 }
 
@@ -576,6 +559,11 @@ fn default_bindings() -> Vec<KeyBinding> {
         KeyBinding::new(m!("shift-["), PreviousTab, None),
         KeyBinding::new(m!("shift-enter"), ToggleMaximize, None),
         KeyBinding::new(m!("shift-d"), ToggleFocusMode, None),
+        // ⌘= is ⌘+ without Shift; ⌘+ comes last, so it is the one shown.
+        KeyBinding::new(m!("="), LargerInterface, None),
+        KeyBinding::new(m!("+"), LargerInterface, None),
+        KeyBinding::new(m!("-"), SmallerInterface, None),
+        KeyBinding::new(m!("0"), ResetInterfaceSize, None),
         KeyBinding::new(m!("alt-1"), ToggleProjectPanel, None),
         KeyBinding::new(m!("alt-2"), TogglePapersPanel, None),
         KeyBinding::new(m!("alt-3"), ToggleAgentPanel, None),

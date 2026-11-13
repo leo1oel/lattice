@@ -312,6 +312,17 @@ impl Shell {
                     settings.theme_preference = lattice_settings::ThemePreference::System
                 })
             }))
+            // The interface size: every window takes it, and this one raises
+            // its size pill.
+            .on_action(cx.listener(|this, _: &LargerInterface, _, cx| {
+                this.zoom_interface(crate::interface_zoom::Change::In, cx)
+            }))
+            .on_action(cx.listener(|this, _: &SmallerInterface, _, cx| {
+                this.zoom_interface(crate::interface_zoom::Change::Out, cx)
+            }))
+            .on_action(cx.listener(|this, _: &ResetInterfaceSize, _, cx| {
+                this.zoom_interface(crate::interface_zoom::Change::Reset, cx)
+            }))
             .on_action(cx.listener(|this, action: &SwitchWorkspace, window, cx| {
                 this.switch_workspace(&action.id, window, cx)
             }))

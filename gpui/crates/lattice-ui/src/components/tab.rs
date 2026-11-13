@@ -85,6 +85,8 @@ pub struct PanelTab {
     icon: Option<AnyElement>,
     label: SharedString,
     surface: Srgb,
+    /// On a frosted card: its fills lay over what shows through.
+    frosted: bool,
     selected: bool,
     strong: bool,
     dirty: bool,
@@ -104,6 +106,7 @@ impl PanelTab {
             icon: None,
             label: label.into(),
             surface,
+            frosted: false,
             selected: false,
             strong: false,
             dirty: false,
@@ -123,6 +126,14 @@ impl PanelTab {
 
     pub fn icon(mut self, icon: impl IntoElement) -> Self {
         self.icon = Some(icon.into_any_element());
+        self
+    }
+
+    /// The tab stands on a frosted card (`Palette::with_glass`): selected,
+    /// it is 10% of the ink in the card's veil; hovered, the ink at the
+    /// hover's 5%, both laid over the card rather than opaque.
+    pub fn frosted(mut self, frosted: bool) -> Self {
+        self.frosted = frosted;
         self
     }
 
@@ -187,18 +198,28 @@ impl StatefulInteractiveElement for PanelTab {}
 impl RenderOnce for PanelTab {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let palette = cx.palette().clone();
-        let selected_bg = palette.tab_selected_on(self.surface);
-        let hover = palette.ink_on(OPACITY_HOVER, self.surface);
+        let (selected_bg, hover) = if self.frosted {
+            (palette.tab_selected_on_glass(), palette.ink(OPACITY_HOVER))
+        } else {
+            (
+                palette.tab_selected_on(self.surface),
+                palette.ink_on(OPACITY_HOVER, self.surface),
+            )
+        };
         let close_hover = if self.surface == palette.chrome_srgb {
             palette.chrome_hover
         } else {
             palette.hover
         };
-        let rest = Srgb {
-            a: 0.,
-            ..self.surface
-        }
-        .hsla();
+        let rest = if self.frosted {
+            gpui::Hsla { a: 0., ..hover }
+        } else {
+            Srgb {
+                a: 0.,
+                ..self.surface
+            }
+            .hsla()
+        };
         // A tab moving between rest and hover fades on the fast tier; the
         // selected tab's wash is its state, not a transition.
         let (interaction, pointer) = use_interaction(self.id.clone(), window, cx);

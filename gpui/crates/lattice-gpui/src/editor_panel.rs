@@ -58,6 +58,7 @@ pub mod outline_rail;
 pub mod rail_outline;
 mod save;
 mod source_chrome;
+mod spelling;
 pub mod views;
 
 use disk_sync::vanished_key;
@@ -163,6 +164,9 @@ pub struct EditorPanel {
     editor: Entity<Editor>,
     /// TexLab's diagnostics, for a `.tex` file.
     diagnostics: Option<Entity<TexlabDiagnostics>>,
+    /// The spell check, for a `.tex`, `.md` or `.txt` file (`spelling`).
+    spelling: Option<Entity<lattice_editor::latex::spelling::Spelling>>,
+    _spelling_events: Option<Subscription>,
     /// Builds seen finishing; each one has TexLab read the new log.
     builds_seen: usize,
     search_bar: Entity<BufferSearchBar>,
@@ -373,7 +377,13 @@ impl EditorPanel {
                         this.views_assets_changed(cx);
                     }
                 }
+                // The project's dictionary or ignores may have changed.
+                if matches!(event, crate::project::ProjectEvent::ManifestChanged) {
+                    this.refresh_spelling(cx);
+                }
             }),
+            // Check spelling turned on or off.
+            cx.observe_global::<crate::settings::AppSettings>(|this, cx| this.refresh_spelling(cx)),
         ];
         let poll = cx.spawn(async move |this, cx| {
             loop {
@@ -393,6 +403,8 @@ impl EditorPanel {
             lattice,
             editor,
             diagnostics,
+            spelling: None,
+            _spelling_events: None,
             builds_seen,
             search_bar,
             search_visible: false,
@@ -430,6 +442,7 @@ impl EditorPanel {
         // An HTML file opening in Preview or Split has its preview at once;
         // its page is built when the tab is first shown.
         this.ensure_preview(window, cx);
+        this.attach_spelling(cx);
         this
     }
 
@@ -509,6 +522,14 @@ impl EditorPanel {
             ));
         }
         self.relative = relative;
+        // The spell check follows the file, or starts once it is prose.
+        match &self.spelling {
+            Some(spelling) => {
+                let relative = self.relative.clone();
+                spelling.update(cx, |spelling, cx| spelling.set_path(relative, cx));
+            }
+            None => self.attach_spelling(cx),
+        }
         self.disk = DiskVersion::Unread;
         let language = latex::language_for_path(&self.path, cx);
         self.buffer

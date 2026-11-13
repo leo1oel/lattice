@@ -312,6 +312,63 @@ pub struct Palette {
     pub editor_srgb: Srgb,
     pub raised_srgb: Srgb,
     text_srgb: Srgb,
+
+    // The window material (theme.css `data-glass`): each the opaque surface
+    // it stands in for until the window is translucent ([`Palette::with_glass`]).
+    pub glass: Glass,
+    /// What paints behind everything: the window's colour, or nothing over
+    /// the vibrancy (`--surface-window`).
+    pub window_material: Hsla,
+    /// The gutters around the cards, and the titlebar in focus mode
+    /// (`--surface-shell`).
+    pub shell: Hsla,
+    /// The Project and Papers cards: the navigator sheet with its header and
+    /// body's white veil over it (`--surface-navigator` under
+    /// `--surface-navigator-lift`).
+    pub navigator: Hsla,
+    /// That veil alone, which a selected tab on the sheet stands on.
+    pub navigator_lift: Srgb,
+    /// A page that fills the window, such as the welcome screen
+    /// (`--surface-backdrop`).
+    pub backdrop: Hsla,
+}
+
+/// How see-through the window is: Settings › Appearance › Translucency, in
+/// effect only while macOS vibrancy really is behind the window (the Tauri
+/// app sets `data-glass` only then).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum Glass {
+    #[default]
+    Off,
+    Subtle,
+    Strong,
+}
+
+/// What of each surface stays over the material (theme.css): the shell, the
+/// navigator sheet, a whole-window page, and the veil on the sheet.
+struct Coats {
+    shell: f32,
+    panel: f32,
+    page: f32,
+    lift: f32,
+}
+
+impl Glass {
+    fn coats(self, dark: bool) -> Option<Coats> {
+        let coats = |shell, panel, page, lift| Coats {
+            shell,
+            panel,
+            page,
+            lift,
+        };
+        Some(match (self, dark) {
+            (Glass::Off, _) => return None,
+            (Glass::Subtle, false) => coats(0.40, 0.45, 0.72, 0.34),
+            (Glass::Strong, false) => coats(0.0, 0.50, 0.52, 0.30),
+            (Glass::Subtle, true) => coats(0.45, 0.45, 0.74, 0.05),
+            (Glass::Strong, true) => coats(0.0, 0.60, 0.62, 0.05),
+        })
+    }
 }
 
 const WHITE: Srgb = hex(0xFFFFFF);
@@ -442,7 +499,62 @@ impl Palette {
             editor_srgb: editor,
             raised_srgb: raised,
             text_srgb: text,
+
+            glass: Glass::Off,
+            window_material: window.hsla(),
+            shell: chrome.hsla(),
+            navigator: chrome.hsla(),
+            navigator_lift: WHITE.with_alpha(0.),
+            backdrop: window.hsla(),
         }
+    }
+
+    /// This palette over the window material at `glass` (theme.css's
+    /// "Window material"): the window turns clear, the titlebar and the
+    /// gutters keep `--glass-shell` of the chrome, the Project and Papers
+    /// cards a `--glass-panel` sheet of it under a white veil, and a page
+    /// that fills the window `--glass-page` of the window colour. The
+    /// titlebar is that shell under its own veil, 38% in light and 4.5% in
+    /// dark. The editors, PDFs, the Agent, the tool panels and every dialog
+    /// stay opaque.
+    pub fn with_glass(self, glass: Glass) -> Self {
+        let dark = self.is_dark();
+        let Some(coats) = glass.coats(dark) else {
+            return Palette::new(self.appearance, self.tint, self.accent_preset);
+        };
+        let transparent = WHITE.with_alpha(0.);
+        let chrome = self.chrome_srgb;
+        let shell = chrome.color_mix(coats.shell, transparent);
+        let sheet = chrome.color_mix(coats.panel, transparent);
+        let lift = WHITE.color_mix(coats.lift, transparent);
+        // The header and body each lay the veil over the sheet; together
+        // they cover the card, so the card is the two as one fill.
+        let navigator = lift.composite_over(sheet);
+        let titlebar = WHITE.color_mix(if dark { 0.045 } else { 0.38 }, shell);
+        Self {
+            glass,
+            window_material: transparent.hsla(),
+            shell: shell.hsla(),
+            navigator: navigator.hsla(),
+            navigator_lift: lift,
+            backdrop: self.window_srgb.color_mix(coats.page, transparent).hsla(),
+            titlebar: titlebar.hsla(),
+            ..self
+        }
+    }
+
+    /// A selected tab on a frosted card: 10% of the ink mixed into the veil
+    /// (`--trellis-tab-selected` over `--surface-navigator-lift`).
+    pub fn tab_selected_on_glass(&self) -> Hsla {
+        self.text_srgb
+            .color_mix(OPACITY_TAB_SELECTED, self.navigator_lift)
+            .hsla()
+    }
+
+    /// A hovered tab or control on a frosted card: the ink at
+    /// `--control-hover-surface`'s 5%, laid over whatever shows through.
+    pub fn ink(&self, alpha: f32) -> Hsla {
+        self.text_srgb.alpha(alpha)
     }
 
     pub fn is_dark(&self) -> bool {

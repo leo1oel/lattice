@@ -49,7 +49,7 @@ pub use editor_theme::CodeTheme;
 pub use elevation::Elevation;
 pub use icons::{Icon, UiAssets};
 pub use motion::{Entrance, Motion};
-pub use palette::{Accent, GlyphKind, Palette, Tint};
+pub use palette::{Accent, Glass, GlyphKind, Palette, Tint};
 pub use theme::{ActiveLattice, LatticeTheme};
 pub use typography::{TextRole, TextRoleStyle, Tracking, TypeScale};
 

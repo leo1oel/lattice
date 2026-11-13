@@ -8248,9 +8248,11 @@ dependencies = [
  "multi_buffer",
  "project",
  "regex",
+ "serde_json",
  "settings",
  "theme",
  "theme_settings",
+ "unicode-normalization",
 ]
 
 [[package]]

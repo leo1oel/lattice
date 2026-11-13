@@ -1,0 +1,411 @@
+diff --git a/gpui-fast/crates/gpui/src/fast/interface_zoom.rs b/gpui-fast/crates/gpui/src/fast/interface_zoom.rs
+new file mode 100644
+index 00000000..45ff158e
+--- /dev/null
++++ b/gpui-fast/crates/gpui/src/fast/interface_zoom.rs
+@@ -0,0 +1,245 @@
++//! Interface zoom: a webview's page zoom for a whole window. At zoom `z`
++//! every logical pixel the app lays out is drawn `z` device pixels per
++//! platform point (times the display's own scale), and the window lays out
++//! in `1 / z` of its points, so the interface reflows at the larger size
++//! instead of being magnified past the window's edges. Text and paths are
++//! rasterized at the zoomed scale, so they stay crisp.
++//!
++//! The window keeps the platform's measurements and its own apart: the
++//! platform reports points (content size, pointer positions, scroll deltas)
++//! and takes points (an input method's caret rectangle, the window menu's
++//! position), and the app sees the window's zoomed pixels. Conversions are
++//! made where the two meet: [`unzoomed_input`] on every event the platform
++//! delivers, [`zoomed_bounds`] and [`unzoomed_point`] on the input handler's
++//! answers and questions, and [`Window::set_interface_zoom`] for the
++//! window's own size, scale and pointer.
++//!
++//! A pixel delta scrolls the same distance under the finger as it would at
++//! 100%, as a browser's page zoom does; a line delta is left in lines.
++
++use crate::{
++    App, Bounds, FileDropEvent, PlatformInput, Pixels, Point, ScrollDelta, Size, Window,
++};
++
++/// The smallest and largest zoom a window takes.
++const RANGE: (f32, f32) = (0.25, 4.);
++
++/// `point` in points, as the window's zoomed pixels.
++pub(crate) fn unzoomed_point(point: Point<Pixels>, zoom: f32) -> Point<Pixels> {
++    if zoom == 1. {
++        return point;
++    }
++    Point {
++        x: point.x / zoom,
++        y: point.y / zoom,
++    }
++}
++
++/// `size` in points, as the window's zoomed pixels.
++pub(crate) fn unzoomed_size(size: Size<Pixels>, zoom: f32) -> Size<Pixels> {
++    if zoom == 1. {
++        return size;
++    }
++    Size {
++        width: size.width / zoom,
++        height: size.height / zoom,
++    }
++}
++
++/// `point` in the window's zoomed pixels, as points.
++pub(crate) fn zoomed_point(point: Point<Pixels>, zoom: f32) -> Point<Pixels> {
++    if zoom == 1. {
++        return point;
++    }
++    Point {
++        x: point.x * zoom,
++        y: point.y * zoom,
++    }
++}
++
++/// `bounds` in points, as the window's zoomed pixels.
++pub(crate) fn unzoomed_bounds(bounds: Bounds<Pixels>, zoom: f32) -> Bounds<Pixels> {
++    if zoom == 1. {
++        return bounds;
++    }
++    Bounds {
++        origin: unzoomed_point(bounds.origin, zoom),
++        size: unzoomed_size(bounds.size, zoom),
++    }
++}
++
++/// `bounds` in the window's zoomed pixels, as points.
++pub(crate) fn zoomed_bounds(bounds: Bounds<Pixels>, zoom: f32) -> Bounds<Pixels> {
++    if zoom == 1. {
++        return bounds;
++    }
++    Bounds {
++        origin: zoomed_point(bounds.origin, zoom),
++        size: Size {
++            width: bounds.size.width * zoom,
++            height: bounds.size.height * zoom,
++        },
++    }
++}
++
++/// A platform event, its positions (and pixel scroll deltas) in points,
++/// with them in the window's zoomed pixels.
++pub(crate) fn unzoomed_input(event: PlatformInput, zoom: f32) -> PlatformInput {
++    if zoom == 1. {
++        return event;
++    }
++    let at = |point| unzoomed_point(point, zoom);
++    match event {
++        PlatformInput::MouseMove(mut event) => {
++            event.position = at(event.position);
++            PlatformInput::MouseMove(event)
++        }
++        PlatformInput::MouseDown(mut event) => {
++            event.position = at(event.position);
++            PlatformInput::MouseDown(event)
++        }
++        PlatformInput::MouseUp(mut event) => {
++            event.position = at(event.position);
++            PlatformInput::MouseUp(event)
++        }
++        PlatformInput::MousePressure(mut event) => {
++            event.position = at(event.position);
++            PlatformInput::MousePressure(event)
++        }
++        PlatformInput::MouseExited(mut event) => {
++            event.position = at(event.position);
++            PlatformInput::MouseExited(event)
++        }
++        PlatformInput::Scroll(mut event) => {
++            event.position = at(event.position);
++            if let ScrollDelta::Pixels(delta) = event.delta {
++                event.delta = ScrollDelta::Pixels(at(delta));
++            }
++            PlatformInput::Scroll(event)
++        }
++        PlatformInput::Pinch(mut event) => {
++            event.position = at(event.position);
++            PlatformInput::Pinch(event)
++        }
++        PlatformInput::FileDrop(drop) => PlatformInput::FileDrop(match drop {
++            FileDropEvent::Entered { position, paths } => FileDropEvent::Entered {
++                position: at(position),
++                paths,
++            },
++            FileDropEvent::Pending { position } => FileDropEvent::Pending {
++                position: at(position),
++            },
++            FileDropEvent::Submit { position } => FileDropEvent::Submit {
++                position: at(position),
++            },
++            other => other,
++        }),
++        other => other,
++    }
++}
++
++impl Window {
++    /// The window's interface zoom: 1 unless the app set one.
++    pub fn interface_zoom(&self) -> f32 {
++        self.fast_interface_zoom
++    }
++
++    /// Lay the window out and draw it at `zoom` (clamped to 0.25–4), as a
++    /// webview's page zoom does: the interface is `zoom` times as large and
++    /// reflows into the window's size divided by `zoom`. The viewport, the
++    /// scale factor and the pointer change at once and bounds observers are
++    /// told, as after a resize.
++    pub fn set_interface_zoom(&mut self, zoom: f32, cx: &mut App) {
++        let zoom = if zoom.is_finite() {
++            zoom.clamp(RANGE.0, RANGE.1)
++        } else {
++            1.
++        };
++        if zoom == self.fast_interface_zoom {
++            return;
++        }
++        self.fast_interface_zoom = zoom;
++        self.bounds_changed(cx);
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    use crate::{
++        Modifiers, MouseButton, MouseDownEvent, ScrollWheelEvent, TestAppContext, TouchPhase,
++        bounds, point, px, size,
++    };
++
++    #[test]
++    fn events_arrive_in_the_windows_zoomed_pixels() {
++        let down = PlatformInput::MouseDown(MouseDownEvent {
++            button: MouseButton::Left,
++            position: point(px(300.), px(150.)),
++            modifiers: Modifiers::default(),
++            click_count: 1,
++            first_mouse: false,
++        });
++        let PlatformInput::MouseDown(down) = unzoomed_input(down, 1.5) else {
++            panic!("not a mouse down");
++        };
++        assert_eq!(down.position, point(px(200.), px(100.)));
++
++        // A pixel delta scrolls the same distance under the finger; a line
++        // delta stays in lines.
++        let scroll = |delta| {
++            PlatformInput::Scroll(ScrollWheelEvent {
++                position: point(px(60.), px(30.)),
++                delta,
++                touch_phase: TouchPhase::Moved,
++                ..Default::default()
++            })
++        };
++        let PlatformInput::Scroll(pixels) =
++            unzoomed_input(scroll(ScrollDelta::Pixels(point(px(0.), px(-24.)))), 2.)
++        else {
++            panic!("not a scroll");
++        };
++        assert_eq!(pixels.position, point(px(30.), px(15.)));
++        assert!(
++            matches!(pixels.delta, ScrollDelta::Pixels(delta) if delta == point(px(0.), px(-12.)))
++        );
++        let PlatformInput::Scroll(lines) =
++            unzoomed_input(scroll(ScrollDelta::Lines(point(0., -3.))), 2.)
++        else {
++            panic!("not a scroll");
++        };
++        assert!(matches!(lines.delta, ScrollDelta::Lines(delta) if delta == point(0., -3.)));
++    }
++
++    #[test]
++    fn what_the_platform_is_told_is_in_points() {
++        let caret = bounds(point(px(100.), px(40.)), size(px(2.), px(16.)));
++        assert_eq!(
++            zoomed_bounds(caret, 1.25),
++            bounds(point(px(125.), px(50.)), size(px(2.5), px(20.)))
++        );
++        assert_eq!(unzoomed_bounds(zoomed_bounds(caret, 1.25), 1.25), caret);
++        assert_eq!(zoomed_point(point(px(8.), px(4.)), 1.), point(px(8.), px(4.)));
++    }
++
++    #[gpui::test]
++    fn a_zoomed_window_lays_out_in_its_size_over_the_zoom(cx: &mut TestAppContext) {
++        let window = cx.add_empty_window();
++        let (viewport, scale) = window.update(|window, _| (window.viewport_size(), window.scale_factor()));
++        window.update(|window, cx| window.set_interface_zoom(1.25, cx));
++        window.update(|window, _| {
++            assert_eq!(window.interface_zoom(), 1.25);
++            assert_eq!(window.scale_factor(), scale * 1.25);
++            assert_eq!(window.viewport_size(), unzoomed_size(viewport, 1.25));
++        });
++        // Out of range, or not a number: clamped, or back to 1.
++        window.update(|window, cx| window.set_interface_zoom(9., cx));
++        window.update(|window, _| assert_eq!(window.interface_zoom(), 4.));
++        window.update(|window, cx| window.set_interface_zoom(f32::NAN, cx));
++        window.update(|window, _| {
++            assert_eq!(window.interface_zoom(), 1.);
++            assert_eq!(window.viewport_size(), viewport);
++        });
++    }
++}
+diff --git a/gpui-fast/crates/gpui/src/fast/mod.rs b/gpui-fast/crates/gpui/src/fast/mod.rs
+index 3dca094c..9fa70e44 100644
+--- a/gpui-fast/crates/gpui/src/fast/mod.rs
++++ b/gpui-fast/crates/gpui/src/fast/mod.rs
+@@ -23,6 +23,7 @@ pub(crate) mod em_metrics;
+ pub(crate) mod global_id;
+ pub(crate) mod glyphs;
+ pub(crate) mod interactive_text;
++pub(crate) mod interface_zoom;
+ pub(crate) mod interactivity;
+ pub(crate) mod layers;
+ pub(crate) mod layout;
+diff --git a/gpui-fast/crates/gpui/src/platform.rs b/gpui-fast/crates/gpui/src/platform.rs
+index 176576d9..03b96573 100644
+--- a/gpui-fast/crates/gpui/src/platform.rs
++++ b/gpui-fast/crates/gpui/src/platform.rs
+@@ -2166,7 +2166,12 @@ impl PlatformInputHandler {
+ 
+     pub fn bounds_for_range(&mut self, range_utf16: Range<usize>) -> Option<Bounds<Pixels>> {
+         self.cx
+-            .update(|window, cx| self.handler.bounds_for_range(range_utf16, window, cx))
++            .update(|window, cx| {
++                let zoom = window.interface_zoom();
++                self.handler
++                    .bounds_for_range(range_utf16, window, cx)
++                    .map(|bounds| crate::fast::interface_zoom::zoomed_bounds(bounds, zoom))
++            })
+             .ok()
+             .flatten()
+     }
+@@ -2174,8 +2179,12 @@ impl PlatformInputHandler {
+     pub fn selection_bounds_for_range(&mut self, range_utf16: Range<usize>) -> Vec<Bounds<Pixels>> {
+         self.cx
+             .update(|window, cx| {
++                let zoom = window.interface_zoom();
+                 self.handler
+                     .selection_bounds_for_range(range_utf16, window, cx)
++                    .into_iter()
++                    .map(|bounds| crate::fast::interface_zoom::zoomed_bounds(bounds, zoom))
++                    .collect()
+             })
+             .unwrap_or_default()
+     }
+@@ -2227,9 +2236,11 @@ impl PlatformInputHandler {
+     pub fn selected_bounds(&mut self, window: &mut Window, cx: &mut App) -> Option<Bounds<Pixels>> {
+         let marked_range = self.handler.marked_text_range(window, cx);
+         let selection = self.handler.selected_text_range(true, window, cx)?;
++        let zoom = window.interface_zoom();
+         Self::compute_ime_candidate_bounds(marked_range, &selection, |range| {
+             self.handler.bounds_for_range(range, window, cx)
+         })
++        .map(|bounds| crate::fast::interface_zoom::zoomed_bounds(bounds, zoom))
+     }
+ 
+     pub fn ime_candidate_bounds(&mut self) -> Option<Bounds<Pixels>> {
+@@ -2243,7 +2254,11 @@ impl PlatformInputHandler {
+     #[allow(unused)]
+     pub fn character_index_for_point(&mut self, point: Point<Pixels>) -> Option<usize> {
+         self.cx
+-            .update(|window, cx| self.handler.character_index_for_point(point, window, cx))
++            .update(|window, cx| {
++                let point =
++                    crate::fast::interface_zoom::unzoomed_point(point, window.interface_zoom());
++                self.handler.character_index_for_point(point, window, cx)
++            })
+             .ok()
+             .flatten()
+     }
+diff --git a/gpui-fast/crates/gpui/src/window.rs b/gpui-fast/crates/gpui/src/window.rs
+index 941a7a9a..c646c754 100644
+--- a/gpui-fast/crates/gpui/src/window.rs
++++ b/gpui-fast/crates/gpui/src/window.rs
+@@ -1290,6 +1290,8 @@ pub struct Window {
+     modifiers: Modifiers,
+     capslock: Capslock,
+     scale_factor: f32,
++    /// `Window::set_interface_zoom` (`fast::interface_zoom`).
++    pub(crate) fast_interface_zoom: f32,
+     pub(crate) bounds_observers: SingleSubscriberSet<AnyObserver>,
+     appearance: WindowAppearance,
+     pub(crate) appearance_observers: SingleSubscriberSet<AnyObserver>,
+@@ -2419,6 +2421,7 @@ impl Window {
+             modifiers,
+             capslock,
+             scale_factor,
++            fast_interface_zoom: 1.,
+             bounds_observers: SingleSubscriberSet::new(),
+             appearance,
+             appearance_observers: SingleSubscriberSet::new(),
+@@ -3027,9 +3030,15 @@ impl Window {
+     /// the platform window, then notifies observers. Normally called automatically
+     /// by the platform's resize callback, but exposed publicly for test infrastructure.
+     pub fn bounds_changed(&mut self, cx: &mut App) {
+-        self.scale_factor = self.platform_window.scale_factor();
+-        self.viewport_size = self.platform_window.content_size();
+-        self.mouse_position = self.platform_window.mouse_position();
++        // The platform measures in points; the window in its zoomed pixels.
++        let zoom = self.fast_interface_zoom;
++        self.scale_factor = self.platform_window.scale_factor() * zoom;
++        self.viewport_size =
++            crate::fast::interface_zoom::unzoomed_size(self.platform_window.content_size(), zoom);
++        self.mouse_position = crate::fast::interface_zoom::unzoomed_point(
++            self.platform_window.mouse_position(),
++            zoom,
++        );
+ 
+         self.refresh();
+ 
+@@ -3192,7 +3201,10 @@ impl Window {
+     /// During drawing this is a consistent frame snapshot. Outside drawing it
+     /// reflects the latest platform sample, not a synchronous geometry query.
+     pub fn visual_viewport_bounds(&self) -> Bounds<Pixels> {
+-        self.platform_window.visual_viewport_bounds()
++        crate::fast::interface_zoom::unzoomed_bounds(
++            self.platform_window.visual_viewport_bounds(),
++            self.fast_interface_zoom,
++        )
+     }
+ 
+     /// Returns a conservative rectangle avoiding platform-known obscured content.
+@@ -3201,11 +3213,12 @@ impl Window {
+     /// safe areas and keyboard occlusion. Unknown overlays cannot be excluded.
+     pub fn fully_visible_bounds(&self) -> Bounds<Pixels> {
+         let insets = self.platform_window.insets().effective();
++        let zoom = self.fast_interface_zoom;
+         let viewport = self.viewport_size();
+-        let left = insets.left.max(Pixels::ZERO).min(viewport.width);
+-        let top = insets.top.max(Pixels::ZERO).min(viewport.height);
+-        let right = (viewport.width - insets.right.max(Pixels::ZERO)).max(left);
+-        let bottom = (viewport.height - insets.bottom.max(Pixels::ZERO)).max(top);
++        let left = (insets.left / zoom).max(Pixels::ZERO).min(viewport.width);
++        let top = (insets.top / zoom).max(Pixels::ZERO).min(viewport.height);
++        let right = (viewport.width - (insets.right / zoom).max(Pixels::ZERO)).max(left);
++        let bottom = (viewport.height - (insets.bottom / zoom).max(Pixels::ZERO)).max(top);
+         let safe_bounds = Bounds::from_corners(point(left, top), point(right, bottom));
+         let mut visible = safe_bounds.intersect(&self.visual_viewport_bounds());
+         visible.size.width = visible.size.width.max(Pixels::ZERO);
+@@ -3253,7 +3266,11 @@ impl Window {
+ 
+     /// Opens the native title bar context menu, useful when implementing client side decorations (Wayland and X11)
+     pub fn show_window_menu(&self, position: Point<Pixels>) {
+-        self.platform_window.show_window_menu(position)
++        self.platform_window
++            .show_window_menu(crate::fast::interface_zoom::zoomed_point(
++                position,
++                self.fast_interface_zoom,
++            ))
+     }
+ 
+     /// Handle window movement for Linux and macOS.
+@@ -5920,6 +5937,9 @@ impl Window {
+         #[cfg(feature = "profiler")]
+         self.window_profiler.begin_input(event.kind_name());
+         let update_count_before = self.invalidator.update_count();
++        // The platform's points, as the window's zoomed pixels.
++        let event =
++            crate::fast::interface_zoom::unzoomed_input(event, self.fast_interface_zoom);
+         // Track input modality for focus-visible styling and hover suppression.
+         // Hover is suppressed during keyboard modality so that keyboard navigation
+         // doesn't show hover highlights on the item under the mouse cursor.
