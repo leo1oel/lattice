@@ -314,20 +314,28 @@ impl Run {
 }
 
 /// Where the keyboard is, for a step's detail: on the shell's own handle, on
-/// the active document's editor, elsewhere inside the shell (whose actions
-/// still bubble to the shell's handlers), outside it, or nowhere. Read after
-/// a drawn frame, since containment goes through that frame's dispatch tree.
-fn keyboard_holder(shell: &Entity<Shell>, window: &Window, cx: &App) -> &'static str {
+/// the editor of the document in front (the one `focus_front` hands the
+/// keyboard to), elsewhere inside the shell (whose actions still bubble to
+/// the shell's handlers), outside it, or nowhere. Read after a drawn frame,
+/// since containment goes through that frame's dispatch tree.
+///
+/// The front document's editor is looked up from the arrangement, not from
+/// the shell's last-focused editor: that one follows GPUI's focus-in
+/// events, which only fire while the window is the key window, and the
+/// scenario's window never is, so it stays unset for the whole run.
+fn keyboard_holder(shell: &Entity<Shell>, window: &mut Window, cx: &mut App) -> &'static str {
     let Some(focused) = window.focused(cx) else {
         return "nowhere";
     };
+    let front = shell.update(cx, |shell, cx| {
+        let path = shell.root(cx)?.join(shell.active_document(cx)?);
+        let editor = shell.open_editor(&path, cx)?;
+        Some(editor.read(cx).editor().focus_handle(cx))
+    });
     let shell = shell.read(cx);
     if focused == shell.focus_handle {
         "the shell"
-    } else if shell
-        .active_editor()
-        .is_some_and(|editor| editor.read(cx).editor().focus_handle(cx) == focused)
-    {
+    } else if front.is_some_and(|front| front == focused) {
         "the active editor"
     } else if shell.focus_handle.contains_focused(window, cx) {
         "inside the shell"
