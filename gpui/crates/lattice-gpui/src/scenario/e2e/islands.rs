@@ -101,8 +101,11 @@ impl Run {
         );
 
         // The image through the asset protocol, the relative link disabled.
+        // The srcdoc frame requests the image only after the island reports
+        // loaded, and on a loaded machine (right after a rebuild) that request
+        // has taken longer than 5 s to reach the protocol handler.
         let served = self
-            .wait_for(cx, Duration::from_secs(5), |_, cx| {
+            .wait_for(cx, Duration::from_secs(15), |_, cx| {
                 island
                     .read(cx)
                     .served_files()
