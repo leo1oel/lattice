@@ -66,6 +66,7 @@ mod row;
 mod search;
 mod toolbar;
 mod view;
+pub mod zotero;
 
 use model::{Facts, Filter, Group, RecentImport, Sort, TextMatch, paper_key};
 
