@@ -12,6 +12,7 @@
  * there. Nothing here edits the source.
  */
 import { groupEnd } from "./visual-inline";
+import { environmentClose } from "./visual-scan";
 import { parseTable, TABLE_ENVIRONMENTS, type Table } from "./visual-table";
 
 export type FloatNode =
@@ -158,19 +159,6 @@ class FloatReader {
     return { end: at, values };
   }
 
-  /** The matching `\end{name}` from `at`: where it starts and ends; nested ones of the same name are counted. */
-  private environmentEnd(name: string, at: number): { close: number; end: number } | null {
-    const { source } = this;
-    const token = new RegExp(`\\\\(begin|end)\\s*\\{${name.replace(/[*]/g, "\\*")}\\}`, "g");
-    token.lastIndex = at;
-    let depth = 0;
-    for (let match = token.exec(source); match; match = token.exec(source)) {
-      if (match[1] === "begin") depth++;
-      else if (depth-- === 0) return { close: match.index, end: match.index + match[0].length };
-    }
-    return null;
-  }
-
   /**
    * The blocks of `source[from, to)`: rows of panels and images, broken where
    * LaTeX ends a line (a blank line, `\\`, `\par`) or a caption, a table or
@@ -263,7 +251,7 @@ class FloatReader {
           continue;
         }
         const environment = group.inner.trim();
-        const end = this.environmentEnd(environment, group.end);
+        const end = environmentClose(source, environment, group.end);
         if (!end || end.end > to) {
           at = group.end;
           continue;

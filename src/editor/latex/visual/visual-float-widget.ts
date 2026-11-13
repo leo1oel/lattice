@@ -160,7 +160,6 @@ export class FloatWidget extends WidgetType {
       const tr = element("tr");
       if (row.above) tr.classList.add(`rule-above-${row.above}`);
       if (row.below) tr.classList.add(`rule-below-${row.below}`);
-      let column = 0;
       for (const cell of row.cells) {
         const td = element("td", `is-${cell.align}`);
         td.dataset.offset = String(cell.from);
@@ -168,11 +167,10 @@ export class FloatWidget extends WidgetType {
         if (cell.rowspan > 1) td.rowSpan = cell.rowspan;
         if (cell.left) td.classList.add("rule-left");
         if (cell.right) td.classList.add("rule-right");
-        if (table.columns[column]?.wraps) td.classList.add("wraps");
-        if (row.partialBelow.some((index) => index >= column && index < column + cell.colspan)) td.classList.add("rule-below-partial");
+        if (table.columns[cell.column]?.wraps) td.classList.add("wraps");
+        if (row.partialBelow.some((index) => index >= cell.column && index < cell.column + cell.colspan)) td.classList.add("rule-below-partial");
         td.append(renderInline(cell.text, this.context));
         tr.append(td);
-        column += cell.colspan;
       }
       body.append(tr);
     }

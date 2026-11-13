@@ -198,6 +198,21 @@ After.`;
     expect(block.querySelector(".lx-tex-float-text .lx-tex-bold")?.textContent).toBe("Note:");
   });
 
+  // wrapfig's \caption numbers a figure like any other: "Figure 3:".
+  it("numbers a wrapfigure's caption as a figure, drawn and line by line", async () => {
+    const doc = String.raw`\begin{wrapfigure}{r}{0.4\textwidth}
+\includegraphics[width=\linewidth]{a.png}
+\caption{Side.}
+\end{wrapfigure}
+
+After.`;
+    const view = await visualView(doc);
+    expect(view.contentDOM.querySelector(".lx-tex-float-caption")?.textContent).toBe("Figure ?: Side.");
+    view.dispatch({ selection: { anchor: doc.indexOf("\\includegraphics") } });
+    expect(view.contentDOM.querySelector(".lx-tex-float-block")).toBeNull();
+    expect(view.contentDOM.querySelector(".lx-tex-caption-label")?.textContent).toBe("Figure ?: ");
+  });
+
   it("sets an author block with the preamble's macros, line breaks and font switches, without raw commands", async () => {
     const view = await visualView(AUTHOR, AUTHOR.length, host({ katexMacros: katexMacrosFromSources([AUTHOR_PREAMBLE]) }));
     const block = view.contentDOM.querySelector(".lx-tex-title-block")!;

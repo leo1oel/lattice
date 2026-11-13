@@ -176,7 +176,7 @@
 .cm-latex-visual .lx-tex-normalfont { font-weight: var(--weight-regular); font-style: normal; }
 .cm-latex-visual .lx-tex-size-xsmall { font-size: 0.75em; }
 .cm-latex-visual .lx-tex-size-small { font-size: 0.88em; }
-.cm-latex-visual .lx-tex-size-normal { font-size: 1rem; }
+.cm-latex-visual .lx-tex-size-normal { font-size: 1em; }
 .cm-latex-visual .lx-tex-size-large { font-size: 1.15em; }
 .cm-latex-visual .lx-tex-size-xlarge { font-size: 1.4em; }
 .cm-latex-visual .lx-tex-space { display: inline-block; }

@@ -20,6 +20,8 @@ export type TableCell = {
   align: ColumnAlign;
   colspan: number;
   rowspan: number;
+  /** The column it starts in, counting those a `\multirow` above covers. */
+  column: number;
   /** Whether a vertical rule is drawn at its left or right edge. */
   left: boolean;
   right: boolean;
@@ -204,13 +206,29 @@ function parseRows(body: string, offset: number, columns: Table["columns"]): Tab
           continue;
         }
       }
-      const cell = readCell(part.text, part.from, columns[column]);
+      const cell = readCell(part.text, part.from, columns[column], column);
       if (!cell) continue;
+      column += cell.colspan;
+      // `\multirow{-2}` in a span's last row sets its text over the rows above: it takes the empty cells there.
+      if (cell.rowspan < 0) {
+        const span = -cell.rowspan;
+        const above = rows.slice(Math.max(0, rows.length - span + 1));
+        const empty = above.map((row) => row.cells.find((other) => other.column === cell.column && other.colspan === cell.colspan
+          && other.rowspan === 1 && !other.text.replace(/\\cellcolor\s*(?:\[[^\]]*\])?\{[^}]*\}/g, "").trim()));
+        if (span > 1 && above.length === span - 1 && empty.every(Boolean)) {
+          above.forEach((row, index) => {
+            const at = row.cells.indexOf(empty[index]!);
+            if (index === 0) row.cells[at] = { ...cell, rowspan: span };
+            else row.cells.splice(at, 1);
+          });
+          continue;
+        }
+        cell.rowspan = 1;
+      }
       for (let index = 0; index < cell.colspan; index++) {
-        if (cell.rowspan > 1) covered[column + index] = cell.rowspan - 1;
+        if (cell.rowspan > 1) covered[cell.column + index] = cell.rowspan - 1;
       }
       cells.push(cell);
-      column += cell.colspan;
     }
     rows.push({ cells, above: pending, below: null, partialBelow: [] });
     pending = null;
@@ -220,7 +238,7 @@ function parseRows(body: string, offset: number, columns: Table["columns"]): Tab
 }
 
 /** A cell's text, unwrapped from `\multicolumn{n}{spec}{…}` and `\multirow{n}{w}{…}`. */
-function readCell(raw: string, from: number, column: Table["columns"][number] | undefined): TableCell | null {
+function readCell(raw: string, from: number, column: Table["columns"][number] | undefined, index: number): TableCell | null {
   const lead = raw.length - raw.trimStart().length;
   let text = raw.trim();
   let start = from + lead;
@@ -259,13 +277,13 @@ function readCell(raw: string, from: number, column: Table["columns"][number] | 
       if (/^\s*\|/.test(args[1])) left = true;
       if (/\|\s*$/.test(args[1])) right = true;
     } else if (multi[1] === "multirow") {
-      rowspan = Math.max(1, Math.min(ROW_LIMIT, Math.abs(Number(args[0])) || 1));
+      rowspan = Math.max(-ROW_LIMIT, Math.min(ROW_LIMIT, Math.trunc(Number(args[0])) || 1));
     }
     const inner = text.length - text.trimStart().length;
     start += inner;
     text = text.trim();
   }
-  return { text, align, colspan, rowspan, left, right, from: start };
+  return { text, align, colspan, rowspan, column: index, left, right, from: start };
 }
 
 /**

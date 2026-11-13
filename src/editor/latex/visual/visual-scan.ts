@@ -66,7 +66,7 @@ type Unplaced = Construct extends infer C ? C extends Construct ? Omit<C, "from"
 export type ScanFrame = { name: string; items: number; start?: number; at?: number };
 
 type Frame =
-  | { type: "group"; at: number; centered?: boolean }
+  | { type: "group"; at: number; bare: boolean; centered?: boolean }
   | { type: "style"; at: number; style: TextStyle; open: Span }
   | { type: "heading"; at: number; level: number; open: Span }
   | { type: "caption"; at: number; open: Span; float: string | null }
@@ -119,7 +119,7 @@ class Scanner {
       case "\\": return this.command(at);
       case "$": return this.dollar(at);
       case "{":
-        this.frames.push({ type: "group", at });
+        this.frames.push({ type: "group", at, bare: bareGroupAt(text, at) });
         return at + 1;
       case "}":
         this.close(at);
@@ -170,7 +170,7 @@ class Scanner {
     if (!frame) return;
     if (frame.type === "group") {
       // A bare group across lines (`{\centering\small …\par}`) only scopes what is in it: its braces print nothing.
-      if (this.text.slice(frame.at, at).includes("\n")) {
+      if (frame.bare && this.text.slice(frame.at, at).includes("\n")) {
         this.push(frame.at, frame.at + 1, { kind: "symbol", text: "" });
         this.push(at, at + 1, { kind: "symbol", text: "" });
         if (frame.centered) this.push(frame.at, at + 1, { kind: "centered" });
@@ -518,14 +518,14 @@ class Scanner {
     }
     if (SOURCE_ENVIRONMENTS.has(name)) {
       // Nothing in it is read as text; one that does not end in the text keeps the rest as source.
-      const closeToken = `\\end{${name}}`;
-      const close = text.indexOf(closeToken, group.end);
-      if (close < 0) return text.length;
+      // A table may hold tables (`\begin{tabular}{@{}c@{}}a\\b\end{tabular}` in a cell); verbatim text holds none.
+      const close = TABLE_ENVIRONMENTS.has(name) ? environmentClose(text, name, group.end) : verbatimClose(text, name, group.end);
+      if (!close) return text.length;
       // A table outside a float draws as a table; in one, the float draws it.
       if (TABLE_ENVIRONMENTS.has(name) && !this.environments.some((frame) => FIGURE_ENVIRONMENTS.has(frame.name))) {
-        this.push(at, close + closeToken.length, { kind: "block", name });
+        this.push(at, close.end, { kind: "block", name });
       }
-      return close + closeToken.length;
+      return close.end;
     }
     if (DISPLAY_MATH_ENVIRONMENTS.has(name) || name === "math") {
       const closeToken = `\\end{${name}}`;
@@ -576,6 +576,39 @@ class Scanner {
       this.push(at, end, { kind: "environment", name, begin: false, depth, argument: null });
     }
   }
+}
+
+/** Whether the `{` at `at` opens a group of its own, not the argument of a command (`\todo{`, `]{`, `}{`). */
+function bareGroupAt(text: string, at: number): boolean {
+  let before = at - 1;
+  while (before >= 0 && /\s/.test(text[before])) before--;
+  const char = text[before];
+  if (char === "]" || char === "}") return false;
+  if (char === "*") before--;
+  let start = before;
+  while (start >= 0 && isLetter(text.charCodeAt(start))) start--;
+  return start === before || text[start] !== "\\";
+}
+
+/**
+ * The `\end{name}` that closes an environment whose body starts at `from`,
+ * the same-named ones begun inside it counted: where it starts and ends; null when it does not close.
+ */
+export function environmentClose(text: string, name: string, from: number): { close: number; end: number } | null {
+  const token = new RegExp(`\\\\(begin|end)\\s*\\{${name.replace(/[*]/g, "\\*")}\\}`, "g");
+  token.lastIndex = from;
+  let depth = 0;
+  for (let match = token.exec(text); match; match = token.exec(text)) {
+    if (match[1] === "begin") depth++;
+    else if (depth-- === 0) return { close: match.index, end: match.index + match[0].length };
+  }
+  return null;
+}
+
+function verbatimClose(text: string, name: string, from: number): { close: number; end: number } | null {
+  const closeToken = `\\end{${name}}`;
+  const close = text.indexOf(closeToken, from);
+  return close < 0 ? null : { close, end: close + closeToken.length };
 }
 
 /** Whether the line break at `at` ends a paragraph: only blanks before the next line break. */

@@ -180,16 +180,15 @@ export function compoundNumber(key: string, context: DrawContext): string {
 
 /** "Figure 3:" for a float's caption: its float's name and the number the last build gave its label. */
 export function captionLabel(construct: Extract<Construct, { kind: "caption" }>, context: DrawContext): string {
-  const float = construct.float?.replace(/\*$/, "");
-  if (!float || float === "subfigure" || float === "wrapfigure") return "";
-  return floatCaptionLabel(float, construct.label, context);
+  return construct.float ? floatCaptionLabel(construct.float, construct.label, context) : "";
 }
 
-/** "Table 2: " for a caption in a `float` with `label`; "?" before a build has numbered it. */
+/** "Table 2: " for a caption in a `float` with `label`; "?" before a build has numbered it. A `wrapfigure` is a figure. */
 function floatCaptionLabel(float: string, label: string | null, context: DrawContext): string {
-  if (float === "subfigure" || float === "subtable" || float === "wrapfigure") return "";
+  const kind = float.replace(/\*$/, "").replace(/^wrap/, "");
+  if (kind === "subfigure" || kind === "subtable") return "";
   const number = (label && context.labels?.get(label)?.number) || "?";
-  return `${environmentTitle(float)} ${number}: `;
+  return `${environmentTitle(kind)} ${number}: `;
 }
 
 /** A table outside a float, as a float's layout of one table. */

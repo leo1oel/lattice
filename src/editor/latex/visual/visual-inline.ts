@@ -125,9 +125,15 @@ export function expandMacros(text: string, macros: Record<string, string> | unde
         end = next.end;
       }
       if (!complete) continue;
-      // A space after a control word belongs to the word; one the body ends with would double it.
+      // A control word swallows the blanks after it, as TeX reads it; a paragraph break stays.
+      if (!args.length) {
+        const next = skipBlanks(current, end);
+        if (!current.slice(end, next).includes("\n\n")) end = next;
+      }
       const expanded = body.replace(/#([1-9])/g, (_, n: string) => args[Number(n) - 1] ?? "");
-      out += current.slice(at, match.index) + (/^[A-Za-z]/.test(current[end] ?? "") ? `${expanded} ` : expanded);
+      // A body ending in a control word would read the letters after it as part of its name.
+      const joined = /\\[A-Za-z@]+$/.test(expanded) && /^[A-Za-z]/.test(current[end] ?? "");
+      out += current.slice(at, match.index) + (joined ? `${expanded} ` : expanded);
       at = end;
       pattern.lastIndex = end;
       changed = true;
@@ -173,6 +179,8 @@ class InlineWriter {
   private parent: Node = document.createDocumentFragment();
   /** The parent each open group returns to at its `}`. */
   private readonly groups: Node[] = [];
+  /** The switch spans open in the current group, outermost first. */
+  private switches: HTMLElement[] = [];
   private pendingSpace = false;
 
   constructor(private readonly text: string, private readonly context: InlineContext) {}
@@ -279,10 +287,13 @@ class InlineWriter {
   /** `text[at, end)` written into `parent`, then back to where it was: a group's switches end with it. */
   private groupInto(parent: Node, end: number) {
     const outer = this.parent;
+    const outerSwitches = this.switches;
     this.groups.push(outer);
     this.parent = parent;
+    this.switches = [];
     this.run(end);
     this.parent = this.groups.pop()!;
+    this.switches = outerSwitches;
   }
 
   /** A braced argument at the cursor written into `parent`; a bare token is written as one. */
@@ -361,11 +372,28 @@ class InlineWriter {
     this.argumentInto(span, end);
   }
 
-  /** A switch (`\bfseries`, `\small`) styles the rest of its group: what follows goes into its span until the group closes. */
+  /**
+   * A switch (`\bfseries`, `\small`) styles the rest of its group: what
+   * follows goes into its span until the group closes. A size is absolute, so
+   * a new one closes the size open in the group and reopens the switches set
+   * inside it.
+   */
   private switchTo(className: string) {
-    const span = element("span", className);
-    this.parent.appendChild(span);
-    this.parent = span;
+    let reopen: string[] = [];
+    if (isSize(className)) {
+      const open = this.switches.findIndex((span) => isSize(span.className));
+      if (open >= 0) {
+        const closed = this.switches.splice(open);
+        this.parent = closed[0].parentNode!;
+        reopen = closed.slice(1).map((span) => span.className);
+      }
+    }
+    for (const name of [className, ...reopen]) {
+      const span = element("span", name);
+      this.parent.appendChild(span);
+      this.parent = span;
+      this.switches.push(span);
+    }
   }
 
   private command(end: number) {
@@ -511,6 +539,8 @@ class InlineWriter {
     this.node(element("span", citation ? "lx-tex-cite" : "lx-tex-ref", shown)).title = keys.join(", ");
   }
 }
+
+const isSize = (className: string) => className.startsWith("lx-tex-size-");
 
 function skipIndent(text: string, at: number): number {
   while (text[at] === " " || text[at] === "\t") at++;
