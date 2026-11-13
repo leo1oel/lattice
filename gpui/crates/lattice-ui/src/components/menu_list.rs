@@ -34,9 +34,10 @@ use std::{
 
 use gpui::{
     Action, AnyElement, App, AsKeystroke as _, Bounds, ElementId, Entity, FocusHandle, Global,
-    InteractiveElement as _, IntoElement, KeyContext, KeyDownEvent, MouseButton, ParentElement,
-    Pixels, Point, RenderOnce, ScrollHandle, SharedString, StatefulInteractiveElement as _,
-    Styled as _, Window, anchored, canvas, deferred, div, point, prelude::FluentBuilder as _, px,
+    InteractiveElement as _, IntoElement, KeyContext, KeyDownEvent, MouseButton, MouseMoveEvent,
+    ParentElement, Pixels, Point, RenderOnce, ScrollHandle, SharedString,
+    StatefulInteractiveElement as _, Styled as _, Window, anchored, canvas, deferred, div, point,
+    prelude::FluentBuilder as _, px,
 };
 use gpui_kit::{base::POPUP_PRIORITY, component::Selectable as _};
 
@@ -97,6 +98,24 @@ fn heading_to_submenu(
     let negative = d1 < 0. || d2 < 0. || d3 < 0.;
     let positive = d1 > 0. || d2 > 0. || d3 > 0.;
     !(negative && positive)
+}
+
+/// Whether an open submenu stays open while another row is lit: only when
+/// the pointer lit it, on its way from where it left the submenu's row to
+/// the submenu, and has not rested there for the grace yet. A key move
+/// switches at once.
+fn hold_submenu(
+    by_pointer: bool,
+    grace: Grace,
+    submenu: Option<Bounds<Pixels>>,
+    pointer: Point<Pixels>,
+) -> bool {
+    let waited = grace.since.map_or(Duration::ZERO, |since| since.elapsed());
+    by_pointer
+        && waited < SUBMENU_GRACE
+        && grace.origin.zip(submenu).is_some_and(|(origin, bounds)| {
+            pointer != origin && heading_to_submenu(origin, bounds, pointer)
+        })
 }
 
 /// The room a menu keeps from the window's edges.
@@ -509,27 +528,14 @@ impl RenderOnce for Menu {
             .clone();
         let pointer = window.mouse_position();
         let open_at = open_sub.read(cx).map(|(ix, _)| ix);
-        if lit.is_some() && lit == open_at {
-            grace.update(cx, |grace, _| {
-                *grace = Grace {
-                    origin: Some(pointer),
-                    since: None,
-                }
-            });
-        }
         if let Some(at) = lit
             && open_at != Some(at)
         {
-            let Grace { origin, since } = *grace.read(cx);
-            let heading = open_at.is_some()
-                && origin
-                    .zip(sub_bounds.get())
-                    .is_some_and(|(origin, bounds)| {
-                        pointer != origin && heading_to_submenu(origin, bounds, pointer)
-                    });
-            let waited = since.map_or(Duration::ZERO, |since| since.elapsed());
-            if heading && waited < SUBMENU_GRACE {
-                if since.is_none() {
+            let held = *grace.read(cx);
+            if open_at.is_some()
+                && hold_submenu(hover.by_pointer(cx), held, sub_bounds.get(), pointer)
+            {
+                if held.since.is_none() {
                     grace.update(cx, |grace, _| grace.since = Some(Instant::now()));
                     let view = window.current_view();
                     window
@@ -644,6 +650,19 @@ impl RenderOnce for Menu {
                 Entry::Submenu(submenu) => {
                     let id = child(&format!("item-{ix}"));
                     let open_sub = open_sub.clone();
+                    let leave = {
+                        let (open_sub, grace) = (open_sub.clone(), grace.clone());
+                        move |event: &MouseMoveEvent, _: &mut Window, cx: &mut App| {
+                            if open_sub.read(cx).is_some_and(|(open, _)| open == ix) {
+                                grace.update(cx, |grace, _| {
+                                    *grace = Grace {
+                                        origin: Some(event.position),
+                                        since: None,
+                                    }
+                                });
+                            }
+                        }
+                    };
                     let item = MenuItem::new(id, submenu.label.clone())
                         .when_some(submenu.icon, MenuItem::icon)
                         .check_gutter(checks.then_some(false))
@@ -657,7 +676,11 @@ impl RenderOnce for Menu {
                             })
                         });
                     submenu_rows.push((ix, submenu));
-                    hover.item_as(ix, ItemKind::target().section(section), item)
+                    hover.item_as(
+                        ix,
+                        ItemKind::target().section(section),
+                        div().on_mouse_move(leave).child(item),
+                    )
                 }
                 Entry::Item(action) => {
                     let id = child(&format!("item-{ix}"));
@@ -950,6 +973,31 @@ mod tests {
         let left = Bounds::new(point(px(-70.), px(40.)), gpui::size(px(160.), px(160.)));
         assert!(heading_to_submenu(origin, left, point(px(95.), px(70.))));
         assert!(!heading_to_submenu(origin, left, point(px(105.), px(70.))));
+    }
+
+    #[test]
+    fn only_the_pointer_on_its_way_holds_a_submenu_open() {
+        let submenu = Some(Bounds::new(
+            point(px(110.), px(40.)),
+            gpui::size(px(160.), px(160.)),
+        ));
+        let left_row = Grace {
+            origin: Some(point(px(100.), px(50.))),
+            since: None,
+        };
+        let on_the_way = point(px(105.), px(80.));
+        // The pointer crossing a row toward the submenu holds it.
+        assert!(hold_submenu(true, left_row, submenu, on_the_way));
+        // The keys moving the highlight there switch at once, as Radix's do.
+        assert!(!hold_submenu(false, left_row, submenu, on_the_way));
+        // A pointer that rested on that row past the grace switches.
+        let rested = Grace {
+            since: Some(Instant::now() - SUBMENU_GRACE),
+            ..left_row
+        };
+        assert!(!hold_submenu(true, rested, submenu, on_the_way));
+        // With no recorded exit from the submenu's row, nothing holds.
+        assert!(!hold_submenu(true, Grace::default(), submenu, on_the_way));
     }
 
     #[test]

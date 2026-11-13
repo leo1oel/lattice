@@ -525,6 +525,11 @@ impl FluidHover {
         self.state.read(cx).wanted
     }
 
+    /// Whether the pointer, not the keys, moved the fill last.
+    pub fn by_pointer(&self, cx: &App) -> bool {
+        self.state.read(cx).hand == Hand::Pointer
+    }
+
     /// Wrap `row` so its bounds are recorded as row `index` of this list.
     pub fn item(&self, index: usize, row: impl IntoElement) -> AnyElement {
         self.item_as(index, ItemKind::target(), row)
