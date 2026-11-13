@@ -134,6 +134,23 @@ export const scenes = {
     await rest(staged.page, 4000);
     return staged;
   },
+  // History opened from the titlebar on the paper's versions (`?versions=compare`,
+  // tools/perf-bench/bench-compare.ts). The parity harness's screens only;
+  // not on the App screens page.
+  async history(env, theme) {
+    const staged = await project(env, theme, "&versions=compare");
+    await staged.page.getByRole("button", { name: "Project history" }).click();
+    await staged.page.waitForSelector(".history-row", { timeout: 30_000 });
+    await rest(staged.page);
+    return staged;
+  },
+  async historyCompare(env, theme) {
+    const staged = await scenes.history(env, theme);
+    await staged.page.getByRole("button", { name: "Compare…" }).click();
+    await staged.page.waitForSelector(".compare-passage", { timeout: 30_000 });
+    await rest(staged.page);
+    return staged;
+  },
   async welcome(env, theme) {
     const staged = await open(env, theme, "welcome=1&recents=1", ".welcome-screen");
     await rest(staged.page, 1500);

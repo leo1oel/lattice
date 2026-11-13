@@ -26,6 +26,11 @@ Its backend is the Tauri app's own: `lattice-core` (`../src-tauri/lattice-core`)
     Translucency puts macOS's under-window vibrancy behind a frosted titlebar, gutters, Project and Papers, as the Tauri app does (off while Reduce transparency is on).
 13. Speaks English and Simplified Chinese, from the Tauri app's own catalog (`crates/lattice-i18n`), menus included.
 14. Shows an HTML file as the Tauri app does, in Preview until another view is chosen (Edit, Split and Preview in its strip and its ⋯ menu, each file keeping its own): the Tauri app's sandboxed preview (its images and embedded pages loaded, relative links disabled, web links to the browser) in a webview island, following the editor 180 ms after typing pauses, with its zoom (50% to 200%, or typed) and Lattice's scrollbar drawn over the page, and its reading position and zoom kept across edits and views. The islands are below.
+15. Keeps the project's history as the Tauri app does, in its History tool panel (the titlebar's History button, or Open project history in the palette), opened as a tab of the documents' panel: Lattice's own activity and the project's Git versions on one timeline by day (Everything, Versions, Activity with its You / Agent / Citations filter), each run of automatic versions folded into one line, a row's tools behind its time until the pointer reaches it.
+    A row opens in place: a version's files, the open file's changes read as prose passages (↑ ↓ between them) or as its source diff (GPUI Kit's diff, Pierre's look), Compare with now and the restores (a file, or the project, saved as a version first, after asking); an activity entry's diff and its restores.
+    Save version names a version; version tracking starts from the panel.
+    Compare… compares any two versions (the From / To picker, the changed words counted, each passage under its section and line) and exports the PDF with those changes marked through latexdiff, beside a preview of the marked page.
+    A file Git leaves with conflict markers is offered to the conflict resolver (also Resolve conflicts… in the palette), which keeps one side, the other or both in each spot (1, 2, 3), lets the result be edited before saving, and writes it only over the text it was resolved against.
 
 Not yet: the visual LaTeX and Markdown editors, Overleaf, the papers library and the Agent (their panels hold their places with a note), canvas, spreadsheet, slides, live preview, the import conflict dialog's Replace and Skip (an import keeps both), pasting a clipboard image into the tree as a figure; in the PDF its annotations, comment column, review export and citation hover cards; and of Settings, the grammar page (its dialect, profile and rules; spell checking uses the Tauri app's defaults) and the agent, integration and about pages.
 
@@ -48,7 +53,7 @@ The window's panels are laid out with it, so the GPUI app as built includes Trel
 
 These are the facts of how the code is licensed, not legal advice; the license texts themselves are what apply.
 
-Two Lucide icons, `crates/lattice-ui/assets/icons/download.svg` and `ellipsis.svg`, are copied unmodified from GPUI Kit's assets and keep Lucide's license ([`crates/lattice-ui/assets/LICENSE-LUCIDE`](crates/lattice-ui/assets/LICENSE-LUCIDE)).
+Lucide icons in `crates/lattice-ui/assets/icons/` (`download.svg`, `ellipsis.svg`, and `tool-history.svg` from Lucide itself, as GPUI Kit's set lacks it) are copied unmodified and keep Lucide's license ([`crates/lattice-ui/assets/LICENSE-LUCIDE`](crates/lattice-ui/assets/LICENSE-LUCIDE)).
 Everything outside `gpui/`, the Tauri app and the backend crate the two apps share (`lattice-core`) included, stays Apache-2.0 ([`../LICENSE`](../LICENSE)); Apache-2.0 code can be part of this GPL work, not the other way round, so nothing under `gpui/` may be copied out of it into the Apache-2.0 tree.
 
 ## Running it
@@ -284,7 +289,7 @@ A scripted run keeps the workspaces and the projects' layouts in memory, so it n
 - `ime-protocol`: makes the `NSTextInputClient` calls an input method makes (marked text per keystroke, then the commit) directly on the view.
 - `shot`: waits for the project's PDF to draw, then saves the window as `LATTICE_SHOT_OUT` (a PNG), for side-by-side look reviews against Paper's App screens. Built with `--features offscreen-shots` it draws and reads the frame back itself, so the screen may be locked; otherwise it uses `screencapture`, which needs the window on an unlocked screen.
 - `pdf-shots`: the PDF viewer's states one after another (at rest, Find with its hits, the ⋯ menu, the Outline, a selection, dark pages, the wide toolbar, the panel while the PDF is in its own window and that window, no PDF yet), saved as PNGs in `LATTICE_SHOT_DIR`, for a look review against the Tauri app.
-- `parity`: the parity harness's half of a scene (below; `LATTICE_PARITY_SCREEN=settings` for Settings): the pointer parked, the PDF shown and the build chip staged as a clean 1.2 s build; then it saves the window as `LATTICE_SHOT_OUT` and lists every named region's bounds and the text style of each run of text in it in the result. With `LATTICE_PARITY_SCREEN=welcome` it stages the welcome screen instead, with the recent projects the harness's reference stages and motion reduced.
+- `parity`: the parity harness's half of a scene (below; `LATTICE_PARITY_SCREEN=settings` for Settings): the pointer parked, the PDF shown and the build chip staged as a clean 1.2 s build; then it saves the window as `LATTICE_SHOT_OUT` and lists every named region's bounds and the text style of each run of text in it in the result. With `LATTICE_PARITY_SCREEN=welcome` it stages the welcome screen instead, with the recent projects the harness's reference stages and motion reduced; with `history` (or `historyCompare`) it makes the mock backend's versions (`../tools/perf-bench/bench-compare.ts`) real as Git commits in the project and opens History (and Compare…) (`scenario/parity_history.rs`).
 
 On macOS the keys go through the active input source, so select an ASCII layout (ABC, U.S.) before running `e2e`; a Pinyin input method turns the typed macro into candidates.
 On macOS, input is sent the way Lattice's perf lab sends it (`../src-tauri/src/perf_lab.rs`): `NSEvent`s through `-[NSWindow sendEvent:]`.
@@ -296,7 +301,7 @@ On Windows, keys are posted to the window's message queue, so GPUI's own message
 
 ```sh
 node ../scripts/gpui-build.mjs                                   # release build with offscreen-shots (or cargo build --release, on an unlocked screen)
-node parity/run.mjs --out /tmp/lattice-parity                    # from gpui/; --theme light,dark --screen mainWindow,welcome,settings
+node parity/run.mjs --out /tmp/lattice-parity                    # from gpui/; --theme light,dark --screen mainWindow,welcome,settings,history,historyCompare
 ```
 
 - The reference is the Tauri frontend on the mock-backend page (`pnpm perf:bench --serve`, which `run.mjs` starts unless given `--bench-url`), staged by the functions that draw Paper's App screens (`../design-system/screens/scenes.mjs`), at the GPUI window's size and scale (1440×900 @2x on a Retina Mac). Every run also saves the page as `serialize.js` draws it into Paper, its layers named after the regions.
@@ -305,7 +310,7 @@ node parity/run.mjs --out /tmp/lattice-parity                    # from gpui/; -
 - Checks, per screen and theme: each region's bounds within ±1 px; each run of text's family, size (after the face's `size-adjust`), weight and line height, the two apps' runs in a region matched by their text, then in order; each chrome region's ground colour within ΔE2000 1; and the share of pixels that differ visibly (ΔE2000 > 2.3) outside text, the PDF pages and what changed between the reference's two runs, within three times that run-to-run noise (at least 0.1%). What changed between the GPUI app's two runs is reported on its own line and stays in the comparison.
 - It writes `report.md` and `report.json`, and per screen and theme a side-by-side image (reference, GPUI, heatmap) and the full-resolution heatmap; the captures are under `runs/`. It exits 0 once the report is written, whatever it found.
 
-CI's macos job writes the report after the e2e scenario and uploads it as the `gpui-parity-macos` artifact; it does not fail the job yet. The runner's screen shrinks the window to about 1015 px wide, so CI compares the two apps at that width. The Main window, the Welcome screen and Settings are ported so far (`LATTICE_PARITY_SCREEN=settings` opens Settings over the window in the scenario); the other App screens follow in `parity/regions.mjs`.
+CI's macos job writes the report after the e2e scenario and uploads it as the `gpui-parity-macos` artifact; it does not fail the job yet. The runner's screen shrinks the window to about 1015 px wide, so CI compares the two apps at that width. The Main window, the Welcome screen, Settings and History (its timeline and its comparison) are ported so far (`LATTICE_PARITY_SCREEN=settings` opens Settings over the window in the scenario); the other App screens follow in `parity/regions.mjs`.
 
 ## Reference projects
 

@@ -8259,6 +8259,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "assets",
+ "chrono",
  "codebook-tree-sitter-latex",
  "dirs",
  "editor",
@@ -8290,6 +8291,7 @@ dependencies = [
  "serde",
  "serde_json",
  "settings",
+ "similar",
  "smallvec",
  "theme",
  "theme_settings",

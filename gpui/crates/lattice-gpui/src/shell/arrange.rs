@@ -185,7 +185,7 @@ impl Shell {
     }
 
     /// Where `view` is now.
-    fn placement(&self, view: &str, cx: &App) -> Option<(ViewPlacement, String, bool)> {
+    pub(crate) fn placement(&self, view: &str, cx: &App) -> Option<(ViewPlacement, String, bool)> {
         let engine = self.workspace.read(cx).engine();
         let state = engine.view_state(view)?;
         Some((state.placement, state.panel_id.clone(), state.visible))

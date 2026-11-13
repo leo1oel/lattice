@@ -14,6 +14,7 @@ mod build_flow;
 mod documents;
 mod editor_adapter;
 mod fluid;
+mod history;
 #[cfg(target_os = "macos")]
 mod islands;
 mod live_controls;
@@ -290,9 +291,18 @@ impl Run {
             steps.check(name, passed, detail);
         }
 
-        self.settings_and_language(cx, &mut steps).await?;
-        self.live_controls(cx, &mut steps).await?;
-        self.closing_saves(cx, &mut steps, &root).await?;
+        self.history_and_versions(cx, &mut steps, &root)
+            .await
+            .context("history_and_versions")?;
+        self.settings_and_language(cx, &mut steps)
+            .await
+            .context("settings_and_language")?;
+        self.live_controls(cx, &mut steps)
+            .await
+            .context("live_controls")?;
+        self.closing_saves(cx, &mut steps, &root)
+            .await
+            .context("closing_saves")?;
         // Last: `scenario::start` quits once the result is written.
         let quit = self.type_before_quit(cx, &mut steps, &root).await?;
 

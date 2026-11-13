@@ -15,6 +15,8 @@ offscreen-shots = ["gpui/test-support", "gpui_platform/test-support"]
 
 [dependencies]
 anyhow.workspace = true
+# The history timeline's dates in the local time zone (history/time.rs).
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 assets.workspace = true
 codebook-tree-sitter-latex.workspace = true
 dirs.workspace = true
@@ -33,6 +35,8 @@ lattice-core.workspace = true
 lattice-editor.workspace = true
 lattice-i18n.workspace = true
 lattice-settings.workspace = true
+# The history's source diffs, as a patch GPUI Kit's diff reads (history/diff_view.rs).
+similar = "2"
 lattice-ui.workspace = true
 lattice-webview.workspace = true
 log.workspace = true

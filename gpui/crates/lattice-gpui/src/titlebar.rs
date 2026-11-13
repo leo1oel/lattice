@@ -410,12 +410,7 @@ pub fn render(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> im
             Icon::GIT,
             t!("Git status and commit"),
         ))
-        .children(tool(
-            TitlebarTool::History,
-            "history",
-            Icon::HISTORY,
-            t!("Project history"),
-        ))
+        .children((!hidden.contains(&TitlebarTool::History)).then(|| shell.history_button(cx)))
         // Moves the workspace into a browser tab (`canvas-toolbar.tsx`,
         // `onMoveWorkspace`), the last of the app's tools.
         .children(tool(
