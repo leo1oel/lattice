@@ -8,6 +8,7 @@
 //! close while the writer keeps writing. It reads the box once typing
 //! pauses (450 ms), so a half-typed DOI is not looked up letter by letter.
 
+use lattice_i18n::t;
 use std::{
     collections::{HashMap, HashSet},
     time::Duration,
@@ -66,10 +67,10 @@ pub enum Tab {
 impl Tab {
     pub fn label(self) -> &'static str {
         match self {
-            Tab::All => "All",
-            Tab::New => "New",
-            Tab::Duplicate => "Already in Papers",
-            Tab::Choose => "Several matches",
+            Tab::All => t!("All"),
+            Tab::New => t!("New"),
+            Tab::Duplicate => t!("Already in Papers"),
+            Tab::Choose => t!("Several matches"),
         }
     }
 
@@ -271,14 +272,14 @@ impl AddPapers {
                     None => row(
                         RowState::Resolving,
                         reference.label.clone(),
-                        "Looking up…".into(),
+                        t!("Looking up…").into(),
                     ),
                     Some(Lookup::Failed(error)) => Row {
                         error: Some(error.clone()),
                         ..row(
                             RowState::Failed,
                             reference.label.clone(),
-                            "Couldn't find this one".into(),
+                            t!("Couldn't find this one").into(),
                         )
                     },
                     Some(Lookup::Done(resolved)) => {
@@ -289,9 +290,9 @@ impl AddPapers {
                             .and_then(|at| candidates.get(*at));
                         if !candidates.is_empty() && pick.is_none() {
                             let byline = if candidates.len() == 1 {
-                                "One record matches".to_string()
+                                t!("One record matches").to_string()
                             } else {
-                                format!("{} records match", candidates.len())
+                                t!("{0} records match", candidates.len())
                             };
                             return Row {
                                 candidates,

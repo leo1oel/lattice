@@ -16,6 +16,7 @@ use std::{
 use futures::{StreamExt as _, channel::mpsc};
 use gpui::{App, AppContext as _, Context, Window};
 use lattice_core::papers::{self as core_papers, HistoryMode, PaperSummary};
+use lattice_i18n::t;
 
 use super::{
     FETCHED_LINGER, FetchState, Importing, PapersEvent, PapersPanel, model,
@@ -153,7 +154,7 @@ impl PapersPanel {
                     notices::show(
                         notices::Notice::new(
                             lattice_ui::components::ToastLevel::Info,
-                            "Citation added without full text",
+                            t!("Citation added without full text"),
                         )
                         .detail(error),
                         cx,
@@ -161,7 +162,7 @@ impl PapersPanel {
                 }
             }
             Err(_) if cancelled => {}
-            Err(error) => notices::error("Could not add the paper", error, cx),
+            Err(error) => notices::error(t!("Could not add the paper"), error, cx),
         }
         self.reload(cx);
         cx.notify();
@@ -324,7 +325,7 @@ impl PapersPanel {
             }
             Err(error) => {
                 self.fetching.states.remove(&key);
-                notices::error("Could not download the paper", error, cx);
+                notices::error(t!("Could not download the paper"), error, cx);
             }
         }
         if !self.fetching.busy() {

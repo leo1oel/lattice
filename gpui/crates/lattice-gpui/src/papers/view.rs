@@ -12,6 +12,7 @@ use gpui::{
     SharedString, StatefulInteractiveElement as _, Styled as _, Window, canvas, div,
     prelude::FluentBuilder as _, px,
 };
+use lattice_i18n::t;
 use lattice_ui::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
     components::{Button, EmptyState, ErrorState},
@@ -51,20 +52,22 @@ impl PapersPanel {
                         div()
                             .text_role(TextRole::Caption, cx)
                             .text_color(palette.text_secondary)
-                            .child("Loading references…"),
+                            .child(t!("Loading references…")),
                     )
                     .into_any_element(),
             ),
             Load::Failed(error) => {
                 let view = cx.entity().downgrade();
                 Some(
-                    ErrorState::new("Couldn’t read your references")
+                    ErrorState::new(t!("Couldn’t read your references"))
                         .detail(error.clone())
-                        .action(Button::new("papers-retry", "Try again").compact().on_click(
-                            move |_, _, cx| {
-                                view.update(cx, |this, cx| this.reload(cx)).ok();
-                            },
-                        ))
+                        .action(
+                            Button::new("papers-retry", t!("Try again"))
+                                .compact()
+                                .on_click(move |_, _, cx| {
+                                    view.update(cx, |this, cx| this.reload(cx)).ok();
+                                }),
+                        )
                         .into_any_element(),
                 )
             }
@@ -100,7 +103,7 @@ impl PapersPanel {
                     Icon::LOADER
                         .element(ICON_SMALL, palette.text_secondary)
                         .into_any_element(),
-                    "Searching saved text…",
+                    t!("Searching saved text…"),
                     cx,
                 )
                 .into_any_element(),
@@ -113,7 +116,7 @@ impl PapersPanel {
                         Icon::CIRCLE_ALERT
                             .element(px(13.), palette.text_secondary)
                             .into_any_element(),
-                        "Saved-text search unavailable",
+                        t!("Saved-text search unavailable"),
                         cx,
                     )
                     .id("papers-text-status")
@@ -121,7 +124,7 @@ impl PapersPanel {
                         lattice_ui::components::LatticeTooltip::view(error.clone(), None, cx)
                     })
                     .child(
-                        Button::new("papers-text-retry", "Try again")
+                        Button::new("papers-text-retry", t!("Try again"))
                             .compact()
                             .on_click(move |_, _, cx| {
                                 view.update(cx, |this, cx| this.search_now(cx)).ok();
@@ -191,28 +194,28 @@ impl PapersPanel {
             .child(div().flex_none().w(px(16. + TABLE_GAP - 6.)))
             .child(header(
                 "papers-head-title",
-                "Title",
+                t!("Title"),
                 model::Sort::Title,
                 None,
                 false,
             ))
             .child(header(
                 "papers-head-authors",
-                "Authors",
+                t!("Authors"),
                 model::Sort::Author,
                 Some(TABLE_AUTHORS),
                 false,
             ))
             .child(header(
                 "papers-head-year",
-                "Year",
+                t!("Year"),
                 model::Sort::Year,
                 Some(TABLE_YEAR),
                 false,
             ))
             .child(header(
                 "papers-head-venue",
-                "Venue",
+                t!("Venue"),
                 model::Sort::Venue,
                 Some(TABLE_VENUE),
                 false,
@@ -220,7 +223,7 @@ impl PapersPanel {
             .child(if self.uses_known() {
                 header(
                     "papers-head-cited",
-                    "Cited",
+                    t!("Cited"),
                     model::Sort::Cited,
                     Some(TABLE_CITED),
                     true,
@@ -333,7 +336,7 @@ impl PapersPanel {
             out.push(reveal(
                 "papers-no-match",
                 Arrival::PRODUCT,
-                EmptyState::new("No matching papers"),
+                EmptyState::new(t!("No matching papers")),
                 cx,
             ));
         }
@@ -379,9 +382,9 @@ impl PapersPanel {
         body = body.items_center().justify_center().child(reveal(
             "papers-empty",
             Arrival::PRODUCT,
-            EmptyState::new("No papers yet").action(
+            EmptyState::new(t!("No papers yet")).action(
                 // Only focuses the box: what to add is the writer's to type.
-                Button::new("papers-first", "Add your first paper")
+                Button::new("papers-first", t!("Add your first paper"))
                     .compact()
                     .on_click(move |_, window, cx| {
                         input.update(cx, |input, cx| input.focus(window, cx));
@@ -435,7 +438,7 @@ impl Render for PapersPanel {
                         .pt(px(12.))
                         .text_role(TextRole::Body, cx)
                         .text_color(palette.text_secondary)
-                        .child("Open a project to see its papers"),
+                        .child(t!("Open a project to see its papers")),
                 )
                 .into_any_element();
         }

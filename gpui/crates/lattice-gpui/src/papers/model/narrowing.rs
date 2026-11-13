@@ -3,6 +3,7 @@
 //! paper, the filters, sorts and groups the toolbar offers, and how a query
 //! ranks the library, metadata first, then the full-text index's papers.
 
+use lattice_i18n::t;
 use std::{cmp::Ordering, collections::HashMap};
 
 use lattice_core::{models::SymbolOccurrence, papers::PaperSummary};
@@ -94,11 +95,11 @@ impl Sort {
 
     pub fn label(self) -> &'static str {
         match self {
-            Sort::Title => "Title",
-            Sort::Year => "Newest first",
-            Sort::Author => "First author",
-            Sort::Venue => "Venue",
-            Sort::Cited => "Most cited here",
+            Sort::Title => t!("Title"),
+            Sort::Year => t!("Newest first"),
+            Sort::Author => t!("First author"),
+            Sort::Venue => t!("Venue"),
+            Sort::Cited => t!("Most cited here"),
         }
     }
 }
@@ -124,11 +125,11 @@ impl Filter {
 
     pub fn label(self) -> &'static str {
         match self {
-            Filter::All => "All papers",
-            Filter::Cited => "Cited in this paper",
-            Filter::Uncited => "Not cited yet",
-            Filter::FullText => "With full text",
-            Filter::Flagged => "Flagged",
+            Filter::All => t!("All papers"),
+            Filter::Cited => t!("Cited in this paper"),
+            Filter::Uncited => t!("Not cited yet"),
+            Filter::FullText => t!("With full text"),
+            Filter::Flagged => t!("Flagged"),
         }
     }
 
@@ -162,10 +163,10 @@ impl Group {
 
     pub fn label(self) -> &'static str {
         match self {
-            Group::None => "No grouping",
-            Group::Year => "Year",
-            Group::Venue => "Venue",
-            Group::State => "Reading state",
+            Group::None => t!("No grouping"),
+            Group::Year => t!("Year"),
+            Group::Venue => t!("Venue"),
+            Group::State => t!("Reading state"),
         }
     }
 }
@@ -452,9 +453,9 @@ pub fn group<'a>(papers: Vec<&'a PaperSummary>, group: Group, facts: &Facts) -> 
                     .to_string(),
                 _ if value.is_empty() => {
                     if group == Group::Year {
-                        "No year".into()
+                        t!("No year").into()
                     } else {
-                        "No venue".into()
+                        t!("No venue").into()
                     }
                 }
                 _ => value.clone(),

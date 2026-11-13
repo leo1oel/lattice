@@ -16,6 +16,7 @@ use gpui::{
     Window, div, prelude::FluentBuilder as _, px,
 };
 use gpui_kit::component::Selectable;
+use lattice_i18n::t;
 use lattice_ui::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
     components::{MenuAction, MenuPopover},
@@ -146,14 +147,18 @@ impl PapersPanel {
             }
         } else if shown != total {
             if shown == 1 {
-                format!("1 of {total} papers")
+                t!("1 of {total} papers", total = total)
             } else {
-                format!("{shown} of {total} papers")
+                t!(
+                    "{filtered} of {total} papers",
+                    filtered = shown,
+                    total = total
+                )
             }
         } else if total == 1 {
-            "1 paper".to_string()
+            t!("1 paper").to_string()
         } else {
-            format!("{total} papers")
+            t!("{count} papers", count = total)
         };
         let caret = width >= 300.;
         let folded = width < 230.;
@@ -195,7 +200,7 @@ impl PapersPanel {
             move |menu: lattice_ui::components::Menu| {
                 let menu = Group::ALL
                     .iter()
-                    .fold(menu.label("Group by"), |menu, choice| {
+                    .fold(menu.label(t!("Group by")), |menu, choice| {
                         let view = view.clone();
                         let choice = *choice;
                         menu.item(
@@ -207,7 +212,7 @@ impl PapersPanel {
                     });
                 Sort::ALL
                     .iter()
-                    .fold(menu.separator().label("Sort by"), |menu, choice| {
+                    .fold(menu.separator().label(t!("Sort by")), |menu, choice| {
                         let view = view.clone();
                         let choice = *choice;
                         menu.item(
@@ -248,12 +253,12 @@ impl PapersPanel {
                     ListTool {
                         id: "papers-filter-tool".into(),
                         icon: Icon::LIST_FILTER,
-                        label: "Filter".into(),
+                        label: t!("Filter").into(),
                         value: None,
                         on: filter != Filter::All,
                         caret,
                         folded,
-                        tooltip: "Filter papers",
+                        tooltip: t!("Filter papers"),
                         open: false,
                     },
                     filter_menu,
@@ -267,16 +272,16 @@ impl PapersPanel {
                         id: "papers-order-tool".into(),
                         icon: Icon::ARROW_DOWN_UP,
                         label: if group != Group::None {
-                            "Group"
+                            t!("Group")
                         } else {
-                            "Sort"
+                            t!("Sort")
                         }
                         .into(),
                         value: Some(order_value.into()),
                         on: sort != Sort::Title || group != Group::None,
                         caret,
                         folded,
-                        tooltip: "Sort and group",
+                        tooltip: t!("Sort and group"),
                         open: false,
                     },
                     order_menu,
@@ -311,7 +316,7 @@ impl PapersPanel {
                     .rounded_full()
                     .bg(mix(palette.hover, palette.pressed, interaction.hover))
                     .cursor_pointer()
-                    .tooltip(tooltip("Clear filter"))
+                    .tooltip(tooltip(t!("Clear filter")))
                     .text_role(TextRole::Caption, cx)
                     .text_color(palette.text)
                     .on_click(move |_, _, cx| {

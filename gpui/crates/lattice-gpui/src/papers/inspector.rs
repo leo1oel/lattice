@@ -7,6 +7,7 @@
 //! row; it scrolls on its own, so the list keeps its place. Sections part
 //! on hairlines, each heading a caption with its count beside it.
 
+use lattice_i18n::t;
 use std::collections::HashMap;
 
 use gpui::{
@@ -86,7 +87,11 @@ impl PapersPanel {
             .join(", ");
         let names = model::author_names(paper);
         let authors = if names.len() > 8 {
-            format!("{} and {} more", names[..6].join(", "), names.len() - 6)
+            t!(
+                "{names} and {count} more",
+                names = names[..6].join(", "),
+                count = names.len() - 6
+            )
         } else {
             names.join(", ")
         };
@@ -139,9 +144,9 @@ impl PapersPanel {
                 Button::new(
                     "paper-inspector-open",
                     if state == model::ReadingState::FullText {
-                        "Open paper"
+                        t!("Open paper")
                     } else {
-                        "Download paper"
+                        t!("Download paper")
                     },
                 )
                 .tinted()
@@ -156,10 +161,10 @@ impl PapersPanel {
         if let Some(key) = cite_key.clone() {
             let copy_view = view.clone();
             actions = actions.child(
-                Button::new("paper-inspector-cite", "Copy \\cite")
+                Button::new("paper-inspector-cite", t!("Copy \\cite"))
                     .compact()
                     .icon(Icon::COPY)
-                    .tooltip("Copy \\cite command")
+                    .tooltip(t!("Copy \\cite command"))
                     .on_click(move |_, _, cx| {
                         copy_view
                             .update(cx, |this, cx| this.copy(format!("\\cite{{{key}}}"), cx))
@@ -170,7 +175,7 @@ impl PapersPanel {
         if let Some(link) = model::link_url(paper) {
             actions = actions.child(
                 IconButton::new("paper-inspector-link", Icon::EXTERNAL_LINK)
-                    .tooltip("Open link in browser")
+                    .tooltip(t!("Open link in browser"))
                     .on_click(move |_, _, cx| cx.open_url(&link)),
             );
         }
@@ -211,7 +216,7 @@ impl PapersPanel {
                     .child({
                         let close_view = view.clone();
                         IconButton::new("paper-inspector-close", Icon::X)
-                            .tooltip("Close paper details")
+                            .tooltip(t!("Close paper details"))
                             .mr(px(-8.))
                             .on_click(move |_, _, cx| {
                                 close_view.update(cx, |this, cx| this.select(None, cx)).ok();
@@ -238,13 +243,13 @@ impl PapersPanel {
         // Every citation, in the order the manuscript reads; each opens its
         // line.
         if let Some(usages) = usages {
-            let mut uses = section("In this paper", Some(usages.len()), cx);
+            let mut uses = section(t!("In this paper"), Some(usages.len()), cx);
             if usages.is_empty() {
                 uses = uses.child(
                     div()
                         .text_role(TextRole::Caption, cx)
                         .text_color(palette.text_secondary)
-                        .child("Not cited in this paper yet"),
+                        .child(t!("Not cited in this paper yet")),
                 );
             } else {
                 let mut list = div().flex().flex_col().gap(px(2.)).mx(px(-8.));
@@ -312,15 +317,15 @@ impl PapersPanel {
             body = body.child(uses);
         }
         if let Some(paragraphs) = abstract_text {
-            body = body.child(
-                section("Abstract", None, cx).children(paragraphs.into_iter().map(|paragraph| {
+            body = body.child(section(t!("Abstract"), None, cx).children(
+                paragraphs.into_iter().map(|paragraph| {
                     div()
                         .font_family(reading_font.clone())
                         .text_role(TextRole::Body, cx)
                         .text_color(palette.text)
                         .child(paragraph)
-                })),
-            );
+                }),
+            ));
         }
 
         // The record: a label column wide enough for the longest label, the
@@ -345,11 +350,11 @@ impl PapersPanel {
                         .child(value),
                 )
         };
-        let mut record = section("Record", None, cx);
+        let mut record = section(t!("Record"), None, cx);
         let mut rows = div().flex().flex_col().gap(px(4.));
         if let Some(key) = cite_key.clone() {
             rows = rows.child(record_row(
-                "Key",
+                t!("Key"),
                 div()
                     .font_family(editor_font.clone())
                     .text_size(px(11.))
@@ -407,30 +412,30 @@ impl PapersPanel {
                         .into_any_element()
                 }
                 None if health.kind == "unavailable" => {
-                    div().child("Unavailable right now").into_any_element()
+                    div().child(t!("Unavailable right now")).into_any_element()
                 }
                 None => div()
                     .flex()
                     .items_center()
                     .gap(px(6.))
                     .child(Icon::CHECK.element(ICON_SMALL, palette.success))
-                    .child(format!(
-                        "No notices, checked {}",
-                        health.checked_at.get(..10).unwrap_or(&health.checked_at)
+                    .child(t!(
+                        "No notices, checked {date}",
+                        date = health.checked_at.get(..10).unwrap_or(&health.checked_at)
                     ))
                     .into_any_element(),
             };
-            rows = rows.child(record_row("Crossref", value, cx));
+            rows = rows.child(record_row(t!("Crossref"), value, cx));
         }
         let full_text = match (paper.has_full_text, paper.has_blog) {
-            (true, true) => "Saved, with its overview",
-            (true, false) => "Saved",
-            (false, true) => "Overview only",
-            _ if state == model::ReadingState::Downloadable => "Not downloaded",
-            _ => "Citation only",
+            (true, true) => t!("Saved, with its overview"),
+            (true, false) => t!("Saved"),
+            (false, true) => t!("Overview only"),
+            _ if state == model::ReadingState::Downloadable => t!("Not downloaded"),
+            _ => t!("Citation only"),
         };
         rows = rows.child(record_row(
-            "Full text",
+            t!("Full text"),
             div().child(full_text).into_any_element(),
             cx,
         ));

@@ -5,6 +5,7 @@
 
 use gpui::{App, AppContext as _, Context};
 use lattice_core::papers::{self as core_papers, CitationRemovalMode, PaperSummary};
+use lattice_i18n::t;
 
 use super::PapersPanel;
 use crate::{
@@ -19,8 +20,8 @@ impl PapersPanel {
     pub(crate) fn remove(&mut self, paper: &PaperSummary, cx: &mut Context<Self>) {
         let Some(key) = paper.citation_key.clone() else {
             notices::error(
-                "Could not remove the paper",
-                "This bibliography entry has no citation key to remove.",
+                t!("Could not remove the paper"),
+                t!("This bibliography entry has no citation key to remove."),
                 cx,
             );
             return;
@@ -38,9 +39,9 @@ impl PapersPanel {
         cx.spawn(async move |_, cx| {
             let preview = preview.await;
             cx.update(|cx| match preview {
-                Err(error) => notices::error("Could not remove the paper", error, cx),
+                Err(error) => notices::error(t!("Could not remove the paper"), error, cx),
                 Ok(preview) => {
-                    let question = format!("Remove “{title}” from the bibliography?");
+                    let question = t!("Remove “{title}” from the bibliography?", title = title);
                     let run = move |mode: CitationRemovalMode, cx: &mut App| {
                         let (root, key) = (root.clone(), key.clone());
                         let view = view.clone();
@@ -54,16 +55,20 @@ impl PapersPanel {
                                     Ok(result) if result.removed => {}
                                     Ok(result) => {
                                         let detail = match result.blockers.first() {
-                                            Some(first) => format!(
-                                                "The bibliography changed while removing \\cite{{{}}} ({}:{}). Try again.",
-                                                result.key, first.path, first.line
+                                            Some(first) => t!(
+                                                "The bibliography changed while removing {citationCommand} ({blocker}). Try again.",
+                                                citationCommand = format!("\\cite{{{}}}", result.key),
+                                                blocker = format!("{}:{}", first.path, first.line)
                                             ),
-                                            None => format!("Could not remove \\cite{{{}}}.", result.key),
+                                            None => t!(
+                                                "Could not remove {citationCommand}.",
+                                                citationCommand = format!("\\cite{{{}}}", result.key)
+                                            ),
                                         };
-                                        notices::error("Could not remove the paper", detail, cx);
+                                        notices::error(t!("Could not remove the paper"), detail, cx);
                                     }
                                     Err(error) => {
-                                        notices::error("Could not remove the paper", error, cx)
+                                        notices::error(t!("Could not remove the paper"), error, cx)
                                     }
                                 }
                                 view.update(cx, |this, cx| this.reload(cx)).ok();
@@ -75,27 +80,32 @@ impl PapersPanel {
                     let ask = if let Some(first) = preview.blockers.first() {
                         let count = preview.blockers.len();
                         let cited = if count == 1 {
-                            "This entry is cited in 1 place.".to_string()
+                            t!("This entry is cited in 1 place.").to_string()
                         } else {
-                            format!("This entry is cited in {count} places.")
+                            t!("This entry is cited in {count} places.", count = count)
                         };
                         let (keep, remove) = (run.clone(), run.clone());
                         Confirm::new(question)
-                            .body(format!(
-                                "{cited} The first is at {}:{}. Keeping the citation commands will leave them unresolved. Downloaded paper files will be kept.",
-                                first.path, first.line
-                            ))
+                            .body(
+                                [
+                                    cited,
+                                    t!("The first is at {path}:{line}.", path = first.path, line = first.line),
+                                    t!("Keeping the citation commands will leave them unresolved.").to_string(),
+                                    t!("Downloaded paper files will be kept.").to_string(),
+                                ]
+                                .join(" "),
+                            )
                             .destructive()
-                            .alternative("Keep citations", move |_, cx| {
+                            .alternative(t!("Keep citations"), move |_, cx| {
                                 keep(CitationRemovalMode::Keep, cx)
                             })
-                            .confirm_label("Remove citations too")
+                            .confirm_label(t!("Remove citations too"))
                             .on_confirm(move |_, cx| remove(CitationRemovalMode::Remove, cx))
                     } else {
                         Confirm::new(question)
-                            .body("Downloaded paper files will be kept.")
+                            .body(t!("Downloaded paper files will be kept."))
                             .destructive()
-                            .confirm_label("Remove entry")
+                            .confirm_label(t!("Remove entry"))
                             .on_confirm(move |_, cx| run(CitationRemovalMode::Block, cx))
                     };
                     confirm::ask(ask, cx);

@@ -28,6 +28,7 @@
 //! Its hover is the app's fluid hover: one fill gliding between rows, never
 //! on the open paper's row; its scrollbar is Lattice's.
 
+use lattice_i18n::t;
 use std::{
     collections::{HashMap, HashSet},
     path::PathBuf,
@@ -98,10 +99,10 @@ pub enum PapersEvent {
 /// does not know reads as working rather than as nothing.
 pub fn stage_label(stage: Option<&str>) -> &'static str {
     match stage {
-        Some("resolving") => "Resolving citation metadata…",
-        Some("fulltext") => "Downloading full text and figures…",
-        Some("overview") => "Fetching the paper overview…",
-        _ => "Working…",
+        Some("resolving") => t!("Resolving citation metadata…"),
+        Some("fulltext") => t!("Downloading full text and figures…"),
+        Some("overview") => t!("Fetching the paper overview…"),
+        _ => t!("Working…"),
     }
 }
 
@@ -211,7 +212,8 @@ impl EventEmitter<PapersEvent> for PapersPanel {}
 
 impl PapersPanel {
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let input = cx.new(|cx| InputState::new(window, cx).placeholder("Search or add papers"));
+        let input =
+            cx.new(|cx| InputState::new(window, cx).placeholder(t!("Search or add papers")));
         let subscription =
             cx.subscribe_in(&input, window, |this, _, event, window, cx| match event {
                 InputEvent::Change => this.query_changed(cx),
@@ -572,11 +574,11 @@ impl BasePanel for PapersPanel {
 
 impl Panel for PapersPanel {
     fn tab_name(&self, _: &App) -> Option<SharedString> {
-        Some("Papers".into())
+        Some(t!("Papers").into())
     }
 
     fn title(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl gpui::IntoElement {
-        "Papers"
+        t!("Papers")
     }
 
     /// The strip's tools before ⋯, as the Tauri app's Papers panel has them
@@ -612,21 +614,21 @@ impl Panel for PapersPanel {
                 .child(tool(
                     "papers-discover",
                     Icon::BOOK_OPEN,
-                    "Discover literature",
+                    t!("Discover literature"),
                     |_, _, cx| cx.emit(PapersEvent::SearchLiterature(String::new())),
                     cx,
                 ))
                 .child(tool(
                     "papers-add-sheet",
                     Icon::BOOK_MARKED,
-                    "Add papers",
+                    t!("Add papers"),
                     |this, window, cx| this.open_add_sheet(window, cx),
                     cx,
                 ))
                 .child(tool(
                     "papers-check",
                     Icon::CLIPBOARD_CHECK,
-                    "Check references",
+                    t!("Check references"),
                     |_, _, cx| cx.emit(PapersEvent::CheckReferences),
                     cx,
                 )),

@@ -4,6 +4,7 @@
 //! citation-health notice (`citation-health.ts`). Only what the bibliography
 //! or bundle records is shown: a missing field yields nothing, never a guess.
 
+use lattice_i18n::t;
 use std::sync::LazyLock;
 
 use lattice_core::{citation_health::CitationHealth, papers::PaperSummary};
@@ -49,9 +50,9 @@ impl ReadingState {
 
     pub fn group_name(self) -> &'static str {
         match self {
-            ReadingState::FullText => "Full text",
-            ReadingState::Downloadable => "Not downloaded",
-            ReadingState::Citation => "Citation only",
+            ReadingState::FullText => t!("Full text"),
+            ReadingState::Downloadable => t!("Not downloaded"),
+            ReadingState::Citation => t!("Citation only"),
         }
     }
 }
@@ -254,15 +255,15 @@ pub fn author_names(paper: &PaperSummary) -> Vec<String> {
 pub fn health_parts(health: Option<&CitationHealth>) -> Option<(String, String)> {
     let health = health?;
     let kind = match health.kind.as_str() {
-        "retracted" => "Retracted",
-        "expressionOfConcern" => "Expression of concern",
-        "corrected" => "Correction/update",
-        "replaced" => "Replacement/new version",
+        "retracted" => t!("Retracted"),
+        "expressionOfConcern" => t!("Expression of concern"),
+        "corrected" => t!("Correction/update"),
+        "replaced" => t!("Replacement/new version"),
         _ => return None,
     };
     let source = health.source.as_deref().map(|source| match source {
         "retraction-watch" => "Retraction Watch".to_string(),
-        "publisher" => "Publisher".to_string(),
+        "publisher" => t!("Publisher").to_string(),
         other => other.to_string(),
     });
     let detail = [
@@ -293,22 +294,30 @@ pub fn health_title(health: Option<&CitationHealth>) -> Option<String> {
         let warning = if detail.is_empty() {
             kind
         } else {
-            format!("{kind}: {detail}")
+            t!("{kind}: {detail}", kind = kind, detail = detail)
         };
         return Some(match update_type {
-            Some(update) => format!("{warning}. Crossref type: {update}"),
+            Some(update) => t!(
+                "{warning}. Crossref type: {updateType}",
+                warning = warning,
+                updateType = update
+            ),
             None => warning,
         });
     }
     if health.kind == "unavailable" {
-        return Some("Crossref citation-health metadata is currently unavailable".into());
+        return Some(t!("Crossref citation-health metadata is currently unavailable").into());
     }
     if let Some(update) = update_type {
-        return Some(format!("Crossref reports update type: {update}"));
+        return Some(t!(
+            "Crossref reports update type: {updateType}",
+            updateType = update
+        ));
     }
     let checked = health.checked_at.get(..10).unwrap_or(&health.checked_at);
-    Some(format!(
-        "No Crossref update metadata found (checked {checked})"
+    Some(t!(
+        "No Crossref update metadata found (checked {checkedDate})",
+        checkedDate = checked
     ))
 }
 

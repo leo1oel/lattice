@@ -13,6 +13,7 @@ use gpui::{
 };
 use gpui_kit::component::input::Input;
 use lattice_core::models::LiteratureHit;
+use lattice_i18n::t;
 use lattice_ui::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
     components::{Button, CheckState, Checkbox, Drawer, EmptyState, LayerPlacement, ModalLayer},
@@ -49,10 +50,10 @@ fn signal(hit: &LiteratureHit, full: bool) -> Option<String> {
         }
     };
     match (hit.votes, hit.cited_by_count) {
-        (Some(1), _) => Some("1 vote".into()),
-        (Some(votes), _) => Some(format!("{} votes", count(votes))),
-        (None, Some(1)) => Some("1 cite".into()),
-        (None, Some(cites)) => Some(format!("{} cites", count(cites))),
+        (Some(1), _) => Some(t!("1 vote").into()),
+        (Some(votes), _) => Some(t!("{0} votes", count(votes))),
+        (None, Some(1)) => Some(t!("1 cite").into()),
+        (None, Some(cites)) => Some(t!("{0} cites", count(cites))),
         _ => None,
     }
 }
@@ -143,7 +144,7 @@ impl Literature {
                 .text_role(TextRole::Caption, cx)
                 .text_color(palette.success)
                 .child(Icon::CHECK.element(ICON_SMALL, palette.success))
-                .child("In Papers")
+                .child(t!("In Papers"))
         };
         let view = cx.entity().downgrade();
         let (add_hit, cite_hit) = (hit.clone(), hit.clone());
@@ -190,7 +191,7 @@ impl Literature {
                             if busy { Icon::LOADER } else { Icon::PLUS }
                                 .element(px(13.), palette.accent),
                         )
-                        .child("Add"),
+                        .child(t!("Add")),
                 )
             })
             .child(
@@ -206,7 +207,7 @@ impl Literature {
                     .rounded(px(4.))
                     .cursor_pointer()
                     .hover(|style| style.bg(palette.accent_soft))
-                    .tooltip(tooltip("Citation only"))
+                    .tooltip(tooltip(t!("Citation only")))
                     .on_click(move |_, _, cx| {
                         cx.stop_propagation();
                         cite_view
@@ -335,7 +336,7 @@ impl Literature {
         let (text, quiet) = match (&hit.r#abstract, &hit.snippet) {
             (Some(text), _) => (text.clone(), false),
             (None, Some(snippet)) => (snippet.clone(), true),
-            _ => ("No abstract from this source".to_string(), true),
+            _ => (t!("No abstract from this source").to_string(), true),
         };
         let fact = |label: &'static str, value: String, cx: &Context<Self>| {
             div()
@@ -389,9 +390,9 @@ impl Literature {
                     .flex_col()
                     .gap(px(4.))
                     .when(!hit.authors.is_empty(), |facts| {
-                        facts.child(fact("Authors", hit.authors.join(", "), cx))
+                        facts.child(fact(t!("Authors"), hit.authors.join(", "), cx))
                     })
-                    .child(fact("Source", source, cx))
+                    .child(fact(t!("Source"), source, cx))
                     .map(|facts| match (&hit.arxiv_id, &hit.doi) {
                         (Some(id), _) => facts.child(fact("arXiv", id.clone(), cx)),
                         (None, Some(doi)) => facts.child(fact("DOI", doi.clone(), cx)),
@@ -415,11 +416,11 @@ impl Literature {
                                     .text_role(TextRole::Caption, cx)
                                     .text_color(palette.success)
                                     .child(Icon::CHECK.element(ICON_SMALL, palette.success))
-                                    .child("In Papers"),
+                                    .child(t!("In Papers")),
                             )
                         } else if hit.arxiv_id.is_some() {
                             actions.child(
-                                Button::new("literature-add", "Add to Papers")
+                                Button::new("literature-add", t!("Add to Papers"))
                                     .tinted()
                                     .compact()
                                     .icon(if busy { Icon::LOADER } else { Icon::PLUS })
@@ -433,7 +434,7 @@ impl Literature {
                         }
                     })
                     .child(
-                        Button::new("literature-cite", "Citation only")
+                        Button::new("literature-cite", t!("Citation only"))
                             .compact()
                             .icon(Icon::FILE_PEN_LINE)
                             .on_click(move |_, _, cx| {
@@ -444,7 +445,7 @@ impl Literature {
                     )
                     .when_some(page(hit), |actions, page| {
                         actions.child(
-                            Button::new("literature-page", "Open page")
+                            Button::new("literature-page", t!("Open page"))
                                 .compact()
                                 .icon(Icon::EXTERNAL_LINK)
                                 .on_click(move |_, _, cx| cx.open_url(&page)),
@@ -505,7 +506,7 @@ impl Literature {
                                     .cursor_pointer()
                                     .hover(|style| style.bg(palette.accent_soft))
                             })
-                            .tooltip(tooltip("Search"))
+                            .tooltip(tooltip(t!("Search")))
                             .on_click(cx.listener(|this, _, _, cx| this.search(cx)))
                             .child(
                                 if self.loading {
@@ -533,7 +534,7 @@ impl Literature {
                         CheckState::Off
                     },
                 )
-                .label("Title/abstract only")
+                .label(t!("Title/abstract only"))
                 .on_toggle(cx.listener(|this, on: &bool, _, cx| this.set_precise(*on, cx))),
             )
             .into_any_element()
@@ -560,11 +561,19 @@ impl Render for Literature {
         }
         if !self.results.is_empty() {
             let count = if self.has_more {
-                format!("{}+ results for “{}”", self.results.len(), self.shown_query)
+                t!(
+                    "{count}+ results for “{shownQuery}”",
+                    count = self.results.len(),
+                    shownQuery = self.shown_query
+                )
             } else if self.results.len() == 1 {
-                format!("1 result for “{}”", self.shown_query)
+                t!("1 result for “{shownQuery}”", shownQuery = self.shown_query)
             } else {
-                format!("{} results for “{}”", self.results.len(), self.shown_query)
+                t!(
+                    "{count} results for “{shownQuery}”",
+                    count = self.results.len(),
+                    shownQuery = self.shown_query
+                )
             };
             let mut sources: Vec<&str> = self.results.iter().map(source_name).collect();
             sources.dedup();
@@ -617,9 +626,9 @@ impl Render for Literature {
                             Button::new(
                                 "literature-more",
                                 if self.loading_more {
-                                    "Loading…"
+                                    t!("Loading…")
                                 } else {
-                                    "Load more"
+                                    t!("Load more")
                                 },
                             )
                             .ghost()
@@ -631,12 +640,12 @@ impl Render for Literature {
                 );
             }
         } else if !self.loading && self.error.is_none() && self.notice.is_none() {
-            body.push(EmptyState::new("Find your next source").into_any_element());
+            body.push(EmptyState::new(t!("Find your next source")).into_any_element());
         }
         let view = cx.entity().downgrade();
         let close = view.clone();
         let viewport = window.viewport_size();
-        let drawer = Drawer::new("literature", "Discover literature")
+        let drawer = Drawer::new("literature", t!("Discover literature"))
             .width(px(480.).min(viewport.width))
             .on_close(move |_, cx| {
                 close.update(cx, |this, cx| this.close(cx)).ok();

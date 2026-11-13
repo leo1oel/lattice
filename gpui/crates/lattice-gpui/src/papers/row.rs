@@ -19,6 +19,7 @@
 //!   Venue, Cited), one line each, the actions over the end of the title's
 //!   line.
 
+use lattice_i18n::t;
 use std::{ops::Range, sync::Arc};
 
 use gpui::{
@@ -41,11 +42,11 @@ use lattice_ui::{
 use super::{FetchState, PapersPanel, model};
 
 #[cfg(target_os = "macos")]
-const REVEAL_LABEL: &str = "Show in Finder";
+const REVEAL_LABEL: &str = lattice_i18n::n!("Show in Finder");
 #[cfg(target_os = "windows")]
-const REVEAL_LABEL: &str = "Show in Explorer";
+const REVEAL_LABEL: &str = lattice_i18n::n!("Show in Explorer");
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-const REVEAL_LABEL: &str = "Show in file manager";
+const REVEAL_LABEL: &str = lattice_i18n::n!("Show in file manager");
 
 /// The table's columns after the glyph and title: Authors, Year, Venue,
 /// Cited (`--paper-table-columns`).
@@ -130,8 +131,11 @@ pub fn marked(text: &str, highlights: &[Range<usize>], palette: &Palette) -> Sty
     StyledText::new(SharedString::from(text.to_string())).with_highlights(ranges)
 }
 
-pub fn tooltip(text: &'static str) -> impl Fn(&mut Window, &mut App) -> AnyView + 'static {
-    move |_, cx| LatticeTooltip::view(text, None, cx)
+pub fn tooltip(
+    text: impl Into<SharedString>,
+) -> impl Fn(&mut Window, &mut App) -> AnyView + 'static {
+    let text = text.into();
+    move |_, cx| LatticeTooltip::view(text.clone(), None, cx)
 }
 
 /// A control inside a row: a press there is the control's, not the row's.
@@ -225,7 +229,7 @@ impl PapersPanel {
                         interaction.hover,
                     ))
                     .cursor_pointer()
-                    .tooltip(tooltip("Copy citation key"))
+                    .tooltip(tooltip(t!("Copy citation key")))
                     .on_click(move |_, _, cx| {
                         cx.stop_propagation();
                         copy_view
@@ -252,7 +256,7 @@ impl PapersPanel {
             actions.push(action(
                 child_id(row_id, "link"),
                 Icon::EXTERNAL_LINK,
-                "Open link in browser",
+                t!("Open link in browser"),
                 false,
                 window,
                 cx,
@@ -264,7 +268,7 @@ impl PapersPanel {
         actions.push(action(
             child_id(row_id, "remove"),
             Icon::TRASH,
-            "Remove from the bibliography",
+            t!("Remove from the bibliography"),
             true,
             window,
             cx,
@@ -535,7 +539,7 @@ impl PapersPanel {
             let mut menu = menu;
             if let Some(link) = link.clone() {
                 menu = menu.item(
-                    PopupMenuItem::new("Open link in browser")
+                    PopupMenuItem::new(t!("Open link in browser"))
                         .icon(Icon::EXTERNAL_LINK.kit())
                         .on_click(move |_, _, cx| cx.open_url(&link)),
                 );
@@ -543,7 +547,7 @@ impl PapersPanel {
             if readable {
                 let (view, paper) = (view.clone(), menu_paper.clone());
                 menu = menu.item(
-                    PopupMenuItem::new(REVEAL_LABEL)
+                    PopupMenuItem::new(lattice_i18n::tr(REVEAL_LABEL))
                         .icon(Icon::FOLDER_OPEN.kit())
                         .on_click(move |_, _, cx| {
                             view.update(cx, |this, cx| this.reveal(&paper, cx)).ok();
@@ -658,7 +662,7 @@ impl PapersPanel {
                         })
                         .ok();
                     })
-                    .child(format!("{more} more")),
+                    .child(t!("{count} more", count = more)),
             );
         }
         list.into_any_element()
