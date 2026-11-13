@@ -58,10 +58,25 @@ pub mod outline_rail;
 pub mod rail_outline;
 mod save;
 mod source_chrome;
+pub mod views;
 
 use disk_sync::vanished_key;
 use outline_rail::OutlineRail;
 use save::normalize_breaks;
+pub use views::DocumentView;
+use views::DocumentViews;
+
+gpui::actions!(
+    lattice_document,
+    [
+        /// Show an HTML file's source ("Edit").
+        ViewSource,
+        /// Show an HTML file's source beside its preview.
+        ViewSplit,
+        /// Show an HTML file's preview alone.
+        ViewPreview,
+    ]
+);
 
 use crate::{
     build_panel::BuildPanel,
@@ -175,6 +190,9 @@ pub struct EditorPanel {
     looking_for_file: bool,
     /// Its tab was closed (the file went from disk): it stops checking it.
     closed: bool,
+    /// An HTML file's Edit, Split and Preview views; `None` for a file
+    /// that is only ever its source.
+    views: Option<DocumentViews>,
     status: SaveStatus,
     /// Saves run one at a time; this settles when the last one queued has.
     save_queue: Option<Shared<Task<()>>>,
@@ -263,6 +281,7 @@ impl EditorPanel {
                 BufferEvent::Edited { .. } => {
                     this.schedule_autosave(cx);
                     this.scan_todos(TODO_SETTLE, cx);
+                    this.views_source_changed(cx);
                 }
                 BufferEvent::DirtyChanged | BufferEvent::Saved => cx.notify(),
                 _ => {}
@@ -339,12 +358,20 @@ impl EditorPanel {
             // The watcher names the file: check it now rather than at the
             // next poll.
             cx.subscribe(&project, |this, _, event, cx| {
-                if let crate::project::ProjectEvent::FilesChanged(paths) = event
-                    && paths
+                if let crate::project::ProjectEvent::FilesChanged(paths) = event {
+                    if paths
                         .as_ref()
                         .is_none_or(|paths| paths.iter().any(|path| *path == this.relative))
-                {
-                    this.check_disk(cx);
+                    {
+                        this.check_disk(cx);
+                    }
+                    // An image the HTML preview shows may be among them.
+                    if paths
+                        .as_ref()
+                        .is_none_or(|paths| paths.iter().any(|path| *path != this.relative))
+                    {
+                        this.views_assets_changed(cx);
+                    }
                 }
             }),
         ];
@@ -357,6 +384,7 @@ impl EditorPanel {
             }
         });
         let builds_seen = build.read(cx).builds();
+        let views = views::has_views(&path).then(|| DocumentViews::new(&path, cx));
         let mut this = Self {
             project,
             path,
@@ -382,6 +410,7 @@ impl EditorPanel {
             vanished: None,
             looking_for_file: false,
             closed: false,
+            views,
             status: SaveStatus::Saved,
             save_queue: None,
             saves_pending: 0,
@@ -398,6 +427,9 @@ impl EditorPanel {
         this.count_words(cx);
         this.scan_todos(Duration::ZERO, cx);
         this.offer_view_switch(cx);
+        // An HTML file opening in Preview or Split has its preview at once;
+        // its page is built when the tab is first shown.
+        this.ensure_preview(window, cx);
         this
     }
 
@@ -597,8 +629,15 @@ impl EventEmitter<PanelEvent> for EditorPanel {}
 impl EventEmitter<EditorPanelEvent> for EditorPanel {}
 
 impl Focusable for EditorPanel {
+    /// The editor's, except while an HTML file shows only its preview.
     fn focus_handle(&self, cx: &App) -> FocusHandle {
-        self.editor.focus_handle(cx)
+        match self.views.as_ref() {
+            Some(views) if views.view() == DocumentView::Preview => views
+                .preview()
+                .map(|preview| preview.read(cx).island().focus_handle(cx))
+                .unwrap_or_else(|| self.editor.focus_handle(cx)),
+            _ => self.editor.focus_handle(cx),
+        }
     }
 }
 
@@ -616,10 +655,16 @@ impl BasePanel for EditorPanel {
         self.offer_view_switch(cx);
     }
 
-    fn on_removed(&mut self, _: &mut Window, cx: &mut Context<Self>) {
+    fn on_removed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.views_shown(false, window, cx);
         self.flush(cx);
         let panel = gpui_kit::component::dock::PanelId::from(cx.entity_id());
         lattice_ui::dock::set_spare_tools(panel, None, cx);
+    }
+
+    /// An HTML file's preview is shown only while its tab is the displayed one.
+    fn set_active(&mut self, active: bool, window: &mut Window, cx: &mut Context<Self>) {
+        self.views_shown(active, window, cx);
     }
 }
 
@@ -637,13 +682,17 @@ impl Panel for EditorPanel {
         }
     }
 
-    /// The build chip, at the strip's trailing end as the app puts it.
+    /// The build chip, at the strip's trailing end as the app puts it; an
+    /// HTML file's view switch in its place (`documentTools`: "views").
     fn title_suffix(
         &mut self,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Option<impl IntoElement> {
-        Some(editor_status::build_chip(&self.build, window, cx))
+        Some(
+            self.view_switch(window, cx)
+                .unwrap_or_else(|| editor_status::build_chip(&self.build, window, cx)),
+        )
     }
 
     fn dropdown_menu(
@@ -652,6 +701,29 @@ impl Panel for EditorPanel {
         _: &mut Window,
         cx: &mut Context<Self>,
     ) -> PopupMenu {
+        // An HTML file's menu repeats its view switch, and has no build.
+        if let Some(current) = self.document_view() {
+            return menu
+                .menu_with_check(
+                    "Edit",
+                    current == DocumentView::Source,
+                    Box::new(ViewSource),
+                )
+                .menu_with_check("Split", current == DocumentView::Split, Box::new(ViewSplit))
+                .menu_with_check(
+                    "Preview",
+                    current == DocumentView::Preview,
+                    Box::new(ViewPreview),
+                )
+                .separator()
+                .menu("Find", Box::new(Deploy::find()))
+                .separator()
+                .menu_with_check(
+                    "Vim mode",
+                    crate::app::vim_mode_enabled(cx),
+                    Box::new(ToggleVimMode),
+                );
+        }
         let building = self.build.read(cx).is_running();
         menu.menu(t!("Build"), Box::new(Build))
             .menu(t!("Clean rebuild"), Box::new(CleanRebuild))
@@ -691,6 +763,22 @@ impl Render for EditorPanel {
         // hosts it; in Zed that is a pane, here it is this panel.
         let palette = cx.palette().clone();
         let status: AnyElement = editor_status::status_bar(self, cx).into_any_element();
+        let search = self.search_visible.then(|| {
+            div()
+                .px_2()
+                .py_1()
+                .border_b_1()
+                .border_color(palette.line)
+                .child(self.search_bar.clone())
+        });
+        let editor = div()
+            .size_full()
+            .flex()
+            .flex_col()
+            .children(search)
+            .child(self.render_source(window, cx))
+            .into_any_element();
+        let body = self.render_views(editor, status, cx);
         let mut registrar =
             DivRegistrar::new(|this: &Self, _, _| Some(this.search_bar.clone()), cx);
         BufferSearchBar::register(&mut registrar);
@@ -698,21 +786,19 @@ impl Render for EditorPanel {
             .into_div()
             .key_context("LatticeEditor")
             .on_action(cx.listener(Self::deploy_search))
+            .on_action(cx.listener(|this, _: &ViewSource, window, cx| {
+                this.set_document_view(DocumentView::Source, window, cx)
+            }))
+            .on_action(cx.listener(|this, _: &ViewSplit, window, cx| {
+                this.set_document_view(DocumentView::Split, window, cx)
+            }))
+            .on_action(cx.listener(|this, _: &ViewPreview, window, cx| {
+                this.set_document_view(DocumentView::Preview, window, cx)
+            }))
             .size_full()
             .flex()
             .flex_col()
-            .when(self.search_visible, |panel| {
-                panel.child(
-                    div()
-                        .px_2()
-                        .py_1()
-                        .border_b_1()
-                        .border_color(palette.line)
-                        .child(self.search_bar.clone()),
-                )
-            })
-            .child(self.render_source(window, cx))
-            .child(status)
+            .child(div().flex_1().min_h_0().child(body))
             .child(crate::paint_probe::probe())
     }
 }

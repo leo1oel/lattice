@@ -14,6 +14,8 @@ mod build_flow;
 mod documents;
 mod editor_adapter;
 mod fluid;
+#[cfg(target_os = "macos")]
+mod islands;
 mod pdf;
 mod saves;
 mod settings;
@@ -254,6 +256,11 @@ impl Run {
 
         self.tree_operations(cx, &mut steps, &root).await?;
         self.documents_and_project(cx, &mut steps, &root).await?;
+        // Overlays above a page need gpui-fast's window composition, which
+        // WebView2 does not join yet (gpui-webview 0.9.1), so the island
+        // checks run on macOS.
+        #[cfg(target_os = "macos")]
+        self.webview_islands(cx, &mut steps, &root).await?;
         self.pdf_viewer(cx, &mut steps, &root).await?;
         self.second_window_pdf(cx, &mut steps, &root).await?;
 
@@ -289,6 +296,18 @@ impl Run {
 
         let passed = steps.0.iter().all(|step| step["passed"] == true);
         Ok(json!({ "scenario": "e2e", "passed": passed, "steps": steps.0, "after_quit": quit }))
+    }
+
+    /// The webview island checks alone (`islands.rs`), for work on the
+    /// islands: the e2e scenario runs them too.
+    #[cfg(target_os = "macos")]
+    pub(super) async fn islands(&self, cx: &mut AsyncApp) -> Result<Value> {
+        let mut steps = Steps(Vec::new());
+        let root = self.root(cx).await?;
+        self.pause(cx, Duration::from_millis(800)).await;
+        self.webview_islands(cx, &mut steps, &root).await?;
+        let passed = steps.0.iter().all(|step| step["passed"] == true);
+        Ok(json!({ "scenario": "islands", "passed": passed, "steps": steps.0 }))
     }
 
     /// SyncTeX both ways: from the caret on the chapter's second line to its

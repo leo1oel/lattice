@@ -17,6 +17,7 @@ mod editor_status;
 mod file_tree;
 mod first_pages;
 mod gallery;
+mod html_preview;
 mod moved_paths;
 #[cfg(target_os = "macos")]
 mod native;

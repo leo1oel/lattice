@@ -25,10 +25,6 @@ futures.workspace = true
 gpui.workspace = true
 gpui_platform.workspace = true
 gpui-kit.workspace = true
-# Unused for now, kept on purpose as the graph check that its `gpui-fast`
-# feature agrees with GPUI Kit's and adds no second GPUI, until the first
-# webview island (the Agent, the HTML and slide viewers) uses it.
-gpui-webview.workspace = true
 hdrhistogram = { version = "7", default-features = false }
 image.workspace = true
 language.workspace = true
@@ -37,6 +33,7 @@ lattice-editor.workspace = true
 lattice-i18n.workspace = true
 lattice-settings.workspace = true
 lattice-ui.workspace = true
+lattice-webview.workspace = true
 log.workspace = true
 pdfium-render.workspace = true
 # The Tauri app's TeX message and word patterns (crate::build).

@@ -119,3 +119,27 @@ pub(super) fn measure(key: StripKey, what: Measure) -> impl IntoElement {
     .left_0()
     .size_full()
 }
+
+/// The room each displayed panel's strip has to spare beside every tab at
+/// its natural width and the panel's tools as drawn, as of the last frame
+/// ([`super::strip::spare`]).
+#[derive(Default)]
+struct StripSpare(HashMap<PanelId, Pixels>);
+
+impl Global for StripSpare {}
+
+pub(super) fn record_spare(panel: PanelId, spare: Pixels, cx: &mut App) {
+    let spares = &mut cx.default_global::<StripSpare>().0;
+    if spares.get(&panel) != Some(&spare) {
+        spares.insert(panel, spare);
+    }
+}
+
+/// The room the strip showing `panel` had to spare in the last frame, beside
+/// every tab at its natural width and the panel's tools as drawn; `None`
+/// before it was measured. A panel names its tools' modes only in room to
+/// spare, as the Trellis patch's named state does.
+pub fn strip_spare(panel: PanelId, cx: &App) -> Option<Pixels> {
+    cx.try_global::<StripSpare>()
+        .and_then(|spares| spares.0.get(&panel).copied())
+}

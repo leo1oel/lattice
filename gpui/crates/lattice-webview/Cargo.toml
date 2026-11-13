@@ -1,0 +1,29 @@
+[package]
+name = "lattice-webview"
+version = "0.1.0"
+description = "Lattice's webview islands on GPUI: the island host, its bridge, the local asset protocol and the file bridge."
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+futures.workspace = true
+# The bridge token each webview's page proves it is the main frame with.
+getrandom = "0.3"
+gpui.workspace = true
+gpui-kit.workspace = true
+gpui-webview.workspace = true
+lattice-ui.workspace = true
+log.workspace = true
+percent-encoding = "2"
+serde.workspace = true
+serde_json.workspace = true
+# The Wry fork gpui-webview builds on, at its version, for the builder.
+wry = { package = "lb-wry", version = "=0.53.3" }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+
+[dev-dependencies]
+tempfile = "3"

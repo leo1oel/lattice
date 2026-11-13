@@ -42,12 +42,7 @@ impl Render for Shell {
                 this.child(crate::titlebar::render(self, window, cx))
                     .child(self.workspace(window, cx))
             })
-            .children(self.palette.clone())
-            .children(self.shortcuts.clone())
-            .children(self.settings.clone())
-            .children(self.document_overlays())
-            .children(self.lobby_dialogs())
-            .child(self.notices.clone())
+            .children(self.window_overlays())
             .child(self.tex_setup.clone())
             .child(self.confirm.clone())
     }

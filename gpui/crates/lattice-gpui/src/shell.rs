@@ -23,6 +23,7 @@ mod entries;
 mod floating;
 mod ground;
 mod imports;
+mod layers;
 pub mod layout;
 pub(crate) mod menus;
 mod palette;
@@ -116,6 +117,8 @@ pub struct Shell {
     pub(crate) focus_handle: FocusHandle,
     dock_area: Entity<DockArea>,
     titlebar_drag: TitlebarDrag,
+    /// A dock panel is being dragged: the webview islands stand aside.
+    panel_dragging: bool,
     file_tree: Entity<FileTreePanel>,
     papers: Entity<StandInPanel>,
     agent: Entity<StandInPanel>,
@@ -327,6 +330,7 @@ impl Shell {
             focus_handle: cx.focus_handle(),
             dock_area,
             titlebar_drag: TitlebarDrag::default(),
+            panel_dragging: false,
             file_tree,
             papers,
             agent,

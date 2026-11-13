@@ -128,6 +128,12 @@ pub(crate) unsafe fn build_overlay_view_class() {
                 sel!(hitTest:),
                 overlay_hit_test as extern "C" fn(_, Sel, NSPoint) -> Id,
             );
+            // A click on an overlay in an inactive window acts at once, as
+            // one on GPUI's own view and on a webview island does.
+            decl.add_method(
+                sel!(acceptsFirstMouse:),
+                overlay_accepts_first_mouse as extern "C" fn(_, Sel, Id) -> Bool,
+            );
             for selector in [
                 sel!(mouseDown:),
                 sel!(mouseUp:),
@@ -584,6 +590,14 @@ extern "C" fn handle_overlay_event(this: &AnyObject, selector: Sel, native_event
     let window_state = unsafe { get_window_state(this) };
     let native_view = window_state.lock().native_view;
     handle_view_event(unsafe { native_view.as_ref() }, selector, native_event);
+}
+
+/// What GPUI's own view answers: it accepts the first mouse, and notes it
+/// so the click does not also activate the window's content.
+extern "C" fn overlay_accepts_first_mouse(this: &AnyObject, _: Sel, event: Id) -> Bool {
+    let window_state = unsafe { get_window_state(this) };
+    let native_view = window_state.lock().native_view;
+    unsafe { msg_send![native_view.as_ptr(), acceptsFirstMouse: event] }
 }
 
 extern "C" fn dealloc_overlay_view(this: &AnyObject, _: Sel) {

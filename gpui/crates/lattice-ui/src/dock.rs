@@ -27,6 +27,7 @@ mod strip_room;
 
 use spare_tools::SpareToolsByPanel;
 pub use spare_tools::{SpareTools, offers_spare_tools, set_spare_tools};
+pub use strip_room::strip_spare;
 use strip_room::{Measure, StripKey, StripRoom, forget_strips, measure};
 
 use std::{collections::HashSet, rc::Rc, sync::Arc};
@@ -423,6 +424,9 @@ impl TabGroupRenderer for LatticeTabs {
                 )
             })
             .map(|spare| (spare.render)(window, cx));
+        if let (Some(panel), Some(width)) = (displayed, measured.strip) {
+            strip_room::record_spare(panel, strip::spare(width, &specs, tools_width), cx);
+        }
 
         let tabs = visible
             .into_iter()
