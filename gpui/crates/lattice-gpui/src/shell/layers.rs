@@ -30,7 +30,11 @@ impl Shell {
             .map(|palette| palette.into_any_element())
             .into_iter()
             .chain(self.shortcuts.clone().map(|sheet| sheet.into_any_element()))
-            .chain(self.settings.clone().map(|settings| settings.into_any_element()))
+            .chain(
+                self.settings
+                    .clone()
+                    .map(|settings| settings.into_any_element()),
+            )
             .chain(self.document_overlays())
             .chain(self.lobby_dialogs());
         for dialog in dialogs {

@@ -299,6 +299,15 @@ impl EditorPanel {
 
     /// The panel's body: the editor over its status bar, and for a document
     /// with views, that beside or instead of its preview.
+    fn end_split_drag(&mut self, cx: &mut Context<Self>) {
+        if let Some(views) = &mut self.views
+            && views.dragging
+        {
+            views.dragging = false;
+            cx.notify();
+        }
+    }
+
     pub(super) fn render_views(
         &mut self,
         editor: AnyElement,
@@ -358,12 +367,11 @@ impl EditorPanel {
                     ))
                     .on_mouse_up(
                         gpui::MouseButton::Left,
-                        cx.listener(|this, _, _, cx| {
-                            if let Some(views) = &mut this.views {
-                                views.dragging = false;
-                            }
-                            cx.notify();
-                        }),
+                        cx.listener(|this, _, _, cx| this.end_split_drag(cx)),
+                    )
+                    .on_mouse_up_out(
+                        gpui::MouseButton::Left,
+                        cx.listener(|this, _, _, cx| this.end_split_drag(cx)),
                     )
                     .child(source.flex_none().w(px(source_width)))
                     // The divider: a 1px rule, a firmer one under the

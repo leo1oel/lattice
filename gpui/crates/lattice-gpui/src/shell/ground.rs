@@ -33,12 +33,16 @@ impl Shell {
                     }
                 },
             ))
-            .capture_any_mouse_up(cx.listener(|this, _, window, cx| {
-                if this.panel_dragging {
-                    this.panel_dragging = false;
-                    window.defer(cx, |_, cx| lattice_webview::set_dock_dragging(false, cx));
-                }
-            }))
+            // The drag ends wherever the button comes up: over the
+            // workspace, or over the titlebar, a floating card or outside the
+            // window, where the workspace is not hovered.
+            .capture_any_mouse_up(
+                cx.listener(|this, _, window, cx| this.end_panel_drag(window, cx)),
+            )
+            .on_mouse_up_out(
+                gpui::MouseButton::Left,
+                cx.listener(|this, _, window, cx| this.end_panel_drag(window, cx)),
+            )
             .child(self.dock_area.clone())
             .when(
                 self.center_empty(cx) && !self.dock_area.read(cx).is_zoomed(),
@@ -54,5 +58,12 @@ impl Shell {
                     .into_iter()
                     .map(|card| deferred(card).with_priority(super::layers::FLOATING_PRIORITY)),
             )
+    }
+
+    fn end_panel_drag(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.panel_dragging {
+            self.panel_dragging = false;
+            window.defer(cx, |_, cx| lattice_webview::set_dock_dragging(false, cx));
+        }
     }
 }

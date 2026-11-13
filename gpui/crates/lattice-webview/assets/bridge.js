@@ -14,13 +14,16 @@
 // pressed in the page; and it applies the host's theme as CSS variables on
 // the root element. Nothing here trusts a message that did not come from the
 // host: host messages arrive only through `__latticeIsland.deliver`, which the
-// host calls with evaluate_script.
+// host calls with evaluate_script. Every message to the host carries this
+// webview's token, which lives only in this closure: the host drops a message
+// without it, so another frame that reaches the IPC handler cannot speak.
 (() => {
   if (window.__latticeIsland) return;
   const PRIMARY_IS_META = __LATTICE_PRIMARY_IS_META__;
+  const TOKEN = __LATTICE_BRIDGE_TOKEN__;
   const send = (message) => {
     try {
-      window.ipc.postMessage(JSON.stringify(message));
+      window.ipc.postMessage(JSON.stringify({ ...message, token: TOKEN }));
     } catch (_) {
       // The host is gone (the island is being torn down).
     }

@@ -15,17 +15,18 @@
 //!   view whose element stops being painted stays on screen. Hidden for
 //!   [`HIBERNATE_AFTER`] (the Tauri app's `use-hibernation.ts`), it is torn
 //!   down, and built again when shown, the owner restoring the page's state
-//!   on [`IslandEvent::Ready`] as it did the first time. An island the
-//!   writer works in continuously (the Agent) is built with
-//!   [`Hibernate::Never`].
+//!   on [`IslandEvent::Ready`] as it did the first time. Messages posted
+//!   before the page listens wait for it, the latest of each event only.
 //! - **Reveal.** Until the owner says the page has drawn what it should
 //!   ([`Island::reveal`], or at once with [`IslandConfig::reveal_on_ready`]),
 //!   the page is laid out at its real size but clipped away, so the owner's
 //!   GPUI placeholder shows and the page's first visible frame is a loaded one.
 //! - **The bridge** (`bridge.rs`): events and requests both ways, the page's
-//!   focus and presses, the theme, and the app's shortcuts pressed in the page.
+//!   focus and presses, the theme, and the app's shortcuts pressed in the page
+//!   (only those the host last relayed to it), all from the main frame alone.
 //! - **The asset protocol and file bridge** (`protocol.rs`, `files.rs`): the
-//!   page and the project files granted to it, never anything else.
+//!   page and the project files granted to it, never anything else; no frame
+//!   navigates anywhere but the island's own bundle.
 //! - **Focus.** When the page takes the keyboard, GPUI's focus moves to the
 //!   island, so the app's key context is the island's; when GPUI's focus
 //!   leaves the island while the page still holds AppKit's first responder
@@ -44,6 +45,10 @@
 //!   `host:outside-pointerdown`, so it closes its own popups; while a dock
 //!   panel is dragged anywhere in the window every island steps aside
 //!   ([`set_dock_dragging`]), since the page would hide the drop targets.
+//!
+//! What only later islands need lands with the first of them, with its tests:
+//! the write path and reads beyond the granted files (the sheets and boards
+//! lane), and an island that never hibernates (the Agent).
 
 use std::time::Duration;
 
@@ -75,25 +80,6 @@ pub const HIBERNATE_AFTER: Duration = Duration::from_secs(20);
 /// How often a shown island checks that it is still drawn.
 const DRAWN_POLL: Duration = Duration::from_millis(250);
 
-/// Whether a hidden island is torn down.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Hibernate {
-    After(Duration),
-    Never,
-}
-
-/// What the page may do with project files through the bridge, beyond the
-/// asset protocol's grants.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum FileAccess {
-    /// Read only what was granted (the HTML viewer).
-    Granted,
-    /// Read any project file (a board or sheet reading its document).
-    Read,
-    /// Read and write any project file.
-    ReadWrite,
-}
-
 /// What an island is.
 #[derive(Clone)]
 pub struct IslandConfig {
@@ -104,8 +90,6 @@ pub struct IslandConfig {
     pub bundle: Bundle,
     /// The project its files come from, if it reads any.
     pub files: Option<FileScope>,
-    pub file_access: FileAccess,
-    pub hibernate: Hibernate,
     /// The page's ground before it draws, so a reload never flashes white.
     pub ground: Option<Hsla>,
     /// Reveal the page as soon as its script reports ready, rather than when
@@ -158,7 +142,8 @@ pub struct IslandStats {
     pub hibernations: usize,
     /// The app's shortcuts forwarded from the page.
     pub shortcuts: usize,
-    /// Messages from frames other than the page's own, dropped.
+    /// Messages from frames other than the page's own, and shortcuts outside
+    /// the relay set, dropped.
     pub rejected: usize,
     /// Presses in the page.
     pub presses: usize,
@@ -185,6 +170,8 @@ pub struct Island {
     pub(crate) window: gpui::AnyWindowHandle,
     page_ready: bool,
     page_focused: bool,
+    /// The webview's bridge token, which only its main frame knows.
+    token: String,
     /// Messages posted before the page was listening.
     queue: Vec<Outbound>,
     building: bool,
@@ -224,6 +211,7 @@ impl Island {
             window: window.window_handle(),
             page_ready: false,
             page_focused: false,
+            token: String::new(),
             queue: Vec::new(),
             building: false,
             hibernation: None,
@@ -284,11 +272,6 @@ impl Island {
         protocol::asset_url(relative)
     }
 
-    /// Withdraw every grant.
-    pub fn revoke_all(&self) {
-        self.served.grants.borrow_mut().clear();
-    }
-
     /// Show or hide the island. The owner calls this whenever its panel
     /// becomes or stops being the visible one, and whenever it stops
     /// rendering the island (another view of the document), since the page's
@@ -345,19 +328,6 @@ impl Island {
         receiver
     }
 
-    /// Reload the page from scratch; the owner gets [`IslandEvent::Ready`]
-    /// again once it is listening.
-    pub fn reload(&mut self, cx: &mut Context<Self>) {
-        if let Some(webview) = &self.webview {
-            self.page_ready = false;
-            self.revealed = false;
-            self.state = IslandState::Loading;
-            let url = protocol::url(&format!("bundle/{}", self.config.entry));
-            webview.update(cx, |webview, _| webview.load_url(&url));
-            cx.notify();
-        }
-    }
-
     /// Tear the page down now rather than after the hidden period; for the
     /// scripted checks and for memory pressure.
     pub fn hibernate(&mut self, cx: &mut Context<Self>) {
@@ -382,10 +352,7 @@ impl Island {
     }
 
     fn schedule_hibernation(&mut self, cx: &mut Context<Self>) {
-        let Hibernate::After(after) = self.config.hibernate else {
-            return;
-        };
-        let after = Registry::hibernate_after(cx).unwrap_or(after);
+        let after = Registry::hibernate_after(cx).unwrap_or(HIBERNATE_AFTER);
         self.hibernation = Some(cx.spawn(async move |this, cx| {
             cx.background_executor().timer(after).await;
             this.update(cx, |this, cx| {
@@ -437,7 +404,7 @@ impl Island {
 
     fn send(&mut self, message: Outbound) {
         if !self.page_ready {
-            self.queue.push(message);
+            hold(&mut self.queue, message);
             return;
         }
         self.deliver(message);
@@ -492,13 +459,14 @@ impl Island {
     fn build_webview(&mut self, window: &mut Window, cx: &mut Context<Self>) -> Result<()> {
         let (sender, mut receiver) = mpsc::unbounded::<(String, String)>();
         let served = self.served.clone();
-        let origin = protocol::origin();
+        let bundle = protocol::url("bundle/");
+        let token = bridge::new_token()?;
         let mut builder = wry::WebViewBuilder::new()
             .with_url(protocol::url(&format!("bundle/{}", self.config.entry)))
             .with_custom_protocol(protocol::SCHEME.into(), move |_, request| {
                 protocol::respond(&served, &request)
             })
-            .with_initialization_script_for_main_only(bridge::script(), true)
+            .with_initialization_script_for_main_only(bridge::script(&token), true)
             .with_ipc_handler(move |request| {
                 let sender_uri = request.uri().to_string();
                 sender
@@ -506,9 +474,10 @@ impl Island {
                     .ok();
             })
             // The page never leaves the island; its links go through the
-            // bridge to the system browser.
+            // bridge to the system browser. No frame loads a project file as
+            // a document either: one would have an island URL.
             .with_navigation_handler(move |url| {
-                url.starts_with(&origin) || url.starts_with("about:")
+                url.starts_with(&bundle) || matches!(url.as_str(), "about:blank" | "about:srcdoc")
             })
             .with_new_window_req_handler(|_, _| wry::NewWindowResponse::Deny)
             .with_incognito(true)
@@ -536,6 +505,7 @@ impl Island {
             keep_drawing_when_occluded(&webview);
         }
         self.handle = Some(webview.handle());
+        self.token = token;
         let webview = cx.new(|_| webview);
         let focus = webview.read(cx).focus_handle(cx);
         self._webview_subscriptions =
@@ -573,7 +543,7 @@ impl Island {
     }
 
     fn receive(&mut self, sender: &str, body: &str, window: &mut Window, cx: &mut Context<Self>) {
-        let message = match bridge::parse(sender, body) {
+        let message = match bridge::parse(sender, &self.token, body) {
             Ok(message) => message,
             Err(reason) => {
                 self.stats.rejected += 1;
@@ -614,6 +584,11 @@ impl Island {
                 self.set_page_focused(focused, window, cx);
             }
             Inbound::Shortcut(key) => {
+                if !self.stats.relay.contains(&key.combo()) {
+                    self.stats.rejected += 1;
+                    log::warn!("{}: dropped {}, not relayed", self.config.name, key.combo());
+                    return;
+                }
                 let Some(keystroke) = key.keystroke() else {
                     return;
                 };
@@ -670,42 +645,26 @@ impl Island {
         }
     }
 
-    /// The file bridge's own requests: `files:read-text`, `files:write-text`.
+    /// The file bridge's own request: `files:read-text`, of a granted file.
     fn answer_files(&self, kind: &str, payload: &Value) -> Option<Result<Value, String>> {
-        let write = match kind {
-            "files:read-text" => false,
-            "files:write-text" => true,
-            _ => return None,
-        };
+        if kind != "files:read-text" {
+            return None;
+        }
         let Some(files) = &self.config.files else {
             return Some(Err("This page has no project files".into()));
         };
         let Some(path) = payload.get("path").and_then(Value::as_str) else {
             return Some(Err("No path".into()));
         };
-        let allowed = match (self.config.file_access, write) {
-            (FileAccess::ReadWrite, _) | (FileAccess::Read, false) => true,
-            (FileAccess::Granted, false) => self.served.grants.borrow().contains(path),
-            _ => false,
-        };
-        if !allowed {
+        if !self.served.grants.borrow().contains(path) {
             return Some(Err(format!("{path} is not open to this page")));
         }
-        Some(if write {
-            let text = payload
-                .get("text")
-                .and_then(Value::as_str)
-                .unwrap_or_default();
-            files
-                .write(path, text.as_bytes())
-                .map(|()| Value::Null)
-                .map_err(|error| format!("{error:#}"))
-        } else {
+        Some(
             files
                 .read_text(path)
                 .map(Value::String)
-                .map_err(|error| format!("{error:#}"))
-        })
+                .map_err(|error| format!("{error:#}")),
+        )
     }
 
     /// Hand AppKit's first responder back to GPUI when GPUI's focus is no
@@ -722,16 +681,22 @@ impl Island {
             self.page_focused = false;
         }
     }
+}
 
-    /// Put the keyboard in the page.
-    pub fn focus_page(&self, window: &mut Window, cx: &mut App) {
-        // The page reports its focus back, and the island follows it.
-        if let Some(webview) = &self.webview {
-            window.focus(&webview.read(cx).focus_handle(cx), cx);
-            if let Err(error) = webview.read(cx).focus() {
-                log::warn!("{}: focus: {error}", self.config.name);
-            }
-        }
+/// Hold `message` until the page listens: every response in order, and of
+/// each event only the latest, in the place of the first, since a page that
+/// has not loaded needs only where things stand (an island never shown would
+/// otherwise gather an event per change on disk).
+fn hold(queue: &mut Vec<Outbound>, message: Outbound) {
+    let held = match &message {
+        Outbound::Event { kind, .. } => queue.iter_mut().find(
+            |held| matches!(held, Outbound::Event { kind: held_kind, .. } if held_kind == kind),
+        ),
+        Outbound::Response { .. } => None,
+    };
+    match held {
+        Some(held) => *held = message,
+        None => queue.push(message),
     }
 }
 
@@ -792,6 +757,36 @@ impl Render for Island {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_page_not_yet_listening_gets_the_latest_of_each_event_and_every_response() {
+        let mut queue = Vec::new();
+        for revision in 0..100 {
+            hold(
+                &mut queue,
+                Outbound::event("html:assets-changed", Value::Null),
+            );
+            hold(
+                &mut queue,
+                Outbound::event("html:render", json!({ "revision": revision })),
+            );
+        }
+        hold(&mut queue, Outbound::response(1, Ok(json!("a"))));
+        hold(&mut queue, Outbound::response(2, Err("b".into())));
+        hold(
+            &mut queue,
+            Outbound::event("html:assets-changed", Value::Null),
+        );
+        assert_eq!(
+            queue,
+            vec![
+                Outbound::event("html:assets-changed", Value::Null),
+                Outbound::event("html:render", json!({ "revision": 99 })),
+                Outbound::response(1, Ok(json!("a"))),
+                Outbound::response(2, Err("b".into())),
+            ]
+        );
+    }
 
     #[test]
     fn hibernates_after_the_tauri_apps_delay() {

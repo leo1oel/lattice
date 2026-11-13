@@ -9,6 +9,8 @@ license.workspace = true
 [dependencies]
 anyhow.workspace = true
 futures.workspace = true
+# The bridge token each webview's page proves it is the main frame with.
+getrandom = "0.3"
 gpui.workspace = true
 gpui-kit.workspace = true
 gpui-webview.workspace = true

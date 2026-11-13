@@ -47,10 +47,7 @@ use lattice_ui::{
     scrollbar::{FluidScrollbar, MIN_THUMB, ScrollbarFeel, TRACK, TrackPress},
     shape::RADIUS_SURFACE,
 };
-use lattice_webview::{
-    Bundle, BundleFile, FileAccess, FileScope, HIBERNATE_AFTER, Hibernate, Island, IslandConfig,
-    IslandEvent,
-};
+use lattice_webview::{Bundle, BundleFile, FileScope, Island, IslandConfig, IslandEvent};
 use serde_json::{Value, json};
 
 /// The preview's zoom bounds and step (`HTML_PREVIEW_MIN_SCALE`, `…MAX…`,
@@ -196,8 +193,6 @@ impl HtmlPreview {
             entry: "html-preview/index.html",
             bundle: Bundle(BUNDLE),
             files: files.clone(),
-            file_access: FileAccess::Granted,
-            hibernate: Hibernate::After(HIBERNATE_AFTER),
             // An authored page is on white whatever the theme.
             ground: Some(gpui::white()),
             reveal_on_ready: false,

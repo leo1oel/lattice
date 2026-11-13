@@ -192,7 +192,14 @@ pub fn respond(served: &Served, request: &Request<Vec<u8>>) -> Response<Cow<'sta
             match files.read_bytes(&relative) {
                 Ok(bytes) => {
                     served.log.borrow_mut().push(normalize_relative(&relative));
-                    ok(Cow::Owned(bytes), mime_for(&relative))
+                    // A project file is never a document of the page's: one
+                    // loaded as a frame (an authored SVG) runs sandboxed.
+                    let mut response = ok(Cow::Owned(bytes), mime_for(&relative));
+                    response.headers_mut().insert(
+                        header::CONTENT_SECURITY_POLICY,
+                        header::HeaderValue::from_static("sandbox"),
+                    );
+                    response
                 }
                 Err(error) => {
                     log::debug!("island asset {relative}: {error:#}");
@@ -324,6 +331,16 @@ mod tests {
         assert_eq!(granted.headers()[header::CONTENT_TYPE], "image/png");
         assert_eq!(&granted.body()[..], b"png");
         assert_eq!(*served.log.borrow(), vec!["figures/plot.png".to_string()]);
+        assert_eq!(
+            granted.headers()[header::CONTENT_SECURITY_POLICY],
+            "sandbox"
+        );
+        let page = respond(&served, &request(&url("bundle/html-preview/index.html")));
+        assert!(
+            page.headers()
+                .get(header::CONTENT_SECURITY_POLICY)
+                .is_none()
+        );
 
         let refused = respond(&served, &request(&asset_url("secret.tex")));
         assert_eq!(refused.status(), StatusCode::FORBIDDEN);
