@@ -10,6 +10,20 @@ use super::{Shell, build::BuildRequest};
 use crate::editor_panel::{EditorPanel, EditorPanelEvent};
 
 impl Shell {
+    /// Follow a newly opened editor's reports, and give its outline rail the
+    /// manuscript's outline.
+    pub(super) fn adopt_editor(
+        &mut self,
+        editor: &Entity<EditorPanel>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        cx.subscribe_in(editor, window, Self::on_editor_event)
+            .detach();
+        self.editors.push(editor.downgrade());
+        self.show_outline(cx);
+    }
+
     pub(super) fn on_editor_event(
         &mut self,
         editor: &Entity<EditorPanel>,
@@ -37,6 +51,9 @@ impl Shell {
                 if let Some(root) = self.root(cx) {
                     self.open_path(root.join(path), Some(*line), window, cx);
                 }
+            }
+            EditorPanelEvent::OutlineJump { path, line } => {
+                self.jump_to_heading(path, *line, window, cx)
             }
             EditorPanelEvent::Focused => {
                 self.active_editor = Some(editor.downgrade());

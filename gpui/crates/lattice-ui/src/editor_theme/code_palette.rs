@@ -123,6 +123,9 @@ pub(super) struct CodePalette {
     pub ground: Hsla,
     pub ink: Hsla,
     pub line_number: Hsla,
+    /// The fold markers' and fold placeholders' ink, a step above the
+    /// numbers.
+    pub line_number_contrast: Hsla,
     pub caret: Hsla,
     pub line: Hsla,
     pub selection: Hsla,
@@ -143,6 +146,7 @@ impl CodePalette {
             },
             ink: variant.ink.hsla(),
             line_number: variant.line_number.hsla(),
+            line_number_contrast: variant.line_number_contrast.hsla(),
             caret: variant.caret.hsla(),
             line: variant.line.hsla(),
             selection: variant.selection_focused.hsla(),
@@ -164,6 +168,9 @@ impl CodePalette {
             ground: palette.editor,
             ink: palette.text,
             line_number: palette.line_number,
+            // `--lattice-code-line-number-contrast`: tertiary text, which is
+            // the secondary.
+            line_number_contrast: palette.text_secondary,
             caret: palette.text,
             line: palette.current_line,
             selection: palette.selection,

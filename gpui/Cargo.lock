@@ -8245,9 +8245,12 @@ dependencies = [
  "lattice-i18n",
  "lattice-ui",
  "log",
+ "multi_buffer",
  "project",
  "regex",
+ "settings",
  "theme",
+ "theme_settings",
 ]
 
 [[package]]

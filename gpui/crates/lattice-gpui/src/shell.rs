@@ -632,9 +632,7 @@ impl Shell {
             cx,
         ) {
             Ok(editor) => {
-                cx.subscribe_in(&editor, window, Self::on_editor_event)
-                    .detach();
-                self.editors.push(editor.downgrade());
+                self.adopt_editor(&editor, window, cx);
                 let weak = editor.downgrade();
                 cx.on_focus_in(&editor.focus_handle(cx), window, move |this, _, _| {
                     this.active_editor = Some(weak.clone());

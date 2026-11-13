@@ -21,9 +21,12 @@
 //! forwards the dock hooks to it.
 
 mod panel_menu;
+mod spare_tools;
 pub mod strip;
 mod strip_room;
 
+use spare_tools::SpareToolsByPanel;
+pub use spare_tools::{SpareTools, offers_spare_tools, set_spare_tools};
 use strip_room::{Measure, StripKey, StripRoom, forget_strips, measure};
 
 use std::{collections::HashSet, rc::Rc, sync::Arc};
@@ -397,12 +400,29 @@ impl TabGroupRenderer for LatticeTabs {
         let suffix = (!collapsed)
             .then(|| handle.and_then(|handle| handle.title_suffix(window, cx)))
             .flatten();
+        let tools_width = suffix.as_ref().and(measured.tools).unwrap_or_default();
         let plan = strip::plan(
             measured.strip.unwrap_or(px(f32::MAX / 4.)),
             &specs,
-            suffix.as_ref().and(measured.tools).unwrap_or_default(),
+            tools_width,
         );
         let suffix = suffix.filter(|_| plan.tools);
+        // The spare tools go first, before any tab gives way.
+        let spare = displayed
+            .filter(|_| suffix.is_some())
+            .and_then(|panel| {
+                cx.try_global::<SpareToolsByPanel>()
+                    .and_then(|registry| registry.0.get(&panel).cloned())
+            })
+            .filter(|spare| {
+                strip::room_to_spare(
+                    measured.strip.unwrap_or(px(f32::MAX / 4.)),
+                    &specs,
+                    tools_width,
+                    (spare.width)(window, cx),
+                )
+            })
+            .map(|spare| (spare.render)(window, cx));
 
         let tabs = visible
             .into_iter()
@@ -528,12 +548,20 @@ impl TabGroupRenderer for LatticeTabs {
             )
             .children(suffix.map(|suffix| {
                 div()
-                    .relative()
                     .flex()
                     .flex_none()
                     .items_center()
-                    .child(suffix)
-                    .child(measure(key, Measure::Tools))
+                    .gap(strip::SPARE_GAP)
+                    .children(spare)
+                    .child(
+                        div()
+                            .relative()
+                            .flex()
+                            .flex_none()
+                            .items_center()
+                            .child(suffix)
+                            .child(measure(key, Measure::Tools)),
+                    )
             }))
             .children(menu)
             .into_any_element()

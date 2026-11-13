@@ -69,6 +69,40 @@ impl Frame {
         )
     }
 
+    /// The display snapshot this frame was read from.
+    pub fn display(&self) -> &editor::EditorSnapshot {
+        &self.display
+    }
+
+    /// The first display row with any of it in the editor.
+    pub fn first_visible_row(&self) -> editor::display_map::DisplayRow {
+        let rows = (self.bounds.top() - self.row_zero_top) / self.line_height;
+        editor::display_map::DisplayRow(rows.max(0.).floor() as u32)
+    }
+
+    /// How many display rows the editor can show at once, counting the
+    /// partly shown ones at either end.
+    pub fn visible_rows(&self) -> usize {
+        (self.bounds.size.height / self.line_height).ceil() as usize + 1
+    }
+
+    /// The top of display row `row`.
+    pub fn display_row_top(&self, row: u32) -> Pixels {
+        self.row_zero_top + self.line_height * row as f32
+    }
+
+    /// The buffer row of the display row in the middle of the editor: where
+    /// the Tauri app reads "the section being read" from.
+    pub fn middle_buffer_row(&self) -> u32 {
+        use editor::DisplayPoint;
+        let middle = (self.bounds.center().y - self.row_zero_top) / self.line_height;
+        let row = editor::display_map::DisplayRow(middle.max(0.).floor() as u32)
+            .min(self.display.display_snapshot.max_point().row());
+        DisplayPoint::new(row, 0)
+            .to_point(&self.display.display_snapshot)
+            .row
+    }
+
     /// Whether a row starting at `top` shows in the editor.
     pub fn shows_row(&self, top: Pixels) -> bool {
         top + self.line_height > self.bounds.top() && top < self.bounds.bottom()

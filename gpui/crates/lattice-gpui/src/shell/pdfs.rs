@@ -59,20 +59,7 @@ impl Shell {
             }
             // An Outline row: the line in the editor, then the same place in
             // the PDF, as a jump from the caret makes it.
-            PdfEvent::Outline { path, line } => {
-                let Some(root) = self.root(cx) else {
-                    return;
-                };
-                if self
-                    .open_path(root.join(path), Some(*line), window, cx)
-                    .is_some()
-                {
-                    // Once the editor has reported its caret on that line.
-                    cx.defer_in(window, |this, window, cx| {
-                        this.forward_sync(&super::ForwardSync, window, cx)
-                    });
-                }
-            }
+            PdfEvent::Outline { path, line } => self.jump_to_heading(path, *line, window, cx),
             // In its own window, the PDF alone in the right dock leaves the
             // dock its room; Return to workspace brings the panel back. Shared
             // with other panels, the dock stays and shows the placeholder.
@@ -152,6 +139,30 @@ impl Shell {
         cx.notify();
     }
 
+    /// An outline row (the PDF toolbar's Outline, the editor's outline
+    /// rail): the heading's line in the editor, then the same place in the
+    /// PDF, as a jump from the caret makes it.
+    pub(super) fn jump_to_heading(
+        &mut self,
+        path: &str,
+        line: u32,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(root) = self.root(cx) else {
+            return;
+        };
+        if self
+            .open_path(root.join(path), Some(line), window, cx)
+            .is_some()
+        {
+            // Once the editor has reported its caret on that line.
+            cx.defer_in(window, |this, window, cx| {
+                this.forward_sync(&super::ForwardSync, window, cx)
+            });
+        }
+    }
+
     /// Read the live document's outline again, then offer it.
     pub(super) fn refresh_outline(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let (Some(root), Some(document)) = (self.root(cx), self.live_document.clone()) else {
@@ -197,6 +208,15 @@ impl Shell {
             active,
         });
         self.pdf.update(cx, |pdf, cx| pdf.set_outline(state, cx));
+        // The editors' outline rails mark the same outline.
+        let root = self.live_document.clone().unwrap_or_default();
+        for editor in self.open_editors() {
+            let headings = self.outline.clone();
+            let root = root.clone();
+            editor.update(cx, |editor, cx| {
+                editor.set_manuscript_outline(headings, root, cx)
+            });
+        }
     }
 
     /// The live document's outline.

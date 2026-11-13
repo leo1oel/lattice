@@ -53,9 +53,14 @@ use workspace::ToolbarItemView as _;
 use zed_actions::buffer_search::Deploy;
 
 mod disk_sync;
+mod outline_panel;
+pub mod outline_rail;
+pub mod rail_outline;
 mod save;
+mod source_chrome;
 
 use disk_sync::vanished_key;
+use outline_rail::OutlineRail;
 use save::normalize_breaks;
 
 use crate::{
@@ -70,6 +75,19 @@ const DISK_POLL: Duration = Duration::from_millis(2500);
 /// The pause in typing after which the buffer's TODOs are counted again, as
 /// the Tauri app settles the source it counts them in (`use-settled-source.ts`).
 const TODO_SETTLE: Duration = Duration::from_millis(500);
+gpui::actions!(
+    lattice_editor_panel,
+    [
+        /// A .tex file's Source view (the only one the preview has).
+        ShowSourceView,
+        /// A .tex file's Visual view: not in the GPUI preview yet.
+        ShowVisualView,
+    ]
+);
+
+/// Why a .tex file's Visual view cannot be chosen here.
+pub const VISUAL_NOT_PORTED: &str = "Visual: not in the GPUI preview yet";
+
 /// What the panel tells the shell.
 pub enum EditorPanelEvent {
     /// A save wrote the file: the PDF is older than the sources now.
@@ -88,6 +106,9 @@ pub enum EditorPanelEvent {
     CaretLine,
     /// The editor took focus: it is the one the reader works in now.
     Focused,
+    /// An outline rail row: open `path` at the 1-based `line`, then show
+    /// the same place in the PDF.
+    OutlineJump { path: String, line: u32 },
 }
 
 /// The last write's outcome, for the status bar's save slot.
@@ -164,6 +185,10 @@ pub struct EditorPanel {
     /// The write under way off the main thread until its result is taken
     /// in: it settles with the text it sent once that is on disk.
     writing: Option<Shared<oneshot::Receiver<Option<String>>>>,
+    /// The outline rail on a `.tex` file's right edge, and the editor's
+    /// width as last drawn, which decides whether it has room.
+    rail: Option<Entity<OutlineRail>>,
+    editor_width: std::rc::Rc<std::cell::Cell<Option<gpui::Pixels>>>,
     _autosave: Option<Task<()>>,
     _count: Option<Task<()>>,
     _todos: Option<Task<()>>,
@@ -210,6 +235,12 @@ impl EditorPanel {
         let languaged = started.elapsed();
         let lattice = cx.new(|cx| LatticeEditor::new(buffer.clone(), window, cx));
         let editor = lattice.read(cx).editor().clone();
+        let tex = latex::is_tex_source(&path);
+        lattice.update(cx, |lattice, cx| {
+            lattice.set_fold_source(tex.then(latex::folding::source), cx)
+        });
+        let rail = tex
+            .then(|| Self::new_rail(&lattice, &project, relative.clone(), saved_text.clone(), cx));
         let diagnostics = latex::is_tex_source(&path)
             .then(|| attach_latex(&lattice, &project, relative.clone(), cx));
         log::debug!(
@@ -243,6 +274,9 @@ impl EditorPanel {
                 let builds = build.read(cx).builds();
                 if builds != this.builds_seen {
                     this.builds_seen = builds;
+                    if let Some(rail) = &this.rail {
+                        rail.update(cx, |rail, cx| rail.build_finished(cx));
+                    }
                     if let Some(diagnostics) = &this.diagnostics {
                         diagnostics.update(cx, |diagnostics, cx| diagnostics.resync(cx));
                     }
@@ -353,6 +387,8 @@ impl EditorPanel {
             saves_pending: 0,
             save_generation: 0,
             writing: None,
+            rail,
+            editor_width: Default::default(),
             _autosave: None,
             _count: None,
             _todos: None,
@@ -361,6 +397,7 @@ impl EditorPanel {
         };
         this.count_words(cx);
         this.scan_todos(Duration::ZERO, cx);
+        this.offer_view_switch(cx);
         this
     }
 
@@ -444,6 +481,30 @@ impl EditorPanel {
         let language = latex::language_for_path(&self.path, cx);
         self.buffer
             .update(cx, |buffer, cx| buffer.set_language(language, cx));
+        let tex = latex::is_tex_source(&self.path);
+        self.lattice.update(cx, |lattice, cx| {
+            lattice.set_fold_source(tex.then(latex::folding::source), cx)
+        });
+        match (&self.rail, tex) {
+            (Some(rail), true) => {
+                let path = self.relative.clone();
+                let source = self.buffer.read(cx).text();
+                rail.update(cx, |rail, cx| rail.set_source(path, source, cx));
+            }
+            (Some(_), false) => self.rail = None,
+            (None, true) => {
+                let source = self.buffer.read(cx).text();
+                self.rail = Some(Self::new_rail(
+                    &self.lattice,
+                    &self.project,
+                    self.relative.clone(),
+                    source,
+                    cx,
+                ));
+            }
+            (None, false) => {}
+        }
+        self.offer_view_switch(cx);
         cx.notify();
     }
 
@@ -483,15 +544,25 @@ impl EditorPanel {
             if !delay.is_zero() {
                 cx.background_executor().timer(delay).await;
             }
-            let found = cx
+            let (found, source) = cx
                 .background_spawn(async move {
-                    crate::status_counters::buffer_todos(&relative, &text.to_string())
+                    let source = text.to_string();
+                    (
+                        crate::status_counters::buffer_todos(&relative, &source),
+                        source,
+                    )
                 })
                 .await;
             this.update(cx, |this, cx| {
                 if this.buffer_todos != found {
                     this.buffer_todos = found;
                     cx.notify();
+                }
+                // The rail reads the file's own headings from the text as of
+                // this pause, as the Tauri app's settled source.
+                if let Some(rail) = &this.rail {
+                    let path = this.relative.clone();
+                    rail.update(cx, |rail, cx| rail.set_source(path, source, cx));
                 }
             })
             .ok();
@@ -538,6 +609,8 @@ impl BasePanel for EditorPanel {
 
     fn on_removed(&mut self, _: &mut Window, cx: &mut Context<Self>) {
         self.flush(cx);
+        let panel = gpui_kit::component::dock::PanelId::from(cx.entity_id());
+        lattice_ui::dock::set_spare_tools(panel, None, cx);
     }
 }
 
@@ -578,6 +651,18 @@ impl Panel for EditorPanel {
             })
             .menu(t!("Reveal cursor in PDF"), Box::new(ForwardSync))
             .menu(t!("Find"), Box::new(Deploy::find()))
+            // The strip's Source / Visual switch, which goes first when the
+            // strip is short of room.
+            .when(latex::is_tex_source(&self.path), |menu| {
+                menu.separator()
+                    .menu_with_check("Source", true, Box::new(ShowSourceView))
+                    .menu_with_check_and_disabled(
+                        VISUAL_NOT_PORTED,
+                        false,
+                        Box::new(ShowVisualView),
+                        true,
+                    )
+            })
             .separator()
             .menu_with_check(
                 t!("Vim mode"),
@@ -592,7 +677,7 @@ impl Panel for EditorPanel {
 }
 
 impl Render for EditorPanel {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         // Zed's search bar registers its key handlers on whatever element
         // hosts it; in Zed that is a pane, here it is this panel.
         let palette = cx.palette().clone();
@@ -617,7 +702,7 @@ impl Render for EditorPanel {
                         .child(self.search_bar.clone()),
                 )
             })
-            .child(div().flex_1().min_h_0().child(self.lattice.clone()))
+            .child(self.render_source(window, cx))
             .child(status)
             .child(crate::paint_probe::probe())
     }
