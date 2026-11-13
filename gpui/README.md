@@ -88,9 +88,11 @@ The Chinese input method (Microsoft Pinyin on Windows) and MiKTeX's own package-
 crates/lattice-gpui   the app: shell (titlebar, dock, workspaces and presets,
                       command table, palette, menu bar, windows and project
                       tabs, floating panels: src/shell/), project, file tree,
-                      editor panel, PDF panel (PDFium on its own thread), build
-                      panel, notices and confirmations, scripted scenarios
-                      (macOS, Windows)
+                      quick open and find / replace in project (src/search/),
+                      the welcome screen and project dialogs (src/welcome/),
+                      recent projects, editor panel, PDF panel (PDFium on its
+                      own thread), build panel, notices and confirmations,
+                      scripted scenarios (macOS, Windows)
 crates/lattice-editor the adapter over Zed's editor every editor feature
                       decorates through (marks, highlights, gutter marks, block
                       widgets, hover cards, completion sources, remote carets),
