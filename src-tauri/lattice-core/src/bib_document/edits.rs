@@ -73,8 +73,7 @@ pub fn add_field_edit(source: &str, entry: &BibEntry, name: &str, raw: &str) -> 
     let Some(last) = entry.fields.last() else {
         // After the key: `@misc{key}` or `@misc{key,` become one field long.
         let at = entry.key_to;
-        let rest = &source[at..entry.to - 1];
-        let comma = if rest.contains(',') { "," } else { "" };
+        let comma = if comma_after(source, at).is_some() { "," } else { "" };
         return BibEdit {
             from: at,
             to: entry.to - 1,
@@ -82,10 +81,17 @@ pub fn add_field_edit(source: &str, entry: &BibEntry, name: &str, raw: &str) -> 
         };
     };
     if entry.trailing_comma {
-        let comma = last.value_to + source[last.value_to..].find(',').unwrap_or(0);
+        let comma = comma_after(source, last.value_to).unwrap_or(last.value_to);
         return BibEdit { from: comma + 1, to: comma + 1, insert: format!("{newline}{field},") };
     }
     BibEdit { from: last.value_to, to: last.value_to, insert: format!(",{newline}{field}") }
+}
+
+/// The comma that follows `at` past spaces and comments, as the parser reads
+/// it.
+fn comma_after(source: &str, at: usize) -> Option<usize> {
+    let comma = super::skip_gap(source.as_bytes(), at);
+    (source.as_bytes().get(comma) == Some(&b',')).then_some(comma)
 }
 
 /// Remove a field with its separating comma and, when it stands on its own
@@ -108,7 +114,7 @@ pub fn remove_field_edit(source: &str, entry: &BibEntry, field: &BibField) -> Bi
     }
     // The last field: take the comma before it (unless the entry keeps a
     // trailing one) and its line.
-    let after = source[field.value_to..].find(',').map(|at| at + field.value_to);
+    let after = comma_after(source, field.value_to);
     let end = match after {
         Some(after) if entry.trailing_comma && after < entry.to => after + 1,
         _ => field.value_to,
@@ -230,6 +236,29 @@ mod tests {
             edited(trailing, |text, entry| remove_field_edit(text, entry, &entry.fields[1])),
             "@article{a,\n  title = {T},\n}\n"
         );
+    }
+
+    #[test]
+    fn a_comment_s_comma_is_not_the_field_s() {
+        let source = "@article{a,\n  title = {T},\n  year = 2017 % see p, 3\n  ,\n}\n";
+        let added = edited(source, |text, entry| add_field_edit(text, entry, "doi", "{d}"));
+        let fields = |text: &str| -> Vec<(String, String)> {
+            parse(text).unwrap().entries[0]
+                .fields
+                .iter()
+                .map(|field| {
+                    (field.name.clone(), text[field.value_from..field.value_to].to_string())
+                })
+                .collect()
+        };
+        assert_eq!(
+            fields(&added),
+            [("title", "{T}"), ("year", "2017"), ("doi", "{d}")]
+                .map(|(name, value)| (name.to_string(), value.to_string()))
+        );
+        let removed =
+            edited(source, |text, entry| remove_field_edit(text, entry, &entry.fields[1]));
+        assert_eq!(fields(&removed), [("title".to_string(), "{T}".to_string())]);
     }
 
     #[test]

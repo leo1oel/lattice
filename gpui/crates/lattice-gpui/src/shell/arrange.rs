@@ -169,7 +169,7 @@ impl Shell {
             return;
         };
         match panel.view().downcast::<EditorPanel>() {
-            Ok(editor) => window.focus(&editor.read(cx).editor().focus_handle(cx), cx),
+            Ok(editor) => window.focus(&editor.read(cx).focus_handle(cx), cx),
             Err(_) => window.focus(&panel.focus_handle(cx), cx),
         }
     }

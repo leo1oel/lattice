@@ -358,8 +358,13 @@ impl PapersPanel {
                             .flatten()
                             .collect();
                             item.note = (!notes.is_empty()).then(|| notes.join(" · "));
-                            if let Some(key) = &imported.citation_key {
-                                this.just_added.insert(key.clone());
+                            if !imported.already_imported {
+                                if let Some(key) = &imported.citation_key {
+                                    this.just_added.insert(key.clone());
+                                }
+                                if !imported.arxiv_id.is_empty() {
+                                    this.just_added.insert(imported.arxiv_id.clone());
+                                }
                             }
                             item.citation_key = imported.citation_key;
                         }
