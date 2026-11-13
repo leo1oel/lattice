@@ -1142,6 +1142,51 @@ impl Run {
             command_menu.first().map(String::as_str) == Some("\\textbf") && text.contains("\\textbf{x}"),
             json!({ "menu": command_menu.iter().take(5).collect::<Vec<_>>(), "line": text.lines().nth(7) }),
         );
+
+        // A package in the middle of a list: in `\usepackage{|,amsmath}`,
+        // `x` lists the prefix match xcolor before the infix graphicx, and
+        // Enter inserts the bare name, leaving the list's comma and brace
+        // as they were (the Tauri app's options insert only their label).
+        let start = cx
+            .update(|cx| {
+                let text = editor.read(cx).text(cx);
+                text.find("\\usepackage{amsmath}")
+                    .map(|at| at + "\\usepackage{".len())
+            })
+            .context("main.tex loads amsmath")?;
+        self.with_window(cx, |_, window, cx| {
+            editor.update(cx, |editor, cx| {
+                editor.change_selections(SelectionEffects::default(), window, cx, |selections| {
+                    selections.select_ranges([
+                        editor::MultiBufferOffset(start)..editor::MultiBufferOffset(start)
+                    ])
+                });
+                editor.handle_input(",", window, cx);
+                editor.change_selections(SelectionEffects::default(), window, cx, |selections| {
+                    selections.select_ranges([
+                        editor::MultiBufferOffset(start)..editor::MultiBufferOffset(start)
+                    ])
+                });
+            })
+        })?;
+        self.type_text(cx, "x").await?;
+        let wait_editor = editor.clone();
+        self.wait_for(cx, Duration::from_secs(3), move |_, cx| {
+            wait_editor.read(cx).has_visible_completions_menu()
+        })
+        .await;
+        let package_menu = labels(cx);
+        self.adapter_shot(cx, "package-completion").await;
+        self.press(cx, '\n', false).await?;
+        self.pause(cx, Duration::from_millis(200)).await;
+        let text = self.editor_text(cx, panel);
+        steps.check(
+            "typing a package mid-list ranks prefix matches first (xcolor before graphicx); Enter inserts the bare name",
+            package_menu.first().map(String::as_str) == Some("xcolor")
+                && package_menu.iter().any(|label| label == "graphicx")
+                && text.contains("\\usepackage{xcolor,amsmath}\n"),
+            json!({ "menu": package_menu.iter().take(5).collect::<Vec<_>>(), "line": text.lines().nth(1) }),
+        );
         Ok(())
     }
 }
