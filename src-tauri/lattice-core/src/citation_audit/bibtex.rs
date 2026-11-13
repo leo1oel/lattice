@@ -156,7 +156,7 @@ pub(super) fn entry_type(entry: &str) -> String {
 /// field names. A reformat (bibcite's field sort, an editor's alignment)
 /// keeps it, so Check references keeps that entry's result; a changed value
 /// does not.
-pub(super) fn content_fingerprint(entry: &str) -> String {
+pub fn content_fingerprint(entry: &str) -> String {
     let mut canonical = entry_type(entry);
     for (name, value) in fields(entry) {
         canonical.push_str(&format!("\0{name}={}", crate::util::collapse_whitespace(&value)));

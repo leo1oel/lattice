@@ -131,19 +131,6 @@ fn chrono_now() -> String {
     format!("{seconds}")
 }
 
-/// What the saved report keeps of a reference.
-#[derive(Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct Saved {
-    snapshot: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    fingerprint: Option<String>,
-    result: Finding,
-    applied: bool,
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-    kept: bool,
-}
-
 fn audit_key(entry: &AuditEntry) -> String {
     format!("{}\0{}", entry.path, entry.key)
 }
@@ -257,13 +244,7 @@ impl Audit {
                             .map(|file| (file.path.clone(), file.kind.to_string(), file.entries))
                             .collect();
                         this.set_entries(scan.entries);
-                        let saved: HashMap<String, Saved> = saved
-                            .into_iter()
-                            .filter_map(|(key, value)| {
-                                Some((key, serde_json::from_value(value).ok()?))
-                            })
-                            .collect();
-                        this.carry_over(&saved, true);
+                        this.carry_over(&report::read(saved), true);
                     }
                     Err(error) => this.error = Some(error),
                 }
@@ -275,74 +256,12 @@ impl Audit {
 
     /// Carry results over to a fresh scan while an entry says the same thing;
     /// one that changed since reads as changed when `mark_changed`.
-    fn carry_over(&mut self, saved: &HashMap<String, Saved>, mark_changed: bool) {
-        self.results.clear();
-        self.applied.clear();
-        self.kept.clear();
-        // The report keys a reference by its file and key: a duplicate key
-        // in one file is the first's alone.
-        let mut seen = HashSet::new();
-        for (index, entry) in self.entries.iter().enumerate() {
-            let key = audit_key(entry);
-            if !seen.insert(key.clone()) {
-                continue;
-            }
-            let Some(prior) = saved.get(&key) else {
-                continue;
-            };
-            let same_text = prior.snapshot == entry.bibtex;
-            let same_content = !entry.fingerprint.is_empty()
-                && prior.fingerprint.as_deref() == Some(entry.fingerprint.as_str());
-            if same_text || same_content {
-                let mut result = prior.result.clone();
-                if !same_text {
-                    result.before = entry.bibtex.clone();
-                }
-                self.results.insert(index, result);
-                if prior.applied {
-                    self.applied.insert(index);
-                }
-                if prior.kept {
-                    self.kept.insert(index);
-                }
-            } else if mark_changed {
-                self.results.insert(
-                    index,
-                    Finding {
-                        status: "conflict".into(),
-                        message:
-                            "Reference changed since the last check. Check this reference again."
-                                .into(),
-                        checked_at: prior.result.checked_at.clone(),
-                        before: entry.bibtex.clone(),
-                        ..Default::default()
-                    },
-                );
-            }
-        }
+    fn carry_over(&mut self, saved: &report::Report, mark_changed: bool) {
+        (self.results, self.applied, self.kept) = report::carry(&self.entries, saved, mark_changed);
     }
 
     fn report(&self) -> Vec<(String, serde_json::Value)> {
-        let mut seen = HashSet::new();
-        self.entries
-            .iter()
-            .enumerate()
-            .filter_map(|(index, entry)| {
-                let key = audit_key(entry);
-                if !seen.insert(key.clone()) {
-                    return None;
-                }
-                let result = self.results.get(&index)?;
-                let saved = Saved {
-                    snapshot: entry.bibtex.clone(),
-                    fingerprint: Some(entry.fingerprint.clone()).filter(|print| !print.is_empty()),
-                    result: result.clone(),
-                    applied: self.applied.contains(&index),
-                    kept: self.kept.contains(&index),
-                };
-                Some((key, serde_json::to_value(saved).ok()?))
-            })
-            .collect()
+        report::build(&self.entries, &self.results, &self.applied, &self.kept)
     }
 
     fn save(&self, cx: &mut Context<Self>) {
@@ -423,11 +342,7 @@ impl Audit {
         self.run_total = 0;
         self.run_done.clear();
         let root = self.root.clone();
-        let saved: HashMap<String, Saved> = self
-            .report()
-            .into_iter()
-            .filter_map(|(key, value)| Some((key, serde_json::from_value(value).ok()?)))
-            .collect();
+        let saved = report::read(self.report());
         self._task = Some(cx.spawn(async move |this, cx| {
             let scan_root = root.clone();
             let scan = cx
@@ -657,29 +572,9 @@ impl Audit {
                 let ok = this
                     .update(cx, |this, cx| match written {
                         Ok(()) => {
+                            report::land_fix(&mut this.entries, index, after);
                             this.applied.insert(index);
                             this.save(cx);
-                            // The entries below it in the file move by the
-                            // lines the fix added or took away.
-                            let moved = (index < this.entries.len()).then(|| {
-                                let entry = &mut this.entries[index];
-                                let lines = |text: &str| text.matches('\n').count() as isize;
-                                let delta = lines(&after) - lines(&entry.bibtex);
-                                entry.bibtex = after;
-                                (entry.path.clone(), entry.line, delta)
-                            });
-                            if let Some((path, Some(line), delta)) = moved
-                                && delta != 0
-                            {
-                                for entry in &mut this.entries {
-                                    if entry.path == path
-                                        && let Some(below) = entry.line.as_mut()
-                                        && *below > line
-                                    {
-                                        *below = below.saturating_add_signed(delta);
-                                    }
-                                }
-                            }
                             cx.emit(AuditEvent::Applied);
                             cx.notify();
                             true

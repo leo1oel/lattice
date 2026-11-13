@@ -41,6 +41,7 @@ mod venue;
 
 pub use apply::apply;
 pub use batch::check_batch;
+pub use bibtex::content_fingerprint;
 pub(crate) use bibtex::{fields as entry_fields, single_entry_key};
 pub use check::check_entry;
 pub(crate) use check::prepare_import;
