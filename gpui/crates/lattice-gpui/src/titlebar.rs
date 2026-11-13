@@ -25,8 +25,8 @@ use std::{cell::Cell, rc::Rc};
 
 use gpui::{
     AnyElement, AnyView, Context, InteractiveElement as _, IntoElement, MouseButton,
-    ParentElement as _, StatefulInteractiveElement as _, Styled as _, Window, WindowControlArea,
-    canvas, div, prelude::FluentBuilder as _, px,
+    ParentElement as _, StatefulInteractiveElement as _, Styled as _, WeakEntity, Window,
+    WindowControlArea, canvas, div, prelude::FluentBuilder as _, px,
 };
 use gpui_kit::component::{
     InteractiveElementExt as _,
@@ -42,8 +42,10 @@ use lattice_ui::{
     typography::shaped_width,
 };
 
+mod project_menu;
 mod workspace_switch;
 
+use project_menu::project_menu;
 #[cfg(test)]
 use workspace_switch::{SwitchTab, tab_width};
 use workspace_switch::{unfolded_switch_width, workspace_switcher};
@@ -51,9 +53,8 @@ use workspace_switch::{unfolded_switch_width, workspace_switcher};
 use crate::shell::{
     Shell,
     commands::{
-        CloseProject, CommandPalette, OpenFolder, OpenInNewWindow, ResetLayout, ToggleAgentPanel,
-        ToggleFocusMode, ToggleMaximize, TogglePapersPanel, TogglePdfPanel, ToggleProjectPanel,
-        keys_label,
+        CloseProject, CommandPalette, ResetLayout, ToggleAgentPanel, ToggleFocusMode,
+        ToggleMaximize, TogglePapersPanel, TogglePdfPanel, ToggleProjectPanel, keys_label,
     },
     layout::{Preset, View},
     workspaces::Workspaces,
@@ -392,9 +393,9 @@ fn project_group(shell: &Shell, cx: &mut Context<Shell>) -> AnyElement {
         .switcher()
         .max_w(px(SWITCHER_MAX))
         .parity("titlebar/project")
-        .dropdown_menu(|menu, _, _| {
-            menu.menu("Open Folder…", Box::new(OpenFolder))
-                .menu("Open in New Window", Box::new(OpenInNewWindow))
+        .dropdown_menu({
+            let shell = cx.entity().downgrade();
+            move |menu, window, cx| project_menu(shell.clone(), menu, window, cx)
         });
     if shell.projects.len() < 2 {
         return div()
@@ -418,7 +419,9 @@ fn project_group(shell: &Shell, cx: &mut Context<Shell>) -> AnyElement {
         let menu_weak = weak.clone();
         let group: gpui::SharedString = format!("project-tab-{ix}").into();
         let body: AnyElement = if current {
-            div().child(switcher_for(shell, cx)).into_any_element()
+            div()
+                .child(switcher_for(shell, weak.clone(), cx))
+                .into_any_element()
         } else {
             div()
                 .id(("project-tab-name", ix))
@@ -515,14 +518,13 @@ fn project_group(shell: &Shell, cx: &mut Context<Shell>) -> AnyElement {
         .into_any_element()
 }
 
-fn switcher_for(shell: &Shell, cx: &gpui::App) -> impl IntoElement {
+fn switcher_for(shell: &Shell, weak: WeakEntity<Shell>, cx: &gpui::App) -> impl IntoElement {
     ToolbarButton::new("project-switcher", shell.project_name(cx))
         .switcher()
         .max_w(px(TAB_SWITCHER_MAX))
         .parity("titlebar/project")
-        .dropdown_menu(|menu, _, _| {
-            menu.menu("Open Folder…", Box::new(OpenFolder))
-                .menu("Open in New Window", Box::new(OpenInNewWindow))
+        .dropdown_menu(move |menu, window, cx| {
+            project_menu(weak.clone(), menu, window, cx)
                 .separator()
                 .menu("Close Project", Box::new(CloseProject))
         })
