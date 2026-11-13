@@ -66,7 +66,11 @@ impl Run {
         steps.check(
             "Papers lists the bibliography with the saved text and how often the manuscript cites each",
             listed
-                && uses_of("The TeXbook") == Some(json!(1))
+                // Earlier steps cite it again (a completed \cite), so at
+                // least the fixture's own citation.
+                && uses_of("The TeXbook")
+                    .and_then(|uses| uses.as_u64())
+                    .is_some_and(|uses| uses >= 1)
                 && uses_of("Attention Is All You Need") == Some(json!(0))
                 && rows.iter().any(|row| row["fullText"] == true),
             json!({ "rows": rows }),
