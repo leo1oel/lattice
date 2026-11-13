@@ -584,9 +584,9 @@ mod tests {
             ..Default::default()
         };
         let none = HashMap::new();
-        let (paper, state) = entry_paper(&[], "vaswani2017", &summary, &none);
+        let (made, state) = entry_paper(&[], "vaswani2017", &summary, &none);
         assert_eq!(state, PaperState::Download);
-        assert_eq!(paper.unwrap().citation_key.as_deref(), Some("vaswani2017"));
+        assert_eq!(made.unwrap().citation_key.as_deref(), Some("vaswani2017"));
         let saved = with(paper("Attention"), |paper| {
             paper.arxiv_id = "1706.03762".into();
             paper.citation_key = Some("Vaswani2017".into());
