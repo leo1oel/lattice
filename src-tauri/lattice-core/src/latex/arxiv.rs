@@ -405,7 +405,7 @@ pub(super) fn stage_with(
 struct Recorded {
     /// Files TeX read and did not write, still there: by their path in the
     /// pack, and where they are (`shipped_path`).
-    read: Vec<(String, String)>,
+    read: Vec<Shipped>,
     /// Files TeX read that are gone now.
     missing: Vec<String>,
     /// Files TeX read, named in another case than the disk's.
@@ -413,6 +413,9 @@ struct Recorded {
     /// Files TeX wrote, where it wrote them.
     written: BTreeSet<String>,
 }
+
+/// A file TeX read: its path in the pack, and where it is.
+type Shipped = (String, String);
 
 /// Where a project file TeX read goes in the pack: a file in the hidden build
 /// folder goes where a build without it leaves the same file, its path in
@@ -453,7 +456,7 @@ fn recorded_inputs(root: &Path, recorder: &str) -> Recorded {
         }
     }
     let shipped: BTreeSet<&str> = outputs.iter().map(|path| shipped_path(path)).collect();
-    let (read, missing): (Vec<(String, String)>, Vec<(String, String)>) = inputs
+    let (read, missing): (Vec<Shipped>, Vec<Shipped>) = inputs
         .into_iter()
         .map(|path| (shipped_path(&path).to_string(), path))
         .filter(|(shipped_as, _)| !shipped.contains(shipped_as.as_str()) && !private(shipped_as))
