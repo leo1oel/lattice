@@ -11,7 +11,7 @@ use std::{collections::HashMap, path::PathBuf};
 
 use gpui::{
     AnyWindowHandle, App, Bounds, Context, Entity, Global, Pixels, WeakEntity, Window, WindowId,
-    point, px,
+    point, px, size,
 };
 
 use super::Shell;
@@ -194,4 +194,37 @@ impl Shell {
             new_window(Some(root), Some(window.bounds()), cx);
         }
     }
+}
+
+/// A new window's size: 1440×900, or `LATTICE_WINDOW_SIZE` (`1015x680`), which
+/// lets a run lay the window out as a smaller screen would (GitHub's runners
+/// shrink the window to about 1015px wide).
+pub(super) fn window_size() -> gpui::Size<gpui::Pixels> {
+    std::env::var("LATTICE_WINDOW_SIZE")
+        .ok()
+        .and_then(|value| {
+            let (width, height) = value.split_once('x')?;
+            Some(size(
+                px(width.trim().parse().ok()?),
+                px(height.trim().parse().ok()?),
+            ))
+        })
+        .unwrap_or_else(|| size(px(1440.), px(900.)))
+}
+
+#[cfg(target_os = "macos")]
+pub(super) fn titlebar_options() -> Option<gpui::TitlebarOptions> {
+    // Lattice draws its own 40px titlebar with the traffic lights centred in
+    // it, 20px from the top (src-tauri/src/traffic_lights.rs).
+    Some(gpui::TitlebarOptions {
+        title: None,
+        appears_transparent: true,
+        traffic_light_position: Some(gpui::point(px(14.), px(13.))),
+    })
+}
+
+/// Elsewhere the system keeps its title bar, and Lattice's sits under it.
+#[cfg(not(target_os = "macos"))]
+pub(super) fn titlebar_options() -> Option<gpui::TitlebarOptions> {
+    None
 }

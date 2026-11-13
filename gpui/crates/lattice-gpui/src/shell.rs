@@ -174,11 +174,11 @@ impl Shell {
         bounds: Option<Bounds<gpui::Pixels>>,
         cx: &mut App,
     ) -> anyhow::Result<(AnyWindowHandle, Entity<Shell>)> {
-        let bounds = bounds.unwrap_or_else(|| Bounds::centered(None, window_size(), cx));
+        let bounds = bounds.unwrap_or_else(|| Bounds::centered(None, windows::window_size(), cx));
         let options = WindowOptions {
             window_bounds: Some(WindowBounds::Windowed(bounds)),
             window_min_size: Some(size(px(720.), px(480.))),
-            titlebar: titlebar_options(),
+            titlebar: windows::titlebar_options(),
             ..Default::default()
         };
         let (window, shell) = gpui_kit::open_window(options, cx, |window, cx| {
@@ -747,22 +747,6 @@ impl Shell {
     }
 }
 
-/// A new window's size: 1440×900, or `LATTICE_WINDOW_SIZE` (`1015x680`), which
-/// lets a run lay the window out as a smaller screen would (GitHub's runners
-/// shrink the window to about 1015px wide).
-fn window_size() -> gpui::Size<gpui::Pixels> {
-    std::env::var("LATTICE_WINDOW_SIZE")
-        .ok()
-        .and_then(|value| {
-            let (width, height) = value.split_once('x')?;
-            Some(size(
-                px(width.trim().parse().ok()?),
-                px(height.trim().parse().ok()?),
-            ))
-        })
-        .unwrap_or_else(|| size(px(1440.), px(900.)))
-}
-
 /// The name of a project as its tab shows it: the name in its manifest,
 /// else the folder's.
 fn project_display_name(root: &Path) -> SharedString {
@@ -776,23 +760,6 @@ fn project_display_name(root: &Path) -> SharedString {
         })
         .unwrap_or_default()
         .into()
-}
-
-#[cfg(target_os = "macos")]
-fn titlebar_options() -> Option<gpui::TitlebarOptions> {
-    // Lattice draws its own 40px titlebar with the traffic lights centred in
-    // it, 20px from the top (src-tauri/src/traffic_lights.rs).
-    Some(gpui::TitlebarOptions {
-        title: None,
-        appears_transparent: true,
-        traffic_light_position: Some(gpui::point(px(14.), px(13.))),
-    })
-}
-
-/// Elsewhere the system keeps its title bar, and Lattice's sits under it.
-#[cfg(not(target_os = "macos"))]
-fn titlebar_options() -> Option<gpui::TitlebarOptions> {
-    None
 }
 
 impl Focusable for Shell {
