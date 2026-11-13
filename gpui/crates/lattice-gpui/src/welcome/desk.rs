@@ -20,6 +20,7 @@ use gpui::{
 use lattice_ui::{
     ActiveLattice as _, Elevation, Icon, Motion, TextRole, TextRoleStyle as _,
     interaction::{fade, use_interaction},
+    parity,
     tokens::FONT_WEIGHT_MEDIUM,
 };
 
@@ -125,8 +126,13 @@ pub fn desk(
             let path = project.path.clone();
             let open = open.clone();
             let shortcut = format!("{}{}", crate::shell::commands::MOD_LABEL, ix + 1);
+            let name = project.name.clone();
+            let when = when(project, now);
+            let region = format!("welcome/card/{ix}");
             div()
                 .id(id)
+                .relative()
+                .children(parity::probe(region.clone()))
                 .w(card_width)
                 .flex()
                 .flex_col()
@@ -169,7 +175,9 @@ pub fn desk(
                         .truncate()
                         .text_role(TextRole::Title, cx)
                         .text_color(palette.text)
-                        .child(project.name.clone()),
+                        .relative()
+                        .children(parity::text_probe(region.clone(), 0, name.clone()))
+                        .child(name),
                 )
                 .child(
                     div()
@@ -177,7 +185,9 @@ pub fn desk(
                         .min_h(px(16.))
                         .truncate()
                         .text_role(TextRole::Caption, cx)
-                        .child(when(project, now)),
+                        .relative()
+                        .children(parity::text_probe(region, 1, when.clone()))
+                        .child(when),
                 )
                 .into_any_element()
         })
@@ -189,13 +199,27 @@ pub fn desk(
         .gap(px(8.))
         .child(
             div()
+                .relative()
+                .children(parity::probe("welcome/recents-title"))
+                .children(parity::text_probe(
+                    "welcome/recents-title",
+                    0,
+                    "Recent projects",
+                ))
                 .px(px(2.))
                 .text_role(TextRole::Caption, cx)
                 .font_weight(FONT_WEIGHT_MEDIUM)
                 .text_color(palette.text_secondary)
                 .child("Recent projects"),
         )
-        .child(div().flex().gap(px(GAP)).children(cards))
+        .child(
+            div()
+                .relative()
+                .children(parity::probe("welcome/desk"))
+                .flex()
+                .gap(px(GAP))
+                .children(cards),
+        )
         .into_any_element()
 }
 

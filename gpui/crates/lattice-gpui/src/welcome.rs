@@ -32,6 +32,7 @@ use lattice_ui::{
     ActiveLattice as _, Icon, Motion, TextRole, TextRoleStyle as _,
     components::{Button, IconButton},
     icons::ICON_LARGE,
+    parity,
     tokens::FONT_WEIGHT_REGULAR,
 };
 
@@ -138,8 +139,17 @@ fn unopened_message(unopened: &Unopened) -> String {
     }
 }
 
-/// Rise 6px into place and fade in on the slow tier, `delay_ms` late.
-fn rise(id: impl Into<ElementId>, delay_ms: f32, content: impl IntoElement) -> AnyElement {
+/// Rise 6px into place and fade in on the slow tier, `delay_ms` late;
+/// with motion reduced it is simply there.
+fn rise(
+    id: impl Into<ElementId>,
+    delay_ms: f32,
+    content: impl IntoElement,
+    cx: &App,
+) -> AnyElement {
+    if cx.reduce_motion() {
+        return content.into_any_element();
+    }
     let slow = Motion::Slow.duration().as_secs_f32() * 1000.;
     let total = slow + delay_ms;
     div()
@@ -160,6 +170,7 @@ fn rise(id: impl Into<ElementId>, delay_ms: f32, content: impl IntoElement) -> A
 /// One of the quieter ways in: 28px, caption, secondary ink, the hairline
 /// wash under the pointer.
 fn more_action(
+    slot: usize,
     id: &'static str,
     icon: Icon,
     label: &'static str,
@@ -184,7 +195,12 @@ fn more_action(
         .hover(move |style| style.bg(hover_wash).text_color(hover_ink))
         .on_click(cx.listener(move |_, _, _, cx| cx.emit(event.clone())))
         .child(icon.element(px(15.), palette.text_secondary))
-        .child(label)
+        .child(
+            div()
+                .relative()
+                .children(parity::text_probe("welcome/more", slot, label))
+                .child(label),
+        )
 }
 
 impl Focusable for Welcome {
@@ -220,7 +236,10 @@ impl Render for Welcome {
             )
         });
         let unopened = self.unopened.as_ref().map(|unopened| {
+            let message = unopened_message(unopened);
             div()
+                .relative()
+                .children(parity::probe("welcome/unopened"))
                 .flex()
                 .items_start()
                 .gap(px(6.))
@@ -233,10 +252,18 @@ impl Render for Welcome {
                         .pt(px(1.5))
                         .child(Icon::TRIANGLE_ALERT.element(px(13.), palette.warning)),
                 )
-                .child(div().min_w_0().child(unopened_message(unopened)))
+                .child(
+                    div()
+                        .relative()
+                        .min_w_0()
+                        .children(parity::text_probe("welcome/unopened", 0, message.clone()))
+                        .child(message),
+                )
         });
         let has_recents = unopened.is_some() || desk.is_some();
         let actions = div()
+            .relative()
+            .children(parity::probe("welcome/actions"))
             .mt(px(24.))
             .flex()
             .flex_wrap()
@@ -261,6 +288,8 @@ impl Render for Welcome {
                     .on_click(cx.listener(|_, _, _, cx| cx.emit(WelcomeEvent::Tutorial))),
             );
         let more = div()
+            .relative()
+            .children(parity::probe("welcome/more"))
             .mt(px(16.))
             .flex()
             .flex_wrap()
@@ -268,6 +297,7 @@ impl Render for Welcome {
             .items_center()
             .gap(px(4.))
             .child(more_action(
+                0,
                 "welcome-clone",
                 Icon::GIT_BRANCH,
                 "Clone repository",
@@ -275,6 +305,7 @@ impl Render for Welcome {
                 WelcomeEvent::CloneRepository,
             ))
             .child(more_action(
+                1,
                 "welcome-import-zip",
                 Icon::FILE_ARCHIVE,
                 "Import ZIP",
@@ -282,6 +313,7 @@ impl Render for Welcome {
                 WelcomeEvent::ImportZip,
             ))
             .child(more_action(
+                2,
                 "welcome-install-tex",
                 Icon::WRENCH,
                 "Install LaTeX tools",
@@ -302,12 +334,15 @@ impl Render for Welcome {
                 "welcome-mark-in",
                 0.,
                 div()
+                    .relative()
+                    .children(parity::probe("welcome/mark"))
                     .size(px(50.))
                     .rounded(px(14.))
                     .flex()
                     .items_center()
                     .justify_center()
                     .child(self.mark.clone()),
+                cx,
             ))
             .child(rise(
                 "welcome-title-in",
@@ -320,9 +355,13 @@ impl Render for Welcome {
                     .font_weight(FONT_WEIGHT_REGULAR)
                     .letter_spacing(relative(-0.02))
                     .text_color(palette.text)
+                    .relative()
+                    .children(parity::probe("welcome/title"))
+                    .children(parity::text_probe("welcome/title", 0, "Lattice"))
                     .child("Lattice"),
+                cx,
             ))
-            .child(rise("welcome-actions-in", 60., actions))
+            .child(rise("welcome-actions-in", 60., actions, cx))
             .when(has_recents, |this| {
                 this.child(rise(
                     "welcome-recents-in",
@@ -336,9 +375,10 @@ impl Render for Welcome {
                         .gap(px(8.))
                         .children(unopened.map(|message| div().w_full().child(message)))
                         .children(desk),
+                    cx,
                 ))
             })
-            .child(rise("welcome-more-in", 60., more))
+            .child(rise("welcome-more-in", 60., more, cx))
             .children(self.busy.clone().map(|busy| {
                 div()
                     .mt(px(16.))
@@ -382,10 +422,17 @@ impl Render for Welcome {
                     .window_control_area(WindowControlArea::Drag)
                     .on_double_click(|_, window, _| window.titlebar_double_click())
                     .child(
-                        IconButton::new("welcome-settings", Icon::SETTINGS)
-                            .icon_size(ICON_LARGE)
-                            .tooltip("Settings")
-                            .on_click(cx.listener(|_, _, _, cx| cx.emit(WelcomeEvent::Settings))),
+                        div()
+                            .relative()
+                            .children(parity::probe("welcome/settings"))
+                            .child(
+                                IconButton::new("welcome-settings", Icon::SETTINGS)
+                                    .icon_size(ICON_LARGE)
+                                    .tooltip("Settings")
+                                    .on_click(
+                                        cx.listener(|_, _, _, cx| cx.emit(WelcomeEvent::Settings)),
+                                    ),
+                            ),
                     ),
             )
     }

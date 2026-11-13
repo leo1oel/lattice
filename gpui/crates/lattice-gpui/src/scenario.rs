@@ -22,6 +22,8 @@ mod e2e;
 mod measure;
 #[cfg(target_os = "macos")]
 mod parity;
+#[cfg(target_os = "macos")]
+mod parity_welcome;
 mod shell_steps;
 #[cfg(target_os = "macos")]
 mod shot;

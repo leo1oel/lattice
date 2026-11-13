@@ -27,10 +27,36 @@ impl Run {
         steps: &mut Steps,
         root: &Path,
     ) -> Result<()> {
-        self.quick_open_steps(cx, steps, root).await?;
-        self.find_steps(cx, steps).await?;
-        self.replace_steps(cx, steps, root).await?;
-        self.new_project_and_welcome(cx, steps).await
+        // A part that cannot go on is a failed step, not the end of the run.
+        if let Err(error) = self.quick_open_steps(cx, steps, root).await {
+            steps.check(
+                "quick open",
+                false,
+                json!({ "error": format!("{error:#}") }),
+            );
+        }
+        if let Err(error) = self.find_steps(cx, steps).await {
+            steps.check(
+                "Find in project",
+                false,
+                json!({ "error": format!("{error:#}") }),
+            );
+        }
+        if let Err(error) = self.replace_steps(cx, steps, root).await {
+            steps.check(
+                "Replace in project",
+                false,
+                json!({ "error": format!("{error:#}") }),
+            );
+        }
+        if let Err(error) = self.new_project_and_welcome(cx, steps).await {
+            steps.check(
+                "New project and the welcome screen",
+                false,
+                json!({ "error": format!("{error:#}") }),
+            );
+        }
+        Ok(())
     }
 
     fn quick_open_view(&self, cx: &mut AsyncApp) -> Option<Entity<QuickOpen>> {
@@ -132,7 +158,8 @@ impl Run {
     }
 
     async fn find_steps(&self, cx: &mut AsyncApp, steps: &mut Steps) -> Result<()> {
-        self.with_window(cx, |_, window, cx| {
+        self.with_window(cx, |shell, window, cx| {
+            window.focus(&shell.read(cx).focus_handle.clone(), cx);
             window.dispatch_action(Box::new(FindInProject), cx)
         })?;
         self.pause(cx, Duration::from_millis(200)).await;
@@ -175,7 +202,8 @@ impl Run {
         std::fs::write(&file, "Before lattice-token and lattice-token.\n")?;
         let editor = self.open(cx, &file, Some(1))?;
         self.pause(cx, Duration::from_millis(300)).await;
-        self.with_window(cx, |_, window, cx| {
+        self.with_window(cx, |shell, window, cx| {
+            window.focus(&shell.read(cx).focus_handle.clone(), cx);
             window.dispatch_action(Box::new(ReplaceInProject), cx)
         })?;
         self.pause(cx, Duration::from_millis(200)).await;
@@ -211,7 +239,8 @@ impl Run {
     }
 
     async fn new_project_and_welcome(&self, cx: &mut AsyncApp, steps: &mut Steps) -> Result<()> {
-        self.with_window(cx, |_, window, cx| {
+        self.with_window(cx, |shell, window, cx| {
+            window.focus(&shell.read(cx).focus_handle.clone(), cx);
             window.dispatch_action(Box::new(NewProject), cx)
         })?;
         self.pause(cx, Duration::from_millis(200)).await;

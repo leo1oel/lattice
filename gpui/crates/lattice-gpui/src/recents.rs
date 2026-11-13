@@ -82,6 +82,14 @@ impl RecentProjects {
         recents.persist();
     }
 
+    /// Replace the list, for a scenario that stages one.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn stage(list: Vec<RecentProject>, cx: &mut App) {
+        if cx.has_global::<Self>() {
+            cx.global_mut::<Self>().list = list;
+        }
+    }
+
     fn persist(&self) {
         if let Some(dir) = &self.dir
             && let Err(error) = write_json(&dir.join(FILE), &self.list)
