@@ -63,7 +63,13 @@ pub(super) struct MarkdownSession {
     /// The view is Split.
     split: bool,
     files: Value,
+    /// The TeX files `tex_sources` was read from, in order.
+    tex_paths: Vec<String>,
     tex_sources: Vec<String>,
+    /// Bumped by every change on disk to a TeX file.
+    tex_changes: u64,
+    /// `tex_changes` when `tex_sources` was read.
+    tex_read: u64,
     /// Bumped by every read of the project, so a slow one is dropped.
     generation: u64,
 }
@@ -73,7 +79,10 @@ impl MarkdownSession {
         Self {
             split: false,
             files: json!([]),
+            tex_paths: Vec::new(),
             tex_sources: Vec::new(),
+            tex_changes: 1,
+            tex_read: 0,
             generation: 0,
         }
     }
@@ -83,13 +92,14 @@ impl MarkdownSession {
 fn tex_paths(nodes: &[FileNode], into: &mut Vec<String>) {
     for node in nodes {
         tex_paths(&node.children, into);
-        if node.kind != "directory"
-            && node.size <= TEX_SOURCE_BYTES_MAX
-            && node.path.to_ascii_lowercase().ends_with(".tex")
-        {
+        if node.kind != "directory" && node.size <= TEX_SOURCE_BYTES_MAX && is_tex(&node.path) {
             into.push(node.path.clone());
         }
     }
+}
+
+fn is_tex(path: &str) -> bool {
+    path.to_ascii_lowercase().ends_with(".tex")
 }
 
 /// The name `import_clipboard_image` is given (`clipboardImageFileName`).
@@ -140,19 +150,37 @@ impl StructuredDocument {
             cx,
         );
         this.markdown = Some(MarkdownSession::new());
-        this._subscriptions
-            .push(cx.subscribe(project, |this, project, event, cx| {
-                if let ProjectEvent::FilesChanged(_) = event {
-                    this.read_project(&project, cx);
-                    this.post("md:assets-changed", Value::Null, cx);
+        this._subscriptions.push(
+            cx.subscribe(project, |this, project, event, cx| match event {
+                // The tree a change on disk brings arrives after it.
+                ProjectEvent::FilesChanged(paths) => {
+                    this.markdown_files_changed(paths.as_deref(), cx)
                 }
-            }));
+                ProjectEvent::TreeChanged => this.read_project(&project, cx),
+                _ => {}
+            }),
+        );
         this.read_project(project, cx);
         this
     }
 
-    /// Read the project's tree and TeX sources off the main thread, then
-    /// give them to the page.
+    /// Files changed on disk (this one's own saves among them): a changed TeX
+    /// file is read again with the next tree, and images other than the
+    /// file load again.
+    fn markdown_files_changed(&mut self, paths: Option<&[String]>, cx: &mut Context<Self>) {
+        let Some(session) = &mut self.markdown else {
+            return;
+        };
+        if paths.is_none_or(|paths| paths.iter().any(|path| is_tex(path))) {
+            session.tex_changes += 1;
+        }
+        if paths.is_none_or(|paths| paths.iter().any(|path| *path != self.relative)) {
+            self.post("md:assets-changed", Value::Null, cx);
+        }
+    }
+
+    /// Read the project's tree, and its TeX sources when they may have
+    /// changed, off the main thread, then give the page what changed.
     fn read_project(&mut self, project: &Entity<Project>, cx: &mut Context<Self>) {
         let Some(session) = &mut self.markdown else {
             return;
@@ -160,18 +188,26 @@ impl StructuredDocument {
         session.generation += 1;
         let generation = session.generation;
         let files = project.read(cx).files().to_vec();
+        let mut paths = Vec::new();
+        tex_paths(&files, &mut paths);
+        paths.truncate(TEX_SOURCES_MAX);
+        let changes = session.tex_changes;
+        let reread = changes != session.tex_read || paths != session.tex_paths;
         let root = self.root.clone();
         cx.spawn(async move |this, cx| {
-            let (tree, sources) = cx
+            let (tree, paths, read) = cx
                 .background_spawn(async move {
-                    let mut paths = Vec::new();
-                    tex_paths(&files, &mut paths);
-                    let sources = paths
-                        .iter()
-                        .take(TEX_SOURCES_MAX)
-                        .filter_map(|path| lattice_core::project::read_file(&root, path).ok())
-                        .collect::<Vec<_>>();
-                    (serde_json::to_value(&files).unwrap_or(json!([])), sources)
+                    let read = reread.then(|| {
+                        paths
+                            .iter()
+                            .filter_map(|path| lattice_core::project::read_file(&root, path).ok())
+                            .collect::<Vec<_>>()
+                    });
+                    (
+                        serde_json::to_value(&files).unwrap_or(json!([])),
+                        paths,
+                        read,
+                    )
                 })
                 .await;
             this.update(cx, |this, cx| {
@@ -179,6 +215,17 @@ impl StructuredDocument {
                     return;
                 };
                 if session.generation != generation {
+                    return;
+                }
+                session.tex_paths = paths;
+                let sources = match read {
+                    Some(sources) => {
+                        session.tex_read = changes;
+                        sources
+                    }
+                    None => session.tex_sources.clone(),
+                };
+                if session.files == tree && session.tex_sources == sources {
                     return;
                 }
                 session.files = tree.clone();

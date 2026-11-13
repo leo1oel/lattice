@@ -539,7 +539,11 @@ impl EditorPanel {
                 cx,
             ));
         }
-        if let Some(document) = self.structured.clone() {
+        if let Some(document) = self
+            .structured
+            .clone()
+            .or_else(|| self.markdown_document().cloned())
+        {
             let relative = relative.clone();
             document.update(cx, |document, cx| document.moved_to(relative, cx));
         }
