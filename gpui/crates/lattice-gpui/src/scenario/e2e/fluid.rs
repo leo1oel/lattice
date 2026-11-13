@@ -1,7 +1,9 @@
 //! The design system's motion, driven with native pointer moves: the
 //! Project tree's fluid hover lights the row under the pointer, glides to the
 //! next row within one session rather than fading out and in again, and
-//! clears when the pointer leaves (`lattice_ui::fluid_hover`).
+//! clears when the pointer leaves (`lattice_ui::fluid_hover`). With
+//! `LATTICE_E2E_SHOTS=DIR` (macOS) it saves the window on the first row, at
+//! two moments of the glide and on the second row, for a look review.
 
 use std::time::Duration;
 
@@ -58,8 +60,17 @@ impl Run {
             json!({ "lit": on_first.lit, "row": first, "fill": format!("{:?}", on_first.fill) }),
         );
 
+        self.fluid_shot(cx, "fluid-tree-1-first", Duration::ZERO)
+            .await;
         native::send_mouse(native, native::Mouse::Moved, second_bounds.center())?;
+        // Into the fast tier's 80 ms: the fill on its way.
+        self.fluid_shot(cx, "fluid-tree-2-gliding-25ms", Duration::from_millis(25))
+            .await;
+        self.fluid_shot(cx, "fluid-tree-3-gliding-50ms", Duration::from_millis(25))
+            .await;
         self.pause(cx, SETTLE).await;
+        self.fluid_shot(cx, "fluid-tree-4-second", Duration::ZERO)
+            .await;
         let on_second = snapshot(cx);
         steps.check(
             "moving to another row glides the same fill there instead of fading a new one in",
@@ -86,5 +97,19 @@ impl Run {
             json!({ "lit": away_snapshot.lit, "leaving": away_snapshot.leaving }),
         );
         Ok(())
+    }
+
+    /// Save the window as `name` under `LATTICE_E2E_SHOTS`, after `wait`.
+    async fn fluid_shot(&self, cx: &mut AsyncApp, name: &str, wait: Duration) {
+        #[cfg(target_os = "macos")]
+        if let Some(dir) = std::env::var_os("LATTICE_E2E_SHOTS") {
+            self.pause(cx, wait).await;
+            let path = std::path::Path::new(&dir).join(format!("{name}.png"));
+            if let Err(error) = self.capture(cx, &path.to_string_lossy()).await {
+                log::warn!("could not save {}: {error:#}", path.display());
+            }
+        }
+        #[cfg(not(target_os = "macos"))]
+        let _ = (cx, name, wait);
     }
 }
