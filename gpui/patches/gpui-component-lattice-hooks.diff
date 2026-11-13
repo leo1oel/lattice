@@ -1,0 +1,275 @@
+diff --git a/gpui-component/src/menu/menu_item.rs b/gpui-component/src/menu/menu_item.rs
+index 9ed4e9af..c7c9f599 100644
+--- a/gpui-component/src/menu/menu_item.rs
++++ b/gpui-component/src/menu/menu_item.rs
+@@ -14,6 +14,9 @@ pub(crate) struct MenuItemElement {
+     style: StyleRefinement,
+     disabled: bool,
+     selected: bool,
++    /// A host highlight (`GlobalMenuHighlight`) draws the hover and
++    /// selection fill, so the item draws none of its own.
++    host_fill: bool,
+     checked: Option<bool>,
+     on_click: Option<Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>>,
+     on_hover: Option<Box<dyn Fn(&bool, &mut Window, &mut App) + 'static>>,
+@@ -30,6 +33,7 @@ impl MenuItemElement {
+             style: StyleRefinement::default(),
+             disabled: false,
+             selected: false,
++            host_fill: false,
+             checked: None,
+             on_click: None,
+             on_hover: None,
+@@ -37,6 +41,12 @@ impl MenuItemElement {
+         }
+     }
+ 
++    /// Leave the fill to the menu's host highlight.
++    pub(crate) fn host_fill(mut self, host_fill: bool) -> Self {
++        self.host_fill = host_fill;
++        self
++    }
++
+     /// Set ListItem as the selected item style.
+     pub(crate) fn selected(mut self, selected: bool) -> Self {
+         self.selected = selected;
+@@ -130,12 +140,17 @@ impl RenderOnce for MenuItemElement {
+                 // Not `group_hover` on the item's own group: GPUI styles an
+                 // element before registering its group, and that fallback keeps
+                 // the pointer's item lit after a key moves the highlight away.
++                let host_fill = self.host_fill;
+                 this.hover(|this| {
+-                    this.bg(cx.theme().tokens.accent)
+-                        .text_color(cx.theme().accent_foreground)
++                    let this = if host_fill {
++                        this
++                    } else {
++                        this.bg(cx.theme().tokens.accent)
++                    };
++                    this.text_color(cx.theme().accent_foreground)
+                 })
+                 .when(self.selected, |this| {
+-                    this.bg(cx.theme().tokens.accent)
++                    this.when(!host_fill, |this| this.bg(cx.theme().tokens.accent))
+                         .text_color(cx.theme().accent_foreground)
+                 })
+                 .when_some(self.on_click, |this, on_click| {
+diff --git a/gpui-component/src/menu/mod.rs b/gpui-component/src/menu/mod.rs
+index 4c60d6d0..ac548f1d 100644
+--- a/gpui-component/src/menu/mod.rs
++++ b/gpui-component/src/menu/mod.rs
+@@ -10,7 +10,9 @@ pub use app_menu_bar::AppMenuBar;
+ pub use context_menu::{ContextMenu, ContextMenuExt, ContextMenuState};
+ pub use dropdown_menu::DropdownMenu;
+ pub(crate) use menu_item::MenuItemElement;
+-pub use popup_menu::{PopupMenu, PopupMenuItem};
++pub use popup_menu::{
++    GlobalMenuHighlight, MenuHighlight, MenuHighlightRow, PopupMenu, PopupMenuItem,
++};
+ 
+ pub(crate) fn init(cx: &mut App) {
+     app_menu_bar::init(cx);
+diff --git a/gpui-component/src/menu/popup_menu.rs b/gpui-component/src/menu/popup_menu.rs
+index f772edfb..ec4b070d 100644
+--- a/gpui-component/src/menu/popup_menu.rs
++++ b/gpui-component/src/menu/popup_menu.rs
+@@ -9,7 +9,7 @@ use gpui::{
+     Action, Anchor, AnyElement, App, AppContext, Bounds, Context, DismissEvent, Edges, Entity,
+     EventEmitter, FocusHandle, Focusable, InteractiveElement, IntoElement, KeyBinding,
+     ParentElement, Pixels, Rems, Render, Role, ScrollHandle, SharedString,
+-    StatefulInteractiveElement, Styled, WeakEntity, Window, anchored, deferred, div,
++    StatefulInteractiveElement, Styled, WeakEntity, Window, anchored, canvas, deferred, div,
+     prelude::FluentBuilder, px, rems,
+ };
+ use gpui::{ClickEvent, Half, MouseDownEvent, OwnedMenuItem, Point, Subscription};
+@@ -285,6 +285,46 @@ impl PopupMenuItem {
+     }
+ }
+ 
++/// One row of a menu, as a host highlight sees it.
++#[derive(Clone, Copy, Debug, PartialEq)]
++pub struct MenuHighlightRow {
++    /// The item's index in the menu.
++    pub index: usize,
++    /// Where the row was laid out, in window coordinates.
++    pub bounds: Bounds<Pixels>,
++    /// Rows between two separators or labels share a section.
++    pub section: usize,
++    /// Whether the row can be highlighted.
++    pub enabled: bool,
++}
++
++/// Draws a menu's hover and selection fill on the host's terms, behind the
++/// rows, in place of each row's own fill (Lattice's fluid hover glides one
++/// fill between rows). Install one with [`GlobalMenuHighlight`].
++pub trait MenuHighlight: 'static {
++    /// Paint the fill of `menu` for this frame: `rows` as laid out, the
++    /// highlighted item `selected`, clipped to `bounds`, in `fill` with the
++    /// rows' `radius`.
++    #[allow(clippy::too_many_arguments)]
++    fn paint(
++        &self,
++        menu: gpui::EntityId,
++        rows: &[MenuHighlightRow],
++        selected: Option<usize>,
++        bounds: Bounds<Pixels>,
++        fill: gpui::Hsla,
++        radius: Pixels,
++        window: &mut Window,
++        cx: &mut App,
++    );
++}
++
++/// The app's [`MenuHighlight`], when it has one.
++#[derive(Clone)]
++pub struct GlobalMenuHighlight(pub Rc<dyn MenuHighlight>);
++
++impl gpui::Global for GlobalMenuHighlight {}
++
+ pub struct PopupMenu {
+     pub(crate) focus_handle: FocusHandle,
+     pub(crate) menu_items: Vec<PopupMenuItem>,
+@@ -318,6 +358,8 @@ pub struct PopupMenu {
+     scroll_to_checked_frames: u8,
+     external_link_icon: bool,
+     scroll_handle: ScrollHandle,
++    /// The rows a host highlight draws over, recorded as they are laid out.
++    host_rows: Rc<std::cell::RefCell<Vec<MenuHighlightRow>>>,
+     // This will update on render
+     submenu_anchor: (Anchor, Pixels),
+ 
+@@ -361,6 +403,7 @@ impl PopupMenu {
+             scrollable: false,
+             scroll_to_checked_frames: SCROLL_TO_CHECKED_FRAMES,
+             scroll_handle: ScrollHandle::default(),
++            host_rows: Rc::default(),
+             external_link_icon: true,
+             size: Size::default(),
+             submenu_anchor: (Anchor::TopLeft, Pixels::ZERO),
+@@ -1334,7 +1377,9 @@ impl PopupMenu {
+             _ => (rems(1.625), options.radius),
+         };
+ 
++        let host_fill = cx.has_global::<GlobalMenuHighlight>();
+         let this = MenuItemElement::new(ix)
++            .host_fill(host_fill)
+             .relative()
+             .text_sm()
+             .py_0()
+@@ -1594,6 +1639,35 @@ impl Render for PopupMenu {
+             radius: cx.theme().radius.min(px(8.)),
+         };
+ 
++        // A host highlight draws the fill from the rows' bounds, recorded as
++        // they are laid out this frame.
++        let host = cx.try_global::<GlobalMenuHighlight>().cloned();
++        self.host_rows.borrow_mut().clear();
++        let host_layer = host.map(|host| {
++            let rows = self.host_rows.clone();
++            let menu = cx.entity_id();
++            let selected = self.selected_index;
++            let fill: gpui::Hsla = cx.theme().tokens.accent.into();
++            let radius = match self.size {
++                Size::Small => options.radius.half(),
++                _ => options.radius,
++            };
++            canvas(
++                |_, _, _| {},
++                move |bounds, _, window, cx| {
++                    let rows = rows.borrow().clone();
++                    host.0
++                        .paint(menu, &rows, selected, bounds, fill, radius, window, cx)
++                },
++            )
++            .absolute()
++            .top_0()
++            .left_0()
++            .size_full()
++        });
++        let host_layer_on = host_layer.is_some();
++        let mut section = 0;
++
+         v_flex()
+             .id("popup-menu")
+             .test_support()
+@@ -1611,6 +1685,7 @@ impl Render for PopupMenu {
+             .text_color(cx.theme().popover_foreground)
+             .relative()
+             .occlude()
++            .children(host_layer)
+             .child(
+                 v_flex()
+                     .id("items")
+@@ -1633,7 +1708,26 @@ impl Render for PopupMenu {
+                             .enumerate()
+                             // Ignore last separator
+                             .filter(|(ix, item)| !(*ix + 1 == items_count && item.is_separator()))
+-                            .map(|(ix, item)| self.render_item(ix, item, options, window, cx)),
++                            .map(|(ix, item)| {
++                                let element = self.render_item(ix, item, options, window, cx);
++                                if !host_layer_on {
++                                    return element;
++                                }
++                                if item.is_separator() || matches!(item, PopupMenuItem::Label(_)) {
++                                    section += 1;
++                                }
++                                let rows = self.host_rows.clone();
++                                let enabled = item.is_clickable();
++                                let row_section = section;
++                                element.on_prepaint(move |bounds, _, _| {
++                                    rows.borrow_mut().push(MenuHighlightRow {
++                                        index: ix,
++                                        bounds,
++                                        section: row_section,
++                                        enabled,
++                                    })
++                                })
++                            }),
+                     )
+                     .on_prepaint(move |bounds, _, cx| {
+                         view.update(cx, |menu, cx| {
+diff --git a/gpui-component/src/tree.rs b/gpui-component/src/tree.rs
+index f5263dbf..20860bc8 100644
+--- a/gpui-component/src/tree.rs
++++ b/gpui-component/src/tree.rs
+@@ -36,6 +36,7 @@ pub struct Tree {
+     render_item: Rc<RenderItem>,
+     context_menu_builder: Option<Rc<ContextMenuBuilder>>,
+     scroll_bounce: Option<bool>,
++    scrollbar: bool,
+ }
+ 
+ impl Tree {
+@@ -50,6 +51,7 @@ impl Tree {
+             render_item: Rc::new(render_item),
+             context_menu_builder: None,
+             scroll_bounce: None,
++            scrollbar: true,
+         }
+     }
+ 
+@@ -69,6 +71,13 @@ impl Tree {
+         self.scroll_bounce = Some(enabled);
+         self
+     }
++
++    /// Draw the tree's own scrollbar (the default); off for a host that
++    /// draws its own over the tree's `TreeState::scroll_handle`.
++    pub fn scrollbar(mut self, scrollbar: bool) -> Self {
++        self.scrollbar = scrollbar;
++        self
++    }
+ }
+ 
+ impl Styled for Tree {
+@@ -129,7 +138,9 @@ impl RenderOnce for Tree {
+                     }),
+             )
+             .refine_style(&self.style)
+-            .vertical_scrollbar(&scroll_handle)
++            .when(self.scrollbar, |this| {
++                this.vertical_scrollbar(&scroll_handle)
++            })
+     }
+ }
+ 

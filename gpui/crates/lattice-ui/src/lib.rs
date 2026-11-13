@@ -21,13 +21,19 @@ pub mod components;
 pub mod dock;
 pub mod editor_theme;
 pub mod elevation;
+pub mod fluid_hover;
 pub mod fonts;
 pub mod icons;
 pub mod interaction;
 pub mod kit;
+pub mod measure;
 pub mod motion;
 pub mod palette;
 pub mod parity;
+pub mod reveal;
+pub mod scrollbar;
+pub mod shape;
+pub mod sliding;
 pub mod stroke;
 pub mod theme;
 pub mod token_types;
@@ -36,6 +42,7 @@ pub mod tokens;
 #[cfg(test)]
 mod tokens_codegen;
 pub mod typography;
+pub mod weight;
 
 pub use editor_theme::CodeTheme;
 pub use elevation::Elevation;

@@ -36,6 +36,7 @@ pub struct Tree {
     render_item: Rc<RenderItem>,
     context_menu_builder: Option<Rc<ContextMenuBuilder>>,
     scroll_bounce: Option<bool>,
+    scrollbar: bool,
 }
 
 impl Tree {
@@ -50,6 +51,7 @@ impl Tree {
             render_item: Rc::new(render_item),
             context_menu_builder: None,
             scroll_bounce: None,
+            scrollbar: true,
         }
     }
 
@@ -67,6 +69,13 @@ impl Tree {
     /// macOS, off elsewhere; reduced motion disables displacement.
     pub fn scroll_bounce(mut self, enabled: bool) -> Self {
         self.scroll_bounce = Some(enabled);
+        self
+    }
+
+    /// Draw the tree's own scrollbar (the default); off for a host that
+    /// draws its own over the tree's `TreeState::scroll_handle`.
+    pub fn scrollbar(mut self, scrollbar: bool) -> Self {
+        self.scrollbar = scrollbar;
         self
     }
 }
@@ -129,7 +138,9 @@ impl RenderOnce for Tree {
                     }),
             )
             .refine_style(&self.style)
-            .vertical_scrollbar(&scroll_handle)
+            .when(self.scrollbar, |this| {
+                this.vertical_scrollbar(&scroll_handle)
+            })
     }
 }
 

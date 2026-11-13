@@ -9,7 +9,7 @@ use gpui::{
     Action, Anchor, AnyElement, App, AppContext, Bounds, Context, DismissEvent, Edges, Entity,
     EventEmitter, FocusHandle, Focusable, InteractiveElement, IntoElement, KeyBinding,
     ParentElement, Pixels, Rems, Render, Role, ScrollHandle, SharedString,
-    StatefulInteractiveElement, Styled, WeakEntity, Window, anchored, deferred, div,
+    StatefulInteractiveElement, Styled, WeakEntity, Window, anchored, canvas, deferred, div,
     prelude::FluentBuilder, px, rems,
 };
 use gpui::{ClickEvent, Half, MouseDownEvent, OwnedMenuItem, Point, Subscription};
@@ -285,6 +285,46 @@ impl PopupMenuItem {
     }
 }
 
+/// One row of a menu, as a host highlight sees it.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct MenuHighlightRow {
+    /// The item's index in the menu.
+    pub index: usize,
+    /// Where the row was laid out, in window coordinates.
+    pub bounds: Bounds<Pixels>,
+    /// Rows between two separators or labels share a section.
+    pub section: usize,
+    /// Whether the row can be highlighted.
+    pub enabled: bool,
+}
+
+/// Draws a menu's hover and selection fill on the host's terms, behind the
+/// rows, in place of each row's own fill (Lattice's fluid hover glides one
+/// fill between rows). Install one with [`GlobalMenuHighlight`].
+pub trait MenuHighlight: 'static {
+    /// Paint the fill of `menu` for this frame: `rows` as laid out, the
+    /// highlighted item `selected`, clipped to `bounds`, in `fill` with the
+    /// rows' `radius`.
+    #[allow(clippy::too_many_arguments)]
+    fn paint(
+        &self,
+        menu: gpui::EntityId,
+        rows: &[MenuHighlightRow],
+        selected: Option<usize>,
+        bounds: Bounds<Pixels>,
+        fill: gpui::Hsla,
+        radius: Pixels,
+        window: &mut Window,
+        cx: &mut App,
+    );
+}
+
+/// The app's [`MenuHighlight`], when it has one.
+#[derive(Clone)]
+pub struct GlobalMenuHighlight(pub Rc<dyn MenuHighlight>);
+
+impl gpui::Global for GlobalMenuHighlight {}
+
 pub struct PopupMenu {
     pub(crate) focus_handle: FocusHandle,
     pub(crate) menu_items: Vec<PopupMenuItem>,
@@ -318,6 +358,8 @@ pub struct PopupMenu {
     scroll_to_checked_frames: u8,
     external_link_icon: bool,
     scroll_handle: ScrollHandle,
+    /// The rows a host highlight draws over, recorded as they are laid out.
+    host_rows: Rc<std::cell::RefCell<Vec<MenuHighlightRow>>>,
     // This will update on render
     submenu_anchor: (Anchor, Pixels),
 
@@ -361,6 +403,7 @@ impl PopupMenu {
             scrollable: false,
             scroll_to_checked_frames: SCROLL_TO_CHECKED_FRAMES,
             scroll_handle: ScrollHandle::default(),
+            host_rows: Rc::default(),
             external_link_icon: true,
             size: Size::default(),
             submenu_anchor: (Anchor::TopLeft, Pixels::ZERO),
@@ -1334,7 +1377,9 @@ impl PopupMenu {
             _ => (rems(1.625), options.radius),
         };
 
+        let host_fill = cx.has_global::<GlobalMenuHighlight>();
         let this = MenuItemElement::new(ix)
+            .host_fill(host_fill)
             .relative()
             .text_sm()
             .py_0()
@@ -1594,6 +1639,35 @@ impl Render for PopupMenu {
             radius: cx.theme().radius.min(px(8.)),
         };
 
+        // A host highlight draws the fill from the rows' bounds, recorded as
+        // they are laid out this frame.
+        let host = cx.try_global::<GlobalMenuHighlight>().cloned();
+        self.host_rows.borrow_mut().clear();
+        let host_layer = host.map(|host| {
+            let rows = self.host_rows.clone();
+            let menu = cx.entity_id();
+            let selected = self.selected_index;
+            let fill: gpui::Hsla = cx.theme().tokens.accent.into();
+            let radius = match self.size {
+                Size::Small => options.radius.half(),
+                _ => options.radius,
+            };
+            canvas(
+                |_, _, _| {},
+                move |bounds, _, window, cx| {
+                    let rows = rows.borrow().clone();
+                    host.0
+                        .paint(menu, &rows, selected, bounds, fill, radius, window, cx)
+                },
+            )
+            .absolute()
+            .top_0()
+            .left_0()
+            .size_full()
+        });
+        let host_layer_on = host_layer.is_some();
+        let mut section = 0;
+
         v_flex()
             .id("popup-menu")
             .test_support()
@@ -1611,6 +1685,7 @@ impl Render for PopupMenu {
             .text_color(cx.theme().popover_foreground)
             .relative()
             .occlude()
+            .children(host_layer)
             .child(
                 v_flex()
                     .id("items")
@@ -1633,7 +1708,26 @@ impl Render for PopupMenu {
                             .enumerate()
                             // Ignore last separator
                             .filter(|(ix, item)| !(*ix + 1 == items_count && item.is_separator()))
-                            .map(|(ix, item)| self.render_item(ix, item, options, window, cx)),
+                            .map(|(ix, item)| {
+                                let element = self.render_item(ix, item, options, window, cx);
+                                if !host_layer_on {
+                                    return element;
+                                }
+                                if item.is_separator() || matches!(item, PopupMenuItem::Label(_)) {
+                                    section += 1;
+                                }
+                                let rows = self.host_rows.clone();
+                                let enabled = item.is_clickable();
+                                let row_section = section;
+                                element.on_prepaint(move |bounds, _, _| {
+                                    rows.borrow_mut().push(MenuHighlightRow {
+                                        index: ix,
+                                        bounds,
+                                        section: row_section,
+                                        enabled,
+                                    })
+                                })
+                            }),
                     )
                     .on_prepaint(move |bounds, _, cx| {
                         view.update(cx, |menu, cx| {

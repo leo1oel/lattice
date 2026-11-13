@@ -12,6 +12,7 @@ use crate::{editor_panel::EditorPanel, native};
 
 mod build_flow;
 mod editor_adapter;
+mod fluid;
 mod pdf;
 mod saves;
 mod status_bar;
@@ -33,7 +34,8 @@ impl Run {
     /// and back (SyncTeX), and from a .bib entry to the PDF, autosave, take
     /// an outside edit into a clean buffer and merge one into an edited
     /// buffer, break the document by typing, save with the shortcut, build,
-    /// follow the error to its line, search, Vim, repair, build; hover a
+    /// follow the error to its line, search, Vim, repair, build; glide the
+    /// Project tree's hover between rows (`fluid.rs`); hover a
     /// citation and a reference, draw remote carets and a block widget, show
     /// TexLab's diagnostics and complete a citation and a command; then create,
     /// rename, move and delete files in the tree, check the PDF viewer on a
@@ -90,6 +92,7 @@ impl Run {
             json!({ "rows": rows }),
         );
         self.sequence_and_words(cx, &mut steps).await?;
+        self.fluid_hover(cx, &mut steps).await?;
 
         let editor = self.open(cx, &chapter, Some(2))?;
         self.pause(cx, Duration::from_millis(300)).await;
