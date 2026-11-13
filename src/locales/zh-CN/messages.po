@@ -7397,6 +7397,11 @@ msgstr "隐藏{name}"
 msgid "Hide automatic versions"
 msgstr "收起自动版本"
 
+#: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
+msgid "Hide auxiliary files"
+msgstr "隐藏临时文件"
+
 #: src/pdf/pdf-comment-column.tsx
 msgid "Hide comments"
 msgstr "隐藏评论"
@@ -8353,6 +8358,11 @@ msgstr "保留"
 msgctxt "decimal places left blank"
 msgid "Keep"
 msgstr "保留原值"
+
+#: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
+msgid "Keep .aux, .log, SyncTeX and other build files in the project’s hidden .research/build folder. The PDF stays beside the document."
+msgstr "将 .aux、.log、SyncTeX 等临时文件放在项目隐藏的 .research/build 文件夹中，PDF 仍保留在文档旁边。"
 
 #: src/project/import-conflict-dialog.tsx
 msgid "Keep both"

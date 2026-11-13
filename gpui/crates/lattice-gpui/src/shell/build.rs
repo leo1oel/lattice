@@ -260,6 +260,8 @@ impl Shell {
             });
         }));
         let build_panel = self.build_panel.clone();
+        // Read now: a switch flipped while the build waits applies to the next one.
+        let aux_files = crate::settings::aux_files(cx);
         self.pdf
             .update(cx, |panel, cx| panel.set_building(true, cx));
         self.build_task = Some(cx.spawn_in(window, async move |this, cx| {
@@ -304,6 +306,7 @@ impl Shell {
                         &active,
                         open_document.as_deref(),
                         &steps,
+                        aux_files,
                     );
                     result.map(|result| {
                         let pdf = root.join(&result.root_document).with_extension("pdf");

@@ -5,7 +5,10 @@
 //! recorder file (`<root>.fls`): the root document, what it inputs, its
 //! figures and classes, and the `.bbl` (arXiv does not run BibTeX). Anything
 //! TeX also wrote (`.aux`, `.toc`, the PDF) is build output and stays behind;
-//! `.research/` and `.git/` never go, whatever the build read. Then the
+//! `.research/` and `.git/` never go, whatever the build read. A build that
+//! kept its files in the hidden build folder (`aux_files`) read its `.bbl`
+//! there: it ships beside the document, where a build without the folder,
+//! arXiv's among them, reads it. Then the
 //! writer's options: `%` comments out, `\input` files merged into the root.
 //!
 //! The checks run on that pack before anything is written where the writer
@@ -19,6 +22,7 @@ mod source;
 
 pub(super) use source::code_lines;
 
+use super::aux_files::{self, HIDDEN_FOLDER};
 use super::build::{abort, run_tracked, ActiveBuild};
 use super::build_log::{pages_written, parse_diagnostics, trim_log};
 use super::{default_root_document, latexmk, BuildSteps};
@@ -329,14 +333,15 @@ pub(super) fn stage_with(
     let manifest = project::read_manifest(&root)?;
     let document = default_root_document(&manifest)?;
     let root_path = project::safe_path(&root, &document.path)?;
-    let Ok(recorder) = fs::read_to_string(root_path.with_extension("fls")) else {
+    let recorder = aux_files::file(&root, &document.path, "fls");
+    let Ok(recorder) = fs::read_to_string(recorder) else {
         return Ok(None);
     };
     let Recorded { read, missing, miscased, written } = recorded_inputs(&root, &recorder);
     let mut files = BTreeMap::new();
-    for path in &read {
-        let bytes =
-            fs::read(root.join(path)).map_err(|error| format!("Could not read {path}: {error}"))?;
+    for (path, on_disk) in &read {
+        let bytes = fs::read(root.join(on_disk))
+            .map_err(|error| format!("Could not read {path}: {error}"))?;
         files.insert(path.clone(), bytes);
     }
 
@@ -398,14 +403,23 @@ pub(super) fn stage_with(
 
 /// What the recorder names inside the project, by project-relative path.
 struct Recorded {
-    /// Files TeX read and did not write, still there.
-    read: Vec<String>,
+    /// Files TeX read and did not write, still there: by their path in the
+    /// pack, and where they are (`shipped_path`).
+    read: Vec<(String, String)>,
     /// Files TeX read that are gone now.
     missing: Vec<String>,
     /// Files TeX read, named in another case than the disk's.
     miscased: Vec<Miscased>,
-    /// Files TeX wrote.
+    /// Files TeX wrote, where it wrote them.
     written: BTreeSet<String>,
+}
+
+/// Where a project file TeX read goes in the pack: a file in the hidden build
+/// folder goes where a build without it leaves the same file, its path in
+/// the project mirrored there (`.research/build/paper/main.bbl` is
+/// `paper/main.bbl`). Everything else keeps its path.
+fn shipped_path(file: &str) -> &str {
+    file.strip_prefix(HIDDEN_FOLDER).and_then(|rest| rest.strip_prefix('/')).unwrap_or(file)
 }
 
 /// The project files TeX read, those of them now gone, those it found under
@@ -438,16 +452,19 @@ fn recorded_inputs(root: &Path, recorder: &str) -> Recorded {
             outputs.extend(project_relative(root, &cwd, path));
         }
     }
-    let (read, missing): (Vec<String>, Vec<String>) = inputs
+    let shipped: BTreeSet<&str> = outputs.iter().map(|path| shipped_path(path)).collect();
+    let (read, missing): (Vec<(String, String)>, Vec<(String, String)>) = inputs
         .into_iter()
-        .filter(|path| !outputs.contains(path) && !private(path))
-        .partition(|path| root.join(path).is_file());
+        .map(|path| (shipped_path(&path).to_string(), path))
+        .filter(|(shipped_as, _)| !shipped.contains(shipped_as.as_str()) && !private(shipped_as))
+        .partition(|(_, path)| root.join(path).is_file());
     let miscased = (read.iter())
-        .filter_map(|file| {
+        .filter_map(|(file, _)| {
             let written = spellings.remove(file)?;
             Some(Miscased { written, file: file.clone() })
         })
         .collect();
+    let missing = missing.into_iter().map(|(file, _)| file).collect();
     Recorded { read, missing, miscased, written: outputs }
 }
 
@@ -455,8 +472,10 @@ fn recorded_inputs(root: &Path, recorder: &str) -> Recorded {
 /// recorder; none before the first one.
 pub(super) fn written_by_build(root: &Path, document: &str) -> Vec<String> {
     let Ok(root) = root.canonicalize() else { return Vec::new() };
-    let Ok(document) = project::safe_path(&root, document) else { return Vec::new() };
-    written_by_recorder(&root, &document.with_extension("fls"))
+    if project::safe_path(&root, document).is_err() {
+        return Vec::new();
+    }
+    written_by_recorder(&root, &aux_files::file(&root, document, "fls"))
 }
 
 /// The project files a compile wrote, by its recorder (`.fls`) at `recorder`.

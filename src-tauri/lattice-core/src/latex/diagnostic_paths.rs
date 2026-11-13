@@ -6,6 +6,10 @@
 //! `../shared/macros.tex`. Matched against the project as they stood, the
 //! first opened a root `intro.tex` instead, or any file whose name merely ends
 //! in `intro.tex`, and the second opened nothing.
+//!
+//! With the hidden build folder (`aux_files`), TeX reads what it wrote there
+//! (the `.bbl`, a chapter's `.aux`) by its full path, which is in the project
+//! too.
 
 use crate::models::Diagnostic;
 use crate::project;
@@ -16,9 +20,11 @@ use std::path::{Component, Path};
 /// `.bib` entry it was made from, the file the writer can fix.
 pub(super) fn locate_in_project(root: &Path, document: &str, diagnostics: &mut [Diagnostic]) {
     let folder = Path::new(document).parent().unwrap_or(Path::new(""));
+    let canonical = root.canonicalize().ok();
     for diagnostic in diagnostics {
-        let Some(file) = diagnostic.file.as_deref().and_then(|file| project_path(folder, file))
-        else {
+        let Some(file) = diagnostic.file.as_deref().and_then(|file| {
+            project_path(folder, file).or_else(|| inside(canonical.as_deref()?, file))
+        }) else {
             continue;
         };
         let bib = (file.ends_with(".bbl"))
@@ -33,6 +39,20 @@ pub(super) fn locate_in_project(root: &Path, document: &str, diagnostics: &mut [
             None => diagnostic.file = Some(file),
         }
     }
+}
+
+/// `file`, a full path, as a path from the canonical project `root` when it
+/// is inside it.
+fn inside(root: &Path, file: &str) -> Option<String> {
+    let relative = Path::new(file).strip_prefix(root).ok()?;
+    let parts: Option<Vec<&str>> = relative
+        .components()
+        .map(|part| match part {
+            Component::Normal(name) => name.to_str(),
+            _ => None,
+        })
+        .collect();
+    parts.filter(|parts| !parts.is_empty()).map(|parts| parts.join("/"))
 }
 
 /// `file`, named from `folder`, as a path from the project root; `None` for a
@@ -107,6 +127,29 @@ mod tests {
         assert_eq!(
             located(root, "paper/main.tex", "main.bbl", 1),
             (Some("paper/main.bbl".into()), Some(1))
+        );
+    }
+
+    /// TeX names the `.bbl` it reads from the hidden build folder by its full path.
+    #[test]
+    fn an_error_in_the_hidden_folders_bbl_points_at_its_bib_entry() {
+        let fixture = crate::project::test_support::Fixture::project("diagnostic-hidden-bbl");
+        let root = &fixture;
+        root.write("paper/refs.bib", "@article{cats,\n  title={Cats & Dogs},\n  year={2020}\n}\n");
+        root.write(
+            ".research/build/paper/main.bbl",
+            "\\begin{thebibliography}{1}\n\n\\bibitem{cats}\nA.~Author.\n\\newblock Cats & dogs.\n\n\\end{thebibliography}\n",
+        );
+        root.write("paper/main.tex", "\\bibliography{refs}\n");
+        let root = &fixture.root;
+        let bbl = root.canonicalize().unwrap().join(".research/build/paper/main.bbl");
+        assert_eq!(
+            located(root, "paper/main.tex", bbl.to_str().unwrap(), 5),
+            (Some("paper/refs.bib".into()), Some(1))
+        );
+        assert_eq!(
+            located(root, "paper/main.tex", bbl.to_str().unwrap(), 1),
+            (Some(".research/build/paper/main.bbl".into()), Some(1))
         );
     }
 }

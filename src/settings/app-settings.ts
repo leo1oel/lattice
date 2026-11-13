@@ -36,7 +36,13 @@ export type RecentProject = {
   openedAt?: number;
 };
 type AutoBuildMode = "manual" | "automatic";
-export type BuildPreferences = { autoBuildMode: AutoBuildMode };
+/**
+ * How builds run, in every project. `hiddenBuildFiles`: builds keep their
+ * intermediate files (`.aux`, `.log`, the SyncTeX map, …) in the project's
+ * hidden `.research/build/` folder instead of beside each document; the PDF
+ * stays beside it (src-tauri/lattice-core/src/latex/aux_files.rs).
+ */
+export type BuildPreferences = { autoBuildMode: AutoBuildMode; hiddenBuildFiles: boolean };
 
 export const RECENT_PROJECTS_KEY = "lattice.recent-projects.v1";
 export const THEME_PREFERENCE_KEY = "lattice.theme-preference.v1";
@@ -223,7 +229,10 @@ export function loadThemePreference(): ThemePreference {
 
 export function loadBuildPreferences(): BuildPreferences {
   const stored = safely(() => JSON.parse(localStorage.getItem(BUILD_PREFERENCES_KEY) ?? "null"), null);
-  return { autoBuildMode: oneOf<AutoBuildMode>(stored?.autoBuildMode, ["manual"], "automatic") };
+  return {
+    autoBuildMode: oneOf<AutoBuildMode>(stored?.autoBuildMode, ["manual"], "automatic"),
+    hiddenBuildFiles: stored?.hiddenBuildFiles === true,
+  };
 }
 
 export const loadSplitRatio = () => readNumber(SPLIT_RATIO_KEY, 0.46, 0.2, 0.8);

@@ -13,14 +13,14 @@
 //!
 //! So a build Lattice starts on its own (autosave, the watcher) takes
 //! latexmk's word: it restates the failure from the TeX log that build left
-//! beside the document, and writes nothing. A build the writer asks for still
+//! (beside the document, or in the hidden build folder), and writes nothing. A build the writer asks for still
 //! cleans and typesets again, which is what a package installed in Terminal
 //! needs.
 
+use super::super::aux_files;
 use super::super::build_log::{log_conference_template, pages_written, trim_log};
 use super::diagnose;
 use crate::latex::BuildResult;
-use crate::project;
 use std::fs;
 use std::path::Path;
 
@@ -29,11 +29,10 @@ use std::path::Path;
 /// latexmk itself failed): its advice to rebuild clean then stands.
 pub(super) fn restate(root: &Path, skipped: BuildResult) -> BuildResult {
     let document = skipped.root_document.clone();
-    let Ok(root_document) = project::safe_path(root, &document) else { return skipped };
-    let Ok(tex_log) = fs::read_to_string(root_document.with_extension("log")) else {
+    let Ok(tex_log) = fs::read_to_string(aux_files::file(root, &document, "log")) else {
         return skipped;
     };
-    let (diagnostics, _) = diagnose(root, &document, &root_document, &tex_log, None, None);
+    let (diagnostics, _) = diagnose(root, &document, &tex_log, None, None);
     if !diagnostics.iter().any(|diagnostic| diagnostic.level == "error") {
         return BuildResult { unchanged: true, ..skipped };
     }
@@ -105,6 +104,7 @@ mod tests {
                     &ActiveBuild::default(),
                     None,
                     &BuildSteps::silent(),
+                    AuxFiles::Beside,
                 )
                 .unwrap()
             };

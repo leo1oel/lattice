@@ -1,5 +1,6 @@
 //! One latexmk build per project at a time, abortable from the UI.
 
+use super::aux_files::{self, AuxFiles};
 use super::build_log::{
     advice, is_stale_previous_invocation_log, log_conference_template, pages_written,
     parse_diagnostics, parse_format_diagnostics, skipped_recompile, trim_log,
@@ -7,10 +8,12 @@ use super::build_log::{
 use super::build_stall::{self, Progress, StallLimits};
 use super::build_steps::BuildSteps;
 use super::compile_root::{choose_compile_root, is_one_off_root};
+#[cfg(test)]
+use super::latexmk;
 use super::preamble_format::{self, PreambleFormat, Prepared};
 use super::{
-    arxiv, bib_log, compiled_document, diagnostic_paths, engine_mismatch, latexmk, outdated_lineno,
-    package_order, prewarm, search_paths, shown_pdf, synctex_missing,
+    arxiv, bib_log, compiled_document, diagnostic_paths, engine_mismatch, latexmk_into,
+    outdated_lineno, package_order, prewarm, search_paths, shown_pdf, synctex_missing,
 };
 use crate::commands;
 use crate::latex::BuildResult;
@@ -21,7 +24,7 @@ use std::fs;
 use std::io::{BufRead, BufReader, Read};
 use std::path::Path;
 use std::process::{Command, Output, Stdio};
-use std::time::Instant;
+use std::time::{Instant, SystemTime};
 
 mod active;
 mod unchanged;
@@ -106,11 +109,24 @@ fn read_lines(pipe: Option<impl Read>, steps: &BuildSteps, progress: &Progress) 
     bytes
 }
 
+/// latexmk's own clean (`-c`) of the compiled document's intermediate files,
+/// beside it and in the hidden build folder: the PDF and its SyncTeX map stay.
 pub fn clean(root: &Path) -> Result<String, String> {
     let manifest = project::read_manifest(root)?;
     let document = compiled_document(root, &manifest)?;
+    let mut logs = vec![clean_layout(root, &document, AuxFiles::Beside)?];
+    if aux_files::has_build(root, &document, AuxFiles::Hidden) {
+        logs.push(clean_layout(root, &document, AuxFiles::Hidden)?);
+    }
+    Ok(logs.join("\n"))
+}
+
+/// `latexmk -c` of `document` in the folder `layout` puts its files in.
+/// latexmk reads that folder's `.fdb_latexmk` for what the build generated,
+/// such as each `\include`d chapter's `.aux`.
+fn clean_layout(root: &Path, document: &str, layout: AuxFiles) -> Result<String, String> {
     let output =
-        latexmk(root).arg("-c").arg(&document).output().map_err(|error| {
+        latexmk_into(root, layout, document).arg("-c").arg(document).output().map_err(|error| {
             format!("Could not start latexmk. Install MacTeX or TeX Live. {error}")
         })?;
     let log = trim_log(&commands::combined_output(&output));
@@ -118,6 +134,38 @@ pub fn clean(root: &Path) -> Result<String, String> {
         return Err(format!("latexmk could not clean the project.\n{log}"));
     }
     Ok(log)
+}
+
+/// Before a build of `document` in `layout`: remove what a build in the
+/// other layout left, so its `.log` or SyncTeX map is never read as this
+/// build's (`aux_files`). latexmk's state goes with it, so this build
+/// typesets in full, once.
+///
+/// latexmk's clean leaves three kinds of file behind, removed here: the
+/// SyncTeX map (a final output to latexmk, but it maps the other layout's
+/// build), each `\include`d chapter's `.aux`, which the recorder names, and
+/// the bibliography BibTeX or biber made, which its `.blg` beside it shows. A
+/// `.bbl` with no `.blg` is the writer's own, as in a paper downloaded from
+/// arXiv, and stays.
+fn retire_other_layout(root: &Path, document: &str, layout: AuxFiles) {
+    let other = aux_files::other(layout);
+    if !aux_files::has_build(root, document, other) {
+        return;
+    }
+    wide_event::record("aux_files_moved", true);
+    let recorder = aux_files::in_layout(root, document, "fls", other);
+    let written = arxiv::written_by_recorder(root, &recorder);
+    let bibliography = aux_files::in_layout(root, document, "blg", other).is_file();
+    let _ = clean_layout(root, document, other);
+    for chapter in written.iter().filter(|path| path.ends_with(".aux")) {
+        let _ = fs::remove_file(root.join(chapter));
+    }
+    if bibliography {
+        for extension in ["bbl", "blg"] {
+            let _ = fs::remove_file(aux_files::in_layout(root, document, extension, other));
+        }
+    }
+    aux_files::remove_synctex_in(root, document, other);
 }
 
 /// What a build error (not a document error: those are a finished build's
@@ -152,19 +200,22 @@ fn missing_root(document: &str) -> String {
 
 /// Build the project. `unattended`: Lattice started this build on its own
 /// (autosave, the project watcher), so a failing document nothing changed in
-/// is not typeset again (`unchanged`).
+/// is not typeset again (`unchanged`). `layout`: where the intermediate
+/// files go, the global setting (`aux_files`).
 pub fn build(
     root: &Path, force: bool, unattended: bool, active: &ActiveBuild, open_document: Option<&str>,
-    steps: &BuildSteps,
+    steps: &BuildSteps, layout: AuxFiles,
 ) -> Result<BuildResult, String> {
     let session = BuildSession::open(active);
-    let mut result = build_passes(root, force, unattended, active, open_document, steps)?;
+    let mut result = build_passes(root, force, unattended, active, open_document, steps, layout)?;
     drop(session);
     result.one_off = is_one_off_root(root);
     result.steps = steps.take();
     result.synctex = result.has_pdf.then(|| !synctex_missing(root));
+    result.aux_folder = aux_files::relative_folder(&result.root_document, layout);
     // A restated failure wrote nothing, and its PDF is already kept.
-    if !result.unchanged && shown_pdf::settle(root, &result.root_document, result.has_pdf) {
+    let (document, has_pdf) = (&result.root_document, result.has_pdf);
+    if !result.unchanged && shown_pdf::settle(root, document, has_pdf, layout) {
         wide_event::record("shown_pdf_restored", true);
     }
     result.outputs = arxiv::written_by_build(root, &result.root_document);
@@ -195,9 +246,10 @@ fn record_result(result: &BuildResult) {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_passes(
     root: &Path, force: bool, unattended: bool, active: &ActiveBuild, open_document: Option<&str>,
-    steps: &BuildSteps,
+    steps: &BuildSteps, layout: AuxFiles,
 ) -> Result<BuildResult, String> {
     wide_event::record("force", force);
     choose_compile_root(root, open_document)?;
@@ -206,10 +258,15 @@ fn build_passes(
     if force {
         preamble_format::discard(root);
     }
-    if let Some(cancelled) = prewarm::prewarm_cold_pdf_build(root, force, active, steps)? {
-        return Ok(cancelled);
+    // The draft passes run pdfLaTeX and BibTeX themselves, beside the
+    // document; the hidden folder is left to latexmk, which knows how to run
+    // BibTeX there.
+    if layout == AuxFiles::Beside {
+        if let Some(cancelled) = prewarm::prewarm_cold_pdf_build(root, force, active, steps)? {
+            return Ok(cancelled);
+        }
     }
-    let mut result = run_latexmk(root, force, active, steps)?;
+    let mut result = run_latexmk(root, force, active, steps, layout)?;
     // latexmk found nothing changed since a build that failed. Unasked, that
     // is the answer (`unchanged`). After fixing missing packages, latexmk often
     // reports "Nothing to do" while still remembering the previous failed
@@ -221,7 +278,7 @@ fn build_passes(
     } else if stale {
         let _ = clean(root);
         wide_event::record("stale_rebuild", true);
-        result = run_latexmk(root, true, active, steps)?;
+        result = run_latexmk(root, true, active, steps, layout)?;
         // At the end: a failed log is read and copied from its top, where
         // this note used to stand in for the error that followed it.
         if !result.log.is_empty() {
@@ -238,7 +295,7 @@ fn build_passes(
         };
         project::update_manifest_settings(root, pdf)?;
         wide_event::record("engine_switched_from", switch.previous.as_str());
-        result = run_latexmk(root, force, active, steps)?;
+        result = run_latexmk(root, force, active, steps, layout)?;
         result.diagnostics.insert(0, switch.note());
     }
     // A PDF built by anything else (the agent's own `latexmk -pdf`, say)
@@ -256,7 +313,7 @@ fn build_passes(
         };
         if let Some(reason) = rebuild {
             wide_event::record(reason, true);
-            result = run_latexmk(root, true, active, steps)?;
+            result = run_latexmk(root, true, active, steps, layout)?;
         }
     }
     Ok(result)
@@ -306,13 +363,14 @@ fn error_mode(manifest: &ProjectManifest) -> &'static str {
 }
 
 fn run_latexmk(
-    root: &Path, force: bool, active: &ActiveBuild, steps: &BuildSteps,
+    root: &Path, force: bool, active: &ActiveBuild, steps: &BuildSteps, layout: AuxFiles,
 ) -> Result<BuildResult, String> {
-    run_latexmk_with(root, force, active, steps, true)
+    run_latexmk_with(root, force, active, steps, layout, true)
 }
 
 fn run_latexmk_with(
-    root: &Path, force: bool, active: &ActiveBuild, steps: &BuildSteps, use_format: bool,
+    root: &Path, force: bool, active: &ActiveBuild, steps: &BuildSteps, layout: AuxFiles,
+    use_format: bool,
 ) -> Result<BuildResult, String> {
     let manifest = project::read_manifest(root)?;
     let document = compiled_document(root, &manifest)?;
@@ -331,7 +389,12 @@ fn run_latexmk_with(
         Prepared::Cancelled(log) => return Ok(cancelled_build(steps.started(), &log, &document)),
     };
 
-    let mut command = latexmk(root);
+    retire_other_layout(root, &document, layout);
+    let pdf_path = root_document.with_extension("pdf");
+    let hidden_log = aux_files::folder(root, &document, AuxFiles::Hidden)
+        .join(Path::new(&document).with_extension("log").file_name().unwrap_or_default());
+    let before = (stamp(&pdf_path), stamp(&hidden_log));
+    let mut command = latexmk_into(root, layout, &document);
     command.args(["-interaction=nonstopmode", "-synctex=1", "-file-line-error"]);
     command.arg(error_mode(&manifest));
     command.args(engine_args(root, &manifest));
@@ -356,6 +419,9 @@ fn run_latexmk_with(
     )?;
     drop(step);
     let log = commands::combined_output(&output);
+    if layout == AuxFiles::Hidden {
+        aux_files::stow_synctex(root, &document);
+    }
     if cancelled {
         if was_stalled(active) {
             return Ok(build_stall::stalled_build(steps.started(), &log, &document));
@@ -373,13 +439,25 @@ fn run_latexmk_with(
     // `build_passes` decides what to do about it.
     if let Some(format) = format.as_ref().filter(|_| !success && !skipped_recompile(&log)) {
         wide_event::record("preamble_format", "retried_plain");
-        let plain = run_latexmk_with(root, true, active, steps, false)?;
+        let plain = run_latexmk_with(root, true, active, steps, layout, false)?;
         if plain.success {
             format.reject();
         }
         return Ok(plain);
     }
-    let pdf_path = root_document.with_extension("pdf");
+    // pdfTeX deletes the PDF it was writing when a run ends in a fatal error,
+    // and `shown_pdf` puts the last one back with its map. In the hidden
+    // folder it deletes only its own copy, so the one beside the document
+    // stays, from an older build, while the map that went with it is gone:
+    // a run that wrote TeX's log but no PDF goes the same way as beside.
+    if layout == AuxFiles::Hidden
+        && stamp(&hidden_log) != before.1
+        && before.0.is_some()
+        && stamp(&pdf_path) == before.0
+    {
+        wide_event::record("hidden_stale_pdf", true);
+        let _ = fs::remove_file(&pdf_path);
+    }
     let pdf_bytes = if pdf_path.exists() {
         Some(fs::read(&pdf_path).map_err(|error| error.to_string())?)
     } else {
@@ -389,8 +467,7 @@ fn run_latexmk_with(
         wide_event::record("pdf_bytes", pdf.len());
     }
     let pdf = pdf_bytes.as_deref().filter(|_| success);
-    let (diagnostics, tex_log) =
-        diagnose(root, &document, &root_document, &log, format.as_ref(), pdf);
+    let (diagnostics, tex_log) = diagnose(root, &document, &log, format.as_ref(), pdf);
     Ok(BuildResult {
         success,
         has_pdf: pdf_bytes.is_some(),
@@ -405,15 +482,22 @@ fn run_latexmk_with(
         synctex: None,
         outputs: Vec::new(),
         unchanged: false,
+        aux_folder: String::new(),
     })
+}
+
+/// When `path` was last written, and its size: what tells whether a run
+/// wrote it. `None` when it is not there.
+fn stamp(path: &Path) -> Option<(SystemTime, u64)> {
+    let metadata = fs::metadata(path).ok()?;
+    Some((metadata.modified().ok()?, metadata.len()))
 }
 
 /// What a typeset of `document` reports, from `log` (TeX's terminal, or its
 /// log file): TeX's messages, the bibliography's, and Lattice's notices.
 /// Also the TeX log file it read them against.
 fn diagnose(
-    root: &Path, document: &str, root_document: &Path, log: &str, format: Option<&PreambleFormat>,
-    pdf: Option<&[u8]>,
+    root: &Path, document: &str, log: &str, format: Option<&PreambleFormat>, pdf: Option<&[u8]>,
 ) -> (Vec<Diagnostic>, String) {
     // A build from the preamble format never loads the preamble, so what
     // loading it reported comes from when the format was made.
@@ -421,12 +505,13 @@ fn diagnose(
         Some(format) => parse_format_diagnostics(&format.output, log),
         None => parse_diagnostics(log),
     };
-    diagnostics.extend(bib_log::bibliography_diagnostics(root_document));
+    diagnostics.extend(bib_log::bibliography_diagnostics(root, document));
     super::cjk_text::mark_ctex_missing(&mut diagnostics, crate::doctor::tex_file_installed);
     diagnostic_paths::locate_in_project(root, document, &mut diagnostics);
     // latexmk's output is TeX's terminal, which leaves out what fontspec
     // notes only in the log file.
-    let mut tex_log = fs::read_to_string(root_document.with_extension("log")).unwrap_or_default();
+    let mut tex_log =
+        fs::read_to_string(aux_files::file(root, document, "log")).unwrap_or_default();
     if let Some(format) = format {
         tex_log.insert_str(0, &format.log);
     }
@@ -497,6 +582,7 @@ pub(super) fn cancelled_build(
         synctex: None,
         outputs: Vec::new(),
         unchanged: false,
+        aux_folder: String::new(),
     }
 }
 
@@ -504,6 +590,8 @@ pub(super) fn cancelled_build(
 mod diagnostics_tests;
 #[cfg(test)]
 mod error_mode_tests;
+#[cfg(test)]
+mod hidden_tests;
 #[cfg(test)]
 mod latexmkrc_tests;
 #[cfg(test)]

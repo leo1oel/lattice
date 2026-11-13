@@ -29,7 +29,7 @@ describe("settings search", () => {
     ["opendyslexic", ["source-font", "prose-font"]],
     ["dyslexia", ["source-font", "editor-font-size", "source-line-height", "prose-font", "prose-font-size", "prose-line-height"]],
     ["desktop", ["translucency"]],
-    [".aux", ["aux-files"]],
+    [".aux", ["aux-files", "hidden-build-files"]],
     ["crossref", ["literature-email"]],
     // A row's earlier label still finds it.
     ["external commands", ["shell-escape"]],
@@ -39,7 +39,7 @@ describe("settings search", () => {
     ["british", ["grammar-dialect"]],
     ["academic writing", ["grammar-style"]],
     // Label matches lead the rows only their terms match.
-    ["build", ["page:editor", "auto-build", "aux-files", "compile-engine", "shell-escape", "stop-on-first-error"]],
+    ["build", ["page:editor", "auto-build", "aux-files", "hidden-build-files", "compile-engine", "shell-escape", "stop-on-first-error"]],
     ["halt-on-error", ["stop-on-first-error"]],
     // Then the rows only a description holds.
     ["reduce transparency", ["translucency"]],

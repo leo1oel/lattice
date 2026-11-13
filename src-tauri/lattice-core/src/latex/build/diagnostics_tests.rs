@@ -16,7 +16,8 @@ fn a_subfolder_documents_errors_point_at_the_files_to_fix() {
             root.write(path, contents);
         }
         let silent = BuildSteps::silent();
-        let result = run_latexmk(&root, false, &ActiveBuild::default(), &silent).unwrap();
+        let result =
+            run_latexmk(&root, false, &ActiveBuild::default(), &silent, AuxFiles::Beside).unwrap();
         assert!(!result.success);
         let errors = result.diagnostics.into_iter().filter(|item| item.level == "error");
         errors

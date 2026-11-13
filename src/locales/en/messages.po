@@ -7397,6 +7397,11 @@ msgstr "Hide {name} panel"
 msgid "Hide automatic versions"
 msgstr "Hide automatic versions"
 
+#: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
+msgid "Hide auxiliary files"
+msgstr "Hide auxiliary files"
+
 #: src/pdf/pdf-comment-column.tsx
 msgid "Hide comments"
 msgstr "Hide comments"
@@ -8353,6 +8358,11 @@ msgstr "Keep"
 msgctxt "decimal places left blank"
 msgid "Keep"
 msgstr "Keep"
+
+#: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
+msgid "Keep .aux, .log, SyncTeX and other build files in the project’s hidden .research/build folder. The PDF stays beside the document."
+msgstr "Keep .aux, .log, SyncTeX and other build files in the project’s hidden .research/build folder. The PDF stays beside the document."
 
 #: src/project/import-conflict-dialog.tsx
 msgid "Keep both"

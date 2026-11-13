@@ -67,6 +67,10 @@ pub fn settings_from_items(items: &BTreeMap<String, String>) -> Settings {
         .filter(|mode| mode == AutoBuildMode::Manual.tag())
         .map(|_| AutoBuildMode::Manual)
         .unwrap_or(defaults.auto_build_mode);
+    // Only an explicit true: the Tauri app's default keeps the files beside.
+    let hidden_build_files = json("lattice.build-preferences.v2")
+        .and_then(|value| value.get("hiddenBuildFiles").and_then(Value::as_bool))
+        .unwrap_or(defaults.hidden_build_files);
     Settings {
         theme_preference: item("lattice.theme-preference.v1")
             .and_then(ThemePreference::from_tag)
@@ -75,6 +79,7 @@ pub fn settings_from_items(items: &BTreeMap<String, String>) -> Settings {
             .map(|value| Appearance::from_value(&value, legacy))
             .unwrap_or_default(),
         auto_build_mode,
+        hidden_build_files,
         author_name: item("lattice.author-name.v1")
             .or_else(|| item("lattice.collab.name"))
             .unwrap_or_default()
@@ -261,7 +266,7 @@ mod tests {
                 ),
                 (
                     "lattice.build-preferences.v2",
-                    r#"{"autoBuildMode":"manual"}"#,
+                    r#"{"autoBuildMode":"manual","hiddenBuildFiles":true}"#,
                 ),
                 ("lattice.author-name.v1", "Ada Lovelace"),
                 ("lattice.settings-tab.v1", "editor"),
@@ -291,6 +296,7 @@ mod tests {
         assert_eq!(settings.appearance.code_theme, CodeTheme::Nord);
         assert_eq!(settings.appearance.editor_font_size, 16.);
         assert_eq!(settings.auto_build_mode, AutoBuildMode::Manual);
+        assert!(settings.hidden_build_files);
         assert_eq!(settings.author_name, "Ada Lovelace");
         assert_eq!(settings.settings_tab, SettingsTab::Editor);
         assert!(

@@ -9,7 +9,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
-pub(super) const RESEARCH_GITIGNORE: &str = "history/\nsessions/\ncheckpoints/\ncache/\nreview/\n";
+pub(super) const RESEARCH_GITIGNORE: &str =
+    "history/\nsessions/\ncheckpoints/\ncache/\nreview/\nbuild/\n";
 
 const NEURIPS_2026_STYLE: &str = include_str!("../../../templates/neurips-2026/neurips_2026.sty");
 
@@ -356,6 +357,7 @@ fn create_skeleton(root: &Path) -> Result<(), String> {
         ".research/checkpoints/",
         ".research/cache/",
         ".research/review/",
+        ".research/build/",
         "/main.pdf",
     ]
     .into_iter()

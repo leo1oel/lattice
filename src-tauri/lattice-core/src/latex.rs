@@ -8,6 +8,8 @@
 //!   and review mode's, with the changes since its base.
 //! - `compile_root` picks the document a build compiles: the manifest
 //!   default, or a standalone figure open in the editor, built once.
+//! - `aux_files` is where a build leaves the intermediate files: beside the
+//!   document, or in a hidden folder (a global setting).
 //! - `build_log` turns latexmk's log into editor diagnostics and a trimmed
 //!   copy for the Log tab; `cjk_text` explains CJK text the build dropped.
 //! - `synctex` maps positions between the compiled PDF and its sources;
@@ -30,6 +32,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 mod arxiv;
+pub(crate) mod aux_files;
 mod bib_log;
 mod build;
 mod build_log;
@@ -58,6 +61,7 @@ pub(crate) use arxiv::written_by_recorder;
 pub use arxiv::{
     check as check_arxiv, export as export_arxiv, ArxivCheck, ArxivChecks, ArxivOptions,
 };
+pub use aux_files::AuxFiles;
 /// Register an already-running process as a project's build, for tests that
 /// need one in flight without launching latexmk. They must still hand over a
 /// process they own — abort signals a whole process group.
@@ -96,8 +100,8 @@ fn default_root_document(manifest: &ProjectManifest) -> Result<&RootDocument, St
 /// latexmk for a root document named relative to `root`, which holds the
 /// project's rc file. `-cd` typesets in the document's own folder, as
 /// TeXShop and LaTeX Workshop do: its `\input`s resolve from there, and its
-/// PDF, SyncTeX map, .aux and .log land beside it, where everything here
-/// reads them. Overleaf typesets in the project folder instead, so a build
+/// PDF lands beside it, with the SyncTeX map, .aux and .log unless the hidden
+/// build folder takes those (`latexmk_into`, `aux_files`). Overleaf typesets in the project folder instead, so a build
 /// also searches that (`search_paths`). From `root` instead, a document in a subfolder left its
 /// fresh PDF at the top while the preview showed whatever stale one sat
 /// beside it. latexmk still reads `root`'s rc file before it changes folder.
@@ -110,8 +114,24 @@ fn default_root_document(manifest: &ProjectManifest) -> Result<&RootDocument, St
 /// file, so `LATEXMK_OVERRIDES` pin those back and leave the rc's other rules
 /// (engines, custom dependencies) in force.
 fn latexmk(root: &Path) -> Command {
+    latexmk_into(root, AuxFiles::Beside, "")
+}
+
+/// `latexmk`, with the intermediate files of `document` (relative to `root`)
+/// written where `layout` puts them (`aux_files`). The hidden folder is named
+/// by its full path: `-cd` changes folder before latexmk reads the option.
+/// latexmk hands TeX `-output-directory` and moves the PDF and SyncTeX map
+/// out beside the document after each pass that wrote them.
+fn latexmk_into(root: &Path, layout: AuxFiles, document: &str) -> Command {
     let mut command = commands::command("latexmk");
     command.current_dir(root).arg("-cd").args(LATEXMK_OVERRIDES);
+    if layout == AuxFiles::Hidden {
+        let folder = aux_files::folder(root, document, layout);
+        #[cfg(windows)]
+        let folder = PathBuf::from(crate::host_paths::tex_path(&folder));
+        // After `-auxdir=.` in the overrides: the last one wins.
+        command.arg(format!("-auxdir={}", folder.display()));
+    }
     unwrapped_log(&mut command);
     command
 }
@@ -136,14 +156,16 @@ fn compiled_pdf_path(root: &Path) -> Result<PathBuf, String> {
 
 /// Whether the compiled PDF is missing the SyncTeX file that pairs with it.
 fn synctex_missing(root: &Path) -> bool {
-    compiled_pdf_path(root).is_ok_and(|pdf| lacks_synctex(&pdf))
+    let compiled =
+        project::read_manifest(root).and_then(|manifest| compiled_document(root, &manifest));
+    compiled.is_ok_and(|document| lacks_synctex(root, &document))
 }
 
-/// Whether `pdf` exists without the SyncTeX file that pairs with it.
-fn lacks_synctex(pdf: &Path) -> bool {
-    pdf.is_file()
-        && !pdf.with_extension("synctex.gz").is_file()
-        && !pdf.with_extension("synctex").is_file()
+/// Whether the PDF of `document` (relative to `root`) exists without the
+/// SyncTeX file that pairs with it, beside it or in the hidden build folder.
+fn lacks_synctex(root: &Path, document: &str) -> bool {
+    root.join(document).with_extension("pdf").is_file()
+        && aux_files::synctex(root, document).is_none()
 }
 
 pub fn read_compiled_pdf(root: &Path) -> Result<Vec<u8>, String> {
@@ -215,6 +237,11 @@ pub struct BuildResult {
     /// these same inputs. Nothing was typeset or written.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub unchanged: bool,
+    /// The project-relative folder holding this build's `.aux` and the other
+    /// intermediate files (`aux_files`): the document's own folder, or its
+    /// mirror under the hidden build folder. Empty for the project root. The
+    /// frontend reads the `.aux` there for the numbers a build gave labels.
+    pub aux_folder: String,
 }
 
 #[derive(Debug, Clone, Serialize)]

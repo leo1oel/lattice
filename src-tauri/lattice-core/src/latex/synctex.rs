@@ -2,6 +2,7 @@
 
 mod records;
 
+use super::aux_files;
 use super::{compiled_document, lacks_synctex};
 use crate::commands;
 use crate::latex::PdfSyncTarget;
@@ -28,9 +29,11 @@ pub fn inverse_search_in(
     if page == 0 || !x.is_finite() || !y.is_finite() || x < 0.0 || y < 0.0 {
         return Err("Invalid PDF source position.".to_string());
     }
-    let (_, pdf) = synced_pdf(root, document, "Build the project before locating PDF source.")?;
+    let (document, pdf) =
+        synced_pdf(root, document, "Build the project before locating PDF source.")?;
     let output = run_synctex(
         root,
+        &document,
         &["edit".into(), "-o".into(), format!("{page}:{x:.3}:{y:.3}:{}", pdf.display())],
         "SyncTeX could not locate this PDF position.",
     )?;
@@ -38,7 +41,7 @@ pub fn inverse_search_in(
     // `records::source_at`); the records around the point still name the line
     // that placed it, or failing that the nearest one that has a line.
     let pdf = root.join(&pdf);
-    let synctex = records::read(&pdf);
+    let synctex = read_map(root, &document);
     let (input, line) = parse_synctex_edit(&output)
         .or_else(|| {
             synctex.as_deref().and_then(|synctex| records::source_at(synctex, page, (x, y)))
@@ -86,11 +89,11 @@ pub fn forward_search_in(
         .replace('\\', "/");
     let (document, pdf) =
         synced_pdf(root, document, "Build the project before locating source in the PDF.")?;
-    let synctex = records::read(&root.join(&pdf));
+    let synctex = read_map(root, &document);
     // A .bib entry reaches the PDF through the generated .bbl, so look that up.
     let (lookup_path, lookup_line, lookup_column) =
         if Path::new(&relative).extension().and_then(|value| value.to_str()) == Some("bib") {
-            let bbl = Path::new(&document).with_extension("bbl");
+            let bbl = PathBuf::from(aux_files::relative_file(root, &document, "bbl"));
             let target = project::bbl_target_for_bib(root, Path::new(&relative), &bbl, line)?
                 .ok_or_else(|| {
                     "This bibliography entry is not included in the compiled PDF.".to_string()
@@ -105,6 +108,7 @@ pub fn forward_search_in(
         .unwrap_or(lookup_path);
     let output = run_synctex(
         root,
+        &document,
         &[
             "view".into(),
             "-i".into(),
@@ -193,9 +197,9 @@ pub struct BodySpan {
 /// partway down a page leave that page in the body; ones that open a page do
 /// not. `None` when nothing from `spans` is on any page.
 pub fn body_pages(root: &Path, spans: &[BodySpan]) -> Result<Option<u32>, String> {
-    let (_, pdf) = synced_pdf(root, None, "Build the project before counting its pages.")?;
+    let (document, pdf) = synced_pdf(root, None, "Build the project before counting its pages.")?;
     let pdf = root.join(&pdf);
-    let Some(synctex) = records::read(&pdf) else { return Ok(None) };
+    let Some(synctex) = read_map(root, &document) else { return Ok(None) };
     let spans: Vec<(PathBuf, u32)> = spans
         .iter()
         .filter_map(|span| {
@@ -226,10 +230,11 @@ pub struct SourceLine {
 /// `None` for one SyncTeX did not record. One read of the SyncTeX data
 /// answers every heading, rather than a `synctex view` run for each.
 pub fn heading_pages(root: &Path, headings: &[SourceLine]) -> Result<Vec<Option<u32>>, String> {
-    let (_, pdf) = synced_pdf(root, None, "Build the project before locating its sections.")?;
+    let (document, pdf) =
+        synced_pdf(root, None, "Build the project before locating its sections.")?;
     let count = headings.len();
     let pdf = root.join(&pdf);
-    let Some(synctex) = records::read(&pdf) else { return Ok(vec![None; count]) };
+    let Some(synctex) = read_map(root, &document) else { return Ok(vec![None; count]) };
     let headings: Vec<(PathBuf, usize, u32)> = headings
         .iter()
         .enumerate()
@@ -278,19 +283,32 @@ fn synced_pdf(
     // Missing SyncTeX data is not "this line is not in the PDF": the whole map
     // is absent, and every line would answer the same. Say so once here rather
     // than sending the reader looking for a paragraph that is on the page.
-    if lacks_synctex(&root.join(&pdf)) {
+    if lacks_synctex(root, &document) {
         return Err(NO_SYNCTEX_DATA.to_string());
     }
     Ok((document, pdf))
 }
 
-/// Run `synctex` and return its stdout, or a readable failure led by `lead`.
-fn run_synctex(root: &Path, args: &[String], lead: &str) -> Result<String, String> {
-    let output = commands::command("synctex")
-        .current_dir(root)
-        .args(args)
-        .output()
-        .map_err(|error| format!("Could not start SyncTeX: {error}"))?;
+/// The SyncTeX data of `document`'s PDF, decompressed, wherever the last
+/// build left it (`aux_files`).
+fn read_map(root: &Path, document: &str) -> Option<String> {
+    aux_files::synctex(root, document).and_then(|map| records::read(&map))
+}
+
+/// Run `synctex` on `document`'s PDF and return its stdout, or a readable
+/// failure led by `lead`. A map in the hidden build folder is not beside the
+/// PDF, where `synctex` looks: `-d` names its folder.
+fn run_synctex(root: &Path, document: &str, args: &[String], lead: &str) -> Result<String, String> {
+    let mut command = commands::command("synctex");
+    command.current_dir(root).args(args);
+    let pdf_folder = root.join(document).parent().map(Path::to_path_buf);
+    if let Some(folder) = aux_files::synctex(root, document)
+        .and_then(|map| map.parent().map(Path::to_path_buf))
+        .filter(|folder| Some(folder) != pdf_folder.as_ref())
+    {
+        command.arg("-d").arg(folder);
+    }
+    let output = command.output().map_err(|error| format!("Could not start SyncTeX: {error}"))?;
     if !output.status.success() {
         return Err(synctex_failure(&String::from_utf8_lossy(&output.stderr), lead));
     }

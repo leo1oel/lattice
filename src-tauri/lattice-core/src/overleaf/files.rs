@@ -451,6 +451,11 @@ mod tests {
             (".research/overleaf.json", true),
             // Review mode's bases and marked build are local state.
             (".research/review/base/main.tex", true),
+            // The hidden build folder (Settings › Hide auxiliary files),
+            // whatever it holds.
+            (".research/build/main.aux", true),
+            (".research/build/paper/chapters/intro.aux", true),
+            (".research/build/main.bbl", true),
             // MCP server config: `env` is where an API key goes.
             (".omp/mcp.json", true),
             (".omp", true),

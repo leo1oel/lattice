@@ -42,7 +42,9 @@ fn asset_only_rc_builds_pdf_and_resolves_references() {
         "\\end{document}\n",
     );
     root.write("main.tex", main);
-    let result = run_latexmk(&root, false, &ActiveBuild::default(), &BuildSteps::silent()).unwrap();
+    let result =
+        run_latexmk(&root, false, &ActiveBuild::default(), &BuildSteps::silent(), AuxFiles::Beside)
+            .unwrap();
     assert!(result.success && result.has_pdf, "{}", result.log);
     let log = fs::read_to_string(root.join("main.log")).unwrap();
     assert!(!log.contains("undefined"), "{log}");
@@ -91,8 +93,16 @@ fn a_latexmkrc_playwright_failure_reaches_the_build_result_as_a_diagnostic() {
         "system('cat playwright-error.txt >&2; exit 1') == 0\n  or die \"Probe SVG conversion failed\\n\";\n",
     )
     .unwrap();
-    let result =
-        build(&root, false, false, &ActiveBuild::default(), None, &BuildSteps::silent()).unwrap();
+    let result = build(
+        &root,
+        false,
+        false,
+        &ActiveBuild::default(),
+        None,
+        &BuildSteps::silent(),
+        AuxFiles::Beside,
+    )
+    .unwrap();
     assert!(!result.success, "{}", result.log);
     assert!(result.log.contains("problem with rc file"), "{}", result.log);
     assert_eq!(result.diagnostics.len(), 1, "{:?}", result.diagnostics);
@@ -105,8 +115,16 @@ fn a_latexmkrc_playwright_failure_reaches_the_build_result_as_a_diagnostic() {
 fn creates_and_builds_a_real_project() {
     let parent = TempDir::new("latex");
     let root = project::create(&parent, "R&D_100%").unwrap();
-    let result =
-        build(&root, false, false, &ActiveBuild::default(), None, &BuildSteps::silent()).unwrap();
+    let result = build(
+        &root,
+        false,
+        false,
+        &ActiveBuild::default(),
+        None,
+        &BuildSteps::silent(),
+        AuxFiles::Beside,
+    )
+    .unwrap();
     assert!(result.success, "{}", result.log);
     assert_eq!(result.root_document, "main.tex");
     assert!(super::super::read_compiled_pdf(&root).unwrap().starts_with(b"%PDF-"));
@@ -125,8 +143,15 @@ fn a_build_from_the_preamble_format_reports_what_the_plain_build_does() {
         let main = fs::read_to_string(template.join("main.tex")).unwrap();
         root.write("main.tex", main.replace("LATTICE_PROJECT_TITLE", "A Paper"));
         let steps = BuildSteps::silent();
-        let result =
-            run_latexmk_with(&root, false, &ActiveBuild::default(), &steps, use_format).unwrap();
+        let result = run_latexmk_with(
+            &root,
+            false,
+            &ActiveBuild::default(),
+            &steps,
+            AuxFiles::Beside,
+            use_format,
+        )
+        .unwrap();
         let log = fs::read_to_string(root.join("main.log")).unwrap();
         (result, steps.take(), log.contains("CUSTOMISED FORMAT"))
     };
@@ -151,7 +176,9 @@ fn a_build_only_the_preamble_format_breaks_is_built_plain_and_the_format_dropped
     let root = TempDir::new("latex");
     project::write_manifest(&root, &project::default_manifest("paper")).unwrap();
     root.write("main.tex", "\\documentclass{article}\n\\begin{document}\nHi\n\\end{document}\n");
-    let build = || run_latexmk(&root, false, &ActiveBuild::default(), &BuildSteps::silent());
+    let build = || {
+        run_latexmk(&root, false, &ActiveBuild::default(), &BuildSteps::silent(), AuxFiles::Beside)
+    };
     assert!(build().unwrap().success);
     let format = preamble_format::format_file(&root).unwrap();
     fs::write(&format, b"not a format").unwrap();

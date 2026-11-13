@@ -391,6 +391,16 @@ pub fn scripted(cx: &App) -> bool {
     cx.global::<AppSettings>().scripted
 }
 
+/// Where builds leave their intermediate files: the "Hide auxiliary files"
+/// switch.
+pub fn aux_files(cx: &App) -> lattice_core::latex::AuxFiles {
+    if get(cx).hidden_build_files {
+        lattice_core::latex::AuxFiles::Hidden
+    } else {
+        lattice_core::latex::AuxFiles::Beside
+    }
+}
+
 /// Whether a save (or an outside edit) builds on its own.
 pub fn builds_automatically(cx: &App) -> bool {
     get(cx).auto_build_mode == lattice_settings::AutoBuildMode::Automatic

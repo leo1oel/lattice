@@ -3,8 +3,12 @@ import { invoke } from "@tauri-apps/api/core";
 
 export type CompiledLabel = { number: string; page: string };
 
-/** The build whose `.aux` is read; a new build is a new object, and reads it again. */
-export type CompiledBuild = { rootDocument: string };
+/**
+ * The build whose `.aux` is read; a new build is a new object, and reads it
+ * again. `auxFolder` is where it wrote its `.aux` files (BuildResult), the
+ * document's own folder when absent.
+ */
+export type CompiledBuild = { rootDocument: string; auxFolder?: string };
 
 /** The brace-balanced group that opens at `from`, and the offset just past it. */
 function group(text: string, from: number): [content: string, end: number] | null {
@@ -45,12 +49,17 @@ const MAX_AUX_INPUTS = 300;
 /** A document can write anything to its `.aux`; a longer one is read as empty, numbering nothing. */
 const MAX_AUX_CHARS = 4_000_000;
 
-/** The text of the last build's `.aux` files: the root document's, beside it, and each chapter's it names. */
+/**
+ * The text of the last build's `.aux` files: the root document's, in the
+ * build's aux folder (beside the document, or the hidden build folder), and
+ * each chapter's it names, from that same folder.
+ */
 export async function compiledAuxTexts(projectRoot: string | undefined, build: CompiledBuild): Promise<string[]> {
-  const directory = build.rootDocument.includes("/") ? build.rootDocument.replace(/[^/]*$/, "") : "";
+  const folder = build.auxFolder ?? build.rootDocument.replace(/(?:^|\/)[^/]*$/, "");
+  const directory = folder ? `${folder}/` : "";
   const read = (path: string) => invoke<string>("read_project_file", { path, projectRoot })
     .then((text) => (text.length > MAX_AUX_CHARS ? "" : text), () => "");
-  const main = await read(build.rootDocument.replace(/\.tex$/i, ".aux"));
+  const main = await read(`${directory}${build.rootDocument.replace(/^.*\//, "").replace(/\.tex$/i, ".aux")}`);
   return [main, ...await Promise.all(parseAux(main).inputs.slice(0, MAX_AUX_INPUTS).map((path) => read(`${directory}${path}`)))];
 }
 

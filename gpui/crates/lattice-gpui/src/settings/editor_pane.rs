@@ -253,6 +253,21 @@ fn builds(
             width,
             cx,
         ),
+        // Takes effect at the next build, which moves each document's files
+        // (lattice-core's `latex::AuxFiles`).
+        row(
+            dialog,
+            Row::new("hidden-build-files", t!("Hide auxiliary files"))
+                .control(controls::switch(
+                    "hidden-build-files",
+                    settings.hidden_build_files,
+                    false,
+                    |on, _, cx| super::update(cx, |settings| settings.hidden_build_files = on),
+                ))
+                .description(t!("Keep .aux, .log, SyncTeX and other build files in the project’s hidden .research/build folder. The PDF stays beside the document."), cx),
+            width,
+            cx,
+        ),
     ];
     if let Some(project) = dialog.project.clone() {
         let manifest = project.read(cx).manifest().clone();

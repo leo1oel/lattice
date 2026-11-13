@@ -26,6 +26,7 @@ import { createWatchedBuilds } from "./watched-builds";
 import { createStallHold } from "./stalled-build";
 import { useDiagnosticCycle } from "./use-diagnostic-cycle";
 import { cleanAuxiliaryFiles } from "./clean-auxiliary-files";
+import { buildAuxFiles } from "./use-build-preferences";
 import type { BuildOptions, BuildPipelineInputs } from "./build-pipeline-inputs";
 
 export type { BuildOutcome } from "./build-outcome";
@@ -277,7 +278,7 @@ export function useBuildPipeline({
         // A failure after the project moved on belongs to nobody: the pass is simply skipped.
         const result = await diagnosticInvoke<BuildResult>(
           "build_project",
-          { force: currentForce, unattended: currentUnattended, projectRoot, documentPath, progressId },
+          { force: currentForce, unattended: currentUnattended, projectRoot, documentPath, progressId, auxFiles: buildAuxFiles() },
           { operationId: trace.id },
         ).catch((reason) => {
           if (!scopeIsCurrent()) return null;

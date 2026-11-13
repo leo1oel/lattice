@@ -64,7 +64,7 @@ describe("settings shared between windows", () => {
     expect(appearance.result.current.themePreference).toBe("dark");
     expect(appearance.result.current.theme).toBe("dark");
     expect(document.documentElement.style.getPropertyValue("--editor-font-size")).toBe("18px");
-    expect(build.result.current[0]).toEqual({ autoBuildMode: "manual" });
+    expect(build.result.current[0]).toEqual({ autoBuildMode: "manual", hiddenBuildFiles: false });
   });
 
   it("writes back only what this window changed, even before it hears of another window's change", () => {
