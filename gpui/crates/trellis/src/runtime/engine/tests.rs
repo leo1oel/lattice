@@ -598,6 +598,74 @@ fn a_view_closed_while_a_tab_is_torn_out_stays_closed_and_the_tab_goes_home() {
     assert!(panel_of_view(rig.engine.doc(), "pdf").is_none());
 }
 
+/// Press b's tab in the documents and pull it out over the PDF.
+fn tear_out_b(rig: &mut Rig) {
+    let from = rig.tab("docs", 1);
+    let pdf = rig.rect("panel-pdf");
+    rig.engine.drag_begin("docs", Some("b"), from);
+    rig.engine.drag_move(Point::new(pdf.x + 40., pdf.y + 200.));
+    rig.advance(300.);
+    assert!(rig.engine.dragging());
+}
+
+fn panels_holding(doc: &LayoutDocument, view: &str) -> Vec<String> {
+    let mut panels: Vec<&PanelNode> = panels_of(doc.root.as_ref());
+    panels.extend(doc.floating.iter().map(|f| &f.panel));
+    panels.extend(doc.hidden.iter().map(|h| &h.panel));
+    panels
+        .into_iter()
+        .filter(|p| p.views.iter().any(|v| v == view))
+        .map(|p| p.id.clone())
+        .collect()
+}
+
+#[test]
+fn a_host_document_built_mid_tear_out_keeps_the_torn_tab() {
+    let mut rig = Rig::new();
+    tear_out_b(&mut rig);
+    // The host reads the document, changes one thing and hands it back, as
+    // the shell does for a column width or a new document.
+    let mut next = rig.engine.document();
+    assert_eq!(panels_holding(&next, "b"), ["docs"]);
+    let LayoutNode::Split(row) = next.root.as_mut().unwrap() else {
+        unreachable!()
+    };
+    row.weights = vec![0.3, 0.4, 0.3];
+    rig.engine.drain_events();
+    rig.engine.set_document(next, false);
+    rig.engine.drag_end(true);
+    rig.settle();
+    let opened_or_closed: Vec<Event> = rig
+        .engine
+        .drain_events()
+        .into_iter()
+        .filter(|e| matches!(e, Event::Close(_) | Event::Open(_)))
+        .collect();
+    assert_eq!(opened_or_closed, []);
+    assert_eq!(panels_holding(rig.engine.doc(), "b"), ["docs"]);
+    assert!(rig.engine.doc().views.contains_key("b"));
+}
+
+#[test]
+fn a_host_document_placing_the_torn_tab_elsewhere_is_taken_as_is() {
+    let mut rig = Rig::new();
+    tear_out_b(&mut rig);
+    let mut next = rig.engine.document();
+    next = detach_view(&next, "b");
+    next = insert_panel(
+        &next,
+        &PanelNode::single("panel-b", "b"),
+        &DockTarget::Into {
+            into: "panel-pdf".into(),
+            index: None,
+        },
+    );
+    rig.engine.set_document(next, false);
+    rig.engine.drag_end(true);
+    rig.settle();
+    assert_eq!(panels_holding(rig.engine.doc(), "b"), ["panel-pdf"]);
+}
+
 #[test]
 fn the_torn_out_tab_closed_mid_drag_is_reported_closed() {
     let mut rig = Rig::new();

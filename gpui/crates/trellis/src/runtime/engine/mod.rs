@@ -642,7 +642,9 @@ impl Engine {
 
     /// The document, with the navigation state to persist.
     pub fn document(&self) -> LayoutDocument {
-        let mut doc = self.doc.clone();
+        let mut doc = self
+            .torn_tab_home(&self.doc)
+            .unwrap_or_else(|| self.doc.clone());
         doc.navigation = Some(self.nav_serialize());
         doc
     }
