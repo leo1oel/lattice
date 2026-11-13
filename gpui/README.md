@@ -69,7 +69,8 @@ On Windows and Linux, Ctrl stands in for ⌘, and quitting is Alt+F4 or the menu
 
 Pull requests do not run `.github/workflows/gpui.yml`; it runs for a release tag, weekly on main and by hand.
 `pnpm signoff` (`../scripts/signoff.mjs`) checks a change locally when it touches `gpui/**`, `lattice-core` (`../src-tauri/lattice-core/**`, which the app builds on), one of the design-system exports `crates/lattice-ui` generates from (`../design-system/tokens.json`, `../design-system/code-themes.json` and what that is generated from), or the scene staging the parity report uses (`../design-system/screens/`): rustfmt, the release build with `offscreen-shots`, the unit tests, and the `e2e` scenario through `script/e2e`, which copies `fixtures/e2e` and runs the app with a scratch `HOME`.
-Only one GPUI release build runs at a time on the machine; a second worktree's waits for it.
+Its release build and unit tests run through `../scripts/gpui-build.mjs`, in one build tree the machine shares: it mirrors the checkout there, builds under a machine-wide lock (a second worktree's build waits for it), and copies `target/release/lattice-gpui` back.
+Every worktree builds from the same paths there, so only what changed since the last build compiles; a plain `cargo build --release` in a new worktree starts cold, since sccache keys Rust compiles on the checkout's paths.
 Its `code-themes` job fails while `code-themes.json` is stale (`node design-system/code-themes.mjs --check`), and its `patches` job while `patches/` is not upstream plus its diffs (`script/check-patches`). A separate workflow, `.github/workflows/gpui-patches.yml`, run by hand for a change to `patches/`, it applies the diffs to gpui-fast at the pin and runs the tests they add (element scale, letter spacing).
 On macOS and Windows it builds the app (release profile), runs the unit tests and the `e2e` scenario on `fixtures/e2e`; on macOS it then writes the parity report (below), which does not fail the job and is skipped for a release tag. `lattice-core`'s own tests run with the Tauri app's (`ci.yml`).
 macOS builds with TeX Live and TexLab (so the e2e scenario checks TexLab's diagnostics); Windows builds with MiKTeX and no TexLab, where that step reports itself skipped.
@@ -186,6 +187,7 @@ When the live PDF is in its own window, that window comes forward with the mark,
 ## Scripted runs
 
 ```sh
+node ../scripts/gpui-build.mjs                   # release build with offscreen-shots, in the shared build tree
 cp -R fixtures/e2e /tmp/lattice-gpui-e2e        # the scenario edits and builds its project
 target/release/lattice-gpui /tmp/lattice-gpui-e2e --scenario e2e --out e2e.json
 ```
@@ -219,7 +221,7 @@ On Windows, keys are posted to the window's message queue, so GPUI's own message
 `parity/` renders the same scene in the Tauri app's frontend and in this app, and diffs them region by region:
 
 ```sh
-cargo build --release --features lattice-gpui/offscreen-shots   # or without the feature, on an unlocked screen
+node ../scripts/gpui-build.mjs                                   # release build with offscreen-shots (or cargo build --release, on an unlocked screen)
 node parity/run.mjs --out /tmp/lattice-parity                    # from gpui/; --theme light,dark --screen mainWindow
 ```
 

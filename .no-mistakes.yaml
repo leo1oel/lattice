@@ -41,6 +41,17 @@ test:
     run, on a scratch copy of `gpui/fixtures/e2e` with a scratch HOME
     (`gpui/script/e2e` does both).
 
+    Build that binary with `node scripts/gpui-build.mjs` from the worktree
+    root, never with `cargo build` in the run worktree: it builds in the
+    machine's shared, already warm GPUI build tree under the machine-wide
+    lock and copies the binary back to `gpui/target/release/lattice-gpui`
+    (seconds to a few minutes; a cold build in a new run worktree took
+    longer than this step had left). Run it in the foreground and wait for
+    it: do not background it and end your turn. If a command timeout stops
+    it, run it again; the shared tree keeps what was already built. It
+    prints "waiting for another GPUI release build" while another checkout's
+    build holds the lock; wait for it rather than starting a second build.
+
     The configured test command is the scoped gate (`pnpm gate:changed`), not
     the full suite: do not run `pnpm test` or the whole Vitest suite here.
 

@@ -25,9 +25,10 @@
  *               fixture with a scratch HOME (gpui/script/e2e)
  *
  * The host has 16 GB of memory, so cargo gets CARGO_BUILD_JOBS=4 unless the
- * caller set it, and a GPUI release build (several GB of rustc per job) waits
- * for a machine-wide lock: two of them at once, from two worktrees, swapped
- * the machine to a crawl.
+ * caller set it, and the GPUI release build and tests (several GB of rustc per
+ * job) run in the machine's shared GPUI build tree under its machine-wide lock
+ * (scripts/gpui-build.mjs): two builds at once, from two worktrees, swapped
+ * the machine to a crawl, and each worktree's own build started cold.
  *
  * Every stage runs, so one pass shows every red. When all pass, the working
  * tree is clean and HEAD is pushed, it signs off with basecamp/gh-signoff
@@ -40,7 +41,6 @@
  *   --gpui         run the GPUI stages even when nothing they read changed
  */
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { changedFiles, gateStages, runStages, rustIncludes } from "./gate-changed.mjs";
@@ -70,62 +70,6 @@ const BUNDLE_INPUTS = /^(src\/|public\/(?!pdfjs\/)|index\.html$|vite\.config\.ts
 const GPUI_INPUTS = /^(gpui\/|src-tauri\/lattice-core\/|design-system\/(tokens\.json|code-themes\.(json|mjs)|screens\/)|src\/settings\/(code-themes|theme-customization)\.ts$)/;
 const CODE_THEME_INPUTS = /^(design-system\/code-themes\.(json|mjs)|src\/settings\/(code-themes|theme-customization)\.ts)$/;
 
-/**
- * A lock every worktree on this machine shares, held for one GPUI release
- * build or test run. It is a directory, which mkdir creates atomically; the
- * owner's pid inside lets a waiter take over a lock its holder died holding.
- */
-// /tmp, not os.tmpdir(): macOS gives each user session its own TMPDIR.
-const LOCK = "/tmp/lattice-gpui-release.lock";
-let holdingLock = false;
-
-async function acquireGpuiLock() {
-  let announced = false;
-  for (;;) {
-    try {
-      mkdirSync(LOCK);
-      writeFileSync(path.join(LOCK, "owner"), `${process.pid} ${repo}\n`);
-      holdingLock = true;
-      return;
-    } catch (error) {
-      if (error.code !== "EEXIST") throw error;
-    }
-    let owner = "";
-    try {
-      owner = readFileSync(path.join(LOCK, "owner"), "utf8").trim();
-    } catch {
-      // Created but not yet written; the next poll reads it.
-    }
-    const pid = Number(owner.split(" ")[0]);
-    if (pid && !alive(pid)) {
-      rmSync(LOCK, { recursive: true, force: true });
-      continue;
-    }
-    if (!announced) {
-      console.log(`  (waiting for another GPUI release build to finish: ${owner || "starting"})`);
-      announced = true;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 5_000));
-  }
-}
-
-function alive(pid) {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (error) {
-    return error.code === "EPERM";
-  }
-}
-
-function releaseGpuiLock() {
-  if (!holdingLock) return;
-  holdingLock = false;
-  rmSync(LOCK, { recursive: true, force: true });
-}
-// gate-changed's SIGINT handler exits the process, which still runs this.
-process.on("exit", releaseGpuiLock);
-
 function extraStages(files, mergeBase, options) {
   const cargoEnv = { CARGO_BUILD_JOBS: process.env.CARGO_BUILD_JOBS ?? "4" };
   const harness = new Set(harnessInputs());
@@ -133,7 +77,6 @@ function extraStages(files, mergeBase, options) {
   const tauri = files.some((file) => file.startsWith("src-tauri/")) || included.length > 0;
   const core = files.some((file) => file.startsWith("src-tauri/lattice-core/"));
   const gpui = options.gpui || files.some((file) => GPUI_INPUTS.test(file));
-  const lock = { before: acquireGpuiLock, after: releaseGpuiLock };
   const gpuiStage = (stage) => (gpui ? { cwd: "gpui", env: cargoEnv, ...stage } : { name: stage.name, skip: "nothing the GPUI app reads changed" });
   const features = ["--features", "lattice-gpui/offscreen-shots"];
 
@@ -180,23 +123,23 @@ function extraStages(files, mergeBase, options) {
       ? gpuiStage({ name: "gpui-patch", why: "patched crates against their upstream pins", command: "script/check-patches", args: [], timeout: 600_000 })
       : { name: "gpui-patch", skip: "gpui/patches unchanged" },
     gpuiStage({ name: "gpui-fmt", why: "rustfmt over the GPUI workspace", command: "cargo", args: ["fmt", "--all", "--", "--check"], timeout: 120_000 }),
+    // Both build in the machine's shared GPUI tree (scripts/gpui-build.mjs),
+    // which takes the machine-wide lock itself.
     gpuiStage({
       name: "gpui-build",
-      why: "release build with offscreen-shots, under the machine-wide lock",
-      command: "sh",
-      args: ["-c", `script/fetch-pdfium && cargo build --release --locked ${features.join(" ")}`],
+      why: "release build with offscreen-shots, in the shared build tree",
+      command: "node",
+      args: ["../scripts/gpui-build.mjs", "--", "build", "--release", "--locked", ...features],
       timeout: 3_600_000,
-      ...lock,
     }),
     gpuiStage({
       name: "gpui-test",
       why: "unit tests in release, TeX ones included",
-      command: "cargo",
-      args: ["test", "--release", "--locked", "--workspace", ...features, "--", "--include-ignored"],
+      command: "node",
+      args: ["../scripts/gpui-build.mjs", "--", "test", "--release", "--locked", "--workspace", ...features, "--", "--include-ignored"],
       env: { ...cargoEnv, PATH: `${process.env.PATH}:/Library/TeX/texbin` },
       timeout: 1_800_000,
       needs: "gpui-build",
-      ...lock,
     }),
     gpuiStage({ name: "gpui-e2e", why: "e2e scenario, scratch fixture and HOME", command: "script/e2e", args: [], timeout: 900_000, needs: "gpui-build" }),
   ];
