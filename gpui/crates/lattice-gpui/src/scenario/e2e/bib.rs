@@ -12,7 +12,7 @@ use gpui::AsyncApp;
 use serde_json::json;
 
 use super::Steps;
-use crate::{editor_panel::BibView, scenario::Run};
+use crate::{editor_panel::DocumentView, scenario::Run};
 
 impl Run {
     pub(super) async fn bib_visual_editor(
@@ -24,7 +24,7 @@ impl Run {
         let editor = self.open(cx, &root.join("references.bib"), None)?;
         self.with_window(cx, |_, window, cx| {
             editor.update(cx, |editor, cx| {
-                editor.set_bib_view(BibView::Preview, window, cx)
+                editor.set_document_view(DocumentView::Preview, window, cx)
             })
         })?;
         let listed = self
@@ -77,13 +77,14 @@ impl Run {
 
         self.with_window(cx, |_, window, cx| {
             editor.update(cx, |editor, cx| {
-                editor.set_bib_view(BibView::Split, window, cx)
+                editor.set_document_view(DocumentView::Split, window, cx)
             })
         })?;
         self.pause(cx, Duration::from_millis(200)).await;
         self.papers_shot(cx, "bib-2-split").await;
         let split = cx.update(|cx| {
-            editor.read(cx).bib_view() == BibView::Split && editor.read(cx).bib_editor().is_some()
+            editor.read(cx).document_view() == Some(DocumentView::Split)
+                && editor.read(cx).bib_editor().is_some()
         });
         steps.check(
             "Split shows the .bib source beside its list",
@@ -93,7 +94,7 @@ impl Run {
         // The next bibliography opens in the source again.
         self.with_window(cx, |_, window, cx| {
             editor.update(cx, |editor, cx| {
-                editor.set_bib_view(BibView::Source, window, cx)
+                editor.set_document_view(DocumentView::Source, window, cx)
             })
         })?;
         self.press(cx, 'w', true).await?;

@@ -59,12 +59,25 @@ pub mod outline_rail;
 pub mod rail_outline;
 mod save;
 mod source_chrome;
-
-pub use bib_view::BibView;
+pub mod views;
 
 use disk_sync::vanished_key;
 use outline_rail::OutlineRail;
 use save::normalize_breaks;
+pub use views::DocumentView;
+use views::DocumentViews;
+
+gpui::actions!(
+    lattice_document,
+    [
+        /// Show an HTML file's source ("Edit").
+        ViewSource,
+        /// Show an HTML file's source beside its preview.
+        ViewSplit,
+        /// Show an HTML file's preview alone.
+        ViewPreview,
+    ]
+);
 
 use crate::{
     build_panel::BuildPanel,
@@ -178,6 +191,8 @@ pub struct EditorPanel {
     looking_for_file: bool,
     /// Its tab was closed (the file went from disk): it stops checking it.
     closed: bool,
+    /// An HTML or `.bib` file's Edit, Split and Preview views.
+    views: Option<DocumentViews>,
     status: SaveStatus,
     /// Saves run one at a time; this settles when the last one queued has.
     save_queue: Option<Shared<Task<()>>>,
@@ -197,12 +212,8 @@ pub struct EditorPanel {
     _todos: Option<Task<()>>,
     _poll: Task<()>,
     _subscriptions: Vec<Subscription>,
-    /// A `.bib` file's visual form, made the first time it is shown, and
-    /// the view the tab shows (`bib_view`).
-    bib: Option<Entity<crate::papers::bib_editor::BibEditor>>,
-    bib_view: BibView,
-    /// The library its references open their papers from.
-    papers: Option<Entity<crate::papers::PapersPanel>>,
+    /// A `.bib` file's Preview and library (`bib_view.rs`).
+    bib: bib_view::BibState,
 }
 
 impl EditorPanel {
@@ -272,6 +283,7 @@ impl EditorPanel {
                 BufferEvent::Edited { .. } => {
                     this.schedule_autosave(cx);
                     this.scan_todos(TODO_SETTLE, cx);
+                    this.views_source_changed(cx);
                 }
                 BufferEvent::DirtyChanged | BufferEvent::Saved => cx.notify(),
                 _ => {}
@@ -349,12 +361,20 @@ impl EditorPanel {
             // The watcher names the file: check it now rather than at the
             // next poll.
             cx.subscribe(&project, |this, _, event, cx| {
-                if let crate::project::ProjectEvent::FilesChanged(paths) = event
-                    && paths
+                if let crate::project::ProjectEvent::FilesChanged(paths) = event {
+                    if paths
                         .as_ref()
                         .is_none_or(|paths| paths.iter().any(|path| *path == this.relative))
-                {
-                    this.check_disk(cx);
+                    {
+                        this.check_disk(cx);
+                    }
+                    // An image the HTML preview shows may be among them.
+                    if paths
+                        .as_ref()
+                        .is_none_or(|paths| paths.iter().any(|path| *path != this.relative))
+                    {
+                        this.views_assets_changed(cx);
+                    }
                 }
             }),
         ];
@@ -367,6 +387,7 @@ impl EditorPanel {
             }
         });
         let builds_seen = build.read(cx).builds();
+        let views = views::has_views(&path).then(|| DocumentViews::new(&path, cx));
         let mut this = Self {
             project,
             path,
@@ -392,6 +413,7 @@ impl EditorPanel {
             vanished: None,
             looking_for_file: false,
             closed: false,
+            views,
             status: SaveStatus::Saved,
             save_queue: None,
             saves_pending: 0,
@@ -404,14 +426,14 @@ impl EditorPanel {
             _todos: None,
             _poll: poll,
             _subscriptions: subscriptions,
-            bib: None,
-            bib_view: BibView::Source,
-            papers: None,
+            bib: Default::default(),
         };
-        this.bib_view = this.remembered_bib_view(cx);
         this.count_words(cx);
         this.scan_todos(Duration::ZERO, cx);
         this.offer_view_switch(cx);
+        // An HTML file opening in Preview or Split has its preview at once;
+        // its page is built when the tab is first shown.
+        this.ensure_preview(window, cx);
         this
     }
 
@@ -598,20 +620,6 @@ impl EditorPanel {
         window.focus(&self.editor.focus_handle(cx), cx);
     }
 
-    /// Put the cursor at the start of the 1-based `line`, in the middle of
-    /// the editor, leaving the focus where it is.
-    pub(crate) fn show_line(&mut self, line: u32, window: &mut Window, cx: &mut Context<Self>) {
-        let point = Point::new(line.saturating_sub(1), 0);
-        self.editor.update(cx, |editor, cx| {
-            editor.change_selections(
-                SelectionEffects::scroll(Autoscroll::center()),
-                window,
-                cx,
-                |selections| selections.select_ranges([point..point]),
-            );
-        });
-    }
-
     fn deploy_search(&mut self, action: &Deploy, window: &mut Window, cx: &mut Context<Self>) {
         self.search_visible = true;
         self.search_bar.update(cx, |bar, cx| {
@@ -625,10 +633,14 @@ impl EventEmitter<PanelEvent> for EditorPanel {}
 impl EventEmitter<EditorPanelEvent> for EditorPanel {}
 
 impl Focusable for EditorPanel {
-    /// The source editor's, or the visual form's when it alone shows.
+    /// The editor's, except while a file shows only its preview.
     fn focus_handle(&self, cx: &App) -> FocusHandle {
-        match (&self.bib, self.bib_view) {
-            (Some(bib), BibView::Preview) => bib.focus_handle(cx),
+        match self.views.as_ref() {
+            _ if let Some(focus) = self.bib_focus(cx) => focus,
+            Some(views) if views.view() == DocumentView::Preview => views
+                .preview()
+                .map(|preview| preview.read(cx).island().focus_handle(cx))
+                .unwrap_or_else(|| self.editor.focus_handle(cx)),
             _ => self.editor.focus_handle(cx),
         }
     }
@@ -648,10 +660,16 @@ impl BasePanel for EditorPanel {
         self.offer_view_switch(cx);
     }
 
-    fn on_removed(&mut self, _: &mut Window, cx: &mut Context<Self>) {
+    fn on_removed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.views_shown(false, window, cx);
         self.flush(cx);
         let panel = gpui_kit::component::dock::PanelId::from(cx.entity_id());
         lattice_ui::dock::set_spare_tools(panel, None, cx);
+    }
+
+    /// An HTML file's preview is shown only while its tab is the displayed one.
+    fn set_active(&mut self, active: bool, window: &mut Window, cx: &mut Context<Self>) {
+        self.views_shown(active, window, cx);
     }
 }
 
@@ -669,13 +687,17 @@ impl Panel for EditorPanel {
         }
     }
 
-    /// The build chip, at the strip's trailing end as the app puts it.
+    /// The build chip, at the strip's trailing end as the app puts it; an
+    /// HTML file's view switch in its place (`documentTools`: "views").
     fn title_suffix(
         &mut self,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Option<impl IntoElement> {
-        Some(editor_status::build_chip(&self.build, window, cx))
+        Some(
+            self.view_switch(window, cx)
+                .unwrap_or_else(|| editor_status::build_chip(&self.build, window, cx)),
+        )
     }
 
     fn dropdown_menu(
@@ -684,9 +706,31 @@ impl Panel for EditorPanel {
         _: &mut Window,
         cx: &mut Context<Self>,
     ) -> PopupMenu {
+        // A file with views: its menu repeats the switch, and has no build.
+        if let Some(current) = self.document_view() {
+            return menu
+                .menu_with_check(
+                    "Edit",
+                    current == DocumentView::Source,
+                    Box::new(ViewSource),
+                )
+                .menu_with_check("Split", current == DocumentView::Split, Box::new(ViewSplit))
+                .menu_with_check(
+                    "Preview",
+                    current == DocumentView::Preview,
+                    Box::new(ViewPreview),
+                )
+                .separator()
+                .menu("Find", Box::new(Deploy::find()))
+                .separator()
+                .menu_with_check(
+                    "Vim mode",
+                    crate::app::vim_mode_enabled(cx),
+                    Box::new(ToggleVimMode),
+                );
+        }
         let building = self.build.read(cx).is_running();
-        let menu = menu
-            .menu(t!("Build"), Box::new(Build))
+        menu.menu(t!("Build"), Box::new(Build))
             .menu(t!("Clean rebuild"), Box::new(CleanRebuild))
             .when(building, |menu| {
                 menu.menu(t!("Stop the build"), Box::new(StopBuild))
@@ -704,12 +748,13 @@ impl Panel for EditorPanel {
                         Box::new(ShowVisualView),
                         true,
                     )
-            });
-        self.bib_menu(menu).separator().menu_with_check(
-            t!("Vim mode"),
-            crate::app::vim_mode_enabled(cx),
-            Box::new(ToggleVimMode),
-        )
+            })
+            .separator()
+            .menu_with_check(
+                t!("Vim mode"),
+                crate::app::vim_mode_enabled(cx),
+                Box::new(ToggleVimMode),
+            )
     }
 
     fn inner_padding(&self, _: &App) -> bool {
@@ -723,27 +768,43 @@ impl Render for EditorPanel {
         // hosts it; in Zed that is a pane, here it is this panel.
         let palette = cx.palette().clone();
         let status: AnyElement = editor_status::status_bar(self, cx).into_any_element();
-        let mut registrar =
-            DivRegistrar::new(|this: &Self, _, _| Some(this.search_bar.clone()), cx);
-        BufferSearchBar::register(&mut registrar);
-        self.on_bib_actions(registrar.into_div(), cx)
-            .key_context("LatticeEditor")
-            .on_action(cx.listener(Self::deploy_search))
+        let search = self.search_visible.then(|| {
+            div()
+                .px_2()
+                .py_1()
+                .border_b_1()
+                .border_color(palette.line)
+                .child(self.search_bar.clone())
+        });
+        let editor = div()
             .size_full()
             .flex()
             .flex_col()
-            .when(self.search_visible, |panel| {
-                panel.child(
-                    div()
-                        .px_2()
-                        .py_1()
-                        .border_b_1()
-                        .border_color(palette.line)
-                        .child(self.search_bar.clone()),
-                )
-            })
-            .child(self.render_body(window, cx))
-            .child(status)
+            .children(search)
+            .child(self.render_source(window, cx))
+            .into_any_element();
+        let bib = self.bib_for_view(window, cx);
+        let body = self.render_views(editor, status, bib, cx);
+        let mut registrar =
+            DivRegistrar::new(|this: &Self, _, _| Some(this.search_bar.clone()), cx);
+        BufferSearchBar::register(&mut registrar);
+        registrar
+            .into_div()
+            .key_context("LatticeEditor")
+            .on_action(cx.listener(Self::deploy_search))
+            .on_action(cx.listener(|this, _: &ViewSource, window, cx| {
+                this.set_document_view(DocumentView::Source, window, cx)
+            }))
+            .on_action(cx.listener(|this, _: &ViewSplit, window, cx| {
+                this.set_document_view(DocumentView::Split, window, cx)
+            }))
+            .on_action(cx.listener(|this, _: &ViewPreview, window, cx| {
+                this.set_document_view(DocumentView::Preview, window, cx)
+            }))
+            .size_full()
+            .flex()
+            .flex_col()
+            .child(div().flex_1().min_h_0().child(body))
             .child(crate::paint_probe::probe())
     }
 }

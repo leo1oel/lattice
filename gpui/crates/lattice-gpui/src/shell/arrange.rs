@@ -517,6 +517,9 @@ impl Shell {
     /// arrangement still matches the workspace, close regions left empty, and
     /// save the project's layout soon.
     pub(super) fn layout_changed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        // A panel maximized, a group zoomed or a workspace switched can take
+        // an island off screen without telling it.
+        lattice_webview::check_drawn_after_frame(window, cx);
         self.name_new_groups(cx);
         // A region whose last panel was dragged out goes away, as Trellis
         // lets a column go.

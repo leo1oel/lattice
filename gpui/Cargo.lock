@@ -8266,7 +8266,6 @@ dependencies = [
  "futures",
  "gpui",
  "gpui-kit",
- "gpui-webview",
  "gpui_platform",
  "hdrhistogram",
  "image",
@@ -8276,6 +8275,7 @@ dependencies = [
  "lattice-i18n",
  "lattice-settings",
  "lattice-ui",
+ "lattice-webview",
  "libc",
  "log",
  "markdown 0.1.0",
@@ -8328,6 +8328,26 @@ dependencies = [
  "lyon",
  "serde_json",
  "ttf-parser",
+]
+
+[[package]]
+name = "lattice-webview"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "futures",
+ "getrandom 0.3.4",
+ "gpui",
+ "gpui-kit",
+ "gpui-webview",
+ "lattice-ui",
+ "lb-wry",
+ "log",
+ "objc2 0.6.3",
+ "percent-encoding",
+ "serde",
+ "serde_json",
+ "tempfile",
 ]
 
 [[package]]

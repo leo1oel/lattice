@@ -115,10 +115,34 @@ impl Run {
             sleep(cx, Duration::from_millis(600)).await;
             self.with_window(cx, |_, window, cx| window.blur(cx))?;
         }
+        // The HTML screen (`scenes.html`): the tutorial's HTML demo opened,
+        // in Preview, once its page has loaded.
+        let html_loaded = if std::env::var("LATTICE_PARITY_SCREEN").as_deref() == Ok("html") {
+            Some(self.parity_open_html(cx).await?)
+        } else {
+            None
+        };
         // Page images, the editor's highlighting and the fonts settle.
         sleep(cx, Duration::from_millis(2500)).await;
         let out = std::env::var("LATTICE_SHOT_OUT").unwrap_or_else(|_| "parity.png".into());
         self.capture(cx, &out).await?;
+        // The offscreen read-back has GPUI's frame only, without the page in
+        // the HTML preview's webview: beside it, the window as the screen
+        // composes it, for a look review (none on a locked screen).
+        if html_loaded.is_some() {
+            let composited = out.replace(".png", "-composited.png");
+            // The screen composes only a window it shows.
+            native::order_front(self.native(cx)?);
+            sleep(cx, Duration::from_millis(600)).await;
+            let number = native::window_number(self.native(cx)?);
+            let saved = std::process::Command::new("screencapture")
+                .args(["-x", "-o", &format!("-l{number}"), &composited])
+                .status()
+                .is_ok_and(|status| status.success());
+            if !saved {
+                log::warn!("no composited capture of the HTML screen (a locked screen?)");
+            }
+        }
 
         let (viewport, scale, appearance, ui_font) =
             self.with_window(cx, |shell, window, cx| {
@@ -178,8 +202,30 @@ impl Run {
             "theme": match appearance { Appearance::Light => "light", Appearance::Dark => "dark" },
             "uiFont": ui_font.as_ref(),
             "pdfShown": pdf_shown,
+            "htmlLoaded": html_loaded,
             "regions": regions,
         }))
+    }
+}
+
+impl Run {
+    /// Open the tutorial's HTML demo as the scene does, and wait for its
+    /// preview's page; whether it loaded.
+    async fn parity_open_html(&self, cx: &mut AsyncApp) -> Result<bool> {
+        let Some(root) = cx.update(|cx| self.shell.read(cx).root(cx)) else {
+            return Ok(false);
+        };
+        let panel = self.open(cx, &root.join("attention-demo.html"), None)?;
+        let loaded = self
+            .wait_for(cx, Duration::from_secs(20), |_, cx| {
+                panel
+                    .read(cx)
+                    .html_preview()
+                    .is_some_and(|preview| preview.read(cx).is_loaded())
+            })
+            .await;
+        self.park_pointer(cx)?;
+        Ok(loaded)
     }
 }
 

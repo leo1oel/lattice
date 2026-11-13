@@ -123,25 +123,30 @@ pub fn plan(width: Pixels, tabs: &[TabSpec], tools: Pixels) -> StripPlan {
 /// Whether a panel's spare tools, `spare` wide, fit beside `tabs` at their
 /// natural widths and its tools, `tools` wide, in a strip `width` wide.
 pub fn room_to_spare(width: Pixels, tabs: &[TabSpec], tools: Pixels, spare: Pixels) -> bool {
-    if spare <= px(0.) {
-        return false;
-    }
-    let room = width - STRIP_PADDING * 2. - MENU_WIDTH - STRIP_GAP - TAB_SPACING - END_DROP_MIN;
-    let tabs_width = tabs
-        .iter()
-        .map(TabSpec::natural)
-        .fold(px(0.), |sum, w| sum + w)
-        + TAB_SPACING * tabs.len().saturating_sub(1) as f32;
-    let tools = if tools > px(0.) {
-        tools + STRIP_GAP
-    } else {
-        px(0.)
-    };
-    tabs_width + tools + spare + SPARE_GAP <= room
+    spare > px(0.) && self::spare(width, tabs, tools) >= spare + SPARE_GAP
 }
 
 /// Between the spare tools and the panel's tools (`.trellis-latex-tools`).
 pub const SPARE_GAP: Pixels = px(4.);
+
+/// The room a strip `width` wide has to spare beside every tab at its
+/// natural width and tools `tools` wide (negative when it has none): what
+/// the Trellis patch tests before it names a view switch's modes
+/// (`data-tools="named"`), so no tab is narrowed for the names.
+pub fn spare(width: Pixels, tabs: &[TabSpec], tools: Pixels) -> Pixels {
+    let room = width - STRIP_PADDING * 2. - MENU_WIDTH - STRIP_GAP - TAB_SPACING - END_DROP_MIN;
+    let demand = tabs
+        .iter()
+        .map(TabSpec::natural)
+        .fold(px(0.), |sum, w| sum + w)
+        + TAB_SPACING * tabs.len().saturating_sub(1) as f32
+        + if tools > px(0.) {
+            tools + STRIP_GAP
+        } else {
+            px(0.)
+        };
+    room - demand
+}
 
 fn fit(tab: &TabSpec, names: Names, document_min: Pixels) -> TabFit {
     if !tab.named {

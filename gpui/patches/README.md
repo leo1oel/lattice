@@ -6,7 +6,7 @@ Each is upstream's source at an exact pin plus the diffs in this directory, noth
 | Crate | Upstream | Pin | License | Diffs |
 |---|---|---|---|---|
 | `gpui-fast/crates/gpui` | [longbridge/gpui-fast](https://github.com/longbridge/gpui-fast) `crates/gpui` | commit `bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa` | Apache-2.0 | `gpui-fast-vendoring.diff`, `gpui-fast-motion-and-type.diff` |
-| `gpui-fast/crates/gpui_macos` | the same repository's `crates/gpui_macos` | the same commit | Apache-2.0 | `gpui-fast-lab-occlusion.diff` |
+| `gpui-fast/crates/gpui_macos` | the same repository's `crates/gpui_macos` | the same commit | Apache-2.0 | `gpui-fast-lab-occlusion.diff`, `gpui-fast-overlay-first-mouse.diff` |
 | `gpui-component` | [crates.io `gpui-component`](https://crates.io/crates/gpui-component) (GPUI Kit's components) | 0.9.1, crate SHA-256 `e155c4914bd809d966660610d596f7b57c5cd38979ca2c132215057a91f23f03` | Apache-2.0 | `gpui-component-overlays.diff`, `gpui-component-lattice-hooks.diff` |
 | `gpui-base` | [crates.io `gpui-base`](https://crates.io/crates/gpui-base) (GPUI Kit's foundation: the dock's behaviour) | 0.9.1, crate SHA-256 `f3e9ae5237737cfd110d0ff513fcd9c20f97d98ebabd0a73164068177f0aca4f` | Apache-2.0 | `gpui-base-dock-drag-out.diff` |
 
@@ -19,6 +19,8 @@ The vendored copies cannot run their own tests where they sit (the gpui crate's 
   `gpui-fast/Cargo.toml` is gpui-fast's workspace manifest, kept so the crates inherit exactly the dependencies and features they do upstream; its members are cut to the two vendored crates, every other gpui-fast crate it names is taken from gpui-fast's git repository at the pin, and its `[patch]` and `[profile]` tables (which only a root workspace reads) are dropped.
   `crates/gpui/Cargo.toml` loses its `[[example]]` entries, whose files are not copied.
 - **`gpui-fast-lab-occlusion.diff`**: with `GPUI_LAB_IGNORE_OCCLUSION` set, a window renders as if visible when none of it is on screen (covered, or on a locked display): it is paced by the display's `CVDisplayLink` instead of a `CAMetalDisplayLink`, which stops for a layer that is not on screen, and reports itself visible. Lattice's perf lab measures WebKit the same way. Without the variable the crate behaves as upstream.
+- **`gpui-fast-overlay-first-mouse.diff`**: the overlay surface's view (`GPUIOverlayView`, which takes the pointer wherever an overlay is drawn over a native view) accepts the first mouse, as GPUI's own view does, by asking that view.
+  Without it, in a window that is not key, the first click on a menu, the palette or a webview island's zoom controls over the page only brought the window forward, while the same click beside the page, or in the page, acted at once.
 - **`gpui-fast-motion-and-type.diff`**: two things CSS has and GPUI lacked, which Lattice's look needs (`fast/scale.rs`, `fast/letter_spacing.rs`; upstream files get only hooks, as gpui-fast's own rules ask).
   - *Element scale*: `gpui::scaled(child).scale(s).origin(..).translate(..)`, CSS's `transform: translate() scale()` about a `transform-origin`, for the popup, dialog and toast entrances. Paint is transformed in the scene, every primitive kind, layer and rounded clip alike; layout and hit testing are not. Sprites are stretched from their raster at rest rather than rasterized at every fractional size, as a browser composites a transformed layer, so an entrance adds nothing to the atlas. A view replayed from last frame is replayed only under the scale it was drawn with, and a view drawn again inside a replayed one keeps the scale it is drawn under.
   - *Letter spacing*: `TextStyle::letter_spacing` and `Styled::letter_spacing` (pixels, rems, or a fraction of the font size, which is CSS's `em`), applied after shaping and keyed in the line layout cache, so wrapping and hit testing read the spaced glyphs.
@@ -40,7 +42,7 @@ The new public API (`scaled`, `Scaled`, `TextStyle::letter_spacing`, `Styled::le
 3. Run the patch tests in a gpui-fast checkout at the new pin with the diffs applied; this is required, because a diff can still apply and build after upstream moved what it hooks into. From a directory holding the checkout as `gpui-fast/`:
 
    ```sh
-   for diff in gpui-fast-lab-occlusion gpui-fast-motion-and-type; do git apply "<lattice>/gpui/patches/$diff.diff"; done
+   for diff in gpui-fast-lab-occlusion gpui-fast-motion-and-type gpui-fast-overlay-first-mouse; do git apply "<lattice>/gpui/patches/$diff.diff"; done
    (cd gpui-fast && cargo test -p gpui --lib --features test-support,gpui_platform/runtime_shaders -- fast::scale fast::letter_spacing)
    ```
 

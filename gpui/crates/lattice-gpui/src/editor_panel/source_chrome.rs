@@ -64,9 +64,8 @@ impl EditorPanel {
         }
     }
 
-    /// Give a `.tex` file's strip its Source / Visual switch, or a `.bib`
-    /// file's its Edit / Split / Preview (in room to spare, before the Build
-    /// chip), or take it away from another file's.
+    /// Give a `.tex` file's strip its Source / Visual switch (in room to
+    /// spare, before the Build chip), or take it away from another file's.
     pub(super) fn offer_view_switch(&mut self, cx: &mut Context<Self>) {
         let panel = gpui_kit::component::dock::PanelId::from(cx.entity_id());
         let tools = latex::is_tex_source(&self.path).then(|| lattice_ui::dock::SpareTools {
@@ -75,8 +74,6 @@ impl EditorPanel {
             }),
             render: std::rc::Rc::new(|_, cx| latex_view_switch(cx).into_any_element()),
         });
-        // A bibliography's Edit / Split / Preview takes the same place.
-        let tools = tools.or_else(|| self.bib_spare_tools(cx));
         lattice_ui::dock::set_spare_tools(panel, tools, cx);
     }
 
