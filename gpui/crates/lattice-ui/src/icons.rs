@@ -94,6 +94,10 @@ lucide! {
     APP_WINDOW = "icons" / "app-window";
     CASE_SENSITIVE = "icons" / "case-sensitive";
     FILE_ARCHIVE = "icons" / "file-archive";
+    FILE_PLAY = "icons" / "file-play";
+    FILE_PLUS = "icons" / "file-plus";
+    FOLDER_INPUT = "icons" / "folder-input";
+    ROTATE_CW = "icons" / "rotate-cw";
     FOLDER_PLUS = "icons" / "folder-plus";
     GIT_BRANCH = "icons" / "git-branch";
     SPARKLES = "icons" / "sparkles";

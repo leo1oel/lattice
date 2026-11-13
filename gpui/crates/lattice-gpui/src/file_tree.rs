@@ -15,8 +15,17 @@
 //! - A row dragged onto a folder (or onto a file, its folder) moves there.
 //! - Delete asks first, and is not offered for the main document or the
 //!   bibliography (or a folder holding either).
+//! - Import files… brings files and folders in from the Mac; ⌘C copies the
+//!   selected row's path and ⌘V duplicates it into the selected folder.
+//!
+//! A file Git sees changed carries its status's colour and letter, and a
+//! folder holding one a dot (`TreeRow::git`), read with the project's scans.
 
-use std::{collections::HashSet, path::PathBuf};
+use std::{
+    collections::{HashMap, HashSet},
+    path::PathBuf,
+    rc::Rc,
+};
 
 use gpui::{
     App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, Focusable,
@@ -32,10 +41,11 @@ use gpui_kit::component::{
 use lattice_core::models::FileNode;
 use lattice_ui::{
     ActiveLattice as _, GlyphKind, TextRole, TextRoleStyle as _,
-    components::TreeRow,
+    components::{GitMark, TreeRow},
     icons::{ICON, file_glyph},
 };
 
+mod clipboard;
 mod menu;
 mod naming;
 
@@ -63,6 +73,15 @@ pub enum FileTreeEvent {
     },
     /// Delete `paths`, already confirmed.
     Delete(Vec<String>),
+    /// Import files…: choose files and folders to bring into `target`.
+    Import {
+        target: String,
+    },
+    /// Duplicate `paths` into `target` (⌘V after the tree's ⌘C).
+    Paste {
+        paths: Vec<String>,
+        target: String,
+    },
 }
 
 /// A row on its way to another folder.
@@ -110,6 +129,10 @@ pub struct FileTreePanel {
     naming: Option<Naming>,
     /// Folders the writer opened, kept across rescans.
     expanded: HashSet<String>,
+    /// What Git says of the rows.
+    marks: Rc<GitMarks>,
+    /// What the tree's ⌘C last put on the clipboard.
+    copied: Option<clipboard::Copied>,
     _project_subscription: Option<Subscription>,
 }
 
@@ -125,6 +148,8 @@ impl FileTreePanel {
             focus_handle: cx.focus_handle(),
             naming: None,
             expanded: HashSet::new(),
+            marks: Rc::default(),
+            copied: None,
             _project_subscription: None,
         }
     }
@@ -145,18 +170,26 @@ impl FileTreePanel {
     }
 
     pub fn set_project(&mut self, project: Entity<Project>, cx: &mut Context<Self>) {
-        self._project_subscription = Some(cx.subscribe(&project, |this, _, event, cx| {
-            if matches!(
-                event,
-                ProjectEvent::TreeChanged | ProjectEvent::ManifestChanged
-            ) {
-                this.rebuild(cx);
-            }
-        }));
+        self._project_subscription =
+            Some(cx.subscribe(&project, |this, _, event, cx| match event {
+                ProjectEvent::TreeChanged | ProjectEvent::ManifestChanged => this.rebuild(cx),
+                ProjectEvent::GitChanged => {
+                    this.read_marks(cx);
+                    this.redraw_rows(cx);
+                }
+                ProjectEvent::FilesChanged(_) => {}
+            }));
         self.project = Some(project);
         self.naming = None;
+        self.copied = None;
         self.expanded.clear();
         self.rebuild(cx);
+    }
+
+    fn read_marks(&mut self, cx: &App) {
+        if let Some(project) = &self.project {
+            self.marks = Rc::new(GitMarks::new(project.read(cx).git()));
+        }
     }
 
     /// Scan the folder again, for a change the watcher could not see.
@@ -182,6 +215,7 @@ impl FileTreePanel {
         {
             insert_placeholder(&mut nodes, path, *folder);
         }
+        self.read_marks(cx);
         let items = tree_items(&nodes, &self.expanded);
         self.state
             .update(cx, |state, cx| state.set_items(items, cx));
@@ -257,6 +291,20 @@ impl FileTreePanel {
         self.commit_naming(true, window, cx);
     }
 
+    /// Select the row at `path` and give the tree the keyboard, as a click
+    /// on the row does, for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn select_row(&mut self, path: &str, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let id = SharedString::from(path.to_string());
+        let Some(ix) = self.state.read(cx).index_of(&id) else {
+            return false;
+        };
+        self.state
+            .update(cx, |state, cx| state.set_selected_index(Some(ix), cx));
+        window.focus(&self.focus_handle, cx);
+        true
+    }
+
     /// The rows on screen, project-relative, for a scenario.
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     pub fn row_paths(&self, cx: &App) -> Vec<String> {
@@ -265,6 +313,34 @@ impl FileTreePanel {
             .map_while(|ix| state.entry(ix))
             .map(|entry| entry.item().id.to_string())
             .collect()
+    }
+}
+
+/// What Git says of each row: a changed file's mark, and the folders with a
+/// change somewhere under them.
+#[derive(Default)]
+struct GitMarks {
+    files: HashMap<String, GitMark>,
+    folders: HashSet<String>,
+}
+
+impl GitMarks {
+    fn new(statuses: &HashMap<String, String>) -> Self {
+        let mut marks = GitMarks::default();
+        // Each changed file marks its row, and every folder above it.
+        for (path, status) in statuses {
+            let mark = GitMark::from_status(status);
+            marks.files.insert(path.clone(), mark);
+            if mark == GitMark::Ignored {
+                continue;
+            }
+            let mut folder = path.as_str();
+            while let Some((parent, _)) = folder.rsplit_once('/') {
+                marks.folders.insert(parent.to_string());
+                folder = parent;
+            }
+        }
+        marks
     }
 }
 
@@ -350,6 +426,7 @@ impl Render for FileTreePanel {
             .as_ref()
             .map(|naming| (naming.path.clone(), naming.input.clone()));
         let drop_target = cx.palette().drop_target;
+        let marks = self.marks.clone();
         // Measured on the Main window: rows 12px in from both sides, the
         // first 7px under the tab strip.
         div()
@@ -365,6 +442,7 @@ impl Render for FileTreePanel {
                     this.cancel_naming(window, cx);
                 }
             }))
+            .on_key_down(cx.listener(Self::clipboard_key))
             // A row dropped on the empty area moves to the top level.
             .on_drop(move |dragged: &DraggedEntry, _, cx| {
                 root_drop
@@ -385,9 +463,11 @@ impl Render for FileTreePanel {
                     let is_folder = entry.is_folder();
                     let mut row = if is_folder {
                         TreeRow::folder(ix, item.label.clone(), entry.depth(), entry.is_expanded())
+                            .contains_change(marks.folders.contains(&relative))
                     } else {
                         TreeRow::file(ix, item.label.clone(), entry.depth())
                             .selected(selected || current.as_deref() == Some(path.as_path()))
+                            .git(marks.files.get(&relative).copied())
                     };
                     if let Some((_, input)) = naming.as_ref().filter(|(at, _)| *at == relative) {
                         // The app's rename field: 20px on the compact
@@ -470,5 +550,33 @@ impl Render for FileTreePanel {
                 }),
             )
             .into_any_element()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_change_marks_its_file_and_every_folder_above_it() {
+        let statuses = HashMap::from([
+            (
+                "chapters/parts/intro.tex".to_string(),
+                "modified".to_string(),
+            ),
+            ("notes.md".to_string(), "untracked".to_string()),
+            ("build/out.log".to_string(), "ignored".to_string()),
+        ]);
+        let marks = GitMarks::new(&statuses);
+        assert_eq!(
+            marks.files.get("chapters/parts/intro.tex"),
+            Some(&GitMark::Modified)
+        );
+        assert_eq!(marks.files.get("notes.md"), Some(&GitMark::Untracked));
+        assert_eq!(marks.files.get("build/out.log"), Some(&GitMark::Ignored));
+        assert!(marks.folders.contains("chapters"));
+        assert!(marks.folders.contains("chapters/parts"));
+        // An ignored file is no change to its folder.
+        assert!(!marks.folders.contains("build"));
     }
 }

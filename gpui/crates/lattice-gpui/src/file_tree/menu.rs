@@ -1,9 +1,12 @@
-//! The tree's menus, grouped as the app's (`src/project/project-file-tree.tsx`):
-//! a row's make, change, locate and view items with Delete at the foot, and
-//! the empty area's (and the panel's ⋯) make and view items.
+//! The tree's menus, grouped and drawn as the app's
+//! (`src/project/project-file-tree.tsx`, `project-tree-context-menu.tsx`):
+//! a row's make, change, locate and view items, each with its 14px glyph,
+//! and Delete at the foot; the empty area's (and the panel's ⋯) make and
+//! view items.
 
 use gpui::{App, ClipboardItem, Context, WeakEntity, Window};
 use gpui_kit::component::menu::{PopupMenu, PopupMenuItem};
+use lattice_ui::Icon;
 
 use super::{FileTreeEvent, FileTreePanel};
 use crate::confirm::{self, Confirm};
@@ -14,6 +17,23 @@ const REVEAL_LABEL: &str = "Show in Finder";
 const REVEAL_LABEL: &str = "Show in Explorer";
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
 const REVEAL_LABEL: &str = "Show in file manager";
+
+type Run = Box<dyn Fn(&mut FileTreePanel, &mut Window, &mut Context<FileTreePanel>)>;
+
+/// An item that runs `run` on the tree.
+fn item(
+    view: &WeakEntity<FileTreePanel>,
+    icon: Icon,
+    label: &'static str,
+    run: Run,
+) -> PopupMenuItem {
+    let view = view.clone();
+    PopupMenuItem::new(label)
+        .icon(icon.kit())
+        .on_click(move |_, window, cx| {
+            view.update(cx, |this, cx| run(this, window, cx)).ok();
+        })
+}
 
 impl FileTreePanel {
     pub(crate) fn ask_delete(&mut self, path: String, cx: &mut Context<Self>) {
@@ -31,6 +51,57 @@ impl FileTreePanel {
                 }),
             cx,
         );
+    }
+
+    /// New file, New folder and Import files…, in `directory`.
+    fn creation_items(view: &WeakEntity<Self>, directory: &str, menu: PopupMenu) -> PopupMenu {
+        let (file, folder, import) = (
+            directory.to_string(),
+            directory.to_string(),
+            directory.to_string(),
+        );
+        menu.item(item(
+            view,
+            Icon::FILE_PLUS,
+            "New file",
+            Box::new(move |this, window, cx| this.begin_create(&file, false, window, cx)),
+        ))
+        .item(item(
+            view,
+            Icon::FOLDER_PLUS,
+            "New folder",
+            Box::new(move |this, window, cx| this.begin_create(&folder, true, window, cx)),
+        ))
+        .item(item(
+            view,
+            Icon::FOLDER_INPUT,
+            "Import files…",
+            Box::new(move |_, _, cx| {
+                cx.emit(FileTreeEvent::Import {
+                    target: import.clone(),
+                })
+            }),
+        ))
+    }
+
+    /// Show hidden files and Refresh file tree, the view items.
+    fn view_items(view: &WeakEntity<Self>, show_hidden: bool, menu: PopupMenu) -> PopupMenu {
+        let toggle = view.clone();
+        menu.item(
+            PopupMenuItem::new("Show hidden files")
+                .icon(if show_hidden { Icon::CHECK } else { Icon::EYE }.kit())
+                .checked(show_hidden)
+                .on_click(move |_, _, cx| {
+                    toggle.update(cx, |this, cx| this.toggle_hidden(cx)).ok();
+                }),
+        )
+        // For a change the watcher could not see.
+        .item(item(
+            view,
+            Icon::ROTATE_CW,
+            "Refresh file tree",
+            Box::new(|this, _, cx| this.refresh(cx)),
+        ))
     }
 
     /// The row menu, grouped as the app's: make, change, locate, view, and
@@ -62,24 +133,7 @@ impl FileTreePanel {
                 .map(|(parent, _)| parent.to_string())
                 .unwrap_or_default()
         };
-        let item = |label: &'static str,
-                    run: Box<
-            dyn Fn(&mut FileTreePanel, &mut Window, &mut Context<FileTreePanel>),
-        >| {
-            let view = view.clone();
-            PopupMenuItem::new(label).on_click(move |_, window, cx| {
-                view.update(cx, |this, cx| run(this, window, cx)).ok();
-            })
-        };
-        let mut menu = menu
-            .item(item("New file", {
-                let directory = directory.clone();
-                Box::new(move |this, window, cx| this.begin_create(&directory, false, window, cx))
-            }))
-            .item(item("New folder", {
-                let directory = directory.clone();
-                Box::new(move |this, window, cx| this.begin_create(&directory, true, window, cx))
-            }));
+        let mut menu = Self::creation_items(view, &directory, menu);
         // Which file Build compiles is the writer's to choose; the check
         // says which one was chosen.
         if !folder && path.to_ascii_lowercase().ends_with(".tex") {
@@ -88,6 +142,7 @@ impl FileTreePanel {
             let path = path.clone();
             menu = menu.separator().item(
                 PopupMenuItem::new("Set as main document")
+                    .icon(if chosen { Icon::CHECK } else { Icon::FILE_PLAY }.kit())
                     .checked(chosen)
                     .on_click(move |_, _, cx| {
                         if chosen {
@@ -107,47 +162,47 @@ impl FileTreePanel {
             );
         }
         let absolute = root.map(|root| root.join(&path));
+        let rename = path.clone();
         menu = menu
             .separator()
-            .item(item("Rename", {
-                let path = path.clone();
-                Box::new(move |this, window, cx| this.begin_rename(path.clone(), window, cx))
-            }))
-            .item(PopupMenuItem::new("Copy path").on_click({
-                let absolute = absolute.clone();
-                move |_, _, cx| {
-                    if let Some(absolute) = &absolute {
-                        cx.write_to_clipboard(ClipboardItem::new_string(
-                            absolute.to_string_lossy().into_owned(),
-                        ));
-                    }
-                }
-            }))
-            .item(PopupMenuItem::new(REVEAL_LABEL).on_click(move |_, _, cx| {
-                if let Some(absolute) = &absolute {
-                    cx.reveal_path(absolute);
-                }
-            }))
-            .separator()
+            .item(item(
+                view,
+                Icon::PENCIL,
+                "Rename",
+                Box::new(move |this, window, cx| this.begin_rename(rename.clone(), window, cx)),
+            ))
             .item(
-                PopupMenuItem::new("Show hidden files")
-                    .checked(show_hidden)
+                PopupMenuItem::new("Copy path")
+                    .icon(Icon::COPY.kit())
                     .on_click({
-                        let view = view.clone();
+                        let absolute = absolute.clone();
                         move |_, _, cx| {
-                            view.update(cx, |this, cx| this.toggle_hidden(cx)).ok();
+                            if let Some(absolute) = &absolute {
+                                cx.write_to_clipboard(ClipboardItem::new_string(
+                                    absolute.to_string_lossy().into_owned(),
+                                ));
+                            }
                         }
                     }),
             )
-            .item(item(
-                "Refresh file tree",
-                Box::new(|this, _, cx| this.refresh(cx)),
-            ));
+            .item(
+                PopupMenuItem::new(REVEAL_LABEL)
+                    .icon(Icon::FOLDER_OPEN.kit())
+                    .on_click(move |_, _, cx| {
+                        if let Some(absolute) = &absolute {
+                            cx.reveal_path(absolute);
+                        }
+                    }),
+            )
+            .separator();
+        menu = Self::view_items(view, show_hidden, menu);
         if !protected {
-            menu = menu.separator().item(item("Delete", {
-                let path = path.clone();
-                Box::new(move |this, _, cx| this.ask_delete(path.clone(), cx))
-            }));
+            menu = menu.separator().item(item(
+                view,
+                Icon::TRASH,
+                "Delete",
+                Box::new(move |this, _, cx| this.ask_delete(path.clone(), cx)),
+            ));
         }
         menu
     }
@@ -158,32 +213,8 @@ impl FileTreePanel {
             .upgrade()
             .and_then(|this| this.read(cx).project.clone())
             .is_some_and(|project| project.read(cx).show_hidden());
-        let item =
-            |label: &'static str,
-             run: fn(&mut FileTreePanel, &mut Window, &mut Context<FileTreePanel>)| {
-                let view = view.clone();
-                PopupMenuItem::new(label).on_click(move |_, window, cx| {
-                    view.update(cx, |this, cx| run(this, window, cx)).ok();
-                })
-            };
-        menu.item(item("New file", |this, window, cx| {
-            this.begin_create("", false, window, cx)
-        }))
-        .item(item("New folder", |this, window, cx| {
-            this.begin_create("", true, window, cx)
-        }))
-        .separator()
-        .item(
-            PopupMenuItem::new("Show hidden files")
-                .checked(show_hidden)
-                .on_click({
-                    let view = view.clone();
-                    move |_, _, cx| {
-                        view.update(cx, |this, cx| this.toggle_hidden(cx)).ok();
-                    }
-                }),
-        )
-        .item(item("Refresh file tree", |this, _, cx| this.refresh(cx)))
+        let menu = Self::creation_items(view, "", menu).separator();
+        Self::view_items(view, show_hidden, menu)
     }
 
     fn toggle_hidden(&mut self, cx: &mut Context<Self>) {

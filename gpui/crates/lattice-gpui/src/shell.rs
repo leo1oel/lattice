@@ -21,6 +21,7 @@ mod documents;
 mod entries;
 mod floating;
 mod ground;
+mod imports;
 pub mod layout;
 pub(crate) mod menus;
 mod palette;

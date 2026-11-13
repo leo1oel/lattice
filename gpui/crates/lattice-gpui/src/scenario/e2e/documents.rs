@@ -1,8 +1,9 @@
 //! The e2e checks for the project's search surfaces and the ways into a
 //! project: quick open by name, at a line and by section; Find in project
 //! stepping to a hit; Replace in project rewriting a file the editor then
-//! shows; the New project dialog; and the welcome screen of a window
-//! without a project, listing the project this run opened.
+//! shows; the tree's ⌘C and ⌘V duplicating a file; the New project dialog;
+//! and the welcome screen of a window without a project, listing the
+//! project this run opened.
 
 use std::{path::Path, time::Duration};
 
@@ -45,6 +46,13 @@ impl Run {
         if let Err(error) = self.replace_steps(cx, steps, root).await {
             steps.check(
                 "Replace in project",
+                false,
+                json!({ "error": format!("{error:#}") }),
+            );
+        }
+        if let Err(error) = self.tree_clipboard_steps(cx, steps, root).await {
+            steps.check(
+                "the tree's copy and paste",
                 false,
                 json!({ "error": format!("{error:#}") }),
             );
@@ -241,6 +249,54 @@ impl Run {
             json!({ "previewed": previewed, "disk": std::fs::read_to_string(&file).ok() }),
         );
         std::fs::remove_file(&file).ok();
+        Ok(())
+    }
+
+    /// Select a file's row, ⌘C, then ⌘V with native keys: the file lands
+    /// beside itself under the next free name, as the app's Keep both.
+    async fn tree_clipboard_steps(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+        root: &Path,
+    ) -> Result<()> {
+        let source = root.join("copy-check.tex");
+        std::fs::write(&source, "Copied.\n")?;
+        let tree = cx.update(|cx| self.shell.read(cx).file_tree().clone());
+        cx.update(|cx| {
+            self.shell.update(cx, |shell, cx| {
+                if let Some(project) = shell.project() {
+                    project.update(cx, |project, cx| project.rescan(cx));
+                }
+            })
+        });
+        let selected = self
+            .wait_for(cx, Duration::from_secs(5), |_, cx| {
+                tree.read(cx)
+                    .row_paths(cx)
+                    .iter()
+                    .any(|row| row == "copy-check.tex")
+            })
+            .await
+            && self.with_window(cx, |_, window, cx| {
+                tree.update(cx, |tree, cx| tree.select_row("copy-check.tex", window, cx))
+            })?;
+        self.press(cx, 'c', true).await?;
+        let clipboard = cx.update(|cx| cx.read_from_clipboard().and_then(|item| item.text()));
+        self.press(cx, 'v', true).await?;
+        let copy = root.join("copy-check-2.tex");
+        let pasted = self
+            .wait_for(cx, Duration::from_secs(5), |_, _| {
+                std::fs::read_to_string(&copy).is_ok_and(|text| text == "Copied.\n")
+            })
+            .await;
+        steps.check(
+            "the tree's ⌘C copies the row's path and ⌘V duplicates it beside itself",
+            selected && clipboard.as_deref() == Some(source.to_string_lossy().as_ref()) && pasted,
+            json!({ "selected": selected, "clipboard": clipboard, "pasted": pasted }),
+        );
+        std::fs::remove_file(&source).ok();
+        std::fs::remove_file(&copy).ok();
         Ok(())
     }
 

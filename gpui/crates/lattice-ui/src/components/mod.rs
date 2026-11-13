@@ -54,7 +54,7 @@ pub use tab::{
 };
 pub use textarea::{TEXTAREA_MIN_HEIGHT, Textarea};
 pub use toolbar_button::ToolbarButton;
-pub use tree_row::TreeRow;
+pub use tree_row::{GitMark, TreeRow};
 
 use gpui::{BoxShadow, Hsla, px};
 
