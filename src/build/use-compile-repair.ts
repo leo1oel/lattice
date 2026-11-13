@@ -29,7 +29,7 @@ export type RepairOperation = {
   session?: string | null;
 };
 
-/** What the Rust relay answers for a 404 on a started task: the running service does not know it (synara.rs). */
+/** What the Rust relay answers for a 404 on a started task: the running service does not know it (synara/task_relay.rs). */
 export const TASK_UNKNOWN = "agent_task_unknown";
 
 /**
