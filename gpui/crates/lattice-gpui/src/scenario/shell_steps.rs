@@ -47,6 +47,7 @@ impl Run {
         steps.push(self.workspace_keeps_its_arrangement(cx).await?);
         steps.push(self.close_and_bring_back(cx).await?);
         steps.push(self.float_and_dock(cx).await?);
+        steps.push(self.press_on_a_float_reaches_only_the_float(cx).await?);
         steps.push(self.hide_and_restore(cx).await?);
         steps.push(self.layout_survives_a_relaunch(cx).await?);
         steps.push(self.palette_lists_commands(cx).await?);
@@ -412,6 +413,87 @@ impl Run {
             "the PDF floats over the workspace and docks back",
             floated && docked,
             json!({ "floated": floated, "docked": docked }),
+        ))
+    }
+
+    /// A native double click on a floating panel's tab, over a docked
+    /// panel, reaches only the float: its view takes focus, and the docked
+    /// panel beneath is not maximized (an overlay float has no frame of its
+    /// own, so nothing is).
+    async fn press_on_a_float_reaches_only_the_float(&self, cx: &mut AsyncApp) -> Result<Step> {
+        self.reset_layout(cx)?;
+        self.settle_workspace(cx).await?;
+        let documents = self.documents_panel(cx)?;
+        self.with_window(cx, |shell, _, cx| {
+            shell.update(cx, |shell, cx| {
+                shell.engine_do(cx, |engine| {
+                    engine.run_menu_action(&MenuAction::Float("pdf".into()))
+                });
+            })
+        })?;
+        self.settle_workspace(cx).await?;
+        let float = panel_with(&self.document(cx), "pdf").context("the PDF is in no panel")?;
+        let float_bounds = self.panel_bounds(cx, &float).context("the float is not drawn")?;
+        let at = gpui::point(
+            float_bounds.left() + gpui::px(6. + 14.) + lattice_ui::icons::ICON / 2.,
+            float_bounds.top() + gpui::px(20.),
+        );
+        let doc = self.document(cx);
+        let mut covered = Vec::new();
+        for panel in trellis::model::all_panels(&doc) {
+            if panel.id != float
+                && let Some(b) = self.panel_bounds(cx, &panel.id)
+                && b.contains(&at)
+            {
+                covered.push(panel.id.clone());
+            }
+        }
+        // Focus somewhere else first, so the press must move it.
+        self.with_window(cx, |shell, _, cx| {
+            shell.update(cx, |shell, cx| {
+                let view = shell
+                    .active_document(cx)
+                    .and_then(|key| shell.view_of_document(&key, cx));
+                if let Some(view) = view {
+                    shell.engine_do(cx, |engine| engine.focus_view(&view));
+                }
+            })
+        })?;
+        self.frame_after_input(cx).await?;
+        crate::native::send_double_click(self.native(cx)?, at)?;
+        self.frame_after_input(cx).await?;
+        self.settle_workspace(cx).await?;
+        let (framed, focused) = cx.update(|cx| {
+            let ws = self.shell.read(cx).workspace().read(cx);
+            (
+                ws.engine().framed().map(str::to_string),
+                ws.engine().focused_view().map(str::to_string),
+            )
+        });
+        self.with_window(cx, |shell, _, cx| {
+            shell.update(cx, |shell, cx| {
+                if shell.workspace().read(cx).engine().framed().is_some() {
+                    shell.run_trellis(Trellis::FrameToggle, cx);
+                }
+                shell.engine_do(cx, |engine| {
+                    engine.run_menu_action(&MenuAction::Dock("pdf".into()))
+                });
+            })
+        })?;
+        self.settle_workspace(cx).await?;
+        Ok((
+            "a double click on a floating panel's tab reaches the float, not the docked panel beneath it",
+            !covered.is_empty()
+                && framed.as_ref().is_none_or(|f| !covered.contains(f))
+                && focused.as_deref() == Some("pdf"),
+            json!({
+                "float": float,
+                "documents": documents,
+                "at": [f32::from(at.x), f32::from(at.y)],
+                "covered": covered,
+                "framed": framed,
+                "focused": focused,
+            }),
         ))
     }
 

@@ -26,7 +26,8 @@ cp -R "$root/fixtures/e2e" "$project"
 # The lab switch (patches/README.md), as CI's e2e step sets it: on a locked
 # or covered display the window keeps drawing, and an island's WebKit page
 # keeps running its animation frames and timers, so the editor's paint
-# checks and the islands' scroll and focus checks see a live window.
+# checks and the islands' scroll and focus checks see a live window, and a
+# window the scenario opens (the PDF's own window) is shown and laid out.
 # TeX is looked up on PATH; MacTeX's texbin is not on a non-login shell's.
 GPUI_LAB_IGNORE_OCCLUSION=1 PATH="$PATH:/Library/TeX/texbin" HOME="$scratch/home" "$app" "$project" --scenario e2e --out "$out"
 cat "$out"
