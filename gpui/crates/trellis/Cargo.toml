@@ -1,0 +1,20 @@
+[package]
+name = "trellis"
+version = "0.2.0"
+description = "Trellis (DanFessler/trellis 0.2.0) ported to GPUI, with Lattice's patch: dockable, zoomable workspaces of split, tabbed and floating panels."
+edition.workspace = true
+publish.workspace = true
+# Not GPL-3.0 or Apache-2.0: Trellis's own non-commercial license (README.md).
+license-file = "LICENSE.md"
+
+[features]
+default = ["gpui"]
+# The GPUI workspace view; without it the crate is the document model and
+# the engine, which the tests run without building GPUI.
+gpui = ["dep:gpui"]
+
+[dependencies]
+gpui = { workspace = true, optional = true }
+indexmap = "2"
+serde = { workspace = true }
+serde_json = { workspace = true }

@@ -15,6 +15,7 @@ members = [
     "crates/lattice-settings",
     "crates/lattice-ui",
     "crates/lattice-webview",
+    "crates/trellis",
 ]
 # Vendored, patched upstream crates (patches/README.md): path dependencies
 # through `[patch]` below, never workspace members.
