@@ -2,11 +2,11 @@
 //!
 //! CodeMirror's `gutter` with `GutterMarker`s (the Tauri app's annotation
 //! pins) and its lint gutter put a marker in a column beside the line
-//! numbers. Zed's gutter draws only its own indicators (breakpoints, code
-//! actions, git), so the adapter paints marks over the gutter's left edge,
-//! where Lattice's line numbers (right-aligned, four digits wide) leave
-//! room, row by row in the editor's own coordinates so they scroll with the
-//! text. A mark may carry a hover card, opened like a text hover.
+//! numbers. The adapter's source gutter (`adapter/gutter_column.rs`, in
+//! place of Zed's) draws only line numbers and fold markers, so the overlay
+//! paints marks over the gutter's left edge, where the line numbers
+//! (right-aligned, four digits wide) leave room, row by row in the editor's
+//! own coordinates so they scroll with the text. A mark may carry a hover card, opened like a text hover.
 
 use gpui::{App, Bounds, Hsla, Pixels, Window, fill, point, px, size};
 
