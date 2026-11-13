@@ -18,6 +18,7 @@ mod build;
 mod build_tools;
 pub mod commands;
 mod documents;
+mod editor_events;
 mod entries;
 mod floating;
 mod ground;
@@ -64,7 +65,7 @@ use crate::{
     },
     build_panel::{BuildAction, BuildPanel, DiagnosticsCard, OpenLocation},
     confirm::{self, ConfirmHost},
-    editor_panel::{EditorPanel, EditorPanelEvent},
+    editor_panel::EditorPanel,
     file_tree::FileTreePanel,
     notices::{self, NoticeStack},
     papers::PapersPanel,
@@ -643,11 +644,9 @@ impl Shell {
             cx,
         ) {
             Ok(editor) => {
-                cx.subscribe_in(&editor, window, Self::on_editor_event)
-                    .detach();
                 let papers = self.papers.clone();
                 editor.update(cx, |editor, cx| editor.set_papers(papers, cx));
-                self.editors.push(editor.downgrade());
+                self.adopt_editor(&editor, window, cx);
                 let weak = editor.downgrade();
                 cx.on_focus_in(&editor.focus_handle(cx), window, move |this, _, _| {
                     this.active_editor = Some(weak.clone());
@@ -667,72 +666,6 @@ impl Shell {
                 None
             }
         }
-    }
-
-    fn on_editor_event(
-        &mut self,
-        editor: &Entity<EditorPanel>,
-        event: &EditorPanelEvent,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        match event {
-            EditorPanelEvent::Saved => {
-                if let Some(project) = &self.project {
-                    project.update(cx, |project, _| project.mark_inputs_changed());
-                }
-                self.refresh_words(cx);
-                self.refresh_outline(window, cx);
-            }
-            // Settings › Editor & builds › Automatic build: "Manual only"
-            // leaves every build to the Build button and ⌘B.
-            EditorPanelEvent::SavedForBuild | EditorPanelEvent::DiskEdit => {
-                if crate::settings::builds_automatically(cx) {
-                    self.run_build(BuildRequest::automatic(), window, cx);
-                }
-            }
-            EditorPanelEvent::Close => self.close_editor(editor, window, cx),
-            EditorPanelEvent::OpenLocation { path, line } => {
-                if let Some(root) = self.root(cx) {
-                    self.open_path(root.join(path), Some(*line), window, cx);
-                }
-            }
-            EditorPanelEvent::Focused => {
-                self.active_editor = Some(editor.downgrade());
-                let path = editor.read(cx).path().to_path_buf();
-                self.mark_paper(&path, cx);
-                self.file_tree
-                    .update(cx, |tree, cx| tree.set_current(Some(path), cx));
-                self.show_outline(cx);
-            }
-            EditorPanelEvent::CaretLine => {
-                if self.active_editor().as_ref() == Some(editor) {
-                    self.show_outline(cx);
-                }
-            }
-        }
-    }
-
-    /// Close an editor's tab, wherever it is, without asking: its file is
-    /// gone.
-    fn close_editor(
-        &mut self,
-        editor: &Entity<EditorPanel>,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.close_panel(PanelId::from(editor.entity_id()), window, cx);
-        self.editors
-            .retain(|open| open.upgrade().is_some_and(|open| open != *editor));
-        if self
-            .active_editor
-            .as_ref()
-            .is_some_and(|active| active.upgrade().as_ref() == Some(editor))
-        {
-            self.active_editor = None;
-            self.show_outline(cx);
-        }
-        cx.notify();
     }
 
     pub(super) fn open_editors(&mut self) -> Vec<Entity<EditorPanel>> {

@@ -53,6 +53,17 @@ export const SCREENS = {
       // Zed's editor in the GPUI app: its box is not the same element, and its
       // one text style (from the settings, with no content) stands for every run on the line.
       { name: "editor/text", css: ".cm-content .cm-line", text: true, bounds: false },
+      // The source gutter (src/editor/source-gutter.ts): the first line's
+      // number cell (four digits wide, whatever the line count) and its fold
+      // cell, then the first line's box, which starts 6px before its text and
+      // ends where the outline rail's clearance begins.
+      { name: "editor/line-number", css: ".source-editor .cm-lineNumbers .cm-gutterElement", text: true },
+      { name: "editor/fold", css: ".source-editor .cm-foldGutter .cm-gutterElement" },
+      { name: "editor/line", css: ".source-editor .cm-content .cm-line" },
+      // The .tex file's Source / Visual switch before the Build chip, and
+      // the outline rail's marks on the editor's right edge.
+      { name: "editor/view-switch", css: ".trellis-view-switcher", text: true },
+      { name: "editor/outline-rail", css: ".latex-outline-rail-marks" },
     ],
     // Drawn by different engines in the two apps (pdf.js and PDFium), so left out of the pixel budget.
     content: [".pdf-viewer-host"],

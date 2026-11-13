@@ -10,6 +10,11 @@
 //! repeats, and then even the selected panel's name goes. Only after all of
 //! that does the strip clip its tabs.
 //!
+//! A panel's spare tools (a .tex file's Source / Visual switch) show only in
+//! room to spare: while every tab keeps its natural width beside them and the
+//! panel's tools (the Trellis patch's `data-tools="named"` header). They go
+//! before anything else gives way, and the ⋯ menu repeats them.
+//!
 //! The planner is plain arithmetic over measured widths, so it is tested
 //! without a window; the renderer measures the strip and its tools on screen
 //! and the labels by shaping them.
@@ -115,6 +120,29 @@ pub fn plan(width: Pixels, tabs: &[TabSpec], tools: Pixels) -> StripPlan {
     })
 }
 
+/// Whether a panel's spare tools, `spare` wide, fit beside `tabs` at their
+/// natural widths and its tools, `tools` wide, in a strip `width` wide.
+pub fn room_to_spare(width: Pixels, tabs: &[TabSpec], tools: Pixels, spare: Pixels) -> bool {
+    if spare <= px(0.) {
+        return false;
+    }
+    let room = width - STRIP_PADDING * 2. - MENU_WIDTH - STRIP_GAP - TAB_SPACING - END_DROP_MIN;
+    let tabs_width = tabs
+        .iter()
+        .map(TabSpec::natural)
+        .fold(px(0.), |sum, w| sum + w)
+        + TAB_SPACING * tabs.len().saturating_sub(1) as f32;
+    let tools = if tools > px(0.) {
+        tools + STRIP_GAP
+    } else {
+        px(0.)
+    };
+    tabs_width + tools + spare + SPARE_GAP <= room
+}
+
+/// Between the spare tools and the panel's tools (`.trellis-latex-tools`).
+pub const SPARE_GAP: Pixels = px(4.);
+
 fn fit(tab: &TabSpec, names: Names, document_min: Pixels) -> TabFit {
     if !tab.named {
         return TabFit::Shrinks {
@@ -206,6 +234,19 @@ mod tests {
                 min: DOCUMENT_TAB_FLOOR
             }]
         );
+    }
+
+    #[test]
+    fn spare_tools_show_only_beside_tabs_at_their_natural_width() {
+        // The 590px main.tex card: a 48px label (a 120px tab), the 82px
+        // Build chip and the 156px Source / Visual switch fit.
+        let tabs = [document(48., true)];
+        assert!(room_to_spare(px(590.), &tabs, px(82.), px(156.)));
+        // 320px: the tab and the chip fit at their widths, the switch not.
+        assert!(plan(px(320.), &tabs, px(82.)).tools);
+        assert!(!room_to_spare(px(320.), &tabs, px(82.), px(156.)));
+        // Nothing to spare: nothing shows.
+        assert!(!room_to_spare(px(590.), &tabs, px(82.), px(0.)));
     }
 
     #[test]

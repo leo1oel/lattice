@@ -99,6 +99,10 @@ impl LatticeEditor {
             .ok();
         });
 
+        // The text's frame is the editor element's; gutter marks stand in the
+        // view's left edge, in the gutter.
+        let view = bounds;
+        let bounds = self.editor_bounds(view).unwrap_or(view);
         let mut painted = Painted {
             bounds: Some(bounds),
             card: self.painted.borrow().card,
@@ -116,7 +120,7 @@ impl LatticeEditor {
         };
         painted.line_height = Some(frame.line_height);
         let text = self.buffer.read(cx).snapshot();
-        window.with_content_mask(Some(gpui::ContentMask { bounds }), |window| {
+        window.with_content_mask(Some(gpui::ContentMask { bounds: view }), |window| {
             for (layer, marks) in &self.gutter {
                 for anchored in marks {
                     let row = anchored.anchor.to_point(&text).row;
@@ -124,7 +128,7 @@ impl LatticeEditor {
                     if !frame.shows_row(top) {
                         continue;
                     }
-                    let mark_bounds = gutter::mark_bounds(bounds.left(), top, frame.line_height);
+                    let mark_bounds = gutter::mark_bounds(view.left(), top, frame.line_height);
                     gutter::paint(
                         anchored.mark.shape,
                         mark_bounds,

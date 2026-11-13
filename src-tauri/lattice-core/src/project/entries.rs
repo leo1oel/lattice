@@ -1,10 +1,11 @@
 //! Creating, renaming, moving, and deleting files and folders from the
 //! Project pane, keeping the manifest and search index in step.
 
+use super::deleted_root::forget_deleted_root_documents;
 use super::history::{
     apply_transaction, new_transaction, persist_transaction, refresh_search_index, HistoryContext,
 };
-use super::manifest::{default_root_document, read_manifest, write_manifest};
+use super::manifest::{read_manifest, write_manifest};
 use super::paths::{
     creation_path, extension, safe_path, source_kind, validate_entry_name, validate_user_entry,
 };
@@ -224,17 +225,11 @@ fn renamed_relative_path(path: &str, old_path: &str, new_path: &str) -> String {
 pub fn delete_entry(root: &Path, relative: &str) -> Result<(), String> {
     validate_user_entry(relative)?;
     let manifest = read_manifest(root)?;
-    let requested = Path::new(relative);
-    // Only what a build would actually reach for: every .tex compiled once
-    // joins `root_documents`, so guarding all of them made drafts undeletable.
-    let compiled = default_root_document(&manifest).map(|document| document.path.as_str());
-    if compiled.into_iter().chain([manifest.primary_bibliography.as_str()]).any(|path| {
-        let protected = Path::new(path);
-        protected == requested || protected.starts_with(requested)
-    }) {
-        return Err(
-            "The document being compiled and its bibliography cannot be deleted.".to_string()
-        );
+    // The bibliography stays: Add paper and the reference tools write into it.
+    // Any .tex may go, the compiled one included (see
+    // `forget_deleted_root_documents` for what builds next).
+    if Path::new(&manifest.primary_bibliography).starts_with(relative) {
+        return Err("The primary bibliography cannot be deleted.".to_string());
     }
     let path = existing_entry(root, relative)?;
     let before = if path.is_dir() { None } else { fs::read_to_string(&path).ok() };
@@ -246,28 +241,18 @@ pub fn delete_entry(root: &Path, relative: &str) -> Result<(), String> {
         let record = new_transaction(&format!("Delete {relative}"), vec![change], context);
         persist_transaction(root, &record)?;
     }
-    forget_deleted_root_documents(root, relative)
-}
-
-/// Drop manifest root documents whose file has just been deleted, so builds and
-/// SyncTeX never resolve through a file that is gone. The compiled document is
-/// refused above, so the default always survives.
-fn forget_deleted_root_documents(root: &Path, deleted: &str) -> Result<(), String> {
     let mut manifest = read_manifest(root)?;
-    let deleted_path = Path::new(deleted);
-    let before = manifest.root_documents.len();
-    manifest.root_documents.retain(|document| !Path::new(&document.path).starts_with(deleted_path));
-    if manifest.root_documents.len() == before {
-        return Ok(());
+    if forget_deleted_root_documents(root, &mut manifest, relative) {
+        write_manifest(root, &manifest)?;
     }
-    write_manifest(root, &manifest)
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::project::history::history;
-    use crate::project::manifest::set_compile_root;
+    use crate::project::manifest::{choose_root_document, default_root_document, set_compile_root};
     use crate::project::test_support::Fixture;
     use crate::project::tree::{scan_tree, tree_files, TreeView};
 
@@ -282,7 +267,7 @@ mod tests {
     }
 
     #[test]
-    fn project_entries_can_be_created_and_deleted_but_roots_are_protected() {
+    fn project_entries_can_be_created_and_deleted_but_the_bibliography_is_protected() {
         let fixture = Fixture::project("project-entries");
         let root = &fixture.root;
         assert_eq!(create_entry(root, "sections/method", "file").unwrap(), "sections/method.tex");
@@ -298,8 +283,12 @@ mod tests {
         let manifest = read_manifest(root).unwrap();
         let roots = manifest.root_documents.iter().map(|document| document.path.as_str());
         assert_eq!(roots.collect::<Vec<_>>(), vec!["main.tex"]);
-        // What a build would actually reach for is still refused.
-        for protected in ["main.tex", "references.bib"] {
+        // The bibliography, and a folder holding it, is still refused.
+        fixture.write("refs/library.bib", "");
+        let mut manifest = read_manifest(root).unwrap();
+        manifest.primary_bibliography = "refs/library.bib".to_string();
+        write_manifest(root, &manifest).unwrap();
+        for protected in ["refs/library.bib", "refs"] {
             assert!(delete_entry(root, protected).is_err(), "{protected}");
         }
         assert!(create_entry(root, ".research/private.txt", "file").is_err());
@@ -318,6 +307,73 @@ mod tests {
             assert_eq!(tree_kind(root, path).as_deref(), Some(kind), "{path}");
             assert!(inventory_has(root, path, "text"), "{path}");
         }
+    }
+
+    fn default_root(root: &Path) -> Option<String> {
+        let manifest = read_manifest(root).unwrap();
+        default_root_document(&manifest).map(|document| document.path.clone())
+    }
+
+    #[test]
+    fn the_compiled_document_can_be_deleted_and_the_only_other_full_document_takes_over() {
+        let fixture = Fixture::project("delete-compiled-root");
+        let root = &fixture.root;
+        fixture.write(
+            "main.tex",
+            "\\documentclass{article}\n\\begin{document}\\input{intro}\\end{document}\n",
+        );
+        fixture.write("intro.tex", "Included by main.\n");
+        fixture.write(
+            "thesis/thesis.tex",
+            "\\documentclass{report}\n\\begin{document}\\end{document}\n",
+        );
+        // Neither a standalone figure nor an Overleaf conflict copy is a paper.
+        fixture.write(
+            "figure.tex",
+            "\\documentclass{standalone}\n\\begin{document}x\\end{document}\n",
+        );
+        fixture.write("main (local conflict 2026-11-13 10.00).tex", "\\documentclass{article}\n");
+        choose_root_document(root, "main.tex").unwrap();
+        assert_eq!(default_root(root).as_deref(), Some("main.tex"));
+
+        delete_entry(root, "main.tex").unwrap();
+        assert!(!fixture.path("main.tex").exists());
+        assert_eq!(default_root(root).as_deref(), Some("thesis/thesis.tex"));
+        // The writer did not choose it, so the open document can still win a build.
+        let manifest = read_manifest(root).unwrap();
+        assert!(manifest.root_documents.iter().all(|document| !document.chosen));
+        // A file the old root included goes like any other.
+        delete_entry(root, "intro.tex").unwrap();
+        assert!(!fixture.path("intro.tex").exists());
+    }
+
+    #[test]
+    fn deleting_the_compiled_document_leaves_no_root_when_the_next_one_is_ambiguous() {
+        for (label, others) in
+            [("delete-root-none", &[][..]), ("delete-root-several", &["a.tex", "b/b.tex"][..])]
+        {
+            let fixture = Fixture::project(label);
+            let root = &fixture.root;
+            fixture.write("main.tex", "\\documentclass{article}\n");
+            for other in others {
+                fixture.write(other, "\\documentclass{article}\n");
+            }
+            set_compile_root(root, "main.tex").unwrap();
+            delete_entry(root, "main.tex").unwrap();
+            assert_eq!(default_root(root), None, "{label}");
+        }
+    }
+
+    #[test]
+    fn deleting_the_folder_holding_the_compiled_document_reassigns_it_too() {
+        let fixture = Fixture::project("delete-root-folder");
+        let root = &fixture.root;
+        fixture.write("paper/main.tex", "\\documentclass{article}\n");
+        fixture.write("slides.tex", "\\documentclass{beamer}\n");
+        fs::remove_file(fixture.path("main.tex")).ok();
+        choose_root_document(root, "paper/main.tex").unwrap();
+        delete_entry(root, "paper").unwrap();
+        assert_eq!(default_root(root).as_deref(), Some("slides.tex"));
     }
 
     #[test]

@@ -19,10 +19,16 @@ language.workspace = true
 lattice-core.workspace = true
 lattice-ui.workspace = true
 log.workspace = true
+# The buffer row the editor's fold state is asked about; already in the graph
+# through the editor.
+multi_buffer.workspace = true
 # Completion items are Zed's `project::Completion`, which the editor's
 # completion menu draws; already in the graph through the editor.
 project.workspace = true
 # The Tauri app's LaTeX patterns (src/editor/latex/latex-symbols.ts) need no
 # lookaround; already in the graph through Zed.
 regex = "1"
+settings.workspace = true
 theme.workspace = true
+# The buffer font, which the source gutter's digits are drawn and measured in.
+theme_settings.workspace = true

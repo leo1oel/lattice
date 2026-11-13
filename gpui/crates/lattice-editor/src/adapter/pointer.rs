@@ -155,8 +155,7 @@ impl LatticeEditor {
         let text = self.buffer.read(cx).snapshot();
         // The line height is read only in frames that drew gutter marks.
         if let Some(line_height) = painted.line_height
-            && let Some(target) =
-                self.gutter_target(&painted.gutter, bounds, line_height, position, &text)
+            && let Some(target) = self.gutter_target(&painted.gutter, line_height, position, &text)
         {
             return vec![target];
         }
@@ -177,14 +176,15 @@ impl LatticeEditor {
     fn gutter_target(
         &self,
         painted: &[(&'static str, u32, Bounds<Pixels>)],
-        bounds: Bounds<Pixels>,
         line_height: Pixels,
         position: Point<Pixels>,
         text: &BufferSnapshot,
     ) -> Option<Anchored> {
         painted.iter().find_map(|&(layer, row, mark_bounds)| {
             let row_top = mark_bounds.center().y - line_height / 2.;
-            if !gutter::hover_bounds(bounds.left(), row_top, line_height).contains(&position) {
+            // The mark stands at the view's left edge, in the gutter.
+            let left = mark_bounds.center().x - gutter::DOT_INSET;
+            if !gutter::hover_bounds(left, row_top, line_height).contains(&position) {
                 return None;
             }
             let card = self.gutter.get(layer)?.iter().find_map(|anchored| {
@@ -217,12 +217,14 @@ impl LatticeEditor {
         let target = targets.first()?;
         if let Some(row) = target.gutter_row {
             let line_height = painted.line_height?;
-            let frame_top = painted
+            let mark = painted
                 .gutter
                 .iter()
                 .find(|(layer, mark_row, _)| *layer == target.id && *mark_row == row)
-                .map(|(_, _, mark)| mark.center().y - line_height / 2.)?;
-            return Some(gutter::hover_bounds(bounds.left(), frame_top, line_height));
+                .map(|(_, _, mark)| *mark)?;
+            let frame_top = mark.center().y - line_height / 2.;
+            let left = mark.center().x - gutter::DOT_INSET;
+            return Some(gutter::hover_bounds(left, frame_top, line_height));
         }
         let start = targets
             .iter()

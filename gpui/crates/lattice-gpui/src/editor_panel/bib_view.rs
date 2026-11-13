@@ -2,22 +2,38 @@
 //! Edit, the source alone; Split, the source beside its visual form, the
 //! list following the reference under the caret and a reference picked in
 //! the list shown in the source; Preview, the visual form alone. The switch
-//! sits in the tab strip before the build chip; the view last chosen is the
+//! sits in the tab strip before the build chip, in room to spare; the view last chosen is the
 //! one the next bibliography opens in, as the Tauri app remembers one view
 //! for every bibliography (Edit at first).
 
+use std::rc::Rc;
+
 use gpui::{
-    AnyElement, App, AppContext as _, Context, Entity, Focusable as _, Global, IntoElement,
-    ParentElement as _, Styled as _, Window, div, px,
+    AnyElement, App, AppContext as _, Context, Div, Entity, Focusable as _, Global,
+    InteractiveElement as _, IntoElement, ParentElement as _, Styled as _, WeakEntity, Window, div,
+    px,
 };
+use gpui_kit::component::menu::PopupMenu;
 use lattice_i18n::t;
-use lattice_ui::{ActiveLattice as _, components::Segmented};
+use lattice_ui::{ActiveLattice as _, Icon, components::ViewSwitch, dock::SpareTools};
 
 use super::{EditorPanel, EditorPanelEvent};
 use crate::papers::{
     PapersPanel,
     bib_editor::{BibEditor, BibEditorEvent},
 };
+
+gpui::actions!(
+    lattice_bib_view,
+    [
+        /// A `.bib` file's source alone.
+        ShowBibEdit,
+        /// A `.bib` file's source beside its visual form.
+        ShowBibSplit,
+        /// A `.bib` file's visual form alone.
+        ShowBibPreview,
+    ]
+);
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum BibView {
@@ -141,10 +157,11 @@ impl EditorPanel {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let source = div()
+            .flex()
             .flex_1()
             .min_w_0()
             .min_h_0()
-            .child(self.lattice.clone());
+            .child(self.render_source(window, cx));
         match self.bib_view {
             BibView::Source => source.into_any_element(),
             BibView::Preview => {
@@ -166,31 +183,89 @@ impl EditorPanel {
         }
     }
 
-    /// Edit, Split and Preview, for a `.bib` file.
-    pub(super) fn bib_switch(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
+    /// Edit, Split and Preview, for a `.bib` file: the strip shows them in
+    /// room to spare, before the build chip, as the Tauri header folds them
+    /// away when short of room; the ⋯ menu repeats them (`bib_menu`).
+    pub(super) fn bib_spare_tools(&self, cx: &mut Context<Self>) -> Option<SpareTools> {
         if !self.is_bib() {
             return None;
         }
-        let view = self.bib_view;
         let entity = cx.entity().downgrade();
-        let choose = move |target: BibView| {
-            let entity = entity.clone();
-            move |_: &gpui::ClickEvent, window: &mut Window, cx: &mut App| {
-                entity
-                    .update(cx, |this, cx| this.set_bib_view(target, window, cx))
-                    .ok();
-            }
-        };
-        Some(
-            Segmented::new("bib-view-switch")
-                .label(t!("Edit"), view == BibView::Source, choose(BibView::Source))
-                .label(t!("Split"), view == BibView::Split, choose(BibView::Split))
-                .label(
-                    t!("Preview"),
-                    view == BibView::Preview,
-                    choose(BibView::Preview),
-                )
-                .into_any_element(),
-        )
+        Some(SpareTools {
+            width: Rc::new(|window, cx| {
+                let names = [t!("Edit"), t!("Split"), t!("Preview")];
+                let names: Vec<&str> = names.iter().map(|name| name.as_ref()).collect();
+                ViewSwitch::width(&names, true, window, cx)
+            }),
+            render: Rc::new(move |_, cx| {
+                let view = entity
+                    .upgrade()
+                    .map(|entity| entity.read(cx).bib_view)
+                    .unwrap_or_default();
+                bib_switch(entity.clone(), view, cx).into_any_element()
+            }),
+        })
     }
+
+    /// The ⋯ menu's Edit, Split and Preview, for when the strip is short of
+    /// room for the switch.
+    pub(super) fn bib_menu(&self, menu: PopupMenu) -> PopupMenu {
+        if !self.is_bib() {
+            return menu;
+        }
+        let view = self.bib_view;
+        menu.separator()
+            .menu_with_check(t!("Edit"), view == BibView::Source, Box::new(ShowBibEdit))
+            .menu_with_check(t!("Split"), view == BibView::Split, Box::new(ShowBibSplit))
+            .menu_with_check(
+                t!("Preview"),
+                view == BibView::Preview,
+                Box::new(ShowBibPreview),
+            )
+    }
+
+    /// The menu's actions, on the panel's root.
+    pub(super) fn on_bib_actions(&self, root: Div, cx: &mut Context<Self>) -> Div {
+        root.on_action(cx.listener(|this, _: &ShowBibEdit, window, cx| {
+            this.set_bib_view(BibView::Source, window, cx)
+        }))
+        .on_action(cx.listener(|this, _: &ShowBibSplit, window, cx| {
+            this.set_bib_view(BibView::Split, window, cx)
+        }))
+        .on_action(cx.listener(|this, _: &ShowBibPreview, window, cx| {
+            this.set_bib_view(BibView::Preview, window, cx)
+        }))
+    }
+}
+
+/// The Tauri header's Edit / Split / Preview (`trellis-header-tools.tsx`).
+fn bib_switch(entity: WeakEntity<EditorPanel>, view: BibView, cx: &App) -> impl IntoElement {
+    let choose = move |target: BibView| {
+        let entity = entity.clone();
+        move |_: &gpui::ClickEvent, window: &mut Window, cx: &mut App| {
+            entity
+                .update(cx, |this, cx| this.set_bib_view(target, window, cx))
+                .ok();
+        }
+    };
+    ViewSwitch::new("bib-view-switch")
+        .mode(
+            Icon::PEN_LINE,
+            t!("Edit"),
+            view == BibView::Source,
+            choose(BibView::Source),
+        )
+        .mode(
+            Icon::COLUMNS_2,
+            t!("Split"),
+            view == BibView::Split,
+            choose(BibView::Split),
+        )
+        .mode(
+            Icon::EYE,
+            t!("Preview"),
+            view == BibView::Preview,
+            choose(BibView::Preview),
+        )
+        .surface(cx.palette().editor)
 }

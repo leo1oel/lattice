@@ -16026,10 +16026,6 @@ msgstr "磁盘空间已满"
 msgid "The disk is read-only."
 msgstr "磁盘是只读的"
 
-#: src/platform/host-errors-project.ts
-msgid "The document being compiled and its bibliography cannot be deleted."
-msgstr "正在编译的主文档及其参考文献文件不能删除"
-
 #: src/editor/latex/latex-command-completions.ts
 msgid "The document body"
 msgstr "文档正文"
@@ -16479,6 +16475,10 @@ msgstr "演示文稿项目必须是一个文件夹"
 #: src/overleaf/use-overleaf-realtime.ts
 msgid "The previous Overleaf document could not be released. Syncing remains paused."
 msgstr "上一个文档没能释放，同步仍暂停"
+
+#: src/platform/host-errors-project.ts
+msgid "The primary bibliography cannot be deleted."
+msgstr "主参考文献文件不能删除"
 
 #: src/platform/host-errors-overleaf.ts
 msgid "The project changed before Overleaf could connect."

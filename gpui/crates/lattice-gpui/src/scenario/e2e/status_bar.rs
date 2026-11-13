@@ -11,7 +11,9 @@ use gpui::{App, AsyncApp, Entity, point};
 use serde_json::json;
 
 use super::Steps;
-use crate::{editor_panel::EditorPanel, scenario::Run, status_counters};
+use lattice_editor::LatticeEditor;
+
+use crate::{editor_panel::EditorPanel, native, scenario::Run, status_counters};
 
 impl Run {
     pub(super) async fn status_bar_and_scrollbar(
@@ -61,24 +63,61 @@ impl Run {
         let editor = self.open(cx, &long, Some(1))?;
         self.pause(cx, Duration::from_millis(500)).await;
         let lattice = cx.update(|cx| editor.read(cx).lattice_editor().clone());
-        let at_rest = cx.update(|cx| lattice.update(cx, |lattice, cx| lattice.scrollbar_shown(cx)));
+        let opacity =
+            |lattice: &Entity<LatticeEditor>, cx: &App| lattice.read(cx).scrollbar_opacity();
+        let at_rest = cx.update(|cx| opacity(&lattice, cx)) > 0.;
         self.with_window(cx, |_, window, cx| {
             let zed = editor.read(cx).editor().clone();
             zed.update(cx, |zed, cx| {
                 zed.set_scroll_position(point(0., 120.), window, cx)
             });
         })?;
-        // Read right away: the strip counts as scrolling for only 180 ms,
-        // and a pause on a window that is not on screen (as here, offscreen)
-        // can overrun that, so a pause before reading would fail at random.
-        let scrolling =
-            cx.update(|cx| lattice.update(cx, |lattice, cx| lattice.scrollbar_shown(cx)));
-        self.pause(cx, Duration::from_millis(400)).await;
-        let rested = cx.update(|cx| lattice.update(cx, |lattice, cx| lattice.scrollbar_shown(cx)));
+        // What the bar drew: it reveals while the text scrolls, then fades
+        // out once the scroll has rested past the editor feel's linger.
+        let scrolling = self
+            .wait_for(cx, Duration::from_secs(1), |_, cx| {
+                opacity(&lattice, cx) > 0.
+            })
+            .await;
+        let rested = !self
+            .wait_for(cx, Duration::from_secs(2), |_, cx| {
+                opacity(&lattice, cx) == 0.
+            })
+            .await;
         steps.check(
             "the editor's overlay scrollbar shows while the text scrolls and hides once it rests",
             !at_rest && scrolling && !rested,
             json!({ "at_rest": at_rest, "scrolling": scrolling, "rested": rested }),
+        );
+
+        // Over the line numbers, outside Zed's own element, the wheel still
+        // scrolls the text, as it does over CodeMirror's gutter.
+        let number = cx.update(|cx| {
+            lattice
+                .read(cx)
+                .painted_gutter()
+                .lines
+                .first()
+                .map(|line| line.number.center())
+        });
+        let top = |editor: &Entity<EditorPanel>, cx: &mut App| {
+            let zed = editor.read(cx).editor().clone();
+            zed.update(cx, |zed, cx| zed.scroll_position(cx).y)
+        };
+        let before = cx.update(|cx| top(&editor, cx));
+        if let Some(at) = number {
+            native::send_wheel(self.native(cx)?, at, -200)?;
+        }
+        let scrolled = self
+            .wait_for(cx, Duration::from_secs(2), |_, cx| {
+                top(&editor, cx) > before
+            })
+            .await;
+        let after = cx.update(|cx| top(&editor, cx));
+        steps.check(
+            "the wheel over the line numbers scrolls the text",
+            number.is_some() && scrolled,
+            json!({ "number": number.map(|at| [f32::from(at.x), f32::from(at.y)]), "before": before, "after": after }),
         );
         std::fs::remove_file(&long).ok();
         Ok(())

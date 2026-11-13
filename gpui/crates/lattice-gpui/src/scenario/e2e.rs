@@ -19,6 +19,7 @@ mod papers;
 mod pdf;
 mod saves;
 mod settings;
+mod source_chrome;
 mod status_bar;
 
 /// Each step's name, whether it passed, and what it saw.
@@ -98,6 +99,7 @@ impl Run {
         );
         self.sequence_and_words(cx, &mut steps).await?;
         self.fluid_hover(cx, &mut steps).await?;
+        self.source_chrome(cx, &mut steps, &root).await?;
 
         let editor = self.open(cx, &chapter, Some(2))?;
         self.pause(cx, Duration::from_millis(300)).await;

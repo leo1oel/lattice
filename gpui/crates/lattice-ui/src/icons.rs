@@ -118,13 +118,15 @@ lucide! {
     ARROW_UP_RIGHT = "icons" / "arrow-up-right";
     BOOK_MARKED = "icons" / "book-marked";
     CIRCLE_DOT = "icons" / "circle-dot";
-    CODE_XML = "icons" / "code-xml";
     HIGHLIGHTER = "icons" / "highlighter";
     LINK_2 = "icons" / "link-2";
     CORNER_DOWN_LEFT = "icons" / "corner-down-left";
     EXTERNAL_LINK = "icons" / "external-link";
     FILE_DOWN = "icons" / "file-down";
     LIST_FILTER = "icons" / "list-filter";
+    /// A .tex file's Source / Visual switch.
+    CODE_XML = "icons" / "code-xml";
+    TYPE = "icons" / "type";
     // Names Zed's icon set also has, which the app's asset source finds
     // first: Lucide's own, copied unmodified from GPUI Kit 0.9.1's assets
     // (ISC, `assets/LICENSE-LUCIDE`).

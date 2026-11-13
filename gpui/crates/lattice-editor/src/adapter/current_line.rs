@@ -1,7 +1,7 @@
 //! The current line, as the Tauri app draws it (`.cm-activeLine::before` in
 //! `editor-workspace.css`): a rounded wash in the code theme's line colour
 //! under the text, from the line box's start (CodeMirror's 6px of line
-//! padding before the text) to 8px short of the editor's right edge, across
+//! padding before the text) to 8px short of the line box's end, across
 //! every row the line wraps to, with 4px corners. It shows only while the
 //! caret is a caret, not a selection, and the gutter keeps no band.
 //!
@@ -13,7 +13,7 @@ use editor::ToPoint as _;
 use gpui::{Bounds, Context, Pixels, Window, point, px};
 use lattice_ui::{ActiveLattice as _, editor_theme};
 
-use super::LatticeEditor;
+use super::{LatticeEditor, gutter_column};
 use crate::geometry::{self, Frame};
 
 /// CodeMirror's padding before a line's text, where the band starts.
@@ -43,7 +43,10 @@ impl LatticeEditor {
         if !empty {
             return;
         }
-        let Some(frame) = Frame::read(&self.editor, bounds, window, cx) else {
+        let Some(editor_bounds) = self.editor_bounds(bounds) else {
+            return;
+        };
+        let Some(frame) = Frame::read(&self.editor, editor_bounds, window, cx) else {
             return;
         };
         let text = self.buffer.read(cx).snapshot();
@@ -55,12 +58,13 @@ impl LatticeEditor {
             return;
         }
         let start = text.point_to_offset(language::Point::new(row, 0));
-        let Some(caret) = geometry::caret_rect(&self.editor, &text, start, bounds, window, cx)
+        let Some(caret) =
+            geometry::caret_rect(&self.editor, &text, start, editor_bounds, window, cx)
         else {
             return;
         };
         let left = caret.left() - LINE_PADDING;
-        let right = bounds.right() - END_INSET;
+        let right = bounds.right() - gutter_column::line_box_end(self.end_clearance) - END_INSET;
         if right <= left {
             return;
         }
