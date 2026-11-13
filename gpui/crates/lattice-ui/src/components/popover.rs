@@ -257,8 +257,10 @@ impl RenderOnce for Menu {
                     _ => return,
                 };
                 cx.stop_propagation();
+                let next = step_highlight(&enabled, at, step);
+                hover.key_to(next, cx);
                 highlight.update(cx, |current, cx| {
-                    *current = step_highlight(&enabled, at, step);
+                    *current = next;
                     cx.notify();
                 });
             }

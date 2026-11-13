@@ -200,6 +200,21 @@ fn the_keys_move_the_same_fill_until_the_pointer_moves() {
 }
 
 #[test]
+fn a_key_to_the_keys_last_row_takes_the_fill_back_from_the_pointer() {
+    let start = Instant::now();
+    let mut state = state_with_menu();
+    state.follow(Some(1));
+    state.pointer_moved(point(px(10.), px(10.)), true, false, Axis::Vertical, start);
+    assert_eq!(state.wanted, Some(0));
+    state.follow(Some(1));
+    assert_eq!(state.wanted, Some(0));
+    state.key_to(Some(1));
+    state.reconcile(start, false);
+    assert_eq!(state.wanted, Some(1));
+    assert_eq!(state.lit.unwrap().index, 1);
+}
+
+#[test]
 fn a_held_button_or_a_press_clears_it() {
     let start = Instant::now();
     let mut state = state_with_menu();

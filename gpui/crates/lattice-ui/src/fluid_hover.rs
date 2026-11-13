@@ -261,6 +261,11 @@ impl FluidHoverState {
         if current.is_some() && current == self.wanted {
             return;
         }
+        self.key_to(current);
+    }
+
+    fn key_to(&mut self, current: Option<usize>) {
+        self.followed = Some(current);
         self.hand = Hand::Keyboard;
         self.wanted = current;
     }
@@ -460,6 +465,15 @@ impl FluidHover {
     pub fn follow(self, current: Option<usize>, cx: &mut App) -> Self {
         self.state.update(cx, |state, _| state.follow(current));
         self
+    }
+
+    /// A key moved the list's current row to `current`: the fill goes
+    /// there even when the keys chose that row before.
+    pub fn key_to(&self, current: Option<usize>, cx: &mut App) {
+        self.state.update(cx, |state, cx| {
+            state.key_to(current);
+            cx.notify();
+        });
     }
 
     /// Keep the list dark for `quiet` after each scroll, so rows recycled

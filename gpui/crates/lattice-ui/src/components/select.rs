@@ -373,9 +373,10 @@ impl RenderOnce for Select {
                 let memory = memory.clone();
                 let lit = lit.clone();
                 move |cx: &mut App| {
-                    let from = lit.lit(cx);
+                    let next = step_highlight(&vec![true; count], lit.lit(cx), step);
+                    lit.key_to(next, cx);
                     memory.update(cx, |m, cx| {
-                        m.highlight(step_highlight(&vec![true; count], from, step));
+                        m.highlight(next);
                         cx.notify();
                     })
                 }
