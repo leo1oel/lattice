@@ -11,6 +11,14 @@
   --lx-tex-measure: 760px;
   --lx-tex-indent: 1.6em;
   --lx-tex-chip-surface: color-mix(in srgb, var(--text-primary) 6%, transparent);
+  /* What stays as source on a page (a command Visual mode does not draw) reads
+     as a quiet aside, not as code to fix: the highlighter's colors, muted. */
+  --syntax-keyword: var(--text-secondary);
+  --syntax-function: var(--text-secondary);
+  --syntax-type: var(--text-secondary);
+  --syntax-operator: var(--text-secondary);
+  --syntax-bracket: var(--text-secondary);
+  --syntax-variable-special: var(--text-secondary);
 }
 
 /* The measure, centered however wide the panel is. Padding on the scroller
@@ -59,6 +67,8 @@
   text-underline-offset: 0.22em;
 }
 .cm-latex-visual .lx-tex-footnote { color: var(--text-secondary); font-size: 0.9em; }
+.cm-latex-visual .lx-tex-small { font-size: 0.88em; }
+.cm-latex-visual .lx-tex-large { font-size: 1.15em; }
 .cm-latex-visual .lx-tex-footnote-mark { color: var(--text-secondary); font-size: 0.75em; vertical-align: super; }
 
 /* A styled argument's braces, shown faintly while the caret is at them. */
@@ -104,8 +114,9 @@
 .cm-latex-visual .lx-tex-ref { color: var(--syntax-reference); }
 .cm-latex-visual .lx-tex-cite { color: var(--syntax-citation); white-space: normal; }
 .cm-latex-visual .lx-tex-label { color: var(--text-secondary); font-family: var(--source-font); font-size: 0.75em; }
-.cm-latex-visual .lx-tex-include { color: var(--syntax-function); font-family: var(--source-font); font-size: 0.85em; text-decoration: underline; text-underline-offset: 0.2em; cursor: pointer; }
-.cm-latex-visual .lx-tex-include:hover { background: var(--chrome-hover-surface); }
+/* An included file: a quiet chip that opens it. */
+.cm-latex-visual .lx-tex-include { color: var(--text-secondary); font-family: var(--ui-font); font-size: var(--type-caption-size); cursor: pointer; }
+.cm-latex-visual .lx-tex-include:hover { background: var(--chrome-hover-surface); color: var(--text-primary); }
 .cm-latex-visual .lx-tex-compound { color: var(--text-primary); font-weight: var(--weight-semibold); font-variant-numeric: tabular-nums; }
 
 /* Lists: the line indents by depth, and an item hangs its marker in the indent. */
@@ -153,10 +164,111 @@
   font-size: var(--type-caption-size);
 }
 
-/* The title block `\maketitle` prints. */
+/* The title block `\maketitle` prints: author names flow in centered lines, as the page sets them. */
 .cm-latex-visual .lx-tex-title-block { padding-block: var(--space-8) var(--space-4); text-align: center; cursor: pointer; }
 .cm-latex-visual .lx-tex-title { font-size: 1.7em; font-weight: var(--weight-semibold); line-height: 1.25; letter-spacing: -0.015em; text-wrap: balance; }
 .cm-latex-visual .lx-tex-authors { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-4) var(--space-12); padding-top: var(--space-6); color: var(--text-secondary); }
+.cm-latex-visual .lx-tex-author { min-width: 0; max-width: 100%; line-height: 1.6; text-wrap: balance; }
+
+/* Rich text in drawn blocks (captions, cells, the title block): what the inline renderer sets. */
+.cm-latex-visual .lx-tex-sup,
+.cm-latex-visual .lx-tex-sub { font-size: 0.72em; line-height: 0; }
+.cm-latex-visual .lx-tex-normalfont { font-weight: var(--weight-regular); font-style: normal; }
+.cm-latex-visual .lx-tex-size-xsmall { font-size: 0.75em; }
+.cm-latex-visual .lx-tex-size-small { font-size: 0.88em; }
+.cm-latex-visual .lx-tex-size-normal { font-size: 1em; }
+.cm-latex-visual .lx-tex-size-large { font-size: 1.15em; }
+.cm-latex-visual .lx-tex-size-xlarge { font-size: 1.4em; }
+.cm-latex-visual .lx-tex-space { display: inline-block; }
+.cm-latex-visual .lx-tex-space.is-thin { width: 0.17em; }
+.cm-latex-visual .lx-tex-space.is-en { width: 0.5em; }
+.cm-latex-visual .lx-tex-space.is-quad { width: 1em; }
+.cm-latex-visual .lx-tex-space.is-qquad { width: 2em; }
+.cm-latex-visual .lx-tex-space.is-fill { width: 1em; }
+.cm-latex-visual br.lx-tex-break-gap { content: ""; display: block; margin-top: var(--space-2); }
+.cm-latex-visual :is(.lx-tex-float-block, .lx-tex-title-block) .lx-tex-ref { color: var(--syntax-reference); }
+.cm-latex-visual :is(.lx-tex-float-block, .lx-tex-title-block) .lx-tex-cite { color: var(--syntax-citation); }
+
+/*
+ * A float drawn whole: panels side by side at their share of the line
+ * (`--lx-tex-share`, set from the source's width), wrapping under one another
+ * when the column is narrower than two panels; captions under what they name.
+ */
+.cm-latex-visual .lx-tex-float-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  margin-block: var(--space-3);
+  /* The inset gives way in a narrow column, where every pixel is the figure's. */
+  padding: var(--space-4) clamp(var(--space-2), 4%, var(--space-6));
+  border-radius: var(--radius-icon);
+  background: var(--lx-tex-chip-surface);
+  text-align: center;
+  cursor: pointer;
+}
+.cm-latex-visual .lx-tex-float-block.is-bare { padding-inline: var(--space-2); background: none; }
+.cm-latex-visual .lx-tex-float-block > * { max-width: 100%; }
+.cm-latex-visual .lx-tex-float-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-around;
+  align-items: flex-start;
+  gap: var(--space-4);
+  width: 100%;
+}
+.cm-latex-visual .lx-tex-float-panel {
+  --lx-tex-share: 1;
+  display: flex;
+  flex: 0 1 calc(var(--lx-tex-share) * 100% - var(--space-4));
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: min(100%, 220px);
+}
+.cm-latex-visual .lx-tex-float-block > .lx-tex-float-panel { width: calc(var(--lx-tex-share) * 100%); }
+.cm-latex-visual .lx-tex-float-image {
+  --lx-tex-share: 1;
+  width: calc(var(--lx-tex-share) * 100%);
+  min-width: min(100%, 160px);
+  max-width: 100%;
+}
+.cm-latex-visual .lx-tex-float-row > .lx-tex-float-image { flex: 0 1 auto; }
+.cm-latex-visual .lx-tex-float-image img { display: block; width: 100%; height: auto; max-height: 60vh; object-fit: contain; }
+.cm-latex-visual .lx-tex-float-image.is-loading { min-height: 120px; }
+.cm-latex-visual :is(.lx-tex-float-image.is-failed, .lx-tex-float-opaque) {
+  padding: var(--space-4);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-compact);
+  color: var(--text-secondary);
+  font-family: var(--ui-font);
+  font-size: var(--type-caption-size);
+}
+.cm-latex-visual .lx-tex-float-caption { max-width: 100%; color: var(--text-secondary); font-size: 0.94em; text-align: start; text-wrap: pretty; }
+.cm-latex-visual .lx-tex-float-caption.is-sub { text-align: center; }
+.cm-latex-visual .lx-tex-float-text { max-width: 100%; }
+
+/* A table as a paper sets one: booktabs' heavy and light rules, cells as their column aligns them. */
+.cm-latex-visual .lx-tex-table-scroll { max-width: 100%; overflow-x: auto; }
+.cm-latex-visual .lx-tex-table { margin-inline: auto; border-collapse: collapse; font-size: 0.92em; font-variant-numeric: tabular-nums; line-height: 1.4; }
+.cm-latex-visual .lx-tex-table.is-full { width: 100%; }
+.cm-latex-visual .lx-tex-table td { padding: var(--space-1) var(--space-3); white-space: nowrap; vertical-align: middle; }
+.cm-latex-visual .lx-tex-table td.wraps { min-width: 12em; white-space: normal; }
+.cm-latex-visual .lx-tex-table td.is-left { text-align: start; }
+.cm-latex-visual .lx-tex-table td.is-center { text-align: center; }
+.cm-latex-visual .lx-tex-table td.is-right { text-align: end; }
+.cm-latex-visual .lx-tex-table td.rule-left { border-inline-start: 1px solid var(--text-secondary); }
+.cm-latex-visual .lx-tex-table td.rule-right { border-inline-end: 1px solid var(--text-secondary); }
+.cm-latex-visual .lx-tex-table tr.rule-above-heavy > td { border-top: 1.5px solid var(--text-primary); }
+.cm-latex-visual .lx-tex-table tr.rule-above-light > td { border-top: 1px solid var(--text-secondary); }
+.cm-latex-visual .lx-tex-table tr.rule-below-heavy > td { border-bottom: 1.5px solid var(--text-primary); }
+.cm-latex-visual .lx-tex-table tr.rule-below-light > td { border-bottom: 1px solid var(--text-secondary); }
+.cm-latex-visual .lx-tex-table td.rule-below-partial { background-image: linear-gradient(var(--text-secondary), var(--text-secondary)); background-repeat: no-repeat; background-position: bottom center; background-size: calc(100% - var(--space-2)) 1px; }
+
+/* The quiet bar for a part of the document: the appendix, the references. */
+.cm-latex-visual .lx-tex-marker-bar { color: var(--text-secondary); font-family: var(--ui-font); font-size: var(--type-caption-size); }
+.cm-latex-visual .lx-tex-marker-bar .lx-tex-bar-label { font-weight: var(--weight-medium); text-transform: uppercase; letter-spacing: 0.04em; }
+.cm-latex-visual .lx-tex-marker-chip { color: var(--text-secondary); font-family: var(--ui-font); font-size: var(--type-caption-size); }
 
 /* Quotes and centered blocks. */
 .cm-latex-visual .cm-line.lx-tex-quote { padding-inline-start: var(--space-8); border-inline-start: 3px solid var(--border-strong); color: var(--text-secondary); }

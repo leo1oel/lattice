@@ -162,6 +162,21 @@ describe("scanConstructs", () => {
     expect(caption.label).toBe("s1");
   });
 
+  it("hides the braces of a bare group across lines, but not those of a command's argument", () => {
+    const braces = (text: string) => covered(text).filter(([kind, source]) => kind === "symbol" && /^[{}]$/.test(source));
+    expect(braces("{\\centering\\small\nx\\par\n}")).toHaveLength(2);
+    expect(braces("\\vspace{-18pt}\n{\\centering\nx\\par\n}")).toHaveLength(2);
+    expect(braces("\\maketitle\n  {\\centering\nx\\par\n}")).toHaveLength(2);
+    expect(braces("\\todo{\nlong note\n}")).toEqual([]);
+    expect(braces("\\newcommand{\\foo}{%\nbody\n}")).toEqual([]);
+    expect(braces("\\makebox[2cm]{\nboxed\n}")).toEqual([]);
+  });
+
+  it("draws a table outside a float through its own end, past the tables in its cells", () => {
+    const text = "\\begin{tabular}{lc}\n\\begin{tabular}{@{}c@{}}a\\\\b\\end{tabular} & x \\\\\nlast & y \\\\\n\\end{tabular}\nAfter.";
+    expect(covered(text).filter(([kind]) => kind === "block")).toEqual([["block", text.slice(0, text.indexOf("\nAfter."))]]);
+  });
+
   it("offsets every construct by where the text starts in the document", () => {
     const [math] = scanConstructs("x $y$", 50).constructs;
     expect([math.from, math.to]).toEqual([52, 55]);

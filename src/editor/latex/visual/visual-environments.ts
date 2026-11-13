@@ -111,6 +111,21 @@ export function openEnvironments(state: EditorState, position: number): OpenEnvi
   return stack;
 }
 
+/** Where the environment `open` (from `openEnvironments`) ends: past its `\end{…}`, looked for up to `reach` after it; null when it does not end there. */
+export function environmentEnd(state: EditorState, open: OpenEnvironment, reach: number): number | null {
+  let depth = 0;
+  let end: number | null = null;
+  state.field(environmentIndex).between(open.to, Math.min(state.doc.length, open.to + reach), (from, to, mark) => {
+    if (from < open.to || mark.name !== open.name) return;
+    if (mark.begin) depth++;
+    else if (depth-- === 0) {
+      end = to;
+      return false;
+    }
+  });
+  return end;
+}
+
 /** The `\begin{document}` and `\end{document}` tokens, if the file has them (a chapter does not). */
 export type DocumentBounds = { begin: { from: number; to: number } | null; end: { from: number; to: number } | null };
 
