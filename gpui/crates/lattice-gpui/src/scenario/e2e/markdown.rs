@@ -102,7 +102,7 @@ impl Run {
         std::fs::write(&path, NOTES)?;
         let panel = self.open(cx, &path, None)?;
 
-        self.markdown_source(cx, steps, &panel);
+        self.markdown_source(cx, steps, &panel).await;
         let Some(island) = self.markdown_drawn(cx, steps, &panel).await else {
             return Ok(());
         };
@@ -129,42 +129,57 @@ impl Run {
 
     /// The source's language and two of its highlights: a heading (the block
     /// grammar) and a strong run (the inline grammar, by injection).
-    fn markdown_source(&self, cx: &mut AsyncApp, steps: &mut Steps, panel: &Entity<EditorPanel>) {
-        let (language, heading, strong) = cx.update(|cx| {
-            let buffer = panel
-                .read(cx)
-                .editor()
-                .read(cx)
-                .buffer()
-                .read(cx)
-                .as_singleton();
-            let Some(buffer) = buffer else {
-                return (None, None, None);
-            };
-            let snapshot = buffer.read(cx).snapshot();
-            let syntax = cx.theme().syntax().clone();
-            let capture = |row: u32, needle: &str| {
-                let end = Point::new(row, snapshot.line_len(row));
-                snapshot
-                    .chunks(
-                        Point::new(row, 0)..end,
-                        LanguageAwareStyling {
-                            tree_sitter: true,
-                            diagnostics: false,
-                        },
-                    )
-                    .find(|chunk| chunk.text.contains(needle))
-                    .and_then(|chunk| chunk.syntax_highlight_id)
-                    .and_then(|id| syntax.get_capture_name(id).map(str::to_string))
-            };
-            (
-                snapshot
-                    .language()
-                    .map(|language| language.name().to_string()),
-                capture(5, "Attention"),
-                capture(7, "bold"),
-            )
-        });
+    /// The buffer parses off the main thread, its injections after it: the
+    /// highlights are read again until both are there, or 5 s have gone.
+    async fn markdown_source(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+        panel: &Entity<EditorPanel>,
+    ) {
+        let started = std::time::Instant::now();
+        let (language, heading, strong) = loop {
+            let read = cx.update(|cx| {
+                let buffer = panel
+                    .read(cx)
+                    .editor()
+                    .read(cx)
+                    .buffer()
+                    .read(cx)
+                    .as_singleton();
+                let Some(buffer) = buffer else {
+                    return (None, None, None);
+                };
+                let snapshot = buffer.read(cx).snapshot();
+                let syntax = cx.theme().syntax().clone();
+                let capture = |row: u32, needle: &str| {
+                    let end = Point::new(row, snapshot.line_len(row));
+                    snapshot
+                        .chunks(
+                            Point::new(row, 0)..end,
+                            LanguageAwareStyling {
+                                tree_sitter: true,
+                                diagnostics: false,
+                            },
+                        )
+                        .find(|chunk| chunk.text.contains(needle))
+                        .and_then(|chunk| chunk.syntax_highlight_id)
+                        .and_then(|id| syntax.get_capture_name(id).map(str::to_string))
+                };
+                (
+                    snapshot
+                        .language()
+                        .map(|language| language.name().to_string()),
+                    capture(5, "Attention"),
+                    capture(7, "bold"),
+                )
+            });
+            if (read.1.is_some() && read.2.is_some()) || started.elapsed() > Duration::from_secs(5)
+            {
+                break read;
+            }
+            self.pause(cx, Duration::from_millis(100)).await;
+        };
         steps.check(
             "a .md file's source is Markdown: a heading in the heading style, a strong run (the injected inline grammar) in the strong one",
             language.as_deref() == Some("Markdown")
