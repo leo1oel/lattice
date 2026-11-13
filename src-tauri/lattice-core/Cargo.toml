@@ -112,6 +112,13 @@ system-configuration = "0.7"
 [target.'cfg(unix)'.dependencies]
 rustix = { version = "1", features = ["fs"] }
 
+[target.'cfg(target_os = "linux")'.dependencies]
+# The file system the agent sees on Linux, which refuses bibliography changes
+# by name (synara/bibliography_guard/name_filter.rs). Without `libfuse`: it
+# speaks the kernel protocol itself and mounts through the system's
+# fusermount3, so nothing is linked that an AppImage would have to bundle.
+fuser = { version = "0.18", default-features = false }
+
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = ["Win32_Storage_FileSystem", "Win32_Foundation", "Win32_System_Threading", "Win32_System_Diagnostics_ToolHelp", "Win32_System_ProcessStatus", "Win32_System_JobObjects", "Win32_Security"] }
 keyring = { version = "3", features = ["windows-native"] }

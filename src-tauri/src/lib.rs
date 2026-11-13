@@ -292,6 +292,10 @@ pub fn run() {
     // agent sidecar it serves never starts (synara.rs).
     #[cfg(target_os = "macos")]
     process_inspector::run_if_requested();
+    // The Linux bibliography guard is the same kind of helper: it runs the
+    // agent sidecar inside its sandbox and exits with it.
+    #[cfg(target_os = "linux")]
+    synara::run_guard_if_requested();
     app_identity::init(&context.config().identifier, cfg!(lattice_beta));
     http::install_tls_provider();
     if agent_literature::run_cli() || research_env::run_cli() || model_endpoint::run_cli() {

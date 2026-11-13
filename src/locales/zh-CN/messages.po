@@ -1989,8 +1989,8 @@ msgid "Agent is revising, {0} of {1} answered"
 msgstr "AI 助手正在修改，已答复 {0}/{1}"
 
 #: src/agent/synara-loading-surface.tsx
-msgid "Agent isn’t available on Linux yet"
-msgstr "Linux 版暂不支持 AI 助手"
+msgid "Agent isn’t available here"
+msgstr "此处无法使用 AI 助手"
 
 #: src/agent/synara-loading-surface.tsx
 msgid "Agent isn’t available on Windows yet"
@@ -8696,6 +8696,10 @@ msgstr "Lattice 用这台 Mac 上的 LaTeX 编译 PDF，BasicTeX 约 1 GB。"
 msgid "Lattice builds your PDF with the TeX Live on this computer. Install it from your distribution’s packages, then choose Recheck."
 msgstr "Lattice 用这台电脑上的 TeX Live 编译 PDF，请从发行版的软件源安装，然后选择“重新检测”。"
 
+#: src/agent/synara-loading-surface.tsx
+msgid "Lattice cannot keep the Agent from editing .bib files directly here, so it stays off instead of running without that protection."
+msgstr "Lattice 在这里无法阻止 AI 助手直接编辑 .bib 文件，因此它会保持关闭，而不是在没有这项保护的情况下运行。"
+
 #: src/overleaf/overleaf-realtime-model.ts
 msgid "Lattice cannot yet identify which replayed edits to {activeFile} are its own. Syncing remains paused for this file."
 msgstr "{activeFile} 暂停同步，Lattice 正在核对"
@@ -10832,10 +10836,6 @@ msgstr "针对“{0}”"
 #: src/editor/latex/search-panel.ts
 msgid "on line"
 msgstr "位于行"
-
-#: src/agent/synara-loading-surface.tsx
-msgid "On macOS, Lattice stops the Agent from editing .bib files directly, so every reference it adds is checked first. Linux doesn’t have that protection yet, so the Agent stays off here instead of running without it. Agent support for Linux is coming."
-msgstr "在 macOS 上，Lattice 会阻止 AI 助手直接编辑 .bib 文件，它添加的每条参考文献都会先经过核查。Linux 上暂时还没有这层保护，因此 AI 助手在这里保持关闭，而不是在没有保护的情况下运行。Linux 版 AI 助手支持即将推出。"
 
 #: src/canvas/status-save-state.tsx
 msgid "On this Mac"
@@ -15926,6 +15926,26 @@ msgstr "编译"
 #: src/platform/host-errors-setup.ts
 msgid "The built-in agent did not become ready within {seconds} seconds."
 msgstr "内置 AI 助手在 {seconds} 秒内未能就绪"
+
+#: src/build/compile-repair-messages.ts
+#: src/platform/host-errors-setup.ts
+msgid "The built-in agent is off because bubblewrap (bwrap) is not installed. Lattice runs the agent inside it to keep it from editing bibliography (.bib) files directly."
+msgstr "内置 AI 助手已关闭，因为未安装 bubblewrap（bwrap）。Lattice 需要在其中运行 AI 助手，以阻止它直接编辑参考文献（.bib）文件。"
+
+#: src/build/compile-repair-messages.ts
+#: src/platform/host-errors-setup.ts
+msgid "The built-in agent is off because FUSE (fusermount3 and /dev/fuse) is not available. Lattice needs it to keep the agent from editing bibliography (.bib) files directly."
+msgstr "内置 AI 助手已关闭，因为 FUSE（fusermount3 和 /dev/fuse）不可用。Lattice 需要它来阻止 AI 助手直接编辑参考文献（.bib）文件。"
+
+#: src/build/compile-repair-messages.ts
+#: src/platform/host-errors-setup.ts
+msgid "The built-in agent is off because this system does not let bubblewrap start a sandbox (unprivileged user namespaces are restricted). Lattice runs the agent inside one to keep it from editing bibliography (.bib) files directly."
+msgstr "内置 AI 助手已关闭，因为此系统不允许 bubblewrap 启动沙盒（非特权用户命名空间受到限制）。Lattice 需要在沙盒中运行 AI 助手，以阻止它直接编辑参考文献（.bib）文件。"
+
+#: src/build/compile-repair-messages.ts
+#: src/platform/host-errors-setup.ts
+msgid "The built-in agent is off for this project: Lattice cannot keep it from editing bibliography (.bib) files here. That goes for temporary folders, the home folder itself and its hidden folders. Move the project to an ordinary folder to use the agent."
+msgstr "此项目无法使用内置 AI 助手：Lattice 在这里无法阻止它直接编辑参考文献（.bib）文件。临时文件夹、主文件夹本身及其中的隐藏文件夹都是如此。请将项目移到普通文件夹后再使用 AI 助手。"
 
 #: src/build/compile-repair-messages.ts
 #: src/platform/host-errors-setup.ts

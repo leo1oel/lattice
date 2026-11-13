@@ -464,13 +464,16 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
-      # Tauri's WebKitGTK stack, plus D-Bus for the Secret Service keyring.
+      # Tauri's WebKitGTK stack, plus D-Bus for the Secret Service keyring, and
+      # bubblewrap for the agent's .bib guard: its tests run the real sandbox
+      # where the runner also has FUSE, and say so when they have to skip.
       - name: Install the Linux build dependencies
         timeout-minutes: 15
         run: >-
           .github/scripts/apt-install.sh
           build-essential libayatana-appindicator3-dev libdbus-1-dev
           librsvg2-dev libssl-dev libwebkit2gtk-4.1-dev libxdo-dev pkg-config
+          bubblewrap
       # rust-toolchain.toml pins the release; the runner's own target comes with it.
       - run: rustup toolchain install
       - uses: Swatinem/rust-cache@v2

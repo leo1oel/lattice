@@ -11,6 +11,11 @@ const RELAY_MESSAGES: Record<string, MessageDescriptor> = {
   "Repair has no active turn.": msg`Repair has no active turn.`,
   "The agent service is unavailable.": msg`The agent service is unavailable.`,
   "The built-in agent is off on this platform until Lattice can keep it from editing bibliography (.bib) files directly.": msg`The built-in agent is off on this platform until Lattice can keep it from editing bibliography (.bib) files directly.`,
+  // The Linux guard's own reasons (synara/bibliography_guard/linux.rs).
+  "The built-in agent is off because bubblewrap (bwrap) is not installed. Lattice runs the agent inside it to keep it from editing bibliography (.bib) files directly.": msg`The built-in agent is off because bubblewrap (bwrap) is not installed. Lattice runs the agent inside it to keep it from editing bibliography (.bib) files directly.`,
+  "The built-in agent is off because FUSE (fusermount3 and /dev/fuse) is not available. Lattice needs it to keep the agent from editing bibliography (.bib) files directly.": msg`The built-in agent is off because FUSE (fusermount3 and /dev/fuse) is not available. Lattice needs it to keep the agent from editing bibliography (.bib) files directly.`,
+  "The built-in agent is off because this system does not let bubblewrap start a sandbox (unprivileged user namespaces are restricted). Lattice runs the agent inside one to keep it from editing bibliography (.bib) files directly.": msg`The built-in agent is off because this system does not let bubblewrap start a sandbox (unprivileged user namespaces are restricted). Lattice runs the agent inside one to keep it from editing bibliography (.bib) files directly.`,
+  "The built-in agent is off for this project: Lattice cannot keep it from editing bibliography (.bib) files here. That goes for temporary folders, the home folder itself and its hidden folders. Move the project to an ordinary folder to use the agent.": msg`The built-in agent is off for this project: Lattice cannot keep it from editing bibliography (.bib) files here. That goes for temporary folders, the home folder itself and its hidden folders. Move the project to an ordinary folder to use the agent.`,
   "The repair request failed.": msg`The repair request failed.`,
 };
 

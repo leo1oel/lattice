@@ -155,7 +155,7 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge, appea
   // process; process-idle shutdown needs an explicit lease/task protocol.
   const { t } = useLingui();
   const [runtimeRequested, setRuntimeRequested] = useState(false);
-  const { runtime, retry } = useSynaraRuntime(runtimeRequested);
+  const { runtime, retry } = useSynaraRuntime(runtimeRequested, project?.root ?? null);
   const origin = runtime.state === "ready" ? runtime.origin : null;
   const frameRef = useRef<HTMLIFrameElement>(null);
   const sourceControlFrameRef = useRef<HTMLIFrameElement>(null);

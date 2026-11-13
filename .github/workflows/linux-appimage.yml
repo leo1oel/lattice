@@ -21,7 +21,7 @@ name: Linux AppImage
 #   host's libraries, not the AppImage's;
 # - e2e: tauri-driver drives the AppImage itself under Xvfb: it opens the
 #   tutorial, builds it, draws the PDF, rebuilds on Build, and the Agent panel
-#   says the Agent is not available on Linux yet (scripts/linux-e2e.mjs).
+#   shows the Agent or says what its .bib guard lacks (scripts/linux-e2e.mjs).
 #
 # Linux copies do not update themselves: the build turns
 # bundle.createUpdaterArtifacts off, so there is no updater archive to sign,
