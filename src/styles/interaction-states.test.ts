@@ -120,6 +120,27 @@ describe("interaction states", () => {
     expect(transitionMs(paper, "background-color")).toBe(fastExit)
   })
 
+  it("fades a control's own hover wash in on the fast tier and out a tier quicker, as a row's does", () => {
+    mount(read("src/styles/foundations.css") + read("src/components/ui/chrome.css") + read("src/pdf/pdf-viewer.css") + read("src/live-preview/live-preview.css"))
+    render(`
+      <button type="button" class="ui-icon-button">Close</button>
+      <button type="button" class="ui-button ui-button--ghost ui-button--default">Cancel</button>
+      <button type="button" class="ui-compact-selectable">Filter</button>
+      <div class="pdf-toolbar"><button type="button">Zoom</button></div>
+      <button type="button" class="live-preview-status">Live</button>`)
+    const fast = Number.parseFloat(token(document.body, "--duration-fast"))
+    const fastExit = Number.parseFloat(token(document.body, "--duration-fast-exit"))
+    // Design call 7: hover exits are a tier quicker than entries everywhere.
+    expect(fastExit).toBeLessThan(fast)
+
+    for (const control of document.querySelectorAll("button")) {
+      setState(control, "hover")
+      expect(transitionMs(control, "background-color"), control.outerHTML).toBe(fast)
+      setState(control)
+      expect(transitionMs(control, "background-color"), control.outerHTML).toBe(fastExit)
+    }
+  })
+
   it("lights both outlines in the accent wash, the current section in the accent ink", () => {
     mount(read("src/styles/foundations.css") + read("src/styles/editor-workspace.css"))
     render(`

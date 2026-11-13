@@ -15,7 +15,7 @@
   line-height: 0;
   cursor: default;
   transition: color var(--motion-fast),
-    background-color var(--motion-fast),
+    background-color var(--motion-fast-exit),
     opacity var(--motion-fast);
 }
 
@@ -39,6 +39,7 @@
 .ui-icon-button[data-state="open"] {
   background: var(--control-hover-surface);
   color: var(--text-primary);
+  transition-duration: var(--duration-fast);
 }
 
 .ui-icon-button:active:not(:disabled) {
@@ -82,9 +83,13 @@
   cursor: pointer;
   transition: color var(--motion-fast),
     border-color var(--motion-fast),
-    background-color var(--motion-fast),
+    background-color var(--motion-fast-exit),
     opacity var(--motion-fast),
     scale var(--motion-fast);
+}
+
+.ui-button:hover:not(:disabled) {
+  transition-duration: var(--duration-fast);
 }
 
 .ui-button--compact {
@@ -190,7 +195,7 @@
   font-weight: var(--weight-semibold);
   transition: color var(--motion-fast),
     border-color var(--motion-fast),
-    background-color var(--motion-fast),
+    background-color var(--motion-fast-exit),
     opacity var(--motion-fast);
 }
 
@@ -198,6 +203,7 @@
   border-color: var(--border-strong);
   background: var(--control-hover-surface);
   color: var(--text-primary);
+  transition-duration: var(--duration-fast);
 }
 
 .ui-compact-selectable:is(.active, [aria-selected="true"], [aria-pressed="true"], [aria-checked="true"]) {

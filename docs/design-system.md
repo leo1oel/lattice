@@ -760,11 +760,11 @@ moves, the slower the tier.
   `transition-duration` override, a staggered delay.
 - **Exits are one tier quicker** and are plain tweens, so a dismissal reads as
   final rather than replaying the entrance backwards: `--motion-*-exit` in
-  CSS, `springExit` in JS. A list row's hover fill leaves a tier quicker than
-  it arrives, as the fluid hover's does: in on the fast tier, out on
-  `--motion-fast-exit` (the Project tree, Papers, Literature). A control's own
-  wash fades both ways on the fast tier; an element that leaves the screen
-  takes the exit.
+  CSS, `springExit` in JS. A hover fill, a list row's or a control's own
+  wash, leaves a tier quicker than it arrives, as the fluid hover's does: in
+  on the fast tier, out on `--motion-fast-exit` (the Project tree, Papers,
+  Literature, icon buttons, buttons, the PDF toolbar). An element that
+  leaves the screen takes the exit.
 - **JS takes the same tiers:** `spring.fast|moderate|slow` and `springExit`
   from `components/ui/motion-values.ts`. Motion run outside motion/react (an
   `element.animate()` call, a library's own transition) takes
