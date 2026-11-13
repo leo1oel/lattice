@@ -158,6 +158,21 @@ describe("Visual mode floats and tables", () => {
     expect(text(view)).not.toMatch(/\\(?:resizebox|toprule|multicolumn)/);
   });
 
+  it("draws an environment whose name holds regex characters as a named placeholder", async () => {
+    const doc = String.raw`\begin{figure}
+\begin{c++}
+int x;
+\end{c++}
+\caption{Code.}
+\end{figure}
+
+After.`;
+    const view = await visualView(doc);
+    const block = view.contentDOM.querySelector(".lx-tex-float-block")!;
+    expect(block.querySelector(".lx-tex-float-opaque")?.textContent).toBe("c++");
+    expect(block.querySelector(".lx-tex-float-caption")?.textContent).toBe("Figure ?: Code.");
+  });
+
   it("draws every row of a table outside a float whose cells hold tables", async () => {
     const doc = String.raw`\begin{tabular}{lc}
 Name & \begin{tabular}{@{}c@{}}top\\bottom\end{tabular} \\

@@ -599,7 +599,7 @@ function bareGroupAt(text: string, at: number): boolean {
  * the same-named ones begun inside it counted: where it starts and ends; null when it does not close.
  */
 export function environmentClose(text: string, name: string, from: number): { close: number; end: number } | null {
-  const token = new RegExp(`\\\\(begin|end)\\s*\\{${name.replace(/[*]/g, "\\*")}\\}`, "g");
+  const token = new RegExp(`\\\\(begin|end)\\s*\\{${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\}`, "g");
   token.lastIndex = from;
   let depth = 0;
   for (let match = token.exec(text); match; match = token.exec(text)) {
