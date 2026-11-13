@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Build the island pages (README.md, "Webview islands"): the spreadsheet,
-# board and Open Slide pages in islands/, compiled from the Tauri app's own
+# board, Open Slide and visual Markdown pages in islands/, compiled from the Tauri app's own
 # modules in ../src with the app's toolchain, into islands/dist, which the
 # app serves from disk (crates/lattice-gpui/src/structured/resources.rs).
 # Needs the repository's node_modules (pnpm install at the root).

@@ -31,7 +31,8 @@ plus, each only when your branch changed its inputs: the production bundle's
 WebKit check and startup budgets (the eager-JS budget among them), the bench
 harness, the Synara pin check, clippy and `cargo test` for the changed Tauri
 crates, and for `gpui/` (or `lattice-core`, the design-system exports it
-reads and the Tauri editors its island pages build from) rustfmt, the release build, the unit tests and the `e2e` scenario on a
+reads, and the `src/` modules its webview islands are built from, listed in
+`GPUI_INPUTS` in `scripts/signoff.mjs`) rustfmt, the release build, the unit tests and the `e2e` scenario on a
 scratch fixture with a scratch `HOME` (`gpui/script/e2e`). Expect about 5–10
 minutes without GPUI; a GPUI release build adds its own, and only one runs on
 the machine at a time. When every stage passes and the tree is clean, it

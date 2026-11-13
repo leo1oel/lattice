@@ -121,6 +121,7 @@ impl Run {
         self.markdown_source_edit(cx, steps, &panel, &island)
             .await?;
         self.markdown_preview(cx, steps, &panel, &island).await?;
+        self.markdown_moved(cx, steps, root, &island).await?;
         self.markdown_close_and_hibernate(cx, steps, root, &path, &panel, &island)
             .await?;
         self.markdown_split_scroll(cx, steps, root).await?;
@@ -449,6 +450,72 @@ impl Run {
             "Preview shows the visual editor alone, and a jump to a line lands there",
             view == Some(DocumentView::Preview) && visible && landed == true,
             json!({ "view": format!("{view:?}"), "visible": visible, "landed": landed }),
+        );
+        Ok(())
+    }
+
+    /// The image's `src` and natural width in the visual editor.
+    async fn markdown_image(&self, cx: &mut AsyncApp, island: &Entity<Island>) -> Value {
+        self.evaluate(
+            cx,
+            island,
+            "JSON.stringify({ src: document.querySelector('.lx-md-image img')?.getAttribute('src') ?? null, \
+             width: document.querySelector('.lx-md-image img')?.naturalWidth ?? -1 })",
+        )
+        .await
+    }
+
+    /// Moved in the tree, the visual editor resolves the document's relative
+    /// image from its new folder (a relative link is relative to the
+    /// document, CommonMark), and from the old one once it is moved back.
+    async fn markdown_moved(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+        root: &Path,
+        island: &Entity<Island>,
+    ) -> Result<()> {
+        std::fs::create_dir_all(root.join("drafts/figures"))?;
+        std::fs::write(root.join("drafts/figures/e2e-dot.png"), DOT_PNG)?;
+        let tree = cx.update(|cx| self.shell.read(cx).file_tree().clone());
+        let mut results = Vec::new();
+        for (from, target, folder) in [
+            ("e2e-notes.md", "drafts", "drafts/"),
+            ("drafts/e2e-notes.md", "", ""),
+        ] {
+            cx.update(|cx| {
+                tree.update(cx, |tree, cx| tree.drop_on(from.into(), target.into(), cx))
+            });
+            let moved_to = format!("{folder}e2e-notes.md");
+            let followed = self
+                .wait_for(cx, Duration::from_secs(8), |shell, cx| {
+                    root.join(&moved_to).is_file()
+                        && shell
+                            .read(cx)
+                            .active_editor_path(cx)
+                            .is_some_and(|path| path == moved_to)
+                })
+                .await;
+            let wanted = format!("lattice://island/asset/{folder}figures/e2e-dot.png");
+            let mut image = Value::Null;
+            let started = std::time::Instant::now();
+            while started.elapsed() < Duration::from_secs(15) {
+                image = self.markdown_image(cx, island).await;
+                if image["src"].as_str().is_some_and(|src| src.starts_with(&wanted))
+                    && image["width"] == 4
+                {
+                    break;
+                }
+                self.pause(cx, Duration::from_millis(200)).await;
+            }
+            let resolved = image["src"].as_str().is_some_and(|src| src.starts_with(&wanted))
+                && image["width"] == 4;
+            results.push(json!({ "to": moved_to, "followed": followed, "resolved": resolved, "image": image }));
+        }
+        steps.check(
+            "a Markdown file moved in the tree: its visual editor resolves the relative image from the new folder, and from the old one when moved back",
+            results.iter().all(|result| result["followed"] == true && result["resolved"] == true),
+            json!(results),
         );
         Ok(())
     }
