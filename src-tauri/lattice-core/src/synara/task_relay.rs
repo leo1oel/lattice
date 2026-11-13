@@ -2,6 +2,7 @@
 //! relayed to the sidecar's `/api/lattice/<route>` over loopback.
 
 use super::SynaraRuntime;
+use std::path::Path;
 use std::time::Duration;
 
 /// The agent service's host task routes: compile repair edits the project; a
@@ -25,7 +26,12 @@ pub fn task_relay_request(
     runtime: &SynaraRuntime, route: &str, action: &str, task_id: Option<&str>,
     payload: serde_json::Value,
 ) -> Result<serde_json::Value, String> {
-    let info = runtime.ensure_ready()?;
+    // A task starts in the project it names, which the guard must cover.
+    let workspace = payload.get("workspaceRoot").and_then(serde_json::Value::as_str);
+    let info = match workspace.filter(|_| action == "start") {
+        Some(workspace) => runtime.ensure_ready_for(Path::new(workspace))?,
+        None => runtime.ensure_ready()?,
+    };
     // Where the agent is off (`bibliography_guard`), say why.
     let origin = info.origin.ok_or_else(|| {
         info.message.clone().unwrap_or_else(|| "The agent service is unavailable.".to_string())

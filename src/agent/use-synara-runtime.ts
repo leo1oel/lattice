@@ -28,9 +28,10 @@ function normalizeRuntime(info: SynaraRuntimeInfo): SynaraRuntimeInfo {
  * Start the bundled service only after a Synara-owned surface is requested.
  * `enabled` is intentionally a one-way App-level latch: once the service has
  * started it may own background turns and terminals, so hiding a surface must
- * not tear it down.
+ * not tear it down. `workspaceRoot` is the window's open project: the service
+ * answers `unsupported` for a folder its bibliography guard does not cover.
  */
-export function useSynaraRuntime(enabled: boolean) {
+export function useSynaraRuntime(enabled: boolean, workspaceRoot: string | null = null) {
   const [runtime, setRuntime] = useState<SynaraRuntimeInfo>(
     DEVELOPMENT_RUNTIME ?? EMPTY_SYNARA_RUNTIME,
   );
@@ -39,7 +40,7 @@ export function useSynaraRuntime(enabled: boolean) {
   useEffect(() => {
     if (DEVELOPMENT_RUNTIME || !enabled) return;
     let disposed = false;
-    void invoke<SynaraRuntimeInfo>("synara_ensure_ready")
+    void invoke<SynaraRuntimeInfo>("synara_ensure_ready", { workspaceRoot })
       .then((info) => {
         if (!disposed) setRuntime(normalizeRuntime(info));
       })
@@ -50,7 +51,7 @@ export function useSynaraRuntime(enabled: boolean) {
     return () => {
       disposed = true;
     };
-  }, [attempt, enabled]);
+  }, [attempt, enabled, workspaceRoot]);
 
   const retry = useCallback(() => {
     setRuntime((current) => ({ ...current, state: "starting", message: null }));

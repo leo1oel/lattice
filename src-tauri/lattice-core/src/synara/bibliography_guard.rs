@@ -1,14 +1,24 @@
 //! The bibliography write guard the agent sidecar runs inside.
 //!
 //! The prompt tells providers to use Lattice's bibliography tools, but prompt
-//! text is not an authorization boundary. On macOS the complete sidecar runs
-//! inside one Seatbelt profile, so in-process agents, provider CLIs, scripts,
-//! and delayed descendants all inherit the same .bib write denial; the trusted
-//! parent app brokers the three allowed bibliography mutations. No other
-//! platform has a guard yet, and there the agent does not start: it fails
-//! closed, with a notice, rather than running with the guarantee silently gone.
+//! text is not an authorization boundary. The complete sidecar runs inside one
+//! guard, so in-process agents, provider CLIs, scripts, and delayed
+//! descendants all inherit the same .bib write denial; the trusted parent app
+//! brokers the three allowed bibliography mutations. On macOS the guard is a
+//! Seatbelt profile. On Linux it is bubblewrap with a FUSE file system that
+//! refuses bibliography changes by name (`linux`, `layout`, `name_filter`), where the
+//! system has both. Anywhere else the agent does not start: it fails closed,
+//! with a notice, rather than running with the guarantee silently gone.
+
+#[cfg(target_os = "linux")]
+mod layout;
+#[cfg(target_os = "linux")]
+pub(crate) mod linux;
+#[cfg(target_os = "linux")]
+mod name_filter;
 
 use std::path::Path;
+#[cfg(not(target_os = "linux"))]
 use std::process::Command;
 
 #[cfg(target_os = "macos")]
@@ -17,14 +27,51 @@ pub(crate) const BIBLIOGRAPHY_SANDBOX_PROFILE: &str = concat!(
     "(allow default)\n",
     "(deny file-write* (regex #\".*[.][bB][iI][bB]$\"))",
 );
-/// Whether this platform can keep the sidecar from writing `.bib` files
-/// itself. Without the guard the agent could write unverified references
-/// straight into a bibliography, so it stays off.
-pub(super) const AVAILABLE: bool = cfg!(target_os = "macos");
-/// The `unsupported` state's message: English for logs and copied reports;
-/// the agent surfaces show their own localized notice for the state.
+/// The `unsupported` state's message where no guard exists for the platform:
+/// English for logs and copied reports; the agent surfaces show their own
+/// localized notice for the state.
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
 pub(super) const MISSING: &str = "The built-in agent is off on this platform until Lattice \
      can keep it from editing bibliography (.bib) files directly.";
+
+/// Why this system cannot keep the sidecar from writing `.bib` files itself,
+/// if it cannot. Without the guard the agent could write unverified
+/// references straight into a bibliography, so it stays off.
+pub(super) fn missing() -> Option<&'static str> {
+    #[cfg(target_os = "macos")]
+    return None;
+    #[cfg(target_os = "linux")]
+    return linux::missing();
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+    return Some(MISSING);
+}
+
+/// Why the guard does not cover the project at `workspace`, if it does not:
+/// the agent must not work there either. `home_dir` is the sidecar's own.
+pub(super) fn unguarded(workspace: &Path, home_dir: &Path) -> Option<&'static str> {
+    #[cfg(target_os = "linux")]
+    return linux::unguarded(workspace, home_dir);
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = (workspace, home_dir);
+        None
+    }
+}
+
+/// Whether the sidecar sees Lattice's process, to stop when it is gone. The
+/// Linux sandbox has its own process table, and ends with the guard instead.
+pub(super) const SEES_LATTICE: bool = !cfg!(target_os = "linux");
+
+/// The process ID the sidecar reports as its own, for the child Lattice
+/// started. In the Linux sandbox's process table bubblewrap is 1 and the
+/// service it starts is always 2.
+pub(super) fn sidecar_pid(child: &std::process::Child) -> u32 {
+    if cfg!(target_os = "linux") {
+        2
+    } else {
+        child.id()
+    }
+}
 
 /// The sidecar's launch: `node` inside the guard, with Lattice's own `ps`
 /// replacement (`process_inspector`), which works only inside it.
@@ -44,9 +91,13 @@ pub(super) fn command(node: &Path, home_dir: &Path, executable: &Path) -> Result
     Ok(command)
 }
 
+/// The sidecar's launch: `node` inside bubblewrap and the name filter.
+#[cfg(target_os = "linux")]
+pub(super) use linux::command;
+
 /// No guard, so no launch. `ensure_ready` stops first; this keeps an
 /// unguarded sidecar from starting by any other path.
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
 pub(super) fn command(
     _node: &Path, _home_dir: &Path, _executable: &Path,
 ) -> Result<Command, String> {

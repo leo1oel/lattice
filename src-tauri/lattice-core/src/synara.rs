@@ -1,9 +1,10 @@
 //! Supervisor for the bundled Synara agent sidecar.
 //!
 //! The sidecar is a loopback Node service started on demand by
-//! [`SynaraRuntime::ensure_ready`]. It runs inside the macOS bibliography
-//! sandbox with Lattice's own `ps` replacement (`process_inspector`), and
-//! does not start at all where no such guard exists (`bibliography_guard`); the
+//! [`SynaraRuntime::ensure_ready`]. It runs inside the bibliography guard
+//! (`bibliography_guard`): the macOS sandbox, with Lattice's own `ps`
+//! replacement (`process_inspector`), or bubblewrap and a FUSE name filter on
+//! Linux. Where no guard exists it does not start at all; the
 //! provider CLIs it spawns inherit the writer's proxy and provider settings
 //! (`environment`, from the login shell and the system proxy), which a
 //! restart picks up again (`restart`), and a default-off research-writing
@@ -24,6 +25,8 @@ mod task_relay;
 use crate::host::{EventSink, Resources};
 use crate::sidecar::{terminate_process_group, NodeRuntime};
 use crate::wide_event::{self, Failure};
+#[cfg(target_os = "linux")]
+pub use bibliography_guard::linux::run_if_requested as run_guard_if_requested;
 #[cfg(target_os = "macos")]
 pub(crate) use bibliography_guard::BIBLIOGRAPHY_SANDBOX_PROFILE;
 pub use environment::EnvironmentReport;
@@ -155,22 +158,37 @@ impl SynaraRuntime {
         }
     }
 
+    /// The agent where the guard is missing or does not reach: off, and why.
+    fn unsupported_info(&self, message: &str) -> SynaraRuntimeInfo {
+        SynaraRuntimeInfo {
+            state: "unsupported".to_string(),
+            origin: None,
+            auth_token: None,
+            message: Some(message.to_string()),
+            startup_ms: None,
+            version: self.version.clone(),
+            revision: self.revision.clone(),
+        }
+    }
+
+    /// [`Self::ensure_ready`] for work on the project at `workspace`, which
+    /// the guard has to cover as well (`bibliography_guard::unguarded`).
+    pub fn ensure_ready_for(&self, workspace: &Path) -> Result<SynaraRuntimeInfo, String> {
+        if self.external_origin.is_none() {
+            if let Some(reason) = bibliography_guard::unguarded(workspace, &self.home_dir) {
+                // What the whole system lacks comes first.
+                let reason = bibliography_guard::missing().unwrap_or(reason);
+                return Ok(self.unsupported_info(reason));
+            }
+        }
+        self.ensure_ready()
+    }
+
     pub fn ensure_ready(&self) -> Result<SynaraRuntimeInfo, String> {
         // A development origin (debug builds only) is a sidecar the developer
         // started themselves, outside the guard on every platform.
         if let Some(origin) = &self.external_origin {
             return Ok(self.ready_info(origin, None, 0));
-        }
-        if !bibliography_guard::AVAILABLE {
-            return Ok(SynaraRuntimeInfo {
-                state: "unsupported".to_string(),
-                origin: None,
-                auth_token: None,
-                message: Some(bibliography_guard::MISSING.to_string()),
-                startup_ms: None,
-                version: self.version.clone(),
-                revision: self.revision.clone(),
-            });
         }
         let mut running = self.running.lock().map_err(|_| UNAVAILABLE.to_string())?;
         let mut reason = "start";
@@ -181,6 +199,11 @@ impl SynaraRuntime {
             // The managed child exited; start a new one.
             *running = None;
             reason = "restart_after_exit";
+        }
+        // Asked before each start, not once: on Linux what was missing can
+        // have been installed since.
+        if let Some(missing) = bibliography_guard::missing() {
+            return Ok(self.unsupported_info(missing));
         }
 
         let operation = wide_event::Operation::start("synara.start", classify_start_error);
@@ -278,11 +301,13 @@ impl SynaraRuntime {
             .env("LATTICE_BIN", &executable)
             .env("SYNARA_AUTH_TOKEN", &auth_token)
             .env("SYNARA_DESKTOP_SHUTDOWN_TOKEN", shutdown_token)
-            .env("SYNARA_DESKTOP_PARENT_PID", std::process::id().to_string())
             .env("SYNARA_TELEMETRY_ENABLED", "false")
             .stdin(Stdio::null())
             .stdout(Stdio::from(stdout))
             .stderr(Stdio::from(stderr));
+        if bibliography_guard::SEES_LATTICE {
+            command.env("SYNARA_DESKTOP_PARENT_PID", std::process::id().to_string());
+        }
         environment.apply(&mut command);
         // After the shell's variables, so Lattice's Pi configuration wins.
         crate::model_endpoint::configure_sidecar(&mut command, &self.home_dir, &executable);
@@ -380,7 +405,9 @@ fn wait_until_ready(
             ));
         }
         if let Some(runtime) = read_json::<PersistedServerRuntimeState>(&runtime_state_path) {
-            if runtime.pid == child.id() && health_is_ready(&client, &runtime.origin) {
+            if runtime.pid == bibliography_guard::sidecar_pid(child)
+                && health_is_ready(&client, &runtime.origin)
+            {
                 return Ok(runtime.origin.trim_end_matches('/').to_string());
             }
         }
@@ -453,7 +480,7 @@ mod tests {
     use crate::test_support::TempDir;
 
     #[test]
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
     fn stays_off_without_a_bibliography_guard() {
         let root = TempDir::new("synara-unguarded");
         let mut runtime = SynaraRuntime::default();

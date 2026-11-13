@@ -14,8 +14,10 @@
  *      presses Guided tutorial, as a writer would);
  *   2. that first build succeeds and the PDF preview draws page 1;
  *   3. pressing Build builds it again, and that build succeeds too;
- *   4. the Agent panel shows the "isn't available on Linux yet" notice
- *      (the built-in Agent stays off without a .bib guard, PR #668).
+ *   4. the Agent panel either shows the Agent, started inside its .bib guard
+ *      (bubblewrap and FUSE, bibliography_guard/linux.rs), or says which of
+ *      those the machine lacks: the built-in Agent stays off without the
+ *      guard (PR #668), and a test machine may have neither.
  *
  * It speaks the W3C WebDriver protocol with fetch, so it needs no client
  * library. Element lookups use class names, never labels, as the bench's
@@ -39,6 +41,9 @@ const EDITOR = ".cm-editor .cm-content";
 const WELCOME_TUTORIAL = ".welcome-screen button.welcome-tutorial";
 const PDF_PAGE = ".pdfViewer .page[data-page-number=\"1\"] canvas";
 const AGENT_UNSUPPORTED = ".synara-unsupported-notice";
+// The Agent panel's frame (trellis-agent-surface.tsx), once the Agent answered in it.
+const AGENT_PANEL = ".synara-frame-shell";
+const AGENT_READY = ".synara-frame-shell[data-ready]";
 // A cold first build compiles the tutorial with latexmk and BibTeX: allow
 // for a slow runner, but not for a hang.
 const BUILD_TIMEOUT_MS = 240_000;
@@ -165,13 +170,21 @@ export async function runChecks(session, log = console.log) {
 
   // ⌃⌥3 toggles the Agent panel off macOS (src/app/panel-toggles.ts); it may
   // already be open in the tutorial's layout, and a press would then close it.
-  if (!(await session.run(present(AGENT_UNSUPPORTED)))) {
+  if (!(await session.run(present(AGENT_PANEL)))) {
     const chord = ["\uE009", "\uE00A", "3"]; // Control, Alt, 3 (WebDriver key codes)
     await session.keys([...chord.map((value) => ({ type: "keyDown", value })), ...chord.reverse().map((value) => ({ type: "keyUp", value }))]);
   }
-  const notice = await waitFor(session, "the Agent's Linux notice", `const node = document.querySelector(${JSON.stringify(AGENT_UNSUPPORTED)}); return node ? node.textContent : null;`, 30_000);
-  if (!/Linux/.test(notice)) throw new Error(`The Agent panel's notice does not mention Linux: ${notice}`);
-  log("ok: the Agent panel says the Agent is not available on Linux yet");
+  const agent = await waitFor(session, "the Agent or the notice that it is off", `
+    const notice = document.querySelector(${JSON.stringify(AGENT_UNSUPPORTED)});
+    if (notice) return "off: " + notice.textContent;
+    return document.querySelector(${JSON.stringify(AGENT_READY)}) ? "ready" : null;`, 90_000);
+  if (agent === "ready") {
+    log("ok: the Agent started inside its .bib guard");
+  } else if (/bubblewrap|FUSE|sandbox/.test(agent)) {
+    log(`ok: the Agent panel says why the Agent is off (${agent.slice(5, 90).trim()}…)`);
+  } else {
+    throw new Error(`The Agent panel's notice does not say what its .bib guard is missing: ${agent}`);
+  }
 }
 
 async function saveEvidence(session, directory) {

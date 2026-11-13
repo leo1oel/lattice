@@ -104,7 +104,7 @@ Official builds are signed, notarized by Apple, and update themselves.
 
 **Linux (experimental).** Releases that pass their Linux checks also carry an x86_64 `.AppImage`, for Ubuntu 22.04 or later, Fedora 45 and similar distributions.
 Make it executable (`chmod +x Lattice_*.AppImage`) and run it; it builds with the TeX Live from your distribution's packages.
-On Linux, Lattice checks for new releases and links to GitHub Releases, but does not update itself; download each new release yourself. The built-in Agent is not available yet.
+On Linux, Lattice checks for new releases and links to GitHub Releases, but does not update itself; download each new release yourself. The built-in Agent needs `bubblewrap` and FUSE (`fuse3`) from your distribution, on a system that lets bubblewrap start a sandbox; where one is missing the Agent stays off and its panel says which.
 
 Windows (experimental). Releases that pass their Windows checks also carry an
 unsigned x64 `windows-x64-experimental-setup.exe`, with a SHA-256 checksum and

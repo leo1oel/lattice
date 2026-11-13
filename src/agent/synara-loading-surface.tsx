@@ -34,7 +34,7 @@ export function SynaraLoadingSurface(props: {
   waiting?: boolean;
 }) {
   const { t } = useLingui();
-  if (props.runtime.state === "unsupported") return <SynaraUnsupportedNotice />;
+  if (props.runtime.state === "unsupported") return <SynaraUnsupportedNotice runtime={props.runtime} />;
   const failed = props.runtime.state === "stopped";
   if (props.thread && !failed) {
     return (
@@ -72,21 +72,29 @@ export function SynaraLoadingSurface(props: {
 }
 
 /**
- * The Agent where Lattice cannot yet stop it from editing .bib files itself:
- * it stays off and says why. There is nothing to retry or diagnose, so no
- * Retry, logs or Details; the runtime's English message says the same.
+ * The Agent where Lattice cannot stop it from editing .bib files itself: it
+ * stays off and says why. There is nothing to retry or diagnose, so no
+ * Retry, logs or Details. Windows has no guard at all. Linux has one that
+ * needs bubblewrap and FUSE and does not reach every folder, so there the
+ * runtime's message names what is missing (synara/bibliography_guard/linux.rs).
  * scripts/linux-e2e.mjs finds it by its `synara-unsupported-notice` class.
  */
-function SynaraUnsupportedNotice() {
+function SynaraUnsupportedNotice({ runtime }: { runtime: SynaraRuntimeInfo }) {
   const { t } = useLingui();
+  const windows = isWindowsHost();
+  const reason = runtime.message?.trim();
   return (
     <div className="synara-loading-surface synara-unsupported-notice" role="status">
       <span className="synara-loading-mark" aria-hidden="true">
         <ShieldOff size={17} />
       </span>
       <div className="synara-loading-copy">
-        <strong>{isWindowsHost() ? t`Agent isn’t available on Windows yet` : t`Agent isn’t available on Linux yet`}</strong>
-        <p>{isWindowsHost() ? t`This Windows build cannot yet protect .bib files from direct agent edits. Use Claude Code or Codex in the Terminal panel. Features that require the built-in agent are unavailable.` : t`On macOS, Lattice stops the Agent from editing .bib files directly, so every reference it adds is checked first. Linux doesn’t have that protection yet, so the Agent stays off here instead of running without it. Agent support for Linux is coming.`}</p>
+        <strong>{windows ? t`Agent isn’t available on Windows yet` : t`Agent isn’t available here`}</strong>
+        <p>{windows
+          ? t`This Windows build cannot yet protect .bib files from direct agent edits. Use Claude Code or Codex in the Terminal panel. Features that require the built-in agent are unavailable.`
+          : reason
+            ? hostErrorText(reason)
+            : t`Lattice cannot keep the Agent from editing .bib files directly here, so it stays off instead of running without that protection.`}</p>
       </div>
     </div>
   );
