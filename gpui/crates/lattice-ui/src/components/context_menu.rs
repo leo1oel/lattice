@@ -27,7 +27,7 @@ use gpui::{
 };
 use gpui_kit::base::POPUP_PRIORITY;
 
-use crate::components::{Menu, PopFrom, pop_in};
+use crate::components::{Menu, PopFrom, SubmenuBounds, pop_in};
 
 /// Where a context menu is open, and on what.
 pub struct ContextMenu<T: Clone + 'static> {
@@ -36,6 +36,8 @@ pub struct ContextMenu<T: Clone + 'static> {
     focus: FocusHandle,
     /// The focus the menu took over, given back when it closes.
     interrupted: Option<FocusHandle>,
+    /// Where the open menu's submenus stand: a press there is inside it.
+    submenus: SubmenuBounds,
 }
 
 impl<T: Clone + 'static> ContextMenu<T> {
@@ -51,6 +53,7 @@ impl<T: Clone + 'static> ContextMenu<T> {
             open: None,
             focus: cx.focus_handle(),
             interrupted: None,
+            submenus: SubmenuBounds::default(),
         })
     }
 
@@ -143,7 +146,14 @@ impl<T: Clone + 'static> ContextMenu<T> {
                                         .id(child("layer"))
                                         .occlude()
                                         .on_mouse_down_out(move |_, window, cx| {
-                                            outside.update(cx, |menu, cx| menu.close(window, cx))
+                                            if !outside
+                                                .read(cx)
+                                                .submenus
+                                                .contains(window.mouse_position())
+                                            {
+                                                outside
+                                                    .update(cx, |menu, cx| menu.close(window, cx))
+                                            }
                                         })
                                         .on_key_down(move |event: &KeyDownEvent, window, cx| {
                                             if event.keystroke.key == "escape" {
@@ -175,20 +185,23 @@ struct LazyMenu<T: Clone + 'static> {
 
 impl<T: Clone + 'static> RenderOnce for LazyMenu<T> {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
-        let (target, focus, interrupted) = {
+        let (target, focus, interrupted, submenus) = {
             let state = self.state.read(cx);
             (
                 state.target().cloned(),
                 state.focus.clone(),
                 state.interrupted.clone(),
+                state.submenus.clone(),
             )
         };
         let Some(target) = target else {
             return Empty.into_any_element();
         };
         let dismiss = self.state.clone();
+        submenus.clear();
         (self.build)(Menu::new(self.id), &target, window, cx)
             .track_focus(&focus)
+            .submenu_bounds(submenus)
             .action_context(interrupted)
             .on_dismiss(move |window, cx| dismiss.update(cx, |menu, cx| menu.close(window, cx)))
             .into_any_element()

@@ -26,13 +26,13 @@
 //!
 //! [`MenuPopover`]: super::MenuPopover
 
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc};
 
 use gpui::{
     Action, AnyElement, App, AsKeystroke as _, Bounds, ElementId, Entity, FocusHandle, Global,
     InteractiveElement as _, IntoElement, KeyContext, KeyDownEvent, MouseButton, ParentElement,
-    Pixels, RenderOnce, ScrollHandle, SharedString, StatefulInteractiveElement as _, Styled as _, Window, anchored,
-    deferred, div, point, prelude::FluentBuilder as _, px,
+    Pixels, Point, RenderOnce, ScrollHandle, SharedString, StatefulInteractiveElement as _,
+    Styled as _, Window, anchored, canvas, deferred, div, point, prelude::FluentBuilder as _, px,
 };
 use gpui_kit::{base::POPUP_PRIORITY, component::Selectable as _};
 
@@ -209,6 +209,24 @@ pub struct Menu {
     action_context: Option<FocusHandle>,
     highlighted: Option<usize>,
     min_width: Option<Pixels>,
+    submenu_bounds: Option<SubmenuBounds>,
+}
+
+/// Where an open menu's submenus stood in the last frame. A submenu opens
+/// beside its menu, outside the bounds of what dismisses the menu on a press
+/// outside it, so that dismissal lets a press in here through.
+#[derive(Clone, Default)]
+pub(crate) struct SubmenuBounds(Rc<RefCell<Vec<Bounds<Pixels>>>>);
+
+impl SubmenuBounds {
+    /// Forget the last frame's submenus, before the menu draws again.
+    pub(crate) fn clear(&self) {
+        self.0.borrow_mut().clear();
+    }
+
+    pub(crate) fn contains(&self, point: Point<Pixels>) -> bool {
+        self.0.borrow().iter().any(|bounds| bounds.contains(&point))
+    }
 }
 
 impl Menu {
@@ -222,6 +240,7 @@ impl Menu {
             action_context: None,
             highlighted: None,
             min_width: None,
+            submenu_bounds: None,
         }
     }
 
@@ -303,6 +322,12 @@ impl Menu {
         self
     }
 
+    /// Record where this menu's submenus open, for what dismisses it.
+    pub(crate) fn submenu_bounds(mut self, bounds: SubmenuBounds) -> Self {
+        self.submenu_bounds = Some(bounds);
+        self
+    }
+
     /// ← or Escape in a submenu: back to the menu it opened from.
     fn on_back(mut self, handler: Action0) -> Self {
         self.on_back = Some(handler);
@@ -345,12 +370,17 @@ pub fn record_menus(cx: &mut App) {
 
 /// The menu drawn last with a row labelled `label`, as it shows now.
 pub fn menu_snapshot(label: &str, cx: &App) -> Option<MenuSnapshot> {
-    let (_, probe) = cx.try_global::<MenuProbes>()?.0.iter().rev().find(|(_, probe)| {
-        probe
-            .labels
-            .iter()
-            .any(|row| row.as_ref().is_some_and(|row| row == label))
-    })?;
+    let (_, probe) = cx
+        .try_global::<MenuProbes>()?
+        .0
+        .iter()
+        .rev()
+        .find(|(_, probe)| {
+            probe
+                .labels
+                .iter()
+                .any(|row| row.as_ref().is_some_and(|row| row == label))
+        })?;
     let hover = probe.hover.snapshot(cx);
     Some(MenuSnapshot {
         rows: hover
@@ -608,7 +638,8 @@ impl RenderOnce for Menu {
                 .track_focus(&sub_focus)
                 .action_context(self.action_context.clone())
                 .on_dismiss_rc(dismiss.clone())
-                .on_back(back);
+                .on_back(back)
+                .when_some(self.submenu_bounds.clone(), Menu::submenu_bounds);
             if by_keys && let Some(first) = menu.entries.iter().position(Entry::enabled) {
                 menu = menu.highlighted(first);
             }
@@ -622,7 +653,18 @@ impl RenderOnce for Menu {
                             // must not reach the dismissal of what opened it.
                             div()
                                 .id(child(&format!("sub-layer-{at}")))
+                                .relative()
                                 .occlude()
+                                .when_some(self.submenu_bounds.clone(), |this, record| {
+                                    this.child(
+                                        canvas(
+                                            move |bounds, _, _| record.0.borrow_mut().push(bounds),
+                                            |_, _, _, _| {},
+                                        )
+                                        .absolute()
+                                        .inset_0(),
+                                    )
+                                })
                                 .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                                 .on_mouse_down(MouseButton::Right, |_, _, cx| cx.stop_propagation())
                                 .child(pop_in(

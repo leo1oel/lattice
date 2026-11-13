@@ -38,6 +38,7 @@ pub use icon_button::IconButton;
 pub use menu::{
     MENU_INSET, MENU_OFFSET, MenuItem, MenuLabel, MenuSeparator, MenuSurface, Step, step_highlight,
 };
+pub(crate) use menu_list::SubmenuBounds;
 pub use menu_list::{Menu, MenuAction, MenuSnapshot, menu_snapshot, record_menus};
 pub use overlays::{
     DialogCard, LatticeTooltip, PopFrom, Toast, ToastLevel, pop_in, rise_in, toast_in,

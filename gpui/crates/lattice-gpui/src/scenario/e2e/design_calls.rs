@@ -9,6 +9,9 @@
 //! - in the project switcher's menu, → puts the keys on a row's
 //!   open-in-this-window glyph, and the pointer leaving that row ends it, so
 //!   coming back and pressing Enter runs the row, not the glyph;
+//! - a panel's ⋯ menu opens Move … to beside it, and a click on its New
+//!   split right moves the panel into a split of its own: a press in the
+//!   submenu is inside the menu, not a press outside that closes it;
 //! - the PDF toolbar's buttons share one hover fill that glides from one
 //!   button to the next instead of each fading its own (call 2).
 //!
@@ -36,6 +39,7 @@ impl Run {
         self.tree_context_menu(cx, steps).await?;
         self.menu_item_over_row(cx, steps).await?;
         self.switcher_glyph_keys(cx, steps).await?;
+        self.panel_menu_submenu_click(cx, steps).await?;
         self.pdf_toolbar_glide(cx, steps).await
     }
 
@@ -281,6 +285,88 @@ impl Run {
                 "back": { "lit": back.lit, "keys_on_glyph": back.on_secondary },
             }),
         );
+        Ok(())
+    }
+
+    /// The editor's ⋯ menu: the pointer opens Move … to, and a click on its
+    /// New split right runs it. The arrangement is put back afterwards.
+    async fn panel_menu_submenu_click(&self, cx: &mut AsyncApp, steps: &mut Steps) -> Result<()> {
+        const NAME: &str = "a click on New split right in a panel's ⋯ Move … to submenu \
+                            moves the panel into a split of its own";
+        // How many panels the window shows: a new split adds one.
+        let shape = |cx: &mut AsyncApp| {
+            cx.update(|cx| {
+                let doc = self.shell.read(cx).document(cx);
+                crate::shell::trellis_layout::panels_of(&doc, false).len()
+            })
+        };
+        let before = cx.update(|cx| self.shell.read(cx).document(cx));
+        let name = cx.update(|cx| self.shell.read(cx).active_editor_path(cx));
+        let name = name
+            .as_deref()
+            .map(|path| path.rsplit('/').next().unwrap_or(path).to_string());
+        let strip = name.as_ref().and_then(|name| {
+            lattice_ui::parity::regions()
+                .get(format!("strip/{name}").as_str())
+                .and_then(|region| region.bounds)
+        });
+        let (Some(name), Some(strip)) = (name.clone(), strip) else {
+            steps.check(NAME, false, json!({ "editor": name, "strip": null }));
+            return Ok(());
+        };
+        let native = self.native(cx)?;
+        // The ⋯ ends the strip: 24px wide, 6px in from its right edge.
+        let dots = point(strip.right() - px(18.), strip.center().y);
+        native::send_mouse(native, native::Mouse::Moved, dots)?;
+        native::send_click(native, dots)?;
+        self.pause(cx, SETTLE).await;
+        let maximize = t!("Maximize").to_string();
+        let move_row = cx.update(|cx| {
+            menu_snapshot(&maximize, cx).and_then(|menu| {
+                menu.rows
+                    .into_iter()
+                    .find(|(_, label, _)| label.contains(name.as_str()))
+                    .map(|(_, _, bounds)| bounds.center())
+            })
+        });
+        let Some(move_row) = move_row else {
+            steps.check(NAME, false, json!({ "editor": name, "move_row": null }));
+            native::send_key(native, '\u{1b}', false)?;
+            self.pause(cx, SETTLE).await;
+            return Ok(());
+        };
+        native::send_mouse(native, native::Mouse::Moved, move_row)?;
+        self.pause(cx, SETTLE).await;
+        let split_label = t!("New split right").to_string();
+        let split_row = cx.update(|cx| {
+            menu_snapshot(&split_label, cx).and_then(|menu| {
+                menu.rows
+                    .into_iter()
+                    .find(|(_, label, _)| *label == split_label)
+                    .map(|(_, _, bounds)| bounds.center())
+            })
+        });
+        let Some(split_row) = split_row else {
+            steps.check(NAME, false, json!({ "editor": name, "submenu": null }));
+            native::send_key(native, '\u{1b}', false)?;
+            self.pause(cx, SETTLE).await;
+            return Ok(());
+        };
+        let shape_before = shape(cx);
+        native::send_mouse(native, native::Mouse::Moved, split_row)?;
+        self.pause(cx, SETTLE).await;
+        native::send_click(native, split_row)?;
+        self.pause(cx, SETTLE).await;
+        let shape_after = shape(cx);
+        steps.check(
+            NAME,
+            shape_after != shape_before,
+            json!({ "editor": name, "before": shape_before, "after": shape_after }),
+        );
+        self.with_window(cx, |shell, window, cx| {
+            shell.update(cx, |shell, cx| shell.install(before, false, window, cx))
+        })?;
+        self.pause(cx, SETTLE).await;
         Ok(())
     }
 

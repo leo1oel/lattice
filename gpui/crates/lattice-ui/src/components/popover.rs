@@ -15,14 +15,14 @@
 use std::rc::Rc;
 
 use gpui::{
-    Anchor, AnyElement, App, ElementId, IntoElement, ParentElement, RenderOnce, SharedString,
-    Styled as _, Window, div, prelude::FluentBuilder as _, px,
+    Anchor, AnyElement, App, ElementId, InteractiveElement as _, IntoElement, ParentElement,
+    RenderOnce, SharedString, Styled as _, Window, div, prelude::FluentBuilder as _, px,
 };
 use gpui_kit::base::{Popover as BasePopover, Selectable};
 
 use crate::{
     ActiveLattice as _, TextRole, TextRoleStyle as _,
-    components::{Menu, MenuSurface, PopFrom, menu::MENU_OFFSET, pop_in},
+    components::{Menu, MenuSurface, PopFrom, SubmenuBounds, menu::MENU_OFFSET, pop_in},
 };
 
 type BuildMenu = Rc<dyn Fn(Menu, &mut Window, &mut App) -> Menu>;
@@ -79,24 +79,42 @@ impl<T: Selectable + IntoElement + 'static> RenderOnce for MenuPopover<T> {
             let now = window.focused(cx);
             interrupted.update(cx, |was, _| *was = now);
         }
+        let submenus = window
+            .use_keyed_state(child("submenus"), cx, |_, _| SubmenuBounds::default())
+            .read(cx)
+            .clone();
         let menu_id = child("menu");
         let build = self.menu;
+        // A press outside the menu closes it, as Kit's popover would, but
+        // one in an open submenu, beside the menu, is inside it.
         BasePopover::new(self.id)
             .anchor(self.anchor)
             .offset(MENU_OFFSET)
             .trigger(self.trigger)
             .track_focus(&focus)
+            .overlay_closable(false)
             .content(move |_, window, cx| {
                 let popover = cx.entity();
+                let outside = popover.clone();
                 let context = interrupted.read(cx).clone();
+                submenus.clear();
                 let menu = build(Menu::new(menu_id.clone()), window, cx)
                     .track_focus(&focus)
                     .action_context(context)
+                    .submenu_bounds(submenus.clone())
                     .on_dismiss(move |window, cx| {
                         popover.update(cx, |state, cx| state.dismiss(window, cx));
                         window.refresh();
                     });
-                pop_in(menu_id.clone(), PopFrom::Above, menu)
+                let inside = submenus.clone();
+                div()
+                    .on_mouse_down_out(move |_, window, cx| {
+                        if !inside.contains(window.mouse_position()) {
+                            outside.update(cx, |state, cx| state.dismiss(window, cx));
+                            window.refresh();
+                        }
+                    })
+                    .child(pop_in(menu_id.clone(), PopFrom::Above, menu))
             })
     }
 }
