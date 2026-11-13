@@ -73,6 +73,11 @@ pub(super) struct FieldRow {
     pub(super) index: usize,
     pub(super) style: BibValueStyle,
     pub(super) input: FieldBox,
+    /// The text the box was last filled with, from the file or by a write:
+    /// only a box that holds something else holds the writer's typing, and
+    /// only that is ever written, so a box left showing an older text never
+    /// writes it back over the file.
+    pub(super) filled: String,
     pub(super) invalid: bool,
 }
 
@@ -155,10 +160,10 @@ impl BibEditor {
                         input.set_value(row.entry.key.clone(), window, cx)
                     });
                 }
-                let boxes: Vec<(String, FieldBox)> = previous
+                let boxes: Vec<(String, FieldBox, String)> = previous
                     .fields
                     .into_iter()
-                    .map(|field| (field.name, field.input))
+                    .map(|field| (field.name, field.input, field.filled))
                     .collect();
                 (
                     input,
@@ -203,11 +208,16 @@ impl BibEditor {
             let (text, style) = bib_document::editable_value(raw);
             let reused = kept
                 .iter()
-                .position(|(name, _)| *name == field.name)
-                .map(|at| kept.remove(at).1);
+                .position(|(name, _, _)| *name == field.name)
+                .map(|at| kept.remove(at));
+            // The box the writer is in keeps what it was filled with: what
+            // they typed there is still theirs to write.
+            let mut filled = text.clone();
             let input = match reused {
-                Some(input) => {
-                    if !input.focused(window, cx) && input.value(cx) != text {
+                Some((_, input, before)) => {
+                    if input.focused(window, cx) {
+                        filled = before;
+                    } else if input.value(cx) != text {
                         input.set_value(text, window, cx);
                     }
                     input
@@ -256,6 +266,7 @@ impl BibEditor {
                 index,
                 style,
                 input,
+                filled,
                 invalid: false,
             });
         }

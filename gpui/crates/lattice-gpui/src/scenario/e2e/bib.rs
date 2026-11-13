@@ -42,6 +42,88 @@ impl Run {
         Ok(true)
     }
 
+    /// A second reference, appended in the source for the form to move to.
+    /// A box left mid-typing as it comes to the front is written to the
+    /// reference it was typed for; a box the writer is in that only shows
+    /// an older text (the source changed under it) writes nothing back. The
+    /// file is put back as it was after.
+    async fn form_follows_the_front(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+        editor: &gpui::Entity<crate::editor_panel::EditorPanel>,
+        bib: &gpui::Entity<crate::papers::bib_editor::BibEditor>,
+        before: &str,
+    ) -> Result<()> {
+        let buffer = cx.update(|cx| editor.read(cx).lattice_editor().read(cx).buffer().clone());
+        cx.update(|cx| {
+            buffer.update(cx, |buffer, cx| {
+                let end = buffer.len();
+                buffer.edit(
+                    [(end..end, "\n@misc{second,\n  title = {Second}\n}\n")],
+                    None,
+                    cx,
+                );
+            })
+        });
+        let both = self
+            .wait_for(cx, Duration::from_secs(5), |_, cx| {
+                bib.read(cx).keys().contains(&"second".to_string())
+            })
+            .await;
+        let pick = |key: &'static str, cx: &mut AsyncApp| {
+            cx.update(|cx| bib.update(cx, |bib, cx| bib.pick(key, cx)))
+        };
+        let focus_title = |cx: &mut AsyncApp| {
+            self.with_window(cx, |_, window, cx| {
+                if let Some(focus) = bib.read(cx).field_focus("title", cx) {
+                    window.focus(&focus, cx);
+                }
+            })
+        };
+        pick("knuth1984", cx);
+        self.pause(cx, Duration::from_millis(200)).await;
+        focus_title(cx)?;
+        self.press(cx, 'a', true).await?;
+        self.type_text(cx, "Typed").await?;
+        pick("second", cx);
+        self.pause(cx, Duration::from_millis(300)).await;
+        let carried = self.editor_text(cx, editor);
+        pick("knuth1984", cx);
+        self.pause(cx, Duration::from_millis(200)).await;
+        focus_title(cx)?;
+        cx.update(|cx| {
+            buffer.update(cx, |buffer, cx| {
+                if let Some(at) = buffer.text().find("{Typed}") {
+                    buffer.edit([(at..at + "{Typed}".len(), "{From source}")], None, cx);
+                }
+            })
+        });
+        self.pause(cx, Duration::from_millis(400)).await;
+        pick("second", cx);
+        self.pause(cx, Duration::from_millis(300)).await;
+        let kept = self.editor_text(cx, editor);
+        steps.check(
+            "a .bib form box left as another reference comes to the front writes only what was typed there",
+            both && carried.contains("title = {Typed}") && kept.contains("title = {From source}"),
+            json!({
+                "listed": both,
+                "typedWritten": carried.contains("title = {Typed}"),
+                "sourceKept": kept.contains("title = {From source}"),
+            }),
+        );
+        let restore = before.to_string();
+        cx.update(|cx| {
+            buffer.update(cx, |buffer, cx| {
+                let end = buffer.len();
+                buffer.edit([(0..end, restore)], None, cx);
+            })
+        });
+        pick("knuth1984", cx);
+        self.pause(cx, Duration::from_millis(200)).await;
+        Ok(())
+    }
+
     pub(super) async fn bib_visual_editor(
         &self,
         cx: &mut AsyncApp,
@@ -124,6 +206,9 @@ impl Run {
             retyped && changed.contains("year = {1986}") && back == before,
             json!({ "retyped": retyped, "changed": changed.contains("year = {1986}"), "back": back == before }),
         );
+
+        self.form_follows_the_front(cx, steps, &editor, &bib, &before)
+            .await?;
 
         // Alone, the form spans the panel; beside the source it is laid out
         // narrower, the source taking the rest.
