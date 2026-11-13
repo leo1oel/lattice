@@ -8,9 +8,10 @@
 //! `_minted-main/…`) that the tool never made, and builds beside itself.
 //! Only that failure is built once more beside the document, and only when
 //! the build may run those tools at all: a figure or chapter the writer has
-//! not made yet is missing in both places. If that build succeeds, the
-//! document is remembered and builds beside itself from then on, whatever
-//! the setting says. If it fails too, or is stopped, the
+//! not made yet is missing in both places. If that build succeeds, or fails
+//! only on the writer's own errors with no package output missing any more,
+//! the document is remembered and builds beside itself from then on, whatever
+//! the setting says. If it still misses that output, or is stopped, the
 //! hidden build's files and PDF are put back as they were, so latexmk still
 //! knows that build, and the same inputs built again unasked are restated
 //! (`unchanged`) rather than tried beside again. Nor is an edited one, until
