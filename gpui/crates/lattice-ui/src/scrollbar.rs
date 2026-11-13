@@ -741,12 +741,18 @@ mod tests {
         let start = Instant::now();
         let mut document = ScrollbarState::new(ScrollbarFeel::DOCUMENT, start);
         document.last_scroll = Some(start);
-        assert_eq!(document.linger_left(start), Some(Duration::from_millis(180)));
+        assert_eq!(
+            document.linger_left(start),
+            Some(Duration::from_millis(180))
+        );
         assert_eq!(
             document.linger_left(start + Duration::from_millis(100)),
             Some(Duration::from_millis(80))
         );
-        assert_eq!(document.linger_left(start + Duration::from_millis(180)), None);
+        assert_eq!(
+            document.linger_left(start + Duration::from_millis(180)),
+            None
+        );
         let mut area = ScrollbarState::new(ScrollbarFeel::AREA, start);
         area.last_scroll = Some(start);
         assert_eq!(area.linger_left(start), Some(Duration::from_millis(500)));
