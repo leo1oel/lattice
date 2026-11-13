@@ -288,3 +288,12 @@ depends = [
   "clippy",
   "notices",
 ]
+
+# An optional local check (scripts/signoff.mjs); pull requests run no CI and
+# nothing requires it. The changed stages of `check`, plus the bundle budget, the changed Rust crates and the
+# GPUI app when they are touched, then a green `signoff` status on the pushed
+# HEAD. No `sources`: it diffs against origin/main itself, and its result has
+# to be recorded for each commit, so mise must never skip it as fresh.
+[tasks.signoff]
+description = "Check the branch's changes locally and record a green `signoff` status on the PR head"
+run = "node scripts/signoff.mjs"

@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Run the `e2e` scenario (README.md, "Scenarios") against the release build,
+# on a scratch copy of fixtures/e2e and with a scratch HOME, so nothing it
+# writes (the project, settings, caches, recent projects) touches a real
+# home directory or checkout. Then check what the scenario cannot check from
+# inside: once the app has quit, the file holds the text typed just before.
+#
+# Usage: script/e2e [result.json]   (default: a file in the scratch folder)
+# Build first: cargo build --release --locked --features lattice-gpui/offscreen-shots
+set -euo pipefail
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+app="$root/target/release/lattice-gpui"
+[ -x "$app" ] || { echo "e2e: $app is missing; build the release binary first" >&2; exit 1; }
+
+scratch="$(mktemp -d -t lattice-gpui-e2e)"
+trap 'rm -rf "$scratch"' EXIT
+project="$scratch/project"
+out="${1:-$scratch/e2e.json}"
+mkdir -p "$scratch/home"
+cp -R "$root/fixtures/e2e" "$project"
+
+# TeX is looked up on PATH; MacTeX's texbin is not on a non-login shell's.
+PATH="$PATH:/Library/TeX/texbin" HOME="$scratch/home" "$app" "$project" --scenario e2e --out "$out"
+cat "$out"
+jq -e '.passed == true' "$out" >/dev/null || { echo "e2e: the scenario failed" >&2; exit 1; }
+file="$(jq -r '.after_quit.file' "$out")"
+grep -qF "$(jq -r '.after_quit.text' "$out")" "$file" || { echo "e2e: quitting did not save $file" >&2; exit 1; }
+echo "e2e: passed"
