@@ -125,6 +125,18 @@ impl Nest {
     }
 }
 
+/// How the chrome copies the app's squircle corners: the docked panels and
+/// their tabs, the segmented controls, the titlebar's search field and the
+/// keycaps take their radii as Paper's Main window measures them
+/// ([`Corners::Smoothed`]). Every such radius is derived through this one
+/// constant, so the chrome changes drawing in one place
+/// (`gpui/docs/design-system.md`, "Corners").
+pub const CHROME: Corners = Corners::Smoothed;
+
+/// A tab's close square, `--trellis-tab-close-inset` (2px) inside the tab
+/// (`trellis.css`: `(tab radius - close inset) * smoothing`).
+pub const TAB_CLOSE: Nest = Nest::new(RADIUS_TARGET, px(2.));
+
 /// A menu, select or context menu: the 10px surface corner with a 4px inset
 /// (`menu-surface.ts`), so its rows keep a control's 6px.
 pub const MENU: Nest = Nest::new(RADIUS_SURFACE, px(4.));
@@ -184,6 +196,18 @@ mod tests {
         let (outer, inner) = nest.painted(Corners::Smoothed);
         assert!((f32::from(outer - inner) - 4. * CORNER_SMOOTHING).abs() < 1e-3);
         assert_eq!(nest.painted(Corners::Round), (px(10.), px(6.)));
+    }
+
+    #[test]
+    fn the_chromes_corners_are_derived_not_restated() {
+        let close = |a: Pixels, b: Pixels| (f32::from(a) - f32::from(b)).abs() < 0.06;
+        let (panel, tab) = PANEL_TABS.painted(CHROME);
+        assert!(close(crate::dock::PANEL_RADIUS, panel), "{panel:?}");
+        assert!(close(crate::components::TAB_RADIUS, tab), "{tab:?}");
+        // The close square nests in the tab before the factor: 4px, drawn
+        // 7.36px, not the smoothed tab's 11px less 2.
+        assert_eq!(TAB_CLOSE.inner(), px(4.));
+        assert!(close(CHROME.paint(TAB_CLOSE.inner()), px(7.36)));
     }
 
     #[test]

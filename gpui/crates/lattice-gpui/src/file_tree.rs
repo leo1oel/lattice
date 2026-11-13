@@ -15,8 +15,12 @@
 //! - A row dragged onto a folder (or onto a file, its folder) moves there.
 //! - Delete asks first, and is not offered for the main document or the
 //!   bibliography (or a folder holding either).
+//!
+//! Its hover is the app's fluid hover (`lattice_ui::fluid_hover`): one fill
+//! gliding between rows, never on the open file's row, and dark for 150 ms
+//! after a scroll; its scrollbar is Lattice's (`lattice_ui::scrollbar`).
 
-use std::{collections::HashSet, path::PathBuf};
+use std::{collections::HashSet, path::PathBuf, time::Duration};
 
 use gpui::{
     Anchor, App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, Focusable,
@@ -33,7 +37,10 @@ use lattice_core::models::FileNode;
 use lattice_ui::{
     ActiveLattice as _, GlyphKind, Icon, TextRole, TextRoleStyle as _,
     components::{IconButton, Surface, TAB_RADIUS, TreeRow},
+    fluid_hover::{FluidHover, ItemKind},
     icons::{ICON, file_glyph},
+    scrollbar::FluidScrollbar,
+    shape,
 };
 
 mod menu;
@@ -377,7 +384,7 @@ impl Panel for FileTreePanel {
 }
 
 impl Render for FileTreePanel {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let Some(project) = self.project.clone() else {
             return div()
                 .id("file-tree-empty")
@@ -401,6 +408,16 @@ impl Render for FileTreePanel {
             .as_ref()
             .map(|naming| (naming.path.clone(), naming.input.clone()));
         let drop_target = cx.palette().drop_target;
+        // The tree's hover is one fill gliding between rows, as the app's
+        // (`project-tree-hover.tsx`): the open file's row keeps its own
+        // selection fill and is never lit, and rows recycled under a resting
+        // pointer stay dark until 150 ms after the scroll.
+        let hover = FluidHover::new("file-tree-hover", window, cx)
+            .fill(cx.palette().hover)
+            .radius(shape::RADIUS_TARGET)
+            .quiet_after_scroll(Duration::from_millis(150), cx);
+        let rows_hover = hover.clone();
+        let scroll = self.state.read(cx).scroll_handle().clone();
         // Measured on the Main window: rows 12px in from both sides, the
         // first 7px under the tab strip.
         div()
@@ -428,18 +445,27 @@ impl Render for FileTreePanel {
                     .ok();
             })
             .context_menu(move |menu, _, cx| Self::background_menu(&background_view, menu, cx))
+            .relative()
+            .child(hover.highlight())
             .child(
                 tree(&self.state, move |ix, entry, selected, _, cx| {
                     let item = entry.item();
                     let relative = item.id.to_string();
                     let path = root.join(&relative);
                     let is_folder = entry.is_folder();
+                    let row_selected =
+                        !is_folder && (selected || current.as_deref() == Some(path.as_path()));
+                    let kind = if row_selected {
+                        ItemKind::skip()
+                    } else {
+                        ItemKind::target()
+                    };
                     let mut row = if is_folder {
                         TreeRow::folder(ix, item.label.clone(), entry.depth(), entry.is_expanded())
                     } else {
-                        TreeRow::file(ix, item.label.clone(), entry.depth())
-                            .selected(selected || current.as_deref() == Some(path.as_path()))
-                    };
+                        TreeRow::file(ix, item.label.clone(), entry.depth()).selected(row_selected)
+                    }
+                    .fluid(rows_hover.probe(ix, kind));
                     if let Some((_, input)) = naming.as_ref().filter(|(at, _)| *at == relative) {
                         // The app's rename field: 20px on the compact
                         // corner, its padding and border outside the name's
@@ -518,8 +544,11 @@ impl Render for FileTreePanel {
                         menu,
                         cx,
                     )
-                }),
+                })
+                // Lattice's scrollbar, below, in place of Kit's.
+                .scrollbar(false),
             )
+            .child(FluidScrollbar::vertical("file-tree-scrollbar", &scroll))
             .into_any_element()
     }
 }

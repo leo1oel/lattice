@@ -79,7 +79,7 @@ done
 
 # The diffs, in order.
 for diff in gpui-fast-vendoring gpui-fast-lab-occlusion gpui-fast-motion-and-type gpui-component-overlays \
-  gpui-base-dock-drag-out; do
+  gpui-component-lattice-hooks gpui-base-dock-drag-out; do
   git -C "$out" apply --whitespace=nowarn "$patches/$diff.diff"
 done
 

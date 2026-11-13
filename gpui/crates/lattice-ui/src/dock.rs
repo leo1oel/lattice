@@ -54,8 +54,8 @@ use crate::{
     typography::shaped_width,
 };
 
-/// A panel card's corner, as the running app draws it (Paper's Main window
-/// measures 18.4px; the `--radius-panel` token says 10).
+/// A panel card's corner: `--radius-panel` (10px) as `shape::CHROME` draws
+/// it, 18.4px.
 pub const PANEL_RADIUS: gpui::Pixels = px(18.4);
 /// Half the 6px gutter between cards: each group pads itself by this much.
 pub const GROUP_INSET: gpui::Pixels = px(3.);

@@ -44,6 +44,11 @@ pub fn apply(cx: &mut App) {
     // Loads the installed file for `mode`, even when the mode is unchanged.
     Theme::change(mode, None, cx);
     hide_resize_handles(cx);
+    // Kit's popup menus draw their hover as Lattice's menus do: one fill
+    // gliding between rows (`fluid_hover`).
+    cx.set_global(gpui_kit::component::menu::GlobalMenuHighlight(Rc::new(
+        crate::fluid_hover::KitMenuGlide::default(),
+    )));
 }
 
 /// Kit paints a dock's resize handle as a 1px line in its border colour. The

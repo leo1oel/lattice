@@ -18,7 +18,8 @@ use crate::{
     elevation::ring,
     icons::ICON,
     interaction::tab_stop,
-    parity,
+    parity, shape,
+    sliding::SlidingPlate,
     tokens::FONT_WEIGHT_MEDIUM,
 };
 
@@ -68,7 +69,7 @@ impl RenderOnce for Keycap {
             .px(px(4.))
             .flex()
             .items_center()
-            .rounded(px(7.4))
+            .rounded(shape::CHROME.paint(shape::RADIUS_CHIP))
             .bg(palette.raised)
             .border_1()
             .border_color(palette.line)
@@ -118,7 +119,7 @@ impl SearchField {
             placeholder: placeholder.into(),
             keycap: None,
             filled: false,
-            radius: px(11.),
+            radius: shape::CHROME.paint(shape::RADIUS_TARGET),
             width: None,
             tooltip: None,
             on_click: None,
@@ -254,10 +255,13 @@ impl RenderOnce for SearchField {
 
 /// A segmented control: two to four mutually exclusive views, in a track.
 ///
-/// Measured on the titlebar's workspace switcher: a 28px track with 11px
-/// corners and an inset hairline, 2px of padding; the selected segment a
-/// 24px chip of the panel surface, raised, with 7.4px corners; labels 12/14
-/// in the primary ink, icon-only segments 28px wide.
+/// Measured on the titlebar's workspace switcher: a 28px track with an inset
+/// hairline, 2px of padding; the selected segment a 24px chip of the panel
+/// surface, raised; labels 12/14 in the primary ink, icon-only segments 28px
+/// wide. The corners nest (`shape::SEGMENTED`: the control's 6px, 2px in, so
+/// the chip's 4px), drawn smoothed as Paper measures them (11px and 7.4px).
+/// The chip slides to the newly selected segment on the moderate tier, as the
+/// app's `SegmentedControl` (`SlidingTabs`) moves its pill.
 #[derive(IntoElement)]
 pub struct Segmented {
     id: ElementId,
@@ -320,65 +324,95 @@ impl Segmented {
 }
 
 impl RenderOnce for Segmented {
-    fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
+    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let palette = cx.palette().clone();
         let mut raised = vec![ring(palette.line_strong)];
         raised.extend(Elevation::Raised.shadows(&palette).into_iter().skip(1));
         let focus = focus_ring(&palette, palette.titlebar);
-        div()
+        let (track_radius, chip_radius) = shape::SEGMENTED.painted(shape::CHROME);
+        let selected = self.segments.iter().position(|segment| segment.selected);
+        let plate = SlidingPlate::new(
+            ElementId::NamedChild(std::sync::Arc::new(self.id.clone()), "plate".into()),
+            selected,
+            window,
+            cx,
+        );
+        let plate_drawn = plate.is_drawn(cx);
+        let chip = plate.plate(
+            |chip| {
+                chip.rounded(chip_radius)
+                    .bg(palette.panel)
+                    .shadow(raised.clone())
+            },
+            cx,
+        );
+        let track = div()
             .id(self.id)
+            .relative()
             .flex()
             .flex_none()
             .h(px(28.))
-            .p(px(2.))
-            .rounded(px(11.))
+            .p(shape::SEGMENTED.inset)
+            .rounded(track_radius)
             .shadow(vec![inset_ring(palette.line)])
             .children(self.parity.clone().and_then(parity::probe))
-            .children(self.segments.into_iter().enumerate().map(|(ix, segment)| {
-                let hover = palette.hover;
-                let focus = focus.clone();
-                let segment_box = div().id(ix);
-                let text_probe = self
-                    .parity
-                    .clone()
-                    .zip(segment.label.clone())
-                    .and_then(|(name, label)| parity::text_probe(name, ix, label));
-                // Each segment is a tab stop, as each is a button in the app.
-                let segment_box = if segment.on_click.is_some() {
-                    tab_stop(segment_box)
-                } else {
-                    segment_box
-                };
-                segment_box
-                    .flex()
-                    .flex_none()
-                    .items_center()
-                    .justify_center()
-                    .h(px(24.))
-                    .rounded(px(7.4))
-                    .when(segment.selected, |this| {
-                        this.bg(palette.panel).shadow(raised.clone())
+            .children(chip)
+            .children(
+                self.segments
+                    .into_iter()
+                    .enumerate()
+                    .map(|(ix, segment)| {
+                        let hover = palette.hover;
+                        let focus = focus.clone();
+                        let segment_box = div().id(ix);
+                        let text_probe = self
+                            .parity
+                            .clone()
+                            .zip(segment.label.clone())
+                            .and_then(|(name, label)| parity::text_probe(name, ix, label));
+                        // Each segment is a tab stop, as each is a button in the app.
+                        let segment_box = if segment.on_click.is_some() {
+                            tab_stop(segment_box)
+                        } else {
+                            segment_box
+                        };
+                        segment_box
+                            .flex()
+                            .flex_none()
+                            .items_center()
+                            .justify_center()
+                            .h(px(24.))
+                            .rounded(chip_radius)
+                            // Until the sliding chip has been measured, the
+                            // selected segment draws its own.
+                            .when(segment.selected && !plate_drawn, |this| {
+                                this.bg(palette.panel).shadow(raised.clone())
+                            })
+                            .when(!segment.selected, |this| {
+                                this.hover(move |style| style.bg(hover))
+                            })
+                            .when_some(segment.label, |this, label| {
+                                this.px(px(10.))
+                                    .text_role(TextRole::Caption, cx)
+                                    .line_height(px(14.))
+                                    .text_color(palette.text)
+                                    .child(label)
+                                    .children(text_probe)
+                            })
+                            .when_some(segment.icon, |this, icon| {
+                                this.w(px(28.))
+                                    .child(icon.element(ICON, palette.text_secondary))
+                            })
+                            .when_some(segment.on_click, |this, on_click| {
+                                this.cursor_pointer()
+                                    .focus_visible(move |style| style.shadow(focus))
+                                    .on_click(move |event, window, cx| on_click(event, window, cx))
+                            })
                     })
-                    .when(!segment.selected, |this| {
-                        this.hover(move |style| style.bg(hover))
-                    })
-                    .when_some(segment.label, |this, label| {
-                        this.px(px(10.))
-                            .text_role(TextRole::Caption, cx)
-                            .line_height(px(14.))
-                            .text_color(palette.text)
-                            .child(label)
-                            .children(text_probe)
-                    })
-                    .when_some(segment.icon, |this, icon| {
-                        this.w(px(28.))
-                            .child(icon.element(ICON, palette.text_secondary))
-                    })
-                    .when_some(segment.on_click, |this, on_click| {
-                        this.cursor_pointer()
-                            .focus_visible(move |style| style.shadow(focus))
-                            .on_click(move |event, window, cx| on_click(event, window, cx))
-                    })
-            }))
+                    .enumerate()
+                    .map(|(ix, segment)| plate.item(ix, segment))
+                    .collect::<Vec<_>>(),
+            );
+        plate.strip(track)
     }
 }

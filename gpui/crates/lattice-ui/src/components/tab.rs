@@ -35,8 +35,9 @@ use crate::{
     tokens::OPACITY_HOVER,
 };
 
-/// The tab chip's corner: the panel's 18.4px less the strip's 6px inset,
-/// as the app rounds it (measured 11px on Paper's Main window).
+/// The tab chip's corner: `shape::PANEL_TABS` (the panel's 10px less the
+/// strip's 6px inset, held at a control's 6px), smoothed with the panel
+/// (`shape::CHROME`), as Paper's Main window measures it (11px).
 pub const TAB_RADIUS: gpui::Pixels = px(11.);
 /// The tab's leading padding, which puts its icon on the panel's icon gutter.
 pub const TAB_INSET: Pixels = px(14.);
@@ -298,7 +299,7 @@ impl RenderOnce for PanelTab {
                         .ml(TAB_GAP)
                         .flex_none()
                         .size(TAB_CLOSE)
-                        .rounded(TAB_RADIUS - TAB_CLOSE_INSET)
+                        .rounded(crate::shape::CHROME.paint(crate::shape::TAB_CLOSE.inner()))
                         .flex()
                         .items_center()
                         .justify_center()

@@ -38,6 +38,9 @@ pub struct TreeRow {
     parity: Option<SharedString>,
     /// The rename field, drawn in the name's place.
     editing: Option<AnyElement>,
+    /// The list's fluid hover probe (`FluidHover::probe`): the row records
+    /// its bounds for the tree's one gliding fill and draws none of its own.
+    fluid: Option<AnyElement>,
 }
 
 impl TreeRow {
@@ -50,6 +53,7 @@ impl TreeRow {
             selected: false,
             parity: None,
             editing: None,
+            fluid: None,
         }
     }
 
@@ -67,6 +71,13 @@ impl TreeRow {
 
     pub fn selected(mut self, selected: bool) -> Self {
         self.selected = selected;
+        self
+    }
+
+    /// Leave the hover fill to the tree's fluid hover, recording the row
+    /// through `probe` (`FluidHover::probe`).
+    pub fn fluid(mut self, probe: AnyElement) -> Self {
+        self.fluid = Some(probe);
         self
     }
 
@@ -128,6 +139,11 @@ impl TreeRow {
             .px_0()
             .rounded(px(6.))
             .when(self.selected, |item| item.bg(palette.row_selected))
+            // Kit's item fills itself under the pointer unless it counts as
+            // active; with the tree's fluid hover drawing the fill, it is
+            // marked so (it draws no check: none is set).
+            .when(self.fluid.is_some(), |item| item.confirmed(true))
+            .children(self.fluid)
             .children(self.parity.clone().and_then(parity::probe))
             .child(
                 div()
