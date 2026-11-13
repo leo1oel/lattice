@@ -87,15 +87,9 @@ impl Run {
         // workspace has it, so the sidebar is widened only once that is done
         // (its PDF is shown), or the arrangement would put it back.
         let pdf_shown = self.wait_for_pdf(cx).await;
-        self.with_window(cx, |shell, window, cx| {
-            let area = shell.read(cx).dock_area().clone();
-            area.update(cx, |area, cx| {
-                area.set_dock_size(
-                    gpui_kit::component::dock::DockPlacement::Left,
-                    gpui::px(SIDEBAR_CARD + 6.),
-                    window,
-                    cx,
-                )
+        self.with_window(cx, |shell, _, cx| {
+            shell.update(cx, |shell, cx| {
+                shell.set_view_width("project", SIDEBAR_CARD, cx)
             });
         })?;
         self.park_pointer(cx)?;

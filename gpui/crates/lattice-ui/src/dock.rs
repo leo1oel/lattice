@@ -1,6 +1,12 @@
 //! The Trellis look for GPUI Kit's dock: every tab group a rounded card on
 //! the chrome, with a 40px strip of pill tabs.
 //!
+//! The app no longer uses this renderer: Trellis (`crates/trellis`) lays the
+//! window out, and Lattice's skin for it lives in `lattice-gpui`'s
+//! `shell/skin.rs`. That skin still uses this module's constants and helpers
+//! (`STRIP_HEIGHT`, `PANEL_RADIUS`, `tab_name`, `TabPresenter`, `strip`); the
+//! `DockArea` renderer below is kept until a follow-up prunes it.
+//!
 //! GPUI Kit's `DockArea` keeps the behaviour (the pane tree, docks, drag and
 //! drop, resizing, persistence) and asks a renderer for every pixel. This
 //! renderer draws what Paper's Main window measures on the running app:
@@ -26,7 +32,7 @@ pub mod strip;
 mod strip_room;
 
 use spare_tools::SpareToolsByPanel;
-pub use spare_tools::{SpareTools, offers_spare_tools, set_spare_tools};
+pub use spare_tools::{SpareTools, offers_spare_tools, set_spare_tools, spare_tools};
 pub use strip_room::strip_spare;
 use strip_room::{Measure, StripKey, StripRoom, forget_strips, measure};
 

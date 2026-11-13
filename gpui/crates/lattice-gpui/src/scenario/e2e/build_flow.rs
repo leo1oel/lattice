@@ -368,15 +368,45 @@ impl Run {
                 center.install_dependency(file.clone(), Some("lattice-e2e-a".into()), cx)
             })
         });
-        let rebuilt = self.built_after(cx, before).await;
-        let installed = cx.update(|cx| {
-            center.read(cx).dependency().is_none()
-                && self.shell.read(cx).build_panel().read(cx).succeeded() == Some(true)
+        // The install's rebuild starts only once the stand-in has written the
+        // package, and a build the edit above set off late (the file watcher
+        // picks when) can finish before then, failing on the missing package.
+        // So any build after `before` is not enough: wait until the install is
+        // over and a build after it has settled clean.
+        let waited = center.clone();
+        let installed = self
+            .wait_for(cx, Duration::from_secs(180), move |shell, cx| {
+                let shell = shell.read(cx);
+                let panel = shell.build_panel().read(cx);
+                waited.read(cx).dependency().is_none()
+                    && !shell.building()
+                    && panel.builds() > before
+                    && panel.succeeded() == Some(true)
+            })
+            .await;
+        let (dependency, builds, succeeded) = cx.update(|cx| {
+            let panel = self.shell.read(cx).build_panel().read(cx);
+            (
+                center
+                    .read(cx)
+                    .dependency()
+                    .map(|install| install.error.clone()),
+                panel.builds(),
+                panel.succeeded(),
+            )
         });
         steps.check(
             "a missing package's Install offers its providers, installs the pick and builds (stand-in installer)",
-            offered && choices && rebuilt && installed && root.join(&file).is_file(),
-            json!({ "offered": offered, "choices": choices, "installed": installed, "calls": stub.calls() }),
+            offered && choices && installed && root.join(&file).is_file(),
+            json!({
+                "offered": offered,
+                "choices": choices,
+                "installed": installed,
+                "dependency": dependency,
+                "builds": [before, builds],
+                "succeeded": succeeded,
+                "calls": stub.calls(),
+            }),
         );
         std::fs::remove_file(root.join(&file)).ok();
         self.rewrite_open_file(cx, &main, &original_main).await?;

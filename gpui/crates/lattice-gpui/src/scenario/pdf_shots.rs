@@ -13,7 +13,6 @@ use std::{path::PathBuf, time::Duration};
 
 use anyhow::{Context as _, Result};
 use gpui::{AsyncApp, Entity, Pixels, Point, point, px};
-use gpui_kit::component::dock::DockPlacement;
 use serde_json::{Value, json};
 
 use super::{Run, sleep};
@@ -40,28 +39,20 @@ impl Run {
         })?;
         sleep(cx, Duration::from_millis(1500)).await;
         shots.push(self.snap(cx, &dir, "find").await?);
-        let width = cx.update(|cx| {
-            self.shell
-                .read(cx)
-                .dock_area()
-                .read(cx)
-                .dock_size(DockPlacement::Right)
-        });
+        let width = cx.update(|cx| self.shell.read(cx).view_width("pdf", cx));
         for (name, size) in [("find-fold-controls", 416.), ("find-fold-search", 360.)] {
-            self.with_window(cx, |shell, window, cx| {
-                let area = shell.read(cx).dock_area().clone();
-                area.update(cx, |area, cx| {
-                    area.set_dock_size(DockPlacement::Right, px(size), window, cx)
+            self.with_window(cx, |shell, _, cx| {
+                shell.update(cx, |shell, cx| {
+                    shell.set_view_width("pdf", f32::from(px(size)), cx)
                 });
             })?;
             sleep(cx, Duration::from_millis(800)).await;
             shots.push(self.snap(cx, &dir, name).await?);
         }
         if let Some(width) = width {
-            self.with_window(cx, |shell, window, cx| {
-                let area = shell.read(cx).dock_area().clone();
-                area.update(cx, |area, cx| {
-                    area.set_dock_size(DockPlacement::Right, width, window, cx)
+            self.with_window(cx, |shell, _, cx| {
+                shell.update(cx, |shell, cx| {
+                    shell.set_view_width("pdf", f32::from(width), cx)
                 });
             })?;
         }
@@ -109,11 +100,8 @@ impl Run {
         self.update_view(cx, &view, |view, _, cx| view.toggle_dark_pages(cx))?;
 
         // The wide toolbar: a PDF panel wider than 640px.
-        self.with_window(cx, |shell, window, cx| {
-            let area = shell.read(cx).dock_area().clone();
-            area.update(cx, |area, cx| {
-                area.set_dock_size(DockPlacement::Right, px(760.), window, cx)
-            });
+        self.with_window(cx, |shell, _, cx| {
+            shell.update(cx, |shell, cx| shell.set_view_width("pdf", 760., cx));
         })?;
         sleep(cx, Duration::from_millis(1500)).await;
         shots.push(self.snap(cx, &dir, "wide-toolbar").await?);
@@ -122,10 +110,9 @@ impl Run {
         // goes back to its width first, so the panel shows the width the
         // writer's dock keeps (the wide toolbar's 760px was set here).
         if let Some(width) = width {
-            self.with_window(cx, |shell, window, cx| {
-                let area = shell.read(cx).dock_area().clone();
-                area.update(cx, |area, cx| {
-                    area.set_dock_size(DockPlacement::Right, width, window, cx)
+            self.with_window(cx, |shell, _, cx| {
+                shell.update(cx, |shell, cx| {
+                    shell.set_view_width("pdf", f32::from(width), cx)
                 });
             })?;
         }
@@ -134,14 +121,10 @@ impl Run {
             pdf.update(cx, |pdf, cx| pdf.detach(window, cx));
         })?;
         sleep(cx, Duration::from_millis(1500)).await;
-        // The panel's dock closes as the PDF leaves; open it to see the panel.
+        // The panel stays put and shows its placeholder while the PDF is in
+        // its own window; make sure it is shown for the shot.
         self.with_window(cx, |shell, window, cx| {
-            let area = shell.read(cx).dock_area().clone();
-            if !area.read(cx).is_dock_open(DockPlacement::Right) {
-                area.update(cx, |area, cx| {
-                    area.toggle_dock(DockPlacement::Right, window, cx)
-                });
-            }
+            shell.update(cx, |shell, cx| shell.show_view("pdf", false, window, cx));
         })?;
         sleep(cx, Duration::from_millis(800)).await;
         shots.push(self.snap(cx, &dir, "in-window-panel").await?);

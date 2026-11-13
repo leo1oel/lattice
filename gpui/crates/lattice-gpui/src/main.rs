@@ -14,6 +14,7 @@ mod build_panel;
 mod confirm;
 mod editor_panel;
 mod editor_status;
+mod empty_slot;
 mod file_tree;
 mod first_pages;
 mod gallery;

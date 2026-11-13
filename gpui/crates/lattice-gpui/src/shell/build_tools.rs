@@ -18,7 +18,7 @@ use lattice_ui::components::ToastLevel;
 
 use super::{
     CleanBuildFiles, CleanRebuild, InstallLatexTools, NextProblem, OpenTexDoctor, PreviousProblem,
-    Shell, StopBuild, build::BuildRequest, layout::View,
+    Shell, StopBuild, build::BuildRequest,
 };
 use crate::{
     build::diagnostics,
@@ -163,7 +163,7 @@ impl Shell {
     /// and the card with it.
     pub(super) fn bring_build_card_forward(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.build_panel.update(cx, |panel, cx| panel.reveal(cx));
-        self.show_view(View::Pdf, window, cx);
+        self.show_view("pdf", false, window, cx);
     }
 
     pub(super) fn on_build_action(

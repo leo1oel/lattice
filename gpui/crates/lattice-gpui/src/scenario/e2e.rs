@@ -46,8 +46,8 @@ impl Run {
     /// TexLab's diagnostics and complete a citation and a command; then create,
     /// rename, move and delete files in the tree, check the PDF viewer on a
     /// second root document and in a second window (`pdf.rs`), drag a tab
-    /// into a dock, open Settings and change it (the interface language
-    /// included), close a dirty tab, a vanished file's tab and a window,
+    /// into the PDF's panel, open Settings and change it (the interface
+    /// language included), close a dirty tab, a vanished file's tab and a window,
     /// and type before the quit that ends the run, which the result's `after_quit`
     /// names for the CI workflow to check on disk.
     pub(super) async fn e2e(&self, cx: &mut AsyncApp) -> Result<Value> {
@@ -265,9 +265,9 @@ impl Run {
         self.pdf_viewer(cx, &mut steps, &root).await?;
         self.second_window_pdf(cx, &mut steps, &root).await?;
 
-        // Docking: drag an editor tab out of the center into the right dock,
-        // beside the PDF, with native mouse events. (The shell steps after
-        // it drag the PDF out of its dock alone.)
+        // Docking: drag an editor tab from the documents' panel into the
+        // PDF's panel with native mouse events. (The shell steps after it
+        // drag the PDF by its tab to the documents' edge and middle.)
         //
         // A known flake, so it runs only when LATTICE_E2E_DRAG is set and
         // cannot block a release's gpui.yml run. On the 1024px macOS runner
@@ -660,35 +660,38 @@ impl Run {
         })
     }
 
+    /// The active document's tab dragged into the PDF's panel: it joins
+    /// the PDF's tabs.
     async fn drag_editor_tab_to_right_dock(&self, cx: &mut AsyncApp) -> Result<(bool, Value)> {
-        use gpui_kit::component::dock::DockPlacement;
-        let (area_bounds, left_width, right_width) = cx.update(|cx| {
-            let area = self.shell.read(cx).dock_area().read(cx);
-            (
-                area.bounds(),
-                area.dock_size(DockPlacement::Left),
-                area.dock_size(DockPlacement::Right),
-            )
+        let (from_panel, pdf_panel, editor_view) = cx.update(|cx| {
+            let shell = self.shell.read(cx);
+            let doc = shell.document(cx);
+            let view = shell
+                .active_document(cx)
+                .and_then(|key| shell.view_of_document(&key, cx));
+            let panel_of = |view: &str| {
+                trellis::model::panel_of_view(&doc, view).map(|panel| panel.id.clone())
+            };
+            (view.as_deref().and_then(panel_of), panel_of("pdf"), view)
         });
-        let left_width = left_width.unwrap_or_default();
-        let right_width = right_width.context("there is no right dock")?;
-        // The icon of the center's first tab: past the group's inset, the
-        // strip's 6px padding and the tab's 14px. The icon is where the tab
-        // begins, so it stays under the pointer when a narrow center (a
-        // 1024px CI screen leaves it ~160px) gives the strip's trailing
-        // build chip and menu most of the width and clips the tabs.
+        let from_panel = from_panel.context("no document is in a panel")?;
+        let pdf_panel = pdf_panel.context("the PDF is in no panel")?;
+        let bounds = |panel: &str, cx: &mut AsyncApp| {
+            cx.update(|cx| self.shell.read(cx).workspace().read(cx).panel_bounds(panel))
+        };
+        let from_bounds = bounds(&from_panel, cx).context("the documents' panel is not drawn")?;
+        let to_bounds = bounds(&pdf_panel, cx).context("the PDF's panel is not drawn")?;
+        // The icon of the documents' first tab: the strip's 6px inset and the
+        // tab's 14px, mid-strip. The icon is where the tab begins, so it stays
+        // under the pointer however narrow the panel leaves its title.
         let from = gpui::point(
-            area_bounds.left()
-                + left_width
-                + lattice_ui::dock::GROUP_INSET
-                + gpui::px(6. + 14.)
-                + lattice_ui::icons::ICON / 2.,
-            area_bounds.top() + gpui::px(18.),
+            from_bounds.left() + gpui::px(6. + 14.) + lattice_ui::icons::ICON / 2.,
+            from_bounds.top() + gpui::px(20.),
         );
         // The middle of the PDF panel.
         let to = gpui::point(
-            area_bounds.right() - right_width / 2.,
-            area_bounds.top() + area_bounds.size.height / 2.,
+            to_bounds.left() + to_bounds.size.width / 2.,
+            to_bounds.top() + to_bounds.size.height / 2.,
         );
         // The notices stack at the bottom right, over the right dock: with
         // the Clean, package and TeX installs just before, their cards can
@@ -702,14 +705,17 @@ impl Run {
         });
         self.pause(cx, Duration::from_millis(200)).await;
         let mut detail = self.native_drag(cx, from, to).await?;
-        let state = cx.update(|cx| {
-            let area = self.shell.read(cx).dock_area().read(cx);
-            serde_json::to_value(area.dump(cx)).unwrap_or_default()
+        let panel = cx.update(|cx| {
+            let doc = self.shell.read(cx).document(cx);
+            trellis::model::panel_of_view(&doc, "pdf").cloned()
         });
-        let right = state["right_dock"].to_string();
-        let moved = right.contains("EditorPanel") && right.contains("PdfPanel");
+        // The first tab moved, whichever document it was.
+        let moved = panel.as_ref().is_some_and(|panel| {
+            panel.views.len() > 1 && panel.views.iter().any(|view| view.starts_with("file"))
+        });
         detail["notices_closed"] = json!(notices);
-        detail["right_dock"] = state["right_dock"].clone();
+        detail["dragged"] = json!(editor_view);
+        detail["pdf_panel"] = serde_json::to_value(panel).unwrap_or_default();
         Ok((moved, detail))
     }
 }

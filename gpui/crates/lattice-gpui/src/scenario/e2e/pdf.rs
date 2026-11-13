@@ -19,23 +19,16 @@ use std::{cell::Cell, path::Path, rc::Rc, time::Duration};
 
 use anyhow::{Context as _, Result};
 use gpui::{App, AsyncApp, Entity, Focusable as _};
-use gpui_kit::component::dock::{DockPlacement, InsertTarget, PaneRef, PanelId};
 use serde_json::{Value, json};
+use trellis::model::{DockTarget, panel_of_view};
 
 use super::Steps;
 use crate::{
     native,
     pdf::{FindOptions, FitMode, LinkTarget, PdfEvent, PdfView},
     scenario::Run,
-    shell::{StopBuild, layout::View},
+    shell::StopBuild,
 };
-
-/// The dock regions a panel can be in.
-const PLACES: [DockPlacement; 3] = [
-    DockPlacement::Left,
-    DockPlacement::Right,
-    DockPlacement::Bottom,
-];
 
 /// Twelve pages: a link to section 9, a web link, and a link to a file and
 /// one to an app's own scheme (neither may open) on the first, the word
@@ -168,18 +161,17 @@ impl Run {
     }
 
     /// What a check that waits for the live PDF to draw saw, for its
-    /// failure: the window's frames, and the right dock's tabs (the one in
-    /// front among them).
+    /// failure: the window's frames, and the PDF's panel (its tabs, the one
+    /// in front among them).
     async fn drawing(&self, cx: &mut AsyncApp) -> Value {
-        let right_dock = self
+        let pdf_panel = self
             .with_window(cx, |shell, _, cx| {
-                let area = shell.read(cx).dock_area().read(cx);
-                let dump = serde_json::to_value(area.dump(cx)).unwrap_or_default();
-                dump["right_dock"].clone()
+                let doc = shell.read(cx).document(cx);
+                serde_json::to_value(panel_of_view(&doc, "pdf")).unwrap_or_default()
             })
             .unwrap_or_default();
         let mut detail = self.frames(cx).await;
-        detail["right_dock"] = right_dock;
+        detail["pdf_panel"] = pdf_panel;
         detail
     }
 
@@ -919,64 +911,43 @@ impl Run {
         steps: &mut Steps,
     ) -> Result<()> {
         let windows = cx.update(|cx| cx.windows().len());
-        // Project's place, to put it back after.
-        let home = cx.update(|cx| {
-            let shell = self.shell.read(cx);
-            let project = shell.singleton_panel(&View::Project)?;
-            let area = shell.dock_area().read(cx);
-            PLACES.into_iter().find_map(|placement| {
-                let tree = area.layout(placement)?;
-                let node = tree.find_panel_node(project)?;
-                match tree.find_node(node)?.kind() {
-                    PaneRef::Tabs { panels, .. } => {
-                        let ix = panels.iter().position(|open| *open == project)?;
-                        Some((project, node, ix))
-                    }
-                    _ => None,
-                }
-            })
-        });
-        // Project joins the PDF's tab group, behind the PDF.
-        let shared = self.with_window(cx, |shell, window, cx| {
-            let shell = shell.read(cx);
-            let Some(project) = shell.singleton_panel(&View::Project) else {
-                return false;
-            };
-            let pdf = PanelId::from(shell.pdf().entity_id());
-            shell.dock_area().clone().update(cx, |area, cx| {
-                let Some(node) = area
-                    .layout(DockPlacement::Right)
-                    .and_then(|tree| tree.find_panel_node(pdf))
-                else {
+        // Project joins the PDF's panel, behind the PDF.
+        let shared = self.with_window(cx, |shell, _, cx| {
+            shell.update(cx, |shell, cx| {
+                let doc = shell.document(cx);
+                let Some(pdf) = panel_of_view(&doc, "pdf").map(|panel| panel.id.clone()) else {
                     return false;
                 };
-                area.move_panel(
-                    project,
-                    InsertTarget::Tabs {
-                        node,
-                        ix: None,
-                        activate: false,
-                    },
-                    window,
-                    cx,
-                );
-                area.select_panel(pdf, window, cx);
-                area.layout(DockPlacement::Right)
-                    .is_some_and(|tree| tree.find_panel_node(project) == Some(node))
+                shell.engine_do(cx, |engine| {
+                    engine.dock(
+                        "project",
+                        Some(DockTarget::Into {
+                            into: pdf.clone(),
+                            index: None,
+                        }),
+                    );
+                    engine.select("pdf");
+                });
+                let doc = shell.document(cx);
+                panel_of_view(&doc, "project").map(|panel| panel.id.clone())
+                    == panel_of_view(&doc, "pdf").map(|panel| panel.id.clone())
             })
         })?;
-        // The right dock: open, its width, and Project in it.
+        // The PDF's panel: on screen, its width, and Project in it.
         let dock = |cx: &mut AsyncApp| {
             cx.update(|cx| {
                 let shell = self.shell.read(cx);
-                let area = shell.dock_area().read(cx);
-                let project = shell.singleton_panel(&View::Project);
-                let open = area.is_dock_open(DockPlacement::Right);
-                let width = area.dock_size(DockPlacement::Right);
-                let with_project = project.is_some_and(|project| {
-                    area.layout(DockPlacement::Right)
-                        .is_some_and(|tree| tree.find_panel_node(project).is_some())
-                });
+                let doc = shell.document(cx);
+                let panel = panel_of_view(&doc, "pdf").map(|panel| panel.id.clone());
+                let open = panel.is_some()
+                    && shell.workspace().read(cx).engine().placement_of("pdf")
+                        != trellis::runtime::engine::ViewPlacement::Hidden;
+                let width = panel
+                    .as_deref()
+                    .and_then(|panel| shell.workspace().read(cx).panel_bounds(panel))
+                    .map(|bounds| bounds.size.width);
+                let with_project = panel.is_some()
+                    && panel_of_view(&doc, "project").map(|p| p.id.clone()) == panel;
                 (open, width, with_project)
             })
         };
@@ -1000,39 +971,15 @@ impl Run {
         self.pause(cx, Duration::from_millis(300)).await;
         let after = dock(cx);
 
-        // Project goes back where it was.
+        // The layout as it was.
         self.with_window(cx, |shell, window, cx| {
-            let Some((project, node, ix)) = home else {
-                return;
-            };
-            let area = shell.read(cx).dock_area().clone();
-            let there = PLACES.into_iter().any(|placement| {
-                area.read(cx)
-                    .layout(placement)
-                    .is_some_and(|tree| tree.find_node(node).is_some())
-            });
-            if there {
-                area.update(cx, |area, cx| {
-                    area.move_panel(
-                        project,
-                        InsertTarget::Tabs {
-                            node,
-                            ix: Some(ix),
-                            activate: true,
-                        },
-                        window,
-                        cx,
-                    )
-                });
-            } else {
-                shell.update(cx, |shell, cx| shell.reset_layout(window, cx));
-            }
+            shell.update(cx, |shell, cx| shell.reset_layout(window, cx));
         })?;
         self.pause(cx, Duration::from_millis(300)).await;
 
         let shown = |state: &(bool, Option<gpui::Pixels>, bool)| json!({ "open": state.0, "width": format!("{:?}", state.1), "with_project": state.2 });
         steps.check(
-            "PDF: sharing the right dock with Project, Open in separate window and Return to workspace leave the dock open at its width with Project in it",
+            "PDF: sharing its panel with Project, Open in separate window and Return to workspace leave the panel on screen at its width with Project in it",
             shared && opened && docked && before.0 && before.2 && during == before && after == before,
             json!({
                 "shared": shared,

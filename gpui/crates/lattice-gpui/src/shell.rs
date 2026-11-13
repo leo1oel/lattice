@@ -1,15 +1,15 @@
-//! The window: Lattice's titlebar over GPUI Kit's dock area in Lattice's
-//! look, holding the file tree, Papers and the Agent, the editors, the PDF
+//! The window: Lattice's titlebar over the Trellis workspace in Lattice's
+//! look (`trellis` and `skin`), holding the file tree, Papers and the Agent, the editors, the PDF
 //! preview and the build panel; and the flows that tie them together on
 //! lattice-core: open a project, open a file, build, jump between the source
 //! and the PDF (SyncTeX), and the file tree's create, rename, move and
 //! delete.
 //!
-//! The shell's own parts live beside it: the arrangement of panels and the
-//! named workspaces (`layout`, `workspaces`, `arrange`, `workspace_flow`),
+//! The shell's own parts live beside it: the layouts and the named
+//! workspaces (`trellis_layout`, `workspaces`, `views`, `skin`, `arrange`,
+//! `workspace_flow`),
 //! the command table, keymap and palette (`commands`, `actions`, `palette`),
-//! the menu bar (`menus`), windows and project tabs (`windows`), floating
-//! panels (`floating`), builds (`build`, `build_tools`), the tree's operations (`entries`),
+//! the menu bar (`menus`), windows and project tabs (`windows`), builds (`build`, `build_tools`), the tree's operations (`entries`),
 //! the PDFs (`pdfs`) and SyncTeX (`synctex`).
 
 mod actions;
@@ -20,17 +20,18 @@ pub mod commands;
 mod documents;
 mod editor_events;
 mod entries;
-mod floating;
 mod ground;
 mod imports;
 mod layers;
-pub mod layout;
 pub(crate) mod menus;
 mod palette;
 mod pdfs;
 mod render;
 mod saving;
+mod skin;
 mod synctex;
+pub mod trellis_layout;
+pub mod views;
 mod welcome_flow;
 pub mod windows;
 mod workspace_flow;
@@ -45,12 +46,10 @@ use gpui::{
     Styled as _, Subscription, Task, WeakEntity, Window, WindowBounds, WindowOptions,
     prelude::FluentBuilder as _, px, size,
 };
-use gpui_kit::component::{
-    dock::{DockArea, DockEvent, PanelId},
-    v_flex,
-};
+use gpui_kit::component::v_flex;
 use lattice_i18n::{t, tc};
-use lattice_ui::{ActiveLattice as _, Appearance, LatticeTheme, dock::LatticeDock};
+use lattice_ui::{ActiveLattice as _, Appearance, LatticeTheme};
+use trellis::{TrellisWorkspace, model::LayoutDocument};
 
 use build::BuildRequest;
 pub use commands::{
@@ -74,12 +73,10 @@ use crate::{
     titlebar::TitlebarDrag,
 };
 
-/// The chrome around the cards: 12px from the window's sides and bottom and
-/// 6px under the titlebar, less the groups' own half-gutter.
-const WORKSPACE_SIDE: f32 = 12. - 3.;
-const WORKSPACE_TOP: f32 = 6. - 3.;
-/// The build panel's height when it is shown under the editors.
-const BUILD_DOCK: f32 = 180. + 6.;
+/// The workspace's padding (`main.workspace`: 0 6px 6px), to which the
+/// workspace adds its own 6px edge: panels sit 12px from the window's sides
+/// and bottom and 6px under the titlebar.
+const WORKSPACE_SIDE: f32 = 6.;
 
 #[cfg(target_os = "macos")]
 pub const BUILD_SHORTCUT_LABEL: &str = "⌘B";
@@ -96,14 +93,14 @@ pub fn bind_keys(cx: &mut App) {
 #[derive(Default)]
 pub(crate) struct LayoutState {
     pub workspace: Option<String>,
-    pub preset: Option<workspaces::ActivePreset>,
-    /// Focus mode's own layout to return to.
-    pub focus: Option<layout::Arrangement>,
+    pub preset: Option<trellis_layout::ActivePreset>,
+    /// Focus mode, and the layout it returns to.
+    pub focus: Option<trellis_layout::ActiveFocus>,
     pub dirty: bool,
     /// The workspace whose name is being edited in place.
     pub renaming: Option<String>,
-    /// Where each document stood in each workspace, by workspace id.
-    pub places: std::collections::BTreeMap<String, std::collections::BTreeMap<String, u64>>,
+    /// Where each document sat in each workspace, by workspace id.
+    pub places: std::collections::BTreeMap<String, trellis_layout::DocumentPlaces>,
 }
 
 /// A project open in a window, with the name its tab shows.
@@ -115,9 +112,20 @@ pub(crate) struct OpenProject {
 pub struct Shell {
     project: Option<Entity<Project>>,
     pub(crate) focus_handle: FocusHandle,
-    dock_area: Entity<DockArea>,
+    workspace: Entity<TrellisWorkspace>,
+    /// The panel behind each of the workspace's views.
+    views: views::Registry,
+    /// The document as of the last committed change, for a close to keep
+    /// its document panel.
+    last_document: LayoutDocument,
+    reset_undo: Option<workspace_flow::ResetUndo>,
+    /// Each view's panel taking the keyboard focuses its view.
+    view_focus: std::collections::HashMap<String, Subscription>,
+    /// The panels shown as their panel's selected tab, last told so
+    /// ([`Shell::sync_shown`]).
+    shown_panels: std::collections::HashSet<gpui::EntityId>,
     titlebar_drag: TitlebarDrag,
-    /// A dock panel is being dragged: the webview islands stand aside.
+    /// A panel is being dragged: the webview islands stand aside.
     panel_dragging: bool,
     file_tree: Entity<FileTreePanel>,
     papers: Entity<StandInPanel>,
@@ -165,10 +173,6 @@ pub struct Shell {
     _outline_task: Option<Task<()>>,
     _open_task: Option<Task<()>>,
     pub(crate) layout: LayoutState,
-    pub(crate) floating: floating::FloatingLayer,
-    /// Each of the dock's groups' own id (`layout::Node::Tabs`'s `slot`),
-    /// which Kit's node ids, new at every rebuild, do not keep.
-    slots: std::collections::HashMap<gpui_kit::component::dock::NodeId, u64>,
     palette: Option<Entity<palette::CommandPaletteView>>,
     shortcuts: Option<Entity<palette::ShortcutSheet>>,
     /// Quick open, Find and Replace in project, and the files visited.
@@ -243,8 +247,11 @@ impl Shell {
 
     fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         crate::panels::present_tabs(cx);
-        arrange::install_dock_hooks(cx);
-        let dock_area = LatticeDock::dock_area("lattice", Some(1), window, cx);
+        let views = views::Registry::default();
+        let skin = std::rc::Rc::new(skin::LatticeSkin::new(views.clone()));
+        let workspace = cx.new(|cx| {
+            TrellisWorkspace::new(views::engine_options(), LayoutDocument::default(), skin, cx)
+        });
         let file_tree = cx.new(FileTreePanel::new);
         let papers = cx.new(|cx| StandInPanel::new(StandIn::Papers, cx));
         let agent = cx.new(|cx| StandInPanel::new(StandIn::Agent, cx));
@@ -323,10 +330,16 @@ impl Shell {
         cx.subscribe_in(&pdf, window, Self::on_pdf_event).detach();
         cx.observe(&notices, |_, _, cx| cx.notify()).detach();
         cx.observe(&confirm, |_, _, cx| cx.notify()).detach();
-        let dock_events = cx.subscribe_in(&dock_area, window, |this, _, event, window, cx| {
-            if let DockEvent::LayoutChanged = event {
-                this.forget_closed_pdfs(cx);
-                this.layout_changed(window, cx);
+        let workspace_events = cx.subscribe_in(&workspace, window, Self::on_workspace_event);
+        // While a panel is dragged, webview islands step aside: a page would
+        // hide the drop targets under it and swallow the drag.
+        let workspace_drags = cx.observe_in(&workspace, window, |this, workspace, window, cx| {
+            let dragging = workspace.read(cx).engine().dragging();
+            if dragging != this.panel_dragging {
+                this.panel_dragging = dragging;
+                window.defer(cx, move |_, cx| {
+                    lattice_webview::set_dock_dragging(dragging, cx)
+                });
             }
         });
         let library = cx.observe_global::<workspaces::Workspaces>(|this, cx| {
@@ -343,7 +356,12 @@ impl Shell {
         let mut shell = Self {
             project: None,
             focus_handle: cx.focus_handle(),
-            dock_area,
+            workspace,
+            views,
+            last_document: LayoutDocument::default(),
+            reset_undo: None,
+            view_focus: Default::default(),
+            shown_panels: Default::default(),
             titlebar_drag: TitlebarDrag::default(),
             panel_dragging: false,
             file_tree,
@@ -373,8 +391,6 @@ impl Shell {
             _outline_task: None,
             _open_task: None,
             layout: LayoutState::default(),
-            floating: floating::FloatingLayer::default(),
-            slots: Default::default(),
             palette: None,
             shortcuts: None,
             documents: Default::default(),
@@ -385,14 +401,12 @@ impl Shell {
             save_task: None,
             rename_input: None,
             rename_subscription: None,
-            _subscriptions: vec![dock_events, library],
+            _subscriptions: vec![workspace_events, workspace_drags, library],
         };
-        // The Main window before a project opens: the default arrangement,
-        // its document slot empty.
-        let room = shell.room(window);
-        let arrangement =
-            layout::Arrangement::default_for(room).with_documents(&[], None, &Default::default());
-        shell.install(&arrangement, window, cx);
+        // The Main window before a project opens: the default layout, its
+        // document slot empty.
+        let empty = trellis_layout::arrangement_of(&trellis_layout::default_layout());
+        shell.install(empty, false, window, cx);
         shell
     }
 
@@ -448,8 +462,9 @@ impl Shell {
         self.cleaning
     }
 
-    pub fn dock_area(&self) -> &Entity<DockArea> {
-        &self.dock_area
+    /// The Trellis workspace the panels are laid out in.
+    pub fn workspace(&self) -> &Entity<TrellisWorkspace> {
+        &self.workspace
     }
 
     pub(crate) fn titlebar_drag(&self) -> &TitlebarDrag {
@@ -567,6 +582,23 @@ impl Shell {
         self.refresh_words(cx);
         self.build_target = None;
         self.close_root_pdfs(window, cx);
+        // The documents' panels go with the project they were of.
+        let gone: Vec<_> = self
+            .views
+            .borrow()
+            .iter()
+            .filter(|(id, _)| !views::SINGLETONS.contains(&id.as_str()))
+            .map(|(_, panel)| panel.clone())
+            .collect();
+        self.views
+            .borrow_mut()
+            .retain(|id, _| views::SINGLETONS.contains(&id.as_str()));
+        self.view_focus
+            .retain(|id, _| views::SINGLETONS.contains(&id.as_str()));
+        for panel in gone {
+            panel.on_removed(window, cx);
+        }
+        self.reset_undo = None;
         self.live_document = project.read(cx).main_document().map(str::to_string);
         self.refresh_outline(window, cx);
         self.file_tree
@@ -602,19 +634,10 @@ impl Shell {
         let in_front = self
             .active_editor()
             .is_some_and(|editor| editor.read(cx).path() == path);
-        let editor = match self.open_editor(&path, cx) {
-            Some(editor) if self.panel_shown(PanelId::from(editor.entity_id()), cx) => {
-                let id = PanelId::from(editor.entity_id());
-                self.dock_area
-                    .update(cx, |area, cx| area.select_panel(id, window, cx));
-                editor
-            }
-            _ => {
-                let editor = self.editor_for(&path, window, cx)?;
-                self.place_document(&editor, window, cx);
-                editor
-            }
-        };
+        let root = self.root(cx)?;
+        let editor = self.editor_for(&path, window, cx)?;
+        self.place_document(&views::document_key(&root, &path), false, cx);
+        self.sync_views(window, cx);
         self.active_editor = Some(editor.downgrade());
         editor.update(cx, |editor, cx| match line {
             Some(line) => editor.go_to_line(line, window, cx),
@@ -711,32 +734,22 @@ impl Shell {
         cx.notify();
     }
 
-    /// Whether the build panel is anywhere in the dock area (it can be
-    /// dragged out of the bottom dock).
+    /// Whether the build log is on screen.
     pub fn build_panel_shown(&self, cx: &App) -> bool {
-        self.panel_shown(PanelId::from(self.build_panel.entity_id()), cx)
+        self.view_on_screen("build", cx)
     }
 
-    /// Show the build panel under the editors, or take it out of wherever it
-    /// is. A closed bottom dock would keep a strip of its tabs on screen,
-    /// which the Tauri app does not have, so a bottom dock is made for the
-    /// panel and taken away once nothing is left in it.
+    /// Show the build log under the documents, or put it away.
     pub fn show_build_panel(&mut self, shown: bool, window: &mut Window, cx: &mut Context<Self>) {
         if shown == self.build_panel_shown(cx) {
             return;
         }
         if shown {
-            self.show_view(layout::View::Build, window, cx);
+            self.show_view("build", true, window, cx);
         } else {
-            self.hide_view(&layout::View::Build, window, cx);
+            self.hide_view("build", cx);
         }
         cx.notify();
-    }
-
-    /// The workspace area's size, for arrangements laid out to the window.
-    pub(crate) fn room(&self, window: &Window) -> layout::Room {
-        let size = window.viewport_size();
-        layout::Room::for_window(size.width, size.height)
     }
 }
 

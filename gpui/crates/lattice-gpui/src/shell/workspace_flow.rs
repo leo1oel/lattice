@@ -1,59 +1,71 @@
 //! The named workspaces and the presets in action: entering, saving,
 //! reverting and adding workspaces, the Writing and Reading presets and
-//! focus mode laid over the project's own layout, and that layout saved as
-//! it changes and restored when the project opens again
-//! (`src/trellis/trellis-workspace.tsx`).
+//! focus mode laid over the project's own layout, a reset, and that layout
+//! saved as it changes and restored when the project opens again
+//! (`src/trellis/trellis-layout-handlers.ts` and `trellis-workspace.tsx`).
 
 use std::{path::Path, time::Duration};
 
-use gpui::{App, BorrowAppContext as _, Context, Focusable as _, Window};
+use gpui::{App, BorrowAppContext as _, Context, Window};
+use trellis::model::LayoutDocument;
 
 use super::{
     Shell,
-    layout::{self, Arrangement, Preset},
-    workspaces::{ActivePreset, ProjectLayout, Workspaces},
+    arrange::is_reading,
+    trellis_layout::{
+        self, Documents, Preset, arrange_documents, arrangement_of, default_layout, enter_focus,
+        enter_preset, layout_shape, places_of, return_layout,
+    },
+    workspaces::{ProjectLayout, Workspaces},
 };
 
 /// A layout change is saved this long after the last one.
 const SAVE_DELAY: Duration = Duration::from_millis(400);
 
+/// A reset that can still be undone: the layout, preset, focus mode and
+/// focused view from before it, and the arrangement the reset left
+/// (`left`, a `layout_shape`), which any change of the writer's own
+/// supersedes.
+pub(crate) struct ResetUndo {
+    pub document: LayoutDocument,
+    pub preset: Option<trellis_layout::ActivePreset>,
+    pub focus: Option<trellis_layout::ActiveFocus>,
+    pub focused: Option<String>,
+    pub left: String,
+}
+
 impl Shell {
-    /// The project's own layout: the one on screen, or under a preset or
-    /// focus mode the one they keep to return to, holding the documents open
-    /// and the panels floating now.
-    fn own_arrangement(&self, cx: &App) -> Arrangement {
-        let mut own = self.current_arrangement(cx);
-        let active = self.active_document(cx);
-        if let Some(previous) = &self.layout.focus {
-            own = layout::return_layout(previous, &own, active.as_deref());
+    /// The writer's own layout: the one a preset or focus mode keeps to
+    /// return to, else the one on screen (`ownLayout`).
+    fn own_layout(&self, cx: &App) -> LayoutDocument {
+        if let Some(active) = &self.layout.preset {
+            return active.previous.clone();
         }
-        if let Some(preset) = &self.layout.preset {
-            own = layout::return_layout(&preset.previous, &own, active.as_deref());
+        if let Some(active) = &self.layout.focus {
+            return active.previous.clone();
         }
-        own
+        self.document(cx)
     }
 
-    /// The workspace's saved arrangement, or the default for a workspace
-    /// never used.
-    fn workspace_arrangement(&self, id: &str, window: &Window, cx: &App) -> Arrangement {
+    /// The workspace's saved arrangement; one never saved is the default
+    /// layout's (`workspaceArrangement`).
+    fn workspace_arrangement(id: &str, cx: &App) -> LayoutDocument {
         Workspaces::global(cx)
             .get(id)
             .and_then(|entry| entry.arrangement.clone())
-            .unwrap_or_else(|| Arrangement::default_for(self.room(window)).as_workspace())
+            .unwrap_or_else(|| arrangement_of(&default_layout()))
     }
 
+    /// Whether the writer's layout is arranged other than its workspace
+    /// saved it (`differsFromWorkspace`): the dot on the workspace's tab.
     pub(crate) fn refresh_dirty(&mut self, cx: &App) {
         let Some(id) = self.layout.workspace.clone() else {
             self.layout.dirty = false;
             return;
         };
-        let saved = Workspaces::global(cx)
-            .get(&id)
-            .and_then(|entry| entry.arrangement.clone());
-        self.layout.dirty = match saved {
-            Some(saved) => self.own_arrangement(cx).shape() != saved.shape(),
-            None => false,
-        };
+        let own = arrangement_of(&self.own_layout(cx));
+        self.layout.dirty =
+            layout_shape(&own) != layout_shape(&Self::workspace_arrangement(&id, cx));
     }
 
     pub(super) fn schedule_save(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -66,41 +78,38 @@ impl Shell {
         }));
     }
 
-    /// The layout saved now, the window closing or the app quitting: a
-    /// change still waiting, and the document the writer was last on, which
-    /// moves without a layout change (an unchanged layout is not written).
+    /// The layout saved now: the window closing or the app quitting.
     pub(super) fn flush_layout(&mut self, cx: &mut App) {
         self.save_layout(cx);
     }
 
-    /// Remember the project's layout, its workspace and preset, and where
-    /// its documents stand in the workspace.
+    /// Remember the project's layout as it is, its preset or focus mode,
+    /// its workspace, and where its documents sit in the workspace.
     pub(crate) fn save_layout(&mut self, cx: &mut App) {
         self.save_task = None;
         let Some(root) = self.root(cx) else {
             return;
         };
-        let own = self.own_arrangement(cx);
         if let Some(workspace) = &self.layout.workspace {
-            self.layout.places.insert(workspace.clone(), own.places());
+            let places = places_of(&self.own_layout(cx));
+            self.layout.places.insert(workspace.clone(), places);
         }
         let layout = ProjectLayout {
             workspace: self.layout.workspace.clone(),
-            preset: self.layout.preset.as_ref().map(|active| ActivePreset {
-                preset: active.preset,
-                previous: own.clone(),
-                active: self.active_document(cx),
-            }),
-            arrangement: Some(own),
+            document: Some(self.document(cx)),
+            preset: self.layout.preset.clone(),
+            focus: self.layout.focus.clone(),
             places: self.layout.places.clone(),
             ..ProjectLayout::default()
         };
         cx.update_global::<Workspaces, _>(|library, _| library.save_project(&root, layout));
     }
 
-    /// Lay the window out as the project was left: its saved layout, else
-    /// its workspace's arrangement around its main document. False when no
-    /// document came back, so the caller opens the main one.
+    /// Lay the window out as the project was left (`openProjectLayout`):
+    /// its saved layout with its preset or focus mode, in the workspace it
+    /// was in (else the one last entered); a project without one starts as
+    /// that workspace was saved, its main document in the first slot. False
+    /// when no document came back, so the caller opens the main one.
     pub(super) fn restore_layout(
         &mut self,
         root: &Path,
@@ -109,70 +118,120 @@ impl Shell {
         cx: &mut Context<Self>,
     ) -> bool {
         let saved = cx.update_global::<Workspaces, _>(|library, _| library.project(root));
+        let library = Workspaces::global(cx);
         let workspace = saved
             .workspace
             .clone()
-            .filter(|id| Workspaces::global(cx).get(id).is_some())
-            .unwrap_or_else(|| Workspaces::global(cx).recent());
-        self.ensure_workspace_saved(&workspace, window, cx);
+            .filter(|id| library.get(id).is_some())
+            .unwrap_or_else(|| library.recent());
+        // Places in workspaces deleted since are forgotten.
+        let places = saved
+            .places
+            .iter()
+            .filter(|(id, _)| library.get(id).is_some())
+            .map(|(id, places)| (id.clone(), places.clone()))
+            .collect();
         self.layout.workspace = Some(workspace.clone());
-        self.layout.places = saved.places.clone();
-        self.layout.preset = None;
-        self.layout.focus = None;
+        self.layout.places = places;
         Workspaces::update(cx, |library| library.note_used(&workspace));
-        let arrangement = match (saved.preset.clone(), saved.arrangement.clone()) {
-            (Some(preset), _) => {
-                let active = preset.front_document();
-                let laid =
-                    preset
-                        .preset
-                        .arrange(&preset.previous, active.as_deref(), self.room(window));
-                self.layout.preset = Some(preset);
-                laid
-            }
-            (None, Some(arrangement)) => arrangement,
-            (None, None) => {
-                let documents: Vec<String> = main
-                    .map(|main| vec![layout::document_key(root, main)])
+        let tidy = |doc: &LayoutDocument| trellis_layout::tidy(doc);
+        self.layout.preset = saved.preset.map(|mut active| {
+            active.previous = tidy(&active.previous);
+            active
+        });
+        self.layout.focus = saved.focus.map(|mut active| {
+            active.previous = tidy(&active.previous);
+            active
+        });
+        let document = match saved.document {
+            Some(document) => tidy(&document),
+            None => {
+                // A workspace never saved is the default layout, whose
+                // document slot the main document fills.
+                let arrangement = Self::workspace_arrangement(&workspace, cx);
+                let key = main.map(|main| super::views::document_key(root, main));
+                let open: Vec<String> = key.iter().cloned().collect();
+                let documents = Documents {
+                    active_key: key.as_deref().unwrap_or(""),
+                    open_tabs: &open,
+                };
+                let places = self
+                    .layout
+                    .places
+                    .get(&workspace)
+                    .cloned()
                     .unwrap_or_default();
-                self.workspace_arrangement(&workspace, window, cx)
-                    .with_documents(
-                        &documents,
-                        documents.first().map(String::as_str),
-                        self.layout
-                            .places
-                            .get(&workspace)
-                            .unwrap_or(&Default::default()),
-                    )
+                arrange_documents(&arrangement, &arrangement, documents, &places)
             }
         };
-        self.install(&arrangement, window, cx);
-        let documents = self.current_arrangement(cx).documents();
-        if let Some(active) = self.active_document(cx) {
-            let path = root.join(active);
-            if let Some(editor) = self.open_editor(&path, cx) {
-                window.focus(&editor.read(cx).editor().focus_handle(cx), cx);
-            }
+        self.install(document, false, window, cx);
+        if let Some(live) = self.live_document.clone() {
+            self.root_pdfs.retain(|(open, _)| *open != live);
+            let id = super::views::root_pdf_id(&live);
+            self.engine_do(cx, |engine| engine.close(&id));
         }
         self.follow_active_document(cx);
-        !documents.is_empty()
+        !super::views::documents_of(&self.document(cx)).is_empty()
     }
 
-    /// A workspace never used takes the default arrangement at this
-    /// window's size, so the project's layout has something to differ from.
-    fn ensure_workspace_saved(&mut self, id: &str, window: &Window, cx: &mut Context<Self>) {
-        if Workspaces::global(cx)
-            .get(id)
-            .is_some_and(|entry| entry.arrangement.is_none())
-        {
-            let arrangement = Arrangement::default_for(self.room(window)).as_workspace();
-            Workspaces::update(cx, |library| library.set_arrangement(id, arrangement));
+    /// Animate the workspace to `next`, as a switch.
+    fn show_layout(&mut self, next: LayoutDocument, window: &mut Window, cx: &mut Context<Self>) {
+        self.install(next, true, window, cx);
+    }
+
+    /// `current` out of focus mode: the layout it was entered from, brought
+    /// up to date with the documents opened and closed meanwhile.
+    fn unfocused(&self, current: &LayoutDocument, cx: &App) -> LayoutDocument {
+        let (active, open) = self.open_documents(cx);
+        let documents = Documents {
+            active_key: &active,
+            open_tabs: &open,
+        };
+        match &self.layout.focus {
+            Some(focus) => return_layout(&focus.previous, current, documents, &focus.supplied),
+            None => current.clone(),
         }
     }
 
-    /// Enter workspace `id`: the project's documents laid into its
-    /// arrangement where they stood there before. Entering the workspace the
-    /// project is in returns from a preset or focus mode over it.
+    /// The project into workspace `id` as it was saved, out of any preset
+    /// and focus mode, its documents placed by `places`.
+    fn load_workspace(
+        &mut self,
+        id: &str,
+        places_for: impl FnOnce(&mut Self, &LayoutDocument) -> trellis_layout::DocumentPlaces,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.reset_undo = None;
+        self.save_layout(cx);
+        let (active, open) = self.open_documents(cx);
+        let documents = Documents {
+            active_key: &active,
+            open_tabs: &open,
+        };
+        let shown = self.unfocused(&self.document(cx), cx);
+        let own = match &self.layout.preset {
+            Some(preset) => return_layout(&preset.previous, &shown, documents, &preset.supplied),
+            None => shown,
+        };
+        let places = places_for(self, &own);
+        let next = arrange_documents(
+            &Self::workspace_arrangement(id, cx),
+            &own,
+            documents,
+            &places,
+        );
+        self.layout.preset = None;
+        self.layout.focus = None;
+        self.layout.workspace = Some(id.to_string());
+        Workspaces::update(cx, |library| library.note_used(id));
+        self.show_layout(next, window, cx);
+    }
+
+    /// Enter workspace `id`: its saved arrangement, the open documents
+    /// re-placed where each sat when the project was last in it.
+    /// Entering the workspace the project is in returns from a preset or
+    /// focus mode over it.
     pub(crate) fn switch_workspace(
         &mut self,
         id: &str,
@@ -182,7 +241,8 @@ impl Shell {
         if Workspaces::global(cx).get(id).is_none() || self.project.is_none() {
             return;
         }
-        if self.layout.workspace.as_deref() == Some(id) {
+        let from = self.layout.workspace.clone();
+        if from.as_deref() == Some(id) {
             if self.layout.focus.is_some() {
                 self.set_focus_mode(false, window, cx);
             }
@@ -191,24 +251,18 @@ impl Shell {
             }
             return;
         }
-        let own = self.own_arrangement(cx);
-        if let Some(current) = self.layout.workspace.clone() {
-            self.layout.places.insert(current, own.places());
-        }
-        self.layout.preset = None;
-        self.layout.focus = None;
-        self.ensure_workspace_saved(id, window, cx);
-        let documents = own.documents();
-        let active = self.active_document(cx);
-        let places = self.layout.places.get(id).cloned().unwrap_or_default();
-        let arrangement = self.workspace_arrangement(id, window, cx).with_documents(
-            &documents,
-            active.as_deref(),
-            &places,
+        let id = id.to_string();
+        self.load_workspace(
+            &id.clone(),
+            move |this, own| {
+                if let Some(from) = from {
+                    this.layout.places.insert(from, places_of(own));
+                }
+                this.layout.places.get(&id).cloned().unwrap_or_default()
+            },
+            window,
+            cx,
         );
-        self.layout.workspace = Some(id.to_string());
-        Workspaces::update(cx, |library| library.note_used(id));
-        self.install(&arrangement, window, cx);
     }
 
     pub(crate) fn switch_workspace_at(
@@ -226,18 +280,23 @@ impl Shell {
         }
     }
 
-    /// A new workspace holding the arrangement on screen, right after the
-    /// current one, with the project in it and its name in editing.
+    /// A new workspace starting as the arrangement on screen, a preset's
+    /// included, right after the current one; the project moves into it
+    /// without anything moving, and its name is in editing.
     pub(crate) fn new_workspace(&mut self, window: &mut Window, cx: &mut Context<Self>) -> String {
-        let arrangement = self.own_arrangement(cx).as_workspace();
+        self.reset_undo = None;
+        self.save_layout(cx);
+        if self.layout.focus.is_some() {
+            let back = self.unfocused(&self.document(cx), cx);
+            self.layout.focus = None;
+            self.show_layout(back, window, cx);
+        }
+        let arrangement = arrangement_of(&self.document(cx));
         let after = self.layout.workspace.clone();
         let id = Workspaces::update(cx, |library| {
             library.add("Workspace", Some(arrangement), after.as_deref())
         });
-        if let Some(current) = self.layout.workspace.clone() {
-            let places = self.own_arrangement(cx).places();
-            self.layout.places.insert(current, places);
-        }
+        self.layout.preset = None;
         self.layout.workspace = Some(id.clone());
         Workspaces::update(cx, |library| library.note_used(&id));
         self.refresh_dirty(cx);
@@ -246,54 +305,104 @@ impl Shell {
         id
     }
 
-    /// Save the project's arrangement (under any preset) to its workspace.
+    /// Save: the arrangement under any preset becomes the workspace's.
     pub(crate) fn save_workspace(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(id) = self.layout.workspace.clone() else {
             return;
         };
-        let arrangement = self.own_arrangement(cx).as_workspace();
+        let arrangement = arrangement_of(&self.own_layout(cx));
         Workspaces::update(cx, |library| library.set_arrangement(&id, arrangement));
         self.refresh_dirty(cx);
         self.schedule_save(window, cx);
         cx.notify();
     }
 
-    /// Load the workspace as it was saved, the open documents placed in it.
+    /// Revert: the workspace as saved, the open documents kept where they
+    /// are when it has their panels.
     pub(crate) fn revert_workspace(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(id) = self.layout.workspace.clone() else {
             return;
         };
-        let own = self.own_arrangement(cx);
-        let active = self.active_document(cx);
-        let places = self.layout.places.get(&id).cloned().unwrap_or_default();
-        self.layout.preset = None;
-        self.layout.focus = None;
-        let arrangement = self.workspace_arrangement(&id, window, cx).with_documents(
-            &own.documents(),
-            active.as_deref(),
-            &places,
-        );
-        self.install(&arrangement, window, cx);
+        if Workspaces::global(cx).get(&id).is_some() {
+            self.load_workspace(&id, |_, own| places_of(own), window, cx);
+        }
     }
 
-    /// Back to the default layout, the documents kept; the workspace itself
-    /// is not touched, so the project then differs from it if it was saved
-    /// otherwise.
+    /// Reset: the default layout with its document panel between the
+    /// navigators and the PDF, the open documents in it; the workspace
+    /// itself is untouched. The layout before it can be brought back
+    /// (`undo_reset_layout`) until the writer changes the arrangement.
     pub(crate) fn reset_layout(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let own = self.own_arrangement(cx);
-        let active = self.active_document(cx);
-        self.layout.preset = None;
-        self.layout.focus = None;
-        let arrangement = Arrangement::default_for(self.room(window)).with_documents(
-            &own.documents(),
-            active.as_deref(),
+        let before = ResetUndo {
+            document: self.document(cx),
+            preset: self.layout.preset.take(),
+            focus: self.layout.focus.take(),
+            focused: self
+                .workspace
+                .read(cx)
+                .engine()
+                .focused_view()
+                .map(str::to_string),
+            left: String::new(),
+        };
+        let (active, open) = self.open_documents(cx);
+        let documents = Documents {
+            active_key: &active,
+            open_tabs: &open,
+        };
+        let arrangement = arrangement_of(&default_layout());
+        let next = arrange_documents(
+            &arrangement,
+            &before.document,
+            documents,
             &Default::default(),
         );
-        self.install(&arrangement, window, cx);
+        self.show_layout(next, window, cx);
+        let left = layout_shape(&self.document(cx));
+        self.reset_undo = Some(ResetUndo { left, ..before });
+        let shell = cx.entity().downgrade();
+        let undo = crate::notices::NoticeAction::new("Undo", move |window, cx| {
+            shell
+                .update(cx, |shell, cx| shell.undo_reset_layout(window, cx))
+                .ok();
+        });
+        crate::notices::show(
+            crate::notices::Notice::new(lattice_ui::components::ToastLevel::Info, "Layout reset")
+                .key("trellis-layout-reset")
+                .action(undo),
+            cx,
+        );
     }
 
-    /// Lay `preset` over the project's own layout, which is kept to return
-    /// to; choosing the preset on screen returns.
+    /// Undo the last reset: the layout from before it, brought up to date
+    /// with what is open now, in the preset or focus mode it was in, with
+    /// the writer's view focused again if it is still on screen.
+    pub(crate) fn undo_reset_layout(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(undo) = self.reset_undo.take() else {
+            return;
+        };
+        if layout_shape(&self.document(cx)) != undo.left {
+            return;
+        }
+        let (active, open) = self.open_documents(cx);
+        let documents = Documents {
+            active_key: &active,
+            open_tabs: &open,
+        };
+        let next =
+            trellis_layout::undo_reset(&undo.document, &self.document(cx), documents, &|_| false);
+        self.layout.preset = undo.preset;
+        self.layout.focus = undo.focus;
+        self.show_layout(next, window, cx);
+        if let Some(focused) = undo.focused {
+            self.engine_do(cx, |engine| engine.focus(&focused));
+        }
+    }
+
+    /// Lay `preset` over the writer's own layout, which is kept to return
+    /// to; choosing the preset on screen returns. The document the preset
+    /// is for (the source to write, the paper to read) becomes the active
+    /// one.
     pub(crate) fn set_preset(
         &mut self,
         preset: Preset,
@@ -303,60 +412,118 @@ impl Shell {
         if self.project.is_none() {
             return;
         }
-        if self.layout.preset.as_ref().map(|active| active.preset) == Some(preset) {
+        let current = self.layout.preset.clone();
+        if current.as_ref().map(|active| active.preset) == Some(preset)
+            && self.layout.focus.is_none()
+        {
             self.leave_preset(window, cx);
             return;
         }
-        if self.layout.focus.is_some() {
-            self.set_focus_mode(false, window, cx);
-        }
-        let current = self.current_arrangement(cx);
-        let active = self.active_document(cx);
-        let previous = match self.layout.preset.take() {
-            Some(on) => layout::return_layout(&on.previous, &current, active.as_deref()),
-            None => current,
+        self.reset_undo = None;
+        let (active, open) = self.open_documents(cx);
+        let documents = Documents {
+            active_key: &active,
+            open_tabs: &open,
         };
-        let laid = preset.arrange(&previous, active.as_deref(), self.room(window));
-        self.layout.preset = Some(ActivePreset {
-            preset,
-            previous,
-            active: None,
-        });
-        self.install(&laid, window, cx);
+        let document = self.unfocused(&self.document(cx), cx);
+        self.layout.focus = None;
+        if current.as_ref().map(|active| active.preset) == Some(preset) {
+            self.show_layout(document, window, cx);
+            return;
+        }
+        let (next, entered) =
+            enter_preset(preset, &document, current.as_ref(), documents, &is_reading);
+        self.layout.preset = Some(entered);
+        self.show_layout(next, window, cx);
+        let lead = match preset {
+            Preset::Writing => "panel-writing",
+            Preset::Reading => "panel-reading",
+        };
+        let doc = self.document(cx);
+        let selected = trellis::model::panels_of(doc.root.as_ref())
+            .into_iter()
+            .find(|panel| panel.id == lead)
+            .map(|panel| panel.selected.clone());
+        if let Some(view) = selected
+            && let Some(editor) = self.panel_of_view(&view).and_then(|panel| {
+                panel
+                    .view()
+                    .downcast::<crate::editor_panel::EditorPanel>()
+                    .ok()
+            })
+        {
+            self.active_editor = Some(editor.downgrade());
+            self.follow_active_document(cx);
+        }
     }
 
+    /// Back to the writer's own layout from a preset.
     pub(crate) fn leave_preset(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(active) = self.layout.preset.take() else {
             return;
         };
-        let back = layout::return_layout(
-            &active.previous,
-            &self.current_arrangement(cx),
-            self.active_document(cx).as_deref(),
-        );
-        self.install(&back, window, cx);
+        let (key, open) = self.open_documents(cx);
+        let documents = Documents {
+            active_key: &key,
+            open_tabs: &open,
+        };
+        let document = self.unfocused(&self.document(cx), cx);
+        self.layout.focus = None;
+        let back = return_layout(&active.previous, &document, documents, &active.supplied);
+        self.show_layout(back, window, cx);
     }
 
-    /// Focus mode: the open documents fill the window with the PDF beside
-    /// them, the chrome down to the window's controls and a way out; off,
-    /// the layout comes back as it was, a preset's included.
+    /// Focus mode: the open documents in one panel, the PDF beside them
+    /// when the writer last asked for it, over whatever is on screen;
+    /// leaving it brings that back. The keyboard goes to the document
+    /// either way.
     pub(crate) fn set_focus_mode(&mut self, on: bool, window: &mut Window, cx: &mut Context<Self>) {
         if on == self.layout.focus.is_some() || self.project.is_none() {
             return;
         }
-        if on {
-            let current = self.current_arrangement(cx);
-            let active = self.active_document(cx);
-            let laid = Preset::Writing.arrange(&current, active.as_deref(), self.room(window));
-            self.layout.focus = Some(current);
-            self.install(&laid, window, cx);
-        } else if let Some(previous) = self.layout.focus.take() {
-            let back = layout::return_layout(
-                &previous,
-                &self.current_arrangement(cx),
-                self.active_document(cx).as_deref(),
-            );
-            self.install(&back, window, cx);
+        let pdf = on.then(|| Workspaces::global(cx).focus_pdf());
+        self.focus(pdf, window, cx);
+    }
+
+    /// Show or hide the PDF beside the documents in focus mode, entering it
+    /// when it is off; the choice is remembered for every project.
+    pub(crate) fn set_focus_pdf(&mut self, pdf: bool, window: &mut Window, cx: &mut Context<Self>) {
+        Workspaces::update(cx, |library| library.set_focus_pdf(pdf));
+        self.focus(Some(pdf), window, cx);
+    }
+
+    /// Focus mode on with or without the PDF (`Some`), or off.
+    fn focus(&mut self, pdf: Option<bool>, window: &mut Window, cx: &mut Context<Self>) {
+        let current = self.layout.focus.clone();
+        if let (Some(pdf), Some(current)) = (pdf, &current)
+            && current.pdf == pdf
+        {
+            return;
         }
+        self.reset_undo = None;
+        let (active, open) = self.open_documents(cx);
+        let documents = Documents {
+            active_key: &active,
+            open_tabs: &open,
+        };
+        match pdf {
+            Some(pdf) => {
+                let (next, entered) = enter_focus(
+                    &self.document(cx),
+                    current.as_ref(),
+                    documents,
+                    &is_reading,
+                    pdf,
+                );
+                self.layout.focus = Some(entered);
+                self.show_layout(next, window, cx);
+            }
+            None => {
+                let next = self.unfocused(&self.document(cx), cx);
+                self.layout.focus = None;
+                self.show_layout(next, window, cx);
+            }
+        }
+        self.focus_front(window, cx);
     }
 }

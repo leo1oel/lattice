@@ -8269,6 +8269,7 @@ dependencies = [
  "gpui_platform",
  "hdrhistogram",
  "image",
+ "indexmap",
  "language",
  "lattice-core",
  "lattice-editor",
@@ -8292,6 +8293,7 @@ dependencies = [
  "smallvec",
  "theme",
  "theme_settings",
+ "trellis",
  "vim",
  "vim_mode_setting",
  "windows 0.62.2",
@@ -15671,6 +15673,16 @@ dependencies = [
 name = "tree-sitter-language"
 version = "0.1.8"
 source = "git+https://github.com/tree-sitter/tree-sitter?rev=803c6ebaac27d69e1808b45058482e868d073ceb#803c6ebaac27d69e1808b45058482e868d073ceb"
+
+[[package]]
+name = "trellis"
+version = "0.2.0"
+dependencies = [
+ "gpui",
+ "indexmap",
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "trie-rs"

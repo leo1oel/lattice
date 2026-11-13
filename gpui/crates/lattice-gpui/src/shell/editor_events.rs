@@ -4,7 +4,6 @@
 //! marks its file in the tree and its section in the outline.
 
 use gpui::{Context, Entity, Window};
-use gpui_kit::component::dock::PanelId;
 
 use super::{Shell, build::BuildRequest};
 use crate::editor_panel::{EditorPanel, EditorPanelEvent};
@@ -78,7 +77,10 @@ impl Shell {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.close_panel(PanelId::from(editor.entity_id()), window, cx);
+        if let Some(view) = self.view_of_editor(editor) {
+            self.engine_do(cx, |engine| engine.close(&view));
+        }
+        let _ = window;
         self.editors
             .retain(|open| open.upgrade().is_some_and(|open| open != *editor));
         if self
