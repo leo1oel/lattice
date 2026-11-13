@@ -28,6 +28,7 @@ export function SourceSelectionToolbar(props: {
       canComment
       canProofread={props.canProofread}
       highlight={placement.highlight}
+      formats={placement.latexFormats}
       sample={props.sample}
       documentColors={props.documentColors}
       commentOnly={!editable}

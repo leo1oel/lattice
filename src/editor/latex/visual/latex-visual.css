@@ -48,6 +48,7 @@
 .cm-latex-visual .lx-tex-emph .lx-tex-italic { font-style: normal; }
 .cm-latex-visual .lx-tex-mono { font-family: var(--source-font); font-size: 0.9em; }
 .cm-latex-visual .lx-tex-underline { text-decoration: underline; text-underline-offset: 0.18em; }
+.cm-latex-visual .lx-tex-strike { text-decoration: line-through; }
 .cm-latex-visual .lx-tex-smallcaps { font-variant: small-caps; }
 .cm-latex-visual .lx-tex-sans { font-family: var(--ui-font); }
 .cm-latex-visual .lx-tex-roman { font-family: var(--prose-font); }

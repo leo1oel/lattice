@@ -43,6 +43,19 @@ describe("LaTeX selection toolbar", () => {
     expect(onAction).toHaveBeenCalledWith("heading", "subsection");
   });
 
+  it("shows the formats the selection already has as pressed", async () => {
+    renderToolbar({ formats: { inline: new Set(["bold", "strikethrough"]), heading: "subsection", quote: false, link: false } });
+    expect(button("Bold")).toHaveAttribute("aria-pressed", "true");
+    expect(button("Strikethrough")).toHaveAttribute("aria-pressed", "true");
+    expect(button("Italic")).toHaveAttribute("aria-pressed", "false");
+    expect(button("Quote")).toHaveAttribute("aria-pressed", "false");
+    expect(button("Link")).toHaveAttribute("aria-pressed", "false");
+    expect(button("Heading level")).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(button("Heading level"));
+    expect(await screen.findByRole("button", { name: /Subsection/ })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: /^Section/ })).toHaveAttribute("aria-pressed", "false");
+  });
+
   it.each([
     ["applies a drafted highlight color", "Highlight", [["highlight", "#FFE0C6"]]],
     ["discards a drafted highlight color when cancelled", "Cancel", []],

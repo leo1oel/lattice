@@ -4,7 +4,7 @@ import { insertNewlineKeepIndent } from "@codemirror/commands";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { linter } from "@codemirror/lint";
 import { highlightSelectionMatches, openSearchPanel, replaceAll, search, searchKeymap } from "@codemirror/search";
-import { Prec, StateEffect, Transaction, type Extension } from "@codemirror/state";
+import { Prec, StateEffect, Transaction, type Extension, type Text } from "@codemirror/state";
 import { EditorView, keymap, tooltips, ViewPlugin, type Command, type KeyBinding } from "@codemirror/view";
 import { tags } from "@lezer/highlight";
 import type { PaperSummary } from "../../app-types";
@@ -41,6 +41,7 @@ import { listItemNewline, sizedDelimiterClose, type InputEdit } from "./latex-in
 import { mathPreview } from "./math-preview";
 import { matchingMathDelimiter } from "./math-region";
 import { LATEX_SHORTCUTS, type LatexShortcut } from "./latex-shortcuts";
+import { toggleLatexInline, toggleLatexMath, type FormatEdit } from "./latex-format-toggle";
 import { compactSearchPanel } from "./search-panel";
 import { highlightPaint } from "./latex-highlight-paint";
 import { prefersReducedMotion } from "../../lib/reduced-motion";
@@ -179,6 +180,16 @@ function editCommand(edit: (text: string, from: number, to: number) => Selection
         : { anchor: result.from, head: result.from + result.insert.length },
       scrollIntoView: true,
     });
+    return true;
+  };
+}
+
+/** A toggling format (latex-format-toggle.ts) on the main selection. */
+function formatCommand(edit: (doc: Text, from: number, to: number) => FormatEdit): Command {
+  return (view) => {
+    const { from, to } = view.state.selection.main;
+    const result = edit(view.state.doc, from, to);
+    view.dispatch({ changes: result.changes, selection: result.selection, scrollIntoView: true });
     return true;
   };
 }
@@ -342,9 +353,9 @@ export function latexCommandKeymap(host: {
     bind("find", openSearchPanel),
     bind("replaceAll", replaceAll),
     bind("comment", editCommand(toggleLineComments)),
-    bind("bold", wrapCommand("\\textbf{", "}")),
-    bind("emphasis", wrapCommand("\\emph{", "}")),
-    bind("math", wrapCommand("$", "$")),
+    bind("bold", formatCommand((doc, from, to) => toggleLatexInline(doc, from, to, "bold"))),
+    bind("emphasis", formatCommand((doc, from, to) => toggleLatexInline(doc, from, to, "emphasis"))),
+    bind("math", formatCommand(toggleLatexMath)),
     bind("equation", editCommand((text, from, to) => wrapEnvironment(text, from, to, "equation"))),
     bind("itemize", editCommand((text, from, to) => wrapEnvironment(text, from, to, "itemize"))),
     bind("sortLines", editCommand(sortSelectedLines)),
