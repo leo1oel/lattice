@@ -10,6 +10,7 @@
 //! - "disputed": a value the entry states is replaced by a different one.
 //!   Both may be right, so it waits for the writer.
 
+use lattice_i18n::t;
 use std::sync::LazyLock;
 
 use regex::Regex;
@@ -38,18 +39,13 @@ impl Bucket {
 
     pub fn label(self) -> &'static str {
         match self {
-            Bucket::Fix => "To fix",
-            Bucket::Review => "To review",
-            Bucket::Incomplete => "Incomplete",
-            Bucket::Unchecked => "Not checked",
-            Bucket::Kept => "Kept",
-            Bucket::Verified => "Verified",
+            Bucket::Fix => t!("Fixes to review"),
+            Bucket::Review => t!("Need your eyes"),
+            Bucket::Incomplete => t!("Inconclusive"),
+            Bucket::Unchecked => t!("Not checked yet"),
+            Bucket::Kept => t!("Kept as written"),
+            Bucket::Verified => t!("Verified"),
         }
-    }
-
-    /// The findings a writer still has to act on.
-    pub fn actionable(self) -> bool {
-        matches!(self, Bucket::Fix | Bucket::Review)
     }
 }
 

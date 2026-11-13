@@ -34,6 +34,7 @@ use lattice_core::{
 use serde::{Deserialize, Serialize};
 
 mod groups;
+mod messages;
 mod view;
 
 pub use groups::{Bucket, FixGroup, fix_group};
@@ -161,6 +162,9 @@ pub struct Audit {
     pub(super) stopping: bool,
     /// The references being checked right now.
     pub(super) checking: HashSet<usize>,
+    /// The run under way: how many it checks, and those it has answered.
+    pub(super) run_total: usize,
+    pub(super) run_done: HashSet<usize>,
     pub(super) applying: bool,
     pub(super) error: Option<String>,
     pub(super) view: Option<Bucket>,
@@ -181,6 +185,8 @@ impl Audit {
             store,
             entries: Vec::new(),
             coverage: Vec::new(),
+            run_total: 0,
+            run_done: HashSet::new(),
             results: HashMap::new(),
             applied: HashSet::new(),
             kept: HashSet::new(),
@@ -331,6 +337,22 @@ impl Audit {
 
     /// The fixes Apply all takes: verified updates that only fill in or
     /// publish the entry, never an inline reference's.
+    /// The references new or edited since the last check: no result
+    /// carried over, or one marked changed. Checking these brings the
+    /// report up to date.
+    pub(super) fn outdated(&self) -> Vec<usize> {
+        if self.busy || self.results.is_empty() {
+            return Vec::new();
+        }
+        (0..self.entries.len())
+            .filter(|index| {
+                self.results
+                    .get(index)
+                    .is_none_or(|result| result.status == "conflict")
+            })
+            .collect()
+    }
+
     pub(super) fn updates(&self) -> Vec<usize> {
         let mut updates: Vec<usize> = self
             .results
@@ -412,6 +434,12 @@ impl Audit {
                 return;
             };
             let total = indexes.len();
+            this.update(cx, |this, cx| {
+                this.run_total = total;
+                this.run_done.clear();
+                cx.notify();
+            })
+            .ok();
             for group in indexes.chunks(GROUP) {
                 let (entries, live) = match this.update(cx, |this, cx| {
                     for index in group {
@@ -521,6 +549,7 @@ impl Audit {
             return;
         }
         for (index, finding) in findings {
+            self.run_done.insert(index);
             self.results.insert(index, finding);
             // A fresh result replaces what the writer did with the old one.
             self.applied.remove(&index);

@@ -8,6 +8,7 @@
 //! once. Ten show at first and ten more as the list nears its end; a deeper
 //! page is fetched only once those run out.
 
+use lattice_i18n::t;
 use std::collections::HashSet;
 
 use gpui::{
@@ -93,8 +94,8 @@ impl Literature {
         cx: &mut Context<Self>,
     ) -> Self {
         let input = cx.new(|cx| {
-            let mut state =
-                InputState::new(window, cx).placeholder("Attention Is All You Need, diffusion, …");
+            let mut state = InputState::new(window, cx)
+                .placeholder(t!("Attention Is All You Need, diffusion, …"));
             state.set_value(query.clone(), window, cx);
             state
         });
@@ -181,8 +182,9 @@ impl Literature {
                         this.has_more = page.has_more;
                         this.shown_query = searched.query.clone();
                         if this.results.is_empty() {
-                            this.notice =
-                                Some("No hits. Try broader terms or turn off precise mode.".into());
+                            this.notice = Some(
+                                t!("No hits. Try broader terms or turn off precise mode.").into(),
+                            );
                         }
                     }
                     Err(error) => {

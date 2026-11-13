@@ -3,6 +3,7 @@
 //! `findInLibrary`, `parsePastedReferences`, `recordOfResolved`), and how far
 //! an import's hairline has got (`paper-import-progress.ts`).
 
+use lattice_i18n::t;
 use std::{collections::HashSet, sync::LazyLock};
 
 use lattice_core::{bib_document, models::ResolvedCitation, papers::PaperSummary};
@@ -26,9 +27,9 @@ impl ReferenceKind {
         match self {
             ReferenceKind::Arxiv => "arXiv",
             ReferenceKind::Doi => "DOI",
-            ReferenceKind::Url => "Web page",
+            ReferenceKind::Url => t!("Web page"),
             ReferenceKind::Bibtex => "BibTeX",
-            ReferenceKind::Title => "Title",
+            ReferenceKind::Title => t!("Title"),
         }
     }
 }

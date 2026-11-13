@@ -12,6 +12,7 @@ use gpui::{
     prelude::FluentBuilder as _, px, relative,
 };
 use gpui_kit::component::input::Input;
+use lattice_i18n::t;
 use lattice_ui::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
     icons::{ICON, ICON_SMALL},
@@ -76,7 +77,7 @@ impl PapersPanel {
                         .rounded(px(4.))
                         .cursor_pointer()
                         .hover(|style| style.bg(palette.hover))
-                        .tooltip(tooltip("Cancel download"))
+                        .tooltip(tooltip(t!("Cancel download")))
                         .text_role(TextRole::Caption, cx)
                         .font_weight(FONT_WEIGHT_MEDIUM)
                         .text_color(palette.text)
@@ -89,7 +90,7 @@ impl PapersPanel {
                             if narrow {
                                 button.child(Icon::X.element(px(13.), palette.text_secondary))
                             } else {
-                                button.child("Cancel")
+                                button.child(t!("Cancel"))
                             }
                         }),
                 )
@@ -138,7 +139,7 @@ impl PapersPanel {
                         .rounded(px(4.))
                         .cursor_pointer()
                         .hover(|style| style.bg(palette.hover))
-                        .tooltip(tooltip("Add papers…"))
+                        .tooltip(tooltip(t!("Add papers…")))
                         .on_mouse_down(MouseButton::Left, |_, window, _| window.prevent_default())
                         .on_click(move |_, window, cx| {
                             add_view
@@ -266,7 +267,7 @@ impl PapersPanel {
             let copy_view = view.clone();
             rows.push(
                 plate("papers-duplicate", false, window, cx)
-                    .tooltip(tooltip("Already in Papers"))
+                    .tooltip(tooltip(t!("Already in Papers")))
                     .on_click(move |_, window, cx| {
                         open_view.update(cx, |this, cx| this.add(window, cx)).ok();
                     })
@@ -284,7 +285,7 @@ impl PapersPanel {
                                     .line_height(px(18.))
                                     .font_weight(FONT_WEIGHT_MEDIUM)
                                     .text_color(palette.text)
-                                    .child("Already in Papers"),
+                                    .child(t!("Already in Papers")),
                             )
                             .child(
                                 div()
@@ -309,7 +310,7 @@ impl PapersPanel {
                                 .px(px(6.))
                                 .rounded(px(4.))
                                 .hover(|style| style.bg(palette.hover))
-                                .tooltip(tooltip("Copy \\cite command"))
+                                .tooltip(tooltip(t!("Copy \\cite command")))
                                 .text_role(TextRole::Caption, cx)
                                 .text_color(palette.text_secondary)
                                 .on_mouse_down(MouseButton::Left, |_, window, cx| {
@@ -323,16 +324,16 @@ impl PapersPanel {
                                         .ok();
                                 })
                                 .child(Icon::COPY.element(ICON_SMALL, palette.text_secondary))
-                                .child("Copy"),
+                                .child(t!("Copy")),
                         )
                     })
                     .into_any_element(),
             );
         } else if kind != ReferenceKind::Title || matches == 0 {
             let lead = if kind == ReferenceKind::Title {
-                "Look up and add"
+                t!("Look up and add")
             } else {
-                "Add"
+                t!("Add")
             };
             let add_view = view.clone();
             rows.push(
@@ -373,7 +374,7 @@ impl PapersPanel {
                             .ok();
                     })
                     .child(Icon::ARROW_RIGHT.element(px(13.), palette.text_secondary))
-                    .child(quoted("Search the literature for", cx))
+                    .child(quoted(t!("Search the literature for"), cx))
                     .into_any_element(),
             );
         }
@@ -398,9 +399,9 @@ impl PapersPanel {
     ) -> AnyElement {
         let palette = cx.palette().clone();
         let stages = [
-            ("resolving", "Metadata"),
-            ("fulltext", "Full text"),
-            ("overview", "Overview"),
+            ("resolving", t!("Metadata")),
+            ("fulltext", t!("Full text")),
+            ("overview", t!("Overview")),
         ];
         let at = stages
             .iter()
@@ -410,7 +411,7 @@ impl PapersPanel {
         window.request_animation_frame();
         let view = cx.entity().downgrade();
         let label = if importing.label.is_empty() {
-            "Adding paper".to_string()
+            t!("Adding paper").to_string()
         } else {
             importing.label.clone()
         };
@@ -483,7 +484,7 @@ impl PapersPanel {
                             .rounded(px(4.))
                             .cursor_pointer()
                             .hover(|style| style.bg(palette.hover))
-                            .tooltip(tooltip("Cancel"))
+                            .tooltip(tooltip(t!("Cancel")))
                             .on_click(move |_, _, cx| {
                                 view.update(cx, |this, cx| this.cancel_import(cx)).ok();
                             })

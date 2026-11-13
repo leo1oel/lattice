@@ -9,6 +9,7 @@ use gpui::{
     AnyElement, Context, Hsla, InteractiveElement as _, IntoElement, ParentElement as _, Render,
     StatefulInteractiveElement as _, Styled as _, Window, div, prelude::FluentBuilder as _, px,
 };
+use lattice_i18n::t;
 use lattice_ui::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
     components::{Button, Textarea},
@@ -92,22 +93,29 @@ impl AddPapers {
                     success,
                     Some(Icon::CHECK),
                     match &item.citation_key {
-                        Some(key) => format!("Added  {key}"),
-                        None => "Added".into(),
+                        Some(key) => format!("{}  {key}", t!("Added")),
+                        None => t!("Added").into(),
                     },
                     cx,
                 ),
-                ItemState::Adding => line(palette.text, Some(Icon::LOADER), "Adding…".into(), cx),
+                ItemState::Adding => {
+                    line(palette.text, Some(Icon::LOADER), t!("Adding…").into(), cx)
+                }
                 ItemState::Waiting => line(
                     palette.text_secondary,
                     Some(Icon::CIRCLE_DOT),
-                    "Waiting".into(),
+                    t!("Waiting").into(),
                     cx,
                 ),
-                ItemState::Failed => {
-                    line(failed, Some(Icon::CIRCLE_ALERT), "Couldn't add".into(), cx)
+                ItemState::Failed => line(
+                    failed,
+                    Some(Icon::CIRCLE_ALERT),
+                    t!("Couldn't add").into(),
+                    cx,
+                ),
+                ItemState::Cancelled => {
+                    line(palette.text_secondary, None, t!("Not added").into(), cx)
                 }
-                ItemState::Cancelled => line(palette.text_secondary, None, "Not added".into(), cx),
             };
         }
         match row.state {
@@ -117,13 +125,13 @@ impl AddPapers {
                 String::new(),
                 cx,
             ),
-            RowState::Failed => line(failed, Some(Icon::CIRCLE_ALERT), "Not found".into(), cx),
+            RowState::Failed => line(failed, Some(Icon::CIRCLE_ALERT), t!("Not found").into(), cx),
             RowState::Duplicate => line(
                 palette.text_secondary,
                 None,
                 match &row.existing_key {
-                    Some(key) => format!("Already in Papers  {key}"),
-                    None => "Already in Papers".into(),
+                    Some(key) => format!("{}  {key}", t!("Already in Papers")),
+                    None => t!("Already in Papers").into(),
                 },
                 cx,
             ),
@@ -141,7 +149,7 @@ impl AddPapers {
                             div()
                                 .text_role(TextRole::Caption, cx)
                                 .text_color(success)
-                                .child("New"),
+                                .child(t!("New")),
                         )
                     })
                     .child(
@@ -165,11 +173,15 @@ impl AddPapers {
                             .on_click(
                                 cx.listener(move |this, _, _, cx| this.open_candidates(&id, cx)),
                             )
-                            .child(if pending { "Choose…" } else { "Change" }),
+                            .child(if pending {
+                                t!("Choose…")
+                            } else {
+                                t!("Change")
+                            }),
                     )
                     .into_any_element()
             }
-            _ => line(success, None, "New".into(), cx),
+            _ => line(success, None, t!("New").into(), cx),
         }
     }
 
@@ -222,7 +234,7 @@ impl AddPapers {
                     .justify_end()
                     .gap(px(6.))
                     .child(
-                        Button::new("candidates-cancel", "Cancel")
+                        Button::new("candidates-cancel", t!("Cancel"))
                             .ghost()
                             .compact()
                             .on_click(cx.listener(|this, _, _, cx| {
@@ -231,7 +243,7 @@ impl AddPapers {
                             })),
                     )
                     .child(
-                        Button::new("candidates-use", "Use this record")
+                        Button::new("candidates-use", t!("Use this record"))
                             .tinted()
                             .compact()
                             .on_click(cx.listener(|this, _, _, cx| this.use_candidate(cx))),
@@ -277,7 +289,7 @@ impl AddPapers {
                                 .text_role(TextRole::Micro, cx)
                                 .text_color(palette.text_secondary)
                                 .child(match row.reference.kind {
-                                    crate::papers::model::ReferenceKind::Url => "Link",
+                                    crate::papers::model::ReferenceKind::Url => t!("Link"),
                                     kind => kind.label(),
                                 }),
                         ),
@@ -398,7 +410,7 @@ impl Render for AddPapers {
                             .text_role(TextRole::Caption, cx)
                             .font_weight(FONT_WEIGHT_MEDIUM)
                             .text_color(palette.text_secondary)
-                            .child("Paste references"),
+                            .child(t!("Paste references")),
                     )
                     .child(Textarea::new(&self.text).height(px(if rows.is_empty() {
                         112.
@@ -436,7 +448,7 @@ impl Render for AddPapers {
                         .text_role(TextRole::Caption, cx)
                         .text_color(palette.text_secondary)
                         .text_center()
-                        .child("Nothing here"),
+                        .child(t!("Nothing here")),
                 );
             }
             body.push(list.into_any_element());
@@ -454,15 +466,19 @@ impl Render for AddPapers {
             .map(|at| at + 1);
         let summary = if !batch.is_empty() {
             if adding {
-                format!("Adding {} of {}", position.unwrap_or(done + 1), batch.len())
+                t!(
+                    "Adding {0} of {1}",
+                    position.unwrap_or(done + 1),
+                    batch.len()
+                )
             } else if done == batch.len() {
                 if done == 1 {
-                    "Added 1 paper".to_string()
+                    t!("Added 1 paper").to_string()
                 } else {
-                    format!("Added {done} papers")
+                    t!("Added {done} papers", done = done)
                 }
             } else {
-                format!("Added {done} of {}", batch.len())
+                t!("Added {done} of {0}", batch.len()).replace("{done}", &done.to_string())
             }
         } else {
             let plural = |count: usize, one: &str, many: String| match count {
@@ -477,19 +493,24 @@ impl Render for AddPapers {
             crate::papers::model::byline_of([
                 plural(
                     duplicate,
-                    "1 already in Papers is skipped",
-                    format!("{duplicate} already in Papers are skipped"),
+                    t!("1 already in Papers is skipped"),
+                    t!("{0} already in Papers are skipped", duplicate),
                 )
                 .as_str(),
                 plural(
                     choose,
-                    "1 waits for your choice",
-                    format!("{choose} wait for your choice"),
+                    t!("1 waits for your choice"),
+                    t!("{0} wait for your choice", choose),
                 )
                 .as_str(),
-                plural(failed, "1 not found", format!("{failed} not found")).as_str(),
+                plural(
+                    failed,
+                    t!("1 not found"),
+                    t!("{failed} not found", failed = failed),
+                )
+                .as_str(),
                 (if resolving > 0 {
-                    format!("Looking up {resolving}…")
+                    t!("Looking up {resolving}…", resolving = resolving)
                 } else {
                     String::new()
                 })
@@ -508,34 +529,34 @@ impl Render for AddPapers {
         ];
         if adding {
             actions.push(
-                Button::new("add-papers-stop", "Stop")
+                Button::new("add-papers-stop", t!("Stop"))
                     .ghost()
                     .on_click(cx.listener(|this, _, _, cx| this.stop(cx)))
                     .into_any_element(),
             );
             actions.push(
-                Button::new("add-papers-close", "Close")
+                Button::new("add-papers-close", t!("Close"))
                     .on_click(cx.listener(|this, _, _, cx| this.close(cx)))
                     .into_any_element(),
             );
         } else if !batch.is_empty() {
             actions.push(
-                Button::new("add-papers-done", "Done")
+                Button::new("add-papers-done", t!("Done"))
                     .primary()
                     .on_click(cx.listener(|this, _, _, cx| this.close(cx)))
                     .into_any_element(),
             );
         } else {
             actions.push(
-                Button::new("add-papers-cancel", "Cancel")
+                Button::new("add-papers-cancel", t!("Cancel"))
                     .ghost()
                     .on_click(cx.listener(|this, _, _, cx| this.close(cx)))
                     .into_any_element(),
             );
             let label = match addable {
-                0 => "Add papers".to_string(),
-                1 => "Add 1 paper".to_string(),
-                count => format!("Add {count} papers"),
+                0 => t!("Add papers").to_string(),
+                1 => t!("Add 1 paper").to_string(),
+                count => t!("Add {0} papers", count),
             };
             actions.push(
                 Button::new("add-papers-add", label)
@@ -543,7 +564,7 @@ impl Render for AddPapers {
                     .icon(Icon::PLUS)
                     .disabled(addable == 0 || importing_elsewhere)
                     .when(importing_elsewhere, |button| {
-                        button.tooltip("Another paper is being added")
+                        button.tooltip(t!("Another paper is being added"))
                     })
                     .on_click(cx.listener(|this, _, _, cx| this.add(cx)))
                     .into_any_element(),
@@ -554,7 +575,7 @@ impl Render for AddPapers {
         SheetFrame {
             id: "add-papers",
             icon: Icon::BOOK_MARKED,
-            title: "Add papers",
+            title: t!("Add papers"),
             body,
             actions,
             scrim_closes: !dirty,

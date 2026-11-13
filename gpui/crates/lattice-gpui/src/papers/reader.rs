@@ -11,6 +11,7 @@
 //! Lattice's tokens: the reading face at the typeset size on the editor's
 //! sheet, a 720px column, headings in the interface's weights.
 
+use lattice_i18n::{join_phrases, t};
 use std::path::PathBuf;
 
 use gpui::{
@@ -23,7 +24,7 @@ use gpui_kit::component::dock::{BasePanel, Panel, PanelEvent};
 use lattice_core::papers::PaperSummary;
 use lattice_ui::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
-    components::{IconButton, Segmented},
+    components::{Button, Segmented},
     scrollbar::FluidScrollbar,
     tokens::FONT_WEIGHT_MEDIUM,
 };
@@ -146,7 +147,13 @@ impl PaperReader {
                         this.markdown
                             .update(cx, |markdown, cx| markdown.reset(body.into(), cx));
                     }
-                    Err(error) => this.error = Some(format!("Could not read this paper: {error}")),
+                    Err(error) => {
+                        this.error = Some(t!(
+                            "Could not read {path}: {error}",
+                            path = this.path(),
+                            error = error
+                        ))
+                    }
                 }
                 this.scroll.set_offset(gpui::point(px(0.), px(0.)));
                 cx.notify();
@@ -251,20 +258,26 @@ impl PaperReader {
                     .when_some(source, |line, source| {
                         let source_ink = palette.text_secondary;
                         let hover_ink = palette.text;
+                        // The source is the way out to the original, so it is
+                        // the browser action.
+                        let label = join_phrases(&[source.as_str(), t!("Open article in browser")]);
                         line.child(
                             div()
                                 .id("paper-reader-source")
+                                .flex()
                                 .flex_none()
-                                .truncate()
+                                .items_center()
+                                .gap(px(3.))
                                 .text_color(source_ink)
+                                .child(div().truncate().child(source))
                                 .when_some(link, |source, link| {
                                     source
                                         .cursor_pointer()
                                         .hover(move |style| style.text_color(hover_ink))
-                                        .tooltip(tooltip("Open article in browser"))
+                                        .tooltip(tooltip(label))
                                         .on_click(move |_, _, cx| cx.open_url(&link))
-                                })
-                                .child(source),
+                                        .child(Icon::EXTERNAL_LINK.element(px(11.), source_ink))
+                                }),
                         )
                     }),
             )
@@ -272,12 +285,12 @@ impl PaperReader {
                 strip.child(
                     Segmented::new("paper-reader-view")
                         .label(
-                            "Paper",
+                            t!("Paper"),
                             view == ReaderView::FullText,
                             cx.listener(|this, _, _, cx| this.show(ReaderView::FullText, cx)),
                         )
                         .label(
-                            "Overview",
+                            t!("Blog"),
                             view == ReaderView::Overview,
                             cx.listener(|this, _, _, cx| this.show(ReaderView::Overview, cx)),
                         ),
@@ -285,8 +298,11 @@ impl PaperReader {
             })
             .when_some(pdf, |strip, pdf| {
                 strip.child(
-                    IconButton::new("paper-reader-pdf", Icon::FILE_TEXT)
-                        .tooltip("Original PDF")
+                    Button::new("paper-reader-pdf", t!("PDF"))
+                        .ghost()
+                        .compact()
+                        .icon(Icon::FILE_TEXT)
+                        .tooltip(t!("View original PDF"))
                         .on_click(cx.listener(move |_, _, _, cx| {
                             cx.emit(PaperReaderEvent::OpenPdf(pdf.clone()))
                         })),

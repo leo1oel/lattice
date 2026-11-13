@@ -309,3 +309,31 @@ msgstr "PDF 无法读取：这不是 PDF 文件。"
 msgid "The PDF could not be read: {0}"
 msgstr "PDF 无法读取：{0}"
 
+
+#: lattice-gpui/src/papers/audit/messages.rs
+msgid "The check's answer could not be read."
+msgstr "没能读懂检查返回的结果。"
+
+#: lattice-gpui/src/papers/downloads.rs
+msgid "Citation added without full text"
+msgstr "已添加引用，没有全文"
+
+#: lattice-gpui/src/papers/downloads.rs
+msgid "Could not add the paper"
+msgstr "没能添加论文"
+
+#: lattice-gpui/src/papers/downloads.rs
+msgid "Could not download the paper"
+msgstr "没能下载论文"
+
+#: lattice-gpui/src/papers/removal.rs
+msgid "Could not remove the paper"
+msgstr "没能删除论文"
+
+#: lattice-gpui/src/papers/row.rs
+msgid "Remove from the bibliography"
+msgstr "从文献中删除"
+
+#: lattice-gpui/src/papers/view.rs
+msgid "Open a project to see its papers"
+msgstr "打开项目后可查看它的论文"

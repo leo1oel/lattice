@@ -7,10 +7,11 @@
 //! At the foot, Apply all takes the fixes that only fill in or publish.
 
 use gpui::{
-    AnyElement, Context, Hsla, InteractiveElement as _, IntoElement, ParentElement as _, Render,
-    SharedString, StatefulInteractiveElement as _, Styled as _, Window, div,
+    AnyElement, App, Context, Hsla, InteractiveElement as _, IntoElement, ParentElement as _,
+    Render, SharedString, StatefulInteractiveElement as _, Styled as _, Window, div,
     prelude::FluentBuilder as _, px,
 };
+use lattice_i18n::{comma, join_list, t};
 use lattice_ui::{
     ActiveLattice as _, Icon, Palette, TextRole, TextRoleStyle as _, components::Button,
     icons::ICON, interaction::mix, tokens::FONT_WEIGHT_MEDIUM,
@@ -69,7 +70,7 @@ impl Audit {
         };
         let mut pills = div().flex().flex_wrap().gap(px(4.)).child(pill(
             "audit-all".into(),
-            "All".into(),
+            t!("All").into(),
             total,
             self.view.is_none(),
             None,
@@ -97,7 +98,7 @@ impl Audit {
                 .pb(px(12.))
                 .text_role(TextRole::Caption, cx)
                 .text_color(palette.text_secondary)
-                .child("Not checked yet.")
+                .child(t!("Not checked yet"))
                 .into_any_element();
         };
         let bucket = self.bucket(index);
@@ -120,7 +121,7 @@ impl Audit {
                 div()
                     .text_role(TextRole::Caption, cx)
                     .text_color(palette.text)
-                    .child(result.message.clone()),
+                    .child(super::messages::result_message(&result.message)),
             );
         if !changes.is_empty() {
             body = body.child(
@@ -184,8 +185,8 @@ impl Audit {
                 div()
                     .text_role(TextRole::Caption, cx)
                     .text_color(palette.text_secondary)
-                    .child(format!(
-                        "Crossref differs on {}; the conference's own export is kept.",
+                    .child(t!(
+                        "The conference's own citation export and Crossref disagree on: {0}. The conference export is kept.",
                         result.disagreements.join(", ")
                     )),
             );
@@ -198,7 +199,7 @@ impl Audit {
                 .gap(px(6.))
                 .when(can_apply, |actions| {
                     actions.child(
-                        Button::new(("audit-apply", index), "Apply")
+                        Button::new(("audit-apply", index), t!("Apply"))
                             .tinted()
                             .compact()
                             .disabled(self.applying || self.busy)
@@ -209,13 +210,13 @@ impl Audit {
                 })
                 .when(bucket == Bucket::Review, |actions| {
                     actions.child(
-                        Button::new(("audit-keep", index), "Keep mine")
+                        Button::new(("audit-keep", index), t!("Keep mine"))
                             .compact()
                             .on_click(cx.listener(move |this, _, _, cx| this.keep(index, cx))),
                     )
                 })
                 .child(
-                    Button::new(("audit-again", index), "Check again")
+                    Button::new(("audit-again", index), t!("Check again"))
                         .compact()
                         .ghost()
                         .disabled(self.busy)
@@ -224,7 +225,7 @@ impl Audit {
                         ),
                 )
                 .child(
-                    Button::new(("audit-source", index), "Open in source")
+                    Button::new(("audit-source", index), t!("Go to entry"))
                         .compact()
                         .ghost()
                         .icon(Icon::EXTERNAL_LINK)
@@ -243,7 +244,7 @@ impl Audit {
         let message = self
             .results
             .get(&index)
-            .map(|result| result.message.clone())
+            .map(|result| super::messages::result_message(&result.message))
             .unwrap_or_default();
         let open = self.open == Some(index);
         div()
@@ -318,6 +319,246 @@ impl Audit {
     }
 }
 
+fn caption(text: String, cx: &App) -> AnyElement {
+    div()
+        .text_role(TextRole::Caption, cx)
+        .text_color(cx.palette().text_secondary)
+        .child(text)
+        .into_any_element()
+}
+
+/// The findings as one bar, verified first; what is not checked yet is the
+/// track (`.bibliography-audit-bar`).
+fn bar(counts: &[(Bucket, usize)], palette: &Palette) -> AnyElement {
+    let order = [
+        Bucket::Verified,
+        Bucket::Kept,
+        Bucket::Fix,
+        Bucket::Review,
+        Bucket::Incomplete,
+        Bucket::Unchecked,
+    ];
+    let mut bar = div()
+        .flex()
+        .gap(px(2.))
+        .h(px(4.))
+        .rounded_full()
+        .overflow_hidden();
+    for bucket in order {
+        let count = counts
+            .iter()
+            .find(|(each, _)| *each == bucket)
+            .map_or(0, |(_, count)| *count);
+        if count == 0 {
+            continue;
+        }
+        let fill = match bucket {
+            Bucket::Verified => palette.success,
+            Bucket::Kept => palette.success.opacity(0.45),
+            Bucket::Fix => palette.info,
+            Bucket::Review => palette.warning,
+            Bucket::Incomplete => palette.line_strong,
+            Bucket::Unchecked => palette.line,
+        };
+        let mut segment = div().min_w(px(4.)).bg(fill);
+        // Each bucket grows by its share of the references.
+        segment.style().flex_grow = Some(count as f32);
+        segment.style().flex_basis = Some(gpui::Length::Definite(px(0.).into()));
+        bar = bar.child(segment);
+    }
+    bar.into_any_element()
+}
+
+impl Audit {
+    /// The report's first line: what the writer has to do
+    /// (`bibliography-audit.tsx` `verdict`).
+    fn verdict(&self, count: impl Fn(Bucket) -> usize) -> String {
+        let total = self.entries.len();
+        if self.busy {
+            return if self.run_total > 0 {
+                t!(
+                    "Checking {completed} of {progressTotal}…",
+                    completed = self.run_done.len(),
+                    progressTotal = self.run_total
+                )
+            } else {
+                t!("Reading the bibliography…").to_string()
+            };
+        }
+        if self.loading {
+            return t!("Reading the bibliography…").to_string();
+        }
+        if total == 0 {
+            return t!("No references to check").to_string();
+        }
+        let unchecked = count(Bucket::Unchecked);
+        if unchecked == total {
+            return if total == 1 {
+                t!("1 reference, not checked yet").to_string()
+            } else {
+                t!("{total} references, not checked yet", total = total)
+            };
+        }
+        let (fix, review) = (count(Bucket::Fix), count(Bucket::Review));
+        let findings: Vec<String> = [
+            (fix > 0).then(|| {
+                if fix == 1 {
+                    t!("1 fix to review").to_string()
+                } else {
+                    t!("{0} fixes to review", fix)
+                }
+            }),
+            (review > 0).then(|| {
+                if review == 1 {
+                    t!("1 needs your eyes").to_string()
+                } else {
+                    t!("{0} need your eyes", review)
+                }
+            }),
+        ]
+        .into_iter()
+        .flatten()
+        .collect();
+        if !findings.is_empty() {
+            return join_list(&findings);
+        }
+        let incomplete = count(Bucket::Incomplete);
+        let left_over: Vec<String> = [
+            (incomplete > 0).then(|| t!("{0} inconclusive", incomplete)),
+            (unchecked > 0).then(|| t!("{0} not checked", unchecked)),
+        ]
+        .into_iter()
+        .flatten()
+        .collect();
+        if !left_over.is_empty() {
+            return t!(
+                "Nothing to fix, {leftOver}",
+                leftOver = join_list(&left_over)
+            );
+        }
+        let kept = count(Bucket::Kept);
+        if kept > 0 {
+            t!("Nothing left to review, {0} kept as written", kept)
+        } else if total == 1 {
+            t!("The reference is verified").to_string()
+        } else {
+            t!("All {total} references verified", total = total)
+        }
+    }
+
+    /// Cancel check while a run is under way; else Check the outdated ones,
+    /// Check all (or again), and Apply the fixes waiting.
+    fn header_actions(&self, outdated: &[usize], cx: &mut Context<Self>) -> AnyElement {
+        let total = self.entries.len();
+        let mut actions = div().flex().flex_wrap().gap(px(6.));
+        if self.busy {
+            return actions
+                .child(
+                    Button::new(
+                        "audit-stop",
+                        if self.stopping {
+                            t!("Stopping…")
+                        } else {
+                            t!("Cancel check")
+                        },
+                    )
+                    .compact()
+                    .ghost()
+                    .disabled(self.stopping)
+                    .on_click(cx.listener(|this, _, _, cx| this.stop(cx))),
+                )
+                .into_any_element();
+        }
+        if !outdated.is_empty() && outdated.len() < total {
+            let only = outdated.to_vec();
+            actions = actions.child(
+                Button::new(
+                    "audit-check-outdated",
+                    if only.len() == 1 {
+                        t!("Check 1 reference").to_string()
+                    } else {
+                        t!("Check {0} references", only.len())
+                    },
+                )
+                .compact()
+                .ghost()
+                .disabled(self.loading || self.applying)
+                .on_click(cx.listener(move |this, _, _, cx| this.check(Some(only.clone()), cx))),
+            );
+        }
+        let fresh = self.results.is_empty();
+        actions = actions.child(
+            Button::new(
+                "audit-check-all",
+                if fresh {
+                    t!("Check all")
+                } else {
+                    t!("Check again")
+                },
+            )
+            .compact()
+            .ghost()
+            .icon(Icon::ROTATE_CCW)
+            .disabled(self.loading || total == 0 || self.applying)
+            .on_click(cx.listener(|this, _, _, cx| this.check(None, cx))),
+        );
+        let updates = self.updates();
+        if !updates.is_empty() {
+            let label = if updates.len() == 1 {
+                t!("Apply 1 fix").to_string()
+            } else {
+                t!("Apply {0} fixes", updates.len())
+            };
+            actions = actions.child(
+                Button::new("audit-apply-all", label)
+                    .tinted()
+                    .compact()
+                    .icon(Icon::CHECK)
+                    .disabled(self.applying)
+                    .on_click(cx.listener(move |this, _, _, cx| this.apply(updates.clone(), cx))),
+            );
+        }
+        actions.into_any_element()
+    }
+
+    /// What the check read: each file and how many references it holds.
+    fn coverage_line(&self, cx: &App) -> Option<AnyElement> {
+        if self.coverage.is_empty() {
+            return None;
+        }
+        let palette = cx.palette();
+        let mut line = div()
+            .flex()
+            .flex_wrap()
+            .text_role(TextRole::Caption, cx)
+            .text_color(palette.text_secondary);
+        for (index, (path, kind, entries)) in self.coverage.iter().enumerate() {
+            let count = match (kind.as_str(), entries) {
+                ("inline", 1) => t!("1 {BIBITEM}", BIBITEM = "\\bibitem"),
+                ("inline", entries) => {
+                    t!("{0} {BIBITEM}", entries).replace("{BIBITEM}", "\\bibitem")
+                }
+                (_, 1) => t!("1 entry").to_string(),
+                (_, entries) => t!("{0} entries", entries),
+            };
+            line = line.child(
+                div()
+                    .flex()
+                    .gap(px(4.))
+                    .when(index > 0, |part| part.child(comma().trim_end().to_string()))
+                    .child(
+                        div()
+                            .text_color(palette.text)
+                            .font_weight(FONT_WEIGHT_MEDIUM)
+                            .child(path.clone()),
+                    )
+                    .child(count),
+            );
+        }
+        Some(line.into_any_element())
+    }
+}
+
 impl Render for Audit {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let palette = cx.palette().clone();
@@ -347,51 +588,57 @@ impl Render for Audit {
                 (0..buckets.len()).filter(move |index| buckets[*index] == *bucket)
             })
             .collect();
-        let files = self.coverage.len();
-        let covered = match (self.entries.len(), files) {
-            (0, _) => "No references found".to_string(),
-            (1, 1) => "1 reference in 1 file".to_string(),
-            (count, 1) => format!("{count} references in 1 file"),
-            (count, files) => format!("{count} references in {files} files"),
+        let count = |bucket: Bucket| {
+            counts
+                .iter()
+                .find(|(each, _)| *each == bucket)
+                .map_or(0, |(_, count)| *count)
         };
+        let total = self.entries.len();
+        let outdated = self.outdated();
         let mut body: Vec<AnyElement> = vec![
             div()
                 .flex()
+                .flex_wrap()
                 .items_center()
-                .gap(px(8.))
+                .justify_between()
+                .gap_x(px(16.))
+                .gap_y(px(8.))
                 .child(
                     div()
+                        .flex()
                         .flex_1()
-                        .min_w_0()
-                        .truncate()
-                        .text_role(TextRole::Caption, cx)
-                        .text_color(palette.text_secondary)
-                        .child(if self.loading {
-                            "Reading references…".to_string()
-                        } else {
-                            covered
-                        }),
+                        .min_w(px(160.))
+                        .items_center()
+                        .gap(px(8.))
+                        .text_role(TextRole::Title, cx)
+                        .text_color(palette.text)
+                        .when(self.busy || self.loading, |line| {
+                            line.child(Icon::LOADER.element(ICON, palette.text_secondary))
+                        })
+                        .child(div().min_w_0().child(self.verdict(count))),
                 )
-                .child(if self.busy {
-                    Button::new(
-                        "audit-stop",
-                        if self.stopping { "Stopping…" } else { "Stop" },
-                    )
-                    .compact()
-                    .disabled(self.stopping)
-                    .on_click(cx.listener(|this, _, _, cx| this.stop(cx)))
-                    .into_any_element()
-                } else {
-                    Button::new("audit-check-all", "Check all")
-                        .tinted()
-                        .compact()
-                        .icon(Icon::CLIPBOARD_CHECK)
-                        .disabled(self.loading || self.entries.is_empty() || self.applying)
-                        .on_click(cx.listener(|this, _, _, cx| this.check(None, cx)))
-                        .into_any_element()
-                })
+                .child(self.header_actions(&outdated, cx))
                 .into_any_element(),
         ];
+        if let Some(line) = self.coverage_line(cx) {
+            body.push(line);
+        }
+        if !outdated.is_empty() && outdated.len() < total {
+            body.push(
+                caption(
+                    if outdated.len() == 1 {
+                        t!("1 reference is new or changed since the last check. The others keep their results.").to_string()
+                    } else {
+                        t!(
+                            "{0} references are new or changed since the last check. The others keep their results.",
+                            outdated.len()
+                        )
+                    },
+                    cx,
+                ),
+            );
+        }
         if let Some(error) = self.error.clone() {
             body.push(
                 div()
@@ -401,8 +648,13 @@ impl Render for Audit {
                     .into_any_element(),
             );
         }
-        if !self.entries.is_empty() {
+        if total > 0 && (self.busy || count(Bucket::Unchecked) < total) {
+            body.push(bar(&counts, &palette));
+        }
+        if total > 0 && count(Bucket::Unchecked) < total {
             body.push(self.pills(&counts, cx));
+        }
+        if total > 0 {
             let mut list = div()
                 .id("audit-rows")
                 .flex()
@@ -420,58 +672,9 @@ impl Render for Audit {
             }
             body.push(list.into_any_element());
         }
-        let updates = self.updates();
-        let done = counts
-            .iter()
-            .filter(|(bucket, _)| matches!(bucket, Bucket::Verified | Bucket::Kept))
-            .map(|(_, count)| count)
-            .sum::<usize>();
-        let checking = self.checking.len();
-        let summary = if self.busy {
-            format!("Checking… {done} of {} settled", self.entries.len())
-        } else {
-            let open: usize = counts
-                .iter()
-                .filter(|(bucket, _)| bucket.actionable())
-                .map(|(_, count)| count)
-                .sum();
-            match open {
-                0 if !self.entries.is_empty() && checking == 0 && counts[3].1 == 0 => {
-                    "Every reference is settled".to_string()
-                }
-                0 => String::new(),
-                1 => "1 finding to act on".to_string(),
-                open => format!("{open} findings to act on"),
-            }
-        };
-        let mut actions: Vec<AnyElement> = vec![
-            div()
-                .flex_1()
-                .min_w_0()
-                .truncate()
-                .text_role(TextRole::Caption, cx)
-                .font_weight(FONT_WEIGHT_MEDIUM)
-                .text_color(palette.text_secondary)
-                .child(summary)
-                .into_any_element(),
-        ];
-        if !updates.is_empty() {
-            let label = if updates.len() == 1 {
-                "Apply 1 fix".to_string()
-            } else {
-                format!("Apply {} fixes", updates.len())
-            };
-            actions.push(
-                Button::new("audit-apply-all", label)
-                    .primary()
-                    .icon(Icon::CHECK)
-                    .disabled(self.applying || self.busy)
-                    .on_click(cx.listener(move |this, _, _, cx| this.apply(updates.clone(), cx)))
-                    .into_any_element(),
-            );
-        }
+        let mut actions: Vec<AnyElement> = vec![div().flex_1().into_any_element()];
         actions.push(
-            Button::new("audit-close", "Close")
+            Button::new("audit-close", t!("Close"))
                 .on_click(cx.listener(|this, _, _, cx| this.close(cx)))
                 .into_any_element(),
         );
@@ -479,7 +682,7 @@ impl Render for Audit {
         SheetFrame {
             id: "check-references",
             icon: Icon::CLIPBOARD_CHECK,
-            title: "Check references",
+            title: t!("Check references"),
             body,
             actions,
             scrim_closes: !self.busy,
