@@ -10,8 +10,10 @@ use settings::{KeymapFile, Settings as _, SettingsStore};
 /// CodeMirror editor, which wraps lines; the gutter shows line numbers only,
 /// as Lattice's does; completion offers only what Lattice's sources answer
 /// (`lattice-editor`), not every word in the buffer; Zed's AI, git and
-/// telemetry features have nothing to attach to here. The theme, the fonts and Vim are filled in from Lattice's
-/// theme and the toggle.
+/// telemetry features have nothing to attach to here. Scrolling stops at the
+/// last line, as CodeMirror's does, and Zed's scrollbar gives way to
+/// Lattice's overlay one (`lattice-editor`'s `scrollbar.rs`). The theme, the
+/// fonts and Vim are filled in from Lattice's theme and the toggle.
 const BASE_SETTINGS: &str = r#"{
   "theme": { "mode": "THEME_MODE", "light": "LIGHT_THEME", "dark": "DARK_THEME" },
   "buffer_font_family": "EDITOR_FONT",
@@ -33,8 +35,9 @@ const BASE_SETTINGS: &str = r#"{
     "folds": false
   },
   "current_line_highlight": "line",
+  "scroll_beyond_last_line": "off",
   "scrollbar": {
-    "show": "system",
+    "show": "never",
     "cursors": false,
     "git_diff": false,
     "selected_text": false,

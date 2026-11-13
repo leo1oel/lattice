@@ -74,6 +74,10 @@ impl Run {
             return self.parity_welcome(cx).await;
         }
         native::order_front(self.native(cx)?);
+        // The project opens on its own task and lays the window out as its
+        // workspace has it, so the sidebar is widened only once that is done
+        // (its PDF is shown), or the arrangement would put it back.
+        let pdf_shown = self.wait_for_pdf(cx).await;
         self.with_window(cx, |shell, window, cx| {
             let area = shell.read(cx).dock_area().clone();
             area.update(cx, |area, cx| {
@@ -86,7 +90,6 @@ impl Run {
             });
         })?;
         self.park_pointer(cx)?;
-        let pdf_shown = self.wait_for_pdf(cx).await;
         self.with_window(cx, |shell, _, cx| {
             let build = shell.read(cx).build_panel().clone();
             build.update(cx, |build, cx| {
@@ -104,6 +107,13 @@ impl Run {
                 // theme, out of the probes' reach, so its region is recorded from
                 // them: the first line's runs as its highlighting splits them
                 // (a command, each brace, the argument), each in its weight.
+                // The front document's editor, from the arrangement: the
+                // shell's last-focused editor follows focus-in events, which
+                // a window that is never the key window does not get.
+                let front = shell.update(cx, |shell, cx| {
+                    let path = shell.root(cx)?.join(shell.active_document(cx)?);
+                    shell.open_editor(&path, cx)
+                });
                 let settings = theme_settings::ThemeSettings::get_global(cx);
                 let size = f32::from(settings.buffer_font_size(cx));
                 let look = |content: Option<SharedString>, weight: f32| TextLook {
@@ -114,9 +124,7 @@ impl Run {
                     line_height: size * settings.line_height(),
                 };
                 let base = settings.buffer_font.weight.0;
-                let runs = shell
-                    .read(cx)
-                    .active_editor()
+                let runs = front
                     .map(|editor| first_line_runs(&editor, base, cx))
                     .unwrap_or_default();
                 let texts = if runs.is_empty() {

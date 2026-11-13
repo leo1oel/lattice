@@ -20,29 +20,37 @@
 //!
 //! A file Git sees changed carries its status's colour and letter, and a
 //! folder holding one a dot (`TreeRow::git`), read with the project's scans.
+//!
+//! Its hover is the app's fluid hover (`lattice_ui::fluid_hover`): one fill
+//! gliding between rows, never on the open file's row, and dark for 150 ms
+//! after a scroll; its scrollbar is Lattice's (`lattice_ui::scrollbar`).
 
 use std::{
     collections::{HashMap, HashSet},
     path::PathBuf,
     rc::Rc,
+    time::Duration,
 };
 
 use gpui::{
-    App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, Focusable,
+    Anchor, App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, Focusable,
     InteractiveElement as _, IntoElement, KeyDownEvent, ParentElement as _, Render, SharedString,
     StatefulInteractiveElement as _, Styled as _, Subscription, Window, div, px,
 };
 use gpui_kit::component::{
     dock::{BasePanel, Panel, PanelEvent},
     input::Input,
-    menu::{ContextMenuExt as _, PopupMenu},
+    menu::{ContextMenuExt as _, DropdownMenu as _, PopupMenu},
     tree::{TreeItem, TreeState, tree},
 };
 use lattice_core::models::FileNode;
 use lattice_ui::{
-    ActiveLattice as _, GlyphKind, TextRole, TextRoleStyle as _,
-    components::{GitMark, TreeRow},
+    ActiveLattice as _, GlyphKind, Icon, TextRole, TextRoleStyle as _,
+    components::{GitMark, IconButton, Surface, TAB_RADIUS, TreeRow},
+    fluid_hover::{FluidHover, ItemKind},
     icons::{ICON, file_glyph},
+    scrollbar::{FluidScrollbar, ScrollbarFeel},
+    shape,
 };
 
 mod clipboard;
@@ -133,6 +141,8 @@ pub struct FileTreePanel {
     marks: Rc<GitMarks>,
     /// What the tree's ⌘C last put on the clipboard.
     copied: Option<clipboard::Copied>,
+    /// The rows' fluid hover, as last drawn, for a scenario's check.
+    hover: Option<FluidHover>,
     _project_subscription: Option<Subscription>,
 }
 
@@ -147,6 +157,7 @@ impl FileTreePanel {
             state: cx.new(|cx| TreeState::new(cx)),
             focus_handle: cx.focus_handle(),
             naming: None,
+            hover: None,
             expanded: HashSet::new(),
             marks: Rc::default(),
             copied: None,
@@ -314,6 +325,12 @@ impl FileTreePanel {
             .map(|entry| entry.item().id.to_string())
             .collect()
     }
+
+    /// What the rows' fluid hover shows, for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn hover_snapshot(&self, cx: &App) -> Option<lattice_ui::fluid_hover::FluidHoverSnapshot> {
+        self.hover.as_ref().map(|hover| hover.snapshot(cx))
+    }
 }
 
 /// What Git says of each row: a changed file's mark, and the folders with a
@@ -344,19 +361,40 @@ impl GitMarks {
     }
 }
 
+/// The tree's rows. A folder whose only entry is a folder shows as one row
+/// with its descendant, down the chain, as the Tauri app's tree flattens
+/// them (`flattenEmptyDirectories`): "slides / understanding-attention",
+/// which stands for the deepest folder (its id, its children, opening,
+/// renaming and dropping into it).
 fn tree_items(nodes: &[FileNode], expanded: &HashSet<String>) -> Vec<TreeItem> {
     nodes
         .iter()
         .map(|node| {
-            let item = TreeItem::new(node.path.clone(), node.name.clone());
-            if node.kind == "directory" {
-                item.children(tree_items(&node.children, expanded))
-                    .expanded(expanded.contains(&node.path))
-            } else {
-                item
+            if node.kind != "directory" {
+                return TreeItem::new(node.path.clone(), node.name.clone());
             }
+            let (deepest, label) = flattened(node);
+            TreeItem::new(deepest.path.clone(), label)
+                .children(tree_items(&deepest.children, expanded))
+                .expanded(expanded.contains(&deepest.path))
         })
         .collect()
+}
+
+/// A folder and the chain of single folders under it: the deepest one and
+/// the names on the way, joined by "/".
+fn flattened(node: &FileNode) -> (&FileNode, String) {
+    let mut deepest = node;
+    let mut label = node.name.clone();
+    while let [only] = deepest.children.as_slice() {
+        if only.kind != "directory" {
+            break;
+        }
+        label.push('/');
+        label.push_str(&only.name);
+        deepest = only;
+    }
+    (deepest, label)
 }
 
 impl Focusable for FileTreePanel {
@@ -396,13 +434,43 @@ impl Panel for FileTreePanel {
         Self::background_menu(&view, menu, cx)
     }
 
+    /// The strip's tools before ⋯, as the Tauri app's Project panel has them
+    /// (`trellis-panel-actions.tsx`): + opens what can be added, and Find in
+    /// project, which is not in the GPUI app yet. Each is a 28px square on
+    /// the panel's chrome with the tab's corners, a hairline apart
+    /// (`.trellis-accessory-host`).
+    fn title_suffix(&mut self, _: &mut Window, cx: &mut Context<Self>) -> Option<impl IntoElement> {
+        let view = cx.entity().downgrade();
+        Some(
+            div()
+                .flex()
+                .items_center()
+                .gap(px(1.))
+                .child(
+                    IconButton::new("project-new-entry", Icon::PLUS)
+                        .radius(TAB_RADIUS)
+                        .surface(Surface::Chrome)
+                        .tooltip("New…")
+                        .dropdown_menu_with_anchor(Anchor::TopRight, move |menu, _, _| {
+                            Self::new_entries_menu(&view, menu)
+                        }),
+                )
+                .child(
+                    IconButton::new("project-find", Icon::SEARCH)
+                        .radius(TAB_RADIUS)
+                        .surface(Surface::Chrome)
+                        .tooltip("Find in project — not in the GPUI preview yet"),
+                ),
+        )
+    }
+
     fn inner_padding(&self, _: &App) -> bool {
         false
     }
 }
 
 impl Render for FileTreePanel {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let Some(project) = self.project.clone() else {
             return div()
                 .id("file-tree-empty")
@@ -427,6 +495,17 @@ impl Render for FileTreePanel {
             .map(|naming| (naming.path.clone(), naming.input.clone()));
         let drop_target = cx.palette().drop_target;
         let marks = self.marks.clone();
+        // The tree's hover is one fill gliding between rows, as the app's
+        // (`project-tree-hover.tsx`): the open file's row keeps its own
+        // selection fill and is never lit, and rows recycled under a resting
+        // pointer stay dark until 150 ms after the scroll.
+        let hover = FluidHover::new("file-tree-hover", window, cx)
+            .fill(cx.palette().hover)
+            .radius(shape::RADIUS_TARGET)
+            .quiet_after_scroll(Duration::from_millis(150), cx);
+        let rows_hover = hover.clone();
+        self.hover = Some(hover.clone());
+        let scroll = self.state.read(cx).scroll_handle().clone();
         // Measured on the Main window: rows 12px in from both sides, the
         // first 7px under the tab strip.
         div()
@@ -455,20 +534,30 @@ impl Render for FileTreePanel {
                     .ok();
             })
             .context_menu(move |menu, _, cx| Self::background_menu(&background_view, menu, cx))
+            .relative()
+            .child(hover.highlight())
             .child(
                 tree(&self.state, move |ix, entry, selected, _, cx| {
                     let item = entry.item();
                     let relative = item.id.to_string();
                     let path = root.join(&relative);
                     let is_folder = entry.is_folder();
+                    let row_selected =
+                        !is_folder && (selected || current.as_deref() == Some(path.as_path()));
+                    let kind = if row_selected {
+                        ItemKind::skip()
+                    } else {
+                        ItemKind::target()
+                    };
                     let mut row = if is_folder {
                         TreeRow::folder(ix, item.label.clone(), entry.depth(), entry.is_expanded())
                             .contains_change(marks.folders.contains(&relative))
                     } else {
                         TreeRow::file(ix, item.label.clone(), entry.depth())
-                            .selected(selected || current.as_deref() == Some(path.as_path()))
+                            .selected(row_selected)
                             .git(marks.files.get(&relative).copied())
-                    };
+                    }
+                    .fluid(rows_hover.probe(ix, kind));
                     if let Some((_, input)) = naming.as_ref().filter(|(at, _)| *at == relative) {
                         // The app's rename field: 20px on the compact
                         // corner, its padding and border outside the name's
@@ -547,7 +636,12 @@ impl Render for FileTreePanel {
                         menu,
                         cx,
                     )
-                }),
+                })
+                // Lattice's scrollbar, below, in place of Kit's.
+                .scrollbar(false),
+            )
+            .child(
+                FluidScrollbar::vertical("file-tree-scrollbar", &scroll).feel(ScrollbarFeel::LIST),
             )
             .into_any_element()
     }
@@ -578,5 +672,54 @@ mod tests {
         assert!(marks.folders.contains("chapters/parts"));
         // An ignored file is no change to its folder.
         assert!(!marks.folders.contains("build"));
+    }
+
+    fn node(path: &str, kind: &str, children: Vec<FileNode>) -> FileNode {
+        FileNode {
+            name: path.rsplit('/').next().unwrap_or(path).to_string(),
+            path: path.to_string(),
+            kind: kind.to_string(),
+            content_kind: String::new(),
+            size: 0,
+            children,
+        }
+    }
+
+    #[test]
+    fn a_chain_of_single_folders_is_one_row_for_the_deepest() {
+        let deck = node(
+            "slides/understanding-attention",
+            "directory",
+            vec![node(
+                "slides/understanding-attention/index.tsx",
+                "file",
+                vec![],
+            )],
+        );
+        let slides = node("slides", "directory", vec![deck]);
+        let (deepest, label) = flattened(&slides);
+        assert_eq!(deepest.path, "slides/understanding-attention");
+        assert_eq!(label, "slides/understanding-attention");
+        let items = tree_items(&[slides], &HashSet::new());
+        assert_eq!(items[0].id.as_ref(), "slides/understanding-attention");
+    }
+
+    #[test]
+    fn a_folder_holding_a_file_stays_its_own_row() {
+        let chapters = node(
+            "chapters",
+            "directory",
+            vec![node("chapters/intro.tex", "file", vec![])],
+        );
+        assert_eq!(flattened(&chapters).1, "chapters");
+        let two = node(
+            "figures",
+            "directory",
+            vec![
+                node("figures/a", "directory", vec![]),
+                node("figures/b", "directory", vec![]),
+            ],
+        );
+        assert_eq!(flattened(&two).1, "figures");
     }
 }

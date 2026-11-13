@@ -11,8 +11,10 @@
 //! semantics and the keys that open, confirm and dismiss it (Space, Enter,
 //! the arrows, Escape), and moves focus into the list and back. The list
 //! moves its highlight with the arrows, Home and End, and the pointer moves
-//! the same highlight, so only one option is ever lit. A long list scrolls
-//! inside its 320px cap, and the keys keep the highlighted option in view.
+//! the same highlight, so only one option is ever lit: the menu's fluid
+//! hover, one fill gliding between options (`crate::fluid_hover`). A long
+//! list scrolls inside its 320px cap under Lattice's scrollbar, and the keys
+//! keep the highlighted option in view.
 
 use std::rc::Rc;
 
@@ -33,8 +35,11 @@ use crate::{
         MENU_INSET, MenuItem, MenuSurface, PopFrom, Step, field::field_height, menu::MENU_OFFSET,
         pop_in, step_highlight,
     },
+    fluid_hover::FluidHover,
     icons::ICON_SMALL,
     interaction::{mix, track_pointer, use_interaction},
+    scrollbar::FluidScrollbar,
+    shape,
     tokens::{FONT_WEIGHT_REGULAR, OPACITY_FIELD_DISABLED},
 };
 
@@ -336,33 +341,42 @@ impl RenderOnce for Select {
             .when(self.compact, SelectTrigger::compact);
 
         let list = (open && bounds.size.width > px(0.)).then(|| {
-            let rows = self.options.iter().enumerate().map(|(ix, label)| {
-                let hover = memory.clone();
-                let choose = commit.clone();
-                MenuItem::new(
-                    ElementId::NamedChild(
-                        std::sync::Arc::new(self.id.clone()),
-                        SharedString::from(format!("option-{ix}")),
-                    ),
-                    label.clone(),
-                )
-                .checked(self.selected == Some(ix))
-                .highlighted(highlighted == Some(ix))
-                .on_hover(move |hovered, _, cx| {
-                    hover.update(cx, |m, cx| {
-                        if *hovered {
-                            m.highlighted = Some(ix);
-                            cx.notify();
-                        }
-                    })
+            // One fill for the pointer and the keys (the app's select runs
+            // the menu's fluid hover), opening on the chosen option.
+            let hover = FluidHover::new(child("fluid"), window, cx)
+                .fill(cx.palette().accent_soft)
+                .radius(shape::MENU.inner())
+                .follow(highlighted, cx);
+            let rows = self
+                .options
+                .iter()
+                .enumerate()
+                .map(|(ix, label)| {
+                    let choose = commit.clone();
+                    let row = MenuItem::new(
+                        ElementId::NamedChild(
+                            std::sync::Arc::new(self.id.clone()),
+                            SharedString::from(format!("option-{ix}")),
+                        ),
+                        label.clone(),
+                    )
+                    .checked(self.selected == Some(ix))
+                    .highlighted(hover.lit(cx) == Some(ix))
+                    .fluid()
+                    .on_click(move |_, window, cx| choose(Some(ix), window, cx));
+                    hover.item(ix, row)
                 })
-                .on_click(move |_, window, cx| choose(Some(ix), window, cx))
-            });
+                .collect::<Vec<_>>();
+            let lit = hover.clone();
+            // The keys go on from the option the pointer lit.
             let mover = |step: Step| {
                 let memory = memory.clone();
+                let lit = lit.clone();
                 move |cx: &mut App| {
+                    let next = step_highlight(&vec![true; count], lit.lit(cx), step);
+                    lit.key_to(next, cx);
                     memory.update(cx, |m, cx| {
-                        m.highlight(step_highlight(&vec![true; count], m.highlighted, step));
+                        m.highlight(next);
                         cx.notify();
                     })
                 }
@@ -373,9 +387,9 @@ impl RenderOnce for Select {
                 mover(Step::First),
                 mover(Step::Last),
             );
+            let fill = hover.highlight();
             let close = commit.clone();
             let confirm = commit.clone();
-            let read_highlight = memory.clone();
             // Enter and Space confirm here, in the list, rather than at the
             // headless root: after its own confirm the root hands focus back
             // to the list, which has closed by then.
@@ -384,10 +398,7 @@ impl RenderOnce for Select {
                 .track_focus(&list_focus)
                 .on_action(move |_: &SelectUp, _, cx| up(cx))
                 .on_action(move |_: &SelectDown, _, cx| down(cx))
-                .on_action(move |_: &Confirm, window, cx| {
-                    let ix = read_highlight.read(cx).highlighted;
-                    confirm(ix, window, cx)
-                })
+                .on_action(move |_: &Confirm, window, cx| confirm(hover.lit(cx), window, cx))
                 .on_key_down(move |event: &KeyDownEvent, _, cx| {
                     match event.keystroke.key.as_str() {
                         "home" => home(cx),
@@ -402,14 +413,22 @@ impl RenderOnce for Select {
                         .min_w(bounds.size.width)
                         .max_h(LIST_MAX_HEIGHT)
                         .child(
+                            // The fill and the bar are laid over the rows'
+                            // viewport, which clips them.
                             div()
-                                .id(child("rows"))
-                                .flex()
-                                .flex_col()
-                                .max_h(LIST_MAX_HEIGHT - MENU_INSET * 2.)
-                                .overflow_y_scroll()
-                                .track_scroll(&scroll)
-                                .children(rows),
+                                .relative()
+                                .child(fill)
+                                .child(
+                                    div()
+                                        .id(child("rows"))
+                                        .flex()
+                                        .flex_col()
+                                        .max_h(LIST_MAX_HEIGHT - MENU_INSET * 2.)
+                                        .overflow_y_scroll()
+                                        .track_scroll(&scroll)
+                                        .children(rows),
+                                )
+                                .child(FluidScrollbar::vertical(child("bar"), &scroll)),
                         ),
                 );
             deferred(

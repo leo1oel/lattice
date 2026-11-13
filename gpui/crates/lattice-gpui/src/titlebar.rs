@@ -18,7 +18,7 @@
 //!
 //! The titlebar is the chrome under a white veil, closed by a hairline. Tools
 //! that are not in the GPUI app yet (Track changes, Annotations, Overleaf,
-//! Git, History) are drawn so the window reads as Lattice, and say so in
+//! Git, History, Open in browser) are drawn so the window reads as Lattice, and say so in
 //! their tooltips; nothing pretends to work.
 
 use std::{cell::Cell, rc::Rc};
@@ -364,6 +364,9 @@ pub fn render(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> im
         ))
         .child(not_yet("git", Icon::GIT, "Git status and commit"))
         .child(not_yet("history", Icon::HISTORY, "Project history"))
+        // Moves the workspace into a browser tab (`canvas-toolbar.tsx`,
+        // `onMoveWorkspace`), the last of the app's tools.
+        .child(not_yet("browser", Icon::GLOBE, "Open in browser"))
         .child(edge_probe(
             room_cell,
             |room, left, _| room.tools_start = Some(left),

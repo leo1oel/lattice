@@ -35,6 +35,7 @@ mod scenario;
 mod search;
 mod shell;
 mod stand_in_panels;
+mod status_counters;
 mod titlebar;
 mod welcome;
 

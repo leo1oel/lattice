@@ -96,6 +96,49 @@ mod tests {
         super::build_language();
     }
 
+    /// Each token's capture, as the theme resolves it, as the Tauri app's
+    /// LaTeX mode styles the same text (`latex-language.ts`): commands are
+    /// keywords, a package's options and key=value keys and the `\\` line
+    /// break stay in the ink, a control symbol is an operator.
+    #[test]
+    fn captures_follow_the_app_s_latex_mode() {
+        use std::sync::Arc;
+        let language = Arc::new(super::build_language());
+        let names = [
+            "keyword",
+            "operator",
+            "property",
+            "punctuation.bracket",
+            "string",
+        ];
+        let theme = theme::SyntaxTheme::new(
+            names
+                .iter()
+                .map(|name| (name.to_string(), gpui::HighlightStyle::default())),
+        );
+        language.set_theme(&theme);
+        let text = "\\usepackage[colorlinks=true,preprint]{hyperref} a\\\\ b\\, c";
+        let captured: Vec<(&str, &str)> = language
+            .highlight_text(text, 0..text.len())
+            .filter_map(|(range, id)| Some((&text[range], theme.get_capture_name(id)?)))
+            .collect();
+        let capture_of = |token: &str| {
+            captured
+                .iter()
+                .find(|(text, _)| *text == token)
+                .map(|(_, name)| *name)
+        };
+        assert_eq!(capture_of("\\usepackage"), Some("keyword"), "{captured:?}");
+        assert_eq!(capture_of("\\,"), Some("operator"), "{captured:?}");
+        assert_eq!(capture_of("\\\\"), None, "{captured:?}");
+        for plain in ["colorlinks", "preprint", "true"] {
+            assert!(
+                captured.iter().all(|(text, _)| !text.contains(plain)),
+                "{plain} stays in the ink: {captured:?}"
+            );
+        }
+    }
+
     #[test]
     fn tex_sources_are_known_by_extension() {
         use std::path::Path;

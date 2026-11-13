@@ -10,8 +10,11 @@
 //!   10px between its 14px icon (secondary ink) and the label, its shortcut
 //!   quiet at the end;
 //! - the row the pointer lights and the row the arrow keys reach are one
-//!   highlight, the accent wash (`--control-active-soft`), faded on the fast
-//!   tier; a destructive item takes the danger ink and the danger wash;
+//!   highlight, the accent wash (`--control-active-soft`): in a [`Menu`]
+//!   (`popover.rs`) it is the list's fluid hover, one fill gliding between
+//!   rows (`crate::fluid_hover`); a row drawn alone fades its own wash on the
+//!   fast tier. A destructive item takes the danger ink and its own danger
+//!   wash, which the gliding fill never lands on;
 //! - a disabled item fades to 50% and takes no pointer;
 //! - a group's label steps back to the caption role, medium, secondary ink,
 //!   10px in, 8 over and 4 under;
@@ -36,11 +39,12 @@ use crate::{
     icons::ICON,
     interaction::{fade, mix, track_pointer_and_hover, use_interaction},
     motion::Motion,
+    shape,
     tokens::{CONTAINER_MENU, FONT_WEIGHT_MEDIUM, OPACITY_MENU_DISABLED},
 };
 
 /// The surface's inset: rows stand this far inside its 10px corner.
-pub const MENU_INSET: Pixels = px(4.);
+pub const MENU_INSET: Pixels = shape::MENU.inset;
 /// The gap between a trigger and the menu it opens (Radix's `sideOffset`).
 pub const MENU_OFFSET: Pixels = px(4.);
 
@@ -87,12 +91,13 @@ impl RenderOnce for MenuSurface {
         // The caller's width (a select's trigger width) is refined over these
         // defaults, so it comes after them.
         let mut base = div()
+            .relative()
             .flex()
             .flex_col()
             .min_w(rems(9.))
             .max_w(CONTAINER_MENU)
             .p(MENU_INSET)
-            .rounded(px(10.))
+            .rounded(shape::MENU.radius)
             .bg(palette.raised)
             .shadow(Elevation::Popover.shadows(palette))
             .text_role(TextRole::Body, cx)
@@ -114,6 +119,9 @@ pub struct MenuItem {
     destructive: bool,
     checked: Option<bool>,
     highlighted: bool,
+    /// The list draws the hover fill (fluid hover): the row draws none, but
+    /// a destructive row's own danger wash.
+    fluid: bool,
     on_click: Option<ClickHandler>,
     on_hover: Option<HoverHandler>,
 }
@@ -129,9 +137,18 @@ impl MenuItem {
             destructive: false,
             checked: None,
             highlighted: false,
+            fluid: false,
             on_click: None,
             on_hover: None,
         }
+    }
+
+    /// Leave the hover fill to the list's fluid hover (`crate::fluid_hover`):
+    /// the row paints none of its own, except a destructive row's danger
+    /// wash, under the pointer or the keys.
+    pub fn fluid(mut self) -> Self {
+        self.fluid = true;
+        self
     }
 
     pub fn icon(mut self, icon: Icon) -> Self {
@@ -193,7 +210,11 @@ impl RenderOnce for MenuItem {
         let disabled = self.disabled;
         let (interaction, pointer) = use_interaction(self.id.clone(), window, cx);
         let lit = !disabled
-            && (self.highlighted || (self.on_hover.is_none() && interaction.pointer.hovered));
+            && if self.fluid {
+                self.destructive && (self.highlighted || interaction.pointer.hovered)
+            } else {
+                self.highlighted || (self.on_hover.is_none() && interaction.pointer.hovered)
+            };
         let glow = fade(
             ElementId::NamedChild(std::sync::Arc::new(self.id.clone()), "lit".into()),
             lit,
@@ -225,7 +246,7 @@ impl RenderOnce for MenuItem {
             // A select's option keeps a 28px gutter at the end for its check.
             .pr(px(if self.checked.is_some() { 28. } else { 10. }))
             .py(px(6.))
-            .rounded(px(6.))
+            .rounded(shape::MENU.inner())
             .bg(mix(transparent_black(), wash, glow))
             .text_color(ink)
             .when(disabled, |this| this.opacity(OPACITY_MENU_DISABLED))

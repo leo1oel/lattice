@@ -10,13 +10,16 @@ use std::rc::Rc;
 
 use gpui::{
     AnyElement, App, Context, InteractiveElement as _, IntoElement, ParentElement as _,
-    SharedString, StatefulInteractiveElement as _, Styled as _, Window, div,
+    ScrollHandle, SharedString, StatefulInteractiveElement as _, Styled as _, Window, div,
     prelude::FluentBuilder as _, px,
 };
 use gpui_kit::base::Popover as BasePopover;
 use lattice_ui::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
     components::{IconButton, MenuSurface, PopFrom, pop_in},
+    fluid_hover::{FluidHover, ItemKind},
+    scrollbar::FluidScrollbar,
+    shape,
 };
 
 use super::view::{PdfView, PdfViewEvent};
@@ -51,7 +54,7 @@ impl PdfView {
                 .anchor(gpui::Anchor::TopLeft)
                 .offset(px(7.))
                 .trigger(trigger)
-                .content(move |_, _, cx| {
+                .content(move |_, window, cx| {
                     let popover = cx.entity();
                     let close = move |window: &mut Window, cx: &mut App| {
                         popover.update(cx, |state, cx| state.dismiss(window, cx));
@@ -59,7 +62,7 @@ impl PdfView {
                     pop_in(
                         "pdf-outline-card",
                         PopFrom::Above,
-                        outline_card(&outline, view.clone(), close, cx),
+                        outline_card(&outline, view.clone(), close, window, cx),
                     )
                 })
                 .into_any_element(),
@@ -71,9 +74,21 @@ fn outline_card(
     outline: &OutlineState,
     view: gpui::Entity<PdfView>,
     close: impl Fn(&mut Window, &mut App) + Clone + 'static,
+    window: &mut Window,
     cx: &mut App,
 ) -> AnyElement {
     let palette = cx.palette().clone();
+    // The rows light with the menu's one gliding fill in the accent wash
+    // (`editor-workspace.css`, `.document-outline-popover`); the section the
+    // caret is in keeps its own (`preserveSelection`). The list scrolls
+    // under Lattice's scrollbar.
+    let hover = FluidHover::new("pdf-outline-hover", window, cx)
+        .fill(palette.accent_soft)
+        .radius(shape::RADIUS_CHIP);
+    let scroll = window
+        .use_keyed_state("pdf-outline-scroll", cx, |_, _| ScrollHandle::new())
+        .read(cx)
+        .clone();
     let header = div()
         .flex()
         .flex_none()
@@ -108,8 +123,7 @@ fn outline_card(
                 let view = view.clone();
                 let close = close.clone();
                 let accent = palette.accent;
-                let soft = palette.accent_soft;
-                div()
+                let row = div()
                     .id(SharedString::from(format!("pdf-outline-{ix}")))
                     .flex()
                     .items_center()
@@ -128,9 +142,10 @@ fn outline_card(
                         palette.text
                     })
                     .when(active, |row| {
-                        row.bg(soft).font_weight(gpui::FontWeight(650.))
+                        row.bg(palette.accent_soft)
+                            .font_weight(gpui::FontWeight(650.))
                     })
-                    .hover(move |style| style.bg(soft).text_color(accent))
+                    .hover(move |style| style.text_color(accent))
                     .child(
                         div()
                             .min_w_0()
@@ -143,16 +158,28 @@ fn outline_card(
                         close(window, cx);
                         let (path, line) = (path.clone(), line);
                         view.update(cx, |_, cx| cx.emit(PdfViewEvent::Outline { path, line }));
-                    })
-                    .into_any_element()
+                    });
+                let kind = if active {
+                    ItemKind::skip()
+                } else {
+                    ItemKind::target()
+                };
+                hover.item_as(ix, kind, row)
             })
             .collect();
         div()
-            .id("pdf-outline-list")
-            .max_h(px(372.))
-            .overflow_y_scroll()
-            .py(px(4.))
-            .children(rows)
+            .relative()
+            .child(hover.highlight())
+            .child(
+                div()
+                    .id("pdf-outline-list")
+                    .max_h(px(372.))
+                    .overflow_y_scroll()
+                    .track_scroll(&scroll)
+                    .py(px(4.))
+                    .children(rows),
+            )
+            .child(FluidScrollbar::vertical("pdf-outline-scrollbar", &scroll))
             .into_any_element()
     };
     MenuSurface::new()

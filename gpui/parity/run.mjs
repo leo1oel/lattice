@@ -66,7 +66,10 @@ try {
   for (const screen of screens) {
     const spec = SCREENS[screen];
     for (const theme of themes) {
-      const project = stageProject(join(out, "project"), pdf);
+      // Named as the app names the tutorial it creates (lattice-core's
+      // TUTORIAL_PROJECT_NAME, the mock backend's TUTORIAL_ROOT): a folder
+      // Lattice adopts takes its name, which the titlebar shows.
+      const project = stageProject(join(out, "Understanding Attention"), pdf);
       // GPUI first: the reference is captured at the size and scale the GPUI window got.
       log(`${screen} ${theme}: GPUI…`);
       const gpui = [

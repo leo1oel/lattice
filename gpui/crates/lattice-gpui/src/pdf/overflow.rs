@@ -8,6 +8,8 @@
 //! search takes the whole row until it is cleared. Nothing is ever drawn
 //! over another control, and the query is never hidden.
 
+use std::cell::Cell;
+
 use gpui::{
     AnyElement, App, Context, InteractiveElement as _, IntoElement, ParentElement as _,
     StatefulInteractiveElement as _, Styled as _, Window, div, prelude::FluentBuilder as _, px,
@@ -16,6 +18,8 @@ use gpui_kit::base::Popover as BasePopover;
 use lattice_ui::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
     components::{IconButton, MenuItem, MenuSeparator, MenuSurface, PopFrom, pop_in},
+    fluid_hover::{FluidHover, ItemKind},
+    shape,
 };
 
 use super::{
@@ -131,8 +135,24 @@ impl PdfView {
                     .frame(px(24.), px(28.))
                     .tooltip("More PDF actions"),
             )
-            .content(move |_, _, cx| {
+            .content(move |_, window, cx| {
                 let popover = cx.entity();
+                // One fill gliding between the rows, as every menu's
+                // (`lattice_ui::fluid_hover`); a separator starts a section.
+                let hover = FluidHover::new("pdf-overflow-hover", window, cx)
+                    .fill(cx.palette().accent_soft)
+                    .radius(shape::MENU.inner());
+                let next_row = Cell::new(0);
+                let section = Cell::new(0);
+                let separator = || {
+                    section.set(section.get() + 1);
+                    MenuSeparator
+                };
+                let row = |kind: ItemKind, item: MenuItem| {
+                    let ix = next_row.get();
+                    next_row.set(ix + 1);
+                    hover.item_as(ix, kind.section(section.get()), item.fluid())
+                };
                 let close = move |window: &mut Window, cx: &mut App| {
                     popover.update(cx, |state, cx| state.dismiss(window, cx));
                 };
@@ -144,15 +164,22 @@ impl PdfView {
                             run: MenuAction| {
                     let view = view.clone();
                     let close = close.clone();
-                    MenuItem::new(id, label)
-                        .icon(icon)
-                        .disabled(disabled)
-                        .when_some(checked, |item, checked| item.checked(checked))
-                        .on_click(move |_, window, cx| {
-                            close(window, cx);
-                            view.update(cx, |view, cx| run(view, window, cx));
-                        })
-                        .into_any_element()
+                    let kind = if disabled {
+                        ItemKind::skip()
+                    } else {
+                        ItemKind::target()
+                    };
+                    row(
+                        kind,
+                        MenuItem::new(id, label)
+                            .icon(icon)
+                            .disabled(disabled)
+                            .when_some(checked, |item, checked| item.checked(checked))
+                            .on_click(move |_, window, cx| {
+                                close(window, cx);
+                                view.update(cx, |view, cx| run(view, window, cx));
+                            }),
+                    )
                 };
                 let fit_item = |mode: FitMode, checked: Option<bool>| {
                     let (id, label, icon) = match mode {
@@ -178,8 +205,9 @@ impl PdfView {
                 };
                 let mut menu = MenuSurface::new()
                     .min_w(px(216.))
+                    .child(hover.highlight())
                     .child(zoom_row(&view, scale, close.clone(), cx))
-                    .child(MenuSeparator);
+                    .child(separator());
                 // Folded for a query, SyncTeX and both fits wait here, each
                 // fit marked when in use; otherwise the fit not shown.
                 if fold >= Fold::Controls {
@@ -193,7 +221,7 @@ impl PdfView {
                                 false,
                                 Box::new(|_, _, cx| cx.emit(PdfViewEvent::RevealCursor)),
                             ))
-                            .child(MenuSeparator);
+                            .child(separator());
                     }
                     menu = menu
                         .child(fit_item(FitMode::Width, Some(fit == Some(FitMode::Width))))
@@ -205,7 +233,7 @@ impl PdfView {
                     menu = menu.child(fit_item(other_fit, None));
                 }
                 menu = menu
-                    .child(MenuSeparator)
+                    .child(separator())
                     .child(item(
                         "pdf-menu-dark",
                         "Dark pages",
@@ -214,7 +242,7 @@ impl PdfView {
                         false,
                         Box::new(|view, _, cx| view.toggle_dark_pages(cx)),
                     ))
-                    .child(MenuSeparator)
+                    .child(separator())
                     .child(item(
                         "pdf-menu-back",
                         "Previous PDF location",
@@ -231,18 +259,19 @@ impl PdfView {
                         !can_forward,
                         Box::new(|view, _, cx| view.navigate(true, cx)),
                     ))
-                    .child(MenuSeparator);
+                    .child(separator());
                 if let Some(action) = action.clone() {
                     let view = view.clone();
                     let close = close.clone();
-                    menu = menu.child(
+                    menu = menu.child(row(
+                        ItemKind::target(),
                         MenuItem::new("pdf-menu-action", action.label)
                             .icon(action.icon)
                             .on_click(move |_, window, cx| {
                                 close(window, cx);
                                 view.update(cx, |_, cx| cx.emit(PdfViewEvent::Action));
                             }),
-                    );
+                    ));
                 }
                 menu = menu.child(item(
                     "pdf-menu-save",

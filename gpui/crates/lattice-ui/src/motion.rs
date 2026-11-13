@@ -170,6 +170,139 @@ pub fn stagger(index: usize) -> Duration {
     DURATION_STAGGER * index.min(8) as u32
 }
 
+/// A value that can travel between two of itself.
+pub trait Tweenable: Copy + PartialEq {
+    /// `self` toward `to` by `t`; a spring's `t` may pass 1.
+    fn tween(self, to: Self, t: f32) -> Self;
+}
+
+impl Tweenable for f32 {
+    fn tween(self, to: Self, t: f32) -> Self {
+        self + (to - self) * t
+    }
+}
+
+impl Tweenable for gpui::Pixels {
+    fn tween(self, to: Self, t: f32) -> Self {
+        self + (to - self) * t
+    }
+}
+
+impl Tweenable for gpui::Bounds<gpui::Pixels> {
+    fn tween(self, to: Self, t: f32) -> Self {
+        gpui::Bounds {
+            origin: gpui::point(
+                self.origin.x.tween(to.origin.x, t),
+                self.origin.y.tween(to.origin.y, t),
+            ),
+            size: gpui::size(
+                self.size.width.tween(to.size.width, t),
+                self.size.height.tween(to.size.height, t),
+            ),
+        }
+    }
+}
+
+/// One value moving on a tier, retargetable mid-flight: what a Motion
+/// `animate` prop does in the Tauri app, for state a GPUI element keeps
+/// itself (a glide's rect, a fade's opacity, a thumb's width).
+///
+/// A retarget starts the new leg from where the value is drawn now, so an
+/// interrupted move never jumps; the leg takes the tier's whole duration, as
+/// a spring restarted from its current position does.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Tween<T> {
+    from: T,
+    to: T,
+    started: std::time::Instant,
+    token: MotionToken,
+    /// How long the leg holds `from` before it moves (a CSS
+    /// `transition-delay`).
+    delay: Duration,
+    /// At rest: the value is `to`.
+    snap: bool,
+}
+
+impl<T: Tweenable> Tween<T> {
+    /// At rest on `value`.
+    pub fn settled(value: T, now: std::time::Instant) -> Self {
+        Self {
+            from: value,
+            to: value,
+            started: now,
+            token: MOTION_FAST,
+            delay: Duration::ZERO,
+            snap: true,
+        }
+    }
+
+    /// Where the value is drawn at `now`.
+    pub fn value(&self, now: std::time::Instant) -> T {
+        if self.snap || self.from == self.to {
+            return self.to;
+        }
+        let elapsed = now.saturating_duration_since(self.started);
+        let Some(moving) = elapsed.checked_sub(self.delay) else {
+            return self.from;
+        };
+        let t = moving.as_secs_f32() / self.token.duration.as_secs_f32().max(f32::EPSILON);
+        if t >= 1. {
+            self.to
+        } else {
+            self.from.tween(self.to, self.token.ease.sample(t))
+        }
+    }
+
+    /// Where the value is going.
+    pub fn target(&self) -> T {
+        self.to
+    }
+
+    /// Whether the value still moves at `now`; while it does, the element
+    /// drawing it asks for another frame.
+    pub fn is_running(&self, now: std::time::Instant) -> bool {
+        !self.snap
+            && self.from != self.to
+            && now.saturating_duration_since(self.started) < self.delay + self.token.duration
+    }
+
+    /// Move toward `to` on `motion`, from where the value is now.
+    pub fn retarget(&mut self, to: T, motion: Motion, now: std::time::Instant) {
+        self.retarget_on(to, motion.token(), Duration::ZERO, now);
+    }
+
+    /// Move toward `to` on a curve and duration of its own, after `delay`:
+    /// a CSS transition whose duration, easing and delay are written apart
+    /// (the scrollbar's fade runs `--motion-fast`'s curve over
+    /// `--duration-moderate`, and waits `--duration-moderate` to hide).
+    pub fn retarget_on(
+        &mut self,
+        to: T,
+        token: MotionToken,
+        delay: Duration,
+        now: std::time::Instant,
+    ) {
+        if to == self.to {
+            return;
+        }
+        let from = self.value(now);
+        *self = Self {
+            from,
+            to,
+            started: now,
+            token,
+            delay,
+            snap: false,
+        };
+    }
+
+    /// Jump to `value`, as reduced motion moves things, or a fresh entrance
+    /// places what then fades in.
+    pub fn jump(&mut self, value: T, now: std::time::Instant) {
+        *self = Self::settled(value, now);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -233,6 +366,56 @@ mod tests {
         assert!((fade - 1.).abs() < 1e-3);
         let (movement, fade) = toast.sample(DURATION_MODERATE / 2);
         assert!(fade > movement, "fade {fade}, movement {movement}");
+    }
+
+    #[test]
+    fn a_tween_follows_its_tier_and_lands() {
+        let start = std::time::Instant::now();
+        let mut tween = Tween::settled(0f32, start);
+        assert!(!tween.is_running(start));
+        tween.retarget(10., Motion::Fast, start);
+        let half = start + DURATION_FAST / 2;
+        let expected = 10. * Motion::Fast.sample(0.5);
+        assert!((tween.value(half) - expected).abs() < 1e-3);
+        assert!(tween.is_running(half));
+        let end = start + DURATION_FAST;
+        assert_eq!(tween.value(end), 10.);
+        assert!(!tween.is_running(end));
+    }
+
+    #[test]
+    fn a_retarget_starts_from_where_the_value_is_drawn() {
+        let start = std::time::Instant::now();
+        let mut tween = Tween::settled(0f32, start);
+        tween.retarget(10., Motion::Moderate, start);
+        let midway = start + DURATION_MODERATE / 4;
+        let drawn = tween.value(midway);
+        tween.retarget(-10., Motion::Moderate, midway);
+        assert!((tween.value(midway) - drawn).abs() < 1e-4);
+        assert_eq!(tween.value(midway + DURATION_MODERATE), -10.);
+    }
+
+    #[test]
+    fn a_delayed_leg_holds_then_moves_on_its_own_curve() {
+        let start = std::time::Instant::now();
+        let mut tween = Tween::settled(1f32, start);
+        let token = MotionToken::new(DURATION_FAST, EASE_FAST);
+        tween.retarget_on(0., token, DURATION_MODERATE, start);
+        assert_eq!(tween.value(start + DURATION_MODERATE / 2), 1.);
+        assert!(tween.is_running(start + DURATION_MODERATE));
+        let halfway = start + DURATION_MODERATE + DURATION_FAST / 2;
+        assert!((tween.value(halfway) - (1. - EASE_FAST.sample(0.5))).abs() < 1e-4);
+        assert_eq!(tween.value(start + DURATION_MODERATE + DURATION_FAST), 0.);
+    }
+
+    #[test]
+    fn a_jump_lands_at_once() {
+        let start = std::time::Instant::now();
+        let mut tween = Tween::settled(gpui::px(0.), start);
+        tween.retarget(gpui::px(8.), Motion::Slow, start);
+        tween.jump(gpui::px(4.), start);
+        assert_eq!(tween.value(start), gpui::px(4.));
+        assert!(!tween.is_running(start));
     }
 
     #[test]

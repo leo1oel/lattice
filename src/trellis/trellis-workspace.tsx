@@ -20,6 +20,7 @@ import {
 } from "@danfessler/trellis-react";
 import "@danfessler/trellis/style.css";
 import { FileText } from "lucide-react";
+import { comboText } from "../app/key-combos";
 import { retainParkedEditors } from "../editor/parked-editors";
 import { windowProjects } from "../app/window-projects";
 import { retainSnapshotTexts, SnapshotProjectContext } from "./snapshot-texts";
@@ -503,7 +504,7 @@ const TrellisWorkspace = memo(function TrellisWorkspace({ controller, projectRoo
             checked: currentLatexView() === latexView, run: () => chooseLatexView(latexView),
           })) : []),
           ...(active ? ["separator" as const] : []),
-          { id: "build", label: t`Build`, shortcut: "⌘S", run: () => bridge?.build(key, { beside: view.panelId }) },
+          { id: "build", label: t`Build`, shortcut: comboText({ key: "s", mod: true }), run: () => bridge?.build(key, { beside: view.panelId }) },
           { id: "clean-build", label: t`Clean rebuild`, run: () => bridge?.build(key, { clean: true, beside: view.panelId }) },
           ...(tools.building ? [{ id: "stop-build", label: t`Stop the build`, run: () => bridge?.stopBuild() }] : []),
         ];

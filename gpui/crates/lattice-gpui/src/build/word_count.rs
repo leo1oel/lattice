@@ -169,7 +169,13 @@ impl ManuscriptWords {
     /// Count `root`'s manuscript again in the background; `None` forgets
     /// the count of the project that closed. A count of the project open
     /// before never lands on this one.
+    ///
+    /// The status bar's annotation and TODO counts are read again at the
+    /// same moments (`status_counters`).
     pub fn refresh(&mut self, root: Option<PathBuf>, cx: &mut Context<Self>) {
+        if let Some(root) = root.clone() {
+            crate::status_counters::refresh(root, cx);
+        }
         self.generation += 1;
         let generation = self.generation;
         if self.root != root {

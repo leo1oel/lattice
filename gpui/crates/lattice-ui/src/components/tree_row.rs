@@ -102,6 +102,9 @@ pub struct TreeRow {
     git: Option<GitMark>,
     /// A folder with a changed file somewhere under it.
     contains_change: bool,
+    /// The list's fluid hover probe (`FluidHover::probe`): the row records
+    /// its bounds for the tree's one gliding fill and draws none of its own.
+    fluid: Option<AnyElement>,
 }
 
 impl TreeRow {
@@ -116,6 +119,7 @@ impl TreeRow {
             editing: None,
             git: None,
             contains_change: false,
+            fluid: None,
         }
     }
 
@@ -145,6 +149,13 @@ impl TreeRow {
     /// A folder with a changed file under it.
     pub fn contains_change(mut self, contains: bool) -> Self {
         self.contains_change = contains;
+        self
+    }
+
+    /// Leave the hover fill to the tree's fluid hover, recording the row
+    /// through `probe` (`FluidHover::probe`).
+    pub fn fluid(mut self, probe: AnyElement) -> Self {
+        self.fluid = Some(probe);
         self
     }
 
@@ -238,6 +249,11 @@ impl TreeRow {
             .px_0()
             .rounded(px(6.))
             .when(self.selected, |item| item.bg(palette.row_selected))
+            // Kit's item fills itself under the pointer unless it counts as
+            // active; with the tree's fluid hover drawing the fill, it is
+            // marked so (it draws no check: none is set).
+            .when(self.fluid.is_some(), |item| item.confirmed(true))
+            .children(self.fluid)
             .children(self.parity.clone().and_then(parity::probe))
             .child(
                 div()
@@ -258,8 +274,43 @@ impl TreeRow {
     }
 }
 
-/// The name's two runs: the head ellipsizes, the tail stays whole.
+/// The name's two runs: the head ellipsizes, the tail stays whole. A
+/// folder row that stands for a chain of folders each holding only the next
+/// (`slides/understanding-attention`, as the app's tree flattens them) shows
+/// each name with a "/" between, 2px either side; only the last name gives
+/// way to a narrow panel. A real name never holds a "/", so one in `name`
+/// always marks such a chain.
 fn label(name: SharedString, parity: Option<SharedString>, cx: &App) -> gpui::Div {
+    if name.contains('/') {
+        let segments: Vec<&str> = name.split('/').collect();
+        let last = segments.len() - 1;
+        let mut chain = div()
+            .flex()
+            .flex_1()
+            .min_w_0()
+            .items_center()
+            .gap(px(2.))
+            .overflow_hidden()
+            .whitespace_nowrap()
+            .text_role(TextRole::Body, cx)
+            .line_height(px(28.));
+        for (ix, segment) in segments.into_iter().enumerate() {
+            if ix > 0 {
+                chain = chain.child(div().flex_none().child("/"));
+            }
+            let name = SharedString::from(segment.to_string());
+            chain = chain.child(if ix == last {
+                one_name(name, None, cx)
+            } else {
+                one_name(name, None, cx).flex_none()
+            });
+        }
+        return chain;
+    }
+    one_name(name, parity, cx)
+}
+
+fn one_name(name: SharedString, parity: Option<SharedString>, cx: &App) -> gpui::Div {
     let (head, tail) = split_name(&name);
     let run = |slot: usize, text: String| {
         let text = SharedString::from(text);

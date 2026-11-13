@@ -207,13 +207,19 @@ impl FileTreePanel {
         menu
     }
 
+    /// What can be added at the project's top level: the ⋯ menu's first
+    /// items, and the whole of the strip's + menu.
+    pub(super) fn new_entries_menu(view: &WeakEntity<Self>, menu: PopupMenu) -> PopupMenu {
+        Self::creation_items(view, "", menu)
+    }
+
     /// The menu for the empty area around the rows, and the panel's ⋯ menu.
     pub(super) fn background_menu(view: &WeakEntity<Self>, menu: PopupMenu, cx: &App) -> PopupMenu {
         let show_hidden = view
             .upgrade()
             .and_then(|this| this.read(cx).project.clone())
             .is_some_and(|project| project.read(cx).show_hidden());
-        let menu = Self::creation_items(view, "", menu).separator();
+        let menu = Self::new_entries_menu(view, menu).separator();
         Self::view_items(view, show_hidden, menu)
     }
 

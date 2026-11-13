@@ -27,6 +27,8 @@ use crate::{
         MenuItem, MenuLabel, MenuSeparator, MenuSurface, PopFrom, Step, menu::MENU_OFFSET, pop_in,
         step_highlight,
     },
+    fluid_hover::{FluidHover, ItemKind},
+    shape,
 };
 
 type Action = Rc<dyn Fn(&mut Window, &mut App)>;
@@ -152,6 +154,16 @@ impl RenderOnce for Menu {
             move |_, _| initial,
         );
         let current = *highlight.read(cx);
+        // One fill for the pointer and the keys, gliding between rows.
+        let palette = cx.palette().clone();
+        let hover = FluidHover::new(
+            ElementId::NamedChild(std::sync::Arc::new(self.id.clone()), "fluid".into()),
+            window,
+            cx,
+        )
+        .fill(palette.accent_soft)
+        .radius(shape::MENU.inner())
+        .follow(current, cx);
         let enabled: Rc<[bool]> = self
             .entries
             .iter()
@@ -180,47 +192,56 @@ impl RenderOnce for Menu {
         };
         let run = Rc::new(run);
 
-        let rows: Vec<AnyElement> = self
-            .entries
-            .into_iter()
-            .enumerate()
-            .map(|(ix, entry)| match entry {
-                Entry::Label(label) => MenuLabel::new(label).into_any_element(),
-                Entry::Separator => MenuSeparator.into_any_element(),
-                Entry::Item(action) => {
-                    let id = ElementId::NamedChild(
-                        std::sync::Arc::new(self.id.clone()),
-                        SharedString::from(format!("item-{ix}")),
-                    );
-                    let hover = highlight.clone();
-                    let runner = run.clone();
-                    let run_action = action.run.clone();
-                    MenuItem::new(id, action.label)
-                        .when_some(action.icon, MenuItem::icon)
-                        .when_some(action.shortcut, MenuItem::shortcut)
-                        .disabled(action.disabled)
-                        .destructive(action.destructive)
-                        .highlighted(current == Some(ix))
-                        .on_hover(move |hovered, _, cx| {
-                            hover.update(cx, |at, cx| {
-                                if *hovered {
-                                    *at = Some(ix);
-                                } else if *at == Some(ix) {
-                                    *at = None;
-                                }
-                                cx.notify();
-                            })
-                        })
-                        .on_click(move |_, window, cx| runner(&run_action, window, cx))
-                        .into_any_element()
-                }
-            })
-            .collect();
+        // A label or a separator starts a new section: the fill fades across
+        // it instead of sliding through.
+        let mut section = 0;
+        let mut rows: Vec<AnyElement> = vec![hover.highlight()];
+        rows.extend(
+            self.entries
+                .into_iter()
+                .enumerate()
+                .map(|(ix, entry)| match entry {
+                    Entry::Label(label) => {
+                        section += 1;
+                        MenuLabel::new(label).into_any_element()
+                    }
+                    Entry::Separator => {
+                        section += 1;
+                        MenuSeparator.into_any_element()
+                    }
+                    Entry::Item(action) => {
+                        let id = ElementId::NamedChild(
+                            std::sync::Arc::new(self.id.clone()),
+                            SharedString::from(format!("item-{ix}")),
+                        );
+                        let runner = run.clone();
+                        let run_action = action.run.clone();
+                        let kind = if action.disabled || action.destructive {
+                            ItemKind::skip()
+                        } else {
+                            ItemKind::target()
+                        }
+                        .section(section);
+                        let item = MenuItem::new(id, action.label)
+                            .when_some(action.icon, MenuItem::icon)
+                            .when_some(action.shortcut, MenuItem::shortcut)
+                            .disabled(action.disabled)
+                            .destructive(action.destructive)
+                            .highlighted(hover.lit(cx) == Some(ix))
+                            .fluid()
+                            .on_click(move |_, window, cx| runner(&run_action, window, cx));
+                        hover.item_as(ix, kind, item)
+                    }
+                }),
+        );
 
         let keys = {
             let highlight = highlight.clone();
+            let hover = hover.clone();
             move |event: &KeyDownEvent, window: &mut Window, cx: &mut App| {
-                let at = *highlight.read(cx);
+                // The keys go on from the row the pointer lit, as a menu's
+                // roving highlight does in the app.
+                let at = hover.lit(cx);
                 let step = match event.keystroke.key.as_str() {
                     "down" => Step::Next,
                     "up" => Step::Previous,
@@ -236,8 +257,10 @@ impl RenderOnce for Menu {
                     _ => return,
                 };
                 cx.stop_propagation();
-                highlight.update(cx, |at, cx| {
-                    *at = step_highlight(&enabled, *at, step);
+                let next = step_highlight(&enabled, at, step);
+                hover.key_to(next, cx);
+                highlight.update(cx, |current, cx| {
+                    *current = next;
                     cx.notify();
                 });
             }

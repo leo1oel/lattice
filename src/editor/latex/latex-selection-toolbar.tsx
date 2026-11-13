@@ -18,6 +18,7 @@ import { Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { msg } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import type { MessageDescriptor } from "@lingui/core";
+import { comboText, type KeyCombo } from "../../app/key-combos";
 import { useExitPicture } from "../../components/ui/exit-picture";
 import { popupMotionClassName } from "../../components/ui/popup-motion";
 import { Tip } from "../../components/icon-tip";
@@ -59,14 +60,14 @@ export type LatexSelectionToolbarPosition = {
   bounds?: { left: number; right: number };
 };
 
-const actions: { action: LatexSelectionAction; label: MessageDescriptor; icon: typeof Bold; separated?: boolean; shortcut?: string }[] = [
+const actions: { action: LatexSelectionAction; label: MessageDescriptor; icon: typeof Bold; separated?: boolean; shortcut?: KeyCombo }[] = [
   { action: "bold", label: msg`Bold`, icon: Bold },
   { action: "italic", label: msg`Italic`, icon: Italic },
   { action: "underline", label: msg`Underline`, icon: Underline },
   { action: "strikethrough", label: msg`Strikethrough`, icon: Strikethrough },
   { action: "quote", label: msg`Quote`, icon: Quote },
   { action: "comment", label: msg`Annotate`, icon: MessageSquareText, separated: true },
-  { action: "proofread", label: msg`Proofread`, icon: SpellCheck, shortcut: "⌘⌥P" },
+  { action: "proofread", label: msg`Proofread`, icon: SpellCheck, shortcut: { key: "p", mod: true, alt: true } },
   { action: "polish", label: msg`Polish`, icon: WandSparkles },
 ];
 
@@ -195,7 +196,7 @@ function SelectionTools(props: ToolsProps) {
         const label = i18n._(descriptor);
         return (
           <span key={action} className={separated && index > 0 ? "latex-selection-tool separated" : "latex-selection-tool"}>
-            <Tip label={shortcut ? <>{label} <kbd>{shortcut}</kbd></> : label} side="top">
+            <Tip label={shortcut ? <>{label} <kbd>{comboText(shortcut)}</kbd></> : label} side="top">
               <button type="button" aria-label={label} aria-pressed={pressed(action)} onClick={() => onAction(action)}>
                 <Icon size={14} strokeWidth={1.8} />
               </button>
