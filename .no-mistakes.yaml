@@ -4,22 +4,25 @@
 # `commands` and `test.instructions` are read only from the default branch, so
 # edits here take effect for pipeline runs once they land on main.
 #
-# The test step must never launch the Lattice desktop app: a desktop build runs
-# with the user's real home directory and files. Validation stays on the
-# frontend's own suites and the Vite frontend against a mocked backend.
+# The test step must never launch the installed or release Lattice desktop app
+# or the Tauri host: a desktop build runs with the user's real home directory
+# and files. Validation stays on the frontend's own suites, the Vite frontend
+# against a mocked backend, and the locally built GPUI binary on a scratch
+# fixture with a scratch HOME.
 
 commands:
   # Run worktrees start with tracked files only, so node_modules is absent.
   prepare: "pnpm install --frozen-lockfile"
-  # The scoped gate, not the full suite: CI runs the full Vitest suite sharded
-  # (about 7 minutes) and must be green before any merge, so repeating it here
-  # cost 19-29 minutes a run for no new signal. `pnpm gate:changed` runs lint
+  # The scoped gate, not the full suite: the whole Vitest suite cost 19-29
+  # minutes a run here for little new signal, and `pnpm signoff` (the pull
+  # request's check now that pull requests run no GitHub Actions) covers the
+  # Rust and GPUI stages. `pnpm gate:changed` runs lint
   # with the warning cap, knip, typecheck, i18n, notices and rustfmt when their
   # inputs changed, and `vitest related` plus the invariant tests, against the
   # merge base with origin/main. The fetch keeps that base current so the
   # scope is the branch's own diff; offline it falls back to the local ref.
-  # cargo test stays with CI: it needs the runtime resource stubs and a cold
-  # Tauri compile per run worktree.
+  # cargo test stays with `pnpm signoff`: it needs the runtime resource stubs
+  # and a cold Tauri compile per run worktree.
   test: "(git fetch --quiet origin main || true) && pnpm gate:changed"
   # gate:changed already runs `pnpm lint` in full; this keeps the lint step
   # to the one cheap check of its own rather than a second oxlint pass.
@@ -27,16 +30,19 @@ commands:
 
 test:
   instructions: |
-    Never launch the Lattice desktop app. That means never running
-    `pnpm tauri dev`, `pnpm tauri build`, `cargo run`, any bundled Lattice.app,
-    or the Rust host binary (`research-writer`, including
-    `research-writer --browser-host`), and never driving a real-app session
-    (including Playwright WebKit or CDP attached to a running Lattice host).
-    A desktop build reaches the user's real home directory and files.
+    Never launch the installed or release Lattice desktop app or the Tauri
+    host. That means never running `pnpm tauri dev`, `pnpm tauri build`,
+    `cargo run` in src-tauri/, any bundled Lattice.app, or the Rust host binary
+    (`research-writer`, including `research-writer --browser-host`), and never
+    driving a real-app session (including Playwright WebKit or CDP attached to
+    a running Lattice host). A desktop build reaches the user's real home
+    directory and files. The locally built GPUI binary
+    (`gpui/target/release/lattice-gpui`) and its offscreen `e2e` scenario may
+    run, on a scratch copy of `gpui/fixtures/e2e` with a scratch HOME
+    (`gpui/script/e2e` does both).
 
     The configured test command is the scoped gate (`pnpm gate:changed`), not
-    the full suite: CI runs every test and must pass before merge, so do not
-    run `pnpm test` or the whole Vitest suite here.
+    the full suite: do not run `pnpm test` or the whole Vitest suite here.
 
     Verify changes only with:
     - the configured test and lint commands;

@@ -28,8 +28,8 @@ name: Linux AppImage
 # and latest.json has no Linux entry. Linux users download each
 # release by hand.
 #
-# A pull request that changes this packaging, or a run by hand, runs the same
-# build and checks with the open-licensed fonts and no baked-in keys, and
+# A run by hand (Actions > Run workflow, the way to prove a change to this
+# packaging; pull requests no longer run it) runs the same build and checks with the open-licensed fonts and no baked-in keys, and
 # publishes nothing.
 #
 # The AppImage build and the smoke script started from Stefan Bringuier's
@@ -38,16 +38,6 @@ on:
   workflow_run:
     workflows: [Release]
     types: [completed]
-  pull_request:
-    paths:
-      - ".github/workflows/linux-appimage.yml"
-      - ".github/scripts/smoke-appimage.sh"
-      - ".github/scripts/unbundle-wayland-client.sh"
-      - ".github/scripts/apt-install.sh"
-      - ".github/scripts/ubuntu-mirrors.sh"
-      - "scripts/linux-e2e.mjs"
-      - "scripts/check-font-leaks.mjs"
-      - "scripts/lib/runtime-prune.mjs"
   workflow_dispatch:
 
 permissions:

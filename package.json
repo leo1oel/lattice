@@ -24,6 +24,7 @@
     "test": "vitest run",
     "test:invariants": "node scripts/test-invariants.mjs",
     "gate:changed": "node scripts/gate-changed.mjs",
+    "signoff": "node scripts/signoff.mjs",
     "test:e2e-harness": "LATTICE_E2E=1 vitest run scripts/perf-bench/smoke.test.mjs",
     "tauri": "tauri",
     "build:beta": "LATTICE_FLAVOR=beta tauri build --config src-tauri/tauri.beta.conf.json",

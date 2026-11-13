@@ -1,17 +1,30 @@
 name: CI
 
+# Pull requests and pushes to main do not run this workflow: the local
+# signoff (`pnpm signoff`, docs/agent-validation.md) checks a change on the
+# author's machine and records a `signoff` commit status on its head instead.
+# It runs in full for a release tag, on demand (Actions > CI > Run workflow,
+# or `gh workflow run ci.yml --ref <branch>`), and weekly on main. The weekly
+# run is what keeps the Rust caches warm: Actions evicts a cache untouched for
+# 7 days, and a cache written from a tag is visible only to that tag, so only
+# runs on main can leave one the next release restores.
+#
+# A pull request also runs the workflow files of its own merge commit, so the
+# change that removed the pull_request trigger did not run this either.
 on:
   push:
-    branches: [main]
-  pull_request:
+    tags: ["v*"]
+  schedule:
+    # Monday 06:23 UTC, away from the top of the hour, when scheduled runs
+    # queue, and after release-cache.yml's 05:00 warm.
+    - cron: "23 6 * * 1"
+  workflow_dispatch:
 
-# A push to a pull request makes the run for its previous head moot, so that
-# run is cancelled instead of holding runners — macOS ones especially, which
-# GitHub caps at five at a time per account — for a result nobody reads. Each
-# push to main keeps its run: there the group is the commit.
+# A second run for the same commit (a dispatch while the tag run is still
+# going) is moot, so it cancels nothing but queues behind the first.
 concurrency:
   group: ci-${{ github.event.pull_request.number || github.sha }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: false
 
 # The work is split so the wall clock is the slowest single job rather than the
 # sum of every check. Vitest deliberately uses one worker per process to keep
@@ -149,8 +162,9 @@ jobs:
           restore-keys: vitest-fs-${{ matrix.shard }}-${{ hashFiles('pnpm-lock.yaml') }}-
       - if: env.CODE == 'true'
         run: pnpm vitest run --shard=${{ matrix.shard }}/3
-      # Like the Rust cache below: only main writes, pull requests read.
-      - if: env.CODE == 'true' && github.ref == 'refs/heads/main'
+      # Like the Rust cache below: only main writes (tags read), and a failed
+      # test does not stop the save, since the transforms are still valid.
+      - if: ${{ !cancelled() && env.CODE == 'true' && github.ref == 'refs/heads/main' }}
         uses: actions/cache/save@v5
         with:
           path: node_modules/.experimental-vitest-cache
@@ -414,10 +428,13 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-          # Writing the cache costs ~25s on every run. Only the main branch can
-          # produce a cache that later runs reuse, so pull requests read it and
-          # skip the upload.
+          # Only a run on main (the weekly schedule, or a dispatch there)
+          # leaves a cache the next tag can restore. It is written even when
+          # a test or clippy fails: what it holds is compiled dependencies,
+          # which a red test does not make wrong, and saving only from green
+          # runs left every run cold for as long as main stayed red.
           save-if: ${{ github.ref == 'refs/heads/main' }}
+          cache-on-failure: true
       # Cargo compiles Tauri's resource manifest, but these tests never launch
       # the bundled Synara runtime. The release workflow prepares the real
       # pinned resources before packaging.
@@ -461,6 +478,7 @@ jobs:
         with:
           workspaces: src-tauri
           save-if: ${{ github.ref == 'refs/heads/main' }}
+          cache-on-failure: true
       - name: Stub bundled runtime resources for compilation
         run: |
           mkdir -p src-tauri/synara-runtime
@@ -486,6 +504,7 @@ jobs:
         with:
           workspaces: src-tauri
           save-if: ${{ github.ref == 'refs/heads/main' }}
+          cache-on-failure: true
       - name: Stub bundled runtime resources for compilation
         shell: pwsh
         run: |

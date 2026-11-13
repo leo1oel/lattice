@@ -5,9 +5,11 @@ interrupted session, reads evidence, and reviews. Reached from `CLAUDE.md`.
 
 ## Prove the change
 
-An ordinary fix ships as a pull request, and CI (`.github/workflows/ci.yml`,
-which runs on every pull request) is its full suite. Locally, run only what
-directly proves your change, once:
+An ordinary fix ships as a pull request, and pull requests do not run GitHub
+Actions: `ci.yml` and `gpui.yml` run for a release tag, weekly on main, and by
+hand (`gh workflow run ci.yml --ref <branch>`). A pull request is checked on
+your machine by `pnpm signoff` instead (below). While iterating, run only what
+directly proves your change:
 
 - the test file you added or changed: `pnpm vitest run <file>`;
 - a new lint rule against a fixture that should trip it;
@@ -20,9 +22,30 @@ typecheck, the i18n catalogs, and, when their inputs changed, `perf:evidence`,
 `notices:check` and `cargo fmt --check`; then the tests `vitest related` finds
 from your changed files, and `pnpm test:invariants`, the tests that read
 stylesheets and fixtures, or run scripts, no import leads to. Do not assemble
-your own list of test files; CI runs everything else. The no-mistakes
-pipeline's test step runs this same gate (`.no-mistakes.yaml`), leaving the
-full suite to CI.
+your own list of test files. The no-mistakes pipeline's test step runs this
+same gate (`.no-mistakes.yaml`).
+
+Then, with the change committed and pushed, run `pnpm signoff` (or
+`mise run signoff`) once on the pull request's head. It runs the same stages
+plus, each only when your branch changed its inputs: the production bundle's
+WebKit check and startup budgets (the eager-JS budget among them), the bench
+harness, the Synara pin check, clippy and `cargo test` for the changed Tauri
+crates, and for `gpui/` (or `lattice-core` and the design-system exports it
+reads) rustfmt, the release build, the unit tests and the `e2e` scenario on a
+scratch fixture with a scratch `HOME` (`gpui/script/e2e`). Expect about 5–10
+minutes without GPUI; a GPUI release build adds its own, and only one runs on
+the machine at a time. When every stage passes and the tree is clean, it
+records a green `signoff` commit status on that exact commit through
+[gh-signoff](https://github.com/basecamp/gh-signoff)
+(`gh extension install basecamp/gh-signoff`; without it, the same status
+through `gh api`). A new push needs a new signoff. `--no-status` runs the
+checks without recording anything, and `--gpui` forces the GPUI stages.
+
+The no-launch rule is about the installed or release Lattice app and the
+Tauri host: never run those. The locally built GPUI binary
+(`gpui/target/release/lattice-gpui`) and its offscreen `e2e` scenario may run,
+on a scratch copy of `gpui/fixtures/e2e` with a scratch `HOME`, which is what
+`pnpm signoff` does.
 
 The full local gate, `pnpm check` (stages and CI parity in
 [`architecture.md` §6](architecture.md#6-the-gate)), belongs to an official
@@ -50,8 +73,8 @@ the same way. Otherwise:
    `.tmp/<task>/` and print bounded excerpts (`grep -n -m 20`, `sed -n`).
 2. Name the hypothesis that error supports and the evidence that would
    disconfirm it.
-3. Re-run only the failing test or command until it passes, then push; CI
-   re-runs the rest.
+3. Re-run only the failing test or command until it passes, then push and run
+   `pnpm signoff` again for the rest.
 
 A local `pnpm perf:bench --check` red is not yet a finding: the ceilings were
 set on CI runners, and a laptop running other lanes' builds can measure a count
