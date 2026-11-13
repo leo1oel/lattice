@@ -577,9 +577,21 @@ impl Shell {
         self.build_target = None;
         self.close_root_pdfs(window, cx);
         // The documents' panels go with the project they were of.
+        let gone: Vec<_> = self
+            .views
+            .borrow()
+            .iter()
+            .filter(|(id, _)| !views::SINGLETONS.contains(&id.as_str()))
+            .map(|(_, panel)| panel.clone())
+            .collect();
         self.views
             .borrow_mut()
             .retain(|id, _| views::SINGLETONS.contains(&id.as_str()));
+        self.view_focus
+            .retain(|id, _| views::SINGLETONS.contains(&id.as_str()));
+        for panel in gone {
+            panel.on_removed(window, cx);
+        }
         self.reset_undo = None;
         self.live_document = project.read(cx).main_document().map(str::to_string);
         self.refresh_outline(window, cx);

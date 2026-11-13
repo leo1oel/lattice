@@ -565,12 +565,19 @@ pub fn insert_at_seam(
                     ..split.clone()
                 });
             }
+            let holds = |child: &LayoutNode, ids: &dyn Fn(&String) -> bool| {
+                leaf_ids(Some(child)).iter().any(ids)
+            };
+            let members: Vec<usize> = (0..split.children.len())
+                .filter(|&i| holds(&split.children[i], &|id| surviving.contains(id)))
+                .collect();
             if split.axis == seam.axis {
-                let index = split.children.iter().position(|child| {
-                    leaf_ids(Some(child))
-                        .iter()
-                        .any(|id| !seam.before.contains(id))
-                });
+                let at = (0..split.children.len())
+                    .rev()
+                    .find(|&i| holds(&split.children[i], &|id| seam.before.contains(id)))
+                    .map(|i| i + 1)
+                    .or(members.first().copied())
+                    .unwrap_or(split.children.len());
                 let mut children = split.children.clone();
                 let total = sum(&split.weights);
                 let share = 1. / (children.len() + 1) as f64;
@@ -579,7 +586,6 @@ pub fn insert_at_seam(
                     .iter()
                     .map(|w| w / total * (1. - share))
                     .collect();
-                let at = index.unwrap_or(split.children.len());
                 children.insert(at, incoming.clone());
                 weights.insert(at, share);
                 return LayoutNode::Split(SplitNode {
@@ -588,15 +594,56 @@ pub fn insert_at_seam(
                     ..split.clone()
                 });
             }
+            if let (Some(&first), Some(&last)) = (members.first(), members.last())
+                && last - first + 1 == members.len()
+                && members.len() < split.children.len()
+            {
+                let range_weight = sum(&split.weights[first..=last]);
+                let range = LayoutNode::Split(SplitNode {
+                    id: format!("{split_id}-range"),
+                    axis: split.axis,
+                    children: split.children[first..=last].to_vec(),
+                    weights: split.weights[first..=last]
+                        .iter()
+                        .map(|w| w / range_weight)
+                        .collect(),
+                });
+                let placed = insert_beside(
+                    Some(&range),
+                    range.id(),
+                    incoming,
+                    seam_edge(seam, surviving),
+                    split_id,
+                    None,
+                );
+                let mut children = split.children.clone();
+                children.splice(first..=last, [placed]);
+                let mut weights = split.weights.clone();
+                weights.splice(first..=last, [range_weight]);
+                return LayoutNode::Split(SplitNode {
+                    children,
+                    weights,
+                    ..split.clone()
+                });
+            }
         }
+        insert_beside(
+            Some(node),
+            node.id(),
+            incoming,
+            seam_edge(seam, surviving),
+            split_id,
+            None,
+        )
+    }
+    fn seam_edge(seam: &SplitSeam, surviving: &HashSet<String>) -> Edge {
         let before = !surviving.iter().any(|id| seam.before.contains(id));
-        let edge = match (seam.axis, before) {
+        match (seam.axis, before) {
             (Axis::X, true) => Edge::Left,
             (Axis::X, false) => Edge::Right,
             (Axis::Y, true) => Edge::Top,
             (Axis::Y, false) => Edge::Bottom,
-        };
-        insert_beside(Some(node), node.id(), incoming, edge, split_id, None)
+        }
     }
     normalize(insert(
         root, seam, incoming, split_id, &surviving, &holds_all,

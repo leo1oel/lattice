@@ -102,7 +102,7 @@ impl Engine {
                     return None;
                 }
                 let mut lines = Vec::new();
-                self.group_outline(&e.node, e.rect, 0, outline, &mut lines);
+                self.group_outline(&e.node, r, 0, outline, &mut lines);
                 Some(GroupFrame {
                     id: id.clone(),
                     rect: r,
@@ -113,7 +113,8 @@ impl Engine {
             .collect()
     }
 
-    /// Lines for a collapsed group's splits, `depth` levels deep.
+    /// Lines for a collapsed group's splits, `depth` levels deep, as
+    /// fractions of `bounds` (the group as drawn, in screen px).
     pub(super) fn group_outline(
         &self,
         node: &LayoutNode,
@@ -133,11 +134,16 @@ impl Engine {
                 if level >= depth {
                     return;
                 }
-                let Some(r) = self.entries.get(&split.id).map(|e| e.rect) else {
+                let Some(r) = self
+                    .entries
+                    .get(&split.id)
+                    .map(|e| self.panel_screen(e.rect))
+                else {
                     return;
                 };
                 for child in &split.children[1..] {
-                    let Some(c) = self.entries.get(child.id()).map(|e| e.rect) else {
+                    let Some(c) = self.entries.get(child.id()).map(|e| self.to_screen(e.rect))
+                    else {
                         continue;
                     };
                     if split.axis == Axis::X {

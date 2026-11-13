@@ -692,8 +692,8 @@ impl Engine {
     pub(crate) fn with_metrics<R>(&self, f: impl FnOnce(&LayoutMetrics) -> R) -> R {
         let min = |node: &LayoutNode, axis| self.content_min(node, axis) + self.gap();
         let metrics = LayoutMetrics {
-            width: self.viewport.0 - self.pad() * 2.,
-            height: self.viewport.1 - self.pad() * 2.,
+            width: (self.viewport.0 - self.pad() * 2.).max(1.),
+            height: (self.viewport.1 - self.pad() * 2.).max(1.),
             min: &min,
         };
         f(&metrics)

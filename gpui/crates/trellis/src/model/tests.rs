@@ -656,3 +656,66 @@ fn layout_shape(node: Option<&LayoutNode>) -> serde_json::Value {
         }),
     }
 }
+
+/// A row [a, b, c, d] with the range [b, c] framed, as the camera's targets
+/// list it, and X dropped on that frame's band.
+fn drop_on_framed_range(edge_point: Point) -> LayoutNode {
+    let leaf = |id: &str| LayoutNode::Panel(panel(id, &[id]));
+    let row = LayoutNode::Split(SplitNode {
+        id: "row".into(),
+        axis: Axis::X,
+        weights: vec![0.25; 4],
+        children: vec![leaf("a"), leaf("b"), leaf("c"), leaf("d")],
+    });
+    let range = LayoutNode::Split(SplitNode {
+        id: range_id("row", &["b".into(), "c".into()]),
+        axis: Axis::X,
+        weights: vec![0.5, 0.5],
+        children: vec![leaf("b"), leaf("c")],
+    });
+    // The framed range fills a 1000 × 600 viewport; a 12px band.
+    let target = frame_drop_target(&range, edge_point, 1000., 600., 12.).expect("on the band");
+    apply_dock_target(Some(&row), &target, &leaf("x"), "split-new")
+}
+
+fn child_ids(node: &LayoutNode) -> Vec<String> {
+    node.as_split()
+        .unwrap()
+        .children
+        .iter()
+        .map(|c| c.id().to_string())
+        .collect()
+}
+
+#[test]
+fn a_drop_on_a_framed_ranges_side_band_lands_beside_the_range() {
+    let right = drop_on_framed_range(Point::new(995., 300.));
+    assert_eq!(child_ids(&right), ["a", "b", "c", "x", "d"]);
+    let left = drop_on_framed_range(Point::new(5., 300.));
+    assert_eq!(child_ids(&left), ["a", "x", "b", "c", "d"]);
+    // The newcomer takes an equal fifth; the rest keep their proportions.
+    let weights = &right.as_split().unwrap().weights;
+    let total: f64 = weights.iter().sum();
+    assert!((weights[3] / total - 0.2).abs() < 1e-9);
+    assert!((weights[0] / total - 0.2).abs() < 1e-9);
+}
+
+#[test]
+fn a_drop_on_a_framed_ranges_bottom_band_goes_under_the_range_only() {
+    let root = drop_on_framed_range(Point::new(500., 595.));
+    // a and d stay where they were; b and c, with x under them, share the
+    // half of the row the range had.
+    assert_eq!(root.as_split().unwrap().children.len(), 3);
+    let row = root.as_split().unwrap();
+    assert_eq!(row.children[0].id(), "a");
+    assert_eq!(row.children[2].id(), "d");
+    assert!((row.weights[1] / row.weights.iter().sum::<f64>() - 0.5).abs() < 1e-9);
+    let column = row.children[1].as_split().unwrap();
+    assert_eq!(column.axis, Axis::Y);
+    assert_eq!(column.children[1].id(), "x");
+    let pair = column.children[0].as_split().unwrap();
+    assert_eq!(
+        (pair.axis, child_ids(&column.children[0])),
+        (Axis::X, vec!["b".to_string(), "c".to_string()])
+    );
+}

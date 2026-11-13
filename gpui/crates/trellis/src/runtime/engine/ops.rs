@@ -448,6 +448,15 @@ impl Engine {
         true
     }
 
+    /// Close several views as one change (the menu's Close others).
+    pub fn close_all(&mut self, view_ids: &[String]) {
+        let next = view_ids
+            .iter()
+            .filter(|id| self.doc.views.contains_key(*id))
+            .fold(self.doc.clone(), |doc, id| close_view(&doc, id));
+        self.commit(next, true, None);
+    }
+
     fn resolve_panel(&self, id: &str) -> Option<PanelNode> {
         locate_panel(&self.doc, id)
             .map(|l| l.panel().clone())

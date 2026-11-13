@@ -327,6 +327,7 @@ impl Skin for LatticeSkin {
                     .flex()
                     .flex_none()
                     .items_center()
+                    .gap(strip::SPARE_GAP)
                     .children(spare)
                     .child(tools)
                     .into_any_element()
@@ -403,7 +404,9 @@ impl Skin for LatticeSkin {
             + self
                 .spare(&input.panel.selected, cx)
                 .filter(|_| tools > 0.)
-                .map_or(0., |spare| f64::from(f32::from((spare.width)(window, cx))));
+                .map_or(0., |spare| {
+                    f64::from(f32::from((spare.width)(window, cx) + strip::SPARE_GAP))
+                });
         let items = input
             .tabs
             .iter()

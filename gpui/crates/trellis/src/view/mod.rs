@@ -127,11 +127,7 @@ impl TrellisWorkspace {
 
     /// Close views after their guards allowed it.
     pub fn close(&mut self, views: &[String], cx: &mut Context<Self>) {
-        self.update_engine(cx, |engine| {
-            for view in views {
-                engine.close(view);
-            }
-        });
+        self.update_engine(cx, |engine| engine.close_all(views));
     }
 
     /// Run one of the workspace's commands on the focused panel.
@@ -143,6 +139,8 @@ impl TrellisWorkspace {
     pub(crate) fn key_outcome(&mut self, outcome: KeyOutcome, cx: &mut Context<Self>) {
         match outcome {
             KeyOutcome::Handled => {}
+            // The strip's tabs take no keyboard focus of their own, so a
+            // tab asked for gives the keyboard to its view's content.
             KeyOutcome::FocusTab(view) | KeyOutcome::FocusContent(view) => {
                 cx.emit(WorkspaceEvent::FocusContent(view));
             }

@@ -11,6 +11,13 @@ use super::{Shell, commands::*, trellis_layout::Preset, windows, workspaces::Wor
 impl Shell {
     /// One of the workspace's own commands, on the focused panel.
     pub(crate) fn run_trellis(&mut self, command: Trellis, cx: &mut Context<Self>) {
+        if self.workspace.read(cx).engine().focused_panel().is_none()
+            && let Some(view) = self
+                .active_document(cx)
+                .and_then(|key| self.view_of_document(&key, cx))
+        {
+            self.engine_do(cx, |engine| engine.focus_view(&view));
+        }
         self.workspace
             .update(cx, |workspace, cx| workspace.run(command, cx));
         cx.notify();

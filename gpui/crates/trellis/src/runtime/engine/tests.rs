@@ -741,3 +741,31 @@ fn an_animated_document_change_draws_every_panel_on_its_first_frame() {
         assert!(rig.engine.panel_rect(id).is_some(), "{id} has no rect");
     }
 }
+
+#[test]
+fn closing_several_views_at_once_is_one_change() {
+    let mut rig = Rig::with(three_documents());
+    rig.engine.drain_events();
+    rig.engine.close_all(&["a".into(), "c".into()]);
+    let events: Vec<Event> = rig
+        .engine
+        .drain_events()
+        .into_iter()
+        .filter(|e| matches!(e, Event::Close(_) | Event::Open(_) | Event::Change))
+        .collect();
+    assert_eq!(
+        events,
+        [
+            Event::Close("a".into()),
+            Event::Close("c".into()),
+            Event::Change
+        ]
+    );
+    assert_eq!(
+        locate_panel(rig.engine.doc(), "docs")
+            .unwrap()
+            .panel()
+            .views,
+        ["b"]
+    );
+}

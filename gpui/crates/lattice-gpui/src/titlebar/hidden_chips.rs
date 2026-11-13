@@ -8,6 +8,7 @@ use gpui::{
     AnyElement, Context, InteractiveElement as _, IntoElement, ParentElement as _,
     StatefulInteractiveElement as _, Styled as _, div, px,
 };
+use lattice_i18n::{space_mixed_script, t};
 use lattice_ui::{ActiveLattice as _, TextRole, TextRoleStyle as _, components::LatticeTooltip};
 
 use crate::shell::Shell;
@@ -22,7 +23,7 @@ pub(super) fn hidden_chips(shell: &Shell, cx: &mut Context<Shell>) -> Option<Any
     }
     let palette = cx.palette().clone();
     let chips = hidden.into_iter().enumerate().map(|(ix, (panel, title))| {
-        let tooltip: gpui::SharedString = format!("Restore {title}").into();
+        let tooltip: gpui::SharedString = space_mixed_script(&t!("Restore {0}", title)).into();
         div()
             .id(("hidden-chip", ix))
             .flex()

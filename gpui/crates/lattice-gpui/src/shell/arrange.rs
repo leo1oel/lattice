@@ -6,7 +6,7 @@
 //! (`close-document-tab.ts`, `keepDocumentSlot`).
 
 use gpui::{App, Context, Entity, Focusable as _, Window};
-use trellis::model::{Edge, LayoutDocument, Placement};
+use trellis::model::{Edge, LayoutDocument, Placement, close_view};
 use trellis::runtime::engine::{OpenOptions, ViewPlacement};
 use trellis::{TrellisWorkspace, WorkspaceEvent};
 
@@ -137,6 +137,7 @@ impl Shell {
                 }
             }
         }
+        self.last_document = close_view(&self.last_document, view);
         self.sync_views(window, cx);
         self.forget_closed_pdfs(cx);
         if had_focus || window.focused(cx).is_none() {
