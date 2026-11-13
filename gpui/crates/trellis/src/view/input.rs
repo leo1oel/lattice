@@ -29,6 +29,9 @@ impl TrellisWorkspace {
         _: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if !self.topmost(panel, event.position) {
+            return;
+        }
         let selected = self.engine.doc().clone();
         let selected =
             crate::model::locate_panel(&selected, panel).map(|l| l.panel().selected.clone());
@@ -61,7 +64,7 @@ impl TrellisWorkspace {
         _: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if self.held.is_some() {
+        if self.held.is_some() || !self.topmost(panel, event.position) {
             return;
         }
         let p = self.local(event.position);
@@ -244,20 +247,34 @@ impl TrellisWorkspace {
             })
     }
 
-    /// Whether a point (workspace px) is over a view's content.
-    fn over_content(&self, p: crate::model::Point) -> Option<String> {
+    /// The panel drawn on top at a point (workspace px).
+    fn panel_at(
+        &self,
+        p: crate::model::Point,
+    ) -> Option<&crate::runtime::engine::frame::PanelFrame> {
         self.frame
             .panels
             .iter()
             .rev()
             .find(|panel| panel.rect.contains(p))
-            .and_then(|panel| {
-                panel
-                    .surfaces
-                    .iter()
-                    .find(|s| s.shown && s.body.contains(p))
-                    .map(|s| s.view_id.clone())
-            })
+    }
+
+    /// Whether `panel` is the one on top under a window position: panels
+    /// beneath a float never take its presses.
+    fn topmost(&self, panel: &str, position: gpui::Point<gpui::Pixels>) -> bool {
+        self.panel_at(self.local(position))
+            .is_some_and(|top| top.id == panel)
+    }
+
+    /// Whether a point (workspace px) is over a view's content.
+    fn over_content(&self, p: crate::model::Point) -> Option<String> {
+        self.panel_at(p).and_then(|panel| {
+            panel
+                .surfaces
+                .iter()
+                .find(|s| s.shown && s.body.contains(p))
+                .map(|s| s.view_id.clone())
+        })
     }
 
     fn wheel(&mut self, event: &ScrollEvent, cx: &mut Context<Self>) {
