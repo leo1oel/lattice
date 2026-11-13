@@ -279,6 +279,11 @@ impl Shell {
         })
         .detach();
         crate::window_material::apply(window, cx);
+        // The stored size from the first frame, as the PDF window takes it:
+        // a window that opens without becoming key (behind another, or on a
+        // locked screen) would otherwise lay out at 100% until activated.
+        crate::interface_zoom::apply(window, cx);
+        crate::interface_zoom::align_traffic_lights(window, cx);
         cx.subscribe_in(&file_tree, window, Self::on_tree_event)
             .detach();
         cx.subscribe_in(
