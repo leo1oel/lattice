@@ -146,7 +146,7 @@ function extraStages(files, mergeBase, options) {
           name: "bundle",
           why: "production build, WebKit compatibility and the startup budgets",
           command: "sh",
-          args: ["-c", "pnpm exec vite build && node scripts/check-webkit-compat.mjs && node scripts/app-size-report.mjs --check && pnpm size:test"],
+          args: ["-c", "pnpm exec vite build --logLevel warn && node scripts/check-webkit-compat.mjs && node scripts/app-size-report.mjs --check && pnpm size:test"],
           timeout: 600_000,
         }
       : { name: "bundle", skip: "nothing the production bundle reads changed" },
