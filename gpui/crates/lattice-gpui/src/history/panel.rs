@@ -21,7 +21,13 @@
 //! change (the watcher), when the window comes forward, and every 30 s while
 //! the panel is on screen.
 
-use std::{collections::HashSet, path::PathBuf, rc::Rc, time::Duration};
+use std::{
+    collections::HashSet,
+    path::PathBuf,
+    rc::Rc,
+    sync::atomic::{AtomicU64, Ordering},
+    time::Duration,
+};
 
 use gpui::{
     App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, Focusable, ScrollHandle,
@@ -62,6 +68,13 @@ pub const LOG_PAGE: usize = 100;
 const POLL: Duration = Duration::from_secs(30);
 /// How long a burst of file changes settles before the history is read again.
 const SETTLE: Duration = Duration::from_millis(300);
+
+/// A number no other load has had, in any panel or project, so an answer
+/// only ever settles the load that asked for it.
+fn next_load() -> u64 {
+    static NEXT: AtomicU64 = AtomicU64::new(1);
+    NEXT.fetch_add(1, Ordering::Relaxed)
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Phase {
@@ -133,7 +146,7 @@ impl<T> Default for Latest<T> {
 impl<T> Latest<T> {
     /// Start a load of `key`; the returned generation settles it.
     pub fn start(&mut self, key: String) -> u64 {
-        self.generation += 1;
+        self.generation = next_load();
         self.key = Some(key);
         self.value = None;
         self.error.clear();
@@ -146,7 +159,7 @@ impl<T> Latest<T> {
         if self.key.as_deref() != Some(&key) {
             return self.start(key);
         }
-        self.generation += 1;
+        self.generation = next_load();
         self.generation
     }
 
@@ -167,9 +180,8 @@ impl<T> Latest<T> {
     }
 
     pub fn clear(&mut self) {
-        self.generation += 1;
         *self = Self {
-            generation: self.generation,
+            generation: next_load(),
             ..Self::default()
         };
     }
@@ -224,6 +236,7 @@ pub struct HistoryPanel {
     pub(super) open_folds: HashSet<String>,
     pub(super) activity: Vec<HistoryItem>,
     pub(super) activity_error: Option<String>,
+    activity_seq: u64,
     pub(super) entry: Latest<OpenedEntry>,
     pub(super) versions: Versions,
     pub(super) opened: Option<OpenedVersion>,
@@ -233,6 +246,10 @@ pub struct HistoryPanel {
     /// The panel's width at its last paint, for its narrow rules.
     pub(super) width: Rc<std::cell::Cell<gpui::Pixels>>,
     settle: Option<Task<()>>,
+    /// Whether the window shows the panel; the history is read only then.
+    on_screen: Option<Rc<dyn Fn(&App) -> bool>>,
+    /// A read was skipped while the panel was off screen.
+    stale: bool,
     _poll: Task<()>,
 }
 
@@ -273,6 +290,7 @@ impl HistoryPanel {
             open_folds: HashSet::new(),
             activity: Vec::new(),
             activity_error: None,
+            activity_seq: 0,
             entry: Latest::default(),
             versions: Versions::new(),
             opened: None,
@@ -280,6 +298,8 @@ impl HistoryPanel {
             scroll: ScrollHandle::new(),
             width: Rc::new(std::cell::Cell::new(gpui::px(460.))),
             settle: None,
+            on_screen: None,
+            stale: false,
             _poll: poll,
         }
     }
@@ -348,6 +368,31 @@ impl HistoryPanel {
         }));
     }
 
+    /// How the panel learns whether the window shows it.
+    pub fn watch_screen(&mut self, on_screen: impl Fn(&App) -> bool + 'static) {
+        self.on_screen = Some(Rc::new(on_screen));
+    }
+
+    fn shown(&self, cx: &App) -> bool {
+        self.on_screen.as_ref().is_none_or(|on_screen| on_screen(cx))
+    }
+
+    /// Off screen, a read waits until the panel is drawn again.
+    fn defer_while_hidden(&mut self, cx: &App) -> bool {
+        let hidden = !self.shown(cx);
+        self.stale |= hidden;
+        hidden
+    }
+
+    /// Drawn on screen after a read was skipped: read the history now.
+    pub(super) fn catch_up(&mut self, cx: &mut Context<Self>) {
+        if self.stale && self.shown(cx) {
+            self.stale = false;
+            let this = cx.entity();
+            cx.defer(move |cx| this.update(cx, |this, cx| this.reload(cx)));
+        }
+    }
+
     /// Read the activity and the versions again.
     pub fn reload(&mut self, cx: &mut Context<Self>) {
         self.load_activity(cx);
@@ -358,12 +403,20 @@ impl HistoryPanel {
         let Some(root) = self.root.clone() else {
             return;
         };
+        if self.defer_while_hidden(cx) {
+            return;
+        }
+        self.activity_seq = next_load();
+        let seq = self.activity_seq;
         let read = cx
             .background_executor()
             .spawn(async move { lattice_core::project::history(&root) });
         cx.spawn(async move |this, cx| {
             let result = read.await;
             this.update(cx, |this, cx| {
+                if seq != this.activity_seq {
+                    return;
+                }
                 match result {
                     Ok(items) => {
                         this.activity = items;
@@ -383,7 +436,10 @@ impl HistoryPanel {
         let Some(root) = self.root.clone() else {
             return;
         };
-        self.versions.seq += 1;
+        if self.defer_while_hidden(cx) {
+            return;
+        }
+        self.versions.seq = next_load();
         let seq = self.versions.seq;
         let limit = self.versions.limit;
         self.versions.refreshing = true;

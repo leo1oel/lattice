@@ -28,6 +28,7 @@ use super::{
 
 impl Render for HistoryPanel {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        self.catch_up(cx);
         let palette = cx.palette().clone();
         let width = self.width.clone();
         let entity = cx.entity().downgrade();

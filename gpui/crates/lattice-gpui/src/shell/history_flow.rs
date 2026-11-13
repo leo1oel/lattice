@@ -14,7 +14,7 @@
 //! conflicts…", which takes the file in front when it has markers and else
 //! the first file Git names.
 
-use std::collections::BTreeSet;
+use std::{collections::BTreeSet, path::Path};
 
 use gpui::{AppContext as _, Context, Window, actions};
 use lattice_i18n::{join_list, t};
@@ -33,8 +33,11 @@ use crate::{
 
 actions!(lattice, [OpenHistory, ResolveConflicts]);
 
-/// The notice that offers the resolver, replaced as the files change.
-const CONFLICT_NOTICE: &str = "git-conflicts";
+/// The notice that offers the resolver for the project at `root`, replaced
+/// as its files change.
+fn conflict_notice(root: &Path) -> String {
+    format!("git-conflicts:{}", root.display())
+}
 
 impl Shell {
     /// Bring the History panel on screen.
@@ -160,13 +163,15 @@ impl Shell {
 
     /// Offer the resolver once Git leaves a file with markers.
     pub(crate) fn notice_conflicts(&mut self, cx: &mut Context<Self>) {
+        let Some(root) = self.root(cx) else { return };
+        let key = conflict_notice(&root);
         let files: BTreeSet<String> = self.conflicted_files(cx).into_iter().collect();
         if files == self.conflicts_noticed {
             return;
         }
         self.conflicts_noticed = files.clone();
         if files.is_empty() {
-            notices::dismiss(CONFLICT_NOTICE, cx);
+            notices::dismiss(&key, cx);
             return;
         }
         let names: Vec<String> = files.iter().cloned().collect();
@@ -179,7 +184,7 @@ impl Shell {
                 files = join_list(&names)
             ),
         )
-        .key(CONFLICT_NOTICE)
+        .key(key)
         .persistent()
         .action(NoticeAction::new(
             t!("Resolve conflicts…"),
@@ -193,6 +198,15 @@ impl Shell {
             },
         ));
         notices::show(notice, cx);
+    }
+
+    /// Take down the project's conflict notice as the window leaves it.
+    pub(crate) fn drop_conflict_notice(&mut self, cx: &mut Context<Self>) {
+        if let Some(root) = self.root(cx)
+            && !std::mem::take(&mut self.conflicts_noticed).is_empty()
+        {
+            notices::dismiss(&conflict_notice(&root), cx);
+        }
     }
 
     /// "Resolve conflicts…": the file in front when it has markers, else

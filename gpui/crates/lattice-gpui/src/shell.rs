@@ -268,6 +268,14 @@ impl Shell {
         let build_panel = cx.new(BuildPanel::new);
         let card = cx.new(|cx| DiagnosticsCard::new(build_panel.clone(), cx));
         let history = cx.new(|cx| crate::history::HistoryPanel::new(window, cx));
+        let shown_in = workspace.downgrade();
+        history.update(cx, |history, _| {
+            history.watch_screen(move |cx| {
+                shown_in
+                    .upgrade()
+                    .is_some_and(|workspace| arrange::on_screen(workspace.read(cx), "history"))
+            })
+        });
         pdf.update(cx, |pdf, cx| pdf.set_build_output(card.into(), cx));
         let tex_setup = tex_setup::install(cx);
         tex_setup.update(cx, |center, cx| center.check_at_launch(cx));
@@ -586,6 +594,7 @@ impl Shell {
                 None => self.projects.push(open),
             }
         }
+        self.drop_conflict_notice(cx);
         self.project = Some(project.clone());
         // The editors of the project open before go with its arrangement.
         self.editors.clear();
@@ -621,12 +630,12 @@ impl Shell {
         self.refresh_outline(window, cx);
         self.history
             .update(cx, |history, cx| history.set_project(project.clone(), cx));
-        self.conflicts_noticed.clear();
         self._project_git = Some(cx.subscribe(&project, |this, _, event, cx| {
             if matches!(event, crate::project::ProjectEvent::GitChanged) {
                 this.notice_conflicts(cx);
             }
         }));
+        self.notice_conflicts(cx);
         self.file_tree
             .update(cx, |tree, cx| tree.set_project(project, cx));
         self.set_window_title(window, cx);
