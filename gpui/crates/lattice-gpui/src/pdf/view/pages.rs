@@ -409,6 +409,16 @@ impl PdfView {
             .collect()
     }
 
+    /// Device pixels per logical pixel in `page`'s image as last drawn: the
+    /// window's scale factor once the image matches the zoom, unless the
+    /// page is capped at `MAX_PAGE_PIXELS`. For a scenario that checks the
+    /// pages are drawn sharp on a Retina screen.
+    pub fn image_density(&self, page: usize) -> Option<f32> {
+        let key = self.pages.get(page)?.base.key?;
+        let rect = self.layout.page(page)?;
+        (rect.w > 0.).then(|| key.width_px as f32 / rect.w)
+    }
+
     /// Whether every image held is drawn in the pages' colours as they are
     /// now (dark or not), and there is one.
     pub fn images_follow_dark_pages(&self) -> bool {

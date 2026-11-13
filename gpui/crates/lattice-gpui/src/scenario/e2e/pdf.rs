@@ -1137,6 +1137,61 @@ impl Run {
     }
 }
 
+impl Run {
+    /// A second main window on the same project shows its PDF too. Each
+    /// window's viewer goes through the process's one PDFium worker
+    /// (`PdfEngine::global`); pdfium-render binds the library once per
+    /// process, so a viewer that bound its own failed in every window after
+    /// the first. Its first page's image is also checked to hold the
+    /// window's scale factor in device pixels per point shown, so the pages
+    /// are drawn sharp on a Retina screen.
+    pub(super) async fn second_window_pdf(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+        root: &Path,
+    ) -> Result<()> {
+        let opened = cx.update(|cx| crate::shell::Shell::open_window(Some(root.to_path_buf()), cx));
+        let (window, shell) = opened?;
+        let second = Run { shell, window };
+        second.root(cx).await?;
+        let drawn = |shell: &Entity<crate::shell::Shell>, cx: &mut App| {
+            let view = shell.read(cx).pdf().read(cx).live_view().read(cx);
+            view.page_count() > 0 && !view.held_pages().is_empty()
+        };
+        let shown = second.wait_for(cx, Duration::from_secs(30), drawn).await;
+        // Let the image drawn at the zoom the viewer settled on arrive.
+        second.pause(cx, Duration::from_millis(600)).await;
+        let state = second.with_window(cx, |shell, window, cx| {
+            let view = shell.read(cx).pdf().read(cx).live_view().read(cx);
+            (
+                view.page_count(),
+                view.held_pages(),
+                view.image_density(0),
+                window.scale_factor(),
+            )
+        });
+        window
+            .update(cx, |_, window, _| window.remove_window())
+            .ok();
+        let (pages, held, density, scale_factor) = state?;
+        let first = cx.update(|cx| self.shell.read(cx).pdf().read(cx).page_count(cx));
+        let sharp = density.is_some_and(|density| (density - scale_factor).abs() < 0.02);
+        steps.check(
+            "a second window's PDF loads and draws beside the first window's, at the window's scale factor",
+            shown && pages > 0 && first > 0 && sharp,
+            json!({
+                "pages": pages,
+                "held": held,
+                "first_window_pages": first,
+                "density": density,
+                "scale_factor": scale_factor,
+            }),
+        );
+        Ok(())
+    }
+}
+
 /// Where a viewer is and what it was laid out for.
 fn view_state(view: &PdfView) -> Value {
     let visible = view.visible_pages();
