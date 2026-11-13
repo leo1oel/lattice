@@ -234,123 +234,17 @@ pub fn source_label(paper: &PaperSummary) -> Option<String> {
     (!host.is_empty()).then(|| host.to_string())
 }
 
-// Authors.
+// Authors, read by lattice-core as the .bib editor reads them.
 
-struct Author {
-    name: String,
-    surname: String,
-}
-
-/// BibTeX braces protect case and grouping; neither belongs on screen.
-fn unbrace(value: &str) -> String {
-    value
-        .replace(['{', '}'], "")
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
-}
-
-/// "{Gemini Team}": one outer brace group protects the whole name.
-fn is_one_brace_group(value: &str) -> bool {
-    if !value.starts_with('{') {
-        return false;
-    }
-    let mut depth = 0i32;
-    for (index, ch) in value.char_indices() {
-        match ch {
-            '{' => depth += 1,
-            '}' => depth -= 1,
-            _ => {}
-        }
-        if depth == 0 {
-            return index + ch.len_utf8() == value.len();
-        }
-    }
-    false
-}
-
-/// The names in a BibTeX author list; only an "and" outside braces parts two.
-fn split_authors(authors: &str) -> Vec<&str> {
-    static SEPARATOR: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"(?i)[{}]|\s+and\s+").unwrap());
-    let mut parts = Vec::new();
-    let mut depth = 0usize;
-    let mut start = 0;
-    for token in SEPARATOR.find_iter(authors) {
-        match token.as_str() {
-            "{" => depth += 1,
-            "}" => depth = depth.saturating_sub(1),
-            _ if depth == 0 => {
-                parts.push(&authors[start..token.start()]);
-                start = token.end();
-            }
-            _ => {}
-        }
-    }
-    parts.push(&authors[start..]);
-    parts
-}
-
-fn parse_authors(authors: &str) -> (Vec<Author>, bool) {
-    let parts: Vec<&str> = split_authors(authors)
-        .into_iter()
-        .map(str::trim)
-        .filter(|part| !unbrace(part).is_empty())
-        .collect();
-    let others = parts
-        .last()
-        .is_some_and(|last| unbrace(last).to_lowercase() == "others");
-    let people = parts[..parts.len() - usize::from(others)]
-        .iter()
-        .map(|raw| {
-            let part = unbrace(raw);
-            if is_one_brace_group(raw) {
-                return Author {
-                    name: part.clone(),
-                    surname: part,
-                };
-            }
-            let pieces: Vec<&str> = part
-                .split(',')
-                .map(str::trim)
-                .filter(|piece| !piece.is_empty())
-                .collect();
-            if let [last, .., first] = pieces.as_slice() {
-                return Author {
-                    name: format!("{first} {last}"),
-                    surname: last.to_string(),
-                };
-            }
-            let surname = part.rsplit(' ').next().unwrap_or(&part).to_string();
-            Author {
-                name: part,
-                surname,
-            }
-        })
-        .collect();
-    (people, others)
-}
-
-/// "Vaswani", "Vaswani and Shazeer" or "Vaswani et al."; `None` without authors.
+/// "Vaswani", "Vaswani and Shazeer" or "Vaswani et al."; `None` without
+/// authors.
 pub fn short_authors(paper: &PaperSummary) -> Option<String> {
-    let (people, others) = parse_authors(&paper.authors);
-    let first = people.first()?;
-    if people.len() > 2 || others {
-        return Some(format!("{} et al.", first.surname));
-    }
-    Some(match people.get(1) {
-        Some(second) => format!("{} and {}", first.surname, second.surname),
-        None => first.surname.clone(),
-    })
+    lattice_core::bib_document::short_authors(&paper.authors)
 }
 
 /// Every author's name in reading order.
 pub fn author_names(paper: &PaperSummary) -> Vec<String> {
-    parse_authors(&paper.authors)
-        .0
-        .into_iter()
-        .map(|author| author.name)
-        .collect()
+    lattice_core::bib_document::author_names(&paper.authors)
 }
 
 // Citation health.
