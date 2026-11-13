@@ -559,13 +559,8 @@ mod tests {
         let names: Vec<&str> = sections.iter().map(|s| s.name.as_str()).collect();
         assert_eq!(names, ["2021", "2019", "No year"]);
         assert_eq!(sections[1].papers.len(), 2);
-        let states = group(
-            vec![&papers[0], &with(paper("e"), |p| p.has_full_text = true)]
-                .into_iter()
-                .collect(),
-            Group::State,
-            &Facts::default(),
-        );
+        let saved = with(paper("e"), |p| p.has_full_text = true);
+        let states = group(vec![&papers[0], &saved], Group::State, &Facts::default());
         assert_eq!(states[0].name, "Full text");
     }
 

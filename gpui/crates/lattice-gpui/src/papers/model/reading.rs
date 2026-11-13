@@ -91,7 +91,7 @@ mod tests {
             paper_abstract(markdown),
             Some(vec![
                 "We study things.".to_string(),
-                "Second part".to_string()
+                "Second part.".to_string()
             ])
         );
         assert_eq!(paper_abstract("# Title\n\nNo abstract here.\n"), None);
