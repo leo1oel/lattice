@@ -247,6 +247,7 @@ impl Shell {
         if self.root_pdfs.len() != roots {
             self.label_pdfs(cx);
         }
+        self.forget_closed_readers(cx);
     }
 
     /// A tab for `document`'s last PDF, where the live tab stands.
@@ -333,6 +334,7 @@ impl Shell {
             self.dock_area
                 .update(cx, |area, cx| area.remove_panel(panel, window, cx));
         }
+        self.close_readers(window, cx);
     }
 
     /// A PDF of the project, opened from the tree: a tab of its own among

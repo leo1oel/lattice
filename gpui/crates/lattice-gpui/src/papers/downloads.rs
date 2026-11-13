@@ -20,7 +20,6 @@ use lattice_core::papers::{self as core_papers, HistoryMode, PaperSummary};
 use super::{
     FETCHED_LINGER, FetchState, Importing, PapersEvent, PapersPanel, model,
     model::{LineHit, RecentImport, ReferenceKind, paper_key},
-    reading_path,
 };
 use crate::notices;
 
@@ -202,13 +201,14 @@ impl PapersPanel {
             return;
         }
         if model::readable(paper) {
-            let path = match hit {
-                Some(hit) => hit.path.clone(),
-                None => reading_path(paper),
-            };
-            cx.emit(PapersEvent::Open {
-                path,
-                line: hit.map(|hit| hit.line),
+            // A matched line opens the text's source there; the paper
+            // itself opens in its reader.
+            cx.emit(match hit {
+                Some(hit) => PapersEvent::Open {
+                    path: hit.path.clone(),
+                    line: Some(hit.line),
+                },
+                None => PapersEvent::Read(paper.clone()),
             });
         } else if model::can_download(paper) {
             self.fetch(paper.clone(), cx);
@@ -293,11 +293,22 @@ impl PapersPanel {
                     .states
                     .insert(key.clone(), FetchState::Fetched);
                 // The full text when the converter left one, else the overview.
-                let path = Some(fetched.paper_path)
+                let path = Some(fetched.paper_path.clone())
                     .filter(|path| !path.is_empty())
-                    .or(fetched.blog_path);
-                if let Some(path) = path {
-                    cx.emit(PapersEvent::Open { path, line: None });
+                    .or(fetched.blog_path.clone());
+                // The listed record predates the download: it opens with the
+                // texts the download left.
+                let listed = self.papers.iter().find(|paper| paper_key(paper) == key);
+                match (listed, path) {
+                    (Some(paper), Some(_)) => {
+                        let mut paper = paper.clone();
+                        paper.arxiv_id = fetched.arxiv_id.clone();
+                        paper.has_full_text = !fetched.paper_path.is_empty();
+                        paper.has_blog = fetched.blog_path.is_some();
+                        cx.emit(PapersEvent::Read(paper));
+                    }
+                    (None, Some(path)) => cx.emit(PapersEvent::Open { path, line: None }),
+                    (_, None) => {}
                 }
                 self._settle = Some(cx.spawn(async move |this, cx| {
                     cx.background_executor().timer(FETCHED_LINGER).await;
