@@ -14,6 +14,10 @@
 //! the pointer it widens to 6px at 12% on the moderate tier, and held it is
 //! 16%. Dragging it scrolls in proportion; a press on the strip off the
 //! thumb jumps there.
+//!
+//! A stopgap: the shared lattice-ui scrollbar primitive (the
+//! gpui-fluid-design-system work) replaces this module, its easing included,
+//! once it lands; until then it stays behind this one module boundary.
 
 use std::{
     cell::Cell,
@@ -22,15 +26,12 @@ use std::{
 };
 
 use gpui::{
-    AnyElement, Bounds, Context, Hsla, InteractiveElement as _, IntoElement, MouseButton,
-    MouseDownEvent, MouseMoveEvent, MouseUpEvent, ParentElement as _, Pixels,
+    AnyElement, App, Bounds, Context, ElementId, Hsla, InteractiveElement as _, IntoElement,
+    MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, ParentElement as _, Pixels,
     StatefulInteractiveElement as _, Styled as _, Window, canvas, div, point, px, size,
 };
-use lattice_ui::{
-    Motion,
-    interaction::{ease_to, mix},
-    tokens::DURATION_MODERATE,
-};
+use gpui_kit::base::{ReducedMotion, Transition, transition};
+use lattice_ui::{Motion, interaction::mix, tokens::DURATION_MODERATE};
 use theme::ActiveTheme as _;
 
 use super::LatticeEditor;
@@ -44,6 +45,26 @@ const INSET: f32 = 4.;
 const MIN_THUMB: f32 = 24.;
 /// How long after the last scroll the strip still counts as scrolling.
 const SCROLL_IDLE: Duration = Duration::from_millis(180);
+
+/// A 0..1 value easing toward `target` as a CSS transition does: over
+/// `duration` on `motion`'s curve, after `delay`, the same curve both ways.
+/// A change mid-way starts from where the value is.
+fn ease_to(
+    id: impl Into<ElementId>,
+    target: f32,
+    motion: Motion,
+    duration: Duration,
+    delay: Duration,
+    window: &mut Window,
+    cx: &mut App,
+) -> f32 {
+    let token = motion.token();
+    let policy = Transition::new(duration)
+        .delay(delay)
+        .ease(move |t| token.ease.sample(t))
+        .reduced_motion(ReducedMotion::Continue);
+    transition(id.into(), target, policy, window, cx)
+}
 
 /// The scrollbar's state between frames.
 #[derive(Default)]
