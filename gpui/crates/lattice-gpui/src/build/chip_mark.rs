@@ -338,11 +338,8 @@ pub fn mark(mark: Mark, fresh: Option<(usize, Duration)>, palette: &Palette) -> 
         Some((key, age)) if age < MOMENT => slot
             .with_animation(
                 ("build-chip-moment", key),
-                gpui::Animation::new(MOMENT - age),
-                move |slot, t| {
-                    let elapsed = age + (MOMENT - age).mul_f32(t);
-                    draw(slot, Frame::at(mark, Some(elapsed)))
-                },
+                gpui::Animation::new(MOMENT),
+                move |slot, _| draw(slot, Frame::at(mark, Some(age))),
             )
             .into_any_element(),
         _ => draw(slot, Frame::AT_REST).into_any_element(),
@@ -357,7 +354,6 @@ pub fn wash(mark: Mark, fresh: Option<(usize, Duration)>, palette: &Palette) -> 
         _ => return None,
     };
     let (key, age) = fresh.filter(|(_, age)| *age < Motion::Flourish.duration())?;
-    let rest = Motion::Flourish.duration() - age;
     Some(
         div()
             .absolute()
@@ -365,11 +361,8 @@ pub fn wash(mark: Mark, fresh: Option<(usize, Duration)>, palette: &Palette) -> 
             .rounded(px(6.))
             .with_animation(
                 ("build-chip-wash", key),
-                gpui::Animation::new(rest),
-                move |wash, t| {
-                    let elapsed = age + rest.mul_f32(t);
-                    wash.bg(color.opacity(Frame::at(mark, Some(elapsed)).wash))
-                },
+                gpui::Animation::new(Motion::Flourish.duration()),
+                move |wash, _| wash.bg(color.opacity(Frame::at(mark, Some(age)).wash)),
             )
             .into_any_element(),
     )
