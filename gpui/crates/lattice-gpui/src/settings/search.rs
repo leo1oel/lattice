@@ -187,7 +187,7 @@ pub fn entries(has_project: bool, known_author: Option<&str>) -> Vec<Entry> {
             .terms(format!("{builds} {} .aux .log", t!("Clean"))),
         Entry::row(Editor, editor, "hidden-build-files", t!("Hide auxiliary files"))
             .terms(format!("{builds} .aux .log .synctex .research/build"))
-            .description(t!("Keep .aux, .log, SyncTeX and other build files in the project’s hidden .research/build folder. The PDF stays beside the document.")),
+            .description(t!("Keep .aux, .log, SyncTeX and other build files in the project’s hidden .research/build folder. The PDF stays beside the document. A document that fails there because a package ignores TeX’s output directory, such as minted 2.x, builds beside itself instead.")),
     ];
     if has_project {
         out.extend([

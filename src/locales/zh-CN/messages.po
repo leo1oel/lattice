@@ -8361,8 +8361,8 @@ msgstr "保留原值"
 
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
-msgid "Keep .aux, .log, SyncTeX and other build files in the project’s hidden .research/build folder. The PDF stays beside the document."
-msgstr "将 .aux、.log、SyncTeX 等临时文件放在项目隐藏的 .research/build 文件夹中，PDF 仍保留在文档旁边。"
+msgid "Keep .aux, .log, SyncTeX and other build files in the project’s hidden .research/build folder. The PDF stays beside the document. A document that fails there because a package ignores TeX’s output directory, such as minted 2.x, builds beside itself instead."
+msgstr "将 .aux、.log、SyncTeX 等临时文件放在项目隐藏的 .research/build 文件夹中，PDF 仍保留在文档旁边。若某个宏包不遵循 TeX 的输出目录（例如 minted 2.x）导致文档在那里编译失败，该文档会改为在其所在文件夹中编译。"
 
 #: src/project/import-conflict-dialog.tsx
 msgid "Keep both"
@@ -16950,6 +16950,10 @@ msgstr "本机删了这段"
 #: src/editor/markdown/engine/views/mermaid-preview.tsx
 msgid "This diagram could not be rendered."
 msgstr "无法渲染此图表。"
+
+#: src/build/build-log-messages.ts
+msgid "This document builds beside itself rather than in the hidden build folder: it uses a package that ignores TeX's output directory, such as minted 2.x, imakeidx, glossaries or pythontex."
+msgstr "此文档在其所在文件夹中编译，而不是在隐藏的构建文件夹中：它使用了不遵循 TeX 输出目录的宏包，例如 minted 2.x、imakeidx、glossaries 或 pythontex。"
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 msgid "This document changed in the same place"

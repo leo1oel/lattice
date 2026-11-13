@@ -74,7 +74,7 @@ export function useSettingsSearchIndex(hasProject: boolean, knownAuthorName: str
     { tab: "editor", place: editor, id: "grammar-ignored", label: t`Ignored in this project`, terms: `${t`Grammar`} ${t`Ignored sentences`} Harper`, description: `${t`Open a project to ignore rules or sentences`} ${t`Choose Ignore on a grammar suggestion to add one`}` },
     { tab: "editor", place: editor, id: "auto-build", label: t`Automatic build`, terms: `${t`Manual only`} ⌘S Ctrl+S` },
     { tab: "editor", place: editor, id: "aux-files", label: t`Auxiliary files`, terms: `${builds} ${t`Clean`} .aux .log` },
-    { tab: "editor", place: editor, id: "hidden-build-files", label: t`Hide auxiliary files`, terms: `${builds} .aux .log .synctex .research/build`, description: t`Keep .aux, .log, SyncTeX and other build files in the project’s hidden .research/build folder. The PDF stays beside the document.` },
+    { tab: "editor", place: editor, id: "hidden-build-files", label: t`Hide auxiliary files`, terms: `${builds} .aux .log .synctex .research/build`, description: t`Keep .aux, .log, SyncTeX and other build files in the project’s hidden .research/build folder. The PDF stays beside the document. A document that fails there because a package ignores TeX’s output directory, such as minted 2.x, builds beside itself instead.` },
     ...(hasProject ? [
       { tab: "editor", place: editor, id: "compile-engine", label: t`Compile engine`, terms: `${builds} pdfLaTeX XeLaTeX LuaLaTeX latexmk`, description: t`A project latexmkrc overrides this` },
       { tab: "editor", place: editor, id: "shell-escape", label: t`Allow shell escape`, terms: `${builds} shell-escape ${t`Allow external commands`}` },

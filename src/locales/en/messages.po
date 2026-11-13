@@ -8361,8 +8361,8 @@ msgstr "Keep"
 
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
-msgid "Keep .aux, .log, SyncTeX and other build files in the project’s hidden .research/build folder. The PDF stays beside the document."
-msgstr "Keep .aux, .log, SyncTeX and other build files in the project’s hidden .research/build folder. The PDF stays beside the document."
+msgid "Keep .aux, .log, SyncTeX and other build files in the project’s hidden .research/build folder. The PDF stays beside the document. A document that fails there because a package ignores TeX’s output directory, such as minted 2.x, builds beside itself instead."
+msgstr "Keep .aux, .log, SyncTeX and other build files in the project’s hidden .research/build folder. The PDF stays beside the document. A document that fails there because a package ignores TeX’s output directory, such as minted 2.x, builds beside itself instead."
 
 #: src/project/import-conflict-dialog.tsx
 msgid "Keep both"
@@ -16950,6 +16950,10 @@ msgstr "This computer removed this part."
 #: src/editor/markdown/engine/views/mermaid-preview.tsx
 msgid "This diagram could not be rendered."
 msgstr "This diagram could not be rendered."
+
+#: src/build/build-log-messages.ts
+msgid "This document builds beside itself rather than in the hidden build folder: it uses a package that ignores TeX's output directory, such as minted 2.x, imakeidx, glossaries or pythontex."
+msgstr "This document builds beside itself rather than in the hidden build folder: it uses a package that ignores TeX's output directory, such as minted 2.x, imakeidx, glossaries or pythontex."
 
 #: src/editor/markdown/engine/lattice-visual-editor.tsx
 msgid "This document changed in the same place"

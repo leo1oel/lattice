@@ -264,7 +264,7 @@ fn builds(
                     false,
                     |on, _, cx| super::update(cx, |settings| settings.hidden_build_files = on),
                 ))
-                .description(t!("Keep .aux, .log, SyncTeX and other build files in the project’s hidden .research/build folder. The PDF stays beside the document."), cx),
+                .description(t!("Keep .aux, .log, SyncTeX and other build files in the project’s hidden .research/build folder. The PDF stays beside the document. A document that fails there because a package ignores TeX’s output directory, such as minted 2.x, builds beside itself instead."), cx),
             width,
             cx,
         ),

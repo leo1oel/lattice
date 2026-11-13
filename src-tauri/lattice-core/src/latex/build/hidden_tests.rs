@@ -175,9 +175,108 @@ fn a_fatal_error_keeps_the_last_pdf_and_its_map_in_the_hidden_folder() {
         "{:?}",
         failed.diagnostics
     );
+    // Missing beside the document too: the error is the document's own, and
+    // the build stays in the hidden folder.
+    assert_eq!(failed.aux_folder, ".research/build/paper");
+    assert!(!failed.diagnostics.iter().any(|item| item.code == Some("built-beside")));
+    assert!(!root.join("paper/main.log").exists() && !root.join("paper/main.aux").exists());
     // The last good PDF is back with its own map, and SyncTeX still answers.
     assert_eq!(fs::read(root.join("paper/main.pdf")).unwrap(), pdf);
     assert!(root.join(".research/build/paper/main.synctex.gz").is_file());
     assert!(!root.join("paper/main.synctex.gz").exists());
     assert!(forward_search(&root, "paper/chapters/intro.tex", 2, 0).unwrap().is_some());
+}
+
+#[test]
+#[ignore = "requires latexmk, pdfLaTeX and BibTeX"]
+fn a_clean_then_a_build_beside_leaves_no_hidden_map_to_read() {
+    let (_parent, root) = paper();
+    let hidden = build_in(&root, AuxFiles::Hidden, false);
+    assert!(hidden.success, "{}", hidden.log);
+    clean(&root).unwrap();
+    assert!(root.join(".research/build/paper/main.synctex.gz").is_file());
+
+    // A chapter the hidden build never saw: only a fresh map knows it.
+    fs::write(root.join("paper/chapters/extra.tex"), "\\section{Extra}\nExtra words.\n").unwrap();
+    let main = MAIN.replace(
+        "\\include{chapters/method}",
+        "\\include{chapters/method}\n\\include{chapters/extra}",
+    );
+    fs::write(root.join("paper/main.tex"), main).unwrap();
+    let beside = build_in(&root, AuxFiles::Beside, false);
+    assert!(beside.success && beside.synctex == Some(true), "{}", beside.log);
+    assert_eq!(
+        aux_files::synctex(&root, "paper/main.tex"),
+        Some(root.join("paper/main.synctex.gz"))
+    );
+    let folder = root.join(".research/build/paper");
+    for file in ["main.synctex.gz", "main.bbl", "main.blg"] {
+        assert!(!folder.join(file).exists(), "{file} stayed in the hidden folder");
+    }
+    assert!(forward_search(&root, "paper/chapters/extra.tex", 2, 0).unwrap().is_some());
+}
+
+/// Writes its index entries where TeX writes, then runs makeindex (allowed
+/// in TeX's restricted shell escape) from the document's folder and reads
+/// what it made: as minted 2.x does with Pygments, this works only when TeX
+/// writes beside the document.
+const INDEXED: &str = "\\documentclass{article}\n\
+    \\newwrite\\terms\n\
+    \\immediate\\openout\\terms=\\jobname.terms\n\
+    \\immediate\\write\\terms{\\string\\indexentry{Lattice}{1}}\n\
+    \\immediate\\closeout\\terms\n\
+    \\immediate\\write18{makeindex -q -o \\jobname-terms.tex \\jobname.terms}\n\
+    \\begin{document}\n\
+    Words.\n\
+    \\input{\\jobname-terms}\n\
+    \\end{document}\n";
+
+fn trusted_paper(main: &str) -> (TempDir, PathBuf) {
+    let (parent, root) = paper();
+    let mut manifest = project::read_manifest(&root).unwrap();
+    manifest.trusted = true;
+    project::write_manifest(&root, &manifest).unwrap();
+    fs::write(root.join("paper/main.tex"), main).unwrap();
+    (parent, root)
+}
+
+fn built_beside_notes(result: &BuildResult) -> usize {
+    result.diagnostics.iter().filter(|item| item.code == Some("built-beside")).count()
+}
+
+#[test]
+#[ignore = "requires latexmk, pdfLaTeX and makeindex"]
+fn a_document_that_builds_only_beside_itself_falls_back_and_stays_there() {
+    let (_parent, root) = trusted_paper(INDEXED);
+    let first = build_in(&root, AuxFiles::Hidden, false);
+    assert!(first.success && first.synctex == Some(true), "{}", first.log);
+    assert_eq!(built_beside_notes(&first), 1, "{:?}", first.diagnostics);
+    assert_eq!(first.aux_folder, "paper");
+    assert!(root.join("paper/main.log").is_file() && root.join("paper/main.pdf").is_file());
+    assert!(!root.join(".research/build/paper/main.log").exists());
+
+    // Straight beside: a hidden build first would fail and note it again.
+    fs::write(root.join("paper/main.tex"), INDEXED.replace("Words.", "More words.")).unwrap();
+    let again = build_in(&root, AuxFiles::Hidden, false);
+    assert!(again.success, "{}", again.log);
+    assert_eq!(built_beside_notes(&again), 0, "{:?}", again.diagnostics);
+    assert_eq!(again.aux_folder, "paper");
+    assert!(!root.join(".research/build/paper/main.log").exists());
+}
+
+#[test]
+#[ignore = "requires latexmk and pdfLaTeX"]
+fn an_ordinary_error_keeps_the_hidden_folder() {
+    let (_parent, root) =
+        trusted_paper(&MAIN.replace("\\tableofcontents", "\\tableofcontents\n\\undefinedmacro"));
+    let failed = build_in(&root, AuxFiles::Hidden, false);
+    assert!(!failed.success, "{}", failed.log);
+    assert_eq!(built_beside_notes(&failed), 0, "{:?}", failed.diagnostics);
+    assert_eq!(failed.aux_folder, ".research/build/paper");
+    assert_eq!(intermediates_outside_research(&root), Vec::<String>::new());
+
+    fs::write(root.join("paper/main.tex"), MAIN).unwrap();
+    let fixed = build_in(&root, AuxFiles::Hidden, false);
+    assert!(fixed.success, "{}", fixed.log);
+    assert_eq!(fixed.aux_folder, ".research/build/paper");
 }

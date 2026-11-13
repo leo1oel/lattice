@@ -27,6 +27,7 @@ use std::process::{Command, Output, Stdio};
 use std::time::{Instant, SystemTime};
 
 mod active;
+mod beside;
 mod unchanged;
 pub(crate) use active::begin_active;
 pub use active::{abort, is_running, ActiveBuild};
@@ -141,14 +142,21 @@ fn clean_layout(root: &Path, document: &str, layout: AuxFiles) -> Result<String,
 /// build's (`aux_files`). latexmk's state goes with it, so this build
 /// typesets in full, once.
 ///
-/// latexmk's clean leaves three kinds of file behind, removed here: the
-/// SyncTeX map (a final output to latexmk, but it maps the other layout's
-/// build), each `\include`d chapter's `.aux`, which the recorder names, and
-/// the bibliography BibTeX or biber made, which its `.blg` beside it shows. A
-/// `.bbl` with no `.blg` is the writer's own, as in a paper downloaded from
-/// arXiv, and stays.
+/// The other layout's SyncTeX map goes even when nothing else of that build
+/// is left: latexmk's clean keeps it, as a final output, and readers would
+/// take it for this build's. So does the hidden folder's bibliography, which
+/// that clean keeps too and which only a build put there. latexmk's clean
+/// leaves two more kinds of file behind, removed here: each `\include`d
+/// chapter's `.aux`, which the recorder names, and the bibliography BibTeX or
+/// biber made beside the document, which its `.blg` beside it shows. A
+/// `.bbl` with no `.blg` there is the writer's own, as in a paper downloaded
+/// from arXiv, and stays.
 fn retire_other_layout(root: &Path, document: &str, layout: AuxFiles) {
     let other = aux_files::other(layout);
+    aux_files::remove_synctex_in(root, document, other);
+    if other == AuxFiles::Hidden {
+        remove_bibliography(root, document, other);
+    }
     if !aux_files::has_build(root, document, other) {
         return;
     }
@@ -161,11 +169,14 @@ fn retire_other_layout(root: &Path, document: &str, layout: AuxFiles) {
         let _ = fs::remove_file(root.join(chapter));
     }
     if bibliography {
-        for extension in ["bbl", "blg"] {
-            let _ = fs::remove_file(aux_files::in_layout(root, document, extension, other));
-        }
+        remove_bibliography(root, document, other);
     }
-    aux_files::remove_synctex_in(root, document, other);
+}
+
+fn remove_bibliography(root: &Path, document: &str, layout: AuxFiles) {
+    for extension in ["bbl", "blg"] {
+        let _ = fs::remove_file(aux_files::in_layout(root, document, extension, layout));
+    }
 }
 
 /// What a build error (not a document error: those are a finished build's
@@ -201,13 +212,15 @@ fn missing_root(document: &str) -> String {
 /// Build the project. `unattended`: Lattice started this build on its own
 /// (autosave, the project watcher), so a failing document nothing changed in
 /// is not typeset again (`unchanged`). `layout`: where the intermediate
-/// files go, the global setting (`aux_files`).
+/// files go, the global setting (`aux_files`), unless the document builds
+/// only beside itself (`beside`).
 pub fn build(
     root: &Path, force: bool, unattended: bool, active: &ActiveBuild, open_document: Option<&str>,
     steps: &BuildSteps, layout: AuxFiles,
 ) -> Result<BuildResult, String> {
     let session = BuildSession::open(active);
-    let mut result = build_passes(root, force, unattended, active, open_document, steps, layout)?;
+    let (mut result, layout) =
+        build_passes(root, force, unattended, active, open_document, steps, layout)?;
     drop(session);
     result.one_off = is_one_off_root(root);
     result.steps = steps.take();
@@ -250,9 +263,10 @@ fn record_result(result: &BuildResult) {
 fn build_passes(
     root: &Path, force: bool, unattended: bool, active: &ActiveBuild, open_document: Option<&str>,
     steps: &BuildSteps, layout: AuxFiles,
-) -> Result<BuildResult, String> {
+) -> Result<(BuildResult, AuxFiles), String> {
     wide_event::record("force", force);
     choose_compile_root(root, open_document)?;
+    let layout = beside::layout_for(root, layout);
     // A Clean rebuild starts the preamble format over too. The reruns below
     // that force latexmk keep it: they are not about the preamble.
     if force {
@@ -263,7 +277,7 @@ fn build_passes(
     // BibTeX there.
     if layout == AuxFiles::Beside {
         if let Some(cancelled) = prewarm::prewarm_cold_pdf_build(root, force, active, steps)? {
-            return Ok(cancelled);
+            return Ok((cancelled, layout));
         }
     }
     let mut result = run_latexmk(root, force, active, steps, layout)?;
@@ -316,7 +330,12 @@ fn build_passes(
             result = run_latexmk(root, true, active, steps, layout)?;
         }
     }
-    Ok(result)
+    if layout == AuxFiles::Hidden && beside::worth_trying(&result) {
+        return beside::retry(root, result, |layout| {
+            build_passes(root, force, unattended, active, open_document, steps, layout)
+        });
+    }
+    Ok((result, layout))
 }
 
 fn latexmk_pdf_default(engine: &str) -> &'static str {
