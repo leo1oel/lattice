@@ -85,10 +85,11 @@ fn followed_destination(parent: &Path, url: &str) -> String {
     }
 }
 
-/// A destination `shown` was typed when it is neither empty nor what
-/// following the URL last wrote.
-fn is_typed(shown: &str, followed: &str) -> bool {
-    !shown.is_empty() && shown != followed
+/// What the destination becomes when the URL changes to `url`: the URL's
+/// folder inside `parent`, unless the destination `shown` was typed, being
+/// neither empty nor what following the URL last wrote (`followed`).
+fn next_destination(parent: &Path, url: &str, shown: &str, followed: &str) -> Option<String> {
+    (shown.is_empty() || shown == followed).then(|| followed_destination(parent, url))
 }
 
 impl CloneDialog {
@@ -144,20 +145,26 @@ impl CloneDialog {
     /// The destination follows the URL's name inside the parent until one
     /// is typed.
     fn follow_url(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.typed_destination(cx) {
+        let Some(destination) = self.next_destination(cx) else {
             return;
-        }
-        let destination = followed_destination(&self.parent, &self.url.read(cx).value());
+        };
         self.followed = destination.clone();
         self.destination
             .update(cx, |input, cx| input.set_value(destination, window, cx));
         cx.notify();
     }
 
-    /// Whether the destination field holds something other than what
-    /// following the URL last wrote there.
-    fn typed_destination(&self, cx: &App) -> bool {
-        self.typed || is_typed(&self.destination.read(cx).value(), &self.followed)
+    /// What the destination follows the URL to, unless one was typed.
+    fn next_destination(&self, cx: &App) -> Option<String> {
+        if self.typed {
+            return None;
+        }
+        next_destination(
+            &self.parent,
+            &self.url.read(cx).value(),
+            &self.destination.read(cx).value(),
+            &self.followed,
+        )
     }
 
     fn choose_parent(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -197,7 +204,7 @@ impl CloneDialog {
         if self.cloning() || url.is_empty() || destination.is_empty() {
             return;
         }
-        self.typed = self.typed_destination(cx);
+        self.typed = self.next_destination(cx).is_none();
         self.progress = Some(CloneProgress {
             stage: "connecting",
             progress: 0.,
@@ -515,35 +522,51 @@ impl Render for CloneDialog {
 mod tests {
     use std::path::Path;
 
-    use super::{followed_destination, is_typed, repository_name};
+    use super::{next_destination, repository_name};
 
-    /// The destination after typing `url` one character at a time into the
-    /// URL field, starting from `shown`, as `follow_url` updates it.
-    fn type_url(parent: &Path, url: &str, mut shown: String) -> String {
-        let mut followed = String::new();
-        for end in 1..=url.len() {
-            if !is_typed(&shown, &followed) {
-                followed = followed_destination(parent, &url[..end]);
-                shown = followed.clone();
-            }
-        }
-        shown
-    }
+    const PARENT: &str = "/Users/writer/Documents";
 
     #[test]
     fn the_destination_follows_a_url_typed_key_by_key() {
-        let parent = Path::new("/Users/writer/Documents");
+        let parent = Path::new(PARENT);
+        let url = "https://github.com/owner/paper.git";
+        let mut shown = String::new();
+        let mut followed = String::new();
+        for end in 1..=url.len() {
+            let next = next_destination(parent, &url[..end], &shown, &followed)
+                .unwrap_or_else(|| panic!("stopped following at {:?}", &url[..end]));
+            followed = next.clone();
+            shown = next;
+        }
+        assert_eq!(shown, "/Users/writer/Documents/paper");
         assert_eq!(
-            type_url(parent, "https://github.com/owner/paper.git", String::new()),
-            "/Users/writer/Documents/paper"
+            next_destination(parent, "h", "", ""),
+            Some("/Users/writer/Documents/h".into())
         );
         assert_eq!(
-            type_url(
+            next_destination(
                 parent,
-                "https://github.com/owner/paper.git",
-                "/tmp/mine".into()
+                "ht",
+                "/Users/writer/Documents/h",
+                "/Users/writer/Documents/h"
             ),
-            "/tmp/mine"
+            Some("/Users/writer/Documents/ht".into())
+        );
+    }
+
+    #[test]
+    fn an_edited_destination_stops_following_until_cleared() {
+        let parent = Path::new(PARENT);
+        let followed = "/Users/writer/Documents/paper";
+        let url = "https://github.com/owner/paper.git";
+        assert_eq!(next_destination(parent, url, "/tmp/mine", followed), None);
+        assert_eq!(
+            next_destination(parent, url, "/Users/writer/Documents/pape", followed),
+            None
+        );
+        assert_eq!(
+            next_destination(parent, url, "", followed),
+            Some(followed.into())
         );
     }
 
