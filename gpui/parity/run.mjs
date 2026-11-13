@@ -27,6 +27,7 @@ import { diffScreen, writeImages } from "./diff.mjs";
 import { captureGpui, stageProject } from "./gpui.mjs";
 import { captureReference } from "./reference.mjs";
 import { SCREENS } from "./regions.mjs";
+import { acquireGpuiInputLock, releaseGpuiInputLock } from "../../scripts/lib/gpui-lock.mjs";
 import { markdownReport } from "./report.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -72,10 +73,19 @@ try {
       const project = stageProject(join(out, "Understanding Attention"), pdf);
       // GPUI first: the reference is captured at the size and scale the GPUI window got.
       log(`${screen} ${theme}: GPUI…`);
-      const gpui = [
-        captureGpui({ app, project, theme, screen, dir: runs, name: `${screen}-${theme}-gpui-1` }),
-        captureGpui({ app, project, theme, screen, dir: runs, name: `${screen}-${theme}-gpui-2` }),
-      ];
+      // Under the e2e lock (scripts/lib/gpui-lock.mjs): the scenario brings
+      // its window to the front, which an e2e run elsewhere on the machine
+      // would lose its clicks and keys to.
+      await acquireGpuiInputLock(`${repo} (parity)`);
+      let gpui;
+      try {
+        gpui = [
+          captureGpui({ app, project, theme, screen, dir: runs, name: `${screen}-${theme}-gpui-1` }),
+          captureGpui({ app, project, theme, screen, dir: runs, name: `${screen}-${theme}-gpui-2` }),
+        ];
+      } finally {
+        releaseGpuiInputLock();
+      }
       const env = { benchUrl: bench.url, pdfUrl: served.url, viewport: gpui[0].viewport, deviceScaleFactor: gpui[0].scale };
       log(`${screen} ${theme}: reference at ${env.viewport.width}×${env.viewport.height} @${env.deviceScaleFactor}x…`);
       const ref = [];
