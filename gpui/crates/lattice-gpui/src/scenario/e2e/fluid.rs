@@ -30,13 +30,15 @@ impl Run {
         let snapshot = |cx: &mut AsyncApp| {
             cx.update(|cx| tree.read(cx).hover_snapshot(cx).unwrap_or_default())
         };
-        // Two rows next to each other the fill may land on (not the open
-        // file's, which keeps its own selection fill).
+        // Two rows the fill may land on (not the open file's, which keeps
+        // its own selection fill); the pointer jumps from one to the other in
+        // one move, so a glide is one session even across the open file.
         let rows = snapshot(cx).rows;
-        let pair = rows.windows(2).find_map(|pair| {
-            let ((a, a_bounds, a_target), (b, b_bounds, b_target)) = (pair[0], pair[1]);
-            (a_target && b_target && b == a + 1).then_some(((a, a_bounds), (b, b_bounds)))
-        });
+        let mut targets = rows
+            .iter()
+            .filter(|(_, _, target)| *target)
+            .map(|(ix, bounds, _)| (*ix, *bounds));
+        let pair = targets.next().zip(targets.next());
         let Some(((first, first_bounds), (second, second_bounds))) = pair else {
             steps.check(
                 "the Project tree's rows register with its fluid hover",
@@ -60,7 +62,7 @@ impl Run {
         self.pause(cx, SETTLE).await;
         let on_second = snapshot(cx);
         steps.check(
-            "moving to the next row glides the same fill there instead of fading a new one in",
+            "moving to another row glides the same fill there instead of fading a new one in",
             on_second.lit == Some(second)
                 && near(on_second.fill, second_bounds)
                 && on_second.sessions == on_first.sessions,

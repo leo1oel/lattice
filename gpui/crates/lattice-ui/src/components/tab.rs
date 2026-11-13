@@ -22,7 +22,7 @@ use std::rc::Rc;
 use gpui::{
     AnyElement, App, ClickEvent, Div, ElementId, InteractiveElement, Interactivity, IntoElement,
     ParentElement as _, Pixels, RenderOnce, SharedString, Stateful, StatefulInteractiveElement,
-    StyleRefinement, Styled, Window, div, prelude::FluentBuilder as _, px,
+    StyleRefinement, Styled, Window, div, prelude::FluentBuilder as _, px, transparent_black,
 };
 
 use crate::{
@@ -235,6 +235,16 @@ impl RenderOnce for PanelTab {
                 .bg(palette.text_secondary)
         });
         let closable = self.closable && !icon_only;
+        // The close square fades its wash in and its ink up on the fast tier
+        // (`trellis.css`, `[data-trellis-part="tab-close"]:hover`).
+        let close_id = ElementId::NamedChild(std::sync::Arc::new(self.id.clone()), "close".into());
+        let (close_interaction, close_pointer) = use_interaction(close_id, window, cx);
+        let close_bg = mix(transparent_black(), close_hover, close_interaction.hover);
+        let close_ink = mix(
+            palette.text_secondary,
+            palette.text,
+            close_interaction.hover,
+        );
         let tooltip_label = self.label.clone();
         track_pointer(tab_stop(self.base), pointer)
             .focus_visible(move |style| style.shadow(focus))
@@ -307,16 +317,16 @@ impl RenderOnce for PanelTab {
                             this.invisible()
                         })
                         .when_some(self.on_close, |this, on_close| {
-                            tab_stop(this)
+                            track_pointer(tab_stop(this), close_pointer)
                                 .group_hover(group, |style| style.visible())
                                 .focus_visible(move |style| style.visible().shadow(close_focus))
-                                .hover(move |style| style.bg(close_hover))
+                                .bg(close_bg)
                                 .on_click(move |event, window, cx| {
                                     cx.stop_propagation();
                                     on_close(event, window, cx);
                                 })
                         })
-                        .child(Icon::CLOSE.element(ICON, palette.text_secondary)),
+                        .child(Icon::CLOSE.element(ICON, close_ink)),
                 )
             })
     }

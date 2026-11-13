@@ -7,7 +7,7 @@ use gpui::{
     AnyElement, App, BoxShadow, ClickEvent, Edges, ElementId, Hsla, InteractiveElement as _,
     IntoElement, ParentElement as _, Pixels, RenderOnce, SharedString,
     StatefulInteractiveElement as _, Styled as _, Window, div, point, prelude::FluentBuilder as _,
-    px,
+    px, transparent_black,
 };
 
 use gpui::AnyView;
@@ -17,7 +17,7 @@ use crate::{
     components::{LatticeTooltip, focus_ring},
     elevation::ring,
     icons::ICON,
-    interaction::tab_stop,
+    interaction::{mix, tab_stop, track_pointer, use_interaction},
     parity, shape,
     sliding::SlidingPlate,
     tokens::FONT_WEIGHT_MEDIUM,
@@ -338,6 +338,17 @@ impl RenderOnce for Segmented {
             cx,
         );
         let plate_drawn = plate.is_drawn(cx);
+        // An unselected segment's wash fades on the fast tier
+        // (`trellis.css`, `.ui-segmented-tab:not(.active):hover`).
+        let washes: Vec<_> = (0..self.segments.len())
+            .map(|ix| {
+                let id = ElementId::NamedChild(
+                    std::sync::Arc::new(self.id.clone()),
+                    SharedString::from(format!("segment-{ix}")),
+                );
+                use_interaction(id, window, cx)
+            })
+            .collect();
         let chip = plate.plate(
             |chip| {
                 chip.rounded(chip_radius)
@@ -371,8 +382,9 @@ impl RenderOnce for Segmented {
                             .zip(segment.label.clone())
                             .and_then(|(name, label)| parity::text_probe(name, ix, label));
                         // Each segment is a tab stop, as each is a button in the app.
+                        let (interaction, pointer) = washes[ix].clone();
                         let segment_box = if segment.on_click.is_some() {
-                            tab_stop(segment_box)
+                            track_pointer(tab_stop(segment_box), pointer)
                         } else {
                             segment_box
                         };
@@ -389,7 +401,7 @@ impl RenderOnce for Segmented {
                                 this.bg(palette.panel).shadow(raised.clone())
                             })
                             .when(!segment.selected, |this| {
-                                this.hover(move |style| style.bg(hover))
+                                this.bg(mix(transparent_black(), hover, interaction.hover))
                             })
                             .when_some(segment.label, |this, label| {
                                 this.px(px(10.))
