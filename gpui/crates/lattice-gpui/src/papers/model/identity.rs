@@ -304,16 +304,15 @@ pub fn health_parts(health: Option<&CitationHealth>) -> Option<(String, String)>
         "publisher" => t!("Publisher").to_string(),
         other => other.to_string(),
     });
-    let detail = [
+    let parts: Vec<String> = [
         source,
         health.date.clone(),
-        health.stale.then(|| "cached".into()),
+        health.stale.then(|| t!("cached").to_string()),
     ]
     .into_iter()
     .flatten()
-    .filter(|part| !part.is_empty())
-    .collect::<Vec<_>>()
-    .join(", ");
+    .collect();
+    let detail = lattice_i18n::join_phrases(&parts);
     Some((kind.to_string(), detail))
 }
 

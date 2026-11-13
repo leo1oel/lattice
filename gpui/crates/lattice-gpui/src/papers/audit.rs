@@ -23,7 +23,7 @@ use std::{
     collections::{HashMap, HashSet},
     path::PathBuf,
     sync::{
-        Mutex,
+        LazyLock, Mutex,
         atomic::{AtomicU64, Ordering},
     },
 };
@@ -162,10 +162,15 @@ pub(super) fn entry_title(entry: &AuditEntry) -> String {
     }
 }
 
-/// The order the reports were asked for in, and the newest written: a save
-/// that reaches the disk after a newer one is dropped.
+/// The order the reports were asked for in, and the newest written of each
+/// project's report: a save that reaches the disk after a newer one of the
+/// same project is dropped.
 static REPORTS_ASKED: AtomicU64 = AtomicU64::new(0);
-static REPORT_WRITTEN: Mutex<u64> = Mutex::new(0);
+static REPORT_WRITTEN: LazyLock<Mutex<HashMap<PathBuf, u64>>> = LazyLock::new(Default::default);
+
+/// What a check says when the tools it runs are not installed
+/// (`PAPER_TOOLS_MISSING`): every later check would fail the same way.
+const PAPER_TOOLS_MISSING: &str = "Lattice's paper tools are not installed.";
 
 pub struct Audit {
     root: PathBuf,
@@ -358,10 +363,11 @@ impl Audit {
             let mut written = REPORT_WRITTEN
                 .lock()
                 .unwrap_or_else(|poison| poison.into_inner());
-            if *written > asked {
+            let newest = written.entry(root.clone()).or_insert(0);
+            if *newest > asked {
                 return;
             }
-            *written = asked;
+            *newest = asked;
             if let Err(error) = citation_audit::save_report(&store, &root, report) {
                 log::warn!("the reference check's report was not saved: {error}");
             }
@@ -486,6 +492,9 @@ impl Audit {
                 cx.notify();
             })
             .ok();
+            // A Semantic Scholar batch that failed is not asked again this
+            // run; each reference's own check is told why.
+            let mut s2_failure: Option<String> = None;
             for group in indexes.chunks(GROUP) {
                 let (entries, live) = match this.update(cx, |this, cx| {
                     for index in group {
@@ -506,8 +515,8 @@ impl Audit {
                 }
                 // The batch answers what it can; a lone reference has no batch.
                 let mut answered: Vec<Option<Finding>> = vec![None; entries.len()];
-                let mut s2_status: Option<String> = None;
-                if total > 1 {
+                let mut s2_status = s2_failure.clone();
+                if s2_failure.is_none() && total > 1 {
                     let (batch_root, batch_entries) = (root.clone(), entries.clone());
                     let batch = cx
                         .background_spawn(async move {
@@ -521,9 +530,14 @@ impl Audit {
                                 .iter()
                                 .map(|result| result.as_ref().and_then(Finding::from_core))
                                 .collect();
-                            s2_status = Some(batch.s2_failure.unwrap_or_else(|| "checked".into()));
+                            s2_failure = batch.s2_failure;
+                            s2_status =
+                                Some(s2_failure.clone().unwrap_or_else(|| "checked".into()));
                         }
-                        _ => s2_status = Some("unavailable".into()),
+                        _ => {
+                            s2_failure = Some("unavailable".into());
+                            s2_status = s2_failure.clone();
+                        }
                     }
                 }
                 // What the batch left, two at a time; Stop lets them finish.
@@ -562,8 +576,14 @@ impl Audit {
                             })
                         })
                         .collect();
+                    let mut missing_tools = false;
                     for (at, check) in pair.iter().zip(checks) {
-                        answered[*at] = Some(check.await);
+                        let finding = check.await;
+                        missing_tools |= finding.message.contains(PAPER_TOOLS_MISSING);
+                        answered[*at] = Some(finding);
+                    }
+                    if missing_tools {
+                        this.update(cx, |this, _| this.stopping = true).ok();
                     }
                     let partial: Vec<(usize, Finding)> = pair
                         .iter()
@@ -601,6 +621,8 @@ impl Audit {
             self.applied.remove(&index);
             self.kept.remove(&index);
         }
+        // Kept as it comes in: a sheet closed mid-run keeps what it heard.
+        self.save(cx);
         cx.notify();
     }
 
@@ -658,6 +680,7 @@ impl Audit {
                     .update(cx, |this, cx| match written {
                         Ok(()) => {
                             this.applied.insert(index);
+                            this.save(cx);
                             // The entries below it in the file move by the
                             // lines the fix added or took away.
                             let moved = (index < this.entries.len()).then(|| {
@@ -756,7 +779,8 @@ impl Audit {
     }
 
     pub(super) fn close(&mut self, cx: &mut Context<Self>) {
-        // A check under way stops with the sheet.
+        // A check under way stops with the sheet; what it found is kept.
+        self.save(cx);
         self.generation += 1;
         cx.emit(AuditEvent::Dismiss);
     }

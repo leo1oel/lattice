@@ -139,26 +139,30 @@ impl PapersPanel {
         let palette = cx.palette().clone();
         let width = (self.width - 20.).max(0.);
         let total = self.papers.len();
+        let (shown_text, total_text) = (
+            lattice_i18n::format_count(shown as i64),
+            lattice_i18n::format_count(total as i64),
+        );
         let count = if width < 210. {
             if shown != total {
-                format!("{shown}/{total}")
+                format!("{shown_text}/{total_text}")
             } else {
-                total.to_string()
+                total_text
             }
         } else if shown != total {
             if shown == 1 {
-                t!("1 of {total} papers", total = total)
+                t!("1 of {total} papers", total = total_text)
             } else {
                 t!(
                     "{filtered} of {total} papers",
-                    filtered = shown,
-                    total = total
+                    filtered = shown_text,
+                    total = total_text
                 )
             }
         } else if total == 1 {
             t!("1 paper").to_string()
         } else {
-            t!("{count} papers", count = total)
+            t!("{count} papers", count = total_text)
         };
         let caret = width >= 300.;
         let folded = width < 230.;
@@ -188,7 +192,7 @@ impl PapersPanel {
                             view.update(cx, |this, cx| this.set_filter(choice, cx)).ok();
                         })
                         .checked(choice == filter)
-                        .detail(count.to_string())
+                        .detail(lattice_i18n::format_count(*count as i64))
                         .disabled(!uses_known && choice.needs_uses()),
                     )
                 })

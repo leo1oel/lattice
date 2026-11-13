@@ -47,13 +47,44 @@ pub fn paper_abstract(markdown: &str) -> Option<Vec<String>> {
     (!paragraphs.is_empty()).then_some(paragraphs)
 }
 
-fn strip_frontmatter(markdown: &str) -> &str {
-    let Some(rest) = markdown.strip_prefix("---\n") else {
-        return markdown;
+/// Where a Markdown file's front matter ends (`markdownFrontmatterEnd`):
+/// a `---` or `+++` block at its very start (after a byte-order mark, its
+/// lines ending in CRLF or not, possibly empty); 0 without one.
+fn frontmatter_end(markdown: &str) -> usize {
+    let start = if markdown.starts_with('\u{feff}') {
+        '\u{feff}'.len_utf8()
+    } else {
+        0
     };
-    match rest.find("\n---") {
-        Some(end) => rest[end + 4..].trim_start_matches(['\r', '\n']),
-        None => markdown,
+    let Some(first_break) = markdown[start..].find('\n').map(|at| at + start) else {
+        return 0;
+    };
+    let delimiter = markdown[start..first_break].trim_end_matches('\r').trim();
+    if delimiter != "---" && delimiter != "+++" {
+        return 0;
+    }
+    let mut line_start = first_break + 1;
+    while line_start <= markdown.len() {
+        let line_break = markdown[line_start..].find('\n').map(|at| at + line_start);
+        let line_end = line_break.unwrap_or(markdown.len());
+        let line = markdown[line_start..line_end].trim_end_matches('\r').trim();
+        if line == delimiter || (delimiter == "---" && line == "...") {
+            return line_break.map_or(line_end, |at| at + 1);
+        }
+        let Some(at) = line_break else {
+            break;
+        };
+        line_start = at + 1;
+    }
+    0
+}
+
+/// The text after a Markdown file's front matter, which is the converter's
+/// bookkeeping, not text (`stripFrontmatter`).
+pub fn strip_frontmatter(markdown: &str) -> &str {
+    match frontmatter_end(markdown) {
+        0 => markdown,
+        end => markdown[end..].trim_start_matches(['\r', '\n']),
     }
 }
 
@@ -86,14 +117,12 @@ pub fn cite_context(snippet: &str, key: &str) -> String {
         return text.to_string();
     };
     let anchor = text[..at].rfind('\\').unwrap_or(at);
+    // Characters, not bytes: a sentence in Chinese leads with as many.
     const LEAD: usize = 32;
-    if anchor <= LEAD {
+    let Some((from, _)) = text[..anchor].char_indices().rev().nth(LEAD) else {
         return text.to_string();
-    }
-    let mut from = anchor - LEAD;
-    while !text.is_char_boundary(from) {
-        from -= 1;
-    }
+    };
+    let from = from + text[from..].chars().next().map_or(0, char::len_utf8);
     let start = match text[from..].find(' ').map(|space| space + from) {
         Some(space) if space < anchor => space + 1,
         _ => from,
@@ -116,6 +145,29 @@ mod tests {
             ])
         );
         assert_eq!(paper_abstract("# Title\n\nNo abstract here.\n"), None);
+    }
+
+    #[test]
+    fn front_matter_goes_however_it_is_written() {
+        assert_eq!(strip_frontmatter("---\ntitle: x\n---\n\nBody"), "Body");
+        assert_eq!(strip_frontmatter("---\r\ntitle: x\r\n---\r\nBody"), "Body");
+        assert_eq!(
+            strip_frontmatter("\u{feff}---\ntitle: x\n---\nBody"),
+            "Body"
+        );
+        assert_eq!(strip_frontmatter("---\n---\nBody"), "Body");
+        assert_eq!(strip_frontmatter("+++\na = 1\n+++\nBody"), "Body");
+        assert_eq!(strip_frontmatter("Body\n---\nmore"), "Body\n---\nmore");
+        assert_eq!(strip_frontmatter("---\nnever closed"), "---\nnever closed");
+    }
+
+    #[test]
+    fn a_use_leads_with_32_characters_in_any_script() {
+        let lead = "很".repeat(40);
+        let context = cite_context(&format!("{lead}\\cite{{a}}"), "a");
+        assert_eq!(context, format!("…{}\\cite{{a}}", "很".repeat(32)));
+        let short = format!("{}\\cite{{a}}", "很".repeat(32));
+        assert_eq!(cite_context(&short, "a"), short);
     }
 
     #[test]

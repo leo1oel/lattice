@@ -59,8 +59,9 @@ fn set_list_ratio(ratio: f32) {
 pub enum BibEditorEvent {
     /// Show the 1-based `line` of the project-relative `path` in its source.
     OpenLine { path: String, line: u32 },
-    /// A reference was picked in the list: the source beside it shows it.
-    Picked { line: u32 },
+    /// A reference was picked in the list: the source beside it shows it,
+    /// at its byte offset.
+    Picked { from: usize },
 }
 
 /// What a parse of the text found.
@@ -377,7 +378,7 @@ impl BibEditor {
     pub(super) fn select(&mut self, key: String, open: bool, cx: &mut Context<Self>) {
         if let Some(row) = self.rows.iter().find(|row| row.entry.key == key) {
             cx.emit(BibEditorEvent::Picked {
-                line: row.entry.line as u32,
+                from: row.entry.from,
             });
         }
         self.selected = Some(key);
@@ -465,27 +466,6 @@ impl BibEditor {
             .update(cx, |buffer, cx| buffer.edit([(range, insert)], None, cx));
         let text = self.buffer.read(cx).text();
         self.apply_parse(parse_rows(text), self.edits, cx);
-    }
-
-    /// Replace the whole text with `next`, computed from `base`; refused
-    /// when the text has moved on since.
-    pub(super) fn replace_text(
-        &mut self,
-        next: String,
-        base: &str,
-        cx: &mut Context<Self>,
-    ) -> bool {
-        let current = self.buffer.read(cx).text();
-        if current != base {
-            return false;
-        }
-        let change = BibEdit {
-            from: 0,
-            to: current.len(),
-            insert: next,
-        };
-        self.splice(&change, cx);
-        true
     }
 
     pub(super) fn delete(&mut self, key: String, index: usize, cx: &mut Context<Self>) {
@@ -626,14 +606,8 @@ impl BibEditor {
         cx: &mut Context<Self>,
     ) -> Result<(), String> {
         let base = self.buffer.read(cx).text();
-        let taken: Vec<String> = self.rows.iter().map(|row| row.entry.key.clone()).collect();
-        let next = model::append_entry(&base, entry, key, &taken)?;
-        if !self.replace_text(next, &base, cx) {
-            return Err(t!(
-                "The bibliography changed while resolving the citation. Retry the import."
-            )
-            .into());
-        }
+        let change = model::append_entry(&base, entry, key)?;
+        self.splice(&change, cx);
         self.show_all(window, cx);
         window.focus(&self.focus, cx);
         self.selected = Some(key.to_string());

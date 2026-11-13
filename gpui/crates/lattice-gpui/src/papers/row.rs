@@ -263,21 +263,24 @@ impl PapersPanel {
                 move |_, _, cx| model::open_link(&link, cx),
             ));
         }
-        let remove_view = view;
-        let removed = paper.clone();
-        actions.push(action(
-            child_id(row_id, "remove"),
-            Icon::TRASH,
-            t!("Remove from the bibliography"),
-            true,
-            window,
-            cx,
-            move |_, _, cx| {
-                remove_view
-                    .update(cx, |this, cx| this.remove(&removed, cx))
-                    .ok();
-            },
-        ));
+        // Only an entry with a key can be removed from the bibliography.
+        if paper.citation_key.is_some() {
+            let remove_view = view;
+            let removed = paper.clone();
+            actions.push(action(
+                child_id(row_id, "remove"),
+                Icon::TRASH,
+                t!("Remove from the bibliography"),
+                true,
+                window,
+                cx,
+                move |_, _, cx| {
+                    remove_view
+                        .update(cx, |this, cx| this.remove(&removed, cx))
+                        .ok();
+                },
+            ));
+        }
         actions
     }
 
