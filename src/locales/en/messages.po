@@ -638,12 +638,12 @@ msgstr "{filtered} of {total} papers"
 msgid "{first} and {more} more; build again"
 msgstr "{first} and {more} more; build again"
 
-#: src/editor/latex/visual/visual-decorations.ts
+#: src/editor/latex/visual/visual-numbering.ts
 #: src/papers/paper-identity.ts
 msgid "{first} and {second}"
 msgstr "{first} and {second}"
 
-#: src/editor/latex/visual/visual-decorations.ts
+#: src/editor/latex/visual/visual-numbering.ts
 #: src/papers/paper-identity.ts
 msgid "{first} et al."
 msgstr "{first} et al."
@@ -952,6 +952,7 @@ msgstr "{path} changed while it was being formatted, so the result was not appli
 msgid "{path} changed while this dialog was open, so nothing was saved. Reload to resolve it against the new text; choices and edits made here are cleared."
 msgstr "{path} changed while this dialog was open, so nothing was saved. Reload to resolve it against the new text; choices and edits made here are cleared."
 
+#: src/editor/latex/visual/visual-float-widget.ts
 #: src/editor/latex/visual/visual-widgets.ts
 msgid "{path} could not be read."
 msgstr "{path} could not be read."
@@ -1702,6 +1703,10 @@ msgstr "Acknowledgements"
 msgid "Acknowledgements and thanks"
 msgstr "Acknowledgements and thanks"
 
+#: src/editor/latex/visual/visual-numbering.ts
+msgid "Acknowledgments"
+msgstr "Acknowledgments"
+
 #: src/project/project-dialogs.tsx
 msgid "ACM paper ({name})"
 msgstr "ACM paper ({name})"
@@ -1755,6 +1760,7 @@ msgid "Add a bibliography entry for {title}"
 msgstr "Add a bibliography entry for {title}"
 
 #: src/editor/latex/visual/visual-decorations.ts
+#: src/editor/latex/visual/visual-float-widget.ts
 msgid "Add a caption"
 msgstr "Add a caption"
 
@@ -2031,6 +2037,10 @@ msgstr "Agent: {0}"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Aleph"
 msgstr "Aleph"
+
+#: src/editor/latex/visual/visual-float-widget.ts
+msgid "Algorithm"
+msgstr "Algorithm"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Algorithm block (requires algorithm and algpseudocode)"
@@ -2375,6 +2385,10 @@ msgstr "App updates"
 #: src/settings/settings-search-index.ts
 msgid "Appearance"
 msgstr "Appearance"
+
+#: src/editor/latex/visual/visual-decorations.ts
+msgid "Appendix"
+msgstr "Appendix"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Applied"
@@ -10353,6 +10367,7 @@ msgstr "No papers yet"
 msgid "No PDF yet"
 msgstr "No PDF yet"
 
+#: src/editor/latex/visual/visual-float-widget.ts
 #: src/editor/latex/visual/visual-widgets.ts
 msgid "No preview for {path}; the PDF shows it."
 msgstr "No preview for {path}; the PDF shows it."
@@ -12779,6 +12794,7 @@ msgstr "Reference with its type name"
 msgid "Reference:"
 msgstr "Reference:"
 
+#: src/editor/latex/visual/visual-decorations.ts
 #: src/papers/bib-visual-editor.tsx
 msgid "References"
 msgstr "References"
@@ -17226,6 +17242,10 @@ msgstr "this Zotero database (schema {schema}) has no {table}.{column}"
 #: src/editor/latex/latex-command-completions.ts
 msgid "TikZ drawing"
 msgstr "TikZ drawing"
+
+#: src/editor/latex/visual/visual-float-widget.ts
+msgid "TikZ picture"
+msgstr "TikZ picture"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Tilde accent example"

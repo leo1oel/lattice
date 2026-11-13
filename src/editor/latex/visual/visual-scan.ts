@@ -9,8 +9,8 @@
  */
 import {
   ACCENTS, BOXED_ENVIRONMENTS, CITATION_COMMANDS, COMPOUND_COMMANDS, DISPLAY_MATH_ENVIRONMENTS, FIGURE_ENVIRONMENTS,
-  HEADING_LEVELS, IMPORT_COMMANDS, INCLUDE_COMMANDS, LIST_ENVIRONMENTS, LITERALS, REFERENCE_COMMANDS, SOURCE_ENVIRONMENTS, STYLE_COMMANDS, STYLE_SWITCHES,
-  type TextStyle,
+  HEADING_LEVELS, IMPORT_COMMANDS, INCLUDE_COMMANDS, LAYOUT_COMMANDS, LIST_ENVIRONMENTS, LITERALS, MARKER_COMMANDS, REFERENCE_COMMANDS,
+  SIZE_SWITCHES, SOURCE_ENVIRONMENTS, STYLE_COMMANDS, STYLE_SWITCHES, TABLE_ENVIRONMENTS, type TextStyle,
 } from "./visual-symbols";
 
 export type Span = { from: number; to: number };
@@ -44,6 +44,15 @@ export type Construct = Span & (
   | { kind: "image"; path: string; options: string }
   /** `\maketitle`: the title block the preamble's `\title` and `\author` describe. */
   | { kind: "title" }
+  /**
+   * A whole float (`figure`, `table`, …) or a table outside one, from its
+   * `\begin` through its `\end`: drawn as one block, its layout read from its source.
+   */
+  | { kind: "block"; name: string }
+  /** A command standing for a part of the document: `\appendix`, `\bibliography{…}`. */
+  | { kind: "marker"; marker: "appendix" | "references" }
+  /** A group spanning lines that `\centering` centers: `{\centering … \par}`. */
+  | { kind: "centered" }
 );
 
 /** A construct before it is placed: what `Scanner.push` takes. */
@@ -54,10 +63,10 @@ type Unplaced = Construct extends infer C ? C extends Construct ? Omit<C, "from"
  * it has had. `start` is where its constructs begin in the scan's list, for a
  * float to number its caption from its label once it ends.
  */
-export type ScanFrame = { name: string; items: number; start?: number };
+export type ScanFrame = { name: string; items: number; start?: number; at?: number };
 
 type Frame =
-  | { type: "group"; at: number }
+  | { type: "group"; at: number; centered?: boolean }
   | { type: "style"; at: number; style: TextStyle; open: Span }
   | { type: "heading"; at: number; level: number; open: Span }
   | { type: "caption"; at: number; open: Span; float: string | null }
@@ -158,7 +167,16 @@ class Scanner {
   /** A `}`: it closes the innermost group, and the construct that group was the argument of. */
   private close(at: number) {
     const frame = this.frames.pop();
-    if (!frame || frame.type === "group") return;
+    if (!frame) return;
+    if (frame.type === "group") {
+      // A bare group across lines (`{\centering\small …\par}`) only scopes what is in it: its braces print nothing.
+      if (this.text.slice(frame.at, at).includes("\n")) {
+        this.push(frame.at, frame.at + 1, { kind: "symbol", text: "" });
+        this.push(at, at + 1, { kind: "symbol", text: "" });
+        if (frame.centered) this.push(frame.at, at + 1, { kind: "centered" });
+      }
+      return;
+    }
     const close = this.span(at, at + 1);
     const from = frame.open.from - this.offset;
     switch (frame.type) {
@@ -259,8 +277,17 @@ class Scanner {
       this.push(at, end, { kind: "title" });
       return end;
     }
-    // A float's `\centering` prints nothing; Visual mode centers floats anyway.
-    if (name === "centering" && this.environments.some((frame) => FIGURE_ENVIRONMENTS.has(frame.name))) return this.symbol(at, end, "");
+    const marker = MARKER_COMMANDS.get(name);
+    if (marker) return this.marker(at, end, name, marker);
+    if (name === "centering") {
+      // Floats are centered anyway; a group it opens centers its lines.
+      const top = this.frames.at(-1);
+      if (top?.type === "group") top.centered = true;
+      return this.symbol(at, end, "");
+    }
+    if (SIZE_SWITCHES.has(name)) return this.sizeSwitch(at, end, SIZE_SWITCHES.get(name)!);
+    const layout = LAYOUT_COMMANDS.get(name);
+    if (layout !== undefined) return this.layout(at, end, layout);
     const accent = ACCENTS[name];
     if (accent != null) return this.accent(at, end, accent, true);
     const literal = LITERALS[name];
@@ -311,6 +338,43 @@ class Scanner {
     const close = text.indexOf(char, delimiter + 1);
     const line = text.indexOf("\n", delimiter + 1);
     return close >= 0 && (line < 0 || close < line) ? close + 1 : end;
+  }
+
+  /**
+   * A layout or setup command (`\vspace{4pt}`, `\newpage`, `\hypersetup{…}`):
+   * it prints no text, so it draws as nothing, its source kept as written.
+   * Null arguments when they cannot be read: the command then stays as source.
+   */
+  private layout(at: number, end: number, braced: number): number {
+    let next = this.text[end] === "*" ? end + 1 : end;
+    next = this.options(next, 1).end;
+    for (let index = 0; index < braced; index++) {
+      const group = this.group(this.spaces(next));
+      if (!group) return end;
+      next = group.end;
+    }
+    // `\noindent Text`: the space ending the control word goes with it.
+    if (braced === 0 && next === end && this.text[next] === " ") next++;
+    return this.symbol(at, next, "");
+  }
+
+  /** `\appendix`, `\bibliography{refs}`, `\printbibliography[…]`: the part of the document they begin. */
+  private marker(at: number, end: number, name: string, marker: "appendix" | "references"): number {
+    let next = this.options(end, 1).end;
+    if (name === "bibliography") {
+      const group = this.group(this.spaces(next));
+      if (!group) return end;
+      next = group.end;
+    }
+    this.push(at, next, { kind: "marker", marker });
+    return next;
+  }
+
+  /** A size switch: at a group's start it sizes the group (`{\small …}`), elsewhere it draws as nothing. */
+  private sizeSwitch(at: number, end: number, style: TextStyle): number {
+    const top = this.frames.at(-1);
+    if (top?.type === "group" && this.spaces(top.at + 1) === at) return this.styleSwitch(at, end, style);
+    return this.symbol(at, this.text[end] === " " ? end + 1 : end, "");
   }
 
   private styleCommand(at: number, end: number, style: TextStyle): number {
@@ -456,7 +520,12 @@ class Scanner {
       // Nothing in it is read as text; one that does not end in the text keeps the rest as source.
       const closeToken = `\\end{${name}}`;
       const close = text.indexOf(closeToken, group.end);
-      return close < 0 ? text.length : close + closeToken.length;
+      if (close < 0) return text.length;
+      // A table outside a float draws as a table; in one, the float draws it.
+      if (TABLE_ENVIRONMENTS.has(name) && !this.environments.some((frame) => FIGURE_ENVIRONMENTS.has(frame.name))) {
+        this.push(at, close + closeToken.length, { kind: "block", name });
+      }
+      return close + closeToken.length;
     }
     if (DISPLAY_MATH_ENVIRONMENTS.has(name) || name === "math") {
       const closeToken = `\\end{${name}}`;
@@ -472,7 +541,7 @@ class Scanner {
     // An optional argument belongs to the token: `\begin{figure}[t]`, `\begin{theorem}[Fermat]`.
     const option = known ? this.group(this.spaces(group.end), "[", "]") : null;
     const stop = option ? option.end : group.end;
-    this.environments.push({ name, items: 0, start: this.constructs.length });
+    this.environments.push({ name, items: 0, start: this.constructs.length, at: this.offset + at });
     if (known) {
       const depth = this.environments.filter((frame) => LIST_ENVIRONMENTS.has(frame.name)).length;
       this.push(at, stop, { kind: "environment", name, begin: true, depth, argument: option ? option.inner.trim() : null });
@@ -494,8 +563,13 @@ class Scanner {
     const index = this.environments.map((frame) => frame.name).lastIndexOf(name);
     const depth = this.environments.filter((frame) => LIST_ENVIRONMENTS.has(frame.name)).length;
     if (index >= 0) {
-      const start = this.environments[index].start;
+      const { start, at: begin } = this.environments[index];
       if (FIGURE_ENVIRONMENTS.has(name) && start !== undefined) this.numberCaptions(start);
+      // The outermost float, begun in this scan, draws as one block.
+      const outermost = !this.environments.slice(0, index).some((frame) => FIGURE_ENVIRONMENTS.has(frame.name));
+      if (FIGURE_ENVIRONMENTS.has(name) && outermost && begin !== undefined) {
+        this.constructs.push({ kind: "block", name, from: begin, to: this.offset + end });
+      }
       this.environments.length = index;
     }
     if (LIST_ENVIRONMENTS.has(name) || FIGURE_ENVIRONMENTS.has(name) || BOXED_ENVIRONMENTS.has(name) || name === "document") {

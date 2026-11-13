@@ -14,32 +14,27 @@ import { Decoration, type DecorationSet } from "@codemirror/view";
 import type { EditorSelection, EditorState, Range, RangeSet, RangeValue } from "@codemirror/state";
 import { msg } from "@lingui/core/macro";
 import { i18n } from "../../../i18n";
-import type { CompiledLabel } from "../compiled-labels";
-import { numberedKey, type CompoundNumbers } from "../compound-keys";
 import { figureEntryBeside } from "../../../project/figure-source-open";
 import type { LatexVisualHost } from "../latex-visual-switch";
 import { resolveProjectPath } from "../latex-symbols";
-import { referenceKindLabel, type CitationInfo, type ReferenceInfo } from "../latex-text";
 import { overlaysTouch } from "../../source-overlays";
 import type { Construct, ScanFrame, Span } from "./visual-scan";
-import { BOXED_ENVIRONMENTS, FIGURE_ENVIRONMENTS, LIST_ENVIRONMENTS, REFERENCE_COMMANDS } from "./visual-symbols";
+import { BOXED_ENVIRONMENTS, FIGURE_ENVIRONMENTS, LIST_ENVIRONMENTS, TABLE_ENVIRONMENTS } from "./visual-symbols";
 import { macroRevision, mathHtml, visualMathSource } from "./visual-math";
 import {
   BarWidget, FigureWidget, ImageWidget, IncludeWidget, KeyedChipWidget, MarkerWidget, MathWidget, PlaceholderWidget, TextWidget, TitleWidget,
-  type ChipPart, type FigurePicture,
+  type FigurePicture,
 } from "./visual-widgets";
 import { figureEntryGraphic, figureEntryLabels } from "./visual-figure";
 import { frontMatter } from "./visual-front-matter";
+import { parseFloat, type FloatNode } from "./visual-float";
+import { FloatWidget } from "./visual-float-widget";
+import {
+  captionLabel, citationIndex, citationParts, compoundNumber, drawnNodes, environmentTitle, equationTag, floatOfTable, identity, indexed,
+  inlineContext, referenceParts, type DrawContext,
+} from "./visual-numbering";
 
-/** What a build reads beyond the constructs: the project's data and the last build's numbers. */
-export type DrawContext = {
-  state: EditorState;
-  host: LatexVisualHost;
-  /** The last build's label numbers; null before the first build (every number reads "?"). */
-  labels: ReadonlyMap<string, CompiledLabel> | null;
-  /** The compound numbers chemnum gave in the last build; null before the first build (every number reads "?"). */
-  compounds?: CompoundNumbers | null;
-};
+export type { DrawContext } from "./visual-numbering";
 
 /** The preamble Visual mode folds away: from the start through the `\begin{document}` line. */
 export type Preamble = { to: number } | null;
@@ -93,7 +88,7 @@ function wholeLines(state: EditorState, from: number, to: number): Span | null {
 
 /** The span a construct shows its source for when the selection touches it. */
 function revealSpan(state: EditorState, construct: Construct): Span {
-  if ((construct.kind === "math" && construct.environment) || construct.kind === "environment") {
+  if ((construct.kind === "math" && construct.environment) || construct.kind === "environment" || construct.kind === "block") {
     return { from: state.doc.lineAt(construct.from).from, to: state.doc.lineAt(construct.to).to };
   }
   return construct;
@@ -124,97 +119,11 @@ function roman(value: number): string {
   return out;
 }
 
-/** An environment's name as a heading: `theorem*` reads "Theorem". */
-const environmentTitle = (name: string) => name.replace(/\*$/, "").replace(/^./, (first) => first.toUpperCase());
-
-/** The share of the column a graphic takes: `width=0.6\linewidth` is 0.6. */
 function imageWidth(options: string): number | null {
   const match = /(?:^|,)\s*width\s*=\s*([\d.]*)\s*\\(?:linewidth|textwidth|columnwidth|hsize)/.exec(options);
   if (!match) return null;
   const value = match[1] ? Number(match[1]) : 1;
   return Number.isFinite(value) && value > 0 ? Math.min(value, 1) : null;
-}
-
-/** The authors a citation card shows, cut to what a chip has room for: "Vaswani et al." */
-function citationAuthors(authors: string): string {
-  const people = authors.split(/\s+and\s+|;\s*/).map((person) => person.trim()).filter(Boolean);
-  if (!people.length) return "";
-  const first = people[0].includes(",") ? people[0].split(",")[0] : people[0].split(/\s+/).at(-1) ?? people[0];
-  if (people.length === 1) return first;
-  if (people.length === 2) {
-    const second = people[1].includes(",") ? people[1].split(",")[0] : people[1].split(/\s+/).at(-1) ?? people[1];
-    return i18n._(msg`${first} and ${second}`);
-  }
-  return i18n._(msg`${first} et al.`);
-}
-
-/** Lookups built once per data array, not per chip. */
-const citationIndex = new WeakMap<CitationInfo[], Map<string, CitationInfo>>();
-const referenceIndex = new WeakMap<ReferenceInfo[], Map<string, ReferenceInfo>>();
-function indexed<T>(cache: WeakMap<T[], Map<string, T>>, list: T[] | undefined, key: (item: T) => string): Map<string, T> {
-  if (!list) return new Map();
-  let index = cache.get(list);
-  if (!index) {
-    index = new Map(list.map((item) => [key(item), item]));
-    cache.set(list, index);
-  }
-  return index;
-}
-
-/** Parts joined with `separator` between them. */
-function joined(parts: readonly ChipPart[], separator: string): ChipPart[] {
-  return parts.flatMap((part, index) => (index ? [{ text: separator }, part] : [part]));
-}
-
-/** A citation chip's words, each key's own: "[Vaswani et al., 2017; Devlin et al., 2019]". */
-export function citationParts(construct: Extract<Construct, { kind: "citation" }>, citations: Map<string, CitationInfo>): ChipPart[] {
-  const textual = /^(?:citet|Citet|textcite|Textcite|citealt|Citealt)$/.test(construct.command);
-  const entries = construct.keys.map((key) => {
-    const info = citations.get(key);
-    const authors = info ? citationAuthors(info.authors) : "";
-    if (!info || !authors) return { key, label: key, year: "" };
-    return { key, label: authors, year: info.year };
-  });
-  if (construct.command === "citeauthor" || construct.command === "Citeauthor") {
-    return joined(entries.map(({ key, label }) => ({ key, text: label })), "; ");
-  }
-  if (construct.command === "citeyear" || construct.command === "citeyearpar") {
-    return joined(entries.map(({ key, label, year }) => ({ key, text: year || label })), "; ");
-  }
-  const note = construct.notes.at(-1)?.replace(/~/g, " ").trim();
-  if (textual) return joined(entries.map(({ key, label, year }) => ({ key, text: year ? `${label} (${year})` : label })), "; ");
-  const inner = joined(entries.map(({ key, label, year }) => ({ key, text: year ? `${label}, ${year}` : label })), "; ");
-  return [{ text: "[" }, ...inner, { text: note ? `, ${note}]` : "]" }];
-}
-
-/** A reference chip's words, each label's own: "Section 2, 3". */
-function referenceParts(construct: Extract<Construct, { kind: "reference" }>, context: DrawContext): ChipPart[] {
-  const style = REFERENCE_COMMANDS.get(construct.command) ?? "number";
-  const references = indexed(referenceIndex, context.host.data().references, (reference) => reference.label);
-  const parts = construct.keys.map((key) => {
-    const compiled = context.labels?.get(key);
-    const number = (style === "page" ? compiled?.page : compiled?.number) || "?";
-    if (style === "parenthesized") return { key, text: `(${number})` };
-    if (style !== "named") return { key, text: number };
-    const kind = references.get(key)?.kind;
-    return { key, text: kind ? `${referenceKindLabel(kind)} ${number}` : number };
-  });
-  return joined(parts, ", ");
-}
-
-/** A labelled equation's number from the last build: "?" before one, or for a label it never saw. */
-function equationTag(construct: Extract<Construct, { kind: "math" }>, context: DrawContext, body: string): string | null {
-  const environment = construct.environment;
-  if (!environment || environment.endsWith("*") || environment === "displaymath" || environment === "math") return null;
-  const labels = [...body.matchAll(/\\label\s*\{([^}]*)\}/g)].map((match) => match[1].trim());
-  if (labels.length !== 1 || /\\(?:nonumber|notag|tag)\b/.test(body)) return null;
-  return context.labels?.get(labels[0])?.number || "?";
-}
-
-/** A compound key's number from the last build: `key.sub.num` is recorded as `key.sub`, a series mark as `A:key`. */
-function compoundNumber(key: string, context: DrawContext): string {
-  const numbers = context.compounds;
-  return numbers?.get(key) ?? numbers?.get(numberedKey(key)) ?? "?";
 }
 
 /** The pictures an editable figure may draw: what the reference-image loader previews. */
@@ -265,6 +174,8 @@ export function buildReplacements(
   // Constructs inside a range already replaced whole are drawn by that range.
   let coveredTo = -1;
   const brace = (char: string) => Decoration.replace({ widget: new TextWidget(char, "lx-tex-brace") });
+  /** The line a run of commands that print nothing ends on, when it is only them: hidden whole, line and all. */
+  let silentLineTo = -1;
 
   if (preamble.span) {
     if (!preamble.revealed) {
@@ -324,9 +235,16 @@ export function buildReplacements(
       case "symbol":
         if (touched) return;
         if (!construct.text) {
-          // A command that prints nothing, alone on its line (a float's `\centering`), takes the line with it.
-          const lines = wholeLines(state, construct.from, construct.to);
-          add(lines?.from ?? construct.from, lines?.to ?? construct.to, lines ? Decoration.replace({ block: true }) : hidden);
+          if (construct.to <= silentLineTo) return;
+          // Commands that print nothing (`\vspace{4pt}`, `{\centering\small`), alone on their line, take the line with them.
+          const run = silentRun(state, constructs, revealed, index);
+          const lines = wholeLines(state, construct.from, run);
+          if (lines && lines.from >= coveredTo) {
+            add(lines.from, lines.to, Decoration.replace({ block: true }));
+            silentLineTo = lines.to;
+            return;
+          }
+          add(construct.from, construct.to, hidden);
           return;
         }
         add(construct.from, construct.to, Decoration.replace({ widget: new TextWidget(construct.text, "lx-tex-symbol") }));
@@ -398,9 +316,44 @@ export function buildReplacements(
       case "title": {
         const lines = wholeLines(state, construct.from, construct.to);
         const front = touched || !lines ? null : frontMatter(state.doc, construct.from);
-        if (front) add(lines!.from, lines!.to, Decoration.replace({ widget: new TitleWidget(front.title, front.authors, construct.from - lines!.from), block: true }));
+        if (front) {
+          const key = `${macroRevision(macros)}:${JSON.stringify(front)}`;
+          const widget = new TitleWidget(front.title, front.authors, construct.from - lines!.from, key, inlineContext(context, citations));
+          add(lines!.from, lines!.to, Decoration.replace({ widget, block: true }));
+        }
         return;
       }
+      case "block": {
+        if (touched) return;
+        const lines = wholeLines(state, construct.from, construct.to);
+        if (!lines || lines.from < coveredTo) return;
+        const source = state.sliceDoc(construct.from, construct.to);
+        // A float that brings in a file (an editable figure's entry) is drawn line by line, as before.
+        if (/\\(?:input|include|subfile|import|subimport)(?![A-Za-z@])/.test(source)) return;
+        const bare = TABLE_ENVIRONMENTS.has(construct.name);
+        // Offsets from the block's first line, where a click lands.
+        const offset = construct.from - lines.from;
+        const nodes: FloatNode[] = bare ? floatOfTable(source, offset) : parseFloat(source, offset);
+        if (!nodes.length) return;
+        const drawn = drawnNodes(nodes, construct.name.replace(/\*$/, ""), context);
+        const key = [
+          source, JSON.stringify(drawn), macroRevision(macros), identity(context.labels), identity(data.citations), identity(data.references),
+        ].join("\u0000");
+        const widget = new FloatWidget(drawn, key, (path) => host.loadImage(path), inlineContext(context, citations), bare);
+        add(lines.from, lines.to, Decoration.replace({ widget, block: true }));
+        coveredTo = lines.to;
+        return;
+      }
+      case "marker": {
+        if (touched) return;
+        const label = construct.marker === "appendix" ? i18n._(msg`Appendix`) : i18n._(msg`References`);
+        const lines = wholeLines(state, construct.from, construct.to);
+        if (lines) add(lines.from, lines.to, Decoration.replace({ widget: new BarWidget(label, classes("lx-tex-env-start", "lx-tex-marker-bar"), construct.from - lines.from), block: true }));
+        else add(construct.from, construct.to, Decoration.replace({ widget: new TextWidget(label, classes("lx-tex-chip", "lx-tex-marker-chip")) }));
+        return;
+      }
+      case "centered":
+        return;
       case "environment": {
         if (touched) return;
         const lines = wholeLines(state, construct.from, construct.to);
@@ -423,13 +376,19 @@ export function buildReplacements(
   }
   return Decoration.set(ranges, true);
 }
-
-/** "Figure 3:" for a float's caption: its float's name and the number the last build gave its label. */
-function captionLabel(construct: Extract<Construct, { kind: "caption" }>, context: DrawContext): string {
-  const float = construct.float?.replace(/\*$/, "");
-  if (!float || float === "subfigure" || float === "wrapfigure") return "";
-  const number = (construct.label && context.labels?.get(construct.label)?.number) || "?";
-  return `${environmentTitle(float)} ${number}: `;
+/**
+ * Where a run of commands that print nothing, starting with `constructs[index]`,
+ * ends: the next ones that follow it with only blanks between, none of them revealed.
+ */
+function silentRun(state: EditorState, constructs: readonly Construct[], revealed: readonly boolean[], index: number): number {
+  let to = constructs[index].to;
+  for (let next = index + 1; next < constructs.length; next++) {
+    const construct = constructs[next];
+    if (construct.from < to) continue;
+    if (construct.kind !== "symbol" || construct.text || revealed[next] || state.sliceDoc(to, construct.from).trim()) break;
+    to = construct.to;
+  }
+  return to;
 }
 
 /** Styling for `constructs`, independent of the selection. `open` are the environments open where the scan began. */
@@ -473,6 +432,9 @@ export function buildStyles(state: EditorState, constructs: readonly Construct[]
         break;
       case "caption":
         lineRange(construct.from, construct.to, "lx-tex-caption");
+        break;
+      case "centered":
+        lineRange(construct.from, construct.to, "lx-tex-center");
         break;
       case "item":
         ranges.push(lineClass("lx-tex-item").range(state.doc.lineAt(construct.from).from));

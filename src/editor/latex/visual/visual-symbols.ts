@@ -9,7 +9,7 @@
 /** How a text-styling command draws its argument. */
 export type TextStyle =
   | "bold" | "italic" | "emph" | "mono" | "underline" | "strike" | "smallcaps" | "sans" | "roman" | "slanted" | "upright"
-  | "footnote" | "link";
+  | "footnote" | "link" | "small" | "large";
 
 /** Commands whose one braced argument is styled text: `\textbf{…}`. */
 export const STYLE_COMMANDS: ReadonlyMap<string, TextStyle> = new Map([
@@ -23,6 +23,35 @@ export const STYLE_SWITCHES: ReadonlyMap<string, TextStyle> = new Map([
   ["bf", "bold"], ["bfseries", "bold"], ["it", "italic"], ["itshape", "italic"], ["em", "emph"], ["tt", "mono"],
   ["ttfamily", "mono"], ["sc", "smallcaps"], ["scshape", "smallcaps"], ["sf", "sans"], ["sffamily", "sans"],
   ["sl", "slanted"], ["slshape", "slanted"], ["rm", "roman"], ["rmfamily", "roman"], ["upshape", "upright"],
+]);
+
+/** Size switches: at a group's start they size it (`{\small …}`); anywhere else they draw as nothing. */
+export const SIZE_SWITCHES: ReadonlyMap<string, TextStyle> = new Map([
+  ["tiny", "small"], ["scriptsize", "small"], ["footnotesize", "small"], ["small", "small"],
+  ["large", "large"], ["Large", "large"], ["LARGE", "large"], ["huge", "large"], ["Huge", "large"],
+]);
+
+/**
+ * Layout, spacing and setup commands, and how many braced arguments each
+ * takes: they print no text, so Visual mode draws them as nothing (their
+ * source stays as written, and shows when the caret reaches it).
+ */
+export const LAYOUT_COMMANDS: ReadonlyMap<string, number> = new Map([
+  ["vspace", 1], ["hspace", 1], ["vskip", 0], ["newpage", 0], ["clearpage", 0], ["cleardoublepage", 0], ["pagebreak", 0],
+  ["nopagebreak", 0], ["linebreak", 0], ["nolinebreak", 0], ["raggedbottom", 0], ["flushbottom", 0], ["raggedright", 0],
+  ["raggedleft", 0], ["noindent", 0], ["indent", 0], ["par", 0], ["smallskip", 0], ["medskip", 0], ["bigskip", 0],
+  ["vfill", 0], ["hfill", 0], ["FloatBarrier", 0], ["balance", 0], ["sloppy", 0], ["fussy", 0], ["frenchspacing", 0],
+  ["onecolumn", 0], ["twocolumn", 0], ["normalsize", 0], ["normalfont", 0], ["selectfont", 0], ["pagestyle", 1],
+  ["thispagestyle", 1], ["pagenumbering", 1], ["setcounter", 2], ["addtocounter", 2], ["setlength", 2], ["addtolength", 2],
+  ["hypersetup", 1], ["captionsetup", 1], ["bibliographystyle", 1], ["graphicspath", 1], ["addcontentsline", 3],
+  ["phantomsection", 0], ["allowdisplaybreaks", 0], ["protect", 0], ["relax", 0], ["makeatletter", 0], ["makeatother", 0],
+  ["color", 1], ["nocite", 1], ["enlargethispage", 1], ["needspace", 1], ["afterpage", 1], ["urlstyle", 1], ["sisetup", 1],
+  ["setcitestyle", 1], ["crefname", 3], ["Crefname", 3], ["newpage*", 0], ["bibpunct", 6], ["looseness", 0],
+]);
+
+/** Commands that begin a part of the document, drawn as a quiet bar with its name. */
+export const MARKER_COMMANDS: ReadonlyMap<string, "appendix" | "references"> = new Map([
+  ["appendix", "appendix"], ["bibliography", "references"], ["printbibliography", "references"],
 ]);
 
 /** Sectioning commands and their depth: `\part` is 0, `\subparagraph` 6. */
@@ -72,7 +101,12 @@ export const DISPLAY_MATH_ENVIRONMENTS: ReadonlySet<string> = new Set([
 export const SOURCE_ENVIRONMENTS: ReadonlySet<string> = new Set([
   "verbatim", "verbatim*", "Verbatim", "Verbatim*", "BVerbatim", "LVerbatim", "lstlisting", "minted", "comment",
   "filecontents", "filecontents*", "tikzpicture", "forest", "algorithmic", "tabular", "tabular*", "tabularx",
-  "longtable", "array",
+  "longtable", "array", "tabulary", "longtable*", "tblr", "supertabular", "xtabular", "NiceTabular",
+]);
+
+/** Table environments: drawn as a table (in a float, or on their own). */
+export const TABLE_ENVIRONMENTS: ReadonlySet<string> = new Set([
+  "tabular", "tabular*", "tabularx", "tabulary", "longtable", "longtable*", "array", "tblr", "supertabular", "xtabular", "NiceTabular",
 ]);
 
 /** Floats whose `\includegraphics` and `\caption` Visual mode draws. */
@@ -85,7 +119,12 @@ export const FIGURE_ENVIRONMENTS: ReadonlySet<string> = new Set([
 /** Environments drawn as a block with a heading of their name: `abstract`, quotes, theorems. */
 export const BOXED_ENVIRONMENTS: ReadonlySet<string> = new Set([
   "abstract", "quote", "quotation", "center", "theorem", "lemma", "proposition", "corollary", "definition", "remark",
-  "proof", "example",
+  "proof", "example", "ack", "acks", "acknowledgments", "acknowledgements", "acknowledgment", "acknowledgement",
+]);
+
+/** The acknowledgments environments venue classes define (NeurIPS' `ack`, ACM's `acks`). */
+export const ACKNOWLEDGMENT_ENVIRONMENTS: ReadonlySet<string> = new Set([
+  "ack", "acks", "acknowledgments", "acknowledgements", "acknowledgment", "acknowledgement",
 ]);
 
 /** Commands that print one fixed character or word. `\\` and `\newline` are line breaks, left as source. */
