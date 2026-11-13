@@ -20,7 +20,7 @@ use std::time::{Duration, Instant};
 use editor::{
     MultiBufferOffset, SelectionEffects,
     actions::{Redo, Undo},
-    display_map::ToDisplayPoint as _,
+    display_map::{DisplayPoint, DisplayRow, DisplaySnapshot, ToDisplayPoint as _},
     scroll::Autoscroll,
 };
 use gpui::{AppContext as _, Context, Entity, Focusable as _, Window, point};
@@ -110,7 +110,7 @@ impl EditorPanel {
                 }
                 cx.notify();
             }
-            MarkdownEvent::Scrolled(line) => self.follow_preview(*line, window, cx),
+            MarkdownEvent::Scrolled(center) => self.follow_preview(*center, window, cx),
         }
     }
 
@@ -167,8 +167,9 @@ impl EditorPanel {
         self.markdown_document().cloned()
     }
 
-    /// Split: the preview's top line is now `line`; the source follows.
-    fn follow_preview(&mut self, line: u32, window: &mut Window, cx: &mut Context<Self>) {
+    /// Split: the preview's centre maps to source line `center`; the
+    /// source's centre follows, unless the source is leading.
+    fn follow_preview(&mut self, center: f64, window: &mut Window, cx: &mut Context<Self>) {
         if self.document_view() != Some(DocumentView::Split)
             || self
                 .markdown_led
@@ -179,17 +180,15 @@ impl EditorPanel {
         self.markdown_led = Some((false, Instant::now()));
         self.editor.update(cx, |editor, cx| {
             let snapshot = editor.display_snapshot(cx);
-            let row = Point::new(line.saturating_sub(1), 0)
-                .to_display_point(&snapshot)
-                .row()
-                .0;
+            let half = editor.visible_line_count().unwrap_or(0.) / 2.;
+            let top = (row_at_line(&snapshot, center) - half).max(0.);
             let x = editor.scroll_position(cx).x;
-            editor.set_scroll_position(point(x, row as f64), window, cx);
+            editor.set_scroll_position(point(x, top), window, cx);
         });
     }
 
-    /// Split: the source scrolled; the preview follows its top line, unless
-    /// the source is following the preview.
+    /// Split: the source scrolled; the preview follows its centre line,
+    /// unless the source is following the preview.
     pub(super) fn markdown_source_scrolled(&mut self, cx: &mut Context<Self>) {
         if self.document_view() != Some(DocumentView::Split) {
             return;
@@ -204,16 +203,57 @@ impl EditorPanel {
             return;
         }
         self.markdown_led = Some((true, Instant::now()));
-        let line = self.editor.update(cx, |editor, cx| {
-            let top = editor.scroll_position(cx).y.max(0.).floor() as u32;
+        let (center, min, max) = self.editor.update(cx, |editor, cx| {
             let snapshot = editor.display_snapshot(cx);
-            editor::display_map::DisplayPoint::new(editor::display_map::DisplayRow(top), 0)
-                .to_point(&snapshot)
-                .row
-                + 1
+            let half = editor.visible_line_count().unwrap_or(0.) / 2.;
+            let top = editor.scroll_position(cx).y.max(0.);
+            let last = snapshot.max_point().row().0 as f64 + 1.;
+            (
+                line_at_row(&snapshot, top + half),
+                line_at_row(&snapshot, half),
+                line_at_row(&snapshot, (last - 1.).max(0.) + half),
+            )
         });
-        document.update(cx, |document, cx| document.follow_line(line, cx));
+        document.update(cx, |document, cx| {
+            document.follow_center(center, min, max, cx)
+        });
     }
+}
+
+/// The display row line `line` of the buffer starts on.
+fn first_row(snapshot: &DisplaySnapshot, line: u32) -> f64 {
+    Point::new(line, 0).to_display_point(snapshot).row().0 as f64
+}
+
+/// The display rows buffer line `line` spans, as `[first, next)`.
+fn line_rows(snapshot: &DisplaySnapshot, line: u32) -> (f64, f64) {
+    let first = first_row(snapshot, line);
+    let next = if line < snapshot.buffer_snapshot().max_point().row {
+        first_row(snapshot, line + 1)
+    } else {
+        snapshot.max_point().row().0 as f64 + 1.
+    };
+    (first, next.max(first + 1.))
+}
+
+/// The buffer line a fractional display `row` falls in, with how far
+/// through its rows (a soft-wrapped line spans several), the unit the
+/// visual editor's scroll map is in (`gpui/islands/markdown/split-scroll.ts`).
+fn line_at_row(snapshot: &DisplaySnapshot, row: f64) -> f64 {
+    let whole = row.max(0.).floor() as u32;
+    let line = DisplayPoint::new(DisplayRow(whole), 0)
+        .to_point(snapshot)
+        .row;
+    let (first, next) = line_rows(snapshot, line);
+    line as f64 + ((row - first) / (next - first)).clamp(0., 1.)
+}
+
+/// The fractional display row of a fractional buffer `line`.
+fn row_at_line(snapshot: &DisplaySnapshot, line: f64) -> f64 {
+    let max = snapshot.buffer_snapshot().max_point().row;
+    let whole = (line.max(0.).floor() as u32).min(max);
+    let (first, next) = line_rows(snapshot, whole);
+    first + (line - whole as f64).clamp(0., 1.) * (next - first)
 }
 
 #[cfg(test)]

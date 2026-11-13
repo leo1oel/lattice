@@ -130,9 +130,11 @@ impl Run {
         // The HTML screen (`scenes.html`): the tutorial's HTML demo opened,
         // in Preview, once its page has loaded; the spreadsheet and board
         // screens (`scenes.sheet`, `scenes.board`): the tutorial's own, once
-        // their island has drawn.
+        // their island has drawn; the Markdown screen (`scenes.markdown`): the
+        // tutorial's notes in Preview, once the visual editor has drawn.
         let html_loaded = match std::env::var("LATTICE_PARITY_SCREEN").as_deref() {
             Ok("html") => Some(self.parity_open_html(cx).await?),
+            Ok("markdown") => Some(self.parity_open_markdown(cx).await?),
             Ok("sheet") => Some(
                 self.parity_open_structured(cx, "attention-results.lattice-sheet")
                     .await?,
@@ -248,6 +250,35 @@ impl Run {
             .await;
         self.park_pointer(cx)?;
         Ok(loaded)
+    }
+}
+
+impl Run {
+    /// Open the tutorial's notes in Preview as the scene does, and wait for
+    /// the visual editor to draw; whether it did.
+    async fn parity_open_markdown(&self, cx: &mut AsyncApp) -> Result<bool> {
+        let Some(root) = cx.update(|cx| self.shell.read(cx).root(cx)) else {
+            return Ok(false);
+        };
+        let panel = self.open(cx, &root.join("notes.md"), None)?;
+        self.with_window(cx, {
+            let panel = panel.clone();
+            move |_, window, cx| {
+                panel.update(cx, |panel, cx| {
+                    panel.set_document_view(crate::editor_panel::DocumentView::Preview, window, cx)
+                })
+            }
+        })?;
+        let drawn = self
+            .wait_for(cx, Duration::from_secs(30), |_, cx| {
+                panel
+                    .read(cx)
+                    .markdown_document()
+                    .is_some_and(|document| document.read(cx).is_drawn())
+            })
+            .await;
+        self.park_pointer(cx)?;
+        Ok(drawn)
     }
 }
 

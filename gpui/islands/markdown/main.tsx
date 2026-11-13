@@ -30,14 +30,14 @@
  *   md:reveal         { id, line }      land on a 1-based line of the file
  *   md:assets-changed                   project files changed: images load again
  *   md:project        { files, texSources }   the project's tree and TeX sources changed
- *   md:scroll-to      { line }          Split: the source's top line, to follow
+ *   md:scroll-to      { center, min, max }   Split: the line at the source's centre, and its range
  * Page to host:
  *   md:change         { source, base }  the whole file after an edit made against `base`
  *   md:undo, md:redo
  *   md:view-in-source { offset }        show the source with the caret at a UTF-16 offset
  *   md:open-path      { path }          a project link followed
  *   md:caret          { line, column }  1-based, in the file
- *   md:scrolled       { line }          Split: the preview's top line, for the source to follow
+ *   md:scrolled       { center }        Split: the source line the preview's centre maps to
  *   md:read           (request) { path } → text   a project file, for the page index
  *   md:load-asset     (request) { path } → url | null
  *   md:import-asset   (request) { base64, type } → project path | null
@@ -46,6 +46,8 @@ import "../shared/install";
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef } from "react";
 import { mount, activateLocale } from "../shared/boot";
 import { afterLayout, host } from "../shared/host";
+import { LineIndex, SplitScroll } from "./split-scroll";
+import "./markdown.css";
 import { ScrollArea } from "../../../src/components/ui/scroll-area";
 import { LatticeVisualMarkdownEditor } from "../../../src/editor/markdown/engine/lattice-visual-editor";
 import { MarkdownWorkspaceIndex } from "../../../src/editor/markdown/markdown-workspace-index";
@@ -54,7 +56,7 @@ import { katexMacrosFromSources } from "../../../src/editor/latex/latex-text";
 import { markdownFrontmatterEnd } from "../../../src/app-utils";
 import type { FileNode } from "../../../src/app-types";
 import {
-  capturePreviewViewport, restorePreviewViewport, sourceAnchors, spliceMarkdownBody, useSettledPreviewText,
+  capturePreviewViewport, restorePreviewViewport, spliceMarkdownBody, useSettledPreviewText,
   type PreviewViewportSnapshot,
 } from "../../../src/canvas/markdown-preview-sync";
 
@@ -149,9 +151,11 @@ function Markdown() {
   const sourceRef = useRef(source);
   useLayoutEffect(() => { sourceRef.current = source; }, [source]);
   const viewportRef = useRef<HTMLDivElement | null>(null);
-  // While the owner scrolls the preview to follow the source, its scroll
-  // events are not the reader's.
-  const followingRef = useRef(0);
+  // Split's scroll coordination (`split-scroll.ts`), over the file's lines.
+  const splitScrollRef = useRef<SplitScroll | null>(null);
+  const linesRef = useRef<{ text: string; lines: LineIndex } | null>(null);
+  const splitRef = useRef(split);
+  useLayoutEffect(() => { splitRef.current = split; }, [split]);
 
   const start = markdownFrontmatterEnd(source);
   const body = source.slice(start);
@@ -194,34 +198,14 @@ function Markdown() {
         const { files: nextFiles, texSources: nextSources } = payload as { files: FileNode[]; texSources: string[] };
         dispatch({ type: "project", files: nextFiles, texSources: nextSources });
       }),
-      bridge.on("md:scroll-to", (payload) => followSourceLine((payload as { line: number }).line)),
+      bridge.on("md:scroll-to", (payload) => {
+        const { center, min, max } = payload as { center: number; min: number; max: number };
+        splitScrollRef.current?.followSource(center, min, max);
+      }),
     ];
     bridge.ready();
     return () => { for (const stop of stops) stop(); };
   }, []);
-
-  /** Split: put the block holding the source's top line at the preview's top. */
-  function followSourceLine(line: number) {
-    const viewport = viewportRef.current;
-    if (!viewport) return;
-    const text = sourceRef.current;
-    const bodyStart = markdownFrontmatterEnd(text);
-    // The line's offset in the body.
-    let offset = 0;
-    for (let index = 1; index < line; index += 1) {
-      const next = text.indexOf("\n", offset);
-      if (next < 0) break;
-      offset = next + 1;
-    }
-    const target = Math.max(0, offset - bodyStart);
-    const anchors = sourceAnchors(viewport);
-    if (anchors.length === 0) return;
-    const anchor = anchors.find((candidate) => candidate.to >= target) ?? anchors[anchors.length - 1];
-    const top = anchor.element.getBoundingClientRect().top - viewport.getBoundingClientRect().top + viewport.scrollTop;
-    followingRef.current += 1;
-    viewport.scrollTop = Math.max(0, top);
-    requestAnimationFrame(() => { followingRef.current = Math.max(0, followingRef.current - 1); });
-  }
 
   useEffect(() => {
     if (!opened || !ready) return;
@@ -241,22 +225,26 @@ function Markdown() {
       frame = requestAnimationFrame(restore);
     };
     frame = requestAnimationFrame(restore);
+    // Split's map of the blocks, measured again once the layout changes.
+    const text = () => {
+      const current = sourceRef.current;
+      if (linesRef.current?.text !== current) linesRef.current = { text: current, lines: new LineIndex(current) };
+      return { lines: linesRef.current.lines, bodyStart: markdownFrontmatterEnd(current) };
+    };
+    const splitScroll = new SplitScroll(viewport, text);
+    splitScrollRef.current = splitScroll;
+    const resized = new ResizeObserver(() => splitScroll.invalidate());
+    resized.observe(viewport);
+    if (viewport.firstElementChild) resized.observe(viewport.firstElementChild);
     let pending = 0;
     const report = () => {
       if (pending) return;
       pending = requestAnimationFrame(() => {
         pending = 0;
         host().post("doc:view-state", { viewState: capturePreviewViewport(viewport) });
-        if (followingRef.current === 0) {
-          const anchors = sourceAnchors(viewport);
-          const top = viewport.getBoundingClientRect().top;
-          const first = anchors.find((anchor) => anchor.element.getBoundingClientRect().bottom > top + 1);
-          if (first) {
-            const text = sourceRef.current;
-            const line = lineOf(text, markdownFrontmatterEnd(text) + first.from) + 1;
-            host().post("md:scrolled", { line });
-          }
-        }
+        if (!splitRef.current) return;
+        const center = splitScroll.sourceCenter();
+        if (center != null) host().post("md:scrolled", { center });
       });
     };
     viewport.addEventListener("scroll", report, { passive: true });
@@ -264,8 +252,12 @@ function Markdown() {
       cancelAnimationFrame(frame);
       cancelAnimationFrame(pending);
       viewport.removeEventListener("scroll", report);
+      resized.disconnect();
+      splitScrollRef.current = null;
     };
   }, [opened, ready]);
+  // New text lays the blocks out again.
+  useEffect(() => { splitScrollRef.current?.invalidate(); }, [settled]);
 
   const onChangeMarkdown = useCallback((nextBody: string, expectedBody: string) => {
     const base = sourceRef.current;

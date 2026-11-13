@@ -47,8 +47,9 @@ pub enum MarkdownEvent {
     OpenPath(String),
     /// The caret moved to this 1-based line and column of the file.
     Caret(u32, u32),
-    /// Split: the preview's top line, for the source to follow.
-    Scrolled(u32),
+    /// Split: the source line the preview's centre maps to, fractional
+    /// within a wrapped line, for the source's centre to follow.
+    Scrolled(f64),
 }
 
 /// The Tauri app saves pasted images here (`importClipboardImageFile`).
@@ -229,9 +230,14 @@ impl StructuredDocument {
         self.post("md:reveal", json!({ "id": id, "line": line }), cx);
     }
 
-    /// Split: the source's top line, for the preview to follow.
-    pub fn follow_line(&mut self, line: u32, cx: &mut Context<Self>) {
-        self.post("md:scroll-to", json!({ "line": line }), cx);
+    /// Split: the source line at the source's centre, with the range that
+    /// centre can take, for the preview to follow.
+    pub fn follow_center(&mut self, center: f64, min: f64, max: f64, cx: &mut Context<Self>) {
+        self.post(
+            "md:scroll-to",
+            json!({ "center": center, "min": min, "max": max }),
+            cx,
+        );
     }
 
     /// The panel refused the page's edit: the page takes the buffer's text.
@@ -277,9 +283,10 @@ impl StructuredDocument {
                     |key: &str| payload.get(key).and_then(Value::as_u64).unwrap_or(1) as u32;
                 MarkdownEvent::Caret(number("line"), number("column"))
             }
-            "md:scrolled" => MarkdownEvent::Scrolled(
-                payload.get("line").and_then(Value::as_u64).unwrap_or(1) as u32,
-            ),
+            "md:scrolled" => match payload.get("center").and_then(Value::as_f64) {
+                Some(center) => MarkdownEvent::Scrolled(center),
+                None => return,
+            },
             _ => {
                 log::debug!("markdown: unhandled {kind}");
                 return;

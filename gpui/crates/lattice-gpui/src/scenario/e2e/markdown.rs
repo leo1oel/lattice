@@ -123,6 +123,7 @@ impl Run {
         self.markdown_preview(cx, steps, &panel, &island).await?;
         self.markdown_close_and_hibernate(cx, steps, root, &path, &panel, &island)
             .await?;
+        self.markdown_split_scroll(cx, steps, root).await?;
         Ok(())
     }
 

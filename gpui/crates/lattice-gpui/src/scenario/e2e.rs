@@ -20,6 +20,8 @@ mod islands;
 mod live_controls;
 #[cfg(target_os = "macos")]
 mod markdown;
+#[cfg(target_os = "macos")]
+mod markdown_scroll;
 mod pdf;
 mod saves;
 mod settings;
