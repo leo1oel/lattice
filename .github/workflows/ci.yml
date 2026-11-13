@@ -1,9 +1,8 @@
 name: CI
 
-# Pull requests and pushes to main do not run this workflow: the local
-# signoff (`pnpm signoff`, docs/agent-validation.md) checks a change on the
-# author's machine and records a `signoff` commit status on its head instead.
-# It runs in full for a release tag, on demand (Actions > CI > Run workflow,
+# Pull requests and pushes to main do not run this workflow: pull requests run
+# no CI (an author may run the optional `pnpm signoff` locally,
+# docs/agent-validation.md). It runs in full for a release tag, on demand (Actions > CI > Run workflow,
 # or `gh workflow run ci.yml --ref <branch>`), and weekly on main. The weekly
 # run is what keeps the Rust caches warm: Actions evicts a cache untouched for
 # 7 days, and a cache written from a tag is visible only to that tag, so only

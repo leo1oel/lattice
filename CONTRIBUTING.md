@@ -193,13 +193,11 @@ the frontend. If you add a new one, add it there in the same commit.
 
 ## Verify your change
 
-Run a focused test while iterating, `pnpm gate:changed` before pushing, and
-`pnpm signoff` on the pushed head of your pull request:
+Run a focused test while iterating, then `pnpm gate:changed` before pushing:
 
 ```bash
 pnpm vitest run src/path/to/file.test.ts
 pnpm gate:changed
-pnpm signoff
 ```
 
 `pnpm gate:changed` (`scripts/gate-changed.mjs`) runs lint, typecheck, the i18n
@@ -207,13 +205,13 @@ catalogs, and the tests that `vitest related` finds from what your branch
 changed against `origin/main`, plus the invariant tests no import leads to. It
 builds no Rust.
 
-Pull requests do not run GitHub Actions. `pnpm signoff` (`scripts/signoff.mjs`)
-is their check: the same stages, plus the bundle budgets, clippy and the tests
-of the changed Rust crates, and the GPUI app when `gpui/` changed, and then a
-green `signoff` commit status on the commit it checked, through
-[gh-signoff](https://github.com/basecamp/gh-signoff) when it is installed.
+Pull requests run no CI: no GitHub checks, and no required local status.
 The full CI (`ci.yml`, `gpui.yml`) runs for a release tag, weekly on main, and
 by hand from the Actions tab.
+`pnpm signoff` (`scripts/signoff.mjs`) is an optional, slower local check you
+may run when a change reaches further: the same stages, plus the bundle
+budgets, clippy and the tests of the changed Rust crates, and the GPUI app
+when `gpui/` changed. Nothing waits for it before merge.
 [`docs/agent-validation.md`](docs/agent-validation.md) has the details.
 
 Vitest caches transformed modules in `node_modules/.experimental-vitest-cache`, so a repeat focused run skips most of its startup; `pnpm vitest --clearCache` empties it.

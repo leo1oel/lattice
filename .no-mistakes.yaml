@@ -14,14 +14,14 @@ commands:
   # Run worktrees start with tracked files only, so node_modules is absent.
   prepare: "pnpm install --frozen-lockfile"
   # The scoped gate, not the full suite: the whole Vitest suite cost 19-29
-  # minutes a run here for little new signal, and `pnpm signoff` (the pull
-  # request's check now that pull requests run no GitHub Actions) covers the
-  # Rust and GPUI stages. `pnpm gate:changed` runs lint
+  # minutes a run here for little new signal. Pull requests run no CI; the
+  # optional `pnpm signoff` covers the Rust and GPUI stages for whoever wants
+  # them. `pnpm gate:changed` runs lint
   # with the warning cap, knip, typecheck, i18n, notices and rustfmt when their
   # inputs changed, and `vitest related` plus the invariant tests, against the
   # merge base with origin/main. The fetch keeps that base current so the
   # scope is the branch's own diff; offline it falls back to the local ref.
-  # cargo test stays with `pnpm signoff`: it needs the runtime resource stubs
+  # cargo test stays with the optional `pnpm signoff` and release CI: it needs the runtime resource stubs
   # and a cold Tauri compile per run worktree.
   test: "(git fetch --quiet origin main || true) && pnpm gate:changed"
   # gate:changed already runs `pnpm lint` in full; this keeps the lint step

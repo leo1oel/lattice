@@ -3,9 +3,9 @@ name: GPUI
 # The GPUI preview app in gpui/ is a Cargo workspace of its own, built from
 # Zed's crates (about 1,200 of them), and nothing in the Tauri app depends on
 # it. Its builds take 30-60 minutes a run, so pull requests and pushes to main
-# do not run this workflow: `pnpm signoff` (docs/agent-validation.md) runs the
-# GPUI unit tests and the e2e scenario on the author's Mac whenever a change
-# touches gpui/. It runs for a release tag, on demand (Actions > GPUI > Run
+# do not run this workflow; the optional local `pnpm signoff`
+# (docs/agent-validation.md) runs the GPUI unit tests and the e2e scenario
+# when a change touches gpui/. It runs for a release tag, on demand (Actions > GPUI > Run
 # workflow), and weekly on main, which is what keeps its Rust caches warm.
 #
 # The app builds on the backend crate it shares with the Tauri app

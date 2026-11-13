@@ -248,9 +248,9 @@ async function main() {
       files.some((file) => file.startsWith("src-tauri/")) && "src-tauri/ changed",
       included.length && `${[...new Set(included.map(({ source }) => source))].join(", ")} compiles in ${[...new Set(included.map(({ target }) => target))].join(", ")}`,
     ].filter(Boolean).join("; ");
-    console.log(`  rust       not run  (${reach}: \`pnpm signoff\` runs the Rust stages)`);
+    console.log(`  rust       not run  (${reach}: the optional \`pnpm signoff\` runs the Rust stages)`);
   }
-  console.log(failed ? `gate:changed: ${failed} stage(s) failed` : "gate:changed: ok; `pnpm signoff` runs everything else");
+  console.log(failed ? `gate:changed: ${failed} stage(s) failed` : "gate:changed: ok; release CI runs everything else (`pnpm signoff` is the optional wider local check)");
   process.exitCode = failed ? 1 : 0;
 }
 

@@ -7,9 +7,8 @@ interrupted session, reads evidence, and reviews. Reached from `CLAUDE.md`.
 
 An ordinary fix ships as a pull request, and pull requests do not run GitHub
 Actions: `ci.yml` and `gpui.yml` run for a release tag, weekly on main, and by
-hand (`gh workflow run ci.yml --ref <branch>`). A pull request is checked on
-your machine by `pnpm signoff` instead (below). While iterating, run only what
-directly proves your change:
+hand (`gh workflow run ci.yml --ref <branch>`). A pull request has no required
+check, local or remote. Run only what directly proves your change:
 
 - the test file you added or changed: `pnpm vitest run <file>`;
 - a new lint rule against a fixture that should trip it;
@@ -25,8 +24,9 @@ stylesheets and fixtures, or run scripts, no import leads to. Do not assemble
 your own list of test files. The no-mistakes pipeline's test step runs this
 same gate (`.no-mistakes.yaml`).
 
-Then, with the change committed and pushed, run `pnpm signoff` (or
-`mise run signoff`) once on the pull request's head. It runs the same stages
+`pnpm signoff` (or `mise run signoff`) is optional and slower; nothing
+requires or waits for it before merge. Reach for it when a change goes past
+what the gate covers. It runs the same stages
 plus, each only when your branch changed its inputs: the production bundle's
 WebKit check and startup budgets (the eager-JS budget among them), the bench
 harness, the Synara pin check, clippy and `cargo test` for the changed Tauri
@@ -35,10 +35,11 @@ reads) rustfmt, the release build, the unit tests and the `e2e` scenario on a
 scratch fixture with a scratch `HOME` (`gpui/script/e2e`). Expect about 5–10
 minutes without GPUI; a GPUI release build adds its own, and only one runs on
 the machine at a time. When every stage passes and the tree is clean, it
-records a green `signoff` commit status on that exact commit through
+records a green `signoff` commit status on that exact commit (informational)
+through
 [gh-signoff](https://github.com/basecamp/gh-signoff)
 (`gh extension install basecamp/gh-signoff`; without it, the same status
-through `gh api`). A new push needs a new signoff. `--no-status` runs the
+through `gh api`). `--no-status` runs the
 checks without recording anything, and `--gpui` forces the GPUI stages.
 
 The no-launch rule is about the installed or release Lattice app and the
@@ -73,8 +74,7 @@ the same way. Otherwise:
    `.tmp/<task>/` and print bounded excerpts (`grep -n -m 20`, `sed -n`).
 2. Name the hypothesis that error supports and the evidence that would
    disconfirm it.
-3. Re-run only the failing test or command until it passes, then push and run
-   `pnpm signoff` again for the rest.
+3. Re-run only the failing test or command until it passes, then push.
 
 A local `pnpm perf:bench --check` red is not yet a finding: the ceilings were
 set on CI runners, and a laptop running other lanes' builds can measure a count

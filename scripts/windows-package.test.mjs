@@ -51,7 +51,7 @@ describe("experimental Windows release publication", () => {
     expect(workflow.jobs.attach.permissions).toEqual({ contents: "write" });
     expect(workflow.jobs.attach.needs).toBe("build");
     expect(workflow.on.pull_request_target).toBeUndefined();
-    // Pull requests are checked by the local `pnpm signoff`; this builds only for a release or by hand.
+    // Pull requests run no CI; this builds only for a release or by hand.
     expect(workflow.on.pull_request).toBeUndefined();
     const steps = workflow.jobs.build.steps;
     const check = steps.findIndex((step) => step.run?.includes("check-windows-install.ps1"));

@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * `pnpm signoff`: the check a pull request needs before review, run on this
- * Mac instead of GitHub Actions, and recorded on the pull request as a green
- * `signoff` commit status on the exact commit it checked
- * (docs/agent-validation.md). Pull requests no longer run ci.yml or gpui.yml;
- * those run for a release tag, weekly on main, and by hand.
+ * `pnpm signoff`: an optional local check of a branch's changes, recorded on
+ * the pull request as an informational green `signoff` commit status on the
+ * exact commit it checked (docs/agent-validation.md). Pull requests run no CI
+ * and nothing requires this status; ci.yml and gpui.yml run for a release
+ * tag, weekly on main, and by hand.
  *
  * It runs `pnpm gate:changed`'s stages (lint, knip, tsc, i18n, perf evidence,
  * notices, rustfmt, `vitest related` plus the invariant tests), then, each
