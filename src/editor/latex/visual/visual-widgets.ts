@@ -9,6 +9,7 @@ import { msg } from "@lingui/core/macro";
 import { i18n } from "../../../i18n";
 import { element } from "../../dom-utils";
 import type { FigureLabel } from "./visual-figure";
+import { renderInline, type InlineContext } from "./visual-inline";
 
 /** A class list from single class names. */
 const classes = (...names: string[]) => names.join(" ");
@@ -409,24 +410,39 @@ export class BarWidget extends WidgetType {
   }
 }
 
-/** The title block `\maketitle` prints: the title, then each author's lines. A click opens `\maketitle`'s source. */
+/**
+ * The title block `\maketitle` prints: the title, then the author blocks side
+ * by side, each set as rich text from its LaTeX (macros expanded, line breaks,
+ * spacing and font switches kept). A click opens `\maketitle`'s source.
+ */
 export class TitleWidget extends WidgetType {
-  constructor(readonly title: string, readonly authors: readonly (readonly string[])[], readonly offset: number) {
+  constructor(
+    readonly title: string,
+    readonly authors: readonly string[],
+    readonly offset: number,
+    /** Everything the block depends on: its sources and the macros they are set with. */
+    readonly key: string,
+    readonly context: InlineContext,
+  ) {
     super();
   }
 
   eq(other: TitleWidget): boolean {
-    return other.title === this.title && other.offset === this.offset && JSON.stringify(other.authors) === JSON.stringify(this.authors);
+    return other.key === this.key && other.offset === this.offset;
   }
 
   toDOM(): HTMLElement {
     const dom = element("div", "lx-tex-title-block");
-    if (this.title) dom.append(element("div", "lx-tex-title", this.title));
+    if (this.title) {
+      const title = element("div", "lx-tex-title");
+      title.append(renderInline(this.title, this.context));
+      dom.append(title);
+    }
     if (this.authors.length) {
       const row = element("div", "lx-tex-authors");
       for (const author of this.authors) {
         const block = element("div", "lx-tex-author");
-        for (const line of author) block.append(element("div", "", line));
+        block.append(renderInline(author, this.context));
         row.append(block);
       }
       dom.append(row);

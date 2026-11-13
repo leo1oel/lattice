@@ -1,15 +1,14 @@
 /**
  * The title block `\maketitle` prints, read from the document's `\title` and
- * `\author` (in the preamble, or in the body before `\maketitle`). Text is
- * set the way the outline sets a heading (`headingTitle`): escapes and
- * accents resolved, font switches dropped, `\thanks` left out, math and
- * unknown commands kept as written.
+ * `\author` (in the preamble, or in the body before `\maketitle`), as their
+ * LaTeX: the title block sets it as rich text (visual-inline.ts), with the
+ * preamble's own macros expanded, its line breaks, spacing and font switches.
  */
 import type { Text } from "@codemirror/state";
-import { headingTitle } from "../latex-heading-title";
 import { blankIgnored, groupEnd, skipSpace } from "../latex-visible-source";
 
-export type FrontMatter = { title: string; authors: string[][] };
+/** The title's LaTeX, and each author block's (`\and` separates them). */
+export type FrontMatter = { title: string; authors: string[] };
 
 /** How far into the document the title and authors are looked for. */
 const FRONT_MATTER_REACH = 60_000;
@@ -27,9 +26,6 @@ function argumentsOf(text: string, visible: string, name: string): string[] {
   return found;
 }
 
-/** Lines of one author block: `\\` breaks a line, each line set as text. */
-const lines = (block: string) => block.split(/\\\\(?:\[[^\]]*\])?/).map(headingTitle).filter(Boolean);
-
 /** The document's title block, read up to `before` (where `\maketitle` is); null without a title or authors. */
 export function frontMatter(doc: Text, before: number): FrontMatter | null {
   const text = doc.sliceString(0, Math.min(before, FRONT_MATTER_REACH));
@@ -44,8 +40,9 @@ let last: { text: string; front: FrontMatter | null } | null = null;
 
 function readFrontMatter(text: string): FrontMatter | null {
   const visible = blankIgnored(text);
-  const title = argumentsOf(text, visible, "title").at(-1);
-  const authors = argumentsOf(text, visible, "author").flatMap((argument) => argument.split(/\\and(?![A-Za-z@])/)).map(lines).filter((block) => block.length);
-  const shown = title ? lines(title).join(" ") : "";
-  return shown || authors.length ? { title: shown, authors } : null;
+  const title = argumentsOf(text, visible, "title").at(-1)?.trim() ?? "";
+  const authors = argumentsOf(text, visible, "author")
+    .flatMap((argument) => argument.split(/\\and(?![A-Za-z@])/))
+    .filter((block) => block.replace(/%[^\n]*/g, "").trim());
+  return title || authors.length ? { title, authors } : null;
 }

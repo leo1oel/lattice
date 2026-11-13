@@ -638,12 +638,12 @@ msgstr "{filtered}/{total} 篇"
 msgid "{first} and {more} more; build again"
 msgstr "{first} 等 {more} 个文件；请重新编译"
 
-#: src/editor/latex/visual/visual-decorations.ts
+#: src/editor/latex/visual/visual-numbering.ts
 #: src/papers/paper-identity.ts
 msgid "{first} and {second}"
 msgstr "{first} 和 {second}"
 
-#: src/editor/latex/visual/visual-decorations.ts
+#: src/editor/latex/visual/visual-numbering.ts
 #: src/papers/paper-identity.ts
 msgid "{first} et al."
 msgstr "{first} 等"
@@ -948,6 +948,7 @@ msgstr "整理排版期间 {path} 被改过，所以没有应用结果。请重�
 msgid "{path} changed while this dialog was open, so nothing was saved. Reload to resolve it against the new text; choices and edits made here are cleared."
 msgstr "对话框打开期间 {path} 被改过，所以什么都没保存。重新载入后按新内容处理；这里做的选择和编辑会清空。"
 
+#: src/editor/latex/visual/visual-float-widget.ts
 #: src/editor/latex/visual/visual-widgets.ts
 msgid "{path} could not be read."
 msgstr "无法读取 {path}。"
@@ -1698,6 +1699,10 @@ msgstr "致谢"
 msgid "Acknowledgements and thanks"
 msgstr "致谢与感谢脚注"
 
+#: src/editor/latex/visual/visual-numbering.ts
+msgid "Acknowledgments"
+msgstr "致谢"
+
 #: src/project/project-dialogs.tsx
 msgid "ACM paper ({name})"
 msgstr "ACM 论文（{name}）"
@@ -1751,6 +1756,7 @@ msgid "Add a bibliography entry for {title}"
 msgstr "为 {title} 添加文献"
 
 #: src/editor/latex/visual/visual-decorations.ts
+#: src/editor/latex/visual/visual-float-widget.ts
 msgid "Add a caption"
 msgstr "添加题注"
 
@@ -2027,6 +2033,10 @@ msgstr "AI 助手：{0}"
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Aleph"
 msgstr "阿列夫"
+
+#: src/editor/latex/visual/visual-float-widget.ts
+msgid "Algorithm"
+msgstr "算法"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Algorithm block (requires algorithm and algpseudocode)"
@@ -2371,6 +2381,10 @@ msgstr "更新"
 #: src/settings/settings-search-index.ts
 msgid "Appearance"
 msgstr "外观"
+
+#: src/editor/latex/visual/visual-decorations.ts
+msgid "Appendix"
+msgstr "附录"
 
 #: src/papers/bibliography-audit.tsx
 msgid "Applied"
@@ -10337,6 +10351,7 @@ msgstr "还没有论文"
 msgid "No PDF yet"
 msgstr "还没有 PDF"
 
+#: src/editor/latex/visual/visual-float-widget.ts
 #: src/editor/latex/visual/visual-widgets.ts
 msgid "No preview for {path}; the PDF shows it."
 msgstr "{path} 无法预览，请在 PDF 中查看。"
@@ -12763,6 +12778,7 @@ msgstr "带类型名称的引用"
 msgid "Reference:"
 msgstr "引用："
 
+#: src/editor/latex/visual/visual-decorations.ts
 #: src/papers/bib-visual-editor.tsx
 msgid "References"
 msgstr "文献"
@@ -17210,6 +17226,10 @@ msgstr "这个 Zotero 数据库（架构 {schema}）没有 {table}.{column}"
 #: src/editor/latex/latex-command-completions.ts
 msgid "TikZ drawing"
 msgstr "TikZ 绘图"
+
+#: src/editor/latex/visual/visual-float-widget.ts
+msgid "TikZ picture"
+msgstr "TikZ 图"
 
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Tilde accent example"

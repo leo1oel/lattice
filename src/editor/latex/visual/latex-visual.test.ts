@@ -68,10 +68,10 @@ describe("LaTeX Visual mode", () => {
   it("opens an indented figure image's source on a click", async () => {
     const doc = "\\begin{figure}\n  \\includegraphics{a.png}\n\\end{figure}\nText.";
     const view = await visualView(doc);
-    const image = view.contentDOM.querySelector<HTMLElement>(".lx-tex-image.is-block")!;
+    const image = view.contentDOM.querySelector<HTMLElement>(".lx-tex-float-image")!;
     image.dispatchEvent(new MouseEvent("mouseup", { button: 0, bubbles: true }));
     expect(view.state.selection.main.head).toBe(doc.indexOf("\\includegraphics"));
-    expect(view.contentDOM.querySelector(".lx-tex-image")).toBeNull();
+    expect(view.contentDOM.querySelector(".lx-tex-float-block")).toBeNull();
     expect(text(view)).toContain("\\includegraphics{a.png}");
   });
 

@@ -28,9 +28,9 @@ import { isPointerRelease, pointerSelection } from "../../pointer-selection";
 import { overlaysTouch, sourceOverlays } from "../../source-overlays";
 import { buildReplacements, buildStyles, revealedConstructs, selectionPoints } from "./visual-decorations";
 import { visualDeletion } from "./visual-deletion";
-import { endDocumentOf, environmentIndex, openEnvironments, preambleOf } from "./visual-environments";
+import { endDocumentOf, environmentEnd, environmentIndex, openEnvironments, preambleOf } from "./visual-environments";
 import { scanConstructs, type Construct, type ScanFrame, type Span } from "./visual-scan";
-import { DISPLAY_MATH_ENVIRONMENTS, LIST_ENVIRONMENTS, SOURCE_ENVIRONMENTS } from "./visual-symbols";
+import { DISPLAY_MATH_ENVIRONMENTS, FIGURE_ENVIRONMENTS, LIST_ENVIRONMENTS, SOURCE_ENVIRONMENTS, TABLE_ENVIRONMENTS } from "./visual-symbols";
 import "./latex-visual.css";
 
 /** The lines Visual mode draws, around the viewport. */
@@ -78,12 +78,22 @@ export function scanContext(state: EditorState, from: number): { start: number; 
   const start = paragraphStart(state, from);
   const open = openEnvironments(state, start);
   const index = open.findIndex(({ name, from: at }) => (
-    LIST_ENVIRONMENTS.has(name) || SOURCE_ENVIRONMENTS.has(name) || DISPLAY_MATH_ENVIRONMENTS.has(name)
+    LIST_ENVIRONMENTS.has(name) || SOURCE_ENVIRONMENTS.has(name) || DISPLAY_MATH_ENVIRONMENTS.has(name) || FIGURE_ENVIRONMENTS.has(name)
   ) && start - at <= LIST_REACH);
   if (index >= 0) {
     return { start: open[index].from, frames: open.slice(0, index).map(({ name }) => ({ name, items: 0 })) };
   }
   return { start, frames: open.map(({ name }) => ({ name, items: 0 })) };
+}
+
+/** How far past a window's end a float or table open there is read to its end, so it draws whole. */
+const BLOCK_REACH = 60_000;
+
+/** `to`, or past the end of the float or table open there: a block cut by the window's edge would draw as source. */
+export function pastOpenBlock(state: EditorState, to: number): number {
+  const block = openEnvironments(state, to).find(({ name }) => FIGURE_ENVIRONMENTS.has(name) || TABLE_ENVIRONMENTS.has(name));
+  const end = block ? environmentEnd(state, block, BLOCK_REACH) : null;
+  return end === null ? to : state.doc.lineAt(end).to;
 }
 
 /** Whether `changes` touch the text before `position` (which would change what is open there). */
@@ -147,7 +157,7 @@ export function latexVisual(host: LatexVisualHost): Extension {
   const scan = (state: EditorState, window: Span | null, context: VisualState["context"]) => {
     if (!window) return { context, constructs: [] as Construct[], styles: buildStyles(state, [], [], { from: 0, to: 0 }) };
     const scanContextNow = context && context.start <= window.from ? context : scanContext(state, window.from);
-    const to = Math.min(window.to, state.doc.length);
+    const to = pastOpenBlock(state, Math.min(window.to, state.doc.length));
     const { constructs } = scanConstructs(state.sliceDoc(scanContextNow.start, to), scanContextNow.start, scanContextNow.frames);
     return { context: scanContextNow, constructs, styles: buildStyles(state, constructs, scanContextNow.frames, { from: scanContextNow.start, to }) };
   };
