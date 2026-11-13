@@ -263,6 +263,7 @@ pub struct Segmented {
     id: ElementId,
     segments: Vec<Segment>,
     parity: Option<SharedString>,
+    filled: bool,
 }
 
 pub struct Segment {
@@ -278,7 +279,19 @@ impl Segmented {
             id: id.into(),
             segments: Vec::new(),
             parity: None,
+            filled: false,
         }
+    }
+
+    /// The app's plain `.ui-segmented` (chrome.css), as Settings draws it:
+    /// a track of the hairline's grey, 28px with 2px of padding on the 6px
+    /// corner; segments on the nested 4px corner (6 less the inset), 10px
+    /// in, micro type at medium weight in the tertiary ink; the selected one
+    /// on the editor's surface with the raised shadow, in the primary ink.
+    /// Without it the control wears the titlebar's workspace switcher skin.
+    pub fn filled(mut self) -> Self {
+        self.filled = true;
+        self
     }
 
     /// Name this control as a parity-harness region (`crate::parity`): its
@@ -322,8 +335,14 @@ impl Segmented {
 impl RenderOnce for Segmented {
     fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
         let palette = cx.palette().clone();
-        let mut raised = vec![ring(palette.line_strong)];
-        raised.extend(Elevation::Raised.shadows(&palette).into_iter().skip(1));
+        let filled = self.filled;
+        let raised = if filled {
+            Elevation::Raised.shadows(&palette)
+        } else {
+            let mut raised = vec![ring(palette.line_strong)];
+            raised.extend(Elevation::Raised.shadows(&palette).into_iter().skip(1));
+            raised
+        };
         let focus = focus_ring(&palette, palette.titlebar);
         div()
             .id(self.id)
@@ -331,8 +350,13 @@ impl RenderOnce for Segmented {
             .flex_none()
             .h(px(28.))
             .p(px(2.))
-            .rounded(px(11.))
-            .shadow(vec![inset_ring(palette.line)])
+            .map(|this| {
+                if filled {
+                    this.rounded(px(6.)).bg(palette.line)
+                } else {
+                    this.rounded(px(11.)).shadow(vec![inset_ring(palette.line)])
+                }
+            })
             .children(self.parity.clone().and_then(parity::probe))
             .children(self.segments.into_iter().enumerate().map(|(ix, segment)| {
                 let hover = palette.hover;
@@ -349,26 +373,39 @@ impl RenderOnce for Segmented {
                 } else {
                     segment_box
                 };
+                let selected_surface = if filled {
+                    palette.editor
+                } else {
+                    palette.panel
+                };
                 segment_box
                     .flex()
                     .flex_none()
                     .items_center()
                     .justify_center()
                     .h(px(24.))
-                    .rounded(px(7.4))
+                    .rounded(px(if filled { 4. } else { 7.4 }))
                     .when(segment.selected, |this| {
-                        this.bg(palette.panel).shadow(raised.clone())
+                        this.bg(selected_surface).shadow(raised.clone())
                     })
-                    .when(!segment.selected, |this| {
+                    .when(!segment.selected && !filled, |this| {
                         this.hover(move |style| style.bg(hover))
                     })
                     .when_some(segment.label, |this, label| {
-                        this.px(px(10.))
-                            .text_role(TextRole::Caption, cx)
-                            .line_height(px(14.))
-                            .text_color(palette.text)
-                            .child(label)
-                            .children(text_probe)
+                        let this = this.px(px(10.));
+                        let this = if filled {
+                            this.text_role(TextRole::Micro, cx)
+                                .text_color(if segment.selected {
+                                    palette.text
+                                } else {
+                                    palette.text_secondary
+                                })
+                        } else {
+                            this.text_role(TextRole::Caption, cx)
+                                .line_height(px(14.))
+                                .text_color(palette.text)
+                        };
+                        this.child(label).children(text_probe)
                     })
                     .when_some(segment.icon, |this, icon| {
                         this.w(px(28.))

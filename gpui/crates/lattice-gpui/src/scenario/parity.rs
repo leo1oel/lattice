@@ -94,6 +94,13 @@ impl Run {
         // The Settings screen: ⌘, over the window, on Appearance, with
         // nothing focused (the scene blurs the search Settings opens in).
         if std::env::var("LATTICE_PARITY_SCREEN").as_deref() == Ok("settings") {
+            // The scene runs the page with `lang=en`, which the language
+            // select shows as English rather than "Match system".
+            cx.update(|cx| {
+                crate::settings::update_appearance(cx, |appearance| {
+                    appearance.interface_language = lattice_settings::InterfaceLanguage::En
+                })
+            });
             self.with_window(cx, |shell, window, cx| {
                 shell.update(cx, |shell, cx| {
                     shell.open_settings(Some(lattice_settings::SettingsTab::Appearance), window, cx)

@@ -1,13 +1,14 @@
 //! Slider: a value on a track, as Settings' rows set a size or a delay.
 //!
 //! The app draws a native range input tinted with the accent
-//! (`accent-color: var(--control-active)`, dialogs.css), so this follows
-//! WebKit's slider in Lattice's colours: a 4px pill of the strong hairline,
-//! filled with the accent up to the thumb, and a 14px thumb on the lift with
-//! the raised level's ring and shadow, whose edge deepens under the pointer.
-//! The thumb stays inside the control's box (the track runs half a thumb in
-//! from each end), so the focus ring, the one 2px ring at a 2px offset, goes
-//! round the whole control as the web view draws it round the input.
+//! (`accent-color: var(--control-active)`, dialogs.css), so this is WebKit's
+//! slider as the parity harness measures it in the running app: an 8px pill
+//! with a 1px edge, WebKit's own greys (not Lattice tokens), filled with the
+//! accent up to the thumb, and a 16px thumb of solid accent, no ring or
+//! shadow. The thumb's centre travels half a thumb in from each end of the
+//! pill, so the thumb stays inside the control's box and the focus ring, the
+//! one 2px ring at a 2px offset, goes round the whole control as the web view
+//! draws it round the input.
 //!
 //! In a Settings row the slider takes the control column (170px) with its
 //! readout beside it: 10px over, at least 34px wide, right-aligned caption
@@ -30,16 +31,25 @@ use gpui_kit::base::{
 };
 
 use crate::{
-    ActiveLattice as _, Elevation, TextRole, TextRoleStyle as _,
+    ActiveLattice as _, TextRole, TextRoleStyle as _,
     components::focus_ring,
-    elevation::ring,
     interaction::{fade, mix, tab_stop, track_pointer, use_interaction},
     motion::Motion,
     tokens::{CONTAINER_SETTINGS_CONTROL, OPACITY_DISABLED},
 };
 
-const THUMB: f32 = 14.;
-const TRACK: f32 = 4.;
+const THUMB: f32 = 16.;
+const TRACK: f32 = 8.;
+
+/// WebKit's range track behind the fill, and its 1px edge, in each
+/// appearance (measured in the app at `accent-color`).
+fn track_colors(palette: &crate::Palette) -> (gpui::Hsla, gpui::Hsla) {
+    if palette.is_dark() {
+        (gpui::rgb(0x3b3b3b).into(), gpui::rgb(0x858585).into())
+    } else {
+        (gpui::rgb(0xefefef).into(), gpui::rgb(0xb2b2b2).into())
+    }
+}
 
 type Readout = Rc<dyn Fn(f32) -> SharedString>;
 
@@ -130,15 +140,6 @@ impl RenderOnce for Slider {
             (state.percentage().end, state.value().end())
         };
 
-        // The thumb's edge: the raised level's ring, deepened under the
-        // pointer, then the level's shadow.
-        let mut thumb_shadow = Elevation::Raised.shadows(&palette);
-        thumb_shadow[0] = ring(mix(
-            palette.ring,
-            palette.control_hover_border,
-            interaction.hover.max(held),
-        ));
-
         let state = self.state.clone();
         let keys = move |event: &KeyDownEvent, window: &mut Window, cx: &mut App| {
             let delta = {
@@ -157,6 +158,12 @@ impl RenderOnce for Slider {
             }
         };
 
+        // A press deepens the accent a step, as WebKit's thumb darkens.
+        let accent = mix(
+            palette.accent,
+            palette.text,
+            0.12 * interaction.hover.max(held),
+        );
         let thumb = SliderThumb::new(&self.state)
             .disabled(disabled)
             .absolute()
@@ -165,22 +172,43 @@ impl RenderOnce for Slider {
             .ml(px(-THUMB / 2.))
             .size(px(THUMB))
             .rounded_full()
-            .bg(palette.raised)
-            .shadow(thumb_shadow);
+            .bg(accent);
+        // The value maps over the thumb's travel (the indicator); the pill
+        // reaches half a thumb past it at each end, filled to the thumb.
+        let (rest, edge) = track_colors(&palette);
         let bar = SliderIndicator::new(&self.state)
             .relative()
             .w_full()
             .h(px(TRACK))
-            .rounded_full()
-            .bg(palette.line_strong)
+            .child(
+                div()
+                    .absolute()
+                    .top_0()
+                    .bottom_0()
+                    .left(px(-THUMB / 2.))
+                    .right(px(-THUMB / 2.))
+                    .rounded_full()
+                    .border_1()
+                    .border_color(edge)
+                    .bg(rest),
+            )
+            .child(
+                div()
+                    .absolute()
+                    .top_0()
+                    .bottom_0()
+                    .left(px(-THUMB / 2.))
+                    .w(px(THUMB / 2.))
+                    .rounded_l_full()
+                    .bg(accent),
+            )
             .child(
                 div()
                     .absolute()
                     .left_0()
                     .h_full()
                     .w(relative(fraction))
-                    .rounded_full()
-                    .bg(palette.accent),
+                    .bg(accent),
             )
             .child(thumb);
         let track = SliderTrack::new(&self.state)

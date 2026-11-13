@@ -93,7 +93,7 @@ fn general(
         |language, _, cx| super::update_appearance(cx, |a| a.interface_language = language),
     );
     let chosen = nearest_interface_step(appearance.interface_scale);
-    let mut size = Segmented::new("interface-size");
+    let mut size = Segmented::new("interface-size").filled();
     for step in INTERFACE_SCALE_STEPS {
         size = size.label(
             format!("{}%", (step * 100.).round()),
@@ -476,7 +476,7 @@ fn theme(
         accent_row = accent_row.wrap(Wrap::Line);
     }
 
-    let mut translucency = Segmented::new("translucency");
+    let mut translucency = Segmented::new("translucency").filled();
     for (level, label) in [
         (Translucency::Off, t!("Off")),
         (Translucency::Subtle, t!("Subtle")),
@@ -616,7 +616,7 @@ fn code_theme(
         }
     };
     let only = (kinds.len() == 1).then(|| kinds[0]);
-    let mut variant = Segmented::new("code-theme-variant");
+    let mut variant = Segmented::new("code-theme-variant").filled();
     for (choice, label) in [
         (CodeThemeVariant::Auto, t!("Match app")),
         (CodeThemeVariant::Light, t!("Light")),

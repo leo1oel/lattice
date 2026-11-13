@@ -80,15 +80,17 @@ pub fn page(
         .flex()
         .flex_col()
         .child({
+            // The heading's box fits its text, as the app's does.
             let title: SharedString = title.into();
-            div()
-                .relative()
-                .mb(px(24.))
-                .text_role_in(TextRole::Title, TypeScale::Settings, cx)
-                .text_color(palette.text)
-                .children(parity::probe("settings/title"))
-                .children(parity::text_probe("settings/title", 0, title.clone()))
-                .child(title)
+            div().flex().mb(px(24.)).child(
+                div()
+                    .relative()
+                    .text_role_in(TextRole::Title, TypeScale::Settings, cx)
+                    .text_color(palette.text)
+                    .children(parity::probe("settings/title"))
+                    .children(parity::text_probe("settings/title", 0, title.clone()))
+                    .child(title),
+            )
         })
         .children(
             groups
@@ -116,7 +118,6 @@ fn group_probed(
     cx: &App,
 ) -> AnyElement {
     let palette = cx.palette();
-    let count = rows.len();
     div()
         .flex()
         .flex_col()
@@ -141,12 +142,20 @@ fn group_probed(
                 .border_color(palette.line)
                 .bg(palette.raised)
                 .overflow_hidden()
+                // The divider is drawn inside the row, over its top edge,
+                // so it never adds to the row's height (`inset 0 1px 0`).
                 .children(rows.into_iter().enumerate().map(|(ix, row)| {
-                    div()
-                        .when(ix > 0 && ix < count, |this| {
-                            this.border_t_1().border_color(palette.line)
-                        })
-                        .child(row)
+                    div().relative().child(row).when(ix > 0, |this| {
+                        this.child(
+                            div()
+                                .absolute()
+                                .top_0()
+                                .left_0()
+                                .right_0()
+                                .h(px(1.))
+                                .bg(palette.line),
+                        )
+                    })
                 })),
         )
         .into_any_element()
@@ -236,17 +245,20 @@ impl Row {
             .when(wraps, |this| this.flex_1().min_w(px(160.)))
             .when(!wraps, |this| this.flex_1())
             .child(
-                div()
-                    .relative()
-                    .text_role_in(TextRole::BodyCompact, TypeScale::Settings, cx)
-                    .text_color(palette.text)
-                    .children(parity::probe(format!("settings/row/{}/label", self.id)))
-                    .children(parity::text_probe(
-                        format!("settings/row/{}/label", self.id),
-                        0,
-                        self.label.clone(),
-                    ))
-                    .child(self.label),
+                div().flex().child(
+                    div()
+                        .relative()
+                        .min_w_0()
+                        .text_role_in(TextRole::BodyCompact, TypeScale::Settings, cx)
+                        .text_color(palette.text)
+                        .children(parity::probe(format!("settings/row/{}/label", self.id)))
+                        .children(parity::text_probe(
+                            format!("settings/row/{}/label", self.id),
+                            0,
+                            self.label.clone(),
+                        ))
+                        .child(self.label),
+                ),
             )
             .children(self.description);
         let control = self.control.map(|control| {
