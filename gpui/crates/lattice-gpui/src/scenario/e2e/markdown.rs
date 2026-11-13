@@ -125,6 +125,7 @@ impl Run {
         self.markdown_close_and_hibernate(cx, steps, root, &path, &panel, &island)
             .await?;
         self.markdown_split_scroll(cx, steps, root).await?;
+        self.markdown_page_index(cx, steps, root).await?;
         Ok(())
     }
 
@@ -291,7 +292,7 @@ impl Run {
 
     /// Type into the visual editor with native keys at the end of the first
     /// paragraph; then undo it with ⌘Z there.
-    async fn markdown_type(
+    pub(super) async fn markdown_type(
         &self,
         cx: &mut AsyncApp,
         island: &Entity<Island>,
@@ -454,20 +455,30 @@ impl Run {
         Ok(())
     }
 
-    /// The image's `src` and natural width in the visual editor.
+    /// The image as the visual editor holds it: the link its document names
+    /// (the image node's `src`, read from the editor Tiptap hangs on its
+    /// surface), the URL it was resolved to, and its natural width.
     async fn markdown_image(&self, cx: &mut AsyncApp, island: &Entity<Island>) -> Value {
         self.evaluate(
             cx,
             island,
-            "JSON.stringify({ src: document.querySelector('.lx-md-image img')?.getAttribute('src') ?? null, \
-             width: document.querySelector('.lx-md-image img')?.naturalWidth ?? -1 })",
+            "JSON.stringify((() => { let link = null; \
+             document.querySelector('.lx-md-surface')?.editor?.state.doc.descendants((node) => { \
+               if (link === null && node.type.name === 'image') link = node.attrs.src ?? null; }); \
+             const img = document.querySelector('.lx-md-image img'); \
+             return { link, src: img?.getAttribute('src') ?? null, width: img?.naturalWidth ?? -1 }; })())",
         )
         .await
     }
 
-    /// Moved in the tree, the visual editor resolves the document's relative
-    /// image from its new folder (a relative link is relative to the
-    /// document, CommonMark), and from the old one once it is moved back.
+    /// Moved in the tree, the document keeps showing the same figure: the
+    /// move rebases its relative image link to point at the same file from
+    /// the new folder (the Tauri app's `rewriteMovedDocumentAssetPaths`),
+    /// and the visual editor resolves that link from the document's new
+    /// folder (a relative link is relative to the document, CommonMark).
+    /// `drafts/figures/` holds a figure of the same name, so a page that
+    /// took the new path but kept the old link would show that one instead;
+    /// a page that kept the old path would find no file for `../figures/…`.
     async fn markdown_moved(
         &self,
         cx: &mut AsyncApp,
@@ -478,47 +489,53 @@ impl Run {
         std::fs::create_dir_all(root.join("drafts/figures"))?;
         std::fs::write(root.join("drafts/figures/e2e-dot.png"), DOT_PNG)?;
         let tree = cx.update(|cx| self.shell.read(cx).file_tree().clone());
+        let figure = "lattice://island/asset/figures/e2e-dot.png";
         let mut results = Vec::new();
-        for (from, target, folder) in [
-            ("e2e-notes.md", "drafts", "drafts/"),
-            ("drafts/e2e-notes.md", "", ""),
+        for (from, target, moved_to, link) in [
+            ("e2e-notes.md", "drafts", "drafts/e2e-notes.md", "../figures/e2e-dot.png"),
+            ("drafts/e2e-notes.md", "", "e2e-notes.md", "figures/e2e-dot.png"),
         ] {
             cx.update(|cx| {
                 tree.update(cx, |tree, cx| tree.drop_on(from.into(), target.into(), cx))
             });
-            let moved_to = format!("{folder}e2e-notes.md");
             let followed = self
                 .wait_for(cx, Duration::from_secs(8), |shell, cx| {
-                    root.join(&moved_to).is_file()
+                    root.join(moved_to).is_file()
                         && shell
                             .read(cx)
                             .active_editor_path(cx)
                             .is_some_and(|path| path == moved_to)
                 })
                 .await;
-            let wanted = format!("lattice://island/asset/{folder}figures/e2e-dot.png");
+            let on_disk = std::fs::read_to_string(root.join(moved_to))
+                .is_ok_and(|text| text.contains(&format!("![A dot]({link})")));
+            let shown = |image: &Value| {
+                image["link"] == link
+                    && image["src"]
+                        .as_str()
+                        .is_some_and(|src| src.starts_with(figure))
+                    && image["width"] == 4
+            };
             let mut image = Value::Null;
             let started = std::time::Instant::now();
             while started.elapsed() < Duration::from_secs(15) {
                 image = self.markdown_image(cx, island).await;
-                if image["src"]
-                    .as_str()
-                    .is_some_and(|src| src.starts_with(&wanted))
-                    && image["width"] == 4
-                {
+                if shown(&image) {
                     break;
                 }
                 self.pause(cx, Duration::from_millis(200)).await;
             }
-            let resolved = image["src"]
-                .as_str()
-                .is_some_and(|src| src.starts_with(&wanted))
-                && image["width"] == 4;
-            results.push(json!({ "to": moved_to, "followed": followed, "resolved": resolved, "image": image }));
+            let resolved = shown(&image);
+            results.push(json!({
+                "to": moved_to, "followed": followed, "on_disk": on_disk,
+                "resolved": resolved, "image": image,
+            }));
         }
         steps.check(
-            "a Markdown file moved in the tree: its visual editor resolves the relative image from the new folder, and from the old one when moved back",
-            results.iter().all(|result| result["followed"] == true && result["resolved"] == true),
+            "a Markdown file moved in the tree and back: its image link is rebased to the same figure, and the visual editor resolves it from the file's new folder",
+            results.iter().all(|result| {
+                result["followed"] == true && result["on_disk"] == true && result["resolved"] == true
+            }),
             json!(results),
         );
         Ok(())
