@@ -99,7 +99,7 @@ pub fn ask(question: Confirm, cx: &mut App) {
         host.pending.replace(question)
     });
     if let Some(cancel) = replaced.and_then(|question| question.on_cancel) {
-        cancel(cx);
+        cx.defer(cancel);
     }
 }
 

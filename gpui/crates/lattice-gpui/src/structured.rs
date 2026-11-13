@@ -121,8 +121,6 @@ pub struct StructuredDocument {
     relative: String,
     /// The file's text as the panel's buffer has it.
     source: String,
-    /// The text the page has, from the host or from its own edits.
-    sent: Option<String>,
     shown: bool,
     /// The page has drawn its first frame since it was (re)built.
     drawn: bool,
@@ -181,7 +179,6 @@ impl StructuredDocument {
             root: root.to_path_buf(),
             relative,
             source,
-            sent: None,
             shown: false,
             drawn: false,
             locale: lattice_i18n::locale(),
@@ -247,11 +244,8 @@ impl StructuredDocument {
             return;
         }
         self.source = source;
-        if self.sent.as_ref() != Some(&self.source) {
-            self.sent = Some(self.source.clone());
-            let source = self.source.clone();
-            self.post("doc:source", json!({ "source": source }), cx);
-        }
+        let source = self.source.clone();
+        self.post("doc:source", json!({ "source": source }), cx);
     }
 
     /// The file moved within the project.
@@ -281,7 +275,6 @@ impl StructuredDocument {
 
     /// Send the page everything it needs to show the document.
     fn open_page(&mut self, cx: &mut Context<Self>) {
-        self.sent = Some(self.source.clone());
         self.locale = lattice_i18n::locale();
         let view_state = saved_view_state(&self.root.join(&self.relative), cx);
         let mut payload = json!({
@@ -312,7 +305,6 @@ impl StructuredDocument {
             }
             IslandEvent::Hibernated => {
                 self.drawn = false;
-                self.sent = None;
                 // The page took its leases with it, without releasing them.
                 if let Some(deck) = &mut self.deck {
                     deck.release_all(cx);
@@ -338,7 +330,6 @@ impl StructuredDocument {
                     return;
                 }
                 self.source = source.to_string();
-                self.sent = Some(self.source.clone());
                 cx.emit(StructuredEvent::Changed(self.source.clone()));
             }
             "doc:view-state" => {
@@ -440,11 +431,22 @@ impl StructuredDocument {
                     .map(|deck| deck.invoke(&command, &args, cx));
                 match result {
                     Some(task) => {
+                        let ensures = command == "presentation_ensure_ready";
                         let this = cx.entity().downgrade();
                         cx.spawn(async move |_, cx| {
                             let result = task.await;
-                            this.update(cx, |this, cx| this.respond(id, result, cx))
-                                .ok();
+                            this.update(cx, |this, cx| {
+                                if ensures
+                                    && let Ok(info) = &result
+                                    && let Some(origin) = info.get("origin").and_then(Value::as_str)
+                                    && let Some(island) = &this.island
+                                {
+                                    island
+                                        .update(cx, |island, _| island.allow_frame_origin(origin));
+                                }
+                                this.respond(id, result, cx)
+                            })
+                            .ok();
                         })
                         .detach();
                     }

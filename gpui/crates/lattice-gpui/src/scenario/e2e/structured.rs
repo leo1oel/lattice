@@ -507,8 +507,14 @@ impl Run {
             return Ok(());
         };
         // The runtime starts (up to lattice-core's 30 s), or says it cannot.
-        let facts_script = "JSON.stringify({ frame: !!document.querySelector('.open-slide-frame'), \
-             status: document.querySelector('.open-slide-status')?.textContent || null })";
+        // A frame whose navigation the island refused stays on its own
+        // about:blank, which the page can read; one that reached the
+        // runtime's origin is cross-origin, and reading it throws.
+        let facts_script = "(() => { const frame = document.querySelector('.open-slide-frame'); \
+             let loaded = false; \
+             if (frame) { try { void frame.contentWindow.location.href; } catch { loaded = true; } } \
+             return JSON.stringify({ frame: !!frame, loaded, \
+               status: document.querySelector('.open-slide-status')?.textContent || null }); })()";
         let mut facts = Value::Null;
         let started = std::time::Instant::now();
         while started.elapsed() < Duration::from_secs(45) {
@@ -516,18 +522,18 @@ impl Run {
             let starting = facts["status"]
                 .as_str()
                 .is_some_and(|status| status.contains("Starting"));
-            if facts["frame"] == true || (facts["status"].is_string() && !starting) {
+            if facts["loaded"] == true || (facts["status"].is_string() && !starting) {
                 break;
             }
             self.pause(cx, Duration::from_millis(300)).await;
         }
         self.island_shot(cx, "deck-island").await?;
-        let framed = facts["frame"] == true;
+        let framed = facts["loaded"] == true;
         let explained = facts["status"]
             .as_str()
             .is_some_and(|status| status.contains("Open Slide could not start"));
         steps.check(
-            "an Open Slide deck opens in the slides island: the runtime framed, or, without the staged runtime, said to be unable to start",
+            "an Open Slide deck opens in the slides island: the runtime's origin loaded in its frame, or, without the staged runtime, said to be unable to start",
             framed || explained,
             json!({ "page": facts, "rejected": cx.update(|cx| island.read(cx).stats().rejected) }),
         );
