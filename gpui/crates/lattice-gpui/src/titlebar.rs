@@ -720,17 +720,12 @@ fn toggle_item(
         .action(action)
 }
 
-/// Focus mode's bar: the document's name, and the way out with its key.
+/// Focus mode's bar: the document's tab title, and the way out with its key.
 fn focus_bar(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> impl IntoElement {
     let palette = cx.palette().clone();
     let title = shell
         .active_document(cx)
-        .map(|path| {
-            std::path::Path::new(&path)
-                .file_name()
-                .map(|name| name.to_string_lossy().into_owned())
-                .unwrap_or(path)
-        })
+        .map(|key| shell.document_title(key, cx))
         .unwrap_or_else(|| shell.project_name(cx).to_string());
     let keys = keys_label(&ToggleFocusMode, window);
     div()

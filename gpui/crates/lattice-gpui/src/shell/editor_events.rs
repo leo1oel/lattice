@@ -57,7 +57,7 @@ impl Shell {
             EditorPanelEvent::Focused => {
                 self.active_editor = Some(editor.downgrade());
                 let path = editor.read(cx).path().to_path_buf();
-                self.mark_paper(&path, cx);
+                self.mark_front_paper(Some(&path), cx);
                 self.file_tree
                     .update(cx, |tree, cx| tree.set_current(Some(path), cx));
                 self.show_outline(cx);

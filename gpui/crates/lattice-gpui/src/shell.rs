@@ -658,7 +658,7 @@ impl Shell {
         });
         self.record_visit(&path, line, in_front, cx);
         self.refresh_outline(window, cx);
-        self.mark_paper(&path, cx);
+        self.mark_front_paper(Some(&path), cx);
         self.file_tree
             .update(cx, |tree, cx| tree.set_current(Some(path.clone()), cx));
         Some(editor)

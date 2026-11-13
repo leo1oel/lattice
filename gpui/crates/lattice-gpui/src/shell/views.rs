@@ -116,6 +116,19 @@ impl Shell {
             .map(|(id, _)| id.clone())
     }
 
+    /// The document `key`'s tab title, else its file name.
+    pub(crate) fn document_title(&self, key: String, cx: &App) -> String {
+        let panel = self
+            .view_of_document(&key, cx)
+            .and_then(|view| self.panel_of_view(&view));
+        match panel {
+            Some(panel) => lattice_ui::dock::tab_name(&panel, cx).to_string(),
+            None => std::path::Path::new(&key)
+                .file_name()
+                .map_or(key.clone(), |name| name.to_string_lossy().into_owned()),
+        }
+    }
+
     /// The view an editor stands for.
     pub(crate) fn view_of_editor(&self, editor: &Entity<EditorPanel>) -> Option<String> {
         self.view_of_panel(editor.entity_id())
