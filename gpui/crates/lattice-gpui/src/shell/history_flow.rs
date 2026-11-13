@@ -201,7 +201,7 @@ impl Shell {
     }
 
     /// Take down the project's conflict notice as the window leaves it.
-    pub(crate) fn drop_conflict_notice(&mut self, cx: &mut Context<Self>) {
+    pub(crate) fn drop_conflict_notice(&mut self, cx: &mut gpui::App) {
         if let Some(root) = self.root(cx)
             && !std::mem::take(&mut self.conflicts_noticed).is_empty()
         {

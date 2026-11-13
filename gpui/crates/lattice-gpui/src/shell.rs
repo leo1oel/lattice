@@ -368,7 +368,11 @@ impl Shell {
             this.refresh_dirty(cx);
             cx.notify();
         });
-        cx.on_release(|this, cx| this.flush_layout(cx)).detach();
+        cx.on_release(|this, cx| {
+            this.flush_layout(cx);
+            this.drop_conflict_notice(cx);
+        })
+        .detach();
         cx.on_app_quit(|this, cx| {
             this.flush_layout(cx);
             async {}
