@@ -129,8 +129,7 @@ impl Run {
             })?;
             let restored = self
                 .wait_for(cx, Duration::from_secs(15), |_, _| {
-                    std::fs::read_to_string(&chapter)
-                        .is_ok_and(|text| text == named)
+                    std::fs::read_to_string(&chapter).is_ok_and(|text| text == named)
                 })
                 .await;
             steps.check(
@@ -205,6 +204,77 @@ impl Run {
         if let Some(front) = front {
             self.open(cx, &front, None)?;
         }
+
+        self.git_merge_conflict_notice(cx, steps, root).await
+    }
+
+    /// A merge Git stops on a conflict (in the repository version tracking
+    /// made) raises the window's conflict notice for that file, and the
+    /// notice goes once the merge is aborted. The branch is put back where
+    /// it was after.
+    async fn git_merge_conflict_notice(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+        root: &Path,
+    ) -> Result<()> {
+        let git = |args: &[&str]| -> Result<std::process::Output> {
+            Ok(std::process::Command::new("git")
+                .args([
+                    "-c",
+                    "user.name=E2E",
+                    "-c",
+                    "user.email=e2e@example.invalid",
+                ])
+                .args(args)
+                .current_dir(root)
+                .output()?)
+        };
+        let text =
+            |out: std::process::Output| String::from_utf8_lossy(&out.stdout).trim().to_string();
+        let head = text(git(&["rev-parse", "HEAD"])?);
+        let branch = text(git(&["rev-parse", "--abbrev-ref", "HEAD"])?);
+        let file = "merge-check.tex";
+        let path = root.join(file);
+        std::fs::write(&path, "Base line.\n")?;
+        git(&["add", file])?;
+        git(&["commit", "-q", "-m", "merge base", "--", file])?;
+        git(&["checkout", "-q", "-b", "e2e-side"])?;
+        std::fs::write(&path, "Their line.\n")?;
+        git(&["commit", "-q", "-m", "theirs", "--", file])?;
+        git(&["checkout", "-q", &branch])?;
+        std::fs::write(&path, "Our line.\n")?;
+        git(&["commit", "-q", "-m", "ours", "--", file])?;
+        let merge = git(&["merge", "e2e-side"])?;
+        let refresh = |cx: &mut AsyncApp| {
+            cx.update(|cx| {
+                if let Some(project) = self.shell.read(cx).project().cloned() {
+                    project.update(cx, |project, cx| project.read_git(cx));
+                }
+            })
+        };
+        refresh(cx);
+        let raised = self
+            .wait_for(cx, Duration::from_secs(10), |shell, cx| {
+                shell.read(cx).conflicts_noticed.contains(file)
+            })
+            .await;
+        git(&["merge", "--abort"])?;
+        refresh(cx);
+        let dropped = self
+            .wait_for(cx, Duration::from_secs(10), |shell, cx| {
+                shell.read(cx).conflicts_noticed.is_empty()
+            })
+            .await;
+        steps.check(
+            "a merge Git stops on raises the conflict notice, which goes once the merge is aborted",
+            !merge.status.success() && raised && dropped,
+            json!({ "merge_failed": !merge.status.success(), "raised": raised, "dropped": dropped }),
+        );
+        git(&["reset", "-q", "--soft", &head])?;
+        git(&["reset", "-q"])?;
+        git(&["branch", "-q", "-D", "e2e-side"])?;
+        std::fs::remove_file(&path).ok();
         Ok(())
     }
 }
