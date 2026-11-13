@@ -48,8 +48,11 @@ pub fn attach_pdf_file(
         let body = pdf_text(&bytes)?;
         let title =
             prefixed_line(&body, "# ").or(file_name).unwrap_or_else(|| citation_key.to_string());
+        // The caveat names the kept PDF: an agent that reaches this text by a
+        // search hit or a mention, rather than through list_papers' pdfPath,
+        // would otherwise go looking for "the PDF" outside the bundle.
         let markdown = normalize_imported_markdown(&format!(
-            "---\ntitle: {}\nsource: \"pdf-text-layer\"\nfidelity: \"Converted from the PDF text layer. Figures are absent and equations may be garbled; verify against the PDF before quoting.\"\n---\n\n{body}",
+            "---\ntitle: {}\nsource: \"pdf-text-layer\"\nfidelity: \"Converted from the PDF text layer. Figures are absent and equations may be garbled; verify against {ORIGINAL_PDF}, beside this file, before quoting.\"\n---\n\n{body}",
             serde_json::to_string(&title).map_err(err)?,
         ));
         fs::write(output_dir.join("paper.md"), &markdown).map_err(err)?;
@@ -150,6 +153,44 @@ mod tests {
         // Attaching again replaces the bundle rather than adding a second one.
         let again = attach_pdf_file(&project.root, "lee2024sparse", &pdf).unwrap();
         assert_eq!(again.arxiv_id, fetched.arxiv_id);
+    }
+
+    /// The reported failure: asked for a Zotero paper's table, the agent found
+    /// the paper in list_papers but no PDF, searched the project and said it
+    /// could not open the PDF. Its library entry, as the agent's gateway
+    /// returns it, must name the PDF the bundle keeps, and the converted text
+    /// must point there too.
+    #[test]
+    fn the_agent_library_names_the_pdf_a_zotero_paper_keeps() {
+        let project = TestProject::new(
+            "@article{Lee2024Sparse,\n  title = {Sparse attention for long documents},\n  author = {Lee, Ada},\n  year = {2024}\n}\n\
+             @article{Kim2023Dense,\n  title = {Dense retrieval},\n  author = {Kim, Bo},\n  year = {2023}\n}\n",
+        );
+        let pdf = project.parent.join("Lee - 2024 - Sparse.pdf");
+        fs::write(&pdf, pdf_with(&LINES)).unwrap();
+        let fetched = attach_pdf_file(&project.root, "Lee2024Sparse", &pdf).unwrap();
+
+        let listed =
+            crate::agent_literature::LiteratureRequest::ListPapers {}.run(&project.root).unwrap();
+        let entry = |key: &str| {
+            listed["papers"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|paper| paper["citationKey"] == key)
+                .unwrap_or_else(|| panic!("{key} in {listed}"))
+                .clone()
+        };
+        let attached = entry("Lee2024Sparse");
+        let pdf_path = format!(".research/papers/{}/{ORIGINAL_PDF}", fetched.arxiv_id);
+        assert_eq!(attached["pdfPath"], pdf_path.as_str(), "{attached}");
+        assert_eq!(fs::read(project.root.join(&pdf_path)).unwrap(), fs::read(&pdf).unwrap());
+        let text_path = attached["fullTextPath"].as_str().unwrap();
+        let text = fs::read_to_string(project.root.join(text_path)).unwrap();
+        assert!(text.contains("verify against original.pdf, beside this file"), "{text}");
+        // A work Lattice holds no PDF of names none, rather than a path that
+        // is not there.
+        assert!(entry("Kim2023Dense").get("pdfPath").is_none(), "{listed}");
     }
 
     #[test]

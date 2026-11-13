@@ -2,7 +2,7 @@
 //! the editor's code theme), Zed's settings, editor, search and Vim; key
 //! bindings.
 
-use gpui::App;
+use gpui::{App, Global};
 use lattice_ui::{ActiveLattice as _, Appearance, LatticeTheme, editor_theme};
 use settings::{KeymapFile, Settings as _, SettingsStore};
 
@@ -59,7 +59,33 @@ pub(crate) fn appearance_override() -> Option<Appearance> {
     }
 }
 
-pub fn init(cx: &mut App) {
+/// The appearance the writer chose from the palette, over the system's.
+#[derive(Default)]
+struct AppearanceChoice(Option<Appearance>);
+
+impl Global for AppearanceChoice {}
+
+/// Whether the writer fixed the appearance (or the run did).
+pub(crate) fn appearance_chosen(cx: &App) -> bool {
+    appearance_override().is_some()
+        || cx
+            .try_global::<AppearanceChoice>()
+            .is_some_and(|choice| choice.0.is_some())
+}
+
+/// Fix the appearance, or (`None`) follow the system's (`system`) again,
+/// unless the run fixed one.
+pub(crate) fn choose_appearance(appearance: Option<Appearance>, system: Appearance, cx: &mut App) {
+    cx.set_global(AppearanceChoice(appearance));
+    LatticeTheme::set_appearance(
+        appearance.or_else(appearance_override).unwrap_or(system),
+        cx,
+    );
+}
+
+/// `scripted`: a scenario run, which keeps the layouts in memory unless
+/// `LATTICE_GPUI_STATE_DIR` names a directory.
+pub fn init(scripted: bool, cx: &mut App) {
     release_channel::init(semver::Version::new(0, 1, 0), cx);
     settings::init(cx);
     theme_settings::init(theme::LoadThemes::All(Box::new(assets::Assets)), cx);
@@ -77,6 +103,15 @@ pub fn init(cx: &mut App) {
     vim::init(cx);
     lattice_editor::init(cx);
     load_keymaps(cx);
+    crate::shell::workspaces::Workspaces::init(scripted, cx);
+    crate::shell::menus::install(cx);
+    // The app ends with its last window, as the Tauri app does.
+    cx.on_window_closed(|cx, _| {
+        if cx.windows().is_empty() {
+            cx.quit();
+        }
+    })
+    .detach();
 
     // A change of appearance, tint, accent or code theme reaches the editor.
     cx.observe_global::<LatticeTheme>(|cx| {
@@ -133,6 +168,7 @@ pub fn set_vim_mode(enabled: bool, cx: &mut App) {
     apply_settings(enabled, cx);
     if enabled {
         bind_asset_keymap(VIM_KEYMAP_PATH, cx);
+        crate::shell::bind_keys(cx);
     }
 }
 

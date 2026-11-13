@@ -1,6 +1,7 @@
 import type { CanvasMode, EditorPosition, PaperSummary } from "../app-types";
 import type { AgentCommentsCollection } from "./agent-editor-comments";
 import { documentRelativeProjectPath } from "../project/document-relative-path";
+import { localPdfPath } from "../papers/paper-source";
 import { agentPaperPath } from "./agent-paper-library";
 
 export const LATTICE_HOST_CONTEXT = "lattice:host-context";
@@ -112,6 +113,8 @@ export interface AgentHostContextSnapshot {
     citationKey?: string;
     path: string;
     view: "blog" | "fulltext";
+    /** The paper's own pages, when its bundle keeps them (a Zotero attachment). */
+    pdfPath?: string;
   };
 }
 
@@ -165,7 +168,7 @@ export function buildAgentHostContext(input: {
     presentationAuthoring: PRESENTATION_AUTHORING_CONTEXT,
   } as const;
   if (input.activePaper) {
-    const { title, arxivId, citationKey } = input.activePaper;
+    const { title, arxivId, citationKey, hasLocalPdf } = input.activePaper;
     return {
       ...envelope,
       activeSurface: "paper",
@@ -175,6 +178,9 @@ export function buildAgentHostContext(input: {
         ...(citationKey ? { citationKey } : {}),
         path: agentPaperPath(arxivId, input.paperView),
         view: input.paperView,
+        // Text converted from a PDF tells its reader to check the PDF; name
+        // the one the bundle keeps, or the agent goes looking for it.
+        ...(hasLocalPdf ? { pdfPath: localPdfPath(input.activePaper) } : {}),
         ...selected("paper"),
         ...selectedImage("paper"),
       },

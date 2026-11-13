@@ -2,10 +2,9 @@
 //! double-click in the PDF to its source line, both lattice-core's lookups.
 
 use gpui::{AppContext as _, Context, Window};
-use gpui_kit::component::dock::DockPlacement;
 use lattice_core::latex;
 
-use super::{ForwardSync, Shell};
+use super::{ForwardSync, Shell, layout::View};
 use crate::notices;
 
 /// Said when a jump to the PDF cannot be made from the PDF on screen.
@@ -82,12 +81,10 @@ impl Shell {
         .detach();
     }
 
-    /// The PDF panel comes on screen for a jump into it.
+    /// The PDF panel comes on screen for a jump into it, wherever the
+    /// arrangement holds it.
     fn reveal_pdf(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let open = self.dock_area.read(cx).is_dock_open(DockPlacement::Right);
-        if !open {
-            self.toggle_dock(DockPlacement::Right, window, cx);
-        }
+        self.show_view(View::Pdf, window, cx);
     }
 
     /// From a double-click in the PDF to its source line.

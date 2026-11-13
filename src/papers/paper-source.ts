@@ -82,6 +82,16 @@ export function paperPdfUrl(paper: PaperIdentity): string | null {
   return /\.pdf$/i.test(url.pathname) ? url.href : null;
 }
 
+/**
+ * Whether Papers has no PDF of `paper` at all, neither one its bundle keeps
+ * nor one on the web, so a Zotero attachment would give it one. Papers
+ * imported from Zotero before the bundle kept its PDF (#862), and works cited
+ * by DOI, are in this state; adding them from Zotero again attaches the PDF.
+ */
+export function keepsNoPdf(paper: PaperIdentity): boolean {
+  return !paper.hasLocalPdf && !paperPdfUrl(paper);
+}
+
 export type PaperSourceCitation = { page: number; first: string; last: string };
 
 /**

@@ -180,20 +180,10 @@ impl Shell {
         let Some(project) = self.project.clone() else {
             return;
         };
-        // A .tex open in the editor that holds `\documentclass` builds even
-        // when the manifest names no document: lattice-core adopts it, as
-        // Overleaf does.
-        let open_document = self.active_editor().and_then(|editor| {
-            let editor = editor.read(cx);
-            editor
-                .relative()
-                .to_ascii_lowercase()
-                .ends_with(".tex")
-                .then(|| (editor.relative().to_string(), editor.editor().clone()))
-        });
+        let open_document = self.open_document(cx);
         let compilable = open_document
             .as_ref()
-            .is_some_and(|(_, editor)| editor.read(cx).text(cx).contains("\\documentclass"));
+            .is_some_and(|(_, compilable)| *compilable);
         let main = project.read(cx).main_document().map(str::to_string);
         if main.is_none() && !compilable {
             // Autosave and a jump to the PDF reach here too; only the writer
@@ -334,6 +324,39 @@ impl Shell {
             .ok();
         }));
         cx.notify();
+    }
+
+    /// The .tex in the editor the writer was last in, and whether it holds
+    /// `\documentclass`: such a file builds even when the manifest names no
+    /// document, as lattice-core adopts it, as Overleaf does.
+    fn open_document(&self, cx: &App) -> Option<(String, bool)> {
+        let editor = self.active_editor()?;
+        let editor = editor.read(cx);
+        editor
+            .relative()
+            .to_ascii_lowercase()
+            .ends_with(".tex")
+            .then(|| {
+                (
+                    editor.relative().to_string(),
+                    editor
+                        .editor()
+                        .read(cx)
+                        .text(cx)
+                        .contains("\\documentclass"),
+                )
+            })
+    }
+
+    /// Whether a build has a document to typeset: the project's main
+    /// document, or the open one (`open_document`).
+    pub(super) fn has_document(&self, cx: &App) -> bool {
+        self.project
+            .as_ref()
+            .is_some_and(|project| project.read(cx).main_document().is_some())
+            || self
+                .open_document(cx)
+                .is_some_and(|(_, compilable)| compilable)
     }
 
     fn finish_build(

@@ -610,8 +610,10 @@ impl BasePanel for BuildPanel {
         "BuildPanel"
     }
 
+    /// Its tab's X takes it off screen, as the Tauri app's does; the Panels
+    /// menu brings it back.
     fn closable(&self, _: &App) -> bool {
-        false
+        true
     }
 }
 

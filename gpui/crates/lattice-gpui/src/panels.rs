@@ -1,5 +1,7 @@
 //! How each of the app's panels presents itself in the dock: its tab's icon,
-//! whether it has unsaved changes, and which surface its card is.
+//! whether it has unsaved changes, which surface its card is, and whether
+//! its tab is a document's (which ellipsizes in a narrow strip) or a named
+//! panel's.
 //!
 //! The Main window puts navigation (Project, Papers, Agent) on the chrome
 //! and the stage (editors, the PDF, tool panels) on the sheet. Tabs carry
@@ -14,6 +16,7 @@ use lattice_ui::{
 
 use crate::{
     build_panel::BuildPanel, editor_panel::EditorPanel, file_tree::FileTreePanel, pdf::PdfPanel,
+    stand_in_panels::StandInPanel,
 };
 
 pub fn present_tabs(cx: &mut App) {
@@ -26,6 +29,7 @@ pub fn present_tabs(cx: &mut App) {
                     icon: TabIcon::Glyph(GlyphKind::for_name(&editor.path().to_string_lossy())),
                     dirty: editor.is_dirty(cx),
                     surface: Surface::Sheet,
+                    document: true,
                 };
             }
             Err(view) => view,
@@ -34,9 +38,12 @@ pub fn present_tabs(cx: &mut App) {
             icon: TabIcon::Icon(icon),
             dirty: false,
             surface,
+            document: false,
         };
         if view.clone().downcast::<FileTreePanel>().is_ok() {
             look(Icon::FOLDER_TREE, Surface::Chrome)
+        } else if let Ok(stand_in) = view.clone().downcast::<StandInPanel>() {
+            look(stand_in.read(cx).kind().icon(), Surface::Chrome)
         } else if view.clone().downcast::<PdfPanel>().is_ok() {
             look(Icon::FILE_TEXT, Surface::Sheet)
         } else if view.downcast::<BuildPanel>().is_ok() {

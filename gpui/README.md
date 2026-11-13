@@ -7,13 +7,15 @@ Its backend is the Tauri app's own: `lattice-core` (`../src-tauri/lattice-core`)
 
 1. Opens a project folder as the Tauri app does (a folder Lattice did not create is adopted the same way), with the Project tree on the left: the same files shown and hidden, New file, New folder, Rename, a dragged row moved into a folder, Delete, Set as main document, Show hidden files.
 2. Edits sources in Zed's editor with LaTeX highlighting in Lattice's code themes, search (Zed's buffer search bar) and an optional Vim mode (Zed's Vim); in a `.tex` file, a card for the citation key or `\ref` label under the pointer, completion of commands, citation keys and labels, and TexLab's diagnostics (when `texlab` is installed), through Lattice's editor adapter (below).
-3. Saves as the Tauri app does: after a pause in typing, on leaving the editor, and before a tab or window closes or the app quits, merging an edit made outside Lattice since the file was loaded rather than writing over it; an outside edit reloads a clean buffer, and a file moved or deleted outside Lattice is followed, closed or held with its edits.
+3. Saves as the Tauri app does: after a pause in typing, on leaving the editor, and before a tab or window closes, another project opens in its window or the app quits, merging an edit made outside Lattice since the file was loaded rather than writing over it; an outside edit reloads a clean buffer, and a file moved or deleted outside Lattice is followed, closed or held with its edits.
 4. Shows the PDF on the right, rendered natively by PDFium, and jumps between it and the source with SyncTeX: ⌘⇧J / Ctrl+Shift+J (or the PDF toolbar's locate button) marks the caret's line in the PDF, and a double-click in the PDF opens its source line.
 5. Builds with lattice-core's latexmk build on one click (or ⌘B / Ctrl+B; ⇧-click rebuilds clean), and after each save and each outside edit it loads (the Tauri app's default automatic builds), and reloads the PDF in place. The Build button's hover card lists the passes latexmk ran; a build can be stopped, and the build files cleaned. The build's diagnostics are the Tauri app's card over the PDF (or docked under it): TeX's messages in plain words with the failing line quoted, a typo's one-click fix, a missing package's install, and errors that jump to their line (F8 / ⇧F8 step through them).
 6. The TeX doctor (the Tauri app's Settings › TeX doctor, in a sheet of its own until Settings is ported), the setup wizard that installs BasicTeX (TeX Live on Windows) when a build finds no TeX, and the status bar's word counts (the manuscript's through TeXcount, this file's, the selection's).
-7. Puts every panel in GPUI Kit's dock: tabs drag between the center and the docks, docks resize and collapse.
+7. Lays the window out as the Tauri app does (Trellis on GPUI Kit's dock): Project and the Agent over Papers on the left, the documents in the center, the PDF on the right, each a rounded card with a 40px strip of tabs. Tabs drag between groups and out of a region (whose neighbours take its room), panels float, split, maximize, hide and close from their ⋯ menu, and a narrow strip ellipsizes documents' tabs, drops named panels to their icons and lets the Build chip go before anything clips.
+8. Keeps named workspaces, shared by every project (a dot while the project's layout differs; "+", rename in place, save, revert, duplicate, move, delete with undo), the Writing and Reading presets and focus mode over them, and each project's own layout, restored when it opens again.
+9. Reaches every command from the command palette (⌘K), the keymap, the shortcut sheet (⌘?) and the menu bar; opens projects in new windows or as tabs in one.
 
-Not yet: the visual Markdown editor, Overleaf, the papers library, the Agent panel, canvas, spreadsheet, slides, live preview and i18n.
+Not yet: the visual Markdown editor, Overleaf, the papers library and the Agent (their panels hold their places with a note), canvas, spreadsheet, slides, live preview and i18n.
 
 ## License
 
@@ -43,10 +45,21 @@ The first build fetches Zed at the pinned revision and compiles about 1,200 crat
 |---|---|
 | ⌘O / Ctrl+O | Open a project folder |
 | ⌘B / Ctrl+B | Save edited files and build |
-| ⌘S / Ctrl+S | Save |
+| ⌘S / Ctrl+S | Save edited files and build |
 | ⌘⇧J / Ctrl+Shift+J | Mark the caret's line in the PDF (SyncTeX); a double-click in the PDF goes back |
 | ⌘F / Ctrl+F | Find in the current file (Zed's search bar: regex, case, whole word, replace) |
+| ⌘K or ⌘⇧P | Command palette: every command, and the project's files |
+| ⌘⇧/ (⌘?) | Keyboard shortcuts |
+| ⌘1 … ⌘9 | The workspace at that place |
+| ⌘⌥1, ⌘⌥2, ⌘⌥3 | Show or hide Project, Papers, the Agent |
+| ⌘⇧↩ | Maximize the focused panel, or restore the layout |
+| ⌘⇧D | Focus mode |
+| ⌘⇧[ / ⌘⇧] | Previous or next tab |
+| ⌘W, ⌘⇧T, ⌘⇧W | Close the document's tab (the window when none is open), reopen the last closed tab, close the window |
+| ⌃Tab, ⌃⇧Tab | Next or previous project in the window |
 | Zed's default keymap | Everything else in the editor |
+
+On Windows and Linux, Ctrl stands in for ⌘, and quitting is Alt+F4 or the menu. With Vim mode on there, Vim keeps Ctrl+O, Ctrl+B, Ctrl+S, Ctrl+K and Ctrl+W in the editor, in the Vim modes where its keymap binds them.
 
 "Vim mode" in an editor's ⋯ menu turns Zed's Vim mode on for every editor; `LATTICE_GPUI_VIM=1` starts with it on.
 
@@ -64,7 +77,9 @@ The Chinese input method (Microsoft Pinyin on Windows) and MiKTeX's own package-
 ## How it is put together
 
 ```
-crates/lattice-gpui   the app: shell (titlebar + dock), project, file tree,
+crates/lattice-gpui   the app: shell (titlebar, dock, workspaces and presets,
+                      command table, palette, menu bar, windows and project
+                      tabs, floating panels: src/shell/), project, file tree,
                       editor panel, PDF panel (PDFium on its own thread), build
                       panel, notices and confirmations, scripted scenarios
                       (macOS, Windows)
@@ -84,7 +99,8 @@ crates/lattice-ui     Lattice's look: design tokens generated from
 compat/               shims that leave one GPUI (gpui-pre, gpui-fast) and one
                       SQLite (sqlite) in the graph
 patches/              upstream crates with Lattice's diffs: gpui-fast's GPUI and
-                      macOS platform, GPUI Kit's components (patches/README.md)
+                      macOS platform, GPUI Kit's components and foundation
+                      (patches/README.md)
 fixtures/e2e          the project the e2e scenario runs on (copy it first)
 ```
 
@@ -103,7 +119,7 @@ gpui-fast `bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa` tracks Zed commit `d2a4fb6d
 GPUI Kit 0.9.1 and gpui-webview 0.9.1 run on gpui-fast through their `gpui-fast` feature (gpui-webview checks that the two agree). That feature asks for the crates.io `gpui-fast*` 0.1.14 packages, and GPUI Kit still names the `gpui-pre` 0.3.12 snapshot besides, so Cargo would build three GPUIs; the shims in `compat/` carry those names and versions and re-export the workspace's GPUI, and `[patch.crates-io]` swaps them in.
 `Cargo.lock` was seeded from Zed's own lockfile at that commit, and Zed's `[patch.crates-io]` entries are repeated in the workspace manifest because a dependency's patches do not apply.
 
-GPUI itself, gpui-fast's macOS platform and GPUI Kit's components are the copies in `patches/`, upstream at those pins plus Lattice's diffs: element scale and letter spacing in GPUI, a lab switch for uncomposited windows (`GPUI_LAB_IGNORE_OCCLUSION`), and GPUI Kit's toasts and sheets drawn on the overlay surface so a webview island does not cover them. `script/check-patches` rebuilds them from upstream and fails on any difference; `patches/README.md` has the provenance.
+GPUI itself, gpui-fast's macOS platform and GPUI Kit's components and foundation are the copies in `patches/`, upstream at those pins plus Lattice's diffs: element scale and letter spacing in GPUI, a lab switch for uncomposited windows (`GPUI_LAB_IGNORE_OCCLUSION`), GPUI Kit's toasts and sheets drawn on the overlay surface so a webview island does not cover them, and a dock region's last panel free to drag out, as Trellis lets it. `script/check-patches` rebuilds them from upstream and fails on any difference; `patches/README.md` has the provenance.
 
 ### Lattice's look
 
@@ -111,7 +127,7 @@ The app draws what the Tauri app draws: the parity target is the running app as 
 
 - `crates/lattice-ui/src/tokens/` is generated from the JSON, and from `design-system/code-themes.json` for the code themes; a test fails while they disagree. After a Paper export, or after `node design-system/code-themes.mjs` re-exports the Tauri app's code themes, regenerate with `LATTICE_UI_WRITE_TOKENS=1 cargo test -p lattice-ui generated_tokens`.
 - `Palette` resolves every colour role for an appearance, tint and accent preset the way `src/styles/theme.css` derives them; GPUI Kit and Zed's editor are themed from it (`kit.rs`, `editor_theme/`, one Zed theme per Lattice code theme), so their own components start in Lattice's colours.
-- The dock keeps GPUI Kit's behaviour and wears Lattice's skin (`dock.rs`): rounded panel cards on the chrome, 40px strips of pill tabs, no dividers.
+- The dock keeps GPUI Kit's behaviour and wears Lattice's skin (`dock.rs`): rounded panel cards on the chrome, 40px strips of pill tabs, no dividers, Trellis's drop slot. A strip short of room gives way as the Tauri app's does (`dock/strip.rs`), from last frame's measured widths.
 - Fonts: Inter, Ioskeley Mono and Instrument Serif are bundled (`script/make-fonts` writes them). The private Timeless faces are embedded at build time by `crates/lattice-ui/build.rs` when `LATTICE_PRIVATE_FONTS_DIR` (default `~/Downloads/Timeless-Type-Family-1.094`, empty for none) holds the complete download, as the Tauri build embeds them; `LATTICE_PRIVATE_FONTS_REQUIRED=1` fails the build without them. The download's `LICENSE.pdf` is embedded, unmodified, with them (`lattice_ui::fonts::font_license()`); a download without it counts as incomplete, so the faces are not embedded. The app never reads them at run time, and they are never committed.
 - `LATTICE_APPEARANCE=light|dark` fixes the appearance instead of following the system's.
 - Components (`lattice-ui/src/components/`) follow Paper's Components boards; hover and press fade on the motion tiers (`interaction.rs`). Menus, selects and popovers spring from their trigger from 95%, tooltips grow from 98%, dialogs and sheets rise from 98%, and toasts drop in from 96%, each on its tier as the Tauri app's CSS has it (`motion::Entrance`, drawn with GPUI's element scale). Type roles set normal tracking, and an uppercase micro label opens it to the caps tracking (`Tracking::Caps`). `lattice-gpui --gallery` draws them all on one sheet (`LATTICE_GALLERY_PAGE=2` for the overlays and surfaces) and, with `LATTICE_SHOT_OUT` and `--features offscreen-shots`, saves it.
@@ -170,8 +186,12 @@ target/release/lattice-gpui /tmp/lattice-gpui-e2e --scenario e2e --out e2e.json
 
 `e2e` runs on macOS and Windows; `perf`, `memory`, `ime`, `ime-protocol`, `shot` and `parity` are macOS only.
 
-- `e2e`: opens a project through `lattice-core`, builds, jumps from the caret to the PDF and back with a native double-click (SyncTeX), autosaves after a pause in typing (and builds), reloads an outside edit into a clean buffer and merges one made while the buffer holds edits, types a broken macro with native key events, saves with ⌘S / Ctrl+S, builds, follows the error to its line, searches, checks Vim's `x`, repairs the file outside Lattice and rebuilds, checks the build's card (the passes, the explained error, the unattended rebuild that restates an unchanged failure, a typo's fix, a missing package's install with the stand-in installer, clean and clean rebuild, stopping a build that loops), the TeX doctor and the setup wizard (stand-in), and the manuscript's word count, creates, renames, moves and deletes a file in the tree, and drags an editor tab into the right dock with native mouse events.
-  It also jumps from a `.bib` entry to the PDF, and checks that closing a dirty tab or a window within the autosave pause saves what was typed, and that closing the tab of a file deleted outside Lattice takes down its notice.
+A scripted run keeps the workspaces and the projects' layouts in memory, so it neither reads nor changes the writer's own; `LATTICE_GPUI_STATE_DIR` names a directory for them instead (an ordinary run keeps them in the system's data directory, under `lattice-gpui/`). `LATTICE_WINDOW_SIZE=1015x680` opens the window at another size, as a smaller screen would (GitHub's runners shrink it to about 1015px wide).
+
+- `e2e`: opens a project through `lattice-core`, builds, jumps from the caret to the PDF and back with a native double-click (SyncTeX), autosaves after a pause in typing (and builds), reloads an outside edit into a clean buffer and merges one made while the buffer holds edits, types a broken macro with native key events, saves with ⌘S / Ctrl+S, builds, follows the error to its line, searches, checks Vim's `x`, repairs the file outside Lattice and rebuilds, checks the build's card (the passes, the explained error, the unattended rebuild that restates an unchanged failure, a typo's fix, a missing package's install with the stand-in installer, clean and clean rebuild, stopping a build that loops), the TeX doctor and the setup wizard (stand-in), and the manuscript's word count, creates, renames, moves and deletes a file in the tree, and, only with `LATTICE_E2E_DRAG` set, drags an editor tab into the right dock with native mouse events (off by default because it misses the tab in CI's narrow window).
+  Before those checks it runs the window's own steps: the PDF dragged by its tab out of its dock with native mouse events (the dock goes), the Writing preset and the way back, a new workspace keeping its own arrangement (the dot until it is saved), Project closed from its tab and brought back from the Panels toggle, the PDF floated and docked, the command palette listing the commands, and ⌘W on the focused document closing its tab with the keyboard left in the window (the palette still opens, ⌘⇧T brings the tab back).
+  A native drag has a frame drawn before its press and after every event, since input lands on the last frame's hitboxes; a window the platform is not presenting (covered, or on a locked screen) draws none itself, so the scenario draws it, and the step's detail records how many the window drew.
+  It also jumps from a `.bib` entry to the PDF, and checks that closing a dirty tab or a window within the autosave pause saves what was typed, that closing the tab of a file deleted outside Lattice takes down its notice, and that with edits that cannot be saved, "Open in New Window" keeps the window and opens no other, and opening another project keeps the one shown.
   In `main.tex` it checks the editor adapter: the citation and reference cards open when native mouse moves rest on a key or label and close when the pointer leaves, remote carets draw and name themselves and fade, a block widget pushes the lines below it down, a gutter mark set on a line is painted there and opens its card, TexLab's diagnostic for an unknown `\ref` shows as a mark whose card opens and clears once the reference goes, and with the bibliography unlinked, TexLab's diagnostic on the cited key opens its lint card under the citation card (both skipped without `texlab`), a card opens over its range's last character and not from the space past its line's end, a `.tex` file renamed to `.txt` is never synced to TexLab, and native keys complete a citation key and `\textbf`. With `LATTICE_E2E_SHOTS=DIR` (macOS) it saves the window at each card, the carets and both completion menus.
   It ends by quitting with text typed and not yet saved, naming the file and the text in the result's `after_quit`; the file holds the text once the app has exited, which CI checks.
   It needs `chapters/intro.tex` and `references.bib` in the project, and `main.tex` as the fixture has it.

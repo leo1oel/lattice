@@ -1,0 +1,48 @@
+{
+  "version": "0.16.16",
+  "date": "2026-11-13",
+  "highlights": [
+    {
+      "title": {
+        "en": "Zotero annotations come into your notes",
+        "zh": "Zotero 批注导入笔记"
+      },
+      "body": {
+        "en": "The highlights and comments you made in Zotero's PDF reader can now be brought into a paper's note in Lattice. The paper browser shows how many annotations each paper has, and no API key or Zotero plugin is needed.",
+        "zh": "你在 Zotero PDF 阅读器中做的高亮和评论，现在可以导入到 Lattice 中该论文的笔记里。论文浏览器会显示每篇论文的批注数量，无需 API 密钥或 Zotero 插件。"
+      }
+    },
+    {
+      "title": {
+        "en": "See the images the agent works with",
+        "zh": "查看 AI 助手处理的图片"
+      },
+      "body": {
+        "en": "The agent panel now shows thumbnails of the figures and screenshots the agent reads, receives or writes, and the full-size viewer steps through every version of a figure.",
+        "zh": "AI 助手面板现在会以缩略图显示助手读取、接收或生成的图表和截图，全尺寸查看器可以逐一浏览同一图表的每个版本。"
+      }
+    }
+  ],
+  "fixes": [
+    {
+      "en": "Asked about a table or formula in a library paper, the agent now opens the paper's PDF instead of reporting that it cannot find one.",
+      "zh": "询问资料库中论文的表格或公式时，AI 助手现在会打开该论文的 PDF，而不再报告找不到 PDF。"
+    },
+    {
+      "en": "Dragging to select text in a PDF stays smooth on dense pages, including when you sweep the selection back.",
+      "zh": "在内容密集的 PDF 页面上拖动选择文本时保持流畅，来回拖动选区也不会卡顿。"
+    },
+    {
+      "en": "Overleaf: switching to another file and back while a co-author types resumes the document directly instead of falling back to a full sync.",
+      "zh": "Overleaf：在合作者输入时切换到其他文件再切回来，文档会直接恢复，不再退回到完整同步。"
+    },
+    {
+      "en": "Visual mode draws editable figures, chemnum compound numbers and achemso scheme, chart and graph floats, and Backspace and Delete step over a revealed chip's braces.",
+      "zh": "可视模式现在可以绘制可编辑图形、chemnum 化合物编号以及 achemso 的 scheme、chart 和 graph 浮动体；Backspace 和 Delete 会跳过已展开标签的花括号。"
+    },
+    {
+      "en": "The embedded AI agent is updated to Synara 1.5.2.",
+      "zh": "内置的 AI 助手已更新到 Synara 1.5.2。"
+    }
+  ]
+}

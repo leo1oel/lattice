@@ -35,3 +35,23 @@ pub fn load_fonts(cx: &App) {
         log::warn!("could not load bundled fonts: {error:#}");
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_lucide_icon_draws_gpui_kits_lucide_file() {
+        let kit = gpui_kit::assets::AllAssets::new("");
+        for (icon, name) in lattice_ui::icons::LUCIDE {
+            let lucide = format!("icons/{name}.svg");
+            let expected = kit.load(&lucide).unwrap().expect(&lucide);
+            let loaded = Assets.load(icon.0).unwrap().expect(icon.0);
+            assert!(
+                loaded == expected,
+                "{} does not draw Lucide's {name}.svg",
+                icon.0
+            );
+        }
+    }
+}

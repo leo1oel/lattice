@@ -9,7 +9,6 @@ use std::path::PathBuf;
 
 use editor::MultiBufferOffset;
 use gpui::{AppContext as _, Context, Focusable as _, Window};
-use gpui_kit::component::dock::DockPlacement;
 use lattice_core::{
     latex,
     project::{self, ManifestSettings},
@@ -18,7 +17,7 @@ use lattice_ui::components::ToastLevel;
 
 use super::{
     CleanBuildFiles, CleanRebuild, InstallLatexTools, NextProblem, OpenTexDoctor, PreviousProblem,
-    Shell, StopBuild, build::BuildRequest,
+    Shell, StopBuild, build::BuildRequest, layout::View,
 };
 use crate::{
     build::diagnostics,
@@ -157,21 +156,11 @@ impl Shell {
     }
 
     /// The card lives in the PDF panel: a build the writer asked for that
-    /// failed opens that panel's dock when it was closed, and the card.
+    /// failed brings that panel forward wherever the arrangement holds it,
+    /// and the card with it.
     pub(super) fn bring_build_card_forward(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.build_panel.update(cx, |panel, cx| panel.reveal(cx));
-        let pdf = gpui_kit::component::dock::PanelId::from(self.pdf.entity_id());
-        let placement = self
-            .dock_area
-            .read(cx)
-            .panel(pdf)
-            .map(|_| DockPlacement::Right);
-        if let Some(placement) = placement
-            && !self.dock_area.read(cx).is_dock_open(placement)
-        {
-            self.dock_area
-                .update(cx, |area, cx| area.toggle_dock(placement, window, cx));
-        }
+        self.show_view(View::Pdf, window, cx);
     }
 
     pub(super) fn on_build_action(

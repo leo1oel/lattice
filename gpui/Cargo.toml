@@ -59,6 +59,7 @@ gpui-kit = { version = "=0.9.1", features = ["gpui-fast"] }
 gpui-webview = { version = "=0.9.1", features = ["gpui-fast"] }
 
 anyhow = "1"
+dirs = "6"
 codebook-tree-sitter-latex = "0.6.1"
 futures = "0.3"
 image = { version = "0.25", default-features = false }
@@ -71,6 +72,7 @@ lattice-ui = { path = "crates/lattice-ui" }
 log = "0.4"
 pdfium-render = { version = "0.9.5", default-features = false, features = ["pdfium_8125", "thread_safe"] }
 semver = "1"
+serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 smallvec = "1"
 
@@ -116,6 +118,7 @@ gpui-fast = { path = "compat/gpui-fast/gpui-fast" }
 gpui-fast-platform = { path = "compat/gpui-fast/gpui-fast-platform" }
 gpui-fast-web = { path = "compat/gpui-fast/gpui-fast-web" }
 gpui-component = { path = "patches/gpui-component" }
+gpui-base = { path = "patches/gpui-base" }
 # One SQLite: Zed's `sqlez` asks for libsqlite3-sys 0.30 and lattice-core's
 # rusqlite for 0.38, and only one crate in a graph may link `sqlite3`. The
 # shim carries 0.30's name and version and re-exports 0.38

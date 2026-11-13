@@ -9,8 +9,11 @@
  * Folders and papers sit side by side; in a narrow sheet the papers replace
  * the folders and the Folders button (or Escape) returns to them. A paper
  * Papers already holds (same DOI, arXiv id or citation key) is marked, and
- * can be ticked only for the annotations its PDF holds in Zotero, which go
- * to its note (zotero-annotations.ts) as they do for a paper added new.
+ * can be ticked only for what it lacks: the annotations its PDF holds in
+ * Zotero, which go to its note (zotero-annotations.ts) as they do for a
+ * paper added new, and its PDF when Papers has none of it. A paper imported
+ * before the bundle kept its PDF (#862), or cited by DOI, gets its pages that
+ * way; without them the agent, asked for the paper itself, could not open it.
  * What is added is what is ticked in the list in view: a tick a search or
  * the subfolder switch hides is neither counted nor added, and opening
  * another folder starts with nothing ticked. A tick kept out of sight made
@@ -33,6 +36,7 @@ import { Switch } from "../components/ui/switch";
 import { InfinityLoader } from "../components/ui/activity-icons";
 import { hostErrorMessage } from "../app-utils";
 import { findInLibrary, parsePastedReferences } from "./paper-add";
+import { keepsNoPdf } from "./paper-source";
 import { folderCounts, folderItems, folderRows, type ZoteroItem, type ZoteroLibrary } from "./zotero";
 
 /** A paper as its row shows it. */
@@ -47,8 +51,11 @@ export type ZoteroPaper = {
 /** "" stands for My Library, the whole library. */
 type FolderKey = string;
 
-/** A paper can be ticked to add it, or, once in Papers, to bring its annotations. */
-const canTick = (paper: ZoteroPaper) => !paper.existing || paper.item.annotations > 0;
+/** A held paper whose Zotero PDF would be its first (use-reference-import.ts attaches it). */
+const bringsPdf = (paper: ZoteroPaper) => Boolean(paper.existing && paper.item.pdf && keepsNoPdf(paper.existing));
+
+/** A paper can be ticked to add it, or, once in Papers, to bring its annotations or its PDF. */
+const canTick = (paper: ZoteroPaper) => !paper.existing || paper.item.annotations > 0 || bringsPdf(paper);
 
 type BrowserState = {
   library: ZoteroLibrary | null;
@@ -167,6 +174,12 @@ export function ZoteroBrowser(props: {
   const tickable = shownPapers.filter(canTick);
   const ticked = tickable.filter((paper) => state.ticked.has(paper.item.citationKey));
   const tickedHere = ticked.length;
+  // What the button adds when every ticked paper is already in Papers.
+  const pdfsBrought = ticked.filter(bringsPdf).length;
+  const annotationsBrought = ticked.some((paper) => paper.item.annotations > 0);
+  const heldPapersAction = !pdfsBrought ? t`Add annotations`
+    : pdfsBrought === 1 ? (annotationsBrought ? t`Add PDF and annotations` : t`Add PDF`)
+    : annotationsBrought ? t`Add PDFs and annotations` : t`Add PDFs`;
   const { onTicked } = props;
   useEffect(() => {
     onTicked(tickedHere);
@@ -353,7 +366,7 @@ export function ZoteroBrowser(props: {
           onClick={() => props.onAdd(ticked, chosenDir)}
         >
           <Plus size={14} aria-hidden="true" />
-          {ticked.length && ticked.every((paper) => paper.existing) ? t`Add annotations`
+          {ticked.length && ticked.every((paper) => paper.existing) ? heldPapersAction
             : ticked.length === 1 ? t`Add 1 paper` : ticked.length ? t`Add ${ticked.length} papers` : t`Add papers`}
         </Button>
       </div>

@@ -22,6 +22,7 @@ use std::process::Output;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
+mod agent_library;
 mod attach;
 mod bibliography;
 mod bundle;
@@ -39,6 +40,7 @@ mod test_support;
 mod upgrade;
 mod web_citation;
 
+pub use agent_library::list_library;
 pub use attach::attach_pdf_file;
 pub(crate) use bibliography::ScratchBibliography;
 pub use bibliography::{remove_reference, CitationRemovalMode, HistoryMode, RemoveResult};
@@ -49,7 +51,7 @@ pub(crate) use citation::{
 pub(crate) use ids::{arxiv_base_id, explicit_arxiv_id};
 pub use import::import_reference;
 pub use library::{
-    list_bibliography_downloads, list_library, list_papers, read_paper, read_paper_blog_local,
+    list_bibliography_downloads, list_papers, read_paper, read_paper_blog_local,
     refresh_citation_health,
 };
 pub use library_search::{refresh_search_index, search_library, search_library_text};
