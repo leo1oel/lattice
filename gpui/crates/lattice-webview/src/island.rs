@@ -459,7 +459,6 @@ impl Island {
     fn build_webview(&mut self, window: &mut Window, cx: &mut Context<Self>) -> Result<()> {
         let (sender, mut receiver) = mpsc::unbounded::<(String, String)>();
         let served = self.served.clone();
-        let bundle = protocol::url("bundle/");
         let token = bridge::new_token()?;
         let mut builder = wry::WebViewBuilder::new()
             .with_url(protocol::url(&format!("bundle/{}", self.config.entry)))
@@ -476,9 +475,7 @@ impl Island {
             // The page never leaves the island; its links go through the
             // bridge to the system browser. No frame loads a project file as
             // a document either: one would have an island URL.
-            .with_navigation_handler(move |url| {
-                url.starts_with(&bundle) || matches!(url.as_str(), "about:blank" | "about:srcdoc")
-            })
+            .with_navigation_handler(|url| navigable(&url))
             .with_new_window_req_handler(|_, _| wry::NewWindowResponse::Deny)
             .with_incognito(true)
             .with_accept_first_mouse(true)
@@ -683,6 +680,15 @@ impl Island {
     }
 }
 
+/// Whether a frame may navigate to `url`: the island's own bundle, or an
+/// empty or srcdoc document, its fragment included (an authored page's hash
+/// routing).
+fn navigable(url: &str) -> bool {
+    let document = url.split('#').next().unwrap_or_default();
+    document.starts_with(&protocol::url("bundle/"))
+        || matches!(document, "about:blank" | "about:srcdoc")
+}
+
 /// Hold `message` until the page listens: every response in order, and of
 /// each event only the latest, in the place of the first, since a page that
 /// has not loaded needs only where things stand (an island never shown would
@@ -786,6 +792,23 @@ mod tests {
                 Outbound::response(2, Err("b".into())),
             ]
         );
+    }
+
+    #[test]
+    fn frames_navigate_only_within_the_island() {
+        assert!(navigable(&protocol::url("bundle/html-preview/index.html")));
+        assert!(navigable("about:blank"));
+        assert!(navigable("about:srcdoc"));
+        assert!(navigable("about:srcdoc#section-2"));
+        assert!(navigable("about:blank#top"));
+        assert!(!navigable(&protocol::asset_url("x.svg")));
+        assert!(!navigable(&format!(
+            "{}#bundle/",
+            protocol::asset_url("x.svg")
+        )));
+        assert!(!navigable("about:srcdocx"));
+        assert!(!navigable("https://example.com/"));
+        assert!(!navigable("javascript:alert(1)"));
     }
 
     #[test]

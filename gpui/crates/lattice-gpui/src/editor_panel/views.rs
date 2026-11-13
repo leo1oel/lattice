@@ -297,8 +297,7 @@ impl EditorPanel {
         Some(switch.into_any_element())
     }
 
-    /// The panel's body: the editor over its status bar, and for a document
-    /// with views, that beside or instead of its preview.
+    /// The split's drag ended, wherever the button came up.
     fn end_split_drag(&mut self, cx: &mut Context<Self>) {
         if let Some(views) = &mut self.views
             && views.dragging
@@ -308,6 +307,8 @@ impl EditorPanel {
         }
     }
 
+    /// The panel's body: the editor over its status bar, and for a document
+    /// with views, that beside or instead of its preview.
     pub(super) fn render_views(
         &mut self,
         editor: AnyElement,

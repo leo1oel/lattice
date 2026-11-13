@@ -307,7 +307,9 @@ impl Run {
         // Read late in the file, around Part 100.
         self.with_window(cx, |_, window, cx| {
             let zed = editor.read(cx).editor().clone();
-            zed.update(cx, |zed, cx| zed.set_scroll_position(point(0., 2090.), window, cx));
+            zed.update(cx, |zed, cx| {
+                zed.set_scroll_position(point(0., 2090.), window, cx)
+            });
         })?;
         self.pause(cx, Duration::from_millis(300)).await;
         let bounds = cx
@@ -316,7 +318,9 @@ impl Run {
         self.move_pointer(cx, bounds.center()).await?;
         let open = rail.clone();
         let opened = self
-            .wait_for(cx, Duration::from_secs(2), move |_, cx| open.read(cx).is_open())
+            .wait_for(cx, Duration::from_secs(2), move |_, cx| {
+                open.read(cx).is_open()
+            })
             .await;
         self.pause(cx, Duration::from_millis(500)).await;
         let current = {
@@ -352,8 +356,10 @@ impl Run {
         cx.update(|cx| rail.update(cx, |rail, cx| rail.choose(4, cx)));
         self.park_pointer(cx)?;
         let closed = rail.clone();
-        self.wait_for(cx, Duration::from_secs(2), move |_, cx| !closed.read(cx).is_open())
-            .await;
+        self.wait_for(cx, Duration::from_secs(2), move |_, cx| {
+            !closed.read(cx).is_open()
+        })
+        .await;
         let pinned = cx.update(|cx| rail.read(cx).is_pinned());
         let view = cx
             .update(|cx| lattice.read(cx).painted_gutter().bounds)

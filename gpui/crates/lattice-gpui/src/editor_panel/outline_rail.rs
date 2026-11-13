@@ -222,8 +222,18 @@ impl OutlineRail {
 
     /// The opened outline's list: its scroll offset, viewport and how far it
     /// can scroll.
-    pub fn list_scroll(&self) -> (gpui::Point<Pixels>, gpui::Bounds<Pixels>, gpui::Point<Pixels>) {
-        (self.list.offset(), self.list.bounds(), self.list.max_offset())
+    pub fn list_scroll(
+        &self,
+    ) -> (
+        gpui::Point<Pixels>,
+        gpui::Bounds<Pixels>,
+        gpui::Point<Pixels>,
+    ) {
+        (
+            self.list.offset(),
+            self.list.bounds(),
+            self.list.max_offset(),
+        )
     }
 
     /// Where the marks were last drawn.
