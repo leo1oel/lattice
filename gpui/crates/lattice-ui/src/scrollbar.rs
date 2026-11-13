@@ -180,6 +180,13 @@ impl ScrollbarState {
             .is_some_and(|at| now.saturating_duration_since(at) < self.feel.linger)
     }
 
+    /// How long from `now` until a scroll stops holding the bar up.
+    fn linger_left(&self, now: Instant) -> Option<Duration> {
+        self.last_scroll
+            .map(|at| (at + self.feel.linger).saturating_duration_since(now))
+            .filter(|due| !due.is_zero())
+    }
+
     /// Bring the tweens in line with the pointer and the scroll at `now`;
     /// whether anything still moves.
     fn reconcile(&mut self, now: Instant, reduce_motion: bool) -> bool {
@@ -595,11 +602,7 @@ fn schedule_timeout(
 ) {
     let (pending, due) = {
         let state = state.read(cx);
-        let due = state
-            .last_scroll
-            .map(|at| (at + SCROLL_TIMEOUT).saturating_duration_since(now))
-            .filter(|due| !due.is_zero());
-        (state.timer, due)
+        (state.timer, state.linger_left(now))
     };
     let (false, Some(due)) = (pending, due) else {
         return;
@@ -731,6 +734,22 @@ mod tests {
         state.last_scroll = Some(start);
         assert!(state.scrolling(start + Duration::from_millis(179)));
         assert!(!state.scrolling(start + Duration::from_millis(180)));
+    }
+
+    #[test]
+    fn the_hide_timer_wakes_when_the_feels_linger_ends() {
+        let start = Instant::now();
+        let mut document = ScrollbarState::new(ScrollbarFeel::DOCUMENT, start);
+        document.last_scroll = Some(start);
+        assert_eq!(document.linger_left(start), Some(Duration::from_millis(180)));
+        assert_eq!(
+            document.linger_left(start + Duration::from_millis(100)),
+            Some(Duration::from_millis(80))
+        );
+        assert_eq!(document.linger_left(start + Duration::from_millis(180)), None);
+        let mut area = ScrollbarState::new(ScrollbarFeel::AREA, start);
+        area.last_scroll = Some(start);
+        assert_eq!(area.linger_left(start), Some(Duration::from_millis(500)));
     }
 
     #[test]

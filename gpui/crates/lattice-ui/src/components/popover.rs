@@ -227,7 +227,7 @@ impl RenderOnce for Menu {
                             .when_some(action.shortcut, MenuItem::shortcut)
                             .disabled(action.disabled)
                             .destructive(action.destructive)
-                            .highlighted(current == Some(ix))
+                            .highlighted(hover.lit(cx) == Some(ix))
                             .fluid()
                             .on_click(move |_, window, cx| runner(&run_action, window, cx));
                         hover.item_as(ix, kind, item)
@@ -241,7 +241,7 @@ impl RenderOnce for Menu {
             move |event: &KeyDownEvent, window: &mut Window, cx: &mut App| {
                 // The keys go on from the row the pointer lit, as a menu's
                 // roving highlight does in the app.
-                let at = hover.lit(cx).or(*highlight.read(cx));
+                let at = hover.lit(cx);
                 let step = match event.keystroke.key.as_str() {
                     "down" => Step::Next,
                     "up" => Step::Previous,

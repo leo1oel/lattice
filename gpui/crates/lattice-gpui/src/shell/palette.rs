@@ -90,6 +90,7 @@ pub(crate) struct CommandPaletteView {
     files: Vec<Entry>,
     shown: Vec<Entry>,
     highlighted: usize,
+    adopted: Option<usize>,
     scroll: ScrollHandle,
     _subscription: Subscription,
 }
@@ -142,6 +143,7 @@ impl CommandPaletteView {
             commands: sorted_by_section(commands),
             files,
             highlighted: 0,
+            adopted: None,
             scroll: ScrollHandle::new(),
             _subscription: subscription,
         };
@@ -337,10 +339,14 @@ impl Render for CommandPaletteView {
         let hover = FluidHover::new("command-palette-hover", window, cx)
             .fill(palette.accent_soft)
             .radius(shape::PALETTE_LIST.inner());
-        if let Some(lit) = hover.lit(cx).filter(|lit| *lit < self.shown.len()) {
-            self.highlighted = lit;
+        let lit = hover.lit(cx);
+        if lit != self.adopted {
+            if let Some(lit) = lit.filter(|lit| *lit < self.shown.len()) {
+                self.highlighted = lit;
+            }
         }
         let hover = hover.follow(Some(self.highlighted), cx);
+        self.adopted = hover.lit(cx);
         let mut rows: Vec<AnyElement> = Vec::new();
         let mut group = None;
         for (ix, entry) in self.shown.iter().enumerate() {

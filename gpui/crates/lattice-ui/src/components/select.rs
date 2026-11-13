@@ -361,7 +361,7 @@ impl RenderOnce for Select {
                         label.clone(),
                     )
                     .checked(self.selected == Some(ix))
-                    .highlighted(highlighted == Some(ix))
+                    .highlighted(hover.lit(cx) == Some(ix))
                     .fluid()
                     .on_click(move |_, window, cx| choose(Some(ix), window, cx));
                     hover.item(ix, row)
@@ -373,7 +373,7 @@ impl RenderOnce for Select {
                 let memory = memory.clone();
                 let lit = lit.clone();
                 move |cx: &mut App| {
-                    let from = lit.lit(cx).or(memory.read(cx).highlighted);
+                    let from = lit.lit(cx);
                     memory.update(cx, |m, cx| {
                         m.highlight(step_highlight(&vec![true; count], from, step));
                         cx.notify();
@@ -389,7 +389,6 @@ impl RenderOnce for Select {
             let fill = hover.highlight();
             let close = commit.clone();
             let confirm = commit.clone();
-            let read_highlight = memory.clone();
             // Enter and Space confirm here, in the list, rather than at the
             // headless root: after its own confirm the root hands focus back
             // to the list, which has closed by then.
@@ -398,10 +397,7 @@ impl RenderOnce for Select {
                 .track_focus(&list_focus)
                 .on_action(move |_: &SelectUp, _, cx| up(cx))
                 .on_action(move |_: &SelectDown, _, cx| down(cx))
-                .on_action(move |_: &Confirm, window, cx| {
-                    let ix = hover.lit(cx).or(read_highlight.read(cx).highlighted);
-                    confirm(ix, window, cx)
-                })
+                .on_action(move |_: &Confirm, window, cx| confirm(hover.lit(cx), window, cx))
                 .on_key_down(move |event: &KeyDownEvent, _, cx| {
                     match event.keystroke.key.as_str() {
                         "home" => home(cx),
