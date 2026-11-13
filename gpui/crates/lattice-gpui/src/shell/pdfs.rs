@@ -72,12 +72,18 @@ impl Shell {
                     });
                 }
             }
-            // In its own window, the PDF leaves the dock its room; Return to
-            // workspace brings the panel back.
+            // In its own window, the PDF alone in the right dock leaves the
+            // dock its room; Return to workspace brings the panel back. Shared
+            // with other panels, the dock stays and shows the placeholder.
             PdfEvent::Detached | PdfEvent::Docked => {
                 let open = matches!(event, PdfEvent::Docked);
+                let live = PanelId::from(self.pdf.entity_id());
                 self.dock_area.update(cx, |area, cx| {
-                    if area.is_dock_open(DockPlacement::Right) != open {
+                    let alone = area.layout(DockPlacement::Right).is_some_and(|tree| {
+                        let mut panels = tree.panels();
+                        panels.next() == Some(live) && panels.next().is_none()
+                    });
+                    if alone && area.is_dock_open(DockPlacement::Right) != open {
                         area.toggle_dock(DockPlacement::Right, window, cx);
                     }
                 });
