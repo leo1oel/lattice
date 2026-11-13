@@ -80,6 +80,10 @@ pub enum EditorPanelEvent {
     /// Open the project-relative `path` at the 1-based `line` (a hover
     /// card's Go to entry, a reference card's title).
     OpenLocation { path: String, line: u32 },
+    /// The caret moved to another line.
+    CaretLine,
+    /// The editor took focus: it is the one the reader works in now.
+    Focused,
 }
 
 /// The last write's outcome, for the status bar's save slot.
@@ -248,7 +252,12 @@ impl EditorPanel {
                         let line_start = Point::new(head.row, 0);
                         let column =
                             editor_status::caret_column(snapshot.text_for_range(line_start..head));
-                        this.cursor = (head.row + 1, column);
+                        let line = head.row + 1;
+                        let moved = this.cursor.0 != line;
+                        this.cursor = (line, column);
+                        if moved {
+                            cx.emit(EditorPanelEvent::CaretLine);
+                        }
                         cx.notify();
                     }
                     EditorEvent::Focused => {
@@ -256,6 +265,7 @@ impl EditorPanel {
                             diagnostics
                                 .update(cx, |diagnostics, cx| diagnostics.set_focused(true, cx));
                         }
+                        cx.emit(EditorPanelEvent::Focused);
                     }
                     // Leaving the editor saves at once, as the Tauri app does.
                     EditorEvent::Blurred => {
