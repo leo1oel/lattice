@@ -7,6 +7,7 @@ use std::{path::Path, time::Duration};
 
 use gpui::{AppContext as _, Context};
 use lattice_core::project::{self as core_project, ProjectFileStat};
+use lattice_i18n::t;
 use lattice_ui::components::ToastLevel;
 
 use super::{DiskVersion, EditorPanel, EditorPanelEvent, Vanished, save::normalize_breaks};
@@ -150,8 +151,12 @@ impl EditorPanel {
                         let previous = std::mem::replace(&mut this.relative, String::new());
                         this.moved_to(moved.clone(), cx);
                         notices::info(
-                            format!("{previous} was moved to {moved}"),
-                            "It was moved outside Lattice, and its tab followed it.",
+                            t!(
+                                "{path} was moved to {moved}",
+                                path = previous,
+                                moved = moved
+                            ),
+                            t!("It was moved outside Lattice, and its tab followed it."),
                             cx,
                         );
                     }
@@ -169,8 +174,8 @@ impl EditorPanel {
 
     fn close_deleted(&mut self, cx: &mut Context<Self>) {
         notices::info(
-            format!("{} was deleted", self.relative),
-            "It was deleted outside Lattice and had no unsaved edits, so its tab closed.",
+            t!("{path} was deleted", path = self.relative),
+            t!("It was deleted outside Lattice and had no unsaved edits, so its tab closed."),
             cx,
         );
         self.closed = true;
@@ -184,16 +189,16 @@ impl EditorPanel {
         notices::show(
             Notice::new(
                 ToastLevel::Warning,
-                format!("{} is no longer on disk", self.relative),
+                t!("{path} is no longer on disk", path = self.relative),
             )
-            .detail(
+            .detail(t!(
                 "It was deleted or moved outside Lattice. Your unsaved edits are still open: \
-                 recreate the file, save them elsewhere, or close its tab to discard them.",
-            )
-            .action(NoticeAction::new("Recreate", move |_, cx| {
+                 recreate the file, save them elsewhere, or close its tab to discard them."
+            ))
+            .action(NoticeAction::new(t!("Recreate"), move |_, cx| {
                 this.update(cx, |this, cx| this.recreate(cx)).ok();
             }))
-            .action(NoticeAction::new("Save As…", move |_, cx| {
+            .action(NoticeAction::new(t!("Save As…"), move |_, cx| {
                 save_elsewhere
                     .update(cx, |this, cx| this.save_elsewhere(cx))
                     .ok();
@@ -230,7 +235,7 @@ impl EditorPanel {
                 }
                 this.project.update(cx, |project, cx| project.rescan(cx));
                 notices::show(
-                    Notice::new(ToastLevel::Success, format!("Recreated {relative}")),
+                    Notice::new(ToastLevel::Success, t!("Recreated {path}", path = relative)),
                     cx,
                 );
             })
@@ -293,7 +298,7 @@ impl EditorPanel {
                     notices::show(
                         Notice::new(
                             ToastLevel::Success,
-                            format!("Saved your edits as {relative}"),
+                            t!("Saved your edits as {nextPath}", nextPath = relative),
                         ),
                         cx,
                     );
@@ -304,16 +309,19 @@ impl EditorPanel {
                     notices::show(
                         Notice::new(
                             ToastLevel::Success,
-                            format!("Saved your edits to {}", destination.display()),
+                            t!(
+                                "Saved your edits to {written}",
+                                written = destination.display()
+                            ),
                         )
-                        .detail("That file is outside this project, so the tab closed."),
+                        .detail(t!("That file is outside this project, so the tab closed.")),
                         cx,
                     );
                     this.closed = true;
                     cx.emit(EditorPanelEvent::Close);
                 }
                 (Err(error), _) => {
-                    notices::error(format!("Could not save {}", this.relative), error, cx);
+                    notices::error(t!("Could not save {name}", name = this.relative), error, cx);
                     this.announce_vanished(cx);
                 }
             })

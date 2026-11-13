@@ -44,6 +44,7 @@ use gpui_kit::component::{
     tree::{TreeItem, TreeState, tree},
 };
 use lattice_core::models::FileNode;
+use lattice_i18n::t;
 use lattice_ui::{
     ActiveLattice as _, GlyphKind, Icon, TextRole, TextRoleStyle as _,
     components::{GitMark, IconButton, Surface, TAB_RADIUS, TreeRow},
@@ -417,11 +418,11 @@ impl BasePanel for FileTreePanel {
 
 impl Panel for FileTreePanel {
     fn tab_name(&self, _: &App) -> Option<SharedString> {
-        Some("Project".into())
+        Some(t!("Project").into())
     }
 
     fn title(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
-        "Project"
+        t!("Project")
     }
 
     fn dropdown_menu(
@@ -450,7 +451,7 @@ impl Panel for FileTreePanel {
                     IconButton::new("project-new-entry", Icon::PLUS)
                         .radius(TAB_RADIUS)
                         .surface(Surface::Chrome)
-                        .tooltip("New…")
+                        .tooltip(t!("New…"))
                         .dropdown_menu_with_anchor(Anchor::TopRight, move |menu, _, _| {
                             Self::new_entries_menu(&view, menu)
                         }),
@@ -459,7 +460,10 @@ impl Panel for FileTreePanel {
                     IconButton::new("project-find", Icon::SEARCH)
                         .radius(TAB_RADIUS)
                         .surface(Surface::Chrome)
-                        .tooltip("Find in project — not in the GPUI preview yet"),
+                        .tooltip(t!(
+                            "{name} — not in the GPUI preview yet",
+                            name = t!("Find in project")
+                        )),
                 ),
         )
     }
@@ -480,7 +484,7 @@ impl Render for FileTreePanel {
                 .py(px(12.))
                 .text_role(TextRole::Body, cx)
                 .text_color(cx.palette().text_secondary)
-                .child("Open a LaTeX project folder to start")
+                .child(t!("Open a LaTeX project folder to start"))
                 .into_any_element();
         };
         let view = cx.entity().downgrade();

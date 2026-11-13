@@ -1,0 +1,17 @@
+[package]
+name = "lattice-settings"
+version = "0.1.0"
+description = "Lattice's preferences on GPUI: the typed settings the Tauri app keeps in localStorage, normalised as it normalises them, a JSON file for the GPUI app, and the one-time import from the Tauri app's WebKit storage."
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+dirs.workspace = true
+log.workspace = true
+# lattice-core's SQLite (bundled, the one libsqlite3-sys in the graph), to read
+# WebKit's LocalStorage database.
+rusqlite = { version = "0.40.1", features = ["bundled"] }
+serde.workspace = true
+serde_json.workspace = true

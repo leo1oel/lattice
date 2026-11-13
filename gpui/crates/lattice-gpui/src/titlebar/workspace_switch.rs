@@ -15,6 +15,7 @@ use gpui_kit::component::{
     input::{Input, InputEvent, InputState},
     menu::{ContextMenuExt as _, DropdownMenu as _, PopupMenu, PopupMenuItem},
 };
+use lattice_i18n::{space_mixed_script, t};
 use lattice_ui::{
     ActiveLattice as _, Elevation, Icon, TextRole, TextRoleStyle as _,
     components::{LatticeTooltip, focus_ring},
@@ -28,7 +29,7 @@ use lattice_ui::{
 use crate::shell::{
     Shell,
     commands::NewWorkspace,
-    workspaces::{RenameError, Workspaces, shortcut_label},
+    workspaces::{RenameError, Workspaces, shortcut_label, shown_name},
 };
 
 /// The workspace a folded switch names is cut at about 9em.
@@ -80,7 +81,7 @@ pub(super) fn unfolded_switch_width(shell: &Shell, window: &Window, cx: &App) ->
                 SwitchTab::Renaming
             } else {
                 SwitchTab::Named {
-                    label: shaped(&entry.name),
+                    label: shaped(&shown_name(&entry.name)),
                     dot: shell.layout.dirty && current == Some(entry.id.as_str()),
                 }
             },
@@ -102,7 +103,7 @@ pub(super) fn workspace_switcher(
     let workspaces: Vec<(String, String)> = Workspaces::global(cx)
         .list()
         .iter()
-        .map(|entry| (entry.id.clone(), entry.name.clone()))
+        .map(|entry| (entry.id.clone(), shown_name(&entry.name)))
         .collect();
     let current = shell.layout.workspace.clone();
     let preset = shell.layout.preset.as_ref().map(|active| active.preset);
@@ -180,7 +181,11 @@ pub(super) fn workspace_switcher(
                 }
                 menu = menu
                     .separator()
-                    .menu_with_icon("New workspace", Icon::PLUS.kit(), Box::new(NewWorkspace))
+                    .menu_with_icon(
+                        t!("New workspace"),
+                        Icon::PLUS.kit(),
+                        Box::new(NewWorkspace),
+                    )
                     .separator();
                 match &menu_current {
                     Some(id) => workspace_actions(menu, id, dirty, menu_weak.clone(), window, cx),
@@ -207,13 +212,13 @@ pub(super) fn workspace_switcher(
         };
         let tooltip: gpui::SharedString = {
             let label = if underlying {
-                format!("Return to {name}")
+                t!("Return to {name}", name = name)
             } else {
                 name.clone()
             };
             match shortcut_label(ix) {
-                Some(keys) => format!("{label} ({keys})").into(),
-                None => label.into(),
+                Some(keys) => space_mixed_script(&format!("{label} ({keys})")).into(),
+                None => space_mixed_script(&label).into(),
             }
         };
         let switch_weak = weak.clone();
@@ -285,7 +290,7 @@ pub(super) fn workspace_switcher(
                 .cursor_pointer()
                 .text_color(palette.text_secondary)
                 .hover(|style| style.text_color(palette.text))
-                .tooltip(|_, cx| -> AnyView { LatticeTooltip::view("New workspace", None, cx) })
+                .tooltip(|_, cx| -> AnyView { LatticeTooltip::view(t!("New workspace"), None, cx) })
                 .on_click(move |_, window, cx| {
                     add_weak
                         .update(cx, |shell, cx| shell.new_workspace(window, cx))
@@ -323,12 +328,12 @@ fn workspace_actions(
     if dirty {
         menu = menu
             .item(item(
-                "Save to workspace",
+                t!("Save to workspace"),
                 Icon::SAVE,
                 Box::new(|shell, window, cx| shell.save_workspace(window, cx)),
             ))
             .item(item(
-                "Revert to saved",
+                t!("Revert to saved"),
                 Icon::UNDO,
                 Box::new(|shell, window, cx| shell.revert_workspace(window, cx)),
             ))
@@ -342,12 +347,12 @@ fn workspace_actions(
         id.to_string(),
     );
     menu.item(item(
-        "Rename",
+        t!("Rename"),
         Icon::PENCIL,
         Box::new(move |shell, window, cx| shell.start_rename(&rename, window, cx)),
     ))
     .item(item(
-        "Duplicate",
+        t!("Duplicate"),
         Icon::COPY,
         Box::new(move |shell, window, cx| {
             if let Some(copy) = Workspaces::update(cx, |library| library.duplicate(&duplicate)) {
@@ -358,7 +363,7 @@ fn workspace_actions(
     .separator()
     .item(
         item(
-            "Move left",
+            t!("Move left"),
             Icon::ARROW_LEFT,
             Box::new(move |_, _, cx| {
                 Workspaces::update(cx, |library| {
@@ -370,7 +375,7 @@ fn workspace_actions(
     )
     .item(
         item(
-            "Move right",
+            t!("Move right"),
             Icon::ARROW_RIGHT,
             Box::new(move |_, _, cx| {
                 Workspaces::update(cx, |library| library.move_to(&right, index + 1));
@@ -381,7 +386,7 @@ fn workspace_actions(
     .separator()
     .item(
         item(
-            "Delete",
+            t!("Delete"),
             Icon::TRASH,
             Box::new(move |shell, window, cx| shell.delete_workspace(&delete, window, cx)),
         )
@@ -400,7 +405,7 @@ impl Shell {
     pub(crate) fn start_rename(&mut self, id: &str, window: &mut Window, cx: &mut Context<Self>) {
         let Some(name) = Workspaces::global(cx)
             .get(id)
-            .map(|entry| entry.name.clone())
+            .map(|entry| shown_name(&entry.name))
         else {
             return;
         };
@@ -494,19 +499,19 @@ impl Shell {
         let Some(removed) = Workspaces::update(cx, |library| library.remove(id)) else {
             return;
         };
-        let name = removed.workspace.name.clone();
+        let name = shown_name(&removed.workspace.name);
         let weak = cx.entity().downgrade();
         let id = id.to_string();
         let notification = gpui_kit::component::notification::Notification::new()
-            .title("Layout")
-            .message(format!("Deleted “{name}”"))
+            .title(t!("Layout"))
+            .message(space_mixed_script(&t!("Deleted “{name}”", name = name)))
             .action(move |_, _, _| {
                 let removed = removed.clone();
                 let weak = weak.clone();
                 let id = id.clone();
                 let moved = moved.clone();
                 gpui_kit::component::button::Button::new("undo-delete-workspace")
-                    .label("Undo")
+                    .label(t!("Undo"))
                     .on_click(move |_, window, cx| {
                         Workspaces::update(cx, |library| library.restore(removed.clone()));
                         if was_current {

@@ -146,6 +146,11 @@ impl Icon {
     pub const ANNOTATIONS: Icon = Icon("lattice/annotations.svg");
     pub const GIT: Icon = Icon("lattice/git.svg");
     pub const HISTORY: Icon = Icon("lattice/history.svg");
+    /// Settings' sections (Phosphor Fill, as the app's product icons rest):
+    /// Appearance's faders, Editor & builds' clipboard, TeX doctor's sparkle.
+    pub const FADERS: Icon = Icon("lattice/faders.svg");
+    pub const CLIPBOARD_TEXT: Icon = Icon("lattice/clipboard-text.svg");
+    pub const SPARKLE: Icon = Icon("lattice/sparkle.svg");
     /// The Build button's idle mark: Lucide's play, filled, as the app
     /// draws it (`<Play fill="currentColor" />`). Lucide's play.svg (ISC,
     /// `assets/LICENSE-LUCIDE`) with its fill set to the ink.
@@ -235,6 +240,9 @@ const BUNDLED: &[(&str, &[u8])] = bundled![
     "ellipsis.svg",
     "git.svg",
     "history.svg",
+    "faders.svg",
+    "clipboard-text.svg",
+    "sparkle.svg",
     "play-filled.svg",
     "check.svg",
     "eye.svg",

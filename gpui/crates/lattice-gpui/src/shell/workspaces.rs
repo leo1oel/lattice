@@ -32,6 +32,43 @@ const DEFAULT_NAME: &str = "Workspace";
 const LIBRARY_VERSION: u32 = 1;
 const LAYOUT_VERSION: u32 = 1;
 
+/// `name` with a default name put as `base`, keeping its number; any other
+/// name as it is. The default name and "+"'s numbered ones ("Workspace 2"…)
+/// are stored in English and shown in the interface language, so they
+/// follow a change of language while a name the writer gave stays as given;
+/// the Tauri app's Chinese default names ("工作区", the former "布局") read
+/// as the default too (`asDefault` in `src/trellis/trellis-workspaces.ts`).
+fn as_default(name: &str, base: &str) -> String {
+    let number = [DEFAULT_NAME, "工作区", "布局"]
+        .iter()
+        .find_map(|default| name.strip_prefix(default));
+    match number {
+        Some("") => base.to_string(),
+        Some(rest) => match rest.strip_prefix(' ') {
+            Some(digits)
+                if !digits.starts_with('0')
+                    && digits.parse::<u64>().is_ok_and(|n| n >= 2)
+                    && digits.bytes().all(|b| b.is_ascii_digit()) =>
+            {
+                format!("{base} {digits}")
+            }
+            _ => name.to_string(),
+        },
+        None => name.to_string(),
+    }
+}
+
+/// A workspace's name as the titlebar, the Panels menu and the palette show
+/// it.
+pub fn shown_name(name: &str) -> String {
+    as_default(name, lattice_i18n::t!("Workspace"))
+}
+
+/// A workspace's name as the library keeps it.
+fn stored_name(name: &str) -> String {
+    as_default(name, DEFAULT_NAME)
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Workspace {
     pub id: String,
@@ -156,6 +193,9 @@ impl Workspaces {
             .max()
             .unwrap_or(0);
         library.next_id = library.next_id.max(in_use + 1);
+        for workspace in &mut library.workspaces {
+            workspace.name = stored_name(&workspace.name);
+        }
         Workspaces {
             dir,
             library,
@@ -223,7 +263,7 @@ impl Workspaces {
 
     /// Whether `name` is free: no other workspace has it, ignoring case.
     pub fn name_free(&self, name: &str, except: Option<&str>) -> bool {
-        let name = name.trim().to_lowercase();
+        let name = stored_name(name.trim()).to_lowercase();
         !self
             .library
             .workspaces
@@ -237,7 +277,7 @@ impl Workspaces {
         let base = if base.is_empty() {
             DEFAULT_NAME.to_string()
         } else {
-            base
+            stored_name(&base)
         };
         if self.name_free(&base, None) {
             return base;
@@ -290,14 +330,14 @@ impl Workspaces {
     pub fn duplicate(&mut self, id: &str) -> Option<String> {
         let source = self.get(id)?.clone();
         Some(self.add(
-            &format!("{} copy", source.name),
+            &lattice_i18n::t!("{name} copy", name = shown_name(&source.name)),
             source.arrangement,
             Some(id),
         ))
     }
 
     pub fn rename(&mut self, id: &str, name: &str) -> Result<(), RenameError> {
-        let name = clip(name.trim());
+        let name = stored_name(&clip(name.trim()));
         if name.is_empty() {
             return Err(RenameError::Empty);
         }
@@ -472,6 +512,20 @@ mod tests {
             Node::Tabs { views, active, .. } => views.get(*active),
             Node::Split { .. } => None,
         }
+    }
+
+    #[test]
+    fn a_default_name_in_another_language_is_the_stored_default() {
+        let mut workspaces = Workspaces::load(None);
+        let second = workspaces.add("", None, None);
+        assert_eq!(workspaces.get(&second).unwrap().name, "Workspace 2");
+        assert_eq!(
+            workspaces.rename(&second, "工作区"),
+            Err(RenameError::Taken)
+        );
+        assert_eq!(workspaces.rename(&second, "工作区 2"), Ok(()));
+        assert_eq!(workspaces.get(&second).unwrap().name, "Workspace 2");
+        assert_eq!(workspaces.unique_name("布局"), "Workspace 3");
     }
 
     #[test]

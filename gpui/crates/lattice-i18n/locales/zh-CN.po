@@ -1,0 +1,311 @@
+# The Simplified Chinese for strings only the GPUI app shows, in the format of
+# the Tauri app's catalog (../../../../src/locales/zh-CN/messages.po), which
+# translates everything the two apps share. A message belongs here only while
+# that catalog lacks it (src/lib.rs tests the overlap); the coverage test
+# (tests/coverage.rs) asks every message the app translates for Chinese.
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=utf-8\n"
+"Language: zh-CN\n"
+
+#: lattice-gpui/src/shell/menus.rs
+msgid "Lattice (GPUI preview)"
+msgstr "Lattice（GPUI 预览版）"
+
+#: lattice-gpui/src/shell/menus.rs
+msgid "A native preview of Lattice, growing beside the Tauri app."
+msgstr "Lattice 的原生预览版，与 Tauri 版并行开发。"
+
+#: lattice-gpui/src/shell/menus.rs
+msgid "New Window"
+msgstr "新建窗口"
+
+#: lattice-gpui/src/shell/menus.rs
+msgid "Save and Build"
+msgstr "保存并编译"
+
+#: lattice-gpui/src/shell/menus.rs
+msgid "Command Palette…"
+msgstr "命令面板…"
+
+#: lattice-gpui/src/shell/menus.rs
+msgid "Keyboard Shortcuts"
+msgstr "快捷键"
+
+#: lattice-gpui/src/shell/menus.rs
+msgid "Build Log"
+msgstr "编译日志"
+
+#: lattice-gpui/src/shell/menus.rs
+msgid "Writing Layout"
+msgstr "写作布局"
+
+#: lattice-gpui/src/shell/menus.rs
+msgid "Reading Layout"
+msgstr "阅读布局"
+
+#: lattice-gpui/src/shell/menus.rs
+msgid "Focus Mode"
+msgstr "专注模式"
+
+#: lattice-gpui/src/shell/menus.rs
+msgid "Maximize Focused Panel"
+msgstr "放大当前面板"
+
+#: lattice-gpui/src/shell/menus.rs
+msgid "Reset Layout"
+msgstr "重置布局"
+
+#: lattice-gpui/src/shell/menus.rs
+msgid "Next Project"
+msgstr "下一个项目"
+
+#: lattice-gpui/src/shell/menus.rs
+msgid "Previous Project"
+msgstr "上一个项目"
+
+#: lattice-gpui/src/settings/editor_pane.rs
+msgid "Could not save the setting"
+msgstr "设置没保存成功"
+
+#: lattice-gpui/src/build/tex_setup/dialogs.rs
+msgid "Checking the LaTeX tools…"
+msgstr "正在检查 LaTeX 工具…"
+
+#: lattice-gpui/src/build/card.rs
+msgid "Building {document}…"
+msgstr "正在编译 {document}…"
+
+#: lattice-gpui/src/build/card.rs
+msgid "Not built yet. Press {0} to build"
+msgstr "尚未编译。按 {0} 开始编译"
+
+#: lattice-gpui/src/build/sequence.rs
+msgid "Ctrl+S, or Shift-click for a clean rebuild"
+msgstr "Ctrl+S，按住 Shift 点击则从头编译"
+
+#: lattice-gpui/src/build/sequence.rs
+msgid "⌘S, or ⇧-click for a clean rebuild"
+msgstr "⌘S，按住 ⇧ 点击则从头编译"
+
+#: lattice-gpui/src/build/sequence.rs
+msgid "1 minute ago"
+msgstr "1 分钟前"
+
+#: lattice-gpui/src/build/sequence.rs
+msgid "{count} minutes ago"
+msgstr "{count} 分钟前"
+
+#: lattice-gpui/src/build/sequence.rs
+msgid "1 hour ago"
+msgstr "1 小时前"
+
+#: lattice-gpui/src/build/sequence.rs
+msgid "{count} hours ago"
+msgstr "{count} 小时前"
+
+#: lattice-gpui/src/build/sequence.rs
+msgid "yesterday"
+msgstr "昨天"
+
+#: lattice-gpui/src/build/sequence.rs
+msgid "{count} days ago"
+msgstr "{count} 天前"
+
+#: lattice-gpui/src/pdf/panel.rs
+msgid "The PDFium worker stopped."
+msgstr "PDFium 渲染进程已停止。"
+
+#: lattice-gpui/src/pdf/panel.rs
+msgid "Outline — not in the GPUI preview yet"
+msgstr "大纲（GPUI 预览版暂不支持）"
+
+#: lattice-gpui/src/pdf/panel.rs
+msgid "Find in PDF — not in the GPUI preview yet"
+msgstr "在 PDF 中搜索（GPUI 预览版暂不支持）"
+
+#: lattice-gpui/src/pdf/panel.rs
+msgid "Build the project, or pick a PDF in the file tree"
+msgstr "编译项目，或在文件树中选择一个 PDF"
+
+#: lattice-gpui/src/confirm.rs
+#: lattice-gpui/src/shell.rs
+msgctxt "dialog button"
+msgid "OK"
+msgstr "好"
+
+#: lattice-gpui/src/shell.rs
+msgid "Open a project"
+msgstr "打开项目"
+
+#: lattice-gpui/src/shell.rs
+msgid "Could not open the project"
+msgstr "无法打开项目"
+
+#: lattice-gpui/src/shell.rs
+msgid "Could not open the file"
+msgstr "无法打开文件"
+
+#: lattice-gpui/src/shell.rs
+msgid "{0} — Lattice (GPUI preview)"
+msgstr "{0} — Lattice（GPUI 预览版）"
+
+#: lattice-gpui/src/project.rs
+msgid "Could not set the main document"
+msgstr "无法设为主文档"
+
+#: lattice-gpui/src/file_tree.rs
+#: lattice-gpui/src/shell/arrange.rs
+msgid "Open a LaTeX project folder to start"
+msgstr "打开一个 LaTeX 项目文件夹即可开始"
+
+#: lattice-gpui/src/shell/arrange.rs
+msgid "Open a file from Project to start writing"
+msgstr "从项目中打开一个文件，开始写作"
+
+#: lattice-gpui/src/file_tree/menu.rs
+msgid "Show in Explorer"
+msgstr "在资源管理器中显示"
+
+#: lattice-gpui/src/file_tree/menu.rs
+msgid "Show in file manager"
+msgstr "在文件管理器中显示"
+
+#: lattice-gpui/src/shell/entries.rs
+msgid "Could not create it"
+msgstr "无法创建"
+
+#: lattice-gpui/src/shell/entries.rs
+msgid "Could not rename it"
+msgstr "无法重命名"
+
+#: lattice-gpui/src/shell/entries.rs
+msgid "Could not move it"
+msgstr "无法移动"
+
+#: lattice-gpui/src/shell/entries.rs
+msgid "Could not delete it"
+msgstr "无法删除"
+
+#: lattice-gpui/src/shell/build.rs
+#: lattice-gpui/src/shell/build_tools.rs
+msgid "Couldn’t clean the build files"
+msgstr "无法清理临时文件"
+
+#: lattice-gpui/src/shell/build_tools.rs
+msgid "Couldn’t stop the build"
+msgstr "无法停止编译"
+
+#: lattice-gpui/src/shell/build_tools.rs
+msgid "Couldn’t change the engine"
+msgstr "无法更换编译引擎"
+
+#: lattice-gpui/src/shell/commands.rs
+msgid "Show or hide the build log"
+msgstr "显示或隐藏编译日志"
+
+#: lattice-gpui/src/shell/commands.rs
+msgid "Next tab"
+msgstr "下一个标签"
+
+#: lattice-gpui/src/shell/commands.rs
+msgid "Previous tab"
+msgstr "上一个标签"
+
+#: lattice-gpui/src/shell/commands.rs
+msgid "Writing layout"
+msgstr "写作布局"
+
+#: lattice-gpui/src/shell/commands.rs
+msgid "Reading layout"
+msgstr "阅读布局"
+
+#: lattice-gpui/src/shell/commands.rs
+msgid "Leave the Writing layout"
+msgstr "退出写作布局"
+
+#: lattice-gpui/src/shell/commands.rs
+msgid "Leave the Reading layout"
+msgstr "退出阅读布局"
+
+#: lattice-gpui/src/shell/commands.rs
+msgid "Show or hide Project"
+msgstr "显示或隐藏项目"
+
+#: lattice-gpui/src/shell/commands.rs
+msgid "Show or hide Papers"
+msgstr "显示或隐藏论文库"
+
+#: lattice-gpui/src/shell/commands.rs
+msgid "Show or hide the Agent"
+msgstr "显示或隐藏 AI 助手"
+
+#: lattice-gpui/src/shell/commands.rs
+msgid "Show or hide the PDF"
+msgstr "显示或隐藏 PDF"
+
+#: lattice-gpui/src/shell/commands.rs
+msgid "New window"
+msgstr "新建窗口"
+
+#: lattice-gpui/src/shell/commands.rs
+msgid "Open this project in a new window"
+msgstr "在新窗口中打开此项目"
+
+#: lattice-gpui/src/shell/commands.rs
+#: lattice-gpui/src/titlebar.rs
+msgid "Close this project"
+msgstr "关闭此项目"
+
+#: lattice-gpui/src/shell/palette.rs
+msgid "Search commands and files…"
+msgstr "搜索命令和文件"
+
+#: lattice-gpui/src/shell/palette.rs
+msgid "Search commands…"
+msgstr "搜索命令"
+
+#: lattice-gpui/src/shell/palette.rs
+msgid "No commands or files match “{query}”"
+msgstr "没有命令或文件与“{query}”匹配"
+
+#: lattice-gpui/src/stand_in_panels.rs
+msgid "The papers library is not in the GPUI preview yet."
+msgstr "GPUI 预览版暂未提供论文库。"
+
+#: lattice-gpui/src/stand_in_panels.rs
+msgid "The Agent is not in the GPUI preview yet."
+msgstr "GPUI 预览版暂未提供 AI 助手。"
+
+#: lattice-gpui/src/titlebar.rs
+msgid "{name} — not in the GPUI preview yet"
+msgstr "{name} — GPUI 预览版暂未提供"
+
+#: lattice-gpui/src/pdf/panel.rs
+msgid "Build this document"
+msgstr "编译此文档"
+
+#: lattice-gpui/src/pdf/panel.rs
+msgid "Could not open the PDF in a new window"
+msgstr "无法在新窗口中打开 PDF"
+
+#: lattice-gpui/src/pdf/sheet.rs
+msgid "PDFium was not found"
+msgstr "找不到 PDFium"
+
+#: lattice-gpui/src/pdf/toolbar.rs
+msgid "PDF saved"
+msgstr "PDF 已保存"
+
+#: lattice-gpui/src/pdf/toolbar.rs
+msgid "Could not save the PDF"
+msgstr "PDF 没保存成功"
+
+#: lattice-gpui/src/pdf/view.rs
+msgid "The PDF could not be read: it is not a PDF."
+msgstr "PDF 无法读取：这不是 PDF 文件。"
+
+#: lattice-gpui/src/pdf/view.rs
+msgid "The PDF could not be read: {0}"
+msgstr "PDF 无法读取：{0}"
+

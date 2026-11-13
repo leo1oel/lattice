@@ -6,17 +6,18 @@
 
 use gpui::{App, ClipboardItem, Context, WeakEntity, Window};
 use gpui_kit::component::menu::{PopupMenu, PopupMenuItem};
+use lattice_i18n::{n, t, tr};
 use lattice_ui::Icon;
 
 use super::{FileTreeEvent, FileTreePanel};
 use crate::confirm::{self, Confirm};
 
 #[cfg(target_os = "macos")]
-const REVEAL_LABEL: &str = "Show in Finder";
+const REVEAL_LABEL: &str = n!("Show in Finder");
 #[cfg(target_os = "windows")]
-const REVEAL_LABEL: &str = "Show in Explorer";
+const REVEAL_LABEL: &str = n!("Show in Explorer");
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-const REVEAL_LABEL: &str = "Show in file manager";
+const REVEAL_LABEL: &str = n!("Show in file manager");
 
 type Run = Box<dyn Fn(&mut FileTreePanel, &mut Window, &mut Context<FileTreePanel>)>;
 
@@ -39,9 +40,9 @@ impl FileTreePanel {
     pub(crate) fn ask_delete(&mut self, path: String, cx: &mut Context<Self>) {
         let view = cx.entity().downgrade();
         confirm::ask(
-            Confirm::new(format!("Delete “{path}” from this project?"))
-                .body("This action cannot be undone.")
-                .confirm_label("Delete")
+            Confirm::new(t!("Delete “{path}” from this project?", path = path))
+                .body(t!("This action cannot be undone."))
+                .confirm_label(t!("Delete"))
                 .destructive()
                 .on_confirm(move |_, cx| {
                     view.update(cx, |_, cx| {
@@ -63,13 +64,13 @@ impl FileTreePanel {
         menu.item(item(
             view,
             Icon::FILE_PLUS,
-            "New file",
+            t!("New file"),
             Box::new(move |this, window, cx| this.begin_create(&file, false, window, cx)),
         ))
         .item(item(
             view,
             Icon::FOLDER_PLUS,
-            "New folder",
+            t!("New folder"),
             Box::new(move |this, window, cx| this.begin_create(&folder, true, window, cx)),
         ))
         .item(item(
@@ -88,7 +89,7 @@ impl FileTreePanel {
     fn view_items(view: &WeakEntity<Self>, show_hidden: bool, menu: PopupMenu) -> PopupMenu {
         let toggle = view.clone();
         menu.item(
-            PopupMenuItem::new("Show hidden files")
+            PopupMenuItem::new(t!("Show hidden files"))
                 .icon(if show_hidden { Icon::CHECK } else { Icon::EYE }.kit())
                 .checked(show_hidden)
                 .on_click(move |_, _, cx| {
@@ -99,7 +100,7 @@ impl FileTreePanel {
         .item(item(
             view,
             Icon::ROTATE_CW,
-            "Refresh file tree",
+            t!("Refresh file tree"),
             Box::new(|this, _, cx| this.refresh(cx)),
         ))
     }
@@ -141,7 +142,7 @@ impl FileTreePanel {
             let view = view.clone();
             let path = path.clone();
             menu = menu.separator().item(
-                PopupMenuItem::new("Set as main document")
+                PopupMenuItem::new(t!("Set as main document"))
                     .icon(if chosen { Icon::CHECK } else { Icon::FILE_PLAY }.kit())
                     .checked(chosen)
                     .on_click(move |_, _, cx| {
@@ -168,11 +169,11 @@ impl FileTreePanel {
             .item(item(
                 view,
                 Icon::PENCIL,
-                "Rename",
+                t!("Rename"),
                 Box::new(move |this, window, cx| this.begin_rename(rename.clone(), window, cx)),
             ))
             .item(
-                PopupMenuItem::new("Copy path")
+                PopupMenuItem::new(t!("Copy path"))
                     .icon(Icon::COPY.kit())
                     .on_click({
                         let absolute = absolute.clone();
@@ -186,7 +187,7 @@ impl FileTreePanel {
                     }),
             )
             .item(
-                PopupMenuItem::new(REVEAL_LABEL)
+                PopupMenuItem::new(tr(REVEAL_LABEL))
                     .icon(Icon::FOLDER_OPEN.kit())
                     .on_click(move |_, _, cx| {
                         if let Some(absolute) = &absolute {
@@ -200,7 +201,7 @@ impl FileTreePanel {
             menu = menu.separator().item(item(
                 view,
                 Icon::TRASH,
-                "Delete",
+                t!("Delete"),
                 Box::new(move |this, _, cx| this.ask_delete(path.clone(), cx)),
             ));
         }

@@ -16,6 +16,7 @@ use gpui::{
     Window, canvas, div, img, prelude::FluentBuilder as _, px, rgb,
 };
 use gpui_kit::component::scroll::Scrollbar;
+use lattice_i18n::t;
 use lattice_ui::{
     ActiveLattice as _, Icon, Palette, TextRole, TextRoleStyle as _,
     components::{Button, EmptyState, ErrorState},
@@ -93,7 +94,7 @@ impl PdfView {
         };
         if let Err(error) = &self.engine {
             return state(
-                ErrorState::new("PDFium was not found")
+                ErrorState::new(t!("PDFium was not found"))
                     .detail(error.clone())
                     .into_any_element(),
             );
@@ -102,7 +103,7 @@ impl PdfView {
             // A load failure names itself, with the way out under it.
             return state(
                 ErrorState::new(message.clone())
-                    .detail("Try building the project again.")
+                    .detail(t!("Try building the project again"))
                     .into_any_element(),
             );
         }
@@ -121,19 +122,19 @@ impl PdfView {
                         .text_role(TextRole::Micro, cx)
                         .text_color(palette.text_secondary)
                         .child(Icon::LOADER.element(px(12.), palette.text_secondary))
-                        .child("Loading PDF…")
+                        .child(t!("Loading PDF…"))
                         .into_any_element(),
                 );
             }
             let building = self.building;
-            let empty = EmptyState::new("No PDF yet").when(self.offers_build, |this| {
+            let empty = EmptyState::new(t!("No PDF yet")).when(self.offers_build, |this| {
                 this.action(
                     Button::new(
                         "pdf-build",
                         if building {
-                            "Building…"
+                            t!("Building…")
                         } else {
-                            "Build project"
+                            t!("Build project")
                         },
                     )
                     .compact()

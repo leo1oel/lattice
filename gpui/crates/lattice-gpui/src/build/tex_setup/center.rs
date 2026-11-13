@@ -29,6 +29,8 @@ use super::{
     package_updates::{PackageUpdates, UpdateRun},
     required_setup_missing,
 };
+use lattice_i18n::t;
+
 use crate::notices::{self, Notice};
 
 /// How long after launch the doctor first looks, so it never competes with
@@ -275,8 +277,8 @@ impl TexSetupCenter {
             {
                 cx.update(|cx| {
                     notices::show(
-                        Notice::new(ToastLevel::Success, "LaTeX is ready to build")
-                            .detail("Every tool Lattice needs is installed"),
+                        Notice::new(ToastLevel::Success, t!("LaTeX is ready to build"))
+                            .detail(t!("Every tool Lattice needs is installed")),
                         cx,
                     )
                 });
@@ -449,7 +451,7 @@ impl TexSetupCenter {
             }
             let outcome = install.await;
             let product = if paper_only {
-                "The required tools"
+                t!("The required tools")
             } else {
                 distribution_name()
             };
@@ -490,13 +492,13 @@ impl TexSetupCenter {
         match verified {
             Ok(warning) => {
                 let title = match (paper_only, cfg!(windows)) {
-                    (true, _) => "Required paper tools installed",
-                    (false, true) => "TeX Live installed",
-                    (false, false) => "BasicTeX installed",
+                    (true, _) => t!("Required paper tools installed"),
+                    (false, true) => t!("TeX Live installed"),
+                    (false, false) => t!("BasicTeX installed"),
                 };
                 let mut notice = Notice::new(ToastLevel::Success, title);
                 if paper_only && self.paper_tools_needed {
-                    notice = notice.detail("Try that again now");
+                    notice = notice.detail(t!("Try that again now"));
                 }
                 notices::show(notice, cx);
                 if let Some(warning) = warning {
@@ -602,7 +604,7 @@ impl TexSetupCenter {
                 self.dependency_attempt += 1;
                 self.dependency = None;
                 notices::show(
-                    Notice::new(ToastLevel::Success, "LaTeX package installed").detail(file),
+                    Notice::new(ToastLevel::Success, t!("LaTeX package installed")).detail(file),
                     cx,
                 );
                 cx.emit(TexSetupEvent::Rebuild);
@@ -635,15 +637,16 @@ impl TexSetupCenter {
 /// conference fonts. An install that left any out says which.
 fn verify_install(product: &str, report: Option<&DoctorReport>) -> Result<(), String> {
     let Some(report) = report else {
-        return Err(format!(
-            "{product} finished installing, but Lattice could not run the final verification."
+        return Err(t!(
+            "{installedProduct} finished installing, but Lattice could not run the final verification.",
+            installedProduct = product
         ));
     };
     let mut missing = missing_tex_tools(Some(report));
     missing.extend(missing_paper_tools(Some(report)));
     let mut issues = Vec::new();
     if !missing.is_empty() {
-        issues.push(format!("Missing tools: {}", missing.join(", ")));
+        issues.push(t!("Missing tools: {0}", missing.join(", ")));
     }
     if conference_fonts_missing(Some(report)) {
         let fonts = report
@@ -651,16 +654,23 @@ fn verify_install(product: &str, report: Option<&DoctorReport>) -> Result<(), St
             .iter()
             .find(|check| check.name == "conference-fonts");
         issues.push(fonts.map_or_else(
-            || "Conference font verification is missing.".to_string(),
+            || t!("Conference font verification is missing.").to_string(),
             super::super::doctor::check_detail,
         ));
     }
     if issues.is_empty() {
         Ok(())
     } else {
-        Err(format!(
-            "{product} finished installing, but Lattice could not verify:\n{}",
-            issues.join("\n")
+        // The catalog's message has a named and a positional placeholder.
+        let issues = issues.join("\n");
+        Err(lattice_i18n::fill_named(
+            lattice_i18n::tr(
+                "{installedProduct} finished installing, but Lattice could not verify:\n{0}",
+            ),
+            &[
+                ("installedProduct", &product as &dyn std::fmt::Display),
+                ("0", &issues as &dyn std::fmt::Display),
+            ],
         ))
     }
 }

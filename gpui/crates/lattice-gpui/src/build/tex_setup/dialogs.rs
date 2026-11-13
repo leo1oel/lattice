@@ -21,6 +21,7 @@ use super::{
     only_paper_tools_missing, package_updates, required_setup_missing, stage_copy,
 };
 use crate::build::{doctor, icons};
+use lattice_i18n::{t, tc};
 
 /// The dialog card's frame, its title and what goes under it.
 fn dialog(
@@ -155,7 +156,7 @@ fn failure(
                             chevron.with_transformation(Transformation::rotate(percentage(0.25)))
                         }),
                 )
-                .child("Details")
+                .child(tc!("error disclosure", "Details"))
                 .on_click(move |_, _, cx| {
                     toggle.update(cx, |center, cx| {
                         center.details_open = !center.details_open;
@@ -216,11 +217,17 @@ impl TexSetupCenter {
         let installing = self.wizard.installing;
         let busy = self.busy() || installing;
         let label = if paper_only {
-            "Install paper tools".to_string()
+            t!("Install paper tools").to_string()
         } else if windows {
-            format!("Install TeX Live ({TEX_INSTALL_SIZE_HINT})")
+            t!(
+                "Install TeX Live ({TEX_INSTALL_SIZE_HINT})",
+                TEX_INSTALL_SIZE_HINT = TEX_INSTALL_SIZE_HINT
+            )
         } else {
-            format!("Install Basic TeX ({TEX_INSTALL_SIZE_HINT})")
+            t!(
+                "Install Basic TeX ({TEX_INSTALL_SIZE_HINT})",
+                TEX_INSTALL_SIZE_HINT = TEX_INSTALL_SIZE_HINT
+            )
         };
         let can_put_off = paper_only || windows;
         // Alone, it spans the dialog, as the Tauri app's `.tex-setup-install`.
@@ -251,7 +258,7 @@ impl TexSetupCenter {
         // prompted script.
         let cancel = (windows && installing).then(|| {
             let center = center.clone();
-            Button::new(("tex-setup-cancel", self.serial), "Cancel installation")
+            Button::new(("tex-setup-cancel", self.serial), t!("Cancel installation"))
                 .ghost()
                 .on_click(move |_, _, cx| center.update(cx, |center, cx| center.cancel_install(cx)))
                 .into_any_element()
@@ -261,7 +268,7 @@ impl TexSetupCenter {
         // dialog unclosable.
         let later = can_put_off.then(|| {
             let center = center.clone();
-            Button::new(("tex-setup-later", self.serial), "Install later")
+            Button::new(("tex-setup-later", self.serial), t!("Install later"))
                 .ghost()
                 .disabled(installing)
                 .on_click(move |_, _, cx| center.update(cx, |center, cx| center.close_wizard(cx)))
@@ -279,9 +286,9 @@ impl TexSetupCenter {
         ));
         dialog(
             ("tex-setup-wizard", self.serial),
-            if paper_only { "Install required paper tools" } else { "Install LaTeX to compile" }.into(),
+            if paper_only { t!("Install required paper tools") } else { t!("Install LaTeX to compile") }.into(),
             paper_only.then(|| {
-                "Adding papers and looking up citations run on uv, a 45 MB Python tool. Writing and compiling work without it."
+                t!("Adding papers and looking up citations run on uv, a 45 MB Python tool. Writing and compiling work without it.")
                     .to_string()
             }),
             body,
@@ -310,7 +317,7 @@ impl TexSetupCenter {
         }
         let cancel = |id: &'static str| {
             let center = center.clone();
-            Button::new((id, self.serial), "Cancel")
+            Button::new((id, self.serial), t!("Cancel"))
                 .ghost()
                 .on_click(move |_, _, cx| {
                     center.update(cx, |center, cx| center.close_dependency(cx))
@@ -322,7 +329,7 @@ impl TexSetupCenter {
             let file = install.missing_file.clone();
             body.push(actions(vec![
                 cancel("tex-dependency-cancel"),
-                Button::new(("tex-dependency-retry", self.serial), "Try again")
+                Button::new(("tex-dependency-retry", self.serial), t!("Try again"))
                     .primary()
                     .on_click(move |_, _, cx| {
                         let file = file.clone();
@@ -351,10 +358,10 @@ impl TexSetupCenter {
         }
         Some(dialog(
             ("tex-dependency", self.serial),
-            format!("Install package for {}", install.missing_file),
+            t!("Install package for {0}", install.missing_file),
             packages.map(|_| {
-                format!(
-                    "Several TeX Live packages provide {}. Choose the one to install.",
+                t!(
+                    "Several TeX Live packages provide {0}. Choose the one to install.",
                     install.missing_file
                 )
             }),
@@ -373,7 +380,11 @@ impl TexSetupCenter {
             details.extend((!words.is_empty()).then_some(words));
         } else if !report.packages.is_empty() && !report.managed {
             // A TeX Lattice did not install is the writer's to update.
-            details.push(format!("In Terminal: {}", package_updates::UPDATE_COMMAND));
+            details.push(format!(
+                "{} {}",
+                t!("In Terminal:"),
+                package_updates::UPDATE_COMMAND
+            ));
         }
         Some(doctor::Tile {
             state: if detail.is_some() {
@@ -381,7 +392,7 @@ impl TexSetupCenter {
             } else {
                 doctor::TileState::Ready
             },
-            label: "TeX packages".into(),
+            label: t!("TeX packages").into(),
             details,
         })
     }
@@ -398,11 +409,14 @@ impl TexSetupCenter {
                 div()
                     .flex()
                     .child(
-                        Button::new(("tex-packages-update", self.serial), "Update TeX packages")
-                            .disabled(self.busy())
-                            .on_click(move |_, _, cx| {
-                                center.update(cx, |center, cx| center.update_packages(cx));
-                            }),
+                        Button::new(
+                            ("tex-packages-update", self.serial),
+                            t!("Update TeX packages"),
+                        )
+                        .disabled(self.busy())
+                        .on_click(move |_, _, cx| {
+                            center.update(cx, |center, cx| center.update_packages(cx));
+                        }),
                     )
                     .into_any_element(),
             );
@@ -428,7 +442,7 @@ impl TexSetupCenter {
                         .bg(palette.success_soft)
                         .text_role(TextRole::Body, cx)
                         .text_color(palette.success)
-                        .child("TeX packages updated. Build again to use them.")
+                        .child(t!("TeX packages updated. Build again to use them."))
                         .into_any_element(),
                 );
             }
@@ -441,7 +455,9 @@ impl TexSetupCenter {
             .into_any_element()
     }
 
-    fn doctor_sheet(&self, center: &Entity<TexSetupCenter>, cx: &App) -> AnyElement {
+    /// The doctor's header (its title and the rerun button) and its report,
+    /// as the sheet and Settings › TeX doctor both show them.
+    fn doctor_parts(&self, center: &Entity<TexSetupCenter>, cx: &App) -> (AnyElement, AnyElement) {
         let palette = cx.palette().clone();
         let busy = self.busy();
         let install = {
@@ -451,7 +467,7 @@ impl TexSetupCenter {
                 .child(
                     Button::new(
                         ("tex-doctor-install", self.serial),
-                        "Install required tools",
+                        t!("Install required tools"),
                     )
                     .disabled(busy)
                     .on_click(move |_, _, cx| {
@@ -466,7 +482,7 @@ impl TexSetupCenter {
                 .frame(px(28.), px(28.))
                 .icon_size(px(14.))
                 .disabled(busy)
-                .tooltip("Run TeX doctor")
+                .tooltip(t!("Run TeX doctor"))
                 .on_click(move |_, _, cx| {
                     center.update(cx, |center, cx| center.run_doctor(false, cx).detach());
                 })
@@ -483,26 +499,43 @@ impl TexSetupCenter {
             None => div()
                 .text_role(TextRole::Caption, cx)
                 .text_color(palette.text_secondary)
-                .child("Checking the LaTeX tools…")
+                .child(t!("Checking the LaTeX tools…"))
                 .into_any_element(),
         };
-        let close = center.clone();
-        Sheet::new(("tex-doctor", self.serial), "TeX doctor")
-            .size(px(560.), px(520.))
-            .on_close(move |_, cx| close.update(cx, |center, cx| center.close_doctor(cx)))
+        let header = div()
+            .flex()
+            .items_center()
+            .justify_between()
             .child(
                 div()
-                    .flex()
-                    .items_center()
-                    .justify_between()
-                    .child(
-                        div()
-                            .text_role(TextRole::Subtitle, cx)
-                            .text_color(palette.text)
-                            .child("Environment"),
-                    )
-                    .child(rerun),
+                    .text_role(TextRole::Subtitle, cx)
+                    .text_color(palette.text)
+                    .child(t!("Environment")),
             )
+            .child(rerun)
+            .into_any_element();
+        (header, content)
+    }
+
+    /// Settings › TeX doctor: the same header and report, on the page.
+    pub fn doctor_page(&self, center: &Entity<TexSetupCenter>, cx: &App) -> AnyElement {
+        let (header, content) = self.doctor_parts(center, cx);
+        div()
+            .flex()
+            .flex_col()
+            .gap(px(12.))
+            .child(header)
+            .child(content)
+            .into_any_element()
+    }
+
+    fn doctor_sheet(&self, center: &Entity<TexSetupCenter>, cx: &App) -> AnyElement {
+        let (header, content) = self.doctor_parts(center, cx);
+        let close = center.clone();
+        Sheet::new(("tex-doctor", self.serial), t!("TeX doctor"))
+            .size(px(560.), px(520.))
+            .on_close(move |_, cx| close.update(cx, |center, cx| center.close_doctor(cx)))
+            .child(header)
             .child(content)
             .into_any_element()
     }

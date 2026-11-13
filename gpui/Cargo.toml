@@ -11,6 +11,8 @@ members = [
     "compat/sqlite/libsqlite3-sys",
     "crates/lattice-editor",
     "crates/lattice-gpui",
+    "crates/lattice-i18n",
+    "crates/lattice-settings",
     "crates/lattice-ui",
 ]
 # Vendored, patched upstream crates (patches/README.md): path dependencies
@@ -68,6 +70,8 @@ image = { version = "0.25", default-features = false }
 # project watcher.
 lattice-core = { path = "../src-tauri/lattice-core" }
 lattice-editor = { path = "crates/lattice-editor" }
+lattice-i18n = { path = "crates/lattice-i18n" }
+lattice-settings = { path = "crates/lattice-settings" }
 lattice-ui = { path = "crates/lattice-ui" }
 log = "0.4"
 pdfium-render = { version = "0.9.5", default-features = false, features = ["pdfium_8125", "thread_safe"] }
