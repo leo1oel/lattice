@@ -96,6 +96,7 @@ No TeX yet? Lattice offers to install BasicTeX for you: it is the first step of 
 
 1. Download the `.dmg` from the [latest release](https://github.com/leo1oel/lattice/releases/latest) and drag Lattice into Applications.
    On a Mac with an Intel processor, download the one ending in `_x64.dmg` (Apple menu → About This Mac shows **Chip** on Apple silicon and **Processor** on Intel).
+   Or install it with Homebrew: `brew install --cask lattice`. The app updates itself, so Homebrew leaves upgrades to it.
 2. Open a folder, start from a template, or connect an Overleaf project.
    **Guided tutorial** in the project menu opens a sample paper beside Get started, a six-step checklist from building the PDF to letting the Agent revise a paragraph.
 
