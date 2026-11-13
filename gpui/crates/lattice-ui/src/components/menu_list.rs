@@ -26,7 +26,11 @@
 //!
 //! [`MenuPopover`]: super::MenuPopover
 
-use std::{cell::RefCell, rc::Rc};
+use std::{
+    cell::{Cell, RefCell},
+    rc::Rc,
+    time::{Duration, Instant},
+};
 
 use gpui::{
     Action, AnyElement, App, AsKeystroke as _, Bounds, ElementId, Entity, FocusHandle, Global,
@@ -51,6 +55,49 @@ use super::menu::{MENU_INSET, step_highlight};
 
 pub(crate) type Action0 = Rc<dyn Fn(&mut Window, &mut App)>;
 type BuildSubmenu = Rc<dyn Fn(Menu, &mut Window, &mut App) -> Menu>;
+
+/// How long the pointer may rest on another row, on its way to an open
+/// submenu, before that row takes over (Radix's pointer grace).
+const SUBMENU_GRACE: Duration = Duration::from_millis(300);
+
+/// Where the pointer last stood on an open submenu's row, and since when it
+/// has been on another row on its way to the submenu.
+#[derive(Clone, Copy, Default)]
+struct Grace {
+    origin: Option<Point<Pixels>>,
+    since: Option<Instant>,
+}
+
+/// Whether `pointer` is on its way from `origin` (where it left the
+/// submenu's row) to `submenu`: inside the triangle from `origin` to the
+/// submenu's near edge, as Radix's submenus keep open.
+fn heading_to_submenu(
+    origin: Point<Pixels>,
+    submenu: Bounds<Pixels>,
+    pointer: Point<Pixels>,
+) -> bool {
+    let edge = if submenu.left() >= origin.x {
+        submenu.left()
+    } else {
+        submenu.right()
+    };
+    let (a, b, c) = (
+        origin,
+        point(edge, submenu.top()),
+        point(edge, submenu.bottom()),
+    );
+    let side = |p: Point<Pixels>, q: Point<Pixels>, r: Point<Pixels>| {
+        f32::from(q.x - p.x) * f32::from(r.y - p.y) - f32::from(q.y - p.y) * f32::from(r.x - p.x)
+    };
+    let (d1, d2, d3) = (
+        side(a, b, pointer),
+        side(b, c, pointer),
+        side(c, a, pointer),
+    );
+    let negative = d1 < 0. || d2 < 0. || d3 < 0.;
+    let positive = d1 > 0. || d2 > 0. || d3 > 0.;
+    !(negative && positive)
+}
 
 /// The room a menu keeps from the window's edges.
 const WINDOW_MARGIN: Pixels = px(8.);
@@ -451,12 +498,57 @@ impl RenderOnce for Menu {
             .collect();
         let is_submenu = |ix: Option<usize>| ix.is_some_and(|ix| submenus.get(ix) == Some(&true));
         // The pointer on a row opens its submenu, or closes the one open;
-        // leaving the menu (for the submenu) keeps it.
+        // leaving the menu (for the submenu) keeps it, and so does a row
+        // crossed on the way to the submenu, until the pointer rests there.
+        let grace = window.use_keyed_state(child("grace"), cx, |_, _| Grace::default());
+        let sub_bounds = window
+            .use_keyed_state(child("submenu-bounds"), cx, |_, _| {
+                Rc::new(Cell::new(None::<Bounds<Pixels>>))
+            })
+            .read(cx)
+            .clone();
+        let pointer = window.mouse_position();
+        let open_at = open_sub.read(cx).map(|(ix, _)| ix);
+        if lit.is_some() && lit == open_at {
+            grace.update(cx, |grace, _| {
+                *grace = Grace {
+                    origin: Some(pointer),
+                    since: None,
+                }
+            });
+        }
         if let Some(at) = lit
-            && open_sub.read(cx).map(|(ix, _)| ix) != Some(at)
+            && open_at != Some(at)
         {
-            let next = is_submenu(Some(at)).then_some((at, false));
-            open_sub.update(cx, |open, _| *open = next);
+            let Grace { origin, since } = *grace.read(cx);
+            let heading = open_at.is_some()
+                && origin
+                    .zip(sub_bounds.get())
+                    .is_some_and(|(origin, bounds)| {
+                        pointer != origin && heading_to_submenu(origin, bounds, pointer)
+                    });
+            let waited = since.map_or(Duration::ZERO, |since| since.elapsed());
+            if heading && waited < SUBMENU_GRACE {
+                if since.is_none() {
+                    grace.update(cx, |grace, _| grace.since = Some(Instant::now()));
+                    let view = window.current_view();
+                    window
+                        .spawn(cx, async move |cx| {
+                            cx.background_executor().timer(SUBMENU_GRACE).await;
+                            cx.update(|_, cx| cx.notify(view)).ok();
+                        })
+                        .detach();
+                }
+            } else {
+                let next = is_submenu(Some(at)).then_some((at, false));
+                open_sub.update(cx, |open, _| *open = next);
+                grace.update(cx, |grace, _| *grace = Grace::default());
+                if sub_focus.contains_focused(window, cx)
+                    && let Some(focus) = &self.focus
+                {
+                    focus.focus(window, cx);
+                }
+            }
         }
         let enabled: Rc<[bool]> = self.entries.iter().map(Entry::enabled).collect();
         let checks = self
@@ -551,14 +643,19 @@ impl RenderOnce for Menu {
                 }
                 Entry::Submenu(submenu) => {
                     let id = child(&format!("item-{ix}"));
-                    let opener = open_by_keys.clone();
+                    let open_sub = open_sub.clone();
                     let item = MenuItem::new(id, submenu.label.clone())
                         .when_some(submenu.icon, MenuItem::icon)
                         .check_gutter(checks.then_some(false))
                         .submenu()
                         .highlighted(hover.lit(cx) == Some(ix))
                         .fluid()
-                        .on_click(move |_, window, cx| opener(ix, window, cx));
+                        .on_click(move |_, _, cx| {
+                            open_sub.update(cx, |open, cx| {
+                                *open = Some((ix, false));
+                                cx.notify();
+                            })
+                        });
                     submenu_rows.push((ix, submenu));
                     hover.item_as(ix, ItemKind::target().section(section), item)
                 }
@@ -650,6 +747,15 @@ impl RenderOnce for Menu {
                                 .id(child(&format!("sub-layer-{at}")))
                                 .relative()
                                 .occlude()
+                                .child({
+                                    let own = sub_bounds.clone();
+                                    canvas(
+                                        move |bounds, _, _| own.set(Some(bounds)),
+                                        |_, _, _, _| {},
+                                    )
+                                    .absolute()
+                                    .inset_0()
+                                })
                                 .when_some(self.submenu_bounds.clone(), |this, record| {
                                     this.child(
                                         canvas(
@@ -815,6 +921,35 @@ mod tests {
                 Entry::Separator => "rule",
             })
             .collect()
+    }
+
+    #[test]
+    fn the_pointer_keeps_a_submenu_open_on_its_way_there() {
+        // A submenu 160 wide beside its row, which the pointer left at
+        // (100, 50): the submenu's near edge runs from (110, 40) to (110, 200).
+        let submenu = Bounds::new(point(px(110.), px(40.)), gpui::size(px(160.), px(160.)));
+        let origin = point(px(100.), px(50.));
+        // Down and to the right, toward its third row: on the way.
+        assert!(heading_to_submenu(
+            origin,
+            submenu,
+            point(px(105.), px(80.))
+        ));
+        // Straight down the parent menu, or back left: not.
+        assert!(!heading_to_submenu(
+            origin,
+            submenu,
+            point(px(100.), px(90.))
+        ));
+        assert!(!heading_to_submenu(
+            origin,
+            submenu,
+            point(px(80.), px(60.))
+        ));
+        // A submenu that opened to the left, against the window's edge.
+        let left = Bounds::new(point(px(-70.), px(40.)), gpui::size(px(160.), px(160.)));
+        assert!(heading_to_submenu(origin, left, point(px(95.), px(70.))));
+        assert!(!heading_to_submenu(origin, left, point(px(105.), px(70.))));
     }
 
     #[test]
