@@ -157,6 +157,8 @@ impl Run {
             self.press(cx, 'w', true).await?;
         }
 
+        self.add_papers_sheet(cx, steps, &papers).await?;
+
         std::fs::write(&bibliography, original)?;
         self.wait_for(cx, Duration::from_secs(15), |_, cx| {
             papers.read(cx).papers.len() == 1
@@ -177,5 +179,61 @@ impl Run {
         }
         #[cfg(not(target_os = "macos"))]
         let _ = (cx, name);
+    }
+}
+
+impl Run {
+    /// Add papers, offline: a pasted BibTeX entry is read as it stands and
+    /// an id the library already holds needs no lookup, so neither reaches
+    /// the network. Closing it adds nothing.
+    async fn add_papers_sheet(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+        papers: &gpui::Entity<crate::papers::PapersPanel>,
+    ) -> Result<()> {
+        self.with_window(cx, |_, window, cx| {
+            papers.update(cx, |panel, cx| panel.open_add_sheet(window, cx))
+        })?;
+        let opened = self
+            .wait_for(cx, Duration::from_secs(5), |shell, cx| {
+                shell.read(cx).add_papers().is_some()
+            })
+            .await;
+        let pasted = "@article{hinton2006,\n  title = {A Fast Learning Algorithm for Deep Belief Nets},\n  author = {Hinton, Geoffrey E. and Osindero, Simon and Teh, Yee-Whye},\n  journal = {Neural Computation},\n  year = {2006}\n}\narXiv:1706.03762\n";
+        let sheet = cx.update(|cx| self.shell.read(cx).add_papers().cloned());
+        let Some(sheet) = sheet.filter(|_| opened) else {
+            steps.check(
+                "Add papers opens from the Papers panel's +",
+                false,
+                json!({}),
+            );
+            return Ok(());
+        };
+        self.with_window(cx, |_, window, cx| {
+            sheet.update(cx, |sheet, cx| sheet.paste(pasted, window, cx))
+        })?;
+        self.pause(cx, Duration::from_millis(200)).await;
+        let rows = cx.update(|cx| {
+            sheet
+                .read(cx)
+                .row_states(cx)
+                .into_iter()
+                .map(|(title, state)| json!({ "title": title, "state": format!("{state:?}") }))
+                .collect::<Vec<_>>()
+        });
+        self.papers_shot(cx, "papers-4-add-sheet").await;
+        steps.check(
+            "Add papers reads a pasted BibTeX entry as new and an id the library holds as already in Papers",
+            rows == [
+                json!({ "title": "A Fast Learning Algorithm for Deep Belief Nets", "state": "New" }),
+                json!({ "title": "Attention Is All You Need", "state": "Duplicate" }),
+            ],
+            json!({ "rows": rows }),
+        );
+        self.with_window(cx, |_, window, cx| {
+            sheet.update(cx, |sheet, cx| sheet.cancel(window, cx))
+        })?;
+        Ok(())
     }
 }

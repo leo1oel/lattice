@@ -1,10 +1,11 @@
-//! What the search box would add, and whether the library already holds it
-//! (`paper-add.ts` `referenceKind`, `identityOfInput`, `findInLibrary`), and
-//! how far an import's hairline has got (`paper-import-progress.ts`).
+//! What the search box or Add papers would add, and whether the library
+//! already holds it (`paper-add.ts`: `referenceKind`, `identityOfInput`,
+//! `findInLibrary`, `parsePastedReferences`, `recordOfResolved`), and how far
+//! an import's hairline has got (`paper-import-progress.ts`).
 
 use std::{collections::HashSet, sync::LazyLock};
 
-use lattice_core::papers::PaperSummary;
+use lattice_core::{bib_document, models::ResolvedCitation, papers::PaperSummary};
 use regex::Regex;
 
 use super::identity::{BIBTEX, DOI, WEB_URL, base_arxiv_id, explicit_arxiv_id};
@@ -154,6 +155,147 @@ pub fn is_just_added(paper: &PaperSummary, just_added: &HashSet<String>) -> bool
         || (!paper.arxiv_id.is_empty() && just_added.contains(&paper.arxiv_id))
 }
 
+/// A record as a card shows it: title, "Hewitt and Liang, 2019, EMNLP", and
+/// what identifies it.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ReferenceRecord {
+    pub title: String,
+    pub byline: String,
+    pub identity: WorkIdentity,
+}
+
+/// The parts of a line that hold something, joined as one.
+pub fn byline_of<'a>(parts: impl IntoIterator<Item = &'a str>) -> String {
+    parts
+        .into_iter()
+        .map(str::trim)
+        .filter(|part| !part.is_empty())
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+/// One reference the writer pasted: the text as given, and what it is.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PastedReference {
+    /// Stable for the same text, so a re-read of the box keeps each line's
+    /// lookup.
+    pub id: String,
+    pub kind: ReferenceKind,
+    /// What the import is given: the line, or the whole BibTeX entry.
+    pub input: String,
+    /// The line as the card shows it (an entry's key for BibTeX).
+    pub label: String,
+    /// Read straight from a pasted BibTeX entry; every other kind is looked
+    /// up.
+    pub record: Option<ReferenceRecord>,
+}
+
+/// Everything pasted, one reference per line, with each BibTeX entry (a
+/// whole .bib, say) taken whole. `%` comments and blank lines are skipped,
+/// and a reference pasted twice is read once.
+pub fn parse_pasted_references(text: &str) -> Vec<PastedReference> {
+    let mut found: Vec<(usize, PastedReference)> = Vec::new();
+    let mut rest = text.to_string();
+    if Regex::new(r"@\w+\s*\{").unwrap().is_match(text) {
+        if let Ok(document) = bib_document::parse(text) {
+            let mut blanked = text.as_bytes().to_vec();
+            for entry in &document.entries {
+                // The entry's bytes stand blank for the line pass, keeping
+                // its line breaks so offsets stay put.
+                for byte in &mut blanked[entry.from..entry.to] {
+                    if *byte != b'\n' {
+                        *byte = b' ';
+                    }
+                }
+                let source = &text[entry.from..entry.to];
+                let summary = bib_document::summarize_entry(text, entry, &document.macros);
+                let doi = normal_doi(&summary.doi);
+                let arxiv = Some(summary.arxiv_id.clone())
+                    .filter(|id| !id.is_empty())
+                    .or_else(|| arxiv_of_doi(doi.as_deref()));
+                found.push((
+                    entry.from,
+                    PastedReference {
+                        id: format!("bibtex:{source}"),
+                        kind: ReferenceKind::Bibtex,
+                        input: source.to_string(),
+                        label: entry.key.clone(),
+                        record: Some(ReferenceRecord {
+                            title: if summary.title.is_empty() {
+                                entry.key.clone()
+                            } else {
+                                summary.title.clone()
+                            },
+                            byline: byline_of([
+                                summary.short_authors.as_str(),
+                                summary.year.as_str(),
+                                summary.venue.as_str(),
+                            ]),
+                            identity: WorkIdentity {
+                                arxiv_id: arxiv,
+                                doi,
+                                key: Some(entry.key.clone()),
+                                title: Some(summary.title.clone()),
+                            },
+                        }),
+                    },
+                ));
+            }
+            // Blanking replaced ASCII bytes inside entries only; what is
+            // left outside them is the text as pasted.
+            rest = String::from_utf8_lossy(&blanked).into_owned();
+        }
+    }
+    let mut offset = 0;
+    for line in rest.split('\n') {
+        let value = line.trim();
+        if let Some(kind) = reference_kind(value).filter(|_| !value.starts_with('%')) {
+            found.push((
+                offset,
+                PastedReference {
+                    id: format!("{}:{value}", kind.label()),
+                    kind,
+                    input: value.to_string(),
+                    label: value.to_string(),
+                    record: None,
+                },
+            ));
+        }
+        offset += line.len() + 1;
+    }
+    found.sort_by_key(|(at, _)| *at);
+    let mut seen = HashSet::new();
+    found
+        .into_iter()
+        .map(|(_, reference)| reference)
+        .filter(|reference| seen.insert(reference.id.clone()))
+        .collect()
+}
+
+/// The resolver's record, as a card shows it.
+pub fn record_of_resolved(resolved: &ResolvedCitation) -> ReferenceRecord {
+    let venue = [&resolved.journal, &resolved.booktitle, &resolved.publisher]
+        .into_iter()
+        .find(|venue| !venue.is_empty())
+        .map(|venue| bib_document::bib_text_to_plain(venue))
+        .unwrap_or_default();
+    let doi = normal_doi(&resolved.doi);
+    let title = bib_document::bib_text_to_plain(&resolved.title);
+    let short = bib_document::short_authors(&resolved.author)
+        .map(|authors| bib_document::bib_text_to_plain(&authors))
+        .unwrap_or_default();
+    ReferenceRecord {
+        byline: byline_of([short.as_str(), resolved.year.as_str(), venue.as_str()]),
+        identity: WorkIdentity {
+            arxiv_id: explicit_arxiv_id(&resolved.url).or_else(|| arxiv_of_doi(doi.as_deref())),
+            doi,
+            key: None,
+            title: Some(title.clone()),
+        },
+        title,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -211,5 +353,26 @@ mod tests {
             ..Default::default()
         };
         assert!(find_in_library(&papers, &short).is_none());
+    }
+
+    #[test]
+    fn a_paste_reads_one_reference_per_line_and_bibtex_whole() {
+        let pasted = "10.1038/s41586-021-03819-2\n% skipped\n\n@article{vaswani2017,\n  title = {Attention Is All You Need},\n  author = {Vaswani, Ashish},\n  year = {2017},\n  eprint = {1706.03762}\n}\nAttention is all you need\n10.1038/s41586-021-03819-2\n";
+        let references = parse_pasted_references(pasted);
+        let kinds: Vec<ReferenceKind> = references.iter().map(|r| r.kind).collect();
+        assert_eq!(
+            kinds,
+            [
+                ReferenceKind::Doi,
+                ReferenceKind::Bibtex,
+                ReferenceKind::Title
+            ]
+        );
+        let bibtex = &references[1];
+        assert_eq!(bibtex.label, "vaswani2017");
+        let record = bibtex.record.as_ref().unwrap();
+        assert_eq!(record.title, "Attention Is All You Need");
+        assert_eq!(record.byline, "Vaswani, 2017, arXiv");
+        assert_eq!(record.identity.arxiv_id.as_deref(), Some("1706.03762"));
     }
 }

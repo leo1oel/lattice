@@ -50,6 +50,8 @@ use lattice_core::papers::{self as core_papers, PaperSummary};
 
 use crate::project::{Project, ProjectEvent};
 
+pub mod add_sheet;
+mod batch;
 mod downloads;
 mod field;
 mod inspector;
@@ -185,6 +187,8 @@ pub struct PapersPanel {
     /// The panel's own width, learned while it is laid out.
     pub(crate) width: f32,
     pub(crate) scroll: ScrollHandle,
+    /// Add papers' batch, which outlives the sheet.
+    pub(crate) batch: batch::Batch,
     /// The selected papers' abstracts, read for the inspector.
     abstracts: inspector::Abstracts,
     focus_handle: FocusHandle,
@@ -231,6 +235,7 @@ impl PapersPanel {
             just_added: HashSet::new(),
             width: 0.,
             scroll: ScrollHandle::new(),
+            batch: batch::Batch::default(),
             abstracts: inspector::Abstracts::default(),
             focus_handle: cx.focus_handle(),
             load_generation: 0,
@@ -400,7 +405,7 @@ impl PapersPanel {
         }
     }
 
-    pub(crate) fn open_add_sheet(&mut self, _: &mut Window, cx: &mut Context<Self>) {
+    pub fn open_add_sheet(&mut self, _: &mut Window, cx: &mut Context<Self>) {
         let seed = self.query(cx).trim().to_string();
         cx.emit(PapersEvent::AddPapers(seed));
     }
