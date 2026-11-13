@@ -339,7 +339,10 @@ fn build_passes(
             result = run_latexmk(root, true, active, steps, layout)?;
         }
     }
-    if layout == AuxFiles::Hidden && beside::worth_trying(&result) {
+    if layout == AuxFiles::Hidden && result.success {
+        beside::forget_failure(root, &result.root_document);
+    }
+    if layout == AuxFiles::Hidden && beside::worth_trying(root, &result) {
         return beside::retry(root, result, |layout| {
             build_passes(root, force, unattended, active, open_document, steps, layout)
         });

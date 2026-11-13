@@ -225,10 +225,10 @@ const INDEXED: &str = "\\documentclass{article}\n\
     \\immediate\\openout\\terms=\\jobname.terms\n\
     \\immediate\\write\\terms{\\string\\indexentry{Lattice}{1}}\n\
     \\immediate\\closeout\\terms\n\
-    \\immediate\\write18{makeindex -q -o \\jobname-terms.tex \\jobname.terms}\n\
+    \\immediate\\write18{makeindex -q -o \\jobname.ind \\jobname.terms}\n\
     \\begin{document}\n\
     Words.\n\
-    \\input{\\jobname-terms}\n\
+    \\input{\\jobname.ind}\n\
     \\end{document}\n";
 
 fn trusted_paper(main: &str) -> (TempDir, PathBuf) {

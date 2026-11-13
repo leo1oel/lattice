@@ -6,13 +6,15 @@
 //! folder, pythontex reads its code from there. Such a document fails in the
 //! hidden folder, looking for a file named after it (`main.ind`,
 //! `_minted-main/…`) that the tool never made, and builds beside itself.
-//! Only that failure is built once more beside the document: a figure or
-//! chapter the writer has not made yet is missing in both places. If that
-//! build succeeds, the document is remembered and builds beside itself from
-//! then on, whatever the setting says. If it fails too, or is stopped, the
+//! Only that failure is built once more beside the document, and only when
+//! the build may run those tools at all: a figure or chapter the writer has
+//! not made yet is missing in both places. If that build succeeds, the
+//! document is remembered and builds beside itself from then on, whatever
+//! the setting says. If it fails too, or is stopped, the
 //! hidden build's files and PDF are put back as they were, so latexmk still
 //! knows that build, and the same inputs built again unasked are restated
-//! (`unchanged`) rather than tried beside again.
+//! (`unchanged`) rather than tried beside again. Nor is an edited one, until
+//! its preamble changes or it builds in the hidden folder.
 
 use super::super::aux_files::{self, AuxFiles};
 use super::super::build_log::advice;
@@ -20,13 +22,20 @@ use super::super::compiled_document;
 use super::retire_other_layout;
 use crate::latex::BuildResult;
 use crate::models::Diagnostic;
+use crate::util::sha256_hex;
 use crate::{project, wide_event};
+use serde::de::DeserializeOwned;
+use serde::Serialize;
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
 
 /// The documents, relative to the project root, that build only beside
 /// themselves.
 const RECORD: &str = ".research/cache/build-beside.json";
+
+/// The documents whose build beside themselves failed (`failed`).
+const FAILED: &str = ".research/cache/build-beside-failed.json";
 
 /// Where the hidden build's folder waits while the document builds beside
 /// itself.
@@ -47,15 +56,47 @@ pub(super) fn layout_for(root: &Path, layout: AuxFiles) -> AuxFiles {
 }
 
 /// Whether a failed hidden build may have failed only because of the folder:
-/// a package's output, named after the document, was not there. Any other
-/// error, or a failure restated with nothing changed, is the document's own.
-pub(super) fn worth_trying(result: &BuildResult) -> bool {
+/// a package's output, named after the document, was not there, and the
+/// build may run the tool that makes it. Not a failure restated with nothing
+/// changed, and not again once building beside failed for the same preamble
+/// (`inputs`): until that changes, the error is the document's own.
+pub(super) fn worth_trying(root: &Path, result: &BuildResult) -> bool {
+    let document = &result.root_document;
     !result.success
         && !result.unchanged
-        && misses_its_own_output(&result.diagnostics, &result.root_document)
+        && misses_its_own_output(&result.diagnostics, document)
+        && runs_shell_commands(root)
+        && failed(root).get(document) != Some(&inputs(root, document))
 }
 
-/// Whether TeX or a package looked for a file named after `document` (its
+/// After a hidden build of `document` that succeeded: a failed build beside
+/// it no longer stands for the document.
+pub(super) fn forget_failure(root: &Path, document: &str) {
+    let mut failures = failed(root);
+    if failures.remove(document).is_some() {
+        write(root, FAILED, &failures);
+    }
+}
+
+/// Whether the build may run a tool from TeX: every package the hidden
+/// folder breaks runs one, and an untrusted project's build runs none
+/// (`engine_args`), unless its latexmkrc runs them itself.
+fn runs_shell_commands(root: &Path) -> bool {
+    project::has_latexmkrc(root) || project::read_manifest(root).is_ok_and(|m| m.trusted)
+}
+
+/// What decides whether `document` builds beside itself: its preamble, where
+/// packages are loaded, and the engine and trust it is built with.
+fn inputs(root: &Path, document: &str) -> String {
+    let text = fs::read_to_string(root.join(document)).unwrap_or_default();
+    let preamble = text.split("\\begin{document}").next().unwrap_or_default();
+    let (engine, trusted) = project::read_manifest(root)
+        .map(|manifest| (manifest.engine, manifest.trusted))
+        .unwrap_or_default();
+    sha256_hex(format!("{engine}\n{trusted}\n{preamble}"))
+}
+
+/// Whether TeX or a package looked for an output named after `document` (its
 /// job name) and did not find it, or minted found no Pygments output.
 fn misses_its_own_output(diagnostics: &[Diagnostic], document: &str) -> bool {
     let job = Path::new(document).file_stem().unwrap_or_default().to_string_lossy();
@@ -78,14 +119,23 @@ fn missing_file(message: &str) -> Option<&str> {
     Some(&message[start..end])
 }
 
-/// Whether a part of `file`'s path is the job's name, or joins it to a
-/// package's own word: `main.ind`, `main-terms.tex`, `_minted-main/x.pygtex`.
+/// What makeindex, makeglossaries, Pygments (minted) and pythontex write
+/// for TeX to read back: never a writer's own source.
+const GENERATED: &[&str] =
+    &["ind", "gls", "glo", "acn", "acr", "nls", "pyg", "pygtex", "pygstyle", "pytxcode", "pytxmcr"];
+
+/// Whether `file` is a tool's output named after the job: `main.ind`,
+/// `_minted-main/default.pygstyle`, `pythontex-files-main/main.pytxmcr`.
 fn named_after(file: &str, job: &str) -> bool {
-    file.split(['/', '\\', '.']).any(|part| {
-        part == job
-            || part.strip_prefix(job).is_some_and(|rest| rest.starts_with(['-', '_']))
-            || part.strip_suffix(job).is_some_and(|rest| rest.ends_with(['-', '_']))
-    })
+    let generated = Path::new(file)
+        .extension()
+        .is_some_and(|extension| GENERATED.iter().any(|known| extension == *known));
+    generated
+        && file.split(['/', '\\', '.']).any(|part| {
+            part == job
+                || part.strip_prefix(job).is_some_and(|rest| rest.starts_with(['-', '_']))
+                || part.strip_suffix(job).is_some_and(|rest| rest.ends_with(['-', '_']))
+        })
 }
 
 /// After `hidden`, a failed hidden build: build once more beside the
@@ -127,7 +177,11 @@ pub(super) fn retry(
         .diagnostics
         .iter()
         .any(|diagnostic| matches!(diagnostic.code, Some("build-cancelled" | "build-stalled")));
-    Ok((if stopped { beside } else { hidden }, AuxFiles::Hidden))
+    if stopped {
+        return Ok((beside, AuxFiles::Hidden));
+    }
+    record_failure(root, &document);
+    Ok((hidden, AuxFiles::Hidden))
 }
 
 fn note() -> Diagnostic {
@@ -140,21 +194,39 @@ fn note() -> Diagnostic {
 }
 
 fn remembered(root: &Path) -> Vec<String> {
-    fs::read(root.join(RECORD))
+    read(root, RECORD)
+}
+
+fn remember(root: &Path, document: &str) {
+    let mut documents = remembered(root);
+    if !documents.iter().any(|known| known == document) {
+        documents.push(document.to_string());
+        write(root, RECORD, &documents);
+    }
+}
+
+/// Each document whose build beside itself failed, with its `inputs` then.
+fn failed(root: &Path) -> BTreeMap<String, String> {
+    read(root, FAILED)
+}
+
+fn record_failure(root: &Path, document: &str) {
+    let mut failures = failed(root);
+    failures.insert(document.to_string(), inputs(root, document));
+    write(root, FAILED, &failures);
+}
+
+fn read<T: DeserializeOwned + Default>(root: &Path, record: &str) -> T {
+    fs::read(root.join(record))
         .ok()
         .and_then(|bytes| serde_json::from_slice(&bytes).ok())
         .unwrap_or_default()
 }
 
-fn remember(root: &Path, document: &str) {
-    let mut documents = remembered(root);
-    if documents.iter().any(|known| known == document) {
-        return;
-    }
-    documents.push(document.to_string());
-    let path = root.join(RECORD);
+fn write(root: &Path, record: &str, value: &impl Serialize) {
+    let path = root.join(record);
     if path.parent().is_some_and(|parent| fs::create_dir_all(parent).is_ok()) {
-        if let Ok(json) = serde_json::to_vec_pretty(&documents) {
+        if let Ok(json) = serde_json::to_vec_pretty(value) {
             let _ = fs::write(path, json);
         }
     }
@@ -171,7 +243,6 @@ mod tests {
         // TeX's own wording, as `-file-line-error` prints it.
         for log in [
             "! LaTeX Error: File `main.ind' not found.\n\n./main.tex:9: Emergency stop.\n",
-            "! LaTeX Error: File `main-terms.tex' not found.\n\n./main.tex:9: Emergency stop.\n",
             "! I can't find file `_minted-main/default.pygstyle'.\n./main.tex:4: Emergency stop.\n",
             "./main.tex:12: Package minted Error: Missing Pygments output; \\inputminted was\n",
         ] {
@@ -182,6 +253,9 @@ mod tests {
             "! LaTeX Error: File `minted.sty' not found.\n\n./main.tex:2: Emergency stop.\n",
             "./main.tex:7: LaTeX Error: File `figures/plot.pdf' not found.\n",
             "! LaTeX Error: File `domain.tex' not found.\n\n./main.tex:5: Emergency stop.\n",
+            "./main.tex:7: LaTeX Error: File `figures/main_plot.pdf' not found.\n",
+            "! LaTeX Error: File `main-intro.tex' not found.\n\n./main.tex:5: Emergency stop.\n",
+            "! LaTeX Error: File `main.bib' not found.\n\n./main.tex:5: Emergency stop.\n",
         ] {
             assert!(!misses_its_own_output(&parse_diagnostics(log), "paper/main.tex"), "{log}");
         }
@@ -209,6 +283,7 @@ mod tests {
         assert_eq!(fs::read_to_string(root.join("paper/main.pdf")).unwrap(), "hidden build's PDF");
         assert!(root.join(".research/build/paper/main.fdb_latexmk").is_file());
         assert!(remembered(&root).is_empty());
+        assert!(failed(&root).is_empty());
     }
 
     #[test]
@@ -221,5 +296,62 @@ mod tests {
         assert_eq!(remembered(&root), vec!["main.tex".to_string()]);
         assert_eq!(layout_for(&root, AuxFiles::Hidden), AuxFiles::Beside);
         assert_eq!(layout_for(&root, AuxFiles::Beside), AuxFiles::Beside);
+    }
+
+    const MINTED: &str =
+        "./main.tex:12: Package minted Error: Missing Pygments output; \\inputminted was\n";
+
+    fn failed_hidden_build(document: &str) -> BuildResult {
+        BuildResult {
+            diagnostics: parse_diagnostics(MINTED),
+            ..super::super::cancelled_build(std::time::Instant::now(), "failed", document)
+        }
+    }
+
+    fn set_trusted(root: &Path, trusted: bool) {
+        let mut manifest = project::read_manifest(root).unwrap();
+        manifest.trusted = trusted;
+        project::write_manifest(root, &manifest).unwrap();
+    }
+
+    #[test]
+    fn a_build_that_may_run_no_tool_is_not_tried_beside_the_document() {
+        let parent = TempDir::new("latex-beside-untrusted");
+        let root = project::create(&parent, "Beside").unwrap();
+        set_trusted(&root, false);
+        let hidden = failed_hidden_build("main.tex");
+        assert!(!worth_trying(&root, &hidden));
+        set_trusted(&root, true);
+        assert!(worth_trying(&root, &hidden));
+        set_trusted(&root, false);
+        fs::write(root.join(".latexmkrc"), "$pdflatex = 'pdflatex -shell-escape %O %S';\n")
+            .unwrap();
+        assert!(worth_trying(&root, &hidden));
+    }
+
+    #[test]
+    fn a_failed_build_beside_is_not_tried_again_until_the_preamble_changes() {
+        let parent = TempDir::new("latex-beside-failed");
+        let root = project::create(&parent, "Beside").unwrap();
+        set_trusted(&root, true);
+        let main = "\\documentclass{article}\n\\usepackage{minted}\n\\begin{document}\nOne.\n\\end{document}\n";
+        fs::write(root.join("main.tex"), main).unwrap();
+        let (result, layout) = retry(&root, failed_hidden_build("main.tex"), |layout| {
+            Ok((failed_hidden_build("main.tex"), layout))
+        })
+        .unwrap();
+        assert_eq!(layout, AuxFiles::Hidden);
+        assert!(!result.diagnostics.iter().any(|item| item.code == Some("built-beside")));
+
+        fs::write(root.join("main.tex"), main.replace("One.", "One, edited.")).unwrap();
+        assert!(!worth_trying(&root, &failed_hidden_build("main.tex")));
+        fs::write(root.join("main.tex"), main.replace("{minted}", "[cache=false]{minted}"))
+            .unwrap();
+        assert!(worth_trying(&root, &failed_hidden_build("main.tex")));
+
+        fs::write(root.join("main.tex"), main).unwrap();
+        assert!(!worth_trying(&root, &failed_hidden_build("main.tex")));
+        forget_failure(&root, "main.tex");
+        assert!(worth_trying(&root, &failed_hidden_build("main.tex")));
     }
 }
