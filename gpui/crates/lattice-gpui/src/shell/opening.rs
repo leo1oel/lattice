@@ -92,6 +92,7 @@ impl Shell {
         self.history
             .update(cx, |history, cx| history.set_project(project.clone(), cx));
         self.tools_project_opened(&project, &root, window, cx);
+        self.terminal_follows(root.clone(), window, cx);
         self._project_git = Some(cx.subscribe(&project, |this, _, event, cx| match event {
             crate::project::ProjectEvent::GitChanged => this.notice_conflicts(cx),
             // A change on disk is one to push, in live mode (the bridge tells

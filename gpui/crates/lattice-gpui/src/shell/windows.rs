@@ -222,6 +222,23 @@ impl Shell {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        // Leaving ends this project's shells: ask first while a command
+        // runs in one (`confirmLeavingProject`).
+        if self.root(cx).is_some_and(|current| current != root)
+            && self.ask_before_leaving(root.clone(), closing.clone(), cx)
+        {
+            return;
+        }
+        self.leave_now(root, closing, window, cx);
+    }
+
+    pub(super) fn leave_now(
+        &mut self,
+        root: PathBuf,
+        closing: Option<PathBuf>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.save_layout(cx);
         let saved = self.save_before_leaving(cx);
         self._open_task = Some(cx.spawn_in(window, async move |this, cx| {

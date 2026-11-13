@@ -60,11 +60,15 @@ Its backend is the Tauri app's own: `lattice-core` (`../src-tauri/lattice-core`)
     Help ▸ Report a Problem… (and the palette's Report a problem) saves that redacted export in the log folder's `reports/`, shows it in Finder and opens a new bug report whose address carries only the Lattice and macOS versions; the GPUI preview has no updater, so it never first offers an update.
     Help ▸ What's New in Lattice (and the palette) opens the release notes bundled at build time from `src/release-notes/`, at the running version, with a stepper back through older releases; the first launch after an update raises one notice offering it.
 
+22. Has the Tauri app's Terminal panel, on Zed's alacritty-based terminal (`src/terminal.rs` and `crates/lattice-gpui/src/terminal/`): ⌃` (the Panels menu, View ▸ Terminal or the palette) opens it across the foot of the whole workspace with the writer's login shell in the project folder, started with Lattice's environment (lattice-core's `shell_launch`: TeX on the search path, `TERM_PROGRAM=Lattice`), and hides it again with its shells running.
+    The screen is drawn as the Tauri app's xterm.js draws it: the code theme's ground, ink, caret and selection, the ANSI colours from the design system's status and file-glyph colours, a program's colours lifted to 4.5:1, the editor's face at 12px, a blinking 1px caret, Lattice's scrollbar, the input method's composition at the caret, ⌘-click on a link.
+    New terminal (the strip's +, its ⋯ menu) opens another as a tab, renamed by a double-click; ⌘F finds in the scrollback; ⌘W closes the tab in front, and a tab, the panel or a switch to another project asks first while a command still runs there. A shell that exits cleanly takes its tab with it, the last one the panel; any other exit says how it ended.
+
 Not yet: the visual LaTeX editor, the checklist's item templates, the source selection toolbar (LaTeX's and Markdown's), Overleaf's tracked changes, comments and margin review, its history and chat, the papers library and the Agent (their panels hold their places with a note), the figure and table generators, Get started, the import conflict dialog's Replace and Skip (an import keeps both), pasting a clipboard image into the tree as a figure; in the PDF its annotations, comment column, review export and citation hover cards; and of Settings, the grammar page (its dialect, profile and rules; spell checking uses the Tauri app's defaults) and the agent, other integrations and about pages.
 
 ## License
 
-This directory is GPL-3.0-or-later ([`LICENSE`](LICENSE)), because the app links Zed's GPL-3.0-or-later crates (editor, search, Vim, workspace).
+This directory is GPL-3.0-or-later ([`LICENSE`](LICENSE)), because the app links Zed's GPL-3.0-or-later crates (editor, search, Vim, terminal, workspace).
 `compat/` is Apache-2.0 ([`LICENSE-APACHE`](LICENSE-APACHE)), and the upstream crates in `patches/` keep their Apache-2.0 license, with Lattice's diffs under it.
 The interface sounds (`crates/lattice-gpui/src/sounds.rs`) port two of Cuelume's sound recipes and its audio graph, which are MIT ([`crates/lattice-gpui/LICENSE-CUELUME`](crates/lattice-gpui/LICENSE-CUELUME)).
 `crates/trellis` is a port of Trellis by Dan Fessler ([github.com/DanFessler/trellis](https://github.com/DanFessler/trellis)), version 0.2.0, to Rust and GPUI, with the behaviour of Lattice's patch to it.
@@ -116,6 +120,7 @@ The first build fetches Zed at the pinned revision and compiles about 1,200 crat
 | ⌘⇧/ (⌘?) | Keyboard shortcuts |
 | ⌘1 … ⌘9 | The workspace at that place |
 | ⌘⌥1, ⌘⌥2, ⌘⌥3 | Show or hide Project, Papers, the Agent |
+| ⌃` | Show or hide the Terminal (⌘` is the Mac's next-window key) |
 | ⌘⇧↩ | Maximize the focused panel, or restore the layout |
 | ⌘⇧D | Focus mode |
 | ⌘⇧[ / ⌘⇧] | Previous or next tab |
@@ -151,7 +156,8 @@ crates/lattice-gpui   the app: shell (titlebar, the Trellis workspace and its
                       replace in project (src/search/), the welcome screen
                       and project dialogs (src/welcome/), recent projects,
                       editor panel, PDF panel (PDFium on its own thread), build
-                      panel, notices and confirmations, scripted scenarios
+                      panel, the Terminal panel (src/terminal/), notices
+                      and confirmations, scripted scenarios
                       (macOS, Windows)
 crates/trellis        Trellis 0.2.0 ported to GPUI with Lattice's patch (the
                       layout model, the engine, the view drawn through a

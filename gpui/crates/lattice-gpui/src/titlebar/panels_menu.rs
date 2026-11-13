@@ -17,6 +17,7 @@ use crate::shell::{
     trellis_layout::Preset,
     workspaces::{Workspaces, shown_name},
 };
+use crate::terminal::ToggleTerminalPanel;
 
 /// The Panels menu: each panel's toggle (checked while on screen), the
 /// workspaces and the presets, focus mode, then maximize or restore and
@@ -26,7 +27,7 @@ pub(super) fn panels_menu(
     label_shown: bool,
     cx: &mut Context<Shell>,
 ) -> impl IntoElement {
-    let on_screen: Vec<bool> = ["project", "papers", "agent", "pdf"]
+    let on_screen: Vec<bool> = ["project", "papers", "agent", "pdf", "terminal"]
         .iter()
         .map(|kind| shell.view_on_screen(kind, cx))
         .collect();
@@ -72,6 +73,12 @@ pub(super) fn panels_menu(
                     Icon::FILE_TEXT,
                     on_screen[3],
                     Box::new(TogglePdfPanel),
+                ))
+                .item(toggle_item(
+                    t!("Terminal"),
+                    Icon::SQUARE_TERMINAL,
+                    on_screen[4],
+                    Box::new(ToggleTerminalPanel),
                 ))
                 .separator()
                 .label(t!("Layout"));

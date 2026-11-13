@@ -76,6 +76,10 @@ impl Shell {
             WorkspaceEvent::Navigated(_) => cx.notify(),
             WorkspaceEvent::CloseRequested(views) => {
                 let views = views.clone();
+                if views.iter().any(|view| view == "terminal") {
+                    self.close_with_terminal(views, cx);
+                    return;
+                }
                 self.workspace
                     .update(cx, |workspace, cx| workspace.close(&views, cx));
             }
@@ -277,6 +281,16 @@ impl Shell {
                 .unwrap_or_else(|| beside_documents(Edge::Left, 0.25)),
             "pdf" => any_root_pdf().unwrap_or_else(|| beside_documents(Edge::Right, 0.42)),
             "build" => beside_documents(Edge::Bottom, 0.25),
+            // Across the foot of the whole workspace, under every other
+            // panel, as a terminal sits below an editor (`terminalHome`).
+            "terminal" => match self.document(cx).root.as_ref() {
+                Some(root) => Placement::Beside {
+                    beside: root.id().to_string(),
+                    edge: Edge::Bottom,
+                    share: Some(crate::terminal::TERMINAL_SHARE),
+                },
+                None => Placement::Side,
+            },
             _ => into("agent")
                 .or_else(|| into("project"))
                 .unwrap_or_else(|| beside_documents(Edge::Right, 0.32)),

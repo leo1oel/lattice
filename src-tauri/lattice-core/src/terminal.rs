@@ -16,6 +16,7 @@
 //! writer's keys to it, and ends it. Which pages may reach a shell at all is
 //! the shell's to decide (`ipc/terminal/caller.rs` in the Tauri app).
 
+mod launch;
 #[cfg(unix)]
 mod pty;
 #[cfg(unix)]
@@ -31,6 +32,10 @@ pub use windows::Session;
 pub(crate) use pty::login_shell;
 #[cfg(unix)]
 pub use session::Session;
+
+#[cfg(unix)]
+pub use launch::process_name;
+pub use launch::{shell_launch, ShellLaunch};
 
 use std::collections::HashMap;
 use std::path::Path;

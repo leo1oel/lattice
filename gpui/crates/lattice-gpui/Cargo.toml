@@ -15,6 +15,8 @@ offscreen-shots = ["gpui/test-support", "gpui_platform/test-support"]
 
 [dependencies]
 anyhow.workspace = true
+# A terminal's exit status, from Zed's terminal (terminal/launch.rs).
+async-channel = "2.5"
 # The history timeline's dates in the local time zone (history/time.rs), and
 # a pasted image's name, which carries the time as the Tauri app's does.
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
@@ -57,6 +59,9 @@ serde.workspace = true
 serde_json.workspace = true
 settings.workspace = true
 smallvec.workspace = true
+# The Terminal panel: Zed's alacritty-based terminal, its shell spec and path style.
+task.workspace = true
+terminal.workspace = true
 theme.workspace = true
 # The live preview paints rtex's display lists into page images
 # (`live_preview/paint.rs`) from OpenType outlines (`live_preview/fonts.rs`);
@@ -71,6 +76,7 @@ theme_settings.workspace = true
 trellis.workspace = true
 # Open Slide lease owners (structured/slides.rs).
 uuid = { version = "1", features = ["v4"] }
+util.workspace = true
 vim.workspace = true
 vim_mode_setting.workspace = true
 workspace.workspace = true

@@ -23,6 +23,7 @@
 //! (headings, syntax marks, code, links, quotes, rules) and the emphases.
 
 pub mod code_palette;
+pub mod terminal;
 #[cfg(test)]
 mod tests;
 
@@ -307,6 +308,10 @@ fn zed_theme(theme: CodeTheme, p: &Palette) -> Value {
         }],
         "syntax": syntax(&code),
     });
+    let mut style = style;
+    if let Value::Object(style) = &mut style {
+        style.extend(terminal::terminal_style(theme, p));
+    }
     json!({
         "name": theme.zed_theme_name(p.appearance),
         "appearance": match p.appearance {
