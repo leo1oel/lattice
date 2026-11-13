@@ -235,8 +235,8 @@ impl ExportChangesSheet {
             self.options.core(),
         );
         let exports = self.exports.clone();
+        let export = exports.begin();
         let run = cx.background_executor().spawn(async move {
-            let export = exports.begin();
             lattice_core::latex::export_changes_pdf(
                 &root,
                 &from,
