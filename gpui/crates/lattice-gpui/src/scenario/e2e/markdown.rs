@@ -498,8 +498,18 @@ impl Run {
         let figure = "lattice://island/asset/figures/e2e-dot.png";
         let mut results = Vec::new();
         for (from, target, moved_to, link) in [
-            ("e2e-notes.md", "drafts", "drafts/e2e-notes.md", "../figures/e2e-dot.png"),
-            ("drafts/e2e-notes.md", "", "e2e-notes.md", "figures/e2e-dot.png"),
+            (
+                "e2e-notes.md",
+                "drafts",
+                "drafts/e2e-notes.md",
+                "../figures/e2e-dot.png",
+            ),
+            (
+                "drafts/e2e-notes.md",
+                "",
+                "e2e-notes.md",
+                "figures/e2e-dot.png",
+            ),
         ] {
             cx.update(|cx| {
                 tree.update(cx, |tree, cx| tree.drop_on(from.into(), target.into(), cx))

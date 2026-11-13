@@ -214,7 +214,15 @@ function Markdown() {
           void workspaceIndex.update(filesRef.current);
           return;
         }
-        for (const path of paths) {
+        const tracked = new Set<string>();
+        const collect = (nodes: FileNode[]) => {
+          for (const node of nodes) {
+            tracked.add(node.path);
+            collect(node.children);
+          }
+        };
+        collect(filesRef.current);
+        for (const path of paths.filter((candidate) => tracked.has(candidate))) {
           void readProjectFile(path)
             .then((content) => workspaceIndex.noteDocumentContent(path, content))
             .catch(() => {});

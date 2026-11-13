@@ -112,10 +112,21 @@ fn page_tree(mut nodes: Vec<FileNode>) -> Value {
     serde_json::to_value(&nodes).unwrap_or(json!([]))
 }
 
-/// The Markdown pages among the changed `paths` other than the open file,
-/// for the page index to read again: `Some(None)` when any may have
-/// changed, `None` when none did.
-fn changed_pages(paths: Option<&[String]>, open: &str) -> Option<Option<Vec<String>>> {
+fn in_tree(nodes: &[FileNode], path: &str) -> bool {
+    nodes
+        .iter()
+        .any(|node| node.path == path || in_tree(&node.children, path))
+}
+
+/// The Markdown pages of the project's `tree` among the changed `paths`,
+/// other than the open file, for the page index to read again: `Some(None)`
+/// when any may have changed, `None` when none did. A page outside the tree
+/// (`node_modules/`, build output, a dotted or ignored folder) is not one.
+fn changed_pages(
+    paths: Option<&[String]>,
+    open: &str,
+    tree: &[FileNode],
+) -> Option<Option<Vec<String>>> {
     let Some(paths) = paths else {
         return Some(None);
     };
@@ -123,7 +134,9 @@ fn changed_pages(paths: Option<&[String]>, open: &str) -> Option<Option<Vec<Stri
         .iter()
         .filter(|path| {
             let lower = path.to_ascii_lowercase();
-            path.as_str() != open && (lower.ends_with(".md") || lower.ends_with(".mdx"))
+            path.as_str() != open
+                && (lower.ends_with(".md") || lower.ends_with(".mdx"))
+                && in_tree(tree, path)
         })
         .cloned()
         .collect::<Vec<_>>();
@@ -186,7 +199,7 @@ impl StructuredDocument {
             cx.subscribe(project, |this, project, event, cx| match event {
                 // The tree a change on disk brings arrives after it.
                 ProjectEvent::FilesChanged(paths) => {
-                    this.markdown_files_changed(paths.as_deref(), cx)
+                    this.markdown_files_changed(&project, paths.as_deref(), cx)
                 }
                 ProjectEvent::TreeChanged => this.read_project(&project, cx),
                 _ => {}
@@ -199,14 +212,19 @@ impl StructuredDocument {
     /// Files changed on disk (this one's own saves among them): a changed TeX
     /// file is read again with the next tree, other Markdown pages are read
     /// again into the page index, and images other than the file load again.
-    fn markdown_files_changed(&mut self, paths: Option<&[String]>, cx: &mut Context<Self>) {
+    fn markdown_files_changed(
+        &mut self,
+        project: &Entity<Project>,
+        paths: Option<&[String]>,
+        cx: &mut Context<Self>,
+    ) {
         let Some(session) = &mut self.markdown else {
             return;
         };
         if paths.is_none_or(|paths| paths.iter().any(|path| is_tex(path))) {
             session.tex_changes += 1;
         }
-        if let Some(pages) = changed_pages(paths, &self.relative) {
+        if let Some(pages) = changed_pages(paths, &self.relative, project.read(cx).files()) {
             self.post("md:pages-changed", json!({ "paths": pages }), cx);
         }
         if paths.is_none_or(|paths| paths.iter().any(|path| *path != self.relative)) {
@@ -541,6 +559,19 @@ mod tests {
 
     #[test]
     fn the_page_index_rereads_only_other_markdown_pages() {
+        let tree = vec![
+            node(
+                "notes",
+                "directory",
+                0,
+                vec![
+                    node("notes/open.md", "markdown", 1, vec![]),
+                    node("notes/b.md", "markdown", 1, vec![]),
+                ],
+            ),
+            node("Talk.MDX", "markdown", 1, vec![]),
+            node("main.tex", "tex", 1, vec![]),
+        ];
         let changed = |paths: &[&str]| {
             changed_pages(
                 Some(
@@ -550,15 +581,20 @@ mod tests {
                         .collect::<Vec<_>>(),
                 ),
                 "notes/open.md",
+                &tree,
             )
         };
-        assert_eq!(changed_pages(None, "notes/open.md"), Some(None));
+        assert_eq!(changed_pages(None, "notes/open.md", &tree), Some(None));
         assert_eq!(
             changed(&["notes/b.md", "Talk.MDX", "main.tex", "fig.png"]),
             Some(Some(vec!["notes/b.md".into(), "Talk.MDX".into()]))
         );
         assert_eq!(changed(&["main.tex", "figures/fig.png"]), None);
         assert_eq!(changed(&["notes/open.md"]), None);
+        assert_eq!(
+            changed(&["node_modules/x/README.md", ".github/a.md", "notes/b.md"]),
+            Some(Some(vec!["notes/b.md".into()]))
+        );
     }
 
     #[test]
