@@ -66,12 +66,49 @@ impl Run {
         self.pause(cx, Duration::from_millis(400)).await;
 
         // Near the top: scrolled so the key sits a line short of the room.
+        // The editor stops at the last line, as CodeMirror does, and the
+        // document is shorter than the editor, so blank lines under its last
+        // line give it the room to scroll that far.
+        let last = cx.update(|cx| {
+            lattice
+                .read(cx)
+                .buffer()
+                .read(cx)
+                .snapshot()
+                .max_point()
+                .row
+        });
+        let tail = (cx
+            .update(|cx| lattice.read(cx).painted().bounds.map(|b| b.size.height))
+            .unwrap_or(px(800.))
+            / line_height)
+            .ceil() as u32
+            + 2;
+        lattice.update(cx, |lattice, cx| {
+            lattice.set_blocks(
+                "e2e-room",
+                vec![BlockWidget {
+                    line: last,
+                    side: BlockSide::Below,
+                    lines: tail,
+                    render: std::sync::Arc::new(|_| {
+                        use gpui::IntoElement as _;
+                        gpui::div().into_any_element()
+                    }),
+                }],
+                cx,
+            )
+        });
+        self.pause(cx, Duration::from_millis(300)).await;
         let target = (needed - line_height).max(line_height * 0.5);
         self.scroll_key_to(cx, panel, lattice, &editor, target)
             .await?;
         let near = self.citation_card(cx, panel, lattice).await?;
         self.adapter_shot(cx, "citation-card-below").await;
         self.park(cx)?;
+        lattice.update(cx, |lattice, cx| {
+            lattice.set_blocks("e2e-room", Vec::new(), cx)
+        });
         self.scroll_editor(cx, &editor, start)?;
         self.pause(cx, Duration::from_millis(400)).await;
 

@@ -104,6 +104,13 @@ impl Run {
                 // theme, out of the probes' reach, so its region is recorded from
                 // them: the first line's runs as its highlighting splits them
                 // (a command, each brace, the argument), each in its weight.
+                // The front document's editor, from the arrangement: the
+                // shell's last-focused editor follows focus-in events, which
+                // a window that is never the key window does not get.
+                let front = shell.update(cx, |shell, cx| {
+                    let path = shell.root(cx)?.join(shell.active_document(cx)?);
+                    shell.open_editor(&path, cx)
+                });
                 let settings = theme_settings::ThemeSettings::get_global(cx);
                 let size = f32::from(settings.buffer_font_size(cx));
                 let look = |content: Option<SharedString>, weight: f32| TextLook {
@@ -114,13 +121,6 @@ impl Run {
                     line_height: size * settings.line_height(),
                 };
                 let base = settings.buffer_font.weight.0;
-                // The front document's editor, from the arrangement: the
-                // shell's last-focused editor follows focus-in events, which
-                // a window that is never the key window does not get.
-                let front = shell.update(cx, |shell, cx| {
-                    let path = shell.root(cx)?.join(shell.active_document(cx)?);
-                    shell.open_editor(&path, cx)
-                });
                 let runs = front
                     .map(|editor| first_line_runs(&editor, base, cx))
                     .unwrap_or_default();
