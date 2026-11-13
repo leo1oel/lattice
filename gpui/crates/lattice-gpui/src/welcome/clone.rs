@@ -526,6 +526,11 @@ mod tests {
 
     const PARENT: &str = "/Users/writer/Documents";
 
+    /// The folder `name` inside the parent, with the platform's separator.
+    fn inside(name: &str) -> String {
+        Path::new(PARENT).join(name).to_string_lossy().into_owned()
+    }
+
     #[test]
     fn the_destination_follows_a_url_typed_key_by_key() {
         let parent = Path::new(PARENT);
@@ -538,35 +543,27 @@ mod tests {
             followed = next.clone();
             shown = next;
         }
-        assert_eq!(shown, "/Users/writer/Documents/paper");
+        assert_eq!(shown, inside("paper"));
+        assert_eq!(next_destination(parent, "h", "", ""), Some(inside("h")));
         assert_eq!(
-            next_destination(parent, "h", "", ""),
-            Some("/Users/writer/Documents/h".into())
-        );
-        assert_eq!(
-            next_destination(
-                parent,
-                "ht",
-                "/Users/writer/Documents/h",
-                "/Users/writer/Documents/h"
-            ),
-            Some("/Users/writer/Documents/ht".into())
+            next_destination(parent, "ht", &inside("h"), &inside("h")),
+            Some(inside("ht"))
         );
     }
 
     #[test]
     fn an_edited_destination_stops_following_until_cleared() {
         let parent = Path::new(PARENT);
-        let followed = "/Users/writer/Documents/paper";
+        let followed = &inside("paper");
         let url = "https://github.com/owner/paper.git";
         assert_eq!(next_destination(parent, url, "/tmp/mine", followed), None);
         assert_eq!(
-            next_destination(parent, url, "/Users/writer/Documents/pape", followed),
+            next_destination(parent, url, &inside("pape"), followed),
             None
         );
         assert_eq!(
             next_destination(parent, url, "", followed),
-            Some(followed.into())
+            Some(followed.clone())
         );
     }
 
