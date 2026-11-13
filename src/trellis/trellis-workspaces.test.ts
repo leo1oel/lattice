@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { LayoutDocument } from "@danfessler/trellis";
 import { defaultLayout } from "./trellis-layout";
-import { arrangementOf, isDocumentSlot, withDocumentPanel, WorkspaceLibrary } from "./trellis-workspaces";
+import { arrangementOf, isDocumentSlot, withDocumentPanel, WorkspaceLibrary, workspaceShortcut } from "./trellis-workspaces";
 
 beforeEach(() => localStorage.clear());
 
@@ -111,5 +111,21 @@ describe("the workspace library", () => {
     there.add("Later", null);
     window.dispatchEvent(new StorageEvent("storage", { key: "lattice.trellis-workspaces.v1" }));
     expect(listener).not.toHaveBeenCalled();
+  });
+});
+
+describe("a workspace's shortcut label", () => {
+  const LINUX = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/605.1.15 (KHTML, like Gecko)";
+  it.each([
+    ["Mac", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15", "⌘1", "⌘9"],
+    ["Windows", "Windows NT 10.0", "Ctrl+1", "Ctrl+9"],
+    ["Linux", LINUX, "Ctrl+1", "Ctrl+9"],
+  ])("names the host's own modifier on %s", (_host, agent, first, ninth) => {
+    const userAgent = vi.spyOn(navigator, "userAgent", "get").mockReturnValue(agent);
+    try {
+      expect(workspaceShortcut(0)).toBe(first);
+      expect(workspaceShortcut(8)).toBe(ninth);
+      expect(workspaceShortcut(9)).toBeNull();
+    } finally { userAgent.mockRestore(); }
   });
 });

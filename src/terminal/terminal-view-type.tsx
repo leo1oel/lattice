@@ -2,6 +2,7 @@
 import { msg } from "@lingui/core/macro";
 import { ViewType } from "@danfessler/trellis-react";
 import type { MenuEntry } from "@danfessler/trellis";
+import { comboText } from "../app/key-combos";
 import { i18n } from "../i18n";
 import { PanelErrorBoundary } from "../telemetry/panel-error-boundary";
 import type { TrellisController } from "../trellis/trellis-controller";
@@ -16,7 +17,7 @@ const MIN_SIZE = { width: 240, height: 120 } as const;
 /** The panel menu's own entries, ahead of Trellis's (hide, float, close). */
 const menu = (): MenuEntry[] => [
   { id: "terminal-new", label: i18n._(msg`New terminal`), run: withTerminals((module) => module.openTerminal()) },
-  { id: "terminal-find", label: i18n._(msg`Find in terminal`), shortcut: "⌘F", run: withTerminals((module) => module.findInActiveTerminal()) },
+  { id: "terminal-find", label: i18n._(msg`Find in terminal`), shortcut: comboText({ key: "f", mod: true }), run: withTerminals((module) => module.findInActiveTerminal()) },
   { id: "terminal-clear", label: i18n._(msg`Clear terminal`), run: withTerminals((module) => module.clearActiveTerminal()) },
 ];
 

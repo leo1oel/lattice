@@ -17,6 +17,7 @@
  * Eager (the titlebar lists them before the workspace loads) and light:
  * nothing from Trellis but types.
  */
+import { comboText } from "../app/key-combos";
 import { i18n } from "../i18n";
 import { ROOT_PDF } from "./compiled-pdf-tabs";
 import { msg } from "@lingui/core/macro";
@@ -40,8 +41,8 @@ export const NAVIGATORS = ["project", "papers", "agent"] as const;
 /** Workspaces with a shortcut (⌘1 to ⌘9). */
 export const WORKSPACE_SHORTCUTS = 9;
 
-/** ⌘1 to ⌘9 for the first nine workspaces. */
-export const workspaceShortcut = (index: number) => (index < WORKSPACE_SHORTCUTS ? `⌘${index + 1}` : null);
+/** ⌘1 to ⌘9 (Ctrl+1 to Ctrl+9 off a Mac) for the first nine workspaces. */
+export const workspaceShortcut = (index: number) => (index < WORKSPACE_SHORTCUTS ? comboText({ key: String(index + 1), mod: true }) : null);
 
 /** `arrangement` is null until the workspace is first used: the default layout. */
 export type Workspace = { id: string; name: string; arrangement: LayoutDocument | null };

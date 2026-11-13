@@ -31,6 +31,7 @@ import { ResizableDrawer } from "../components/ui/resizable-drawer";
 import { CheckStatus } from "../project/check-status";
 import { useSharedSetting } from "../settings/shared-setting";
 import { useLatestRef } from "../hooks/use-latest-ref";
+import { hostPlatform } from "../platform/host-platform";
 import { isCompileSetupMissing, missingPaperToolNames } from "../build/tex-setup";
 import type { TexSetup } from "../app/use-tex-setup";
 import type { SettingsTab } from "../app-types";
@@ -239,7 +240,13 @@ export default function GetStartedPanel(props: GetStartedPanelProps) {
       : null;
     if (step.id === "latex") {
       // Without a report (a check that could not run), setup checks again itself.
-      return texReady || checking ? null : <Button size="compact" variant="primary" onClick={() => void texSetup.openWizard()}>{t`Install LaTeX`}</Button>;
+      if (texReady || checking) return null;
+      // Linux has no one-click install (tex_setup/stub.rs): the step says to
+      // install TeX Live from the distribution, and Recheck looks again after.
+      if (hostPlatform() === "linux") {
+        return <Button size="compact" variant="primary" onClick={() => void runDoctor({ reportFailure: true })}>{t`Recheck`}</Button>;
+      }
+      return <Button size="compact" variant="primary" onClick={() => void texSetup.openWizard()}>{t`Install LaTeX`}</Button>;
     }
     if (step.id === "agent" && import.meta.env.LATTICE_WEB_DEMO) {
       return <><LinkButton url={DOWNLOAD_URL}>{t`Download for Mac`}</LinkButton>{skip}</>;

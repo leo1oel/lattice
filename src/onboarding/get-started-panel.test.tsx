@@ -313,8 +313,13 @@ it("names a Linux window's own keys, TeX Live from the distribution, and no Agen
   const userAgent = vi.spyOn(navigator, "userAgent", "get").mockReturnValue("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15");
   try {
     markGetStartedStep("agent");
-    renderPanel({}, doctor(["pdflatex"]));
+    const { texSetup } = renderPanel({}, doctor(["pdflatex"]));
     expect(screen.getByText(/TeX Live on this computer/)).toBeInTheDocument();
+    // Linux has no one-click install, so the step rechecks instead of opening it.
+    expect(within(step("latex")).queryByRole("button", { name: "Install LaTeX" })).toBeNull();
+    fireEvent.click(within(step("latex")).getByRole("button", { name: "Recheck" }));
+    expect(texSetup.runDoctor).toHaveBeenCalledWith({ reportFailure: true });
+    expect(texSetup.openWizard).not.toHaveBeenCalled();
     expect(document.querySelector('[data-step="agent"]')).toBeNull();
     expect(screen.getByText("0/5")).toBeInTheDocument();
     const linux = sentences().join("\n");
