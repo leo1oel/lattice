@@ -47,6 +47,15 @@ export async function currentProjectPdf(path: string): Promise<ProjectPdfFile> {
   return { path, ...ranges };
 }
 
+/**
+ * The whole project PDF at `path`, for a viewer handed bytes rather than a
+ * range transport (the Paper reader's kept PDF, a paper a few MB long).
+ */
+export async function readProjectPdfBytes(path: string): Promise<ArrayBuffer> {
+  const file = await currentProjectPdf(path);
+  return (await readProjectPdf(file, 0, file.length)).buffer;
+}
+
 /** Save a copy of `file`, at its version, to `destination`; resolves to the saved path. */
 export function saveProjectPdf(file: ProjectPdfFile, destination: string): Promise<string> {
   return invoke<string>("save_project_pdf", { path: file.path, version: file.version, destination });

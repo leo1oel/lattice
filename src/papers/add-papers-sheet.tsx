@@ -11,7 +11,7 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type Keyboa
 import { useLingui } from "@lingui/react/macro";
 import { BookMarked, Check, CircleAlert, CircleDot, Library, Link2, PenLine, Plus } from "lucide-react";
 import type { PaperSummary } from "../app-types";
-import { addQueueRunning, clearAddQueue, getAddQueue, subscribeAddQueue, type PaperAddItem } from "./add-papers-queue";
+import { addQueueRunning, clearAddQueue, getAddQueue, subscribeAddQueue, type PaperAddRequest } from "./add-papers-queue";
 import { Button } from "../components/ui/button";
 import { PanelHeader } from "../components/ui/panel-header";
 import { SheetDialog } from "../components/ui/sheet-dialog";
@@ -65,7 +65,7 @@ export function AddPapersSheet(props: {
   /** An import holds the pipeline: the Papers box's, Find literature's, or this sheet's batch. */
   importing: boolean;
   onResolve: (query: string) => Promise<ResolvedCitationDraft>;
-  onAdd: (items: Array<Pick<PaperAddItem, "id" | "input" | "label" | "pdf">>) => void;
+  onAdd: (items: PaperAddRequest[]) => void;
   onStop: () => void;
   onEnterManually: () => void;
   /** Open the linked library: a reference manager's .bib, whose changes come in on request. */
@@ -194,16 +194,24 @@ export function AddPapersSheet(props: {
       label: row.title,
     })));
   };
-  // Ticked Zotero papers go to the same queue, each with its PDF attachment;
-  // the sheet then shows them being added.
-  const addFromZotero = (papers: ZoteroPaper[]) => {
+  // Ticked Zotero papers go to the same queue, each with its PDF attachment
+  // and its annotations (a paper Papers holds brings only those); the sheet
+  // then shows them being added.
+  const addFromZotero = (papers: ZoteroPaper[], dataDir: string | null) => {
     if (!papers.length || adding || importingElsewhere) return;
     const id = (paper: ZoteroPaper) => `zotero:${paper.item.citationKey}`;
     setAddedFrom(papers.map((paper): Row => ({
       reference: { id: id(paper), kind: "bibtex", input: paper.item.bibtex, label: paper.item.citationKey },
       state: "new", title: paper.title, byline: paper.byline,
     })));
-    props.onAdd(papers.map((paper) => ({ id: id(paper), input: paper.item.bibtex, label: paper.title, pdf: paper.item.pdf ?? undefined })));
+    props.onAdd(papers.map((paper) => ({
+      id: id(paper),
+      input: paper.item.bibtex,
+      label: paper.title,
+      pdf: paper.item.pdf ?? undefined,
+      existing: paper.existing?.citationKey,
+      annotations: paper.item.annotations ? { item: paper.item.key, dataDir } : undefined,
+    })));
     setZotero(false);
   };
   const moveTab = (event: ReactKeyboardEvent<HTMLDivElement>) => {

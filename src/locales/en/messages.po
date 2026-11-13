@@ -303,6 +303,10 @@ msgstr "{action} failed"
 msgid "{action} success"
 msgstr "{action} success"
 
+#: src/app/use-reference-import.ts
+msgid "{added} annotations in {path}"
+msgstr "{added} annotations in {path}"
+
 #: src/build/build-log-messages.ts
 msgid "{advice} ctex is not installed yet: Install adds it with its Chinese fonts, about 90 MB."
 msgstr "{advice} ctex is not installed yet: Install adds it with its Chinese fonts, about 90 MB."
@@ -384,6 +388,7 @@ msgid "{count} annotation"
 msgstr "{count} annotation"
 
 #: src/canvas/editor-status-bar.tsx
+#: src/papers/zotero-browser.tsx
 msgid "{count} annotations"
 msgstr "{count} annotations"
 
@@ -1203,8 +1208,13 @@ msgstr "1 already in Papers is skipped"
 
 #: src/app/use-command-table.ts
 #: src/editor/comments/annotation-rounds-dialog.tsx
+#: src/papers/zotero-browser.tsx
 msgid "1 annotation"
 msgstr "1 annotation"
+
+#: src/app/use-reference-import.ts
+msgid "1 annotation in {path}"
+msgstr "1 annotation in {path}"
 
 #: src/editor/comments/annotation-rounds-dialog.tsx
 #: src/history/versions-timeline.tsx
@@ -1764,6 +1774,10 @@ msgstr "Add a title, full authors, and year, or add a DOI or arXiv identifier, b
 msgid "Add an item"
 msgstr "Add an item"
 
+#: src/papers/zotero-browser.tsx
+msgid "Add annotations"
+msgstr "Add annotations"
+
 #: src/trellis/trellis-labels.ts
 msgid "Add as tab"
 msgstr "Add as tab"
@@ -2250,6 +2264,10 @@ msgstr "Annotations"
 #: src/editor/comments/editor-comments.ts
 msgid "Annotations {list}"
 msgstr "Annotations {list}"
+
+#: src/app/use-reference-import.ts
+msgid "Annotations already in {path}"
+msgstr "Annotations already in {path}"
 
 #: src/editor/comments/editor-comments-panel.tsx
 msgid "Annotations and highlights"
@@ -4611,6 +4629,10 @@ msgstr "Core components"
 msgid "Correction/update"
 msgstr "Correction/update"
 
+#: src/app/use-reference-import.ts
+msgid "Could not add the annotations: {problem}"
+msgstr "Could not add the annotations: {problem}"
+
 #: src/canvas/paper-selection-actions.tsx
 msgid "Could not add to the note"
 msgstr "Could not add to the note"
@@ -4775,6 +4797,10 @@ msgstr "Could not open the project because its Overleaf host is invalid."
 #: src/app/use-overleaf-workspace.ts
 msgid "Could not open the project on Overleaf: {message}"
 msgstr "Could not open the project on Overleaf: {message}"
+
+#: src/papers/zotero-link.ts
+msgid "Could not open Zotero"
+msgstr "Could not open Zotero"
 
 #: src/papers/audit-messages.ts
 msgid "Could not parse {count} bibliography construct(s)."
@@ -8673,6 +8699,10 @@ msgid "Lattice couldn’t open this window"
 msgstr "Lattice couldn’t open this window"
 
 #: src/platform/host-errors-papers.ts
+msgid "Lattice couldn't open Zotero: {error}"
+msgstr "Lattice couldn't open Zotero: {error}"
+
+#: src/platform/host-errors-papers.ts
 msgid "Lattice couldn't read the Zotero library: {reason}"
 msgstr "Lattice couldn't read the Zotero library: {reason}"
 
@@ -11590,6 +11620,7 @@ msgstr "owner"
 msgid "p. {0}"
 msgstr "p. {0}"
 
+#: src/app/use-reference-import.ts
 #: src/project/paper-inspector.tsx
 msgid "p. {page}"
 msgstr "p. {page}"
@@ -11704,6 +11735,7 @@ msgstr "Paper tones"
 #: src/canvas/paper-selection-actions.tsx
 #: src/canvas/use-paper-pdf.ts
 #: src/papers/zotero-browser.tsx
+#: src/papers/zotero-link.ts
 #: src/project/paper-library.tsx
 #: src/project/project-find-dialog.tsx
 #: src/trellis/trellis-titles.ts
@@ -16958,6 +16990,10 @@ msgstr "This invitation is waiting on Overleaf"
 msgid "This is a binary or unsupported file and cannot be opened in the source editor."
 msgstr "This is a binary or unsupported file and cannot be opened in the source editor."
 
+#: src/platform/host-errors-papers.ts
+msgid "This is not a link into Zotero's PDF reader."
+msgstr "This is not a link into Zotero's PDF reader."
+
 #: src/editor/presentation/open-slide-workspace.tsx
 msgid "This is not a native Open Slide deck."
 msgstr "This is not a native Open Slide deck."
@@ -18607,6 +18643,10 @@ msgstr "Zoom out"
 #: src/settings/settings-search-index.ts
 msgid "zoom scale bigger smaller"
 msgstr "zoom scale bigger smaller"
+
+#: src/app/use-reference-import.ts
+msgid "Zotero annotations"
+msgstr "Zotero annotations"
 
 #: src/papers/zotero-browser.tsx
 msgid "Zotero folders"

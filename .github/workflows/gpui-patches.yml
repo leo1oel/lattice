@@ -9,15 +9,10 @@ name: GPUI patches
 #
 # Its own workflow, so the GPUI workflow's jobs keep their triggers: it runs
 # only when the patches, the script that pins them, or this file change.
+# Runs on demand only (Actions > Run workflow): run it by hand for a change to
+# gpui/patches. `pnpm signoff` runs `script/check-patches` locally for such a
+# change, and gpui.yml's `patches` job runs it for a release tag and weekly.
 on:
-  push:
-    branches: [main]
-    paths: &patch-paths
-      - "gpui/patches/**"
-      - "gpui/script/check-patches"
-      - ".github/workflows/gpui-patches.yml"
-  pull_request:
-    paths: *patch-paths
   workflow_dispatch:
 
 concurrency:

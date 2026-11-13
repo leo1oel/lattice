@@ -16,6 +16,11 @@
 //! path, which skips what Papers already holds. A PDF attachment is named to
 //! the frontend by its Zotero key only; the path behind it stays here, so the
 //! frontend never names a file on disk.
+//!
+//! The annotations the writer made in Zotero's PDF reader (highlights,
+//! underlines, notes, comments) are read the same way, for the items the
+//! writer picks; the frontend writes them into each paper's note
+//! (src/papers/zotero-annotations.ts).
 
 mod bibtex;
 mod paths;
@@ -24,12 +29,12 @@ mod schema;
 use paths::support_dir;
 use rusqlite::{Connection, OpenFlags};
 use serde::Serialize;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 
-pub use schema::{ZoteroCollection, ZoteroItem};
+pub use schema::{ZoteroAnnotation, ZoteroCollection, ZoteroItem};
 
 const NOT_FOUND: &str = "Lattice couldn't find a Zotero library on this computer.";
 const UNREADABLE: &str = "Lattice couldn't read the Zotero library: {}";
@@ -208,6 +213,36 @@ pub fn library(chosen: Option<&str>) -> Result<ZoteroLibrary, String> {
         })
         .collect();
     Ok(ZoteroLibrary { collections, items })
+}
+
+/// The annotations on the PDFs of the items `items` (by Zotero item key), from
+/// one fresh copy of the library: each item's in Zotero's reading order. An
+/// item without annotations is left out.
+pub fn annotations(
+    chosen: Option<&str>, items: &[String],
+) -> Result<HashMap<String, Vec<ZoteroAnnotation>>, String> {
+    let snapshot = Snapshot::take(&data_dir(chosen)?, "zotero.sqlite")?;
+    let wanted: HashSet<&str> = items.iter().map(String::as_str).collect();
+    schema::annotations(&snapshot.connection, &wanted).map_err(unreadable)
+}
+
+/// Whether `url` is a link into Zotero's PDF reader as a note's annotation
+/// writes it: `zotero://open-pdf/library/items/<KEY>`, with a page and an
+/// annotation key at most. Only such a link is handed to the system to open,
+/// so a note (or any Markdown the writer opens) cannot have Lattice launch
+/// another zotero:// action.
+pub fn is_annotation_link(url: &str) -> bool {
+    let is_key = |key: &str| key.len() == 8 && key.bytes().all(|b| b.is_ascii_alphanumeric());
+    let Some(rest) = url.strip_prefix("zotero://open-pdf/library/items/") else { return false };
+    let (item, query) = rest.split_once('?').unwrap_or((rest, ""));
+    is_key(item)
+        && query.split('&').filter(|pair| !pair.is_empty()).all(|pair| match pair.split_once('=') {
+            Some(("page", page)) => {
+                !page.is_empty() && page.len() <= 6 && page.bytes().all(|b| b.is_ascii_digit())
+            }
+            Some(("annotation", key)) => is_key(key),
+            _ => false,
+        })
 }
 
 /// Where the PDF attachment `key`, named by an earlier read, is on this computer.

@@ -254,8 +254,12 @@ describe("convergence under random concurrent edits", () => {
 class FakeServer {
   /** Every accepted op, so a late client's work can be caught up. */
   private history: OtOp[][] = [];
+  /** The text at each version. */
+  texts: string[];
 
-  constructor(public text: string) {}
+  constructor(public text: string) {
+    this.texts = [text];
+  }
 
   get version() { return this.history.length; }
 
@@ -274,6 +278,7 @@ class FakeServer {
     // which is why a real off-by-one in `remote` went unnoticed here.
     const appliedAt = this.history.length;
     this.history.push(incoming);
+    this.texts.push(this.text);
     return { ops: incoming, version: appliedAt };
   }
 }
@@ -408,6 +413,23 @@ describe("OtDocument", () => {
     expect(doc.local("note: \uFFFD\uFFFD done!")).toEqual({ send: { version: 4, ops: [{ p: 13, i: "!" }] }, replaced: false, ops: [{ p: 13, i: "!" }] });
   });
 
+  it("keeps the server's text apart from work it has not acknowledged", () => {
+    const doc = new OtDocument("fox", 7);
+    doc.local("quick fox");
+    doc.local("quick fox!");
+    expect(doc.serverText).toBe("fox");
+    // Someone else's lands first: the server's text takes it as sent, ours
+    // still waits on top of it.
+    doc.remote([{ p: 3, i: " runs" }], 7);
+    expect([doc.serverText, doc.text]).toEqual(["fox runs", "quick fox! runs"]);
+    doc.acknowledge(8);
+    expect(doc.serverText).toBe("quick fox runs");
+    doc.acknowledge(9);
+    expect([doc.serverText, doc.text, doc.version]).toEqual(["quick fox! runs", "quick fox! runs", 10]);
+    doc.reset("over", 12);
+    expect(doc.serverText).toBe("over");
+  });
+
   it("drops unsent work when reset to the server's copy", () => {
     const doc = new OtDocument("a", 1);
     doc.local("ab");
@@ -457,6 +479,9 @@ describe("two editors on one document", () => {
       const accepted = server.submit(send);
       for (const peer of peers) queues.get(peer)!.push({ ...accepted, author });
     };
+    // Whatever a peer has sent or typed, its idea of the server's text is
+    // exactly the server's text at the version it has reached.
+    let serverTextChecks = 0;
     const deliverOne = (peer: OtDocument) => {
       const next = queues.get(peer)!.shift();
       if (!next) return;
@@ -466,6 +491,8 @@ describe("two editors on one document", () => {
       } else {
         peer.remote(next.ops, next.version);
       }
+      expect(peer.serverText).toBe(server.texts[peer.version]);
+      serverTextChecks += 1;
     };
 
     for (let round = 0; round < 400; round += 1) {
@@ -488,6 +515,7 @@ describe("two editors on one document", () => {
 
     for (const peer of peers) expect(peer.settled).toBe(true);
     expectConverged(server, ...peers);
+    expect(serverTextChecks).toBeGreaterThan(100);
   });
 });
 

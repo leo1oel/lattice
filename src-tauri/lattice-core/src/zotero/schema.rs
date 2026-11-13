@@ -25,6 +25,8 @@ pub struct ZoteroCollection {
 #[derive(Debug, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct ZoteroItem {
+    /// Zotero's own key for the item, for `annotations`.
+    pub key: String,
     /// The item's BibTeX entry, under `citation_key`.
     pub bibtex: String,
     pub citation_key: String,
@@ -33,6 +35,30 @@ pub struct ZoteroItem {
     /// The collections it sits in directly (not through a subcollection), by
     /// key.
     pub collections: Vec<String>,
+    /// How many annotations with words in them its PDFs hold.
+    pub annotations: usize,
+}
+
+/// One annotation on a PDF attachment, as Zotero's reader keeps it.
+#[derive(Debug, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ZoteroAnnotation {
+    /// The annotation's own item key (`annotation=` in a zotero:// link).
+    pub key: String,
+    /// The PDF attachment it is on, by item key (the item a zotero:// link opens).
+    pub attachment: String,
+    /// highlight, underline, note, text, image or ink.
+    pub kind: &'static str,
+    /// The passage a highlight or underline marks; empty for the others.
+    pub text: String,
+    /// The writer's comment, as Zotero stores it (a few inline HTML tags).
+    pub comment: String,
+    /// The PDF page it is on, counted from 1; None when Zotero recorded no page.
+    pub page: Option<u32>,
+    /// The page's printed number, when the PDF names its pages.
+    pub page_label: Option<String>,
+    /// Its colour, `#rrggbb`.
+    pub color: Option<String>,
 }
 
 /// The items an import brings in, over `items i` joined to
@@ -162,6 +188,7 @@ pub(super) fn items(
         memberships.entry(item).or_default().push(collection);
     }
     let better_bibtex_keys = better_bibtex.map(better_bibtex_keys).unwrap_or_default();
+    let mut annotation_counts = annotation_counts(db)?;
     let mut read = Vec::with_capacity(listed.len());
     for (id, key, item_type) in listed {
         let fields = fields(db, id)?;
@@ -176,7 +203,7 @@ pub(super) fn items(
         .into_iter()
         .flatten()
         .find(|candidate| bibtex::is_citation_key(candidate));
-        read.push((id, item_type, fields, creators(db, id)?, pinned));
+        read.push((id, key, item_type, fields, creators(db, id)?, pinned));
     }
     let mut taken: HashSet<String> = read
         .iter()
@@ -185,7 +212,7 @@ pub(super) fn items(
         .collect();
     let mut claimed: HashSet<String> = HashSet::new();
     let mut out = Vec::with_capacity(read.len());
-    for (id, item_type, fields, creators, pinned) in read {
+    for (id, key, item_type, fields, creators, pinned) in read {
         let record = Record { item_type: &item_type, fields: &fields, creators: &creators };
         let citation_key = match pinned {
             Some(key) if claimed.insert(key.to_lowercase()) => key,
@@ -201,10 +228,12 @@ pub(super) fn items(
         let pdf = pdf_attachment(db, id, data_dir, base)?;
         out.push((
             ZoteroItem {
+                key,
                 bibtex: bibtex::entry(&record, &citation_key),
                 citation_key,
                 pdf: pdf.as_ref().map(|(key, _)| key.clone()),
                 collections: memberships.remove(&id).unwrap_or_default(),
+                annotations: annotation_counts.remove(&id).unwrap_or(0),
             },
             pdf.map(|(_, path)| path),
         ));
@@ -292,6 +321,121 @@ fn pdf_attachment(
         };
         path.is_file().then_some((key, path))
     }))
+}
+
+/// The columns of `itemAnnotations` read here. Zotero 5 has no such table
+/// (its reader came in Zotero 6), and its library then simply has no
+/// annotations.
+const ANNOTATION_COLUMNS: &[&str] = &[
+    "itemID",
+    "parentItemID",
+    "type",
+    "text",
+    "comment",
+    "color",
+    "pageLabel",
+    "sortIndex",
+    "position",
+];
+
+fn annotations_readable(db: &Connection) -> bool {
+    let Ok(mut statement) = db.prepare("PRAGMA table_info(itemAnnotations)") else { return false };
+    let Ok(rows) = statement.query_map([], |row| row.get::<_, String>(1)) else { return false };
+    let present: HashSet<String> = rows.filter_map(Result::ok).collect();
+    ANNOTATION_COLUMNS.iter().all(|column| present.contains(*column))
+}
+
+/// The annotations a note can quote, over `itemAnnotations n` (with its item
+/// `ni`) joined to its attachment `a` (with its item `ai`): on a PDF of the
+/// personal library (`?1`), neither in the trash, with words in them (a
+/// highlight's passage or a comment). An ink stroke or an image region with
+/// no comment has nothing to quote.
+const ANNOTATIONS_FROM: &str = "FROM itemAnnotations n
+    JOIN items ni ON ni.itemID = n.itemID
+    JOIN itemAttachments a ON a.itemID = n.parentItemID
+    JOIN items ai ON ai.itemID = a.itemID";
+const ANNOTATIONS_WHERE: &str = "ai.libraryID = ?1 AND a.contentType = 'application/pdf'
+    AND n.itemID NOT IN (SELECT itemID FROM deletedItems)
+    AND a.itemID NOT IN (SELECT itemID FROM deletedItems)
+    AND (trim(coalesce(n.text, '')) != '' OR trim(coalesce(n.comment, '')) != '')";
+
+/// How many annotations each item's PDFs hold, by the item's itemID.
+fn annotation_counts(db: &Connection) -> Result<HashMap<i64, usize>, String> {
+    if !annotations_readable(db) {
+        return Ok(HashMap::new());
+    }
+    let mut statement = db
+        .prepare(&format!(
+            "SELECT a.parentItemID, count(*) {ANNOTATIONS_FROM}
+             WHERE {ANNOTATIONS_WHERE} AND a.parentItemID IS NOT NULL
+             GROUP BY a.parentItemID"
+        ))
+        .map_err(|e| e.to_string())?;
+    let rows = statement
+        .query_map(params![USER_LIBRARY], |row| Ok((row.get(0)?, row.get::<_, i64>(1)? as usize)))
+        .map_err(|e| e.to_string())?;
+    rows.collect::<Result<_, _>>().map_err(|e| e.to_string())
+}
+
+/// Zotero's annotation types, by the number `itemAnnotations.type` stores.
+fn annotation_kind(kind: i64) -> &'static str {
+    match kind {
+        1 => "highlight",
+        2 => "note",
+        3 => "image",
+        4 => "ink",
+        5 => "underline",
+        6 => "text",
+        _ => "note",
+    }
+}
+
+/// The annotations on the PDFs of each item in `items` (by item key), each
+/// item's in Zotero's own reading order: attachment by attachment, then by
+/// place on the page.
+pub(super) fn annotations(
+    db: &Connection, items: &HashSet<&str>,
+) -> Result<HashMap<String, Vec<ZoteroAnnotation>>, String> {
+    check_schema(db)?;
+    let mut out: HashMap<String, Vec<ZoteroAnnotation>> = HashMap::new();
+    if !annotations_readable(db) {
+        return Ok(out);
+    }
+    let mut statement = db
+        .prepare(&format!(
+            "SELECT pi.key, ni.key, ai.key, n.type, n.text, n.comment, n.color, n.pageLabel, n.position
+             {ANNOTATIONS_FROM} JOIN items pi ON pi.itemID = a.parentItemID
+             WHERE {ANNOTATIONS_WHERE}
+             ORDER BY a.parentItemID, a.itemID, n.sortIndex, n.itemID"
+        ))
+        .map_err(|e| e.to_string())?;
+    let mut rows = statement.query(params![USER_LIBRARY]).map_err(|e| e.to_string())?;
+    while let Some(row) = rows.next().map_err(|e| e.to_string())? {
+        let item: String = row.get(0).map_err(|e| e.to_string())?;
+        if !items.contains(item.as_str()) {
+            continue;
+        }
+        let text = |index: usize| -> Result<String, String> {
+            Ok(row.get::<_, Option<String>>(index).map_err(|e| e.to_string())?.unwrap_or_default())
+        };
+        let position = text(8)?;
+        out.entry(item).or_default().push(ZoteroAnnotation {
+            key: row.get(1).map_err(|e| e.to_string())?,
+            attachment: row.get(2).map_err(|e| e.to_string())?,
+            kind: annotation_kind(row.get(3).map_err(|e| e.to_string())?),
+            text: text(4)?.trim().to_string(),
+            comment: text(5)?.trim().to_string(),
+            page: page_index(&position).and_then(|index| u32::try_from(index + 1).ok()),
+            page_label: Some(text(7)?.trim().to_string()).filter(|label| !label.is_empty()),
+            color: Some(text(6)?).filter(|color| !color.is_empty()),
+        });
+    }
+    Ok(out)
+}
+
+/// The page index (from 0) a PDF annotation's `position` JSON records.
+fn page_index(position: &str) -> Option<u64> {
+    serde_json::from_str::<serde_json::Value>(position).ok()?.get("pageIndex")?.as_u64()
 }
 
 /// Better BibTeX's keys by item key (its `citationkey` table), when its

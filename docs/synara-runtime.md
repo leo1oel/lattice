@@ -39,6 +39,8 @@ describes what the sidecar is and how it is built and synced; it is not a second
 - Telemetry and automatic browser launch are disabled for the bundled process. Background provider probes (Cursor's model discovery and Git-writing text generation) never send an ACP `authenticate`, so a signed-out Cursor account cannot open its sign-in page at startup; sign-in starts only from the **Sign in** button in Settings → Providers, or from a turn the writer sends.
 - Provider usage reads each macOS Keychain item at most once per sidecar and remembers a denied or timed-out read, so usage polls do not prompt again. To retry after granting access, press Refresh in Settings → Agent → Usage & limits (Synara's `usage` page, which sends `forceRefresh`), or restart Lattice.
 - Since 1.5.2, Usage & limits → Analytics prices tokens that have no reported cost from LiteLLM's public price table, refreshed at most once a day (a failed download is retried after 15 minutes) into the runtime data directory (`usagePricing.ts` in the fork); the request carries no user data, and offline the view shows tokens without cost. Its "This Mac" scope, which the writer must pick, reads the local Claude Code and Codex session logs for counts only and uploads nothing. Both are upstream behaviour kept as is; see the [1.5.2 ledger entry](synara-fork-ledger.md#synara-152-compatibility).
+- Images a tool returns to the agent (a Read of a figure, a screenshot, a figure preview) are copied to `tool-images/<thread>/` under the runtime data directory so the panel can show them after the bytes are stripped from the event.
+  The copies are content-addressed, served only as images, and not pruned yet; see the [fork ledger](synara-fork-ledger.md#the-current-pin).
 - Lattice starts the fork with `AGENT_HOST_PROFILE=lattice`. The upstream-shaped default profile
   remains unchanged, so the same fork can still be tested against upstream behavior.
 - The host profile owns every model-visible boundary: host prompt, MCP server identity, provider
@@ -383,7 +385,7 @@ Keep the previous checkout available until the upgrade audit passes.
    `SYNARA_SOURCE_DIR` overrides the new source location; `SYNARA_PREVIOUS_SOURCE_DIR` overrides the previous checkout's location when it differs from the old pin's `sourceDirectory`.
    Point the latter at the checkout previously used by Lattice, including any committed-but-unpinned fixes; both checkouts still must be clean and their history is checked.
    This is a local pre-publication check, not a replacement for browser regressions or a CI check that can see uncommitted files on another machine.
-   CI's `synara-pin` job runs the published half on every pull request that moves the pin: `node scripts/check-synara-pin.mjs <base-lattice-ref>` fetches the fork's commits and fails unless the pin is on its declared `branch` and descends from the base's pin.
+   `pnpm signoff` runs the published half for a branch that moves the pin, as CI's `synara-pin` job does for a release tag: `node scripts/check-synara-pin.mjs <base-lattice-ref>` fetches the fork's commits and fails unless the pin is on its declared `branch` and descends from the base's pin.
    Push the verified fork commit before publishing the Lattice pin.
 7. Run `pnpm prepare:synara` and the Lattice frontend/Rust checks before producing an installer.
 
