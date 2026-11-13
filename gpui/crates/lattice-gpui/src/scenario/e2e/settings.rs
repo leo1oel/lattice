@@ -153,6 +153,10 @@ impl Run {
             settings::update_appearance(cx, |a| a.interface_language = InterfaceLanguage::ZhCn)
         });
         self.pause(cx, Duration::from_millis(200)).await;
+        #[cfg(target_os = "macos")]
+        let windows_menu = crate::native::windows_menu_title();
+        #[cfg(not(target_os = "macos"))]
+        let windows_menu = Some(String::from("窗口"));
         let chinese = cx.update(|_| {
             let context = CommandContext {
                 in_project: true,
@@ -167,6 +171,7 @@ impl Run {
                 "appearance": t!("Appearance"),
                 "build": labels.iter().find(|label| label.contains("编译")).cloned(),
                 "settings": labels.iter().find(|label| label.contains("设置")).cloned(),
+                "windows_menu": windows_menu,
             })
         });
         cx.update(|cx| {
@@ -176,11 +181,12 @@ impl Run {
         let english =
             cx.update(|_| lattice_i18n::locale() == Locale::En && t!("Appearance") == "Appearance");
         steps.check(
-            "the interface switches to Simplified Chinese (commands, Settings) and back",
+            "the interface switches to Simplified Chinese (commands, Settings, the Window menu) and back",
             chinese["locale"] == "zh-CN"
                 && chinese["appearance"] == "外观"
                 && !chinese["build"].is_null()
                 && !chinese["settings"].is_null()
+                && chinese["windows_menu"] == "窗口"
                 && english,
             json!({ "chinese": chinese, "english_again": english }),
         );

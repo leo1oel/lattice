@@ -44,6 +44,8 @@ pub fn install(cx: &mut App) {
 /// changes.
 pub fn install_menus(cx: &mut App) {
     cx.set_menus(menus(cx));
+    #[cfg(target_os = "macos")]
+    crate::native::set_windows_menu(tc!("macOS menu bar", "Window"));
 }
 
 /// Lay the menus out again: File ▸ Open Recent follows the recent projects

@@ -441,3 +441,38 @@ pub fn preferred_languages() -> Vec<String> {
         .map(|language| language.to_string())
         .collect()
 }
+
+/// Register the main menu's submenu titled `title` as NSApp's windows menu,
+/// so macOS lists the open windows in it whatever the interface language;
+/// GPUI registers it only under the English title.
+pub fn set_windows_menu(title: &str) {
+    unsafe {
+        let app: *mut AnyObject = msg_send![class!(NSApplication), sharedApplication];
+        let main: *mut AnyObject = msg_send![app, mainMenu];
+        if main.is_null() {
+            return;
+        }
+        let title = NSString::from_str(title);
+        let item: *mut AnyObject = msg_send![main, itemWithTitle: &*title];
+        if item.is_null() {
+            return;
+        }
+        let submenu: *mut AnyObject = msg_send![item, submenu];
+        if !submenu.is_null() {
+            let _: () = msg_send![app, setWindowsMenu: submenu];
+        }
+    }
+}
+
+/// The title of NSApp's windows menu, if one is registered.
+pub fn windows_menu_title() -> Option<String> {
+    unsafe {
+        let app: *mut AnyObject = msg_send![class!(NSApplication), sharedApplication];
+        let menu: *mut AnyObject = msg_send![app, windowsMenu];
+        if menu.is_null() {
+            return None;
+        }
+        let title: Option<Retained<NSString>> = msg_send![menu, title];
+        title.map(|title| title.to_string())
+    }
+}
