@@ -40,6 +40,8 @@ impl Run {
         self.menu_item_over_row(cx, steps).await?;
         self.switcher_glyph_keys(cx, steps).await?;
         self.panel_menu_submenu_click(cx, steps).await?;
+        self.submenu_pointer_grace(cx, steps).await?;
+        self.submenu_focus_after_pointer_close(cx, steps).await?;
         self.pdf_toolbar_glide(cx, steps).await
     }
 
@@ -299,6 +301,10 @@ impl Run {
         // the strip again.
         lattice_ui::parity::enable();
         let root = self.root(cx).await?;
+        // Trellis offers New split right/below only for a panel holding more
+        // than one view (as the Tauri app does), so the editor's panel gets a
+        // second tab first, whatever earlier steps left open.
+        self.open(cx, &root.join("chapters/intro.tex"), Some(1))?;
         self.open(cx, &root.join("main.tex"), Some(1))?;
         self.pause(cx, SETTLE).await;
         // How many panels the window shows: a new split adds one.
@@ -387,6 +393,182 @@ impl Run {
             shell.update(cx, |shell, cx| shell.install(before, false, window, cx))
         })?;
         self.pause(cx, SETTLE).await;
+        Ok(())
+    }
+
+    /// Opens the active editor's ⋯ menu and hovers its Move … to row, so its
+    /// submenu opens. Returns the Move row's bounds, the parent menu's row
+    /// under it, and the submenu's rows, or None (with the menu closed).
+    async fn open_move_submenu(
+        &self,
+        cx: &mut AsyncApp,
+    ) -> Result<Option<(
+        gpui::Bounds<gpui::Pixels>,
+        gpui::Bounds<gpui::Pixels>,
+        Vec<(String, gpui::Bounds<gpui::Pixels>)>,
+    )>> {
+        lattice_ui::parity::enable();
+        let root = self.root(cx).await?;
+        // Trellis offers New split right/below only for a panel holding more
+        // than one view (as the Tauri app does), so the editor's panel gets a
+        // second tab first, whatever earlier steps left open.
+        self.open(cx, &root.join("chapters/intro.tex"), Some(1))?;
+        self.open(cx, &root.join("main.tex"), Some(1))?;
+        self.pause(cx, SETTLE).await;
+        let name = cx.update(|cx| self.shell.read(cx).active_editor_path(cx));
+        let Some(name) = name.map(|path| path.rsplit('/').next().unwrap_or(&path).to_string())
+        else {
+            return Ok(None);
+        };
+        let Some(strip) = lattice_ui::parity::regions()
+            .get(format!("strip/{name}").as_str())
+            .and_then(|region| region.bounds)
+        else {
+            return Ok(None);
+        };
+        let native = self.native(cx)?;
+        let dots = point(strip.right() - px(18.), strip.center().y);
+        native::send_mouse(native, native::Mouse::Moved, dots)?;
+        native::send_click(native, dots)?;
+        self.pause(cx, SETTLE).await;
+        let move_label = lattice_i18n::space_mixed_script(&t!("Move {title} to", title = name));
+        let rows = cx
+            .update(|cx| menu_snapshot(&move_label, cx))
+            .map(|menu| menu.rows)
+            .unwrap_or_default();
+        let at = rows.iter().position(|(_, label, _)| **label == *move_label);
+        let (Some(at), true) = (at, at.is_some_and(|at| at + 1 < rows.len())) else {
+            native::send_key(native, '\u{1b}', false)?;
+            self.pause(cx, SETTLE).await;
+            return Ok(None);
+        };
+        let (move_row, below) = (rows[at].2, rows[at + 1].2);
+        native::send_mouse(native, native::Mouse::Moved, move_row.center())?;
+        self.pause(cx, SETTLE).await;
+        let split = t!("New split right").to_string();
+        let sub = cx
+            .update(|cx| menu_snapshot(&split, cx))
+            .map(|menu| {
+                menu.rows
+                    .into_iter()
+                    .map(|(_, label, bounds)| (label.to_string(), bounds))
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        Ok(Some((move_row, below, sub)))
+    }
+
+    fn panel_count(&self, cx: &mut AsyncApp) -> usize {
+        cx.update(|cx| {
+            let doc = self.shell.read(cx).document(cx);
+            crate::shell::trellis_layout::panels_of(&doc, false).len()
+        })
+    }
+
+    /// Radix's pointer grace: the pointer leaving Move … to diagonally for
+    /// the submenu's New split below crosses the next parent row, and the
+    /// submenu stays open, so the press there runs it. Resting on that
+    /// crossed row past the grace closes the submenu, and the same press
+    /// then runs nothing.
+    async fn submenu_pointer_grace(&self, cx: &mut AsyncApp, steps: &mut Steps) -> Result<()> {
+        const NAME: &str = "the pointer crossing the next ⋯ menu row on its way to the \
+                            Move … to submenu keeps it open, and New split below runs";
+        const REST: &str = "resting on the crossed ⋯ menu row past the grace closes the \
+                            Move … to submenu";
+        let below_label = t!("New split below").to_string();
+        for (name, rest) in [(NAME, false), (REST, true)] {
+            let before = cx.update(|cx| self.shell.read(cx).document(cx));
+            let Some((move_row, below, sub)) = self.open_move_submenu(cx).await? else {
+                steps.check(name, false, json!({ "submenu": null }));
+                continue;
+            };
+            let Some(target) = sub
+                .iter()
+                .find(|(label, _)| *label == below_label)
+                .map(|(_, bounds)| bounds.center())
+            else {
+                let native = self.native(cx)?;
+                native::send_key(native, '\u{1b}', false)?;
+                self.pause(cx, SETTLE).await;
+                steps.check(name, false, json!({ "submenu_rows": sub.iter().map(|(l, _)| l.clone()).collect::<Vec<_>>() }));
+                continue;
+            };
+            let native = self.native(cx)?;
+            // On the next parent row, near its right edge, on the line
+            // from the Move row toward the submenu's lower rows.
+            let crossing = point(below.right() - px(6.), below.center().y);
+            let shape_before = self.panel_count(cx);
+            native::send_mouse(native, native::Mouse::Moved, crossing)?;
+            self.pause(cx, Duration::from_millis(if rest { 700 } else { 60 }))
+                .await;
+            native::send_mouse(native, native::Mouse::Moved, target)?;
+            self.pause(cx, SETTLE).await;
+            native::send_click(native, target)?;
+            self.pause(cx, SETTLE).await;
+            let shape_after = self.panel_count(cx);
+            let moved = shape_after != shape_before;
+            steps.check(
+                name,
+                moved != rest,
+                json!({
+                    "move_row": format!("{move_row:?}"),
+                    "crossing": format!("{crossing:?}"),
+                    "target": format!("{target:?}"),
+                    "panels_before": shape_before,
+                    "panels_after": shape_after,
+                }),
+            );
+            // Whatever the press did, close any menu and put the
+            // arrangement back.
+            native::send_key(native, '\u{1b}', false)?;
+            self.pause(cx, SETTLE).await;
+            self.with_window(cx, |shell, window, cx| {
+                shell.update(cx, |shell, cx| shell.install(before, false, window, cx))
+            })?;
+            self.pause(cx, SETTLE).await;
+        }
+        Ok(())
+    }
+
+    /// → on Move … to puts the keys in its submenu; the pointer then
+    /// lighting another parent row closes the submenu and gives the keys
+    /// back to the menu, so Escape closes it and the editor has them again.
+    async fn submenu_focus_after_pointer_close(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+    ) -> Result<()> {
+        const NAME: &str = "after the pointer closes a keyed Move … to submenu, Escape \
+                            closes the ⋯ menu and the editor has the keys again";
+        let Some((_, below, _)) = self.open_move_submenu(cx).await? else {
+            steps.check(NAME, false, json!({ "submenu": null }));
+            return Ok(());
+        };
+        let native = self.native(cx)?;
+        let holder = |cx: &mut AsyncApp| {
+            self.with_window(cx, |shell, window, cx| {
+                crate::scenario::shell_steps::keyboard_holder(shell, window, cx)
+            })
+        };
+        self.press(cx, native::RIGHT_ARROW, false).await?;
+        self.pause(cx, SETTLE).await;
+        let in_submenu = holder(cx)?;
+        // Straight onto the next row's middle: not toward the submenu.
+        native::send_mouse(native, native::Mouse::Moved, below.center())?;
+        self.pause(cx, SETTLE).await;
+        native::send_key(native, '\u{1b}', false)?;
+        self.pause(cx, SETTLE).await;
+        let after = holder(cx)?;
+        steps.check(
+            NAME,
+            after == "the active editor",
+            json!({ "keys_after_right_arrow": in_submenu, "keys_after_escape": after }),
+        );
+        if after != "the active editor" {
+            // Leave no menu open for the next steps.
+            native::send_click(native, point(px(4.), px(400.)))?;
+            self.pause(cx, SETTLE).await;
+        }
         Ok(())
     }
 

@@ -28,7 +28,7 @@
 use std::rc::Rc;
 
 use gpui::{
-    AnyElement, App, ClickEvent, Div, ElementId, InteractiveElement as _, IntoElement,
+    AnyElement, App, ClickEvent, Div, ElementId, InteractiveElement as _, IntoElement, MouseMoveEvent,
     ParentElement, Pixels, Refineable as _, RenderOnce, SharedString,
     StatefulInteractiveElement as _, StyleRefinement, Styled, Window, div,
     prelude::FluentBuilder as _, px, rems, transparent_black,
@@ -50,6 +50,7 @@ pub const MENU_OFFSET: Pixels = px(4.);
 
 type ClickHandler = Rc<dyn Fn(&ClickEvent, &mut Window, &mut App)>;
 type HoverHandler = Rc<dyn Fn(&bool, &mut Window, &mut App)>;
+type MouseMoveHandler = Rc<dyn Fn(&MouseMoveEvent, &mut Window, &mut App)>;
 
 /// The lift a menu's rows stand on.
 #[derive(IntoElement)]
@@ -132,6 +133,7 @@ pub struct MenuItem {
     fluid: bool,
     on_click: Option<ClickHandler>,
     on_hover: Option<HoverHandler>,
+    on_mouse_move: Option<MouseMoveHandler>,
 }
 
 impl MenuItem {
@@ -151,6 +153,7 @@ impl MenuItem {
             fluid: false,
             on_click: None,
             on_hover: None,
+            on_mouse_move: None,
         }
     }
 
@@ -223,6 +226,16 @@ impl MenuItem {
         handler: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
     ) -> Self {
         self.on_click = Some(Rc::new(handler));
+        self
+    }
+
+    /// The pointer moving over the row, on the row's own element: a wrapper
+    /// would take the row's place in the list's layout and measurement.
+    pub fn on_mouse_move(
+        mut self,
+        handler: impl Fn(&MouseMoveEvent, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.on_mouse_move = Some(Rc::new(handler));
         self
     }
 
@@ -327,6 +340,9 @@ impl RenderOnce for MenuItem {
             })
             .when_some(self.on_click.filter(|_| !disabled), |this, on_click| {
                 this.on_click(move |event, window, cx| on_click(event, window, cx))
+            })
+            .when_some(self.on_mouse_move, |this, on_move| {
+                this.on_mouse_move(move |event, window, cx| on_move(event, window, cx))
             })
     }
 }

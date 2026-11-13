@@ -548,7 +548,16 @@ impl RenderOnce for Menu {
             } else {
                 let next = is_submenu(Some(at)).then_some((at, false));
                 open_sub.update(cx, |open, _| *open = next);
-                grace.update(cx, |grace, _| *grace = Grace::default());
+                // The move that lit the row came before the submenu opened,
+                // so the row's own listener did not see it: a pointer that
+                // opens the submenu starts its grace from where it stands.
+                let origin = (next.is_some() && hover.by_pointer(cx)).then_some(pointer);
+                grace.update(cx, |grace, _| {
+                    *grace = Grace {
+                        origin,
+                        since: None,
+                    }
+                });
                 if sub_focus.contains_focused(window, cx)
                     && let Some(focus) = &self.focus
                 {
@@ -669,6 +678,7 @@ impl RenderOnce for Menu {
                         .submenu()
                         .highlighted(hover.lit(cx) == Some(ix))
                         .fluid()
+                        .on_mouse_move(leave)
                         .on_click(move |_, _, cx| {
                             open_sub.update(cx, |open, cx| {
                                 *open = Some((ix, false));
@@ -676,11 +686,7 @@ impl RenderOnce for Menu {
                             })
                         });
                     submenu_rows.push((ix, submenu));
-                    hover.item_as(
-                        ix,
-                        ItemKind::target().section(section),
-                        div().on_mouse_move(leave).child(item),
-                    )
+                    hover.item_as(ix, ItemKind::target().section(section), item)
                 }
                 Entry::Item(action) => {
                     let id = child(&format!("item-{ix}"));
