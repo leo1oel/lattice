@@ -26,13 +26,13 @@ mod names;
 mod values;
 
 pub use edits::{
-    BibEdit, add_field_edit, apply_edit, change_type_edit, delete_entry_edit, remove_field_edit,
-    rename_key_edit, replace_value_edit,
+    add_field_edit, apply_edit, change_type_edit, delete_entry_edit, remove_field_edit,
+    rename_key_edit, replace_value_edit, BibEdit,
 };
 pub use names::{author_names, short_authors};
 pub use values::{
-    BibSummary, BibValueStyle, balanced_braces, bib_text_to_plain, editable_value, encode_value,
-    entry_values, expand_value, self_contained_value, summarize_entry, valid_citation_key,
+    balanced_braces, bib_text_to_plain, editable_value, encode_value, entry_values, expand_value,
+    self_contained_value, summarize_entry, valid_citation_key, BibSummary, BibValueStyle,
 };
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]

@@ -38,7 +38,16 @@ impl Run {
                 .unwrap_or_else(|| gpui::Focusable::focus_handle(bib.read(cx), cx));
             window.focus(&next, cx);
         })?;
+        // Focus listeners run as a frame finishes, and only in an active
+        // window: in an inactive one (a locked screen) the box is told it
+        // was left, as GPUI would once the window became key.
         self.pause(cx, Duration::from_millis(100)).await;
+        let (left, active) = self.with_window(cx, |_, window, _| {
+            (!focus.is_focused(window), window.is_window_active())
+        })?;
+        if left && !active {
+            cx.update(|cx| bib.update(cx, |bib, cx| bib.field_left(field, cx)));
+        }
         Ok(true)
     }
 
@@ -179,9 +188,16 @@ impl Run {
         let typed = self.type_into_field(cx, &bib, "year", "1986", None).await?;
         let after = self.editor_text(cx, &editor);
         self.press(cx, 'z', true).await?;
+        // Stepped back in the source and, once the form has read the file
+        // again (it settles before it parses), in the year box the writer
+        // sees before typing there again.
         let undone = self
             .wait_for(cx, Duration::from_secs(2), |_, cx| {
                 editor.read(cx).editor().read(cx).text(cx) == before
+                    && bib
+                        .read(cx)
+                        .form_fields(cx)
+                        .contains(&("year".to_string(), "1984".to_string()))
             })
             .await;
         steps.check(
