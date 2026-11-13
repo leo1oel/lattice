@@ -30,6 +30,8 @@ pub(crate) struct Documents {
     /// Find's query and tab, kept across reopening.
     find_memory: FindMemory,
     replace: Option<Entity<ProjectReplace>>,
+    /// Add papers, opened from the Papers panel.
+    pub(super) add_papers: Option<Entity<crate::papers::add_sheet::AddPapers>>,
     /// The places the writer went (project-relative path, line), oldest
     /// first, and the one back and forward stand on.
     history: Vec<(String, u32)>,
@@ -201,7 +203,7 @@ impl Shell {
 
     /// The palette and the shortcut sheet make way for a search surface,
     /// and one search surface for another.
-    fn dismiss_overlays_for_documents(&mut self, cx: &mut Context<Self>) {
+    pub(super) fn dismiss_overlays_for_documents(&mut self, cx: &mut Context<Self>) {
         self.palette = None;
         self.shortcuts = None;
         self.take_document_overlays(cx);
@@ -213,6 +215,7 @@ impl Shell {
             self.documents.find_memory = find.read(cx).memory(cx);
         }
         self.documents.replace = None;
+        self.documents.add_papers = None;
     }
 
     /// Close whichever search surface is open, and give the keyboard back to
@@ -229,6 +232,7 @@ impl Shell {
         self.documents.quick_open.is_some()
             || self.documents.find.is_some()
             || self.documents.replace.is_some()
+            || self.documents.add_papers.is_some()
     }
 
     /// Quick open, while it is up, for a scenario.
@@ -339,6 +343,12 @@ impl Shell {
             .chain(
                 documents
                     .replace
+                    .clone()
+                    .map(|view| view.into_any_element()),
+            )
+            .chain(
+                documents
+                    .add_papers
                     .clone()
                     .map(|view| view.into_any_element()),
             )

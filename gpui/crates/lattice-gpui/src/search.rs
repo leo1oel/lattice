@@ -10,5 +10,5 @@ pub mod find;
 pub mod quick_open;
 mod ranking;
 pub mod replace;
-mod sheet;
+pub(crate) mod sheet;
 mod symbols;
