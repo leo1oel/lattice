@@ -80,6 +80,7 @@ impl RecentProjects {
         );
         recents.list.truncate(KEPT);
         recents.persist();
+        crate::shell::menus::refresh(cx);
     }
 
     /// Replace the list, for a scenario that stages one.

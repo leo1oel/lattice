@@ -13,12 +13,19 @@ use lattice_ui::Icon;
 
 use super::layout::Preset;
 
+mod projects;
+
 actions!(
     lattice,
     [
         OpenFolder,
+        OpenFolderHere,
         NewProject,
+        CloneRepository,
+        ImportZip,
         QuickOpen,
+        GoBack,
+        GoForward,
         FindInProject,
         ReplaceInProject,
         Build,
@@ -79,6 +86,15 @@ actions!(
         About,
     ]
 );
+
+/// Open a recent project: in a window of its own once this one shows a
+/// project, unless `here`.
+#[derive(Clone, Debug, PartialEq, Eq, gpui::Action)]
+#[action(namespace = lattice, no_json)]
+pub struct OpenRecentProject {
+    pub path: std::path::PathBuf,
+    pub here: bool,
+}
 
 /// Switch to the workspace with this id: the palette lists one per
 /// workspace, however many there are.
@@ -146,6 +162,9 @@ pub struct CommandContext {
     /// The workspaces' ids and names, in order.
     pub workspaces: Vec<(String, SharedString)>,
     pub projects: usize,
+    /// The recent projects other than this window's, newest first: name and
+    /// folder.
+    pub recent: Vec<(SharedString, std::path::PathBuf)>,
 }
 
 /// One row of the table.
@@ -254,6 +273,8 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
             Section::Navigate,
             QuickOpen,
         ));
+        out.push(Command::new("back", "Back", Section::Navigate, GoBack).keys_only());
+        out.push(Command::new("forward", "Forward", Section::Navigate, GoForward).keys_only());
         out.push(
             Command::new(
                 "close-tab",
@@ -450,58 +471,7 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
             ReplaceInProject,
         ));
     }
-    out.push(Command::new(
-        "new-project",
-        "New project",
-        Section::Project,
-        NewProject,
-    ));
-    out.push(Command::new(
-        "open-folder",
-        "Open another folder",
-        Section::Project,
-        OpenFolder,
-    ));
-    out.push(Command::new(
-        "new-window",
-        "New window",
-        Section::Project,
-        NewWindow,
-    ));
-    if project {
-        out.push(Command::new(
-            "open-in-new-window",
-            "Open this project in a new window",
-            Section::Project,
-            OpenInNewWindow,
-        ));
-    }
-    out.push(Command::new(
-        "doctor",
-        "Run TeX doctor",
-        Section::Project,
-        OpenTexDoctor,
-    ));
-    if context.projects > 1 {
-        out.push(Command::new(
-            "next-project",
-            "Next project",
-            Section::Project,
-            NextProject,
-        ));
-        out.push(Command::new(
-            "previous-project",
-            "Previous project",
-            Section::Project,
-            PreviousProject,
-        ));
-        out.push(Command::new(
-            "close-project",
-            "Close this project",
-            Section::Project,
-            CloseProject,
-        ));
-    }
+    projects::project_commands(context, &mut out);
     for (id, label, action) in [
         (
             "theme-light",
@@ -567,6 +537,11 @@ fn default_bindings() -> Vec<KeyBinding> {
         // Vim's insert mode keeps Ctrl+P for its word completion.
         KeyBinding::new(m!("p"), QuickOpen, beside_vim("!(vim_mode == insert)")),
         KeyBinding::new(m!("shift-f"), FindInProject, None),
+        // Back and forward through the places visited, over Zed's outdent
+        // and indent in the editor, as the Tauri app's are over
+        // CodeMirror's.
+        KeyBinding::new(m!("["), GoBack, None),
+        KeyBinding::new(m!("]"), GoForward, None),
         KeyBinding::new(m!("shift-h"), ReplaceInProject, None),
         KeyBinding::new(m!("shift-n"), NewProject, None),
         KeyBinding::new(m!("s"), Save, beside_vim("!(vim_mode == insert)")),
@@ -933,6 +908,14 @@ mod keymap_tests {
             resolve_in_editor(zed, m!("shift-enter")),
             Some(ToggleMaximize.name())
         );
+    }
+
+    #[test]
+    fn back_and_forward_win_over_zeds_indent_in_an_editor() {
+        let outdent = KeyBinding::new(m!("["), editor::actions::Outdent, Some("Editor"));
+        assert_eq!(resolve_in_editor(outdent, m!("[")), Some(GoBack.name()));
+        let indent = KeyBinding::new(m!("]"), editor::actions::Indent, Some("Editor"));
+        assert_eq!(resolve_in_editor(indent, m!("]")), Some(GoForward.name()));
     }
 
     #[test]

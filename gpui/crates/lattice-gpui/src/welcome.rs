@@ -14,6 +14,7 @@
 //!
 //! ⌘1 to ⌘3 open the desk's projects, as in the app.
 
+pub mod clone;
 mod desk;
 mod field;
 mod mark;

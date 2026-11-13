@@ -29,10 +29,39 @@ pub fn install(cx: &mut App) {
                 .ok();
         }
     });
-    cx.set_menus(menus());
+    cx.set_menus(menus(cx));
 }
 
-fn menus() -> Vec<Menu> {
+/// Lay the menus out again: File ▸ Open Recent follows the recent projects.
+pub fn refresh(cx: &mut App) {
+    cx.set_menus(menus(cx));
+}
+
+/// File ▸ Open Recent: the recent projects, newest first, at most five, the
+/// one in front left out (`switcherProjects`). Each opens as Open Recent does
+/// in the app: in a window of its own once the window shows a project.
+fn open_recent(cx: &App) -> MenuItem {
+    let front = cx
+        .active_window()
+        .and_then(|window| windows::root_of(window, cx));
+    let items: Vec<MenuItem> = crate::recents::RecentProjects::list(cx)
+        .iter()
+        .filter(|recent| Some(&recent.path) != front.as_ref())
+        .take(5)
+        .map(|recent| {
+            MenuItem::action(
+                recent.name.clone(),
+                OpenRecentProject {
+                    path: recent.path.clone(),
+                    here: false,
+                },
+            )
+        })
+        .collect();
+    MenuItem::submenu(Menu::new("Open Recent").items(items))
+}
+
+fn menus(cx: &App) -> Vec<Menu> {
     vec![
         Menu::new("Lattice").items([
             MenuItem::action("About Lattice", About),
@@ -47,8 +76,13 @@ fn menus() -> Vec<Menu> {
         ]),
         Menu::new("File").items([
             MenuItem::action("New Project…", NewProject),
+            MenuItem::action("Open…", OpenFolder),
+            open_recent(cx),
+            MenuItem::separator(),
+            MenuItem::action("Clone Repository…", CloneRepository),
+            MenuItem::action("Import Overleaf ZIP…", ImportZip),
+            MenuItem::separator(),
             MenuItem::action("New Window", NewWindow),
-            MenuItem::action("Open Folder…", OpenFolder),
             MenuItem::action("Open in New Window", OpenInNewWindow),
             MenuItem::separator(),
             MenuItem::action("Save and Build", Save),

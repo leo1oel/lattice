@@ -490,7 +490,9 @@ impl Render for CommandPaletteView {
             .size_full()
             .flex()
             .justify_center()
-            .pt(px(72.))
+            // 18% of the window down, where every app dialog stands
+            // (`.modal-dialog-content`), quick open's too.
+            .pt(window.viewport_size().height * 0.18)
             .bg(palette.scrim)
             .occlude()
             .track_focus(&self.focus)

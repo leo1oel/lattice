@@ -37,9 +37,9 @@ use std::path::{Path, PathBuf};
 use futures::channel::oneshot;
 use gpui::{
     AnyWindowHandle, App, AppContext as _, Bounds, Context, Entity, FocusHandle, Focusable,
-    InteractiveElement as _, IntoElement, ParentElement as _, PathPromptOptions, PromptLevel,
-    Render, SharedString, Styled as _, Subscription, Task, WeakEntity, Window, WindowBounds,
-    WindowOptions, prelude::FluentBuilder as _, px, size,
+    InteractiveElement as _, IntoElement, ParentElement as _, PromptLevel, Render, SharedString,
+    Styled as _, Subscription, Task, WeakEntity, Window, WindowBounds, WindowOptions,
+    prelude::FluentBuilder as _, px, size,
 };
 use gpui_kit::component::{
     dock::{DockArea, DockEvent, PanelId},
@@ -49,7 +49,7 @@ use lattice_ui::{ActiveLattice as _, Appearance, LatticeTheme, dock::LatticeDock
 
 use build::BuildRequest;
 pub use commands::{
-    Build, CleanBuildFiles, CleanRebuild, ForwardSync, InstallLatexTools, NextProblem, OpenFolder,
+    Build, CleanBuildFiles, CleanRebuild, ForwardSync, InstallLatexTools, NextProblem,
     OpenTexDoctor, PreviousProblem, Save, StopBuild, ToggleVimMode,
 };
 
@@ -559,6 +559,9 @@ impl Shell {
             return None;
         }
         let path = path.canonicalize().unwrap_or(path);
+        let in_front = self
+            .active_editor()
+            .is_some_and(|editor| editor.read(cx).path() == path);
         let editor = match self.open_editor(&path, cx) {
             Some(editor) if self.panel_shown(PanelId::from(editor.entity_id()), cx) => {
                 let id = PanelId::from(editor.entity_id());
@@ -577,7 +580,7 @@ impl Shell {
             Some(line) => editor.go_to_line(line, window, cx),
             None => window.focus(&editor.editor().focus_handle(cx), cx),
         });
-        self.record_visit(&path, cx);
+        self.record_visit(&path, line, in_front, cx);
         self.refresh_outline(window, cx);
         self.file_tree
             .update(cx, |tree, cx| tree.set_current(Some(path.clone()), cx));
@@ -696,31 +699,6 @@ impl Shell {
         cx.notify();
     }
 
-    pub(crate) fn open_folder(
-        &mut self,
-        _: &OpenFolder,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let paths = cx.prompt_for_paths(PathPromptOptions {
-            files: false,
-            directories: true,
-            multiple: false,
-            prompt: Some("Open LaTeX Project".into()),
-        });
-        cx.spawn_in(window, async move |this, cx| {
-            let Ok(Ok(Some(paths))) = paths.await else {
-                return;
-            };
-            let Some(root) = paths.into_iter().next() else {
-                return;
-            };
-            this.update_in(cx, |this, window, cx| this.open_project(root, window, cx))
-                .ok();
-        })
-        .detach();
-    }
-
     pub(super) fn open_editors(&mut self) -> Vec<Entity<EditorPanel>> {
         self.editors.retain(|editor| editor.upgrade().is_some());
         self.editors
@@ -799,7 +777,6 @@ impl Render for Shell {
             .id("lattice-shell")
             .key_context("LatticeShell")
             .track_focus(&self.focus_handle)
-            .on_action(cx.listener(Self::open_folder))
             .on_action(cx.listener(Self::build))
             .on_action(cx.listener(Self::save_all))
             .on_action(cx.listener(Self::forward_sync))
@@ -824,7 +801,7 @@ impl Render for Shell {
             .children(self.palette.clone())
             .children(self.shortcuts.clone())
             .children(self.document_overlays())
-            .children(self.new_project_dialog().cloned())
+            .children(self.lobby_dialogs())
             .child(self.notices.clone())
             .child(self.tex_setup.clone())
             .child(self.confirm.clone())

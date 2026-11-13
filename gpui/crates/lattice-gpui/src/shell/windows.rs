@@ -33,6 +33,16 @@ pub(super) fn register(window: AnyWindowHandle, shell: &Entity<Shell>, cx: &mut 
         .insert(window.window_id(), shell.downgrade());
 }
 
+/// The project the shell in `window` shows, if any.
+pub(crate) fn root_of(window: AnyWindowHandle, cx: &App) -> Option<PathBuf> {
+    let shell = cx
+        .try_global::<Shells>()?
+        .0
+        .get(&window.window_id())?
+        .upgrade()?;
+    shell.read(cx).root(cx)
+}
+
 /// Run `f` on the shell of each window `which` picks, in its own window.
 pub(crate) fn for_shells(
     cx: &mut App,

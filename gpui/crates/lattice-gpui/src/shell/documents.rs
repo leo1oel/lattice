@@ -18,8 +18,9 @@ use crate::{
     },
 };
 
-/// How many visited files the window remembers, newest first.
-const VISITED_KEPT: usize = 32;
+/// How many places back and forward go through
+/// (`NAVIGATION_HISTORY_LIMIT`, `src/app/open-documents-store.ts`).
+const HISTORY_KEPT: usize = 80;
 
 /// The search surfaces open in the window, and the files visited.
 #[derive(Default)]
@@ -29,8 +30,12 @@ pub(crate) struct Documents {
     /// Find's query and tab, kept across reopening.
     find_memory: FindMemory,
     replace: Option<Entity<ProjectReplace>>,
-    /// Project-relative, newest first, for this project only.
-    visited: Vec<String>,
+    /// The places the writer went (project-relative path, line), oldest
+    /// first, and the one back and forward stand on.
+    history: Vec<(String, u32)>,
+    history_index: usize,
+    /// Back or forward is opening its place, which is not a new one.
+    navigating: bool,
 }
 
 impl Shell {
@@ -59,7 +64,7 @@ impl Shell {
             .map(|editor| editor.read(cx).relative().to_string());
         let source = QuickOpenSource {
             paths,
-            recent: self.documents.visited.clone(),
+            recent: self.recent_paths(),
             line_target: current.clone(),
             current,
             root,
@@ -244,24 +249,78 @@ impl Shell {
         self.documents.replace.as_ref()
     }
 
-    /// Note that `path` was visited, for quick open's Recent.
-    pub(super) fn record_visit(&mut self, path: &Path, cx: &mut Context<Self>) {
+    /// Note where the writer went, for back and forward and quick open's
+    /// Recent (`pushNavigation`): a file opened, at its line or its top; the
+    /// file already in front only when a line was asked for. A place after
+    /// the one back stood on drops the places forward of it.
+    pub(super) fn record_visit(
+        &mut self,
+        path: &Path,
+        line: Option<u32>,
+        in_front: bool,
+        cx: &mut Context<Self>,
+    ) {
+        if self.documents.navigating || (in_front && line.is_none()) {
+            return;
+        }
         let Some(relative) = self
             .root(cx)
             .and_then(|root| crate::project::relative_path(&root, path))
         else {
             return;
         };
-        let visited = &mut self.documents.visited;
-        visited.retain(|existing| *existing != relative);
-        visited.insert(0, relative);
-        visited.truncate(VISITED_KEPT);
+        let entry = (relative, line.unwrap_or(1));
+        let documents = &mut self.documents;
+        documents
+            .history
+            .truncate((documents.history_index + 1).min(documents.history.len()));
+        if documents.history.last() != Some(&entry) {
+            documents.history.push(entry);
+        }
+        let overflow = documents.history.len().saturating_sub(HISTORY_KEPT);
+        documents.history.drain(..overflow);
+        documents.history_index = documents.history.len().saturating_sub(1);
+    }
+
+    /// ⌘[ and ⌘]: the place before or after the one back stands on.
+    pub(crate) fn go_back_or_forward(
+        &mut self,
+        step: isize,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let next = self.documents.history_index as isize + step;
+        let Some((path, line)) = usize::try_from(next)
+            .ok()
+            .and_then(|next| self.documents.history.get(next).cloned())
+        else {
+            return;
+        };
+        let Some(root) = self.root(cx) else {
+            return;
+        };
+        self.documents.history_index = next as usize;
+        self.documents.navigating = true;
+        self.open_path(root.join(path), Some(line), window, cx);
+        self.documents.navigating = false;
+    }
+
+    /// The files visited this session, newest first and each once.
+    fn recent_paths(&self) -> Vec<String> {
+        let mut out: Vec<String> = Vec::new();
+        for (path, _) in self.documents.history.iter().rev() {
+            if !out.contains(path) {
+                out.push(path.clone());
+            }
+        }
+        out
     }
 
     /// A new project in the window starts its own history, and its own
     /// search.
     pub(super) fn forget_visits(&mut self) {
-        self.documents.visited.clear();
+        self.documents.history.clear();
+        self.documents.history_index = 0;
         self.documents.quick_open = None;
         self.documents.find = None;
         self.documents.find_memory = FindMemory::default();

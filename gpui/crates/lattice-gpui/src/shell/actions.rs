@@ -148,6 +148,12 @@ impl Shell {
             dirty: self.layout.dirty,
             building: self.build_task.is_some(),
             preset: self.layout.preset.as_ref().map(|active| active.preset),
+            recent: crate::recents::RecentProjects::list(cx)
+                .iter()
+                .filter(|recent| Some(&recent.path) != self.root(cx).as_ref())
+                .take(5)
+                .map(|recent| (recent.name.clone().into(), recent.path.clone()))
+                .collect(),
             workspaces: Workspaces::global(cx)
                 .list()
                 .iter()
@@ -199,6 +205,27 @@ impl Shell {
             )
             .on_action(
                 cx.listener(|this, _: &NewProject, window, cx| this.open_new_project(window, cx)),
+            )
+            .on_action(
+                cx.listener(|this, _: &GoBack, window, cx| this.go_back_or_forward(-1, window, cx)),
+            )
+            .on_action(
+                cx.listener(|this, _: &OpenFolder, window, cx| this.open_folder(false, window, cx)),
+            )
+            .on_action(cx.listener(|this, _: &OpenFolderHere, window, cx| {
+                this.open_folder(true, window, cx)
+            }))
+            .on_action(cx.listener(|this, action: &OpenRecentProject, window, cx| {
+                this.reveal_project(action.path.clone(), action.here, window, cx)
+            }))
+            .on_action(
+                cx.listener(|this, _: &CloneRepository, window, cx| this.open_clone(window, cx)),
+            )
+            .on_action(cx.listener(|this, _: &ImportZip, window, cx| this.import_zip(window, cx)))
+            .on_action(
+                cx.listener(|this, _: &GoForward, window, cx| {
+                    this.go_back_or_forward(1, window, cx)
+                }),
             )
             .on_action(cx.listener(|this, _: &CloseTab, window, cx| this.close_tab(window, cx)))
             .on_action(cx.listener(|this, _: &ReopenClosedTab, window, cx| {

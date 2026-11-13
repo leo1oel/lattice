@@ -11,12 +11,13 @@ use std::path::PathBuf;
 
 use gpui::{AppContext as _, Context, Entity, Focusable as _, PathPromptOptions, Window};
 
-use super::{InstallLatexTools, OpenFolder, Shell};
+use super::{InstallLatexTools, Shell, windows};
 use crate::{
     notices,
     recents::RecentProjects,
     welcome::{
         Unopened, Welcome, WelcomeEvent,
+        clone::{CloneDialog, CloneEvent},
         new_project::{NewProjectDialog, NewProjectEvent, create_project},
     },
 };
@@ -30,6 +31,7 @@ const TUTORIALS: &str = "Lattice Tutorials";
 pub(crate) struct Lobby {
     welcome: Option<Entity<Welcome>>,
     new_project: Option<Entity<NewProjectDialog>>,
+    clone: Option<Entity<CloneDialog>>,
 }
 
 impl Shell {
@@ -88,6 +90,7 @@ impl Shell {
     pub(super) fn entered_project(&mut self, name: &str, cx: &mut Context<Self>) {
         self.lobby.welcome = None;
         self.lobby.new_project = None;
+        self.lobby.clone = None;
         if let Some(root) = self.root(cx) {
             RecentProjects::record(&root, name, cx);
         }
@@ -102,18 +105,14 @@ impl Shell {
     ) {
         match event {
             WelcomeEvent::NewProject => self.open_new_project(window, cx),
-            WelcomeEvent::OpenFolder => self.open_folder(&OpenFolder, window, cx),
+            WelcomeEvent::OpenFolder => self.open_folder(false, window, cx),
             WelcomeEvent::Tutorial => self.open_tutorial(window, cx),
-            WelcomeEvent::OpenRecent(path) => self.open_project(path.clone(), window, cx),
+            WelcomeEvent::OpenRecent(path) => self.reveal_project(path.clone(), false, window, cx),
             WelcomeEvent::ImportZip => self.import_zip(window, cx),
             WelcomeEvent::InstallLatexTools => {
                 self.install_latex_tools(&InstallLatexTools, window, cx)
             }
-            WelcomeEvent::CloneRepository => notices::info(
-                "Cloning comes to the GPUI preview later",
-                "Clone the repository with Git, then open its folder here.",
-                cx,
-            ),
+            WelcomeEvent::CloneRepository => self.open_clone(window, cx),
             WelcomeEvent::Settings => notices::info(
                 "Settings come to the GPUI preview later",
                 "The appearance commands are in the command palette (⌘K).",
@@ -199,7 +198,7 @@ impl Shell {
             this.update_in(cx, |this, window, cx| {
                 this.set_busy(None, cx);
                 match created {
-                    Ok(root) => this.open_project(root, window, cx),
+                    Ok(root) => this.reveal_project(root, false, window, cx),
                     Err(error) => dialog.update(cx, |dialog, cx| dialog.set_error(Some(error), cx)),
                 }
             })
@@ -252,7 +251,7 @@ impl Shell {
 
     /// Import ZIP: a ZIP of a project (an Overleaf download), extracted
     /// where the writer says and opened.
-    fn import_zip(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn import_zip(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let zip = cx.prompt_for_paths(PathPromptOptions {
             files: true,
             directories: false,
@@ -294,12 +293,102 @@ impl Shell {
             this.update_in(cx, |this, window, cx| {
                 this.set_busy(None, cx);
                 match imported {
-                    Ok(root) => this.open_project(root, window, cx),
+                    Ok(root) => this.reveal_project(root, false, window, cx),
                     Err(error) => notices::error("Could not import the ZIP", error, cx),
                 }
             })
             .ok();
         })
         .detach();
+    }
+
+    /// Show a project that was opened, made, imported or cloned, as the
+    /// Tauri app decides where (`revealNewProject`, `openExistingProject`):
+    /// a window showing a project keeps it and the other gets a window of
+    /// its own, unless asked for here (a tab beside it); an empty window
+    /// takes it in place.
+    pub(crate) fn reveal_project(
+        &mut self,
+        root: PathBuf,
+        here: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.root(cx).as_ref() == Some(&root) {
+            return;
+        }
+        if here || self.project.is_none() {
+            self.open_project(root, window, cx);
+        } else {
+            windows::new_window(Some(root), Some(window.bounds()), cx);
+        }
+    }
+
+    /// ⌘O: a folder to open, in a window of its own once this one shows a
+    /// project; Open a folder in this window: here.
+    pub(crate) fn open_folder(&mut self, here: bool, window: &mut Window, cx: &mut Context<Self>) {
+        let paths = cx.prompt_for_paths(PathPromptOptions {
+            files: false,
+            directories: true,
+            multiple: false,
+            prompt: Some("Open a LaTeX project".into()),
+        });
+        cx.spawn_in(window, async move |this, cx| {
+            let Ok(Ok(Some(paths))) = paths.await else {
+                return;
+            };
+            let Some(root) = paths.into_iter().next() else {
+                return;
+            };
+            this.update_in(cx, |this, window, cx| {
+                this.reveal_project(root, here, window, cx)
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    /// Clone repository's dialog.
+    pub(crate) fn open_clone(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.lobby.clone.is_some() {
+            return;
+        }
+        let recent = RecentProjects::list(cx)
+            .first()
+            .map(|project| project.path.clone());
+        let dialog = cx.new(|cx| CloneDialog::new(recent.as_deref(), window, cx));
+        cx.subscribe_in(&dialog, window, |this, _, event, window, cx| match event {
+            CloneEvent::Dismiss => this.dismiss_clone(window, cx),
+            CloneEvent::Cloned(root) => {
+                this.dismiss_clone(window, cx);
+                this.reveal_project(root.clone(), false, window, cx);
+            }
+        })
+        .detach();
+        dialog.update(cx, |dialog, cx| dialog.focus_input(window, cx));
+        self.lobby.clone = Some(dialog);
+        cx.notify();
+    }
+
+    fn dismiss_clone(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.lobby.clone = None;
+        match &self.lobby.welcome {
+            Some(welcome) => window.focus(&welcome.focus_handle(cx), cx),
+            None => self.focus_front(window, cx),
+        }
+        cx.notify();
+    }
+
+    /// The dialogs a window without a project can raise, over whatever it
+    /// shows.
+    pub(crate) fn lobby_dialogs(&self) -> Vec<gpui::AnyElement> {
+        use gpui::IntoElement as _;
+        self.lobby
+            .new_project
+            .clone()
+            .map(|view| view.into_any_element())
+            .into_iter()
+            .chain(self.lobby.clone.clone().map(|view| view.into_any_element()))
+            .collect()
     }
 }
