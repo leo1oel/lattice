@@ -302,9 +302,6 @@ impl SettingsDialog {
             subscriptions.push(cx.observe(project, |_, _, cx| cx.notify()));
         }
 
-        // Settings opens in its search, as typing is how most people look
-        // for a setting.
-        search.update(cx, |search, cx| search.focus(window, cx));
         let tab = drawn(tab.unwrap_or(settings.settings_tab));
         Self {
             tab,
@@ -337,6 +334,15 @@ impl SettingsDialog {
             _reveal_task: None,
             _subscriptions: subscriptions,
         }
+    }
+
+    /// Put the keyboard in the search, as Settings opens: typing is how most
+    /// people look for a setting. Called once the modal layer, which takes
+    /// focus as it first draws, has drawn.
+    pub fn focus_search(&self, window: &mut Window, cx: &mut App) {
+        self.fields
+            .search
+            .update(cx, |search, cx| search.focus(window, cx));
     }
 
     /// The page on screen.
