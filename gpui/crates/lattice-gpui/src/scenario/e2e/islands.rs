@@ -529,9 +529,20 @@ impl Run {
                     island.read(cx).page_focused()
                 })
                 .await;
-                self.pause(cx, Duration::from_millis(200)).await;
-                self.evaluate(cx, &island, "window.latticeHost.relay().length")
-                    .await
+                // The relay lands with the page's focus report, which can
+                // trail the click on a loaded runner: ask until it is there.
+                let mut relayed = Value::Null;
+                let started = std::time::Instant::now();
+                while started.elapsed() < Duration::from_secs(3) {
+                    relayed = self
+                        .evaluate(cx, &island, "window.latticeHost.relay().length")
+                        .await;
+                    if relayed.as_u64().is_some_and(|count| count > 0) {
+                        break;
+                    }
+                    self.pause(cx, Duration::from_millis(150)).await;
+                }
+                relayed
             }
             None => Value::Null,
         };
