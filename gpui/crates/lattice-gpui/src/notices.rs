@@ -199,6 +199,13 @@ impl NoticeStack {
             .map(|shown| shown.notice.title.clone())
             .collect()
     }
+
+    /// Take every notice down, as their close buttons do, for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn clear(&mut self, cx: &mut Context<Self>) {
+        self.shown.clear();
+        cx.notify();
+    }
 }
 
 impl Render for NoticeStack {

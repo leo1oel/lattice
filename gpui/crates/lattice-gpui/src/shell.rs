@@ -343,6 +343,13 @@ impl Shell {
         self.build_task.is_some()
     }
 
+    /// Whether Clean is still deleting the auxiliary files, which turns a
+    /// clean rebuild away until it is done.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn cleaning(&self) -> bool {
+        self.cleaning
+    }
+
     pub fn dock_area(&self) -> &Entity<DockArea> {
         &self.dock_area
     }

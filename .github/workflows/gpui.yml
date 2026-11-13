@@ -121,7 +121,8 @@ jobs:
           project="$RUNNER_TEMP/e2e-project"
           out="$RUNNER_TEMP/e2e-macos.json"
           cp -R fixtures/e2e "$project"
-          target/release/lattice-gpui "$project" --scenario e2e --out "$out"
+          # As on Windows: the builds, cleans and notices in the job's log.
+          LATTICE_GPUI_LOG=info target/release/lattice-gpui "$project" --scenario e2e --out "$out"
           cat "$out"
           jq -e '.passed == true' "$out" > /dev/null
           file="$(jq -r '.after_quit.file' "$out")"
