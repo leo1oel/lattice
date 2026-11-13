@@ -11,7 +11,7 @@
 //!   quiet at the end;
 //! - the row the pointer lights and the row the arrow keys reach are one
 //!   highlight, the accent wash (`--control-active-soft`): in a [`Menu`]
-//!   (`popover.rs`) it is the list's fluid hover, one fill gliding between
+//!   (`menu_list.rs`) it is the list's fluid hover, one fill gliding between
 //!   rows (`crate::fluid_hover`); a row drawn alone fades its own wash on the
 //!   fast tier. A destructive item takes the danger ink and its own danger
 //!   wash, which the gliding fill never lands on;
@@ -23,7 +23,7 @@
 //!
 //! Items are reached with the arrow keys from the menu that holds them, as a
 //! menu's roving focus works in the app, so a row is not a tab stop of its
-//! own; the menu is (see `popover.rs`).
+//! own; the menu is (see `menu_list.rs`).
 
 use std::rc::Rc;
 
