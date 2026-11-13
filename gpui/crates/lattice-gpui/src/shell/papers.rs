@@ -13,6 +13,7 @@ use crate::papers::{
     add_sheet::{AddPapers, AddPapersEvent},
     audit::{Audit, AuditEvent},
     bib_editor::add::{AddReference, AddReferenceEvent, AddTarget},
+    linked::{LinkedLibrary, LinkedLibraryEvent},
     literature::{Literature, LiteratureEvent},
     reader::{PaperReader, PaperReaderEvent, ReaderView},
 };
@@ -163,6 +164,7 @@ impl Shell {
         cx.subscribe_in(&view, window, |this, _, event, window, cx| match event {
             AddPapersEvent::Dismiss => this.close_document_overlays(window, cx),
             AddPapersEvent::EnterManually => this.open_add_reference(window, cx),
+            AddPapersEvent::LinkLibrary => this.open_linked_library(window, cx),
         })
         .detach();
         view.update(cx, |view, cx| view.focus_input(window, cx));
@@ -188,6 +190,30 @@ impl Shell {
         .detach();
         view.update(cx, |view, cx| view.focus_lookup(window, cx));
         self.documents.add_reference = Some(view);
+        cx.notify();
+    }
+
+    /// Linked library, in place of Add papers.
+    fn open_linked_library(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(root) = self.root(cx) else {
+            return;
+        };
+        self.dismiss_overlays_for_documents(cx);
+        // The comparison reads the files on disk: what the editors hold is
+        // saved first.
+        self.save_in_background(cx);
+        let view = cx.new(|cx| LinkedLibrary::new(root, cx));
+        cx.subscribe_in(&view, window, |this, _, event, window, cx| match event {
+            LinkedLibraryEvent::Dismiss => this.close_document_overlays(window, cx),
+            LinkedLibraryEvent::Applied => {
+                for editor in this.open_editors() {
+                    editor.update(cx, |editor, cx| editor.check_disk(cx));
+                }
+                this.papers.update(cx, |papers, cx| papers.reload(cx));
+            }
+        })
+        .detach();
+        self.documents.linked = Some(view);
         cx.notify();
     }
 

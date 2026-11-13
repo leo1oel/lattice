@@ -58,6 +58,7 @@ pub mod bib_editor;
 mod downloads;
 mod field;
 mod inspector;
+pub mod linked;
 pub mod literature;
 pub mod model;
 pub mod reader;

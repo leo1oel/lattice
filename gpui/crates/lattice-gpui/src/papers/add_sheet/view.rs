@@ -450,6 +450,15 @@ impl Render for AddPapers {
                             ),
                     )
                     .child(
+                        Button::new("add-papers-linked", t!("Linked library…"))
+                            .compact()
+                            .ghost()
+                            .icon(Icon::LINK_2)
+                            .on_click(
+                                cx.listener(|_, _, _, cx| cx.emit(AddPapersEvent::LinkLibrary)),
+                            ),
+                    )
+                    .child(
                         Button::new("add-papers-zotero", t!("Zotero…"))
                             .compact()
                             .ghost()
