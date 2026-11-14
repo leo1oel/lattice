@@ -21,12 +21,16 @@
 use std::{
     collections::{BTreeSet, HashMap, HashSet},
     path::{Path, PathBuf},
+    sync::Arc,
     time::{Duration, Instant},
 };
 
 use futures::channel::oneshot;
 use gpui::{App, AppContext as _, Context, EventEmitter, SharedString, Subscription, Task};
-use lattice_core::overleaf::{OverleafLink, OverleafStatus, OverleafSyncResult};
+use lattice_core::{
+    overleaf::{OverleafLink, OverleafStatus, OverleafSyncResult},
+    overleaf_rt::{RealtimeClient, RealtimeEvent},
+};
 use lattice_i18n::t;
 use lattice_settings::OverleafSyncMode;
 use lattice_ui::components::ToastLevel;
@@ -38,7 +42,11 @@ use super::{
 };
 use crate::notices::{self, Notice, NoticeAction};
 
+mod documents;
+pub use documents::OverleafSaveState;
+mod finished;
 mod live;
+mod presence;
 
 /// How often live mode asks Overleaf whether anything changed.
 const LIVE_POLL: Duration = Duration::from_secs(3);
@@ -115,6 +123,8 @@ pub enum OverleafBridgeEvent {
     OpenConflict(String),
     /// The session ended: Settings › Overleaf is where to sign in again.
     OpenSettings,
+    /// Who is in the project, or where they are, changed.
+    PresenceChanged,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -172,6 +182,10 @@ pub struct OverleafBridge {
     /// Staged by a scenario (`scenario_stage`): shown as linked and live,
     /// but nothing reads the link again or asks Overleaf anything.
     staged: bool,
+    /// The live channel's client while it is up.
+    client: Option<Arc<RealtimeClient>>,
+    presence: presence::PresenceState,
+    documents: documents::DocumentsState,
     _settings: Subscription,
 }
 
@@ -184,6 +198,7 @@ impl OverleafBridge {
             if mode != this.mode {
                 this.mode = mode;
                 this.apply(cx);
+                this.reconsider_live(cx);
             }
         });
         Self {
@@ -215,6 +230,9 @@ impl OverleafBridge {
             channel_task: None,
             link_task: None,
             staged: false,
+            client: None,
+            presence: Default::default(),
+            documents: Default::default(),
             _settings: settings,
         }
     }
@@ -290,6 +308,10 @@ impl OverleafBridge {
         self.channel_task = None;
         self.channel = ChannelStatus::Off;
         self.channel_detail = None;
+        // Closing the project: what is unanswered syncs when it opens again.
+        self.documents_dropped(false, cx);
+        self.client = None;
+        self.presence_dropped(cx);
         cx.notify();
     }
 
@@ -410,19 +432,46 @@ impl OverleafBridge {
 
     pub(super) fn channel_news(&mut self, news: ChannelNews, cx: &mut Context<Self>) {
         match news {
-            ChannelNews::Joined { entities } => {
+            ChannelNews::Joined { entities, client } => {
                 self.note_entities(entities);
+                self.client = Some(client);
+                self.presence_joined(cx);
                 self.channel = ChannelStatus::Live;
                 self.channel_detail = None;
                 self.toasted_failure = None;
                 self.rejoined = false;
+                // The channel is up: documents held over the drop carry on,
+                // and the shown document can go live.
+                self.resume_held(cx);
+                self.reconsider_live(cx);
             }
             ChannelNews::Tree(entities) => self.note_entities(entities),
+            ChannelNews::Event(event) => match event {
+                RealtimeEvent::PresenceUpdated { .. } | RealtimeEvent::PresenceLeft { .. } => {
+                    self.presence_event(event, cx)
+                }
+                _ => self.document_event(event, cx),
+            },
             ChannelNews::Reconnecting(detail) => {
+                self.documents_dropped(true, cx);
+                self.client = None;
+                self.presence_dropped(cx);
                 self.channel = ChannelStatus::Connecting;
                 self.channel_detail = Some(detail.into());
             }
             ChannelNews::Failed(detail) => {
+                if self.documents_dropped(false, cx) {
+                    // Their typing is on disk: regular sync takes it up.
+                    self.sync(
+                        SyncOptions {
+                            automatic: true,
+                            ..Default::default()
+                        },
+                        cx,
+                    );
+                }
+                self.client = None;
+                self.presence_dropped(cx);
                 let said = self.toasted_failure.as_deref() == Some(detail.as_str());
                 self.channel = ChannelStatus::Error;
                 self.channel_detail = Some(detail.clone().into());
@@ -522,18 +571,16 @@ impl OverleafBridge {
         cx.notify();
         let entities = self.entity_list.clone();
         let run_root = root.clone();
+        // The live document is the channel's to carry.
+        let live = self.live_paths();
         let run = cx.background_spawn(async move {
-            sync::sync(
-                &run_root,
-                &BTreeSet::new(),
-                options.observed_remote_version,
-                entities,
-            )
+            sync::sync(&run_root, &live, options.observed_remote_version, entities)
         });
         self.sync_task = Some(cx.spawn(async move |this, cx| {
             let (result, expired) = run.await;
             this.update(cx, |this, cx| {
                 this.syncing = false;
+                this.after_sync_documents(result.is_ok(), cx);
                 let outcome = result.as_ref().map(|_| ()).map_err(Clone::clone);
                 for waiter in this.sync_waiters.drain(..) {
                     waiter.send(outcome.clone()).ok();
@@ -553,191 +600,6 @@ impl OverleafBridge {
             })
             .ok();
         }));
-    }
-
-    /// A sync finished: say what it left, and settle what it asks of the
-    /// writer.
-    fn synced(
-        &mut self,
-        root: PathBuf,
-        result: OverleafSyncResult,
-        options: SyncOptions,
-        cx: &mut Context<Self>,
-    ) {
-        self.transport_retry = false;
-        self.refusals = 0;
-        self.remote_changes = false;
-        // Edited here while the sync ran: left as they were, so they still
-        // need to go up.
-        if !result.edited_during_sync.is_empty() {
-            self.local_pending = true;
-            if self.mode == OverleafSyncMode::Live {
-                self.schedule_push(cx);
-            }
-        }
-        // Old versions uploaded PDF-inspection renders from an app-owned
-        // folder: removed silently, outside the writer's preference.
-        if !result.automatic_remote_deletes.is_empty() && !result.read_only {
-            remote_deletes::settle(
-                self,
-                &root,
-                result.automatic_remote_deletes.clone(),
-                true,
-                cx,
-            );
-        }
-        // What happens to a file deleted here is the writer's call.
-        if !result.skipped_remote_deletes.is_empty() {
-            remote_deletes::settle(
-                self,
-                &root,
-                result.skipped_remote_deletes.clone(),
-                false,
-                cx,
-            );
-        }
-        let this = cx.entity().downgrade();
-        for warning in outcome::warnings(&result) {
-            let mut notice = Notice::new(ToastLevel::Warning, warning.message);
-            if let Some(file) = warning.resolve {
-                let this = this.clone();
-                notice = notice.action(NoticeAction::new(t!("Resolve"), move |_, cx| {
-                    this.update(cx, |_, cx| {
-                        cx.emit(OverleafBridgeEvent::OpenConflict(file.clone()))
-                    })
-                    .ok();
-                }));
-            }
-            notices::show(notice, cx);
-        }
-        self.report_conflicts(&root, &result, cx);
-        let incoming = outcome::incoming(&result);
-        if incoming {
-            cx.emit(OverleafBridgeEvent::Incoming);
-        }
-        let moved =
-            !result.pulled.is_empty() || !result.pushed.is_empty() || !result.merged.is_empty();
-        // A quiet background no-op is only logged.
-        if !options.automatic || moved {
-            notices::show(
-                Notice::new(ToastLevel::Success, outcome::summary(&result)).key(SYNC_KEY),
-                cx,
-            );
-        } else {
-            log::info!("{}", outcome::summary(&result));
-        }
-        // Only a real content change becomes a version.
-        if incoming || !result.pushed.is_empty() {
-            let version_root = root.clone();
-            cx.background_spawn(async move {
-                let _ = lattice_core::git::auto_commit(
-                    &version_root,
-                    crate::history::messages::OVERLEAF_SYNC,
-                    None,
-                );
-            })
-            .detach();
-        }
-        if self.channel == ChannelStatus::Error && !self.rejoined {
-            self.rejoined = true;
-            self.channel_task = None;
-        }
-        self.reload_link(cx);
-    }
-
-    /// Say which files a sync left in conflict, and open the resolver on the
-    /// first that has markers in it (`reportSyncOutcome`). A later write can
-    /// have settled one already, so each is read back first.
-    fn report_conflicts(
-        &mut self,
-        root: &Path,
-        result: &OverleafSyncResult,
-        cx: &mut Context<Self>,
-    ) {
-        if result.conflicts.is_empty() {
-            return;
-        }
-        let marked: Vec<_> = result
-            .conflicts
-            .iter()
-            .filter(|conflict| conflict.markers)
-            .filter(|conflict| {
-                lattice_core::project::read_file(root, &conflict.path)
-                    .map(|text| crate::history::conflicts::has_conflict_markers(&text))
-                    .unwrap_or(true)
-            })
-            .collect();
-        let whole: Vec<_> = result
-            .conflicts
-            .iter()
-            .filter(|conflict| !conflict.markers)
-            .collect();
-        let message = outcome::conflict_message(&marked, &whole);
-        if !message.is_empty() {
-            notices::show(Notice::new(ToastLevel::Error, message), cx);
-        }
-        if let Some(first) = marked.first() {
-            cx.emit(OverleafBridgeEvent::OpenConflict(first.path.clone()));
-        }
-    }
-
-    /// A sync failed: say so in the words that fit, or quietly owe it again
-    /// for a brief outage in live mode.
-    fn failed(&mut self, error: String, options: SyncOptions, cx: &mut Context<Self>) {
-        let refused = outcome::is_project_refusal(&error);
-        if refused {
-            self.refusals += 1;
-        }
-        let retryable = outcome::is_transient_transport_failure(&error)
-            || (refused && self.refusals < outcome::REFUSAL_RETRIES);
-        let this = cx.entity().downgrade();
-        let sync_again = || {
-            let this = this.clone();
-            NoticeAction::new(t!("Sync again"), move |_, cx| {
-                this.update(cx, |this, cx| this.sync(SyncOptions::default(), cx))
-                    .ok();
-            })
-        };
-        if options.automatic && retryable {
-            // The live loop retries on its rate-limited cadence: retrying
-            // now risks another 429, and a toast for a brief outage
-            // interrupts work.
-            self.transport_retry = true;
-            log::warn!("Overleaf sync will be retried: {error}");
-            return;
-        }
-        let notice = if outcome::is_signed_out(&error) {
-            let this = this.clone();
-            Notice::new(ToastLevel::Error, t!("Overleaf sync paused"))
-                .detail(t!(
-                    "Your Overleaf session ended. Your edits stay on this Mac until you sign in"
-                ))
-                .action(NoticeAction::new(
-                    t!("Sign in to Overleaf"),
-                    move |_, cx| {
-                        this.update(cx, |_, cx| cx.emit(OverleafBridgeEvent::OpenSettings))
-                            .ok();
-                    },
-                ))
-        } else if refused {
-            // Signed in, yet this project's requests keep being turned away:
-            // most often a share that was removed.
-            self.transport_retry = false;
-            Notice::new(ToastLevel::Error, t!("Overleaf refused this project"))
-                .detail(t!("You are still signed in. Check that the project still opens on Overleaf; your edits stay on this Mac"))
-                .action(sync_again())
-        } else if outcome::is_transient_transport_failure(&error) {
-            Notice::new(ToastLevel::Error, t!("Couldn’t reach Overleaf"))
-                .detail(t!("Your edits stay on this Mac until the next sync"))
-                .action(sync_again())
-        } else {
-            Notice::new(
-                ToastLevel::Error,
-                t!("{action} failed", action = t!("Sync")),
-            )
-            .detail(error)
-        };
-        notices::show(notice.key(SYNC_KEY), cx);
     }
 
     /// Pause or resume syncing this project. Pausing keeps the link and

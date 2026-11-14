@@ -29,6 +29,7 @@ mod layers;
 pub(crate) mod menus;
 mod opening;
 pub(crate) mod overleaf_flow;
+mod overleaf_presence;
 mod palette;
 mod papers;
 mod pdfs;
@@ -602,6 +603,8 @@ impl Shell {
         self.place_document(&views::document_key(&root, &path), false, cx);
         self.sync_views(window, cx);
         self.active_editor = Some(editor.downgrade());
+        self.overleaf
+            .update(cx, |overleaf, cx| overleaf.editor_shown(Some(&editor), cx));
         editor.update(cx, |editor, cx| match line {
             Some(line) => editor.go_to_line(line, window, cx),
             // The panel's own: a structured document's page, or a Markdown or

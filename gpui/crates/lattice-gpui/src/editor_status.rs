@@ -91,10 +91,18 @@ pub fn status_bar(panel: &EditorPanel, cx: &App) -> impl IntoElement {
     let measured = panel.status_width().clone();
     let folds = StatusFolds::at(measured.get().map(f32::from));
     let (line, column) = panel.cursor();
-    let (save_icon, save_label) = match panel.save_status() {
-        SaveStatus::Saved => (Icon::HARD_DRIVE, t!("Saved")),
-        SaveStatus::Saving => (Icon::LOADER, t!("Saving…")),
-        SaveStatus::Failed(_) => (Icon::CIRCLE_ALERT, t!("Couldn’t save")),
+    // With a linked Overleaf project, the slot also says whether the text
+    // reached Overleaf (`StatusSaveState`).
+    use crate::overleaf::bridge::OverleafSaveState as Overleaf;
+    let (save_icon, save_label) = match (panel.save_status(), panel.overleaf_save()) {
+        (SaveStatus::Failed(_), _) => (Icon::CIRCLE_ALERT, t!("Couldn’t save")),
+        (SaveStatus::Saving, _) => (Icon::LOADER, t!("Saving…")),
+        (SaveStatus::Saved, Some(Overleaf::Offline)) => (Icon::CLOUD_OFF, t!("Saved on this Mac")),
+        (SaveStatus::Saved, Some(Overleaf::Live)) => (Icon::CLOUD_CHECK, t!("Saved and synced")),
+        (SaveStatus::Saved, Some(Overleaf::Syncing | Overleaf::Sending)) => {
+            (Icon::LOADER, t!("Saved, syncing…"))
+        }
+        (SaveStatus::Saved, _) => (Icon::HARD_DRIVE, t!("Saved")),
     };
     // The caret's words and numbers, each its own run, as the app's
     // `.status-caret` spans are; folded, the numbers with a colon between.

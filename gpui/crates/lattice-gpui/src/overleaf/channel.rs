@@ -42,8 +42,14 @@ pub enum ChannelStatus {
 
 /// What the channel tells the bridge.
 pub(super) enum ChannelNews {
-    /// Joined: the project's files by path.
-    Joined { entities: Vec<EntityEntry> },
+    /// Joined: the project's files by path, and the client, for presence and
+    /// live documents until the channel drops.
+    Joined {
+        entities: Vec<EntityEntry>,
+        client: Arc<RealtimeClient>,
+    },
+    /// What the channel says of people and live documents.
+    Event(RealtimeEvent),
     /// The project's files changed.
     Tree(Vec<EntityEntry>),
     /// Down, joining again after the wait the detail names.
@@ -130,7 +136,13 @@ pub(super) fn hold(root: PathBuf, bridge: WeakEntity<OverleafBridge>, cx: &Async
                     refusals = 0;
                     let client = Guard(client);
                     let told = bridge.update(cx, |bridge, cx| {
-                        bridge.channel_news(ChannelNews::Joined { entities }, cx)
+                        bridge.channel_news(
+                            ChannelNews::Joined {
+                                entities,
+                                client: client.0.clone(),
+                            },
+                            cx,
+                        )
                     });
                     if told.is_err() {
                         return;
@@ -149,6 +161,19 @@ pub(super) fn hold(root: PathBuf, bridge: WeakEntity<OverleafBridge>, cx: &Async
                             RealtimeEvent::Disconnected { reason: why } => {
                                 reason = why;
                                 break;
+                            }
+                            event @ (RealtimeEvent::PresenceUpdated { .. }
+                            | RealtimeEvent::PresenceLeft { .. }
+                            | RealtimeEvent::DocUpdate { .. }
+                            | RealtimeEvent::DocAck { .. }
+                            | RealtimeEvent::OtError { .. }
+                            | RealtimeEvent::Connected { .. }) => {
+                                let told = bridge.update(cx, |bridge, cx| {
+                                    bridge.channel_news(ChannelNews::Event(event), cx)
+                                });
+                                if told.is_err() {
+                                    return;
+                                }
                             }
                             _ => {}
                         }

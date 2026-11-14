@@ -47,6 +47,7 @@
 //! the channel reports and the parsers that read it, `tree` the live file tree,
 //! and `client` the connection itself.
 
+mod changed_runs;
 mod client;
 mod codec;
 mod events;
@@ -54,6 +55,7 @@ mod events;
 mod mock_ot;
 #[cfg(test)]
 pub(crate) mod mock_server;
+pub mod ot;
 #[cfg(test)]
 mod suggestion_tests;
 #[cfg(test)]

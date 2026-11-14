@@ -60,7 +60,10 @@ impl Shell {
         let bridge = cx.new(OverleafBridge::new);
         let subscriptions = vec![
             cx.subscribe_in(&bridge, window, Self::on_overleaf_event),
-            cx.observe(&bridge, |_, _, cx| cx.notify()),
+            cx.observe(&bridge, |this, _, cx| {
+                this.show_overleaf_save(cx);
+                cx.notify()
+            }),
             // Another window signed in or out, or a request found the
             // session expired: read the link again.
             cx.observe_global::<crate::overleaf::SessionGeneration>(|this, cx| {
@@ -92,6 +95,7 @@ impl Shell {
             OverleafBridgeEvent::OpenSettings => {
                 self.open_settings(Some(SettingsTab::Overleaf), window, cx)
             }
+            OverleafBridgeEvent::PresenceChanged => self.show_overleaf_carets(cx),
         }
     }
 
@@ -326,7 +330,7 @@ impl Shell {
     }
 
     /// The titlebar's Overleaf control, unless Settings › Appearance hides it.
-    pub(crate) fn overleaf_tools(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
+    pub(super) fn overleaf_sync_control(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
         let hidden = &crate::settings::get(cx).appearance.hidden_titlebar_tools;
         if hidden.contains(&TitlebarTool::Overleaf) {
             return None;
@@ -338,6 +342,7 @@ impl Shell {
         let pending = bridge.remote_changes();
         let channel = bridge.channel();
         let detail = bridge.channel_detail().cloned();
+        let live_editing = bridge.live_file().is_some();
         let project_name = bridge.link().map(|link| link.project_name.clone());
         let label: String = if !linked {
             t!("Open a project from Overleaf").into()
@@ -345,6 +350,8 @@ impl Shell {
             t!("Syncing with Overleaf…").into()
         } else if pending {
             t!("New changes on Overleaf").into()
+        } else if live_editing {
+            t!("Live with Overleaf").into()
         } else {
             // When the channel is not up, say why: silently falling back to
             // syncing looks exactly like the feature being broken.
@@ -360,6 +367,9 @@ impl Shell {
                     .into(),
                     None => t!("Live editing unavailable, syncing instead").into(),
                 },
+                ChannelStatus::Live => detail
+                    .map(|detail| detail.to_string())
+                    .unwrap_or_else(|| t!("Live").into()),
                 _ => t!("Sync with Overleaf").into(),
             }
         };

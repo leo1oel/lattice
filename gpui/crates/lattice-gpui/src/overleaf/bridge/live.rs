@@ -55,8 +55,11 @@ impl OverleafBridge {
                 }
             }
             let probe_root = root.clone();
+            let live = this
+                .update(cx, |this, _| this.live_paths())
+                .unwrap_or_default();
             let (probe, expired) = cx
-                .background_spawn(async move { sync::probe(&probe_root, Some(&BTreeSet::new())) })
+                .background_spawn(async move { sync::probe(&probe_root, Some(&live)) })
                 .await;
             this.update(cx, |this, cx| {
                 if expired {
@@ -108,13 +111,15 @@ impl OverleafBridge {
             let mut wait = LIVE_POLL;
             let mut first = true;
             loop {
-                let busy = this.update(cx, |this, _| this.syncing).unwrap_or(true);
+                let (busy, live) = this
+                    .update(cx, |this, _| (this.syncing, this.live_paths()))
+                    .unwrap_or((true, BTreeSet::new()));
                 if !busy {
                     let probe_root = root.clone();
                     let local = first;
                     let (probe, expired) = cx
                         .background_spawn(async move {
-                            sync::probe(&probe_root, local.then(BTreeSet::new).as_ref())
+                            sync::probe(&probe_root, local.then_some(&live))
                         })
                         .await;
                     if probe.is_ok() {
