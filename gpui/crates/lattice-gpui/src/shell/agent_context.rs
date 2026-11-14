@@ -11,10 +11,10 @@
 //! it. The window is read on every frame (`agent_follow_front`), but only
 //! what changed is pushed, and the surface waits for the caret to rest.
 
-use gpui::{Context, Entity, EntityId, Focusable as _, Task, WeakEntity, Window};
+use gpui::{App, Context, Entity, EntityId, Focusable as _, Task, WeakEntity, Window};
 use serde_json::json;
 
-use super::Shell;
+use super::{Shell, trellis_layout::file_key};
 use crate::{
     agent::{
         host_context::{self, Inputs, Selected, SharedSelection, Source},
@@ -93,7 +93,7 @@ impl Shell {
         }
         changed |= self.watch_pdf_selection(cx);
         let front = editor.as_ref().map(Entity::entity_id);
-        let document = self.active_document(cx);
+        let (document, _) = self.agent_front_document(cx);
         let live = self.pdf().read(cx).live_view().read(cx);
         let pdf_place = (live.current_page(), live.page_count());
         let state = self.context();
@@ -166,14 +166,40 @@ impl Shell {
         false
     }
 
+    /// The document the Agent takes as in front, and whether it is the
+    /// active editor's: another tab selected over the editor's in its panel
+    /// (an image opened beside it) is in front instead, without the
+    /// editor's caret or selection.
+    fn agent_front_document(&self, cx: &App) -> (Option<String>, bool) {
+        let document = self.active_document(cx);
+        let Some(view) = self
+            .active_editor()
+            .and_then(|editor| self.view_of_editor(&editor))
+        else {
+            return (document, true);
+        };
+        let doc = self.document(cx);
+        let covering = trellis::model::panels_of(doc.root.as_ref())
+            .into_iter()
+            .find(|panel| panel.views.contains(&view))
+            .filter(|panel| panel.selected != view)
+            .map(|panel| file_key(doc.views.get(&panel.selected)))
+            .filter(|key| !key.is_empty());
+        match covering {
+            Some(key) => (Some(key), false),
+            None => (document, true),
+        }
+    }
+
     /// Tell the Agent what the writer is working in now (`useAgentContext`).
     pub(crate) fn push_agent_workspace(&mut self, cx: &mut Context<Self>) {
         let editor = self.active_editor();
         let front = editor.as_ref().map(Entity::entity_id);
+        let (document, editor_in_front) = self.agent_front_document(cx);
+        let editor = editor.filter(|_| editor_in_front);
         let structured = editor
             .as_ref()
             .and_then(|editor| editor.read(cx).structured().cloned());
-        let document = self.active_document(cx);
         let mut active_file = document
             .clone()
             .filter(|key| !super::papers::is_reader_key(key))

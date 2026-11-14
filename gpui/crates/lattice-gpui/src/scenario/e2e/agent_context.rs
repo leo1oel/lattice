@@ -7,6 +7,7 @@
 //!   selection, on the PDF surface; back in the editor, it goes;
 //! - a turn the page reports running is the window's, and its start marks
 //!   Get started's Agent step; reported over, it is gone;
+//! - an image opened over the source is the active file, without a caret;
 //! - an Open Slide deck in front is the active file, without a caret, and
 //!   its page hears the turn's presence and its end;
 //! - switching project mid-turn asks first and keeps the project;
@@ -93,6 +94,38 @@ impl Run {
             let view = shell.read(cx).pdf().read(cx).live_view().clone();
             view.update(cx, |view, cx| view.select((0, 0), (0, 0), cx));
         })?;
+
+        // An image opened into the editor's pane: the Agent's active file,
+        // with no caret; the source back in front is again.
+        let figure = root.join("figure.png");
+        image::RgbaImage::from_pixel(4, 4, image::Rgba([40, 80, 160, 255]))
+            .save_with_format(&figure, image::ImageFormat::Png)?;
+        self.with_window(cx, {
+            let figure = figure.clone();
+            move |shell, window, cx| {
+                shell.update(cx, |shell, cx| shell.open_path(figure, None, window, cx))
+            }
+        })?;
+        let image_in_front = self
+            .wait_for(cx, Duration::from_secs(5), |_, cx| {
+                let workspace = surface.read(cx).workspace();
+                workspace["activeFile"] == "figure.png"
+                    && workspace.get("editorPosition").is_none_or(Value::is_null)
+            })
+            .await;
+        let image_workspace = workspace(cx);
+        self.open(cx, &root.join("main.tex"), Some(1))?;
+        let source_back = self
+            .wait_for(cx, Duration::from_secs(5), |_, cx| {
+                surface.read(cx).workspace()["activeFile"] == "main.tex"
+            })
+            .await;
+        steps.check(
+            "an image opened over the source is the Agent's active file, without a caret, until the source is back",
+            image_in_front && source_back,
+            json!({ "image": image_workspace, "back": workspace(cx) }),
+        );
+        std::fs::remove_file(&figure).ok();
 
         // An Open Slide deck in front: the Agent's active file, with no caret.
         let deck = root.join("slides/agent-deck/index.tsx");
