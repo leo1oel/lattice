@@ -216,6 +216,7 @@ impl Shell {
             self.queued_build = Some(request.merge(self.queued_build.unwrap_or(request)));
             return;
         }
+        self.agent_build_started();
         // A root document's own tab builds that document.
         let open_document = self
             .build_target
@@ -418,6 +419,7 @@ impl Shell {
         if let Some(mut trace) = self.build_trace.take() {
             oplog::outcome(&mut trace, current, outcome.as_ref(), cx);
         }
+        self.agent_build_finished(current, outcome.as_ref(), cx);
         match outcome {
             // A build of the project open before shows nothing in this one.
             _ if !current => self.build_panel.update(cx, |panel, cx| panel.cleared(cx)),
@@ -702,7 +704,7 @@ impl Shell {
 /// A build that ran to its end: its result, whether it wrote the PDF over
 /// the one before, and the sources its diagnostics quote.
 pub(super) struct Finished {
-    result: BuildResult,
+    pub(super) result: BuildResult,
     rewritten: bool,
     sources: HashMap<String, String>,
     /// The live preview's token for the files the build read.

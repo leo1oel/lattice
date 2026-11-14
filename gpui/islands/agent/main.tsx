@@ -38,6 +38,8 @@
  *   host:outside-pointerdown                 a press in the app (the bridge's)
  *   agent:deck-request { kind, deckPath }    Open Slide's request for the composer
  *   agent:files-changed { paths }            the project watcher's burst (`library.ts`)
+ *   agent:frame-message { … }                a message for the Agent's frame, as the Tauri
+ *                                            host posts it (a checkpoint's Undo, a build's result)
  *   agent:overleaf    { linked, docPaths }   the project's Overleaf link (`library.ts`)
  * Page to host (requests):
  *   agent:document-tool, agent:create-document   the Agent's work on the window's documents (`documents.ts`)
@@ -48,7 +50,8 @@
  *   agent:open-settings { target? }          Settings › Providers
  *   agent:clear-selection
  *   agent:minimum-width { width }
- *   agent:history     { … }                  the Agent's checkpoint history
+ *   agent:history     { … }                  the Agent's checkpoint history (its thread kept
+ *                                            for the project, as `useAgentCheckpoints` keeps it)
  *   agent:git-view    { view }               a Git view tab chosen
  *   agent:close-git
  *   agent:drawn                              the surface is up: reveal the page
@@ -90,7 +93,7 @@ import type { OpenSlideAgentRequest } from "../../../src/editor/presentation/ope
 import { parseSynaraNotificationMessage } from "../../../src/agent/synara-notifications";
 import { SYNARA_POPUP_OPEN, LATTICE_OUTSIDE_POINTER_DOWN } from "../../../src/agent/synara-popup-dismissal";
 import type { AgentGitWorkspaceView } from "../../../src/agent/synara-runtime";
-import type { AgentTurnReview } from "../../../src/app/app-synara-embed";
+import { persistSynaraThread, type AgentTurnReview } from "../../../src/app/app-synara-embed";
 import type { CanvasMode, EditorPosition, ProjectSnapshot } from "../../../src/app-types";
 import type { ThemeAccent, ThemeTint, Translucency } from "../../../src/settings/theme-customization";
 
@@ -233,7 +236,11 @@ function Agent({ opened, workspace, visible, appearance, git, overleaf, deckRequ
     agentCommentsOptions: () => annotationsRef.current.commentsOptions(),
     annotationTools: () => annotationsRef.current.annotationTools(),
     projectDocumentCreator: () => createProjectDocument,
-    onHistorySnapshot: (snapshot: unknown) => host().post("agent:history", snapshot),
+    onHistorySnapshot: (snapshot: { activeThreadId: string }) => {
+      // The panel reopens on the thread its checkpoints are of.
+      if (projectRootRef.current) persistSynaraThread(projectRootRef.current, snapshot.activeThreadId);
+      host().post("agent:history", snapshot);
+    },
     onMinimumWidth: (width: number) => host().post("agent:minimum-width", { width }),
   }), []);
 
@@ -318,6 +325,13 @@ function Agent({ opened, workspace, visible, appearance, git, overleaf, deckRequ
     let popupOpen = false;
     const stops = [
       bridgeHost.on("agent:opened", () => synaraRef.current.notifyPanelOpened()),
+      // What the Tauri host posts the Agent's frame from the rest of its
+      // window (`useAgentCheckpoints`, `AppHistoryDrawers`' Undo).
+      bridgeHost.on("agent:frame-message", (payload) => {
+        if (opened.surface === "agent" && payload && typeof payload === "object") {
+          void synaraRef.current.postMessage(payload as object);
+        }
+      }),
       // WebKit drops pointerleave when the pointer leaves for GPUI, as it
       // does for the Tauri app's own window; the host's movement stands in.
       bridgeHost.on("agent:pointer", () => {

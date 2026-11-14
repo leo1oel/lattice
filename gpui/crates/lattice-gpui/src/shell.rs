@@ -17,6 +17,7 @@
 //! fields here and match arms in `views` and `actions`.
 
 mod actions;
+mod agent_checkpoints;
 mod agent_documents;
 mod agent_flow;
 mod arrange;
