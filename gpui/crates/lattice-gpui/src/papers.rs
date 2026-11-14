@@ -55,13 +55,16 @@ pub mod add_sheet;
 pub mod audit;
 pub(crate) mod batch;
 pub mod bib_editor;
+mod candidates;
 mod downloads;
 mod field;
 mod inspector;
+mod keys;
 pub mod linked;
 pub mod literature;
 pub mod model;
 pub mod reader;
+mod refresh;
 mod removal;
 mod row;
 mod search;
@@ -98,11 +101,21 @@ pub enum PapersEvent {
     SearchLiterature(String),
     /// Check the bibliography's references.
     CheckReferences,
+    /// An import failed for want of the paper tools: offer their install.
+    MissingPaperTools(String),
     /// Remove a paper's entry: the window saves what its editors hold
     /// first, then hands it back to `remove_saved`.
     Remove(Box<PaperSummary>),
     /// A removal may have rewritten the manuscript's files.
     Removed,
+    /// Refresh entry rewrote the bibliography.
+    Rewritten,
+    /// Cite the key at the caret: Add reference's "Insert cite at cursor
+    /// after saving", once its import has landed.
+    Cite(String),
+    /// Refresh entry for the cited key: the window saves what its editors
+    /// hold first, then hands it back to `refresh_saved`.
+    RefreshEntry(String),
     /// A title the box looked up, for Add reference to review: several works,
     /// or one without an entry.
     Review {
@@ -237,6 +250,10 @@ pub struct PapersPanel {
     pub(crate) group: Group,
     /// The paper selected in a wide panel, shown in the inspector.
     pub(crate) selected: Option<String>,
+    /// Where the list's keyboard is (`keys.rs`), and whether the list
+    /// should scroll it into view when next drawn.
+    pub(crate) key_stop: Option<keys::KeyStop>,
+    reveal_stop: bool,
     /// The paper whose reading file is the open document, and that
     /// document's path, read against each new listing.
     pub(crate) active: Option<String>,
@@ -250,6 +267,8 @@ pub struct PapersPanel {
     /// added its paper.
     import_tickets: u64,
     last_import: Option<(u64, bool)>,
+    /// The import whose paper is cited at the caret once it lands.
+    cite_ticket: Option<u64>,
     /// Counts the writer's navigations (a paper chosen, another document
     /// brought to the front): a download opens its paper only if none
     /// happened since its click.
@@ -314,6 +333,8 @@ impl PapersPanel {
             filter: Filter::default(),
             group: Group::default(),
             selected: None,
+            key_stop: None,
+            reveal_stop: false,
             active: None,
             active_path: None,
             fetching: Fetching::default(),
@@ -322,6 +343,7 @@ impl PapersPanel {
             just_added: HashSet::new(),
             import_tickets: 0,
             last_import: None,
+            cite_ticket: None,
             navigations: 0,
             first_sync: FirstSync::default(),
             width: 0.,

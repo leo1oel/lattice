@@ -19,7 +19,7 @@ use lattice_ui::{
     tokens::FONT_WEIGHT_MEDIUM,
 };
 
-use super::{AddPapers, AddPapersEvent, Row, RowState, Tab};
+use super::{AddPapers, Row, RowState, Tab};
 use crate::{
     papers::batch::{BatchItem, ItemState},
     search::sheet::SheetFrame,
@@ -215,49 +215,39 @@ impl AddPapers {
         }
     }
 
-    /// The records a title matched, to choose one.
-    fn candidates(&self, row: &Row, chosen: usize, cx: &mut Context<Self>) -> AnyElement {
-        let palette = cx.palette().clone();
+    /// The records a title matched, to choose one (`.add-papers-candidates`).
+    fn candidates(
+        &self,
+        row: &Row,
+        chosen: usize,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let view = cx.entity().downgrade();
+        let list = crate::papers::candidates::candidate_list(
+            "add-papers-candidate",
+            &row.candidates,
+            chosen,
+            false,
+            move |at, take, _, cx| {
+                view.update(cx, |this, cx| {
+                    this.highlight_candidate(at, cx);
+                    if take {
+                        this.use_candidate(cx);
+                    }
+                })
+                .ok();
+            },
+            window,
+            cx,
+        );
         div()
             .flex()
             .flex_col()
             .gap(px(8.))
             .px(px(12.))
             .pb(px(12.))
-            .child(div().flex().flex_col().gap(px(2.)).children(
-                row.candidates.iter().enumerate().map(|(ix, candidate)| {
-                    let record = crate::papers::model::record_of_resolved(candidate);
-                    let on = ix == chosen;
-                    div()
-                        .id(("candidate", ix))
-                        .flex()
-                        .flex_col()
-                        .gap(px(2.))
-                        .px(px(8.))
-                        .py(px(6.))
-                        .rounded(px(6.))
-                        .cursor_pointer()
-                        .when(on, |option| option.bg(palette.accent_soft))
-                        .when(!on, |option| option.hover(|style| style.bg(palette.hover)))
-                        .on_click(
-                            cx.listener(move |this, _, _, cx| this.highlight_candidate(ix, cx)),
-                        )
-                        .child(
-                            div()
-                                .truncate()
-                                .text_role(TextRole::Body, cx)
-                                .text_color(if on { palette.accent } else { palette.text })
-                                .child(record.title),
-                        )
-                        .child(
-                            div()
-                                .truncate()
-                                .text_role(TextRole::Caption, cx)
-                                .text_color(palette.text_secondary)
-                                .child(model_byline(&record.byline, candidate.doi.as_str())),
-                        )
-                }),
-            ))
+            .child(list)
             .child(
                 div()
                     .flex()
@@ -282,7 +272,13 @@ impl AddPapers {
             .into_any_element()
     }
 
-    fn card(&self, row: &Row, item: Option<&BatchItem>, cx: &mut Context<Self>) -> AnyElement {
+    fn card(
+        &self,
+        row: &Row,
+        item: Option<&BatchItem>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         let palette = cx.palette().clone();
         let reading = cx.lattice().fonts.ui.clone();
         let editor = cx.lattice().fonts.editor.clone();
@@ -378,14 +374,10 @@ impl AddPapers {
                     .child(self.state(row, item, cx)),
             )
             .when_some(open, |card, chosen| {
-                card.child(self.candidates(row, chosen, cx))
+                card.child(self.candidates(row, chosen, window, cx))
             })
             .into_any_element()
     }
-}
-
-fn model_byline(byline: &str, doi: &str) -> String {
-    crate::papers::model::byline_of([byline, doi])
 }
 
 /// A row's state with Try again after it (`RetryButton`).
@@ -556,62 +548,7 @@ impl Render for AddPapers {
                     .into_any_element(),
             );
             // Other ways in: by hand, or from Zotero.
-            body.push(
-                div()
-                    .flex()
-                    .flex_wrap()
-                    .gap(px(4.))
-                    .child(
-                        Button::new("add-papers-manual", t!("Enter manually"))
-                            .compact()
-                            .ghost()
-                            .icon(Icon::PEN_LINE)
-                            .on_click(
-                                cx.listener(|_, _, _, cx| cx.emit(AddPapersEvent::EnterManually)),
-                            ),
-                    )
-                    .child(
-                        Button::new("add-papers-linked", t!("Linked library…"))
-                            .compact()
-                            .ghost()
-                            .icon(Icon::LINK_2)
-                            .on_click(
-                                cx.listener(|_, _, _, cx| cx.emit(AddPapersEvent::LinkLibrary)),
-                            ),
-                    )
-                    .child(
-                        Button::new("add-papers-zotero", t!("Zotero…"))
-                            .compact()
-                            .ghost()
-                            .icon(Icon::LIBRARY)
-                            .on_click(
-                                cx.listener(|this, _, window, cx| this.open_zotero(window, cx)),
-                            ),
-                    )
-                    // Whether adding saves the full text too: the writer's
-                    // last choice, kept in the settings for every window.
-                    .child(
-                        div().ml_auto().flex().items_center().child(
-                            Checkbox::new(
-                                "add-papers-full-text",
-                                if crate::settings::get(cx).save_full_text {
-                                    CheckState::On
-                                } else {
-                                    CheckState::Off
-                                },
-                            )
-                            .quiet()
-                            .label(t!("Also save full text (Markdown)"))
-                            .on_toggle(|on, _, cx| {
-                                let on = *on;
-                                crate::settings::update(cx, |settings| {
-                                    settings.save_full_text = on
-                                });
-                            }),
-                        ),
-                    )
-                    .into_any_element(),
-            );
+            body.push(self.tools_row(cx));
         }
         if !listed.is_empty() || !rows.is_empty() {
             if batch.is_empty() {
@@ -631,7 +568,7 @@ impl Render for AddPapers {
                 list = list.child(
                     div()
                         .when(ix > 0, |card| card.border_t_1().border_color(palette.line))
-                        .child(self.card(row, item.as_ref(), cx)),
+                        .child(self.card(row, item.as_ref(), window, cx)),
                 );
             }
             if listed.is_empty() {
@@ -645,6 +582,8 @@ impl Render for AddPapers {
                 );
             }
             body.push(list.into_any_element());
+        } else {
+            body.push(self.empty_art(cx));
         }
 
         let count = |state: RowState| rows.iter().filter(|row| row.state == state).count();

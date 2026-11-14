@@ -18,8 +18,8 @@ use std::{
 use serde_json::Value;
 
 use crate::model::{
-    Appearance, AutoBuildMode, Choice, LatexView, OverleafRemoteDelete, OverleafSyncMode,
-    Settings, SettingsTab, ThemePreference,
+    Appearance, AutoBuildMode, Choice, LatexView, OverleafRemoteDelete, OverleafSyncMode, Settings,
+    SettingsTab, ThemePreference,
 };
 
 /// The Tauri app's bundle identifier (`src-tauri/tauri.conf.json`).
@@ -118,7 +118,7 @@ pub fn settings_from_items(items: &BTreeMap<String, String>) -> Settings {
             _ => None,
         },
         grammar: crate::model::Grammar::from_value(json("lattice.grammar.v1").as_ref()),
-        // `loadSaveFullText`: on only when it says true.
+        // Stored as "true" or "false" (`save-full-text-setting.ts`).
         save_full_text: item("lattice.papers.save-full-text.v1") == Some("true"),
     }
 }

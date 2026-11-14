@@ -204,6 +204,14 @@ impl PapersPanel {
                                 }
                             },
                         ))
+                        // The down arrow goes on to the results.
+                        .capture_action(cx.listener(
+                            |this, _: &gpui_kit::component::input::MoveDown, window, cx| {
+                                if this.focus_list(window, cx) {
+                                    cx.stop_propagation();
+                                }
+                            },
+                        ))
                         .child(
                             Input::new(self.input())
                                 .appearance(false)

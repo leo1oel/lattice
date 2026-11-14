@@ -51,7 +51,7 @@ mod summary;
 mod view;
 
 use finding::take_batch;
-pub use finding::{Change, Finding, Source};
+pub use finding::{Candidate, Change, Finding, Source};
 pub use groups::{Bucket, FixGroup, fix_group};
 pub use running::{running, stop_others};
 
@@ -93,7 +93,7 @@ pub(super) fn entry_title(entry: &AuditEntry) -> String {
 
 /// What a check says when the tools it runs are not installed
 /// (`PAPER_TOOLS_MISSING`): every later check would fail the same way.
-const PAPER_TOOLS_MISSING: &str = "Lattice's paper tools are not installed.";
+pub(crate) const PAPER_TOOLS_MISSING: &str = "Lattice's paper tools are not installed.";
 
 /// Saves what the editors hold before a scan reads the files on disk,
 /// answering whether every write landed (`onPrepare`).

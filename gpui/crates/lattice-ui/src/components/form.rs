@@ -176,18 +176,16 @@ impl RenderOnce for Checkbox {
                     .flex_col()
                     .child(
                         div()
-                            .text_role(
-                                if self.quiet {
-                                    TextRole::Caption
-                                } else {
-                                    TextRole::BodyCompact
-                                },
-                                cx,
-                            )
-                            .text_color(if self.quiet {
-                                palette.text_secondary
-                            } else {
-                                palette.text
+                            .when(!self.quiet, |label| {
+                                label
+                                    .text_role(TextRole::BodyCompact, cx)
+                                    .text_color(palette.text)
+                            })
+                            .when(self.quiet, |label| {
+                                label
+                                    .text_role(TextRole::Caption, cx)
+                                    .font_weight(crate::tokens::FONT_WEIGHT_REGULAR)
+                                    .text_color(palette.text_secondary)
                             })
                             .children(self.parity.clone().zip(self.label.clone()).and_then(
                                 |(name, label)| crate::parity::text_probe(name, 0, label),

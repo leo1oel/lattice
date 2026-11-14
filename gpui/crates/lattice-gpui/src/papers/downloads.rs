@@ -34,19 +34,24 @@ pub(crate) enum Notices {
     Problems,
 }
 
-/// What a cancelled import, or one of a paper the library already held,
-/// came to (`use-reference-import.ts`); a plain add says it only with
-/// `Notices::All`, its row saying it otherwise.
+/// What an import came to (`use-reference-import.ts`). The box's own adds
+/// settle as a "Just added" row with the key to copy, so with
+/// `Notices::Problems` only a cancellation, a duplicate or a missing full
+/// text still needs saying.
 fn import_notice(imported: &core_papers::ImportResult, notices: Notices) -> Option<String> {
+    let quiet = notices == Notices::Problems
+        && !imported.cancelled
+        && !imported.already_imported
+        && imported.fetch_error.is_none();
+    if quiet {
+        return None;
+    }
     let command = imported
         .citation_key
         .as_deref()
         .map(|key| format!("\\cite{{{key}}}"));
     let title = &imported.title;
     let full_text = !imported.paper_path.is_empty();
-    if notices == Notices::All && !imported.cancelled && !imported.already_imported {
-        return Some(added_notice(imported, command));
-    }
     Some(match (imported.cancelled, imported.already_imported, command) {
         (true, _, Some(command)) if full_text => t!(
             "Cancellation arrived after “{0}” was added — cite it with {citationCommand}; its full text had already finished importing.",
@@ -69,7 +74,7 @@ fn import_notice(imported: &core_papers::ImportResult, notices: Notices) -> Opti
             citationCommand = command
         ),
         (false, true, None) => t!("“{title}” is already in Papers.", title = title),
-        (false, false, _) => return None,
+        (false, false, command) => added_notice(imported, command),
     })
 }
 
@@ -173,12 +178,18 @@ impl PapersPanel {
         &mut self,
         bibtex: String,
         label: String,
+        cite: bool,
         cx: &mut Context<Self>,
     ) -> bool {
         if self.importing.is_some() || self.batch.running {
             return false;
         }
         self.import(bibtex, label, false, Notices::Problems, cx);
+        self.cite_ticket = self
+            .importing
+            .as_ref()
+            .filter(|_| cite)
+            .map(|importing| importing.ticket);
         self.importing.is_some()
     }
 
@@ -304,9 +315,20 @@ impl PapersPanel {
         self.last_import = importing
             .as_ref()
             .map(|importing| (importing.ticket, added));
+        let ticket = importing.as_ref().map(|importing| importing.ticket);
         let cancelled = importing.is_some_and(|importing| importing.cancel.load(Ordering::Acquire));
+        let cite = ticket.is_some() && self.cite_ticket == ticket;
+        if cite {
+            self.cite_ticket = None;
+        }
         match result {
             Ok(imported) => {
+                if cite
+                    && !imported.cancelled
+                    && let Some(key) = imported.citation_key.clone()
+                {
+                    cx.emit(PapersEvent::Cite(key));
+                }
                 // The row says it was added, with its key to copy, in place
                 // of a toast; a search for what was typed keeps it first. A
                 // paper the library held, or an import cancelled, is no new
@@ -322,7 +344,30 @@ impl PapersPanel {
                     }
                 }
                 if let Some(said) = import_notice(&imported, notices) {
-                    crate::notices::info(t!("Papers"), said, cx);
+                    let mut notice = crate::notices::Notice::new(
+                        lattice_ui::components::ToastLevel::Info,
+                        t!("Papers"),
+                    )
+                    .detail(said);
+                    // A paper cited before keeps its old entry; offer to
+                    // bring it up to date.
+                    if let Some(key) = imported
+                        .citation_key
+                        .clone()
+                        .filter(|_| imported.already_imported && !imported.cancelled)
+                    {
+                        let view = cx.entity().downgrade();
+                        notice = notice.action(crate::notices::NoticeAction::new(
+                            t!("Refresh entry"),
+                            move |_, cx| {
+                                view.update(cx, |_, cx| {
+                                    cx.emit(PapersEvent::RefreshEntry(key.clone()))
+                                })
+                                .ok();
+                            },
+                        ));
+                    }
+                    crate::notices::show(notice, cx);
                 }
                 self.recent = Some(RecentImport {
                     query,
@@ -331,22 +376,12 @@ impl PapersPanel {
                 });
                 self.scroll
                     .set_offset(gpui::point(gpui::px(0.), gpui::px(0.)));
-                if let Some(error) = imported
-                    .fetch_error
-                    .filter(|_| !imported.cancelled && notices == Notices::Problems)
-                    .and_then(|error| super::batch::failure_line(&error))
-                {
-                    crate::notices::show(
-                        crate::notices::Notice::new(
-                            lattice_ui::components::ToastLevel::Info,
-                            t!("Citation added without full text"),
-                        )
-                        .detail(error),
-                        cx,
-                    );
-                }
             }
             Err(_) if cancelled => {}
+            // Missing paper tools fail every import alike: offer the install.
+            Err(error) if error.contains(super::audit::PAPER_TOOLS_MISSING) => {
+                cx.emit(PapersEvent::MissingPaperTools(error))
+            }
             Err(error) => crate::notices::error(t!("Could not add the paper"), error, cx),
         }
         self.reload(cx);

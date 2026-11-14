@@ -14,6 +14,8 @@ use lattice_i18n::t;
 use trellis::runtime::engine::ViewPlacement;
 
 use super::Shell;
+
+mod writes;
 use crate::notices;
 use crate::papers::{
     PapersEvent, PapersPanel,
@@ -54,51 +56,27 @@ impl Shell {
             PapersEvent::AddPapers(seed) => self.open_add_papers(seed.clone(), window, cx),
             PapersEvent::SearchLiterature(query) => self.open_literature(query.clone(), window, cx),
             PapersEvent::CheckReferences => self.open_audit(window, cx),
+            PapersEvent::MissingPaperTools(failure) => {
+                if let Some(center) = crate::build::tex_setup::center::center(cx) {
+                    let failure = failure.clone();
+                    center.update(cx, |center, cx| {
+                        center.open_for_missing_paper_tools(failure, cx)
+                    });
+                }
+            }
             PapersEvent::Remove(paper) => self.remove_paper((**paper).clone(), cx),
             PapersEvent::EditEntry(paper) => self.edit_entry((**paper).clone(), window, cx),
             PapersEvent::Review { query, resolved } => {
                 self.review_reference(query.clone(), (**resolved).clone(), window, cx)
             }
-            PapersEvent::Removed => {
+            PapersEvent::Cite(key) => self.insert_cite(key, window, cx),
+            PapersEvent::RefreshEntry(key) => self.refresh_entry(key.clone(), cx),
+            PapersEvent::Removed | PapersEvent::Rewritten => {
                 for editor in self.open_editors() {
                     editor.update(cx, |editor, cx| editor.check_disk(cx));
                 }
             }
         }
-    }
-
-    /// The removal's scan for citations reads the files on disk: what the
-    /// editors hold is saved first, and a save that fails stops it, as
-    /// `remove-reference-action.ts` does.
-    fn remove_paper(&mut self, paper: PaperSummary, cx: &mut Context<Self>) {
-        let Some(root) = self.root(cx) else {
-            return;
-        };
-        let saves = Self::save_dirty(&self.open_editors(), cx);
-        let papers = self.papers.downgrade();
-        cx.spawn(async move |_, cx| {
-            for save in saves {
-                match save.await {
-                    Ok(true) => {}
-                    // A write held or failed has said why already.
-                    Ok(false) => return,
-                    Err(error) => {
-                        cx.update(|cx| {
-                            notices::error(
-                                t!("Could not remove the paper"),
-                                format!("{error:#}"),
-                                cx,
-                            )
-                        });
-                        return;
-                    }
-                }
-            }
-            papers
-                .update(cx, |papers, cx| papers.remove_saved(&paper, root, cx))
-                .ok();
-        })
-        .detach();
     }
 
     /// A saved paper in its reader, a document tab of its own; a paper
@@ -363,7 +341,12 @@ impl Shell {
     }
 
     /// Add papers, over the window like the project's other sheets.
-    fn open_add_papers(&mut self, seed: String, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn open_add_papers(
+        &mut self,
+        seed: String,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         if self.root(cx).is_none() {
             return;
         }
@@ -486,10 +469,11 @@ impl Shell {
                 entry,
                 label,
                 how,
+                cite,
             } => this.save_reference(
                 view.clone(),
                 (key.clone(), entry.clone(), label.clone()),
-                *how,
+                (*how, *cite),
                 window,
                 cx,
             ),
@@ -507,7 +491,7 @@ impl Shell {
         &mut self,
         view: Entity<AddReference>,
         (key, entry, label): (String, String, String),
-        how: ProjectSave,
+        (how, cite): (ProjectSave, bool),
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -527,7 +511,7 @@ impl Shell {
                 let started = this
                     .update(cx, |this, cx| {
                         this.papers
-                            .update(cx, |papers, cx| papers.import_entry(entry, label, cx))
+                            .update(cx, |papers, cx| papers.import_entry(entry, label, cite, cx))
                     })
                     .unwrap_or(false);
                 if started {
@@ -540,9 +524,10 @@ impl Shell {
                 }
                 return;
             }
+            let saved_key = key.clone();
             let written = cx
                 .background_spawn(async move {
-                    lattice_core::project::save_bib_entry(&root, &key, &entry)
+                    lattice_core::project::save_bib_entry(&root, &saved_key, &entry)
                 })
                 .await;
             match written {
@@ -553,6 +538,9 @@ impl Shell {
                         }
                         this.papers.update(cx, |papers, cx| papers.reload(cx));
                         this.close_reference(&view, window, cx);
+                        if cite {
+                            this.insert_cite(&key, window, cx);
+                        }
                     })
                     .ok();
                 }
@@ -603,7 +591,12 @@ impl Shell {
     }
 
     /// Discover literature, a drawer at the window's right edge.
-    fn open_literature(&mut self, query: String, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn open_literature(
+        &mut self,
+        query: String,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         if self.root(cx).is_none() {
             return;
         }
@@ -623,7 +616,7 @@ impl Shell {
     }
 
     /// Check references, over the window like the project's other sheets.
-    fn open_audit(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn open_audit(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(root) = self.root(cx) else {
             return;
         };
@@ -692,6 +685,12 @@ impl Shell {
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     pub fn audit(&self) -> Option<&Entity<Audit>> {
         self.documents.audit.as_ref()
+    }
+
+    /// Add reference, while it is up, for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn add_reference(&self) -> Option<&Entity<AddReference>> {
+        self.documents.add_reference.as_ref()
     }
 
     /// Add papers, while it is up, for a scenario.

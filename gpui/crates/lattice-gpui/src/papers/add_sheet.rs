@@ -30,6 +30,7 @@ use super::{
     model::{self, PastedReference, ReferenceKind},
 };
 
+mod tools;
 mod view;
 
 /// What a paste looks like: one of each kind the box reads. Identifiers and
