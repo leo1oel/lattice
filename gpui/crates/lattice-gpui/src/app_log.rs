@@ -19,7 +19,12 @@ pub mod export;
 pub mod groups;
 pub mod trace;
 
-use std::{collections::HashMap, path::PathBuf, sync::LazyLock, time::Duration};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+    sync::{Arc, LazyLock, Mutex, MutexGuard},
+    time::Duration,
+};
 
 use gpui::{App, AppContext as _, Context, Entity, Global, Task};
 use regex::Regex;
@@ -30,7 +35,8 @@ const MAX_DETAIL_CHARS: usize = 4_000;
 /// The file log is cut back to its newest half past this size.
 const MAX_FILE_BYTES: u64 = 1_000_000;
 /// How long a change waits before the entries are written, so a burst of
-/// notices is one write.
+/// notices is one write; later changes join that write rather than
+/// postponing it.
 const PERSIST_DELAY: Duration = Duration::from_millis(400);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -182,8 +188,38 @@ pub struct AppLog {
     entries: Vec<Entry>,
     /// The entry a notice still showing under each key logged.
     keyed: HashMap<String, String>,
-    folder: Option<PathBuf>,
+    disk: Option<Arc<Disk>>,
     _persist: Option<Task<()>>,
+}
+
+/// The state folder's two files, written by whichever background flush
+/// holds `io`: each takes every line and the newest snapshot waiting, so
+/// appends, the trim and snapshots never interleave, lines land in the
+/// order they were logged, and an older snapshot never lands after a newer.
+struct Disk {
+    folder: PathBuf,
+    io: Mutex<()>,
+    lines: Mutex<Vec<String>>,
+    entries: Mutex<Option<Vec<Entry>>>,
+}
+
+fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
+    mutex
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+impl Disk {
+    fn flush(&self) {
+        let _io = lock(&self.io);
+        let lines = std::mem::take(&mut *lock(&self.lines));
+        if let Some(entries) = lock(&self.entries).take() {
+            write_entries(&self.folder, &entries);
+        }
+        if !lines.is_empty() {
+            append_lines(&self.folder.join("logs"), &lines);
+        }
+    }
 }
 
 struct AppLogGlobal(Entity<AppLog>);
@@ -200,11 +236,30 @@ pub fn install(folder: Option<PathBuf>, cx: &mut App) -> Entity<AppLog> {
         .and_then(|folder| std::fs::read_to_string(folder.join("app-log.json")).ok())
         .map(|text| read_entries(&text))
         .unwrap_or_default();
-    let log = cx.new(|_| AppLog {
-        entries,
-        keyed: HashMap::new(),
-        folder,
-        _persist: None,
+    let disk = folder.map(|folder| {
+        Arc::new(Disk {
+            folder,
+            io: Mutex::new(()),
+            lines: Mutex::new(Vec::new()),
+            entries: Mutex::new(None),
+        })
+    });
+    let log = cx.new(|cx| {
+        // What is still waiting is written before the app goes.
+        cx.on_app_quit(|this: &mut AppLog, _| {
+            if let Some(disk) = &this.disk {
+                *lock(&disk.entries) = Some(this.entries.clone());
+                disk.flush();
+            }
+            async {}
+        })
+        .detach();
+        AppLog {
+            entries,
+            keyed: HashMap::new(),
+            disk,
+            _persist: None,
+        }
     });
     cx.set_global(AppLogGlobal(log.clone()));
     log
@@ -227,7 +282,7 @@ impl AppLog {
 
     /// The folder the file log is written in, where there is one.
     pub fn log_folder(&self) -> Option<PathBuf> {
-        Some(self.folder.as_ref()?.join("logs"))
+        Some(self.disk.as_ref()?.folder.join("logs"))
     }
 
     /// Log `new`; under a `key` whose notice is still showing (`replaces`),
@@ -270,41 +325,51 @@ impl AppLog {
         self.entries.clear();
         self.keyed.clear();
         self._persist = None;
-        if let Some(folder) = self.folder.clone() {
-            cx.background_spawn(async move { write_entries(&folder, &[]) })
-                .detach();
-        }
+        self.snapshot(cx);
         cx.notify();
     }
 
     fn persist(&mut self, cx: &mut Context<Self>) {
-        let Some(folder) = self.folder.clone() else {
+        if self.disk.is_none() || self._persist.is_some() {
             return;
-        };
+        }
         self._persist = Some(cx.spawn(async move |this, cx| {
             cx.background_executor().timer(PERSIST_DELAY).await;
-            let Ok(entries) = this.read_with(cx, |this, _| this.entries.clone()) else {
-                return;
-            };
-            cx.background_spawn(async move { write_entries(&folder, &entries) })
-                .await;
+            this.update(cx, |this, cx| {
+                this._persist = None;
+                this.snapshot(cx);
+            })
+            .ok();
         }));
+    }
+
+    /// Write the entries as they are now.
+    fn snapshot(&self, cx: &mut Context<Self>) {
+        if let Some(disk) = &self.disk {
+            *lock(&disk.entries) = Some(self.entries.clone());
+            self.flush(cx);
+        }
     }
 
     /// One line in the file log per entry logged or updated.
     fn forward(&self, entry: &Entry, cx: &mut Context<Self>) {
-        let Some(folder) = self.log_folder() else {
+        let Some(disk) = &self.disk else {
             return;
         };
-        let Ok(line) = serde_json::to_string(entry) else {
-            return;
-        };
-        cx.background_spawn(async move { append_line(&folder, &line) })
-            .detach();
+        if let Ok(line) = serde_json::to_string(entry) {
+            lock(&disk.lines).push(line);
+            self.flush(cx);
+        }
+    }
+
+    fn flush(&self, cx: &mut Context<Self>) {
+        if let Some(disk) = self.disk.clone() {
+            cx.background_spawn(async move { disk.flush() }).detach();
+        }
     }
 }
 
-fn write_entries(folder: &std::path::Path, entries: &[Entry]) {
+fn write_entries(folder: &Path, entries: &[Entry]) {
     if std::fs::create_dir_all(folder).is_err() {
         return;
     }
@@ -316,28 +381,37 @@ fn write_entries(folder: &std::path::Path, entries: &[Entry]) {
     }
 }
 
-fn append_line(folder: &std::path::Path, line: &str) {
+fn append_lines(folder: &Path, lines: &[String]) {
     use std::io::Write as _;
     if std::fs::create_dir_all(folder).is_err() {
         return;
     }
     let path = folder.join("lattice.log");
     if std::fs::metadata(&path).is_ok_and(|meta| meta.len() > MAX_FILE_BYTES)
-        && let Ok(text) = std::fs::read_to_string(&path)
+        && let Ok(bytes) = std::fs::read(&path)
     {
-        let half = text.len() / 2;
-        let cut = text[half..]
-            .find('\n')
-            .map_or(text.len(), |at| half + at + 1);
-        std::fs::write(&path, &text[cut..]).ok();
+        std::fs::write(&path, newest_half(&bytes)).ok();
     }
     if let Ok(mut file) = std::fs::OpenOptions::new()
         .create(true)
         .append(true)
         .open(&path)
     {
-        writeln!(file, "{line}").ok();
+        for line in lines {
+            writeln!(file, "{line}").ok();
+        }
     }
+}
+
+/// The whole lines after the middle of `bytes`. A newline byte is never
+/// inside a multi-byte character, so the cut is always on a boundary.
+fn newest_half(bytes: &[u8]) -> &[u8] {
+    let half = bytes.len() / 2;
+    let cut = bytes[half..]
+        .iter()
+        .position(|byte| *byte == b'\n')
+        .map_or(bytes.len(), |at| half + at + 1);
+    &bytes[cut..]
 }
 
 #[cfg(test)]
@@ -391,5 +465,26 @@ mod tests {
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].title, "token=[redacted]");
         assert!(read_entries("{}").is_empty());
+    }
+
+    #[test]
+    fn a_full_file_log_of_multibyte_lines_is_cut_to_whole_newer_lines() {
+        let scratch = tempfile::tempdir().unwrap();
+        let path = scratch.path().join("lattice.log");
+        let line = "▶ 构建".repeat(4);
+        let lines = format!("{line}\n").repeat(MAX_FILE_BYTES as usize / line.len());
+        let text = (0..8)
+            .map(|padding| format!("{}\n{lines}", "x".repeat(padding)))
+            .find(|text| !text.is_char_boundary(text.len() / 2))
+            .unwrap();
+        std::fs::write(&path, &text).unwrap();
+
+        append_lines(scratch.path(), &["newest".to_string()]);
+
+        let kept = std::fs::read_to_string(&path).unwrap();
+        assert!(kept.len() <= text.len() - text.len() / 2 + "newest\n".len());
+        let (older, last) = kept.trim_end().rsplit_once('\n').unwrap();
+        assert_eq!(last, "newest");
+        assert!(older.lines().all(|kept| kept == line));
     }
 }

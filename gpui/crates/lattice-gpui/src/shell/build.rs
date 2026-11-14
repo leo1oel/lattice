@@ -107,7 +107,7 @@ fn log_outcome(
     let superseded = || Some(t!("Build superseded").to_string());
     match outcome {
         _ if !current => trace.finish("cancelled", superseded(), cx),
-        None => trace.fail(t!("LaTeX compilation failed.").to_string(), "", cx),
+        None => {}
         Some(Ok(Finished { result, .. })) => {
             trace.enrich([
                 (
@@ -315,7 +315,7 @@ impl Shell {
         self.pdf
             .update(cx, |panel, cx| panel.set_building(true, cx));
         // The build's entries in the app's log, under one operation.
-        let trace = crate::app_log::trace::Trace::start(
+        let mut trace = crate::app_log::trace::Trace::start(
             t!("Build"),
             t!("Build"),
             request.force.then(|| t!("clean rebuild").to_string()),
@@ -339,7 +339,9 @@ impl Shell {
                     .await;
                 if let Err(error) = cleaned {
                     this.update_in(cx, |this, window, cx| {
-                        notices::error(t!("Couldn’t clean the build files"), error, cx);
+                        let title = t!("Couldn’t clean the build files");
+                        trace.fail(title.to_string(), &error, cx);
+                        notices::error(title, error, cx);
                         this.finish_build(&project, 0, request, None, trace, window, cx);
                     })
                     .ok();
