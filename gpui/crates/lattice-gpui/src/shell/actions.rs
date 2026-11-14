@@ -95,6 +95,7 @@ impl Shell {
             projects: self.projects.len(),
             overleaf_linked: self.overleaf.read(cx).link().is_some(),
             overleaf_syncing: self.overleaf.read(cx).syncing(),
+            latex_source: self.latex_source_in_front(cx),
         }
     }
 
@@ -131,6 +132,12 @@ impl Shell {
                 cx.listener(|this, _: &OpenHistory, window, cx| this.open_history(window, cx)),
             )
             .on_action(cx.listener(|this, _: &OpenTodos, window, cx| this.open_todos(window, cx)))
+            .on_action(cx.listener(|this, _: &super::InsertTable, window, cx| {
+                this.open_table_generator(window, cx)
+            }))
+            .on_action(cx.listener(|this, _: &super::PasteImageAsFigure, window, cx| {
+                this.paste_image_as_figure(false, window, cx)
+            }))
             .on_action(cx.listener(
                 |this, _: &super::get_started_flow::ShowGetStarted, window, cx| {
                     this.open_get_started(window, cx)
