@@ -11,7 +11,8 @@
 //! the adapter's overlay, measured on Zed's own layout of each display row
 //! the inlay takes (a soft wrap breaks it as it breaks any text). An inlay
 //! is anchored after its point, so the caret at the point stands before it,
-//! and the inlay starts at the caret's left.
+//! and the inlay starts at the caret's left; several at one point follow
+//! each other in the order they were spliced.
 
 use gpui::{App, Bounds, Hsla, Pixels, SharedString, TextRun, Window, fill, point, px, size};
 
