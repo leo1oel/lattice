@@ -381,8 +381,7 @@ impl Shell {
                     Some(detail) => t!(
                         "Live editing unavailable ({detail}), syncing instead",
                         detail = detail.as_ref()
-                    )
-                    .into(),
+                    ),
                     None => t!("Live editing unavailable, syncing instead").into(),
                 },
                 ChannelStatus::Live => detail

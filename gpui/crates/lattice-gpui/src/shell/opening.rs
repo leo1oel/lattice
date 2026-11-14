@@ -92,6 +92,9 @@ impl Shell {
         self.refresh_outline(window, cx);
         self.papers
             .update(cx, |papers, cx| papers.set_project(project.clone(), cx));
+        // A check left running with its sheet closed belongs to the project
+        // left behind: it stops, as the Tauri app's sheet unmounts.
+        crate::papers::audit::stop_others(cx.entity_id(), &root, cx);
         self.history
             .update(cx, |history, cx| history.set_project(project.clone(), cx));
         self.agent_project(Some(root.clone()), cx);
