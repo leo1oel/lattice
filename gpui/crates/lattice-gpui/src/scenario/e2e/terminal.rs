@@ -26,6 +26,8 @@ impl Run {
         let root = self.root(cx).await?;
         self.pause(cx, Duration::from_millis(800)).await;
         self.terminal_panel(cx, &mut steps, &root).await?;
+        self.closed_terminal_stays_closed(cx, &mut steps, &root)
+            .await?;
         steps.check_foreground(self);
         let passed = steps.0.iter().all(|step| step["passed"] == true);
         Ok(json!({ "scenario": "terminal", "passed": passed, "steps": steps.0 }))
@@ -500,6 +502,49 @@ impl Run {
                 && shell.terminal().read(cx).sessions().is_empty()
         });
         steps.check("closing the panel ends its shells", gone, json!({}));
+        Ok(())
+    }
+
+    /// After the panel has closed, switching the window to another project
+    /// and back starts no shell: a closed Terminal is not in the layout, so
+    /// nothing may run behind it. Only the standalone scenario runs this,
+    /// since the e2e scenario's later steps need the window on its project.
+    async fn closed_terminal_stays_closed(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+        root: &std::path::Path,
+    ) -> Result<()> {
+        let elsewhere = root.with_file_name("closed-terminal-elsewhere");
+        std::fs::create_dir_all(&elsewhere)?;
+        std::fs::write(elsewhere.join("main.tex"), "\\documentclass{article}\n")?;
+        let mut sessions = Vec::new();
+        for target in [elsewhere.clone(), root.to_path_buf()] {
+            self.with_window(cx, |shell, window, cx| {
+                shell.update(cx, |shell, cx| shell.open_project(target.clone(), window, cx))
+            })?;
+            self.wait_for(cx, Duration::from_secs(5), |shell, cx| {
+                shell.read(cx).root(cx).as_deref() == Some(&*target)
+            })
+            .await;
+            self.pause(cx, Duration::from_millis(1500)).await;
+            sessions.push(cx.update(|cx| {
+                let shell = self.shell.read(cx);
+                (
+                    shell.root(cx).as_deref() == Some(&*target),
+                    shell.terminal().read(cx).sessions().len(),
+                    shell.view_on_screen("terminal", cx),
+                )
+            }));
+        }
+        let passed = sessions
+            .iter()
+            .all(|(arrived, count, shown)| *arrived && *count == 0 && !shown);
+        steps.check(
+            "a closed Terminal starts no shell when the window switches project and back",
+            passed,
+            json!({ "after_each_switch": sessions }),
+        );
         Ok(())
     }
 
