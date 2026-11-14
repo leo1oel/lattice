@@ -200,10 +200,16 @@ pub fn bib_text_to_plain(value: &str) -> String {
     let text = COMMAND.replace_all(&text, |captures: &Captures| {
         letter(&captures[1]).map_or_else(|| captures[0].to_string(), str::to_string)
     });
-    // An escaped character is kept as itself, and must survive the steps
-    // that drop braces and markup: it is held as a private-use stand-in.
+    // An escaped `&`, `%`, `#` or `_` is kept as itself, and must survive
+    // the steps that drop markup: it is held as a private-use stand-in. An
+    // escaped `{`, `}` or `$` goes, as the Tauri app's `bibTextToPlain`
+    // unescapes it before dropping every brace and dollar: `\{x\}` reads
+    // `x`, and the list's titles, search text and sort order agree with it.
     let text = ESCAPE.replace_all(&text, |captures: &Captures| {
         let ch = captures[1].chars().next().unwrap_or(' ');
+        if matches!(ch, '{' | '}' | '$') {
+            return String::new();
+        }
         char::from_u32(0xF0000 + ch as u32).map_or_else(String::new, String::from)
     });
     // \emph{x}, \textbf{x}, \url{x}: keep the argument.
@@ -454,6 +460,9 @@ mod tests {
         );
         assert_eq!(bib_text_to_plain(r"``Quoted'' 1--2 $\alpha$"), "“Quoted” 1–2 α");
         assert_eq!(bib_text_to_plain(r"50\% \_x\_"), "50% _x_");
+        // `bibTextToPlain` unescapes these, then drops every brace and
+        // dollar: worked by hand from bib-document.ts.
+        assert_eq!(bib_text_to_plain(r"50\$ prize \{x\}"), "50 prize x");
     }
 
     #[test]

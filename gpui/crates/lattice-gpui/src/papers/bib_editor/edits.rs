@@ -57,6 +57,11 @@ impl BibEditor {
         {
             Some(t!("Another reference already uses “{key}”.", key = key))
         } else {
+            // Whether the list has this reference in front, read before the
+            // splice parses the text again: the stored place can be stale
+            // (an undo put an entry back before it), and `selected_row`
+            // still resolves it by key.
+            let front = self.selected_row().map(|row| row.index);
             let renamed = key.clone();
             if self
                 .edit_entry(
@@ -67,7 +72,7 @@ impl BibEditor {
                 )
                 .is_some()
             {
-                follow_rename(&mut self.selected, index, &key);
+                follow_rename(&mut self.selected, front, index, &key);
                 // The same reference under its new key: its form is kept.
                 if let Some(detail) = &mut self.detail {
                     detail.key = key;
@@ -193,10 +198,16 @@ impl BibEditor {
         let Some((key, index)) = self.front() else {
             return;
         };
+        // The type already checked is no change: rewriting `@Article` as
+        // `@article` would touch the file and the history for nothing, and
+        // the Tauri app's Select never reports its current value.
         self.edit_entry(
             &key,
             index,
-            |_, entry| Some(bib_document::change_type_edit(entry, &kind)),
+            |_, entry| {
+                (!entry.kind.eq_ignore_ascii_case(&kind))
+                    .then(|| bib_document::change_type_edit(entry, &kind))
+            },
             cx,
         );
     }
@@ -258,12 +269,19 @@ impl BibEditor {
 }
 
 /// The reference at `index` now goes by `key`: a selection of it follows,
-/// one of another entry under the old key stays where it is.
-fn follow_rename(selected: &mut Option<(String, usize)>, index: usize, key: &str) {
-    if let Some((selected, at)) = selected
-        && *at == index
-    {
-        *selected = key.to_string();
+/// one of another entry under the old key stays where it is. `front` is the
+/// place of the row the selection resolved to before the rename, not the
+/// place it stored, which can lag behind entries coming and going; the
+/// selection takes the renamed entry's place as well, as the Tauri app's
+/// `onRenamed` puts the new key in front.
+fn follow_rename(
+    selected: &mut Option<(String, usize)>,
+    front: Option<usize>,
+    index: usize,
+    key: &str,
+) {
+    if selected.is_some() && front == Some(index) {
+        *selected = Some((key.to_string(), index));
     }
 }
 
@@ -276,10 +294,21 @@ mod tests {
     #[test]
     fn a_rename_moves_only_the_renamed_entrys_selection() {
         let mut picked = Some(("smith2020".to_string(), 1));
-        follow_rename(&mut picked, 0, "smith2020a");
+        follow_rename(&mut picked, Some(1), 0, "smith2020a");
         assert_eq!(picked, Some(("smith2020".to_string(), 1)));
         let mut renamed = Some(("smith2020".to_string(), 0));
-        follow_rename(&mut renamed, 0, "smith2020a");
+        follow_rename(&mut renamed, Some(0), 0, "smith2020a");
         assert_eq!(renamed, Some(("smith2020a".to_string(), 0)));
+    }
+
+    /// Entries `a`, `b`, `c`: delete `a` (the selection becomes `("b", 0)`),
+    /// undo it (`b` is back at place 1, the selection still says 0 and
+    /// resolves to `b` by key), then rename `b` to `b2`. The selection
+    /// follows to `("b2", 1)` rather than being lost.
+    #[test]
+    fn a_rename_follows_a_selection_whose_stored_place_is_stale() {
+        let mut selected = Some(("b".to_string(), 0));
+        follow_rename(&mut selected, Some(1), 1, "b2");
+        assert_eq!(selected, Some(("b2".to_string(), 1)));
     }
 }
