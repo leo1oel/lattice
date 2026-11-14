@@ -68,6 +68,8 @@ const HOVER_CLOSE: Duration = Duration::from_millis(200);
 /// A popover is at most this tall, or 70% of the window
 /// (overleaf-margin-review.css's `min(420px, 70vh)`), and scrolls.
 const POPOVER_MAX: Pixels = px(420.);
+/// The space between a popover and its line, or the view's edge.
+const POPOVER_GAP: Pixels = px(6.);
 /// The blank block that gives stacked cards room past the last line, and
 /// the space it keeps under the last card.
 const ROOM_LAYER: &str = "margin-review-room";
@@ -285,8 +287,8 @@ impl EditorPanel {
                 let mut floor = px(f32::MIN);
                 let x = (content_right + px(6.)).min(width - px(46.));
                 let mut popover = None;
-                for (item, top, line) in lines {
-                    let top = (top + (line - PIP) / 2.).max(floor);
+                for (item, line_top, line) in lines {
+                    let top = (line_top + (line - PIP) / 2.).max(floor);
                     floor = top + PIP + px(2.);
                     bottom = bottom.max(top + PIP);
                     let open = self
@@ -296,15 +298,10 @@ impl EditorPanel {
                         .is_some_and(|(key, _)| *key == item.key);
                     layer = layer.child(self.pip(&item, point(x, top), open, layout, cx));
                     if open && layout == MarginLayout::Markers {
-                        // Beside the line, left of its pip, over the text;
-                        // never past the view's bottom, where it would be
-                        // cut off, nor its top.
                         let height = self.margin.popover_height.get();
                         let at = point(
                             (x - CARD - px(10.)).max(content_left),
-                            (top - px(8.))
-                                .min(view_height - height - px(8.))
-                                .max(px(0.)),
+                            popover_top(line_top, line, height, view_height),
                         );
                         popover = Some((item, at));
                     }
@@ -313,6 +310,8 @@ impl EditorPanel {
                     let card = self.margin_card(&item, CardVariant::Popover, cx);
                     let this = cx.weak_entity();
                     let measured = self.margin.popover_height.clone();
+                    let painted = self.margin.painted.clone();
+                    let painted_key = format!("popover:{}", item.key);
                     let max = POPOVER_MAX
                         .min(window.viewport_size().height * 0.7)
                         .min(view_height);
@@ -332,6 +331,7 @@ impl EditorPanel {
                             .child(
                                 canvas(
                                     move |bounds, window, _| {
+                                        painted.borrow_mut().push((painted_key.clone(), bounds));
                                         if measured.replace(bounds.size.height)
                                             != bounds.size.height
                                         {
@@ -666,6 +666,23 @@ impl EditorPanel {
     }
 }
 
+/// Where a pip's popover stands, for a line at `line_top` that is `line`
+/// tall, in a view `view` tall: left of its pip as the Tauri app's, but under
+/// its line rather than over it, so the passage it is about (the
+/// highlighted words) stays in sight; above the line when the view has no
+/// room under it, and never past the view's top or bottom, where it would be
+/// cut off.
+fn popover_top(line_top: Pixels, line: Pixels, height: Pixels, view: Pixels) -> Pixels {
+    let below = line_top + line + POPOVER_GAP;
+    let above = line_top - POPOVER_GAP - height;
+    let top = if below + height <= view - POPOVER_GAP || above < px(0.) {
+        below
+    } else {
+        above
+    };
+    top.min(view - height - POPOVER_GAP).max(px(0.))
+}
+
 /// Whole lines (each `line` tall) that make room for `overflow` past the
 /// last line; none when nothing reaches past it.
 fn room_lines(overflow: Pixels, line: Pixels) -> u32 {
@@ -680,7 +697,19 @@ fn room_lines(overflow: Pixels, line: Pixels) -> u32 {
 mod tests {
     use gpui::px;
 
-    use super::room_lines;
+    use super::{popover_top, room_lines};
+
+    #[test]
+    fn a_popover_stands_under_its_line_and_inside_the_view() {
+        // Room under the line: just under it, the line left in sight.
+        assert_eq!(popover_top(px(100.), px(20.), px(150.), px(800.)), px(126.));
+        // None under it: above the line.
+        assert_eq!(popover_top(px(700.), px(20.), px(150.), px(800.)), px(544.));
+        // Room on neither side: as low as the view lets it, still whole.
+        assert_eq!(popover_top(px(100.), px(20.), px(300.), px(320.)), px(14.));
+        // Taller than the view: from its top.
+        assert_eq!(popover_top(px(100.), px(20.), px(500.), px(320.)), px(0.));
+    }
 
     #[test]
     fn room_covers_the_overflow_in_whole_lines() {

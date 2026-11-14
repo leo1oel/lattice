@@ -1,7 +1,8 @@
 //! The e2e checks of margin review's cards beside a crowded end of the
 //! document (`editor_panel::margin_review`): with the documents' panel
-//! framed to the whole window, so the cards stand beside the text, four more
-//! comments on main.tex's last line stack under one another past it. Every
+//! framed to the whole window, so the cards stand beside the text, eight
+//! more comments on main.tex's last line stack under one another past it and
+//! past the view's bottom. Every
 //! card stays right of the text (none over a highlighted passage), the
 //! editor keeps room under the last line, and scrolled to the end the last
 //! card is inside the view rather than cut off at its bottom.
@@ -9,7 +10,7 @@
 use std::time::Duration;
 
 use anyhow::Result;
-use gpui::{AsyncApp, Entity, Pixels};
+use gpui::{AsyncApp, Entity};
 use serde_json::json;
 use trellis::runtime::keymap::Command as Trellis;
 
@@ -21,7 +22,11 @@ use crate::{
 
 /// The last line's words the extra comments quote.
 const LAST_LINE: &str = "% A note from Overleaf";
-const QUOTES: [&str; 4] = ["A", "note", "from", "Overleaf"];
+/// More comments than the view holds, so the stack reaches past its bottom
+/// and past the document's last line.
+const QUOTES: [&str; 8] = [
+    "A", "note", "from", "Overleaf", "A note", "note from", "from Overleaf", "Overleaf",
+];
 
 impl Run {
     pub(super) async fn overleaf_margin_end(
@@ -65,17 +70,22 @@ impl Run {
                     && editor.margin_room() > 0
             })
             .await;
-        // Scrolled to the end of the document.
-        self.with_window(cx, {
-            let editor = editor.clone();
-            move |_, window, cx| {
-                let zed = editor.read(cx).editor().clone();
-                zed.update(cx, |zed, cx| {
-                    zed.move_to_end(&editor::actions::MoveToEnd, window, cx)
-                });
-            }
-        })?;
-        self.pause(cx, Duration::from_millis(600)).await;
+        // Scrolled to the end of the document: the room under the last line
+        // reaches the editor's layout a frame after the margin asks for it,
+        // so the scroll is asked again once that frame is drawn.
+        for _ in 0..2 {
+            self.with_window(cx, {
+                let editor = editor.clone();
+                move |_, window, cx| {
+                    let zed = editor.read(cx).editor().clone();
+                    zed.update(cx, |zed, cx| {
+                        zed.move_to_end(&editor::actions::MoveToEnd, window, cx);
+                        zed.set_scroll_position(gpui::point(0., 1.0e6), window, cx);
+                    });
+                }
+            })?;
+            self.pause(cx, Duration::from_millis(500)).await;
+        }
         let (painted, view, text_right, room) = cx.update(|cx| {
             let panel = editor.read(cx);
             (
@@ -93,13 +103,17 @@ impl Run {
         let beside = text_right.is_some_and(|right| {
             !cards.is_empty() && cards.iter().all(|(_, bounds)| bounds.left() >= right)
         });
-        // In reach: the last stacked card is inside the view.
+        // In reach: the last stacked card is wholly inside the view.
         let last = cards
             .iter()
             .filter(|(key, _)| wanted.contains(key))
-            .map(|(_, bounds)| bounds.bottom())
-            .fold(None::<Pixels>, |low, bottom| Some(low.map_or(bottom, |l| l.max(bottom))));
-        let reached = matches!((last, view), (Some(last), Some(view)) if last <= view.bottom());
+            .map(|(_, bounds)| *bounds)
+            .max_by(|a, b| a.bottom().partial_cmp(&b.bottom()).unwrap_or(std::cmp::Ordering::Equal));
+        let reached = matches!(
+            (last, view),
+            (Some(last), Some(view)) if last.top() >= view.top() && last.bottom() <= view.bottom()
+        );
+        let last = last.map(|last| last.bottom());
         self.adapter_shot(cx, "overleaf-margin-end").await;
         steps.check(
             "margin review: the cards beside the last line stay beside the text and in reach",
