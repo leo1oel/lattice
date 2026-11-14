@@ -93,9 +93,9 @@ pub struct FindBar {
     search: Option<Arc<SearchQuery>>,
     searching: Option<Task<()>>,
     then: Option<Then>,
-    /// The bar's last laid-out width: at 520px or more its two rows share
-    /// one grid, as the panel's container query has them.
-    width: Rc<Cell<Option<f32>>>,
+    /// The bar's last laid-out size: at 520px wide or more its two rows
+    /// share one grid, as the panel's container query has them.
+    size: Rc<Cell<Option<(f32, f32)>>>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -151,7 +151,7 @@ impl FindBar {
             search: None,
             searching: None,
             then: None,
-            width: Rc::new(Cell::new(None)),
+            size: Rc::new(Cell::new(None)),
             _subscriptions: subscriptions,
         }
     }
@@ -162,6 +162,16 @@ impl FindBar {
 
     pub fn query_text(&self, cx: &gpui::App) -> String {
         self.query.read(cx).value().to_string()
+    }
+
+    /// The bar's width and height as last laid out.
+    pub fn laid_out(&self) -> Option<(f32, f32)> {
+        self.size.get()
+    }
+
+    /// Whether its rows share one grid (at 520px wide or more).
+    pub fn is_wide(&self) -> bool {
+        view::is_wide(self.size.get())
     }
 
     pub fn options(&self) -> FindOptions {

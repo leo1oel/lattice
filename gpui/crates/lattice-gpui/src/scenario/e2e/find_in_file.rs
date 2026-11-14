@@ -155,6 +155,9 @@ impl Run {
             json!({ "one": one, "moved_on": moved_on, "all": all, "text": self.editor_text(cx, &editor) }),
         );
 
+        // A narrow window in Chinese: the rows wrap within themselves.
+        self.find_narrow_chinese(cx, steps, &editor).await?;
+
         // Escape, natively, from the query.
         let query = cx.update(|cx| bar.read(cx).query_input().clone());
         self.with_window(cx, move |_, window, cx| {
@@ -193,6 +196,81 @@ impl Run {
         .await;
         std::fs::remove_file(&scratch).ok();
         Ok(())
+    }
+
+    /// The bar wide in English, then at a 720px window in Chinese: its rows
+    /// no longer share a grid but wrap, in two to four lines, and it shares
+    /// the panel's width. With `LATTICE_E2E_SHOTS=DIR` each look is saved.
+    async fn find_narrow_chinese(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+        editor: &Entity<EditorPanel>,
+    ) -> Result<()> {
+        let bar = cx.update(|cx| editor.read(cx).find_bar().clone());
+        let was = self.with_window(cx, |_, window, _| window.viewport_size())?;
+        self.find_shot(cx, "find-wide-en").await;
+        let wide = cx.update(|cx| (bar.read(cx).is_wide(), bar.read(cx).laid_out()));
+        cx.update(|cx| {
+            crate::settings::update_appearance(cx, |appearance| {
+                appearance.interface_language = lattice_settings::InterfaceLanguage::ZhCn
+            })
+        });
+        self.with_window(cx, |_, window, _| {
+            window.resize(gpui::size(gpui::px(720.), was.height))
+        })?;
+        let narrow = self
+            .wait_for(cx, Duration::from_secs(3), {
+                let bar = bar.clone();
+                move |_, cx| !bar.read(cx).is_wide()
+            })
+            .await;
+        self.pause(cx, Duration::from_millis(300)).await;
+        self.find_shot(cx, "find-narrow-zh").await;
+        let (laid_out, panel_width) = {
+            let bar = bar.clone();
+            let editor = editor.clone();
+            self.with_window(cx, move |_, window, cx| {
+                let _ = window;
+                (
+                    bar.read(cx).laid_out(),
+                    editor
+                        .read(cx)
+                        .editor()
+                        .read(cx)
+                        .last_bounds()
+                        .map(|bounds| f32::from(bounds.size.width)),
+                )
+            })?
+        };
+        let rows_ok = laid_out.is_some_and(|(_, height)| (70. ..=160.).contains(&height));
+        cx.update(|cx| {
+            crate::settings::update_appearance(cx, |appearance| {
+                appearance.interface_language = lattice_settings::InterfaceLanguage::En
+            })
+        });
+        self.with_window(cx, move |_, window, _| window.resize(was))?;
+        self.wait_for(cx, Duration::from_secs(3), {
+            let bar = bar.clone();
+            move |_, cx| bar.read(cx).is_wide()
+        })
+        .await;
+        steps.check(
+            "find: in a narrow window, in Chinese, the find bar's rows wrap within the panel",
+            wide.0 && narrow && rows_ok,
+            json!({ "wide": wide, "narrow": laid_out, "editor_width": panel_width }),
+        );
+        Ok(())
+    }
+
+    async fn find_shot(&self, cx: &mut AsyncApp, name: &str) {
+        let Some(dir) = std::env::var_os("LATTICE_E2E_SHOTS") else {
+            return;
+        };
+        let path = std::path::Path::new(&dir).join(format!("{name}.png"));
+        if let Err(error) = self.capture(cx, &path.to_string_lossy()).await {
+            log::warn!("no shot {name}: {error:#}");
+        }
     }
 
     fn set_find_options(

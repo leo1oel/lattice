@@ -90,7 +90,7 @@ impl Toggle {
 impl Render for FindBar {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let palette = cx.palette().clone();
-        let wide = self.width.get().is_none_or(|width| width >= GRID_WIDTH);
+        let wide = is_wide(self.size.get());
         let query = field("find-query", &self.query, window, cx);
         let replacement = field("find-replace", &self.replacement, window, cx);
         let count = div()
@@ -104,7 +104,11 @@ impl Render for FindBar {
             .font_features(tabular_nums())
             .text_color(palette.text_secondary)
             .children(lattice_ui::parity::probe("find/count"))
-            .children(lattice_ui::parity::text_probe("find/count", 0, self.count_label(cx)))
+            .children(lattice_ui::parity::text_probe(
+                "find/count",
+                0,
+                self.count_label(cx),
+            ))
             .child(self.count_label(cx))
             .into_any_element();
         let next = button("find-next", "↓".into(), t!("Next match").into(), window, cx)
@@ -156,8 +160,16 @@ impl Render for FindBar {
         let rows: AnyElement = if wide {
             // One grid: the fields' column, then the counter and arrows over
             // Replace, then Select all and the chips over Replace all.
+            // The fields' rows are taller by their margin (`field`); the
+            // grid centres every other control in them.
+            let inset = px(0.2
+                * f32::from(
+                    TextRole::Caption
+                        .font_size(Default::default(), cx)
+                        .to_pixels(window.rem_size()),
+                ));
             let column = || div().flex().flex_col().gap(px(GAP));
-            let line = || div().flex().items_center().gap(px(GAP));
+            let line = || div().flex().items_center().gap(px(GAP)).py(inset);
             div()
                 .flex()
                 .items_start()
@@ -167,13 +179,13 @@ impl Render for FindBar {
                     column()
                         .flex_none()
                         .child(line().child(count).child(next).child(previous))
-                        .child(replace.w_full()),
+                        .child(div().py(inset).child(replace.w_full())),
                 )
                 .child(
                     column()
                         .flex_none()
                         .child(line().child(select_all).children(toggles))
-                        .child(replace_all.w_full()),
+                        .child(div().py(inset).child(replace_all.w_full())),
                 )
                 .into_any_element()
         } else {
@@ -209,7 +221,7 @@ impl Render for FindBar {
 
         let close = close_button(window, cx)
             .on_click(cx.listener(|this, _, window, cx| this.close(window, cx)));
-        let width = self.width.clone();
+        let size = self.size.clone();
         let entity = cx.entity().downgrade();
         let bar = div()
             .id("find-bar")
@@ -242,11 +254,9 @@ impl Render for FindBar {
             .child(rows)
             .child(close);
         lattice_ui::measure::measured(bar, move |bounds, cx| {
-            let measured = f32::from(bounds.size.width);
-            let crossed = width
-                .get()
-                .is_none_or(|was| (was >= GRID_WIDTH) != (measured >= GRID_WIDTH));
-            width.set(Some(measured));
+            let measured = (f32::from(bounds.size.width), f32::from(bounds.size.height));
+            let crossed = is_wide(size.get()) != is_wide(Some(measured));
+            size.set(Some(measured));
             if crossed {
                 entity.update(cx, |_, cx| cx.notify()).ok();
             }
@@ -273,7 +283,16 @@ fn field(
         window,
         cx,
     );
-    track_pointer(div().id(id), pointer)
+    // CodeMirror's search theme sets `.2em .6em .2em 0` around the panel's
+    // inputs, which the app's CSS resets for its buttons and chips only, so
+    // the fields keep it: each row is that much taller, and the field ends
+    // that far before the counter.
+    let em = f32::from(
+        TextRole::Caption
+            .font_size(Default::default(), cx)
+            .to_pixels(window.rem_size()),
+    );
+    let box_ = track_pointer(div().id(id), pointer)
         .flex()
         .items_center()
         .w_full()
@@ -296,8 +315,20 @@ fn field(
                 .py_0()
                 .h(TextRole::Caption.leading(Default::default()))
                 .text_size(TextRole::Caption.font_size(Default::default(), cx)),
-        )
+        );
+    div()
+        .w_full()
+        .min_w_0()
+        .py(px(0.2 * em))
+        .pr(px(0.6 * em))
+        .child(box_)
         .into_any_element()
+}
+
+/// Whether a bar of `size` lays its rows out as one grid; before its first
+/// layout, as the wide bar.
+pub(super) fn is_wide(size: Option<(f32, f32)>) -> bool {
+    size.is_none_or(|(width, _)| width >= GRID_WIDTH)
 }
 
 /// A control's parity region: `find-next` is `find/next`.
@@ -334,6 +365,9 @@ fn button(
         .rounded(px(RADIUS))
         .whitespace_nowrap()
         .cursor_pointer()
+        // The app's buttons set no line height of their own: 1.6, the
+        // document's.
+        .line_height(relative(1.6))
         .bg(mix(rest, palette.accent_soft, interaction.hover))
         .text_color(mix(
             palette.text_secondary,
@@ -392,7 +426,11 @@ fn chip(toggle: Toggle, on: bool, window: &mut Window, cx: &mut App) -> gpui::St
         .on_mouse_down(MouseButton::Left, |_, window, _| window.prevent_default())
         .tooltip(tooltip(toggle.title()))
         .children(lattice_ui::parity::probe(region(id)))
-        .children(lattice_ui::parity::text_probe(region(id), 0, toggle.label()))
+        .children(lattice_ui::parity::text_probe(
+            region(id),
+            0,
+            toggle.label(),
+        ))
         .child(toggle.label())
 }
 
