@@ -121,11 +121,27 @@ impl AddReference {
                 }))
                 .child(icon.element(px(12.), mix(palette.text_secondary, palette.accent, hover)))
         };
+        // The buttons stand inside the field's border, at its end.
         div()
             .relative()
             .flex_none()
             .w(px(YEAR))
-            .child(div().pr(px(22.)).child(self.field_box(Field::Year, cx)))
+            .h(px(30.))
+            .pl(px(8.))
+            .pr(px(26.))
+            .flex()
+            .items_center()
+            .rounded(px(6.))
+            .overflow_hidden()
+            .bg(palette.input)
+            .border_1()
+            .border_color(palette.field_border)
+            .child(
+                gpui_kit::component::input::Input::new(self.input(Field::Year))
+                    .appearance(false)
+                    .bordered(false)
+                    .px_0(),
+            )
             .child(
                 div()
                     .absolute()
@@ -135,8 +151,6 @@ impl AddReference {
                     .w(px(22.))
                     .flex()
                     .flex_col()
-                    .rounded_r(px(6.))
-                    .overflow_hidden()
                     .child(step(
                         "bib-year-up",
                         Icon::CHEVRON_UP,
