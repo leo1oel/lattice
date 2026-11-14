@@ -115,6 +115,11 @@ pub struct OverleafPicker {
     /// The folder on this Mac already linked to a listed project, by id.
     local_copies: BTreeMap<String, LocalCopy>,
     copies_task: Option<Task<()>>,
+    /// A local-copy lookup is still running, so whether a project opens a
+    /// folder here or downloads is not known yet.
+    copies_loading: bool,
+    /// An open asked for during that lookup, run once it answers.
+    parked_open: Option<(OverleafProject, bool)>,
     copies_for: Vec<String>,
     search: Entity<InputState>,
     publish_name: Entity<InputState>,
@@ -273,6 +278,8 @@ impl OverleafPicker {
             invitation_opened: false,
             local_copies: BTreeMap::new(),
             copies_task: None,
+            copies_loading: false,
+            parked_open: None,
             copies_for: Vec::new(),
             search,
             publish_name,
@@ -405,12 +412,18 @@ impl OverleafPicker {
             return;
         }
         self.copies_for = names.clone();
+        self.copies_loading = true;
         let known = self.setup.known_folders.clone();
         let read = cx.background_spawn(async move { sync::local_copies(&names, &known) });
         self.copies_task = Some(cx.spawn(async move |this, cx| {
             let copies = read.await;
             this.update(cx, |this, cx| {
                 this.local_copies = copies;
+                this.copies_loading = false;
+                if let Some((project, here)) = this.parked_open.take() {
+                    this.opening = None;
+                    this.open_project(project, here, cx);
+                }
                 cx.notify();
             })
             .ok();

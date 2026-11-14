@@ -17,6 +17,13 @@ impl OverleafPicker {
         if self.working() {
             return;
         }
+        if self.copies_loading {
+            self.opening = Some(project.clone());
+            self.transfer_error = None;
+            self.parked_open = Some((project, here));
+            cx.notify();
+            return;
+        }
         let Some(copy) = self.local_copies.get(&project.id).cloned() else {
             self.clone_project(project, here, cx);
             return;
