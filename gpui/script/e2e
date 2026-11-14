@@ -5,7 +5,11 @@
 # home directory or checkout. Then check what the scenario cannot check from
 # inside: once the app has quit, the file holds the text typed just before.
 #
-# Usage: script/e2e [result.json]   (default: a file in the scratch folder)
+# Usage: script/e2e [--only MODULES] [result.json]
+#   (result default: a file in the scratch folder). --only runs the smoke flow
+#   and those modules (crates/lattice-gpui/src/scenario/e2e/steps.rs; `smoke`
+#   for none), as the pipeline's light pass does through
+#   ../scripts/gpui-e2e-light.mjs; without it the whole scenario runs.
 # Build first, from the repository root: node scripts/gpui-build.mjs (the
 # release build with offscreen-shots, in the machine's shared build tree, copied
 # back to target/release/lattice-gpui; a plain cargo build here starts cold in
@@ -21,12 +25,24 @@
 # ../scripts/lib/gpui-lock.mjs) only around the steps that need its window
 # key, bringing the window to the front while it holds it and putting the app
 # back in the background as it lets go
-# (crates/lattice-gpui/src/scenario/input_lock.rs). It prints "waiting for
+# (crates/lattice-gpui/src/scenario/input_lock.rs). With gpui-fast's lab
+# switch GPUI_LAB_ASSUME_KEY, set below, every window of the run already
+# acts as the key window of the active app as far as GPUI can tell, so the
+# steps that need only GPUI's focus (the editor's overlays, the PDF, Overleaf,
+# the fluid hover) take no lock either; what stays under it is what macOS
+# serves only the real key window (the input method, a webview's keyboard
+# focus, the menu bar's key equivalents). It prints "waiting for
 # the GPUI e2e lock held by <pid> <worktree>" while another run holds it, and
 # takes over a lock left by a process that died. It is not the build lock, so
 # builds run alongside. A step that activates the app outside such a section
 # fails the run, since it would take the key window from the run in one.
 set -euo pipefail
+
+only=()
+if [ "${1:-}" = "--only" ]; then
+  only=(--only "${2:?--only needs a module list}")
+  shift 2
+fi
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 app="$root/target/release/lattice-gpui"
@@ -42,15 +58,18 @@ out="${1:-$scratch/e2e.json}"
 mkdir -p "$scratch/home"
 cp -R "$root/fixtures/e2e" "$project"
 
-# The lab switch (patches/README.md), as CI's e2e step sets it: on a locked
-# or covered display the window keeps drawing, and an island's WebKit page
-# keeps running its animation frames and timers, so the editor's paint
-# checks and the islands' scroll and focus checks see a live window, and a
-# window the scenario opens (the PDF's own window) is shown and laid out.
+# The lab switches (patches/README.md). GPUI_LAB_IGNORE_OCCLUSION, as CI's
+# e2e step sets it: on a locked or covered display the window keeps drawing,
+# and an island's WebKit page keeps running its animation frames and timers,
+# so the editor's paint checks and the islands' scroll and focus checks see a
+# live window, and a window the scenario opens (the PDF's own window) is
+# shown and laid out. GPUI_LAB_ASSUME_KEY: every window reports itself key
+# without taking the machine's front, so runs side by side queue for the
+# input lock only for the steps that need the real key window.
 # TeX is looked up on PATH; MacTeX's texbin is not on a non-login shell's.
 # The lock's label, shown to a run waiting for it: this checkout.
 LATTICE_GPUI_E2E_LOCK_LABEL="${LATTICE_GPUI_E2E_LOCK_LABEL:-$(cd "$root/.." && pwd)}" \
-GPUI_LAB_IGNORE_OCCLUSION=1 PATH="$PATH:/Library/TeX/texbin" HOME="$scratch/home" "$app" "$project" --scenario e2e --out "$out"
+GPUI_LAB_IGNORE_OCCLUSION=1 GPUI_LAB_ASSUME_KEY=1 PATH="$PATH:/Library/TeX/texbin" HOME="$scratch/home" "$app" "$project" --scenario e2e --out "$out" ${only[@]+"${only[@]}"}
 cat "$out"
 jq -e '.passed == true' "$out" >/dev/null || { echo "e2e: the scenario failed" >&2; exit 1; }
 file="$(jq -r '.after_quit.file' "$out")"

@@ -27,6 +27,10 @@ const PROXY_NAMES: &[&str] = &[
     "SSL_CERT_FILE",
     "SSL_CERT_DIR",
 ];
+/// The fork offers its iOS Simulator dock and `device_*` tools only to a host
+/// that sets this. A writing app has no simulator to drive, so no layer may
+/// hand it to the sidecar.
+const DEVICE_CONTROL_ENTITLEMENT: &str = "LATTICE_DEVICE_CONTROL_ENABLED";
 /// Every variable of these families configures a provider CLI: Claude Code
 /// pointed at Kimi, GLM or DeepSeek through `ANTHROPIC_BASE_URL`, its model
 /// overrides, Codex's `OPENAI_BASE_URL`.
@@ -167,6 +171,8 @@ impl AgentEnvironment {
                 command.env(name, &variable.value);
             }
         }
+        // Not even from Lattice's launch, which the sidecar inherits.
+        command.env_remove(DEVICE_CONTROL_ENTITLEMENT);
     }
 
     /// Whether a sidecar started with `self` would now start differently.
@@ -265,6 +271,16 @@ pub(super) fn redacted(name: &str, value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_sidecar_never_receives_device_control() {
+        let mut command = Command::new("node");
+        // As if the login shell or Lattice's own launch exported it.
+        command.env(DEVICE_CONTROL_ENTITLEMENT, "true");
+        AgentEnvironment::default().apply(&mut command);
+        let removed = (std::ffi::OsStr::new(DEVICE_CONTROL_ENTITLEMENT), None);
+        assert_eq!(command.get_envs().collect::<Vec<_>>(), [removed]);
+    }
 
     #[test]
     fn applies_system_proxy_without_overriding_explicit_environment() {

@@ -1,0 +1,80 @@
+diff --git a/gpui-fast/crates/gpui_macos/src/platform.rs b/gpui-fast/crates/gpui_macos/src/platform.rs
+index f22510f..d9523fd 100644
+--- a/gpui-fast/crates/gpui_macos/src/platform.rs
++++ b/gpui-fast/crates/gpui_macos/src/platform.rs
+@@ -645,6 +645,11 @@ impl Platform for MacPlatform {
+ 
+     #[allow(deprecated)]
+     fn activate(&self, ignoring_other_apps: bool) {
++        // In the lab the app already counts as active and leaves the
++        // machine's front alone (`window::lab_assumes_key`).
++        if crate::window::lab_assumes_key() {
++            return;
++        }
+         let app = NSApplication::sharedApplication(self.1);
+         app.activateIgnoringOtherApps(ignoring_other_apps);
+     }
+diff --git a/gpui-fast/crates/gpui_macos/src/window.rs b/gpui-fast/crates/gpui_macos/src/window.rs
+index 5f56209..0dc1fc4 100644
+--- a/gpui-fast/crates/gpui_macos/src/window.rs
++++ b/gpui-fast/crates/gpui_macos/src/window.rs
+@@ -1834,7 +1834,14 @@ impl PlatformWindow for MacWindow {
+                         let view = unsafe { &*view.cast::<NSView>() };
+                         view.setNeedsDisplay(true);
+                     }
+-                    window.makeKeyAndOrderFront(None);
++                    // In the lab every window already counts as key; it is
++                    // brought forward among the app's windows without taking
++                    // the key window.
++                    if lab_assumes_key() {
++                        window.orderFront(None);
++                    } else {
++                        window.makeKeyAndOrderFront(None);
++                    }
+                 }
+             })
+             .detach();
+@@ -1857,7 +1864,7 @@ impl PlatformWindow for MacWindow {
+     }
+ 
+     fn is_active(&self) -> bool {
+-        self.0.lock().native_window().isKeyWindow()
++        lab_assumes_key() || self.0.lock().native_window().isKeyWindow()
+     }
+ 
+     fn visibility(&self) -> WindowVisibility {
+@@ -3042,6 +3049,20 @@ fn lab_ignores_occlusion() -> bool {
+     *IGNORE.get_or_init(|| std::env::var_os("GPUI_LAB_IGNORE_OCCLUSION").is_some())
+ }
+ 
++/// lattice-gpui lab patch: with `GPUI_LAB_ASSUME_KEY` set, every window acts
++/// as the key window of the active app, as GPUI's test platforms make
++/// activation a flag: it reports itself active from the start and never
++/// resigns, so its focus, carets, blink and frame rate are a key window's,
++/// and neither activating a window nor the app takes the machine's front.
++/// Scripted runs set it so several can run side by side on one Mac, each
++/// with its events sent to its own window; what macOS itself serves only
++/// the real key window (the input method, a webview's keyboard focus, the
++/// menu bar's key equivalents) is not covered.
++pub(crate) fn lab_assumes_key() -> bool {
++    static ASSUME: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
++    *ASSUME.get_or_init(|| std::env::var_os("GPUI_LAB_ASSUME_KEY").is_some())
++}
++
+ fn visibility(state: &MacWindowState) -> WindowVisibility {
+     let is_visible = lab_ignores_occlusion()
+         || state
+@@ -3253,6 +3274,13 @@ fn report_display_change(window_state: &Rc<Mutex<MacWindowState>>) {
+ 
+ extern "C" fn window_did_change_key_status(this: &AnyObject, selector: Sel, _: *mut AnyObject) {
+     let signal_at = PlatformFrameSignal::capture(scheduler::Instant::now);
++    // In the lab a window stays active when AppKit takes the key window from
++    // it (`lab_assumes_key`). Becoming key for real still runs as upstream,
++    // so what observes activation (a webview handing the keyboard back to
++    // GPUI's view, the menus) runs as it does when the user brings it back.
++    if lab_assumes_key() && selector == sel!(windowDidResignKey:) {
++        return;
++    }
+     let window_state = unsafe { get_window_state(this) };
+     let lock = window_state.lock();
+     let is_active = lock.native_window().isKeyWindow();

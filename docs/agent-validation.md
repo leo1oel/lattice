@@ -78,6 +78,27 @@ The run worktree enforces this: the pipeline's prepare command (`node scripts/ru
 Lane worktrees, the primary checkout, the shared build tree and CI never run that prepare command, so plain cargo there is unchanged.
 One `CARGO_TARGET_DIR` shared by every checkout is not the fix: Cargo judges freshness by mtime and names path crates relative to the workspace root, so a worktree checked out before another's build silently reuses that build's artifacts and tests the other worktree's code.
 
+A `cargo test` through `scripts/gpui-build.mjs` fails as soon as one test runs past a per-test limit (300 s, or `LATTICE_GPUI_TEST_TIMEOUT_SECONDS`), naming the test, instead of holding the build lock while it loops; the limit counts from libtest's "has been running for over 60 seconds" line, so it is never under a minute.
+The build lock (`scripts/lib/gpui-lock.mjs`) prints a timestamped line on acquire and release, and a waiter prints its waiting line every minute with the holder and how long it has held.
+A waiter takes it over from a holder that died, or that has held it past 30 minutes (`LATTICE_GPUI_BUILD_LOCK_MAX_MINUTES`); a holder that was taken over leaves its successor's lock alone when it exits.
+
+### A review round's GPUI e2e, and the main baseline
+
+A review round does not run the whole GPUI `e2e` scenario.
+`node scripts/gpui-e2e-light.mjs` builds the binary, then runs `gpui/script/e2e --only <modules>`: the scenario's smoke flow (open, build, SyncTeX both ways, edits and ⌘S, autosave and outside edits, a second window, the quit that saves), plus only the modules the branch's paths touch (`scripts/gpui-e2e-modules.mjs` holds the path map; the modules and what each needs are `MODULES` in `gpui/crates/lattice-gpui/src/scenario/e2e/steps.rs`).
+When only quarantined steps fail (`scripts/gpui-e2e-quarantine.json`, the few that caused most red runs), it runs once more and keeps only the steps that failed both times.
+It then sorts what still fails against the main baseline and exits 1 only for failures that are the branch's own.
+
+The full scenario and the gate run once per merge to main instead:
+
+```bash
+node scripts/gpui-main-baseline.mjs --sha origin/main   # in a clean checkout set aside for it
+```
+
+It checks the commit out, runs `pnpm gate:changed --base <sha>`, the release build through `scripts/gpui-build.mjs` and the full `e2e` scenario, and writes `known-failures@<sha>.json` (failing gate stages and e2e steps, quarantined ones listed again), `e2e@<sha>.json`, `logs@<sha>/` and `latest.json` into `~/Library/Caches/lattice-gpui-build/main-baseline/` (under `$LATTICE_GPUI_BUILD_DIR` when that is set).
+`latest.json` moves only to a commit that descends from the one it names.
+A failure listed there for your merge base with `origin/main` is pre-existing on main: say so, naming the file, rather than re-running main to prove it.
+
 The full local gate, `pnpm check` (stages and CI parity in
 [`architecture.md` §6](architecture.md#6-the-gate)), belongs to an official
 release; see [`release-process.md`](release-process.md). When you do run it and

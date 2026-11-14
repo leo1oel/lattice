@@ -101,10 +101,9 @@ impl Run {
             return Ok(());
         };
         let native = self.native(cx)?;
-        // Active and in front, in a foreground section (`input_lock.rs`):
-        // gpui-fast draws an inactive window at 30 frames a second, which
-        // would space the glide's frames out to 33ms.
-        let _front = self.foreground(cx, "fluid_hover").await?;
+        // Active (`Run::focused`): gpui-fast draws an inactive window at 30
+        // frames a second, which would space the glide's frames out to 33ms.
+        let _front = self.focused(cx, "fluid_hover").await?;
         self.pause(cx, SETTLE).await;
         let active = self.with_window(cx, |_, window, _| window.is_window_active())?;
 

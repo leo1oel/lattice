@@ -47,11 +47,9 @@ impl Run {
         root: &std::path::Path,
     ) -> Result<()> {
         // What follows waits for the overlay to paint the editor's carets,
-        // gutter marks and cards, as a writer pointing at the window sees
-        // them. A scenario's window is never activated (`main.rs`), and on
-        // macOS one merely ordered above the others drew none of them, so
-        // these run in a foreground section.
-        let _front = self.foreground(cx, "editor_adapter").await?;
+        // gutter marks and cards, which only an active window draws: GPUI's
+        // own focus (`Run::focused`).
+        let _front = self.focused(cx, "editor_adapter").await?;
         let panel = self.open(cx, &root.join("main.tex"), Some(8))?;
         self.pause(cx, Duration::from_millis(600)).await;
         let lattice = cx.update(|cx| panel.read(cx).lattice_editor().clone());

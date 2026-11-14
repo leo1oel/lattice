@@ -1,0 +1,13 @@
+{
+  "//": "GPUI e2e steps that fail far more often than the rest (data/gpui-dev-speed-research/report.md §2.5 in the firstmate home: 8 steps, 207 of 274 failures over 265 runs). scripts/gpui-e2e-light.mjs retries a run once when only these fail, and counts one that fails again as pre-existing when the main baseline fails it too. Each needs an owner who fixes or deletes it; take a step off the list once it is fixed.",
+  "steps": [
+    "PDF: Open in separate window shows the PDF in a window of its own at the same page, and Return to workspace brings it back",
+    "the island's protocol serves the granted image, the document is sandboxed and its relative link disabled",
+    "PDF: Build this document on a root tab while a build runs, then Stop: the next build compiles the document in front, not that tab's",
+    "typing in Settings' search finds a setting and Enter reveals its row",
+    "⌘, opens Settings, on the page it was left on",
+    "a missing package's Install offers its providers, installs the pick and builds (stand-in installer)",
+    "closing the focused document's tab leaves the keyboard in the window",
+    "the page built again after its hibernation gets the app's shortcuts when it takes the keyboard"
+  ]
+}
