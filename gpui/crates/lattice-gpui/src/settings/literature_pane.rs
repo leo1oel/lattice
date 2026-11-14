@@ -77,7 +77,8 @@ pub fn render(
         .get_or_insert_with(|| cx.new(|cx| LiteraturePane::new(window, cx)))
         .clone();
     let full_text = full_text_group(dialog, width, cx);
-    pane.update(cx, |pane, cx| pane.render_page(full_text, width, window, cx))
+    let marks = super::pages::marks(dialog);
+    pane.update(cx, |pane, cx| pane.render_page(full_text, width, &marks, window, cx))
 }
 
 /// The Add papers sheet's choice, shared with it (`save-full-text-setting.ts`).
@@ -358,6 +359,7 @@ impl LiteraturePane {
         &mut self,
         full_text: AnyElement,
         width: PageWidth,
+        marks: &controls::Marks,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
@@ -466,8 +468,7 @@ impl LiteraturePane {
                             this.child(loader("literature-working", 14.))
                         }),
                 );
-            let mut rows = vec![
-                Row::new(
+            let key_row = Row::new(
                     match provider {
                         "openalex" => "literature-openalex",
                         "semanticscholar" => "literature-semanticscholar",
@@ -476,8 +477,9 @@ impl LiteraturePane {
                     t!("API key"),
                 )
                 .description(described, cx)
-                .control(get_key)
-                .render(width, cx),
+                .control(get_key);
+            let mut rows = vec![
+                marks.row(key_row, width, cx),
                 controls::block(form, true),
             ];
             rows.extend(self.message(provider, cx));
@@ -494,9 +496,12 @@ impl LiteraturePane {
                 .on_click(move |_, window, cx| this.update(cx, |pane, cx| pane.save_email(window, cx)))
         };
         let mut rows = vec![
-            Row::new("literature-email", t!("Contact email"))
-                .description(t!("Sent to Crossref"), cx)
-                .render(width, cx),
+            marks.row(
+                Row::new("literature-email", t!("Contact email"))
+                    .description(t!("Sent to Crossref"), cx),
+                width,
+                cx,
+            ),
             controls::block(
                 div()
                     .flex()
