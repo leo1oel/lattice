@@ -173,7 +173,18 @@ fn menus(cx: &App) -> Vec<Menu> {
             MenuItem::action(t!("Next Project"), NextProject),
             MenuItem::action(t!("Previous Project"), PreviousProject),
         ]),
-        Menu::new(tc!("macOS menu bar", "Help"))
-            .items([MenuItem::action(t!("Keyboard Shortcuts"), ShowShortcuts)]),
+        Menu::new(tc!("macOS menu bar", "Help")).items([
+            MenuItem::action(
+                tc!("macOS menu bar", "What’s New in {name}", name = "Lattice"),
+                super::WhatsNew,
+            ),
+            MenuItem::separator(),
+            MenuItem::action(
+                tc!("macOS menu bar", "Report a Problem…"),
+                super::ReportProblem,
+            ),
+            MenuItem::separator(),
+            MenuItem::action(t!("Keyboard Shortcuts"), ShowShortcuts),
+        ]),
     ]
 }

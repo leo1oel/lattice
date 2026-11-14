@@ -8,6 +8,7 @@
 //! `lattice-gpui PROJECT_DIR --scenario e2e|perf|ime --out RESULT.json`.
 
 mod app;
+mod app_log;
 mod assets;
 mod build;
 mod build_panel;
@@ -18,6 +19,7 @@ mod empty_slot;
 mod file_tree;
 mod first_pages;
 mod gallery;
+mod help;
 mod history;
 mod html_preview;
 mod interface_zoom;

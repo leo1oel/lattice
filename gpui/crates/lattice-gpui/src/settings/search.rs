@@ -56,7 +56,7 @@ impl Entry {
 
 /// The index in the interface language now.
 pub fn entries(has_project: bool, known_author: Option<&str>) -> Vec<Entry> {
-    use SettingsTab::{Appearance, Doctor, Editor, Overleaf};
+    use SettingsTab::{Appearance, Doctor, Editor, Logs, Overleaf};
     let appearance = t!("Appearance");
     let editor = t!("Editor & builds");
     let builds = t!("Builds");
@@ -232,6 +232,7 @@ pub fn entries(has_project: bool, known_author: Option<&str>) -> Vec<Entry> {
         .description(t!("Overleaf history keeps a copy")),
     ]);
     out.push(Entry::page(Doctor, t!("TeX doctor"), t!("Diagnostics")));
+    out.push(Entry::page(Logs, t!("Logs"), t!("Diagnostics")));
     out
 }
 

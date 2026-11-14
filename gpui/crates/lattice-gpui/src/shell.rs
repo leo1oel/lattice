@@ -21,6 +21,7 @@ mod documents;
 mod editor_events;
 mod entries;
 mod ground;
+mod help_flow;
 mod history_flow;
 mod imports;
 mod layers;
@@ -61,6 +62,7 @@ pub use commands::{
     Build, CleanBuildFiles, CleanRebuild, ForwardSync, InstallLatexTools, NextProblem,
     OpenTexDoctor, PreviousProblem, Save, StopBuild, ToggleVimMode,
 };
+pub use help_flow::{ReportProblem, WhatsNew};
 pub use references_flow::{FindReferences, RenameSymbol};
 pub use tools_flow::{ExportArxiv, OpenChecklist, OpenTodos};
 
@@ -147,7 +149,7 @@ pub struct Shell {
     pub(crate) todos: Entity<crate::submission::todos::TodosPanel>,
     /// A symbol's occurrences bar and rename dialog (`references_flow`).
     pub(crate) references: references_flow::References,
-    /// The arXiv export and figure inventory sheets, while open.
+    /// The sheets over the window, while open (`tools_flow::Sheets`).
     pub(crate) sheets: tools_flow::Sheets,
     /// The conflict resolver, while it is open.
     pub(crate) conflict: Option<(Entity<crate::history::ConflictResolver>, Subscription)>,
@@ -590,7 +592,7 @@ impl Shell {
         }
         self.drop_conflict_notice(cx);
         self.references = Default::default();
-        self.sheets = Default::default();
+        self.sheets.project_changed();
         self.conflict = None;
         self.project = Some(project.clone());
         // The editors of the project open before go with its arrangement.

@@ -60,6 +60,18 @@ pub struct ProblemReport {
     arch: String,
 }
 
+impl ProblemReport {
+    /// The macOS version (`15.1`), where it is known.
+    pub fn os_version(&self) -> Option<&str> {
+        self.os_version.as_deref()
+    }
+
+    /// The machine's architecture (`aarch64`).
+    pub fn arch(&self) -> &str {
+        &self.arch
+    }
+}
+
 /// Save Help ▸ Report a Problem…'s redacted log export (the page builds it as
 /// Settings › Logs › Export does) in `folder`, Lattice's log folder's
 /// `reports/`, for the shell to show in Finder so the reporter can attach it

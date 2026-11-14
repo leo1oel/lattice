@@ -15,6 +15,7 @@ mod design_calls;
 mod documents;
 mod editor_adapter;
 mod fluid;
+mod help;
 mod history;
 #[cfg(target_os = "macos")]
 mod islands;
@@ -324,6 +325,9 @@ impl Run {
         self.live_controls(cx, &mut steps)
             .await
             .context("live_controls")?;
+        self.help_and_logs(cx, &mut steps)
+            .await
+            .context("help_and_logs")?;
         self.closing_saves(cx, &mut steps, &root)
             .await
             .context("closing_saves")?;

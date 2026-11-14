@@ -42,6 +42,8 @@ impl NoticeAction {
 
 pub struct Notice {
     level: ToastLevel,
+    /// What the log names as its source (`addAppLog`'s `source`).
+    source: Option<SharedString>,
     title: SharedString,
     detail: Option<SharedString>,
     actions: Vec<NoticeAction>,
@@ -58,6 +60,7 @@ impl Notice {
     pub fn new(level: ToastLevel, title: impl Into<SharedString>) -> Self {
         Self {
             level,
+            source: None,
             title: title.into(),
             detail: None,
             actions: Vec::new(),
@@ -65,6 +68,12 @@ impl Notice {
             persistent: false,
             running: false,
         }
+    }
+
+    /// The part of the app it comes from, which the log shows beside it.
+    pub fn source(mut self, source: impl Into<SharedString>) -> Self {
+        self.source = Some(source.into());
+        self
     }
 
     pub fn detail(mut self, detail: impl Into<SharedString>) -> Self {
@@ -143,6 +152,38 @@ pub fn show(notice: Notice, cx: &mut App) {
             .unwrap_or_default()
     );
     let stack = install(cx);
+    // The app's log keeps it too; a repeat of a notice still showing under
+    // its key updates the entry it logged.
+    let replaces = notice.key.as_ref().is_some_and(|key| {
+        stack
+            .read(cx)
+            .shown
+            .iter()
+            .any(|shown| shown.notice.key.as_ref() == Some(key))
+    });
+    let entry = crate::app_log::NewEntry {
+        level: match notice.level {
+            ToastLevel::Info => crate::app_log::Level::Info,
+            ToastLevel::Success => crate::app_log::Level::Success,
+            ToastLevel::Warning => crate::app_log::Level::Warning,
+            ToastLevel::Error => crate::app_log::Level::Error,
+        },
+        source: notice.source.as_ref().map_or_else(
+            || lattice_i18n::t!("Lattice").to_string(),
+            ToString::to_string,
+        ),
+        title: notice.title.to_string(),
+        detail: notice
+            .detail
+            .as_ref()
+            .map(ToString::to_string)
+            .unwrap_or_default(),
+        context: None,
+    };
+    let key = notice.key.as_ref().map(ToString::to_string);
+    crate::app_log::global(cx).update(cx, |log, cx| {
+        log.add(entry, key.as_deref(), replaces, cx);
+    });
     stack.update(cx, |stack, cx| stack.push(notice, cx));
 }
 

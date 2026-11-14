@@ -223,6 +223,30 @@ export const SCREENS = {
     ],
     content: [".pdf-viewer-host"],
   },
+  // What's new over the window from the palette (`scenes.whatsNew`)
+  // (crates/lattice-gpui/src/scenario/parity_help.rs).
+  whatsNew: {
+    label: "What's new",
+    regions: [
+      { name: "whats-new/modal", css: ".whats-new-modal", chrome: true },
+    ],
+    content: [".pdf-viewer-host"],
+  },
+  // Settings › Logs (`scenes.logs`): the two apps have logged different
+  // things by then, so the dialog's frame, the page's title and its action
+  // row, not the log's rows.
+  logs: {
+    label: "Settings › Logs",
+    regions: [
+      { name: "settings/modal", css: ".settings-modal", chrome: true },
+      { name: "settings/nav", css: ".settings-nav", chrome: true },
+      { name: "settings/content", css: ".settings-content", chrome: true },
+      { name: "settings/nav/active", css: ".settings-nav-group > button.active", text: true, chrome: true },
+      { name: "settings/title", css: ".settings-section .ui-settings-section-header-title", text: true },
+      { name: "logs/actions", css: ".app-log-actions" },
+    ],
+    content: [".app-log-scroll", ".app-logs-settings .ui-empty-state"],
+  },
   // Export for arXiv… over the window with the bench's checked pack
   // (`scenes.arxivExport`, `?arxiv=ready`); the GPUI side stages the same
   // pack in place of a real check.

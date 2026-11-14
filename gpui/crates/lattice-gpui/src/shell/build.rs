@@ -95,6 +95,56 @@ impl BuildRequest {
     }
 }
 
+/// How the build ended, in the app's log (`use-build-pipeline.ts`): its
+/// counts, then success with its time, a failure with its first error, or
+/// superseded when another project took the window or the pass was cancelled.
+fn log_outcome(
+    trace: &mut crate::app_log::trace::Trace,
+    current: bool,
+    outcome: Option<&Result<Finished, String>>,
+    cx: &mut gpui::App,
+) {
+    let superseded = || Some(t!("Build superseded").to_string());
+    match outcome {
+        _ if !current => trace.finish("cancelled", superseded(), cx),
+        None => trace.fail(t!("LaTeX compilation failed.").to_string(), "", cx),
+        Some(Ok(Finished { result, .. })) => {
+            trace.enrich([
+                (
+                    "compiler_duration_ms",
+                    serde_json::json!(result.duration_ms as u64),
+                ),
+                ("diagnostics", serde_json::json!(result.diagnostics.len())),
+                ("has_pdf", serde_json::json!(result.has_pdf)),
+            ]);
+            let cancelled = result
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == Some("build-cancelled"));
+            if cancelled {
+                trace.finish("cancelled", superseded(), cx);
+            } else if result.success {
+                let seconds = format!("{:.1}", result.duration_ms as f64 / 1000.);
+                trace.finish(
+                    "success",
+                    Some(t!("Build succeeded in {seconds} s", seconds = seconds)),
+                    cx,
+                );
+            } else {
+                let first = result
+                    .diagnostics
+                    .iter()
+                    .find(|diagnostic| diagnostic.level == "error")
+                    .or(result.diagnostics.first())
+                    .map(|diagnostic| diagnostic.message.as_str())
+                    .unwrap_or_default();
+                trace.fail(t!("LaTeX compilation failed.").to_string(), first, cx);
+            }
+        }
+        Some(Err(error)) => trace.fail(t!("LaTeX compilation failed.").to_string(), error, cx),
+    }
+}
+
 /// Every path in the project tree, parents before their children.
 fn flatten(nodes: &[FileNode], out: &mut Vec<String>) {
     for node in nodes {
@@ -264,6 +314,14 @@ impl Shell {
         let aux_files = crate::settings::aux_files(cx);
         self.pdf
             .update(cx, |panel, cx| panel.set_building(true, cx));
+        // The build's entries in the app's log, under one operation.
+        let trace = crate::app_log::trace::Trace::start(
+            t!("Build"),
+            t!("Build"),
+            request.force.then(|| t!("clean rebuild").to_string()),
+            "Build",
+            cx,
+        );
         self.build_task = Some(cx.spawn_in(window, async move |this, cx| {
             for save in saves {
                 if let Err(error) = save.await {
@@ -282,7 +340,7 @@ impl Shell {
                 if let Err(error) = cleaned {
                     this.update_in(cx, |this, window, cx| {
                         notices::error(t!("Couldn’t clean the build files"), error, cx);
-                        this.finish_build(&project, 0, request, None, window, cx);
+                        this.finish_build(&project, 0, request, None, trace, window, cx);
                     })
                     .ok();
                     return;
@@ -335,7 +393,15 @@ impl Shell {
             }
             let outcome = build.await;
             this.update_in(cx, |this, window, cx| {
-                this.finish_build(&project, revision, request, Some(outcome), window, cx)
+                this.finish_build(
+                    &project,
+                    revision,
+                    request,
+                    Some(outcome),
+                    trace,
+                    window,
+                    cx,
+                )
             })
             .ok();
         }));
@@ -381,6 +447,7 @@ impl Shell {
         revision: u64,
         request: BuildRequest,
         outcome: Option<Result<Finished, String>>,
+        mut trace: crate::app_log::trace::Trace,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -397,6 +464,7 @@ impl Shell {
             Some(_) => Some(sounds::Cue::Error),
             None => None,
         };
+        log_outcome(&mut trace, current, outcome.as_ref(), cx);
         match outcome {
             // A build of the project open before shows nothing in this one.
             _ if !current => self.build_panel.update(cx, |panel, cx| panel.cleared(cx)),

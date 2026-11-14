@@ -125,11 +125,26 @@ pub(super) fn project_commands(context: &CommandContext, out: &mut Vec<Command>)
             .keywords("git merge markers"),
         );
     }
+    out.push(
+        Command::new(
+            "whats-new",
+            t!("What’s new in Lattice"),
+            Section::Project,
+            crate::shell::WhatsNew,
+        )
+        .keywords(crate::help::whats_new::RUNNING_VERSION),
+    );
     out.push(Command::new(
         "doctor",
         t!("Run TeX doctor"),
         Section::Project,
         OpenTexDoctor,
+    ));
+    out.push(Command::new(
+        "report-problem",
+        t!("Report a problem"),
+        Section::Project,
+        crate::shell::ReportProblem,
     ));
     out.push(Command::new(
         "settings",
