@@ -30,7 +30,14 @@ use crate::{editor_panel::EditorPanel, empty_slot::EmptySlotPanel};
 
 /// The kinds that live once, under their own id.
 pub const SINGLETONS: &[&str] = &[
-    "project", "papers", "agent", "pdf", "build", "history", "todos",
+    "project",
+    "papers",
+    "agent",
+    "pdf",
+    "build",
+    "history",
+    "todos",
+    "checklist",
 ];
 
 /// The window's panel for each view id.
@@ -133,6 +140,7 @@ impl Shell {
             "build" => panel_handle(self.build_panel.clone()),
             "history" => panel_handle(self.history.clone()),
             "todos" => panel_handle(self.todos.clone()),
+            "checklist" => panel_handle(self.checklist.clone()),
             _ => return None,
         })
     }

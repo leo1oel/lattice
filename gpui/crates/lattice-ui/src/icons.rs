@@ -133,7 +133,11 @@ lucide! {
     MOVE_RIGHT = "icons" / "move-right";
     PENCIL_LINE = "icons" / "pencil-line";
     // Getting a manuscript ready to send (src/project/).
+    CIRCLE = "icons" / "circle";
     CIRCLE_DASHED = "icons" / "circle-dashed";
+    CIRCLE_DOT = "icons" / "circle-dot";
+    CLOCK = "icons" / "clock";
+    IMAGES = "icons" / "images";
     LINK_2 = "icons" / "link-2";
     // Names Zed's icon set also has, which the app's asset source finds
     // first: Lucide's own, copied unmodified from GPUI Kit 0.9.1's assets

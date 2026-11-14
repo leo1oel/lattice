@@ -7,7 +7,7 @@ use trellis::runtime::engine::ViewPlacement;
 use trellis::runtime::keymap::Command as Trellis;
 
 use super::history_flow::{OpenHistory, ResolveConflicts};
-use super::tools_flow::{ExportArxiv, OpenTodos};
+use super::tools_flow::{ExportArxiv, OpenChecklist, OpenTodos};
 use super::{Shell, commands::*, trellis_layout::Preset, windows, workspaces::Workspaces};
 
 impl Shell {
@@ -117,6 +117,9 @@ impl Shell {
                 cx.listener(|this, _: &OpenHistory, window, cx| this.open_history(window, cx)),
             )
             .on_action(cx.listener(|this, _: &OpenTodos, window, cx| this.open_todos(window, cx)))
+            .on_action(
+                cx.listener(|this, _: &OpenChecklist, window, cx| this.open_checklist(window, cx)),
+            )
             .on_action(cx.listener(Self::find_references))
             .on_action(cx.listener(Self::rename_symbol))
             .on_action(

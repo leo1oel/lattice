@@ -7,6 +7,7 @@
 //! `latex::arxiv`).
 
 pub mod arxiv;
+pub mod checklist;
 pub mod references;
 pub mod todos;
 

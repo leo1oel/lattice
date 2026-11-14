@@ -60,7 +60,7 @@ pub use commands::{
     OpenTexDoctor, PreviousProblem, Save, StopBuild, ToggleVimMode,
 };
 pub use references_flow::{FindReferences, RenameSymbol};
-pub use tools_flow::{ExportArxiv, OpenTodos};
+pub use tools_flow::{ExportArxiv, OpenChecklist, OpenTodos};
 
 use crate::{
     build::{
@@ -139,6 +139,8 @@ pub struct Shell {
     build_panel: Entity<BuildPanel>,
     /// The History tool panel (`crate::history`), one for the window.
     pub(crate) history: Entity<crate::history::HistoryPanel>,
+    /// The submission checklist tool panel (`crate::submission::checklist`).
+    pub(crate) checklist: Entity<crate::submission::checklist::ChecklistPanel>,
     /// The manuscript's TODOs tool panel (`crate::submission::todos`).
     pub(crate) todos: Entity<crate::submission::todos::TodosPanel>,
     /// A symbol's occurrences bar and rename dialog (`references_flow`).
@@ -289,7 +291,7 @@ impl Shell {
                     .is_some_and(|workspace| arrange::on_screen(workspace.read(cx), "history"))
             })
         });
-        let todos = cx.new(crate::submission::todos::TodosPanel::new);
+        let (todos, checklist) = Self::tool_panels(&build_panel, &pdf, window, cx);
         pdf.update(cx, |pdf, cx| pdf.set_build_output(card.into(), cx));
         let tex_setup = tex_setup::install(cx);
         tex_setup.update(cx, |center, cx| center.check_at_launch(cx));
@@ -364,10 +366,6 @@ impl Shell {
             this.on_history_event(event, window, cx)
         })
         .detach();
-        cx.subscribe_in(&todos, window, |this, _, event, window, cx| {
-            this.on_todos_event(event, window, cx)
-        })
-        .detach();
         cx.observe(&notices, |_, _, cx| cx.notify()).detach();
         cx.observe(&confirm, |_, _, cx| cx.notify()).detach();
         let workspace_events = cx.subscribe_in(&workspace, window, Self::on_workspace_event);
@@ -415,6 +413,7 @@ impl Shell {
             build_panel,
             history,
             todos,
+            checklist,
             arxiv: None,
             references: Default::default(),
             conflict: None,
@@ -658,9 +657,7 @@ impl Shell {
         self.refresh_outline(window, cx);
         self.history
             .update(cx, |history, cx| history.set_project(project.clone(), cx));
-        let todos_root = Some(root.clone());
-        self.todos
-            .update(cx, |todos, cx| todos.set_root(todos_root, cx));
+        self.tools_project_opened(&project, &root, window, cx);
         self._project_git = Some(cx.subscribe(&project, |this, _, event, cx| {
             if matches!(event, crate::project::ProjectEvent::GitChanged) {
                 this.notice_conflicts(cx);
