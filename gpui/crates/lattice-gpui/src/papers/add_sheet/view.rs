@@ -7,12 +7,13 @@
 
 use gpui::{
     AnyElement, Context, Hsla, InteractiveElement as _, IntoElement, ParentElement as _, Render,
-    StatefulInteractiveElement as _, Styled as _, Window, div, prelude::FluentBuilder as _, px,
+    SharedString, StatefulInteractiveElement as _, Styled as _, Window, div,
+    prelude::FluentBuilder as _, px,
 };
 use lattice_i18n::t;
 use lattice_ui::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
-    components::{Button, Textarea},
+    components::{Button, IconButton, Textarea},
     icons::ICON_SMALL,
     interaction::mix,
     tokens::FONT_WEIGHT_MEDIUM,
@@ -118,12 +119,36 @@ impl AddPapers {
                     t!("Waiting").into(),
                     cx,
                 ),
-                ItemState::Failed => line(
-                    failed,
-                    Some(Icon::CIRCLE_ALERT),
-                    t!("Couldn't add").into(),
-                    cx,
-                ),
+                ItemState::Failed => {
+                    let id = item.id.clone();
+                    let papers = self.papers.downgrade();
+                    div()
+                        .flex()
+                        .flex_none()
+                        .items_center()
+                        .gap(px(2.))
+                        .child(line(
+                            failed,
+                            Some(Icon::CIRCLE_ALERT),
+                            t!("Couldn't add").into(),
+                            cx,
+                        ))
+                        .child(
+                            IconButton::new(
+                                SharedString::from(format!("add-papers-retry:{id}")),
+                                Icon::ROTATE_CW,
+                            )
+                            .frame(px(20.), px(20.))
+                            .icon_size(px(11.))
+                            .tooltip(t!("Try again"))
+                            .on_click(move |_, _, cx| {
+                                papers
+                                    .update(cx, |papers, cx| papers.retry_batch_item(&id, cx))
+                                    .ok();
+                            }),
+                        )
+                        .into_any_element()
+                }
                 ItemState::Cancelled => {
                     line(palette.text_secondary, None, t!("Not added").into(), cx)
                 }

@@ -236,7 +236,14 @@ impl Shell {
             self.papers.update(cx, |papers, cx| papers.clear_batch(cx));
         }
         self.documents.literature = None;
-        self.documents.audit = None;
+        if !self
+            .documents
+            .audit
+            .as_ref()
+            .is_some_and(|audit| audit.read(cx).is_applying())
+        {
+            self.documents.audit = None;
+        }
         self.documents.add_reference = None;
         self.documents.linked = None;
     }

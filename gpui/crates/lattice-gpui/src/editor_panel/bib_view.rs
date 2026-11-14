@@ -145,9 +145,9 @@ impl EditorPanel {
                     });
                 }
             }
-            BibEditorEvent::Picked { from } => {
+            BibEditorEvent::Picked { from, to } => {
                 if this.document_view() == Some(DocumentView::Split) {
-                    this.show_offset(*from, window, cx);
+                    this.show_range(*from, *to, window, cx);
                 }
             }
         })
@@ -202,17 +202,21 @@ impl EditorPanel {
 
     /// Put the cursor at the byte offset `from`, in the middle of the
     /// editor, leaving the focus where it is.
-    fn show_offset(&mut self, from: usize, window: &mut Window, cx: &mut Context<Self>) {
-        let point = {
+    fn show_range(&mut self, from: usize, to: usize, window: &mut Window, cx: &mut Context<Self>) {
+        let (start, end) = {
             let buffer = self.buffer.read(cx);
-            buffer.offset_to_point(from.min(buffer.len()))
+            let len = buffer.len();
+            (
+                buffer.offset_to_point(from.min(len)),
+                buffer.offset_to_point(to.min(len)),
+            )
         };
         self.editor.update(cx, |editor, cx| {
             editor.change_selections(
                 SelectionEffects::scroll(Autoscroll::center()),
                 window,
                 cx,
-                |selections| selections.select_ranges([point..point]),
+                |selections| selections.select_ranges([start..end]),
             );
         });
     }

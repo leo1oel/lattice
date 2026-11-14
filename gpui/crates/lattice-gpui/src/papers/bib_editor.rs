@@ -59,9 +59,9 @@ fn set_list_ratio(ratio: f32) {
 pub enum BibEditorEvent {
     /// Show the 1-based `line` of the project-relative `path` in its source.
     OpenLine { path: String, line: u32 },
-    /// A reference was picked in the list: the source beside it shows it,
-    /// at its byte offset.
-    Picked { from: usize },
+    /// A reference was clicked in the list: the source beside it selects
+    /// it, by its byte offsets.
+    Picked { from: usize, to: usize },
 }
 
 /// What a parse of the text found.
@@ -397,7 +397,8 @@ impl BibEditor {
         .collect()
     }
 
-    /// Bring `key` to the front: the entry at `index`, else its first.
+    /// Bring `key` to the front: the entry at `index`, else its first;
+    /// `open`, as a click does, opens its form and selects it in the source.
     pub(super) fn select(
         &mut self,
         key: String,
@@ -412,11 +413,11 @@ impl BibEditor {
         }
         let row = self
             .row_at(&key, index.unwrap_or(usize::MAX))
-            .map(|row| (row.entry.from, row.index));
-        if let Some((from, _)) = row {
-            cx.emit(BibEditorEvent::Picked { from });
+            .map(|row| (row.entry.from, row.entry.to, row.index));
+        if let Some((from, to, _)) = row.filter(|_| open) {
+            cx.emit(BibEditorEvent::Picked { from, to });
         }
-        let index = row.map_or(usize::MAX, |(_, index)| index);
+        let index = row.map_or(usize::MAX, |(.., index)| index);
         self.selected = Some((key, index));
         if open {
             self.detail_open = true;

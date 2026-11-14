@@ -99,7 +99,7 @@ impl PapersPanel {
         // never a second search that could pick another work; several, or
         // one with no entry, go to Add reference for review.
         let review = model::reference_kind(&query) == Some(ReferenceKind::Title);
-        self.import(query, review, cx);
+        self.import(query.clone(), query, review, cx);
     }
 
     /// Import `input` as the box's Enter would, for Discover literature's
@@ -108,19 +108,35 @@ impl PapersPanel {
         if self.importing.is_some() || self.batch.running {
             return false;
         }
-        self.import(input, false, cx);
+        self.import(input.clone(), input, false, cx);
         self.importing.is_some()
     }
 
-    fn import(&mut self, query: String, review: bool, cx: &mut Context<Self>) {
+    /// Import an entry Add reference saved from a title the box looked up,
+    /// its pending row named by `label` (`importReference` with its
+    /// `label`); false when another import holds the pipeline.
+    pub(crate) fn import_entry(
+        &mut self,
+        bibtex: String,
+        label: String,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        if self.importing.is_some() || self.batch.running {
+            return false;
+        }
+        self.import(bibtex, label, false, cx);
+        self.importing.is_some()
+    }
+
+    fn import(&mut self, query: String, label: String, review: bool, cx: &mut Context<Self>) {
         let Some(root) = self.root.clone() else {
             return;
         };
+        self.just_added.clear();
         let cancel = Arc::new(AtomicBool::new(false));
         let (stages, mut stage_events) = mpsc::unbounded::<String>();
         let job_cancel = cancel.clone();
         let input = query.clone();
-        let label = query.clone();
         let job = cx.background_spawn(async move {
             let progress = |stage: &str| {
                 stages.unbounded_send(stage.to_string()).ok();

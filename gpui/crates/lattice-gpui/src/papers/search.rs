@@ -22,7 +22,7 @@ impl PapersPanel {
         let query = text.trim().to_string();
         self.text_generation += 1;
         self.expanded_hits.clear();
-        if query.is_empty() {
+        if query.is_empty() || self.root.is_none() {
             self.text_waiting = false;
             self.text_task = None;
             self.text_hits.clear();

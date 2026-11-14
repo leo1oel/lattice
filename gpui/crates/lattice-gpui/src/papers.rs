@@ -245,6 +245,9 @@ pub struct PapersPanel {
     _uses: Option<Task<()>>,
     _settle: Option<Task<()>>,
     _subscriptions: Vec<Subscription>,
+    /// The status counters' reads of the annotations, which the
+    /// inspector's citation reasons follow.
+    _annotations: Subscription,
 }
 
 impl EventEmitter<PanelEvent> for PapersPanel {}
@@ -252,6 +255,7 @@ impl EventEmitter<PapersEvent> for PapersPanel {}
 
 impl PapersPanel {
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
+        let counters = crate::status_counters::project_counters(cx);
         let input =
             cx.new(|cx| InputState::new(window, cx).placeholder(t!("Search or add papers")));
         let subscription =
@@ -298,6 +302,7 @@ impl PapersPanel {
             _uses: None,
             _settle: None,
             _subscriptions: vec![subscription],
+            _annotations: cx.observe(&counters, |_, _, cx| cx.notify()),
         }
     }
 

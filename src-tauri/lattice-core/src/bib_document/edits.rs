@@ -139,7 +139,13 @@ pub fn remove_field_edit(source: &str, entry: &BibEntry, field: &BibField) -> Bi
     };
     let keep_to = if own_line && own_start > comma + 1 {
         let newline = if source[..own_start].ends_with("\r\n") { 2 } else { 1 };
-        own_start - newline
+        if source[comma + 1..own_start].contains('%')
+            && !source[field.value_to..entry.to].contains('\n')
+        {
+            own_start
+        } else {
+            own_start - newline
+        }
     } else {
         source[..field.from].trim_end_matches([' ', '\t']).len()
     };
@@ -244,6 +250,18 @@ mod tests {
             edited(trailing, |text, entry| remove_field_edit(text, entry, &entry.fields[1])),
             "@article{a,\n  title = {T},\n}\n"
         );
+    }
+
+    #[test]
+    fn a_comment_kept_before_the_closing_brace_keeps_its_line_break() {
+        let source = "@misc{k, title = {T}, % c\n year = 2017}";
+        let removed =
+            edited(source, |text, entry| remove_field_edit(text, entry, &entry.fields[1]));
+        assert_eq!(removed, "@misc{k, title = {T} % c\n}");
+        let crlf = "@misc{k, title = {T}, % c\r\n year = 2017}\n@misc{n, title = {N}}\n";
+        let removed = edited(crlf, |text, entry| remove_field_edit(text, entry, &entry.fields[1]));
+        assert_eq!(removed, "@misc{k, title = {T} % c\r\n}\n@misc{n, title = {N}}\n");
+        assert_eq!(parse(&removed).unwrap().entries.len(), 2);
     }
 
     #[test]

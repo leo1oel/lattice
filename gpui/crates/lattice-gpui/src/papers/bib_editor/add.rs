@@ -8,9 +8,8 @@
 
 use gpui::{
     AnyElement, AppContext as _, ClickEvent, Context, Entity, InteractiveElement as _, IntoElement,
-    ParentElement as _, Render, SharedString, StatefulInteractiveElement as _, Styled as _,
-    Subscription, Task, WeakEntity, Window, anchored, deferred, div, prelude::FluentBuilder as _,
-    px,
+    ParentElement as _, Render, StatefulInteractiveElement as _, Styled as _, Subscription, Task,
+    WeakEntity, Window, anchored, deferred, div, prelude::FluentBuilder as _, px,
 };
 use gpui_kit::component::input::{Input, InputEvent, InputState};
 use lattice_core::{bib_document::bib_text_to_plain, models::ResolvedCitation};
@@ -27,6 +26,7 @@ use super::{
     model::{self, Draft, QueryFill},
 };
 
+mod typeset;
 mod venue;
 use crate::search::sheet::SheetFrame;
 
@@ -70,16 +70,35 @@ const FIELDS: [Field; 8] = [
 pub enum AddTarget {
     /// The `.bib` file whose visual form opened it.
     Bib(WeakEntity<BibEditor>),
-    /// The project's bibliography; `editing` rewrites the entry in place.
+    /// The project's bibliography, saved by the window as `save` says.
     Project {
-        root: std::path::PathBuf,
         papers: WeakEntity<crate::papers::PapersPanel>,
-        editing: bool,
+        save: ProjectSave,
     },
+}
+
+/// How the project's bibliography takes the entry (`saveBibEntry`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ProjectSave {
+    /// Entered by hand: added to the file.
+    Append,
+    /// Rewritten in place under its key.
+    Edit,
+    /// A title the Papers box looked up: imported as the box imports, so it
+    /// settles in the list as Just added, with its full text.
+    Import,
 }
 
 pub enum AddReferenceEvent {
     Dismiss,
+    /// Save `entry` under `key` into the project's bibliography; `label`
+    /// names the import's pending row.
+    Save {
+        key: String,
+        entry: String,
+        label: String,
+        how: ProjectSave,
+    },
 }
 
 impl gpui::EventEmitter<AddReferenceEvent> for AddReference {}
@@ -172,16 +191,14 @@ impl AddReference {
 
     /// The project's entry `record`, to edit in place: its key stays.
     pub fn edit(
-        root: std::path::PathBuf,
         papers: WeakEntity<crate::papers::PapersPanel>,
         record: ResolvedCitation,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
         let target = AddTarget::Project {
-            root,
             papers,
-            editing: true,
+            save: ProjectSave::Edit,
         };
         let mut this = Self::new(target, window, cx);
         this.apply_with_window(record, window, cx);
@@ -219,7 +236,13 @@ impl AddReference {
     }
 
     fn editing(&self) -> bool {
-        matches!(self.target, AddTarget::Project { editing: true, .. })
+        matches!(
+            self.target,
+            AddTarget::Project {
+                save: ProjectSave::Edit,
+                ..
+            }
+        )
     }
 
     pub fn focus_lookup(&self, window: &mut Window, cx: &mut gpui::App) {
@@ -385,15 +408,11 @@ impl AddReference {
                     cx.notify();
                 }
             }
-            AddTarget::Project {
-                root,
-                papers,
-                editing,
-            } => {
+            AddTarget::Project { papers, save } => {
                 if self.saving {
                     return;
                 }
-                let taken = !*editing
+                let taken = *save != ProjectSave::Edit
                     && papers
                         .upgrade()
                         .map(|papers| {
@@ -401,7 +420,7 @@ impl AddReference {
                                 paper
                                     .citation_key
                                     .as_deref()
-                                    .is_some_and(|own| own.eq_ignore_ascii_case(&key))
+                                    .is_some_and(|own| super::model::same_key(own, &key))
                             })
                         })
                         .unwrap_or(false);
@@ -415,31 +434,24 @@ impl AddReference {
                 }
                 self.saving = true;
                 self.error = None;
-                let (root, papers) = (root.clone(), papers.clone());
-                let write = cx.background_spawn(async move {
-                    lattice_core::project::save_bib_entry(&root, &key, &entry)
+                let how = *save;
+                let label = draft.title.trim().to_string();
+                cx.emit(AddReferenceEvent::Save {
+                    key,
+                    entry,
+                    label,
+                    how,
                 });
-                cx.spawn(async move |this, cx| {
-                    let saved = write.await;
-                    // The library reads the entry even when the sheet was
-                    // cancelled while it was being written.
-                    if saved.is_ok() {
-                        papers.update(cx, |papers, cx| papers.reload(cx)).ok();
-                    }
-                    this.update(cx, |this, cx| {
-                        this.saving = false;
-                        match saved {
-                            Ok(()) => cx.emit(AddReferenceEvent::Dismiss),
-                            Err(error) => this.error = Some(error),
-                        }
-                        cx.notify();
-                    })
-                    .ok();
-                })
-                .detach();
                 cx.notify();
             }
         }
+    }
+
+    /// The window could not save the entry: the sheet says why and stays.
+    pub fn save_failed(&mut self, error: String, cx: &mut Context<Self>) {
+        self.saving = false;
+        self.error = Some(error);
+        cx.notify();
     }
 
     fn close(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -485,99 +497,6 @@ impl AddReference {
                             .bordered(false)
                             .px_0(),
                     ),
-            )
-            .into_any_element()
-    }
-
-    /// The entry as a reference list will print it, its key beside it.
-    fn typeset(&self, cx: &Context<Self>) -> AnyElement {
-        let palette = cx.palette().clone();
-        let draft = self.draft(cx);
-        let unfilled = palette.text_secondary.opacity(0.6);
-        let title = bib_text_to_plain(draft.title.trim());
-        let authors = draft.author.trim().replace(" and ", ", ");
-        let venue = bib_text_to_plain(match draft.entry_type.as_str() {
-            "article" => &draft.journal,
-            "inproceedings" => &draft.booktitle,
-            "book" => &draft.publisher,
-            _ => "",
-        });
-        let year = draft.year.trim().to_string();
-        let doi = draft.doi();
-        let mut tail = vec![venue.clone(), year.clone()]
-            .into_iter()
-            .filter(|part| !part.is_empty())
-            .collect::<Vec<_>>()
-            .join(", ");
-        if !doi.is_empty() {
-            tail = if tail.is_empty() {
-                format!("doi:{doi}")
-            } else {
-                format!("{tail} doi:{doi}")
-            };
-        }
-        div()
-            .flex()
-            .flex_col()
-            .gap(px(2.))
-            .p(px(12.))
-            .rounded(px(8.))
-            .bg(palette.text.opacity(0.03))
-            .when(!title.is_empty(), |card| {
-                card.child(
-                    div()
-                        .font_family(cx.lattice().fonts.editor.clone())
-                        .text_role(TextRole::Micro, cx)
-                        .text_color(palette.text_secondary)
-                        .child(draft.key()),
-                )
-            })
-            .child(
-                div()
-                    .text_role(TextRole::Caption, cx)
-                    .text_color(if authors.is_empty() {
-                        unfilled
-                    } else {
-                        palette.text_secondary
-                    })
-                    .child(if authors.is_empty() {
-                        SharedString::from(t!("Author"))
-                    } else {
-                        authors.into()
-                    }),
-            )
-            .child(
-                div()
-                    .text_role(TextRole::Typeset, cx)
-                    .text_color(if title.is_empty() {
-                        unfilled
-                    } else {
-                        palette.text
-                    })
-                    .child(if title.is_empty() {
-                        SharedString::from(t!("Title"))
-                    } else {
-                        title.into()
-                    }),
-            )
-            .child(
-                div()
-                    .text_role(TextRole::Caption, cx)
-                    .italic()
-                    .text_color(if tail.is_empty() {
-                        unfilled
-                    } else {
-                        palette.text_secondary
-                    })
-                    .child(if tail.is_empty() {
-                        SharedString::from(if draft.entry_type == "book" {
-                            t!("Publisher")
-                        } else {
-                            t!("Venue")
-                        })
-                    } else {
-                        tail.into()
-                    }),
             )
             .into_any_element()
     }

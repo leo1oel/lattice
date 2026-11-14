@@ -50,3 +50,52 @@ pub fn result_message(message: &str) -> String {
     }
     message.to_string()
 }
+
+/// What the expanded row says of a check (`publicationMessage`): its
+/// publication lookup's reason, else its message; none when the sources
+/// that did not answer, listed under it, say it all.
+pub fn publication_message(message: &str, reason: Option<&str>) -> Option<String> {
+    let Some(reason) = reason else {
+        return Some(result_message(message));
+    };
+    Some(match reason {
+        "identity_conflict" => t!("A possible record conflicts with this reference"),
+        "metadata_unavailable" => t!("No independent metadata to verify a possible record"),
+        "missing_identity" => t!(
+            "Add a title, full authors, and year, or add a DOI or arXiv identifier, before checking this reference."
+        ),
+        "no_match" | "no_published_version" => {
+            t!("No matching publication was found in the sources checked.")
+        }
+        "sources_unavailable" => return None,
+        "official_unavailable" => {
+            t!("An index matched, but the official proceedings could not be reached")
+        }
+        "ambiguous" => t!("No unique matching publication"),
+        _ => t!("The publication lookup could not be completed. Try again later."),
+    }
+    .to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// bibliography-audit.tsx `publicationMessage`'s branches.
+    #[test]
+    fn a_reason_says_what_the_lookup_found() {
+        assert_eq!(
+            publication_message("x", Some("no_match")).as_deref(),
+            Some("No matching publication was found in the sources checked.")
+        );
+        assert_eq!(publication_message("x", Some("sources_unavailable")), None);
+        assert_eq!(
+            publication_message("x", Some("something_new")).as_deref(),
+            Some("The publication lookup could not be completed. Try again later.")
+        );
+        assert_eq!(
+            publication_message("No update found.", None).as_deref(),
+            Some("No update found")
+        );
+    }
+}

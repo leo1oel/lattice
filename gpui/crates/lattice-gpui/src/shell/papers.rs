@@ -19,7 +19,7 @@ use crate::papers::{
     PapersEvent, PapersPanel,
     add_sheet::{AddPapers, AddPapersEvent},
     audit::{Audit, AuditEvent},
-    bib_editor::add::{AddReference, AddReferenceEvent, AddTarget},
+    bib_editor::add::{AddReference, AddReferenceEvent, AddTarget, ProjectSave},
     linked::{LinkedLibrary, LinkedLibraryEvent},
     literature::{Literature, LiteratureEvent},
     reader::{PaperReader, PaperReaderEvent, ReaderView},
@@ -276,14 +276,13 @@ impl Shell {
     /// A reference entered by hand for the project's bibliography, in place
     /// of Add papers.
     fn open_add_reference(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(root) = self.root(cx) else {
+        if self.root(cx).is_none() {
             return;
-        };
+        }
         self.dismiss_overlays_for_documents(cx);
         let target = AddTarget::Project {
-            root,
             papers: self.papers.downgrade(),
-            editing: false,
+            save: ProjectSave::Append,
         };
         let view = cx.new(|cx| AddReference::new(target, window, cx));
         view.update(cx, |view, cx| view.focus_lookup(window, cx));
@@ -299,14 +298,13 @@ impl Shell {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some(root) = self.root(cx) else {
+        if self.root(cx).is_none() {
             return;
-        };
+        }
         self.dismiss_overlays_for_documents(cx);
         let target = AddTarget::Project {
-            root,
             papers: self.papers.downgrade(),
-            editing: false,
+            save: ProjectSave::Import,
         };
         let view = cx.new(|cx| AddReference::review(target, query, resolved, window, cx));
         self.show_add_reference(view, window, cx);
@@ -348,7 +346,7 @@ impl Shell {
                 };
                 this.dismiss_overlays_for_documents(cx);
                 let papers = this.papers.downgrade();
-                let view = cx.new(|cx| AddReference::edit(root, papers, record, window, cx));
+                let view = cx.new(|cx| AddReference::edit(papers, record, window, cx));
                 this.show_add_reference(view, window, cx);
             })
             .ok();
@@ -362,12 +360,100 @@ impl Shell {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        cx.subscribe_in(&view, window, |this, _, event, window, cx| match event {
+        cx.subscribe_in(&view, window, |this, view, event, window, cx| match event {
             AddReferenceEvent::Dismiss => this.close_document_overlays(window, cx),
+            AddReferenceEvent::Save {
+                key,
+                entry,
+                label,
+                how,
+            } => this.save_reference(
+                view.clone(),
+                (key.clone(), entry.clone(), label.clone()),
+                *how,
+                window,
+                cx,
+            ),
         })
         .detach();
         self.documents.add_reference = Some(view);
         cx.notify();
+    }
+
+    /// Save Add reference's entry into the project's bibliography
+    /// (`saveBibEntry`): what the editors hold is saved first, then a title
+    /// the box looked up imports as the box's adds do, and anything else is
+    /// written to the file, which the open editors read again.
+    fn save_reference(
+        &mut self,
+        view: Entity<AddReference>,
+        (key, entry, label): (String, String, String),
+        how: ProjectSave,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(root) = self.root(cx) else {
+            return;
+        };
+        let saved = self.save_editors(cx);
+        cx.spawn_in(window, async move |this, cx| {
+            let failed = |error: String, cx: &mut gpui::AsyncWindowContext| {
+                view.update(cx, |view, cx| view.save_failed(error, cx));
+            };
+            if !saved.await {
+                failed(t!("Save the open file first.").to_string(), cx);
+                return;
+            }
+            if how == ProjectSave::Import {
+                let started = this
+                    .update(cx, |this, cx| {
+                        this.papers
+                            .update(cx, |papers, cx| papers.import_entry(entry, label, cx))
+                    })
+                    .unwrap_or(false);
+                if started {
+                    this.update_in(cx, |this, window, cx| {
+                        this.close_reference(&view, window, cx)
+                    })
+                    .ok();
+                } else {
+                    failed(t!("Another paper is being added").to_string(), cx);
+                }
+                return;
+            }
+            let written = cx
+                .background_spawn(async move {
+                    lattice_core::project::save_bib_entry(&root, &key, &entry)
+                })
+                .await;
+            match written {
+                Ok(()) => {
+                    this.update_in(cx, |this, window, cx| {
+                        for editor in this.open_editors() {
+                            editor.update(cx, |editor, cx| editor.check_disk(cx));
+                        }
+                        this.papers.update(cx, |papers, cx| papers.reload(cx));
+                        this.close_reference(&view, window, cx);
+                    })
+                    .ok();
+                }
+                Err(error) => failed(error, cx),
+            }
+        })
+        .detach();
+    }
+
+    /// Close Add reference once its entry is saved, when it is still the
+    /// sheet up.
+    fn close_reference(
+        &mut self,
+        view: &Entity<AddReference>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.documents.add_reference.as_ref() == Some(view) {
+            self.close_document_overlays(window, cx);
+        }
     }
 
     /// Linked library, in place of Add papers.

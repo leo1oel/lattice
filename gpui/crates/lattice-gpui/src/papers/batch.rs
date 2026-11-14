@@ -1,12 +1,13 @@
 //! Add papers' batch (`add-papers-queue.ts`), kept by the Papers panel so it
 //! outlives the sheet: the writer can close it and keep writing while the
-//! rest arrive. Papers import one after another through lattice-core's
-//! `import_reference`; Stop lets the paper being imported finish and adds
-//! none of the rest. A batch whose project closed is dropped.
+//! rest arrive. Papers import four at a time through lattice-core's
+//! `import_reference`, each committing as it resolves; Stop lets the papers
+//! under way finish and adds none of the rest, and a failed one can be
+//! tried again. A batch whose project closed is dropped.
 
-use std::sync::{
-    Arc,
-    atomic::{AtomicBool, Ordering},
+use std::{
+    collections::{HashMap, VecDeque},
+    sync::{Arc, atomic::AtomicBool},
 };
 
 use gpui::{AppContext as _, Context, Task};
@@ -161,12 +162,30 @@ struct ZoteroWords {
     failed: String,
 }
 
+/// What every paper of a running batch is imported with: a failed one is
+/// tried again with the same.
+struct Run {
+    root: std::path::PathBuf,
+    wanted: Vec<String>,
+    data_dir: Option<String>,
+    annotations: Arc<std::sync::OnceLock<Result<Annotations, String>>>,
+    labels: super::zotero::notes::Labels,
+    words: ZoteroWords,
+}
+
+/// How many papers import at once: enough to hide each lookup's latency,
+/// few enough not to flood the services (`ADDS_AT_ONCE`).
+const ADDS_AT_ONCE: usize = 4;
+
 #[derive(Default)]
 pub struct Batch {
     pub items: Vec<BatchItem>,
+    /// Papers waiting or under way.
     pub running: bool,
-    stop: Option<Arc<AtomicBool>>,
-    _task: Option<Task<()>>,
+    run: Option<Arc<Run>>,
+    requests: HashMap<String, BatchRequest>,
+    pending: VecDeque<String>,
+    tasks: HashMap<String, Task<()>>,
 }
 
 impl Batch {
@@ -174,6 +193,10 @@ impl Batch {
         self.items
             .iter()
             .any(|item| matches!(item.state, ItemState::Waiting | ItemState::Adding))
+    }
+
+    fn item(&mut self, id: &str) -> Option<&mut BatchItem> {
+        self.items.iter_mut().find(|item| item.id == id)
     }
 }
 
@@ -186,10 +209,73 @@ pub(super) fn failure_line(error: &str) -> Option<String> {
         .map(|line| line.trim_start_matches("Error:").trim().to_string())
 }
 
+/// One paper's import, and where its Zotero annotations went.
+fn import_one(
+    run: &Run,
+    request: &BatchRequest,
+) -> Result<(core_papers::ImportResult, Option<String>), String> {
+    let cancel = AtomicBool::new(false);
+    // A paper Papers holds is not imported again.
+    let imported = match request
+        .zotero
+        .as_ref()
+        .and_then(|extras| extras.existing.clone())
+    {
+        Some(key) => Ok(core_papers::ImportResult {
+            arxiv_id: String::new(),
+            title: String::new(),
+            paper_path: String::new(),
+            citation_key: Some(key),
+            citation_output: String::new(),
+            already_imported: true,
+            fetch_error: None,
+            cancelled: false,
+        }),
+        None => core_papers::import_reference(
+            &run.root,
+            &request.input,
+            HistoryMode::Record,
+            core_papers::FullText::Save,
+            &|_| {},
+            &cancel,
+        ),
+    };
+    let (Ok(mut imported), Some(extras)) = (imported.clone(), request.zotero.as_ref()) else {
+        return imported.map(|imported| (imported, None));
+    };
+    let Some(key) = imported
+        .citation_key
+        .clone()
+        .filter(|_| !imported.cancelled)
+    else {
+        return Ok((imported, None));
+    };
+    let fresh_without_text = !imported.already_imported && imported.paper_path.is_empty();
+    let annotations = || {
+        run.annotations
+            .get_or_init(|| lattice_core::zotero::annotations(run.data_dir.as_deref(), &run.wanted))
+            .as_ref()
+            .map_err(Clone::clone)
+    };
+    let outcome = bring_from_zotero(
+        &run.root,
+        &key,
+        extras,
+        fresh_without_text,
+        annotations,
+        &run.labels,
+        &run.words,
+    );
+    if let Some(attached) = outcome.attached {
+        imported.fetch_error = attached.err();
+    }
+    Ok((imported, outcome.note))
+}
+
 impl PapersPanel {
-    /// Import `requests` one at a time; nothing starts while an import (the
-    /// box's or another batch) holds the pipeline. False when it did not
-    /// start.
+    /// Import `requests`, a few at a time, each committing as it resolves;
+    /// nothing starts while an import (the box's or another batch) holds the
+    /// pipeline. False when it did not start.
     pub(crate) fn run_batch(
         &mut self,
         requests: Vec<BatchRequest>,
@@ -201,7 +287,6 @@ impl PapersPanel {
         let Some(root) = self.root.clone() else {
             return false;
         };
-        let stop = Arc::new(AtomicBool::new(false));
         // One read of Zotero's annotations for the whole batch, made when the
         // first paper with some needs it; every item comes from one library.
         let wanted: Vec<String> = requests
@@ -211,8 +296,6 @@ impl PapersPanel {
         let data_dir = requests
             .iter()
             .find_map(|request| request.zotero.as_ref()?.data_dir.clone());
-        let annotations_read: Arc<std::sync::OnceLock<Result<Annotations, String>>> =
-            Arc::new(std::sync::OnceLock::new());
         let labels = super::zotero::notes::Labels {
             heading: t!("Zotero annotations").to_string(),
             page: t!("p. {page}").to_string(),
@@ -223,201 +306,171 @@ impl PapersPanel {
             many: t!("{added} annotations in {path}").to_string(),
             failed: t!("Could not add the annotations: {problem}").to_string(),
         };
-        self.batch.items = requests
-            .iter()
-            .map(|request| BatchItem {
-                id: request.id.clone(),
-                input: request.input.clone(),
-                label: request.label.clone(),
-                kind: request.kind,
-                byline: request.byline.clone(),
-                state: ItemState::Waiting,
-                citation_key: None,
-                title: None,
-                already_imported: false,
-                note: None,
-            })
-            .collect();
-        self.batch.running = true;
-        self.batch.stop = Some(stop.clone());
-        let started_in = root.clone();
-        self.batch._task = Some(cx.spawn(async move |this, cx| {
-            for request in requests {
-                let current = this
-                    .update(cx, |this, _| {
-                        this.root.as_deref() == Some(started_in.as_path())
-                    })
-                    .unwrap_or(false);
-                // The project it was adding to closed: its rows belong to no
-                // open sheet. Drop them.
-                if !current {
-                    this.update(cx, |this, cx| {
-                        this.batch = Batch::default();
-                        cx.notify();
-                    })
-                    .ok();
-                    return;
-                }
-                let stopped = stop.load(Ordering::Acquire);
-                this.update(cx, |this, cx| {
-                    if let Some(item) = this
-                        .batch
-                        .items
-                        .iter_mut()
-                        .find(|item| item.id == request.id)
-                    {
-                        item.state = if stopped {
-                            ItemState::Cancelled
-                        } else {
-                            ItemState::Adding
-                        };
-                    }
-                    cx.notify();
+        self.just_added.clear();
+        self.batch = Batch {
+            items: requests
+                .iter()
+                .map(|request| BatchItem {
+                    id: request.id.clone(),
+                    input: request.input.clone(),
+                    label: request.label.clone(),
+                    kind: request.kind,
+                    byline: request.byline.clone(),
+                    state: ItemState::Waiting,
+                    citation_key: None,
+                    title: None,
+                    already_imported: false,
+                    note: None,
                 })
-                .ok();
-                if stopped {
-                    continue;
-                }
-                // Stop lets this paper finish: its import is never cancelled.
-                let (root, input) = (root.clone(), request.input.clone());
-                let zotero = request.zotero.clone();
-                let (wanted, data_dir, read) =
-                    (wanted.clone(), data_dir.clone(), annotations_read.clone());
-                let (labels, words) = (labels.clone(), words.clone());
-                let result = cx
-                    .background_spawn(async move {
-                        let cancel = AtomicBool::new(false);
-                        // A paper Papers holds is not imported again.
-                        let imported =
-                            match zotero.as_ref().and_then(|extras| extras.existing.clone()) {
-                                Some(key) => Ok(core_papers::ImportResult {
-                                    arxiv_id: String::new(),
-                                    title: String::new(),
-                                    paper_path: String::new(),
-                                    citation_key: Some(key),
-                                    citation_output: String::new(),
-                                    already_imported: true,
-                                    fetch_error: None,
-                                    cancelled: false,
-                                }),
-                                None => core_papers::import_reference(
-                                    &root,
-                                    &input,
-                                    HistoryMode::Record,
-                                    core_papers::FullText::Save,
-                                    &|_| {},
-                                    &cancel,
-                                ),
-                            };
-                        let (Ok(mut imported), Some(extras)) = (imported.clone(), zotero) else {
-                            return imported.map(|imported| (imported, None));
-                        };
-                        let Some(key) = imported
-                            .citation_key
-                            .clone()
-                            .filter(|_| !imported.cancelled)
-                        else {
-                            return Ok((imported, None));
-                        };
-                        let fresh_without_text =
-                            !imported.already_imported && imported.paper_path.is_empty();
-                        let annotations = || {
-                            read.get_or_init(|| {
-                                lattice_core::zotero::annotations(data_dir.as_deref(), &wanted)
-                            })
-                            .as_ref()
-                            .map_err(Clone::clone)
-                        };
-                        let outcome = bring_from_zotero(
-                            &root,
-                            &key,
-                            &extras,
-                            fresh_without_text,
-                            annotations,
-                            &labels,
-                            &words,
-                        );
-                        if let Some(attached) = outcome.attached {
-                            imported.fetch_error = attached.err();
-                        }
-                        Ok((imported, outcome.note))
-                    })
-                    .await;
-                this.update(cx, |this, cx| {
-                    let Some(item) = this
-                        .batch
-                        .items
-                        .iter_mut()
-                        .find(|item| item.id == request.id)
-                    else {
-                        return;
-                    };
-                    match result {
-                        Ok((imported, _))
-                            if imported.cancelled && imported.citation_key.is_none() =>
-                        {
-                            item.state = ItemState::Cancelled;
-                        }
-                        Ok((imported, zotero_note)) => {
-                            item.state = ItemState::Added;
-                            item.title = Some(imported.title.clone())
-                                .filter(|title| !title.trim().is_empty());
-                            item.already_imported = imported.already_imported;
-                            // What failed first, then where the annotations
-                            // went: neither hides the other.
-                            let notes: Vec<String> = [
-                                imported.fetch_error.as_deref().and_then(failure_line),
-                                zotero_note,
-                            ]
-                            .into_iter()
-                            .flatten()
-                            .collect();
-                            item.note = (!notes.is_empty()).then(|| notes.join(" · "));
-                            if !imported.already_imported {
-                                if let Some(key) = &imported.citation_key {
-                                    this.just_added.insert(key.clone());
-                                }
-                                if !imported.arxiv_id.is_empty() {
-                                    this.just_added.insert(imported.arxiv_id.clone());
-                                }
-                            }
-                            item.citation_key = imported.citation_key;
-                        }
-                        Err(error) => {
-                            item.state = ItemState::Failed;
-                            item.note = Some(error);
-                        }
-                    }
-                    this.reload(cx);
-                    cx.notify();
-                })
-                .ok();
-            }
-            this.update(cx, |this, cx| {
-                this.batch.running = false;
-                this.batch.stop = None;
-                cx.notify();
-            })
-            .ok();
-        }));
-        cx.notify();
+                .collect(),
+            running: true,
+            run: Some(Arc::new(Run {
+                root,
+                wanted,
+                data_dir,
+                annotations: Arc::default(),
+                labels,
+                words,
+            })),
+            pending: requests.iter().map(|request| request.id.clone()).collect(),
+            requests: requests
+                .into_iter()
+                .map(|request| (request.id.clone(), request))
+                .collect(),
+            tasks: HashMap::new(),
+        };
+        self.pump(cx);
         true
     }
 
-    /// Stop the batch after the paper being imported; the rest are not
+    /// Start waiting papers while there is room; a batch whose project
+    /// closed is dropped, its rows belonging to no open sheet.
+    fn pump(&mut self, cx: &mut Context<Self>) {
+        let Some(run) = self.batch.run.clone() else {
+            return;
+        };
+        if self.root.as_deref() != Some(run.root.as_path()) {
+            self.batch = Batch::default();
+            cx.notify();
+            return;
+        }
+        while self.batch.tasks.len() < ADDS_AT_ONCE {
+            let Some(id) = self.batch.pending.pop_front() else {
+                break;
+            };
+            let Some(request) = self.batch.requests.get(&id).cloned() else {
+                continue;
+            };
+            if let Some(item) = self.batch.item(&id) {
+                item.state = ItemState::Adding;
+                item.note = None;
+            }
+            let job_run = run.clone();
+            let job = cx.background_spawn(async move { import_one(&job_run, &request) });
+            let (task_id, task_run) = (id.clone(), run.clone());
+            let task = cx.spawn(async move |this, cx| {
+                let result = job.await;
+                this.update(cx, |this, cx| {
+                    if !this
+                        .batch
+                        .run
+                        .as_ref()
+                        .is_some_and(|run| Arc::ptr_eq(run, &task_run))
+                    {
+                        return;
+                    }
+                    this.batch.tasks.remove(&task_id);
+                    this.settle_item(&task_id, result);
+                    this.reload(cx);
+                    this.pump(cx);
+                })
+                .ok();
+            });
+            self.batch.tasks.insert(id, task);
+        }
+        self.batch.running = !self.batch.tasks.is_empty() || !self.batch.pending.is_empty();
+        cx.notify();
+    }
+
+    fn settle_item(
+        &mut self,
+        id: &str,
+        result: Result<(core_papers::ImportResult, Option<String>), String>,
+    ) {
+        let Some(item) = self.batch.items.iter_mut().find(|item| item.id == id) else {
+            return;
+        };
+        match result {
+            Ok((imported, _)) if imported.cancelled && imported.citation_key.is_none() => {
+                item.state = ItemState::Cancelled;
+            }
+            Ok((imported, zotero_note)) => {
+                item.state = ItemState::Added;
+                item.title = Some(imported.title.clone()).filter(|title| !title.trim().is_empty());
+                item.already_imported = imported.already_imported;
+                // What failed first, then where the annotations
+                // went: neither hides the other.
+                let notes: Vec<String> = [
+                    imported.fetch_error.as_deref().and_then(failure_line),
+                    zotero_note,
+                ]
+                .into_iter()
+                .flatten()
+                .collect();
+                item.note = (!notes.is_empty()).then(|| notes.join(" · "));
+                if !imported.already_imported {
+                    if let Some(key) = &imported.citation_key {
+                        self.just_added.insert(key.clone());
+                    }
+                    if !imported.arxiv_id.is_empty() {
+                        self.just_added.insert(imported.arxiv_id.clone());
+                    }
+                }
+                item.citation_key = imported.citation_key;
+            }
+            Err(error) => {
+                item.state = ItemState::Failed;
+                item.note = Some(error);
+            }
+        }
+    }
+
+    /// Stop the batch: the papers under way finish, none of the rest are
     /// added.
     pub(crate) fn stop_batch(&mut self, cx: &mut Context<Self>) {
-        if let Some(stop) = &self.batch.stop {
-            stop.store(true, Ordering::Release);
+        for id in std::mem::take(&mut self.batch.pending) {
+            if let Some(item) = self.batch.item(&id) {
+                item.state = ItemState::Cancelled;
+            }
         }
+        self.batch.running = !self.batch.tasks.is_empty();
         cx.notify();
+    }
+
+    /// Try a failed paper of the batch again, with what the batch ran with
+    /// (`retryAddItem`).
+    pub(crate) fn retry_batch_item(&mut self, id: &str, cx: &mut Context<Self>) {
+        if self.batch.run.is_none() || self.batch.pending.iter().any(|waiting| waiting == id) {
+            return;
+        }
+        let Some(item) = self
+            .batch
+            .item(id)
+            .filter(|item| item.state == ItemState::Failed)
+        else {
+            return;
+        };
+        item.state = ItemState::Waiting;
+        item.note = None;
+        self.batch.pending.push_back(id.to_string());
+        self.pump(cx);
     }
 
     /// Forget a finished batch; one still running keeps its rows for the
     /// next opening.
     pub(crate) fn clear_batch(&mut self, cx: &mut Context<Self>) {
         if !self.batch.running {
-            self.batch.items.clear();
+            self.batch = Batch::default();
             cx.notify();
         }
     }

@@ -113,8 +113,8 @@ impl Shell {
             let name = name_of(peer);
             let label = match self.peer_place(peer, cx) {
                 Some(place) => t!(
-                    "{name} at {place}. Click to jump there",
-                    name = &name,
+                    "{label} at {place}. Click to jump there",
+                    label = &name,
                     place = &place
                 )
                 .to_string(),
@@ -258,7 +258,7 @@ fn presence_card(
     } else if places.len() == 1 {
         t!("1 person on Overleaf now").into()
     } else {
-        t!("{count} people on Overleaf now", count = places.len()).into()
+        t!("{0} people on Overleaf now", places.len()).into()
     };
     let rows = places.iter().map(|(peer, place)| {
         let jump = peer.clone();

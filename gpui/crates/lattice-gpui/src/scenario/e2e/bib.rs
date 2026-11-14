@@ -112,13 +112,27 @@ impl Run {
         pick("second", cx);
         self.pause(cx, Duration::from_millis(300)).await;
         let kept = self.editor_text(cx, editor);
+        let entry = |text: &str, key: &str| {
+            lattice_core::bib_document::parse(text)
+                .ok()
+                .and_then(|document| {
+                    let entry = document.entries.iter().find(|entry| entry.key == key)?;
+                    text.get(entry.from..entry.to).map(str::to_string)
+                })
+                .unwrap_or_default()
+        };
+        let typed_in_knuth = entry(&carried, "knuth1984").contains("title = {Typed}");
+        let second_untouched = entry(&carried, "second").contains("title = {Second}")
+            && entry(&kept, "second").contains("title = {Second}");
+        let source_kept = entry(&kept, "knuth1984").contains("title = {From source}");
         steps.check(
             "a .bib form box left as another reference comes to the front writes only what was typed there",
-            both && carried.contains("title = {Typed}") && kept.contains("title = {From source}"),
+            both && typed_in_knuth && second_untouched && source_kept,
             json!({
                 "listed": both,
-                "typedWritten": carried.contains("title = {Typed}"),
-                "sourceKept": kept.contains("title = {From source}"),
+                "typedWritten": typed_in_knuth,
+                "secondUntouched": second_untouched,
+                "sourceKept": source_kept,
             }),
         );
         let restore = before.to_string();

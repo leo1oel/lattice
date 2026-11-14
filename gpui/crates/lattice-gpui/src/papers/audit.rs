@@ -717,12 +717,17 @@ impl Audit {
         cx.notify();
     }
 
-    /// Keep the writer's own entry over the candidate.
-    pub(super) fn keep(&mut self, index: usize, cx: &mut Context<Self>) {
+    /// Keep the writer's own entry over the candidate, or (`kept` false)
+    /// put it back for review.
+    pub(super) fn keep(&mut self, index: usize, kept: bool, cx: &mut Context<Self>) {
         if self.busy {
             return;
         }
-        self.kept.insert(index);
+        if kept {
+            self.kept.insert(index);
+        } else {
+            self.kept.remove(&index);
+        }
         self.save(cx);
         cx.notify();
     }
@@ -779,6 +784,11 @@ impl Audit {
 
     /// A check under way stops with the sheet; what it found was saved as
     /// it came in. Fixes being written keep it open until they land.
+    /// Fixes are being written: the sheet stays until they land.
+    pub fn is_applying(&self) -> bool {
+        self.applying
+    }
+
     pub(super) fn close(&mut self, cx: &mut Context<Self>) {
         if self.applying {
             return;

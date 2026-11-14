@@ -117,18 +117,26 @@ impl Audit {
             .as_ref()
             .map(|candidate| candidate.changes.clone())
             .unwrap_or_else(|| result.changes.clone());
+        let note = if self.applied.contains(&index) {
+            Some(t!("Applied. The entry now matches the verified record.").to_string())
+        } else {
+            super::messages::publication_message(
+                &result.message,
+                result.publication_reason.as_deref(),
+            )
+        };
         let mut body = div()
             .flex()
             .flex_col()
             .gap(px(8.))
             .px(px(12.))
             .pb(px(12.))
-            .child(
+            .children(note.map(|note| {
                 div()
                     .text_role(TextRole::Caption, cx)
                     .text_color(palette.text)
-                    .child(super::messages::result_message(&result.message)),
-            );
+                    .child(note)
+            }));
         if !changes.is_empty() {
             body = body.child(
                 div()
@@ -219,7 +227,20 @@ impl Audit {
                         Button::new(("audit-keep", index), t!("Keep mine"))
                             .compact()
                             .disabled(self.busy)
-                            .on_click(cx.listener(move |this, _, _, cx| this.keep(index, cx))),
+                            .on_click(
+                                cx.listener(move |this, _, _, cx| this.keep(index, true, cx)),
+                            ),
+                    )
+                })
+                .when(bucket == Bucket::Kept, |actions| {
+                    actions.child(
+                        Button::new(("audit-review-again", index), t!("Review again"))
+                            .compact()
+                            .ghost()
+                            .disabled(self.busy)
+                            .on_click(
+                                cx.listener(move |this, _, _, cx| this.keep(index, false, cx)),
+                            ),
                     )
                 })
                 .child(
