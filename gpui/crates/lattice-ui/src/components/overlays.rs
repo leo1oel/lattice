@@ -17,8 +17,11 @@
 //! height from 96%. The scale is a paint transform (`gpui::scaled`), so
 //! layout and the pointer see the surface at rest throughout.
 
+use std::time::Duration;
+
 use gpui::{
-    AnimationExt as _, AnyElement, AnyView, App, AppContext as _, ElementId, Hsla, IntoElement,
+    AnimationExt as _, AnyElement, AnyView, App, AppContext as _, ElementId, Hsla,
+    InteractiveElement as _, IntoElement,
     ParentElement as _, Render, RenderOnce, SharedString, Styled as _, Window, div, point,
     prelude::FluentBuilder as _, px, scaled,
 };
@@ -26,7 +29,7 @@ use gpui::{
 use crate::{
     ActiveLattice as _, Elevation, Icon, TextRole, TextRoleStyle as _,
     icons::ICON_LARGE,
-    motion::Entrance,
+    motion::{Entrance, Exit},
     tokens::CONTAINER_DIALOG,
 };
 
@@ -77,6 +80,56 @@ fn enter(
             })
         })
         .into_any_element()
+}
+
+/// A popup on its way out, `elapsed` into its exit ([`Exit::POPUP`]): back
+/// toward 95% about the edge that faces its trigger and 6px toward it as it
+/// fades, on the pop tier's exit, a plain ease-out a tier quicker than it
+/// came. Its owner keeps drawing it, without input, until
+/// [`Exit::is_done`], and asks for frames meanwhile.
+pub fn pop_out(from: PopFrom, elapsed: Duration, content: impl IntoElement) -> AnyElement {
+    let exit = Exit::POPUP;
+    let (direction, edge) = match from {
+        PopFrom::Above => (-1., 0.),
+        PopFrom::Below => (1., 1.),
+    };
+    let (movement, opacity) = exit.sample(elapsed);
+    scaled(
+        div()
+            .relative()
+            .top(px(direction * movement * exit.travel))
+            .opacity(opacity)
+            .child(content)
+            .child(input_cover()),
+    )
+    .origin(point(0.5, edge))
+    .scale(exit.scale(movement))
+    .into_any_element()
+}
+
+/// A dialog or sheet on its way out, `elapsed` into its exit
+/// ([`Exit::DIALOG`], `modal-sink`): it sinks `--space-2` to 98% and fades
+/// on the slow tier's exit.
+pub fn sink_out(elapsed: Duration, content: impl IntoElement) -> AnyElement {
+    let exit = Exit::DIALOG;
+    let (movement, opacity) = exit.sample(elapsed);
+    scaled(
+        div()
+            .relative()
+            .top(px(movement * exit.travel))
+            .opacity(opacity)
+            .child(content)
+            .child(input_cover()),
+    )
+    .scale(exit.scale(movement))
+    .into_any_element()
+}
+
+/// Laid over a surface on its way out, so the picture takes no press or
+/// hover (`pointer-events: none` on `[data-leaving]`), nor does what is
+/// under it until it has gone.
+fn input_cover() -> impl IntoElement {
+    div().absolute().inset_0().occlude()
 }
 
 /// Wrap a dialog or sheet so it enters on the slow tier

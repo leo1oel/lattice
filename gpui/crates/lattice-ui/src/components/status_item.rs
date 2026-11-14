@@ -107,6 +107,7 @@ impl RenderOnce for StatusItem {
         let palette = cx.palette().clone();
         let focus = focus_ring(&palette, palette.editor);
         let clickable = self.on_click.is_some();
+        let icon_id = ElementId::NamedChild(std::sync::Arc::new(self.id.clone()), "icon".into());
         let item = div().id(self.id.clone());
         let (bg, ink) = if clickable {
             let (interaction, pointer) = use_interaction(self.id, window, cx);
@@ -140,7 +141,8 @@ impl RenderOnce for StatusItem {
                 } else {
                     ink
                 };
-                this.child(icon.element(ICON_SMALL, ink))
+                // A busy status turns its loader (`.spin`).
+                this.child(crate::loading::mark(icon_id, icon, ICON_SMALL, ink, cx))
             })
             .when_some(self.tooltip, |this, tooltip| {
                 this.tooltip(move |_, cx| -> AnyView {

@@ -194,7 +194,7 @@ impl ZoteroBrowser {
                         .flex()
                         .justify_center()
                         .py(px(16.))
-                        .child(Icon::LOADER.element(ICON, palette.text_secondary)),
+                        .child(lattice_ui::loading::loader("zotero-loader", ICON, palette.text_secondary, cx)),
                 )
                 .into_any_element();
         };

@@ -207,8 +207,13 @@ impl Literature {
                             add_view.update(cx, |this, cx| this.add(&add_hit, cx)).ok();
                         })
                         .child(
-                            if busy { Icon::LOADER } else { Icon::PLUS }
-                                .element(px(13.), palette.accent),
+                            lattice_ui::loading::mark(
+                                "literature-add-mark",
+                                if busy { Icon::LOADER } else { Icon::PLUS },
+                                px(13.),
+                                palette.accent,
+                                cx,
+                            ),
                         )
                         .child(t!("Add")),
                 )
@@ -533,18 +538,20 @@ impl Literature {
                             .tooltip(tooltip(t!("Search")))
                             .on_click(cx.listener(|this, _, _, cx| this.search(cx)))
                             .child(
-                                if self.loading {
-                                    Icon::LOADER
-                                } else {
-                                    Icon::ARROW_RIGHT
-                                }
-                                .element(
+                                lattice_ui::loading::mark(
+                                    "literature-search-mark",
+                                    if self.loading {
+                                        Icon::LOADER
+                                    } else {
+                                        Icon::ARROW_RIGHT
+                                    },
                                     ICON,
                                     if ready {
                                         palette.accent
                                     } else {
                                         palette.text_secondary
                                     },
+                                    cx,
                                 ),
                             ),
                     ),

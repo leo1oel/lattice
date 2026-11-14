@@ -597,6 +597,8 @@ impl HtmlPreview {
             .pt(px(64.))
             .px(px(24.))
             .opacity(opacity)
+            // `.document-skeleton-column.loading-sheen`, on the white page.
+            .relative()
             .children(BLOCKS.iter().enumerate().map(|(ix, block)| {
                 if block.len() == 1 {
                     // A heading: the first is the title (1.8em at a 1.2 line).
@@ -635,7 +637,8 @@ impl HtmlPreview {
                         }))
                         .into_any_element()
                 }
-            }));
+            }))
+            .children(lattice_ui::loading::sheen("html-preview-sheen", gpui::white(), cx));
         div()
             .absolute()
             .inset_0()
