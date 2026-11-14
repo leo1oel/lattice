@@ -3,10 +3,9 @@
 //! over the window.
 //!
 //! The panel opens as the Tauri app's `revealTool` opens a drawer's tool
-//! panel (`src/trellis/trellis-controller.ts`): as a tab of the documents'
-//! panel, or, already in the layout elsewhere, moved there and brought
-//! forward; ending focus mode first. The titlebar's History button, the
-//! palette's "Open project history" and the Panels toggle reach it.
+//! panel (`Shell::reveal_tool`, in `tools_flow`). The titlebar's History
+//! button, the palette's "Open project history" and the Panels toggle
+//! reach it.
 //!
 //! A file Git left with conflict markers (a merge or a pull that stopped,
 //! `git status` naming it as a conflict) is offered to the resolver in a
@@ -22,8 +21,6 @@ use lattice_ui::{
     Icon,
     components::{IconButton, Surface, ToastLevel},
 };
-use trellis::model::Placement;
-use trellis::runtime::engine::{OpenOptions, ViewPlacement};
 
 use super::Shell;
 use crate::{
@@ -42,52 +39,9 @@ fn conflict_notice(root: &Path) -> String {
 impl Shell {
     /// Bring the History panel on screen.
     pub(crate) fn open_history(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.project.is_none() {
-            return;
+        if self.reveal_tool("history", window, cx) {
+            self.history.update(cx, |history, cx| history.reload(cx));
         }
-        if self.layout.focus.is_some() {
-            self.set_focus_mode(false, window, cx);
-        }
-        let anchor = self.document_panel_of_layout(cx);
-        match self.placement("history", cx) {
-            Some((ViewPlacement::Hidden, ..)) => self.show_view("history", true, window, cx),
-            Some(_) => {
-                let panel = self.panel_holding("history", cx);
-                // Asked for again, it follows the same placement rule rather
-                // than leaving focus on a distant old place.
-                if let Some(anchor) = anchor.filter(|anchor| Some(anchor) != panel.as_ref()) {
-                    self.engine_do(cx, |engine| {
-                        engine.dock(
-                            "history",
-                            Some(trellis::model::DockTarget::Into {
-                                into: anchor,
-                                index: None,
-                            }),
-                        )
-                    });
-                }
-                self.engine_do(cx, |engine| engine.focus("history"));
-            }
-            None => {
-                let placement = match anchor {
-                    Some(into) => Placement::Into { into, index: None },
-                    None => self.home_of("history", cx),
-                };
-                self.engine_do(cx, |engine| {
-                    engine.open(
-                        "history",
-                        OpenOptions {
-                            id: Some("history".into()),
-                            placement: Some(placement),
-                            focus: Some(true),
-                            ..OpenOptions::default()
-                        },
-                    )
-                });
-            }
-        }
-        self.history.update(cx, |history, cx| history.reload(cx));
-        cx.notify();
     }
 
     /// The titlebar's History button (`onHistory` in canvas-toolbar.tsx).

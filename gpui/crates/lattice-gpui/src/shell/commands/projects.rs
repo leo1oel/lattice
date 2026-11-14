@@ -90,6 +90,7 @@ pub(super) fn project_commands(context: &CommandContext, out: &mut Vec<Command>)
             Section::Project,
             OpenHistory,
         ));
+        super::submission::project_commands(out);
         out.push(
             Command::new(
                 "resolve-conflicts",

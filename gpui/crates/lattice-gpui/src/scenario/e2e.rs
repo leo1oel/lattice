@@ -31,6 +31,7 @@ mod source_chrome;
 mod status_bar;
 #[cfg(target_os = "macos")]
 mod structured;
+mod submission;
 
 /// Each step's name, whether it passed, and what it saw.
 struct Steps(Vec<Value>);
@@ -306,6 +307,9 @@ impl Run {
         self.history_and_versions(cx, &mut steps, &root)
             .await
             .context("history_and_versions")?;
+        self.submission_tools(cx, &mut steps, &root)
+            .await
+            .context("submission_tools")?;
         self.settings_and_language(cx, &mut steps)
             .await
             .context("settings_and_language")?;

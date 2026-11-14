@@ -127,6 +127,14 @@ impl Run {
         } else {
             None
         };
+        // The submission screens (`scenes.todos`, `scenes.arxivExport`).
+        let submission_shown = if screen == "todos" || screen == "arxivExport" {
+            let shown = self.parity_submission(cx, &screen).await?;
+            self.park_pointer(cx)?;
+            Some(shown)
+        } else {
+            None
+        };
         // The HTML screen (`scenes.html`): the tutorial's HTML demo opened,
         // in Preview, once its page has loaded; the spreadsheet and board
         // screens (`scenes.sheet`, `scenes.board`): the tutorial's own, once
@@ -227,6 +235,7 @@ impl Run {
             "pdfShown": pdf_shown,
             "htmlLoaded": html_loaded,
             "historyLoaded": history_loaded,
+            "submissionShown": submission_shown,
             "regions": regions,
         }))
     }

@@ -197,6 +197,32 @@ export const SCREENS = {
     ],
     content: [".pdf-viewer-host"],
   },
+  // Manuscript TODOs from the palette (`scenes.todos`): the tutorial has no
+  // markers, so the empty state, as a tool panel of the documents' panel
+  // (crates/lattice-gpui/src/scenario/parity_submission.rs).
+  todos: {
+    label: "Manuscript TODOs",
+    regions: [
+      { name: "workspace", css: "main.workspace", chrome: true },
+      ...group("TODOs"),
+      { name: "todos/empty", css: ".todo-empty", chrome: true },
+    ],
+    content: [".pdf-viewer-host"],
+  },
+  // Export for arXiv… over the window with the bench's checked pack
+  // (`scenes.arxivExport`, `?arxiv=ready`); the GPUI side stages the same
+  // pack in place of a real check.
+  arxivExport: {
+    label: "Export for arXiv",
+    regions: [
+      { name: "arxiv/modal", css: ".arxiv-export-modal", chrome: true },
+      { name: "arxiv/summary", css: ".arxiv-export-summary", chrome: true },
+      { name: "arxiv/checks", css: ".arxiv-export-checks" },
+      { name: "arxiv/check", css: ".arxiv-export-checks > li:first-child .arxiv-check-row" },
+      { name: "arxiv/status", css: ".arxiv-export-status" },
+    ],
+    content: [".pdf-viewer-host"],
+  },
   settings: {
     label: "Settings",
     // Settings over the Main window, on Appearance (scenes.mjs `settings`).

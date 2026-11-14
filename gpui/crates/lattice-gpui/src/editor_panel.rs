@@ -547,7 +547,9 @@ impl EditorPanel {
             let relative = relative.clone();
             document.update(cx, |document, cx| document.moved_to(relative, cx));
         }
-        self.relative = relative;
+        let left = std::mem::replace(&mut self.relative, relative);
+        crate::status_counters::set_buffer(root.clone(), left, None, cx);
+        self.scan_todos(Duration::ZERO, cx);
         // The spell check follows the file, or starts once it is prose.
         match &self.spelling {
             Some(spelling) => {
@@ -675,6 +677,8 @@ impl BasePanel for EditorPanel {
         if !self.close_structured(cx) {
             self.flush(cx);
         }
+        let root = self.project_root(cx);
+        crate::status_counters::set_buffer(root, self.relative.clone(), None, cx);
         let panel = gpui_kit::component::dock::PanelId::from(cx.entity_id());
         lattice_ui::dock::set_spare_tools(panel, None, cx);
     }

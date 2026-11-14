@@ -27,10 +27,12 @@ mod layers;
 pub(crate) mod menus;
 mod palette;
 mod pdfs;
+mod references_flow;
 mod render;
 mod saving;
 mod skin;
 mod synctex;
+mod tools_flow;
 pub mod trellis_layout;
 pub mod views;
 mod welcome_flow;
@@ -57,6 +59,8 @@ pub use commands::{
     Build, CleanBuildFiles, CleanRebuild, ForwardSync, InstallLatexTools, NextProblem,
     OpenTexDoctor, PreviousProblem, Save, StopBuild, ToggleVimMode,
 };
+pub use references_flow::{FindReferences, RenameSymbol};
+pub use tools_flow::{ExportArxiv, OpenTodos};
 
 use crate::{
     build::{
@@ -135,6 +139,15 @@ pub struct Shell {
     build_panel: Entity<BuildPanel>,
     /// The History tool panel (`crate::history`), one for the window.
     pub(crate) history: Entity<crate::history::HistoryPanel>,
+    /// The manuscript's TODOs tool panel (`crate::submission::todos`).
+    pub(crate) todos: Entity<crate::submission::todos::TodosPanel>,
+    /// A symbol's occurrences bar and rename dialog (`references_flow`).
+    pub(crate) references: references_flow::References,
+    /// The arXiv export sheet, while it is open.
+    pub(crate) arxiv: Option<(
+        Entity<crate::submission::arxiv::ArxivExportSheet>,
+        Subscription,
+    )>,
     /// The conflict resolver, while it is open.
     pub(crate) conflict: Option<(Entity<crate::history::ConflictResolver>, Subscription)>,
     /// The files Git named as conflicts when last told (`history_flow`).
@@ -276,6 +289,7 @@ impl Shell {
                     .is_some_and(|workspace| arrange::on_screen(workspace.read(cx), "history"))
             })
         });
+        let todos = cx.new(crate::submission::todos::TodosPanel::new);
         pdf.update(cx, |pdf, cx| pdf.set_build_output(card.into(), cx));
         let tex_setup = tex_setup::install(cx);
         tex_setup.update(cx, |center, cx| center.check_at_launch(cx));
@@ -350,6 +364,10 @@ impl Shell {
             this.on_history_event(event, window, cx)
         })
         .detach();
+        cx.subscribe_in(&todos, window, |this, _, event, window, cx| {
+            this.on_todos_event(event, window, cx)
+        })
+        .detach();
         cx.observe(&notices, |_, _, cx| cx.notify()).detach();
         cx.observe(&confirm, |_, _, cx| cx.notify()).detach();
         let workspace_events = cx.subscribe_in(&workspace, window, Self::on_workspace_event);
@@ -396,6 +414,9 @@ impl Shell {
             pdf,
             build_panel,
             history,
+            todos,
+            arxiv: None,
+            references: Default::default(),
             conflict: None,
             conflicts_noticed: Default::default(),
             _project_git: None,
@@ -599,6 +620,9 @@ impl Shell {
             }
         }
         self.drop_conflict_notice(cx);
+        self.references = Default::default();
+        self.arxiv = None;
+        self.conflict = None;
         self.project = Some(project.clone());
         // The editors of the project open before go with its arrangement.
         self.editors.clear();
@@ -634,6 +658,9 @@ impl Shell {
         self.refresh_outline(window, cx);
         self.history
             .update(cx, |history, cx| history.set_project(project.clone(), cx));
+        let todos_root = Some(root.clone());
+        self.todos
+            .update(cx, |todos, cx| todos.set_root(todos_root, cx));
         self._project_git = Some(cx.subscribe(&project, |this, _, event, cx| {
             if matches!(event, crate::project::ProjectEvent::GitChanged) {
                 this.notice_conflicts(cx);
