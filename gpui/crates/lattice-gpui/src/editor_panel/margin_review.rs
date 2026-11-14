@@ -169,6 +169,16 @@ impl EditorPanel {
         self.margin.painted.borrow().clone()
     }
 
+    /// The source view the layer is drawn over, as last drawn.
+    pub fn margin_view(&self) -> Option<Bounds<Pixels>> {
+        self.margin.view.get()
+    }
+
+    /// The lines of room kept under the last line for stacked cards.
+    pub fn margin_room(&self) -> u32 {
+        self.margin.room
+    }
+
     /// The layout for an editor `width` wide whose gutter is `gutter`.
     fn margin_layout_for(
         &self,
