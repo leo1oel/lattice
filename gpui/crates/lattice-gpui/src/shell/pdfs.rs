@@ -381,6 +381,7 @@ impl Shell {
                     .map(|(_, panel)| panel.clone());
                 match (target, panel) {
                     (Ok(Some(target)), Some(panel)) => {
+                        crate::get_started::progress::mark(crate::get_started::Step::Jump, cx);
                         panel.update(cx, |panel, cx| panel.show_sync_target(&target, cx))
                     }
                     (Ok(None), _) => notices::warning(

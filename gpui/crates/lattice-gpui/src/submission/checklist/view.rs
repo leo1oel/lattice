@@ -25,7 +25,7 @@ use super::{ChecklistEvent, ChecklistPanel, model};
 
 /// A row's result, as its mark and its gauge read it.
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub(super) enum Tone {
+pub(crate) enum Tone {
     Ok,
     Warn,
     None,
@@ -44,7 +44,7 @@ impl Tone {
 /// The check's result as a mark (`CheckStatus`): a tick when it passes, an
 /// exclamation when it needs attention, a dash when it cannot be settled,
 /// on a disc in the result's soft tone.
-pub(super) fn status_mark(tone: Tone, cx: &App) -> AnyElement {
+pub(crate) fn status_mark(tone: Tone, cx: &App) -> AnyElement {
     let palette = cx.palette().clone();
     let (ground, ink) = match tone {
         Tone::Ok => (palette.success_soft, palette.success),
@@ -60,7 +60,7 @@ pub(super) fn status_mark(tone: Tone, cx: &App) -> AnyElement {
 }
 
 /// The 18px disc a row's mark stands on, on its label's first line.
-pub(super) fn mark_disc(ground: Hsla, glyph: AnyElement) -> AnyElement {
+pub(crate) fn mark_disc(ground: Hsla, glyph: AnyElement) -> AnyElement {
     div()
         .flex_none()
         .mt(px(1.))

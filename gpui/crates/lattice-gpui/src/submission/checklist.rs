@@ -23,7 +23,7 @@ mod deadline;
 mod items;
 pub mod model;
 mod review;
-mod view;
+pub(crate) mod view;
 
 use std::{collections::HashMap, path::PathBuf};
 

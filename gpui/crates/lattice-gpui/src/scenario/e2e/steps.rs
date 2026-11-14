@@ -51,6 +51,7 @@ pub(in crate::scenario) const MODULES: &[(&str, &[&str])] = &[
     ("live_preview", &[]),
     ("help", &[]),
     ("saves", &[]),
+    ("get_started", &[]),
 ];
 
 static ONLY: std::sync::OnceLock<Vec<&'static str>> = std::sync::OnceLock::new();

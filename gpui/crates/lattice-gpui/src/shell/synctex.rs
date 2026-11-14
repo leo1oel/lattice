@@ -66,6 +66,7 @@ impl Shell {
                 }
                 match lookup {
                     Ok(Some(target)) => {
+                        crate::get_started::progress::mark(crate::get_started::Step::Jump, cx);
                         this.pdf
                             .update(cx, |pdf, cx| pdf.show_sync_target(&target, cx));
                         if !this.pdf.read(cx).in_window() {
@@ -124,6 +125,7 @@ impl Shell {
                 }
                 match target {
                     Ok(target) => {
+                        crate::get_started::progress::mark(crate::get_started::Step::Jump, cx);
                         this.open_path(root.join(&target.path), Some(target.line), window, cx);
                         // A jump from the PDF's own window brings the
                         // workspace forward, to the line.

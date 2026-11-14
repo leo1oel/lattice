@@ -295,6 +295,14 @@ impl TexSetupCenter {
         self.open_wizard_now(cx);
     }
 
+    /// [`Self::open_for_missing_tex`] while Get started is on screen: its
+    /// first step reports the missing TeX, from a fresh check, and offers
+    /// the install, so no dialog lands on the checklist.
+    pub fn recheck_for_missing_tex(&mut self, cx: &mut Context<Self>) {
+        self.report = None;
+        self.run_doctor(false, cx).detach();
+    }
+
     pub fn close_wizard(&mut self, cx: &mut Context<Self>) {
         if self.wizard.installing {
             return;
