@@ -41,10 +41,15 @@ impl Run {
                         && context.duration_ms.is_some()
                 })
         });
+        // The start is matched by its operation id, not its English title:
+        // the start's action is worded in the interface language of the
+        // moment, and the spelling checks before this switch to Simplified
+        // Chinese while their edits start a build, which can end in English
+        // ("▶ 构建", then "Build succeeded in …" under one id).
         let started = succeeded.and_then(|done| {
             let id = &done.context.as_ref()?.operation_id;
             entries.iter().find(|entry| {
-                entry.title == "▶ Build"
+                entry.title.starts_with("▶ ")
                     && entry.context.as_ref().is_some_and(|context| {
                         &context.operation_id == id && context.phase == "started"
                     })
