@@ -8,6 +8,7 @@ describe("isBuildOutput", () => {
       "main.out", "main.toc", "main.bbl", "main.blg", "main-blx.bib", "main.run.xml", "chapters/intro.aux",
       "_minted-main/default.pygstyle", ".git/index", "paper/thesis.pdf",
       ".lattice-0b7e4c1a-9f3d-4e2b-8a6c-5d1f2e3a4b5c.tmp", "chapters/.lattice-0b7e4c1a-9f3d-4e2b-8a6c-5d1f2e3a4b5c.tmp",
+      ".lattice-0b7e4c1a-9f3d-4e2b-8a6c-5d1f2e3a4b5c.tmp.bib",
     ]) {
       expect(isBuildOutput(path, ["main.tex", "paper/thesis.tex"]), path).toBe(true);
     }

@@ -5,7 +5,7 @@
 //! makes replacing a pathname with a symlink harmless: the operation remains
 //! attached to the directory that was opened.
 
-use crate::util::err;
+use crate::util::{atomic_write_temporary, err};
 use rustix::fd::{AsFd, OwnedFd};
 use rustix::fs::{self, AtFlags, FileType, Mode, OFlags};
 use rustix::io::Errno;
@@ -13,7 +13,6 @@ use std::ffi::OsString;
 use std::io::Write;
 use std::os::unix::ffi::OsStringExt;
 use std::path::{Component, Path};
-use uuid::Uuid;
 
 const OUTSIDE: &str = "The requested path is outside the project.";
 const SYMLINK_REFUSED: &str = "Symbolic links cannot be used for project file operations.";
@@ -86,7 +85,7 @@ impl ProjectDir {
         }
         let mut temporary = None;
         for _ in 0..16 {
-            let candidate = OsString::from(format!(".lattice-{}.tmp", Uuid::new_v4()));
+            let candidate = atomic_write_temporary(&name);
             match fs::openat(
                 &parent,
                 &candidate,
@@ -166,7 +165,9 @@ impl ProjectDir {
                 let Some(current) = names.iter().find(|name| folded(name) == folded(part)) else {
                     return Ok(());
                 };
-                let temporary = OsString::from(format!(".lattice-{}.tmp", Uuid::new_v4()));
+                // The renamed file is the real one, so a bibliography must
+                // not pass through a name the agent guard would let it open.
+                let temporary = atomic_write_temporary(part);
                 fs::renameat(&directory, current, &directory, &temporary).map_err(err)?;
                 if let Err(error) = fs::renameat(&directory, &temporary, &directory, part) {
                     let _ = fs::renameat(&directory, &temporary, &directory, current);

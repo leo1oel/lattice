@@ -20,8 +20,11 @@ const GENERATED_FOR_DOCUMENT = /^(?:\.(?:pdf|bbl|idx|ind|ist|gl[os]|ac[nr]|alg|l
 /** Folders a package fills while compiling (minted's cache, the svg package's conversions). */
 const GENERATED_FOLDER = /^(?:_minted[^/]*|svg-inkscape)(?:\/|$)/;
 
-/** The temporary `ProjectFs::atomic_write` writes beside a file and renames over it. */
-const ATOMIC_WRITE_TEMPORARY = /(?:^|\/)\.lattice-[0-9a-f-]+\.tmp$/i;
+/**
+ * The temporary `ProjectFs::atomic_write` writes beside a file and renames over it;
+ * a bibliography's keeps a `.bib` ending so the agent guard refuses it too.
+ */
+const ATOMIC_WRITE_TEMPORARY = /(?:^|\/)\.lattice-[0-9a-f-]+\.tmp(?:\.bib)?$/i;
 
 /**
  * Whether a change the project watcher reported at `path` cannot have changed

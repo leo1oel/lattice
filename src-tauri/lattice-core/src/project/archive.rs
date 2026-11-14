@@ -130,6 +130,7 @@ fn excluded_dir(root: &Path, path: &Path) -> bool {
 
 fn excluded_file(name: &str) -> bool {
     EXPORT_EXCLUDED_SUFFIXES.iter().any(|suffix| name.ends_with(suffix))
+        || crate::util::is_atomic_write_temporary(name.rsplit('/').next().unwrap_or(name))
 }
 
 /// `time` as a ZIP (DOS, local-time) timestamp; the format's epoch when it is
