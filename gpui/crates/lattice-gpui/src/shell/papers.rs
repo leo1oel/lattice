@@ -117,9 +117,15 @@ impl Shell {
                 let remembered = self.documents.paper_views.get(&paper.arxiv_id).copied();
                 let view = preferred_view(remembered, &paper);
                 let reader = cx.new(|cx| PaperReader::new(root.clone(), paper, view, cx));
-                cx.subscribe_in(&reader, window, |this, reader, event, window, cx| match event {
-                    PaperReaderEvent::Show(view) => this.give_reader_text(reader, *view, window, cx),
-                })
+                cx.subscribe_in(
+                    &reader,
+                    window,
+                    |this, reader, event, window, cx| match event {
+                        PaperReaderEvent::Show(view) => {
+                            this.give_reader_text(reader, *view, window, cx)
+                        }
+                    },
+                )
                 .detach();
                 self.give_reader_text(&reader, view, window, cx);
                 reader.update(cx, |reader, cx| reader.resume_pdf(window, cx));

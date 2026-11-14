@@ -259,7 +259,10 @@ impl ZoteroBrowser {
         // on its title, byline or badges toggles the box.
         let (row_view, row_paper) = (view.clone(), paper.clone());
         div()
-            .id(SharedString::from(format!("zotero-paper:{}", paper.citation_key)))
+            .id(SharedString::from(format!(
+                "zotero-paper:{}",
+                paper.citation_key
+            )))
             .flex()
             .items_start()
             .gap(px(8.))

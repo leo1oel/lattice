@@ -274,9 +274,10 @@ impl PapersPanel {
         cx: &mut Context<Self>,
     ) {
         let importing = self.importing.take();
-        self.last_import = importing.as_ref().map(|importing| (importing.ticket, false));
-        let cancelled =
-            importing.is_some_and(|importing| importing.cancel.load(Ordering::Acquire));
+        self.last_import = importing
+            .as_ref()
+            .map(|importing| (importing.ticket, false));
+        let cancelled = importing.is_some_and(|importing| importing.cancel.load(Ordering::Acquire));
         if !cancelled {
             cx.emit(PapersEvent::Review { query, resolved });
         }
@@ -294,9 +295,10 @@ impl PapersPanel {
         let added = result
             .as_ref()
             .is_ok_and(|imported| imported.citation_key.is_some());
-        self.last_import = importing.as_ref().map(|importing| (importing.ticket, added));
-        let cancelled =
-            importing.is_some_and(|importing| importing.cancel.load(Ordering::Acquire));
+        self.last_import = importing
+            .as_ref()
+            .map(|importing| (importing.ticket, added));
+        let cancelled = importing.is_some_and(|importing| importing.cancel.load(Ordering::Acquire));
         match result {
             Ok(imported) => {
                 // The row says it was added, with its key to copy, in place
@@ -304,7 +306,8 @@ impl PapersPanel {
                 // paper the library held, or an import cancelled, is no new
                 // row: a notice says what came of it instead. Discover
                 // literature's add is no row either: its notice says it all.
-                if notices == Notices::Problems && !imported.cancelled && !imported.already_imported {
+                if notices == Notices::Problems && !imported.cancelled && !imported.already_imported
+                {
                     if let Some(key) = &imported.citation_key {
                         self.just_added.insert(key.clone());
                     }

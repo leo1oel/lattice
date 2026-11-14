@@ -187,7 +187,10 @@ fn own_items(menu: Menu, view: &AnyView, cx: &App) -> Menu {
     if let Ok(editor) = view.clone().downcast::<crate::editor_panel::EditorPanel>() {
         return editor.read(cx).panel_menu(menu, cx);
     }
-    if let Ok(reader) = view.clone().downcast::<crate::papers::reader::PaperReader>() {
+    if let Ok(reader) = view
+        .clone()
+        .downcast::<crate::papers::reader::PaperReader>()
+    {
         return crate::papers::reader::PaperReader::panel_menu(&reader, menu, cx);
     }
     if let Ok(pdf) = view.clone().downcast::<crate::pdf::PdfPanel>() {

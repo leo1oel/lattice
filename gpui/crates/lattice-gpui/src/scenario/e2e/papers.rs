@@ -213,11 +213,14 @@ impl Run {
             // (`openPaper` sets the canvas to its preview), on its own page.
             let reading = self
                 .wait_for(cx, Duration::from_secs(20), |shell, cx| {
-                    shell.read(cx).front_reader_state(cx).is_some_and(|(view, page, pdf)| {
-                        view == Some(crate::editor_panel::views::DocumentView::Preview)
-                            && page
-                            && !pdf
-                    })
+                    shell
+                        .read(cx)
+                        .front_reader_state(cx)
+                        .is_some_and(|(view, page, pdf)| {
+                            view == Some(crate::editor_panel::views::DocumentView::Preview)
+                                && page
+                                && !pdf
+                        })
                 })
                 .await;
             let state = self.with_window(cx, |shell, _, cx| {

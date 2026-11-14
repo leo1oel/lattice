@@ -45,8 +45,7 @@ pub(crate) struct Documents {
     pub(super) readers: Vec<Entity<crate::papers::reader::PaperReader>>,
     /// The view each paper was last shown in, by arXiv id, for one opened
     /// again after its tab closed.
-    pub(super) paper_views:
-        std::collections::HashMap<String, crate::papers::reader::ReaderView>,
+    pub(super) paper_views: std::collections::HashMap<String, crate::papers::reader::ReaderView>,
     /// The places the writer went (project-relative path, line), oldest
     /// first, and the one back and forward stand on.
     history: Vec<(String, u32)>,

@@ -207,7 +207,10 @@ mod tests {
         let pair = |query: &str, sent: &str| (query.to_string(), sent.to_string());
         assert_eq!(sent_query("attention   "), pair("attention", "attention "));
         assert_eq!(sent_query("  attention"), pair("attention", "attention"));
-        assert_eq!(sent_query("dot product\t"), pair("dot product", "dot product "));
+        assert_eq!(
+            sent_query("dot product\t"),
+            pair("dot product", "dot product ")
+        );
         assert_eq!(sent_query("   "), pair("", ""));
     }
 }

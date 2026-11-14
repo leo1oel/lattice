@@ -114,9 +114,15 @@ mod tests {
     #[test]
     fn a_panel_path_is_known_as_a_reading_text() {
         let root = std::path::Path::new("/Users/me/thesis");
-        assert!(is_bundle_text(&root.join(".research/papers/1706.03762/paper.md")));
-        assert!(is_bundle_text(&root.join(".research/papers/hep-th/9901001/blog.md")));
-        assert!(!is_bundle_text(&root.join(".research/papers/1706.03762/notes.md")));
+        assert!(is_bundle_text(
+            &root.join(".research/papers/1706.03762/paper.md")
+        ));
+        assert!(is_bundle_text(
+            &root.join(".research/papers/hep-th/9901001/blog.md")
+        ));
+        assert!(!is_bundle_text(
+            &root.join(".research/papers/1706.03762/notes.md")
+        ));
         assert!(!is_bundle_text(&root.join("chapters/paper.md")));
     }
 }

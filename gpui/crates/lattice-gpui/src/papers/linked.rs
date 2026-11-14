@@ -169,7 +169,12 @@ fn pair(from: &Indexed, other: &Indexed) -> HashMap<usize, usize> {
     };
     for entry in &entries {
         let key = from.document.entries[*entry].key.to_lowercase();
-        claim(*entry, other.by_key.get(&key).copied(), &mut pairs, &mut taken);
+        claim(
+            *entry,
+            other.by_key.get(&key).copied(),
+            &mut pairs,
+            &mut taken,
+        );
     }
     let known: HashMap<usize, Vec<String>> = entries
         .iter()

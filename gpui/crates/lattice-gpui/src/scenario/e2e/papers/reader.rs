@@ -37,7 +37,11 @@ const PAGE: &str = "JSON.stringify({\
 
 impl Run {
     /// The reader in front, once it shows `view` drawn on its page.
-    async fn reader_drawn(&self, cx: &mut AsyncApp, view: ReaderView) -> Option<Entity<PaperReader>> {
+    async fn reader_drawn(
+        &self,
+        cx: &mut AsyncApp,
+        view: ReaderView,
+    ) -> Option<Entity<PaperReader>> {
         let drawn = self
             .wait_for(cx, Duration::from_secs(20), move |shell, cx| {
                 let shell = shell.read(cx);
@@ -83,9 +87,11 @@ impl Run {
         cx.update(|cx| papers.update(cx, |papers, cx| papers.reload(cx)));
         let listed = self
             .wait_for(cx, Duration::from_secs(15), |_, cx| {
-                papers.read(cx).papers.iter().any(|paper| {
-                    paper.has_blog && paper.has_local_pdf && paper.has_full_text
-                })
+                papers
+                    .read(cx)
+                    .papers
+                    .iter()
+                    .any(|paper| paper.has_blog && paper.has_local_pdf && paper.has_full_text)
             })
             .await;
         steps.check(
@@ -102,7 +108,11 @@ impl Run {
             })
         })?;
         let Some(reader) = self.reader_drawn(cx, ReaderView::FullText).await else {
-            steps.check("the paper's full text is drawn in its reader", false, json!({}));
+            steps.check(
+                "the paper's full text is drawn in its reader",
+                false,
+                json!({}),
+            );
             return Ok(());
         };
 
@@ -121,7 +131,9 @@ impl Run {
 
         // Blog shows the overview, with no masthead over it.
         self.with_window(cx, |_, window, cx| {
-            reader.update(cx, |reader, cx| reader.show(ReaderView::Overview, window, cx))
+            reader.update(cx, |reader, cx| {
+                reader.show(ReaderView::Overview, window, cx)
+            })
         })?;
         let overview = self.reader_drawn(cx, ReaderView::Overview).await;
         let (path, page) = match &overview {
@@ -167,7 +179,11 @@ impl Run {
             })
         })?;
         let back = self.reader_drawn(cx, ReaderView::Overview).await.is_some();
-        steps.check("the way back from the PDF shows the text again", back, json!({}));
+        steps.check(
+            "the way back from the PDF shows the text again",
+            back,
+            json!({}),
+        );
 
         self.press(cx, 'w', true).await?;
         Ok(())

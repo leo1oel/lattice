@@ -14,8 +14,7 @@ use regex::Regex;
 pub fn paper_abstract(markdown: &str) -> Option<Vec<String>> {
     static HEADING: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"(?imR)^#{1,4}[ \t]*\**Abstract\**[ \t.:]*$").unwrap());
-    static NEXT_HEADING: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"(?mR)^#{1,6}\s").unwrap());
+    static NEXT_HEADING: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?mR)^#{1,6}\s").unwrap());
     static TAG: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"<[^>]*>").unwrap());
     static LINK: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"!?\[([^\]]*)\]\([^)]*\)").unwrap());
