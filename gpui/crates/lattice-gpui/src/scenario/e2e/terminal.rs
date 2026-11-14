@@ -254,7 +254,27 @@ impl Run {
             })
             .await;
         let labels = self.terminal_labels(cx);
-        let second = cx.update(|cx| self.shell.read(cx).terminal().read(cx).sessions()[1].key);
+        // The rest of the panel's steps work on both tabs: without a second
+        // one, say what the panel holds instead of indexing past it.
+        let Some(second) = cx.update(|cx| {
+            let panel = self.shell.read(cx).terminal().read(cx);
+            panel.sessions().get(1).map(|session| session.key)
+        }) else {
+            let states = cx.update(|cx| {
+                let panel = self.shell.read(cx).terminal().read(cx);
+                panel
+                    .sessions()
+                    .iter()
+                    .map(|session| format!("{:?}", session.state))
+                    .collect::<Vec<_>>()
+            });
+            steps.check(
+                "New terminal opens a second tab in front; a tab renames in place, and ← → move along the tabs",
+                false,
+                json!({ "labels": labels, "sessions": states }),
+            );
+            return Ok(());
+        };
         self.with_window(cx, |shell, window, cx| {
             shell
                 .read(cx)

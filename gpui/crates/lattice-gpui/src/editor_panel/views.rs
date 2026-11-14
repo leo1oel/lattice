@@ -288,6 +288,28 @@ impl EditorPanel {
         }
     }
 
+    /// The keyboard is in this document: its source, or the page beside it.
+    /// In Split the panel's own handle is the source's, and the page's
+    /// handle is no descendant of it, so a check on that handle alone
+    /// misses a page holding the keyboard (and a closed tab would leave the
+    /// window focused on a handle no longer drawn, where no shortcut lands).
+    pub fn holds_focus(&self, window: &Window, cx: &App) -> bool {
+        let handles = [
+            Some(self.editor.focus_handle(cx)),
+            self.structured
+                .as_ref()
+                .and_then(|document| document.read(cx).focus_handle(cx)),
+            self.views
+                .as_ref()
+                .and_then(|views| views.preview.as_ref())
+                .and_then(|preview| preview.focus_handle(cx)),
+        ];
+        handles
+            .into_iter()
+            .flatten()
+            .any(|handle| handle.contains_focused(window, cx))
+    }
+
     /// A Markdown file's visual editor, once a view has shown it.
     pub fn markdown_document(&self) -> Option<&Entity<StructuredDocument>> {
         match self.views.as_ref()?.preview.as_ref()? {

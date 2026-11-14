@@ -47,11 +47,14 @@ impl Shell {
     }
 
     /// The keyboard is in `view`; the Terminal's own keyboard places (its
-    /// tabs, find field and rename field) beside its screen count too.
+    /// tabs, find field and rename field) beside its screen count too, and
+    /// so does a document's page beside its source (Split).
     pub(super) fn keyboard_in_view(&self, view: &str, window: &Window, cx: &gpui::App) -> bool {
         self.panel_of_view(view).is_some_and(|panel| {
             if panel.view().entity_id() == self.terminal.entity_id() {
                 self.terminal.read(cx).holds_focus(window, cx)
+            } else if let Ok(editor) = panel.view().downcast::<crate::editor_panel::EditorPanel>() {
+                editor.read(cx).holds_focus(window, cx)
             } else {
                 panel.focus_handle(cx).contains_focused(window, cx)
             }
