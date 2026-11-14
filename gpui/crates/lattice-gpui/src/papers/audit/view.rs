@@ -127,7 +127,13 @@ impl Audit {
                     .hover(|style| style.bg(palette.hover))
                     .when(open, |row| row.bg(palette.row_selected))
                     .on_click(cx.listener(move |this, _, _, cx| this.toggle(index, cx)))
-                    .child(div().flex_none().child(lattice_ui::loading::mark(("audit-mark", index), icon, ICON, ink, cx)))
+                    .child(div().flex_none().child(lattice_ui::loading::mark(
+                        ("audit-mark", index),
+                        icon,
+                        ICON,
+                        ink,
+                        cx,
+                    )))
                     .child(
                         div()
                             .flex()
@@ -512,7 +518,12 @@ impl Render for Audit {
                         .text_role(TextRole::Title, cx)
                         .text_color(palette.text)
                         .when(self.busy || self.loading, |line| {
-                            line.child(lattice_ui::loading::loader("audit-loader", ICON, palette.text_secondary, cx))
+                            line.child(lattice_ui::loading::loader(
+                                "audit-loader",
+                                ICON,
+                                palette.text_secondary,
+                                cx,
+                            ))
                         })
                         .child(div().min_w_0().child(self.verdict(count))),
                 )

@@ -437,7 +437,12 @@ impl PapersPanel {
                     .rounded(px(6.))
                     .overflow_hidden()
                     .bg(palette.text.opacity(0.04))
-                    .child(lattice_ui::loading::loader("papers-field-loader", ICON_SMALL, palette.text_secondary, cx))
+                    .child(lattice_ui::loading::loader(
+                        "papers-field-loader",
+                        ICON_SMALL,
+                        palette.text_secondary,
+                        cx,
+                    ))
                     .child(
                         div()
                             .flex_1()

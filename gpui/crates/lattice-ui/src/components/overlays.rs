@@ -21,9 +21,8 @@ use std::time::Duration;
 
 use gpui::{
     AnimationExt as _, AnyElement, AnyView, App, AppContext as _, ElementId, Hsla,
-    InteractiveElement as _, IntoElement,
-    ParentElement as _, Render, RenderOnce, SharedString, Styled as _, Window, div, point,
-    prelude::FluentBuilder as _, px, scaled,
+    InteractiveElement as _, IntoElement, ParentElement as _, Render, RenderOnce, SharedString,
+    Styled as _, Window, div, point, prelude::FluentBuilder as _, px, scaled,
 };
 
 use crate::{

@@ -269,7 +269,12 @@ impl RenderOnce for LoadingState {
             .opacity(opacity)
             .text_role(TextRole::Caption, cx)
             .text_color(palette.text_secondary)
-            .child(crate::loading::loader("loading-state-loader", ICON, palette.text_secondary, cx))
+            .child(crate::loading::loader(
+                "loading-state-loader",
+                ICON,
+                palette.text_secondary,
+                cx,
+            ))
             .child(self.label)
     }
 }

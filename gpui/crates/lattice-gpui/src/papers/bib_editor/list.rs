@@ -361,7 +361,13 @@ impl BibEditor {
                         cx.stop_propagation();
                         this.open_paper(index, window, cx)
                     }))
-                    .child(lattice_ui::loading::mark(("bib-row-paper-mark", index), icon, ICON, ink, cx))
+                    .child(lattice_ui::loading::mark(
+                        ("bib-row-paper-mark", index),
+                        icon,
+                        ICON,
+                        ink,
+                        cx,
+                    ))
             });
         let select_key = key.clone();
         let body = if narrow {

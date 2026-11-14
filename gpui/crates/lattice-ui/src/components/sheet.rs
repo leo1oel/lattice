@@ -23,7 +23,7 @@
 //! with its surface: the dialog scrim behind a sheet, the lighter
 //! `--scrim-surface` behind a drawer.
 
-use std::rc::Rc;
+use std::{rc::Rc, time::Instant};
 
 use gpui::{
     AnimationExt as _, AnyElement, App, ElementId, FocusHandle, Hsla, InteractiveElement as _,
@@ -34,8 +34,8 @@ use gpui_kit::base::Sheet as SheetHost;
 
 use crate::{
     ActiveLattice as _, Elevation,
-    components::{PanelHeader, rise_in},
-    motion::Motion,
+    components::{PanelHeader, rise_in, sink_out},
+    motion::{Exit, Motion},
     tokens::CONTAINER_DIALOG_LARGE,
 };
 
@@ -342,13 +342,33 @@ impl RenderOnce for ModalLayer {
             LayerPlacement::Center | LayerPlacement::UpperThird => cx.palette().scrim,
             LayerPlacement::Right => drawer_scrim(),
         };
-        let overlay = div().absolute().inset_0().bg(scrim).with_animation(
-            child("scrim"),
-            Motion::Slow.animation(),
-            |this, t| this.opacity(t.clamp(0., 1.)),
-        );
+        // A close the layer takes itself (Escape, a press on the scrim)
+        // plays its exit before its owner hears of it: the scrim fades and
+        // the surface sinks on the slow tier's exit (`modal-scrim-out`,
+        // `modal-sink`). A close its owner takes (a button of its own) is
+        // the owner's, and the layer goes with it.
+        let closing_state = window.use_keyed_state(child("closing"), cx, |_, _| None::<Instant>);
+        let leaving = closing_state.read(cx).map(|started| started.elapsed());
+        let closing = closing_state.clone();
+        if leaving.is_some() {
+            window.request_animation_frame();
+        }
+        let exit = leaving.map(|elapsed| Exit::DIALOG.sample(elapsed).1);
+        let overlay = div()
+            .absolute()
+            .inset_0()
+            .bg(scrim)
+            .when_some(exit, |this, opacity| this.opacity(opacity))
+            .with_animation(child("scrim"), Motion::Slow.animation(), move |this, t| {
+                this.opacity(t.clamp(0., 1.) * exit.unwrap_or(1.))
+            });
+        let surface_content = match leaving {
+            Some(elapsed) => sink_out(elapsed, self.surface),
+            None => self.surface,
+        };
         // Only the surface blocks the pointer; the rest of the wrapper lets
         // a press through to the host's scrim, which closes the layer.
+        let surface_element = surface_content;
         let surface = match self.placement {
             LayerPlacement::Center => div()
                 .absolute()
@@ -356,7 +376,7 @@ impl RenderOnce for ModalLayer {
                 .flex()
                 .items_center()
                 .justify_center()
-                .child(div().id(child("surface")).occlude().child(self.surface)),
+                .child(div().id(child("surface")).occlude().child(surface_element)),
             // The room above shrinks before the dialog would cross the
             // 20px margin below: top = min(18vh, 100vh - height - 20px).
             LayerPlacement::UpperThird => div()
@@ -372,14 +392,14 @@ impl RenderOnce for ModalLayer {
                         .id(child("surface"))
                         .flex_none()
                         .occlude()
-                        .child(self.surface),
+                        .child(surface_element),
                 ),
             LayerPlacement::Right => div().absolute().inset_0().flex().justify_end().child(
                 div()
                     .id(child("surface"))
                     .occlude()
                     .h_full()
-                    .child(self.surface),
+                    .child(surface_element),
             ),
         };
         let on_close = self.on_close;
@@ -387,15 +407,46 @@ impl RenderOnce for ModalLayer {
         deferred(
             SheetHost::new(cx)
                 .focus_handle(focus)
-                .overlay_closable(self.closable)
+                .overlay_closable(self.closable && leaving.is_none())
                 .request_close(move |window, cx| {
+                    if closing.read(cx).is_some() {
+                        return;
+                    }
                     if layer.contains_focused(window, cx) {
                         match &previous {
                             Some(previous) => previous.focus(window, cx),
                             None => window.blur(cx),
                         }
                     }
-                    on_close(window, cx)
+                    if cx.reduce_motion() {
+                        on_close(window, cx);
+                        return;
+                    }
+                    let started = Instant::now();
+                    closing.update(cx, |closing, cx| {
+                        *closing = Some(started);
+                        cx.notify();
+                    });
+                    // The owner hears of it once the exit has run, unless the
+                    // layer went in the meantime (its owner closed it).
+                    let still = closing.downgrade();
+                    let on_close = on_close.clone();
+                    window
+                        .spawn(cx, async move |cx| {
+                            cx.background_executor()
+                                .timer(Exit::DIALOG.duration())
+                                .await;
+                            cx.update(|window, cx| {
+                                let pending = still
+                                    .upgrade()
+                                    .is_some_and(|closing| *closing.read(cx) == Some(started));
+                                if pending {
+                                    on_close(window, cx);
+                                }
+                            })
+                            .ok();
+                        })
+                        .detach();
                 })
                 .overlay(overlay)
                 .surface(surface),

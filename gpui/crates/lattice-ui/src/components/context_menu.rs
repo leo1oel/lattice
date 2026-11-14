@@ -132,7 +132,10 @@ impl<T: Clone + 'static> ContextMenu<T> {
             (
                 state.id.clone(),
                 state.open.as_ref().map(|(at, _)| *at),
-                state.leaving.as_ref().map(|(at, _, closed)| (*at, closed.elapsed())),
+                state
+                    .leaving
+                    .as_ref()
+                    .map(|(at, _, closed)| (*at, closed.elapsed())),
             )
         };
         let child = |name: &'static str| {

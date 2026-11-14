@@ -423,7 +423,12 @@ impl Render for Welcome {
                     .gap(px(6.))
                     .text_role(TextRole::Micro, cx)
                     .text_color(palette.text_secondary)
-                    .child(lattice_ui::loading::loader("welcome-loader", px(15.), palette.text_secondary, cx))
+                    .child(lattice_ui::loading::loader(
+                        "welcome-loader",
+                        px(15.),
+                        palette.text_secondary,
+                        cx,
+                    ))
                     .child(busy)
             }));
         div()

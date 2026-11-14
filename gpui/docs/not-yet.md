@@ -13,11 +13,7 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] A Finder drop onto the editor as a figure.
 
-- [ ] The import conflict dialog's Replace and Skip (an import keeps both).
-
-- [ ] Overlay exit motion for dialogs, sheets, menus, selects and popovers.
-
-- [ ] The spinners and loading sheens.
+- [ ] Overlay exit motion for the menus and popovers GPUI Kit's popover opens, and for a dialog closed by a button of its own.
 
 - [ ] The 13 animated product icons.
 

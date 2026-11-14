@@ -57,7 +57,13 @@ pub fn loader(id: impl Into<ElementId>, size: Pixels, color: Hsla, cx: &App) -> 
 
 /// `icon`, turning when it is [`Icon::LOADER`] and still otherwise: for a
 /// control that shows its busy state in its icon's place.
-pub fn mark(id: impl Into<ElementId>, icon: Icon, size: Pixels, color: Hsla, cx: &App) -> AnyElement {
+pub fn mark(
+    id: impl Into<ElementId>,
+    icon: Icon,
+    size: Pixels,
+    color: Hsla,
+    cx: &App,
+) -> AnyElement {
     if icon == Icon::LOADER {
         spinner(id, icon, size, color, cx)
     } else {
@@ -76,14 +82,11 @@ pub fn sheen(id: impl Into<ElementId>, surface: Hsla, cx: &App) -> Option<AnyEle
     let clear = surface.opacity(0.);
     // The gradient's 30%–70% stretch, as two halves of one band.
     let half = |from: Hsla, to: Hsla| {
-        div()
-            .h_full()
-            .w(relative(0.5))
-            .bg(linear_gradient(
-                90.,
-                linear_color_stop(from, 0.),
-                linear_color_stop(to, 1.),
-            ))
+        div().h_full().w(relative(0.5)).bg(linear_gradient(
+            90.,
+            linear_color_stop(from, 0.),
+            linear_color_stop(to, 1.),
+        ))
     };
     Some(
         div()

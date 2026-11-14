@@ -638,7 +638,11 @@ impl HtmlPreview {
                         .into_any_element()
                 }
             }))
-            .children(lattice_ui::loading::sheen("html-preview-sheen", gpui::white(), cx));
+            .children(lattice_ui::loading::sheen(
+                "html-preview-sheen",
+                gpui::white(),
+                cx,
+            ));
         div()
             .absolute()
             .inset_0()

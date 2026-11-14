@@ -121,7 +121,12 @@ impl PdfView {
                         .shadow(lattice_ui::Elevation::Popover.shadows(&palette))
                         .text_role(TextRole::Micro, cx)
                         .text_color(palette.text_secondary)
-                        .child(lattice_ui::loading::loader("pdf-loading-loader", px(12.), palette.text_secondary, cx))
+                        .child(lattice_ui::loading::loader(
+                            "pdf-loading-loader",
+                            px(12.),
+                            palette.text_secondary,
+                            cx,
+                        ))
                         .child(t!("Loading PDF…"))
                         .into_any_element(),
                 );

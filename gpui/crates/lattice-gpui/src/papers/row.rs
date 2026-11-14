@@ -82,7 +82,12 @@ pub struct RowFacts {
     pub hits: Option<(Vec<model::LineHit>, bool)>,
 }
 
-fn glyph(paper: &PaperSummary, fetch: Option<FetchState>, palette: &Palette, cx: &gpui::App) -> AnyElement {
+fn glyph(
+    paper: &PaperSummary,
+    fetch: Option<FetchState>,
+    palette: &Palette,
+    cx: &gpui::App,
+) -> AnyElement {
     let icon = match fetch {
         Some(FetchState::Loading) => Icon::LOADER,
         _ if model::is_web_page(paper) => Icon::GLOBE,
@@ -105,7 +110,13 @@ fn glyph(paper: &PaperSummary, fetch: Option<FetchState>, palette: &Palette, cx:
         .flex()
         .items_center()
         .justify_center()
-        .child(lattice_ui::loading::mark("paper-row-glyph", icon, size, palette.text_secondary, cx))
+        .child(lattice_ui::loading::mark(
+            "paper-row-glyph",
+            icon,
+            size,
+            palette.text_secondary,
+            cx,
+        ))
         .into_any_element()
 }
 

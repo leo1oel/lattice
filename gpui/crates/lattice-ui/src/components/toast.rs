@@ -50,7 +50,8 @@ const COPIED_FOR: Duration = Duration::from_millis(1600);
 /// The indeterminate bar's sweep (`app-toast-sweep`, 1.4 s ease-in-out).
 const SWEEP: Duration = Duration::from_millis(1400);
 /// CSS `ease-in-out`.
-const EASE_IN_OUT: crate::token_types::Ease = crate::token_types::Ease::CubicBezier(0.42, 0., 0.58, 1.);
+const EASE_IN_OUT: crate::token_types::Ease =
+    crate::token_types::Ease::CubicBezier(0.42, 0., 0.58, 1.);
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub enum ToastLevel {
@@ -353,7 +354,8 @@ fn progress_row(
         .bottom_0()
         .rounded_full()
         .bg(palette.accent);
-    let child = |name: &'static str| ElementId::NamedChild(std::sync::Arc::new(id.clone()), name.into());
+    let child =
+        |name: &'static str| ElementId::NamedChild(std::sync::Arc::new(id.clone()), name.into());
     let (bar, percent) = match progress {
         ToastProgress::Fraction(share) => {
             let share = share.clamp(0., 1.);
@@ -368,7 +370,10 @@ fn progress_row(
         }
         ToastProgress::Indeterminate if cx.reduce_motion() => {
             // A still segment, as `translateX(95%)` holds it.
-            (track.child(fill.left(relative(0.35 * 0.95)).w(relative(0.35))), None)
+            (
+                track.child(fill.left(relative(0.35 * 0.95)).w(relative(0.35))),
+                None,
+            )
         }
         ToastProgress::Indeterminate => (
             track.child(
@@ -428,7 +433,8 @@ impl RenderOnce for CopyButton {
         let child = |name: &'static str| {
             ElementId::NamedChild(std::sync::Arc::new(self.id.clone()), name.into())
         };
-        let copied_at = window.use_keyed_state(child("copied"), cx, |_, _| None::<std::time::Instant>);
+        let copied_at =
+            window.use_keyed_state(child("copied"), cx, |_, _| None::<std::time::Instant>);
         let copied = copied_at
             .read(cx)
             .is_some_and(|at| at.elapsed() < COPIED_FOR);

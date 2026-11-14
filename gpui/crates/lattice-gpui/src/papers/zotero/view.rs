@@ -189,13 +189,9 @@ impl ZoteroBrowser {
         }
         let Some(library) = self.library.clone() else {
             return pane
-                .child(
-                    div()
-                        .flex()
-                        .justify_center()
-                        .py(px(16.))
-                        .child(lattice_ui::loading::loader("zotero-loader", ICON, palette.text_secondary, cx)),
-                )
+                .child(div().flex().justify_center().py(px(16.)).child(
+                    lattice_ui::loading::loader("zotero-loader", ICON, palette.text_secondary, cx),
+                ))
                 .into_any_element();
         };
         let query = self.folder_query.read(cx).value().to_string();
