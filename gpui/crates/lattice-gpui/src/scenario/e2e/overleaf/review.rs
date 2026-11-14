@@ -105,7 +105,7 @@ impl Run {
 
         // Replying, resolving and reopening.
         act(cx, &|bridge, cx| {
-            bridge.reply_to_thread(&thread, "Yes, it is.".into(), cx)
+            bridge.reply_to_thread(&thread, "Yes, it is.".into(), |_| {}, cx)
         });
         let replied = self
             .wait_for(cx, Duration::from_secs(10), |_, _| {

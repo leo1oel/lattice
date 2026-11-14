@@ -78,14 +78,21 @@ impl OverleafBridge {
         cx.notify();
     }
 
-    pub fn reply_to_thread(&mut self, thread_id: &str, content: String, cx: &mut Context<Self>) {
+    /// Reply `content` to a thread; `done` runs once Overleaf has it.
+    pub fn reply_to_thread(
+        &mut self,
+        thread_id: &str,
+        content: String,
+        done: impl FnOnce(&mut gpui::App) + 'static,
+        cx: &mut Context<Self>,
+    ) {
         let thread = thread_id.to_string();
         self.review_rest(
             thread_id.to_string(),
             move |config, root| {
                 lattice_core::overleaf::reply_to_thread(config, root, &thread, &content)
             },
-            |_, _| {},
+            |_, cx| done(cx),
             cx,
         );
     }
@@ -95,6 +102,7 @@ impl OverleafBridge {
         thread_id: &str,
         message_id: &str,
         content: String,
+        done: impl FnOnce(&mut gpui::App) + 'static,
         cx: &mut Context<Self>,
     ) {
         let (thread, message) = (thread_id.to_string(), message_id.to_string());
@@ -103,7 +111,7 @@ impl OverleafBridge {
             move |config, root| {
                 lattice_core::overleaf::edit_message(config, root, &thread, &message, &content)
             },
-            |_, _| {},
+            |_, cx| done(cx),
             cx,
         );
     }
@@ -156,13 +164,14 @@ impl OverleafBridge {
     }
 
     /// Start a thread on UTF-16 `from..to` of the live document `path`,
-    /// saying `content`.
+    /// saying `content`; `done` runs once Overleaf has its message.
     pub fn add_comment(
         &mut self,
         path: &str,
         from: i64,
         quote: String,
         content: String,
+        done: impl FnOnce(&mut gpui::App) + 'static,
         cx: &mut Context<Self>,
     ) {
         let doc_id = match self.doc_of_path(path) {
@@ -187,6 +196,7 @@ impl OverleafBridge {
                 if let Err(error) = this.anchor_comment(&doc_id, &thread_id, from, &quote, cx) {
                     this.review.error = Some(error.into());
                 }
+                done(cx);
             },
             cx,
         );

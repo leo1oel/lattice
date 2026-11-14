@@ -102,6 +102,7 @@ impl OverleafBridge {
         if typed.replaced {
             panel.update(cx, |panel, cx| panel.take_overleaf_text(doc.ot.text(), cx));
         }
+        self.review_moved(doc_id, &typed.ops, true, None, cx);
         let replayed: Vec<Replayed> = joined
             .caught_up
             .iter()

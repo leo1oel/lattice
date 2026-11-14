@@ -180,20 +180,39 @@ impl OverleafCollabPanel {
         cx.notify();
     }
 
-    /// Send what the composer holds.
+    /// Send what the composer holds. It stays open, its text kept, until
+    /// Overleaf has it, so a refusal leaves the text to send again.
     fn submit(&mut self, cx: &mut Context<Self>) {
-        let Some(composer) = self.composer.take() else {
+        let Some(composer) = self.composer.as_ref() else {
             return;
         };
         let text = composer.state.read(cx).value().to_string();
-        if text.trim().is_empty() {
-            self.composer = Some(composer);
+        if text.trim().is_empty() || self.bridge.read(cx).review_busy().is_some() {
             return;
         }
-        self.bridge.update(cx, |bridge, cx| match composer.draft {
-            Draft::Reply { thread } => bridge.reply_to_thread(&thread, text, cx),
-            Draft::Edit { thread, message } => bridge.edit_message(&thread, &message, text, cx),
-            Draft::New { path, from, quote } => bridge.add_comment(&path, from, quote, text, cx),
+        let (draft, state) = (composer.draft.clone(), composer.state.clone());
+        let panel = cx.weak_entity();
+        let done = move |cx: &mut App| {
+            panel
+                .update(cx, |panel, cx| {
+                    if panel
+                        .composer
+                        .as_ref()
+                        .is_some_and(|composer| composer.state == state)
+                    {
+                        panel.close_composer(cx);
+                    }
+                })
+                .ok();
+        };
+        self.bridge.update(cx, |bridge, cx| match draft {
+            Draft::Reply { thread } => bridge.reply_to_thread(&thread, text, done, cx),
+            Draft::Edit { thread, message } => {
+                bridge.edit_message(&thread, &message, text, done, cx)
+            }
+            Draft::New { path, from, quote } => {
+                bridge.add_comment(&path, from, quote, text, done, cx)
+            }
         });
         cx.notify();
     }
