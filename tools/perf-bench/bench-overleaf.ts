@@ -150,7 +150,7 @@ function trackedChanges(context: Context) {
  * rows from this file (gpui/crates/lattice-gpui/src/scenario/parity_overleaf.rs),
  * so keep each on one line in this shape.
  */
-export const PICKER_PROJECTS: Array<[string, string, string, string, number, string]> = [
+const PICKER_PROJECTS: Array<[string, string, string, string, number, string]> = [
   ["ol-understanding-attention", "Understanding Attention", "Leo Gu", "leo@example.edu", 2 * HOUR, "owner"],
   ["ol-sparse-transformers", "Sparse Transformers Survey", "Mina Park", "mina.park@example.edu", 26 * HOUR, "readAndWrite"],
   ["ol-thesis-chapter-3", "Thesis Chapter 3: Efficient Kernels", "Leo Gu", "leo@example.edu", 5 * DAY, "owner"],
