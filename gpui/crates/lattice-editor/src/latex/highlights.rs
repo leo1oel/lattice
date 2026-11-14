@@ -204,7 +204,7 @@ pub fn document_colors(source: &str) -> Vec<String> {
             None => counts.push((hex, 1)),
         }
     }
-    counts.sort_by(|a, b| b.1.cmp(&a.1));
+    counts.sort_by_key(|&(_, count)| std::cmp::Reverse(count));
     counts.into_iter().map(|(hex, _)| hex).collect()
 }
 

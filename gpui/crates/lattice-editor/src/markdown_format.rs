@@ -140,7 +140,7 @@ fn emphasis_markers(text: &str, from: usize, to: usize, bold: bool) -> Option<Ma
     let bytes = text.as_bytes();
     let width = if bold { 2 } else { 1 };
     let holds = |depth: usize| if bold { depth >= 2 } else { depth == 1 || depth == 3 };
-    for ch in [b'*', b'_'] {
+    for ch in *b"*_" {
         let before = run(bytes, from, ch, true);
         let after = run(bytes, to, ch, false);
         if before > 0 || after > 0 {

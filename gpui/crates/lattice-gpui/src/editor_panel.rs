@@ -384,7 +384,7 @@ impl EditorPanel {
                 if let crate::project::ProjectEvent::FilesChanged(paths) = event {
                     if paths
                         .as_ref()
-                        .is_none_or(|paths| paths.iter().any(|path| *path == this.relative))
+                        .is_none_or(|paths| paths.contains(&this.relative))
                     {
                         this.check_disk(cx);
                     }

@@ -129,11 +129,7 @@ lucide! {
     ITALIC = "icons" / "italic";
     UNDERLINE = "icons" / "underline";
     STRIKETHROUGH = "icons" / "strikethrough";
-    QUOTE = "icons" / "quote";
-    LINK = "icons" / "link";
     HEADING = "icons" / "heading";
-    ERASER = "icons" / "eraser";
-    CODE = "icons" / "code";
     RADICAL = "icons" / "radical";
     SPELL_CHECK = "icons" / "spell-check";
     WAND_SPARKLES = "icons" / "wand-sparkles";
@@ -210,6 +206,11 @@ lucide! {
     REPLACE = "lattice" / "replace";
     SETTINGS = "lattice" / "settings";
     TRASH = "lattice" / "trash";
+    /// The selection toolbar's Quote, Link, Remove highlight and inline code.
+    QUOTE = "lattice" / "quote";
+    LINK = "lattice" / "link";
+    ERASER = "lattice" / "eraser";
+    CODE = "lattice" / "code";
 }
 
 impl Icon {
@@ -352,6 +353,10 @@ const BUNDLED: &[(&str, &[u8])] = bundled![
     "image.svg",
     "replace.svg",
     "settings.svg",
+    "quote.svg",
+    "link.svg",
+    "eraser.svg",
+    "code.svg",
     "glyph-bib-body.svg",
     "glyph-bib.svg",
     "glyph-board-body.svg",
