@@ -18,6 +18,7 @@
 
 mod live;
 mod presence;
+mod reconnect;
 
 use std::{path::Path, time::Duration};
 
@@ -331,6 +332,7 @@ impl Run {
             .overleaf_presence(cx, steps, &mock, &clone_root)
             .await?;
         linked.overleaf_live(cx, steps, &mock).await?;
+        linked.overleaf_reconnect(cx, steps, &mock).await?;
 
         // Settings › Overleaf.
         linked.with_window(cx, |shell, window, cx| {

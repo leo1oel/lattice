@@ -20,9 +20,10 @@
 //! sync running then is waited out first, as both write the sync's state.
 //!
 //! The regular sync leaves the live document to the channel (`live_paths`).
-//! Anything that cannot be proven (an operation that does not fit, an
-//! update Overleaf refuses, a send whose outcome is unknown) drops the
-//! document back to regular sync, which reconciles it.
+//! A document with work unanswered when the channel drops is held for the
+//! reconnect (`resume`). Anything that cannot be proven (an operation that
+//! does not fit, an update Overleaf refuses, a send whose outcome is
+//! unknown) drops the document back to regular sync, which reconciles it.
 
 use std::time::Duration;
 
@@ -34,6 +35,8 @@ use lattice_core::overleaf_rt::{
 
 use super::*;
 use crate::editor_panel::EditorPanel;
+
+mod resume;
 
 /// Typing goes out this long after the first unsent keystroke.
 const SEND_AFTER: Duration = Duration::from_millis(250);
@@ -87,6 +90,11 @@ pub(super) struct DocumentsState {
     /// Paths handed back to regular sync: not joined again until a sync
     /// has reconciled them.
     suspended: BTreeSet<String>,
+    /// Documents with work unanswered when the channel dropped, kept for
+    /// the reconnect to carry on with.
+    held: Vec<LiveDoc>,
+    /// Joining the held documents again from their versions.
+    resuming: Option<Task<()>>,
 }
 
 impl OverleafBridge {
@@ -140,6 +148,7 @@ impl OverleafBridge {
             .live
             .iter()
             .chain(&self.documents.leaving)
+            .chain(&self.documents.held)
             .map(|doc| doc.path.clone())
             .collect()
     }
@@ -185,7 +194,8 @@ impl OverleafBridge {
         let weak = self.documents.shown.clone()?;
         let editor = weak.upgrade()?;
         let path = editor.read(cx).relative().to_string();
-        if self.documents.suspended.contains(&path) {
+        let held = self.documents.held.iter().any(|doc| doc.path == path);
+        if held || self.documents.suspended.contains(&path) {
             return None;
         }
         let doc_id = self.doc_of_path(&path)?;
@@ -573,9 +583,13 @@ impl OverleafBridge {
     }
 
     /// The channel dropped: documents everything reached are let go with
-    /// their agreed copies; the rest go back to regular sync.
-    pub(super) fn documents_dropped(&mut self, cx: &mut Context<Self>) {
+    /// their agreed copies. The rest are held for the reconnect when `hold`
+    /// (the channel is coming back); otherwise they, and any still held, go
+    /// back to regular sync, which is asked to run when there are any, and
+    /// true is returned.
+    pub(super) fn documents_dropped(&mut self, hold: bool, cx: &mut Context<Self>) -> bool {
         self.documents.joining = None;
+        self.documents.resuming = None;
         let docs: Vec<LiveDoc> = self
             .documents
             .live
@@ -583,19 +597,30 @@ impl OverleafBridge {
             .into_iter()
             .chain(self.documents.leaving.drain(..))
             .collect();
-        for doc in docs {
-            let checkpoint = doc
-                .ot
-                .settled()
-                .then(|| (doc.path, doc.ot.server_text().to_string()));
-            if let Some(checkpoint) = checkpoint {
+        let mut handed = false;
+        for mut doc in docs {
+            if doc.ot.settled() {
+                let checkpoint = (doc.path, doc.ot.server_text().to_string());
                 self.documents.checkpoints.push(checkpoint);
+            } else if hold {
+                // Typing still coalescing stays in the buffer, where the
+                // resume picks it up.
+                doc.send = None;
+                doc.draining = None;
+                self.documents.held.push(doc);
+            } else {
+                handed = true;
             }
+        }
+        if !hold && !self.documents.held.is_empty() {
+            self.documents.held.clear();
+            handed = true;
         }
         if !self.syncing {
             self.write_checkpoints();
         }
         cx.notify();
+        handed
     }
 }
 

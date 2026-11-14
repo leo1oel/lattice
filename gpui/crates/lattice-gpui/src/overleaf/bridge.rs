@@ -308,7 +308,8 @@ impl OverleafBridge {
         self.channel_task = None;
         self.channel = ChannelStatus::Off;
         self.channel_detail = None;
-        self.documents_dropped(cx);
+        // Closing the project: what is unanswered syncs when it opens again.
+        self.documents_dropped(false, cx);
         self.client = None;
         self.presence_dropped(cx);
         cx.notify();
@@ -439,7 +440,9 @@ impl OverleafBridge {
                 self.channel_detail = None;
                 self.toasted_failure = None;
                 self.rejoined = false;
-                // The channel is up: the shown document can go live.
+                // The channel is up: documents held over the drop carry on,
+                // and the shown document can go live.
+                self.resume_held(cx);
                 self.reconsider_live(cx);
             }
             ChannelNews::Tree(entities) => self.note_entities(entities),
@@ -450,14 +453,23 @@ impl OverleafBridge {
                 _ => self.document_event(event, cx),
             },
             ChannelNews::Reconnecting(detail) => {
-                self.documents_dropped(cx);
+                self.documents_dropped(true, cx);
                 self.client = None;
                 self.presence_dropped(cx);
                 self.channel = ChannelStatus::Connecting;
                 self.channel_detail = Some(detail.into());
             }
             ChannelNews::Failed(detail) => {
-                self.documents_dropped(cx);
+                if self.documents_dropped(false, cx) {
+                    // Their typing is on disk: regular sync takes it up.
+                    self.sync(
+                        SyncOptions {
+                            automatic: true,
+                            ..Default::default()
+                        },
+                        cx,
+                    );
+                }
                 self.client = None;
                 self.presence_dropped(cx);
                 let said = self.toasted_failure.as_deref() == Some(detail.as_str());

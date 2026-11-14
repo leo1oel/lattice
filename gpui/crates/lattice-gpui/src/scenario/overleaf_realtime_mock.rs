@@ -8,12 +8,17 @@
 //!   `connectionAccepted` with a public id of its own.
 //! - `joinProject` answers the project's tree; `joinDoc` a document's
 //!   lines (each UTF-8 byte packed as a character, as Overleaf packs them)
-//!   and version; `leaveDoc` is acknowledged.
+//!   and version, and, joined from a version, the updates since it with
+//!   their sources; `leaveDoc` is acknowledged.
 //! - `applyOtUpdate` is transformed against what landed since the version
 //!   it was built on (ShareJS's left side, as Overleaf's document updater
 //!   does) and applied; its sender hears `{doc, v}`, everyone else the
 //!   operation. The document's text is the project's file, so the REST
-//!   download serves it, and its version moves on.
+//!   download serves it, and its version moves on. One whose
+//!   `dupIfSource` names the source of an update since its version is
+//!   that update arriving again: acknowledged, not applied.
+//! - `MockOverleaf::sever` drops the socket at the next update, either
+//!   after it landed (its acknowledgement lost) or before.
 //! - `clientTracking.getConnectedUsers` lists the other sockets and the
 //!   scripted collaborators; `clientTracking.updatePosition` is broadcast as
 //!   `clientUpdated`.
@@ -42,7 +47,8 @@ const PEER_USER: &str = "u-ada";
 /// each at the version it applied at.
 #[derive(Default)]
 struct Doc {
-    history: Vec<Vec<OtOp>>,
+    /// Each accepted operation with its sender's public id.
+    history: Vec<(Vec<OtOp>, String)>,
 }
 
 #[derive(Default)]
@@ -59,6 +65,10 @@ pub(super) struct Live {
     pub(super) updates: Vec<Value>,
     /// Every update refused, with the text it met.
     pub(super) rejected: Vec<Value>,
+    /// Drop the socket at the next update: after it lands (true) or before.
+    pub(super) sever: Option<bool>,
+    /// Sockets cut off that way, to close.
+    severed: Vec<String>,
 }
 
 /// The id a project path's document goes by.
@@ -137,6 +147,10 @@ pub(super) fn upgrade(
                 for reply in answer_frame(text.as_str(), &public_id, &store) {
                     sender.send(reply).ok();
                 }
+                if store.with(|_, live| live.severed.contains(&public_id)) {
+                    // Gone without a word, as a dropped connection is.
+                    return forget(&store, &public_id);
+                }
             }
             Ok(Message::Close(_)) => return forget(&store, &public_id),
             Ok(_) => {}
@@ -185,16 +199,30 @@ fn answer_frame(text: &str, public_id: &str, store: &Arc<impl Store>) -> Vec<Str
         )],
         "joinDoc" => {
             let doc = args.first().and_then(Value::as_str).unwrap_or_default();
+            let from = args.get(1).and_then(Value::as_i64).unwrap_or(-1);
             store.with(|files, live| {
                 let Some((path, bytes)) = files.iter().find(|(path, _)| doc_id(path) == doc) else {
                     return vec![ack(id, json!(["doc not found"]))];
                 };
                 let text = String::from_utf8_lossy(bytes).into_owned();
                 let lines: Vec<String> = text.split('\n').map(packed).collect();
-                let version = live.docs.entry(path.clone()).or_default().history.len();
+                let history = &live.docs.entry(path.clone()).or_default().history;
+                let version = history.len();
+                let missed: Vec<Value> = usize::try_from(from)
+                    .ok()
+                    .filter(|from| *from <= version)
+                    .map(|from| {
+                        (from..version)
+                            .map(|at| {
+                                let (op, source) = &history[at];
+                                json!({ "doc": doc, "v": at, "op": op, "meta": { "source": source } })
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default();
                 vec![ack(
                     id,
-                    json!([null, lines, version, [], { "comments": [], "changes": [] }]),
+                    json!([null, lines, version, missed, { "comments": [], "changes": [] }]),
                 )]
             })
         }
@@ -252,15 +280,32 @@ fn apply(id: &str, update: Value, public_id: &str, store: &Arc<impl Store>) -> V
     let doc = update["doc"].as_str().unwrap_or_default().to_string();
     let at = update["v"].as_i64().unwrap_or(-1);
     let ops: Vec<OtOp> = serde_json::from_value(update["op"].clone()).unwrap_or_default();
+    let dup_if: Vec<String> =
+        serde_json::from_value(update["dupIfSource"].clone()).unwrap_or_default();
+    let mut severed = false;
     let applied = store.with(|files, live| {
         live.updates.push(update.clone());
+        let sever = live.sever.take();
+        if sever.is_some() {
+            severed = true;
+            live.severed.push(public_id.to_string());
+        }
+        if sever == Some(false) {
+            return Some(Err(()));
+        }
         let path = files.keys().find(|path| doc_id(path) == doc)?.clone();
         let history = &mut live.docs.entry(path.clone()).or_default().history;
         if at < 0 || at as usize > history.len() {
             return None;
         }
+        // Already landed under an earlier connection: say so again.
+        if let Some(landed) = (at as usize..history.len())
+            .find(|landed| dup_if.contains(&history[*landed].1))
+        {
+            return Some(Ok((path, landed, false)));
+        }
         let mut incoming = ops.clone();
-        for accepted in &history[at as usize..] {
+        for (accepted, _) in &history[at as usize..] {
             incoming = ot::transform_both(&incoming, accepted).0;
         }
         let text = String::from_utf8_lossy(&files[&path]).into_owned();
@@ -276,18 +321,27 @@ fn apply(id: &str, update: Value, public_id: &str, store: &Arc<impl Store>) -> V
         }
         files.insert(path.clone(), next.into_bytes());
         let version = history.len();
-        history.push(incoming.clone());
+        history.push((incoming.clone(), public_id.to_string()));
         let others = event(
             "otUpdateApplied",
             json!([{ "doc": doc, "v": version, "op": incoming, "meta": { "source": public_id, "user_id": "u-mock" } }]),
         );
         broadcast(live, Some(public_id), &others);
-        Some((path, version))
+        Some(Ok((path, version, true)))
     });
+    if severed {
+        if let Some(Ok((path, _, true))) = applied {
+            store.bump(&path, "u-mock");
+        }
+        return Vec::new();
+    }
     let mut replies = vec![ack(id, json!([null]))];
     match applied {
-        Some((path, version)) => {
-            store.bump(&path, "u-mock");
+        Some(Err(())) => {}
+        Some(Ok((path, version, landed))) => {
+            if landed {
+                store.bump(&path, "u-mock");
+            }
             replies.push(event(
                 "otUpdateApplied",
                 json!([{ "doc": doc, "v": version }]),
@@ -358,7 +412,7 @@ pub(super) fn peer_typed(
     files.insert(path.to_string(), next.into_bytes());
     let history = &mut live.docs.entry(path.to_string()).or_default().history;
     let version = history.len();
-    history.push(ops.clone());
+    history.push((ops.clone(), PEER_ID.to_string()));
     let update = json!([{ "doc": doc_id(path), "v": version, "op": ops, "meta": { "source": PEER_ID, "user_id": PEER_USER } }]);
     broadcast(live, None, &event("otUpdateApplied", update));
     Some(())

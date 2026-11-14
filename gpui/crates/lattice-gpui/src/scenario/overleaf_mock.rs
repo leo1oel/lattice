@@ -118,6 +118,11 @@ impl MockOverleaf {
         self.project.lock().unwrap().realtime = true;
     }
 
+    /// Refuse the live channel's handshake again (an open socket stays).
+    pub fn disable_realtime(&self) {
+        self.project.lock().unwrap().realtime = false;
+    }
+
     /// The scripted collaborator is in `path` at the zero-based `row` and
     /// UTF-16 `column`.
     pub fn peer_at(&self, path: &str, row: i64, column: i64) {
@@ -141,6 +146,12 @@ impl MockOverleaf {
             bump(&mut self.project.lock().unwrap(), path, CO_AUTHOR);
         }
         typed
+    }
+
+    /// Drop the live socket at the app's next update, after it lands
+    /// (`landed`, its acknowledgement lost) or before it does.
+    pub fn sever(&self, landed: bool) {
+        self.project.lock().unwrap().live.sever = Some(landed);
     }
 
     /// Every caret position the app published, as sent.
