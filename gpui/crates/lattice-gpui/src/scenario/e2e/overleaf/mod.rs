@@ -21,6 +21,7 @@
 mod chat;
 mod live;
 mod margin;
+mod margin_end;
 mod presence;
 mod project_history;
 mod reconnect;

@@ -47,7 +47,10 @@ impl Shell {
         } else {
             t!("Overleaf comments and chat").to_string()
         };
-        let mut button = IconButton::new("titlebar-overleaf-collab", Icon::MESSAGE_SQUARE_TEXT)
+        // The Tauri titlebar's chat button (canvas-toolbar.tsx): the
+        // messages mark, and while something waits the toggle's wash with
+        // the number after the mark.
+        let mut button = IconButton::new("titlebar-overleaf-collab", Icon::MESSAGES_SQUARE)
             .surface(Surface::Titlebar)
             .on(waiting > 0)
             .tooltip(tooltip)
@@ -55,7 +58,7 @@ impl Shell {
                 cx.listener(|this, _, window, cx| this.open_overleaf_collab(None, window, cx)),
             );
         if waiting > 0 {
-            button = button.badge(waiting.to_string());
+            button = button.count(waiting.to_string());
         }
         Some(button.into_any_element())
     }
