@@ -77,8 +77,8 @@ pub use review::{
     accept_changes, change_authors, chat_messages, comment_anchors, delete_entity, delete_message,
     delete_thread, edit_message, history_add_label, history_delete_label, history_diff,
     history_files, history_restore_file, history_revert, history_updates, reply_to_thread,
-    resolve_thread, send_chat_message, threads, OverleafCommentAnchor, OverleafMessage,
-    OverleafThread,
+    resolve_thread, send_chat_message, threads, OverleafCommentAnchor, OverleafLabel,
+    OverleafMessage, OverleafThread, OverleafUpdate,
 };
 pub use root_document::{record_root_document, reported_root_document};
 pub use sync::{

@@ -422,6 +422,47 @@ pub(super) fn peer_left(live: &mut Live) {
     }
 }
 
+/// Overleaf's document updater rewrites `path` to `text` in place (a
+/// restore from history): the whole text replaced, sent on the document's
+/// channel to everyone, as any update is.
+pub(super) fn server_rewrote(
+    files: &mut BTreeMap<String, Vec<u8>>,
+    live: &mut Live,
+    path: &str,
+    text: &str,
+) {
+    let old = files
+        .get(path)
+        .map(|bytes| String::from_utf8_lossy(bytes).into_owned())
+        .unwrap_or_default();
+    files.insert(path.to_string(), text.as_bytes().to_vec());
+    if old == text {
+        return;
+    }
+    let mut ops = Vec::new();
+    if !old.is_empty() {
+        ops.push(OtOp {
+            p: 0,
+            i: None,
+            d: Some(old),
+            u: None,
+        });
+    }
+    if !text.is_empty() {
+        ops.push(OtOp {
+            p: 0,
+            i: Some(text.to_string()),
+            d: None,
+            u: None,
+        });
+    }
+    let history = &mut live.docs.entry(path.to_string()).or_default().history;
+    let version = history.len();
+    history.push((ops.clone(), "restore".to_string()));
+    let update = json!([{ "doc": doc_id(path), "v": version, "op": ops, "meta": { "source": "restore", "user_id": "u-mock" } }]);
+    broadcast(live, None, &event("otUpdateApplied", update));
+}
+
 /// The scripted collaborator types `ops` into `path`, against its current
 /// version; None when they do not fit.
 pub(super) fn peer_typed(

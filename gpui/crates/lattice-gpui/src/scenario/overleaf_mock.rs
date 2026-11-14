@@ -9,7 +9,9 @@
 //! - `GET /project/{id}/updates`: the history (`?min_count=1`: the newest
 //!   version alone).
 //! - `GET /project/{id}/download/zip`: the project, zipped.
-//! - `GET /project/{id}/diff`: who changed a file between two versions.
+//! - `GET /project/{id}/diff`: a file's text between two versions, as
+//!   unchanged, deleted and inserted runs, the edits naming who made them.
+//! - Overleaf's own history and the chat (`overleaf_history_mock`).
 //! - `POST /project/{id}/upload`: one file, which becomes the next version.
 //! - `/socket.io/…`: a gateway error, as when the live channel cannot be
 //!   reached (syncing carries on without it, and the client keeps retrying),
@@ -28,6 +30,7 @@ use std::{
 
 use serde_json::json;
 
+use super::overleaf_history_mock as history;
 use super::overleaf_realtime_mock::{self as realtime, Live, Store};
 use super::overleaf_review_mock as review;
 
@@ -37,16 +40,25 @@ pub const SESSION: &str = "overleaf_session2=mock-session";
 pub const EMAIL: &str = "researcher@example.edu";
 
 #[derive(Default)]
-struct Project {
-    files: BTreeMap<String, Vec<u8>>,
+pub(super) struct Project {
+    pub(super) files: BTreeMap<String, Vec<u8>>,
     version: i64,
     /// Newest first, as Overleaf lists it.
     history: Vec<serde_json::Value>,
+    /// The files at each version the project reached.
+    pub(super) snapshots: BTreeMap<i64, BTreeMap<String, Vec<u8>>>,
+    /// The names versions carry (`POST /labels`).
+    pub(super) labels: Vec<serde_json::Value>,
+    /// The chat, oldest first.
+    pub(super) chat: Vec<serde_json::Value>,
+    pub(super) next_id: u64,
     /// Every request, `METHOD path`, for the scenario's checks.
     requests: Vec<String>,
+    /// The history and chat requests, `METHOD path` after the project.
+    pub(super) history_requests: Vec<String>,
     /// The live channel is served.
     realtime: bool,
-    live: Live,
+    pub(super) live: Live,
 }
 
 impl Store for Mutex<Project> {
@@ -72,18 +84,18 @@ impl MockOverleaf {
     pub fn start(files: &[(&str, &str)]) -> std::io::Result<Self> {
         let listener = TcpListener::bind("127.0.0.1:0")?;
         let base = format!("http://127.0.0.1:{}", listener.local_addr()?.port());
+        let files: BTreeMap<String, Vec<u8>> = files
+            .iter()
+            .map(|(path, text)| ((*path).to_string(), text.as_bytes().to_vec()))
+            .collect();
         let project = Arc::new(Mutex::new(Project {
-            files: files
-                .iter()
-                .map(|(path, text)| ((*path).to_string(), text.as_bytes().to_vec()))
-                .collect(),
             version: 1,
             history: vec![json!({ "fromV": 0, "toV": 1,
-                "pathnames": files.iter().map(|(path, _)| *path).collect::<Vec<_>>(),
-                "project_ops": [], "meta": { "end_ts": 0, "users": [{ "id": ME }] } })],
-            requests: Vec::new(),
-            realtime: false,
-            live: Live::default(),
+                "pathnames": files.keys().collect::<Vec<_>>(),
+                "project_ops": [], "meta": { "end_ts": chrono::Utc::now().timestamp_millis(), "users": [history::person(ME)] } })],
+            snapshots: BTreeMap::from([(1, files.clone())]),
+            files,
+            ..Default::default()
         }));
         let served = Arc::clone(&project);
         std::thread::spawn(move || {
@@ -238,6 +250,46 @@ impl MockOverleaf {
         self.project.lock().unwrap().version
     }
 
+    /// The scripted collaborator says `content` in the project chat.
+    pub fn peer_chats(&self, content: &str) {
+        history::post_chat(&mut self.project.lock().unwrap(), "u-peer", content);
+    }
+
+    /// The chat's messages, oldest first, as `(author id, content)`.
+    pub fn chat(&self) -> Vec<(String, String)> {
+        let project = self.project.lock().unwrap();
+        project
+            .chat
+            .iter()
+            .map(|message| {
+                let text =
+                    |value: &serde_json::Value| value.as_str().unwrap_or_default().to_string();
+                (text(&message["user"]["id"]), text(&message["content"]))
+            })
+            .collect()
+    }
+
+    /// The labels' comments, by the version each names.
+    pub fn labels(&self) -> Vec<(i64, String)> {
+        let project = self.project.lock().unwrap();
+        project
+            .labels
+            .iter()
+            .map(|label| {
+                let version = label["version"].as_i64().unwrap_or_default();
+                (
+                    version,
+                    label["comment"].as_str().unwrap_or_default().to_string(),
+                )
+            })
+            .collect()
+    }
+
+    /// The history and chat REST requests, `METHOD path` after the project.
+    pub fn history_requests(&self) -> Vec<String> {
+        self.project.lock().unwrap().history_requests.clone()
+    }
+
     /// How many requests matched `prefix` (`"POST /project/…/upload"`).
     pub fn requests(&self, prefix: &str) -> usize {
         let project = self.project.lock().unwrap();
@@ -254,13 +306,24 @@ const CO_AUTHOR: &str = "u-coauthor";
 const ME: &str = "u-mock";
 
 fn bump(project: &mut Project, path: &str, author: &str) {
+    bump_by(project, &[path.to_string()], author, None);
+}
+
+/// The project reached its next version, `author` changing `paths`, from
+/// `origin` when not the editor ("file-restore", "project-restore").
+pub(super) fn bump_by(project: &mut Project, paths: &[String], author: &str, origin: Option<&str>) {
     let (from, to) = (project.version, project.version + 1);
+    let now = chrono::Utc::now().timestamp_millis();
+    let mut meta = json!({ "start_ts": now, "end_ts": now, "users": [history::person(author)] });
+    if let Some(origin) = origin {
+        meta["origin"] = json!({ "kind": origin });
+    }
     project.history.insert(
         0,
-        json!({ "fromV": from, "toV": to, "pathnames": [path], "project_ops": [],
-            "meta": { "end_ts": to, "users": [{ "id": author }] } }),
+        json!({ "fromV": from, "toV": to, "pathnames": paths, "project_ops": [], "meta": meta }),
     );
     project.version = to;
+    project.snapshots.insert(to, project.files.clone());
 }
 
 /// `{"diff": parts}` for `pathname` between `from` and `to`, each edit
@@ -278,7 +341,7 @@ fn diff(project: &Project, url: &str) -> serde_json::Value {
             .unwrap_or(0)
     };
     let (from, to) = (number("from"), number("to"));
-    let parts: Vec<serde_json::Value> = project
+    let touching: Vec<&serde_json::Value> = project
         .history
         .iter()
         .filter(|update| {
@@ -289,8 +352,27 @@ fn diff(project: &Project, url: &str) -> serde_json::Value {
                     .as_array()
                     .is_some_and(|paths| paths.iter().any(|path| path == pathname.as_str()))
         })
-        .map(|update| json!({ "i": "text", "meta": { "users": update["meta"]["users"].clone() } }))
         .collect();
+    let users: Vec<serde_json::Value> = touching
+        .iter()
+        .flat_map(|update| {
+            update["meta"]["users"]
+                .as_array()
+                .cloned()
+                .unwrap_or_default()
+        })
+        .collect();
+    let (before, after) = history::texts(project, &pathname, from, to);
+    let mut parts = history::chunks(&before, &after, &users);
+    let edited = parts
+        .iter()
+        .any(|part| part.get("i").or(part.get("d")).is_some());
+    if !edited {
+        // Edits that left the text as it was still name who made them.
+        parts.extend(touching.iter().map(
+            |update| json!({ "i": "", "meta": { "users": update["meta"]["users"].clone() } }),
+        ));
+    }
     json!({ "diff": if parts.is_empty() { vec![json!({ "u": "" })] } else { parts } })
 }
 
@@ -449,6 +531,10 @@ fn answer(stream: TcpStream, project: Arc<Mutex<Project>>) -> std::io::Result<()
             .and_then(|rest| {
                 let Project { files, live, .. } = &mut *project;
                 review::rest(live, files, &method, rest, &body)
+            })
+            .or_else(|| {
+                let rest = path.strip_prefix(&project_path).filter(|_| signed_in)?;
+                history::rest(&mut project, &method, rest, &url, &body)
             });
         match (method.as_str(), path.as_str()) {
             _ if review.is_some() => {
@@ -483,7 +569,17 @@ fn answer(stream: TcpStream, project: Arc<Mutex<Project>>) -> std::io::Result<()
                 let body = if url.contains("min_count=1") {
                     json!({ "updates": [{ "fromV": project.version - 1, "toV": project.version }] })
                 } else {
-                    json!({ "updates": project.history })
+                    let updates: Vec<serde_json::Value> = project
+                        .history
+                        .iter()
+                        .map(|update| {
+                            let mut update = update.clone();
+                            let to = update["toV"].as_i64().unwrap_or_default();
+                            update["labels"] = json!(history::labels_on(&project, to));
+                            update
+                        })
+                        .collect();
+                    json!({ "updates": updates })
                 };
                 (200, "application/json", None, body.to_string().into_bytes())
             }

@@ -1,7 +1,7 @@
 //! The window's side of the Overleaf collaboration panel
 //! (`overleaf::collab`): the titlebar's comments button beside the Overleaf
-//! control, with what is waiting (open threads and the open file's
-//! suggestions); the panel in the workspace's "comments" view; a comment's
+//! control, with what is waiting (open threads, the open file's suggestions
+//! and unread chat); the panel in the workspace's "comments" view; a comment's
 //! passage shown in its file; and "Annotate selection", the Tauri app's
 //! selection toolbar's Annotate, which starts a thread on the selection of a
 //! file live with Overleaf.
@@ -37,7 +37,7 @@ impl Shell {
             .active_editor()
             .and_then(|editor| bridge.live_review(editor.read(cx).relative()))
             .map_or(0, |review| review.changes.len());
-        let waiting = threads + changes;
+        let waiting = threads + changes + bridge.chat_unread();
         let tooltip = if waiting > 0 {
             t!(
                 "Overleaf comments and chat, {count} waiting",
@@ -71,6 +71,8 @@ impl Shell {
             self.overleaf_collab
                 .update(cx, |panel, cx| panel.set_tab(tab, cx));
         }
+        // What is waiting may be in the chat, which is read when first asked.
+        self.overleaf.update(cx, |bridge, cx| bridge.load_chat(cx));
         self.reveal_tool("comments", window, cx);
     }
 

@@ -1,14 +1,15 @@
 //! The timeline's lines, whichever record they came from, ported from the
 //! Tauri app's `src/history/history-drawer.tsx` (`TimelineRow`,
 //! `foldAutomatic`) and `history-time.ts` (`groupByDay`): Lattice's own
-//! activity and the project's git versions interleaved by time, newest
-//! first, in runs that share a day, with each run of two or more automatic
+//! activity, the project's git versions and, for a project linked to
+//! Overleaf, Overleaf's own history interleaved by time, newest first, in runs that share a day, with each run of two or more automatic
 //! versions folded into one quiet line.
 
 use std::sync::LazyLock;
 
 use chrono::NaiveDate;
 use lattice_core::git::GitLogEntry;
+use lattice_core::overleaf::OverleafUpdate;
 use lattice_core::project::HistoryItem;
 use regex::Regex;
 
@@ -21,6 +22,8 @@ pub enum HistoryView {
     Everything,
     Versions,
     Activity,
+    /// Overleaf's own history, for a linked project.
+    Overleaf,
 }
 
 /// Which actor's activity the Activity view shows.
@@ -60,6 +63,11 @@ pub enum TimelineRow {
         at: i64,
         entries: Vec<GitLogEntry>,
     },
+    /// An entry of Overleaf's own history.
+    Overleaf {
+        at: i64,
+        update: OverleafUpdate,
+    },
 }
 
 impl TimelineRow {
@@ -67,7 +75,8 @@ impl TimelineRow {
         match self {
             TimelineRow::Activity { at, .. }
             | TimelineRow::Version { at, .. }
-            | TimelineRow::Automatic { at, .. } => *at,
+            | TimelineRow::Automatic { at, .. }
+            | TimelineRow::Overleaf { at, .. } => *at,
         }
     }
 
@@ -77,6 +86,9 @@ impl TimelineRow {
             TimelineRow::Activity { item, .. } => activity_key(&item.id),
             TimelineRow::Version { entry, .. } => version_key(&entry.hash),
             TimelineRow::Automatic { entries, .. } => format!("fold:{}", entries[0].hash),
+            TimelineRow::Overleaf { update, .. } => {
+                super::overleaf::overleaf_key(update.to_version)
+            }
         }
     }
 }
@@ -96,6 +108,16 @@ pub fn activity_rows(items: &[HistoryItem], filter: ActivityFilter) -> Vec<Timel
         .map(|item| TimelineRow::Activity {
             at: time::parse_ms(&item.timestamp).unwrap_or(0),
             item: item.clone(),
+        })
+        .collect()
+}
+
+pub fn overleaf_rows(updates: &[OverleafUpdate]) -> Vec<TimelineRow> {
+    updates
+        .iter()
+        .map(|update| TimelineRow::Overleaf {
+            at: update.end_ts,
+            update: update.clone(),
         })
         .collect()
 }
