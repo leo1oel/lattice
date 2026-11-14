@@ -18,7 +18,7 @@
 
 use std::path::Path;
 
-use gpui::{AppContext as _, Context, Entity, Subscription, Window};
+use gpui::{AppContext as _, Context, Entity, Subscription, Task, Window};
 use gpui_kit::component::input::{InputEvent, InputState};
 use lattice_core::overleaf::OverleafUpdate;
 use lattice_i18n::t;
@@ -53,6 +53,17 @@ pub struct OverleafHistory {
     asked: bool,
     seq: u64,
     pub opened: Option<OpenedOverleaf>,
+}
+
+impl OverleafHistory {
+    /// Nothing read, with the read counter carried on so a read started
+    /// before cannot pass for one started after.
+    fn cleared(&self) -> Self {
+        Self {
+            seq: self.seq,
+            ..Self::default()
+        }
+    }
 }
 
 /// One file of an update's range (`overleaf_history_files`): only those
@@ -151,7 +162,7 @@ impl HistoryPanel {
             let linked = bridge.read(cx).link().is_some();
             if linked != this.overleaf_linked {
                 this.overleaf_linked = linked;
-                this.overleaf = OverleafHistory::default();
+                this.overleaf_reset();
                 if !linked && this.view == super::timeline::HistoryView::Overleaf {
                     this.view = super::timeline::HistoryView::Everything;
                 }
@@ -166,7 +177,7 @@ impl HistoryPanel {
 
     /// The project changed: nothing of the last one's Overleaf history stays.
     pub(super) fn overleaf_reset(&mut self) {
-        self.overleaf = OverleafHistory::default();
+        self.overleaf = self.overleaf.cleared();
     }
 
     /// Read the first page, unless the panel is off screen (then when it is
@@ -180,7 +191,7 @@ impl HistoryPanel {
             return;
         }
         self.overleaf.asked = true;
-        self.read_overleaf_page(None, cx);
+        self.read_overleaf_page(None, cx).detach();
     }
 
     /// Shown and linked, the first page has not been asked for: ask now.
@@ -188,7 +199,9 @@ impl HistoryPanel {
         if self.overleaf_linked && !self.overleaf.asked && self.shown_now(cx) {
             self.overleaf.asked = true;
             let this = cx.entity();
-            cx.defer(move |cx| this.update(cx, |this, cx| this.read_overleaf_page(None, cx)));
+            cx.defer(move |cx| {
+                this.update(cx, |this, cx| this.read_overleaf_page(None, cx).detach())
+            });
         }
     }
 
@@ -200,12 +213,12 @@ impl HistoryPanel {
         if history.next_before.is_none() || history.loading || history.loading_more {
             return;
         }
-        self.read_overleaf_page(history.next_before, cx);
+        self.read_overleaf_page(history.next_before, cx).detach();
     }
 
-    fn read_overleaf_page(&mut self, before: Option<i64>, cx: &mut Context<Self>) {
+    fn read_overleaf_page(&mut self, before: Option<i64>, cx: &mut Context<Self>) -> Task<()> {
         let Some(root) = self.root.clone() else {
-            return;
+            return Task::ready(());
         };
         let first = before.is_none();
         self.overleaf.seq += 1;
@@ -248,7 +261,6 @@ impl HistoryPanel {
             })
             .ok();
         })
-        .detach();
     }
 
     /// The opened update, when the range its files were read over is no
@@ -381,8 +393,9 @@ impl HistoryPanel {
         .detach();
     }
 
-    /// Run one action on Overleaf's history, then read the first page again;
-    /// `done` is said once it succeeds, and a restore syncs the window.
+    /// Run one action on Overleaf's history and, once it succeeds, say `done`
+    /// and read the first page again (a restore also syncs the window); a
+    /// refusal stays shown above the list. Busy until the reread settles.
     fn overleaf_action(
         &mut self,
         done: String,
@@ -408,26 +421,35 @@ impl HistoryPanel {
             if expired {
                 cx.update(crate::overleaf::session_changed);
             }
-            this.update(cx, |this, cx| {
-                this.overleaf.busy = false;
-                match outcome {
-                    Ok(()) => {
-                        notices::show(
-                            Notice::new(ToastLevel::Success, done).source(t!("Overleaf history")),
-                            cx,
-                        );
-                        if restored {
-                            cx.emit(HistoryEvent::OverleafRestored);
-                        }
-                        if let Some(opened) = this.overleaf.opened.as_mut() {
-                            opened.label = None;
-                        }
+            let reread = this.update(cx, |this, cx| match outcome {
+                Ok(()) => {
+                    notices::show(
+                        Notice::new(ToastLevel::Success, done).source(t!("Overleaf history")),
+                        cx,
+                    );
+                    if restored {
+                        cx.emit(HistoryEvent::OverleafRestored);
                     }
-                    Err(error) => this.overleaf.error = Some(error),
+                    if let Some(opened) = this.overleaf.opened.as_mut() {
+                        opened.label = None;
+                    }
+                    Some(this.read_overleaf_page(None, cx))
                 }
-                this.read_overleaf_page(None, cx);
-            })
-            .ok();
+                Err(error) => {
+                    this.overleaf.busy = false;
+                    this.overleaf.error = Some(error);
+                    cx.notify();
+                    None
+                }
+            });
+            if let Ok(Some(reread)) = reread {
+                reread.await;
+                this.update(cx, |this, cx| {
+                    this.overleaf.busy = false;
+                    cx.notify();
+                })
+                .ok();
+            }
         })
         .detach();
     }
@@ -669,6 +691,22 @@ mod tests {
         let (before, after) = texts_from_chunks(&body).expect("text");
         assert_eq!(before, "The quick fox\n");
         assert_eq!(after, "The slow fox\n");
+    }
+
+    #[test]
+    fn clearing_keeps_the_read_counter_running() {
+        let history = OverleafHistory {
+            loading: true,
+            error: Some("refused".into()),
+            busy: true,
+            asked: true,
+            seq: 3,
+            ..OverleafHistory::default()
+        };
+        let history = history.cleared();
+        assert_eq!(history.seq, 3);
+        assert!(!history.loading && !history.busy && !history.asked);
+        assert_eq!(history.error, None);
     }
 
     #[test]
