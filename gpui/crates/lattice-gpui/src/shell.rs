@@ -34,6 +34,7 @@ mod pdfs;
 mod references_flow;
 mod render;
 mod saving;
+mod settings_flow;
 mod shortcut_sheet;
 mod skin;
 mod synctex;
