@@ -101,6 +101,9 @@ impl Run {
         cx: &mut AsyncApp,
         steps: &mut Steps,
     ) -> Result<()> {
+        // Native keys reach only the key window of the active app
+        // (`input_lock.rs`).
+        let _front = self.foreground(cx, "settings").await?;
         let before = cx.update(|cx| settings::get(cx).clone());
 
         // ⌘, from the window, with native keys.
