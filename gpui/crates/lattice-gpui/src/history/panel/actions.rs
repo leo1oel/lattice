@@ -20,7 +20,7 @@ use super::HistoryPanel;
 
 impl HistoryPanel {
     /// Ask `question`, and on OK run `then` on the panel.
-    fn ask(
+    pub(in crate::history) fn ask(
         &self,
         question: String,
         destructive: bool,

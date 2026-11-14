@@ -53,7 +53,7 @@ pub fn file_kind_icon(kind: &str, cx: &App) -> AnyElement {
     icon.element(px(12.), ink).into_any_element()
 }
 
-fn open_line(path: String, cx: &mut Context<HistoryPanel>) -> super::OnLine {
+pub(super) fn open_line(path: String, cx: &mut Context<HistoryPanel>) -> super::OnLine {
     let panel = cx.entity().downgrade();
     Rc::new(move |line, _, cx| {
         let path = path.clone();

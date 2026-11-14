@@ -84,6 +84,7 @@ impl HistoryPanel {
             HistoryView::Versions => self.render_versions_body(window, cx),
             HistoryView::Activity => self.render_activity_body(window, cx),
             HistoryView::Everything => self.render_everything(window, cx),
+            HistoryView::Overleaf => self.render_overleaf_view(window, cx),
         };
         div()
             .flex_1()
@@ -106,6 +107,9 @@ impl HistoryPanel {
             (HistoryView::Versions, t!("Versions").into()),
             (HistoryView::Activity, tc!("history tab", "Activity").into()),
         ];
+        if self.overleaf_linked {
+            views.push((HistoryView::Overleaf, "Overleaf".into()));
+        }
         let pills = views.drain(..).map(|(view, label)| {
             let id = SharedString::from(format!("history-view-{view:?}"));
             Control::pill(id, label)
@@ -140,10 +144,10 @@ impl HistoryPanel {
         });
         let refresh =
             Control::icon_button("versions-refresh", Icon::REFRESH, t!("Refresh history"))
-                .spinning(self.versions.refreshing)
+                .spinning(self.versions.refreshing || self.overleaf.loading)
                 .parity("history/refresh")
                 .disabled(self.versions.refreshing || self.versions.busy)
-                .on_click(cx.listener(|this, _, _, cx| this.reload(cx)));
+                .on_click(cx.listener(|this, _, _, cx| this.refresh(cx)));
         div()
             .relative()
             .children(lattice_ui::parity::probe("history/toolbar"))
@@ -401,7 +405,24 @@ impl HistoryPanel {
         if self.versions.phase == Phase::Ready {
             rows.extend(timeline::version_rows(&self.versions.entries));
         }
-        let waiting = self.versions.phase == Phase::Loading;
+        let overleaf_notice = self
+            .overleaf_linked
+            .then(|| self.render_overleaf_state(false, cx))
+            .flatten();
+        let more_overleaf = self.overleaf_linked.then(|| {
+            rows.extend(timeline::overleaf_rows(&self.overleaf.updates));
+            // While Overleaf has older pages, nothing older than its oldest
+            // read entry shows: those would sit where its missing entries go.
+            if self.overleaf.next_before.is_some()
+                && let Some(oldest) = self.overleaf.updates.last()
+            {
+                let cutoff = oldest.end_ts;
+                rows.retain(|row| row.at() >= cutoff);
+            }
+            self.render_overleaf_more(t!("Show older history"), cx)
+        });
+        let waiting = self.versions.phase == Phase::Loading
+            || (self.overleaf.loading && self.overleaf.updates.is_empty());
         let empty = (rows.is_empty() && !waiting)
             .then(|| art::empty_state(t!("Nothing has changed yet"), self.narrow(), None, cx));
         let timeline = self.render_days(rows, window, cx);
@@ -410,13 +431,15 @@ impl HistoryPanel {
             .flex()
             .flex_col()
             .children(notice)
+            .children(overleaf_notice)
             .child(timeline)
             .children(empty)
+            .children(more_overleaf.flatten())
             .into_any_element()
     }
 
     /// `rows` newest first, by day, each run of automatic versions folded.
-    fn render_days(
+    pub(super) fn render_days(
         &mut self,
         rows: Vec<TimelineRow>,
         window: &mut Window,
@@ -468,6 +491,9 @@ impl HistoryPanel {
                     }
                     TimelineRow::Automatic { entries, .. } => {
                         self.fold_row(&entries, first, last, cx)
+                    }
+                    TimelineRow::Overleaf { update, .. } => {
+                        self.overleaf_row(&update, first, last, window, cx)
                     }
                 };
                 if parts.key.starts_with("fold:") {

@@ -389,6 +389,7 @@ impl Shell {
         cx.observe(&notices, |_, _, cx| cx.notify()).detach();
         cx.observe(&confirm, |_, _, cx| cx.notify()).detach();
         let (overleaf, overleaf_collab, overleaf_subscriptions) = Self::init_overleaf(window, cx);
+        history.update(cx, |history, cx| history.set_overleaf(overleaf.clone(), cx));
         let workspace_events = cx.subscribe_in(&workspace, window, Self::on_workspace_event);
         // While a panel is dragged, webview islands step aside: a page would
         // hide the drop targets under it and swallow the drag.

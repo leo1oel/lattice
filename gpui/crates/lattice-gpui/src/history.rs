@@ -4,7 +4,8 @@
 //! prose or as a source diff, the comparison of any two versions, the PDF
 //! with those changes marked (latexdiff), and the resolver for a file a
 //! merge left with conflict markers. lattice-core does the work, as it does
-//! for the Tauri app (`git`, `project::history`, `latex::changes`).
+//! for the Tauri app (`git`, `project::history`, `latex::changes`). A
+//! project linked to Overleaf also shows Overleaf's own history (`overleaf`).
 
 mod art;
 mod body;
@@ -15,10 +16,12 @@ pub(crate) mod diff_view;
 mod export_changes;
 mod inline_edits;
 pub(crate) mod messages;
+mod overleaf;
+mod overleaf_rows;
 pub mod panel;
 mod prose;
 mod row;
-mod time;
+pub(crate) mod time;
 mod timeline;
 mod view;
 pub(crate) mod widgets;
