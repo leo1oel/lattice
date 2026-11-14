@@ -148,13 +148,16 @@ impl Shell {
         editor: Option<&Entity<crate::editor_panel::EditorPanel>>,
         cx: &gpui::App,
     ) -> Option<gpui::FocusHandle> {
-        let shown = editor.filter(|editor| {
-            self.view_of_editor(editor)
-                .is_some_and(|view| super::arrange::on_screen(self.workspace.read(cx), &view))
-        });
+        let drawn = |view: Option<String>| {
+            view.is_some_and(|view| super::arrange::on_screen(self.workspace.read(cx), &view))
+        };
+        let shown = editor.filter(|editor| drawn(self.view_of_editor(editor)));
         match shown {
             Some(editor) => Some(editor.read(cx).focus_handle(cx)),
-            None => self.front_reader_entity(cx).map(|reader| reader.focus_handle(cx)),
+            None => self
+                .front_reader_entity(cx)
+                .filter(|reader| drawn(self.view_of_panel(reader.entity_id())))
+                .map(|reader| reader.focus_handle(cx)),
         }
     }
 
