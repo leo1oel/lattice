@@ -17,10 +17,8 @@
 //! a list of cards with chevrons under a "Settings" title, a section opens
 //! as a page with a way back, and Escape goes back before it closes.
 //!
-//! Only the sections the GPUI app has are listed: Appearance, Editor &
-//! builds, Providers (Synara's own page, the Agent island's `settings`
-//! surface) and the TeX doctor. The other agent pages, the integration and
-//! the about pages come with the features they configure.
+//! The sections are the Tauri app's, in its order (`nav.rs`); which page
+//! each draws, and what a page keeps once drawn, is `pages.rs`.
 
 use std::{
     cell::RefCell,

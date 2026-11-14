@@ -29,16 +29,8 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] The PDF: its citation hover cards.
 
-- [ ] Settings: the grammar page (its dialect, profile and rules; spell checking uses the Tauri app's defaults).
+- [ ] Settings: Editor & builds › Your name saying which Git or Overleaf name signs comments ahead of it.
 
-- [ ] Settings: the Agent's MCP page.
+- [ ] Settings: App updates' automatic updates and Check for updates (the GPUI app shows its version and GitHub Releases).
 
-- [ ] Settings: the Agent's Skills page.
-
-- [ ] Settings: the Agent's Usage & limits page.
-
-- [ ] Settings: the Agent's Model endpoint page.
-
-- [ ] Settings: the Agent's Environment page.
-
-- [ ] Settings: the other integrations and about pages.
+- [ ] Papers: the Add papers sheet's "Also save full text (Markdown)" checkbox (Settings › Literature services holds the same choice).

@@ -96,6 +96,12 @@ impl Acknowledgements {
         cx.notify();
     }
 
+    /// Third-party notices: the whole file.
+    pub(super) fn open_whole_notices(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let sheet = Sheet::notices(None, window, cx);
+        self.open_sheet(sheet, cx);
+    }
+
     pub(super) fn close_sheet(&mut self, cx: &mut Context<Self>) {
         self.sheet = None;
         cx.notify();
