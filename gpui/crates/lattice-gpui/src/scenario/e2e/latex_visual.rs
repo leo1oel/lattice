@@ -14,6 +14,9 @@
 //!   file and the page are back to their first text;
 //! - text put into the buffer (as the source, or an outside edit, would)
 //!   reaches the page;
+//! - the strip's Find there opens the page's own search panel, its query
+//!   focused, and leaves the source's find bar (which Visual does not draw)
+//!   closed;
 //! - choosing Source again shows the source editor and hides the page.
 //!
 //! With `LATTICE_E2E_SHOTS=DIR` it saves the window as the screen composes
@@ -77,7 +80,30 @@ impl Run {
         steps: &mut Steps,
         root: &Path,
     ) -> Result<()> {
+        // A save here would build e2e-visual.tex, a root document of its own,
+        // and make it the project's live PDF in every window after, which the
+        // smoke flow's later steps read as main.tex's. Builds wait for the
+        // Build button while the module edits; the file is saved as ever.
+        let builds = cx.update(|cx| crate::settings::get(cx).auto_build_mode);
+        cx.update(|cx| {
+            crate::settings::update(cx, |settings| {
+                settings.auto_build_mode = lattice_settings::AutoBuildMode::Manual
+            })
+        });
         let path = root.join("e2e-visual.tex");
+        let result = self.latex_visual_steps(cx, steps, &path).await;
+        std::fs::remove_file(&path).ok();
+        cx.update(|cx| crate::settings::update(cx, |settings| settings.auto_build_mode = builds));
+        result
+    }
+
+    async fn latex_visual_steps(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+        path: &Path,
+    ) -> Result<()> {
+        let path = path.to_path_buf();
         std::fs::write(&path, PAPER)?;
         let panel = self.open(cx, &path, None)?;
         cx.update(|cx| choose_latex_view(LatexView::Visual, cx));
@@ -97,6 +123,7 @@ impl Run {
                 .await?;
             self.latex_visual_follows(cx, steps, &panel, &island)
                 .await?;
+            self.latex_visual_find(cx, steps, &panel, &island).await?;
         }
         // The choice is every .tex file's: back to Source for the rest of the run.
         cx.update(|cx| choose_latex_view(LatexView::Source, cx));
@@ -360,6 +387,49 @@ impl Run {
             "text put into the buffer reaches the Visual view",
             followed,
             json!({ "followed": followed }),
+        );
+        Ok(())
+    }
+}
+
+impl Run {
+    /// The strip's Find in the Visual view opens the page's own search
+    /// panel, never the source's find bar, which Visual does not draw.
+    async fn latex_visual_find(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+        panel: &Entity<EditorPanel>,
+        island: &Entity<Island>,
+    ) -> Result<()> {
+        const SEARCH: &str = "JSON.stringify({ \
+            panel: !!document.querySelector('.cm-panel.cm-search'), \
+            focused: document.activeElement?.closest?.('.cm-search') != null })";
+        let focus = cx.update(|cx| {
+            panel
+                .read(cx)
+                .latex_visual_document()
+                .and_then(|document| document.read(cx).focus_handle(cx))
+        });
+        if let Some(focus) = focus {
+            self.with_window(cx, move |_, window, cx| {
+                focus.dispatch_action(&zed_actions::buffer_search::Deploy::find(), window, cx)
+            })?;
+        }
+        let mut page = Value::Null;
+        let started = std::time::Instant::now();
+        while started.elapsed() < Duration::from_secs(5) {
+            page = self.evaluate(cx, island, SEARCH).await;
+            if page["panel"] == true && page["focused"] == true {
+                break;
+            }
+            self.pause(cx, Duration::from_millis(150)).await;
+        }
+        let bar_open = cx.update(|cx| panel.read(cx).find_bar().read(cx).is_open());
+        steps.check(
+            "the strip's Find in the Visual view opens the page's own search panel with its query focused, and leaves the source's find bar closed",
+            page["panel"] == true && page["focused"] == true && !bar_open,
+            json!({ "page": page, "source_find_bar_open": bar_open }),
         );
         Ok(())
     }
