@@ -622,6 +622,16 @@ impl PapersPanel {
     }
 }
 
+impl PapersPanel {
+    /// The library's paper with the arXiv id (the bundle folder) `id`.
+    pub fn paper_with_id(&self, id: &str) -> Option<PaperSummary> {
+        self.papers
+            .iter()
+            .find(|paper| !paper.arxiv_id.is_empty() && paper.arxiv_id == id)
+            .cloned()
+    }
+}
+
 /// A readable paper's reading file, from the project root: its full text,
 /// else its overview.
 pub fn reading_path(paper: &PaperSummary) -> String {

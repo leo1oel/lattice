@@ -173,8 +173,9 @@ impl Run {
             json!({ "shown": cited }),
         );
 
-        // A click opens the saved text in the paper's reader, without the
-        // converter's front matter, and marks its row as the open one.
+        // A click opens the saved text in the paper's reader (its body under
+        // the converter's front matter, which the visual editor leaves out),
+        // and marks its row as the open one.
         let opened = self.with_window(cx, |_, window, cx| {
             papers.update(cx, |panel, cx| {
                 panel.open_titled("Attention Is All You Need", window, cx)
@@ -184,7 +185,10 @@ impl Run {
         let open = self
             .wait_for(cx, Duration::from_secs(5), |shell, cx| {
                 shell.read(cx).front_reader(cx).is_some_and(|(path, text)| {
-                    path == reading && text.starts_with("# Attention Is All You Need")
+                    path == reading
+                        && crate::papers::model::strip_frontmatter(&text)
+                            .trim_start()
+                            .starts_with("# Attention Is All You Need")
                 })
             })
             .await;
@@ -198,6 +202,28 @@ impl Run {
             json!({ "opened": opened, "open": open, "reader": shown, "marked": marked }),
         );
         if open {
+            // The paper reads in the Tauri app's visual editor, in Preview
+            // (`openPaper` sets the canvas to its preview), on its own page.
+            let reading = self
+                .wait_for(cx, Duration::from_secs(10), |shell, cx| {
+                    shell.read(cx).front_reader_state(cx).is_some_and(|(view, page, pdf)| {
+                        view == Some(crate::editor_panel::views::DocumentView::Preview)
+                            && page
+                            && !pdf
+                    })
+                })
+                .await;
+            let state = self.with_window(cx, |shell, _, cx| {
+                shell
+                    .read(cx)
+                    .front_reader_state(cx)
+                    .map(|(view, page, pdf)| (format!("{view:?}"), page, pdf))
+            })?;
+            steps.check(
+                "the paper reads in the visual editor's Preview, its page loaded",
+                reading,
+                json!({ "state": state }),
+            );
             self.papers_shot(cx, "papers-reader").await;
             self.press(cx, 'w', true).await?;
         }

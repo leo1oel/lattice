@@ -32,6 +32,7 @@
  *   md:project        { files, texSources }   the project's tree and TeX sources changed
  *   md:pages-changed  { paths }       these Markdown files' text changed (null: any may have): the page index reads them again
  *   md:scroll-to      { center, min, max }   Split: the line at the source's centre, and its range
+ *   md:paper          { paper }       the file is a saved paper's reading text (null: it is not)
  * Page to host:
  *   md:change         { source, base }  the whole file after an edit made against `base`
  *   md:undo, md:redo
@@ -39,17 +40,19 @@
  *   md:open-path      { path }          a project link followed
  *   md:caret          { line, column }  1-based, in the file
  *   md:scrolled       { center }        Split: the source line the preview's centre maps to
+ *   md:masthead       { inView }        a paper's masthead (its title at the top) is on screen or not
  *   md:read           (request) { path } → text   a project file, for the page index
  *   md:load-asset     (request) { path } → url | null
  *   md:import-asset   (request) { base64, type } → project path | null
  */
 import "../shared/install";
-import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
 import { mount, activateLocale } from "../shared/boot";
 import { host } from "../shared/host";
 import { LineIndex, SplitScroll } from "./split-scroll";
 import "./markdown.css";
 import { ScrollArea } from "../../../src/components/ui/scroll-area";
+import { InlineMessage } from "../../../src/components/ui/inline-message";
 import { LatticeVisualMarkdownEditor } from "../../../src/editor/markdown/engine/lattice-visual-editor";
 import { MarkdownWorkspaceIndex } from "../../../src/editor/markdown/markdown-workspace-index";
 import type { VisualRevealTarget } from "../../../src/editor/markdown/visual-editor-props";
@@ -63,6 +66,14 @@ import {
 
 type Locale = "en" | "zh-CN";
 
+/**
+ * A saved paper's reading text, as the Tauri canvas reads it
+ * (`document-canvas.tsx`, `activePaper`): the visual editor in its reading
+ * form, and over the full text (not the overview) its masthead, the title and
+ * the whole author list at the top of the column.
+ */
+type PaperReading = { title: string; authors: string | null; fullText: boolean };
+
 type MarkdownOpen = {
   path: string;
   source: string;
@@ -74,6 +85,7 @@ type MarkdownOpen = {
   editable: boolean;
   files: FileNode[];
   texSources: string[];
+  paper?: PaperReading | null;
 };
 
 type Reveal = { id: string; target: VisualRevealTarget };
@@ -87,6 +99,7 @@ type State = {
   reveal: Reveal | null;
   files: FileNode[];
   texSources: string[];
+  paper: PaperReading | null;
 };
 
 type Action =
@@ -96,7 +109,8 @@ type Action =
   | { type: "ready" }
   | { type: "assets" }
   | { type: "reveal"; reveal: Reveal | null }
-  | { type: "project"; files: FileNode[]; texSources: string[] };
+  | { type: "project"; files: FileNode[]; texSources: string[] }
+  | { type: "paper"; paper: PaperReading | null };
 
 function reduce(state: State, action: Action): State {
   switch (action.type) {
@@ -104,6 +118,7 @@ function reduce(state: State, action: Action): State {
       return {
         ...state, opened: action.open, source: action.open.source, split: action.open.split,
         files: action.open.files, texSources: action.open.texSources, reveal: null,
+        paper: action.open.paper ?? null,
       };
     case "source":
       return { ...state, source: action.source };
@@ -117,6 +132,8 @@ function reduce(state: State, action: Action): State {
       return { ...state, reveal: action.reveal };
     case "project":
       return { ...state, files: action.files, texSources: action.texSources };
+    case "paper":
+      return { ...state, paper: action.paper };
   }
 }
 
@@ -149,8 +166,12 @@ function lineOf(text: string, offset: number): number {
 function Markdown() {
   const [state, dispatch] = useReducer(reduce, {
     opened: null, source: "", split: false, ready: false, assetRevision: 0, reveal: null, files: [], texSources: [],
+    paper: null,
   });
-  const { opened, source, split, ready, assetRevision, reveal, files, texSources } = state;
+  const { opened, source, split, ready, assetRevision, reveal, files, texSources, paper } = state;
+  // Why the engine cannot show this full text as written, for its masthead
+  // (`onEligibilityChange`, `paperVisualEligibilityReason`).
+  const [eligibility, setEligibility] = useState<string | null>(null);
   // The file as the page has it: the owner's latest, or the page's own edit.
   const sourceRef = useRef(source);
   useLayoutEffect(() => { sourceRef.current = source; }, [source]);
@@ -227,6 +248,9 @@ function Markdown() {
             .then((content) => workspaceIndex.noteDocumentContent(path, content))
             .catch(() => {});
         }
+      }),
+      bridge.on("md:paper", (payload) => {
+        dispatch({ type: "paper", paper: (payload as { paper: PaperReading | null }).paper ?? null });
       }),
       bridge.on("md:scroll-to", (payload) => {
         const { center, min, max } = payload as { center: number; min: number; max: number };
@@ -321,10 +345,33 @@ function Markdown() {
     if (reveal?.id === id) dispatch({ type: "reveal", reveal: null });
   }, [reveal]);
 
+  const masthead = Boolean(paper?.fullText);
+  useEffect(() => { if (!masthead) setEligibility(null); }, [masthead]);
+  // The reader's strip names the paper only while the masthead is off screen
+  // (`useMastheadInView` in paper-reader.tsx): the viewport clips the title,
+  // so it stops intersecting exactly when it has scrolled out from under the
+  // strip. Without a masthead the strip keeps the whole identity.
+  useLayoutEffect(() => {
+    const title = masthead && ready ? viewportRef.current?.querySelector(".paper-visual-header h1") : null;
+    if (!title || typeof IntersectionObserver === "undefined") {
+      host().post("md:masthead", { inView: false });
+      return;
+    }
+    let last: boolean | null = null;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting === last) return;
+      last = entry.isIntersecting;
+      host().post("md:masthead", { inView: last });
+    }, { root: viewportRef.current });
+    observer.observe(title);
+    return () => observer.disconnect();
+  }, [masthead, ready, opened]);
+
   if (!opened || !ready) return null;
   return (
     <ScrollArea
       className="markdown-preview"
+      data-tour={paper ? "paper-reading-view" : "markdown-visual-editor"}
       // Wide tables, code and formulas own their horizontal overflow.
       orientation="vertical"
       // Mask gradients repaint the whole editable surface while scrolling in WebKit.
@@ -340,11 +387,27 @@ function Markdown() {
       viewportRef={viewportRef}
       style={{ flex: "1 1 0", minWidth: 0 }}
     >
+      {masthead && paper && (
+        <header className="paper-visual-header">
+          <div>
+            {eligibility && (
+              <InlineMessage level="warning" className="paper-visual-eligibility">{eligibility}</InlineMessage>
+            )}
+            <h1>{paper.title}</h1>
+            {paper.authors && <p>{paper.authors}</p>}
+          </div>
+        </header>
+      )}
       <Fragment key={`${opened.projectRoot}\n${opened.path}`}>
         <LatticeVisualMarkdownEditor
           text={settled}
           activePath={opened.path}
-          projectRoot={opened.projectRoot}
+          // The canvas passes no project root for a paper: the root only
+          // resolves a paper dragged in from the Papers panel, which a
+          // paper's own text does not take.
+          projectRoot={paper ? undefined : opened.projectRoot}
+          optimizeForReading={Boolean(paper)}
+          onEligibilityChange={masthead ? setEligibility : undefined}
           onChangeMarkdown={onChangeMarkdown}
           onFlushPendingChange={onFlushPendingChange}
           synchronizeSourceScroll={split || reveal !== null}

@@ -242,7 +242,7 @@ impl Shell {
         if self.root_pdfs.len() != roots {
             self.label_pdfs(cx);
         }
-        self.forget_closed_readers();
+        self.forget_closed_readers(cx);
     }
 
     /// A tab for `document`'s last PDF, where the live tab stands (else

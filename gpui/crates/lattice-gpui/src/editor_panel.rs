@@ -60,6 +60,7 @@ pub mod outline_rail;
 mod overleaf_carets;
 mod overleaf_review;
 mod overleaf_text;
+pub mod paper_text;
 pub mod rail_outline;
 mod save;
 mod source_chrome;
@@ -215,6 +216,8 @@ pub struct EditorPanel {
     _subscriptions: Vec<Subscription>,
     /// A `.bib` file's Preview and library (`bib_view.rs`).
     bib: bib_view::BibState,
+    /// The saved paper the file is the reading text of (`paper_text.rs`).
+    paper: paper_text::PaperText,
 }
 
 impl EditorPanel {
@@ -467,6 +470,7 @@ impl EditorPanel {
             _poll: poll,
             _subscriptions: subscriptions,
             bib: Default::default(),
+            paper: Default::default(),
         };
         this.count_words(cx);
         this.scan_todos(Duration::ZERO, cx);

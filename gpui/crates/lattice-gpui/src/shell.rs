@@ -625,6 +625,10 @@ impl Shell {
         if self.open_if_asset(&path, window, cx) {
             return None;
         }
+        // A saved paper's text reads in its paper's tab.
+        if let Some(editor) = self.open_in_reader(&path, line, window, cx) {
+            return editor;
+        }
         let in_front = self
             .active_editor()
             .is_some_and(|editor| editor.read(cx).path() == path);

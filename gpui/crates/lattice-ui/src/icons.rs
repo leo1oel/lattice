@@ -167,6 +167,8 @@ lucide! {
     SHAPES = "icons" / "shapes";
     ARROW_UP_RIGHT = "icons" / "arrow-up-right";
     LIST_CHECKS = "icons" / "list-checks";
+    // The paper reader's Blog view (`Newspaper` in trellis-header-tools.tsx).
+    NEWSPAPER = "icons" / "newspaper";
     LAYOUT_TEMPLATE = "icons" / "layout-template";
     CLIPBOARD_PASTE = "icons" / "clipboard-paste";
     // Names Zed's icon set also has, which the app's asset source finds
