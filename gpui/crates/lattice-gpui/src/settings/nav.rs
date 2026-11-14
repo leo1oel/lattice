@@ -63,6 +63,16 @@ fn groups() -> Vec<(SharedString, Vec<(Section, SharedString)>)> {
             ],
         ),
         (
+            t!("Agent").into(),
+            vec![(
+                Section {
+                    tab: SettingsTab::Agent,
+                    icon: Icon::BOT,
+                },
+                t!("Providers").into(),
+            )],
+        ),
+        (
             t!("Integrations").into(),
             vec![(
                 Section {

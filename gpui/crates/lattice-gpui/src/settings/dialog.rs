@@ -18,8 +18,8 @@
 //! as a page with a way back, and Escape goes back before it closes.
 //!
 //! Only the sections the GPUI app has are listed: Appearance, Editor &
-//! builds and the TeX doctor. The agent, integration and about pages come
-//! with the features they configure.
+//! builds, Providers and the TeX doctor. The other agent pages, the
+//! integration and the about pages come with the features they configure.
 
 use std::{
     cell::RefCell,
@@ -66,14 +66,18 @@ pub enum SettingsEvent {
     Close,
     /// Settings › Editor & builds › Auxiliary files › Clean.
     CleanBuildFiles,
+    /// Settings › Providers › Open Agent.
+    OpenAgent,
 }
 
 /// The pages the GPUI app draws; another remembered page opens Appearance.
 fn drawn(tab: SettingsTab) -> SettingsTab {
     match tab {
-        SettingsTab::Editor | SettingsTab::Doctor | SettingsTab::Overleaf | SettingsTab::Logs => {
-            tab
-        }
+        SettingsTab::Editor
+        | SettingsTab::Agent
+        | SettingsTab::Doctor
+        | SettingsTab::Overleaf
+        | SettingsTab::Logs => tab,
         _ => SettingsTab::Appearance,
     }
 }
@@ -534,6 +538,10 @@ impl SettingsDialog {
         cx.emit(SettingsEvent::CleanBuildFiles);
     }
 
+    pub(super) fn open_agent(&mut self, cx: &mut Context<Self>) {
+        cx.emit(SettingsEvent::OpenAgent);
+    }
+
     /// The window is cleaning its build files or building.
     pub(super) fn busy(&self, cx: &App) -> (bool, bool) {
         self.shell
@@ -630,6 +638,7 @@ impl SettingsDialog {
             // The log fills the page and scrolls inside its card instead.
             SettingsTab::Logs => return self.logs_page(page_width, narrow, cx),
             SettingsTab::Editor => super::editor_pane::render(self, page_width, window, cx),
+            SettingsTab::Agent => super::providers_pane::render(page_width, cx),
             SettingsTab::Doctor => super::editor_pane::doctor(page_width, cx),
             SettingsTab::Overleaf => super::overleaf_pane::render(self, page_width, window, cx),
             _ => super::appearance_pane::render(self, page_width, window, cx),

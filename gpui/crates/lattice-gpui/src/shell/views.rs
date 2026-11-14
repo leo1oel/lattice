@@ -50,6 +50,33 @@ fn min(width: f64, height: f64) -> Option<Size> {
     Some(Size { width, height })
 }
 
+/// The Agent panel's own minimum, before the composer reports what it needs.
+const AGENT_MIN: Size = Size {
+    width: 220.,
+    height: 240.,
+};
+
+/// The composer's reported width is kept to this range
+/// (`use-synara-host.ts`'s floor and ceiling).
+const AGENT_REPORTED_WIDTH: (f64, f64) = (180., 720.);
+
+/// The Agent panel's minimum once the composer reports the width that keeps
+/// its controls inside the box (`measuredMinSize` in trellis-workspace.tsx):
+/// never below the panel's own minimum.
+pub fn agent_min_size(reported: f32) -> Option<Size> {
+    let (floor, ceiling) = AGENT_REPORTED_WIDTH;
+    let reported = f64::from(reported);
+    let reported = if reported.is_finite() {
+        reported.clamp(floor, ceiling).round()
+    } else {
+        floor
+    };
+    Some(Size {
+        width: AGENT_MIN.width.max(reported),
+        height: AGENT_MIN.height,
+    })
+}
+
 /// The workspace's options: Lattice's view types, free navigation, floats
 /// over the whole workspace, and its keymap (`trellis-keymap.ts`: no
 /// overview, previous and next tab on ⌘⇧[ and ⌘⇧]).
@@ -66,7 +93,7 @@ pub fn engine_options() -> trellis::Options {
     let mut types = HashMap::new();
     types.insert("project".into(), kind(true, min(140., 120.)));
     types.insert("papers".into(), kind(true, min(180., 120.)));
-    types.insert("agent".into(), kind(true, min(220., 240.)));
+    types.insert("agent".into(), kind(true, Some(AGENT_MIN)));
     types.insert("pdf".into(), kind(true, min(220., 160.)));
     types.insert(ROOT_PDF.into(), kind(false, min(220., 160.)));
     types.insert("file".into(), kind(false, min(180., 140.)));
@@ -110,6 +137,12 @@ impl Shell {
     /// The document on the workspace now.
     pub(crate) fn document(&self, cx: &App) -> LayoutDocument {
         self.workspace.read(cx).engine().document()
+    }
+
+    /// The smallest a view of `kind` may be laid out.
+    pub(crate) fn view_min_size(&self, kind: &str, cx: &App) -> Option<Size> {
+        let workspace = self.workspace.read(cx);
+        workspace.engine().options().types.get(kind)?.rules.min_size
     }
 
     /// The view a panel stands for.
@@ -382,4 +415,41 @@ pub fn documents_of(doc: &LayoutDocument) -> Vec<String> {
         }
     }
     keys
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn agent_min_width(options: &trellis::Options) -> f64 {
+        options.types["agent"].rules.min_size.unwrap().width
+    }
+
+    /// The Tauri workspace's Agent minimum is `max(220, clamp(reported,
+    /// 180, 720))` wide and 240 tall (trellis-workspace.tsx's `MIN_SIZE`
+    /// and `measuredMinSize`, use-synara-host.ts's floor and ceiling).
+    #[test]
+    fn the_composer_width_becomes_the_agent_panel_minimum() {
+        let mut engine =
+            trellis::Engine::new(engine_options(), LayoutDocument::default(), 1200., 800.);
+        assert_eq!(agent_min_width(engine.options()), 220.);
+        for (reported, expected) in [
+            (360.4_f32, 360.),
+            (100., 220.),
+            (200., 220.),
+            (5000., 720.),
+            (f32::NAN, 220.),
+        ] {
+            engine.set_min_size("agent", agent_min_size(reported));
+            assert_eq!(agent_min_width(engine.options()), expected, "{reported}");
+            assert_eq!(
+                engine.options().types["agent"]
+                    .rules
+                    .min_size
+                    .unwrap()
+                    .height,
+                240.
+            );
+        }
+    }
 }

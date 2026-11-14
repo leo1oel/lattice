@@ -234,6 +234,44 @@ impl Run {
             }),
         );
 
+        // The composer's width holds the panel open; the page's Provider
+        // settings open Settings on Providers.
+        self.evaluate(
+            cx,
+            &island,
+            "(() => { window.latticeHost.post('agent:minimum-width', { width: 412 }); \
+             window.latticeHost.post('agent:open-settings', { target: 'provider-binary-paths' }); \
+             return 'true'; })()",
+        )
+        .await;
+        let held = self
+            .wait_for(cx, Duration::from_secs(3), |shell, cx| {
+                shell
+                    .read(cx)
+                    .view_min_size("agent", cx)
+                    .is_some_and(|size| size.width == 412.)
+            })
+            .await;
+        let providers = self
+            .wait_for(cx, Duration::from_secs(3), |shell, cx| {
+                shell.read(cx).settings.as_ref().is_some_and(|dialog| {
+                    dialog.read(cx).tab() == lattice_settings::SettingsTab::Agent
+                })
+            })
+            .await;
+        let min_size = cx.update(|cx| self.shell.read(cx).view_min_size("agent", cx));
+        steps.check(
+            "the composer's reported width becomes the Agent panel's minimum, and Provider settings opens Settings on Providers",
+            held && providers,
+            json!({ "min_size": min_size.map(|size| size.width), "providers": providers }),
+        );
+        cx.update(|cx| {
+            self.shell.update(cx, |shell, cx| {
+                shell.settings = None;
+                cx.notify();
+            })
+        });
+
         // The Git workspace, from the titlebar's Git button.
         self.with_window(cx, |shell, window, cx| {
             shell.update(cx, |shell, cx| shell.open_git(None, window, cx))

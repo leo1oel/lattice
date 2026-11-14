@@ -88,14 +88,19 @@ impl Shell {
         self.push_git_state(cx);
         self.push_agent_workspace(cx);
         if let Some(root) = root {
+            let looked_up = root.clone();
             let remote = cx.background_spawn(async move {
-                lattice_core::git::status(&root)
+                lattice_core::git::status(&looked_up)
                     .ok()
                     .and_then(|status| status.remote_url)
             });
             cx.spawn(async move |this, cx| {
                 let remote_url = remote.await;
                 this.update(cx, |this, cx| {
+                    // Another project opened while this one's status ran.
+                    if this.root(cx).as_deref() != Some(root.as_path()) {
+                        return;
+                    }
                     this.agent.state.remote_url = remote_url;
                     this.push_git_state(cx);
                 })
@@ -191,7 +196,7 @@ impl Shell {
     }
 
     /// The Agent panel on screen and in front (`showPanel`).
-    fn reveal_agent(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn reveal_agent(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.show_view("agent", true, window, cx);
     }
 
@@ -209,15 +214,7 @@ impl Shell {
             }
             SurfaceEvent::OpenReview(turn) => self.open_git(turn.clone(), window, cx),
             SurfaceEvent::OpenProviderSettings => {
-                // Settings › Providers is Synara's own page in the Tauri app,
-                // which the GPUI app's Settings does not host yet.
-                crate::notices::info(
-                    lattice_i18n::t!("Agent providers are not in the GPUI preview’s Settings yet."),
-                    lattice_i18n::t!(
-                        "Choose a provider in the Agent panel’s own picker; Claude Code and Codex are found on the PATH."
-                    ),
-                    cx,
-                );
+                self.open_settings(Some(lattice_settings::SettingsTab::Agent), window, cx)
             }
             SurfaceEvent::ClearSelection => {
                 let editor = self.active_editor();
@@ -232,7 +229,8 @@ impl Shell {
                 self.push_agent_workspace(cx);
             }
             SurfaceEvent::MinimumWidth(width) => {
-                log::debug!("agent: the composer needs {width}px");
+                let size = super::views::agent_min_size(*width);
+                self.engine_do(cx, |engine| engine.set_min_size("agent", size));
             }
             SurfaceEvent::GitView(view) => {
                 self.agent.state.git_view = view.clone();

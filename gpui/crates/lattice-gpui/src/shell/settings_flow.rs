@@ -39,6 +39,11 @@ impl Shell {
                 crate::settings::SettingsEvent::CleanBuildFiles => {
                     window.dispatch_action(Box::new(super::CleanBuildFiles), cx)
                 }
+                crate::settings::SettingsEvent::OpenAgent => {
+                    this.settings = None;
+                    this.reveal_agent(window, cx);
+                    cx.notify();
+                }
             },
         )
         .detach();

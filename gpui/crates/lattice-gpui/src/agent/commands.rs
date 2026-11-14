@@ -155,58 +155,6 @@ pub fn invoke(
                 )
             })
         }
-        "agent_bibliography_mutation" => {
-            let checked = pinned(root, &args, "the action could start");
-            let mutation = args.get("mutation").cloned().unwrap_or(Value::Null);
-            cx.background_spawn(async move {
-                let root = checked?;
-                let mutation: AgentBibliographyMutation = serde_json::from_value(mutation)
-                    .map_err(|error| format!("Invalid bibliography request: {error}"))?;
-                mutation.into_request()?.run(&root)
-            })
-        }
-        "remove_reference" => {
-            let checked = pinned(root, &args, "the action could start");
-            let key = text(&args, "key").unwrap_or_default();
-            let mode = match args.get("citationMode").and_then(Value::as_str) {
-                None => Ok(CitationRemovalMode::Block),
-                Some("preview") => Ok(CitationRemovalMode::Preview),
-                Some("keep") => Ok(CitationRemovalMode::Keep),
-                Some("remove") => Ok(CitationRemovalMode::Remove),
-                Some(_) => {
-                    Err("Choose whether to keep or remove manuscript citations.".to_string())
-                }
-            };
-            cx.background_spawn(async move {
-                let root = checked?;
-                json(papers::remove_reference(&root, &key, mode?)?)
-            })
-        }
-        "read_project_file" => {
-            let checked = maybe_pinned(root, &args, "the file could be read");
-            let path = text(&args, "path").unwrap_or_default();
-            cx.background_spawn(async move {
-                lattice_core::project::read_file(&checked?, &path).map(Value::String)
-            })
-        }
-        "prepare_latex_figure" => {
-            let checked = pinned(root, &args, "the figure could be prepared");
-            let path = text(&args, "path").unwrap_or_default();
-            cx.background_spawn(async move {
-                lattice_core::project::prepare_latex_figure(&checked?, &path).map(Value::String)
-            })
-        }
-        "preview_latex_figure" => {
-            let checked = pinned(root, &args, "the figure could be previewed");
-            let request = args.get("request").cloned().unwrap_or(Value::Null);
-            cx.background_spawn(async move {
-                let root = checked?;
-                let request: lattice_core::latex::FigurePreviewRequest =
-                    serde_json::from_value(request)
-                        .map_err(|error| format!("Invalid figure preview: {error}"))?;
-                json(lattice_core::latex::preview_figure(&root, &request)?)
-            })
-        }
         // An Agent visual's HTML, which the panel cannot download itself
         // (WebKit cancels a frame's download), where the writer chose.
         "save_agent_visual" => {
@@ -222,7 +170,60 @@ pub fn invoke(
                     .map(Value::String)
             })
         }
-        _ => Task::ready(Err(format!("{command} is not an Agent command"))),
+        _ => {
+            let root = root.to_path_buf();
+            let command = command.to_string();
+            cx.background_spawn(async move { project_command(&root, &command, &args) })
+        }
+    }
+}
+
+/// Answer a command that reads or changes the project at `root` and needs
+/// nothing of the app, on the thread it is called from.
+fn project_command(root: &Path, command: &str, args: &Value) -> Result<Value, String> {
+    match command {
+        "agent_bibliography_mutation" => {
+            let root = pinned(root, args, "the action could start")?;
+            let mutation = args.get("mutation").cloned().unwrap_or(Value::Null);
+            let mutation: AgentBibliographyMutation = serde_json::from_value(mutation)
+                .map_err(|error| format!("Invalid bibliography request: {error}"))?;
+            mutation.into_request()?.run(&root)
+        }
+        "remove_reference" => {
+            let root = pinned(root, args, "the action could start")?;
+            let key = text(args, "key").unwrap_or_default();
+            let mode = match args.get("citationMode").and_then(Value::as_str) {
+                None => CitationRemovalMode::Block,
+                Some("preview") => CitationRemovalMode::Preview,
+                Some("keep") => CitationRemovalMode::Keep,
+                Some("remove") => CitationRemovalMode::Remove,
+                Some(_) => {
+                    return Err(
+                        "Choose whether to keep or remove manuscript citations.".to_string()
+                    );
+                }
+            };
+            json(papers::remove_reference(&root, &key, mode)?)
+        }
+        "read_project_file" => {
+            let root = maybe_pinned(root, args, "the file could be read")?;
+            let path = text(args, "path").unwrap_or_default();
+            lattice_core::project::read_file(&root, &path).map(Value::String)
+        }
+        "prepare_latex_figure" => {
+            let root = pinned(root, args, "the figure could be prepared")?;
+            let path = text(args, "path").unwrap_or_default();
+            lattice_core::project::prepare_latex_figure(&root, &path).map(Value::String)
+        }
+        "preview_latex_figure" => {
+            let root = pinned(root, args, "the figure could be previewed")?;
+            let request = args.get("request").cloned().unwrap_or(Value::Null);
+            let request: lattice_core::latex::FigurePreviewRequest =
+                serde_json::from_value(request)
+                    .map_err(|error| format!("Invalid figure preview: {error}"))?;
+            json(lattice_core::latex::preview_figure(&root, &request)?)
+        }
+        _ => Err(format!("{command} is not an Agent command")),
     }
 }
 
@@ -267,55 +268,75 @@ mod tests {
         dir
     }
 
+    fn bib(dir: &tempfile::TempDir) -> String {
+        std::fs::read_to_string(dir.path().join("references.bib")).unwrap()
+    }
+
     #[test]
     fn a_request_reaches_only_the_panels_project() {
         let dir = project();
         let other = tempfile::tempdir().unwrap();
         let root = dir.path();
-        let own = json!({ "projectRoot": root.to_string_lossy() });
-        assert_eq!(pinned(root, &own, "x").unwrap(), root);
-        let elsewhere = json!({ "projectRoot": other.path().to_string_lossy() });
-        assert!(pinned(root, &elsewhere, "x").is_err());
-        assert!(pinned(root, &json!({}), "x").is_err());
+        let read = |args: Value| project_command(root, "read_project_file", &args);
+        let own = json!({ "projectRoot": root.to_string_lossy(), "path": "main.tex" });
+        assert_eq!(read(own).unwrap(), "\\documentclass{article}");
         // A read may leave its project unnamed, but not name another one.
-        assert_eq!(maybe_pinned(root, &json!({}), "x").unwrap(), root);
-        assert!(maybe_pinned(root, &elsewhere, "x").is_err());
+        assert_eq!(
+            read(json!({ "path": "main.tex" })).unwrap(),
+            "\\documentclass{article}"
+        );
+        let elsewhere =
+            json!({ "projectRoot": other.path().to_string_lossy(), "path": "main.tex" });
+        assert!(read(elsewhere).is_err());
+        // A change must name the panel's project.
+        let removal = json!({ "key": "kept", "citationMode": "remove" });
+        assert!(project_command(root, "remove_reference", &removal).is_err());
+        let removal = json!({
+            "projectRoot": other.path().to_string_lossy(),
+            "key": "kept",
+            "citationMode": "remove",
+        });
+        assert!(project_command(root, "remove_reference", &removal).is_err());
+        assert!(bib(&dir).contains("@article{kept,"));
     }
 
     #[test]
     fn the_bibliography_takes_only_the_closed_mutations() {
         // Anything beyond cite and upgrade_bibliography, or an extra field,
         // is not a mutation lattice-core accepts.
+        let dir = project();
+        let before = bib(&dir);
         for refused in [
             json!({ "action": "write_bib", "path": "references.bib", "text": "@misc{x}" }),
             json!({ "action": "cite", "query": "x", "path": "references.bib" }),
             json!({ "action": "delete", "key": "kept" }),
         ] {
+            let args = json!({ "projectRoot": dir.path().to_string_lossy(), "mutation": refused });
             assert!(
-                serde_json::from_value::<AgentBibliographyMutation>(refused.clone()).is_err(),
-                "{refused}"
+                project_command(dir.path(), "agent_bibliography_mutation", &args).is_err(),
+                "{args}"
             );
         }
-        assert!(
-            serde_json::from_value::<AgentBibliographyMutation>(
-                json!({ "action": "upgrade_bibliography", "dryRun": true })
-            )
-            .is_ok()
-        );
+        // Nor does the Agent reach a command the page has no business with.
+        let write =
+            json!({ "projectRoot": dir.path().to_string_lossy(), "path": "references.bib" });
+        assert!(project_command(dir.path(), "write_project_file", &write).is_err());
+        assert_eq!(bib(&dir), before);
     }
 
     #[test]
     fn a_removal_is_previewed_before_anything_is_written() {
         let dir = project();
-        let preview = papers::remove_reference(dir.path(), "kept", CitationRemovalMode::Preview)
-            .map(|result| serde_json::to_value(result).unwrap())
-            .unwrap();
+        let before = bib(&dir);
+        let args = |mode: &str| json!({ "projectRoot": dir.path().to_string_lossy(), "key": "kept", "citationMode": mode });
+        let preview = project_command(dir.path(), "remove_reference", &args("preview")).unwrap();
         assert_eq!(preview["key"], "kept");
-        assert!(
-            std::fs::read_to_string(dir.path().join("references.bib"))
-                .unwrap()
-                .contains("@article{kept,")
-        );
+        assert_eq!(bib(&dir), before);
+        assert!(project_command(dir.path(), "remove_reference", &args("purge")).is_err());
+        assert_eq!(bib(&dir), before);
+        // The writer's choice is what removes it.
+        project_command(dir.path(), "remove_reference", &args("remove")).unwrap();
+        assert!(!bib(&dir).contains("@article{kept,"));
     }
 
     #[test]
@@ -329,29 +350,5 @@ mod tests {
         assert_eq!(path, PathBuf::from("/tmp/图.html"));
         assert_eq!(bytes, b"<html></html>");
         assert!(binary_save(&json!({ "base64": "" }), "x-html-destination", "a", "b").is_err());
-    }
-
-    #[test]
-    fn every_command_the_agent_page_invokes_is_answered() {
-        // What `src/agent` and `use-synara-host.ts` invoke (the surface
-        // answers the window's and the app's: the save panel, the browser
-        // and the clipboard).
-        for command in [
-            "synara_ensure_ready",
-            "synara_restart",
-            "synara_open_log_folder",
-            "agent_bibliography_mutation",
-            "remove_reference",
-            "read_project_file",
-            "prepare_latex_figure",
-            "preview_latex_figure",
-            "save_agent_visual",
-            "set_agent_turn_running",
-            "get_model_endpoint",
-        ] {
-            assert!(handles(command), "{command}");
-        }
-        assert!(!handles("write_project_file"));
-        assert!(!handles("delete_entry"));
     }
 }

@@ -362,10 +362,10 @@ msgstr "此次运行不保留日志文件夹。"
 msgid "The Agent couldn’t start"
 msgstr "AI 助手无法启动"
 
-#: lattice-gpui/src/shell/agent_flow.rs
-msgid "Agent providers are not in the GPUI preview’s Settings yet."
-msgstr "GPUI 预览版的设置中还没有 AI 助手的服务商页面。"
+#: lattice-gpui/src/settings/providers_pane.rs
+msgid "Open Agent"
+msgstr "打开 AI 助手"
 
-#: lattice-gpui/src/shell/agent_flow.rs
-msgid "Choose a provider in the Agent panel’s own picker; Claude Code and Codex are found on the PATH."
-msgstr "请在 AI 助手面板自己的选择器中选择服务商；Claude Code 和 Codex 会从 PATH 中找到。"
+#: lattice-gpui/src/settings/providers_pane.rs
+msgid "Claude Code and Codex are found on your PATH. Choose a provider and its model in the Agent panel’s own picker."
+msgstr "Claude Code 和 Codex 会从你的 PATH 中找到。请在 AI 助手面板自己的选择器中选择服务商及其模型。"
