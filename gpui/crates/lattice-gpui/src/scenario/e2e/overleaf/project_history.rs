@@ -132,6 +132,26 @@ impl Run {
             }),
         );
 
+        // The comparison still open moves with Overleaf's newest version: the
+        // restore put refs.bib back to its text at that entry, so the range
+        // no longer lists it (a list read once, over the old range, would
+        // still say "edited").
+        let moved = self
+            .wait_for(cx, Duration::from_secs(10), |_, cx| {
+                history
+                    .read(cx)
+                    .overleaf_files()
+                    .is_some_and(|files| !files.iter().any(|file| file.pathname == "refs.bib"))
+            })
+            .await;
+        self.pause(cx, Duration::from_millis(400)).await;
+        self.adapter_shot(cx, "overleaf-history-restored").await;
+        steps.check(
+            "after the restore, the open comparison reads its files again over the moved range",
+            moved,
+            json!({ "files": cx.update(|cx| format!("{:?}", history.read(cx).overleaf_files())) }),
+        );
+
         // A name for the newest version, typed and saved with Enter.
         let newest = cx
             .update(|cx| {
