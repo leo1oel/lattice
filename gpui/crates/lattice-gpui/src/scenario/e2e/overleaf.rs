@@ -37,10 +37,11 @@ impl Run {
     /// These checks alone (`--scenario overleaf`), for work on Overleaf:
     /// the e2e scenario runs them too.
     pub(in crate::scenario) async fn overleaf_alone(&self, cx: &mut AsyncApp) -> Result<Value> {
-        let mut steps = Steps(Vec::new());
+        let mut steps = Steps::new(self);
         let root = self.root(cx).await?;
         self.pause(cx, Duration::from_millis(800)).await;
         self.overleaf(cx, &mut steps, &root).await?;
+        steps.check_foreground(self);
         let passed = steps.0.iter().all(|step| step["passed"] == true);
         Ok(json!({ "scenario": "overleaf", "passed": passed, "steps": steps.0 }))
     }
@@ -51,6 +52,9 @@ impl Run {
         steps: &mut Steps,
         _root: &Path,
     ) -> Result<()> {
+        // The sign-in window, the project's own window and the resolver each
+        // activate a window, so the section holds the front (`input_lock.rs`).
+        let _front = self.foreground(cx, "overleaf").await?;
         let mock =
             MockOverleaf::start(&[("main.tex", MAIN), ("refs.bib", "@misc{a, title={A}}\n")])
                 .context("the Overleaf stand-in")?;
@@ -127,7 +131,7 @@ impl Run {
         let Some((window, shell)) = found else {
             return Ok(());
         };
-        let linked = Run { shell, window };
+        let linked = self.for_window(shell, window);
         linked.root(cx).await?;
         // Overleaf names the root folder over its live channel, which the
         // stand-in refuses; uploads need it, so it is recorded as a join
