@@ -109,7 +109,7 @@ pub(super) fn changed_runs<T: PartialEq>(
 /// diagonal it came from goes with it.
 fn start(previous: &[i64], d: i64, k: i64, n: i64, m: i64) -> Option<(i64, i64)> {
     let at = |diagonal: i64| {
-        if diagonal.abs() <= d - 1 {
+        if diagonal.abs() < d {
             previous[(diagonal + d - 1) as usize]
         } else {
             -1

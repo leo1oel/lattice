@@ -58,7 +58,7 @@ impl Shell {
             .read(cx)
             .path_of_doc(peer.doc_id.as_deref()?)?;
         Some(match peer.row {
-            Some(row) => t!("{path}, line {line}", path = &path, line = row + 1).into(),
+            Some(row) => t!("{path}, line {line}", path = &path, line = row + 1),
             None => path,
         })
     }

@@ -121,14 +121,15 @@ impl OverleafBridge {
         // Still unanswered after the replay: it never landed, so it goes
         // again, as a duplicate of any copy that did land meanwhile.
         let mut dup_if_source = Vec::new();
-        if send.is_none() && !doc.ot.settled() {
-            if let Some(resend) = doc.ot.resend() {
-                dup_if_source = resend.dup_if_source;
-                send = Some(OtSend {
-                    version: resend.version,
-                    ops: resend.ops,
-                });
-            }
+        if send.is_none()
+            && !doc.ot.settled()
+            && let Some(resend) = doc.ot.resend()
+        {
+            dup_if_source = resend.dup_if_source;
+            send = Some(OtSend {
+                version: resend.version,
+                ops: resend.ops,
+            });
         }
         let shown = self.documents.shown.as_ref() == Some(&doc.editor);
         if shown && self.documents.live.is_none() {
