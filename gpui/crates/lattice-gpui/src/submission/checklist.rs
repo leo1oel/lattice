@@ -214,6 +214,24 @@ impl ChecklistPanel {
         }));
     }
 
+    /// Whether the disk facts for the open project are read.
+    pub(crate) fn facts_read(&self) -> bool {
+        self.facts.review.is_some()
+    }
+
+    /// Type `words` into the word budget and press Save budgets.
+    pub(crate) fn enter_word_budget(
+        &mut self,
+        words: &str,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.word_budget.update(cx, |field, cx| {
+            field.set_value(words.to_string(), window, cx)
+        });
+        self.save_budgets(cx);
+    }
+
     fn save_budgets(&mut self, cx: &mut Context<Self>) {
         let Some(project) = self.project.clone() else {
             return;

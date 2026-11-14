@@ -162,7 +162,12 @@ impl Shell {
     }
 
     /// The keyboard into a view's content (a tab clicked, a key).
-    fn focus_view_content(&mut self, view: &str, window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn focus_view_content(
+        &mut self,
+        view: &str,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let Some(panel) = self.panel_of_view(view) else {
             return;
         };

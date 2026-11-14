@@ -101,6 +101,11 @@ pub(super) fn exclamation(ink: Hsla) -> AnyElement {
 
 /// One grouped list: hairline-divided rows on the raised surface.
 pub(super) fn rows_group(rows: Vec<AnyElement>, cx: &App) -> AnyElement {
+    probed_rows_group(None, rows, cx)
+}
+
+/// [`rows_group`], recorded as the parity region `probe` when given.
+fn probed_rows_group(probe: Option<&'static str>, rows: Vec<AnyElement>, cx: &App) -> AnyElement {
     let palette = cx.palette().clone();
     let count = rows.len();
     div()
@@ -112,6 +117,11 @@ pub(super) fn rows_group(rows: Vec<AnyElement>, cx: &App) -> AnyElement {
         .border_color(palette.line)
         .bg(palette.raised)
         .overflow_hidden()
+        .children(
+            probe.and_then(|name| {
+                lattice_ui::parity::bordered_probe(name, gpui::Edges::all(px(1.)))
+            }),
+        )
         .children(rows.into_iter().enumerate().map(|(index, row)| {
             div()
                 .when(index > 0 && index < count, |row| {
@@ -123,6 +133,9 @@ pub(super) fn rows_group(rows: Vec<AnyElement>, cx: &App) -> AnyElement {
 }
 
 /// A row's parts: its result, label, value, and what goes under the label.
+/// What a row does when clicked.
+pub(super) type RowClick = Box<dyn Fn(&mut Window, &mut App)>;
+
 pub(super) struct RowParts {
     pub id: SharedString,
     pub tone: Tone,
@@ -130,7 +143,7 @@ pub(super) struct RowParts {
     pub label: SharedString,
     pub value: Option<AnyElement>,
     pub under: Vec<AnyElement>,
-    pub on_click: Option<Box<dyn Fn(&mut Window, &mut App)>>,
+    pub on_click: Option<RowClick>,
     pub chevron: bool,
 }
 
@@ -313,7 +326,10 @@ impl ChecklistPanel {
             .border_1()
             .border_color(palette.line)
             .bg(palette.raised)
-            .children(lattice_ui::parity::probe("checklist/summary"))
+            .children(lattice_ui::parity::bordered_probe(
+                "checklist/summary",
+                gpui::Edges::all(px(1.)),
+            ))
             .child(
                 div()
                     .text_role(TextRole::Title, cx)
@@ -487,7 +503,7 @@ impl ChecklistPanel {
             window,
             cx,
         ));
-        rows_group(rows, cx)
+        probed_rows_group(Some("checklist/rows"), rows, cx)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -575,6 +591,8 @@ impl ChecklistPanel {
                     .child(Field::new(state))
             };
         div()
+            .relative()
+            .children(lattice_ui::parity::probe("checklist/limits"))
             .child(section_title(t!("Word and page limits"), cx))
             .child(
                 div()

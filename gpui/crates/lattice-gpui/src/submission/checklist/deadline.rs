@@ -555,11 +555,11 @@ impl ChecklistPanel {
                             .compact()
                             .disabled(!valid)
                             .on_click(cx.listener(|this, _, _, cx| {
-                                if let Some((draft, Some(_))) = this.form_draft(cx) {
-                                    if !draft.venue.is_empty() {
-                                        this.deadline.form = None;
-                                        this.save_deadline(Some(draft), cx);
-                                    }
+                                if let Some((draft, Some(_))) = this.form_draft(cx)
+                                    && !draft.venue.is_empty()
+                                {
+                                    this.deadline.form = None;
+                                    this.save_deadline(Some(draft), cx);
                                 }
                             })),
                     ),

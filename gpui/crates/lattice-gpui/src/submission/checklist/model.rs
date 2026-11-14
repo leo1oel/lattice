@@ -60,6 +60,7 @@ pub fn find_body_end(
     document: &str,
     read: &dyn Fn(&str) -> Option<String>,
 ) -> BodyEnd {
+    #[allow(clippy::too_many_arguments)]
     fn walk(
         root: &Path,
         document: &str,

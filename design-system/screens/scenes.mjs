@@ -183,6 +183,15 @@ export const scenes = {
     await rest(staged.page);
     return staged;
   },
+  // Submission checklist from the palette, once its verdict has drawn. The
+  // parity harness's screens only; not on the App screens page.
+  async checklist(env, theme) {
+    const staged = await project(env, theme);
+    await palette(staged.page, "Submission checklist");
+    await staged.page.waitForSelector(".checklist-summary", { timeout: 30_000 });
+    await rest(staged.page);
+    return staged;
+  },
   // Export for arXiv… with the bench's checked pack (`?arxiv=ready`,
   // tools/perf-bench/bench-arxiv.ts), once its test build has answered.
   async arxivExport(env, theme) {

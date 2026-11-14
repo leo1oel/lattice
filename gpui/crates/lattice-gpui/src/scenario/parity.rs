@@ -127,8 +127,9 @@ impl Run {
         } else {
             None
         };
-        // The submission screens (`scenes.todos`, `scenes.arxivExport`).
-        let submission_shown = if screen == "todos" || screen == "arxivExport" {
+        // The submission screens (`scenes.todos`, `scenes.checklist`,
+        // `scenes.arxivExport`).
+        let submission_shown = if matches!(screen.as_str(), "todos" | "checklist" | "arxivExport") {
             let shown = self.parity_submission(cx, &screen).await?;
             self.park_pointer(cx)?;
             Some(shown)

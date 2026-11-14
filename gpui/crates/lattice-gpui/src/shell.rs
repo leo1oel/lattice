@@ -145,11 +145,8 @@ pub struct Shell {
     pub(crate) todos: Entity<crate::submission::todos::TodosPanel>,
     /// A symbol's occurrences bar and rename dialog (`references_flow`).
     pub(crate) references: references_flow::References,
-    /// The arXiv export sheet, while it is open.
-    pub(crate) arxiv: Option<(
-        Entity<crate::submission::arxiv::ArxivExportSheet>,
-        Subscription,
-    )>,
+    /// The arXiv export and figure inventory sheets, while open.
+    pub(crate) sheets: tools_flow::Sheets,
     /// The conflict resolver, while it is open.
     pub(crate) conflict: Option<(Entity<crate::history::ConflictResolver>, Subscription)>,
     /// The files Git named as conflicts when last told (`history_flow`).
@@ -414,7 +411,7 @@ impl Shell {
             history,
             todos,
             checklist,
-            arxiv: None,
+            sheets: Default::default(),
             references: Default::default(),
             conflict: None,
             conflicts_noticed: Default::default(),
@@ -620,7 +617,7 @@ impl Shell {
         }
         self.drop_conflict_notice(cx);
         self.references = Default::default();
-        self.arxiv = None;
+        self.sheets = Default::default();
         self.conflict = None;
         self.project = Some(project.clone());
         // The editors of the project open before go with its arrangement.

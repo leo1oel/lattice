@@ -186,7 +186,7 @@ impl FirstPages {
     }
 }
 
-async fn draw_first_page(
+pub(crate) async fn draw_first_page(
     engine: &Arc<PdfEngine>,
     pdf: &Path,
     cx: &mut AsyncApp,
