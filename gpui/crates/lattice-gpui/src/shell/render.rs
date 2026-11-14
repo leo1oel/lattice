@@ -8,6 +8,8 @@ use super::*;
 
 impl Render for Shell {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        // Another editor came to the front: the Agent's context follows.
+        self.agent_follow_front(cx);
         let palette = cx.palette().clone();
         // The Emacs and Vim keymaps' bindings are loaded under a context of
         // their own (app.rs), which the shell carries while that keymap is

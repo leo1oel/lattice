@@ -1,7 +1,8 @@
-//! Where the files the structured documents need are: the island pages
-//! (`gpui/islands/dist`, built by `script/build-islands`) and the Open Slide
-//! runtime the Tauri app stages (`src-tauri/presentation-runtime`, with the
-//! Node the Agent's runtime bundles, `src-tauri/synara-runtime/bin`).
+//! Where the files the structured documents and the Agent need are: the
+//! island pages (`gpui/islands/dist`, built by `script/build-islands`), the
+//! Open Slide runtime the Tauri app stages (`src-tauri/presentation-runtime`,
+//! with the Node the Agent's runtime bundles, `src-tauri/synara-runtime/bin`)
+//! and the Agent's Synara service (`src-tauri/synara-runtime`).
 //!
 //! In order, each is looked for:
 //!
@@ -69,6 +70,26 @@ pub fn presentation_bundle() -> Option<PathBuf> {
         candidates.push(gpui.join("../src-tauri"));
     }
     first_with(candidates, "presentation-runtime/server.mjs")
+}
+
+/// The folder holding `synara-runtime/` (the Agent's Synara service and the
+/// Node it runs on, staged by the Tauri app's `scripts/prepare-synara-runtime.mjs`)
+/// and `src/embedded_skills/`: lattice-core's `Resources::bundle_dir` for the
+/// Agent. Without a staged runtime it is the first place looked, where
+/// lattice-core's supervisor says the service is missing.
+pub fn agent_bundle() -> PathBuf {
+    if let Some(dir) = std::env::var_os("LATTICE_GPUI_RESOURCES") {
+        return PathBuf::from(dir);
+    }
+    let mut candidates = Vec::new();
+    if let Some(dir) = exe_dir() {
+        candidates.push(dir.join("../Resources"));
+    }
+    if let Some(gpui) = checkout_gpui() {
+        candidates.push(gpui.join("../src-tauri"));
+    }
+    let fallback = candidates.first().cloned().unwrap_or_default();
+    first_with(candidates, "synara-runtime/server/dist/index.mjs").unwrap_or(fallback)
 }
 
 /// The app's data and cache folders, for the runtime's shadow copy and Vite

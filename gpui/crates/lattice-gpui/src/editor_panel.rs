@@ -116,7 +116,8 @@ pub enum EditorPanelEvent {
     OpenLocation { path: String, line: u32 },
     /// The caret moved to another line.
     CaretLine,
-    /// The caret moved at all.
+    /// The caret or the selection changed at all (Overleaf's remote caret
+    /// and the Agent's host context follow).
     CaretMoved,
     /// The writer changed the text (not live editing, `overleaf_text`).
     Typed,

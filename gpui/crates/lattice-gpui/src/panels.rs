@@ -47,7 +47,7 @@ pub fn present_tabs(cx: &mut App) {
             frosted: false,
         };
         // Project and Papers frost over a translucent window; the Agent
-        // stays on its opaque sidebar (trellis.css `data-glass`).
+        // stays on its opaque sidebar (trellis.css `data-glass`), below.
         if view.clone().downcast::<FileTreePanel>().is_ok() {
             TabLook {
                 frosted: true,
@@ -58,6 +58,13 @@ pub fn present_tabs(cx: &mut App) {
             TabLook {
                 frosted: kind == crate::stand_in_panels::StandIn::Papers,
                 ..look(kind.icon(), Surface::Chrome)
+            }
+        } else if let Ok(synara) = view.clone().downcast::<crate::agent::SynaraPanel>() {
+            // The Agent stays on its opaque sidebar; the Git workspace is a
+            // tool among the documents (`PANEL_ICONS`: Bot, GitBranch).
+            match synara.read(cx).kind(cx) {
+                crate::agent::SurfaceKind::Agent => look(Icon::BOT, Surface::Chrome),
+                crate::agent::SurfaceKind::Git => look(Icon::GIT_BRANCH, Surface::Sheet),
             }
         } else if let Ok(pdf) = view.clone().downcast::<PdfPanel>() {
             // A PDF of the project opened from the tree is a document, with

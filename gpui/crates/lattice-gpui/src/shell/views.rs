@@ -139,10 +139,11 @@ impl Shell {
         Some(match kind {
             "project" => panel_handle(self.file_tree.clone()),
             "papers" => panel_handle(self.papers.clone()),
-            "agent" => panel_handle(self.agent.clone()),
+            "agent" => panel_handle(self.agent.panel.clone()),
             "pdf" => panel_handle(self.pdf.clone()),
             "build" => panel_handle(self.build_panel.clone()),
             "history" => panel_handle(self.history.clone()),
+            "git" => panel_handle(self.agent.git.clone()),
             "todos" => panel_handle(self.todos.clone()),
             "checklist" => panel_handle(self.checklist.clone()),
             "terminal" => panel_handle(self.terminal.clone()),

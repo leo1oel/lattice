@@ -7,6 +7,7 @@
 //! Windows, the measurements on macOS):
 //! `lattice-gpui PROJECT_DIR --scenario e2e|perf|ime --out RESULT.json`.
 
+mod agent;
 mod app;
 mod app_log;
 mod asset_preview;
@@ -56,6 +57,19 @@ mod welcome;
 mod window_material;
 
 fn main() {
+    // The Agent's sidecar runs this binary as its helpers, as it runs the
+    // Tauri app's (`src-tauri/src/lib.rs`): Lattice's own `ps` inside the
+    // bibliography sandbox (only macOS has one, so only there), and the
+    // literature, research-environment and model-endpoint commands. Each
+    // serves its request and exits before anything starts GPUI or AppKit.
+    #[cfg(target_os = "macos")]
+    lattice_core::process_inspector::run_if_requested();
+    if lattice_core::agent_literature::run_cli()
+        || lattice_core::research_env::run_cli()
+        || lattice_core::model_endpoint::run_cli()
+    {
+        return;
+    }
     init_logging();
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     let (root, scenario) = scenario::parse_args();

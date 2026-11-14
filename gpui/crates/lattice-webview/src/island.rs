@@ -55,7 +55,8 @@
 //! holds the file's text and saves it as every document is saved
 //! (lattice-core's editor transaction), and the slides island's saves are
 //! mutations its owner applies through lattice-core too. An island that never
-//! hibernates (the Agent) lands with the Agent.
+//! hibernates (the Agent's, [`IslandConfig::hibernates`]) keeps its page,
+//! and the turns running in it, while hidden.
 
 use std::time::Duration;
 
@@ -106,6 +107,11 @@ pub struct IslandConfig {
     pub reveal_on_ready: bool,
     /// How the page takes the host's theme.
     pub theme: IslandTheme,
+    /// Whether the page is torn down after [`HIBERNATE_AFTER`] hidden. The
+    /// Agent's is not: a hidden Agent panel may still own a running turn or
+    /// a terminal, as its iframe did in the Tauri app, which never
+    /// hibernated it (`trellis-agent-surface.tsx`).
+    pub hibernates: bool,
 }
 
 /// Where the island is in its life.
@@ -365,7 +371,7 @@ impl Island {
     /// Tear the page down now rather than after the hidden period; for the
     /// scripted checks and for memory pressure.
     pub fn hibernate(&mut self, cx: &mut Context<Self>) {
-        if self.active || self.webview.is_none() {
+        if self.active || self.webview.is_none() || !self.config.hibernates {
             return;
         }
         self.webview = None;
@@ -386,6 +392,9 @@ impl Island {
     }
 
     fn schedule_hibernation(&mut self, cx: &mut Context<Self>) {
+        if !self.config.hibernates {
+            return;
+        }
         let after = Registry::hibernate_after(cx).unwrap_or(HIBERNATE_AFTER);
         self.hibernation = Some(cx.spawn(async move |this, cx| {
             cx.background_executor().timer(after).await;

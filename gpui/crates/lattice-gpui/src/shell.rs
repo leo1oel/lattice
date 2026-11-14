@@ -13,6 +13,7 @@
 //! the PDFs (`pdfs`) and SyncTeX (`synctex`).
 
 mod actions;
+mod agent_flow;
 mod arrange;
 mod assets;
 mod build;
@@ -129,7 +130,8 @@ pub struct Shell {
     panel_dragging: bool,
     file_tree: Entity<FileTreePanel>,
     papers: Entity<StandInPanel>,
-    agent: Entity<StandInPanel>,
+    /// The Agent and its Git workspace (`agent_flow`).
+    pub(crate) agent: agent_flow::AgentWindow,
     pdf: Entity<PdfPanel>,
     /// The open project's LuaLaTeX live preview (`crate::live_preview`).
     pub(crate) live_preview: Entity<crate::live_preview::LivePreview>,
@@ -284,7 +286,7 @@ impl Shell {
         });
         let file_tree = cx.new(FileTreePanel::new);
         let papers = cx.new(|cx| StandInPanel::new(StandIn::Papers, cx));
-        let agent = cx.new(|cx| StandInPanel::new(StandIn::Agent, cx));
+        let agent = agent_flow::AgentWindow::new(window, cx);
         let pdf = cx.new(|cx| PdfPanel::new(PdfPanelKind::Live, window, cx));
         let live_preview = crate::live_preview::new(cx);
         let preview = Some(live_preview.clone());
@@ -372,6 +374,7 @@ impl Shell {
         })
         .detach();
         cx.subscribe_in(&pdf, window, Self::on_pdf_event).detach();
+        agent.watch(window, cx);
         cx.subscribe_in(&history, window, |this, _, event, window, cx| {
             this.on_history_event(event, window, cx)
         })
