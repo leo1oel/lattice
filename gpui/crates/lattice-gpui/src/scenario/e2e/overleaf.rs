@@ -20,6 +20,7 @@ mod live;
 mod presence;
 mod reconnect;
 mod review;
+mod review_marks;
 
 use std::{path::Path, time::Duration};
 

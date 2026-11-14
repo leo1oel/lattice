@@ -12,7 +12,7 @@ use language::{ToOffset as _, ToPoint as _};
 use super::LatticeEditor;
 use crate::{
     geometry::{self, Frame},
-    gutter, remote_cursors,
+    gutter, inline_texts, remote_cursors,
 };
 
 /// What the overlay painted last frame, for the pointer and for scripted
@@ -30,6 +30,8 @@ pub struct Painted {
     pub cursors: Vec<PaintedCursor>,
     /// The open hover card's bounds, once it has been laid out.
     pub card: Option<Bounds<Pixels>>,
+    /// Each inline text drawn: its layer, buffer offset and bounds.
+    pub inline: Vec<(&'static str, usize, Bounds<Pixels>)>,
 }
 
 #[derive(Clone, Debug)]
@@ -110,7 +112,8 @@ impl LatticeEditor {
         };
         // Most frames have nothing to paint here: leave the editor's layout
         // unread (it costs a display snapshot) while scrolling plain text.
-        let has_overlay = !self.gutter.is_empty() || !self.cursors.is_empty();
+        let has_overlay =
+            !self.gutter.is_empty() || !self.cursors.is_empty() || !self.inline.is_empty();
         let frame = has_overlay
             .then(|| Frame::read(&self.editor, bounds, window, cx))
             .flatten();
@@ -137,6 +140,35 @@ impl LatticeEditor {
                         cx,
                     );
                     painted.gutter.push((layer, row, mark_bounds));
+                }
+            }
+            if !self.inline.is_empty() {
+                let style = self
+                    .editor
+                    .update(cx, |editor, cx| editor.style(cx).text.clone());
+                for (layer, items) in &self.inline {
+                    for anchored in items {
+                        let offset = anchored.anchor.to_offset(&text);
+                        let Some(caret) =
+                            geometry::caret_rect(&self.editor, &text, offset, bounds, window, cx)
+                        else {
+                            continue;
+                        };
+                        if !frame.shows_row(caret.top()) {
+                            continue;
+                        }
+                        let width =
+                            inline_texts::text_width(&anchored.item.text, &style, window, cx);
+                        let drawn = inline_texts::paint(
+                            caret.left(),
+                            caret.top(),
+                            width,
+                            frame.line_height,
+                            &anchored.item,
+                            window,
+                        );
+                        painted.inline.push((layer, offset, drawn));
+                    }
                 }
             }
             let mut animating = false;

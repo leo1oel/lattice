@@ -63,6 +63,7 @@ impl Shell {
             cx.observe(&bridge, |this, _, cx| {
                 this.show_overleaf_save(cx);
                 this.push_agent_overleaf(cx);
+                this.show_overleaf_review(cx);
                 cx.notify()
             }),
             // Another window signed in or out, or a request found the

@@ -56,6 +56,7 @@ mod moves;
 mod outline_panel;
 pub mod outline_rail;
 mod overleaf_carets;
+mod overleaf_review;
 mod overleaf_text;
 pub mod rail_outline;
 mod save;
@@ -69,6 +70,7 @@ use disk_sync::vanished_key;
 pub use events::EditorPanelEvent;
 use outline_rail::OutlineRail;
 pub use overleaf_carets::OverleafCaret;
+pub use overleaf_review::{ChangeMark, CommentMark, ReviewAction};
 use save::normalize_breaks;
 pub use views::DocumentView;
 use views::DocumentViews;
@@ -156,6 +158,7 @@ pub struct EditorPanel {
     overleaf_applying: bool,
     /// Where the file stands with Overleaf, for the save slot.
     overleaf_save: Option<crate::overleaf::bridge::OverleafSaveState>,
+    overleaf_review: overleaf_review::ReviewLayer,
     /// The file's word count as of opening or the last save; counted off the
     /// main thread.
     words: Option<usize>,
@@ -420,6 +423,7 @@ impl EditorPanel {
             overleaf_caret: (0, 0),
             overleaf_applying: false,
             overleaf_save: None,
+            overleaf_review: Default::default(),
             words: None,
             buffer_todos: None,
             status_width: Default::default(),

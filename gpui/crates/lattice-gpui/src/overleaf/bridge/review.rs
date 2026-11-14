@@ -105,6 +105,17 @@ impl OverleafBridge {
         self.review.authors.get(user_id?).map(String::as_str)
     }
 
+    /// The hue of a suggestion author named `name`, from the joined
+    /// documents' suggestions.
+    pub fn suggestion_hue_of(&self, name: &str) -> Option<u32> {
+        self.review
+            .docs
+            .values()
+            .flat_map(|review| &review.changes)
+            .find(|change| self.author_name(change.user_id.as_deref()) == Some(name))
+            .map(|change| change.hue)
+    }
+
     /// The live document's comments and suggestions, if it is `path`.
     pub fn live_review(&self, path: &str) -> Option<&DocReview> {
         let doc_id = self.doc_of_path(path)?;

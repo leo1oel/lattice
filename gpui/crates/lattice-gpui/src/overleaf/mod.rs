@@ -21,6 +21,7 @@ mod channel;
 pub mod download;
 pub mod outcome;
 pub(crate) mod parts;
+pub mod people;
 pub mod picker;
 mod remote_deletes;
 pub mod review;

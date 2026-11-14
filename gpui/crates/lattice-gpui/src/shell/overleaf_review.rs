@@ -1,0 +1,81 @@
+//! The window's side of review with Overleaf: each open editor shows the
+//! comments and suggestions on its file (`editor_panel::overleaf_review`),
+//! refreshed whenever the bridge changes, and a suggestion card's Accept or
+//! Reject goes to the bridge.
+
+use gpui::{Context, Entity};
+use lattice_i18n::t;
+
+use super::Shell;
+use crate::{
+    editor_panel::{ChangeMark, CommentMark, EditorPanel, ReviewAction},
+    overleaf::people::person_color,
+};
+
+impl Shell {
+    /// Every open editor shows its file's comments and suggestions.
+    pub(super) fn show_overleaf_review(&mut self, cx: &mut Context<Self>) {
+        let bridge = self.overleaf.read(cx);
+        let can_act = bridge.can_review();
+        let shown: Vec<(Entity<EditorPanel>, Vec<CommentMark>, Vec<ChangeMark>)> = self
+            .open_editors()
+            .into_iter()
+            .map(|editor| {
+                let path = editor.read(cx).relative().to_string();
+                let comments = bridge
+                    .comments_in(&path)
+                    .into_iter()
+                    .map(|(range, thread)| {
+                        let opener = thread.messages.first();
+                        let color = opener.map_or(person_color(bridge, "", None, false), |m| {
+                            person_color(bridge, &m.author_name, m.author_email.as_deref(), m.mine)
+                        });
+                        CommentMark {
+                            len: range.quote.encode_utf16().count() as i64,
+                            from: range.position,
+                            thread_id: range.thread_id,
+                            color,
+                        }
+                    })
+                    .collect();
+                let changes = bridge
+                    .live_review(&path)
+                    .map(|review| {
+                        review
+                            .changes
+                            .iter()
+                            .map(|change| ChangeMark {
+                                author: bridge
+                                    .author_name(change.user_id.as_deref())
+                                    .map(|name| name.to_string().into())
+                                    .unwrap_or_else(|| t!("Unknown").into()),
+                                change: change.clone(),
+                                can_act,
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                (editor, comments, changes)
+            })
+            .collect();
+        for (editor, comments, changes) in shown {
+            editor.update(cx, |editor, cx| {
+                editor.set_overleaf_review(comments, changes, cx)
+            });
+        }
+    }
+
+    /// A suggestion card's Accept or Reject.
+    pub(super) fn overleaf_review_action(
+        &mut self,
+        editor: &Entity<EditorPanel>,
+        action: &ReviewAction,
+        cx: &mut Context<Self>,
+    ) {
+        let path = editor.read(cx).relative().to_string();
+        self.overleaf.update(cx, |bridge, cx| match action {
+            ReviewAction::Accept(id) => bridge.accept_changes(&path, vec![id.clone()], cx),
+            ReviewAction::Reject(id) => bridge.reject_changes(&path, vec![id.clone()], cx),
+        });
+    }
+}

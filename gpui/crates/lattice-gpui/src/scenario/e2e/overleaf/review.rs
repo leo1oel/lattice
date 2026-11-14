@@ -12,7 +12,7 @@
 
 use std::time::Duration;
 
-use anyhow::Result;
+use anyhow::{Context as _, Result};
 use gpui::{App, AsyncApp, Entity};
 use lattice_core::overleaf_rt::ot::{delete, insert};
 use serde_json::json;
@@ -93,6 +93,12 @@ impl Run {
             suggested && arrived,
             json!({ "suggested": suggested, "arrived": arrived, "thread": thread, "changes": mock.changes("main.tex"), "comments": mock.comments("main.tex") }),
         );
+
+        let editor = cx
+            .update(|cx| shell.update(cx, |shell, cx| shell.open_editor(&main, cx)))
+            .context("main.tex is open")?;
+        self.overleaf_review_marks(cx, steps, &editor, "Suggested ", quote)
+            .await?;
 
         // Replying, resolving and reopening.
         act(cx, &|bridge, cx| {
@@ -201,9 +207,19 @@ impl Run {
                 .map(|review| review.changes.iter().map(|c| c.id.clone()).collect())
                 .unwrap_or_default()
         });
-        act(cx, &|bridge, cx| {
-            bridge.reject_changes("main.tex", ids.clone(), cx)
-        });
+        self.overleaf_deletion_drawn(cx, steps, &editor, "Suggested ")
+            .await?;
+        // As the card's Reject asks it.
+        for id in &ids {
+            let action = crate::editor_panel::ReviewAction::Reject(id.clone());
+            cx.update(|cx| {
+                editor.update(cx, |_, cx| {
+                    cx.emit(crate::editor_panel::EditorPanelEvent::OverleafReview(
+                        action,
+                    ))
+                })
+            });
+        }
         let rejected = self
             .wait_for(cx, Duration::from_secs(10), |shell, cx| {
                 let text = shell
