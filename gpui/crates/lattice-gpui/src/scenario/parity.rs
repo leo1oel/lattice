@@ -159,6 +159,14 @@ impl Run {
         } else {
             None
         };
+        // The find bar's screen (`scenes.find`).
+        let find_shown = if screen == "find" {
+            let shown = self.parity_find(cx).await?;
+            self.park_pointer(cx)?;
+            Some(shown)
+        } else {
+            None
+        };
         // Help's and the log's screens (`scenes.whatsNew`, `scenes.logs`).
         if matches!(screen.as_str(), "whatsNew" | "logs") {
             self.parity_help(cx, &screen).await?;
@@ -274,6 +282,7 @@ impl Run {
             "htmlLoaded": html_loaded,
             "historyLoaded": history_loaded,
             "submissionShown": submission_shown,
+            "findShown": find_shown,
             "regions": regions,
         }))
     }

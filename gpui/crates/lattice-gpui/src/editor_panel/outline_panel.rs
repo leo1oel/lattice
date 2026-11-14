@@ -187,6 +187,13 @@ impl OutlineRail {
                 hover.item_as(index, kind, row)
             })
             .collect();
+        // A list long enough to scroll gives the scrollbar its own 10px lane
+        // (`.latex-outline-rail-scroll [data-has-vertical-overflow="true"]`),
+        // so the rows' fill and page numbers stop where its track starts
+        // instead of running under the thumb. Whether it scrolls is known
+        // once it is laid out: a change draws the frame again.
+        let overflowing = self.list.max_offset().y > px(0.);
+        let measured = self.list.clone();
         let list = div()
             .relative()
             .flex_1()
@@ -202,9 +209,22 @@ impl OutlineRail {
                             .relative()
                             .flex()
                             .flex_col()
+                            .when(overflowing, |list| list.pr(px(10.)))
                             .child(hover.highlight())
                             .children(rows),
                     ),
+            )
+            .child(
+                gpui::canvas(
+                    move |_, window, _| {
+                        if (measured.max_offset().y > px(0.)) != overflowing {
+                            window.refresh();
+                        }
+                    },
+                    |_, _, _, _| {},
+                )
+                .absolute()
+                .size_full(),
             )
             .child(FluidScrollbar::vertical(
                 "outline-rail-scrollbar",

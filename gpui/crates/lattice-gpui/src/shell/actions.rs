@@ -135,9 +135,11 @@ impl Shell {
             .on_action(cx.listener(|this, _: &super::InsertTable, window, cx| {
                 this.open_table_generator(window, cx)
             }))
-            .on_action(cx.listener(|this, _: &super::PasteImageAsFigure, window, cx| {
-                this.paste_image_as_figure(false, window, cx)
-            }))
+            .on_action(
+                cx.listener(|this, _: &super::PasteImageAsFigure, window, cx| {
+                    this.paste_image_as_figure(false, window, cx)
+                }),
+            )
             .on_action(
                 cx.listener(|this, _: &OpenChecklist, window, cx| this.open_checklist(window, cx)),
             )

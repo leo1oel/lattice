@@ -111,6 +111,13 @@ pub fn present_tabs(cx: &mut App) {
             .is_ok()
         {
             look(Icon::SQUARE_TERMINAL, Surface::Sheet)
+        } else if view
+            .clone()
+            .downcast::<crate::overleaf::collab::OverleafCollabPanel>()
+            .is_ok()
+        {
+            // The Tauri app's `overleaf` view (trellis-icons.tsx).
+            look(Icon::LEAF, Surface::Sheet)
         } else if view.downcast::<EmptySlotPanel>().is_ok() {
             // A document's place: a document's tab, with the empty state's icon.
             TabLook {

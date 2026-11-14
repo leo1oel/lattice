@@ -47,10 +47,17 @@ impl Run {
             let panel = shell.read(cx).overleaf_collab.clone();
             panel.update(cx, |panel, cx| panel.set_tab(CollabTab::Comments, cx))
         })?;
+        // Its tab is the Tauri app's Overleaf view's: "Overleaf", by the leaf.
+        let tab = cx.update(|cx| {
+            use gpui_kit::component::dock::Panel as _;
+            let panel = self.shell.read(cx).overleaf_collab.clone();
+            panel.read(cx).tab_name(cx).map(|name| name.to_string())
+        });
+        let named = tab.as_deref() == Some(lattice_i18n::t!("Overleaf").as_ref());
         steps.check(
-            "the Overleaf collaboration panel opens as the window's comments view",
-            shown,
-            json!({ "shown": shown }),
+            "the Overleaf collaboration panel opens as the window's comments view, its tab named Overleaf",
+            shown && named,
+            json!({ "shown": shown, "tab": tab }),
         );
         Ok(())
     }
