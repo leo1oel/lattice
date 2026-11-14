@@ -71,7 +71,7 @@ async function settingsPage(env, theme, section) {
   await staged.page.keyboard.press("Meta+Comma");
   await staged.page.waitForSelector(".settings-modal", { timeout: 30_000 });
   await staged.page.locator(".settings-nav-group > button", { hasText: section }).click();
-  await staged.page.waitForSelector(".settings-section", { timeout: 30_000 });
+  await staged.page.locator(".settings-nav-group > button.active", { hasText: section }).waitFor({ timeout: 30_000 });
   await staged.page.evaluate(() => (document.activeElement instanceof HTMLElement) && document.activeElement.blur());
   await rest(staged.page, 3000);
   return staged;
