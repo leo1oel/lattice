@@ -16,6 +16,13 @@
 //! - in an editor narrower than 480px, a pip opens the rail instead: every
 //!   item, in a column over the editor's right side.
 //!
+//! Every item is placed, its line on screen or not, in the source view's
+//! coordinates, so the cards scroll with the text as the Tauri app's layer
+//! in CodeMirror's scroller does. Cards that stack past the document's last
+//! line get the room to scroll to (a blank block under that line, the
+//! scroll height an absolutely placed card adds to CodeMirror's scroller),
+//! and a pip's popover is kept inside the view.
+//!
 //! The window's mode (View › Margin review in the Tauri app, the palette's
 //! "Margin review: …" here) is Auto, Markers only or Off. A card's actions
 //! go out as the suggestion card's do (`ReviewAction`); replying opens the
@@ -58,6 +65,13 @@ const NARROW: Pixels = px(480.);
 const PIP: Pixels = px(14.);
 const HOVER_OPEN: Duration = Duration::from_millis(120);
 const HOVER_CLOSE: Duration = Duration::from_millis(200);
+/// A popover is at most this tall, or 70% of the window
+/// (overleaf-margin-review.css's `min(420px, 70vh)`), and scrolls.
+const POPOVER_MAX: Pixels = px(420.);
+/// The blank block that gives stacked cards room past the last line, and
+/// the space it keeps under the last card.
+const ROOM_LAYER: &str = "margin-review-room";
+const ROOM_PAD: Pixels = px(16.);
 
 /// The window's margin review mode.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -104,12 +118,27 @@ pub(super) struct MarginState {
     unfolded: HashSet<String>,
     /// Each card's height, measured as it was last drawn.
     heights: Rc<RefCell<HashMap<String, Pixels>>>,
-    /// The source view's origin in the window, as last drawn.
-    origin: Rc<Cell<Option<Point<Pixels>>>>,
+    /// The source view's bounds in the window, as last drawn.
+    view: Rc<Cell<Option<Bounds<Pixels>>>>,
+    /// The open popover's height, as last drawn.
+    popover_height: Rc<Cell<Pixels>>,
+    /// The lines of room under the last line (`ROOM_LAYER`), as last set.
+    room: u32,
     /// The layout last drawn, for scripted checks.
     pub layout: Option<MarginLayout>,
     /// Each item's card or pip bounds as last drawn, for scripted checks.
     pub painted: Painted,
+}
+
+/// Where a card is drawn.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum CardVariant {
+    /// Beside its line, in the wide layout.
+    Wide,
+    /// In a pip's popover, which paints the surface.
+    Popover,
+    /// In the narrow layout's rail.
+    Rail,
 }
 
 /// Each item's card or pip bounds as last drawn, by key.
@@ -179,11 +208,17 @@ impl EditorPanel {
     ) -> Option<(Pixels, AnyElement)> {
         self.margin.layout = None;
         if self.margin.mode == MarginMode::Off || self.margin.items.is_empty() {
+            self.set_margin_room(0, window, cx);
             return None;
         }
-        let width = width?;
+        let Some(width) = width else {
+            self.set_margin_room(0, window, cx);
+            return None;
+        };
         let editor = self.lattice.read(cx).painted().bounds;
-        let origin = self.margin.origin.get();
+        let view = self.margin.view.get();
+        let origin = view.map(|view| view.origin);
+        let view_height = view.map_or(px(0.), |view| view.size.height);
         let gutter = match (editor, origin) {
             (Some(editor), Some(origin)) => editor.left() - origin.x,
             _ => px(0.),
@@ -215,6 +250,8 @@ impl EditorPanel {
                 Some((item, rect.top() - origin.y, rect.size.height))
             })
             .collect();
+        // The lowest card or pip's bottom, in the view.
+        let mut bottom = px(f32::MIN);
         match layout {
             MarginLayout::Wide => {
                 let mut floor = px(f32::MIN);
@@ -228,8 +265,9 @@ impl EditorPanel {
                         .unwrap_or(px(72.));
                     let top = (top - px(6.)).max(floor);
                     floor = top + height + px(8.);
+                    bottom = bottom.max(top + height);
                     let x = content_right + GAP;
-                    let card = self.margin_card(&item, true, cx);
+                    let card = self.margin_card(&item, CardVariant::Wide, cx);
                     layer = layer.child(self.measured(&item.key, point(x, top), card));
                 }
             }
@@ -240,6 +278,7 @@ impl EditorPanel {
                 for (item, top, line) in lines {
                     let top = (top + (line - PIP) / 2.).max(floor);
                     floor = top + PIP + px(2.);
+                    bottom = bottom.max(top + PIP);
                     let open = self
                         .margin
                         .open
@@ -247,22 +286,53 @@ impl EditorPanel {
                         .is_some_and(|(key, _)| *key == item.key);
                     layer = layer.child(self.pip(&item, point(x, top), open, layout, cx));
                     if open && layout == MarginLayout::Markers {
+                        // Beside the line, left of its pip, over the text;
+                        // never past the view's bottom, where it would be
+                        // cut off, nor its top.
+                        let height = self.margin.popover_height.get();
                         let at = point(
                             (x - CARD - px(10.)).max(content_left),
-                            (top - px(8.)).max(px(0.)),
+                            (top - px(8.))
+                                .min(view_height - height - px(8.))
+                                .max(px(0.)),
                         );
                         popover = Some((item, at));
                     }
                 }
                 if let Some((item, at)) = popover {
-                    let card = self.margin_card(&item, false, cx);
+                    let card = self.margin_card(&item, CardVariant::Popover, cx);
                     let this = cx.weak_entity();
+                    let measured = self.margin.popover_height.clone();
+                    let max = POPOVER_MAX
+                        .min(window.viewport_size().height * 0.7)
+                        .min(view_height);
+                    // The popover paints the card's surface, so its shadow
+                    // stays outside what scrolls.
                     layer = layer.child(
                         div()
                             .id("margin-review-popover")
                             .absolute()
                             .left(at.x)
                             .top(at.y)
+                            .max_h(max)
+                            .rounded(px(10.))
+                            .bg(cx.palette().raised)
+                            .shadow(Elevation::Popover.shadows(cx.palette()))
+                            .overflow_y_scroll()
+                            .child(
+                                canvas(
+                                    move |bounds, window, _| {
+                                        if measured.replace(bounds.size.height)
+                                            != bounds.size.height
+                                        {
+                                            window.refresh();
+                                        }
+                                    },
+                                    |_, _, _, _| {},
+                                )
+                                .absolute()
+                                .size_full(),
+                            )
                             .on_hover(move |hovered, _, cx| {
                                 this.update(cx, |this, cx| this.margin_hovered(None, *hovered, cx))
                                     .ok();
@@ -275,16 +345,52 @@ impl EditorPanel {
                 }
             }
         }
-        let origin = self.margin.origin.clone();
+        // Room to scroll the last cards into view: as many lines under the
+        // last one as the stack reaches past it.
+        let end = self.buffer.read(cx).len();
+        let last = self
+            .lattice
+            .update(cx, |lattice, cx| lattice.offset_bounds(end, window, cx));
+        let room = match (last, origin) {
+            (Some(last), Some(origin)) if bottom > px(f32::MIN) => room_lines(
+                bottom + ROOM_PAD - (last.bottom() - origin.y),
+                last.size.height,
+            ),
+            _ => self.margin.room,
+        };
+        self.set_margin_room(room, window, cx);
+        let view = self.margin.view.clone();
         let layer = layer.child(
-            canvas(
-                move |bounds, _, _| origin.set(Some(bounds.origin)),
-                |_, _, _, _| {},
-            )
-            .absolute()
-            .size_full(),
+            canvas(move |bounds, _, _| view.set(Some(bounds)), |_, _, _, _| {})
+                .absolute()
+                .size_full(),
         );
         Some((clearance, layer.into_any_element()))
+    }
+
+    /// Keep `lines` lines of blank room under the document's last line.
+    fn set_margin_room(&mut self, lines: u32, window: &mut Window, cx: &mut Context<Self>) {
+        if self.margin.room == lines {
+            return;
+        }
+        self.margin.room = lines;
+        let blocks = if lines == 0 {
+            Vec::new()
+        } else {
+            let line = self.buffer.read(cx).max_point().row;
+            vec![lattice_editor::blocks::BlockWidget {
+                line,
+                side: lattice_editor::blocks::BlockSide::Below,
+                lines,
+                render: std::sync::Arc::new(|_| div().into_any_element()),
+            }]
+        };
+        // Not while this frame is being laid out: the editor's block map
+        // changes, and its next frame takes the room.
+        let lattice = self.lattice.clone();
+        window.defer(cx, move |_, cx| {
+            lattice.update(cx, |lattice, cx| lattice.set_blocks(ROOM_LAYER, blocks, cx));
+        });
     }
 
     /// A card placed at `at` whose height is measured as it is drawn.
@@ -492,7 +598,7 @@ impl EditorPanel {
         let this = cx.weak_entity();
         let mut list = div().flex().flex_col().gap(px(8.));
         for item in &self.margin.items {
-            list = list.child(self.margin_card(item, false, cx));
+            list = list.child(self.margin_card(item, CardVariant::Rail, cx));
         }
         div()
             .id("margin-review-rail")
@@ -547,5 +653,32 @@ impl EditorPanel {
             )
             .child(list)
             .into_any_element()
+    }
+}
+
+/// Whole lines (each `line` tall) that make room for `overflow` past the
+/// last line; none when nothing reaches past it.
+fn room_lines(overflow: Pixels, line: Pixels) -> u32 {
+    if overflow <= px(0.) || line <= px(0.) {
+        0
+    } else {
+        (overflow / line).ceil() as u32
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use gpui::px;
+
+    use super::room_lines;
+
+    #[test]
+    fn room_covers_the_overflow_in_whole_lines() {
+        assert_eq!(room_lines(px(-40.), px(20.)), 0);
+        assert_eq!(room_lines(px(0.), px(20.)), 0);
+        assert_eq!(room_lines(px(1.), px(20.)), 1);
+        assert_eq!(room_lines(px(40.), px(20.)), 2);
+        assert_eq!(room_lines(px(41.), px(20.)), 3);
+        assert_eq!(room_lines(px(41.), px(0.)), 0);
     }
 }

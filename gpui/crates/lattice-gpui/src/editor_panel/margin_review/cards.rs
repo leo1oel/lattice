@@ -16,7 +16,7 @@ use lattice_ui::{
     tokens::FONT_WEIGHT_MEDIUM,
 };
 
-use super::{CARD, ItemKind, MarginItem};
+use super::{CARD, CardVariant, ItemKind, MarginItem};
 use crate::editor_panel::{EditorPanel, EditorPanelEvent, overleaf_review::ReviewAction};
 
 impl EditorPanel {
@@ -24,28 +24,39 @@ impl EditorPanel {
     pub(super) fn margin_card(
         &self,
         item: &MarginItem,
-        raised: bool,
+        variant: CardVariant,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let palette = cx.palette().clone();
         let card = div()
+            .id(SharedString::from(format!("margin-card-{}", item.key)))
             .w(CARD)
             .flex()
             .flex_col()
             .gap(px(8.))
             .p(px(10.))
-            .rounded(px(10.))
-            .border_1()
-            .border_color(palette.line)
-            .bg(palette.raised)
-            .shadow(
-                if raised {
-                    Elevation::Raised
-                } else {
-                    Elevation::Popover
-                }
-                .shadows(&palette),
-            );
+            .rounded(px(10.));
+        // overleaf-margin-review.css: beside its line, the elevated surface
+        // on the raised shadow (its ring for an edge), lifting to the
+        // popover's under the pointer; in a popover, bare on the popover's
+        // own surface; in the rail, the panel's ground inside a hairline
+        // that firms under the pointer.
+        let card = match variant {
+            CardVariant::Wide => {
+                let lifted = Elevation::Popover.shadows(&palette);
+                card.bg(palette.raised)
+                    .shadow(Elevation::Raised.shadows(&palette))
+                    .hover(move |this| this.shadow(lifted.clone()))
+            }
+            CardVariant::Popover => card,
+            CardVariant::Rail => {
+                let strong = palette.line_strong;
+                card.bg(palette.panel)
+                    .border_1()
+                    .border_color(palette.line)
+                    .hover(move |this| this.border_color(strong))
+            }
+        };
         let emit = |action: ReviewAction| {
             let this = cx.weak_entity();
             move |_: &gpui::ClickEvent, _: &mut Window, cx: &mut App| {

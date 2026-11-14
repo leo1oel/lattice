@@ -439,13 +439,14 @@ impl BasePanel for OverleafCollabPanel {
 }
 
 impl Panel for OverleafCollabPanel {
-    /// The tab's title, as Trellis names the tool.
+    /// The tab's title, as Trellis names the tool (trellis-titles.ts's
+    /// `overleaf`), beside its leaf (`panels.rs`).
     fn tab_name(&self, _: &App) -> Option<SharedString> {
-        Some(t!("Overleaf collaboration").into())
+        Some(t!("Overleaf").into())
     }
 
     fn title(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
-        t!("Overleaf collaboration")
+        t!("Overleaf")
     }
 
     fn inner_padding(&self, _: &App) -> bool {
