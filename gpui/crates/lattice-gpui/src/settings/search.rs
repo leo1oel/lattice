@@ -247,10 +247,9 @@ pub fn with_live_preview(mut entries: Vec<Entry>) -> Vec<Entry> {
     )
     .terms(format!(
         "{builds} LuaLaTeX rtex {}",
-        tc!(
-            "Search words for the Live preview setting, space-separated",
-            "realtime instant"
-        )
+        // The catalog's comment: search words for the Live preview setting,
+        // space-separated.
+        t!("realtime instant")
     ));
     let at = entries
         .iter()

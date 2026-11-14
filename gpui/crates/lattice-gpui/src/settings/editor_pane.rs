@@ -349,7 +349,7 @@ fn builds(
             width,
             cx,
         ));
-        if let Some(live) = dialog.live_preview(cx) {
+        if let Some(live) = dialog.live_preview() {
             rows.extend(live_preview_rows(dialog, &live, width, cx));
         }
     }
