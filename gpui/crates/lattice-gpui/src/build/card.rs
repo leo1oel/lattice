@@ -16,8 +16,8 @@ use std::time::Duration;
 
 use gpui::{
     AnyElement, App, Entity, FontWeight, Hsla, InteractiveElement as _, IntoElement,
-    ParentElement as _, StatefulInteractiveElement as _, Styled as _, Window, div,
-    prelude::*, px, relative,
+    ParentElement as _, StatefulInteractiveElement as _, Styled as _, Window, div, prelude::*, px,
+    relative,
 };
 use lattice_core::models::Diagnostic;
 use lattice_i18n::t;

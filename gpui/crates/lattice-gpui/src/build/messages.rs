@@ -106,7 +106,10 @@ fn pdf_fonts_text(diagnostic: &Diagnostic, up_to_date: bool) -> String {
     let venue = p("venue");
     let fonts = p("fonts");
     let problem = if fonts.is_empty() {
-        t!("PDF fonts are not the Times that {venue} requires.", venue = venue)
+        t!(
+            "PDF fonts are not the Times that {venue} requires.",
+            venue = venue
+        )
     } else {
         t!(
             "PDF fonts are not the Times that {venue} requires ({fonts}).",
@@ -219,7 +222,10 @@ mod tests {
     #[test]
     fn lattices_advice_is_filled_from_its_params() {
         assert_eq!(
-            text(&coded("build-stalled", &[("seconds", "30"), ("place", "line 12")])),
+            text(&coded(
+                "build-stalled",
+                &[("seconds", "30"), ("place", "line 12")]
+            )),
             "TeX stopped making progress, so the build was stopped after 30 s. Look for an unfinished command just before line 12."
         );
         assert_eq!(

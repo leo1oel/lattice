@@ -47,8 +47,19 @@ pub fn whole_lines(marks: &[BuildMark], text: &str) -> Vec<Located> {
             } else {
                 end
             };
-            (end > start).then(|| Located {
-                range: start..end,
+            // An empty line keeps one character to hover: its line break,
+            // or the one before it at the end of the file.
+            let range = if end > start {
+                start..end
+            } else if start < text.len() {
+                start..start + 1
+            } else if start > 0 {
+                start - 1..start
+            } else {
+                return None;
+            };
+            Some(Located {
+                range,
                 severity: mark.severity,
                 message: mark.message.clone(),
             })
@@ -112,17 +123,17 @@ impl BuildDiagnostics {
             return;
         };
         let snapshot = editor.read(cx).buffer().read(cx).snapshot();
-        let text = snapshot.text();
-        let current = !self.marks.is_empty() && self.compiled.as_deref() == Some(text.as_str());
+        let compiled = self.compiled.as_deref().filter(|compiled| {
+            !self.marks.is_empty()
+                && compiled.len() == snapshot.len()
+                && *compiled == snapshot.text()
+        });
+        let current = compiled.is_some();
         if current == self.drawn && !force {
             return;
         }
         self.drawn = current;
-        let located = if current {
-            whole_lines(&self.marks, &text)
-        } else {
-            Vec::new()
-        };
+        let located = compiled.map_or_else(Vec::new, |text| whole_lines(&self.marks, text));
         *self.shown.borrow_mut() = located
             .iter()
             .map(|located| Anchored {
@@ -160,7 +171,16 @@ mod tests {
         let text = "\\documentclass{article}\r\n\\begin{document}\n\\foo\n";
         let located = whole_lines(&[mark(3), mark(0), mark(99)], text);
         let ranges: Vec<&str> = located.iter().map(|l| &text[l.range.clone()]).collect();
-        // Line 99 lands on the empty last line, which has nothing to underline.
-        assert_eq!(ranges, ["\\foo", "\\documentclass{article}"]);
+        // Line 99 lands on the empty last line, which keeps the break before it.
+        assert_eq!(ranges, ["\\foo", "\\documentclass{article}", "\n"]);
+    }
+
+    #[test]
+    fn an_empty_line_keeps_one_character_to_hover() {
+        let text = "a\n\r\n\nb";
+        let located = whole_lines(&[mark(2), mark(3)], text);
+        let ranges: Vec<_> = located.iter().map(|l| l.range.clone()).collect();
+        assert_eq!(ranges, [2..3, 4..5]);
+        assert!(whole_lines(&[mark(1)], "").is_empty());
     }
 }

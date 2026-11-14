@@ -57,6 +57,17 @@ pub(crate) struct BuildWatch {
     _project: Option<Subscription>,
 }
 
+/// The project's root documents, as its manifest names them.
+fn root_documents(project: &Entity<Project>, cx: &gpui::App) -> Vec<String> {
+    project
+        .read(cx)
+        .manifest()
+        .root_documents
+        .iter()
+        .map(|document| document.path.clone())
+        .collect()
+}
+
 impl Shell {
     fn build_watch(&mut self) -> &mut BuildWatch {
         self.parts.get_mut::<BuildWatch>()
@@ -93,27 +104,26 @@ impl Shell {
         let Some(project) = self.project.clone() else {
             return;
         };
-        let root_documents: Vec<String> = project
-            .read(cx)
-            .manifest()
-            .root_documents
-            .iter()
-            .map(|document| document.path.clone())
-            .collect();
-        // What the window's documents answer for themselves: an editor's
-        // save builds, and an outside edit reaches its editor.
+        let root_documents = root_documents(&project, cx);
+        let root = project.read(cx).root().to_path_buf();
+        // What the open editors answer for themselves: an editor's save
+        // builds, and an outside edit reaches its editor. A file gone from
+        // under its editor reaches it as no edit, so its report counts.
         let mut open: Vec<String> = self
             .open_editors()
             .iter()
-            .map(|editor| editor.read(cx).relative().to_string())
-            .chain(self.open_documents(cx).1)
-            .filter_map(|path| inputs::normalize(&path))
+            .filter_map(|editor| inputs::normalize(editor.read(cx).relative()))
             .collect();
         open.sort();
         open.dedup();
-        let changed = self.build_watch().watched.report(paths, &root_documents, |path| {
-            open.binary_search_by(|open| open.as_str().cmp(path)).is_ok()
-        });
+        let changed = self
+            .build_watch()
+            .watched
+            .report(paths, &root_documents, |path| {
+                open.binary_search_by(|open| open.as_str().cmp(path))
+                    .is_ok()
+                    && root.join(path).exists()
+            });
         if !changed {
             return;
         }
@@ -126,8 +136,13 @@ impl Shell {
     /// An open editor took in an outside edit of `path`: it builds with the
     /// other outside writes, once they pause.
     pub(super) fn outside_edit(&mut self, path: &str, window: &mut Window, cx: &mut Context<Self>) {
-        self.build_watch().watched.noted(path);
-        if crate::settings::builds_automatically(cx) {
+        let Some(project) = self.project.clone() else {
+            return;
+        };
+        let root_documents = root_documents(&project, cx);
+        if self.build_watch().watched.noted(path, &root_documents)
+            && crate::settings::builds_automatically(cx)
+        {
             self.wait_for_writes_to_pause(window, cx);
         }
     }
@@ -228,7 +243,10 @@ impl Shell {
         for editor in editors {
             let (relative, lattice) = {
                 let editor = editor.read(cx);
-                (editor.relative().to_string(), editor.lattice_editor().clone())
+                (
+                    editor.relative().to_string(),
+                    editor.lattice_editor().clone(),
+                )
             };
             let named: Vec<_> = result
                 .diagnostics

@@ -82,12 +82,10 @@ impl WatchedBuilds {
         changed
     }
 
-    /// An open document took in an outside edit of `path`, which its own
-    /// report left out.
-    pub(crate) fn noted(&mut self, path: &str) {
-        if let Some(file) = inputs::normalize(path) {
-            self.pending.insert(file);
-        }
+    /// An open editor took in an outside edit of `path`, which its own
+    /// report left out. True when it is a build input, as `report` tells.
+    pub(crate) fn noted(&mut self, path: &str, root_documents: &[String]) -> bool {
+        self.report(Some(&[path.to_string()]), root_documents, |_| false)
     }
 
     /// The writes paused (`IDLE` after the last report): build or not.
@@ -166,7 +164,12 @@ mod tests {
         let mut watched = WatchedBuilds::default();
         let open = |path: &str| path == "main.tex";
         assert!(!watched.report(
-            Some(&paths(&["main.aux", "main.pdf", "./main.tex", ".git/index"])),
+            Some(&paths(&[
+                "main.aux",
+                "main.pdf",
+                "./main.tex",
+                ".git/index"
+            ])),
             &roots(),
             open
         ));
@@ -177,7 +180,11 @@ mod tests {
     fn what_the_last_pass_wrote_never_starts_the_next() {
         let mut watched = WatchedBuilds::default();
         watched.pass_wrote(&paths(&["figures/plot-cache.dat"]));
-        assert!(!watched.report(Some(&paths(&["figures/plot-cache.dat"])), &roots(), |_| false));
+        assert!(
+            !watched.report(Some(&paths(&["figures/plot-cache.dat"])), &roots(), |_| {
+                false
+            })
+        );
         assert_eq!(watched.fire(false), Fire::Nothing);
     }
 
@@ -190,6 +197,18 @@ mod tests {
         watched.scheduled();
         assert!(!watched.idle());
         // The running pass started before the write: it is still pending.
+        assert_eq!(watched.fire(false), Fire::Build);
+    }
+
+    #[test]
+    fn an_open_editors_outside_edit_builds_unless_a_build_wrote_it() {
+        let mut watched = WatchedBuilds::default();
+        watched.pass_wrote(&paths(&["figures/plot-cache.dat"]));
+        assert!(!watched.noted("main.bbl", &roots()));
+        assert!(!watched.noted("./main.log", &roots()));
+        assert!(!watched.noted("figures/plot-cache.dat", &roots()));
+        assert_eq!(watched.fire(false), Fire::Nothing);
+        assert!(watched.noted("chapters/intro.tex", &roots()));
         assert_eq!(watched.fire(false), Fire::Build);
     }
 
