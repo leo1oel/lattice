@@ -39,7 +39,15 @@
  * A `--manifest-path` (relative to where this was started) is rewritten to the
  * same file in the shared tree, so `-- clippy --manifest-path
  * src-tauri/Cargo.toml` checks the Tauri crates there, in their own
- * src-tauri/target. Since Cargo.toml paths are the shared tree's, every
+ * src-tauri/target. In a run worktree a plain compiling cargo command is
+ * refused (scripts/run-worktree-cargo-guard.mjs, installed by the pipeline's
+ * prepare command) with the matching command for this script; the guard's
+ * .cargo/config.toml is git-ignored, so it is never mirrored here. Pointing
+ * every checkout at one CARGO_TARGET_DIR instead would be unsafe: Cargo judges
+ * freshness by mtime, so a checkout whose files predate another checkout's
+ * build reuses artifacts built from different content; the mirror below gives
+ * every changed file a new mtime, which is what makes one shared tree safe.
+ * Since Cargo.toml paths are the shared tree's, every
  * checkout's build of a crate lands on the same artifacts; the lock keeps a
  * second checkout from mirroring its sources over a build still running, and
  * each run compiles exactly the sources it mirrored. The Tauri crates need

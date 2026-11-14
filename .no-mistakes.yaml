@@ -12,7 +12,12 @@
 
 commands:
   # Run worktrees start with tracked files only, so node_modules is absent.
-  prepare: "pnpm install --frozen-lockfile"
+  # The guard first (plain node, no dependencies): it writes this worktree's
+  # git-ignored .cargo/config.toml, so any cargo command that compiles here
+  # fails at once with the same command through scripts/gpui-build.mjs,
+  # instead of writing a cold multi-GB gpui/target or src-tauri/target. The
+  # instructions below alone did not stop agents from running plain cargo.
+  prepare: "node scripts/run-worktree-cargo-guard.mjs install && pnpm install --frozen-lockfile"
   # The scoped gate, not the full suite: the whole Vitest suite cost 19-29
   # minutes a run here for little new signal. Pull requests run no CI; the
   # optional `pnpm signoff` covers the Rust and GPUI stages for whoever wants
@@ -62,7 +67,9 @@ test:
     - Tauri crates: `node scripts/gpui-build.mjs -- clippy --manifest-path
       src-tauri/Cargo.toml --all-targets --all-features -- -D warnings` or
       `-- test --manifest-path src-tauri/Cargo.toml --package research-writer`.
-    `cargo fmt` builds nothing and may run directly.
+    `cargo fmt` builds nothing and may run directly. A plain cargo command
+    that compiles fails here at once (the prepare command's guard) and prints
+    the gpui-build command to run instead; run that.
 
     The configured test command is the scoped gate (`pnpm gate:changed`), not
     the full suite: do not run `pnpm test` or the whole Vitest suite here.
