@@ -52,6 +52,9 @@ pub struct OverleafHistory {
     /// The first page has been asked for since the project was linked.
     asked: bool,
     seq: u64,
+    /// Counts the resets, so an action started before one is not settled
+    /// on the project after it.
+    epoch: u64,
     pub opened: Option<OpenedOverleaf>,
 }
 
@@ -61,6 +64,7 @@ impl OverleafHistory {
     fn cleared(&self) -> Self {
         Self {
             seq: self.seq,
+            epoch: self.epoch + 1,
             ..Self::default()
         }
     }
@@ -411,6 +415,7 @@ impl HistoryPanel {
         }
         self.overleaf.busy = true;
         self.overleaf.error = None;
+        let epoch = self.overleaf.epoch;
         cx.notify();
         let run = cx
             .background_executor()
@@ -422,6 +427,7 @@ impl HistoryPanel {
                 cx.update(crate::overleaf::session_changed);
             }
             let reread = this.update(cx, |this, cx| match outcome {
+                _ if this.overleaf.epoch != epoch => None,
                 Ok(()) => {
                     notices::show(
                         Notice::new(ToastLevel::Success, done).source(t!("Overleaf history")),
@@ -445,8 +451,10 @@ impl HistoryPanel {
             if let Ok(Some(reread)) = reread {
                 reread.await;
                 this.update(cx, |this, cx| {
-                    this.overleaf.busy = false;
-                    cx.notify();
+                    if this.overleaf.epoch == epoch {
+                        this.overleaf.busy = false;
+                        cx.notify();
+                    }
                 })
                 .ok();
             }
@@ -701,10 +709,12 @@ mod tests {
             busy: true,
             asked: true,
             seq: 3,
+            epoch: 1,
             ..OverleafHistory::default()
         };
         let history = history.cleared();
         assert_eq!(history.seq, 3);
+        assert_eq!(history.epoch, 2);
         assert!(!history.loading && !history.busy && !history.asked);
         assert_eq!(history.error, None);
     }

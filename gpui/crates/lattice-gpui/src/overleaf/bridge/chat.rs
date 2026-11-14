@@ -29,6 +29,9 @@ pub(super) struct ChatState {
     loaded: bool,
     reading: Option<Task<()>>,
     generation: u64,
+    /// Counts the project changes, so a send started before one is not
+    /// settled on the project after it.
+    epoch: u64,
     sending: bool,
     error: Option<SharedString>,
 }
@@ -96,6 +99,7 @@ impl OverleafBridge {
         }
         self.chat.sending = true;
         self.chat.error = None;
+        let epoch = self.chat.epoch;
         cx.notify();
         cx.spawn(async move |this, cx| {
             let sent = cx
@@ -112,6 +116,9 @@ impl OverleafBridge {
                 cx.update(super::super::session_changed);
             }
             this.update(cx, |this, cx| {
+                if this.chat.epoch != epoch {
+                    return;
+                }
                 this.chat.sending = false;
                 match sent {
                     Ok(()) => done(cx),
@@ -175,8 +182,10 @@ impl OverleafBridge {
     /// The project changed or closed: nothing of its chat stays.
     pub(super) fn chat_reset(&mut self) {
         let generation = self.chat.generation + 1;
+        let epoch = self.chat.epoch + 1;
         self.chat = ChatState {
             generation,
+            epoch,
             ..Default::default()
         };
     }
