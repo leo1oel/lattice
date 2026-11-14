@@ -181,15 +181,7 @@ impl AnnotationsPanel {
             Some((root, active)) => (Some(root), active),
             None => (None, None),
         };
-        if self.root.is_some() && self.root != root {
-            self.writing = None;
-            self.active_note = None;
-            self.filter = Filter::Open;
-        }
-        if let Some(root) = &root {
-            self.store.update(cx, |store, cx| store.ensure(root, cx));
-        }
-        self.root = root;
+        self.set_root(root, cx);
         self.active = active;
         let paths: HashSet<String> = self.notes(cx).into_iter().map(|comment| comment.path).collect();
         self.sources = paths
@@ -199,19 +191,34 @@ impl AnnotationsPanel {
             .collect();
     }
 
-    /// The note last opened: its card stands out and comes into view.
-    pub fn set_active_note(&mut self, id: Option<String>, cx: &mut Context<Self>) {
-        self.follow_host(cx);
+    /// The project the panel lists: a change from one project to another
+    /// closes what was being written and goes back to the open notes.
+    fn set_root(&mut self, root: Option<PathBuf>, cx: &mut Context<Self>) {
+        if self.root.is_some() && self.root != root {
+            self.writing = None;
+            self.active_note = None;
+            self.filter = Filter::Open;
+        }
+        if let Some(root) = &root {
+            self.store.update(cx, |store, cx| store.ensure(root, cx));
+        }
+        self.root = root;
+    }
+
+    /// The note last opened in the project `root`: its card stands out and
+    /// comes into view.
+    pub fn set_active_note(&mut self, root: PathBuf, id: Option<String>, cx: &mut Context<Self>) {
+        self.set_root(Some(root), cx);
         if self.active_note != id {
             self.active_note = id;
             cx.notify();
         }
     }
 
-    /// Open the reply box on the note `id` (a card's Reply…), showing every
-    /// note so it is listed.
-    pub fn reply_to(&mut self, id: String, window: &mut Window, cx: &mut Context<Self>) {
-        self.follow_host(cx);
+    /// Open the reply box on the note `id` in the project `root` (a card's
+    /// Reply…), showing every note so it is listed.
+    pub fn reply_to(&mut self, root: PathBuf, id: String, window: &mut Window, cx: &mut Context<Self>) {
+        self.set_root(Some(root), cx);
         self.filter = Filter::All;
         self.active_note = Some(id.clone());
         self.start_reply(id, window, cx);
