@@ -196,6 +196,7 @@ impl Run {
     /// the update to its end (on the stand-in installer).
     async fn tex_reminder(&self, cx: &mut AsyncApp, steps: &mut Steps, fixture: &Fixture) -> Result<()> {
         let stack = cx.update(notices::install);
+        fixture.stub.set_packages_outdated();
         let center = cx.update(crate::build::tex_setup::center::install);
         cx.update(|cx| center.update(cx, |center, cx| center.check_package_updates(false, cx)));
         self.wait_for(cx, Duration::from_secs(5), |_, cx| {
