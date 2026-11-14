@@ -31,6 +31,8 @@ pub const TEXTAREA_MIN_HEIGHT: Pixels = px(88.);
 pub struct Textarea {
     state: Entity<TextareaState>,
     height: Pixels,
+    /// The field is as tall as its lines (the state's `auto_grow`), not fixed.
+    grows: bool,
     invalid: bool,
     disabled: bool,
 }
@@ -40,6 +42,7 @@ impl Textarea {
         Self {
             state: state.clone(),
             height: TEXTAREA_MIN_HEIGHT,
+            grows: false,
             invalid: false,
             disabled: false,
         }
@@ -48,6 +51,14 @@ impl Textarea {
     /// Taller than the 88px floor, for a longer note.
     pub fn height(mut self, height: Pixels) -> Self {
         self.height = height.max(TEXTAREA_MIN_HEIGHT);
+        self
+    }
+
+    /// As tall as its lines, between the rows its state's `auto_grow` sets,
+    /// for a composer that starts at one line (`.chat-composer textarea`)
+    /// rather than the 88px a form's field takes.
+    pub fn grows(mut self) -> Self {
+        self.grows = true;
         self
     }
 
@@ -87,13 +98,13 @@ impl RenderOnce for Textarea {
         let input = KitTextarea::new(&self.state)
             .appearance(false)
             .disabled(self.disabled)
-            .h_full()
+            .when(!self.grows, |input| input.h_full())
             .text_size(font_size)
             .line_height(leading);
         let frame = div()
             .id(id)
             .flex()
-            .h(self.height)
+            .when(!self.grows, |frame| frame.h(self.height))
             .rounded(px(6.))
             .border_1()
             .border_color(border)
@@ -107,6 +118,12 @@ impl RenderOnce for Textarea {
         } else {
             track_pointer(frame, pointer)
         };
-        frame.child(div().flex_1().min_w_0().h_full().child(input))
+        frame.child(
+            div()
+                .flex_1()
+                .min_w_0()
+                .when(!self.grows, |slot| slot.h_full())
+                .child(input),
+        )
     }
 }

@@ -25,6 +25,8 @@ const MARGIN_NOTES_SOURCE: &str =
     include_str!("../../../../src/components/ui/research-art-margin-notes.ts");
 const PROOF_MARKS_SOURCE: &str =
     include_str!("../../../../src/components/ui/research-art-proof-marks.ts");
+const LETTER_RACK_SOURCE: &str =
+    include_str!("../../../../src/components/ui/research-art-letter-rack.ts");
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Tone {
@@ -48,6 +50,7 @@ static DATED_DRAFTS: LazyLock<Vec<ArtPath>> = LazyLock::new(|| parse(DATED_DRAFT
 static NOTE_SPIKE: LazyLock<Vec<ArtPath>> = LazyLock::new(|| parse(NOTE_SPIKE_SOURCE));
 static MARGIN_NOTES: LazyLock<Vec<ArtPath>> = LazyLock::new(|| parse(MARGIN_NOTES_SOURCE));
 static PROOF_MARKS: LazyLock<Vec<ArtPath>> = LazyLock::new(|| parse(PROOF_MARKS_SOURCE));
+static LETTER_RACK: LazyLock<Vec<ArtPath>> = LazyLock::new(|| parse(LETTER_RACK_SOURCE));
 
 /// The drawings ported so far, each read from the Tauri app's own module.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -60,6 +63,8 @@ pub enum Drawing {
     MarginNotes,
     /// `PROOF_MARKS`: no suggestions (Overleaf's suggestions).
     ProofMarks,
+    /// `LETTER_RACK`: no messages (Overleaf's chat).
+    LetterRack,
 }
 
 impl Drawing {
@@ -69,6 +74,7 @@ impl Drawing {
             Drawing::NoteSpike => &NOTE_SPIKE,
             Drawing::MarginNotes => &MARGIN_NOTES,
             Drawing::ProofMarks => &PROOF_MARKS,
+            Drawing::LetterRack => &LETTER_RACK,
         }
     }
 }
@@ -185,6 +191,7 @@ mod tests {
             Drawing::NoteSpike,
             Drawing::MarginNotes,
             Drawing::ProofMarks,
+            Drawing::LetterRack,
         ] {
             let paths = drawing.paths();
             assert!(

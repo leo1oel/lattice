@@ -64,6 +64,10 @@ lucide! {
     LOCATE_FIXED = "icons" / "locate-fixed";
     MINUS = "icons" / "minus";
     MESSAGE_SQUARE_TEXT = "icons" / "message-square-text";
+    MESSAGES_SQUARE = "icons" / "messages-square";
+    SEND_HORIZONTAL = "icons" / "send-horizontal";
+    TAG = "icons" / "tag";
+    LEAF = "icons" / "leaf";
     RECTANGLE_HORIZONTAL = "icons" / "rectangle-horizontal";
     REFRESH = "icons" / "refresh-cw";
     SEARCH = "icons" / "search";
