@@ -141,6 +141,10 @@ pub struct Shell {
     papers: Entity<StandInPanel>,
     agent: Entity<StandInPanel>,
     pdf: Entity<PdfPanel>,
+    /// The open project's LuaLaTeX live preview (`crate::live_preview`).
+    pub(crate) live_preview: Entity<crate::live_preview::LivePreview>,
+    /// An automatic build waiting for typing to pause.
+    quiet_builds: crate::live_preview::quiet_builds::QuietBuilds,
     build_panel: Entity<BuildPanel>,
     /// The History tool panel (`crate::history`), one for the window.
     pub(crate) history: Entity<crate::history::HistoryPanel>,
@@ -287,6 +291,9 @@ impl Shell {
         let papers = cx.new(|cx| StandInPanel::new(StandIn::Papers, cx));
         let agent = cx.new(|cx| StandInPanel::new(StandIn::Agent, cx));
         let pdf = cx.new(|cx| PdfPanel::new(PdfPanelKind::Live, window, cx));
+        let live_preview = crate::live_preview::new(cx);
+        let preview = Some(live_preview.clone());
+        pdf.update(cx, |pdf, cx| pdf.set_live_preview(preview, window, cx));
         let build_panel = cx.new(BuildPanel::new);
         let card = cx.new(|cx| DiagnosticsCard::new(build_panel.clone(), cx));
         let history = cx.new(|cx| crate::history::HistoryPanel::new(window, cx));
@@ -418,6 +425,8 @@ impl Shell {
             papers,
             agent,
             pdf,
+            live_preview,
+            quiet_builds: Default::default(),
             build_panel,
             history,
             todos,

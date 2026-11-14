@@ -40,6 +40,7 @@ use lattice_i18n::t;
 
 mod drafts;
 mod links;
+mod live;
 mod pages;
 mod pointer;
 mod search;
@@ -204,6 +205,11 @@ pub struct PdfView {
     /// scenario's look at it).
     pub(super) toolbar_hover: Option<lattice_ui::fluid_hover::FluidHover>,
     stats: RenderStats,
+    /// The live preview's layer over the pages (`crate::live_preview`).
+    live: Option<crate::live_preview::layer::Layer>,
+    /// A document shown whose pages on screen are not all drawn yet: once
+    /// they are, the live preview hears it is on screen.
+    promote: Option<u64>,
     _open_task: Option<Task<()>>,
     _mark_task: Option<Task<()>>,
     settle_task: Option<Task<()>>,
@@ -237,6 +243,9 @@ impl PdfView {
             // A viewer let go of with its pages drawn frees their textures
             // from every window's atlas.
             cx.on_release(|this, cx| {
+                if let Some(layer) = &mut this.live {
+                    layer.release_all(cx);
+                }
                 for slot in &mut this.pages {
                     for drawn in [&mut slot.base, &mut slot.detail] {
                         drawn.cancel();
@@ -304,6 +313,8 @@ impl PdfView {
             zoom_entry: false,
             toolbar_hover: None,
             stats: RenderStats::default(),
+            live: None,
+            promote: None,
             _open_task: None,
             _mark_task: None,
             settle_task: None,
@@ -502,6 +513,9 @@ impl PdfView {
     }
 
     fn reset(&mut self, window: &mut Window) {
+        if let Some(layer) = &mut self.live {
+            layer.release_every(window);
+        }
         for mut slot in self.pages.drain(..) {
             slot.base.release(window);
             slot.detail.release(window);
@@ -625,6 +639,8 @@ impl PdfView {
         self.scroll_to_mark(cx);
         // The pages on screen are asked for now, not at the next frame.
         self.sync_pages(window, cx);
+        self.promote = Some(generation);
+        self.check_promoted(cx);
         cx.notify();
     }
 

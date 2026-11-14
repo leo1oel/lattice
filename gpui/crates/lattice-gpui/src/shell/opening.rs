@@ -59,6 +59,7 @@ impl Shell {
         self.editors.clear();
         self.active_editor = None;
         self.queued_build = None;
+        self.quiet_builds.cancel();
         self.build_sound = false;
         self.closed_tabs.clear();
         self.forget_visits();
@@ -105,6 +106,8 @@ impl Shell {
         self.overleaf
             .update(cx, |bridge, cx| bridge.set_project(Some(root.clone()), cx));
         self.notice_conflicts(cx);
+        self.live_preview
+            .update(cx, |live, cx| live.set_project(Some(project.clone()), cx));
         self.file_tree
             .update(cx, |tree, cx| tree.set_project(project, cx));
         self.set_window_title(window, cx);

@@ -304,6 +304,12 @@ impl SettingsDialog {
         if let Some(project) = &project {
             subscriptions.push(cx.observe(project, |_, _, cx| cx.notify()));
         }
+        // The live preview's rows follow its download, its state and a
+        // removal.
+        if let Some(shell) = shell.upgrade() {
+            let live = shell.read(cx).live_preview.clone();
+            subscriptions.push(cx.observe(&live, |_, _, cx| cx.notify()));
+        }
 
         let tab = drawn(tab.unwrap_or(settings.settings_tab));
         Self {
@@ -565,16 +571,27 @@ impl SettingsDialog {
         }
     }
 
+    /// The window's live preview, for its rows in Editor & builds.
+    pub(super) fn live_preview(&self, cx: &App) -> Option<Entity<crate::live_preview::LivePreview>> {
+        self.shell
+            .upgrade()
+            .map(|shell| shell.read(cx).live_preview.clone())
+    }
+
     fn query(&self) -> String {
         self.query.clone()
     }
 
     pub(super) fn results(&self, cx: &App) -> Vec<Entry> {
         let known = None;
-        search::search(
-            &search::entries(self.project.is_some(), known),
-            &self.fields.search.read(cx).value(),
-        )
+        let mut entries = search::entries(self.project.is_some(), known);
+        if self
+            .live_preview(cx)
+            .is_some_and(|live| live.read(cx).available())
+        {
+            entries = search::with_live_preview(entries);
+        }
+        search::search(&entries, &self.fields.search.read(cx).value())
     }
 
     fn dialog_size(window: &Window) -> (Pixels, Pixels) {

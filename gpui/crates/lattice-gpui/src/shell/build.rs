@@ -56,6 +56,9 @@ pub(super) struct BuildRequest {
     /// The writer asked (⌘B, the chip): its failure comes back even when
     /// dismissed, and the editor goes to its first error.
     pub(super) requested: bool,
+    /// An automatic build the live preview's pause in typing let through:
+    /// no spinner on the Build button (`live_preview::quiet_builds`).
+    pub(super) quiet: bool,
 }
 
 impl BuildRequest {
@@ -81,6 +84,7 @@ impl BuildRequest {
             clean: true,
             requested: true,
             unattended: false,
+            quiet: false,
         }
     }
 
@@ -91,6 +95,7 @@ impl BuildRequest {
             clean: self.clean || other.clean,
             unattended: self.unattended && other.unattended,
             requested: self.requested || other.requested,
+            quiet: self.quiet && other.quiet,
         }
     }
 }
@@ -184,6 +189,11 @@ impl Shell {
         let Some(project) = self.project.clone() else {
             return;
         };
+        // A build asked for any other way compiles what a waiting quiet one
+        // would have.
+        if !request.quiet {
+            self.quiet_builds.cancel();
+        }
         let open_document = self.open_document(cx);
         let compilable = open_document
             .as_ref()
@@ -264,6 +274,9 @@ impl Shell {
         let aux_files = crate::settings::aux_files(cx);
         self.pdf
             .update(cx, |panel, cx| panel.set_building(true, cx));
+        self.build_panel
+            .update(cx, |panel, cx| panel.set_quiet(request.quiet, cx));
+        let live_preview = self.live_preview.clone();
         self.build_task = Some(cx.spawn_in(window, async move |this, cx| {
             for save in saves {
                 if let Err(error) = save.await {
@@ -291,6 +304,9 @@ impl Shell {
             let (revision, active) = project.read_with(cx, |project, _| {
                 (project.input_revision(), project.active_build().clone())
             });
+            // latexmk reads the inputs after this: the live preview's token
+            // for the files as they are now.
+            let live = live_preview.update(cx, |live, cx| live.build_started(request.quiet, cx));
             let (progress, mut received) = mpsc::unbounded::<Vec<BuildStep>>();
             let steps = BuildSteps::new(move |_, steps| {
                 progress.unbounded_send(steps.to_vec()).ok();
@@ -322,6 +338,7 @@ impl Shell {
                             result,
                             rewritten,
                             sources,
+                            live,
                         }
                     })
                 }
@@ -409,6 +426,7 @@ impl Shell {
                 result,
                 rewritten,
                 sources,
+                live,
             })) => {
                 let cancelled = result
                     .diagnostics
@@ -452,6 +470,14 @@ impl Shell {
                     notices::dismiss(BUILD_FAILED_NOTICE, cx);
                 }
                 if result.has_pdf {
+                    // The PDF the viewer loads now holds the files as of the
+                    // build's token; the live preview stops painting those
+                    // edits once it is shown.
+                    if !result.one_off {
+                        self.live_preview.update(cx, |preview, cx| {
+                            preview.base_loading(live, request.quiet, cx)
+                        });
+                    }
                     self.show_built_pdf(
                         result.root_document.clone(),
                         request.requested,
@@ -520,9 +546,79 @@ impl Shell {
         cx.notify();
     }
 
+    /// An automatic build asks to run: false when it should run now, as it
+    /// does without a live preview; otherwise it runs once typing pauses,
+    /// quietly if the live preview is still live (`quiet-builds.ts`'s
+    /// `defer`).
+    pub(super) fn defer_automatic_build(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        if !self.live_on_tex(cx) {
+            self.quiet_builds.cancel();
+            return false;
+        }
+        let now = std::time::Instant::now();
+        self.quiet_builds.saved(now);
+        if self.quiet_builds.due(now) {
+            self.fire_quiet_build(window, cx);
+        } else {
+            self.wait_for_typing_pause(window, cx);
+        }
+        true
+    }
+
+    /// rtex draws .tex files only: a .bib or a figure the writer saves is
+    /// seen in the next build alone.
+    fn live_on_tex(&self, cx: &App) -> bool {
+        self.live_preview.read(cx).is_live()
+            && self
+                .active_editor()
+                .is_some_and(|editor| editor.read(cx).relative().to_ascii_lowercase().ends_with(".tex"))
+    }
+
+    fn wait_for_typing_pause(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let timer = cx.spawn_in(window, async move |this, cx| {
+            cx.background_executor()
+                .timer(crate::live_preview::quiet_builds::IDLE)
+                .await;
+            this.update_in(cx, |this, window, cx| {
+                // Typed since the save: another save restarts the wait when
+                // they pause. Checked anyway, as a completion menu holds the
+                // save off.
+                let typing = this
+                    .active_editor()
+                    .is_some_and(|editor| editor.read(cx).is_dirty(cx));
+                let due = this.quiet_builds.due(std::time::Instant::now());
+                if typing && this.live_on_tex(cx) && !due {
+                    this.wait_for_typing_pause(window, cx);
+                } else {
+                    this.fire_quiet_build(window, cx);
+                }
+            })
+            .ok();
+        });
+        self.quiet_builds.set_timer(timer);
+    }
+
+    fn fire_quiet_build(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let quiet = self.live_on_tex(cx);
+        self.quiet_builds.cancel();
+        let request = BuildRequest {
+            quiet,
+            ..BuildRequest::automatic()
+        };
+        self.run_build(request, window, cx);
+    }
+
     /// Tell whoever waits for the builds that they are over.
     pub(super) fn settle_builds(&mut self, cx: &mut Context<Self>) {
         if self.build_task.is_none() {
+            self.live_preview
+                .update(cx, |live, cx| live.build_finished(cx));
+            self.build_panel
+                .update(cx, |panel, cx| panel.set_quiet(false, cx));
             self.pdf
                 .update(cx, |panel, cx| panel.set_building(false, cx));
             for waiter in self.build_waiters.drain(..) {
@@ -594,6 +690,8 @@ pub(super) struct Finished {
     result: BuildResult,
     rewritten: bool,
     sources: HashMap<String, String>,
+    /// The live preview's token for the files the build read.
+    live: Option<usize>,
 }
 
 #[cfg(test)]

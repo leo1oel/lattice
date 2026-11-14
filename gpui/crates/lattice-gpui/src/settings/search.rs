@@ -235,6 +235,23 @@ pub fn entries(has_project: bool, known_author: Option<&str>) -> Vec<Entry> {
     out
 }
 
+/// Settings › Editor & builds › Live preview, offered only to a LuaLaTeX
+/// project, which goes before the app's version.
+pub fn with_live_preview(mut entries: Vec<Entry>) -> Vec<Entry> {
+    let builds = t!("Builds");
+    let entry = Entry::row(SettingsTab::Editor, t!("Editor & builds"), "live-preview", t!("Live preview"))
+        .terms(format!(
+            "{builds} LuaLaTeX rtex {}",
+            tc!("Search words for the Live preview setting, space-separated", "realtime instant")
+        ));
+    let at = entries
+        .iter()
+        .position(|entry| entry.id == Some("version"))
+        .unwrap_or(entries.len());
+    entries.insert(at, entry);
+    entries
+}
+
 /// The entries matching `query`, best first (`searchSettings`): every word
 /// in the label or its terms, the label's own prefix and then the label
 /// first; a match only in a description last.

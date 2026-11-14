@@ -38,6 +38,8 @@ pub const KEYS: &[&str] = &[
     "lattice.settings-tab.v1",
     "lattice.overleaf.sync-mode.v1",
     "lattice.overleaf.remote-delete.v1",
+    "lattice.live-preview.v1",
+    "lattice.live-preview-removed.v1",
 ];
 
 /// What was imported, and from where.
@@ -99,6 +101,8 @@ pub fn settings_from_items(items: &BTreeMap<String, String>) -> Settings {
         overleaf_remote_delete: item("lattice.overleaf.remote-delete.v1")
             .and_then(OverleafRemoteDelete::from_tag)
             .unwrap_or(defaults.overleaf_remote_delete),
+        live_preview: crate::model::live_preview_choices(json("lattice.live-preview.v1").as_ref()),
+        live_preview_removed: item("lattice.live-preview-removed.v1").is_some(),
     }
 }
 

@@ -51,6 +51,13 @@ pub fn pop_in(id: impl Into<ElementId>, from: PopFrom, content: impl IntoElement
     enter(id.into(), Entrance::POPUP, from, content)
 }
 
+/// Wrap a hand-built tooltip's card so it enters as [`LatticeTooltip`]
+/// does ([`Entrance::TOOLTIP`]): for a tooltip that holds more than one
+/// line, such as a status pill's explanation.
+pub fn tip_in(id: impl Into<ElementId>, from: PopFrom, content: impl IntoElement) -> AnyElement {
+    enter(id.into(), Entrance::TOOLTIP, from, content)
+}
+
 /// An entrance from a trigger's side: `from` says which edge stays put.
 fn enter(
     id: ElementId,
