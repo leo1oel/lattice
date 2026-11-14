@@ -67,6 +67,8 @@ pub(super) enum Menu {
     Heading,
     Highlight,
     Block,
+    /// Rewrite with an instruction (`proofread/instruction_menu.rs`).
+    Rewrite,
 }
 
 /// What a toolbar's button asks of the selection.
@@ -135,7 +137,7 @@ impl EditorPanel {
     }
 
     /// The selection, as bytes of the buffer; none when nothing is selected.
-    fn toolbar_selection(&self, cx: &App) -> Option<Range<usize>> {
+    pub(super) fn toolbar_selection(&self, cx: &App) -> Option<Range<usize>> {
         let editor = self.editor.read(cx);
         let snapshot = editor.buffer().read(cx).snapshot(cx);
         let selection = editor.selections.newest_anchor();
@@ -231,10 +233,23 @@ impl EditorPanel {
     }
 
     /// Put the toolbar away until the selection changes.
+    /// The palette's Rewrite selection…: the toolbar again, with its Rewrite
+    /// menu open (`openRewriteMenu`).
+    pub(super) fn open_rewrite_menu(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.can_proofread(cx) || self.toolbar_selection(cx).is_none() {
+            return;
+        }
+        self.toolbar.dismissed = None;
+        self.toolbar.menu = None;
+        self.open_menu(Menu::Rewrite, window, cx);
+        cx.notify();
+    }
+
     pub(super) fn dismiss_toolbar(&mut self, cx: &mut Context<Self>) {
         self.toolbar.dismissed = self.toolbar_selection(cx);
         self.toolbar.menu = None;
         self.toolbar.link = None;
+        self.proofread.instruction = None;
         cx.notify();
     }
 
@@ -322,6 +337,9 @@ impl EditorPanel {
             let focus = cx.focus_handle();
             window.focus(&focus, cx);
             self.toolbar.palette.focus = Some(focus);
+        }
+        if menu == Menu::Rewrite {
+            self.open_instruction_menu(window, cx);
         }
         if menu == Menu::Link {
             let field = cx.new(|cx| InputState::new(window, cx).default_value("https://"));

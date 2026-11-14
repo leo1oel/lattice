@@ -14,7 +14,8 @@
 use std::{collections::BTreeSet, rc::Rc};
 
 use gpui::{
-    Animation, AnimationExt as _, AnyElement, App, Context, EventEmitter, IntoElement,
+    Animation, AnimationExt as _, AnyElement, App, Context, EventEmitter, InteractiveElement as _,
+    IntoElement,
     ParentElement as _, Render, SharedString, Styled as _, Window, div,
     prelude::FluentBuilder as _, px,
 };
@@ -164,7 +165,6 @@ impl ProofreadCard {
         let lead: AnyElement = match &self.ask {
             Ask::Instruction(instruction) => div()
                 .min_w_0()
-                .flex_shrink()
                 .overflow_hidden()
                 .text_ellipsis()
                 .whitespace_nowrap()

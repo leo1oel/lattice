@@ -138,10 +138,17 @@ impl EditorPanel {
             .capture_any_mouse_up(cx.listener(|this, event: &gpui::MouseUpEvent, _, cx| {
                 this.toolbar_pointer(false, event.position, cx)
             }))
-            .capture_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| {
-                this.release_rail(cx);
-                // The open proofread card's ⌘↵ and Esc, ahead of the editor's.
-                if this.proofread_key(event, window, cx) {
+            .capture_key_down(cx.listener(|this, _, _, cx| this.release_rail(cx)))
+            // The open proofread card's ⌘↵ and Esc, ahead of the editor's
+            // own (Zed's keymap binds them to its actions, which a window
+            // dispatches before any key listener).
+            .capture_action(cx.listener(|this, _: &editor::actions::NewlineBelow, window, cx| {
+                if this.proofread_accept_key(window, cx) {
+                    cx.stop_propagation();
+                }
+            }))
+            .capture_action(cx.listener(|this, _: &editor::actions::Cancel, window, cx| {
+                if this.proofread_escape(window, cx) {
                     cx.stop_propagation();
                 }
             }))

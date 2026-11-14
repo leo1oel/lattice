@@ -27,7 +27,7 @@ const RECENT_MAX: usize = 5;
 /// An instruction is a sentence or two; past this it is a pasted excerpt.
 const INSTRUCTION_MAX_LENGTH: usize = 400;
 /// The menu's width (`.instruction-menu`).
-pub(in crate::editor_panel) const WIDTH: f32 = 280.;
+const WIDTH: f32 = 280.;
 
 /// Collapse an instruction's spaces and keep it to its limit.
 fn tidy(instruction: &str) -> String {
@@ -110,7 +110,7 @@ impl EditorPanel {
         });
     }
 
-    fn submit_instruction(&mut self, text: &str, window: &mut Window, cx: &mut Context<Self>) {
+    pub(in crate::editor_panel) fn submit_instruction(&mut self, text: &str, window: &mut Window, cx: &mut Context<Self>) {
         let instruction = tidy(text);
         if instruction.is_empty() {
             return;

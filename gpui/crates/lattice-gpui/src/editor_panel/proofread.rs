@@ -26,7 +26,8 @@ use std::{collections::BTreeSet, ops::Range, sync::Arc, time::Duration};
 
 use editor::{MultiBufferOffset, SelectionEffects, scroll::Autoscroll};
 use gpui::{
-    AppContext as _, Context, Entity, Focusable as _, KeyDownEvent, Subscription, Task, Window,
+    AppContext as _, Context, Entity, Focusable as _, IntoElement as _, Subscription, Task,
+    Window,
 };
 use language::{Anchor, ToOffset as _};
 use lattice_editor::{
@@ -38,7 +39,7 @@ use lattice_i18n::t;
 use lattice_ui::ActiveLattice as _;
 
 pub(super) use accept_marks::AcceptMarks;
-pub(super) use instruction_menu::{InstructionMenu, WIDTH as INSTRUCTION_MENU_WIDTH};
+pub(super) use instruction_menu::InstructionMenu;
 
 use self::{
     accept_marks::Accepted,
@@ -417,34 +418,26 @@ impl EditorPanel {
         cx.notify();
     }
 
-    /// ⌘↵ and Esc while a card is open, ahead of the editor's own.
-    pub(super) fn proofread_key(
-        &mut self,
-        event: &KeyDownEvent,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> bool {
+    /// ⌘↵ while a card is open: accept the edits still made, when there
+    /// are any. Whether the card took the key.
+    pub(super) fn proofread_accept_key(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
         let Some(session) = &self.proofread.session else {
             return false;
         };
-        let keys = &event.keystroke;
-        let command = if cfg!(target_os = "macos") {
-            keys.modifiers.platform
-        } else {
-            keys.modifiers.control
-        };
-        if keys.key == "escape" && !keys.modifiers.modified() {
-            self.dismiss_proofread(window, cx);
-            return true;
+        let (offered, _) = session.card.read(cx).counts();
+        if offered > 0 {
+            self.accept_proofread(false, window, cx);
         }
-        if keys.key == "enter" && command && !keys.modifiers.alt && !keys.modifiers.shift {
-            let (offered, _) = session.card.read(cx).counts();
-            if offered > 0 {
-                self.accept_proofread(false, window, cx);
-            }
-            return true;
+        true
+    }
+
+    /// Esc while a card is open: discard it. Whether the card took the key.
+    pub(super) fn proofread_escape(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        if self.proofread.session.is_none() {
+            return false;
         }
-        false
+        self.dismiss_proofread(window, cx);
+        true
     }
 
     /// The palette's and the keys' asks.
@@ -474,6 +467,31 @@ impl EditorPanel {
             CardState::Error { .. } => "error",
         };
         Some((status.to_string(), offered, kept))
+    }
+
+    /// Whether the selection toolbar's Rewrite menu is open.
+    pub(crate) fn rewrite_menu_open(&self) -> bool {
+        self.proofread.instruction.is_some()
+    }
+
+    /// Submit `instruction` from the open Rewrite menu, as its choice would.
+    pub(crate) fn scripted_instruction(
+        &mut self,
+        instruction: &str,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.proofread.instruction.is_some() {
+            self.submit_instruction(instruction, window, cx);
+        }
+    }
+
+    /// The open card's instruction, when it is a rewrite.
+    pub(crate) fn proofread_instruction(&self, cx: &gpui::App) -> Option<String> {
+        match self.proofread.session.as_ref()?.card.read(cx).ask() {
+            Ask::Instruction(instruction) => Some(instruction.clone()),
+            _ => None,
+        }
     }
 
     /// Press one of the open card's actions, as a click would.
