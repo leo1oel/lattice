@@ -48,7 +48,7 @@ use crate::{
     decorations::{Mark, MarkStyle},
 };
 use card::LintCards;
-pub use card::describe;
+pub use card::{describe, rule_label, rule_text};
 
 /// The adapter layer the findings are in.
 pub const LAYER: &str = "spelling";

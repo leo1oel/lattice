@@ -31,6 +31,7 @@ mod controls;
 mod dialog;
 mod editor_pane;
 mod environment_pane;
+mod grammar_group;
 pub(crate) mod logs_export;
 pub(crate) mod logs_pane;
 mod model_endpoint_pane;

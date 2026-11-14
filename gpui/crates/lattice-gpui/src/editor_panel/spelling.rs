@@ -48,15 +48,29 @@ pub fn dictionary_store(cx: &App) -> Option<PathBuf> {
 /// The check's input for an editor of `project`, as the settings and the
 /// manifest are now.
 pub fn input(project: &Entity<Project>, cx: &App) -> SpellingInput {
+    use lattice_core::harper::{HarperDialect, HarperProfile};
+    use lattice_settings::{GrammarDialect, GrammarProfile};
     let manifest = project.read(cx).manifest();
+    let settings = crate::settings::get(cx);
+    let grammar = &settings.grammar;
     SpellingInput {
-        enabled: crate::settings::get(cx).appearance.editor_spellcheck,
+        enabled: settings.appearance.editor_spellcheck,
         words: manifest.spelling_words.clone(),
         ignored_rules: manifest.grammar_ignored_rules.clone(),
         ignored_sentences: manifest.grammar_ignored_sentences.clone(),
-        // The Tauri app's defaults: American English, the profile by the
-        // file's prose, Harper's own rule set.
-        ..SpellingInput::default()
+        // Settings › Editor & builds › Grammar, as `grammarSettingsStore`
+        // hands Harper the dialect, the profile (automatic: by the file's
+        // prose) and the writer's rules.
+        dialect: match grammar.dialect {
+            GrammarDialect::American => HarperDialect::American,
+            GrammarDialect::British => HarperDialect::British,
+        },
+        profile: match grammar.profile {
+            GrammarProfile::Auto => None,
+            GrammarProfile::Academic => Some(HarperProfile::Academic),
+            GrammarProfile::Standard => Some(HarperProfile::Standard),
+        },
+        rules: grammar.rules.clone(),
     }
 }
 
