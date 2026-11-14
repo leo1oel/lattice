@@ -135,6 +135,8 @@ pub struct SettingsDialog {
     pub(super) overleaf: Option<Entity<super::overleaf_pane::OverleafConnection>>,
     /// Settings › Model endpoint's form, once the page is drawn.
     pub(super) model_endpoint: Option<Entity<super::model_endpoint_pane::ModelEndpointPane>>,
+    /// Editor & builds › Grammar's filter and Harper's rules.
+    pub(super) grammar: Option<Entity<super::grammar_group::GrammarRules>>,
     /// Settings › Environment's report, once the page is drawn.
     pub(super) environment: Option<Entity<super::environment_pane::EnvironmentPane>>,
     _reveal_task: Option<Task<()>>,
@@ -372,6 +374,7 @@ impl SettingsDialog {
             overleaf: None,
             model_endpoint: None,
             environment: None,
+            grammar: None,
             _reveal_task: None,
             _subscriptions: subscriptions,
         }

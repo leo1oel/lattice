@@ -417,6 +417,47 @@ impl Appearance {
     }
 }
 
+choice!(
+    /// Settings › Editor & builds › Grammar › English variant.
+    GrammarDialect { American = "american", British = "british" } default American
+);
+choice!(
+    /// Which rule set Harper checks with; automatic is academic for LaTeX
+    /// and standard elsewhere.
+    GrammarProfile { Auto = "auto", Academic = "academic", Standard = "standard" } default Auto
+);
+
+/// The writer's grammar choices, for every project
+/// (`lattice.grammar.v1`, `grammar-settings-store.ts`).
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
+pub struct Grammar {
+    pub dialect: GrammarDialect,
+    pub profile: GrammarProfile,
+    /// Rules switched on or off over the profile, by Harper rule name.
+    pub rules: std::collections::BTreeMap<String, bool>,
+}
+
+impl Grammar {
+    /// `loadGrammarSettings`: British only when it says so, a profile only
+    /// when it names one, and the rules' booleans.
+    pub fn from_value(value: Option<&Value>) -> Grammar {
+        let field = |name: &str| value.and_then(|value| value.get(name));
+        Grammar {
+            dialect: choice(field("dialect"), GrammarDialect::American),
+            profile: choice(field("profile"), GrammarProfile::Auto),
+            rules: field("rules")
+                .and_then(Value::as_object)
+                .map(|rules| {
+                    rules
+                        .iter()
+                        .filter_map(|(name, on)| on.as_bool().map(|on| (name.clone(), on)))
+                        .collect()
+                })
+                .unwrap_or_default(),
+        }
+    }
+}
+
 /// Everything Settings keeps for the GPUI app.
 #[derive(Clone, Debug, Default, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -444,6 +485,8 @@ pub struct Settings {
     /// rtex was removed: off in every project, and no longer on by default
     /// (`lattice.live-preview-removed.v1`).
     pub live_preview_removed: bool,
+    /// Settings › Editor & builds › Grammar.
+    pub grammar: Grammar,
 }
 
 impl Settings {
@@ -499,6 +542,7 @@ impl Settings {
             ),
             live_preview: live_preview_choices(field("livePreview")),
             live_preview_removed: field("livePreviewRemoved") == Some(&Value::Bool(true)),
+            grammar: Grammar::from_value(field("grammar")),
         }
     }
 
@@ -515,6 +559,23 @@ impl Settings {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn the_grammar_choices_are_read_as_the_tauri_app_reads_them() {
+        let grammar = Grammar::from_value(Some(&json!({
+            "dialect": "british",
+            "profile": "nonsense",
+            "rules": { "OxfordComma": true, "LongSentences": "no" }
+        })));
+        assert_eq!(grammar.dialect, GrammarDialect::British);
+        assert_eq!(grammar.profile, GrammarProfile::Auto);
+        assert_eq!(grammar.rules.len(), 1);
+        assert_eq!(grammar.rules["OxfordComma"], true);
+        assert_eq!(Grammar::from_value(None), Grammar::default());
+        let mut settings = Settings::default();
+        settings.grammar = grammar.clone();
+        assert_eq!(Settings::from_value(&settings.to_value()).grammar, grammar);
+    }
 
     #[test]
     fn an_empty_store_is_the_tauri_apps_defaults() {
