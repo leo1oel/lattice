@@ -18,9 +18,6 @@ pub(super) const FILE_LIMIT: usize = 12;
 pub(super) const COMMAND_LIMIT: usize = 40;
 pub(super) const PAPER_LIMIT: usize = 6;
 pub(super) const SETTING_LIMIT: usize = 6;
-/// Papers and Settings rows hold long prose: only a run of the query finds
-/// them, never scattered letters (`PROSE_FLOOR`).
-pub(super) const PROSE_FLOOR: i64 = 1_000;
 /// A deep project must not stall opening the palette.
 pub(super) const MAX_FILES: usize = 4_000;
 
@@ -229,19 +226,20 @@ pub(super) fn leading_entries(
     out
 }
 
-/// The best `limit` of `entries` scoring at least `floor` for `query`, with
-/// their scores, the table's order breaking ties.
+/// The best `limit` of `entries` for `query`, with their scores, the
+/// table's order breaking ties. `prose` rows (Papers, Settings) hold long
+/// text, so only [`prose_score`] finds them, never scattered letters.
 pub(super) fn scored(
     entries: &[Entry],
     query: &str,
     limit: usize,
-    floor: i64,
+    prose: bool,
 ) -> Vec<(i64, Entry)> {
+    let rank = if prose { prose_score } else { score };
     let mut scored: Vec<(i64, usize)> = entries
         .iter()
         .enumerate()
-        .filter_map(|(ix, entry)| score(&entry.haystack().to_lowercase(), query).map(|s| (s, ix)))
-        .filter(|(score, _)| *score >= floor)
+        .filter_map(|(ix, entry)| rank(&entry.haystack().to_lowercase(), query).map(|s| (s, ix)))
         .collect();
     scored.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)));
     scored
@@ -260,7 +258,7 @@ pub(super) fn sorted_by_section(mut entries: Vec<Entry>) -> Vec<Entry> {
 /// breaking ties.
 #[cfg(test)]
 pub(super) fn ranked(entries: &[Entry], query: &str, limit: usize) -> Vec<Entry> {
-    scored(entries, query, limit, i64::MIN)
+    scored(entries, query, limit, false)
         .into_iter()
         .map(|(_, entry)| entry)
         .collect()
@@ -293,6 +291,18 @@ pub(crate) fn score(text: &str, query: &str) -> Option<i64> {
         position = found + 1;
     }
     Some(score)
+}
+
+/// How well `query` matches a prose row's `text` (`PROSE_FLOOR`): a run of
+/// it anywhere, mid-word too, as [`score`] ranks it; else every spaced part
+/// of a query of several somewhere; `None` for scattered letters.
+pub(super) fn prose_score(text: &str, query: &str) -> Option<i64> {
+    if text.contains(query) {
+        return score(text, query);
+    }
+    let mut terms = query.split_whitespace();
+    let several = terms.clone().nth(1).is_some();
+    (several && terms.all(|term| text.contains(term))).then_some(500)
 }
 
 /// The project's files, as the tree lists them (no build products, no
@@ -368,7 +378,24 @@ pub(super) fn row_of<G: PartialEq>(groups: &[G], ix: usize) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use super::{Entry, FILE_LIMIT, project_files, ranked, row_of, score};
+    use super::{Entry, FILE_LIMIT, project_files, prose_score, ranked, row_of, score};
+
+    /// As the Tauri palette's `scoreItem` over `PROSE_FLOOR`: a run of the
+    /// query mid-word, or every spaced part of it apart, lists a Paper or a
+    /// Settings row; scattered letters do not.
+    #[test]
+    fn prose_rows_match_a_run_or_every_part_never_scattered_letters() {
+        assert!(
+            prose_score("roberta: a robustly optimized pretraining approach", "bert").is_some()
+        );
+        assert!(prose_score("font size editor source text", "font source").is_some());
+        assert!(prose_score("font size editor source text", "source font").is_some());
+        assert_eq!(prose_score("font size editor source text", "fzs"), None);
+        assert_eq!(
+            prose_score("font size editor source text", "font colour"),
+            None
+        );
+    }
 
     #[test]
     fn a_highlighted_entry_scrolls_to_its_row_past_the_section_headers() {

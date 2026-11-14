@@ -34,8 +34,8 @@ use lattice_ui::{
 use super::{
     Shell, commands,
     palette_entries::{
-        COMMAND_LIMIT, Entry, FILE_LIMIT, PAPER_LIMIT, PROSE_FLOOR, SETTING_LIMIT, entry_text,
-        leading_entries, paper_detail, project_files, row_of, scored, sorted_by_section,
+        COMMAND_LIMIT, Entry, FILE_LIMIT, PAPER_LIMIT, SETTING_LIMIT, entry_text, leading_entries,
+        paper_detail, project_files, row_of, scored, sorted_by_section,
     },
     palette_groups::{RecentCommands, Surface},
 };
@@ -205,10 +205,10 @@ impl CommandPaletteView {
                 }).cloned())
                 .collect()
             } else {
-                let mut found = scored(&self.commands, &query, COMMAND_LIMIT, i64::MIN);
-                found.extend(scored(&self.files, &query, FILE_LIMIT, i64::MIN));
-                found.extend(scored(&self.papers, &query, PAPER_LIMIT, PROSE_FLOOR));
-                found.extend(scored(&self.settings, &query, SETTING_LIMIT, PROSE_FLOOR));
+                let mut found = scored(&self.commands, &query, COMMAND_LIMIT, false);
+                found.extend(scored(&self.files, &query, FILE_LIMIT, false));
+                found.extend(scored(&self.papers, &query, PAPER_LIMIT, true));
+                found.extend(scored(&self.settings, &query, SETTING_LIMIT, true));
                 found.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.order().cmp(&b.1.order())));
                 let found: Vec<Entry> = found.into_iter().map(|(_, entry)| entry).collect();
                 match (&self.find_keys, found.is_empty()) {

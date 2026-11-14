@@ -8,7 +8,7 @@ Until then the updater checks nothing, Lattice ▸ Check for Updates… is not i
 
 With a channel, it reads the release manifest the Tauri app's updater reads (`latest.json`) at launch and every six hours, and offers a newer release for this platform ("New version …", Update now).
 Update now downloads the archive with its progress, checks its minisign signature against the channel's key, and puts the app bundle it holds in place of the running one, unpacked beside it first so the swap is two renames; a failure says why ("Lattice update failed") and keeps the running app.
-Once installed it offers the restart ("Lattice … is ready", Restart now), which asks first while a build runs ("Restart Lattice now?"); every window writes its open edits as the app quits.
+Once installed, Update now restarts into the release, asking first while a build runs ("Restart Lattice now?"); every window writes its open edits as the app quits.
 Lattice ▸ Check for Updates… checks at once and says when Lattice is up to date, and becomes Restart to Update… once an update is installed.
 Report a problem offers a release the updater knows of first ("You’re on vX; vY is available", Update now or Report anyway).
 

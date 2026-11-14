@@ -1,10 +1,11 @@
 //! The app updater, as the Tauri app's (`src/telemetry/app-updater.tsx`):
 //! a check at launch and every six hours, an offer ("New version {version}",
-//! Update now), the download with its progress, the install, and the offer
-//! to restart ("Lattice {version} is ready", Restart now); Lattice ▸ Check
-//! for Updates… checks at once and says when nothing is new. A restart that
-//! would stop a build asks first, and every window saves its open edits
-//! before it (`on_app_quit`).
+//! Update now), the download with its progress, the install, and the restart
+//! into it; Lattice ▸ Check for Updates… checks at once and says when nothing
+//! is new. A restart that would stop a build asks first ("Restart Lattice
+//! now?"), and every window saves its open edits before it (`on_app_quit`).
+//! The offer to restart later ("Lattice {version} is ready") comes with the
+//! automatic mode's Settings row.
 //!
 //! It is off: the GPUI app has no release channel yet, and none ships until
 //! one is approved. [`GPUI_CHANNEL`] is where its manifest and the key that
@@ -223,7 +224,7 @@ impl Updater {
             t!("New version {version}", version = version).to_string(),
             String::new(),
             vec![NoticeAction::new(t!("Update now"), move |_, cx| {
-                this.update(cx, |this, cx| this.install(true, cx)).ok();
+                this.update(cx, |this, cx| this.install(cx)).ok();
             })],
             cx,
         );
@@ -231,15 +232,14 @@ impl Updater {
 
     pub fn update_now(&mut self, cx: &mut Context<Self>) {
         match self.phase {
-            Phase::Available(_) => self.install(true, cx),
+            Phase::Available(_) => self.install(cx),
             Phase::Ready(_) => self.restart(false, cx),
             _ => self.check(true, cx),
         }
     }
 
-    /// Download, check and install the release offered; `restart_after`
-    /// then restarts into it, else the restart is offered.
-    pub fn install(&mut self, restart_after: bool, cx: &mut Context<Self>) {
+    /// Download, check and install the release offered, then restart into it.
+    pub fn install(&mut self, cx: &mut Context<Self>) {
         let (Phase::Available(release), Some(channel)) = (self.phase.clone(), self.channel.clone())
         else {
             return;
@@ -294,11 +294,7 @@ impl Updater {
                 Ok(()) => {
                     this.phase = Phase::Ready(version.clone());
                     crate::shell::menus::refresh(cx);
-                    if restart_after {
-                        this.restart(false, cx);
-                    } else {
-                        this.offer_restart(&version, cx);
-                    }
+                    this.restart(false, cx);
                 }
                 Err(error) => {
                     this.phase = Phase::Error(error.clone());
@@ -313,20 +309,6 @@ impl Updater {
             })
             .ok();
         }));
-    }
-
-    fn offer_restart(&mut self, version: &str, cx: &mut Context<Self>) {
-        let this = cx.weak_entity();
-        show(
-            ToastLevel::Info,
-            t!("Lattice {version} is ready", version = version).to_string(),
-            t!("Restart to finish updating. Otherwise the update applies the next time Lattice opens.")
-                .to_string(),
-            vec![NoticeAction::new(t!("Restart now"), move |_, cx| {
-                this.update(cx, |this, cx| this.restart(false, cx)).ok();
-            })],
-            cx,
-        );
     }
 
     /// Restart into the installed release; a build under way asks first
