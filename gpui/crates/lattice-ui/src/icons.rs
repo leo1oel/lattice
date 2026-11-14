@@ -123,6 +123,8 @@ lucide! {
     // ARROW_DOWN, ARROW_DOWN_UP, ARROW_UP_RIGHT, BOOK_MARKED, FILE_DOWN and
     // LINK_2 below).
     HIGHLIGHTER = "icons" / "highlighter";
+    /// The Annotations panel's tab (`trellis-icons.tsx`).
+    MESSAGE_SQUARE = "icons" / "message-square";
     /// The Annotations panel: a card's Reply.
     REPLY = "icons" / "reply";
     /// The empty Annotations panel's Open a file.

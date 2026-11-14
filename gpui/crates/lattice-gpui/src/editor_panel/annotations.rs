@@ -570,8 +570,14 @@ impl EditorPanel {
         let Some(draft) = &self.annotations.draft else {
             return Some(tracker);
         };
-        let view = self.annotations.view.get()?;
-        let editor = self.lattice.read(cx).painted().bounds?;
+        let (Some(view), Some(editor)) = (
+            self.annotations.view.get(),
+            self.lattice.read(cx).painted().bounds,
+        ) else {
+            // The view is measured by the tracker's first frame.
+            cx.on_next_frame(window, |_, _, cx| cx.notify());
+            return Some(tracker);
+        };
         let snapshot = self.buffer.read(cx).snapshot();
         let (start, end) = (
             draft.range.start.to_offset(&snapshot),
