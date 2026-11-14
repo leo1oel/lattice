@@ -27,10 +27,10 @@ use std::{
 };
 
 use gpui::{
-    AnyElement, App, Context, DispatchPhase, Entity, InteractiveElement as _,
-    IntoElement, KeyBinding, MouseButton, MouseMoveEvent, MouseUpEvent, ParentElement as _,
-    Pixels, Point, Render, StatefulInteractiveElement as _, Styled as _, WeakEntity, Window,
-    actions, canvas, div, point, prelude::FluentBuilder as _, px, scaled,
+    AnyElement, App, Context, DispatchPhase, Entity, InteractiveElement as _, IntoElement,
+    KeyBinding, MouseButton, MouseMoveEvent, MouseUpEvent, ParentElement as _, Pixels, Point,
+    Render, StatefulInteractiveElement as _, Styled as _, WeakEntity, Window, actions, canvas, div,
+    point, prelude::FluentBuilder as _, px, scaled,
 };
 use lattice_settings::ToastPosition;
 use lattice_ui::{
@@ -266,33 +266,32 @@ impl Leaving {
         index: usize,
         swipe: Option<SwipeDirection>,
         now: Instant,
+        reduce: bool,
     ) -> Self {
         let look = &mut shown.look;
         let height = look.height.value(now);
         let width = WIDTH;
         // From where it is drawn, the drag folded into its place.
-        let inward = look.inward.value(now) - look.drag.value(now);
+        let inward = look.inward.value(now) + look.drag.value(now);
         look.inward.jump(inward, now);
         look.drag.jump(0., now);
         let (transform, fade) = (MOTION_SLOW_EXIT, MOTION_MODERATE_EXIT);
-        let swiped = |look: &mut Look, inward: f32, right: f32| {
-            look.inward.retarget_on(inward, transform, Duration::ZERO, now);
-            look.right.retarget_on(right, transform, Duration::ZERO, now);
-            look.scale.retarget_on(1., transform, Duration::ZERO, now);
+        // Under reduced motion the card lands where it goes and only fades.
+        let travel = |tween: &mut Tween<f32>, to: f32| {
+            if reduce {
+                tween.jump(to, now);
+            } else {
+                tween.retarget_on(to, transform, Duration::ZERO, now);
+            }
         };
-        match swipe {
-            Some(SwipeDirection::Right) => {
-                let right = look.right.value(now) + 1.1 * width;
-                swiped(look, inward, right);
-            }
-            Some(SwipeDirection::Edge) => swiped(look, inward - 1.2 * height, look.right.value(now)),
-            None => {
-                look.inward
-                    .retarget_on(-0.4 * height, transform, Duration::ZERO, now);
-                look.right.retarget_on(0., transform, Duration::ZERO, now);
-                look.scale.retarget_on(0.96, transform, Duration::ZERO, now);
-            }
-        }
+        let (inward, right, scale) = match swipe {
+            Some(SwipeDirection::Right) => (inward, look.right.value(now) + 1.1 * width, 1.),
+            Some(SwipeDirection::Edge) => (inward - 1.2 * height, look.right.value(now), 1.),
+            None => (-0.4 * height, 0., 0.96),
+        };
+        travel(&mut look.inward, inward);
+        travel(&mut look.right, right);
+        travel(&mut look.scale, scale);
         look.opacity.retarget_on(0., fade, Duration::ZERO, now);
         Self {
             shown,
@@ -308,12 +307,16 @@ impl Leaving {
 
 impl NoticeStack {
     /// F6: take keyboard focus into the stack, keeping what held it to give
-    /// back. False when no card shows, or the stack holds focus already.
+    /// back. False when no card shows, the window doesn't draw the stack, or
+    /// the stack holds focus already.
     fn reach(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
-        if self.shown.is_empty() || self.focus.contains_focused(window, cx) {
+        let window_id = window.window_handle().window_id();
+        if self.shown.is_empty()
+            || !self.windows.contains_key(&window_id)
+            || self.focus.contains_focused(window, cx)
+        {
             return false;
         }
-        let window_id = window.window_handle().window_id();
         self.focus_before = window.focused(cx).map(|focus| (window_id, focus));
         self.focus.focus(window, cx);
         self.set_focused(true, cx);
@@ -391,7 +394,10 @@ impl NoticeStack {
         let Some(swipe) = self.swipe.as_mut() else {
             return;
         };
-        let (dx, dy) = (f32::from(at.x - swipe.start.x), f32::from(at.y - swipe.start.y));
+        let (dx, dy) = (
+            f32::from(at.x - swipe.start.x),
+            f32::from(at.y - swipe.start.y),
+        );
         if swipe.horizontal.is_none() && dx.hypot(dy) >= 1. && right {
             swipe.horizontal = Some(dx.abs() > dy.abs());
         }
@@ -518,7 +524,9 @@ impl Render for NoticeStack {
             ToastPosition::BottomRight => (false, false),
             ToastPosition::BottomCenter => (false, true),
         };
-        let width = WIDTH.min(f32::from(window.viewport_size().width) - 32.).max(0.);
+        let width = WIDTH
+            .min(f32::from(window.viewport_size().width) - 32.)
+            .max(0.);
         let expanded = self.hovered || self.focused;
         let heights: Vec<f32> = self
             .shown
@@ -550,12 +558,34 @@ impl Render for NoticeStack {
             if look.entered && !measuring {
                 move_to(&mut look.inward, target.inward, Motion::Slow, now, reduce);
                 move_to(&mut look.scale, target.scale, Motion::Slow, now, reduce);
-                move_to(&mut look.opacity, target.opacity, Motion::Moderate, now, reduce);
-                move_to(&mut look.height, target.height, Motion::Moderate, now, reduce);
+                move_to(
+                    &mut look.opacity,
+                    target.opacity,
+                    Motion::Moderate,
+                    now,
+                    reduce,
+                );
+                move_to(
+                    &mut look.height,
+                    target.height,
+                    Motion::Moderate,
+                    now,
+                    reduce,
+                );
                 move_to(&mut look.content, target.content, Motion::Fast, now, reduce);
             }
             animating |= look.is_running(now) || measuring;
-            let card = draw(shown, index == 0, Some(&this), top, width, now, &palette, window, cx);
+            let card = draw(
+                shown,
+                index == 0,
+                Some(&this),
+                top,
+                width,
+                now,
+                &palette,
+                window,
+                cx,
+            );
             cards.push((10 - index.min(10), card));
         }
         for leaving in &self.leaving {
@@ -580,7 +610,10 @@ impl Render for NoticeStack {
         }
         let right = !centered;
         let edge = if top { -1. } else { 1. };
-        let swiping = self.swipe.as_ref().is_some_and(|swipe| swipe.dismissed.is_none());
+        let swiping = self
+            .swipe
+            .as_ref()
+            .is_some_and(|swipe| swipe.dismissed.is_none());
         let tracker = swiping.then(|| {
             let this = this.clone();
             canvas(
@@ -671,7 +704,11 @@ fn draw(
     if this.is_some() && front {
         toast = toast.parity("toast/front");
     }
-    if let Some(detail) = notice.detail.as_ref().filter(|detail| !detail.trim().is_empty()) {
+    if let Some(detail) = notice
+        .detail
+        .as_ref()
+        .filter(|detail| !detail.trim().is_empty())
+    {
         toast = toast.detail(detail.clone());
     }
     if let Some(copy) = notice.copy_text() {
@@ -780,7 +817,10 @@ mod tests {
     fn the_pile_shows_two_slivers_and_hides_the_fourth() {
         let heights = [60., 80., 40., 50.];
         let front = place(0, &heights, false);
-        assert_eq!((front.inward, front.scale, front.opacity, front.content), (0., 1., 1., 1.));
+        assert_eq!(
+            (front.inward, front.scale, front.opacity, front.content),
+            (0., 1., 1., 1.)
+        );
         let second = place(1, &heights, false);
         assert_eq!(second.inward, PEEK);
         assert!((second.scale - 0.95).abs() < 1e-6);
@@ -800,6 +840,47 @@ mod tests {
         assert_eq!(third.inward, 60. + 80. + 2. * GAP);
         assert_eq!((third.scale, third.height, third.content), (1., 40., 1.));
         assert_eq!(extent(&heights, true), 180. + 2. * GAP);
+    }
+
+    fn card_pulled_toward_the_edge(pull: f32, now: Instant) -> Shown {
+        let mut look = Look::arriving(now);
+        look.inward.jump(PEEK, now);
+        look.height.jump(60., now);
+        look.opacity.jump(1., now);
+        look.scale.jump(1., now);
+        look.drag.jump(-pull, now);
+        Shown {
+            id: 0,
+            notice: super::super::Notice::new(lattice_ui::components::ToastLevel::Info, "t"),
+            key: "t".into(),
+            clock: None,
+            look,
+        }
+    }
+
+    #[test]
+    fn an_edge_swipe_leaves_from_where_the_card_is_drawn() {
+        let now = Instant::now();
+        let leaving = Leaving::new(
+            card_pulled_toward_the_edge(50., now),
+            0,
+            Some(SwipeDirection::Edge),
+            now,
+            false,
+        );
+        let look = &leaving.shown.look;
+        assert_eq!(look.inward.value(now) + look.drag.value(now), PEEK - 50.);
+    }
+
+    #[test]
+    fn under_reduced_motion_a_leaving_card_lands_at_once_and_only_fades() {
+        let now = Instant::now();
+        let leaving = Leaving::new(card_pulled_toward_the_edge(0., now), 0, None, now, true);
+        let look = &leaving.shown.look;
+        assert_eq!((look.inward.value(now), look.right.value(now)), (-24., 0.));
+        assert!((look.scale.value(now) - 0.96).abs() < 1e-6);
+        assert!(!look.inward.is_running(now) && !look.scale.is_running(now));
+        assert!(look.opacity.is_running(now));
     }
 
     #[test]

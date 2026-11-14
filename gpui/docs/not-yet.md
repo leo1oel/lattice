@@ -15,6 +15,22 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] The import conflict dialog's Replace and Skip (an import keeps both).
 
+- [ ] Overlay exit motion for dialogs, sheets, menus, selects and popovers.
+
+- [ ] The spinners and loading sheens.
+
+- [ ] The 13 animated product icons.
+
+- [ ] The editor attention motions: a jump's reveal flash, an outside edit's change wash, and an accepted suggestion's strike, fold and settle.
+
+- [ ] The too-large-file toast, and a failed save's Retry and Save a copy.
+
+- [ ] The minor motions.
+
+- [ ] The bundled reading-aid fonts (Atkinson Hyperlegible, OpenDyslexic).
+
+- [ ] The translation of the host's error text in notices.
+
 - [ ] The Agent: a PDF or Papers selection in its context.
 
 - [ ] The Agent: reviewing the proposals its annotation tools record (there is no comments panel).

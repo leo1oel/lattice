@@ -70,7 +70,10 @@ impl NoticeAction {
     }
 
     /// Leave the card up once the action has run.
-    #[allow(dead_code, reason = "the Tauri app's `keepOpen`, for an action that leaves a choice")]
+    #[allow(
+        dead_code,
+        reason = "the Tauri app's `keepOpen`, for an action that leaves a choice"
+    )]
     pub fn keep_open(mut self) -> Self {
         self.keep_open = true;
         self
@@ -210,7 +213,12 @@ impl Notice {
     fn copy_text(&self) -> Option<SharedString> {
         self.copy.clone().or_else(|| {
             (self.level == ToastLevel::Error).then(|| {
-                match self.detail.as_deref().map(str::trim).filter(|d| !d.is_empty()) {
+                match self
+                    .detail
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|d| !d.is_empty())
+                {
                     Some(detail) => format!("{}\n{detail}", self.title).into(),
                     None => self.title.clone(),
                 }
@@ -237,7 +245,9 @@ impl Clock {
 
     fn left(&self, now: Instant) -> Duration {
         match self.since {
-            Some(since) => self.left.saturating_sub(now.saturating_duration_since(since)),
+            Some(since) => self
+                .left
+                .saturating_sub(now.saturating_duration_since(since)),
             None => self.left,
         }
     }
@@ -331,11 +341,7 @@ pub fn show(notice: Notice, cx: &mut App) {
     let key = notice.dedupe_key();
     // The app's log keeps it too; a repeat of a notice still showing under
     // its key updates the entry it logged.
-    let replaces = stack
-        .read(cx)
-        .shown
-        .iter()
-        .any(|shown| shown.key == key);
+    let replaces = stack.read(cx).shown.iter().any(|shown| shown.key == key);
     let entry = crate::app_log::NewEntry {
         level: match notice.level {
             ToastLevel::Info => crate::app_log::Level::Info,
@@ -465,12 +471,16 @@ impl NoticeStack {
                     ToastLevel::Info | ToastLevel::Warning => {}
                 }
             }
-            shown.clock = notice.clock().map(|budget| Clock::new(budget, !holding, now));
+            shown.clock = notice
+                .clock()
+                .map(|budget| Clock::new(budget, !holding, now));
             shown.notice = notice;
         } else {
             let id = self.next_id;
             self.next_id += 1;
-            let clock = notice.clock().map(|budget| Clock::new(budget, !holding, now));
+            let clock = notice
+                .clock()
+                .map(|budget| Clock::new(budget, !holding, now));
             self.shown.insert(
                 0,
                 Shown {
@@ -507,8 +517,13 @@ impl NoticeStack {
         {
             cx.defer(move |cx| on_dismiss(cx));
         }
-        self.leaving
-            .push(stack::Leaving::new(shown, index, swipe, Instant::now()));
+        self.leaving.push(stack::Leaving::new(
+            shown,
+            index,
+            swipe,
+            Instant::now(),
+            cx.reduce_motion(),
+        ));
         self.schedule(cx);
         cx.notify();
     }
@@ -620,10 +635,18 @@ impl NoticeStack {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> bool {
-        let Some(shown) = self.shown.iter().find(|shown| &*shown.notice.title == title) else {
+        let Some(shown) = self
+            .shown
+            .iter()
+            .find(|shown| &*shown.notice.title == title)
+        else {
             return false;
         };
-        let Some(action) = shown.notice.actions.iter().find(|action| &*action.label == label)
+        let Some(action) = shown
+            .notice
+            .actions
+            .iter()
+            .find(|action| &*action.label == label)
         else {
             return false;
         };
@@ -657,17 +680,27 @@ mod tests {
         let c = Notice::new(ToastLevel::Error, "Build failed").source("Overleaf");
         assert_eq!(a.dedupe_key(), b.dedupe_key());
         assert_ne!(a.dedupe_key(), c.dedupe_key());
-        assert_eq!(&*Notice::new(ToastLevel::Info, "x").key("k").dedupe_key(), "k");
+        assert_eq!(
+            &*Notice::new(ToastLevel::Info, "x").key("k").dedupe_key(),
+            "k"
+        );
     }
 
     #[test]
     fn clocks_follow_the_tauri_apps_timeouts() {
-        assert_eq!(Notice::new(ToastLevel::Error, "e").clock(), Some(ERROR_TIMEOUT));
+        assert_eq!(
+            Notice::new(ToastLevel::Error, "e").clock(),
+            Some(ERROR_TIMEOUT)
+        );
         assert_eq!(Notice::new(ToastLevel::Info, "i").clock(), Some(TIMEOUT));
         // An action no longer keeps a card up by itself; `persistent` does.
-        let answered = Notice::new(ToastLevel::Info, "i").action(NoticeAction::new("Undo", |_, _| {}));
+        let answered =
+            Notice::new(ToastLevel::Info, "i").action(NoticeAction::new("Undo", |_, _| {}));
         assert_eq!(answered.clock(), Some(TIMEOUT));
-        assert_eq!(Notice::new(ToastLevel::Info, "i").persistent().clock(), None);
+        assert_eq!(
+            Notice::new(ToastLevel::Info, "i").persistent().clock(),
+            None
+        );
         assert_eq!(Notice::new(ToastLevel::Info, "i").running().clock(), None);
         assert_eq!(
             Notice::new(ToastLevel::Info, "i")
@@ -676,7 +709,9 @@ mod tests {
             Some(MIN_TIMEOUT)
         );
         assert_eq!(
-            Notice::new(ToastLevel::Info, "i").timeout(COPIED_TIMEOUT).clock(),
+            Notice::new(ToastLevel::Info, "i")
+                .timeout(COPIED_TIMEOUT)
+                .clock(),
             Some(COPIED_TIMEOUT)
         );
     }
@@ -684,7 +719,10 @@ mod tests {
     #[test]
     fn an_error_copies_its_title_and_detail() {
         let error = Notice::new(ToastLevel::Error, "Could not save").detail("Disk full");
-        assert_eq!(error.copy_text().as_deref(), Some("Could not save\nDisk full"));
+        assert_eq!(
+            error.copy_text().as_deref(),
+            Some("Could not save\nDisk full")
+        );
         assert_eq!(Notice::new(ToastLevel::Info, "i").copy_text(), None);
         let chosen = Notice::new(ToastLevel::Error, "x").copy("the whole log");
         assert_eq!(chosen.copy_text().as_deref(), Some("the whole log"));
@@ -696,9 +734,15 @@ mod tests {
         let mut clock = Clock::new(Duration::from_secs(6), true, start);
         let later = start + Duration::from_secs(2);
         clock.hold(later);
-        assert_eq!(clock.left(later + Duration::from_secs(10)), Duration::from_secs(4));
+        assert_eq!(
+            clock.left(later + Duration::from_secs(10)),
+            Duration::from_secs(4)
+        );
         let resumed = later + Duration::from_secs(10);
         clock.run(resumed);
-        assert_eq!(clock.left(resumed + Duration::from_secs(1)), Duration::from_secs(3));
+        assert_eq!(
+            clock.left(resumed + Duration::from_secs(1)),
+            Duration::from_secs(3)
+        );
     }
 }
