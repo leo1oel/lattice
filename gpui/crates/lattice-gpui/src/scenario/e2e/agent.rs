@@ -302,17 +302,17 @@ impl Run {
                 && (settings_facts["frame"] == true || settings_facts["loading"] == true),
             json!({ "drawn": settings_drawn, "shown": settings_shown, "page": settings_facts }),
         );
-        cx.update(|cx| {
-            self.shell.update(cx, |shell, cx| {
-                shell.settings = None;
-                cx.notify();
-            })
-        });
-        let settings_hidden = cx.update(|cx| {
-            settings_island
-                .as_ref()
-                .is_some_and(|island| !island.read(cx).is_active())
-        });
+        cx.update(|cx| self.shell.update(cx, |shell, cx| shell.close_settings(cx)));
+        let settings_hidden = match &settings_island {
+            Some(island) => {
+                let island = island.clone();
+                self.wait_for(cx, Duration::from_secs(3), move |_, cx| {
+                    !island.read(cx).is_active()
+                })
+                .await
+            }
+            None => false,
+        };
         steps.check(
             "closing Settings takes the Providers page off screen",
             settings_hidden,
