@@ -13,10 +13,14 @@
 //!
 //! Editing documents through the channel, presence, comments and chat ride
 //! the same connection; they come with the realtime part of the port.
+//!
+//! A channel waiting out its backoff joins at once when the window comes
+//! forward again (`retryNow` on the page's focus), and a join after a drop
+//! says so: the writer saw the toolbar fall back to syncing.
 
 use std::{path::PathBuf, sync::Arc, time::Duration};
 
-use futures::{StreamExt as _, channel::mpsc};
+use futures::{FutureExt as _, StreamExt as _, channel::mpsc};
 use gpui::{AsyncApp, Task, WeakEntity};
 use lattice_core::{
     overleaf,
@@ -47,6 +51,8 @@ pub(super) enum ChannelNews {
     Joined {
         entities: Vec<EntityEntry>,
         client: Arc<RealtimeClient>,
+        /// Joined again after a drop or a failed join, not the first time.
+        recovered: bool,
     },
     /// What the channel says of people and live documents.
     Event(RealtimeEvent),
@@ -119,11 +125,20 @@ fn backoff(attempt: u32) -> Duration {
 }
 
 /// Join `root`'s project and hold the connection, telling `bridge` as it
-/// changes, until the returned task is dropped (which closes it).
-pub(super) fn hold(root: PathBuf, bridge: WeakEntity<OverleafBridge>, cx: &AsyncApp) -> Task<()> {
+/// changes, until the returned task is dropped (which closes it). A message
+/// on `retry` cuts a backoff wait short; one sent while the channel is up,
+/// or joining, is let go.
+pub(super) fn hold(
+    root: PathBuf,
+    bridge: WeakEntity<OverleafBridge>,
+    mut retry: mpsc::UnboundedReceiver<()>,
+    cx: &AsyncApp,
+) -> Task<()> {
     cx.spawn(async move |cx| {
         let mut attempt = 0u32;
         let mut refusals = 0u32;
+        // A drop or failed join since the channel was last up.
+        let mut recovering = false;
         loop {
             let (sender, mut events) = mpsc::unbounded::<RealtimeEvent>();
             let joined = cx
@@ -134,12 +149,14 @@ pub(super) fn hold(root: PathBuf, bridge: WeakEntity<OverleafBridge>, cx: &Async
                 Ok((client, entities)) => {
                     attempt = 0;
                     refusals = 0;
+                    let recovered = std::mem::take(&mut recovering);
                     let client = Guard(client);
                     let told = bridge.update(cx, |bridge, cx| {
                         bridge.channel_news(
                             ChannelNews::Joined {
                                 entities,
                                 client: client.0.clone(),
+                                recovered,
                             },
                             cx,
                         )
@@ -212,6 +229,7 @@ pub(super) fn hold(root: PathBuf, bridge: WeakEntity<OverleafBridge>, cx: &Async
             }
             let delay = backoff(attempt);
             attempt += 1;
+            recovering = true;
             let told = bridge.update(cx, |bridge, cx| {
                 bridge.channel_news(
                     ChannelNews::Reconnecting(reconnecting_detail(&reason, delay)),
@@ -221,7 +239,30 @@ pub(super) fn hold(root: PathBuf, bridge: WeakEntity<OverleafBridge>, cx: &Async
             if told.is_err() {
                 return;
             }
-            cx.background_executor().timer(delay).await;
+            // Asked before this wait began: the window came forward while
+            // the channel was up or joining, which needs nothing.
+            while retry.try_recv().is_ok() {}
+            let mut timer = cx.background_executor().timer(delay).fuse();
+            futures::select_biased! {
+                _ = timer => {}
+                asked = retry.next() => {
+                    if asked.is_none() {
+                        return;
+                    }
+                    // Back from elsewhere: join now rather than wait it out,
+                    // without counting this one against the backoff.
+                    attempt = attempt.saturating_sub(1);
+                    let told = bridge.update(cx, |bridge, cx| {
+                        bridge.channel_news(
+                            ChannelNews::Reconnecting(reconnecting_detail(&reason, Duration::ZERO)),
+                            cx,
+                        )
+                    });
+                    if told.is_err() {
+                        return;
+                    }
+                }
+            }
         }
     })
 }

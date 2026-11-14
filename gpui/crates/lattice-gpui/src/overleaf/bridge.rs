@@ -5,12 +5,19 @@
 //! what a finished sync leaves the writer to know or do.
 //!
 //! - Live mode asks Overleaf every 3 s whether its history moved (a small
-//!   JSON probe) and syncs only on a yes, no more than once per 12 s; without
-//!   a version to compare it syncs every two minutes; a 429 backs it off
-//!   sharply. A change here (a save, an outside edit) syncs after 2.5 s of
-//!   quiet, once a probe that also reads the files here says something
-//!   differs, so a build's outputs or a sync's own writes never cost a
-//!   project download.
+//!   JSON probe) and syncs only on a yes, no more than once per 12 s; once
+//!   the channel carries documents, only figures and new files are left to
+//!   it, so it asks every 45 s and syncs at most every 30 s. Without a
+//!   version to compare it syncs every two minutes; a 429 backs it off
+//!   sharply. A window off screen rests (unless work of ours is owed), and
+//!   coming back to it asks at once. A change here (a save, an outside
+//!   edit) syncs after 2.5 s of quiet, once a probe that also reads the
+//!   files here says something differs, so a build's outputs or a sync's
+//!   own writes never cost a project download.
+//! - A board, sheet or deck (whole-file editors, whose every edit rewrites
+//!   the file) waits while it is being edited: it goes up once the writer
+//!   leaves it, the window loses focus, ⌘S saves, or it has sat a minute
+//!   (`OVERLEAF_WHOLE_FILE_*` in `use-overleaf-workspace.ts`).
 //! - Manual mode never syncs on its own: it probes every 30 s and badges the
 //!   toolbar's button when Overleaf has work this project has not pulled.
 //! - A sync's files changed on disk reach the editors, the tree and the PDF
@@ -25,7 +32,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use futures::channel::oneshot;
+use futures::channel::{mpsc, oneshot};
 use gpui::{App, AppContext as _, Context, EventEmitter, SharedString, Subscription, Task};
 use lattice_core::{
     overleaf::{OverleafLink, OverleafStatus, OverleafSyncResult},
@@ -56,10 +63,20 @@ pub use review::DocReview;
 const LIVE_POLL: Duration = Duration::from_secs(3);
 /// Cadence when Overleaf gives no cheap way to detect a change.
 const BLIND_POLL: Duration = Duration::from_secs(120);
+/// Cadence once the channel carries documents: only figures and new files
+/// remain, and each "yes" is a full download.
+const CHANNEL_POLL: Duration = Duration::from_secs(45);
 /// Floor between automatic syncs: Overleaf answers 429 past ten project
 /// downloads a minute, and a collaborator typing moves the version on every
 /// poll.
 const MIN_SYNC_GAP: Duration = Duration::from_secs(12);
+/// The floor once the channel carries documents.
+const CHANNEL_SYNC_GAP: Duration = Duration::from_secs(30);
+/// A whole-file editor just left: its cleanup writes settle first.
+const WHOLE_FILE_SETTLE: Duration = Duration::from_secs(1);
+/// A long quiet edit in a whole-file editor still gets a checkpoint on
+/// Overleaf.
+const WHOLE_FILE_IDLE: Duration = Duration::from_secs(60);
 /// Quiet time after a change here before it is pushed up.
 const PUSH_DEBOUNCE: Duration = Duration::from_millis(2_500);
 /// How often manual mode checks for work on Overleaf.
@@ -131,13 +148,16 @@ pub enum OverleafBridgeEvent {
     PresenceChanged,
 }
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Default)]
 pub struct SyncOptions {
     /// Live mode's own sync, rather than one the writer asked for.
     pub automatic: bool,
     /// The version a probe just saw, so the sync can skip the download when
     /// nothing moved past it.
     pub observed_remote_version: Option<i64>,
+    /// Whole-file documents still being edited that this automatic sync may
+    /// take up all the same (they are ready to go).
+    pub include_whole_files: BTreeSet<String>,
 }
 
 pub struct OverleafBridge {
@@ -173,12 +193,21 @@ pub struct OverleafBridge {
     /// session: the safe side of forgetting is a file left on Overleaf.
     declined_deletes: HashSet<(PathBuf, String)>,
     sync_task: Option<Task<()>>,
+    /// The running sync's entry in the log.
+    sync_trace: Option<crate::app_log::trace::Trace>,
     /// Told how the running sync went (Review's Apply).
     sync_waiters: Vec<oneshot::Sender<Result<(), String>>>,
     /// Asked to hear how a sync went while another was running: told by the
     /// sync that starts once it ends, which carries what was saved since.
     queued_waiters: Vec<oneshot::Sender<Result<(), String>>>,
     poll_task: Option<Task<()>>,
+    /// Asks the live poll to probe now (the window came forward).
+    poll_wake: Option<mpsc::UnboundedSender<()>>,
+    /// The window is on screen; off it, the live poll rests.
+    window_visible: bool,
+    /// Asks the channel to join now rather than wait out its backoff.
+    channel_retry: Option<mpsc::UnboundedSender<()>>,
+    whole_files: live::WholeFiles,
     push_task: Option<Task<()>>,
     badge_task: Option<Task<()>>,
     channel_task: Option<Task<()>>,
@@ -228,9 +257,14 @@ impl OverleafBridge {
             last_auto_sync: None,
             declined_deletes: HashSet::new(),
             sync_task: None,
+            sync_trace: None,
             sync_waiters: Vec::new(),
             queued_waiters: Vec::new(),
             poll_task: None,
+            poll_wake: None,
+            window_visible: true,
+            channel_retry: None,
+            whole_files: Default::default(),
             push_task: None,
             badge_task: None,
             channel_task: None,
@@ -281,8 +315,58 @@ impl OverleafBridge {
         }
     }
 
-    pub fn channel_detail(&self) -> Option<&SharedString> {
-        self.channel_detail.as_ref()
+    /// Why the shown file is not live, or what the channel last said.
+    pub fn channel_detail(&self) -> Option<SharedString> {
+        if let Some(detail) = self.documents_detail() {
+            return Some(detail);
+        }
+        // Up and carrying documents, yet the file in front is none of them:
+        // an image, a PDF, a file Overleaf keeps whole.
+        if self.mode == OverleafSyncMode::Live
+            && self.channel == ChannelStatus::Live
+            && self.live_file().is_none()
+            && self.shown_not_live()
+        {
+            return Some(
+                t!("Overleaf doesn’t support live editing for this file, so it will use regular sync.")
+                    .into(),
+            );
+        }
+        self.channel_detail.clone()
+    }
+
+    /// The window came on screen or went off it.
+    pub fn set_window_visible(&mut self, visible: bool) {
+        if std::mem::replace(&mut self.window_visible, visible) != visible && visible {
+            self.window_came_forward();
+        }
+    }
+
+    /// The window became the key window, or stopped being it.
+    pub fn set_window_active(&mut self, active: bool, cx: &mut Context<Self>) {
+        if active {
+            self.window_came_forward();
+        } else {
+            // Going to the browser is when co-authors look: what waits in a
+            // whole-file editor goes up.
+            self.flush_whole_files_soon(cx);
+        }
+    }
+
+    /// Back from the browser is when stale content is most obvious: probe
+    /// now, and join a channel that is waiting to.
+    fn window_came_forward(&mut self) {
+        if let Some(wake) = &self.poll_wake {
+            wake.unbounded_send(()).ok();
+        }
+        if let Some(retry) = &self.channel_retry {
+            retry.unbounded_send(()).ok();
+        }
+    }
+
+    /// The channel carries documents (it is up, in live mode).
+    fn channel_live(&self) -> bool {
+        self.mode == OverleafSyncMode::Live && self.channel == ChannelStatus::Live
     }
 
     /// The window's project changed: nothing queued for one carries over.
@@ -300,12 +384,13 @@ impl OverleafBridge {
         self.entity_list = None;
         self.review_reset();
         self.chat_reset();
-        self.sync_task = None;
+        self.cancel_sync(cx);
         self.sync_waiters.clear();
         self.queued_waiters.clear();
         self.syncing = false;
         self.toasted_failure = None;
         self.rejoined = false;
+        self.whole_files = Default::default();
         self.stop(cx);
         self.reload_link(cx);
     }
@@ -313,9 +398,11 @@ impl OverleafBridge {
     /// Stop the loops and the channel.
     fn stop(&mut self, cx: &mut Context<Self>) {
         self.poll_task = None;
+        self.poll_wake = None;
         self.push_task = None;
         self.badge_task = None;
         self.channel_task = None;
+        self.channel_retry = None;
         self.channel = ChannelStatus::Off;
         self.channel_detail = None;
         // Closing the project: what is unanswered syncs when it opens again.
@@ -336,7 +423,7 @@ impl OverleafBridge {
     ) {
         self.stop(cx);
         self.staged = true;
-        self.sync_task = None;
+        self.cancel_sync(cx);
         self.link_task = None;
         self.link_generation += 1;
         self.session_seen = super::session_generation(cx);
@@ -419,19 +506,25 @@ impl OverleafBridge {
             self.channel = ChannelStatus::Connecting;
             self.channel_detail = None;
             let this = cx.entity().downgrade();
-            self.channel_task = Some(channel::hold(root.clone(), this, &cx.to_async()));
+            let (retry, asked) = mpsc::unbounded();
+            self.channel_retry = Some(retry);
+            self.channel_task = Some(channel::hold(root.clone(), this, asked, &cx.to_async()));
         }
         match self.mode {
             OverleafSyncMode::Live => {
                 self.badge_task = None;
                 self.remote_changes = false;
                 if self.poll_task.is_none() {
-                    self.poll_task = Some(self.live_poll(cx));
+                    let (wake, woken) = mpsc::unbounded();
+                    self.poll_wake = Some(wake);
+                    self.poll_task = Some(self.live_poll(woken, cx));
                 }
             }
             OverleafSyncMode::Manual => {
                 self.poll_task = None;
+                self.poll_wake = None;
                 self.push_task = None;
+                self.whole_files.stop_timers();
                 if self.badge_task.is_none() {
                     self.badge_task = Some(self.badge_poll(root, cx));
                 }
@@ -442,7 +535,21 @@ impl OverleafBridge {
 
     pub(super) fn channel_news(&mut self, news: ChannelNews, cx: &mut Context<Self>) {
         match news {
-            ChannelNews::Joined { entities, client } => {
+            ChannelNews::Joined {
+                entities,
+                client,
+                recovered,
+            } => {
+                if recovered {
+                    notices::show(
+                        Notice::new(
+                            ToastLevel::Success,
+                            t!("Overleaf live editing reconnected."),
+                        )
+                        .key("overleaf-channel"),
+                        cx,
+                    );
+                }
                 self.note_entities(entities);
                 self.client = Some(client);
                 self.presence_joined(cx);
@@ -582,13 +689,27 @@ impl OverleafBridge {
         self.syncing = true;
         self.local_pending = false;
         cx.notify();
+        let trace = crate::app_log::trace::Trace::start(
+            "Overleaf",
+            t!("Sync"),
+            Some(if options.automatic {
+                t!("automatic").to_string()
+            } else {
+                t!("requested").to_string()
+            }),
+            "Sync",
+            cx,
+        );
+        self.sync_trace = Some(trace);
         let entities = self.entity_list.clone();
         let run_root = root.clone();
-        // The live document is the channel's to carry.
-        let live = self.live_paths();
-        let run = cx.background_spawn(async move {
-            sync::sync(&run_root, &live, options.observed_remote_version, entities)
-        });
+        // The live document is the channel's to carry, and a whole-file
+        // document being edited waits until the writer leaves it.
+        let run_live = self.sync_live_paths(&options, cx);
+        self.whole_files.sync_started(&run_live);
+        let observed = options.observed_remote_version;
+        let run = cx
+            .background_spawn(async move { sync::sync(&run_root, &run_live, observed, entities) });
         self.sync_task = Some(cx.spawn(async move |this, cx| {
             let (result, expired) = run.await;
             this.update(cx, |this, cx| {
@@ -601,9 +722,10 @@ impl OverleafBridge {
                 if expired {
                     super::session_changed(cx);
                 }
-                if this.root.as_deref() != Some(root.as_path()) {
-                    return;
+                if let Some(mut trace) = this.sync_trace.take() {
+                    finished::trace_outcome(&mut trace, &result, &options, cx);
                 }
+                this.whole_files.synced(result.is_ok());
                 match result {
                     Ok(result) => this.synced(root, result, options, cx),
                     Err(error) => this.failed(error, options, cx),

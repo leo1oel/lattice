@@ -38,6 +38,9 @@ pub enum EditorPanelEvent {
     Edited,
     /// Open Slide asks the Agent's composer (`OpenSlideAgentRequest`).
     AgentRequest(serde_json::Value),
+    /// What the Agent is told of the panel's surface changed (a deck's
+    /// selection, the visual Markdown editor's).
+    SurfaceContext,
     /// A suggestion's card asked to accept or reject it.
     OverleafReview(super::ReviewAction),
     /// A saved paper's masthead came on screen (true) or left it, for the

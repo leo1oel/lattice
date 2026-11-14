@@ -352,8 +352,11 @@ impl StructuredDocument {
             return;
         };
         payload["projectRoot"] = json!(self.root.to_string_lossy());
-        payload["editable"] = json!(true);
+        payload["editable"] = json!(self.editable);
         payload["split"] = json!(session.split);
+        if let Some(cursors) = &self.visual_presence {
+            payload["presence"] = cursors.clone();
+        }
         payload["files"] = session.files.clone();
         payload["texSources"] = json!(session.tex_sources);
         payload["paper"] = session
@@ -435,6 +438,7 @@ impl StructuredDocument {
                 self.source = source.clone();
                 MarkdownEvent::Edit { base, source }
             }
+            "md:selection" => return self.visual_selection_changed(payload, cx),
             "md:undo" => MarkdownEvent::Undo,
             "md:redo" => MarkdownEvent::Redo,
             "md:view-in-source" => {
