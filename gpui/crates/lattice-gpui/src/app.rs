@@ -243,7 +243,7 @@ fn load_chosen_keymap(keymap: lattice_settings::EditorKeymap, cx: &mut App) {
     match keymap {
         lattice_settings::EditorKeymap::Vim if !vim => {
             cx.global_mut::<LoadedKeymaps>().vim = true;
-            bind_asset_keymap(VIM_KEYMAP_PATH, cx);
+            bind_vim_keymap(cx);
             crate::shell::bind_keys(cx);
         }
         lattice_settings::EditorKeymap::Emacs if !emacs => {
@@ -260,8 +260,37 @@ fn load_chosen_keymap(keymap: lattice_settings::EditorKeymap, cx: &mut App) {
 /// context must hold below the shell's, which carries that context only
 /// while Emacs is the chosen keymap.
 fn bind_emacs_keymap(cx: &mut App) {
-    use gpui::{KeyBinding, KeyBindingContextPredicate as Predicate};
-    let bindings = match KeymapFile::load_asset_allow_partial_failure(EMACS_KEYMAP_PATH, cx) {
+    use gpui::KeyBindingContextPredicate as Predicate;
+    let scope = Predicate::Identifier(EMACS_CONTEXT.into());
+    bind_rewritten_keymap(EMACS_KEYMAP_PATH, cx, |own| match own {
+        Some(own) => Predicate::Descendant(Box::new(scope.clone()), Box::new(own)),
+        None => scope.clone(),
+    });
+}
+
+/// Zed's Vim keymap, each binding kept out of a text field (`Input`, gpui-kit's
+/// field: the palette, the finders, a tab's rename). Its blocks for
+/// `!Editor && !Terminal` (`space f`, `:`, `g /`, `ctrl-w h`) hold wherever no
+/// editor has the keyboard, so in a field Space or `:` would wait as the start
+/// of one of them and never be typed.
+fn bind_vim_keymap(cx: &mut App) {
+    use gpui::KeyBindingContextPredicate as Predicate;
+    let outside_field = Predicate::Not(Box::new(Predicate::Identifier("Input".into())));
+    bind_rewritten_keymap(VIM_KEYMAP_PATH, cx, |own| match own {
+        Some(own) => Predicate::And(Box::new(own), Box::new(outside_field.clone())),
+        None => outside_field.clone(),
+    });
+}
+
+/// One of Zed's embedded keymaps, each binding's context replaced by what
+/// `rewrite` makes of it (`None`: the binding has none).
+fn bind_rewritten_keymap(
+    path: &str,
+    cx: &mut App,
+    rewrite: impl Fn(Option<gpui::KeyBindingContextPredicate>) -> gpui::KeyBindingContextPredicate,
+) {
+    use gpui::KeyBinding;
+    let bindings = match KeymapFile::load_asset_allow_partial_failure(path, cx) {
         Ok(bindings) => bindings,
         Err(error) => {
             log::warn!("{error:#}");
@@ -269,17 +298,11 @@ fn bind_emacs_keymap(cx: &mut App) {
         }
     };
     let os = cx.platform_info().os;
-    let scope = Predicate::Identifier(EMACS_CONTEXT.into());
     let scoped: Vec<KeyBinding> = bindings
         .iter()
         .filter_map(|binding| {
             let keys: Vec<String> = binding.keystrokes().iter().map(|k| k.unparse(os)).collect();
-            let predicate = match binding.predicate() {
-                Some(own) => {
-                    Predicate::Descendant(Box::new(scope.clone()), Box::new((*own).clone()))
-                }
-                None => scope.clone(),
-            };
+            let predicate = rewrite(binding.predicate().map(|own| (*own).clone()));
             KeyBinding::load(
                 &keys.join(" "),
                 binding.action().boxed_clone(),
