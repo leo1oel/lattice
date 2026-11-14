@@ -7,12 +7,13 @@
 use std::time::Duration;
 
 use gpui::{
-    Animation, AnimationExt as _, AnyElement, App, Bounds, BoxShadow, DispatchPhase, IntoElement,
-    MouseDownEvent, ParentElement as _, Pixels, Styled as _, Window, canvas, div, point, px,
+    Animation, AnimationExt as _, AnyElement, App, Bounds, DispatchPhase, IntoElement,
+    MouseDownEvent, ParentElement as _, Pixels, Styled as _, Window, canvas, div, px,
 };
 use lattice_ui::{
     ActiveLattice as _, Elevation, TextRole, TextRoleStyle as _,
-    tokens::{FONT_WEIGHT_MEDIUM, RADIUS_DIALOG, RADIUS_PILL},
+    shape::RADIUS_MODAL,
+    tokens::{FONT_WEIGHT_MEDIUM, RADIUS_PILL},
 };
 
 /// How long the ring stays up when nothing else takes it down.
@@ -39,46 +40,46 @@ pub fn ring(
 ) -> AnyElement {
     let palette = cx.palette().clone();
     let accent = palette.accent;
-    let glow = move |spread: f32, alpha: f32| {
-        vec![
-            BoxShadow {
-                color: accent,
-                offset: point(px(0.), px(0.)),
-                blur_radius: px(0.),
-                spread_radius: px(2.),
-                inset: false,
-            },
-            BoxShadow {
-                color: accent.opacity(alpha),
-                offset: point(px(0.), px(0.)),
-                blur_radius: px(0.),
-                spread_radius: px(spread),
-                inset: false,
-            },
-        ]
+    // CSS draws the ring as two outer box-shadows (`0 0 0 2px` and a wider
+    // translucent halo), which paint only outside the box. A GPUI shadow
+    // fills its whole rounded rect, and the ring has no background to cover
+    // it, so shadows here would paint over the place being pointed at. Each
+    // band is drawn instead as the border of a box grown past `bounds` by
+    // the band's outer edge, its radius grown with it as a CSS spread's is.
+    let band = move |outset: f32, width: f32| {
+        div()
+            .absolute()
+            .left(bounds.left() - px(outset))
+            .top(bounds.top() - px(outset))
+            .w(bounds.size.width + px(2. * outset))
+            .h(bounds.size.height + px(2. * outset))
+            .rounded(RADIUS_MODAL + px(outset))
+            .border(px(width))
     };
-    // The pulse (`get-started-pulse`): the halo breathes out and fades at
-    // the half, eased both ways, every 1.6s.
-    let ring = div()
-        .absolute()
-        .left(bounds.left())
-        .top(bounds.top())
-        .w(bounds.size.width)
-        .h(bounds.size.height)
-        .rounded(RADIUS_DIALOG)
-        .with_animation(
-            "get-started-pulse",
-            Animation::new(Duration::from_millis(1600)).repeat(),
-            move |ring, delta| {
-                let half = if delta < 0.5 {
-                    delta * 2.
-                } else {
-                    (1. - delta) * 2.
-                };
-                let eased = gpui::ease_in_out(half);
-                ring.shadow(glow(8. + 4. * eased, 0.18 - 0.10 * eased))
-            },
-        );
+    // The pulse (`get-started-pulse`): the halo breathes out from 8px to
+    // 12px and fades from 18% to 8% at the half, eased both ways, every
+    // 1.6s. It starts past the 2px ring, which covers it there in CSS.
+    let halo = band(8., 6.).with_animation(
+        "get-started-pulse",
+        Animation::new(Duration::from_millis(1600)).repeat(),
+        move |halo, delta| {
+            let half = if delta < 0.5 {
+                delta * 2.
+            } else {
+                (1. - delta) * 2.
+            };
+            let eased = gpui::ease_in_out(half);
+            let spread = 8. + 4. * eased;
+            halo.left(bounds.left() - px(spread))
+                .top(bounds.top() - px(spread))
+                .w(bounds.size.width + px(2. * spread))
+                .h(bounds.size.height + px(2. * spread))
+                .rounded(RADIUS_MODAL + px(spread))
+                .border(px(spread - 2.))
+                .border_color(accent.opacity(0.18 - 0.10 * eased))
+        },
+    );
+    let ring = band(2., 2.).border_color(accent);
     let pill = div()
         .flex_none()
         .px(px(12.))
@@ -118,6 +119,7 @@ pub fn ring(
         .top_0()
         .left_0()
         .size_full()
+        .child(halo)
         .child(ring)
         .child(word)
         .child(listen)
