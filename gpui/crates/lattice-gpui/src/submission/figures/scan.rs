@@ -459,7 +459,11 @@ mod tests {
         let main = "\\verb§\\includegraphics{a}§ und \\verb*。\\includegraphics{a}。\n\\verb_x_ \\includegraphics{b}\n";
         let paths: Vec<String> = ["a.png", "b.png"].map(String::from).to_vec();
         let inventory = scan(&sources(&[("main.tex", main)]), &paths);
-        let assets: Vec<_> = inventory.uses.iter().map(|use_| use_.asset.as_deref()).collect();
+        let assets: Vec<_> = inventory
+            .uses
+            .iter()
+            .map(|use_| use_.asset.as_deref())
+            .collect();
         assert_eq!(assets, [Some("b.png")]);
         assert_eq!(inventory.uses[0].line, 2);
     }
