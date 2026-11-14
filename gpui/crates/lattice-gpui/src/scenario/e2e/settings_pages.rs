@@ -6,8 +6,9 @@
 //! Settings search finds the pages and reveals their rows. Editor & builds
 //! holds the other languages' dictionaries and the grammar choices, which
 //! reach the editors' check; with Literature services' full-text choice off,
-//! adding a paper saves its citation alone. Acknowledgements lists the shipped notices and opens
-//! them in a sheet over Settings, which Escape closes before Settings.
+//! adding a Zotero paper attaches no PDF. Acknowledgements lists the shipped
+//! notices and opens them in a sheet over Settings, which Escape closes
+//! before Settings.
 
 use std::{path::Path, time::Duration};
 
@@ -211,8 +212,9 @@ impl Run {
     }
 
     /// With Literature services' full-text choice off, a Zotero paper with
-    /// a PDF is added as its citation alone: no text saved, no PDF
-    /// attached, so no attachment is even looked for.
+    /// a PDF is added without it: no attachment is even looked for. The
+    /// pasted entry saves no text either way, so its `full_text` is only a
+    /// sanity check; the e2e has no offline source whose text Save fetches.
     async fn citation_only_import(
         &self,
         cx: &mut AsyncApp,
@@ -269,7 +271,7 @@ impl Run {
         });
         std::fs::write(&bibliography, original)?;
         steps.check(
-            "with full text off, adding a Zotero paper saves its citation alone and attaches no PDF",
+            "with full text off, adding a Zotero paper attaches no PDF",
             settled
                 && outcome["state"] == "Added"
                 && outcome["note"].is_null()
