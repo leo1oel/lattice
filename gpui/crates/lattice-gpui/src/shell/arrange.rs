@@ -110,6 +110,9 @@ impl Shell {
         {
             self.reset_undo = None;
         }
+        // Read before the views sync: a view taken off screen is still in
+        // the frame last drawn, where the keyboard's place is looked up.
+        let keyboard_hidden = self.keyboard_in_hidden_view(&doc, window, cx);
         self.last_document = doc;
         self.sync_views(window, cx);
         self.forget_closed_pdfs(cx);
@@ -117,7 +120,27 @@ impl Shell {
         self.refresh_dirty(cx);
         self.follow_active_document(cx);
         self.schedule_save(window, cx);
+        // A view hidden with the keyboard in it (⌃`, the Panels menu's Hide)
+        // would leave the keyboard where nothing is drawn, so the window's
+        // commands, ⌃` among them, would no longer reach the shell.
+        if keyboard_hidden {
+            self.focus_front(window, cx);
+        }
         cx.notify();
+    }
+
+    /// The keyboard is in a view `doc` hides. Read from the document, not
+    /// the engine's view states, which follow on the next layout pass; and
+    /// the panel flying out is still drawn, so the keyboard is still found
+    /// in it.
+    fn keyboard_in_hidden_view(&self, doc: &LayoutDocument, window: &Window, cx: &App) -> bool {
+        doc.hidden
+            .iter()
+            .flat_map(|hidden| hidden.panel.views.iter())
+            .any(|view| {
+                self.panel_of_view(view)
+                    .is_some_and(|panel| panel.focus_handle(cx).contains_focused(window, cx))
+            })
     }
 
     /// A view closed (its X, its menu, ⌘W): a document's panel keeps an

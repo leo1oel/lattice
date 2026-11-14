@@ -485,6 +485,8 @@ impl Run {
             json!({ "closed": closed, "fresh": fresh }),
         );
 
+        self.terminal_keyboard(cx, steps, root).await?;
+
         // Closing the panel ends its shells.
         self.with_window(cx, |shell, _, cx| {
             shell.update(cx, |shell, cx| {
@@ -626,7 +628,10 @@ impl Run {
         cx.update(|cx| self.shell.read(cx).view_on_screen(view, cx))
     }
 
-    fn active_terminal(&self, cx: &gpui::App) -> Option<gpui::Entity<terminal::Terminal>> {
+    pub(super) fn active_terminal(
+        &self,
+        cx: &gpui::App,
+    ) -> Option<gpui::Entity<terminal::Terminal>> {
         let panel = self.shell.read(cx).terminal().read(cx);
         let key = panel.active_key()?;
         let session = panel.sessions().iter().find(|session| session.key == key)?;

@@ -44,6 +44,8 @@ mod submission_checklist;
 mod tab_strip;
 #[cfg(target_os = "macos")]
 mod terminal;
+#[cfg(target_os = "macos")]
+mod terminal_focus;
 mod tree;
 
 use steps::Steps;
