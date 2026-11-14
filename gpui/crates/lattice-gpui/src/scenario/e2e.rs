@@ -10,6 +10,7 @@ use serde_json::{Value, json};
 use super::Run;
 use crate::{editor_panel::EditorPanel, native};
 
+mod assets;
 mod build_flow;
 mod design_calls;
 mod documents;
@@ -53,7 +54,9 @@ impl Run {
     /// context menu and glide the PDF toolbar's hover (`design_calls.rs`); hover a
     /// citation and a reference, draw remote carets and a block widget, show
     /// TexLab's diagnostics and complete a citation and a command; then create,
-    /// rename, move and delete files in the tree, check the PDF viewer on a
+    /// rename, move and delete files in the tree, open an image and a file
+    /// no preview draws, delete a second bibliography and be refused the
+    /// primary one (`assets.rs`), check the PDF viewer on a
     /// second root document and in a second window (`pdf.rs`), drag a tab
     /// into the PDF's panel, open Settings and change it (the interface
     /// language included), close a dirty tab, a vanished file's tab and a window,
@@ -266,6 +269,7 @@ impl Run {
         self.editor_adapter(cx, &mut steps, &root).await?;
 
         self.tree_operations(cx, &mut steps, &root).await?;
+        self.asset_and_bib_steps(cx, &mut steps, &root).await?;
         self.documents_and_project(cx, &mut steps, &root).await?;
         // Overlays above a page need gpui-fast's window composition, which
         // WebView2 does not join yet (gpui-webview 0.9.1), so the island

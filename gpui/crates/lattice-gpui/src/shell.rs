@@ -14,6 +14,7 @@
 
 mod actions;
 mod arrange;
+mod assets;
 mod build;
 mod build_tools;
 pub mod commands;
@@ -195,6 +196,8 @@ pub struct Shell {
     root_pdfs: Vec<(String, Entity<PdfPanel>)>,
     /// The project's PDFs opened from the tree.
     file_pdfs: Vec<Entity<PdfPanel>>,
+    /// The project's images and other binary files opened from the tree.
+    asset_panels: Vec<Entity<crate::asset_preview::AssetPanel>>,
     /// The live document's outline.
     outline: std::rc::Rc<[crate::outline::Heading]>,
     _outline_task: Option<Task<()>>,
@@ -443,6 +446,7 @@ impl Shell {
             live_document: None,
             root_pdfs: Vec::new(),
             file_pdfs: Vec::new(),
+            asset_panels: Vec::new(),
             outline: std::rc::Rc::from([]),
             _outline_task: None,
             _open_task: None,
@@ -607,6 +611,7 @@ impl Shell {
         self.refresh_words(cx);
         self.build_target = None;
         self.close_root_pdfs(window, cx);
+        self.asset_panels.clear();
         // The documents' panels go with the project they were of.
         let gone: Vec<_> = self
             .views
@@ -656,8 +661,9 @@ impl Shell {
         cx.notify();
     }
 
-    /// Open a source file in an editor tab (or switch to its tab), or a PDF in
-    /// the preview, then go to `line` when given.
+    /// Open a source file in an editor tab (or switch to its tab), a PDF in
+    /// its viewer, or an image or other binary file in its preview
+    /// (`asset_preview`), then go to `line` when given.
     pub fn open_path(
         &mut self,
         path: PathBuf,
@@ -673,6 +679,9 @@ impl Shell {
             return None;
         }
         let path = path.canonicalize().unwrap_or(path);
+        if self.open_if_asset(&path, window, cx) {
+            return None;
+        }
         let in_front = self
             .active_editor()
             .is_some_and(|editor| editor.read(cx).path() == path);

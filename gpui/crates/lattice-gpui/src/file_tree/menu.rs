@@ -34,6 +34,11 @@ fn item(view: &WeakEntity<FileTreePanel>, icon: Icon, label: &'static str, run: 
 
 impl FileTreePanel {
     pub(crate) fn ask_delete(&mut self, path: String, cx: &mut Context<Self>) {
+        // lattice-core refuses it with these words; say them before asking.
+        if self.protected(&path, cx) {
+            crate::notices::warning(t!("The primary bibliography cannot be deleted."), cx);
+            return;
+        }
         let view = cx.entity().downgrade();
         confirm::ask(
             Confirm::new(t!("Delete “{path}” from this project?", path = path))
@@ -111,13 +116,12 @@ impl FileTreePanel {
         let Some(this) = view.upgrade() else {
             return menu;
         };
-        let (main, show_hidden, protected, root) = {
+        let (main, show_hidden, root) = {
             let tree = this.read(cx);
             let project = tree.project.as_ref().map(|project| project.read(cx));
             (
                 project.and_then(|project| project.main_document().map(str::to_string)),
                 project.is_some_and(|project| project.show_hidden()),
-                tree.protected(&path, cx),
                 project.map(|project| project.root().to_path_buf()),
             )
         };
@@ -188,18 +192,17 @@ impl FileTreePanel {
             )
             .separator();
         menu = Self::view_items(view, show_hidden, menu);
-        if !protected {
-            menu = menu.separator().item(
-                item(
-                    view,
-                    Icon::TRASH,
-                    t!("Delete"),
-                    Box::new(move |this, _, cx| this.ask_delete(path.clone(), cx)),
-                )
-                .destructive(),
-            );
-        }
-        menu
+        // Offered on the primary bibliography too, where it says why it is
+        // kept rather than leaving the writer to wonder where Delete went.
+        menu.separator().item(
+            item(
+                view,
+                Icon::TRASH,
+                t!("Delete"),
+                Box::new(move |this, _, cx| this.ask_delete(path.clone(), cx)),
+            )
+            .destructive(),
+        )
     }
 
     /// What can be added at the project's top level: the ⋯ menu's first

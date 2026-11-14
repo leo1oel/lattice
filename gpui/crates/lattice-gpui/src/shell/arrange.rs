@@ -109,6 +109,7 @@ impl Shell {
         self.last_document = doc;
         self.sync_views(window, cx);
         self.forget_closed_pdfs(cx);
+        self.forget_closed_assets();
         self.refresh_dirty(cx);
         self.follow_active_document(cx);
         self.schedule_save(window, cx);
@@ -140,6 +141,7 @@ impl Shell {
         self.last_document = close_view(&self.last_document, view);
         self.sync_views(window, cx);
         self.forget_closed_pdfs(cx);
+        self.forget_closed_assets();
         if had_focus || window.focused(cx).is_none() {
             self.focus_front(window, cx);
         }

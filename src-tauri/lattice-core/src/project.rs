@@ -66,8 +66,8 @@ pub use annotations::{
 };
 pub use archive::{export_project_zip, import_project_zip};
 pub(crate) use archive::{safe_zip_entry_name, zip_entry_display_name, zip_time};
-pub use assets::AssetPreview;
 pub use assets::{prepare_latex_figure, read_asset, read_asset_range};
+pub use assets::{AssetContent, AssetPreview};
 pub use bibliography::{
     bbl_target_for_bib, bib_target_for_bbl, citations, read_bib_entry, save_bib_entry,
     CitationIndex,
