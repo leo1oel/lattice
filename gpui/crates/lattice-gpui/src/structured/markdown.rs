@@ -56,6 +56,9 @@ pub enum MarkdownEvent {
     /// A paper's masthead (its title over the full text) came on screen or
     /// left it: the reader's strip names the paper only while it is off.
     Masthead(bool),
+    /// A source link into the paper's own PDF was followed: its 1-based
+    /// page (`paperSourceCitation`).
+    PaperSource(u32),
 }
 
 /// A saved paper's reading text, as the canvas reads one (`activePaper` in
@@ -67,11 +70,25 @@ pub struct PaperReading {
     pub authors: Option<String>,
     /// The full text (`paper.md`), not the overview: it has the masthead.
     pub full_text: bool,
+    /// The paper's identity, when its reader can show its original PDF, so
+    /// a source link into that PDF opens it there.
+    pub pdf: Option<PaperPdfIdentity>,
+}
+
+/// What `paperSourceCitation` reads of a paper to know its own PDF.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PaperPdfIdentity {
+    pub arxiv_id: String,
+    pub url: Option<String>,
+    pub has_local_pdf: bool,
 }
 
 impl PaperReading {
     fn to_json(&self) -> Value {
-        json!({ "title": self.title, "authors": self.authors, "fullText": self.full_text })
+        let pdf = self.pdf.as_ref().map(|pdf| {
+            json!({ "arxivId": pdf.arxiv_id, "url": pdf.url, "hasLocalPdf": pdf.has_local_pdf })
+        });
+        json!({ "title": self.title, "authors": self.authors, "fullText": self.full_text, "pdf": pdf })
     }
 }
 
@@ -443,6 +460,10 @@ impl StructuredDocument {
             "md:scrolled" => match payload.get("center").and_then(Value::as_f64) {
                 Some(center) => MarkdownEvent::Scrolled(center),
                 None => return,
+            },
+            "md:paper-source" => match payload.get("page").and_then(Value::as_u64) {
+                Some(page) if page >= 1 => MarkdownEvent::PaperSource(page as u32),
+                _ => return,
             },
             "md:masthead" => MarkdownEvent::Masthead(
                 payload

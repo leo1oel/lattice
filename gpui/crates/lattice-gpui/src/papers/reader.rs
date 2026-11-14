@@ -41,7 +41,7 @@ use lattice_ui::{
 use super::{model, row::tooltip};
 use crate::editor_panel::{EditorPanel, EditorPanelEvent};
 use crate::pdf::{PdfView, PdfViewEvent};
-use crate::structured::PaperReading;
+use crate::structured::{PaperPdfIdentity, PaperReading};
 
 /// Which of the bundle's texts is on screen.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -119,6 +119,9 @@ impl gpui::Global for PdfReading {}
 struct ShownPdf {
     view: Entity<PdfView>,
     source: PdfSource,
+    /// The 0-based page a source link asked for, shown once pages load.
+    pending_page: Option<usize>,
+    _loaded: Subscription,
     /// Still being fetched from the web.
     loading: bool,
     error: Option<SharedString>,
@@ -203,6 +206,13 @@ impl PaperReader {
         self.pdf.is_some()
     }
 
+    /// The pages of the PDF shown, once it has loaded (for scenarios).
+    pub fn pdf_pages(&self, cx: &App) -> usize {
+        self.pdf
+            .as_ref()
+            .map_or(0, |pdf| pdf.view.read(cx).page_count())
+    }
+
     fn reading(&self, view: ReaderView) -> PaperReading {
         PaperReading {
             title: self.paper.title.clone(),
@@ -210,6 +220,11 @@ impl PaperReader {
             authors: Some(model::author_names(&self.paper).join(", "))
                 .filter(|names| !names.is_empty()),
             full_text: view == ReaderView::FullText,
+            pdf: pdf_source(&self.paper).map(|_| PaperPdfIdentity {
+                arxiv_id: self.paper.arxiv_id.clone(),
+                url: self.paper.url.clone(),
+                has_local_pdf: self.paper.has_local_pdf,
+            }),
         }
     }
 
@@ -223,13 +238,19 @@ impl PaperReader {
     ) {
         let reading = self.reading(view);
         editor.update(cx, |editor, cx| editor.set_paper_reading(Some(reading), cx));
-        let subscription = cx.subscribe(&editor, move |this, _, event, cx| {
-            if let EditorPanelEvent::Masthead(in_view) = event
-                && this.view == view
-                && this.masthead != *in_view
-            {
-                this.masthead = *in_view;
-                cx.notify();
+        let subscription = cx.subscribe_in(&editor, window, move |this, _, event, window, cx| {
+            match event {
+                EditorPanelEvent::Masthead(in_view)
+                    if this.view == view && this.masthead != *in_view =>
+                {
+                    this.masthead = *in_view;
+                    cx.notify();
+                }
+                EditorPanelEvent::PaperSource(page) => {
+                    this.open_pdf(window, cx);
+                    this.go_to_pdf_page(*page as usize, cx);
+                }
+                _ => {}
             }
         });
         self.texts.retain(|(shown, ..)| *shown != view);
@@ -341,9 +362,24 @@ impl PaperReader {
                 this.show(this.view, window, cx);
             }
         });
+        // A page asked for before the pages had loaded is shown once they
+        // have.
+        let loaded = cx.observe(&view, |this, view, cx| {
+            let Some(pdf) = this.pdf.as_mut().filter(|pdf| pdf.view == view) else {
+                return;
+            };
+            if let Some(page) = pdf.pending_page
+                && view.read(cx).page_count() > page
+            {
+                pdf.pending_page = None;
+                view.update(cx, |view, cx| view.go_to_page(page, cx));
+            }
+        });
         let mut shown = ShownPdf {
             view: view.clone(),
             source: source.clone(),
+            pending_page: None,
+            _loaded: loaded,
             loading: false,
             error: None,
             _fetch: None,
@@ -408,6 +444,19 @@ impl PaperReader {
             })
             .ok();
         })
+    }
+
+    /// Show the 1-based `page` of the PDF shown (`openPdf({ page })`).
+    fn go_to_pdf_page(&mut self, page: usize, cx: &mut Context<Self>) {
+        let Some(pdf) = &mut self.pdf else {
+            return;
+        };
+        let page = page.saturating_sub(1);
+        if pdf.view.read(cx).page_count() > page {
+            pdf.view.update(cx, |view, cx| view.go_to_page(page, cx));
+        } else {
+            pdf.pending_page = Some(page);
+        }
     }
 
     fn close_pdf(&mut self, cx: &mut Context<Self>) {
@@ -811,12 +860,11 @@ mod tests {
     use super::*;
 
     fn paper(arxiv_id: &str, url: Option<&str>, local: bool) -> PaperSummary {
-        PaperSummary {
-            arxiv_id: arxiv_id.into(),
-            url: url.map(str::to_string),
-            has_local_pdf: local,
-            ..Default::default()
-        }
+        let mut paper = crate::papers::model::test_support::paper("A paper");
+        paper.arxiv_id = arxiv_id.into();
+        paper.url = url.map(str::to_string);
+        paper.has_local_pdf = local;
+        paper
     }
 
     // `paperPdfSource` (src/canvas/use-paper-pdf.ts): the bundle's own PDF

@@ -41,6 +41,7 @@
  *   md:caret          { line, column }  1-based, in the file
  *   md:scrolled       { center }        Split: the source line the preview's centre maps to
  *   md:masthead       { inView }        a paper's masthead (its title at the top) is on screen or not
+ *   md:paper-source   { page, first, last }   a source link into the paper's own PDF was followed
  *   md:read           (request) { path } → text   a project file, for the page index
  *   md:load-asset     (request) { path } → url | null
  *   md:import-asset   (request) { base64, type } → project path | null
@@ -53,6 +54,7 @@ import { LineIndex, SplitScroll } from "./split-scroll";
 import "./markdown.css";
 import { ScrollArea } from "../../../src/components/ui/scroll-area";
 import { InlineMessage } from "../../../src/components/ui/inline-message";
+import { paperSourceCitation } from "../../../src/papers/paper-source";
 import { LatticeVisualMarkdownEditor } from "../../../src/editor/markdown/engine/lattice-visual-editor";
 import { MarkdownWorkspaceIndex } from "../../../src/editor/markdown/markdown-workspace-index";
 import type { VisualRevealTarget } from "../../../src/editor/markdown/visual-editor-props";
@@ -72,7 +74,31 @@ type Locale = "en" | "zh-CN";
  * form, and over the full text (not the overview) its masthead, the title and
  * the whole author list at the top of the column.
  */
-type PaperReading = { title: string; authors: string | null; fullText: boolean };
+type PaperReading = {
+  title: string;
+  authors: string | null;
+  fullText: boolean;
+  /** The paper's identity, when its reader can show its original PDF. */
+  pdf: { arxivId: string; url: string | null; hasLocalPdf: boolean } | null;
+};
+
+/**
+ * A plain click on a source link into this paper's own PDF (a page, its
+ * quote's first and last words in the title) opens the PDF in the reader at
+ * that page rather than the browser (`followPaperSourceLink`). Any other
+ * link, a modified click, or a drag that selected text is left to the editor.
+ */
+function followSourceLink(event: React.MouseEvent, paper: PaperReading | null) {
+  if (!paper?.pdf || event.button !== 0 || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
+  if (window.getSelection()?.isCollapsed === false) return;
+  const link = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>("a[href]") : null;
+  if (!link) return;
+  const citation = paperSourceCitation({ ...paper.pdf, url: paper.pdf.url ?? undefined }, link.href, link.title);
+  if (!citation) return;
+  event.preventDefault();
+  event.stopPropagation();
+  host().post("md:paper-source", citation);
+}
 
 type MarkdownOpen = {
   path: string;
@@ -383,6 +409,7 @@ function Markdown() {
         "data-testid": "editor-scroll-container",
         // Split follows the source itself; native anchoring would be a second writer.
         style: split ? { overflowAnchor: "none" } : undefined,
+        onClickCapture: (event) => followSourceLink(event, paper),
       }}
       viewportRef={viewportRef}
       style={{ flex: "1 1 0", minWidth: 0 }}

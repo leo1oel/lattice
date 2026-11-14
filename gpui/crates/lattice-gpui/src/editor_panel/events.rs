@@ -43,4 +43,7 @@ pub enum EditorPanelEvent {
     /// A saved paper's masthead came on screen (true) or left it, for the
     /// paper's reader to name the paper in its strip only while it is off.
     Masthead(bool),
+    /// A source link into the paper's own PDF was followed: open it there
+    /// at this 1-based page.
+    PaperSource(u32),
 }

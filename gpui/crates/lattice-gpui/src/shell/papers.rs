@@ -246,7 +246,8 @@ impl Shell {
 
     /// How the reader in front shows its paper, for scenarios: its text's
     /// view (Edit, Split or Preview), whether that text's reading page has
-    /// loaded, and whether the original PDF stands in its place.
+    /// drawn it and is on screen, and whether the original PDF stands in its
+    /// place.
     pub(crate) fn front_reader_state(
         &self,
         cx: &gpui::App,
@@ -255,11 +256,22 @@ impl Shell {
             let reader = reader.read(cx);
             let editor = reader.editor().map(|editor| editor.read(cx));
             let view = editor.and_then(|editor| editor.document_view());
+            // Revealed: the page has drawn the text (`doc:drawn`), not only
+            // loaded.
             let page = editor
                 .and_then(|editor| editor.markdown_document())
-                .is_some_and(|document| document.read(cx).page_ready(cx));
+                .and_then(|document| document.read(cx).island())
+                .is_some_and(|island| {
+                    let island = island.read(cx);
+                    island.is_revealed() && island.native_visible(cx)
+                });
             (view, page, reader.showing_pdf())
         })
+    }
+
+    /// The reader in front, for scenarios.
+    pub(crate) fn front_reader_panel(&self, cx: &gpui::App) -> Option<Entity<PaperReader>> {
+        self.front_reader_entity(false, cx)
     }
 
     /// The reader selected in a panel on screen: the focused one, else the

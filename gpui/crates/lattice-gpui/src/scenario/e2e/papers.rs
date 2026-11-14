@@ -17,9 +17,11 @@ use serde_json::json;
 use super::Steps;
 use crate::{papers::model::Filter, scenario::Run};
 
+mod reader;
+
 const BUNDLE: &str = ".research/papers/1706.03762";
 const ENTRY: &str = "\n@article{vaswani2017attention,\n  title = {Attention Is All You Need},\n  author = {Vaswani, Ashish and Shazeer, Noam and Parmar, Niki},\n  journal = {NeurIPS},\n  year = {2017},\n  eprint = {1706.03762}\n}\n";
-const PAPER: &str = "---\ntitle: Attention Is All You Need\n---\n\n# Attention Is All You Need\n\n## Abstract\n\nThe dominant sequence transduction models are based on recurrent networks.\n\n## Method\n\nWe call our particular attention scaled dot-product attention.\n";
+const PAPER: &str = "---\ntitle: Attention Is All You Need\n---\n\n# Attention Is All You Need\n\n## Abstract\n\nThe dominant sequence transduction models are based on recurrent networks.\n\n## Method\n\nWe call our particular attention scaled dot-product attention:\n\n$$\\mathrm{softmax}(QK^\\top / \\sqrt{d_k})\\,V$$\n";
 
 impl Run {
     pub(super) async fn papers_panel(
@@ -210,7 +212,7 @@ impl Run {
             // The paper reads in the Tauri app's visual editor, in Preview
             // (`openPaper` sets the canvas to its preview), on its own page.
             let reading = self
-                .wait_for(cx, Duration::from_secs(10), |shell, cx| {
+                .wait_for(cx, Duration::from_secs(20), |shell, cx| {
                     shell.read(cx).front_reader_state(cx).is_some_and(|(view, page, pdf)| {
                         view == Some(crate::editor_panel::views::DocumentView::Preview)
                             && page
@@ -225,12 +227,13 @@ impl Run {
                     .map(|(view, page, pdf)| (format!("{view:?}"), page, pdf))
             })?;
             steps.check(
-                "the paper reads in the visual editor's Preview, its page loaded",
+                "the paper reads in the visual editor's Preview, its page drawn",
                 reading,
                 json!({ "state": state }),
             );
             self.papers_shot(cx, "papers-reader").await;
             self.press(cx, 'w', true).await?;
+            self.paper_reader(cx, steps, root, &papers, BUNDLE).await?;
         }
 
         self.add_papers_sheet(cx, steps, &papers).await?;

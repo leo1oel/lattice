@@ -119,6 +119,7 @@ impl EditorPanel {
             }
             MarkdownEvent::Scrolled(center) => self.follow_preview(*center, window, cx),
             MarkdownEvent::Masthead(in_view) => self.paper_masthead(*in_view, cx),
+            MarkdownEvent::PaperSource(page) => cx.emit(EditorPanelEvent::PaperSource(*page)),
         }
     }
 
