@@ -191,7 +191,20 @@ impl OverleafBridge {
             self.leave(doc, cx);
         }
         if let Some((editor, path, doc_id)) = wanted {
-            self.join(editor, path, doc_id, cx);
+            // Back to a document still draining: it carries on, room and all.
+            let draining = self
+                .documents
+                .leaving
+                .iter()
+                .position(|doc| doc.doc_id == doc_id && doc.editor == editor);
+            match draining {
+                Some(at) => {
+                    let mut doc = self.documents.leaving.remove(at);
+                    doc.draining = None;
+                    self.documents.live = Some(doc);
+                }
+                None => self.join(editor, path, doc_id, cx),
+            }
         }
         cx.notify();
     }
@@ -468,8 +481,12 @@ impl OverleafBridge {
         cx.notify();
     }
 
-    /// Leave `doc_id` on Overleaf.
+    /// Leave `doc_id` on Overleaf, unless another copy of it (live,
+    /// draining, held or being joined) still uses its room.
     fn release_doc(&mut self, doc_id: &str) {
+        if self.doc_in_use(doc_id) {
+            return;
+        }
         if let Some(client) = self.client.clone() {
             joining::leave_room(client, doc_id);
         }

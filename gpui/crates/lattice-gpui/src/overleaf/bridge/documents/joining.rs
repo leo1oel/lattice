@@ -184,7 +184,7 @@ impl OverleafBridge {
     }
 
     /// `doc_id` is live, left and draining, held, or being joined.
-    fn doc_in_use(&self, doc_id: &str) -> bool {
+    pub(super) fn doc_in_use(&self, doc_id: &str) -> bool {
         self.documents
             .live
             .iter()
