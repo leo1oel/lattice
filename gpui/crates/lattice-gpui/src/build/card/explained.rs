@@ -9,7 +9,7 @@ use gpui::{
 use lattice_core::models::Diagnostic;
 use lattice_i18n::t;
 use lattice_ui::{
-    ActiveLattice as _, TextRole, TextRoleStyle as _,
+    ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
     components::Button,
     elevation::ring,
     tokens::{FONT_WEIGHT_MEDIUM, FONT_WEIGHT_SEMIBOLD},
@@ -54,6 +54,8 @@ pub(super) fn explained_row(
                 )),
             )
             .compact()
+            // ⏎: the fix saves and builds (`CornerDownLeft`).
+            .trailing_icon(Icon::CORNER_DOWN_LEFT)
             .on_click(move |_, _, cx| build.update(cx, |build, cx| build.replace(ix, cx)))
         });
     div()

@@ -41,7 +41,11 @@ impl Shell {
             }
             // Settings › Editor & builds › Automatic build: "Manual only"
             // leaves every build to the Build button and ⌘B.
-            EditorPanelEvent::SavedForBuild | EditorPanelEvent::DiskEdit => {
+            EditorPanelEvent::DiskEdit => {
+                let path = editor.read(cx).relative().to_string();
+                self.outside_edit(&path, window, cx)
+            }
+            EditorPanelEvent::SavedForBuild => {
                 if crate::settings::builds_automatically(cx)
                     && !self.defer_automatic_build(window, cx)
                 {

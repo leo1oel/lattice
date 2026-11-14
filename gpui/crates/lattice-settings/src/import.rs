@@ -40,6 +40,7 @@ pub const KEYS: &[&str] = &[
     "lattice.overleaf.remote-delete.v1",
     "lattice.live-preview.v1",
     "lattice.live-preview-removed.v1",
+    "lattice.build-output-docked.v1",
 ];
 
 /// What was imported, and from where.
@@ -103,6 +104,12 @@ pub fn settings_from_items(items: &BTreeMap<String, String>) -> Settings {
             .unwrap_or(defaults.overleaf_remote_delete),
         live_preview: crate::model::live_preview_choices(json("lattice.live-preview.v1").as_ref()),
         live_preview_removed: item("lattice.live-preview-removed.v1").is_some(),
+        // Stored as "1" or "0" (`compile-diagnostics-panel.tsx`).
+        build_output_docked: match item("lattice.build-output-docked.v1") {
+            Some("1") => Some(true),
+            Some("0") => Some(false),
+            _ => None,
+        },
     }
 }
 

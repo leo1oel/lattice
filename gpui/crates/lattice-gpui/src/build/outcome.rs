@@ -35,6 +35,9 @@ pub struct BuildOutcome {
     /// Nothing changed since the failed build before it, and nobody asked:
     /// it restates that build's errors (lattice-core `build::unchanged`).
     pub unchanged: bool,
+    /// A quiet build's success (`live_preview::quiet_builds`): the Build
+    /// button shows it without its flourish.
+    pub quiet: bool,
 }
 
 impl BuildOutcome {
@@ -63,6 +66,7 @@ impl BuildOutcome {
             synctex: result.synctex,
             issue,
             unchanged: result.unchanged,
+            quiet: false,
         })
     }
 
@@ -81,6 +85,7 @@ impl BuildOutcome {
             synctex: None,
             issue: None,
             unchanged: false,
+            quiet: false,
         }
     }
 }

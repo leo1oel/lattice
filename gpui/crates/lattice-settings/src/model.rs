@@ -436,6 +436,10 @@ pub struct Settings {
     /// rtex was removed: off in every project, and no longer on by default
     /// (`lattice.live-preview-removed.v1`).
     pub live_preview_removed: bool,
+    /// The build output docked under the PDF (true) or floating over it
+    /// (false), for every project (`lattice.build-output-docked.v1`); `None`
+    /// until the writer chooses, when a build that succeeded docks.
+    pub build_output_docked: Option<bool>,
 }
 
 impl Settings {
@@ -490,6 +494,7 @@ impl Settings {
             ),
             live_preview: live_preview_choices(field("livePreview")),
             live_preview_removed: field("livePreviewRemoved") == Some(&Value::Bool(true)),
+            build_output_docked: field("buildOutputDocked").and_then(Value::as_bool),
         }
     }
 

@@ -623,7 +623,10 @@ fn row(
     );
     let explained = last.explained.get(ix).and_then(Option::as_ref);
     if let Some(replacement) = panel.replaced.get(&ix) {
-        let headline = explained.map_or_else(|| diagnostic.message.clone(), |e| e.headline.clone());
+        let headline = explained.map_or_else(
+            || crate::build::messages::text(diagnostic),
+            |e| e.headline.clone(),
+        );
         return div()
             .flex()
             .flex_col()
@@ -670,14 +673,15 @@ fn row(
     if let Some(explained) = explained.filter(|_| level == Severity::Error) {
         return explained_row(panel, ix, diagnostic, explained, copy, build, glide, cx);
     }
-    let shown = explained.map_or_else(|| diagnostic.message.clone(), |e| e.headline.clone());
+    let text = crate::build::messages::text(diagnostic);
+    let shown = explained.map_or_else(|| text.clone(), |e| e.headline.clone());
     let tooltip = Some(match explained {
         Some(explained) => format!(
             "{}\n\n{}",
             explained.explanation,
             t!("TeX: {0}", diagnostic.message)
         ),
-        None => diagnostic.message.clone(),
+        None => text,
     });
     let install = install_target(diagnostic).map(|file| {
         let build = build.clone();

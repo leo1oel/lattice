@@ -24,6 +24,7 @@ mod arrange;
 mod assets;
 mod build;
 mod build_tools;
+mod build_watch;
 pub mod commands;
 mod documents;
 mod editor_events;

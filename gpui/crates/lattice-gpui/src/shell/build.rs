@@ -138,6 +138,12 @@ impl Shell {
             self.settle_builds(cx);
             return;
         }
+        // The last build stalled on these very inputs: only an ask, or a
+        // change, builds them again (`build::stall`).
+        if request.unattended && self.build_held(project.read(cx).input_revision()) {
+            self.settle_builds(cx);
+            return;
+        }
         if self.build_task.is_some() {
             self.queued_build = Some(request.merge(self.queued_build.unwrap_or(request)));
             return;
@@ -232,6 +238,7 @@ impl Shell {
             let (revision, active) = project.read_with(cx, |project, _| {
                 (project.input_revision(), project.active_build().clone())
             });
+            this.update(cx, |this, _| this.build_pass_started()).ok();
             // latexmk reads the inputs after this: the live preview's token
             // for the files as they are now.
             let live = live_preview.update(cx, |live, cx| live.build_started(request.quiet, cx));
@@ -370,9 +377,11 @@ impl Shell {
                 let wrote_pdf = result.has_pdf
                     && !cancelled
                     && (result.success || result.unchanged || rewritten);
+                self.show_build_marks(&result, &sources, cx);
                 self.build_panel.update(cx, |panel, cx| {
                     panel.finished(&result, wrote_pdf, request.requested, sources, cx)
                 });
+                self.build_pass_finished(&result, revision, cx);
                 project.update(cx, |project, cx| {
                     // A build may adopt the open document or switch the
                     // engine, which it writes to the manifest.
@@ -471,7 +480,8 @@ impl Shell {
                 {
                     sounds::play(cue, cx);
                 }
-                self.settle_builds(cx)
+                self.settle_builds(cx);
+                self.builds_idle(window, cx);
             }
         }
         cx.notify();
