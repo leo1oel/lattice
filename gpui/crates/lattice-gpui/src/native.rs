@@ -91,7 +91,7 @@ pub const RIGHT_ARROW: char = '\u{f703}';
 
 /// The ANSI virtual key code for a character, as Lattice's perf lab maps it.
 pub fn key_code(character: char) -> u16 {
-    const CODES: [(char, u16); 35] = [
+    const CODES: [(char, u16); 46] = [
         ('a', 0x00),
         ('s', 0x01),
         ('d', 0x02),
@@ -128,6 +128,18 @@ pub fn key_code(character: char) -> u16 {
         ('-', 0x1B),
         ('0', 0x1D),
         (RIGHT_ARROW, 0x7C),
+        // Commands typed into the terminal (`exit 3`, `./x`).
+        ('1', 0x12),
+        ('2', 0x13),
+        ('3', 0x14),
+        ('4', 0x15),
+        ('5', 0x17),
+        ('6', 0x16),
+        ('7', 0x1A),
+        ('8', 0x1C),
+        ('9', 0x19),
+        ('.', 0x2F),
+        ('/', 0x2C),
     ];
     CODES
         .iter()

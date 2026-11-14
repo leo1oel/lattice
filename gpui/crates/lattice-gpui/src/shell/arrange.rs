@@ -76,6 +76,10 @@ impl Shell {
             WorkspaceEvent::Navigated(_) => cx.notify(),
             WorkspaceEvent::CloseRequested(views) => {
                 let views = views.clone();
+                if views.iter().any(|view| view == "terminal") {
+                    self.close_with_terminal(views, cx);
+                    return;
+                }
                 self.workspace
                     .update(cx, |workspace, cx| workspace.close(&views, cx));
             }
@@ -106,6 +110,9 @@ impl Shell {
         {
             self.reset_undo = None;
         }
+        // Read before the views sync: a view taken off screen is still in
+        // the frame last drawn, where the keyboard's place is looked up.
+        let keyboard_hidden = self.keyboard_in_hidden_view(&doc, window, cx);
         self.last_document = doc;
         self.sync_views(window, cx);
         self.forget_closed_pdfs(cx);
@@ -113,7 +120,24 @@ impl Shell {
         self.refresh_dirty(cx);
         self.follow_active_document(cx);
         self.schedule_save(window, cx);
+        // A view hidden with the keyboard in it (⌃`, the Panels menu's Hide)
+        // would leave the keyboard where nothing is drawn, so the window's
+        // commands, ⌃` among them, would no longer reach the shell.
+        if keyboard_hidden {
+            self.focus_front(window, cx);
+        }
         cx.notify();
+    }
+
+    /// The keyboard is in a view `doc` hides. Read from the document, not
+    /// the engine's view states, which follow on the next layout pass; and
+    /// the panel flying out is still drawn, so the keyboard is still found
+    /// in it.
+    fn keyboard_in_hidden_view(&self, doc: &LayoutDocument, window: &Window, cx: &App) -> bool {
+        doc.hidden
+            .iter()
+            .flat_map(|hidden| hidden.panel.views.iter())
+            .any(|view| self.keyboard_in_view(view, window, cx))
     }
 
     /// A view closed (its X, its menu, ⌘W): a document's panel keeps an
@@ -122,9 +146,7 @@ impl Shell {
     fn view_closed(&mut self, view: &str, window: &mut Window, cx: &mut Context<Self>) {
         // The keyboard in the view that closed goes to the document in
         // front, so the window's commands still reach the shell.
-        let had_focus = self
-            .panel_of_view(view)
-            .is_some_and(|panel| panel.focus_handle(cx).contains_focused(window, cx));
+        let had_focus = self.keyboard_in_view(view, window, cx);
         let record = self.last_document.views.get(view).cloned();
         let key = file_key(record.as_ref());
         if !key.is_empty() {
@@ -277,6 +299,16 @@ impl Shell {
                 .unwrap_or_else(|| beside_documents(Edge::Left, 0.25)),
             "pdf" => any_root_pdf().unwrap_or_else(|| beside_documents(Edge::Right, 0.42)),
             "build" => beside_documents(Edge::Bottom, 0.25),
+            // Across the foot of the whole workspace, under every other
+            // panel, as a terminal sits below an editor (`terminalHome`).
+            "terminal" => match self.document(cx).root.as_ref() {
+                Some(root) => Placement::Beside {
+                    beside: root.id().to_string(),
+                    edge: Edge::Bottom,
+                    share: Some(crate::terminal::TERMINAL_SHARE),
+                },
+                None => Placement::Side,
+            },
             _ => into("agent")
                 .or_else(|| into("project"))
                 .unwrap_or_else(|| beside_documents(Edge::Right, 0.32)),

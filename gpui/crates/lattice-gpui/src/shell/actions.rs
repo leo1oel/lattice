@@ -117,6 +117,16 @@ impl Shell {
             .on_action(cx.listener(|this, _: &TogglePdfPanel, window, cx| {
                 this.toggle_view("pdf", window, cx)
             }))
+            .on_action(cx.listener(
+                |this, _: &crate::terminal::ToggleTerminalPanel, window, cx| {
+                    this.toggle_terminal(window, cx)
+                },
+            ))
+            .on_action(
+                cx.listener(|this, _: &crate::terminal::NewTerminal, window, cx| {
+                    this.new_terminal(window, cx)
+                }),
+            )
             .on_action(
                 cx.listener(|this, _: &OpenHistory, window, cx| this.open_history(window, cx)),
             )

@@ -50,6 +50,7 @@ mod stand_in_panels;
 mod status_counters;
 mod structured;
 mod submission;
+mod terminal;
 mod titlebar;
 mod welcome;
 mod window_material;

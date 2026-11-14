@@ -245,6 +245,10 @@ msgid "Show or hide the PDF"
 msgstr "显示或隐藏 PDF"
 
 #: lattice-gpui/src/shell/commands.rs
+msgid "Show or hide the Terminal"
+msgstr "显示或隐藏终端"
+
+#: lattice-gpui/src/shell/commands.rs
 msgid "New window"
 msgstr "新建窗口"
 

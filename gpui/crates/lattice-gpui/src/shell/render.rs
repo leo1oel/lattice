@@ -9,16 +9,15 @@ use super::*;
 impl Render for Shell {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let palette = cx.palette().clone();
-        // The Emacs keymap's bindings are loaded under a context of their
-        // own (app.rs), which the shell carries while that keymap is chosen.
-        let emacs = crate::settings::get(cx).appearance.editor_keymap
-            == lattice_settings::EditorKeymap::Emacs;
+        // The Emacs and Vim keymaps' bindings are loaded under a context of
+        // their own (app.rs), which the shell carries while that keymap is
+        // chosen.
         let shell = v_flex()
             .id("lattice-shell")
-            .key_context(if emacs {
-                "LatticeShell LatticeEmacs"
-            } else {
-                "LatticeShell"
+            .key_context(match crate::settings::get(cx).appearance.editor_keymap {
+                lattice_settings::EditorKeymap::Emacs => "LatticeShell LatticeEmacs",
+                lattice_settings::EditorKeymap::Vim => "LatticeShell LatticeVim",
+                _ => "LatticeShell",
             })
             .track_focus(&self.focus_handle)
             .on_action(cx.listener(Self::build))

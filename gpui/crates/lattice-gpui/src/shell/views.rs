@@ -39,6 +39,7 @@ pub const SINGLETONS: &[&str] = &[
     "history",
     "todos",
     "checklist",
+    "terminal",
 ];
 
 /// The window's panel for each view id.
@@ -70,8 +71,10 @@ pub fn engine_options() -> trellis::Options {
     types.insert("file".into(), kind(false, min(180., 140.)));
     types.insert("slot".into(), kind(false, min(180., 140.)));
     types.insert("build".into(), kind(true, min(200., 160.)));
+    // A terminal needs a few columns and a couple of lines to be of use
+    // (`terminal-view-type.tsx`).
+    types.insert("terminal".into(), kind(true, min(240., 120.)));
     for tool in [
-        "terminal",
         "history",
         "git",
         "comments",
@@ -142,6 +145,7 @@ impl Shell {
             "history" => panel_handle(self.history.clone()),
             "todos" => panel_handle(self.todos.clone()),
             "checklist" => panel_handle(self.checklist.clone()),
+            "terminal" => panel_handle(self.terminal.clone()),
             _ => return None,
         })
     }

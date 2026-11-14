@@ -40,6 +40,7 @@ mod settings_flow;
 mod shortcut_sheet;
 mod skin;
 mod synctex;
+mod terminal_flow;
 mod tools_flow;
 pub mod trellis_layout;
 pub mod views;
@@ -160,6 +161,9 @@ pub struct Shell {
     pub(crate) references: references_flow::References,
     /// The sheets over the window, while open (`tools_flow::Sheets`).
     pub(crate) sheets: tools_flow::Sheets,
+    /// The Terminal panel and the window's shells (`crate::terminal`), kept
+    /// whether or not the layout shows it.
+    pub(crate) terminal: Entity<crate::terminal::TerminalPanel>,
     /// The conflict resolver, while it is open.
     pub(crate) conflict: Option<(Entity<crate::history::ConflictResolver>, Subscription)>,
     /// The window's link to Overleaf (`crate::overleaf`), and its dialogs.
@@ -303,6 +307,7 @@ impl Shell {
         let build_panel = cx.new(BuildPanel::new);
         let card = cx.new(|cx| DiagnosticsCard::new(build_panel.clone(), cx));
         let history = cx.new(|cx| crate::history::HistoryPanel::new(window, cx));
+        let terminal = Self::new_terminal_panel(window, cx);
         let shown_in = workspace.downgrade();
         history.update(cx, |history, _| {
             history.watch_screen(move |cx| {
@@ -396,6 +401,8 @@ impl Shell {
             let dragging = workspace.read(cx).engine().dragging();
             if dragging != this.panel_dragging {
                 this.panel_dragging = dragging;
+                this.terminal
+                    .update(cx, |terminal, cx| terminal.set_moving(dragging, cx));
                 window.defer(cx, move |_, cx| {
                     lattice_webview::set_dock_dragging(dragging, cx)
                 });
@@ -439,6 +446,7 @@ impl Shell {
             checklist,
             sheets: Default::default(),
             references: Default::default(),
+            terminal,
             conflict: None,
             overleaf,
             overleaf_layers: Default::default(),

@@ -92,6 +92,12 @@ pub fn present_tabs(cx: &mut App) {
             .is_ok()
         {
             look(Icon::CLIPBOARD_CHECK, Surface::Sheet)
+        } else if view
+            .clone()
+            .downcast::<crate::terminal::TerminalPanel>()
+            .is_ok()
+        {
+            look(Icon::SQUARE_TERMINAL, Surface::Sheet)
         } else if view.downcast::<EmptySlotPanel>().is_ok() {
             // A document's place: a document's tab, with the empty state's icon.
             TabLook {

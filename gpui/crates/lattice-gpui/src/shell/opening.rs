@@ -92,6 +92,7 @@ impl Shell {
         self.history
             .update(cx, |history, cx| history.set_project(project.clone(), cx));
         self.tools_project_opened(&project, &root, window, cx);
+        let terminal_moved = self.terminal_follows(root.clone(), cx);
         self._project_git = Some(cx.subscribe(&project, |this, _, event, cx| match event {
             crate::project::ProjectEvent::GitChanged => this.notice_conflicts(cx),
             // A change on disk is one to push, in live mode (the bridge tells
@@ -112,6 +113,9 @@ impl Shell {
             .update(cx, |tree, cx| tree.set_project(project, cx));
         self.set_window_title(window, cx);
         let restored = self.restore_layout(&root, main.as_deref(), window, cx);
+        if terminal_moved {
+            self.terminal_follows_layout(window, cx);
+        }
         if let Some(main) = main.filter(|_| !restored) {
             self.open_path(main, None, window, cx);
         }

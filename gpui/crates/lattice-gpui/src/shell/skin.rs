@@ -95,6 +95,16 @@ impl LatticeSkin {
         let surface = self.look(view_id, cx).surface;
         let color = match surface {
             Surface::Chrome | Surface::Titlebar => palette.chrome_srgb,
+            // The Terminal stands on the code theme's ground, as the source
+            // editor does (trellis.css `[data-type="terminal"]`): a dark-only
+            // theme keeps its own ground in a light app.
+            Surface::Sheet if view_id == "terminal" => {
+                let lattice = cx.lattice();
+                lattice_ui::token_types::Srgb::from_hsla(lattice_ui::editor_theme::ground(
+                    lattice.code_theme,
+                    palette,
+                ))
+            }
             Surface::Sheet => palette.editor_srgb,
         };
         (surface, color)

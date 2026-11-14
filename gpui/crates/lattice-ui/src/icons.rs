@@ -112,6 +112,8 @@ lucide! {
     RECTANGLE_VERTICAL = "icons" / "rectangle-vertical";
     SQUARE_ARROW_DOWN_LEFT = "icons" / "square-arrow-down-left";
     SQUARE_ARROW_OUT_UP_RIGHT = "icons" / "square-arrow-out-up-right";
+    /// The Terminal panel's glyph (`terminal-icon.tsx`).
+    SQUARE_TERMINAL = "icons" / "square-terminal";
     WHOLE_WORD = "icons" / "whole-word";
     /// A .tex file's Source / Visual switch.
     CODE_XML = "icons" / "code-xml";

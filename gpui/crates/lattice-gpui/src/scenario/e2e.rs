@@ -42,6 +42,10 @@ mod structured;
 mod submission;
 mod submission_checklist;
 mod tab_strip;
+#[cfg(target_os = "macos")]
+mod terminal;
+#[cfg(target_os = "macos")]
+mod terminal_focus;
 mod tree;
 
 use steps::Steps;
@@ -320,6 +324,12 @@ impl Run {
         }
         // Smoke: a second window opens on the project and draws its PDF.
         self.second_window_pdf(cx, &mut steps, &root).await?;
+        // The terminal steps type Unix commands (`pwd`, `printenv`, `cat`);
+        // Windows' shell is PowerShell, checked by hand for now.
+        #[cfg(target_os = "macos")]
+        self.terminal_panel(cx, &mut steps, &root)
+            .await
+            .context("terminal_panel")?;
 
         // Docking: drag an editor tab from the documents' panel into the
         // PDF's panel with native mouse events. (The shell steps after it
@@ -420,21 +430,6 @@ impl Run {
             self.pause(cx, Duration::from_millis(300)).await;
         }
         Ok(())
-    }
-
-    /// The webview island checks alone (`islands.rs`), for work on the
-    /// islands: the e2e scenario runs them too.
-    #[cfg(target_os = "macos")]
-    pub(super) async fn islands(&self, cx: &mut AsyncApp) -> Result<Value> {
-        let mut steps = Steps::new(self);
-        let root = self.root(cx).await?;
-        self.pause(cx, Duration::from_millis(800)).await;
-        self.webview_islands(cx, &mut steps, &root).await?;
-        self.structured_islands(cx, &mut steps, &root).await?;
-        self.markdown_island(cx, &mut steps, &root).await?;
-        steps.check_foreground(self);
-        let passed = steps.0.iter().all(|step| step["passed"] == true);
-        Ok(json!({ "scenario": "islands", "passed": passed, "steps": steps.0 }))
     }
 
     /// SyncTeX both ways: from the caret on the chapter's second line to its

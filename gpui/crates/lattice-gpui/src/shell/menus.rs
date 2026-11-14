@@ -153,6 +153,7 @@ fn menus(cx: &App) -> Vec<Menu> {
             MenuItem::action(t!("Agent"), ToggleAgentPanel),
             MenuItem::action(t!("PDF"), TogglePdfPanel),
             MenuItem::action(t!("Build Log"), ToggleBuildPanel),
+            MenuItem::action(t!("Terminal"), crate::terminal::ToggleTerminalPanel),
             MenuItem::separator(),
             MenuItem::action(t!("Writing Layout"), WritingPreset),
             MenuItem::action(t!("Reading Layout"), ReadingPreset),

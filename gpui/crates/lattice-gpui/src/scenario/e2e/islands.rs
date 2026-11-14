@@ -52,6 +52,20 @@ const PAGE: &str = r#"<!doctype html>
 "#;
 
 impl Run {
+    /// The webview island checks alone (this file), for work on the
+    /// islands: the e2e scenario runs them too.
+    pub(in crate::scenario) async fn islands(&self, cx: &mut AsyncApp) -> Result<Value> {
+        let mut steps = Steps::new(self);
+        let root = self.root(cx).await?;
+        self.pause(cx, Duration::from_millis(800)).await;
+        self.webview_islands(cx, &mut steps, &root).await?;
+        self.structured_islands(cx, &mut steps, &root).await?;
+        self.markdown_island(cx, &mut steps, &root).await?;
+        steps.check_foreground(self);
+        let passed = steps.0.iter().all(|step| step["passed"] == true);
+        Ok(json!({ "scenario": "islands", "passed": passed, "steps": steps.0 }))
+    }
+
     pub(super) async fn webview_islands(
         &self,
         cx: &mut AsyncApp,

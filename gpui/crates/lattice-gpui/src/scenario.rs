@@ -98,6 +98,8 @@ pub fn start(shell: Entity<Shell>, window: AnyWindowHandle, args: ScenarioArgs, 
             "narrow-window" => run.narrow_window_alone(cx).await,
             "live-preview" => run.live_preview_scenario(cx).await,
             #[cfg(target_os = "macos")]
+            "terminal" => run.terminal(cx).await,
+            #[cfg(target_os = "macos")]
             "islands" => run.islands(cx).await,
             #[cfg(target_os = "macos")]
             "overleaf" => run.overleaf_alone(cx).await,
