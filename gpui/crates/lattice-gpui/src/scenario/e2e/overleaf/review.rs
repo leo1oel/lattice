@@ -99,6 +99,7 @@ impl Run {
             .context("main.tex is open")?;
         self.overleaf_review_marks(cx, steps, &editor, "Suggested ", quote)
             .await?;
+        self.overleaf_review_panel(cx, steps).await?;
 
         // Replying, resolving and reopening.
         act(cx, &|bridge, cx| {
@@ -241,38 +242,9 @@ impl Run {
             json!({ "proposed": proposed, "shown": shown, "rejected": rejected, "overleaf": mock.file("main.tex"), "refused": mock.rejected() }),
         );
 
-        // A comment made here.
-        let text = mock.file("main.tex").unwrap_or_default();
-        let quote = "Suggested";
-        let at = utf16_at(&text, quote).unwrap_or(0);
-        let path = "main.tex";
-        let note = "Check this word.";
-        act(cx, &|bridge, cx| {
-            bridge.add_comment(path, at, quote.into(), note.into(), cx)
-        });
-        let anchored = self
-            .wait_for(cx, Duration::from_secs(10), |shell, cx| {
-                let on_overleaf = mock.comments("main.tex").iter().any(|range| {
-                    range.quote == quote
-                        && mock
-                            .thread(&range.thread_id)
-                            .is_some_and(|(messages, _)| messages.iter().any(|m| m == note))
-                });
-                let here = bridge(shell, cx)
-                    .read(cx)
-                    .comments_in("main.tex")
-                    .iter()
-                    .any(|(range, thread)| {
-                        range.quote == quote && thread.messages.iter().any(|m| m.content == note)
-                    });
-                on_overleaf && here
-            })
-            .await;
-        steps.check(
-            "a comment made here is posted and anchored on Overleaf",
-            anchored && mock.rejected().is_empty(),
-            json!({ "anchored": anchored, "comments": mock.comments("main.tex"), "error": cx.update(|cx| bridge(&self.shell, cx).read(cx).review_error().map(|e| e.to_string())) }),
-        );
+        // A comment made here, on the selection.
+        self.overleaf_annotate(cx, steps, mock, &editor, "Suggested", "Check this word.")
+            .await?;
 
         // Track changes on: typing goes out as a suggestion.
         mock.set_track_changes(true);
@@ -281,6 +253,9 @@ impl Run {
                 bridge(shell, cx).read(cx).tracking()
             })
             .await;
+        // Back in the editor, as a click puts the writer there.
+        let zed = cx.update(|cx| editor.read(cx).editor().clone());
+        let _writer = self.writer_in(cx, &zed).await?;
         self.type_text(cx, "Noted ").await?;
         let recorded = self
             .wait_for(cx, Duration::from_secs(15), |shell, cx| {

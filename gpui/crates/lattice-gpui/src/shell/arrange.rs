@@ -309,6 +309,11 @@ impl Shell {
                 },
                 None => Placement::Side,
             },
+            // Beside the document it is about, never over it: a comment is
+            // made on the file in front.
+            "comments" => into("pdf")
+                .or_else(any_root_pdf)
+                .unwrap_or_else(|| beside_documents(Edge::Right, 0.36)),
             _ => into("agent")
                 .or_else(|| into("project"))
                 .unwrap_or_else(|| beside_documents(Edge::Right, 0.32)),

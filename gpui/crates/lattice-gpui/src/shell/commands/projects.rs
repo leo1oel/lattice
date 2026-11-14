@@ -87,6 +87,12 @@ pub(super) fn project_commands(context: &CommandContext, out: &mut Vec<Command>)
     }
     if context.in_project && context.overleaf_linked {
         out.push(Command::new(
+            "overleaf-annotate",
+            t!("Annotate selection"),
+            Section::Overleaf,
+            super::super::overleaf_collab::AnnotateSelection,
+        ));
+        out.push(Command::new(
             "overleaf-web",
             t!("Open this project on Overleaf"),
             Section::Overleaf,

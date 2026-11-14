@@ -21,6 +21,7 @@ mod presence;
 mod reconnect;
 mod review;
 mod review_marks;
+mod review_panel;
 
 use std::{path::Path, time::Duration};
 

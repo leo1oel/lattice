@@ -58,6 +58,11 @@ impl Shell {
                 (editor, comments, changes)
             })
             .collect();
+        let active = self
+            .active_editor()
+            .map(|editor| editor.read(cx).relative().to_string());
+        self.overleaf_collab
+            .update(cx, |panel, cx| panel.set_active(active, cx));
         for (editor, comments, changes) in shown {
             editor.update(cx, |editor, cx| {
                 editor.set_overleaf_review(comments, changes, cx)

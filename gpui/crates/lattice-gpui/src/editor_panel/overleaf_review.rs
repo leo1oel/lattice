@@ -154,6 +154,28 @@ impl EditorPanel {
     }
 }
 
+impl EditorPanel {
+    /// The selection, as a comment would quote it: its start in UTF-16
+    /// units and its text; none when nothing is selected.
+    pub fn overleaf_selection(&self, cx: &App) -> Option<(i64, String)> {
+        use editor::ToOffset as _;
+        let editor = self.editor.read(cx);
+        let snapshot = editor.buffer().read(cx).snapshot(cx);
+        let selection = editor.selections.newest_anchor();
+        let (start, end) = (
+            selection.start.to_offset(&snapshot).0,
+            selection.end.to_offset(&snapshot).0,
+        );
+        let (from, to) = (start.min(end), start.max(end));
+        let text = self.buffer.read(cx).text();
+        let quote = text.get(from..to)?.to_string();
+        if quote.trim().is_empty() {
+            return None;
+        }
+        Some((text[..from].encode_utf16().count() as i64, quote))
+    }
+}
+
 fn underlined(color: Hsla, tint: f32) -> MarkStyle {
     MarkStyle {
         underline: Some(Underline {

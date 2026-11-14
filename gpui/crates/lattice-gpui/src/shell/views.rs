@@ -41,6 +41,7 @@ pub const SINGLETONS: &[&str] = &[
     "checklist",
     "terminal",
     "git",
+    "comments",
 ];
 
 /// The window's panel for each view id.
@@ -181,6 +182,7 @@ impl Shell {
             "todos" => panel_handle(self.todos.clone()),
             "checklist" => panel_handle(self.checklist.clone()),
             "terminal" => panel_handle(self.terminal.clone()),
+            "comments" => panel_handle(self.overleaf_collab.clone()),
             _ => return None,
         })
     }

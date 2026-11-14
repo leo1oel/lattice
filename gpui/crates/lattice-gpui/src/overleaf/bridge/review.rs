@@ -105,6 +105,29 @@ impl OverleafBridge {
         self.review.authors.get(user_id?).map(String::as_str)
     }
 
+    /// Where thread `thread_id` is anchored: its file (none when Overleaf
+    /// names a document this project does not know), UTF-16 position and
+    /// quote; the live document's own ranges are the newest. None when its
+    /// passage was deleted from the document.
+    pub fn thread_anchor(&self, thread_id: &str) -> Option<(Option<String>, i64, String)> {
+        let live = self.review.docs.iter().find_map(|(doc_id, review)| {
+            let range = review
+                .comments
+                .iter()
+                .find(|comment| comment.thread_id == thread_id)?;
+            Some((doc_id.clone(), range.position, range.quote.clone()))
+        });
+        let (doc_id, position, quote) = live.or_else(|| {
+            let anchor = self
+                .review
+                .anchors
+                .iter()
+                .find(|anchor| anchor.thread_id == thread_id)?;
+            Some((anchor.doc_id.clone(), anchor.position, anchor.quote.clone()))
+        })?;
+        Some((self.path_of_doc(&doc_id), position, quote))
+    }
+
     /// The hue of a suggestion author named `name`, from the joined
     /// documents' suggestions.
     pub fn suggestion_hue_of(&self, name: &str) -> Option<u32> {

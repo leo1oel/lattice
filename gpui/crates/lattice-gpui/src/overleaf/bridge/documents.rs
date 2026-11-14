@@ -112,6 +112,12 @@ impl OverleafBridge {
         self.documents.live.as_ref().map(|doc| doc.path.as_str())
     }
 
+    /// The live document's text, as live editing has it, if it is `path`.
+    pub fn live_text(&self, path: &str) -> Option<&str> {
+        let doc = self.documents.live.as_ref()?;
+        (doc.path == path).then(|| doc.ot.text())
+    }
+
     /// Typing in the live document has not all reached Overleaf.
     pub fn live_sending(&self) -> bool {
         self.documents
