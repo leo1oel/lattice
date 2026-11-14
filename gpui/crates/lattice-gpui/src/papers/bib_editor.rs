@@ -139,12 +139,15 @@ struct Deleted {
     /// The text the delete left.
     text: String,
     removed: String,
-    /// The references that followed and preceded it in the file, by key:
-    /// once the text has moved on, it goes back beside them, never at an
-    /// old offset that may now fall inside another entry.
-    next: Option<String>,
-    previous: Option<String>,
+    /// The references that followed and preceded it in the file, by key
+    /// and which of those under that key: once the text has moved on, it
+    /// goes back beside them, never at an old offset that may now fall
+    /// inside another entry.
+    next: Option<(String, usize)>,
+    previous: Option<(String, usize)>,
     key: String,
+    /// Where it stood: an undo that steps back puts it there again.
+    from: usize,
 }
 
 pub struct BibEditor {
@@ -173,8 +176,8 @@ pub struct BibEditor {
     pub(super) body_origin: std::rc::Rc<std::cell::Cell<f32>>,
     pub(super) resizing: bool,
     pub(super) scroll: UniformListScrollHandle,
-    /// A key to bring into view once the list has it.
-    pub(super) reveal: Option<String>,
+    /// A reference (key and place) to bring into view once the list has it.
+    pub(super) reveal: Option<(String, usize)>,
     pub(super) detail: Option<detail::Detail>,
     pub(super) adding: Option<Entity<add::AddReference>>,
     deleted: Option<Deleted>,
@@ -427,7 +430,7 @@ impl BibEditor {
         };
         if self.selected_row().map(|front| front.index) != Some(row.index) {
             self.selected = Some((row.entry.key.clone(), row.index));
-            self.reveal = Some(row.entry.key.clone());
+            self.reveal = self.selected.clone();
             cx.notify();
         }
     }
@@ -525,17 +528,24 @@ impl BibEditor {
         self.selected = neighbour;
         self.deletes += 1;
         let id = self.deletes;
+        let anchor = |row: &Row| {
+            let nth = self.rows[..row.index]
+                .iter()
+                .filter(|other| other.entry.key == row.entry.key)
+                .count();
+            (row.entry.key.clone(), nth)
+        };
         let next = self
             .rows
             .iter()
             .find(|row| row.entry.from >= change.from)
-            .map(|row| row.entry.key.clone());
+            .map(anchor);
         let previous = self
             .rows
             .iter()
             .rev()
             .find(|row| row.entry.to <= change.from)
-            .map(|row| row.entry.key.clone());
+            .map(anchor);
         self.deleted = Some(Deleted {
             id,
             transaction,
@@ -544,6 +554,7 @@ impl BibEditor {
             next,
             previous,
             key: key.clone(),
+            from: change.from,
         });
         let cited = self
             .usages
@@ -581,8 +592,12 @@ impl BibEditor {
             .read(cx)
             .peek_undo_stack()
             .map(|entry| entry.transaction_id());
-        if current == deleted.text && deleted.transaction.is_some() && last == deleted.transaction {
+        let at = if current == deleted.text
+            && deleted.transaction.is_some()
+            && last == deleted.transaction
+        {
             self.buffer.update(cx, |buffer, cx| buffer.undo(cx));
+            deleted.from
         } else {
             let Some(at) = restore_at(&current, &deleted) else {
                 notices::error(
@@ -600,11 +615,18 @@ impl BibEditor {
                 },
                 cx,
             );
-        }
+            at
+        };
         let text = self.buffer.read(cx).text();
         self.apply_parse(parse_rows(text), self.edits, cx);
-        self.selected = Some((deleted.key.clone(), usize::MAX));
-        self.reveal = Some(deleted.key);
+        // The entry back where it went in, whichever of a shared key it is.
+        let index = self
+            .rows
+            .iter()
+            .find(|row| row.entry.key == deleted.key && row.entry.from >= at)
+            .map_or(usize::MAX, |row| row.index);
+        self.selected = Some((deleted.key, index));
+        self.reveal = self.selected.clone();
         self.detail_open = true;
         cx.notify();
     }
@@ -632,7 +654,7 @@ impl BibEditor {
         window.focus(&self.focus, cx);
         let index = self.rows.iter().rev().find(|row| row.entry.key == key);
         self.selected = Some((key.to_string(), index.map_or(usize::MAX, |row| row.index)));
-        self.reveal = Some(key.to_string());
+        self.reveal = self.selected.clone();
         self.detail_open = true;
         self.adding = None;
         cx.notify();
@@ -761,9 +783,11 @@ impl BibEditor {
 /// None when those are gone, or the text would not read whole with it back.
 fn restore_at(current: &str, deleted: &Deleted) -> Option<usize> {
     let document = bib_document::parse(current).ok()?;
-    let find = |key: &Option<String>| {
-        let key = key.as_deref()?;
-        document.entries.iter().find(|entry| entry.key == key)
+    let find = |anchor: &Option<(String, usize)>| {
+        let (key, nth) = anchor.as_ref()?;
+        let mut under = document.entries.iter().filter(|entry| entry.key == *key);
+        let first = under.clone().next();
+        under.nth(*nth).or(first)
     };
     let at = if let Some(next) = find(&deleted.next) {
         if deleted.removed.ends_with('\n') {
@@ -807,24 +831,4 @@ impl Focusable for BibEditor {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// Two entries under one key, as a merged bibliography has them: the
-    /// second, picked by its place, is the one a delete takes away.
-    #[test]
-    fn the_second_of_two_entries_sharing_a_key_is_the_one_acted_on() {
-        let text = "@article{smith2020,\n  title = {First}\n}\n\n@inproceedings{smith2020,\n  title = {Second}\n}\n";
-        let parsed = parse_rows(text.to_string());
-        let second = model::row_at(&parsed.rows, "smith2020", 1).unwrap();
-        assert_eq!(second.summary.title, "Second");
-        let edit = bib_document::delete_entry_edit(text, &second.entry);
-        let left = bib_document::apply_edit(text, &edit);
-        assert_eq!(left, "@article{smith2020,\n  title = {First}\n}\n");
-        // A place no longer under that key falls back to its first entry.
-        assert_eq!(
-            model::row_at(&parsed.rows, "smith2020", 7).unwrap().index,
-            0
-        );
-    }
-}
+mod tests;

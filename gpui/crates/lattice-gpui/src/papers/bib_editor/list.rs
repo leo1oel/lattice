@@ -488,12 +488,9 @@ impl BibEditor {
         } else {
             ROW_HEIGHT
         };
-        if let Some(key) = reveal
-            && let Some(at) = shown.iter().position(|index| {
-                self.rows
-                    .iter()
-                    .any(|row| row.index == *index && row.entry.key == key)
-            })
+        if let Some((key, index)) = reveal
+            && let Some(row) = self.row_at(&key, index)
+            && let Some(at) = shown.iter().position(|index| *index == row.index)
         {
             self.scroll.scroll_to_item(at, gpui::ScrollStrategy::Center);
         }
