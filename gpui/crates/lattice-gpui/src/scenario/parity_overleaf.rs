@@ -126,7 +126,7 @@ fn iso_ago(ago: i64) -> String {
 /// accessLevel]` rows, the age a product like `26 * HOUR`.
 fn picker_projects() -> Result<Vec<OverleafProject>> {
     let block = BENCH
-        .split_once("export const PICKER_PROJECTS")
+        .split_once("const PICKER_PROJECTS:")
         .and_then(|(_, rest)| rest.split_once("];"))
         .map(|(block, _)| block)
         .context("no PICKER_PROJECTS in bench-overleaf.ts")?;
