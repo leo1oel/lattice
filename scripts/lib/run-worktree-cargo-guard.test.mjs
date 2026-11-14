@@ -1,5 +1,9 @@
-import { describe, expect, it } from "vitest";
-import { gpuiBuildCommand } from "./run-worktree-cargo-guard.mjs";
+import { spawnSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
+import { gpuiBuildCommand, repoLevelWrapper } from "./run-worktree-cargo-guard.mjs";
 
 describe("gpuiBuildCommand", () => {
   it("passes through subcommands that build nothing", () => {
@@ -45,5 +49,44 @@ describe("gpuiBuildCommand", () => {
     expect(gpuiBuildCommand(["test", "--", "name with space"], "gpui", "gpui").command).toBe(
       "node scripts/gpui-build.mjs -- test -- 'name with space'",
     );
+  });
+});
+
+describe("repoLevelWrapper", () => {
+  const dirs = [];
+  afterEach(() => dirs.splice(0).forEach((dir) => rmSync(dir, { recursive: true, force: true })));
+
+  /** A worktrees/<repo>/ directory with one run whose guard script echoes what it was given. */
+  function layout() {
+    const root = realpathSync(mkdtempSync(path.join(os.tmpdir(), "run-worktree-guard-")));
+    dirs.push(root);
+    const runs = path.join(root, "worktrees", "repo");
+    mkdirSync(path.join(runs, "run-1", "scripts"), { recursive: true });
+    mkdirSync(path.join(runs, "run-1", "gpui"), { recursive: true });
+    writeFileSync(path.join(runs, "run-1", "scripts", "run-worktree-cargo-guard.mjs"), "console.log(['guard', ...process.argv.slice(2)].join(' '));\n");
+    const wrapper = path.join(runs, ".cargo", "lattice-rustc-wrapper.sh");
+    mkdirSync(path.dirname(wrapper), { recursive: true });
+    writeFileSync(wrapper, repoLevelWrapper("# marker", runs), { mode: 0o755 });
+    return { root, runs, wrapper };
+  }
+  const run = (wrapper, cwd, env = {}) =>
+    spawnSync("sh", [wrapper, "rustc", "-vV"], { cwd, encoding: "utf8", env: { ...process.env, LATTICE_ALLOW_LOCAL_CARGO: "", ...env } });
+
+  it("hands a call made inside a run worktree to that worktree's guard", () => {
+    const { runs, wrapper } = layout();
+    expect(run(wrapper, path.join(runs, "run-1", "gpui")).stdout.trim()).toBe("guard refuse rustc -vV");
+  });
+
+  it("refuses a call it cannot place in a run worktree", () => {
+    const { root, wrapper } = layout();
+    const result = run(wrapper, root);
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("node scripts/gpui-build.mjs -- <the same cargo arguments>");
+  });
+
+  it("runs rustc directly under LATTICE_ALLOW_LOCAL_CARGO", () => {
+    const { root, wrapper } = layout();
+    const result = spawnSync("sh", [wrapper, "echo", "direct"], { cwd: root, encoding: "utf8", env: { ...process.env, LATTICE_ALLOW_LOCAL_CARGO: "1" } });
+    expect(result.stdout.trim()).toBe("direct");
   });
 });

@@ -74,8 +74,11 @@ A `--manifest-path` runs it on the Tauri crates in the same shared tree, for exa
 `node scripts/gpui-build.mjs -- clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`.
 In a no-mistakes run worktree, send every cargo command that compiles (check, clippy, test, build) through it: a plain one there leaves a cold 8–10 GB `gpui/target` or 2–3 GB `src-tauri/target` in every run.
 The run worktree enforces this: the pipeline's prepare command (`node scripts/run-worktree-cargo-guard.mjs install`) writes a git-ignored `.cargo/config.toml` whose rustc wrapper makes a compiling cargo command fail within a second, before `target/` grows, and print the same command through `scripts/gpui-build.mjs` to run instead.
-`cargo fmt` and `cargo metadata` still run, `LATTICE_ALLOW_LOCAL_CARGO=1` lifts the guard for one command, and deleting the file lifts it for good.
+no-mistakes runs the prepare command only when the test step starts, after the review step's agent has already compiled to check its fixes, so the same command also writes a `.cargo/config.toml` and wrapper one directory up, in `<no-mistakes home>/worktrees/<repo>/`.
+That directory outlives each run and Cargo reads the config of every directory above the one it runs in, so every later run worktree is guarded from its first cargo command.
+`cargo fmt` and `cargo metadata` still run, `LATTICE_ALLOW_LOCAL_CARGO=1` lifts the guard for one command, and deleting both files lifts it for good.
 Lane worktrees, the primary checkout, the shared build tree and CI never run that prepare command, so plain cargo there is unchanged.
+The pipeline's test and lint commands start with `node scripts/run-worktree-cargo-guard.mjs check`, which fails when the run worktree's `gpui/target` or `src-tauri/target` holds more than 500 MB besides the `lattice-gpui` binaries `scripts/gpui-build.mjs` copies back, and prints the `rm -rf` that frees it.
 One `CARGO_TARGET_DIR` shared by every checkout is not the fix: Cargo judges freshness by mtime and names path crates relative to the workspace root, so a worktree checked out before another's build silently reuses that build's artifacts and tests the other worktree's code.
 
 A `cargo test` through `scripts/gpui-build.mjs` fails as soon as one test runs past a per-test limit (300 s, or `LATTICE_GPUI_TEST_TIMEOUT_SECONDS`), naming the test, instead of holding the build lock while it loops; the limit counts from libtest's "has been running for over 60 seconds" line, so it is never under a minute.
