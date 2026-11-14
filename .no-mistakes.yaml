@@ -54,8 +54,9 @@ test:
     longer than this step had left). Run it in the foreground and wait for
     it: do not background it and end your turn. If a command timeout stops
     it, run it again; the shared tree keeps what was already built. It
-    prints "waiting for another GPUI release build" while another checkout's
-    build holds the lock; wait for it rather than starting a second build.
+    prints "waiting for the GPUI release build lock held by <holder>" every
+    minute while another checkout's build holds the lock; wait for it rather
+    than starting a second build.
 
     Run every other cargo command that compiles (check, clippy, test, build)
     the same way, never with plain `cargo` in the run worktree, where it
@@ -73,6 +74,36 @@ test:
 
     The configured test command is the scoped gate (`pnpm gate:changed`), not
     the full suite: do not run `pnpm test` or the whole Vitest suite here.
+
+    For a change under `gpui/` (or `src-tauri/lattice-core/`), run a light
+    pass, not the full suite; the full e2e and the gate run once per merge on
+    main instead (`scripts/gpui-main-baseline.mjs`):
+    1. `node scripts/gpui-build.mjs -- clippy --release --locked -p <each
+       changed crate> --no-deps --all-targets`, adding `--features
+       lattice-gpui/offscreen-shots` when `lattice-gpui` is among them. Main
+       is not clippy-clean (about 90 warnings in lattice-gpui, more in
+       trellis), so do not pass `-D warnings`, and report only warnings in
+       lines the branch changed;
+    2. the unit tests of the changed crates only: `node scripts/gpui-build.mjs
+       -- test --release --locked -p <each changed crate>`, with the same
+       feature for `lattice-gpui`. A test that runs past the per-test limit
+       (300 s) is stopped and fails naming itself; report it, do not re-run it;
+    3. `node scripts/gpui-e2e-light.mjs`, once: it builds the release
+       binary, runs the e2e scenario's smoke flow plus only the modules the
+       change touches (`gpui/script/e2e --only <modules>`, the path map in
+       `scripts/gpui-e2e-modules.mjs`), retries once when only quarantined
+       steps (`scripts/gpui-e2e-quarantine.json`) failed, and sorts what still
+       fails against the main baseline. It exits 1 only for failures that are
+       the branch's own, and lists the pre-existing ones. Never run the full
+       e2e scenario here (no `gpui/script/e2e` without `--only`), and do not
+       build or run main to compare.
+    The main baseline is `known-failures@<sha>.json` for the branch's merge
+    base with origin/main, or `latest.json`, in
+    `~/Library/Caches/lattice-gpui-build/main-baseline/`. A failing gate stage
+    in its `gate.failing` or an e2e step in its `e2e.failing` is pre-existing:
+    record it as pre-existing on main, naming the baseline file, and move on
+    without asking or fixing it. When no baseline covers the merge base, say
+    so and treat only failures in code the branch changed as its own.
 
     Verify changes only with:
     - the configured test and lint commands;
