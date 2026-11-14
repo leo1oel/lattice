@@ -42,7 +42,7 @@ impl Run {
         root: &Path,
     ) -> Result<()> {
         let (window, shell) = cx.update(|cx| Shell::open_window(Some(root.to_path_buf()), cx))?;
-        let second = Run { shell, window };
+        let second = self.for_window(shell, window);
         second.root(cx).await?;
         second.with_window(cx, |shell, window, cx| {
             shell.update(cx, |shell, cx| {

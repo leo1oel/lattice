@@ -320,11 +320,17 @@ On macOS the keys go through the active input source, so select an ASCII layout 
 On macOS, input is sent the way Lattice's perf lab sends it (`../src-tauri/src/perf_lab.rs`): `NSEvent`s through `-[NSWindow sendEvent:]`.
 On Windows, keys are posted to the window's message queue, so GPUI's own message loop translates them as it does typed keys, and mouse messages are sent to the window procedure; neither needs the window in front.
 
-Only one scenario on the machine drives input at a time.
-Native clicks, keys and window focus land in whichever app is in front, so two `e2e` runs at once (two worktrees, two validation runs) fail each other's steps.
-`script/e2e` runs under a machine-wide e2e lock (`../scripts/with-gpui-e2e-lock.mjs`, a directory at `/tmp/lattice-gpui-e2e.lock` that `../scripts/lib/gpui-lock.mjs` manages the way it manages the build lock), and the parity harness takes it around its GPUI captures, since the `parity` scenario brings its window to the front.
-A second run prints `waiting for the GPUI e2e lock held by <pid> <worktree>` and starts when the first finishes; a lock left by a process that died is taken over.
-The e2e lock is separate from the build lock, so one worktree's build runs alongside another's e2e run.
+Several scenario runs proceed on one machine at once (two worktrees, two validation runs, a parity capture beside an `e2e` run).
+Native input never passes through the window server: each `NSEvent` goes to the run's own window with `sendEvent:`, which an inactive app handles without becoming active, so it cannot land in another run's app.
+Each run copies and pastes on a pasteboard of its own (`native::use_private_pasteboard`, set up before GPUI starts), so one run's copy cannot replace the text another is about to paste or read back.
+What runs still share is the front: one active app, with one key window.
+So a run keeps its app in the background, and only the steps that need its window key (the editor adapter's overlay painting, the PDF viewer's steps, the `ime` scenario as a whole, `LATTICE_SCENARIO_FRONT=1`) run in a foreground section (`scenario/input_lock.rs`).
+A section takes the machine-wide input lock, a directory at `/tmp/lattice-gpui-e2e.lock` held by the protocol `../scripts/lib/gpui-lock.mjs` uses for the build lock; it then brings the run's window to the front and makes it key, and on leaving puts the app back in the background and gives the lock back.
+A run waiting for it prints `waiting for the GPUI e2e lock held by <pid> <label>`, and a lock left by a process that died is taken over.
+Each section prints how long it held the lock, and the result's `foreground` lists them.
+The app becoming active outside a section fails the `e2e` scenario's last step, which names the step it followed: that step would take the key window from a run in its section, so it belongs in one.
+A new step that needs the window key goes in a section (`let _front = self.foreground(cx, "what for").await?;`), kept as short as the step allows; one that only sends native input or dispatches actions stays outside.
+The input lock is separate from the build lock, so one worktree's build runs alongside another's `e2e` run.
 
 ## Parity harness
 

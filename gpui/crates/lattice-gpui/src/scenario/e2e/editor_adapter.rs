@@ -50,8 +50,8 @@ impl Run {
         // gutter marks and cards, as a writer pointing at the window sees
         // them. A scenario's window is never activated (`main.rs`), and on
         // macOS one merely ordered above the others drew none of them, so
-        // the window is brought to the front and made key on both systems.
-        native::bring_to_front(self.native(cx)?);
+        // these run in a foreground section.
+        let _front = self.foreground(cx, "editor_adapter").await?;
         let panel = self.open(cx, &root.join("main.tex"), Some(8))?;
         self.pause(cx, Duration::from_millis(600)).await;
         let lattice = cx.update(|cx| panel.read(cx).lattice_editor().clone());

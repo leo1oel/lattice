@@ -269,7 +269,17 @@ impl Run {
         steps.check(
             "a merge Git stops on raises the conflict notice, which goes once the merge is aborted",
             !merge.status.success() && raised && dropped,
-            json!({ "merge_failed": !merge.status.success(), "raised": raised, "dropped": dropped }),
+            json!({
+                "merge_failed": !merge.status.success(),
+                // Why it stopped: a conflict, or something else (a lock).
+                "merge_output": format!(
+                    "{}{}",
+                    String::from_utf8_lossy(&merge.stdout),
+                    String::from_utf8_lossy(&merge.stderr)
+                ),
+                "raised": raised,
+                "dropped": dropped,
+            }),
         );
         git(&["reset", "-q", "--soft", &head])?;
         git(&["reset", "-q"])?;

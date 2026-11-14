@@ -11,20 +11,24 @@
 # back to target/release/lattice-gpui; a plain cargo build here starts cold in
 # every new worktree).
 #
-# Only one e2e run on the machine drives input at a time: the scenario's
-# native clicks, keys and window focus land in whichever app is in front, so
-# two runs at once (two worktrees, two validation runs) fail each other's
-# steps. The script re-executes itself under the machine-wide e2e lock
-# (scripts/with-gpui-e2e-lock.mjs, the lock in scripts/lib/gpui-lock.mjs, at
-# /tmp/lattice-gpui-e2e.lock), printing "waiting for the GPUI e2e lock held by
-# <pid> <worktree>" while another run holds it; a lock left by a process that
-# died is taken over. It is not the build lock, so builds run alongside.
+# Several e2e runs proceed side by side (two worktrees, two validation runs).
+# The scenario's native clicks and keys go to its own window (`sendEvent:`,
+# crates/lattice-gpui/src/native.rs), never through the window server, so
+# they cannot land in another run's app; each run copies and pastes on a
+# pasteboard of its own. What runs still share is the front: one active app
+# and key window. So a run stays in the background and takes the machine-wide
+# input lock (/tmp/lattice-gpui-e2e.lock, the protocol of
+# ../scripts/lib/gpui-lock.mjs) only around the steps that need its window
+# key, bringing the window to the front while it holds it and putting the app
+# back in the background as it lets go
+# (crates/lattice-gpui/src/scenario/input_lock.rs). It prints "waiting for
+# the GPUI e2e lock held by <pid> <worktree>" while another run holds it, and
+# takes over a lock left by a process that died. It is not the build lock, so
+# builds run alongside. A step that activates the app outside such a section
+# fails the run, since it would take the key window from the run in one.
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-if [ -z "${LATTICE_GPUI_E2E_LOCK_HELD:-}" ]; then
-  exec node "$root/../scripts/with-gpui-e2e-lock.mjs" "$(cd "$root/.." && pwd)" -- "${BASH_SOURCE[0]}" "$@"
-fi
 app="$root/target/release/lattice-gpui"
 [ -x "$app" ] || { echo "e2e: $app is missing; build the release binary first" >&2; exit 1; }
 # The island pages the board, spreadsheet and deck checks open, from the
@@ -44,6 +48,8 @@ cp -R "$root/fixtures/e2e" "$project"
 # checks and the islands' scroll and focus checks see a live window, and a
 # window the scenario opens (the PDF's own window) is shown and laid out.
 # TeX is looked up on PATH; MacTeX's texbin is not on a non-login shell's.
+# The lock's label, shown to a run waiting for it: this checkout.
+LATTICE_GPUI_E2E_LOCK_LABEL="${LATTICE_GPUI_E2E_LOCK_LABEL:-$(cd "$root/.." && pwd)}" \
 GPUI_LAB_IGNORE_OCCLUSION=1 PATH="$PATH:/Library/TeX/texbin" HOME="$scratch/home" "$app" "$project" --scenario e2e --out "$out"
 cat "$out"
 jq -e '.passed == true' "$out" >/dev/null || { echo "e2e: the scenario failed" >&2; exit 1; }
