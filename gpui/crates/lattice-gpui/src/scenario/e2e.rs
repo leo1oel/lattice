@@ -37,6 +37,7 @@ mod steps;
 mod structured;
 mod submission;
 mod submission_checklist;
+mod tab_strip;
 
 use steps::Steps;
 
@@ -274,6 +275,7 @@ impl Run {
         self.structured_islands(cx, &mut steps, &root).await?;
         #[cfg(target_os = "macos")]
         self.markdown_island(cx, &mut steps, &root).await?;
+        self.tab_strip(cx, &mut steps, &root).await?;
         self.pdf_viewer(cx, &mut steps, &root).await?;
         self.second_window_pdf(cx, &mut steps, &root).await?;
 

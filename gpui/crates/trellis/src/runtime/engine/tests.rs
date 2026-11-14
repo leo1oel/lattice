@@ -769,3 +769,71 @@ fn closing_several_views_at_once_is_one_change() {
         ["b"]
     );
 }
+
+#[test]
+fn a_strip_with_more_tabs_than_room_gives_each_document_tab_a_minimum() {
+    use crate::runtime::header::{HeaderItem, HeaderMeasure};
+    let mut doc = lattice_doc();
+    let files: Vec<String> = (0..30).map(|i| format!("f{i}")).collect();
+    for id in &files {
+        doc.views.insert(
+            id.clone(),
+            ViewRecord {
+                kind: "file".into(),
+                ..Default::default()
+            },
+        );
+    }
+    if let Some(LayoutNode::Split(row)) = doc.root.as_mut()
+        && let LayoutNode::Panel(docs) = &mut row.children[1]
+    {
+        docs.views.extend(files.iter().cloned());
+    }
+    let mut rig = Rig::with(doc);
+    // As the Lattice skin measures: every document 160px at rest, 100px at
+    // its minimum, 60px at its floor; the named tabs whole or as icons.
+    let mut measure = |input: &frame::HeaderInput| {
+        Some(HeaderMeasure {
+            chrome: [200., 160., 120., 41.],
+            gap: 2.,
+            items: input
+                .tabs
+                .iter()
+                .map(|(view, _, atomic, _)| {
+                    if *atomic {
+                        HeaderItem::Atomic {
+                            view_id: view.clone(),
+                            full: 90.,
+                            compact: 32.,
+                        }
+                    } else {
+                        HeaderItem::Loose {
+                            view_id: view.clone(),
+                            min: 100.,
+                            floor: 60.,
+                            natural: 160.,
+                        }
+                    }
+                })
+                .collect(),
+        })
+    };
+    rig.engine.frame(&mut measure);
+    let frame = rig.engine.frame(&mut measure);
+    let docs = frame.panels.iter().find(|p| p.id == "docs").expect("drawn");
+    assert_eq!(docs.tabs.len(), 32);
+    for tab in &docs.tabs {
+        let min = tab.min_width.expect("a document tab has a minimum");
+        assert!((60. ..=100.).contains(&min), "{}: {min}", tab.view_id);
+    }
+    // Thirty-two tabs at even their floor are wider than the panel, so its
+    // list scrolls rather than squeezing them under it.
+    let floors = 32. * 60. + 31. * 2.;
+    assert!(floors > docs.rect.w);
+    let project = frame
+        .panels
+        .iter()
+        .find(|p| p.id == "panel-project")
+        .expect("drawn");
+    assert!(project.tabs.iter().all(|t| t.min_width.is_none()));
+}

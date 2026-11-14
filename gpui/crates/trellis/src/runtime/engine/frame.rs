@@ -29,6 +29,14 @@ pub struct TabFrame {
     /// never an ellipsis.
     pub atomic: bool,
     pub icon_only: bool,
+    /// The width a tab that shrinks with its strip never goes under: its
+    /// header item's minimum, or the header plan's `tab_min` while the
+    /// strip is short of room, never more than the tab's natural width.
+    /// `None` for a named tab and for a tab not yet measured, which keep
+    /// their natural width. The host holds the tab's slot in the strip to
+    /// it, so a strip with more tabs than room scrolls rather than drawing
+    /// tabs over each other (trellis.css: `min-width: var(--trellis-tab-min)`).
+    pub min_width: Option<f64>,
     /// Offset from its place in the strip (a tab being sorted or settling).
     pub offset: f64,
     /// The tab being sorted, following the pointer.
@@ -393,6 +401,29 @@ impl Engine {
                 ));
             }
             let labels = self.panels.get(&panel_id).and_then(|s| s.labels.clone());
+            let minimums: HashMap<String, f64> = self
+                .panels
+                .get(&panel_id)
+                .and_then(|s| s.header.as_ref())
+                .map(|measured| {
+                    measured
+                        .items
+                        .iter()
+                        .filter_map(|item| match item {
+                            HeaderItem::Loose {
+                                view_id,
+                                min,
+                                natural,
+                                ..
+                            } => Some((
+                                view_id.clone(),
+                                header.tab_min.map_or(*min, |m| natural.min(m)),
+                            )),
+                            HeaderItem::Atomic { .. } => None,
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
             let sort = self
                 .tab_sort_offsets(&panel_id)
                 .map(|(o, d)| (o.clone(), d.to_string()));
@@ -418,6 +449,9 @@ impl Engine {
                         atomic: rules.singleton,
                         icon_only: rules.singleton
                             && labels.as_ref().is_some_and(|l| !l.contains(view_id)),
+                        min_width: (!rules.singleton)
+                            .then(|| minimums.get(view_id).copied())
+                            .flatten(),
                         offset,
                         sorting: sort.as_ref().is_some_and(|(_, d)| d == view_id),
                     }

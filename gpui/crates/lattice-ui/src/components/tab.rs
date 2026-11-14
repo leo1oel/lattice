@@ -257,6 +257,12 @@ impl RenderOnce for PanelTab {
                 .bg(palette.text_secondary)
         });
         let closable = self.closable && !icon_only;
+        // trellis.css: an unselected tab's close slot counts in its natural
+        // width only. Squeezed below that, the slot (nothing visible in it
+        // until hovered) gives its room before the label gives any, so a
+        // tab at its floor reads "ch…" rather than only its icon; hovering
+        // brings the close square back by narrowing the label, never the tab.
+        let close_gives_way = shrinks.is_some() && !selected && interaction.hover <= 0.;
         // The close square fades its wash in and its ink up on the fast tier
         // (`trellis.css`, `[data-trellis-part="tab-close"]:hover`).
         let close_id = ElementId::NamedChild(std::sync::Arc::new(self.id.clone()), "close".into());
@@ -329,7 +335,13 @@ impl RenderOnce for PanelTab {
                     div()
                         .id("close")
                         .ml(TAB_GAP)
-                        .flex_none()
+                        .map(|close| {
+                            if close_gives_way {
+                                close.flex_shrink(1000.).min_w_0().overflow_hidden()
+                            } else {
+                                close.flex_none()
+                            }
+                        })
                         .size(TAB_CLOSE)
                         .rounded(crate::shape::CHROME.paint(crate::shape::TAB_CLOSE.inner()))
                         .flex()
