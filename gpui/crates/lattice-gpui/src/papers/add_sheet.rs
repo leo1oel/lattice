@@ -135,7 +135,7 @@ pub struct AddPapers {
     pub(super) zotero: Option<Entity<super::zotero::ZoteroBrowser>>,
     focus: FocusHandle,
     _settle: Option<Task<()>>,
-    _lookups: Vec<Task<()>>,
+    _lookups: HashMap<String, Task<()>>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -175,7 +175,7 @@ impl AddPapers {
             zotero: None,
             focus: cx.focus_handle(),
             _settle: None,
-            _lookups: Vec::new(),
+            _lookups: HashMap::new(),
             _subscriptions: vec![typed, refresh],
         };
         this.settle(seed, cx);
@@ -223,10 +223,11 @@ impl AddPapers {
                 lattice_core::project::resolve_citation_query(&input)
             });
             let id = reference.id.clone();
-            self._lookups.push(cx.spawn(async move |this, cx| {
+            let task = cx.spawn(async move |this, cx| {
                 let found = lookup.await;
                 this.update(cx, |this, cx| {
                     this.pending.remove(&id);
+                    this._lookups.remove(&id);
                     this.lookups.insert(
                         id,
                         match found {
@@ -238,7 +239,8 @@ impl AddPapers {
                     cx.notify();
                 })
                 .ok();
-            }));
+            });
+            self._lookups.insert(reference.id.clone(), task);
         }
     }
 
@@ -433,7 +435,7 @@ impl AddPapers {
                                 input: item.bibtex.clone(),
                                 label: paper.title.clone(),
                                 kind: ReferenceKind::Bibtex,
-                                byline: String::new(),
+                                byline: paper.byline.clone(),
                                 zotero: Some(super::batch::ZoteroExtras {
                                     pdf: paper.pdf.clone(),
                                     existing: paper

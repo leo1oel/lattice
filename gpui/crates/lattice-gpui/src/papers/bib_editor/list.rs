@@ -209,7 +209,13 @@ impl BibEditor {
             .map_or(0, |usages| usages.of(&key).len());
         let paper = self.papers().map(|papers| {
             let library = papers.read(cx);
-            model::entry_paper(&library.papers, &key, summary, &library.fetching.states).1
+            model::entry_paper(
+                &library.bibliography_papers,
+                &key,
+                summary,
+                &library.fetching.states,
+            )
+            .1
         });
         let year_text = summary.year.clone();
         let year = |cx: &Context<Self>| {

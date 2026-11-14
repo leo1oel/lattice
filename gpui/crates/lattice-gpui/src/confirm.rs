@@ -206,7 +206,8 @@ impl Render for ConfirmHost {
         if let Some((label, answer)) = question.alternative.clone() {
             let button = Button::new(("confirm-alternative", self.serial), label).on_click(
                 cx.listener(move |this, _, window, cx| {
-                    this.close(cx);
+                    this.pending = None;
+                    cx.notify();
                     answer(window, cx);
                 }),
             );

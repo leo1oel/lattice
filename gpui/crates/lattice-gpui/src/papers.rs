@@ -193,6 +193,10 @@ pub struct PapersPanel {
     project: Option<Entity<Project>>,
     root: Option<PathBuf>,
     pub(crate) papers: Vec<PaperSummary>,
+    /// The library and the papers other `.bib` files' references were
+    /// downloaded as, which the bibliography editor opens
+    /// (`useBibliographyPapers`).
+    pub(crate) bibliography_papers: Vec<PaperSummary>,
     pub(crate) load: Load,
     pub(crate) facts: Facts,
     /// Counts the scans of the manuscript's citations, for views that read
@@ -260,6 +264,7 @@ impl PapersPanel {
             project: None,
             root: None,
             papers: Vec::new(),
+            bibliography_papers: Vec::new(),
             load: Load::Loading,
             facts: Facts::default(),
             usage_revision: 0,
@@ -313,6 +318,7 @@ impl PapersPanel {
         self.project = Some(project);
         self.root = Some(root);
         self.papers.clear();
+        self.bibliography_papers.clear();
         self.list_revision += 1;
         self.load = Load::Loading;
         self.facts = Facts::default();
@@ -413,16 +419,20 @@ impl PapersPanel {
             if listed.is_ok() {
                 core_papers::refresh_search_index(&list_root);
             }
-            listed
+            let downloads =
+                core_papers::list_bibliography_downloads(&list_root).unwrap_or_default();
+            (listed, downloads)
         });
         self._load = Some(cx.spawn(async move |this, cx| {
-            let listed = listing.await;
+            let (listed, downloads) = listing.await;
             this.update(cx, |this, cx| {
                 if this.load_generation != generation {
                     return;
                 }
                 match listed {
                     Ok(papers) => {
+                        this.bibliography_papers =
+                            papers.iter().cloned().chain(downloads).collect();
                         this.papers = papers;
                         this.list_revision += 1;
                         this.load = Load::Ready;

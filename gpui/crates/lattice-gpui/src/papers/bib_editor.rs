@@ -185,9 +185,9 @@ pub struct BibEditor {
     pub(super) adding: Option<Entity<add::AddReference>>,
     deleted: Option<Deleted>,
     deletes: u64,
-    /// A line the source moved to while the list was still drawn from an
+    /// A caret the source moved to while the list was still drawn from an
     /// older text, followed once the parse catches up.
-    follow: Option<u32>,
+    follow: Option<usize>,
     /// The buffer's edits as counted, and the count when the text the rows
     /// were parsed from was read: they differ while a parse is due.
     edits: u64,
@@ -345,8 +345,8 @@ impl BibEditor {
             self.error = parsed.error;
             cx.notify();
         }
-        if let Some(line) = self.follow.take() {
-            self.follow_line(line, cx);
+        if let Some(offset) = self.follow.take() {
+            self.follow_caret(offset, cx);
         }
     }
 
@@ -374,7 +374,7 @@ impl BibEditor {
         self.row_at(key, *index).or_else(|| {
             self.rows
                 .iter()
-                .find(|row| row.entry.key.eq_ignore_ascii_case(key))
+                .find(|row| model::same_key(&row.entry.key, key))
         })
     }
 
@@ -424,21 +424,17 @@ impl BibEditor {
         cx.notify();
     }
 
-    /// The source beside the list moved to `line`: the list follows the
-    /// reference under it (`use-bib-source-sync.ts`).
-    pub fn follow_line(&mut self, line: u32, cx: &mut Context<Self>) {
-        // The rows' offsets are the parsed text's: the line means nothing in
-        // them until the parse of the buffer as it is now lands.
+    /// The source beside the list moved its caret to `offset`: the list
+    /// follows the reference holding it, its closing brace included
+    /// (`use-bib-source-sync.ts`).
+    pub fn follow_caret(&mut self, offset: usize, cx: &mut Context<Self>) {
+        // The rows' offsets are the parsed text's: the caret means nothing
+        // in them until the parse of the buffer as it is now lands.
         if self.parsed_edits != self.edits {
-            self.follow = Some(line);
+            self.follow = Some(offset);
             return;
         }
-        let offset = line_offset(&self.text, line);
-        let Some(row) = self
-            .rows
-            .iter()
-            .find(|row| row.entry.from <= offset && offset < row.entry.to.max(row.entry.from + 1))
-        else {
+        let Some(row) = model::row_holding(&self.rows, offset) else {
             return;
         };
         if self.selected_row().map(|front| front.index) != Some(row.index) {
@@ -706,7 +702,7 @@ impl BibEditor {
         let (paper, state) = {
             let library = papers.read(cx);
             model::entry_paper(
-                &library.papers,
+                &library.bibliography_papers,
                 &row.entry.key,
                 &row.summary,
                 &library.fetching.states,
@@ -773,7 +769,7 @@ impl BibEditor {
         let target = match keystroke.key.as_str() {
             "down" => Some(at.map_or(0, |at| (at + 1).min(shown.len() - 1))),
             "up" => Some(at.map_or(0, |at| at.saturating_sub(1))),
-            "pagedown" => Some(at.map_or(0, |at| (at + 10).min(shown.len() - 1))),
+            "pagedown" => Some(at.map_or(9, |at| at + 10).min(shown.len() - 1)),
             "pageup" => Some(at.map_or(0, |at| at.saturating_sub(10))),
             "home" => Some(0),
             "end" => Some(shown.len() - 1),
@@ -851,16 +847,6 @@ fn copies(text: &str, key: &str, removed: &str) -> usize {
             .filter(|entry| entry.key == key && text[entry.from..entry.to] == *removed.trim())
             .count()
     })
-}
-
-/// The byte offset of the start of the 1-based `line` in `text`.
-fn line_offset(text: &str, line: u32) -> usize {
-    if line <= 1 {
-        return 0;
-    }
-    text.match_indices('\n')
-        .nth(line as usize - 2)
-        .map_or(text.len(), |(at, _)| at + 1)
 }
 
 impl Focusable for BibEditor {

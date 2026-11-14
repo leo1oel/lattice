@@ -39,6 +39,9 @@ pub struct BatchItem {
     pub byline: String,
     pub state: ItemState,
     pub citation_key: Option<String>,
+    /// The title the import found, and whether Papers held it already.
+    pub title: Option<String>,
+    pub already_imported: bool,
     /// Why it failed, or what was added without its full text.
     pub note: Option<String>,
 }
@@ -230,6 +233,8 @@ impl PapersPanel {
                 byline: request.byline.clone(),
                 state: ItemState::Waiting,
                 citation_key: None,
+                title: None,
+                already_imported: false,
                 note: None,
             })
             .collect();
@@ -355,6 +360,9 @@ impl PapersPanel {
                         }
                         Ok((imported, zotero_note)) => {
                             item.state = ItemState::Added;
+                            item.title = Some(imported.title.clone())
+                                .filter(|title| !title.trim().is_empty());
+                            item.already_imported = imported.already_imported;
                             // What failed first, then where the annotations
                             // went: neither hides the other.
                             let notes: Vec<String> = [

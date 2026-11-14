@@ -212,7 +212,7 @@ pub fn entry_paper(
             paper
                 .citation_key
                 .as_deref()
-                .is_some_and(|own| own.eq_ignore_ascii_case(key))
+                .is_some_and(|own| same_key(own, key))
         })
         .or_else(|| {
             (!summary.arxiv_id.is_empty())
@@ -359,6 +359,19 @@ pub fn slug_key(title: &str, author: &str, year: &str) -> String {
         .filter(|ch| ch.is_ascii_alphanumeric())
         .collect();
     format!("{surname}{year}{}", word.to_lowercase())
+}
+
+/// Two citation keys BibTeX takes for one: equal in Unicode lower case, as
+/// `sameIgnoringCase` compares them.
+pub fn same_key(a: &str, b: &str) -> bool {
+    a.to_lowercase() == b.to_lowercase()
+}
+
+/// The row whose entry holds `offset`, from its `@` to its closing
+/// delimiter inclusive (`rowAt`); none between entries.
+pub fn row_holding(rows: &[Row], offset: usize) -> Option<&Row> {
+    rows.iter()
+        .find(|row| row.entry.from <= offset && offset <= row.entry.to)
 }
 
 /// The entry `key` at `index`, else the first under that key: the place
@@ -558,7 +571,7 @@ pub fn append_entry(existing: &str, entry: &str, key: &str) -> Result<BibEdit, S
     if document
         .entries
         .iter()
-        .any(|other| other.key.eq_ignore_ascii_case(key))
+        .any(|other| same_key(&other.key, key))
     {
         return Err(t!(
             "Citation key ''{key}'' already exists. Choose a different key or edit the existing reference.",

@@ -8,8 +8,8 @@
 //! has a gutter.
 
 use gpui::{
-    AnyElement, Context, InteractiveElement as _, IntoElement, ParentElement as _, Render,
-    SharedString, StatefulInteractiveElement as _, Styled as _, Window, canvas, div,
+    AnyElement, Context, Focusable as _, InteractiveElement as _, IntoElement, ParentElement as _,
+    Render, SharedString, StatefulInteractiveElement as _, Styled as _, Window, canvas, div,
     prelude::FluentBuilder as _, px,
 };
 use lattice_i18n::t;
@@ -417,12 +417,14 @@ impl Render for PapersPanel {
                 if event.keystroke.key != "escape" {
                     return;
                 }
-                // The inspector closes first; then Escape ends the search
-                // where it began, and stops a download under way.
-                if this.selected.is_some() && this.wide() {
-                    this.select(None, cx);
-                } else if this.fetching.busy() {
+                // In the box Escape stops a download under way, else empties
+                // it; in the list the inspector closes first, then the search
+                // ends where it began.
+                let in_box = this.input.read(cx).focus_handle(cx).is_focused(window);
+                if in_box && this.fetching.busy() {
                     this.cancel_fetches(cx);
+                } else if !in_box && this.selected.is_some() && this.wide() {
+                    this.select(None, cx);
                 } else if !this.query(cx).is_empty() {
                     this.clear_query(window, cx);
                 } else {

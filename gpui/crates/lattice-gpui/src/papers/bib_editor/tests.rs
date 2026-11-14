@@ -104,3 +104,18 @@ fn a_form_writes_only_to_the_entry_it_was_built_for() {
         Some("Second, revised")
     );
 }
+
+/// The caret right after an entry's closing brace still sits in it, as the
+/// Tauri app's `rowAt` reads `from <= offset <= to`; a blank line between
+/// entries holds none.
+#[test]
+fn the_caret_follows_the_entry_up_to_its_closing_brace() {
+    let text = "@article{a,\n  title = {A}\n}\n\n@misc{b,\n  title = {B}\n}\n";
+    let rows = parse_rows(text.to_string()).rows;
+    let key_at = |offset| model::row_holding(&rows, offset).map(|row| row.entry.key.as_str());
+    let first_close = text.find("}\n\n").unwrap() + 1;
+    assert_eq!(key_at(0), Some("a"));
+    assert_eq!(key_at(first_close), Some("a"));
+    assert_eq!(key_at(first_close + 1), None);
+    assert_eq!(key_at(text.find("@misc").unwrap() + 3), Some("b"));
+}

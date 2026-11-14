@@ -563,8 +563,10 @@ impl Audit {
                     }
                     if let Some(failure) = missing_tools {
                         this.update(cx, |this, cx| {
-                            this.stopping = true;
-                            cx.emit(AuditEvent::MissingPaperTools(failure));
+                            if this.generation == generation && !this.stopping {
+                                this.stopping = true;
+                                cx.emit(AuditEvent::MissingPaperTools(failure));
+                            }
                         })
                         .ok();
                     }

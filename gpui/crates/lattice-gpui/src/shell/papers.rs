@@ -378,8 +378,8 @@ impl Shell {
         self.dismiss_overlays_for_documents(cx);
         // The comparison reads the files on disk: what the editors hold is
         // saved first.
-        self.save_in_background(cx);
-        let view = cx.new(|cx| LinkedLibrary::new(root, cx));
+        let saved = self.save_editors(cx);
+        let view = cx.new(|cx| LinkedLibrary::new(root, saved, cx));
         cx.subscribe_in(&view, window, |this, _, event, window, cx| match event {
             LinkedLibraryEvent::Dismiss => this.close_document_overlays(window, cx),
             LinkedLibraryEvent::Applied => {
@@ -431,6 +431,7 @@ impl Shell {
         cx.subscribe_in(&view, window, |this, _, event, window, cx| match event {
             AuditEvent::Dismiss => this.close_document_overlays(window, cx),
             AuditEvent::OpenSource { path, line } => {
+                this.close_document_overlays(window, cx);
                 if let Some(root) = this.root(cx) {
                     this.open_path(root.join(path), Some(*line), window, cx);
                 }

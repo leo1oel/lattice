@@ -53,7 +53,7 @@ impl BibEditor {
         } else if self
             .rows
             .iter()
-            .any(|row| row.index != index && row.entry.key.to_lowercase() == key.to_lowercase())
+            .any(|row| row.index != index && model::same_key(&row.entry.key, &key))
         {
             Some(t!("Another reference already uses “{key}”.", key = key))
         } else {

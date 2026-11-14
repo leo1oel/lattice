@@ -444,7 +444,7 @@ impl BibEditor {
         let paper_state = self.papers().map(|papers| {
             let library = papers.read(cx);
             model::entry_paper(
-                &library.papers,
+                &library.bibliography_papers,
                 &entry.key,
                 summary,
                 &library.fetching.states,

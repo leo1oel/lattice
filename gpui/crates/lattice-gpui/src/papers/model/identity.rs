@@ -90,6 +90,14 @@ pub(super) static DOI: LazyLock<Regex> = LazyLock::new(|| {
 });
 pub(super) static BARE_DOI: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?i)^10\.\d{4,9}/\S+$").unwrap());
+/// An alphaXiv page's work: `/abs/2401.00001v2`, `/pdf/…`, `/overview/…`
+/// (`alphaxivId`).
+static ALPHAXIV_PATH: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^/(?:abs|pdf|overview)/([\w.-]+(?:/\d+(?:v\d+)?)?)/?$").unwrap());
+static ALPHAXIV_SUFFIX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?i)\.(?:pdf|md)$").unwrap());
+/// An address that names a PDF, before its query or fragment or at its end.
+static PDF_ADDRESS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?i)\.pdf(?:$|[?#])").unwrap());
 pub(super) static BIBTEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^@\w+\s*\{").unwrap());
 pub(super) static WEB_URL: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?i)^https?://\S+$").unwrap());
@@ -200,16 +208,10 @@ pub fn pdf_url(paper: &PaperSummary) -> Option<String> {
         .host
         .trim_start_matches("www.")
         .eq_ignore_ascii_case("alphaxiv.org")
+        && let Some(found) = ALPHAXIV_PATH.captures(url.path)
     {
-        let id = ["/abs/", "/pdf/", "/overview/"]
-            .iter()
-            .find_map(|prefix| url.path.strip_prefix(prefix))?
-            .trim_end_matches('/');
-        let id = id
-            .strip_suffix(".pdf")
-            .or_else(|| id.strip_suffix(".md"))
-            .unwrap_or(id);
-        return (!id.is_empty()).then(|| format!("https://www.alphaxiv.org/abs/{id}.pdf"));
+        let id = ALPHAXIV_SUFFIX.replace(&found[1], "");
+        return Some(format!("https://www.alphaxiv.org/abs/{id}.pdf"));
     }
     url.path
         .to_ascii_lowercase()
@@ -247,11 +249,7 @@ pub fn is_web_page(paper: &PaperSummary) -> bool {
     {
         return false;
     }
-    !url.to_ascii_lowercase()
-        .split(['?', '#'])
-        .next()
-        .unwrap_or_default()
-        .ends_with(".pdf")
+    !PDF_ADDRESS.is_match(url)
 }
 
 /// Where the reading came from: the arXiv id, else the DOI, else the cited
@@ -370,6 +368,35 @@ mod tests {
             link_url(&p).as_deref(),
             Some("https://doi.org/10.1000/abc%231%3C2%3E")
         );
+    }
+
+    /// paper-row.tsx `webPagePaper` reads `/\.pdf(?:$|[?#])/i` on the whole
+    /// address: a PDF named in the query is not a web page.
+    #[test]
+    fn a_pdf_named_anywhere_before_a_query_or_fragment_is_not_a_web_page() {
+        let at = |url: &str| is_web_page(&with(paper("x"), |p| p.url = Some(url.into())));
+        assert!(!at("https://host/get?file=paper.PDF"));
+        assert!(!at("https://host/paper.pdf#page=2"));
+        assert!(at("https://host/paper.pdfs"));
+        assert!(at("https://host/blog/post"));
+    }
+
+    /// paper-source.ts `alphaxivId`: `[\w.-]+(/\d+(v\d+)?)?/?` under abs, pdf
+    /// or overview, a `.pdf`/`.md` ending dropped in any case; any other
+    /// alphaXiv path names no PDF unless it ends in one.
+    #[test]
+    fn alphaxiv_pages_name_the_pdf_the_tauri_app_names() {
+        let at = |url: &str| pdf_url(&with(paper("x"), |p| p.url = Some(url.into())));
+        assert_eq!(
+            at("https://alphaxiv.org/overview/2401.00001v2.MD").as_deref(),
+            Some("https://www.alphaxiv.org/abs/2401.00001v2.pdf")
+        );
+        assert_eq!(
+            at("https://www.alphaxiv.org/abs/hep-th/9901001v1/").as_deref(),
+            Some("https://www.alphaxiv.org/abs/hep-th/9901001v1.pdf")
+        );
+        assert_eq!(at("https://www.alphaxiv.org/abs/a/b/c"), None);
+        assert_eq!(at("https://www.alphaxiv.org/explore"), None);
     }
 
     #[test]

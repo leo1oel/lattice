@@ -392,6 +392,9 @@ impl Audit {
         if self.loading {
             return t!("Reading the bibliography…").to_string();
         }
+        if total == 0 && self.coverage.is_empty() && self.error.is_some() {
+            return t!("Check references").to_string();
+        }
         if total == 0 {
             return t!("No references to check").to_string();
         }

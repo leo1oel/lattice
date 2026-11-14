@@ -87,6 +87,7 @@ const SOURCE = [
   [`${APP}structured`, ["structured"]],
   ["gpui/crates/lattice-gpui/src/editor_panel/structured_view.rs", ["structured"]],
   ["gpui/crates/lattice-gpui/src/editor_panel/markdown_view.rs", ["markdown"]],
+  ["gpui/crates/lattice-gpui/src/editor_panel/bib_view.rs", ["bib"]],
   ["gpui/crates/lattice-gpui/src/editor_panel/source_chrome.rs", ["source_chrome"]],
   ["gpui/crates/lattice-gpui/src/editor_panel/strip.rs", ["tab_strip"]],
   ["gpui/crates/lattice-gpui/src/editor_panel/save.rs", ["saves"]],

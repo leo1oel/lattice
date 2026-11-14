@@ -83,7 +83,9 @@ pub struct LinkedLibrary {
 impl EventEmitter<LinkedLibraryEvent> for LinkedLibrary {}
 
 impl LinkedLibrary {
-    pub fn new(root: PathBuf, cx: &mut Context<Self>) -> Self {
+    /// `saved`: the editors' pending writes, which the comparison waits
+    /// for, since it reads the files on disk.
+    pub fn new(root: PathBuf, saved: Task<bool>, cx: &mut Context<Self>) -> Self {
         let bibliography = core_project::read_manifest(&root)
             .map(|manifest| manifest.primary_bibliography)
             .unwrap_or_default();
@@ -100,10 +102,11 @@ impl LinkedLibrary {
             _task: None,
         };
         let root = this.root.clone();
-        let read =
-            cx.background_spawn(async move { core_project::read_linked_bibliography(&root) });
         this._task = Some(cx.spawn(async move |this, cx| {
-            let link = read.await;
+            saved.await;
+            let link = cx
+                .background_spawn(async move { core_project::read_linked_bibliography(&root) })
+                .await;
             this.update(cx, |this, cx| {
                 match link {
                     Ok(Some(link)) => {

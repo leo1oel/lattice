@@ -364,8 +364,8 @@ impl EditorPanel {
                             head.row,
                             overleaf_carets::utf16_units(snapshot.text_for_range(line_start..head)),
                         );
+                        this.bib_follow_caret(cx);
                         if moved {
-                            this.bib_follow_caret(line, cx);
                             cx.emit(EditorPanelEvent::CaretLine);
                         }
                         cx.emit(EditorPanelEvent::CaretMoved);

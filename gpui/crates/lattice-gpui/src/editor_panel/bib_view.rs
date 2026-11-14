@@ -10,7 +10,7 @@ use gpui::{
     AnyElement, App, AppContext as _, Context, Entity, Focusable as _, Global, IntoElement, Window,
 };
 
-use editor::{SelectionEffects, scroll::Autoscroll};
+use editor::{SelectionEffects, ToOffset as _, scroll::Autoscroll};
 
 use super::{DocumentView, EditorPanel, EditorPanelEvent};
 use crate::papers::{
@@ -86,9 +86,9 @@ impl EditorPanel {
                 window.focus(&bib.focus_handle(cx), cx);
             }
             DocumentView::Split => {
-                let line = self.cursor.0;
+                let caret = self.caret_offset(cx);
                 let bib = self.ensure_bib(window, cx);
-                bib.update(cx, |bib, cx| bib.follow_line(line, cx));
+                bib.update(cx, |bib, cx| bib.follow_caret(caret, cx));
             }
             DocumentView::Source => {}
         }
@@ -170,13 +170,26 @@ impl EditorPanel {
 
     /// The writer moved the caret to `line`: the list beside the source
     /// follows it.
-    pub(super) fn bib_follow_caret(&mut self, line: u32, cx: &mut Context<Self>) {
+    pub(super) fn bib_follow_caret(&mut self, cx: &mut Context<Self>) {
         if self.document_view() == Some(DocumentView::Split)
             && self.bib.source_focused
-            && let Some(bib) = &self.bib.editor
+            && let Some(bib) = self.bib.editor.clone()
         {
-            bib.update(cx, |bib, cx| bib.follow_line(line, cx));
+            let caret = self.caret_offset(cx);
+            bib.update(cx, |bib, cx| bib.follow_caret(caret, cx));
         }
+    }
+
+    /// The source's caret, as a byte offset into its text.
+    fn caret_offset(&self, cx: &App) -> usize {
+        let editor = self.editor().read(cx);
+        let snapshot = editor.buffer().read(cx).snapshot(cx);
+        editor
+            .selections
+            .newest_anchor()
+            .head()
+            .to_offset(&snapshot)
+            .0
     }
 
     /// The visual form's focus while it shows alone (Preview): it takes the

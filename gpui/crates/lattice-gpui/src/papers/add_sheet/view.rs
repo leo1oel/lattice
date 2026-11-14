@@ -89,15 +89,26 @@ impl AddPapers {
         };
         if let Some(item) = item {
             return match item.state {
-                ItemState::Added => line(
-                    success,
-                    Some(Icon::CHECK),
-                    match &item.citation_key {
-                        Some(key) => format!("{}  {key}", t!("Added")),
-                        None => t!("Added").into(),
-                    },
-                    cx,
-                ),
+                ItemState::Added => {
+                    let said = if item.already_imported {
+                        t!("Already in Papers")
+                    } else {
+                        t!("Added")
+                    };
+                    line(
+                        if item.already_imported {
+                            palette.text_secondary
+                        } else {
+                            success
+                        },
+                        (!item.already_imported).then_some(Icon::CHECK),
+                        match &item.citation_key {
+                            Some(key) => format!("{said}  {key}"),
+                            None => said.into(),
+                        },
+                        cx,
+                    )
+                }
                 ItemState::Adding => {
                     line(palette.text, Some(Icon::LOADER), t!("Adding…").into(), cx)
                 }
@@ -398,7 +409,7 @@ impl Render for AddPapers {
                             record: None,
                         },
                         state: RowState::New,
-                        title: item.label.clone(),
+                        title: item.title.clone().unwrap_or_else(|| item.label.clone()),
                         byline: item.byline.clone(),
                         existing_key: None,
                         candidates: Vec::new(),
