@@ -1,10 +1,13 @@
 //! The submission screens of the parity harness (`LATTICE_PARITY_SCREEN`
-//! `todos` and `arxivExport`), staged as `design-system/screens/scenes.mjs`
+//! `todos`, `checklist` and `arxivExport`), staged as `design-system/screens/scenes.mjs`
 //! stages them on the mock backend:
 //!
 //! - `todos`: Manuscript TODOs opened from the palette into the documents'
 //!   panel. The tutorial has no markers, and the mock backend answers none,
 //!   so both show the empty state.
+//! - `checklist`: Submission checklist opened from the palette into the
+//!   documents' panel, read from the tutorial as the mock backend answers
+//!   it (no deadline, no budgets).
 //! - `arxivExport`: Export for arXiv… over the window with `?arxiv=ready`
 //!   (`tools/perf-bench/bench-arxiv.ts`): a NeurIPS paper whose pack builds
 //!   alone, two TODOs among its comments. Its pack is staged here as the
@@ -115,7 +118,7 @@ fn bench_pack() -> ArxivPackage {
 }
 
 impl Run {
-    /// Stage the `todos` or `arxivExport` screen; whether it is on screen.
+    /// Stage the `todos`, `checklist` or `arxivExport` screen; whether it is on screen.
     pub(super) async fn parity_submission(&self, cx: &mut AsyncApp, screen: &str) -> Result<bool> {
         match screen {
             "todos" => {
@@ -124,6 +127,20 @@ impl Run {
                 })?;
                 sleep(cx, Duration::from_millis(600)).await;
                 Ok(cx.update(|cx| self.shell.read(cx).view_on_screen("todos", cx)))
+            }
+            "checklist" => {
+                self.with_window(cx, |shell, window, cx| {
+                    shell.update(cx, |shell, cx| shell.open_checklist(window, cx))
+                })?;
+                let checklist = cx.update(|cx| self.shell.read(cx).checklist.clone());
+                for _ in 0..40 {
+                    if cx.update(|cx| checklist.read(cx).facts_read()) {
+                        break;
+                    }
+                    sleep(cx, Duration::from_millis(100)).await;
+                }
+                sleep(cx, Duration::from_millis(600)).await;
+                Ok(cx.update(|cx| self.shell.read(cx).view_on_screen("checklist", cx)))
             }
             "arxivExport" => {
                 self.with_window(cx, |shell, window, cx| {
@@ -134,6 +151,7 @@ impl Run {
                     let sheet = self
                         .shell
                         .read(cx)
+                        .sheets
                         .arxiv
                         .as_ref()
                         .map(|(sheet, _)| sheet.clone());

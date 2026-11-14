@@ -345,7 +345,7 @@ fn events(source: &str) -> Vec<Event> {
 /// The project file an `\input` or `\include` names, read from the root
 /// document's folder as TeX reads it there (`latexmk -cd`), else from the
 /// project's root.
-fn resolve(root: &Path, document: &str, raw: &str) -> Option<String> {
+pub(crate) fn resolve(root: &Path, document: &str, raw: &str) -> Option<String> {
     let folder = Path::new(document).parent().unwrap_or(Path::new(""));
     let names = if raw.to_ascii_lowercase().ends_with(".tex") {
         vec![raw.to_string()]

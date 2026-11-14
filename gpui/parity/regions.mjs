@@ -209,6 +209,20 @@ export const SCREENS = {
     ],
     content: [".pdf-viewer-host"],
   },
+  // Submission checklist from the palette (`scenes.checklist`), as a tool
+  // panel of the documents' panel: its verdict, the automatic rows and the
+  // limits (crates/lattice-gpui/src/scenario/parity_submission.rs).
+  checklist: {
+    label: "Submission checklist",
+    regions: [
+      { name: "workspace", css: "main.workspace", chrome: true },
+      ...group("Checklist"),
+      { name: "checklist/summary", css: ".checklist-summary", chrome: true },
+      { name: "checklist/rows", css: ".checklist-summary + .checklist-rows" },
+      { name: "checklist/limits", css: ".checklist-limits" },
+    ],
+    content: [".pdf-viewer-host"],
+  },
   // Export for arXiv… over the window with the bench's checked pack
   // (`scenes.arxivExport`, `?arxiv=ready`); the GPUI side stages the same
   // pack in place of a real check.

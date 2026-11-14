@@ -134,11 +134,15 @@ lucide! {
     PENCIL_LINE = "icons" / "pencil-line";
     // Getting a manuscript ready to send (src/project/).
     CIRCLE_DASHED = "icons" / "circle-dashed";
+    CIRCLE_DOT = "icons" / "circle-dot";
+    IMAGES = "icons" / "images";
     LINK_2 = "icons" / "link-2";
     // Names Zed's icon set also has, which the app's asset source finds
     // first: Lucide's own, copied unmodified from GPUI Kit 0.9.1's assets
     // (ISC, `assets/LICENSE-LUCIDE`).
     CHECK = "lattice" / "check";
+    CIRCLE = "lattice" / "circle";
+    CLOCK = "lattice" / "clock";
     COPY = "lattice" / "copy";
     DOWNLOAD = "lattice" / "download";
     ELLIPSIS = "lattice" / "ellipsis";
@@ -281,6 +285,8 @@ const BUNDLED: &[(&str, &[u8])] = bundled![
     "trash.svg",
     // Lucide's, whose names Zed's icon set shadows (LICENSE-LUCIDE).
     "folder.svg",
+    "circle.svg",
+    "clock.svg",
     "hash.svg",
     "replace.svg",
     "settings.svg",
