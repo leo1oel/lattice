@@ -222,6 +222,9 @@ impl Shell {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if self.audit_applying(cx) {
+            return;
+        }
         self.save_layout(cx);
         let saved = self.save_before_leaving(cx);
         self._open_task = Some(cx.spawn_in(window, async move |this, cx| {

@@ -177,6 +177,18 @@ mod tests {
             join_conjunction_in(&["张三", "李四", "王五"], Locale::ZhCn),
             "张三、李四和王五"
         );
+        assert_eq!(
+            join_conjunction_in(&["José García", "Émile Zola"], Locale::ZhCn),
+            "José García 和 Émile Zola"
+        );
+        assert_eq!(
+            join_conjunction_in(&["Ashish Vaswani", "张三"], Locale::ZhCn),
+            "Ashish Vaswani和张三"
+        );
+        assert_eq!(
+            join_conjunction_in(&["张三", "Émile Zola"], Locale::ZhCn),
+            "张三和Émile Zola"
+        );
         assert_eq!(join_conjunction_in::<&str>(&[], Locale::En), "");
     }
 
