@@ -8,7 +8,8 @@
 //! queued behind it), and a co-author's operations come into the buffer as
 //! they land, out of its undo history. Only that document is live; another
 //! one is left once everything typed in it has been answered, waiting at
-//! most 15 s.
+//! most 15 s, and its still-open editor keeps taking co-authors' operations
+//! meanwhile, so going back to it carries on where it was.
 //!
 //! Joining reconciles the buffer with Overleaf's text through the copy the
 //! last sync agreed on (`agreed_text`): equal to Overleaf's, the buffer's
@@ -199,9 +200,17 @@ impl OverleafBridge {
                 .position(|doc| doc.doc_id == doc_id && doc.editor == editor);
             match draining {
                 Some(at) => {
-                    let mut doc = self.documents.leaving.remove(at);
-                    doc.draining = None;
-                    self.documents.live = Some(doc);
+                    let in_step = editor.upgrade().is_some_and(|panel| {
+                        panel.read(cx).overleaf_text(cx) == self.documents.leaving[at].ot.text()
+                    });
+                    if in_step {
+                        let mut doc = self.documents.leaving.remove(at);
+                        doc.draining = None;
+                        self.documents.live = Some(doc);
+                    } else {
+                        self.documents.suspended.insert(path);
+                        self.drop_live(&doc_id, None, cx);
+                    }
                 }
                 None => self.join(editor, path, doc_id, cx),
             }
@@ -399,7 +408,7 @@ impl OverleafBridge {
                     return;
                 }
                 match doc.ot.remote(&ops, version) {
-                    Ok(applied) if is_live && !applied.is_empty() => {
+                    Ok(applied) if !applied.is_empty() => {
                         let fits = doc.editor.upgrade().is_some_and(|panel| {
                             panel.update(cx, |panel, cx| panel.take_overleaf_ops(&applied, cx))
                         });
