@@ -6,7 +6,7 @@ Each is upstream's source at an exact pin plus the diffs in this directory, noth
 | Crate | Upstream | Pin | License | Diffs |
 |---|---|---|---|---|
 | `gpui-fast/crates/gpui` | [longbridge/gpui-fast](https://github.com/longbridge/gpui-fast) `crates/gpui` | commit `bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa` | Apache-2.0 | `gpui-fast-vendoring.diff`, `gpui-fast-motion-and-type.diff`, `gpui-fast-interface-zoom.diff` |
-| `gpui-fast/crates/gpui_macos` | the same repository's `crates/gpui_macos` | the same commit | Apache-2.0 | `gpui-fast-lab-occlusion.diff`, `gpui-fast-overlay-first-mouse.diff` |
+| `gpui-fast/crates/gpui_macos` | the same repository's `crates/gpui_macos` | the same commit | Apache-2.0 | `gpui-fast-lab-occlusion.diff`, `gpui-fast-overlay-first-mouse.diff`, `gpui-fast-lab-assume-key.diff` |
 | `gpui-component` | [crates.io `gpui-component`](https://crates.io/crates/gpui-component) (GPUI Kit's components) | 0.9.1, crate SHA-256 `e155c4914bd809d966660610d596f7b57c5cd38979ca2c132215057a91f23f03` | Apache-2.0 | `gpui-component-overlays.diff`, `gpui-component-lattice-hooks.diff` |
 | `gpui-base` | [crates.io `gpui-base`](https://crates.io/crates/gpui-base) (GPUI Kit's foundation, which `gpui-component` builds on) | 0.9.1, crate SHA-256 `f3e9ae5237737cfd110d0ff513fcd9c20f97d98ebabd0a73164068177f0aca4f` | Apache-2.0 | none (vendored as upstream, kept so the workspace builds from one source) |
 | `gpui-webview` | [crates.io `gpui-webview`](https://crates.io/crates/gpui-webview) (GPUI Kit's webview: the islands' native page) | 0.9.1, crate SHA-256 `6b355bcda56e128a7c2e27257653a6441ab792dcfbdae49c63ce329c846f4b5d` | Apache-2.0 | `gpui-webview-interface-zoom.diff` |
@@ -20,6 +20,9 @@ The vendored copies cannot run their own tests where they sit (the gpui crate's 
   `gpui-fast/Cargo.toml` is gpui-fast's workspace manifest, kept so the crates inherit exactly the dependencies and features they do upstream; its members are cut to the two vendored crates, every other gpui-fast crate it names is taken from gpui-fast's git repository at the pin, and its `[patch]` and `[profile]` tables (which only a root workspace reads) are dropped.
   `crates/gpui/Cargo.toml` loses its `[[example]]` entries, whose files are not copied.
 - **`gpui-fast-lab-occlusion.diff`**: with `GPUI_LAB_IGNORE_OCCLUSION` set, a window renders as if visible when none of it is on screen (covered, or on a locked display): it is paced by the display's `CVDisplayLink` instead of a `CAMetalDisplayLink`, which stops for a layer that is not on screen, and reports itself visible. Lattice's perf lab measures WebKit the same way. Without the variable the crate behaves as upstream.
+- **`gpui-fast-lab-assume-key.diff`**: with `GPUI_LAB_ASSUME_KEY` set, every window acts as the key window of the active app, as GPUI's own test platforms make activation a flag: it reports itself active from the start and stays active when AppKit takes the key window from it (becoming key for real still runs as upstream, so what observes activation, such as a webview handing the keyboard back to GPUI's view, runs), activating a window only orders it forward among the app's windows, and activating the app does nothing.
+  So a window's focus, carets, cursor blink and frame rate are a key window's while the app stays in the background, and `script/e2e` runs side by side take the machine-wide input lock only for the steps that need what macOS serves just the real key window (the input method, a webview's keyboard focus, the menu bar's key equivalents); `crates/lattice-gpui/src/scenario/input_lock.rs` has which.
+  Without the variable the crate behaves as upstream.
 - **`gpui-fast-overlay-first-mouse.diff`**: the overlay surface's view (`GPUIOverlayView`, which takes the pointer wherever an overlay is drawn over a native view) accepts the first mouse, as GPUI's own view does, by asking that view.
   Without it, in a window that is not key, the first click on a menu, the palette or a webview island's zoom controls over the page only brought the window forward, while the same click beside the page, or in the page, acted at once.
 - **`gpui-fast-motion-and-type.diff`**: two things CSS has and GPUI lacked, which Lattice's look needs (`fast/scale.rs`, `fast/letter_spacing.rs`; upstream files get only hooks, as gpui-fast's own rules ask).
@@ -52,7 +55,7 @@ The new public API (`scaled`, `Scaled`, `TextStyle::letter_spacing`, `Styled::le
 3. Run the patch tests in a gpui-fast checkout at the new pin with the diffs applied; this is required, because a diff can still apply and build after upstream moved what it hooks into. From a directory holding the checkout as `gpui-fast/`:
 
    ```sh
-   for diff in gpui-fast-lab-occlusion gpui-fast-motion-and-type gpui-fast-overlay-first-mouse gpui-fast-interface-zoom; do git apply "<lattice>/gpui/patches/$diff.diff"; done
+   for diff in gpui-fast-lab-occlusion gpui-fast-motion-and-type gpui-fast-overlay-first-mouse gpui-fast-interface-zoom gpui-fast-lab-assume-key; do git apply "<lattice>/gpui/patches/$diff.diff"; done
    (cd gpui-fast && cargo test -p gpui --lib --features test-support,gpui_platform/runtime_shaders -- fast::scale fast::letter_spacing fast::interface_zoom)
    ```
 

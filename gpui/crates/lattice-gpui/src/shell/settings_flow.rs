@@ -25,9 +25,8 @@ impl Shell {
         let weak = cx.entity().downgrade();
         let project = self.project.clone();
         let live = Some(self.live_preview.clone());
-        let view = cx.new(|cx| {
-            crate::settings::SettingsDialog::new(weak, project, live, tab, window, cx)
-        });
+        let view =
+            cx.new(|cx| crate::settings::SettingsDialog::new(weak, project, live, tab, window, cx));
         cx.subscribe_in(
             &view,
             window,

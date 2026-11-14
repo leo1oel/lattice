@@ -645,6 +645,11 @@ impl Platform for MacPlatform {
 
     #[allow(deprecated)]
     fn activate(&self, ignoring_other_apps: bool) {
+        // In the lab the app already counts as active and leaves the
+        // machine's front alone (`window::lab_assumes_key`).
+        if crate::window::lab_assumes_key() {
+            return;
+        }
         let app = NSApplication::sharedApplication(self.1);
         app.activateIgnoringOtherApps(ignoring_other_apps);
     }

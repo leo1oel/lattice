@@ -91,7 +91,7 @@ for crate in gpui-component:$GPUI_COMPONENT_VERSION gpui-base:$GPUI_BASE_VERSION
 done
 
 # The diffs, in order.
-for diff in gpui-fast-vendoring gpui-fast-lab-occlusion gpui-fast-motion-and-type gpui-fast-overlay-first-mouse gpui-fast-interface-zoom \
+for diff in gpui-fast-vendoring gpui-fast-lab-occlusion gpui-fast-motion-and-type gpui-fast-overlay-first-mouse gpui-fast-interface-zoom gpui-fast-lab-assume-key \
   gpui-component-overlays gpui-component-lattice-hooks gpui-webview-interface-zoom; do
   git -C "$out" apply --whitespace=nowarn "$patches/$diff.diff"
 done

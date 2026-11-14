@@ -33,6 +33,17 @@
 //! with its app inactive, so another run's foreground section changes nothing
 //! it depends on. Sections nest, and only the outermost takes the lock.
 //!
+//! Most of those steps need only GPUI's own idea of focus: the window active,
+//! so focused editors draw their carets and overlays, frames come at the full
+//! rate and focus events fire. gpui-fast's lab switch `GPUI_LAB_ASSUME_KEY`
+//! (patches/README.md, set by script/e2e) makes every window report itself
+//! the key window of the active app and keeps activation from taking the
+//! front, so those steps (`Run::focused`) take no lock under it and run beside
+//! other runs. What macOS serves only the real key window of the active app
+//! still takes one (`Run::foreground`): the input method, a webview's keyboard
+//! focus, the menu bar's key equivalents such as ⌘, and a menu closing as
+//! its window resigns key.
+//!
 //! The run also watches for the app becoming active outside a section (a
 //! step that activates a window and is not in one): it records the step and
 //! deactivates the app again, and the e2e scenario fails a step naming them,
@@ -148,6 +159,18 @@ pub struct InputLock {
     current: RefCell<Option<(&'static str, Instant, Option<Instant>)>>,
     /// Each section: what for, seconds waited for the lock, seconds held.
     sections: RefCell<Vec<(&'static str, f32, f32)>>,
+    /// The sections that needed only GPUI's focus and, with the lab's
+    /// assumed key window (`assume_key`), ran without the lock.
+    unlocked: RefCell<Vec<&'static str>>,
+}
+
+/// Whether gpui-fast's lab switch `GPUI_LAB_ASSUME_KEY` is on
+/// (patches/README.md): every window of the run acts as the key window of
+/// the active app, and neither activating a window nor the app takes the
+/// machine's front. Sections that need only that (`Run::focused`) then run
+/// without the lock.
+pub fn assume_key() -> bool {
+    cfg!(target_os = "macos") && std::env::var_os("GPUI_LAB_ASSUME_KEY").is_some()
 }
 
 impl InputLock {
@@ -169,6 +192,15 @@ impl InputLock {
             outside: RefCell::new(Vec::new()),
             current: RefCell::new(None),
             sections: RefCell::new(Vec::new()),
+            unlocked: RefCell::new(Vec::new()),
+        }
+    }
+
+    /// A section that needed only GPUI's focus ran without the lock.
+    pub fn without_lock(&self, what: &'static str) {
+        // Inside a section that holds the lock it is part of that one.
+        if !self.in_section() {
+            self.unlocked.borrow_mut().push(what);
         }
     }
 
@@ -247,6 +279,8 @@ impl InputLock {
                 .iter()
                 .map(|(what, waited, held)| serde_json::json!({ "for": what, "waited": waited, "held": held }))
                 .collect::<Vec<_>>(),
+            "assume_key": assume_key(),
+            "without_lock": *self.unlocked.borrow(),
         })
     }
 
@@ -329,6 +363,22 @@ mod tests {
             try_acquire(&dir, 1, "second").unwrap(),
             Attempt::HeldBy(String::new())
         );
+    }
+
+    #[test]
+    fn lists_sections_run_without_the_lock_outside_any_section() {
+        let lock = InputLock::new();
+        lock.without_lock("editor_adapter");
+        // Inside a section that takes the lock, one that needs only GPUI's
+        // focus is part of it, so it is not listed as run without it.
+        lock.enter("settings");
+        lock.without_lock("nested");
+        let summary = lock.summary();
+        assert_eq!(
+            summary["without_lock"],
+            serde_json::json!(["editor_adapter"])
+        );
+        assert_eq!(summary["held_seconds"], serde_json::json!(0.0));
     }
 
     #[cfg(unix)]
