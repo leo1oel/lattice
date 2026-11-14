@@ -41,7 +41,7 @@ pub fn of_editor(panel: Option<&EditorPanel>, cx: &App) -> Value {
     let (start_point, end_point) = (start_point.min(end_point), start_point.max(end_point));
     let mut workspace = json!({
         "activeFile": relative,
-        "editorPosition": { "path": relative, "line": line, "column": column },
+        "editorPosition": editor_position(&relative, line, column),
         "activeSurface": "editor",
     });
     if start != end {
@@ -61,4 +61,29 @@ pub fn of_editor(panel: Option<&EditorPanel>, cx: &App) -> Value {
         workspace["selectionLines"] = json!({ "start": first, "end": last.row + 1 });
     }
     workspace
+}
+
+/// The caret as the Tauri app's `EditorPosition` holds it: the line 1-based,
+/// the column 0-based from the line's start (the status bar's column, from
+/// `editor_status::caret_column`, counts from one).
+fn editor_position(path: &str, line: u32, column: u32) -> Value {
+    json!({ "path": path, "line": line, "column": column.saturating_sub(1) })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::editor_position;
+    use crate::editor_status::caret_column;
+
+    // The Tauri app's document-canvas.test.tsx: the caret five characters
+    // into line 1 is `{ line: 1, column: 5 }`; at a line's start, column 0.
+    #[test]
+    fn the_caret_column_counts_from_the_line_start() {
+        let start = editor_position("main.tex", 3, caret_column([]));
+        assert_eq!(start["line"], 3);
+        assert_eq!(start["column"], 0);
+        let five = editor_position("main.tex", 1, caret_column(["hello"]));
+        assert_eq!(five["line"], 1);
+        assert_eq!(five["column"], 5);
+    }
 }

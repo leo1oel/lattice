@@ -14,9 +14,9 @@
 //!   selection cleared, the narrowest the panel may be), as [`SurfaceEvent`]s
 //!   for the panel's owner;
 //! - what the window tells the Agent: the panel shown or brought forward,
-//!   the writer's workspace (the host context's inputs), a prompt for the
-//!   composer, the interface language, and the theme beyond what the
-//!   bridge's `host:theme` carries (the accent as chosen, translucency).
+//!   the writer's workspace (the host context's inputs), the interface
+//!   language, and the theme beyond what the bridge's `host:theme` carries
+//!   (the accent as chosen, translucency).
 //!
 //! The page's frame may load only the runtime's own origin, allowed once the
 //! runtime says where it is (`synara_ensure_ready`), before the page is
