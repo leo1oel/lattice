@@ -22,6 +22,7 @@ mod e2e;
 mod input_lock;
 #[cfg(target_os = "macos")]
 mod measure;
+mod overleaf_history_mock;
 mod overleaf_mock;
 mod overleaf_realtime_mock;
 mod overleaf_review_mock;
