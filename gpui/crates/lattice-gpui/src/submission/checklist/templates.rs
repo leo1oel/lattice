@@ -148,13 +148,13 @@ pub fn saved(templates: &[Template], name: &str, items: &[SubmissionItem]) -> Ve
 const NAME_MAX: usize = 60;
 
 /// The names of `templates` holding `typed`, as the form's datalist
-/// suggests them: any case, and not the name already typed in full.
+/// suggests them: any case, and not the name already typed exactly.
 pub fn suggestions<'a>(templates: &'a [Template], typed: &str) -> Vec<&'a str> {
-    let typed = typed.to_lowercase();
+    let lowered = typed.to_lowercase();
     templates
         .iter()
         .map(|template| template.name.as_str())
-        .filter(|name| name.to_lowercase().contains(&typed) && name.to_lowercase() != typed)
+        .filter(|name| *name != typed && name.to_lowercase().contains(&lowered))
         .collect()
 }
 
@@ -494,7 +494,8 @@ mod tests {
         let templates = saved(&saved(&[], "Camera-ready", &[]), "Arxiv", &[]);
         assert_eq!(suggestions(&templates, ""), ["Camera-ready", "Arxiv"]);
         assert_eq!(suggestions(&templates, "CAMERA"), ["Camera-ready"]);
-        assert!(suggestions(&templates, "camera-ready").is_empty());
+        assert_eq!(suggestions(&templates, "camera-ready"), ["Camera-ready"]);
+        assert!(suggestions(&templates, "Camera-ready").is_empty());
         assert!(suggestions(&templates, "Workshop").is_empty());
     }
 
