@@ -13,7 +13,9 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] The Agent: a PDF or Papers selection in its context.
 
-- [ ] The Agent: reviewing the proposals its annotation tools record.
+- [ ] The Revision rounds sheet, comparing a round's versions (and the round saved toast's Compare).
+
+- [ ] The Annotations panel's Export review PDF….
 
 - [ ] The accepted proofread's old words folding their width away (they leave at once).
 

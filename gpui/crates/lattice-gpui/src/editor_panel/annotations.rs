@@ -339,9 +339,10 @@ impl EditorPanel {
         field.update(cx, |field, cx| field.focus(window, cx));
         let subscription = cx.subscribe_in(&field, window, |this, _, event, window, cx| {
             match event {
+                // ⌘↵ saves; ⇧⌘↵ saves and asks the agent about the note.
                 InputEvent::PressEnter {
                     secondary: true, ..
-                } => this.save_draft(window, cx),
+                } => this.save_note(window.modifiers().shift, window, cx),
                 InputEvent::Change => cx.notify(),
                 _ => {}
             }
@@ -373,6 +374,11 @@ impl EditorPanel {
     /// Save the note being written: a new annotation on its passage, or,
     /// when the passage has gone, why not, on the note.
     pub fn save_draft(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.save_note(false, window, cx);
+    }
+
+    /// Save the draft as a note; with `revise`, ask the agent about it.
+    pub(super) fn save_note(&mut self, revise: bool, window: &mut Window, cx: &mut Context<Self>) {
         let Some(draft) = &self.annotations.draft else {
             return;
         };
@@ -413,7 +419,10 @@ impl EditorPanel {
             self.annotations.draft = None;
             self.place_annotations(cx);
             window.focus(&self.editor.focus_handle(cx), cx);
-            cx.emit(EditorPanelEvent::Annotation(AnnotationRequest::Created(id)));
+            cx.emit(EditorPanelEvent::Annotation(AnnotationRequest::Created(id.clone())));
+            if revise {
+                cx.emit(EditorPanelEvent::Annotation(AnnotationRequest::Revise(id)));
+            }
         }
         cx.notify();
     }
@@ -782,6 +791,14 @@ impl EditorPanel {
                 .keys(save_keys)
                 .disabled(!saveable)
                 .on_click(cx.listener(|this, _, window, cx| this.save_draft(window, cx))),
+        )
+        .child(
+            Button::new("annotation-save-revise", t!("Save and revise now"))
+                .variant(ButtonVariant::Ghost)
+                .size(ButtonSize::Compact)
+                .keys(if cfg!(target_os = "macos") { "⇧⌘↵" } else { "Ctrl+Shift+Enter" })
+                .disabled(!saveable)
+                .on_click(cx.listener(|this, _, window, cx| this.save_note(true, window, cx))),
         );
         div()
             .flex()

@@ -151,6 +151,8 @@ pub struct CommandContext {
     pub overleaf_syncing: bool,
     /// The editor in front is a LaTeX source (Insert table's `latexSource`).
     pub latex_source: bool,
+    /// How many annotations a revision round would ask about now.
+    pub revisable_annotations: usize,
 }
 
 /// One row of the table.

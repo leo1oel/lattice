@@ -111,6 +111,8 @@ enum Writing {
 
 /// What the panel reads of its window: the project and the file the writer
 /// works in, and an open file's text (for its notes' lines and sections).
+mod rounds_view;
+
 pub struct PanelHost {
     pub project: Box<dyn Fn(&App) -> Option<(PathBuf, Option<String>)>>,
     pub source: Box<dyn Fn(&str, &App) -> Option<String>>,
@@ -136,6 +138,8 @@ pub struct AnnotationsPanel {
     leaving: HashMap<String, Instant>,
     outcomes: HashMap<String, (Outcome, Instant)>,
     scroll: ScrollHandle,
+    /// The revision rounds the panel shows (`panel/rounds_view.rs`).
+    rounds: rounds_view::RoundsView,
     _tasks: Vec<Task<()>>,
     _subscriptions: Vec<Subscription>,
 }
@@ -170,6 +174,7 @@ impl AnnotationsPanel {
             leaving: HashMap::new(),
             outcomes: HashMap::new(),
             scroll: ScrollHandle::new(),
+            rounds: Default::default(),
             _tasks: Vec::new(),
             _subscriptions: subscriptions,
         }
@@ -585,6 +590,8 @@ impl AnnotationsPanel {
         let note = model::note_text(comment);
         let quote = comment.quote.trim();
         let where_ = lattice_i18n::join_phrases(&[location, model::relative_time(&comment.created_at, true)]);
+        let revising = self.revising(&id, cx);
+        let extras = self.round_extras(comment, window, cx);
         let meta = div()
             .flex()
             .flex_wrap()
@@ -595,7 +602,21 @@ impl AnnotationsPanel {
             .text_role(TextRole::Caption, cx)
             .font_features(tabular_nums())
             .text_color(palette.text_secondary)
-            .when(status != Status::Open, |this| {
+            .when(revising, |this| {
+                this.child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .gap(px(4.))
+                        .child(crate::build::chip_mark::infinity_loader(
+                            ("annotation-revising", hash(&id)),
+                            px(11.),
+                            &palette,
+                        ))
+                        .child(t!("Revising…")),
+                )
+            })
+            .when(status != Status::Open && !revising, |this| {
                 let ink = match status {
                     Status::Rejected => palette.text_secondary,
                     Status::Failed => palette.danger,
@@ -674,7 +695,10 @@ impl AnnotationsPanel {
             )
             .on_click(cx.listener(move |this, _, _, cx| {
                 this.active_note = Some(open_comment.id.clone());
-                cx.emit(AnnotationsPanelEvent::Open(open_comment.clone()));
+                // A proposal opens for review under its passage.
+                if !this.review_proposal(&open_comment, cx) {
+                    cx.emit(AnnotationsPanelEvent::Open(open_comment.clone()));
+                }
                 cx.notify();
             }));
         let replies = (!comment.replies.is_empty()).then(|| {
@@ -806,6 +830,7 @@ impl AnnotationsPanel {
                 this.opacity(1. - progress).top(px(-2. * progress))
             })
             .child(body)
+            .children(extras)
             .children(replies)
             .children(writing)
             .children(actions)
@@ -1025,14 +1050,17 @@ impl Render for AnnotationsPanel {
         div()
             .track_focus(&self.focus_handle)
             .key_context("AnnotationsPanel")
+            .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, _, cx| this.rounds_key(event, cx)))
             .size_full()
             .flex()
             .flex_col()
             .px(SPACING_5)
             .child(header)
+            .children(self.rounds_banner(&notes, &self.rounds_list(cx), cx))
             .child(div().relative().flex_1().min_h_0().flex().flex_col().child(list).when(has_notes, |this| {
                 this.child(FluidScrollbar::vertical("annotations-scrollbar", &self.scroll))
             }))
+            .children(self.rounds_foot(&notes, cx))
     }
 }
 

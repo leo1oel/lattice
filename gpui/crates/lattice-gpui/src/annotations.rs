@@ -18,6 +18,7 @@ pub mod card;
 pub mod colors;
 pub mod model;
 pub mod panel;
+pub mod rounds;
 pub mod store;
 
 /// What an editor asks of the window about a note.
@@ -31,4 +32,7 @@ pub enum AnnotationRequest {
     Resolve(String),
     /// Reply to the note: its reply box in the panel (its card's Reply…).
     Reply(String),
+    /// Ask the agent about the note alone (the composer's Save and revise
+    /// now).
+    Revise(String),
 }

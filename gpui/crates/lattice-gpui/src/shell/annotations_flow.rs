@@ -311,6 +311,12 @@ impl Shell {
                 self.open_annotations(window, cx);
                 panel.update(cx, |panel, cx| panel.reply_to(id.clone(), window, cx));
             }
+            AnnotationRequest::Revise(id) => {
+                self.sync_rounds(cx);
+                let ids = vec![id.clone()];
+                self.annotation_rounds()
+                    .update(cx, |rounds, cx| rounds.revise(Some(ids), cx));
+            }
         }
     }
 }
