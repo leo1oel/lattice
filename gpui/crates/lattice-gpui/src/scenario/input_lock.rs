@@ -47,7 +47,8 @@ use std::{
 };
 
 /// Where the lock lives: /tmp, not the per-session TMPDIR, so every session
-/// on the machine shares it. `scripts/lib/gpui-lock.mjs` names the same one.
+/// on the machine shares it. `scripts/lib/gpui-lock.mjs` keeps its build lock
+/// beside it, by the same protocol.
 pub const LOCK_DIR: &str = "/tmp/lattice-gpui-e2e.lock";
 
 /// How long after leaving a section the app may still read as active while
