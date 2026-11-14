@@ -28,12 +28,7 @@
 //! gliding between rows, never on the open file's row, and dark for 150 ms
 //! after a scroll; its scrollbar is Lattice's (`lattice_ui::scrollbar`).
 
-use std::{
-    collections::{HashMap, HashSet},
-    path::PathBuf,
-    rc::Rc,
-    time::Duration,
-};
+use std::{collections::HashSet, path::PathBuf, rc::Rc, time::Duration};
 
 use gpui::{
     Anchor, App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, Focusable,
@@ -44,15 +39,13 @@ use gpui::{
 use gpui_kit::component::{
     dock::{BasePanel, Panel, PanelEvent},
     input::Input,
-    tree::{TreeItem, TreeState, tree},
+    tree::{TreeState, tree},
 };
-use lattice_core::models::FileNode;
 use lattice_i18n::t;
 use lattice_ui::{
     ActiveLattice as _, GlyphKind, Icon, TextRole, TextRoleStyle as _,
     components::{
-        ContextMenu, GitMark, IconButton, MenuPopover, Surface, TAB_RADIUS, TreeRow,
-        context_menu_trigger,
+        ContextMenu, IconButton, MenuPopover, Surface, TAB_RADIUS, TreeRow, context_menu_trigger,
     },
     fluid_hover::{FluidHover, ItemKind},
     icons::{ICON, file_glyph},
@@ -61,10 +54,14 @@ use lattice_ui::{
 };
 
 mod clipboard;
+mod git_marks;
 mod menu;
 mod naming;
+mod rows;
 
+use git_marks::GitMarks;
 use naming::{Naming, NamingKind, insert_placeholder};
+use rows::tree_items;
 
 use crate::project::{Project, ProjectEvent};
 
@@ -376,70 +373,6 @@ impl FileTreePanel {
     }
 }
 
-/// What Git says of each row: a changed file's mark, and the folders with a
-/// change somewhere under them.
-#[derive(Default)]
-struct GitMarks {
-    files: HashMap<String, GitMark>,
-    folders: HashSet<String>,
-}
-
-impl GitMarks {
-    fn new(statuses: &HashMap<String, String>) -> Self {
-        let mut marks = GitMarks::default();
-        // Each changed file marks its row, and every folder above it.
-        for (path, status) in statuses {
-            let mark = GitMark::from_status(status);
-            marks.files.insert(path.clone(), mark);
-            if mark == GitMark::Ignored {
-                continue;
-            }
-            let mut folder = path.as_str();
-            while let Some((parent, _)) = folder.rsplit_once('/') {
-                marks.folders.insert(parent.to_string());
-                folder = parent;
-            }
-        }
-        marks
-    }
-}
-
-/// The tree's rows. A folder whose only entry is a folder shows as one row
-/// with its descendant, down the chain, as the Tauri app's tree flattens
-/// them (`flattenEmptyDirectories`): "slides / understanding-attention",
-/// which stands for the deepest folder (its id, its children, opening,
-/// renaming and dropping into it).
-fn tree_items(nodes: &[FileNode], expanded: &HashSet<String>) -> Vec<TreeItem> {
-    nodes
-        .iter()
-        .map(|node| {
-            if node.kind != "directory" {
-                return TreeItem::new(node.path.clone(), node.name.clone());
-            }
-            let (deepest, label) = flattened(node);
-            TreeItem::new(deepest.path.clone(), label)
-                .children(tree_items(&deepest.children, expanded))
-                .expanded(expanded.contains(&deepest.path))
-        })
-        .collect()
-}
-
-/// A folder and the chain of single folders under it: the deepest one and
-/// the names on the way, joined by "/".
-fn flattened(node: &FileNode) -> (&FileNode, String) {
-    let mut deepest = node;
-    let mut label = node.name.clone();
-    while let [only] = deepest.children.as_slice() {
-        if only.kind != "directory" {
-            break;
-        }
-        label.push('/');
-        label.push_str(&only.name);
-        deepest = only;
-    }
-    (deepest, label)
-}
-
 impl Focusable for FileTreePanel {
     fn focus_handle(&self, _: &App) -> FocusHandle {
         self.focus_handle.clone()
@@ -710,78 +643,6 @@ fn deletes_protected(path: &str, bibliography: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn a_change_marks_its_file_and_every_folder_above_it() {
-        let statuses = HashMap::from([
-            (
-                "chapters/parts/intro.tex".to_string(),
-                "modified".to_string(),
-            ),
-            ("notes.md".to_string(), "untracked".to_string()),
-            ("build/out.log".to_string(), "ignored".to_string()),
-        ]);
-        let marks = GitMarks::new(&statuses);
-        assert_eq!(
-            marks.files.get("chapters/parts/intro.tex"),
-            Some(&GitMark::Modified)
-        );
-        assert_eq!(marks.files.get("notes.md"), Some(&GitMark::Untracked));
-        assert_eq!(marks.files.get("build/out.log"), Some(&GitMark::Ignored));
-        assert!(marks.folders.contains("chapters"));
-        assert!(marks.folders.contains("chapters/parts"));
-        // An ignored file is no change to its folder.
-        assert!(!marks.folders.contains("build"));
-    }
-
-    fn node(path: &str, kind: &str, children: Vec<FileNode>) -> FileNode {
-        FileNode {
-            name: path.rsplit('/').next().unwrap_or(path).to_string(),
-            path: path.to_string(),
-            kind: kind.to_string(),
-            content_kind: String::new(),
-            size: 0,
-            children,
-        }
-    }
-
-    #[test]
-    fn a_chain_of_single_folders_is_one_row_for_the_deepest() {
-        let deck = node(
-            "slides/understanding-attention",
-            "directory",
-            vec![node(
-                "slides/understanding-attention/index.tsx",
-                "file",
-                vec![],
-            )],
-        );
-        let slides = node("slides", "directory", vec![deck]);
-        let (deepest, label) = flattened(&slides);
-        assert_eq!(deepest.path, "slides/understanding-attention");
-        assert_eq!(label, "slides/understanding-attention");
-        let items = tree_items(&[slides], &HashSet::new());
-        assert_eq!(items[0].id.as_ref(), "slides/understanding-attention");
-    }
-
-    #[test]
-    fn a_folder_holding_a_file_stays_its_own_row() {
-        let chapters = node(
-            "chapters",
-            "directory",
-            vec![node("chapters/intro.tex", "file", vec![])],
-        );
-        assert_eq!(flattened(&chapters).1, "chapters");
-        let two = node(
-            "figures",
-            "directory",
-            vec![
-                node("figures/a", "directory", vec![]),
-                node("figures/b", "directory", vec![]),
-            ],
-        );
-        assert_eq!(flattened(&two).1, "figures");
-    }
 
     #[test]
     fn only_the_primary_bibliography_is_kept_from_delete() {
