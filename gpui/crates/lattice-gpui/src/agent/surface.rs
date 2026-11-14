@@ -152,11 +152,14 @@ pub struct SynaraSurface {
     deck: Option<crate::structured::DeckSession>,
     /// What the page was last told of the project's Overleaf link.
     overleaf: Value,
-    /// The paths reported as Lattice's own writes, for a scenario.
-    host_writes: Vec<String>,
+    /// The last paths reported as Lattice's own writes, for a scenario.
+    host_writes: std::collections::VecDeque<String>,
     last_pointer: Option<Instant>,
     _subscriptions: Vec<Subscription>,
 }
+
+/// How many of Lattice's own writes [`SynaraSurface::host_writes`] keeps.
+const HOST_WRITES_KEPT: usize = 32;
 
 impl EventEmitter<SurfaceEvent> for SynaraSurface {}
 
@@ -218,7 +221,7 @@ impl SynaraSurface {
             settings_section: ("providers", String::new()),
             deck: None,
             overleaf: Value::Null,
-            host_writes: Vec::new(),
+            host_writes: std::collections::VecDeque::new(),
             last_pointer: None,
             _subscriptions: subscriptions,
         }
@@ -304,12 +307,14 @@ impl SynaraSurface {
     /// Lattice wrote these project files itself (`host_writes.rs`).
     pub(super) fn host_wrote(&mut self, paths: Vec<String>, cx: &mut App) {
         self.host_writes.extend(paths.iter().cloned());
+        let over = self.host_writes.len().saturating_sub(HOST_WRITES_KEPT);
+        self.host_writes.drain(..over);
         self.post("agent:host-writes", json!({ "paths": paths }), cx);
     }
 
-    /// The paths reported as Lattice's own writes, for a scenario.
-    pub fn host_writes(&self) -> &[String] {
-        &self.host_writes
+    /// The last paths reported as Lattice's own writes, for a scenario.
+    pub fn host_writes(&self) -> impl Iterator<Item = &String> {
+        self.host_writes.iter()
     }
 
     /// Hand `message` to the Agent's frame, as the Tauri host's

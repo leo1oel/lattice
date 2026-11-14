@@ -17,8 +17,9 @@ use super::Shell;
 pub(crate) struct TurnState {
     /// The turn's presence (`AgentDeckPresence`): running or waiting.
     presence: Option<Value>,
-    /// The deck pages told of it, so a deck opened mid-turn hears too.
-    decks: Vec<EntityId>,
+    /// The deck pages told of it, with their island's hibernations then,
+    /// so a deck opened or woken mid-turn hears too.
+    decks: Vec<(EntityId, usize)>,
 }
 
 impl Shell {
@@ -70,7 +71,8 @@ impl Shell {
     }
 
     /// Every open deck page shows the turn's presence (`publishAgentDeckPresence`
-    /// in each page); one already told is not told again.
+    /// in each page); one already told is not told again until its page
+    /// hibernates, which drops what it was told.
     pub(super) fn tell_decks_of_turn(&mut self, cx: &mut Context<Self>) {
         let presence = self
             .agent
@@ -83,15 +85,20 @@ impl Shell {
             let Some(document) = editor.read(cx).structured().cloned() else {
                 continue;
             };
-            if document.read(cx).kind() != crate::structured::StructuredKind::Deck
-                || self.agent.state.turn.decks.contains(&document.entity_id())
-            {
+            if document.read(cx).kind() != crate::structured::StructuredKind::Deck {
                 continue;
             }
             let Some(island) = document.read(cx).island().cloned() else {
                 continue;
             };
-            self.agent.state.turn.decks.push(document.entity_id());
+            let id = document.entity_id();
+            let told = (id, island.read(cx).stats().hibernations);
+            let decks = &mut self.agent.state.turn.decks;
+            if decks.contains(&told) {
+                continue;
+            }
+            decks.retain(|(deck, _)| *deck != id);
+            decks.push(told);
             let presence = presence.clone();
             island.update(cx, |island, _| island.post("agent:deck-presence", presence));
         }
