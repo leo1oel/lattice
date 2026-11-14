@@ -232,7 +232,8 @@ impl Run {
             .await;
         let files = pasted(root);
         let (focused, clipboard_image, last_notice) = self.with_window(cx, |_, window, cx| {
-            let focused = gpui::Focusable::focus_handle(tree.read(cx), cx).contains_focused(window, cx);
+            let focused =
+                gpui::Focusable::focus_handle(tree.read(cx), cx).contains_focused(window, cx);
             let clipboard_image = cx.read_from_clipboard().is_some_and(|item| {
                 item.into_entries()
                     .any(|entry| matches!(entry, gpui::ClipboardEntry::Image(_)))
