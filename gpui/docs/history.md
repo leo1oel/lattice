@@ -8,7 +8,7 @@ Save version names a version; version tracking starts from the panel.
 Compare… compares any two versions (the From / To picker, the changed words counted, each passage under its section and line) and exports the PDF with those changes marked through latexdiff, beside a preview of the marked page.
 A file Git leaves with conflict markers is offered to the conflict resolver (also Resolve conflicts… in the palette), which keeps one side, the other or both in each spot (1, 2, 3), lets the result be edited before saving, and writes it only over the text it was resolved against.
 The Agent's checkpoints are rows of the timeline too, with the Agent's activity: each names its turn's files and the lines they gained and lost, opens on its thread and each file's kind and counts, and undoes the turn's file changes through the Agent, only for the thread the Agent panel has open (the others say to open that task first).
-An Undo that kept newer edits where they overlap the Agent's change says so and opens the resolver, its sides the current text and the text from before the Agent.
+An Undo that kept newer edits where they overlap the Agent's change says so and opens the resolver on the first file it marked; each file it marked, however it is opened, resolves between the current text and the text from before the Agent.
 
 ## In the e2e scenario
 
