@@ -184,8 +184,11 @@ impl EnvironmentPane {
             .description(service_description, cx)
             .control(
                 div()
+                    .w(controls::CONTROL_WIDTH)
+                    .max_w_full()
                     .flex()
                     .items_center()
+                    .justify_end()
                     .gap(px(8.))
                     .when(busy, |this| {
                         this.child(crate::build::chip_mark::infinity_loader(

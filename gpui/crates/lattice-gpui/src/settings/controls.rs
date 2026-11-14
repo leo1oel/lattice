@@ -357,6 +357,21 @@ pub fn select<T: Copy + PartialEq + 'static>(
         .into_any_element()
 }
 
+/// A button (or a few) at the right of the 170px control column, as a
+/// settings row's button sits (`--settings-control-width`), so the copy
+/// beside it wraps where the Tauri app's does.
+pub fn in_column(control: impl IntoElement) -> AnyElement {
+    div()
+        .w(CONTROL_WIDTH)
+        .max_w_full()
+        .flex()
+        .items_center()
+        .justify_end()
+        .gap(px(8.))
+        .child(control)
+        .into_any_element()
+}
+
 /// A switch, as a row's control.
 pub fn switch(
     id: &'static str,
