@@ -8304,6 +8304,7 @@ dependencies = [
  "tokio",
  "trellis",
  "ttf-parser",
+ "tungstenite 0.29.0",
  "uuid",
  "vim",
  "vim_mode_setting",

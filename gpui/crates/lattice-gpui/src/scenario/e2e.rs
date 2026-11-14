@@ -30,6 +30,8 @@ mod markdown_scroll;
 mod narrow_window;
 #[cfg(target_os = "macos")]
 mod overleaf;
+#[cfg(target_os = "macos")]
+mod overleaf_presence;
 mod pdf;
 mod saves;
 mod settings;

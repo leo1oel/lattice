@@ -86,7 +86,8 @@ impl Run {
             .await;
         let mock =
             MockOverleaf::start(&[("main.tex", MAIN), ("refs.bib", "@misc{a, title={A}}\n")])
-                .context("the Overleaf stand-in")?;
+                .context("the Overleaf stand-in")?
+                .with_realtime();
         let scratch =
             std::env::temp_dir().join(format!("lattice-gpui-overleaf-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&scratch);
@@ -103,14 +104,15 @@ impl Run {
             .update(|cx| self.shell.read(cx).overleaf_picker())
             .ok_or_else(|| anyhow!("the picker did not open"))?;
         let signed_out = self
-            .wait_for(cx, Duration::from_secs(10), |_, cx| {
+            .wait_for(cx, Duration::from_secs(20), |_, cx| {
                 picker.read(cx).scenario_connected() == Some(false)
             })
             .await;
+        let connected = cx.update(|cx| picker.read(cx).scenario_connected());
         steps.check(
             "Open from Overleaf, signed out, offers the sign-in",
             signed_out,
-            json!({}),
+            json!({ "connected": connected }),
         );
 
         // Connect: the sign-in window on the stand-in's login page.
@@ -193,6 +195,9 @@ impl Run {
             control,
             json!({}),
         );
+        linked
+            .overleaf_presence(cx, steps, &mock, &clone_root)
+            .await?;
 
         // Live mode pulls a co-author's edit on its own.
         let theirs = MAIN.replace("A paper", "A shared paper");

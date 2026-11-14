@@ -11,8 +11,9 @@
 //! - `GET /project/{id}/download/zip`: the project, zipped.
 //! - `GET /project/{id}/diff`: who changed a file between two versions.
 //! - `POST /project/{id}/upload`: one file, which becomes the next version.
-//! - `/socket.io/…`: refused, as when the live channel cannot be reached;
-//!   syncing carries on without it.
+//! - `/socket.io/…`: refused, as when the live channel cannot be reached
+//!   (syncing carries on without it), unless the stand-in was started
+//!   [`MockOverleaf::with_realtime`], when `overleaf_realtime_mock` serves it.
 //!
 //! The test changes the project between syncs as a co-author would
 //! ([`MockOverleaf::edit`]).
@@ -25,6 +26,8 @@ use std::{
 };
 
 use serde_json::json;
+
+use super::overleaf_realtime_mock::{self as realtime, Live, Store};
 
 pub const PROJECT_ID: &str = "proj-mock";
 pub const PROJECT_NAME: &str = "Mock Paper";
@@ -39,6 +42,21 @@ struct Project {
     history: Vec<serde_json::Value>,
     /// Every request, `METHOD path`, for the scenario's checks.
     requests: Vec<String>,
+    /// The live channel is served.
+    realtime: bool,
+    live: Live,
+}
+
+impl Store for Mutex<Project> {
+    fn with<R>(&self, work: impl FnOnce(&mut BTreeMap<String, Vec<u8>>, &mut Live) -> R) -> R {
+        let mut project = self.lock().unwrap();
+        let Project { files, live, .. } = &mut *project;
+        work(files, live)
+    }
+
+    fn bump(&self, path: &str, author: &str) {
+        bump(&mut self.lock().unwrap(), path, author);
+    }
 }
 
 #[derive(Clone)]
@@ -62,13 +80,15 @@ impl MockOverleaf {
                 "pathnames": files.iter().map(|(path, _)| *path).collect::<Vec<_>>(),
                 "project_ops": [], "meta": { "end_ts": 0, "users": [{ "id": ME }] } })],
             requests: Vec::new(),
+            realtime: false,
+            live: Live::default(),
         }));
         let served = Arc::clone(&project);
         std::thread::spawn(move || {
             for stream in listener.incoming().flatten() {
                 let project = Arc::clone(&served);
                 std::thread::spawn(move || {
-                    let _ = answer(stream, &project);
+                    let _ = answer(stream, project);
                 });
             }
         });
@@ -90,6 +110,47 @@ impl MockOverleaf {
             .files
             .get(path)
             .map(|bytes| String::from_utf8_lossy(bytes).into_owned())
+    }
+
+    /// Serve the live channel too (`overleaf_realtime_mock`).
+    pub fn with_realtime(self) -> Self {
+        self.project.lock().unwrap().realtime = true;
+        self
+    }
+
+    /// The scripted collaborator is in `path` at the zero-based `row` and
+    /// UTF-16 `column`.
+    pub fn peer_at(&self, path: &str, row: i64, column: i64) {
+        realtime::peer_at(&mut self.project.lock().unwrap().live, path, row, column);
+    }
+
+    /// The scripted collaborator leaves.
+    pub fn peer_left(&self) {
+        realtime::peer_left(&mut self.project.lock().unwrap().live);
+    }
+
+    /// The scripted collaborator types `ops` into `path` over the live
+    /// channel; false when they do not fit.
+    pub fn peer_typed(&self, path: &str, ops: Vec<lattice_core::overleaf_rt::OtOp>) -> bool {
+        let typed = {
+            let mut project = self.project.lock().unwrap();
+            let Project { files, live, .. } = &mut *project;
+            realtime::peer_typed(files, live, path, ops).is_some()
+        };
+        if typed {
+            bump(&mut self.project.lock().unwrap(), path, CO_AUTHOR);
+        }
+        typed
+    }
+
+    /// Every caret position the app published, as sent.
+    pub fn positions(&self) -> Vec<serde_json::Value> {
+        self.project.lock().unwrap().live.positions.clone()
+    }
+
+    /// Every live update the app sent, as sent.
+    pub fn updates(&self) -> Vec<serde_json::Value> {
+        self.project.lock().unwrap().live.updates.clone()
     }
 
     pub fn version(&self) -> i64 {
@@ -231,7 +292,7 @@ fn find(haystack: &[u8], needle: &[u8]) -> Option<usize> {
         .position(|window| window == needle)
 }
 
-fn answer(stream: TcpStream, project: &Mutex<Project>) -> std::io::Result<()> {
+fn answer(stream: TcpStream, project: Arc<Mutex<Project>>) -> std::io::Result<()> {
     let mut reader = BufReader::new(stream.try_clone()?);
     let mut line = String::new();
     reader.read_line(&mut line)?;
@@ -261,6 +322,24 @@ fn answer(stream: TcpStream, project: &Mutex<Project>) -> std::io::Result<()> {
         .get("cookie")
         .is_some_and(|cookie| cookie.contains(SESSION));
     let project_path = format!("/project/{PROJECT_ID}");
+    if path.starts_with("/socket.io/1/") && signed_in && project.lock().unwrap().realtime {
+        if path.starts_with("/socket.io/1/websocket/") {
+            let key = headers
+                .get("sec-websocket-key")
+                .cloned()
+                .unwrap_or_default();
+            return realtime::upgrade(stream, &key, project);
+        }
+        let mut stream = stream;
+        let body = realtime::handshake();
+        write!(
+            stream,
+            "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+            body.len()
+        )?;
+        stream.write_all(&body)?;
+        return stream.flush();
+    }
     let (status, content_type, extra, body): (u16, &str, Option<String>, Vec<u8>) = {
         let mut project = project.lock().unwrap();
         project.requests.push(format!("{method} {path}"));
