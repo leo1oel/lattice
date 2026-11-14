@@ -122,6 +122,7 @@ pub struct Button {
     disabled: bool,
     tooltip: Option<SharedString>,
     on_click: Option<ClickHandler>,
+    parity: Option<SharedString>,
 }
 
 impl Button {
@@ -138,6 +139,7 @@ impl Button {
             disabled: false,
             tooltip: None,
             on_click: None,
+            parity: None,
         }
     }
 
@@ -178,6 +180,13 @@ impl Button {
 
     pub fn disabled(mut self, disabled: bool) -> Self {
         self.disabled = disabled;
+        self
+    }
+
+    /// Name the button as a parity-harness region (`crate::parity`): its
+    /// bounds and its label's text style are recorded under `name`.
+    pub fn parity(mut self, name: impl Into<SharedString>) -> Self {
+        self.parity = Some(name.into());
         self
     }
 
@@ -257,19 +266,30 @@ impl RenderOnce for Button {
         } else {
             track_pointer(tab_stop(self.base), pointer)
         };
-        base.flex()
+        base.relative()
+            .flex()
             .flex_none()
             .items_center()
             .justify_center()
             .gap(px(6.))
             .h(height)
-            .px(px(12.))
+            .px(if self.size == ButtonSize::Compact {
+                px(10.)
+            } else {
+                px(12.)
+            })
             .rounded(px(6.))
             .border_1()
             .border_color(border)
             .bg(bg)
             .whitespace_nowrap()
             .text_role(role, cx)
+            // The Tauri app's compact button (`.ui-button--compact`) takes
+            // only the caption's size; its weight and leading stay the body's.
+            .when(self.size == ButtonSize::Compact, |this| {
+                this.font_weight(TextRole::BodyCompact.weight())
+                    .line_height(TextRole::BodyCompact.leading(crate::TypeScale::Interface))
+            })
             .text_color(ink)
             .when(!disabled, |this| {
                 this.cursor_pointer()
@@ -278,6 +298,17 @@ impl RenderOnce for Button {
             .when_some(self.icon, |this, icon| {
                 this.child(icon.element(icon_size, ink))
             })
+            .children(
+                self.parity
+                    .clone()
+                    .and_then(|name| crate::parity::bordered_probe(name, gpui::Edges::all(px(1.)))),
+            )
+            .children(
+                self.parity
+                    .clone()
+                    .zip(self.label.clone())
+                    .and_then(|(name, label)| crate::parity::text_probe(name, 0, label)),
+            )
             .children(self.label)
             .when_some(self.tooltip, |this, tooltip| {
                 this.tooltip(move |_, cx| -> AnyView {

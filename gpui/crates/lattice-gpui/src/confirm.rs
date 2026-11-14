@@ -21,6 +21,9 @@ pub struct Confirm {
     title: SharedString,
     body: Option<SharedString>,
     confirm_label: SharedString,
+    /// The other answer's words, when not "Cancel": a question whose two
+    /// answers both act names what each does.
+    cancel_label: Option<SharedString>,
     destructive: bool,
     on_confirm: Answer,
     /// The question went unanswered: Cancel, a click outside, Escape, or
@@ -34,6 +37,7 @@ impl Confirm {
             title: title.into(),
             body: None,
             confirm_label: tc!("dialog button", "OK").into(),
+            cancel_label: None,
             destructive: false,
             on_confirm: Rc::new(|_, _| {}),
             on_cancel: None,
@@ -47,6 +51,11 @@ impl Confirm {
 
     pub fn confirm_label(mut self, label: impl Into<SharedString>) -> Self {
         self.confirm_label = label.into();
+        self
+    }
+
+    pub fn cancel_label(mut self, label: impl Into<SharedString>) -> Self {
+        self.cancel_label = Some(label.into());
         self
     }
 
@@ -162,9 +171,15 @@ impl Render for ConfirmHost {
         }
         let card = card
             .action(
-                Button::new(("confirm-cancel", self.serial), t!("Cancel"))
-                    .ghost()
-                    .on_click(cx.listener(|this, _, _, cx| this.close(cx))),
+                Button::new(
+                    ("confirm-cancel", self.serial),
+                    question
+                        .cancel_label
+                        .clone()
+                        .unwrap_or_else(|| t!("Cancel").into()),
+                )
+                .ghost()
+                .on_click(cx.listener(|this, _, _, cx| this.close(cx))),
             )
             .action(confirm);
         let view = cx.entity().downgrade();

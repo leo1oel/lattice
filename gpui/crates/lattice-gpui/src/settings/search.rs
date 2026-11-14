@@ -56,7 +56,7 @@ impl Entry {
 
 /// The index in the interface language now.
 pub fn entries(has_project: bool, known_author: Option<&str>) -> Vec<Entry> {
-    use SettingsTab::{Appearance, Doctor, Editor};
+    use SettingsTab::{Appearance, Doctor, Editor, Overleaf};
     let appearance = t!("Appearance");
     let editor = t!("Editor & builds");
     let builds = t!("Builds");
@@ -208,6 +208,29 @@ pub fn entries(has_project: bool, known_author: Option<&str>) -> Vec<Entry> {
         ]);
     }
     out.push(Entry::row(Editor, editor, "version", t!("Version")));
+    let overleaf = t!("Overleaf");
+    out.extend([
+        Entry::page(Overleaf, overleaf, t!("Integrations")),
+        Entry::row(Overleaf, overleaf, "overleaf-connection", t!("Connection")),
+        Entry::row(Overleaf, overleaf, "overleaf-sync-mode", t!("Sync mode")).terms(format!(
+            "{} {}",
+            t!("Live sync"),
+            t!("Manual")
+        )),
+        Entry::row(
+            Overleaf,
+            overleaf,
+            "overleaf-remote-delete",
+            t!("When you delete a file here"),
+        )
+        .terms(format!(
+            "{} {} {}",
+            t!("Ask before deleting"),
+            t!("Delete on Overleaf too"),
+            t!("Keep it on Overleaf")
+        ))
+        .description(t!("Overleaf history keeps a copy")),
+    ]);
     out.push(Entry::page(Doctor, t!("TeX doctor"), t!("Diagnostics")));
     out
 }

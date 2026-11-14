@@ -7,6 +7,7 @@ use trellis::runtime::engine::ViewPlacement;
 use trellis::runtime::keymap::Command as Trellis;
 
 use super::history_flow::{OpenHistory, ResolveConflicts};
+use super::overleaf_flow::{OpenOnOverleaf, OpenOverleafProject, SyncOverleaf};
 use super::{Shell, commands::*, trellis_layout::Preset, windows, workspaces::Workspaces};
 
 impl Shell {
@@ -90,6 +91,8 @@ impl Shell {
                 })
                 .collect(),
             projects: self.projects.len(),
+            overleaf_linked: self.overleaf.read(cx).link().is_some(),
+            overleaf_syncing: self.overleaf.read(cx).syncing(),
         }
     }
 
@@ -118,6 +121,13 @@ impl Shell {
             .on_action(cx.listener(|this, _: &ResolveConflicts, window, cx| {
                 this.resolve_conflicts(window, cx)
             }))
+            .on_action(cx.listener(|this, _: &OpenOverleafProject, window, cx| {
+                this.open_overleaf_picker(window, cx)
+            }))
+            .on_action(
+                cx.listener(|this, _: &SyncOverleaf, window, cx| this.sync_overleaf(window, cx)),
+            )
+            .on_action(cx.listener(|this, _: &OpenOnOverleaf, _, cx| this.open_on_overleaf(cx)))
             .on_action(cx.listener(|this, _: &ToggleBuildPanel, window, cx| {
                 let shown = this.build_panel_shown(cx);
                 this.show_build_panel(!shown, window, cx)

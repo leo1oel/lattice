@@ -25,6 +25,7 @@ mod history_flow;
 mod imports;
 mod layers;
 pub(crate) mod menus;
+pub(crate) mod overleaf_flow;
 mod palette;
 mod pdfs;
 mod render;
@@ -138,6 +139,9 @@ pub struct Shell {
     pub(crate) history: Entity<crate::history::HistoryPanel>,
     /// The conflict resolver, while it is open.
     pub(crate) conflict: Option<(Entity<crate::history::ConflictResolver>, Subscription)>,
+    /// The window's link to Overleaf (`crate::overleaf`), and its dialogs.
+    pub(crate) overleaf: Entity<crate::overleaf::OverleafBridge>,
+    pub(crate) overleaf_layers: overleaf_flow::OverleafLayers,
     /// The files Git named as conflicts when last told (`history_flow`).
     pub(crate) conflicts_noticed: std::collections::BTreeSet<String>,
     /// Watches the open project for Git's conflicts.
@@ -353,6 +357,7 @@ impl Shell {
         .detach();
         cx.observe(&notices, |_, _, cx| cx.notify()).detach();
         cx.observe(&confirm, |_, _, cx| cx.notify()).detach();
+        let (overleaf, overleaf_subscriptions) = Self::init_overleaf(window, cx);
         let workspace_events = cx.subscribe_in(&workspace, window, Self::on_workspace_event);
         // While a panel is dragged, webview islands step aside: a page would
         // hide the drop targets under it and swallow the drag.
@@ -398,6 +403,8 @@ impl Shell {
             build_panel,
             history,
             conflict: None,
+            overleaf,
+            overleaf_layers: Default::default(),
             conflicts_noticed: Default::default(),
             _project_git: None,
             tex_setup,
@@ -432,7 +439,10 @@ impl Shell {
             save_task: None,
             rename_input: None,
             rename_subscription: None,
-            _subscriptions: vec![workspace_events, workspace_drags, library],
+            _subscriptions: [workspace_events, workspace_drags, library]
+                .into_iter()
+                .chain(overleaf_subscriptions)
+                .collect(),
         };
         // The Main window before a project opens: the default layout, its
         // document slot empty.
@@ -635,11 +645,19 @@ impl Shell {
         self.refresh_outline(window, cx);
         self.history
             .update(cx, |history, cx| history.set_project(project.clone(), cx));
-        self._project_git = Some(cx.subscribe(&project, |this, _, event, cx| {
-            if matches!(event, crate::project::ProjectEvent::GitChanged) {
-                this.notice_conflicts(cx);
+        self._project_git = Some(cx.subscribe(&project, |this, _, event, cx| match event {
+            crate::project::ProjectEvent::GitChanged => this.notice_conflicts(cx),
+            // A change on disk is one to push, in live mode (the bridge tells
+            // a sync's own writes apart).
+            crate::project::ProjectEvent::FilesChanged(paths) => {
+                let paths = paths.clone();
+                this.overleaf
+                    .update(cx, |bridge, cx| bridge.files_changed(paths.as_deref(), cx));
             }
+            _ => {}
         }));
+        self.overleaf
+            .update(cx, |bridge, cx| bridge.set_project(Some(root.clone()), cx));
         self.notice_conflicts(cx);
         self.file_tree
             .update(cx, |tree, cx| tree.set_project(project, cx));

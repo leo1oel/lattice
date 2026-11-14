@@ -64,6 +64,16 @@ fn groups() -> Vec<(SharedString, Vec<(Section, SharedString)>)> {
             ],
         ),
         (
+            t!("Integrations").into(),
+            vec![(
+                Section {
+                    tab: SettingsTab::Overleaf,
+                    icon: Icon::CLOUD_UPLOAD,
+                },
+                "Overleaf".into(),
+            )],
+        ),
+        (
             t!("Diagnostics").into(),
             vec![(
                 Section {

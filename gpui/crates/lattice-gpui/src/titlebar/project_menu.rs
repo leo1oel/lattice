@@ -8,7 +8,7 @@
 //! reaches it as the next item down; GPUI Kit's menu has one item per row,
 //! so here it is the pointer's alone and the keyboard opens a recent
 //! project in a window of its own, as the row does. Export ZIP, Export for
-//! arXiv, Open from Overleaf and Settings belong to other lanes of the port.
+//! arXiv and Settings belong to other lanes of the port.
 
 use std::{cell::Cell, path::PathBuf, rc::Rc};
 
@@ -139,6 +139,11 @@ pub(super) fn project_menu(
         PopupMenuItem::new("Clone repository…")
             .icon(Icon::GIT_BRANCH.kit())
             .action(Box::new(CloneRepository)),
+    )
+    .item(
+        PopupMenuItem::new(t!("Open from Overleaf"))
+            .icon(Icon::CLOUD.kit())
+            .action(Box::new(crate::shell::overleaf_flow::OpenOverleafProject)),
     )
     .separator()
     .item(

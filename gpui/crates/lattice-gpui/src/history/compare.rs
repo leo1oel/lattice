@@ -38,7 +38,9 @@ use super::{
     export_changes::ExportChangesSheet,
     messages,
     panel::{HistoryPanel, Latest},
-    prose::{ProsePassage, changed_words, is_prose_file, joined_passage, prose_passages, section_at},
+    prose::{
+        ProsePassage, changed_words, is_prose_file, joined_passage, prose_passages, section_at,
+    },
     time,
     widgets::{Control, inline_message, loading_line},
 };
@@ -310,7 +312,11 @@ impl CompareView {
             let counts = passages.as_ref().map(|passages| changed_words(passages));
             let readable =
                 passages.map(|passages| passages.iter().map(joined_passage).collect::<Vec<_>>());
-            let source = diff.after.as_deref().or(diff.before.as_deref()).unwrap_or("");
+            let source = diff
+                .after
+                .as_deref()
+                .or(diff.before.as_deref())
+                .unwrap_or("");
             let sections = readable
                 .iter()
                 .flatten()

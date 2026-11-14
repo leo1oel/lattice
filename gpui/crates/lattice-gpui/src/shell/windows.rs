@@ -43,6 +43,40 @@ pub(crate) fn root_of(window: AnyWindowHandle, cx: &App) -> Option<PathBuf> {
     shell.read(cx).root(cx)
 }
 
+/// The window showing the project at `root`, if one does.
+pub(crate) fn window_showing(root: &std::path::Path, cx: &App) -> Option<AnyWindowHandle> {
+    window_showing_except(root, None, cx)
+}
+
+/// [`window_showing`], leaving out `except`: a shell asking from inside its
+/// own update cannot be read, and knows its own project.
+pub(crate) fn window_showing_except(
+    root: &std::path::Path,
+    except: Option<WindowId>,
+    cx: &App,
+) -> Option<AnyWindowHandle> {
+    let canonical = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
+    cx.windows().into_iter().find(|handle| {
+        Some(handle.window_id()) != except
+            && root_of(*handle, cx).is_some_and(|shown| shown == root || shown == canonical)
+    })
+}
+
+/// The window showing the project at `root`, and its shell, for a scenario.
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+pub(crate) fn shell_showing(
+    root: &std::path::Path,
+    cx: &App,
+) -> Option<(AnyWindowHandle, Entity<Shell>)> {
+    let handle = window_showing(root, cx)?;
+    let shell = cx
+        .try_global::<Shells>()?
+        .0
+        .get(&handle.window_id())?
+        .upgrade()?;
+    Some((handle, shell))
+}
+
 /// Run `f` on the shell of each window `which` picks, in its own window.
 pub(crate) fn for_shells(
     cx: &mut App,

@@ -17,9 +17,9 @@
 //! document's name and the way out.
 //!
 //! The titlebar is the chrome under a white veil, closed by a hairline. Tools
-//! that are not in the GPUI app yet (Track changes, Annotations, Overleaf,
-//! Git, History, Open in browser) are drawn so the window reads as Lattice, and say so in
-//! their tooltips; nothing pretends to work.
+//! that are not in the GPUI app yet (Track changes, Annotations, Git, Open in
+//! browser) are drawn so the window reads as Lattice, and say so in their
+//! tooltips; nothing pretends to work. Overleaf's is `shell::overleaf_flow`'s.
 
 use std::{cell::Cell, rc::Rc};
 
@@ -392,18 +392,18 @@ pub fn render(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> im
             Icon::FILE_PEN_LINE,
             t!("Track changes"),
         ))
-        .children(tool(
-            TitlebarTool::Comments,
-            "annotations",
-            Icon::ANNOTATIONS,
-            t!("Annotations"),
-        ))
-        .children(tool(
-            TitlebarTool::Overleaf,
-            "overleaf",
-            Icon::CLOUD,
-            t!("Open a project from Overleaf"),
-        ))
+        // A project linked to Overleaf keeps its notes in Overleaf's
+        // comments, reached from the Overleaf control instead.
+        .children(
+            tool(
+                TitlebarTool::Comments,
+                "annotations",
+                Icon::ANNOTATIONS,
+                t!("Annotations"),
+            )
+            .filter(|_| shell.overleaf.read(cx).link().is_none()),
+        )
+        .children(shell.overleaf_tools(cx))
         .children(tool(
             TitlebarTool::Git,
             "git",

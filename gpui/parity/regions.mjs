@@ -221,6 +221,45 @@ export const SCREENS = {
     ],
     content: [],
   },
+  // "Open from Overleaf" over the Main window (scenes.mjs `overleafPicker`):
+  // the dialog, its header and account chip, the search row, the list frame,
+  // the chosen row and the next, and the upload offer.
+  overleafPicker: {
+    label: "Open from Overleaf",
+    regions: [
+      { name: "overleaf/picker", css: ".overleaf-picker-modal", chrome: true },
+      { name: "overleaf/picker/title", css: ".overleaf-picker-header .ui-panel-header-title", text: true },
+      { name: "overleaf/picker/account", css: ".overleaf-picker-account", text: true },
+      { name: "overleaf/picker/search", css: ".overleaf-search" },
+      { name: "overleaf/picker/archived", css: ".overleaf-checkbox", text: true },
+      { name: "overleaf/picker/stage", css: ".overleaf-stage" },
+      { name: "overleaf/picker/row/chosen", css: ".overleaf-project-row.selected", chrome: true },
+      { name: "overleaf/picker/row", css: ".overleaf-project-row:not(.selected)" },
+      { name: "overleaf/picker/row/name", css: ".overleaf-project-row:not(.selected) .overleaf-project-name", text: true },
+      { name: "overleaf/picker/row/meta", css: ".overleaf-project-row:not(.selected) .overleaf-project-meta", text: true },
+      { name: "overleaf/picker/open", css: ".overleaf-project-row.selected .overleaf-open-button:last-child", text: true },
+      { name: "overleaf/picker/publish", css: ".overleaf-publish-card", chrome: true },
+      { name: "overleaf/picker/publish/title", css: ".overleaf-publish-copy strong", text: true },
+    ],
+    content: [],
+  },
+  // Settings › Overleaf with the project linked and live (scenes.mjs
+  // `settingsOverleaf`): the account's card, the link's, and the sync rows.
+  settingsOverleaf: {
+    label: "Settings · Overleaf",
+    regions: [
+      { name: "settings/modal", css: ".settings-modal", chrome: true },
+      { name: "settings/nav/active", css: ".settings-nav-group > button.active", text: true, chrome: true },
+      { name: "settings/title", css: ".settings-section .ui-settings-section-header-title", text: true },
+      { name: "overleaf/settings/account", css: ".overleaf-status-row", chrome: true },
+      { name: "overleaf/settings/account/title", css: ".overleaf-status-row .overleaf-status-text strong", text: true },
+      { name: "overleaf/settings/link", css: ".overleaf-status-row + .overleaf-status-row", chrome: true },
+      { name: "settings/row/overleaf-sync-mode", css: '[data-setting="overleaf-sync-mode"]' },
+      { name: "settings/row/overleaf-sync-mode/label", css: '[data-setting="overleaf-sync-mode"] .ui-settings-row-label', text: true },
+      { name: "settings/row/overleaf-remote-delete", css: '[data-setting="overleaf-remote-delete"]' },
+    ],
+    content: [],
+  },
 };
 
 /**

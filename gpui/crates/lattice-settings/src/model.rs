@@ -123,6 +123,18 @@ choice!(
     AutoBuildMode { Manual = "manual", Automatic = "automatic" } default Automatic
 );
 choice!(
+    /// How a project linked to Overleaf stays in step with it: "live" keeps
+    /// both sides close to current on their own; "manual" leaves every
+    /// exchange to a press of the sync button, reviewed like a pull.
+    OverleafSyncMode { Live = "live", Manual = "manual" } default Live
+);
+choice!(
+    /// What happens to a file on Overleaf when it is deleted here. Deleting
+    /// from a shared project is not an edit that can be merged away, so the
+    /// default asks.
+    OverleafRemoteDelete { Ask = "ask", Always = "always", Never = "never" } default Ask
+);
+choice!(
     /// The Settings pages; Settings reopens on the one it was left on.
     SettingsTab {
         Appearance = "appearance",
@@ -413,6 +425,10 @@ pub struct Settings {
     /// "Your name": what signs comments when no Git or Overleaf name does.
     pub author_name: String,
     pub settings_tab: SettingsTab,
+    /// Settings › Overleaf › Sync mode, shared by every window.
+    pub overleaf_sync_mode: OverleafSyncMode,
+    /// Settings › Overleaf › When you delete a file here.
+    pub overleaf_remote_delete: OverleafRemoteDelete,
 }
 
 /// The version of the file's layout; a file from a newer one is set aside.
@@ -435,6 +451,11 @@ impl Settings {
                 .unwrap_or_default()
                 .to_owned(),
             settings_tab: choice(field("settingsTab"), defaults.settings_tab),
+            overleaf_sync_mode: choice(field("overleafSyncMode"), defaults.overleaf_sync_mode),
+            overleaf_remote_delete: choice(
+                field("overleafRemoteDelete"),
+                defaults.overleaf_remote_delete,
+            ),
         }
     }
 

@@ -17,7 +17,10 @@ use std::{
 
 use serde_json::Value;
 
-use crate::model::{Appearance, AutoBuildMode, Choice, Settings, SettingsTab, ThemePreference};
+use crate::model::{
+    Appearance, AutoBuildMode, Choice, OverleafRemoteDelete, OverleafSyncMode, Settings,
+    SettingsTab, ThemePreference,
+};
 
 /// The Tauri app's bundle identifier (`src-tauri/tauri.conf.json`).
 pub const TAURI_BUNDLE_ID: &str = "app.leo1oel.researchwriter";
@@ -33,6 +36,8 @@ pub const KEYS: &[&str] = &[
     "lattice.author-name.v1",
     "lattice.collab.name",
     "lattice.settings-tab.v1",
+    "lattice.overleaf.sync-mode.v1",
+    "lattice.overleaf.remote-delete.v1",
 ];
 
 /// What was imported, and from where.
@@ -87,6 +92,13 @@ pub fn settings_from_items(items: &BTreeMap<String, String>) -> Settings {
         settings_tab: item("lattice.settings-tab.v1")
             .and_then(SettingsTab::from_tag)
             .unwrap_or(defaults.settings_tab),
+        // Stored as the bare choice (`overleaf-sync-settings.ts`).
+        overleaf_sync_mode: item("lattice.overleaf.sync-mode.v1")
+            .and_then(OverleafSyncMode::from_tag)
+            .unwrap_or(defaults.overleaf_sync_mode),
+        overleaf_remote_delete: item("lattice.overleaf.remote-delete.v1")
+            .and_then(OverleafRemoteDelete::from_tag)
+            .unwrap_or(defaults.overleaf_remote_delete),
     }
 }
 
@@ -344,6 +356,28 @@ mod tests {
             settings_from_items(&items).appearance,
             Appearance::default()
         );
+    }
+
+    #[test]
+    fn the_overleaf_choices_are_read_as_stored_and_anything_else_is_the_default() {
+        let items = |pairs: &[(&str, &str)]| -> BTreeMap<String, String> {
+            pairs
+                .iter()
+                .map(|(key, value)| ((*key).to_owned(), (*value).to_owned()))
+                .collect()
+        };
+        let chosen = settings_from_items(&items(&[
+            ("lattice.overleaf.sync-mode.v1", "manual"),
+            ("lattice.overleaf.remote-delete.v1", "never"),
+        ]));
+        assert_eq!(chosen.overleaf_sync_mode, OverleafSyncMode::Manual);
+        assert_eq!(chosen.overleaf_remote_delete, OverleafRemoteDelete::Never);
+        let unknown = settings_from_items(&items(&[
+            ("lattice.overleaf.sync-mode.v1", "\"manual\""),
+            ("lattice.overleaf.remote-delete.v1", "sometimes"),
+        ]));
+        assert_eq!(unknown.overleaf_sync_mode, OverleafSyncMode::Live);
+        assert_eq!(unknown.overleaf_remote_delete, OverleafRemoteDelete::Ask);
     }
 
     #[test]

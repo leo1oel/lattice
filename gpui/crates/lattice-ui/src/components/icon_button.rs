@@ -10,9 +10,10 @@
 use std::rc::Rc;
 
 use gpui::{
-    AnyView, App, ClickEvent, Div, ElementId, InteractiveElement, Interactivity, IntoElement,
-    ParentElement as _, Pixels, RenderOnce, SharedString, Stateful, StatefulInteractiveElement,
-    StyleRefinement, Styled, Window, div, prelude::FluentBuilder as _, px,
+    AnyElement, AnyView, App, ClickEvent, Corners, Div, ElementId, InteractiveElement,
+    Interactivity, IntoElement, ParentElement as _, Pixels, RenderOnce, SharedString, Stateful,
+    StatefulInteractiveElement, StyleRefinement, Styled, Window, div, prelude::FluentBuilder as _,
+    px,
 };
 use gpui_kit::component::Selectable;
 
@@ -38,6 +39,12 @@ pub struct IconButton {
     width: Pixels,
     height: Pixels,
     radius: Pixels,
+    /// Corners of their own, for a button that is half of a split pair.
+    corners: Option<Corners<Pixels>>,
+    /// Drawn in place of the icon (a loader while the button's work runs).
+    content: Option<AnyElement>,
+    /// Laid over the button's corner (a status dot).
+    badge: Option<AnyElement>,
     surface: Surface,
     on: bool,
     selected: bool,
@@ -57,6 +64,9 @@ impl IconButton {
             width: px(28.),
             height: px(28.),
             radius: px(6.),
+            corners: None,
+            content: None,
+            badge: None,
             surface: Surface::Sheet,
             on: false,
             selected: false,
@@ -80,6 +90,25 @@ impl IconButton {
 
     pub fn radius(mut self, radius: Pixels) -> Self {
         self.radius = radius;
+        self
+    }
+
+    /// Round each corner on its own: the halves of a split button keep the
+    /// radius only on their outer side.
+    pub fn corners(mut self, corners: Corners<Pixels>) -> Self {
+        self.corners = Some(corners);
+        self
+    }
+
+    /// Draw `content` in place of the icon, in the icon's place and size.
+    pub fn content(mut self, content: impl IntoElement) -> Self {
+        self.content = Some(content.into_any_element());
+        self
+    }
+
+    /// Lay `badge` over the button, positioned by the badge itself.
+    pub fn badge(mut self, badge: impl IntoElement) -> Self {
+        self.badge = Some(badge.into_any_element());
         self
     }
 
@@ -172,19 +201,32 @@ impl RenderOnce for IconButton {
         } else {
             track_pointer(tab_stop(self.base), pointer)
         };
-        base.flex()
+        let corners = self.corners;
+        let icon = match self.content {
+            Some(content) => content,
+            None => self.icon.element(self.icon_size, ink).into_any_element(),
+        };
+        base.relative()
+            .flex()
             .flex_none()
             .items_center()
             .justify_center()
             .w(self.width)
             .h(self.height)
             .rounded(self.radius)
+            .when_some(corners, |this, corners| {
+                this.rounded_tl(corners.top_left)
+                    .rounded_tr(corners.top_right)
+                    .rounded_br(corners.bottom_right)
+                    .rounded_bl(corners.bottom_left)
+            })
             .bg(bg)
             .when(disabled, |this| this.opacity(OPACITY_DISABLED))
             .when(!disabled, |this| {
                 this.focus_visible(move |style| style.shadow(focus))
             })
-            .child(self.icon.element(self.icon_size, ink))
+            .child(icon)
+            .children(self.badge)
             .when_some(self.tooltip, |this, tooltip| {
                 this.tooltip(move |_, cx| -> AnyView {
                     LatticeTooltip::view(tooltip.clone(), None, cx)
