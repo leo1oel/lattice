@@ -277,10 +277,6 @@ msgstr "没有命令或文件与“{query}”匹配"
 msgid "The papers library is not in the GPUI preview yet."
 msgstr "GPUI 预览版暂未提供论文库。"
 
-#: lattice-gpui/src/stand_in_panels.rs
-msgid "The Agent is not in the GPUI preview yet."
-msgstr "GPUI 预览版暂未提供 AI 助手。"
-
 #: lattice-gpui/src/titlebar.rs
 msgid "{name} — not in the GPUI preview yet"
 msgstr "{name} — GPUI 预览版暂未提供"
@@ -344,10 +340,6 @@ msgstr "白板打不开"
 #: lattice-gpui/src/structured.rs
 msgid "Couldn’t open the Markdown editor"
 msgstr "Markdown 编辑器打不开"
-
-#: lattice-gpui/src/structured.rs
-msgid "Open Slide’s Ask AI, Apply comments and Draft a deck need the Agent."
-msgstr "幻灯片的“问 AI”“应用批注”和“起草幻灯片”需要 AI 助手。"
 
 #: lattice-gpui/src/overleaf/channel.rs
 msgid "connection closed"

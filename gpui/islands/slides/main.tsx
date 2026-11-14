@@ -20,6 +20,7 @@ import { Fragment, useEffect, useReducer } from "react";
 import { mount, activateLocale } from "../shared/boot";
 import { host, useHostTheme } from "../shared/host";
 import { emitTauriEvent } from "../shared/tauri-internals";
+import { serveAgentTools } from "../shared/agent-tools";
 import { OpenSlideWorkspace } from "../../../src/editor/presentation/open-slide-workspace";
 import type { OpenSlideMutation, OpenSlideSyncOperation } from "../../../src/editor/presentation/open-slide-bridge";
 import type { OpenSlideFileViewState } from "../../../src/app-types";
@@ -64,6 +65,9 @@ function reduce(state: State, action: Action): State {
   }
 }
 
+/** The open deck's project, which the Agent's page previews name (`agent-tools.ts`). */
+let deckRoot: string | null = null;
+
 const onMutation = (mutation: OpenSlideMutation) => host().request<OpenSlideSyncOperation[]>("slides:mutation", mutation);
 const onViewState = (viewState: OpenSlideFileViewState) => host().post("doc:view-state", { viewState });
 
@@ -78,6 +82,7 @@ function Slides() {
     const stops = [
       bridge.on("doc:open", (payload) => {
         const open = payload as SlidesOpen;
+        deckRoot = open.projectRoot;
         dispatch({ type: "open", open });
         void activateLocale(open.locale).then(() => dispatch({ type: "ready" }));
       }),
@@ -128,4 +133,6 @@ function Slides() {
   );
 }
 
+// The Agent's page previews run here, beside the deck's own refresh of the runtime's copy.
+serveAgentTools("deck", () => deckRoot);
 mount(() => <Slides />);

@@ -8,9 +8,12 @@
 import "../shared/install";
 import { mount } from "../shared/boot";
 import { DocumentIsland } from "../shared/document";
+import { serveAgentTools } from "../shared/agent-tools";
 import { SpreadsheetEditor } from "../../../src/editor/spreadsheet/spreadsheet-editor";
 import type { SpreadsheetFileViewState } from "../../../src/app-types";
 
+// The Agent's range tools reach the open sheet through its owner (`agent-tools.ts`).
+serveAgentTools("sheet");
 mount(() => (
   <DocumentIsland<SpreadsheetFileViewState>
     editor={(document) => (

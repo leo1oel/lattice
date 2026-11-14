@@ -52,7 +52,9 @@ use serde_json::{Value, json};
 use crate::notices::{self, Notice};
 
 pub use markdown::MarkdownEvent;
+pub use slides::{DeckSession, handles as deck_handles};
 
+mod agent_tools;
 mod markdown;
 mod presentation;
 pub mod resources;
@@ -119,6 +121,9 @@ pub enum StructuredEvent {
     Wrote { path: String, text: Option<String> },
     /// A Markdown file's visual editor asks its panel for something.
     Markdown(MarkdownEvent),
+    /// Open Slide's Ask AI, Apply comments or Draft a deck: a request for
+    /// the Agent's composer (`OpenSlideAgentRequest`).
+    AgentRequest(Value),
 }
 
 pub struct StructuredDocument {
@@ -143,6 +148,8 @@ pub struct StructuredDocument {
     files: Option<FileScope>,
     /// Reveals asked for, so each has an id of its own.
     reveals: u64,
+    /// The Agent's tool calls the page has not answered (`agent_tools.rs`).
+    agent_calls: agent_tools::AgentCalls,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -207,6 +214,7 @@ impl StructuredDocument {
             markdown: None,
             files,
             reveals: 0,
+            agent_calls: Default::default(),
             _subscriptions: subscriptions,
         }
     }
@@ -326,10 +334,12 @@ impl StructuredDocument {
         match event {
             IslandEvent::Ready => {
                 self.drawn = false;
+                self.agent_page_gone();
                 self.open_page(cx);
             }
             IslandEvent::Hibernated => {
                 self.drawn = false;
+                self.agent_page_gone();
                 // The page took its leases with it, without releasing them.
                 if let Some(deck) = &mut self.deck {
                     deck.release_all(cx);
@@ -371,11 +381,8 @@ impl StructuredDocument {
                 cx.notify();
             }
             "island:notify" => show_page_notice(payload, cx),
-            "slides:agent-request" => notices::info(
-                t!("The Agent is not in the GPUI preview yet."),
-                t!("Open Slide’s Ask AI, Apply comments and Draft a deck need the Agent."),
-                cx,
-            ),
+            "agent:tool-result" => self.agent_answered(payload),
+            "slides:agent-request" => cx.emit(StructuredEvent::AgentRequest(payload.clone())),
             _ if self.kind == StructuredKind::Markdown => {
                 self.on_markdown_message(kind, payload, cx)
             }

@@ -12,6 +12,8 @@ use crate::{editor_panel::EditorPanel, native};
 
 #[cfg(target_os = "macos")]
 mod agent;
+#[cfg(target_os = "macos")]
+mod agent_documents;
 mod assets;
 mod build_flow;
 mod design_calls;

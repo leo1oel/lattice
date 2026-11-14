@@ -46,6 +46,8 @@ use serde_json::{Value, json};
 use super::{commands, runtime};
 use crate::notices::{self, Notice, NoticeAction};
 
+mod documents;
+
 /// Which of the page's three surfaces this is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SurfaceKind {
@@ -86,6 +88,19 @@ pub enum SurfaceEvent {
     GitView(String),
     /// The Git workspace's close button.
     CloseGit,
+    /// A canvas, spreadsheet or presentation tool call for the window's
+    /// documents (`documents.rs`); answer with [`SynaraSurface::answer`].
+    DocumentTool {
+        id: u64,
+        family: String,
+        request: Value,
+    },
+    /// The Agent creates a board or sheet at `path`.
+    CreateDocument {
+        id: u64,
+        path: String,
+        expires_at: f64,
+    },
 }
 
 /// A turn's checkpoint diff, reviewable after the working tree moved on.
@@ -122,6 +137,11 @@ pub struct SynaraSurface {
     git: Value,
     /// Settings' compact insets, for Settings › Providers.
     settings_compact: bool,
+    /// The Agent's own page previews' standing with Open Slide, made on
+    /// the first (`documents.rs`).
+    deck: Option<crate::structured::DeckSession>,
+    /// What the page was last told of the project's Overleaf link.
+    overleaf: Value,
     last_pointer: Option<Instant>,
     _subscriptions: Vec<Subscription>,
 }
@@ -178,6 +198,8 @@ impl SynaraSurface {
             workspace_report: None,
             git: json!({ "view": "changes", "turnReview": null, "remoteUrl": null }),
             settings_compact: false,
+            deck: None,
+            overleaf: Value::Null,
             last_pointer: None,
             _subscriptions: subscriptions,
         }
@@ -232,6 +254,8 @@ impl SynaraSurface {
         // A frame belongs to one project: another project's starts afresh
         // (the page keys its host by the project).
         self.workspace = Value::Null;
+        self.overleaf = Value::Null;
+        self.deck = None;
         self.open_page(cx);
         self.sync_active(cx);
         cx.notify();
@@ -349,6 +373,9 @@ impl SynaraSurface {
         }
         if !self.workspace.is_null() {
             self.post("agent:workspace", self.workspace.clone(), cx);
+        }
+        if !self.overleaf.is_null() {
+            self.post("agent:overleaf", self.overleaf.clone(), cx);
         }
     }
 
@@ -503,7 +530,10 @@ impl SynaraSurface {
                 });
             }
             "tauri:invoke" => self.invoke(id, payload, window, cx),
-            _ => self.respond(id, Err(format!("unknown request {kind}")), cx),
+            _ => match documents::document_request(id, kind, &payload) {
+                Some(event) => cx.emit(event),
+                None => self.respond(id, Err(format!("unknown request {kind}")), cx),
+            },
         }
     }
 
@@ -556,6 +586,7 @@ impl SynaraSurface {
                 cx.write_to_clipboard(gpui::ClipboardItem::new_string(text));
                 self.respond(id, Ok(Value::Null), cx);
             }
+            _ if documents::is_presentation(&command) => self.invoke_deck(id, &command, &args, cx),
             _ if commands::handles(&command) => {
                 let Some(root) = self.root.clone() else {
                     self.respond(id, Err("No project is open.".into()), cx);

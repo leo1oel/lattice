@@ -13,7 +13,9 @@
 //!   the bibliography takes only lattice-core's closed mutations, a removal
 //!   previewed before anything is written;
 //! - the titlebar's Git button opens the Git workspace as a tool panel, with
-//!   its Changes / Pull requests header, and its close button closes it.
+//!   its Changes / Pull requests header, and its close button closes it;
+//! - its tool calls reach the window's boards and sheets, and the boards it
+//!   creates open (`agent_documents.rs`).
 
 use std::{path::Path, time::Duration};
 
@@ -380,6 +382,8 @@ impl Run {
             closed,
             json!({}),
         );
+        // The Agent's tool calls on the window's documents (`agent_documents.rs`).
+        self.agent_documents(cx, steps, root, &island).await?;
         cx.update(|cx| lattice_webview::set_hibernate_after(None, cx));
         Ok(())
     }

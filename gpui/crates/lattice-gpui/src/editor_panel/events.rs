@@ -31,4 +31,6 @@ pub enum EditorPanelEvent {
     OutlineJump { path: String, line: u32 },
     /// The buffer's text changed: what the live preview follows.
     Edited,
+    /// Open Slide asks the Agent's composer (`OpenSlideAgentRequest`).
+    AgentRequest(serde_json::Value),
 }
