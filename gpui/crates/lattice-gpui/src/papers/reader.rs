@@ -85,15 +85,21 @@ pub enum PaperReaderEvent {
     Show(ReaderView),
 }
 
+/// A text the reader holds, and whether its masthead was last reported
+/// on screen: the strip leaves out the title and authors it carries.
+struct Text {
+    view: ReaderView,
+    editor: Entity<EditorPanel>,
+    masthead: bool,
+    _subscription: Subscription,
+}
+
 pub struct PaperReader {
     root: PathBuf,
     paper: PaperSummary,
     view: ReaderView,
-    texts: Vec<(ReaderView, Entity<EditorPanel>, Subscription)>,
+    texts: Vec<Text>,
     pdf: Option<ShownPdf>,
-    /// The full text's masthead is on screen: the strip leaves out the title
-    /// and authors it carries.
-    masthead: bool,
     /// The strip's width as last drawn, for its narrow rules.
     width: Rc<Cell<Option<Pixels>>>,
     /// The tab is its group's displayed one. The text's editor shows its
@@ -119,7 +125,6 @@ impl PaperReader {
             view,
             texts: Vec::new(),
             pdf: None,
-            masthead: false,
             width: Rc::default(),
             active: false,
             focus: cx.focus_handle(),
@@ -147,13 +152,13 @@ impl PaperReader {
     fn text_of(&self, view: ReaderView) -> Option<&Entity<EditorPanel>> {
         self.texts
             .iter()
-            .find(|(shown, ..)| *shown == view)
-            .map(|(_, editor, _)| editor)
+            .find(|text| text.view == view)
+            .map(|text| &text.editor)
     }
 
     /// Every text's editor the reader holds.
     pub fn editors(&self) -> impl Iterator<Item = &Entity<EditorPanel>> {
-        self.texts.iter().map(|(_, editor, _)| editor)
+        self.texts.iter().map(|text| &text.editor)
     }
 
     /// The text on screen, as its editor holds it (for scenarios and the
@@ -192,11 +197,13 @@ impl PaperReader {
                 &editor,
                 window,
                 move |this, _, event, window, cx| match event {
-                    EditorPanelEvent::Masthead(in_view)
-                        if this.view == view && this.masthead != *in_view =>
-                    {
-                        this.masthead = *in_view;
-                        cx.notify();
+                    EditorPanelEvent::Masthead(in_view) => {
+                        if let Some(text) = this.texts.iter_mut().find(|text| text.view == view)
+                            && text.masthead != *in_view
+                        {
+                            text.masthead = *in_view;
+                            cx.notify();
+                        }
                     }
                     EditorPanelEvent::PaperSource(page) => {
                         this.open_pdf(window, cx);
@@ -205,8 +212,13 @@ impl PaperReader {
                     _ => {}
                 },
             );
-        self.texts.retain(|(shown, ..)| *shown != view);
-        self.texts.push((view, editor, subscription));
+        self.texts.retain(|text| text.view != view);
+        self.texts.push(Text {
+            view,
+            editor,
+            masthead: false,
+            _subscription: subscription,
+        });
         self.sync_shown(window, cx);
         cx.notify();
     }
@@ -218,7 +230,7 @@ impl PaperReader {
         let texts: Vec<_> = self
             .texts
             .iter()
-            .map(|(view, editor, _)| (*view == self.view && shown, editor.clone()))
+            .map(|text| (text.view == self.view && shown, text.editor.clone()))
             .collect();
         for (on_screen, editor) in texts {
             editor.update(cx, |editor, cx| {
@@ -231,10 +243,7 @@ impl PaperReader {
     /// text, so the paper is no longer read as its PDF.
     pub fn show(&mut self, view: ReaderView, window: &mut Window, cx: &mut Context<Self>) {
         self.close_pdf(cx);
-        if self.view != view {
-            self.view = view;
-            self.masthead = false;
-        }
+        self.view = view;
         self.sync_shown(window, cx);
         if self.editor().is_none() {
             cx.emit(PaperReaderEvent::Show(view));
@@ -254,7 +263,7 @@ impl PaperReader {
         let readings: Vec<_> = self
             .texts
             .iter()
-            .map(|(view, editor, _)| (editor.clone(), self.reading(*view)))
+            .map(|text| (text.editor.clone(), self.reading(text.view)))
             .collect();
         for (editor, reading) in readings {
             editor.update(cx, |editor, cx| editor.set_paper_reading(Some(reading), cx));
@@ -353,7 +362,10 @@ impl PaperReader {
         let palette = cx.palette().clone();
         let width = self.width.get().map_or(f32::MAX, f32::from);
         let icons_only = width < ICONS_ONLY_BELOW;
-        let masthead = self.masthead
+        let masthead = self
+            .texts
+            .iter()
+            .any(|text| text.view == self.view && text.masthead)
             && self.pdf.is_none()
             && self
                 .editor()
