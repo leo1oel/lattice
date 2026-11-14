@@ -5,7 +5,10 @@
 //! edit, an edit in the editor meanwhile refusing the write, a table edited
 //! by hand left to the source editor; a project image inserted as a figure
 //! through the Insert figure dialog; and ⌘V with an image in the editor
-//! saving it into `figures/` and offering it as a figure.
+//! saving it into `figures/` and offering it as a figure. With
+//! `LATTICE_E2E_SHOTS=DIR` (macOS, `offscreen-shots`) it saves the window at
+//! the generator, its review, its refusal and unsupported messages, and the
+//! Insert figure dialog.
 
 use std::{path::Path, time::Duration};
 
@@ -98,12 +101,14 @@ impl Run {
             fresh,
             json!({}),
         );
+        self.insert_shot(cx, "insert-table-generator").await;
         self.with_window(cx, |_, window, cx| {
             sheet.update(cx, |sheet, cx| {
                 sheet.resize(2, 2, window, cx);
                 sheet.open_review(cx);
             })
         })?;
+        self.insert_shot(cx, "insert-table-review").await;
         let reviewing = cx.update(|cx| sheet.read(cx).reviewing());
         sheet.update(cx, |sheet, cx| sheet.apply(cx));
         self.pause(cx, Duration::from_millis(200)).await;
@@ -146,12 +151,15 @@ impl Run {
         let sheet = self.open_generator(cx)?;
         self.pause(cx, Duration::from_millis(200)).await;
         let refused = if let Some(sheet) = sheet {
+            // Applied from the review, as the writer applies it.
+            sheet.update(cx, |sheet, cx| sheet.open_review(cx));
             self.with_window(cx, |_, window, cx| {
                 editor.update(cx, |editor, cx| {
                     editor.replace_range(0, 0, "% typed\n", 0, window, cx)
                 })
             })?;
             sheet.update(cx, |sheet, cx| sheet.apply(cx));
+            self.insert_shot(cx, "insert-table-refused").await;
             let error = cx.update(|cx| sheet.read(cx).error().map(str::to_string));
             let still_open = cx.update(|cx| self.shell.read(cx).inserts.table.is_some());
             sheet.update(cx, |_, cx| {
@@ -181,6 +189,7 @@ impl Run {
         let unsupported = sheet
             .as_ref()
             .is_some_and(|sheet| cx.update(|cx| !sheet.read(cx).supported()));
+        self.insert_shot(cx, "insert-table-unsupported").await;
         if let Some(sheet) = sheet {
             sheet.update(cx, |_, cx| {
                 cx.emit(crate::insert::table_dialog::TableEvent::Close)
@@ -225,6 +234,7 @@ impl Run {
                 .as_ref()
                 .map(|open| open.dialog.clone())
         });
+        self.insert_shot(cx, "insert-figure-dialog").await;
         if let Some(dialog) = &dialog {
             dialog.update(cx, |dialog, cx| dialog.insert(cx));
         }
@@ -266,6 +276,7 @@ impl Run {
             .first()
             .and_then(|path| std::fs::read(path).ok())
             .is_some_and(|bytes| bytes == png);
+        self.insert_shot(cx, "insert-figure-pasted").await;
         steps.check(
             "⌘V with an image in the editor saves it into figures/ and offers it as a figure",
             offered && same,
@@ -289,5 +300,30 @@ impl Run {
         }
         std::fs::remove_file(root.join("figures/e2e-plot.png")).ok();
         Ok(())
+    }
+
+    /// Save the window as `name`.png into `LATTICE_E2E_SHOTS`, when set,
+    /// drawn and read back at once as `get_started.rs` does.
+    async fn insert_shot(&self, cx: &mut AsyncApp, name: &str) {
+        #[cfg(feature = "offscreen-shots")]
+        if let Some(dir) = std::env::var_os("LATTICE_E2E_SHOTS") {
+            self.pause(cx, Duration::from_millis(300)).await;
+            let out = Path::new(&dir).join(format!("{name}.png"));
+            let shot = self.with_window(cx, |_, window, cx| {
+                window.refresh();
+                let _ = window.draw(cx);
+                window.render_to_image()
+            });
+            match shot {
+                Ok(Ok(image)) => {
+                    if let Err(error) = image.save(&out) {
+                        log::warn!("e2e shot {name}: {error:#}");
+                    }
+                }
+                Ok(Err(error)) | Err(error) => log::warn!("e2e shot {name}: {error:#}"),
+            }
+        }
+        #[cfg(not(feature = "offscreen-shots"))]
+        let _ = (cx, name);
     }
 }
