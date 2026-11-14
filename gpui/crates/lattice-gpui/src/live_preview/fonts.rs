@@ -174,10 +174,6 @@ impl FontStore {
         self.fonts.contains_key(key)
     }
 
-    pub fn add(&mut self, key: String, resource: FontResource) {
-        self.fonts.insert(key, Arc::new(LoadedFont::load(resource)));
-    }
-
     /// A font loaded off the main thread.
     pub fn insert(&mut self, key: String, font: Arc<LoadedFont>) {
         self.fonts.insert(key, font);
@@ -186,25 +182,13 @@ impl FontStore {
     pub fn get(&self, desc: &FontDesc) -> Option<&Arc<LoadedFont>> {
         self.fonts.get(&desc.key())
     }
-
-    /// Fonts that could not be loaded, and why: for diagnostics.
-    pub fn missing(&self) -> Vec<(String, String)> {
-        self.fonts
-            .iter()
-            .filter_map(|(key, font)| match font.as_ref() {
-                LoadedFont::Missing(reason) => Some((key.clone(), reason.clone())),
-                _ => None,
-            })
-            .collect()
-    }
 }
 
-/// An image a display list draws: decoded into premultiplied pixels, still
-/// loading, or not drawable.
+/// An image a display list draws: decoded into premultiplied pixels, or not
+/// drawable. One still loading is not in the store.
 #[derive(Clone)]
 pub enum LoadedImage {
     Bitmap(Arc<Pixmap>),
-    Pending,
     Missing(String),
 }
 

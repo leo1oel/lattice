@@ -34,7 +34,7 @@ mod virtual_font;
 use std::{path::PathBuf, time::Duration};
 
 use futures::{StreamExt as _, channel::mpsc};
-use gpui::{App, AppContext as _, Context, Entity, EventEmitter, Subscription, Task, WeakEntity};
+use gpui::{App, AppContext as _, Context, Entity, EventEmitter, Subscription, Task};
 use lattice_core::{live_preview, models::FileNode};
 
 pub use model::Dirty;
@@ -160,8 +160,11 @@ impl LivePreview {
         self.session.as_mut()
     }
 
-    pub(crate) fn session(&self) -> Option<&Session> {
-        self.session.as_ref()
+    /// The live paragraphs painted over the base PDF now.
+    pub fn overlays(&self) -> usize {
+        self.session
+            .as_ref()
+            .map_or(0, |session| session.model.overlays.len())
     }
 
     /// How many of each event and reply rtex sent this session.
@@ -481,6 +484,3 @@ impl LivePreview {
 pub fn new(cx: &mut App) -> Entity<LivePreview> {
     cx.new(LivePreview::new)
 }
-
-/// A weak handle the viewer keeps.
-pub type WeakLivePreview = WeakEntity<LivePreview>;

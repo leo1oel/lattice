@@ -42,10 +42,6 @@ impl QuietBuilds {
             .is_some_and(|since| now.duration_since(since) >= MAX_WAIT)
     }
 
-    pub fn waiting(&self) -> bool {
-        self.since.is_some()
-    }
-
     /// The wait's timer: dropping the old one cancels it.
     pub fn set_timer(&mut self, timer: Task<()>) {
         self.timer = Some(timer);
@@ -72,7 +68,6 @@ mod tests {
         assert!(!quiet.due(start + Duration::from_secs(29)));
         assert!(quiet.due(start + MAX_WAIT));
         quiet.cancel();
-        assert!(!quiet.waiting());
         assert!(!quiet.due(start + Duration::from_secs(60)));
     }
 }

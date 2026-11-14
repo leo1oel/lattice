@@ -20,6 +20,7 @@ mod history;
 #[cfg(target_os = "macos")]
 mod islands;
 mod live_controls;
+mod live_preview;
 #[cfg(target_os = "macos")]
 mod markdown;
 #[cfg(target_os = "macos")]
@@ -331,6 +332,9 @@ impl Run {
         self.live_controls(cx, &mut steps)
             .await
             .context("live_controls")?;
+        self.live_preview(cx, &mut steps, &root)
+            .await
+            .context("live_preview")?;
         self.closing_saves(cx, &mut steps, &root)
             .await
             .context("closing_saves")?;

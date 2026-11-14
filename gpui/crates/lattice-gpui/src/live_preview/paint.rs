@@ -140,7 +140,7 @@ pub fn inexact_reason<'a>(
                         return Some("an image has no source file".into());
                     };
                     match images.get(&info.file) {
-                        None | Some(LoadedImage::Pending) => {
+                        None => {
                             return Some("images are loading".into());
                         }
                         Some(LoadedImage::Missing(reason)) => return Some(reason.clone()),

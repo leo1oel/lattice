@@ -23,8 +23,6 @@ pub struct Versions {
     #[serde(default)]
     pub source_revision: u64,
     #[serde(default)]
-    pub engine_generation: u64,
-    #[serde(default)]
     pub layout_version: u64,
 }
 

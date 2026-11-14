@@ -134,10 +134,6 @@ impl Layer {
         }
     }
 
-    pub fn has_images(&self) -> bool {
-        self.slots.values().any(|slot| slot.image.is_some())
-    }
-
     /// The pages (0-based) holding a live image now.
     pub fn drawn_pages(&self) -> Vec<usize> {
         let mut pages: Vec<usize> = self

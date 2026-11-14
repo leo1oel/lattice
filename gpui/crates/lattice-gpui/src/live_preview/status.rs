@@ -195,6 +195,7 @@ pub fn pill(preview: &Entity<LivePreview>, window: &mut Window, cx: &mut App) ->
     let tip = status.tip.clone();
     let mut body = div()
         .id("live-preview-status")
+        .relative()
         .flex()
         .items_center()
         .gap(SPACING_3)
@@ -211,6 +212,7 @@ pub fn pill(preview: &Entity<LivePreview>, window: &mut Window, cx: &mut App) ->
         .whitespace_nowrap()
         .when(live, |this| this.p(SPACING_3))
         .when(!live, |this| this.px(SPACING_5).py(SPACING_2))
+        .children(lattice_ui::parity::probe("live-preview-status"))
         .child(dot)
         .when(!live, |this| {
             this.child(

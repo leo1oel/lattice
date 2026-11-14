@@ -28,22 +28,11 @@ pub enum Dirty {
 }
 
 impl Dirty {
-    pub fn none() -> Self {
-        Dirty::Pages(HashSet::new())
-    }
-
     pub fn is_empty(&self) -> bool {
         matches!(self, Dirty::Pages(pages) if pages.is_empty())
     }
 
-    pub fn merge(&mut self, other: Dirty) {
-        match (self, other) {
-            (Dirty::All, _) => {}
-            (this, Dirty::All) => *this = Dirty::All,
-            (Dirty::Pages(pages), Dirty::Pages(more)) => pages.extend(more),
-        }
-    }
-
+    #[cfg(test)]
     pub fn contains(&self, page: u32) -> bool {
         match self {
             Dirty::All => true,
