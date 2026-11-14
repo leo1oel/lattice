@@ -33,6 +33,7 @@ const PAGE_FACTS: &str = "(() => { const loading = document.querySelector('.syna
      return JSON.stringify({ host: typeof window.latticeHost, \
      loading: loading ? loading.textContent.trim().slice(0, 300) : null, \
      frame: !!document.querySelector('iframe.synara-poc-frame'), \
+     ready: !!(shell && shell.dataset.ready), \
      ground: shell ? getComputedStyle(shell).backgroundColor : null, \
      theme: document.documentElement.dataset.theme || null }); })()";
 
@@ -81,6 +82,17 @@ impl Run {
             self.pause(cx, Duration::from_millis(250)).await;
             facts = self.evaluate(cx, &island, PAGE_FACTS).await;
         }
+        // A frame (a runtime staged beside the app) must say it is ready:
+        // Synara and the page then speak across the island's origin.
+        if facts["frame"] == true {
+            for _ in 0..160 {
+                if facts["ready"] == true {
+                    break;
+                }
+                self.pause(cx, Duration::from_millis(250)).await;
+                facts = self.evaluate(cx, &island, PAGE_FACTS).await;
+            }
+        }
         let (state, stats, root_shown) = cx.update(|cx| {
             let island = island.read(cx);
             (
@@ -114,7 +126,9 @@ impl Run {
                 && facts["host"] == "object"
                 && facts["theme"] == theme
                 && facts["ground"].as_str() == Some(chrome.as_str())
-                && (facts["frame"] == true || facts["loading"].as_str().is_some_and(|text| !text.is_empty())),
+                && (facts["ready"] == true
+                    || (facts["frame"] == false
+                        && facts["loading"].as_str().is_some_and(|text| !text.is_empty()))),
             json!({ "drawn": drawn, "state": format!("{state:?}"), "stats": stats, "page": facts, "chrome": chrome }),
         );
 
