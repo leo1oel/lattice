@@ -97,6 +97,7 @@ pub struct Toast {
     height: Option<Pixels>,
     on_measure: Option<Box<dyn FnOnce(Pixels, &mut App)>>,
     on_dismiss: Option<DismissHandler>,
+    parity: Option<SharedString>,
 }
 
 impl Toast {
@@ -119,6 +120,7 @@ impl Toast {
             height: None,
             on_measure: None,
             on_dismiss: None,
+            parity: None,
         }
     }
 
@@ -180,6 +182,13 @@ impl Toast {
         self
     }
 
+    /// Record the card and its title as the parity harness's region `name`
+    /// and `name/title`.
+    pub fn parity(mut self, name: impl Into<SharedString>) -> Self {
+        self.parity = Some(name.into());
+        self
+    }
+
     pub fn on_dismiss(
         mut self,
         handler: impl Fn(&gpui::ClickEvent, &mut Window, &mut App) + 'static,
@@ -220,6 +229,12 @@ impl RenderOnce for Toast {
             .font_weight(FONT_WEIGHT_MEDIUM)
             .text_color(palette.text)
             .line_clamp(3)
+            .when_some(self.parity.clone(), |this, name| {
+                let region = format!("{name}/title");
+                this.relative()
+                    .children(crate::parity::probe(region.clone()))
+                    .children(crate::parity::text_probe(region, 0, self.title.clone()))
+            })
             .child(self.title.clone());
         let detail = detail.map(|detail| {
             let tip = detail.clone();
@@ -308,6 +323,8 @@ impl RenderOnce for Toast {
             .bg(palette.raised)
             .shadow(Elevation::Floating.shadows(&palette))
             .when_some(self.height, |this, height| this.h(height).overflow_hidden())
+            .relative()
+            .children(self.parity.and_then(crate::parity::probe))
             .child(content)
     }
 }

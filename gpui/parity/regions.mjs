@@ -254,6 +254,17 @@ export const SCREENS = {
     ],
     content: [".pdf-viewer-host"],
   },
+  // Three notices on the stack, collapsed, the error in front
+  // (`scenes.toasts`, crates/lattice-gpui/src/scenario/parity_notices.rs):
+  // the front card and its title.
+  toasts: {
+    label: "Notifications",
+    regions: [
+      { name: "toast/front", css: ".app-toast:has(> .app-toast-content:not([data-behind]))", chrome: true },
+      { name: "toast/front/title", css: ".app-toast:has(> .app-toast-content:not([data-behind])) .app-toast-title", text: true },
+    ],
+    content: [".pdf-viewer-host"],
+  },
   // Settings › Logs (`scenes.logs`): the two apps have logged different
   // things by then, so the dialog's frame, the page's title and its action
   // row, not the log's rows.

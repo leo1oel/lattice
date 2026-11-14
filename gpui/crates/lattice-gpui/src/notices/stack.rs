@@ -555,13 +555,14 @@ impl Render for NoticeStack {
                 move_to(&mut look.content, target.content, Motion::Fast, now, reduce);
             }
             animating |= look.is_running(now) || measuring;
-            let card = draw(shown, Some(&this), top, width, now, &palette, window, cx);
+            let card = draw(shown, index == 0, Some(&this), top, width, now, &palette, window, cx);
             cards.push((10 - index.min(10), card));
         }
         for leaving in &self.leaving {
             animating = true;
             let card = draw(
                 &leaving.shown,
+                false,
                 None,
                 top,
                 width,
@@ -623,6 +624,9 @@ impl Render for NoticeStack {
                     this.set_hovered(*hovered, cx)
                 }
             }))
+            // The stack, not each card, keeps the pointer from what is under
+            // it: a card's own occlusion would hide the stack's hover from it.
+            .occlude()
             .relative()
             .w(px(width))
             .h(px(extent(&heights, expanded)))
@@ -648,6 +652,7 @@ impl Render for NoticeStack {
 #[allow(clippy::too_many_arguments)]
 fn draw(
     shown: &Shown,
+    front: bool,
     this: Option<&WeakEntity<NoticeStack>>,
     top: bool,
     width: f32,
@@ -663,6 +668,9 @@ fn draw(
         .width(px(width))
         .height(px(look.height.value(now).max(0.)))
         .content_opacity(look.content.value(now).clamp(0., 1.));
+    if this.is_some() && front {
+        toast = toast.parity("toast/front");
+    }
     if let Some(detail) = notice.detail.as_ref().filter(|detail| !detail.trim().is_empty()) {
         toast = toast.detail(detail.clone());
     }
@@ -749,7 +757,6 @@ fn draw(
                 stack.update(cx, |this, cx| this.end_swipe(reduce, cx)).ok();
             };
             wrapper
-                .occlude()
                 .on_mouse_down(MouseButton::Left, move |event, _, cx| {
                     press
                         .update(cx, |this, cx| this.begin_swipe(id, event.position, cx))
