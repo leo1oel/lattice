@@ -90,7 +90,7 @@ fn byline(hit: &LiteratureHit) -> Vec<String> {
     let authors = if !hit.authors.is_empty() {
         let mut names = hit.authors[..hit.authors.len().min(2)].join(", ");
         if hit.authors.len() > 2 {
-            names.push_str(&t!(" et al."));
+            names.push_str(t!(" et al."));
         }
         names
     } else {

@@ -120,8 +120,8 @@ lucide! {
     SQUARE_TERMINAL = "icons" / "square-terminal";
     WHOLE_WORD = "icons" / "whole-word";
     // The Papers panel's rows, toolbar and add rows (main declares
-    // ARROW_DOWN, ARROW_DOWN_UP, BOOK_MARKED, FILE_DOWN and LINK_2 below).
-    ARROW_UP_RIGHT = "icons" / "arrow-up-right";
+    // ARROW_DOWN, ARROW_DOWN_UP, ARROW_UP_RIGHT, BOOK_MARKED, FILE_DOWN and
+    // LINK_2 below).
     HIGHLIGHTER = "icons" / "highlighter";
     CORNER_DOWN_LEFT = "icons" / "corner-down-left";
     LIST_FILTER = "icons" / "list-filter";
