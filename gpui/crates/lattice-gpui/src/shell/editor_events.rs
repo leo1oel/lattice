@@ -78,6 +78,7 @@ impl Shell {
                 self.file_tree
                     .update(cx, |tree, cx| tree.set_current(Some(path), cx));
                 self.show_outline(cx);
+                self.push_agent_workspace(cx);
                 self.tell_overleaf_caret(editor, cx);
                 self.show_overleaf_carets(cx);
                 self.overleaf
@@ -90,7 +91,12 @@ impl Shell {
                     bridge.editor_typed(editor, cx);
                 });
             }
-            EditorPanelEvent::CaretMoved => self.tell_overleaf_caret(editor, cx),
+            EditorPanelEvent::CaretMoved => {
+                self.tell_overleaf_caret(editor, cx);
+                if self.active_editor().as_ref() == Some(editor) {
+                    self.push_agent_workspace(cx);
+                }
+            }
             EditorPanelEvent::CaretLine => {
                 if self.active_editor().as_ref() == Some(editor) {
                     self.show_outline(cx);

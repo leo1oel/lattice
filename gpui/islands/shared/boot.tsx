@@ -26,18 +26,25 @@ import { I18nProvider } from "@lingui/react";
 import { registerConfirmActionHandler, type ConfirmActionChoice, type ConfirmActionOptions } from "../../../src/app-utils";
 import { activateAppLocale, i18n } from "../../../src/i18n";
 import { installPointerFocus } from "../../../src/components/ui/pointer-focus";
-import { dismissAppToast, useAppToastsSnapshot } from "../../../src/telemetry/app-log-store";
+import { dismissAppToast, useAppToastsSnapshot, type AppLogEntry } from "../../../src/telemetry/app-log-store";
 import { host } from "./host";
 
+export type MountOptions = {
+  /** Whether a toast the page raised goes to the host; one it keeps is only dropped. Every toast by default. */
+  relayToast?: (entry: AppLogEntry) => boolean;
+};
+
 /** Forwards each toast the page raises to the host once, then drops it here. */
-function ToastRelay() {
+function ToastRelay({ relay }: { relay?: (entry: AppLogEntry) => boolean }) {
   const toasts = useAppToastsSnapshot();
   useEffect(() => {
     for (const { entry } of toasts) {
-      host().post("island:notify", { level: entry.level, title: entry.title, detail: entry.detail });
-      dismissAppToast(entry.id);
+      if (relay?.(entry) ?? true) {
+        host().post("island:notify", { level: entry.level, title: entry.title, detail: entry.detail });
+      }
+      dismissAppToast(entry.id, false);
     }
-  }, [toasts]);
+  }, [relay, toasts]);
   return null;
 }
 
@@ -55,14 +62,14 @@ export function activateLocale(locale: "en" | "zh-CN"): Promise<void> {
  * names the writer's only once the page is listening (`doc:open`), so the
  * tree starts in English and switches when the host's language arrives.
  */
-export function mount(render: () => ReactNode): void {
+export function mount(render: () => ReactNode, options: MountOptions = {}): void {
   installPointerFocus();
   registerConfirmActionHandler((options: ConfirmActionOptions) =>
     host().request<ConfirmActionChoice | boolean>("island:confirm", options).catch(() => false));
   const root = createRoot(document.getElementById("root")!);
   const draw = () => root.render(
     <I18nProvider i18n={i18n}>
-      <ToastRelay />
+      <ToastRelay relay={options.relayToast} />
       {render()}
     </I18nProvider>,
   );

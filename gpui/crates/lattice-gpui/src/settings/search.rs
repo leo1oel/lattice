@@ -56,7 +56,7 @@ impl Entry {
 
 /// The index in the interface language now.
 pub fn entries(has_project: bool, known_author: Option<&str>) -> Vec<Entry> {
-    use SettingsTab::{Appearance, Doctor, Editor, Logs, Overleaf};
+    use SettingsTab::{Agent, Appearance, Doctor, Editor, Logs, Overleaf};
     let appearance = t!("Appearance");
     let editor = t!("Editor & builds");
     let builds = t!("Builds");
@@ -208,6 +208,7 @@ pub fn entries(has_project: bool, known_author: Option<&str>) -> Vec<Entry> {
         ]);
     }
     out.push(Entry::row(Editor, editor, "version", t!("Version")));
+    out.push(Entry::page(Agent, t!("Providers"), t!("Agent")));
     let overleaf = t!("Overleaf");
     out.extend([
         Entry::page(Overleaf, overleaf, t!("Integrations")),

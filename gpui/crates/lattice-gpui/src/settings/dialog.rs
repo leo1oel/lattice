@@ -18,8 +18,9 @@
 //! as a page with a way back, and Escape goes back before it closes.
 //!
 //! Only the sections the GPUI app has are listed: Appearance, Editor &
-//! builds and the TeX doctor. The agent, integration and about pages come
-//! with the features they configure.
+//! builds, Providers (Synara's own page, the Agent island's `settings`
+//! surface) and the TeX doctor. The other agent pages, the integration and
+//! the about pages come with the features they configure.
 
 use std::{
     cell::RefCell,
@@ -71,9 +72,11 @@ pub enum SettingsEvent {
 /// The pages the GPUI app draws; another remembered page opens Appearance.
 fn drawn(tab: SettingsTab) -> SettingsTab {
     match tab {
-        SettingsTab::Editor | SettingsTab::Doctor | SettingsTab::Overleaf | SettingsTab::Logs => {
-            tab
-        }
+        SettingsTab::Editor
+        | SettingsTab::Agent
+        | SettingsTab::Doctor
+        | SettingsTab::Overleaf
+        | SettingsTab::Logs => tab,
         _ => SettingsTab::Appearance,
     }
 }
@@ -103,6 +106,8 @@ pub struct SettingsDialog {
     /// Settings › Logs (`logs_pane`), which keeps its search and level.
     pub(crate) logs: Entity<super::logs_pane::LogsPane>,
     shell: WeakEntity<Shell>,
+    /// Settings › Providers' page, the window's Agent settings surface.
+    providers: Entity<crate::agent::SynaraSurface>,
     pub(super) project: Option<Entity<Project>>,
     /// The window's live preview, for its rows in Editor & builds.
     live_preview: Option<Entity<crate::live_preview::LivePreview>>,
@@ -148,6 +153,7 @@ fn slider(min: f32, max: f32, step: f32, value: f32, cx: &mut App) -> Entity<Sli
 impl SettingsDialog {
     pub fn new(
         shell: WeakEntity<Shell>,
+        providers: Entity<crate::agent::SynaraSurface>,
         project: Option<Entity<Project>>,
         live_preview: Option<Entity<crate::live_preview::LivePreview>>,
         tab: Option<SettingsTab>,
@@ -316,6 +322,10 @@ impl SettingsDialog {
         if let Some(live) = &live_preview {
             subscriptions.push(cx.observe(live, |_, _, cx| cx.notify()));
         }
+        subscriptions.push(cx.on_release(|this: &mut Self, cx| {
+            this.providers
+                .update(cx, |surface, cx| surface.set_shown(false, cx));
+        }));
 
         let tab = drawn(tab.unwrap_or(settings.settings_tab));
         let logs = cx.new(|cx| super::logs_pane::LogsPane::new(window, cx));
@@ -338,6 +348,7 @@ impl SettingsDialog {
                 custom_accent,
             },
             shell,
+            providers,
             project,
             live_preview,
             focus: cx.focus_handle(),
@@ -410,11 +421,19 @@ impl SettingsDialog {
         }
     }
 
+    /// Settings › Providers' page is shown while its tab is open.
+    pub fn sync_providers(&self, cx: &mut App) {
+        let shown = self.tab == SettingsTab::Agent;
+        self.providers
+            .update(cx, |surface, cx| surface.set_shown(shown, cx));
+    }
+
     /// Open a section's page; Settings reopens on it next time.
     pub fn open_tab(&mut self, tab: SettingsTab, cx: &mut Context<Self>) {
         let tab = drawn(tab);
         if tab != self.tab {
             self.tab = tab;
+            self.sync_providers(cx);
             // Every page shares the viewport, which starts at its top.
             self.scroll.set_offset(point(px(0.), px(0.)));
             self.rows.borrow_mut().clear();
@@ -630,6 +649,7 @@ impl SettingsDialog {
             // The log fills the page and scrolls inside its card instead.
             SettingsTab::Logs => return self.logs_page(page_width, narrow, cx),
             SettingsTab::Editor => super::editor_pane::render(self, page_width, window, cx),
+            SettingsTab::Agent => super::providers_pane::render(self.providers.clone(), narrow, cx),
             SettingsTab::Doctor => super::editor_pane::doctor(page_width, cx),
             SettingsTab::Overleaf => super::overleaf_pane::render(self, page_width, window, cx),
             _ => super::appearance_pane::render(self, page_width, window, cx),
@@ -654,6 +674,9 @@ impl SettingsDialog {
                 div()
                     .id("settings-page")
                     .size_full()
+                    .when(self.tab == SettingsTab::Agent, |this| {
+                        this.flex().flex_col()
+                    })
                     .overflow_y_scroll()
                     .track_scroll(&self.scroll)
                     .when(narrow, |this| this.child(self.back_button(cx)))

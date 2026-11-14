@@ -37,6 +37,7 @@ pub(in crate::scenario) const MODULES: &[(&str, &[&str])] = &[
     ("islands", &[]),
     ("structured", &[]),
     ("markdown", &[]),
+    ("agent", &[]),
     ("tab_strip", &[]),
     ("narrow_window", &[]),
     ("pdf", &[]),

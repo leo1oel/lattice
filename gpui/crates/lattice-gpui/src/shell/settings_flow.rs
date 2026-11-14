@@ -23,18 +23,20 @@ impl Shell {
         self.palette = None;
         self.shortcuts = None;
         let weak = cx.entity().downgrade();
+        let providers = self.agent.settings.clone();
         let project = self.project.clone();
         let live = Some(self.live_preview.clone());
-        let view =
-            cx.new(|cx| crate::settings::SettingsDialog::new(weak, project, live, tab, window, cx));
+        let view = cx.new(|cx| {
+            crate::settings::SettingsDialog::new(weak, providers, project, live, tab, window, cx)
+        });
+        view.update(cx, |dialog, cx| dialog.sync_providers(cx));
         cx.subscribe_in(
             &view,
             window,
             |this, _, event: &crate::settings::SettingsEvent, window, cx| match event {
                 crate::settings::SettingsEvent::Close => {
-                    this.settings = None;
+                    this.close_settings(cx);
                     this.focus_front(window, cx);
-                    cx.notify();
                 }
                 crate::settings::SettingsEvent::CleanBuildFiles => {
                     window.dispatch_action(Box::new(super::CleanBuildFiles), cx)
@@ -47,6 +49,15 @@ impl Shell {
             dialog.update(cx, |dialog, cx| dialog.focus_search(window, cx))
         });
         self.settings = Some(view);
+        cx.notify();
+    }
+
+    /// Close Settings, its Providers page off screen at once.
+    pub(crate) fn close_settings(&mut self, cx: &mut Context<Self>) {
+        self.settings = None;
+        self.agent
+            .settings
+            .update(cx, |surface, cx| surface.set_shown(false, cx));
         cx.notify();
     }
 

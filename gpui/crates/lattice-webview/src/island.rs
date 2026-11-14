@@ -55,7 +55,8 @@
 //! holds the file's text and saves it as every document is saved
 //! (lattice-core's editor transaction), and the slides island's saves are
 //! mutations its owner applies through lattice-core too. An island that never
-//! hibernates (the Agent) lands with the Agent.
+//! hibernates (the Agent's, [`IslandConfig::hibernates`]) keeps its page,
+//! and the turns running in it, while hidden.
 
 use std::time::Duration;
 
@@ -73,6 +74,7 @@ use serde_json::{Value, json};
 use crate::{
     bridge::{self, Inbound, Outbound},
     files::FileScope,
+    held::hold,
     keys,
     masked::Masked,
     native::{keep_drawing_when_occluded, lab_ignore_occlusion, native_frame, native_page_focused},
@@ -105,6 +107,11 @@ pub struct IslandConfig {
     pub reveal_on_ready: bool,
     /// How the page takes the host's theme.
     pub theme: IslandTheme,
+    /// Whether the page is torn down after [`HIBERNATE_AFTER`] hidden. The
+    /// Agent's is not: a hidden Agent panel may still own a running turn or
+    /// a terminal, as its iframe did in the Tauri app, which never
+    /// hibernated it (`trellis-agent-surface.tsx`).
+    pub hibernates: bool,
 }
 
 /// Where the island is in its life.
@@ -364,7 +371,7 @@ impl Island {
     /// Tear the page down now rather than after the hidden period; for the
     /// scripted checks and for memory pressure.
     pub fn hibernate(&mut self, cx: &mut Context<Self>) {
-        if self.active || self.webview.is_none() {
+        if self.active || self.webview.is_none() || !self.config.hibernates {
             return;
         }
         self.webview = None;
@@ -385,6 +392,9 @@ impl Island {
     }
 
     fn schedule_hibernation(&mut self, cx: &mut Context<Self>) {
+        if !self.config.hibernates {
+            return;
+        }
         let after = Registry::hibernate_after(cx).unwrap_or(HIBERNATE_AFTER);
         self.hibernation = Some(cx.spawn(async move |this, cx| {
             cx.background_executor().timer(after).await;
@@ -719,23 +729,6 @@ impl Island {
     }
 }
 
-/// Hold `message` until the page listens: every response in order, and of
-/// each event only the latest, in the place of the first, since a page that
-/// has not loaded needs only where things stand (an island never shown would
-/// otherwise gather an event per change on disk).
-fn hold(queue: &mut Vec<Outbound>, message: Outbound) {
-    let held = match &message {
-        Outbound::Event { kind, .. } => queue.iter_mut().find(
-            |held| matches!(held, Outbound::Event { kind: held_kind, .. } if held_kind == kind),
-        ),
-        Outbound::Response { .. } => None,
-    };
-    match held {
-        Some(held) => *held = message,
-        None => queue.push(message),
-    }
-}
-
 impl EventEmitter<IslandEvent> for Island {}
 
 impl Focusable for Island {
@@ -793,36 +786,6 @@ impl Render for Island {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn a_page_not_yet_listening_gets_the_latest_of_each_event_and_every_response() {
-        let mut queue = Vec::new();
-        for revision in 0..100 {
-            hold(
-                &mut queue,
-                Outbound::event("html:assets-changed", Value::Null),
-            );
-            hold(
-                &mut queue,
-                Outbound::event("html:render", json!({ "revision": revision })),
-            );
-        }
-        hold(&mut queue, Outbound::response(1, Ok(json!("a"))));
-        hold(&mut queue, Outbound::response(2, Err("b".into())));
-        hold(
-            &mut queue,
-            Outbound::event("html:assets-changed", Value::Null),
-        );
-        assert_eq!(
-            queue,
-            vec![
-                Outbound::event("html:assets-changed", Value::Null),
-                Outbound::event("html:render", json!({ "revision": 99 })),
-                Outbound::response(1, Ok(json!("a"))),
-                Outbound::response(2, Err("b".into())),
-            ]
-        );
-    }
 
     #[test]
     fn hibernates_after_the_tauri_apps_delay() {

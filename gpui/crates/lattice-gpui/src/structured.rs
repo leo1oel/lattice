@@ -180,6 +180,7 @@ impl StructuredDocument {
                     ground: Some(palette.editor),
                     reveal_on_ready: false,
                     theme: IslandTheme::Document,
+                    hibernates: true,
                 };
                 let island = cx.new(|cx| Island::new(config, window, cx));
                 subscriptions.push(cx.subscribe_in(&island, window, Self::on_island));
@@ -405,41 +406,11 @@ impl StructuredDocument {
 
     /// The page's `confirmAction`, asked in the app's confirm dialog.
     fn confirm(&mut self, id: u64, payload: &Value, cx: &mut Context<Self>) {
-        let text = |key: &str| {
-            payload
-                .get(key)
-                .and_then(Value::as_str)
-                .filter(|text| !text.is_empty())
-                .map(str::to_string)
-        };
-        let message = text("message").unwrap_or_default();
-        let (title, body) = match text("title") {
-            Some(title) => (title, Some(message)),
-            None => (message, None),
-        };
-        let mut question = crate::confirm::Confirm::new(title);
-        if let Some(body) = body.filter(|body| !body.is_empty()) {
-            question = question.body(body);
-        }
-        if let Some(label) = text("confirmLabel") {
-            question = question.confirm_label(label);
-        }
-        if payload.get("destructive").and_then(Value::as_bool) == Some(true) {
-            question = question.destructive();
-        }
         let this = cx.entity().downgrade();
-        let cancelled = this.clone();
-        question = question
-            .on_confirm(move |_, cx| {
-                this.update(cx, |this, cx| this.respond(id, Ok(json!("confirm")), cx))
-                    .ok();
-            })
-            .on_cancel(move |cx| {
-                cancelled
-                    .update(cx, |this, cx| this.respond(id, Ok(json!("cancel")), cx))
-                    .ok();
-            });
-        crate::confirm::ask(question, cx);
+        ask_page_confirm(payload, cx, move |answer, cx| {
+            this.update(cx, |this, cx| this.respond(id, Ok(answer), cx))
+                .ok();
+        });
     }
 
     /// One of the Tauri backend's commands, as the page's modules invoke it.
@@ -604,8 +575,48 @@ fn xlsx_request(payload: &Value) -> Result<(PathBuf, Vec<u8>), String> {
     Ok((PathBuf::from(destination), bytes))
 }
 
+/// An island page's `confirmAction` (`island:confirm`: its `ConfirmActionOptions`),
+/// asked in the app's confirm dialog; `answer` gets `"confirm"` or `"cancel"`.
+pub(crate) fn ask_page_confirm(
+    payload: &Value,
+    cx: &mut App,
+    answer: impl Fn(Value, &mut App) + 'static,
+) {
+    let text = |key: &str| {
+        payload
+            .get(key)
+            .and_then(Value::as_str)
+            .filter(|text| !text.is_empty())
+            .map(str::to_string)
+    };
+    let message = text("message").unwrap_or_default();
+    let (title, body) = match text("title") {
+        Some(title) => (title, Some(message)),
+        None => (message, None),
+    };
+    let mut question = crate::confirm::Confirm::new(title);
+    if let Some(body) = body.filter(|body| !body.is_empty()) {
+        question = question.body(body);
+    }
+    if let Some(label) = text("confirmLabel") {
+        question = question.confirm_label(label);
+    }
+    if let Some(label) = text("cancelLabel") {
+        question = question.cancel_label(label);
+    }
+    if payload.get("destructive").and_then(Value::as_bool) == Some(true) {
+        question = question.destructive();
+    }
+    let answer = std::rc::Rc::new(answer);
+    let cancelled = answer.clone();
+    question = question
+        .on_confirm(move |_, cx| answer(json!("confirm"), cx))
+        .on_cancel(move |cx| cancelled(json!("cancel"), cx));
+    crate::confirm::ask(question, cx);
+}
+
 /// A toast the page raised (`island:notify`), on the app's stack.
-fn show_page_notice(payload: &Value, cx: &mut App) {
+pub(crate) fn show_page_notice(payload: &Value, cx: &mut App) {
     let text = |key: &str| {
         payload
             .get(key)

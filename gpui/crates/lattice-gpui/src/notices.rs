@@ -187,6 +187,19 @@ pub fn show(notice: Notice, cx: &mut App) {
     stack.update(cx, |stack, cx| stack.push(notice, cx));
 }
 
+/// Whether the notice showing under `key` is an operation still under way
+/// ([`Notice::running`]).
+pub fn is_running(key: &str, cx: &App) -> bool {
+    cx.try_global::<NoticeCenter>().is_some_and(|center| {
+        center
+            .0
+            .read(cx)
+            .shown
+            .iter()
+            .any(|shown| shown.notice.key.as_deref() == Some(key) && shown.notice.running)
+    })
+}
+
 /// Take down the notice showing under `key`, if any.
 pub fn dismiss(key: &str, cx: &mut App) {
     let Some(center) = cx.try_global::<NoticeCenter>() else {

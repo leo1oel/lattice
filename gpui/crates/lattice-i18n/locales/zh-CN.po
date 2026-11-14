@@ -313,7 +313,6 @@ msgstr "PDF 无法读取：这不是 PDF 文件。"
 msgid "The PDF could not be read: {0}"
 msgstr "PDF 无法读取：{0}"
 
-
 #: lattice-gpui/src/shell/commands/projects.rs
 msgid "Resolve conflicts…"
 msgstr "解决冲突…"
@@ -357,3 +356,15 @@ msgstr "连接已断开"
 #: lattice-gpui/src/settings/logs_export.rs
 msgid "This run keeps no log folder."
 msgstr "此次运行不保留日志文件夹。"
+
+#: lattice-gpui/src/agent/surface.rs
+msgid "The Agent couldn’t start"
+msgstr "AI 助手无法启动"
+
+#: lattice-gpui/src/shell/overleaf_presence.rs
+msgid "{count} people on Overleaf now"
+msgstr "{count} 人正在 Overleaf 上"
+
+#: lattice-gpui/src/shell/overleaf_presence.rs
+msgid "{name} at {place}. Click to jump there"
+msgstr "{name} 在 {place}，点击跳转"

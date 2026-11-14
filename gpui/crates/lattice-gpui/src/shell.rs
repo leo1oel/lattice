@@ -13,6 +13,7 @@
 //! the PDFs (`pdfs`) and SyncTeX (`synctex`).
 
 mod actions;
+mod agent_flow;
 mod arrange;
 mod assets;
 mod build;
@@ -71,6 +72,7 @@ pub use commands::{
 pub use help_flow::{ReportProblem, WhatsNew};
 pub use references_flow::{FindReferences, RenameSymbol};
 pub use tools_flow::{ExportArxiv, OpenChecklist, OpenTodos};
+pub(crate) use workspace_flow::LayoutState;
 
 use crate::{
     build::{
@@ -102,22 +104,6 @@ pub fn bind_keys(cx: &mut App) {
     commands::bind_keys(cx);
 }
 
-/// The window's layout state: the workspace the project is in, a preset or
-/// focus mode laid over it, and whether its arrangement differs from the
-/// workspace's.
-#[derive(Default)]
-pub(crate) struct LayoutState {
-    pub workspace: Option<String>,
-    pub preset: Option<trellis_layout::ActivePreset>,
-    /// Focus mode, and the layout it returns to.
-    pub focus: Option<trellis_layout::ActiveFocus>,
-    pub dirty: bool,
-    /// The workspace whose name is being edited in place.
-    pub renaming: Option<String>,
-    /// Where each document sat in each workspace, by workspace id.
-    pub places: std::collections::BTreeMap<String, trellis_layout::DocumentPlaces>,
-}
-
 /// A project open in a window, with the name its tab shows.
 pub(crate) struct OpenProject {
     pub root: PathBuf,
@@ -144,7 +130,8 @@ pub struct Shell {
     panel_dragging: bool,
     file_tree: Entity<FileTreePanel>,
     papers: Entity<StandInPanel>,
-    agent: Entity<StandInPanel>,
+    /// The Agent and its Git workspace (`agent_flow`).
+    pub(crate) agent: agent_flow::AgentWindow,
     pdf: Entity<PdfPanel>,
     /// The open project's LuaLaTeX live preview (`crate::live_preview`).
     pub(crate) live_preview: Entity<crate::live_preview::LivePreview>,
@@ -299,7 +286,7 @@ impl Shell {
         });
         let file_tree = cx.new(FileTreePanel::new);
         let papers = cx.new(|cx| StandInPanel::new(StandIn::Papers, cx));
-        let agent = cx.new(|cx| StandInPanel::new(StandIn::Agent, cx));
+        let agent = agent_flow::AgentWindow::new(window, cx);
         let pdf = cx.new(|cx| PdfPanel::new(PdfPanelKind::Live, window, cx));
         let live_preview = crate::live_preview::new(cx);
         let preview = Some(live_preview.clone());
@@ -387,6 +374,7 @@ impl Shell {
         })
         .detach();
         cx.subscribe_in(&pdf, window, Self::on_pdf_event).detach();
+        agent.watch(window, cx);
         cx.subscribe_in(&history, window, |this, _, event, window, cx| {
             this.on_history_event(event, window, cx)
         })

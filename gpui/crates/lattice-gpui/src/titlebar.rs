@@ -302,12 +302,7 @@ pub fn render(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> im
             .filter(|_| shell.overleaf.read(cx).link().is_none()),
         )
         .children(shell.overleaf_tools(cx))
-        .children(tool(
-            TitlebarTool::Git,
-            "git",
-            Icon::GIT,
-            t!("Git status and commit"),
-        ))
+        .children((!hidden.contains(&TitlebarTool::Git)).then(|| shell.git_button(cx)))
         .children((!hidden.contains(&TitlebarTool::History)).then(|| shell.history_button(cx)))
         // Moves the workspace into a browser tab (`canvas-toolbar.tsx`,
         // `onMoveWorkspace`), the last of the app's tools.

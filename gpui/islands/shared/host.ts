@@ -19,6 +19,10 @@ export type LatticeHost = {
   request<T = unknown>(type: string, payload?: unknown): Promise<T>;
   on(type: string, listener: HostListener): () => void;
   ready(): void;
+  /** The app's shortcuts the host last relayed (`host:relay`), as `meta+shift+KeyK` combinations. */
+  relay(): string[];
+  /** A key pressed in a child frame, sent to the host when it is one of those. */
+  forwardKey(init: Pick<KeyboardEvent, "code" | "key" | "metaKey" | "ctrlKey" | "altKey" | "shiftKey" | "isComposing">): boolean;
 };
 
 declare global {

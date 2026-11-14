@@ -91,6 +91,7 @@ impl Shell {
         self.refresh_outline(window, cx);
         self.history
             .update(cx, |history, cx| history.set_project(project.clone(), cx));
+        self.agent_project(Some(root.clone()), cx);
         self.tools_project_opened(&project, &root, window, cx);
         let terminal_moved = self.terminal_follows(root.clone(), cx);
         self._project_git = Some(cx.subscribe(&project, |this, _, event, cx| match event {
