@@ -207,7 +207,7 @@ header is the place to start.
 | `review_pdf.rs` | The review copy of the compiled PDF: the writer's chosen annotations appended as standard Highlight and Text annotations in one incremental update. |
 | `papers.rs` + `papers/` | Reference import and the paper library: bundles, Markdown conversion, citation insertion, full-text search (`search_index`). |
 | `bib_document.rs` + `bib_document/` | A `.bib` file read with the exact span of every entry, field and `@string` macro, and edited by splicing those spans; the Rust port of `src/papers/bib-document.ts`, used by the GPUI app's `.bib` form. |
-| `paper_pdf_proxy.rs` | A loopback, token-guarded URL that streams a remote paper PDF to PDF.js. |
+| `paper_pdf_proxy.rs` | A loopback, token-guarded URL that streams a remote paper PDF to PDF.js; `fetch_pdf` applies the same URL rules to fetch the whole PDF for the GPUI app's paper reader. |
 | `citation_audit.rs` + `citation_audit/` | The bibliography audit: check `.bib` entries and inline reference lists against publication sources and apply reviewed fixes. |
 | `citation_batch.rs` | Exact-ID Semantic Scholar hydration for the audit. |
 | `citation_health.rs` | Cached Crossref notices (retractions, corrections) for the DOIs a project cites. |
