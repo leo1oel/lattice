@@ -2,18 +2,14 @@
 //! a check at launch and every six hours, an offer ("New version {version}",
 //! Update now), the download with its progress, the install, and the offer
 //! to restart ("Lattice {version} is ready", Restart now); Lattice ▸ Check
-//! for Updates… checks at once and says when nothing is new. In automatic
-//! mode a release found is installed without asking, and only the restart
-//! is offered. A restart that would stop a build asks first, and every
-//! window saves its open edits before it (`on_app_quit`).
+//! for Updates… checks at once and says when nothing is new. A restart that
+//! would stop a build asks first, and every window saves its open edits
+//! before it (`on_app_quit`).
 //!
 //! It is off: the GPUI app has no release channel yet, and none ships until
 //! one is approved. [`GPUI_CHANNEL`] is where its manifest and the key that
 //! signs its archives go; until then the updater checks nothing, the menu
-//! has no Check for Updates…, and Report a problem files at once. A run can
-//! name a channel for itself (`LATTICE_GPUI_UPDATE_ENDPOINT` with
-//! `LATTICE_GPUI_UPDATE_PUBKEY`), which is how its scenario drives it; the
-//! archive must still carry that key's signature.
+//! has no Check for Updates…, and Report a problem files at once.
 
 pub mod install;
 pub mod manifest;
@@ -22,7 +18,7 @@ use std::time::Duration;
 
 use gpui::{App, AppContext as _, Context, Entity, Global, MenuItem, Task};
 use lattice_i18n::{t, tc};
-use lattice_ui::components::ToastLevel;
+use lattice_ui::components::{ToastLevel, ToastProgress};
 
 use crate::{
     app_log::{self, Level, NewEntry},
@@ -42,28 +38,14 @@ pub const GPUI_CHANNEL: Option<(&str, &str)> = None;
 
 /// The channel this run updates from, if any.
 pub fn channel() -> Option<Channel> {
-    let named = std::env::var("LATTICE_GPUI_UPDATE_ENDPOINT")
-        .ok()
-        .zip(std::env::var("LATTICE_GPUI_UPDATE_PUBKEY").ok())
-        .filter(|(endpoint, key)| !endpoint.is_empty() && !key.is_empty());
-    named
-        .or_else(|| GPUI_CHANNEL.map(|(endpoint, key)| (endpoint.to_string(), key.to_string())))
-        .map(|(endpoint, public_key)| Channel {
-            endpoint,
-            public_key,
-        })
+    GPUI_CHANNEL.map(|(endpoint, public_key)| Channel {
+        endpoint: endpoint.to_string(),
+        public_key: public_key.to_string(),
+    })
 }
 
 const CHECK_INTERVAL: Duration = Duration::from_secs(6 * 60 * 60);
 const NOTICE_KEY: &str = "app-update";
-
-/// Whether a release found is installed without asking (`auto`) or offered.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum Mode {
-    Auto,
-    #[default]
-    Manual,
-}
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Phase {
@@ -83,7 +65,6 @@ pub enum Phase {
 
 pub struct Updater {
     channel: Option<Channel>,
-    pub mode: Mode,
     pub phase: Phase,
     _task: Option<Task<()>>,
     _schedule: Option<Task<()>>,
@@ -97,7 +78,6 @@ pub fn install(scripted: bool, cx: &mut App) -> Entity<Updater> {
     let updater = cx.new(|cx| {
         let mut updater = Updater {
             channel: channel(),
-            mode: Mode::default(),
             phase: Phase::Idle,
             _task: None,
             _schedule: None,
@@ -195,11 +175,7 @@ impl Updater {
                 Ok(Some(release)) => {
                     this.phase = Phase::Available(release.clone());
                     crate::shell::menus::refresh(cx);
-                    if this.mode == Mode::Auto {
-                        this.install(false, cx);
-                    } else {
-                        this.offer(&release.version, cx);
-                    }
+                    this.offer(&release.version, cx);
                 }
                 Ok(None) => {
                     this.phase = Phase::UpToDate;
@@ -281,9 +257,12 @@ impl Updater {
         );
         let (progress_tx, mut progress_rx) = futures::channel::mpsc::unbounded::<Option<f32>>();
         let work = cx.background_spawn(async move {
-            let bytes = install::download(&release.platform.url, |share| {
-                progress_tx.unbounded_send(share).ok();
-            })?;
+            let bytes = {
+                let progress_tx = progress_tx;
+                install::download(&release.platform.url, |share| {
+                    progress_tx.unbounded_send(share).ok();
+                })?
+            };
             install::verify(&bytes, &release.platform.signature, &channel.public_key)?;
             let bundle = install::running_bundle()
                 .ok_or_else(|| "Lattice is not running from an app bundle".to_string())?;
@@ -296,6 +275,11 @@ impl Updater {
                     if let Phase::Downloading { progress, .. } = &mut this.phase {
                         *progress = share;
                         cx.notify();
+                        notices::update_progress(
+                            NOTICE_KEY,
+                            share.map_or(ToastProgress::Indeterminate, ToastProgress::Fraction),
+                            cx,
+                        );
                     }
                 })
                 .ok();
