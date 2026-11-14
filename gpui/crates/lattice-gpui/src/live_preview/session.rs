@@ -738,6 +738,7 @@ impl LivePreview {
         if let Some(session) = self.session_mut() {
             session.receive_message(message, cx);
         }
+        self.flush(cx);
     }
 
     /// Write the queued commands to rtex, one batch at a time, in order: the

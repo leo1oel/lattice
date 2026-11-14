@@ -102,9 +102,6 @@ pub struct PdfPanel {
     title: SharedString,
     /// The live PDF's Outline, carried into its window.
     outline: Option<super::OutlineState>,
-    /// The LuaLaTeX live preview drawn over the live PDF's pages, in the
-    /// panel and in its separate window.
-    live_preview: Option<Entity<crate::live_preview::LivePreview>>,
     _subscriptions: Vec<gpui::Subscription>,
 }
 
@@ -154,24 +151,20 @@ impl PdfPanel {
             build_output: None,
             title: "PDF".into(),
             outline: None,
-            live_preview: None,
             _subscriptions: subscriptions,
         }
     }
 
-    /// Draw `preview` over the live PDF's pages, wherever it is shown.
+    /// Draw `preview` over the live PDF's pages in this panel only: the
+    /// separate window shows the paper's own PDF, without the live layer.
     pub fn set_live_preview(
         &mut self,
         preview: Option<Entity<crate::live_preview::LivePreview>>,
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.live_preview = preview.clone();
         self.view
-            .update(cx, |view, cx| view.set_live_preview(preview.clone(), cx));
-        if let Some((_, view)) = &self.window {
-            view.update(cx, |view, cx| view.set_live_preview(preview, cx));
-        }
+            .update(cx, |view, cx| view.set_live_preview(preview, cx));
     }
 
     /// Show the build's diagnostics card over (or under) the pages.
@@ -403,8 +396,6 @@ impl PdfPanel {
         );
         match opened {
             Ok((handle, view)) => {
-                let preview = self.live_preview.clone();
-                view.update(cx, |view, cx| view.set_live_preview(preview, cx));
                 // The panel's own viewer lets go of its pages.
                 self.view.update(cx, |view, cx| view.close(window, cx));
                 self.window = Some((handle, view));
