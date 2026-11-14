@@ -281,6 +281,7 @@ impl EditorPanel {
             // arms the autosave.
             cx.subscribe(&buffer, |this, _, event: &BufferEvent, cx| match event {
                 BufferEvent::Edited { .. } => {
+                    crate::crash::note_editor(this, cx);
                     cx.emit(EditorPanelEvent::Edited);
                     this.note_overleaf_edit(cx);
                     this.schedule_autosave(cx);
@@ -288,7 +289,10 @@ impl EditorPanel {
                     this.views_source_changed(cx);
                     this.structured_source_changed(cx);
                 }
-                BufferEvent::DirtyChanged | BufferEvent::Saved => cx.notify(),
+                BufferEvent::DirtyChanged | BufferEvent::Saved => {
+                    crate::crash::note_editor(this, cx);
+                    cx.notify()
+                }
                 _ => {}
             }),
             // The build chip in this panel's strip follows the build, and

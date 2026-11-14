@@ -42,3 +42,13 @@ A feature that lands deletes its own line (only that line, so features landing s
 - [ ] Settings: the Agent's Environment page.
 
 - [ ] Settings: the other integrations and about pages.
+
+- [ ] The palette's Recent commands, "In this document" suggestions, Recent files, Papers and Settings results, its "Search the project for …" fallback and its detail column.
+
+- [ ] The shortcut sheet's filter field, its missing groups and its Esc row.
+
+- [ ] Focus mode's bar and Escape to leave it.
+
+- [ ] The app updater: its check, download and restart prompt, Lattice › Check for Updates…, the outdated-version hint and Report a Problem's update gate.
+
+- [ ] File › Export ZIP….

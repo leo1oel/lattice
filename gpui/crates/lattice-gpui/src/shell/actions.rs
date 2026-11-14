@@ -291,7 +291,7 @@ impl Shell {
                 }),
             )
             .on_action(cx.listener(|_, _: &NewWindow, window, cx| {
-                windows::new_window(None, Some(window.bounds()), cx)
+                windows::new_window(None, Some(windows::place_of(window, cx)), cx)
             }))
             .on_action(cx.listener(|this, _: &OpenInNewWindow, window, cx| {
                 this.open_in_new_window(window, cx)

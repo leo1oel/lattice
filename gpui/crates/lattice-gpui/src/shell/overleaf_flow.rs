@@ -73,6 +73,7 @@ impl Shell {
                 this.show_overleaf_save(cx);
                 this.push_agent_overleaf(cx);
                 this.show_overleaf_review(cx);
+                super::menus::follow_front(cx);
                 cx.notify()
             }),
             // Another window signed in or out, or a request found the
@@ -112,6 +113,7 @@ impl Shell {
 
     /// "Open from Overleaf".
     pub(crate) fn open_overleaf_picker(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.abandon_launch_reopen();
         if self.overleaf_layers.picker.is_some() {
             return;
         }

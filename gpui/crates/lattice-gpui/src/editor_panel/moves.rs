@@ -71,6 +71,7 @@ impl EditorPanel {
             (None, false) => {}
         }
         self.offer_view_switch(cx);
+        crate::crash::note_editor(self, cx);
         cx.notify();
     }
 }

@@ -66,7 +66,7 @@ use std::path::PathBuf;
 
 use futures::channel::oneshot;
 use gpui::{
-    AnyWindowHandle, App, AppContext as _, Bounds, Context, Entity, FocusHandle, Focusable,
+    AnyWindowHandle, App, AppContext as _, Context, Entity, FocusHandle, Focusable,
     InteractiveElement as _, IntoElement, ParentElement as _, Render, SharedString, Styled as _,
     Subscription, Task, WeakEntity, Window, WindowBounds, WindowOptions,
     prelude::FluentBuilder as _, px, size,
@@ -255,17 +255,21 @@ impl Shell {
         Self::open_window_with(root, None, cx)
     }
 
-    /// A window `size` wide and high (1440×900 by default), cascaded from the
-    /// active one when there is one.
+    /// A window at `place`, else where the last one was left (1440×900 by
+    /// default) when it is the launch's first (`windows::launch_bounds`).
     pub fn open_window_with(
         root: Option<PathBuf>,
-        bounds: Option<Bounds<gpui::Pixels>>,
+        place: Option<windows::Place>,
         cx: &mut App,
     ) -> anyhow::Result<(AnyWindowHandle, Entity<Shell>)> {
-        let bounds = bounds.unwrap_or_else(|| Bounds::centered(None, windows::window_size(), cx));
+        let (bounds, display_id) = match place {
+            Some(place) => (WindowBounds::Windowed(place.bounds), place.display),
+            None => windows::launch_bounds(cx),
+        };
         let options = WindowOptions {
-            window_bounds: Some(WindowBounds::Windowed(bounds)),
-            window_min_size: Some(size(px(720.), px(480.))),
+            window_bounds: Some(bounds),
+            display_id,
+            window_min_size: Some(size(px(windows::MIN_WIDTH), px(windows::MIN_HEIGHT))),
             titlebar: windows::titlebar_options(),
             ..Default::default()
         };
