@@ -14,7 +14,6 @@ use lattice_ui::{
 use super::{
     FigureInventory, Preview,
     scan::{FigureUse, figure_argument, is_figure_asset, is_vector_figure},
-    undo_of,
 };
 
 /// An `InlineMessage` of the warning or error level.
@@ -322,7 +321,7 @@ impl FigureInventory {
             !self.loading
                 && plan
                     .iter()
-                    .all(|edit| self.live_sources().get(&edit.path) == Some(&edit.before))
+                    .all(|edit| self.live.get(&edit.path) == Some(&edit.before))
         });
         let target = self.target.clone();
         let _ = key;
@@ -391,17 +390,16 @@ impl FigureInventory {
 impl Render for FigureInventory {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let viewport = window.viewport_size();
-        let inventory = self.inventory();
         let mut groups: Vec<(String, Vec<FigureUse>)> = Vec::new();
-        for use_ in inventory.uses.iter().cloned() {
+        for use_ in self.inventory.uses.iter().cloned() {
             let key = use_.asset.clone().unwrap_or_else(|| use_.raw.clone());
             match groups.iter_mut().find(|(existing, _)| *existing == key) {
                 Some((_, uses)) => uses.push(use_),
                 None => groups.push((key, vec![use_])),
             }
         }
-        let count = inventory.uses.len();
-        let has_undo = !undo_of(&self.root, cx).is_empty();
+        let count = self.inventory.uses.len();
+        let has_undo = self.can_undo();
         let mut body: Vec<AnyElement> = Vec::new();
         let mut actions = div().flex().flex_wrap().items_center().gap(px(4.)).child(
             Button::new("figure-refresh", t!("Refresh"))
@@ -437,12 +435,12 @@ impl Render for FigureInventory {
                 cx,
             ));
         }
-        if !inventory.limited.is_empty() {
+        if !self.inventory.limited.is_empty() {
             body.push(message(
                 format!(
                     "{} {}",
                     t!("Static coverage is limited in:"),
-                    inventory.limited.join(", ")
+                    self.inventory.limited.join(", ")
                 ),
                 false,
                 cx,

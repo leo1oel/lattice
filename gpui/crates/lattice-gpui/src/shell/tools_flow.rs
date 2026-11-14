@@ -19,17 +19,20 @@ use super::Shell;
 use crate::submission::{
     arxiv::{ArxivEvent, ArxivExportSheet},
     checklist::ChecklistPanel,
-    figures::{FigureInventory, FiguresEvent},
+    figures::{FigureInventory, FigureUndo, FiguresEvent},
     todos::{TodosEvent, TodosPanel},
 };
 
 actions!(lattice, [OpenTodos, OpenChecklist, ExportArxiv]);
 
-/// The sheets the submission tools put over the window, while open.
+/// The sheets the submission tools put over the window, while open, and
+/// the figure writes that can be undone in the window's project: all of it
+/// goes when the window opens another project.
 #[derive(Default)]
 pub(crate) struct Sheets {
     pub(crate) arxiv: Option<(Entity<ArxivExportSheet>, Subscription)>,
     pub(crate) figures: Option<(Entity<FigureInventory>, Subscription)>,
+    pub(crate) figure_undo: FigureUndo,
 }
 
 /// Every file in the project tree.
@@ -73,7 +76,6 @@ impl Shell {
         cx: &mut Context<Self>,
     ) {
         let root = root.to_path_buf();
-        crate::submission::figures::forget_undo(cx);
         self.todos
             .update(cx, |todos, cx| todos.set_root(Some(root), cx));
         self.checklist.update(cx, |checklist, cx| {
@@ -198,7 +200,8 @@ impl Shell {
                 .flatten()
                 .unwrap_or_else(|| Task::ready(true))
         });
-        let sheet = cx.new(|cx| FigureInventory::new(root, paths, overlay, save, cx));
+        let undo = self.sheets.figure_undo.clone();
+        let sheet = cx.new(|cx| FigureInventory::new(root, paths, overlay, save, undo, cx));
         let subscription = cx.subscribe_in(&sheet, window, |this, _, event, window, cx| {
             this.sheets.figures = None;
             match event {

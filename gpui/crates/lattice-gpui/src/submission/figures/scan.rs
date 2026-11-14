@@ -119,15 +119,16 @@ fn visible_tex(text: &str) -> String {
             if bytes.get(open) == Some(&b'*') {
                 open += 1;
             }
-            if let Some(&delimiter) = bytes
-                .get(open)
-                .filter(|byte| !byte.is_ascii_alphanumeric() && !byte.is_ascii_whitespace())
-                && let Some(close) = text[open + 1..]
-                    .find(delimiter as char)
-                    .map(|end| open + 1 + end)
+            if let Some(delimiter) = text[open..]
+                .chars()
+                .next()
+                .filter(|c| !c.is_alphanumeric() && !c.is_whitespace() && *c != '_')
+                && let Some(close) = text[open + delimiter.len_utf8()..]
+                    .find(delimiter)
+                    .map(|end| open + 2 * delimiter.len_utf8() + end)
             {
-                blank(&mut out, at, close + 1);
-                at = close + 1;
+                blank(&mut out, at, close);
+                at = close;
                 continue;
             }
         }
@@ -451,6 +452,16 @@ mod tests {
                 .all(|use_| use_.dynamic && use_.asset.is_none())
         );
         assert_eq!(inventory.limited, ["main.tex"]);
+    }
+
+    #[test]
+    fn a_verb_with_a_non_ascii_delimiter_hides_its_text() {
+        let main = "\\verb§\\includegraphics{a}§ und \\verb*。\\includegraphics{a}。\n\\verb_x_ \\includegraphics{b}\n";
+        let paths: Vec<String> = ["a.png", "b.png"].map(String::from).to_vec();
+        let inventory = scan(&sources(&[("main.tex", main)]), &paths);
+        let assets: Vec<_> = inventory.uses.iter().map(|use_| use_.asset.as_deref()).collect();
+        assert_eq!(assets, [Some("b.png")]);
+        assert_eq!(inventory.uses[0].line, 2);
     }
 
     #[test]

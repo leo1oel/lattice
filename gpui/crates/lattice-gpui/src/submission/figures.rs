@@ -17,13 +17,14 @@ pub mod scan;
 mod view;
 
 use std::{
+    cell::RefCell,
     collections::{BTreeMap, HashMap},
-    path::{Path, PathBuf},
+    path::PathBuf,
     rc::Rc,
     sync::Arc,
 };
 
-use gpui::{App, AppContext as _, Context, EventEmitter, Global, ImageSource, RenderImage, Task};
+use gpui::{App, AppContext as _, Context, EventEmitter, ImageSource, RenderImage, Task};
 use lattice_i18n::t;
 
 use scan::{FigureEdit, FigureUse};
@@ -38,24 +39,10 @@ pub enum FiguresEvent {
     },
 }
 
-/// Each project's undoable figure writes, by its folder: they outlive the
-/// sheet, so navigating away and coming back keeps them.
-#[derive(Default)]
-struct FigureUndo(HashMap<PathBuf, Vec<FigureEdit>>);
-
-impl Global for FigureUndo {}
-
-/// A project opened in the window: what could be undone in the one before
-/// is forgotten, as the Tauri app keeps it only for the open project.
-pub fn forget_undo(cx: &mut App) {
-    cx.default_global::<FigureUndo>().0.clear();
-}
-
-fn undo_of(root: &Path, cx: &App) -> Vec<FigureEdit> {
-    cx.try_global::<FigureUndo>()
-        .and_then(|undo| undo.0.get(root).cloned())
-        .unwrap_or_default()
-}
+/// The window's undoable figure writes for its open project: held by the
+/// window, they outlive the sheet, so navigating away and coming back keeps
+/// them, and go when the window opens another project.
+pub type FigureUndo = Rc<RefCell<Vec<FigureEdit>>>;
 
 /// Saves the open edits; resolves false when one could not be saved.
 pub type SaveEdits = Rc<dyn Fn(&mut App) -> Task<bool>>;
@@ -80,6 +67,10 @@ pub struct FigureInventory {
     /// The `.tex` sources as read, with the editor's buffer laid over its file.
     sources: BTreeMap<String, String>,
     overlay: Option<(String, String)>,
+    /// `sources` with the overlay laid over, and what the scan found in
+    /// them: computed when either changes, not on every frame.
+    live: BTreeMap<String, String>,
+    inventory: scan::Inventory,
     unreadable: Vec<String>,
     loading: bool,
     revision: u64,
@@ -90,6 +81,7 @@ pub struct FigureInventory {
     plan: Option<Vec<FigureEdit>>,
     previews: HashMap<String, Preview>,
     save: SaveEdits,
+    undo: FigureUndo,
     _load: Option<Task<()>>,
 }
 
@@ -103,6 +95,7 @@ impl FigureInventory {
         paths: Vec<String>,
         overlay: Option<(String, String)>,
         save: SaveEdits,
+        undo: FigureUndo,
         cx: &mut Context<Self>,
     ) -> Self {
         let mut sheet = Self {
@@ -110,6 +103,8 @@ impl FigureInventory {
             paths,
             sources: BTreeMap::new(),
             overlay,
+            live: BTreeMap::new(),
+            inventory: scan::Inventory::default(),
             unreadable: Vec::new(),
             loading: true,
             revision: 0,
@@ -120,6 +115,7 @@ impl FigureInventory {
             plan: None,
             previews: HashMap::new(),
             save,
+            undo,
             _load: None,
         };
         sheet.reload(cx);
@@ -159,31 +155,30 @@ impl FigureInventory {
                     this.sources = sources;
                     this.unreadable = unreadable;
                     this.loading = false;
+                    this.rescan();
                     cx.notify();
                 }
             })
             .ok();
         }));
+        self.rescan();
         cx.notify();
     }
 
-    /// The sources with the editor's buffer laid over its file.
-    fn live_sources(&self) -> BTreeMap<String, String> {
-        let mut sources = self.sources.clone();
+    /// Lay the editor's buffer over its file and scan the result again.
+    fn rescan(&mut self) {
+        self.live = self.sources.clone();
         if let Some((path, text)) = &self.overlay
             && path.to_ascii_lowercase().ends_with(".tex")
             && !self.loading
         {
-            sources.insert(path.clone(), text.clone());
+            self.live.insert(path.clone(), text.clone());
         }
-        sources
-    }
-
-    fn inventory(&self) -> scan::Inventory {
-        if self.loading {
-            return scan::Inventory::default();
-        }
-        scan::scan(&self.live_sources(), &self.paths)
+        self.inventory = if self.loading {
+            scan::Inventory::default()
+        } else {
+            scan::scan(&self.live, &self.paths)
+        };
     }
 
     /// Read `path`'s preview once: a raster's pixel size, a PDF's first
@@ -256,7 +251,7 @@ impl FigureInventory {
         let Some(target) = self.target.clone() else {
             return;
         };
-        match scan::replacement(&self.live_sources(), uses, &target) {
+        match scan::replacement(&self.live, uses, &target) {
             Ok(plan) => {
                 self.plan = Some(plan);
                 self.error = None;
@@ -308,9 +303,7 @@ impl FigureInventory {
                 .await;
             this.update(cx, |this, cx| {
                 let (applied, error) = written;
-                let root = this.root.clone();
-                let undo = &mut cx.default_global::<FigureUndo>().0;
-                let edits = undo.entry(root).or_default();
+                let mut edits = this.undo.borrow_mut();
                 for edit in applied {
                     let earlier = edits.iter().position(|item| item.path == edit.path);
                     let before = earlier.map(|at| edits.remove(at).before);
@@ -321,6 +314,7 @@ impl FigureInventory {
                         });
                     }
                 }
+                drop(edits);
                 this.error = error;
                 this.busy = false;
                 this.plan = None;
@@ -336,8 +330,11 @@ impl FigureInventory {
     }
 
     pub(crate) fn undo(&mut self, cx: &mut Context<Self>) {
-        let edits: Vec<FigureEdit> = undo_of(&self.root, cx)
-            .into_iter()
+        let edits: Vec<FigureEdit> = self
+            .undo
+            .borrow()
+            .iter()
+            .cloned()
             .map(|edit| FigureEdit {
                 path: edit.path,
                 before: edit.after,
@@ -353,12 +350,12 @@ impl FigureInventory {
     }
 
     /// Every literal graphics command the sheet lists.
-    pub(crate) fn uses(&self) -> Vec<FigureUse> {
-        self.inventory().uses
+    pub(crate) fn uses(&self) -> &[FigureUse] {
+        &self.inventory.uses
     }
 
-    pub(crate) fn can_undo(&self, cx: &App) -> bool {
-        !undo_of(&self.root, cx).is_empty()
+    pub(crate) fn can_undo(&self) -> bool {
+        !self.undo.borrow().is_empty()
     }
 
     pub(crate) fn last_error(&self) -> Option<&str> {
@@ -370,8 +367,9 @@ impl FigureInventory {
     pub(crate) fn replace(&mut self, asset: &str, target: &str, cx: &mut Context<Self>) {
         let uses: Vec<FigureUse> = self
             .uses()
-            .into_iter()
+            .iter()
             .filter(|use_| use_.asset.as_deref() == Some(asset))
+            .cloned()
             .collect();
         self.selected = Some(asset.to_string());
         self.target = Some(target.to_string());

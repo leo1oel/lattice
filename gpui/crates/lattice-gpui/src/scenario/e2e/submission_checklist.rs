@@ -160,7 +160,7 @@ impl Run {
         };
         let uses = sheet
             .as_ref()
-            .map(|sheet| cx.update(|cx| sheet.read(cx).uses()))
+            .map(|sheet| cx.update(|cx| sheet.read(cx).uses().to_vec()))
             .unwrap_or_default();
         let found = uses
             .iter()
@@ -217,11 +217,11 @@ impl Run {
             json!({ "replaced": replaced, "error": error }),
         );
 
-        let undoable = cx.update(|cx| sheet.read(cx).can_undo(cx));
+        let undoable = cx.update(|cx| sheet.read(cx).can_undo());
         cx.update(|cx| sheet.update(cx, |sheet, cx| sheet.undo(cx)));
         let undone = self
-            .wait_for_sheet(cx, &sheet, |sheet, cx| {
-                sheet.settled() && !sheet.can_undo(cx)
+            .wait_for_sheet(cx, &sheet, |sheet, _| {
+                sheet.settled() && !sheet.can_undo()
             })
             .await;
         let restored = std::fs::read_to_string(&chapter).unwrap_or_default();
