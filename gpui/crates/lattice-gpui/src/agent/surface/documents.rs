@@ -67,6 +67,12 @@ impl SynaraSurface {
         self.post("agent:deck-request", request, cx);
     }
 
+    /// Show the thread `thread_id` (a compile repair's), as the Tauri app's
+    /// View repair does (`showThread`).
+    pub fn show_thread(&self, thread_id: &str, cx: &mut App) {
+        self.post("agent:show-thread", json!({ "threadId": thread_id }), cx);
+    }
+
     /// The project's files changed on disk (the paper library follows).
     pub fn files_changed(&self, paths: Option<&[String]>, cx: &mut App) {
         self.post("agent:files-changed", json!({ "paths": paths }), cx);

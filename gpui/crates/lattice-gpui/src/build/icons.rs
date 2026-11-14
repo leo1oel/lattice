@@ -20,6 +20,8 @@ pub const PICTURE_IN_PICTURE: Icon = Icon("icons/picture-in-picture-2.svg");
 pub const LOADER: Icon = Icon("icons/loader-circle.svg");
 pub const REFRESH: Icon = Icon("icons/refresh-cw.svg");
 pub const COPY: Icon = Icon("lattice/copy.svg");
+pub const WAND_SPARKLES: Icon = Icon("icons/wand-sparkles.svg");
+pub const SQUARE: Icon = Icon("icons/square.svg");
 
 #[cfg(test)]
 mod tests {
@@ -46,6 +48,8 @@ mod tests {
             (LOADER, "loader-circle"),
             (REFRESH, "refresh-cw"),
             (COPY, "copy"),
+            (WAND_SPARKLES, "wand-sparkles"),
+            (SQUARE, "square"),
         ] {
             let lucide = format!("icons/{name}.svg");
             let expected = kit.load(&lucide).unwrap().expect(&lucide);

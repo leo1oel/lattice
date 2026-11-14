@@ -39,6 +39,7 @@ use crate::build_panel::{BuildAction, BuildPanel, LastBuild, OutputTab};
 
 mod explained;
 mod log;
+mod repair;
 use explained::explained_row;
 use log::{log_lines, log_view};
 
@@ -113,7 +114,9 @@ pub fn card(
         .overflow_hidden()
         .text_color(palette.text_secondary)
         .child(bar(panel, last, build, docked, cx))
-        .children(body);
+        .children(repair::details(panel, cx))
+        .children(body)
+        .children(repair::footer(panel, last, build, cx));
     if docked {
         surface
             .flex_none()
@@ -230,6 +233,7 @@ fn bar(
         .pl(px(8.))
         .pr(px(10.))
         .child(toggle)
+        .children(repair::bar_control(panel, last, build, cx))
         .child(dock)
         .child(close)
         .into_any_element()

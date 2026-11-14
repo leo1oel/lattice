@@ -19,6 +19,7 @@ mod icons;
 pub(crate) mod inputs;
 pub(crate) mod messages;
 pub mod outcome;
+pub(crate) mod repair;
 pub mod sequence;
 pub(crate) mod stall;
 pub mod tex_setup;

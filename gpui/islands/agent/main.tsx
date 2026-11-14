@@ -281,6 +281,8 @@ function Agent({ opened, workspace, visible, appearance, git, overleaf, deckRequ
       takeDeckRequest(deckRequest.nonce);
     }
   }, [deckRequest, opened.projectRoot, opened.surface, sendComposerPrompt, takeDeckRequest]);
+  // A compile repair's View repair (`SynaraSurface::show_thread`, `showThread` in use-document-surfaces.tsx).
+  useEffect(() => host().on("agent:show-thread", (payload) => { const id = (payload as { threadId?: unknown } | null)?.threadId; if (typeof id === "string") synara.showThread(id); }), [synara.showThread]);
 
   // useAgentContext's snapshots, from what the owner reports of the window.
   const hostContext = useMemo(() => buildAgentHostContext({
