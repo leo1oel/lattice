@@ -100,8 +100,8 @@ pub(crate) fn join_conjunction_in<S: AsRef<str>>(items: &[S], locale: Locale) ->
     }
     if locale.is_chinese() {
         let head = rest.join("、");
-        let latin = |c: Option<char>| c.is_some_and(|c| c == '.' || c.is_ascii_alphabetic());
-        let and = if latin(head.chars().last()) && latin(last.chars().next()) {
+        let before = head.chars().last().is_some_and(|c| c == '.' || is_latin(c));
+        let and = if before && last.chars().next().is_some_and(is_latin) {
             " 和 "
         } else {
             "和"
@@ -112,6 +112,20 @@ pub(crate) fn join_conjunction_in<S: AsRef<str>>(items: &[S], locale: Locale) ->
         [only] => format!("{only} and {last}"),
         _ => format!("{}, and {last}", rest.join(", ")),
     }
+}
+
+/// A letter of the Latin script (`\p{Script=Latin}`): ASCII, Latin-1, the
+/// Latin Extended blocks and the fullwidth forms.
+fn is_latin(c: char) -> bool {
+    c.is_ascii_alphabetic()
+        || matches!(c, '\u{AA}' | '\u{BA}')
+        || ('\u{C0}'..='\u{24F}').contains(&c) && !matches!(c, '\u{D7}' | '\u{F7}')
+        || ('\u{1E00}'..='\u{1EFF}').contains(&c)
+        || ('\u{2C60}'..='\u{2C7F}').contains(&c)
+        || ('\u{A720}'..='\u{A7FF}').contains(&c)
+        || ('\u{AB30}'..='\u{AB6F}').contains(&c)
+        || ('\u{FF21}'..='\u{FF3A}').contains(&c)
+        || ('\u{FF41}'..='\u{FF5A}').contains(&c)
 }
 
 fn is_han(c: char) -> bool {

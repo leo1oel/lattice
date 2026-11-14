@@ -782,13 +782,13 @@ impl Audit {
         }
     }
 
-    /// A check under way stops with the sheet; what it found was saved as
-    /// it came in. Fixes being written keep it open until they land.
     /// Fixes are being written: the sheet stays until they land.
     pub fn is_applying(&self) -> bool {
         self.applying
     }
 
+    /// A check under way stops with the sheet; what it found was saved as
+    /// it came in. Fixes being written keep it open until they land.
     pub(super) fn close(&mut self, cx: &mut Context<Self>) {
         if self.applying {
             return;

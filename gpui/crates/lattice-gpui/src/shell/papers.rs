@@ -256,7 +256,9 @@ impl Shell {
         if self.root(cx).is_none() {
             return;
         }
-        self.dismiss_overlays_for_documents(cx);
+        if !self.dismiss_overlays_for_documents(cx) {
+            return;
+        }
         // A batch that finished after its sheet closed is done with: the
         // sheet opens on the paste box, a running one on its progress.
         self.papers.update(cx, |papers, cx| papers.clear_batch(cx));
@@ -279,7 +281,9 @@ impl Shell {
         if self.root(cx).is_none() {
             return;
         }
-        self.dismiss_overlays_for_documents(cx);
+        if !self.dismiss_overlays_for_documents(cx) {
+            return;
+        }
         let target = AddTarget::Project {
             papers: self.papers.downgrade(),
             save: ProjectSave::Append,
@@ -301,7 +305,9 @@ impl Shell {
         if self.root(cx).is_none() {
             return;
         }
-        self.dismiss_overlays_for_documents(cx);
+        if !self.dismiss_overlays_for_documents(cx) {
+            return;
+        }
         let target = AddTarget::Project {
             papers: self.papers.downgrade(),
             save: ProjectSave::Import,
@@ -344,7 +350,9 @@ impl Shell {
                         return;
                     }
                 };
-                this.dismiss_overlays_for_documents(cx);
+                if !this.dismiss_overlays_for_documents(cx) {
+                    return;
+                }
                 let papers = this.papers.downgrade();
                 let view = cx.new(|cx| AddReference::edit(papers, record, window, cx));
                 this.show_add_reference(view, window, cx);
@@ -461,7 +469,9 @@ impl Shell {
         let Some(root) = self.root(cx) else {
             return;
         };
-        self.dismiss_overlays_for_documents(cx);
+        if !self.dismiss_overlays_for_documents(cx) {
+            return;
+        }
         // The comparison reads the files on disk: what the editors hold is
         // saved first.
         let saved = self.save_editors(cx);
@@ -485,7 +495,9 @@ impl Shell {
         if self.root(cx).is_none() {
             return;
         }
-        self.dismiss_overlays_for_documents(cx);
+        if !self.dismiss_overlays_for_documents(cx) {
+            return;
+        }
         let papers = self.papers.clone();
         let view = cx.new(|cx| Literature::new(papers, query, window, cx));
         cx.subscribe_in(&view, window, |this, _, event, window, cx| match event {
@@ -503,7 +515,9 @@ impl Shell {
         let Some(root) = self.root(cx) else {
             return;
         };
-        self.dismiss_overlays_for_documents(cx);
+        if !self.dismiss_overlays_for_documents(cx) {
+            return;
+        }
         // Every scan reads the files on disk: what the editors hold is saved
         // first, as the Tauri app's `onPrepare` does.
         let shell = cx.entity().downgrade();

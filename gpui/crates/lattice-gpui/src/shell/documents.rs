@@ -64,7 +64,9 @@ impl Shell {
         let Some(project) = self.project.clone() else {
             return;
         };
-        self.dismiss_overlays_for_documents(cx);
+        if !self.dismiss_overlays_for_documents(cx) {
+            return;
+        }
         let (root, main, paths) = {
             let project = project.read(cx);
             let mut paths = Vec::new();
@@ -128,7 +130,9 @@ impl Shell {
         let Some(root) = self.root(cx) else {
             return;
         };
-        self.dismiss_overlays_for_documents(cx);
+        if !self.dismiss_overlays_for_documents(cx) {
+            return;
+        }
         let memory = self.documents.find_memory.clone();
         let view = cx.new(|cx| ProjectFind::new(root, memory, window, cx));
         cx.subscribe_in(&view, window, |this, find, event, window, cx| match event {
@@ -157,7 +161,9 @@ impl Shell {
         let Some(root) = self.root(cx) else {
             return;
         };
-        self.dismiss_overlays_for_documents(cx);
+        if !self.dismiss_overlays_for_documents(cx) {
+            return;
+        }
         let view = cx.new(|cx| ProjectReplace::new(root.clone(), window, cx));
         cx.subscribe_in(
             &view,
@@ -217,11 +223,25 @@ impl Shell {
 
     /// The palette and the shortcut sheet make way for a search surface,
     /// and one search surface for another.
-    pub(super) fn dismiss_overlays_for_documents(&mut self, cx: &mut Context<Self>) {
+    /// Make room for a surface over the documents; false while Check
+    /// references writes its fixes, which hold the window until they land.
+    pub(super) fn dismiss_overlays_for_documents(&mut self, cx: &mut Context<Self>) -> bool {
+        if self.audit_applying(cx) {
+            return false;
+        }
         self.documents.overlays_opened += 1;
         self.palette = None;
         self.shortcuts = None;
         self.take_document_overlays(cx);
+        true
+    }
+
+    /// Check references is writing its fixes.
+    pub(super) fn audit_applying(&self, cx: &gpui::App) -> bool {
+        self.documents
+            .audit
+            .as_ref()
+            .is_some_and(|audit| audit.read(cx).is_applying())
     }
 
     pub(super) fn take_document_overlays(&mut self, cx: &mut Context<Self>) {
@@ -236,12 +256,7 @@ impl Shell {
             self.papers.update(cx, |papers, cx| papers.clear_batch(cx));
         }
         self.documents.literature = None;
-        if !self
-            .documents
-            .audit
-            .as_ref()
-            .is_some_and(|audit| audit.read(cx).is_applying())
-        {
+        if !self.audit_applying(cx) {
             self.documents.audit = None;
         }
         self.documents.add_reference = None;
@@ -251,6 +266,9 @@ impl Shell {
     /// Close whichever search surface is open, and give the keyboard back to
     /// the document in front.
     pub(crate) fn close_document_overlays(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.audit_applying(cx) {
+            return;
+        }
         self.take_document_overlays(cx);
         self.focus_front(window, cx);
         cx.notify();
