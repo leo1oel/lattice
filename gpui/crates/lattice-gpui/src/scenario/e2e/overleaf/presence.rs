@@ -2,10 +2,10 @@
 //! (`overleaf::bridge::presence`, `shell::overleaf_presence`), against the
 //! stand-in's live channel (`scenario::overleaf_realtime_mock`):
 //!
-//! - the channel comes up, and a collaborator arriving in main.tex joins the
-//!   roster, the titlebar's chips, and main.tex's editor as a caret on
+//! - the channel comes up, and a collaborator arriving in refs.bib joins the
+//!   roster, the titlebar's chips, and refs.bib's editor as a caret on
 //!   their line;
-//! - our own caret reaches Overleaf, in main.tex's document;
+//! - our own caret reaches Overleaf, in refs.bib's document;
 //! - the collaborator leaving takes them out of the roster and the editor.
 
 use std::{path::Path, time::Duration};
@@ -14,7 +14,7 @@ use anyhow::Result;
 use gpui::AsyncApp;
 use serde_json::json;
 
-use super::Steps;
+use super::super::Steps;
 use crate::{
     overleaf::ChannelStatus,
     scenario::{
@@ -35,28 +35,35 @@ impl Run {
         // The window's own root: the scratch folder's canonical path, which
         // is what its editors are opened under.
         let clone_root = self.root(cx).await?;
+        // The channel was unreachable until now: it comes up on its next
+        // retry, at most 30 s away.
         let live = self
-            .wait_for(cx, Duration::from_secs(20), |shell, cx| {
+            .wait_for(cx, Duration::from_secs(60), |shell, cx| {
                 shell.read(cx).overleaf.read(cx).channel() == ChannelStatus::Live
             })
             .await;
+        let at_wait = self.with_window(cx, |shell, _, cx| {
+            let bridge = shell.read(cx).overleaf.read(cx);
+            format!("{:?} {:?}", bridge.channel(), bridge.channel_detail())
+        })?;
+        let sockets: Vec<String> = mock.socket_requests().into_iter().rev().take(6).collect();
         self.with_window(cx, |shell, window, cx| {
             shell.update(cx, |shell, cx| {
-                shell.open_path(clone_root.join("main.tex"), Some(2), window, cx)
+                shell.open_path(clone_root.join("refs.bib"), Some(1), window, cx)
             })
         })?;
         let editor = self
             .wait_for(cx, Duration::from_secs(10), |shell, cx| {
                 shell
                     .update(cx, |shell, cx| {
-                        shell.open_editor(&clone_root.join("main.tex"), cx)
+                        shell.open_editor(&clone_root.join("refs.bib"), cx)
                     })
                     .is_some()
             })
             .await;
 
-        // A collaborator arrives at main.tex's second line.
-        mock.peer_at("main.tex", 1, 2);
+        // A collaborator arrives at refs.bib's first line.
+        mock.peer_at("refs.bib", 0, 2);
         let arrived = self
             .wait_for(cx, Duration::from_secs(10), |shell, cx| {
                 shell
@@ -72,7 +79,7 @@ impl Run {
             cx.update(|cx| {
                 self.shell
                     .update(cx, |shell, cx| {
-                        shell.open_editor(&clone_root.join("main.tex"), cx)
+                        shell.open_editor(&clone_root.join("refs.bib"), cx)
                     })
                     .map(|editor| {
                         editor
@@ -87,33 +94,29 @@ impl Run {
                     .unwrap_or(false)
             })
         };
-        let drawn = self
-            .wait_for(cx, Duration::from_secs(5), |_, cx| {
-                // Painted on the next frame.
-                cx.refresh_windows();
-                true
-            })
-            .await
-            && {
-                self.pause(cx, Duration::from_millis(400)).await;
-                caret(cx)
-            };
+        // Painted on a following frame.
+        self.pause(cx, Duration::from_millis(600)).await;
+        let drawn = caret(cx);
+        let channel = self.with_window(cx, |shell, _, cx| {
+            let bridge = shell.read(cx).overleaf.read(cx);
+            format!("{:?} {:?}", bridge.channel(), bridge.channel_detail())
+        })?;
         steps.check(
-            "the live channel comes up, and a collaborator arriving in main.tex joins the roster and draws their caret there",
+            "the live channel comes up, and a collaborator arriving in refs.bib joins the roster and draws their caret there",
             live && editor && arrived && drawn,
-            json!({ "live": live, "editor": editor, "arrived": arrived, "drawn": drawn }),
+            json!({ "live": live, "editor": editor, "arrived": arrived, "drawn": drawn, "channel": channel, "at_wait": at_wait, "sockets": sockets }),
         );
 
-        // Our caret reaches Overleaf, in main.tex's document.
+        // Our caret reaches Overleaf, in refs.bib's document.
         let published = self
             .wait_for(cx, Duration::from_secs(10), |_, _| {
                 mock.positions()
                     .iter()
-                    .any(|position| position["doc_id"] == doc_id("main.tex"))
+                    .any(|position| position["doc_id"] == doc_id("refs.bib"))
             })
             .await;
         steps.check(
-            "our caret reaches Overleaf, in main.tex's document",
+            "our caret reaches Overleaf, in refs.bib's document",
             published,
             json!({ "positions": mock.positions() }),
         );

@@ -54,6 +54,7 @@ mod markdown_view;
 mod outline_panel;
 pub mod outline_rail;
 mod overleaf_carets;
+mod overleaf_text;
 pub mod rail_outline;
 mod save;
 mod source_chrome;
@@ -117,6 +118,8 @@ pub enum EditorPanelEvent {
     CaretLine,
     /// The caret moved at all.
     CaretMoved,
+    /// The writer changed the text (not live editing, `overleaf_text`).
+    Typed,
     /// The editor took focus: it is the one the reader works in now.
     Focused,
     /// Open the project-relative `path` (a link followed in a Markdown file's
@@ -178,6 +181,8 @@ pub struct EditorPanel {
     cursor: (u32, u32),
     /// The caret as Overleaf counts it (`overleaf_carets`).
     overleaf_caret: (u32, u32),
+    /// Live editing is putting Overleaf's text in: not typing.
+    overleaf_applying: bool,
     /// The file's word count as of opening or the last save; counted off the
     /// main thread.
     words: Option<usize>,
@@ -302,6 +307,7 @@ impl EditorPanel {
             cx.subscribe(&buffer, |this, _, event: &BufferEvent, cx| match event {
                 BufferEvent::Edited { .. } => {
                     cx.emit(EditorPanelEvent::Edited);
+                    this.note_overleaf_edit(cx);
                     this.schedule_autosave(cx);
                     this.scan_todos(TODO_SETTLE, cx);
                     this.views_source_changed(cx);
@@ -439,6 +445,7 @@ impl EditorPanel {
             build,
             cursor: (1, 1),
             overleaf_caret: (0, 0),
+            overleaf_applying: false,
             words: None,
             buffer_todos: None,
             status_width: Default::default(),

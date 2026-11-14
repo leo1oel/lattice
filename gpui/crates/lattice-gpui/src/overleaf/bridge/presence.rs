@@ -13,7 +13,7 @@
 //! last position every four minutes, as Overleaf forgets a quiet one.
 
 use super::*;
-use lattice_core::overleaf_rt::{PresenceUser, RealtimeEvent};
+use lattice_core::overleaf_rt::PresenceUser;
 
 /// A position goes out this long after the caret settles, with company.
 const SETTLE_WITH_OTHERS: Duration = Duration::from_millis(500);
@@ -104,10 +104,17 @@ impl OverleafBridge {
             .ok();
         })
         .detach();
-        // Overleaf only knows our caret from what this connection says.
+        // Overleaf only knows our caret from what this connection says. The
+        // shown editor's caret is read again: before the channel named the
+        // project's documents, it could not be placed in one.
         self.presence.sent = None;
-        if let Some(caret) = self.presence.caret.clone() {
-            self.publish(caret, cx);
+        self.presence.caret = None;
+        if let Some(editor) = self.shown_editor() {
+            let (path, (row, column)) = {
+                let editor = editor.read(cx);
+                (editor.relative().to_string(), editor.overleaf_caret())
+            };
+            self.caret_moved(&path, row, column, cx);
         }
         self.presence.keepalive = Some(cx.spawn(async move |this, cx| {
             loop {

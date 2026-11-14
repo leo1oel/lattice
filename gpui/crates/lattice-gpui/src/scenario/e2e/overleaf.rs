@@ -16,6 +16,9 @@
 //!   and applies it;
 //! - Settings › Overleaf says who is signed in and which project syncs.
 
+mod live;
+mod presence;
+
 use std::{path::Path, time::Duration};
 
 use anyhow::{Context as _, Result, anyhow};
@@ -86,8 +89,7 @@ impl Run {
             .await;
         let mock =
             MockOverleaf::start(&[("main.tex", MAIN), ("refs.bib", "@misc{a, title={A}}\n")])
-                .context("the Overleaf stand-in")?
-                .with_realtime();
+                .context("the Overleaf stand-in")?;
         let scratch =
             std::env::temp_dir().join(format!("lattice-gpui-overleaf-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&scratch);
@@ -195,9 +197,6 @@ impl Run {
             control,
             json!({}),
         );
-        linked
-            .overleaf_presence(cx, steps, &mock, &clone_root)
-            .await?;
 
         // Live mode pulls a co-author's edit on its own.
         let theirs = MAIN.replace("A paper", "A shared paper");
@@ -324,6 +323,14 @@ impl Run {
             json!({ "badged": badged, "summary": summary, "applied": applied }),
         );
         cx.update(|cx| settings::update(cx, |s| s.overleaf_sync_mode = OverleafSyncMode::Live));
+        // The checks above are regular sync's, with the live channel
+        // unreachable; it comes up now (on the client's next retry) for
+        // presence and live editing.
+        mock.enable_realtime();
+        linked
+            .overleaf_presence(cx, steps, &mock, &clone_root)
+            .await?;
+        linked.overleaf_live(cx, steps, &mock).await?;
 
         // Settings › Overleaf.
         linked.with_window(cx, |shell, window, cx| {

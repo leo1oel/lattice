@@ -216,6 +216,10 @@ impl Shell {
         if self.active_editor().as_ref() != Some(editor) {
             return;
         }
+        // The active editor's caret moving is how a programmatic open (a
+        // jump, a search hit) shows up here too, not only a focus change.
+        self.overleaf
+            .update(cx, |bridge, cx| bridge.editor_shown(Some(editor), cx));
         let (relative, (row, column)) = {
             let editor = editor.read(cx);
             (editor.relative().to_string(), editor.overleaf_caret())

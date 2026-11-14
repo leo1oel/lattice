@@ -339,6 +339,7 @@ impl Shell {
         let pending = bridge.remote_changes();
         let channel = bridge.channel();
         let detail = bridge.channel_detail().cloned();
+        let live_editing = bridge.live_file().is_some();
         let project_name = bridge.link().map(|link| link.project_name.clone());
         let label: String = if !linked {
             t!("Open a project from Overleaf").into()
@@ -346,6 +347,8 @@ impl Shell {
             t!("Syncing with Overleaf…").into()
         } else if pending {
             t!("New changes on Overleaf").into()
+        } else if live_editing {
+            t!("Live with Overleaf").into()
         } else {
             // When the channel is not up, say why: silently falling back to
             // syncing looks exactly like the feature being broken.
@@ -361,6 +364,9 @@ impl Shell {
                     .into(),
                     None => t!("Live editing unavailable, syncing instead").into(),
                 },
+                ChannelStatus::Live => detail
+                    .map(|detail| detail.to_string())
+                    .unwrap_or_else(|| t!("Live").into()),
                 _ => t!("Sync with Overleaf").into(),
             }
         };

@@ -164,9 +164,9 @@ fn close_login_window(cx: &mut App) {
     }
 }
 
-/// The session cookie header the sign-in window holds for Overleaf's host,
-/// once it holds one; `Err` when the window was closed.
-fn login_cookie(cx: &mut App) -> Result<Option<String>, ()> {
+/// The sign-in window's webview, to read its cookies from; `Err` when the
+/// window was closed.
+fn login_webview(cx: &mut App) -> Result<gpui_webview::WebViewHandle, ()> {
     let Some((handle, webview)) = cx
         .try_global::<LoginWindowSlot>()
         .and_then(|slot| slot.0.as_ref())
@@ -178,6 +178,14 @@ fn login_cookie(cx: &mut App) -> Result<Option<String>, ()> {
     if handle.update(cx, |_, _, _| ()).is_err() {
         return Err(());
     }
+    Ok(webview.read(cx).handle())
+}
+
+/// The session cookie header `webview` holds for Overleaf's host, once it
+/// holds one. Read outside any update of the app: on macOS, WebKit answers
+/// for its cookie store while the run loop turns, and a frame drawn in that
+/// turn needs the app.
+fn login_cookie(webview: &gpui_webview::WebViewHandle) -> Option<String> {
     let host = super::host();
     let target = host
         .split("://")
@@ -190,7 +198,7 @@ fn login_cookie(cx: &mut App) -> Result<Option<String>, ()> {
     // The whole jar, matched by domain here: Wry's `cookies_for_url`
     // compares the cookie's domain and the URL's host for equality, so a
     // `.overleaf.com` cookie never matches `www.overleaf.com`.
-    let cookies = webview.read(cx).raw().cookies().unwrap_or_default();
+    let cookies = webview.raw().cookies().unwrap_or_default();
     let matching: Vec<_> = cookies
         .iter()
         .filter(|cookie| {
@@ -200,15 +208,15 @@ fn login_cookie(cx: &mut App) -> Result<Option<String>, ()> {
         })
         .collect();
     if !overleaf::has_session_cookie(matching.iter().map(|cookie| cookie.name())) {
-        return Ok(None);
+        return None;
     }
-    Ok(Some(
+    Some(
         matching
             .iter()
             .map(|cookie| format!("{}={}", cookie.name(), cookie.value()))
             .collect::<Vec<_>>()
             .join("; "),
-    ))
+    )
 }
 
 /// What a sign-in's controls show.
@@ -253,7 +261,9 @@ impl Login {
                 // Taken before the window is read: Cancel or Sign out from
                 // here on ends this attempt, and its session is not saved.
                 let attempt = LOGINS.current();
-                let cookie = cx.update(login_cookie);
+                let cookie = cx
+                    .update(login_webview)
+                    .map(|webview| login_cookie(&webview));
                 let answer = match cookie {
                     Err(()) => None,
                     Ok(None) => Some(Err(None)),

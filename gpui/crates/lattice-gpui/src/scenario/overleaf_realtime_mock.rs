@@ -1,5 +1,5 @@
 //! The stand-in Overleaf's live channel (`overleaf_mock`, once
-//! `MockOverleaf::with_realtime`): Socket.IO 0.9 over a websocket on the
+//! `MockOverleaf::enable_realtime`): Socket.IO 0.9 over a websocket on the
 //! same 127.0.0.1 server, as lattice-core's own realtime mock speaks it
 //! (`src-tauri/lattice-core/src/overleaf_rt/mock_server.rs`).
 //!
@@ -57,6 +57,8 @@ pub(super) struct Live {
     pub(super) positions: Vec<Value>,
     /// Every update the app sent, as sent.
     pub(super) updates: Vec<Value>,
+    /// Every update refused, with the text it met.
+    pub(super) rejected: Vec<Value>,
 }
 
 /// The id a project path's document goes by.
@@ -262,7 +264,10 @@ fn apply(id: &str, update: Value, public_id: &str, store: &Arc<impl Store>) -> V
             incoming = ot::transform_both(&incoming, accepted).0;
         }
         let text = String::from_utf8_lossy(&files[&path]).into_owned();
-        let next = ot::apply_ops(&text, &incoming)?;
+        let Some(next) = ot::apply_ops(&text, &incoming) else {
+            live.rejected.push(json!({ "update": update, "transformed": incoming, "text": text, "version": history.len() }));
+            return None;
+        };
         files.insert(path.clone(), next.into_bytes());
         let version = history.len();
         history.push(incoming.clone());

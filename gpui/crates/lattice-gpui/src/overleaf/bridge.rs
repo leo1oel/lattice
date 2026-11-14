@@ -29,7 +29,7 @@ use futures::channel::oneshot;
 use gpui::{App, AppContext as _, Context, EventEmitter, SharedString, Subscription, Task};
 use lattice_core::{
     overleaf::{OverleafLink, OverleafStatus, OverleafSyncResult},
-    overleaf_rt::RealtimeClient,
+    overleaf_rt::{RealtimeClient, RealtimeEvent},
 };
 use lattice_i18n::t;
 use lattice_settings::OverleafSyncMode;
@@ -42,6 +42,7 @@ use super::{
 };
 use crate::notices::{self, Notice, NoticeAction};
 
+mod documents;
 mod live;
 mod presence;
 
@@ -182,6 +183,7 @@ pub struct OverleafBridge {
     /// The live channel's client while it is up.
     client: Option<Arc<RealtimeClient>>,
     presence: presence::PresenceState,
+    documents: documents::DocumentsState,
     _settings: Subscription,
 }
 
@@ -194,6 +196,7 @@ impl OverleafBridge {
             if mode != this.mode {
                 this.mode = mode;
                 this.apply(cx);
+                this.reconsider_live(cx);
             }
         });
         Self {
@@ -227,6 +230,7 @@ impl OverleafBridge {
             staged: false,
             client: None,
             presence: Default::default(),
+            documents: Default::default(),
             _settings: settings,
         }
     }
@@ -302,6 +306,7 @@ impl OverleafBridge {
         self.channel_task = None;
         self.channel = ChannelStatus::Off;
         self.channel_detail = None;
+        self.documents_dropped(cx);
         self.client = None;
         self.presence_dropped(cx);
         cx.notify();
@@ -432,16 +437,25 @@ impl OverleafBridge {
                 self.channel_detail = None;
                 self.toasted_failure = None;
                 self.rejoined = false;
+                // The channel is up: the shown document can go live.
+                self.reconsider_live(cx);
             }
             ChannelNews::Tree(entities) => self.note_entities(entities),
-            ChannelNews::Event(event) => self.presence_event(event, cx),
+            ChannelNews::Event(event) => match event {
+                RealtimeEvent::PresenceUpdated { .. } | RealtimeEvent::PresenceLeft { .. } => {
+                    self.presence_event(event, cx)
+                }
+                _ => self.document_event(event, cx),
+            },
             ChannelNews::Reconnecting(detail) => {
+                self.documents_dropped(cx);
                 self.client = None;
                 self.presence_dropped(cx);
                 self.channel = ChannelStatus::Connecting;
                 self.channel_detail = Some(detail.into());
             }
             ChannelNews::Failed(detail) => {
+                self.documents_dropped(cx);
                 self.client = None;
                 self.presence_dropped(cx);
                 let said = self.toasted_failure.as_deref() == Some(detail.as_str());
@@ -543,18 +557,16 @@ impl OverleafBridge {
         cx.notify();
         let entities = self.entity_list.clone();
         let run_root = root.clone();
+        // The live document is the channel's to carry.
+        let live = self.live_paths();
         let run = cx.background_spawn(async move {
-            sync::sync(
-                &run_root,
-                &BTreeSet::new(),
-                options.observed_remote_version,
-                entities,
-            )
+            sync::sync(&run_root, &live, options.observed_remote_version, entities)
         });
         self.sync_task = Some(cx.spawn(async move |this, cx| {
             let (result, expired) = run.await;
             this.update(cx, |this, cx| {
                 this.syncing = false;
+                this.after_sync_documents(cx);
                 let outcome = result.as_ref().map(|_| ()).map_err(Clone::clone);
                 for waiter in this.sync_waiters.drain(..) {
                     waiter.send(outcome.clone()).ok();

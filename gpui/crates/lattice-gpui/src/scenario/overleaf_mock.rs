@@ -11,9 +11,10 @@
 //! - `GET /project/{id}/download/zip`: the project, zipped.
 //! - `GET /project/{id}/diff`: who changed a file between two versions.
 //! - `POST /project/{id}/upload`: one file, which becomes the next version.
-//! - `/socket.io/…`: refused, as when the live channel cannot be reached
-//!   (syncing carries on without it), unless the stand-in was started
-//!   [`MockOverleaf::with_realtime`], when `overleaf_realtime_mock` serves it.
+//! - `/socket.io/…`: a gateway error, as when the live channel cannot be
+//!   reached (syncing carries on without it, and the client keeps retrying),
+//!   unless the stand-in was started
+//!   [`MockOverleaf::enable_realtime`], when `overleaf_realtime_mock` serves it.
 //!
 //! The test changes the project between syncs as a co-author would
 //! ([`MockOverleaf::edit`]).
@@ -112,10 +113,9 @@ impl MockOverleaf {
             .map(|bytes| String::from_utf8_lossy(bytes).into_owned())
     }
 
-    /// Serve the live channel too (`overleaf_realtime_mock`).
-    pub fn with_realtime(self) -> Self {
+    /// Serve the live channel from now on (`overleaf_realtime_mock`).
+    pub fn enable_realtime(&self) {
         self.project.lock().unwrap().realtime = true;
-        self
     }
 
     /// The scripted collaborator is in `path` at the zero-based `row` and
@@ -151,6 +151,22 @@ impl MockOverleaf {
     /// Every live update the app sent, as sent.
     pub fn updates(&self) -> Vec<serde_json::Value> {
         self.project.lock().unwrap().live.updates.clone()
+    }
+
+    /// The live channel's requests, as `METHOD path realtime=… signed_in=…`.
+    pub fn socket_requests(&self) -> Vec<String> {
+        let project = self.project.lock().unwrap();
+        project
+            .requests
+            .iter()
+            .filter(|request| request.contains("/socket.io/"))
+            .cloned()
+            .collect()
+    }
+
+    /// Every live update the stand-in refused, with the text it met.
+    pub fn rejected(&self) -> Vec<serde_json::Value> {
+        self.project.lock().unwrap().live.rejected.clone()
     }
 
     pub fn version(&self) -> i64 {
@@ -322,7 +338,25 @@ fn answer(stream: TcpStream, project: Arc<Mutex<Project>>) -> std::io::Result<()
         .get("cookie")
         .is_some_and(|cookie| cookie.contains(SESSION));
     let project_path = format!("/project/{PROJECT_ID}");
-    if path.starts_with("/socket.io/1/") && signed_in && project.lock().unwrap().realtime {
+    if path.starts_with("/socket.io/1/") {
+        let mut project = project.lock().unwrap();
+        let line = format!(
+            "{method} {path} realtime={} signed_in={signed_in}",
+            project.realtime
+        );
+        project.requests.push(line);
+    }
+    if path.starts_with("/socket.io/1/") && signed_in && !project.lock().unwrap().realtime {
+        // Unreachable, as a load balancer with no live-channel backend says:
+        // a gateway error, which the client retries with its backoff.
+        let mut stream = stream;
+        write!(
+            stream,
+            "HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+        )?;
+        return stream.flush();
+    }
+    if path.starts_with("/socket.io/1/") && signed_in {
         if path.starts_with("/socket.io/1/websocket/") {
             let key = headers
                 .get("sec-websocket-key")
