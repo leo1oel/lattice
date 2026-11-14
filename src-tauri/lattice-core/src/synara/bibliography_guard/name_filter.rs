@@ -16,25 +16,27 @@
 //! sandbox, where they lead back here. So a link cannot walk this process
 //! out to a path the agent could not open itself.
 //!
-//! This file is the rule and the operations it applies to. `nodes` keeps the
-//! inodes the kernel has looked up, and `host` makes the calls on the real
-//! files.
+//! This file is the operations the rule (`rule`) applies to. `nodes` keeps
+//! the inodes the kernel has looked up, and `host` makes the calls on the
+//! real files.
 
 mod host;
 mod nodes;
+mod rule;
 
 use fuser::{
     AccessFlags, BsdFileFlags, Config, CopyFileRangeFlags, Errno, FileAttr, FileHandle, Filesystem,
-    FopenFlags, Generation, INodeNo, InitFlags, KernelConfig, LockOwner, MountOption, OpenAccMode,
-    OpenFlags, RenameFlags, ReplyAttr, ReplyCreate, ReplyData, ReplyDirectory, ReplyEmpty,
-    ReplyEntry, ReplyLseek, ReplyOpen, ReplyStatfs, ReplyWrite, ReplyXattr, Request, SessionACL,
-    TimeOrNow, WriteFlags,
+    FopenFlags, Generation, INodeNo, InitFlags, KernelConfig, LockOwner, MountOption, OpenFlags,
+    RenameFlags, ReplyAttr, ReplyCreate, ReplyData, ReplyDirectory, ReplyEmpty, ReplyEntry,
+    ReplyLseek, ReplyOpen, ReplyStatfs, ReplyWrite, ReplyXattr, Request, SessionACL, TimeOrNow,
+    WriteFlags,
 };
 use host::{
     attributes, cvt, cvt_long, last_error, open_child, open_folder, read_entries, status_of,
     timespec, EMPTY,
 };
 use nodes::{Node, Nodes};
+use rule::{changes_content, is_bibliography, DENIED};
 use std::ffi::{CStr, CString, OsStr, OsString};
 use std::io;
 use std::os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd};
@@ -43,21 +45,12 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
-/// What a refused bibliography change answers, as Seatbelt's deny does.
-const DENIED: Errno = Errno::EPERM;
 /// Nothing the kernel looked up is reused without asking again, so a file or
 /// folder that Lattice replaces by rename (its own saves, a sync pull) is
 /// never written through its old, unlinked inode.
 const NO_TTL: Duration = Duration::ZERO;
 /// The kernel's request threads; each can block on one slow disk operation.
 const THREADS: usize = 8;
-
-/// Whether changing `name` is a bibliography change: the Seatbelt profile's
-/// `.*[.][bB][iI][bB]$`, on the last component.
-pub(super) fn is_bibliography(name: &OsStr) -> bool {
-    let name = name.as_bytes();
-    name.len() >= 4 && name[name.len() - 4..].eq_ignore_ascii_case(b".bib")
-}
 
 pub(super) struct BibliographyFilter {
     nodes: Nodes,
@@ -701,9 +694,4 @@ impl BibliographyFilter {
         let name = CString::new(name.as_bytes()).map_err(|_| Errno::EINVAL)?;
         Ok((node, name))
     }
-}
-
-/// Whether an open with `flags` can change what the file holds.
-fn changes_content(flags: libc::c_int) -> bool {
-    OpenFlags(flags).acc_mode() != OpenAccMode::O_RDONLY || flags & libc::O_TRUNC != 0
 }
