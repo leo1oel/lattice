@@ -124,8 +124,11 @@ impl Layout {
     pub(super) fn arguments(&self, filter: &Path) -> Vec<OsString> {
         let mut arguments: Vec<OsString> = Vec::new();
         let mut add = |values: &[&OsStr]| arguments.extend(values.iter().map(OsString::from));
-        // Its own process namespace, which ends with the guard process.
-        add(&["--unshare-pid".as_ref(), "--die-with-parent".as_ref()]);
+        // Its own process namespace, which ends with the guard process, and
+        // its own session: with no controlling terminal, nothing in it can
+        // type into the terminal Lattice was started from (TIOCSTI,
+        // CVE-2017-5226).
+        add(&["--unshare-pid", "--die-with-parent", "--new-session"].map(OsStr::new));
         add(&["--bind".as_ref(), filter.as_os_str(), "/".as_ref()]);
         for (path, view) in &self.mounts {
             let path = path.as_os_str();
@@ -141,6 +144,13 @@ impl Layout {
                 View::Private => add(&["--tmpfs".as_ref(), path]),
                 View::Processes => add(&["--proc".as_ref(), path]),
             }
+        }
+        // The folder the filter is mounted in, covered last, over whichever
+        // mount above shows it: through the filter's mount the sandbox would
+        // see the host's whole tree, with what it has read-only or of its own
+        // (`/run`, `/dev/shm`) writable.
+        if let Some(mounts) = filter.parent().filter(|folder| folder.parent().is_some()) {
+            add(&["--tmpfs".as_ref(), mounts.as_os_str()]);
         }
         arguments
     }
@@ -215,7 +225,7 @@ mod tests {
         let through = format!("{filter}{app_data}");
         let drives = format!("{filter}/run/media");
         let expected: Vec<&str> = [
-            &["--unshare-pid", "--die-with-parent"][..],
+            &["--unshare-pid", "--die-with-parent", "--new-session"][..],
             &["--bind", filter, "/"],
             &["--dev-bind", "/dev", "/dev"],
             &["--proc", "/proc"],
@@ -232,6 +242,7 @@ mod tests {
                 "/home/ada/.local/share/lattice/synara",
                 "/home/ada/.local/share/lattice/synara",
             ],
+            &["--tmpfs", "/run/user/1000/lattice-agent-guard"],
         ]
         .concat();
         assert_eq!(arguments, expected);

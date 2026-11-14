@@ -15944,8 +15944,8 @@ msgstr "The built-in agent is off because this system does not let bubblewrap st
 
 #: src/build/compile-repair-messages.ts
 #: src/platform/host-errors-setup.ts
-msgid "The built-in agent is off for this project: Lattice cannot keep it from editing bibliography (.bib) files here. That goes for temporary folders, the home folder itself and its hidden folders. Move the project to an ordinary folder to use the agent."
-msgstr "The built-in agent is off for this project: Lattice cannot keep it from editing bibliography (.bib) files here. That goes for temporary folders, the home folder itself and its hidden folders. Move the project to an ordinary folder to use the agent."
+msgid "The built-in agent is off for this project: Lattice cannot keep the agent from editing bibliography (.bib) files everywhere in its folder. The agent can write to /tmp and to the hidden folders in your home folder directly, so a bibliography in one of those is not protected while the agent works on any project. Move this project to an ordinary folder to use the agent with it."
+msgstr "The built-in agent is off for this project: Lattice cannot keep the agent from editing bibliography (.bib) files everywhere in its folder. The agent can write to /tmp and to the hidden folders in your home folder directly, so a bibliography in one of those is not protected while the agent works on any project. Move this project to an ordinary folder to use the agent with it."
 
 #: src/build/compile-repair-messages.ts
 #: src/platform/host-errors-setup.ts

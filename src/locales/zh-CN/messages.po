@@ -15944,8 +15944,8 @@ msgstr "内置 AI 助手已关闭，因为此系统不允许 bubblewrap 启动�
 
 #: src/build/compile-repair-messages.ts
 #: src/platform/host-errors-setup.ts
-msgid "The built-in agent is off for this project: Lattice cannot keep it from editing bibliography (.bib) files here. That goes for temporary folders, the home folder itself and its hidden folders. Move the project to an ordinary folder to use the agent."
-msgstr "此项目无法使用内置 AI 助手：Lattice 在这里无法阻止它直接编辑参考文献（.bib）文件。临时文件夹、主文件夹本身及其中的隐藏文件夹都是如此。请将项目移到普通文件夹后再使用 AI 助手。"
+msgid "The built-in agent is off for this project: Lattice cannot keep the agent from editing bibliography (.bib) files everywhere in its folder. The agent can write to /tmp and to the hidden folders in your home folder directly, so a bibliography in one of those is not protected while the agent works on any project. Move this project to an ordinary folder to use the agent with it."
+msgstr "此项目无法使用内置 AI 助手：Lattice 无法在该项目文件夹的每个位置阻止 AI 助手直接编辑参考文献（.bib）文件。AI 助手可以直接写入 /tmp 和主文件夹中的隐藏文件夹，因此无论它在为哪个项目工作，这些位置中的参考文献都不受保护。请将此项目移到普通文件夹后再使用 AI 助手。"
 
 #: src/build/compile-repair-messages.ts
 #: src/platform/host-errors-setup.ts

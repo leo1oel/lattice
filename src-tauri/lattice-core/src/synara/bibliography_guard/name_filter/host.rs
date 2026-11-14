@@ -2,10 +2,10 @@
 //! and their results in the types FUSE answers with.
 
 use fuser::{Errno, FileAttr, FileType, INodeNo, TimeOrNow};
-use std::ffi::{CStr, CString, OsStr};
+use std::ffi::{CStr, CString, OsStr, OsString};
 use std::io;
 use std::os::fd::{FromRawFd, OwnedFd, RawFd};
-use std::os::unix::ffi::OsStrExt;
+use std::os::unix::ffi::{OsStrExt, OsStringExt};
 use std::path::Path;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -79,6 +79,42 @@ pub(super) fn read_entries(
 
 pub(super) fn descriptor_path(fd: RawFd) -> CString {
     CString::new(format!("/proc/self/fd/{fd}")).unwrap_or_default()
+}
+
+/// The name the file `fd` holds has in its folder now, which a rename since
+/// it was opened changes: the last component of its `/proc/self/fd` link.
+/// A removed file's ends in " (deleted)".
+pub(super) fn current_name(fd: RawFd) -> io::Result<OsString> {
+    let link = descriptor_path(fd);
+    let mut path = vec![0u8; libc::PATH_MAX as usize];
+    // SAFETY: `link` is NUL-terminated; the buffer is `path.len()` bytes long.
+    let length = unsafe {
+        libc::readlinkat(libc::AT_FDCWD, link.as_ptr(), path.as_mut_ptr().cast(), path.len())
+    };
+    let length = cvt_long(length as libc::c_long)? as usize;
+    // A full buffer can hold a cut-off name.
+    if length == path.len() {
+        return Err(io::Error::from_raw_os_error(libc::ENAMETOOLONG));
+    }
+    path.truncate(length);
+    let start = path.iter().rposition(|byte| *byte == b'/').map_or(0, |slash| slash + 1);
+    Ok(OsString::from_vec(path.split_off(start)))
+}
+
+/// Whether `name` in the folder `folder` is a symbolic link; false when
+/// nothing has that name.
+pub(super) fn is_link(folder: RawFd, name: &CStr) -> io::Result<bool> {
+    // SAFETY: an all-zero stat is a valid value for the call to fill.
+    let mut status: libc::stat = unsafe { std::mem::zeroed() };
+    // SAFETY: `name` is NUL-terminated, `folder` is open, and `status` is a
+    // stat the call writes into.
+    let result =
+        unsafe { libc::fstatat(folder, name.as_ptr(), &mut status, libc::AT_SYMLINK_NOFOLLOW) };
+    match cvt(result) {
+        Ok(_) => Ok(status.st_mode & libc::S_IFMT == libc::S_IFLNK),
+        Err(error) if error.raw_os_error() == Some(libc::ENOENT) => Ok(false),
+        Err(error) => Err(error),
+    }
 }
 
 pub(super) fn last_error() -> Errno {

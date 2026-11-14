@@ -35,10 +35,13 @@ pub(in crate::synara) const NO_SANDBOX: &str = "The built-in agent is off becaus
      system does not let bubblewrap start a sandbox (unprivileged user namespaces are \
      restricted). Lattice runs the agent inside one to keep it from editing bibliography \
      (.bib) files directly.";
+/// Not "the files here are safe": the folders the guard leaves out are
+/// open to the agent whichever project it works on.
 pub(in crate::synara) const UNGUARDED_FOLDER: &str = "The built-in agent is off for this \
-     project: Lattice cannot keep it from editing bibliography (.bib) files here. That goes \
-     for temporary folders, the home folder itself and its hidden folders. Move the project \
-     to an ordinary folder to use the agent.";
+     project: Lattice cannot keep the agent from editing bibliography (.bib) files everywhere \
+     in its folder. The agent can write to /tmp and to the hidden folders in your home folder \
+     directly, so a bibliography in one of those is not protected while the agent works on any \
+     project. Move this project to an ordinary folder to use the agent with it.";
 
 /// Why the agent cannot work on the project at `workspace`: its
 /// bibliographies would not be behind the filter.
@@ -47,6 +50,9 @@ pub(in crate::synara) fn unguarded(workspace: &Path, agent_home: &Path) -> Optio
     let layout = Layout::new(home_folder().as_deref(), &agent_home);
     (!layout.guards(workspace)).then_some(UNGUARDED_FOLDER)
 }
+
+/// The folder the guards' mount points are in.
+const MOUNTS: &str = "lattice-agent-guard";
 
 /// Where the FUSE library looks for the mount helper before the search path.
 const FUSERMOUNT_PATH: &str = "FUSERMOUNT_PATH";
@@ -158,12 +164,11 @@ fn guard(mut arguments: impl Iterator<Item = OsString>) -> Result<i32, String> {
     let _only_guard = only_guard(&agent_home)?;
     clear_service_locks(&agent_home);
 
-    // Lattice stops the sidecar by sending its process group SIGTERM, then
-    // SIGKILL two seconds later. The service inside handles the first and
-    // needs its file system until it has finished, so this process and
-    // bubblewrap, which inherits the setting, sit it out.
-    // SAFETY: changes one signal's disposition, before any thread exists.
-    unsafe { libc::signal(libc::SIGTERM, libc::SIG_IGN) };
+    // SIGTERM is for `pass_on_termination` alone. Blocked before any thread
+    // exists, so every thread has it blocked.
+    let termination = termination();
+    // SAFETY: `termination` is a valid set; no other thread exists yet.
+    unsafe { libc::pthread_sigmask(libc::SIG_BLOCK, &termination, std::ptr::null_mut()) };
     // The filter creates files with exactly the mode the sandbox asked for.
     // SAFETY: `umask` only swaps the process's file mode mask.
     let mask = unsafe { libc::umask(0) };
@@ -176,10 +181,16 @@ fn guard(mut arguments: impl Iterator<Item = OsString>) -> Result<i32, String> {
     let mut command = Command::new(&bubblewrap);
     command.args(layout.arguments(&mountpoint.0)).arg("--").args(&program);
     host_environment(&mut command).env_remove(FUSERMOUNT_PATH);
-    // SAFETY: `umask`, `setrlimit`, `syscall` and `fcntl` are
+    // Out of the group Lattice signals: SIGTERM reaches the sandbox only
+    // through `pass_on_termination`, and bubblewrap dies with this process
+    // (`--die-with-parent`) when the SIGKILL that follows it ends this one.
+    command.process_group(0);
+    // SAFETY: `sigprocmask`, `umask`, `setrlimit`, `syscall` and `fcntl` are
     // async-signal-safe, the only calls made between fork and exec.
     unsafe {
         command.pre_exec(move || {
+            // The sandbox starts with SIGTERM as a program expects to find it.
+            libc::sigprocmask(libc::SIG_UNBLOCK, &termination, std::ptr::null_mut());
             libc::umask(mask);
             if let Some(limit) = descriptors {
                 libc::setrlimit(libc::RLIMIT_NOFILE, &limit);
@@ -192,6 +203,7 @@ fn guard(mut arguments: impl Iterator<Item = OsString>) -> Result<i32, String> {
     }
     let mut sandbox =
         command.spawn().map_err(|error| format!("could not start bubblewrap: {error}"))?;
+    pass_on_termination(termination, sandbox.id() as libc::pid_t);
 
     // Lattice is this process's parent only while it lives. bubblewrap dies
     // with this process, and the sandbox with bubblewrap.
@@ -213,6 +225,59 @@ fn guard(mut arguments: impl Iterator<Item = OsString>) -> Result<i32, String> {
     drop(filter);
     drop(mountpoint);
     Ok(status.code().unwrap_or_else(|| 128 + status.signal().unwrap_or(0)))
+}
+
+/// SIGTERM, as a signal set.
+fn termination() -> libc::sigset_t {
+    // SAFETY: an all-zero sigset_t is valid storage for `sigemptyset` to
+    // initialize, and both calls only write the set.
+    unsafe {
+        let mut set = std::mem::zeroed();
+        libc::sigemptyset(&mut set);
+        libc::sigaddset(&mut set, libc::SIGTERM);
+        set
+    }
+}
+
+/// Pass each SIGTERM this process gets on to the sandbox's processes.
+///
+/// Lattice stops the sidecar by sending its process group SIGTERM, then
+/// SIGKILL two seconds later. That group is this process alone, and the
+/// sandbox has a session of its own (bubblewrap's `--new-session`). Its
+/// leader is bubblewrap's process 1 in the sandbox, the child of the
+/// `bubblewrap` process outside, and the signal goes to its group: the
+/// service handles it while this process keeps its file system up, and
+/// process 1, which has no handler, is not sent it.
+fn pass_on_termination(termination: libc::sigset_t, bubblewrap: libc::pid_t) {
+    thread::spawn(move || loop {
+        let mut signal = 0;
+        // SAFETY: `termination` is a valid set and `signal` an integer the
+        // call writes into.
+        if unsafe { libc::sigwait(&termination, &mut signal) } != 0 {
+            return;
+        }
+        // Just after the start, process 1 may not exist yet.
+        for _ in 0..40 {
+            if let Some(leader) = child_of(bubblewrap) {
+                // SAFETY: `kill` takes and returns plain integers.
+                unsafe { libc::kill(-leader, libc::SIGTERM) };
+                break;
+            }
+            thread::sleep(Duration::from_millis(50));
+        }
+    });
+}
+
+/// A process whose parent is `parent`, found in `/proc`.
+fn child_of(parent: libc::pid_t) -> Option<libc::pid_t> {
+    fs::read_dir("/proc").ok()?.flatten().find_map(|entry| {
+        let pid = entry.file_name().to_str()?.parse::<libc::pid_t>().ok()?;
+        let status = fs::read(entry.path().join("stat")).ok()?;
+        // `pid (name) state ppid ...`, where the name may hold anything.
+        let after_name = &status[status.iter().rposition(|byte| *byte == b')')? + 1..];
+        let ppid = std::str::from_utf8(after_name).ok()?.split_whitespace().nth(1)?;
+        (ppid.parse::<libc::pid_t>().ok()? == parent).then_some(pid)
+    })
 }
 
 /// Lock the agent's folder for as long as this process lives, or fail when
@@ -245,21 +310,26 @@ fn clear_service_locks(agent_home: &Path) {
     }
 }
 
-/// The folder the name filter is mounted on, removed when dropped.
+/// The folder the name filter is mounted on, removed when dropped. The
+/// sandbox gets the folder it is in covered with an empty one
+/// ([`Layout::arguments`]).
 struct Mountpoint(PathBuf);
 
 impl Mountpoint {
-    /// A fresh folder only this user can enter. `XDG_RUNTIME_DIR` is that
-    /// already, and read-only inside the sandbox; without one, the agent's
-    /// own folder, where the sandbox sees the filter itself.
+    /// A fresh folder only this user can enter, in `XDG_RUNTIME_DIR` or,
+    /// without one, in the agent's own folder.
     fn create(agent_home: &Path) -> Result<Self, String> {
         let runtime = std::env::var_os("XDG_RUNTIME_DIR")
             .map(PathBuf::from)
             .filter(|folder| folder.is_absolute() && folder.is_dir());
-        let base = runtime.unwrap_or_else(|| agent_home.to_path_buf()).join("lattice-agent-guard");
+        Self::create_in(&runtime.unwrap_or_else(|| agent_home.to_path_buf()).join(MOUNTS))
+    }
+
+    /// A fresh folder in `base`, which only this user can enter either.
+    fn create_in(base: &Path) -> Result<Self, String> {
         let failed = |error: io::Error| format!("could not create the filter's folder: {error}");
-        fs::DirBuilder::new().recursive(true).mode(0o700).create(&base).map_err(failed)?;
-        clear_stale(&base);
+        fs::DirBuilder::new().recursive(true).mode(0o700).create(base).map_err(failed)?;
+        clear_stale(base);
         let path = base.join(std::process::id().to_string());
         fs::DirBuilder::new().mode(0o700).create(&path).map_err(failed)?;
         Ok(Self(path))
