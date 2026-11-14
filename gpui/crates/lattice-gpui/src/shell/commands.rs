@@ -153,6 +153,8 @@ pub struct CommandContext {
     pub overleaf_syncing: bool,
     /// The editor in front is a LaTeX source (Insert table's `latexSource`).
     pub latex_source: bool,
+    /// The project's PDF is in a window of its own.
+    pub pdf_in_window: bool,
 }
 
 /// One row of the table.
@@ -280,7 +282,7 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
         // Only from a LaTeX source, which SyncTeX maps to the PDF.
         if context.latex_source {
             out.push(Command::new(
-                "reveal-cursor",
+                "sync-pdf",
                 t!("Jump to PDF"),
                 Section::Navigate,
                 ForwardSync,

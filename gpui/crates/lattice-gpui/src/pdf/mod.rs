@@ -20,7 +20,7 @@ mod toolbar_hover;
 mod view;
 mod window;
 
-pub(crate) use dark::filter as dark_filter;
+pub(crate) use dark::{enabled as dark_pages, filter as dark_filter, toggle as toggle_dark_pages};
 pub(crate) use engine::{DocId, PdfEngine, RenderRequest};
 pub use find::FindOptions;
 pub use layout::FitMode;

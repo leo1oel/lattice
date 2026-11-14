@@ -778,10 +778,7 @@ impl PdfView {
 
     /// Dark pages on or off, in every viewer and window.
     pub fn toggle_dark_pages(&mut self, cx: &mut Context<Self>) {
-        let dark = !super::dark::enabled();
-        preferences::update(|preferences| preferences.dark_pages = dark);
-        // Every viewer follows (`observe_global` in `new`).
-        cx.set_global(super::dark::DarkPages);
+        super::dark::toggle(cx);
     }
 }
 
