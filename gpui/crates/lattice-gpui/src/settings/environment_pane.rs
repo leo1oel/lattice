@@ -31,6 +31,7 @@ pub fn render(
     cx: &mut Context<SettingsDialog>,
 ) -> AnyElement {
     let pane = dialog
+        .pages
         .environment
         .get_or_insert_with(|| cx.new(EnvironmentPane::new))
         .clone();

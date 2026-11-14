@@ -68,6 +68,7 @@ pub fn render(
 ) -> gpui::AnyElement {
     let handle = cx.entity().downgrade();
     let pane = dialog
+        .pages
         .model_endpoint
         .get_or_insert_with(|| cx.new(|cx| ModelEndpointPane::new(handle, window, cx)))
         .clone();

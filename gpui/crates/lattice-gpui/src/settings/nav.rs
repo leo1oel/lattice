@@ -111,13 +111,22 @@ fn groups() -> Vec<(SharedString, Vec<(Section, SharedString)>)> {
         ),
         (
             t!("Integrations").into(),
-            vec![(
-                Section {
-                    tab: SettingsTab::Overleaf,
-                    icon: Icon::CLOUD_UPLOAD_FILL,
-                },
-                "Overleaf".into(),
-            )],
+            vec![
+                (
+                    Section {
+                        tab: SettingsTab::Overleaf,
+                        icon: Icon::CLOUD_UPLOAD_FILL,
+                    },
+                    "Overleaf".into(),
+                ),
+                (
+                    Section {
+                        tab: SettingsTab::Literature,
+                        icon: Icon::API_KEY,
+                    },
+                    t!("Literature services").into(),
+                ),
+            ],
         ),
         (
             t!("Diagnostics").into(),

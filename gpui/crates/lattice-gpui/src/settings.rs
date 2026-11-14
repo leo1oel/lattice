@@ -32,10 +32,12 @@ mod dialog;
 mod editor_pane;
 mod environment_pane;
 mod grammar_group;
+mod literature_pane;
 pub(crate) mod logs_export;
 pub(crate) mod logs_pane;
 mod model_endpoint_pane;
 mod nav;
+mod pages;
 pub(crate) mod overleaf_pane;
 mod providers_pane;
 mod search;
@@ -87,6 +89,16 @@ impl AppSettings {
 }
 
 /// The settings now.
+/// Whether adding a paper saves its full text too, as Settings › Literature
+/// services and the Add papers sheet last chose (`saveFullTextSetting`).
+pub fn paper_full_text(cx: &App) -> lattice_core::papers::FullText {
+    if get(cx).save_full_text {
+        lattice_core::papers::FullText::Save
+    } else {
+        lattice_core::papers::FullText::Skip
+    }
+}
+
 pub fn get(cx: &App) -> &Settings {
     &cx.global::<AppSettings>().settings
 }

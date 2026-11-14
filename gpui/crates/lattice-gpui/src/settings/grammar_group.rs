@@ -226,6 +226,7 @@ pub fn group(
 ) -> AnyElement {
     let grammar = super::get(cx).grammar.clone();
     let state = dialog
+        .pages
         .grammar
         .get_or_insert_with(|| cx.new(|cx| GrammarRules::new(window, cx)))
         .clone();
