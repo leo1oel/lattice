@@ -35,6 +35,20 @@ impl OverleafPicker {
             .map(|copy| copy.display.clone())
     }
 
+    /// Whether the list has loaded and the lookup of the folders already
+    /// here has answered for it.
+    pub fn scenario_copies_read(&self, cx: &App) -> bool {
+        self.list.is_some()
+            && !self.copies_loading
+            && !self.copies_for.is_empty()
+            && !self.rows(cx).is_empty()
+    }
+
+    /// Close the picker, as Escape does.
+    pub fn scenario_dismiss(&mut self, cx: &mut Context<Self>) {
+        self.dismiss(cx);
+    }
+
     /// Show `list` for the account `status` at once, the first row chosen,
     /// with nothing asked of the network: the parity harness's picker.
     pub fn scenario_stage(
