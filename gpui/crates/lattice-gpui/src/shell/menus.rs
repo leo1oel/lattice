@@ -14,7 +14,7 @@
 //! attribution Trellis's license asks a shipped app to show, and the
 //! project's website and repository (`about_links.rs`, `macos_about.rs`).
 
-use gpui::{App, Menu, MenuItem, OsAction, SystemMenuType, actions};
+use gpui::{App, Global, Menu, MenuItem, OsAction, SystemMenuType, actions};
 use lattice_i18n::tc;
 
 use super::{commands::*, windows};
@@ -83,7 +83,8 @@ pub fn install(cx: &mut App) {
     cx.on_action(|_: &About, cx| show_about(cx));
     cx.on_action(|_: &OpenWebsite, cx| cx.open_url(WEBSITE_URL));
     cx.on_action(|_: &OpenRepository, cx| cx.open_url(REPOSITORY_URL));
-    // View ▸ Enter Full Screen: AppKit's own, on the window in front.
+    // View ▸ Enter Full Screen (Exit Full Screen in full screen): AppKit's
+    // own, on the window in front.
     cx.on_action(|_: &EnterFullScreen, cx| {
         if let Some(window) = cx.active_window() {
             window
@@ -97,7 +98,9 @@ pub fn install(cx: &mut App) {
 /// Set the menu bar in the interface language now; called again when it
 /// changes.
 pub fn install_menus(cx: &mut App) {
-    cx.set_menus(menus(cx));
+    let front = front(cx);
+    cx.set_menus(menus(front, cx));
+    cx.set_global(Shown(front));
     #[cfg(target_os = "macos")]
     crate::native::set_windows_menu(tc!("macOS menu bar", "Window"));
 }
@@ -106,6 +109,17 @@ pub fn install_menus(cx: &mut App) {
 /// and the window in front.
 pub fn refresh(cx: &mut App) {
     cx.defer(install_menus);
+}
+
+/// Lay the menus out again if what they show of the window in front
+/// changed (its project closed, linked to Overleaf or unlinked). Deferred:
+/// the caller may be inside the shell's own update.
+pub fn follow_front(cx: &mut App) {
+    cx.defer(|cx| {
+        if cx.try_global::<Shown>().map(|shown| shown.0) != Some(front(cx)) {
+            install_menus(cx);
+        }
+    });
 }
 
 /// File ▸ Open Recent: the recent projects, newest first, at most five, the
@@ -139,26 +153,36 @@ fn open_recent(cx: &App) -> MenuItem {
 }
 
 /// What the menus need from the window in front: whether it shows a
-/// project, and its margin review choice when its project is linked to
-/// Overleaf (the Tauri app's `marginReviewAvailable`).
-#[derive(Default)]
+/// project, its margin review choice when its project is linked to
+/// Overleaf (the Tauri app's `marginReviewAvailable`), and whether it is in
+/// full screen.
+#[derive(Clone, Copy, Default, PartialEq)]
 struct Front {
     project_open: bool,
     margin: Option<crate::editor_panel::MarginMode>,
+    fullscreen: bool,
 }
 
+/// What the menus showed of the window in front when last laid out.
+struct Shown(Front);
+
+impl Global for Shown {}
+
 fn front(cx: &App) -> Front {
-    let Some(shell) = cx
-        .active_window()
-        .and_then(|window| windows::shell_of(window, cx))
-    else {
-        return Front::default();
+    let window = cx.active_window();
+    let fullscreen = window.is_some_and(|window| windows::is_fullscreen(window.window_id(), cx));
+    let Some(shell) = window.and_then(|window| windows::shell_of(window, cx)) else {
+        return Front {
+            fullscreen,
+            ..Front::default()
+        };
     };
     let shell = shell.read(cx);
     let context = shell.command_context(cx);
     Front {
         project_open: context.in_project,
         margin: (context.in_project && context.overleaf_linked).then_some(shell.margin_mode),
+        fullscreen,
     }
 }
 
@@ -178,9 +202,8 @@ fn margin_review(mode: crate::editor_panel::MarginMode) -> MenuItem {
     )
 }
 
-fn menus(cx: &App) -> Vec<Menu> {
+fn menus(front: Front, cx: &App) -> Vec<Menu> {
     let name = "Lattice";
-    let front = front(cx);
     let (website, github) = link_titles();
     let mut lattice = vec![MenuItem::action(
         tc!("macOS menu bar", "About {name}", name = name),
@@ -203,7 +226,14 @@ fn menus(cx: &App) -> Vec<Menu> {
         MenuItem::action(tc!("macOS menu bar", "Bigger"), LargerInterface),
         MenuItem::action(tc!("macOS menu bar", "Smaller"), SmallerInterface),
         MenuItem::separator(),
-        MenuItem::action(tc!("macOS menu bar", "Enter Full Screen"), EnterFullScreen),
+        MenuItem::action(
+            if front.fullscreen {
+                tc!("macOS menu bar", "Exit Full Screen")
+            } else {
+                tc!("macOS menu bar", "Enter Full Screen")
+            },
+            EnterFullScreen,
+        ),
     ];
     if let Some(mode) = front.margin {
         view.extend([MenuItem::separator(), margin_review(mode)]);

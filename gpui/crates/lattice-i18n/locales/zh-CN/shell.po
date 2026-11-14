@@ -48,6 +48,11 @@ msgstr "无法清理临时文件"
 msgid "Couldn’t stop the build"
 msgstr "无法停止编译"
 
+#: lattice-gpui/src/shell/menus.rs
+msgctxt "macOS menu bar"
+msgid "Exit Full Screen"
+msgstr "退出全屏幕"
+
 #: lattice-gpui/src/shell/history_flow.rs
 msgid "Git left conflict markers in {files}."
 msgstr "Git 在 {files} 里留下了冲突标记。"

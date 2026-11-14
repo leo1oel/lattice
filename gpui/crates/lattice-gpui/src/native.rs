@@ -396,6 +396,12 @@ pub fn set_content_min_size(native: Native, width: f64, height: f64) {
     }
 }
 
+/// The window's content minimum size as AppKit holds it, for a scenario.
+pub fn content_min_size(native: Native) -> (f64, f64) {
+    let size: NSSize = unsafe { msg_send![native.window, contentMinSize] };
+    (size.width, size.height)
+}
+
 /// AppKit's standard About panel for `name` `version` (`macos_about.rs`):
 /// `credits`, then each `(title, url)` link on one line, which the panel's
 /// credits view opens in the default browser.

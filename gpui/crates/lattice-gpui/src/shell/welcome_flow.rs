@@ -60,7 +60,7 @@ impl Shell {
                     .ok();
                 })
                 .detach();
-                cx.spawn_in(window, async move |this, cx| {
+                self._open_task = Some(cx.spawn_in(window, async move |this, cx| {
                     let opened = crate::project::open(last.path.clone(), cx).await;
                     this.update_in(cx, |this, window, cx| match opened {
                         Ok(project) => this.set_project(project, window, cx),
@@ -74,8 +74,7 @@ impl Shell {
                         ),
                     })
                     .ok();
-                })
-                .detach();
+                }));
             }
             None => self.open_tutorial(window, cx),
         }
@@ -342,7 +341,7 @@ impl Shell {
         if here || self.project.is_none() {
             self.open_project(root, window, cx);
         } else {
-            windows::new_window(Some(root), Some(window.bounds()), cx);
+            windows::new_window(Some(root), Some(windows::place_of(window, cx)), cx);
         }
     }
 

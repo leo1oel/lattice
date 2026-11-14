@@ -2,9 +2,9 @@
 //! (`src/telemetry/crash-save.ts`, `root-error-boundary.tsx`, and the panic
 //! hook in `src-tauri/src/lib.rs`).
 //!
-//! A panic is logged first, as the Tauri app's hook logs it (`lattice::panic`),
-//! and its entry is written to the app's log file at once, since the process
-//! may not live to flush the log's own queue. A panic on the main thread
+//! A panic is logged first, as the Tauri app's hook logs it (`lattice::panic`).
+//! A panic on the main thread has its entry written to the app's log file at
+//! once, since the process may not live to flush the log's own queue: it
 //! ends the app (GPUI's callbacks from AppKit cannot unwind), so before it
 //! does, the open edits are written, as the Tauri app's crash page writes
 //! them while the crashed tree is still mounted: autosave waits for a pause
@@ -110,13 +110,13 @@ fn on_panic(detail: &str) {
     let timestamp = chrono::Utc::now()
         .format("%Y-%m-%dT%H:%M:%S%.3fZ")
         .to_string();
-    if let Some(state) = &places.state {
-        write_log_line(state, &timestamp, detail);
-    }
-    // A worker thread's panic ends only that thread; the app goes on, and
-    // the editors keep their edits.
+    // A worker thread's panic ends only that thread; the app goes on, the
+    // editors keep their edits, and the log takes the record above.
     if std::thread::current().id() != places.main {
         return;
+    }
+    if let Some(state) = &places.state {
+        write_log_line(state, &timestamp, detail);
     }
     let (saved, failed) = save_open_edits(Instant::now() + CRASH_SAVE_TIMEOUT);
     if let Some(state) = &places.state {
@@ -332,7 +332,7 @@ pub fn announce_previous_crash(cx: &mut App) {
 pub fn show_crash_notice(note: CrashNote, cx: &mut App) {
     let details = note.detail.clone();
     app_log::global(cx).update(cx, |log, cx| {
-        log.add(
+        log.add_written(
             NewEntry {
                 level: Level::Error,
                 source: t!("UI").to_string(),
@@ -340,8 +340,6 @@ pub fn show_crash_notice(note: CrashNote, cx: &mut App) {
                 detail: note.detail.clone(),
                 context: None,
             },
-            None,
-            false,
             cx,
         );
     });

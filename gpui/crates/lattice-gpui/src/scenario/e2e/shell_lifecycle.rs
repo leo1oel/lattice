@@ -21,7 +21,6 @@ use crate::{
     crash,
     notices,
     scenario::Run,
-    shell::windows,
 };
 
 /// What a menu lists: its items' names, a separator as "—" and a submenu by
@@ -54,19 +53,38 @@ impl Run {
     }
 
     fn minimum_size(&self, cx: &mut AsyncApp, steps: &mut Steps) -> Result<()> {
-        let (applied, layout) = self.with_window(cx, |shell, window, cx| {
+        let (engine, screen) = self.with_window(cx, |shell, window, cx| {
             (
-                windows::applied_minimum_width(window, cx),
-                shell.read(cx).layout_minimum_width(cx),
+                shell.read(cx).workspace().read(cx).engine().min_width(),
+                window
+                    .display(cx)
+                    .map(|display| f32::from(display.visible_bounds().size.width)),
             )
         })?;
+        #[cfg(target_os = "macos")]
+        let (applied, height) = {
+            let (width, height) = crate::native::content_min_size(self.native(cx)?);
+            (Some(width as f32), Some(height as f32))
+        };
+        #[cfg(not(target_os = "macos"))]
+        let (applied, height) = (
+            self.with_window(cx, |_, window, cx| {
+                crate::shell::windows::applied_minimum_width(window, cx)
+            })?,
+            None::<f32>,
+        );
         let scale = cx.update(|cx| crate::interface_zoom::scale(cx));
-        let expected = windows::minimum_width(layout, scale, None);
+        // window-layout.ts's `minimumWindowWidth`, worked out here from the
+        // layout engine's own minimum: `main.workspace`'s 6px either side,
+        // the 640pt titlebar floor, scaled up by the interface size, and
+        // capped by the screen.
+        let content = (engine as f32 + 12.).max(640.);
+        let width = (content * scale).ceil();
+        let expected = screen.map_or(width, |screen| width.min(screen.floor()));
         steps.check(
-            "the window's minimum follows its layout's, never below 640 points",
-            // A screen narrower than the layout caps it below `expected`.
-            applied.is_some_and(|width| width >= windows::MIN_WIDTH.min(expected) && width <= expected),
-            json!({ "applied": applied, "layout": layout, "scale": scale, "expected": expected }),
+            "the window's minimum follows its layout's, never below 640×680 points",
+            applied == Some(expected) && height.is_none_or(|height| height == 680.),
+            json!({ "applied": applied, "height": height, "engine": engine, "scale": scale, "screen": screen, "expected": expected }),
         );
         Ok(())
     }
