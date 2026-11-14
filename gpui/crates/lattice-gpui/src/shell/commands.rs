@@ -537,10 +537,12 @@ mod tests {
     #[test]
     fn without_a_project_only_project_overleaf_and_appearance_commands_apply() {
         let commands = commands(&CommandContext::default());
-        assert!(commands.iter().all(|command| matches!(
-            command.section,
-            Section::Project | Section::Overleaf | Section::Appearance
-        )));
+        // Dark PDF pages has no condition in the Tauri app's table either.
+        assert!(commands.iter().all(|command| command.id == "pdf-dark-pages"
+            || matches!(
+                command.section,
+                Section::Project | Section::Overleaf | Section::Appearance
+            )));
         // Opening a project from Overleaf needs none open; syncing needs a link.
         assert!(commands.iter().any(|command| command.id == "overleaf-open"));
         assert!(!commands.iter().any(|command| command.id == "overleaf-sync"));
