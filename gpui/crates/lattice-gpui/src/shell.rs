@@ -71,6 +71,7 @@ pub use commands::{
 pub use help_flow::{ReportProblem, WhatsNew};
 pub use references_flow::{FindReferences, RenameSymbol};
 pub use tools_flow::{ExportArxiv, OpenChecklist, OpenTodos};
+pub(crate) use workspace_flow::LayoutState;
 
 use crate::{
     build::{
@@ -100,22 +101,6 @@ pub const BUILD_SHORTCUT_LABEL: &str = "Ctrl+B";
 
 pub fn bind_keys(cx: &mut App) {
     commands::bind_keys(cx);
-}
-
-/// The window's layout state: the workspace the project is in, a preset or
-/// focus mode laid over it, and whether its arrangement differs from the
-/// workspace's.
-#[derive(Default)]
-pub(crate) struct LayoutState {
-    pub workspace: Option<String>,
-    pub preset: Option<trellis_layout::ActivePreset>,
-    /// Focus mode, and the layout it returns to.
-    pub focus: Option<trellis_layout::ActiveFocus>,
-    pub dirty: bool,
-    /// The workspace whose name is being edited in place.
-    pub renaming: Option<String>,
-    /// Where each document sat in each workspace, by workspace id.
-    pub places: std::collections::BTreeMap<String, trellis_layout::DocumentPlaces>,
 }
 
 /// A project open in a window, with the name its tab shows.
