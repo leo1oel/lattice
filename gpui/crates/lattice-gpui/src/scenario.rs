@@ -111,6 +111,15 @@ pub fn start(shell: Entity<Shell>, window: AnyWindowHandle, args: ScenarioArgs, 
         if let Err(error) = std::fs::write(&args.out, text) {
             log::error!("writing {}: {error}", args.out.display());
         }
+        // A quit that never finishes (seen once with two runs side by side,
+        // the app idle after `terminate:`) would hold `script/e2e` forever;
+        // after a minute the process exits, and the script's check that the
+        // quit saved the typed text decides the run.
+        std::thread::spawn(|| {
+            std::thread::sleep(Duration::from_secs(60));
+            log::error!("the app did not quit within 60 s of the scenario's end; exiting");
+            std::process::exit(3);
+        });
         cx.update(|cx| cx.quit());
     })
     .detach();

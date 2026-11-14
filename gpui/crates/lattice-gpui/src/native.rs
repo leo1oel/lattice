@@ -491,12 +491,14 @@ pub fn use_private_pasteboard() {
     }
 }
 
-/// Remove the private pasteboard from the pasteboard server, as the run ends.
+/// Empty the private pasteboard as the run ends, so the pasteboard server
+/// keeps no copy of what the run put there. Not `releaseGlobally`: AppKit
+/// still reaches the pasteboard while the app terminates.
 pub fn release_private_pasteboard() {
     let private = PRIVATE_PASTEBOARD.load(std::sync::atomic::Ordering::Relaxed);
     if !private.is_null() {
         unsafe {
-            let _: () = msg_send![private, releaseGlobally];
+            let _: isize = msg_send![private, clearContents];
         }
     }
 }
