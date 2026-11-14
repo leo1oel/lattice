@@ -404,13 +404,11 @@ impl Run {
     async fn open_move_submenu(
         &self,
         cx: &mut AsyncApp,
-    ) -> Result<
-        Option<(
-            gpui::Bounds<gpui::Pixels>,
-            gpui::Bounds<gpui::Pixels>,
-            Vec<(String, gpui::Bounds<gpui::Pixels>)>,
-        )>,
-    > {
+    ) -> Result<Option<(
+        gpui::Bounds<gpui::Pixels>,
+        gpui::Bounds<gpui::Pixels>,
+        Vec<(String, gpui::Bounds<gpui::Pixels>)>,
+    )>> {
         lattice_ui::parity::enable();
         let root = self.root(cx).await?;
         // Trellis offers New split right/below only for a panel holding more
