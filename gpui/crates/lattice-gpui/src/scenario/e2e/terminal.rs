@@ -259,7 +259,7 @@ impl Run {
                 .update(cx, |panel, cx| panel.start_rename(second, window, cx))
         })?;
         self.pause(cx, Duration::from_millis(100)).await;
-        self.type_text(cx, "latex\n").await?;
+        self.type_text(cx, "latex build\n").await?;
         self.pause(cx, Duration::from_millis(150)).await;
         let renamed = self.terminal_labels(cx);
         // The tab in front takes the keyboard; ← and → move along the strip.
@@ -294,7 +294,7 @@ impl Run {
         steps.check(
             "New terminal opens a second tab in front; a tab renames in place, and ← → move along the tabs",
             two && labels == ["Terminal 1", "Terminal 2"]
-                && renamed == ["Terminal 1", "latex"]
+                && renamed == ["Terminal 1", "latex build"]
                 && keyboard,
             json!({ "labels": labels, "renamed": renamed, "arrows": keys }),
         );

@@ -202,12 +202,16 @@ impl TerminalPanel {
         // The tab in front is the strip's one tab stop; ← and → move along
         // the strip and F2 renames, as the Tauri tab list's keys do.
         let focus = lattice_ui::components::focus_ring(&palette, ground);
+        let tab_focus = session.tab_focus.clone();
         let tab = div()
             .id(id)
             .track_focus(&session.tab_focus)
             .when(selected, |tab| tab.tab_index(0))
             .focus_visible(move |style| style.shadow(focus))
             .on_key_down(cx.listener(move |panel, event: &KeyDownEvent, window, cx| {
+                if !tab_focus.is_focused(window) {
+                    return;
+                }
                 match event.keystroke.key.as_str() {
                     "f2" => panel.start_rename(key, window, cx),
                     "left" | "right" => {
