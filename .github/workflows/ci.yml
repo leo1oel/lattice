@@ -464,13 +464,25 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
-      # Tauri's WebKitGTK stack, plus D-Bus for the Secret Service keyring.
+      # Tauri's WebKitGTK stack, plus D-Bus for the Secret Service keyring, and
+      # bubblewrap and FUSE for the agent's .bib guard, whose tests run the
+      # real sandbox here.
       - name: Install the Linux build dependencies
         timeout-minutes: 15
         run: >-
           .github/scripts/apt-install.sh
           build-essential libayatana-appindicator3-dev libdbus-1-dev
           librsvg2-dev libssl-dev libwebkit2gtk-4.1-dev libxdo-dev pkg-config
+          bubblewrap fuse3
+      # bubblewrap needs unprivileged user namespaces, which AppArmor
+      # restricts by default from Ubuntu 24.04 on. Without them the guard's
+      # tests would fail below; the probe says why sooner.
+      - name: Let bubblewrap start a sandbox
+        run: |
+          if [ -e /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
+          bwrap --unshare-pid --die-with-parent --new-session --ro-bind / / --proc /proc -- true
       # rust-toolchain.toml pins the release; the runner's own target comes with it.
       - run: rustup toolchain install
       - uses: Swatinem/rust-cache@v2
@@ -486,6 +498,10 @@ jobs:
       # the measurement lab runs on macOS alone.
       - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
       - run: cargo test --manifest-path src-tauri/Cargo.toml
+        env:
+          # The .bib guard's sandbox tests fail, instead of skipping, where
+          # bubblewrap, FUSE or user namespaces are missing.
+          LATTICE_REQUIRE_BIBLIOGRAPHY_GUARD: "1"
 
   # Experimental Windows host support. This does not package or publish an app.
   rust-windows:

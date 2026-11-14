@@ -4,13 +4,18 @@ import { i18n } from "../i18n";
 
 // Status and error text the compile-repair relay reports: the Synara
 // compile-repair route (latticeCompileRepairHttpRoute.ts upstream) and the Rust
-// relay in synara.rs. Keyed by their exact English.
+// relay in synara/task_relay.rs. Keyed by their exact English.
 const RELAY_MESSAGES: Record<string, MessageDescriptor> = {
   "The repair agent needs an answer. Open the repair thread to respond.": msg`The repair agent needs an answer. Open the repair thread to respond.`,
   "Cancellation requested; waiting for the provider to stop.": msg`Cancellation requested; waiting for the provider to stop.`,
   "Repair has no active turn.": msg`Repair has no active turn.`,
   "The agent service is unavailable.": msg`The agent service is unavailable.`,
   "The built-in agent is off on this platform until Lattice can keep it from editing bibliography (.bib) files directly.": msg`The built-in agent is off on this platform until Lattice can keep it from editing bibliography (.bib) files directly.`,
+  // The Linux guard's own reasons (synara/bibliography_guard/linux.rs).
+  "The built-in agent is off because bubblewrap (bwrap) is not installed. Lattice runs the agent inside it to keep it from editing bibliography (.bib) files directly.": msg`The built-in agent is off because bubblewrap (bwrap) is not installed. Lattice runs the agent inside it to keep it from editing bibliography (.bib) files directly.`,
+  "The built-in agent is off because FUSE (fusermount3 and /dev/fuse) is not available. Lattice needs it to keep the agent from editing bibliography (.bib) files directly.": msg`The built-in agent is off because FUSE (fusermount3 and /dev/fuse) is not available. Lattice needs it to keep the agent from editing bibliography (.bib) files directly.`,
+  "The built-in agent is off because this system does not let bubblewrap start a sandbox (unprivileged user namespaces are restricted). Lattice runs the agent inside one to keep it from editing bibliography (.bib) files directly.": msg`The built-in agent is off because this system does not let bubblewrap start a sandbox (unprivileged user namespaces are restricted). Lattice runs the agent inside one to keep it from editing bibliography (.bib) files directly.`,
+  "The built-in agent is off for this project: Lattice cannot keep the agent from editing bibliography (.bib) files everywhere in its folder. The agent can write to /tmp and to the hidden folders in your home folder directly, so a bibliography in one of those is not protected while the agent works on any project. Move this project to an ordinary folder to use the agent with it.": msg`The built-in agent is off for this project: Lattice cannot keep the agent from editing bibliography (.bib) files everywhere in its folder. The agent can write to /tmp and to the hidden folders in your home folder directly, so a bibliography in one of those is not protected while the agent works on any project. Move this project to an ordinary folder to use the agent with it.`,
   "The repair request failed.": msg`The repair request failed.`,
 };
 

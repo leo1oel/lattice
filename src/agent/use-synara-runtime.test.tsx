@@ -54,7 +54,7 @@ describe("useSynaraRuntime", () => {
     rerender({ enabled: true });
     await waitFor(() => expect(result.current.runtime).toEqual(READY_RUNTIME));
     expect(invoke).toHaveBeenCalledTimes(1);
-    expect(invoke).toHaveBeenCalledWith("synara_ensure_ready");
+    expect(invoke).toHaveBeenCalledWith("synara_ensure_ready", { workspaceRoot: null });
   });
 
   it("retries a failed startup only when requested", async () => {
