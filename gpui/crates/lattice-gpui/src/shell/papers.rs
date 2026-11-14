@@ -161,8 +161,9 @@ impl Shell {
 
     /// A saved paper's reading text opened as a file (a search hit, a link
     /// in a note, the Project tree) opens in its paper's reader, at `line`,
-    /// as the Tauri app's `openPaper` takes a hit's view and line. `None`
-    /// when `path` is no paper's text the library lists.
+    /// as the Tauri app's `openPaper` takes a hit's view and line; a text
+    /// the record lacks opens the one it has, at its top. `None` when
+    /// `path` is no paper's text the library lists, or the record has none.
     pub(super) fn open_in_reader(
         &mut self,
         path: &Path,
@@ -179,17 +180,23 @@ impl Shell {
             .to_string_lossy()
             .replace('\\', "/");
         let (id, full_text) = crate::editor_panel::paper_text::paper_text_of(&relative)?;
-        let paper = self.papers.read(cx).paper_with_id(&id)?;
-        let view = if full_text {
-            ReaderView::FullText
+        let paper = self
+            .papers
+            .read(cx)
+            .paper_with_id(&id)
+            .filter(|paper| paper.has_full_text || paper.has_blog)?;
+        let (view, named) = if full_text {
+            (ReaderView::FullText, paper.has_full_text)
         } else {
-            ReaderView::Overview
+            (ReaderView::Overview, paper.has_blog)
         };
         self.open_reader(paper, window, cx);
         let reader = self.reader_of(&reader_key(&id), cx)?;
-        reader.update(cx, |reader, cx| reader.show(view, window, cx));
+        if named {
+            reader.update(cx, |reader, cx| reader.show(view, window, cx));
+        }
         let editor = reader.read(cx).editor().cloned();
-        if let (Some(editor), Some(line)) = (&editor, line) {
+        if let (Some(editor), Some(line), true) = (&editor, line, named) {
             editor.update(cx, |editor, cx| editor.go_to_line(line, window, cx));
         }
         Some(editor)
@@ -642,7 +649,12 @@ impl Shell {
                 .unwrap_or_else(|_| gpui::Task::ready(false))
         });
         let saved = self.save_editors(cx);
-        let view = cx.new(|cx| Audit::new(owner, root, prepare, saved, cx));
+        let shell = cx.entity();
+        let view = cx.new(|cx| {
+            cx.observe_release(&shell, |audit: &mut Audit, _, cx| audit.abandon(cx))
+                .detach();
+            Audit::new(owner, root, prepare, saved, cx)
+        });
         cx.subscribe_in(&view, window, |this, _, event, window, cx| match event {
             AuditEvent::Dismiss => this.close_document_overlays(window, cx),
             AuditEvent::OpenSource { path, line } => {
@@ -731,6 +743,20 @@ fn last_used<T>(list: &mut Vec<T>, is: impl Fn(&T) -> bool) -> bool {
     true
 }
 
+/// The view a paper opens in (`preferredPaperView`): the one last shown for
+/// it when that text is there, else its full text, and the overview only
+/// when there is no full text.
+fn preferred_view(remembered: Option<ReaderView>, paper: &PaperSummary) -> ReaderView {
+    if remembered == Some(ReaderView::Overview) && paper.has_blog {
+        return ReaderView::Overview;
+    }
+    if paper.has_full_text || !paper.has_blog {
+        ReaderView::FullText
+    } else {
+        ReaderView::Overview
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -754,19 +780,5 @@ mod tests {
         assert!(!last_used(&mut readers, |reader| *reader == "editor"));
         assert_eq!(readers, ["b", "a"]);
         assert_eq!(front_of(&readers, Some("editor")), Some(1));
-    }
-}
-
-/// The view a paper opens in (`preferredPaperView`): the one last shown for
-/// it when that text is there, else its full text, and the overview only
-/// when there is no full text.
-fn preferred_view(remembered: Option<ReaderView>, paper: &PaperSummary) -> ReaderView {
-    if remembered == Some(ReaderView::Overview) && paper.has_blog {
-        return ReaderView::Overview;
-    }
-    if paper.has_full_text || !paper.has_blog {
-        ReaderView::FullText
-    } else {
-        ReaderView::Overview
     }
 }

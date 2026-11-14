@@ -469,7 +469,11 @@ impl AddPapers {
     fn paste_box(&self, rows: usize, cx: &mut Context<Self>) -> AnyElement {
         use gpui_kit::component::input::{Enter, Paste};
         div()
-            .capture_action(cx.listener(|this, _: &Paste, _, _| this.pasted = true))
+            .capture_action(cx.listener(|this, _: &Paste, _, cx| {
+                this.pasted = true;
+                cx.spawn(async move |this, cx| this.update(cx, |this, _| this.pasted = false).ok())
+                    .detach();
+            }))
             .capture_action(cx.listener(|this, action: &Enter, _, cx| {
                 if action.secondary {
                     cx.stop_propagation();

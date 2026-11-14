@@ -39,7 +39,7 @@ use lattice_ui::{
 };
 
 use super::{model, row::tooltip};
-use crate::editor_panel::{EditorPanel, EditorPanelEvent};
+use crate::editor_panel::{DocumentView, EditorPanel, EditorPanelEvent};
 use crate::structured::{PaperPdfIdentity, PaperReading};
 
 mod pdf;
@@ -353,9 +353,15 @@ impl PaperReader {
         let palette = cx.palette().clone();
         let width = self.width.get().map_or(f32::MAX, f32::from);
         let icons_only = width < ICONS_ONLY_BELOW;
+        let masthead = self.masthead
+            && self.pdf.is_none()
+            && self
+                .editor()
+                .and_then(|editor| editor.read(cx).document_view())
+                != Some(DocumentView::Source);
         let source = model::source_label(&self.paper);
         let browser = browser_url(&self.paper).is_some();
-        let authors = (!self.masthead && width >= NO_AUTHORS_BELOW)
+        let authors = (!masthead && width >= NO_AUTHORS_BELOW)
             .then(|| model::short_authors(&self.paper))
             .flatten();
         let browser_label = self.browser_label();
@@ -377,7 +383,7 @@ impl PaperReader {
             .text_role(TextRole::Caption, cx)
             .text_color(palette.text_secondary);
         let mut parts = 0;
-        if !self.masthead {
+        if !masthead {
             identity = identity.child(
                 div()
                     .min_w_0()

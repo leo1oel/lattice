@@ -180,14 +180,7 @@ impl PaperReader {
                 .background_spawn({
                     let file = file.clone();
                     async move {
-                        if file.is_file() {
-                            return Ok(());
-                        }
-                        let bytes = lattice_core::paper_pdf_proxy::fetch_pdf(&url)?;
-                        if let Some(folder) = file.parent() {
-                            std::fs::create_dir_all(folder).map_err(|error| error.to_string())?;
-                        }
-                        std::fs::write(&file, bytes).map_err(|error| error.to_string())
+                        cache_pdf(&file, || lattice_core::paper_pdf_proxy::fetch_pdf(&url))
                     }
                 })
                 .await;
@@ -236,6 +229,38 @@ fn pdf_cache_name(url: &str) -> String {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     url.hash(&mut hasher);
     format!("{:016x}", hasher.finish())
+}
+
+/// Leave a whole PDF at `file`: one already there is kept when it reads as
+/// a PDF, else `fetch`'s bytes land under a name of their own and are moved
+/// into place, so a reader never meets a half-written file.
+fn cache_pdf(
+    file: &std::path::Path,
+    fetch: impl FnOnce() -> Result<Vec<u8>, String>,
+) -> Result<(), String> {
+    use std::io::Read as _;
+    let mut head = [0u8; 5];
+    if std::fs::File::open(file)
+        .and_then(|mut cached| cached.read_exact(&mut head))
+        .is_ok()
+        && &head == b"%PDF-"
+    {
+        return Ok(());
+    }
+    let bytes = fetch()?;
+    if let Some(folder) = file.parent() {
+        std::fs::create_dir_all(folder).map_err(|error| error.to_string())?;
+    }
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |since| since.as_nanos());
+    let partial = file.with_extension(format!("{}-{nanos}.part", std::process::id()));
+    std::fs::write(&partial, bytes)
+        .and_then(|()| std::fs::rename(&partial, file))
+        .map_err(|error| {
+            std::fs::remove_file(&partial).ok();
+            error.to_string()
+        })
 }
 
 #[cfg(test)]
@@ -291,5 +316,19 @@ mod tests {
             Some("https://example.org/post")
         );
         assert_eq!(browser_url(&paper("web-3", None, false)), None);
+    }
+
+    // A download cut short leaves a file that is not a PDF: the next open
+    // fetches again, and a whole PDF already cached is read without one.
+    #[test]
+    fn only_a_whole_pdf_is_read_from_the_cache() {
+        let folder = tempfile::tempdir().unwrap();
+        let file = folder.path().join("paper.pdf");
+        std::fs::write(&file, b"%PD").unwrap();
+        cache_pdf(&file, || Ok(b"%PDF-1.7 whole".to_vec())).unwrap();
+        assert_eq!(std::fs::read(&file).unwrap(), b"%PDF-1.7 whole");
+        cache_pdf(&file, || panic!("a cached PDF is fetched again")).unwrap();
+        assert!(cache_pdf(&folder.path().join("none.pdf"), || Err("offline".into())).is_err());
+        assert_eq!(std::fs::read_dir(folder.path()).unwrap().count(), 1);
     }
 }

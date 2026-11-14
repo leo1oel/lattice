@@ -37,7 +37,7 @@ pub(super) fn reason_label(reason: &str) -> String {
     }
 }
 
-fn source_name(source: &str) -> &str {
+pub(super) fn source_name(source: &str) -> &str {
     match source {
         "dblp" => t!("DBLP"),
         "semanticscholar" => t!("Semantic Scholar"),

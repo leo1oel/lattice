@@ -188,7 +188,9 @@ impl PapersPanel {
         let Some(pasted) = cx.read_from_clipboard().and_then(|item| item.text()) else {
             return false;
         };
-        if self.fetching.busy() || super::model::parse_pasted_references(&pasted).len() < 2 {
+        if (self.fetching.busy() && self.importing.is_none())
+            || super::model::parse_pasted_references(&pasted).len() < 2
+        {
             return false;
         }
         cx.emit(super::PapersEvent::AddPapers(pasted));

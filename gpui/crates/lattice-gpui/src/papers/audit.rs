@@ -511,6 +511,11 @@ impl Audit {
                 {
                     take_batch(batch, &mut answered, &mut s2_failure, &mut s2_status);
                 }
+                let stopped = this
+                    .update(cx, |this, _| {
+                        this.stopped() || this.generation != generation
+                    })
+                    .unwrap_or(true);
                 let all: Vec<(usize, Finding)> = answered
                     .into_iter()
                     .enumerate()
@@ -536,7 +541,9 @@ impl Audit {
                     if this.generation == generation {
                         this.waiting_for_s2 = false;
                     }
-                    this.record(generation, all, cx);
+                    if !stopped {
+                        this.record(generation, all, cx);
+                    }
                 })
                 .ok();
             }
@@ -677,7 +684,21 @@ impl Audit {
         } else {
             Some(index)
         };
+        self.move_disclosed(None, None);
         cx.notify();
+    }
+
+    /// The open reference's disclosures follow it from `from` to `to`; any
+    /// other reference's close, as its finding's would on unmounting.
+    fn move_disclosed(&mut self, from: Option<usize>, to: Option<usize>) {
+        self.disclosed = std::mem::take(&mut self.disclosed)
+            .into_iter()
+            .filter_map(|(index, name)| match index {
+                usize::MAX => Some((index, name)),
+                _ if Some(index) == from => to.map(|to| (to, name)),
+                _ => None,
+            })
+            .collect();
     }
 
     /// A fresh scan's references and the files they came from: the open one
@@ -698,6 +719,7 @@ impl Audit {
             Some((key, nth))
         });
         self.entries = scan.entries;
+        let was_open = self.open;
         self.open = open.and_then(|(key, nth)| {
             self.entries
                 .iter()
@@ -706,6 +728,7 @@ impl Audit {
                 .nth(nth)
                 .map(|(index, _)| index)
         });
+        self.move_disclosed(was_open, self.open);
     }
 
     /// Open the entry where it starts; one the scan placed nowhere offers
@@ -744,7 +767,7 @@ impl Audit {
     }
 
     /// Stop a run under way, for a sheet another project opened.
-    pub(super) fn abandon(&mut self, cx: &mut Context<Self>) {
+    pub(crate) fn abandon(&mut self, cx: &mut Context<Self>) {
         self.stop(cx);
         self.generation += 1;
         self.busy = false;

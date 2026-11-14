@@ -72,6 +72,45 @@ pub(super) fn notice_line(result: &Finding) -> Option<(String, String)> {
     ))
 }
 
+/// Each source asked and what it said, in the interface language.
+fn source_rows(result: &Finding) -> Vec<(String, String)> {
+    result
+        .sources
+        .iter()
+        .map(|source| {
+            (
+                summary::source_name(&source.source).to_string(),
+                super::messages::source_outcome(&result.status, &source.outcome),
+            )
+        })
+        .collect()
+}
+
+/// The sources asked, a name over what it said (`sources`); none when no
+/// source was.
+fn sources_list(rows: Vec<(String, String)>, cx: &App) -> Option<AnyElement> {
+    if rows.is_empty() {
+        return None;
+    }
+    let palette = cx.palette();
+    Some(
+        div()
+            .flex()
+            .flex_col()
+            .gap(px(2.))
+            .text_role(TextRole::Caption, cx)
+            .children(rows.into_iter().map(|(name, outcome)| {
+                div()
+                    .flex()
+                    .flex_wrap()
+                    .gap(px(6.))
+                    .child(div().text_color(palette.text).child(name))
+                    .child(div().text_color(palette.text_secondary).child(outcome))
+            }))
+            .into_any_element(),
+    )
+}
+
 impl Audit {
     fn caption(&self, text: String, ink: Hsla, cx: &App) -> AnyElement {
         div()
@@ -280,7 +319,9 @@ impl Audit {
     }
 
     /// The verdict's reasoning (`details`): what the check said, unless the
-    /// finding already says it, and where the sources disagree.
+    /// finding already says it, the sources asked and what they said, where
+    /// they disagree, and when the work's health and the reference were
+    /// checked.
     fn details(
         &self,
         index: usize,
@@ -301,6 +342,21 @@ impl Audit {
             .iter()
             .map(|field| summary::field_label(field))
             .collect();
+        let sources = source_rows(result);
+        let health = result.health.as_ref().and_then(|health| {
+            let at = super::messages::checked_time(&health.checked_at)?;
+            let stale = if health.stale {
+                t!(" (Stale result)")
+            } else {
+                ""
+            };
+            Some(format!("{}: {at}{stale}", t!("Health checked at")))
+        });
+        let checked = result
+            .checked_at
+            .as_deref()
+            .and_then(super::messages::checked_time)
+            .map(|at| format!("{}: {at}", t!("Last checked")));
         self.disclosure(
             index,
             "details",
@@ -312,6 +368,7 @@ impl Audit {
                     .flex_col()
                     .gap(px(4.))
                     .children(note.map(|note| this.caption(note, ink, cx)))
+                    .children(sources_list(sources, cx))
                     .when(!disagreements.is_empty(), |details| {
                         details.child(this.caption(
                             t!(
@@ -322,6 +379,8 @@ impl Audit {
                             cx,
                         ))
                     })
+                    .children(health.map(|line| this.caption(line, ink, cx)))
+                    .children(checked.map(|line| this.caption(line, ink, cx)))
                     .into_any_element()
             },
             cx,
@@ -515,6 +574,9 @@ impl Audit {
             };
             body = body
                 .children(note.map(|note| self.caption(note, note_ink, cx)))
+                .when(bucket == Bucket::Incomplete, |body| {
+                    body.children(sources_list(source_rows(&result), cx))
+                })
                 .child(actions().child(self.recheck(index, t!("Check again"), cx)));
         }
         if !(matches!(bucket, Bucket::Review | Bucket::Kept) && !has_candidate) {

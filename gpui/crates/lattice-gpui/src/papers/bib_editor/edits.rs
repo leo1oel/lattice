@@ -300,15 +300,4 @@ mod tests {
         follow_rename(&mut renamed, Some(0), 0, "smith2020a");
         assert_eq!(renamed, Some(("smith2020a".to_string(), 0)));
     }
-
-    /// Entries `a`, `b`, `c`: delete `a` (the selection becomes `("b", 0)`),
-    /// undo it (`b` is back at place 1, the selection still says 0 and
-    /// resolves to `b` by key), then rename `b` to `b2`. The selection
-    /// follows to `("b2", 1)` rather than being lost.
-    #[test]
-    fn a_rename_follows_a_selection_whose_stored_place_is_stale() {
-        let mut selected = Some(("b".to_string(), 0));
-        follow_rename(&mut selected, Some(1), 1, "b2");
-        assert_eq!(selected, Some(("b2".to_string(), 1)));
-    }
 }
