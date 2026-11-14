@@ -40,6 +40,17 @@ impl Shell {
                 }
             }
             PapersEvent::Read(paper) => self.open_reader((**paper).clone(), window, cx),
+            PapersEvent::ReadBeside(paper) => {
+                let from = self.beside_from(cx);
+                let key = reader_key(&paper.arxiv_id);
+                self.open_reader((**paper).clone(), window, cx);
+                if let Some((from, shown)) = from
+                    && let Some(view) = self.view_of_document(&key, cx)
+                {
+                    self.place_beside(&view, &from, shown, cx);
+                    self.sync_views(window, cx);
+                }
+            }
             PapersEvent::AddPapers(seed) => self.open_add_papers(seed.clone(), window, cx),
             PapersEvent::SearchLiterature(query) => self.open_literature(query.clone(), window, cx),
             PapersEvent::CheckReferences => self.open_audit(window, cx),

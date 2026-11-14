@@ -26,10 +26,14 @@ impl BibEditor {
     /// into the reference it showed.
     pub(super) fn front(&self) -> Option<(String, usize)> {
         let detail = self.detail.as_ref()?;
-        let index = self
-            .row_at(&detail.key, detail.index)
-            .map_or(usize::MAX, |row| row.index);
-        Some((detail.key.clone(), index))
+        let row = model::form_row(
+            &self.rows,
+            &self.text,
+            &detail.key,
+            detail.index,
+            &detail.signature,
+        )?;
+        Some((detail.key.clone(), row.index))
     }
 
     pub(super) fn rename_key(&mut self, value: String, cx: &mut Context<Self>) {

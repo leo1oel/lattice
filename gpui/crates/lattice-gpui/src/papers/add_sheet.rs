@@ -414,7 +414,10 @@ impl AddPapers {
         use super::zotero::{ZoteroBrowser, ZoteroBrowserEvent};
         let papers = self.papers.clone();
         let browser = cx.new(|cx| ZoteroBrowser::new(papers, window, cx));
-        let events = cx.subscribe(&browser, |this, _, event: &ZoteroBrowserEvent, cx| {
+        let previous = window.focused(cx);
+        let focus = browser.read(cx).focus.clone();
+        window.focus(&focus, cx);
+        let events = cx.subscribe_in(&browser, window, move |this, _, event, window, cx| {
             match event {
                 ZoteroBrowserEvent::Add {
                     papers,
@@ -459,6 +462,11 @@ impl AddPapers {
                     }
                 }
                 ZoteroBrowserEvent::Back => this.zotero = None,
+            }
+            if this.zotero.is_none()
+                && let Some(previous) = &previous
+            {
+                window.focus(previous, cx);
             }
             cx.notify();
         });

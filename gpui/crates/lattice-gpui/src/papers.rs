@@ -90,6 +90,8 @@ pub enum PapersEvent {
     Open { path: String, line: Option<u32> },
     /// Read a saved paper in its reader (its full text, else its overview).
     Read(Box<PaperSummary>),
+    /// Read a saved paper beside the document in front (Open to the side).
+    ReadBeside(Box<PaperSummary>),
     /// Open Add papers, seeded with what the box holds.
     AddPapers(String),
     /// Search the literature for a title the library does not hold.
@@ -202,6 +204,8 @@ pub struct PapersPanel {
     pub(crate) text_hits: HashMap<String, TextMatch>,
     pub(crate) text_search: TextSearch,
     text_generation: u64,
+    /// The text pass for the box is waiting out its pause: Enter runs it now.
+    text_waiting: bool,
     text_task: Option<Task<()>>,
     /// Papers whose hits show beyond the first three.
     pub(crate) expanded_hits: HashSet<String>,
@@ -260,6 +264,7 @@ impl PapersPanel {
             text_hits: HashMap::new(),
             text_search: TextSearch::Idle,
             text_generation: 0,
+            text_waiting: false,
             text_task: None,
             expanded_hits: HashSet::new(),
             sort: Sort::default(),

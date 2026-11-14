@@ -273,7 +273,6 @@ impl AddReference {
         let generation = self.generation;
         self.resolving = true;
         self.error = None;
-        self.extra.clear();
         let lookup = cx
             .background_spawn(async move { lattice_core::project::resolve_citation_query(&query) });
         self._lookup = Some(cx.spawn_in(window, async move |this, cx| {
@@ -343,7 +342,6 @@ impl AddReference {
     /// says about the work fills the fields still empty.
     fn enter_manually(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.abandon(cx);
-        self.extra.clear();
         let query = self.lookup.read(cx).value().to_string();
         let field = model::fields_from_query(&query).map(|fill| match fill {
             QueryFill::Doi(doi) => (Field::Doi, doi),

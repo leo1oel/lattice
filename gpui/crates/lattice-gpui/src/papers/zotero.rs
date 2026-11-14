@@ -25,7 +25,9 @@ use std::{
     rc::Rc,
 };
 
-use gpui::{App, AppContext as _, Context, Entity, EventEmitter, Subscription, Task, Window};
+use gpui::{
+    App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, Subscription, Task, Window,
+};
 use gpui_kit::component::input::{InputEvent, InputState};
 use lattice_core::{
     papers::PaperSummary,
@@ -272,6 +274,7 @@ pub struct ZoteroBrowser {
     pub(super) ticked: HashSet<String>,
     /// In a narrow sheet, the papers stand in place of the folders.
     pub(super) papers_pane: bool,
+    pub(super) focus: FocusHandle,
     /// Each item's record, by its place in the library's items.
     records: Vec<Option<ReferenceRecord>>,
     listed: RefCell<Option<Listed>>,
@@ -322,6 +325,7 @@ impl ZoteroBrowser {
             subfolders: false,
             ticked: HashSet::new(),
             papers_pane: false,
+            focus: cx.focus_handle(),
             records: Vec::new(),
             listed: RefCell::default(),
             counts: RefCell::default(),
@@ -535,6 +539,17 @@ impl ZoteroBrowser {
 
     pub(super) fn back(&mut self, cx: &mut Context<Self>) {
         cx.emit(ZoteroBrowserEvent::Back);
+    }
+
+    /// Escape: a narrow sheet showing papers goes back to the folders;
+    /// anywhere else it leaves the browser (`ZoteroBrowserHandle.escape`).
+    pub(super) fn escape(&mut self, one_pane: bool, cx: &mut Context<Self>) {
+        if one_pane && self.papers_pane && self.folder.is_some() {
+            self.papers_pane = false;
+            cx.notify();
+        } else {
+            self.back(cx);
+        }
     }
 
     /// Whether the library was read, and why not when it could not be.

@@ -518,6 +518,119 @@ impl Shell {
         })
     }
 
+    /// Where an open to the side starts from (`openToTheSide`): the panel of
+    /// the document in front on screen, else of any document shown, and the
+    /// view it shows; none without a document on screen.
+    pub(crate) fn beside_from(&self, cx: &App) -> Option<(String, Option<String>)> {
+        let doc = self.document(cx);
+        let engine = self.workspace.read(cx).engine();
+        let active = self.active_document(cx);
+        let files: Vec<(&String, &trellis::runtime::engine::ViewState)> = doc
+            .views
+            .iter()
+            .filter(|(_, record)| record.kind == "file")
+            .filter_map(|(id, _)| {
+                let state = engine.view_state(id)?;
+                (state.placement != ViewPlacement::Hidden).then_some((id, state))
+            })
+            .collect();
+        let from = files
+            .iter()
+            .find(|(id, _)| active.as_deref() == Some(file_key(doc.views.get(*id)).as_str()))
+            .or_else(|| files.iter().find(|(_, state)| state.selected))?
+            .1
+            .panel_id
+            .clone();
+        let shown = doc
+            .views
+            .keys()
+            .find(|id| {
+                engine
+                    .view_state(id)
+                    .is_some_and(|state| state.panel_id == from && state.selected)
+            })
+            .cloned();
+        Some((from, shown))
+    }
+
+    /// Answer an open to the side (`placeBeside`): the document `view`, if
+    /// it opened in the panel `from`, moves into another document panel on
+    /// screen (an empty slot shown first, then a paper or PDF shown, then
+    /// any), else into a new split right of `from`; `from` shows `shown`
+    /// again.
+    pub(crate) fn place_beside(
+        &mut self,
+        view: &str,
+        from: &str,
+        shown: Option<String>,
+        cx: &mut Context<Self>,
+    ) {
+        if self
+            .placement(view, cx)
+            .map(|(_, panel, _)| panel)
+            .as_deref()
+            != Some(from)
+        {
+            return;
+        }
+        let doc = self.document(cx);
+        let engine = self.workspace.read(cx).engine();
+        let others: Vec<(String, bool, bool, bool)> = doc
+            .views
+            .iter()
+            .filter(|(_, record)| record.kind == "file" || record.kind == "slot")
+            .filter_map(|(id, record)| {
+                let state = engine.view_state(id)?;
+                (state.placement != ViewPlacement::Hidden && state.panel_id != from).then(|| {
+                    (
+                        state.panel_id.clone(),
+                        state.selected,
+                        record.kind == "slot",
+                        is_reading(&file_key(Some(record))),
+                    )
+                })
+            })
+            .collect();
+        let target = others
+            .iter()
+            .find(|(_, selected, slot, _)| *selected && *slot)
+            .or_else(|| {
+                others
+                    .iter()
+                    .find(|(_, selected, _, reading)| *selected && *reading)
+            })
+            .or_else(|| others.first())
+            .map(|(panel, ..)| panel.clone());
+        let alone = doc
+            .views
+            .keys()
+            .filter(|id| {
+                engine
+                    .view_state(id)
+                    .is_some_and(|state| state.panel_id == from)
+            })
+            .count()
+            == 1;
+        if target.is_none() && alone {
+            return;
+        }
+        let target = match target {
+            Some(into) => trellis::model::DockTarget::Into { into, index: None },
+            None => trellis::model::DockTarget::Beside {
+                beside: from.to_string(),
+                edge: Edge::Right,
+                share: Some(0.5),
+            },
+        };
+        self.engine_do(cx, |engine| {
+            engine.dock(view, Some(target));
+            if let Some(shown) = shown.filter(|shown| shown != view) {
+                engine.select(&shown);
+            }
+            engine.focus(view);
+        });
+    }
+
     /// The document in front: the editor the writer was last in while its
     /// view is on screen, else the focused view's document, else the first
     /// docked panel's selected document.

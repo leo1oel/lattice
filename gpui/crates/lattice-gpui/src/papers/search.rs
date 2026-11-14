@@ -23,6 +23,7 @@ impl PapersPanel {
         self.text_generation += 1;
         self.expanded_hits.clear();
         if query.is_empty() {
+            self.text_waiting = false;
             self.text_task = None;
             self.text_hits.clear();
             self.text_query.clear();
@@ -58,9 +59,16 @@ impl PapersPanel {
             return;
         };
         let generation = self.text_generation;
+        self.text_waiting = !delay.is_zero();
         self.text_task = Some(cx.spawn(async move |this, cx| {
             if !delay.is_zero() {
                 cx.background_executor().timer(delay).await;
+                this.update(cx, |this, _| {
+                    if this.text_generation == generation {
+                        this.text_waiting = false;
+                    }
+                })
+                .ok();
             }
             let search =
                 cx.background_spawn(async move { core_papers::search_library_text(&root, &sent) });
@@ -125,7 +133,7 @@ impl PapersPanel {
     /// Enter on a title: the pass waiting out its pause runs now; one under
     /// way or answered is left as it is (`searchNow`).
     pub(crate) fn search_now(&mut self, cx: &mut Context<Self>) {
-        if self.text_search != TextSearch::Pending {
+        if !self.text_waiting {
             return;
         }
         let text = self.query(cx);

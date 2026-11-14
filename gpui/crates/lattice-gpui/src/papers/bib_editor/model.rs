@@ -369,6 +369,25 @@ pub fn row_at<'a>(rows: &'a [Row], key: &str, index: usize) -> Option<&'a Row> {
         .or_else(|| rows.iter().find(|row| row.entry.key == key))
 }
 
+/// The entry a form built for `key` at `index`, reading `signature` then,
+/// writes to in `text`: the one under that key that still reads so, else
+/// the one at that place; none once neither is left, so typing for an
+/// entry since deleted never lands in another sharing its key.
+pub fn form_row<'a>(
+    rows: &'a [Row],
+    text: &str,
+    key: &str,
+    index: usize,
+    signature: &str,
+) -> Option<&'a Row> {
+    let under = || rows.iter().filter(|row| row.entry.key == key);
+    let reads = |row: &&Row| text.get(row.entry.from..row.entry.to) == Some(signature);
+    under()
+        .filter(reads)
+        .min_by_key(|row| row.index != index)
+        .or_else(|| under().find(|row| row.index == index))
+}
+
 /// A DOI as the form links it: `10.`, four to nine digits, a slash and no
 /// space after (`/^10\.\d{4,9}\/\S+$/`).
 pub fn is_doi(doi: &str) -> bool {

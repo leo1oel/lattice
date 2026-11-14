@@ -66,3 +66,41 @@ fn the_second_of_a_shared_key_is_edited_deleted_and_restored_in_place() {
         )
     );
 }
+
+/// The form built for an entry finds it again by what it read, never by
+/// guessing the first entry under its key.
+#[test]
+fn a_form_writes_only_to_the_entry_it_was_built_for() {
+    let other = "@misc{other,\n  title = {Other}\n}\n\n";
+    let first = "@article{smith2020,\n  title = {First}\n}\n\n";
+    let second = "@inproceedings{smith2020,\n  title = {Second}\n}\n";
+    let text = format!("{other}{first}{second}");
+    let rows = parse_rows(text.clone()).rows;
+    let shown = model::row_at(&rows, "smith2020", 2).unwrap();
+    let signature = text[shown.entry.from..shown.entry.to].to_string();
+    let after = |deleted: usize| {
+        let edit = bib_document::delete_entry_edit(&text, &rows[deleted].entry);
+        let left = bib_document::apply_edit(&text, &edit);
+        (parse_rows(left.clone()).rows, left)
+    };
+
+    // The second smith2020 deleted, its form open: nothing to write to,
+    // though the first is now the only one under that key.
+    let (left_rows, left) = after(2);
+    assert!(model::form_row(&left_rows, &left, "smith2020", 2, &signature).is_none());
+
+    // An entry above deleted: the second smith2020 is now at place 1, where
+    // the first used to stand, and the form still finds the second.
+    let (left_rows, left) = after(0);
+    let found = model::form_row(&left_rows, &left, "smith2020", 2, &signature);
+    assert_eq!(found.map(|row| row.summary.title.as_str()), Some("Second"));
+
+    // The entry edited since the form read it: its place still names it.
+    let edited = text.replace("{Second}", "{Second, revised}");
+    let edited_rows = parse_rows(edited.clone()).rows;
+    let found = model::form_row(&edited_rows, &edited, "smith2020", 2, &signature);
+    assert_eq!(
+        found.map(|row| row.summary.title.as_str()),
+        Some("Second, revised")
+    );
+}

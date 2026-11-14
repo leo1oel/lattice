@@ -378,7 +378,7 @@ impl PapersPanel {
                 .text_role(TextRole::Caption, cx)
                 .text_color(palette.text_secondary)
                 .child(if uses > 0 {
-                    format!("{uses}×")
+                    format!("{}×", lattice_i18n::format_count(uses as i64))
                 } else {
                     "—".to_string()
                 })
@@ -557,6 +557,19 @@ impl PapersPanel {
         let menu_paper = paper.clone();
         row.context_menu(move |menu, _, _| {
             let mut menu = menu;
+            if readable {
+                let (view, paper) = (view.clone(), menu_paper.clone());
+                menu = menu.item(
+                    PopupMenuItem::new(t!("Open to the side"))
+                        .icon(Icon::COLUMNS_2.kit())
+                        .on_click(move |_, _, cx| {
+                            view.update(cx, |_, cx| {
+                                cx.emit(PapersEvent::ReadBeside(Box::new(paper.clone())))
+                            })
+                            .ok();
+                        }),
+                );
+            }
             if let Some(link) = link.clone() {
                 menu = menu.item(
                     PopupMenuItem::new(t!("Open link in browser"))

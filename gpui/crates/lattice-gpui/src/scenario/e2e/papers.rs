@@ -36,6 +36,40 @@ impl Run {
         std::fs::write(&bibliography, format!("{original}{ENTRY}"))?;
         let papers = cx.update(|cx| self.shell.read(cx).papers().clone());
 
+        let outcome = self.papers_panel_steps(cx, steps, root, &papers).await;
+        std::fs::write(&bibliography, original)?;
+        std::fs::remove_dir_all(root.join(BUNDLE))?;
+        outcome?;
+        let restored = self
+            .wait_for(cx, Duration::from_secs(15), |_, cx| {
+                papers.read(cx).papers.len() == 1
+            })
+            .await;
+        let left: Vec<String> = cx.update(|cx| {
+            papers
+                .read(cx)
+                .papers
+                .iter()
+                .map(|paper| paper.title.clone())
+                .collect()
+        });
+        steps.check(
+            "the project's bibliography and papers are put back as they were",
+            restored && left == ["The TeXbook"],
+            json!({ "restored": restored, "papers": left }),
+        );
+        Ok(())
+    }
+
+    /// The Papers panel's steps, on the bibliography with the entry added.
+    async fn papers_panel_steps(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+        root: &Path,
+        papers: &gpui::Entity<crate::papers::PapersPanel>,
+    ) -> Result<()> {
+        let papers = papers.clone();
         // The watcher sees the bibliography change; the panel reads the
         // library again once the change settles.
         let listed = self
@@ -171,26 +205,6 @@ impl Run {
         self.add_papers_sheet(cx, steps, &papers).await?;
         self.check_references(cx, steps, &papers, root).await?;
 
-        std::fs::write(&bibliography, original)?;
-        std::fs::remove_dir_all(root.join(BUNDLE))?;
-        let restored = self
-            .wait_for(cx, Duration::from_secs(15), |_, cx| {
-                papers.read(cx).papers.len() == 1
-            })
-            .await;
-        let left: Vec<String> = cx.update(|cx| {
-            papers
-                .read(cx)
-                .papers
-                .iter()
-                .map(|paper| paper.title.clone())
-                .collect()
-        });
-        steps.check(
-            "the project's bibliography and papers are put back as they were",
-            restored && left == ["The TeXbook"],
-            json!({ "restored": restored, "papers": left }),
-        );
         Ok(())
     }
 

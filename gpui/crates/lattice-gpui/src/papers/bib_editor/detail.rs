@@ -21,52 +21,15 @@ use lattice_ui::{
     tokens::FONT_WEIGHT_MEDIUM,
 };
 
+mod field_box;
 mod usages;
+
+use field_box::FieldBox;
 
 use super::{
     BibEditor,
     model::{self, ENTRY_TYPES, PaperState},
 };
-
-/// A field's box: one line, or one that wraps and grows.
-pub(super) enum FieldBox {
-    Line(Entity<InputState>),
-    Long(Entity<TextareaState>),
-}
-
-impl FieldBox {
-    pub(super) fn value(&self, cx: &gpui::App) -> String {
-        match self {
-            FieldBox::Line(input) => input.read(cx).value().to_string(),
-            FieldBox::Long(input) => input.read(cx).value().to_string(),
-        }
-    }
-
-    fn focused(&self, window: &Window, cx: &gpui::App) -> bool {
-        match self {
-            FieldBox::Line(input) => input.read(cx).focus_handle(cx).is_focused(window),
-            FieldBox::Long(input) => input.read(cx).focus_handle(cx).is_focused(window),
-        }
-    }
-
-    fn focus_handle(&self, cx: &gpui::App) -> gpui::FocusHandle {
-        match self {
-            FieldBox::Line(input) => input.read(cx).focus_handle(cx),
-            FieldBox::Long(input) => input.read(cx).focus_handle(cx),
-        }
-    }
-
-    fn set_value(&self, text: String, window: &mut Window, cx: &mut gpui::App) {
-        match self {
-            FieldBox::Line(input) => {
-                input.update(cx, |input, cx| input.set_value(text, window, cx))
-            }
-            FieldBox::Long(input) => {
-                input.update(cx, |input, cx| input.set_value(text, window, cx))
-            }
-        }
-    }
-}
 
 pub(super) struct FieldRow {
     pub(super) name: String,
@@ -87,7 +50,7 @@ pub(in crate::papers) struct Detail {
     /// The reference it was built for, and its text then.
     pub(super) key: String,
     pub(super) index: usize,
-    signature: String,
+    pub(super) signature: String,
     pub(super) key_input: Entity<InputState>,
     pub(super) key_error: Option<String>,
     pub(super) fields: Vec<FieldRow>,
@@ -233,10 +196,17 @@ impl BibEditor {
                 .get(field.value_from..field.value_to)
                 .unwrap_or("");
             let (text, style) = bib_document::editable_value(raw);
+            let long = model::long_field(&field.name, &text);
             let reused = kept
                 .iter()
                 .position(|(name, ..)| *name == field.name)
-                .map(|at| kept.remove(at));
+                .map(|at| kept.remove(at))
+                .filter(|(_, input, _, refused)| {
+                    !long
+                        || matches!(input, FieldBox::Long(_))
+                        || *refused
+                        || input.focused(window, cx)
+                });
             // The box the writer is in, or one whose typing was refused,
             // keeps what it was filled with: what they typed there is still
             // theirs to write.
@@ -252,7 +222,7 @@ impl BibEditor {
                     }
                     input
                 }
-                None if model::long_field(&field.name, &text) => FieldBox::Long(cx.new(|cx| {
+                None if long => FieldBox::Long(cx.new(|cx| {
                     let mut input = TextareaState::new(window, cx).auto_grow(1, 12);
                     input.set_value(text, window, cx);
                     input
@@ -348,8 +318,8 @@ impl BibEditor {
             .and_then(|written| self.text.get(written.value_from..written.value_to))
             .unwrap_or("");
         let saved = bib_document::editable_value(raw).0;
-        field.input.set_value(saved.clone(), window, cx);
-        field.filled = saved;
+        field.input.set_value(saved, window, cx);
+        field.filled = field.input.value(cx);
         field.invalid = false;
         window.focus(&self.focus, cx);
         cx.notify();

@@ -8,7 +8,10 @@ use gpui::{
     Render, SharedString, StatefulInteractiveElement as _, Styled as _, Window, div,
     prelude::FluentBuilder as _, px,
 };
-use gpui_kit::component::input::{Input, InputState};
+use gpui_kit::{
+    base::actions::Cancel,
+    component::input::{Input, InputState},
+};
 use lattice_i18n::{format_count, t};
 use lattice_ui::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
@@ -569,6 +572,8 @@ impl Render for ZoteroBrowser {
         let show_papers = !one_pane || (self.papers_pane && self.folder.is_some());
         let show_folders = !one_pane || !show_papers;
         div()
+            .track_focus(&self.focus)
+            .on_action(cx.listener(move |this, _: &Cancel, _, cx| this.escape(one_pane, cx)))
             .flex()
             .flex_col()
             .flex_1()

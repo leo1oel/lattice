@@ -228,7 +228,12 @@ impl Run {
 
         // A reference deleted and brought back with ⌘Z: the notice's Undo
         // after it puts in no second copy.
-        let at = cx.update(|cx| bib.read(cx).keys().iter().position(|key| key == "knuth1984"));
+        let at = cx.update(|cx| {
+            bib.read(cx)
+                .keys()
+                .iter()
+                .position(|key| key == "knuth1984")
+        });
         if let Some(at) = at {
             cx.update(|cx| bib.update(cx, |bib, cx| bib.delete_entry("knuth1984", at, cx)));
         }
