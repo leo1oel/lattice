@@ -209,6 +209,8 @@ pub struct PdfView {
     /// jump is being located (`locating`, which spins it).
     pub(super) reveal_disabled: bool,
     pub(super) locating: bool,
+    /// Save PDF as… is under way: a second save waits for it.
+    pub(super) saving: bool,
     pub(super) dark: bool,
     pub(super) action: Option<ToolbarAction>,
     pub(super) outline: Option<super::OutlineState>,
@@ -322,6 +324,7 @@ impl PdfView {
             notice: None,
             reveal_disabled: false,
             locating: false,
+            saving: false,
             dark: super::dark::enabled(),
             action: None,
             outline: None,

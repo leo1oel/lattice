@@ -128,7 +128,7 @@ impl PdfView {
         let can_reveal = self.can_reveal;
         let reveal_disabled = self.reveal_disabled || self.locating;
         let action = self.action.clone();
-        let can_save = self.source.is_some();
+        let can_save = self.source.is_some() && !self.saving;
         BasePopover::new("pdf-overflow")
             .anchor(gpui::Anchor::TopRight)
             .offset(px(6.))

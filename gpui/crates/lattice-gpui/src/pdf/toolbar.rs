@@ -566,7 +566,14 @@ impl PdfView {
                         strip,
                         self.source.is_some(),
                         tool("pdf-save", Icon::DOWNLOAD, t!("Save PDF as…"))
-                            .disabled(self.source.is_none())
+                            .disabled(self.source.is_none() || self.saving)
+                            .when(self.saving, |button| {
+                                button.content(crate::build::chip_mark::infinity_loader(
+                                    "pdf-saving",
+                                    px(14.),
+                                    cx.palette(),
+                                ))
+                            })
                             .on_click(cx.listener(|this, _, window, cx| this.save_as(window, cx))),
                     ),
                 )
@@ -637,9 +644,11 @@ impl PdfView {
     /// Save PDF as…: the file as it is on disk now, copied where the reader
     /// picks (`saveProjectPdf`).
     pub(super) fn save_as(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(source) = self.source.clone() else {
+        let Some(source) = self.source.clone().filter(|_| !self.saving) else {
             return;
         };
+        self.saving = true;
+        cx.notify();
         let name = source
             .file_name()
             .map(|name| name.to_string_lossy().to_string())
@@ -653,8 +662,13 @@ impl PdfView {
                     .unwrap_or_default()
             });
         let destination = cx.prompt_for_new_path(&directory, Some(&name));
-        cx.spawn_in(window, async move |_, cx| {
+        cx.spawn_in(window, async move |this, cx| {
             let Ok(Ok(Some(destination))) = destination.await else {
+                this.update(cx, |this, cx| {
+                    this.saving = false;
+                    cx.notify();
+                })
+                .ok();
                 return;
             };
             let copied = cx
@@ -663,6 +677,11 @@ impl PdfView {
                     async move { copy_pdf(&source, &destination) }
                 })
                 .await;
+            this.update(cx, |this, cx| {
+                this.saving = false;
+                cx.notify();
+            })
+            .ok();
             cx.update(|_, cx| match copied {
                 Ok(_) => crate::notices::info(
                     t!("PDF saved"),
