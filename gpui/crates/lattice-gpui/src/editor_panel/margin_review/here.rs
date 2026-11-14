@@ -17,12 +17,12 @@ impl EditorPanel {
         let snapshot = self.buffer.read(cx).snapshot();
         let line = language::Point::new(self.cursor.0.saturating_sub(1), 0);
         let from = snapshot.point_to_offset(line.min(snapshot.max_point()));
-        let Some(next) = self
-            .margin
-            .items
+        let items = &self.margin.items;
+        let Some(next) = items
             .iter()
-            .find(|item| item.offset >= from)
-            .or(self.margin.items.first())
+            .filter(|item| item.offset >= from)
+            .min_by_key(|item| item.offset)
+            .or_else(|| items.iter().min_by_key(|item| item.offset))
         else {
             return false;
         };

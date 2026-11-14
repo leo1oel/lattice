@@ -14,7 +14,7 @@
 use std::{collections::BTreeSet, time::Duration};
 
 use anyhow::Result;
-use gpui::AsyncApp;
+use gpui::{AsyncApp, Focusable as _};
 use serde_json::json;
 
 use super::super::Steps;
@@ -37,8 +37,19 @@ impl Run {
         mock: &MockOverleaf,
     ) -> Result<()> {
         let probes = format!("GET /project/{PROJECT_ID}/updates");
+        // main.tex live, so typing in it goes out on the channel (and the
+        // drop below follows from it), never as a change to push.
+        let main = self.root(cx).await?.join("main.tex");
+        self.with_window(cx, |shell, window, cx| {
+            shell.update(cx, |shell, cx| {
+                shell.open_path(main.clone(), Some(1), window, cx)
+            })
+        })?;
         self.wait_for(cx, Duration::from_secs(20), |shell, cx| {
-            shell.read(cx).overleaf.read(cx).channel() == ChannelStatus::Live
+            let bridge = shell.read(cx).overleaf.read(cx);
+            bridge.channel() == ChannelStatus::Live
+                && bridge.live_file() == Some("main.tex")
+                && !bridge.live_sending()
         })
         .await;
 
@@ -63,6 +74,9 @@ impl Run {
                 shell.read(cx).overleaf.read(cx).channel() != ChannelStatus::Live
             })
             .await;
+        // What the typing saved to disk is ours and owed, so its push may
+        // still probe while hidden; once it has settled, nothing does.
+        self.pause(cx, Duration::from_secs(6)).await;
         let before = mock.requests(&probes);
         self.pause(cx, Duration::from_secs(7)).await;
         let hidden_probes = mock.requests(&probes) - before;
@@ -188,6 +202,15 @@ impl Run {
             })
             .await;
         let offered = self.with_window(cx, |shell, _, cx| shell.read(cx).margin_review_offered(cx))?;
+        // The palette runs it with the source focused, which makes it the
+        // window's active editor.
+        let focused = root.join("main.tex");
+        self.with_window(cx, move |shell, window, cx| {
+            if let Some(editor) = shell.update(cx, |shell, cx| shell.open_editor(&focused, cx)) {
+                window.focus(&editor.read(cx).editor().focus_handle(cx), cx);
+            }
+        })?;
+        self.pause(cx, Duration::from_millis(300)).await;
         self.with_window(cx, |_, window, cx| {
             window.dispatch_action(Box::new(crate::shell::ReviewHere), cx)
         })?;
@@ -196,16 +219,43 @@ impl Run {
             .wait_for(cx, Duration::from_secs(3), move |shell, cx| {
                 shell
                     .update(cx, |shell, cx| shell.open_editor(&main, cx))
-                    .is_some_and(|editor| editor.read(cx).margin_open() == Some(key.as_str()))
+                    .is_some_and(|editor| {
+                        // The earliest item from the caret's line: ours, at
+                        // the file's start, unless an earlier check's
+                        // comment or suggestion stands before it.
+                        editor.read(cx).margin_open().is_some_and(|open| {
+                            open == key.as_str()
+                                || open.starts_with("comment:")
+                                || open.starts_with("change:")
+                        })
+                    })
             })
             .await;
+        let main = root.join("main.tex");
+        let facts = self.with_window(cx, move |shell, _, cx| {
+            let active = shell.read(cx).active_editor_path(cx);
+            let editor = shell.update(cx, |shell, cx| shell.open_editor(&main, cx));
+            let (layout, open, mode, cursor) = editor.as_ref().map_or(
+                (None, None, None, None),
+                |editor| {
+                    let panel = editor.read(cx);
+                    (
+                        Some(format!("{:?}", panel.margin_layout())),
+                        panel.margin_open().map(str::to_string),
+                        Some(format!("{:?}", shell.read(cx).margin_mode)),
+                        Some(panel.cursor()),
+                    )
+                },
+            );
+            json!({ "active": active, "layout": layout, "open": open, "mode": mode, "cursor": cursor })
+        })?;
         self.with_window(cx, |shell, _, cx| {
             shell.update(cx, |shell, cx| shell.set_margin_mode(MarginMode::Auto, cx))
         })?;
         steps.check(
             "Review here opens the comment by the caret, and View ▸ Margin Review is offered for the linked source",
             shown && offered && opened,
-            json!({ "shown": shown, "offered": offered, "opened": opened }),
+            json!({ "shown": shown, "offered": offered, "opened": opened, "facts": facts }),
         );
         Ok(())
     }

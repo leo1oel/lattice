@@ -93,13 +93,13 @@ impl OverleafBridge {
                 return self
                     .keep_unproven(doc, detail.to_string(), cx)
                     .unwrap_or_else(|doc| {
-                        self.give_up(doc, "Overleaf would not replay that far", cx)
+                        self.give_up(*doc, "Overleaf would not replay that far", cx)
                     });
             }
             Err(error) => {
                 return self
                     .keep_unproven(doc, String::new(), cx)
-                    .unwrap_or_else(|doc| self.give_up(doc, &error, cx));
+                    .unwrap_or_else(|doc| self.give_up(*doc, &error, cx));
             }
         };
         if own.is_empty() && !joined.caught_up.is_empty() {
@@ -110,7 +110,7 @@ impl OverleafBridge {
             );
             match self.keep_unproven(doc, detail.to_string(), cx) {
                 Ok(()) => return,
-                Err(back) => doc = back,
+                Err(back) => doc = *back,
             }
         }
         let Some(panel) = doc.editor.upgrade() else {
@@ -194,9 +194,9 @@ impl OverleafBridge {
         doc: LiveDoc,
         detail: String,
         cx: &mut Context<Self>,
-    ) -> Result<(), LiveDoc> {
+    ) -> Result<(), Box<LiveDoc>> {
         if !self.documents.uncertain.contains(&doc.doc_id) {
-            return Err(doc);
+            return Err(Box::new(doc));
         }
         log::warn!("{} stays paused: its last edit is unproven", doc.path);
         if !detail.is_empty() {

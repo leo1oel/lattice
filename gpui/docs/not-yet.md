@@ -70,3 +70,15 @@ A feature that lands deletes its own line (only that line, so features landing s
 - [ ] The app updater: its check, download and restart prompt, Lattice › Check for Updates…, the outdated-version hint and Report a Problem's update gate.
 
 - [ ] File › Export ZIP….
+
+- [ ] Overleaf: the live channel joining again when the network comes back (it does when the window comes forward).
+
+- [ ] Overleaf: the titlebar control's animated cloud-upload icon (the icon is still).
+
+- [ ] Overleaf: Review changes' "Could not render these changes" state.
+
+- [ ] Overleaf: the "Opening the Overleaf project…" transition when a downloaded project opens.
+
+- [ ] Overleaf: a compile after a resolved conflict (the watcher's build stands in).
+
+- [ ] The visual Markdown editor: Overleaf's tracked changes painted in it.
