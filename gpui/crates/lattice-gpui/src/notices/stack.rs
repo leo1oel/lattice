@@ -465,17 +465,15 @@ impl NoticeStack {
             return;
         };
         let (x, y) = swipe.offset;
-        let direction = (!swipe.cancelled)
-            .then(|| {
-                if x > SWIPE_THRESHOLD {
-                    Some(SwipeDirection::Right)
-                } else if y > SWIPE_THRESHOLD {
-                    Some(SwipeDirection::Edge)
-                } else {
-                    None
-                }
-            })
-            .flatten();
+        let direction = if swipe.cancelled {
+            None
+        } else if x > SWIPE_THRESHOLD {
+            Some(SwipeDirection::Right)
+        } else if y > SWIPE_THRESHOLD {
+            Some(SwipeDirection::Edge)
+        } else {
+            None
+        };
         let id = swipe.id;
         match direction {
             Some(direction) => {

@@ -34,6 +34,8 @@ use crate::{
     tokens::{CONTAINER_TOAST, FONT_WEIGHT_MEDIUM},
 };
 
+/// Hears the words' own height as they lay out.
+type OnMeasure = Box<dyn FnOnce(Pixels, &mut App)>;
 type DismissHandler = Rc<dyn Fn(&gpui::ClickEvent, &mut Window, &mut App)>;
 
 /// A message longer than this, title or detail, wraps (`multiline`).
@@ -96,7 +98,7 @@ pub struct Toast {
     content_opacity: f32,
     width: Option<Pixels>,
     height: Option<Pixels>,
-    on_measure: Option<Box<dyn FnOnce(Pixels, &mut App)>>,
+    on_measure: Option<OnMeasure>,
     on_dismiss: Option<DismissHandler>,
     parity: Option<SharedString>,
 }
