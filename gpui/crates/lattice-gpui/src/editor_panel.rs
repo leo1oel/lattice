@@ -45,6 +45,7 @@ use lattice_editor::{
 };
 use zed_actions::buffer_search::Deploy;
 
+mod annotations;
 mod bib_view;
 mod buffer_counts;
 mod disk_sync;
@@ -69,6 +70,7 @@ mod strip;
 mod structured_view;
 pub mod views;
 
+pub(crate) use annotations::PINS as ANNOTATION_PINS;
 use disk_sync::vanished_key;
 pub use events::EditorPanelEvent;
 pub use latex_view::choose_latex_view;
@@ -161,6 +163,8 @@ pub struct EditorPanel {
     overleaf_save: Option<crate::overleaf::bridge::OverleafSaveState>,
     overleaf_review: overleaf_review::ReviewLayer,
     margin: margin_review::MarginState,
+    /// Local annotations' marks, pins and composer (`annotations.rs`).
+    annotations: annotations::AnnotationLayer,
     /// The file's word count as of opening or the last save; counted off the
     /// main thread.
     words: Option<usize>,
@@ -295,6 +299,7 @@ impl EditorPanel {
                     this.views_source_changed(cx);
                     this.latex_source_changed(cx);
                     this.structured_source_changed(cx);
+                    this.annotations_edited(cx);
                 }
                 BufferEvent::DirtyChanged | BufferEvent::Saved => {
                     crate::crash::note_editor(this, cx);
@@ -439,6 +444,7 @@ impl EditorPanel {
             overleaf_save: None,
             overleaf_review: Default::default(),
             margin: Default::default(),
+            annotations: Default::default(),
             words: None,
             buffer_todos: None,
             status_width: Default::default(),
@@ -481,6 +487,7 @@ impl EditorPanel {
         this.ensure_bib_for_view(window, cx);
         this.attach_structured(window, cx);
         this.attach_spelling(cx);
+        this.attach_annotations(cx);
         this
     }
 

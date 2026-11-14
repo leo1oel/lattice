@@ -205,7 +205,7 @@ impl Shell {
             "todos" => panel_handle(self.todos.clone()),
             "checklist" => panel_handle(self.checklist.clone()),
             "terminal" => panel_handle(self.terminal.clone()),
-            "comments" => panel_handle(self.overleaf_collab.clone()),
+            "comments" => self.comments_view(),
             _ => return self.part_panel(kind),
         })
     }

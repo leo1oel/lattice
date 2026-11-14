@@ -123,6 +123,10 @@ lucide! {
     // ARROW_DOWN, ARROW_DOWN_UP, ARROW_UP_RIGHT, BOOK_MARKED, FILE_DOWN and
     // LINK_2 below).
     HIGHLIGHTER = "icons" / "highlighter";
+    /// The Annotations panel: a card's Reply.
+    REPLY = "icons" / "reply";
+    /// The empty Annotations panel's Open a file.
+    FILE_SEARCH = "icons" / "file-search";
     CORNER_DOWN_LEFT = "icons" / "corner-down-left";
     LIST_FILTER = "icons" / "list-filter";
     /// A .tex file's Source / Visual switch.
