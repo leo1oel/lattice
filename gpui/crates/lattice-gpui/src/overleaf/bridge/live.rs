@@ -33,8 +33,10 @@ pub(in crate::overleaf) struct WholeFiles {
     /// Every held one goes with the next flush (⌘S, the window's blur).
     flush_all: bool,
     boundary_task: Option<Task<()>>,
-    /// The probe before a push, and the files it is for.
-    probe_task: Option<(BTreeSet<String>, Task<()>)>,
+    /// The probe before a push.
+    probe_task: Option<Task<()>>,
+    /// The held files that probe is out for, unless saved again meanwhile.
+    probing: BTreeSet<String>,
     idle_task: Option<Task<()>>,
 }
 
@@ -42,6 +44,7 @@ impl WholeFiles {
     pub(super) fn stop_timers(&mut self) {
         self.boundary_task = None;
         self.probe_task = None;
+        self.probing.clear();
         self.idle_task = None;
         self.boundary.clear();
         self.flush_all = false;
@@ -61,9 +64,19 @@ impl WholeFiles {
         }
     }
 
+    /// The probe answered: when it found nothing to send, what it was out
+    /// for is up, unless saved again meanwhile.
+    fn probe_ended(&mut self, unchanged: bool) {
+        let probed = std::mem::take(&mut self.probing);
+        if unchanged {
+            self.deferred.retain(|path| !probed.contains(path));
+        }
+    }
+
     /// `path` was saved: it waits to go up.
     fn saved(&mut self, path: &str) {
         self.carrying.remove(path);
+        self.probing.remove(path);
         self.deferred.insert(path.to_string());
     }
 }
@@ -229,8 +242,8 @@ impl OverleafBridge {
             return;
         };
         // A probe still out goes again with these, as one.
-        if let Some((probing, _)) = self.whole_files.probe_task.take() {
-            ready.extend(probing);
+        if self.whole_files.probe_task.take().is_some() {
+            ready.extend(std::mem::take(&mut self.whole_files.probing));
         }
         let options = SyncOptions {
             automatic: true,
@@ -245,6 +258,10 @@ impl OverleafBridge {
             let (probe, expired) = probe.await;
             this.update(cx, |this, cx| {
                 this.whole_files.probe_task = None;
+                let unchanged = this.is_current(&root)
+                    && !this.syncing
+                    && matches!(&probe, Ok(probe) if probe.version_known && !probe.changed && !probe.local_changed);
+                this.whole_files.probe_ended(unchanged);
                 if expired {
                     super::super::session_changed(cx);
                 }
@@ -260,11 +277,7 @@ impl OverleafBridge {
                     return;
                 }
                 match probe {
-                    Ok(probe) if probe.version_known && !probe.changed && !probe.local_changed => {
-                        for path in &options.include_whole_files {
-                            this.whole_files.deferred.remove(path);
-                        }
-                    }
+                    Ok(_) if unchanged => {}
                     Ok(probe) => this.sync(
                         SyncOptions {
                             observed_remote_version: probe.remote_version,
@@ -277,7 +290,8 @@ impl OverleafBridge {
             })
             .ok();
         });
-        self.whole_files.probe_task = Some((probing, task));
+        self.whole_files.probe_task = Some(task);
+        self.whole_files.probing = probing;
     }
 
     /// What a sync (or its probe) leaves alone: the documents the channel
@@ -596,6 +610,19 @@ mod tests {
             files.deferred,
             BTreeSet::from(["deck.slides".to_string(), "plan.tldr".to_string()])
         );
+    }
+
+    #[test]
+    fn a_save_while_the_probe_is_out_stays_held() {
+        let mut files = WholeFiles {
+            deferred: BTreeSet::from(["a.tldr".to_string(), "plan.tldr".to_string()]),
+            probing: BTreeSet::from(["a.tldr".to_string(), "plan.tldr".to_string()]),
+            ..Default::default()
+        };
+        files.saved("plan.tldr");
+        files.probe_ended(true);
+        assert_eq!(files.deferred, BTreeSet::from(["plan.tldr".to_string()]));
+        assert!(files.probing.is_empty());
     }
 
     #[test]
