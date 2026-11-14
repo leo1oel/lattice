@@ -78,7 +78,19 @@ impl Shell {
                 self.file_tree
                     .update(cx, |tree, cx| tree.set_current(Some(path), cx));
                 self.show_outline(cx);
+                self.tell_overleaf_caret(editor, cx);
+                self.show_overleaf_carets(cx);
+                self.overleaf
+                    .update(cx, |bridge, cx| bridge.editor_shown(Some(editor), cx));
             }
+            EditorPanelEvent::Typed => {
+                // Typing happens in the editor the writer works in.
+                self.overleaf.update(cx, |bridge, cx| {
+                    bridge.editor_shown(Some(editor), cx);
+                    bridge.editor_typed(editor, cx);
+                });
+            }
+            EditorPanelEvent::CaretMoved => self.tell_overleaf_caret(editor, cx),
             EditorPanelEvent::CaretLine => {
                 if self.active_editor().as_ref() == Some(editor) {
                     self.show_outline(cx);
@@ -108,6 +120,8 @@ impl Shell {
         {
             self.active_editor = None;
             self.show_outline(cx);
+            self.overleaf
+                .update(cx, |bridge, cx| bridge.editor_shown(None, cx));
         }
         cx.notify();
     }
