@@ -19,6 +19,7 @@ mod build_tools;
 pub mod commands;
 mod documents;
 mod editor_events;
+mod editors;
 mod entries;
 mod ground;
 mod history_flow;
@@ -42,17 +43,17 @@ pub mod windows;
 mod workspace_flow;
 pub mod workspaces;
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use futures::channel::oneshot;
 use gpui::{
     AnyWindowHandle, App, AppContext as _, Bounds, Context, Entity, FocusHandle, Focusable,
-    InteractiveElement as _, IntoElement, ParentElement as _, PromptLevel, Render, SharedString,
-    Styled as _, Subscription, Task, WeakEntity, Window, WindowBounds, WindowOptions,
+    InteractiveElement as _, IntoElement, ParentElement as _, Render, SharedString, Styled as _,
+    Subscription, Task, WeakEntity, Window, WindowBounds, WindowOptions,
     prelude::FluentBuilder as _, px, size,
 };
 use gpui_kit::component::v_flex;
-use lattice_i18n::{t, tc};
+use lattice_i18n::t;
 use lattice_ui::{ActiveLattice as _, Appearance, LatticeTheme};
 use trellis::{TrellisWorkspace, model::LayoutDocument};
 
@@ -691,68 +692,6 @@ impl Shell {
         self.file_tree
             .update(cx, |tree, cx| tree.set_current(Some(path.clone()), cx));
         Some(editor)
-    }
-
-    /// The editor already open on `path`, if any.
-    pub(crate) fn open_editor(&mut self, path: &Path, cx: &App) -> Option<Entity<EditorPanel>> {
-        self.open_editors()
-            .into_iter()
-            .find(|editor| editor.read(cx).path() == path)
-    }
-
-    /// The editor on `path`, opened if it is not yet; it is not placed in
-    /// the dock.
-    pub(crate) fn editor_for(
-        &mut self,
-        path: &Path,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> Option<Entity<EditorPanel>> {
-        if let Some(editor) = self.open_editor(path, cx) {
-            return Some(editor);
-        }
-        let project = self.project.clone()?;
-        match EditorPanel::open(
-            path.to_path_buf(),
-            project,
-            self.build_panel.clone(),
-            window,
-            cx,
-        ) {
-            Ok(editor) => {
-                self.adopt_editor(&editor, window, cx);
-                let weak = editor.downgrade();
-                cx.on_focus_in(&editor.focus_handle(cx), window, move |this, _, _| {
-                    this.active_editor = Some(weak.clone());
-                })
-                .detach();
-                Some(editor)
-            }
-            Err(error) => {
-                log::error!("{error:#}");
-                let _ = window.prompt(
-                    PromptLevel::Critical,
-                    t!("Could not open the file"),
-                    Some(&format!("{error:#}")),
-                    &[tc!("dialog button", "OK")],
-                    cx,
-                );
-                None
-            }
-        }
-    }
-
-    pub(crate) fn open_editors(&mut self) -> Vec<Entity<EditorPanel>> {
-        self.editors.retain(|editor| editor.upgrade().is_some());
-        self.editors
-            .iter()
-            .filter_map(WeakEntity::upgrade)
-            .collect()
-    }
-
-    /// The editor the writer was last in, if it is still open.
-    pub(crate) fn active_editor(&self) -> Option<Entity<EditorPanel>> {
-        self.active_editor.as_ref().and_then(WeakEntity::upgrade)
     }
 
     /// Count the manuscript's words again, and redraw the status bars that
