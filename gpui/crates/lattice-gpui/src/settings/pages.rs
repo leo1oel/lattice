@@ -20,6 +20,9 @@ pub struct PageStates {
     pub acknowledgements: Option<Entity<super::acknowledgements::Acknowledgements>>,
     /// Editor & builds › Grammar's filter and Harper's rules.
     pub grammar: Option<Entity<super::grammar_group::GrammarRules>>,
+    /// Editor & builds › Other languages' downloaded dictionaries, as of
+    /// that many finished downloads.
+    pub dictionaries: Option<(u64, Vec<lattice_core::spelling::DictionaryInfo>)>,
 }
 
 /// The sheet a page holds open over Settings (Acknowledgements' notices or

@@ -5,20 +5,25 @@
 //! Model endpoint, Environment and Literature services draw their rows, and
 //! Settings search finds the pages and reveals their rows. Editor & builds
 //! holds the other languages' dictionaries and the grammar choices, which
-//! reach the editors' check; Literature services' full-text choice is the one
-//! adding a paper reads. Acknowledgements lists the shipped notices and opens
+//! reach the editors' check; with Literature services' full-text choice off,
+//! adding a paper saves its citation alone. Acknowledgements lists the shipped notices and opens
 //! them in a sheet over Settings, which Escape closes before Settings.
 
-use std::time::Duration;
+use std::{path::Path, time::Duration};
 
-use anyhow::Result;
+use anyhow::{Context as _, Result};
 use gpui::AsyncApp;
-use lattice_core::papers::FullText;
 use lattice_settings::{Choice as _, GrammarDialect, SettingsTab};
 use serde_json::json;
 
 use super::{super::Run, Steps};
-use crate::settings;
+use crate::{
+    papers::{
+        batch::{BatchRequest, ZoteroExtras},
+        model::ReferenceKind,
+    },
+    settings,
+};
 
 /// Each page, the row it must draw, and for Synara's pages the section.
 const PAGES: &[(SettingsTab, Option<&str>, Option<&str>)] = &[
@@ -34,7 +39,12 @@ const PAGES: &[(SettingsTab, Option<&str>, Option<&str>)] = &[
 ];
 
 impl Run {
-    pub(super) async fn settings_pages(&self, cx: &mut AsyncApp, steps: &mut Steps) -> Result<()> {
+    pub(super) async fn settings_pages(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+        root: &Path,
+    ) -> Result<()> {
         let before = cx.update(|cx| settings::get(cx).clone());
         self.with_window(cx, |shell, window, cx| {
             shell.update(cx, |shell, cx| {
@@ -109,32 +119,8 @@ impl Run {
             json!({ "found": found }),
         );
 
-        // The grammar choices reach the editors' check.
-        cx.update(|cx| settings::update(cx, |s| s.grammar.dialect = GrammarDialect::British));
-        let dialect = cx.update(|cx| {
-            self.shell
-                .read(cx)
-                .project()
-                .map(|project| crate::editor_panel::spelling::input(project, cx).dialect)
-        });
-        steps.check(
-            "Editor & builds' English variant reaches the editors' grammar check",
-            dialect == Some(lattice_core::harper::HarperDialect::British),
-            json!({ "dialect": format!("{dialect:?}") }),
-        );
-
-        // The full-text choice is the one adding a paper reads.
-        let (off, on) = cx.update(|cx| {
-            settings::update(cx, |s| s.save_full_text = false);
-            let off = settings::paper_full_text(cx);
-            settings::update(cx, |s| s.save_full_text = true);
-            (off, settings::paper_full_text(cx))
-        });
-        steps.check(
-            "Literature services' full-text choice decides what adding a paper saves",
-            off == FullText::Skip && on == FullText::Save,
-            json!({ "off": format!("{off:?}"), "on": format!("{on:?}") }),
-        );
+        self.english_variant(cx, steps).await;
+        self.citation_only_import(cx, steps, root).await?;
 
         // Acknowledgements opens the notices in a sheet; Escape closes it
         // and leaves Settings open.
@@ -174,7 +160,133 @@ impl Run {
         self.pause(cx, Duration::from_millis(200)).await;
         Ok(())
     }
+
+    /// The English variant reaches the open editor's check: Harper's
+    /// dictionary marks "colour" as a misspelling in American English and
+    /// accepts it in British English.
+    async fn english_variant(&self, cx: &mut AsyncApp, steps: &mut Steps) {
+        const STEP: &str = "Editor & builds' English variant decides whether the open editor marks \"colour\"";
+        let editor = cx.update(|cx| self.shell.read(cx).active_editor());
+        let spelling = editor
+            .as_ref()
+            .and_then(|editor| cx.update(|cx| editor.read(cx).spelling().cloned()));
+        let (Some(editor), Some(spelling)) = (editor, spelling) else {
+            steps.check(STEP, false, json!({ "error": "no open editor checks spelling" }));
+            return;
+        };
+        let buffer = cx.update(|cx| editor.read(cx).lattice_editor().read(cx).buffer().clone());
+        let inserted = cx.update(|cx| {
+            settings::update(cx, |s| s.grammar.dialect = GrammarDialect::American);
+            buffer.update(cx, |buffer, cx| {
+                let end = buffer.len();
+                buffer.edit([(end..end, VARIANT_TEXT)], None, cx);
+                end..end + VARIANT_TEXT.len()
+            })
+        });
+        let flagged = |want: bool| {
+            let (spelling, buffer) = (spelling.clone(), buffer.clone());
+            move |_: &gpui::Entity<crate::shell::Shell>, cx: &mut gpui::App| {
+                let text = buffer.read(cx).text();
+                let marked = spelling
+                    .read(cx)
+                    .findings(cx)
+                    .iter()
+                    .any(|finding| text.get(finding.range.clone()) == Some("colour"));
+                marked == want
+            }
+        };
+        let american = self
+            .wait_for(cx, Duration::from_secs(10), flagged(true))
+            .await;
+        cx.update(|cx| settings::update(cx, |s| s.grammar.dialect = GrammarDialect::British));
+        let british = self
+            .wait_for(cx, Duration::from_secs(10), flagged(false))
+            .await;
+        cx.update(|cx| buffer.update(cx, |buffer, cx| buffer.edit([(inserted, "")], None, cx)));
+        steps.check(
+            STEP,
+            american && british,
+            json!({ "american_marks": american, "british_accepts": british }),
+        );
+    }
+
+    /// With Literature services' full-text choice off, a Zotero paper with
+    /// a PDF is added as its citation alone: no text saved, no PDF
+    /// attached, so no attachment is even looked for.
+    async fn citation_only_import(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+        root: &Path,
+    ) -> Result<()> {
+        let bibliography = root.join("references.bib");
+        let original = std::fs::read_to_string(&bibliography)
+            .context("the e2e project needs references.bib")?;
+        let papers = cx.update(|cx| self.shell.read(cx).papers().clone());
+        let started = cx.update(|cx| {
+            settings::update(cx, |s| s.save_full_text = false);
+            papers.update(cx, |panel, cx| {
+                panel.run_batch(
+                    vec![BatchRequest {
+                        id: "settings-full-text".into(),
+                        input: CITATION_ONLY.into(),
+                        label: "Citation Only Paper".into(),
+                        kind: ReferenceKind::Bibtex,
+                        byline: String::new(),
+                        zotero: Some(ZoteroExtras {
+                            pdf: Some("E2EPDF01".into()),
+                            ..ZoteroExtras::default()
+                        }),
+                    }],
+                    cx,
+                )
+            })
+        });
+        let settled = started
+            && self
+                .wait_for(cx, Duration::from_secs(15), |_, cx| {
+                    let panel = papers.read(cx);
+                    !panel.batch.running
+                        && panel
+                            .papers
+                            .iter()
+                            .any(|paper| paper.citation_key.as_deref() == Some(CITATION_ONLY_KEY))
+                })
+                .await;
+        let outcome = cx.update(|cx| {
+            let panel = papers.read(cx);
+            let item = panel.batch.items.first();
+            let paper = panel
+                .papers
+                .iter()
+                .find(|paper| paper.citation_key.as_deref() == Some(CITATION_ONLY_KEY));
+            json!({
+                "state": item.map(|item| format!("{:?}", item.state)),
+                "note": item.and_then(|item| item.note.clone()),
+                "full_text": paper.map(|paper| paper.has_full_text),
+                "pdf": paper.map(|paper| paper.has_local_pdf),
+            })
+        });
+        std::fs::write(&bibliography, original)?;
+        steps.check(
+            "with full text off, adding a Zotero paper saves its citation alone and attaches no PDF",
+            settled
+                && outcome["state"] == "Added"
+                && outcome["note"].is_null()
+                && outcome["full_text"] == false
+                && outcome["pdf"] == false,
+            json!({ "started": started, "outcome": outcome }),
+        );
+        Ok(())
+    }
 }
+
+/// A sentence whose spelling only American English marks.
+const VARIANT_TEXT: &str = "\nThe colour of each bar marks the optimum.\n";
+
+/// A pasted entry, which is imported as it stands without a lookup.
+const CITATION_ONLY_KEY: &str = "e2ecitationonly2024";
+const CITATION_ONLY: &str = "@article{e2ecitationonly2024,\n  title = {Citation Only Paper},\n  author = {Writer, Ada},\n  journal = {Journal of Tests},\n  year = {2024}\n}\n";
 
 /// This file's registration as the e2e module `settings_pages` (`registry.rs`).
 pub(super) const MODULE: super::registry::Module = super::registry::Module {
@@ -187,5 +299,5 @@ pub(super) const MODULE: super::registry::Module = super::registry::Module {
         "gpui/crates/lattice-settings/",
         "gpui/islands/agent/settings.tsx",
     ],
-    run: |run, cx, steps, _| Box::pin(run.settings_pages(cx, steps)),
+    run: |run, cx, steps, fixture| Box::pin(run.settings_pages(cx, steps, &fixture.root)),
 };

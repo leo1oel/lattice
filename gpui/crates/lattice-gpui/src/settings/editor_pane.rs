@@ -182,6 +182,7 @@ fn editor(
     let name = div()
         .w(controls::CONTROL_WIDTH)
         .child(Field::new(&dialog.fields.author_name));
+    let languages = spelling_languages(dialog, cx);
     let rows = vec![
         row(
             dialog,
@@ -203,7 +204,7 @@ fn editor(
             width,
             cx,
         ),
-        row(dialog, spelling_languages(cx), width, cx),
+        row(dialog, languages, width, cx),
         row(dialog, dictionary_row, width, cx),
     ];
     controls::first_group(Some(t!("Editor").into()), rows, cx)
@@ -212,14 +213,22 @@ fn editor(
 /// How a document in another language is checked, and the dictionaries
 /// downloaded so far with the licence each came under
 /// (`spelling-languages-row.tsx`).
-fn spelling_languages(cx: &mut Context<SettingsDialog>) -> Row {
+fn spelling_languages(dialog: &mut SettingsDialog, cx: &mut Context<SettingsDialog>) -> Row {
     let palette = cx.palette().clone();
-    let downloaded: Vec<_> = crate::editor_panel::spelling::dictionary_store(cx)
-        .map(|store| lattice_core::spelling::dictionaries(&store))
-        .unwrap_or_default()
-        .into_iter()
-        .filter(|dictionary| dictionary.installed)
-        .collect();
+    let installs = crate::editor_panel::spelling::installs(cx);
+    let cached = dialog
+        .pages
+        .dictionaries
+        .take()
+        .filter(|(seen, _)| *seen == installs);
+    let downloaded = cached.map(|(_, list)| list).unwrap_or_else(|| {
+        crate::editor_panel::spelling::dictionary_store(cx)
+            .map(|store| lattice_core::spelling::dictionaries(&store))
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|dictionary| dictionary.installed)
+            .collect()
+    });
     let list = if downloaded.is_empty() {
         div()
             .text_role_in(TextRole::Caption, TypeScale::Settings, cx)
@@ -246,6 +255,7 @@ fn spelling_languages(cx: &mut Context<SettingsDialog>) -> Row {
                 ))
         }))
     };
+    dialog.pages.dictionaries = Some((installs, downloaded));
     Row::new("spelling-languages", t!("Other languages"))
         .description(
             t!("A document whose babel or polyglossia language isn't English is checked for spelling in that language. Its dictionary downloads from wooorm/dictionaries the first time it's needed."),

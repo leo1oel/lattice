@@ -95,6 +95,7 @@ fn bring_from_zotero<'a>(
     root: &std::path::Path,
     key: &str,
     extras: &ZoteroExtras,
+    saves_text: bool,
     fresh_without_text: bool,
     annotations: impl Fn() -> Result<&'a Annotations, String>,
     labels: &super::zotero::notes::Labels,
@@ -114,7 +115,7 @@ fn bring_from_zotero<'a>(
         note: None,
         attached: None,
     };
-    if let Some(pdf) = &extras.pdf {
+    if let Some(pdf) = extras.pdf.as_ref().filter(|_| saves_text) {
         let needs = if extras.existing.is_some() {
             paper_of().is_some_and(|paper| super::model::keeps_no_pdf(&paper))
         } else {
@@ -266,6 +267,7 @@ fn import_one(
         &run.root,
         &key,
         extras,
+        run.full_text == core_papers::FullText::Save,
         fresh_without_text,
         annotations,
         &run.labels,

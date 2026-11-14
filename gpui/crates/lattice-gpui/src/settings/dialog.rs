@@ -432,6 +432,7 @@ impl SettingsDialog {
             // Every page shares the viewport, which starts at its top.
             self.scroll.set_offset(point(px(0.), px(0.)));
             self.rows.borrow_mut().clear();
+            self.pages.dictionaries = None;
         }
         self.narrow_page = true;
         super::update(cx, |settings| settings.settings_tab = tab);

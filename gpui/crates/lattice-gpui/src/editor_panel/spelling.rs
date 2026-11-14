@@ -80,9 +80,17 @@ pub fn input(project: &Entity<Project>, cx: &App) -> SpellingInput {
 struct Dictionaries {
     installing: HashSet<String>,
     reported: HashSet<String>,
+    /// How many downloads have finished, so a list of what is installed
+    /// knows when it is stale.
+    installed: u64,
 }
 
 impl Global for Dictionaries {}
+
+/// How many dictionary downloads have finished this session.
+pub fn installs(cx: &App) -> u64 {
+    cx.try_global::<Dictionaries>().map_or(0, |state| state.installed)
+}
 
 impl EditorPanel {
     /// Start checking this editor's file, when it is prose Lattice checks.
@@ -199,6 +207,7 @@ fn install_dictionary(language: SpellingLanguage, cx: &mut App) {
         cx.update(|cx| {
             match result {
                 Ok(()) => {
+                    cx.default_global::<Dictionaries>().installed += 1;
                     notices::show(
                         Notice::new(
                             ToastLevel::Success,

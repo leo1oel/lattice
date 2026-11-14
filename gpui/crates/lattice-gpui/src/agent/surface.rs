@@ -182,6 +182,11 @@ impl SynaraSurface {
                 let island = cx.new(|cx| Island::new(config, window, cx));
                 subscriptions.push(cx.subscribe_in(&island, window, Self::on_island));
                 subscriptions.push(cx.observe(&island, |_, _, cx| cx.notify()));
+                subscriptions.push(cx.on_release(|this: &mut Self, _| {
+                    if let Some(root) = &this.root {
+                        commands::forget_turn(root);
+                    }
+                }));
                 (Some(island), None)
             }
             Err(error) => {
@@ -256,6 +261,9 @@ impl SynaraSurface {
     pub fn set_project(&mut self, root: Option<PathBuf>, cx: &mut Context<Self>) {
         if self.root == root {
             return;
+        }
+        if let Some(old) = &self.root {
+            commands::forget_turn(old);
         }
         self.root = root;
         // A frame belongs to one project: another project's starts afresh

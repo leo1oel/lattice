@@ -89,7 +89,6 @@ impl AppSettings {
     }
 }
 
-/// The settings now.
 /// Whether adding a paper saves its full text too, as Settings › Literature
 /// services and the Add papers sheet last chose (`saveFullTextSetting`).
 pub fn paper_full_text(cx: &App) -> lattice_core::papers::FullText {
@@ -100,6 +99,7 @@ pub fn paper_full_text(cx: &App) -> lattice_core::papers::FullText {
     }
 }
 
+/// The settings now.
 pub fn get(cx: &App) -> &Settings {
     &cx.global::<AppSettings>().settings
 }

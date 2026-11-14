@@ -226,6 +226,12 @@ fn set_turn_running(root: &Path, running: bool) {
     }
 }
 
+/// Forgets a project's running turn once its Agent panel shows another
+/// project or goes (`AppRestart::forget`).
+pub fn forget_turn(root: &Path) {
+    set_turn_running(root, false);
+}
+
 /// How many Agent panels have a turn running (`restart_impact`'s
 /// `agentTurns`), which a restart of the agent would stop.
 pub fn agent_turns() -> usize {

@@ -53,7 +53,7 @@ use crate::project::{Project, ProjectEvent};
 
 pub mod add_sheet;
 pub mod audit;
-mod batch;
+pub(crate) mod batch;
 pub mod bib_editor;
 mod downloads;
 mod field;
