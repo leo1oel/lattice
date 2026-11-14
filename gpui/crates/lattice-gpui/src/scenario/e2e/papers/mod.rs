@@ -362,8 +362,9 @@ impl Run {
     /// (`save-full-text-setting.ts`), adds its citation and never fetches
     /// or writes its text: an entry with an arXiv id, which a full-text add
     /// would download and convert under `.research/papers/<id>/` (reporting
-    /// the "fulltext" stage before it reaches the network), lands in the
-    /// bibliography alone. The bibliographies are put back after, so
+    /// the "fulltext" stage before it reaches the network, and offline
+    /// raising "Citation added without full text"), lands in the
+    /// bibliography alone and raises no notice, its row saying it. The bibliographies are put back after, so
     /// what follows sees the fixture as it was.
     async fn add_without_full_text(
         &self,
@@ -378,6 +379,8 @@ impl Run {
             .filter_map(|path| std::fs::read(&path).ok().map(|bytes| (path, bytes)))
             .collect();
         let full_text = cx.update(|cx| crate::settings::get(cx).save_full_text);
+        let notices = cx.update(crate::notices::install);
+        cx.update(|cx| notices.update(cx, |stack, cx| stack.clear(cx)));
         let entry = "@article{kingma2013vae,\n  title = {Auto-Encoding Variational Bayes},\n  author = {Kingma, Diederik P. and Welling, Max},\n  year = {2013},\n  eprint = {1312.6114},\n  archivePrefix = {arXiv}\n}\n";
         let started = cx.update(|cx| {
             papers.update(cx, |panel, cx| {
@@ -399,6 +402,9 @@ impl Run {
             })
             .await;
         let fetched = stages.iter().any(|stage| stage == "fulltext");
+        let raised: Vec<String> = cx.update(|cx| {
+            notices.read(cx).titles().into_iter().map(|title| title.to_string()).collect()
+        });
         let cited = bibliographies.iter().any(|(path, _)| {
             std::fs::read_to_string(path).is_ok_and(|text| text.contains("kingma2013vae"))
         });
@@ -406,8 +412,8 @@ impl Run {
         let text_written = bundle.join("paper.md").exists();
         steps.check(
             "with Also save full text off (its default), adding a paper adds its citation and writes no full text",
-            !full_text && started && settled && cited && !fetched && !text_written,
-            json!({ "save_full_text": full_text, "started": started, "settled": settled, "cited": cited, "stages": stages, "paper_md": text_written }),
+            !full_text && started && settled && cited && !fetched && raised.is_empty() && !text_written,
+            json!({ "save_full_text": full_text, "started": started, "settled": settled, "cited": cited, "stages": stages, "notices": raised, "paper_md": text_written }),
         );
         for (path, bytes) in &bibliographies {
             std::fs::write(path, bytes)?;
