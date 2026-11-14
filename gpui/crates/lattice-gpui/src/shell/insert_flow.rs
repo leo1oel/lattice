@@ -66,7 +66,10 @@ fn is_markdown(editor: &EditorPanel) -> bool {
 
 /// The offset of the start of the line `offset` is on.
 fn line_start(text: &str, offset: usize) -> usize {
-    let offset = offset.min(text.len());
+    let mut offset = offset.min(text.len());
+    while !text.is_char_boundary(offset) {
+        offset -= 1;
+    }
     text[..offset].rfind('\n').map_or(0, |at| at + 1)
 }
 
@@ -286,5 +289,12 @@ mod tests {
         assert_eq!(line_start(text, 7), 4);
         assert_eq!(line_start(text, 4), 4);
         assert_eq!(line_start(text, 99), text.len());
+    }
+
+    #[test]
+    fn a_stale_offset_inside_a_character_lands_on_its_line() {
+        let text = "一\n二三\n";
+        assert_eq!(line_start(text, 5), 4);
+        assert_eq!(line_start(text, 2), 0);
     }
 }

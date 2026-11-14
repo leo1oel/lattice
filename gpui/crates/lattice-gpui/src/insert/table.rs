@@ -194,8 +194,14 @@ static LATEX_CELL_BREAKS: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 /// `Number(text).toFixed(decimals)`: rounded on the double's exact value,
-/// a tie away from zero, as JavaScript rounds.
+/// a tie away from zero, as JavaScript rounds. An exact zero loses its sign
+/// and a magnitude from 1e21 up is written as `String(value)`, as `toFixed`
+/// does.
 fn to_fixed(value: f64, decimals: usize) -> String {
+    let value = if value == 0. { 0. } else { value };
+    if value.abs() >= 1e21 {
+        return format!("{value:e}").replacen('e', "e+", 1);
+    }
     let rounded = format!("{value:.decimals$}");
     // A tie only rounds to even in Rust's formatting: look at the exact
     // expansion past the kept digits.
@@ -326,7 +332,6 @@ pub fn source(data: &TableData) -> String {
                         && NUMBER.is_match(text.trim())
                         && let Ok(number) = text.trim().parse::<f64>()
                         && number.is_finite()
-                        && number.abs() < 1e21
                     {
                         text = to_fixed(number, decimals as usize);
                     }
@@ -470,6 +475,18 @@ mod tests {
         // 1.005 is just below the tie as a double: (1.005).toFixed(2) is "1.00".
         assert_eq!(to_fixed(1.005, 2), "1.00");
         assert_eq!(to_fixed(3.0, 2), "3.00");
+        // Node: (-0).toFixed(2), (-0.001).toFixed(2), (1e21).toFixed(2),
+        // (1.5e22).toFixed(2), (-1e21).toFixed(2),
+        // Number("123456789012345678901234").toFixed(2).
+        assert_eq!(to_fixed(-0.0, 2), "0.00");
+        assert_eq!(to_fixed(-0.001, 2), "-0.00");
+        assert_eq!(to_fixed(1e21, 2), "1e+21");
+        assert_eq!(to_fixed(1.5e22, 2), "1.5e+22");
+        assert_eq!(to_fixed(-1e21, 2), "-1e+21");
+        assert_eq!(
+            to_fixed("123456789012345678901234".parse().unwrap(), 2),
+            "1.2345678901234569e+23"
+        );
     }
 
     #[test]
