@@ -61,6 +61,7 @@ pub mod outline_rail;
 mod overleaf_carets;
 mod overleaf_review;
 mod overleaf_text;
+pub mod proofread;
 pub mod rail_outline;
 mod save;
 mod selection_toolbar;
@@ -170,6 +171,8 @@ pub struct EditorPanel {
     /// The selection toolbar over a LaTeX or Markdown selection
     /// (`selection_toolbar.rs`).
     toolbar: selection_toolbar::ToolbarState,
+    /// The inline Proofread, Polish and Rewrite card (`proofread.rs`).
+    proofread: proofread::ProofreadState,
     /// The file's word count as of opening or the last save; counted off the
     /// main thread.
     words: Option<usize>,
@@ -436,6 +439,7 @@ impl EditorPanel {
             margin: Default::default(),
             annotations: Default::default(),
             toolbar: Default::default(),
+            proofread: Default::default(),
             words: None,
             buffer_todos: None,
             status_width: Default::default(),
@@ -677,6 +681,15 @@ impl Render for EditorPanel {
         div()
             .key_context("LatticeEditor")
             .on_action(cx.listener(Self::deploy_search))
+            .on_action(cx.listener(|this, _: &proofread::ProofreadSelection, window, cx| {
+                this.proofread_action(Some(lattice_editor::proofread::Ask::Proofread), window, cx)
+            }))
+            .on_action(cx.listener(|this, _: &proofread::PolishSelection, window, cx| {
+                this.proofread_action(Some(lattice_editor::proofread::Ask::Polish), window, cx)
+            }))
+            .on_action(cx.listener(|this, _: &proofread::RewriteSelection, window, cx| {
+                this.proofread_action(None, window, cx)
+            }))
             .on_action(cx.listener(|this, _: &find_bar::FindNext, window, cx| {
                 this.find_bar
                     .update(cx, |bar, cx| bar.step(false, window, cx))

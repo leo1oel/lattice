@@ -33,6 +33,7 @@ use lattice_i18n::t;
 pub mod commands;
 pub mod runtime;
 pub mod surface;
+pub mod text_task;
 pub mod workspace;
 
 pub use surface::{SurfaceEvent, SurfaceKind, SynaraSurface, TurnReview};

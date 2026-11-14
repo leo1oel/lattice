@@ -37,6 +37,12 @@ pub(super) fn insert_commands(context: &super::CommandContext, out: &mut Vec<Com
             Section::Edit,
             crate::shell::InsertTable,
         ));
+        // The agent's Proofread, Polish and Rewrite of the selection; Rewrite
+        // asks for an instruction in the selection toolbar's menu.
+        use crate::editor_panel::proofread as p;
+        out.push(Command::new("proofread", t!("Proofread selection"), Section::Edit, p::ProofreadSelection));
+        out.push(Command::new("polish", t!("Polish selection"), Section::Edit, p::PolishSelection));
+        out.push(Command::new("rewrite", t!("Rewrite selection…"), Section::Edit, p::RewriteSelection));
     }
     out.push(Command::new(
         "paste-image",

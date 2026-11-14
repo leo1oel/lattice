@@ -211,6 +211,8 @@ lucide! {
     LINK = "lattice" / "link";
     ERASER = "lattice" / "eraser";
     CODE = "lattice" / "code";
+    /// A proofread's held edit.
+    LOCK = "lattice" / "lock";
 }
 
 impl Icon {
@@ -357,6 +359,7 @@ const BUNDLED: &[(&str, &[u8])] = bundled![
     "link.svg",
     "eraser.svg",
     "code.svg",
+    "lock.svg",
     "glyph-bib-body.svg",
     "glyph-bib.svg",
     "glyph-board-body.svg",

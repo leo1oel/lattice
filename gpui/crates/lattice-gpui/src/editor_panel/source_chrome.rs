@@ -138,7 +138,13 @@ impl EditorPanel {
             .capture_any_mouse_up(cx.listener(|this, event: &gpui::MouseUpEvent, _, cx| {
                 this.toolbar_pointer(false, event.position, cx)
             }))
-            .capture_key_down(cx.listener(|this, _, _, cx| this.release_rail(cx)))
+            .capture_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| {
+                this.release_rail(cx);
+                // The open proofread card's ⌘↵ and Esc, ahead of the editor's.
+                if this.proofread_key(event, window, cx) {
+                    cx.stop_propagation();
+                }
+            }))
             .child(self.lattice.clone())
             .children(self.rail.clone())
             .children(margin.map(|(_, layer)| layer))
