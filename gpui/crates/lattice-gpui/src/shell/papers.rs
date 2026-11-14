@@ -605,6 +605,16 @@ impl Shell {
         if !self.dismiss_overlays_for_documents(cx) {
             return;
         }
+        // A check still running from when the sheet closed comes back as it
+        // is, with its events still subscribed; one this window left running
+        // on another project stops, as the Tauri app's sheet unmounts.
+        let owner = cx.entity_id();
+        crate::papers::audit::stop_others(owner, &root, cx);
+        if let Some(running) = crate::papers::audit::running(owner, &root, cx) {
+            self.documents.audit = Some(running);
+            cx.notify();
+            return;
+        }
         // Every scan reads the files on disk: what the editors hold is saved
         // first, as the Tauri app's `onPrepare` does.
         let shell = cx.entity().downgrade();
@@ -614,10 +624,15 @@ impl Shell {
                 .unwrap_or_else(|_| gpui::Task::ready(false))
         });
         let saved = self.save_editors(cx);
-        let view = cx.new(|cx| Audit::new(root, prepare, saved, cx));
+        let view = cx.new(|cx| Audit::new(owner, root, prepare, saved, cx));
         cx.subscribe_in(&view, window, |this, _, event, window, cx| match event {
             AuditEvent::Dismiss => this.close_document_overlays(window, cx),
             AuditEvent::OpenSource { path, line } => {
+                // The sheet stays while fixes are written, and so does the
+                // keyboard: nothing opens behind it.
+                if this.overlay_writing(cx) {
+                    return;
+                }
                 this.close_document_overlays(window, cx);
                 if let Some(root) = this.root(cx) {
                     this.open_path(root.join(path), Some(*line), window, cx);

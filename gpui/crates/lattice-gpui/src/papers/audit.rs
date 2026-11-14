@@ -11,7 +11,10 @@
 //!   until the writer asks.
 //! - Check all runs twenty at a time: Semantic Scholar's batch first, then
 //!   each reference the batch could not answer on its own, two at once.
-//!   Stop drains the group under way.
+//!   Stop drains the group under way. Closing the sheet does not stop it:
+//!   the run holds its `Audit` (`running.rs`) until it finishes, and the
+//!   sheet opened again for the project shows it still going, as the Tauri
+//!   app's sheet stays mounted while hidden.
 //! - Apply writes a fix through `citation_audit::apply`, which refuses an
 //!   entry that changed since it was read; Apply all takes every fix that
 //!   only fills in or publishes the entry, leaving disputed values for the
@@ -34,20 +37,23 @@ use futures::{
 use gpui::{
     App, AppContext as _, Context, EventEmitter, FocusHandle, Focusable, ScrollHandle, Task,
 };
-use lattice_core::{
-    citation_audit::{self, AuditEntry},
-    citation_health::CitationHealth,
-};
+use lattice_core::citation_audit::{self, AuditEntry, AuditIssue};
 use lattice_i18n::t;
-use serde::{Deserialize, Serialize};
 
+mod detail;
+mod finding;
 mod groups;
+mod issues;
 mod messages;
 mod report;
+mod running;
 mod summary;
 mod view;
 
+use finding::take_batch;
+pub use finding::{Change, Finding, Source};
 pub use groups::{Bucket, FixGroup, fix_group};
+pub use running::{running, stop_others};
 
 /// References checked per group.
 const GROUP: usize = 20;
@@ -68,117 +74,6 @@ pub enum AuditEvent {
     /// A check needs the paper tools, which are not installed: setup offers
     /// them (`onMissingPaperTools`).
     MissingPaperTools(String),
-}
-
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Change {
-    pub field: String,
-    pub before: String,
-    pub after: String,
-}
-
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct Source {
-    pub source: String,
-    pub outcome: String,
-}
-
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Candidate {
-    pub bibtex: String,
-    #[serde(default)]
-    pub changes: Vec<Change>,
-    #[serde(default)]
-    pub reasons: Vec<String>,
-}
-
-/// A check's finding, as lattice-core's `AuditResult` serializes it (and the
-/// saved report keeps it).
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Finding {
-    pub status: String,
-    pub message: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub checked_at: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub publication_reason: Option<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub sources: Vec<Source>,
-    pub before: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub after: Option<String>,
-    #[serde(default)]
-    pub changes: Vec<Change>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub candidate: Option<Candidate>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub health: Option<CitationHealth>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub disagreements: Vec<String>,
-}
-
-impl Finding {
-    fn from_core(result: &impl Serialize) -> Option<Self> {
-        let mut finding: Finding =
-            serde_json::from_value(serde_json::to_value(result).ok()?).ok()?;
-        finding.checked_at = Some(chrono_now());
-        Some(finding)
-    }
-
-    fn failed(message: String, before: &str) -> Self {
-        Finding {
-            status: "unavailable".into(),
-            message,
-            checked_at: Some(chrono_now()),
-            before: before.to_string(),
-            ..Default::default()
-        }
-    }
-
-    /// A publisher's notice (a retraction, an expression of concern) on the
-    /// work itself.
-    pub fn has_notice(&self) -> bool {
-        self.health
-            .as_ref()
-            .is_some_and(|health| !matches!(health.kind.as_str(), "unknown" | "unavailable"))
-    }
-}
-
-/// A Semantic Scholar batch's answers, over the group's own checks, and
-/// whether it failed, which the group's later checks and the rest of the
-/// run are told.
-fn take_batch(
-    batch: Result<citation_audit::BatchAudit, String>,
-    answered: &mut [Option<Finding>],
-    s2_failure: &mut Option<String>,
-    s2_status: &mut Option<String>,
-) {
-    match batch {
-        Ok(batch) if batch.results.len() == answered.len() => {
-            for (slot, result) in answered.iter_mut().zip(&batch.results) {
-                if let Some(finding) = result.as_ref().and_then(Finding::from_core) {
-                    *slot = Some(finding);
-                }
-            }
-            *s2_failure = batch.s2_failure;
-            *s2_status = Some(s2_failure.clone().unwrap_or_else(|| "checked".into()));
-        }
-        _ => {
-            *s2_failure = Some("unavailable".into());
-            *s2_status = s2_failure.clone();
-        }
-    }
-}
-
-fn chrono_now() -> String {
-    // Seconds since the epoch, as the report only orders and shows dates.
-    let seconds = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_or(0, |since| since.as_secs());
-    format!("{seconds}")
 }
 
 fn audit_key(entry: &AuditEntry) -> String {
@@ -205,6 +100,8 @@ const PAPER_TOOLS_MISSING: &str = "Lattice's paper tools are not installed.";
 pub type Prepare = std::rc::Rc<dyn Fn(&mut App) -> Task<bool>>;
 
 pub struct Audit {
+    /// The window's shell that opened it, which a run is held for.
+    owner: gpui::EntityId,
     root: PathBuf,
     prepare: Prepare,
     /// Where the report is saved; none keeps it for this window only.
@@ -212,12 +109,18 @@ pub struct Audit {
     pub(super) entries: Vec<AuditEntry>,
     /// Files the scan read references from: path, kind and how many.
     pub(super) coverage: Vec<(String, String, usize)>,
+    /// What the scan found to tidy in the files themselves.
+    pub(super) issues: Vec<AuditIssue>,
     pub(super) results: HashMap<usize, Finding>,
     pub(super) applied: HashSet<usize>,
     pub(super) kept: HashSet<usize>,
     pub(super) loading: bool,
     pub(super) busy: bool,
     pub(super) stopping: bool,
+    /// The run stops scheduling checks without the writer's Stop: the paper
+    /// tools are missing, so every later check would fail the same way. The
+    /// button still reads Cancel check, as the Tauri app's does.
+    halted: bool,
     /// The other sources have answered what they can and the group waits on
     /// its Semantic Scholar batch (`waitingForS2`).
     pub(super) waiting_for_s2: bool,
@@ -233,6 +136,8 @@ pub struct Audit {
     /// same reference when a rescan renumbers them.
     pub(super) open: Option<usize>,
     pub(super) scroll: ScrollHandle,
+    /// The disclosures opened, by reference and name.
+    pub(super) disclosed: HashSet<(usize, &'static str)>,
     generation: u64,
     /// Stop's signal to the run, which ends a wait on Semantic Scholar.
     cancel: Option<oneshot::Sender<()>>,
@@ -245,15 +150,23 @@ impl EventEmitter<AuditEvent> for Audit {}
 impl Audit {
     /// `saved`: the save of the editors made as the sheet opened, which the
     /// first scan waits for; later scans save through `prepare`.
-    pub fn new(root: PathBuf, prepare: Prepare, saved: Task<bool>, cx: &mut Context<Self>) -> Self {
+    pub fn new(
+        owner: gpui::EntityId,
+        root: PathBuf,
+        prepare: Prepare,
+        saved: Task<bool>,
+        cx: &mut Context<Self>,
+    ) -> Self {
         let store = crate::shell::workspaces::state_dir(crate::settings::scripted(cx))
             .map(|dir| dir.join("audits"));
         let mut this = Self {
+            owner,
             root,
             prepare,
             store,
             entries: Vec::new(),
             coverage: Vec::new(),
+            issues: Vec::new(),
             run_total: 0,
             run_done: HashSet::new(),
             results: HashMap::new(),
@@ -262,6 +175,7 @@ impl Audit {
             loading: true,
             busy: false,
             stopping: false,
+            halted: false,
             waiting_for_s2: false,
             checking: HashSet::new(),
             applying: false,
@@ -269,6 +183,7 @@ impl Audit {
             view: None,
             open: None,
             scroll: ScrollHandle::new(),
+            disclosed: HashSet::new(),
             generation: 0,
             cancel: None,
             focus: cx.focus_handle(),
@@ -285,10 +200,9 @@ impl Audit {
         let read = async move {
             let scan = citation_audit::scan(&root)?;
             let saved = match &store {
-                Some(dir) => citation_audit::load_report(dir, &root)
-                    .ok()
-                    .flatten()
-                    .unwrap_or_default(),
+                // A save still on its way would land after this read, and the
+                // next save from here would put the older report back.
+                Some(dir) => report::load(dir, &root).ok().flatten().unwrap_or_default(),
                 None => Vec::new(),
             };
             Ok::<_, String>((scan, saved))
@@ -333,9 +247,13 @@ impl Audit {
             return;
         };
         let (root, report) = (self.root.clone(), self.report());
+        let pending = report::Pending::begin(&root);
         let asked = report::ask();
-        cx.background_spawn(async move { report::write(&store, &root, asked, report) })
-            .detach();
+        cx.background_spawn(async move {
+            report::write(&store, &root, asked, report);
+            drop(pending);
+        })
+        .detach();
     }
 
     pub(super) fn bucket(&self, index: usize) -> Bucket {
@@ -400,6 +318,7 @@ impl Audit {
         let generation = self.generation;
         self.busy = true;
         self.stopping = false;
+        self.halted = false;
         self.waiting_for_s2 = false;
         self.error = None;
         // Until the rescan says how many it checks, the last run's count
@@ -411,6 +330,7 @@ impl Audit {
         let prepared = (self.prepare.clone())(cx);
         let (cancel, mut cancelled) = oneshot::channel();
         self.cancel = Some(cancel);
+        running::hold(self.owner, &self.root, cx.entity(), cx);
         self._task = Some(cx.spawn(async move |this, cx| {
             let scan_root = root.clone();
             let scan = if prepared.await {
@@ -468,7 +388,7 @@ impl Audit {
                         .iter()
                         .map(|index| this.entries[*index].clone())
                         .collect();
-                    (entries, this.generation == generation && !this.stopping)
+                    (entries, this.generation == generation && !this.stopped())
                 }) {
                     Ok(state) => state,
                     Err(_) => return,
@@ -503,7 +423,7 @@ impl Audit {
                         Either::Right((_, batch)) => {
                             pending = Some(batch);
                             this.update(cx, |this, cx| {
-                                if this.generation == generation && !this.stopping {
+                                if this.generation == generation && !this.stopped() {
                                     this.waiting_for_s2 = true;
                                     cx.notify();
                                 }
@@ -523,7 +443,9 @@ impl Audit {
                         .take(2)
                         .collect();
                     let stopped = this
-                        .update(cx, |this, _| this.stopping || this.generation != generation)
+                        .update(cx, |this, _| {
+                            this.stopped() || this.generation != generation
+                        })
                         .unwrap_or(true);
                     if stopped || pair.is_empty() {
                         break;
@@ -563,9 +485,11 @@ impl Audit {
                     }
                     if let Some(failure) = missing_tools {
                         this.update(cx, |this, cx| {
-                            if this.generation == generation && !this.stopping {
-                                this.stopping = true;
-                                cx.emit(AuditEvent::MissingPaperTools(failure));
+                            if this.generation == generation {
+                                if !this.stopped() {
+                                    cx.emit(AuditEvent::MissingPaperTools(failure));
+                                }
+                                this.halted = true;
                             }
                         })
                         .ok();
@@ -578,7 +502,9 @@ impl Audit {
                         .ok();
                 }
                 let stopped = this
-                    .update(cx, |this, _| this.stopping || this.generation != generation)
+                    .update(cx, |this, _| {
+                        this.stopped() || this.generation != generation
+                    })
                     .unwrap_or(true);
                 if let Some(batch) = pending.filter(|_| !stopped)
                     && let Either::Left((batch, _)) = select(batch, &mut cancelled).await
@@ -641,9 +567,17 @@ impl Audit {
         }
         self.busy = false;
         self.stopping = false;
+        self.halted = false;
         self.waiting_for_s2 = false;
         self.checking.clear();
+        running::release(self.owner, &self.root, cx);
         cx.notify();
+    }
+
+    /// The run is to schedule no more checks: the writer stopped it, or the
+    /// paper tools are missing.
+    fn stopped(&self) -> bool {
+        self.stopping || self.halted
     }
 
     pub(super) fn stop(&mut self, cx: &mut Context<Self>) {
@@ -754,6 +688,7 @@ impl Audit {
             .iter()
             .map(|file| (file.path.clone(), file.kind.to_string(), file.entries))
             .collect();
+        self.issues = scan.issues;
         let open = self.open.and_then(|index| {
             let key = audit_key(self.entries.get(index)?);
             let nth = self.entries[..index]
@@ -773,11 +708,18 @@ impl Audit {
         });
     }
 
+    /// Open the entry where it starts; one the scan placed nowhere offers
+    /// no Go to (`goTo`), and nothing opens while fixes are written.
     pub(super) fn open_source(&mut self, index: usize, cx: &mut Context<Self>) {
-        if let Some(entry) = self.entries.get(index) {
+        if self.applying {
+            return;
+        }
+        if let Some(entry) = self.entries.get(index)
+            && let Some(line) = entry.line
+        {
             cx.emit(AuditEvent::OpenSource {
                 path: entry.path.clone(),
-                line: entry.line.unwrap_or(1) as u32,
+                line: line as u32,
             });
         }
     }
@@ -787,14 +729,39 @@ impl Audit {
         self.applying
     }
 
-    /// A check under way stops with the sheet; what it found was saved as
-    /// it came in. Fixes being written keep it open until they land.
+    /// A check under way keeps running with the sheet closed (its run holds
+    /// this `Audit`), and the sheet opened again shows it. A read that has
+    /// not landed stops with the sheet. Fixes being written keep it open
+    /// until they land.
     pub(super) fn close(&mut self, cx: &mut Context<Self>) {
         if self.applying {
             return;
         }
-        self.generation += 1;
+        if !self.busy {
+            self.generation += 1;
+        }
         cx.emit(AuditEvent::Dismiss);
+    }
+
+    /// Stop a run under way, for a sheet another project opened.
+    pub(super) fn abandon(&mut self, cx: &mut Context<Self>) {
+        self.stop(cx);
+        self.generation += 1;
+        self.busy = false;
+        self.checking.clear();
+        running::release(self.owner, &self.root, cx);
+    }
+
+    pub(super) fn toggle_disclosure(
+        &mut self,
+        index: usize,
+        name: &'static str,
+        cx: &mut Context<Self>,
+    ) {
+        if !self.disclosed.remove(&(index, name)) {
+            self.disclosed.insert((index, name));
+        }
+        cx.notify();
     }
 
     /// The references by key and bucket, for a scenario.
