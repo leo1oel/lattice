@@ -128,6 +128,21 @@ impl Run {
             json!({ "page": page }),
         );
         self.island_shot(cx, "paper-reader").await?;
+        // At the top of the full text its masthead is on screen, so the
+        // strip leaves out the title and authors the masthead carries.
+        let hidden = self
+            .wait_for(cx, Duration::from_secs(10), |shell, cx| {
+                shell
+                    .read(cx)
+                    .front_reader_panel(cx)
+                    .is_some_and(|reader| reader.read(cx).masthead_on_screen(cx))
+            })
+            .await;
+        steps.check(
+            "the strip leaves out the title and authors while the full text's masthead is on screen",
+            hidden,
+            json!({}),
+        );
 
         // Blog shows the overview, with no masthead over it.
         self.with_window(cx, |_, window, cx| {
@@ -148,6 +163,38 @@ impl Run {
             path == format!("{bundle}/blog.md") && page["title"].is_null(),
             json!({ "path": path, "page": page }),
         );
+
+        // Back on the full text, still at its top, the strip keeps leaving
+        // out the identity: the island has no new intersection to report, so
+        // the reader must keep what the full text last reported.
+        self.with_window(cx, |_, window, cx| {
+            reader.update(cx, |reader, cx| {
+                reader.show(ReaderView::FullText, window, cx)
+            })
+        })?;
+        let back_on_paper = self.reader_drawn(cx, ReaderView::FullText).await.is_some();
+        let still_hidden = back_on_paper
+            && self
+                .wait_for(cx, Duration::from_secs(3), |shell, cx| {
+                    shell
+                        .read(cx)
+                        .front_reader_panel(cx)
+                        .is_some_and(|reader| reader.read(cx).masthead_on_screen(cx))
+                })
+                .await;
+        steps.check(
+            "back from Blog on the full text's top, the strip still leaves out the title and authors",
+            still_hidden,
+            json!({ "drawn": back_on_paper }),
+        );
+        self.with_window(cx, |_, window, cx| {
+            reader.update(cx, |reader, cx| {
+                reader.show(ReaderView::Overview, window, cx)
+            })
+        })?;
+        if self.reader_drawn(cx, ReaderView::Overview).await.is_none() {
+            steps.check("Blog is shown again before the PDF", false, json!({}));
+        }
 
         // The original PDF stands in the text's place, the text's page put
         // away while it does, and the way back brings the text again.

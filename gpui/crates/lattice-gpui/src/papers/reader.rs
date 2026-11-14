@@ -357,20 +357,26 @@ impl PaperReader {
         }
     }
 
-    /// The strip over the text: the paper's identity and its actions.
-    fn header(&self, cx: &mut Context<Self>) -> impl IntoElement + use<> {
-        let palette = cx.palette().clone();
-        let width = self.width.get().map_or(f32::MAX, f32::from);
-        let icons_only = width < ICONS_ONLY_BELOW;
-        let masthead = self
-            .texts
+    /// The shown text's masthead is on screen, so the strip leaves out the
+    /// title and authors it carries: not over the PDF, and not in Edit,
+    /// where there is no masthead.
+    pub fn masthead_on_screen(&self, cx: &App) -> bool {
+        self.texts
             .iter()
             .any(|text| text.view == self.view && text.masthead)
             && self.pdf.is_none()
             && self
                 .editor()
                 .and_then(|editor| editor.read(cx).document_view())
-                != Some(DocumentView::Source);
+                != Some(DocumentView::Source)
+    }
+
+    /// The strip over the text: the paper's identity and its actions.
+    fn header(&self, cx: &mut Context<Self>) -> impl IntoElement + use<> {
+        let palette = cx.palette().clone();
+        let width = self.width.get().map_or(f32::MAX, f32::from);
+        let icons_only = width < ICONS_ONLY_BELOW;
+        let masthead = self.masthead_on_screen(cx);
         let source = model::source_label(&self.paper);
         let browser = browser_url(&self.paper).is_some();
         let authors = (!masthead && width >= NO_AUTHORS_BELOW)
