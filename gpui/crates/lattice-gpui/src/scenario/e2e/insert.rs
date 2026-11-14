@@ -7,8 +7,8 @@
 //! through the Insert figure dialog; and ⌘V with an image in the editor
 //! saving it into `figures/` and offering it as a figure. With
 //! `LATTICE_E2E_SHOTS=DIR` (macOS, `offscreen-shots`) it saves the window at
-//! the generator, its review, its refusal and unsupported messages, and the
-//! Insert figure dialog.
+//! the generator, its review, its refusal and unsupported messages, the
+//! Insert figure dialog and the pasted figure.
 
 use std::{path::Path, time::Duration};
 
