@@ -121,7 +121,7 @@ impl BibEditor {
         if let Some(detail) = &self.detail
             && !front.is_some_and(|row| detail.shows(row))
         {
-            self.commit_form(cx);
+            self.commit_form(window, cx);
         }
         let Some(row) = self.selected_row().cloned() else {
             self.detail = None;
@@ -241,9 +241,9 @@ impl BibEditor {
                                  window: &mut Window,
                                  cx: &mut Context<Self>| {
                 match event {
-                    InputEvent::Blur => this.commit_field(at, cx),
+                    InputEvent::Blur => this.commit_field(at, window, cx),
                     InputEvent::PressEnter { secondary, .. } if *secondary || line => {
-                        this.commit_field(at, cx);
+                        this.commit_field(at, window, cx);
                         window.focus(&this.focus, cx);
                     }
                     _ => {}

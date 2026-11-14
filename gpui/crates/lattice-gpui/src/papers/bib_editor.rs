@@ -339,6 +339,30 @@ impl BibEditor {
     fn apply_parse(&mut self, parsed: Parsed, edits: u64, cx: &mut Context<Self>) {
         self.parsed_edits = edits;
         if parsed.text != self.text || self.error.is_some() || parsed.error.is_some() {
+            let follow = |(key, index): &(String, usize)| {
+                let at = model::follow_row(
+                    &self.rows,
+                    &self.text,
+                    &parsed.rows,
+                    &parsed.text,
+                    key,
+                    *index,
+                );
+                (key.clone(), at.unwrap_or(*index))
+            };
+            self.selected = self.selected.as_ref().map(follow);
+            self.reveal = self.reveal.as_ref().map(follow);
+            if let Some(detail) = &mut self.detail
+                && let Some(row) = model::form_row(
+                    &parsed.rows,
+                    &parsed.text,
+                    &detail.key,
+                    detail.index,
+                    &detail.signature,
+                )
+            {
+                detail.index = row.index;
+            }
             self.text = parsed.text;
             self.rows = parsed.rows;
             self.macros = parsed.macros;
@@ -522,6 +546,10 @@ impl BibEditor {
         self.buffer.update(cx, |buffer, _| {
             buffer.finalize_last_transaction();
         });
+        let showed = self
+            .detail
+            .as_ref()
+            .is_some_and(|detail| (&detail.key, detail.index) == (&key, index));
         let Some((base, change)) = self.edit_entry(
             &key,
             index,
@@ -530,11 +558,7 @@ impl BibEditor {
         ) else {
             return;
         };
-        if self
-            .detail
-            .as_ref()
-            .is_some_and(|detail| (&detail.key, detail.index) == (&key, index))
-        {
+        if showed {
             self.detail = None;
         }
         let transaction = self.buffer.update(cx, |buffer, _| {

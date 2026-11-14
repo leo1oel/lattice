@@ -1,13 +1,16 @@
 //! Add papers' batch (`add-papers-queue.ts`), kept by the Papers panel so it
 //! outlives the sheet: the writer can close it and keep writing while the
 //! rest arrive. Papers import four at a time through lattice-core's
-//! `import_reference`, each committing as it resolves; Stop lets the papers
-//! under way finish and adds none of the rest, and a failed one can be
+//! `import_reference`, each committing as it resolves; Stop cancels the
+//! papers under way and adds none of the rest, and a failed one can be
 //! tried again. A batch whose project closed is dropped.
 
 use std::{
     collections::{HashMap, VecDeque},
-    sync::{Arc, atomic::AtomicBool},
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
 };
 
 use gpui::{AppContext as _, Context, Task};
@@ -185,7 +188,7 @@ pub struct Batch {
     run: Option<Arc<Run>>,
     requests: HashMap<String, BatchRequest>,
     pending: VecDeque<String>,
-    tasks: HashMap<String, Task<()>>,
+    tasks: HashMap<String, (Task<()>, Arc<AtomicBool>)>,
 }
 
 impl Batch {
@@ -213,8 +216,8 @@ pub(super) fn failure_line(error: &str) -> Option<String> {
 fn import_one(
     run: &Run,
     request: &BatchRequest,
+    cancel: &AtomicBool,
 ) -> Result<(core_papers::ImportResult, Option<String>), String> {
-    let cancel = AtomicBool::new(false);
     // A paper Papers holds is not imported again.
     let imported = match request
         .zotero
@@ -237,7 +240,7 @@ fn import_one(
             HistoryMode::Record,
             core_papers::FullText::Save,
             &|_| {},
-            &cancel,
+            cancel,
         ),
     };
     let (Ok(mut imported), Some(extras)) = (imported.clone(), request.zotero.as_ref()) else {
@@ -365,8 +368,10 @@ impl PapersPanel {
                 item.state = ItemState::Adding;
                 item.note = None;
             }
-            let job_run = run.clone();
-            let job = cx.background_spawn(async move { import_one(&job_run, &request) });
+            let (job_run, cancel) = (run.clone(), Arc::new(AtomicBool::new(false)));
+            let job_cancel = cancel.clone();
+            let job =
+                cx.background_spawn(async move { import_one(&job_run, &request, &job_cancel) });
             let (task_id, task_run) = (id.clone(), run.clone());
             let task = cx.spawn(async move |this, cx| {
                 let result = job.await;
@@ -386,7 +391,7 @@ impl PapersPanel {
                 })
                 .ok();
             });
-            self.batch.tasks.insert(id, task);
+            self.batch.tasks.insert(id, (task, cancel));
         }
         self.batch.running = !self.batch.tasks.is_empty() || !self.batch.pending.is_empty();
         cx.notify();
@@ -435,9 +440,12 @@ impl PapersPanel {
         }
     }
 
-    /// Stop the batch: the papers under way finish, none of the rest are
-    /// added.
+    /// Stop the batch: the papers under way are cancelled, none of the rest
+    /// are added.
     pub(crate) fn stop_batch(&mut self, cx: &mut Context<Self>) {
+        for (_, cancel) in self.batch.tasks.values() {
+            cancel.store(true, Ordering::Release);
+        }
         for id in std::mem::take(&mut self.batch.pending) {
             if let Some(item) = self.batch.item(&id) {
                 item.state = ItemState::Cancelled;

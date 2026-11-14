@@ -398,6 +398,22 @@ pub fn form_row<'a>(
         .or_else(|| under().find(|row| row.index == index))
 }
 
+/// The place, in `rows` parsed from `text`, of the entry `key` at `index`
+/// in `before` parsed from `was`: the one under that key that still reads
+/// as it did, else the one at that place, as entries before it come and go.
+pub fn follow_row(
+    before: &[Row],
+    was: &str,
+    rows: &[Row],
+    text: &str,
+    key: &str,
+    index: usize,
+) -> Option<usize> {
+    let old = row_at(before, key, index)?;
+    let signature = was.get(old.entry.from..old.entry.to)?;
+    form_row(rows, text, &old.entry.key, old.index, signature).map(|row| row.index)
+}
+
 /// A DOI as the form links it: `10.`, four to nine digits, a slash and no
 /// space after (`/^10\.\d{4,9}\/\S+$/`).
 pub fn is_doi(doi: &str) -> bool {

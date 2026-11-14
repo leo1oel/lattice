@@ -31,7 +31,12 @@ impl FieldBox {
         }
     }
 
-    pub(super) fn set_value(&self, text: String, window: &mut Window, cx: &mut gpui::App) {
+    pub(in crate::papers::bib_editor) fn set_value(
+        &self,
+        text: String,
+        window: &mut Window,
+        cx: &mut gpui::App,
+    ) {
         match self {
             FieldBox::Line(input) => {
                 input.update(cx, |input, cx| input.set_value(text, window, cx))

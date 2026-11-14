@@ -109,6 +109,21 @@ impl Run {
             })
         });
         self.pause(cx, Duration::from_millis(400)).await;
+        // Left with nothing typed, the box shows the file's newer text.
+        self.with_window(cx, |_, window, cx| {
+            window.focus(&gpui::Focusable::focus_handle(bib.read(cx), cx), cx)
+        })?;
+        let active = self.with_window(cx, |_, window, _| window.is_window_active())?;
+        if !active {
+            cx.update(|cx| bib.update(cx, |bib, cx| bib.field_left("title", cx)));
+        }
+        let refilled = self
+            .wait_for(cx, Duration::from_secs(2), |_, cx| {
+                bib.read(cx)
+                    .form_fields(cx)
+                    .contains(&("title".to_string(), "From source".to_string()))
+            })
+            .await;
         pick("second", cx);
         self.pause(cx, Duration::from_millis(300)).await;
         let kept = self.editor_text(cx, editor);
@@ -134,6 +149,11 @@ impl Run {
                 "secondUntouched": second_untouched,
                 "sourceKept": source_kept,
             }),
+        );
+        steps.check(
+            "a .bib form box left with nothing typed shows the text the source changed it to",
+            refilled,
+            json!({ "refilled": refilled }),
         );
         let restore = before.to_string();
         cx.update(|cx| {

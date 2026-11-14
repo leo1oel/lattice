@@ -82,7 +82,7 @@ impl BibEditor {
     }
 
     /// Write every box of the form as it stands: its fields, then its key.
-    pub(super) fn commit_form(&mut self, cx: &mut Context<Self>) {
+    pub(super) fn commit_form(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(detail) = self.detail.as_ref() else {
             return;
         };
@@ -91,12 +91,12 @@ impl BibEditor {
             detail.key_input.read(cx).value().to_string(),
         );
         for at in 0..count {
-            self.commit_field(at, cx);
+            self.commit_field(at, window, cx);
         }
         self.rename_key(key, cx);
     }
 
-    pub(super) fn commit_field(&mut self, at: usize, cx: &mut Context<Self>) {
+    pub(super) fn commit_field(&mut self, at: usize, window: &mut Window, cx: &mut Context<Self>) {
         let Some((key, index)) = self.front() else {
             return;
         };
@@ -110,8 +110,23 @@ impl BibEditor {
         let value = field.input.value(cx);
         let (name, field_index, style) = (field.name.clone(), field.index, field.style);
         // Nothing typed since the box was last filled: whatever the file
-        // holds now (a source edit, say) stays.
+        // holds now (a source edit, say) stays, and the box shows it.
         if value == field.filled {
+            let written = self
+                .row_at(&key, index)
+                .and_then(|row| field_named(&row.entry, &name, field_index))
+                .and_then(|field| self.text.get(field.value_from..field.value_to))
+                .map(|raw| bib_document::editable_value(raw).0)
+                .filter(|written| *written != value);
+            if let Some(written) = written
+                && let Some(field) = self
+                    .detail
+                    .as_mut()
+                    .and_then(|detail| detail.fields.get_mut(at))
+            {
+                field.input.set_value(written, window, cx);
+                field.filled = field.input.value(cx);
+            }
             self.set_invalid(at, false, cx);
             return;
         }

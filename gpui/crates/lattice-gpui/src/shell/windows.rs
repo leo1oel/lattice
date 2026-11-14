@@ -78,7 +78,7 @@ pub(crate) fn shell_showing(
     Some((handle, shell))
 }
 
-/// Whether Check references is writing its fixes in any window.
+/// Whether a sheet in any window is writing to its project.
 pub(crate) fn any_overlay_writing(cx: &App) -> bool {
     cx.try_global::<Shells>().is_some_and(|shells| {
         shells

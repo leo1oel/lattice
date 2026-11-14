@@ -119,3 +119,29 @@ fn the_caret_follows_the_entry_up_to_its_closing_brace() {
     assert_eq!(key_at(first_close + 1), None);
     assert_eq!(key_at(text.find("@misc").unwrap() + 3), Some("b"));
 }
+
+/// File `z`, then `smith{A}` and `smith{B}`: with `z` deleted the second
+/// smith is at place 1, and once ⌘Z puts `z` back the reference in front
+/// is still that one (now at place 2), never the first smith that took
+/// place 1.
+#[test]
+fn the_reference_in_front_follows_its_entry_when_one_before_it_returns() {
+    let z = "@misc{z,\n  title = {Z}\n}\n\n";
+    let a = "@article{smith,\n  title = {A}\n}\n\n";
+    let b = "@inproceedings{smith,\n  title = {B}\n}\n";
+    let without = format!("{a}{b}");
+    let with = format!("{z}{a}{b}");
+    let before = parse_rows(without.clone()).rows;
+    let after = parse_rows(with.clone()).rows;
+    let place = model::follow_row(&before, &without, &after, &with, "smith", 1).unwrap();
+    assert_eq!(place, 2);
+    assert_eq!(after[place].summary.title, "B");
+    // Deleted again: back to place 1, still the second smith.
+    let place = model::follow_row(&after, &with, &before, &without, "smith", 2).unwrap();
+    assert_eq!(before[place].summary.title, "B");
+    // Its own text edited: its place still names it.
+    let edited = without.replace("{B}", "{B, revised}");
+    let edited_rows = parse_rows(edited.clone()).rows;
+    let place = model::follow_row(&before, &without, &edited_rows, &edited, "smith", 1).unwrap();
+    assert_eq!(edited_rows[place].summary.title, "B, revised");
+}
