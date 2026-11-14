@@ -70,7 +70,7 @@ pub mod views;
 
 use disk_sync::vanished_key;
 pub use events::EditorPanelEvent;
-use latex_view::choose_latex_view;
+pub use latex_view::choose_latex_view;
 pub use margin_review::{MarginLayout, MarginMode};
 use outline_rail::OutlineRail;
 pub use overleaf_carets::OverleafCaret;

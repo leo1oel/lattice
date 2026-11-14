@@ -11,6 +11,7 @@ use gpui::{
     ParentElement as _, Styled as _, Window, div,
 };
 use lattice_editor::LatticeEditor;
+use lattice_i18n::tc;
 use lattice_settings::LatexView;
 use lattice_ui::ActiveLattice as _;
 
@@ -76,7 +77,11 @@ impl EditorPanel {
         let panel = gpui_kit::component::dock::PanelId::from(cx.entity_id());
         let tools = is_latex_document(&self.path).then(|| lattice_ui::dock::SpareTools {
             width: std::rc::Rc::new(|window, cx| {
-                lattice_ui::components::ViewSwitch::width(&["Source", "Visual"], true, window, cx)
+                let names = [
+                    tc!("LaTeX editor view", "Source"),
+                    tc!("LaTeX editor view", "Visual"),
+                ];
+                lattice_ui::components::ViewSwitch::width(&names, true, window, cx)
             }),
             render: std::rc::Rc::new(|_, cx| latex_view_switch(cx).into_any_element()),
         });
@@ -187,13 +192,13 @@ fn latex_view_switch(cx: &App) -> impl IntoElement {
     lattice_ui::components::ViewSwitch::new("latex-view-switch")
         .mode(
             lattice_ui::Icon::CODE_XML,
-            "Source",
+            tc!("LaTeX editor view", "Source"),
             view == LatexView::Source,
             |_, _, cx| choose_latex_view(LatexView::Source, cx),
         )
         .mode(
             lattice_ui::Icon::TYPE,
-            "Visual",
+            tc!("LaTeX editor view", "Visual"),
             view == LatexView::Visual,
             |_, _, cx| choose_latex_view(LatexView::Visual, cx),
         )

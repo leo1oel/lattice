@@ -591,8 +591,11 @@ mod tests {
 
     #[test]
     fn the_settings_file_round_trips() {
-        let mut settings = Settings::default();
-        settings.theme_preference = ThemePreference::Dark;
+        let mut settings = Settings {
+            theme_preference: ThemePreference::Dark,
+            latex_view: LatexView::Visual,
+            ..Default::default()
+        };
         settings.appearance.accent = Accent::Preset(AccentPreset::Teal);
         settings.appearance.hidden_titlebar_tools = vec![TitlebarTool::Browser];
         settings.auto_build_mode = AutoBuildMode::Manual;

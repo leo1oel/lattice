@@ -3,8 +3,6 @@
 What the Tauri app has that the GPUI app does not port yet, one item per line.
 A feature that lands deletes its own line (only that line, so features landing side by side merge cleanly), and a gap found adds one.
 
-- [ ] The visual LaTeX editor.
-
 - [ ] The source selection toolbar, LaTeX's and Markdown's.
 
 - [ ] Margin review's J/K walk between items.

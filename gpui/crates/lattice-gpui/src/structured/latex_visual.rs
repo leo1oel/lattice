@@ -24,7 +24,7 @@
 //! - a citation's Go to entry (`tex:open-citation`), opened at its entry in
 //!   the primary bibliography as the source editor's card opens it.
 
-use gpui::{AppContext as _, Context, Entity};
+use gpui::{Context, Entity};
 use lattice_editor::index::ProjectIndex;
 use serde_json::{Value, json};
 

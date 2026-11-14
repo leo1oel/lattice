@@ -4,7 +4,7 @@
 
 use gpui::{App, Context, Focusable as _, IntoElement, SharedString, Window, prelude::*};
 use gpui_kit::component::dock::Panel;
-use lattice_i18n::t;
+use lattice_i18n::{t, tc};
 use lattice_ui::components::{Menu, MenuAction};
 use zed_actions::buffer_search::Deploy;
 
@@ -106,8 +106,14 @@ impl EditorPanel {
             .when_some(self.latex_view(cx), |menu, view| {
                 let visual = view == lattice_settings::LatexView::Visual;
                 menu.separator()
-                    .item(command("Source", Box::new(ShowSourceView)).checked(!visual))
-                    .item(command("Visual", Box::new(ShowVisualView)).checked(visual))
+                    .item(
+                        command(tc!("LaTeX editor view", "Source"), Box::new(ShowSourceView))
+                            .checked(!visual),
+                    )
+                    .item(
+                        command(tc!("LaTeX editor view", "Visual"), Box::new(ShowVisualView))
+                            .checked(visual),
+                    )
             })
             .separator()
             .item(
