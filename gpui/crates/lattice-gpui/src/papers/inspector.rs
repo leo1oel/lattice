@@ -8,7 +8,6 @@
 //! on hairlines, each heading a caption with its count beside it.
 
 use lattice_i18n::t;
-use std::collections::HashMap;
 
 use gpui::{
     AnyElement, AppContext as _, Context, ElementId, Hsla, InteractiveElement as _, IntoElement,
@@ -28,11 +27,19 @@ use super::{PapersEvent, PapersPanel, model};
 
 pub(super) mod uses;
 
-/// The abstracts read so far, by arXiv id; `None` for a paper without one.
+/// Which paper's abstract is read, as of which listing of the library: a
+/// read is for the paper in the inspector now, and is made again when
+/// another paper is inspected or the library is listed again
+/// (`usePaperAbstract` reads `read_paper` whenever the inspected paper
+/// changes), so a re-downloaded or hand-edited text shows, and a read that
+/// failed once is tried again.
+type AbstractFor = (String, u64);
+
+/// The inspected paper's abstract; `None` for a paper without one.
 #[derive(Default)]
 pub struct Abstracts {
-    read: HashMap<String, Option<Vec<String>>>,
-    pending: Option<(String, Task<()>)>,
+    read: Option<(AbstractFor, Option<Vec<String>>)>,
+    pending: Option<(AbstractFor, Task<()>)>,
 }
 
 impl PapersPanel {
@@ -40,36 +47,41 @@ impl PapersPanel {
         if !paper.has_full_text {
             return None;
         }
-        let id = paper.arxiv_id.clone();
-        if let Some(read) = self.abstracts.read.get(&id) {
-            return read.clone();
-        }
+        let wanted: AbstractFor = (paper.arxiv_id.clone(), self.list_revision);
+        // While the paper's text is read again, it keeps what it showed.
+        let shown = match &self.abstracts.read {
+            Some((read, text)) if *read == wanted => return text.clone(),
+            Some(((id, _), text)) if *id == wanted.0 => text.clone(),
+            _ => None,
+        };
         if self
             .abstracts
             .pending
             .as_ref()
-            .is_some_and(|(at, _)| *at == id)
+            .is_some_and(|(reading, _)| *reading == wanted)
         {
-            return None;
+            return shown;
         }
         let root = self.root.clone()?;
-        let read_id = id.clone();
+        let read_id = wanted.0.clone();
         let read = cx.background_spawn(async move {
             lattice_core::papers::read_paper(&root, &read_id)
                 .ok()
                 .and_then(|markdown| model::paper_abstract(&markdown))
         });
+        let landed = wanted.clone();
         let task = cx.spawn(async move |this, cx| {
             let found = read.await;
             this.update(cx, |this, cx| {
-                this.abstracts.read.insert(id, found);
+                this.abstracts.read = Some((landed, found));
                 this.abstracts.pending = None;
                 cx.notify();
             })
             .ok();
         });
-        self.abstracts.pending = Some((paper.arxiv_id.clone(), task));
-        None
+        // A read for another paper is dropped with its task.
+        self.abstracts.pending = Some((wanted, task));
+        shown
     }
 
     pub(super) fn render_inspector(

@@ -356,7 +356,7 @@ impl Shell {
             AddPapersEvent::LinkLibrary => this.open_linked_library(window, cx),
         })
         .detach();
-        view.update(cx, |view, cx| view.focus_input(window, cx));
+        view.update(cx, |view, cx| view.focus_on_open(window, cx));
         self.documents.add_papers = Some(view);
         cx.notify();
     }

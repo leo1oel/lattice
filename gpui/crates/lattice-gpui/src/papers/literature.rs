@@ -73,8 +73,11 @@ pub struct Literature {
     pub(super) shown_query: String,
     /// The result whose preview is open; one at a time.
     pub(super) open: Option<String>,
-    /// The result being added to Papers.
+    /// The result being added to Papers, and its import's ticket.
     pub(super) busy: Option<String>,
+    busy_ticket: Option<u64>,
+    /// The arXiv ids (versionless) this drawer added (`justImported`).
+    just_imported: HashSet<String>,
     searched: Option<Searched>,
     page: u32,
     seen: HashSet<String>,
@@ -127,6 +130,8 @@ impl Literature {
             shown_query: String::new(),
             open: None,
             busy: None,
+            busy_ticket: None,
+            just_imported: HashSet::new(),
             searched: None,
             page: 0,
             seen: HashSet::new(),
@@ -282,23 +287,23 @@ impl Literature {
         cx.notify();
     }
 
-    /// Whether Papers already holds the work: listed, or added by an import
-    /// that has returned but whose reload has not yet landed. An import
-    /// that failed or was cancelled leaves the result to add again.
+    /// Whether Papers already holds the work: its full text is in the
+    /// library (`importedArxivIds`: a cited entry with an arXiv id and no
+    /// text still offers Add), or this drawer added it. An import that
+    /// failed or was cancelled leaves the result to add again.
     pub(super) fn imported(&self, hit: &LiteratureHit, cx: &App) -> bool {
         let Some(id) = hit.arxiv_id.as_deref() else {
             return false;
         };
         let base = base_arxiv_id(id);
-        let library = self.papers.read(cx);
-        library
-            .just_added
+        self.just_imported
             .iter()
-            .any(|added| base_arxiv_id(added).eq_ignore_ascii_case(base))
-            || library
-                .papers
-                .iter()
-                .any(|paper| base_arxiv_id(&paper.arxiv_id).eq_ignore_ascii_case(base))
+            .any(|added| added.eq_ignore_ascii_case(base))
+            || self.papers.read(cx).papers.iter().any(|paper| {
+                paper.has_full_text
+                    && !paper.arxiv_id.is_empty()
+                    && base_arxiv_id(&paper.arxiv_id).eq_ignore_ascii_case(base)
+            })
     }
 
     /// Add the result to Papers by its arXiv id; one at a time.
@@ -306,11 +311,12 @@ impl Literature {
         let (Some(id), None) = (hit.arxiv_id.clone(), self.busy.as_ref()) else {
             return;
         };
-        let started = self
+        let ticket = self
             .papers
             .update(cx, |papers, cx| papers.import_id(format!("arXiv:{id}"), cx));
-        if started {
+        if ticket.is_some() {
             self.busy = Some(hit_key(hit));
+            self.busy_ticket = ticket;
         }
         cx.notify();
     }
@@ -322,13 +328,20 @@ impl Literature {
             return;
         }
         let key = self.busy.take();
+        // It added the paper when it came back with a citation key.
+        let landed = self
+            .busy_ticket
+            .take()
+            .and_then(|ticket| self.papers.read(cx).import_outcome(ticket))
+            .unwrap_or(false);
         let added = self
             .results
             .iter()
             .find(|hit| Some(hit_key(hit)) == key)
-            .filter(|hit| self.imported(hit, cx))
+            .filter(|_| landed)
             .and_then(|hit| hit.arxiv_id.clone());
         if let Some(id) = added {
+            self.just_imported.insert(base_arxiv_id(&id).to_string());
             crate::notices::show(
                 crate::notices::Notice::new(
                     lattice_ui::components::ToastLevel::Success,

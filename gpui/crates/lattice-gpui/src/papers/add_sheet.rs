@@ -6,7 +6,10 @@
 //! waits for a choice, and nothing is written until the writer adds; then
 //! the Papers panel imports each in turn (`batch.rs`) and the sheet can
 //! close while the writer keeps writing. It reads the box once typing
-//! pauses (450 ms), so a half-typed DOI is not looked up letter by letter.
+//! pauses (450 ms), so a half-typed DOI is not looked up letter by letter,
+//! and a paste at once, since a paste is whole. ⌘/Ctrl+Enter in the box
+//! adds; opened with references already addable (a list pasted into the
+//! Papers box), Add takes the keyboard, so Enter adds them all.
 
 use lattice_i18n::t;
 use std::{
@@ -134,6 +137,12 @@ pub struct AddPapers {
     /// The Zotero library, browsed in place of the paste box.
     pub(super) zotero: Option<Entity<super::zotero::ZoteroBrowser>>,
     focus: FocusHandle,
+    /// The Add button's, which holds the keyboard when the sheet opens with
+    /// references already addable.
+    pub(super) add_focus: FocusHandle,
+    /// A paste landed in the box: its `Change` is read at once, without
+    /// the pause.
+    pub(super) pasted: bool,
     _settle: Option<Task<()>>,
     _lookups: HashMap<String, Task<()>>,
     _subscriptions: Vec<Subscription>,
@@ -174,6 +183,8 @@ impl AddPapers {
             tab: Tab::default(),
             zotero: None,
             focus: cx.focus_handle(),
+            add_focus: cx.focus_handle(),
+            pasted: false,
             _settle: None,
             _lookups: HashMap::new(),
             _subscriptions: vec![typed, refresh],
@@ -182,12 +193,24 @@ impl AddPapers {
         this
     }
 
-    pub fn focus_input(&self, window: &mut Window, cx: &mut App) {
-        self.text.update(cx, |text, cx| text.focus(window, cx));
+    /// Give the keyboard to what the sheet opens on: Add when what it was
+    /// seeded with is addable already, so Enter adds the lot, else the box
+    /// (React's `focusAdd`, decided once, as the sheet opens).
+    pub fn focus_on_open(&self, window: &mut Window, cx: &mut App) {
+        if self.rows(cx).iter().any(|row| row.addable().is_some()) {
+            window.focus(&self.add_focus, cx);
+        } else {
+            self.text.update(cx, |text, cx| text.focus(window, cx));
+        }
     }
 
     fn typed(&mut self, cx: &mut Context<Self>) {
         let text = self.text.read(cx).value().to_string();
+        if std::mem::take(&mut self.pasted) {
+            self._settle = None;
+            self.settle(text, cx);
+            return;
+        }
         self._settle = Some(cx.spawn(async move |this, cx| {
             cx.background_executor().timer(SETTLE).await;
             this.update(cx, |this, cx| this.settle(text, cx)).ok();
@@ -390,7 +413,8 @@ impl AddPapers {
         cx.notify();
     }
 
-    /// Add every new reference, as a batch the Papers panel imports.
+    /// Add every new reference, as a batch the Papers panel imports
+    /// (`run_batch` starts nothing while another import holds the pipeline).
     pub(super) fn add(&mut self, cx: &mut Context<Self>) {
         let requests: Vec<BatchRequest> = self
             .rows(cx)
@@ -401,13 +425,33 @@ impl AddPapers {
                     id: row.reference.id.clone(),
                     label: row.title,
                     kind: row.reference.kind,
-                    byline: row.byline,
+                    // A row added before its lookup answered has no byline
+                    // yet: "Looking up…" would stay beside its progress
+                    // until the sheet closes (`listed`).
+                    byline: if row.state == RowState::Resolving {
+                        String::new()
+                    } else {
+                        row.byline
+                    },
                     zotero: None,
                 })
             })
             .collect();
         self.papers
             .update(cx, |papers, cx| papers.run_batch(requests, cx));
+    }
+
+    /// Look a failed reference up again (the Not found row's Try again).
+    pub(super) fn retry_lookup(&mut self, id: &str, cx: &mut Context<Self>) {
+        if self.lookups.remove(id).is_some() {
+            self.look_up(cx);
+            cx.notify();
+        }
+    }
+
+    /// Copy the `\cite` command a manuscript needs for `key`.
+    pub(super) fn copy_cite(&self, key: &str, cx: &mut Context<Self>) {
+        cx.write_to_clipboard(gpui::ClipboardItem::new_string(format!("\\cite{{{key}}}")));
     }
 
     /// The Zotero library, in place of the paste box; its ticked papers go
