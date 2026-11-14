@@ -16,8 +16,10 @@
 //! taken; anything else is two sides that moved, which regular sync merges,
 //! so the document is not joined. Leaving a document everything reached
 //! records Overleaf's text as the sync's agreed copy
-//! (`checkpoint_realtime_text`), so the next sync has nothing to merge; a
-//! sync running then is waited out first, as both write the sync's state.
+//! (`checkpoint_realtime_text`) once the file on disk holds it, so the next
+//! sync has nothing to merge; a sync running then is waited out first, as
+//! both write the sync's state. A buffer with conflict markers is never
+//! joined, nor its typing sent: regular sync keeps them on this Mac.
 //!
 //! The regular sync leaves the live document to the channel (`live_paths`).
 //! A document with work unanswered when the channel drops is held for the
@@ -34,8 +36,9 @@ use lattice_core::overleaf_rt::{
 };
 
 use super::*;
-use crate::editor_panel::EditorPanel;
+use crate::{editor_panel::EditorPanel, history::conflicts::has_conflict_markers};
 
+mod joining;
 mod resume;
 
 /// Typing goes out this long after the first unsent keystroke.
@@ -82,13 +85,17 @@ pub(super) struct DocumentsState {
     leaving: Vec<LiveDoc>,
     /// The editor the writer works in, live or not.
     shown: Option<WeakEntity<EditorPanel>>,
-    joining: Option<Task<()>>,
+    joining: Option<joining::Joining>,
+    join_generation: u64,
+    /// Updates for a document being joined or resumed, for the replay.
+    early: Vec<RealtimeEvent>,
     /// Agreed copies to record once the running sync is over.
     checkpoints: Vec<(String, String)>,
     /// The U+FFFD notice was shown this session.
     replaced_told: bool,
     /// Paths handed back to regular sync: not joined again until a sync
-    /// has reconciled them.
+    /// has reconciled them. A buffer with conflict markers is not joined
+    /// either, until they are resolved.
     suspended: BTreeSet<String>,
     /// Documents with work unanswered when the channel dropped, kept for
     /// the reconnect to carry on with.
@@ -167,11 +174,19 @@ impl OverleafBridge {
     /// leaving any other.
     pub(super) fn reconsider_live(&mut self, cx: &mut Context<Self>) {
         let wanted = self.wanted_live(cx);
-        let current = self.documents.live.as_ref().map(|doc| doc.editor.clone());
-        if wanted.as_ref().map(|(editor, _, _)| editor) == current.as_ref() {
+        let current = self
+            .documents
+            .live
+            .as_ref()
+            .map(|doc| &doc.editor)
+            .or(self.documents.joining.as_ref().map(|joining| &joining.editor));
+        if wanted.as_ref().map(|(editor, _, _)| editor) == current {
             return;
         }
-        self.documents.joining = None;
+        // A join still out is left once Overleaf answers it.
+        if let Some(joining) = self.documents.joining.take() {
+            self.take_early(&joining.doc_id);
+        }
         if let Some(doc) = self.documents.live.take() {
             self.leave(doc, cx);
         }
@@ -198,89 +213,12 @@ impl OverleafBridge {
         if held || self.documents.suspended.contains(&path) {
             return None;
         }
+        // Never publish conflict markers: regular sync keeps them here.
+        if has_conflict_markers(&editor.read(cx).overleaf_text(cx)) {
+            return None;
+        }
         let doc_id = self.doc_of_path(&path)?;
         Some((weak, path, doc_id))
-    }
-
-    fn join(
-        &mut self,
-        editor: WeakEntity<EditorPanel>,
-        path: String,
-        doc_id: String,
-        cx: &mut Context<Self>,
-    ) {
-        let (Some(client), Some(root)) = (self.client.clone(), self.root.clone()) else {
-            return;
-        };
-        let id = doc_id.clone();
-        let joining = lattice_core::runtime::spawn(async move { client.join_doc(&id, None).await });
-        let agreed_path = path.clone();
-        let agreed =
-            cx.background_spawn(
-                async move { lattice_core::overleaf::agreed_text(&root, &agreed_path) },
-            );
-        self.documents.joining = Some(cx.spawn(async move |this, cx| {
-            let joined = joining.await;
-            let agreed = agreed.await;
-            this.update(cx, |this, cx| {
-                this.documents.joining = None;
-                let Ok(Ok(joined)) = joined else {
-                    return;
-                };
-                let Some(panel) = editor.upgrade() else {
-                    return;
-                };
-                let buffer = panel.read(cx).overleaf_text(cx);
-                let mut ot = OtDocument::new(joined.text.clone(), joined.version);
-                let send = if buffer == joined.text {
-                    None
-                } else if agreed.as_deref() == Some(joined.text.as_str()) {
-                    // Overleaf has not moved since the last sync: the
-                    // buffer's difference is typing that has not reached it.
-                    let typed = ot.local(&buffer);
-                    if typed.replaced {
-                        panel.update(cx, |panel, cx| panel.take_overleaf_text(ot.text(), cx));
-                    }
-                    typed.send
-                } else if agreed.as_deref() == Some(buffer.as_str()) {
-                    // Only Overleaf moved: take its text.
-                    panel.update(cx, |panel, cx| panel.take_overleaf_text(&joined.text, cx));
-                    None
-                } else {
-                    // Both moved: regular sync merges it.
-                    this.release_doc(&doc_id, None);
-                    this.documents.suspended.insert(path);
-                    this.sync(
-                        SyncOptions {
-                            automatic: true,
-                            ..Default::default()
-                        },
-                        cx,
-                    );
-                    return;
-                };
-                this.documents.live = Some(LiveDoc {
-                    path,
-                    doc_id,
-                    editor,
-                    ot,
-                    send: None,
-                    draining: None,
-                    hashed_at: None,
-                });
-                if let Some(send) = send {
-                    let id = this
-                        .documents
-                        .live
-                        .as_ref()
-                        .map(|doc| doc.doc_id.clone())
-                        .unwrap_or_default();
-                    this.send_ops(&id, send, Vec::new(), cx);
-                }
-                cx.notify();
-            })
-            .ok();
-        }));
     }
 
     /// The writer typed in `editor`.
@@ -310,6 +248,11 @@ impl OverleafBridge {
             return;
         };
         let buffer = panel.read(cx).overleaf_text(cx);
+        if has_conflict_markers(&buffer) {
+            let doc_id = doc.doc_id.clone();
+            self.drop_live(&doc_id, None, cx);
+            return;
+        }
         let typed = doc.ot.local(&buffer);
         if typed.replaced {
             let stored = doc.ot.text().to_string();
@@ -361,19 +304,23 @@ impl OverleafBridge {
             doc.hashed_at = Some(std::time::Instant::now());
         }
         let doc_id = doc.doc_id.clone();
+        let asked = client.clone();
         let sending = lattice_core::runtime::spawn(async move {
             let submission = Submission {
                 dup_if_source: &dup_if_source,
                 hash: hash.as_deref(),
             };
-            client
+            asked
                 .send_ops(&doc_id, send.version, send.ops, false, submission)
                 .await
         });
         let doc_id = doc.doc_id.clone();
         cx.spawn(async move |this, cx| {
             let sent = matches!(sending.await, Ok(Ok(())));
-            if !sent {
+            // The connection closed under it: the drop it reports next
+            // holds the document for the reconnect, as unanswered work.
+            let dropping = client.current_entities().is_none();
+            if !sent && !dropping {
                 // Whether it landed is unknown: regular sync reconciles.
                 this.update(cx, |this, cx| this.drop_live(&doc_id, None, cx))
                     .ok();
@@ -384,6 +331,7 @@ impl OverleafBridge {
 
     /// What the channel said about a document.
     pub(super) fn document_event(&mut self, event: RealtimeEvent, cx: &mut Context<Self>) {
+        self.keep_early(&event);
         match event {
             RealtimeEvent::DocAck { doc_id, version } => {
                 let Some(doc) = self.doc_mut(&doc_id) else {
@@ -478,11 +426,14 @@ impl OverleafBridge {
         // Typing still waiting to go out is handed over first.
         let typed = doc.send.take().and_then(|_| {
             let buffer = doc.editor.upgrade()?.read(cx).overleaf_text(cx);
+            if has_conflict_markers(&buffer) {
+                return None;
+            }
             doc.ot.local(&buffer).send
         });
         if doc.ot.settled() {
-            let checkpoint = doc.ot.server_text().to_string();
-            self.release_doc(&doc.doc_id, Some((doc.path, checkpoint)));
+            self.release_doc(&doc.doc_id);
+            self.checkpoint(&doc, cx);
             return;
         }
         let doc_id = doc.doc_id.clone();
@@ -510,28 +461,62 @@ impl OverleafBridge {
             return;
         };
         let doc = self.documents.leaving.remove(at);
-        let checkpoint = doc
-            .ot
-            .settled()
-            .then(|| (doc.path.clone(), doc.ot.server_text().to_string()));
-        self.release_doc(&doc.doc_id, checkpoint);
+        self.release_doc(&doc.doc_id);
+        if doc.ot.settled() {
+            self.checkpoint(&doc, cx);
+        }
         cx.notify();
     }
 
-    /// Leave `doc_id` on Overleaf, recording `checkpoint` as the sync's
-    /// agreed copy of its path (after the running sync, if any).
-    fn release_doc(&mut self, doc_id: &str, checkpoint: Option<(String, String)>) {
+    /// Leave `doc_id` on Overleaf.
+    fn release_doc(&mut self, doc_id: &str) {
         if let Some(client) = self.client.clone() {
-            let doc_id = doc_id.to_string();
-            lattice_core::runtime::spawn(async move {
-                client.leave_doc(&doc_id).await.ok();
-            });
+            joining::leave_room(client, doc_id);
         }
-        if let Some(checkpoint) = checkpoint {
-            self.documents.checkpoints.push(checkpoint);
-            if !self.syncing {
-                self.write_checkpoints();
+    }
+
+    /// Record Overleaf's text for settled `doc` as the sync's agreed copy
+    /// (after the running sync, if any), once the file on disk holds it: a
+    /// co-author's edit reaches disk only with the editor's save, and an
+    /// agreed copy ahead of disk would have sync push the older file back.
+    /// A buffer that moved on since is the next sync's to carry.
+    fn checkpoint(&mut self, doc: &LiveDoc, cx: &mut Context<Self>) {
+        // A project closing has already let its link go.
+        let (Some(panel), Some(root), Some(_)) =
+            (doc.editor.upgrade(), self.root.clone(), self.link.as_ref())
+        else {
+            return;
+        };
+        let (path, text) = (doc.path.clone(), doc.ot.server_text().to_string());
+        if panel.read(cx).saved_text() == text {
+            return self.record_checkpoint(path, text);
+        }
+        if panel.read(cx).overleaf_text(cx) != text {
+            return;
+        }
+        let save = panel.update(cx, |panel, cx| panel.save(cx));
+        let editor = doc.editor.clone();
+        cx.spawn(async move |this, cx| {
+            if !matches!(save.await, Ok(true)) {
+                return;
             }
+            this.update(cx, |this, cx| {
+                let saved = editor
+                    .upgrade()
+                    .is_some_and(|panel| panel.read(cx).saved_text() == text);
+                if saved && this.root.as_ref() == Some(&root) {
+                    this.record_checkpoint(path, text);
+                }
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    fn record_checkpoint(&mut self, path: String, text: String) {
+        self.documents.checkpoints.push((path, text));
+        if !self.syncing {
+            self.write_checkpoints();
         }
     }
 
@@ -550,11 +535,15 @@ impl OverleafBridge {
         }
     }
 
-    /// A sync ended: the agreed copies it held back are written, and the
-    /// shown document may be joined (a merge it made settled it).
-    pub(super) fn after_sync_documents(&mut self, cx: &mut Context<Self>) {
+    /// A sync ended: the agreed copies it held back are written, and, when
+    /// it `succeeded`, the shown document may be joined (a merge it made
+    /// settled it). After a failed one, what it handed back stays out of
+    /// live editing until a sync gets through.
+    pub(super) fn after_sync_documents(&mut self, succeeded: bool, cx: &mut Context<Self>) {
         self.write_checkpoints();
-        self.documents.suspended.clear();
+        if succeeded {
+            self.documents.suspended.clear();
+        }
         self.reconsider_live(cx);
     }
 
@@ -565,7 +554,7 @@ impl OverleafBridge {
             self.documents.suspended.insert(doc.path);
         }
         self.documents.leaving.retain(|doc| doc.doc_id != doc_id);
-        self.release_doc(doc_id, None);
+        self.release_doc(doc_id);
         if let Some(notice) = notice {
             notices::show(
                 Notice::new(ToastLevel::Warning, notice).key("overleaf-live-doc"),
@@ -588,8 +577,10 @@ impl OverleafBridge {
     /// back to regular sync, which is asked to run when there are any, and
     /// true is returned.
     pub(super) fn documents_dropped(&mut self, hold: bool, cx: &mut Context<Self>) -> bool {
+        // A join still out is left once Overleaf answers it, if it can be.
         self.documents.joining = None;
         self.documents.resuming = None;
+        self.documents.early.clear();
         let docs: Vec<LiveDoc> = self
             .documents
             .live
@@ -600,8 +591,7 @@ impl OverleafBridge {
         let mut handed = false;
         for mut doc in docs {
             if doc.ot.settled() {
-                let checkpoint = (doc.path, doc.ot.server_text().to_string());
-                self.documents.checkpoints.push(checkpoint);
+                self.checkpoint(&doc, cx);
             } else if hold {
                 // Typing still coalescing stays in the buffer, where the
                 // resume picks it up.
@@ -615,9 +605,6 @@ impl OverleafBridge {
         if !hold && !self.documents.held.is_empty() {
             self.documents.held.clear();
             handed = true;
-        }
-        if !self.syncing {
-            self.write_checkpoints();
         }
         cx.notify();
         handed

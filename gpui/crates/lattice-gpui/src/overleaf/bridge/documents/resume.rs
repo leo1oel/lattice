@@ -11,6 +11,9 @@
 //! again, naming the connections it went out on, so Overleaf acknowledges a
 //! copy that did land after all instead of applying it twice.
 //!
+//! Updates that arrive after Overleaf answered but before the answer is
+//! taken in here are kept (`early`) and taken in after the replay.
+//!
 //! A document that cannot be carried on (Overleaf will not reach back that
 //! far, the replay does not fit, its editor closed) goes back to regular
 //! sync, which merges it through the copy the last sync agreed on.
@@ -64,6 +67,7 @@ impl OverleafBridge {
     /// `doc_id`'s join from its version answered: carry on with it, or hand
     /// it to regular sync.
     fn resumed(&mut self, doc_id: &str, answer: Result<JoinedDoc, String>, cx: &mut Context<Self>) {
+        let early = self.take_early(doc_id);
         let Some(at) = self
             .documents
             .held
@@ -87,6 +91,9 @@ impl OverleafBridge {
         // Typing meanwhile joins the work queued behind the operation in
         // flight, so the replay is transformed against all of it.
         let buffer = panel.read(cx).overleaf_text(cx);
+        if has_conflict_markers(&buffer) {
+            return self.give_up(doc, "its buffer has conflict markers", cx);
+        }
         let typed = doc.ot.local(&buffer);
         if typed.send.is_some() {
             // Only a settled document sends at once, and none is held.
@@ -140,6 +147,8 @@ impl OverleafBridge {
         if let Some(send) = send {
             self.send_ops(doc_id, send, dup_if_source, cx);
         }
+        // Updates since the join answered, over the replayed text.
+        self.replay_early(early, cx);
     }
 
     /// `doc` cannot be carried on: regular sync merges it.
@@ -148,7 +157,7 @@ impl OverleafBridge {
             "{} goes back to regular sync after the reconnect: {why}",
             doc.path
         );
-        self.release_doc(&doc.doc_id, None);
+        self.release_doc(&doc.doc_id);
         self.documents.suspended.insert(doc.path);
         self.sync(
             SyncOptions {

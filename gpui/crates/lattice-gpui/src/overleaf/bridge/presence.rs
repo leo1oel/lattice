@@ -91,11 +91,18 @@ impl OverleafBridge {
             })
         });
         cx.spawn(async move |this, cx| {
-            let Ok(Ok(people)) = asking.await else {
-                return;
+            // Unanswered, who was here before the drop is not known to be
+            // here still: the stack starts empty and presence events fill it.
+            let people = match asking.await {
+                Ok(Ok(people)) => Some(people),
+                _ => None,
             };
             this.update(cx, |this, cx| {
-                this.presence.peers = people;
+                match people {
+                    Some(people) => this.presence.peers = people,
+                    None if this.presence.reconnecting => this.presence.peers.clear(),
+                    None => return,
+                }
                 this.presence.reconnecting = false;
                 this.sort_peers();
                 cx.emit(OverleafBridgeEvent::PresenceChanged);

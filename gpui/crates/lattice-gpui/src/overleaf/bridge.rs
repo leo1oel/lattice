@@ -580,7 +580,7 @@ impl OverleafBridge {
             let (result, expired) = run.await;
             this.update(cx, |this, cx| {
                 this.syncing = false;
-                this.after_sync_documents(cx);
+                this.after_sync_documents(result.is_ok(), cx);
                 let outcome = result.as_ref().map(|_| ()).map_err(Clone::clone);
                 for waiter in this.sync_waiters.drain(..) {
                     waiter.send(outcome.clone()).ok();
