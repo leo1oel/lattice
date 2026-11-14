@@ -101,11 +101,15 @@ impl PdfView {
         }
         if let Some(message) = &self.message {
             // A load failure names itself, with the way out under it.
-            return state(
-                ErrorState::new(message.clone())
-                    .detail(t!("Try building the project again"))
-                    .into_any_element(),
-            );
+            // A compiled PDF says how to get it back; a PDF of the project
+            // has no hint (`loadErrorHint`).
+            let error = ErrorState::new(message.clone());
+            let error = if self.offers_build {
+                error.detail(t!("Try building the project again"))
+            } else {
+                error
+            };
+            return state(error.into_any_element());
         }
         if self.document.is_none() {
             if self.loading {
@@ -211,6 +215,29 @@ impl PdfView {
                 FluidScrollbar::horizontal("pdf-scrollbar-x", &self.scroll)
                     .feel(ScrollbarFeel::DOCUMENT),
             )
+            // `.pdf-notice`: a status line centred over the top of the pages.
+            .children(self.notice.clone().map(|notice| {
+                div()
+                    .absolute()
+                    .top(px(8.))
+                    .left_0()
+                    .right_0()
+                    .flex()
+                    .justify_center()
+                    .child(
+                        div()
+                            .max_w(gpui::relative(1.))
+                            .mx(px(8.))
+                            .px(px(10.))
+                            .py(px(4.))
+                            .rounded(px(6.))
+                            .bg(palette.raised)
+                            .shadow(lattice_ui::Elevation::Popover.shadows(&palette))
+                            .text_role(TextRole::Micro, cx)
+                            .text_color(palette.text_secondary)
+                            .child(notice),
+                    )
+            }))
             // The live preview's pill, at the bottom left of the pages.
             .children(
                 self.live_layer()

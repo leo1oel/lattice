@@ -290,6 +290,18 @@ impl PdfPanel {
         cx.notify();
     }
 
+    /// The PDF of the project this tab shows changed on disk (`removed`:
+    /// it is gone): it is read again, or says it was removed, keeping the
+    /// pages it showed until it comes back (`useProjectPdfWatch`).
+    pub fn file_changed(&mut self, removed: bool, window: &mut Window, cx: &mut Context<Self>) {
+        let notice = removed.then(|| t!("This PDF was removed from the project.").into());
+        self.view
+            .update(cx, |view, cx| view.set_notice(notice, cx));
+        if !removed && let Some(path) = self.source.clone() {
+            self.open(path, window, cx);
+        }
+    }
+
     /// Show nothing, for a project without a built PDF.
     pub fn close(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.source = None;

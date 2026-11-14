@@ -21,6 +21,14 @@ impl PdfView {
         }
     }
 
+    /// The status line over the pages, or none.
+    pub fn set_notice(&mut self, notice: Option<SharedString>, cx: &mut Context<Self>) {
+        if self.notice != notice {
+            self.notice = notice;
+            cx.notify();
+        }
+    }
+
     /// Offer Reveal cursor in PDF (the live PDF and a root document's tab).
     pub fn set_can_reveal(&mut self, can: bool, cx: &mut Context<Self>) {
         self.can_reveal = can;

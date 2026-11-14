@@ -201,6 +201,8 @@ pub struct PdfView {
     next_mark: usize,
     pub(super) message: Option<SharedString>,
     pub(super) loading: bool,
+    /// A status line over the pages (`.pdf-notice`): the file was removed.
+    pub(super) notice: Option<SharedString>,
     /// Reveal cursor in PDF waits: the caret is not in a .tex file, or a
     /// jump is being located (`locating`, which spins it).
     pub(super) reveal_disabled: bool,
@@ -315,6 +317,7 @@ impl PdfView {
             next_mark: 0,
             message: None,
             loading: false,
+            notice: None,
             reveal_disabled: false,
             locating: false,
             dark: super::dark::enabled(),
