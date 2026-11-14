@@ -8,9 +8,9 @@ measurements; re-run the commands rather than quoting them.
 
 ## The current pin
 
-The fork as a whole is **not** small. Measured on 2026-11-13 against upstream
+The fork as a whole is **not** small. Measured on 2026-11-14 against upstream
 `v1.5.2` (`83e0533b23099908ee14e4fecacd5ed702f4d453`), the current integration changes
-**861 files, +88,184 / −9,247 lines** (about 6,700 of the added lines are the zh-CN catalogs,
+**867 files, +89,601 / −9,282 lines** (about 6,700 of the added lines are the zh-CN catalogs,
 which upstream no longer ships). It carries embedded-workspace UI, a skills manager,
 source-control and provider-health surfaces, spreadsheet and canvas tool brokers, and their
 contracts. Treat "keep it in the seam" as the goal for new work. Re-measure after each sync:
@@ -231,6 +231,25 @@ A finished turn in the first project's frame, after that frame had moved to a ne
 The previous pin, driven the same way, raised the toast in both frames, and Open in the second frame added the first project's thread to its tabs.
 This was not run in two real Lattice windows, so WKWebView, Lattice's own toast stack and its window focus were not exercised.
 
+The current pin brings two embed fixes from one user report, and Lattice stops granting simulator control (fork `b14fd35abc28b224c02cf9b0eb809f3984683715`, [fork PR 28](https://github.com/leo1oel/synara/pull/28) and [fork PR 29](https://github.com/leo1oel/synara/pull/29)).
+The writer saw the panel's right side turn into an iOS Simulator while the agent redesigned a figure, and the panel sometimes went white.
+- **No simulator dock for a figure (PR 28).** Clicking a Read row, file chip or mention for a file outside the project, such as a figure the agent rendered in a temporary build folder, opened the thread's dock on a file pane the embed hides, so the dock showed only its launcher, whose one entry was "iOS Simulator".
+  `restrictRightDockStateToKinds` now presents the dock closed when no allowed pane is left, which also repairs threads saved with that state.
+  In the embed an out-of-workspace image opens in the panel's image viewer, any other out-of-workspace file is not clickable (`canOpenFile` on the fork's `WorkspaceFileOpener`), and project files still open in Lattice's editor.
+- **No blank panel on another project's thread (PR 29).** The embed's redirect away from another project's thread ran once per mounted route, so the second such visit rendered nothing until the frame reloaded, and the first replaced the writer's conversation with a new empty thread.
+  The redirect now runs per visit (`resolveEmbeddedThreadRoute` in the fork's `apps/web/src/routes/-chatThreadRoute.logic.ts`) and returns to the frame's last own thread or its project's most recent one, reusing the project's chat draft when there is none.
+  A frame that still cannot leave shows "This conversation belongs to another project." with Back and New chat, and in-chat thread links (task cards, fork sources, subagent runs) refuse another project's thread with a toast.
+- **Device tools are no longer offered.** Lattice stopped setting `LATTICE_DEVICE_CONTROL_ENABLED` when it starts the sidecar and removes any inherited value, so the embed has no device dock and agents lose the 15 `device_*` tools; the catalog drops from 58 to 43 tools, and the harness policy drops its simulator sentence.
+  The names stay in the fork's `LATTICE_NATIVE_TOOL_NAMES`, which the fork owns; the entitlement check (`isDeviceControlEntitled`) keeps them out.
+
+The two new fork browser tests (`ChatView.browser.tsx`'s "previews out-of-workspace figure renders without opening the embedded dock" and `ChatThreadRoute.embedForeignThread.browser.tsx`) join the embed regressions in [`synara-runtime.md`](synara-runtime.md), and those regressions, the server regressions and the fork's device-entitlement tests pass on this pin.
+The release-staged sidecar, started with the environment Lattice now gives it, was driven in headless Chromium through host pages that build the frame URL the way a Lattice window does, one per project.
+Neither frame showed a device dock or an "iOS Simulator" launcher, and a live Claude turn listed 43 `lattice` tools with no `device_*` among them.
+Reloading the first project's frame on the second project's thread, twice, returned it to its own conversation each time with the transcript shown.
+Pushing that thread through the frame's own history instead reached upstream's missing-thread recovery, because the first frame's store did not hold the other project's thread, and opened a new chat draft in the frame's project: not blank, but not the writer's previous conversation either.
+This was not run in two real Lattice windows, so WKWebView, Lattice's own navigation of the frame and its toast stack were not exercised.
+The staged runtime is 175.3 MB.
+
 ## Synara 0.9.1 compatibility
 
 The 0.9.1 integration includes the upstream Opus 5.5 and GPT-6 Sol/Luna catalog updates, OpenCode startup fixes, and projection/provider/sidebar optimizations.
@@ -396,6 +415,6 @@ Three upstream behaviours are kept as they are, on the captain's call:
 - Analytics downloads LiteLLM's public price table from `raw.githubusercontent.com`, refreshing a good copy at most once a day and retrying a failed download after 15 minutes, only when tokens without a reported cost need pricing (`apps/server/src/usagePricing.ts`). No user data is sent, and offline Analytics shows tokens without cost.
 - Rate-limit warnings are always visible in Lattice. Upstream's setting that hides them lives on the Behavior settings page, which Lattice does not frame, so it stays at upstream's default.
 
-The server adds migration 143 (usage analytics deleted tokens), which runs once after the pre-migration backup on a 1.5.1-era database; a Lattice that pins 1.5.1 again would meet the newer database. Upstream's macOS update and shutdown, Linux ARM64, simulator control and CI changes have no embedded surface. Pi stays at 1.4.0.
+The server adds migration 143 (usage analytics deleted tokens), which runs once after the pre-migration backup on a 1.5.1-era database; a Lattice that pins 1.5.1 again would meet the newer database. Upstream's macOS update and shutdown, Linux ARM64 and CI changes have no embedded surface. Its simulator control reached the embed's device dock until the current pin, which stops Lattice granting it (see [the current pin](#the-current-pin)). Pi stays at 1.4.0.
 
 The staged runtime is 175.2 MB (1.5.1: 175.0 MB); the lab bundle installs at 342.3 MiB (342.1 MiB with the 1.5.1 runtime) against the 400 MiB ceiling.
