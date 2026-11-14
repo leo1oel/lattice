@@ -69,6 +69,9 @@ pub struct LogsPane {
     /// The log has been drawn once, at its newest entry.
     positioned: bool,
     shown: usize,
+    /// The monospace face's `ch` at the log's size, which its columns are
+    /// measured in (24ch for the time, 6ch for the level).
+    ch: gpui::Pixels,
     export: Option<(Entity<ExportDialog>, Subscription)>,
     _subscriptions: Vec<Subscription>,
 }
@@ -93,6 +96,7 @@ impl LogsPane {
             scroll: ScrollHandle::new(),
             positioned: false,
             shown: 0,
+            ch: px(7.2),
             export: None,
             _subscriptions: subscriptions,
         }
@@ -222,7 +226,7 @@ impl LogsPane {
             .child(
                 div()
                     .flex_none()
-                    .w(px(24. * 7.2))
+                    .w(self.ch * 24.)
                     .whitespace_nowrap()
                     .overflow_hidden()
                     .text_color(palette.text_secondary.opacity(0.75))
@@ -233,7 +237,7 @@ impl LogsPane {
                 div()
                     .id("app-log-level")
                     .flex_none()
-                    .w(px(6. * 7.2))
+                    .w(self.ch * 6.)
                     .font_weight(FONT_WEIGHT_MEDIUM)
                     .text_color(level_ink)
                     .child(level_word(entry.level))
@@ -471,8 +475,13 @@ impl LogsPane {
 }
 
 impl Render for LogsPane {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let palette = cx.palette().clone();
+        let text_system = window.text_system();
+        let face = text_system.resolve_font(&gpui::font(cx.lattice().fonts.editor.clone()));
+        if let Ok(zero) = text_system.advance(face, px(12.), '0') {
+            self.ch = zero.width;
+        }
         let total = self.log.read(cx).entries().len();
         let visible = self.visible(cx);
         let shown: Vec<Entry> = visible
