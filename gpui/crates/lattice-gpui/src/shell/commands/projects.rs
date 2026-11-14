@@ -6,6 +6,7 @@
 
 use super::*;
 use crate::shell::history_flow::{OpenHistory, ResolveConflicts};
+use crate::shell::overleaf_flow::{OpenOnOverleaf, OpenOverleafProject, SyncOverleaf};
 
 pub(super) fn project_commands(context: &CommandContext, out: &mut Vec<Command>) {
     out.push(Command::new(
@@ -63,12 +64,35 @@ pub(super) fn project_commands(context: &CommandContext, out: &mut Vec<Command>)
         )
         .keywords("git clone GitHub GitLab"),
     );
+    // The Overleaf group (`use-command-table.ts`).
     out.push(Command::new(
         "import-zip",
-        "Import Overleaf ZIP",
-        Section::Project,
+        t!("Import Overleaf ZIP"),
+        Section::Overleaf,
         ImportZip,
     ));
+    out.push(Command::new(
+        "overleaf-open",
+        t!("Open an Overleaf project"),
+        Section::Overleaf,
+        OpenOverleafProject,
+    ));
+    if context.in_project && context.overleaf_linked && !context.overleaf_syncing {
+        out.push(Command::new(
+            "overleaf-sync",
+            t!("Sync with Overleaf"),
+            Section::Overleaf,
+            SyncOverleaf,
+        ));
+    }
+    if context.in_project && context.overleaf_linked {
+        out.push(Command::new(
+            "overleaf-web",
+            t!("Open this project on Overleaf"),
+            Section::Overleaf,
+            OpenOnOverleaf,
+        ));
+    }
     out.push(Command::new(
         "new-window",
         t!("New window"),

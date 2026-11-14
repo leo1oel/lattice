@@ -88,6 +88,12 @@ pub fn present_tabs(cx: &mut App) {
             .is_ok()
         {
             look(Icon::LIST_TODO, Surface::Sheet)
+        } else if view
+            .clone()
+            .downcast::<crate::submission::checklist::ChecklistPanel>()
+            .is_ok()
+        {
+            look(Icon::CLIPBOARD_CHECK, Surface::Sheet)
         } else if view.downcast::<EmptySlotPanel>().is_ok() {
             // A document's place: a document's tab, with the empty state's icon.
             TabLook {

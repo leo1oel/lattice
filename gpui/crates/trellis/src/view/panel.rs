@@ -146,6 +146,72 @@ impl TrellisWorkspace {
         )
     }
 
+    /// Lattice's patch (revealTab): once another tab is selected or the
+    /// header is fitted again, scroll the strip's list so the selected tab
+    /// shows whole, 16px clear of the list's edges (the width of the Tauri
+    /// strip's edge fade); a list that fits does not scroll. It reads the
+    /// layout last drawn, so a tab that has not been laid out yet is revealed
+    /// on the next frame; nothing moves while the pointer holds a tab.
+    /// Returns the list's scroll handle.
+    fn reveal_selected_tab(&mut self, p: &PanelFrame, window: &mut Window) -> gpui::ScrollHandle {
+        let held = self.held.is_some() || p.tabs.iter().any(|t| t.sorting || t.offset != 0.);
+        let scroll = self.strip_scrolls.entry(p.id.clone()).or_default();
+        let fit = format!(
+            "{}|{}|{:?}|{:?}",
+            p.selected,
+            p.rect.w.round(),
+            p.header.tab_min,
+            p.header.tools
+        );
+        if scroll.fit.as_deref() != Some(fit.as_str()) {
+            scroll.fit = Some(fit);
+            scroll.pending = true;
+        }
+        // A list that lost tabs (or grew) keeps no scroll past its end.
+        {
+            let handle = &scroll.handle;
+            let max = handle.max_offset().x.max(px(0.));
+            if -handle.offset().x > max {
+                handle.set_offset(point(-max, handle.offset().y));
+            }
+        }
+        if scroll.pending && !held {
+            let tab = p
+                .tabs
+                .iter()
+                .position(|t| t.selected)
+                .and_then(|i| scroll.handle.bounds_for_item(i));
+            match tab {
+                Some(tab) => {
+                    scroll.pending = false;
+                    let handle = &scroll.handle;
+                    let max = handle.max_offset().x;
+                    if max > px(0.) {
+                        let list = handle.bounds();
+                        let margin = px(16.);
+                        let from = -handle.offset().x;
+                        let left = tab.origin.x - list.origin.x;
+                        let right = left + tab.size.width;
+                        let to = if left - margin < from {
+                            left - margin
+                        } else if right + margin > from + list.size.width {
+                            right + margin - list.size.width
+                        } else {
+                            from
+                        };
+                        let to = to.max(px(0.)).min(max);
+                        if to != from {
+                            handle.set_offset(point(-to, handle.offset().y));
+                        }
+                    }
+                }
+                None if p.tabs.iter().any(|t| t.selected) => window.request_animation_frame(),
+                None => scroll.pending = false,
+            }
+        }
+        scroll.handle.clone()
+    }
+
     fn render_strip(
         &mut self,
         p: &PanelFrame,
@@ -157,6 +223,7 @@ impl TrellisWorkspace {
         let strips = self.strips.clone();
         let menu = self.panel_menu(&panel_id, cx);
         let end = self.skin.strip_end(p, menu.clone(), window, cx);
+        let scroll = self.reveal_selected_tab(p, window);
         let mut list = div()
             .id(("trellis-tabs", hash(&p.id)))
             .relative()
@@ -169,18 +236,9 @@ impl TrellisWorkspace {
             .pl(px(LIST_INSET))
             .pr(px(LIST_INSET))
             .overflow_x_scroll()
-            .child({
-                let strips = strips.clone();
-                let panel = panel_id.clone();
-                canvas(
-                    move |b, _, _| {
-                        strips.borrow_mut().entry(panel.clone()).or_default().list = Some(b);
-                    },
-                    |_, _, _, _| {},
-                )
-                .absolute()
-                .size_full()
-            });
+            // The list's own bounds come from this handle: a measuring child
+            // would scroll with the tabs.
+            .track_scroll(&scroll);
         {
             if let Some(boxes) = strips.borrow_mut().get_mut(&panel_id) {
                 boxes
@@ -210,8 +268,14 @@ impl TrellisWorkspace {
                 div()
                     .id(("trellis-tab", hash(&format!("{}\n{}", p.id, view))))
                     .relative()
-                    .flex_shrink_1()
-                    .min_w_0()
+                    // This slot, not the tab inside it, is the list's flex
+                    // item, so it carries the tab's minimum: a slot free to
+                    // shrink under it left the tab overflowing onto its
+                    // neighbours. Past the minimums the list scrolls.
+                    .map(|slot| match tab.min_width {
+                        Some(min) => slot.flex_shrink_1().min_w(px(min as f32)),
+                        None => slot.flex_none(),
+                    })
                     .left(offset)
                     .when(tab.sorting, |tab| tab.cursor(CursorStyle::ClosedHand))
                     .child(element)

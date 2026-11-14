@@ -26,12 +26,14 @@ mod history_flow;
 mod imports;
 mod layers;
 pub(crate) mod menus;
+pub(crate) mod overleaf_flow;
 mod palette;
 mod papers;
 mod pdfs;
 mod references_flow;
 mod render;
 mod saving;
+mod shortcut_sheet;
 mod skin;
 mod synctex;
 mod tools_flow;
@@ -62,7 +64,7 @@ pub use commands::{
     OpenTexDoctor, PreviousProblem, Save, StopBuild, ToggleVimMode,
 };
 pub use references_flow::{FindReferences, RenameSymbol};
-pub use tools_flow::{ExportArxiv, OpenTodos};
+pub use tools_flow::{ExportArxiv, OpenChecklist, OpenTodos};
 
 use crate::{
     build::{
@@ -142,17 +144,19 @@ pub struct Shell {
     build_panel: Entity<BuildPanel>,
     /// The History tool panel (`crate::history`), one for the window.
     pub(crate) history: Entity<crate::history::HistoryPanel>,
+    /// The submission checklist tool panel (`crate::submission::checklist`).
+    pub(crate) checklist: Entity<crate::submission::checklist::ChecklistPanel>,
     /// The manuscript's TODOs tool panel (`crate::submission::todos`).
     pub(crate) todos: Entity<crate::submission::todos::TodosPanel>,
     /// A symbol's occurrences bar and rename dialog (`references_flow`).
     pub(crate) references: references_flow::References,
-    /// The arXiv export sheet, while it is open.
-    pub(crate) arxiv: Option<(
-        Entity<crate::submission::arxiv::ArxivExportSheet>,
-        Subscription,
-    )>,
+    /// The arXiv export and figure inventory sheets, while open.
+    pub(crate) sheets: tools_flow::Sheets,
     /// The conflict resolver, while it is open.
     pub(crate) conflict: Option<(Entity<crate::history::ConflictResolver>, Subscription)>,
+    /// The window's link to Overleaf (`crate::overleaf`), and its dialogs.
+    pub(crate) overleaf: Entity<crate::overleaf::OverleafBridge>,
+    pub(crate) overleaf_layers: overleaf_flow::OverleafLayers,
     /// The files Git named as conflicts when last told (`history_flow`).
     pub(crate) conflicts_noticed: std::collections::BTreeSet<String>,
     /// Watches the open project for Git's conflicts.
@@ -199,7 +203,7 @@ pub struct Shell {
     _open_task: Option<Task<()>>,
     pub(crate) layout: LayoutState,
     palette: Option<Entity<palette::CommandPaletteView>>,
-    shortcuts: Option<Entity<palette::ShortcutSheet>>,
+    shortcuts: Option<Entity<shortcut_sheet::ShortcutSheet>>,
     /// Quick open, Find and Replace in project, and the files visited.
     documents: documents::Documents,
     /// The welcome screen and New project, without a project or over one.
@@ -292,7 +296,7 @@ impl Shell {
                     .is_some_and(|workspace| arrange::on_screen(workspace.read(cx), "history"))
             })
         });
-        let todos = cx.new(crate::submission::todos::TodosPanel::new);
+        let (todos, checklist) = Self::tool_panels(&build_panel, &pdf, window, cx);
         pdf.update(cx, |pdf, cx| pdf.set_build_output(card.into(), cx));
         let tex_setup = tex_setup::install(cx);
         tex_setup.update(cx, |center, cx| center.check_at_launch(cx));
@@ -369,12 +373,9 @@ impl Shell {
             this.on_history_event(event, window, cx)
         })
         .detach();
-        cx.subscribe_in(&todos, window, |this, _, event, window, cx| {
-            this.on_todos_event(event, window, cx)
-        })
-        .detach();
         cx.observe(&notices, |_, _, cx| cx.notify()).detach();
         cx.observe(&confirm, |_, _, cx| cx.notify()).detach();
+        let (overleaf, overleaf_subscriptions) = Self::init_overleaf(window, cx);
         let workspace_events = cx.subscribe_in(&workspace, window, Self::on_workspace_event);
         // While a panel is dragged, webview islands step aside: a page would
         // hide the drop targets under it and swallow the drag.
@@ -420,9 +421,12 @@ impl Shell {
             build_panel,
             history,
             todos,
-            arxiv: None,
+            checklist,
+            sheets: Default::default(),
             references: Default::default(),
             conflict: None,
+            overleaf,
+            overleaf_layers: Default::default(),
             conflicts_noticed: Default::default(),
             _project_git: None,
             tex_setup,
@@ -457,7 +461,10 @@ impl Shell {
             save_task: None,
             rename_input: None,
             rename_subscription: None,
-            _subscriptions: vec![workspace_events, workspace_drags, library],
+            _subscriptions: [workspace_events, workspace_drags, library]
+                .into_iter()
+                .chain(overleaf_subscriptions)
+                .collect(),
         };
         // The Main window before a project opens: the default layout, its
         // document slot empty.
@@ -559,44 +566,6 @@ impl Shell {
         self.leave_for(root, None, window, cx);
     }
 
-    /// Open `root` in place of the project shown, once the shown project's
-    /// edits are saved, taking the `closing` project's tab out with it. A
-    /// save that fails or is held keeps the shown project, its editors and
-    /// the save's notice, as closing the window does.
-    fn leave_for(
-        &mut self,
-        root: PathBuf,
-        closing: Option<PathBuf>,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.save_layout(cx);
-        let saved = self.save_before_leaving(cx);
-        self._open_task = Some(cx.spawn_in(window, async move |this, cx| {
-            if let Some(saved) = saved
-                && !saved.await
-            {
-                return;
-            }
-            match crate::project::open(root.clone(), cx).await {
-                Ok(project) => {
-                    this.update_in(cx, |this, window, cx| {
-                        this.set_project(project, window, cx);
-                        if let Some(closing) = closing {
-                            this.projects.retain(|p| p.root != closing);
-                        }
-                    })
-                    .ok();
-                }
-                Err(error) => {
-                    log::error!("could not open {}: {error}", root.display());
-                    cx.update(|_, cx| notices::error(t!("Could not open the project"), error, cx))
-                        .ok();
-                }
-            }
-        }));
-    }
-
     /// Show the opened project: in the tree, in the window's tabs, laid out
     /// as it was left (else with its main document open), and its PDF when
     /// one was already built.
@@ -631,7 +600,7 @@ impl Shell {
         }
         self.drop_conflict_notice(cx);
         self.references = Default::default();
-        self.arxiv = None;
+        self.sheets = Default::default();
         self.conflict = None;
         self.project = Some(project.clone());
         // Sheets over the window hold the project they were opened in.
@@ -672,14 +641,20 @@ impl Shell {
             .update(cx, |papers, cx| papers.set_project(project.clone(), cx));
         self.history
             .update(cx, |history, cx| history.set_project(project.clone(), cx));
-        let todos_root = Some(root.clone());
-        self.todos
-            .update(cx, |todos, cx| todos.set_root(todos_root, cx));
-        self._project_git = Some(cx.subscribe(&project, |this, _, event, cx| {
-            if matches!(event, crate::project::ProjectEvent::GitChanged) {
-                this.notice_conflicts(cx);
+        self.tools_project_opened(&project, &root, window, cx);
+        self._project_git = Some(cx.subscribe(&project, |this, _, event, cx| match event {
+            crate::project::ProjectEvent::GitChanged => this.notice_conflicts(cx),
+            // A change on disk is one to push, in live mode (the bridge tells
+            // a sync's own writes apart).
+            crate::project::ProjectEvent::FilesChanged(paths) => {
+                let paths = paths.clone();
+                this.overleaf
+                    .update(cx, |bridge, cx| bridge.files_changed(paths.as_deref(), cx));
             }
+            _ => {}
         }));
+        self.overleaf
+            .update(cx, |bridge, cx| bridge.set_project(Some(root.clone()), cx));
         self.notice_conflicts(cx);
         self.file_tree
             .update(cx, |tree, cx| tree.set_project(project, cx));

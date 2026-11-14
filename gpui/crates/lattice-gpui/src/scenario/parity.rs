@@ -117,9 +117,20 @@ impl Run {
             sleep(cx, Duration::from_millis(600)).await;
             self.with_window(cx, |_, window, cx| window.blur(cx))?;
         }
+        // The Overleaf screens (`scenes.overleafPicker`,
+        // `scenes.settingsOverleaf`), in English as the scenes run.
+        let screen = std::env::var("LATTICE_PARITY_SCREEN").unwrap_or_default();
+        if screen == "overleafPicker" || screen == "settingsOverleaf" {
+            cx.update(|cx| {
+                crate::settings::update_appearance(cx, |appearance| {
+                    appearance.interface_language = lattice_settings::InterfaceLanguage::En
+                })
+            });
+            self.parity_overleaf(cx, &screen).await?;
+            self.park_pointer(cx)?;
+        }
         // The History screens (`scenes.history`, `scenes.historyCompare`):
         // the paper's versions, History opened, and Compare… pressed.
-        let screen = std::env::var("LATTICE_PARITY_SCREEN").unwrap_or_default();
         let history_loaded = if screen == "history" || screen == "historyCompare" {
             let loaded = self.parity_history(cx, screen == "historyCompare").await?;
             self.park_pointer(cx)?;
@@ -127,8 +138,9 @@ impl Run {
         } else {
             None
         };
-        // The submission screens (`scenes.todos`, `scenes.arxivExport`).
-        let submission_shown = if screen == "todos" || screen == "arxivExport" {
+        // The submission screens (`scenes.todos`, `scenes.checklist`,
+        // `scenes.arxivExport`).
+        let submission_shown = if matches!(screen.as_str(), "todos" | "checklist" | "arxivExport") {
             let shown = self.parity_submission(cx, &screen).await?;
             self.park_pointer(cx)?;
             Some(shown)

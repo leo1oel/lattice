@@ -68,6 +68,9 @@ pub struct TrellisWorkspace {
     /// Each panel's strip, tab list and tabs as last laid out (window
     /// coordinates), for drops and sorting.
     pub(crate) strips: Rc<RefCell<HashMap<String, StripBoxes>>>,
+    /// Each panel's tab list scroll, and when it last revealed its selected
+    /// tab.
+    pub(crate) strip_scrolls: HashMap<String, StripScroll>,
     pub(crate) held: Option<Held>,
     /// The divider under the pointer, and since when (its grip fades in
     /// after a delay).
@@ -80,8 +83,22 @@ pub struct TrellisWorkspace {
 #[derive(Clone, Debug, Default)]
 pub(crate) struct StripBoxes {
     pub bar: Option<Bounds<Pixels>>,
-    pub list: Option<Bounds<Pixels>>,
     pub tabs: Vec<(String, Bounds<Pixels>)>,
+}
+
+/// A strip's tab list scroll. Lattice's patch (revealTab) scrolls the
+/// selected tab into view, 16px clear of the list's edges, when another tab
+/// is selected and once the header has been fitted again (the panel's width,
+/// the tabs' minimum or the action row changed).
+#[derive(Default)]
+pub(crate) struct StripScroll {
+    pub handle: gpui::ScrollHandle,
+    /// What the strip was last fitted to: the selected tab, the panel's
+    /// width, the tabs' minimum and the action row.
+    pub fit: Option<String>,
+    /// The selected tab still waits to be revealed (it is not laid out yet,
+    /// or a drag holds the strip).
+    pub pending: bool,
 }
 
 impl EventEmitter<WorkspaceEvent> for TrellisWorkspace {}
@@ -98,6 +115,7 @@ impl TrellisWorkspace {
             skin,
             bounds: Rc::default(),
             strips: Rc::default(),
+            strip_scrolls: HashMap::new(),
             held: None,
             divider_hover: None,
             frame: Frame::default(),
@@ -188,7 +206,7 @@ impl TrellisWorkspace {
     fn report_strips(&mut self) {
         let strips = self.strips.borrow().clone();
         for (panel, boxes) in strips {
-            let (Some(bar), Some(list)) = (boxes.bar, boxes.list) else {
+            let (Some(bar), Some(list)) = (boxes.bar, self.tab_list_bounds(&panel)) else {
                 continue;
             };
             let tabs = boxes
@@ -204,6 +222,45 @@ impl TrellisWorkspace {
     /// The window bounds of the workspace, as last laid out.
     pub fn bounds(&self) -> Option<Bounds<Pixels>> {
         *self.bounds.borrow()
+    }
+
+    /// A panel's tabs as last laid out (window coordinates, at rest and
+    /// scrolled as drawn), in strip order.
+    pub fn tab_bounds(&self, panel_id: &str) -> Vec<(String, Bounds<Pixels>)> {
+        self.strips
+            .borrow()
+            .get(panel_id)
+            .map(|boxes| boxes.tabs.clone())
+            .unwrap_or_default()
+    }
+
+    /// A panel's tab list (the strip's scrolling part) as last laid out, in
+    /// window coordinates.
+    pub fn tab_list_bounds(&self, panel_id: &str) -> Option<Bounds<Pixels>> {
+        // From the list's scroll handle: a child measuring it would scroll
+        // with the tabs.
+        self.strip_scrolls
+            .get(panel_id)
+            .map(|scroll| scroll.handle.bounds())
+            .filter(|b| b.size.width > px(0.))
+    }
+
+    /// How far a panel's tab list is scrolled, in px from its start.
+    pub fn tab_list_scroll(&self, panel_id: &str) -> Option<Pixels> {
+        self.strip_scrolls
+            .get(panel_id)
+            .map(|scroll| -scroll.handle.offset().x)
+    }
+
+    /// Whether the frame last drawn shows a snap preview or a marquee's
+    /// target: the "Release to focus" ring free navigation puts up.
+    pub fn shows_release_to_focus(&self) -> bool {
+        self.frame.snap.is_some()
+            || self
+                .frame
+                .marquee
+                .as_ref()
+                .is_some_and(|m| m.target.is_some())
     }
 
     /// A panel's rect in window coordinates, as last drawn.
@@ -240,6 +297,9 @@ impl Render for TrellisWorkspace {
             .engine
             .frame(&mut |input| skin.measure_header(input, window, cx));
         self.flush_events(cx);
+        let drawn = &self.frame.panels;
+        self.strip_scrolls
+            .retain(|id, _| drawn.iter().any(|p| p.id == *id));
         if self.engine.moving() || self.divider_fading() {
             window.request_animation_frame();
         }

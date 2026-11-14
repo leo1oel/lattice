@@ -183,6 +183,15 @@ export const scenes = {
     await rest(staged.page);
     return staged;
   },
+  // Submission checklist from the palette, once its verdict has drawn. The
+  // parity harness's screens only; not on the App screens page.
+  async checklist(env, theme) {
+    const staged = await project(env, theme);
+    await palette(staged.page, "Submission checklist");
+    await staged.page.waitForSelector(".checklist-summary", { timeout: 30_000 });
+    await rest(staged.page);
+    return staged;
+  },
   // Export for arXiv… with the bench's checked pack (`?arxiv=ready`,
   // tools/perf-bench/bench-arxiv.ts), once its test build has answered.
   async arxivExport(env, theme) {
@@ -190,6 +199,27 @@ export const scenes = {
     await palette(staged.page, "Export for arXiv…");
     await staged.page.waitForSelector('.arxiv-export-checks [data-check="compile"][data-state="ok"]', { timeout: 30_000 });
     await rest(staged.page);
+    return staged;
+  },
+  // "Open from Overleaf" on an account with five projects
+  // (`?overleaf=picker`, tools/perf-bench/bench-overleaf.ts), the newest
+  // chosen so its Open buttons show. The parity harness's screens only.
+  async overleafPicker(env, theme) {
+    const staged = await project(env, theme, "&overleaf=picker");
+    await staged.page.locator('button[data-tour="overleaf"]').click();
+    await staged.page.waitForSelector(".overleaf-project-row", { timeout: 30_000 });
+    await staged.page.locator(".overleaf-project-main").first().click();
+    await rest(staged.page);
+    return staged;
+  },
+  // Settings › Overleaf with the tutorial linked and live (`?overleaf=review`).
+  async settingsOverleaf(env, theme) {
+    const staged = await project(env, theme, "&overleaf=review");
+    await staged.page.keyboard.press("Meta+Comma");
+    await staged.page.waitForSelector(".settings-modal", { timeout: 30_000 });
+    await staged.page.locator(".settings-nav-group > button", { hasText: "Overleaf" }).click();
+    await staged.page.waitForSelector('[data-setting="overleaf-sync-mode"]', { timeout: 30_000 });
+    await rest(staged.page, 4000);
     return staged;
   },
   async welcome(env, theme) {

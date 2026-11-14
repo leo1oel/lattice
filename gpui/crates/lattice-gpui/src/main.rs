@@ -29,6 +29,7 @@ mod native;
 mod native;
 mod notices;
 mod outline;
+mod overleaf;
 mod paint_probe;
 mod panels;
 mod papers;
@@ -56,6 +57,14 @@ fn main() {
     let (root, scenario) = scenario::parse_args();
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     let root = std::env::args_os().nth(1).map(std::path::PathBuf::from);
+
+    // A scenario run copies and pastes on a pasteboard of its own, so runs
+    // side by side (`scenario/input_lock.rs`) cannot read each other's copies.
+    // Before GPUI starts: it keeps the pasteboard it finds then.
+    #[cfg(target_os = "macos")]
+    if scenario.is_some() {
+        native::use_private_pasteboard();
+    }
 
     // The parity harness's named regions are recorded from the first frame.
     #[cfg(any(target_os = "macos", target_os = "windows"))]

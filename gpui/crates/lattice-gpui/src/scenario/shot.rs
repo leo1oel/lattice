@@ -46,24 +46,6 @@ impl Run {
         Ok(json!({ "png": out, "pdf_shown": shown, "pages": pages, "editor_theme": editor_theme }))
     }
 
-    /// Park the pointer in the window's bottom-right gutter, where Paper's
-    /// scenes park it, so no row or button is drawn hovered wherever the real
-    /// cursor happens to be.
-    pub(super) fn park_pointer(&self, cx: &mut AsyncApp) -> Result<()> {
-        self.with_window(cx, |_, window, cx| {
-            let size = window.viewport_size();
-            let corner = gpui::point(size.width - gpui::px(4.), size.height - gpui::px(4.));
-            window.dispatch_event(
-                gpui::PlatformInput::MouseMove(gpui::MouseMoveEvent {
-                    position: corner,
-                    pressed_button: None,
-                    modifiers: gpui::Modifiers::default(),
-                }),
-                cx,
-            );
-        })
-    }
-
     /// Whether the project's PDF showed within 30 s.
     pub(super) async fn wait_for_pdf(&self, cx: &mut AsyncApp) -> bool {
         self.wait_for(cx, Duration::from_secs(30), |shell, cx| {

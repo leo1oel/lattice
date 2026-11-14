@@ -73,6 +73,10 @@ Arguments after `--` run another cargo command there instead, for example
 A `--manifest-path` runs it on the Tauri crates in the same shared tree, for example
 `node scripts/gpui-build.mjs -- clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings`.
 In a no-mistakes run worktree, send every cargo command that compiles (check, clippy, test, build) through it: a plain one there leaves a cold 8–10 GB `gpui/target` or 2–3 GB `src-tauri/target` in every run.
+The run worktree enforces this: the pipeline's prepare command (`node scripts/run-worktree-cargo-guard.mjs install`) writes a git-ignored `.cargo/config.toml` whose rustc wrapper makes a compiling cargo command fail within a second, before `target/` grows, and print the same command through `scripts/gpui-build.mjs` to run instead.
+`cargo fmt` and `cargo metadata` still run, `LATTICE_ALLOW_LOCAL_CARGO=1` lifts the guard for one command, and deleting the file lifts it for good.
+Lane worktrees, the primary checkout, the shared build tree and CI never run that prepare command, so plain cargo there is unchanged.
+One `CARGO_TARGET_DIR` shared by every checkout is not the fix: Cargo judges freshness by mtime and names path crates relative to the workspace root, so a worktree checked out before another's build silently reuses that build's artifacts and tests the other worktree's code.
 
 The full local gate, `pnpm check` (stages and CI parity in
 [`architecture.md` §6](architecture.md#6-the-gate)), belongs to an official

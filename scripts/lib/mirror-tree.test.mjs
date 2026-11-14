@@ -23,7 +23,10 @@ function put(root, file, content) {
 const read = (file) => readFileSync(path.join(dest, file), "utf8");
 const mtime = (file) => statSync(path.join(dest, file)).mtimeMs;
 // A time well before the test, as a file checked out last week would carry.
-const weekAgo = () => new Date(Date.now() - 7 * 24 * 3600 * 1000);
+// Whole seconds: `utimes` takes seconds as a float, and a millisecond time
+// read back through `mtimeMs` can come out a float step off (…493.999 for
+// …494), which made the exact comparison below fail now and then on CI.
+const weekAgo = () => new Date(Math.floor(Date.now() / 1000 - 7 * 24 * 3600) * 1000);
 
 describe("mirrorTree", () => {
   it("copies the listed files and nothing else", () => {

@@ -77,7 +77,9 @@ pub use changes::{
 };
 pub use figure_preview::{preview_figure, FigurePreview, FigurePreviewRequest};
 pub use pinned::{build_pinned, PinnedBuild};
-pub use submission_review::{review_submission, SubmissionReview};
+pub use submission_review::{
+    review_submission, Check as ReviewCheck, Finding as ReviewFinding, ReviewMode, SubmissionReview,
+};
 pub use synctex::{
     body_pages, forward_search, forward_search_in, heading_pages, inverse_search,
     inverse_search_in, BodySpan, SourceLine,

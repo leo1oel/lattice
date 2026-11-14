@@ -71,7 +71,7 @@ pub enum SettingsEvent {
 /// The pages the GPUI app draws; another remembered page opens Appearance.
 fn drawn(tab: SettingsTab) -> SettingsTab {
     match tab {
-        SettingsTab::Editor | SettingsTab::Doctor => tab,
+        SettingsTab::Editor | SettingsTab::Doctor | SettingsTab::Overleaf => tab,
         _ => SettingsTab::Appearance,
     }
 }
@@ -114,6 +114,8 @@ pub struct SettingsDialog {
     pub(super) narrow_page: bool,
     /// The section row the pointer is over, for the gliding fill.
     pub(super) nav_hover: Option<usize>,
+    /// Settings › Overleaf's view of the account, once the page is drawn.
+    pub(super) overleaf: Option<Entity<super::overleaf_pane::OverleafConnection>>,
     _reveal_task: Option<Task<()>>,
     _subscriptions: Vec<Subscription>,
 }
@@ -331,6 +333,7 @@ impl SettingsDialog {
             viewport: Rc::default(),
             narrow_page: false,
             nav_hover: None,
+            overleaf: None,
             _reveal_task: None,
             _subscriptions: subscriptions,
         }
@@ -346,6 +349,17 @@ impl SettingsDialog {
     }
 
     /// The page on screen.
+    /// Settings › Overleaf's view of the account, once the page has drawn.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn overleaf_connection(&self) -> Option<Entity<super::overleaf_pane::OverleafConnection>> {
+        self.overleaf.clone()
+    }
+
+    /// The window Settings is open in.
+    pub(super) fn shell(&self) -> WeakEntity<Shell> {
+        self.shell.clone()
+    }
+
     pub fn tab(&self) -> SettingsTab {
         self.tab
     }
@@ -590,6 +604,7 @@ impl SettingsDialog {
         let page = match self.tab {
             SettingsTab::Editor => super::editor_pane::render(self, page_width, window, cx),
             SettingsTab::Doctor => super::editor_pane::doctor(page_width, cx),
+            SettingsTab::Overleaf => super::overleaf_pane::render(self, page_width, window, cx),
             _ => super::appearance_pane::render(self, page_width, window, cx),
         };
         let viewport = self.viewport.clone();

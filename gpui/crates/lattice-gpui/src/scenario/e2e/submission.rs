@@ -42,7 +42,7 @@ impl Run {
         root: &Path,
     ) -> Result<()> {
         let (window, shell) = cx.update(|cx| Shell::open_window(Some(root.to_path_buf()), cx))?;
-        let second = Run { shell, window };
+        let second = self.for_window(shell, window);
         second.root(cx).await?;
         second.with_window(cx, |shell, window, cx| {
             shell.update(cx, |shell, cx| {
@@ -57,7 +57,7 @@ impl Run {
         second.with_window(cx, |shell, window, cx| {
             shell.update(cx, |shell, cx| shell.open_arxiv_export(window, cx))
         })?;
-        let sheet = cx.update(|cx| second.shell.read(cx).arxiv.is_some());
+        let sheet = cx.update(|cx| second.shell.read(cx).sheets.arxiv.is_some());
 
         let other =
             std::env::temp_dir().join(format!("lattice-gpui-tools-switch-{}", std::process::id()));
@@ -78,7 +78,7 @@ impl Run {
             .await;
         let (bar_after, sheet_after) = cx.update(|cx| {
             let shell = second.shell.read(cx);
-            (shell.references.bar.is_some(), shell.arxiv.is_some())
+            (shell.references.bar.is_some(), shell.sheets.arxiv.is_some())
         });
         steps.check(
             "opening another project drops the references bar and the arXiv export sheet",
@@ -287,6 +287,7 @@ impl Run {
             .wait_for(cx, Duration::from_secs(150), |shell, cx| {
                 shell
                     .read(cx)
+                    .sheets
                     .arxiv
                     .as_ref()
                     .is_some_and(|(sheet, _)| !sheet.read(cx).running())
@@ -295,6 +296,7 @@ impl Run {
         let rows: Vec<(String, CheckState)> = cx.update(|cx| {
             self.shell
                 .read(cx)
+                .sheets
                 .arxiv
                 .as_ref()
                 .map(|(sheet, _)| {
@@ -323,6 +325,7 @@ impl Run {
             if let Some(sheet) = self
                 .shell
                 .read(cx)
+                .sheets
                 .arxiv
                 .as_ref()
                 .map(|(sheet, _)| sheet.clone())
@@ -333,7 +336,7 @@ impl Run {
         });
         let exported = self
             .wait_for(cx, Duration::from_secs(20), |shell, cx| {
-                shell.read(cx).arxiv.is_none()
+                shell.read(cx).sheets.arxiv.is_none()
             })
             .await;
         let size = std::fs::metadata(&zip).map(|meta| meta.len()).unwrap_or(0);

@@ -336,7 +336,7 @@ impl Run {
         // listing the project this run opened.
         let name = cx.update(|cx| self.shell.read(cx).project_name(cx).to_string());
         let (window, shell) = cx.update(|cx| Shell::open_window(None, cx))?;
-        let second = Run { shell, window };
+        let second = self.for_window(shell, window);
         second.pause(cx, Duration::from_millis(400)).await;
         let desk = cx.update(|cx| {
             second

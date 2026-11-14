@@ -20,7 +20,7 @@ use std::time::{Duration, Instant};
 use gpui::{
     AnyWindowHandle, App, AppContext as _, Context, Entity, InteractiveElement as _, IntoElement,
     MouseButton, ParentElement as _, Render, SharedString, StatefulInteractiveElement as _,
-    Styled as _, Task, Window, div, point, prelude::FluentBuilder as _, px, relative,
+    Styled as _, Task, Window, div, prelude::FluentBuilder as _, px, relative,
 };
 use lattice_i18n::t;
 use lattice_settings::{INTERFACE_SCALE_STEPS, nearest_interface_step, zoomed_interface_scale};
@@ -103,7 +103,7 @@ pub fn apply(window: &mut Window, cx: &mut App) {
 /// them.
 pub fn align_traffic_lights(window: &mut Window, cx: &App) {
     #[cfg(target_os = "macos")]
-    window.set_traffic_light_position(point(
+    window.set_traffic_light_position(gpui::point(
         px(TRAFFIC_LIGHT_X),
         px(TRAFFIC_LIGHT_CENTER * scale(cx) - TRAFFIC_LIGHT_HEIGHT / 2.),
     ));

@@ -12,7 +12,8 @@
 //!
 //! Mouse messages are handled by the window procedure, so they are sent to it
 //! directly and handled before `send_mouse` returns, like `sendEvent:` on
-//! macOS. Neither needs the window in front or the console unlocked.
+//! macOS. Neither needs the window in front or the console unlocked. The
+//! wheel goes the same way, in the screen coordinates its message carries.
 
 use std::time::Duration;
 
@@ -20,7 +21,8 @@ use anyhow::{Result, anyhow};
 use gpui::{Pixels, Point, Window};
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use windows::Win32::{
-    Foundation::{HWND, LPARAM, WPARAM},
+    Foundation::{HWND, LPARAM, POINT, WPARAM},
+    Graphics::Gdi::ClientToScreen,
     UI::{
         Input::KeyboardAndMouse::{
             GetKeyboardState, MAPVK_VK_TO_VSC, MapVirtualKeyW, SetKeyboardState, VK_CONTROL,
@@ -28,7 +30,8 @@ use windows::Win32::{
         },
         WindowsAndMessaging::{
             PostMessageW, SendMessageW, SetForegroundWindow, WM_CLOSE, WM_KEYDOWN, WM_KEYUP,
-            WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MOUSEMOVE, WM_RBUTTONDOWN, WM_RBUTTONUP,
+            WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_RBUTTONDOWN,
+            WM_RBUTTONUP,
         },
     },
 };
@@ -172,6 +175,30 @@ pub fn send_mouse(native: Native, kind: Mouse, position: Point<Pixels>) -> Resul
     Ok(())
 }
 
+/// One wheel turn of `dy` at `position` in window coordinates, negative
+/// scrolling the content down as on macOS. `dy` is the wheel delta, 120 to a
+/// notch, which GPUI turns into lines (`-200` is five at the default three a
+/// notch) where macOS counts pixels; the scenarios ask only that the text
+/// moved. Unlike the other mouse messages, `WM_MOUSEWHEEL` carries screen
+/// coordinates, which GPUI maps back into the window.
+pub fn send_wheel(native: Native, position: Point<Pixels>, dy: i32) -> Result<()> {
+    let mut point = POINT {
+        x: (f32::from(position.x) * native.scale).round() as i32,
+        y: (f32::from(position.y) * native.scale).round() as i32,
+    };
+    unsafe { ClientToScreen(native.hwnd, &mut point).ok()? };
+    // wParam: the delta in the high word; lParam: x and y, each a signed
+    // 16-bit word.
+    let delta = i16::try_from(dy).map_err(|_| anyhow!("wheel delta {dy} is out of range"))?;
+    let wparam = WPARAM((delta as u16 as usize) << 16);
+    let lparam =
+        LPARAM((point.x as i16 as u16 as isize) | ((point.y as i16 as u16 as isize) << 16));
+    unsafe {
+        SendMessageW(native.hwnd, WM_MOUSEWHEEL, Some(wparam), Some(lparam));
+    }
+    Ok(())
+}
+
 /// A left click at `position`.
 pub fn send_click(native: Native, position: Point<Pixels>) -> Result<()> {
     send_mouse(native, Mouse::Down, position)?;
@@ -213,6 +240,19 @@ pub fn bring_to_front(native: Native) {
         let _ = SetForegroundWindow(native.hwnd);
     }
 }
+
+/// The scenario's foreground sections (`scenario/input_lock.rs`) matter on
+/// macOS only; the Windows runner has the machine to itself, so the app never
+/// reads as active outside one.
+pub fn app_is_active() -> bool {
+    false
+}
+
+/// See `app_is_active`.
+pub fn deactivate_app() {}
+
+/// The Windows runner has the machine, and its clipboard, to itself.
+pub fn release_private_pasteboard() {}
 
 /// macOS opts out of App Nap here; Windows does not throttle the window.
 pub fn begin_latency_critical_activity() {}

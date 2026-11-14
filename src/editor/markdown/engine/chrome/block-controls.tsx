@@ -81,8 +81,12 @@ function topLevelAt(surface: HTMLElement, y: number): HTMLElement | null {
     else if (y >= rect.bottom) low = middle + 1;
     else return children[middle] as HTMLElement;
   }
-  // Between blocks: the one just above.
-  return (children[Math.max(0, Math.min(high, children.length - 1))] as HTMLElement | undefined) ?? null;
+  // Between blocks: the nearer one. A rule is 1px tall and sits in 2em of
+  // margin, so "the one just above" never reached it from below its line.
+  const above = children[Math.max(0, Math.min(high, children.length - 1))] as HTMLElement | undefined;
+  const below = children[low] as HTMLElement | undefined;
+  if (!above || !below || above === below) return above ?? below ?? null;
+  return below.getBoundingClientRect().top - y < y - above.getBoundingClientRect().bottom ? below : above;
 }
 
 function targetAt(editor: Editor, x: number, y: number): Target | null {
@@ -155,6 +159,39 @@ function firstLineOf(editor: Editor, target: Target): { top: number; height: num
   return caret.bottom > caret.top ? { top: caret.top, height: caret.bottom - caret.top } : null;
 }
 
+/** The controls' height (`.lx-md-block-control`, lattice-visual-chrome.css): the band they centre on. */
+const CONTROLS_HEIGHT = 24;
+/** A leaf block at most this tall (a rule, a line of display math) centres the controls on its box; a taller one (an image) keeps them at its top. */
+const SHORT_LEAF = 64;
+
+/**
+ * The viewport band the controls centre on, else null for a text block's first
+ * line: a note's first line of text, a table's first row, or a short leaf
+ * block's whole box.
+ */
+function controlsBand(editor: Editor, target: Target): { top: number; height: number } | null {
+  const line = firstLineOf(editor, target);
+  if (line) return line;
+  if (target.kind !== "block") return null;
+  const node = editor.state.doc.nodeAt(target.position);
+  if (node?.type.name === "table") {
+    const row = target.element.querySelector("tr")?.getBoundingClientRect();
+    if (row && row.height > 0) return { top: row.top, height: row.height };
+  }
+  if (!node?.isAtom) return null;
+  const rect = target.element.getBoundingClientRect();
+  return rect.height <= SHORT_LEAF ? { top: rect.top, height: rect.height } : null;
+}
+
+/** The controls' top in the layer: centred on their band, else on the block's first line. */
+function controlsTop(editor: Editor, target: Target, origin: DOMRect): number {
+  const band = controlsBand(editor, target);
+  if (band) return band.top - origin.top + (band.height - CONTROLS_HEIGHT) / 2;
+  const rect = target.element.getBoundingClientRect();
+  const firstLine = Math.min(rect.height, parseFloat(getComputedStyle(target.element).lineHeight) || CONTROLS_HEIGHT);
+  return rect.top - origin.top + Math.max(0, (firstLine - CONTROLS_HEIGHT) / 2);
+}
+
 type Drag = { target: Target; startY: number; ghost: HTMLElement | null; line: HTMLElement; drop: { position: number; after: boolean } | null };
 
 export function BlockControls({ editor, layer, host }: { editor: Editor; layer: HTMLElement | null; host: ChromeHost }) {
@@ -170,9 +207,9 @@ export function BlockControls({ editor, layer, host }: { editor: Editor; layer: 
       const over = event.target as Element | null;
       if (over?.closest?.(".lx-md-block-controls")) return;
       clearTimeout(hideTimer.current);
-      // The section rail (document-heading-rail.tsx) floats over the gutter:
-      // controls drawn there would take the press or release meant for a
-      // section, and a click split between the two lands on neither.
+      // The section rail (document-heading-rail.tsx) has its own lane beside
+      // the controls' (lattice-visual-editor.css), but a pointer on it means a
+      // section: controls left up there would take a release meant for it.
       if (over?.closest?.(".visual-heading-rail")) {
         setTarget(null);
         return;
@@ -210,9 +247,7 @@ export function BlockControls({ editor, layer, host }: { editor: Editor; layer: 
   if (!target || !layer || !target.element.isConnected) return null;
   const origin = layer.getBoundingClientRect();
   const rect = target.element.getBoundingClientRect();
-  const line = firstLineOf(editor, target);
-  const firstLine = Math.min(rect.height, parseFloat(getComputedStyle(target.element).lineHeight) || 24);
-  const top = line ? line.top - origin.top + (line.height - 24) / 2 : rect.top - origin.top + Math.max(0, (firstLine - 24) / 2);
+  const top = controlsTop(editor, target, origin);
   // Controls sit before the block: on its left, or its right in right-to-left text.
   const rtl = isRtl(target.element);
   const left = (rtl ? rect.right : rect.left) - origin.left;

@@ -21,6 +21,9 @@ pub struct Confirm {
     title: SharedString,
     body: Option<SharedString>,
     confirm_label: SharedString,
+    /// The other answer's words, when not "Cancel": a question whose two
+    /// answers both act names what each does.
+    cancel_label: Option<SharedString>,
     destructive: bool,
     on_confirm: Answer,
     /// A second answer between Cancel and the first, as the Tauri app's
@@ -38,6 +41,7 @@ impl Confirm {
             title: title.into(),
             body: None,
             confirm_label: tc!("dialog button", "OK").into(),
+            cancel_label: None,
             destructive: false,
             on_confirm: Rc::new(|_, _| {}),
             alternative: None,
@@ -52,6 +56,11 @@ impl Confirm {
 
     pub fn confirm_label(mut self, label: impl Into<SharedString>) -> Self {
         self.confirm_label = label.into();
+        self
+    }
+
+    pub fn cancel_label(mut self, label: impl Into<SharedString>) -> Self {
+        self.cancel_label = Some(label.into());
         self
     }
 
@@ -105,6 +114,13 @@ pub fn install(cx: &mut App) -> Entity<ConfirmHost> {
     });
     cx.set_global(ConfirmCenter(host.clone()));
     host
+}
+
+/// A question is open: a caller the writer didn't prompt waits rather than
+/// ask over it.
+pub fn is_pending(cx: &App) -> bool {
+    cx.try_global::<ConfirmCenter>()
+        .is_some_and(|center| center.0.read(cx).pending.is_some())
 }
 
 pub fn ask(question: Confirm, cx: &mut App) {
@@ -177,9 +193,15 @@ impl Render for ConfirmHost {
             card = card.body(body.clone());
         }
         let mut card = card.action(
-            Button::new(("confirm-cancel", self.serial), t!("Cancel"))
-                .ghost()
-                .on_click(cx.listener(|this, _, _, cx| this.close(cx))),
+            Button::new(
+                ("confirm-cancel", self.serial),
+                question
+                    .cancel_label
+                    .clone()
+                    .unwrap_or_else(|| t!("Cancel").into()),
+            )
+            .ghost()
+            .on_click(cx.listener(|this, _, _, cx| this.close(cx))),
         );
         if let Some((label, answer)) = question.alternative.clone() {
             let button = Button::new(("confirm-alternative", self.serial), label).on_click(

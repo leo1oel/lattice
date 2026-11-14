@@ -26,7 +26,7 @@ use super::Steps;
 use crate::{
     native,
     pdf::{FindOptions, FitMode, LinkTarget, PdfEvent, PdfView},
-    scenario::Run,
+    scenario::{Foreground, Run},
     shell::StopBuild,
 };
 
@@ -110,17 +110,10 @@ impl Run {
     /// in it has them, and wait for the window to draw. gpui-fast only slows
     /// an inactive window to 30 frames a second, but macOS stops the frames
     /// of a covered window, and making the window key again starts them.
-    async fn front(&self, cx: &mut AsyncApp) {
-        #[cfg(target_os = "macos")]
-        if let Ok(native) = self.native(cx) {
-            native::order_front(native);
-        }
-        self.with_window(cx, |_, window, cx| {
-            cx.activate(true);
-            window.activate_window();
-        })
-        .ok();
+    async fn front(&self, cx: &mut AsyncApp, what: &'static str) -> Result<Foreground> {
+        let front = self.foreground(cx, what).await?;
         self.next_frame(cx).await;
+        Ok(front)
     }
 
     /// Whether the main window draws a frame within a second.
@@ -236,7 +229,7 @@ impl Run {
         // Most steps below wait for the live PDF to draw rather than for a
         // native event to be handled, so each starts with the window in
         // front and drawing.
-        self.front(cx).await;
+        let front = self.front(cx, "a second root document").await?;
         let supplement = root.join("supplement.tex");
         std::fs::write(&supplement, SUPPLEMENT)?;
         self.open(cx, &supplement, Some(1))?;
@@ -265,11 +258,12 @@ impl Run {
         );
         let last = steps.0.len() - 1;
         self.note_frames(cx, steps, last).await;
+        drop(front);
         self.closing_a_tab_keeps_root_tabs(cx, steps, root).await?;
 
         macro_rules! pdf_step {
             ($step:expr) => {{
-                self.front(cx).await;
+                let _front = self.front(cx, stringify!($step)).await?;
                 let from = steps.0.len();
                 $step.await?;
                 self.note_frames(cx, steps, from).await;
@@ -1144,7 +1138,7 @@ impl Run {
     ) -> Result<()> {
         let opened = cx.update(|cx| crate::shell::Shell::open_window(Some(root.to_path_buf()), cx));
         let (window, shell) = opened?;
-        let second = Run { shell, window };
+        let second = self.for_window(shell, window);
         second.root(cx).await?;
         let drawn = |shell: &Entity<crate::shell::Shell>, cx: &mut App| {
             let view = shell.read(cx).pdf().read(cx).live_view().read(cx);

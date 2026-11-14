@@ -98,12 +98,24 @@ fn relevant(event: &Event, root: &Path) -> bool {
 /// the watch began, `watching_since`, was not just created: FSEvents repeats a
 /// folder's creation on its later reports. The files of a folder copied in
 /// report themselves.
+///
+/// Windows names no kind of change: every `FILE_ACTION_MODIFIED` arrives as
+/// `Modify(Any)`, a folder's included. A folder is reported modified when
+/// its attributes or times change, which happens when a window's rescan
+/// lists it and reads its files, so each rescan was the next one's report,
+/// as inotify's opens were on Linux (`only_looked`). What a folder's
+/// modification stands for, a file in it made, removed, renamed or written,
+/// Windows reports under that file's own path, so the folder's report is
+/// dropped there.
 fn folder_echo(event: &Event, watching_since: SystemTime) -> bool {
     let every_path = |test: &dyn Fn(fs::Metadata) -> bool| {
         !event.paths.is_empty() && event.paths.iter().all(|path| fs::metadata(path).is_ok_and(test))
     };
     match event.kind {
         EventKind::Modify(ModifyKind::Metadata(_)) => every_path(&|metadata| metadata.is_dir()),
+        EventKind::Modify(ModifyKind::Any) if cfg!(windows) => {
+            every_path(&|metadata| metadata.is_dir())
+        }
         EventKind::Create(CreateKind::Folder) => every_path(&|metadata| {
             metadata.is_dir() && metadata.created().is_ok_and(|born| born < watching_since)
         }),
@@ -371,6 +383,11 @@ mod tests {
         // A file's metadata (a touch, a chmod) still counts, and so does a
         // folder made since, renamed or removed.
         assert!(kept(metadata, "section/intro.tex"));
+        // Windows names every modification `Any`: a folder's is dropped there,
+        // a file's is a change everywhere.
+        let modified = EventKind::Modify(ModifyKind::Any);
+        assert_eq!(kept(modified, "section"), !cfg!(windows), "a folder modified");
+        assert!(kept(modified, "section/intro.tex"));
         assert!(kept(EventKind::Create(CreateKind::Folder), "appendix"));
         assert!(kept(EventKind::Modify(ModifyKind::Name(RenameMode::Any)), "section"));
         assert!(kept(EventKind::Remove(RemoveKind::Folder), "chapters"));

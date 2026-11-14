@@ -6,9 +6,9 @@ use gpui::KeyBinding;
 use lattice_i18n::t;
 
 use super::{Command, Section};
-use crate::shell::{ExportArxiv, FindReferences, OpenTodos, RenameSymbol};
+use crate::shell::{ExportArxiv, FindReferences, OpenChecklist, OpenTodos, RenameSymbol};
 
-/// The Edit section's: Manuscript TODOs.
+/// The Edit section's: Manuscript TODOs and the submission checklist.
 pub(super) fn edit_commands(out: &mut Vec<Command>) {
     out.push(Command::new(
         "todos",
@@ -16,6 +16,15 @@ pub(super) fn edit_commands(out: &mut Vec<Command>) {
         Section::Edit,
         OpenTodos,
     ));
+    out.push(
+        Command::new(
+            "checklist",
+            t!("Submission checklist"),
+            Section::Edit,
+            OpenChecklist,
+        )
+        .keywords("Words / pages / TODOs"),
+    );
 }
 
 /// The Project section's: Export for arXiv….

@@ -26,26 +26,22 @@ mod markdown;
 mod markdown_pages;
 #[cfg(target_os = "macos")]
 mod markdown_scroll;
+#[cfg(target_os = "macos")]
+mod overleaf;
 mod papers;
 mod pdf;
 mod saves;
 mod settings;
 mod source_chrome;
 mod status_bar;
+mod steps;
 #[cfg(target_os = "macos")]
 mod structured;
 mod submission;
+mod submission_checklist;
+mod tab_strip;
 
-/// Each step's name, whether it passed, and what it saw.
-struct Steps(Vec<Value>);
-
-impl Steps {
-    fn check(&mut self, name: &str, passed: bool, detail: Value) -> bool {
-        self.0
-            .push(json!({ "step": name, "passed": passed, "detail": detail }));
-        passed
-    }
-}
+use steps::Steps;
 
 impl Run {
     /// The writing flow, end to end, on a scratch copy of a small project:
@@ -65,7 +61,7 @@ impl Run {
     /// and type before the quit that ends the run, which the result's `after_quit`
     /// names for the CI workflow to check on disk.
     pub(super) async fn e2e(&self, cx: &mut AsyncApp) -> Result<Value> {
-        let mut steps = Steps(Vec::new());
+        let mut steps = Steps::new(self);
         let root = self.root(cx).await?;
         // No step may reach a real TeX install.
         let stub = self.stub_tex_setup(cx, &root);
@@ -281,6 +277,7 @@ impl Run {
         self.structured_islands(cx, &mut steps, &root).await?;
         #[cfg(target_os = "macos")]
         self.markdown_island(cx, &mut steps, &root).await?;
+        self.tab_strip(cx, &mut steps, &root).await?;
         self.pdf_viewer(cx, &mut steps, &root).await?;
         self.second_window_pdf(cx, &mut steps, &root).await?;
 
@@ -315,6 +312,14 @@ impl Run {
         self.submission_tools(cx, &mut steps, &root)
             .await
             .context("submission_tools")?;
+        self.submission_checklist(cx, &mut steps, &root)
+            .await
+            .context("submission_checklist")?;
+        // The sign-in window is a WKWebView page, as the islands are.
+        #[cfg(target_os = "macos")]
+        self.overleaf(cx, &mut steps, &root)
+            .await
+            .context("overleaf")?;
         self.papers_panel(cx, &mut steps, &root)
             .await
             .context("papers_panel")?;
@@ -332,6 +337,7 @@ impl Run {
             .context("closing_saves")?;
         // Last: `scenario::start` quits once the result is written.
         let quit = self.type_before_quit(cx, &mut steps, &root).await?;
+        steps.check_foreground(self);
 
         let passed = steps.0.iter().all(|step| step["passed"] == true);
         Ok(json!({ "scenario": "e2e", "passed": passed, "steps": steps.0, "after_quit": quit }))
@@ -341,12 +347,13 @@ impl Run {
     /// islands: the e2e scenario runs them too.
     #[cfg(target_os = "macos")]
     pub(super) async fn islands(&self, cx: &mut AsyncApp) -> Result<Value> {
-        let mut steps = Steps(Vec::new());
+        let mut steps = Steps::new(self);
         let root = self.root(cx).await?;
         self.pause(cx, Duration::from_millis(800)).await;
         self.webview_islands(cx, &mut steps, &root).await?;
         self.structured_islands(cx, &mut steps, &root).await?;
         self.markdown_island(cx, &mut steps, &root).await?;
+        steps.check_foreground(self);
         let passed = steps.0.iter().all(|step| step["passed"] == true);
         Ok(json!({ "scenario": "islands", "passed": passed, "steps": steps.0 }))
     }

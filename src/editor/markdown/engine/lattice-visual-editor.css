@@ -16,6 +16,16 @@
   --lx-md-line-height: var(--prose-line-height);
   --lx-md-flow: 0.85em;
   --lx-md-code-surface: color-mix(in srgb, var(--text-primary) 6%, transparent);
+  /* The text's margins are lanes. Before the text, the block controls'
+     (chrome/block-controls.tsx): Add block below and the grip, the seam
+     between them, their gap to the text, and as much again clear of whatever
+     lies beyond, a panel's edge or the heading rail. After it, the same lane,
+     where right-to-left blocks draw their controls. */
+  --lx-md-gutter: calc(2 * var(--space-10) + var(--gap-hairline) + 2 * var(--space-3));
+  /* Beyond the controls, the heading rail's (document-heading-rail.tsx,
+     `.visual-heading-rail` in editor-workspace.css: its inset and its two
+     24px columns of ticks), only while it is drawn. */
+  --lx-md-rail-lane: 0px;
   position: relative;
   min-height: 100%;
   color: var(--text-primary);
@@ -31,12 +41,18 @@
   background: var(--status-warning-soft);
 }
 
+.lx-md-editor:has(.visual-heading-rail) { --lx-md-rail-lane: calc(var(--space-6) + 2 * var(--space-12)); }
+
 .lx-md-editor .lx-md-surface {
+  /* The margin that centers the measure, when the editor is wide enough to
+     give one; a narrow panel (Split) falls back to the lanes, so neither the
+     rail nor the controls ever lie over the text or past the panel's edge. */
+  --lx-md-centering: calc((100% - var(--lx-md-measure)) / 2);
   box-sizing: border-box;
-  max-width: calc(var(--lx-md-measure) + 2 * var(--space-12));
   min-height: 100%;
-  margin: 0 auto;
-  padding: var(--space-16) var(--space-12) 40vh;
+  margin: 0;
+  padding-block: var(--space-16) 40vh;
+  padding-inline: max(var(--lx-md-rail-lane) + var(--lx-md-gutter), var(--lx-md-centering)) max(var(--lx-md-gutter), var(--lx-md-centering));
   outline: none;
   font-family: var(--prose-font);
   font-size: var(--lx-md-font-size);
@@ -48,6 +64,29 @@
   /* The app turns synthesis off globally; Inter, the reading face when the
      build has no Timeless, ships no italic of its own. */
   font-synthesis: style;
+}
+
+/* The drawn caret (drawn-caret.ts) stands in for the native one while it
+   shows. WebKit takes caret-color from the text the caret is in, so the
+   transparent ink reaches every descendant; a field inside a block keeps its own. */
+.lx-md-editor .lx-md-surface[data-drawn-caret],
+.lx-md-editor .lx-md-surface[data-drawn-caret] :not(input, textarea) { caret-color: transparent; }
+.lx-md-editor [data-lx-md-caret-host] { position: relative; }
+.lx-md-editor .lx-md-caret {
+  position: absolute;
+  z-index: var(--z-editor-overlay);
+  top: 0;
+  left: 0;
+  width: var(--editor-caret-width);
+  margin-left: calc(var(--editor-caret-width) / -2);
+  border-radius: var(--radius-pill);
+  background: var(--code-caret);
+  pointer-events: none;
+  animation: lx-md-caret-blink var(--editor-caret-blink) steps(1, end) infinite;
+}
+@keyframes lx-md-caret-blink {
+  0% { opacity: 1; }
+  50% { opacity: 0; }
 }
 
 .lx-md-editor .lx-md-surface > :first-child { margin-top: 0; }

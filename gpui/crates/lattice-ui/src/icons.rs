@@ -116,10 +116,8 @@ lucide! {
     // The Papers panel's rows, toolbar and add rows (main declares
     // ARROW_DOWN, ARROW_DOWN_UP, BOOK_MARKED, FILE_DOWN and LINK_2 below).
     ARROW_UP_RIGHT = "icons" / "arrow-up-right";
-    CIRCLE_DOT = "icons" / "circle-dot";
     HIGHLIGHTER = "icons" / "highlighter";
     CORNER_DOWN_LEFT = "icons" / "corner-down-left";
-    EXTERNAL_LINK = "icons" / "external-link";
     LIST_FILTER = "icons" / "list-filter";
     /// A .tex file's Source / Visual switch.
     CODE_XML = "icons" / "code-xml";
@@ -142,11 +140,26 @@ lucide! {
     PENCIL_LINE = "icons" / "pencil-line";
     // Getting a manuscript ready to send (src/project/).
     CIRCLE_DASHED = "icons" / "circle-dashed";
+    CIRCLE_DOT = "icons" / "circle-dot";
+    IMAGES = "icons" / "images";
     LINK_2 = "icons" / "link-2";
+    // Overleaf (src/overleaf/, canvas-toolbar.tsx).
+    CLOUD_UPLOAD = "icons" / "cloud-upload";
+    CLOUD_OFF = "icons" / "cloud-off";
+    CLOUD_ALERT = "icons" / "cloud-alert";
+    MAIL_OPEN = "icons" / "mail-open";
+    SEARCH_X = "icons" / "search-x";
+    EXTERNAL_LINK = "icons" / "external-link";
+    GIT_MERGE = "icons" / "git-merge";
+    SHIELD_ALERT = "icons" / "shield-alert";
+    ARROW_DOWN_TO_LINE = "icons" / "arrow-down-to-line";
+    ARROW_UP_FROM_LINE = "icons" / "arrow-up-from-line";
     // Names Zed's icon set also has, which the app's asset source finds
     // first: Lucide's own, copied unmodified from GPUI Kit 0.9.1's assets
     // (ISC, `assets/LICENSE-LUCIDE`).
     CHECK = "lattice" / "check";
+    CIRCLE = "lattice" / "circle";
+    CLOCK = "lattice" / "clock";
     COPY = "lattice" / "copy";
     DOWNLOAD = "lattice" / "download";
     ELLIPSIS = "lattice" / "ellipsis";
@@ -291,6 +304,8 @@ const BUNDLED: &[(&str, &[u8])] = bundled![
     // Lucide's, whose names Zed's icon set shadows (LICENSE-LUCIDE).
     "file.svg",
     "folder.svg",
+    "circle.svg",
+    "clock.svg",
     "hash.svg",
     "replace.svg",
     "settings.svg",
