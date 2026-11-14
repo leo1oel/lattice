@@ -5,9 +5,9 @@
 //! A message is keyed by its English source string, as Lingui keys it, so the
 //! English interface needs no catalog at all: `t!("Build")` is "Build" in
 //! English and "编译" in Chinese. Strings only the GPUI app shows are in this
-//! crate's `locales/zh-CN.po`, in the same format; a test keeps the two from
-//! overlapping and checks every string the app translates has Chinese
-//! (`tests/coverage.rs`, the port of `scripts/check-i18n-coverage.mjs`).
+//! crate's `locales/zh-CN/*.po`, one file per area of the app in the same
+//! format (gathered by `build.rs`); a test keeps the two from overlapping
+//! and checks every string the app translates has Chinese (`tests/coverage.rs`, the port of `scripts/check-i18n-coverage.mjs`).
 //!
 //! Placeholders are Lingui's: `{0}`, `{1}` by position, or `{name}`.
 //!
@@ -35,8 +35,10 @@ pub use format::{comma, format_count, join_list, join_phrases, space_mixed_scrip
 
 /// The Tauri app's catalog, shared word for word.
 pub const APP_CATALOG: &str = include_str!("../../../../src/locales/zh-CN/messages.po");
-/// The strings only the GPUI app shows, in the same format.
-pub const GPUI_CATALOG: &str = include_str!("../locales/zh-CN.po");
+// `GPUI_CATALOG`, the strings only the GPUI app shows in the same format
+// (`locales/zh-CN/*.po`, one after another), and `GPUI_CATALOG_FILES`, each
+// file by name.
+include!(concat!(env!("OUT_DIR"), "/gpui_catalog.rs"));
 
 /// An interface language.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -317,7 +319,33 @@ mod tests {
             .collect();
         assert!(
             doubled.is_empty(),
-            "locales/zh-CN.po repeats messages the Tauri catalog already translates: {doubled:?}"
+            "locales/zh-CN/ repeats messages the Tauri catalog already translates: {doubled:?}"
         );
+    }
+
+    /// Each area's file keeps its entries in source-string order, so two
+    /// branches adding strings to one file add them in different places and
+    /// merge cleanly; and no string is in two files.
+    #[test]
+    fn each_gpui_catalog_file_is_sorted_and_says_each_string_once() {
+        let mut seen = std::collections::HashMap::new();
+        for (name, text) in GPUI_CATALOG_FILES {
+            let keys: Vec<_> = po::parse(text)
+                .into_iter()
+                .map(|entry| (entry.msgid, entry.context.unwrap_or_default()))
+                .collect();
+            let mut sorted = keys.clone();
+            sorted.sort();
+            assert_eq!(
+                keys, sorted,
+                "locales/zh-CN/{name} is not sorted by source string; put each entry in its place"
+            );
+            for key in keys {
+                if let Some(other) = seen.insert(key.clone(), *name) {
+                    panic!("{key:?} is in both locales/zh-CN/{other} and {name}");
+                }
+            }
+        }
+        assert!(!GPUI_CATALOG_FILES.is_empty());
     }
 }

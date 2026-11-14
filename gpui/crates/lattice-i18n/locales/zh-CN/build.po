@@ -1,0 +1,43 @@
+#: lattice-gpui/src/build/sequence.rs
+msgid "1 hour ago"
+msgstr "1 小时前"
+
+#: lattice-gpui/src/build/sequence.rs
+msgid "1 minute ago"
+msgstr "1 分钟前"
+
+#: lattice-gpui/src/build/card.rs
+msgid "Building {document}…"
+msgstr "正在编译 {document}…"
+
+#: lattice-gpui/src/build/tex_setup/dialogs.rs
+msgid "Checking the LaTeX tools…"
+msgstr "正在检查 LaTeX 工具…"
+
+#: lattice-gpui/src/build/sequence.rs
+msgid "Ctrl+S, or Shift-click for a clean rebuild"
+msgstr "Ctrl+S，按住 Shift 点击则从头编译"
+
+#: lattice-gpui/src/build/card.rs
+msgid "Not built yet. Press {0} to build"
+msgstr "尚未编译。按 {0} 开始编译"
+
+#: lattice-gpui/src/build/sequence.rs
+msgid "yesterday"
+msgstr "昨天"
+
+#: lattice-gpui/src/build/sequence.rs
+msgid "{count} days ago"
+msgstr "{count} 天前"
+
+#: lattice-gpui/src/build/sequence.rs
+msgid "{count} hours ago"
+msgstr "{count} 小时前"
+
+#: lattice-gpui/src/build/sequence.rs
+msgid "{count} minutes ago"
+msgstr "{count} 分钟前"
+
+#: lattice-gpui/src/build/sequence.rs
+msgid "⌘S, or ⇧-click for a clean rebuild"
+msgstr "⌘S，按住 ⇧ 点击则从头编译"

@@ -436,3 +436,13 @@ impl Run {
         Ok(())
     }
 }
+
+/// This file's registration as the e2e module `live_preview` (`registry.rs`).
+pub(super) const MODULE: super::registry::Module = super::registry::Module {
+    after: super::registry::After::Terminal,
+    rank: 80,
+    needs: &[],
+    setup: false,
+    covers: &["gpui/crates/lattice-gpui/src/live_preview"],
+    run: |run, cx, steps, fixture| Box::pin(run.live_preview(cx, steps, &fixture.root)),
+};

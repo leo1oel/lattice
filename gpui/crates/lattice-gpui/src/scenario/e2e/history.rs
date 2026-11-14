@@ -288,3 +288,16 @@ impl Run {
         Ok(())
     }
 }
+
+/// This file's registration as the e2e module `history` (`registry.rs`).
+pub(super) const MODULE: super::registry::Module = super::registry::Module {
+    after: super::registry::After::Terminal,
+    rank: 20,
+    needs: &[],
+    setup: true,
+    covers: &[
+        "gpui/crates/lattice-gpui/src/history",
+        "gpui/crates/lattice-gpui/src/shell/history_flow.rs",
+    ],
+    run: |run, cx, steps, fixture| Box::pin(run.history_and_versions(cx, steps, &fixture.root)),
+};

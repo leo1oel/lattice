@@ -195,3 +195,17 @@ impl Run {
         Ok(())
     }
 }
+
+/// This file's registration as the e2e module `assets` (`registry.rs`).
+pub(super) const MODULE: super::registry::Module = super::registry::Module {
+    after: super::registry::After::Repair,
+    rank: 40,
+    needs: &[],
+    setup: false,
+    covers: &[
+        "gpui/crates/lattice-gpui/src/assets.rs",
+        "gpui/crates/lattice-gpui/src/asset_preview.rs",
+        "gpui/crates/lattice-gpui/src/shell/assets.rs",
+    ],
+    run: |run, cx, steps, fixture| Box::pin(run.asset_and_bib_steps(cx, steps, &fixture.root)),
+};

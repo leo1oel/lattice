@@ -13,6 +13,8 @@
 //! - the page reads the project's papers (`list_papers`) and annotations
 //!   (`list_annotations`) through its owner.
 
+#![cfg(target_os = "macos")]
+
 use std::{path::Path, time::Duration};
 
 use anyhow::Result;

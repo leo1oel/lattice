@@ -410,3 +410,16 @@ impl Run {
         Ok(())
     }
 }
+
+/// This file's registration as the e2e module `settings` (`registry.rs`).
+pub(super) const MODULE: super::registry::Module = super::registry::Module {
+    after: super::registry::After::Terminal,
+    rank: 60,
+    needs: &[],
+    setup: true,
+    covers: &[
+        "gpui/crates/lattice-gpui/src/settings",
+        "gpui/crates/lattice-settings/",
+    ],
+    run: |run, cx, steps, _| Box::pin(run.settings_and_language(cx, steps)),
+};

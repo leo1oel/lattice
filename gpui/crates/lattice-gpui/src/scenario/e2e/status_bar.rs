@@ -212,3 +212,16 @@ impl Run {
         Ok(())
     }
 }
+
+/// This file's registration as the e2e module `status_bar` (`registry.rs`).
+pub(super) const MODULE: super::registry::Module = super::registry::Module {
+    after: super::registry::After::Vim,
+    rank: 10,
+    needs: &[],
+    setup: false,
+    covers: &[
+        "gpui/crates/lattice-gpui/src/editor_status.rs",
+        "gpui/crates/lattice-gpui/src/status_counters.rs",
+    ],
+    run: |run, cx, steps, fixture| Box::pin(run.status_bar_and_scrollbar(cx, steps, &fixture.root)),
+};

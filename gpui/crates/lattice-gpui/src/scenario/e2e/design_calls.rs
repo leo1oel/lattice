@@ -674,3 +674,13 @@ impl Run {
         let _ = (cx, name);
     }
 }
+
+/// This file's registration as the e2e module `design_calls` (`registry.rs`).
+pub(super) const MODULE: super::registry::Module = super::registry::Module {
+    after: super::registry::After::Build,
+    rank: 30,
+    needs: &[],
+    setup: false,
+    covers: &[],
+    run: |run, cx, steps, _| Box::pin(run.design_calls(cx, steps)),
+};
