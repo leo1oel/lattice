@@ -29,6 +29,7 @@ mod palette;
 mod pdfs;
 mod render;
 mod saving;
+mod shortcut_sheet;
 mod skin;
 mod synctex;
 pub mod trellis_layout;
@@ -183,7 +184,7 @@ pub struct Shell {
     _open_task: Option<Task<()>>,
     pub(crate) layout: LayoutState,
     palette: Option<Entity<palette::CommandPaletteView>>,
-    shortcuts: Option<Entity<palette::ShortcutSheet>>,
+    shortcuts: Option<Entity<shortcut_sheet::ShortcutSheet>>,
     /// Quick open, Find and Replace in project, and the files visited.
     documents: documents::Documents,
     /// The welcome screen and New project, without a project or over one.
