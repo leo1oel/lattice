@@ -14,11 +14,13 @@
 
 mod actions;
 mod arrange;
+mod assets;
 mod build;
 mod build_tools;
 pub mod commands;
 mod documents;
 mod editor_events;
+mod editors;
 mod entries;
 mod ground;
 mod history_flow;
@@ -42,17 +44,17 @@ pub mod windows;
 mod workspace_flow;
 pub mod workspaces;
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use futures::channel::oneshot;
 use gpui::{
     AnyWindowHandle, App, AppContext as _, Bounds, Context, Entity, FocusHandle, Focusable,
-    InteractiveElement as _, IntoElement, ParentElement as _, PromptLevel, Render, SharedString,
-    Styled as _, Subscription, Task, WeakEntity, Window, WindowBounds, WindowOptions,
+    InteractiveElement as _, IntoElement, ParentElement as _, Render, SharedString, Styled as _,
+    Subscription, Task, WeakEntity, Window, WindowBounds, WindowOptions,
     prelude::FluentBuilder as _, px, size,
 };
 use gpui_kit::component::v_flex;
-use lattice_i18n::{t, tc};
+use lattice_i18n::t;
 use lattice_ui::{ActiveLattice as _, Appearance, LatticeTheme};
 use trellis::{TrellisWorkspace, model::LayoutDocument};
 
@@ -194,6 +196,8 @@ pub struct Shell {
     root_pdfs: Vec<(String, Entity<PdfPanel>)>,
     /// The project's PDFs opened from the tree.
     file_pdfs: Vec<Entity<PdfPanel>>,
+    /// The project's images and other binary files opened from the tree.
+    asset_panels: Vec<Entity<crate::asset_preview::AssetPanel>>,
     /// The live document's outline.
     outline: std::rc::Rc<[crate::outline::Heading]>,
     _outline_task: Option<Task<()>>,
@@ -442,6 +446,7 @@ impl Shell {
             live_document: None,
             root_pdfs: Vec::new(),
             file_pdfs: Vec::new(),
+            asset_panels: Vec::new(),
             outline: std::rc::Rc::from([]),
             _outline_task: None,
             _open_task: None,
@@ -606,6 +611,7 @@ impl Shell {
         self.refresh_words(cx);
         self.build_target = None;
         self.close_root_pdfs(window, cx);
+        self.asset_panels.clear();
         // The documents' panels go with the project they were of.
         let gone: Vec<_> = self
             .views
@@ -655,8 +661,9 @@ impl Shell {
         cx.notify();
     }
 
-    /// Open a source file in an editor tab (or switch to its tab), or a PDF in
-    /// the preview, then go to `line` when given.
+    /// Open a source file in an editor tab (or switch to its tab), a PDF in
+    /// its viewer, or an image or other binary file in its preview
+    /// (`asset_preview`), then go to `line` when given.
     pub fn open_path(
         &mut self,
         path: PathBuf,
@@ -672,6 +679,9 @@ impl Shell {
             return None;
         }
         let path = path.canonicalize().unwrap_or(path);
+        if self.open_if_asset(&path, window, cx) {
+            return None;
+        }
         let in_front = self
             .active_editor()
             .is_some_and(|editor| editor.read(cx).path() == path);
@@ -691,68 +701,6 @@ impl Shell {
         self.file_tree
             .update(cx, |tree, cx| tree.set_current(Some(path.clone()), cx));
         Some(editor)
-    }
-
-    /// The editor already open on `path`, if any.
-    pub(crate) fn open_editor(&mut self, path: &Path, cx: &App) -> Option<Entity<EditorPanel>> {
-        self.open_editors()
-            .into_iter()
-            .find(|editor| editor.read(cx).path() == path)
-    }
-
-    /// The editor on `path`, opened if it is not yet; it is not placed in
-    /// the dock.
-    pub(crate) fn editor_for(
-        &mut self,
-        path: &Path,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> Option<Entity<EditorPanel>> {
-        if let Some(editor) = self.open_editor(path, cx) {
-            return Some(editor);
-        }
-        let project = self.project.clone()?;
-        match EditorPanel::open(
-            path.to_path_buf(),
-            project,
-            self.build_panel.clone(),
-            window,
-            cx,
-        ) {
-            Ok(editor) => {
-                self.adopt_editor(&editor, window, cx);
-                let weak = editor.downgrade();
-                cx.on_focus_in(&editor.focus_handle(cx), window, move |this, _, _| {
-                    this.active_editor = Some(weak.clone());
-                })
-                .detach();
-                Some(editor)
-            }
-            Err(error) => {
-                log::error!("{error:#}");
-                let _ = window.prompt(
-                    PromptLevel::Critical,
-                    t!("Could not open the file"),
-                    Some(&format!("{error:#}")),
-                    &[tc!("dialog button", "OK")],
-                    cx,
-                );
-                None
-            }
-        }
-    }
-
-    pub(crate) fn open_editors(&mut self) -> Vec<Entity<EditorPanel>> {
-        self.editors.retain(|editor| editor.upgrade().is_some());
-        self.editors
-            .iter()
-            .filter_map(WeakEntity::upgrade)
-            .collect()
-    }
-
-    /// The editor the writer was last in, if it is still open.
-    pub(crate) fn active_editor(&self) -> Option<Entity<EditorPanel>> {
-        self.active_editor.as_ref().and_then(WeakEntity::upgrade)
     }
 
     /// Count the manuscript's words again, and redraw the status bars that

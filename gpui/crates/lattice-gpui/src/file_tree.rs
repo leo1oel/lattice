@@ -13,8 +13,11 @@
 //!   Escape or leaving it unchanged drops it. A new file opens.
 //! - Rename names a row in place; the open tab follows the file.
 //! - A row dragged onto a folder (or onto a file, its folder) moves there.
-//! - Delete asks first, and is not offered for the main document or the
-//!   bibliography (or a folder holding either).
+//! - Delete asks first. Only the primary bibliography (or a folder holding
+//!   it) is kept, as lattice-core's `delete_entry` keeps it
+//!   (`src/project/deletion-protection.ts`): Add paper and the reference
+//!   tools write into it, and Delete there says so instead of asking. Any
+//!   `.tex` may go, the main document included.
 //! - Import files… brings files and folders in from the Mac; ⌘C copies the
 //!   selected row's path and ⌘V duplicates it into the selected folder.
 //!
@@ -255,20 +258,13 @@ impl FileTreePanel {
         }
     }
 
-    /// Paths that may not be deleted: the main document, the bibliography,
-    /// and any folder holding either.
-    fn protected(&self, path: &str, cx: &App) -> bool {
+    /// Whether deleting `path` would remove the primary bibliography, itself
+    /// or the folder holding it (`deletesProtectedPath`).
+    pub(crate) fn protected(&self, path: &str, cx: &App) -> bool {
         let Some(project) = &self.project else {
             return true;
         };
-        let project = project.read(cx);
-        let manifest = project.manifest();
-        project
-            .main_document()
-            .into_iter()
-            .chain(Some(manifest.primary_bibliography.as_str()))
-            .filter(|protected| !protected.is_empty())
-            .any(|protected| protected == path || protected.starts_with(&format!("{path}/")))
+        deletes_protected(path, &project.read(cx).manifest().primary_bibliography)
     }
 
     /// Drop the row at `path` on the folder `target`, as a drag ending there
@@ -676,6 +672,14 @@ impl Render for FileTreePanel {
     }
 }
 
+/// Whether deleting `path` removes `bibliography` (the manifest's primary
+/// bibliography; none when it is empty): the file itself, or a folder
+/// holding it.
+fn deletes_protected(path: &str, bibliography: &str) -> bool {
+    !bibliography.is_empty()
+        && (bibliography == path || bibliography.starts_with(&format!("{path}/")))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -750,5 +754,17 @@ mod tests {
             ],
         );
         assert_eq!(flattened(&two).1, "figures");
+    }
+
+    #[test]
+    fn only_the_primary_bibliography_is_kept_from_delete() {
+        assert!(deletes_protected("references.bib", "references.bib"));
+        assert!(deletes_protected("refs", "refs/library.bib"));
+        // Another bibliography, the main document, a look-alike folder.
+        assert!(!deletes_protected("extra.bib", "references.bib"));
+        assert!(!deletes_protected("main.tex", "references.bib"));
+        assert!(!deletes_protected("ref", "refs/library.bib"));
+        // A project with no primary bibliography keeps nothing.
+        assert!(!deletes_protected("references.bib", ""));
     }
 }
