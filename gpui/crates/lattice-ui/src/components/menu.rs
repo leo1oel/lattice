@@ -28,8 +28,8 @@
 use std::rc::Rc;
 
 use gpui::{
-    AnyElement, App, ClickEvent, Div, ElementId, InteractiveElement as _, IntoElement, MouseMoveEvent,
-    ParentElement, Pixels, Refineable as _, RenderOnce, SharedString,
+    AnyElement, App, ClickEvent, Div, ElementId, InteractiveElement as _, IntoElement,
+    MouseMoveEvent, ParentElement, Pixels, Refineable as _, RenderOnce, SharedString,
     StatefulInteractiveElement as _, StyleRefinement, Styled, Window, div,
     prelude::FluentBuilder as _, px, rems, transparent_black,
 };

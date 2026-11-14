@@ -100,6 +100,13 @@ fn heading_to_submenu(
     !(negative && positive)
 }
 
+/// The submenu the lit row `at` opens: the pointer lighting a submenu row
+/// opens it, as Radix's do; the keys open one only with →, Enter or Space,
+/// so a highlight they move onto the row closes the one open.
+fn submenu_lit(at: usize, is_submenu: bool, by_pointer: bool) -> Option<(usize, bool)> {
+    (is_submenu && by_pointer).then_some((at, false))
+}
+
 /// Whether an open submenu stays open while another row is lit: only when
 /// the pointer lit it, on its way from where it left the submenu's row to
 /// the submenu, and has not rested there for the grace yet. A key move
@@ -546,7 +553,7 @@ impl RenderOnce for Menu {
                         .detach();
                 }
             } else {
-                let next = is_submenu(Some(at)).then_some((at, false));
+                let next = submenu_lit(at, is_submenu(Some(at)), hover.by_pointer(cx));
                 open_sub.update(cx, |open, _| *open = next);
                 // The move that lit the row came before the submenu opened,
                 // so the row's own listener did not see it: a pointer that
@@ -979,6 +986,13 @@ mod tests {
         let left = Bounds::new(point(px(-70.), px(40.)), gpui::size(px(160.), px(160.)));
         assert!(heading_to_submenu(origin, left, point(px(95.), px(70.))));
         assert!(!heading_to_submenu(origin, left, point(px(105.), px(70.))));
+    }
+
+    #[test]
+    fn only_the_pointer_opens_a_submenu_by_lighting_its_row() {
+        assert_eq!(submenu_lit(2, true, true), Some((2, false)));
+        assert_eq!(submenu_lit(2, true, false), None);
+        assert_eq!(submenu_lit(3, false, true), None);
     }
 
     #[test]
