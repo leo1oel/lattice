@@ -130,6 +130,11 @@ impl BasePanel for TerminalPanel {
         }
         cx.notify();
     }
+
+    fn on_removed(&mut self, _: &mut Window, cx: &mut Context<Self>) {
+        self.shown = false;
+        cx.notify();
+    }
 }
 
 impl Panel for TerminalPanel {
@@ -223,22 +228,16 @@ impl TerminalPanel {
     }
 
     /// The project the terminals run in; another project ends every
-    /// terminal of the last one.
-    pub fn set_project(
-        &mut self,
-        root: Option<PathBuf>,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
+    /// terminal of the last one. None starts until its layout shows the
+    /// panel. True when the project changed.
+    pub fn set_project(&mut self, root: Option<PathBuf>, cx: &mut Context<Self>) -> bool {
         if root == self.root {
-            return;
+            return false;
         }
         self.end_all(cx);
         self.root = root;
-        if self.shown {
-            self.open_if_empty(window, cx);
-        }
         cx.notify();
+        true
     }
 
     pub fn set_moving(&mut self, moving: bool, cx: &mut Context<Self>) {
@@ -257,14 +256,14 @@ impl TerminalPanel {
 
     /// Opening the panel opens a terminal: there is nothing else to do in it.
     /// The keyboard stays where it is; who asked for the panel moves it.
-    fn open_if_empty(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.root.is_some() && self.sessions.is_empty() {
+    pub fn open_if_empty(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.shown && self.root.is_some() && self.sessions.is_empty() {
             self.start_terminal(false, window, cx);
         }
     }
 
     /// The keyboard is in the panel: a tab, a screen or its find bar.
-    fn holds_focus(&self, window: &Window, cx: &App) -> bool {
+    pub fn holds_focus(&self, window: &Window, cx: &App) -> bool {
         self.focus_handle.contains_focused(window, cx) || self.focus_handle.is_focused(window)
     }
 

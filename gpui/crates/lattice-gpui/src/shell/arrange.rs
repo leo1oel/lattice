@@ -137,10 +137,7 @@ impl Shell {
         doc.hidden
             .iter()
             .flat_map(|hidden| hidden.panel.views.iter())
-            .any(|view| {
-                self.panel_of_view(view)
-                    .is_some_and(|panel| panel.focus_handle(cx).contains_focused(window, cx))
-            })
+            .any(|view| self.keyboard_in_view(view, window, cx))
     }
 
     /// A view closed (its X, its menu, ⌘W): a document's panel keeps an
@@ -149,9 +146,7 @@ impl Shell {
     fn view_closed(&mut self, view: &str, window: &mut Window, cx: &mut Context<Self>) {
         // The keyboard in the view that closed goes to the document in
         // front, so the window's commands still reach the shell.
-        let had_focus = self
-            .panel_of_view(view)
-            .is_some_and(|panel| panel.focus_handle(cx).contains_focused(window, cx));
+        let had_focus = self.keyboard_in_view(view, window, cx);
         let record = self.last_document.views.get(view).cloned();
         let key = file_key(record.as_ref());
         if !key.is_empty() {

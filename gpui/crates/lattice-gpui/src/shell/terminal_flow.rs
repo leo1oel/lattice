@@ -32,16 +32,30 @@ impl Shell {
         &self.terminal
     }
 
-    /// Another project ends every shell of the last one.
-    pub(super) fn terminal_follows(
-        &mut self,
-        root: PathBuf,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.terminal.update(cx, |terminal, cx| {
-            terminal.set_project(Some(root), window, cx)
-        });
+    /// Another project ends every shell of the last one. True when the
+    /// project changed.
+    pub(super) fn terminal_follows(&mut self, root: PathBuf, cx: &mut Context<Self>) -> bool {
+        self.terminal
+            .update(cx, |terminal, cx| terminal.set_project(Some(root), cx))
+    }
+
+    /// The project's layout restored: a Terminal it keeps on screen opens a
+    /// terminal in the project, as one it brought on screen already did.
+    pub(super) fn terminal_follows_layout(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.terminal
+            .update(cx, |terminal, cx| terminal.open_if_empty(window, cx));
+    }
+
+    /// The keyboard is in `view`; the Terminal's own keyboard places (its
+    /// tabs, find field and rename field) beside its screen count too.
+    pub(super) fn keyboard_in_view(&self, view: &str, window: &Window, cx: &gpui::App) -> bool {
+        self.panel_of_view(view).is_some_and(|panel| {
+            if panel.view().entity_id() == self.terminal.entity_id() {
+                self.terminal.read(cx).holds_focus(window, cx)
+            } else {
+                panel.focus_handle(cx).contains_focused(window, cx)
+            }
+        })
     }
 
     pub(super) fn on_terminal_event(

@@ -118,6 +118,39 @@ impl Run {
             two && exited && in_document && !in_terminal,
             json!({ "two": two, "exited": exited, "in_document": in_document, "in_terminal": in_terminal }),
         );
+
+        // Hidden with the keyboard in its find field, beside the screen.
+        self.with_window(cx, |shell, window, cx| {
+            shell
+                .read(cx)
+                .terminal()
+                .clone()
+                .update(cx, |panel, cx| panel.open_find(window, cx));
+        })?;
+        self.pause(cx, Duration::from_millis(150)).await;
+        let in_find = self.with_window(cx, |shell, window, cx| {
+            let panel = shell.read(cx).terminal().read(cx);
+            panel.find_state().is_some()
+                && panel.holds_focus(window, cx)
+                && !panel
+                    .active_screen_focus(cx)
+                    .is_some_and(|screen| screen.contains_focused(window, cx))
+        })?;
+        self.with_window(cx, |_, window, cx| {
+            window.dispatch_action(Box::new(ToggleTerminalPanel), cx)
+        })?;
+        let hidden = self
+            .wait_for(cx, Duration::from_secs(2), |shell, cx| {
+                !shell.read(cx).view_on_screen("terminal", cx)
+            })
+            .await;
+        self.pause(cx, Duration::from_millis(300)).await;
+        let (in_document, in_terminal) = self.keyboard(cx, &editor)?;
+        steps.check(
+            "⌃` hiding the Terminal with the keyboard in its find field hands the keyboard to the document",
+            in_find && hidden && in_document && !in_terminal,
+            json!({ "in_find": in_find, "hidden": hidden, "in_document": in_document, "in_terminal": in_terminal }),
+        );
         Ok(())
     }
 
@@ -132,12 +165,7 @@ impl Run {
                     .editor()
                     .focus_handle(cx)
                     .contains_focused(window, cx),
-                shell
-                    .read(cx)
-                    .terminal()
-                    .read(cx)
-                    .focus_handle(cx)
-                    .contains_focused(window, cx),
+                shell.read(cx).terminal().read(cx).holds_focus(window, cx),
             )
         })
     }
