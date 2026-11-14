@@ -8,8 +8,9 @@
 //! Lattice has none), and alacritty adds its window id and takes `HOME`
 //! from the account record. A shell's startup files read those, so on Unix
 //! the shell is started through `env`, which sets Lattice's and removes
-//! Zed's and alacritty's before it runs the shell in its own place; `HOME`
-//! is handed over as Lattice has it.
+//! Zed's and alacritty's before it runs the shell in its own place, and
+//! PowerShell does the same itself before its prompt; `HOME` is handed over
+//! as Lattice has it.
 
 use std::{collections::HashMap, path::Path, process::ExitStatus};
 
@@ -57,10 +58,42 @@ fn command(launch: &lattice_core::terminal::ShellLaunch) -> (String, Vec<String>
 
 #[cfg(not(unix))]
 fn command(launch: &lattice_core::terminal::ShellLaunch) -> (String, Vec<String>) {
-    (
-        launch.program.to_string_lossy().into_owned(),
-        launch.args.clone(),
-    )
+    powershell_command(launch, std::env::var_os("LANG").is_some())
+}
+
+/// PowerShell has no `env` to start it through, so it sets Lattice's
+/// variables and removes Zed's and alacritty's itself, before its prompt.
+#[cfg_attr(unix, allow(dead_code))]
+fn powershell_command(
+    launch: &lattice_core::terminal::ShellLaunch,
+    has_lang: bool,
+) -> (String, Vec<String>) {
+    let quote = |text: &str| format!("'{}'", text.replace('\'', "''"));
+    let mut remove: Vec<&str> = vec!["ZED_TERM", "ALACRITTY_WINDOW_ID", "WINDOWID"];
+    remove.extend(launch.env_remove.iter().map(String::as_str));
+    if !has_lang {
+        remove.push("LANG");
+    }
+    let mut script: Vec<String> = remove
+        .into_iter()
+        .map(|name| {
+            format!(
+                "Remove-Item -LiteralPath {} -ErrorAction SilentlyContinue",
+                quote(&format!("Env:{name}"))
+            )
+        })
+        .collect();
+    script.extend(launch.env.iter().map(|(name, value)| {
+        format!(
+            "Set-Item -LiteralPath {} -Value {}",
+            quote(&format!("Env:{name}")),
+            quote(value)
+        )
+    }));
+    let mut args = launch.args.clone();
+    args.push("-Command".to_string());
+    args.push(script.join("; "));
+    (launch.program.to_string_lossy().into_owned(), args)
 }
 
 /// Start a shell in `root`. `exited` hears how it ended: its status, or
@@ -103,10 +136,42 @@ pub fn start(
     (name, task)
 }
 
-#[cfg(all(test, unix))]
+#[cfg(test)]
 mod tests {
     use super::*;
 
+    #[test]
+    fn powershell_sets_lattices_variables_before_its_prompt() {
+        let launch = lattice_core::terminal::ShellLaunch {
+            program: "powershell.exe".into(),
+            args: vec!["-NoLogo".into(), "-NoExit".into()],
+            env: vec![
+                ("TERM_PROGRAM".into(), "Lattice".into()),
+                ("PATH".into(), r"C:\Program Files\it's;C:\bin".into()),
+            ],
+            env_remove: vec!["LATTICE_PROJECT".into()],
+        };
+        let (program, args) = powershell_command(&launch, true);
+        assert_eq!(program, "powershell.exe");
+        assert_eq!(args[..3], ["-NoLogo", "-NoExit", "-Command"]);
+        assert_eq!(args.len(), 4);
+        let statements: Vec<&str> = args[3].split("; ").collect();
+        assert_eq!(
+            statements,
+            [
+                "Remove-Item -LiteralPath 'Env:ZED_TERM' -ErrorAction SilentlyContinue",
+                "Remove-Item -LiteralPath 'Env:ALACRITTY_WINDOW_ID' -ErrorAction SilentlyContinue",
+                "Remove-Item -LiteralPath 'Env:WINDOWID' -ErrorAction SilentlyContinue",
+                "Remove-Item -LiteralPath 'Env:LATTICE_PROJECT' -ErrorAction SilentlyContinue",
+                "Set-Item -LiteralPath 'Env:TERM_PROGRAM' -Value 'Lattice'",
+                r"Set-Item -LiteralPath 'Env:PATH' -Value 'C:\Program Files\it''s;C:\bin'",
+            ]
+        );
+        let (_, args) = powershell_command(&launch, false);
+        assert!(args[3].contains("Remove-Item -LiteralPath 'Env:LANG'"));
+    }
+
+    #[cfg(unix)]
     #[test]
     fn the_shell_runs_through_env_with_lattices_variables() {
         let launch = lattice_core::terminal::ShellLaunch {

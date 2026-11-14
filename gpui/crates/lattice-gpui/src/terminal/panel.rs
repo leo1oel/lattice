@@ -256,14 +256,25 @@ impl TerminalPanel {
     }
 
     /// Opening the panel opens a terminal: there is nothing else to do in it.
+    /// The keyboard stays where it is; who asked for the panel moves it.
     fn open_if_empty(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.root.is_some() && self.sessions.is_empty() {
-            self.open_terminal(window, cx);
+            self.start_terminal(false, window, cx);
         }
     }
 
-    /// Start a terminal in the project folder and bring its tab forward.
+    /// The keyboard is in the panel: a tab, a screen or its find bar.
+    fn holds_focus(&self, window: &Window, cx: &App) -> bool {
+        self.focus_handle.contains_focused(window, cx) || self.focus_handle.is_focused(window)
+    }
+
+    /// Start a terminal in the project folder and bring its tab forward,
+    /// with the keyboard in it.
     pub fn open_terminal(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.start_terminal(true, window, cx);
+    }
+
+    fn start_terminal(&mut self, focus: bool, window: &mut Window, cx: &mut Context<Self>) {
         let Some(root) = self.root.clone() else {
             return;
         };
@@ -304,7 +315,7 @@ impl TerminalPanel {
             _tasks: vec![started, ended],
             _subscription: None,
         });
-        self.select(key, window, cx);
+        self.bring_forward(key, focus, window, cx);
     }
 
     fn started(
@@ -315,8 +326,7 @@ impl TerminalPanel {
         cx: &mut Context<Self>,
     ) {
         let moving = self.moving;
-        let focused = self.focus_handle(cx).contains_focused(window, cx)
-            || self.focus_handle.is_focused(window);
+        let focused = self.holds_focus(window, cx);
         let Some(session) = self.sessions.iter_mut().find(|session| session.key == key) else {
             return;
         };
@@ -339,7 +349,7 @@ impl TerminalPanel {
                 if session.state == SessionState::Starting {
                     session.state = SessionState::Running;
                 }
-                if Some(key) == self.active && (focused || self.shown) {
+                if Some(key) == self.active && focused {
                     screen.focus_handle(cx).focus(window, cx);
                 }
             }
@@ -364,7 +374,8 @@ impl TerminalPanel {
         };
         let code = exit_code(status);
         if code == Some(0) {
-            self.close(key, window, cx);
+            let focus = self.holds_focus(window, cx);
+            self.remove(key, focus, window, cx);
             if self.sessions.is_empty() {
                 cx.emit(TerminalPanelEvent::LastExited);
             }
@@ -374,7 +385,18 @@ impl TerminalPanel {
         cx.notify();
     }
 
+    /// Bring a tab forward, with the keyboard in it.
     pub fn select(&mut self, key: usize, window: &mut Window, cx: &mut Context<Self>) {
+        self.bring_forward(key, true, window, cx);
+    }
+
+    fn bring_forward(
+        &mut self,
+        key: usize,
+        focus: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         if !self.sessions.iter().any(|session| session.key == key) {
             return;
         }
@@ -382,17 +404,23 @@ impl TerminalPanel {
         if self.find.as_ref().is_some_and(|find| find.key != key) {
             self.close_find(window, cx);
         }
-        if let Some(screen) = self.active_screen() {
-            screen.focus_handle(cx).focus(window, cx);
-        } else {
-            self.focus_handle.focus(window, cx);
+        if focus {
+            if let Some(screen) = self.active_screen() {
+                screen.focus_handle(cx).focus(window, cx);
+            } else {
+                self.focus_handle.focus(window, cx);
+            }
         }
         cx.notify();
     }
 
     /// Close one tab, ending its shell; the tab after it (else before it)
-    /// comes forward.
+    /// comes forward, with the keyboard in it.
     pub fn close(&mut self, key: usize, window: &mut Window, cx: &mut Context<Self>) {
+        self.remove(key, true, window, cx);
+    }
+
+    fn remove(&mut self, key: usize, focus: bool, window: &mut Window, cx: &mut Context<Self>) {
         let Some(index) = self.sessions.iter().position(|session| session.key == key) else {
             return;
         };
@@ -412,8 +440,9 @@ impl TerminalPanel {
                 .map(|session| session.key);
             self.active = None;
             match next {
-                Some(next) => self.select(next, window, cx),
-                None => self.focus_handle.focus(window, cx),
+                Some(next) => self.bring_forward(next, focus, window, cx),
+                None if focus => self.focus_handle.focus(window, cx),
+                None => {}
             }
         }
         cx.notify();
