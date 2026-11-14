@@ -40,6 +40,7 @@ pub(crate) mod menus;
 mod opening;
 mod overleaf_collab;
 pub(crate) mod overleaf_flow;
+mod overleaf_menus;
 mod overleaf_presence;
 mod overleaf_review;
 mod palette;

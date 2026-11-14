@@ -1,9 +1,54 @@
 //! What a finished sync leaves the writer to know or do
 //! (`reportSyncOutcome`): the summary toast, its warnings and conflicts, the
 //! version it records, and, for a failure, the words that fit or a quiet
-//! retry.
+//! retry. Every sync is also one operation in the app's log, quiet no-ops
+//! and cancellations included, so a gap in sync history is explained.
+
+use serde_json::json;
 
 use super::*;
+use crate::app_log::trace::Trace;
+
+/// End a sync's operation in the log: its counts, then the summary, or the
+/// failure under the words its notice uses (`runOverleafSync`'s trace).
+pub(super) fn trace_outcome(
+    trace: &mut Trace,
+    result: &Result<OverleafSyncResult, String>,
+    options: &SyncOptions,
+    cx: &mut App,
+) {
+    match result {
+        Ok(result) => {
+            trace.enrich([
+                ("automatic", json!(options.automatic)),
+                ("pulled", json!(result.pulled.len())),
+                ("pushed", json!(result.pushed.len())),
+                ("merged", json!(result.merged.len())),
+                ("conflicts", json!(result.conflicts.len())),
+                ("deleted_local", json!(result.deleted_local.len())),
+                ("read_only", json!(result.read_only)),
+            ]);
+            trace.finish("success", Some(outcome::summary(result)), cx);
+        }
+        Err(error) => {
+            let refused = outcome::is_project_refusal(error);
+            let transient = outcome::is_transient_transport_failure(error);
+            if options.automatic && (transient || refused) {
+                trace.enrich([("retry_scheduled", json!(true))]);
+            }
+            let title = if outcome::is_signed_out(error) {
+                t!("Overleaf sync paused").to_string()
+            } else if refused {
+                t!("Overleaf refused this project").to_string()
+            } else if transient {
+                t!("Couldn’t reach Overleaf").to_string()
+            } else {
+                t!("{action} failed", action = t!("Sync")).to_string()
+            };
+            trace.fail(title, error, cx);
+        }
+    }
+}
 
 impl OverleafBridge {
     /// A sync finished: say what it left, and settle what it asks of the
@@ -74,8 +119,6 @@ impl OverleafBridge {
                 Notice::new(ToastLevel::Success, outcome::summary(&result)).key(SYNC_KEY),
                 cx,
             );
-        } else {
-            log::info!("{}", outcome::summary(&result));
         }
         // Only a real content change becomes a version.
         if incoming || !result.pushed.is_empty() {

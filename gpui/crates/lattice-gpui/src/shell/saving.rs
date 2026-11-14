@@ -120,5 +120,8 @@ impl Shell {
         if build {
             self.run_build(BuildRequest::requested(), window, cx);
         }
+        // A board, sheet or deck held back from Overleaf goes up with ⌘S.
+        self.overleaf
+            .update(cx, |bridge, cx| bridge.flush_whole_files_soon(cx));
     }
 }
