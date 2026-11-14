@@ -61,6 +61,7 @@ impl ShortcutSheet {
                 Section::Build,
                 Section::View,
                 Section::Layout,
+                Section::Overleaf,
                 Section::Project,
                 Section::Appearance,
             ]

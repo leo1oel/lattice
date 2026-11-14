@@ -135,6 +135,17 @@ lucide! {
     // Getting a manuscript ready to send (src/project/).
     CIRCLE_DASHED = "icons" / "circle-dashed";
     LINK_2 = "icons" / "link-2";
+    // Overleaf (src/overleaf/, canvas-toolbar.tsx).
+    CLOUD_UPLOAD = "icons" / "cloud-upload";
+    CLOUD_OFF = "icons" / "cloud-off";
+    CLOUD_ALERT = "icons" / "cloud-alert";
+    MAIL_OPEN = "icons" / "mail-open";
+    SEARCH_X = "icons" / "search-x";
+    EXTERNAL_LINK = "icons" / "external-link";
+    GIT_MERGE = "icons" / "git-merge";
+    SHIELD_ALERT = "icons" / "shield-alert";
+    ARROW_DOWN_TO_LINE = "icons" / "arrow-down-to-line";
+    ARROW_UP_FROM_LINE = "icons" / "arrow-up-from-line";
     // Names Zed's icon set also has, which the app's asset source finds
     // first: Lucide's own, copied unmodified from GPUI Kit 0.9.1's assets
     // (ISC, `assets/LICENSE-LUCIDE`).

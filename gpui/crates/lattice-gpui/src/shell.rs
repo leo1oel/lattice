@@ -25,6 +25,7 @@ mod history_flow;
 mod imports;
 mod layers;
 pub(crate) mod menus;
+pub(crate) mod overleaf_flow;
 mod palette;
 mod pdfs;
 mod references_flow;
@@ -151,6 +152,9 @@ pub struct Shell {
     )>,
     /// The conflict resolver, while it is open.
     pub(crate) conflict: Option<(Entity<crate::history::ConflictResolver>, Subscription)>,
+    /// The window's link to Overleaf (`crate::overleaf`), and its dialogs.
+    pub(crate) overleaf: Entity<crate::overleaf::OverleafBridge>,
+    pub(crate) overleaf_layers: overleaf_flow::OverleafLayers,
     /// The files Git named as conflicts when last told (`history_flow`).
     pub(crate) conflicts_noticed: std::collections::BTreeSet<String>,
     /// Watches the open project for Git's conflicts.
@@ -371,6 +375,7 @@ impl Shell {
         .detach();
         cx.observe(&notices, |_, _, cx| cx.notify()).detach();
         cx.observe(&confirm, |_, _, cx| cx.notify()).detach();
+        let (overleaf, overleaf_subscriptions) = Self::init_overleaf(window, cx);
         let workspace_events = cx.subscribe_in(&workspace, window, Self::on_workspace_event);
         // While a panel is dragged, webview islands step aside: a page would
         // hide the drop targets under it and swallow the drag.
@@ -419,6 +424,8 @@ impl Shell {
             arxiv: None,
             references: Default::default(),
             conflict: None,
+            overleaf,
+            overleaf_layers: Default::default(),
             conflicts_noticed: Default::default(),
             _project_git: None,
             tex_setup,
@@ -453,7 +460,10 @@ impl Shell {
             save_task: None,
             rename_input: None,
             rename_subscription: None,
-            _subscriptions: vec![workspace_events, workspace_drags, library],
+            _subscriptions: [workspace_events, workspace_drags, library]
+                .into_iter()
+                .chain(overleaf_subscriptions)
+                .collect(),
         };
         // The Main window before a project opens: the default layout, its
         // document slot empty.
@@ -550,44 +560,6 @@ impl Shell {
         self.leave_for(root, None, window, cx);
     }
 
-    /// Open `root` in place of the project shown, once the shown project's
-    /// edits are saved, taking the `closing` project's tab out with it. A
-    /// save that fails or is held keeps the shown project, its editors and
-    /// the save's notice, as closing the window does.
-    fn leave_for(
-        &mut self,
-        root: PathBuf,
-        closing: Option<PathBuf>,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.save_layout(cx);
-        let saved = self.save_before_leaving(cx);
-        self._open_task = Some(cx.spawn_in(window, async move |this, cx| {
-            if let Some(saved) = saved
-                && !saved.await
-            {
-                return;
-            }
-            match crate::project::open(root.clone(), cx).await {
-                Ok(project) => {
-                    this.update_in(cx, |this, window, cx| {
-                        this.set_project(project, window, cx);
-                        if let Some(closing) = closing {
-                            this.projects.retain(|p| p.root != closing);
-                        }
-                    })
-                    .ok();
-                }
-                Err(error) => {
-                    log::error!("could not open {}: {error}", root.display());
-                    cx.update(|_, cx| notices::error(t!("Could not open the project"), error, cx))
-                        .ok();
-                }
-            }
-        }));
-    }
-
     /// Show the opened project: in the tree, in the window's tabs, laid out
     /// as it was left (else with its main document open), and its PDF when
     /// one was already built.
@@ -662,11 +634,19 @@ impl Shell {
         let todos_root = Some(root.clone());
         self.todos
             .update(cx, |todos, cx| todos.set_root(todos_root, cx));
-        self._project_git = Some(cx.subscribe(&project, |this, _, event, cx| {
-            if matches!(event, crate::project::ProjectEvent::GitChanged) {
-                this.notice_conflicts(cx);
+        self._project_git = Some(cx.subscribe(&project, |this, _, event, cx| match event {
+            crate::project::ProjectEvent::GitChanged => this.notice_conflicts(cx),
+            // A change on disk is one to push, in live mode (the bridge tells
+            // a sync's own writes apart).
+            crate::project::ProjectEvent::FilesChanged(paths) => {
+                let paths = paths.clone();
+                this.overleaf
+                    .update(cx, |bridge, cx| bridge.files_changed(paths.as_deref(), cx));
             }
+            _ => {}
         }));
+        self.overleaf
+            .update(cx, |bridge, cx| bridge.set_project(Some(root.clone()), cx));
         self.notice_conflicts(cx);
         self.file_tree
             .update(cx, |tree, cx| tree.set_project(project, cx));

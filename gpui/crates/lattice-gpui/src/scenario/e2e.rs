@@ -25,6 +25,8 @@ mod markdown;
 mod markdown_pages;
 #[cfg(target_os = "macos")]
 mod markdown_scroll;
+#[cfg(target_os = "macos")]
+mod overleaf;
 mod pdf;
 mod saves;
 mod settings;
@@ -313,6 +315,11 @@ impl Run {
         self.submission_tools(cx, &mut steps, &root)
             .await
             .context("submission_tools")?;
+        // The sign-in window is a WKWebView page, as the islands are.
+        #[cfg(target_os = "macos")]
+        self.overleaf(cx, &mut steps, &root)
+            .await
+            .context("overleaf")?;
         self.settings_and_language(cx, &mut steps)
             .await
             .context("settings_and_language")?;

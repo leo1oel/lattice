@@ -144,6 +144,9 @@ pub struct CommandContext {
     /// The recent projects other than this window's, newest first: name and
     /// folder.
     pub recent: Vec<(SharedString, std::path::PathBuf)>,
+    /// The project is linked to Overleaf, and the session may sync it.
+    pub overleaf_linked: bool,
+    pub overleaf_syncing: bool,
 }
 
 /// One row of the table.
@@ -477,13 +480,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn without_a_project_only_project_and_appearance_commands_apply() {
+    fn without_a_project_only_project_overleaf_and_appearance_commands_apply() {
         let commands = commands(&CommandContext::default());
-        assert!(
-            commands
-                .iter()
-                .all(|command| matches!(command.section, Section::Project | Section::Appearance))
-        );
+        assert!(commands.iter().all(|command| matches!(
+            command.section,
+            Section::Project | Section::Overleaf | Section::Appearance
+        )));
+        // Opening a project from Overleaf needs none open; syncing needs a link.
+        assert!(commands.iter().any(|command| command.id == "overleaf-open"));
+        assert!(!commands.iter().any(|command| command.id == "overleaf-sync"));
         assert!(commands.iter().any(|command| command.id == "open-folder"));
     }
 

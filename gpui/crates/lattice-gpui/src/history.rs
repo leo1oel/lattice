@@ -11,17 +11,17 @@ mod body;
 mod compare;
 pub mod conflict_resolver;
 pub mod conflicts;
-mod diff_view;
+pub(crate) mod diff_view;
 mod export_changes;
 mod inline_edits;
-mod messages;
+pub(crate) mod messages;
 pub mod panel;
 mod prose;
 mod row;
 mod time;
 mod timeline;
 mod view;
-mod widgets;
+pub(crate) mod widgets;
 mod words;
 
 /// A handler that opens a file at a line, as the passages and diffs call it.

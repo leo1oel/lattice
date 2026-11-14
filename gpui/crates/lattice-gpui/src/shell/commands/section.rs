@@ -12,6 +12,7 @@ pub enum Section {
     Build,
     View,
     Layout,
+    Overleaf,
     Project,
     Appearance,
 }
@@ -24,6 +25,7 @@ impl Section {
             Section::Build => t!("Build"),
             Section::View => t!("View"),
             Section::Layout => t!("Layout"),
+            Section::Overleaf => t!("Overleaf"),
             Section::Project => t!("Project"),
             Section::Appearance => t!("Appearance"),
         }
@@ -36,6 +38,7 @@ impl Section {
             Section::Build => Icon::HAMMER,
             Section::View => Icon::EYE,
             Section::Layout => Icon::LAYOUT_PANEL_LEFT,
+            Section::Overleaf => Icon::CLOUD,
             Section::Project => Icon::FOLDER_OPEN,
             Section::Appearance => Icon::SUN_MOON,
         }

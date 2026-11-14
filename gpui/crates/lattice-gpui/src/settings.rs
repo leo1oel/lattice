@@ -31,6 +31,7 @@ mod controls;
 mod dialog;
 mod editor_pane;
 mod nav;
+pub(crate) mod overleaf_pane;
 mod search;
 mod theme_art;
 
