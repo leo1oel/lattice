@@ -27,12 +27,14 @@ mod history_flow;
 mod imports;
 mod layers;
 pub(crate) mod menus;
+mod opening;
 pub(crate) mod overleaf_flow;
 mod palette;
 mod pdfs;
 mod references_flow;
 mod render;
 mod saving;
+mod settings_flow;
 mod shortcut_sheet;
 mod skin;
 mod synctex;
@@ -140,6 +142,10 @@ pub struct Shell {
     papers: Entity<StandInPanel>,
     agent: Entity<StandInPanel>,
     pdf: Entity<PdfPanel>,
+    /// The open project's LuaLaTeX live preview (`crate::live_preview`).
+    pub(crate) live_preview: Entity<crate::live_preview::LivePreview>,
+    /// An automatic build waiting for typing to pause.
+    quiet_builds: crate::live_preview::quiet_builds::QuietBuilds,
     build_panel: Entity<BuildPanel>,
     /// The History tool panel (`crate::history`), one for the window.
     pub(crate) history: Entity<crate::history::HistoryPanel>,
@@ -286,6 +292,9 @@ impl Shell {
         let papers = cx.new(|cx| StandInPanel::new(StandIn::Papers, cx));
         let agent = cx.new(|cx| StandInPanel::new(StandIn::Agent, cx));
         let pdf = cx.new(|cx| PdfPanel::new(PdfPanelKind::Live, window, cx));
+        let live_preview = crate::live_preview::new(cx);
+        let preview = Some(live_preview.clone());
+        pdf.update(cx, |pdf, cx| pdf.set_live_preview(preview, window, cx));
         let build_panel = cx.new(BuildPanel::new);
         let card = cx.new(|cx| DiagnosticsCard::new(build_panel.clone(), cx));
         let history = cx.new(|cx| crate::history::HistoryPanel::new(window, cx));
@@ -417,6 +426,8 @@ impl Shell {
             papers,
             agent,
             pdf,
+            live_preview,
+            quiet_builds: Default::default(),
             build_panel,
             history,
             todos,
@@ -551,114 +562,6 @@ impl Shell {
                 root.file_name().unwrap_or_default().to_string_lossy()
             ));
         }
-    }
-
-    /// Open a project folder with lattice-core, as the Tauri app opens it,
-    /// laid out as the project was left (its documents, its workspace). The
-    /// project open before keeps its tab in the window: its layout is
-    /// recorded and its edited files saved first.
-    pub fn open_project(&mut self, root: PathBuf, window: &mut Window, cx: &mut Context<Self>) {
-        self.leave_for(root, None, window, cx);
-    }
-
-    /// Show the opened project: in the tree, in the window's tabs, laid out
-    /// as it was left (else with its main document open), and its PDF when
-    /// one was already built.
-    fn set_project(
-        &mut self,
-        project: Entity<Project>,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let (root, main, pdf) = {
-            let project = project.read(cx);
-            (
-                project.root().to_path_buf(),
-                project
-                    .main_document()
-                    .map(|main| project.root().join(main)),
-                project.main_pdf().filter(|pdf| pdf.is_file()),
-            )
-        };
-        if !self.projects.iter().any(|p| p.root == root) {
-            let open = OpenProject {
-                name: windows::project_display_name(&root),
-                root: root.clone(),
-            };
-            match self
-                .root(cx)
-                .and_then(|current| self.projects.iter().position(|p| p.root == current))
-            {
-                Some(ix) => self.projects.insert(ix + 1, open),
-                None => self.projects.push(open),
-            }
-        }
-        self.drop_conflict_notice(cx);
-        self.references = Default::default();
-        self.sheets = Default::default();
-        self.conflict = None;
-        self.project = Some(project.clone());
-        // The editors of the project open before go with its arrangement.
-        self.editors.clear();
-        self.active_editor = None;
-        self.queued_build = None;
-        self.build_sound = false;
-        self.closed_tabs.clear();
-        self.forget_visits();
-        self.entered_project(&windows::project_display_name(&root), cx);
-        self.tex_setup
-            .update(cx, |center, _| center.set_root(Some(root.clone())));
-        self.refresh_words(cx);
-        self.build_target = None;
-        self.close_root_pdfs(window, cx);
-        self.asset_panels.clear();
-        // The documents' panels go with the project they were of.
-        let gone: Vec<_> = self
-            .views
-            .borrow()
-            .iter()
-            .filter(|(id, _)| !views::SINGLETONS.contains(&id.as_str()))
-            .map(|(_, panel)| panel.clone())
-            .collect();
-        self.views
-            .borrow_mut()
-            .retain(|id, _| views::SINGLETONS.contains(&id.as_str()));
-        self.view_focus
-            .retain(|id, _| views::SINGLETONS.contains(&id.as_str()));
-        for panel in gone {
-            panel.on_removed(window, cx);
-        }
-        self.reset_undo = None;
-        self.live_document = project.read(cx).main_document().map(str::to_string);
-        self.refresh_outline(window, cx);
-        self.history
-            .update(cx, |history, cx| history.set_project(project.clone(), cx));
-        self.tools_project_opened(&project, &root, window, cx);
-        self._project_git = Some(cx.subscribe(&project, |this, _, event, cx| match event {
-            crate::project::ProjectEvent::GitChanged => this.notice_conflicts(cx),
-            // A change on disk is one to push, in live mode (the bridge tells
-            // a sync's own writes apart).
-            crate::project::ProjectEvent::FilesChanged(paths) => {
-                let paths = paths.clone();
-                this.overleaf
-                    .update(cx, |bridge, cx| bridge.files_changed(paths.as_deref(), cx));
-            }
-            _ => {}
-        }));
-        self.overleaf
-            .update(cx, |bridge, cx| bridge.set_project(Some(root.clone()), cx));
-        self.notice_conflicts(cx);
-        self.file_tree
-            .update(cx, |tree, cx| tree.set_project(project, cx));
-        self.set_window_title(window, cx);
-        let restored = self.restore_layout(&root, main.as_deref(), window, cx);
-        if let Some(main) = main.filter(|_| !restored) {
-            self.open_path(main, None, window, cx);
-        }
-        self.label_pdfs(cx);
-        self.pdf
-            .update(cx, |panel, cx| panel.show_project(root, pdf, window, cx));
-        cx.notify();
     }
 
     /// Open a source file in an editor tab (or switch to its tab), a PDF in

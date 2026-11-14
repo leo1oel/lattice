@@ -100,6 +100,8 @@ pub struct SettingsDialog {
     pub(super) fields: Fields,
     shell: WeakEntity<Shell>,
     pub(super) project: Option<Entity<Project>>,
+    /// The window's live preview, for its rows in Editor & builds.
+    live_preview: Option<Entity<crate::live_preview::LivePreview>>,
     focus: FocusHandle,
     scroll: ScrollHandle,
     pub(super) query: String,
@@ -143,6 +145,7 @@ impl SettingsDialog {
     pub fn new(
         shell: WeakEntity<Shell>,
         project: Option<Entity<Project>>,
+        live_preview: Option<Entity<crate::live_preview::LivePreview>>,
         tab: Option<SettingsTab>,
         window: &mut Window,
         cx: &mut Context<Self>,
@@ -304,6 +307,11 @@ impl SettingsDialog {
         if let Some(project) = &project {
             subscriptions.push(cx.observe(project, |_, _, cx| cx.notify()));
         }
+        // The live preview's rows follow its download, its state and a
+        // removal.
+        if let Some(live) = &live_preview {
+            subscriptions.push(cx.observe(live, |_, _, cx| cx.notify()));
+        }
 
         let tab = drawn(tab.unwrap_or(settings.settings_tab));
         Self {
@@ -325,6 +333,7 @@ impl SettingsDialog {
             },
             shell,
             project,
+            live_preview,
             focus: cx.focus_handle(),
             scroll: ScrollHandle::new(),
             query: String::new(),
@@ -565,16 +574,25 @@ impl SettingsDialog {
         }
     }
 
+    /// The window's live preview, for its rows in Editor & builds.
+    pub(super) fn live_preview(&self) -> Option<Entity<crate::live_preview::LivePreview>> {
+        self.live_preview.clone()
+    }
+
     fn query(&self) -> String {
         self.query.clone()
     }
 
     pub(super) fn results(&self, cx: &App) -> Vec<Entry> {
         let known = None;
-        search::search(
-            &search::entries(self.project.is_some(), known),
-            &self.fields.search.read(cx).value(),
-        )
+        let mut entries = search::entries(self.project.is_some(), known);
+        if self
+            .live_preview()
+            .is_some_and(|live| live.read(cx).available())
+        {
+            entries = search::with_live_preview(entries);
+        }
+        search::search(&entries, &self.fields.search.read(cx).value())
     }
 
     fn dialog_size(window: &Window) -> (Pixels, Pixels) {

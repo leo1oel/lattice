@@ -349,8 +349,115 @@ fn builds(
             width,
             cx,
         ));
+        if let Some(live) = dialog.live_preview() {
+            rows.extend(live_preview_rows(dialog, &live, width, cx));
+        }
     }
     controls::group(Some(t!("Builds").into()), rows, cx)
+}
+
+/// The LuaLaTeX live preview switch, for a LuaLaTeX project only, and
+/// removing the rtex it downloaded (`live-preview-settings.tsx`). It is on
+/// by default, so this is also where a Mac that cannot run it, or a download
+/// that failed, is explained: the PDF panel shows neither.
+fn live_preview_rows(
+    dialog: &SettingsDialog,
+    live: &Entity<crate::live_preview::LivePreview>,
+    width: PageWidth,
+    cx: &mut Context<SettingsDialog>,
+) -> Vec<AnyElement> {
+    use crate::live_preview::State;
+    let preview = live.read(cx);
+    let install = preview.install_status();
+    let unavailable = match install {
+        Some(install) if !install.supported() => Some(t!("Live preview needs a Mac").to_string()),
+        Some(install) if !install.lualatex() => Some(
+            t!("Live preview needs LuaLaTeX, and Lattice could not run it. Install TeX Live or BasicTeX, then open the project again")
+                .to_string(),
+        ),
+        _ => None,
+    };
+    let state = preview.state().clone();
+    let message = match &state {
+        State::Failed(message) | State::DownloadFailed(message) => message.clone(),
+        _ => String::new(),
+    };
+    // Only state: why it cannot run, its download, a failure. The first
+    // download's size is told where it starts (the PDF's pill).
+    let description = unavailable.clone().or_else(|| match &state {
+        State::Downloading(progress) => Some(
+            t!(
+                "Downloading rtex… {percent}%",
+                percent = (progress * 100.).round() as u32
+            )
+            .to_string(),
+        ),
+        State::Failed(_) => {
+            Some(t!("Could not start: {message}", message = message.clone()).to_string())
+        }
+        _ => None,
+    });
+    let mut rows = Vec::new();
+    if preview.available() {
+        let switch_live = live.clone();
+        let mut switch_row = Row::new("live-preview", t!("Live preview"))
+            .control(controls::switch(
+                "live-preview",
+                preview.enabled() && unavailable.is_none(),
+                unavailable.is_some(),
+                move |on, _, cx| switch_live.update(cx, |live, cx| live.set_enabled(on, cx)),
+            ))
+            .wrap(Wrap::Never);
+        if let Some(description) = description {
+            switch_row = switch_row.description(description, cx);
+        }
+        rows.push(row(dialog, switch_row, width, cx));
+        if let State::DownloadFailed(_) = &state {
+            let retry_live = live.clone();
+            let retry = Button::new("live-preview-retry", t!("Retry"))
+                .compact()
+                .on_click(move |_, _, cx| retry_live.update(cx, |live, cx| live.retry(cx)));
+            rows.push(row(
+                dialog,
+                Row::new("live-preview-engine", t!("Live preview engine"))
+                    .description(message.clone(), cx)
+                    .control(retry),
+                width,
+                cx,
+            ));
+        }
+    }
+    if let Some(install) = install.filter(|install| install.installed()) {
+        let removing = preview.removing();
+        let description = preview.remove_error().map(str::to_string).unwrap_or_else(|| {
+            t!(
+                "rtex {version} is downloaded. Removing it turns live preview off in every project.",
+                version = install.version()
+            )
+            .to_string()
+        });
+        let remove_live = live.clone();
+        let remove = Button::new(
+            "live-preview-remove",
+            if removing {
+                t!("Removing…")
+            } else {
+                t!("Remove")
+            },
+        )
+        .compact()
+        .disabled(removing)
+        .on_click(move |_, _, cx| remove_live.update(cx, |live, cx| live.remove(cx)));
+        rows.push(row(
+            dialog,
+            Row::new("live-preview-engine", t!("Live preview engine"))
+                .description(description, cx)
+                .control(remove),
+            width,
+            cx,
+        ));
+    }
+    rows
 }
 
 fn updates(

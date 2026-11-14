@@ -429,6 +429,38 @@ pub struct Settings {
     pub overleaf_sync_mode: OverleafSyncMode,
     /// Settings › Overleaf › When you delete a file here.
     pub overleaf_remote_delete: OverleafRemoteDelete,
+    /// The writer's choice of the LuaLaTeX live preview, by project folder
+    /// (`lattice.live-preview.v1`); never trimmed, so a project turned off
+    /// does not come back on once it ages out.
+    pub live_preview: std::collections::BTreeMap<String, bool>,
+    /// rtex was removed: off in every project, and no longer on by default
+    /// (`lattice.live-preview-removed.v1`).
+    pub live_preview_removed: bool,
+}
+
+impl Settings {
+    /// Whether the rtex live preview runs in the LuaLaTeX project at `root`:
+    /// the writer's choice for it, else on, unless they have removed rtex
+    /// (`loadLivePreviewEnabled`).
+    pub fn live_preview_enabled(&self, root: &str) -> bool {
+        self.live_preview
+            .get(root)
+            .copied()
+            .unwrap_or(!self.live_preview_removed)
+    }
+}
+
+/// The per-project live preview choices of a stored map, booleans only.
+pub fn live_preview_choices(value: Option<&Value>) -> std::collections::BTreeMap<String, bool> {
+    value
+        .and_then(Value::as_object)
+        .map(|choices| {
+            choices
+                .iter()
+                .filter_map(|(root, on)| on.as_bool().map(|on| (root.clone(), on)))
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 /// The version of the file's layout; a file from a newer one is set aside.
@@ -456,6 +488,8 @@ impl Settings {
                 field("overleafRemoteDelete"),
                 defaults.overleaf_remote_delete,
             ),
+            live_preview: live_preview_choices(field("livePreview")),
+            live_preview_removed: field("livePreviewRemoved") == Some(&Value::Bool(true)),
         }
     }
 
@@ -556,11 +590,26 @@ mod tests {
         settings.hidden_build_files = true;
         settings.author_name = "Ada".into();
         settings.settings_tab = SettingsTab::Editor;
+        settings.live_preview.insert("/papers/thesis".into(), false);
+        settings.live_preview_removed = true;
         let value = settings.to_value();
+        assert_eq!(value["livePreview"]["/papers/thesis"], json!(false));
         assert_eq!(value["version"], json!(1));
         assert_eq!(value["appearance"]["accent"], json!("teal"));
         assert_eq!(value["hiddenBuildFiles"], json!(true));
         assert_eq!(value["appearance"]["interfaceLanguage"], json!("system"));
         assert_eq!(Settings::from_value(&value), settings);
+    }
+
+    #[test]
+    fn live_preview_is_on_unless_turned_off_or_removed() {
+        let mut settings = Settings::default();
+        assert!(settings.live_preview_enabled("/a"));
+        settings.live_preview.insert("/a".into(), false);
+        assert!(!settings.live_preview_enabled("/a"));
+        settings.live_preview_removed = true;
+        assert!(!settings.live_preview_enabled("/b"));
+        settings.live_preview.insert("/b".into(), true);
+        assert!(settings.live_preview_enabled("/b"));
     }
 }

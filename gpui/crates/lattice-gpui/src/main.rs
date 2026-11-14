@@ -22,6 +22,7 @@ mod gallery;
 mod history;
 mod html_preview;
 mod interface_zoom;
+mod live_preview;
 mod moved_paths;
 #[cfg(target_os = "macos")]
 mod native;
