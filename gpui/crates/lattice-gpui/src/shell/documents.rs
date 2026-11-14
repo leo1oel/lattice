@@ -223,10 +223,10 @@ impl Shell {
 
     /// The palette and the shortcut sheet make way for a search surface,
     /// and one search surface for another.
-    /// Make room for a surface over the documents; false while Check
-    /// references writes its fixes, which hold the window until they land.
+    /// Make room for a surface over the documents; false while a sheet
+    /// writes to the project, which holds the window until the write lands.
     pub(super) fn dismiss_overlays_for_documents(&mut self, cx: &mut Context<Self>) -> bool {
-        if self.audit_applying(cx) {
+        if self.overlay_writing(cx) {
             return false;
         }
         self.documents.overlays_opened += 1;
@@ -236,12 +236,22 @@ impl Shell {
         true
     }
 
-    /// Check references is writing its fixes.
-    pub(super) fn audit_applying(&self, cx: &gpui::App) -> bool {
-        self.documents
+    /// A sheet is writing to the project: Check references its fixes,
+    /// Linked library its changes, Add reference its entry.
+    pub(super) fn overlay_writing(&self, cx: &gpui::App) -> bool {
+        let documents = &self.documents;
+        documents
             .audit
             .as_ref()
             .is_some_and(|audit| audit.read(cx).is_applying())
+            || documents
+                .linked
+                .as_ref()
+                .is_some_and(|linked| linked.read(cx).is_busy())
+            || documents
+                .add_reference
+                .as_ref()
+                .is_some_and(|add| add.read(cx).is_saving())
     }
 
     pub(super) fn take_document_overlays(&mut self, cx: &mut Context<Self>) {
@@ -256,9 +266,7 @@ impl Shell {
             self.papers.update(cx, |papers, cx| papers.clear_batch(cx));
         }
         self.documents.literature = None;
-        if !self.audit_applying(cx) {
-            self.documents.audit = None;
-        }
+        self.documents.audit = None;
         self.documents.add_reference = None;
         self.documents.linked = None;
     }
@@ -266,7 +274,7 @@ impl Shell {
     /// Close whichever search surface is open, and give the keyboard back to
     /// the document in front.
     pub(crate) fn close_document_overlays(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.audit_applying(cx) {
+        if self.overlay_writing(cx) {
             return;
         }
         self.take_document_overlays(cx);

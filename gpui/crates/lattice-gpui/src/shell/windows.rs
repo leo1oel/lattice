@@ -79,13 +79,13 @@ pub(crate) fn shell_showing(
 }
 
 /// Whether Check references is writing its fixes in any window.
-pub(crate) fn any_audit_applying(cx: &App) -> bool {
+pub(crate) fn any_overlay_writing(cx: &App) -> bool {
     cx.try_global::<Shells>().is_some_and(|shells| {
         shells
             .0
             .values()
             .filter_map(|shell| shell.upgrade())
-            .any(|shell| shell.read(cx).audit_applying(cx))
+            .any(|shell| shell.read(cx).overlay_writing(cx))
     })
 }
 
@@ -142,7 +142,7 @@ impl Shell {
     /// next project, or closes when it held no other. A save that fails or
     /// is held keeps the project here, with the save's notice.
     pub(crate) fn open_in_new_window(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.audit_applying(cx) {
+        if self.overlay_writing(cx) {
             return;
         }
         let Some(root) = self.root(cx) else {
@@ -157,7 +157,7 @@ impl Shell {
                 return;
             }
             this.update_in(cx, |this, window, cx| {
-                if this.audit_applying(cx) {
+                if this.overlay_writing(cx) {
                     return;
                 }
                 let from = window.bounds();
@@ -239,7 +239,7 @@ impl Shell {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if self.audit_applying(cx) {
+        if self.overlay_writing(cx) {
             return;
         }
         self.save_layout(cx);
@@ -253,7 +253,7 @@ impl Shell {
             match crate::project::open(root.clone(), cx).await {
                 Ok(project) => {
                     this.update_in(cx, |this, window, cx| {
-                        if this.audit_applying(cx) {
+                        if this.overlay_writing(cx) {
                             return;
                         }
                         this.set_project(project, window, cx);
@@ -283,7 +283,7 @@ impl Shell {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if self.audit_applying(cx) {
+        if self.overlay_writing(cx) {
             return;
         }
         let Some(index) = self.projects.iter().position(|p| p.root == *root) else {
@@ -314,7 +314,7 @@ impl Shell {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if self.audit_applying(cx) {
+        if self.overlay_writing(cx) {
             return;
         }
         if self.root(cx).as_ref() == Some(&root) {

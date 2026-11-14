@@ -460,6 +460,7 @@ impl Shell {
         cx: &mut Context<Self>,
     ) {
         if self.documents.add_reference.as_ref() == Some(view) {
+            view.update(cx, |view, _| view.saved());
             self.close_document_overlays(window, cx);
         }
     }

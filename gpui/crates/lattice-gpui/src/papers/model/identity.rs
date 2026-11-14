@@ -128,34 +128,39 @@ pub fn explicit_arxiv_id(input: &str) -> Option<String> {
 }
 
 /// A web address's parts, for what Papers shows or opens: only http(s),
-/// never one carrying credentials.
+/// never one carrying credentials. Its scheme and host are lower-case, as
+/// `new URL()` writes them.
 struct WebUrl<'a> {
-    href: &'a str,
-    host: &'a str,
+    href: String,
+    host: String,
     path: &'a str,
 }
 
 fn web_url(value: Option<&str>) -> Option<WebUrl<'_>> {
     let href = value?.trim();
-    let rest = href
-        .strip_prefix("https://")
-        .or_else(|| href.strip_prefix("http://"))
-        .or_else(|| {
-            let lower = href.get(..8)?.to_ascii_lowercase();
-            (lower == "https://")
-                .then(|| &href[8..])
-                .or_else(|| (lower.starts_with("http://")).then(|| &href[7..]))
-        })?;
+    let lower = href.get(..8).unwrap_or(href).to_ascii_lowercase();
+    let (scheme, rest) = if lower == "https://" {
+        ("https", &href[8..])
+    } else if lower.starts_with("http://") {
+        ("http", &href[7..])
+    } else {
+        return None;
+    };
     let end = rest.find(['/', '?', '#']).unwrap_or(rest.len());
     let authority = &rest[..end];
     if authority.is_empty() || authority.contains('@') || href.contains(char::is_whitespace) {
         return None;
     }
-    let host = authority.split(':').next().unwrap_or(authority);
+    let authority = authority.to_lowercase();
+    let host = authority
+        .split(':')
+        .next()
+        .unwrap_or(&authority)
+        .to_string();
     let after = &rest[end..];
     let path_end = after.find(['?', '#']).unwrap_or(after.len());
     Some(WebUrl {
-        href,
+        href: format!("{scheme}://{authority}{after}"),
         host,
         path: &after[..path_end],
     })
@@ -194,7 +199,7 @@ pub fn link_url(paper: &PaperSummary) -> Option<String> {
     if ARXIV_ID.is_match(id) {
         return Some(format!("https://arxiv.org/abs/{id}"));
     }
-    web_url(paper.url.as_deref()).map(|url| url.href.to_string())
+    web_url(paper.url.as_deref()).map(|url| url.href)
 }
 
 /// The paper's own PDF on the web (`paperPdfUrl`): arXiv's, alphaXiv's, or
@@ -204,10 +209,7 @@ pub fn pdf_url(paper: &PaperSummary) -> Option<String> {
         return Some(format!("https://arxiv.org/pdf/{}", paper.arxiv_id));
     }
     let url = web_url(paper.url.as_deref())?;
-    if url
-        .host
-        .trim_start_matches("www.")
-        .eq_ignore_ascii_case("alphaxiv.org")
+    if url.host.strip_prefix("www.").unwrap_or(&url.host) == "alphaxiv.org"
         && let Some(found) = ALPHAXIV_PATH.captures(url.path)
     {
         let id = ALPHAXIV_SUFFIX.replace(&found[1], "");
@@ -216,7 +218,7 @@ pub fn pdf_url(paper: &PaperSummary) -> Option<String> {
     url.path
         .to_ascii_lowercase()
         .ends_with(".pdf")
-        .then(|| url.href.to_string())
+        .then_some(url.href)
 }
 
 /// Papers has no PDF of the paper at all, neither one its bundle keeps nor
@@ -233,8 +235,7 @@ pub fn can_download(paper: &PaperSummary) -> bool {
     let Some(url) = web_url(paper.url.as_deref()) else {
         return false;
     };
-    let host = url.host.to_ascii_lowercase();
-    if host == "doi.org" || host == "dx.doi.org" {
+    if url.host == "doi.org" || url.host == "dx.doi.org" {
         return false;
     }
     url.path.to_ascii_lowercase().ends_with(".pdf") || paper.doi.is_none()
@@ -263,11 +264,7 @@ pub fn source_label(paper: &PaperSummary) -> Option<String> {
         return Some(format!("DOI {doi}"));
     }
     let url = web_url(paper.url.as_deref())?;
-    let host = url
-        .host
-        .strip_prefix("www.")
-        .or_else(|| url.host.strip_prefix("WWW."))
-        .unwrap_or(url.host);
+    let host = url.host.strip_prefix("www.").unwrap_or(&url.host);
     (!host.is_empty()).then(|| host.to_string())
 }
 
@@ -360,6 +357,25 @@ pub fn health_title(health: Option<&CitationHealth>) -> Option<String> {
 mod tests {
     use super::*;
     use crate::papers::model::test_support::{paper, with};
+
+    /// `new URL("HTTPS://Example.ORG/Paper.pdf")` reads the host as
+    /// `example.org` and its href as `https://example.org/Paper.pdf`; the
+    /// path keeps its case.
+    #[test]
+    fn a_web_address_reads_its_host_in_lower_case() {
+        let p = with(paper("x"), |p| {
+            p.url = Some("HTTPS://WWW.Example.ORG/Paper.pdf".into())
+        });
+        assert_eq!(source_label(&p).as_deref(), Some("example.org"));
+        assert_eq!(
+            pdf_url(&p).as_deref(),
+            Some("https://www.example.org/Paper.pdf")
+        );
+        assert_eq!(
+            link_url(&p).as_deref(),
+            Some("https://www.example.org/Paper.pdf")
+        );
+    }
 
     #[test]
     fn a_doi_link_escapes_what_a_url_would_read_otherwise() {

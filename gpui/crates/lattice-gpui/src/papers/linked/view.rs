@@ -264,6 +264,7 @@ impl LinkedLibrary {
                         t!("Unlinked. {target} stays as it is.", target = target),
                         cx,
                     );
+                    this.busy = false;
                     cx.emit(LinkedLibraryEvent::Dismiss);
                 }
                 Err(error) => {
@@ -376,6 +377,7 @@ impl LinkedLibrary {
                     if changed {
                         cx.emit(LinkedLibraryEvent::Applied);
                     }
+                    this.busy = false;
                     cx.emit(LinkedLibraryEvent::Dismiss);
                 }
                 Err(error) => {
@@ -388,6 +390,11 @@ impl LinkedLibrary {
         })
         .detach();
         cx.notify();
+    }
+
+    /// A write is under way.
+    pub fn is_busy(&self) -> bool {
+        self.busy
     }
 
     /// Closing waits for a write under way to land.

@@ -447,6 +447,16 @@ impl AddReference {
         }
     }
 
+    /// The window is saving the entry.
+    pub fn is_saving(&self) -> bool {
+        self.saving
+    }
+
+    /// The window saved the entry.
+    pub fn saved(&mut self) {
+        self.saving = false;
+    }
+
     /// The window could not save the entry: the sheet says why and stays.
     pub fn save_failed(&mut self, error: String, cx: &mut Context<Self>) {
         self.saving = false;

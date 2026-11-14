@@ -16,7 +16,7 @@ use super::{commands::*, windows};
 
 pub fn install(cx: &mut App) {
     cx.on_action(|_: &Quit, cx| {
-        if !windows::any_audit_applying(cx) {
+        if !windows::any_overlay_writing(cx) {
             cx.quit();
         }
     });
