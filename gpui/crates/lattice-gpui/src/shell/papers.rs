@@ -372,7 +372,8 @@ impl Shell {
                 .update(cx, |shell, cx| shell.save_editors(cx))
                 .unwrap_or_else(|_| gpui::Task::ready(false))
         });
-        let view = cx.new(|cx| Audit::new(root, prepare, cx));
+        let saved = self.save_editors(cx);
+        let view = cx.new(|cx| Audit::new(root, prepare, saved, cx));
         cx.subscribe_in(&view, window, |this, _, event, window, cx| match event {
             AuditEvent::Dismiss => this.close_document_overlays(window, cx),
             AuditEvent::OpenSource { path, line } => {

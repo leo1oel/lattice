@@ -169,7 +169,7 @@ impl Run {
         }
 
         self.add_papers_sheet(cx, steps, &papers).await?;
-        self.check_references(cx, steps, &papers).await?;
+        self.check_references(cx, steps, &papers, root).await?;
 
         std::fs::write(&bibliography, original)?;
         std::fs::remove_dir_all(root.join(BUNDLE))?;
@@ -306,14 +306,27 @@ impl Run {
         Ok(())
     }
 
-    /// Check references, offline: opening reads the references and leaves
-    /// each unchecked until the writer asks (the checks reach the network).
+    /// Check references, offline: opening saves what the editors hold, then
+    /// reads the references, an entry typed and not yet saved among them,
+    /// and leaves each unchecked until the writer asks (the checks reach
+    /// the network).
     async fn check_references(
         &self,
         cx: &mut AsyncApp,
         steps: &mut Steps,
         papers: &gpui::Entity<crate::papers::PapersPanel>,
+        root: &Path,
     ) -> Result<()> {
+        let editor = self.open(cx, &root.join("references.bib"), None)?;
+        self.pause(cx, Duration::from_millis(200)).await;
+        cx.update(|cx| {
+            let buffer = editor.read(cx).lattice_editor().read(cx).buffer().clone();
+            buffer.update(cx, |buffer, cx| {
+                let end = buffer.len();
+                let typed = "\n@misc{unsaved2024,\n  title = {Typed, Not Saved}\n}\n";
+                buffer.edit([(end..end, typed)], None, cx);
+            })
+        });
         cx.update(|cx| {
             papers.update(cx, |_, cx| {
                 cx.emit(crate::papers::PapersEvent::CheckReferences)
@@ -343,10 +356,11 @@ impl Run {
         });
         self.papers_shot(cx, "papers-5-check-references").await;
         steps.check(
-            "Check references reads every reference and leaves each unchecked until asked",
-            read && rows
-                .iter()
-                .any(|row| row["key"] == "knuth1984" && row["bucket"] == "Unchecked"),
+            "Check references saves the editors, reads every reference and leaves each unchecked until asked",
+            read && ["knuth1984", "unsaved2024"].iter().all(|key| {
+                rows.iter()
+                    .any(|row| row["key"] == *key && row["bucket"] == "Unchecked")
+            }),
             json!({ "rows": rows }),
         );
         self.with_window(cx, |shell, window, cx| {

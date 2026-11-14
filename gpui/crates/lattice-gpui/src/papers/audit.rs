@@ -192,7 +192,9 @@ pub struct Audit {
 impl EventEmitter<AuditEvent> for Audit {}
 
 impl Audit {
-    pub fn new(root: PathBuf, prepare: Prepare, cx: &mut Context<Self>) -> Self {
+    /// `saved`: the save of the editors made as the sheet opened, which the
+    /// first scan waits for; later scans save through `prepare`.
+    pub fn new(root: PathBuf, prepare: Prepare, saved: Task<bool>, cx: &mut Context<Self>) -> Self {
         let store = crate::shell::workspaces::state_dir(crate::settings::scripted(cx))
             .map(|dir| dir.join("audits"));
         let mut this = Self {
@@ -219,15 +221,14 @@ impl Audit {
             focus: cx.focus_handle(),
             _task: None,
         };
-        this.load(cx);
+        this.load(saved, cx);
         this
     }
 
     /// Read the references and the saved report; checks stay the writer's
     /// to ask for.
-    fn load(&mut self, cx: &mut Context<Self>) {
+    fn load(&mut self, prepared: Task<bool>, cx: &mut Context<Self>) {
         let (root, store) = (self.root.clone(), self.store.clone());
-        let prepared = (self.prepare.clone())(cx);
         let read = async move {
             let scan = citation_audit::scan(&root)?;
             let saved = match &store {
