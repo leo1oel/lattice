@@ -34,10 +34,11 @@ pub(crate) struct ContextState {
     /// That PDF's selection as last seen, and its reading.
     pdf_mark: Option<(usize, String)>,
     _pdf_read: Option<Task<()>>,
-    /// What was last pushed from: the editor in front, the compiled PDF's
-    /// page and count. A document's own report pushes as it comes
-    /// (`surface_context_changed`).
+    /// What was last pushed from: the editor and the document in front,
+    /// the compiled PDF's page and count. A document's own report pushes as
+    /// it comes (`surface_context_changed`).
     front: Option<EntityId>,
+    document: Option<String>,
     pdf_place: (usize, usize),
 }
 
@@ -56,7 +57,7 @@ impl Shell {
     }
 
     /// Read the window on a frame: when the writer moved between the editor
-    /// and a PDF, or selected in a PDF, or the editor in
+    /// and a PDF, or selected in a PDF, or the editor or document in
     /// front or the compiled PDF's page changed, the Agent hears of it.
     pub(crate) fn agent_follow_front(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let mut changed = false;
@@ -92,10 +93,11 @@ impl Shell {
         }
         changed |= self.watch_pdf_selection(cx);
         let front = editor.as_ref().map(Entity::entity_id);
+        let document = self.active_document(cx);
         let live = self.pdf().read(cx).live_view().read(cx);
         let pdf_place = (live.current_page(), live.page_count());
         let state = self.context();
-        if front != state.front || pdf_place != state.pdf_place {
+        if front != state.front || document != state.document || pdf_place != state.pdf_place {
             changed = true;
         }
         if changed {
@@ -171,8 +173,9 @@ impl Shell {
         let structured = editor
             .as_ref()
             .and_then(|editor| editor.read(cx).structured().cloned());
-        let mut active_file = self
-            .active_document(cx)
+        let document = self.active_document(cx);
+        let mut active_file = document
+            .clone()
             .filter(|key| !super::papers::is_reader_key(key))
             .unwrap_or_default();
         let mut editor_position = None;
@@ -210,6 +213,7 @@ impl Shell {
         let pdf_place = (live.current_page(), live.page_count());
         let state = self.context();
         state.front = front;
+        state.document = document;
         state.pdf_place = pdf_place;
         state.selection.observe(Source::Editor, selected);
         let workspace = host_context::workspace(Inputs {

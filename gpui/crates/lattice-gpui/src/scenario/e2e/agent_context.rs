@@ -113,6 +113,25 @@ impl Run {
             opened.is_some() && in_front,
             json!({ "workspace": workspace(cx) }),
         );
+        let report = "(() => { window.latticeHost?.post('slides:context', \
+             { slideId: 'agent-deck', pageIndex: 0, pageNumber: 1, totalPages: 1, slideTitle: '', \
+               view: 'slides', pagePath: 'slides/agent-deck/index.tsx', pendingComments: [], \
+               pendingEdits: false }); \
+             return true; })()";
+        if let Some((_, island)) = &opened {
+            self.evaluate(cx, island, report).await;
+        }
+        let presented = self
+            .wait_for(cx, Duration::from_secs(5), |_, cx| {
+                surface.read(cx).workspace()["presentation"]["pagePath"]
+                    == "slides/agent-deck/index.tsx"
+            })
+            .await;
+        steps.check(
+            "the deck's reported slide is the Agent's presentation context while it is in front",
+            presented,
+            json!({ "workspace": workspace(cx) }),
+        );
         let listen = "(() => { if (!window.latticeHost) return false; \
              if (!window.__e2eDeck) { window.__e2eDeck = []; \
                window.latticeHost.on('agent:deck-presence', (p) => window.__e2eDeck.push(p)); } \

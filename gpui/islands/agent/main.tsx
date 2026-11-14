@@ -95,6 +95,7 @@ import {
 import { openSlideComposerPrompt } from "../../../src/agent/agent-composer-prompt";
 import { useAgentSpreadsheetResolver } from "../../../src/app/use-agent-spreadsheet-resolver";
 import type { OpenSlideAgentRequest } from "../../../src/editor/presentation/open-slide-agent-request";
+import type { OpenSlideContext } from "../../../src/editor/presentation/open-slide-bridge";
 import { parseSynaraNotificationMessage } from "../../../src/agent/synara-notifications";
 import { agentDeckPresence, parseAgentTurnActivity, subscribeAgentDeckPresence } from "../../../src/agent/agent-turn-activity";
 import { noteHostFileWrites } from "../../../src/agent/agent-host-writes";
@@ -134,6 +135,8 @@ type Workspace = {
   selectionLines: AgentSelectionLines | null;
   selectionPdfDocument: AgentPdfDocumentPlace | null;
   activeSurface: AgentHostSurface;
+  /** Open Slide's deck and slide, while a deck is the active file. */
+  presentation: OpenSlideContext | null;
 };
 
 const EMPTY_WORKSPACE: Workspace = {
@@ -148,6 +151,7 @@ const EMPTY_WORKSPACE: Workspace = {
   selectionLines: null,
   selectionPdfDocument: null,
   activeSurface: "editor",
+  presentation: null,
 };
 
 /** How long after its commit the surface is taken to have drawn (see the slides island). */
@@ -298,7 +302,7 @@ function Agent({ opened, workspace, visible, appearance, git, overleaf, deckRequ
     paperView: "blog",
     pdfPage: workspace.pdfPage,
     pdfPageCount: workspace.pdfPageCount,
-    presentation: null,
+    presentation: workspace.presentation,
     selection: workspace.selection,
     selectionLength: workspace.selectionLength,
     selectionSource: workspace.selectionSource,
