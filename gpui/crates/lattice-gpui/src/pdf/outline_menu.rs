@@ -44,29 +44,37 @@ impl PdfView {
         self.outline.is_some()
     }
 
-    pub(super) fn outline_trigger(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
+    pub(super) fn outline_trigger(
+        &self,
+        strip: &lattice_ui::fluid_hover::FluidHover,
+        cx: &mut Context<Self>,
+    ) -> Option<AnyElement> {
         let outline = self.outline.clone()?;
         let view = cx.entity();
         let trigger = IconButton::new("pdf-outline", Icon::LIST_TREE)
             .frame(px(24.), px(28.))
-            .tooltip(t!("Show outline"));
+            .tooltip(t!("Show outline"))
+            .fluid();
         Some(
-            BasePopover::new("pdf-outline-popover")
-                .anchor(gpui::Anchor::TopLeft)
-                .offset(px(7.))
-                .trigger(trigger)
-                .content(move |_, window, cx| {
-                    let popover = cx.entity();
-                    let close = move |window: &mut Window, cx: &mut App| {
-                        popover.update(cx, |state, cx| state.dismiss(window, cx));
-                    };
-                    pop_in(
-                        "pdf-outline-card",
-                        PopFrom::Above,
-                        outline_card(&outline, view.clone(), close, window, cx),
-                    )
-                })
-                .into_any_element(),
+            super::toolbar_hover::Slot::Outline.glide(
+                strip,
+                true,
+                BasePopover::new("pdf-outline-popover")
+                    .anchor(gpui::Anchor::TopLeft)
+                    .offset(px(7.))
+                    .trigger(trigger)
+                    .content(move |_, window, cx| {
+                        let popover = cx.entity();
+                        let close = move |window: &mut Window, cx: &mut App| {
+                            popover.update(cx, |state, cx| state.dismiss(window, cx));
+                        };
+                        pop_in(
+                            "pdf-outline-card",
+                            PopFrom::Above,
+                            outline_card(&outline, view.clone(), close, window, cx),
+                        )
+                    }),
+            ),
         )
     }
 }

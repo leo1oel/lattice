@@ -11,14 +11,14 @@ use gpui::{
     KeyDownEvent, ParentElement as _, StatefulInteractiveElement as _, Styled as _, Window, div,
     prelude::FluentBuilder as _, px,
 };
-use gpui_kit::component::{
-    input::{Input, InputEvent, InputState},
-    menu::{ContextMenuExt as _, DropdownMenu as _, PopupMenu, PopupMenuItem},
-};
+use gpui_kit::component::input::{Input, InputEvent, InputState};
 use lattice_i18n::{space_mixed_script, t};
 use lattice_ui::{
     ActiveLattice as _, Elevation, Icon, TextRole, TextRoleStyle as _,
-    components::{LatticeTooltip, focus_ring},
+    components::{
+        ContextMenu, LatticeTooltip, Menu, MenuAction, MenuPopover, context_menu_trigger,
+        focus_ring,
+    },
     elevation::ring,
     icons::{ICON, ICON_SMALL},
     interaction::{mix, tab_stop, track_pointer, use_interaction},
@@ -43,6 +43,13 @@ const DOT: f32 = 5.;
 const ADD_WIDTH: f32 = 28.;
 const RENAME_PAD: f32 = 6.;
 const RENAME_MIN: f32 = 6. * 7. + 20.;
+/// A workspace chip's corner: the segmented track's thumb
+/// (`shape::SEGMENTED`, a control's 6px less the 2px inset), as the chrome
+/// draws it (`shape::CHROME`).
+fn segment_chip_radius() -> gpui::Pixels {
+    let (_, chip) = lattice_ui::shape::SEGMENTED.painted(lattice_ui::shape::CHROME);
+    chip
+}
 
 /// A workspace tab as the unfolded track draws it.
 #[derive(Clone, Copy, Debug)]
@@ -147,7 +154,7 @@ pub(super) fn workspace_switcher(
             .gap(px(6.))
             .h(px(24.))
             .px(px(8.))
-            .rounded(px(7.4))
+            .rounded(segment_chip_radius())
             .when(preset.is_none(), |this| {
                 this.bg(palette.panel).shadow(raised_plate(&palette))
             })
@@ -163,38 +170,45 @@ pub(super) fn workspace_switcher(
                     .child(name),
             )
             .when(dirty, |this| this.child(dirty_dot(&palette)))
-            .child(Icon::CHEVRON_DOWN.element(ICON_SMALL, palette.text_secondary))
-            .dropdown_menu(move |mut menu, window, cx| {
-                for (ix, (id, name)) in entries.iter().enumerate() {
-                    let weak = menu_weak.clone();
-                    let id = id.clone();
-                    let mut item = PopupMenuItem::new(name.clone())
-                        .checked(menu_current.as_deref() == Some(id.as_str()))
-                        .on_click(move |_, window, cx| {
-                            weak.update(cx, |shell, cx| shell.switch_workspace(&id, window, cx))
-                                .ok();
-                        });
-                    if let Some(action) = crate::shell::commands::switch_workspace_action(ix) {
-                        item = item.action(action);
-                    }
-                    menu = menu.item(item);
+            .child(Icon::CHEVRON_DOWN.element(ICON_SMALL, palette.text_secondary));
+        let button = MenuPopover::new("workspace-menu-popover", button, move |mut menu, _, cx| {
+            for (ix, (id, name)) in entries.iter().enumerate() {
+                let weak = menu_weak.clone();
+                let id = id.clone();
+                let chosen = menu_current.as_deref() == Some(id.as_str());
+                let mut item = MenuAction::new(name.clone(), move |window, cx| {
+                    weak.update(cx, |shell, cx| shell.switch_workspace(&id, window, cx))
+                        .ok();
+                })
+                .checked(chosen);
+                if let Some(keys) = shortcut_label(ix) {
+                    item = item.shortcut(keys);
                 }
-                menu = menu
-                    .separator()
-                    .menu_with_icon(
-                        t!("New workspace"),
-                        Icon::PLUS.kit(),
-                        Box::new(NewWorkspace),
-                    )
-                    .separator();
-                match &menu_current {
-                    Some(id) => workspace_actions(menu, id, dirty, menu_weak.clone(), window, cx),
-                    None => menu,
-                }
-            });
+                menu = menu.item(item);
+            }
+            menu = menu
+                .separator()
+                .item(
+                    MenuAction::dispatch(t!("New workspace"), Box::new(NewWorkspace))
+                        .icon(Icon::PLUS),
+                )
+                .separator();
+            match &menu_current {
+                Some(id) => workspace_actions(menu, id, dirty, menu_weak.clone(), cx),
+                None => menu,
+            }
+        });
         return track.child(button).into_any_element();
     }
 
+    // A workspace chip's right-click menu: its id, and whether the project's
+    // layout differs from it.
+    let chip_menu = ContextMenu::<(String, bool)>::keyed("workspace-chip-menu", window, cx);
+    let chip_menu_weak = weak.clone();
+    let chip_menu_layer =
+        ContextMenu::layer(&chip_menu, window, cx, move |menu, (id, dirty), _, cx| {
+            workspace_actions(menu, id, *dirty, chip_menu_weak.clone(), cx)
+        });
     let tabs = workspaces.iter().enumerate().map(|(ix, (id, name))| {
         if renaming.as_deref() == Some(id.as_str())
             && let Some(input) = shell.rename_input()
@@ -223,7 +237,6 @@ pub(super) fn workspace_switcher(
         };
         let switch_weak = weak.clone();
         let rename_weak = weak.clone();
-        let menu_weak = weak.clone();
         let switch_id = id.clone();
         let rename_id = id.clone();
         let menu_id = id.clone();
@@ -237,7 +250,7 @@ pub(super) fn workspace_switcher(
             .gap(px(TAB_GAP))
             .h(px(24.))
             .px(px(TAB_PAD))
-            .rounded(px(7.4))
+            .rounded(segment_chip_radius())
             .when(selected, |this| {
                 this.bg(palette.panel).shadow(raised_plate(&palette))
             })
@@ -261,15 +274,8 @@ pub(super) fn workspace_switcher(
             .children(parity::text_probe("titlebar/workspace", ix, name.clone()))
             .child(name.clone())
             .when(dirty && is_current, |this| this.child(dirty_dot(&palette)))
-            .context_menu(move |menu, window, cx| {
-                workspace_actions(
-                    menu,
-                    &menu_id,
-                    dirty && is_current,
-                    menu_weak.clone(),
-                    window,
-                    cx,
-                )
+            .map(|chip| {
+                context_menu_trigger(chip, &chip_menu, (menu_id.clone(), dirty && is_current))
             })
             .into_any_element()
     });
@@ -277,6 +283,7 @@ pub(super) fn workspace_switcher(
     let tabs: Vec<AnyElement> = tabs.collect();
     track
         .children(tabs)
+        .children(chip_menu_layer)
         .child(
             div()
                 .id("workspace-add")
@@ -286,7 +293,7 @@ pub(super) fn workspace_switcher(
                 .justify_center()
                 .w(px(ADD_WIDTH))
                 .h(px(24.))
-                .rounded(px(7.4))
+                .rounded(segment_chip_radius())
                 .cursor_pointer()
                 .text_color(palette.text_secondary)
                 .hover(|style| style.text_color(palette.text))
@@ -304,13 +311,12 @@ pub(super) fn workspace_switcher(
 /// Save to workspace and Revert (while the project's layout differs from
 /// it), then Rename, Duplicate, Move left or right, and Delete.
 fn workspace_actions(
-    menu: PopupMenu,
+    menu: Menu,
     id: &str,
     dirty: bool,
     shell: gpui::WeakEntity<Shell>,
-    _: &mut Window,
-    cx: &mut Context<PopupMenu>,
-) -> PopupMenu {
+    cx: &App,
+) -> Menu {
     let library = Workspaces::global(cx);
     let index = library.index_of(id).unwrap_or(0);
     let count = library.list().len();
@@ -319,11 +325,10 @@ fn workspace_actions(
                 icon: Icon,
                 run: Box<dyn Fn(&mut Shell, &mut Window, &mut Context<Shell>)>| {
         let shell = shell.clone();
-        PopupMenuItem::new(label.to_string())
-            .icon(icon.kit())
-            .on_click(move |_, window, cx| {
-                shell.update(cx, |shell, cx| run(shell, window, cx)).ok();
-            })
+        MenuAction::new(label.to_string(), move |window, cx| {
+            shell.update(cx, |shell, cx| run(shell, window, cx)).ok();
+        })
+        .icon(icon)
     };
     if dirty {
         menu = menu
@@ -564,8 +569,6 @@ impl gpui_kit::component::Selectable for FoldedSwitch {
     }
 }
 
-impl gpui_kit::component::menu::DropdownMenu for FoldedSwitch {}
-
 impl gpui::RenderOnce for FoldedSwitch {
     fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
         self.0
@@ -587,7 +590,7 @@ fn rename_field(
         .px(px(RENAME_PAD))
         .flex()
         .items_center()
-        .rounded(px(7.4))
+        .rounded(segment_chip_radius())
         .bg(palette.panel)
         .shadow(raised_plate(palette))
         .text_role(TextRole::Caption, cx)

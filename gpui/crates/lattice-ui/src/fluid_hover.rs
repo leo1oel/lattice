@@ -512,9 +512,22 @@ impl FluidHover {
         }
     }
 
+    /// Where row `index` was last laid out, in window coordinates. A list
+    /// rendering reads the frame before: its own rows record only later in
+    /// this one, when they prepaint.
+    pub fn row_bounds(&self, index: usize, cx: &App) -> Option<Bounds<Pixels>> {
+        let slot = self.state.read(cx).slots.get(index).copied().flatten()?;
+        Some(slot.bounds)
+    }
+
     /// The row the pointer or keys lit, for a list that runs it on Enter.
     pub fn lit(&self, cx: &App) -> Option<usize> {
         self.state.read(cx).wanted
+    }
+
+    /// Whether the pointer, not the keys, moved the fill last.
+    pub fn by_pointer(&self, cx: &App) -> bool {
+        self.state.read(cx).hand == Hand::Pointer
     }
 
     /// Wrap `row` so its bounds are recorded as row `index` of this list.

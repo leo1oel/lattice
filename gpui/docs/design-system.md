@@ -7,7 +7,7 @@ Use these primitives instead of a per-row `.hover()`, a hand-written duration or
 | Need | Use | The app's source |
 | --- | --- | --- |
 | A list, menu or picker the pointer lights | `fluid_hover::FluidHover` | `fluid-hover-surface.tsx`, `use-fluid-hover.ts` |
-| GPUI Kit's popup menus (context menus, a dock's ⋯ menu) | nothing: `kit::apply` installs `fluid_hover::KitMenuGlide` | the same |
+| A menu, a right-click menu or a dock's ⋯ menu | `components::Menu`, `components::ContextMenu` (rows 32px, no gap, 9rem minimum) | `menu-surface.ts`, `context-menu.tsx` |
 | Motion of any kind | `motion::Motion` tiers, `motion::Tween` | `motion-values.ts`, `--motion-*` |
 | A selection plate that moves between items | `sliding::SlidingPlate` | `SlidingTabs` in `motion.tsx` |
 | Something that arrives, leaves or loads | `reveal::{reveal, Arrival, Presence, loading_opacity}` | `.reveal-product`, `loading-reveal.ts` |
@@ -65,8 +65,9 @@ div()
 - `item(ix, row)` records a row's bounds without changing its layout; `probe(ix, kind)` does it from inside a positioned row built elsewhere (Kit's tree items).
   The rows must be built in the same view as the highlight.
 
-Where it runs today: `components::Menu` and `Select`, Kit's popup menus (`KitMenuGlide`, through `patches/gpui-component-lattice-hooks.diff`), the Project tree, the command palette, quick open and Find in project.
-Tabs, toolbar buttons and the titlebar's controls keep a per-control fade on the fast tier (`interaction::use_interaction`), as the app's do.
+Where it runs today: `components::Menu` (and so `ContextMenu` and a dock's ⋯ menu) and `Select`, any Kit popup menu left (`KitMenuGlide`, through `patches/gpui-component-lattice-hooks.diff`), the Project tree, the command palette, quick open and Find in project.
+A toolbar of equal icon buttons with no selected item (the PDF toolbar, `pdf/toolbar_hover.rs`) is one horizontal fluid hover (`Axis::Horizontal`), a divider starting a new section.
+Tabs, segmented controls and the titlebar's controls keep a per-control fade on the fast tier (`interaction::use_interaction`), as the app's do.
 
 ## Sliding plate
 
@@ -130,7 +131,9 @@ A surface flush inside another does not choose its corner: `shape::Nest { radius
 
 The steps are `shape::RADIUS_CHIP` (4), `RADIUS_TARGET` (6), `RADIUS_SURFACE` (10) and `RADIUS_MODAL` (14).
 The app draws its corners as squircles scaled by `--corner-smoothing` (1.84) where the engine can; GPUI draws round corners, and `shape::Corners` says which drawing a radius copies.
-The chrome (panels, tabs, segmented controls, the titlebar's search field, keycaps) copies Paper's measured, smoothed radii through `shape::CHROME`; the smoothing is applied after the nesting (`Nest::painted`), never before, so the inset holds along the diagonal.
+The chrome (panels, tabs, segmented controls, the titlebar's search field, keycaps) takes its drawing through `shape::CHROME`, which is `Corners::Round`: the plain steps (10, 6, 4) the shipped macOS app draws, since WKWebView has no `corner-shape` and its factor is 1, and the corners the menus, buttons and fields already take.
+Paper's App screens and the parity reference run in Chromium and measure the squircle's smoothed radius (18.4px panels, 11px tabs), so the parity report shows a small corner delta there that GPUI does not chase.
+Where a surface does copy the smoothed drawing, the smoothing is applied after the nesting (`Nest::painted`), never before, so the inset holds along the diagonal.
 A new radius picks a step and, when nested, a `Nest`; never a value between the steps.
 
 ## Labels that change weight

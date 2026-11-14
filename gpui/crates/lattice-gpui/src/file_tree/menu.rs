@@ -5,9 +5,11 @@
 //! view items.
 
 use gpui::{App, ClipboardItem, Context, WeakEntity, Window};
-use gpui_kit::component::menu::{PopupMenu, PopupMenuItem};
 use lattice_i18n::{n, t, tr};
-use lattice_ui::Icon;
+use lattice_ui::{
+    Icon,
+    components::{Menu, MenuAction},
+};
 
 use super::{FileTreeEvent, FileTreePanel};
 use crate::confirm::{self, Confirm};
@@ -22,18 +24,12 @@ const REVEAL_LABEL: &str = n!("Show in file manager");
 type Run = Box<dyn Fn(&mut FileTreePanel, &mut Window, &mut Context<FileTreePanel>)>;
 
 /// An item that runs `run` on the tree.
-fn item(
-    view: &WeakEntity<FileTreePanel>,
-    icon: Icon,
-    label: &'static str,
-    run: Run,
-) -> PopupMenuItem {
+fn item(view: &WeakEntity<FileTreePanel>, icon: Icon, label: &'static str, run: Run) -> MenuAction {
     let view = view.clone();
-    PopupMenuItem::new(label)
-        .icon(icon.kit())
-        .on_click(move |_, window, cx| {
-            view.update(cx, |this, cx| run(this, window, cx)).ok();
-        })
+    MenuAction::new(label, move |window, cx| {
+        view.update(cx, |this, cx| run(this, window, cx)).ok();
+    })
+    .icon(icon)
 }
 
 impl FileTreePanel {
@@ -55,7 +51,7 @@ impl FileTreePanel {
     }
 
     /// New file, New folder and Import files…, in `directory`.
-    fn creation_items(view: &WeakEntity<Self>, directory: &str, menu: PopupMenu) -> PopupMenu {
+    fn creation_items(view: &WeakEntity<Self>, directory: &str, menu: Menu) -> Menu {
         let (file, folder, import) = (
             directory.to_string(),
             directory.to_string(),
@@ -86,15 +82,13 @@ impl FileTreePanel {
     }
 
     /// Show hidden files and Refresh file tree, the view items.
-    fn view_items(view: &WeakEntity<Self>, show_hidden: bool, menu: PopupMenu) -> PopupMenu {
+    fn view_items(view: &WeakEntity<Self>, show_hidden: bool, menu: Menu) -> Menu {
         let toggle = view.clone();
         menu.item(
-            PopupMenuItem::new(t!("Show hidden files"))
-                .icon(if show_hidden { Icon::CHECK } else { Icon::EYE }.kit())
-                .checked(show_hidden)
-                .on_click(move |_, _, cx| {
-                    toggle.update(cx, |this, cx| this.toggle_hidden(cx)).ok();
-                }),
+            MenuAction::new(t!("Show hidden files"), move |_, cx| {
+                toggle.update(cx, |this, cx| this.toggle_hidden(cx)).ok();
+            })
+            .icon(if show_hidden { Icon::CHECK } else { Icon::EYE }),
         )
         // For a change the watcher could not see.
         .item(item(
@@ -111,9 +105,9 @@ impl FileTreePanel {
         view: &WeakEntity<Self>,
         path: String,
         folder: bool,
-        menu: PopupMenu,
+        menu: Menu,
         cx: &mut App,
-    ) -> PopupMenu {
+    ) -> Menu {
         let Some(this) = view.upgrade() else {
             return menu;
         };
@@ -135,31 +129,30 @@ impl FileTreePanel {
                 .unwrap_or_default()
         };
         let mut menu = Self::creation_items(view, &directory, menu);
-        // Which file Build compiles is the writer's to choose; the check
-        // says which one was chosen.
+        // Which file Build compiles is the writer's to choose; the check in
+        // place of its icon says which one was chosen, as the app's menu
+        // marks it.
         if !folder && path.to_ascii_lowercase().ends_with(".tex") {
             let chosen = main.as_deref() == Some(path.as_str());
             let view = view.clone();
             let path = path.clone();
             menu = menu.separator().item(
-                PopupMenuItem::new(t!("Set as main document"))
-                    .icon(if chosen { Icon::CHECK } else { Icon::FILE_PLAY }.kit())
-                    .checked(chosen)
-                    .on_click(move |_, _, cx| {
-                        if chosen {
-                            return;
+                MenuAction::new(t!("Set as main document"), move |_, cx| {
+                    if chosen {
+                        return;
+                    }
+                    view.update(cx, |this, cx| {
+                        if let Some(project) = &this.project {
+                            project
+                                .update(cx, |project, cx| {
+                                    project.choose_main_document(path.clone(), cx)
+                                })
+                                .detach();
                         }
-                        view.update(cx, |this, cx| {
-                            if let Some(project) = &this.project {
-                                project
-                                    .update(cx, |project, cx| {
-                                        project.choose_main_document(path.clone(), cx)
-                                    })
-                                    .detach();
-                            }
-                        })
-                        .ok();
-                    }),
+                    })
+                    .ok();
+                })
+                .icon(if chosen { Icon::CHECK } else { Icon::FILE_PLAY }),
             );
         }
         let absolute = root.map(|root| root.join(&path));
@@ -173,49 +166,50 @@ impl FileTreePanel {
                 Box::new(move |this, window, cx| this.begin_rename(rename.clone(), window, cx)),
             ))
             .item(
-                PopupMenuItem::new(t!("Copy path"))
-                    .icon(Icon::COPY.kit())
-                    .on_click({
-                        let absolute = absolute.clone();
-                        move |_, _, cx| {
-                            if let Some(absolute) = &absolute {
-                                cx.write_to_clipboard(ClipboardItem::new_string(
-                                    absolute.to_string_lossy().into_owned(),
-                                ));
-                            }
+                MenuAction::new(t!("Copy path"), {
+                    let absolute = absolute.clone();
+                    move |_, cx| {
+                        if let Some(absolute) = &absolute {
+                            cx.write_to_clipboard(ClipboardItem::new_string(
+                                absolute.to_string_lossy().into_owned(),
+                            ));
                         }
-                    }),
+                    }
+                })
+                .icon(Icon::COPY),
             )
             .item(
-                PopupMenuItem::new(tr(REVEAL_LABEL))
-                    .icon(Icon::FOLDER_OPEN.kit())
-                    .on_click(move |_, _, cx| {
-                        if let Some(absolute) = &absolute {
-                            cx.reveal_path(absolute);
-                        }
-                    }),
+                MenuAction::new(tr(REVEAL_LABEL), move |_, cx| {
+                    if let Some(absolute) = &absolute {
+                        cx.reveal_path(absolute);
+                    }
+                })
+                .icon(Icon::FOLDER_OPEN),
             )
             .separator();
         menu = Self::view_items(view, show_hidden, menu);
         if !protected {
-            menu = menu.separator().item(item(
-                view,
-                Icon::TRASH,
-                t!("Delete"),
-                Box::new(move |this, _, cx| this.ask_delete(path.clone(), cx)),
-            ));
+            menu = menu.separator().item(
+                item(
+                    view,
+                    Icon::TRASH,
+                    t!("Delete"),
+                    Box::new(move |this, _, cx| this.ask_delete(path.clone(), cx)),
+                )
+                .destructive(),
+            );
         }
         menu
     }
 
     /// What can be added at the project's top level: the ⋯ menu's first
     /// items, and the whole of the strip's + menu.
-    pub(super) fn new_entries_menu(view: &WeakEntity<Self>, menu: PopupMenu) -> PopupMenu {
+    pub(super) fn new_entries_menu(view: &WeakEntity<Self>, menu: Menu) -> Menu {
         Self::creation_items(view, "", menu)
     }
 
     /// The menu for the empty area around the rows, and the panel's ⋯ menu.
-    pub(super) fn background_menu(view: &WeakEntity<Self>, menu: PopupMenu, cx: &App) -> PopupMenu {
+    pub(crate) fn background_menu(view: &WeakEntity<Self>, menu: Menu, cx: &App) -> Menu {
         let show_hidden = view
             .upgrade()
             .and_then(|this| this.read(cx).project.clone())

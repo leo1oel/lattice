@@ -29,6 +29,12 @@ unsafe extern "C" {
         wheel3: i32,
     ) -> *mut c_void;
     fn CGEventSetLocation(event: *mut c_void, location: NSPoint);
+    fn CGEventCreateMouseEvent(
+        source: *const c_void,
+        kind: u32,
+        location: NSPoint,
+        button: u32,
+    ) -> *mut c_void;
     fn CGEventSetIntegerValueField(event: *mut c_void, field: u32, value: i64);
 }
 
@@ -79,9 +85,13 @@ fn uptime() -> f64 {
     }
 }
 
+/// The → key, as AppKit spells it in a key event's characters
+/// (`NSRightArrowFunctionKey`).
+pub const RIGHT_ARROW: char = '\u{f703}';
+
 /// The ANSI virtual key code for a character, as Lattice's perf lab maps it.
 pub fn key_code(character: char) -> u16 {
-    const CODES: [(char, u16); 34] = [
+    const CODES: [(char, u16); 35] = [
         ('a', 0x00),
         ('s', 0x01),
         ('d', 0x02),
@@ -117,6 +127,7 @@ pub fn key_code(character: char) -> u16 {
         ('=', 0x18),
         ('-', 0x1B),
         ('0', 0x1D),
+        (RIGHT_ARROW, 0x7C),
     ];
     CODES
         .iter()
@@ -220,11 +231,32 @@ pub fn send_double_click(native: Native, position: Point<Pixels>) -> Result<()> 
     Ok(())
 }
 
+/// A left click on a control in the title bar: the press and release go
+/// to GPUI's view, as the move does. Sent through the window, a synthetic
+/// press in the title bar's strip is the window's own (AppKit starts a
+/// window drag there), and the control under it never sees it.
+pub fn send_titlebar_click(native: Native, position: Point<Pixels>) -> Result<()> {
+    send_mouse_event(native, Mouse::Down, position, 1, true)?;
+    send_mouse_event(native, Mouse::Up, position, 1, true)
+}
+
 fn send_mouse_clicks(
     native: Native,
     kind: Mouse,
     position: Point<Pixels>,
     clicks: isize,
+) -> Result<()> {
+    send_mouse_event(native, kind, position, clicks, false)
+}
+
+/// One mouse event; a press or release goes through the window unless
+/// `to_view`.
+fn send_mouse_event(
+    native: Native,
+    kind: Mouse,
+    position: Point<Pixels>,
+    clicks: isize,
+    to_view: bool,
 ) -> Result<()> {
     use std::sync::atomic::{AtomicIsize, Ordering};
     static EVENT_NUMBER: AtomicIsize = AtomicIsize::new(1);
@@ -258,9 +290,51 @@ fn send_mouse_clicks(
             Mouse::Moved => {
                 let _: () = msg_send![native.view, mouseMoved: &*event];
             }
+            Mouse::Down if to_view => {
+                let _: () = msg_send![native.view, mouseDown: &*event];
+            }
+            Mouse::Up if to_view => {
+                let _: () = msg_send![native.view, mouseUp: &*event];
+            }
             _ => {
                 let _: () = msg_send![native.window, sendEvent: &*event];
             }
+        }
+    }
+    Ok(())
+}
+
+/// A right click at `position` (GPUI window coordinates), which opens a
+/// context menu. An `NSEvent` built with `mouseEventWithType:` reports
+/// button 0 whatever its type, so GPUI would read it as a left click; this
+/// goes through a CoreGraphics event, which names the right button.
+pub fn send_right_click(native: Native, position: Point<Pixels>) -> Result<()> {
+    const RIGHT_MOUSE_DOWN: u32 = 3;
+    const RIGHT_MOUSE_UP: u32 = 4;
+    const RIGHT_BUTTON: u32 = 1;
+    for kind in [RIGHT_MOUSE_DOWN, RIGHT_MOUSE_UP] {
+        unsafe {
+            let in_window = to_window(
+                native.view,
+                f32::from(position.x) as f64,
+                f32::from(position.y) as f64,
+            );
+            let number: isize = msg_send![native.window, windowNumber];
+            // As for the wheel: a window-less event's screen location reads
+            // as the window point.
+            let primary_height = primary_screen_height();
+            let location = NSPoint::new(in_window.x, primary_height - in_window.y);
+            let event = CGEventCreateMouseEvent(std::ptr::null(), kind, location, RIGHT_BUTTON);
+            if event.is_null() {
+                return Err(anyhow!("CoreGraphics refused the right-click event"));
+            }
+            CGEventSetIntegerValueField(event, 91, number as i64); // window under the pointer
+            CGEventSetIntegerValueField(event, 92, number as i64); // window that can handle it
+            let ns_event: Option<Retained<AnyObject>> =
+                msg_send![class!(NSEvent), eventWithCGEvent: event];
+            CFRelease(event);
+            let ns_event = ns_event.context("NSEvent refused the right-click event")?;
+            let _: () = msg_send![native.window, sendEvent: &*ns_event];
         }
     }
     Ok(())

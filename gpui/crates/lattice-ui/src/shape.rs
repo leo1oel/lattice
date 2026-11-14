@@ -127,11 +127,14 @@ impl Nest {
 
 /// How the chrome copies the app's squircle corners: the docked panels and
 /// their tabs, the segmented controls, the titlebar's search field and the
-/// keycaps take their radii as Paper's Main window measures them
-/// ([`Corners::Smoothed`]). Every such radius is derived through this one
+/// keycaps. They take the plain steps ([`Corners::Round`]: 10, 6, 4), the
+/// corners the shipped macOS app draws (WKWebView has no `corner-shape`, so
+/// its factor is 1) and the ones the menus, buttons and fields already take,
+/// rather than the 18.4px and 11px Paper's Chromium screens measure for a
+/// squircle (design call 1). Every such radius is derived through this one
 /// constant, so the chrome changes drawing in one place
 /// (`gpui/docs/design-system.md`, "Corners").
-pub const CHROME: Corners = Corners::Smoothed;
+pub const CHROME: Corners = Corners::Round;
 
 /// A tab's close square, `--trellis-tab-close-inset` (2px) inside the tab
 /// (`trellis.css`: `(tab radius - close inset) * smoothing`).
@@ -143,7 +146,7 @@ pub const MENU: Nest = Nest::new(RADIUS_SURFACE, px(4.));
 
 /// A docked panel and its tab strip (`trellis.css`): the surface corner, its
 /// tabs `--trellis-tab-inset` in ((40 - 28) / 2 = 6px), held at a control's
-/// corner. Panels draw it [`Corners::Smoothed`].
+/// corner. Panels draw it [`CHROME`].
 pub const PANEL_TABS: Nest = Nest::new(RADIUS_SURFACE, rem(SPACING_3)).floor(RADIUS_TARGET);
 
 /// A segmented control's track (`chrome.css`, `.ui-segmented`): a control's
@@ -200,14 +203,20 @@ mod tests {
 
     #[test]
     fn the_chromes_corners_are_derived_not_restated() {
-        let close = |a: Pixels, b: Pixels| (f32::from(a) - f32::from(b)).abs() < 0.06;
         let (panel, tab) = PANEL_TABS.painted(CHROME);
-        assert!(close(crate::dock::PANEL_RADIUS, panel), "{panel:?}");
-        assert!(close(crate::components::TAB_RADIUS, tab), "{tab:?}");
-        // The close square nests in the tab before the factor: 4px, drawn
-        // 7.36px, not the smoothed tab's 11px less 2.
+        assert_eq!(crate::dock::PANEL_RADIUS, panel);
+        assert_eq!(crate::components::TAB_RADIUS, tab);
         assert_eq!(TAB_CLOSE.inner(), px(4.));
-        assert!(close(CHROME.paint(TAB_CLOSE.inner()), px(7.36)));
+    }
+
+    #[test]
+    fn the_chrome_draws_the_plain_steps_the_macos_app_draws() {
+        // Design call 1: round 10/6/4 as WKWebView draws them, not Paper's
+        // smoothed 18.4/11/7.36.
+        assert_eq!(CHROME, Corners::Round);
+        assert_eq!(PANEL_TABS.painted(CHROME), (px(10.), px(6.)));
+        assert_eq!(CHROME.paint(TAB_CLOSE.inner()), px(4.));
+        assert_eq!(SEGMENTED.painted(CHROME), (px(6.), px(4.)));
     }
 
     #[test]

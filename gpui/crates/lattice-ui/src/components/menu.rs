@@ -11,7 +11,7 @@
 //!   quiet at the end;
 //! - the row the pointer lights and the row the arrow keys reach are one
 //!   highlight, the accent wash (`--control-active-soft`): in a [`Menu`]
-//!   (`popover.rs`) it is the list's fluid hover, one fill gliding between
+//!   (`menu_list.rs`) it is the list's fluid hover, one fill gliding between
 //!   rows (`crate::fluid_hover`); a row drawn alone fades its own wash on the
 //!   fast tier. A destructive item takes the danger ink and its own danger
 //!   wash, which the gliding fill never lands on;
@@ -23,13 +23,13 @@
 //!
 //! Items are reached with the arrow keys from the menu that holds them, as a
 //! menu's roving focus works in the app, so a row is not a tab stop of its
-//! own; the menu is (see `popover.rs`).
+//! own; the menu is (see `menu_list.rs`).
 
 use std::rc::Rc;
 
 use gpui::{
     AnyElement, App, ClickEvent, Div, ElementId, InteractiveElement as _, IntoElement,
-    ParentElement, Pixels, Refineable as _, RenderOnce, SharedString,
+    MouseMoveEvent, ParentElement, Pixels, Refineable as _, RenderOnce, SharedString,
     StatefulInteractiveElement as _, StyleRefinement, Styled, Window, div,
     prelude::FluentBuilder as _, px, rems, transparent_black,
 };
@@ -50,6 +50,7 @@ pub const MENU_OFFSET: Pixels = px(4.);
 
 type ClickHandler = Rc<dyn Fn(&ClickEvent, &mut Window, &mut App)>;
 type HoverHandler = Rc<dyn Fn(&bool, &mut Window, &mut App)>;
+type MouseMoveHandler = Rc<dyn Fn(&MouseMoveEvent, &mut Window, &mut App)>;
 
 /// The lift a menu's rows stand on.
 #[derive(IntoElement)]
@@ -118,12 +119,21 @@ pub struct MenuItem {
     disabled: bool,
     destructive: bool,
     checked: Option<bool>,
+    /// A checkable menu's leading 14px gutter, and whether this row's check
+    /// shows in it.
+    check_gutter: Option<bool>,
+    /// The row opens a submenu: a chevron at the end.
+    submenu: bool,
+    /// A control at the row's end, before the shortcut (the project
+    /// switcher's open-in-this-window glyph).
+    accessory: Option<AnyElement>,
     highlighted: bool,
     /// The list draws the hover fill (fluid hover): the row draws none, but
     /// a destructive row's own danger wash.
     fluid: bool,
     on_click: Option<ClickHandler>,
     on_hover: Option<HoverHandler>,
+    on_mouse_move: Option<MouseMoveHandler>,
 }
 
 impl MenuItem {
@@ -136,10 +146,14 @@ impl MenuItem {
             disabled: false,
             destructive: false,
             checked: None,
+            check_gutter: None,
+            submenu: false,
+            accessory: None,
             highlighted: false,
             fluid: false,
             on_click: None,
             on_hover: None,
+            on_mouse_move: None,
         }
     }
 
@@ -181,6 +195,26 @@ impl MenuItem {
         self
     }
 
+    /// A row of a menu with checkable items: a 14px gutter before the icon
+    /// (`.trellis-menu-check`), holding the check when `Some(true)`, so every
+    /// row's label lines up.
+    pub fn check_gutter(mut self, checked: Option<bool>) -> Self {
+        self.check_gutter = checked;
+        self
+    }
+
+    /// A control at the row's end, before the shortcut.
+    pub fn accessory(mut self, accessory: impl IntoElement) -> Self {
+        self.accessory = Some(accessory.into_any_element());
+        self
+    }
+
+    /// The row opens a submenu: the chevron at its end.
+    pub fn submenu(mut self) -> Self {
+        self.submenu = true;
+        self
+    }
+
     /// The row the keys (or the pointer, through `on_hover`) reached.
     pub fn highlighted(mut self, highlighted: bool) -> Self {
         self.highlighted = highlighted;
@@ -192,6 +226,16 @@ impl MenuItem {
         handler: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
     ) -> Self {
         self.on_click = Some(Rc::new(handler));
+        self
+    }
+
+    /// The pointer moving over the row, on the row's own element: a wrapper
+    /// would take the row's place in the list's layout and measurement.
+    pub fn on_mouse_move(
+        mut self,
+        handler: impl Fn(&MouseMoveEvent, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        self.on_mouse_move = Some(Rc::new(handler));
         self
     }
 
@@ -250,10 +294,24 @@ impl RenderOnce for MenuItem {
             .bg(mix(transparent_black(), wash, glow))
             .text_color(ink)
             .when(disabled, |this| this.opacity(OPACITY_MENU_DISABLED))
+            .when_some(self.check_gutter, |this, checked| {
+                this.child(
+                    div()
+                        .flex_none()
+                        .w(ICON)
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .when(checked, |this| {
+                            this.child(Icon::CHECK.element(ICON, palette.text))
+                        }),
+                )
+            })
             .when_some(self.icon, |this, icon| {
                 this.child(icon.element(ICON, icon_ink))
             })
             .child(div().flex_1().min_w_0().child(self.label))
+            .children(self.accessory)
             .when_some(self.shortcut, |this, keys| {
                 this.child(
                     div()
@@ -262,6 +320,9 @@ impl RenderOnce for MenuItem {
                         .text_color(palette.text_secondary)
                         .child(keys),
                 )
+            })
+            .when(self.submenu, |this| {
+                this.child(Icon::CHEVRON_RIGHT.element(ICON, palette.text_secondary))
             })
             .when(self.checked == Some(true), |this| {
                 this.child(
@@ -279,6 +340,9 @@ impl RenderOnce for MenuItem {
             })
             .when_some(self.on_click.filter(|_| !disabled), |this, on_click| {
                 this.on_click(move |event, window, cx| on_click(event, window, cx))
+            })
+            .when_some(self.on_mouse_move, |this, on_move| {
+                this.on_mouse_move(move |event, window, cx| on_move(event, window, cx))
             })
     }
 }

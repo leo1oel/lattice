@@ -8,8 +8,8 @@
 .live-preview-status-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .live-preview-status[data-tone="live"] { padding: var(--space-3); }
 .live-preview-status[data-tone="live"] .live-preview-status-label { display: none; }
-button.live-preview-status { cursor: pointer; color: var(--text-primary); }
-button.live-preview-status:hover { background: var(--toolbar-hover-surface); }
+button.live-preview-status { cursor: pointer; color: var(--text-primary); transition: background-color var(--motion-fast-exit); }
+button.live-preview-status:hover { background: var(--toolbar-hover-surface); transition: background-color var(--motion-fast); }
 .live-preview-status-dot { flex: none; width: var(--space-3); height: var(--space-3); border-radius: var(--radius-pill); background: var(--text-tertiary); }
 .live-preview-status[data-tone="live"] .live-preview-status-dot { background: var(--status-success); }
 .live-preview-status[data-tone="pending"] .live-preview-status-dot { background: var(--status-warning); }

@@ -24,11 +24,11 @@ use windows::Win32::{
     UI::{
         Input::KeyboardAndMouse::{
             GetKeyboardState, MAPVK_VK_TO_VSC, MapVirtualKeyW, SetKeyboardState, VK_CONTROL,
-            VK_ESCAPE, VK_LCONTROL, VK_LSHIFT, VK_RETURN, VK_SHIFT, VkKeyScanW,
+            VK_ESCAPE, VK_LCONTROL, VK_LSHIFT, VK_RETURN, VK_RIGHT, VK_SHIFT, VkKeyScanW,
         },
         WindowsAndMessaging::{
             PostMessageW, SendMessageW, SetForegroundWindow, WM_CLOSE, WM_KEYDOWN, WM_KEYUP,
-            WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MOUSEMOVE,
+            WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MOUSEMOVE, WM_RBUTTONDOWN, WM_RBUTTONUP,
         },
     },
 };
@@ -39,6 +39,8 @@ pub const QUEUE_SETTLE: Duration = Duration::from_millis(50);
 
 /// `MK_LBUTTON` in a mouse message's `wParam`: the left button is down.
 const LEFT_BUTTON_DOWN: usize = 0x0001;
+/// `MK_RBUTTON`: the right button is down.
+const RIGHT_BUTTON_DOWN: usize = 0x0002;
 /// The high bit of a key's entry in the keyboard state: the key is down.
 const KEY_DOWN_STATE: u8 = 0x80;
 
@@ -61,6 +63,10 @@ pub fn native(window: &Window) -> Result<Native> {
     })
 }
 
+/// The → key, spelled as the macOS runs spell it, so a scenario sends it
+/// the same way on both.
+pub const RIGHT_ARROW: char = '\u{f703}';
+
 /// Posts a key press and release for `character`, with Ctrl held when
 /// `command` (Windows' shortcut modifier, where macOS has ⌘). Call
 /// `release_keys` after `QUEUE_SETTLE`.
@@ -70,6 +76,7 @@ pub fn send_key(native: Native, character: char, command: bool) -> Result<()> {
     let (virtual_key, shift) = match character {
         '\u{1b}' => (u32::from(VK_ESCAPE.0), false),
         '\n' | '\r' => (u32::from(VK_RETURN.0), false),
+        RIGHT_ARROW => (u32::from(VK_RIGHT.0), false),
         _ => {
             let mut units = [0u16; 2];
             let [unit] = character.encode_utf16(&mut units) else {
@@ -133,6 +140,9 @@ pub fn release_keys() -> Result<()> {
 pub enum Mouse {
     Down,
     Up,
+    /// The right button, which opens a context menu.
+    RightDown,
+    RightUp,
     /// The pointer moving with no button held, as for a hover.
     Moved,
     Dragged,
@@ -145,6 +155,8 @@ pub fn send_mouse(native: Native, kind: Mouse, position: Point<Pixels>) -> Resul
         Mouse::Dragged => (WM_MOUSEMOVE, LEFT_BUTTON_DOWN),
         Mouse::Moved => (WM_MOUSEMOVE, 0),
         Mouse::Up => (WM_LBUTTONUP, 0),
+        Mouse::RightDown => (WM_RBUTTONDOWN, RIGHT_BUTTON_DOWN),
+        Mouse::RightUp => (WM_RBUTTONUP, 0),
     };
     // Client coordinates in device pixels, packed as two signed 16-bit words.
     let x = (f32::from(position.x) * native.scale).round() as i16 as u16 as isize;
@@ -158,6 +170,24 @@ pub fn send_mouse(native: Native, kind: Mouse, position: Point<Pixels>) -> Resul
         );
     }
     Ok(())
+}
+
+/// A left click at `position`.
+pub fn send_click(native: Native, position: Point<Pixels>) -> Result<()> {
+    send_mouse(native, Mouse::Down, position)?;
+    send_mouse(native, Mouse::Up, position)
+}
+
+/// A left click on a control in the title bar. The messages go straight to
+/// the window's client handler, as everywhere else, so this is a plain click.
+pub fn send_titlebar_click(native: Native, position: Point<Pixels>) -> Result<()> {
+    send_click(native, position)
+}
+
+/// A right click at `position`, which opens a context menu.
+pub fn send_right_click(native: Native, position: Point<Pixels>) -> Result<()> {
+    send_mouse(native, Mouse::RightDown, position)?;
+    send_mouse(native, Mouse::RightUp, position)
 }
 
 /// A left double click at `position`: GPUI counts two presses close in time

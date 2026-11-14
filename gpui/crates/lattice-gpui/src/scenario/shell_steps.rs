@@ -653,7 +653,7 @@ impl Run {
 /// the shell's last-focused editor: that one follows GPUI's focus-in
 /// events, which only fire while the window is the key window, and the
 /// scenario's window never is, so it stays unset for the whole run.
-fn keyboard_holder(shell: &Entity<Shell>, window: &mut Window, cx: &mut App) -> &'static str {
+pub(super) fn keyboard_holder(shell: &Entity<Shell>, window: &mut Window, cx: &mut App) -> &'static str {
     let Some(focused) = window.focused(cx) else {
         return "nowhere";
     };
