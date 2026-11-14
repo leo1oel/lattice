@@ -7,6 +7,9 @@
 //!   selection, on the PDF surface; back in the editor, it goes;
 //! - a turn the page reports running is the window's, and its start marks
 //!   Get started's Agent step; reported over, it is gone;
+//! - an Open Slide deck in front is the active file, without a caret, and
+//!   its page hears the turn's presence and its end;
+//! - switching project mid-turn asks first and keeps the project;
 //! - an editor's save is reported to the Agent as Lattice's own write.
 
 #![cfg(target_os = "macos")]
@@ -15,7 +18,11 @@ use std::{path::Path, time::Duration};
 
 use anyhow::Result;
 use gpui::{AsyncApp, Focusable as _};
-use serde_json::json;
+use serde_json::{Value, json};
+
+const DECK: &str = include_str!(
+    "../../../../../../src-tauri/templates/tutorial/slides/understanding-attention/index.tsx"
+);
 
 use super::Steps;
 use crate::{agent::SurfaceEvent, editor_panel::EditorPanelEvent, scenario::Run};
@@ -87,6 +94,34 @@ impl Run {
             view.update(cx, |view, cx| view.select((0, 0), (0, 0), cx));
         })?;
 
+        // An Open Slide deck in front: the Agent's active file, with no caret.
+        let deck = root.join("slides/agent-deck/index.tsx");
+        std::fs::create_dir_all(deck.parent().unwrap())?;
+        std::fs::write(&deck, DECK)?;
+        let opened = self
+            .open_structured(cx, &deck, Duration::from_secs(30))
+            .await?;
+        let in_front = self
+            .wait_for(cx, Duration::from_secs(5), |_, cx| {
+                let workspace = surface.read(cx).workspace();
+                workspace["activeFile"] == "slides/agent-deck/index.tsx"
+                    && workspace.get("editorPosition").is_none_or(Value::is_null)
+            })
+            .await;
+        steps.check(
+            "an Open Slide deck in front is the Agent's active file, without a caret",
+            opened.is_some() && in_front,
+            json!({ "workspace": workspace(cx) }),
+        );
+        let listen = "(() => { if (!window.latticeHost) return false; \
+             if (!window.__e2eDeck) { window.__e2eDeck = []; \
+               window.latticeHost.on('agent:deck-presence', (p) => window.__e2eDeck.push(p)); } \
+             return true; })()";
+        let heard = "JSON.stringify(window.__e2eDeck || null)";
+        if let Some((_, island)) = &opened {
+            self.evaluate(cx, island, listen).await;
+        }
+
         // The panel's turn, as its page reports it.
         let presence = json!({ "state": "running", "threadId": "t", "decks": [] });
         cx.update(|cx| {
@@ -103,14 +138,89 @@ impl Run {
                     .is_some_and(|progress| progress.is_done(crate::get_started::Step::Agent)),
             )
         });
+        let mut lit = Value::Null;
+        if let Some((_, island)) = &opened {
+            let started = std::time::Instant::now();
+            while started.elapsed() < Duration::from_secs(5) {
+                lit = self.evaluate(cx, island, heard).await;
+                if lit.as_array().is_some_and(|told| {
+                    told.last().is_some_and(|last| last["state"] == "running")
+                }) {
+                    break;
+                }
+                self.pause(cx, Duration::from_millis(100)).await;
+            }
+        }
+        steps.check(
+            "the open deck's page hears the running turn's presence",
+            lit.as_array()
+                .is_some_and(|told| told.last().is_some_and(|last| last["state"] == "running")),
+            json!({ "heard": lit }),
+        );
+        self.island_shot(cx, "agent-turn-deck").await?;
+
+        // Switching project mid-turn asks first, and stays put.
+        let other = root.with_file_name("agent-other-project");
+        std::fs::create_dir_all(&other)?;
+        std::fs::write(other.join("main.tex"), "\\documentclass{article}\\begin{document}x\\end{document}\n")?;
+        let before = cx.update(|cx| self.shell.read(cx).root(cx));
+        self.with_window(cx, |shell, window, cx| {
+            let other = other.clone();
+            shell.update(cx, |shell, cx| shell.open_project(other, window, cx));
+        })?;
+        self.pause(cx, Duration::from_millis(300)).await;
+        let (asked, question, after) = cx.update(|cx| {
+            let host = crate::confirm::install(cx);
+            (
+                crate::confirm::is_pending(cx),
+                host.read(cx).question().map(|title| title.to_string()),
+                self.shell.read(cx).root(cx),
+            )
+        });
+        // Answer it away without switching.
+        self.with_window(cx, |_, window, cx| {
+            crate::confirm::ask(crate::confirm::Confirm::new("e2e").on_confirm(|_, _| {}), cx);
+            crate::confirm::install(cx).update(cx, |host, cx| host.accept(window, cx));
+        })?;
+        steps.check(
+            "switching project during the Agent's turn asks before interrupting it, and the project stays until answered",
+            asked
+                && question.as_deref().is_some_and(|title| title.starts_with("Switch away"))
+                && before.is_some()
+                && after == before,
+            json!({ "asked": asked, "question": question, "before": before, "after": after }),
+        );
+
         cx.update(|cx| surface.update(cx, |_, cx| cx.emit(SurfaceEvent::Turn(None))));
         self.pause(cx, Duration::from_millis(100)).await;
         let over = cx.update(|cx| !self.shell.read(cx).agent_turn_running());
+        let mut ended = Value::Null;
+        if let Some((_, island)) = &opened {
+            let started = std::time::Instant::now();
+            while started.elapsed() < Duration::from_secs(5) {
+                ended = self.evaluate(cx, island, heard).await;
+                if ended.as_array().is_some_and(|told| told.last().is_some_and(Value::is_null)) {
+                    break;
+                }
+                self.pause(cx, Duration::from_millis(100)).await;
+            }
+        }
         steps.check(
             "a running turn is the window's until the page reports it over, and its start marks Get started's Agent step",
             running && marked && over,
             json!({ "running": running, "marked": marked, "over": over }),
         );
+        steps.check(
+            "the turn over, the deck's page hears its presence cleared",
+            ended.as_array().is_some_and(|told| told.last().is_some_and(Value::is_null)),
+            json!({ "heard": ended }),
+        );
+        if let Some((panel, _)) = &opened {
+            self.close_panel(cx, panel).await?;
+        }
+        std::fs::remove_dir_all(root.join("slides/agent-deck")).ok();
+        std::fs::remove_dir_all(&other).ok();
+        let editor = self.open(cx, &root.join("main.tex"), None)?;
 
         // The writer's save, beside a turn.
         cx.update(|cx| editor.update(cx, |_, cx| cx.emit(EditorPanelEvent::Saved)));
