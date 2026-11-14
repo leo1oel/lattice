@@ -49,8 +49,9 @@ textarea {
   --prose-line-height: 1.7;
   /* Reading mode sets prose a touch looser, until a line height is chosen. */
   --prose-reading-line-height: 1.75;
-  /* Shared by source CodeMirror and the visual Markdown fixed caret. */
+  /* Shared by source CodeMirror and the visual Markdown drawn caret (drawn-caret.ts); the blink is CodeMirror's default rate, on for half of it. */
   --editor-caret-width: 1.4px;
+  --editor-caret-blink: 1.2s;
   font-family: var(--ui-font);
   font-weight: var(--weight-regular);
   -webkit-font-smoothing: antialiased;
