@@ -101,6 +101,15 @@ impl Shell {
                     self.push_agent_workspace(cx);
                 }
             }
+            EditorPanelEvent::PasteImage => {
+                self.active_editor = Some(editor.downgrade());
+                self.paste_image_as_figure(true, window, cx)
+            }
+            EditorPanelEvent::InsertFigures(paths) => {
+                // Into the editor it was dropped on, front or not.
+                self.active_editor = Some(editor.downgrade());
+                self.insert_figures(paths.clone(), window, cx)
+            }
             EditorPanelEvent::CaretLine => {
                 if self.active_editor().as_ref() == Some(editor) {
                     self.show_outline(cx);

@@ -23,6 +23,7 @@ mod editor_pointer;
 mod fluid;
 mod get_started;
 mod help;
+mod insert;
 mod history;
 #[cfg(target_os = "macos")]
 mod islands;
@@ -420,6 +421,11 @@ impl Run {
         }
         // After the modules that start from the fixture's layout: it opens
         // the tutorial, then the fixture again.
+        if steps::selected("insert") {
+            self.insert_tools(cx, &mut steps, &root)
+                .await
+                .context("insert_tools")?;
+        }
         if steps::selected("get_started") {
             self.get_started(cx, &mut steps, &root)
                 .await

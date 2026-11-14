@@ -51,6 +51,7 @@ use zed_actions::buffer_search::Deploy;
 mod buffer_counts;
 mod disk_sync;
 mod events;
+mod insert;
 mod margin_review;
 mod markdown_view;
 mod moves;
@@ -675,6 +676,24 @@ impl Render for EditorPanel {
             .into_div()
             .key_context("LatticeEditor")
             .on_action(cx.listener(Self::deploy_search))
+            // A file dragged from the Project tree goes in as a figure
+            // (`beginFigureDrag`).
+            .on_drop(
+                cx.listener(|this, dragged: &crate::file_tree::DraggedEntry, _, cx| {
+                    if let Some(path) = dragged.file()
+                        && this.inserts_figures()
+                    {
+                        cx.emit(EditorPanelEvent::InsertFigures(vec![path.to_string()]));
+                    }
+                }),
+            )
+            // Before Zed's editor pastes: an image becomes a figure.
+            .capture_action(cx.listener(|this, _: &editor::actions::Paste, _, cx| {
+                if this.pastes_image(cx) {
+                    cx.emit(EditorPanelEvent::PasteImage);
+                    cx.stop_propagation();
+                }
+            }))
             .on_action(cx.listener(|this, _: &ViewSource, window, cx| {
                 this.set_document_view(DocumentView::Source, window, cx)
             }))

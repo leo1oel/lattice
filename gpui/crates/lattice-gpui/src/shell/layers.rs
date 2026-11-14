@@ -37,6 +37,7 @@ impl Shell {
             || self.sheets.whats_new.is_some()
             || self.references.rename.is_some()
             || self.confirm.read(cx).is_open()
+            || self.inserts.open()
     }
 
     /// The window's overlays, each deferred at its priority.

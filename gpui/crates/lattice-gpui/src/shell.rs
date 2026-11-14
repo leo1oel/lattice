@@ -29,6 +29,7 @@ mod ground;
 mod help_flow;
 mod history_flow;
 mod imports;
+mod insert_flow;
 mod layers;
 pub(crate) mod menus;
 mod opening;
@@ -74,6 +75,7 @@ pub use commands::{
     OpenTexDoctor, PreviousProblem, Save, StopBuild, ToggleVimMode,
 };
 pub use get_started_flow::ShowGetStarted;
+pub use insert_flow::{InsertTable, PasteImageAsFigure};
 pub use help_flow::{ReportProblem, WhatsNew};
 pub use references_flow::{FindReferences, RenameSymbol};
 pub use tools_flow::{ExportArxiv, OpenChecklist, OpenTodos};
@@ -147,6 +149,8 @@ pub struct Shell {
     pub(crate) history: Entity<crate::history::HistoryPanel>,
     /// The submission checklist tool panel (`crate::submission::checklist`).
     pub(crate) checklist: Entity<crate::submission::checklist::ChecklistPanel>,
+    /// The figure dialog and the table generator, while open (`insert_flow`).
+    pub(crate) inserts: insert_flow::Inserts,
     /// Get started, and its "Show me" ring (`get_started_flow`).
     pub(crate) get_started: get_started_flow::GetStarted,
     /// The manuscript's TODOs tool panel (`crate::submission::todos`).
@@ -447,6 +451,7 @@ impl Shell {
             margin_mode: Default::default(),
             checklist,
             get_started: Self::get_started_panel(window, cx),
+            inserts: Default::default(),
             sheets: Default::default(),
             references: Default::default(),
             terminal,

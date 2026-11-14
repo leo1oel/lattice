@@ -25,6 +25,7 @@ mod get_started;
 mod help;
 mod history;
 mod html_preview;
+mod insert;
 mod interface_zoom;
 mod live_preview;
 mod moved_paths;
