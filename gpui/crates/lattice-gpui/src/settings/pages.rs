@@ -50,6 +50,16 @@ pub fn sheet(dialog: &SettingsDialog, cx: &mut gpui::App) -> Option<AnyElement> 
     )
 }
 
+/// The dialog's row marks, for a page drawn in an entity of its own.
+pub fn marks(dialog: &SettingsDialog) -> super::controls::Marks {
+    super::controls::Marks {
+        rows: dialog.rows.clone(),
+        revealed: dialog
+            .revealed_row()
+            .map(|id| (id, dialog.revealed(id))),
+    }
+}
+
 /// The pages the GPUI app draws; another remembered page opens Appearance.
 pub fn drawn(tab: SettingsTab) -> SettingsTab {
     match tab {

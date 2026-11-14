@@ -56,7 +56,10 @@ impl Entry {
 
 /// The index in the interface language now.
 pub fn entries(has_project: bool, known_author: Option<&str>) -> Vec<Entry> {
-    use SettingsTab::{Agent, Appearance, Doctor, Editor, Logs, Overleaf};
+    use SettingsTab::{
+        Acknowledgements, Agent, Api, Appearance, Doctor, Editor, Environment, Literature, Logs,
+        Mcp, ModelEndpoint, Overleaf, Usage,
+    };
     let appearance = t!("Appearance");
     let editor = t!("Editor & builds");
     let builds = t!("Builds");
@@ -173,6 +176,11 @@ pub fn entries(has_project: bool, known_author: Option<&str>) -> Vec<Entry> {
             )),
         Entry::row(Editor, editor, "spellcheck", t!("Check spelling"))
             .terms(format!("{} Harper Hunspell", t!("Check spelling in prose"))),
+        Entry::row(Editor, editor, "spelling-languages", t!("Other languages")).terms(format!(
+            "{} babel polyglossia Hunspell {}",
+            t!("Check spelling"),
+            t!("Downloaded dictionaries")
+        )),
         Entry::row(
             Editor,
             editor,
@@ -181,6 +189,32 @@ pub fn entries(has_project: bool, known_author: Option<&str>) -> Vec<Entry> {
         )
         .terms("Harper")
         .description(t!("Open a project to add terms")),
+        Entry::row(Editor, editor, "grammar-dialect", t!("English variant")).terms(format!(
+            "{} {} {} Harper",
+            t!("Grammar"),
+            t!("American English"),
+            t!("British English")
+        )),
+        Entry::row(Editor, editor, "grammar-style", t!("Grammar style"))
+            .terms(format!(
+                "{} {} {} Harper",
+                t!("Grammar"),
+                t!("Academic"),
+                t!("Standard")
+            ))
+            .description(t!(
+                "Automatic checks LaTeX as academic writing and other files as everyday prose"
+            )),
+        Entry::row(Editor, editor, "grammar-rules", t!("Grammar rules"))
+            .terms(format!("{} Harper", t!("Grammar")))
+            .description(t!("Filter to find a rule; these apply to every project")),
+        Entry::row(Editor, editor, "grammar-ignored", t!("Ignored in this project"))
+            .terms(format!("{} {} Harper", t!("Grammar"), t!("Ignored sentences")))
+            .description(format!(
+                "{} {}",
+                t!("Open a project to ignore rules or sentences"),
+                t!("Choose Ignore on a grammar suggestion to add one")
+            )),
         Entry::row(Editor, editor, "auto-build", t!("Automatic build"))
             .terms(format!("{} ⌘S", t!("Manual only"))),
         Entry::row(Editor, editor, "aux-files", t!("Auxiliary files"))
@@ -208,7 +242,36 @@ pub fn entries(has_project: bool, known_author: Option<&str>) -> Vec<Entry> {
         ]);
     }
     out.push(Entry::row(Editor, editor, "version", t!("Version")));
-    out.push(Entry::page(Agent, t!("Providers"), t!("Agent")));
+    let agent = t!("Agent");
+    let endpoint = t!("Model endpoint");
+    let environment = t!("Environment");
+    out.extend([
+        Entry::page(Agent, t!("Providers"), agent).terms(t!("Default provider")),
+        Entry::page(Mcp, t!("MCP"), agent),
+        Entry::page(Api, t!("Skills"), agent),
+        Entry::page(Usage, t!("Usage & limits"), agent)
+            .terms(t!("quota credits rate limit refresh")),
+        Entry::page(ModelEndpoint, endpoint, agent).terms(format!(
+            "OpenAI Anthropic Gemini Pi LLM {}",
+            t!("own API base URL custom")
+        )),
+        Entry::row(ModelEndpoint, endpoint, "model-endpoint-address", t!("Address"))
+            .terms(format!("{} base URL", t!("Protocol"))),
+        Entry::row(ModelEndpoint, endpoint, "model-endpoint-key", t!("API key")).description(
+            t!("Kept in the macOS keychain. Leave it empty for a local server that needs none."),
+        ),
+        Entry::row(ModelEndpoint, endpoint, "model-endpoint-models", t!("Models")).terms(format!(
+            "{} {}",
+            t!("Context window"),
+            t!("Max output")
+        )),
+        Entry::row(ModelEndpoint, endpoint, "model-endpoint-runtime", t!("Pi runtime")),
+        Entry::page(Environment, environment, agent).terms(format!(
+            "HTTPS_PROXY ANTHROPIC_BASE_URL {}",
+            t!("proxy key endpoint shell restart")
+        )),
+        Entry::row(Environment, environment, "agent-restart", t!("Restart agent")),
+    ]);
     let overleaf = t!("Overleaf");
     out.extend([
         Entry::page(Overleaf, overleaf, t!("Integrations")),
@@ -232,8 +295,47 @@ pub fn entries(has_project: bool, known_author: Option<&str>) -> Vec<Entry> {
         ))
         .description(t!("Overleaf history keeps a copy")),
     ]);
+    let literature = t!("Literature services");
+    out.push(Entry::page(Literature, literature, t!("Integrations")));
+    out.push(
+        Entry::row(
+            Literature,
+            literature,
+            "literature-full-text",
+            t!("Also save full text (Markdown)"),
+        )
+        .terms(format!(
+            "{} {} arXiv PDF",
+            t!("Adding papers"),
+            t!("Citation only")
+        )),
+    );
+    for (id, name) in [
+        ("literature-openalex", "OpenAlex"),
+        ("literature-semanticscholar", "Semantic Scholar"),
+        ("literature-firecrawl", "Firecrawl"),
+    ] {
+        out.push(Entry::row(Literature, literature, id, name).terms(t!("API key")));
+    }
+    out.push(
+        Entry::row(Literature, literature, "literature-email", t!("Contact email"))
+            .terms("Crossref")
+            .description(t!("Sent to Crossref")),
+    );
     out.push(Entry::page(Doctor, t!("TeX doctor"), t!("Diagnostics")));
     out.push(Entry::page(Logs, t!("Logs"), t!("Diagnostics")));
+    let fonts = lattice_ui::fonts::font_license().is_some();
+    let mut about = Entry::page(Acknowledgements, t!("Acknowledgements"), t!("About")).terms(
+        format!(
+            "{}{}",
+            if fonts { "Timeless " } else { "" },
+            t!("credits licenses fonts open source libraries third-party notices")
+        ),
+    );
+    if fonts {
+        about = about.description("Timeless Free Font License");
+    }
+    out.push(about);
     out
 }
 
@@ -316,11 +418,29 @@ mod tests {
         );
         let found = search(&all, "vim");
         assert_eq!(found[0].id, Some("editor-keymap"));
-        // Only the translucency row's description says "macOS".
+        // Only two descriptions say "macOS": translucency's and the model
+        // endpoint's key, the Tauri index's two.
         let found = search(&all, "macos");
-        assert_eq!(found.len(), 1);
-        assert_eq!(found[0].id, Some("translucency"));
+        let ids: Vec<_> = found.iter().map(|entry| entry.id).collect();
+        assert_eq!(ids, [Some("translucency"), Some("model-endpoint-key")]);
         assert!(search(&all, "   ").is_empty());
+    }
+
+    #[test]
+    fn every_settings_page_is_found() {
+        let all = entries(true, None);
+        for (query, tab) in [
+            ("mcp", SettingsTab::Mcp),
+            ("skills", SettingsTab::Api),
+            ("quota", SettingsTab::Usage),
+            ("anthropic", SettingsTab::ModelEndpoint),
+            ("https_proxy", SettingsTab::Environment),
+            ("crossref", SettingsTab::Literature),
+            ("third-party", SettingsTab::Acknowledgements),
+            ("british", SettingsTab::Editor),
+        ] {
+            assert_eq!(search(&all, query)[0].tab, tab, "{query}");
+        }
     }
 
     #[test]

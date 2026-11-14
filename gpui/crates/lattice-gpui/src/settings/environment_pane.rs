@@ -30,12 +30,13 @@ pub fn render(
     width: PageWidth,
     cx: &mut Context<SettingsDialog>,
 ) -> AnyElement {
+    let marks = super::pages::marks(dialog);
     let pane = dialog
         .pages
         .environment
         .get_or_insert_with(|| cx.new(EnvironmentPane::new))
         .clone();
-    pane.update(cx, |pane, cx| pane.render_page(width, cx))
+    pane.update(cx, |pane, cx| pane.render_page(width, &marks, cx))
 }
 
 pub struct EnvironmentPane {
@@ -109,7 +110,12 @@ impl EnvironmentPane {
         cx.notify();
     }
 
-    pub fn render_page(&mut self, width: PageWidth, cx: &mut Context<Self>) -> AnyElement {
+    pub fn render_page(
+        &mut self,
+        width: PageWidth,
+        marks: &controls::Marks,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         let palette = cx.palette().clone();
         let report = self.report.clone();
         let flag = |key: &str| {
@@ -190,7 +196,7 @@ impl EnvironmentPane {
                     })
                     .children(restart),
             );
-        groups.push(controls::first_group(None, vec![service.render(width, cx)], cx));
+        groups.push(controls::first_group(None, vec![marks.row(service, width, cx)], cx));
 
         let mut rows: Vec<AnyElement> = Vec::new();
         if let Some(notice) = shell_notice {

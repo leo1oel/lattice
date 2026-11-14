@@ -67,12 +67,13 @@ pub fn render(
     cx: &mut Context<SettingsDialog>,
 ) -> gpui::AnyElement {
     let handle = cx.entity().downgrade();
+    let marks = super::pages::marks(dialog);
     let pane = dialog
         .pages
         .model_endpoint
         .get_or_insert_with(|| cx.new(|cx| ModelEndpointPane::new(handle, window, cx)))
         .clone();
-    pane.update(cx, |pane, cx| pane.render_page(width, window, cx))
+    pane.update(cx, |pane, cx| pane.render_page(width, &marks, window, cx))
 }
 
 pub struct ModelEndpointPane {

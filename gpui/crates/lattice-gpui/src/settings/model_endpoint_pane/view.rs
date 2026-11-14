@@ -31,6 +31,7 @@ impl ModelEndpointPane {
     pub fn render_page(
         &mut self,
         width: PageWidth,
+        marks: &controls::Marks,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
@@ -95,13 +96,17 @@ impl ModelEndpointPane {
                     ),
                     false,
                 ),
-                Row::new("model-endpoint-runtime", t!("Pi runtime"))
+                marks.row(
+                    Row::new("model-endpoint-runtime", t!("Pi runtime"))
                     .description(
                         t!("Pi is a one-time download of about 150 MB. Install it under Providers › Pi."),
                         cx,
                     )
                     .control(open_providers)
-                    .render(width, cx),
+                    ,
+                    width,
+                    cx,
+                ),
             ],
             cx,
         ));
@@ -177,11 +182,15 @@ impl ModelEndpointPane {
                     .control(more)
                     .wrap(Wrap::Never)
                     .render(width, cx),
-                Row::new("model-endpoint-address", t!("Address"))
+                marks.row(
+                    Row::new("model-endpoint-address", t!("Address"))
                     .description(self.protocol.address_help(), cx)
-                    .render(width, cx),
+                    ,
+                    width,
+                    cx,
+                ),
                 controls::block(Field::new(&self.base_url).disabled(disabled), true),
-                key_row.render(width, cx),
+                marks.row(key_row, width, cx),
                 controls::block(Field::new(&self.key).disabled(disabled), true),
             ],
             cx,
@@ -201,13 +210,17 @@ impl ModelEndpointPane {
         groups.push(controls::group(
             Some(t!("Models").into()),
             vec![
-                Row::new("model-endpoint-models", t!("Models to offer"))
+                marks.row(
+                    Row::new("model-endpoint-models", t!("Models to offer"))
                     .description(
                         t!("Names as the endpoint spells them. Test connection tries the first."),
                         cx,
                     )
                     .control(add)
-                    .render(width, cx),
+                    ,
+                    width,
+                    cx,
+                ),
                 controls::block(self.models_grid(disabled, cx), true),
             ],
             cx,

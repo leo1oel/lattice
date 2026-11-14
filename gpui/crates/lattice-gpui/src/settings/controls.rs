@@ -449,6 +449,43 @@ pub fn row_id(prefix: &str, name: &str) -> &'static str {
     leaked
 }
 
+/// What a page drawn in an entity of its own needs to make its rows
+/// revealable by Settings search: the dialog's record of each row's place,
+/// and the row being washed, with how much.
+#[derive(Clone, Default)]
+pub struct Marks {
+    pub rows: std::rc::Rc<
+        std::cell::RefCell<std::collections::HashMap<&'static str, gpui::Bounds<Pixels>>>,
+    >,
+    pub revealed: Option<(&'static str, f32)>,
+}
+
+impl Marks {
+    /// `row`, measured as it is drawn and washed while revealed.
+    pub fn row(&self, row: Row, width: PageWidth, cx: &App) -> AnyElement {
+        let id = row.id;
+        let rows = self.rows.clone();
+        let amount = match self.revealed {
+            Some((revealed, amount)) if revealed == id => amount,
+            _ => 0.,
+        };
+        div()
+            .relative()
+            .child(
+                gpui::canvas(
+                    move |bounds, _, _| {
+                        rows.borrow_mut().insert(id, bounds);
+                    },
+                    |_, _, _, _| {},
+                )
+                .absolute()
+                .size_full(),
+            )
+            .child(row.revealed(amount).render(width, cx))
+            .into_any_element()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
