@@ -117,6 +117,27 @@ impl Run {
             sleep(cx, Duration::from_millis(600)).await;
             self.with_window(cx, |_, window, cx| window.blur(cx))?;
         }
+        // Settings' own pages (`scenes.settingsPage`), in English as the
+        // scenes run, nothing focused.
+        let page = match std::env::var("LATTICE_PARITY_SCREEN").as_deref() {
+            Ok("settingsModelEndpoint") => Some(lattice_settings::SettingsTab::ModelEndpoint),
+            Ok("settingsEnvironment") => Some(lattice_settings::SettingsTab::Environment),
+            Ok("settingsLiterature") => Some(lattice_settings::SettingsTab::Literature),
+            Ok("settingsAcknowledgements") => Some(lattice_settings::SettingsTab::Acknowledgements),
+            _ => None,
+        };
+        if let Some(tab) = page {
+            cx.update(|cx| {
+                crate::settings::update_appearance(cx, |appearance| {
+                    appearance.interface_language = lattice_settings::InterfaceLanguage::En
+                })
+            });
+            self.with_window(cx, |shell, window, cx| {
+                shell.update(cx, |shell, cx| shell.open_settings(Some(tab), window, cx));
+            })?;
+            sleep(cx, Duration::from_millis(1500)).await;
+            self.with_window(cx, |_, window, cx| window.blur(cx))?;
+        }
         // The Overleaf screens (`scenes.overleafPicker`,
         // `scenes.settingsOverleaf`), in English as the scenes run.
         let screen = std::env::var("LATTICE_PARITY_SCREEN").unwrap_or_default();
