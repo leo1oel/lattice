@@ -19,6 +19,8 @@
 //! editing as an outside edit (`suspendPaths`); here the project watcher
 //! already carries every write on disk to the open editors and the sync.
 
+use std::collections::HashSet;
+
 use gpui::{AppContext as _, Context, Task, Window};
 use lattice_i18n::t;
 use lattice_ui::components::ToastLevel;
@@ -42,6 +44,10 @@ pub(crate) struct CheckpointState {
     consume_next: bool,
     /// The checkpoints the running pass reports to.
     crediting: Vec<Association>,
+    /// The files an Undo left with conflict markers, whose resolver names
+    /// its sides as the Undo's until it resolves or closes
+    /// (`undoConflictPaths`).
+    undo_conflicts: HashSet<String>,
     /// What was sent to the Agent's frame, for a scenario.
     sent: Vec<serde_json::Value>,
 }
@@ -209,9 +215,19 @@ impl Shell {
             )),
             cx,
         );
+        self.checkpoints()
+            .undo_conflicts
+            .extend(marked.iter().cloned());
         self.open_conflict_resolver(marked[0].clone(), false, window, cx);
-        if let Some((resolver, _)) = &self.conflict {
-            resolver.update(cx, |resolver, cx| resolver.set_agent_undo_sides(true, cx));
-        }
+    }
+
+    /// Whether `path` is a file an Undo left with conflict markers.
+    pub(super) fn is_agent_undo_conflict(&self, path: &str) -> bool {
+        self.agent.state.checkpoints.undo_conflicts.contains(path)
+    }
+
+    /// The resolver for `path` resolved or closed.
+    pub(super) fn forget_agent_undo_conflict(&mut self, path: &str) {
+        self.checkpoints().undo_conflicts.remove(path);
     }
 }

@@ -157,8 +157,14 @@ impl Run {
             &marked,
             "Intro.\n<<<<<<< current\nTheir newer line.\n=======\nThe line before the agent.\n>>>>>>> before agent\n",
         )?;
+        let second = root.join("chapters/agent-undo-2.tex");
+        std::fs::write(
+            &second,
+            "<<<<<<< current\nTheir edit.\n=======\nThe agent's text.\n>>>>>>> before agent\n",
+        )?;
         let d = entry("d", "two", "2026-11-14T10:03:00.000Z", "chapters/agent-undo.tex");
-        self.agent_snapshot(cx, snapshot("two", vec![c.clone(), d]));
+        let e = entry("e", "two", "2026-11-14T10:03:00.000Z", "chapters/agent-undo-2.tex");
+        self.agent_snapshot(cx, snapshot("two", vec![c.clone(), d, e]));
         self.agent_snapshot(cx, snapshot("two", vec![c]));
         let opened = self
             .wait_for(cx, Duration::from_secs(10), |shell, cx| {
@@ -186,6 +192,24 @@ impl Run {
             opened && agent_sides && spots == 1,
             json!({ "opened": opened, "agent_sides": agent_sides, "spots": spots }),
         );
+        // The other file the Undo marked, opened later, is the Undo's too.
+        self.with_window(cx, |shell, window, cx| {
+            shell.update(cx, |shell, cx| {
+                shell.open_conflict_resolver("chapters/agent-undo-2.tex".into(), false, window, cx)
+            })
+        })?;
+        let later_sides = cx.update(|cx| {
+            self.shell
+                .read(cx)
+                .conflict
+                .as_ref()
+                .is_some_and(|(resolver, _)| resolver.read(cx).is_agent_undo())
+        });
+        steps.check(
+            "every file an Undo marked opens in the resolver as the Undo's",
+            later_sides,
+            json!({ "agent_sides": later_sides }),
+        );
         cx.update(|cx| {
             self.shell.update(cx, |shell, cx| {
                 shell.conflict = None;
@@ -193,6 +217,7 @@ impl Run {
             })
         });
         std::fs::remove_file(&marked).ok();
+        std::fs::remove_file(&second).ok();
         Ok(())
     }
 }

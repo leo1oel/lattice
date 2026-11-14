@@ -124,9 +124,9 @@ impl ConflictResolver {
 
     /// Name the sides as an Agent Undo's: the current text, and the text
     /// from before the Agent (`ConflictSides` `agent-undo`).
-    pub fn set_agent_undo_sides(&mut self, agent_undo: bool, cx: &mut Context<Self>) {
+    pub fn agent_undo_sides(mut self, agent_undo: bool) -> Self {
         self.agent_undo = agent_undo;
-        cx.notify();
+        self
     }
 
     /// Whether the sides are named as an Agent Undo's, for a scenario.

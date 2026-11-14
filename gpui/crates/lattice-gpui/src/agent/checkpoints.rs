@@ -95,9 +95,6 @@ pub struct Association {
 /// What one snapshot asks of the window.
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct Outcome {
-    /// Build inputs the Agent changed or an Undo put back, written outside
-    /// any save (`onExternalEdits`).
-    pub edited: Vec<String>,
     /// Build the PDF after this long, the timer restarted.
     pub build: Option<Duration>,
     /// Files an Undo put back, to look for the conflict markers it leaves
@@ -175,15 +172,7 @@ impl Checkpoints {
             .iter()
             .filter(|entry| entry.touches_build())
             .collect();
-        let edited = unique(
-            built
-                .iter()
-                .chain(&restored)
-                .flat_map(|entry| entry.files.iter().map(|file| file.path.clone()))
-                .filter(|path| is_build_input(path)),
-        );
         let mut outcome = Outcome {
-            edited,
             build: None,
             undone,
         };
@@ -474,17 +463,15 @@ mod tests {
         );
         let outcome = checkpoints.handle(snapshot("t", vec![a.clone(), b.clone()]), true);
         assert_eq!(outcome.build, Some(QUIET));
-        assert_eq!(outcome.edited, vec!["chapters/intro.tex".to_string()]);
         assert!(outcome.undone.is_empty());
         let pending = checkpoints.take_pending();
         assert_eq!(pending.len(), 1);
         assert_eq!(pending[0].turn_id, "turn-b");
         assert!(checkpoints.take_pending().is_empty());
-        // Manual builds: the edit is still an outside one, but nothing builds.
+        // Manual builds: nothing builds.
         let c = wire("c", "t", "2026-11-14T10:02:00.000Z", &[("main.tex", 2)]);
         let manual = checkpoints.handle(snapshot("t", vec![a, b, c]), false);
         assert_eq!(manual.build, None);
-        assert_eq!(manual.edited, vec!["main.tex".to_string()]);
         assert!(checkpoints.take_pending().is_empty());
     }
 
@@ -497,7 +484,6 @@ mod tests {
         let outcome = checkpoints.handle(snapshot("t", vec![a]), false);
         assert_eq!(outcome.build, Some(Duration::ZERO));
         assert_eq!(outcome.undone, vec!["refs.bib".to_string()]);
-        assert_eq!(outcome.edited, vec!["refs.bib".to_string()]);
     }
 
     #[test]
