@@ -26,6 +26,7 @@ mod markdown;
 mod markdown_pages;
 #[cfg(target_os = "macos")]
 mod markdown_scroll;
+mod narrow_window;
 #[cfg(target_os = "macos")]
 mod overleaf;
 mod pdf;
@@ -281,6 +282,7 @@ impl Run {
         #[cfg(target_os = "macos")]
         self.markdown_island(cx, &mut steps, &root).await?;
         self.tab_strip(cx, &mut steps, &root).await?;
+        self.narrow_window(cx, &mut steps, &root).await?;
         self.pdf_viewer(cx, &mut steps, &root).await?;
         self.second_window_pdf(cx, &mut steps, &root).await?;
 

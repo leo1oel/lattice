@@ -681,6 +681,7 @@ impl BasePanel for EditorPanel {
         crate::status_counters::set_buffer(root, self.relative.clone(), None, cx);
         let panel = gpui_kit::component::dock::PanelId::from(cx.entity_id());
         lattice_ui::dock::set_spare_tools(panel, None, cx);
+        lattice_ui::dock::set_icon_saving(panel, None, cx);
     }
 
     /// An HTML file's preview is shown only while its tab is the displayed one.

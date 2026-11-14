@@ -83,6 +83,7 @@ pub fn start(shell: Entity<Shell>, window: AnyWindowHandle, args: ScenarioArgs, 
         };
         let result = match args.name.as_str() {
             "e2e" => run.e2e(cx).await,
+            "narrow-window" => run.narrow_window_alone(cx).await,
             #[cfg(target_os = "macos")]
             "islands" => run.islands(cx).await,
             #[cfg(target_os = "macos")]

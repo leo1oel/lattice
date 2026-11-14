@@ -12,7 +12,10 @@
 //! and a right click on a tab open Lattice's menu (`components::Menu`,
 //! design call 4). A panel's spare
 //! tools (a .tex file's Source / Visual switch) show before its own only
-//! while the header has room for them (`HeaderTools::Named`).
+//! while the header has room for them (`HeaderTools::Named`), and its own
+//! tools keep only their icons (the build chip its mark) while the header
+//! is in `HeaderTools::Icon`, by the saving the panel registers
+//! (`lattice_ui::dock::set_icon_saving`).
 
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
@@ -75,8 +78,12 @@ impl LatticeSkin {
 
     /// The spare tools of `view_id`'s panel, if it offers any.
     fn spare(&self, view_id: &str, cx: &App) -> Option<lattice_ui::dock::SpareTools> {
-        let panel = self.views.borrow().get(view_id)?.panel_id(cx);
-        lattice_ui::dock::spare_tools(panel, cx)
+        lattice_ui::dock::spare_tools(self.panel_id(view_id, cx)?, cx)
+    }
+
+    /// The panel `view_id` shows.
+    fn panel_id(&self, view_id: &str, cx: &App) -> Option<gpui_kit::component::dock::PanelId> {
+        Some(self.views.borrow().get(view_id)?.panel_id(cx))
     }
 
     fn surface(
@@ -294,6 +301,21 @@ impl Skin for LatticeSkin {
             .then(|| self.spare(&panel.selected, cx))
             .flatten()
             .map(|spare| (spare.render)(window, cx));
+        // The selected view learns whether its tools are icons alone before
+        // it draws them; measured so, they count at their full width (the
+        // plan takes the saving off for the icon state itself).
+        let icon_only = panel.header.tools == trellis::runtime::header::HeaderTools::Icon;
+        let saving = self
+            .panel_id(&panel.selected, cx)
+            .map(|id| {
+                lattice_ui::dock::set_tools_icon_only(id, icon_only, cx);
+                if icon_only {
+                    f32::from(lattice_ui::dock::icon_saving(id, window, cx))
+                } else {
+                    0.
+                }
+            })
+            .unwrap_or(0.);
         let accessories = shown
             .then(|| {
                 handle
@@ -316,7 +338,7 @@ impl Skin for LatticeSkin {
                     .child(
                         canvas(
                             move |bounds, window, _| {
-                                let width = f32::from(bounds.size.width);
+                                let width = f32::from(bounds.size.width) + saving;
                                 let old = measured.borrow_mut().insert(id.clone(), width);
                                 if old.is_none_or(|old| (old - width).abs() > 0.5) {
                                     window.refresh();
@@ -389,6 +411,15 @@ impl Skin for LatticeSkin {
             .unwrap_or(0.);
         let bare = LIST_INSETS + STRIP_END + MENU;
         let full = bare + f64::from(tools);
+        // The row with its tools' icons alone (`data-tools="icon"`): the
+        // build chip without its label.
+        let icon = full
+            - self
+                .panel_id(&input.panel.selected, cx)
+                .filter(|_| tools > 0.)
+                .map_or(0., |id| {
+                    f64::from(f32::from(lattice_ui::dock::icon_saving(id, window, cx)))
+                });
         // The spare tools go before the panel's own, so only with them.
         let named = full
             + self
@@ -421,7 +452,7 @@ impl Skin for LatticeSkin {
             })
             .collect();
         Some(HeaderMeasure {
-            chrome: [named, full, full, bare],
+            chrome: [named, full, icon, bare],
             gap: TAB_GAP,
             items,
         })

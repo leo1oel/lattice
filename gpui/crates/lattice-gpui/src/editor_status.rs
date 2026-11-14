@@ -20,7 +20,10 @@
 //! they show (`build::chip_mark`). It is as wide as its widest state (the
 //! longest label, a time up to 999.9 s included), so the strip never shifts
 //! as it changes. Its fill eases under the pointer and a press shrinks it to
-//! 96%, both on the fast tier. It builds on click, as ⌘B does.
+//! 96%, both on the fast tier. It builds on click, as ⌘B does. In a strip
+//! short of room for its tabs it keeps only its mark, 8px in at each side
+//! (`[data-tools="icon"]`), before the strip drops it for the ⋯ menu's
+//! Build.
 
 use gpui::{
     AnyElement, App, BoxShadow, Edges, Entity, InteractiveElement as _, IntoElement,
@@ -280,7 +283,48 @@ fn word_count(panel: &EditorPanel, file_words: usize, scoped: bool, cx: &App) ->
     crate::build::word_count_item::item(labels, scoped, cx)
 }
 
-pub fn build_chip(build: &Entity<BuildPanel>, window: &mut Window, cx: &mut App) -> AnyElement {
+/// The build chip's labels' widths in each of its states, at least, so it
+/// is as wide as its widest whatever it shows.
+fn chip_label_width(label: Option<&str>, window: &Window, cx: &App) -> gpui::Pixels {
+    let seconds = format!("{:.1} s", 999.9f32);
+    [t!("Build"), t!("Failed"), seconds.as_str()]
+        .into_iter()
+        .chain(label)
+        .map(|text| {
+            shaped_width_with(
+                text,
+                TextRole::Caption,
+                Some(FONT_WEIGHT_SEMIBOLD),
+                Some(tabular_nums()),
+                window,
+                cx,
+            )
+        })
+        .fold(px(0.), |widest, width| widest.max(width))
+}
+
+/// The build chip's width with its label: 8px in, the mark, 6px, the
+/// widest label, 10px.
+fn chip_full_width(label: Option<&str>, window: &Window, cx: &App) -> gpui::Pixels {
+    (px(8.) + chip_mark::MARK + px(6.) + chip_label_width(label, window, cx) + px(10.)).ceil()
+}
+
+/// The build chip with its mark alone (`padding-inline: var(--space-4)`).
+fn chip_icon_width() -> gpui::Pixels {
+    px(8.) + chip_mark::MARK + px(8.)
+}
+
+/// How much narrower the build chip draws with its mark alone.
+pub fn build_chip_icon_saving(window: &Window, cx: &App) -> gpui::Pixels {
+    chip_full_width(None, window, cx) - chip_icon_width()
+}
+
+pub fn build_chip(
+    build: &Entity<BuildPanel>,
+    icon_only: bool,
+    window: &mut Window,
+    cx: &mut App,
+) -> AnyElement {
     let palette = cx.palette().clone();
     let panel = build.read(cx);
     let state = panel.chip();
@@ -298,26 +342,13 @@ pub fn build_chip(build: &Entity<BuildPanel>, window: &mut Window, cx: &mut App)
     } else {
         palette.text
     };
-    // The chip's width: its widest state, as the app's hidden sizer makes it.
-    let widest = [
-        t!("Build").to_string(),
-        t!("Failed").to_string(),
-        seconds(std::time::Duration::from_secs_f32(999.9)),
-    ]
-    .into_iter()
-    .chain(std::iter::once(label.clone()))
-    .map(|text| {
-        shaped_width_with(
-            &text,
-            TextRole::Caption,
-            Some(FONT_WEIGHT_SEMIBOLD),
-            Some(tabular_nums()),
-            window,
-            cx,
-        )
-    })
-    .fold(px(0.), |widest, width| widest.max(width));
-    let width = px(8.) + chip_mark::MARK + px(6.) + widest + px(10.);
+    // The chip's width: its widest state, as the app's hidden sizer makes it,
+    // or its mark alone.
+    let width = if icon_only {
+        chip_icon_width()
+    } else {
+        chip_full_width(Some(&label), window, cx)
+    };
     // `.trellis-build-button`: the ink at 9% on the sheet, 14% under the
     // pointer, the fill easing on the fast tier; a press shrinks it to 96%
     // on the same tier (`scale` is in its transition too).
@@ -350,7 +381,7 @@ pub fn build_chip(build: &Entity<BuildPanel>, window: &mut Window, cx: &mut App)
             .items_center()
             .justify_center()
             .gap(px(6.))
-            .w(width.ceil())
+            .w(width)
             .h(px(24.))
             .rounded(px(6.))
             .bg(mix(ground, hover, interaction.hover))
@@ -359,17 +390,19 @@ pub fn build_chip(build: &Entity<BuildPanel>, window: &mut Window, cx: &mut App)
         pointer,
     )
     .child(glyph)
-    .child(
-        div()
-            .whitespace_nowrap()
-            .text_role(TextRole::Caption, cx)
-            .line_height(px(15.6))
-            .font_weight(FONT_WEIGHT_SEMIBOLD)
-            .font_features(tabular_nums())
-            .text_color(label_ink)
-            .children(parity::text_probe("build-chip", 0, label.clone()))
-            .child(label),
-    )
+    .when(!icon_only, |chip| {
+        chip.child(
+            div()
+                .whitespace_nowrap()
+                .text_role(TextRole::Caption, cx)
+                .line_height(px(15.6))
+                .font_weight(FONT_WEIGHT_SEMIBOLD)
+                .font_features(tabular_nums())
+                .text_color(label_ink)
+                .children(parity::text_probe("build-chip", 0, label.clone()))
+                .child(label),
+        )
+    })
     .children(wash)
     .children(parity::probe("build-chip"))
     // ⇧-click is the clean rebuild, as the Tauri app's Build button has it.
