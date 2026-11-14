@@ -203,10 +203,6 @@ impl MockOverleaf {
         self.project.lock().unwrap().live.review.thread(id)
     }
 
-    pub fn thread_ids(&self) -> Vec<String> {
-        self.project.lock().unwrap().live.review.thread_ids()
-    }
-
     /// The review REST requests, `METHOD path` after the project.
     pub fn review_requests(&self) -> Vec<String> {
         self.project.lock().unwrap().live.review.requests.clone()

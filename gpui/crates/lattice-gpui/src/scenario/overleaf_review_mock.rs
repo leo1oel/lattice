@@ -72,10 +72,6 @@ impl ReviewMock {
             .collect();
         Some((contents, thread.resolved))
     }
-
-    pub(super) fn thread_ids(&self) -> Vec<String> {
-        self.threads.keys().cloned().collect()
-    }
 }
 
 fn person(user: &str) -> Value {

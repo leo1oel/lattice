@@ -83,9 +83,11 @@ pub enum ReviewAction {
 /// The suggestions shown, for the hover card, by byte range of the buffer
 /// as it was when they were set (a deletion covers the character after its
 /// point, which its struck text stands before).
+type Cards = Rc<RefCell<Vec<(Range<usize>, ChangeMark)>>>;
+
 #[derive(Default)]
 pub(super) struct ReviewLayer {
-    cards: Rc<RefCell<Vec<(Range<usize>, ChangeMark)>>>,
+    cards: Cards,
     provider: bool,
 }
 
@@ -225,7 +227,7 @@ fn underlined(color: Hsla, tint: f32) -> MarkStyle {
 
 /// The hover card over a suggestion.
 struct ChangeCards {
-    cards: Rc<RefCell<Vec<(Range<usize>, ChangeMark)>>>,
+    cards: Cards,
     panel: WeakEntity<EditorPanel>,
 }
 

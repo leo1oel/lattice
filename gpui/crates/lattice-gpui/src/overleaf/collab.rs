@@ -118,10 +118,6 @@ impl OverleafCollabPanel {
             .is_some_and(|composer| matches!(composer.draft, Draft::New { .. }))
     }
 
-    pub fn tab(&self) -> CollabTab {
-        self.tab
-    }
-
     pub fn set_tab(&mut self, tab: CollabTab, cx: &mut Context<Self>) {
         if self.tab != tab {
             self.tab = tab;

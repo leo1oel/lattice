@@ -70,12 +70,6 @@ impl OverleafBridge {
         &self.review.threads
     }
 
-    /// Where each thread is anchored, by document (REST's view; the live
-    /// document's own ranges are newer, see [`Self::comments_in`]).
-    pub fn anchors(&self) -> &[OverleafCommentAnchor] {
-        &self.review.anchors
-    }
-
     /// Threads are still being read for the first time.
     pub fn comments_loading(&self) -> bool {
         !self.review.loaded && self.review.reading.is_some()

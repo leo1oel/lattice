@@ -108,8 +108,11 @@ pub(super) struct MarginState {
     /// The layout last drawn, for scripted checks.
     pub layout: Option<MarginLayout>,
     /// Each item's card or pip bounds as last drawn, for scripted checks.
-    pub painted: Rc<RefCell<Vec<(String, Bounds<Pixels>)>>>,
+    pub painted: Painted,
 }
+
+/// Each item's card or pip bounds as last drawn, by key.
+type Painted = Rc<RefCell<Vec<(String, Bounds<Pixels>)>>>;
 
 impl EditorPanel {
     pub fn set_margin_mode(&mut self, mode: MarginMode, cx: &mut Context<Self>) {

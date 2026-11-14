@@ -187,7 +187,7 @@ impl OverleafCollabPanel {
             SharedString::from(format!("overleaf-change-accept-{id}")),
             Icon::CHECK,
         )
-        .tooltip(tip.clone().unwrap_or_else(|| t!("Accept")))
+        .tooltip(tip.unwrap_or_else(|| t!("Accept")))
         .disabled(disabled)
         .on_click(move |_, _, cx| {
             let ids = vec![accept_id.clone()];
@@ -413,8 +413,7 @@ fn section_at(sections: &[(usize, Option<usize>, String)], position: i64) -> Str
     }
     sections
         .iter()
-        .filter(|(start, end, _)| end.is_none() && *start <= position)
-        .next_back()
+        .rfind(|(start, end, _)| end.is_none() && *start <= position)
         .map(|(_, _, title)| title.clone())
         .unwrap_or_else(|| t!("Before the first section").to_string())
 }
