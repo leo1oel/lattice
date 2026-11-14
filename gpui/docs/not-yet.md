@@ -15,9 +15,7 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] The Agent: reviewing the proposals its annotation tools record.
 
-- [ ] The Agent: inline Proofread and Polish.
-
-- [ ] The selection toolbar's Proofread, Polish and Rewrite with its instruction menu.
+- [ ] The accepted proofread's old words folding their width away (they leave at once).
 
 - [ ] The highlight's colour swatch before `\colorbox` in the source.
 

@@ -25,6 +25,7 @@ What it does so far, and nothing more, one line per feature, each with its own p
 - [Overleaf](docs/overleaf.md): syncs a project with Overleaf: sign-in, Live and Manual modes, realtime editing, review, chat and Overleaf's history.
 - [Papers](docs/papers.md): lists the bibliography's papers in the Papers panel, adds and checks references, and edits a `.bib` file in a visual form.
 - [PDF preview](docs/pdf-preview.md): shows the PDF in the Tauri app's viewer on PDFium, images in its image preview, and jumps between source and PDF with SyncTeX.
+- [Proofread, Polish and Rewrite](docs/proofread.md): asks the agent to proofread, polish or rewrite a selection, and reviews its edits in place.
 - [Project tree](docs/project-tree.md): opens a project folder as the Tauri app does, in the Project tree with its file operations and Git status.
 - [Saving and outside edits](docs/saving.md): saves as the Tauri app does, and takes outside edits into clean buffers and merges them into edited ones.
 - [Settings](docs/settings.md): Settings (⌘,) as the Tauri app's, with the interface size, sounds, spell checking and translucency.
