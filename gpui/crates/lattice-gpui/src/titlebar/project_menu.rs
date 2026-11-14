@@ -3,8 +3,8 @@
 //! window of its own by its row or in this window by the row's trailing
 //! window glyph; then Open another folder (with its own in-this-window
 //! glyph), New project, Clone repository…, Open from Overleaf, the Guided
-//! tutorial, and
-//! Settings, the titlebar's way into Settings, as the app's menu ends.
+//! tutorial, and Settings, the titlebar's way into Settings, as the app's
+//! menu ends.
 //!
 //! The glyph is the row's secondary action (`MenuAction::secondary`): the
 //! keys reach it with → from its row and run it with Enter, as the app's
