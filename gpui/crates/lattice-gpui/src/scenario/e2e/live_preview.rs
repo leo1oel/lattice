@@ -87,7 +87,7 @@ impl Run {
         &self,
         cx: &mut AsyncApp,
     ) -> Result<serde_json::Value> {
-        let mut steps = Steps(Vec::new());
+        let mut steps = Steps::new(self);
         let root = self.root(cx).await?;
         // The shots find the pill by its probe.
         if std::env::var_os("LATTICE_E2E_SHOTS").is_some() {
