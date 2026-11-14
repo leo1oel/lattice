@@ -22,6 +22,20 @@ use lattice_ui::{
 /// The sheet's content inset (`--drawer-content-inset`).
 pub const INSET: f32 = 14.;
 
+/// The sheet's width in this window: Settings' size, the window less 20px
+/// a side.
+fn sheet_width(window: &Window) -> gpui::Pixels {
+    CONTAINER_DIALOG_LARGE
+        .to_pixels(window.rem_size())
+        .min(window.viewport_size().width - px(40.))
+}
+
+/// How wide the sheet's content is, inside its inset: what a container
+/// query on the sheet measures.
+pub fn body_width(window: &Window) -> f32 {
+    f32::from(sheet_width(window)) - 2. * INSET
+}
+
 pub struct SheetFrame {
     pub id: &'static str,
     pub icon: Icon,
@@ -41,9 +55,7 @@ impl SheetFrame {
     ) -> AnyElement {
         let palette = cx.palette().clone();
         let viewport = window.viewport_size();
-        let width = CONTAINER_DIALOG_LARGE
-            .to_pixels(window.rem_size())
-            .min(viewport.width - px(40.));
+        let width = sheet_width(window);
         let height = px(640.).min(viewport.height - px(40.));
         let child = |name: &'static str| ElementId::Name(format!("{}-{name}", self.id).into());
         let close_x = on_close.clone();
