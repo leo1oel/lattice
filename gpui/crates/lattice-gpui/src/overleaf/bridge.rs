@@ -21,12 +21,16 @@
 use std::{
     collections::{BTreeSet, HashMap, HashSet},
     path::{Path, PathBuf},
+    sync::Arc,
     time::{Duration, Instant},
 };
 
 use futures::channel::oneshot;
 use gpui::{App, AppContext as _, Context, EventEmitter, SharedString, Subscription, Task};
-use lattice_core::overleaf::{OverleafLink, OverleafStatus, OverleafSyncResult};
+use lattice_core::{
+    overleaf::{OverleafLink, OverleafStatus, OverleafSyncResult},
+    overleaf_rt::RealtimeClient,
+};
 use lattice_i18n::t;
 use lattice_settings::OverleafSyncMode;
 use lattice_ui::components::ToastLevel;
@@ -39,6 +43,7 @@ use super::{
 use crate::notices::{self, Notice, NoticeAction};
 
 mod live;
+mod presence;
 
 /// How often live mode asks Overleaf whether anything changed.
 const LIVE_POLL: Duration = Duration::from_secs(3);
@@ -115,6 +120,8 @@ pub enum OverleafBridgeEvent {
     OpenConflict(String),
     /// The session ended: Settings › Overleaf is where to sign in again.
     OpenSettings,
+    /// Who is in the project, or where they are, changed.
+    PresenceChanged,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -172,6 +179,9 @@ pub struct OverleafBridge {
     /// Staged by a scenario (`scenario_stage`): shown as linked and live,
     /// but nothing reads the link again or asks Overleaf anything.
     staged: bool,
+    /// The live channel's client while it is up.
+    client: Option<Arc<RealtimeClient>>,
+    presence: presence::PresenceState,
     _settings: Subscription,
 }
 
@@ -215,6 +225,8 @@ impl OverleafBridge {
             channel_task: None,
             link_task: None,
             staged: false,
+            client: None,
+            presence: Default::default(),
             _settings: settings,
         }
     }
@@ -290,6 +302,8 @@ impl OverleafBridge {
         self.channel_task = None;
         self.channel = ChannelStatus::Off;
         self.channel_detail = None;
+        self.client = None;
+        self.presence_dropped(cx);
         cx.notify();
     }
 
@@ -410,19 +424,26 @@ impl OverleafBridge {
 
     pub(super) fn channel_news(&mut self, news: ChannelNews, cx: &mut Context<Self>) {
         match news {
-            ChannelNews::Joined { entities } => {
+            ChannelNews::Joined { entities, client } => {
                 self.note_entities(entities);
+                self.client = Some(client);
+                self.presence_joined(cx);
                 self.channel = ChannelStatus::Live;
                 self.channel_detail = None;
                 self.toasted_failure = None;
                 self.rejoined = false;
             }
             ChannelNews::Tree(entities) => self.note_entities(entities),
+            ChannelNews::Event(event) => self.presence_event(event, cx),
             ChannelNews::Reconnecting(detail) => {
+                self.client = None;
+                self.presence_dropped(cx);
                 self.channel = ChannelStatus::Connecting;
                 self.channel_detail = Some(detail.into());
             }
             ChannelNews::Failed(detail) => {
+                self.client = None;
+                self.presence_dropped(cx);
                 let said = self.toasted_failure.as_deref() == Some(detail.as_str());
                 self.channel = ChannelStatus::Error;
                 self.channel_detail = Some(detail.clone().into());

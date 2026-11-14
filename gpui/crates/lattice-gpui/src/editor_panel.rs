@@ -53,6 +53,7 @@ mod disk_sync;
 mod markdown_view;
 mod outline_panel;
 pub mod outline_rail;
+mod overleaf_carets;
 pub mod rail_outline;
 mod save;
 mod source_chrome;
@@ -63,6 +64,7 @@ pub mod views;
 
 use disk_sync::vanished_key;
 use outline_rail::OutlineRail;
+pub use overleaf_carets::OverleafCaret;
 use save::normalize_breaks;
 pub use views::DocumentView;
 use views::DocumentViews;
@@ -113,6 +115,8 @@ pub enum EditorPanelEvent {
     OpenLocation { path: String, line: u32 },
     /// The caret moved to another line.
     CaretLine,
+    /// The caret moved at all.
+    CaretMoved,
     /// The editor took focus: it is the one the reader works in now.
     Focused,
     /// Open the project-relative `path` (a link followed in a Markdown file's
@@ -172,6 +176,8 @@ pub struct EditorPanel {
     build: Entity<BuildPanel>,
     /// The caret's line and column, 1-based, for the status bar.
     cursor: (u32, u32),
+    /// The caret as Overleaf counts it (`overleaf_carets`).
+    overleaf_caret: (u32, u32),
     /// The file's word count as of opening or the last save; counted off the
     /// main thread.
     words: Option<usize>,
@@ -344,9 +350,14 @@ impl EditorPanel {
                         let line = head.row + 1;
                         let moved = this.cursor.0 != line;
                         this.cursor = (line, column);
+                        this.overleaf_caret = (
+                            head.row,
+                            overleaf_carets::utf16_units(snapshot.text_for_range(line_start..head)),
+                        );
                         if moved {
                             cx.emit(EditorPanelEvent::CaretLine);
                         }
+                        cx.emit(EditorPanelEvent::CaretMoved);
                         cx.notify();
                     }
                     EditorEvent::Focused => {
@@ -427,6 +438,7 @@ impl EditorPanel {
             search_visible: false,
             build,
             cursor: (1, 1),
+            overleaf_caret: (0, 0),
             words: None,
             buffer_todos: None,
             status_width: Default::default(),

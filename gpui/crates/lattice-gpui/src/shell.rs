@@ -29,6 +29,7 @@ mod layers;
 pub(crate) mod menus;
 mod opening;
 pub(crate) mod overleaf_flow;
+mod overleaf_presence;
 mod palette;
 mod pdfs;
 mod references_flow;

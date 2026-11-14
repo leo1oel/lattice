@@ -92,6 +92,7 @@ impl Shell {
             OverleafBridgeEvent::OpenSettings => {
                 self.open_settings(Some(SettingsTab::Overleaf), window, cx)
             }
+            OverleafBridgeEvent::PresenceChanged => self.show_overleaf_carets(cx),
         }
     }
 
@@ -326,7 +327,7 @@ impl Shell {
     }
 
     /// The titlebar's Overleaf control, unless Settings › Appearance hides it.
-    pub(crate) fn overleaf_tools(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
+    pub(super) fn overleaf_sync_control(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
         let hidden = &crate::settings::get(cx).appearance.hidden_titlebar_tools;
         if hidden.contains(&TitlebarTool::Overleaf) {
             return None;

@@ -78,7 +78,10 @@ impl Shell {
                 self.file_tree
                     .update(cx, |tree, cx| tree.set_current(Some(path), cx));
                 self.show_outline(cx);
+                self.tell_overleaf_caret(editor, cx);
+                self.show_overleaf_carets(cx);
             }
+            EditorPanelEvent::CaretMoved => self.tell_overleaf_caret(editor, cx),
             EditorPanelEvent::CaretLine => {
                 if self.active_editor().as_ref() == Some(editor) {
                     self.show_outline(cx);
