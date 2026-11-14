@@ -1,0 +1,3 @@
+#: lattice-gpui/src/titlebar.rs
+msgid "{name} — not in the GPUI preview yet"
+msgstr "{name} — GPUI 预览版暂未提供"

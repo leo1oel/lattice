@@ -349,3 +349,13 @@ impl Run {
         Ok(())
     }
 }
+
+/// This file's registration as the e2e module `submission` (`registry.rs`).
+pub(super) const MODULE: super::registry::Module = super::registry::Module {
+    after: super::registry::After::Terminal,
+    rank: 30,
+    needs: &[],
+    setup: false,
+    covers: &["gpui/crates/lattice-gpui/src/submission"],
+    run: |run, cx, steps, fixture| Box::pin(run.submission_tools(cx, steps, &fixture.root)),
+};

@@ -85,7 +85,7 @@ A waiter takes it over from a holder that died, or that has held it past 30 minu
 ### A review round's GPUI e2e, and the main baseline
 
 A review round does not run the whole GPUI `e2e` scenario.
-`node scripts/gpui-e2e-light.mjs` builds the binary, then runs `gpui/script/e2e --only <modules>`: the scenario's smoke flow (open, build, SyncTeX both ways, edits and ⌘S, autosave and outside edits, a second window, the quit that saves), plus only the modules the branch's paths touch (`scripts/gpui-e2e-modules.mjs` holds the path map; the modules and what each needs are `MODULES` in `gpui/crates/lattice-gpui/src/scenario/e2e/steps.rs`).
+`node scripts/gpui-e2e-light.mjs` builds the binary, then runs `gpui/script/e2e --only <modules>`: the scenario's smoke flow (open, build, SyncTeX both ways, edits and ⌘S, autosave and outside edits, a second window, the quit that saves), plus only the modules the branch's paths touch (`scripts/gpui-e2e-modules.mjs` reads them, and the source each covers, from the scenario's files; each module registers itself, with what it needs, in its own file, see `gpui/crates/lattice-gpui/src/scenario/e2e/registry.rs`).
 When only quarantined steps fail (`scripts/gpui-e2e-quarantine.json`, the few that caused most red runs), it runs once more and keeps only the steps that failed both times.
 It then sorts what still fails against the main baseline and exits 1 only for failures that are the branch's own.
 

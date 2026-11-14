@@ -19,6 +19,8 @@
 //! - hidden past the (shortened) hibernation delay, the page is torn down,
 //!   and comes back where it was read when its tab is chosen again.
 
+#![cfg(target_os = "macos")]
+
 use std::{path::Path, time::Duration};
 
 use anyhow::Result;
@@ -621,3 +623,13 @@ impl Run {
         }
     }
 }
+
+/// This file's registration as the e2e module `islands` (`registry.rs`).
+pub(super) const MODULE: super::registry::Module = super::registry::Module {
+    after: super::registry::After::Repair,
+    rank: 60,
+    needs: &[],
+    setup: false,
+    covers: &["gpui/crates/lattice-webview/", "gpui/islands/"],
+    run: |run, cx, steps, fixture| Box::pin(run.webview_islands(cx, steps, &fixture.root)),
+};

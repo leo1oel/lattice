@@ -63,6 +63,8 @@ impl Render for Shell {
                     .as_ref()
                     .map(|(dialog, _)| dialog.clone()),
             )
+            .children(self.inserts.figure.as_ref().map(|open| open.dialog.clone()))
+            .children(self.inserts.table.as_ref().map(|open| open.sheet.clone()))
             .child(self.confirm.clone())
     }
 }

@@ -328,3 +328,16 @@ impl Run {
         Ok(())
     }
 }
+
+/// This file's registration as the e2e module `bib` (`registry.rs`).
+pub(super) const MODULE: super::registry::Module = super::registry::Module {
+    after: super::registry::After::Terminal,
+    rank: 54,
+    needs: &[],
+    setup: false,
+    covers: &[
+        "gpui/crates/lattice-gpui/src/papers/bib_editor",
+        "gpui/crates/lattice-gpui/src/editor_panel/bib_view.rs",
+    ],
+    run: |run, cx, steps, fixture| Box::pin(run.bib_visual_editor(cx, steps, &fixture.root)),
+};
