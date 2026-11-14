@@ -61,8 +61,10 @@ fn command(launch: &lattice_core::terminal::ShellLaunch) -> (String, Vec<String>
     powershell_command(launch, std::env::var_os("LANG").is_some())
 }
 
-/// PowerShell has no `env` to start it through, so it sets Lattice's
-/// variables and removes Zed's and alacritty's itself, before its prompt.
+/// PowerShell has no `env` to start it through, so before its prompt it
+/// takes back the variables Zed's terminal overwrote and removes Zed's and
+/// alacritty's itself. The rest of Lattice's, `PATH` among them, arrive
+/// through the environment before the profile runs and build on it.
 #[cfg_attr(unix, allow(dead_code))]
 fn powershell_command(
     launch: &lattice_core::terminal::ShellLaunch,
@@ -83,13 +85,20 @@ fn powershell_command(
             )
         })
         .collect();
-    script.extend(launch.env.iter().map(|(name, value)| {
-        format!(
-            "Set-Item -LiteralPath {} -Value {}",
-            quote(&format!("Env:{name}")),
-            quote(value)
-        )
-    }));
+    let overwritten = ["TERM", "COLORTERM", "TERM_PROGRAM", "TERM_PROGRAM_VERSION"];
+    script.extend(
+        launch
+            .env
+            .iter()
+            .filter(|(name, _)| overwritten.contains(&name.as_str()))
+            .map(|(name, value)| {
+                format!(
+                    "Set-Item -LiteralPath {} -Value {}",
+                    quote(&format!("Env:{name}")),
+                    quote(value)
+                )
+            }),
+    );
     let mut args = launch.args.clone();
     args.push("-Command".to_string());
     args.push(script.join("; "));
@@ -141,13 +150,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn powershell_sets_lattices_variables_before_its_prompt() {
+    fn powershell_takes_back_zeds_variables_and_leaves_path_to_the_profile() {
         let launch = lattice_core::terminal::ShellLaunch {
             program: "powershell.exe".into(),
             args: vec!["-NoLogo".into(), "-NoExit".into()],
             env: vec![
                 ("TERM_PROGRAM".into(), "Lattice".into()),
-                ("PATH".into(), r"C:\Program Files\it's;C:\bin".into()),
+                ("TERM_PROGRAM_VERSION".into(), "it's 1.0".into()),
+                ("PATH".into(), r"C:\Program Files\TeX;C:\bin".into()),
             ],
             env_remove: vec!["LATTICE_PROJECT".into()],
         };
@@ -164,7 +174,7 @@ mod tests {
                 "Remove-Item -LiteralPath 'Env:WINDOWID' -ErrorAction SilentlyContinue",
                 "Remove-Item -LiteralPath 'Env:LATTICE_PROJECT' -ErrorAction SilentlyContinue",
                 "Set-Item -LiteralPath 'Env:TERM_PROGRAM' -Value 'Lattice'",
-                r"Set-Item -LiteralPath 'Env:PATH' -Value 'C:\Program Files\it''s;C:\bin'",
+                "Set-Item -LiteralPath 'Env:TERM_PROGRAM_VERSION' -Value 'it''s 1.0'",
             ]
         );
         let (_, args) = powershell_command(&launch, false);
