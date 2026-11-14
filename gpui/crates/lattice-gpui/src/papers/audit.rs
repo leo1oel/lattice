@@ -494,7 +494,14 @@ impl Audit {
                     let head_start = cx.background_executor().timer(S2_HEAD_START);
                     match select(batch, select(head_start, &mut cancelled)).await {
                         Either::Left((batch, _)) => {
-                            take_batch(batch, &mut answered, &mut s2_failure, &mut s2_status)
+                            take_batch(batch, &mut answered, &mut s2_failure, &mut s2_status);
+                            let early: Vec<(usize, Finding)> = answered
+                                .iter()
+                                .enumerate()
+                                .filter_map(|(at, finding)| Some((group[at], finding.clone()?)))
+                                .collect();
+                            this.update(cx, |this, cx| this.record(generation, early, cx))
+                                .ok();
                         }
                         Either::Right((_, batch)) => {
                             pending = Some(batch);
