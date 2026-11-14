@@ -1,6 +1,5 @@
-//! The project's open editors: the one already open on a file, one opened
-//! for it (not yet placed in the dock) when there is none, and the editor
-//! the writer was last in.
+//! The shell's editors: the one open on a path, opening one, the ones still
+//! open, and the one the writer was last in.
 
 use std::path::Path;
 
