@@ -183,7 +183,11 @@ mod tests {
         );
         assert_eq!(relative_folder("main.tex", AuxFiles::Beside), "");
         assert_eq!(relative_folder("main.tex", AuxFiles::Hidden), ".research/build");
-        assert_eq!(folder(root, "main.tex", AuxFiles::Hidden).to_str(), Some("/p/.research/build"));
+        // No trailing separator, which `Path` equality ignores. The text is
+        // checked for its end only: Windows joins with `\`, so the folder
+        // reads `/p\.research/build` there, a path Windows takes as is.
+        let text = folder(root, "main.tex", AuxFiles::Hidden).to_string_lossy().into_owned();
+        assert!(text.ends_with("build") && text.starts_with("/p"), "{text}");
         assert_eq!(relative_folder("paper/main.tex", AuxFiles::Beside), "paper");
         assert_eq!(relative_folder("paper/main.tex", AuxFiles::Hidden), ".research/build/paper");
     }

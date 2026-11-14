@@ -220,9 +220,7 @@ impl Run {
         let undoable = cx.update(|cx| sheet.read(cx).can_undo());
         cx.update(|cx| sheet.update(cx, |sheet, cx| sheet.undo(cx)));
         let undone = self
-            .wait_for_sheet(cx, &sheet, |sheet, _| {
-                sheet.settled() && !sheet.can_undo()
-            })
+            .wait_for_sheet(cx, &sheet, |sheet, _| sheet.settled() && !sheet.can_undo())
             .await;
         let restored = std::fs::read_to_string(&chapter).unwrap_or_default();
         steps.check(
