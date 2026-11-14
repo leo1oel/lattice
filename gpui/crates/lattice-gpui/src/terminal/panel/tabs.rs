@@ -6,9 +6,10 @@
 //! under the pointer but holding its width, so hovering never resizes a tab.
 
 use gpui::{
-    AnyElement, AppContext as _, ClickEvent, Context, Entity, Focusable as _,
+    AnyElement, AppContext as _, ClickEvent, Context, Entity, FocusHandle, Focusable as _,
     InteractiveElement as _, IntoElement, KeyDownEvent, ParentElement as _,
-    StatefulInteractiveElement as _, Styled as _, Subscription, Window, div, px,
+    StatefulInteractiveElement as _, Styled as _, Subscription, Window, div,
+    prelude::FluentBuilder as _, px,
 };
 use gpui_kit::component::input::{Input, InputEvent, InputState};
 use lattice_i18n::t;
@@ -92,6 +93,32 @@ impl TerminalPanel {
         cx.notify();
     }
 
+    /// The tab in front's place for the keyboard, while the strip shows.
+    pub fn active_tab_focus(&self) -> Option<FocusHandle> {
+        let session = self
+            .sessions
+            .iter()
+            .find(|session| Some(session.key) == self.active)?;
+        Some(session.tab_focus.clone())
+    }
+
+    /// The tab before or after `key`, round the strip, chosen with the
+    /// keyboard there.
+    fn step_tab(&mut self, key: usize, forward: bool, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(index) = self.sessions.iter().position(|session| session.key == key) else {
+            return;
+        };
+        let count = self.sessions.len();
+        let next = &self.sessions[if forward {
+            (index + 1) % count
+        } else {
+            (index + count - 1) % count
+        }];
+        let (next, focus) = (next.key, next.tab_focus.clone());
+        self.select(next, window, cx);
+        focus.focus(window, cx);
+    }
+
     pub(super) fn render_tab(
         &self,
         session: &Session,
@@ -172,8 +199,25 @@ impl TerminalPanel {
                 })
                 .into_any_element(),
         };
+        // The tab in front is the strip's one tab stop; ← and → move along
+        // the strip and F2 renames, as the Tauri tab list's keys do.
+        let focus = lattice_ui::components::focus_ring(&palette, ground);
         let tab = div()
             .id(id)
+            .track_focus(&session.tab_focus)
+            .when(selected, |tab| tab.tab_index(0))
+            .focus_visible(move |style| style.shadow(focus))
+            .on_key_down(cx.listener(move |panel, event: &KeyDownEvent, window, cx| {
+                match event.keystroke.key.as_str() {
+                    "f2" => panel.start_rename(key, window, cx),
+                    "left" | "right" => {
+                        panel.step_tab(key, event.keystroke.key == "right", window, cx)
+                    }
+                    "enter" | "space" => panel.select(key, window, cx),
+                    _ => return,
+                }
+                cx.stop_propagation();
+            }))
             .flex()
             .flex_none()
             .items_center()

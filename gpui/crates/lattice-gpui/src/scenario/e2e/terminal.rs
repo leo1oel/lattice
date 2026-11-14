@@ -262,6 +262,24 @@ impl Run {
         self.type_text(cx, "latex\n").await?;
         self.pause(cx, Duration::from_millis(150)).await;
         let renamed = self.terminal_labels(cx);
+        // The tab in front takes the keyboard; ← and → move along the strip.
+        let keys = self.with_window(cx, |shell, window, cx| {
+            let panel = shell.read(cx).terminal().clone();
+            let Some(focus) = panel.read(cx).active_tab_focus() else {
+                return (None, None);
+            };
+            focus.focus(window, cx);
+            let key = |name: &'static str| gpui::Keystroke::parse(name).expect("a key");
+            window.dispatch_keystroke(key("left"), cx);
+            let left = panel.read(cx).active_key();
+            window.dispatch_keystroke(key("right"), cx);
+            (left, panel.read(cx).active_key())
+        })?;
+        let keyboard = keys
+            == (cx.update(|cx| {
+                let panel = self.shell.read(cx).terminal().read(cx);
+                (Some(panel.sessions()[0].key), Some(panel.sessions()[1].key))
+            }));
         if std::env::var_os("LATTICE_TERMINAL_SHOTS").is_some() {
             self.neutral_prompt_for_shots(cx).await;
             self.focus_active_terminal(cx)?;
@@ -274,9 +292,11 @@ impl Run {
             self.narrow_chinese_shot(cx).await?;
         }
         steps.check(
-            "New terminal opens a second tab in front, and a tab renames in place",
-            two && labels == ["Terminal 1", "Terminal 2"] && renamed == ["Terminal 1", "latex"],
-            json!({ "labels": labels, "renamed": renamed }),
+            "New terminal opens a second tab in front; a tab renames in place, and ← → move along the tabs",
+            two && labels == ["Terminal 1", "Terminal 2"]
+                && renamed == ["Terminal 1", "latex"]
+                && keyboard,
+            json!({ "labels": labels, "renamed": renamed, "arrows": keys }),
         );
 
         // ⌘W on a terminal running a command asks first.

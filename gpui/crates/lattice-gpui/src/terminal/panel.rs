@@ -74,6 +74,8 @@ pub struct Session {
     pub shell: String,
     pub state: SessionState,
     pub screen: Option<Entity<TerminalScreen>>,
+    /// The tab's place for the keyboard, once the strip shows.
+    tab_focus: FocusHandle,
     _tasks: Vec<Task<()>>,
     _subscription: Option<Subscription>,
 }
@@ -298,6 +300,7 @@ impl TerminalPanel {
             shell,
             state: SessionState::Starting,
             screen: None,
+            tab_focus: cx.focus_handle(),
             _tasks: vec![started, ended],
             _subscription: None,
         });
