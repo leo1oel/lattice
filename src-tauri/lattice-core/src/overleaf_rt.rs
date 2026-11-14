@@ -47,6 +47,7 @@
 //! the channel reports and the parsers that read it, `tree` the live file tree,
 //! and `client` the connection itself.
 
+mod changed_runs;
 mod client;
 mod codec;
 mod events;
@@ -58,6 +59,7 @@ pub(crate) mod mock_server;
 mod suggestion_tests;
 #[cfg(test)]
 pub(crate) mod tests;
+pub mod ot;
 mod tree;
 
 pub use client::{RealtimeClient, RealtimeConfig};
