@@ -75,6 +75,26 @@ impl EditorPanel {
             render: std::rc::Rc::new(|_, cx| latex_view_switch(cx).into_any_element()),
         });
         lattice_ui::dock::set_spare_tools(panel, tools, cx);
+        // The build chip keeps only its mark in a strip short of room; a
+        // view switch, a board, sheet or deck draw the same there.
+        let this = cx.entity().downgrade();
+        let saving: lattice_ui::dock::IconSaving = std::rc::Rc::new(move |window, cx| {
+            let chip = this
+                .upgrade()
+                .is_some_and(|panel| panel.read(cx).shows_build_chip());
+            if chip {
+                crate::editor_status::build_chip_icon_saving(window, cx)
+            } else {
+                gpui::px(0.)
+            }
+        });
+        lattice_ui::dock::set_icon_saving(panel, Some(saving), cx);
+    }
+
+    /// Whether the strip carries the build chip: no view switch in its
+    /// place, and not a board, sheet or deck, which carry no tools.
+    pub(super) fn shows_build_chip(&self) -> bool {
+        self.structured.is_none() && self.document_view().is_none()
     }
 
     /// The source editor, with the outline rail over its right edge when the

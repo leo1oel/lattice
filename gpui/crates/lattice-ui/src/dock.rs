@@ -1,11 +1,15 @@
 //! What the Trellis skin (`lattice-gpui`'s `shell/skin.rs`) shares with the
 //! rest of the app about panels: the card and strip measurements, how a
 //! panel's tab looks (`TabPresenter`), its name, the strip's give-way
-//! constants (`strip`) and a panel's spare tools.
+//! constants (`strip`), a panel's spare tools and its tools' icon state.
 
+mod icon_tools;
 mod spare_tools;
 pub mod strip;
 
+pub use icon_tools::{
+    IconSaving, icon_saving, set_icon_saving, set_tools_icon_only, tools_icon_only,
+};
 pub use spare_tools::{SpareTools, offers_spare_tools, set_spare_tools, spare_tools};
 
 use std::{rc::Rc, sync::Arc};

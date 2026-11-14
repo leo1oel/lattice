@@ -11,10 +11,17 @@
 //!   as far as its neighbours let it;
 //! - the project's tools at the right.
 //!
-//! Short of room the titlebar folds as the app's does (`useFolds`): first the
-//! search field to its icon, then the workspaces into one menu, so no control
-//! covers another. In focus mode it keeps only the window's controls, the
-//! document's name and the way out.
+//! Short of room the titlebar gives way as the app's does, so no control
+//! covers another at any width down to the window's least: the search field
+//! narrows to 200px, then folds to its icon at the bar's end, then the
+//! workspaces fold into one menu (`useFolds`, which counts the hidden
+//! panels' chips as content to fit); in a bar of 800px or less the project's
+//! name is cut at 200px rather than 260px; with 264px or less left between
+//! the project and the tools the workspaces go (the Panels menu switches
+//! them too), with 159px or less the Panels menu keeps only its icon, and
+//! last the chips shrink to an ellipsis each (`trellis.css`'s container
+//! queries). The tools never shrink. In focus mode it keeps only the
+//! window's controls, the document's name and the way out.
 //!
 //! The titlebar is the chrome under a white veil, closed by a hairline. Tools
 //! that are not in the GPUI app yet (Track changes, Annotations, Git, Open in
@@ -48,7 +55,7 @@ mod project_group;
 mod project_menu;
 mod workspace_switch;
 
-use fit::{GROUP_GAP, PANELS_START, Room, folds, search_place, unfolded_left_width};
+use fit::{GROUP_GAP, PANELS_START, Search, Switch, TOOLS_LEAD, plan, switcher_max, widths};
 use panels_menu::panels_menu;
 use project_group::project_group;
 use workspace_switch::workspace_switcher;
@@ -63,6 +70,7 @@ use crate::shell::{
 const TRAFFIC_LIGHTS: f32 = 95.;
 #[cfg(not(target_os = "macos"))]
 const TRAFFIC_LIGHTS: f32 = 6.;
+
 /// Whether a press on the titlebar's empty space should move the window on
 /// the next mouse move (a double click zooms it instead), and what the
 /// titlebar measured of itself last frame.
@@ -176,34 +184,19 @@ pub fn render(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> im
     }
 
     let room_cell = shell.titlebar_drag().measured.clone();
-    let measured = room_cell.get();
-    let room = Room {
-        left_unfolded: measured
-            .left_start
-            .map(|start| start + unfolded_left_width(shell, window, cx)),
-        tools_start: measured.tools_start,
-    };
     let width = f32::from(window.viewport_size().width);
-    let folds = folds(room, width);
+    let plan = plan(room_cell.get(), widths(shell, window, cx), width);
 
-    let left = div()
+    // The project group never shrinks (`.project-switcher`); the Panels
+    // menu's group takes what is left before the tools, and clips rather
+    // than run under them (`.trellis-titlebar`: `overflow: clip`).
+    let project = div()
         .relative()
         .flex()
         .flex_none()
         .items_start()
         .h_full()
-        .child(project_group(shell, window, cx))
-        .child(
-            div()
-                .flex()
-                .flex_none()
-                .items_center()
-                .gap(px(GROUP_GAP))
-                .h_full()
-                .pl(px(PANELS_START))
-                .child(controls(panels_menu(shell, cx)))
-                .child(controls(workspace_switcher(shell, folds >= 2, window, cx))),
-        )
+        .child(project_group(shell, switcher_max(width), window, cx))
         .child(edge_probe(
             room_cell.clone(),
             |room, left, _| room.left_start = Some(left),
@@ -213,30 +206,64 @@ pub fn render(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> im
     let search_tooltip = t!("Search files, papers and commands");
     let search_keys = keys_label(&CommandPalette, window).unwrap_or_else(|| "⌘K".into());
     let open_palette = cx.listener(|shell, _, window, cx| shell.open_palette(window, cx));
-    let (search_inline, search_folded): (Option<AnyElement>, Option<AnyElement>) = if folds >= 1 {
-        let folded = IconButton::new("titlebar-search", Icon::SEARCH)
-            .surface(Surface::Titlebar)
-            .tooltip(search_tooltip)
-            .on_click(open_palette)
-            .into_any_element();
-        (None, Some(folded))
-    } else {
-        let (x, search_width) = search_place(room, width);
-        let inline = div()
-            .absolute()
-            .top(px(6.))
-            .left(px(x))
-            .child(controls(
-                SearchField::new("titlebar-search", t!("Search"))
-                    .filled()
-                    .keycap(search_keys)
-                    .parity("titlebar/search")
-                    .width(px(search_width))
-                    .on_click(open_palette),
-            ))
-            .into_any_element();
-        (Some(inline), None)
+    let (search_inline, search_folded): (Option<AnyElement>, Option<AnyElement>) = match plan.search
+    {
+        Search::Icon => {
+            let folded = div()
+                .relative()
+                .flex_none()
+                .child(
+                    IconButton::new("titlebar-search", Icon::SEARCH)
+                        .surface(Surface::Titlebar)
+                        .tooltip(search_tooltip)
+                        .on_click(open_palette),
+                )
+                .children(parity::probe("titlebar/search"))
+                .into_any_element();
+            (None, Some(folded))
+        }
+        Search::Field { x, width } => {
+            let inline = div()
+                .absolute()
+                .top(px(6.))
+                .left(px(x))
+                .child(controls(
+                    SearchField::new("titlebar-search", t!("Search"))
+                        .filled()
+                        .keycap(search_keys)
+                        .parity("titlebar/search")
+                        .width(px(width))
+                        .on_click(open_palette),
+                ))
+                .into_any_element();
+            (Some(inline), None)
+        }
     };
+
+    // Panels and the workspaces, then, at the group's end, the search field
+    // folded to its icon and the hidden panels' chips after it.
+    let panels = div()
+        .flex()
+        .flex_1()
+        .min_w_0()
+        .overflow_hidden()
+        .items_center()
+        .gap(px(GROUP_GAP))
+        .h_full()
+        .pl(px(PANELS_START))
+        .pr(px(TOOLS_LEAD / 2.))
+        .child(controls(panels_menu(shell, plan.panels_label, cx)))
+        .when(plan.switch != Switch::Hidden, |group| {
+            group.child(controls(workspace_switcher(
+                shell,
+                plan.switch == Switch::Folded,
+                window,
+                cx,
+            )))
+        })
+        .child(div().flex_1())
+        .children(search_folded.map(controls))
+        .children(hidden_chips::hidden_chips(shell, cx));
 
     let hidden = crate::settings::get(cx)
         .appearance
@@ -296,21 +323,31 @@ pub fn render(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> im
             weak,
         ));
 
-    bar.child(left)
-        .child(div().flex_1())
-        .children(search_inline)
+    // What follows the project (`.titlebar-main`): the Panels menu's group
+    // and the tools, which keep their width; a window too narrow for both
+    // clips the tools at its edge rather than lay them over anything.
+    let main = div()
+        .flex()
+        .flex_1()
+        .min_w_0()
+        .overflow_hidden()
+        .items_start()
+        .h_full()
+        .child(panels)
         .child(
             div()
                 .flex()
                 .flex_none()
                 .items_center()
-                .gap(px(2.))
                 .pt(px(6.))
+                .pl(px(TOOLS_LEAD / 2.))
                 .pr(px(6.))
-                .children(hidden_chips::hidden_chips(shell, cx))
-                .children(search_folded.map(controls))
                 .child(controls(tools)),
-        )
+        );
+
+    bar.child(project)
+        .child(main)
+        .children(search_inline)
         .into_any_element()
 }
 

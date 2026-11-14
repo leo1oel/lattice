@@ -20,8 +20,12 @@ use crate::shell::{
 
 /// The Panels menu: each panel's toggle (checked while on screen), the
 /// workspaces and the presets, focus mode, then maximize or restore and
-/// reset.
-pub(super) fn panels_menu(shell: &Shell, cx: &mut Context<Shell>) -> impl IntoElement {
+/// reset. Its label goes in the least room (`label_shown`).
+pub(super) fn panels_menu(
+    shell: &Shell,
+    label_shown: bool,
+    cx: &mut Context<Shell>,
+) -> impl IntoElement {
     let on_screen: Vec<bool> = ["project", "papers", "agent", "pdf"]
         .iter()
         .map(|kind| shell.view_on_screen(kind, cx))
@@ -39,6 +43,7 @@ pub(super) fn panels_menu(shell: &Shell, cx: &mut Context<Shell>) -> impl IntoEl
         "panels-menu",
         ToolbarButton::new("panels", t!("Panels"))
             .icon(Icon::LAYOUT_PANEL_LEFT)
+            .label_shown(label_shown)
             .parity("titlebar/panels"),
         move |menu, _, _| {
             let mut menu = menu

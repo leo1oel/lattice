@@ -18,14 +18,16 @@ use lattice_ui::{
 
 use super::{
     controls,
-    fit::{PROJECT_GROUP_END, PROJECT_TAB_GAP, PROJECT_TAB_MAX, SWITCHER_MAX},
+    fit::{PROJECT_GROUP_END, PROJECT_TAB_GAP, PROJECT_TAB_MAX},
     project_menu::{project_menu, switcher_for},
 };
 use crate::shell::Shell;
 
-/// The project switcher, or one tab per project once the window holds two.
+/// The project switcher, cut at `switcher_max`, or one tab per project once
+/// the window holds two.
 pub(super) fn project_group(
     shell: &Shell,
+    switcher_max: f32,
     window: &mut Window,
     cx: &mut Context<Shell>,
 ) -> AnyElement {
@@ -33,7 +35,7 @@ pub(super) fn project_group(
         "project-switcher-menu",
         ToolbarButton::new("project-switcher", shell.project_name(cx))
             .switcher()
-            .max_w(px(SWITCHER_MAX))
+            .max_w(px(switcher_max))
             .parity("titlebar/project"),
         {
             let shell = cx.entity().downgrade();

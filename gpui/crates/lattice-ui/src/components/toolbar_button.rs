@@ -41,6 +41,7 @@ pub struct ToolbarButton {
     label: SharedString,
     icon: Option<Icon>,
     chevron: bool,
+    label_shown: bool,
     height: Pixels,
     role: TextRole,
     weight: Option<FontWeight>,
@@ -59,6 +60,7 @@ impl ToolbarButton {
             label: label.into(),
             icon: None,
             chevron: false,
+            label_shown: true,
             height: px(28.),
             role: TextRole::Caption,
             weight: None,
@@ -88,6 +90,13 @@ impl ToolbarButton {
         self.role = TextRole::Subtitle;
         self.weight = Some(crate::tokens::FONT_WEIGHT_SEMIBOLD);
         self.chevron = true;
+        self
+    }
+
+    /// Draw the icon alone: the titlebar's Panels menu in its least room
+    /// (`.trellis-titlebar-menu > span { display: none }`).
+    pub fn label_shown(mut self, shown: bool) -> Self {
+        self.label_shown = shown;
         self
     }
 
@@ -170,16 +179,18 @@ impl RenderOnce for ToolbarButton {
             .focus_visible(move |style| style.shadow(focus))
             .when_some(self.icon, |this, icon| this.child(icon.element(ICON, ink)))
             .children(self.parity.clone().and_then(parity::probe))
-            .child(
-                div()
-                    .min_w_0()
-                    .truncate()
-                    .children(
-                        self.parity
-                            .and_then(|name| parity::text_probe(name, 0, self.label.clone())),
-                    )
-                    .child(self.label),
-            )
+            .when(self.label_shown, |this| {
+                this.child(
+                    div()
+                        .min_w_0()
+                        .truncate()
+                        .children(
+                            self.parity
+                                .and_then(|name| parity::text_probe(name, 0, self.label.clone())),
+                        )
+                        .child(self.label),
+                )
+            })
             .when(self.chevron, |this| {
                 this.child(Icon::CHEVRON_DOWN.element(ICON_SMALL, ink))
             })
