@@ -100,6 +100,7 @@ impl Shell {
             HistoryEvent::OverleafRestored => self.overleaf.update(cx, |bridge, cx| {
                 bridge.sync(crate::overleaf::bridge::SyncOptions::default(), cx)
             }),
+            HistoryEvent::RestoreAgentCheckpoint(entry) => self.agent_restore_checkpoint(entry, cx),
         }
     }
 

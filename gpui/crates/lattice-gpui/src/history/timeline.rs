@@ -68,6 +68,11 @@ pub enum TimelineRow {
         at: i64,
         update: OverleafUpdate,
     },
+    /// One of the Agent's checkpoints (`checkpoint_rows.rs`).
+    Checkpoint {
+        at: i64,
+        item: super::CheckpointItem,
+    },
 }
 
 impl TimelineRow {
@@ -76,7 +81,8 @@ impl TimelineRow {
             TimelineRow::Activity { at, .. }
             | TimelineRow::Version { at, .. }
             | TimelineRow::Automatic { at, .. }
-            | TimelineRow::Overleaf { at, .. } => *at,
+            | TimelineRow::Overleaf { at, .. }
+            | TimelineRow::Checkpoint { at, .. } => *at,
         }
     }
 
@@ -84,6 +90,7 @@ impl TimelineRow {
     pub fn key(&self) -> String {
         match self {
             TimelineRow::Activity { item, .. } => activity_key(&item.id),
+            TimelineRow::Checkpoint { item, .. } => activity_key(&item.entry.id),
             TimelineRow::Version { entry, .. } => version_key(&entry.hash),
             TimelineRow::Automatic { entries, .. } => format!("fold:{}", entries[0].hash),
             TimelineRow::Overleaf { update, .. } => {
