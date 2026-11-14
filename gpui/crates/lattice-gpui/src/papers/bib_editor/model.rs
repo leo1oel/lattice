@@ -172,10 +172,7 @@ pub fn shown<'a>(
     match sort {
         BibSort::File => {}
         BibSort::Year => matching.sort_by(|a, b| {
-            b.summary
-                .year
-                .cmp(&a.summary.year)
-                .then(a.index.cmp(&b.index))
+            locale_compare(&b.summary.year, &a.summary.year).then(a.index.cmp(&b.index))
         }),
         BibSort::Author => matching.sort_by(|a, b| {
             locale_compare(&sort_surname(&a.summary), &sort_surname(&b.summary))

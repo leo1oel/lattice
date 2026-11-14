@@ -67,11 +67,7 @@ impl BibEditor {
                 )
                 .is_some()
             {
-                if let Some((selected, _)) = &mut self.selected
-                    && selected.eq_ignore_ascii_case(&current)
-                {
-                    *selected = key.clone();
-                }
+                follow_rename(&mut self.selected, index, &key);
                 // The same reference under its new key: its form is kept.
                 if let Some(detail) = &mut self.detail {
                     detail.key = key;
@@ -243,5 +239,32 @@ impl BibEditor {
         }
         detail.new_error = error;
         cx.notify();
+    }
+}
+
+/// The reference at `index` now goes by `key`: a selection of it follows,
+/// one of another entry under the old key stays where it is.
+fn follow_rename(selected: &mut Option<(String, usize)>, index: usize, key: &str) {
+    if let Some((selected, at)) = selected
+        && *at == index
+    {
+        *selected = key.to_string();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::follow_rename;
+
+    /// Two `smith2020` entries: the first renamed while the second is
+    /// picked leaves the second picked, under its own key.
+    #[test]
+    fn a_rename_moves_only_the_renamed_entrys_selection() {
+        let mut picked = Some(("smith2020".to_string(), 1));
+        follow_rename(&mut picked, 0, "smith2020a");
+        assert_eq!(picked, Some(("smith2020".to_string(), 1)));
+        let mut renamed = Some(("smith2020".to_string(), 0));
+        follow_rename(&mut renamed, 0, "smith2020a");
+        assert_eq!(renamed, Some(("smith2020a".to_string(), 0)));
     }
 }

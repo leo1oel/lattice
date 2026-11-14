@@ -171,10 +171,12 @@ pub struct UseDetails {
 }
 
 /// What the details were read for: the key, every use as the scan saw it
-/// and the read of the annotations, so a rescan that moved or changed a use,
-/// or a reason filed, edited or resolved since, reads them again.
-fn read_key(key: &str, usages: &[SymbolOccurrence], annotations: u64) -> String {
-    let mut out = format!("{annotations}\0{key}");
+/// and the reads of the annotations and the manuscript, so a rescan (an edit
+/// around a cite included), or a reason filed, edited or resolved since,
+/// reads them again.
+fn read_key(key: &str, usages: &[SymbolOccurrence], revisions: (u64, u64)) -> String {
+    let (annotations, scans) = revisions;
+    let mut out = format!("{annotations}\0{scans}\0{key}");
     for usage in usages {
         out.push_str(&format!(
             "\0{}:{}:{}",
@@ -195,7 +197,7 @@ impl PapersPanel {
         let annotations = self.root.as_deref().map_or(0, |root| {
             crate::status_counters::annotations_revision(root, cx)
         });
-        let wanted = read_key(key, usages, annotations);
+        let wanted = read_key(key, usages, (annotations, self.usage_revision));
         if let Some((read, details)) = &self.use_details.read
             && *read == wanted
         {
