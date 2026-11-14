@@ -191,17 +191,23 @@ impl Shell {
     }
 
     /// The panel `panel` took the focus: when it is a paper's reader, it is
-    /// the one the writer was in last.
+    /// the one the writer was in last, and its paper is the open one, even
+    /// before the dock has drawn its tab.
     pub(super) fn reader_focused(&mut self, panel: gpui::EntityId, cx: &mut Context<Self>) {
         if !last_used(&mut self.documents.readers, |reader| {
             reader.entity_id() == panel
         }) {
             return;
         }
-        let document = self
-            .active_editor()
-            .map(|editor| editor.read(cx).path().to_path_buf());
-        self.mark_front_paper(document.as_deref(), cx);
+        let reading = self
+            .documents
+            .readers
+            .iter()
+            .find(|reader| reader.entity_id() == panel)
+            .map(|reader| reader.read(cx).path());
+        if let (Some(reading), Some(root)) = (reading, self.root(cx)) {
+            self.mark_paper(&root.join(reading), cx);
+        }
     }
 
     /// Mark the paper in front: a reader's when one is, else the paper
