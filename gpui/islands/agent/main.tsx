@@ -33,7 +33,8 @@
  *                                            as the Tauri backend emits them
  *   agent:pointer                            the pointer is over the app, not the page
  *   agent:notify-action { id, action }       a Synara notification's button, pressed in GPUI
- *   agent:settings-layout { compact }        Settings' compact insets, for `settings`
+ *   agent:settings-layout { compact, section, label }  Settings' compact insets and the Synara page
+ *                                            on screen (providers, integrations, skills, usage), for `settings`
  *   agent:settings-target { target }         a place on Settings › Providers to reveal
  *   host:outside-pointerdown                 a press in the app (the bridge's)
  *   agent:deck-request { kind, deckPath }    Open Slide's request for the composer
@@ -459,7 +460,7 @@ function AgentIsland() {
   const [workspace, setWorkspace] = useState<Workspace>(EMPTY_WORKSPACE);
   const [appearance, setAppearance] = useState<Appearance>({ translucency: "subtle", translucent: false, accent: "graphite" });
   const [git, setGit] = useState<GitState>({ view: "changes", turnReview: null, remoteUrl: null });
-  const [settings, setSettings] = useState<SettingsLayout>({ compact: false, target: null });
+  const [settings, setSettings] = useState<SettingsLayout>({ compact: false, section: "providers", label: null, target: null });
   const [overleaf, setOverleaf] = useState<OverleafState>(NOT_LINKED);
   const [deckRequest, setDeckRequest] = useState<DeckRequest | null>(null);
   const takeDeckRequest = useCallback((nonce: number) => {
@@ -499,8 +500,13 @@ function AgentIsland() {
       bridge.on("agent:appearance", (payload) => setAppearance(payload as Appearance)),
       bridge.on("agent:git", (payload) => setGit((current) => ({ ...current, ...(payload as Partial<GitState>) }))),
       bridge.on("agent:settings-layout", (payload) => {
-        const compact = Boolean((payload as { compact?: unknown } | null)?.compact);
-        setSettings((current) => ({ ...current, compact }));
+        const layout = (payload ?? {}) as { compact?: unknown; section?: unknown; label?: unknown };
+        setSettings((current) => ({
+          ...current,
+          compact: Boolean(layout.compact),
+          section: typeof layout.section === "string" ? layout.section : current.section,
+          label: typeof layout.label === "string" ? layout.label : current.label,
+        }));
       }),
       bridge.on("agent:settings-target", (payload) => {
         const target = (payload as { target?: unknown } | null)?.target;
