@@ -61,9 +61,8 @@ impl TerminalPanel {
             &input,
             window,
             move |panel, _, event: &InputEvent, window, cx| match event {
-                InputEvent::PressEnter { .. } | InputEvent::Blur => {
-                    panel.finish_rename(true, window, cx)
-                }
+                InputEvent::PressEnter { .. } => panel.finish_rename(true, true, window, cx),
+                InputEvent::Blur => panel.finish_rename(true, false, window, cx),
                 _ => {}
             },
         );
@@ -79,7 +78,13 @@ impl TerminalPanel {
         cx.notify();
     }
 
-    fn finish_rename(&mut self, commit: bool, window: &mut Window, cx: &mut Context<Self>) {
+    fn finish_rename(
+        &mut self,
+        commit: bool,
+        refocus: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let Some(rename) = self.rename.take() else {
             return;
         };
@@ -87,10 +92,15 @@ impl TerminalPanel {
             let value = rename.input.read(cx).value().to_string();
             self.rename(rename.key, &value, cx);
         }
-        if let Some(screen) = self.active_screen() {
+        if refocus && let Some(screen) = self.active_screen() {
             screen.focus_handle(cx).focus(window, cx);
         }
         cx.notify();
+    }
+
+    /// The field a tab is being renamed in.
+    pub fn rename_input(&self) -> Option<Entity<InputState>> {
+        self.rename.as_ref().map(|rename| rename.input.clone())
     }
 
     /// The tab in front's place for the keyboard, while the strip shows.
@@ -163,7 +173,7 @@ impl TerminalPanel {
                 .bg(palette.input)
                 .capture_key_down(cx.listener(|panel, event: &KeyDownEvent, window, cx| {
                     if event.keystroke.key == "escape" {
-                        panel.finish_rename(false, window, cx);
+                        panel.finish_rename(false, true, window, cx);
                         cx.stop_propagation();
                     }
                 }))

@@ -98,9 +98,50 @@ impl Run {
             })
             .await;
         self.pause(cx, Duration::from_millis(400)).await;
+
+        // A tab being renamed when the writer moves to the document: the
+        // name is kept and the keyboard stays where the writer put it. In a
+        // foreground section (`input_lock.rs`), since an inactive window
+        // reports no blur; on a locked screen nothing becomes active, so the
+        // scenario emits the field's blur, as GPUI would in a key window.
+        let front = self.foreground(cx, "terminal_rename_blur").await?;
+        self.with_window(cx, |shell, window, cx| {
+            shell.read(cx).terminal().clone().update(cx, |panel, cx| {
+                if let Some(key) = panel.active_key() {
+                    panel.start_rename(key, window, cx);
+                }
+            });
+        })?;
+        self.pause(cx, Duration::from_millis(150)).await;
+        self.type_text(cx, "left field").await?;
+        let field = cx.update(|cx| self.shell.read(cx).terminal().read(cx).rename_input());
         self.with_window(cx, |_, window, cx| {
             window.focus(&editor.read(cx).editor().focus_handle(cx), cx);
         })?;
+        self.pause(cx, Duration::from_millis(100)).await;
+        let active = self.with_window(cx, |_, window, _| window.is_window_active())?;
+        if !active && let Some(field) = field {
+            field.update(cx, |_, cx| {
+                cx.emit(gpui_kit::component::input::InputEvent::Blur)
+            });
+        }
+        self.pause(cx, Duration::from_millis(200)).await;
+        let labels: Vec<String> = cx.update(|cx| {
+            let panel = self.shell.read(cx).terminal().read(cx);
+            panel
+                .sessions()
+                .iter()
+                .map(|session| session.label())
+                .collect()
+        });
+        let (in_document, in_terminal) = self.keyboard(cx, &editor)?;
+        drop(front);
+        steps.check(
+            "leaving a tab's rename field for the document keeps the name and leaves the keyboard there",
+            two && labels.iter().any(|label| label == "left field") && in_document && !in_terminal,
+            json!({ "active": active, "labels": labels, "in_document": in_document, "in_terminal": in_terminal }),
+        );
+
         cx.update(|cx| {
             if let Some(terminal) = self.active_terminal(cx) {
                 terminal.update(cx, |terminal, _| terminal.input(b"exit\n".to_vec()));
