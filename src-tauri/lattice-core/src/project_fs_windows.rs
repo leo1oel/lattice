@@ -1,6 +1,6 @@
 //! Capability-relative project writes on Windows. Directory handles remain
 //! anchored to the selected root even when another process renames a parent.
-use crate::util::err;
+use crate::util::{atomic_write_temporary, err};
 use cap_std::fs::{Dir, OpenOptions};
 use std::ffi::OsString;
 use std::io::Write;
@@ -61,7 +61,7 @@ impl ProjectDir {
     pub fn atomic_write(&self, relative: &str, bytes: &[u8]) -> Result<(), String> {
         let (parent, name) = self.parent(relative, true)?;
         Self::reject_link(&parent, &name)?;
-        let temporary = format!(".lattice-{}.tmp", uuid::Uuid::new_v4());
+        let temporary = atomic_write_temporary(&name);
         let result = (|| {
             let mut options = OpenOptions::new();
             options.write(true).create_new(true);
@@ -118,7 +118,7 @@ impl ProjectDir {
                 let Some(current) = names.iter().find(|name| folded(name) == folded(part)) else {
                     return Ok(());
                 };
-                let temporary = format!(".lattice-{}.tmp", uuid::Uuid::new_v4());
+                let temporary = atomic_write_temporary(part);
                 directory.rename(current, &directory, &temporary).map_err(err)?;
                 if let Err(error) = directory.rename(&temporary, &directory, part) {
                     let _ = directory.rename(&temporary, &directory, current);

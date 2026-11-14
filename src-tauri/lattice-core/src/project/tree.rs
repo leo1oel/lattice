@@ -262,6 +262,9 @@ fn exclusion_reason(relative: &Path, name: &str, path: &Path) -> Option<&'static
         || name.ends_with('~')
         || name.ends_with(".swp")
         || name.ends_with(".tmp")
+        // A bibliography's write-in-progress ends in `.bib`, but it is no
+        // bibliography of the project's.
+        || crate::util::is_atomic_write_temporary(name)
     {
         return Some("transient-artifact");
     }
