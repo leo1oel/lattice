@@ -177,7 +177,7 @@ impl TerminalScreen {
                 screen
                     .terminal
                     .update(cx, |terminal, _| terminal.focus_in());
-                screen.restart_blink(cx);
+                screen.restart_blink(window, cx);
                 window.invalidate_character_coordinates();
                 cx.notify();
             }),
@@ -207,6 +207,11 @@ impl TerminalScreen {
 
     pub fn terminal(&self) -> &Entity<Terminal> {
         &self.terminal
+    }
+
+    /// The caret is in the shown phase of its blink.
+    pub fn caret_shown(&self) -> bool {
+        self.blink_on
     }
 
     pub fn marked_text(&self) -> Option<&str> {
@@ -245,7 +250,7 @@ impl TerminalScreen {
             }
             Event::BlinkChanged(blinking) => {
                 self.blink_allowed = *blinking;
-                self.restart_blink(cx);
+                self.restart_blink(window, cx);
             }
             Event::NewNavigationTarget(target) => {
                 let hovered = matches!(target, Some(MaybeNavigationTarget::Url(_)));
@@ -261,12 +266,12 @@ impl TerminalScreen {
     }
 
     /// Show the caret now and blink from here (a key pressed, focus won).
-    fn restart_blink(&mut self, cx: &mut Context<Self>) {
+    fn restart_blink(&mut self, window: &Window, cx: &mut Context<Self>) {
         self.blink_on = true;
         self.blink_epoch += 1;
         let epoch = self.blink_epoch;
         cx.notify();
-        if !self.blink_allowed {
+        if !self.blink_allowed || !self.focus_handle.is_focused(window) {
             return;
         }
         cx.spawn(async move |screen, cx| {
@@ -354,14 +359,14 @@ impl TerminalScreen {
     }
 
     /// Text an input method committed, typed into the shell.
-    pub fn type_text(&mut self, text: &str, cx: &mut Context<Self>) {
+    pub fn type_text(&mut self, text: &str, window: &Window, cx: &mut Context<Self>) {
         if text.is_empty() {
             return;
         }
         self.terminal.update(cx, |terminal, _| {
             terminal.input(text.to_string().into_bytes())
         });
-        self.restart_blink(cx);
+        self.restart_blink(window, cx);
     }
 
     pub fn scroll_wheel(&mut self, event: &ScrollEvent, cx: &mut Context<Self>) {
@@ -376,8 +381,8 @@ impl TerminalScreen {
         cx.notify();
     }
 
-    fn key_down(&mut self, event: &KeyDownEvent, _: &mut Window, cx: &mut Context<Self>) {
-        self.restart_blink(cx);
+    fn key_down(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
+        self.restart_blink(window, cx);
         if event.prefer_character_input
             && event.keystroke.key_char.is_some()
             && !self.terminal.read(cx).vi_mode_enabled()
@@ -398,7 +403,7 @@ impl TerminalScreen {
     }
 
     /// ⌘V: the clipboard's text, bracketed when the program asked for it.
-    fn paste(&mut self, cx: &mut Context<Self>) {
+    fn paste(&mut self, window: &Window, cx: &mut Context<Self>) {
         let Some(text) = cx
             .read_from_clipboard()
             .and_then(|clipboard| clipboard.text())
@@ -407,7 +412,7 @@ impl TerminalScreen {
         };
         self.terminal
             .update(cx, |terminal, _| terminal.paste(&text));
-        self.restart_blink(cx);
+        self.restart_blink(window, cx);
     }
 
     fn select_all(&mut self, _: &SelectAll, _: &mut Window, cx: &mut Context<Self>) {
@@ -510,9 +515,13 @@ impl Render for TerminalScreen {
                     screen.copy(&Copy, window, cx)
                 }),
             )
-            .on_action(cx.listener(|screen, _: &Paste, _, cx| screen.paste(cx)))
-            .on_action(cx.listener(|screen, _: &editor::actions::Paste, _, cx| screen.paste(cx)))
-            .on_action(cx.listener(|screen, _: &PasteText, _, cx| screen.paste(cx)))
+            .on_action(cx.listener(|screen, _: &Paste, window, cx| screen.paste(window, cx)))
+            .on_action(
+                cx.listener(|screen, _: &editor::actions::Paste, window, cx| {
+                    screen.paste(window, cx)
+                }),
+            )
+            .on_action(cx.listener(|screen, _: &PasteText, window, cx| screen.paste(window, cx)))
             .on_action(cx.listener(|screen, _: &Clear, _, cx| screen.clear(cx)))
             .on_action(cx.listener(Self::select_all))
             .on_action(

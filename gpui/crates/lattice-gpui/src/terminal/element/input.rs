@@ -57,7 +57,7 @@ impl InputHandler for TerminalInputHandler {
     ) {
         self.screen.update(cx, |screen, cx| {
             screen.set_marked_text(None, cx);
-            screen.type_text(text, cx);
+            screen.type_text(text, window, cx);
         });
         window.invalidate_character_coordinates();
     }

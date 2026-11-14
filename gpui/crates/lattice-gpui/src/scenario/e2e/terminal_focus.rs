@@ -119,6 +119,34 @@ impl Run {
             json!({ "two": two, "exited": exited, "in_document": in_document, "in_terminal": in_terminal }),
         );
 
+        // The shell left in front asks for a blinking caret (DECSCUSR 1, as
+        // vi-mode prompts send) while the keyboard is in the document: an
+        // unfocused caret is drawn still, so it never leaves its shown phase.
+        cx.update(|cx| {
+            if let Some(terminal) = self.active_terminal(cx) {
+                terminal.update(cx, |terminal, _| {
+                    terminal.input(b"printf '\\033[1 q'\n".to_vec())
+                });
+            }
+        });
+        self.pause(cx, Duration::from_millis(300)).await;
+        let mut phases = Vec::new();
+        for _ in 0..8 {
+            phases.push(cx.update(|cx| {
+                let panel = self.shell.read(cx).terminal().read(cx);
+                let key = panel.active_key()?;
+                let session = panel.sessions().iter().find(|session| session.key == key)?;
+                Some(session.screen.as_ref()?.read(cx).caret_shown())
+            }));
+            self.pause(cx, Duration::from_millis(200)).await;
+        }
+        let (in_document, _) = self.keyboard(cx, &editor)?;
+        steps.check(
+            "an unfocused terminal asked for a blinking caret keeps it still",
+            in_document && phases.iter().all(|phase| *phase == Some(true)),
+            json!({ "in_document": in_document, "phases": phases }),
+        );
+
         // Hidden with the keyboard in its find field, beside the screen.
         self.with_window(cx, |shell, window, cx| {
             shell
