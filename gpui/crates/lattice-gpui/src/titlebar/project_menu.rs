@@ -116,7 +116,7 @@ pub(super) fn switcher_for(
         "project-switcher-menu",
         ToolbarButton::new("project-switcher", shell.project_name(cx))
             .switcher()
-            .max_w(px(super::TAB_SWITCHER_MAX))
+            .max_w(px(super::fit::TAB_SWITCHER_MAX))
             .parity("titlebar/project"),
         move |menu, window, cx| {
             project_menu(weak.clone(), menu, window, cx)
