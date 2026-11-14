@@ -24,7 +24,9 @@ mod view;
 
 use std::{cell::Cell, ops::Range, rc::Rc, sync::Arc};
 
-use editor::{Anchor, AnchorRangeExt as _, Editor, EditorEvent, SelectionEffects, scroll::Autoscroll};
+use editor::{
+    Anchor, AnchorRangeExt as _, Editor, EditorEvent, SelectionEffects, scroll::Autoscroll,
+};
 use gpui::{
     AppContext as _, Context, Entity, EventEmitter, Focusable as _, Subscription, Task, Window,
     actions,
@@ -47,6 +49,24 @@ actions!(
         FindPrevious,
     ]
 );
+
+/// The keys the Tauri app's search keymap keeps beside the panel's own
+/// Enter and Shift+Enter (`searchKeymap` less the app's keys,
+/// `src/editor/editor-app-shortcuts.ts`): F3 and Shift+F3, and ⇧⌘G for the
+/// previous match (⌘G is the app's Go to line). In the editor and in the bar.
+pub fn bindings() -> Vec<gpui::KeyBinding> {
+    use gpui::KeyBinding;
+    let previous = if cfg!(target_os = "macos") {
+        "cmd-shift-g"
+    } else {
+        "ctrl-shift-g"
+    };
+    vec![
+        KeyBinding::new("f3", FindNext, Some("LatticeEditor")),
+        KeyBinding::new("shift-f3", FindPrevious, Some("LatticeEditor")),
+        KeyBinding::new(previous, FindPrevious, Some("LatticeEditor")),
+    ]
+}
 
 /// What to do once the search under way answers.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -85,32 +105,41 @@ impl FindBar {
     pub fn new(editor: Entity<Editor>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let query = cx.new(|cx| InputState::new(window, cx).placeholder(t!("Find")));
         let replacement = cx.new(|cx| InputState::new(window, cx).placeholder(t!("Replace")));
-        let subscriptions = vec![
-            cx.subscribe_in(&query, window, |this, _, event: &InputEvent, window, cx| {
-                match event {
-                    InputEvent::Change => this.refresh(window, cx),
-                    InputEvent::PressEnter { shift, .. } => this.step(*shift, window, cx),
-                    _ => {}
-                }
-            }),
-            cx.subscribe_in(&replacement, window, |this, _, event: &InputEvent, window, cx| {
-                if let InputEvent::PressEnter { .. } = event {
-                    this.replace_next(window, cx);
-                }
-            }),
-            cx.subscribe_in(&editor, window, |this, _, event: &EditorEvent, window, cx| {
-                match event {
-                    // The matches follow the text, as CodeMirror's do.
-                    EditorEvent::BufferEdited if this.open => this.refresh(window, cx),
-                    // The current match and the counter follow the selection.
-                    EditorEvent::SelectionsChanged { .. } if this.open => {
-                        this.paint(window, cx);
-                        cx.notify();
+        let subscriptions =
+            vec![
+                cx.subscribe_in(&query, window, |this, _, event: &InputEvent, window, cx| {
+                    match event {
+                        InputEvent::Change => this.refresh(window, cx),
+                        InputEvent::PressEnter { shift, .. } => this.step(*shift, window, cx),
+                        _ => {}
                     }
-                    _ => {}
-                }
-            }),
-        ];
+                }),
+                cx.subscribe_in(
+                    &replacement,
+                    window,
+                    |this, _, event: &InputEvent, window, cx| {
+                        if let InputEvent::PressEnter { .. } = event {
+                            this.replace_next(window, cx);
+                        }
+                    },
+                ),
+                cx.subscribe_in(
+                    &editor,
+                    window,
+                    |this, _, event: &EditorEvent, window, cx| {
+                        match event {
+                            // The matches follow the text, as CodeMirror's do.
+                            EditorEvent::BufferEdited if this.open => this.refresh(window, cx),
+                            // The current match and the counter follow the selection.
+                            EditorEvent::SelectionsChanged { .. } if this.open => {
+                                this.paint(window, cx);
+                                cx.notify();
+                            }
+                            _ => {}
+                        }
+                    },
+                ),
+            ];
         Self {
             editor,
             query,
@@ -195,7 +224,12 @@ impl FindBar {
         cx.notify();
     }
 
-    pub fn set_options(&mut self, options: FindOptions, window: &mut Window, cx: &mut Context<Self>) {
+    pub fn set_options(
+        &mut self,
+        options: FindOptions,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         if options != self.options {
             self.options = options;
             self.refresh(window, cx);
@@ -307,7 +341,13 @@ impl FindBar {
         };
         let matches = self.matches.clone();
         self.editor.update(cx, |editor, cx| {
-            editor.replace_all(&mut matches.iter(), &search, SearchToken::default(), window, cx)
+            editor.replace_all(
+                &mut matches.iter(),
+                &search,
+                SearchToken::default(),
+                window,
+                cx,
+            )
         });
     }
 

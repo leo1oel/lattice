@@ -190,9 +190,18 @@ mod tests {
     #[test]
     fn replace_takes_the_selected_match_or_selects_the_next() {
         let matches = alphas();
-        assert_eq!(replace_step(&matches, &(6..11)), Some(ReplaceStep::Replace(1)));
-        assert_eq!(replace_step(&matches, &(2..2)), Some(ReplaceStep::Select(1)));
-        assert_eq!(replace_step(&matches, &(16..16)), Some(ReplaceStep::Select(0)));
+        assert_eq!(
+            replace_step(&matches, &(6..11)),
+            Some(ReplaceStep::Replace(1))
+        );
+        assert_eq!(
+            replace_step(&matches, &(2..2)),
+            Some(ReplaceStep::Select(1))
+        );
+        assert_eq!(
+            replace_step(&matches, &(16..16)),
+            Some(ReplaceStep::Select(0))
+        );
     }
 
     #[test]

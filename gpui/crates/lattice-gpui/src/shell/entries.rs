@@ -40,7 +40,9 @@ impl Shell {
             FileTreeEvent::Paste { paths, target } => {
                 self.paste_entries(paths.clone(), target.clone(), window, cx)
             }
-            FileTreeEvent::PasteImage { target } => self.paste_clipboard_image(target.clone(), window, cx),
+            FileTreeEvent::PasteImage { target } => {
+                self.paste_clipboard_image(target.clone(), window, cx)
+            }
         }
     }
 
