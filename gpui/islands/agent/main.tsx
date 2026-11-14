@@ -108,6 +108,8 @@ type Workspace = {
   pdfPage: number;
   pdfPageCount: number | null;
   selection: string;
+  /** The whole selection's length; `selection` is cut to 24,000 characters. */
+  selectionLength: number | null;
   selectionSource: AgentHostSurface | null;
   selectionLines: AgentSelectionLines | null;
   selectionPdfDocument: AgentPdfDocumentPlace | null;
@@ -121,6 +123,7 @@ const EMPTY_WORKSPACE: Workspace = {
   pdfPage: 1,
   pdfPageCount: null,
   selection: "",
+  selectionLength: null,
   selectionSource: null,
   selectionLines: null,
   selectionPdfDocument: null,
@@ -237,6 +240,7 @@ function Agent({ opened, workspace, visible, appearance, git }: {
     pdfPageCount: workspace.pdfPageCount,
     presentation: null,
     selection: workspace.selection,
+    selectionLength: workspace.selectionLength,
     selectionSource: workspace.selectionSource,
     selectionLines: workspace.selectionLines,
     selectionPdfDocument: workspace.selectionPdfDocument,

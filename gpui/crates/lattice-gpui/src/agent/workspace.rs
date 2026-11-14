@@ -16,7 +16,8 @@ use serde_json::{Value, json};
 use crate::editor_panel::EditorPanel;
 
 /// More than the host context keeps (12,000 characters); what is past it is
-/// only counted, so a longer selection is cut here and its length kept.
+/// only counted, so a longer selection is cut here and its full length sent
+/// as `selectionLength`.
 const SELECTION_LIMIT: usize = 24_000;
 
 /// The workspace with `panel` in front, or with no editor at all.
@@ -45,11 +46,8 @@ pub fn of_editor(panel: Option<&EditorPanel>, cx: &App) -> Value {
         "activeSurface": "editor",
     });
     if start != end {
-        let text: String = buffer
-            .text_for_range(start..end)
-            .flat_map(str::chars)
-            .take(SELECTION_LIMIT)
-            .collect();
+        let full: String = buffer.text_for_range(start..end).collect();
+        let (text, length) = cut_selection(&full);
         let first = start_point.row + 1;
         let mut last: Point = end_point;
         // A selection ending at a line's start does not take that line.
@@ -57,10 +55,22 @@ pub fn of_editor(panel: Option<&EditorPanel>, cx: &App) -> Value {
             last.row -= 1;
         }
         workspace["selection"] = json!(text);
+        workspace["selectionLength"] = json!(length);
         workspace["selectionSource"] = json!("editor");
         workspace["selectionLines"] = json!({ "start": first, "end": last.row + 1 });
     }
     workspace
+}
+
+/// The trimmed selection cut to `SELECTION_LIMIT` characters, and the
+/// trimmed whole's length in UTF-16 units, as the page's `String.length`
+/// counts it.
+fn cut_selection(full: &str) -> (String, usize) {
+    let trimmed = full.trim();
+    (
+        trimmed.chars().take(SELECTION_LIMIT).collect(),
+        trimmed.encode_utf16().count(),
+    )
 }
 
 /// The caret as the Tauri app's `EditorPosition` holds it: the line 1-based,
@@ -72,7 +82,7 @@ fn editor_position(path: &str, line: u32, column: u32) -> Value {
 
 #[cfg(test)]
 mod tests {
-    use super::editor_position;
+    use super::{SELECTION_LIMIT, cut_selection, editor_position};
     use crate::editor_status::caret_column;
 
     // The Tauri app's document-canvas.test.tsx: the caret five characters
@@ -85,5 +95,18 @@ mod tests {
         let five = editor_position("main.tex", 1, caret_column(["hello"]));
         assert_eq!(five["line"], 1);
         assert_eq!(five["column"], 5);
+    }
+
+    // The Tauri app counts the trimmed selection with `String.length`: a
+    // 100,000-character selection is that long however much of it is sent.
+    #[test]
+    fn a_long_selection_is_cut_but_counted_whole() {
+        let full = format!("  {}\n", "x".repeat(100_000));
+        let (text, length) = cut_selection(&full);
+        assert_eq!(length, 100_000);
+        assert_eq!(text, "x".repeat(SELECTION_LIMIT));
+        // "𝑥" is one character but two UTF-16 units.
+        let (_, wide) = cut_selection("𝑥a");
+        assert_eq!(wide, 3);
     }
 }

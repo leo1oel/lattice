@@ -136,7 +136,7 @@ impl Shell {
         // The selection the Agent took stays out until it changes.
         if selection.is_some() && selection == self.agent.state.dismissed {
             if let Some(fields) = workspace.as_object_mut() {
-                for key in ["selection", "selectionSource", "selectionLines"] {
+                for key in ["selection", "selectionLength", "selectionSource", "selectionLines"] {
                     fields.remove(key);
                 }
             }

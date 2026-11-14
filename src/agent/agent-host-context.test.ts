@@ -164,6 +164,18 @@ describe("agent host context", () => {
     expect(context.capturedAt).toBe("2026-08-14T10:00:00.000Z");
   });
 
+  it("counts a selection cut before it arrived by its whole length", () => {
+    // The GPUI window sends at most 24k characters of a 100k selection, with its length.
+    const context = buildAgentHostContext({
+      ...baseInput,
+      selection: "x".repeat(24_000),
+      selectionLength: 100_000,
+      selectionSource: "editor",
+    });
+    expect(context.editor?.selection).toHaveLength(12_000);
+    expect(context.editor?.selectionOmittedChars).toBe(88_000);
+  });
+
   it("names a project PDF open as a document, and its page, when its selection is the context", () => {
     const fromDocument = {
       ...baseInput,
