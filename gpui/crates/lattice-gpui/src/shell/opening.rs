@@ -111,6 +111,7 @@ impl Shell {
         self.notice_conflicts(cx);
         self.live_preview
             .update(cx, |live, cx| live.set_project(Some(project.clone()), cx));
+        let venue = project.read(cx).manifest().venue.clone();
         self.file_tree
             .update(cx, |tree, cx| tree.set_project(project, cx));
         self.set_window_title(window, cx);
@@ -121,6 +122,7 @@ impl Shell {
         if let Some(main) = main.filter(|_| !restored) {
             self.open_path(main, None, window, cx);
         }
+        self.get_started_project_opened(&venue, window, cx);
         self.label_pdfs(cx);
         self.pdf
             .update(cx, |panel, cx| panel.show_project(root, pdf, window, cx));

@@ -102,6 +102,12 @@ pub fn present_tabs(cx: &mut App) {
             look(Icon::CLIPBOARD_CHECK, Surface::Sheet)
         } else if view
             .clone()
+            .downcast::<crate::get_started::panel::GetStartedPanel>()
+            .is_ok()
+        {
+            look(Icon::LIST_CHECKS, Surface::Sheet)
+        } else if view
+            .clone()
             .downcast::<crate::terminal::TerminalPanel>()
             .is_ok()
         {

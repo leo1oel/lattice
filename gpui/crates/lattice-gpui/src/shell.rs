@@ -24,6 +24,7 @@ mod documents;
 mod editor_events;
 mod editors;
 mod entries;
+mod get_started_flow;
 mod ground;
 mod help_flow;
 mod history_flow;
@@ -72,6 +73,7 @@ pub use commands::{
     Build, CleanBuildFiles, CleanRebuild, ForwardSync, InstallLatexTools, NextProblem,
     OpenTexDoctor, PreviousProblem, Save, StopBuild, ToggleVimMode,
 };
+pub use get_started_flow::ShowGetStarted;
 pub use help_flow::{ReportProblem, WhatsNew};
 pub use references_flow::{FindReferences, RenameSymbol};
 pub use tools_flow::{ExportArxiv, OpenChecklist, OpenTodos};
@@ -145,6 +147,8 @@ pub struct Shell {
     pub(crate) history: Entity<crate::history::HistoryPanel>,
     /// The submission checklist tool panel (`crate::submission::checklist`).
     pub(crate) checklist: Entity<crate::submission::checklist::ChecklistPanel>,
+    /// Get started, and its "Show me" ring (`get_started_flow`).
+    pub(crate) get_started: get_started_flow::GetStarted,
     /// The manuscript's TODOs tool panel (`crate::submission::todos`).
     pub(crate) todos: Entity<crate::submission::todos::TodosPanel>,
     /// The Overleaf collaboration panel (`crate::overleaf::collab`).
@@ -441,6 +445,7 @@ impl Shell {
             overleaf_collab,
             margin_mode: Default::default(),
             checklist,
+            get_started: Self::get_started_panel(window, cx),
             sheets: Default::default(),
             references: Default::default(),
             terminal,

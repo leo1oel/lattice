@@ -472,6 +472,7 @@ impl Shell {
                 });
                 if result.success && !cancelled {
                     notices::dismiss(BUILD_FAILED_NOTICE, cx);
+                    self.get_started_built(cx);
                 }
                 if result.has_pdf {
                     // The PDF the viewer loads now holds the files as of the
@@ -509,8 +510,7 @@ impl Shell {
                     if result.diagnostics.iter().any(|diagnostic| {
                         tex_setup::is_missing_tex_build_error(&diagnostic.message)
                     }) {
-                        self.tex_setup
-                            .update(cx, |center, cx| center.open_for_missing_tex(cx));
+                        self.missing_tex(cx);
                     }
                 }
             }
@@ -526,8 +526,7 @@ impl Shell {
                     cx,
                 );
                 if tex_setup::is_missing_tex_build_error(&error) {
-                    self.tex_setup
-                        .update(cx, |center, cx| center.open_for_missing_tex(cx));
+                    self.missing_tex(cx);
                 }
             }
         }

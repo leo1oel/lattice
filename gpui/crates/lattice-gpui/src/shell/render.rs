@@ -45,6 +45,7 @@ impl Render for Shell {
                     .children(self.references.bar.as_ref().map(|(bar, _)| bar.clone()))
                     .child(self.ground(cx))
             })
+            .children(self.show_me_ring(window, cx))
             .children(self.window_overlays())
             .child(self.tex_setup.clone())
             .children(self.conflict.as_ref().map(|(resolver, _)| resolver.clone()))

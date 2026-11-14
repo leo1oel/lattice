@@ -21,6 +21,7 @@ mod documents;
 mod editor_adapter;
 mod editor_pointer;
 mod fluid;
+mod get_started;
 mod help;
 mod history;
 #[cfg(target_os = "macos")]
@@ -416,6 +417,13 @@ impl Run {
             self.closing_saves(cx, &mut steps, &root)
                 .await
                 .context("closing_saves")?;
+        }
+        // After the modules that start from the fixture's layout: it opens
+        // the tutorial, then the fixture again.
+        if steps::selected("get_started") {
+            self.get_started(cx, &mut steps, &root)
+                .await
+                .context("get_started")?;
         }
         // Last: `scenario::start` quits once the result is written.
         let quit = self.type_before_quit(cx, &mut steps, &root).await?;
