@@ -420,7 +420,7 @@ impl BibEditor {
             })
             .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
                 window.focus(&this.focus, cx);
-                this.select(select_key.clone(), true, cx);
+                this.select(select_key.clone(), Some(index), true, cx);
             }))
             .child(body)
             .children(paper_control)

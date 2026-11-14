@@ -3,8 +3,8 @@
 //! lattice-core's `resolve_citation_query`), its candidates when it found
 //! several, or the fields entered by hand; the entry as a reference list
 //! will print it above the fields, and Save entry appends it to the file.
-//! Add papers' Enter manually opens the same sheet over the window, saving
-//! into the project's bibliography (`save_bib_entry`).
+//! From Papers (Enter manually, a title to review, Edit bibliography entry)
+//! it covers the window and writes the project's bibliography.
 
 use gpui::{
     AnyElement, AppContext as _, ClickEvent, Context, Entity, InteractiveElement as _, IntoElement,
@@ -70,8 +70,7 @@ const FIELDS: [Field; 8] = [
 pub enum AddTarget {
     /// The `.bib` file whose visual form opened it.
     Bib(WeakEntity<BibEditor>),
-    /// The project's bibliography, from Add papers, or its entry under the
-    /// key the sheet opened with when `editing` (Edit bibliography entry).
+    /// The project's bibliography; `editing` rewrites the entry in place.
     Project {
         root: std::path::PathBuf,
         papers: WeakEntity<crate::papers::PapersPanel>,
@@ -189,6 +188,36 @@ impl AddReference {
         this
     }
 
+    /// A title the Papers box looked up, its answer to review.
+    pub fn review(
+        target: AddTarget,
+        query: String,
+        resolved: ResolvedCitation,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Self {
+        let mut this = Self::new(target, window, cx);
+        this.lookup
+            .update(cx, |input, cx| input.set_value(query, window, cx));
+        this.take_resolved(resolved, window, cx);
+        this
+    }
+
+    /// A lookup's answer: works to choose from, else the one found.
+    fn take_resolved(
+        &mut self,
+        resolved: ResolvedCitation,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if resolved.candidates.is_empty() {
+            self.apply_with_window(resolved, window, cx);
+        } else {
+            self.candidates = resolved.candidates;
+            self.chosen = 0;
+        }
+    }
+
     fn editing(&self) -> bool {
         matches!(self.target, AddTarget::Project { editing: true, .. })
     }
@@ -255,11 +284,7 @@ impl AddReference {
                 }
                 this.resolving = false;
                 match resolved {
-                    Ok(resolved) if !resolved.candidates.is_empty() => {
-                        this.candidates = resolved.candidates;
-                        this.chosen = 0;
-                    }
-                    Ok(resolved) => this.apply_with_window(resolved, window, cx),
+                    Ok(resolved) => this.take_resolved(resolved, window, cx),
                     Err(error) => this.error = Some(error),
                 }
                 cx.notify();

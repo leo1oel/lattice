@@ -95,7 +95,11 @@ impl PapersPanel {
         if query.is_empty() || self.importing.is_some() || self.batch.running {
             return;
         }
-        self.import(query, cx);
+        // A title is looked up first: one record imports as it was found,
+        // never a second search that could pick another work; several, or
+        // one with no entry, go to Add reference for review.
+        let review = model::reference_kind(&query) == Some(ReferenceKind::Title);
+        self.import(query, review, cx);
     }
 
     /// Import `input` as the box's Enter would, for Discover literature's
@@ -104,11 +108,11 @@ impl PapersPanel {
         if self.importing.is_some() || self.batch.running {
             return false;
         }
-        self.import(input, cx);
+        self.import(input, false, cx);
         self.importing.is_some()
     }
 
-    fn import(&mut self, query: String, cx: &mut Context<Self>) {
+    fn import(&mut self, query: String, review: bool, cx: &mut Context<Self>) {
         let Some(root) = self.root.clone() else {
             return;
         };
@@ -121,6 +125,16 @@ impl PapersPanel {
             let progress = |stage: &str| {
                 stages.unbounded_send(stage.to_string()).ok();
             };
+            let input = if review {
+                progress("resolving");
+                let resolved = lattice_core::project::resolve_citation_query(&input)?;
+                if !resolved.candidates.is_empty() || resolved.bibtex.trim().is_empty() {
+                    return Ok(Err(Box::new(resolved)));
+                }
+                resolved.bibtex
+            } else {
+                input
+            };
             core_papers::import_reference(
                 &root,
                 &input,
@@ -129,6 +143,7 @@ impl PapersPanel {
                 &progress,
                 &job_cancel,
             )
+            .map(Ok)
         });
         let task = cx.spawn(async move |this, cx| {
             let mut job = std::pin::pin!(job);
@@ -148,8 +163,12 @@ impl PapersPanel {
                     futures::future::Either::Right((None, _)) => break job.await,
                 }
             };
-            this.update(cx, |this, cx| this.imported(query, result, cx))
-                .ok();
+            this.update(cx, |this, cx| match result {
+                Ok(Err(resolved)) => this.review(query, resolved, cx),
+                Ok(Ok(imported)) => this.imported(query, Ok(imported), cx),
+                Err(error) => this.imported(query, Err(error), cx),
+            })
+            .ok();
         });
         self.importing = Some(Importing {
             label,
@@ -158,6 +177,25 @@ impl PapersPanel {
             cancel,
             _task: task,
         });
+        cx.notify();
+    }
+
+    /// The title's lookup found several works, or one without an entry:
+    /// Add reference shows them, the title in its lookup, unless the writer
+    /// cancelled.
+    fn review(
+        &mut self,
+        query: String,
+        resolved: Box<lattice_core::models::ResolvedCitation>,
+        cx: &mut Context<Self>,
+    ) {
+        let cancelled = self
+            .importing
+            .take()
+            .is_some_and(|importing| importing.cancel.load(Ordering::Acquire));
+        if !cancelled {
+            cx.emit(PapersEvent::Review { query, resolved });
+        }
         cx.notify();
     }
 

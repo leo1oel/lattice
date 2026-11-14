@@ -86,6 +86,7 @@ pub(super) struct FieldRow {
 pub(in crate::papers) struct Detail {
     /// The reference it was built for, and its text then.
     pub(super) key: String,
+    pub(super) index: usize,
     signature: String,
     pub(super) key_input: Entity<InputState>,
     pub(super) key_error: Option<String>,
@@ -95,6 +96,12 @@ pub(in crate::papers) struct Detail {
     pub(super) new_error: Option<String>,
     scroll: ScrollHandle,
     _subscriptions: Vec<Subscription>,
+}
+
+impl Detail {
+    fn shows(&self, row: &super::Row) -> bool {
+        (&self.key, self.index) == (&row.entry.key, row.index)
+    }
 }
 
 impl BibEditor {
@@ -148,11 +155,9 @@ impl BibEditor {
         // Another reference came to the front before a box was left: what
         // the writer typed is written to the reference it was typed for,
         // before its form goes (its boxes' Blur would find no form).
-        let front = self.selected_row().map(|row| row.entry.key.clone());
-        if self
-            .detail
-            .as_ref()
-            .is_some_and(|detail| Some(&detail.key) != front.as_ref())
+        let front = self.selected_row();
+        if let Some(detail) = &self.detail
+            && !front.is_some_and(|row| detail.shows(row))
         {
             self.commit_form(cx);
         }
@@ -166,15 +171,12 @@ impl BibEditor {
             .unwrap_or("")
             .to_string();
         if let Some(detail) = &self.detail
-            && detail.key == row.entry.key
+            && detail.shows(&row)
             && detail.signature == signature
         {
             return;
         }
-        let previous = self
-            .detail
-            .take()
-            .filter(|detail| detail.key == row.entry.key);
+        let previous = self.detail.take().filter(|detail| detail.shows(&row));
         // A refused key or value keeps its typing and its error.
         let mut key_error = None;
         let (key_input, mut kept, new_name, new_value, scroll) = match previous {
@@ -315,6 +317,7 @@ impl BibEditor {
         }
         self.detail = Some(Detail {
             key: row.entry.key.clone(),
+            index: row.index,
             signature,
             key_input,
             key_error,

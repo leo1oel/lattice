@@ -25,13 +25,11 @@ impl BibEditor {
     /// read: a box left as another row comes to the front still writes
     /// into the reference it showed.
     pub(super) fn front(&self) -> Option<(String, usize)> {
-        let key = &self.detail.as_ref()?.key;
+        let detail = self.detail.as_ref()?;
         let index = self
-            .rows
-            .iter()
-            .find(|row| &row.entry.key == key)
+            .row_at(&detail.key, detail.index)
             .map_or(usize::MAX, |row| row.index);
-        Some((key.clone(), index))
+        Some((detail.key.clone(), index))
     }
 
     pub(super) fn rename_key(&mut self, value: String, cx: &mut Context<Self>) {
@@ -65,12 +63,10 @@ impl BibEditor {
                 )
                 .is_some()
             {
-                if self
-                    .selected
-                    .as_deref()
-                    .is_some_and(|selected| selected.eq_ignore_ascii_case(&current))
+                if let Some((selected, _)) = &mut self.selected
+                    && selected.eq_ignore_ascii_case(&current)
                 {
-                    self.selected = Some(key.clone());
+                    *selected = key.clone();
                 }
                 // The same reference under its new key: its form is kept.
                 if let Some(detail) = &mut self.detail {
@@ -197,9 +193,7 @@ impl BibEditor {
         let name = detail.new_name.read(cx).value().trim().to_string();
         let value = detail.new_value.read(cx).value().to_string();
         let entry_fields: Vec<String> = self
-            .rows
-            .iter()
-            .find(|row| row.entry.key == key)
+            .row_at(&key, index)
             .map(|row| {
                 row.entry
                     .fields

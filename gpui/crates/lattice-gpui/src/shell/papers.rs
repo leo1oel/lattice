@@ -45,6 +45,9 @@ impl Shell {
             PapersEvent::CheckReferences => self.open_audit(window, cx),
             PapersEvent::Remove(paper) => self.remove_paper((**paper).clone(), cx),
             PapersEvent::EditEntry(paper) => self.edit_entry((**paper).clone(), window, cx),
+            PapersEvent::Review { query, resolved } => {
+                self.review_reference(query.clone(), (**resolved).clone(), window, cx)
+            }
             PapersEvent::Removed => {
                 for editor in self.open_editors() {
                     editor.update(cx, |editor, cx| editor.check_disk(cx));
@@ -231,6 +234,9 @@ impl Shell {
             return;
         }
         self.dismiss_overlays_for_documents(cx);
+        // A batch that finished after its sheet closed is done with: the
+        // sheet opens on the paste box, a running one on its progress.
+        self.papers.update(cx, |papers, cx| papers.clear_batch(cx));
         let papers = self.papers.clone();
         let view = cx.new(|cx| AddPapers::new(papers, seed, window, cx));
         cx.subscribe_in(&view, window, |this, _, event, window, cx| match event {
@@ -258,6 +264,28 @@ impl Shell {
         };
         let view = cx.new(|cx| AddReference::new(target, window, cx));
         view.update(cx, |view, cx| view.focus_lookup(window, cx));
+        self.show_add_reference(view, window, cx);
+    }
+
+    /// A title the Papers box looked up, in Add reference for review
+    /// (`showBibEntry("add", resolved, query)`).
+    fn review_reference(
+        &mut self,
+        query: String,
+        resolved: lattice_core::models::ResolvedCitation,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(root) = self.root(cx) else {
+            return;
+        };
+        self.dismiss_overlays_for_documents(cx);
+        let target = AddTarget::Project {
+            root,
+            papers: self.papers.downgrade(),
+            editing: false,
+        };
+        let view = cx.new(|cx| AddReference::review(target, query, resolved, window, cx));
         self.show_add_reference(view, window, cx);
     }
 

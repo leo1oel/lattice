@@ -162,9 +162,9 @@ pub struct BibEditor {
     pub(super) query: Entity<InputState>,
     pub(super) filter: BibFilter,
     pub(super) sort: BibSort,
-    /// The reference in front, by key: offsets move with every edit, keys
-    /// do not.
-    pub(super) selected: Option<String>,
+    /// The reference in front, by key and its place among the file's
+    /// entries (two can share a key): offsets move with every edit.
+    pub(super) selected: Option<(String, usize)>,
     /// A pane too narrow for both shows the reference in place of the list.
     pub(super) detail_open: bool,
     /// The body's width, and where it starts in the window, as last laid
@@ -302,7 +302,7 @@ impl BibEditor {
 
     /// Bring `key` to the front, as a click on its row does.
     pub fn pick(&mut self, key: &str, cx: &mut Context<Self>) {
-        self.select(key.to_string(), true, cx);
+        self.select(key.to_string(), None, true, cx);
     }
 
     fn schedule_parse(&mut self, delay: Duration, cx: &mut Context<Self>) {
@@ -351,18 +351,19 @@ impl BibEditor {
         }));
     }
 
-    /// The row of the reference in front, by its key (any case, as BibTeX
+    /// The row of the reference in front (its key in any case, as BibTeX
     /// reads keys).
     pub(super) fn selected_row(&self) -> Option<&Row> {
-        let key = self.selected.as_deref()?;
-        self.rows
-            .iter()
-            .find(|row| row.entry.key == key)
-            .or_else(|| {
-                self.rows
-                    .iter()
-                    .find(|row| row.entry.key.eq_ignore_ascii_case(key))
-            })
+        let (key, index) = self.selected.as_ref()?;
+        self.row_at(key, *index).or_else(|| {
+            self.rows
+                .iter()
+                .find(|row| row.entry.key.eq_ignore_ascii_case(key))
+        })
+    }
+
+    pub(super) fn row_at(&self, key: &str, index: usize) -> Option<&Row> {
+        model::row_at(&self.rows, key, index)
     }
 
     /// The rows the list shows, in its order.
@@ -380,18 +381,27 @@ impl BibEditor {
         .collect()
     }
 
-    pub(super) fn select(&mut self, key: String, open: bool, cx: &mut Context<Self>) {
+    /// Bring `key` to the front: the entry at `index`, else its first.
+    pub(super) fn select(
+        &mut self,
+        key: String,
+        index: Option<usize>,
+        open: bool,
+        cx: &mut Context<Self>,
+    ) {
         // The source's offsets, not those of a parse it has moved past.
         if self.parsed_edits != self.edits {
             let text = self.buffer.read(cx).text();
             self.apply_parse(parse_rows(text), self.edits, cx);
         }
-        if let Some(row) = self.rows.iter().find(|row| row.entry.key == key) {
-            cx.emit(BibEditorEvent::Picked {
-                from: row.entry.from,
-            });
+        let row = self
+            .row_at(&key, index.unwrap_or(usize::MAX))
+            .map(|row| (row.entry.from, row.index));
+        if let Some((from, _)) = row {
+            cx.emit(BibEditorEvent::Picked { from });
         }
-        self.selected = Some(key);
+        let index = row.map_or(usize::MAX, |(_, index)| index);
+        self.selected = Some((key, index));
         if open {
             self.detail_open = true;
         }
@@ -415,9 +425,9 @@ impl BibEditor {
         else {
             return;
         };
-        if self.selected.as_deref() != Some(row.entry.key.as_str()) {
-            self.selected = Some(row.entry.key.clone());
-            self.reveal = self.selected.clone();
+        if self.selected_row().map(|front| front.index) != Some(row.index) {
+            self.selected = Some((row.entry.key.clone(), row.index));
+            self.reveal = Some(row.entry.key.clone());
             cx.notify();
         }
     }
@@ -490,12 +500,12 @@ impl BibEditor {
                     .get(at + 1)
                     .or_else(|| at.checked_sub(1).and_then(|at| shown.get(at)))
             })
-            .and_then(|index| {
-                self.rows
-                    .iter()
-                    .find(|row| row.index == *index && row.entry.key != key)
-            })
-            .map(|row| row.entry.key.clone());
+            .and_then(|index| self.rows.iter().find(|row| row.index == *index))
+            // An entry after it moves up one place once it is gone.
+            .map(|row| {
+                let place = row.index - usize::from(row.index > index);
+                (row.entry.key.clone(), place)
+            });
         self.buffer.update(cx, |buffer, _| {
             buffer.finalize_last_transaction();
         });
@@ -593,7 +603,7 @@ impl BibEditor {
         }
         let text = self.buffer.read(cx).text();
         self.apply_parse(parse_rows(text), self.edits, cx);
-        self.selected = Some(deleted.key.clone());
+        self.selected = Some((deleted.key.clone(), usize::MAX));
         self.reveal = Some(deleted.key);
         self.detail_open = true;
         cx.notify();
@@ -620,7 +630,8 @@ impl BibEditor {
         self.splice(&change, cx);
         self.show_all(window, cx);
         window.focus(&self.focus, cx);
-        self.selected = Some(key.to_string());
+        let index = self.rows.iter().rev().find(|row| row.entry.key == key);
+        self.selected = Some((key.to_string(), index.map_or(usize::MAX, |row| row.index)));
         self.reveal = Some(key.to_string());
         self.detail_open = true;
         self.adding = None;
@@ -736,8 +747,8 @@ impl BibEditor {
         if let Some(target) = target
             && let Some(row) = self.rows.iter().find(|row| row.index == shown[target])
         {
-            let key = row.entry.key.clone();
-            self.select(key, false, cx);
+            let (key, index) = (row.entry.key.clone(), row.index);
+            self.select(key, Some(index), false, cx);
             self.scroll
                 .scroll_to_item(target, gpui::ScrollStrategy::Nearest);
         }
@@ -792,5 +803,28 @@ fn line_offset(text: &str, line: u32) -> usize {
 impl Focusable for BibEditor {
     fn focus_handle(&self, _: &App) -> FocusHandle {
         self.focus.clone()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Two entries under one key, as a merged bibliography has them: the
+    /// second, picked by its place, is the one a delete takes away.
+    #[test]
+    fn the_second_of_two_entries_sharing_a_key_is_the_one_acted_on() {
+        let text = "@article{smith2020,\n  title = {First}\n}\n\n@inproceedings{smith2020,\n  title = {Second}\n}\n";
+        let parsed = parse_rows(text.to_string());
+        let second = model::row_at(&parsed.rows, "smith2020", 1).unwrap();
+        assert_eq!(second.summary.title, "Second");
+        let edit = bib_document::delete_entry_edit(text, &second.entry);
+        let left = bib_document::apply_edit(text, &edit);
+        assert_eq!(left, "@article{smith2020,\n  title = {First}\n}\n");
+        // A place no longer under that key falls back to its first entry.
+        assert_eq!(
+            model::row_at(&parsed.rows, "smith2020", 7).unwrap().index,
+            0
+        );
     }
 }

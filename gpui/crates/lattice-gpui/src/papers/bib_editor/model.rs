@@ -339,6 +339,14 @@ pub fn slug_key(title: &str, author: &str, year: &str) -> String {
     format!("{surname}{year}{}", word.to_lowercase())
 }
 
+/// The entry `key` at `index`, else the first under that key: the place
+/// tells apart entries sharing a key while it still names one.
+pub fn row_at<'a>(rows: &'a [Row], key: &str, index: usize) -> Option<&'a Row> {
+    rows.iter()
+        .find(|row| row.index == index && row.entry.key == key)
+        .or_else(|| rows.iter().find(|row| row.entry.key == key))
+}
+
 /// A DOI as the form links it: `10.`, four to nine digits, a slash and no
 /// space after (`/^10\.\d{4,9}\/\S+$/`).
 pub fn is_doi(doi: &str) -> bool {

@@ -101,6 +101,12 @@ pub enum PapersEvent {
     Remove(Box<PaperSummary>),
     /// A removal may have rewritten the manuscript's files.
     Removed,
+    /// A title the box looked up, for Add reference to review: several works,
+    /// or one without an entry.
+    Review {
+        query: String,
+        resolved: Box<lattice_core::models::ResolvedCitation>,
+    },
     /// Edit a paper's entry in the bibliography, as Add reference shows it.
     EditEntry(Box<PaperSummary>),
 }
