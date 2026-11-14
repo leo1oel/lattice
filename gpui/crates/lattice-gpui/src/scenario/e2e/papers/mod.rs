@@ -430,6 +430,9 @@ pub(super) const MODULE: super::registry::Module = super::registry::Module {
     covers: &[
         "gpui/crates/lattice-gpui/src/papers",
         "gpui/crates/lattice-gpui/src/shell/papers.rs",
+        // The paper reader's text and its reading form in the island.
+        "gpui/crates/lattice-gpui/src/editor_panel/paper_text.rs",
+        "gpui/islands/markdown/",
     ],
     run: |run, cx, steps, fixture| Box::pin(run.papers_panel(cx, steps, &fixture.root)),
 };
