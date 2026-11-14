@@ -12,8 +12,9 @@
 //! - a command: [`MenuAction::dispatch`] runs a GPUI action on the focus the
 //!   menu interrupted, and shows the keys bound to it there, as the app's
 //!   menus show the command table's keys;
-//! - a submenu, which opens beside its row when the pointer or the keys
-//!   reach it (→, Enter or Space) and closes on ← or Escape;
+//! - a submenu, which opens beside its row when the pointer lights the row
+//!   or the keys press →, Enter or Space on it (a key highlight alone does
+//!   not open it), and closes on ← or Escape;
 //! - a secondary action: a small glyph at the row's end that runs something
 //!   other than the row (the project switcher's open-in-this-window). The
 //!   pointer presses it; the keys reach it with → from its row, go back
