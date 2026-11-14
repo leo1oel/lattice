@@ -456,7 +456,3 @@ msgstr "评论所选内容"
 #: lattice-gpui/src/shell/overleaf_collab.rs
 msgid "Comments go to Overleaf once this file is open live with it."
 msgstr "此文件与 Overleaf 实时同步后，评论才会发送到 Overleaf。"
-
-#: lattice-gpui/src/overleaf/collab.rs
-msgid "Suggestions"
-msgstr "修订"
