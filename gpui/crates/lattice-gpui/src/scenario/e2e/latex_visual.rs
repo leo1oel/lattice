@@ -15,6 +15,10 @@
 //! - text put into the buffer (as the source, or an outside edit, would)
 //!   reaches the page;
 //! - choosing Source again shows the source editor and hides the page.
+//!
+//! With `LATTICE_E2E_SHOTS=DIR` it saves the window as the screen composes
+//! it, page included, in light and dark (`latex-visual-light.png`,
+//! `latex-visual-dark.png`).
 
 #![cfg(target_os = "macos")]
 
@@ -79,6 +83,7 @@ impl Run {
         cx.update(|cx| choose_latex_view(LatexView::Visual, cx));
         let island = self.latex_visual_drawn(cx, steps, &panel).await;
         if let Some(island) = island {
+            self.latex_visual_shots(cx).await?;
             // Opening writes nothing.
             self.pause(cx, Duration::from_millis(1500)).await;
             let unchanged = std::fs::read_to_string(&path).is_ok_and(|text| text == PAPER);
@@ -111,6 +116,33 @@ impl Run {
             json!({ "back": back }),
         );
         self.close_panel(cx, &panel).await?;
+        Ok(())
+    }
+
+    /// Save the window, page included, in light and dark, into
+    /// `LATTICE_E2E_SHOTS` when it is set; the theme is put back after.
+    async fn latex_visual_shots(&self, cx: &mut AsyncApp) -> Result<()> {
+        let Some(dir) = std::env::var_os("LATTICE_E2E_SHOTS") else {
+            return Ok(());
+        };
+        let before = cx.update(|cx| crate::settings::get(cx).theme_preference);
+        for (name, theme) in [
+            ("light", lattice_settings::ThemePreference::Light),
+            ("dark", lattice_settings::ThemePreference::Dark),
+        ] {
+            cx.update(|cx| crate::settings::update(cx, |settings| settings.theme_preference = theme));
+            self.pause(cx, Duration::from_millis(800)).await;
+            let number = native::window_number(self.native(cx)?);
+            native::order_front(self.native(cx)?);
+            self.pause(cx, Duration::from_millis(300)).await;
+            let out = Path::new(&dir).join(format!("latex-visual-{name}.png"));
+            std::process::Command::new("screencapture")
+                .args(["-x", "-o", &format!("-l{number}")])
+                .arg(&out)
+                .status()
+                .ok();
+        }
+        cx.update(|cx| crate::settings::update(cx, |settings| settings.theme_preference = before));
         Ok(())
     }
 
