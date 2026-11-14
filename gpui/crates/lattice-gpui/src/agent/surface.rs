@@ -491,7 +491,21 @@ impl SynaraSurface {
             notice = notice.running();
         } else if timeout == Some(0.) {
             notice = notice.persistent();
+        } else if text("primaryActionLabel").is_some() || text("secondaryActionLabel").is_some() {
+            // `hostNotificationTimeout`: one with a choice stays an error's 9 s.
+            notice = notice.timeout(std::time::Duration::from_secs(9));
         }
+        if let Some(copy) = text("copyText") {
+            notice = notice.copy(copy);
+        }
+        let dismissed = (cx.entity().downgrade(), id.clone());
+        notice = notice.on_dismiss(move |cx| {
+            let (this, id) = &dismissed;
+            this.update(cx, |this, cx| {
+                this.post("agent:notify-action", json!({ "id": id, "action": "dismiss" }), cx)
+            })
+            .ok();
+        });
         for (label, action) in [
             (text("primaryActionLabel"), "primary"),
             (text("secondaryActionLabel"), "secondary"),
