@@ -8,9 +8,9 @@ measurements; re-run the commands rather than quoting them.
 
 ## The current pin
 
-The fork as a whole is **not** small. Measured on 2026-11-12 against upstream
+The fork as a whole is **not** small. Measured on 2026-11-13 against upstream
 `v1.5.2` (`83e0533b23099908ee14e4fecacd5ed702f4d453`), the current integration changes
-**857 files, +87,790 / −9,244 lines** (about 6,700 of the added lines are the zh-CN catalogs,
+**861 files, +88,184 / −9,247 lines** (about 6,700 of the added lines are the zh-CN catalogs,
 which upstream no longer ships). It carries embedded-workspace UI, a skills manager,
 source-control and provider-health surfaces, spreadsheet and canvas tool brokers, and their
 contracts. Treat "keep it in the seam" as the goal for new work. Re-measure after each sync:
@@ -216,6 +216,20 @@ A Codex `view_image` and an image file a completed edit wrote (such as an SVG) a
 Nothing prunes the copies yet; thread deletion is soft and restorable, so removing them with the thread is a follow-up.
 The fork PR's CI passed, and the embed browser and server regressions in [`synara-runtime.md`](synara-runtime.md) pass on this pin.
 Live Claude turns in an isolated Synara instance showed the Read thumbnails, three versions of a recolored figure, a written SVG with no error card, and the strip under a closed "Worked for" header.
+
+With several Lattice windows open, a thread's notifications now appear only in the window whose project owns it (fork `09785db965ccfecdbb02d70e7c9bbfc30350acb1`, [fork PR 27](https://github.com/leo1oel/synara/pull/27)).
+Each window embeds its own agent frame, and every frame's store holds every project's threads, so before this pin each frame raised the "Finished working" toast, the input-needed toast and terminal toasts for any thread.
+The window in front therefore showed another project's completion, and its Open action pulled that thread into the wrong window.
+In embed mode `TaskCompletionNotifications` (fork `apps/web/src/notifications/taskCompletion.tsx`) now notifies only for threads whose project matches the frame's `workspaceRoot` (`embedWorkspaceMatches`), and the same filter applies to the system notifications those events raise.
+A snooze reminder for another project is skipped before it claims the shared reminder receipt, so the owning window still delivers it.
+Standalone Synara still notifies for every project.
+A thread's own window keeps the upstream rule: no toast while that thread is on screen, and a toast with Open when it is not.
+
+The fork's `TaskCompletionNotifications.embedScope.browser.tsx` and `taskCompletion.logic.test.ts` cover the scoping, and the embed browser and server regressions in [`synara-runtime.md`](synara-runtime.md) pass on this pin.
+The release-staged sidecar was also driven with two embedded frames, one per project, in host pages that build the frame URL and relay its toasts the way a Lattice window does, in headless Chromium against a mock OpenAI-compatible endpoint through Lattice's Pi model-endpoint configuration.
+A finished turn in the first project's frame, after that frame had moved to a new thread, toasted only there, and its Open returned that frame to the thread; the second project's frame, in front, showed nothing.
+The previous pin, driven the same way, raised the toast in both frames, and Open in the second frame added the first project's thread to its tabs.
+This was not run in two real Lattice windows, so WKWebView, Lattice's own toast stack and its window focus were not exercised.
 
 ## Synara 0.9.1 compatibility
 
