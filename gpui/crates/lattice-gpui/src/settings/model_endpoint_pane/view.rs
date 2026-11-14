@@ -102,7 +102,7 @@ impl ModelEndpointPane {
                         t!("Pi is a one-time download of about 150 MB. Install it under Providers › Pi."),
                         cx,
                     )
-                    .control(open_providers)
+                    .control(controls::in_column(open_providers))
                     ,
                     width,
                     cx,
@@ -165,7 +165,7 @@ impl ModelEndpointPane {
             cx,
         );
         if let Some(remove_key) = remove_key {
-            key_row = key_row.control(remove_key);
+            key_row = key_row.control(controls::in_column(remove_key));
         }
         groups.push(controls::group(
             Some(t!("Endpoint").into()),
@@ -216,7 +216,7 @@ impl ModelEndpointPane {
                         t!("Names as the endpoint spells them. Test connection tries the first."),
                         cx,
                     )
-                    .control(add)
+                    .control(controls::in_column(add))
                     ,
                     width,
                     cx,

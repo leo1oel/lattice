@@ -477,7 +477,7 @@ impl LiteraturePane {
                     t!("API key"),
                 )
                 .description(described, cx)
-                .control(get_key);
+                .control(controls::in_column(get_key));
             let mut rows = vec![
                 marks.row(key_row, width, cx),
                 controls::block(form, true),
