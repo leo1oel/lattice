@@ -100,6 +100,51 @@ impl TrellisWorkspace {
         cx.notify();
     }
 
+    /// Lattice's patch (`beginFileDrag`): carry `view` on a drag that began
+    /// outside the workspace (a Project tree row), as a press on its tab
+    /// that has already moved to `pointer` (window coordinates), so it lifts
+    /// out at once and lands where Trellis's drop targets say. The tab must
+    /// have been laid out. Returns whether the drag is on; how it ends is
+    /// [`WorkspaceEvent::CarryEnded`].
+    pub fn carry_view(
+        &mut self,
+        view: &str,
+        pointer: gpui::Point<gpui::Pixels>,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        if self.held.is_some() {
+            return false;
+        }
+        let Some(panel) = self
+            .engine
+            .view_state(view)
+            .map(|state| state.panel_id.clone())
+        else {
+            return false;
+        };
+        let Some(tab) = self
+            .tab_bounds(&panel)
+            .into_iter()
+            .find_map(|(id, bounds)| (id == view).then_some(bounds))
+        else {
+            return false;
+        };
+        let press = gpui::point(
+            tab.left() + (tab.size.width / 2.).min(gpui::px(24.)),
+            tab.center().y,
+        );
+        self.engine
+            .drag_begin(&panel, Some(view), self.local(press));
+        self.held = Some(Held::Press {
+            panel,
+            view: Some(view.to_string()),
+        });
+        self.carried = Some(view.to_string());
+        let p = self.local(pointer);
+        self.update_engine(cx, |e| e.drag_move(p));
+        true
+    }
+
     pub(crate) fn press_divider(&mut self, split: &str, index: usize, cx: &mut Context<Self>) {
         if self.held.is_some() {
             return;
@@ -142,6 +187,19 @@ impl TrellisWorkspace {
     ) {
         let p = self.local(position);
         match self.held.take() {
+            Some(Held::Press { view, .. }) if self.carried.is_some() => {
+                self.update_engine(cx, |e| {
+                    if commit {
+                        e.drag_move(p);
+                    }
+                    e.drag_end(commit)
+                });
+                let view = self.carried.take().or(view).unwrap_or_default();
+                cx.emit(WorkspaceEvent::CarryEnded {
+                    view,
+                    dropped: commit,
+                });
+            }
             Some(Held::Press { view, .. }) => {
                 let click = self.engine.press_is_click();
                 self.update_engine(cx, |e| {

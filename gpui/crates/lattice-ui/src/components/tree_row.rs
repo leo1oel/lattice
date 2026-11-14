@@ -89,8 +89,21 @@ impl GitMark {
     }
 }
 
+/// How a row shows the folder a drag would land in (`paintDropTarget`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum DropMark {
+    #[default]
+    None,
+    /// The folder's own row: the accent's soft fill, a 1px ring in the
+    /// accent at 27% and the raised shadow, its name in the text's ink.
+    Target,
+    /// A row shown inside that folder: the soft fill alone.
+    Inside,
+}
+
 pub struct TreeRow {
     id: ElementId,
+    drop: DropMark,
     name: SharedString,
     depth: usize,
     /// `Some(expanded)` for a folder.
@@ -120,6 +133,7 @@ impl TreeRow {
             git: None,
             contains_change: false,
             fluid: None,
+            drop: DropMark::None,
         }
     }
 
@@ -137,6 +151,12 @@ impl TreeRow {
 
     pub fn selected(mut self, selected: bool) -> Self {
         self.selected = selected;
+        self
+    }
+
+    /// Mark the row as the folder a drag would land in, or one inside it.
+    pub fn drop_mark(mut self, mark: DropMark) -> Self {
+        self.drop = mark;
         self
     }
 
@@ -180,6 +200,7 @@ impl TreeRow {
         let git_ink = self.git.map(|mark| mark.color(dark));
         let label_ink = match git_ink {
             Some(ink) => ink,
+            None if self.drop == DropMark::Target => palette.text,
             None if self.selected => palette.nav_text_strong,
             None => palette.text_secondary,
         };
@@ -249,6 +270,20 @@ impl TreeRow {
             .px_0()
             .rounded(px(6.))
             .when(self.selected, |item| item.bg(palette.row_selected))
+            .when(self.drop != DropMark::None, |item| {
+                item.bg(palette.accent_soft)
+            })
+            .when(self.drop == DropMark::Target, |item| {
+                item.shadow(crate::Elevation::Raised.shadows(&palette))
+                    .child(
+                        div()
+                            .absolute()
+                            .inset_0()
+                            .rounded(px(6.))
+                            .border_1()
+                            .border_color(palette.accent.opacity(0.27)),
+                    )
+            })
             // Kit's item fills itself under the pointer unless it counts as
             // active; with the tree's fluid hover drawing the fill, it is
             // marked so (it draws no check: none is set).

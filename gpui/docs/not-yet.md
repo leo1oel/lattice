@@ -13,8 +13,6 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] Margin review's J/K walk between items.
 
-- [ ] A Finder drop onto the editor as a figure.
-
 - [ ] Overlay exit motion for the menus and popovers GPUI Kit's popover opens, and for a dialog closed by a button of its own.
 
 - [ ] The 13 animated product icons.
@@ -80,3 +78,27 @@ A feature that lands deletes its own line (only that line, so features landing s
 - [ ] Overleaf: a compile after a resolved conflict (the watcher's build stands in).
 
 - [ ] The visual Markdown editor: Overleaf's tracked changes painted in it.
+
+- [ ] A Finder drop onto the Agent panel attaching its files (the drop hook is `shell/drops.rs`'s `agent_drop_target`).
+
+- [ ] A Finder drop of a drawing (`.svg`, `.drawio`) onto the editor as an editable figure.
+
+- [ ] A paper dragged from Papers into the editor as a citation.
+
+- [ ] The Project tree's multi-select, type-to-filter, sticky folders and expand motion.
+
+- [ ] The Project tree's expanded folders and Show hidden files kept per project.
+
+- [ ] The Project tree revealing and selecting what an import brought in.
+
+- [ ] The Project panel's + and ⋯ menus' New spreadsheet, New board and New presentation, and Find in project.
+
+- [ ] Preview tabs, pinned tabs and tab eviction.
+
+- [ ] The workspace switch's sliding plate, drag to reorder and keyboard.
+
+- [ ] Export ZIP and Export for arXiv… in the project and File menus, and Export figures for a journal….
+
+- [ ] New project's My templates and Save a local template….
+
+- [ ] Each file's editor and PDF place kept across launches.

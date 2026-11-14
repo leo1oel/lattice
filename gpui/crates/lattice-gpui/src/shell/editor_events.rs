@@ -130,10 +130,18 @@ impl Shell {
                 self.active_editor = Some(editor.downgrade());
                 self.paste_image_as_figure(true, window, cx)
             }
-            EditorPanelEvent::InsertFigures(paths) => {
+            EditorPanelEvent::InsertFigures(paths, at) => {
                 // Into the editor it was dropped on, front or not.
                 self.active_editor = Some(editor.downgrade());
-                self.insert_figures(paths.clone(), window, cx)
+                self.insert_figures_at(paths.clone(), *at, window, cx)
+            }
+            EditorPanelEvent::DropFiles(paths, at) => {
+                let surface = super::drops::DropSurface::Editor {
+                    editor: editor.downgrade(),
+                    inserts: editor.read(cx).inserts_figures(),
+                    at: *at,
+                };
+                self.drop_files(paths.clone(), surface, window, cx)
             }
             EditorPanelEvent::CaretLine => {
                 if self.active_editor().as_ref() == Some(editor) {

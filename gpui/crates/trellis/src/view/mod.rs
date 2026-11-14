@@ -45,6 +45,13 @@ pub enum WorkspaceEvent {
     /// their close guards and calls [`TrellisWorkspace::close`].
     CloseRequested(Vec<String>),
     Announce(String),
+    /// Lattice's patch (`beginFileDrag`): the pointer let go of a view
+    /// [`TrellisWorkspace::carry_view`] carried, `dropped` (released) or
+    /// not (Escape, or a drag that never started).
+    CarryEnded {
+        view: String,
+        dropped: bool,
+    },
 }
 
 /// What the pointer is holding.
@@ -76,6 +83,8 @@ pub struct TrellisWorkspace {
     /// after a delay).
     pub(crate) divider_hover: Option<((String, usize), std::time::Instant)>,
     pub(crate) frame: Frame,
+    /// The view a drag that began outside the workspace carries.
+    pub(crate) carried: Option<String>,
     focus_handle: FocusHandle,
     _escape: Subscription,
 }
@@ -119,6 +128,7 @@ impl TrellisWorkspace {
             held: None,
             divider_hover: None,
             frame: Frame::default(),
+            carried: None,
             focus_handle: cx.focus_handle(),
             _escape: Self::watch_escape(cx),
         }
