@@ -434,6 +434,13 @@ impl PdfView {
         !keys.is_empty() && keys.iter().all(|key| key.dark == self.dark)
     }
 
+    /// `page`'s image as held (BGRA, as GPUI uploads it) and whether it was
+    /// drawn dark, for a scenario that samples the page's colours.
+    pub fn page_image(&self, page: usize) -> Option<(Arc<RenderImage>, bool)> {
+        let base = &self.pages.get(page)?.base;
+        Some((base.image.clone()?, base.key?.dark))
+    }
+
     /// Pages whose image is on screen at the size they are shown.
     #[cfg(all(target_os = "macos", feature = "offscreen-shots"))]
     pub fn pages_drawn(&self) -> usize {

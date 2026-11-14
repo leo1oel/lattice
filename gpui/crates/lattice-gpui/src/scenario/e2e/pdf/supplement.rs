@@ -3,13 +3,15 @@
 /// Twelve pages: a link to section 9, a web link, and a link to a file and
 /// one to an app's own scheme (neither may open) on the first, the word
 /// "zebracorn" on pages 2, 4 and 6 and "zebracorns" on page 8, and a
-/// sentence on page 10 the rebuild check rewrites with the same letters.
+/// sentence on page 10 the rebuild check rewrites with the same letters, and
+/// a swatch of known colour on page 3 (`colours.rs`).
 /// Before the first heading, a comment block pdfLaTeX skips: it hides a
 /// heading from the outline, and its wide characters (three bytes each) must
 /// not move the lines of the headings after it.
 pub(super) const SUPPLEMENT: &str = r"\documentclass{article}
 \usepackage{hyperref}
 \usepackage{verbatim}
+\usepackage{xcolor}
 \begin{document}
 \begin{comment}
 中文注释：这一段不会排版，大纲也不读它。
@@ -22,6 +24,8 @@ Never opened: \href{file:///System/Applications/Calculator.app}{Fileanchor} and 
 \section{Two} A zebracorn appears.
 \newpage
 \section{Three} Plain text.
+
+\textcolor[RGB]{230,40,30}{\rule{3cm}{1cm}}
 \newpage
 \section{Four} Another zebracorn appears.
 \newpage

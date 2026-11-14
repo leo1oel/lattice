@@ -240,7 +240,7 @@ impl Run {
         pdf_step!(self.page_draft(cx, steps));
         pdf_step!(self.links_and_back(cx, steps));
         pdf_step!(self.select_and_copy(cx, steps));
-        pdf_step!(self.dark_pages(cx, steps));
+        pdf_step!(self.colours(cx, steps));
         pdf_step!(self.page_swap(cx, steps, &supplement));
         pdf_step!(self.page_window(cx, steps));
         pdf_step!(self.separate_window(cx, steps));
