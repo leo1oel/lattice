@@ -514,7 +514,10 @@ impl PdfView {
                         true,
                         tool("pdf-locate", Icon::LOCATE_FIXED, t!("Reveal cursor in PDF"))
                             .when_some(
-                                crate::shell::commands::keys_label(&crate::shell::ForwardSync, window),
+                                crate::shell::commands::keys_label(
+                                    &crate::shell::ForwardSync,
+                                    window,
+                                ),
                                 |button, keys| button.shortcut(keys),
                             )
                             .disabled(self.reveal_disabled || self.locating)

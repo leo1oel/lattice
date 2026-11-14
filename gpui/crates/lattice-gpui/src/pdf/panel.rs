@@ -303,8 +303,7 @@ impl PdfPanel {
     /// pages it showed until it comes back (`useProjectPdfWatch`).
     pub fn file_changed(&mut self, removed: bool, window: &mut Window, cx: &mut Context<Self>) {
         let notice = removed.then(|| t!("This PDF was removed from the project.").into());
-        self.view
-            .update(cx, |view, cx| view.set_notice(notice, cx));
+        self.view.update(cx, |view, cx| view.set_notice(notice, cx));
         if !removed && let Some(path) = self.source.clone() {
             self.open(path, window, cx);
         }
@@ -582,7 +581,10 @@ impl PdfPanel {
                 ),
             PdfPanelKind::Root(document) => menu.item(MenuAction::new(
                 t!("Build this document"),
-                emit(|document| PdfEvent::Build { document }, Some(document.clone())),
+                emit(
+                    |document| PdfEvent::Build { document },
+                    Some(document.clone()),
+                ),
             )),
             PdfPanelKind::File(_) => menu,
         }

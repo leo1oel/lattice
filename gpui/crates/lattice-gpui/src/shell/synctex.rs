@@ -41,7 +41,6 @@ impl Shell {
             // The jump, whose every way out ends the locating below.
             async {
                 if !save.await.unwrap_or(false) {
-
                     log::info!("SyncTeX: {relative} did not save, so the jump is dropped");
                     return;
                 }

@@ -29,9 +29,9 @@ pub(super) const PART: Part = Part {
                     }
                 });
             }))
-            .on_action(cx.listener(|_, _: &TogglePdfDarkPages, _, cx| {
-                crate::pdf::toggle_dark_pages(cx)
-            }))
+            .on_action(
+                cx.listener(|_, _: &TogglePdfDarkPages, _, cx| crate::pdf::toggle_dark_pages(cx)),
+            )
     },
     commands,
 };

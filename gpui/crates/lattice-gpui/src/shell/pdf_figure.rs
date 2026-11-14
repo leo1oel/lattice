@@ -77,7 +77,8 @@ impl Shell {
             let root = root.clone();
             let document = document.clone();
             async move {
-                let target = latex::inverse_search_in(&root, page, x, y, document.as_deref()).ok()?;
+                let target =
+                    latex::inverse_search_in(&root, page, x, y, document.as_deref()).ok()?;
                 let entry = match target.path.strip_suffix(".pdf_tex") {
                     Some(stem) => format!("{stem}.tex"),
                     None => target.path.clone(),
@@ -138,12 +139,28 @@ mod tests {
             Some("figures/plot.drawio")
         );
         assert_eq!(
-            figure_source_path("figures/plot.tex", "% editable-figure source: ../src/a.svg\n").as_deref(),
+            figure_source_path(
+                "figures/plot.tex",
+                "% editable-figure source: ../src/a.svg\n"
+            )
+            .as_deref(),
             Some("src/a.svg")
         );
-        assert_eq!(figure_source_path("plot.tex", "% editable-figure source: ../a.svg"), None);
-        assert_eq!(figure_source_path("plot.tex", "% editable-figure source: /etc/a.svg"), None);
-        assert_eq!(figure_source_path("plot.tex", "% editable-figure source: C:/a.svg"), None);
-        assert_eq!(figure_source_path("plot.tex", "\\input{plot.pdf_tex}"), None);
+        assert_eq!(
+            figure_source_path("plot.tex", "% editable-figure source: ../a.svg"),
+            None
+        );
+        assert_eq!(
+            figure_source_path("plot.tex", "% editable-figure source: /etc/a.svg"),
+            None
+        );
+        assert_eq!(
+            figure_source_path("plot.tex", "% editable-figure source: C:/a.svg"),
+            None
+        );
+        assert_eq!(
+            figure_source_path("plot.tex", "\\input{plot.pdf_tex}"),
+            None
+        );
     }
 }

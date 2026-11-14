@@ -369,11 +369,8 @@ impl Shell {
             let PdfPanelKind::File(path) = panel.read(cx).kind().clone() else {
                 continue;
             };
-            let reached = paths.is_none_or(|paths| {
-                paths
-                    .iter()
-                    .any(|changed| root.join(changed) == path)
-            });
+            let reached =
+                paths.is_none_or(|paths| paths.iter().any(|changed| root.join(changed) == path));
             if reached {
                 let removed = !path.is_file();
                 panel.update(cx, |panel, cx| panel.file_changed(removed, window, cx));

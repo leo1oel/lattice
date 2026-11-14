@@ -81,9 +81,7 @@ pub fn clicked_word_in(line: &str, offset: usize) -> Option<SyncTexWord> {
     Some(SyncTexWord {
         occurrence: same.iter().position(|ix| *ix == index).unwrap_or(0),
         count: same.len(),
-        before: index
-            .checked_sub(1)
-            .map(|before| words[before].0.clone()),
+        before: index.checked_sub(1).map(|before| words[before].0.clone()),
         after: words.get(index + 1).map(|(key, _, _)| key.clone()),
         word: key,
     })
@@ -113,9 +111,7 @@ fn key_argument(name: &str) -> bool {
     let cite = name
         .find("cite")
         .is_some_and(|at| letters(&name[..at]) && letters(&name[at + 4..]));
-    let reference = name
-        .strip_suffix("ref")
-        .is_some_and(letters);
+    let reference = name.strip_suffix("ref").is_some_and(letters);
     cite || reference
         || matches!(
             name,
@@ -199,7 +195,10 @@ fn source_words(line: &str) -> Vec<SourceWord> {
                 .collect();
             if name == "i" || name == "j" {
                 // The dotless letters an accent sits on: `na\"{\i}ve`.
-                current.get_or_insert_with(|| (String::new(), index)).0.push_str(&name);
+                current
+                    .get_or_insert_with(|| (String::new(), index))
+                    .0
+                    .push_str(&name);
                 index += 2;
             } else if !name.is_empty() {
                 if !in_word_command(&name) {
@@ -225,7 +224,10 @@ fn source_words(line: &str) -> Vec<SourceWord> {
             continue;
         }
         if is_word_char(c) {
-            current.get_or_insert_with(|| (String::new(), index)).0.push(c);
+            current
+                .get_or_insert_with(|| (String::new(), index))
+                .0
+                .push(c);
         } else {
             end(&mut current, &mut words);
         }
@@ -327,7 +329,11 @@ mod tests {
             after: None,
         };
         assert_eq!(source_column_for_word("a b a c a", &word), None);
-        let same = SyncTexWord { count: 3, occurrence: 1, ..word };
+        let same = SyncTexWord {
+            count: 3,
+            occurrence: 1,
+            ..word
+        };
         assert_eq!(source_column_for_word("a b a c a", &same), Some(4));
     }
 }
