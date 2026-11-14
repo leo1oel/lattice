@@ -326,6 +326,8 @@ impl EditorPanel {
                 .and_then(|preview| preview.focus_handle(cx)),
             self.latex_visual_document()
                 .and_then(|document| document.read(cx).focus_handle(cx)),
+            // A bibliography's visual form is no `views.preview`.
+            self.bib_form_focus(cx),
         ];
         handles
             .into_iter()
