@@ -71,7 +71,9 @@ pub enum SettingsEvent {
 /// The pages the GPUI app draws; another remembered page opens Appearance.
 fn drawn(tab: SettingsTab) -> SettingsTab {
     match tab {
-        SettingsTab::Editor | SettingsTab::Doctor | SettingsTab::Overleaf => tab,
+        SettingsTab::Editor | SettingsTab::Doctor | SettingsTab::Overleaf | SettingsTab::Logs => {
+            tab
+        }
         _ => SettingsTab::Appearance,
     }
 }
@@ -98,6 +100,8 @@ pub struct Fields {
 pub struct SettingsDialog {
     pub(super) tab: SettingsTab,
     pub(super) fields: Fields,
+    /// Settings › Logs (`logs_pane`), which keeps its search and level.
+    pub(crate) logs: Entity<super::logs_pane::LogsPane>,
     shell: WeakEntity<Shell>,
     pub(super) project: Option<Entity<Project>>,
     /// The window's live preview, for its rows in Editor & builds.
@@ -314,8 +318,10 @@ impl SettingsDialog {
         }
 
         let tab = drawn(tab.unwrap_or(settings.settings_tab));
+        let logs = cx.new(|cx| super::logs_pane::LogsPane::new(window, cx));
         Self {
             tab,
+            logs,
             fields: Fields {
                 search,
                 author_name,
@@ -621,6 +627,8 @@ impl SettingsDialog {
             width,
         };
         let page = match self.tab {
+            // The log fills the page and scrolls inside its card instead.
+            SettingsTab::Logs => return self.logs_page(page_width, narrow, cx),
             SettingsTab::Editor => super::editor_pane::render(self, page_width, window, cx),
             SettingsTab::Doctor => super::editor_pane::doctor(page_width, cx),
             SettingsTab::Overleaf => super::overleaf_pane::render(self, page_width, window, cx),
@@ -650,6 +658,51 @@ impl SettingsDialog {
                     .track_scroll(&self.scroll)
                     .when(narrow, |this| this.child(self.back_button(cx)))
                     .child(page),
+            )
+            .into_any_element()
+    }
+
+    /// Settings › Logs: the title over the pane, which takes the rest of the
+    /// page's height, its bottom inset matching the sides.
+    fn logs_page(&self, width: PageWidth, narrow: bool, cx: &mut Context<Self>) -> AnyElement {
+        let palette = cx.palette().clone();
+        let inset = width.inset();
+        div()
+            .relative()
+            .children(lattice_ui::parity::probe("settings/content"))
+            .flex_1()
+            .min_w_0()
+            .h_full()
+            .bg(palette.panel)
+            .flex()
+            .flex_col()
+            .when(narrow, |this| this.child(self.back_button(cx)))
+            .child(
+                div()
+                    .flex_1()
+                    .min_h_0()
+                    .w_full()
+                    .pt(if narrow { px(8.) } else { px(32.) })
+                    .px(inset)
+                    .pb(inset)
+                    .flex()
+                    .flex_col()
+                    .child(
+                        div().flex().mb(px(24.)).child(
+                            div()
+                                .relative()
+                                .text_role_in(TextRole::Title, TypeScale::Settings, cx)
+                                .text_color(palette.text)
+                                .children(lattice_ui::parity::probe("settings/title"))
+                                .children(lattice_ui::parity::text_probe(
+                                    "settings/title",
+                                    0,
+                                    t!("Logs"),
+                                ))
+                                .child(t!("Logs")),
+                        ),
+                    )
+                    .child(div().flex_1().min_h_0().child(self.logs.clone())),
             )
             .into_any_element()
     }

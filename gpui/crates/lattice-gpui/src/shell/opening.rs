@@ -52,7 +52,7 @@ impl Shell {
         }
         self.drop_conflict_notice(cx);
         self.references = Default::default();
-        self.sheets = Default::default();
+        self.sheets.project_changed();
         self.conflict = None;
         self.project = Some(project.clone());
         // The editors of the project open before go with its arrangement.

@@ -6,6 +6,7 @@ use gpui::{App, Context, InteractiveElement as _, Stateful, Window};
 use trellis::runtime::engine::ViewPlacement;
 use trellis::runtime::keymap::Command as Trellis;
 
+use super::help_flow::{ReportProblem, WhatsNew};
 use super::history_flow::{OpenHistory, ResolveConflicts};
 use super::overleaf_flow::{OpenOnOverleaf, OpenOverleafProject, SyncOverleaf};
 use super::tools_flow::{ExportArxiv, OpenChecklist, OpenTodos};
@@ -127,6 +128,12 @@ impl Shell {
             .on_action(cx.listener(Self::rename_symbol))
             .on_action(
                 cx.listener(|this, _: &ExportArxiv, window, cx| this.open_arxiv_export(window, cx)),
+            )
+            .on_action(
+                cx.listener(|this, _: &WhatsNew, window, cx| this.open_whats_new(window, cx)),
+            )
+            .on_action(
+                cx.listener(|this, _: &ReportProblem, window, cx| this.report_problem(window, cx)),
             )
             .on_action(cx.listener(|this, _: &ResolveConflicts, window, cx| {
                 this.resolve_conflicts(window, cx)

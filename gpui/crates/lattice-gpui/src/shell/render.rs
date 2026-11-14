@@ -50,6 +50,12 @@ impl Render for Shell {
             .children(self.sheets.arxiv.as_ref().map(|(sheet, _)| sheet.clone()))
             .children(self.sheets.figures.as_ref().map(|(sheet, _)| sheet.clone()))
             .children(
+                self.sheets
+                    .whats_new
+                    .as_ref()
+                    .map(|(sheet, _)| sheet.clone()),
+            )
+            .children(
                 self.references
                     .rename
                     .as_ref()

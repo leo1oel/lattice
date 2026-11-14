@@ -140,6 +140,7 @@ lucide! {
     // Overleaf (src/overleaf/, canvas-toolbar.tsx).
     CLOUD_UPLOAD = "icons" / "cloud-upload";
     CLOUD_OFF = "icons" / "cloud-off";
+    CLOUD_CHECK = "icons" / "cloud-check";
     CLOUD_ALERT = "icons" / "cloud-alert";
     MAIL_OPEN = "icons" / "mail-open";
     SEARCH_X = "icons" / "search-x";
@@ -148,12 +149,17 @@ lucide! {
     SHIELD_ALERT = "icons" / "shield-alert";
     ARROW_DOWN_TO_LINE = "icons" / "arrow-down-to-line";
     ARROW_UP_FROM_LINE = "icons" / "arrow-up-from-line";
+    FEATHER = "icons" / "feather";
+    GAUGE = "icons" / "gauge";
+    PLUG = "icons" / "plug";
+    SHAPES = "icons" / "shapes";
     // Names Zed's icon set also has, which the app's asset source finds
     // first: Lucide's own, copied unmodified from GPUI Kit 0.9.1's assets
     // (ISC, `assets/LICENSE-LUCIDE`).
     CHECK = "lattice" / "check";
     CIRCLE = "lattice" / "circle";
     CLOCK = "lattice" / "clock";
+    MENU = "lattice" / "menu";
     COPY = "lattice" / "copy";
     DOWNLOAD = "lattice" / "download";
     ELLIPSIS = "lattice" / "ellipsis";
@@ -194,6 +200,9 @@ impl Icon {
     pub const FADERS: Icon = Icon("lattice/faders.svg");
     pub const CLIPBOARD_TEXT: Icon = Icon("lattice/clipboard-text.svg");
     pub const SPARKLE: Icon = Icon("lattice/sparkle.svg");
+    /// Settings › Logs: the resting frame of the Tauri app's animated
+    /// receipt (`src/animated-icons/bakai/receipt.tsx`).
+    pub const RECEIPT: Icon = Icon("lattice/receipt.svg");
     /// The Build button's idle mark: Lucide's play, filled, as the app
     /// draws it (`<Play fill="currentColor" />`). Lucide's play.svg (ISC,
     /// `assets/LICENSE-LUCIDE`) with its fill set to the ink.
@@ -288,6 +297,7 @@ const BUNDLED: &[(&str, &[u8])] = bundled![
     "faders.svg",
     "clipboard-text.svg",
     "sparkle.svg",
+    "receipt.svg",
     "play-filled.svg",
     "check.svg",
     "eye.svg",
@@ -299,6 +309,7 @@ const BUNDLED: &[(&str, &[u8])] = bundled![
     "folder.svg",
     "circle.svg",
     "clock.svg",
+    "menu.svg",
     "hash.svg",
     "image.svg",
     "replace.svg",
