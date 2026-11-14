@@ -61,6 +61,11 @@ const EMACS_KEYMAP_PATH: &str = "keymaps/linux/emacs.json";
 /// off without unbinding anything.
 pub const EMACS_CONTEXT: &str = "LatticeEmacs";
 
+/// The key context the shell carries while the Vim keymap is chosen, which
+/// the Vim bindings are loaded under, as the Emacs ones are under
+/// [`EMACS_CONTEXT`].
+pub const VIM_CONTEXT: &str = "LatticeVim";
+
 /// Which keymaps' bindings are loaded (each once, on first use).
 #[derive(Default)]
 struct LoadedKeymaps {
@@ -268,18 +273,34 @@ fn bind_emacs_keymap(cx: &mut App) {
     });
 }
 
-/// Zed's Vim keymap, each binding kept out of a text field (`Input`, gpui-kit's
-/// field: the palette, the finders, a tab's rename). Its blocks for
-/// `!Editor && !Terminal` (`space f`, `:`, `g /`, `ctrl-w h`) hold wherever no
-/// editor has the keyboard, so in a field Space or `:` would wait as the start
-/// of one of them and never be typed.
+/// Zed's Vim keymap, each binding tied to [`VIM_CONTEXT`] and kept out of a
+/// text field (`Input`, gpui-kit's field: the palette, the finders, a tab's
+/// rename). Its blocks for `!Editor && !Terminal` (`space f`, `:`, `g /`,
+/// `ctrl-w h`) hold wherever no editor has the keyboard, so in a field, or on
+/// any surface once Vim is turned off, Space or `:` would wait as the start
+/// of one of them.
 fn bind_vim_keymap(cx: &mut App) {
+    bind_rewritten_keymap(VIM_KEYMAP_PATH, cx, vim_predicate);
+}
+
+/// `own && !Input`, holding only with [`VIM_CONTEXT`] somewhere in the stack.
+/// Not `VIM_CONTEXT > …` as Emacs nests: GPUI matches a binding at every
+/// depth, and a descendant's own `!Input` or `!Editor` sees only the
+/// contexts down to that depth, so it would miss the field or editor below.
+fn vim_predicate(
+    own: Option<gpui::KeyBindingContextPredicate>,
+) -> gpui::KeyBindingContextPredicate {
     use gpui::KeyBindingContextPredicate as Predicate;
-    let outside_field = Predicate::Not(Box::new(Predicate::Identifier("Input".into())));
-    bind_rewritten_keymap(VIM_KEYMAP_PATH, cx, |own| match own {
-        Some(own) => Predicate::And(Box::new(own), Box::new(outside_field.clone())),
-        None => outside_field.clone(),
-    });
+    let not = |predicate| Predicate::Not(Box::new(predicate));
+    let chosen = not(not(Predicate::Identifier(VIM_CONTEXT.into())));
+    let guard = Predicate::And(
+        Box::new(chosen),
+        Box::new(not(Predicate::Identifier("Input".into()))),
+    );
+    match own {
+        Some(own) => Predicate::And(Box::new(own), Box::new(guard)),
+        None => guard,
+    }
 }
 
 /// One of Zed's embedded keymaps, each binding's context replaced by what
@@ -353,5 +374,60 @@ fn bind_asset_keymap(path: &str, cx: &mut App) {
     match KeymapFile::load_asset_allow_partial_failure(path, cx) {
         Ok(bindings) => cx.bind_keys(bindings),
         Err(error) => log::warn!("{error:#}"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use gpui::{KeyBinding, KeyBindingContextPredicate, KeyContext, Keymap, Keystroke};
+
+    use super::*;
+
+    /// vim.json's `space f`, in its block for a keyboard outside any editor
+    /// or terminal, as `bind_vim_keymap` loads it (bound here to one of
+    /// Lattice's actions: a binding to no action is never pending).
+    fn space_f() -> Keymap {
+        let own = KeyBindingContextPredicate::parse("!Editor && !Terminal").unwrap();
+        let predicate = vim_predicate(Some(own)).to_string();
+        Keymap::new(vec![KeyBinding::new(
+            "space f",
+            crate::shell::ToggleVimMode,
+            Some(&predicate),
+        )])
+    }
+
+    /// Whether Space waits as the start of `space f` with `stack` focused.
+    fn space_waits(stack: &[&str]) -> bool {
+        let stack: Vec<KeyContext> = stack
+            .iter()
+            .map(|c| KeyContext::parse(c).unwrap())
+            .collect();
+        let (_, pending) =
+            space_f().bindings_for_input(&[Keystroke::parse("space").unwrap()], &stack);
+        pending
+    }
+
+    #[test]
+    fn vims_bindings_outside_an_editor_hold_only_while_vim_is_chosen() {
+        assert!(space_waits(&["LatticeShell LatticeVim", "TerminalPanel"]));
+        assert!(!space_waits(&["LatticeShell", "TerminalPanel"]));
+    }
+
+    #[test]
+    fn vims_bindings_outside_an_editor_leave_its_editor_alone() {
+        assert!(!space_waits(&[
+            "LatticeShell LatticeVim",
+            "LatticeEditor",
+            "Editor"
+        ]));
+    }
+
+    #[test]
+    fn vims_bindings_stay_out_of_a_text_field() {
+        assert!(!space_waits(&[
+            "LatticeShell LatticeVim",
+            "TerminalPanel",
+            "Input"
+        ]));
     }
 }

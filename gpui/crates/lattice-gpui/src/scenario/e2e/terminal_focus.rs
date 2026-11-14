@@ -147,6 +147,28 @@ impl Run {
             json!({ "active": active, "labels": labels, "in_document": in_document, "in_terminal": in_terminal }),
         );
 
+        // Vim turned off again: Space on the tab in front selects it at once,
+        // not held as the start of one of Vim's bindings (`space f`).
+        let (pending, selected) = self.with_window(cx, |shell, window, cx| {
+            let panel = shell.read(cx).terminal().clone();
+            let (Some(focus), Some(key)) = (
+                panel.read(cx).active_tab_focus(),
+                panel.read(cx).active_key(),
+            ) else {
+                return (None, false);
+            };
+            focus.focus(window, cx);
+            window.dispatch_keystroke(gpui::Keystroke::parse("space").expect("a key"), cx);
+            let pending = window.has_pending_keystrokes();
+            window.focus(&editor.read(cx).editor().focus_handle(cx), cx);
+            (Some(pending), panel.read(cx).active_key() == Some(key))
+        })?;
+        steps.check(
+            "with Vim turned off, Space on a terminal tab is not held for one of Vim's keys",
+            pending == Some(false) && selected,
+            json!({ "pending": pending, "selected": selected }),
+        );
+
         cx.update(|cx| {
             if let Some(terminal) = self.active_terminal(cx) {
                 terminal.update(cx, |terminal, _| terminal.input(b"exit\n".to_vec()));

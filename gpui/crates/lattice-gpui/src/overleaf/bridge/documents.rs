@@ -175,12 +175,11 @@ impl OverleafBridge {
     /// leaving any other.
     pub(super) fn reconsider_live(&mut self, cx: &mut Context<Self>) {
         let wanted = self.wanted_live(cx);
-        let current = self
+        let current = self.documents.live.as_ref().map(|doc| &doc.editor).or(self
             .documents
-            .live
+            .joining
             .as_ref()
-            .map(|doc| &doc.editor)
-            .or(self.documents.joining.as_ref().map(|joining| &joining.editor));
+            .map(|joining| &joining.editor));
         if wanted.as_ref().map(|(editor, _, _)| editor) == current {
             return;
         }
@@ -213,9 +212,9 @@ impl OverleafBridge {
                     let mut doc = self.documents.leaving.remove(at);
                     doc.draining = None;
                     doc.editor = editor.clone();
-                    let typed = editor.upgrade().is_some_and(|panel| {
-                        panel.read(cx).overleaf_text(cx) != doc.ot.text()
-                    });
+                    let typed = editor
+                        .upgrade()
+                        .is_some_and(|panel| panel.read(cx).overleaf_text(cx) != doc.ot.text());
                     self.documents.live = Some(doc);
                     if typed {
                         self.flush_typing(cx);
