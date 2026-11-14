@@ -46,6 +46,7 @@ pub struct OverleafConnection {
     login: Entity<Login>,
     session_seen: u64,
     task: Option<Task<()>>,
+    sign_out_task: Option<Task<()>>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -78,6 +79,7 @@ impl OverleafConnection {
             login,
             session_seen: crate::overleaf::session_generation(cx),
             task: None,
+            sign_out_task: None,
             _subscriptions: subscriptions,
         };
         connection.load(cx);
@@ -165,7 +167,7 @@ impl OverleafConnection {
                         this.disconnecting = true;
                         cx.notify();
                         let run = cx.background_spawn(async move { account::disconnect() });
-                        this.task = Some(cx.spawn(async move |this, cx| {
+                        this.sign_out_task = Some(cx.spawn(async move |this, cx| {
                             let result = run.await;
                             this.update(cx, |this, cx| {
                                 this.disconnecting = false;

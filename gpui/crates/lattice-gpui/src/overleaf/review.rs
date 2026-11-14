@@ -232,7 +232,12 @@ impl OverleafReview {
                         this.selected = this.diffs.first().map(|(path, ..)| path.clone());
                         this.preview = Some(preview);
                     }
-                    Err(error) => this.error = Some(error.into()),
+                    Err(error) => {
+                        this.preview = None;
+                        this.diffs.clear();
+                        this.selected = None;
+                        this.error = Some(error.into());
+                    }
                 }
                 cx.notify();
             })

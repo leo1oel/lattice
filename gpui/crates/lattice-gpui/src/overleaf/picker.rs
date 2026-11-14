@@ -143,6 +143,7 @@ pub struct OverleafPicker {
     clock: Option<Task<()>>,
     status_task: Option<Task<()>>,
     projects_task: Option<Task<()>>,
+    session_seen: u64,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -261,11 +262,21 @@ impl OverleafPicker {
                 LoginEvent::Connected(session) => {
                     this.status = Some(session.clone());
                     cx.emit(PickerEvent::ConnectionChanged);
-                    this.load_projects(cx);
+                    let generation = super::session_generation(cx);
+                    if this.session_seen != generation {
+                        this.session_seen = generation;
+                        this.load_projects(cx);
+                        this.searched(cx);
+                    }
                     cx.notify();
                 }
             }),
             cx.observe(&login, |_, _, cx| cx.notify()),
+            cx.observe_global::<super::SessionGeneration>(|this, cx| {
+                if super::session_generation(cx) != this.session_seen {
+                    this.load_status(cx);
+                }
+            }),
         ];
         let mut picker = Self {
             setup,
@@ -298,6 +309,7 @@ impl OverleafPicker {
             clock: None,
             status_task: None,
             projects_task: None,
+            session_seen: super::session_generation(cx),
             _subscriptions: subscriptions,
         };
         picker.load_status(cx);
@@ -326,6 +338,7 @@ impl OverleafPicker {
 
     fn load_status(&mut self, cx: &mut Context<Self>) {
         self.status_loading = Some(Instant::now());
+        self.session_seen = super::session_generation(cx);
         cx.notify();
         let read = cx.background_spawn(async move { account::status() });
         self.status_task = Some(cx.spawn(async move |this, cx| {
@@ -339,6 +352,7 @@ impl OverleafPicker {
                         this.status = Some(status);
                         if connected {
                             this.load_projects(cx);
+                            this.searched(cx);
                         }
                     }
                     Err(error) => this.status_error = Some(error.into()),
@@ -363,6 +377,7 @@ impl OverleafPicker {
             self.list = None;
             self.projects_error = None;
             self.projects_loading = None;
+            self.pasted = Pasted::default();
             cx.emit(PickerEvent::ConnectionChanged);
             self.load_status(cx);
             return;

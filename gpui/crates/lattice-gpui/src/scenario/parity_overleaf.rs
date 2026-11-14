@@ -23,19 +23,18 @@ use super::{Run, sleep};
 
 const BENCH: &str = include_str!("../../../../../tools/perf-bench/bench-overleaf.ts");
 const HOST: &str = "https://www.overleaf.com";
-const ME_NAME: &str = "Leo Gu";
-const ME_EMAIL: &str = "leo@example.edu";
 const MINUTE_MS: i64 = 60_000;
 
 impl Run {
     /// Stage the Overleaf screen `screen` names, over a window already laid
     /// out; false for any other screen.
     pub(super) async fn parity_overleaf(&self, cx: &mut AsyncApp, screen: &str) -> Result<bool> {
+        let (name, email) = bench_me()?;
         let status = OverleafStatus {
             connected: true,
             expired: false,
-            email: Some(ME_EMAIL.into()),
-            name: Some(ME_NAME.into()),
+            email: Some(email),
+            name: Some(name),
             host: HOST.into(),
         };
         match screen {
@@ -124,6 +123,28 @@ fn iso_ago(ago: i64) -> String {
 
 /// The bench's `PICKER_PROJECTS`: `[id, name, ownerName, ownerEmail, age,
 /// accessLevel]` rows, the age a product like `26 * HOUR`.
+/// The bench's signed-in person (`PEOPLE.me`): their name and email.
+fn bench_me() -> Result<(String, String)> {
+    let line = BENCH
+        .split_once("const PEOPLE = {")
+        .and_then(|(_, rest)| rest.split_once("\n}"))
+        .and_then(|(block, _)| {
+            block
+                .lines()
+                .map(str::trim)
+                .find(|line| line.starts_with("me:"))
+        })
+        .context("no PEOPLE.me in bench-overleaf.ts")?;
+    let field = |key: &str| -> Result<String> {
+        let (_, rest) = line
+            .split_once(&format!("{key}: \""))
+            .with_context(|| format!("PEOPLE.me has no {key}"))?;
+        let (value, _) = rest.split_once('"').context("an unclosed string")?;
+        Ok(value.to_string())
+    };
+    Ok((field("name")?, field("email")?))
+}
+
 fn picker_projects() -> Result<Vec<OverleafProject>> {
     let block = BENCH
         .split_once("const PICKER_PROJECTS:")
@@ -200,7 +221,10 @@ mod tests {
     }
 
     #[test]
-    fn the_bench_person_is_the_one_staged() {
-        assert!(BENCH.contains(&format!("name: \"{ME_NAME}\", email: \"{ME_EMAIL}\"")));
+    fn the_bench_person_parses() {
+        assert_eq!(
+            bench_me().unwrap(),
+            ("Leo Gu".to_string(), "leo@example.edu".to_string())
+        );
     }
 }

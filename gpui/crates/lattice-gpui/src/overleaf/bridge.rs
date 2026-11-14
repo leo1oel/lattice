@@ -157,6 +157,9 @@ pub struct OverleafBridge {
     sync_task: Option<Task<()>>,
     /// Told how the running sync went (Review's Apply).
     sync_waiters: Vec<oneshot::Sender<Result<(), String>>>,
+    /// Asked to hear how a sync went while another was running: told by the
+    /// sync that starts once it ends, which carries what was saved since.
+    queued_waiters: Vec<oneshot::Sender<Result<(), String>>>,
     poll_task: Option<Task<()>>,
     push_task: Option<Task<()>>,
     badge_task: Option<Task<()>>,
@@ -199,6 +202,7 @@ impl OverleafBridge {
             declined_deletes: HashSet::new(),
             sync_task: None,
             sync_waiters: Vec::new(),
+            queued_waiters: Vec::new(),
             poll_task: None,
             push_task: None,
             badge_task: None,
@@ -264,6 +268,7 @@ impl OverleafBridge {
         self.entity_list = None;
         self.sync_task = None;
         self.sync_waiters.clear();
+        self.queued_waiters.clear();
         self.syncing = false;
         self.stop(cx);
         self.reload_link(cx);
@@ -456,7 +461,16 @@ impl OverleafBridge {
             sender.send(Ok(())).ok();
             return receiver;
         }
+        if self.syncing {
+            self.queued_waiters.push(sender);
+            return receiver;
+        }
         self.sync(SyncOptions::default(), cx);
+        self.attach_waiter(sender);
+        receiver
+    }
+
+    fn attach_waiter(&mut self, sender: oneshot::Sender<Result<(), String>>) {
         if self.syncing {
             self.sync_waiters.push(sender);
         } else {
@@ -464,7 +478,18 @@ impl OverleafBridge {
                 .send(Err(t!("{action} failed", action = t!("Sync")).to_string()))
                 .ok();
         }
-        receiver
+    }
+
+    /// The sync the queued waiters asked for, once the one before it ended.
+    fn run_queued(&mut self, cx: &mut Context<Self>) {
+        let queued = std::mem::take(&mut self.queued_waiters);
+        if queued.is_empty() {
+            return;
+        }
+        self.sync(SyncOptions::default(), cx);
+        for sender in queued {
+            self.attach_waiter(sender);
+        }
     }
 
     /// Sync now (the toolbar's button, the palette, Review's Apply), or as
@@ -513,6 +538,7 @@ impl OverleafBridge {
                     Ok(result) => this.synced(root, result, options, cx),
                     Err(error) => this.failed(error, options, cx),
                 }
+                this.run_queued(cx);
                 cx.notify();
             })
             .ok();
@@ -601,6 +627,9 @@ impl OverleafBridge {
                 );
             })
             .detach();
+        }
+        if self.channel == ChannelStatus::Error {
+            self.channel_task = None;
         }
         self.reload_link(cx);
     }

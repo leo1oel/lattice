@@ -7,9 +7,9 @@ use super::*;
 impl OverleafBridge {
     /// Files changed on disk under the project (the watcher's report): in
     /// live mode, a change to push once the writer pauses. A sync's own
-    /// writes are reported too; the probe before the push reads the files
-    /// against the copy the sync agreed on, so they cost one small request
-    /// and no sync.
+    /// writes are reported too, so a report is only a reason to look: the
+    /// probe before the push reads the files against the copy the sync
+    /// agreed on, so they cost one small request and no sync.
     pub fn files_changed(&mut self, paths: Option<&[String]>, cx: &mut Context<Self>) {
         if self.staged {
             return;
@@ -28,7 +28,6 @@ impl OverleafBridge {
         if !relevant {
             return;
         }
-        self.local_pending = true;
         self.schedule_push(cx);
     }
 
@@ -63,7 +62,7 @@ impl OverleafBridge {
                 if expired {
                     super::super::session_changed(cx);
                 }
-                if this.root.as_deref() != Some(root.as_path()) || !this.local_pending {
+                if this.root.as_deref() != Some(root.as_path()) {
                     return;
                 }
                 match probe {
@@ -118,7 +117,9 @@ impl OverleafBridge {
                             sync::probe(&probe_root, local.then(BTreeSet::new).as_ref())
                         })
                         .await;
-                    first = false;
+                    if probe.is_ok() {
+                        first = false;
+                    }
                     let next = this.update(cx, |this, cx| {
                         if expired {
                             super::super::session_changed(cx);
@@ -165,10 +166,12 @@ impl OverleafBridge {
         };
         let version_known = probe.as_ref().is_some_and(|probe| probe.version_known);
         *wait = if version_known { LIVE_POLL } else { BLIND_POLL };
+        if local && probe.as_ref().is_some_and(|probe| probe.local_changed) {
+            self.local_pending = true;
+        }
         let gap_elapsed = self.gap_left().is_zero();
         let owed = self.transport_retry || self.local_pending;
         let since_last = self.last_auto_sync.map(|last| last.elapsed());
-        let changed_here = local && probe.as_ref().is_some_and(|probe| probe.local_changed);
         if owed && gap_elapsed {
             self.sync(
                 SyncOptions {
@@ -188,9 +191,7 @@ impl OverleafBridge {
                     cx,
                 );
             }
-        } else if let Some(probe) =
-            probe.filter(|probe| (probe.changed || changed_here) && gap_elapsed)
-        {
+        } else if let Some(probe) = probe.filter(|probe| probe.changed && gap_elapsed) {
             self.sync(
                 SyncOptions {
                     automatic: true,
