@@ -8,10 +8,12 @@
 mod badge;
 mod button;
 mod chrome;
+mod context_menu;
 mod field;
 mod form;
 mod icon_button;
 mod menu;
+mod menu_list;
 mod overlays;
 mod popover;
 mod row;
@@ -29,16 +31,19 @@ mod view_switch;
 pub use badge::{Badge, BadgeTone};
 pub use button::{Button, ButtonSize, ButtonVariant};
 pub use chrome::{Keycap, SearchField, Segmented};
+pub use context_menu::{ContextMenu, context_menu_trigger};
 pub use field::Field;
 pub use form::{CheckState, Checkbox, Switch};
 pub use icon_button::IconButton;
 pub use menu::{
     MENU_INSET, MENU_OFFSET, MenuItem, MenuLabel, MenuSeparator, MenuSurface, Step, step_highlight,
 };
+pub(crate) use menu_list::SubmenuBounds;
+pub use menu_list::{Menu, MenuAction, MenuSnapshot, menu_snapshot, record_menus};
 pub use overlays::{
     DialogCard, LatticeTooltip, PopFrom, Toast, ToastLevel, pop_in, rise_in, toast_in,
 };
-pub use popover::{Menu, MenuAction, MenuPopover, Popover, PopoverCard};
+pub use popover::{MenuPopover, Popover, PopoverCard};
 pub use row::{DetailPlacement, Row, RowDensity};
 pub use select::{Select, SelectTrigger};
 pub use sheet::{

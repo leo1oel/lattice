@@ -1,0 +1,11 @@
+{
+  // The island pages, typechecked with the app's settings against the app's
+  // modules they import: `pnpm exec tsc -p gpui/islands`.
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": "../..",
+    "types": ["vite/client"]
+  },
+  "include": ["shared", "sheet", "board", "slides", "markdown", "../../src/**/*.d.ts"],
+  "references": []
+}

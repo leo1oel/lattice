@@ -5,6 +5,7 @@
 //! the projects in this window.
 
 use super::*;
+use crate::shell::history_flow::{OpenHistory, ResolveConflicts};
 
 pub(super) fn project_commands(context: &CommandContext, out: &mut Vec<Command>) {
     out.push(Command::new(
@@ -81,6 +82,24 @@ pub(super) fn project_commands(context: &CommandContext, out: &mut Vec<Command>)
             Section::Project,
             OpenInNewWindow,
         ));
+    }
+    if context.in_project {
+        out.push(Command::new(
+            "history",
+            t!("Open project history"),
+            Section::Project,
+            OpenHistory,
+        ));
+        super::submission::project_commands(out);
+        out.push(
+            Command::new(
+                "resolve-conflicts",
+                t!("Resolve conflicts…"),
+                Section::Project,
+                ResolveConflicts,
+            )
+            .keywords("git merge markers"),
+        );
     }
     out.push(Command::new(
         "doctor",

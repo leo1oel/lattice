@@ -67,16 +67,38 @@ pub struct BundleFile {
     pub bytes: &'static [u8],
 }
 
-/// An island's own files, served at `bundle/<path>`.
-#[derive(Clone, Copy, Debug, Default)]
-pub struct Bundle(pub &'static [BundleFile]);
+/// An island's own files, served at `bundle/<path>`: compiled into the
+/// binary (a small page written for the GPUI app, the HTML viewer's), or a
+/// built directory on disk (the pages built from the Tauri app's modules,
+/// `gpui/islands/dist`, far too large to compile in). A directory is read
+/// through a [`FileScope`], so no request leaves it.
+#[derive(Clone, Debug)]
+pub enum Bundle {
+    Static(&'static [BundleFile]),
+    Directory(FileScope),
+}
+
+impl Default for Bundle {
+    fn default() -> Self {
+        Self::Static(&[])
+    }
+}
 
 impl Bundle {
-    fn get(&self, path: &str) -> Option<&'static [u8]> {
-        self.0
-            .iter()
-            .find(|file| file.path == path)
-            .map(|file| file.bytes)
+    fn get(&self, path: &str) -> Option<Cow<'static, [u8]>> {
+        match self {
+            Self::Static(files) => files
+                .iter()
+                .find(|file| file.path == path)
+                .map(|file| Cow::Borrowed(file.bytes)),
+            Self::Directory(scope) => match scope.read_bytes(path) {
+                Ok(bytes) => Some(Cow::Owned(bytes)),
+                Err(error) => {
+                    log::debug!("island bundle {path}: {error:#}");
+                    None
+                }
+            },
+        }
     }
 }
 
@@ -179,7 +201,7 @@ pub fn respond(served: &Served, request: &Request<Vec<u8>>) -> Response<Cow<'sta
     let uri = request.uri().to_string();
     match route(&uri) {
         Some(Route::Bundle(path)) => match served.bundle.get(&path) {
-            Some(bytes) => ok(Cow::Borrowed(bytes), mime_for(&path)),
+            Some(bytes) => ok(bytes, mime_for(&path)),
             None => status(StatusCode::NOT_FOUND),
         },
         Some(Route::Asset(relative)) => {
@@ -275,7 +297,7 @@ mod tests {
     }];
 
     fn served(root: &std::path::Path) -> Served {
-        Served::new(Bundle(BUNDLE), Some(FileScope::new(root).unwrap()))
+        Served::new(Bundle::Static(BUNDLE), Some(FileScope::new(root).unwrap()))
     }
 
     #[test]
@@ -315,6 +337,36 @@ mod tests {
         assert_eq!(&response.body()[..], b"<!doctype html>");
         let missing = respond(&served, &request(&url("bundle/nope.js")));
         assert_eq!(missing.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[test]
+    fn serves_a_built_directory_and_nothing_outside_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let dist = dir.path().join("dist");
+        std::fs::create_dir_all(dist.join("sheet")).unwrap();
+        std::fs::create_dir_all(dist.join("assets")).unwrap();
+        std::fs::write(dist.join("sheet/index.html"), b"<!doctype html>").unwrap();
+        std::fs::write(dist.join("assets/sheet.js"), b"export {}").unwrap();
+        std::fs::write(dir.path().join("outside.js"), b"no").unwrap();
+        let served = Served::new(Bundle::Directory(FileScope::new(&dist).unwrap()), None);
+        let page = respond(&served, &request(&url("bundle/sheet/index.html")));
+        assert_eq!(page.status(), StatusCode::OK);
+        assert_eq!(&page.body()[..], b"<!doctype html>");
+        // A page's relative chunk URL, `../assets/…`, resolves to this.
+        let script = respond(&served, &request(&url("bundle/assets/sheet.js")));
+        assert_eq!(script.status(), StatusCode::OK);
+        assert_eq!(
+            script.headers()[header::CONTENT_TYPE],
+            "text/javascript; charset=utf-8"
+        );
+        for outside in [
+            "bundle/../outside.js",
+            "bundle/..%2Foutside.js",
+            "bundle/sheet",
+        ] {
+            let response = respond(&served, &request(&url(outside)));
+            assert_ne!(response.status(), StatusCode::OK, "{outside}");
+        }
     }
 
     #[test]

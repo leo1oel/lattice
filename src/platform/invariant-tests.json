@@ -14,6 +14,7 @@
   "src/styles/design-system-drift.test.ts": "design-system/tokens.json (exported from the Paper file) matches theme.css and foundations.css",
   "src/styles/surfaces.test.ts": "shared surfaces owned by one stylesheet",
   "src/styles/pointer-focus-rings.test.ts": "every focus ring in a stylesheet skips focus a pointer caused",
+  "src/styles/interaction-states.test.ts": "hover, press, exit-tier and outline treatments from foundations, PDF toolbar, app-shell, editor-workspace and Project tree stylesheets applied in jsdom (Vitest empties CSS imports)",
   "src/components/ui/activity-icons.test.tsx": "busy reload buttons share one surface",
   "src/components/ui/chrome-primitives.test.tsx": "primitive press and menu geometry in chrome.css",
   "src/components/ui/popup-motion.test.ts": "every popup wrapper uses the one popup-motion owner",

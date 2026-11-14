@@ -365,3 +365,39 @@ msgstr "删除后它周围的文献已有改动。"
 #: lattice-gpui/src/papers/add_sheet.rs
 msgid "Another import is running. Your selection is kept; add it once that finishes."
 msgstr "另一个导入正在进行。你的选择已保留，等它完成后再添加。"
+
+#: lattice-gpui/src/shell/commands/projects.rs
+msgid "Resolve conflicts…"
+msgstr "解决冲突…"
+
+#: lattice-gpui/src/shell/history_flow.rs
+msgid "Git left conflict markers in {files}."
+msgstr "Git 在 {files} 里留下了冲突标记。"
+
+#: lattice-gpui/src/shell/history_flow.rs
+msgid "No file in this project has conflict markers."
+msgstr "这个项目里没有带冲突标记的文件。"
+
+#: lattice-gpui/src/history/conflict_resolver.rs
+msgid "Incoming text"
+msgstr "传入的文字"
+
+#: lattice-gpui/src/history/conflict_resolver.rs
+msgid "Keeping {name}"
+msgstr "保留 {name}"
+
+#: lattice-gpui/src/history/conflict_resolver.rs
+msgid "{name} removed this part."
+msgstr "{name} 删掉了这部分。"
+
+#: lattice-gpui/src/structured.rs
+msgid "Couldn’t open this board"
+msgstr "白板打不开"
+
+#: lattice-gpui/src/structured.rs
+msgid "Couldn’t open the Markdown editor"
+msgstr "Markdown 编辑器打不开"
+
+#: lattice-gpui/src/structured.rs
+msgid "Open Slide’s Ask AI, Apply comments and Draft a deck need the Agent."
+msgstr "幻灯片的“问 AI”“应用批注”和“起草幻灯片”需要 AI 助手。"

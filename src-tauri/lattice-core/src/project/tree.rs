@@ -60,7 +60,9 @@ pub(super) fn build_artifact_ignore_lines() -> impl Iterator<Item = String> {
     LATEX_ARTIFACT_EXTENSIONS
         .iter()
         .map(|extension| format!("*.{extension}"))
-        .chain(["*-SAVE-ERROR".to_string()])
+        // SyncTeX's file while a build writes it: a version saved mid-build
+        // would record it, and the next would show it deleted.
+        .chain(["*.synctex(busy)", "*.synctex.gz(busy)", "*-SAVE-ERROR"].map(String::from))
 }
 
 /// Extensions of the stale outputs a moved `.tex` file leaves behind. Spelled

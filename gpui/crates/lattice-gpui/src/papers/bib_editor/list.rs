@@ -74,7 +74,7 @@ impl BibEditor {
                             view.update(cx, |this, cx| this.set_filter(choice, cx)).ok();
                         })
                         .checked(choice == filter)
-                        .detail(format_count(*count as i64)),
+                        .shortcut(format_count(*count as i64)),
                     )
                 })
             }
@@ -157,7 +157,7 @@ impl BibEditor {
                         tooltip: t!("Show references"),
                         open: false,
                     },
-                    filter_menu,
+                    move |menu, _, _| filter_menu(menu),
                 )
                 .anchor(Anchor::TopRight),
             )
@@ -175,7 +175,7 @@ impl BibEditor {
                         tooltip: t!("Sort references"),
                         open: false,
                     },
-                    sort_menu,
+                    move |menu, _, _| sort_menu(menu),
                 )
                 .anchor(Anchor::TopRight),
             )

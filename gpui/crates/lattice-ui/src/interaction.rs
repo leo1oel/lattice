@@ -12,7 +12,9 @@
 
 use std::sync::Arc;
 
-use gpui::{App, ElementId, Entity, Hsla, MouseButton, Rgba, StatefulInteractiveElement, Window};
+use gpui::{
+    App, ElementId, Entity, Hsla, MouseButton, Rgba, StatefulInteractiveElement, Styled, Window,
+};
 use gpui_kit::base::{ReducedMotion, Transition, transition};
 
 use crate::motion::Motion;
@@ -62,6 +64,21 @@ pub fn use_interaction(
         },
         state,
     )
+}
+
+/// A hand-built control's hover fill: `hover` over `rest`, fading in on the
+/// fast tier and out on the fast exit, a tier quicker than it came (design
+/// call 7), as every control's wash does, rather than switching at once.
+pub fn hover_wash<E: StatefulInteractiveElement + Styled>(
+    element: E,
+    id: impl Into<ElementId>,
+    rest: Hsla,
+    hover: Hsla,
+    window: &mut Window,
+    cx: &mut App,
+) -> E {
+    let (interaction, pointer) = use_interaction(id, window, cx);
+    track_pointer(element, pointer).bg(mix(rest, hover, interaction.hover))
 }
 
 /// Wire an element's pointer listeners to its state.

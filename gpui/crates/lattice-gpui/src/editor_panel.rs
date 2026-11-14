@@ -36,10 +36,7 @@ use gpui::{
     InteractiveElement as _, IntoElement, ParentElement as _, Render, SharedString, Styled as _,
     Subscription, Task, Window, div,
 };
-use gpui_kit::component::{
-    dock::{BasePanel, Panel, PanelEvent},
-    menu::PopupMenu,
-};
+use gpui_kit::component::dock::{BasePanel, PanelEvent};
 use language::{Buffer, BufferEvent, Point};
 use lattice_core::project::{self as core_project, ProjectFileStat};
 use lattice_editor::{
@@ -52,14 +49,17 @@ use workspace::ToolbarItemView as _;
 use zed_actions::buffer_search::Deploy;
 
 mod bib_view;
+mod buffer_counts;
 mod disk_sync;
-mod menu;
+mod markdown_view;
 mod outline_panel;
 pub mod outline_rail;
 pub mod rail_outline;
 mod save;
 mod source_chrome;
 mod spelling;
+mod strip;
+mod structured_view;
 pub mod views;
 
 use disk_sync::vanished_key;
@@ -81,12 +81,10 @@ gpui::actions!(
 );
 
 use crate::{build_panel::BuildPanel, editor_status, project::Project};
+use buffer_counts::TODO_SETTLE;
 
 /// How often the open file is checked for an edit made behind the editor.
 const DISK_POLL: Duration = Duration::from_millis(2500);
-/// The pause in typing after which the buffer's TODOs are counted again, as
-/// the Tauri app settles the source it counts them in (`use-settled-source.ts`).
-const TODO_SETTLE: Duration = Duration::from_millis(500);
 gpui::actions!(
     lattice_editor_panel,
     [
@@ -118,6 +116,9 @@ pub enum EditorPanelEvent {
     CaretLine,
     /// The editor took focus: it is the one the reader works in now.
     Focused,
+    /// Open the project-relative `path` (a link followed in a Markdown file's
+    /// visual editor).
+    OpenFile { path: String },
     /// An outline rail row: open `path` at the 1-based `line`, then show
     /// the same place in the PDF.
     OutlineJump { path: String, line: u32 },
@@ -192,6 +193,14 @@ pub struct EditorPanel {
     closed: bool,
     /// An HTML or `.bib` file's Edit, Split and Preview views.
     views: Option<DocumentViews>,
+    /// A board, spreadsheet or Open Slide deck: its island in place of the
+    /// editor (`crate::structured`).
+    structured: Option<Entity<crate::structured::StructuredDocument>>,
+    /// A closing tab waits for its page to hand over its edits.
+    page_flushed: Option<oneshot::Sender<()>>,
+    /// Which side of a Markdown file's Split moved last, and when: `true` for
+    /// the source (`markdown_view.rs`).
+    markdown_led: Option<(bool, std::time::Instant)>,
     status: SaveStatus,
     /// Saves run one at a time; this settles when the last one queued has.
     save_queue: Option<Shared<Task<()>>>,
@@ -250,7 +259,13 @@ impl EditorPanel {
         let saved_text = normalize_breaks(&text);
         let buffer = cx.new(|cx| Buffer::local(text, cx));
         let buffered = started.elapsed();
-        buffer.update(cx, |buffer, cx| buffer.set_language(language, cx));
+        // A Markdown file's inline text and fenced blocks are injections,
+        // resolved through the registry; a buffer moved to `.md` needs it too.
+        let registry = lattice_editor::markdown::registry(cx);
+        buffer.update(cx, |buffer, cx| {
+            buffer.set_language_registry(registry);
+            buffer.set_language(language, cx);
+        });
         let languaged = started.elapsed();
         let lattice = cx.new(|cx| LatticeEditor::new(buffer.clone(), window, cx));
         let editor = lattice.read(cx).editor().clone();
@@ -283,6 +298,7 @@ impl EditorPanel {
                     this.schedule_autosave(cx);
                     this.scan_todos(TODO_SETTLE, cx);
                     this.views_source_changed(cx);
+                    this.structured_source_changed(cx);
                 }
                 BufferEvent::DirtyChanged | BufferEvent::Saved => cx.notify(),
                 _ => {}
@@ -341,6 +357,8 @@ impl EditorPanel {
                         }
                         cx.emit(EditorPanelEvent::Focused);
                     }
+                    // A Markdown file's Split: the visual editor follows.
+                    EditorEvent::ScrollPositionChanged { .. } => this.markdown_source_scrolled(cx),
                     // Leaving the editor saves at once, as the Tauri app does.
                     EditorEvent::Blurred => {
                         this.bib_source_focused(false);
@@ -369,6 +387,7 @@ impl EditorPanel {
                     {
                         this.check_disk(cx);
                     }
+                    this.structured_files_changed(paths.as_deref(), cx);
                     // An image the HTML preview shows may be among them.
                     if paths
                         .as_ref()
@@ -423,6 +442,9 @@ impl EditorPanel {
             looking_for_file: false,
             closed: false,
             views,
+            structured: None,
+            page_flushed: None,
+            markdown_led: None,
             status: SaveStatus::Saved,
             save_queue: None,
             saves_pending: 0,
@@ -444,6 +466,7 @@ impl EditorPanel {
         // its page is built when the tab is first shown.
         this.ensure_preview(window, cx);
         this.ensure_bib_for_view(window, cx);
+        this.attach_structured(window, cx);
         this.attach_spelling(cx);
         this
     }
@@ -523,7 +546,17 @@ impl EditorPanel {
                 cx,
             ));
         }
-        self.relative = relative;
+        if let Some(document) = self
+            .structured
+            .clone()
+            .or_else(|| self.markdown_document().cloned())
+        {
+            let relative = relative.clone();
+            document.update(cx, |document, cx| document.moved_to(relative, cx));
+        }
+        let left = std::mem::replace(&mut self.relative, relative);
+        crate::status_counters::set_buffer(root.clone(), left, None, cx);
+        self.scan_todos(Duration::ZERO, cx);
         self.bib_moved(cx);
         // The spell check follows the file, or starts once it is prose.
         match &self.spelling {
@@ -577,57 +610,17 @@ impl EditorPanel {
         self.replace_text(normalize_breaks(&text), cx);
     }
 
-    /// Recount the words from the buffer's text, off the main thread.
-    fn count_words(&mut self, cx: &mut Context<Self>) {
-        let text = self.buffer.read(cx).as_rope().clone();
-        let counted = cx.background_spawn(async move { editor_status::count_words(&text) });
-        self._count = Some(cx.spawn(async move |this, cx| {
-            let words = counted.await;
-            this.update(cx, |this, cx| {
-                this.words = Some(words);
-                cx.notify();
-            })
-            .ok();
-        }));
-    }
-
-    /// Count the buffer's TODO markers again once typing has paused for
-    /// `delay`, off the main thread; the next edit restarts the wait.
-    fn scan_todos(&mut self, delay: Duration, cx: &mut Context<Self>) {
-        let relative = self.relative.clone();
-        let text = self.buffer.read(cx).as_rope().clone();
-        self._todos = Some(cx.spawn(async move |this, cx| {
-            if !delay.is_zero() {
-                cx.background_executor().timer(delay).await;
-            }
-            let (found, source) = cx
-                .background_spawn(async move {
-                    let source = text.to_string();
-                    (
-                        crate::status_counters::buffer_todos(&relative, &source),
-                        source,
-                    )
-                })
-                .await;
-            this.update(cx, |this, cx| {
-                if this.buffer_todos != found {
-                    this.buffer_todos = found;
-                    cx.notify();
-                }
-                // The rail reads the file's own headings from the text as of
-                // this pause, as the Tauri app's settled source.
-                if let Some(rail) = &this.rail {
-                    let path = this.relative.clone();
-                    rail.update(cx, |rail, cx| rail.set_source(path, source, cx));
-                }
-            })
-            .ok();
-        }));
-    }
-
     /// Put the cursor at the start of the 1-based `line` and scroll it to the
     /// middle of the editor.
     pub fn go_to_line(&mut self, line: u32, window: &mut Window, cx: &mut Context<Self>) {
+        // Markdown's Preview is its visual editor, which takes the jump.
+        if let Some(document) = self.jumps_in_preview() {
+            document.update(cx, |document, cx| document.reveal_line(line, cx));
+            if let Some(focus) = document.read(cx).focus_handle(cx) {
+                window.focus(&focus, cx);
+            }
+            return;
+        }
         let point = Point::new(line.saturating_sub(1), 0);
         self.editor.update(cx, |editor, cx| {
             editor.change_selections(
@@ -655,11 +648,18 @@ impl EventEmitter<EditorPanelEvent> for EditorPanel {}
 impl Focusable for EditorPanel {
     /// The editor's, except while a file shows only its preview.
     fn focus_handle(&self, cx: &App) -> FocusHandle {
+        if let Some(focus) = self
+            .structured
+            .as_ref()
+            .and_then(|document| document.read(cx).focus_handle(cx))
+        {
+            return focus;
+        }
         match self.views.as_ref() {
             _ if let Some(focus) = self.bib_focus(cx) => focus,
             Some(views) if views.view() == DocumentView::Preview => views
                 .preview()
-                .map(|preview| preview.read(cx).island().focus_handle(cx))
+                .and_then(|preview| preview.focus_handle(cx))
                 .unwrap_or_else(|| self.editor.focus_handle(cx)),
             _ => self.editor.focus_handle(cx),
         }
@@ -682,7 +682,12 @@ impl BasePanel for EditorPanel {
 
     fn on_removed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.views_shown(false, window, cx);
-        self.flush(cx);
+        // A structured document's page hands over its edits first.
+        if !self.close_structured(cx) {
+            self.flush(cx);
+        }
+        let root = self.project_root(cx);
+        crate::status_counters::set_buffer(root, self.relative.clone(), None, cx);
         let panel = gpui_kit::component::dock::PanelId::from(cx.entity_id());
         lattice_ui::dock::set_spare_tools(panel, None, cx);
     }
@@ -690,47 +695,7 @@ impl BasePanel for EditorPanel {
     /// An HTML file's preview is shown only while its tab is the displayed one.
     fn set_active(&mut self, active: bool, window: &mut Window, cx: &mut Context<Self>) {
         self.views_shown(active, window, cx);
-    }
-}
-
-impl Panel for EditorPanel {
-    fn tab_name(&self, _: &App) -> Option<SharedString> {
-        Some(file_name(&self.path).into())
-    }
-
-    fn title(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let name = file_name(&self.path);
-        if self.is_dirty(cx) {
-            format!("{name} •")
-        } else {
-            name
-        }
-    }
-
-    /// The build chip, at the strip's trailing end as the app puts it; an
-    /// HTML file's view switch in its place (`documentTools`: "views").
-    fn title_suffix(
-        &mut self,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> Option<impl IntoElement> {
-        Some(
-            self.view_switch(window, cx)
-                .unwrap_or_else(|| editor_status::build_chip(&self.build, window, cx)),
-        )
-    }
-
-    fn dropdown_menu(
-        &mut self,
-        menu: PopupMenu,
-        _: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> PopupMenu {
-        self.panel_menu(menu, cx)
-    }
-
-    fn inner_padding(&self, _: &App) -> bool {
-        false
+        self.structured_shown(active, cx);
     }
 }
 
@@ -738,6 +703,17 @@ impl Render for EditorPanel {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         // Zed's search bar registers its key handlers on whatever element
         // hosts it; in Zed that is a pane, here it is this panel.
+        // A board, sheet or deck fills its panel alone: no status bar.
+        if let Some(document) = self.structured.clone() {
+            return div()
+                .key_context("LatticeEditor")
+                .size_full()
+                .flex()
+                .flex_col()
+                .child(div().flex_1().min_h_0().child(document))
+                .child(crate::paint_probe::probe())
+                .into_any_element();
+        }
         let palette = cx.palette().clone();
         let status: AnyElement = editor_status::status_bar(self, cx).into_any_element();
         let search = self.search_visible.then(|| {
@@ -778,6 +754,7 @@ impl Render for EditorPanel {
             .flex_col()
             .child(div().flex_1().min_h_0().child(body))
             .child(crate::paint_probe::probe())
+            .into_any_element()
     }
 }
 

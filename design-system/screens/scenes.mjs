@@ -55,6 +55,13 @@ async function project(env, theme, extra = "") {
   return staged;
 }
 
+/** Run a command from the ⌘K palette by its label. */
+const palette = async (page, label) => {
+  await page.keyboard.press("Meta+k");
+  await page.keyboard.type(label);
+  await page.waitForTimeout(300);
+  await page.keyboard.press("Enter");
+};
 const openFile = async (page, path) => { await page.locator(`[data-item-path="${path}"]`).click(); await page.waitForTimeout(1500); };
 const viewMode = (page, mode) => page.locator(`button.ui-segmented-tab[title=${mode}]`).click();
 
@@ -106,6 +113,22 @@ export const scenes = {
     await rest(staged.page, 3000);
     return staged;
   },
+  // The tutorial's spreadsheet and board, for the GPUI parity report
+  // (gpui/parity/regions.mjs); not App screens artboards.
+  async sheet(env, theme) {
+    const staged = await project(env, theme);
+    await openFile(staged.page, "attention-results.lattice-sheet");
+    await staged.page.waitForSelector(".spreadsheet-univer-host canvas", { timeout: 30_000 });
+    await rest(staged.page, 3000);
+    return staged;
+  },
+  async board(env, theme) {
+    const staged = await project(env, theme);
+    await openFile(staged.page, "attention-map.tldr");
+    await staged.page.waitForSelector(".board-editor-root .tl-shape", { timeout: 30_000 });
+    await rest(staged.page, 3000);
+    return staged;
+  },
   async slides(env, theme) {
     const staged = await project(env, theme);
     if (env.slides) {
@@ -132,6 +155,41 @@ export const scenes = {
     await staged.page.keyboard.press("Meta+Comma");
     await staged.page.waitForSelector(".settings-modal", { timeout: 30_000 });
     await rest(staged.page, 4000);
+    return staged;
+  },
+  // History opened from the titlebar on the paper's versions (`?versions=compare`,
+  // tools/perf-bench/bench-compare.ts). The parity harness's screens only;
+  // not on the App screens page.
+  async history(env, theme) {
+    const staged = await project(env, theme, "&versions=compare");
+    await staged.page.getByRole("button", { name: "Project history" }).click();
+    await staged.page.waitForSelector(".history-row", { timeout: 30_000 });
+    await rest(staged.page);
+    return staged;
+  },
+  async historyCompare(env, theme) {
+    const staged = await scenes.history(env, theme);
+    await staged.page.getByRole("button", { name: "Compare…" }).click();
+    await staged.page.waitForSelector(".compare-passage", { timeout: 30_000 });
+    await rest(staged.page);
+    return staged;
+  },
+  // Manuscript TODOs from the palette: the tutorial has none, so the empty
+  // state. The parity harness's screens only; not on the App screens page.
+  async todos(env, theme) {
+    const staged = await project(env, theme);
+    await palette(staged.page, "Manuscript TODOs");
+    await staged.page.waitForSelector(".todo-empty", { timeout: 30_000 });
+    await rest(staged.page);
+    return staged;
+  },
+  // Export for arXiv… with the bench's checked pack (`?arxiv=ready`,
+  // tools/perf-bench/bench-arxiv.ts), once its test build has answered.
+  async arxivExport(env, theme) {
+    const staged = await project(env, theme, "&arxiv=ready");
+    await palette(staged.page, "Export for arXiv…");
+    await staged.page.waitForSelector('.arxiv-export-checks [data-check="compile"][data-state="ok"]', { timeout: 30_000 });
+    await rest(staged.page);
     return staged;
   },
   async welcome(env, theme) {

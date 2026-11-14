@@ -293,7 +293,7 @@ impl Run {
     /// What the tab's close button runs: the workspace closes the view and
     /// the shell lets go of its panel, telling it so. The panel is then held
     /// only by what it started.
-    fn close_tab(&self, cx: &mut AsyncApp, editor: Entity<EditorPanel>) -> Result<()> {
+    pub(super) fn close_tab(&self, cx: &mut AsyncApp, editor: Entity<EditorPanel>) -> Result<()> {
         self.with_window(cx, move |shell, _, cx| {
             let view = shell.read(cx).view_of_editor(&editor);
             let workspace = shell.read(cx).workspace().clone();

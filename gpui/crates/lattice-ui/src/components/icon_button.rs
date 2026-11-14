@@ -42,6 +42,7 @@ pub struct IconButton {
     on: bool,
     selected: bool,
     disabled: bool,
+    fluid: bool,
     tooltip: Option<SharedString>,
     on_click: Option<ClickHandler>,
 }
@@ -61,6 +62,7 @@ impl IconButton {
             on: false,
             selected: false,
             disabled: false,
+            fluid: false,
             tooltip: None,
             on_click: None,
         }
@@ -96,6 +98,16 @@ impl IconButton {
 
     pub fn disabled(mut self, disabled: bool) -> Self {
         self.disabled = disabled;
+        self
+    }
+
+    /// Leave the hover fill to the strip's fluid hover (`crate::fluid_hover`,
+    /// [`crate::fluid_hover::Axis::Horizontal`]): a toolbar of equal icon
+    /// buttons with no selected item lights one fill that glides between
+    /// them (design call 2). The button keeps its own pressed wash and its
+    /// ink's step up to the primary.
+    pub fn fluid(mut self) -> Self {
+        self.fluid = true;
         self
     }
 
@@ -140,8 +152,6 @@ impl Selectable for IconButton {
     }
 }
 
-impl gpui_kit::component::menu::DropdownMenu for IconButton {}
-
 impl RenderOnce for IconButton {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let palette = cx.palette().clone();
@@ -157,6 +167,8 @@ impl RenderOnce for IconButton {
         } else {
             let (rest, hover) = if self.selected {
                 (palette.pressed, palette.pressed)
+            } else if self.fluid {
+                (transparent_black(), transparent_black())
             } else {
                 (transparent_black(), self.surface.hover(&palette))
             };

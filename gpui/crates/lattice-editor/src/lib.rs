@@ -36,6 +36,7 @@ pub mod gutter;
 pub mod hover;
 pub mod index;
 pub mod latex;
+pub mod markdown;
 pub mod remote_cursors;
 pub mod texlab;
 
@@ -45,7 +46,7 @@ pub use adapter::{
 pub use index::ProjectIndex;
 pub use texlab::TexlabService;
 
-/// Set up what every editor shares: the LaTeX language.
+/// Set up what every editor shares: the LaTeX and Markdown languages.
 pub fn init(cx: &mut gpui::App) {
     latex::init(cx);
 }

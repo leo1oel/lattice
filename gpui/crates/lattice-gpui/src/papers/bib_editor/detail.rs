@@ -127,9 +127,8 @@ impl BibEditor {
 
     /// Tell the form's box for `name` that the writer left it, for a
     /// scenario. GPUI sends a box's `Blur` only in an active window, and on
-    /// a locked screen nothing can become active, so a scenario that moved
-    /// the focus on in an inactive window sends it as GPUI would once the
-    /// window became key.
+    /// a locked screen none can become active, so a scenario that moved the
+    /// focus in an inactive window sends it as GPUI would once it was key.
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     pub fn field_left(&self, name: &str, cx: &mut gpui::App) {
         let Some(field) = self
@@ -420,7 +419,7 @@ impl BibEditor {
                     .compact()
                     .ghost()
                     .tooltip(t!("Entry type")),
-                types_menu,
+                move |menu, _, _| types_menu(menu),
             ))
             .child(
                 div()

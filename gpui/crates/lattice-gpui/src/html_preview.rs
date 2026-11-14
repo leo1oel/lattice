@@ -191,11 +191,12 @@ impl HtmlPreview {
         let config = IslandConfig {
             name: "html-preview".into(),
             entry: "html-preview/index.html",
-            bundle: Bundle(BUNDLE),
+            bundle: Bundle::Static(BUNDLE),
             files: files.clone(),
             // An authored page is on white whatever the theme.
             ground: Some(gpui::white()),
             reveal_on_ready: false,
+            theme: lattice_webview::IslandTheme::Variables,
         };
         let island = cx.new(|cx| Island::new(config, window, cx));
         let (requests, mut receiver) = mpsc::unbounded::<f32>();

@@ -10,13 +10,18 @@
 
 use gpui::{Action, App, KeyBinding, SharedString, actions};
 use lattice_i18n::{space_mixed_script, t};
-use lattice_ui::Icon;
 
 use super::trellis_layout::Preset;
 
 mod appearance;
+mod key_labels;
 mod presets;
 mod projects;
+mod section;
+mod submission;
+
+pub use key_labels::keys_label;
+pub use section::Section;
 
 actions!(
     lattice,
@@ -121,45 +126,6 @@ pub struct SwitchWorkspace {
 pub const MOD_LABEL: &str = "⌘";
 #[cfg(not(target_os = "macos"))]
 pub const MOD_LABEL: &str = "Ctrl+";
-
-/// The palette's sections, in the order an empty palette lists them
-/// (`src/app/palette-sections.ts`).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum Section {
-    Navigate,
-    Edit,
-    Build,
-    View,
-    Layout,
-    Project,
-    Appearance,
-}
-
-impl Section {
-    pub fn label(self) -> &'static str {
-        match self {
-            Section::Navigate => t!("Navigate"),
-            Section::Edit => t!("Edit"),
-            Section::Build => t!("Build"),
-            Section::View => t!("View"),
-            Section::Layout => t!("Layout"),
-            Section::Project => t!("Project"),
-            Section::Appearance => t!("Appearance"),
-        }
-    }
-
-    pub fn icon(self) -> Icon {
-        match self {
-            Section::Navigate => Icon::COMPASS,
-            Section::Edit => Icon::PEN_LINE,
-            Section::Build => Icon::HAMMER,
-            Section::View => Icon::EYE,
-            Section::Layout => Icon::LAYOUT_PANEL_LEFT,
-            Section::Project => Icon::FOLDER_OPEN,
-            Section::Appearance => Icon::SUN_MOON,
-        }
-    }
-}
 
 /// What the table needs to know about the window to say which commands apply
 /// and how they read.
@@ -478,6 +444,7 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
             Section::Edit,
             ReplaceInProject,
         ));
+        submission::edit_commands(&mut out);
     }
     projects::project_commands(context, &mut out);
     appearance::appearance_commands(&mut out);
@@ -582,6 +549,7 @@ fn default_bindings() -> Vec<KeyBinding> {
         KeyBinding::new("ctrl-tab", NextProject, None),
         KeyBinding::new("ctrl-shift-tab", PreviousProject, None),
     ];
+    bindings.extend(submission::bindings());
     #[cfg(target_os = "macos")]
     bindings.extend([
         KeyBinding::new("cmd-q", Quit, None),
@@ -590,58 +558,6 @@ fn default_bindings() -> Vec<KeyBinding> {
         KeyBinding::new("cmd-m", Minimize, None),
     ]);
     bindings
-}
-
-/// The keys bound to `action`, as the palette and the shortcut sheet draw
-/// them ("⌘⇧↩").
-pub fn keys_label(action: &dyn Action, window: &gpui::Window) -> Option<SharedString> {
-    let binding = window.highest_precedence_binding_for_action(action)?;
-    let mut out = String::new();
-    for keystroke in binding.keystrokes() {
-        let modifiers = keystroke.modifiers();
-        #[cfg(target_os = "macos")]
-        {
-            if modifiers.control {
-                out.push('⌃');
-            }
-            if modifiers.alt {
-                out.push('⌥');
-            }
-            if modifiers.shift {
-                out.push('⇧');
-            }
-            if modifiers.platform {
-                out.push('⌘');
-            }
-        }
-        #[cfg(not(target_os = "macos"))]
-        {
-            if modifiers.control {
-                out.push_str("Ctrl+");
-            }
-            if modifiers.alt {
-                out.push_str("Alt+");
-            }
-            if modifiers.shift {
-                out.push_str("Shift+");
-            }
-        }
-        out.push_str(&key_glyph(keystroke.key()));
-    }
-    Some(out.into())
-}
-
-fn key_glyph(key: &str) -> String {
-    match key {
-        "enter" => "↩".into(),
-        "escape" => "⎋".into(),
-        "backspace" => "⌫".into(),
-        "tab" => "⇥".into(),
-        "space" => "Space".into(),
-        "/" => "/".into(),
-        "f8" => "F8".into(),
-        other => other.to_uppercase(),
-    }
 }
 
 #[cfg(test)]

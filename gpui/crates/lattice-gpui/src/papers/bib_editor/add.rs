@@ -42,7 +42,7 @@ fn type_label(kind: &str) -> &'static str {
     }
 }
 
-/// The text fields, in the order a record fills them.
+/// The text fields, in a record's order.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Field {
     Title,
@@ -255,7 +255,7 @@ impl AddReference {
         }
     }
 
-    /// A new query abandons the lookup in flight and what it offered.
+    /// A new query drops the lookup in flight and what it offered.
     fn abandon(&mut self, cx: &mut Context<Self>) {
         self.generation += 1;
         self.resolving = false;
@@ -786,7 +786,7 @@ impl Render for AddReference {
                                         )
                                         .icon(Icon::CHEVRON_DOWN)
                                         .tooltip(t!("Entry type")),
-                                        types_menu,
+                                        move |menu, _, _| types_menu(menu),
                                     )),
                             )
                             .child(self.field(Field::Key, t!("Citation key"), cx)),
@@ -850,9 +850,9 @@ impl Render for AddReference {
         .render(window, cx, move |window, cx| {
             view.update(cx, |this, cx| this.close(window, cx)).ok();
         });
-        // From a .bib file's form, over the whole window as the project's
-        // other sheets are, though it belongs to that editor; from Add
-        // papers it is one of the window's sheets already.
+        // From a .bib file's form, over the whole window as the other
+        // sheets are, though that editor owns it; from Add papers it is
+        // one of the window's sheets already.
         if matches!(self.target, AddTarget::Project { .. }) {
             return div()
                 .absolute()

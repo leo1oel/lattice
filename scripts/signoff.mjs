@@ -68,8 +68,9 @@ const BUNDLE_INPUTS = /^(src\/|public\/(?!pdfjs\/)|index\.html$|vite\.config\.ts
 
 // What gpui.yml's path filter used to list: the GPUI workspace, the backend
 // crate it shares with the Tauri app, and the design-system exports it
-// generates tokens and editor themes from.
-const GPUI_INPUTS = /^(gpui\/|src-tauri\/lattice-core\/|design-system\/(tokens\.json|code-themes\.(json|mjs)|screens\/)|src\/settings\/(code-themes|theme-customization)\.ts$)/;
+// generates tokens and editor themes from. Then the Tauri app's modules its
+// webview islands are built from (gpui/islands/vite.config.ts).
+const GPUI_INPUTS = /^(gpui\/|src-tauri\/lattice-core\/|design-system\/(tokens\.json|code-themes\.(json|mjs)|screens\/)|src\/settings\/(code-themes|theme-customization)\.ts$|src\/editor\/(spreadsheet|board|presentation|markdown)\/|src\/canvas\/markdown-preview-sync\.ts$|src\/editor\/latex\/latex-text\.ts$|src\/(index|App)\.css$|src\/app-utils\.ts$|src\/i18n\/)/;
 const CODE_THEME_INPUTS = /^(design-system\/code-themes\.(json|mjs)|src\/settings\/(code-themes|theme-customization)\.ts)$/;
 
 function extraStages(files, mergeBase, options) {

@@ -12,18 +12,29 @@ use crate::{editor_panel::EditorPanel, native};
 
 mod bib;
 mod build_flow;
+mod design_calls;
 mod documents;
 mod editor_adapter;
 mod fluid;
+mod history;
 #[cfg(target_os = "macos")]
 mod islands;
 mod live_controls;
+#[cfg(target_os = "macos")]
+mod markdown;
+#[cfg(target_os = "macos")]
+mod markdown_pages;
+#[cfg(target_os = "macos")]
+mod markdown_scroll;
 mod papers;
 mod pdf;
 mod saves;
 mod settings;
 mod source_chrome;
 mod status_bar;
+#[cfg(target_os = "macos")]
+mod structured;
+mod submission;
 
 /// Each step's name, whether it passed, and what it saw.
 struct Steps(Vec<Value>);
@@ -43,7 +54,8 @@ impl Run {
     /// an outside edit into a clean buffer and merge one into an edited
     /// buffer, break the document by typing, save with the shortcut, build,
     /// follow the error to its line, search, Vim, repair, build; glide the
-    /// Project tree's hover between rows (`fluid.rs`); hover a
+    /// Project tree's hover between rows (`fluid.rs`); open the tree's
+    /// context menu and glide the PDF toolbar's hover (`design_calls.rs`); hover a
     /// citation and a reference, draw remote carets and a block widget, show
     /// TexLab's diagnostics and complete a citation and a command; then create,
     /// rename, move and delete files in the tree, check the PDF viewer on a
@@ -103,6 +115,7 @@ impl Run {
         self.sequence_and_words(cx, &mut steps).await?;
         self.fluid_hover(cx, &mut steps).await?;
         self.source_chrome(cx, &mut steps, &root).await?;
+        self.design_calls(cx, &mut steps).await?;
 
         let editor = self.open(cx, &chapter, Some(2))?;
         self.pause(cx, Duration::from_millis(300)).await;
@@ -264,6 +277,10 @@ impl Run {
         // checks run on macOS.
         #[cfg(target_os = "macos")]
         self.webview_islands(cx, &mut steps, &root).await?;
+        #[cfg(target_os = "macos")]
+        self.structured_islands(cx, &mut steps, &root).await?;
+        #[cfg(target_os = "macos")]
+        self.markdown_island(cx, &mut steps, &root).await?;
         self.pdf_viewer(cx, &mut steps, &root).await?;
         self.second_window_pdf(cx, &mut steps, &root).await?;
 
@@ -292,11 +309,27 @@ impl Run {
             steps.check(name, passed, detail);
         }
 
-        self.papers_panel(cx, &mut steps, &root).await?;
-        self.bib_visual_editor(cx, &mut steps, &root).await?;
-        self.settings_and_language(cx, &mut steps).await?;
-        self.live_controls(cx, &mut steps).await?;
-        self.closing_saves(cx, &mut steps, &root).await?;
+        self.history_and_versions(cx, &mut steps, &root)
+            .await
+            .context("history_and_versions")?;
+        self.submission_tools(cx, &mut steps, &root)
+            .await
+            .context("submission_tools")?;
+        self.papers_panel(cx, &mut steps, &root)
+            .await
+            .context("papers_panel")?;
+        self.bib_visual_editor(cx, &mut steps, &root)
+            .await
+            .context("bib_visual_editor")?;
+        self.settings_and_language(cx, &mut steps)
+            .await
+            .context("settings_and_language")?;
+        self.live_controls(cx, &mut steps)
+            .await
+            .context("live_controls")?;
+        self.closing_saves(cx, &mut steps, &root)
+            .await
+            .context("closing_saves")?;
         // Last: `scenario::start` quits once the result is written.
         let quit = self.type_before_quit(cx, &mut steps, &root).await?;
 
@@ -312,6 +345,8 @@ impl Run {
         let root = self.root(cx).await?;
         self.pause(cx, Duration::from_millis(800)).await;
         self.webview_islands(cx, &mut steps, &root).await?;
+        self.structured_islands(cx, &mut steps, &root).await?;
+        self.markdown_island(cx, &mut steps, &root).await?;
         let passed = steps.0.iter().all(|step| step["passed"] == true);
         Ok(json!({ "scenario": "islands", "passed": passed, "steps": steps.0 }))
     }

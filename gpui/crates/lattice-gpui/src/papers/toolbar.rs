@@ -192,7 +192,8 @@ impl PapersPanel {
                             view.update(cx, |this, cx| this.set_filter(choice, cx)).ok();
                         })
                         .checked(choice == filter)
-                        .detail(lattice_i18n::format_count(*count as i64))
+                        // The count sits in the shortcut's place at the row's end.
+                        .shortcut(lattice_i18n::format_count(*count as i64))
                         .disabled(!uses_known && choice.needs_uses()),
                     )
                 })
@@ -265,7 +266,7 @@ impl PapersPanel {
                         tooltip: t!("Filter papers"),
                         open: false,
                     },
-                    filter_menu,
+                    move |menu, _, _| filter_menu(menu),
                 )
                 .anchor(Anchor::TopRight),
             )
@@ -288,7 +289,7 @@ impl PapersPanel {
                         tooltip: t!("Sort and group"),
                         open: false,
                     },
-                    order_menu,
+                    move |menu, _, _| order_menu(menu),
                 )
                 .anchor(Anchor::TopRight),
             )

@@ -19,18 +19,22 @@ mod build_tools;
 pub mod commands;
 mod documents;
 mod editor_events;
+mod editors;
 mod entries;
 mod ground;
+mod history_flow;
 mod imports;
 mod layers;
 pub(crate) mod menus;
 mod palette;
 mod papers;
 mod pdfs;
+mod references_flow;
 mod render;
 mod saving;
 mod skin;
 mod synctex;
+mod tools_flow;
 pub mod trellis_layout;
 pub mod views;
 mod welcome_flow;
@@ -38,17 +42,17 @@ pub mod windows;
 mod workspace_flow;
 pub mod workspaces;
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use futures::channel::oneshot;
 use gpui::{
     AnyWindowHandle, App, AppContext as _, Bounds, Context, Entity, FocusHandle, Focusable,
-    InteractiveElement as _, IntoElement, ParentElement as _, PromptLevel, Render, SharedString,
-    Styled as _, Subscription, Task, WeakEntity, Window, WindowBounds, WindowOptions,
+    InteractiveElement as _, IntoElement, ParentElement as _, Render, SharedString, Styled as _,
+    Subscription, Task, WeakEntity, Window, WindowBounds, WindowOptions,
     prelude::FluentBuilder as _, px, size,
 };
 use gpui_kit::component::v_flex;
-use lattice_i18n::{t, tc};
+use lattice_i18n::t;
 use lattice_ui::{ActiveLattice as _, Appearance, LatticeTheme};
 use trellis::{TrellisWorkspace, model::LayoutDocument};
 
@@ -57,6 +61,8 @@ pub use commands::{
     Build, CleanBuildFiles, CleanRebuild, ForwardSync, InstallLatexTools, NextProblem,
     OpenTexDoctor, PreviousProblem, Save, StopBuild, ToggleVimMode,
 };
+pub use references_flow::{FindReferences, RenameSymbol};
+pub use tools_flow::{ExportArxiv, OpenTodos};
 
 use crate::{
     build::{
@@ -134,6 +140,23 @@ pub struct Shell {
     agent: Entity<StandInPanel>,
     pdf: Entity<PdfPanel>,
     build_panel: Entity<BuildPanel>,
+    /// The History tool panel (`crate::history`), one for the window.
+    pub(crate) history: Entity<crate::history::HistoryPanel>,
+    /// The manuscript's TODOs tool panel (`crate::submission::todos`).
+    pub(crate) todos: Entity<crate::submission::todos::TodosPanel>,
+    /// A symbol's occurrences bar and rename dialog (`references_flow`).
+    pub(crate) references: references_flow::References,
+    /// The arXiv export sheet, while it is open.
+    pub(crate) arxiv: Option<(
+        Entity<crate::submission::arxiv::ArxivExportSheet>,
+        Subscription,
+    )>,
+    /// The conflict resolver, while it is open.
+    pub(crate) conflict: Option<(Entity<crate::history::ConflictResolver>, Subscription)>,
+    /// The files Git named as conflicts when last told (`history_flow`).
+    pub(crate) conflicts_noticed: std::collections::BTreeSet<String>,
+    /// Watches the open project for Git's conflicts.
+    _project_git: Option<Subscription>,
     /// The TeX doctor, setup and package installs (one for the app).
     tex_setup: Entity<TexSetupCenter>,
     /// The open project's manuscript word count (one for the app).
@@ -260,6 +283,16 @@ impl Shell {
         let pdf = cx.new(|cx| PdfPanel::new(PdfPanelKind::Live, window, cx));
         let build_panel = cx.new(BuildPanel::new);
         let card = cx.new(|cx| DiagnosticsCard::new(build_panel.clone(), cx));
+        let history = cx.new(|cx| crate::history::HistoryPanel::new(window, cx));
+        let shown_in = workspace.downgrade();
+        history.update(cx, |history, _| {
+            history.watch_screen(move |cx| {
+                shown_in
+                    .upgrade()
+                    .is_some_and(|workspace| arrange::on_screen(workspace.read(cx), "history"))
+            })
+        });
+        let todos = cx.new(crate::submission::todos::TodosPanel::new);
         pdf.update(cx, |pdf, cx| pdf.set_build_output(card.into(), cx));
         let tex_setup = tex_setup::install(cx);
         tex_setup.update(cx, |center, cx| center.check_at_launch(cx));
@@ -332,6 +365,14 @@ impl Shell {
         })
         .detach();
         cx.subscribe_in(&pdf, window, Self::on_pdf_event).detach();
+        cx.subscribe_in(&history, window, |this, _, event, window, cx| {
+            this.on_history_event(event, window, cx)
+        })
+        .detach();
+        cx.subscribe_in(&todos, window, |this, _, event, window, cx| {
+            this.on_todos_event(event, window, cx)
+        })
+        .detach();
         cx.observe(&notices, |_, _, cx| cx.notify()).detach();
         cx.observe(&confirm, |_, _, cx| cx.notify()).detach();
         let workspace_events = cx.subscribe_in(&workspace, window, Self::on_workspace_event);
@@ -350,7 +391,11 @@ impl Shell {
             this.refresh_dirty(cx);
             cx.notify();
         });
-        cx.on_release(|this, cx| this.flush_layout(cx)).detach();
+        cx.on_release(|this, cx| {
+            this.flush_layout(cx);
+            this.drop_conflict_notice(cx);
+        })
+        .detach();
         cx.on_app_quit(|this, cx| {
             this.flush_layout(cx);
             async {}
@@ -373,6 +418,13 @@ impl Shell {
             agent,
             pdf,
             build_panel,
+            history,
+            todos,
+            arxiv: None,
+            references: Default::default(),
+            conflict: None,
+            conflicts_noticed: Default::default(),
+            _project_git: None,
             tex_setup,
             words,
             cleaning: false,
@@ -577,6 +629,10 @@ impl Shell {
                 None => self.projects.push(open),
             }
         }
+        self.drop_conflict_notice(cx);
+        self.references = Default::default();
+        self.arxiv = None;
+        self.conflict = None;
         self.project = Some(project.clone());
         // Sheets over the window hold the project they were opened in.
         self.take_document_overlays(cx);
@@ -614,6 +670,17 @@ impl Shell {
         self.refresh_outline(window, cx);
         self.papers
             .update(cx, |papers, cx| papers.set_project(project.clone(), cx));
+        self.history
+            .update(cx, |history, cx| history.set_project(project.clone(), cx));
+        let todos_root = Some(root.clone());
+        self.todos
+            .update(cx, |todos, cx| todos.set_root(todos_root, cx));
+        self._project_git = Some(cx.subscribe(&project, |this, _, event, cx| {
+            if matches!(event, crate::project::ProjectEvent::GitChanged) {
+                this.notice_conflicts(cx);
+            }
+        }));
+        self.notice_conflicts(cx);
         self.file_tree
             .update(cx, |tree, cx| tree.set_project(project, cx));
         self.set_window_title(window, cx);
@@ -654,7 +721,9 @@ impl Shell {
         self.active_editor = Some(editor.downgrade());
         editor.update(cx, |editor, cx| match line {
             Some(line) => editor.go_to_line(line, window, cx),
-            None => window.focus(&editor.editor().focus_handle(cx), cx),
+            // The panel's own: a structured document's page, or a Markdown or
+            // HTML file's preview while it shows only that.
+            None => window.focus(&gpui::Focusable::focus_handle(editor, cx), cx),
         });
         self.record_visit(&path, line, in_front, cx);
         self.refresh_outline(window, cx);
@@ -662,70 +731,6 @@ impl Shell {
         self.file_tree
             .update(cx, |tree, cx| tree.set_current(Some(path.clone()), cx));
         Some(editor)
-    }
-
-    /// The editor already open on `path`, if any.
-    pub(crate) fn open_editor(&mut self, path: &Path, cx: &App) -> Option<Entity<EditorPanel>> {
-        self.open_editors()
-            .into_iter()
-            .find(|editor| editor.read(cx).path() == path)
-    }
-
-    /// The editor on `path`, opened if it is not yet; it is not placed in
-    /// the dock.
-    pub(crate) fn editor_for(
-        &mut self,
-        path: &Path,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> Option<Entity<EditorPanel>> {
-        if let Some(editor) = self.open_editor(path, cx) {
-            return Some(editor);
-        }
-        let project = self.project.clone()?;
-        match EditorPanel::open(
-            path.to_path_buf(),
-            project,
-            self.build_panel.clone(),
-            window,
-            cx,
-        ) {
-            Ok(editor) => {
-                let papers = self.papers.clone();
-                editor.update(cx, |editor, cx| editor.set_papers(papers, cx));
-                self.adopt_editor(&editor, window, cx);
-                let weak = editor.downgrade();
-                cx.on_focus_in(&editor.focus_handle(cx), window, move |this, _, _| {
-                    this.active_editor = Some(weak.clone());
-                })
-                .detach();
-                Some(editor)
-            }
-            Err(error) => {
-                log::error!("{error:#}");
-                let _ = window.prompt(
-                    PromptLevel::Critical,
-                    t!("Could not open the file"),
-                    Some(&format!("{error:#}")),
-                    &[tc!("dialog button", "OK")],
-                    cx,
-                );
-                None
-            }
-        }
-    }
-
-    pub(crate) fn open_editors(&mut self) -> Vec<Entity<EditorPanel>> {
-        self.editors.retain(|editor| editor.upgrade().is_some());
-        self.editors
-            .iter()
-            .filter_map(WeakEntity::upgrade)
-            .collect()
-    }
-
-    /// The editor the writer was last in, if it is still open.
-    pub(crate) fn active_editor(&self) -> Option<Entity<EditorPanel>> {
-        self.active_editor.as_ref().and_then(WeakEntity::upgrade)
     }
 
     /// Count the manuscript's words again, and redraw the status bars that

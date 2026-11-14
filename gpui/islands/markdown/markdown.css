@@ -1,0 +1,12 @@
+/* The visual editor always stands in a document panel here, as it does in
+   the Tauri app's Trellis workspace, so its text keeps clear of the heading
+   rail in the left margin as `src/trellis/trellis.css` keeps it there
+   (`.trellis-workspace .lx-md-editor:has(> .visual-heading-rail)`): the
+   surface's padding grows by whatever the centring margin no longer gives. */
+.lx-md-editor:has(> .visual-heading-rail) .lx-md-surface {
+  --trellis-rail-clearance: calc(var(--space-6) + 2 * var(--space-12) + var(--space-4));
+  padding-inline-start: max(
+    var(--space-12),
+    min(var(--trellis-rail-clearance), calc(var(--trellis-rail-clearance) - (100% - var(--lx-md-measure) - 2 * var(--space-12)) / 2))
+  );
+}

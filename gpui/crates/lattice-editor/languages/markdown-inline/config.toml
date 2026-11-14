@@ -1,0 +1,6 @@
+# The inline grammar, which the block grammar's injection query hands every
+# run of inline text to; never a file's own language.
+name = "Markdown-Inline"
+grammar = "markdown-inline"
+path_suffixes = []
+hidden = true

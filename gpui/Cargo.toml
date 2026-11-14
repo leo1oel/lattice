@@ -67,6 +67,10 @@ gpui-webview = { version = "=0.9.1", features = ["gpui-fast"] }
 anyhow = "1"
 dirs = "6"
 codebook-tree-sitter-latex = "0.6.1"
+# Markdown source highlighting: the block and inline grammars at the revision
+# Zed pins (its fork of tree-sitter-grammars/tree-sitter-markdown, MIT, with a
+# serialize() overflow fix).
+tree-sitter-md = { git = "https://github.com/zed-industries/tree-sitter-markdown", rev = "b596e737286780d7bfa9fcddceaeeb754574b352" }
 futures = "0.3"
 image = { version = "0.25", default-features = false }
 # Lattice's domain logic, shared with the Tauri app (`../src-tauri/lattice-core`,

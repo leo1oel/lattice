@@ -41,10 +41,19 @@ impl Render for Shell {
             .children(self.welcome().cloned())
             .when(self.welcome().is_none(), |this| {
                 this.child(crate::titlebar::render(self, window, cx))
+                    .children(self.references.bar.as_ref().map(|(bar, _)| bar.clone()))
                     .child(self.ground(cx))
             })
             .children(self.window_overlays())
             .child(self.tex_setup.clone())
+            .children(self.conflict.as_ref().map(|(resolver, _)| resolver.clone()))
+            .children(self.arxiv.as_ref().map(|(sheet, _)| sheet.clone()))
+            .children(
+                self.references
+                    .rename
+                    .as_ref()
+                    .map(|(dialog, _)| dialog.clone()),
+            )
             .child(self.confirm.clone())
     }
 }

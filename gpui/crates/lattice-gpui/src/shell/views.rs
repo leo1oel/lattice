@@ -29,7 +29,9 @@ use super::{
 use crate::{editor_panel::EditorPanel, empty_slot::EmptySlotPanel};
 
 /// The kinds that live once, under their own id.
-pub const SINGLETONS: &[&str] = &["project", "papers", "agent", "pdf", "build"];
+pub const SINGLETONS: &[&str] = &[
+    "project", "papers", "agent", "pdf", "build", "history", "todos",
+];
 
 /// The window's panel for each view id.
 pub type Registry = Rc<RefCell<HashMap<String, Arc<dyn BasePanelView>>>>;
@@ -142,6 +144,8 @@ impl Shell {
             "agent" => panel_handle(self.agent.clone()),
             "pdf" => panel_handle(self.pdf.clone()),
             "build" => panel_handle(self.build_panel.clone()),
+            "history" => panel_handle(self.history.clone()),
+            "todos" => panel_handle(self.todos.clone()),
             _ => return None,
         })
     }

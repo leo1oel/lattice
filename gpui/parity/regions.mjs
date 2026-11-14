@@ -87,6 +87,50 @@ export const SCREENS = {
     ],
     content: [".html-preview-frame", ".pdf-viewer-host"],
   },
+  // The tutorial's notes opened in Preview (`scenes.markdown`): the
+  // document's card, strip and tab, its Edit / Split / Preview switch, and
+  // the visual editor's surface. The GPUI app draws the visual editor in a
+  // webview island, which an offscreen capture does not include, so it is
+  // left out of the pixel budget; the composited capture beside the report
+  // shows it.
+  markdown: {
+    label: "Markdown",
+    regions: [
+      { name: "titlebar", css: "header.titlebar", chrome: true },
+      { name: "workspace", css: "main.workspace", chrome: true },
+      ...group("notes.md"),
+      { name: "markdown/views", css: "[data-trellis-part=\"accessory\"]:not([data-inactive]) .trellis-view-switcher" },
+      { name: "markdown/surface", css: ".markdown-preview" },
+    ],
+    content: [".markdown-preview", ".pdf-viewer-host"],
+  },
+  // The tutorial's spreadsheet and board opened (`scenes.sheet`,
+  // `scenes.board`): the document's card, strip and tab, and the surface,
+  // alone in the panel with no status bar or strip tools, as the Tauri
+  // canvas shows a structured document. The editor itself is a webview
+  // island in the GPUI app, which an offscreen capture does not include, so
+  // it is left out of the pixel budget; the composited capture beside the
+  // report shows it.
+  sheet: {
+    label: "Spreadsheet",
+    regions: [
+      { name: "titlebar", css: "header.titlebar", chrome: true },
+      { name: "workspace", css: "main.workspace", chrome: true },
+      ...group("attention-results.lattice-sheet"),
+      { name: "sheet/surface", css: ".spreadsheet-editor-root" },
+    ],
+    content: [".spreadsheet-editor-root", ".pdf-viewer-host"],
+  },
+  board: {
+    label: "Board",
+    regions: [
+      { name: "titlebar", css: "header.titlebar", chrome: true },
+      { name: "workspace", css: "main.workspace", chrome: true },
+      ...group("attention-map.tldr"),
+      { name: "board/surface", css: ".board-editor-root" },
+    ],
+    content: [".board-editor-root", ".pdf-viewer-host"],
+  },
   // A window without a project (`?welcome=1&recents=1`): the newest recent
   // project's folder is gone, so the welcome screen says so; the desk lays
   // out the next three. The GPUI side stages the same list
@@ -109,6 +153,75 @@ export const SCREENS = {
     // The desk's first page is drawn by pdf.js in the Tauri app and by
     // PDFium here, so left out of the pixel budget.
     content: [".welcome-desk-sheet[data-kind=\"page\"] > img"],
+  },
+  // The History panel (`scenes.history`): the paper's versions on the
+  // mock backend (`?versions=compare`), History opened from the titlebar
+  // into the documents' panel. The GPUI side makes the same versions real
+  // in a Git repository (crates/lattice-gpui/src/scenario/parity_history.rs).
+  history: {
+    label: "History",
+    regions: [
+      { name: "titlebar", css: "header.titlebar", chrome: true },
+      { name: "workspace", css: "main.workspace", chrome: true },
+      ...group("History"),
+      { name: "history/toolbar", css: ".versions-toolbar" },
+      { name: "history/view/active", css: '.history-view[aria-pressed="true"]', text: true, chrome: true },
+      { name: "history/compare", css: ".history-compare", text: true },
+      { name: "history/save", css: ".versions-toolbar .versions-save", text: true },
+      { name: "history/refresh", css: ".versions-toolbar .versions-icon-button" },
+      { name: "history/day", css: ".history-day-label", text: true, chrome: true },
+      { name: "history/row", css: ".history-row" },
+      { name: "history/row/glyph", css: ".history-row-glyph", chrome: true },
+      { name: "history/row/head", css: ".history-row-head" },
+      { name: "history/row/title", css: ".history-row-title", text: true },
+      { name: "history/row/time", css: ".history-row-time", text: true },
+      { name: "history/fold", css: ".history-fold" },
+      { name: "history/fold/title", css: ".history-fold .history-row-title", text: true },
+    ],
+    content: [".pdf-viewer-host"],
+  },
+  // Compare… pressed on that panel (`scenes.historyCompare`): the version
+  // picker, the range, the counts and the first changed passage.
+  historyCompare: {
+    label: "History · compare",
+    regions: [
+      ...group("History"),
+      { name: "compare/back", css: ".compare-back", text: true },
+      { name: "compare/heading", css: ".compare-heading h2", text: true },
+      { name: "compare/picker", css: ".compare-picker", chrome: true },
+      { name: "compare/picker/head", css: ".compare-picker-head" },
+      { name: "compare/picker/row", css: ".compare-picker-row" },
+      { name: "compare/bar", css: ".compare-bar" },
+      { name: "compare/counts", css: ".compare-counts" },
+      { name: "compare/passage", css: ".compare-passage" },
+    ],
+    content: [".pdf-viewer-host"],
+  },
+  // Manuscript TODOs from the palette (`scenes.todos`): the tutorial has no
+  // markers, so the empty state, as a tool panel of the documents' panel
+  // (crates/lattice-gpui/src/scenario/parity_submission.rs).
+  todos: {
+    label: "Manuscript TODOs",
+    regions: [
+      { name: "workspace", css: "main.workspace", chrome: true },
+      ...group("TODOs"),
+      { name: "todos/empty", css: ".todo-empty", chrome: true },
+    ],
+    content: [".pdf-viewer-host"],
+  },
+  // Export for arXiv… over the window with the bench's checked pack
+  // (`scenes.arxivExport`, `?arxiv=ready`); the GPUI side stages the same
+  // pack in place of a real check.
+  arxivExport: {
+    label: "Export for arXiv",
+    regions: [
+      { name: "arxiv/modal", css: ".arxiv-export-modal", chrome: true },
+      { name: "arxiv/summary", css: ".arxiv-export-summary", chrome: true },
+      { name: "arxiv/checks", css: ".arxiv-export-checks" },
+      { name: "arxiv/check", css: ".arxiv-export-checks > li:first-child .arxiv-check-row" },
+      { name: "arxiv/status", css: ".arxiv-export-status" },
+    ],
+    content: [".pdf-viewer-host"],
   },
   settings: {
     label: "Settings",

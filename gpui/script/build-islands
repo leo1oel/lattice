@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Build the island pages (README.md, "Webview islands"): the spreadsheet,
+# board, Open Slide and visual Markdown pages in islands/, compiled from the Tauri app's own
+# modules in ../src with the app's toolchain, into islands/dist, which the
+# app serves from disk (crates/lattice-gpui/src/structured/resources.rs).
+# Needs the repository's node_modules (pnpm install at the root).
+#
+# Usage: script/build-islands
+set -euo pipefail
+
+repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$repo"
+pnpm exec vite build --config gpui/islands/vite.config.ts --logLevel warn
+echo "build-islands: gpui/islands/dist"

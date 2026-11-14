@@ -15,7 +15,12 @@ offscreen-shots = ["gpui/test-support", "gpui_platform/test-support"]
 
 [dependencies]
 anyhow.workspace = true
+# The history timeline's dates in the local time zone (history/time.rs), and
+# a pasted image's name, which carries the time as the Tauri app's does.
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 assets.workspace = true
+# An Excel export's bytes cross the island bridge as base64.
+base64 = "0.22"
 codebook-tree-sitter-latex.workspace = true
 dirs.workspace = true
 editor.workspace = true
@@ -33,6 +38,8 @@ lattice-core.workspace = true
 lattice-editor.workspace = true
 lattice-i18n.workspace = true
 lattice-settings.workspace = true
+# The history's source diffs, as a patch GPUI Kit's diff reads (history/diff_view.rs).
+similar = "2"
 lattice-ui.workspace = true
 lattice-webview.workspace = true
 log.workspace = true
@@ -50,13 +57,21 @@ serde_json.workspace = true
 settings.workspace = true
 smallvec.workspace = true
 theme.workspace = true
+# lattice-core's link preview runs on Tokio, on a thread of its own per
+# request; already in the graph through lattice-core.
+tokio = { version = "1", default-features = false, features = ["rt"] }
 theme_settings.workspace = true
 # Trellis ported to GPUI: under its own non-commercial license (crates/trellis/README.md).
 trellis.workspace = true
+# Open Slide lease owners (structured/slides.rs).
+uuid = { version = "1", features = ["v4"] }
 vim.workspace = true
 vim_mode_setting.workspace = true
 workspace.workspace = true
 zed_actions.workspace = true
+
+[dev-dependencies]
+tempfile = "3"
 
 [target.'cfg(any(target_os = "macos", target_os = "windows"))'.dependencies]
 raw-window-handle = "0.6"

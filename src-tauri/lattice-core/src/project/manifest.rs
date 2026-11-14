@@ -572,6 +572,8 @@ mod tests {
             "*.fdb_latexmk",
             "*.run.xml",
             "*-SAVE-ERROR",
+            "*.synctex(busy)",
+            "*.synctex.gz(busy)",
             ".research/review/",
             ".research/build/",
             "node_modules/",

@@ -195,6 +195,9 @@ pub struct PdfView {
     pub(super) offers_build: bool,
     pub(super) building: bool,
     pub(super) zoom_entry: bool,
+    /// The toolbar's one gliding hover fill, as last drawn (for the e2e
+    /// scenario's look at it).
+    pub(super) toolbar_hover: Option<lattice_ui::fluid_hover::FluidHover>,
     stats: RenderStats,
     _open_task: Option<Task<()>>,
     _mark_task: Option<Task<()>>,
@@ -292,6 +295,7 @@ impl PdfView {
             offers_build: false,
             building: false,
             zoom_entry: false,
+            toolbar_hover: None,
             stats: RenderStats::default(),
             _open_task: None,
             _mark_task: None,

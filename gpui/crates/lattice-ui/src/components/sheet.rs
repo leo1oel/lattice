@@ -26,9 +26,9 @@
 use std::rc::Rc;
 
 use gpui::{
-    AnimationExt as _, AnyElement, App, ElementId, Hsla, InteractiveElement as _, IntoElement,
-    ParentElement, Pixels, RenderOnce, SharedString, StatefulInteractiveElement as _, Styled as _,
-    Window, deferred, div, hsla, prelude::FluentBuilder as _, px,
+    AnimationExt as _, AnyElement, App, ElementId, FocusHandle, Hsla, InteractiveElement as _,
+    IntoElement, ParentElement, Pixels, RenderOnce, SharedString, StatefulInteractiveElement as _,
+    Styled as _, Window, deferred, div, hsla, prelude::FluentBuilder as _, px,
 };
 use gpui_kit::base::Sheet as SheetHost;
 
@@ -266,6 +266,12 @@ pub enum LayerPlacement {
     /// Centred, over the dialog scrim: a sheet or a dialog.
     #[default]
     Center,
+    /// A small dialog over the dialog scrim, its top at 18% of the window
+    /// where the eye already is, and staying put as a list under it grows;
+    /// one taller than the room below rises just enough to keep 20px under
+    /// it (dialogs.css: `.modal-dialog-content` for a `.modal` that is not a
+    /// sheet, a large modal or a confirmation).
+    UpperThird,
     /// Against the right edge, the window's height, over the lighter scrim:
     /// a drawer.
     Right,
@@ -280,6 +286,7 @@ pub struct ModalLayer {
     placement: LayerPlacement,
     surface: AnyElement,
     closable: bool,
+    initial_focus: Option<FocusHandle>,
     on_close: CloseHandler,
 }
 
@@ -295,8 +302,16 @@ impl ModalLayer {
             placement,
             surface: surface.into_any_element(),
             closable: true,
+            initial_focus: None,
             on_close: Rc::new(on_close),
         }
+    }
+
+    /// Give focus, when the layer first draws, to this handle inside the
+    /// surface (a dialog's field, for typing at once) instead of the layer.
+    pub fn initial_focus(mut self, handle: FocusHandle) -> Self {
+        self.initial_focus = Some(handle);
+        self
     }
 
     /// Keep a press on the scrim from closing a surface that holds unsaved
@@ -315,15 +330,16 @@ impl RenderOnce for ModalLayer {
         // The layer takes focus once, when it first draws, so Escape reaches
         // the host; after that focus moves only inside it. What held focus
         // before is kept to be given it back on close.
+        let initial = self.initial_focus;
         let focus = window.use_keyed_state(child("focus"), cx, |window, cx| {
             let previous = window.focused(cx);
             let focus = cx.focus_handle();
-            focus.focus(window, cx);
+            initial.as_ref().unwrap_or(&focus).focus(window, cx);
             (focus, previous)
         });
         let (focus, previous) = focus.read(cx).clone();
         let scrim = match self.placement {
-            LayerPlacement::Center => cx.palette().scrim,
+            LayerPlacement::Center | LayerPlacement::UpperThird => cx.palette().scrim,
             LayerPlacement::Right => drawer_scrim(),
         };
         let overlay = div().absolute().inset_0().bg(scrim).with_animation(
@@ -341,6 +357,23 @@ impl RenderOnce for ModalLayer {
                 .items_center()
                 .justify_center()
                 .child(div().id(child("surface")).occlude().child(self.surface)),
+            // The room above shrinks before the dialog would cross the
+            // 20px margin below: top = min(18vh, 100vh - height - 20px).
+            LayerPlacement::UpperThird => div()
+                .absolute()
+                .inset_0()
+                .flex()
+                .flex_col()
+                .items_center()
+                .pb(gpui::px(20.))
+                .child(div().h(gpui::relative(0.18)).flex_shrink(1.).min_h_0())
+                .child(
+                    div()
+                        .id(child("surface"))
+                        .flex_none()
+                        .occlude()
+                        .child(self.surface),
+                ),
             LayerPlacement::Right => div().absolute().inset_0().flex().justify_end().child(
                 div()
                     .id(child("surface"))

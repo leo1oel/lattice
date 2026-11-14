@@ -23,6 +23,9 @@ mod measure;
 #[cfg(target_os = "macos")]
 mod parity;
 #[cfg(target_os = "macos")]
+mod parity_history;
+mod parity_submission;
+#[cfg(target_os = "macos")]
 mod parity_welcome;
 #[cfg(target_os = "macos")]
 mod pdf_shots;

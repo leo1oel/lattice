@@ -59,7 +59,6 @@ describe("shared chrome primitives", () => {
     // contract used by hand-written menus. Regular labels take a 1.5 stroke.
     expect(floatingSurfaceClassName).toContain("[--nested-radius:calc(var(--surface-radius)-var(--surface-inset))]");
     expect(menuViewportClassName).toContain("p-[var(--surface-inset)]");
-    expect(menuViewportClassName).not.toContain("scrollbar-width:none");
     for (const token of [
       "rounded-[calc(var(--nested-radius,var(--radius-icon))*var(--nested-corner-smoothing,1))]",
       "[corner-shape:var(--nested-corner-shape,round)]", "duration-[var(--duration-fast)]", "ease-[var(--ease-fast)]",
@@ -142,6 +141,10 @@ describe("shared chrome primitives", () => {
     expect(selectedOption).toHaveAttribute("aria-selected", "true");
     expect(selectedOption.querySelector('[data-slot="select-item-indicator"] svg'))
       .toBeInTheDocument();
+    // A long list scrolls under the app's one scrollbar, drawn beside Radix's
+    // viewport over the positioned content.
+    const content = listbox.closest('[data-slot="select-content"]')!;
+    expect(content.querySelector(":scope > .lattice-scrollbar.external-scrollbar")).toBeInTheDocument();
     fireEvent.keyDown(listbox, { key: "Escape" });
     expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
     await waitFor(() => expect(trigger).toHaveFocus());

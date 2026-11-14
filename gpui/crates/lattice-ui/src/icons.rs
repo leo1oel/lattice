@@ -113,21 +113,36 @@ lucide! {
     SQUARE_ARROW_DOWN_LEFT = "icons" / "square-arrow-down-left";
     SQUARE_ARROW_OUT_UP_RIGHT = "icons" / "square-arrow-out-up-right";
     WHOLE_WORD = "icons" / "whole-word";
-    // The Papers panel's rows, toolbar and add rows.
-    ARROW_DOWN = "icons" / "arrow-down";
-    ARROW_DOWN_UP = "icons" / "arrow-down-up";
+    // The Papers panel's rows, toolbar and add rows (main declares
+    // ARROW_DOWN, ARROW_DOWN_UP, BOOK_MARKED, FILE_DOWN and LINK_2 below).
     ARROW_UP_RIGHT = "icons" / "arrow-up-right";
-    BOOK_MARKED = "icons" / "book-marked";
     CIRCLE_DOT = "icons" / "circle-dot";
     HIGHLIGHTER = "icons" / "highlighter";
-    LINK_2 = "icons" / "link-2";
     CORNER_DOWN_LEFT = "icons" / "corner-down-left";
     EXTERNAL_LINK = "icons" / "external-link";
-    FILE_DOWN = "icons" / "file-down";
     LIST_FILTER = "icons" / "list-filter";
     /// A .tex file's Source / Visual switch.
     CODE_XML = "icons" / "code-xml";
     TYPE = "icons" / "type";
+    // The project history (src/history/).
+    ARROW_DOWN = "icons" / "arrow-down";
+    ARROW_DOWN_UP = "icons" / "arrow-down-up";
+    ARROW_UP = "icons" / "arrow-up";
+    ARROW_UP_DOWN = "icons" / "arrow-up-down";
+    BOOK_MARKED = "icons" / "book-marked";
+    FILE_DOWN = "icons" / "file-down";
+    FILE_PEN = "icons" / "file-pen";
+    /// Lucide's FilePlus2, renamed in later Lucide.
+    FILE_PLUS_CORNER = "icons" / "file-plus-corner";
+    /// Lucide's FileX2, renamed in later Lucide.
+    FILE_X_CORNER = "icons" / "file-x-corner";
+    GIT_COMMIT_HORIZONTAL = "icons" / "git-commit-horizontal";
+    GIT_COMPARE_ARROWS = "icons" / "git-compare-arrows";
+    MOVE_RIGHT = "icons" / "move-right";
+    PENCIL_LINE = "icons" / "pencil-line";
+    // Getting a manuscript ready to send (src/project/).
+    CIRCLE_DASHED = "icons" / "circle-dashed";
+    LINK_2 = "icons" / "link-2";
     // Names Zed's icon set also has, which the app's asset source finds
     // first: Lucide's own, copied unmodified from GPUI Kit 0.9.1's assets
     // (ISC, `assets/LICENSE-LUCIDE`).
@@ -163,6 +178,10 @@ impl Icon {
     pub const ANNOTATIONS: Icon = Icon("lattice/annotations.svg");
     pub const GIT: Icon = Icon("lattice/git.svg");
     pub const HISTORY: Icon = Icon("lattice/history.svg");
+    /// The History tool panel's tab: Lucide's `history`, as the Tauri app's
+    /// panel icons are (`trellis-icons.tsx`), copied unmodified (ISC,
+    /// `assets/LICENSE-LUCIDE`); GPUI Kit's Lucide set has no `history`.
+    pub const TOOL_HISTORY: Icon = Icon("lattice/tool-history.svg");
     /// Settings' sections (Phosphor Fill, as the app's product icons rest):
     /// Appearance's faders, Editor & builds' clipboard, TeX doctor's sparkle.
     pub const FADERS: Icon = Icon("lattice/faders.svg");
@@ -257,6 +276,8 @@ const BUNDLED: &[(&str, &[u8])] = bundled![
     "ellipsis.svg",
     "git.svg",
     "history.svg",
+    // Lucide's `history` (LICENSE-LUCIDE), which GPUI Kit's set lacks.
+    "tool-history.svg",
     "faders.svg",
     "clipboard-text.svg",
     "sparkle.svg",

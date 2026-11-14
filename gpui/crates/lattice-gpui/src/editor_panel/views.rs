@@ -1,15 +1,19 @@
-//! An HTML or `.bib` file's three views, as the Tauri app's file panel has
-//! them (`src/app/document-view-modes.ts`, `trellis-header-tools.tsx`): Edit
-//! (the source), Split (the source beside its preview) and Preview (the
-//! page, or the bibliography's references, alone). Each HTML file keeps the
-//! view it was last shown in, Preview until one is chosen; every `.bib` file
-//! opens in the view a bibliography was last shown in, Edit at first
+//! An HTML, Markdown or `.bib` file's three views, as the Tauri app's file
+//! panel has them (`src/app/document-view-modes.ts`,
+//! `trellis-header-tools.tsx`): Edit (the source), Split (the source beside
+//! its preview) and Preview (the preview alone). Each HTML file keeps the
+//! view it was last shown in, Preview until one is chosen; Markdown files
+//! share one, Split until one is chosen (`documentModeRef`); every `.bib`
+//! file opens in the view a bibliography was last shown in, Edit at first
 //! (`bib_view.rs`). The switch rides in the panel's strip, and its ⋯ menu
 //! repeats it.
 //!
-//! An HTML file's preview is a webview island (`html_preview.rs`), made the first time
-//! a view needs it and shown only while its panel is the displayed tab and
-//! the view includes it: an island's page does not hide by not being drawn.
+//! An HTML file's preview is its page (`html_preview.rs`); a Markdown file's
+//! is its visual editor (`markdown_view.rs`), as Markdown's Preview is in the
+//! Tauri app. Each is a webview island, made the first time a view needs it
+//! and shown only while its panel is the displayed tab and the view includes
+//! it: an island's page does not hide by not being drawn. A bibliography's
+//! is its reference list, which `bib_view.rs` owns.
 
 use std::{collections::HashMap, path::PathBuf};
 
@@ -21,7 +25,10 @@ use gpui::{
 use lattice_ui::{ActiveLattice as _, Icon, components::Segmented};
 
 use super::EditorPanel;
-use crate::html_preview::{self, HtmlPreview, HtmlPreviewEvent};
+use crate::{
+    html_preview::{self, HtmlPreview, HtmlPreviewEvent},
+    structured::StructuredDocument,
+};
 
 /// The views of a readable document (`DocumentViewMode`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -61,11 +68,17 @@ impl DocumentView {
 }
 
 /// Whether `path` is a document with views here: an HTML file
-/// (`isHtmlFilePath`) or a bibliography (`isBibFilePath`).
+/// (`isHtmlFilePath`), a Markdown file (`panelViewMode`'s `.md`) or a
+/// bibliography (`isBibFilePath`).
 pub fn has_views(path: &std::path::Path) -> bool {
-    path.extension().is_some_and(|extension| {
-        extension.eq_ignore_ascii_case("html") || extension.eq_ignore_ascii_case("bib")
-    })
+    is_html(path)
+        || lattice_editor::markdown::is_markdown(path)
+        || super::bib_view::is_bib_path(path)
+}
+
+fn is_html(path: &std::path::Path) -> bool {
+    path.extension()
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("html"))
 }
 
 /// The view each HTML file was last shown in, this session.
@@ -74,10 +87,61 @@ struct RememberedViews(HashMap<PathBuf, DocumentView>);
 
 impl gpui::Global for RememberedViews {}
 
+/// The view Markdown files were last shown in, this session: one for all of
+/// them, Split until one is chosen (`documentModeRef`).
+struct MarkdownView(DocumentView);
+
+impl gpui::Global for MarkdownView {}
+
 fn remembered(path: &std::path::Path, cx: &App) -> DocumentView {
+    if super::bib_view::is_bib_path(path) {
+        return super::bib_view::remembered_bib_view(cx);
+    }
+    if !is_html(path) {
+        return cx
+            .try_global::<MarkdownView>()
+            .map_or(DocumentView::Split, |view| view.0);
+    }
     cx.try_global::<RememberedViews>()
         .and_then(|views| views.0.get(path).copied())
         .unwrap_or(DocumentView::Preview)
+}
+
+fn remember(path: &std::path::Path, view: DocumentView, cx: &mut App) {
+    if super::bib_view::is_bib_path(path) {
+        super::bib_view::remember_bib_view(view, cx);
+    } else if is_html(path) {
+        cx.default_global::<RememberedViews>()
+            .0
+            .insert(path.to_path_buf(), view);
+    } else {
+        cx.set_global(MarkdownView(view));
+    }
+}
+
+/// What a document's Split and Preview show.
+#[derive(Clone)]
+pub enum Preview {
+    /// An HTML file's page.
+    Html(Entity<HtmlPreview>),
+    /// A Markdown file's visual editor.
+    Markdown(Entity<StructuredDocument>),
+}
+
+impl Preview {
+    fn element(&self) -> AnyElement {
+        match self {
+            Preview::Html(preview) => preview.clone().into_any_element(),
+            Preview::Markdown(document) => document.clone().into_any_element(),
+        }
+    }
+
+    pub fn focus_handle(&self, cx: &App) -> Option<gpui::FocusHandle> {
+        match self {
+            Preview::Html(preview) => Some(preview.read(cx).island().focus_handle(cx)),
+            Preview::Markdown(document) => document.read(cx).focus_handle(cx),
+        }
+    }
 }
 
 /// The split's share for the source, as the Tauri app keeps one for every
@@ -122,7 +186,7 @@ impl gpui::Render for SplitDrag {
 
 pub(super) struct DocumentViews {
     view: DocumentView,
-    preview: Option<Entity<HtmlPreview>>,
+    preview: Option<Preview>,
     /// The panel is its group's displayed tab.
     shown: bool,
     /// The split's width as last laid out, for a drag of its divider.
@@ -134,11 +198,7 @@ pub(super) struct DocumentViews {
 impl DocumentViews {
     pub fn new(path: &std::path::Path, cx: &App) -> Self {
         Self {
-            view: if super::bib_view::is_bib_path(path) {
-                super::bib_view::remembered_bib_view(cx)
-            } else {
-                remembered(path, cx)
-            },
+            view: remembered(path, cx),
             preview: None,
             shown: false,
             width: Default::default(),
@@ -151,13 +211,13 @@ impl DocumentViews {
         self.view
     }
 
-    pub fn preview(&self) -> Option<&Entity<HtmlPreview>> {
+    pub fn preview(&self) -> Option<&Preview> {
         self.preview.as_ref()
     }
 }
 
 impl EditorPanel {
-    /// The HTML file's preview, made the first time a view shows it.
+    /// The document's preview, made the first time a view shows it.
     pub(super) fn ensure_preview(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(views) = &self.views else {
             return;
@@ -166,6 +226,21 @@ impl EditorPanel {
         if self.is_bib() || views.preview.is_some() || !views.view.previews() {
             return;
         }
+        let preview = if is_html(&self.path) {
+            Preview::Html(self.new_html_preview(window, cx))
+        } else {
+            Preview::Markdown(self.new_markdown_document(window, cx))
+        };
+        if let Some(views) = &mut self.views {
+            views.preview = Some(preview);
+        }
+    }
+
+    fn new_html_preview(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Entity<HtmlPreview> {
         let root = self.project_root(cx);
         let relative = self.relative.clone();
         let source = self.buffer.read(cx).text();
@@ -182,9 +257,7 @@ impl EditorPanel {
         ));
         // The first text, at once: the page has nothing to wait for.
         preview.update(cx, |preview, cx| preview.publish_now(cx));
-        if let Some(views) = &mut self.views {
-            views.preview = Some(preview);
-        }
+        preview
     }
 
     /// Show the island while the panel is shown and the view includes it.
@@ -194,8 +267,16 @@ impl EditorPanel {
             return;
         };
         let active = views.shown && views.view.previews();
-        if let Some(preview) = views.preview.clone() {
-            preview.update(cx, |preview, cx| preview.set_active(active, cx));
+        let split = views.view == DocumentView::Split;
+        match views.preview.clone() {
+            Some(Preview::Html(preview)) => {
+                preview.update(cx, |preview, cx| preview.set_active(active, cx))
+            }
+            Some(Preview::Markdown(document)) => document.update(cx, |document, cx| {
+                document.set_split(split, cx);
+                document.set_shown(active, cx);
+            }),
+            None => {}
         }
     }
 
@@ -207,13 +288,24 @@ impl EditorPanel {
         }
     }
 
-    /// The view the HTML file is shown in, for the scripted checks and the menu.
+    /// The view the document is shown in, for the scripted checks and the menu.
     pub fn document_view(&self) -> Option<DocumentView> {
         self.views.as_ref().map(|views| views.view)
     }
 
     pub fn html_preview(&self) -> Option<&Entity<HtmlPreview>> {
-        self.views.as_ref().and_then(|views| views.preview.as_ref())
+        match self.views.as_ref()?.preview.as_ref()? {
+            Preview::Html(preview) => Some(preview),
+            Preview::Markdown(_) => None,
+        }
+    }
+
+    /// A Markdown file's visual editor, once a view has shown it.
+    pub fn markdown_document(&self) -> Option<&Entity<StructuredDocument>> {
+        match self.views.as_ref()?.preview.as_ref()? {
+            Preview::Markdown(document) => Some(document),
+            Preview::Html(_) => None,
+        }
     }
 
     /// Show the file in `view`, and remember it for the file.
@@ -230,13 +322,7 @@ impl EditorPanel {
             return;
         }
         views.view = view;
-        if self.is_bib() {
-            super::bib_view::remember_bib_view(view, cx);
-        } else {
-            cx.default_global::<RememberedViews>()
-                .0
-                .insert(self.path.clone(), view);
-        }
+        remember(&self.path, view, cx);
         self.sync_preview(window, cx);
         // Writing goes on in the source when it comes back.
         if view != DocumentView::Preview {
@@ -249,15 +335,22 @@ impl EditorPanel {
 
     /// The editor's text changed: the preview follows once typing settles.
     pub(super) fn views_source_changed(&mut self, cx: &mut Context<Self>) {
-        if let Some(preview) = self.views.as_ref().and_then(|views| views.preview.clone()) {
-            let text = self.buffer.read(cx).text();
-            preview.update(cx, |preview, cx| preview.set_source(text, cx));
+        let text = self.buffer.read(cx).text();
+        match self.views.as_ref().and_then(|views| views.preview.clone()) {
+            Some(Preview::Html(preview)) => {
+                preview.update(cx, |preview, cx| preview.set_source(text, cx))
+            }
+            Some(Preview::Markdown(document)) => {
+                document.update(cx, |document, cx| document.set_source(text, cx))
+            }
+            None => {}
         }
     }
 
     /// Files changed in the project: the preview loads its images again.
     pub(super) fn views_assets_changed(&mut self, cx: &mut Context<Self>) {
-        if let Some(preview) = self.views.as_ref().and_then(|views| views.preview.clone()) {
+        // A Markdown file's visual editor follows the project itself.
+        if let Some(preview) = self.html_preview().cloned() {
             preview.update(cx, |preview, cx| preview.assets_changed(cx));
         }
     }
@@ -272,7 +365,13 @@ impl EditorPanel {
         cx: &mut Context<Self>,
     ) -> Option<AnyElement> {
         let current = self.views.as_ref()?.view;
-        let mut switch = Segmented::new("document-view").parity("html/views");
+        let mut switch = Segmented::new("document-view").parity(if is_html(&self.path) {
+            "html/views"
+        } else if self.is_bib() {
+            "bib/views"
+        } else {
+            "markdown/views"
+        });
         for view in DocumentView::ALL {
             let this = cx.entity().downgrade();
             switch = switch.icon_choice(
@@ -319,12 +418,7 @@ impl EditorPanel {
         let Some(views) = self.views.as_ref() else {
             return source.size_full().into_any_element();
         };
-        let preview = bib.or_else(|| {
-            views
-                .preview
-                .clone()
-                .map(|preview| preview.into_any_element())
-        });
+        let preview = bib.or_else(|| views.preview.as_ref().map(Preview::element));
         match (views.view, preview) {
             (DocumentView::Source, _) | (_, None) => source.size_full().into_any_element(),
             (DocumentView::Preview, Some(preview)) => {
@@ -460,8 +554,9 @@ mod tests {
     }
 
     #[test]
-    fn html_and_bib_files_have_views() {
+    fn html_markdown_and_bib_files_have_views() {
         assert!(has_views(std::path::Path::new("a/b/page.HTML")));
+        assert!(has_views(std::path::Path::new("notes/README.md")));
         assert!(has_views(std::path::Path::new("references.bib")));
         assert!(!has_views(std::path::Path::new("main.tex")));
     }

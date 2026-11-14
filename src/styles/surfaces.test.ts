@@ -269,8 +269,8 @@ describe("shared surface contracts", () => {
     expectRules(menuSurface, ["[box-shadow:var(--elevation-popover)]"], [" border border-border ", /smooth-shadow/])
     // The project menu does not hardcode the popover surface colour either.
     expect(read("src/project/project-dialogs.tsx")).not.toMatch(/bg-\[#F9F9FA\]|dark:bg-popover/)
-    // Menu viewports inherit the app scrollbar.
-    expect(menuSurface).not.toContain("scrollbar-width:none")
+    // Menus and selects scroll under the ScrollArea's bar, not a native one
+    // (rendered in menu-viewport.test.tsx and chrome-primitives.test.tsx).
     expect(surfacesCss).not.toContain('[data-slot="dropdown-menu-content"]::-webkit-scrollbar')
   })
 
