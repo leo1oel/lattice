@@ -135,6 +135,36 @@ impl Run {
         .map_err(anyhow::Error::msg)?;
         cx.update(|cx| project.update(cx, |project, cx| project.reload_manifest(cx)));
 
+        // Not a Mac, or no working LuaLaTeX: no rtex, no pill, and builds go
+        // on as usual.
+        self.wait_for(cx, Duration::from_secs(30), |_, cx| {
+            let preview = preview.read(cx);
+            *preview.state() == State::Unavailable
+                || preview
+                    .install_status()
+                    .is_some_and(|install| install.supported() && install.lualatex())
+        })
+        .await;
+        if cx.update(|cx| *preview.read(cx).state() == State::Unavailable) {
+            let install = cx.update(|cx| {
+                preview
+                    .read(cx)
+                    .install_status()
+                    .map(|install| (install.supported(), install.lualatex()))
+            });
+            let (built, took) = self.build(cx).await?;
+            let quiet = cx.update(|cx| {
+                *preview.read(cx).state() == State::Unavailable
+                    && status::status(preview.read(cx)).is_none()
+            });
+            steps.check(
+                "where rtex cannot run, a LuaLaTeX project shows no live preview pill and builds as usual",
+                quiet && built && install.is_some_and(|(supported, lualatex)| !supported || !lualatex),
+                json!({ "install": format!("{install:?}"), "seconds": took.as_secs_f32() }),
+            );
+            return self.restore_engine(cx, &project, root, &engine).await;
+        }
+
         // The download, the start and the first layout, each said by the pill.
         let mut seen: Vec<String> = Vec::new();
         let mut pills: Vec<String> = Vec::new();

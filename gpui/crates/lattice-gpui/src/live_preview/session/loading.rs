@@ -40,6 +40,7 @@ impl Session {
             .extend(images.iter().map(|(file, _)| file.clone()));
         let root = self.root.clone();
         let engine = self.engine.clone();
+        let id = self.id;
         cx.spawn(async move |this, cx| {
             let loaded_fonts = cx
                 .background_spawn(async move {
@@ -75,7 +76,7 @@ impl Session {
                 loaded_images.push((file, image));
             }
             this.update(cx, |this, cx| {
-                let Some(session) = this.session_mut() else {
+                let Some(session) = this.session_with(id) else {
                     return;
                 };
                 for (key, font) in loaded_fonts {
@@ -103,6 +104,7 @@ impl Session {
             return;
         };
         let build_dir = self.build_dir.clone();
+        let id = self.id;
         cx.spawn(async move |this, cx| {
             let bytes = cx
                 .background_spawn(async move { live_preview::read_fallback_pdf(&build_dir, &file) })
@@ -114,7 +116,7 @@ impl Session {
                 return;
             };
             this.update(cx, |this, cx| {
-                let Some(session) = this.session_mut() else {
+                let Some(session) = this.session_with(id) else {
                     engine.close(doc);
                     return;
                 };

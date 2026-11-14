@@ -160,6 +160,11 @@ impl LivePreview {
         self.session.as_mut()
     }
 
+    /// The session `id`, if it still runs.
+    fn session_with(&mut self, id: u64) -> Option<&mut Session> {
+        self.session.as_mut().filter(|session| session.id == id)
+    }
+
     /// The live paragraphs painted over the base PDF now.
     pub fn overlays(&self) -> usize {
         self.session
@@ -436,6 +441,7 @@ impl LivePreview {
         };
         let reads = session.files_to_read(paths);
         let root = session.root.clone();
+        let id = session.id;
         for (path, generation) in reads {
             let file = root.join(&path);
             cx.spawn(async move |this, cx| {
@@ -448,7 +454,7 @@ impl LivePreview {
                     return;
                 };
                 this.update(cx, |this, cx| {
-                    if let Some(session) = this.session.as_mut() {
+                    if let Some(session) = this.session_with(id) {
                         session.file_read(&path, generation, &text);
                     }
                     this.flush(cx);

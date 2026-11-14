@@ -17,7 +17,10 @@
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     path::PathBuf,
-    sync::{Arc, Mutex},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicU64, Ordering},
+    },
 };
 
 use futures::{StreamExt as _, channel::mpsc};
@@ -90,6 +93,7 @@ struct Awaiting {
 }
 
 pub struct Session {
+    pub(super) id: u64,
     pub(super) root: PathBuf,
     rtex: Arc<Mutex<live_preview::Session>>,
     build_dir: PathBuf,
@@ -138,6 +142,8 @@ pub struct Session {
     images_loading: HashSet<String>,
     _events: Task<()>,
 }
+
+static NEXT_ID: AtomicU64 = AtomicU64::new(0);
 
 /// The files rtex reads as source: the document's .tex files.
 pub fn is_tex(path: &str) -> bool {
@@ -190,9 +196,10 @@ impl Session {
                     }
                 }
             });
-            let reads: Vec<(String, u64)> = this
+            let (id, reads) = this
                 .update(cx, |this, cx| {
                     let mut session = Session {
+                        id: NEXT_ID.fetch_add(1, Ordering::Relaxed),
                         root: root.clone(),
                         rtex,
                         build_dir,
@@ -228,7 +235,8 @@ impl Session {
                     // First in the queue, ahead of any edit: the revision rtex
                     // loaded the files at, which the base PDF was built from.
                     session.enqueue(vec![Command::Status]);
-                    let reads = tex_files
+                    let id = session.id;
+                    let reads: Vec<(String, u64)> = tex_files
                         .into_iter()
                         .filter(|path| is_tex(path))
                         .map(|path| {
@@ -238,7 +246,7 @@ impl Session {
                         })
                         .collect();
                     this.session_started(session, cx);
-                    reads
+                    (id, reads)
                 })
                 .map_err(|_| "The window closed.".to_string())?;
             this.update(cx, |this, cx| this.flush(cx)).ok();
@@ -251,7 +259,7 @@ impl Session {
                     .await;
                 let Some(text) = text else { continue };
                 this.update(cx, |this, _| {
-                    if let Some(session) = this.session_mut()
+                    if let Some(session) = this.session_with(id)
                         && session.file_generation.get(&path).copied().unwrap_or(0) == generation
                     {
                         session.sync.seed(&path, text);
@@ -742,6 +750,7 @@ impl LivePreview {
             return;
         };
         let rtex = session.rtex().clone();
+        let id = session.id;
         cx.spawn(async move |this, cx| {
             let written = cx
                 .background_spawn(async move {
@@ -755,7 +764,7 @@ impl LivePreview {
                 })
                 .await;
             this.update(cx, |this, cx| {
-                if let Some(session) = this.session_mut() {
+                if let Some(session) = this.session_with(id) {
                     session.batch_written(written, cx);
                 }
                 this.flush(cx);
