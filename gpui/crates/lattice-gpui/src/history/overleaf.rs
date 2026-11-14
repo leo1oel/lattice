@@ -93,6 +93,13 @@ pub fn range(update: &OverleafUpdate, newest: Option<i64>, compare: bool) -> (i6
     }
 }
 
+/// The key an opened update's files are read under; none when its range
+/// holds no change to read.
+pub fn files_key(update: &OverleafUpdate, newest: Option<i64>, compare: bool) -> Option<String> {
+    let (from, to) = range(update, newest, compare);
+    (from < to).then(|| format!("{from}:{to}"))
+}
+
 pub fn overleaf_key(to_version: i64) -> String {
     format!("overleaf:{to_version}")
 }
@@ -234,11 +241,37 @@ impl HistoryPanel {
                     }
                     Err(error) => history.error = Some(error),
                 }
+                if first && let Some((to_version, compare)) = this.opened_range_moved() {
+                    this.open_overleaf(to_version, compare, cx);
+                }
                 cx.notify();
             })
             .ok();
         })
         .detach();
+    }
+
+    /// The opened update, when the range its files were read over is no
+    /// longer the one the list now gives it.
+    fn opened_range_moved(&self) -> Option<(i64, bool)> {
+        let opened = self.overleaf.opened.as_ref()?;
+        let update = self.opened_update(opened.to_version)?;
+        let key = files_key(update, self.overleaf_newest(), opened.compare);
+        (key != opened.files.key).then_some((opened.to_version, opened.compare))
+    }
+
+    fn opened_update(&self, to_version: i64) -> Option<&OverleafUpdate> {
+        self.overleaf
+            .updates
+            .iter()
+            .find(|update| update.to_version == to_version)
+    }
+
+    fn overleaf_newest(&self) -> Option<i64> {
+        self.overleaf
+            .updates
+            .first()
+            .map(|update| update.to_version)
     }
 
     /// Open the update `to_version` (compared with now when `compare`) and
@@ -251,37 +284,30 @@ impl HistoryPanel {
             diff: Latest::default(),
             label: None,
         });
-        let Some(update) = self
-            .overleaf
-            .updates
-            .iter()
-            .find(|update| update.to_version == to_version)
-        else {
+        let Some(update) = self.opened_update(to_version) else {
             return;
         };
-        let newest = self
-            .overleaf
-            .updates
-            .first()
-            .map(|update| update.to_version);
-        let (from, to) = range(update, newest, compare);
+        let (from, to) = range(update, self.overleaf_newest(), compare);
+        let Some(key) = files_key(update, self.overleaf_newest(), compare) else {
+            return;
+        };
         let Some(root) = self.root.clone() else {
             return;
         };
-        if from >= to {
-            return;
-        }
         let Some(opened) = self.overleaf.opened.as_mut() else {
             return;
         };
-        let generation = opened.files.start(format!("{from}:{to}"));
+        let generation = opened.files.start(key);
         let read = cx.background_executor().spawn(async move {
             lattice_core::overleaf::history_files(&config_dir(), &root, from, to)
                 .map(|body| changed_files(&body))
         });
         cx.spawn(async move |this, cx| {
             let read = read.await;
-            let (read, _) = crate::overleaf::settled(read);
+            let (read, expired) = crate::overleaf::settled(read);
+            if expired {
+                cx.update(crate::overleaf::session_changed);
+            }
             this.update(cx, |this, cx| {
                 if let Some(opened) = this.overleaf.opened.as_mut()
                     && opened.files.settle(generation, read)
@@ -300,11 +326,7 @@ impl HistoryPanel {
         let Some(root) = self.root.clone() else {
             return;
         };
-        let newest = self
-            .overleaf
-            .updates
-            .first()
-            .map(|update| update.to_version);
+        let newest = self.overleaf_newest();
         let Some(opened) = self.overleaf.opened.as_mut() else {
             return;
         };
@@ -330,7 +352,10 @@ impl HistoryPanel {
         });
         cx.spawn(async move |this, cx| {
             let read = read.await;
-            let (read, _) = crate::overleaf::settled(read);
+            let (read, expired) = crate::overleaf::settled(read);
+            if expired {
+                cx.update(crate::overleaf::session_changed);
+            }
             this.update(cx, |this, cx| {
                 let diff = read.map(|body| match texts_from_chunks(&body) {
                     Some((before, after)) => OverleafDiff {
@@ -685,5 +710,14 @@ mod tests {
         assert_eq!(range(&update, Some(20), true), (12, 20));
         // The newest itself, compared with now, has nothing between.
         assert_eq!(range(&update, Some(12), true), (12, 12));
+        assert_eq!(files_key(&update, Some(12), true), None);
+        // A newer version moves the compared range, and so the key its
+        // files are read under; its own changes stay put.
+        assert_eq!(files_key(&update, Some(20), true).as_deref(), Some("12:20"));
+        assert_eq!(files_key(&update, Some(21), true).as_deref(), Some("12:21"));
+        assert_eq!(
+            files_key(&update, Some(21), false).as_deref(),
+            Some("10:12")
+        );
     }
 }

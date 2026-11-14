@@ -422,8 +422,6 @@ pub(super) fn peer_left(live: &mut Live) {
     }
 }
 
-/// The scripted collaborator types `ops` into `path`, against its current
-/// version; None when they do not fit.
 /// Overleaf's document updater rewrites `path` to `text` in place (a
 /// restore from history): the whole text replaced, sent on the document's
 /// channel to everyone, as any update is.
@@ -465,6 +463,8 @@ pub(super) fn server_rewrote(
     broadcast(live, None, &event("otUpdateApplied", update));
 }
 
+/// The scripted collaborator types `ops` into `path`, against its current
+/// version; None when they do not fit.
 pub(super) fn peer_typed(
     files: &mut BTreeMap<String, Vec<u8>>,
     live: &mut Live,
