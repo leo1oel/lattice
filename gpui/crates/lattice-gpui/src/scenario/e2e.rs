@@ -15,6 +15,7 @@ mod agent;
 #[cfg(target_os = "macos")]
 mod agent_documents;
 mod assets;
+mod bib;
 mod build_flow;
 mod design_calls;
 mod documents;
@@ -38,6 +39,7 @@ mod markdown_scroll;
 mod narrow_window;
 #[cfg(target_os = "macos")]
 mod overleaf;
+mod papers;
 mod pdf;
 mod saves;
 mod settings;
@@ -391,6 +393,16 @@ impl Run {
             self.overleaf(cx, &mut steps, &root)
                 .await
                 .context("overleaf")?;
+        }
+        if steps::selected("papers") {
+            self.papers_panel(cx, &mut steps, &root)
+                .await
+                .context("papers_panel")?;
+        }
+        if steps::selected("bib") {
+            self.bib_visual_editor(cx, &mut steps, &root)
+                .await
+                .context("bib_visual_editor")?;
         }
         if steps::selected("settings") {
             self.standalone_setup(cx, &root).await?;

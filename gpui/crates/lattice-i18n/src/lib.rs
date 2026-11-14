@@ -31,7 +31,9 @@ use std::{
     },
 };
 
-pub use format::{comma, format_count, join_list, join_phrases, space_mixed_script};
+pub use format::{
+    comma, format_count, join_conjunction, join_list, join_phrases, space_mixed_script,
+};
 
 /// The Tauri app's catalog, shared word for word.
 pub const APP_CATALOG: &str = include_str!("../../../../src/locales/zh-CN/messages.po");

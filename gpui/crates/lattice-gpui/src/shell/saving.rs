@@ -13,11 +13,18 @@ impl Shell {
     /// closes once they are, staying open (with the save's notice) when one
     /// could not be.
     pub(super) fn should_close(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        if self.overlay_writing(cx) {
+            return false;
+        }
         let Some(saved) = self.save_before_leaving(cx) else {
             return true;
         };
-        cx.spawn_in(window, async move |_, cx| {
-            if saved.await {
+        cx.spawn_in(window, async move |this, cx| {
+            if saved.await
+                && !this
+                    .read_with(cx, |this, cx| this.overlay_writing(cx))
+                    .unwrap_or(false)
+            {
                 cx.update(|window, _| window.remove_window()).ok();
             }
         })
@@ -69,6 +76,24 @@ impl Shell {
             .into_iter()
             .map(|editor| editor.update(cx, |editor, cx| editor.save(cx)))
             .collect()
+    }
+
+    /// Save what the editors hold, answering whether every write landed.
+    pub(super) fn save_editors(&mut self, cx: &mut Context<Self>) -> Task<bool> {
+        let saves = Self::save_dirty(&self.open_editors(), cx);
+        cx.spawn(async move |_, _| {
+            for save in saves {
+                match save.await {
+                    Ok(true) => {}
+                    Ok(false) => return false,
+                    Err(error) => {
+                        log::error!("{error:#}");
+                        return false;
+                    }
+                }
+            }
+            true
+        })
     }
 
     pub(super) fn save_in_background(&mut self, cx: &mut Context<Self>) {

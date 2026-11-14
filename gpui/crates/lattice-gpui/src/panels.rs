@@ -19,8 +19,8 @@ use crate::{
     editor_panel::EditorPanel,
     empty_slot::EmptySlotPanel,
     file_tree::FileTreePanel,
+    papers::PapersPanel,
     pdf::{PdfPanel, PdfPanelKind},
-    stand_in_panels::StandInPanel,
 };
 
 pub fn present_tabs(cx: &mut App) {
@@ -53,11 +53,10 @@ pub fn present_tabs(cx: &mut App) {
                 frosted: true,
                 ..look(Icon::FOLDER_TREE, Surface::Chrome)
             }
-        } else if let Ok(stand_in) = view.clone().downcast::<StandInPanel>() {
-            let kind = stand_in.read(cx).kind();
+        } else if view.clone().downcast::<PapersPanel>().is_ok() {
             TabLook {
-                frosted: kind == crate::stand_in_panels::StandIn::Papers,
-                ..look(kind.icon(), Surface::Chrome)
+                frosted: true,
+                ..look(Icon::LIBRARY, Surface::Chrome)
             }
         } else if let Ok(synara) = view.clone().downcast::<crate::agent::SynaraPanel>() {
             // The Agent stays on its opaque sidebar; the Git workspace is a

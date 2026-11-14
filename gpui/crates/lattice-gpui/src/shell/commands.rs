@@ -16,6 +16,7 @@ use super::trellis_layout::Preset;
 mod appearance;
 mod key_labels;
 mod keymap;
+mod presets;
 mod projects;
 mod section;
 mod submission;
@@ -76,6 +77,7 @@ actions!(
         RevertWorkspace,
         WritingPreset,
         ReadingPreset,
+        BibliographyPreset,
         ReturnToWorkspace,
         SwitchWorkspace1,
         SwitchWorkspace2,
@@ -409,28 +411,7 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
                 RevertWorkspace,
             ));
         }
-        for preset in Preset::ALL {
-            let on = context.preset == Some(preset);
-            let (id, action): (&str, Box<dyn Action>) = match (preset, on) {
-                (_, true) => ("preset-return", Box::new(ReturnToWorkspace)),
-                (Preset::Writing, false) => ("preset-writing", Box::new(WritingPreset)),
-                (Preset::Reading, false) => ("preset-reading", Box::new(ReadingPreset)),
-            };
-            out.push(Command {
-                id: id.into(),
-                label: match (preset, on) {
-                    (Preset::Writing, true) => t!("Leave the Writing layout"),
-                    (Preset::Reading, true) => t!("Leave the Reading layout"),
-                    (Preset::Writing, false) => t!("Writing layout"),
-                    (Preset::Reading, false) => t!("Reading layout"),
-                }
-                .into(),
-                section: Section::Layout,
-                action,
-                palette: true,
-                keywords: "preset",
-            });
-        }
+        presets::preset_commands(context, &mut out);
         for (id, label, action) in [
             (
                 "panel-project",

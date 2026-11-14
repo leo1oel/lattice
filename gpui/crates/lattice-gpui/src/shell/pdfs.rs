@@ -242,6 +242,7 @@ impl Shell {
         if self.root_pdfs.len() != roots {
             self.label_pdfs(cx);
         }
+        self.forget_closed_readers();
     }
 
     /// A tab for `document`'s last PDF, where the live tab stands (else
@@ -304,7 +305,7 @@ impl Shell {
     }
 
     /// Whether a view is the one shown in its panel.
-    fn in_front(&self, view: &str, cx: &gpui::App) -> bool {
+    pub(super) fn in_front(&self, view: &str, cx: &gpui::App) -> bool {
         self.workspace
             .read(cx)
             .engine()
@@ -316,6 +317,7 @@ impl Shell {
     pub(super) fn close_root_pdfs(&mut self, _: &mut Window, _: &mut Context<Self>) {
         self.root_pdfs.clear();
         self.file_pdfs.clear();
+        self.documents.readers.clear();
     }
 
     /// A PDF of the project, opened from the tree: a tab of its own among

@@ -184,6 +184,7 @@ pub struct Drawer {
     width: Pixels,
     children: Vec<AnyElement>,
     on_close: Option<CloseHandler>,
+    scroll: Option<gpui::ScrollHandle>,
 }
 
 impl Drawer {
@@ -194,7 +195,14 @@ impl Drawer {
             width: DRAWER_WIDTH,
             children: Vec::new(),
             on_close: None,
+            scroll: None,
         }
+    }
+
+    /// The handle the drawer's body scrolls by, for its owner to move it.
+    pub fn track_scroll(mut self, scroll: &gpui::ScrollHandle) -> Self {
+        self.scroll = Some(scroll.clone());
+        self
     }
 
     /// The drawer's width, never under 320px.
@@ -238,6 +246,7 @@ impl RenderOnce for Drawer {
                     .flex_1()
                     .min_h_0()
                     .overflow_y_scroll()
+                    .when_some(self.scroll, |body, scroll| body.track_scroll(&scroll))
                     .flex()
                     .flex_col()
                     .gap(px(10.))

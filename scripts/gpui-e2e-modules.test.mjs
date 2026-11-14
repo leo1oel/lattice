@@ -15,6 +15,7 @@ describe("modulesFor", () => {
 
   it("picks modules from the app source they exercise", () => {
     expect(modulesFor(["gpui/crates/lattice-gpui/src/file_tree/naming.rs", "gpui/crates/lattice-gpui/src/submission.rs"]).modules).toEqual(["submission", "submission_checklist", "tree"]);
+    expect(modulesFor(["gpui/crates/lattice-gpui/src/editor_panel/bib_view.rs"]).modules).toEqual(["bib"]);
   });
 
   it("picks the dock steps from the layout code", () => {
