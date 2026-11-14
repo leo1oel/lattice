@@ -155,6 +155,13 @@ impl LogsPane {
         self.export.as_ref().map(|(dialog, _)| dialog)
     }
 
+    /// How far the log's view sits above its bottom, and how far it can
+    /// scroll at all, as of the last frame (the e2e check of `follow`).
+    pub fn scroll_extent(&self) -> (gpui::Pixels, gpui::Pixels) {
+        let max = self.scroll.max_offset().y;
+        (max + self.scroll.offset().y, max)
+    }
+
     fn open_folder(&self, cx: &mut App) {
         if let Some(folder) = self.log.read(cx).log_folder() {
             std::fs::create_dir_all(&folder).ok();

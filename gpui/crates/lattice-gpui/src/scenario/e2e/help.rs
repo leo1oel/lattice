@@ -85,6 +85,8 @@ impl Run {
         self.logs_page(cx, steps).await?;
         self.report_saved(cx, steps).await?;
         self.whats_new(cx, steps).await?;
+        self.queued_build_logged(cx, steps).await?;
+        self.logs_follow_at_cap(cx, steps).await?;
         cx.update(|cx| app_log::global(cx).update(cx, |log, cx| log.clear(cx)));
         let cleared = cx.update(|cx| app_log::global(cx).read(cx).entries().is_empty());
         steps.check(
@@ -216,6 +218,151 @@ impl Run {
         );
         if let Ok(saved) = saved {
             std::fs::remove_file(saved.path).ok();
+        }
+        Ok(())
+    }
+
+    /// Two builds asked for at once: the second waits behind the first, and
+    /// its operation opens with the trigger "queued" (the Tauri pipeline's
+    /// `logAction(t`Build`, t`Build`, t`queued`)`), while the first, which
+    /// waited for nothing, carries no trigger.
+    async fn queued_build_logged(&self, cx: &mut AsyncApp, steps: &mut Steps) -> Result<()> {
+        // A build an earlier step left running would make both asks wait
+        // behind it, as one queued pass: start from no build.
+        let idle = self
+            .wait_for(cx, Duration::from_secs(180), |shell, cx| !shell.read(cx).building())
+            .await;
+        let before = self.builds(cx);
+        // The log may be full (300) by now, so new entries are those above
+        // the newest one before, not a count's growth.
+        let previous = cx.update(|cx| {
+            app_log::global(cx).read(cx).entries().first().map(|entry| entry.id.clone())
+        });
+        self.with_window(cx, |shell, window, cx| {
+            shell.update(cx, |shell, cx| {
+                shell.build(&crate::shell::Build, window, cx);
+                shell.build(&crate::shell::Build, window, cx);
+            })
+        })?;
+        let built = self.built_after(cx, before + 1).await;
+        let queued = lattice_i18n::t!("queued").to_string();
+        // Newest first: the queued pass's start, then the first one's.
+        let entries = cx.update(|cx| app_log::global(cx).read(cx).entries().to_vec());
+        let starts: Vec<Option<String>> = entries
+            .iter()
+            .take_while(|entry| Some(&entry.id) != previous.as_ref())
+            .filter_map(|entry| entry.context.as_ref())
+            .filter(|context| context.operation == "Build" && context.phase == "started")
+            .map(|context| context.trigger.clone())
+            .collect();
+        steps.check(
+            "a build asked for while another runs is logged with the trigger \"queued\"; the first carries none",
+            idle && built && starts == [Some(queued.clone()), None],
+            json!({ "idle": idle, "built": built, "starts": starts, "builds": self.builds(cx) - before }),
+        );
+        Ok(())
+    }
+
+    /// Settings › Logs with the log full (300 entries): the reader at the
+    /// bottom keeps seeing the newest entry when new ones push the oldest
+    /// out, though the count stays 300. The oldest ten are one operation (one
+    /// row), so ten notices replacing them grow the list by nine rows.
+    async fn logs_follow_at_cap(&self, cx: &mut AsyncApp, steps: &mut Steps) -> Result<()> {
+        let notice = |title: String| app_log::NewEntry {
+            level: Level::Info,
+            source: "E2E".into(),
+            title,
+            detail: String::new(),
+            context: None,
+        };
+        cx.update(|cx| {
+            app_log::global(cx).update(cx, |log, cx| {
+                log.clear(cx);
+                for step in 0..10 {
+                    let context = app_log::OperationContext {
+                        operation_id: "e2e-oldest-operation".into(),
+                        operation: "Build".into(),
+                        phase: if step == 0 { "started" } else { "progress" }.into(),
+                        ..Default::default()
+                    };
+                    let entry = app_log::NewEntry {
+                        context: Some(context),
+                        ..notice(format!("Oldest step {step}"))
+                    };
+                    log.add(entry, None, false, cx);
+                }
+                for n in 0..290 {
+                    log.add(notice(format!("Filler notice {n}")), None, false, cx);
+                }
+            })
+        });
+        self.with_window(cx, |shell, window, cx| {
+            shell.update(cx, |shell, cx| {
+                shell.open_settings(Some(lattice_settings::SettingsTab::Logs), window, cx)
+            })
+        })?;
+        let pane: Option<Entity<LogsPane>> = cx.update(|cx| {
+            self.shell
+                .read(cx)
+                .settings
+                .as_ref()
+                .map(|settings| settings.read(cx).logs.clone())
+        });
+        let Some(pane) = pane else {
+            steps.check("Settings opens on Logs at the cap", false, json!({}));
+            return Ok(());
+        };
+        self.draw_frames(cx).await?;
+        let first = cx.update(|cx| pane.read(cx).scroll_extent());
+        cx.update(|cx| {
+            app_log::global(cx).update(cx, |log, cx| {
+                for n in 0..10 {
+                    log.add(notice(format!("Newest notice {n}")), None, false, cx);
+                }
+            })
+        });
+        self.draw_frames(cx).await?;
+        let after = cx.update(|cx| pane.read(cx).scroll_extent());
+        let (count, newest_shown) = cx.update(|cx| {
+            let groups = pane.read(cx).visible(cx);
+            let count: usize = groups.iter().map(|group| group.entries.len()).sum();
+            let last = groups.last().map(|group| group.summary.title.clone());
+            (count, last)
+        });
+        let slack = gpui::px(2.);
+        steps.check(
+            "Settings › Logs keeps following the newest entry once the log is full at 300",
+            count == 300
+                && first.1 > gpui::px(0.)
+                && first.0 < slack
+                && after.1 > first.1
+                && after.0 < slack
+                && newest_shown.as_deref() == Some("Newest notice 9"),
+            json!({
+                "count": count,
+                "before": { "fromBottom": f32::from(first.0), "max": f32::from(first.1) },
+                "after": { "fromBottom": f32::from(after.0), "max": f32::from(after.1) },
+                "newestShown": newest_shown,
+            }),
+        );
+        self.with_window(cx, |shell, _, cx| {
+            if let Some(settings) = shell.read(cx).settings.clone() {
+                settings.update(cx, |_, cx| cx.emit(crate::settings::SettingsEvent::Close));
+            }
+        })?;
+        Ok(())
+    }
+
+    /// Draw a few frames: the log's scroll extent is that of the last one,
+    /// and a covered window draws none of its own.
+    async fn draw_frames(&self, cx: &mut AsyncApp) -> Result<()> {
+        for _ in 0..3 {
+            self.with_window(cx, |_, window, _cx| {
+                window.refresh();
+                #[cfg(feature = "offscreen-shots")]
+                let _ = window.draw(_cx);
+            })?;
+            crate::scenario::sleep(cx, Duration::from_millis(80)).await;
         }
         Ok(())
     }
