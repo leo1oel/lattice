@@ -7,6 +7,8 @@
 //! a shell that fails says how it ended, the last one exiting cleanly closes
 //! the panel, and closing the panel ends its shells.
 
+#![cfg(target_os = "macos")]
+
 use std::{path::Path, time::Duration};
 
 use anyhow::Result;

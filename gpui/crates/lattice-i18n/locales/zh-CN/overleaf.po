@@ -1,0 +1,103 @@
+#: lattice-gpui/src/editor_panel/margin_review.rs
+msgid "Comment from {name}"
+msgstr "{name} 的评论"
+
+#: lattice-gpui/src/editor_panel/margin_review.rs
+msgid "Comment from {name}, {count} messages"
+msgstr "{name} 的评论，{count} 条消息"
+
+#: lattice-gpui/src/editor_panel/margin_review.rs
+msgid "Comments and suggestions on the lines you can see. Scroll to see others."
+msgstr "可见行上的评论与修订建议。滚动以查看其他内容。"
+
+#: lattice-gpui/src/shell/overleaf_collab.rs
+msgid "Comments go to Overleaf once this file is open live with it."
+msgstr "此文件与 Overleaf 实时同步后，评论才会发送到 Overleaf。"
+
+#: lattice-gpui/src/overleaf/collab/comments.rs
+msgid "Delete this discussion?"
+msgstr "要删除此讨论吗？"
+
+#: lattice-gpui/src/overleaf/collab/comments.rs
+msgid "Delete this message?"
+msgstr "要删除此消息吗？"
+
+#: lattice-gpui/src/overleaf/collab/comments.rs
+msgid "Every message in the thread will be removed from Overleaf. This cannot be undone."
+msgstr "此讨论中的所有消息都将从 Overleaf 移除。此操作无法撤销。"
+
+#: lattice-gpui/src/history/overleaf.rs
+msgid "Files added since will be deleted, and everything else will be rewound to match. The only way back from here is another restore."
+msgstr "此后新增的文件将被删除，其余内容都会回退到当时的状态。之后只能通过再次恢复来撤回。"
+
+#: lattice-gpui/src/editor_panel/margin_review.rs
+msgid "In view"
+msgstr "可见范围内"
+
+#: lattice-gpui/src/overleaf/collab/comments.rs
+msgid "It's the only one in the thread, so this deletes the whole thread. This cannot be undone."
+msgstr "这是讨论中唯一的消息，因此会删除整个讨论。此操作无法撤销。"
+
+#: lattice-gpui/src/overleaf/collab/comments.rs
+msgid "Its span was deleted from the document."
+msgstr "它所在的文字已从文档中删除。"
+
+#: lattice-gpui/src/history/overleaf_rows.rs
+msgid "Remove the \"{comment}\" label"
+msgstr "移除“{comment}”标签"
+
+#: lattice-gpui/src/history/overleaf.rs
+msgid "Remove the “{comment}” label from this Overleaf version?"
+msgstr "要移除此 Overleaf 版本的“{comment}”标签吗？"
+
+#: lattice-gpui/src/overleaf/collab/comments.rs
+msgid "Resolved by {name}"
+msgstr "由 {name} 标记为已解决"
+
+#: lattice-gpui/src/history/overleaf.rs
+msgid "Restore the whole project to this version on Overleaf?"
+msgstr "要在 Overleaf 上将整个项目恢复到此版本吗？"
+
+#: lattice-gpui/src/overleaf/bridge/documents/reviewing.rs
+msgid "The file is no longer open live with Overleaf. Try again."
+msgstr "此文件已不再与 Overleaf 实时同步。请重试。"
+
+#: lattice-gpui/src/overleaf/bridge/documents/reviewing.rs
+msgid "This suggestion no longer matches the text. Try again in a moment."
+msgstr "此修订建议已与正文不符。请稍后重试。"
+
+#: lattice-gpui/src/overleaf/channel.rs
+msgid "connection closed"
+msgstr "连接已断开"
+
+#: lattice-gpui/src/editor_panel/margin_review.rs
+msgid "{count} comments"
+msgstr "{count} 条评论"
+
+#: lattice-gpui/src/editor_panel/margin_review.rs
+msgid "{count} more replies"
+msgstr "另有 {count} 条回复"
+
+#: lattice-gpui/src/shell/overleaf_presence.rs
+msgid "{count} people on Overleaf now"
+msgstr "{count} 人正在 Overleaf 上"
+
+#: lattice-gpui/src/editor_panel/margin_review.rs
+msgid "{count} suggestions"
+msgstr "{count} 处修订建议"
+
+#: lattice-gpui/src/shell/overleaf_presence.rs
+msgid "{name} at {place}. Click to jump there"
+msgstr "{name} 在 {place}，点击跳转"
+
+#: lattice-gpui/src/editor_panel/margin_review.rs
+msgid "{name} suggests deleting text"
+msgstr "{name} 建议删除文字"
+
+#: lattice-gpui/src/editor_panel/margin_review.rs
+msgid "{name} suggests inserting text"
+msgstr "{name} 建议插入文字"
+
+#: lattice-gpui/src/overleaf/collab/chat.rs
+msgid "{rest} and {last}"
+msgstr "{rest} 和 {last}"

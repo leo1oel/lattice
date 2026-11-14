@@ -634,3 +634,22 @@ impl Run {
         Ok(())
     }
 }
+
+/// This file's registration as the e2e module `build_flow` (`registry.rs`).
+pub(super) const MODULE: super::registry::Module = super::registry::Module {
+    after: super::registry::After::Repair,
+    rank: 10,
+    needs: &[],
+    setup: false,
+    covers: &[
+        "gpui/crates/lattice-gpui/src/build",
+        "gpui/crates/lattice-gpui/src/shell/build",
+    ],
+    run: |run, cx, steps, fixture| {
+        Box::pin(async move {
+            run.build_fixes(cx, steps, &fixture.root, &fixture.stub)
+                .await?;
+            run.doctor_and_setup(cx, steps, &fixture.stub).await
+        })
+    },
+};

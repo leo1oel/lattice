@@ -421,3 +421,13 @@ impl Run {
         Ok(())
     }
 }
+
+/// This file's registration as the e2e module `live_controls` (`registry.rs`).
+pub(super) const MODULE: super::registry::Module = super::registry::Module {
+    after: super::registry::After::Terminal,
+    rank: 70,
+    needs: &[],
+    setup: true,
+    covers: &[],
+    run: |run, cx, steps, _| Box::pin(run.live_controls(cx, steps)),
+};

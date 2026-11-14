@@ -164,7 +164,7 @@ fn every_translated_message_has_chinese() {
     }
     assert!(
         missing.is_empty(),
-        "these messages have no Chinese; add them to crates/lattice-i18n/locales/zh-CN.po \
+        "these messages have no Chinese; add them to crates/lattice-i18n/locales/zh-CN/<area>.po \
          (or, for a name that reads the same in every language, to locales/unlocalized.txt):\n{}",
         missing.into_iter().collect::<Vec<_>>().join("\n")
     );
@@ -189,7 +189,7 @@ fn the_gpui_catalog_is_translated() {
         .collect();
     assert!(
         untranslated.is_empty(),
-        "locales/zh-CN.po has messages without Chinese: {untranslated:?}"
+        "locales/zh-CN/ has messages without Chinese: {untranslated:?}"
     );
 }
 

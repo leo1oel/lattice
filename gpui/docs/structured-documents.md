@@ -1,0 +1,5 @@
+# Boards, spreadsheets and decks
+
+One of the features [the GPUI app](../README.md) has so far.
+
+Opens boards (`.tldr`), spreadsheets (`.lattice-sheet`) and Open Slide decks (`slides/<deck>/index.tsx`) in the Tauri app's own editors, tldraw, Univer and the Open Slide workspace, each a webview island alone in its document's panel (no status bar, no strip tools, as the Tauri canvas shows them), in the Tauri app's theme and language. Their text is the panel's: saved after a pause, on leaving and before the tab closes, merged with an outside edit, and an edit on disk merged into the open board or sheet. A sheet exports to Excel through the save panel; a deck's saves in Open Slide are written to the project, merged as the Tauri app merges them, when the Open Slide runtime is staged beside the app (`src-tauri/presentation-runtime` and the Node in `src-tauri/synara-runtime/bin`, or `LATTICE_GPUI_RESOURCES`); without it the deck says Open Slide could not start. Open Slide's Ask AI, Apply comments and Draft a deck show the Agent and hand its composer the request, as the Tauri app does.

@@ -1,0 +1,193 @@
+#: lattice-gpui/src/shell/menus.rs
+msgid "A native preview of Lattice, growing beside the Tauri app."
+msgstr "Lattice 的原生预览版，与 Tauri 版并行开发。"
+
+#: lattice-gpui/src/shell/commands/projects.rs
+msgid "Annotate selection"
+msgstr "评论所选内容"
+
+#: lattice-gpui/src/shell/menus.rs
+msgid "Build Log"
+msgstr "编译日志"
+
+#: lattice-gpui/src/shell/commands.rs
+#: lattice-gpui/src/titlebar.rs
+msgid "Close this project"
+msgstr "关闭此项目"
+
+#: lattice-gpui/src/shell/menus.rs
+msgid "Command Palette…"
+msgstr "命令面板…"
+
+#: lattice-gpui/src/shell/entries.rs
+msgid "Could not create it"
+msgstr "无法创建"
+
+#: lattice-gpui/src/shell/entries.rs
+msgid "Could not delete it"
+msgstr "无法删除"
+
+#: lattice-gpui/src/shell/entries.rs
+msgid "Could not move it"
+msgstr "无法移动"
+
+#: lattice-gpui/src/shell.rs
+msgid "Could not open the file"
+msgstr "无法打开文件"
+
+#: lattice-gpui/src/shell.rs
+msgid "Could not open the project"
+msgstr "无法打开项目"
+
+#: lattice-gpui/src/shell/entries.rs
+msgid "Could not rename it"
+msgstr "无法重命名"
+
+#: lattice-gpui/src/shell/build_tools.rs
+msgid "Couldn’t change the engine"
+msgstr "无法更换编译引擎"
+
+#: lattice-gpui/src/shell/build.rs
+#: lattice-gpui/src/shell/build_tools.rs
+msgid "Couldn’t clean the build files"
+msgstr "无法清理临时文件"
+
+#: lattice-gpui/src/shell/build_tools.rs
+msgid "Couldn’t stop the build"
+msgstr "无法停止编译"
+
+#: lattice-gpui/src/shell/menus.rs
+msgid "Focus Mode"
+msgstr "专注模式"
+
+#: lattice-gpui/src/shell/history_flow.rs
+msgid "Git left conflict markers in {files}."
+msgstr "Git 在 {files} 里留下了冲突标记。"
+
+#: lattice-gpui/src/shell/menus.rs
+msgid "Keyboard Shortcuts"
+msgstr "快捷键"
+
+#: lattice-gpui/src/shell/menus.rs
+msgid "Lattice (GPUI preview)"
+msgstr "Lattice（GPUI 预览版）"
+
+#: lattice-gpui/src/shell/commands.rs
+msgid "Leave the Reading layout"
+msgstr "退出阅读布局"
+
+#: lattice-gpui/src/shell/commands.rs
+msgid "Leave the Writing layout"
+msgstr "退出写作布局"
+
+#: lattice-gpui/src/shell/menus.rs
+msgid "Maximize Focused Panel"
+msgstr "放大当前面板"
+
+#: lattice-gpui/src/shell/menus.rs
+msgid "New Window"
+msgstr "新建窗口"
+
+#: lattice-gpui/src/shell/commands.rs
+msgid "New window"
+msgstr "新建窗口"
+
+#: lattice-gpui/src/shell/menus.rs
+msgid "Next Project"
+msgstr "下一个项目"
+
+#: lattice-gpui/src/shell/commands.rs
+msgid "Next tab"
+msgstr "下一个标签"
+
+#: lattice-gpui/src/shell/palette.rs
+msgid "No commands or files match “{query}”"
+msgstr "没有命令或文件与“{query}”匹配"
+
+#: lattice-gpui/src/shell/history_flow.rs
+msgid "No file in this project has conflict markers."
+msgstr "这个项目里没有带冲突标记的文件。"
+
+#: lattice-gpui/src/shell/arrange.rs
+msgid "Open a file from Project to start writing"
+msgstr "从项目中打开一个文件，开始写作"
+
+#: lattice-gpui/src/shell.rs
+msgid "Open a project"
+msgstr "打开项目"
+
+#: lattice-gpui/src/shell/commands.rs
+msgid "Open this project in a new window"
+msgstr "在新窗口中打开此项目"
+
+#: lattice-gpui/src/shell/menus.rs
+msgid "Previous Project"
+msgstr "上一个项目"
+
+#: lattice-gpui/src/shell/commands.rs
+msgid "Previous tab"
+msgstr "上一个标签"
+
+#: lattice-gpui/src/shell/menus.rs
+msgid "Reading Layout"
+msgstr "阅读布局"
+
+#: lattice-gpui/src/shell/commands.rs
+msgid "Reading layout"
+msgstr "阅读布局"
+
+#: lattice-gpui/src/shell/menus.rs
+msgid "Reset Layout"
+msgstr "重置布局"
+
+#: lattice-gpui/src/shell/commands/projects.rs
+msgid "Resolve conflicts…"
+msgstr "解决冲突…"
+
+#: lattice-gpui/src/shell/menus.rs
+msgid "Save and Build"
+msgstr "保存并编译"
+
+#: lattice-gpui/src/shell/palette.rs
+msgid "Search commands and files…"
+msgstr "搜索命令和文件"
+
+#: lattice-gpui/src/shell/palette.rs
+msgid "Search commands…"
+msgstr "搜索命令"
+
+#: lattice-gpui/src/shell/commands.rs
+msgid "Show or hide Papers"
+msgstr "显示或隐藏论文库"
+
+#: lattice-gpui/src/shell/commands.rs
+msgid "Show or hide Project"
+msgstr "显示或隐藏项目"
+
+#: lattice-gpui/src/shell/commands.rs
+msgid "Show or hide the Agent"
+msgstr "显示或隐藏 AI 助手"
+
+#: lattice-gpui/src/shell/commands.rs
+msgid "Show or hide the PDF"
+msgstr "显示或隐藏 PDF"
+
+#: lattice-gpui/src/shell/commands.rs
+msgid "Show or hide the Terminal"
+msgstr "显示或隐藏终端"
+
+#: lattice-gpui/src/shell/commands.rs
+msgid "Show or hide the build log"
+msgstr "显示或隐藏编译日志"
+
+#: lattice-gpui/src/shell/menus.rs
+msgid "Writing Layout"
+msgstr "写作布局"
+
+#: lattice-gpui/src/shell/commands.rs
+msgid "Writing layout"
+msgstr "写作布局"
+
+#: lattice-gpui/src/shell.rs
+msgid "{0} — Lattice (GPUI preview)"
+msgstr "{0} — Lattice（GPUI 预览版）"

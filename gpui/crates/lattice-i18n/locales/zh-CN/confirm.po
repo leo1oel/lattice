@@ -1,0 +1,5 @@
+#: lattice-gpui/src/confirm.rs
+#: lattice-gpui/src/shell.rs
+msgctxt "dialog button"
+msgid "OK"
+msgstr "好"

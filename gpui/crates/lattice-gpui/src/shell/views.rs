@@ -39,11 +39,16 @@ pub const SINGLETONS: &[&str] = &[
     "history",
     "todos",
     "checklist",
-    "start",
     "terminal",
     "git",
     "comments",
 ];
+
+/// Whether `kind` lives once, under its own id: the shell's own singletons
+/// and the registered parts' views (`parts`).
+pub fn is_singleton(kind: &str) -> bool {
+    SINGLETONS.contains(&kind) || super::parts::views().any(|view| view.kind == kind)
+}
 
 /// The window's panel for each view id.
 pub type Registry = Rc<RefCell<HashMap<String, Arc<dyn BasePanelView>>>>;
@@ -112,9 +117,12 @@ pub fn engine_options() -> trellis::Options {
         "literature",
         "todos",
         "checklist",
-        "start",
     ] {
         types.insert(tool.into(), kind(true, min(200., 160.)));
+    }
+    for view in super::parts::views() {
+        let (width, height) = view.min;
+        types.insert(view.kind.into(), kind(true, min(width, height)));
     }
     trellis::Options {
         types,
@@ -182,10 +190,9 @@ impl Shell {
             "git" => panel_handle(self.agent.git.clone()),
             "todos" => panel_handle(self.todos.clone()),
             "checklist" => panel_handle(self.checklist.clone()),
-            "start" => panel_handle(self.get_started.panel.clone()),
             "terminal" => panel_handle(self.terminal.clone()),
             "comments" => panel_handle(self.overleaf_collab.clone()),
-            _ => return None,
+            _ => return self.part_panel(kind),
         })
     }
 
@@ -201,7 +208,7 @@ impl Shell {
                 continue;
             }
             let panel = match view.kind.as_str() {
-                kind if SINGLETONS.contains(&kind) => self.singleton(kind),
+                kind if is_singleton(kind) => self.singleton(kind),
                 "file" => {
                     let key = file_key(Some(view));
                     self.document_panel(&key, window, cx)

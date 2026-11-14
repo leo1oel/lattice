@@ -1,0 +1,3 @@
+#: lattice-gpui/src/stand_in_panels.rs
+msgid "The papers library is not in the GPUI preview yet."
+msgstr "GPUI 预览版暂未提供论文库。"

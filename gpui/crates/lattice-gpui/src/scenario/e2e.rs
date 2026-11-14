@@ -10,52 +10,21 @@ use serde_json::{Value, json};
 use super::Run;
 use crate::{editor_panel::EditorPanel, native};
 
-#[cfg(target_os = "macos")]
-mod agent;
-#[cfg(target_os = "macos")]
-mod agent_documents;
-mod assets;
-mod build_flow;
-mod design_calls;
-mod documents;
-mod editor_adapter;
-mod editor_pointer;
-mod fluid;
-mod get_started;
-mod help;
-mod history;
-#[cfg(target_os = "macos")]
-mod islands;
-mod live_controls;
-mod live_preview;
-#[cfg(target_os = "macos")]
-mod markdown;
-#[cfg(target_os = "macos")]
-mod markdown_pages;
-#[cfg(target_os = "macos")]
-mod markdown_scroll;
-mod narrow_window;
-#[cfg(target_os = "macos")]
-mod overleaf;
-mod pdf;
-mod saves;
-mod settings;
-mod source_chrome;
-mod status_bar;
-mod steps;
-#[cfg(target_os = "macos")]
-mod structured;
-mod submission;
-mod submission_checklist;
-mod tab_strip;
-#[cfg(target_os = "macos")]
-mod terminal;
-#[cfg(target_os = "macos")]
-mod terminal_focus;
-mod tree;
+// Every file under `e2e/` as a module, and `REGISTERED`, the feature modules
+// among them (`build.rs`, `e2e/registry.rs`).
+include!(concat!(env!("OUT_DIR"), "/e2e_modules.rs"));
 
+use registry::After;
 use steps::Steps;
 pub(super) use steps::set_only;
+
+/// What the feature modules run on: the scratch project, and the stand-in
+/// for the TeX doctor and installers that keeps every step off a real TeX
+/// install.
+pub(in crate::scenario) struct Fixture {
+    pub root: std::path::PathBuf,
+    pub stub: std::sync::Arc<crate::build::tex_setup::backend::StubTexSetup>,
+}
 
 impl Run {
     /// The writing flow, end to end, on a scratch copy of a small project:
@@ -81,6 +50,10 @@ impl Run {
         let root = self.root(cx).await?;
         // No step may reach a real TeX install.
         let stub = self.stub_tex_setup(cx, &root);
+        let fixture = Fixture {
+            root: root.clone(),
+            stub,
+        };
         // The look-review shots find the Build button by its probe.
         if std::env::var_os("LATTICE_E2E_SHOTS").is_some() {
             lattice_ui::parity::enable();
@@ -125,15 +98,8 @@ impl Run {
             json!({ "rows": rows }),
         );
         self.sequence_and_words(cx, &mut steps).await?;
-        if steps::selected("fluid") {
-            self.fluid_hover(cx, &mut steps).await?;
-        }
-        if steps::selected("source_chrome") {
-            self.source_chrome(cx, &mut steps, &root).await?;
-        }
-        if steps::selected("design_calls") {
-            self.design_calls(cx, &mut steps).await?;
-        }
+        self.run_modules(After::Build, cx, &mut steps, &fixture)
+            .await?;
 
         let editor = self.open(cx, &chapter, Some(2))?;
         self.pause(cx, Duration::from_millis(300)).await;
@@ -262,9 +228,8 @@ impl Run {
         })
         .await;
         std::fs::remove_file(&scratch).ok();
-        if steps::selected("status_bar") {
-            self.status_bar_and_scrollbar(cx, &mut steps, &root).await?;
-        }
+        self.run_modules(After::Vim, cx, &mut steps, &fixture)
+            .await?;
 
         // Repairing the file outside Lattice reloads the clean buffer.
         std::fs::write(&chapter, &merged)?;
@@ -284,54 +249,12 @@ impl Run {
             reloaded && built,
             json!({ "reloaded": reloaded }),
         );
-        if steps::selected("build_flow") {
-            self.build_fixes(cx, &mut steps, &root, &stub).await?;
-            self.doctor_and_setup(cx, &mut steps, &stub).await?;
-        }
-
-        // The editor adapter's extension points, through their LaTeX uses.
-        if steps::selected("editor_adapter") {
-            self.editor_adapter(cx, &mut steps, &root).await?;
-        }
-
-        if steps::selected("tree") {
-            self.tree_operations(cx, &mut steps, &root).await?;
-        }
-        if steps::selected("assets") {
-            self.asset_and_bib_steps(cx, &mut steps, &root).await?;
-        }
-        if steps::selected("documents") {
-            self.standalone_setup(cx, &root).await?;
-            self.documents_and_project(cx, &mut steps, &root).await?;
-        }
         // Overlays above a page need gpui-fast's window composition, which
         // WebView2 does not join yet (gpui-webview 0.9.1), so the island
-        // checks run on macOS.
-        #[cfg(target_os = "macos")]
-        if steps::selected("islands") {
-            self.webview_islands(cx, &mut steps, &root).await?;
-        }
-        #[cfg(target_os = "macos")]
-        if steps::selected("structured") {
-            self.structured_islands(cx, &mut steps, &root).await?;
-        }
-        #[cfg(target_os = "macos")]
-        if steps::selected("markdown") {
-            self.markdown_island(cx, &mut steps, &root).await?;
-        }
-        #[cfg(target_os = "macos")]
-        if steps::selected("agent") {
-            self.agent_islands(cx, &mut steps, &root).await?;
-        }
-        if steps::selected("tab_strip") {
-            self.tab_strip(cx, &mut steps, &root).await?;
-        }
-        if steps::selected("narrow_window") {
-            self.narrow_window(cx, &mut steps, &root).await?;
-        }
-        if steps::selected("pdf") {
-            self.pdf_viewer(cx, &mut steps, &root).await?;
-        }
+        // modules run on macOS.
+        self.run_modules(After::Repair, cx, &mut steps, &fixture)
+            .await?;
+
         // Smoke: a second window opens on the project and draws its PDF.
         self.second_window_pdf(cx, &mut steps, &root).await?;
         // The terminal steps type Unix commands (`pwd`, `printenv`, `cat`);
@@ -362,69 +285,11 @@ impl Run {
             );
         }
 
-        if steps::selected("dock") {
-            for (name, passed, detail) in self.shell_steps(cx).await? {
-                steps.check(name, passed, detail);
-            }
-        }
-
-        if steps::selected("history") {
-            self.standalone_setup(cx, &root).await?;
-            self.history_and_versions(cx, &mut steps, &root)
-                .await
-                .context("history_and_versions")?;
-        }
-        if steps::selected("submission") {
-            self.submission_tools(cx, &mut steps, &root)
-                .await
-                .context("submission_tools")?;
-        }
-        if steps::selected("submission_checklist") {
-            self.submission_checklist(cx, &mut steps, &root)
-                .await
-                .context("submission_checklist")?;
-        }
-        // The sign-in window is a WKWebView page, as the islands are.
-        #[cfg(target_os = "macos")]
-        if steps::selected("overleaf") {
-            self.overleaf(cx, &mut steps, &root)
-                .await
-                .context("overleaf")?;
-        }
-        if steps::selected("settings") {
-            self.standalone_setup(cx, &root).await?;
-            self.settings_and_language(cx, &mut steps)
-                .await
-                .context("settings_and_language")?;
-        }
-        if steps::selected("live_controls") {
-            self.standalone_setup(cx, &root).await?;
-            self.live_controls(cx, &mut steps)
-                .await
-                .context("live_controls")?;
-        }
-        if steps::selected("live_preview") {
-            self.live_preview(cx, &mut steps, &root)
-                .await
-                .context("live_preview")?;
-        }
-        if steps::selected("help") {
-            self.help_and_logs(cx, &mut steps)
-                .await
-                .context("help_and_logs")?;
-        }
-        if steps::selected("saves") {
-            self.closing_saves(cx, &mut steps, &root)
-                .await
-                .context("closing_saves")?;
-        }
-        // After the modules that start from the fixture's layout: it opens
-        // the tutorial, then the fixture again.
-        if steps::selected("get_started") {
-            self.get_started(cx, &mut steps, &root)
-                .await
-                .context("get_started")?;
-        }
+        // Get started runs last among these (its rank): it opens the tutorial,
+        // then the fixture again, so the modules that start from the
+        // fixture's layout run before it.
+        self.run_modules(After::Terminal, cx, &mut steps, &fixture)
+            .await?;
         // Last: `scenario::start` quits once the result is written.
         let quit = self.type_before_quit(cx, &mut steps, &root).await?;
         steps.check_foreground(self);
@@ -445,6 +310,33 @@ impl Run {
         if steps::only().is_some() {
             self.open(cx, &root.join("chapters/intro.tex"), Some(1))?;
             self.pause(cx, Duration::from_millis(300)).await;
+        }
+        Ok(())
+    }
+
+    /// The feature modules that run `after` that part of the smoke flow and
+    /// this run selects, in their order
+    /// (`e2e/registry.rs`), each set up first when it asks to be.
+    async fn run_modules(
+        &self,
+        after: After,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+        fixture: &Fixture,
+    ) -> Result<()> {
+        for registered in registry::ordered() {
+            let Some(module) = registered.module.filter(|module| module.after == after) else {
+                continue;
+            };
+            if !steps::selected(registered.name) {
+                continue;
+            }
+            if module.setup {
+                self.standalone_setup(cx, &fixture.root).await?;
+            }
+            (module.run)(self, cx, steps, fixture)
+                .await
+                .context(registered.name)?;
         }
         Ok(())
     }

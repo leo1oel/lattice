@@ -75,14 +75,13 @@ impl Shell {
             .views
             .borrow()
             .iter()
-            .filter(|(id, _)| !views::SINGLETONS.contains(&id.as_str()))
+            .filter(|(id, _)| !views::is_singleton(id))
             .map(|(_, panel)| panel.clone())
             .collect();
         self.views
             .borrow_mut()
-            .retain(|id, _| views::SINGLETONS.contains(&id.as_str()));
-        self.view_focus
-            .retain(|id, _| views::SINGLETONS.contains(&id.as_str()));
+            .retain(|id, _| views::is_singleton(id));
+        self.view_focus.retain(|id, _| views::is_singleton(id));
         for panel in gone {
             panel.on_removed(window, cx);
         }

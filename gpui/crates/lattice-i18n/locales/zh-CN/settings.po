@@ -1,0 +1,7 @@
+#: lattice-gpui/src/settings/editor_pane.rs
+msgid "Could not save the setting"
+msgstr "设置没保存成功"
+
+#: lattice-gpui/src/settings/logs_export.rs
+msgid "This run keeps no log folder."
+msgstr "此次运行不保留日志文件夹。"

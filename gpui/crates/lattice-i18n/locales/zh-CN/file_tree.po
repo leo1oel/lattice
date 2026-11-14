@@ -1,0 +1,12 @@
+#: lattice-gpui/src/file_tree.rs
+#: lattice-gpui/src/shell/arrange.rs
+msgid "Open a LaTeX project folder to start"
+msgstr "打开一个 LaTeX 项目文件夹即可开始"
+
+#: lattice-gpui/src/file_tree/menu.rs
+msgid "Show in Explorer"
+msgstr "在资源管理器中显示"
+
+#: lattice-gpui/src/file_tree/menu.rs
+msgid "Show in file manager"
+msgstr "在文件管理器中显示"

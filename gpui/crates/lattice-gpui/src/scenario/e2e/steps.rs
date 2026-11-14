@@ -4,6 +4,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use serde_json::{Value, json};
 
+use super::registry::{self, Registered};
 use crate::scenario::Run;
 
 /// Each step's name, whether it passed, and what it saw; and the last step's
@@ -11,10 +12,11 @@ use crate::scenario::Run;
 /// foreground section.
 pub(super) struct Steps(pub(super) Vec<Value>, Rc<RefCell<String>>);
 
-/// The scenario's feature modules (its files under `scenario/e2e/`, and
-/// `dock` for `../shell_steps.rs`), each with the modules it needs to have
-/// run before it. `--scenario e2e --only <list>` runs the smoke flow and only
-/// those, with what they need; without `--only` everything runs.
+/// The feature module `name` (`registry.rs`: the files under `scenario/e2e/`
+/// that register themselves; `dock` runs `../shell_steps.rs`), each with the
+/// modules it needs to have run before it. `--scenario e2e --only <list>`
+/// runs the smoke flow and only those, with what they need; without `--only`
+/// everything runs.
 ///
 /// The smoke flow is what every module starts from and what every run keeps:
 /// open the project through lattice-core, build and show the PDF, SyncTeX
@@ -24,35 +26,11 @@ pub(super) struct Steps(pub(super) Vec<Value>, Rc<RefCell<String>>);
 /// pipeline's per-round check, with the modules a change touches
 /// (`scripts/gpui-e2e-modules.mjs` maps paths to these names); the full run
 /// is the post-merge main baseline's (`scripts/gpui-main-baseline.mjs`).
-pub(in crate::scenario) const MODULES: &[(&str, &[&str])] = &[
-    ("fluid", &[]),
-    ("source_chrome", &[]),
-    ("design_calls", &[]),
-    ("status_bar", &[]),
-    ("build_flow", &[]),
-    ("editor_adapter", &[]),
-    ("tree", &[]),
-    ("assets", &[]),
-    ("documents", &[]),
-    ("islands", &[]),
-    ("structured", &[]),
-    ("markdown", &[]),
-    ("agent", &[]),
-    ("tab_strip", &[]),
-    ("narrow_window", &[]),
-    ("pdf", &[]),
-    ("dock", &[]),
-    ("history", &[]),
-    ("submission", &[]),
-    ("submission_checklist", &[]),
-    ("overleaf", &[]),
-    ("settings", &[]),
-    ("live_controls", &[]),
-    ("live_preview", &[]),
-    ("help", &[]),
-    ("saves", &[]),
-    ("get_started", &[]),
-];
+fn module(name: &str) -> Option<&'static Registered> {
+    registry::ordered()
+        .into_iter()
+        .find(|registered| registered.name == name)
+}
 
 static ONLY: std::sync::OnceLock<Vec<&'static str>> = std::sync::OnceLock::new();
 
@@ -67,20 +45,28 @@ pub(in crate::scenario) fn set_only(list: &str) -> anyhow::Result<()> {
         .filter(|name| !name.is_empty() && name != "smoke")
         .collect();
     while let Some(name) = queue.pop() {
-        let Some((module, needs)) = MODULES.iter().find(|(module, _)| *module == name) else {
-            let known: Vec<_> = MODULES.iter().map(|(module, _)| *module).collect();
+        let Some(registered) = module(&name) else {
+            let known: Vec<_> = registry::ordered()
+                .iter()
+                .map(|registered| registered.name)
+                .collect();
             anyhow::bail!(
                 "unknown e2e module {name:?}; the modules are {}",
                 known.join(", ")
             );
         };
-        if !chosen.contains(module) {
-            chosen.push(module);
+        if !chosen.contains(&registered.name) {
+            chosen.push(registered.name);
+            let needs = registered
+                .module
+                .map(|module| module.needs)
+                .unwrap_or_default();
             queue.extend(needs.iter().map(|need| need.to_string()));
         }
     }
     // In the scenario's order, for the result.
-    chosen.sort_by_key(|name| MODULES.iter().position(|(module, _)| module == name));
+    let order = registry::ordered();
+    chosen.sort_by_key(|name| order.iter().position(|registered| registered.name == *name));
     ONLY.set(chosen)
         .map_err(|_| anyhow::anyhow!("--only was given twice"))
 }
@@ -90,10 +76,10 @@ pub(super) fn only() -> Option<Vec<&'static str>> {
     ONLY.get().cloned()
 }
 
-/// Whether the feature module `module` runs in this run.
-pub(super) fn selected(module: &str) -> bool {
-    debug_assert!(MODULES.iter().any(|(name, _)| *name == module), "{module}");
-    ONLY.get().is_none_or(|chosen| chosen.contains(&module))
+/// Whether the feature module `name` runs in this run.
+pub(super) fn selected(name: &str) -> bool {
+    debug_assert!(module(name).is_some(), "{name}");
+    ONLY.get().is_none_or(|chosen| chosen.contains(&name))
 }
 
 impl Steps {

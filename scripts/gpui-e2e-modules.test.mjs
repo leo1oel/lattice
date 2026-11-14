@@ -1,10 +1,5 @@
-import { readdirSync, readFileSync } from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { MODULES, modulesFor } from "./gpui-e2e-modules.mjs";
-
-const scenario = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../gpui/crates/lattice-gpui/src/scenario");
+import { MODULES, modulesFor, readModules } from "./gpui-e2e-modules.mjs";
 
 describe("modulesFor", () => {
   it("picks a module from its own scenario file or folder", () => {
@@ -26,12 +21,23 @@ describe("modulesFor", () => {
     expect(modulesFor(["src/App.tsx"])).toMatchObject({ gpui: false, modules: [] });
   });
 
-  it("knows every module the scenario gates, and only those", () => {
-    const gated = [...readFileSync(path.join(scenario, "e2e.rs"), "utf8").matchAll(/steps::selected\("(\w+)"\)/g)].map((match) => match[1]);
-    expect([...gated].sort()).toEqual([...MODULES].sort());
-    const files = readdirSync(path.join(scenario, "e2e")).map((name) => name.replace(/\.rs$/, ""));
-    for (const module of MODULES.filter((name) => name !== "dock")) expect(files).toContain(module);
-    const listed = [...readFileSync(path.join(scenario, "e2e", "steps.rs"), "utf8").matchAll(/^ {4}\("(\w+)", &\[/gm)].map((match) => match[1]);
-    expect([...listed].sort()).toEqual([...MODULES].sort());
+  it("reads every module the scenario registers, and only those", () => {
+    expect(MODULES).toEqual([
+      "agent", "assets", "build_flow", "design_calls", "dock", "documents", "editor_adapter", "fluid", "get_started",
+      "help", "history", "islands", "live_controls", "live_preview", "markdown", "narrow_window", "overleaf", "pdf",
+      "saves", "settings", "source_chrome", "status_bar", "structured", "submission", "submission_checklist",
+      "tab_strip", "tree",
+    ]);
+    // The helpers beside the modules register nothing.
+    for (const helper of ["steps", "registry", "markdown_pages", "terminal", "editor_pointer"]) expect(MODULES).not.toContain(helper);
+  });
+
+  it("reads a module's covers from its file", () => {
+    expect(readModules().get("assets")).toEqual([
+      "gpui/crates/lattice-gpui/src/assets.rs",
+      "gpui/crates/lattice-gpui/src/asset_preview.rs",
+      "gpui/crates/lattice-gpui/src/shell/assets.rs",
+    ]);
+    expect(readModules().get("fluid")).toEqual([]);
   });
 });

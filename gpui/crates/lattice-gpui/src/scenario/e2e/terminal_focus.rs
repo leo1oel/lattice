@@ -5,6 +5,8 @@
 //! reach the shell; a terminal that starts or closes on its own while the
 //! writer types elsewhere leaves the keyboard where it is.
 
+#![cfg(target_os = "macos")]
+
 use std::{path::Path, time::Duration};
 
 use anyhow::Result;

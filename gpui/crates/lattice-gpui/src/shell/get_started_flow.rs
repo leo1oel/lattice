@@ -9,10 +9,17 @@
 use std::path::Path;
 use std::time::Instant;
 
-use gpui::{AppContext as _, Context, Entity, IntoElement as _, Task, Window, actions, deferred};
+use gpui::{
+    AppContext as _, Context, Entity, InteractiveElement as _, IntoElement as _, Task, Window,
+    actions, deferred,
+};
+use gpui_kit::component::dock::panel_handle;
 use trellis::runtime::engine::{OpenOptions, ViewPlacement};
 
-use super::Shell;
+use super::{
+    Shell,
+    parts::{self, Part, View},
+};
 use crate::get_started::{
     Host, Keys, SAMPLE_MANUSCRIPT, Step, TUTORIAL_VENUE, fill, has_own_title,
     panel::{GetStartedEvent, GetStartedPanel},
@@ -34,6 +41,14 @@ pub(crate) struct GetStarted {
     _ring_timer: Option<Task<()>>,
     /// Escape, heard wherever the keyboard is while the ring is up.
     _escape: Option<gpui::Subscription>,
+}
+
+impl Shell {
+    /// Get started's state in this window, for the scripted runs.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub(crate) fn get_started(&self) -> &GetStarted {
+        self.parts.get()
+    }
 }
 
 impl GetStarted {
@@ -61,7 +76,7 @@ impl Shell {
 
     /// The tutorial is about to open: show the checklist once it has.
     pub(super) fn get_started_with_tutorial(&mut self) {
-        self.get_started.pending = true;
+        self.parts.get_mut::<GetStarted>().pending = true;
     }
 
     /// Bring the checklist on screen: beside Project the first time, where
@@ -91,7 +106,8 @@ impl Shell {
                 });
             }
         }
-        self.get_started
+        self.parts
+            .get::<GetStarted>()
             .panel
             .update(cx, |panel, cx| panel.shown(cx));
         cx.notify();
@@ -106,7 +122,7 @@ impl Shell {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let pending = std::mem::take(&mut self.get_started.pending);
+        let pending = std::mem::take(&mut self.parts.get_mut::<GetStarted>().pending);
         if venue != TUTORIAL_VENUE {
             progress::mark(Step::Own, cx);
             if self.placement("start", cx).is_some() {
@@ -187,26 +203,30 @@ impl Shell {
             Step::Latex | Step::Own => return,
         }
         let started = Instant::now();
-        self.get_started.showing = Some((step, started));
-        self.get_started._ring_timer = Some(cx.spawn(async move |this, cx| {
+        self.parts.get_mut::<GetStarted>().showing = Some((step, started));
+        self.parts.get_mut::<GetStarted>()._ring_timer = Some(cx.spawn(async move |this, cx| {
             cx.background_executor().timer(show_me::SHOW_ME).await;
             this.update(cx, |this, cx| {
                 if this
-                    .get_started
+                    .parts
+                    .get::<GetStarted>()
                     .showing
                     .is_some_and(|(_, at)| at == started)
                 {
-                    this.get_started.showing = None;
+                    this.parts.get_mut::<GetStarted>().showing = None;
                     cx.notify();
                 }
             })
             .ok();
         }));
-        self.get_started._escape = Some(cx.observe_keystrokes(|this, event, _, cx| {
-            if event.keystroke.key == "escape" && this.get_started.showing.take().is_some() {
-                cx.notify();
-            }
-        }));
+        self.parts.get_mut::<GetStarted>()._escape =
+            Some(cx.observe_keystrokes(|this, event, _, cx| {
+                if event.keystroke.key == "escape"
+                    && this.parts.get_mut::<GetStarted>().showing.take().is_some()
+                {
+                    cx.notify();
+                }
+            }));
         cx.notify();
     }
 
@@ -236,7 +256,7 @@ impl Shell {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Option<gpui::AnyElement> {
-        let (step, _) = self.get_started.showing?;
+        let (step, _) = self.parts.get::<GetStarted>().showing?;
         if progress::global_read(cx).is_some_and(|progress| progress.is_done(step)) {
             return None;
         }
@@ -266,7 +286,7 @@ impl Shell {
             hint,
             move |_, cx| {
                 this.update(cx, |this, cx| {
-                    this.get_started.showing = None;
+                    this.parts.get_mut::<GetStarted>().showing = None;
                     cx.notify();
                 })
                 .ok();
@@ -280,3 +300,21 @@ impl Shell {
         )
     }
 }
+
+/// Get started as a window part (`parts.rs`): its state, the checklist's
+/// view, and Show Get started panel. Its palette row stays in the command
+/// table, where its place in the Layout section is.
+pub(super) const PART: Part = Part {
+    install: |window, cx| Box::new(Shell::get_started_panel(window, cx)),
+    views: &[View {
+        kind: "start",
+        min: (200., 160.),
+        panel: |shell| panel_handle(shell.parts.get::<GetStarted>().panel.clone()),
+    }],
+    actions: |element, cx| {
+        element.on_action(
+            cx.listener(|this, _: &ShowGetStarted, window, cx| this.open_get_started(window, cx)),
+        )
+    },
+    commands: parts::no_commands,
+};

@@ -1,0 +1,11 @@
+#: lattice-gpui/src/history/conflict_resolver.rs
+msgid "Incoming text"
+msgstr "传入的文字"
+
+#: lattice-gpui/src/history/conflict_resolver.rs
+msgid "Keeping {name}"
+msgstr "保留 {name}"
+
+#: lattice-gpui/src/history/conflict_resolver.rs
+msgid "{name} removed this part."
+msgstr "{name} 删掉了这部分。"

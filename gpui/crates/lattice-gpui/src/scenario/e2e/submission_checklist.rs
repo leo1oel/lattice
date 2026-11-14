@@ -387,3 +387,13 @@ fn collect(nodes: &[lattice_core::models::FileNode], out: &mut Vec<String>) {
         collect(&node.children, out);
     }
 }
+
+/// This file's registration as the e2e module `submission_checklist` (`registry.rs`).
+pub(super) const MODULE: super::registry::Module = super::registry::Module {
+    after: super::registry::After::Terminal,
+    rank: 40,
+    needs: &[],
+    setup: false,
+    covers: &["gpui/crates/lattice-gpui/src/submission"],
+    run: |run, cx, steps, fixture| Box::pin(run.submission_checklist(cx, steps, &fixture.root)),
+};

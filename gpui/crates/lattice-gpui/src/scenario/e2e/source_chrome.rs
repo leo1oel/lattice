@@ -431,3 +431,13 @@ fn marker_opacity(gutter: &lattice_editor::PaintedGutter, row: u32) -> f32 {
         .find(|line| line.row == row)
         .map_or(-1., |line| line.marker_opacity)
 }
+
+/// This file's registration as the e2e module `source_chrome` (`registry.rs`).
+pub(super) const MODULE: super::registry::Module = super::registry::Module {
+    after: super::registry::After::Build,
+    rank: 20,
+    needs: &[],
+    setup: false,
+    covers: &["gpui/crates/lattice-gpui/src/editor_panel/source_chrome.rs"],
+    run: |run, cx, steps, fixture| Box::pin(run.source_chrome(cx, steps, &fixture.root)),
+};
