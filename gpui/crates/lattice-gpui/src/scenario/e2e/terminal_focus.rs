@@ -113,7 +113,11 @@ impl Run {
             });
         })?;
         self.pause(cx, Duration::from_millis(150)).await;
-        self.type_text(cx, "left field").await?;
+        // No space in the name: in the whole `e2e` run AppKit drops a sent
+        // space key before GPUI sees it here (the field read `leftfield`),
+        // though the terminal scenario's run and the tab strip's rename step
+        // (`latex build`) take one. A space in a rename is that step's check.
+        self.type_text(cx, "left-field").await?;
         let field = cx.update(|cx| self.shell.read(cx).terminal().read(cx).rename_input());
         self.with_window(cx, |_, window, cx| {
             window.focus(&editor.read(cx).editor().focus_handle(cx), cx);
@@ -138,7 +142,7 @@ impl Run {
         drop(front);
         steps.check(
             "leaving a tab's rename field for the document keeps the name and leaves the keyboard there",
-            two && labels.iter().any(|label| label == "left field") && in_document && !in_terminal,
+            two && labels.iter().any(|label| label == "left-field") && in_document && !in_terminal,
             json!({ "active": active, "labels": labels, "in_document": in_document, "in_terminal": in_terminal }),
         );
 
