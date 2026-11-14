@@ -8,7 +8,7 @@ use std::{path::Path, time::Duration};
 
 use anyhow::{Context as _, Result};
 use editor::{MultiBufferOffset, SelectionEffects, ToOffset as _};
-use gpui::{AsyncApp, Entity, Focusable as _};
+use gpui::{AsyncApp, Entity, Focusable as _, Keystroke};
 use serde_json::json;
 
 use super::Steps;
@@ -29,9 +29,25 @@ impl Run {
         let at = original.find(word).context("the chapter's first line")?;
         for (key, command) in [('b', "textbf"), ('i', "emph")] {
             self.select(cx, &editor, at, at + word.len())?;
+            let builds = self.builds(cx);
             self.press(cx, key, true).await?;
             self.pause(cx, Duration::from_millis(150)).await;
             let (on, on_selected) = self.text_and_selection(cx, &editor);
+            if key == 'b' {
+                // ⌘B is Bold, never Build: Build has no key of its own and
+                // shows ⌘S (`use-command-table.ts`).
+                let (building, after) = cx.update(|cx| {
+                    (
+                        self.shell.read(cx).building(),
+                        self.shell.read(cx).build_panel().read(cx).builds(),
+                    )
+                });
+                steps.check(
+                    "⌘B / Ctrl+B in a LaTeX file starts no build",
+                    !building && after == builds,
+                    json!({ "building": building, "builds_before": builds, "builds_after": after }),
+                );
+            }
             self.press(cx, key, true).await?;
             self.pause(cx, Duration::from_millis(150)).await;
             let (off, off_selected) = self.text_and_selection(cx, &editor);
@@ -47,6 +63,36 @@ impl Run {
                     && off == original
                     && off_selected == word,
                 json!({ "on": on.lines().nth(1), "on_selected": on_selected, "off_restored": off == original, "off_selected": off_selected }),
+            );
+        }
+        // ⌘⇧K and ⌘⇧L are reserved for Insert citation and Insert reference:
+        // never Zed's delete line and select all matches. "line" is in the
+        // chapter twice, so select all matches would add a second cursor.
+        let repeated = "line";
+        let line_at = original
+            .find(repeated)
+            .context("the chapter's second line")?;
+        for (mac, other, zed) in [
+            ("cmd-shift-k", "ctrl-shift-k", "delete line"),
+            ("cmd-shift-l", "ctrl-shift-l", "select all matches"),
+        ] {
+            self.select(cx, &editor, line_at, line_at + repeated.len())?;
+            let chord: &'static str = if cfg!(target_os = "macos") {
+                mac
+            } else {
+                other
+            };
+            let keystroke = Keystroke::parse(chord).map_err(|error| anyhow::anyhow!("{error}"))?;
+            self.with_window(cx, move |_, window, cx| {
+                window.dispatch_keystroke(keystroke, cx)
+            })?;
+            self.pause(cx, Duration::from_millis(200)).await;
+            let (text, selected) = self.text_and_selection(cx, &editor);
+            let cursors = cx.update(|cx| editor.read(cx).editor().read(cx).selections.count());
+            steps.check(
+                &format!("{chord} in a LaTeX file is not Zed's {zed}: the text and the one selection stay"),
+                text == original && selected == repeated && cursors == 1,
+                json!({ "unchanged": text == original, "selected": selected, "cursors": cursors }),
             );
         }
         // The chapter as it was, for the modules after.
@@ -79,7 +125,11 @@ impl Run {
     }
 
     /// The buffer's text and its main selection's text.
-    fn text_and_selection(&self, cx: &mut AsyncApp, editor: &Entity<EditorPanel>) -> (String, String) {
+    fn text_and_selection(
+        &self,
+        cx: &mut AsyncApp,
+        editor: &Entity<EditorPanel>,
+    ) -> (String, String) {
         cx.update(|cx| {
             let text = editor.read(cx).editor().read(cx);
             let snapshot = text.buffer().read(cx).snapshot(cx);
