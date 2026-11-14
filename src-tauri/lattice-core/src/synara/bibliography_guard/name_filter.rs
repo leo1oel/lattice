@@ -6,7 +6,8 @@
 //! passes every operation through to the real file underneath and refuses
 //! the ones that would change a bibliography: creating, removing, renaming,
 //! linking or relinking a `*.bib` name, and writing, truncating or changing
-//! the attributes of a file reached through one. The sandbox (`linux.rs`)
+//! the attributes of a file reached through one or renamed to one since. It
+//! also refuses to make or move a symbolic link. The sandbox (`linux.rs`)
 //! mounts it where the agent's writable files are, so the rule holds for
 //! files and folders created later too, which read-only binds cannot do.
 //!
@@ -32,11 +33,11 @@ use fuser::{
     WriteFlags,
 };
 use host::{
-    attributes, cvt, cvt_long, last_error, open_child, open_folder, read_entries, status_of,
-    timespec, EMPTY,
+    attributes, cvt, cvt_long, is_link, last_error, open_child, open_folder, read_entries,
+    status_of, timespec, EMPTY,
 };
 use nodes::{Node, Nodes};
-use rule::{changes_content, is_bibliography, DENIED};
+use rule::{changes_content, is_bibliography, is_named_bibliography, may_change, DENIED};
 use std::ffi::{CStr, CString, OsStr, OsString};
 use std::io;
 use std::os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd};
@@ -147,9 +148,7 @@ impl BibliographyFilter {
         &self, node: &Node, mode: Option<u32>, owner: (Option<u32>, Option<u32>),
         size: Option<u64>, times: (Option<TimeOrNow>, Option<TimeOrNow>), fh: Option<FileHandle>,
     ) -> Result<FileAttr, Errno> {
-        if node.is_bibliography() {
-            return Err(DENIED);
-        }
+        may_change(node, fh)?;
         let fd = node.fd.as_raw_fd();
         let path = node.path();
         if let Some(mode) = mode {
@@ -318,18 +317,15 @@ impl Filesystem for BibliographyFilter {
     }
 
     fn symlink(
-        &self, _req: &Request, parent: INodeNo, link_name: &OsStr, target: &Path, reply: ReplyEntry,
+        &self, _req: &Request, _parent: INodeNo, _link_name: &OsStr, _target: &Path,
+        reply: ReplyEntry,
     ) {
-        let (parent, c_name) = attempt!(reply, self.folder_to_change(parent, link_name));
-        let target =
-            attempt!(reply, CString::new(target.as_os_str().as_bytes()).map_err(|_| Errno::EINVAL));
-        // SAFETY: both strings are NUL-terminated and the descriptor is open.
-        let made =
-            unsafe { libc::symlinkat(target.as_ptr(), parent.fd.as_raw_fd(), c_name.as_ptr()) };
-        attempt!(reply, cvt(made));
-        let (id, mut attr, _) = attempt!(reply, self.lookup_in(&parent, link_name, &c_name));
-        attr.ino = id;
-        reply.entry(&NO_TTL, &attr, Generation(0));
+        // Lattice follows links outside the sandbox too: it resolves a
+        // project's folder on every operation. A project folder moved aside
+        // and replaced by a link to a copy in `/tmp`, where bibliographies are
+        // not filtered, would have Lattice edit and build that copy. So no
+        // link is made here; the host's own still lead where they did.
+        reply.error(DENIED);
     }
 
     fn rename(
@@ -340,6 +336,16 @@ impl Filesystem for BibliographyFilter {
         // anything onto its name replaces it.
         let (parent, c_name) = attempt!(reply, self.folder_to_change(parent, name));
         let (newparent, c_newname) = attempt!(reply, self.folder_to_change(newparent, newname));
+        // Nor is a link moved, onto a project folder's name or away from it:
+        // that is the same detour as making one (see `symlink`), and
+        // `RENAME_EXCHANGE` moves the destination as well. No link can come
+        // in meanwhile: the filter makes none, and a rename from a folder
+        // outside it fails with EXDEV.
+        let link = |folder: &Node, name: &CStr| is_link(folder.fd.as_raw_fd(), name);
+        if attempt!(reply, link(&parent, &c_name)) || attempt!(reply, link(&newparent, &c_newname))
+        {
+            return reply.error(DENIED);
+        }
         // SAFETY: both names are NUL-terminated and both descriptors open.
         let renamed = unsafe {
             libc::renameat2(
@@ -358,8 +364,9 @@ impl Filesystem for BibliographyFilter {
         &self, _req: &Request, ino: INodeNo, newparent: INodeNo, newname: &OsStr, reply: ReplyEntry,
     ) {
         let node = attempt!(reply, self.node(ino));
-        // A second name for a bibliography would be a way to write it.
-        if node.is_bibliography() {
+        // A second name for a bibliography would be a way to write it, and
+        // one for a symbolic link a way to make a link (see `symlink`).
+        if node.is(libc::S_IFLNK) || attempt!(reply, is_named_bibliography(&node, None)) {
             return reply.error(DENIED);
         }
         let (newparent, c_newname) = attempt!(reply, self.folder_to_change(newparent, newname));
@@ -382,8 +389,8 @@ impl Filesystem for BibliographyFilter {
 
     fn open(&self, _req: &Request, ino: INodeNo, flags: OpenFlags, reply: ReplyOpen) {
         let node = attempt!(reply, self.node(ino));
-        if node.is_bibliography() && changes_content(flags.0) {
-            return reply.error(DENIED);
+        if changes_content(flags.0) {
+            attempt!(reply, may_change(&node, None));
         }
         // The descriptor's path is itself a link, and the kernel has already
         // decided what the caller's O_NOFOLLOW meant.
@@ -419,7 +426,11 @@ impl Filesystem for BibliographyFilter {
         // pipes and sockets itself and asks again when told the name is stale.
         let same = node.is(libc::S_IFREG)
             && status_of(file.as_raw_fd()).is_ok_and(|s| (s.st_dev, s.st_ino) == node.key);
-        if !same || (node.is_bibliography() && changes_content(flags)) {
+        let refused = || {
+            let fh = FileHandle(file.as_raw_fd() as u64);
+            changes_content(flags) && may_change(&node, Some(fh)).is_err()
+        };
+        if !same || refused() {
             self.nodes.forget(id, 1);
             return reply.error(if same { DENIED } else { Errno::ESTALE });
         }
@@ -450,10 +461,9 @@ impl Filesystem for BibliographyFilter {
         reply: ReplyWrite,
     ) {
         // Checked again here: the name can have become a bibliography's
-        // since the open, when Lattice renames a file it wrote onto one.
-        if attempt!(reply, self.node(ino)).is_bibliography() {
-            return reply.error(DENIED);
-        }
+        // since the open, when Lattice renames a file onto one.
+        let node = attempt!(reply, self.node(ino));
+        attempt!(reply, may_change(&node, Some(fh)));
         let mut written = 0;
         while written < data.len() {
             let rest = &data[written..];
@@ -630,9 +640,8 @@ impl Filesystem for BibliographyFilter {
         &self, _req: &Request, ino: INodeNo, fh: FileHandle, offset: u64, length: u64, mode: i32,
         reply: ReplyEmpty,
     ) {
-        if attempt!(reply, self.node(ino)).is_bibliography() {
-            return reply.error(DENIED);
-        }
+        let node = attempt!(reply, self.node(ino));
+        attempt!(reply, may_change(&node, Some(fh)));
         // SAFETY: the kernel hands back a descriptor `open` gave it.
         let allocated = unsafe {
             libc::fallocate(fh.0 as RawFd, mode, offset as libc::off_t, length as libc::off_t)
@@ -656,9 +665,8 @@ impl Filesystem for BibliographyFilter {
         ino_out: INodeNo, fh_out: FileHandle, offset_out: u64, len: u64, flags: CopyFileRangeFlags,
         reply: ReplyWrite,
     ) {
-        if attempt!(reply, self.node(ino_out)).is_bibliography() {
-            return reply.error(DENIED);
-        }
+        let node = attempt!(reply, self.node(ino_out));
+        attempt!(reply, may_change(&node, Some(fh_out)));
         let (mut offset_in, mut offset_out) =
             (offset_in as libc::off64_t, offset_out as libc::off64_t);
         // SAFETY: both descriptors are ones `open` gave the kernel, and the
@@ -688,8 +696,8 @@ impl BibliographyFilter {
         if node.is(libc::S_IFLNK) {
             return Err(Errno::EPERM);
         }
-        if changes && node.is_bibliography() {
-            return Err(DENIED);
+        if changes {
+            may_change(&node, None)?;
         }
         let name = CString::new(name.as_bytes()).map_err(|_| Errno::EINVAL)?;
         Ok((node, name))
