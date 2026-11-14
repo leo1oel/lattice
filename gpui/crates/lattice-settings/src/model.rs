@@ -575,10 +575,12 @@ mod tests {
         assert_eq!(grammar.dialect, GrammarDialect::British);
         assert_eq!(grammar.profile, GrammarProfile::Auto);
         assert_eq!(grammar.rules.len(), 1);
-        assert_eq!(grammar.rules["OxfordComma"], true);
+        assert!(grammar.rules["OxfordComma"]);
         assert_eq!(Grammar::from_value(None), Grammar::default());
-        let mut settings = Settings::default();
-        settings.grammar = grammar.clone();
+        let settings = Settings {
+            grammar: grammar.clone(),
+            ..Settings::default()
+        };
         assert_eq!(Settings::from_value(&settings.to_value()).grammar, grammar);
     }
 

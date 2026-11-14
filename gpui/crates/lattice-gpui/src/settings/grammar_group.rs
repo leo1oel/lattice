@@ -298,7 +298,7 @@ pub fn group(
             let (name, description) = rule_text(&rule.name, &rule.description);
             let description = match academic_reason(&rule.name) {
                 Some(reason) if rule.academic_off && academic => {
-                    t!("Off for academic writing: {0}", reason).into()
+                    t!("Off for academic writing: {0}", reason)
                 }
                 _ => description,
             };
