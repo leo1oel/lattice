@@ -112,8 +112,9 @@ export const scenes = {
   // artboard.
   async latexVisual(env, theme) {
     const staged = await project(env, theme);
-    await staged.page.locator(".trellis-view-switcher button.ui-segmented-tab[title=Visual]").first().click();
-    await staged.page.waitForSelector(".cm-editor.cm-latex-visual .katex", { timeout: 30_000 });
+    // The active header's switch; an inactive one only holds its place.
+    await staged.page.locator("[data-trellis-part=\"accessory\"]:not([data-inactive]) .trellis-view-switcher button.ui-segmented-tab[title=Visual]").click();
+    await staged.page.waitForSelector(".cm-editor.cm-latex-visual", { timeout: 30_000 });
     await rest(staged.page);
     return staged;
   },
