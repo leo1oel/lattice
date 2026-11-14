@@ -685,11 +685,11 @@ impl Render for EditorPanel {
             .into_div()
             .key_context("LatticeEditor")
             .on_action(cx.listener(Self::deploy_search))
-            // A file dragged from the Project tree goes in as a figure
+            // A figure dragged from the Project tree goes in as a figure
             // (`beginFigureDrag`).
             .on_drop(
                 cx.listener(|this, dragged: &crate::file_tree::DraggedEntry, _, cx| {
-                    if let Some(path) = dragged.file()
+                    if let Some(path) = dragged.figure()
                         && this.inserts_figures()
                     {
                         cx.emit(EditorPanelEvent::InsertFigures(vec![path.to_string()]));
@@ -697,8 +697,8 @@ impl Render for EditorPanel {
                 }),
             )
             // Before Zed's editor pastes: an image becomes a figure.
-            .capture_action(cx.listener(|this, _: &editor::actions::Paste, _, cx| {
-                if this.pastes_image(cx) {
+            .capture_action(cx.listener(|this, _: &editor::actions::Paste, window, cx| {
+                if this.editor().focus_handle(cx).is_focused(window) && this.pastes_image(cx) {
                     cx.emit(EditorPanelEvent::PasteImage);
                     cx.stop_propagation();
                 }

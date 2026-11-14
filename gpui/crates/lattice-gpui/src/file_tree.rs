@@ -110,13 +110,15 @@ pub struct DraggedEntry {
     path: String,
     name: SharedString,
     folder: bool,
+    figure: bool,
 }
 
 impl DraggedEntry {
-    /// The row's project-relative path, when it is a file (a folder dragged
-    /// out of the tree inserts nothing).
-    pub fn file(&self) -> Option<&str> {
-        (!self.folder).then_some(self.path.as_str())
+    /// The row's project-relative path, when it is a figure or a binary
+    /// asset, as the Tauri app starts a figure drag only for those
+    /// (`project-file-tree.tsx`); a folder or a text file inserts nothing.
+    pub fn figure(&self) -> Option<&str> {
+        self.figure.then_some(self.path.as_str())
     }
 }
 
@@ -159,6 +161,8 @@ pub struct FileTreePanel {
     expanded: HashSet<String>,
     /// What Git says of the rows.
     marks: Rc<GitMarks>,
+    /// The rows that drag into an editor as a figure.
+    figures: Rc<HashSet<String>>,
     /// What the tree's ⌘C last put on the clipboard.
     copied: Option<clipboard::Copied>,
     /// The rows' fluid hover, as last drawn, for a scenario's check.
@@ -183,6 +187,7 @@ impl FileTreePanel {
             row_menu: None,
             expanded: HashSet::new(),
             marks: Rc::default(),
+            figures: Rc::default(),
             copied: None,
             _project_subscription: None,
         }
@@ -250,6 +255,13 @@ impl FileTreePanel {
             insert_placeholder(&mut nodes, path, *folder);
         }
         self.read_marks(cx);
+        self.figures = Rc::new(
+            lattice_core::project::tree_files(&nodes)
+                .into_iter()
+                .filter(|node| node.kind == "figure" || node.content_kind == "binary")
+                .map(|node| node.path.clone())
+                .collect(),
+        );
         let items = tree_items(&nodes, &self.expanded);
         self.state
             .update(cx, |state, cx| state.set_items(items, cx));
@@ -526,6 +538,7 @@ impl Render for FileTreePanel {
             .map(|naming| (naming.path.clone(), naming.input.clone()));
         let drop_target = cx.palette().drop_target;
         let marks = self.marks.clone();
+        let figures = self.figures.clone();
         // The tree's hover is one fill gliding between rows, as the app's
         // (`project-tree-hover.tsx`): the open file's row keeps its own
         // selection fill and is never lit, and rows recycled under a resting
@@ -635,6 +648,7 @@ impl Render for FileTreePanel {
                         path: relative.clone(),
                         name: item.label.clone(),
                         folder: is_folder,
+                        figure: figures.contains(&relative),
                     };
                     // A drop on a folder moves into it; on a file, into the
                     // file's folder.
