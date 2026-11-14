@@ -214,5 +214,18 @@ pub fn bring_to_front(native: Native) {
     }
 }
 
+/// The scenario's foreground sections (`scenario/input_lock.rs`) matter on
+/// macOS only; the Windows runner has the machine to itself, so the app never
+/// reads as active outside one.
+pub fn app_is_active() -> bool {
+    false
+}
+
+/// See `app_is_active`.
+pub fn deactivate_app() {}
+
+/// The Windows runner has the machine, and its clipboard, to itself.
+pub fn release_private_pasteboard() {}
+
 /// macOS opts out of App Nap here; Windows does not throttle the window.
 pub fn begin_latency_critical_activity() {}

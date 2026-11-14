@@ -138,7 +138,7 @@ impl Run {
         std::fs::write(&file, "draft\n")?;
         let opened = cx.update(|cx| Shell::open_window(Some(root.to_path_buf()), cx));
         let (window, shell) = opened?;
-        let second = Run { shell, window };
+        let second = self.for_window(shell, window);
         second.root(cx).await?;
         let editor = second.open(cx, &file, Some(1))?;
         second.pause(cx, Duration::from_millis(300)).await;
@@ -179,7 +179,7 @@ impl Run {
         std::fs::write(&file, "draft\n")?;
         let opened = cx.update(|cx| Shell::open_window(Some(root.to_path_buf()), cx));
         let (window, shell) = opened?;
-        let second = Run { shell, window };
+        let second = self.for_window(shell, window);
         second.root(cx).await?;
         let editor = second.open(cx, &file, Some(1))?;
         second.pause(cx, Duration::from_millis(300)).await;

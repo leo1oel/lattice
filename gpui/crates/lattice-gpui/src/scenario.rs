@@ -6,6 +6,7 @@
 
 use std::{
     path::{Path, PathBuf},
+    rc::Rc,
     time::{Duration, Instant},
 };
 
@@ -18,6 +19,7 @@ use crate::{editor_panel::EditorPanel, native, shell::Shell};
 
 mod drag;
 mod e2e;
+mod input_lock;
 #[cfg(target_os = "macos")]
 mod measure;
 #[cfg(target_os = "macos")]
@@ -60,16 +62,22 @@ pub fn parse_args() -> (Option<PathBuf>, Option<ScenarioArgs>) {
 
 pub fn start(shell: Entity<Shell>, window: AnyWindowHandle, args: ScenarioArgs, cx: &mut App) {
     cx.spawn(async move |cx| {
-        let run = Run { shell, window };
+        let run = Run {
+            shell,
+            window,
+            input: Rc::new(input_lock::InputLock::new()),
+        };
         native::begin_latency_critical_activity();
-        // The input method needs a key window in an active app. Other
-        // scenarios leave whatever the user has in front alone;
-        // LATTICE_SCENARIO_FRONT=1 brings the window to the front for them
-        // too.
+        // The input method needs a key window in an active app, for the
+        // whole run. Other scenarios stay in the background and front their
+        // window only for the steps that need it (`input_lock.rs`);
+        // LATTICE_SCENARIO_FRONT=1 holds them in front for the whole run too.
         let front = args.name == "ime" || std::env::var_os("LATTICE_SCENARIO_FRONT").is_some();
-        if front && let Ok(native) = run.native(cx) {
-            native::bring_to_front(native);
-        }
+        let whole_run = if front {
+            run.foreground(cx, "the whole run").await.ok()
+        } else {
+            None
+        };
         let result = match args.name.as_str() {
             "e2e" => run.e2e(cx).await,
             #[cfg(target_os = "macos")]
@@ -90,7 +98,15 @@ pub fn start(shell: Entity<Shell>, window: AnyWindowHandle, args: ScenarioArgs, 
             "pdf-shots" => run.pdf_shots(cx).await,
             other => Err(anyhow!("unknown scenario {other} on this platform")),
         };
-        let value = result.unwrap_or_else(|error| json!({ "error": format!("{error:#}") }));
+        drop(whole_run);
+        // A step that failed inside a section left it with `?`, which gave
+        // the lock back; this covers anything that did not.
+        run.input.release_all();
+        let mut value = result.unwrap_or_else(|error| json!({ "error": format!("{error:#}") }));
+        if let Some(object) = value.as_object_mut() {
+            object.insert("foreground".into(), run.input.summary());
+        }
+        native::release_private_pasteboard();
         let text = serde_json::to_string_pretty(&value).unwrap_or_default();
         if let Err(error) = std::fs::write(&args.out, text) {
             log::error!("writing {}: {error}", args.out.display());
@@ -103,11 +119,86 @@ pub fn start(shell: Entity<Shell>, window: AnyWindowHandle, args: ScenarioArgs, 
 struct Run {
     shell: Entity<Shell>,
     window: AnyWindowHandle,
+    /// Shared with the `Run`s of the scenario's other windows.
+    input: Rc<input_lock::InputLock>,
+}
+
+/// While alive, the scenario is in a foreground section (`input_lock.rs`):
+/// it holds the machine-wide input lock, its app is active and the window it
+/// was entered for is key. Dropping it leaves the section.
+#[must_use = "the section ends when this is dropped"]
+struct Foreground(Rc<input_lock::InputLock>);
+
+impl Drop for Foreground {
+    fn drop(&mut self) {
+        self.0.leave();
+    }
 }
 
 impl Run {
     fn native(&self, cx: &mut AsyncApp) -> Result<native::Native> {
         self.with_window(cx, |_, window, _| native::native(window))?
+    }
+
+    /// A `Run` for another of the scenario's windows, sharing its lock.
+    fn for_window(&self, shell: Entity<Shell>, window: AnyWindowHandle) -> Run {
+        Run {
+            shell,
+            window,
+            input: self.input.clone(),
+        }
+    }
+
+    /// Enter a foreground section (`input_lock.rs`): wait for the machine-wide
+    /// input lock, then activate the app and make this window key, and wait
+    /// until it is. Steps that need the app active or the window key, or that
+    /// use the pasteboard, run while the returned guard lives; the outermost
+    /// guard's drop deactivates the app and gives the lock back.
+    async fn foreground(&self, cx: &mut AsyncApp, what: &'static str) -> Result<Foreground> {
+        let guard = Foreground(self.input.clone());
+        if self.input.enter(what) {
+            let mut announced = false;
+            loop {
+                match self.input.try_take().context("taking the GPUI e2e lock")? {
+                    input_lock::Attempt::Taken => {
+                        self.input.taken();
+                        break;
+                    }
+                    input_lock::Attempt::TookOver(pid) => eprintln!(
+                        "  (taking over {} from pid {pid}, which died holding it)",
+                        input_lock::LOCK_DIR
+                    ),
+                    input_lock::Attempt::HeldBy(owner) => {
+                        if !announced {
+                            let owner = if owner.is_empty() {
+                                "a process starting up".to_string()
+                            } else {
+                                owner
+                            };
+                            eprintln!("  (waiting for the GPUI e2e lock held by {owner})");
+                            announced = true;
+                        }
+                        self.pause(cx, Duration::from_millis(100)).await;
+                    }
+                }
+            }
+        }
+        native::bring_to_front(self.native(cx)?);
+        let window = self.window;
+        let key = self
+            .wait_for(cx, Duration::from_secs(1), move |_, cx| {
+                native::app_is_active()
+                    && window
+                        .update(cx, |_, window, _| window.is_window_active())
+                        .unwrap_or(false)
+            })
+            .await;
+        // A locked screen activates no app, and needs none activated: the
+        // window keeps drawing (GPUI_LAB_IGNORE_OCCLUSION, `pump_frame`).
+        if !key {
+            log::info!("the window did not become key within 1 s of being brought to the front");
+        }
+        Ok(guard)
     }
 }
 
@@ -159,6 +250,7 @@ impl Run {
     /// row is drawn). A window on screen draws its own, so this does nothing
     /// in other builds.
     fn pump_frame(&self, _cx: &mut AsyncApp) {
+        self.input.observe();
         #[cfg(feature = "offscreen-shots")]
         self.with_window(_cx, |_, window, cx| {
             window.refresh();

@@ -55,7 +55,7 @@ impl Run {
     /// and type before the quit that ends the run, which the result's `after_quit`
     /// names for the CI workflow to check on disk.
     pub(super) async fn e2e(&self, cx: &mut AsyncApp) -> Result<Value> {
-        let mut steps = Steps(Vec::new());
+        let mut steps = Steps::new(self);
         let root = self.root(cx).await?;
         // No step may reach a real TeX install.
         let stub = self.stub_tex_setup(cx, &root);
@@ -316,6 +316,7 @@ impl Run {
             .context("closing_saves")?;
         // Last: `scenario::start` quits once the result is written.
         let quit = self.type_before_quit(cx, &mut steps, &root).await?;
+        steps.check_foreground(self);
 
         let passed = steps.0.iter().all(|step| step["passed"] == true);
         Ok(json!({ "scenario": "e2e", "passed": passed, "steps": steps.0, "after_quit": quit }))
@@ -325,12 +326,13 @@ impl Run {
     /// islands: the e2e scenario runs them too.
     #[cfg(target_os = "macos")]
     pub(super) async fn islands(&self, cx: &mut AsyncApp) -> Result<Value> {
-        let mut steps = Steps(Vec::new());
+        let mut steps = Steps::new(self);
         let root = self.root(cx).await?;
         self.pause(cx, Duration::from_millis(800)).await;
         self.webview_islands(cx, &mut steps, &root).await?;
         self.structured_islands(cx, &mut steps, &root).await?;
         self.markdown_island(cx, &mut steps, &root).await?;
+        steps.check_foreground(self);
         let passed = steps.0.iter().all(|step| step["passed"] == true);
         Ok(json!({ "scenario": "islands", "passed": passed, "steps": steps.0 }))
     }
