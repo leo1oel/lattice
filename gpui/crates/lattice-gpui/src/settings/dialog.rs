@@ -74,6 +74,11 @@ fn drawn(tab: SettingsTab) -> SettingsTab {
     match tab {
         SettingsTab::Editor
         | SettingsTab::Agent
+        | SettingsTab::Mcp
+        | SettingsTab::Api
+        | SettingsTab::Usage
+        | SettingsTab::ModelEndpoint
+        | SettingsTab::Environment
         | SettingsTab::Doctor
         | SettingsTab::Overleaf
         | SettingsTab::Logs => tab,
@@ -128,6 +133,10 @@ pub struct SettingsDialog {
     pub(super) results_adopted: Option<usize>,
     /// Settings › Overleaf's view of the account, once the page is drawn.
     pub(super) overleaf: Option<Entity<super::overleaf_pane::OverleafConnection>>,
+    /// Settings › Model endpoint's form, once the page is drawn.
+    pub(super) model_endpoint: Option<Entity<super::model_endpoint_pane::ModelEndpointPane>>,
+    /// Settings › Environment's report, once the page is drawn.
+    pub(super) environment: Option<Entity<super::environment_pane::EnvironmentPane>>,
     _reveal_task: Option<Task<()>>,
     _subscriptions: Vec<Subscription>,
 }
@@ -361,6 +370,8 @@ impl SettingsDialog {
             narrow_page: false,
             results_adopted: None,
             overleaf: None,
+            model_endpoint: None,
+            environment: None,
             _reveal_task: None,
             _subscriptions: subscriptions,
         }
@@ -423,7 +434,8 @@ impl SettingsDialog {
 
     /// Settings › Providers' page is shown while its tab is open.
     pub fn sync_providers(&self, cx: &mut App) {
-        let shown = self.tab == SettingsTab::Agent;
+        // Providers, MCP, Skills and Usage & limits share the one page.
+        let shown = super::providers_pane::section(self.tab).is_some();
         self.providers
             .update(cx, |surface, cx| surface.set_shown(shown, cx));
     }
@@ -649,7 +661,13 @@ impl SettingsDialog {
             // The log fills the page and scrolls inside its card instead.
             SettingsTab::Logs => return self.logs_page(page_width, narrow, cx),
             SettingsTab::Editor => super::editor_pane::render(self, page_width, window, cx),
-            SettingsTab::Agent => super::providers_pane::render(self.providers.clone(), narrow, cx),
+            SettingsTab::Agent | SettingsTab::Mcp | SettingsTab::Api | SettingsTab::Usage => {
+                super::providers_pane::render(self.providers.clone(), self.tab, narrow, cx)
+            }
+            SettingsTab::ModelEndpoint => {
+                super::model_endpoint_pane::render(self, page_width, window, cx)
+            }
+            SettingsTab::Environment => super::environment_pane::render(self, page_width, cx),
             SettingsTab::Doctor => super::editor_pane::doctor(page_width, cx),
             SettingsTab::Overleaf => super::overleaf_pane::render(self, page_width, window, cx),
             _ => super::appearance_pane::render(self, page_width, window, cx),
@@ -674,7 +692,7 @@ impl SettingsDialog {
                 div()
                     .id("settings-page")
                     .size_full()
-                    .when(self.tab == SettingsTab::Agent, |this| {
+                    .when(super::providers_pane::section(self.tab).is_some(), |this| {
                         this.flex().flex_col()
                     })
                     .overflow_y_scroll()

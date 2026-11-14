@@ -11,18 +11,9 @@
 //! configuration when it starts: a restart stops every window's running
 //! turns, so while one runs it is offered, not made.
 
-use gpui::{
-    AnyElement, AppContext as _, Context, ElementId, Entity, IntoElement, ParentElement as _,
-    Pixels, SharedString, Styled as _, Subscription, Task, WeakEntity, Window, div,
-    prelude::FluentBuilder as _, px,
-};
+use gpui::{AppContext as _, Context, Entity, SharedString, Subscription, Task, WeakEntity, Window};
 use gpui_kit::component::input::{InputEvent, InputState};
 use lattice_i18n::t;
-use lattice_settings::SettingsTab;
-use lattice_ui::{
-    ActiveLattice as _, Icon, TextRole, TextRoleStyle as _, TypeScale,
-    components::{Button, ButtonVariant, CheckState, Checkbox, Field, IconButton},
-};
 use serde_json::{Value, json};
 
 mod protocol;
@@ -30,7 +21,10 @@ mod view;
 
 use protocol::{Protocol, host_of};
 
-use super::{controls::Level, dialog::SettingsDialog};
+use super::{
+    controls::{self, Level},
+    dialog::SettingsDialog,
+};
 use crate::agent::{agent_home, commands::agent_turns, runtime::AgentRuntime};
 
 /// Pi's own defaults for a model that does not say.
@@ -63,6 +57,21 @@ struct Notice {
     text: String,
     /// Offers the restart a running turn held back.
     restart: bool,
+}
+
+/// Settings › Model endpoint, its form made the first time it is drawn.
+pub fn render(
+    dialog: &mut SettingsDialog,
+    width: controls::PageWidth,
+    window: &mut Window,
+    cx: &mut Context<SettingsDialog>,
+) -> gpui::AnyElement {
+    let handle = cx.entity().downgrade();
+    let pane = dialog
+        .model_endpoint
+        .get_or_insert_with(|| cx.new(|cx| ModelEndpointPane::new(handle, window, cx)))
+        .clone();
+    pane.update(cx, |pane, cx| pane.render_page(width, window, cx))
 }
 
 pub struct ModelEndpointPane {
