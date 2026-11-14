@@ -370,6 +370,12 @@ impl SynaraSurface {
         );
     }
 
+    /// The Synara settings section Settings shows (`providers`,
+    /// `integrations`, `skills`, `usage`).
+    pub fn settings_section(&self) -> &'static str {
+        self.settings_section.0
+    }
+
     /// Open and reveal a place on Settings › Providers.
     pub fn reveal_setting(&self, target: &str, cx: &mut App) {
         self.post("agent:settings-target", json!({ "target": target }), cx);

@@ -41,7 +41,7 @@ mod nav;
 mod pages;
 pub(crate) mod overleaf_pane;
 mod providers_pane;
-mod search;
+pub(crate) mod search;
 mod theme_art;
 
 use std::{

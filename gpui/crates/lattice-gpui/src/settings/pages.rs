@@ -103,3 +103,38 @@ pub fn draw(
         _ => super::appearance_pane::render(dialog, width, window, cx),
     }
 }
+
+/// What a scenario reads of the pages.
+impl SettingsDialog {
+    /// The rows the page on screen drew, Settings search's reveal targets.
+    pub fn drawn_rows(&self) -> Vec<&'static str> {
+        let mut rows: Vec<&'static str> = self.rows.borrow().keys().copied().collect();
+        rows.sort_unstable();
+        rows
+    }
+
+    /// A project is open in the window, which some rows need.
+    pub fn has_project(&self) -> bool {
+        self.project.is_some()
+    }
+
+    /// The Synara settings section the Agent pages' surface shows.
+    pub fn synara_section(&self, cx: &gpui::App) -> &'static str {
+        self.providers().read(cx).settings_section()
+    }
+
+    /// Acknowledgements' sheet is open over Settings.
+    pub fn sheet_open(&self, cx: &gpui::App) -> bool {
+        self.pages
+            .acknowledgements
+            .as_ref()
+            .is_some_and(|pane| pane.read(cx).sheet.is_some())
+    }
+
+    /// Open Acknowledgements' whole notices file, as its header's button does.
+    pub fn open_notices(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(pane) = self.pages.acknowledgements.clone() {
+            pane.update(cx, |pane, cx| pane.open_whole_notices(window, cx));
+        }
+    }
+}
