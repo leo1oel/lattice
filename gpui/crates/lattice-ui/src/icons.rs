@@ -119,6 +119,12 @@ lucide! {
     /// The Terminal panel's glyph (`terminal-icon.tsx`).
     SQUARE_TERMINAL = "icons" / "square-terminal";
     WHOLE_WORD = "icons" / "whole-word";
+    // The Papers panel's rows, toolbar and add rows (main declares
+    // ARROW_DOWN, ARROW_DOWN_UP, ARROW_UP_RIGHT, BOOK_MARKED, FILE_DOWN and
+    // LINK_2 below).
+    HIGHLIGHTER = "icons" / "highlighter";
+    CORNER_DOWN_LEFT = "icons" / "corner-down-left";
+    LIST_FILTER = "icons" / "list-filter";
     /// A .tex file's Source / Visual switch.
     CODE_XML = "icons" / "code-xml";
     TYPE = "icons" / "type";
@@ -174,6 +180,7 @@ lucide! {
     DOWNLOAD = "lattice" / "download";
     ELLIPSIS = "lattice" / "ellipsis";
     EYE = "lattice" / "eye";
+    FILE = "lattice" / "file";
     FOLDER = "lattice" / "folder";
     HASH = "lattice" / "hash";
     IMAGE = "lattice" / "image";
@@ -316,6 +323,7 @@ const BUNDLED: &[(&str, &[u8])] = bundled![
     "plus.svg",
     "trash.svg",
     // Lucide's, whose names Zed's icon set shadows (LICENSE-LUCIDE).
+    "file.svg",
     "folder.svg",
     "circle.svg",
     "clock.svg",

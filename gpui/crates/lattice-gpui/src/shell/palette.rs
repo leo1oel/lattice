@@ -558,7 +558,11 @@ impl Shell {
             self.close_overlays(window, cx);
             return;
         }
+        if self.overlay_writing(cx) {
+            return;
+        }
         self.shortcuts = None;
+        self.documents.overlays_opened += 1;
         if self.document_overlay_open() {
             self.close_document_overlays(window, cx);
         }
@@ -576,6 +580,9 @@ impl Shell {
     }
 
     pub(crate) fn open_shortcuts(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.overlay_writing(cx) {
+            return;
+        }
         self.palette = None;
         if self.document_overlay_open() {
             self.close_document_overlays(window, cx);

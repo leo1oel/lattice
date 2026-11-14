@@ -30,12 +30,28 @@ pub(crate) struct Documents {
     /// Find's query and tab, kept across reopening.
     find_memory: FindMemory,
     replace: Option<Entity<ProjectReplace>>,
+    /// Add papers, opened from the Papers panel.
+    pub(super) add_papers: Option<Entity<crate::papers::add_sheet::AddPapers>>,
+    /// Discover literature, opened from the Papers box.
+    pub(super) literature: Option<Entity<crate::papers::literature::Literature>>,
+    /// Add papers' Enter manually: a reference for the project's
+    /// bibliography, typed or looked up.
+    pub(super) add_reference: Option<Entity<crate::papers::bib_editor::add::AddReference>>,
+    /// Linked library, from Add papers.
+    pub(super) linked: Option<Entity<crate::papers::linked::LinkedLibrary>>,
+    /// Check references, opened from the Papers strip.
+    pub(super) audit: Option<Entity<crate::papers::audit::Audit>>,
+    /// Saved papers open in their reader, one tab each.
+    pub(super) readers: Vec<Entity<crate::papers::reader::PaperReader>>,
     /// The places the writer went (project-relative path, line), oldest
     /// first, and the one back and forward stand on.
     history: Vec<(String, u32)>,
     history_index: usize,
     /// Back or forward is opening its place, which is not a new one.
     navigating: bool,
+    /// Counts the surfaces opened over the documents: an Edit bibliography
+    /// entry whose read lands after another opened opens nothing.
+    pub(super) overlays_opened: u64,
 }
 
 impl Shell {
@@ -48,7 +64,9 @@ impl Shell {
         let Some(project) = self.project.clone() else {
             return;
         };
-        self.dismiss_overlays_for_documents(cx);
+        if !self.dismiss_overlays_for_documents(cx) {
+            return;
+        }
         let (root, main, paths) = {
             let project = project.read(cx);
             let mut paths = Vec::new();
@@ -112,7 +130,9 @@ impl Shell {
         let Some(root) = self.root(cx) else {
             return;
         };
-        self.dismiss_overlays_for_documents(cx);
+        if !self.dismiss_overlays_for_documents(cx) {
+            return;
+        }
         let memory = self.documents.find_memory.clone();
         let view = cx.new(|cx| ProjectFind::new(root, memory, window, cx));
         cx.subscribe_in(&view, window, |this, find, event, window, cx| match event {
@@ -141,7 +161,9 @@ impl Shell {
         let Some(root) = self.root(cx) else {
             return;
         };
-        self.dismiss_overlays_for_documents(cx);
+        if !self.dismiss_overlays_for_documents(cx) {
+            return;
+        }
         let view = cx.new(|cx| ProjectReplace::new(root.clone(), window, cx));
         cx.subscribe_in(
             &view,
@@ -201,23 +223,60 @@ impl Shell {
 
     /// The palette and the shortcut sheet make way for a search surface,
     /// and one search surface for another.
-    fn dismiss_overlays_for_documents(&mut self, cx: &mut Context<Self>) {
+    /// Make room for a surface over the documents; false while a sheet
+    /// writes to the project, which holds the window until the write lands.
+    pub(super) fn dismiss_overlays_for_documents(&mut self, cx: &mut Context<Self>) -> bool {
+        if self.overlay_writing(cx) {
+            return false;
+        }
+        self.documents.overlays_opened += 1;
         self.palette = None;
         self.shortcuts = None;
         self.take_document_overlays(cx);
+        true
     }
 
-    fn take_document_overlays(&mut self, cx: &mut Context<Self>) {
+    /// A sheet is writing to the project: Check references its fixes,
+    /// Linked library its changes, Add reference its entry.
+    pub(super) fn overlay_writing(&self, cx: &gpui::App) -> bool {
+        let documents = &self.documents;
+        documents
+            .audit
+            .as_ref()
+            .is_some_and(|audit| audit.read(cx).is_applying())
+            || documents
+                .linked
+                .as_ref()
+                .is_some_and(|linked| linked.read(cx).is_busy())
+            || documents
+                .add_reference
+                .as_ref()
+                .is_some_and(|add| add.read(cx).is_saving())
+    }
+
+    pub(super) fn take_document_overlays(&mut self, cx: &mut Context<Self>) {
         self.documents.quick_open = None;
         if let Some(find) = self.documents.find.take() {
             self.documents.find_memory = find.read(cx).memory(cx);
         }
         self.documents.replace = None;
+        // However Add papers goes (Cancel, the palette, another surface), a
+        // finished batch goes with it, as its own Cancel clears it.
+        if self.documents.add_papers.take().is_some() {
+            self.papers.update(cx, |papers, cx| papers.clear_batch(cx));
+        }
+        self.documents.literature = None;
+        self.documents.audit = None;
+        self.documents.add_reference = None;
+        self.documents.linked = None;
     }
 
     /// Close whichever search surface is open, and give the keyboard back to
     /// the document in front.
     pub(crate) fn close_document_overlays(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.overlay_writing(cx) {
+            return;
+        }
         self.take_document_overlays(cx);
         self.focus_front(window, cx);
         cx.notify();
@@ -229,6 +288,11 @@ impl Shell {
         self.documents.quick_open.is_some()
             || self.documents.find.is_some()
             || self.documents.replace.is_some()
+            || self.documents.add_papers.is_some()
+            || self.documents.literature.is_some()
+            || self.documents.audit.is_some()
+            || self.documents.add_reference.is_some()
+            || self.documents.linked.is_some()
     }
 
     /// Quick open, while it is up, for a scenario.
@@ -339,6 +403,26 @@ impl Shell {
             .chain(
                 documents
                     .replace
+                    .clone()
+                    .map(|view| view.into_any_element()),
+            )
+            .chain(
+                documents
+                    .literature
+                    .clone()
+                    .map(|view| view.into_any_element()),
+            )
+            .chain(documents.audit.clone().map(|view| view.into_any_element()))
+            .chain(
+                documents
+                    .add_reference
+                    .clone()
+                    .map(|view| view.into_any_element()),
+            )
+            .chain(documents.linked.clone().map(|view| view.into_any_element()))
+            .chain(
+                documents
+                    .add_papers
                     .clone()
                     .map(|view| view.into_any_element()),
             )

@@ -1,0 +1,884 @@
+//! A `.bib` file's visual form (`bib-visual-editor.tsx`): its references as
+//! a searchable list, and the one in front as a form whose every field edits
+//! the file in place.
+//!
+//! The form edits the source editor's own buffer: each change is a splice
+//! into the text as it is at that moment, the entry found again by its key
+//! (the list may be drawn from a copy a keystroke old), so untouched entries,
+//! comments and macros never move and the editor's undo history records the
+//! change like any other edit (⌘Z outside a field steps it back). A text the
+//! parser cannot read whole is never edited here; the form says why and
+//! offers the line that failed.
+//!
+//! The list draws only the rows in view (`uniform_list`), every row one
+//! height, and parses a copy of the text off the main thread a moment after
+//! typing in the source pauses, so the source beside it never waits.
+
+use std::{
+    collections::HashMap,
+    path::PathBuf,
+    sync::atomic::{AtomicU32, Ordering},
+    time::Duration,
+};
+
+use gpui::{
+    App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, Focusable, KeyDownEvent,
+    Subscription, Task, UniformListScrollHandle, Window,
+};
+use gpui_kit::component::input::{InputEvent, InputState};
+use language::{Buffer, BufferEvent};
+use lattice_core::bib_document::{self, BibEdit, BibEntry, BibParseError, BibParseReason};
+use lattice_i18n::t;
+
+use super::PapersPanel;
+use crate::notices::{self, Notice, NoticeAction};
+
+pub mod add;
+mod detail;
+mod edits;
+mod list;
+pub mod model;
+
+use model::{BibFilter, BibSort, Row, Usages};
+
+/// A pause in typing in the source beside the list before it reads the
+/// text again.
+const PARSE_SETTLE: Duration = Duration::from_millis(150);
+/// The list's share of the width as the divider left it, shared by every
+/// bibliography in the session (`BIB_LIST_RATIO_DEFAULT`, 0.44).
+static LIST_RATIO: AtomicU32 = AtomicU32::new(0x3EE1_47AE);
+
+pub(super) fn list_ratio() -> f32 {
+    f32::from_bits(LIST_RATIO.load(Ordering::Relaxed))
+}
+
+fn set_list_ratio(ratio: f32) {
+    LIST_RATIO.store(ratio.to_bits(), Ordering::Relaxed);
+}
+
+pub enum BibEditorEvent {
+    /// Show the 1-based `line` of the project-relative `path` in its source.
+    OpenLine { path: String, line: u32 },
+    /// A reference was clicked in the list: the source beside it selects
+    /// it, by its byte offsets.
+    Picked { from: usize, to: usize },
+}
+
+/// What a parse of the text found.
+struct Parsed {
+    text: String,
+    rows: Vec<Row>,
+    macros: HashMap<String, String>,
+    error: Option<BibParseError>,
+}
+
+fn parse_rows(text: String) -> Parsed {
+    match bib_document::parse(&text) {
+        Ok(document) => {
+            let rows = document
+                .entries
+                .iter()
+                .enumerate()
+                .map(|(index, entry)| Row {
+                    summary: bib_document::summarize_entry(&text, entry, &document.macros),
+                    entry: entry.clone(),
+                    index,
+                })
+                .collect();
+            Parsed {
+                text,
+                rows,
+                macros: document.macros,
+                error: None,
+            }
+        }
+        Err(error) => Parsed {
+            text,
+            rows: Vec::new(),
+            macros: HashMap::new(),
+            error: Some(error),
+        },
+    }
+}
+
+/// Why the list cannot show a file that failed to parse
+/// (`bibUnreadableReason`).
+pub(super) fn unreadable_reason(error: &BibParseError) -> String {
+    let line = error.line;
+    match (error.reason, error.key.as_deref()) {
+        (BibParseReason::MissingKey, _) => {
+            t!("Line {line}: an entry has no citation key.", line = line)
+        }
+        (BibParseReason::Unclosed, Some(key)) => t!(
+            "Line {line}: the entry “{key}” is never closed.",
+            line = line,
+            key = key
+        ),
+        (BibParseReason::Unclosed, None) => {
+            t!("Line {line}: an entry is never closed.", line = line)
+        }
+        (BibParseReason::BadField, Some(key)) => t!(
+            "Line {line}: a field of “{key}” could not be read.",
+            line = line,
+            key = key
+        ),
+        (BibParseReason::BadField, None) => {
+            t!("Line {line}: a field could not be read.", line = line)
+        }
+    }
+}
+
+/// The last delete, for its notice's Undo.
+struct Deleted {
+    /// Which delete it was: an older notice's Undo finds it gone.
+    id: u64,
+    /// The delete's own step in the buffer's history: Undo steps back only
+    /// while it is the last one, never an edit made since that left the
+    /// same text.
+    transaction: Option<language::TransactionId>,
+    /// The text the delete left.
+    text: String,
+    removed: String,
+    /// The references that followed and preceded it in the file, by key
+    /// and which of those under that key: once the text has moved on, it
+    /// goes back beside them, never at an old offset that may now fall
+    /// inside another entry.
+    next: Option<(String, usize)>,
+    previous: Option<(String, usize)>,
+    key: String,
+    /// Where it stood: an undo that steps back puts it there again.
+    from: usize,
+    /// How many entries just like it the delete left: once there are more,
+    /// it is back already (⌘Z), and Undo puts nothing in a second time.
+    copies: usize,
+}
+
+pub struct BibEditor {
+    root: PathBuf,
+    /// The file, from the project root.
+    path: String,
+    buffer: Entity<Buffer>,
+    papers: Option<Entity<PapersPanel>>,
+    pub(super) text: String,
+    pub(super) rows: Vec<Row>,
+    pub(super) macros: HashMap<String, String>,
+    pub(super) error: Option<BibParseError>,
+    pub(super) usages: Option<Usages>,
+    usage_revision: Option<u64>,
+    pub(super) query: Entity<InputState>,
+    pub(super) filter: BibFilter,
+    pub(super) sort: BibSort,
+    /// The reference in front, by key and its place among the file's
+    /// entries (two can share a key): offsets move with every edit.
+    pub(super) selected: Option<(String, usize)>,
+    /// A pane too narrow for both shows the reference in place of the list.
+    pub(super) detail_open: bool,
+    /// The body's width, and where it starts in the window, as last laid
+    /// out.
+    pub(super) width: std::rc::Rc<std::cell::Cell<f32>>,
+    pub(super) body_origin: std::rc::Rc<std::cell::Cell<f32>>,
+    pub(super) resizing: bool,
+    pub(super) scroll: UniformListScrollHandle,
+    /// A reference (key and place) to bring into view once the list has it.
+    pub(super) reveal: Option<(String, usize)>,
+    pub(super) detail: Option<detail::Detail>,
+    pub(super) adding: Option<Entity<add::AddReference>>,
+    deleted: Option<Deleted>,
+    deletes: u64,
+    /// A caret the source moved to while the list was still drawn from an
+    /// older text, followed once the parse catches up.
+    follow: Option<usize>,
+    /// The buffer's edits as counted, and the count when the text the rows
+    /// were parsed from was read: they differ while a parse is due.
+    edits: u64,
+    parsed_edits: u64,
+    pub(super) focus: FocusHandle,
+    _parse: Option<Task<()>>,
+    _usages: Option<Task<()>>,
+    _subscriptions: Vec<Subscription>,
+}
+
+impl EventEmitter<BibEditorEvent> for BibEditor {}
+
+impl BibEditor {
+    pub fn new(
+        root: PathBuf,
+        path: String,
+        buffer: Entity<Buffer>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Self {
+        let query = cx.new(|cx| InputState::new(window, cx).placeholder(t!("Search references")));
+        let mut subscriptions = vec![
+            cx.subscribe(&buffer, |this, _, event: &BufferEvent, cx| {
+                if matches!(event, BufferEvent::Edited { .. } | BufferEvent::Reloaded) {
+                    this.edits += 1;
+                    this.schedule_parse(PARSE_SETTLE, cx);
+                }
+            }),
+            cx.subscribe_in(&query, window, |this, _, event, window, cx| match event {
+                InputEvent::Change => {
+                    this.scroll_to_top();
+                    cx.notify()
+                }
+                InputEvent::PressEnter { .. } => window.focus(&this.focus, cx),
+                _ => {}
+            }),
+        ];
+        subscriptions.shrink_to_fit();
+        let parsed = parse_rows(buffer.read(cx).text());
+        let mut this = Self {
+            root,
+            path,
+            buffer,
+            papers: None,
+            text: String::new(),
+            rows: Vec::new(),
+            macros: HashMap::new(),
+            error: None,
+            usages: None,
+            usage_revision: None,
+            query,
+            filter: BibFilter::All,
+            sort: BibSort::File,
+            selected: None,
+            detail_open: false,
+            width: Default::default(),
+            body_origin: Default::default(),
+            resizing: false,
+            scroll: UniformListScrollHandle::new(),
+            reveal: None,
+            detail: None,
+            adding: None,
+            deleted: None,
+            deletes: 0,
+            follow: None,
+            edits: 0,
+            parsed_edits: 0,
+            focus: cx.focus_handle(),
+            _parse: None,
+            _usages: None,
+            _subscriptions: subscriptions,
+        };
+        this.apply_parse(parsed, 0, cx);
+        this.scan_usages(cx);
+        this
+    }
+
+    /// The file moved to the project-relative `path`.
+    pub fn set_path(&mut self, path: String) {
+        self.path = path;
+    }
+
+    /// The library the references open their papers from; its every new
+    /// scan of the manuscript's citations is read here too.
+    pub fn set_papers(&mut self, papers: Entity<PapersPanel>, cx: &mut Context<Self>) {
+        let observe = cx.observe(&papers, |this, papers, cx| {
+            let revision = papers.read(cx).usage_revision;
+            if this.usage_revision != Some(revision) {
+                this.usage_revision = Some(revision);
+                this.scan_usages(cx);
+            }
+            cx.notify();
+        });
+        self._subscriptions.push(observe);
+        self.usage_revision = Some(papers.read(cx).usage_revision);
+        self.papers = Some(papers);
+        cx.notify();
+    }
+
+    pub(super) fn papers(&self) -> Option<&Entity<PapersPanel>> {
+        self.papers.as_ref()
+    }
+
+    /// The form's width as it was last laid out; zero before it is drawn.
+    pub fn laid_out_width(&self) -> f32 {
+        self.width.get()
+    }
+
+    /// The references' keys, in file order.
+    pub fn keys(&self) -> Vec<String> {
+        self.rows.iter().map(|row| row.entry.key.clone()).collect()
+    }
+
+    /// The reference in front, by key.
+    pub fn selected_key(&self) -> Option<&str> {
+        self.selected_row().map(|row| row.entry.key.as_str())
+    }
+
+    /// Delete the `index`th entry under `key`, as the form's Delete does.
+    pub fn delete_entry(&mut self, key: &str, index: usize, cx: &mut Context<Self>) {
+        self.delete(key.to_string(), index, cx);
+    }
+
+    /// The last delete notice's Undo, as a click on it does.
+    pub fn undo_last_delete(&mut self, cx: &mut Context<Self>) {
+        self.undo_delete(self.deletes, cx);
+    }
+
+    /// Bring `key` to the front, as a click on its row does.
+    pub fn pick(&mut self, key: &str, cx: &mut Context<Self>) {
+        self.select(key.to_string(), None, true, cx);
+    }
+
+    fn schedule_parse(&mut self, delay: Duration, cx: &mut Context<Self>) {
+        self._parse = Some(cx.spawn(async move |this, cx| {
+            cx.background_executor().timer(delay).await;
+            let Ok((text, edits)) =
+                this.update(cx, |this, cx| (this.buffer.read(cx).text(), this.edits))
+            else {
+                return;
+            };
+            let parsed = cx.background_spawn(async move { parse_rows(text) }).await;
+            this.update(cx, |this, cx| this.apply_parse(parsed, edits, cx))
+                .ok();
+        }));
+    }
+
+    /// `edits`: the buffer's edit count when `parsed`'s text was read.
+    fn apply_parse(&mut self, parsed: Parsed, edits: u64, cx: &mut Context<Self>) {
+        self.parsed_edits = edits;
+        if parsed.text != self.text || self.error.is_some() || parsed.error.is_some() {
+            let follow = |(key, index): &(String, usize)| {
+                let at = model::follow_row(
+                    &self.rows,
+                    &self.text,
+                    &parsed.rows,
+                    &parsed.text,
+                    key,
+                    *index,
+                );
+                (key.clone(), at.unwrap_or(*index))
+            };
+            self.selected = self.selected.as_ref().map(follow);
+            self.reveal = self.reveal.as_ref().map(follow);
+            if let Some(detail) = &mut self.detail
+                && let Some(row) = model::form_row(
+                    &parsed.rows,
+                    &parsed.text,
+                    &detail.key,
+                    detail.index,
+                    &detail.signature,
+                )
+            {
+                detail.index = row.index;
+            }
+            self.text = parsed.text;
+            self.rows = parsed.rows;
+            self.macros = parsed.macros;
+            self.error = parsed.error;
+            cx.notify();
+        }
+        if let Some(offset) = self.follow.take() {
+            self.follow_caret(offset, cx);
+        }
+    }
+
+    /// Where the manuscript cites each key, read again.
+    fn scan_usages(&mut self, cx: &mut Context<Self>) {
+        let root = self.root.clone();
+        let scan =
+            cx.background_spawn(async move { lattice_core::project::citation_usages(&root) });
+        self._usages = Some(cx.spawn(async move |this, cx| {
+            let usages = scan.await;
+            this.update(cx, |this, cx| {
+                // Without the scan nothing is flagged unused, rather than
+                // everything.
+                this.usages = usages.ok().map(Usages::group);
+                cx.notify();
+            })
+            .ok();
+        }));
+    }
+
+    /// The row of the reference in front (its key in any case, as BibTeX
+    /// reads keys).
+    pub(super) fn selected_row(&self) -> Option<&Row> {
+        let (key, index) = self.selected.as_ref()?;
+        self.row_at(key, *index).or_else(|| {
+            self.rows
+                .iter()
+                .find(|row| model::same_key(&row.entry.key, key))
+        })
+    }
+
+    pub(super) fn row_at(&self, key: &str, index: usize) -> Option<&Row> {
+        model::row_at(&self.rows, key, index)
+    }
+
+    /// The rows the list shows, in its order.
+    pub(super) fn shown(&self, cx: &App) -> Vec<usize> {
+        let query = self.query.read(cx).value();
+        model::shown(
+            &self.rows,
+            &query,
+            self.filter,
+            self.sort,
+            self.usages.as_ref(),
+        )
+        .into_iter()
+        .map(|row| row.index)
+        .collect()
+    }
+
+    /// Bring `key` to the front: the entry at `index`, else its first;
+    /// `open`, as a click does, opens its form and selects it in the source.
+    pub(super) fn select(
+        &mut self,
+        key: String,
+        index: Option<usize>,
+        open: bool,
+        cx: &mut Context<Self>,
+    ) {
+        // The source's offsets, not those of a parse it has moved past.
+        if self.parsed_edits != self.edits {
+            let text = self.buffer.read(cx).text();
+            self.apply_parse(parse_rows(text), self.edits, cx);
+        }
+        let row = self
+            .row_at(&key, index.unwrap_or(usize::MAX))
+            .map(|row| (row.entry.from, row.entry.to, row.index));
+        if let Some((from, to, _)) = row.filter(|_| open) {
+            cx.emit(BibEditorEvent::Picked { from, to });
+        }
+        let index = row.map_or(usize::MAX, |(.., index)| index);
+        self.selected = Some((key, index));
+        if open {
+            self.detail_open = true;
+        }
+        cx.notify();
+    }
+
+    /// The source beside the list moved its caret to `offset`: the list
+    /// follows the reference holding it, its closing brace included
+    /// (`use-bib-source-sync.ts`).
+    pub fn follow_caret(&mut self, offset: usize, cx: &mut Context<Self>) {
+        // The rows' offsets are the parsed text's: the caret means nothing
+        // in them until the parse of the buffer as it is now lands.
+        if self.parsed_edits != self.edits {
+            self.follow = Some(offset);
+            return;
+        }
+        let Some(row) = model::row_holding(&self.rows, offset) else {
+            return;
+        };
+        if self.selected_row().map(|front| front.index) != Some(row.index) {
+            self.selected = Some((row.entry.key.clone(), row.index));
+            self.reveal = self.selected.clone();
+            cx.notify();
+        }
+    }
+
+    pub(super) fn set_filter(&mut self, filter: BibFilter, cx: &mut Context<Self>) {
+        self.filter = filter;
+        self.scroll_to_top();
+        cx.notify();
+    }
+
+    pub(super) fn set_sort(&mut self, sort: BibSort, cx: &mut Context<Self>) {
+        self.sort = sort;
+        cx.notify();
+    }
+
+    pub(super) fn show_all(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.query
+            .update(cx, |query, cx| query.set_value("", window, cx));
+        self.filter = BibFilter::All;
+        cx.notify();
+    }
+
+    fn scroll_to_top(&self) {
+        self.scroll.scroll_to_item(0, gpui::ScrollStrategy::Top);
+    }
+
+    /// Make `edit` of the reference `key` against the buffer as it is now:
+    /// the entry is found again (where it was, else by its key) and the
+    /// splice measured on that. The list reads the result at once.
+    pub(super) fn edit_entry(
+        &mut self,
+        key: &str,
+        index: usize,
+        edit: impl FnOnce(&str, &BibEntry) -> Option<BibEdit>,
+        cx: &mut Context<Self>,
+    ) -> Option<(String, BibEdit)> {
+        let base = self.buffer.read(cx).text();
+        let document = bib_document::parse(&base).ok()?;
+        let entry = document
+            .entries
+            .get(index)
+            .filter(|entry| entry.key == key)
+            .or_else(|| document.entries.iter().find(|entry| entry.key == key))?;
+        let change = edit(&base, entry)?;
+        if change.from == change.to && change.insert.is_empty() {
+            return None;
+        }
+        self.splice(&change, cx);
+        Some((base, change))
+    }
+
+    fn splice(&mut self, change: &BibEdit, cx: &mut Context<Self>) {
+        let insert = change.insert.clone();
+        let range = change.from..change.to;
+        self.buffer
+            .update(cx, |buffer, cx| buffer.edit([(range, insert)], None, cx));
+        let text = self.buffer.read(cx).text();
+        self.apply_parse(parse_rows(text), self.edits, cx);
+    }
+
+    pub(super) fn delete(&mut self, key: String, index: usize, cx: &mut Context<Self>) {
+        // The next reference down takes its place, else the one above: read
+        // from the list before the delete parses the text again.
+        let shown = self.shown(cx);
+        let neighbour = shown
+            .iter()
+            .position(|row| *row == index)
+            .and_then(|at| {
+                shown
+                    .get(at + 1)
+                    .or_else(|| at.checked_sub(1).and_then(|at| shown.get(at)))
+            })
+            .and_then(|index| self.rows.iter().find(|row| row.index == *index))
+            // An entry after it moves up one place once it is gone.
+            .map(|row| {
+                let place = row.index - usize::from(row.index > index);
+                (row.entry.key.clone(), place)
+            });
+        self.buffer.update(cx, |buffer, _| {
+            buffer.finalize_last_transaction();
+        });
+        let showed = self
+            .detail
+            .as_ref()
+            .is_some_and(|detail| (&detail.key, detail.index) == (&key, index));
+        let Some((base, change)) = self.edit_entry(
+            &key,
+            index,
+            |source, entry| Some(bib_document::delete_entry_edit(source, entry)),
+            cx,
+        ) else {
+            return;
+        };
+        if showed {
+            self.detail = None;
+        }
+        let transaction = self.buffer.update(cx, |buffer, _| {
+            buffer
+                .finalize_last_transaction()
+                .map(|transaction| transaction.id)
+        });
+        self.selected = neighbour;
+        self.deletes += 1;
+        let id = self.deletes;
+        let anchor = |row: &Row| {
+            let nth = self.rows[..row.index]
+                .iter()
+                .filter(|other| other.entry.key == row.entry.key)
+                .count();
+            (row.entry.key.clone(), nth)
+        };
+        let next = self
+            .rows
+            .iter()
+            .find(|row| row.entry.from >= change.from)
+            .map(anchor);
+        let previous = self
+            .rows
+            .iter()
+            .rev()
+            .find(|row| row.entry.to <= change.from)
+            .map(anchor);
+        self.deleted = Some(Deleted {
+            id,
+            transaction,
+            text: self.text.clone(),
+            removed: base[change.from..change.to].to_string(),
+            next,
+            previous,
+            copies: copies(&self.text, &key, &base[change.from..change.to]),
+            key: key.clone(),
+            from: change.from,
+        });
+        let cited = self
+            .usages
+            .as_ref()
+            .map_or(0, |usages| usages.of(&key).len());
+        let view = cx.entity().downgrade();
+        let mut notice = Notice::new(
+            lattice_ui::components::ToastLevel::Success,
+            t!("Deleted “{key}”", key = key),
+        )
+        .key(format!("bib-delete:{}:{key}", self.path))
+        .action(NoticeAction::new(t!("Undo"), move |_, cx| {
+            view.update(cx, |this, cx| this.undo_delete(id, cx)).ok();
+        }));
+        if cited > 0 {
+            notice = notice.detail(t!(
+                "It is still cited in the manuscript ({cited}).",
+                cited = cited
+            ));
+        }
+        notices::show(notice, cx);
+    }
+
+    fn undo_delete(&mut self, id: u64, cx: &mut Context<Self>) {
+        if self.deleted.as_ref().is_none_or(|deleted| deleted.id != id) {
+            return;
+        }
+        let Some(deleted) = self.deleted.take() else {
+            return;
+        };
+        let current = self.buffer.read(cx).text();
+        // Nothing changed since: step the history back, so redo still works.
+        let last = self
+            .buffer
+            .read(cx)
+            .peek_undo_stack()
+            .map(|entry| entry.transaction_id());
+        let at = if current == deleted.text
+            && deleted.transaction.is_some()
+            && last == deleted.transaction
+        {
+            self.buffer.update(cx, |buffer, cx| buffer.undo(cx));
+            deleted.from
+        } else if copies(&current, &deleted.key, &deleted.removed) > deleted.copies {
+            return;
+        } else {
+            let Some(at) = restore_at(&current, &deleted) else {
+                notices::error(
+                    t!("Could not restore “{key}”", key = deleted.key),
+                    t!("The references around it changed since it was deleted."),
+                    cx,
+                );
+                return;
+            };
+            self.splice(
+                &BibEdit {
+                    from: at,
+                    to: at,
+                    insert: deleted.removed,
+                },
+                cx,
+            );
+            at
+        };
+        let text = self.buffer.read(cx).text();
+        self.apply_parse(parse_rows(text), self.edits, cx);
+        // The entry back where it went in, whichever of a shared key it is.
+        let index = self
+            .rows
+            .iter()
+            .find(|row| row.entry.key == deleted.key && row.entry.from >= at)
+            .map_or(usize::MAX, |row| row.index);
+        self.selected = Some((deleted.key, index));
+        self.reveal = self.selected.clone();
+        self.detail_open = true;
+        cx.notify();
+    }
+
+    pub(super) fn open_add(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let view = cx.entity().downgrade();
+        let sheet = cx.new(|cx| add::AddReference::new(add::AddTarget::Bib(view), window, cx));
+        sheet.update(cx, |sheet, cx| sheet.focus_lookup(window, cx));
+        self.adding = Some(sheet);
+        cx.notify();
+    }
+
+    /// Append `entry` (keyed `key`) to the file, and bring it to the front.
+    pub(super) fn add_entry(
+        &mut self,
+        entry: &str,
+        key: &str,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Result<(), String> {
+        let base = self.buffer.read(cx).text();
+        let change = model::append_entry(&base, entry, key)?;
+        self.splice(&change, cx);
+        self.show_all(window, cx);
+        window.focus(&self.focus, cx);
+        let index = self.rows.iter().rev().find(|row| row.entry.key == key);
+        self.selected = Some((key.to_string(), index.map_or(usize::MAX, |row| row.index)));
+        self.reveal = self.selected.clone();
+        self.detail_open = true;
+        self.adding = None;
+        cx.notify();
+        Ok(())
+    }
+
+    pub(super) fn close_add(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.adding = None;
+        window.focus(&self.focus, cx);
+        cx.notify();
+    }
+
+    pub(super) fn open_line(&mut self, path: String, line: u32, cx: &mut Context<Self>) {
+        cx.emit(BibEditorEvent::OpenLine { path, line });
+    }
+
+    /// The reference's paper: read it, or download it first, as the Papers
+    /// list does.
+    pub(super) fn open_paper(&mut self, index: usize, window: &mut Window, cx: &mut Context<Self>) {
+        let (Some(papers), Some(row)) = (
+            self.papers.clone(),
+            self.rows.iter().find(|row| row.index == index),
+        ) else {
+            return;
+        };
+        let (paper, state) = {
+            let library = papers.read(cx);
+            model::entry_paper(
+                &library.bibliography_papers,
+                &row.entry.key,
+                &row.summary,
+                &library.fetching.states,
+            )
+        };
+        if let (Some(paper), model::PaperState::Open | model::PaperState::Download) = (paper, state)
+        {
+            papers.update(cx, |papers, cx| papers.activate(&paper, None, window, cx));
+        }
+    }
+
+    pub(super) fn set_ratio_from(&mut self, list_width: f32, cx: &mut Context<Self>) {
+        let tracks = self.width.get() - 1.;
+        if tracks <= 0. {
+            return;
+        }
+        let max = (tracks - list::DETAIL_MIN_WIDTH).max(list::LIST_MIN_WIDTH);
+        set_list_ratio(list_width.clamp(list::LIST_MIN_WIDTH, max) / tracks);
+        cx.notify();
+    }
+
+    pub(super) fn reset_ratio(&mut self, cx: &mut Context<Self>) {
+        set_list_ratio(0.44);
+        cx.notify();
+    }
+
+    /// The list's keys: the arrows move through it, Enter opens the
+    /// reference, Delete removes it; ⌘Z steps the file's history outside a
+    /// field.
+    pub(super) fn key_down(
+        &mut self,
+        event: &KeyDownEvent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.focus.is_focused(window) {
+            self.list_key(event, cx);
+        }
+    }
+
+    /// A key for the list: Undo and Redo, a step through the references,
+    /// Enter to open one, Delete to remove it.
+    fn list_key(&mut self, event: &KeyDownEvent, cx: &mut Context<Self>) {
+        let keystroke = &event.keystroke;
+        let modifiers = keystroke.modifiers;
+        if (modifiers.platform || modifiers.control) && !modifiers.alt && keystroke.key == "z" {
+            self.buffer.update(cx, |buffer, cx| {
+                if modifiers.shift {
+                    buffer.redo(cx);
+                } else {
+                    buffer.undo(cx);
+                }
+            });
+            cx.stop_propagation();
+            return;
+        }
+        let shown = self.shown(cx);
+        if shown.is_empty() {
+            return;
+        }
+        let at = self
+            .selected_row()
+            .and_then(|row| shown.iter().position(|index| *index == row.index));
+        let target = match keystroke.key.as_str() {
+            "down" => Some(at.map_or(0, |at| (at + 1).min(shown.len() - 1))),
+            "up" => Some(at.map_or(0, |at| at.saturating_sub(1))),
+            "pagedown" => Some(at.map_or(9, |at| at + 10).min(shown.len() - 1)),
+            "pageup" => Some(at.map_or(0, |at| at.saturating_sub(10))),
+            "home" => Some(0),
+            "end" => Some(shown.len() - 1),
+            "enter" => {
+                if at.is_some() {
+                    self.detail_open = true;
+                    cx.notify();
+                }
+                None
+            }
+            "delete" | "backspace" => {
+                if let Some(row) = self.selected_row() {
+                    let (key, index) = (row.entry.key.clone(), row.index);
+                    self.delete(key, index, cx);
+                }
+                None
+            }
+            _ => return,
+        };
+        cx.stop_propagation();
+        if let Some(target) = target
+            && let Some(row) = self.rows.iter().find(|row| row.index == shown[target])
+        {
+            let (key, index) = (row.entry.key.clone(), row.index);
+            self.select(key, Some(index), false, cx);
+            self.scroll
+                .scroll_to_item(target, gpui::ScrollStrategy::Nearest);
+        }
+    }
+}
+
+/// Where a deleted reference goes back into `current`, a text edited since
+/// the delete: before the reference that followed it, else after the line
+/// of the one that preceded it, else at the end when it was the only one.
+/// None when those are gone, or the text would not read whole with it back.
+fn restore_at(current: &str, deleted: &Deleted) -> Option<usize> {
+    let document = bib_document::parse(current).ok()?;
+    let find = |anchor: &Option<(String, usize)>| {
+        let (key, nth) = anchor.as_ref()?;
+        let mut under = document.entries.iter().filter(|entry| entry.key == *key);
+        let first = under.clone().next();
+        under.nth(*nth).or(first)
+    };
+    let at = if let Some(next) = find(&deleted.next) {
+        if deleted.removed.ends_with('\n') {
+            current[..next.from].rfind('\n').map_or(0, |at| at + 1)
+        } else {
+            next.from
+        }
+    } else if let Some(previous) = find(&deleted.previous) {
+        current[previous.to..]
+            .find('\n')
+            .map_or(current.len(), |at| previous.to + at + 1)
+    } else if deleted.next.is_none() && deleted.previous.is_none() {
+        current.len()
+    } else {
+        return None;
+    };
+    let mut restored = current.to_string();
+    restored.insert_str(at, &deleted.removed);
+    bib_document::parse(&restored)
+        .ok()?
+        .entries
+        .iter()
+        .any(|entry| entry.key == deleted.key)
+        .then_some(at)
+}
+
+/// The entries of `text` under `key` that read just as `removed` does.
+fn copies(text: &str, key: &str, removed: &str) -> usize {
+    bib_document::parse(text).map_or(0, |document| {
+        document
+            .entries
+            .iter()
+            .filter(|entry| entry.key == key && text[entry.from..entry.to] == *removed.trim())
+            .count()
+    })
+}
+
+impl Focusable for BibEditor {
+    fn focus_handle(&self, _: &App) -> FocusHandle {
+        self.focus.clone()
+    }
+}
+
+#[cfg(test)]
+mod tests;

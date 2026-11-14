@@ -1,23 +1,26 @@
-//! An HTML or Markdown file's three views, as the Tauri app's file panel
-//! has them (`src/app/document-view-modes.ts`, `trellis-header-tools.tsx`):
-//! Edit (the source), Split (the source beside its preview) and Preview (the
-//! preview alone). Each HTML file keeps the view it was last shown in,
-//! Preview until one is chosen; Markdown files share one, Split until one is
-//! chosen (`documentModeRef`). The switch rides in the panel's strip, and its
-//! ⋯ menu repeats it.
+//! An HTML, Markdown or `.bib` file's three views, as the Tauri app's file
+//! panel has them (`src/app/document-view-modes.ts`,
+//! `trellis-header-tools.tsx`): Edit (the source), Split (the source beside
+//! its preview) and Preview (the preview alone). Each HTML file keeps the
+//! view it was last shown in, Preview until one is chosen; Markdown files
+//! share one, Split until one is chosen (`documentModeRef`); every `.bib`
+//! file opens in the view a bibliography was last shown in, Edit at first
+//! (`bib_view.rs`). The switch rides in the panel's strip, and its ⋯ menu
+//! repeats it.
 //!
 //! An HTML file's preview is its page (`html_preview.rs`); a Markdown file's
 //! is its visual editor (`markdown_view.rs`), as Markdown's Preview is in the
 //! Tauri app. Each is a webview island, made the first time a view needs it
 //! and shown only while its panel is the displayed tab and the view includes
-//! it: an island's page does not hide by not being drawn.
+//! it: an island's page does not hide by not being drawn. A bibliography's
+//! is its reference list, which `bib_view.rs` owns.
 
 use std::{collections::HashMap, path::PathBuf};
 
 use gpui::{
     AnyElement, App, AppContext as _, Context, DragMoveEvent, Entity, Focusable as _,
     InteractiveElement as _, IntoElement, ParentElement as _, Pixels,
-    StatefulInteractiveElement as _, Styled as _, Window, div, px,
+    StatefulInteractiveElement as _, Styled as _, Window, div, prelude::FluentBuilder as _, px,
 };
 use lattice_ui::{ActiveLattice as _, Icon, components::Segmented};
 
@@ -65,9 +68,12 @@ impl DocumentView {
 }
 
 /// Whether `path` is a document with views here: an HTML file
-/// (`isHtmlFilePath`) or a Markdown file (`panelViewMode`'s `.md`).
+/// (`isHtmlFilePath`), a Markdown file (`panelViewMode`'s `.md`) or a
+/// bibliography (`isBibFilePath`).
 pub fn has_views(path: &std::path::Path) -> bool {
-    is_html(path) || lattice_editor::markdown::is_markdown(path)
+    is_html(path)
+        || lattice_editor::markdown::is_markdown(path)
+        || super::bib_view::is_bib_path(path)
 }
 
 fn is_html(path: &std::path::Path) -> bool {
@@ -88,6 +94,9 @@ struct MarkdownView(DocumentView);
 impl gpui::Global for MarkdownView {}
 
 fn remembered(path: &std::path::Path, cx: &App) -> DocumentView {
+    if super::bib_view::is_bib_path(path) {
+        return super::bib_view::remembered_bib_view(cx);
+    }
     if !is_html(path) {
         return cx
             .try_global::<MarkdownView>()
@@ -99,7 +108,9 @@ fn remembered(path: &std::path::Path, cx: &App) -> DocumentView {
 }
 
 fn remember(path: &std::path::Path, view: DocumentView, cx: &mut App) {
-    if is_html(path) {
+    if super::bib_view::is_bib_path(path) {
+        super::bib_view::remember_bib_view(view, cx);
+    } else if is_html(path) {
         cx.default_global::<RememberedViews>()
             .0
             .insert(path.to_path_buf(), view);
@@ -211,7 +222,8 @@ impl EditorPanel {
         let Some(views) = &self.views else {
             return;
         };
-        if views.preview.is_some() || !views.view.previews() {
+        // A bibliography's preview is its own (`bib_for_view`).
+        if self.is_bib() || views.preview.is_some() || !views.view.previews() {
             return;
         }
         let preview = if is_html(&self.path) {
@@ -338,6 +350,7 @@ impl EditorPanel {
         if view != DocumentView::Preview {
             window.focus(&self.editor.focus_handle(cx), cx);
         }
+        self.bib_view_chosen(view, window, cx);
         lattice_webview::check_drawn_after_frame(window, cx);
         cx.notify();
     }
@@ -376,6 +389,8 @@ impl EditorPanel {
         let current = self.views.as_ref()?.view;
         let mut switch = Segmented::new("document-view").parity(if is_html(&self.path) {
             "html/views"
+        } else if self.is_bib() {
+            "bib/views"
         } else {
             "markdown/views"
         });
@@ -405,11 +420,13 @@ impl EditorPanel {
     }
 
     /// The panel's body: the editor over its status bar, and for a document
-    /// with views, that beside or instead of its preview.
+    /// with views, that beside or instead of its preview (`bib`, a
+    /// bibliography's references, or else the HTML file's page).
     pub(super) fn render_views(
         &mut self,
         editor: AnyElement,
         status: AnyElement,
+        bib: Option<AnyElement>,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let source = div()
@@ -423,28 +440,39 @@ impl EditorPanel {
         let Some(views) = self.views.as_ref() else {
             return source.size_full().into_any_element();
         };
-        let preview = views.preview.clone();
+        let preview = bib.or_else(|| views.preview.as_ref().map(Preview::element));
         match (views.view, preview) {
             (DocumentView::Source, _) | (_, None) => source.size_full().into_any_element(),
-            (DocumentView::Preview, Some(preview)) => div()
-                .size_full()
-                .child(preview.element())
-                .into_any_element(),
+            (DocumentView::Preview, Some(preview)) => {
+                div().size_full().child(preview).into_any_element()
+            }
             (DocumentView::Split, Some(preview)) => {
                 let palette = cx.palette().clone();
                 let width = views.width.clone();
                 let ratio = cx.try_global::<SplitRatio>().copied().unwrap_or_default().0;
-                let (source_width, _) = split_widths(f32::from(width.get()), ratio);
+                let (source_width, preview_width) = split_widths(f32::from(width.get()), ratio);
+                let measured_once = width.get() > px(0.);
                 let strong = views.divider_hovered || views.dragging;
                 let measured = width.clone();
+                let panel = cx.entity().downgrade();
                 div()
                     .id("document-split")
                     .size_full()
                     .flex()
                     .relative()
                     .child(
+                        // A new width draws again: the first frame of a split
+                        // has no width yet, and lays its columns out on none.
                         gpui::canvas(
-                            move |bounds, _, _| measured.set(bounds.size.width),
+                            move |bounds, _, cx| {
+                                if measured.get() != bounds.size.width {
+                                    measured.set(bounds.size.width);
+                                    let panel = panel.clone();
+                                    cx.defer(move |cx| {
+                                        panel.update(cx, |_, cx| cx.notify()).ok();
+                                    });
+                                }
+                            },
                             |_, _, _, _| {},
                         )
                         .absolute()
@@ -506,7 +534,19 @@ impl EditorPanel {
                                     .on_drag(SplitDrag, |drag, _, _, cx| cx.new(|_| drag.clone())),
                             ),
                     )
-                    .child(div().flex_1().min_w_0().h_full().child(preview.element()))
+                    // The preview's own width, as the source has: a column
+                    // only stretched to fill leaves wrapped text (a
+                    // bibliography's) without a width to wrap at.
+                    .child(
+                        div()
+                            .min_w_0()
+                            .h_full()
+                            .when(measured_once, |column| {
+                                column.flex_none().w(px(preview_width))
+                            })
+                            .when(!measured_once, |column| column.flex_1())
+                            .child(preview),
+                    )
                     .into_any_element()
             }
         }
@@ -536,9 +576,10 @@ mod tests {
     }
 
     #[test]
-    fn html_and_markdown_files_have_views() {
+    fn html_markdown_and_bib_files_have_views() {
         assert!(has_views(std::path::Path::new("a/b/page.HTML")));
         assert!(has_views(std::path::Path::new("notes/README.md")));
+        assert!(has_views(std::path::Path::new("references.bib")));
         assert!(!has_views(std::path::Path::new("main.tex")));
     }
 }

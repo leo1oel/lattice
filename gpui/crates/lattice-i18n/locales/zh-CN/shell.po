@@ -7,6 +7,14 @@ msgid "Annotate selection"
 msgstr "评论所选内容"
 
 #: lattice-gpui/src/shell/menus.rs
+msgid "Bibliography Layout"
+msgstr "参考文献布局"
+
+#: lattice-gpui/src/shell/commands.rs
+msgid "Bibliography layout"
+msgstr "参考文献布局"
+
+#: lattice-gpui/src/shell/menus.rs
 msgid "Build Log"
 msgstr "编译日志"
 
@@ -71,6 +79,10 @@ msgstr "快捷键"
 #: lattice-gpui/src/shell/menus.rs
 msgid "Lattice (GPUI preview)"
 msgstr "Lattice（GPUI 预览版）"
+
+#: lattice-gpui/src/shell/commands.rs
+msgid "Leave the Bibliography layout"
+msgstr "退出参考文献布局"
 
 #: lattice-gpui/src/shell/commands.rs
 msgid "Leave the Reading layout"

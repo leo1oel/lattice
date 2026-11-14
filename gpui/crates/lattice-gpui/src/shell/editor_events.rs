@@ -79,6 +79,7 @@ impl Shell {
                 self.live_preview
                     .update(cx, |live, cx| live.note_editor(editor, cx));
                 let path = editor.read(cx).path().to_path_buf();
+                self.mark_front_paper(Some(&path), cx);
                 self.file_tree
                     .update(cx, |tree, cx| tree.set_current(Some(path), cx));
                 self.show_outline(cx);
@@ -107,6 +108,36 @@ impl Shell {
                 }
             }
         }
+    }
+
+    /// The Project tree marks the document in front, and Papers the paper
+    /// it is, whichever tab brought it there.
+    pub(super) fn follow_active_document(&mut self, cx: &mut Context<Self>) {
+        let Some(root) = self.root(cx) else {
+            return;
+        };
+        let Some(active) = self.active_document(cx) else {
+            // A reader closed with no document behind it leaves no paper
+            // open.
+            self.mark_front_paper(None, cx);
+            return;
+        };
+        if super::papers::is_reader_key(&active) {
+            // A reader is the document in front: its own paper is the open
+            // one, whether or not the dock has drawn its tab yet.
+            match self.reader_of(&active, cx) {
+                Some(reader) => {
+                    let path = root.join(reader.read(cx).path());
+                    self.mark_paper(&path, cx);
+                }
+                None => self.mark_front_paper(None, cx),
+            }
+            return;
+        }
+        let path = root.join(active);
+        self.mark_front_paper(Some(&path), cx);
+        self.file_tree
+            .update(cx, |tree, cx| tree.set_current(Some(path), cx));
     }
 
     /// Close an editor's tab, wherever it is, without asking: its file is

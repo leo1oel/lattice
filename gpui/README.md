@@ -21,6 +21,7 @@ What it does so far, and nothing more, one line per feature, each with its own p
 - [Markdown files](docs/markdown.md): opens a Markdown file in Edit, Split and Preview, with the visual editor as an island.
 - [Named workspaces](docs/workspaces.md): keeps named workspaces, shared by every project.
 - [Overleaf](docs/overleaf.md): syncs a project with Overleaf: sign-in, Live and Manual modes, realtime editing, review, chat and Overleaf's history.
+- [Papers](docs/papers.md): lists the bibliography's papers in the Papers panel, adds and checks references, and edits a `.bib` file in a visual form.
 - [PDF preview](docs/pdf-preview.md): shows the PDF in the Tauri app's viewer on PDFium, images in its image preview, and jumps between source and PDF with SyncTeX.
 - [Project tree](docs/project-tree.md): opens a project folder as the Tauri app does, in the Project tree with its file operations and Git status.
 - [Saving and outside edits](docs/saving.md): saves as the Tauri app does, and takes outside edits into clean buffers and merges them into edited ones.
@@ -53,7 +54,7 @@ The window's panels are laid out with it, so the GPUI app as built includes Trel
 
 These are the facts of how the code is licensed, not legal advice; the license texts themselves are what apply.
 
-Lucide icons in `crates/lattice-ui/assets/icons/` (`download.svg`, `ellipsis.svg`, and `tool-history.svg` from Lucide itself, as GPUI Kit's set lacks it) are copied unmodified and keep Lucide's license ([`crates/lattice-ui/assets/LICENSE-LUCIDE`](crates/lattice-ui/assets/LICENSE-LUCIDE)).
+Lucide icons in `crates/lattice-ui/assets/icons/` (`download.svg`, `ellipsis.svg` and `file.svg`, which Zed's icon set shadows, and `tool-history.svg` from Lucide itself, as GPUI Kit's set lacks it) are copied unmodified and keep Lucide's license ([`crates/lattice-ui/assets/LICENSE-LUCIDE`](crates/lattice-ui/assets/LICENSE-LUCIDE)).
 Everything outside `gpui/`, the Tauri app and the backend crate the two apps share (`lattice-core`) included, stays Apache-2.0 ([`../LICENSE`](../LICENSE)); Apache-2.0 code can be part of this GPL work, not the other way round, so nothing under `gpui/` may be copied out of it into the Apache-2.0 tree.
 
 ## Running it

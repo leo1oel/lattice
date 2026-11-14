@@ -36,6 +36,8 @@ struct ProjectEntry {
     buffers: HashMap<String, Vec<TodoHit>>,
     /// Each annotation's file and whether it is resolved.
     annotations: Vec<(String, bool)>,
+    /// How many reads of the annotations have landed.
+    annotations_read: u64,
     generation: u64,
     _task: Option<Task<()>>,
 }
@@ -89,6 +91,7 @@ impl ProjectCounters {
                 {
                     entry.todos = todos;
                     entry.annotations = annotations;
+                    entry.annotations_read += 1;
                     cx.notify();
                 }
             })
@@ -153,6 +156,21 @@ pub fn counts(root: &Path, relative: &str, buffer_todos: Option<usize>, cx: &App
     cx.try_global::<ProjectCountersGlobal>()
         .map(|global| global.0.read(cx).counts(root, relative, buffer_todos))
         .unwrap_or_default()
+}
+
+/// Which read of `root`'s annotations the counters hold: it moves on once a
+/// save or an outside edit has been read.
+pub fn annotations_revision(root: &Path, cx: &App) -> u64 {
+    cx.try_global::<ProjectCountersGlobal>()
+        .and_then(|global| {
+            global
+                .0
+                .read(cx)
+                .projects
+                .get(root)
+                .map(|entry| entry.annotations_read)
+        })
+        .unwrap_or(0)
 }
 
 /// The TODO hits of the project at `root`: the scan's, each open editor's

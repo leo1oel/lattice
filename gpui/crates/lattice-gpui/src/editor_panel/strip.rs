@@ -1,6 +1,6 @@
 //! The panel's tab and strip: its name, the dirty mark, the tools the strip
-//! carries for the document's kind (`documentTools`: the build chip, an HTML
-//! file's view switch, nothing for a board, sheet or deck) and its ⋯ menu.
+//! carries for the document's kind (`documentTools`: the build chip, an HTML,
+//! Markdown or `.bib` file's view switch, nothing for a board, sheet or deck) and its ⋯ menu.
 
 use gpui::{App, Context, Focusable as _, IntoElement, SharedString, Window, prelude::*};
 use gpui_kit::component::dock::Panel;
@@ -71,22 +71,27 @@ impl EditorPanel {
         let command = |label: &'static str, action: Box<dyn gpui::Action>| {
             MenuAction::dispatch_on(label, action, focus.clone())
         };
-        // An HTML file's menu repeats its view switch, and has no build.
+        // An HTML, Markdown or `.bib` file's menu repeats its view switch,
+        // and has no build.
         if let Some(current) = self.document_view() {
             return menu
                 .item(
-                    command("Edit", Box::new(ViewSource)).checked(current == DocumentView::Source),
+                    command(t!("Edit"), Box::new(ViewSource))
+                        .checked(current == DocumentView::Source),
                 )
-                .item(command("Split", Box::new(ViewSplit)).checked(current == DocumentView::Split))
                 .item(
-                    command("Preview", Box::new(ViewPreview))
+                    command(t!("Split"), Box::new(ViewSplit))
+                        .checked(current == DocumentView::Split),
+                )
+                .item(
+                    command(t!("Preview"), Box::new(ViewPreview))
                         .checked(current == DocumentView::Preview),
                 )
                 .separator()
-                .item(command("Find", Box::new(Deploy::find())))
+                .item(command(t!("Find"), Box::new(Deploy::find())))
                 .separator()
                 .item(
-                    command("Vim mode", Box::new(ToggleVimMode))
+                    command(t!("Vim mode"), Box::new(ToggleVimMode))
                         .checked(crate::app::vim_mode_enabled(cx)),
                 );
         }

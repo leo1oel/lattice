@@ -48,6 +48,7 @@ use search::{BufferSearchBar, buffer_search::DivRegistrar};
 use workspace::ToolbarItemView as _;
 use zed_actions::buffer_search::Deploy;
 
+mod bib_view;
 mod buffer_counts;
 mod disk_sync;
 mod events;
@@ -182,8 +183,7 @@ pub struct EditorPanel {
     looking_for_file: bool,
     /// Its tab was closed (the file went from disk): it stops checking it.
     closed: bool,
-    /// An HTML file's Edit, Split and Preview views; `None` for a file
-    /// that is only ever its source.
+    /// An HTML or `.bib` file's Edit, Split and Preview views.
     views: Option<DocumentViews>,
     /// A board, spreadsheet or Open Slide deck: its island in place of the
     /// editor (`crate::structured`).
@@ -212,6 +212,8 @@ pub struct EditorPanel {
     _todos: Option<Task<()>>,
     _poll: Task<()>,
     _subscriptions: Vec<Subscription>,
+    /// A `.bib` file's Preview and library (`bib_view.rs`).
+    bib: bib_view::BibState,
 }
 
 impl EditorPanel {
@@ -339,6 +341,7 @@ impl EditorPanel {
                             head.row,
                             overleaf_carets::utf16_units(snapshot.text_for_range(line_start..head)),
                         );
+                        this.bib_follow_caret(cx);
                         if moved {
                             cx.emit(EditorPanelEvent::CaretLine);
                         }
@@ -346,6 +349,7 @@ impl EditorPanel {
                         cx.notify();
                     }
                     EditorEvent::Focused => {
+                        this.bib_source_focused(true);
                         if let Some(diagnostics) = &this.diagnostics {
                             diagnostics
                                 .update(cx, |diagnostics, cx| diagnostics.set_focused(true, cx));
@@ -356,6 +360,7 @@ impl EditorPanel {
                     EditorEvent::ScrollPositionChanged { .. } => this.markdown_source_scrolled(cx),
                     // Leaving the editor saves at once, as the Tauri app does.
                     EditorEvent::Blurred => {
+                        this.bib_source_focused(false);
                         if let Some(diagnostics) = &this.diagnostics {
                             diagnostics
                                 .update(cx, |diagnostics, cx| diagnostics.set_focused(false, cx));
@@ -456,6 +461,7 @@ impl EditorPanel {
             _todos: None,
             _poll: poll,
             _subscriptions: subscriptions,
+            bib: Default::default(),
         };
         this.count_words(cx);
         this.scan_todos(Duration::ZERO, cx);
@@ -463,6 +469,7 @@ impl EditorPanel {
         // An HTML file opening in Preview or Split has its preview at once;
         // its page is built when the tab is first shown.
         this.ensure_preview(window, cx);
+        this.ensure_bib_for_view(window, cx);
         this.attach_structured(window, cx);
         this.attach_spelling(cx);
         this
@@ -582,7 +589,7 @@ impl EventEmitter<PanelEvent> for EditorPanel {}
 impl EventEmitter<EditorPanelEvent> for EditorPanel {}
 
 impl Focusable for EditorPanel {
-    /// The editor's, except while an HTML file shows only its preview.
+    /// The editor's, except while a file shows only its preview.
     fn focus_handle(&self, cx: &App) -> FocusHandle {
         if let Some(focus) = self
             .structured
@@ -592,6 +599,7 @@ impl Focusable for EditorPanel {
             return focus;
         }
         match self.views.as_ref() {
+            _ if let Some(focus) = self.bib_focus(cx) => focus,
             Some(views) if views.view() == DocumentView::Preview => views
                 .preview()
                 .and_then(|preview| preview.focus_handle(cx))
@@ -667,7 +675,8 @@ impl Render for EditorPanel {
             .children(search)
             .child(self.render_source(window, cx))
             .into_any_element();
-        let body = self.render_views(editor, status, cx);
+        let bib = self.bib_for_view(window, cx);
+        let body = self.render_views(editor, status, bib, cx);
         let mut registrar =
             DivRegistrar::new(|this: &Self, _, _| Some(this.search_bar.clone()), cx);
         BufferSearchBar::register(&mut registrar);
