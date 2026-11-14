@@ -32,6 +32,9 @@ pub struct MarkStyle {
     pub background: Option<Hsla>,
     pub strikethrough: Option<Hsla>,
     pub weight: Option<FontWeight>,
+    /// How far the text fades toward the ground, 0 to 1 (a highlight's
+    /// `\colorbox` wrapper recedes at `opacity: 0.45`, a fade of 0.55).
+    pub fade: Option<f32>,
 }
 
 impl MarkStyle {
@@ -52,6 +55,7 @@ impl MarkStyle {
             color: self.color,
             background_color: self.background,
             font_weight: self.weight,
+            fade_out: self.fade,
             underline: self.underline.map(|underline| UnderlineStyle {
                 thickness: underline.thickness,
                 color: Some(underline.color),

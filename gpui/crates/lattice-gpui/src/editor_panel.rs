@@ -47,6 +47,7 @@ use zed_actions::buffer_search::Deploy;
 
 mod annotations;
 mod bib_view;
+mod highlight_palette;
 mod buffer_counts;
 mod disk_sync;
 mod events;
@@ -62,6 +63,7 @@ mod overleaf_review;
 mod overleaf_text;
 pub mod rail_outline;
 mod save;
+mod selection_toolbar;
 mod source_chrome;
 mod spelling;
 mod strip;
@@ -165,6 +167,9 @@ pub struct EditorPanel {
     margin: margin_review::MarginState,
     /// Local annotations' marks, pins and composer (`annotations.rs`).
     annotations: annotations::AnnotationLayer,
+    /// The selection toolbar over a LaTeX or Markdown selection
+    /// (`selection_toolbar.rs`).
+    toolbar: selection_toolbar::ToolbarState,
     /// The file's word count as of opening or the last save; counted off the
     /// main thread.
     words: Option<usize>,
@@ -292,6 +297,7 @@ impl EditorPanel {
                     this.views_source_changed(cx);
                     this.structured_source_changed(cx);
                     this.annotations_edited(cx);
+                    this.highlights_edited(cx);
                 }
                 BufferEvent::DirtyChanged | BufferEvent::Saved => cx.notify(),
                 _ => {}
@@ -429,6 +435,7 @@ impl EditorPanel {
             overleaf_review: Default::default(),
             margin: Default::default(),
             annotations: Default::default(),
+            toolbar: Default::default(),
             words: None,
             buffer_todos: None,
             status_width: Default::default(),
@@ -469,6 +476,7 @@ impl EditorPanel {
         this.attach_structured(window, cx);
         this.attach_spelling(cx);
         this.attach_annotations(cx);
+        this.paint_highlights(cx);
         this
     }
 

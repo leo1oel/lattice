@@ -123,6 +123,20 @@ lucide! {
     // ARROW_DOWN, ARROW_DOWN_UP, ARROW_UP_RIGHT, BOOK_MARKED, FILE_DOWN and
     // LINK_2 below).
     HIGHLIGHTER = "icons" / "highlighter";
+    /// The selection toolbar's tools (`latex-selection-toolbar.tsx`,
+    /// `markdown-source-toolbar.tsx`) and the highlighter palette.
+    BOLD = "icons" / "bold";
+    ITALIC = "icons" / "italic";
+    UNDERLINE = "icons" / "underline";
+    STRIKETHROUGH = "icons" / "strikethrough";
+    QUOTE = "icons" / "quote";
+    LINK = "icons" / "link";
+    HEADING = "icons" / "heading";
+    ERASER = "icons" / "eraser";
+    CODE = "icons" / "code";
+    RADICAL = "icons" / "radical";
+    SPELL_CHECK = "icons" / "spell-check";
+    WAND_SPARKLES = "icons" / "wand-sparkles";
     /// The Annotations panel's tab (`trellis-icons.tsx`).
     MESSAGE_SQUARE = "icons" / "message-square";
     /// The Annotations panel: a card's Reply.

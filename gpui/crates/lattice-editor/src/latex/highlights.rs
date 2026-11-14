@@ -245,6 +245,76 @@ pub fn highlight_edit(doc: &str, range: Range<usize>, color: Option<&str>) -> Op
     ))
 }
 
+/// How a highlight is painted in the source (`latex-highlight-paint.ts`):
+/// its text on its paper tint under the paper's black ink in a light
+/// editor, as it prints; in a dark one a wash at 18% and a 2px underline at
+/// 75% in its colour, since a pastel block would put light ink on a light
+/// ground; and the `\colorbox[HTML]{…}{` wrapper and closing brace receding
+/// at 45%. Only `#RRGGBB` highlights are painted; a colour by name and soul's
+/// `\hl` are the document's to say.
+pub fn paint(text: &str, dark: bool) -> (Vec<crate::decorations::Highlight>, Vec<crate::decorations::Mark>) {
+    use crate::decorations::{Highlight, Mark, MarkStyle, Underline};
+    let mut washes = Vec::new();
+    let mut marks = Vec::new();
+    let wrapper = MarkStyle {
+        fade: Some(0.55),
+        ..MarkStyle::default()
+    };
+    for highlight in latex_highlights(text) {
+        let Some(hex) = highlight.color.as_deref().filter(|color| {
+            color.len() == 7 && color.starts_with('#') && color[1..].bytes().all(|b| b.is_ascii_hexdigit())
+        }) else {
+            continue;
+        };
+        let Ok(value) = u32::from_str_radix(&hex[1..], 16) else {
+            continue;
+        };
+        let tint: gpui::Hsla = gpui::rgb(value).into();
+        marks.push(Mark {
+            range: highlight.from..highlight.content_from,
+            style: wrapper,
+        });
+        marks.push(Mark {
+            range: highlight.content_to..highlight.to,
+            style: wrapper,
+        });
+        if highlight.content_to <= highlight.content_from {
+            continue;
+        }
+        let range = highlight.content_from..highlight.content_to;
+        if dark {
+            washes.push(Highlight {
+                range: range.clone(),
+                color: tint.opacity(0.18),
+            });
+            marks.push(Mark {
+                range,
+                style: MarkStyle {
+                    underline: Some(Underline {
+                        color: tint.opacity(0.75),
+                        wavy: false,
+                        thickness: gpui::px(2.),
+                    }),
+                    ..MarkStyle::default()
+                },
+            });
+        } else {
+            washes.push(Highlight {
+                range: range.clone(),
+                color: tint,
+            });
+            marks.push(Mark {
+                range,
+                style: MarkStyle {
+                    color: Some(gpui::rgb(0x242426).into()),
+                    ..MarkStyle::default()
+                },
+            });
+        }
+    }
+    (washes, marks)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -275,5 +345,18 @@ mod tests {
         let removed = highlight_edit(&after, word, None).unwrap();
         assert_eq!(removed.apply(&after), doc);
         assert!(highlight_edit(doc, 2..6, None).is_none());
+    }
+
+    #[test]
+    fn a_highlight_paints_its_text_and_fades_its_wrapper() {
+        let text = r"a \colorbox[HTML]{FFF1A6}{word} \hl{other}";
+        let (washes, marks) = paint(text, false);
+        let word = text.find("word").unwrap();
+        assert_eq!(washes.len(), 1);
+        assert_eq!(washes[0].range, word..word + 4);
+        assert_eq!(washes[0].color, gpui::rgb(0xFFF1A6).into());
+        assert_eq!(marks.iter().filter(|mark| mark.style.fade.is_some()).count(), 2);
+        let (dark, _) = paint(text, true);
+        assert!(dark[0].color.a < 0.2);
     }
 }
