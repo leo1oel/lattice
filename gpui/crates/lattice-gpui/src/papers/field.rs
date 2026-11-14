@@ -413,11 +413,10 @@ impl PapersPanel {
             ("overview", t!("Overview")),
         ];
         // Adding the citation alone has only the first step.
-        let stages = &stages[..if crate::settings::get(cx).save_full_text {
-            3
-        } else {
-            1
-        }];
+        let stages = match importing.full_text {
+            lattice_core::papers::FullText::Save => &stages[..],
+            lattice_core::papers::FullText::Skip => &stages[..1],
+        };
         let at = stages
             .iter()
             .position(|(id, _)| Some(*id) == importing.stage.as_deref())

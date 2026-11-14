@@ -361,8 +361,9 @@ impl Run {
     /// Adding a paper with Also save full text off, its default
     /// (`save-full-text-setting.ts`), adds its citation and never fetches
     /// or writes its text: an entry with an arXiv id, which a full-text add
-    /// would download and convert under `.research/papers/<id>/`, lands in
-    /// the bibliography alone. The bibliographies are put back after, so
+    /// would download and convert under `.research/papers/<id>/` (reporting
+    /// the "fulltext" stage before it reaches the network), lands in the
+    /// bibliography alone. The bibliographies are put back after, so
     /// what follows sees the fixture as it was.
     async fn add_without_full_text(
         &self,
@@ -383,9 +384,21 @@ impl Run {
                 panel.import_entry(entry.to_string(), "Auto-Encoding Variational Bayes".into(), cx)
             })
         });
+        let mut stages: Vec<String> = Vec::new();
         let settled = self
-            .wait_for(cx, Duration::from_secs(20), |_, cx| papers.read(cx).importing.is_none())
+            .wait_for(cx, Duration::from_secs(20), |_, cx| {
+                let Some(importing) = &papers.read(cx).importing else {
+                    return true;
+                };
+                if let Some(stage) = &importing.stage
+                    && stages.last() != Some(stage)
+                {
+                    stages.push(stage.clone());
+                }
+                false
+            })
             .await;
+        let fetched = stages.iter().any(|stage| stage == "fulltext");
         let cited = bibliographies.iter().any(|(path, _)| {
             std::fs::read_to_string(path).is_ok_and(|text| text.contains("kingma2013vae"))
         });
@@ -393,8 +406,8 @@ impl Run {
         let text_written = bundle.join("paper.md").exists();
         steps.check(
             "with Also save full text off (its default), adding a paper adds its citation and writes no full text",
-            !full_text && started && settled && cited && !text_written,
-            json!({ "save_full_text": full_text, "started": started, "settled": settled, "cited": cited, "paper_md": text_written }),
+            !full_text && started && settled && cited && !fetched && !text_written,
+            json!({ "save_full_text": full_text, "started": started, "settled": settled, "cited": cited, "stages": stages, "paper_md": text_written }),
         );
         for (path, bytes) in &bibliographies {
             std::fs::write(path, bytes)?;
