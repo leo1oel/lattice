@@ -58,9 +58,9 @@ pub(crate) mod mock_server;
 pub mod ot;
 #[cfg(test)]
 mod suggestion_tests;
-pub mod tracked;
 #[cfg(test)]
 pub(crate) mod tests;
+pub mod tracked;
 mod tree;
 
 pub use client::{RealtimeClient, RealtimeConfig};
