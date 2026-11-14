@@ -184,8 +184,9 @@ crates/lattice-webview
                       theme, focus and shortcut forwarding, overlays and panel
                       drags), the page bridge, the local asset protocol and the
                       file bridge
-islands/              the board, spreadsheet and Open Slide pages, built from
-                      ../src by script/build-islands into islands/dist
+islands/              the board, spreadsheet, Open Slide, Markdown and Agent
+                      pages, built from ../src by script/build-islands into
+                      islands/dist
 crates/lattice-ui     Lattice's look: design tokens generated from
                       ../design-system/tokens.json, the palette, GPUI Kit and
                       Zed editor themes, fonts, type roles, motion, elevation,
@@ -258,7 +259,7 @@ The HTML preview is the first (`src/html_preview.rs`, its page in `assets/island
 
 ### Boards, spreadsheets and decks
 
-`islands/` is a small Vite package (`islands/vite.config.ts`) that builds three pages from the Tauri app's modules in `../src` with the app's own toolchain (React Compiler, Lingui, Tailwind, the private faces): the board (`src/editor/board/board-editor.tsx`), the spreadsheet (`src/editor/spreadsheet/spreadsheet-editor.tsx`) and the Open Slide workspace (`src/editor/presentation/open-slide-workspace.tsx`), each as it is. `script/build-islands` (from the root's `node_modules`) writes them to `islands/dist`, which the app finds beside the checkout it runs from, in `Contents/Resources/islands`, or at `LATTICE_GPUI_ISLANDS_DIR` (`structured/resources.rs`); `script/e2e` and CI build them first.
+`islands/` is a small Vite package (`islands/vite.config.ts`) that builds the island pages from the Tauri app's modules in `../src` with the app's own toolchain (React Compiler, Lingui, Tailwind, the private faces): the board (`src/editor/board/board-editor.tsx`), the spreadsheet (`src/editor/spreadsheet/spreadsheet-editor.tsx`) and the Open Slide workspace (`src/editor/presentation/open-slide-workspace.tsx`), each as it is, beside the visual Markdown editor's and the Agent's (above). `script/build-islands` (from the root's `node_modules`) writes them to `islands/dist`, which the app finds beside the checkout it runs from, in `Contents/Resources/islands`, or at `LATTICE_GPUI_ISLANDS_DIR` (`structured/resources.rs`); `script/e2e` and CI build them first.
 A page loads the app's stylesheets and faces, and stands in for Tauri's internals (`islands/shared/tauri-internals.ts`), so every `invoke` the modules make is a request to its owner over the bridge, which answers the few each kind needs (`save_xlsx` and the save panel for a sheet; the Open Slide lease, refresh and reads for a deck) and refuses the rest. The app's toasts and confirmations the modules raise are GPUI's, above the page.
 The owner (`src/structured.rs`, with `editor_panel/structured_view.rs`) puts the page in place of the editor: the page's serialized text (`doc:change`) becomes the buffer's, a reload from disk goes to the page (`doc:source`), view state (a board's camera, a sheet's scroll and zoom, a deck's page) stays out of the file for the session, and a hidden page or a closing tab has the page hand over what its debounce holds before the save (`doc:flush`, `doc:flushed`).
 A deck's runtime is lattice-core's supervisor, one per process (`structured/presentation.rs`); each deck's page is a lease owner of its own, so a hibernated or closed page's leases are dropped as a closed Tauri page's are.
