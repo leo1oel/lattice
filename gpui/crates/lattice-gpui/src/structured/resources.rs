@@ -73,7 +73,7 @@ pub fn presentation_bundle() -> Option<PathBuf> {
 }
 
 /// The folder holding `synara-runtime/` (the Agent's Synara service and the
-/// Node it runs on, staged by the Tauri app's `scripts/prepare-synara-runtime.mjs`)
+/// Node it runs on, staged by the Tauri app's `scripts/prepare-synara-sidecar.mjs`)
 /// and `src/embedded_skills/`: lattice-core's `Resources::bundle_dir` for the
 /// Agent. Without a staged runtime it is the first place looked, where
 /// lattice-core's supervisor says the service is missing.

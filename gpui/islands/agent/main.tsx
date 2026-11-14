@@ -29,8 +29,6 @@
  *   agent:appearance  { translucency, translucent, accent }
  *   agent:locale      { locale }
  *   agent:git         { view, turnReview }   the Git workspace's view
- *   agent:show-thread { threadId }
- *   agent:compose     { … }                  a prompt for the composer (AgentComposerPromptMessage)
  *   agent:runtime-event { event, payload }   the runtime's own events (`synara-runtime-restarted`),
  *                                            as the Tauri backend emits them
  *   agent:pointer                            the pointer is over the app, not the page
@@ -81,7 +79,6 @@ import {
 import { buildAgentPaperLibrary } from "../../../src/agent/agent-paper-library";
 import { parseSynaraNotificationMessage } from "../../../src/agent/synara-notifications";
 import { SYNARA_POPUP_OPEN, LATTICE_OUTSIDE_POINTER_DOWN } from "../../../src/agent/synara-popup-dismissal";
-import type { AgentComposerPromptMessage } from "../../../src/agent/agent-composer-prompt";
 import type { AgentGitWorkspaceView } from "../../../src/agent/synara-runtime";
 import type { AgentTurnReview } from "../../../src/app/app-synara-embed";
 import type { CanvasMode, EditorPosition, ProjectSnapshot } from "../../../src/app-types";
@@ -274,11 +271,6 @@ function Agent({ opened, workspace, visible, appearance, git }: {
     let popupOpen = false;
     const stops = [
       bridgeHost.on("agent:opened", () => synaraRef.current.notifyPanelOpened()),
-      bridgeHost.on("agent:show-thread", (payload) => {
-        const threadId = (payload as { threadId?: unknown } | null)?.threadId;
-        if (typeof threadId === "string") synaraRef.current.showThread(threadId);
-      }),
-      bridgeHost.on("agent:compose", (payload) => synaraRef.current.sendComposerPrompt(payload as AgentComposerPromptMessage)),
       // WebKit drops pointerleave when the pointer leaves for GPUI, as it
       // does for the Tauri app's own window; the host's movement stands in.
       bridgeHost.on("agent:pointer", () => {

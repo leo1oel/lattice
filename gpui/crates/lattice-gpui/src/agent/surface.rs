@@ -305,12 +305,6 @@ impl SynaraSurface {
         self.post("agent:git", git, cx);
     }
 
-    /// Put a prompt into the Agent's composer, or send it
-    /// (`AgentComposerPromptMessage`); the page waits for its frame.
-    pub fn compose(&self, message: Value, cx: &mut App) {
-        self.post("agent:compose", message, cx);
-    }
-
     /// Settings' insets: compact while the dialog is in its narrow form.
     pub fn set_settings_compact(&mut self, compact: bool, cx: &mut App) {
         if compact != self.settings_compact {

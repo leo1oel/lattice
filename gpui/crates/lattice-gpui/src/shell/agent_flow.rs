@@ -185,25 +185,6 @@ impl Shell {
         self.reveal_tool("git", window, cx);
     }
 
-    /// Show `prompt` in the Agent's composer, or send it
-    /// (`AgentComposerPromptMessage`), bringing the panel forward.
-    #[allow(dead_code)]
-    pub(crate) fn ask_agent(
-        &mut self,
-        message: Value,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.reveal_agent(window, cx);
-        self.agent_surface(cx)
-            .update(cx, |surface, cx| surface.compose(message, cx));
-    }
-
-    /// The Agent panel on screen and in front (`showPanel`).
-    fn reveal_agent(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.show_view("agent", true, window, cx);
-    }
-
     pub(crate) fn on_agent_event(
         &mut self,
         _: &Entity<SynaraSurface>,
