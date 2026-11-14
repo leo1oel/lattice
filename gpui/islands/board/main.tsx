@@ -7,6 +7,7 @@ import "../shared/install";
 import { mount } from "../shared/boot";
 import { DocumentIsland } from "../shared/document";
 import { useHostTheme } from "../shared/host";
+import { serveAgentTools } from "../shared/agent-tools";
 import { BoardEditor } from "../../../src/editor/board/board-editor";
 import type { BoardFileViewState } from "../../../src/app-types";
 
@@ -30,4 +31,6 @@ function Board() {
   );
 }
 
+// The Agent's canvas tools reach the board through its owner (`agent-tools.ts`).
+serveAgentTools("board");
 mount(() => <Board />);

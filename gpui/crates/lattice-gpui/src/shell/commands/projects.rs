@@ -87,6 +87,30 @@ pub(super) fn project_commands(context: &CommandContext, out: &mut Vec<Command>)
     }
     if context.in_project && context.overleaf_linked {
         out.push(Command::new(
+            "overleaf-annotate",
+            t!("Annotate selection"),
+            Section::Overleaf,
+            super::super::overleaf_collab::AnnotateSelection,
+        ));
+        out.push(Command::new(
+            "margin-review-auto",
+            t!("Margin review: Auto"),
+            Section::Overleaf,
+            super::super::overleaf_collab::MarginReviewAuto,
+        ));
+        out.push(Command::new(
+            "margin-review-markers",
+            t!("Margin review: Markers only"),
+            Section::Overleaf,
+            super::super::overleaf_collab::MarginReviewMarkers,
+        ));
+        out.push(Command::new(
+            "margin-review-off",
+            t!("Margin review: Off"),
+            Section::Overleaf,
+            super::super::overleaf_collab::MarginReviewOff,
+        ));
+        out.push(Command::new(
             "overleaf-web",
             t!("Open this project on Overleaf"),
             Section::Overleaf,
@@ -125,11 +149,26 @@ pub(super) fn project_commands(context: &CommandContext, out: &mut Vec<Command>)
             .keywords("git merge markers"),
         );
     }
+    out.push(
+        Command::new(
+            "whats-new",
+            t!("What’s new in Lattice"),
+            Section::Project,
+            crate::shell::WhatsNew,
+        )
+        .keywords(crate::help::whats_new::RUNNING_VERSION),
+    );
     out.push(Command::new(
         "doctor",
         t!("Run TeX doctor"),
         Section::Project,
         OpenTexDoctor,
+    ));
+    out.push(Command::new(
+        "report-problem",
+        t!("Report a problem"),
+        Section::Project,
+        crate::shell::ReportProblem,
     ));
     out.push(Command::new(
         "settings",

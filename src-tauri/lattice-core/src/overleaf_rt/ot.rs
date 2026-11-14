@@ -643,6 +643,18 @@ impl OtDocument {
         LocalEdit { send: Some(OtSend { version: self.version, ops: ops.clone() }), replaced, ops }
     }
 
+    /// Send `ops` exactly as given (a rejected suggestion's inverse, whose
+    /// `u` flag Overleaf needs to see), when nothing is outstanding. None when
+    /// work is in flight or queued, or the ops do not fit the text.
+    pub fn local_ops(&mut self, ops: Vec<OtOp>) -> Option<OtSend> {
+        if !self.settled() || ops.is_empty() {
+            return None;
+        }
+        self.text = apply_ops(&self.text, &ops)?;
+        self.inflight = Some(ops.clone());
+        Some(OtSend { version: self.version, ops })
+    }
+
     /// Reserve the wire for an operation that carries no text (a comment
     /// anchor). None when something is already in flight.
     pub fn anchor(&mut self) -> Option<i64> {

@@ -37,6 +37,7 @@ const DOCK_STEPS = "gpui/crates/lattice-gpui/src/scenario/shell_steps.rs";
 
 /** The scenario's modules (files under scenario/e2e/, and `dock` for scenario/shell_steps.rs). */
 export const MODULES = [
+  "agent",
   "assets",
   "bib",
   "build_flow",
@@ -45,6 +46,8 @@ export const MODULES = [
   "documents",
   "editor_adapter",
   "fluid",
+  "get_started",
+  "help",
   "history",
   "islands",
   "live_controls",
@@ -81,6 +84,10 @@ const SOURCE = [
   ["gpui/crates/lattice-gpui/src/shell/history_flow.rs", ["history"]],
   [`${APP}submission`, ["submission", "submission_checklist"]],
   [`${APP}settings`, ["settings"]],
+  [`${APP}help`, ["help"]],
+  [`${APP}get_started`, ["get_started"]],
+  ["gpui/crates/lattice-gpui/src/shell/get_started_flow.rs", ["get_started"]],
+  [`${APP}app_log`, ["help"]],
   ["gpui/crates/lattice-settings/", ["settings"]],
   [`${APP}overleaf`, ["overleaf"]],
   ["gpui/crates/lattice-gpui/src/shell/overleaf_flow.rs", ["overleaf"]],

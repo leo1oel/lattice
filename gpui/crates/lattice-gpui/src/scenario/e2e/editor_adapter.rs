@@ -30,7 +30,7 @@ mod card_sides;
 use crate::{editor_panel::EditorPanel, native, scenario::Run};
 
 /// Long enough for a hover card's delay (300 ms) and its entrance.
-const CARD_WAIT: Duration = Duration::from_secs(3);
+pub(super) const CARD_WAIT: Duration = Duration::from_secs(3);
 /// The scenario's own gutter layer.
 const GUTTER_LAYER: &str = "e2e-gutter";
 /// How far inside the editor a hover card stays: the Tauri app's
@@ -72,26 +72,6 @@ impl Run {
         Ok(())
     }
 
-    /// Save the window as `name` under `LATTICE_E2E_SHOTS`, when set.
-    async fn adapter_shot(&self, cx: &mut AsyncApp, name: &str) {
-        #[cfg(target_os = "macos")]
-        if let Some(dir) = std::env::var_os("LATTICE_E2E_SHOTS") {
-            // A covered window is not drawn: bring it above the others,
-            // leaving the keyboard where it is.
-            if let Ok(native) = self.native(cx) {
-                native::order_front(native);
-            }
-            // A card or menu that just opened is still rising in.
-            self.pause(cx, Duration::from_millis(450)).await;
-            let path = std::path::Path::new(&dir).join(format!("{name}.png"));
-            if let Err(error) = self.capture(cx, &path.to_string_lossy()).await {
-                log::warn!("could not save {}: {error:#}", path.display());
-            }
-        }
-        #[cfg(not(target_os = "macos"))]
-        let _ = (cx, name);
-    }
-
     /// The height of one of the editor's display rows, from its own layout:
     /// a caret's height. (The overlay records it only in frames that draw
     /// gutter marks or carets.) Not the distance between two lines: a narrow
@@ -118,74 +98,6 @@ impl Run {
             point(size.width - px(4.), size.height - px(4.))
         })?;
         native::send_mouse(self.native(cx)?, native::Mouse::Moved, corner)
-    }
-
-    /// Where `needle`'s `nth` character is on screen, in `panel`'s text,
-    /// once the editor has been drawn.
-    async fn text_point(
-        &self,
-        cx: &mut AsyncApp,
-        panel: &Entity<EditorPanel>,
-        lattice: &Entity<LatticeEditor>,
-        needle: &str,
-        nth: usize,
-    ) -> Result<(usize, Bounds<Pixels>)> {
-        let text = self.editor_text(cx, panel);
-        let offset = text.find(needle).context("the text is in the file")? + nth;
-        let wait_lattice = lattice.clone();
-        self.wait_for(cx, Duration::from_secs(5), move |_, cx| {
-            wait_lattice.read(cx).painted().bounds.is_some()
-        })
-        .await;
-        let lattice = lattice.clone();
-        let rect = self
-            .with_window(cx, move |_, window, cx| {
-                lattice.update(cx, |lattice, cx| lattice.offset_bounds(offset, window, cx))
-            })?
-            .context("the editor was not drawn")?;
-        Ok((offset, rect))
-    }
-
-    async fn hover_at(&self, cx: &mut AsyncApp, at: Point<Pixels>) -> Result<()> {
-        let native = self.native(cx)?;
-        // A short approach, as a hand makes, then the rest.
-        native::send_mouse(native, native::Mouse::Moved, point(at.x - px(6.), at.y))?;
-        self.pause(cx, Duration::from_millis(30)).await;
-        native::send_mouse(native, native::Mouse::Moved, at)
-    }
-
-    async fn wait_for_card(
-        &self,
-        cx: &mut AsyncApp,
-        lattice: &Entity<LatticeEditor>,
-        id: &str,
-    ) -> Option<(std::ops::Range<usize>, Option<Bounds<Pixels>>)> {
-        let lattice_wait = lattice.clone();
-        let wait_id = id.to_string();
-        let shown = self
-            .wait_for(cx, CARD_WAIT, move |_, cx| {
-                let lattice = lattice_wait.read(cx);
-                lattice
-                    .shown_hover(cx)
-                    .iter()
-                    .any(|(shown, _)| *shown == wait_id)
-                    && lattice.painted().card.is_some()
-            })
-            .await;
-        if !shown {
-            return None;
-        }
-        // A card's first frame is placed before its height is known; its side
-        // is settled on the next one, under its entrance.
-        self.pause(cx, Duration::from_millis(450)).await;
-        cx.update(|cx| {
-            let lattice = lattice.read(cx);
-            lattice
-                .shown_hover(cx)
-                .into_iter()
-                .find(|(shown, _)| *shown == id)
-                .map(|(_, range)| (range, lattice.painted().card))
-        })
     }
 
     async fn hover_cards(

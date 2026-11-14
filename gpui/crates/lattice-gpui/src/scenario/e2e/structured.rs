@@ -29,16 +29,16 @@ use serde_json::{Value, json};
 use super::{Run, Steps};
 use crate::{editor_panel::EditorPanel, native};
 
-const BOARD: &str =
+pub(super) const BOARD: &str =
     include_str!("../../../../../../src-tauri/templates/tutorial/attention-map.tldr");
-const SHEET: &str =
+pub(super) const SHEET: &str =
     include_str!("../../../../../../src-tauri/templates/tutorial/attention-results.lattice-sheet");
 const DECK: &str = include_str!(
     "../../../../../../src-tauri/templates/tutorial/slides/understanding-attention/index.tsx"
 );
 
 /// How many shapes a `.tldr` holds.
-fn shape_count(text: &str) -> usize {
+pub(super) fn shape_count(text: &str) -> usize {
     serde_json::from_str::<Value>(text)
         .ok()
         .and_then(|file| {
@@ -68,7 +68,7 @@ impl Run {
     }
 
     /// Open `path` and wait for its structured document's page to draw.
-    async fn open_structured(
+    pub(super) async fn open_structured(
         &self,
         cx: &mut AsyncApp,
         path: &Path,

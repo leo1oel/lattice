@@ -37,6 +37,7 @@ pub(in crate::scenario) const MODULES: &[(&str, &[&str])] = &[
     ("islands", &[]),
     ("structured", &[]),
     ("markdown", &[]),
+    ("agent", &[]),
     ("tab_strip", &[]),
     ("narrow_window", &[]),
     ("pdf", &[]),
@@ -50,7 +51,9 @@ pub(in crate::scenario) const MODULES: &[(&str, &[&str])] = &[
     ("settings", &[]),
     ("live_controls", &[]),
     ("live_preview", &[]),
+    ("help", &[]),
     ("saves", &[]),
+    ("get_started", &[]),
 ];
 
 static ONLY: std::sync::OnceLock<Vec<&'static str>> = std::sync::OnceLock::new();

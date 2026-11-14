@@ -10,13 +10,20 @@ use serde_json::{Value, json};
 use super::Run;
 use crate::{editor_panel::EditorPanel, native};
 
+#[cfg(target_os = "macos")]
+mod agent;
+#[cfg(target_os = "macos")]
+mod agent_documents;
 mod assets;
 mod bib;
 mod build_flow;
 mod design_calls;
 mod documents;
 mod editor_adapter;
+mod editor_pointer;
 mod fluid;
+mod get_started;
+mod help;
 mod history;
 #[cfg(target_os = "macos")]
 mod islands;
@@ -43,6 +50,10 @@ mod structured;
 mod submission;
 mod submission_checklist;
 mod tab_strip;
+#[cfg(target_os = "macos")]
+mod terminal;
+#[cfg(target_os = "macos")]
+mod terminal_focus;
 mod tree;
 
 use steps::Steps;
@@ -310,6 +321,10 @@ impl Run {
         if steps::selected("markdown") {
             self.markdown_island(cx, &mut steps, &root).await?;
         }
+        #[cfg(target_os = "macos")]
+        if steps::selected("agent") {
+            self.agent_islands(cx, &mut steps, &root).await?;
+        }
         if steps::selected("tab_strip") {
             self.tab_strip(cx, &mut steps, &root).await?;
         }
@@ -321,6 +336,12 @@ impl Run {
         }
         // Smoke: a second window opens on the project and draws its PDF.
         self.second_window_pdf(cx, &mut steps, &root).await?;
+        // The terminal steps type Unix commands (`pwd`, `printenv`, `cat`);
+        // Windows' shell is PowerShell, checked by hand for now.
+        #[cfg(target_os = "macos")]
+        self.terminal_panel(cx, &mut steps, &root)
+            .await
+            .context("terminal_panel")?;
 
         // Docking: drag an editor tab from the documents' panel into the
         // PDF's panel with native mouse events. (The shell steps after it
@@ -399,10 +420,22 @@ impl Run {
                 .await
                 .context("live_preview")?;
         }
+        if steps::selected("help") {
+            self.help_and_logs(cx, &mut steps)
+                .await
+                .context("help_and_logs")?;
+        }
         if steps::selected("saves") {
             self.closing_saves(cx, &mut steps, &root)
                 .await
                 .context("closing_saves")?;
+        }
+        // After the modules that start from the fixture's layout: it opens
+        // the tutorial, then the fixture again.
+        if steps::selected("get_started") {
+            self.get_started(cx, &mut steps, &root)
+                .await
+                .context("get_started")?;
         }
         // Last: `scenario::start` quits once the result is written.
         let quit = self.type_before_quit(cx, &mut steps, &root).await?;
@@ -426,21 +459,6 @@ impl Run {
             self.pause(cx, Duration::from_millis(300)).await;
         }
         Ok(())
-    }
-
-    /// The webview island checks alone (`islands.rs`), for work on the
-    /// islands: the e2e scenario runs them too.
-    #[cfg(target_os = "macos")]
-    pub(super) async fn islands(&self, cx: &mut AsyncApp) -> Result<Value> {
-        let mut steps = Steps::new(self);
-        let root = self.root(cx).await?;
-        self.pause(cx, Duration::from_millis(800)).await;
-        self.webview_islands(cx, &mut steps, &root).await?;
-        self.structured_islands(cx, &mut steps, &root).await?;
-        self.markdown_island(cx, &mut steps, &root).await?;
-        steps.check_foreground(self);
-        let passed = steps.0.iter().all(|step| step["passed"] == true);
-        Ok(json!({ "scenario": "islands", "passed": passed, "steps": steps.0 }))
     }
 
     /// SyncTeX both ways: from the caret on the chapter's second line to its

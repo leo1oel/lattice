@@ -1,0 +1,7 @@
+/* The surface fills the island, as Trellis's slot lays its host out in the
+   Tauri app (`.trellis-slot > * { flex: 1 1 0 }`, trellis.css). */
+.agent-island-host {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+}

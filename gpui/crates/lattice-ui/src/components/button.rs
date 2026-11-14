@@ -116,6 +116,7 @@ pub struct Button {
     base: Stateful<Div>,
     label: Option<SharedString>,
     icon: Option<Icon>,
+    trailing_icon: Option<Icon>,
     variant: ButtonVariant,
     size: ButtonSize,
     selected: bool,
@@ -133,6 +134,7 @@ impl Button {
             id,
             label: Some(label.into()),
             icon: None,
+            trailing_icon: None,
             variant: ButtonVariant::default(),
             size: ButtonSize::default(),
             selected: false,
@@ -175,6 +177,13 @@ impl Button {
 
     pub fn icon(mut self, icon: Icon) -> Self {
         self.icon = Some(icon);
+        self
+    }
+
+    /// An icon after the label, where it says where the button leads (an
+    /// external link's arrow).
+    pub fn trailing_icon(mut self, icon: Icon) -> Self {
+        self.trailing_icon = Some(icon);
         self
     }
 
@@ -308,6 +317,9 @@ impl RenderOnce for Button {
                     .and_then(|(name, label)| crate::parity::text_probe(name, 0, label)),
             )
             .children(self.label)
+            .when_some(self.trailing_icon, |this, icon| {
+                this.child(icon.element(icon_size, ink))
+            })
             .when_some(self.tooltip, |this, tooltip| {
                 this.tooltip(move |_, cx| -> AnyView {
                     LatticeTooltip::view(tooltip.clone(), None, cx)

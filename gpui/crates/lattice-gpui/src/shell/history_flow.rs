@@ -40,7 +40,7 @@ impl Shell {
     /// Bring the History panel on screen.
     pub(crate) fn open_history(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.reveal_tool("history", window, cx) {
-            self.history.update(cx, |history, cx| history.reload(cx));
+            self.history.update(cx, |history, cx| history.refresh(cx));
         }
     }
 
@@ -96,6 +96,10 @@ impl Shell {
                 let Some(root) = self.root(cx) else { return };
                 self.open_path(root.join(path), *line, window, cx);
             }
+            // Overleaf's copy moved: bring the files here up to it.
+            HistoryEvent::OverleafRestored => self.overleaf.update(cx, |bridge, cx| {
+                bridge.sync(crate::overleaf::bridge::SyncOptions::default(), cx)
+            }),
         }
     }
 

@@ -63,6 +63,16 @@ fn groups() -> Vec<(SharedString, Vec<(Section, SharedString)>)> {
             ],
         ),
         (
+            t!("Agent").into(),
+            vec![(
+                Section {
+                    tab: SettingsTab::Agent,
+                    icon: Icon::BOT,
+                },
+                t!("Providers").into(),
+            )],
+        ),
+        (
             t!("Integrations").into(),
             vec![(
                 Section {
@@ -74,13 +84,22 @@ fn groups() -> Vec<(SharedString, Vec<(Section, SharedString)>)> {
         ),
         (
             t!("Diagnostics").into(),
-            vec![(
-                Section {
-                    tab: SettingsTab::Doctor,
-                    icon: Icon::SPARKLE,
-                },
-                t!("TeX doctor").into(),
-            )],
+            vec![
+                (
+                    Section {
+                        tab: SettingsTab::Doctor,
+                        icon: Icon::SPARKLE,
+                    },
+                    t!("TeX doctor").into(),
+                ),
+                (
+                    Section {
+                        tab: SettingsTab::Logs,
+                        icon: Icon::RECEIPT,
+                    },
+                    t!("Logs").into(),
+                ),
+            ],
         ),
     ]
 }

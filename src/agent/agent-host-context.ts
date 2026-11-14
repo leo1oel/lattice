@@ -118,14 +118,13 @@ export interface AgentHostContextSnapshot {
   };
 }
 
-function boundedSelection(value: string): SelectionContext {
+function boundedSelection(value: string, length?: number | null): SelectionContext {
   const normalized = value.trim();
   if (!normalized) return {};
-  if (normalized.length <= MAX_SELECTION_LENGTH) return { selection: normalized };
-  return {
-    selection: normalized.slice(0, MAX_SELECTION_LENGTH),
-    selectionOmittedChars: normalized.length - MAX_SELECTION_LENGTH,
-  };
+  const total = length ?? normalized.length;
+  if (total <= MAX_SELECTION_LENGTH) return { selection: normalized };
+  const selection = normalized.slice(0, MAX_SELECTION_LENGTH);
+  return { selection, selectionOmittedChars: total - selection.length };
 }
 
 /** A project PDF open as a document, and where in it a selection was made. */
@@ -141,6 +140,8 @@ export function buildAgentHostContext(input: {
   pdfPage: number;
   pdfPageCount: number | null;
   selection: string;
+  /** The trimmed selection's whole length, when `selection` was cut before it got here. */
+  selectionLength?: number | null;
   selectionSource: AgentHostSurface | null;
   /** Where an editor selection sits in its file, when the editor knows. */
   selectionLines?: AgentSelectionLines | null;
@@ -151,7 +152,7 @@ export function buildAgentHostContext(input: {
   activeSurface: AgentHostSurface;
   now?: () => Date;
 }): AgentHostContextSnapshot {
-  const bounded = boundedSelection(input.selection);
+  const bounded = boundedSelection(input.selection, input.selectionLength);
   const selected = (surface: AgentHostSurface) => (
     input.selectionSource === surface ? bounded : {}
   );

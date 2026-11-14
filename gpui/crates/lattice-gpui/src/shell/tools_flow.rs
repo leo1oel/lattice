@@ -30,9 +30,23 @@ actions!(lattice, [OpenTodos, OpenChecklist, ExportArxiv]);
 /// goes when the window opens another project.
 #[derive(Default)]
 pub(crate) struct Sheets {
+    /// What's new (`help_flow`), which is no project's and stays open when
+    /// the window opens another.
+    pub(crate) whats_new: Option<(Entity<crate::help::whats_new::WhatsNewSheet>, Subscription)>,
     pub(crate) arxiv: Option<(Entity<ArxivExportSheet>, Subscription)>,
     pub(crate) figures: Option<(Entity<FigureInventory>, Subscription)>,
     pub(crate) figure_undo: FigureUndo,
+}
+
+impl Sheets {
+    /// Another project opened in the window: its sheets and figure undo go.
+    pub(crate) fn project_changed(&mut self) {
+        let whats_new = self.whats_new.take();
+        *self = Self {
+            whats_new,
+            ..Self::default()
+        };
+    }
 }
 
 /// Every file in the project tree.
@@ -96,6 +110,30 @@ impl Shell {
         }
         if self.layout.focus.is_some() {
             self.set_focus_mode(false, window, cx);
+        }
+        // The comments stand beside the document, not as a tab of its panel
+        // (`toolOpen`): with the PDF, else beside the documents. Once
+        // placed, they stay where the writer puts them.
+        if kind == "comments" {
+            match self.placement(kind, cx) {
+                Some((ViewPlacement::Hidden, ..)) => self.show_view(kind, true, window, cx),
+                Some(_) => self.engine_do(cx, |engine| engine.focus(kind)),
+                None => {
+                    let placement = self.home_of(kind, cx);
+                    self.engine_do(cx, |engine| {
+                        engine.open(
+                            kind,
+                            OpenOptions {
+                                id: Some(kind.into()),
+                                placement: Some(placement),
+                                ..OpenOptions::default()
+                            },
+                        )
+                    });
+                }
+            }
+            cx.notify();
+            return true;
         }
         let anchor = self.document_panel_of_layout(cx);
         match self.placement(kind, cx) {

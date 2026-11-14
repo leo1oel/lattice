@@ -570,3 +570,19 @@ fn the_document_hash_is_the_one_overleaf_checks() {
     // "é" is one UTF-16 unit but two UTF-8 bytes: the header says 1.
     assert_ne!(doc_hash("é"), doc_hash("e"));
 }
+
+#[test]
+fn explicit_ops_go_out_as_given_only_when_nothing_is_outstanding() {
+    let mut doc = OtDocument::new("The quick fox", 3);
+    let undo = vec![OtOp { p: 4, i: None, d: Some("quick ".into()), u: Some(true) }];
+    let send = doc.local_ops(undo.clone()).expect("settled, so it goes");
+    assert_eq!((send.version, send.ops), (3, undo.clone()));
+    assert_eq!(doc.text(), "The fox");
+    // In flight now: another waits for the acknowledgement.
+    assert!(doc.local_ops(vec![insert(0, "A")]).is_none());
+    assert_eq!(doc.acknowledge(Some(3)).unwrap(), None);
+    assert_eq!((doc.version(), doc.server_text()), (4, "The fox"));
+    // Ops that do not fit the text are refused, and change nothing.
+    assert!(doc.local_ops(vec![delete(0, "Nope")]).is_none());
+    assert_eq!(doc.text(), "The fox");
+}

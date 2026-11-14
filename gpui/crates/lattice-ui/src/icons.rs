@@ -64,6 +64,10 @@ lucide! {
     LOCATE_FIXED = "icons" / "locate-fixed";
     MINUS = "icons" / "minus";
     MESSAGE_SQUARE_TEXT = "icons" / "message-square-text";
+    MESSAGES_SQUARE = "icons" / "messages-square";
+    SEND_HORIZONTAL = "icons" / "send-horizontal";
+    TAG = "icons" / "tag";
+    LEAF = "icons" / "leaf";
     RECTANGLE_HORIZONTAL = "icons" / "rectangle-horizontal";
     REFRESH = "icons" / "refresh-cw";
     SEARCH = "icons" / "search";
@@ -112,6 +116,8 @@ lucide! {
     RECTANGLE_VERTICAL = "icons" / "rectangle-vertical";
     SQUARE_ARROW_DOWN_LEFT = "icons" / "square-arrow-down-left";
     SQUARE_ARROW_OUT_UP_RIGHT = "icons" / "square-arrow-out-up-right";
+    /// The Terminal panel's glyph (`terminal-icon.tsx`).
+    SQUARE_TERMINAL = "icons" / "square-terminal";
     WHOLE_WORD = "icons" / "whole-word";
     // The Papers panel's rows, toolbar and add rows (main declares
     // ARROW_DOWN, ARROW_DOWN_UP, BOOK_MARKED, FILE_DOWN and LINK_2 below).
@@ -155,12 +161,21 @@ lucide! {
     SHIELD_ALERT = "icons" / "shield-alert";
     ARROW_DOWN_TO_LINE = "icons" / "arrow-down-to-line";
     ARROW_UP_FROM_LINE = "icons" / "arrow-up-from-line";
+    FEATHER = "icons" / "feather";
+    GAUGE = "icons" / "gauge";
+    PLUG = "icons" / "plug";
+    SHAPES = "icons" / "shapes";
+    ARROW_UP_RIGHT = "icons" / "arrow-up-right";
+    LIST_CHECKS = "icons" / "list-checks";
+    LAYOUT_TEMPLATE = "icons" / "layout-template";
+    CLIPBOARD_PASTE = "icons" / "clipboard-paste";
     // Names Zed's icon set also has, which the app's asset source finds
     // first: Lucide's own, copied unmodified from GPUI Kit 0.9.1's assets
     // (ISC, `assets/LICENSE-LUCIDE`).
     CHECK = "lattice" / "check";
     CIRCLE = "lattice" / "circle";
     CLOCK = "lattice" / "clock";
+    MENU = "lattice" / "menu";
     COPY = "lattice" / "copy";
     DOWNLOAD = "lattice" / "download";
     ELLIPSIS = "lattice" / "ellipsis";
@@ -202,6 +217,9 @@ impl Icon {
     pub const FADERS: Icon = Icon("lattice/faders.svg");
     pub const CLIPBOARD_TEXT: Icon = Icon("lattice/clipboard-text.svg");
     pub const SPARKLE: Icon = Icon("lattice/sparkle.svg");
+    /// Settings › Logs: the resting frame of the Tauri app's animated
+    /// receipt (`src/animated-icons/bakai/receipt.tsx`).
+    pub const RECEIPT: Icon = Icon("lattice/receipt.svg");
     /// The Build button's idle mark: Lucide's play, filled, as the app
     /// draws it (`<Play fill="currentColor" />`). Lucide's play.svg (ISC,
     /// `assets/LICENSE-LUCIDE`) with its fill set to the ink.
@@ -296,6 +314,7 @@ const BUNDLED: &[(&str, &[u8])] = bundled![
     "faders.svg",
     "clipboard-text.svg",
     "sparkle.svg",
+    "receipt.svg",
     "play-filled.svg",
     "check.svg",
     "eye.svg",
@@ -308,6 +327,7 @@ const BUNDLED: &[(&str, &[u8])] = bundled![
     "folder.svg",
     "circle.svg",
     "clock.svg",
+    "menu.svg",
     "hash.svg",
     "image.svg",
     "replace.svg",

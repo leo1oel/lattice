@@ -192,6 +192,26 @@ export const scenes = {
     await rest(staged.page);
     return staged;
   },
+  // What's new from the palette, at the running version's notes. The parity
+  // harness's screens only; not on the App screens page.
+  async whatsNew(env, theme) {
+    const staged = await project(env, theme);
+    await palette(staged.page, "What’s new in Lattice");
+    await staged.page.waitForSelector(".whats-new-modal .whats-new-list, .whats-new-modal .whats-new-date", { timeout: 30_000 });
+    await rest(staged.page);
+    return staged;
+  },
+  // Settings › Logs: ⌘, then the Logs section, nothing left focused.
+  async logs(env, theme) {
+    const staged = await project(env, theme);
+    await staged.page.keyboard.press("Meta+Comma");
+    await staged.page.waitForSelector(".settings-modal", { timeout: 30_000 });
+    await staged.page.locator(".settings-nav").getByRole("button", { name: "Logs" }).click();
+    await staged.page.waitForSelector(".app-logs-settings", { timeout: 30_000 });
+    await staged.page.evaluate(() => (document.activeElement instanceof HTMLElement) && document.activeElement.blur());
+    await rest(staged.page, 2000);
+    return staged;
+  },
   // Export for arXiv… with the bench's checked pack (`?arxiv=ready`,
   // tools/perf-bench/bench-arxiv.ts), once its test build has answered.
   async arxivExport(env, theme) {

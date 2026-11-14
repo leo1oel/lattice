@@ -381,7 +381,9 @@ fn worker(pdfium: Pdfium, queue: &(Mutex<Queue>, Condvar)) {
 }
 
 /// Draw a page, or the part of it the request names, into an image GPUI can
-/// upload: PDFium's bitmaps are BGRA, which is the byte order GPUI uploads.
+/// upload: PDFium's bitmaps are BGRA, which is the byte order GPUI uploads
+/// (and the order every reader of these images, the dark filter, the live
+/// preview's fallback pages and figures, takes them in).
 fn render_page(document: &PdfDocument, request: &RenderRequest) -> Result<Arc<RenderImage>> {
     let page = document
         .pages()
@@ -390,7 +392,11 @@ fn render_page(document: &PdfDocument, request: &RenderRequest) -> Result<Arc<Re
     let config = PdfRenderConfig::new()
         .set_target_width(request.width_px as Pixels)
         .render_form_data(true)
-        .render_annotations(true);
+        .render_annotations(true)
+        // pdfium-render asks PDFium for RGBA by default
+        // (`FPDF_REVERSE_BYTE_ORDER`), for its `image` conversions; uploaded
+        // as BGRA that swaps red and blue, so a red figure showed blue.
+        .set_reverse_byte_order(false);
     let (width, height, mut bytes) = match request.region {
         None => {
             let bitmap = page
@@ -613,7 +619,87 @@ fn find_library() -> Option<PathBuf> {
 
 #[cfg(test)]
 mod tests {
-    use super::PageSpace;
+    use super::{PageSpace, PdfEngine, PixelRect, RenderRequest};
+
+    /// A 100 × 100 pt page, its left half pure red and its right half
+    /// sRGB (204, 102, 51), with an exact cross-reference table.
+    fn two_colour_pdf() -> Vec<u8> {
+        let content = "1 0 0 rg 0 0 50 100 re f 0.8 0.4 0.2 rg 50 0 50 100 re f";
+        let objects = [
+            "<< /Type /Catalog /Pages 2 0 R >>".to_string(),
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>".to_string(),
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] /Contents 4 0 R >>".to_string(),
+            format!(
+                "<< /Length {} >>\nstream\n{content}\nendstream",
+                content.len() + 1
+            ),
+        ];
+        let mut pdf = b"%PDF-1.4\n".to_vec();
+        let mut offsets = Vec::new();
+        for (ix, object) in objects.iter().enumerate() {
+            offsets.push(pdf.len());
+            pdf.extend(format!("{} 0 obj\n{object}\nendobj\n", ix + 1).bytes());
+        }
+        let xref = pdf.len();
+        pdf.extend(format!("xref\n0 {}\n0000000000 65535 f \n", objects.len() + 1).bytes());
+        for offset in offsets {
+            pdf.extend(format!("{offset:010} 00000 n \n").bytes());
+        }
+        pdf.extend(
+            format!(
+                "trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n",
+                objects.len() + 1
+            )
+            .bytes(),
+        );
+        pdf
+    }
+
+    /// The BGRA pixel at `(x, y)` of the page drawn 100 px across, whole or
+    /// through a region, light or dark.
+    fn pixel(engine: &PdfEngine, region: bool, dark: bool, x: u32, y: u32) -> [u8; 4] {
+        let doc = engine.new_document();
+        let info = futures::executor::block_on(engine.open(doc, two_colour_pdf()))
+            .unwrap()
+            .unwrap();
+        let rendered = futures::executor::block_on(engine.render(RenderRequest {
+            doc,
+            generation: info.generation,
+            page: 0,
+            width_px: 100,
+            region: region.then_some(PixelRect {
+                x: 0,
+                y: 0,
+                w: 100,
+                h: 100,
+            }),
+            dark,
+            cancel: Default::default(),
+        }))
+        .unwrap()
+        .unwrap();
+        engine.close(doc);
+        let size = rendered.image.size(0);
+        assert_eq!((size.width.0, size.height.0), (100, 100));
+        let bytes = rendered.image.as_bytes(0).unwrap();
+        let ix = ((y * 100 + x) * 4) as usize;
+        bytes[ix..ix + 4].try_into().unwrap()
+    }
+
+    // GPUI uploads images as BGRA, so a page's red must reach it as
+    // B = 0, G = 0, R = 255, whether it is drawn whole or a region at a time.
+    #[test]
+    fn page_images_reach_gpui_as_bgra_in_light_and_dark() {
+        let engine = PdfEngine::start().expect("PDFium (script/fetch-pdfium)");
+        for region in [false, true] {
+            assert_eq!(pixel(&engine, region, false, 25, 50), [0, 0, 255, 255]);
+            assert_eq!(pixel(&engine, region, false, 75, 50), [51, 102, 204, 255]);
+            // Dark pages: the CSS filter of the Tauri app, applied in RGB.
+            let [r, g, b] =
+                super::super::dark::filter([1., 0., 0.]).map(|c| (c * 255.).round() as u8);
+            assert_eq!(pixel(&engine, region, true, 25, 50), [b, g, r, 255]);
+        }
+    }
 
     // A Letter page whose crop box starts at (10, 20), as `/CropBox
     // [10 20 622 812]` names it.

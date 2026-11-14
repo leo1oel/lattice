@@ -2,8 +2,8 @@
 //! ⌘C puts the selected row's absolute path on the clipboard, and ⌘V
 //! duplicates that row into the selected folder while the clipboard still
 //! holds exactly that text, so a later copy in the editor or another app
-//! supersedes it. (The app's ⌘V otherwise pastes a clipboard image as a
-//! figure, which is not ported.)
+//! supersedes it; otherwise ⌘V saves the clipboard's image into that folder
+//! (`FileTreeEvent::PasteImage`).
 
 use gpui::{ClipboardItem, Context, KeyDownEvent, Window};
 
@@ -41,9 +41,11 @@ impl FileTreePanel {
                 }
             }
             "v" => {
-                if self.paste_copied(cx) {
-                    cx.stop_propagation();
+                if !self.paste_copied(cx) {
+                    let target = self.paste_target(cx);
+                    cx.emit(FileTreeEvent::PasteImage { target });
                 }
+                cx.stop_propagation();
             }
             _ => {}
         }
@@ -85,6 +87,19 @@ impl FileTreePanel {
         true
     }
 
+    /// Where ⌘V puts things: the selected folder, or a selected file's
+    /// folder, else the project root.
+    fn paste_target(&self, cx: &gpui::App) -> String {
+        match self.selected_row(cx) {
+            Some((path, true)) => path,
+            Some((path, false)) => path
+                .rsplit_once('/')
+                .map(|(parent, _)| parent.to_string())
+                .unwrap_or_default(),
+            None => String::new(),
+        }
+    }
+
     fn paste_copied(&mut self, cx: &mut Context<Self>) -> bool {
         let Some(copied) = &self.copied else {
             return false;
@@ -93,15 +108,7 @@ impl FileTreePanel {
         if clipboard.as_deref() != Some(copied.text.as_str()) {
             return false;
         }
-        // Into the selected folder, or a selected file's folder.
-        let target = match self.selected_row(cx) {
-            Some((path, true)) => path,
-            Some((path, false)) => path
-                .rsplit_once('/')
-                .map(|(parent, _)| parent.to_string())
-                .unwrap_or_default(),
-            None => String::new(),
-        };
+        let target = self.paste_target(cx);
         cx.emit(FileTreeEvent::Paste {
             paths: copied.paths.clone(),
             target,

@@ -127,14 +127,14 @@ pub fn summary(changes: &[OverleafChange]) -> String {
         .filter(|change| change.kind == "conflict" || change.kind == "unresolvedConflict")
         .count();
     let change_summary: String = if total == 1 {
-        t!("{total} file would change", total = total).into()
+        t!("{total} file would change", total = total)
     } else {
-        t!("{total} files would change", total = total).into()
+        t!("{total} files would change", total = total)
     };
     let conflict_summary: String = if conflicts == 1 {
-        t!("{conflicts} needs your decision", conflicts = conflicts).into()
+        t!("{conflicts} needs your decision", conflicts = conflicts)
     } else {
-        t!("{conflicts} need your decision", conflicts = conflicts).into()
+        t!("{conflicts} need your decision", conflicts = conflicts)
     };
     if total == 0 {
         conflict_summary

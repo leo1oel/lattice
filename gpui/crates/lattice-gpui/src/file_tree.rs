@@ -97,6 +97,11 @@ pub enum FileTreeEvent {
         paths: Vec<String>,
         target: String,
     },
+    /// Save the clipboard's image into `target` (⌘V otherwise, or a
+    /// folder's "Paste clipboard image as figure").
+    PasteImage {
+        target: String,
+    },
 }
 
 /// A row on its way to another folder.

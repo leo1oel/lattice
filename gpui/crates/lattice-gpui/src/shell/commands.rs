@@ -336,6 +336,13 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
         ShowShortcuts,
     ));
     if project {
+        // Get started has no key: like every panel without one, it is shown.
+        out.push(Command::new(
+            "panel-start",
+            space_mixed_script(&t!("Show {name} panel", name = t!("Get started"))),
+            Section::Layout,
+            super::get_started_flow::ShowGetStarted,
+        ));
         out.push(Command::new(
             "layout-reset",
             t!("Reset panel layout"),
@@ -424,6 +431,11 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
                 t!("Show or hide the PDF"),
                 Box::new(TogglePdfPanel),
             ),
+            (
+                "panel-terminal",
+                t!("Show or hide the Terminal"),
+                Box::new(crate::terminal::ToggleTerminalPanel),
+            ),
         ] {
             out.push(Command {
                 id: id.into(),
@@ -434,6 +446,15 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
                 keywords: "panel",
             });
         }
+        out.push(
+            Command::new(
+                "terminal-new",
+                t!("New terminal"),
+                Section::Layout,
+                crate::terminal::NewTerminal,
+            )
+            .keywords("shell console"),
+        );
         out.push(
             Command::new("vim", t!("Vim mode"), Section::Edit, ToggleVimMode).keywords("vi modal"),
         );

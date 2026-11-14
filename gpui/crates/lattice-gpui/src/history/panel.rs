@@ -6,7 +6,8 @@
 //! tool host, `trellis.css`): on the input surface, its content 14px in, no
 //! header of its own (the panel's tab names it and closes it).
 //!
-//! What it holds: the views (Everything, Versions, Activity) and Compare…,
+//! What it holds: the views (Everything, Versions, Activity, and Overleaf
+//! for a linked project, `super::overleaf`) and Compare…,
 //! Save version and the refresh; then the timeline, Lattice's own activity
 //! and the project's git versions interleaved by time and grouped by day;
 //! a row opened in place to read its changes; and, in place of all that,
@@ -57,6 +58,9 @@ mod actions;
 pub enum HistoryEvent {
     /// Open a project file, at a line when given.
     OpenFile { path: String, line: Option<u32> },
+    /// Overleaf's copy was restored from its history: the files here
+    /// follow once the project syncs.
+    OverleafRestored,
 }
 
 impl EventEmitter<HistoryEvent> for HistoryPanel {}
@@ -250,6 +254,10 @@ pub struct HistoryPanel {
     on_screen: Option<Rc<dyn Fn(&App) -> bool>>,
     /// A read was skipped while the panel was off screen.
     stale: bool,
+    /// Overleaf's own history, while the project is linked.
+    pub(super) overleaf: super::overleaf::OverleafHistory,
+    pub(super) overleaf_linked: bool,
+    pub(super) _overleaf_link: Option<Subscription>,
     _poll: Task<()>,
 }
 
@@ -300,6 +308,9 @@ impl HistoryPanel {
             settle: None,
             on_screen: None,
             stale: false,
+            overleaf: Default::default(),
+            overleaf_linked: false,
+            _overleaf_link: None,
             _poll: poll,
         }
     }
@@ -349,8 +360,12 @@ impl HistoryPanel {
             self.opened = None;
             self.save_field = None;
             self.versions = Versions::new();
+            self.overleaf_reset();
         }
         self.reload(cx);
+        if !same {
+            self.load_overleaf(cx);
+        }
     }
 
     /// The document the project builds: what a comparison opens first and
@@ -373,6 +388,10 @@ impl HistoryPanel {
         self.on_screen = Some(Rc::new(on_screen));
     }
 
+    pub(super) fn shown_now(&self, cx: &App) -> bool {
+        self.shown(cx)
+    }
+
     fn shown(&self, cx: &App) -> bool {
         self.on_screen
             .as_ref()
@@ -388,6 +407,7 @@ impl HistoryPanel {
 
     /// Drawn on screen after a read was skipped: read the history now.
     pub(super) fn catch_up(&mut self, cx: &mut Context<Self>) {
+        self.overleaf_catch_up(cx);
         if self.stale && self.shown(cx) {
             self.stale = false;
             let this = cx.entity();
@@ -399,6 +419,13 @@ impl HistoryPanel {
     pub fn reload(&mut self, cx: &mut Context<Self>) {
         self.load_activity(cx);
         self.load_versions(cx);
+    }
+
+    /// Read everything again, Overleaf's history too: the panel opened, or
+    /// the refresh. Overleaf is not asked on every file change.
+    pub fn refresh(&mut self, cx: &mut Context<Self>) {
+        self.reload(cx);
+        self.load_overleaf(cx);
     }
 
     fn load_activity(&mut self, cx: &mut Context<Self>) {
@@ -503,7 +530,7 @@ impl HistoryPanel {
         self.load_versions(cx);
     }
 
-    pub(super) fn select_view(&mut self, view: HistoryView, cx: &mut Context<Self>) {
+    pub(in crate::history) fn select_view(&mut self, view: HistoryView, cx: &mut Context<Self>) {
         self.user_picked_view = true;
         self.view = view;
         cx.notify();
@@ -520,14 +547,18 @@ impl HistoryPanel {
         let opening = self.expanded.as_deref() != Some(&key);
         self.expanded = opening.then_some(key.clone());
         self.opened = None;
+        self.overleaf.opened = None;
         if opening && let Some(hash) = key.strip_prefix("version:") {
             self.opened = Some(OpenedVersion::new(hash, false));
+        }
+        if opening && let Some(version) = overleaf_version(&key) {
+            self.open_overleaf(version, false, cx);
         }
         cx.notify();
     }
 
     /// Open `key` compared with now; asked again while it is, close it.
-    pub(super) fn compare_row(&mut self, key: String, cx: &mut Context<Self>) {
+    pub(in crate::history) fn compare_row(&mut self, key: String, cx: &mut Context<Self>) {
         let closing =
             self.expanded.as_deref() == Some(&key) && self.compare_key.as_deref() == Some(&key);
         self.expanded = (!closing).then_some(key.clone());
@@ -538,6 +569,10 @@ impl HistoryPanel {
                     .map(|hash| OpenedVersion::new(hash, true))
             })
             .flatten();
+        self.overleaf.opened = None;
+        if !closing && let Some(version) = overleaf_version(&key) {
+            self.open_overleaf(version, true, cx);
+        }
         cx.notify();
     }
 
@@ -552,6 +587,7 @@ impl HistoryPanel {
     pub(super) fn toggle_activity(&mut self, item: &HistoryItem, cx: &mut Context<Self>) {
         self.compare_key = None;
         self.opened = None;
+        self.overleaf.opened = None;
         let key = super::timeline::activity_key(&item.id);
         let opening = self.expanded.as_deref() != Some(&key);
         self.expanded = opening.then_some(key);
@@ -782,6 +818,11 @@ impl HistoryPanel {
     pub(super) fn narrow(&self) -> bool {
         self.width.get() < gpui::px(300.)
     }
+}
+
+/// The Overleaf version an `overleaf:` row key names.
+fn overleaf_version(key: &str) -> Option<i64> {
+    key.strip_prefix("overleaf:")?.parse().ok()
 }
 
 impl OpenedVersion {

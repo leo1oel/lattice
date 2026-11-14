@@ -197,6 +197,7 @@ impl HtmlPreview {
             ground: Some(gpui::white()),
             reveal_on_ready: false,
             theme: lattice_webview::IslandTheme::Variables,
+            hibernates: true,
         };
         let island = cx.new(|cx| Island::new(config, window, cx));
         let (requests, mut receiver) = mpsc::unbounded::<f32>();

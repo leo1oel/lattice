@@ -30,8 +30,11 @@ mod appearance_pane;
 mod controls;
 mod dialog;
 mod editor_pane;
+pub(crate) mod logs_export;
+pub(crate) mod logs_pane;
 mod nav;
 pub(crate) mod overleaf_pane;
+mod providers_pane;
 mod search;
 mod theme_art;
 

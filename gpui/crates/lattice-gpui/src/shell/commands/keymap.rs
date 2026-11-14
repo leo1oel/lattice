@@ -36,6 +36,7 @@ fn beside_vim(context: &'static str) -> Option<&'static str> {
 /// bind it, plus the window's own (quit, hide, minimize).
 pub fn bind_keys(cx: &mut App) {
     cx.bind_keys(default_bindings());
+    cx.bind_keys(crate::terminal::key_bindings());
 }
 
 fn default_bindings() -> Vec<KeyBinding> {

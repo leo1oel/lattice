@@ -60,11 +60,13 @@ pub mod ot;
 mod suggestion_tests;
 #[cfg(test)]
 pub(crate) mod tests;
+pub mod tracked;
 mod tree;
 
 pub use client::{RealtimeClient, RealtimeConfig};
 pub use codec::Submission;
 pub use events::{parse_comment_ranges, presence_hue};
+pub use events::{CatchUpUpdate, CommentRange, Suggester};
 pub use events::{
     EntityEntry, JoinedDoc, OtOp, Permission, PresenceUser, RealtimeEvent, TrackedChange,
 };

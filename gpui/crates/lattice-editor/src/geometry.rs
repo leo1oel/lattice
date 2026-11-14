@@ -103,6 +103,54 @@ impl Frame {
             .row
     }
 
+    /// Where an inline text `len` bytes long, standing at buffer `point`
+    /// after `skip` bytes of the inline texts spliced there before it,
+    /// starts and ends on each display row it takes: one, or more where the
+    /// soft wrap breaks it as it breaks any text. First, the display point
+    /// of `point` itself, before every inline text there.
+    pub fn inline_rows(
+        &self,
+        point: language::Point,
+        skip: usize,
+        len: usize,
+    ) -> (
+        editor::DisplayPoint,
+        Vec<(editor::DisplayPoint, editor::DisplayPoint)>,
+    ) {
+        use editor::{DisplayPoint, display_map::DisplayRow};
+        let display = &self.display.display_snapshot;
+        let inlays = display.inlay_snapshot();
+        let wrap_point = |at| {
+            let fold = display
+                .fold_snapshot()
+                .to_fold_point(inlays.to_point(at), language::Bias::Left);
+            let tab = display.tab_snapshot().fold_point_to_tab_point(fold);
+            display.wrap_snapshot().tab_point_to_wrap_point(tab).0
+        };
+        let base = point.to_display_point(display);
+        let at = inlays.to_offset(inlays.to_inlay_point(point));
+        let below = wrap_point(at).row;
+        let first = at + skip;
+        let (from, to) = (wrap_point(first), wrap_point(first + len));
+        let rows = (0..=to.row.saturating_sub(from.row))
+            .map(|step| {
+                let row = DisplayRow(base.row().0 + from.row - below + step);
+                let left = if step == 0 {
+                    from.column
+                } else {
+                    display.soft_wrap_indent(row).unwrap_or(0)
+                };
+                let right = if from.row + step == to.row {
+                    to.column
+                } else {
+                    display.line_len(row)
+                };
+                (DisplayPoint::new(row, left), DisplayPoint::new(row, right))
+            })
+            .collect();
+        (base, rows)
+    }
+
     /// Whether a row starting at `top` shows in the editor.
     pub fn shows_row(&self, top: Pixels) -> bool {
         top + self.line_height > self.bounds.top() && top < self.bounds.bottom()

@@ -14,11 +14,42 @@ use gpui::{AppContext as _, Context, PathPromptOptions, Window};
 use lattice_core::project::{self as core_project, ImportRequest, NameConflict, ProjectImport};
 use lattice_ui::components::ToastLevel;
 
+use lattice_i18n::t;
+
 use super::Shell;
 use crate::{
     confirm::{self, Confirm},
     notices::{self, Notice},
 };
+
+/// The clipboard image's bytes as the project keeps them: PNG, JPEG and
+/// WebP as they are, anything else the clipboard holds (a TIFF from
+/// Preview, a GIF) as PNG, as the Tauri app's canvas re-encodes it.
+pub(crate) fn clipboard_image_bytes(
+    image: &gpui::Image,
+) -> Result<(Vec<u8>, &'static str), String> {
+    use gpui::ImageFormat;
+    match image.format {
+        ImageFormat::Png => Ok((image.bytes.clone(), "png")),
+        ImageFormat::Jpeg => Ok((image.bytes.clone(), "jpg")),
+        ImageFormat::Webp => Ok((image.bytes.clone(), "webp")),
+        _ => {
+            let decoded = image::load_from_memory(&image.bytes)
+                .map_err(|error| format!("Could not read the clipboard image: {error}"))?;
+            let mut png = std::io::Cursor::new(Vec::new());
+            decoded
+                .write_to(&mut png, image::ImageFormat::Png)
+                .map_err(|error| format!("Could not encode PNG: {error}"))?;
+            Ok((png.into_inner(), "png"))
+        }
+    }
+}
+
+/// `clipboardImageFileName`: the moment to the second, in UTC, with the
+/// colons a file name cannot hold made dashes.
+pub(crate) fn clipboard_image_name(extension: &str, now: chrono::DateTime<chrono::Utc>) -> String {
+    format!("clipboard-{}.{extension}", now.format("%Y-%m-%dT%H-%M-%S"))
+}
 
 /// How many taken names the question lists before "and N more".
 const LISTED_NAMES: usize = 5;
@@ -78,6 +109,60 @@ impl Shell {
             window,
             cx,
         );
+    }
+
+    /// ⌘V in the tree without its own copied rows, or a folder's "Paste
+    /// clipboard image as figure" (`importSystemClipboardImage`): the image
+    /// on the clipboard, saved into `target` (`figures` for the project
+    /// root) as `clipboard-<time>.<ext>`
+    /// (lattice-core's `import_image_bytes`), and shown in the tree.
+    pub(super) fn paste_clipboard_image(&mut self, target: String, cx: &mut Context<Self>) {
+        let Some(project) = self.project.clone() else {
+            return;
+        };
+        let image = cx.read_from_clipboard().and_then(|item| {
+            item.into_entries().find_map(|entry| match entry {
+                gpui::ClipboardEntry::Image(image) => Some(image),
+                _ => None,
+            })
+        });
+        let Some(image) = image else {
+            notices::error(t!("No image found on the clipboard."), "", cx);
+            return;
+        };
+        // The project root is no place lattice-core saves an image (nor the
+        // Tauri app's, which failed there): a figure pasted with a top-level
+        // row selected goes where the editor's pasted figures go.
+        let target = if target.is_empty() {
+            "figures".to_string()
+        } else {
+            target
+        };
+        let root = project.read(cx).root().to_path_buf();
+        let saved = cx.background_spawn({
+            let root = root.clone();
+            async move {
+                let (bytes, extension) = clipboard_image_bytes(&image)?;
+                let name = clipboard_image_name(extension, chrono::Utc::now());
+                let data =
+                    base64::Engine::encode(&base64::engine::general_purpose::STANDARD, bytes);
+                core_project::import_image_bytes(&root, &target, &name, &data)
+            }
+        });
+        cx.spawn(async move |this, cx| {
+            let saved = saved.await;
+            this.update(cx, |this, cx| {
+                project.update(cx, |project, cx| project.entries_changed(cx));
+                match saved {
+                    Ok(path) => this
+                        .file_tree
+                        .update(cx, |tree, cx| tree.set_current(Some(root.join(path)), cx)),
+                    Err(error) => notices::error("Could not import", error, cx),
+                }
+            })
+            .ok();
+        })
+        .detach();
     }
 
     /// Import `sources` (absolute) into `target`. Without a `conflict`
@@ -224,5 +309,36 @@ mod tests {
             imported_title(&ProjectImport::default(), ""),
             "Nothing imported"
         );
+    }
+
+    #[test]
+    fn a_pasted_image_is_named_by_its_moment_as_the_tauri_app_names_it() {
+        let moment = chrono::DateTime::parse_from_rfc3339("2026-11-14T09:05:07.250Z")
+            .unwrap()
+            .with_timezone(&chrono::Utc);
+        // `new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)`.
+        assert_eq!(
+            clipboard_image_name("png", moment),
+            "clipboard-2026-11-14T09-05-07.png"
+        );
+    }
+
+    #[test]
+    fn png_stays_as_it_is_and_another_format_becomes_png() {
+        let mut png = std::io::Cursor::new(Vec::new());
+        image::RgbaImage::new(2, 2)
+            .write_to(&mut png, image::ImageFormat::Png)
+            .unwrap();
+        let png = png.into_inner();
+        let kept = gpui::Image::from_bytes(gpui::ImageFormat::Png, png.clone());
+        assert_eq!(clipboard_image_bytes(&kept).unwrap(), (png, "png"));
+        let mut tiff = std::io::Cursor::new(Vec::new());
+        image::RgbaImage::new(2, 2)
+            .write_to(&mut tiff, image::ImageFormat::Tiff)
+            .unwrap();
+        let tiff = gpui::Image::from_bytes(gpui::ImageFormat::Tiff, tiff.into_inner());
+        let (bytes, extension) = clipboard_image_bytes(&tiff).unwrap();
+        assert_eq!(extension, "png");
+        assert!(bytes.starts_with(b"\x89PNG\r\n\x1a\n"));
     }
 }

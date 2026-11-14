@@ -67,6 +67,14 @@ impl OverleafBridge {
             .map(|(path, _)| path.clone())
     }
 
+    /// Every document Overleaf edits as text, as `(doc id, project-relative path)`.
+    pub fn doc_paths(&self) -> impl Iterator<Item = (&str, &str)> {
+        self.entities
+            .iter()
+            .filter(|(_, (_, kind))| kind == "doc")
+            .map(|(path, (id, _))| (id.as_str(), path.as_str()))
+    }
+
     /// The document id of `path`, when it is one Overleaf edits as text.
     pub fn doc_of_path(&self, path: &str) -> Option<String> {
         self.entities

@@ -22,10 +22,14 @@ mod e2e;
 mod input_lock;
 #[cfg(target_os = "macos")]
 mod measure;
+mod overleaf_history_mock;
 mod overleaf_mock;
 mod overleaf_realtime_mock;
+mod overleaf_review_mock;
 #[cfg(target_os = "macos")]
 mod parity;
+#[cfg(target_os = "macos")]
+mod parity_help;
 #[cfg(target_os = "macos")]
 mod parity_history;
 #[cfg(target_os = "macos")]
@@ -95,6 +99,8 @@ pub fn start(shell: Entity<Shell>, window: AnyWindowHandle, args: ScenarioArgs, 
             },
             "narrow-window" => run.narrow_window_alone(cx).await,
             "live-preview" => run.live_preview_scenario(cx).await,
+            #[cfg(target_os = "macos")]
+            "terminal" => run.terminal(cx).await,
             #[cfg(target_os = "macos")]
             "islands" => run.islands(cx).await,
             #[cfg(target_os = "macos")]

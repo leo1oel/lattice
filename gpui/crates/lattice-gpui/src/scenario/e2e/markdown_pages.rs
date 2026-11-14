@@ -10,11 +10,16 @@
 use std::{path::Path, time::Duration};
 
 use anyhow::Result;
-use gpui::{AsyncApp, Entity};
+use gpui::{AsyncApp, Entity, Focusable as _};
 use lattice_webview::Island;
 use serde_json::{Value, json};
 
 use super::{Run, Steps};
+use crate::{
+    editor_panel::{DocumentView, EditorPanel},
+    scenario::shell_steps::keyboard_holder,
+    shell::commands::CommandPalette,
+};
 
 /// Ask the `[[e2e-other#` completion again: drop its `#`, and (in a later
 /// task, so ProseMirror sees two edits rather than none) type it back, which
@@ -144,7 +149,51 @@ impl Run {
                 && !heard_outside,
             json!({ "reread": reread, "ghost_labels": ghost_labels, "in_tree": in_tree, "heard": heard }),
         );
-        self.close_panel(cx, &panel).await?;
+        self.closing_split_page_keeps_the_keyboard(cx, steps, &panel, &island)
+            .await
+    }
+
+    /// The tab closed while its Split page holds the keyboard (the native
+    /// click `markdown_type` sent): the keyboard goes back to the window, so
+    /// its commands still land. Before, the panel's handle (the source's)
+    /// was all a close looked at, and the window was left focused on the
+    /// page's handle, drawn no more, where every shortcut was dropped.
+    async fn closing_split_page_keeps_the_keyboard(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+        panel: &Entity<EditorPanel>,
+        island: &Entity<Island>,
+    ) -> Result<()> {
+        let (view, in_page) = self.with_window(cx, |_, window, cx| {
+            (
+                panel.read(cx).document_view(),
+                island
+                    .read(cx)
+                    .focus_handle(cx)
+                    .contains_focused(window, cx),
+            )
+        })?;
+        self.close_panel(cx, panel).await?;
+        self.frame_after_input(cx).await?;
+        let holder = self.with_window(cx, keyboard_holder)?;
+        self.with_window(cx, |_, window, cx| {
+            window.dispatch_action(Box::new(CommandPalette), cx)
+        })?;
+        self.frame_after_input(cx).await?;
+        let rows = self.with_window(cx, |shell, window, cx| {
+            let rows = shell.read(cx).palette_rows(cx);
+            shell.update(cx, |shell, cx| shell.close_overlays(window, cx));
+            rows
+        })?;
+        steps.check(
+            "closing a Markdown tab while its visual editor in Split holds the keyboard leaves the keyboard in the window: the palette still opens",
+            view == Some(DocumentView::Split)
+                && in_page
+                && matches!(holder, "the shell" | "the active editor" | "inside the shell")
+                && rows.is_some(),
+            json!({ "view": format!("{view:?}"), "in_page": in_page, "focus_after": holder, "palette_rows": rows }),
+        );
         Ok(())
     }
 

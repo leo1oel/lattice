@@ -13,6 +13,8 @@
 //! the PDFs (`pdfs`) and SyncTeX (`synctex`).
 
 mod actions;
+mod agent_documents;
+mod agent_flow;
 mod arrange;
 mod assets;
 mod build;
@@ -22,14 +24,18 @@ mod documents;
 mod editor_events;
 mod editors;
 mod entries;
+mod get_started_flow;
 mod ground;
+mod help_flow;
 mod history_flow;
 mod imports;
 mod layers;
 pub(crate) mod menus;
 mod opening;
+mod overleaf_collab;
 pub(crate) mod overleaf_flow;
 mod overleaf_presence;
+mod overleaf_review;
 mod palette;
 mod papers;
 mod pdfs;
@@ -40,6 +46,7 @@ mod settings_flow;
 mod shortcut_sheet;
 mod skin;
 mod synctex;
+mod terminal_flow;
 mod tools_flow;
 pub mod trellis_layout;
 pub mod views;
@@ -67,8 +74,11 @@ pub use commands::{
     Build, CleanBuildFiles, CleanRebuild, ForwardSync, InstallLatexTools, NextProblem,
     OpenTexDoctor, PreviousProblem, Save, StopBuild, ToggleVimMode,
 };
+pub use get_started_flow::ShowGetStarted;
+pub use help_flow::{ReportProblem, WhatsNew};
 pub use references_flow::{FindReferences, RenameSymbol};
 pub use tools_flow::{ExportArxiv, OpenChecklist, OpenTodos};
+pub(crate) use workspace_flow::LayoutState;
 
 use crate::{
     build::{
@@ -83,7 +93,6 @@ use crate::{
     papers::PapersPanel,
     pdf::{PdfPanel, PdfPanelKind},
     project::Project,
-    stand_in_panels::{StandIn, StandInPanel},
     titlebar::TitlebarDrag,
 };
 
@@ -99,22 +108,6 @@ pub const BUILD_SHORTCUT_LABEL: &str = "Ctrl+B";
 
 pub fn bind_keys(cx: &mut App) {
     commands::bind_keys(cx);
-}
-
-/// The window's layout state: the workspace the project is in, a preset or
-/// focus mode laid over it, and whether its arrangement differs from the
-/// workspace's.
-#[derive(Default)]
-pub(crate) struct LayoutState {
-    pub workspace: Option<String>,
-    pub preset: Option<trellis_layout::ActivePreset>,
-    /// Focus mode, and the layout it returns to.
-    pub focus: Option<trellis_layout::ActiveFocus>,
-    pub dirty: bool,
-    /// The workspace whose name is being edited in place.
-    pub renaming: Option<String>,
-    /// Where each document sat in each workspace, by workspace id.
-    pub places: std::collections::BTreeMap<String, trellis_layout::DocumentPlaces>,
 }
 
 /// A project open in a window, with the name its tab shows.
@@ -143,7 +136,8 @@ pub struct Shell {
     panel_dragging: bool,
     file_tree: Entity<FileTreePanel>,
     papers: Entity<PapersPanel>,
-    agent: Entity<StandInPanel>,
+    /// The Agent and its Git workspace (`agent_flow`).
+    pub(crate) agent: agent_flow::AgentWindow,
     pdf: Entity<PdfPanel>,
     /// The open project's LuaLaTeX live preview (`crate::live_preview`).
     pub(crate) live_preview: Entity<crate::live_preview::LivePreview>,
@@ -154,12 +148,21 @@ pub struct Shell {
     pub(crate) history: Entity<crate::history::HistoryPanel>,
     /// The submission checklist tool panel (`crate::submission::checklist`).
     pub(crate) checklist: Entity<crate::submission::checklist::ChecklistPanel>,
+    /// Get started, and its "Show me" ring (`get_started_flow`).
+    pub(crate) get_started: get_started_flow::GetStarted,
     /// The manuscript's TODOs tool panel (`crate::submission::todos`).
     pub(crate) todos: Entity<crate::submission::todos::TodosPanel>,
+    /// The Overleaf collaboration panel (`crate::overleaf::collab`).
+    pub(crate) overleaf_collab: Entity<crate::overleaf::collab::OverleafCollabPanel>,
+    /// The window's margin review mode (`editor_panel::margin_review`).
+    pub(crate) margin_mode: crate::editor_panel::MarginMode,
     /// A symbol's occurrences bar and rename dialog (`references_flow`).
     pub(crate) references: references_flow::References,
-    /// The arXiv export and figure inventory sheets, while open.
+    /// The sheets over the window, while open (`tools_flow::Sheets`).
     pub(crate) sheets: tools_flow::Sheets,
+    /// The Terminal panel and the window's shells (`crate::terminal`), kept
+    /// whether or not the layout shows it.
+    pub(crate) terminal: Entity<crate::terminal::TerminalPanel>,
     /// The conflict resolver, while it is open.
     pub(crate) conflict: Option<(Entity<crate::history::ConflictResolver>, Subscription)>,
     /// The window's link to Overleaf (`crate::overleaf`), and its dialogs.
@@ -189,6 +192,8 @@ pub struct Shell {
     /// overlay (the palette, a menu) taking focus does not change it.
     active_editor: Option<WeakEntity<EditorPanel>>,
     build_task: Option<Task<()>>,
+    /// The build under way's entries in the app's log (`build/oplog.rs`).
+    build_trace: Option<crate::app_log::trace::Trace>,
     /// The build to run once the one under way ends.
     queued_build: Option<BuildRequest>,
     /// A build the writer asked for is under way or queued: when the last
@@ -293,7 +298,7 @@ impl Shell {
         });
         let file_tree = cx.new(FileTreePanel::new);
         let papers = cx.new(|cx| PapersPanel::new(window, cx));
-        let agent = cx.new(|cx| StandInPanel::new(StandIn::Agent, cx));
+        let agent = agent_flow::AgentWindow::new(window, cx);
         let pdf = cx.new(|cx| PdfPanel::new(PdfPanelKind::Live, window, cx));
         let live_preview = crate::live_preview::new(cx);
         let preview = Some(live_preview.clone());
@@ -301,6 +306,7 @@ impl Shell {
         let build_panel = cx.new(BuildPanel::new);
         let card = cx.new(|cx| DiagnosticsCard::new(build_panel.clone(), cx));
         let history = cx.new(|cx| crate::history::HistoryPanel::new(window, cx));
+        let terminal = Self::new_terminal_panel(window, cx);
         let shown_in = workspace.downgrade();
         history.update(cx, |history, _| {
             history.watch_screen(move |cx| {
@@ -382,13 +388,15 @@ impl Shell {
         })
         .detach();
         cx.subscribe_in(&pdf, window, Self::on_pdf_event).detach();
+        agent.watch(window, cx);
         cx.subscribe_in(&history, window, |this, _, event, window, cx| {
             this.on_history_event(event, window, cx)
         })
         .detach();
         cx.observe(&notices, |_, _, cx| cx.notify()).detach();
         cx.observe(&confirm, |_, _, cx| cx.notify()).detach();
-        let (overleaf, overleaf_subscriptions) = Self::init_overleaf(window, cx);
+        let (overleaf, overleaf_collab, overleaf_subscriptions) = Self::init_overleaf(window, cx);
+        history.update(cx, |history, cx| history.set_overleaf(overleaf.clone(), cx));
         let workspace_events = cx.subscribe_in(&workspace, window, Self::on_workspace_event);
         // While a panel is dragged, webview islands step aside: a page would
         // hide the drop targets under it and swallow the drag.
@@ -396,6 +404,8 @@ impl Shell {
             let dragging = workspace.read(cx).engine().dragging();
             if dragging != this.panel_dragging {
                 this.panel_dragging = dragging;
+                this.terminal
+                    .update(cx, |terminal, cx| terminal.set_moving(dragging, cx));
                 window.defer(cx, move |_, cx| {
                     lattice_webview::set_dock_dragging(dragging, cx)
                 });
@@ -436,9 +446,13 @@ impl Shell {
             build_panel,
             history,
             todos,
+            overleaf_collab,
+            margin_mode: Default::default(),
             checklist,
+            get_started: Self::get_started_panel(window, cx),
             sheets: Default::default(),
             references: Default::default(),
+            terminal,
             conflict: None,
             overleaf,
             overleaf_layers: Default::default(),
@@ -455,6 +469,7 @@ impl Shell {
             editors: Vec::new(),
             active_editor: None,
             build_task: None,
+            build_trace: None,
             queued_build: None,
             build_sound: false,
             build_waiters: Vec::new(),

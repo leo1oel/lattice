@@ -52,7 +52,7 @@ impl Shell {
         }
         self.drop_conflict_notice(cx);
         self.references = Default::default();
-        self.sheets = Default::default();
+        self.sheets.project_changed();
         self.conflict = None;
         self.project = Some(project.clone());
         // Sheets over the window hold the project they were opened in.
@@ -95,13 +95,16 @@ impl Shell {
             .update(cx, |papers, cx| papers.set_project(project.clone(), cx));
         self.history
             .update(cx, |history, cx| history.set_project(project.clone(), cx));
+        self.agent_project(Some(root.clone()), cx);
         self.tools_project_opened(&project, &root, window, cx);
+        let terminal_moved = self.terminal_follows(root.clone(), cx);
         self._project_git = Some(cx.subscribe(&project, |this, _, event, cx| match event {
             crate::project::ProjectEvent::GitChanged => this.notice_conflicts(cx),
             // A change on disk is one to push, in live mode (the bridge tells
             // a sync's own writes apart).
             crate::project::ProjectEvent::FilesChanged(paths) => {
                 let paths = paths.clone();
+                this.agent_files_changed(paths.as_deref(), cx);
                 this.overleaf
                     .update(cx, |bridge, cx| bridge.files_changed(paths.as_deref(), cx));
             }
@@ -112,13 +115,18 @@ impl Shell {
         self.notice_conflicts(cx);
         self.live_preview
             .update(cx, |live, cx| live.set_project(Some(project.clone()), cx));
+        let venue = project.read(cx).manifest().venue.clone();
         self.file_tree
             .update(cx, |tree, cx| tree.set_project(project, cx));
         self.set_window_title(window, cx);
         let restored = self.restore_layout(&root, main.as_deref(), window, cx);
+        if terminal_moved {
+            self.terminal_follows_layout(window, cx);
+        }
         if let Some(main) = main.filter(|_| !restored) {
             self.open_path(main, None, window, cx);
         }
+        self.get_started_project_opened(&venue, window, cx);
         self.label_pdfs(cx);
         self.pdf
             .update(cx, |panel, cx| panel.show_project(root, pdf, window, cx));

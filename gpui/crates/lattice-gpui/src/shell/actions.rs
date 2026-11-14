@@ -6,6 +6,7 @@ use gpui::{App, Context, InteractiveElement as _, Stateful, Window};
 use trellis::runtime::engine::ViewPlacement;
 use trellis::runtime::keymap::Command as Trellis;
 
+use super::help_flow::{ReportProblem, WhatsNew};
 use super::history_flow::{OpenHistory, ResolveConflicts};
 use super::overleaf_flow::{OpenOnOverleaf, OpenOverleafProject, SyncOverleaf};
 use super::tools_flow::{ExportArxiv, OpenChecklist, OpenTodos};
@@ -116,10 +117,25 @@ impl Shell {
             .on_action(cx.listener(|this, _: &TogglePdfPanel, window, cx| {
                 this.toggle_view("pdf", window, cx)
             }))
+            .on_action(cx.listener(
+                |this, _: &crate::terminal::ToggleTerminalPanel, window, cx| {
+                    this.toggle_terminal(window, cx)
+                },
+            ))
+            .on_action(
+                cx.listener(|this, _: &crate::terminal::NewTerminal, window, cx| {
+                    this.new_terminal(window, cx)
+                }),
+            )
             .on_action(
                 cx.listener(|this, _: &OpenHistory, window, cx| this.open_history(window, cx)),
             )
             .on_action(cx.listener(|this, _: &OpenTodos, window, cx| this.open_todos(window, cx)))
+            .on_action(cx.listener(
+                |this, _: &super::get_started_flow::ShowGetStarted, window, cx| {
+                    this.open_get_started(window, cx)
+                },
+            ))
             .on_action(
                 cx.listener(|this, _: &OpenChecklist, window, cx| this.open_checklist(window, cx)),
             )
@@ -127,6 +143,12 @@ impl Shell {
             .on_action(cx.listener(Self::rename_symbol))
             .on_action(
                 cx.listener(|this, _: &ExportArxiv, window, cx| this.open_arxiv_export(window, cx)),
+            )
+            .on_action(
+                cx.listener(|this, _: &WhatsNew, window, cx| this.open_whats_new(window, cx)),
+            )
+            .on_action(
+                cx.listener(|this, _: &ReportProblem, window, cx| this.report_problem(window, cx)),
             )
             .on_action(cx.listener(|this, _: &ResolveConflicts, window, cx| {
                 this.resolve_conflicts(window, cx)
@@ -138,6 +160,26 @@ impl Shell {
                 cx.listener(|this, _: &SyncOverleaf, window, cx| this.sync_overleaf(window, cx)),
             )
             .on_action(cx.listener(|this, _: &OpenOnOverleaf, _, cx| this.open_on_overleaf(cx)))
+            .on_action(cx.listener(
+                |this, _: &super::overleaf_collab::AnnotateSelection, window, cx| {
+                    this.annotate_selection(window, cx)
+                },
+            ))
+            .on_action(cx.listener(
+                |this, _: &super::overleaf_collab::MarginReviewAuto, _, cx| {
+                    this.set_margin_mode(crate::editor_panel::MarginMode::Auto, cx)
+                },
+            ))
+            .on_action(cx.listener(
+                |this, _: &super::overleaf_collab::MarginReviewMarkers, _, cx| {
+                    this.set_margin_mode(crate::editor_panel::MarginMode::Markers, cx)
+                },
+            ))
+            .on_action(
+                cx.listener(|this, _: &super::overleaf_collab::MarginReviewOff, _, cx| {
+                    this.set_margin_mode(crate::editor_panel::MarginMode::Off, cx)
+                }),
+            )
             .on_action(cx.listener(|this, _: &ToggleBuildPanel, window, cx| {
                 let shown = this.build_panel_shown(cx);
                 this.show_build_panel(!shown, window, cx)

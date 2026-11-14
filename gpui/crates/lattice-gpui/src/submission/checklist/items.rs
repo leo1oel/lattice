@@ -34,6 +34,9 @@ use super::{
 pub(super) struct ItemsState {
     adding: Entity<InputState>,
     editing: Option<ItemForm>,
+    /// The checklist template form's name field, while it is open
+    /// (`templates`).
+    pub(super) template_form: Option<(Entity<InputState>, Subscription)>,
     _adding: Subscription,
 }
 
@@ -62,12 +65,14 @@ impl ItemsState {
         Self {
             adding,
             editing: None,
+            template_form: None,
             _adding: subscription,
         }
     }
 
     pub(super) fn reset(&mut self, window: &mut Window, cx: &mut Context<ChecklistPanel>) {
         self.editing = None;
+        self.template_form = None;
         self.adding
             .update(cx, |field, cx| field.set_value("", window, cx));
     }
@@ -122,7 +127,7 @@ fn checked_day(day: &str) -> Option<String> {
 }
 
 impl ChecklistPanel {
-    fn items_list(&self, cx: &gpui::App) -> Vec<SubmissionItem> {
+    pub(super) fn items_list(&self, cx: &gpui::App) -> Vec<SubmissionItem> {
         self.manifest(cx)
             .map(|manifest| manifest.submission_items.clone())
             .unwrap_or_default()
@@ -328,8 +333,10 @@ impl ChecklistPanel {
                                     total = total
                                 )),
                         )
-                    }),
+                    })
+                    .child(div().ml_auto().children(self.template_menu(total, cx))),
             )
+            .children(self.render_template_form(cx))
             .child(div().mb(px(-16.)).child(rows_group(rows, cx)))
             .into_any_element()
     }

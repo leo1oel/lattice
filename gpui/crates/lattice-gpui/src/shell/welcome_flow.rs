@@ -235,7 +235,10 @@ impl Shell {
             this.update_in(cx, |this, window, cx| {
                 this.set_busy(None, cx);
                 match made {
-                    Ok(root) => this.open_project(root, window, cx),
+                    Ok(root) => {
+                        this.get_started_with_tutorial();
+                        this.open_project(root, window, cx)
+                    }
                     Err(error) => {
                         if this.project.is_none() && this.lobby.welcome.is_none() {
                             this.show_welcome(None, window, cx);

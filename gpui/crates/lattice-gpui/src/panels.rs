@@ -21,7 +21,6 @@ use crate::{
     file_tree::FileTreePanel,
     papers::PapersPanel,
     pdf::{PdfPanel, PdfPanelKind},
-    stand_in_panels::StandInPanel,
 };
 
 pub fn present_tabs(cx: &mut App) {
@@ -48,7 +47,7 @@ pub fn present_tabs(cx: &mut App) {
             frosted: false,
         };
         // Project and Papers frost over a translucent window; the Agent
-        // stays on its opaque sidebar (trellis.css `data-glass`).
+        // stays on its opaque sidebar (trellis.css `data-glass`), below.
         if view.clone().downcast::<FileTreePanel>().is_ok() {
             TabLook {
                 frosted: true,
@@ -59,8 +58,14 @@ pub fn present_tabs(cx: &mut App) {
                 frosted: true,
                 ..look(Icon::LIBRARY, Surface::Chrome)
             }
-        } else if let Ok(stand_in) = view.clone().downcast::<StandInPanel>() {
-            look(stand_in.read(cx).kind().icon(), Surface::Chrome)
+        } else if let Ok(synara) = view.clone().downcast::<crate::agent::SynaraPanel>() {
+            // The Agent stays on its opaque sidebar; the Git workspace is a
+            // tool among the documents (`PANEL_ICONS`: Bot, GitBranch).
+            match synara.read(cx).kind(cx) {
+                crate::agent::SurfaceKind::Agent => look(Icon::BOT, Surface::Chrome),
+                crate::agent::SurfaceKind::Git => look(Icon::GIT_BRANCH, Surface::Sheet),
+                crate::agent::SurfaceKind::Settings => look(Icon::BOT, Surface::Sheet),
+            }
         } else if let Ok(pdf) = view.clone().downcast::<PdfPanel>() {
             // A PDF of the project opened from the tree is a document, with
             // its file's glyph; the compiled PDFs are the PDF panel's.
@@ -94,6 +99,18 @@ pub fn present_tabs(cx: &mut App) {
             .is_ok()
         {
             look(Icon::CLIPBOARD_CHECK, Surface::Sheet)
+        } else if view
+            .clone()
+            .downcast::<crate::get_started::panel::GetStartedPanel>()
+            .is_ok()
+        {
+            look(Icon::LIST_CHECKS, Surface::Sheet)
+        } else if view
+            .clone()
+            .downcast::<crate::terminal::TerminalPanel>()
+            .is_ok()
+        {
+            look(Icon::SQUARE_TERMINAL, Surface::Sheet)
         } else if view.downcast::<EmptySlotPanel>().is_ok() {
             // A document's place: a document's tab, with the empty state's icon.
             TabLook {

@@ -127,6 +127,18 @@ impl Srgb {
     pub fn with_alpha(self, a: f32) -> Srgb {
         Srgb { a, ..self }
     }
+
+    /// A GPUI colour as 8-bit sRGB, to mix or lay as a wash.
+    pub fn from_hsla(color: Hsla) -> Srgb {
+        let rgba = Rgba::from(color);
+        let byte = |channel: f32| (channel * 255.).round().clamp(0., 255.) as u8;
+        Srgb {
+            r: byte(rgba.r),
+            g: byte(rgba.g),
+            b: byte(rgba.b),
+            a: rgba.a,
+        }
+    }
 }
 
 /// A colour with its light and dark values. Tokens with one value (a PDF page,

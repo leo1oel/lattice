@@ -52,7 +52,9 @@ use serde_json::{Value, json};
 use crate::notices::{self, Notice};
 
 pub use markdown::MarkdownEvent;
+pub use slides::{DeckSession, handles as deck_handles};
 
+mod agent_tools;
 mod markdown;
 mod presentation;
 pub mod resources;
@@ -119,6 +121,9 @@ pub enum StructuredEvent {
     Wrote { path: String, text: Option<String> },
     /// A Markdown file's visual editor asks its panel for something.
     Markdown(MarkdownEvent),
+    /// Open Slide's Ask AI, Apply comments or Draft a deck: a request for
+    /// the Agent's composer (`OpenSlideAgentRequest`).
+    AgentRequest(Value),
 }
 
 pub struct StructuredDocument {
@@ -143,6 +148,8 @@ pub struct StructuredDocument {
     files: Option<FileScope>,
     /// Reveals asked for, so each has an id of its own.
     reveals: u64,
+    /// The Agent's tool calls the page has not answered (`agent_tools.rs`).
+    agent_calls: agent_tools::AgentCalls,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -180,6 +187,7 @@ impl StructuredDocument {
                     ground: Some(palette.editor),
                     reveal_on_ready: false,
                     theme: IslandTheme::Document,
+                    hibernates: true,
                 };
                 let island = cx.new(|cx| Island::new(config, window, cx));
                 subscriptions.push(cx.subscribe_in(&island, window, Self::on_island));
@@ -206,6 +214,7 @@ impl StructuredDocument {
             markdown: None,
             files,
             reveals: 0,
+            agent_calls: Default::default(),
             _subscriptions: subscriptions,
         }
     }
@@ -325,10 +334,12 @@ impl StructuredDocument {
         match event {
             IslandEvent::Ready => {
                 self.drawn = false;
+                self.agent_page_gone();
                 self.open_page(cx);
             }
             IslandEvent::Hibernated => {
                 self.drawn = false;
+                self.agent_page_gone();
                 // The page took its leases with it, without releasing them.
                 if let Some(deck) = &mut self.deck {
                     deck.release_all(cx);
@@ -370,11 +381,8 @@ impl StructuredDocument {
                 cx.notify();
             }
             "island:notify" => show_page_notice(payload, cx),
-            "slides:agent-request" => notices::info(
-                t!("The Agent is not in the GPUI preview yet."),
-                t!("Open Slide’s Ask AI, Apply comments and Draft a deck need the Agent."),
-                cx,
-            ),
+            "agent:tool-result" => self.agent_answered(payload),
+            "slides:agent-request" => cx.emit(StructuredEvent::AgentRequest(payload.clone())),
             _ if self.kind == StructuredKind::Markdown => {
                 self.on_markdown_message(kind, payload, cx)
             }
@@ -405,41 +413,11 @@ impl StructuredDocument {
 
     /// The page's `confirmAction`, asked in the app's confirm dialog.
     fn confirm(&mut self, id: u64, payload: &Value, cx: &mut Context<Self>) {
-        let text = |key: &str| {
-            payload
-                .get(key)
-                .and_then(Value::as_str)
-                .filter(|text| !text.is_empty())
-                .map(str::to_string)
-        };
-        let message = text("message").unwrap_or_default();
-        let (title, body) = match text("title") {
-            Some(title) => (title, Some(message)),
-            None => (message, None),
-        };
-        let mut question = crate::confirm::Confirm::new(title);
-        if let Some(body) = body.filter(|body| !body.is_empty()) {
-            question = question.body(body);
-        }
-        if let Some(label) = text("confirmLabel") {
-            question = question.confirm_label(label);
-        }
-        if payload.get("destructive").and_then(Value::as_bool) == Some(true) {
-            question = question.destructive();
-        }
         let this = cx.entity().downgrade();
-        let cancelled = this.clone();
-        question = question
-            .on_confirm(move |_, cx| {
-                this.update(cx, |this, cx| this.respond(id, Ok(json!("confirm")), cx))
-                    .ok();
-            })
-            .on_cancel(move |cx| {
-                cancelled
-                    .update(cx, |this, cx| this.respond(id, Ok(json!("cancel")), cx))
-                    .ok();
-            });
-        crate::confirm::ask(question, cx);
+        ask_page_confirm(payload, cx, move |answer, cx| {
+            this.update(cx, |this, cx| this.respond(id, Ok(answer), cx))
+                .ok();
+        });
     }
 
     /// One of the Tauri backend's commands, as the page's modules invoke it.
@@ -604,8 +582,48 @@ fn xlsx_request(payload: &Value) -> Result<(PathBuf, Vec<u8>), String> {
     Ok((PathBuf::from(destination), bytes))
 }
 
+/// An island page's `confirmAction` (`island:confirm`: its `ConfirmActionOptions`),
+/// asked in the app's confirm dialog; `answer` gets `"confirm"` or `"cancel"`.
+pub(crate) fn ask_page_confirm(
+    payload: &Value,
+    cx: &mut App,
+    answer: impl Fn(Value, &mut App) + 'static,
+) {
+    let text = |key: &str| {
+        payload
+            .get(key)
+            .and_then(Value::as_str)
+            .filter(|text| !text.is_empty())
+            .map(str::to_string)
+    };
+    let message = text("message").unwrap_or_default();
+    let (title, body) = match text("title") {
+        Some(title) => (title, Some(message)),
+        None => (message, None),
+    };
+    let mut question = crate::confirm::Confirm::new(title);
+    if let Some(body) = body.filter(|body| !body.is_empty()) {
+        question = question.body(body);
+    }
+    if let Some(label) = text("confirmLabel") {
+        question = question.confirm_label(label);
+    }
+    if let Some(label) = text("cancelLabel") {
+        question = question.cancel_label(label);
+    }
+    if payload.get("destructive").and_then(Value::as_bool) == Some(true) {
+        question = question.destructive();
+    }
+    let answer = std::rc::Rc::new(answer);
+    let cancelled = answer.clone();
+    question = question
+        .on_confirm(move |_, cx| answer(json!("confirm"), cx))
+        .on_cancel(move |cx| cancelled(json!("cancel"), cx));
+    crate::confirm::ask(question, cx);
+}
+
 /// A toast the page raised (`island:notify`), on the app's stack.
-fn show_page_notice(payload: &Value, cx: &mut App) {
+pub(crate) fn show_page_notice(payload: &Value, cx: &mut App) {
     let text = |key: &str| {
         payload
             .get(key)

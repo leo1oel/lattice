@@ -21,6 +21,24 @@ pub(super) const OVERLAY_PRIORITY: usize = 10;
 pub(super) const TOAST_PRIORITY: usize = 50;
 
 impl Shell {
+    /// Whether any of the window's dialogs is up: the overlays
+    /// `window_overlays` draws and the dialogs `render` draws over them.
+    pub(super) fn dialog_open(&self, cx: &gpui::App) -> bool {
+        self.palette.is_some()
+            || self.shortcuts.is_some()
+            || self.settings.is_some()
+            || !self.document_overlays().is_empty()
+            || !self.lobby_dialogs().is_empty()
+            || !self.overleaf_overlays().is_empty()
+            || self.tex_setup.read(cx).dialog_open()
+            || self.conflict.is_some()
+            || self.sheets.arxiv.is_some()
+            || self.sheets.figures.is_some()
+            || self.sheets.whats_new.is_some()
+            || self.references.rename.is_some()
+            || self.confirm.read(cx).is_open()
+    }
+
     /// The window's overlays, each deferred at its priority.
     pub(super) fn window_overlays(&self) -> Vec<AnyElement> {
         let mut overlays: Vec<AnyElement> = Vec::new();

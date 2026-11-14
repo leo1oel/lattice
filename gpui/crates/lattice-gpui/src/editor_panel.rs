@@ -51,10 +51,14 @@ use zed_actions::buffer_search::Deploy;
 mod bib_view;
 mod buffer_counts;
 mod disk_sync;
+mod events;
+mod margin_review;
 mod markdown_view;
+mod moves;
 mod outline_panel;
 pub mod outline_rail;
 mod overleaf_carets;
+mod overleaf_review;
 mod overleaf_text;
 pub mod rail_outline;
 mod save;
@@ -65,8 +69,11 @@ mod structured_view;
 pub mod views;
 
 use disk_sync::vanished_key;
+pub use events::EditorPanelEvent;
+pub use margin_review::{MarginLayout, MarginMode};
 use outline_rail::OutlineRail;
 pub use overleaf_carets::OverleafCaret;
+pub use overleaf_review::{ChangeMark, CommentMark, MarginMessage, ReviewAction};
 use save::normalize_breaks;
 pub use views::DocumentView;
 use views::DocumentViews;
@@ -100,38 +107,6 @@ gpui::actions!(
 
 /// Why a .tex file's Visual view cannot be chosen here.
 pub const VISUAL_NOT_PORTED: &str = "Visual: not in the GPUI preview yet";
-
-/// What the panel tells the shell.
-pub enum EditorPanelEvent {
-    /// A save wrote the file: the PDF is older than the sources now.
-    Saved,
-    /// A save just wrote the file, from a pause in typing or from leaving
-    /// the editor: build now, unattended.
-    SavedForBuild,
-    /// An edit made outside Lattice was loaded into the clean buffer.
-    DiskEdit,
-    /// The file was deleted outside Lattice with nothing unsaved: close the tab.
-    Close,
-    /// Open the project-relative `path` at the 1-based `line` (a hover
-    /// card's Go to entry, a reference card's title).
-    OpenLocation { path: String, line: u32 },
-    /// The caret moved to another line.
-    CaretLine,
-    /// The caret moved at all.
-    CaretMoved,
-    /// The writer changed the text (not live editing, `overleaf_text`).
-    Typed,
-    /// The editor took focus: it is the one the reader works in now.
-    Focused,
-    /// Open the project-relative `path` (a link followed in a Markdown file's
-    /// visual editor).
-    OpenFile { path: String },
-    /// An outline rail row: open `path` at the 1-based `line`, then show
-    /// the same place in the PDF.
-    OutlineJump { path: String, line: u32 },
-    /// The buffer's text changed: what the live preview follows.
-    Edited,
-}
 
 /// The last write's outcome, for the status bar's save slot.
 #[derive(Clone, Debug, PartialEq)]
@@ -186,6 +161,8 @@ pub struct EditorPanel {
     overleaf_applying: bool,
     /// Where the file stands with Overleaf, for the save slot.
     overleaf_save: Option<crate::overleaf::bridge::OverleafSaveState>,
+    overleaf_review: overleaf_review::ReviewLayer,
+    margin: margin_review::MarginState,
     /// The file's word count as of opening or the last save; counted off the
     /// main thread.
     words: Option<usize>,
@@ -454,6 +431,8 @@ impl EditorPanel {
             overleaf_caret: (0, 0),
             overleaf_applying: false,
             overleaf_save: None,
+            overleaf_review: Default::default(),
+            margin: Default::default(),
             words: None,
             buffer_todos: None,
             status_width: Default::default(),
@@ -559,73 +538,6 @@ impl EditorPanel {
 
     pub(crate) fn save_status(&self) -> &SaveStatus {
         &self.status
-    }
-
-    /// The file was renamed or moved within the project (by the tree, or
-    /// outside Lattice): the tab, its buffer and its history follow it.
-    pub fn moved_to(&mut self, relative: String, cx: &mut Context<Self>) {
-        let root = self.project.read(cx).root().to_path_buf();
-        self.path = root.join(&relative);
-        if let Some(diagnostics) = &self.diagnostics {
-            let relative = relative.clone();
-            diagnostics.update(cx, |diagnostics, cx| diagnostics.set_path(relative, cx));
-        } else if latex::is_tex_source(&self.path) {
-            self.diagnostics = Some(attach_latex(
-                &self.lattice,
-                &self.project,
-                relative.clone(),
-                cx,
-            ));
-        }
-        if let Some(document) = self
-            .structured
-            .clone()
-            .or_else(|| self.markdown_document().cloned())
-        {
-            let relative = relative.clone();
-            document.update(cx, |document, cx| document.moved_to(relative, cx));
-        }
-        let left = std::mem::replace(&mut self.relative, relative);
-        crate::status_counters::set_buffer(root.clone(), left, None, cx);
-        self.scan_todos(Duration::ZERO, cx);
-        self.bib_moved(cx);
-        // The spell check follows the file, or starts once it is prose.
-        match &self.spelling {
-            Some(spelling) => {
-                let relative = self.relative.clone();
-                spelling.update(cx, |spelling, cx| spelling.set_path(relative, cx));
-            }
-            None => self.attach_spelling(cx),
-        }
-        self.disk = DiskVersion::Unread;
-        let language = latex::language_for_path(&self.path, cx);
-        self.buffer
-            .update(cx, |buffer, cx| buffer.set_language(language, cx));
-        let tex = latex::is_tex_source(&self.path);
-        self.lattice.update(cx, |lattice, cx| {
-            lattice.set_fold_source(tex.then(latex::folding::source), cx)
-        });
-        match (&self.rail, tex) {
-            (Some(rail), true) => {
-                let path = self.relative.clone();
-                let source = self.buffer.read(cx).text();
-                rail.update(cx, |rail, cx| rail.set_source(path, source, cx));
-            }
-            (Some(_), false) => self.rail = None,
-            (None, true) => {
-                let source = self.buffer.read(cx).text();
-                self.rail = Some(Self::new_rail(
-                    &self.lattice,
-                    &self.project,
-                    self.relative.clone(),
-                    source,
-                    cx,
-                ));
-            }
-            (None, false) => {}
-        }
-        self.offer_view_switch(cx);
-        cx.notify();
     }
 
     /// Its file was deleted in Lattice: closing its tab discards what it

@@ -100,12 +100,17 @@ impl EditorPanel {
     /// The source editor, with the outline rail over its right edge when the
     /// file has one and the editor room for it; the text gives up the rail's
     /// width.
-    pub(super) fn render_source(&mut self, _: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+    pub(super) fn render_source(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         let rail_shown = self.rail.as_ref().is_some_and(|rail| rail.read(cx).shown());
-        let clearance = if rail_shown {
-            RAIL_CLEARANCE
-        } else {
-            gpui::px(0.)
+        let margin = self.margin_layer(self.editor_width.get(), window, cx);
+        let clearance = match (&margin, rail_shown) {
+            (Some((margin, _)), _) => *margin,
+            (None, true) => RAIL_CLEARANCE,
+            (None, false) => gpui::px(0.),
         };
         self.lattice
             .update(cx, |lattice, cx| lattice.set_end_clearance(clearance, cx));
@@ -123,6 +128,7 @@ impl EditorPanel {
             .capture_key_down(cx.listener(|this, _, _, cx| this.release_rail(cx)))
             .child(self.lattice.clone())
             .children(self.rail.clone())
+            .children(margin.map(|(_, layer)| layer))
             .child(
                 gpui::canvas(
                     move |bounds, window, cx| {

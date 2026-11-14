@@ -57,6 +57,9 @@ impl Shell {
                 }
             }
             EditorPanelEvent::Close => self.close_editor(editor, window, cx),
+            EditorPanelEvent::OverleafReview(action) => {
+                self.overleaf_review_action(editor, action, window, cx)
+            }
             EditorPanelEvent::OpenLocation { path, line } => {
                 if let Some(root) = self.root(cx) {
                     self.open_path(root.join(path), Some(*line), window, cx);
@@ -70,6 +73,7 @@ impl Shell {
             EditorPanelEvent::OutlineJump { path, line } => {
                 self.jump_to_heading(path, *line, window, cx)
             }
+            EditorPanelEvent::AgentRequest(request) => self.deck_agent_request(request, window, cx),
             EditorPanelEvent::Focused => {
                 self.active_editor = Some(editor.downgrade());
                 self.live_preview
@@ -79,6 +83,7 @@ impl Shell {
                 self.file_tree
                     .update(cx, |tree, cx| tree.set_current(Some(path), cx));
                 self.show_outline(cx);
+                self.push_agent_workspace(cx);
                 self.tell_overleaf_caret(editor, cx);
                 self.show_overleaf_carets(cx);
                 self.overleaf
@@ -91,7 +96,12 @@ impl Shell {
                     bridge.editor_typed(editor, cx);
                 });
             }
-            EditorPanelEvent::CaretMoved => self.tell_overleaf_caret(editor, cx),
+            EditorPanelEvent::CaretMoved => {
+                self.tell_overleaf_caret(editor, cx);
+                if self.active_editor().as_ref() == Some(editor) {
+                    self.push_agent_workspace(cx);
+                }
+            }
             EditorPanelEvent::CaretLine => {
                 if self.active_editor().as_ref() == Some(editor) {
                     self.show_outline(cx);

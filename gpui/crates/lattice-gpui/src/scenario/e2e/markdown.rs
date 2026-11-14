@@ -436,17 +436,30 @@ impl Run {
                 });
             }
         })?;
-        self.pause(cx, Duration::from_millis(600)).await;
-        let landed = self
-            .evaluate(
-                cx,
-                island,
-                "JSON.stringify((() => { const selection = window.getSelection(); \
-                 const node = selection && selection.anchorNode; \
-                 const element = node && (node.nodeType === 1 ? node : node.parentElement); \
-                 return !!(element && element.closest('blockquote')); })())",
-            )
-            .await;
+        // The editor's own selection, not the page's DOM one: ProseMirror
+        // writes its selection into the DOM only while it holds focus, and
+        // the lab's window is taken as key without being made so (#930), so
+        // the page may never be focused. The jump is retried each frame for
+        // up to 3 s (`REVEAL_WAIT_MS` in `lattice-visual-editor.tsx`).
+        let mut landed = Value::Null;
+        let started = std::time::Instant::now();
+        while started.elapsed() < Duration::from_secs(3) {
+            landed = self
+                .evaluate(
+                    cx,
+                    island,
+                    "JSON.stringify((() => { const editor = document.querySelector('.lx-md-surface')?.editor; \
+                     if (!editor) return false; const { $from } = editor.state.selection; \
+                     for (let depth = $from.depth; depth > 0; depth -= 1) \
+                       if ($from.node(depth).type.name === 'blockquote') return true; \
+                     return false; })())",
+                )
+                .await;
+            if landed == true {
+                break;
+            }
+            self.pause(cx, Duration::from_millis(100)).await;
+        }
         let (view, visible) = cx.update(|cx| {
             (
                 panel.read(cx).document_view(),

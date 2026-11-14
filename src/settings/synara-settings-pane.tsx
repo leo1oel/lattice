@@ -84,6 +84,12 @@ export function SynaraSettingsPane(props: {
    * out. A fresh object per request, so the same place can be asked for again.
    */
   target?: { target: string } | null;
+  /**
+   * Whether the page takes Settings' compact insets, where the host's own
+   * width decides it rather than this window's (the GPUI app's dialog,
+   * whose page is a window of its own).
+   */
+  compact?: boolean;
   onRetry: () => void;
 }) {
   const { runtime, section, url, viewportRef } = props;
@@ -151,7 +157,8 @@ export function SynaraSettingsPane(props: {
   // The page's insets live in the frame, which cannot see this window's
   // width: its own is the dialog's content column, and the same column width
   // occurs on both sides of the compact breakpoint.
-  const compact = useSyncExternalStore(compactSettings.subscribe, compactSettings.matches);
+  const windowCompact = useSyncExternalStore(compactSettings.subscribe, compactSettings.matches);
+  const compact = props.compact ?? windowCompact;
   const postLayout = useCallback(() => {
     if (!origin) return;
     frameRef.current?.contentWindow?.postMessage({ type: SETTINGS_LAYOUT, compact }, origin);

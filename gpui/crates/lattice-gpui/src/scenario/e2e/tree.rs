@@ -1,5 +1,6 @@
 //! The Project tree's file operations, as its menu runs them: New file,
-//! rename, move and delete.
+//! rename, move and delete; and ⌘V with an image on the clipboard saving it
+//! into the project.
 
 use std::{path::Path, time::Duration};
 
@@ -189,6 +190,78 @@ impl Run {
             question.as_deref() == Some("Delete “results.tex” from this project?") && deleted,
             json!({ "question": question }),
         );
+
+        // ⌘V in the tree with an image (not the tree's own copied rows) on
+        // the clipboard: the run's own pasteboard (`script/e2e`).
+        let mut png = std::io::Cursor::new(Vec::new());
+        image::RgbaImage::from_pixel(4, 3, image::Rgba([200, 40, 40, 255]))
+            .write_to(&mut png, image::ImageFormat::Png)?;
+        let png = png.into_inner();
+        let image = gpui::Image::from_bytes(gpui::ImageFormat::Png, png.clone());
+        cx.update(|cx| cx.write_to_clipboard(gpui::ClipboardItem::new_image(&image)));
+        self.with_window(cx, |_, window, cx| {
+            let focus = gpui::Focusable::focus_handle(tree.read(cx), cx);
+            window.focus(&focus, cx);
+            window.dispatch_event(
+                gpui::PlatformInput::KeyDown(gpui::KeyDownEvent {
+                    keystroke: gpui::Keystroke::parse("cmd-v").expect("cmd-v parses"),
+                    is_held: false,
+                    prefer_character_input: false,
+                }),
+                cx,
+            );
+        })?;
+        let pasted = |root: &Path| {
+            let mut found = Vec::new();
+            let mut stack = vec![root.to_path_buf()];
+            while let Some(dir) = stack.pop() {
+                for entry in std::fs::read_dir(&dir).into_iter().flatten().flatten() {
+                    let path = entry.path();
+                    let name = entry.file_name().to_string_lossy().into_owned();
+                    if path.is_dir() && !name.starts_with('.') {
+                        stack.push(path);
+                    } else if name.starts_with("clipboard-") && name.ends_with(".png") {
+                        found.push(path);
+                    }
+                }
+            }
+            found
+        };
+        let saved = self
+            .wait_for(cx, Duration::from_secs(8), |_, _| !pasted(root).is_empty())
+            .await;
+        let files = pasted(root);
+        let (focused, clipboard_image, last_notice) = self.with_window(cx, |_, window, cx| {
+            let focused =
+                gpui::Focusable::focus_handle(tree.read(cx), cx).contains_focused(window, cx);
+            let clipboard_image = cx.read_from_clipboard().is_some_and(|item| {
+                item.into_entries()
+                    .any(|entry| matches!(entry, gpui::ClipboardEntry::Image(_)))
+            });
+            let last_notice = crate::app_log::global(cx)
+                .read(cx)
+                .entries()
+                .first()
+                .map(|entry| format!("{}: {}", entry.title, entry.detail));
+            (focused, clipboard_image, last_notice)
+        })?;
+        let same = files
+            .first()
+            .and_then(|file| std::fs::read(file).ok())
+            .is_some_and(|bytes| bytes == png);
+        steps.check(
+            "⌘V in the tree saves the clipboard's image into the project as clipboard-<time>.png",
+            saved && same,
+            json!({
+                "files": files,
+                "focused": focused,
+                "clipboard_image": clipboard_image,
+                "last_notice": last_notice,
+            }),
+        );
+        for file in files {
+            std::fs::remove_file(file).ok();
+        }
         Ok(())
     }
 

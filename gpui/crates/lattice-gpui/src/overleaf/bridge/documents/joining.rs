@@ -104,6 +104,8 @@ impl OverleafBridge {
         };
         let buffer = panel.read(cx).overleaf_text(cx);
         let mut ot = OtDocument::new(joined.text.clone(), joined.version);
+        self.review_doc_joined(&doc_id, joined.comments.clone(), joined.changes.clone());
+        let mut typed_ops = Vec::new();
         let send = if buffer == joined.text {
             None
         } else if agreed.as_deref() == Some(joined.text.as_str()) {
@@ -113,6 +115,7 @@ impl OverleafBridge {
             if typed.replaced {
                 panel.update(cx, |panel, cx| panel.take_overleaf_text(ot.text(), cx));
             }
+            typed_ops = typed.ops;
             typed.send
         } else if agreed.as_deref() == Some(buffer.as_str()) {
             // Only Overleaf moved: take its text.
@@ -120,6 +123,7 @@ impl OverleafBridge {
             None
         } else {
             // Both moved: regular sync merges it.
+            self.review_doc_left(&doc_id);
             self.release_doc(&doc_id);
             self.documents.suspended.insert(path);
             self.sync(
@@ -140,6 +144,7 @@ impl OverleafBridge {
             draining: None,
             hashed_at: None,
         });
+        self.review_moved(&doc_id, &typed_ops, true, None, cx);
         if let Some(send) = send {
             self.send_ops(&doc_id, send, Vec::new(), cx);
         }

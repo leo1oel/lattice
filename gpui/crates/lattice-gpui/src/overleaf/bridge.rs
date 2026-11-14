@@ -42,11 +42,15 @@ use super::{
 };
 use crate::notices::{self, Notice, NoticeAction};
 
+mod chat;
 mod documents;
 pub use documents::OverleafSaveState;
 mod finished;
 mod live;
 mod presence;
+mod review;
+#[allow(unused_imports)]
+pub use review::DocReview;
 
 /// How often live mode asks Overleaf whether anything changed.
 const LIVE_POLL: Duration = Duration::from_secs(3);
@@ -186,6 +190,8 @@ pub struct OverleafBridge {
     client: Option<Arc<RealtimeClient>>,
     presence: presence::PresenceState,
     documents: documents::DocumentsState,
+    review: review::ReviewState,
+    chat: chat::ChatState,
     _settings: Subscription,
 }
 
@@ -233,6 +239,8 @@ impl OverleafBridge {
             client: None,
             presence: Default::default(),
             documents: Default::default(),
+            review: Default::default(),
+            chat: Default::default(),
             _settings: settings,
         }
     }
@@ -290,6 +298,8 @@ impl OverleafBridge {
         self.refusals = 0;
         self.entities.clear();
         self.entity_list = None;
+        self.review_reset();
+        self.chat_reset();
         self.sync_task = None;
         self.sync_waiters.clear();
         self.queued_waiters.clear();
@@ -436,6 +446,8 @@ impl OverleafBridge {
                 self.note_entities(entities);
                 self.client = Some(client);
                 self.presence_joined(cx);
+                self.review_joined_project(cx);
+                self.chat_joined(cx);
                 self.channel = ChannelStatus::Live;
                 self.channel_detail = None;
                 self.toasted_failure = None;
@@ -450,6 +462,7 @@ impl OverleafBridge {
                 RealtimeEvent::PresenceUpdated { .. } | RealtimeEvent::PresenceLeft { .. } => {
                     self.presence_event(event, cx)
                 }
+                RealtimeEvent::ChatMessage { .. } => self.chat_event(event, cx),
                 _ => self.document_event(event, cx),
             },
             ChannelNews::Reconnecting(detail) => {
