@@ -23,10 +23,12 @@ impl Shell {
         self.palette = None;
         self.shortcuts = None;
         let weak = cx.entity().downgrade();
+        let providers = self.agent.settings.clone();
         let project = self.project.clone();
         let live = Some(self.live_preview.clone());
-        let view =
-            cx.new(|cx| crate::settings::SettingsDialog::new(weak, project, live, tab, window, cx));
+        let view = cx.new(|cx| {
+            crate::settings::SettingsDialog::new(weak, providers, project, live, tab, window, cx)
+        });
         view.update(cx, |dialog, cx| dialog.sync_providers(cx));
         cx.subscribe_in(
             &view,

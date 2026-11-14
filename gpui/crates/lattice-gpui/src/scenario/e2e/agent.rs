@@ -240,6 +240,25 @@ impl Run {
             }),
         );
 
+        // Settings opens from the window on another page first, so Provider
+        // settings below moves an open dialog to Providers.
+        self.with_window(cx, |shell, window, cx| {
+            shell.update(cx, |shell, cx| {
+                shell.open_settings(Some(lattice_settings::SettingsTab::Appearance), window, cx)
+            })
+        })?;
+        let appearance = self
+            .wait_for(cx, Duration::from_secs(3), |shell, cx| {
+                shell.read(cx).settings.as_ref().is_some_and(|dialog| {
+                    dialog.read(cx).tab() == lattice_settings::SettingsTab::Appearance
+                })
+            })
+            .await;
+        steps.check(
+            "Settings opens from the window on Appearance",
+            appearance,
+            json!({ "appearance": appearance }),
+        );
         // The composer's width holds the panel open; the page's Provider
         // settings open Settings on Providers.
         self.evaluate(

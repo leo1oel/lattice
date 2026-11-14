@@ -106,6 +106,8 @@ pub struct SettingsDialog {
     /// Settings › Logs (`logs_pane`), which keeps its search and level.
     pub(crate) logs: Entity<super::logs_pane::LogsPane>,
     shell: WeakEntity<Shell>,
+    /// Settings › Providers' page, the window's Agent settings surface.
+    providers: Entity<crate::agent::SynaraSurface>,
     pub(super) project: Option<Entity<Project>>,
     /// The window's live preview, for its rows in Editor & builds.
     live_preview: Option<Entity<crate::live_preview::LivePreview>>,
@@ -151,6 +153,7 @@ fn slider(min: f32, max: f32, step: f32, value: f32, cx: &mut App) -> Entity<Sli
 impl SettingsDialog {
     pub fn new(
         shell: WeakEntity<Shell>,
+        providers: Entity<crate::agent::SynaraSurface>,
         project: Option<Entity<Project>>,
         live_preview: Option<Entity<crate::live_preview::LivePreview>>,
         tab: Option<SettingsTab>,
@@ -320,9 +323,8 @@ impl SettingsDialog {
             subscriptions.push(cx.observe(live, |_, _, cx| cx.notify()));
         }
         subscriptions.push(cx.on_release(|this: &mut Self, cx| {
-            if let Some(surface) = this.providers(cx) {
-                surface.update(cx, |surface, cx| surface.set_shown(false, cx));
-            }
+            this.providers
+                .update(cx, |surface, cx| surface.set_shown(false, cx));
         }));
 
         let tab = drawn(tab.unwrap_or(settings.settings_tab));
@@ -346,6 +348,7 @@ impl SettingsDialog {
                 custom_accent,
             },
             shell,
+            providers,
             project,
             live_preview,
             focus: cx.focus_handle(),
@@ -418,19 +421,11 @@ impl SettingsDialog {
         }
     }
 
-    /// Settings › Providers' page, the window's Agent surface.
-    fn providers(&self, cx: &App) -> Option<Entity<crate::agent::SynaraSurface>> {
-        self.shell
-            .upgrade()
-            .map(|shell| shell.read(cx).agent.settings.clone())
-    }
-
     /// Settings › Providers' page is shown while its tab is open.
     pub fn sync_providers(&self, cx: &mut App) {
         let shown = self.tab == SettingsTab::Agent;
-        if let Some(surface) = self.providers(cx) {
-            surface.update(cx, |surface, cx| surface.set_shown(shown, cx));
-        }
+        self.providers
+            .update(cx, |surface, cx| surface.set_shown(shown, cx));
     }
 
     /// Open a section's page; Settings reopens on it next time.
@@ -654,7 +649,7 @@ impl SettingsDialog {
             // The log fills the page and scrolls inside its card instead.
             SettingsTab::Logs => return self.logs_page(page_width, narrow, cx),
             SettingsTab::Editor => super::editor_pane::render(self, page_width, window, cx),
-            SettingsTab::Agent => super::providers_pane::render(self.providers(cx), narrow, cx),
+            SettingsTab::Agent => super::providers_pane::render(self.providers.clone(), narrow, cx),
             SettingsTab::Doctor => super::editor_pane::doctor(page_width, cx),
             SettingsTab::Overleaf => super::overleaf_pane::render(self, page_width, window, cx),
             _ => super::appearance_pane::render(self, page_width, window, cx),
