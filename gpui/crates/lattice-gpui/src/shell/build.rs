@@ -702,7 +702,7 @@ pub(super) struct Finished {
     rewritten: bool,
     sources: HashMap<String, String>,
     /// The live preview's token for the files the build read.
-    live: Option<usize>,
+    live: Option<(u64, usize)>,
 }
 
 #[cfg(test)]

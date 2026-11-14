@@ -467,9 +467,9 @@ impl LivePreview {
 
     /// A latexmk pass starts reading the files: the token the PDF it writes
     /// is shown with.
-    pub fn build_started(&mut self, quiet: bool, cx: &mut Context<Self>) -> Option<usize> {
+    pub fn build_started(&mut self, quiet: bool, cx: &mut Context<Self>) -> Option<(u64, usize)> {
         let session = self.session.as_mut()?;
-        Some(session.build_started(quiet, cx))
+        Some((session.id, session.build_started(quiet, cx)))
     }
 
     pub fn build_finished(&mut self, cx: &mut Context<Self>) {
@@ -478,8 +478,16 @@ impl LivePreview {
         }
     }
 
-    pub fn base_loading(&mut self, token: Option<usize>, quiet: bool, cx: &mut Context<Self>) {
+    pub fn base_loading(
+        &mut self,
+        token: Option<(u64, usize)>,
+        quiet: bool,
+        cx: &mut Context<Self>,
+    ) {
         if let Some(session) = self.session.as_mut() {
+            let token = token
+                .filter(|(id, _)| *id == session.id)
+                .map(|(_, index)| index);
             session.base_loading(token, quiet, cx);
         }
     }
