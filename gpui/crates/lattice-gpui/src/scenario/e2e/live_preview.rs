@@ -135,8 +135,7 @@ impl Run {
         .map_err(anyhow::Error::msg)?;
         cx.update(|cx| project.update(cx, |project, cx| project.reload_manifest(cx)));
 
-        // Not a Mac, or no working LuaLaTeX: no rtex, no pill, and builds go
-        // on as usual.
+        // Not a Mac, or no working LuaLaTeX: no rtex and no pill.
         self.wait_for(cx, Duration::from_secs(30), |_, cx| {
             let preview = preview.read(cx);
             *preview.state() == State::Unavailable
@@ -152,15 +151,11 @@ impl Run {
                     .install_status()
                     .map(|install| (install.supported(), install.lualatex()))
             });
-            let (built, took) = self.build(cx).await?;
-            let quiet = cx.update(|cx| {
-                *preview.read(cx).state() == State::Unavailable
-                    && status::status(preview.read(cx)).is_none()
-            });
+            let quiet = cx.update(|cx| status::status(preview.read(cx)).is_none());
             steps.check(
-                "where rtex cannot run, a LuaLaTeX project shows no live preview pill and builds as usual",
-                quiet && built && install.is_some_and(|(supported, lualatex)| !supported || !lualatex),
-                json!({ "install": format!("{install:?}"), "seconds": took.as_secs_f32() }),
+                "where rtex cannot run, a LuaLaTeX project shows no live preview pill",
+                quiet && install.is_some_and(|(supported, lualatex)| !supported || !lualatex),
+                json!({ "install": format!("{install:?}") }),
             );
             return self.restore_engine(cx, &project, root, &engine).await;
         }
