@@ -428,3 +428,33 @@ pub fn block(child: impl IntoElement, joined: bool) -> AnyElement {
         .child(child)
         .into_any_element()
 }
+
+/// A `'static` row id for a row made from data (a Harper rule, a credited
+/// work): rows and their controls are keyed by it, and each name is interned
+/// once for the run, so the ids stay few and distinct.
+pub fn row_id(prefix: &str, name: &str) -> &'static str {
+    use std::{
+        collections::HashSet,
+        sync::{Mutex, PoisonError},
+    };
+    static IDS: Mutex<Option<HashSet<&'static str>>> = Mutex::new(None);
+    let id = format!("{prefix}-{name}");
+    let mut ids = IDS.lock().unwrap_or_else(PoisonError::into_inner);
+    let ids = ids.get_or_insert_with(HashSet::new);
+    if let Some(known) = ids.get(id.as_str()) {
+        return known;
+    }
+    let leaked: &'static str = Box::leak(id.into_boxed_str());
+    ids.insert(leaked);
+    leaked
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn a_row_id_is_interned_once() {
+        let first = super::row_id("grammar-rule", "OxfordComma");
+        assert_eq!(first, "grammar-rule-OxfordComma");
+        assert!(std::ptr::eq(first, super::row_id("grammar-rule", "OxfordComma")));
+    }
+}

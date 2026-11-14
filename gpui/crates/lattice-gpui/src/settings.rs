@@ -26,6 +26,7 @@
 //! the interface in English whatever the system's language, so a run never
 //! reads or changes the writer's own preferences.
 
+mod acknowledgements;
 mod appearance_pane;
 mod controls;
 mod dialog;

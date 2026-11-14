@@ -782,7 +782,8 @@ impl Render for SettingsDialog {
             .children(page)
             .child(div().absolute().top(px(10.)).right(px(10.)).child(close));
         let this = cx.entity();
-        ModalLayer::new(
+        let sheet = super::pages::sheet(self, cx);
+        let layer = ModalLayer::new(
             "settings-layer",
             LayerPlacement::Center,
             div()
@@ -790,6 +791,13 @@ impl Render for SettingsDialog {
                 .h(height)
                 .child(rise_in("settings-rise", card)),
             move |_, cx| this.update(cx, |this, cx| this.close(cx)),
-        )
+        );
+        // A page's sheet stands over the whole window, as a layer of its own
+        // beside Settings', so Escape closes it before Settings.
+        div()
+            .absolute()
+            .inset_0()
+            .child(layer)
+            .children(sheet)
     }
 }
