@@ -29,6 +29,7 @@ mod overleaf_review_mock;
 #[cfg(target_os = "macos")]
 mod parity;
 #[cfg(target_os = "macos")]
+mod parity_find;
 mod parity_help;
 #[cfg(target_os = "macos")]
 mod parity_history;

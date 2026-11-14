@@ -172,3 +172,27 @@ fn display_paths_handle_windows_verbatim_home_paths() {
         "C:/Users/adam/Papers"
     );
 }
+
+/// Another app's list (the GPUI app reads the Tauri app's) is read as it is,
+/// newest first, and a folder gone from it is left for its owner to tidy.
+#[test]
+fn another_apps_remembered_folders_are_read_without_rewriting_its_list() {
+    let host = "https://www.overleaf.com";
+    let (theirs, ours) = (signed_in(host), signed_in(host));
+    let (kept, gone) = (TempDir::new("their-copy"), TempDir::new("their-gone"));
+    link_folder(&kept, host, "proj-1");
+    link_folder(&gone, host, "proj-2");
+    remember_local_copy(&theirs, &gone);
+    remember_local_copy(&theirs, &kept);
+    let gone_path = gone.canonicalize().unwrap();
+    drop(gone);
+    let before = fs::read_to_string(index_path(&theirs)).unwrap();
+
+    let remembered = remembered_local_copies(&theirs);
+    assert_eq!(remembered, vec![kept.canonicalize().unwrap(), gone_path]);
+    let copies = local_copies(&ours, &remembered);
+    assert_eq!(copies.get("proj-1").map(|copy| copy.path.clone()), Some(canonical(&kept)));
+    assert!(!copies.contains_key("proj-2"));
+    assert_eq!(fs::read_to_string(index_path(&theirs)).unwrap(), before);
+    assert!(remembered_local_copies(&TempDir::new("no-list")).is_empty());
+}

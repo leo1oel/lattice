@@ -57,9 +57,7 @@ impl Run {
 
         // The palette's Annotate selection opens the composer on it.
         let selected = select(self, cx, QUOTE)?;
-        self.with_window(cx, |_, window, cx| {
-            window.dispatch_action(Box::new(crate::shell::AnnotateSelection), cx)
-        })?;
+        self.dispatch_to_shell(cx, &crate::shell::AnnotateSelection)?;
         let composing = self
             .wait_for(cx, Duration::from_secs(5), |_, cx| editor.read(cx).composing_annotation())
             .await;
@@ -72,6 +70,8 @@ impl Run {
         // Typed with native keys, saved with ⌘↵.
         {
             let _front = self.focused(cx, "annotation composer").await?;
+            // The composer's field is drawn, and has the keys, before typing.
+            self.pause(cx, Duration::from_millis(300)).await;
             self.type_text(cx, NOTE).await?;
             self.press(cx, '\n', true).await?;
         }
@@ -127,9 +127,7 @@ impl Run {
         );
 
         // The titlebar's button opens the panel, which lists it.
-        self.with_window(cx, |_, window, cx| {
-            window.dispatch_action(Box::new(crate::shell::ShowAnnotations), cx)
-        })?;
+        self.dispatch_to_shell(cx, &crate::shell::ShowAnnotations)?;
         let listed = self
             .wait_for(cx, Duration::from_secs(5), |shell, cx| {
                 let shell = shell.read(cx);
@@ -152,6 +150,7 @@ impl Run {
         })?;
         {
             let _front = self.focused(cx, "annotation discard").await?;
+            self.pause(cx, Duration::from_millis(300)).await;
             self.type_text(cx, "Drop this").await?;
             self.press(cx, '\u{1b}', false).await?;
         }

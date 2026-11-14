@@ -69,7 +69,7 @@ pub use link::{
     realtime_config, record_relocation, reopen_local_copy, set_paused, set_permission,
     set_realtime_metadata, CloneTarget, OverleafLink,
 };
-pub use local_copies::{local_copies, remember_local_copy, LocalCopy};
+pub use local_copies::{local_copies, remember_local_copy, remembered_local_copies, LocalCopy};
 pub use projects::{
     list_projects, resolve_link, OverleafInvite, OverleafProject, OverleafProjectList, PastedLink,
 };

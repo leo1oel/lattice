@@ -52,21 +52,42 @@ pub(crate) struct Annotations {
 pub struct CommentsView {
     focus_handle: FocusHandle,
     annotations: Entity<AnnotationsPanel>,
-    shell: WeakEntity<Shell>,
-    /// The bridge and both panels, followed once the view is first drawn
-    /// (the window is still being made when the view is).
+    /// Overleaf's bridge and collaboration panel, handed over once the
+    /// window is made (the view is made while it is); never read through
+    /// the shell, which is mid-update whenever it asks the view anything.
+    overleaf: Option<(Entity<crate::overleaf::bridge::OverleafBridge>, Entity<OverleafCollabPanel>)>,
     _observe: Vec<Subscription>,
 }
 
 impl CommentsView {
-    fn linked(&self, cx: &App) -> bool {
-        self.shell
-            .upgrade()
-            .is_some_and(|shell| shell.read(cx).overleaf.read(cx).link().is_some())
+    /// Whether it shows Overleaf's collaboration panel (a linked project).
+    pub(crate) fn shows_overleaf(&self, cx: &App) -> bool {
+        self.linked(cx)
     }
 
-    fn collab(&self, cx: &App) -> Option<Entity<OverleafCollabPanel>> {
-        Some(self.shell.upgrade()?.read(cx).overleaf_collab.clone())
+    fn linked(&self, cx: &App) -> bool {
+        self.overleaf
+            .as_ref()
+            .is_some_and(|(bridge, _)| bridge.read(cx).link().is_some())
+    }
+
+    fn collab(&self, _: &App) -> Option<Entity<OverleafCollabPanel>> {
+        self.overleaf.as_ref().map(|(_, collab)| collab.clone())
+    }
+
+    fn set_overleaf(
+        &mut self,
+        bridge: Entity<crate::overleaf::bridge::OverleafBridge>,
+        collab: Entity<OverleafCollabPanel>,
+        cx: &mut Context<Self>,
+    ) {
+        self._observe = vec![
+            cx.observe(&bridge, |_, _, cx| cx.notify()),
+            cx.observe(&collab, |_, _, cx| cx.notify()),
+            cx.observe(&self.annotations, |_, _, cx| cx.notify()),
+        ];
+        self.overleaf = Some((bridge, collab));
+        cx.notify();
     }
 }
 
@@ -83,19 +104,6 @@ impl Focusable for CommentsView {
 
 impl Render for CommentsView {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        if self._observe.is_empty()
-            && let Some(shell) = self.shell.upgrade()
-        {
-            let (overleaf, collab) = {
-                let shell = shell.read(cx);
-                (shell.overleaf.clone(), shell.overleaf_collab.clone())
-            };
-            self._observe = vec![
-                cx.observe(&overleaf, |_, _, cx| cx.notify()),
-                cx.observe(&collab, |_, _, cx| cx.notify()),
-                cx.observe(&self.annotations, |_, _, cx| cx.notify()),
-            ];
-        }
         let shown: AnyElement = match self.collab(cx) {
             Some(collab) if self.linked(cx) => collab.into_any_element(),
             _ => self.annotations.clone().into_any_element(),
@@ -175,12 +183,16 @@ impl Shell {
                 AnnotationsPanelEvent::OpenFile => this.toggle_quick_open(window, cx),
             },
         );
-        let shell = cx.weak_entity();
         let view = cx.new(|cx| CommentsView {
             focus_handle: cx.focus_handle(),
             _observe: Vec::new(),
             annotations: panel.clone(),
-            shell,
+            overleaf: None,
+        });
+        let handed = view.clone();
+        cx.defer_in(window, move |shell, _, cx| {
+            let (bridge, collab) = (shell.overleaf.clone(), shell.overleaf_collab.clone());
+            handed.update(cx, |view, cx| view.set_overleaf(bridge, collab, cx));
         });
         Annotations {
             panel,
