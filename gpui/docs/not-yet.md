@@ -67,7 +67,7 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] Focus mode's bar and Escape to leave it.
 
-- [ ] The app updater: its check, download and restart prompt, Lattice › Check for Updates…, the outdated-version hint and Report a Problem's update gate.
+- [ ] The app updater's release channel (it ships off), its Settings › App updates row with the automatic mode, and the outdated-version hint on a failure's notice.
 
 - [ ] File › Export ZIP….
 

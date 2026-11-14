@@ -9,8 +9,10 @@
 //! nothing from the log; the reporter attaches the saved file themselves,
 //! after reading it if they like.
 //!
-//! The Tauri app first offers an update it already found; the GPUI preview
-//! has no updater, so it files the report at once.
+//! When the updater already knows of a newer release, it is offered first,
+//! as the Tauri app offers it ("You’re on vX; vY is available", Update now
+//! or Report anyway): it may already fix the problem. With the updater off
+//! (`crate::updater`) the report is filed at once.
 
 use gpui::{App, AppContext as _};
 use lattice_i18n::t;
@@ -81,9 +83,43 @@ pub fn save_report(cx: &mut App) -> gpui::Task<Result<Saved, String>> {
     })
 }
 
+/// Report a problem: offer a newer release the updater knows of first,
+/// else file the report.
+pub fn report_problem(cx: &mut App) {
+    let Some(latest) = crate::updater::known_update(cx) else {
+        file_report(cx);
+        return;
+    };
+    notices::show(
+        Notice::new(
+            ToastLevel::Warning,
+            t!(
+                "You’re on v{running}; v{latest} is available",
+                running = lattice_core::VERSION,
+                latest = latest
+            ),
+        )
+        .source(t!("Report a problem"))
+        .detail(t!(
+            "It may already fix this. Update first, or report the problem anyway."
+        ))
+        .key("report-problem-outdated")
+        .persistent()
+        .action(notices::NoticeAction::new(t!("Update now"), |_, cx| {
+            notices::dismiss("report-problem-outdated", cx);
+            crate::updater::update_now(cx);
+        }))
+        .action(notices::NoticeAction::new(t!("Report anyway"), |_, cx| {
+            notices::dismiss("report-problem-outdated", cx);
+            file_report(cx);
+        })),
+        cx,
+    );
+}
+
 /// File a report: save it, then show the file in Finder and open the form;
 /// a refusal says why in a notice.
-pub fn report_problem(cx: &mut App) {
+fn file_report(cx: &mut App) {
     let saved = save_report(cx);
     cx.spawn(async move |cx| {
         let saved = saved.await;

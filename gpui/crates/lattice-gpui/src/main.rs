@@ -57,6 +57,7 @@ mod structured;
 mod submission;
 mod terminal;
 mod titlebar;
+mod updater;
 mod welcome;
 mod window_material;
 
