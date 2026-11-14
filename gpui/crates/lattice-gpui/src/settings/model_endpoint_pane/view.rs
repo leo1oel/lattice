@@ -3,10 +3,9 @@
 //! actions, then what a test or an action found.
 
 use gpui::{
-    AnyElement, Context, ElementId, Entity, IntoElement, ParentElement as _, Pixels,
+    AnyElement, Context, ElementId, IntoElement, ParentElement as _, Pixels,
     SharedString, Styled as _, Window, div, prelude::FluentBuilder as _, px,
 };
-use gpui_kit::component::input::InputState;
 use lattice_i18n::t;
 use lattice_settings::SettingsTab;
 use lattice_ui::{

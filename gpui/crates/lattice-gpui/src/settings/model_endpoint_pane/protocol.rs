@@ -114,10 +114,19 @@ pub(super) fn describe_probe(report: &Value) -> (bool, SharedString) {
 
 /// The host of `url`, which the model menu groups the endpoint's models by.
 pub(super) fn host_of(url: &str) -> String {
-    url::Url::parse(url)
-        .ok()
-        .and_then(|url| url.host_str().map(str::to_string))
-        .unwrap_or_default()
+    // `new URL(url).hostname`: after the scheme, before any path, port or
+    // query, without the credentials; nothing for what is not a URL.
+    let Some((_, rest)) = url.trim().split_once("://") else {
+        return String::new();
+    };
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or_default();
+    let host = authority.rsplit_once('@').map_or(authority, |(_, host)| host);
+    let host = if let Some(bracketed) = host.strip_prefix('[') {
+        bracketed.split(']').next().unwrap_or_default()
+    } else {
+        host.split(':').next().unwrap_or_default()
+    };
+    host.to_ascii_lowercase()
 }
 
 #[cfg(test)]
@@ -143,6 +152,7 @@ mod tests {
     fn the_host_groups_the_models() {
         assert_eq!(host_of("https://api.example.com/v1"), "api.example.com");
         assert_eq!(host_of("not a url"), "");
+        assert_eq!(host_of("http://user:pw@LOCALHOST:8080/v1"), "localhost");
     }
 
     #[test]

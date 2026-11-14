@@ -9,7 +9,7 @@
 //! that finishes after a newer one started is dropped.
 
 use gpui::{
-    AnyElement, Context, IntoElement, ParentElement as _, SharedString, Styled as _, Task, div,
+    AnyElement, AppContext as _, Context, IntoElement, ParentElement as _, SharedString, Styled as _, Task, div,
     prelude::FluentBuilder as _, px,
 };
 use lattice_i18n::t;
@@ -18,8 +18,24 @@ use lattice_ui::{
 };
 use serde_json::Value;
 
-use super::controls::{self, Level, PageWidth, Row};
+use super::{
+    controls::{self, Level, PageWidth, Row},
+    dialog::SettingsDialog,
+};
 use crate::agent::runtime::AgentRuntime;
+
+/// Settings › Environment, its report read the first time it is drawn.
+pub fn render(
+    dialog: &mut SettingsDialog,
+    width: PageWidth,
+    cx: &mut Context<SettingsDialog>,
+) -> AnyElement {
+    let pane = dialog
+        .environment
+        .get_or_insert_with(|| cx.new(EnvironmentPane::new))
+        .clone();
+    pane.update(cx, |pane, cx| pane.render_page(width, cx))
+}
 
 pub struct EnvironmentPane {
     report: Option<Value>,
