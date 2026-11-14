@@ -470,6 +470,9 @@ function answer(command: string, args: Args): unknown {
     case "plugin:dialog|save":
       return `/Users/writer/Desktop/${(args?.options as { defaultPath?: string } | undefined)?.defaultPath ?? "paper.pdf"}`;
     // No Synara here: the Agent panel shows its runtime as unavailable.
+    // Settings › Model endpoint, with none saved (the parity screen).
+    case "get_model_endpoint":
+      return { endpoint: null, keySaved: false };
     case "synara_ensure_ready":
       throw new Error("missing path");
     case "choose_import_entries":
