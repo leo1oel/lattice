@@ -8,7 +8,8 @@
 //! - [`commands`]: the backend commands the page invokes, the bibliography
 //!   brokers among them, answered through lattice-core for the panel's own
 //!   project only.
-//! - [`surface`]: one page for one project, its bridge to the app.
+//! - [`surface`]: one page for one project, its bridge to the app; the
+//!   third, Settings › Providers, is shown in the Settings dialog.
 //! - [`AgentPanel`], [`GitPanel`]: the dock's panels around a surface: the
 //!   Agent beside Project (the `agent` view), and the Git workspace opened
 //!   as a tool panel among the documents (`git`, the titlebar's Git button
@@ -80,6 +81,11 @@ pub fn git_panel(window: &mut Window, cx: &mut App) -> Entity<GitPanel> {
     cx.new(|cx| SynaraPanel::new(SurfaceKind::Git, window, cx))
 }
 
+/// Settings › Providers' page, for the Settings dialog.
+pub fn settings_surface(window: &mut Window, cx: &mut App) -> Entity<SynaraSurface> {
+    cx.new(|cx| SynaraSurface::new(SurfaceKind::Settings, window, cx))
+}
+
 impl EventEmitter<PanelEvent> for SynaraPanel {}
 
 impl Focusable for SynaraPanel {
@@ -127,6 +133,7 @@ impl SynaraPanel {
         match self.kind(cx) {
             SurfaceKind::Agent => t!("Agent"),
             SurfaceKind::Git => t!("Source control"),
+            SurfaceKind::Settings => t!("Providers"),
         }
     }
 }

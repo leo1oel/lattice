@@ -1,38 +1,22 @@
-//! Settings › Providers, where the Agent's "Provider settings" lead
-//! (`agent:open-settings`).
-//!
-//! The Tauri app hosts Synara's own settings page here
-//! (`synara-settings-pane.tsx`). The GPUI app does not host that page yet,
-//! so this one says where a provider is chosen today, the Agent panel's own
-//! picker, and opens the Agent.
+//! Settings › Providers (the Tauri app's `agent` tab): Synara's own settings
+//! page for the open project, the Agent island's `settings` surface, filling
+//! the page as `synara-settings-pane.tsx` fills the Tauri dialog's. The page
+//! scrolls in the island, so the surface takes the whole content column.
 
-use gpui::{AnyElement, Context};
+use gpui::{AnyElement, App, Entity, IntoElement, ParentElement as _, Styled as _, div};
 use lattice_i18n::t;
-use lattice_ui::components::Button;
+use lattice_ui::components::EmptyState;
 
-use super::{
-    controls::{self, PageWidth, Row},
-    dialog::SettingsDialog,
-};
+use crate::agent::SynaraSurface;
 
-pub fn render(width: PageWidth, cx: &mut Context<SettingsDialog>) -> AnyElement {
-    let this = cx.entity();
-    let open = Button::new("providers-open-agent", t!("Open Agent"))
-        .compact()
-        .on_click(move |_, _, cx| this.update(cx, |dialog, cx| dialog.open_agent(cx)));
-    let rows = vec![
-        Row::new("provider-binary-paths", t!("Provider settings"))
-            .description(
-                t!("Claude Code and Codex are found on your PATH. Choose a provider and its model in the Agent panel’s own picker."),
-                cx,
-            )
-            .control(open)
-            .render(width, cx),
-    ];
-    controls::page(
-        t!("Providers"),
-        width,
-        vec![controls::first_group(None, rows, cx)],
-        cx,
-    )
+pub fn render(surface: Option<Entity<SynaraSurface>>, compact: bool, cx: &mut App) -> AnyElement {
+    let page = div().flex_1().min_h_0().w_full().flex().flex_col();
+    let Some(surface) = surface.filter(|surface| surface.read(cx).root().is_some()) else {
+        return page
+            .justify_center()
+            .child(EmptyState::new(t!("No project open")))
+            .into_any_element();
+    };
+    surface.update(cx, |surface, cx| surface.set_settings_compact(compact, cx));
+    page.child(surface).into_any_element()
 }

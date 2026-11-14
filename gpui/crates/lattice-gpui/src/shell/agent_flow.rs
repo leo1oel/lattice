@@ -9,10 +9,12 @@ use serde_json::Value;
 use super::Shell;
 use crate::agent::{AgentPanel, GitPanel, SurfaceEvent, SynaraSurface, TurnReview};
 
-/// The Agent in one window: its panel, the Git workspace's, and their state.
+/// The Agent in one window: its panel, the Git workspace's, Settings ›
+/// Providers' page, and their state.
 pub(crate) struct AgentWindow {
     pub panel: Entity<AgentPanel>,
     pub git: Entity<GitPanel>,
+    pub settings: Entity<SynaraSurface>,
     state: AgentState,
 }
 
@@ -21,6 +23,7 @@ impl AgentWindow {
         Self {
             panel: crate::agent::agent_panel(window, cx),
             git: crate::agent::git_panel(window, cx),
+            settings: crate::agent::settings_surface(window, cx),
             state: AgentState::default(),
         }
     }
@@ -81,7 +84,8 @@ impl Shell {
         cx: &mut Context<Self>,
     ) {
         self.agent.state = AgentState::default();
-        for surface in [self.agent_surface(cx), self.git_surface(cx)] {
+        let settings = self.agent.settings.clone();
+        for surface in [self.agent_surface(cx), self.git_surface(cx), settings] {
             let root = root.clone();
             surface.update(cx, |surface, cx| surface.set_project(root, cx));
         }
@@ -196,7 +200,7 @@ impl Shell {
     }
 
     /// The Agent panel on screen and in front (`showPanel`).
-    pub(super) fn reveal_agent(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    fn reveal_agent(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.show_view("agent", true, window, cx);
     }
 
@@ -213,8 +217,13 @@ impl Shell {
                 self.open_path(root.join(path), None, window, cx);
             }
             SurfaceEvent::OpenReview(turn) => self.open_git(turn.clone(), window, cx),
-            SurfaceEvent::OpenProviderSettings => {
-                self.open_settings(Some(lattice_settings::SettingsTab::Agent), window, cx)
+            SurfaceEvent::OpenProviderSettings(target) => {
+                self.open_settings(Some(lattice_settings::SettingsTab::Agent), window, cx);
+                if let Some(target) = target {
+                    self.agent
+                        .settings
+                        .update(cx, |surface, cx| surface.reveal_setting(target, cx));
+                }
             }
             SurfaceEvent::ClearSelection => {
                 let editor = self.active_editor();

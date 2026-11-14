@@ -1,6 +1,6 @@
 //! One Synara surface: the Agent island's page (`gpui/islands/agent`) for
-//! one project, as the Agent panel or the Git workspace, and everything its
-//! page asks of the app.
+//! one project, as the Agent panel, the Git workspace or Settings ›
+//! Providers, and everything its page asks of the app.
 //!
 //! The page is the Tauri app's Synara host, so what crosses this bridge is
 //! what crossed the Tauri app's from that host to the rest of its window:
@@ -46,13 +46,16 @@ use serde_json::{Value, json};
 use super::{commands, runtime};
 use crate::notices::{self, Notice, NoticeAction};
 
-/// Which of the page's two surfaces this is.
+/// Which of the page's three surfaces this is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SurfaceKind {
     /// The Agent panel (`trellis-agent-surface.tsx`).
     Agent,
     /// The Git workspace docked as a tool panel (`app-history-drawers.tsx`).
     Git,
+    /// Settings › Providers, Synara's own settings page
+    /// (`synara-settings-pane.tsx`).
+    Settings,
 }
 
 impl SurfaceKind {
@@ -60,6 +63,7 @@ impl SurfaceKind {
         match self {
             Self::Agent => "agent",
             Self::Git => "git",
+            Self::Settings => "settings",
         }
     }
 }
@@ -71,8 +75,9 @@ pub enum SurfaceEvent {
     OpenPath(String),
     /// Open the Git workspace, pinned to one turn's checkpoint diff when given.
     OpenReview(Option<TurnReview>),
-    /// Open Settings on the Agent's providers.
-    OpenProviderSettings,
+    /// Open Settings on the Agent's providers, revealing a place on the
+    /// page when one is named (`provider-binary-paths`).
+    OpenProviderSettings(Option<String>),
     /// The selection the Agent was shown is spent.
     ClearSelection,
     /// The narrowest the Agent's panel can be with its composer intact.
@@ -115,6 +120,8 @@ pub struct SynaraSurface {
     workspace_report: Option<Task<()>>,
     /// The Git workspace's view and pinned turn.
     git: Value,
+    /// Settings' compact insets, for Settings › Providers.
+    settings_compact: bool,
     last_pointer: Option<Instant>,
     _subscriptions: Vec<Subscription>,
 }
@@ -142,8 +149,9 @@ impl SynaraSurface {
                     ground: Some(ground(kind, &palette)),
                     reveal_on_ready: false,
                     theme: IslandTheme::Document,
-                    // A hidden Agent may still own a turn or a terminal.
-                    hibernates: false,
+                    // A hidden Agent may still own a turn or a terminal;
+                    // Settings' page owns neither.
+                    hibernates: kind == SurfaceKind::Settings,
                 };
                 let island = cx.new(|cx| Island::new(config, window, cx));
                 subscriptions.push(cx.subscribe_in(&island, window, Self::on_island));
@@ -169,6 +177,7 @@ impl SynaraSurface {
             workspace: Value::Null,
             workspace_report: None,
             git: json!({ "view": "changes", "turnReview": null, "remoteUrl": null }),
+            settings_compact: false,
             last_pointer: None,
             _subscriptions: subscriptions,
         }
@@ -302,6 +311,19 @@ impl SynaraSurface {
         self.post("agent:compose", message, cx);
     }
 
+    /// Settings' insets: compact while the dialog is in its narrow form.
+    pub fn set_settings_compact(&mut self, compact: bool, cx: &mut App) {
+        if compact != self.settings_compact {
+            self.settings_compact = compact;
+            self.post("agent:settings-layout", json!({ "compact": compact }), cx);
+        }
+    }
+
+    /// Open and reveal a place on Settings › Providers.
+    pub fn reveal_setting(&self, target: &str, cx: &mut App) {
+        self.post("agent:settings-target", json!({ "target": target }), cx);
+    }
+
     /// One of the runtime's events, for the page's modules (`runtime.rs`).
     pub(super) fn runtime_event(&mut self, event: &str, payload: Value, cx: &mut App) {
         // The island holds it until the page listens; a hidden page hears it.
@@ -327,6 +349,10 @@ impl SynaraSurface {
             "git": self.git,
         });
         self.post("agent:open", payload, cx);
+        if self.kind == SurfaceKind::Settings {
+            let compact = self.settings_compact;
+            self.post("agent:settings-layout", json!({ "compact": compact }), cx);
+        }
         if !self.workspace.is_null() {
             self.post("agent:workspace", self.workspace.clone(), cx);
         }
@@ -383,14 +409,6 @@ impl SynaraSurface {
     }
 
     fn on_message(&mut self, kind: &str, payload: &Value, cx: &mut Context<Self>) {
-        let text = |key: &str| {
-            payload
-                .get(key)
-                .and_then(Value::as_str)
-                .map(str::trim)
-                .filter(|text| !text.is_empty())
-                .map(str::to_string)
-        };
         match kind {
             "agent:drawn" => {
                 self.drawn = true;
@@ -401,39 +419,13 @@ impl SynaraSurface {
             }
             "island:notify" => crate::structured::show_page_notice(payload, cx),
             "agent:notify" => self.synara_notice(payload, cx),
-            "agent:open-path" => {
-                if let Some(path) = text("path") {
-                    cx.emit(SurfaceEvent::OpenPath(path));
-                }
-            }
-            "agent:open-review" => {
-                let turn = match (text("threadId"), text("turnId")) {
-                    (Some(thread_id), Some(turn_id)) => Some(TurnReview {
-                        thread_id,
-                        turn_id,
-                        file_path: None,
-                    }),
-                    _ => None,
-                };
-                cx.emit(SurfaceEvent::OpenReview(turn));
-            }
-            "agent:open-settings" => cx.emit(SurfaceEvent::OpenProviderSettings),
-            "agent:clear-selection" => cx.emit(SurfaceEvent::ClearSelection),
-            "agent:minimum-width" => {
-                if let Some(width) = payload.get("width").and_then(Value::as_f64) {
-                    cx.emit(SurfaceEvent::MinimumWidth(width as f32));
-                }
-            }
-            "agent:git-view" => {
-                if let Some(view) = text("view") {
-                    cx.emit(SurfaceEvent::GitView(view));
-                }
-            }
-            "agent:close-git" => cx.emit(SurfaceEvent::CloseGit),
             // The Agent's checkpoints, for the History panel's Agent filter,
             // which reads the project's own activity log instead.
             "agent:history" => {}
-            _ => log::debug!("{}: unhandled {kind}", self.kind.name()),
+            _ => match surface_event(kind, payload) {
+                Some(event) => cx.emit(event),
+                None => log::debug!("{}: unhandled {kind}", self.kind.name()),
+            },
         }
     }
 
@@ -607,13 +599,47 @@ impl SynaraSurface {
     }
 }
 
-/// The page's ground before it draws: the Agent panel's sidebar, or the Git
+/// What the page asks of the window, as the event its owner hears; `None`
+/// for a message that asks nothing of it.
+fn surface_event(kind: &str, payload: &Value) -> Option<SurfaceEvent> {
+    let text = |key: &str| {
+        payload
+            .get(key)
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|text| !text.is_empty())
+            .map(str::to_string)
+    };
+    Some(match kind {
+        "agent:open-path" => SurfaceEvent::OpenPath(text("path")?),
+        "agent:open-review" => SurfaceEvent::OpenReview(match (text("threadId"), text("turnId")) {
+            (Some(thread_id), Some(turn_id)) => Some(TurnReview {
+                thread_id,
+                turn_id,
+                file_path: None,
+            }),
+            _ => None,
+        }),
+        "agent:open-settings" => SurfaceEvent::OpenProviderSettings(text("target")),
+        "agent:clear-selection" => SurfaceEvent::ClearSelection,
+        "agent:minimum-width" => {
+            SurfaceEvent::MinimumWidth(payload.get("width").and_then(Value::as_f64)? as f32)
+        }
+        "agent:git-view" => SurfaceEvent::GitView(text("view")?),
+        "agent:close-git" => SurfaceEvent::CloseGit,
+        _ => return None,
+    })
+}
+
+/// The page's ground before it draws: the Agent panel's sidebar, the Git
 /// workspace's tool surface (`trellis.css`'s `.trellis-agent-host`,
-/// `.trellis-tool-host`), so a load never flashes another colour.
+/// `.trellis-tool-host`) or Settings' page (`.settings-content`), so a load
+/// never flashes another colour.
 fn ground(kind: SurfaceKind, palette: &Palette) -> gpui::Hsla {
     match kind {
         SurfaceKind::Agent => palette.chrome,
         SurfaceKind::Git => palette.input,
+        SurfaceKind::Settings => palette.panel,
     }
 }
 
@@ -676,6 +702,7 @@ impl Render for SynaraSurface {
             .children(lattice_ui::parity::probe(match self.kind {
                 SurfaceKind::Agent => "agent/surface",
                 SurfaceKind::Git => "git/surface",
+                SurfaceKind::Settings => "settings/providers",
             }))
             // The pointer over the rest of the window, for Synara's hovers.
             .child(
@@ -722,5 +749,38 @@ impl Render for SynaraSurface {
             .when(self.root.is_some(), |this| {
                 this.children(self.island.clone())
             })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The page's messages as `src/agent` and `use-synara-host.ts` post them
+    /// (`openProviderSettings(target)`, `{ target: target ?? null }`).
+    #[test]
+    fn provider_settings_carry_the_place_the_page_named() {
+        assert_eq!(
+            surface_event(
+                "agent:open-settings",
+                &json!({ "target": "provider-binary-paths" })
+            ),
+            Some(SurfaceEvent::OpenProviderSettings(Some(
+                "provider-binary-paths".into()
+            )))
+        );
+        assert_eq!(
+            surface_event("agent:open-settings", &json!({ "target": null })),
+            Some(SurfaceEvent::OpenProviderSettings(None))
+        );
+        assert_eq!(
+            surface_event("agent:minimum-width", &json!({ "width": 312 })),
+            Some(SurfaceEvent::MinimumWidth(312.))
+        );
+        assert_eq!(
+            surface_event("agent:open-path", &json!({ "path": " " })),
+            None
+        );
+        assert_eq!(surface_event("agent:history", &json!({})), None);
     }
 }

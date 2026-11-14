@@ -65,6 +65,7 @@ pub fn present_tabs(cx: &mut App) {
             match synara.read(cx).kind(cx) {
                 crate::agent::SurfaceKind::Agent => look(Icon::BOT, Surface::Chrome),
                 crate::agent::SurfaceKind::Git => look(Icon::GIT_BRANCH, Surface::Sheet),
+                crate::agent::SurfaceKind::Settings => look(Icon::BOT, Surface::Sheet),
             }
         } else if let Ok(pdf) = view.clone().downcast::<PdfPanel>() {
             // A PDF of the project opened from the tree is a document, with

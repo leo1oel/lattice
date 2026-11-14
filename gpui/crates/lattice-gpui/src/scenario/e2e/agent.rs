@@ -42,6 +42,12 @@ const GIT_FACTS: &str = "(() => { const header = document.querySelector('.agent-
      tabs: header ? [...header.querySelectorAll('[role=tab]')].map((tab) => tab.textContent.trim()) : [], \
      close: !!document.querySelector('.agent-git-workspace-close') }); })()";
 
+/// Settings › Providers' page: Synara's settings frame, or the Tauri app's
+/// loading surface while the runtime is missing or starting.
+const SETTINGS_FACTS: &str = "(() => JSON.stringify({ \
+     frame: !!document.querySelector('.synara-settings-frame[src*=\"/settings\"]'), \
+     loading: !!document.querySelector('.synara-settings-state .synara-loading-surface') }))()";
+
 impl Run {
     pub(super) async fn agent_islands(
         &self,
@@ -265,12 +271,53 @@ impl Run {
             held && providers,
             json!({ "min_size": min_size.map(|size| size.width), "providers": providers }),
         );
+        // Settings › Providers is Synara's own page, the island's `settings`
+        // surface: its loading surface without a runtime, its frame with one.
+        let settings = cx.update(|cx| self.shell.read(cx).agent.settings.clone());
+        let settings_drawn = self
+            .wait_for(cx, Duration::from_secs(20), |_, cx| {
+                settings.read(cx).is_drawn()
+            })
+            .await;
+        let settings_island = cx.update(|cx| settings.read(cx).island().cloned());
+        let mut settings_facts = serde_json::Value::Null;
+        if let Some(island) = &settings_island {
+            for _ in 0..80 {
+                settings_facts = self.evaluate(cx, island, SETTINGS_FACTS).await;
+                if settings_facts["frame"] == true || settings_facts["loading"] == true {
+                    break;
+                }
+                self.pause(cx, Duration::from_millis(250)).await;
+            }
+        }
+        let settings_shown = cx.update(|cx| {
+            settings_island
+                .as_ref()
+                .is_some_and(|island| island.read(cx).is_active())
+        });
+        steps.check(
+            "Settings › Providers hosts Synara's settings page in the Agent island's settings surface",
+            settings_drawn
+                && settings_shown
+                && (settings_facts["frame"] == true || settings_facts["loading"] == true),
+            json!({ "drawn": settings_drawn, "shown": settings_shown, "page": settings_facts }),
+        );
         cx.update(|cx| {
             self.shell.update(cx, |shell, cx| {
                 shell.settings = None;
                 cx.notify();
             })
         });
+        let settings_hidden = cx.update(|cx| {
+            settings_island
+                .as_ref()
+                .is_some_and(|island| !island.read(cx).is_active())
+        });
+        steps.check(
+            "closing Settings takes the Providers page off screen",
+            settings_hidden,
+            json!({}),
+        );
 
         // The Git workspace, from the titlebar's Git button.
         self.with_window(cx, |shell, window, cx| {

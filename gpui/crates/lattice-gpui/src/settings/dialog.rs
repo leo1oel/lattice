@@ -18,8 +18,9 @@
 //! as a page with a way back, and Escape goes back before it closes.
 //!
 //! Only the sections the GPUI app has are listed: Appearance, Editor &
-//! builds, Providers and the TeX doctor. The other agent pages, the
-//! integration and the about pages come with the features they configure.
+//! builds, Providers (Synara's own page, the Agent island's `settings`
+//! surface) and the TeX doctor. The other agent pages, the integration and
+//! the about pages come with the features they configure.
 
 use std::{
     cell::RefCell,
@@ -66,8 +67,6 @@ pub enum SettingsEvent {
     Close,
     /// Settings › Editor & builds › Auxiliary files › Clean.
     CleanBuildFiles,
-    /// Settings › Providers › Open Agent.
-    OpenAgent,
 }
 
 /// The pages the GPUI app draws; another remembered page opens Appearance.
@@ -320,6 +319,11 @@ impl SettingsDialog {
         if let Some(live) = &live_preview {
             subscriptions.push(cx.observe(live, |_, _, cx| cx.notify()));
         }
+        subscriptions.push(cx.on_release(|this: &mut Self, cx| {
+            if let Some(surface) = this.providers(cx) {
+                surface.update(cx, |surface, cx| surface.set_shown(false, cx));
+            }
+        }));
 
         let tab = drawn(tab.unwrap_or(settings.settings_tab));
         let logs = cx.new(|cx| super::logs_pane::LogsPane::new(window, cx));
@@ -414,11 +418,27 @@ impl SettingsDialog {
         }
     }
 
+    /// Settings › Providers' page, the window's Agent surface.
+    fn providers(&self, cx: &App) -> Option<Entity<crate::agent::SynaraSurface>> {
+        self.shell
+            .upgrade()
+            .map(|shell| shell.read(cx).agent.settings.clone())
+    }
+
+    /// Settings › Providers' page is shown while its tab is open.
+    pub fn sync_providers(&self, cx: &mut App) {
+        let shown = self.tab == SettingsTab::Agent;
+        if let Some(surface) = self.providers(cx) {
+            surface.update(cx, |surface, cx| surface.set_shown(shown, cx));
+        }
+    }
+
     /// Open a section's page; Settings reopens on it next time.
     pub fn open_tab(&mut self, tab: SettingsTab, cx: &mut Context<Self>) {
         let tab = drawn(tab);
         if tab != self.tab {
             self.tab = tab;
+            self.sync_providers(cx);
             // Every page shares the viewport, which starts at its top.
             self.scroll.set_offset(point(px(0.), px(0.)));
             self.rows.borrow_mut().clear();
@@ -538,10 +558,6 @@ impl SettingsDialog {
         cx.emit(SettingsEvent::CleanBuildFiles);
     }
 
-    pub(super) fn open_agent(&mut self, cx: &mut Context<Self>) {
-        cx.emit(SettingsEvent::OpenAgent);
-    }
-
     /// The window is cleaning its build files or building.
     pub(super) fn busy(&self, cx: &App) -> (bool, bool) {
         self.shell
@@ -638,7 +654,7 @@ impl SettingsDialog {
             // The log fills the page and scrolls inside its card instead.
             SettingsTab::Logs => return self.logs_page(page_width, narrow, cx),
             SettingsTab::Editor => super::editor_pane::render(self, page_width, window, cx),
-            SettingsTab::Agent => super::providers_pane::render(page_width, cx),
+            SettingsTab::Agent => super::providers_pane::render(self.providers(cx), narrow, cx),
             SettingsTab::Doctor => super::editor_pane::doctor(page_width, cx),
             SettingsTab::Overleaf => super::overleaf_pane::render(self, page_width, window, cx),
             _ => super::appearance_pane::render(self, page_width, window, cx),
@@ -663,6 +679,9 @@ impl SettingsDialog {
                 div()
                     .id("settings-page")
                     .size_full()
+                    .when(self.tab == SettingsTab::Agent, |this| {
+                        this.flex().flex_col()
+                    })
                     .overflow_y_scroll()
                     .track_scroll(&self.scroll)
                     .when(narrow, |this| this.child(self.back_button(cx)))

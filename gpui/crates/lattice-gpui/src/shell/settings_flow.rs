@@ -27,6 +27,7 @@ impl Shell {
         let live = Some(self.live_preview.clone());
         let view =
             cx.new(|cx| crate::settings::SettingsDialog::new(weak, project, live, tab, window, cx));
+        view.update(cx, |dialog, cx| dialog.sync_providers(cx));
         cx.subscribe_in(
             &view,
             window,
@@ -38,11 +39,6 @@ impl Shell {
                 }
                 crate::settings::SettingsEvent::CleanBuildFiles => {
                     window.dispatch_action(Box::new(super::CleanBuildFiles), cx)
-                }
-                crate::settings::SettingsEvent::OpenAgent => {
-                    this.settings = None;
-                    this.reveal_agent(window, cx);
-                    cx.notify();
                 }
             },
         )

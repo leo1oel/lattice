@@ -5,10 +5,11 @@
  * correlated postMessage protocol, as it does inside the Tauri app's window.
  * Its owner in the GPUI app is `crates/lattice-gpui/src/agent/`.
  *
- * One page serves two surfaces, as the Tauri app's one host serves its two
- * frames: `agent`, the Agent panel (`src/trellis/trellis-agent-surface.tsx`),
- * and `git`, the Git workspace docked as a tool panel
- * (`src/app/app-history-drawers.tsx`, `git-workspace-frames.tsx`).
+ * One page serves three surfaces, as the Tauri app's one window serves its
+ * Synara frames: `agent`, the Agent panel (`src/trellis/trellis-agent-surface.tsx`),
+ * `git`, the Git workspace docked as a tool panel
+ * (`src/app/app-history-drawers.tsx`, `git-workspace-frames.tsx`), and
+ * `settings`, Settings › Providers (`settings.tsx`).
  *
  * What the host's modules ask the Tauri backend for (`invoke`: starting the
  * runtime, the bibliography mutations the Agent may not make itself, the
@@ -34,6 +35,8 @@
  *                                            as the Tauri backend emits them
  *   agent:pointer                            the pointer is over the app, not the page
  *   agent:notify-action { id, action }       a Synara notification's button, pressed in GPUI
+ *   agent:settings-layout { compact }        Settings' compact insets, for `settings`
+ *   agent:settings-target { target }         a place on Settings › Providers to reveal
  *   host:outside-pointerdown                 a press in the app (the bridge's)
  * Page to host:
  *   agent:notify      { … }                  a Synara notification, for the app's stack
@@ -53,6 +56,7 @@ import { msg } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { ExternalLink, X } from "lucide-react";
 import { mount, activateLocale } from "../shared/boot";
+import { SettingsSurface, type SettingsLayout } from "./settings";
 // Trellis's rules for the hosts its panels lay these surfaces in
 // (`.trellis-agent-host`, `.trellis-tool-host > .trellis-docked-drawer`).
 import "../../../src/trellis/trellis.css";
@@ -84,7 +88,7 @@ import type { CanvasMode, EditorPosition, ProjectSnapshot } from "../../../src/a
 import type { ThemeAccent, ThemeTint, Translucency } from "../../../src/settings/theme-customization";
 
 type Locale = "en" | "zh-CN";
-type Surface = "agent" | "git";
+type Surface = "agent" | "git" | "settings";
 
 type Appearance = { translucency: Translucency; translucent: boolean; accent: ThemeAccent };
 
@@ -402,6 +406,8 @@ function AgentIsland() {
   const [workspace, setWorkspace] = useState<Workspace>(EMPTY_WORKSPACE);
   const [appearance, setAppearance] = useState<Appearance>({ translucency: "subtle", translucent: false, accent: "graphite" });
   const [git, setGit] = useState<GitState>({ view: "changes", turnReview: null, remoteUrl: null });
+  const [settings, setSettings] = useState<SettingsLayout>({ compact: false, target: null });
+  const { theme, tint } = useRootTheme();
   const switchLocale = useCallback((locale: Locale) => activateLocale(locale), []);
 
   useEffect(() => {
@@ -424,6 +430,14 @@ function AgentIsland() {
       bridge.on("agent:workspace", (payload) => setWorkspace({ ...EMPTY_WORKSPACE, ...(payload as Partial<Workspace>) })),
       bridge.on("agent:appearance", (payload) => setAppearance(payload as Appearance)),
       bridge.on("agent:git", (payload) => setGit((current) => ({ ...current, ...(payload as Partial<GitState>) }))),
+      bridge.on("agent:settings-layout", (payload) => {
+        const compact = Boolean((payload as { compact?: unknown } | null)?.compact);
+        setSettings((current) => ({ ...current, compact }));
+      }),
+      bridge.on("agent:settings-target", (payload) => {
+        const target = (payload as { target?: unknown } | null)?.target;
+        if (typeof target === "string") setSettings((current) => ({ ...current, target: { target } }));
+      }),
       bridge.on("agent:locale", (payload) => {
         const locale = (payload as { locale: Locale }).locale;
         void switchLocale(locale).then(() => setOpened((current) => current && { ...current, locale }));
@@ -442,6 +456,19 @@ function AgentIsland() {
   }, [opened, ready]);
 
   if (!opened || !ready) return null;
+  if (opened.surface === "settings") {
+    return (
+      <SettingsSurface
+        key={opened.projectRoot}
+        projectRoot={opened.projectRoot}
+        locale={opened.locale}
+        theme={theme}
+        tint={tint}
+        appearance={appearance}
+        layout={settings}
+      />
+    );
+  }
   return <Agent key={`${opened.surface}\n${opened.projectRoot}`} opened={opened} workspace={workspace} visible={visible} appearance={appearance} git={git} />;
 }
 
