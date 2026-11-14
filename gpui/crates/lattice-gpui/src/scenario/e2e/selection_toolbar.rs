@@ -168,6 +168,8 @@ pub(super) const MODULE: super::registry::Module = super::registry::Module {
     setup: false,
     covers: &[
         "gpui/crates/lattice-gpui/src/editor_panel/selection_toolbar.rs",
+        "gpui/crates/lattice-gpui/src/editor_panel/selection_toolbar/tools.rs",
+        "gpui/crates/lattice-gpui/src/editor_panel/selection_toolbar/menus.rs",
         "gpui/crates/lattice-gpui/src/editor_panel/highlight_palette.rs",
         "gpui/crates/lattice-editor/src/latex/format_toggle.rs",
         "gpui/crates/lattice-editor/src/latex/highlights.rs",
