@@ -17,6 +17,7 @@
 //! - Settings › Overleaf says who is signed in and which project syncs.
 
 mod live;
+mod margin;
 mod presence;
 mod reconnect;
 mod review;

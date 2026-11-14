@@ -99,6 +99,8 @@ impl Run {
             .context("main.tex is open")?;
         self.overleaf_review_marks(cx, steps, &editor, "Suggested ", quote)
             .await?;
+        self.overleaf_margin_review(cx, steps, &editor, &thread)
+            .await?;
         self.overleaf_review_panel(cx, steps).await?;
 
         // Replying, resolving and reopening.

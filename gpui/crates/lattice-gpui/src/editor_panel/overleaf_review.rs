@@ -38,13 +38,25 @@ const DELETE_TINT: f32 = 0.10;
 /// A comment's tint, as strong as the palette's own light colours.
 const COMMENT_TINT: f32 = 0.28;
 
-/// A comment thread's passage, in UTF-16 units.
+/// A comment thread's passage, in UTF-16 units, with its messages for its
+/// margin card.
 #[derive(Clone, Debug)]
 pub struct CommentMark {
     pub thread_id: String,
     pub from: i64,
     pub len: i64,
     pub color: Hsla,
+    pub messages: Vec<MarginMessage>,
+}
+
+/// A message as a margin card shows it.
+#[derive(Clone, Debug)]
+pub struct MarginMessage {
+    pub author: SharedString,
+    pub color: Hsla,
+    /// Its age, as said ("5m ago").
+    pub at: String,
+    pub content: String,
 }
 
 /// A suggestion and what its card says.
@@ -61,6 +73,11 @@ pub struct ChangeMark {
 pub enum ReviewAction {
     Accept(String),
     Reject(String),
+    /// Resolve a thread (a margin card).
+    Resolve(String),
+    DeleteThread(String),
+    /// Reply to a thread: its composer in the collaboration panel.
+    Reply(String),
 }
 
 /// The suggestions shown, for the hover card, by byte range of the buffer
@@ -97,6 +114,7 @@ impl EditorPanel {
         let mut marks = Vec::new();
         let mut inline = Vec::new();
         let mut cards = Vec::new();
+        let mut margin = Vec::new();
         for comment in &comments {
             let from = byte_at(&text, comment.from);
             let to = byte_at(&text, comment.from + comment.len);
@@ -106,6 +124,11 @@ impl EditorPanel {
                     style: underlined(comment.color, COMMENT_TINT),
                 });
             }
+            margin.push(super::margin_review::MarginItem {
+                key: format!("comment:{}", comment.thread_id),
+                offset: from,
+                kind: super::margin_review::ItemKind::Comment(comment.clone()),
+            });
         }
         for mark in changes {
             let hue = hue_color(mark.change.hue as f32);
@@ -121,6 +144,11 @@ impl EditorPanel {
                     tint: hue.opacity(DELETE_TINT),
                 });
                 let next = text[from..].chars().next().map_or(0, char::len_utf8);
+                margin.push(super::margin_review::MarginItem {
+                    key: format!("change:{}", mark.change.id),
+                    offset: from,
+                    kind: super::margin_review::ItemKind::Change(mark.clone()),
+                });
                 cards.push((from..from + next.max(1), mark));
             } else {
                 let units = mark.change.text.encode_utf16().count() as i64;
@@ -133,9 +161,16 @@ impl EditorPanel {
                     range: from..to,
                     style: underlined(hue, INSERT_TINT),
                 });
+                margin.push(super::margin_review::MarginItem {
+                    key: format!("change:{}", mark.change.id),
+                    offset: from,
+                    kind: super::margin_review::ItemKind::Change(mark.clone()),
+                });
                 cards.push((from..to, mark));
             }
         }
+        margin.sort_by(|a, b| (a.offset, &a.key).cmp(&(b.offset, &b.key)));
+        self.margin.items = margin;
         *self.overleaf_review.cards.borrow_mut() = cards;
         if !self.overleaf_review.provider {
             self.overleaf_review.provider = true;

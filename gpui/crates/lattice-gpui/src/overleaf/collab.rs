@@ -34,6 +34,8 @@ use crate::research_art::{Drawing, research_art};
 mod changes;
 mod comments;
 
+pub(crate) use comments::avatar;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CollabTab {
     Comments,
@@ -101,6 +103,12 @@ impl OverleafCollabPanel {
             active: None,
             scroll: ScrollHandle::new(),
         }
+    }
+
+    /// Reply to `thread`: the Comments tab, with its composer open.
+    pub fn reply_to(&mut self, thread: String, window: &mut Window, cx: &mut Context<Self>) {
+        self.tab = CollabTab::Comments;
+        self.open_composer(Draft::Reply { thread }, String::new(), window, cx);
     }
 
     /// A composer is open, writing a new thread.

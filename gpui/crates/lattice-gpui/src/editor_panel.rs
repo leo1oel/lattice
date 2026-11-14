@@ -51,6 +51,7 @@ use zed_actions::buffer_search::Deploy;
 mod buffer_counts;
 mod disk_sync;
 mod events;
+mod margin_review;
 mod markdown_view;
 mod moves;
 mod outline_panel;
@@ -68,9 +69,10 @@ pub mod views;
 
 use disk_sync::vanished_key;
 pub use events::EditorPanelEvent;
+pub use margin_review::{MarginLayout, MarginMode};
 use outline_rail::OutlineRail;
 pub use overleaf_carets::OverleafCaret;
-pub use overleaf_review::{ChangeMark, CommentMark, ReviewAction};
+pub use overleaf_review::{ChangeMark, CommentMark, MarginMessage, ReviewAction};
 use save::normalize_breaks;
 pub use views::DocumentView;
 use views::DocumentViews;
@@ -159,6 +161,7 @@ pub struct EditorPanel {
     /// Where the file stands with Overleaf, for the save slot.
     overleaf_save: Option<crate::overleaf::bridge::OverleafSaveState>,
     overleaf_review: overleaf_review::ReviewLayer,
+    margin: margin_review::MarginState,
     /// The file's word count as of opening or the last save; counted off the
     /// main thread.
     words: Option<usize>,
@@ -424,6 +427,7 @@ impl EditorPanel {
             overleaf_applying: false,
             overleaf_save: None,
             overleaf_review: Default::default(),
+            margin: Default::default(),
             words: None,
             buffer_todos: None,
             status_width: Default::default(),

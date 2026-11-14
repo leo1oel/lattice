@@ -639,7 +639,7 @@ impl OverleafCollabPanel {
 }
 
 /// A person's face: their initials on their colour (`PersonAvatar`).
-pub(super) fn avatar(name: &str, color: gpui::Hsla, size: gpui::Pixels) -> AnyElement {
+pub(crate) fn avatar(name: &str, color: gpui::Hsla, size: gpui::Pixels) -> AnyElement {
     div()
         .flex_none()
         .size(size)

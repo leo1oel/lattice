@@ -160,6 +160,21 @@ impl Shell {
                     this.annotate_selection(window, cx)
                 },
             ))
+            .on_action(cx.listener(
+                |this, _: &super::overleaf_collab::MarginReviewAuto, _, cx| {
+                    this.set_margin_mode(crate::editor_panel::MarginMode::Auto, cx)
+                },
+            ))
+            .on_action(cx.listener(
+                |this, _: &super::overleaf_collab::MarginReviewMarkers, _, cx| {
+                    this.set_margin_mode(crate::editor_panel::MarginMode::Markers, cx)
+                },
+            ))
+            .on_action(
+                cx.listener(|this, _: &super::overleaf_collab::MarginReviewOff, _, cx| {
+                    this.set_margin_mode(crate::editor_panel::MarginMode::Off, cx)
+                }),
+            )
             .on_action(cx.listener(|this, _: &ToggleBuildPanel, window, cx| {
                 let shown = this.build_panel_shown(cx);
                 this.show_build_panel(!shown, window, cx)

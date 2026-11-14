@@ -30,12 +30,7 @@ pub struct InlineText {
 pub const STRIKE: Pixels = px(2.);
 
 /// The width `text` takes in the editor's text style.
-pub(crate) fn text_width(
-    text: &str,
-    style: &gpui::TextStyle,
-    window: &mut Window,
-    _cx: &App,
-) -> Pixels {
+pub fn text_width(text: &str, style: &gpui::TextStyle, window: &mut Window, _cx: &App) -> Pixels {
     let font_size = style.font_size.to_pixels(window.rem_size());
     let run = TextRun {
         len: text.len(),

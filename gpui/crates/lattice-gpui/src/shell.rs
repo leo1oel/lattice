@@ -149,6 +149,8 @@ pub struct Shell {
     pub(crate) todos: Entity<crate::submission::todos::TodosPanel>,
     /// The Overleaf collaboration panel (`crate::overleaf::collab`).
     pub(crate) overleaf_collab: Entity<crate::overleaf::collab::OverleafCollabPanel>,
+    /// The window's margin review mode (`editor_panel::margin_review`).
+    pub(crate) margin_mode: crate::editor_panel::MarginMode,
     /// A symbol's occurrences bar and rename dialog (`references_flow`).
     pub(crate) references: references_flow::References,
     /// The sheets over the window, while open (`tools_flow::Sheets`).
@@ -437,6 +439,7 @@ impl Shell {
             history,
             todos,
             overleaf_collab,
+            margin_mode: Default::default(),
             checklist,
             sheets: Default::default(),
             references: Default::default(),

@@ -13,7 +13,15 @@ use lattice_ui::{Icon, components::IconButton, components::Surface};
 use super::Shell;
 use crate::overleaf::collab::{CollabEvent, CollabTab};
 
-actions!(lattice, [AnnotateSelection]);
+actions!(
+    lattice,
+    [
+        AnnotateSelection,
+        MarginReviewAuto,
+        MarginReviewMarkers,
+        MarginReviewOff
+    ]
+);
 
 impl Shell {
     /// The comments button, for a linked project.

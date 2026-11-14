@@ -93,6 +93,24 @@ pub(super) fn project_commands(context: &CommandContext, out: &mut Vec<Command>)
             super::super::overleaf_collab::AnnotateSelection,
         ));
         out.push(Command::new(
+            "margin-review-auto",
+            t!("Margin review: Auto"),
+            Section::Overleaf,
+            super::super::overleaf_collab::MarginReviewAuto,
+        ));
+        out.push(Command::new(
+            "margin-review-markers",
+            t!("Margin review: Markers only"),
+            Section::Overleaf,
+            super::super::overleaf_collab::MarginReviewMarkers,
+        ));
+        out.push(Command::new(
+            "margin-review-off",
+            t!("Margin review: Off"),
+            Section::Overleaf,
+            super::super::overleaf_collab::MarginReviewOff,
+        ));
+        out.push(Command::new(
             "overleaf-web",
             t!("Open this project on Overleaf"),
             Section::Overleaf,
