@@ -41,7 +41,16 @@ impl Shell {
                 x,
                 y,
                 word,
+                figure: false,
             } => self.inverse_sync(document.clone(), *page, *x, *y, word.clone(), window, cx),
+            PdfEvent::SourceAt {
+                document,
+                page,
+                x,
+                y,
+                word,
+                figure: true,
+            } => self.figure_source_at(document.clone(), *page, *x, *y, word.clone(), window, cx),
             PdfEvent::RevealCursor { document: None } => {
                 self.forward_sync(&super::ForwardSync, window, cx)
             }

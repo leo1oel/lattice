@@ -58,6 +58,7 @@ pub enum PdfEvent {
         x: f64,
         y: f64,
         word: Option<lattice_editor::latex::synctex_word::SyncTexWord>,
+        figure: bool,
     },
     /// Reveal cursor in PDF, in `document`'s PDF (`None`: the live one).
     RevealCursor {
@@ -230,12 +231,19 @@ impl PdfPanel {
         }
         let document = self.document().map(str::to_string);
         match event {
-            PdfViewEvent::SourceAt { page, x, y, word } => cx.emit(PdfEvent::SourceAt {
+            PdfViewEvent::SourceAt {
+                page,
+                x,
+                y,
+                word,
+                figure,
+            } => cx.emit(PdfEvent::SourceAt {
                 document,
                 page: *page,
                 x: *x,
                 y: *y,
                 word: word.clone(),
+                figure: *figure,
             }),
             PdfViewEvent::RevealCursor => cx.emit(PdfEvent::RevealCursor { document }),
             PdfViewEvent::Build => cx.emit(PdfEvent::Build { document }),

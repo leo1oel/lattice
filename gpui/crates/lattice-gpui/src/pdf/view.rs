@@ -76,6 +76,8 @@ pub enum PdfViewEvent {
         y: f64,
         /// The word under the click, for the caret to land on.
         word: Option<lattice_editor::latex::synctex_word::SyncTexWord>,
+        /// ⌘ was held: the figure's drawing, when the point is on one.
+        figure: bool,
     },
     /// The toolbar's Reveal cursor in PDF.
     RevealCursor,

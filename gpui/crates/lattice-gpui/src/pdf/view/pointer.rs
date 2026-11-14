@@ -57,6 +57,7 @@ impl PdfView {
                 x: round(page_x),
                 y: round(page_y),
                 word,
+                figure: event.modifiers.secondary(cx),
             });
             return;
         }
