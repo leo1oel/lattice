@@ -30,6 +30,8 @@ futures.workspace = true
 gpui.workspace = true
 gpui_platform.workspace = true
 gpui-kit.workspace = true
+# The .bib list's Author and Title sorts, in `localeCompare`'s order.
+icu_collator = "2.3"
 hdrhistogram = { version = "7", default-features = false }
 image.workspace = true
 indexmap = { version = "2", features = ["serde"] }

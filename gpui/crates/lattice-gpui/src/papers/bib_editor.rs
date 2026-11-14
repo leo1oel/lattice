@@ -673,16 +673,21 @@ impl BibEditor {
 
     /// The reference's paper: read it, or download it first, as the Papers
     /// list does.
-    pub(super) fn open_paper(&mut self, key: &str, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn open_paper(&mut self, index: usize, window: &mut Window, cx: &mut Context<Self>) {
         let (Some(papers), Some(row)) = (
             self.papers.clone(),
-            self.rows.iter().find(|row| row.entry.key == key),
+            self.rows.iter().find(|row| row.index == index),
         ) else {
             return;
         };
         let (paper, state) = {
             let library = papers.read(cx);
-            model::entry_paper(&library.papers, key, &row.summary, &library.fetching.states)
+            model::entry_paper(
+                &library.papers,
+                &row.entry.key,
+                &row.summary,
+                &library.fetching.states,
+            )
         };
         if let (Some(paper), model::PaperState::Open | model::PaperState::Download) = (paper, state)
         {

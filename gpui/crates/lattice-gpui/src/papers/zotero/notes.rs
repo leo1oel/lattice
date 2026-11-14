@@ -50,22 +50,9 @@ pub fn note_path(paper: &PaperSummary) -> String {
         .map(str::trim)
         .filter(|key| !key.is_empty())
         .unwrap_or(&paper.arxiv_id);
-    let mut name = String::new();
-    let mut gap = false;
-    for ch in source.chars() {
-        if ch.is_alphanumeric() || "._-".contains(ch) {
-            if gap {
-                name.push('-');
-                gap = false;
-            }
-            name.push(ch);
-        } else {
-            gap = true;
-        }
-    }
-    if gap {
-        name.push('-');
-    }
+    static UNSAFE: std::sync::LazyLock<regex::Regex> =
+        std::sync::LazyLock::new(|| regex::Regex::new(r"[^\p{L}\p{N}._-]+").unwrap());
+    let name = UNSAFE.replace_all(source, "-");
     let name = name.trim_start_matches(['-', '.']).trim_end_matches('-');
     format!("notes/{}.md", if name.is_empty() { "paper" } else { name })
 }
@@ -109,14 +96,18 @@ fn with_entry(current: Option<&str>, paper: &PaperSummary, entry: &str) -> Strin
 /// The annotation in Zotero's PDF reader: its PDF, at its page, with it
 /// selected.
 fn zotero_href(annotation: &ZoteroAnnotation) -> String {
-    let page = annotation
-        .page
+    let page = page_of(annotation)
         .map(|page| format!("page={page}&"))
         .unwrap_or_default();
     format!(
         "zotero://open-pdf/library/items/{}?{page}annotation={}",
         annotation.attachment, annotation.key
     )
+}
+
+/// The annotation's page; Zotero's 0 names none.
+fn page_of(annotation: &ZoteroAnnotation) -> Option<u32> {
+    annotation.page.filter(|page| *page > 0)
 }
 
 /// The paper's own PDF at `page`: the one its bundle keeps, from the
@@ -286,14 +277,14 @@ fn annotation_markdown(
         .page_label
         .clone()
         .filter(|label| !label.is_empty())
-        .or_else(|| annotation.page.map(|page| page.to_string()))
+        .or_else(|| page_of(annotation).map(|page| page.to_string()))
         .unwrap_or_default();
     let label = if page_name.is_empty() {
         String::new()
     } else {
         labels.page.replace("{page}", &page_name)
     };
-    let href = annotation.page.and_then(|page| source_href(paper, page));
+    let href = page_of(annotation).and_then(|page| source_href(paper, page));
     let anchors = (!annotation.text.is_empty())
         .then(|| quote_anchors(&annotation.text))
         .flatten();
@@ -421,6 +412,12 @@ mod tests {
             p.has_full_text = true;
         });
         assert_eq!(note_path(&attention), "notes/vaswani-2017.md");
+        // `paperNotePath`'s rule: only letters, digits and `._-` stay, so a
+        // combining vowel sign (a mark, not a letter) is a gap too.
+        let marked = with(paper("x"), |p| {
+            p.citation_key = Some("\u{915}\u{93f}2020".into())
+        });
+        assert_eq!(note_path(&marked), "notes/\u{915}-2020.md");
         let (note, added) = with_annotations(
             None,
             &attention,
@@ -452,6 +449,19 @@ mod tests {
             "Later [Zotero](zotero://open-pdf/library/items/ATTACH01?annotation=ANNOT002)\n"
         ));
         assert_eq!(again.matches("## Zotero annotations").count(), 1);
+        // Page 0 is no page, as in the Tauri app.
+        let (unpaged, _) = with_annotations(
+            None,
+            &attention,
+            &[annotation("ANNOT003", "Quoted", "", Some(0))],
+            &labels(),
+        );
+        assert!(
+            unpaged.ends_with(
+                "> Quoted [Zotero](zotero://open-pdf/library/items/ATTACH01?annotation=ANNOT003)\n"
+            ),
+            "{unpaged}"
+        );
     }
 
     #[test]

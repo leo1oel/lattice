@@ -4,7 +4,9 @@
 //! cites each key, what opening a reference's paper does, and a new entry as
 //! the file will hold it.
 
-use std::collections::HashMap;
+use std::{cmp::Ordering, collections::HashMap, sync::LazyLock};
+
+use icu_collator::{Collator, CollatorBorrowed, options::CollatorOptions};
 
 use lattice_core::{
     bib_document::{self, BibEdit, BibEntry, BibSummary},
@@ -122,6 +124,16 @@ fn sort_surname(summary: &BibSummary) -> String {
         .to_lowercase()
 }
 
+/// Two names in the order the Tauri app's `localeCompare` puts them: by
+/// letter before accent, so "Über" sorts with the U's.
+fn locale_compare(a: &str, b: &str) -> Ordering {
+    static COLLATOR: LazyLock<CollatorBorrowed<'static>> = LazyLock::new(|| {
+        Collator::try_new(Default::default(), CollatorOptions::default())
+            .expect("the root collation is compiled in")
+    });
+    COLLATOR.compare(a, b)
+}
+
 /// The rows the list shows: those the filter keeps whose text holds every
 /// word of the query, in the order chosen (file order breaks ties).
 pub fn shown<'a>(
@@ -151,16 +163,11 @@ pub fn shown<'a>(
                 .then(a.index.cmp(&b.index))
         }),
         BibSort::Author => matching.sort_by(|a, b| {
-            sort_surname(&a.summary)
-                .cmp(&sort_surname(&b.summary))
+            locale_compare(&sort_surname(&a.summary), &sort_surname(&b.summary))
                 .then(a.index.cmp(&b.index))
         }),
         BibSort::Title => matching.sort_by(|a, b| {
-            a.summary
-                .title
-                .to_lowercase()
-                .cmp(&b.summary.title.to_lowercase())
-                .then(a.index.cmp(&b.index))
+            locale_compare(&a.summary.title, &b.summary.title).then(a.index.cmp(&b.index))
         }),
     }
     matching
@@ -479,8 +486,6 @@ pub enum QueryFill {
 }
 
 pub fn fields_from_query(query: &str) -> Option<QueryFill> {
-    use std::sync::LazyLock;
-
     use regex::Regex;
     static DOI: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"(?i)^(?:https?://(?:dx\.)?doi\.org/|doi:\s*)?(10\.\d{4,9}/\S+)$").unwrap()
@@ -692,6 +697,26 @@ mod tests {
         assert_eq!((tail.from, tail.to), (8, 9));
     }
 
+    // The order `localeCompare` gives in the Tauri app: accented letters
+    // sort with their base letter, not after "z".
+    #[test]
+    fn the_author_and_title_sorts_follow_the_locale_order() {
+        let rows = vec![
+            row(0, "z", "Zeta", "2001", "Anna Zimmer"),
+            row(1, "u", "Über Wellen", "2002", "Kari Ølberg"),
+            row(2, "a", "alpha", "2003", "Rui Évora"),
+            row(3, "f", "Fourier", "2004", "Hans Fischer"),
+        ];
+        let keys = |sort| {
+            shown(&rows, "", BibFilter::All, sort, None)
+                .iter()
+                .map(|row| row.entry.key.clone())
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(keys(BibSort::Title), ["a", "f", "u", "z"]);
+        assert_eq!(keys(BibSort::Author), ["a", "f", "u", "z"]);
+    }
+
     #[test]
     fn a_lone_brace_is_dropped_even_when_escaped() {
         let draft = Draft {
@@ -701,6 +726,7 @@ mod tests {
             ..Default::default()
         };
         let entry = draft.format();
+        assert!(entry.contains(r"title = {Set \x}"), "{entry}");
         assert!(lattice_core::bib_document::parse(&entry).is_ok(), "{entry}");
         let paired = Draft {
             title: r"Set \{x\}".into(),

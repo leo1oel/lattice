@@ -489,7 +489,7 @@ impl BibEditor {
                 .tooltip(url.clone())
                 .on_click(move |_, _, cx| crate::papers::model::open_link(&url, cx))
         };
-        let open_key = entry.key.clone();
+        let open_index = row.index;
         let (path, line) = (self.path.clone(), entry.line as u32);
         let (delete_key, delete_index) = (entry.key.clone(), row.index);
         let mut actions = div().flex().flex_wrap().gap(px(4.)).mt(px(8.));
@@ -507,7 +507,7 @@ impl BibEditor {
                         .icon(icon)
                         .disabled(state == PaperState::Downloading)
                         .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
-                            this.open_paper(&open_key, window, cx)
+                            this.open_paper(open_index, window, cx)
                         })),
                 )
             }

@@ -8271,6 +8271,7 @@ dependencies = [
  "gpui-kit",
  "gpui_platform",
  "hdrhistogram",
+ "icu_collator",
  "image",
  "indexmap",
  "language",

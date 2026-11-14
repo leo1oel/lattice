@@ -247,11 +247,8 @@ impl Audit {
         let entry = &self.entries[index];
         let bucket = self.bucket(index);
         let (icon, ink) = mark(bucket, self.checking.contains(&index), &palette);
-        let message = self
-            .results
-            .get(&index)
-            .map(|result| super::messages::result_message(&result.message))
-            .unwrap_or_default();
+        let message =
+            super::summary::summary(self.results.get(&index), bucket, entry.inline.is_some());
         let open = self.open == Some(index);
         div()
             .flex()

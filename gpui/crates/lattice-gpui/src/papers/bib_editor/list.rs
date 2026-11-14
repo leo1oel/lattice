@@ -326,7 +326,6 @@ impl BibEditor {
             })
             .child(chip)
             .children(use_mark);
-        let open_key = key.clone();
         let paper_control = paper
             .filter(|state| *state != PaperState::None)
             .map(|state| {
@@ -354,7 +353,7 @@ impl BibEditor {
                     .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                     .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
                         cx.stop_propagation();
-                        this.open_paper(&open_key, window, cx)
+                        this.open_paper(index, window, cx)
                     }))
                     .child(icon.element(ICON, ink))
             });

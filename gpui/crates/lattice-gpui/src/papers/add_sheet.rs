@@ -158,7 +158,10 @@ impl AddPapers {
                 this.typed(cx);
             }
         });
-        let refresh = cx.observe(&papers, |_, _, cx| cx.notify());
+        let refresh = cx.observe(&papers, |this, _, cx| {
+            this.look_up(cx);
+            cx.notify();
+        });
         let mut this = Self {
             papers,
             text,
