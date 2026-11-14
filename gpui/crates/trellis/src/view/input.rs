@@ -282,6 +282,24 @@ impl TrellisWorkspace {
         })
     }
 
+    /// Whether a point (workspace px) is over the tab strip of the panel
+    /// drawn on top there.
+    fn over_strip(&self, p: crate::model::Point) -> bool {
+        self.panel_at(p).is_some_and(|panel| {
+            let bar = if panel.bar_height > 0. {
+                panel.bar_height
+            } else {
+                40.
+            };
+            !panel.frame_only
+                && matches!(
+                    panel.bar,
+                    crate::model::TabbarMode::Always | crate::model::TabbarMode::Overlay
+                )
+                && p.y < panel.rect.y + bar
+        })
+    }
+
     fn wheel(&mut self, event: &ScrollEvent, cx: &mut Context<Self>) {
         let p = self.local(event.position);
         // A view's content keeps its wheel; Ctrl over it is a pinch the view
@@ -289,6 +307,16 @@ impl TrellisWorkspace {
         if let Some(view) = self.over_content(p)
             && (!event.modifiers.control || self.skin.owns_gestures(&view, cx))
         {
+            return;
+        }
+        // A plain wheel over a tab strip is the strip's: its list's own
+        // listener has already scrolled it if its tabs overflow, and a strip
+        // that fits does nothing. It never zooms the camera, which would
+        // put up "Release to focus" for a scroll that only grazed the tabs.
+        // Ctrl (a zoom) and Shift (a hierarchy step) still navigate, as
+        // pinches do.
+        if !event.modifiers.control && !event.modifiers.shift && self.over_strip(p) {
+            cx.stop_propagation();
             return;
         }
         let delta = match event.delta {

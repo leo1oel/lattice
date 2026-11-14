@@ -245,13 +245,18 @@ impl Skin for LatticeSkin {
         } else if tab.atomic {
             TabFit::Full
         } else {
-            let min = panel
-                .header
-                .tab_min
-                .map_or(strip::DOCUMENT_TAB_MIN, |min| px(min as f32));
-            TabFit::Shrinks {
-                min: natural.min(min),
-            }
+            // The strip holds the tab's slot to the same minimum.
+            let min = tab.min_width.map_or_else(
+                || {
+                    let min = panel
+                        .header
+                        .tab_min
+                        .map_or(strip::DOCUMENT_TAB_MIN, |min| px(min as f32));
+                    natural.min(min)
+                },
+                |min| px(min as f32),
+            );
+            TabFit::Shrinks { min }
         };
         let close = actions.close;
         PanelTab::new(
