@@ -10,6 +10,8 @@ use serde_json::{Value, json};
 use super::Run;
 use crate::{editor_panel::EditorPanel, native};
 
+#[cfg(target_os = "macos")]
+mod agent;
 mod assets;
 mod build_flow;
 mod design_calls;
@@ -312,6 +314,10 @@ impl Run {
         #[cfg(target_os = "macos")]
         if steps::selected("markdown") {
             self.markdown_island(cx, &mut steps, &root).await?;
+        }
+        #[cfg(target_os = "macos")]
+        if steps::selected("agent") {
+            self.agent_islands(cx, &mut steps, &root).await?;
         }
         if steps::selected("tab_strip") {
             self.tab_strip(cx, &mut steps, &root).await?;

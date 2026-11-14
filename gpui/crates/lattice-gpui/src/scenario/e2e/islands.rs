@@ -61,6 +61,7 @@ impl Run {
         self.webview_islands(cx, &mut steps, &root).await?;
         self.structured_islands(cx, &mut steps, &root).await?;
         self.markdown_island(cx, &mut steps, &root).await?;
+        self.agent_islands(cx, &mut steps, &root).await?;
         steps.check_foreground(self);
         let passed = steps.0.iter().all(|step| step["passed"] == true);
         Ok(json!({ "scenario": "islands", "passed": passed, "steps": steps.0 }))

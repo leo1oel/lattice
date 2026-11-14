@@ -37,6 +37,7 @@ const DOCK_STEPS = "gpui/crates/lattice-gpui/src/scenario/shell_steps.rs";
 
 /** The scenario's modules (files under scenario/e2e/, and `dock` for scenario/shell_steps.rs). */
 export const MODULES = [
+  "agent",
   "assets",
   "build_flow",
   "design_calls",

@@ -183,6 +183,11 @@ impl SynaraSurface {
         self.kind
     }
 
+    /// What the page was last told of the writer's workspace.
+    pub fn workspace(&self) -> &Value {
+        &self.workspace
+    }
+
     pub fn is_drawn(&self) -> bool {
         self.drawn
     }

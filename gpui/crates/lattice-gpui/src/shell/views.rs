@@ -40,6 +40,7 @@ pub const SINGLETONS: &[&str] = &[
     "todos",
     "checklist",
     "terminal",
+    "git",
 ];
 
 /// The window's panel for each view id.
