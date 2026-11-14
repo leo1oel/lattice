@@ -29,6 +29,7 @@ use std::{
 use serde_json::json;
 
 use super::overleaf_realtime_mock::{self as realtime, Live, Store};
+use super::overleaf_review_mock as review;
 
 pub const PROJECT_ID: &str = "proj-mock";
 pub const PROJECT_NAME: &str = "Mock Paper";
@@ -152,6 +153,63 @@ impl MockOverleaf {
     /// (`landed`, its acknowledgement lost) or before it does.
     pub fn sever(&self, landed: bool) {
         self.project.lock().unwrap().live.sever = Some(landed);
+    }
+
+    /// The scripted collaborator suggests `ops` in `path` (tracked
+    /// changes); false when they do not fit.
+    pub fn peer_suggested(&self, path: &str, ops: Vec<lattice_core::overleaf_rt::OtOp>) -> bool {
+        let suggested = {
+            let mut project = self.project.lock().unwrap();
+            let Project { files, live, .. } = &mut *project;
+            review::peer_suggested(files, live, path, ops)
+        };
+        if suggested {
+            bump(&mut self.project.lock().unwrap(), path, CO_AUTHOR);
+        }
+        suggested
+    }
+
+    /// The scripted collaborator starts a thread on `quote` at UTF-16
+    /// `position` of `path`; its id.
+    pub fn peer_commented(&self, path: &str, position: i64, quote: &str, content: &str) -> String {
+        let mut project = self.project.lock().unwrap();
+        review::peer_commented(&mut project.live, path, position, quote, content)
+    }
+
+    /// Turn the project's track changes on or off for everyone, as the
+    /// browser's toggle does.
+    pub fn set_track_changes(&self, on: bool) {
+        let mut project = self.project.lock().unwrap();
+        project.live.track_changes = on;
+        realtime::broadcast(
+            &project.live,
+            None,
+            &realtime::event("toggle-track-changes", serde_json::json!([on])),
+        );
+    }
+
+    /// `path`'s suggestions on the stand-in.
+    pub fn changes(&self, path: &str) -> Vec<lattice_core::overleaf_rt::TrackedChange> {
+        self.project.lock().unwrap().live.review.changes(path)
+    }
+
+    /// `path`'s comment anchors on the stand-in.
+    pub fn comments(&self, path: &str) -> Vec<lattice_core::overleaf_rt::CommentRange> {
+        self.project.lock().unwrap().live.review.comments(path)
+    }
+
+    /// Thread `id`'s messages and whether it is resolved.
+    pub fn thread(&self, id: &str) -> Option<(Vec<String>, bool)> {
+        self.project.lock().unwrap().live.review.thread(id)
+    }
+
+    pub fn thread_ids(&self) -> Vec<String> {
+        self.project.lock().unwrap().live.review.thread_ids()
+    }
+
+    /// The review REST requests, `METHOD path` after the project.
+    pub fn review_requests(&self) -> Vec<String> {
+        self.project.lock().unwrap().live.review.requests.clone()
     }
 
     /// Every caret position the app published, as sent.
@@ -388,7 +446,24 @@ fn answer(stream: TcpStream, project: Arc<Mutex<Project>>) -> std::io::Result<()
     let (status, content_type, extra, body): (u16, &str, Option<String>, Vec<u8>) = {
         let mut project = project.lock().unwrap();
         project.requests.push(format!("{method} {path}"));
+        // Comment threads and suggestions (`overleaf_review_mock`).
+        let mut review = path
+            .strip_prefix(&project_path)
+            .filter(|_| signed_in)
+            .and_then(|rest| {
+                let Project { files, live, .. } = &mut *project;
+                review::rest(live, files, &method, rest, &body)
+            });
         match (method.as_str(), path.as_str()) {
+            _ if review.is_some() => {
+                let (status, answer) = review.take().unwrap_or_default();
+                (
+                    status,
+                    "application/json",
+                    None,
+                    answer.to_string().into_bytes(),
+                )
+            }
             ("GET", "/login") => (
                 200,
                 "text/html",

@@ -41,6 +41,7 @@ use crate::{editor_panel::EditorPanel, history::conflicts::has_conflict_markers}
 
 mod joining;
 mod resume;
+mod reviewing;
 
 /// Typing goes out this long after the first unsent keystroke.
 const SEND_AFTER: Duration = Duration::from_millis(250);
@@ -301,8 +302,9 @@ impl OverleafBridge {
                 );
             }
         }
+        let id = doc.doc_id.clone();
+        self.review_moved(&id, &typed.ops, true, None, cx);
         if let Some(send) = typed.send {
-            let id = doc.doc_id.clone();
             self.send_ops(&id, send, Vec::new(), cx);
         }
         cx.notify();
@@ -319,6 +321,8 @@ impl OverleafBridge {
         let Some(client) = self.client.clone() else {
             return;
         };
+        // Overleaf's setting, followed: typing goes out as suggestions.
+        let tracked = self.tracking();
         let Some(doc) = self.doc_mut(doc_id) else {
             return;
         };
@@ -342,7 +346,7 @@ impl OverleafBridge {
                 hash: hash.as_deref(),
             };
             asked
-                .send_ops(&doc_id, send.version, send.ops, false, submission)
+                .send_ops(&doc_id, send.version, send.ops, tracked, submission)
                 .await
         });
         let doc_id = doc.doc_id.clone();
@@ -386,7 +390,7 @@ impl OverleafBridge {
                 version,
                 ops,
                 source,
-                ..
+                suggested_by,
             } => {
                 let own = self.client.as_ref().map(|client| client.public_id());
                 let is_live = self
@@ -423,7 +427,9 @@ impl OverleafBridge {
                         let fits = doc.editor.upgrade().is_none_or(|panel| {
                             panel.update(cx, |panel, cx| panel.take_overleaf_ops(&applied, cx))
                         });
-                        if !fits {
+                        if fits {
+                            self.review_moved(&doc_id, &applied, false, suggested_by, cx);
+                        } else {
                             let notice = t!("This document drifted from Overleaf's copy, so live editing stopped. Syncing will reconcile it.").to_string();
                             self.drop_live(&doc_id, Some(notice), cx);
                         }
@@ -440,9 +446,17 @@ impl OverleafBridge {
                 .to_string();
                 self.drop_live(&doc_id, Some(notice), cx);
             }
-            _ => {}
+            other => self.review_event(other, cx),
         }
         cx.notify();
+    }
+
+    /// `doc_id`'s server version when it has nothing of ours outstanding
+    /// (sent, queued, or waiting to go out): what a REST action on it, or a
+    /// read-back of its ranges, may be built on.
+    pub(super) fn settled_version(&mut self, doc_id: &str) -> Option<i64> {
+        let doc = self.doc_mut(doc_id)?;
+        (doc.ot.settled() && doc.send.is_none()).then(|| doc.ot.version())
     }
 
     /// The copy of `doc_id` being edited or drained. There is at most one:
@@ -511,6 +525,7 @@ impl OverleafBridge {
         if self.doc_in_use(doc_id) {
             return;
         }
+        self.review_doc_left(doc_id);
         if let Some(client) = self.client.clone() {
             joining::leave_room(client, doc_id);
         }

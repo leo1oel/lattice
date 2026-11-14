@@ -167,7 +167,11 @@ pub(super) fn hold(root: PathBuf, bridge: WeakEntity<OverleafBridge>, cx: &Async
                             | RealtimeEvent::DocUpdate { .. }
                             | RealtimeEvent::DocAck { .. }
                             | RealtimeEvent::OtError { .. }
-                            | RealtimeEvent::Connected { .. }) => {
+                            | RealtimeEvent::Connected { .. }
+                            | RealtimeEvent::CommentAnchored { .. }
+                            | RealtimeEvent::ChangesAccepted { .. }
+                            | RealtimeEvent::TrackChangesToggled { .. }
+                            | RealtimeEvent::ThreadsChanged) => {
                                 let told = bridge.update(cx, |bridge, cx| {
                                     bridge.channel_news(ChannelNews::Event(event), cx)
                                 });
