@@ -651,12 +651,15 @@ impl Panel for BuildPanel {
 }
 
 impl Render for BuildPanel {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let this = cx.entity();
-        v_flex()
-            .track_focus(&self.focus_handle)
-            .size_full()
-            .child(div().flex_1().min_h_0().child(card::panel(self, &this, cx)))
+        let hover = card::diagnostics_hover("build-panel-diagnostics-hover", window, cx);
+        v_flex().track_focus(&self.focus_handle).size_full().child(
+            div()
+                .flex_1()
+                .min_h_0()
+                .child(card::panel(self, &this, &hover, cx)),
+        )
     }
 }
 
@@ -679,10 +682,11 @@ impl DiagnosticsCard {
 impl Render for DiagnosticsCard {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let build = self.build.clone();
+        let hover = card::diagnostics_hover("build-card-diagnostics-hover", window, cx);
         let panel = build.read(cx);
         if !panel.card_shown() {
             return div().into_any_element();
         }
-        card::card(panel, &build, window, cx)
+        card::card(panel, &build, &hover, window, cx)
     }
 }

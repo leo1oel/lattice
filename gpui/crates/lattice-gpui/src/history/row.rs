@@ -4,7 +4,8 @@
 //! A row: a 24px glyph on the day's rail (a hairline through the glyphs from
 //! the day's first row to its last), then a head (its title in the body
 //! role, the clock time at its right, who and what in a caption meta line)
-//! that lights on the fast tier, the row's tools waiting behind the time
+//! that the timeline's one gliding fill lights ([`FluidHover`], one section
+//! per day), the row's tools waiting behind the time
 //! until the pointer reaches the row, the two cross-fading; opened, the
 //! body fades in under the head on the moderate tier, its height not
 //! animated, so the rows below move once.
@@ -17,6 +18,7 @@ use gpui::{
 use lattice_ui::Motion;
 use lattice_ui::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
+    fluid_hover::{FluidHover, ItemKind},
     interaction::{fade, track_pointer, use_interaction},
     reveal::{Arrival, reveal},
     tokens::{FONT_WEIGHT_MEDIUM, FONT_WEIGHT_SEMIBOLD, RADIUS_CONTROL, RADIUS_PILL},
@@ -92,9 +94,23 @@ pub fn person(name: &str) -> AnyElement {
         .into_any_element()
 }
 
+/// Where a row's head sits in the timeline's fluid hover: the hover, the
+/// row's index in it, and its day (each day a section, so the fill fades
+/// across a day's heading instead of sliding through it).
+pub struct Glide<'a> {
+    pub hover: &'a FluidHover,
+    pub index: usize,
+    pub day: usize,
+}
+
 /// One row: the glyph on the rail, the head, the tools behind the time, the
 /// body under the head.
-pub fn history_row(parts: RowParts, window: &mut Window, cx: &mut App) -> AnyElement {
+pub fn history_row(
+    parts: RowParts,
+    glide: Glide<'_>,
+    window: &mut Window,
+    cx: &mut App,
+) -> AnyElement {
     let palette = cx.palette().clone();
     let id = SharedString::from(format!("history-row-{}", parts.key));
     let probe = parts.probe;
@@ -114,7 +130,13 @@ pub fn history_row(parts: RowParts, window: &mut Window, cx: &mut App) -> AnyEle
     };
     let head_id = SharedString::from(format!("{id}-head"));
     let (head, head_pointer) = use_interaction(head_id.clone(), window, cx);
-    let wash = head.wash(gpui::transparent_black(), palette.hover, palette.pressed);
+    // The head's hover is the timeline's gliding fill; a press still darkens
+    // the head itself.
+    let wash = head.wash(
+        gpui::transparent_black(),
+        gpui::transparent_black(),
+        palette.pressed,
+    );
 
     // The rail: a hairline through the glyphs, from the day's first glyph to its last.
     let top = if parts.first { 16. } else { 0. };
@@ -234,6 +256,9 @@ pub fn history_row(parts: RowParts, window: &mut Window, cx: &mut App) -> AnyEle
             .child(time),
     )
     .children(meta);
+    let head = glide
+        .hover
+        .item_as(glide.index, ItemKind::target().section(glide.day), head);
     let body = parts.body.map(|body| {
         reveal(
             SharedString::from(format!("{id}-body")),

@@ -2,12 +2,14 @@
 //! the recent projects other than this one (five at most), each opened in a
 //! window of its own by its row or in this window by the row's trailing
 //! window glyph; then Open another folder (with its own in-this-window
-//! glyph), New project, Clone repository…, and the Guided tutorial.
+//! glyph), New project, Clone repository…, Open from Overleaf, the Guided
+//! tutorial, and
+//! Settings, the titlebar's way into Settings, as the app's menu ends.
 //!
 //! The glyph is the row's secondary action (`MenuAction::secondary`): the
 //! keys reach it with → from its row and run it with Enter, as the app's
-//! glyph is an item of its own. Export ZIP, Export for arXiv and Settings
-//! belong to other lanes of the port.
+//! glyph is an item of its own. Export ZIP and Export for arXiv belong to
+//! other lanes of the port.
 
 use std::path::PathBuf;
 
@@ -96,12 +98,27 @@ pub(super) fn project_menu(
     )
     .separator()
     .item(
-        MenuAction::new("Guided tutorial", move |window, cx| {
-            shell
-                .update(cx, |shell, cx| shell.open_tutorial(window, cx))
-                .ok();
+        MenuAction::new("Guided tutorial", {
+            let shell = shell.clone();
+            move |window, cx| {
+                shell
+                    .update(cx, |shell, cx| shell.open_tutorial(window, cx))
+                    .ok();
+            }
         })
         .icon(Icon::SPARKLES),
+    )
+    // Settings opens on its shell directly, as the app's `onSettings` does,
+    // rather than as an action dispatched from whatever focus the menu
+    // interrupted: a press on the titlebar leaves no focused view on the
+    // shell's dispatch path to carry it there.
+    .item(
+        MenuAction::new(t!("Settings"), move |window, cx| {
+            shell
+                .update(cx, |shell, cx| shell.open_settings(None, window, cx))
+                .ok();
+        })
+        .icon(Icon::SETTINGS),
     )
 }
 

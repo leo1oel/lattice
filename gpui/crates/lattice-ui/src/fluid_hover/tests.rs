@@ -83,10 +83,51 @@ fn within_a_section_the_fill_glides_on_the_fast_tier() {
     let y = f32::from(lit.rect.value(halfway).origin.y);
     assert!(y > 0. && y < 28., "mid-glide {y}");
     assert_eq!(
-        lit.rect.value(later + crate::tokens::DURATION_FAST),
+        lit.rect.value(later + crate::tokens::DURATION_FAST * 2),
         row(28.)
     );
     assert!(state.leaving.is_empty(), "a glide leaves nothing behind");
+}
+
+#[test]
+fn a_glide_retargeted_mid_flight_keeps_moving_instead_of_restarting() {
+    let start = Instant::now();
+    let mut state = FluidHoverState::default();
+    for ix in 0..4 {
+        state.record(ix, row(28. * ix as f32), ItemKind::target());
+    }
+    state.pointer_moved(point(px(10.), px(10.)), true, false, Axis::Vertical, start);
+    state.reconcile(start, false);
+    let shown = start + crate::tokens::DURATION_FAST;
+    state.pointer_moved(point(px(10.), px(40.)), true, false, Axis::Vertical, shown);
+    state.reconcile(shown, false);
+    // The pointer reaches the third row 20 ms into the glide to the second.
+    let crossing = shown + Duration::from_millis(20);
+    let before = state.lit.unwrap().rect.value(crossing).origin.y;
+    state.pointer_moved(
+        point(px(10.), px(70.)),
+        true,
+        false,
+        Axis::Vertical,
+        crossing,
+    );
+    state.reconcile(crossing, false);
+    let lit = state.lit.unwrap();
+    assert_eq!(lit.index, 2);
+    assert_eq!(lit.rect.value(crossing).origin.y, before, "no jump");
+    // Every frame after moves it on toward the third row, never back.
+    let mut last = before;
+    for frame in 1..=12 {
+        let at = crossing + Duration::from_micros(8_333 * frame);
+        let y = lit.rect.value(at).origin.y;
+        assert!(y >= last, "frame {frame}: {y:?} after {last:?}");
+        assert!(y <= px(56.) + px(0.05), "frame {frame} overshoots: {y:?}");
+        last = y;
+    }
+    assert!(
+        lit.rect.velocity(crossing).origin.y > px(0.),
+        "the glide is still moving when it is retargeted"
+    );
 }
 
 #[test]
@@ -145,16 +186,31 @@ fn a_skipped_row_clears_the_fill() {
 }
 
 #[test]
-fn a_resting_pointer_does_not_relight_after_a_scroll() {
+fn a_scroll_under_a_resting_pointer_lights_the_row_that_comes_under_it() {
     let start = Instant::now();
     let mut state = state_with_menu();
     let at = point(px(10.), px(10.));
     state.pointer_moved(at, true, false, Axis::Vertical, start);
+    state.reconcile(start, false);
+    assert_eq!(state.lit.unwrap().index, 0);
     assert!(state.scrolled(start));
+    // A repeated position is still no pointer move.
     assert!(!state.pointer_moved(at, true, false, Axis::Vertical, start));
-    assert_eq!(state.wanted, None);
-    assert!(state.pointer_moved(point(px(11.), px(10.)), true, false, Axis::Vertical, start));
-    assert_eq!(state.wanted, Some(0));
+    // The next frame lays the rows out 28px higher: row 1 is under the
+    // pointer now, and the fill glides to it.
+    state.frame += 1;
+    for (ix, bounds) in menu() {
+        let section = if ix < 2 { 0 } else { 1 };
+        let moved = Bounds {
+            origin: point(bounds.origin.x, bounds.origin.y - px(28.)),
+            ..bounds
+        };
+        state.record(ix, moved, ItemKind::target().section(section));
+    }
+    state.reconcile(start, false);
+    assert_eq!(state.wanted, Some(1));
+    assert_eq!(state.lit.unwrap().index, 1);
+    assert!(state.leaving.is_empty(), "a glide, not a fade");
 }
 
 #[test]
@@ -162,17 +218,19 @@ fn a_quiet_list_stays_dark_until_the_scroll_settles() {
     let start = Instant::now();
     let mut state = state_with_menu();
     state.quiet_after_scroll = Some(Duration::from_millis(150));
+    let at = point(px(10.), px(10.));
+    state.pointer_moved(at, true, false, Axis::Vertical, start);
     state.scrolled(start);
-    state.pointer_moved(point(px(10.), px(10.)), true, false, Axis::Vertical, start);
-    assert_eq!(state.wanted, None);
-    let settled = start + Duration::from_millis(151);
-    state.pointer_moved(
-        point(px(11.), px(10.)),
-        true,
-        false,
-        Axis::Vertical,
-        settled,
+    assert!(
+        state.reconcile(start, false),
+        "it keeps drawing while quiet"
     );
+    assert_eq!(state.wanted, None);
+    state.pointer_moved(point(px(11.), px(10.)), true, false, Axis::Vertical, start);
+    assert_eq!(state.wanted, None);
+    // Once the quiet spell is over, the row under the resting pointer lights.
+    let settled = start + Duration::from_millis(151);
+    state.reconcile(settled, false);
     assert_eq!(state.wanted, Some(0));
 }
 

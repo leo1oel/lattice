@@ -112,8 +112,9 @@ pub struct SettingsDialog {
     viewport: Rc<RefCell<Bounds<Pixels>>>,
     /// In the narrow form, a section's page is open (not the list).
     pub(super) narrow_page: bool,
-    /// The section row the pointer is over, for the gliding fill.
-    pub(super) nav_hover: Option<usize>,
+    /// The search result the pointer's fill was on as last adopted, so only
+    /// a new one moves the arrows' place.
+    pub(super) results_adopted: Option<usize>,
     /// Settings › Overleaf's view of the account, once the page is drawn.
     pub(super) overleaf: Option<Entity<super::overleaf_pane::OverleafConnection>>,
     _reveal_task: Option<Task<()>>,
@@ -332,7 +333,7 @@ impl SettingsDialog {
             rows: Rc::default(),
             viewport: Rc::default(),
             narrow_page: false,
-            nav_hover: None,
+            results_adopted: None,
             overleaf: None,
             _reveal_task: None,
             _subscriptions: subscriptions,

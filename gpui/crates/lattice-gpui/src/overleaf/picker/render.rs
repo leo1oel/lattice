@@ -278,7 +278,12 @@ impl Render for OverleafPicker {
             .overflow_hidden()
             .track_focus(&self.focus)
             .capture_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
-                if this.publish_name.read(cx).focus_handle(cx).is_focused(window) {
+                if this
+                    .publish_name
+                    .read(cx)
+                    .focus_handle(cx)
+                    .is_focused(window)
+                {
                     return;
                 }
                 let key = event.keystroke.key.as_str();
