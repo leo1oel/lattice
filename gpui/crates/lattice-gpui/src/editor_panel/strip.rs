@@ -43,9 +43,13 @@ impl Panel for EditorPanel {
         if self.structured.is_some() {
             return None;
         }
+        // Short of room the strip keeps only the chip's mark
+        // (`HeaderTools::Icon`; the saving `offer_view_switch` registers).
+        let panel = gpui_kit::component::dock::PanelId::from(cx.entity_id());
+        let icon_only = lattice_ui::dock::tools_icon_only(panel, cx);
         Some(
             self.view_switch(window, cx)
-                .unwrap_or_else(|| editor_status::build_chip(&self.build, window, cx)),
+                .unwrap_or_else(|| editor_status::build_chip(&self.build, icon_only, window, cx)),
         )
     }
 

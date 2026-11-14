@@ -40,6 +40,7 @@ use lattice_i18n::t;
 
 mod drafts;
 mod links;
+mod live;
 mod pages;
 mod pointer;
 mod search;
@@ -168,6 +169,11 @@ pub struct PdfView {
     /// A zoom whose fit and scale are remembered once it rests.
     zoom_unsaved: bool,
     pub(super) scroll: ScrollHandle,
+    /// The vertical bar's thumb opacity as last drawn, for a scripted check
+    /// that it hides once the pages rest.
+    pub(super) scrollbar_drawn: std::rc::Rc<std::cell::Cell<f32>>,
+    pub(super) scrollbar_thumb:
+        std::rc::Rc<std::cell::Cell<Option<lattice_ui::scrollbar::DrawnThumb>>>,
     /// The scroll container's size and window position as of the last frame.
     pub(super) viewport: Bounds<Pixels>,
     /// The whole view's width as of the last frame, which decides whether
@@ -199,6 +205,11 @@ pub struct PdfView {
     /// scenario's look at it).
     pub(super) toolbar_hover: Option<lattice_ui::fluid_hover::FluidHover>,
     stats: RenderStats,
+    /// The live preview's layer over the pages (`crate::live_preview`).
+    live: Option<crate::live_preview::layer::Layer>,
+    /// A document shown whose pages on screen are not all drawn yet: once
+    /// they are, the live preview hears it is on screen.
+    promote: Option<u64>,
     _open_task: Option<Task<()>>,
     _mark_task: Option<Task<()>>,
     settle_task: Option<Task<()>>,
@@ -232,6 +243,9 @@ impl PdfView {
             // A viewer let go of with its pages drawn frees their textures
             // from every window's atlas.
             cx.on_release(|this, cx| {
+                if let Some(layer) = &mut this.live {
+                    layer.release_all(cx);
+                }
                 for slot in &mut this.pages {
                     for drawn in [&mut slot.base, &mut slot.detail] {
                         drawn.cancel();
@@ -256,6 +270,8 @@ impl PdfView {
             render_scale: preference.scale,
             zoom_unsaved: false,
             scroll: ScrollHandle::new(),
+            scrollbar_drawn: Default::default(),
+            scrollbar_thumb: Default::default(),
             viewport: Bounds::default(),
             width: px(0.),
             current_page: 0,
@@ -297,6 +313,8 @@ impl PdfView {
             zoom_entry: false,
             toolbar_hover: None,
             stats: RenderStats::default(),
+            live: None,
+            promote: None,
             _open_task: None,
             _mark_task: None,
             settle_task: None,
@@ -354,6 +372,17 @@ impl PdfView {
 
     /// Whether a place the viewer was given still waits for the pages to be
     /// laid out at the viewport's size.
+    /// The vertical scrollbar's thumb opacity as last drawn: 0 while it
+    /// hides.
+    pub fn scrollbar_opacity(&self) -> f32 {
+        self.scrollbar_drawn.get()
+    }
+
+    /// The vertical scrollbar's thumb as last drawn, `None` while it hides.
+    pub fn scrollbar_thumb(&self) -> Option<lattice_ui::scrollbar::DrawnThumb> {
+        self.scrollbar_thumb.get()
+    }
+
     pub fn has_pending_scroll(&self) -> bool {
         self.pending_scroll.is_some()
     }
@@ -484,6 +513,9 @@ impl PdfView {
     }
 
     fn reset(&mut self, window: &mut Window) {
+        if let Some(layer) = &mut self.live {
+            layer.release_every(window);
+        }
         for mut slot in self.pages.drain(..) {
             slot.base.release(window);
             slot.detail.release(window);
@@ -607,6 +639,8 @@ impl PdfView {
         self.scroll_to_mark(cx);
         // The pages on screen are asked for now, not at the next frame.
         self.sync_pages(window, cx);
+        self.promote = Some(generation);
+        self.check_promoted(cx);
         cx.notify();
     }
 

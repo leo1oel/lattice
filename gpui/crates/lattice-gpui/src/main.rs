@@ -9,6 +9,7 @@
 
 mod app;
 mod app_log;
+mod asset_preview;
 mod assets;
 mod build;
 mod build_panel;
@@ -23,6 +24,7 @@ mod help;
 mod history;
 mod html_preview;
 mod interface_zoom;
+mod live_preview;
 mod moved_paths;
 #[cfg(target_os = "macos")]
 mod native;

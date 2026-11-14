@@ -9,8 +9,10 @@
 //!   bar is invisible, and nothing at all when the content fits;
 //! - the bar shows while the pointer is over the area and for 500 ms after
 //!   the last scroll (Base UI's `SCROLL_TIMEOUT`), fading in over 160 ms on
-//!   the fast tier's curve; it hides on the same curve over 80 ms after
-//!   waiting 160 ms, so the thumb narrows back before the fade can mask it;
+//!   the fast tier's curve; it hides with an ease-out over 120 ms after
+//!   waiting 160 ms, so the thumb narrows back before the fade can mask it
+//!   (Fluid Functionalism's scroll area: `duration-120 ease-out delay-160`,
+//!   `duration-160` in), on every feel alike;
 //! - the thumb is a pill, 4px wide at rest and 2px off the edge, 6px under
 //!   the pointer, in the ink at 8%, 12% over the track and 16% while held,
 //!   its width and colour moving on the moderate tier; it stands 4px in from
@@ -51,7 +53,7 @@ use crate::{
     ActiveLattice as _,
     motion::{Motion, Tween},
     token_types::MotionToken,
-    tokens::{DURATION_FAST, DURATION_MODERATE, EASE_FAST},
+    tokens::{DURATION_MODERATE, DURATION_MODERATE_EXIT, EASE_EXIT, EASE_FAST},
 };
 
 /// The track's width: the hit target, flush with the edge.
@@ -74,9 +76,11 @@ pub const INK_HELD: f32 = 0.16;
 
 /// The bar's fade in: `--motion-fast`'s curve over `--duration-moderate`.
 const SHOW: MotionToken = MotionToken::new(DURATION_MODERATE, EASE_FAST);
-/// The fade out: `--motion-fast`, after `--duration-moderate`.
-const HIDE: MotionToken = MotionToken::new(DURATION_FAST, EASE_FAST);
-const HIDE_DELAY: Duration = DURATION_MODERATE;
+/// The fade out: an ease-out over `--duration-moderate-exit`, after
+/// `--duration-moderate`, Fluid Functionalism's `duration-120 ease-out
+/// delay-160`: exits a tier quicker than the 160 ms fade in.
+pub const HIDE: MotionToken = MotionToken::new(DURATION_MODERATE_EXIT, EASE_EXIT);
+pub const HIDE_DELAY: Duration = DURATION_MODERATE;
 
 /// What a press on the track, off the thumb, does.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -278,6 +282,14 @@ pub struct FluidScrollbar {
     feel: ScrollbarFeel,
     ink: Option<Hsla>,
     drawn: Option<Rc<Cell<f32>>>,
+    drawn_thumb: Option<Rc<Cell<Option<DrawnThumb>>>>,
+}
+
+/// The thumb as it was last painted, and the track it stands in.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct DrawnThumb {
+    pub thumb: Bounds<Pixels>,
+    pub track: Bounds<Pixels>,
 }
 
 impl FluidScrollbar {
@@ -289,6 +301,7 @@ impl FluidScrollbar {
             feel: ScrollbarFeel::AREA,
             ink: None,
             drawn: None,
+            drawn_thumb: None,
         }
     }
 
@@ -309,6 +322,13 @@ impl FluidScrollbar {
     /// caller that checks what is on screen.
     pub fn drawn_opacity(mut self, drawn: Rc<Cell<f32>>) -> Self {
         self.drawn = Some(drawn);
+        self
+    }
+
+    /// Where to note the thumb's bounds each time it is drawn (`None` while
+    /// it is invisible or the content fits), for a caller that measures it.
+    pub fn drawn_thumb(mut self, thumb: Rc<Cell<Option<DrawnThumb>>>) -> Self {
+        self.drawn_thumb = Some(thumb);
         self
     }
 
@@ -338,6 +358,7 @@ impl IntoElement for FluidScrollbar {
             feel,
             ink: thumb_ink,
             drawn,
+            drawn_thumb,
         } = self;
         div()
             .absolute()
@@ -430,6 +451,9 @@ impl IntoElement for FluidScrollbar {
                             if let Some(drawn) = &drawn {
                                 drawn.set(0.);
                             }
+                            if let Some(thumb) = &drawn_thumb {
+                                thumb.set(None);
+                            }
                             return;
                         };
                         if let Some(drawn) = &drawn {
@@ -439,9 +463,17 @@ impl IntoElement for FluidScrollbar {
                             let mut colour: Hsla = thumb_ink.unwrap_or(cx.palette().text);
                             colour.a = ink * opacity.clamp(0., 1.);
                             let thumb = thumb_bounds(axis, track, geometry, width);
+                            if let Some(drawn) = &drawn_thumb {
+                                drawn.set(Some(DrawnThumb { thumb, track }));
+                            }
                             window.paint_quad(
                                 fill(thumb, colour).corner_radii(Corners::all(width / 2.)),
                             );
+                        }
+                        if opacity <= 0.
+                            && let Some(thumb) = &drawn_thumb
+                        {
+                            thumb.set(None);
                         }
                         if running {
                             window.request_animation_frame();
@@ -703,9 +735,14 @@ mod tests {
         let left = start + DURATION_MODERATE;
         state.over_area = false;
         state.reconcile(left, false);
-        // Held through the delay, gone after the fast tier.
+        // Held through the delay, gone 120 ms later.
         assert_eq!(state.opacity.value(left + HIDE_DELAY), 1.);
-        assert_eq!(state.opacity.value(left + HIDE_DELAY + DURATION_FAST), 0.);
+        assert_eq!(
+            state
+                .opacity
+                .value(left + HIDE_DELAY + DURATION_MODERATE_EXIT),
+            0.
+        );
     }
 
     #[test]

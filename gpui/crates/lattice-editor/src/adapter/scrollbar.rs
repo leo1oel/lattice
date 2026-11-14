@@ -50,6 +50,8 @@ pub(super) struct EditorScroll {
     state: Rc<RefCell<ScrollState>>,
     /// The thumb's opacity as the bar last drew it.
     drawn: Rc<Cell<f32>>,
+    /// The thumb as last drawn, for a scripted measurement.
+    drawn_thumb: Rc<Cell<Option<lattice_ui::scrollbar::DrawnThumb>>>,
 }
 
 impl ScrollbarHandle for EditorScroll {
@@ -85,6 +87,12 @@ impl LatticeEditor {
     /// The thumb's opacity as the scrollbar last drew it: 0 while it hides.
     pub fn scrollbar_opacity(&self) -> f32 {
         self.scroll.drawn.get()
+    }
+
+    /// The thumb's bounds as the scrollbar last drew it, `None` while it
+    /// hides.
+    pub fn scrollbar_thumb(&self) -> Option<lattice_ui::scrollbar::DrawnThumb> {
+        self.scroll.drawn_thumb.get()
     }
 
     /// A wheel the editor element did not take (over the gutter or the
@@ -152,6 +160,7 @@ impl LatticeEditor {
         .feel(ScrollbarFeel::EDITOR)
         .ink(ink)
         .drawn_opacity(self.scroll.drawn.clone())
+        .drawn_thumb(self.scroll.drawn_thumb.clone())
         .into_any_element()
     }
 }

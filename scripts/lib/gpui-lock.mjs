@@ -1,20 +1,21 @@
 /**
- * The GPUI release build lock every checkout on this machine shares. It is a
- * directory, which mkdir creates atomically; the owner's pid inside lets a
- * waiter take over a lock its holder died holding.
+ * Locks every checkout on this machine shares. Each is a directory, which
+ * mkdir creates atomically; the owner's pid inside lets a waiter take over a
+ * lock its holder died holding.
  *
- * It is held for one GPUI release build or test run: the host has 16 GB of
- * memory, a GPUI release build takes several GB of rustc per job, and two of
- * them at once, from two worktrees, swapped the machine to a crawl.
- * `scripts/gpui-build.mjs` holds it around the shared build tree as well,
- * which only one build may write at a time.
- *
- * The e2e input lock (`/tmp/lattice-gpui-e2e.lock`, held while a scenario
- * needs its window key) follows the same protocol but lives entirely on the
- * Rust side, around just those steps
- * (`gpui/crates/lattice-gpui/src/scenario/input_lock.rs`, gpui/README.md,
- * "Scenarios"). It is separate from this lock, so one worktree's build and
- * another's e2e run overlap.
+ * - The build lock is held for one GPUI release build or test run: the host
+ *   has 16 GB of memory, a GPUI release build takes several GB of rustc per
+ *   job, and two of them at once, from two worktrees, swapped the machine to
+ *   a crawl. `scripts/gpui-build.mjs` holds it around the shared build tree
+ *   as well, which only one build may write at a time.
+ * - The input lock, `/tmp/lattice-gpui-e2e.lock`, is held while a scenario
+ *   run needs its window key: two runs activating their apps at once take the
+ *   key window from each other mid-step. The GPUI scenario takes it itself,
+ *   around just those steps, by this same protocol
+ *   (`gpui/crates/lattice-gpui/src/scenario/input_lock.rs`, gpui/README.md,
+ *   "Scenarios"), so several `gpui/script/e2e` runs overlap and no script here
+ *   takes it. It is separate from the build lock, so one worktree's build and
+ *   another's e2e run overlap.
  */
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -79,9 +80,7 @@ export const releaseGpuiLock = build.release;
 // default action skips it, so the signals a stage timeout or Ctrl-C sends exit
 // through it instead. A SIGKILL leaves the lock behind for the next waiter to
 // take over from the dead pid.
-process.on("exit", () => {
-  build.release();
-});
+process.on("exit", () => build.release());
 for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
   process.on(signal, () => process.exit(128 + { SIGHUP: 1, SIGINT: 2, SIGTERM: 15 }[signal]));
 }

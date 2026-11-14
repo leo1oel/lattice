@@ -14,11 +14,13 @@
 
 mod actions;
 mod arrange;
+mod assets;
 mod build;
 mod build_tools;
 pub mod commands;
 mod documents;
 mod editor_events;
+mod editors;
 mod entries;
 mod ground;
 mod help_flow;
@@ -26,12 +28,14 @@ mod history_flow;
 mod imports;
 mod layers;
 pub(crate) mod menus;
+mod opening;
 pub(crate) mod overleaf_flow;
 mod palette;
 mod pdfs;
 mod references_flow;
 mod render;
 mod saving;
+mod settings_flow;
 mod shortcut_sheet;
 mod skin;
 mod synctex;
@@ -43,17 +47,17 @@ pub mod windows;
 mod workspace_flow;
 pub mod workspaces;
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use futures::channel::oneshot;
 use gpui::{
     AnyWindowHandle, App, AppContext as _, Bounds, Context, Entity, FocusHandle, Focusable,
-    InteractiveElement as _, IntoElement, ParentElement as _, PromptLevel, Render, SharedString,
-    Styled as _, Subscription, Task, WeakEntity, Window, WindowBounds, WindowOptions,
+    InteractiveElement as _, IntoElement, ParentElement as _, Render, SharedString, Styled as _,
+    Subscription, Task, WeakEntity, Window, WindowBounds, WindowOptions,
     prelude::FluentBuilder as _, px, size,
 };
 use gpui_kit::component::v_flex;
-use lattice_i18n::{t, tc};
+use lattice_i18n::t;
 use lattice_ui::{ActiveLattice as _, Appearance, LatticeTheme};
 use trellis::{TrellisWorkspace, model::LayoutDocument};
 
@@ -140,6 +144,10 @@ pub struct Shell {
     papers: Entity<StandInPanel>,
     agent: Entity<StandInPanel>,
     pdf: Entity<PdfPanel>,
+    /// The open project's LuaLaTeX live preview (`crate::live_preview`).
+    pub(crate) live_preview: Entity<crate::live_preview::LivePreview>,
+    /// An automatic build waiting for typing to pause.
+    quiet_builds: crate::live_preview::quiet_builds::QuietBuilds,
     build_panel: Entity<BuildPanel>,
     /// The History tool panel (`crate::history`), one for the window.
     pub(crate) history: Entity<crate::history::HistoryPanel>,
@@ -180,6 +188,8 @@ pub struct Shell {
     /// overlay (the palette, a menu) taking focus does not change it.
     active_editor: Option<WeakEntity<EditorPanel>>,
     build_task: Option<Task<()>>,
+    /// The build under way's entries in the app's log (`build/oplog.rs`).
+    build_trace: Option<crate::app_log::trace::Trace>,
     /// The build to run once the one under way ends.
     queued_build: Option<BuildRequest>,
     /// A build the writer asked for is under way or queued: when the last
@@ -196,6 +206,8 @@ pub struct Shell {
     root_pdfs: Vec<(String, Entity<PdfPanel>)>,
     /// The project's PDFs opened from the tree.
     file_pdfs: Vec<Entity<PdfPanel>>,
+    /// The project's images and other binary files opened from the tree.
+    asset_panels: Vec<Entity<crate::asset_preview::AssetPanel>>,
     /// The live document's outline.
     outline: std::rc::Rc<[crate::outline::Heading]>,
     _outline_task: Option<Task<()>>,
@@ -284,6 +296,9 @@ impl Shell {
         let papers = cx.new(|cx| StandInPanel::new(StandIn::Papers, cx));
         let agent = cx.new(|cx| StandInPanel::new(StandIn::Agent, cx));
         let pdf = cx.new(|cx| PdfPanel::new(PdfPanelKind::Live, window, cx));
+        let live_preview = crate::live_preview::new(cx);
+        let preview = Some(live_preview.clone());
+        pdf.update(cx, |pdf, cx| pdf.set_live_preview(preview, window, cx));
         let build_panel = cx.new(BuildPanel::new);
         let card = cx.new(|cx| DiagnosticsCard::new(build_panel.clone(), cx));
         let history = cx.new(|cx| crate::history::HistoryPanel::new(window, cx));
@@ -415,6 +430,8 @@ impl Shell {
             papers,
             agent,
             pdf,
+            live_preview,
+            quiet_builds: Default::default(),
             build_panel,
             history,
             todos,
@@ -437,6 +454,7 @@ impl Shell {
             editors: Vec::new(),
             active_editor: None,
             build_task: None,
+            build_trace: None,
             queued_build: None,
             build_sound: false,
             build_waiters: Vec::new(),
@@ -444,6 +462,7 @@ impl Shell {
             live_document: None,
             root_pdfs: Vec::new(),
             file_pdfs: Vec::new(),
+            asset_panels: Vec::new(),
             outline: std::rc::Rc::from([]),
             _outline_task: None,
             _open_task: None,
@@ -550,115 +569,9 @@ impl Shell {
         }
     }
 
-    /// Open a project folder with lattice-core, as the Tauri app opens it,
-    /// laid out as the project was left (its documents, its workspace). The
-    /// project open before keeps its tab in the window: its layout is
-    /// recorded and its edited files saved first.
-    pub fn open_project(&mut self, root: PathBuf, window: &mut Window, cx: &mut Context<Self>) {
-        self.leave_for(root, None, window, cx);
-    }
-
-    /// Show the opened project: in the tree, in the window's tabs, laid out
-    /// as it was left (else with its main document open), and its PDF when
-    /// one was already built.
-    fn set_project(
-        &mut self,
-        project: Entity<Project>,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let (root, main, pdf) = {
-            let project = project.read(cx);
-            (
-                project.root().to_path_buf(),
-                project
-                    .main_document()
-                    .map(|main| project.root().join(main)),
-                project.main_pdf().filter(|pdf| pdf.is_file()),
-            )
-        };
-        if !self.projects.iter().any(|p| p.root == root) {
-            let open = OpenProject {
-                name: windows::project_display_name(&root),
-                root: root.clone(),
-            };
-            match self
-                .root(cx)
-                .and_then(|current| self.projects.iter().position(|p| p.root == current))
-            {
-                Some(ix) => self.projects.insert(ix + 1, open),
-                None => self.projects.push(open),
-            }
-        }
-        self.drop_conflict_notice(cx);
-        self.references = Default::default();
-        self.sheets.project_changed();
-        self.conflict = None;
-        self.project = Some(project.clone());
-        // The editors of the project open before go with its arrangement.
-        self.editors.clear();
-        self.active_editor = None;
-        self.queued_build = None;
-        self.build_sound = false;
-        self.closed_tabs.clear();
-        self.forget_visits();
-        self.entered_project(&windows::project_display_name(&root), cx);
-        self.tex_setup
-            .update(cx, |center, _| center.set_root(Some(root.clone())));
-        self.refresh_words(cx);
-        self.build_target = None;
-        self.close_root_pdfs(window, cx);
-        // The documents' panels go with the project they were of.
-        let gone: Vec<_> = self
-            .views
-            .borrow()
-            .iter()
-            .filter(|(id, _)| !views::SINGLETONS.contains(&id.as_str()))
-            .map(|(_, panel)| panel.clone())
-            .collect();
-        self.views
-            .borrow_mut()
-            .retain(|id, _| views::SINGLETONS.contains(&id.as_str()));
-        self.view_focus
-            .retain(|id, _| views::SINGLETONS.contains(&id.as_str()));
-        for panel in gone {
-            panel.on_removed(window, cx);
-        }
-        self.reset_undo = None;
-        self.live_document = project.read(cx).main_document().map(str::to_string);
-        self.refresh_outline(window, cx);
-        self.history
-            .update(cx, |history, cx| history.set_project(project.clone(), cx));
-        self.tools_project_opened(&project, &root, window, cx);
-        self._project_git = Some(cx.subscribe(&project, |this, _, event, cx| match event {
-            crate::project::ProjectEvent::GitChanged => this.notice_conflicts(cx),
-            // A change on disk is one to push, in live mode (the bridge tells
-            // a sync's own writes apart).
-            crate::project::ProjectEvent::FilesChanged(paths) => {
-                let paths = paths.clone();
-                this.overleaf
-                    .update(cx, |bridge, cx| bridge.files_changed(paths.as_deref(), cx));
-            }
-            _ => {}
-        }));
-        self.overleaf
-            .update(cx, |bridge, cx| bridge.set_project(Some(root.clone()), cx));
-        self.notice_conflicts(cx);
-        self.file_tree
-            .update(cx, |tree, cx| tree.set_project(project, cx));
-        self.set_window_title(window, cx);
-        let restored = self.restore_layout(&root, main.as_deref(), window, cx);
-        if let Some(main) = main.filter(|_| !restored) {
-            self.open_path(main, None, window, cx);
-        }
-        self.label_pdfs(cx);
-        self.pdf
-            .update(cx, |panel, cx| panel.show_project(root, pdf, window, cx));
-        cx.notify();
-    }
-
-    /// Open a source file in an editor tab (or switch to its tab), or a PDF in
-    /// the preview, then go to `line` when given.
+    /// Open a source file in an editor tab (or switch to its tab), a PDF in
+    /// its viewer, or an image or other binary file in its preview
+    /// (`asset_preview`), then go to `line` when given.
     pub fn open_path(
         &mut self,
         path: PathBuf,
@@ -674,6 +587,9 @@ impl Shell {
             return None;
         }
         let path = path.canonicalize().unwrap_or(path);
+        if self.open_if_asset(&path, window, cx) {
+            return None;
+        }
         let in_front = self
             .active_editor()
             .is_some_and(|editor| editor.read(cx).path() == path);
@@ -693,68 +609,6 @@ impl Shell {
         self.file_tree
             .update(cx, |tree, cx| tree.set_current(Some(path.clone()), cx));
         Some(editor)
-    }
-
-    /// The editor already open on `path`, if any.
-    pub(crate) fn open_editor(&mut self, path: &Path, cx: &App) -> Option<Entity<EditorPanel>> {
-        self.open_editors()
-            .into_iter()
-            .find(|editor| editor.read(cx).path() == path)
-    }
-
-    /// The editor on `path`, opened if it is not yet; it is not placed in
-    /// the dock.
-    pub(crate) fn editor_for(
-        &mut self,
-        path: &Path,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> Option<Entity<EditorPanel>> {
-        if let Some(editor) = self.open_editor(path, cx) {
-            return Some(editor);
-        }
-        let project = self.project.clone()?;
-        match EditorPanel::open(
-            path.to_path_buf(),
-            project,
-            self.build_panel.clone(),
-            window,
-            cx,
-        ) {
-            Ok(editor) => {
-                self.adopt_editor(&editor, window, cx);
-                let weak = editor.downgrade();
-                cx.on_focus_in(&editor.focus_handle(cx), window, move |this, _, _| {
-                    this.active_editor = Some(weak.clone());
-                })
-                .detach();
-                Some(editor)
-            }
-            Err(error) => {
-                log::error!("{error:#}");
-                let _ = window.prompt(
-                    PromptLevel::Critical,
-                    t!("Could not open the file"),
-                    Some(&format!("{error:#}")),
-                    &[tc!("dialog button", "OK")],
-                    cx,
-                );
-                None
-            }
-        }
-    }
-
-    pub(crate) fn open_editors(&mut self) -> Vec<Entity<EditorPanel>> {
-        self.editors.retain(|editor| editor.upgrade().is_some());
-        self.editors
-            .iter()
-            .filter_map(WeakEntity::upgrade)
-            .collect()
-    }
-
-    /// The editor the writer was last in, if it is still open.
-    pub(crate) fn active_editor(&self) -> Option<Entity<EditorPanel>> {
-        self.active_editor.as_ref().and_then(WeakEntity::upgrade)
     }
 
     /// Count the manuscript's words again, and redraw the status bars that

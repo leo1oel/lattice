@@ -25,7 +25,7 @@ use trellis::model::{DockTarget, panel_of_view};
 use super::Steps;
 use crate::{
     native,
-    pdf::{FindOptions, FitMode, LinkTarget, PdfEvent, PdfView},
+    pdf::{FindOptions, LinkTarget, PdfEvent, PdfView},
     scenario::{Foreground, Run},
     shell::StopBuild,
 };
@@ -72,6 +72,9 @@ Never opened: \href{file:///System/Applications/Calculator.app}{Fileanchor} and 
 \section{Twelve} The end.
 \end{document}
 ";
+
+mod navigation;
+mod page_draft;
 
 impl Run {
     fn live_view(&self, cx: &mut AsyncApp) -> Entity<PdfView> {
@@ -271,6 +274,7 @@ impl Run {
         }
         pdf_step!(self.outline(cx, steps));
         pdf_step!(self.navigation_and_zoom(cx, steps));
+        pdf_step!(self.pdf_scrollbar(cx, steps));
         pdf_step!(self.find_in_pdf(cx, steps));
         pdf_step!(self.page_draft(cx, steps));
         pdf_step!(self.links_and_back(cx, steps));
@@ -379,65 +383,6 @@ impl Run {
         Ok(())
     }
 
-    async fn navigation_and_zoom(&self, cx: &mut AsyncApp, steps: &mut Steps) -> Result<()> {
-        self.with_view(cx, |view, _, cx| view.go_to_page(0, cx))?;
-        self.pause(cx, Duration::from_millis(200)).await;
-        self.with_view(cx, |view, _, cx| view.step_page(1, cx))?;
-        let next = self
-            .wait_view(cx, 5, |view, _| view.current_page() == 1)
-            .await;
-        self.with_view(cx, |view, _, cx| view.go_to_page(6, cx))?;
-        let jumped = self
-            .wait_view(cx, 5, |view, _| view.current_page() == 6)
-            .await;
-        steps.check(
-            "PDF: Next page and a page jump move the view",
-            next && jumped,
-            json!({ "page": cx.update(|cx| self.live_view_of(cx).read(cx).current_page()) }),
-        );
-
-        let (fit, fitted) = cx.update(|cx| {
-            let view = self.live_view_of(cx);
-            let view = view.read(cx);
-            (view.fit(), view.scale())
-        });
-        self.with_view(cx, |view, _, cx| view.step_zoom(1., cx))?;
-        self.pause(cx, Duration::from_millis(300)).await;
-        let (zoom_fit, zoomed) = cx.update(|cx| {
-            let view = self.live_view_of(cx);
-            let view = view.read(cx);
-            (view.fit(), view.scale())
-        });
-        self.with_view(cx, |view, _, cx| view.toggle_fit(FitMode::Height, cx))?;
-        self.pause(cx, Duration::from_millis(300)).await;
-        let (height_fit, height_scale) = cx.update(|cx| {
-            let view = self.live_view_of(cx);
-            let view = view.read(cx);
-            (view.fit(), view.scale())
-        });
-        self.with_view(cx, |view, _, cx| view.toggle_fit(FitMode::Width, cx))?;
-        self.pause(cx, Duration::from_millis(300)).await;
-        let (back_fit, back_scale) = cx.update(|cx| {
-            let view = self.live_view_of(cx);
-            let view = view.read(cx);
-            (view.fit(), view.scale())
-        });
-        // A zoom step is a tenth from the scale rounded to one decimal.
-        let step = ((fitted + 0.1) * 10.).round() / 10.;
-        steps.check(
-            "PDF: a zoom step leaves the fit, the height fit shows the whole page, and the width fit comes back",
-            fit == Some(FitMode::Width)
-                && zoom_fit.is_none()
-                && (zoomed - step).abs() < 0.001
-                && height_fit == Some(FitMode::Height)
-                && height_scale <= fitted + 0.001
-                && back_fit == Some(FitMode::Width)
-                && (back_scale - fitted).abs() < 0.01,
-            json!({ "fitted": fitted, "zoomed": zoomed, "height": height_scale, "back": back_scale }),
-        );
-        Ok(())
-    }
-
     /// Find in PDF with the keys: ⌘F / Ctrl+F on the pages focuses the
     /// field, the query is typed, Enter steps to the next match, Escape
     /// clears it and a second Escape goes back to the pages.
@@ -496,36 +441,6 @@ impl Run {
             view.set_find_options(FindOptions::default(), cx);
             view.clear_find(window, cx);
         })?;
-        Ok(())
-    }
-
-    /// The page value: clicked, a number typed and Enter goes there; Escape
-    /// drops a draft.
-    async fn page_draft(&self, cx: &mut AsyncApp, steps: &mut Steps) -> Result<()> {
-        self.with_view(cx, |view, window, cx| {
-            view.edit_draft_to(false, "7", window, cx)
-        })?;
-        self.pause(cx, Duration::from_millis(300)).await;
-        self.press(cx, '\n', false).await?;
-        let went = self
-            .wait_view(cx, 5, |view, _| view.current_page() == 6)
-            .await;
-        self.with_view(cx, |view, window, cx| {
-            view.edit_draft_to(false, "2", window, cx)
-        })?;
-        self.pause(cx, Duration::from_millis(300)).await;
-        self.press(cx, '\u{1b}', false).await?;
-        self.pause(cx, Duration::from_millis(300)).await;
-        let stayed = cx.update(|cx| self.live_view_of(cx).read(cx).current_page()) == 6;
-        let mut detail = json!({ "went": went, "stayed": stayed });
-        if !(went && stayed) {
-            detail["drawing"] = self.drawing(cx).await;
-        }
-        steps.check(
-            "PDF: a page number typed into the page value and Enter go there, and Escape drops a draft",
-            went && stayed,
-            detail,
-        );
         Ok(())
     }
 

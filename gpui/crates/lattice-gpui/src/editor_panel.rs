@@ -121,6 +121,8 @@ pub enum EditorPanelEvent {
     /// An outline rail row: open `path` at the 1-based `line`, then show
     /// the same place in the PDF.
     OutlineJump { path: String, line: u32 },
+    /// The buffer's text changed: what the live preview follows.
+    Edited,
 }
 
 /// The last write's outcome, for the status bar's save slot.
@@ -293,6 +295,7 @@ impl EditorPanel {
             // arms the autosave.
             cx.subscribe(&buffer, |this, _, event: &BufferEvent, cx| match event {
                 BufferEvent::Edited { .. } => {
+                    cx.emit(EditorPanelEvent::Edited);
                     this.schedule_autosave(cx);
                     this.scan_todos(TODO_SETTLE, cx);
                     this.views_source_changed(cx);
@@ -494,6 +497,12 @@ impl EditorPanel {
         &self.search_bar
     }
 
+    /// The file's text as last loaded or saved: what is on disk, as far as
+    /// this editor knows.
+    pub fn saved_text(&self) -> &str {
+        &self.saved_text
+    }
+
     pub fn is_dirty(&self, cx: &App) -> bool {
         self.buffer.read(cx).is_dirty()
     }
@@ -681,6 +690,7 @@ impl BasePanel for EditorPanel {
         crate::status_counters::set_buffer(root, self.relative.clone(), None, cx);
         let panel = gpui_kit::component::dock::PanelId::from(cx.entity_id());
         lattice_ui::dock::set_spare_tools(panel, None, cx);
+        lattice_ui::dock::set_icon_saving(panel, None, cx);
     }
 
     /// An HTML file's preview is shown only while its tab is the displayed one.

@@ -2,26 +2,25 @@
 //! `.settings-nav*`): the search, then the sections grouped under micro
 //! labels, or, while the search holds a query, its results.
 //!
-//! The pointer's fill glides between the sections on the fast tier, as the
-//! Tauri app's fluid hover does, and leaves the chosen section, which wears
-//! the accent wash and the accent ink at semibold, alone. The glide is kept
-//! to this one fill so the shared lattice-ui hover primitive can replace it.
-//! In the narrow form the sections are cards with chevrons under a
-//! "Settings" title.
+//! The pointer's fill is the shared fluid hover ([`FluidHover`]): one wash
+//! that glides between the sections on the fast tier's spring, fades when it
+//! crosses a group label, and leaves the chosen section, which wears the
+//! accent wash and the accent ink at semibold, alone. The search results run
+//! the same hover, shared by the pointer and the arrows. In the narrow form
+//! the sections are cards with chevrons under a "Settings" title.
 
 use gpui::{
     AnyElement, ClickEvent, Context, ElementId, FontWeight, InteractiveElement as _, IntoElement,
     ParentElement as _, Pixels, SharedString, StatefulInteractiveElement as _, Styled as _, Window,
     div, prelude::FluentBuilder as _, px, svg,
 };
-use gpui_kit::base::{ReducedMotion, Transition, transition};
 use lattice_i18n::t;
 use lattice_settings::{Choice as _, SettingsTab};
 use lattice_ui::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _, TypeScale,
     components::Field,
+    fluid_hover::{FluidHover, ItemKind},
     interaction::{mix, track_pointer, use_interaction},
-    motion::Motion,
     tokens::{FONT_WEIGHT_REGULAR, FONT_WEIGHT_SEMIBOLD},
 };
 
@@ -33,7 +32,7 @@ const NAV_GROUP_GAP: Pixels = px(14.);
 const NAV_ITEM: Pixels = px(32.);
 const NAV_LABEL: Pixels = px(20.);
 const NAV_LABEL_GAP: Pixels = px(4.);
-const SEARCH_HEIGHT: Pixels = px(28.);
+const NAV_RADIUS: Pixels = px(6.);
 
 /// A section in the left column.
 #[derive(Clone, Copy)]
@@ -164,17 +163,17 @@ impl SettingsDialog {
         }
 
         // The gliding fill: one wash that moves to the section under the
-        // pointer, on the fast tier, fading in where it first lands.
-        let mut tops = Vec::new();
-        let mut y = NAV_PAD_BLOCK + SEARCH_HEIGHT + NAV_GROUP_GAP;
+        // pointer. The narrow form's sections are bordered cards, each with
+        // its own wash, as the app's narrow settings list has them.
+        let hover = (!narrow).then(|| {
+            FluidHover::new("settings-nav-hover", window, cx)
+                .fill(palette.hover)
+                .radius(NAV_RADIUS)
+        });
         let groups = groups();
         let mut index = 0;
         let mut items: Vec<AnyElement> = Vec::new();
         for (gix, (label, sections)) in groups.iter().enumerate() {
-            if gix > 0 {
-                y += NAV_GROUP_GAP;
-            }
-            y += NAV_LABEL + NAV_LABEL_GAP;
             let mut group = div().flex().flex_col();
             group = group.when(gix > 0, |this| {
                 this.mt(if narrow { px(16.) } else { NAV_GROUP_GAP })
@@ -201,71 +200,46 @@ impl SettingsDialog {
             );
             let count = sections.len();
             for (six, (section, name)) in sections.iter().enumerate() {
-                tops.push((y, *section));
-                y += NAV_ITEM;
-                group = group.child(self.nav_item(
-                    index,
+                let item = self.nav_item(
                     *section,
                     name.clone(),
                     narrow,
                     (six == 0, six + 1 == count),
+                    hover.as_ref().is_some_and(|hover| hover.is_lit(index, cx)),
                     window,
                     cx,
-                ));
+                );
+                group = group.child(match &hover {
+                    // The chosen section keeps its accent wash, so the fill
+                    // clears over it; a group label starts a new section.
+                    Some(hover) => {
+                        let kind = if section.tab == self.tab {
+                            ItemKind::skip()
+                        } else {
+                            ItemKind::target()
+                        };
+                        hover.item_as(index, kind.section(gix), item)
+                    }
+                    None => item,
+                });
                 index += 1;
             }
             items.push(group.into_any_element());
         }
-        let hovered = self.nav_hover.and_then(|ix| tops.get(ix).copied());
-        let fill = hovered
-            .filter(|(_, section)| section.tab != self.tab)
-            .filter(|_| !narrow);
-        let policy = Transition::new(Motion::Fast.token().duration)
-            .ease(|t| Motion::Fast.token().ease.sample(t))
-            .reduced_motion(ReducedMotion::Finish);
-        let target = fill.map_or(-1., |(top, _)| f32::from(top));
-        let shown_top = transition("settings-nav-fill", target, policy, window, cx);
-        let shown = lattice_ui::interaction::fade(
-            "settings-nav-fill-shown",
-            fill.is_some(),
-            Motion::Fast,
-            window,
-            cx,
-        );
         column
-            .when(shown > 0. && shown_top >= 0., |this| {
-                this.child(
-                    div()
-                        .absolute()
-                        .left(NAV_PAD_INLINE)
-                        .right(NAV_PAD_INLINE)
-                        .top(px(shown_top))
-                        .h(NAV_ITEM)
-                        .rounded(px(6.))
-                        .bg(gpui::Hsla {
-                            a: palette.hover.a * shown,
-                            ..palette.hover
-                        }),
-                )
-            })
+            .children(hover.map(|hover| hover.highlight()))
             .children(items)
-            .on_hover(cx.listener(|this, hovered: &bool, _, cx| {
-                if !hovered {
-                    this.nav_hover = None;
-                    cx.notify();
-                }
-            }))
             .into_any_element()
     }
 
     #[allow(clippy::too_many_arguments)]
     fn nav_item(
         &mut self,
-        index: usize,
         section: Section,
         name: SharedString,
         narrow: bool,
         (first, last): (bool, bool),
+        lit: bool,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
@@ -289,12 +263,6 @@ impl SettingsDialog {
             .items_center()
             .gap(px(8.))
             .cursor_pointer()
-            .on_hover(cx.listener(move |this, hovered: &bool, _, cx| {
-                if *hovered {
-                    this.nav_hover = Some(index);
-                    cx.notify();
-                }
-            }))
             .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| this.open_tab(tab, cx)));
         let item = if narrow {
             let radius = px(10.);
@@ -313,7 +281,7 @@ impl SettingsDialog {
         } else {
             item.h(NAV_ITEM)
                 .px(px(10.))
-                .rounded(px(6.))
+                .rounded(NAV_RADIUS)
                 .when(active, |this| this.bg(palette.accent_soft))
                 .text_role_in(TextRole::BodyCompact, TypeScale::Settings, cx)
                 .font_weight(if active {
@@ -323,16 +291,18 @@ impl SettingsDialog {
                 })
                 .text_color(if active {
                     palette.accent
+                } else if lit {
+                    palette.text
                 } else {
-                    mix(palette.text_secondary, palette.text, interaction.hover)
+                    palette.text_secondary
                 })
         };
         let ink = if active && !narrow {
             palette.accent
-        } else if narrow {
+        } else if narrow || lit {
             palette.text
         } else {
-            mix(palette.text_secondary, palette.text, interaction.hover)
+            palette.text_secondary
         };
         let item = item
             .child(
@@ -381,16 +351,32 @@ impl SettingsDialog {
             .as_ref()
             .filter(|(entry, _)| entry.tab == self.tab)
             .map(|(entry, _)| entry.key());
-        let active = self.result.min(results.len() - 1);
+        // One fill for the pointer and the arrows: the row the pointer
+        // lights becomes the one Enter opens, as the palette's does.
+        let count = results.len();
+        let hover = FluidHover::new("settings-results-hover", window, cx)
+            .fill(palette.line)
+            .radius(NAV_RADIUS);
+        let lit = hover.lit(cx);
+        if lit != self.results_adopted
+            && let Some(lit) = lit.filter(|lit| *lit < count)
+        {
+            self.result = lit;
+        }
+        let active = self.result.min(count - 1);
+        let hover = hover.follow(Some(active), cx);
+        self.results_adopted = hover.lit(cx);
         div()
+            .relative()
             .flex()
             .flex_col()
             .gap(px(2.))
+            .child(hover.highlight())
             .children(results.into_iter().enumerate().map(|(ix, entry)| {
                 let id = ElementId::Name(format!("settings-result-{}", entry.key()).into());
-                let (interaction, pointer) = use_interaction(id.clone(), window, cx);
                 let is_current = current.as_deref() == Some(entry.key().as_str());
-                let wash = if ix == active {
+                // The current row's own wash while the glide is elsewhere.
+                let wash = if ix == active && !hover.is_lit(ix, cx) {
                     palette.line
                 } else {
                     gpui::transparent_black()
@@ -405,15 +391,9 @@ impl SettingsDialog {
                     .min_h(px(32.))
                     .px(px(10.))
                     .py(px(6.))
-                    .rounded(px(6.))
+                    .rounded(NAV_RADIUS)
                     .cursor_pointer()
-                    .bg(mix(wash, palette.line, interaction.hover))
-                    .on_hover(cx.listener(move |this, hovered: &bool, _, cx| {
-                        if *hovered {
-                            this.result = ix;
-                            cx.notify();
-                        }
-                    }))
+                    .bg(wash)
                     .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
                         this.open_entry(open.clone(), cx)
                     }))
@@ -440,7 +420,7 @@ impl SettingsDialog {
                             .text_color(palette.text_secondary)
                             .child(place),
                     );
-                track_pointer(row, pointer).into_any_element()
+                hover.item(ix, row)
             }))
             .into_any_element()
     }

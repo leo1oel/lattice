@@ -104,6 +104,8 @@ pub struct SettingsDialog {
     pub(crate) logs: Entity<super::logs_pane::LogsPane>,
     shell: WeakEntity<Shell>,
     pub(super) project: Option<Entity<Project>>,
+    /// The window's live preview, for its rows in Editor & builds.
+    live_preview: Option<Entity<crate::live_preview::LivePreview>>,
     focus: FocusHandle,
     scroll: ScrollHandle,
     pub(super) query: String,
@@ -116,8 +118,9 @@ pub struct SettingsDialog {
     viewport: Rc<RefCell<Bounds<Pixels>>>,
     /// In the narrow form, a section's page is open (not the list).
     pub(super) narrow_page: bool,
-    /// The section row the pointer is over, for the gliding fill.
-    pub(super) nav_hover: Option<usize>,
+    /// The search result the pointer's fill was on as last adopted, so only
+    /// a new one moves the arrows' place.
+    pub(super) results_adopted: Option<usize>,
     /// Settings › Overleaf's view of the account, once the page is drawn.
     pub(super) overleaf: Option<Entity<super::overleaf_pane::OverleafConnection>>,
     _reveal_task: Option<Task<()>>,
@@ -146,6 +149,7 @@ impl SettingsDialog {
     pub fn new(
         shell: WeakEntity<Shell>,
         project: Option<Entity<Project>>,
+        live_preview: Option<Entity<crate::live_preview::LivePreview>>,
         tab: Option<SettingsTab>,
         window: &mut Window,
         cx: &mut Context<Self>,
@@ -307,6 +311,11 @@ impl SettingsDialog {
         if let Some(project) = &project {
             subscriptions.push(cx.observe(project, |_, _, cx| cx.notify()));
         }
+        // The live preview's rows follow its download, its state and a
+        // removal.
+        if let Some(live) = &live_preview {
+            subscriptions.push(cx.observe(live, |_, _, cx| cx.notify()));
+        }
 
         let tab = drawn(tab.unwrap_or(settings.settings_tab));
         let logs = cx.new(|cx| super::logs_pane::LogsPane::new(window, cx));
@@ -330,6 +339,7 @@ impl SettingsDialog {
             },
             shell,
             project,
+            live_preview,
             focus: cx.focus_handle(),
             scroll: ScrollHandle::new(),
             query: String::new(),
@@ -338,7 +348,7 @@ impl SettingsDialog {
             rows: Rc::default(),
             viewport: Rc::default(),
             narrow_page: false,
-            nav_hover: None,
+            results_adopted: None,
             overleaf: None,
             _reveal_task: None,
             _subscriptions: subscriptions,
@@ -570,16 +580,25 @@ impl SettingsDialog {
         }
     }
 
+    /// The window's live preview, for its rows in Editor & builds.
+    pub(super) fn live_preview(&self) -> Option<Entity<crate::live_preview::LivePreview>> {
+        self.live_preview.clone()
+    }
+
     fn query(&self) -> String {
         self.query.clone()
     }
 
     pub(super) fn results(&self, cx: &App) -> Vec<Entry> {
         let known = None;
-        search::search(
-            &search::entries(self.project.is_some(), known),
-            &self.fields.search.read(cx).value(),
-        )
+        let mut entries = search::entries(self.project.is_some(), known);
+        if self
+            .live_preview()
+            .is_some_and(|live| live.read(cx).available())
+        {
+            entries = search::with_live_preview(entries);
+        }
+        search::search(&entries, &self.fields.search.read(cx).value())
     }
 
     fn dialog_size(window: &Window) -> (Pixels, Pixels) {

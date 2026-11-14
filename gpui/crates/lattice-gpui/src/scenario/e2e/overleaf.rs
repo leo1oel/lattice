@@ -6,7 +6,9 @@
 //!   and the picker lists the account's projects (the archived one hidden);
 //! - Open downloads the project into the run's scratch Overleaf Projects (the
 //!   session and links kept there too, never the writer's) and opens it
-//!   in a window of its own, linked, with the split Overleaf control;
+//!   in a window of its own, linked, with the split Overleaf control, and
+//!   leaves this window's keyboard where its shortcuts reach it, though the
+//!   editor last typed in is behind the checklist's tab;
 //! - live mode pulls a co-author's edit on its own, and pushes one made here;
 //! - an edit on both sides leaves conflict markers, and the resolver opens
 //!   on the file with this computer's and Overleaf's sides;
@@ -17,7 +19,7 @@
 use std::{path::Path, time::Duration};
 
 use anyhow::{Context as _, Result, anyhow};
-use gpui::AsyncApp;
+use gpui::{AsyncApp, Focusable as _};
 use lattice_settings::{OverleafSyncMode, SettingsTab};
 use serde_json::{Value, json};
 
@@ -50,11 +52,38 @@ impl Run {
         &self,
         cx: &mut AsyncApp,
         steps: &mut Steps,
-        _root: &Path,
+        root: &Path,
     ) -> Result<()> {
         // The sign-in window, the project's own window and the resolver each
         // activate a window, so the section holds the front (`input_lock.rs`).
         let _front = self.foreground(cx, "overleaf").await?;
+        // The writer was last in chapters/intro.tex, and the checklist is open
+        // in front of it, as the e2e scenario leaves them: the keyboard the
+        // picker gives back must not go to the editor behind the checklist's
+        // tab, where no shortcut reaches the window.
+        let behind = self.open(cx, &root.join("chapters/intro.tex"), None)?;
+        self.with_window(cx, |_, window, cx| {
+            window.focus(&behind.read(cx).editor().focus_handle(cx), cx)
+        })?;
+        let behind_key = Some("chapters/intro.tex");
+        self.wait_for(cx, Duration::from_secs(5), |shell, cx| {
+            shell.read(cx).active_document(cx).as_deref() == behind_key
+        })
+        .await;
+        self.with_window(cx, |shell, window, cx| {
+            shell.update(cx, |shell, cx| shell.open_checklist(window, cx))
+        })?;
+        let checklist_in_front = self
+            .wait_for(cx, Duration::from_secs(10), |shell, cx| {
+                let shell = shell.read(cx);
+                shell.view_on_screen("checklist", cx)
+                    && shell.active_document(cx).as_deref() == behind_key
+                    && shell
+                        .active_editor()
+                        .and_then(|editor| shell.view_of_editor(&editor))
+                        .is_some_and(|view| !shell.view_on_screen(&view, cx))
+            })
+            .await;
         let mock =
             MockOverleaf::start(&[("main.tex", MAIN), ("refs.bib", "@misc{a, title={A}}\n")])
                 .context("the Overleaf stand-in")?;
@@ -121,12 +150,24 @@ impl Run {
         let found = cx.update(|cx| crate::shell::windows::shell_showing(&clone_root, cx));
         let on_disk = std::fs::read_to_string(clone_root.join("main.tex")).unwrap_or_default();
         // The picker's search held the keyboard; once it is gone, this window
-        // keeps a focus for its shortcuts to start from.
-        let focus_kept = self.with_window(cx, |_, window, cx| window.focused(cx).is_some())?;
+        // keeps a focus for its shortcuts to start from. A focus that is not
+        // drawn does not count: the e2e's documents panel shows the
+        // checklist here, in front of the editor last typed in, and with the
+        // keyboard on that editor no shortcut reached the window, which
+        // `OpenSettings` being dispatchable from the focus rules out.
+        let focus_kept = self.with_window(cx, |_, window, cx| {
+            window.focused(cx).is_some()
+                && window.is_action_available(&crate::shell::commands::OpenSettings, cx)
+        })?;
         steps.check(
             "Open downloads the project into Overleaf Projects and opens it in a window of its own, the keyboard left with this one",
-            opened && downloaded && on_disk == MAIN && focus_kept,
-            json!({ "root": clone_root, "downloaded": downloaded, "focus_kept": focus_kept }),
+            opened && downloaded && on_disk == MAIN && checklist_in_front && focus_kept,
+            json!({
+                "root": clone_root,
+                "downloaded": downloaded,
+                "checklist_in_front": checklist_in_front,
+                "focus_kept": focus_kept,
+            }),
         );
         let Some((window, shell)) = found else {
             return Ok(());

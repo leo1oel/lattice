@@ -165,6 +165,7 @@ lucide! {
     EYE = "lattice" / "eye";
     FOLDER = "lattice" / "folder";
     HASH = "lattice" / "hash";
+    IMAGE = "lattice" / "image";
     INFO = "lattice" / "info";
     PENCIL = "lattice" / "pencil";
     PLUS = "lattice" / "plus";
@@ -309,6 +310,7 @@ const BUNDLED: &[(&str, &[u8])] = bundled![
     "clock.svg",
     "menu.svg",
     "hash.svg",
+    "image.svg",
     "replace.svg",
     "settings.svg",
     "glyph-bib-body.svg",

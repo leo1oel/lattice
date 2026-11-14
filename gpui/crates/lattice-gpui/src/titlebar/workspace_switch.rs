@@ -96,6 +96,37 @@ pub(super) fn unfolded_switch_width(shell: &Shell, window: &Window, cx: &App) ->
     }))
 }
 
+/// How wide the switch draws folded: the track around its one menu button
+/// (8px in, the 14px icon 6px before the workspace's name, cut at
+/// [`FOLDED_NAME_MAX`], the dot 6px after it when the layout differs, the
+/// 12px chevron 6px after that, 8px), or around the rename field.
+pub(super) fn folded_switch_width(shell: &Shell, window: &Window, cx: &App) -> f32 {
+    if shell.layout.renaming.is_some() && shell.rename_input().is_some() {
+        return TRACK_PAD * 2. + RENAME_MIN;
+    }
+    let current = shell.layout.workspace.as_deref();
+    let name = Workspaces::global(cx)
+        .list()
+        .iter()
+        .find(|entry| Some(entry.id.as_str()) == current)
+        .map(|entry| shown_name(&entry.name))
+        .unwrap_or_default();
+    let label = f32::from(shaped_width(&name, TextRole::Caption, None, window, cx));
+    folded_width(label, shell.layout.dirty)
+}
+
+pub(super) fn folded_width(label: f32, dot: bool) -> f32 {
+    let button = 8.
+        + f32::from(ICON)
+        + 6.
+        + label.min(FOLDED_NAME_MAX)
+        + if dot { 6. + DOT } else { 0. }
+        + 6.
+        + f32::from(ICON_SMALL)
+        + 8.;
+    TRACK_PAD * 2. + button
+}
+
 /// The layout switch: a hairline track holding the named workspaces and
 /// "+"; the project's workspace a raised plate (none while a preset lies
 /// over it), with a dot while the project's layout differs from it. Folded,
