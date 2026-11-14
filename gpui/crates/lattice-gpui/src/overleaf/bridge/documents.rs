@@ -192,16 +192,27 @@ impl OverleafBridge {
             self.leave(doc, cx);
         }
         if let Some((editor, path, doc_id)) = wanted {
-            // Back to a document still draining: it carries on, room and all.
+            // Back to a document still draining: it carries on, room and all,
+            // in its own editor or in a reopened tab holding its text. Any
+            // other is joined once the drain is over (`finish_leaving`).
             let draining = self
                 .documents
                 .leaving
                 .iter()
-                .position(|doc| doc.doc_id == doc_id && doc.editor == editor);
-            match draining {
-                Some(at) => {
+                .position(|doc| doc.doc_id == doc_id);
+            let revive = draining.filter(|&at| {
+                let doc = &self.documents.leaving[at];
+                doc.editor == editor
+                    || (doc.editor.upgrade().is_none()
+                        && editor
+                            .upgrade()
+                            .is_some_and(|panel| panel.read(cx).overleaf_text(cx) == doc.ot.text()))
+            });
+            match (draining, revive) {
+                (_, Some(at)) => {
                     let mut doc = self.documents.leaving.remove(at);
                     doc.draining = None;
+                    doc.editor = editor.clone();
                     let typed = editor.upgrade().is_some_and(|panel| {
                         panel.read(cx).overleaf_text(cx) != doc.ot.text()
                     });
@@ -210,7 +221,8 @@ impl OverleafBridge {
                         self.flush_typing(cx);
                     }
                 }
-                None => self.join(editor, path, doc_id, cx),
+                (Some(_), None) => {}
+                (None, _) => self.join(editor, path, doc_id, cx),
             }
         }
         cx.notify();
@@ -434,6 +446,9 @@ impl OverleafBridge {
         cx.notify();
     }
 
+    /// The copy of `doc_id` being edited or drained. There is at most one:
+    /// a document still draining is revived, or waited out, rather than
+    /// joined again (`reconsider_live`).
     fn doc_mut(&mut self, doc_id: &str) -> Option<&mut LiveDoc> {
         self.documents
             .live
@@ -487,6 +502,7 @@ impl OverleafBridge {
         if doc.ot.settled() {
             self.checkpoint(&doc, cx);
         }
+        self.reconsider_live(cx);
         cx.notify();
     }
 
@@ -579,7 +595,15 @@ impl OverleafBridge {
         if let Some(doc) = self.documents.live.take_if(|doc| doc.doc_id == doc_id) {
             self.documents.suspended.insert(doc.path);
         }
-        self.documents.leaving.retain(|doc| doc.doc_id != doc_id);
+        if let Some(at) = self
+            .documents
+            .leaving
+            .iter()
+            .position(|doc| doc.doc_id == doc_id)
+        {
+            let doc = self.documents.leaving.remove(at);
+            self.documents.suspended.insert(doc.path);
+        }
         self.release_doc(doc_id);
         if let Some(notice) = notice {
             notices::show(
