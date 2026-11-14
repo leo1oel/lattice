@@ -47,7 +47,7 @@ pub struct ScenarioArgs {
     pub name: String,
     pub out: PathBuf,
     /// `--only`: the `e2e` modules to run beside its smoke flow
-    /// (`e2e/steps.rs`, `MODULES`).
+    /// (`e2e/registry.rs`).
     pub only: Option<String>,
 }
 

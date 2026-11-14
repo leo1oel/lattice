@@ -357,3 +357,13 @@ impl Run {
         Ok(())
     }
 }
+
+/// This file's registration as the e2e module `documents` (`registry.rs`).
+pub(super) const MODULE: super::registry::Module = super::registry::Module {
+    after: super::registry::After::Repair,
+    rank: 50,
+    needs: &[],
+    setup: true,
+    covers: &["gpui/crates/lattice-gpui/src/shell/documents.rs"],
+    run: |run, cx, steps, fixture| Box::pin(run.documents_and_project(cx, steps, &fixture.root)),
+};

@@ -312,3 +312,17 @@ fn on_disk(file: &Path, typed: &str) -> bool {
 fn showing(stack: &Entity<NoticeStack>, title: &str, cx: &App) -> bool {
     stack.read(cx).titles().iter().any(|t| &**t == title)
 }
+
+/// This file's registration as the e2e module `saves` (`registry.rs`).
+pub(super) const MODULE: super::registry::Module = super::registry::Module {
+    after: super::registry::After::Terminal,
+    rank: 100,
+    needs: &[],
+    setup: false,
+    covers: &[
+        "gpui/crates/lattice-gpui/src/editor_panel/save.rs",
+        "gpui/crates/lattice-gpui/src/editor_panel/disk_sync.rs",
+        "gpui/crates/lattice-gpui/src/shell/saving.rs",
+    ],
+    run: |run, cx, steps, fixture| Box::pin(run.closing_saves(cx, steps, &fixture.root)),
+};

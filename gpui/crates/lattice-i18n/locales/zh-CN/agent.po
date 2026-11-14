@@ -1,0 +1,3 @@
+#: lattice-gpui/src/agent/surface.rs
+msgid "The Agent couldn’t start"
+msgstr "AI 助手无法启动"

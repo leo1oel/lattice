@@ -383,3 +383,16 @@ impl Run {
         Ok(())
     }
 }
+
+/// This file's registration as the e2e module `papers` (`registry.rs`).
+pub(super) const MODULE: super::registry::Module = super::registry::Module {
+    after: super::registry::After::Terminal,
+    rank: 52,
+    needs: &[],
+    setup: false,
+    covers: &[
+        "gpui/crates/lattice-gpui/src/papers",
+        "gpui/crates/lattice-gpui/src/shell/papers.rs",
+    ],
+    run: |run, cx, steps, fixture| Box::pin(run.papers_panel(cx, steps, &fixture.root)),
+};
