@@ -92,11 +92,12 @@ impl Run {
                 })
                 .collect::<Vec<_>>()
         });
-        let uses_of = |title: &str| {
+        let field_of = |title: &str, field: &str| {
             rows.iter()
                 .find(|row| row["title"] == title)
-                .map(|row| row["uses"].clone())
+                .map(|row| row[field].clone())
         };
+        let uses_of = |title: &str| field_of(title, "uses");
         steps.check(
             "Papers lists the bibliography with the saved text and how often the manuscript cites each",
             listed
@@ -106,7 +107,9 @@ impl Run {
                     .and_then(|uses| uses.as_u64())
                     .is_some_and(|uses| uses >= 1)
                 && uses_of("Attention Is All You Need") == Some(json!(0))
-                && rows.iter().any(|row| row["fullText"] == true),
+                // The bundle's paper has its text; the book only its entry.
+                && field_of("Attention Is All You Need", "fullText") == Some(json!(true))
+                && field_of("The TeXbook", "fullText") == Some(json!(false)),
             json!({ "rows": rows }),
         );
         self.papers_shot(cx, "papers-1-listed").await;
@@ -141,9 +144,11 @@ impl Run {
         );
         self.papers_shot(cx, "papers-2-search").await;
 
-        // Metadata narrows at once: an author's name.
+        // Metadata narrows at once: an author's name, one in no citation
+        // key or saved text (the entry's second author), so only the
+        // authors field can match it.
         self.with_window(cx, |_, window, cx| {
-            papers.update(cx, |panel, cx| panel.type_query("knuth", window, cx))
+            papers.update(cx, |panel, cx| panel.type_query("shazeer", window, cx))
         })?;
         self.wait_for(cx, Duration::from_secs(10), |_, cx| {
             papers.read(cx).settled(cx)
@@ -152,7 +157,7 @@ impl Run {
         let by_author = cx.update(|cx| papers.read(cx).shown_titles(cx));
         steps.check(
             "typing an author's name keeps the papers whose metadata holds it",
-            by_author == ["The TeXbook"],
+            by_author == ["Attention Is All You Need"],
             json!({ "shown": by_author }),
         );
 
