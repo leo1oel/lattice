@@ -14,7 +14,7 @@ use lattice_core::papers::{self as core_papers, HistoryMode};
 
 use lattice_i18n::t;
 
-use super::PapersPanel;
+use super::{PapersPanel, model::ReferenceKind};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ItemState {
@@ -32,8 +32,11 @@ pub struct BatchItem {
     /// What the import is given: an identifier, a resolved record's BibTeX,
     /// or a pasted entry.
     pub input: String,
-    /// What its row names it by.
+    /// What its row names it by, the kind its chip reads and its byline,
+    /// as the card showed them when the batch started.
     pub label: String,
+    pub kind: ReferenceKind,
+    pub byline: String,
     pub state: ItemState,
     pub citation_key: Option<String>,
     /// Why it failed, or what was added without its full text.
@@ -46,6 +49,8 @@ pub struct BatchRequest {
     pub id: String,
     pub input: String,
     pub label: String,
+    pub kind: ReferenceKind,
+    pub byline: String,
     /// A Zotero paper's PDF attachment and annotations, and the paper
     /// Papers already holds of it.
     pub zotero: Option<ZoteroExtras>,
@@ -221,6 +226,8 @@ impl PapersPanel {
                 id: request.id.clone(),
                 input: request.input.clone(),
                 label: request.label.clone(),
+                kind: request.kind,
+                byline: request.byline.clone(),
                 state: ItemState::Waiting,
                 citation_key: None,
                 note: None,

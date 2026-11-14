@@ -8,14 +8,11 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 
+use super::values::bib_text_to_plain;
+
 struct Author {
     name: String,
     surname: String,
-}
-
-/// BibTeX braces protect case and grouping; neither belongs on screen.
-fn unbrace(value: &str) -> String {
-    value.replace(['{', '}'], "").split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 /// "{Gemini Team}": one outer brace group protects the whole name.
@@ -62,13 +59,14 @@ fn parse_authors(authors: &str) -> (Vec<Author>, bool) {
     let parts: Vec<&str> = split_authors(authors)
         .into_iter()
         .map(str::trim)
-        .filter(|part| !unbrace(part).is_empty())
+        .filter(|part| !bib_text_to_plain(part).is_empty())
         .collect();
-    let others = parts.last().is_some_and(|last| unbrace(last).to_lowercase() == "others");
+    let others =
+        parts.last().is_some_and(|last| bib_text_to_plain(last).to_lowercase() == "others");
     let people = parts[..parts.len() - usize::from(others)]
         .iter()
         .map(|raw| {
-            let part = unbrace(raw);
+            let part = bib_text_to_plain(raw);
             if is_one_brace_group(raw) {
                 return Author { name: part.clone(), surname: part };
             }
@@ -124,5 +122,19 @@ mod tests {
         );
         assert_eq!(short_authors("Doe, Jane and others").as_deref(), Some("Doe et al."));
         assert_eq!(short_authors(""), None);
+    }
+
+    /// A braced letter or accent command is read as its letter, never
+    /// merged with the letters after it into a command that is dropped.
+    #[test]
+    fn braced_commands_in_names_read_as_their_letters() {
+        assert_eq!(author_names(r"{\L}ukasz Kaiser"), ["Łukasz Kaiser"]);
+        assert_eq!(author_names(r"Erd{\H{o}}s, Paul"), ["Paul Erdős"]);
+        assert_eq!(author_names(r"Fran{\c{c}}ois Chollet"), ["François Chollet"]);
+        assert_eq!(short_authors(r"{\O}rsted, Hans").as_deref(), Some("Ørsted"));
+        assert_eq!(
+            short_authors(r"{\L}ukasz Kaiser and Erd{\H{o}}s, Paul").as_deref(),
+            Some("Kaiser and Erdős")
+        );
     }
 }

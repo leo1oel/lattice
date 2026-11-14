@@ -455,6 +455,7 @@ impl Audit {
             this.update(cx, |this, cx| {
                 this.run_total = total;
                 this.run_done.clear();
+                this.checking = indexes.iter().copied().collect();
                 cx.notify();
             })
             .ok();
@@ -462,11 +463,7 @@ impl Audit {
             // run; each reference's own check is told why.
             let mut s2_failure: Option<String> = None;
             for group in indexes.chunks(GROUP) {
-                let (entries, live) = match this.update(cx, |this, cx| {
-                    for index in group {
-                        this.checking.insert(*index);
-                    }
-                    cx.notify();
+                let (entries, live) = match this.update(cx, |this, _| {
                     let entries: Vec<AuditEntry> = group
                         .iter()
                         .map(|index| this.entries[*index].clone())
@@ -612,9 +609,6 @@ impl Audit {
                         this.waiting_for_s2 = false;
                     }
                     this.record(generation, all, cx);
-                    for index in group {
-                        this.checking.remove(index);
-                    }
                 })
                 .ok();
             }
@@ -628,6 +622,7 @@ impl Audit {
             return;
         }
         for (index, finding) in findings {
+            self.checking.remove(&index);
             self.run_done.insert(index);
             self.results.insert(index, finding);
             // A fresh result replaces what the writer did with the old one.
@@ -722,6 +717,9 @@ impl Audit {
 
     /// Keep the writer's own entry over the candidate.
     pub(super) fn keep(&mut self, index: usize, cx: &mut Context<Self>) {
+        if self.busy {
+            return;
+        }
         self.kept.insert(index);
         self.save(cx);
         cx.notify();

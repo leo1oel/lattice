@@ -389,30 +389,22 @@ impl Render for AddPapers {
             batch
                 .iter()
                 .map(|item| {
-                    let row = rows
-                        .iter()
-                        .find(|row| row.reference.id == item.id)
-                        .cloned()
-                        .unwrap_or_else(|| Row {
-                            reference: crate::papers::model::PastedReference {
-                                id: item.id.clone(),
-                                kind: if item.id.starts_with("zotero:") {
-                                    crate::papers::model::ReferenceKind::Bibtex
-                                } else {
-                                    crate::papers::model::ReferenceKind::Title
-                                },
-                                input: item.input.clone(),
-                                label: item.label.clone(),
-                                record: None,
-                            },
-                            state: RowState::New,
-                            title: item.label.clone(),
-                            byline: String::new(),
-                            existing_key: None,
-                            candidates: Vec::new(),
-                            import_input: None,
-                            error: None,
-                        });
+                    let row = Row {
+                        reference: crate::papers::model::PastedReference {
+                            id: item.id.clone(),
+                            kind: item.kind,
+                            input: item.input.clone(),
+                            label: item.label.clone(),
+                            record: None,
+                        },
+                        state: RowState::New,
+                        title: item.label.clone(),
+                        byline: item.byline.clone(),
+                        existing_key: None,
+                        candidates: Vec::new(),
+                        import_input: None,
+                        error: None,
+                    };
                     (row, Some(item.clone()))
                 })
                 .collect()

@@ -295,12 +295,8 @@ pub fn summarize_entry(
     };
     let raw_authors =
         values.get("author").or_else(|| values.get("editor")).cloned().unwrap_or_default();
-    let authors = names::author_names(&raw_authors)
-        .iter()
-        .map(|name| bib_text_to_plain(name))
-        .collect::<Vec<_>>()
-        .join(", ");
-    let short_authors = bib_text_to_plain(&names::short_authors(&raw_authors).unwrap_or_default());
+    let authors = names::author_names(&raw_authors).join(", ");
+    let short_authors = names::short_authors(&raw_authors).unwrap_or_default();
     let year = match plain("year") {
         year if !year.is_empty() => year,
         _ => get("date").chars().take(4).collect(),

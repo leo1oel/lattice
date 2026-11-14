@@ -249,24 +249,17 @@ mod tests {
     #[test]
     fn a_comment_s_comma_is_not_the_field_s() {
         let source = "@article{a,\n  title = {T},\n  year = 2017 % see p, 3\n  ,\n}\n";
+        // The new field goes after the comma that ends `year`, below its
+        // comment, and the entry keeps its trailing comma.
         let added = edited(source, |text, entry| add_field_edit(text, entry, "doi", "{d}"));
-        let fields = |text: &str| -> Vec<(String, String)> {
-            parse(text).unwrap().entries[0]
-                .fields
-                .iter()
-                .map(|field| {
-                    (field.name.clone(), text[field.value_from..field.value_to].to_string())
-                })
-                .collect()
-        };
         assert_eq!(
-            fields(&added),
-            [("title", "{T}"), ("year", "2017"), ("doi", "{d}")]
-                .map(|(name, value)| (name.to_string(), value.to_string()))
+            added,
+            "@article{a,\n  title = {T},\n  year = 2017 % see p, 3\n  ,\n  doi = {d},\n}\n"
         );
+        // `year` goes with its comment and the line holding its comma.
         let removed =
             edited(source, |text, entry| remove_field_edit(text, entry, &entry.fields[1]));
-        assert_eq!(fields(&removed), [("title".to_string(), "{T}".to_string())]);
+        assert_eq!(removed, "@article{a,\n  title = {T},\n}\n");
     }
 
     #[test]

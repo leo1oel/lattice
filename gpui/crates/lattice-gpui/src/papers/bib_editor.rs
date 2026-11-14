@@ -148,6 +148,9 @@ struct Deleted {
     key: String,
     /// Where it stood: an undo that steps back puts it there again.
     from: usize,
+    /// How many entries just like it the delete left: once there are more,
+    /// it is back already (⌘Z), and Undo puts nothing in a second time.
+    copies: usize,
 }
 
 pub struct BibEditor {
@@ -301,6 +304,16 @@ impl BibEditor {
     /// The reference in front, by key.
     pub fn selected_key(&self) -> Option<&str> {
         self.selected_row().map(|row| row.entry.key.as_str())
+    }
+
+    /// Delete the `index`th entry under `key`, as the form's Delete does.
+    pub fn delete_entry(&mut self, key: &str, index: usize, cx: &mut Context<Self>) {
+        self.delete(key.to_string(), index, cx);
+    }
+
+    /// The last delete notice's Undo, as a click on it does.
+    pub fn undo_last_delete(&mut self, cx: &mut Context<Self>) {
+        self.undo_delete(self.deletes, cx);
     }
 
     /// Bring `key` to the front, as a click on its row does.
@@ -520,6 +533,13 @@ impl BibEditor {
         ) else {
             return;
         };
+        if self
+            .detail
+            .as_ref()
+            .is_some_and(|detail| (&detail.key, detail.index) == (&key, index))
+        {
+            self.detail = None;
+        }
         let transaction = self.buffer.update(cx, |buffer, _| {
             buffer
                 .finalize_last_transaction()
@@ -553,6 +573,7 @@ impl BibEditor {
             removed: base[change.from..change.to].to_string(),
             next,
             previous,
+            copies: copies(&self.text, &key, &base[change.from..change.to]),
             key: key.clone(),
             from: change.from,
         });
@@ -598,6 +619,8 @@ impl BibEditor {
         {
             self.buffer.update(cx, |buffer, cx| buffer.undo(cx));
             deleted.from
+        } else if copies(&current, &deleted.key, &deleted.removed) > deleted.copies {
+            return;
         } else {
             let Some(at) = restore_at(&current, &deleted) else {
                 notices::error(
@@ -817,6 +840,17 @@ fn restore_at(current: &str, deleted: &Deleted) -> Option<usize> {
         .iter()
         .any(|entry| entry.key == deleted.key)
         .then_some(at)
+}
+
+/// The entries of `text` under `key` that read just as `removed` does.
+fn copies(text: &str, key: &str, removed: &str) -> usize {
+    bib_document::parse(text).map_or(0, |document| {
+        document
+            .entries
+            .iter()
+            .filter(|entry| entry.key == key && text[entry.from..entry.to] == *removed.trim())
+            .count()
+    })
 }
 
 /// The byte offset of the start of the 1-based `line` in `text`.

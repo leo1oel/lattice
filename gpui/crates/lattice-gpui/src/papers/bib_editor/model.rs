@@ -6,7 +6,10 @@
 
 use std::{cmp::Ordering, collections::HashMap, sync::LazyLock};
 
-use icu_collator::{Collator, CollatorBorrowed, options::CollatorOptions};
+use icu_collator::{
+    Collator, CollatorBorrowed, CollatorPreferences, options::CollatorOptions,
+    preferences::CollationNumericOrdering,
+};
 
 use lattice_core::{
     bib_document::{self, BibEdit, BibEntry, BibSummary},
@@ -126,9 +129,21 @@ fn sort_surname(summary: &BibSummary) -> String {
 
 /// Two names in the order the Tauri app's `localeCompare` puts them: by
 /// letter before accent, so "Über" sorts with the U's.
-fn locale_compare(a: &str, b: &str) -> Ordering {
+pub(crate) fn locale_compare(a: &str, b: &str) -> Ordering {
     static COLLATOR: LazyLock<CollatorBorrowed<'static>> = LazyLock::new(|| {
         Collator::try_new(Default::default(), CollatorOptions::default())
+            .expect("the root collation is compiled in")
+    });
+    COLLATOR.compare(a, b)
+}
+
+/// As `localeCompare(…, { numeric: true })`: runs of digits by their value,
+/// so "2020a" sorts between "999" and "2021".
+pub(crate) fn numeric_locale_compare(a: &str, b: &str) -> Ordering {
+    static COLLATOR: LazyLock<CollatorBorrowed<'static>> = LazyLock::new(|| {
+        let mut preferences = CollatorPreferences::default();
+        preferences.numeric_ordering = Some(CollationNumericOrdering::True);
+        Collator::try_new(preferences, CollatorOptions::default())
             .expect("the root collation is compiled in")
     });
     COLLATOR.compare(a, b)

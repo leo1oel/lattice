@@ -398,6 +398,8 @@ impl AddPapers {
                     input: row.addable()?,
                     id: row.reference.id.clone(),
                     label: row.title,
+                    kind: row.reference.kind,
+                    byline: row.byline,
                     zotero: None,
                 })
             })
@@ -427,6 +429,8 @@ impl AddPapers {
                                 id: format!("zotero:{}", paper.citation_key),
                                 input: item.bibtex.clone(),
                                 label: paper.title.clone(),
+                                kind: ReferenceKind::Bibtex,
+                                byline: String::new(),
                                 zotero: Some(super::batch::ZoteroExtras {
                                     pdf: paper.pdf.clone(),
                                     existing: paper

@@ -148,15 +148,14 @@ impl Shell {
         editor: Option<&Entity<crate::editor_panel::EditorPanel>>,
         cx: &gpui::App,
     ) -> Option<gpui::FocusHandle> {
-        let drawn = |view: Option<String>| {
-            view.is_some_and(|view| super::arrange::on_screen(self.workspace.read(cx), &view))
-        };
-        let shown = editor.filter(|editor| drawn(self.view_of_editor(editor)));
+        let shown = editor.filter(|editor| {
+            self.view_of_editor(editor)
+                .is_some_and(|view| super::arrange::on_screen(self.workspace.read(cx), &view))
+        });
         match shown {
             Some(editor) => Some(editor.read(cx).focus_handle(cx)),
             None => self
-                .front_reader_entity(cx)
-                .filter(|reader| drawn(self.view_of_panel(reader.entity_id())))
+                .front_reader_entity(true, cx)
                 .map(|reader| reader.focus_handle(cx)),
         }
     }
@@ -164,7 +163,7 @@ impl Shell {
     /// The reader in front, if a paper's: its reading file and the text it
     /// shows (for scenarios).
     pub(crate) fn front_reader(&self, cx: &gpui::App) -> Option<(String, String)> {
-        self.front_reader_entity(cx).map(|reader| {
+        self.front_reader_entity(false, cx).map(|reader| {
             let reader = reader.read(cx);
             (
                 reader.path(),
@@ -174,17 +173,23 @@ impl Shell {
     }
 
     /// The reader selected in a panel on screen: the focused one, else the
-    /// one the writer was in last.
-    fn front_reader_entity(&self, cx: &gpui::App) -> Option<Entity<PaperReader>> {
-        let engine = self.workspace.read(cx).engine();
+    /// one the writer was in last. With `drawn`, only a panel the window
+    /// draws counts, so one outside a zoomed view is passed over.
+    fn front_reader_entity(&self, drawn: bool, cx: &gpui::App) -> Option<Entity<PaperReader>> {
+        let workspace = self.workspace.read(cx);
+        let engine = workspace.engine();
         let shown: Vec<(String, &Entity<PaperReader>)> = self
             .documents
             .readers
             .iter()
             .filter_map(|reader| {
                 let view = self.view_of_panel(reader.entity_id())?;
-                (engine.placement_of(&view) != ViewPlacement::Hidden && self.in_front(&view, cx))
-                    .then_some((view, reader))
+                let placed = if drawn {
+                    super::arrange::on_screen(workspace, &view)
+                } else {
+                    engine.placement_of(&view) != ViewPlacement::Hidden
+                };
+                (placed && self.in_front(&view, cx)).then_some((view, reader))
             })
             .collect();
         let views: Vec<&str> = shown.iter().map(|(view, _)| view.as_str()).collect();
@@ -302,6 +307,8 @@ impl Shell {
         let (Some(root), Some(key)) = (self.root(cx), paper.citation_key) else {
             return;
         };
+        self.documents.overlays_opened += 1;
+        let opened = self.documents.overlays_opened;
         let (read_root, read_key) = (root.clone(), key.clone());
         let read = cx.background_spawn(async move {
             lattice_core::project::read_bib_entry(&read_root, &read_key)
@@ -309,7 +316,8 @@ impl Shell {
         cx.spawn_in(window, async move |this, cx| {
             let read = read.await;
             this.update_in(cx, |this, window, cx| {
-                if this.root(cx).as_ref() != Some(&root) {
+                if this.root(cx).as_ref() != Some(&root) || this.documents.overlays_opened != opened
+                {
                     return;
                 }
                 let record = match read {

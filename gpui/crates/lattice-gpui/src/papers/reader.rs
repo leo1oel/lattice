@@ -117,21 +117,22 @@ impl PaperReader {
         }
     }
 
-    /// The paper as the library lists it now (a refreshed record).
+    /// The paper as the library lists it now (a refreshed record), its
+    /// text read again: a paper.md written since, or one that could not be
+    /// read before, shows as it is now.
     pub fn set_paper(&mut self, paper: PaperSummary, cx: &mut Context<Self>) {
         let texts = (paper.has_full_text, paper.has_blog);
         let changed = texts != (self.paper.has_full_text, self.paper.has_blog);
         self.paper = paper;
         if changed {
-            // A download left a full text where only the overview was; the
-            // view on screen stays where the writer is in it.
-            let view = if self.paper.has_full_text {
+            // A download left a full text where only the overview was.
+            self.view = if self.paper.has_full_text {
                 ReaderView::FullText
             } else {
                 ReaderView::Overview
             };
-            self.show(view, cx);
         }
+        self.read(cx);
         cx.notify();
     }
 
@@ -143,8 +144,13 @@ impl PaperReader {
             this.update(cx, |this, cx| {
                 match text {
                     Ok(text) => {
+                        let body = model::strip_frontmatter(&text);
+                        if this.error.is_none() && this.markdown.read(cx).source().as_ref() == body
+                        {
+                            return;
+                        }
                         this.error = None;
-                        let body = model::strip_frontmatter(&text).to_string();
+                        let body = body.to_string();
                         this.markdown
                             .update(cx, |markdown, cx| markdown.reset(body.into(), cx));
                     }

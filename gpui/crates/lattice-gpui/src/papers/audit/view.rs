@@ -218,6 +218,7 @@ impl Audit {
                     actions.child(
                         Button::new(("audit-keep", index), t!("Keep mine"))
                             .compact()
+                            .disabled(self.busy)
                             .on_click(cx.listener(move |this, _, _, cx| this.keep(index, cx))),
                     )
                 })

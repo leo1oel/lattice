@@ -226,6 +226,36 @@ impl Run {
         self.form_follows_the_front(cx, steps, &editor, &bib, &before)
             .await?;
 
+        // A reference deleted and brought back with ⌘Z: the notice's Undo
+        // after it puts in no second copy.
+        let at = cx.update(|cx| bib.read(cx).keys().iter().position(|key| key == "knuth1984"));
+        if let Some(at) = at {
+            cx.update(|cx| bib.update(cx, |bib, cx| bib.delete_entry("knuth1984", at, cx)));
+        }
+        let gone = self.editor_text(cx, &editor);
+        self.with_window(cx, |_, window, cx| {
+            window.focus(&gpui::Focusable::focus_handle(bib.read(cx), cx), cx)
+        })?;
+        self.press(cx, 'z', true).await?;
+        let stepped_back = self.editor_text(cx, &editor);
+        cx.update(|cx| bib.update(cx, |bib, cx| bib.undo_last_delete(cx)));
+        let after_undo = self.editor_text(cx, &editor);
+        cx.update(|cx| bib.update(cx, |bib, cx| bib.pick("knuth1984", cx)));
+        self.pause(cx, Duration::from_millis(200)).await;
+        steps.check(
+            "a .bib reference deleted, then put back with ⌘Z, is not put back twice by the notice's Undo",
+            at.is_some()
+                && !gone.contains("knuth1984")
+                && stepped_back == before
+                && after_undo == before,
+            json!({
+                "found": at.is_some(),
+                "deleted": !gone.contains("knuth1984"),
+                "stepped_back": stepped_back == before,
+                "copies": after_undo.matches("{knuth1984,").count(),
+            }),
+        );
+
         // Alone, the form spans the panel; beside the source it is laid out
         // narrower, the source taking the rest.
         let alone = cx.update(|cx| bib.read(cx).laid_out_width());

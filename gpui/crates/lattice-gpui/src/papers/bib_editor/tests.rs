@@ -51,6 +51,7 @@ fn the_second_of_a_shared_key_is_edited_deleted_and_restored_in_place() {
         previous: Some(("smith2020".into(), 0)),
         key: "smith2020".into(),
         from: change.from,
+        copies: 0,
     };
     let since = left.replace("{First}", "{First, edited}");
     let at = restore_at(&since, &deleted).unwrap();

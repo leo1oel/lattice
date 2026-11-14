@@ -49,6 +49,9 @@ pub(crate) struct Documents {
     history_index: usize,
     /// Back or forward is opening its place, which is not a new one.
     navigating: bool,
+    /// Counts the surfaces opened over the documents: an Edit bibliography
+    /// entry whose read lands after another opened opens nothing.
+    pub(super) overlays_opened: u64,
 }
 
 impl Shell {
@@ -215,6 +218,7 @@ impl Shell {
     /// The palette and the shortcut sheet make way for a search surface,
     /// and one search surface for another.
     pub(super) fn dismiss_overlays_for_documents(&mut self, cx: &mut Context<Self>) {
+        self.documents.overlays_opened += 1;
         self.palette = None;
         self.shortcuts = None;
         self.take_document_overlays(cx);

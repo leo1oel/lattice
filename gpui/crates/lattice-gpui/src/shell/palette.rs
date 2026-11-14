@@ -559,6 +559,7 @@ impl Shell {
             return;
         }
         self.shortcuts = None;
+        self.documents.overlays_opened += 1;
         if self.document_overlay_open() {
             self.close_document_overlays(window, cx);
         }

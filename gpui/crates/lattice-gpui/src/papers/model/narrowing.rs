@@ -8,6 +8,8 @@ use std::{cmp::Ordering, collections::HashMap};
 
 use lattice_core::{models::SymbolOccurrence, papers::PaperSummary};
 
+use crate::papers::bib_editor::model::{locale_compare, numeric_locale_compare};
+
 use super::identity::{
     ReadingState, TOKEN_ARXIV, base_arxiv_id, is_flagged, readable, reading_state, search_identity,
     short_authors,
@@ -171,19 +173,14 @@ impl Group {
     }
 }
 
-/// Compare numerically where both runs of digits are numbers, as
-/// `localeCompare(…, { numeric: true })` does for years.
+/// Years in `localeCompare(…, { numeric: true })`'s order: runs of digits
+/// by their value, the rest as text, one consistent order for any mix.
 fn numeric_compare(left: &str, right: &str) -> Ordering {
-    match (left.parse::<u64>(), right.parse::<u64>()) {
-        (Ok(a), Ok(b)) => a.cmp(&b),
-        _ => left.to_lowercase().cmp(&right.to_lowercase()),
-    }
+    numeric_locale_compare(left, right).then_with(|| left.cmp(right))
 }
 
 fn text_compare(left: &str, right: &str) -> Ordering {
-    left.to_lowercase()
-        .cmp(&right.to_lowercase())
-        .then_with(|| left.cmp(right))
+    locale_compare(left, right).then_with(|| left.cmp(right))
 }
 
 /// The chosen sort as a comparison, or `None` for the library's own order.
@@ -470,6 +467,25 @@ pub fn group<'a>(papers: Vec<&'a PaperSummary>, group: Group, facts: &Facts) -> 
 mod tests {
     use super::*;
     use crate::papers::model::test_support::{paper, with};
+
+    /// Years as `localeCompare(…, { numeric: true })` orders them: "20",
+    /// "1999" and "1999b" once formed a cycle (20 < 1999 by value, "1999" <
+    /// "1999b" and "1999b" < "20" as text), which can panic `sort_by`.
+    #[test]
+    fn mixed_years_sort_in_one_consistent_order() {
+        let mut years = vec!["1999b", "20", "2020a", "1999", "2021"];
+        years.sort_by(|a, b| numeric_compare(a, b));
+        assert_eq!(years, ["20", "1999", "1999b", "2020a", "2021"]);
+    }
+
+    /// Venues and authors in `localeCompare`'s order: "Über" with the U's,
+    /// before "Zeta", where a byte order puts it after.
+    #[test]
+    fn text_sorts_put_accented_letters_with_their_base() {
+        let mut venues = vec!["Zeta", "Über Wellen", "Alpha"];
+        venues.sort_by(|a, b| text_compare(a, b));
+        assert_eq!(venues, ["Alpha", "Über Wellen", "Zeta"]);
+    }
 
     #[test]
     fn a_query_ranks_titles_before_other_matches() {
