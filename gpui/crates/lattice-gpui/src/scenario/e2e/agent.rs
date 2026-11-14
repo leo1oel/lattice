@@ -24,7 +24,7 @@ use lattice_webview::IslandState;
 use serde_json::json;
 
 use super::{Run, Steps};
-use crate::agent::commands;
+use crate::{agent::commands, native};
 
 /// What the page shows: the loading surface's text and state, the frame,
 /// the theme the bridge set and the shell's ground.
@@ -131,6 +131,8 @@ impl Run {
                         && facts["loading"].as_str().is_some_and(|text| !text.is_empty()))),
             json!({ "drawn": drawn, "state": format!("{state:?}"), "stats": stats, "page": facts, "chrome": chrome }),
         );
+
+        self.agent_shot(cx, "agent-panel").await?;
 
         // The editor in front and its selection, for the host context.
         self.with_window(cx, |_, window, cx| {
@@ -255,6 +257,7 @@ impl Run {
                 && git_facts["close"] == true,
             json!({ "drawn": git_drawn, "on_screen": on_screen, "page": git_facts }),
         );
+        self.agent_shot(cx, "git-workspace").await?;
         if let Some(island) = &git_island {
             self.evaluate(
                 cx,
@@ -274,6 +277,23 @@ impl Run {
             json!({}),
         );
         cx.update(|cx| lattice_webview::set_hibernate_after(None, cx));
+        Ok(())
+    }
+
+    /// The window as composited, page included, into `LATTICE_E2E_SHOTS`
+    /// when it names a folder (the look review's side-by-sides).
+    async fn agent_shot(&self, cx: &mut AsyncApp, name: &str) -> Result<()> {
+        let Some(dir) = std::env::var_os("LATTICE_E2E_SHOTS") else {
+            return Ok(());
+        };
+        let out = Path::new(&dir).join(format!("{name}.png"));
+        let number = native::window_number(self.native(cx)?);
+        native::order_front(self.native(cx)?);
+        self.pause(cx, Duration::from_millis(600)).await;
+        let _ = std::process::Command::new("screencapture")
+            .args(["-x", "-o", &format!("-l{number}")])
+            .arg(&out)
+            .status();
         Ok(())
     }
 }

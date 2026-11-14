@@ -53,6 +53,10 @@ import { msg } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { ExternalLink, X } from "lucide-react";
 import { mount, activateLocale } from "../shared/boot";
+// Trellis's rules for the hosts its panels lay these surfaces in
+// (`.trellis-agent-host`, `.trellis-tool-host > .trellis-docked-drawer`).
+import "../../../src/trellis/trellis.css";
+import "./agent.css";
 import { host } from "../shared/host";
 import { emitTauriEvent } from "../shared/tauri-internals";
 import { i18n } from "../../../src/i18n";
