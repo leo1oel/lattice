@@ -30,51 +30,13 @@ use crate::{
     shell::StopBuild,
 };
 
-/// Twelve pages: a link to section 9, a web link, and a link to a file and
-/// one to an app's own scheme (neither may open) on the first, the word
-/// "zebracorn" on pages 2, 4 and 6 and "zebracorns" on page 8, and a
-/// sentence on page 10 the rebuild check rewrites with the same letters.
-/// Before the first heading, a comment block pdfLaTeX skips: it hides a
-/// heading from the outline, and its wide characters (three bytes each) must
-/// not move the lines of the headings after it.
-const SUPPLEMENT: &str = r"\documentclass{article}
-\usepackage{hyperref}
-\usepackage{verbatim}
-\begin{document}
-\begin{comment}
-中文注释：这一段不会排版，大纲也不读它。
-\section{Hidden}
-\end{comment}
-\section{Overview}
-Selectable sentence here. See Section~\ref{sec:target} and \url{https://example.org}.
-Never opened: \href{file:///System/Applications/Calculator.app}{Fileanchor} and \href{lattice-test://x}{Schemeanchor}.
-\newpage
-\section{Two} A zebracorn appears.
-\newpage
-\section{Three} Plain text.
-\newpage
-\section{Four} Another zebracorn appears.
-\newpage
-\section{Five} Plain text.
-\newpage
-\section{Six} A third zebracorn appears.
-\newpage
-\section{Seven} Plain text.
-\newpage
-\section{Eight} Many zebracorns appear.
-\newpage
-\section{Target}\label{sec:target} The link lands here.
-\newpage
-\section{Ten} Swap target ten.
-\newpage
-\section{Eleven} Plain text.
-\newpage
-\section{Twelve} The end.
-\end{document}
-";
-
+mod colours;
 mod navigation;
 mod page_draft;
+mod page_swap;
+mod supplement;
+
+use supplement::SUPPLEMENT;
 
 impl Run {
     fn live_view(&self, cx: &mut AsyncApp) -> Entity<PdfView> {
@@ -614,60 +576,6 @@ impl Run {
             "PDF: a drag selects text and ⌘C / Ctrl+C copies it",
             selected && copied,
             json!({ "selected": selected, "clipboard": clipboard }),
-        );
-        Ok(())
-    }
-
-    async fn dark_pages(&self, cx: &mut AsyncApp, steps: &mut Steps) -> Result<()> {
-        self.with_view(cx, |view, _, cx| view.toggle_dark_pages(cx))?;
-        let dark = self
-            .wait_view(cx, 10, |view, _| {
-                view.dark_pages() && view.images_follow_dark_pages()
-            })
-            .await;
-        self.with_view(cx, |view, _, cx| view.toggle_dark_pages(cx))?;
-        let light = self
-            .wait_view(cx, 10, |view, _| {
-                !view.dark_pages() && view.images_follow_dark_pages()
-            })
-            .await;
-        steps.check(
-            "PDF: Dark pages draws the pages dark, and back",
-            dark && light,
-            json!({ "dark": dark, "light": light }),
-        );
-        Ok(())
-    }
-
-    /// A rebuild that changes one page redraws only that page: its signature
-    /// (lattice-core's `pdf_pages`) is the only one that differs.
-    async fn page_swap(
-        &self,
-        cx: &mut AsyncApp,
-        steps: &mut Steps,
-        supplement: &Path,
-    ) -> Result<()> {
-        self.with_view(cx, |view, _, cx| view.go_to_page(9, cx))?;
-        let swaps = cx.update(|cx| self.live_view_of(cx).read(cx).stats().swaps.len());
-        // The same letters, so no font's subset changes with them.
-        let text =
-            std::fs::read_to_string(supplement)?.replace("Swap target ten.", "Target swap ten.");
-        std::fs::write(supplement, text)?;
-        // The outside edit reloads the editor and builds; this build runs
-        // after that one (and finds nothing more to typeset).
-        self.pause(cx, Duration::from_millis(500)).await;
-        let (built, _) = self.build(cx).await?;
-        let swapped = |view: &PdfView| {
-            view.stats().swaps[swaps..]
-                .iter()
-                .any(|redrawn| redrawn.as_slice() == [9])
-        };
-        let reloaded = self.wait_view(cx, 20, |view, _| swapped(view)).await;
-        let stats = cx.update(|cx| self.live_view_of(cx).read(cx).stats().clone());
-        steps.check(
-            "PDF: a rebuild that changed one page redraws only that page and keeps the others",
-            built && reloaded,
-            json!({ "reloads": stats.swaps.get(swaps..) }),
         );
         Ok(())
     }
