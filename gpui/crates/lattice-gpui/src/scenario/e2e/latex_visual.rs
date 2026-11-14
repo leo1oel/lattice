@@ -9,8 +9,8 @@
 //!   maths through KaTeX, the list's bullets and the citation as a chip;
 //! - opening it writes nothing: the file on disk is the same bytes, and the
 //!   buffer is clean;
-//! - a word typed into the page with native keys lands in the file as
-//!   exactly that word; ⌘Z typed there undoes it through the buffer, and the
+//! - a jump to a line lands in the page, its caret there; a word typed
+//!   there with native keys lands in the file as exactly that word; ⌘Z typed there undoes it through the buffer, and the
 //!   file and the page are back to their first text;
 //! - text put into the buffer (as the source, or an outside edit, would)
 //!   reaches the page;
@@ -66,19 +66,6 @@ const DRAWN: &str = "JSON.stringify({ \
     text: document.querySelector('.cm-content')?.textContent ?? '', \
     theme: document.documentElement.dataset.theme || null })";
 
-/// Put the page's caret at the end of the line holding `text`, as a click
-/// there would (CodeMirror takes the DOM selection it finds).
-fn caret_after(text: &str) -> String {
-    format!(
-        "(() => {{ const line = [...document.querySelectorAll('.cm-content .cm-line')].find((node) => node.textContent.includes({text:?})); \
-         if (!line) return 'missing'; const walker = document.createTreeWalker(line, NodeFilter.SHOW_TEXT); let last = null; \
-         while (walker.nextNode()) last = walker.currentNode; if (!last) return 'empty'; \
-         const range = document.createRange(); range.setStart(last, last.length); range.collapse(true); \
-         const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range); \
-         return 'placed'; }})()"
-    )
-}
-
 impl Run {
     pub(super) async fn latex_visual(
         &self,
@@ -101,7 +88,8 @@ impl Run {
                 unchanged && clean,
                 json!({ "unchanged": unchanged, "clean": clean }),
             );
-            self.latex_visual_edit(cx, steps, &path, &island).await?;
+            self.latex_visual_edit(cx, steps, &path, &panel, &island)
+                .await?;
             self.latex_visual_follows(cx, steps, &panel, &island)
                 .await?;
         }
@@ -188,13 +176,14 @@ impl Run {
         Some(island)
     }
 
-    /// Type a word with native keys after the prose's line, then undo it
-    /// with ⌘Z there.
+    /// Jump to the prose's line, type a word there with native keys, then
+    /// undo it with ⌘Z there.
     async fn latex_visual_edit(
         &self,
         cx: &mut AsyncApp,
         steps: &mut Steps,
         path: &Path,
+        panel: &Entity<EditorPanel>,
         island: &Entity<Island>,
     ) -> Result<()> {
         let Some(bounds) = cx.update(|cx| island.read(cx).bounds(cx)) else {
@@ -211,13 +200,56 @@ impl Run {
             island.read(cx).page_focused()
         })
         .await;
-        let placed = self.evaluate(cx, island, &caret_after("Some prose")).await;
-        self.pause(cx, Duration::from_millis(150)).await;
-        for character in " quokka".chars() {
+        // The prose is line 7: the jump puts the caret at its start.
+        self.with_window(cx, {
+            let panel = panel.clone();
+            move |_, window, cx| panel.update(cx, |panel, cx| panel.go_to_line(7, window, cx))
+        })?;
+        let mut placed = Value::Null;
+        let started = std::time::Instant::now();
+        while started.elapsed() < Duration::from_secs(3) {
+            placed = self
+                .evaluate(
+                    cx,
+                    island,
+                    "JSON.stringify(document.querySelector('.cm-activeLine')?.textContent ?? null)",
+                )
+                .await;
+            if placed.as_str().is_some_and(|line| line.contains("Some prose")) {
+                break;
+            }
+            self.pause(cx, Duration::from_millis(100)).await;
+        }
+        let caret = cx.update(|cx| panel.read(cx).cursor());
+        steps.check(
+            "a jump to a line lands in the Visual view, its caret on that line and the status bar's",
+            placed.as_str().is_some_and(|line| line.contains("Some prose")) && caret.0 == 7,
+            json!({ "line": placed, "caret": [caret.0, caret.1] }),
+        );
+        // A native click at the line's first character gives the page the
+        // keyboard with the caret there.
+        let rect = self
+            .evaluate(
+                cx,
+                island,
+                "JSON.stringify((() => { const r = document.querySelector('.cm-activeLine')?.getBoundingClientRect(); \
+                 return r ? { x: r.left + 1, y: r.top + r.height / 2 } : null; })())",
+            )
+            .await;
+        if let (Some(x), Some(y)) = (rect["x"].as_f64(), rect["y"].as_f64()) {
+            let at = bounds.origin + gpui::point(gpui::px(x as f32), gpui::px(y as f32));
+            native::send_click(native, at)?;
+            self.wait_for(cx, Duration::from_secs(3), |_, cx| {
+                island.read(cx).page_focused()
+            })
+            .await;
+            self.pause(cx, Duration::from_millis(150)).await;
+        }
+        for character in "quokka ".chars() {
             native::send_key(native, character, false)?;
             self.pause(cx, Duration::from_millis(40)).await;
         }
-        let expected = PAPER.replacen("in it.", "in it. quokka", 1);
+        let expected = PAPER.replacen("Some prose", "quokka Some prose", 1);
         let saved = self
             .wait_for(cx, Duration::from_secs(10), |_, _| {
                 std::fs::read_to_string(path).is_ok_and(|text| text.contains("quokka"))
