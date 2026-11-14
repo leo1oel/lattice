@@ -216,6 +216,7 @@ pub(super) const MODULE: super::registry::Module = super::registry::Module {
     covers: &[
         "gpui/crates/lattice-gpui/src/annotations",
         "gpui/crates/lattice-gpui/src/editor_panel/annotations.rs",
+        "gpui/crates/lattice-gpui/src/editor_panel/annotations",
         "gpui/crates/lattice-gpui/src/shell/annotations_flow.rs",
     ],
     run: |run, cx, steps, fixture| Box::pin(run.annotations(cx, steps, &fixture.root)),
