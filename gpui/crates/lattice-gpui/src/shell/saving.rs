@@ -13,11 +13,18 @@ impl Shell {
     /// closes once they are, staying open (with the save's notice) when one
     /// could not be.
     pub(super) fn should_close(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        if self.audit_applying(cx) {
+            return false;
+        }
         let Some(saved) = self.save_before_leaving(cx) else {
             return true;
         };
-        cx.spawn_in(window, async move |_, cx| {
-            if saved.await {
+        cx.spawn_in(window, async move |this, cx| {
+            if saved.await
+                && !this
+                    .read_with(cx, |this, cx| this.audit_applying(cx))
+                    .unwrap_or(false)
+            {
                 cx.update(|window, _| window.remove_window()).ok();
             }
         })

@@ -15,7 +15,11 @@ use lattice_i18n::{t, tc};
 use super::{commands::*, windows};
 
 pub fn install(cx: &mut App) {
-    cx.on_action(|_: &Quit, cx| cx.quit());
+    cx.on_action(|_: &Quit, cx| {
+        if !windows::any_audit_applying(cx) {
+            cx.quit();
+        }
+    });
     cx.on_action(|_: &Hide, cx| cx.hide());
     cx.on_action(|_: &HideOthers, cx| cx.hide_other_apps());
     cx.on_action(|_: &ShowAll, cx| cx.unhide_other_apps());
