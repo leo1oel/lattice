@@ -104,6 +104,12 @@ fn byte_at(text: &str, units: i64) -> usize {
     text.len()
 }
 
+/// A struck deletion reads on one line, as it does in the Tauri app: each
+/// line break becomes a space, so the inlay and its measured width agree.
+fn one_line(text: &str) -> String {
+    text.replace("\r\n", " ").replace(['\n', '\r'], " ")
+}
+
 impl EditorPanel {
     /// Show these comments and suggestions in the source.
     pub fn set_overleaf_review(
@@ -141,7 +147,7 @@ impl EditorPanel {
                 }
                 inline.push(InlineText {
                     offset: from,
-                    text: mark.change.text.clone().into(),
+                    text: one_line(&mark.change.text).into(),
                     color: hue,
                     tint: hue.opacity(DELETE_TINT),
                 });
@@ -348,7 +354,7 @@ fn change_card(
 
 #[cfg(test)]
 mod tests {
-    use super::byte_at;
+    use super::{byte_at, one_line};
 
     #[test]
     fn utf16_positions_become_byte_offsets() {
@@ -358,5 +364,12 @@ mod tests {
         assert_eq!(byte_at("é🔵ab", 99), 8);
         // Inside the emoji: never splits it.
         assert_eq!(byte_at("🔵a", 1), 4);
+    }
+
+    #[test]
+    fn a_struck_deletion_across_lines_reads_on_one_line() {
+        assert_eq!(one_line("end.\n\nNext"), "end.  Next");
+        assert_eq!(one_line("a\r\nb\rc"), "a b c");
+        assert_eq!(one_line("same"), "same");
     }
 }

@@ -20,8 +20,11 @@ impl Shell {
         let shown: Vec<(Entity<EditorPanel>, Vec<CommentMark>, Vec<ChangeMark>)> = self
             .open_editors()
             .into_iter()
-            .map(|editor| {
+            .filter_map(|editor| {
                 let path = editor.read(cx).relative().to_string();
+                if bridge.typing_unsent(&path) {
+                    return None;
+                }
                 let comments = bridge
                     .comments_in(&path)
                     .into_iter()
@@ -79,7 +82,7 @@ impl Shell {
                             .collect()
                     })
                     .unwrap_or_default();
-                (editor, comments, changes)
+                Some((editor, comments, changes))
             })
             .collect();
         let active = self

@@ -126,6 +126,15 @@ impl OverleafBridge {
             .is_some_and(|doc| doc.send.is_some() || !doc.ot.settled())
     }
 
+    /// `path` is live with typing still coalescing: its buffer is ahead of
+    /// the positions review has for it until the typing is handed over.
+    pub fn typing_unsent(&self, path: &str) -> bool {
+        self.documents
+            .live
+            .as_ref()
+            .is_some_and(|doc| doc.path == path && doc.send.is_some())
+    }
+
     /// The editor the writer works in, live or not.
     pub(super) fn shown_editor(&self) -> Option<Entity<EditorPanel>> {
         self.documents.shown.as_ref()?.upgrade()

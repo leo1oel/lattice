@@ -230,13 +230,19 @@ impl Run {
         // A build an earlier step left running would make both asks wait
         // behind it, as one queued pass: start from no build.
         let idle = self
-            .wait_for(cx, Duration::from_secs(180), |shell, cx| !shell.read(cx).building())
+            .wait_for(cx, Duration::from_secs(180), |shell, cx| {
+                !shell.read(cx).building()
+            })
             .await;
         let before = self.builds(cx);
         // The log may be full (300) by now, so new entries are those above
         // the newest one before, not a count's growth.
         let previous = cx.update(|cx| {
-            app_log::global(cx).read(cx).entries().first().map(|entry| entry.id.clone())
+            app_log::global(cx)
+                .read(cx)
+                .entries()
+                .first()
+                .map(|entry| entry.id.clone())
         });
         self.with_window(cx, |shell, window, cx| {
             shell.update(cx, |shell, cx| {

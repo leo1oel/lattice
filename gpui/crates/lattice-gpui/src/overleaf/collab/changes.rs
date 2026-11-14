@@ -5,7 +5,7 @@
 //! change marked in its author's colour (which shows it in the editor).
 //! With two or more, Accept all and Reject all.
 
-use std::ops::Range;
+use std::{ops::Range, sync::LazyLock};
 
 use gpui::{HighlightStyle, StrikethroughStyle, StyledText, UnderlineStyle};
 use lattice_core::overleaf_rt::{TrackedChange, tracked};
@@ -383,22 +383,33 @@ fn collapse(text: &str) -> String {
 /// The text's headings, by UTF-16 position: each `\chapter`, `\section` …
 /// `\subsubsection` and `\paragraph`, and the abstract's span.
 fn sections_of(text: &str) -> Vec<(usize, Option<usize>, String)> {
-    let heading =
+    static HEADING: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"\\(?:chapter|section|subsection|subsubsection|paragraph)\*?\{([^}]*)\}")
-            .expect("the heading pattern compiles");
-    let utf16 = |byte: usize| text[..byte].encode_utf16().count();
-    let mut out: Vec<(usize, Option<usize>, String)> = heading
+            .expect("the heading pattern compiles")
+    });
+    let mut out: Vec<(usize, Option<usize>, String)> = HEADING
         .captures_iter(text)
         .filter_map(|captures| {
             let whole = captures.get(0)?;
-            Some((utf16(whole.start()), None, captures[1].trim().to_string()))
+            Some((whole.start(), None, captures[1].trim().to_string()))
         })
         .collect();
     if let (Some(begin), Some(end)) = (text.find("\\begin{abstract}"), text.find("\\end{abstract}"))
     {
-        out.push((utf16(begin), Some(utf16(end)), t!("Abstract").to_string()));
+        out.push((begin, Some(end), t!("Abstract").to_string()));
     }
     out.sort_by_key(|(at, _, _)| *at);
+    // By byte, in order: each start counted on from the one before.
+    let (mut byte, mut units) = (0, 0);
+    for (start, end, _) in &mut out {
+        units += text[byte..*start].encode_utf16().count();
+        byte = *start;
+        *end = end.map(|end| match text.get(byte..end) {
+            Some(span) => units + span.encode_utf16().count(),
+            None => text[..end].encode_utf16().count(),
+        });
+        *start = units;
+    }
     out
 }
 
@@ -473,6 +484,27 @@ mod tests {
         assert_eq!(
             section_at(&sections_of("Plain text."), 3),
             "Before the first section"
+        );
+    }
+
+    #[test]
+    fn headings_are_found_at_their_utf16_positions() {
+        // "🔵" is two UTF-16 units and four bytes, "é" one unit and two.
+        let text = "🔵\\section{One}é\\begin{abstract}ab\\end{abstract}\\section*{Two}";
+        let sections = sections_of(text);
+        let starts: Vec<_> = sections
+            .iter()
+            .map(|(start, end, title)| (*start, *end, title.as_str()))
+            .collect();
+        // \section{One} is 13 units, so "é" is at 15 and \begin at 16;
+        // \begin{abstract}ab is 18 units, so \end is at 34 and is 14 long.
+        assert_eq!(
+            starts,
+            vec![
+                (2, None, "One"),
+                (16, Some(34), "Abstract"),
+                (48, None, "Two")
+            ]
         );
     }
 }

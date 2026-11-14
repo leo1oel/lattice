@@ -245,8 +245,7 @@ impl OverleafBridge {
     fn own_suggester(&self) -> Suggester {
         Suggester {
             user_id: self.review.user_id.clone(),
-            // Overleaf's own colour for "you".
-            hue: 200,
+            hue: lattice_core::overleaf_rt::presence_hue(self.review.user_id.as_deref()),
         }
     }
 
@@ -352,13 +351,19 @@ impl OverleafBridge {
         self.review.refresh = Some(cx.spawn(async move |this, cx| {
             loop {
                 cx.background_executor().timer(SUGGESTIONS_REFRESH).await;
-                let asked = this
-                    .update(cx, |this, _| {
+                let asked = this.update(cx, |this, _| {
+                    let pending =
+                        this.review.docs.get(&doc_id).is_some_and(|review| {
+                            review.changes.iter().any(tracked::is_provisional)
+                        });
+                    pending.then(|| {
                         let version = this.settled_version(&doc_id)?;
                         Some((this.client.clone()?, version))
                     })
-                    .ok()
-                    .flatten();
+                });
+                let Ok(Some(asked)) = asked else {
+                    break;
+                };
                 let Some((client, version)) = asked else {
                     continue;
                 };
