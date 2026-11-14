@@ -29,6 +29,7 @@ mod native;
 mod native;
 mod notices;
 mod outline;
+mod overleaf;
 mod paint_probe;
 mod panels;
 mod pdf;

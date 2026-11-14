@@ -11,10 +11,11 @@
 //! Anything left undecided keeps its markers, so saving halfway is safe.
 //! "Edit before saving" opens the resolved text to touch up by hand.
 //!
-//! In the GPUI app a conflict comes from Git (a merge or a pull that
-//! stopped): the current text is the side Git calls ours, the other is named
-//! as Git names it in the marker (`>>>>>>> feature`). The Tauri app's
-//! Overleaf and Agent Undo conflicts have no counterpart here yet.
+//! A conflict comes from Git (a merge or a pull that stopped): the current
+//! text is the side Git calls ours, the other is named as Git names it in the
+//! marker (`>>>>>>> feature`); or from an Overleaf sync, which puts this
+//! computer's text against Overleaf's, and names the sides so. The Tauri
+//! app's Agent Undo conflicts have no counterpart here yet.
 //!
 //! Saving writes through lattice-core's editor transaction, only over the
 //! exact text the choices were made against: a file rewritten while the
@@ -78,6 +79,8 @@ pub struct ConflictResolver {
     saving: bool,
     error: Option<String>,
     changed_on_disk: bool,
+    /// The markers are an Overleaf sync's: this computer against Overleaf.
+    overleaf: bool,
     load_version: usize,
     focus: FocusHandle,
     scroll: ScrollHandle,
@@ -98,12 +101,24 @@ impl ConflictResolver {
             saving: false,
             error: None,
             changed_on_disk: false,
+            overleaf: false,
             load_version: 0,
             focus: cx.focus_handle(),
             scroll: ScrollHandle::new(),
         };
         resolver.load(cx);
         resolver
+    }
+
+    /// Name the sides as an Overleaf sync's: this computer and Overleaf.
+    pub fn overleaf_sides(mut self, overleaf: bool) -> Self {
+        self.overleaf = overleaf;
+        self
+    }
+
+    /// Whether the sides are named as an Overleaf sync's, for a scenario.
+    pub fn is_overleaf(&self) -> bool {
+        self.overleaf
     }
 
     /// How many spots are left to decide, for a scenario.
@@ -281,6 +296,16 @@ struct Words {
 
 impl ConflictResolver {
     fn words(&self) -> Words {
+        if self.overleaf {
+            return Words {
+                ours: t!("This computer").into(),
+                keeping_ours: t!("Keeping this computer's").into(),
+                ours_empty: t!("This computer removed this part.").into(),
+                theirs: t!("Overleaf").into(),
+                keeping_theirs: t!("Keeping Overleaf's").into(),
+                theirs_empty: t!("Overleaf removed this part.").into(),
+            };
+        }
         let theirs = self
             .theirs_name
             .clone()

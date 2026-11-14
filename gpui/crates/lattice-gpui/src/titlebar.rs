@@ -17,16 +17,16 @@
 //! document's name and the way out.
 //!
 //! The titlebar is the chrome under a white veil, closed by a hairline. Tools
-//! that are not in the GPUI app yet (Track changes, Annotations, Overleaf,
-//! Git, History, Open in browser) are drawn so the window reads as Lattice, and say so in
-//! their tooltips; nothing pretends to work.
+//! that are not in the GPUI app yet (Track changes, Annotations, Git, Open in
+//! browser) are drawn so the window reads as Lattice, and say so in their
+//! tooltips; nothing pretends to work. Overleaf's is `shell::overleaf_flow`'s.
 
 use std::{cell::Cell, rc::Rc};
 
 use gpui::{
     AnyElement, AnyView, Context, InteractiveElement as _, IntoElement, MouseButton,
-    ParentElement as _, StatefulInteractiveElement as _, Styled as _, WeakEntity, Window,
-    WindowControlArea, canvas, div, prelude::FluentBuilder as _, px,
+    ParentElement as _, StatefulInteractiveElement as _, Styled as _, Window, WindowControlArea,
+    canvas, div, prelude::FluentBuilder as _, px,
 };
 use gpui_kit::component::InteractiveElementExt as _;
 use lattice_i18n::{space_mixed_script, t};
@@ -49,7 +49,7 @@ mod hidden_chips;
 mod project_menu;
 mod workspace_switch;
 
-use project_menu::project_menu;
+use project_menu::{project_menu, switcher_for};
 #[cfg(test)]
 use workspace_switch::{SwitchTab, tab_width};
 use workspace_switch::{unfolded_switch_width, workspace_switcher};
@@ -57,8 +57,8 @@ use workspace_switch::{unfolded_switch_width, workspace_switcher};
 use crate::shell::{
     Shell,
     commands::{
-        CloseProject, CommandPalette, ResetLayout, ToggleAgentPanel, ToggleFocusMode,
-        ToggleMaximize, TogglePapersPanel, TogglePdfPanel, ToggleProjectPanel, keys_label,
+        CommandPalette, ResetLayout, ToggleAgentPanel, ToggleFocusMode, ToggleMaximize,
+        TogglePapersPanel, TogglePdfPanel, ToggleProjectPanel, keys_label,
     },
     trellis_layout::Preset,
     workspaces::{Workspaces, shown_name},
@@ -400,18 +400,18 @@ pub fn render(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> im
             Icon::FILE_PEN_LINE,
             t!("Track changes"),
         ))
-        .children(tool(
-            TitlebarTool::Comments,
-            "annotations",
-            Icon::ANNOTATIONS,
-            t!("Annotations"),
-        ))
-        .children(tool(
-            TitlebarTool::Overleaf,
-            "overleaf",
-            Icon::CLOUD,
-            t!("Open a project from Overleaf"),
-        ))
+        // A project linked to Overleaf keeps its notes in Overleaf's
+        // comments, reached from the Overleaf control instead.
+        .children(
+            tool(
+                TitlebarTool::Comments,
+                "annotations",
+                Icon::ANNOTATIONS,
+                t!("Annotations"),
+            )
+            .filter(|_| shell.overleaf.read(cx).link().is_none()),
+        )
+        .children(shell.overleaf_tools(cx))
         .children(tool(
             TitlebarTool::Git,
             "git",
@@ -608,24 +608,6 @@ fn project_group(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) ->
         .children(tabs.map(controls))
         .children(menu_layer)
         .into_any_element()
-}
-
-fn switcher_for(shell: &Shell, weak: WeakEntity<Shell>, cx: &gpui::App) -> impl IntoElement {
-    MenuPopover::new(
-        "project-switcher-menu",
-        ToolbarButton::new("project-switcher", shell.project_name(cx))
-            .switcher()
-            .max_w(px(TAB_SWITCHER_MAX))
-            .parity("titlebar/project"),
-        move |menu, window, cx| {
-            project_menu(weak.clone(), menu, window, cx)
-                .separator()
-                .item(MenuAction::dispatch(
-                    t!("Close this project"),
-                    Box::new(CloseProject),
-                ))
-        },
-    )
 }
 
 /// The Panels menu: each panel's toggle (checked while on screen), the

@@ -345,3 +345,7 @@ msgstr "Markdown 编辑器打不开"
 #: lattice-gpui/src/structured.rs
 msgid "Open Slide’s Ask AI, Apply comments and Draft a deck need the Agent."
 msgstr "幻灯片的“问 AI”“应用批注”和“起草幻灯片”需要 AI 助手。"
+
+#: lattice-gpui/src/overleaf/channel.rs
+msgid "connection closed"
+msgstr "连接已断开"

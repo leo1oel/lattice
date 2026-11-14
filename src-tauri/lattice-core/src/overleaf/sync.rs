@@ -687,7 +687,7 @@ use history_evidence::{agreed_copy, settle_destructive};
 use outcome::{newly_held, record_result};
 pub use outcome::{OverleafConflict, OverleafSyncResult};
 pub use prefetch::{prefetch, Prefetched};
-pub use preview::{preview, OverleafPreview};
+pub use preview::{preview, OverleafChange, OverleafPreview};
 pub use probe::{probe, OverleafProbe};
 pub use relocations::sync_relocations;
 pub use remote_delete::{delete_unchanged, RemoteDelete};

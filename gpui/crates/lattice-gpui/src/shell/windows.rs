@@ -16,6 +16,7 @@ use gpui::{
     AnyWindowHandle, App, Bounds, Context, Entity, Global, Pixels, SharedString, WeakEntity,
     Window, WindowId, point, px, size,
 };
+use lattice_i18n::t;
 
 use super::Shell;
 
@@ -41,6 +42,40 @@ pub(crate) fn root_of(window: AnyWindowHandle, cx: &App) -> Option<PathBuf> {
         .get(&window.window_id())?
         .upgrade()?;
     shell.read(cx).root(cx)
+}
+
+/// The window showing the project at `root`, if one does.
+pub(crate) fn window_showing(root: &std::path::Path, cx: &App) -> Option<AnyWindowHandle> {
+    window_showing_except(root, None, cx)
+}
+
+/// [`window_showing`], leaving out `except`: a shell asking from inside its
+/// own update cannot be read, and knows its own project.
+pub(crate) fn window_showing_except(
+    root: &std::path::Path,
+    except: Option<WindowId>,
+    cx: &App,
+) -> Option<AnyWindowHandle> {
+    let canonical = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
+    cx.windows().into_iter().find(|handle| {
+        Some(handle.window_id()) != except
+            && root_of(*handle, cx).is_some_and(|shown| shown == root || shown == canonical)
+    })
+}
+
+/// The window showing the project at `root`, and its shell, for a scenario.
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+pub(crate) fn shell_showing(
+    root: &std::path::Path,
+    cx: &App,
+) -> Option<(AnyWindowHandle, Entity<Shell>)> {
+    let handle = window_showing(root, cx)?;
+    let shell = cx
+        .try_global::<Shells>()?
+        .0
+        .get(&handle.window_id())?
+        .upgrade()?;
+    Some((handle, shell))
 }
 
 /// Run `f` on the shell of each window `which` picks, in its own window.
@@ -174,6 +209,46 @@ impl Shell {
         if self.root(cx).as_ref() != Some(&root) {
             self.open_project(root, window, cx);
         }
+    }
+
+    /// Open `root` in place of the project shown, once the shown project's
+    /// edits are saved, taking the `closing` project's tab out with it. A
+    /// save that fails or is held keeps the shown project, its editors and
+    /// the save's notice, as closing the window does.
+    pub(super) fn leave_for(
+        &mut self,
+        root: PathBuf,
+        closing: Option<PathBuf>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.save_layout(cx);
+        let saved = self.save_before_leaving(cx);
+        self._open_task = Some(cx.spawn_in(window, async move |this, cx| {
+            if let Some(saved) = saved
+                && !saved.await
+            {
+                return;
+            }
+            match crate::project::open(root.clone(), cx).await {
+                Ok(project) => {
+                    this.update_in(cx, |this, window, cx| {
+                        this.set_project(project, window, cx);
+                        if let Some(closing) = closing {
+                            this.projects.retain(|p| p.root != closing);
+                        }
+                    })
+                    .ok();
+                }
+                Err(error) => {
+                    log::error!("could not open {}: {error}", root.display());
+                    cx.update(|_, cx| {
+                        crate::notices::error(t!("Could not open the project"), error, cx)
+                    })
+                    .ok();
+                }
+            }
+        }));
     }
 
     /// Take `root` out of this window. The one shown goes once its right-hand

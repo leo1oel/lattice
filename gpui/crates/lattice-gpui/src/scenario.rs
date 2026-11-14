@@ -2,7 +2,7 @@
 //! writing flow (macOS and Windows), and the measurements the pass criteria
 //! ask for (macOS).
 //!
-//! `lattice-gpui PROJECT --scenario e2e|islands|perf|memory|ime|ime-protocol|shot|parity|pdf-shots --out RESULT.json`
+//! `lattice-gpui PROJECT --scenario e2e|islands|overleaf|perf|memory|ime|ime-protocol|shot|parity|pdf-shots --out RESULT.json`
 
 use std::{
     path::{Path, PathBuf},
@@ -20,11 +20,14 @@ mod drag;
 mod e2e;
 #[cfg(target_os = "macos")]
 mod measure;
+mod overleaf_mock;
 #[cfg(target_os = "macos")]
 mod parity;
 #[cfg(target_os = "macos")]
 mod parity_history;
 mod parity_submission;
+#[cfg(target_os = "macos")]
+mod parity_overleaf;
 #[cfg(target_os = "macos")]
 mod parity_welcome;
 #[cfg(target_os = "macos")]
@@ -74,6 +77,8 @@ pub fn start(shell: Entity<Shell>, window: AnyWindowHandle, args: ScenarioArgs, 
             "e2e" => run.e2e(cx).await,
             #[cfg(target_os = "macos")]
             "islands" => run.islands(cx).await,
+            #[cfg(target_os = "macos")]
+            "overleaf" => run.overleaf_alone(cx).await,
             #[cfg(target_os = "macos")]
             "perf" => run.perf(cx).await,
             #[cfg(target_os = "macos")]
