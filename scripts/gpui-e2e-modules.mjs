@@ -45,6 +45,7 @@ export const MODULES = [
   "dock",
   "documents",
   "editor_adapter",
+  "find",
   "fluid",
   "get_started",
   "help",

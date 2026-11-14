@@ -501,6 +501,10 @@ impl EditorPanel {
     }
 
     #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn search_visible(&self) -> bool {
+        self.search_visible
+    }
+
     pub fn search_bar(&self) -> &Entity<BufferSearchBar> {
         &self.search_bar
     }

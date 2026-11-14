@@ -21,6 +21,7 @@ mod design_calls;
 mod documents;
 mod editor_adapter;
 mod editor_pointer;
+mod find;
 mod fluid;
 mod get_started;
 mod help;
@@ -129,6 +130,9 @@ impl Run {
         self.sequence_and_words(cx, &mut steps).await?;
         if steps::selected("fluid") {
             self.fluid_hover(cx, &mut steps).await?;
+        }
+        if steps::selected("find") {
+            self.find_in_file(cx, &mut steps, &root).await?;
         }
         if steps::selected("source_chrome") {
             self.source_chrome(cx, &mut steps, &root).await?;

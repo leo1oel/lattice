@@ -25,6 +25,7 @@ pub(super) struct Steps(pub(super) Vec<Value>, Rc<RefCell<String>>);
 /// (`scripts/gpui-e2e-modules.mjs` maps paths to these names); the full run
 /// is the post-merge main baseline's (`scripts/gpui-main-baseline.mjs`).
 pub(in crate::scenario) const MODULES: &[(&str, &[&str])] = &[
+    ("find", &[]),
     ("fluid", &[]),
     ("source_chrome", &[]),
     ("design_calls", &[]),
