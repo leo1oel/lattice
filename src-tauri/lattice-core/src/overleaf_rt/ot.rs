@@ -35,6 +35,18 @@ fn text_of(units: &[u16]) -> String {
     String::from_utf16_lossy(units)
 }
 
+/// The hash Overleaf checks an update against (`overleafDocHash`): SHA-1 of
+/// `blob {UTF-16 length}\0` and the text's UTF-8. Sent with an update that
+/// nothing else landed before, it turns a copy that drifted from the
+/// server's into a refused update instead of silent divergence.
+pub fn doc_hash(text: &str) -> String {
+    use sha1::{Digest as _, Sha1};
+    let mut hasher = Sha1::new();
+    hasher.update(format!("blob {}\0", utf16_len(text)).as_bytes());
+    hasher.update(text.as_bytes());
+    hasher.finalize().iter().map(|byte| format!("{byte:02x}")).collect()
+}
+
 /// `text`'s length as Overleaf counts it.
 pub fn utf16_len(text: &str) -> usize {
     text.encode_utf16().count()

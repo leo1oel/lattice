@@ -85,10 +85,15 @@ impl Run {
             })
             .await;
         let updates = mock.updates().len() - sent_before;
+        let hashed = mock
+            .updates()
+            .iter()
+            .filter(|update| update["hash"].is_string())
+            .count();
         steps.check(
             "typing here reaches Overleaf as live operations",
-            reached && updates > 0,
-            json!({ "reached": reached, "updates": updates }),
+            reached && updates > 0 && hashed > 0 && mock.rejected().is_empty(),
+            json!({ "reached": reached, "updates": updates, "hashed": hashed, "rejected": mock.rejected() }),
         );
 
         // Both sides at once.

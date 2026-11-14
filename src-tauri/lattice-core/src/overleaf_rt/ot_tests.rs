@@ -560,3 +560,13 @@ fn resuming_replays_what_was_missed_and_keeps_unsent_work() {
     doc.catch_up(&[Replayed { version: 7, ops: vec![ins(3, " runs")], mine: false }]).unwrap();
     assert_eq!(doc.text(), "quick fox runs");
 }
+
+#[test]
+fn the_document_hash_is_the_one_overleaf_checks() {
+    // Git's blob hash of the text, as `overleafDocHash` and the server
+    // compute it, with the length counted in UTF-16 units.
+    assert_eq!(doc_hash(""), "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391");
+    assert_eq!(doc_hash("hello\n"), "ce013625030ba8dba906f756967f9e9ca394464a");
+    // "é" is one UTF-16 unit but two UTF-8 bytes: the header says 1.
+    assert_ne!(doc_hash("é"), doc_hash("e"));
+}

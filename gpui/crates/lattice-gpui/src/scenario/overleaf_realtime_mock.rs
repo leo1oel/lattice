@@ -268,6 +268,12 @@ fn apply(id: &str, update: Value, public_id: &str, store: &Arc<impl Store>) -> V
             live.rejected.push(json!({ "update": update, "transformed": incoming, "text": text, "version": history.len() }));
             return None;
         };
+        // Overleaf checks the hash when nothing landed first, as here.
+        let hash = update["hash"].as_str();
+        if at as usize == history.len() && hash.is_some_and(|hash| hash != ot::doc_hash(&next)) {
+            live.rejected.push(json!({ "update": update, "reason": "hash mismatch", "text": text }));
+            return None;
+        }
         files.insert(path.clone(), next.into_bytes());
         let version = history.len();
         history.push(incoming.clone());

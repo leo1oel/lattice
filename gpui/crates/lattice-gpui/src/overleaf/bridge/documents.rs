@@ -39,6 +39,8 @@ use crate::editor_panel::EditorPanel;
 const SEND_AFTER: Duration = Duration::from_millis(250);
 /// A document left with work in flight is waited on this long.
 const DRAIN: Duration = Duration::from_secs(15);
+/// Overleaf's hash rides on an update at most this often.
+const HASH_EVERY: Duration = Duration::from_secs(5);
 
 struct LiveDoc {
     path: String,
@@ -49,6 +51,8 @@ struct LiveDoc {
     send: Option<Task<()>>,
     /// Left, waiting for the work in flight to be answered.
     draining: Option<Task<()>>,
+    /// When an update last carried Overleaf's hash.
+    hashed_at: Option<std::time::Instant>,
 }
 
 #[derive(Default)]
@@ -209,6 +213,7 @@ impl OverleafBridge {
                     ot,
                     send: None,
                     draining: None,
+                    hashed_at: None,
                 });
                 if let Some(send) = send {
                     let id = this
@@ -291,11 +296,22 @@ impl OverleafBridge {
             return;
         };
         doc.ot.note_submitted(Some(&client.public_id()));
+        // The hash describes the text once this update lands as sent, so it
+        // rides only on one with nothing queued behind it, now and then.
+        let due = doc.hashed_at.is_none_or(|at| at.elapsed() >= HASH_EVERY);
+        let hash = doc
+            .ot
+            .sent_text()
+            .filter(|_| due)
+            .map(lattice_core::overleaf_rt::ot::doc_hash);
+        if hash.is_some() {
+            doc.hashed_at = Some(std::time::Instant::now());
+        }
         let doc_id = doc.doc_id.clone();
         let sending = lattice_core::runtime::spawn(async move {
             let submission = Submission {
                 dup_if_source: &dup_if_source,
-                hash: None,
+                hash: hash.as_deref(),
             };
             client
                 .send_ops(&doc_id, send.version, send.ops, false, submission)
