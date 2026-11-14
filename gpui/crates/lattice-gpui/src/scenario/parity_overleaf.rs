@@ -121,8 +121,6 @@ fn iso_ago(ago: i64) -> String {
         .to_rfc3339_opts(chrono::SecondsFormat::Millis, true)
 }
 
-/// The bench's `PICKER_PROJECTS`: `[id, name, ownerName, ownerEmail, age,
-/// accessLevel]` rows, the age a product like `26 * HOUR`.
 /// The bench's signed-in person (`PEOPLE.me`): their name and email.
 fn bench_me() -> Result<(String, String)> {
     let line = BENCH
@@ -145,6 +143,8 @@ fn bench_me() -> Result<(String, String)> {
     Ok((field("name")?, field("email")?))
 }
 
+/// The bench's `PICKER_PROJECTS`: `[id, name, ownerName, ownerEmail, age,
+/// accessLevel]` rows, the age a product like `26 * HOUR`.
 fn picker_projects() -> Result<Vec<OverleafProject>> {
     let block = BENCH
         .split_once("const PICKER_PROJECTS:")

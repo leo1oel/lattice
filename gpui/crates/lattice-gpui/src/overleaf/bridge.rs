@@ -141,6 +141,10 @@ pub struct OverleafBridge {
     remote_changes: bool,
     channel: ChannelStatus,
     channel_detail: Option<SharedString>,
+    /// The channel failure last toasted, until the channel joins again.
+    toasted_failure: Option<String>,
+    /// A sync already rejoined the failed channel once since it last joined.
+    rejoined: bool,
     /// Every file's Overleaf id and kind by path, from the channel.
     entities: HashMap<String, (String, String)>,
     entity_list: Option<Vec<lattice_core::overleaf_rt::EntityEntry>>,
@@ -193,6 +197,8 @@ impl OverleafBridge {
             remote_changes: false,
             channel: ChannelStatus::Off,
             channel_detail: None,
+            toasted_failure: None,
+            rejoined: false,
             entities: HashMap::new(),
             entity_list: None,
             local_pending: false,
@@ -270,6 +276,8 @@ impl OverleafBridge {
         self.sync_waiters.clear();
         self.queued_waiters.clear();
         self.syncing = false;
+        self.toasted_failure = None;
+        self.rejoined = false;
         self.stop(cx);
         self.reload_link(cx);
     }
@@ -406,6 +414,8 @@ impl OverleafBridge {
                 self.note_entities(entities);
                 self.channel = ChannelStatus::Live;
                 self.channel_detail = None;
+                self.toasted_failure = None;
+                self.rejoined = false;
             }
             ChannelNews::Tree(entities) => self.note_entities(entities),
             ChannelNews::Reconnecting(detail) => {
@@ -413,12 +423,12 @@ impl OverleafBridge {
                 self.channel_detail = Some(detail.into());
             }
             ChannelNews::Failed(detail) => {
-                let said = self.channel_detail.as_deref() == Some(detail.as_str())
-                    && self.channel == ChannelStatus::Error;
+                let said = self.toasted_failure.as_deref() == Some(detail.as_str());
                 self.channel = ChannelStatus::Error;
                 self.channel_detail = Some(detail.clone().into());
                 // A channel that could not start is otherwise invisible.
                 if !said && self.mode == OverleafSyncMode::Live {
+                    self.toasted_failure = Some(detail.clone());
                     notices::show(
                         Notice::new(
                             ToastLevel::Info,
@@ -628,7 +638,8 @@ impl OverleafBridge {
             })
             .detach();
         }
-        if self.channel == ChannelStatus::Error {
+        if self.channel == ChannelStatus::Error && !self.rejoined {
+            self.rejoined = true;
             self.channel_task = None;
         }
         self.reload_link(cx);
