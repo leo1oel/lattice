@@ -68,7 +68,8 @@ pub struct LogsPane {
     scroll: ScrollHandle,
     /// The log has been drawn once, at its newest entry.
     positioned: bool,
-    shown: usize,
+    /// How many entries were shown, and the newest of them (its id and time).
+    shown: (usize, Option<(String, String)>),
     /// The monospace face's `ch` at the log's size, which its columns are
     /// measured in (24ch for the time, 6ch for the level).
     ch: gpui::Pixels,
@@ -95,7 +96,7 @@ impl LogsPane {
             open: HashSet::new(),
             scroll: ScrollHandle::new(),
             positioned: false,
-            shown: 0,
+            shown: (0, None),
             ch: px(7.2),
             export: None,
             _subscriptions: subscriptions,
@@ -161,17 +162,23 @@ impl LogsPane {
         }
     }
 
-    /// Keep the newest entry in view: at first draw, and after new entries
-    /// while the reader is near the bottom.
-    fn follow(&mut self, count: usize) {
+    /// Keep the newest entry in view: at first draw, and while the reader is
+    /// near the bottom, whenever the shown entries change: a new one, one the
+    /// full log pushes out, or a repeated notice's entry updated in place.
+    fn follow(&mut self, shown: &[Entry]) {
+        let newest = shown
+            .iter()
+            .max_by(|a, b| a.timestamp.cmp(&b.timestamp))
+            .map(|entry| (entry.id.clone(), entry.timestamp.clone()));
+        let shown = (shown.len(), newest);
         let offset = self.scroll.offset().y;
         let max = self.scroll.max_offset().y;
         let near = max + offset < px(FOLLOW_SLACK);
-        if !self.positioned || (count != self.shown && near) {
+        if !self.positioned || (shown != self.shown && near) {
             self.scroll.scroll_to_bottom();
         }
         self.positioned = true;
-        self.shown = count;
+        self.shown = shown;
     }
 }
 
@@ -208,9 +215,6 @@ impl LogsPane {
             Level::Warning => palette.warning,
             Level::Error => palette.danger,
         };
-        let (date, time) = entry.timestamp.split_at(entry.timestamp.len().min(11));
-        let date = date.to_string();
-        let time = time.to_string();
         div()
             .id(id)
             .group("app-log-row")
@@ -231,7 +235,7 @@ impl LogsPane {
                     .overflow_hidden()
                     .text_color(palette.text_secondary.opacity(0.75))
                     .font_features(lattice_ui::typography::tabular_nums())
-                    .child(format!("{date}{time}")),
+                    .child(entry.timestamp.clone()),
             )
             .child(
                 div()
@@ -488,7 +492,7 @@ impl Render for LogsPane {
             .iter()
             .flat_map(|group| group.entries.iter().cloned())
             .collect();
-        self.follow(shown.len());
+        self.follow(&shown);
         let has_folder = self.log.read(cx).log_folder().is_some();
         let levels: Vec<(Option<Level>, SharedString)> =
             std::iter::once((None, t!("All levels").into()))

@@ -61,6 +61,8 @@ pub(super) struct BuildRequest {
     /// An automatic build the live preview's pause in typing let through:
     /// no spinner on the Build button (`live_preview::quiet_builds`).
     pub(super) quiet: bool,
+    /// It waited behind another build (the log's trigger "queued").
+    queued: bool,
 }
 
 impl BuildRequest {
@@ -85,8 +87,7 @@ impl BuildRequest {
             force: true,
             clean: true,
             requested: true,
-            unattended: false,
-            quiet: false,
+            ..Self::default()
         }
     }
 
@@ -98,6 +99,7 @@ impl BuildRequest {
             unattended: self.unattended && other.unattended,
             requested: self.requested || other.requested,
             quiet: self.quiet && other.quiet,
+            queued: true,
         }
     }
 }
@@ -211,10 +213,7 @@ impl Shell {
             return;
         }
         if self.build_task.is_some() {
-            self.queued_build = Some(match self.queued_build {
-                Some(queued) => queued.merge(request),
-                None => request,
-            });
+            self.queued_build = Some(request.merge(self.queued_build.unwrap_or(request)));
             return;
         }
         // A root document's own tab builds that document.
@@ -277,7 +276,7 @@ impl Shell {
         let aux_files = crate::settings::aux_files(cx);
         self.pdf
             .update(cx, |panel, cx| panel.set_building(true, cx));
-        self.build_trace = Some(oplog::start(request.force, cx));
+        self.build_trace = Some(oplog::start(request, cx));
         let live_preview = self.live_preview.clone();
         self.build_task = Some(cx.spawn_in(window, async move |this, cx| {
             for save in saves {

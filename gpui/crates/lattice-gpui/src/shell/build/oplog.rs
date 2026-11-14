@@ -3,16 +3,21 @@
 
 use lattice_i18n::t;
 
-use super::Finished;
+use super::{BuildRequest, Finished};
 use crate::app_log::trace::Trace;
 
 /// Open a build's operation in the log: "▶ Build", a forced one's trigger
-/// "clean rebuild".
-pub(super) fn start(force: bool, cx: &mut gpui::App) -> Trace {
+/// "clean rebuild", one that waited behind another build's "queued".
+pub(super) fn start(request: BuildRequest, cx: &mut gpui::App) -> Trace {
+    let trigger = if request.force {
+        Some(t!("clean rebuild"))
+    } else {
+        request.queued.then(|| t!("queued"))
+    };
     Trace::start(
         t!("Build"),
         t!("Build"),
-        force.then(|| t!("clean rebuild").to_string()),
+        trigger.map(|trigger| trigger.to_string()),
         "Build",
         cx,
     )
