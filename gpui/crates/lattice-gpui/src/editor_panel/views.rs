@@ -94,6 +94,11 @@ struct MarkdownView(DocumentView);
 impl gpui::Global for MarkdownView {}
 
 fn remembered(path: &std::path::Path, cx: &App) -> DocumentView {
+    // A paper's text opens to be read, whatever view another Markdown file
+    // was left in (`openPaper` sets the canvas to its preview each time).
+    if super::paper_text::is_bundle_text(path) {
+        return DocumentView::Preview;
+    }
     if super::bib_view::is_bib_path(path) {
         return super::bib_view::remembered_bib_view(cx);
     }
@@ -108,6 +113,10 @@ fn remembered(path: &std::path::Path, cx: &App) -> DocumentView {
 }
 
 fn remember(path: &std::path::Path, view: DocumentView, cx: &mut App) {
+    // A paper's view is its own: it leaves other Markdown files' alone.
+    if super::paper_text::is_bundle_text(path) {
+        return;
+    }
     if super::bib_view::is_bib_path(path) {
         super::bib_view::remember_bib_view(view, cx);
     } else if is_html(path) {
@@ -317,6 +326,8 @@ impl EditorPanel {
                 .and_then(|preview| preview.focus_handle(cx)),
             self.latex_visual_document()
                 .and_then(|document| document.read(cx).focus_handle(cx)),
+            // A bibliography's visual form is no `views.preview`.
+            self.bib_form_focus(cx),
         ];
         handles
             .into_iter()

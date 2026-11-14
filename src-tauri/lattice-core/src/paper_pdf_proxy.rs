@@ -48,6 +48,52 @@ pub async fn preview_url(url: &str) -> Result<String, String> {
     Ok(local.into())
 }
 
+/// The PDF at `url`, whole, for a reader that draws PDFs from bytes (the
+/// GPUI app's paper reader, which has no PDF.js to stream to): the same
+/// rules as [`preview_url`]'s proxy, http(s) only and without credentials,
+/// redirects followed only to such URLs, at most [`MAX_PDF_BYTES`], and the
+/// body must be a PDF. Blocking; run it off the main thread.
+pub fn fetch_pdf(url: &str) -> Result<Vec<u8>, String> {
+    use std::io::Read as _;
+    let mut upstream = parse_upstream_url(url)?;
+    upstream.set_fragment(None);
+    let client = crate::http::blocking_as(
+        "Lattice research writer (paper preview)",
+        std::time::Duration::from_secs(120),
+    )
+    .redirect(reqwest::redirect::Policy::custom(|attempt| {
+        if attempt.previous().len() >= 10 {
+            attempt.error("Too many PDF redirects")
+        } else if parse_upstream_url(attempt.url().as_str()).is_ok() {
+            attempt.follow()
+        } else {
+            attempt.stop()
+        }
+    }))
+    .build()
+    .map_err(|error| format!("Failed to create PDF client: {error}"))?;
+    let response =
+        client.get(upstream).send().map_err(|error| format!("Failed to fetch PDF: {error}"))?;
+    if !response.status().is_success() {
+        return Err(format!("PDF request failed: {}", response.status()));
+    }
+    if response.content_length().is_some_and(|size| size > MAX_PDF_BYTES) {
+        return Err("PDF is larger than 100 MB".into());
+    }
+    let mut bytes = Vec::new();
+    response
+        .take(MAX_PDF_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|error| format!("Failed to read PDF: {error}"))?;
+    if bytes.len() as u64 > MAX_PDF_BYTES {
+        return Err("PDF is larger than 100 MB".into());
+    }
+    if !bytes.starts_with(b"%PDF-") {
+        return Err("The response is not a PDF".into());
+    }
+    Ok(bytes)
+}
+
 fn parse_upstream_url(url: &str) -> Result<reqwest::Url, String> {
     let parsed = reqwest::Url::parse(url).map_err(|error| format!("Invalid PDF URL: {error}"))?;
     if !matches!(parsed.scheme(), "http" | "https") {
@@ -204,6 +250,15 @@ mod tests {
         preserves_upstream_statuses_and_rejects_what_it_must().await;
         assert!(preview_url("file:///tmp/paper.pdf").await.is_err());
         assert!(preview_url("https://user:password@example.com/paper.pdf").await.is_err());
+    }
+
+    // The same refusals as the proxy, before any request is made.
+    #[test]
+    fn fetch_refuses_what_the_proxy_refuses() {
+        assert!(fetch_pdf("file:///tmp/paper.pdf").unwrap_err().contains("HTTP"));
+        assert!(fetch_pdf("https://user:password@example.com/paper.pdf")
+            .unwrap_err()
+            .contains("credentials"));
     }
 
     #[tokio::test]

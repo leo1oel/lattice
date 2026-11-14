@@ -343,7 +343,7 @@ impl Run {
     /// Save the window as the screen composes it to `LATTICE_E2E_SHOTS`, for
     /// the look review beside the parity report (whose offscreen frame has
     /// no page in it).
-    async fn island_shot(&self, cx: &mut AsyncApp, name: &str) -> Result<()> {
+    pub(super) async fn island_shot(&self, cx: &mut AsyncApp, name: &str) -> Result<()> {
         let Some(dir) = std::env::var_os("LATTICE_E2E_SHOTS") else {
             return Ok(());
         };

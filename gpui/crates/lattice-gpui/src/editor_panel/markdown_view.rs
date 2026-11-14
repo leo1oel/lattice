@@ -73,6 +73,7 @@ impl EditorPanel {
             cx.new(|cx| StructuredDocument::markdown(&project, relative, source, window, cx));
         self._subscriptions
             .push(cx.subscribe_in(&document, window, Self::on_markdown_document));
+        self.paper_document_made(&document, cx);
         document
     }
 
@@ -117,6 +118,8 @@ impl EditorPanel {
                 cx.notify();
             }
             MarkdownEvent::Scrolled(center) => self.follow_preview(*center, window, cx),
+            MarkdownEvent::Masthead(in_view) => self.paper_masthead(*in_view, cx),
+            MarkdownEvent::PaperSource(page) => cx.emit(EditorPanelEvent::PaperSource(*page)),
         }
     }
 

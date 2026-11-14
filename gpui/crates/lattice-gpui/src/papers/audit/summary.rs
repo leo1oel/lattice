@@ -8,7 +8,7 @@ use super::{Bucket, Finding};
 
 const BIBITEM: &str = "\\bibitem";
 
-fn field_label(field: &str) -> String {
+pub(super) fn field_label(field: &str) -> String {
     match field {
         "title" => t!("Title"),
         "author" => t!("Authors"),
@@ -28,7 +28,7 @@ fn field_label(field: &str) -> String {
     .to_string()
 }
 
-fn reason_label(reason: &str) -> String {
+pub(super) fn reason_label(reason: &str) -> String {
     match reason {
         "insufficient_identity" => t!("Insufficient identifying metadata").to_string(),
         "record" => t!("Record identity").to_string(),
@@ -37,7 +37,7 @@ fn reason_label(reason: &str) -> String {
     }
 }
 
-fn source_name(source: &str) -> &str {
+pub(super) fn source_name(source: &str) -> &str {
     match source {
         "dblp" => t!("DBLP"),
         "semanticscholar" => t!("Semantic Scholar"),
@@ -193,7 +193,7 @@ fn fix_summary(result: &Finding, inline: bool) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::super::{Candidate, Change, Source};
+    use super::super::{Change, Source, finding::Candidate};
     use super::*;
 
     fn finding(status: &str) -> Finding {

@@ -22,7 +22,7 @@ use crate::papers::{
     bib_editor::add::{AddReference, AddReferenceEvent, AddTarget, ProjectSave},
     linked::{LinkedLibrary, LinkedLibraryEvent},
     literature::{Literature, LiteratureEvent},
-    reader::{PaperReader, PaperReaderEvent, ReaderView},
+    reader::{PaperReader, PaperReaderEvent, ReaderView, reading_path},
 };
 
 impl Shell {
@@ -110,24 +110,25 @@ impl Shell {
         let key = reader_key(&paper.arxiv_id);
         let reader = match self.reader_of(&key, cx) {
             Some(reader) => {
-                reader.update(cx, |reader, cx| reader.set_paper(paper, cx));
+                reader.update(cx, |reader, cx| reader.set_paper(paper, window, cx));
                 reader
             }
             None => {
-                let view = if paper.has_full_text {
-                    ReaderView::FullText
-                } else {
-                    ReaderView::Overview
-                };
+                let remembered = self.documents.paper_views.get(&paper.arxiv_id).copied();
+                let view = preferred_view(remembered, &paper);
                 let reader = cx.new(|cx| PaperReader::new(root.clone(), paper, view, cx));
-                cx.subscribe_in(&reader, window, |this, _, event, window, cx| match event {
-                    PaperReaderEvent::OpenPdf(path) => {
-                        if let Some(root) = this.root(cx) {
-                            this.open_file_pdf(root.join(path), window, cx);
+                cx.subscribe_in(
+                    &reader,
+                    window,
+                    |this, reader, event, window, cx| match event {
+                        PaperReaderEvent::Show(view) => {
+                            this.give_reader_text(reader, *view, window, cx)
                         }
-                    }
-                })
+                    },
+                )
                 .detach();
+                self.give_reader_text(&reader, view, window, cx);
+                reader.update(cx, |reader, cx| reader.resume_pdf(window, cx));
                 self.documents.readers.push(reader.clone());
                 reader
             }
@@ -137,6 +138,82 @@ impl Shell {
         window.focus(&reader.focus_handle(cx), cx);
         let path = root.join(reader.read(cx).path());
         self.mark_paper(&path, cx);
+    }
+
+    /// The editor of `reader`'s text in `view`: the shell's own for the
+    /// bundle's file, so it saves, reloads and undoes as any editor's.
+    fn give_reader_text(
+        &mut self,
+        reader: &Entity<PaperReader>,
+        view: ReaderView,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(root) = self.root(cx) else {
+            return;
+        };
+        let id = reader.read(cx).paper().arxiv_id.clone();
+        let path = root.join(reading_path(&id, view));
+        if let Some(editor) = self.editor_for(&path, window, cx) {
+            reader.update(cx, |reader, cx| reader.set_text(view, editor, window, cx));
+        }
+    }
+
+    /// A saved paper's reading text opened as a file (a search hit, a link
+    /// in a note, the Project tree) opens in its paper's reader, at `line`,
+    /// as the Tauri app's `openPaper` takes a hit's view and line; a text
+    /// the record lacks opens the one it has, at its top. `None` when
+    /// `path` is no paper's text the library lists, or the record has none.
+    pub(super) fn open_in_reader(
+        &mut self,
+        path: &Path,
+        line: Option<u32>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Option<Option<Entity<crate::editor_panel::EditorPanel>>> {
+        let root = self.root(cx)?;
+        let canonical_root = root.canonicalize().unwrap_or_else(|_| root.clone());
+        let relative = path
+            .strip_prefix(&canonical_root)
+            .or_else(|_| path.strip_prefix(&root))
+            .ok()?
+            .to_string_lossy()
+            .replace('\\', "/");
+        let (id, full_text) = crate::editor_panel::paper_text::paper_text_of(&relative)?;
+        let paper = self
+            .papers
+            .read(cx)
+            .paper_with_id(&id)
+            .filter(|paper| paper.has_full_text || paper.has_blog)?;
+        let (view, named) = if full_text {
+            (ReaderView::FullText, paper.has_full_text)
+        } else {
+            (ReaderView::Overview, paper.has_blog)
+        };
+        self.open_reader(paper, window, cx);
+        let reader = self.reader_of(&reader_key(&id), cx)?;
+        if named {
+            reader.update(cx, |reader, cx| reader.show(view, window, cx));
+        }
+        let editor = reader.read(cx).editor().cloned();
+        if let (Some(editor), Some(line), true) = (&editor, line, named) {
+            editor.update(cx, |editor, cx| editor.go_to_line(line, window, cx));
+        }
+        Some(editor)
+    }
+
+    /// The reader holding `editor` as one of its texts, if any: such an
+    /// editor stands in the reader's tab, never in a tab of its own.
+    pub(super) fn reader_holding(
+        &self,
+        editor: &Entity<crate::editor_panel::EditorPanel>,
+        cx: &gpui::App,
+    ) -> Option<Entity<PaperReader>> {
+        self.documents
+            .readers
+            .iter()
+            .find(|reader| reader.read(cx).editors().any(|held| held == editor))
+            .cloned()
     }
 
     /// The open reader of the layout's document `key`. A reader is made
@@ -176,11 +253,38 @@ impl Shell {
     pub(crate) fn front_reader(&self, cx: &gpui::App) -> Option<(String, String)> {
         self.front_reader_entity(false, cx).map(|reader| {
             let reader = reader.read(cx);
-            (
-                reader.path(),
-                reader.text(cx).unwrap_or_default().to_string(),
-            )
+            (reader.path(), reader.text(cx).unwrap_or_default())
         })
+    }
+
+    /// How the reader in front shows its paper, for scenarios: its text's
+    /// view (Edit, Split or Preview), whether that text's reading page has
+    /// drawn it and is on screen, and whether the original PDF stands in its
+    /// place.
+    pub(crate) fn front_reader_state(
+        &self,
+        cx: &gpui::App,
+    ) -> Option<(Option<crate::editor_panel::views::DocumentView>, bool, bool)> {
+        self.front_reader_entity(false, cx).map(|reader| {
+            let reader = reader.read(cx);
+            let editor = reader.editor().map(|editor| editor.read(cx));
+            let view = editor.and_then(|editor| editor.document_view());
+            // Revealed: the page has drawn the text (`doc:drawn`), not only
+            // loaded.
+            let page = editor
+                .and_then(|editor| editor.markdown_document())
+                .and_then(|document| document.read(cx).island())
+                .is_some_and(|island| {
+                    let island = island.read(cx);
+                    island.is_revealed() && island.native_visible(cx)
+                });
+            (view, page, reader.showing_pdf())
+        })
+    }
+
+    /// The reader in front, for scenarios.
+    pub(crate) fn front_reader_panel(&self, cx: &gpui::App) -> Option<Entity<PaperReader>> {
+        self.front_reader_entity(false, cx)
     }
 
     /// The reader selected in a panel on screen: the focused one, else the
@@ -240,14 +344,21 @@ impl Shell {
         }
     }
 
-    /// Readers the writer closed are let go of; they open anew.
-    pub(super) fn forget_closed_readers(&mut self) {
+    /// Readers the writer closed are let go of; they open anew, in the view
+    /// each was left in (`paperViewsRef`).
+    pub(super) fn forget_closed_readers(&mut self, cx: &gpui::App) {
         let views = self.views.clone();
+        let paper_views = &mut self.documents.paper_views;
         self.documents.readers.retain(|reader| {
-            views
+            let open = views
                 .borrow()
                 .values()
-                .any(|view| view.view().entity_id() == reader.entity_id())
+                .any(|view| view.view().entity_id() == reader.entity_id());
+            if !open {
+                let reader = reader.read(cx);
+                paper_views.insert(reader.paper().arxiv_id.clone(), reader.view());
+            }
+            open
         });
     }
 
@@ -270,7 +381,7 @@ impl Shell {
             AddPapersEvent::LinkLibrary => this.open_linked_library(window, cx),
         })
         .detach();
-        view.update(cx, |view, cx| view.focus_input(window, cx));
+        view.update(cx, |view, cx| view.focus_on_open(window, cx));
         self.documents.add_papers = Some(view);
         cx.notify();
     }
@@ -519,6 +630,16 @@ impl Shell {
         if !self.dismiss_overlays_for_documents(cx) {
             return;
         }
+        // A check still running from when the sheet closed comes back as it
+        // is, with its events still subscribed; one this window left running
+        // on another project stops, as the Tauri app's sheet unmounts.
+        let owner = cx.entity_id();
+        crate::papers::audit::stop_others(owner, &root, cx);
+        if let Some(running) = crate::papers::audit::running(owner, &root, cx) {
+            self.documents.audit = Some(running);
+            cx.notify();
+            return;
+        }
         // Every scan reads the files on disk: what the editors hold is saved
         // first, as the Tauri app's `onPrepare` does.
         let shell = cx.entity().downgrade();
@@ -528,10 +649,20 @@ impl Shell {
                 .unwrap_or_else(|_| gpui::Task::ready(false))
         });
         let saved = self.save_editors(cx);
-        let view = cx.new(|cx| Audit::new(root, prepare, saved, cx));
+        let shell = cx.entity();
+        let view = cx.new(|cx| {
+            cx.observe_release(&shell, |audit: &mut Audit, _, cx| audit.abandon(cx))
+                .detach();
+            Audit::new(owner, root, prepare, saved, cx)
+        });
         cx.subscribe_in(&view, window, |this, _, event, window, cx| match event {
             AuditEvent::Dismiss => this.close_document_overlays(window, cx),
             AuditEvent::OpenSource { path, line } => {
+                // The sheet stays while fixes are written, and so does the
+                // keyboard: nothing opens behind it.
+                if this.overlay_writing(cx) {
+                    return;
+                }
                 this.close_document_overlays(window, cx);
                 if let Some(root) = this.root(cx) {
                     this.open_path(root.join(path), Some(*line), window, cx);
@@ -610,6 +741,20 @@ fn last_used<T>(list: &mut Vec<T>, is: impl Fn(&T) -> bool) -> bool {
     let item = list.remove(at);
     list.push(item);
     true
+}
+
+/// The view a paper opens in (`preferredPaperView`): the one last shown for
+/// it when that text is there, else its full text, and the overview only
+/// when there is no full text.
+fn preferred_view(remembered: Option<ReaderView>, paper: &PaperSummary) -> ReaderView {
+    if remembered == Some(ReaderView::Overview) && paper.has_blog {
+        return ReaderView::Overview;
+    }
+    if paper.has_full_text || !paper.has_blog {
+        ReaderView::FullText
+    } else {
+        ReaderView::Overview
+    }
 }
 
 #[cfg(test)]

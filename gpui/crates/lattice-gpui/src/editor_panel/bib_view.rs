@@ -62,11 +62,22 @@ impl EditorPanel {
     }
 
     /// The `.bib` file's visual form, when it is showing.
+    /// A file renamed away from `.bib` keeps its views and its form, but
+    /// the form is no longer drawn (`bib_for_view`), so it is not showing.
     pub fn bib_editor(&self) -> Option<&Entity<BibEditor>> {
         self.bib.editor.as_ref().filter(|_| {
-            self.document_view()
-                .is_some_and(|view| view != DocumentView::Source)
+            self.is_bib()
+                && self
+                    .document_view()
+                    .is_some_and(|view| view != DocumentView::Source)
         })
+    }
+
+    /// The visual form's focus, drawn or not: the keyboard on it is the
+    /// keyboard in this document (`holds_focus`), so hiding or closing the
+    /// panel still moves it somewhere drawn.
+    pub(super) fn bib_form_focus(&self, cx: &App) -> Option<gpui::FocusHandle> {
+        self.bib.editor.as_ref().map(|bib| bib.focus_handle(cx))
     }
 
     /// A view was chosen: a bibliography's Preview takes the keys, and its
@@ -138,6 +149,16 @@ impl EditorPanel {
                         this.set_document_view(DocumentView::Split, window, cx);
                     }
                     this.go_to_line(*line, window, cx);
+                    // Choosing Split followed the caret as it was, before
+                    // the jump, and the list follows a moved caret only
+                    // once the source has the keyboard, which lands a frame
+                    // later: put the reference asked for in front here.
+                    if this.document_view() == Some(DocumentView::Split)
+                        && let Some(bib) = this.bib.editor.clone()
+                    {
+                        let caret = this.caret_offset(cx);
+                        bib.update(cx, |bib, cx| bib.follow_caret(caret, cx));
+                    }
                 } else {
                     cx.emit(EditorPanelEvent::OpenLocation {
                         path: path.clone(),

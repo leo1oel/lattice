@@ -17,9 +17,11 @@ use serde_json::json;
 use super::Steps;
 use crate::{papers::model::Filter, scenario::Run};
 
+mod reader;
+
 const BUNDLE: &str = ".research/papers/1706.03762";
 const ENTRY: &str = "\n@article{vaswani2017attention,\n  title = {Attention Is All You Need},\n  author = {Vaswani, Ashish and Shazeer, Noam and Parmar, Niki},\n  journal = {NeurIPS},\n  year = {2017},\n  eprint = {1706.03762}\n}\n";
-const PAPER: &str = "---\ntitle: Attention Is All You Need\n---\n\n# Attention Is All You Need\n\n## Abstract\n\nThe dominant sequence transduction models are based on recurrent networks.\n\n## Method\n\nWe call our particular attention scaled dot-product attention.\n";
+const PAPER: &str = "---\ntitle: Attention Is All You Need\n---\n\n# Attention Is All You Need\n\n## Abstract\n\nThe dominant sequence transduction models are based on recurrent networks.\n\n## Method\n\nWe call our particular attention scaled dot-product attention:\n\n$$\\mathrm{softmax}(QK^\\top / \\sqrt{d_k})\\,V$$\n";
 
 impl Run {
     pub(super) async fn papers_panel(
@@ -92,11 +94,12 @@ impl Run {
                 })
                 .collect::<Vec<_>>()
         });
-        let uses_of = |title: &str| {
+        let field_of = |title: &str, field: &str| {
             rows.iter()
                 .find(|row| row["title"] == title)
-                .map(|row| row["uses"].clone())
+                .map(|row| row[field].clone())
         };
+        let uses_of = |title: &str| field_of(title, "uses");
         steps.check(
             "Papers lists the bibliography with the saved text and how often the manuscript cites each",
             listed
@@ -106,7 +109,9 @@ impl Run {
                     .and_then(|uses| uses.as_u64())
                     .is_some_and(|uses| uses >= 1)
                 && uses_of("Attention Is All You Need") == Some(json!(0))
-                && rows.iter().any(|row| row["fullText"] == true),
+                // The bundle's paper has its text; the book only its entry.
+                && field_of("Attention Is All You Need", "fullText") == Some(json!(true))
+                && field_of("The TeXbook", "fullText") == Some(json!(false)),
             json!({ "rows": rows }),
         );
         self.papers_shot(cx, "papers-1-listed").await;
@@ -141,9 +146,11 @@ impl Run {
         );
         self.papers_shot(cx, "papers-2-search").await;
 
-        // Metadata narrows at once: an author's name.
+        // Metadata narrows at once: an author's name, one in no citation
+        // key or saved text (the entry's second author), so only the
+        // authors field can match it.
         self.with_window(cx, |_, window, cx| {
-            papers.update(cx, |panel, cx| panel.type_query("knuth", window, cx))
+            papers.update(cx, |panel, cx| panel.type_query("shazeer", window, cx))
         })?;
         self.wait_for(cx, Duration::from_secs(10), |_, cx| {
             papers.read(cx).settled(cx)
@@ -152,7 +159,7 @@ impl Run {
         let by_author = cx.update(|cx| papers.read(cx).shown_titles(cx));
         steps.check(
             "typing an author's name keeps the papers whose metadata holds it",
-            by_author == ["The TeXbook"],
+            by_author == ["Attention Is All You Need"],
             json!({ "shown": by_author }),
         );
 
@@ -173,8 +180,9 @@ impl Run {
             json!({ "shown": cited }),
         );
 
-        // A click opens the saved text in the paper's reader, without the
-        // converter's front matter, and marks its row as the open one.
+        // A click opens the saved text in the paper's reader (its body under
+        // the converter's front matter, which the visual editor leaves out),
+        // and marks its row as the open one.
         let opened = self.with_window(cx, |_, window, cx| {
             papers.update(cx, |panel, cx| {
                 panel.open_titled("Attention Is All You Need", window, cx)
@@ -184,7 +192,10 @@ impl Run {
         let open = self
             .wait_for(cx, Duration::from_secs(5), |shell, cx| {
                 shell.read(cx).front_reader(cx).is_some_and(|(path, text)| {
-                    path == reading && text.starts_with("# Attention Is All You Need")
+                    path == reading
+                        && crate::papers::model::strip_frontmatter(&text)
+                            .trim_start()
+                            .starts_with("# Attention Is All You Need")
                 })
             })
             .await;
@@ -198,8 +209,34 @@ impl Run {
             json!({ "opened": opened, "open": open, "reader": shown, "marked": marked }),
         );
         if open {
+            // The paper reads in the Tauri app's visual editor, in Preview
+            // (`openPaper` sets the canvas to its preview), on its own page.
+            let reading = self
+                .wait_for(cx, Duration::from_secs(20), |shell, cx| {
+                    shell
+                        .read(cx)
+                        .front_reader_state(cx)
+                        .is_some_and(|(view, page, pdf)| {
+                            view == Some(crate::editor_panel::views::DocumentView::Preview)
+                                && page
+                                && !pdf
+                        })
+                })
+                .await;
+            let state = self.with_window(cx, |shell, _, cx| {
+                shell
+                    .read(cx)
+                    .front_reader_state(cx)
+                    .map(|(view, page, pdf)| (format!("{view:?}"), page, pdf))
+            })?;
+            steps.check(
+                "the paper reads in the visual editor's Preview, its page drawn",
+                reading,
+                json!({ "state": state }),
+            );
             self.papers_shot(cx, "papers-reader").await;
             self.press(cx, 'w', true).await?;
+            self.paper_reader(cx, steps, root, &papers, BUNDLE).await?;
         }
 
         self.add_papers_sheet(cx, steps, &papers).await?;
@@ -393,6 +430,9 @@ pub(super) const MODULE: super::registry::Module = super::registry::Module {
     covers: &[
         "gpui/crates/lattice-gpui/src/papers",
         "gpui/crates/lattice-gpui/src/shell/papers.rs",
+        // The paper reader's text and its reading form in the island.
+        "gpui/crates/lattice-gpui/src/editor_panel/paper_text.rs",
+        "gpui/islands/markdown/",
     ],
     run: |run, cx, steps, fixture| Box::pin(run.papers_panel(cx, steps, &fixture.root)),
 };

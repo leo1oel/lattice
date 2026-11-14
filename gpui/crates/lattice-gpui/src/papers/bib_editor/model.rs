@@ -365,10 +365,15 @@ pub fn same_key(a: &str, b: &str) -> bool {
 }
 
 /// The row whose entry holds `offset`, from its `@` to its closing
-/// delimiter inclusive (`rowAt`); none between entries.
+/// delimiter inclusive (`rowAt`); none between entries. The rows are in
+/// file order and it is the last one starting at or before `offset`, so
+/// with `@misc{a}@misc{b}` a caret where `a` ends and `b` begins follows
+/// `b`, as the Tauri app does.
 pub fn row_holding(rows: &[Row], offset: usize) -> Option<&Row> {
     rows.iter()
-        .find(|row| row.entry.from <= offset && offset <= row.entry.to)
+        .rev()
+        .find(|row| row.entry.from <= offset)
+        .filter(|row| offset <= row.entry.to)
 }
 
 /// The entry `key` at `index`, else the first under that key: the place

@@ -152,7 +152,9 @@ impl Shell {
 
     /// ⌘⇧N: the New project dialog.
     pub(crate) fn open_new_project(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.lobby.new_project.is_some() {
+        // A sheet writing to the project keeps the keyboard until it lands:
+        // a dialog over it would hand the keyboard to the editor on dismiss.
+        if self.lobby.new_project.is_some() || self.overlay_writing(cx) {
             return;
         }
         self.abandon_launch_reopen();
@@ -383,7 +385,7 @@ impl Shell {
 
     /// Clone repository's dialog.
     pub(crate) fn open_clone(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.lobby.clone.is_some() {
+        if self.lobby.clone.is_some() || self.overlay_writing(cx) {
             return;
         }
         self.abandon_launch_reopen();

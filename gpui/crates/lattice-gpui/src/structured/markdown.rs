@@ -53,6 +53,43 @@ pub enum MarkdownEvent {
     /// Split: the source line the preview's centre maps to, fractional
     /// within a wrapped line, for the source's centre to follow.
     Scrolled(f64),
+    /// A paper's masthead (its title over the full text) came on screen or
+    /// left it: the reader's strip names the paper only while it is off.
+    Masthead(bool),
+    /// A source link into the paper's own PDF was followed: its 1-based
+    /// page (`paperSourceCitation`).
+    PaperSource(u32),
+}
+
+/// A saved paper's reading text, as the canvas reads one (`activePaper` in
+/// `document-canvas.tsx`): the visual editor in its reading form, and over
+/// the full text its masthead, the title and the whole author list.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PaperReading {
+    pub title: String,
+    pub authors: Option<String>,
+    /// The full text (`paper.md`), not the overview: it has the masthead.
+    pub full_text: bool,
+    /// The paper's identity, when its reader can show its original PDF, so
+    /// a source link into that PDF opens it there.
+    pub pdf: Option<PaperPdfIdentity>,
+}
+
+/// What `paperSourceCitation` reads of a paper to know its own PDF.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PaperPdfIdentity {
+    pub arxiv_id: String,
+    pub url: Option<String>,
+    pub has_local_pdf: bool,
+}
+
+impl PaperReading {
+    fn to_json(&self) -> Value {
+        let pdf = self.pdf.as_ref().map(|pdf| {
+            json!({ "arxivId": pdf.arxiv_id, "url": pdf.url, "hasLocalPdf": pdf.has_local_pdf })
+        });
+        json!({ "title": self.title, "authors": self.authors, "fullText": self.full_text, "pdf": pdf })
+    }
 }
 
 /// The Tauri app saves pasted images here (`importClipboardImageFile`).
@@ -75,6 +112,8 @@ pub(super) struct MarkdownSession {
     tex_read: u64,
     /// Bumped by every read of the project, so a slow one is dropped.
     generation: u64,
+    /// The file is a saved paper's reading text.
+    paper: Option<PaperReading>,
 }
 
 impl MarkdownSession {
@@ -87,6 +126,7 @@ impl MarkdownSession {
             tex_changes: 1,
             tex_read: 0,
             generation: 0,
+            paper: None,
         }
     }
 }
@@ -316,6 +356,10 @@ impl StructuredDocument {
         payload["split"] = json!(session.split);
         payload["files"] = session.files.clone();
         payload["texSources"] = json!(session.tex_sources);
+        payload["paper"] = session
+            .paper
+            .as_ref()
+            .map_or(Value::Null, PaperReading::to_json);
     }
 
     /// The page has loaded and listens (it can hand over what it holds).
@@ -332,6 +376,17 @@ impl StructuredDocument {
         {
             session.split = split;
             self.post("md:split", json!({ "split": split }), cx);
+        }
+    }
+
+    /// The file is (or stops being) a saved paper's reading text.
+    pub fn set_paper(&mut self, paper: Option<PaperReading>, cx: &mut Context<Self>) {
+        if let Some(session) = &mut self.markdown
+            && session.paper != paper
+        {
+            let payload = paper.as_ref().map_or(Value::Null, PaperReading::to_json);
+            session.paper = paper;
+            self.post("md:paper", json!({ "paper": payload }), cx);
         }
     }
 
@@ -406,6 +461,16 @@ impl StructuredDocument {
                 Some(center) => MarkdownEvent::Scrolled(center),
                 None => return,
             },
+            "md:paper-source" => match payload.get("page").and_then(Value::as_u64) {
+                Some(page) if page >= 1 => MarkdownEvent::PaperSource(page as u32),
+                _ => return,
+            },
+            "md:masthead" => MarkdownEvent::Masthead(
+                payload
+                    .get("inView")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false),
+            ),
             _ => {
                 log::debug!("markdown: unhandled {kind}");
                 return;

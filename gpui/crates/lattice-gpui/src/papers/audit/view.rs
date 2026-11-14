@@ -2,8 +2,8 @@
 //! covered and Check all, the findings' buckets as pills with their counts,
 //! then one row per reference in a raised list, ordered by what it asks of
 //! the writer, each with its status mark, citation key, title and what the
-//! check said. A row opens its finding under it: the field changes a fix
-//! makes, a candidate's reasons, and Apply, Keep mine and Open in source.
+//! check said, and a publisher's notice on the work. A row opens its finding
+//! under it (`detail.rs`); fixes sit under the kind of change they make.
 //! At the foot, Apply all takes the fixes that only fill in or publish.
 
 use gpui::{
@@ -13,8 +13,11 @@ use gpui::{
 };
 use lattice_i18n::{comma, join_list, t};
 use lattice_ui::{
-    ActiveLattice as _, Icon, Palette, TextRole, TextRoleStyle as _, components::Button,
-    icons::ICON, interaction::mix, tokens::FONT_WEIGHT_MEDIUM,
+    ActiveLattice as _, Icon, Palette, TextRole, TextRoleStyle as _,
+    components::Button,
+    icons::{ICON, ICON_SMALL},
+    interaction::mix,
+    tokens::FONT_WEIGHT_MEDIUM,
 };
 
 use super::{Audit, Bucket};
@@ -95,174 +98,6 @@ impl Audit {
         pills.into_any_element()
     }
 
-    fn finding(&self, index: usize, cx: &mut Context<Self>) -> AnyElement {
-        let palette = cx.palette().clone();
-        let editor = cx.lattice().fonts.editor.clone();
-        let Some(result) = self.results.get(&index).cloned() else {
-            return div()
-                .px(px(12.))
-                .pb(px(12.))
-                .text_role(TextRole::Caption, cx)
-                .text_color(palette.text_secondary)
-                .child(t!("Not checked yet"))
-                .into_any_element();
-        };
-        let bucket = self.bucket(index);
-        let inline = self
-            .entries
-            .get(index)
-            .is_some_and(|entry| entry.inline.is_some());
-        let changes = result
-            .candidate
-            .as_ref()
-            .map(|candidate| candidate.changes.clone())
-            .unwrap_or_else(|| result.changes.clone());
-        let note = if self.applied.contains(&index) {
-            Some(t!("Applied. The entry now matches the verified record.").to_string())
-        } else {
-            super::messages::publication_message(
-                &result.message,
-                result.publication_reason.as_deref(),
-            )
-        };
-        let mut body = div()
-            .flex()
-            .flex_col()
-            .gap(px(8.))
-            .px(px(12.))
-            .pb(px(12.))
-            .children(note.map(|note| {
-                div()
-                    .text_role(TextRole::Caption, cx)
-                    .text_color(palette.text)
-                    .child(note)
-            }));
-        if !changes.is_empty() {
-            body = body.child(
-                div()
-                    .flex()
-                    .flex_col()
-                    .gap(px(4.))
-                    .p(px(8.))
-                    .rounded(px(6.))
-                    .bg(palette.text.opacity(0.03))
-                    .children(changes.into_iter().map(|change| {
-                        div()
-                            .flex()
-                            .gap(px(8.))
-                            .text_role(TextRole::Caption, cx)
-                            .child(
-                                div()
-                                    .flex_none()
-                                    .w(px(96.))
-                                    .truncate()
-                                    .font_family(editor.clone())
-                                    .text_size(px(11.))
-                                    .text_color(palette.text_secondary)
-                                    .child(change.field.to_lowercase()),
-                            )
-                            .child(
-                                div()
-                                    .flex()
-                                    .flex_col()
-                                    .flex_1()
-                                    .min_w_0()
-                                    .when(!change.before.is_empty(), |values| {
-                                        values.child(
-                                            div()
-                                                .text_color(mix(palette.danger, palette.text, 0.25))
-                                                .line_through()
-                                                .child(change.before),
-                                        )
-                                    })
-                                    .when(!change.after.is_empty(), |values| {
-                                        values.child(
-                                            div()
-                                                .text_color(mix(palette.success, palette.text, 0.2))
-                                                .child(change.after),
-                                        )
-                                    }),
-                            )
-                    })),
-            );
-        }
-        if let Some(candidate) = &result.candidate {
-            body = body.children(candidate.reasons.iter().map(|reason| {
-                div()
-                    .text_role(TextRole::Caption, cx)
-                    .text_color(palette.text_secondary)
-                    .child(format!("• {reason}"))
-            }));
-        }
-        if !result.disagreements.is_empty() {
-            body = body.child(
-                div()
-                    .text_role(TextRole::Caption, cx)
-                    .text_color(palette.text_secondary)
-                    .child(t!(
-                        "The conference's own citation export and Crossref disagree on: {0}. The conference export is kept.",
-                        result.disagreements.join(", ")
-                    )),
-            );
-        }
-        let can_apply = bucket == Bucket::Fix && !inline && result.after.is_some();
-        body = body.child(
-            div()
-                .flex()
-                .flex_wrap()
-                .gap(px(6.))
-                .when(can_apply, |actions| {
-                    actions.child(
-                        Button::new(("audit-apply", index), t!("Apply"))
-                            .tinted()
-                            .compact()
-                            .disabled(self.applying || self.busy)
-                            .on_click(
-                                cx.listener(move |this, _, _, cx| this.apply(vec![index], cx)),
-                            ),
-                    )
-                })
-                .when(bucket == Bucket::Review, |actions| {
-                    actions.child(
-                        Button::new(("audit-keep", index), t!("Keep mine"))
-                            .compact()
-                            .disabled(self.busy)
-                            .on_click(
-                                cx.listener(move |this, _, _, cx| this.keep(index, true, cx)),
-                            ),
-                    )
-                })
-                .when(bucket == Bucket::Kept, |actions| {
-                    actions.child(
-                        Button::new(("audit-review-again", index), t!("Review again"))
-                            .compact()
-                            .ghost()
-                            .disabled(self.busy)
-                            .on_click(
-                                cx.listener(move |this, _, _, cx| this.keep(index, false, cx)),
-                            ),
-                    )
-                })
-                .child(
-                    Button::new(("audit-again", index), t!("Check again"))
-                        .compact()
-                        .ghost()
-                        .disabled(self.busy)
-                        .on_click(
-                            cx.listener(move |this, _, _, cx| this.check(Some(vec![index]), cx)),
-                        ),
-                )
-                .child(
-                    Button::new(("audit-source", index), t!("Go to entry"))
-                        .compact()
-                        .ghost()
-                        .icon(Icon::EXTERNAL_LINK)
-                        .on_click(cx.listener(move |this, _, _, cx| this.open_source(index, cx))),
-                ),
-        );
-        body.into_any_element()
-    }
-
     fn row(&self, index: usize, first: bool, cx: &mut Context<Self>) -> AnyElement {
         let palette = cx.palette().clone();
         let editor = cx.lattice().fonts.editor.clone();
@@ -272,6 +107,10 @@ impl Audit {
         let message =
             super::summary::summary(self.results.get(&index), bucket, entry.inline.is_some());
         let open = self.open == Some(index);
+        let notice = self
+            .results
+            .get(&index)
+            .and_then(super::detail::notice_line);
         div()
             .flex()
             .flex_col()
@@ -328,6 +167,26 @@ impl Audit {
                                         .text_role(TextRole::Caption, cx)
                                         .text_color(palette.text_secondary)
                                         .child(message),
+                                )
+                            })
+                            // A publisher's notice shows on the row, before
+                            // it is opened.
+                            .when_some(notice, |text, (line, kind)| {
+                                let ink = if kind == "retracted" {
+                                    mix(palette.danger, palette.text, 0.2)
+                                } else {
+                                    mix(palette.warning, palette.text, 0.22)
+                                };
+                                text.child(
+                                    div()
+                                        .flex()
+                                        .items_center()
+                                        .gap(px(4.))
+                                        .min_w_0()
+                                        .text_role(TextRole::Caption, cx)
+                                        .text_color(ink)
+                                        .child(Icon::TRIANGLE_ALERT.element(ICON_SMALL, ink))
+                                        .child(div().min_w_0().truncate().child(line)),
                                 )
                             }),
                     )
@@ -678,6 +537,14 @@ impl Render for Audit {
                 ),
             );
         }
+        // True while the project stays open: the run holds the sheet's
+        // state when it closes (`running.rs`).
+        if self.busy {
+            body.push(caption(
+                t!("Closing this window does not stop the check. It keeps running in the background, and the results wait here.").into(),
+                cx,
+            ));
+        }
         if self.waiting_for_s2 {
             body.push(caption(
                 t!(
@@ -716,8 +583,43 @@ impl Render for Audit {
                 .border_1()
                 .border_color(palette.line)
                 .bg(palette.raised);
+            if view.is_none()
+                && let Some(issues) = self.issues_list(cx)
+            {
+                list = list.child(div().p(px(12.)).child(issues));
+            }
+            let group = |index: usize| {
+                self.results
+                    .get(&index)
+                    .map(|result| super::fix_group(&result.changes))
+            };
             for (at, index) in shown.iter().enumerate() {
-                list = list.child(self.row(*index, at == 0, cx));
+                // Fixes under what kind they are, which says why Apply all
+                // leaves the disputed ones.
+                let inline = self.entries[*index].inline.is_some();
+                let previous = at.checked_sub(1).map(|at| shown[at]);
+                let mut headed = false;
+                if buckets[*index] == Bucket::Fix
+                    && !inline
+                    && previous.is_none_or(|previous| {
+                        buckets[previous] != Bucket::Fix || group(previous) != group(*index)
+                    })
+                    && let Some(group) = group(*index)
+                {
+                    list = list.child(
+                        div()
+                            .px(px(12.))
+                            .pt(px(10.))
+                            .pb(px(4.))
+                            .when(at > 0, |head| head.border_t_1().border_color(palette.line))
+                            .text_role(TextRole::Micro, cx)
+                            .font_weight(FONT_WEIGHT_MEDIUM)
+                            .text_color(palette.text_secondary)
+                            .child(group.label()),
+                    );
+                    headed = true;
+                }
+                list = list.child(self.row(*index, at == 0 || headed, cx));
             }
             body.push(list.into_any_element());
         }

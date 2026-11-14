@@ -51,7 +51,7 @@ use serde_json::{Value, json};
 
 use crate::notices::{self, Notice};
 
-pub use markdown::MarkdownEvent;
+pub use markdown::{MarkdownEvent, PaperPdfIdentity, PaperReading};
 pub use slides::{DeckSession, handles as deck_handles};
 
 mod agent_tools;

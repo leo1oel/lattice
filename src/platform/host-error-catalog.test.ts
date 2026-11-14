@@ -129,6 +129,10 @@ const UNTRANSLATED: Record<string, string> = {
   "synara.rs: Invalid agent task action.": "the agent panel sends one of the known actions",
   "synara/preferences.rs: The disabled agent skills must contain only names.": "the settings page writes the list of names itself",
   "pdf_window.rs: The PDF window was closed while it opened.": "only the page that closed it hears it, and that page has let it go",
+  // `fetch_pdf` serves only the GPUI paper reader, which logs the reason and shows its own "Could not load PDF".
+  "paper_pdf_proxy.rs: PDF request failed: {}": "the GPUI reader logs it and shows its own translated message",
+  "paper_pdf_proxy.rs: PDF is larger than 100 MB": "the GPUI reader logs it and shows its own translated message",
+  "paper_pdf_proxy.rs: The response is not a PDF": "the GPUI reader logs it and shows its own translated message",
 };
 
 /** The attribute of test-only code, including fixtures a shell's tests share (`test-support`). */

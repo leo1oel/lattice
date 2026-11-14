@@ -69,7 +69,12 @@ impl Shell {
                 this.on_collab_event(event, window, cx)
             }),
             cx.subscribe_in(&bridge, window, Self::on_overleaf_event),
-            cx.observe(&bridge, |this, _, cx| {
+            cx.observe(&bridge, |this, bridge, cx| {
+                // Papers holds its empty state while the first sync may
+                // still bring the bibliography.
+                let syncing = bridge.read(cx).syncing();
+                this.papers
+                    .update(cx, |papers, cx| papers.overleaf_syncing(syncing, cx));
                 this.show_overleaf_save(cx);
                 this.push_agent_overleaf(cx);
                 this.show_overleaf_review(cx);
@@ -376,8 +381,7 @@ impl Shell {
                     Some(detail) => t!(
                         "Live editing unavailable ({detail}), syncing instead",
                         detail = detail.as_ref()
-                    )
-                    .into(),
+                    ),
                     None => t!("Live editing unavailable, syncing instead").into(),
                 },
                 ChannelStatus::Live => detail

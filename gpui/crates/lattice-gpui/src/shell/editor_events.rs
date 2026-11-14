@@ -57,6 +57,8 @@ impl Shell {
                 }
             }
             EditorPanelEvent::Close => self.close_editor(editor, window, cx),
+            // The paper's reader wrapping the editor names the paper itself.
+            EditorPanelEvent::Masthead(_) | EditorPanelEvent::PaperSource(_) => {}
             EditorPanelEvent::OverleafReview(action) => {
                 self.overleaf_review_action(editor, action, window, cx)
             }
@@ -157,7 +159,13 @@ impl Shell {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if let Some(view) = self.view_of_editor(editor) {
+        // A paper's text stands in its reader's tab: the file going takes
+        // the reader with it.
+        let holder = self.reader_holding(editor, cx);
+        if let Some(view) = holder
+            .and_then(|reader| self.view_of_panel(reader.entity_id()))
+            .or_else(|| self.view_of_editor(editor))
+        {
             self.engine_do(cx, |engine| engine.close(&view));
         }
         let _ = window;

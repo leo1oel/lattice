@@ -20,6 +20,11 @@ impl Shell {
             }
             return;
         }
+        // Not over a sheet still writing to the project: closing Settings
+        // would give the keyboard to the editor while that sheet is up.
+        if self.overlay_writing(cx) {
+            return;
+        }
         self.palette = None;
         self.shortcuts = None;
         let weak = cx.entity().downgrade();

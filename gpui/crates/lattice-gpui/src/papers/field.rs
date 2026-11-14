@@ -195,6 +195,15 @@ impl PapersPanel {
                         .flex_1()
                         .min_w_0()
                         .text_role(TextRole::BodyCompact, cx)
+                        // Before the box takes a paste: a list of references
+                        // goes to Add papers instead.
+                        .capture_action(cx.listener(
+                            |this, _: &gpui_kit::component::input::Paste, _, cx| {
+                                if this.paste_list(cx) {
+                                    cx.stop_propagation();
+                                }
+                            },
+                        ))
                         .child(
                             Input::new(self.input())
                                 .appearance(false)
