@@ -46,6 +46,8 @@ pub(in crate::scenario) const MODULES: &[(&str, &[&str])] = &[
     ("submission", &[]),
     ("submission_checklist", &[]),
     ("overleaf", &[]),
+    ("papers", &[]),
+    ("bib", &[]),
     ("settings", &[]),
     ("live_controls", &[]),
     ("live_preview", &[]),

@@ -37,6 +37,7 @@ pub(crate) mod overleaf_flow;
 mod overleaf_presence;
 mod overleaf_review;
 mod palette;
+mod papers;
 mod pdfs;
 mod references_flow;
 mod render;
@@ -89,9 +90,9 @@ use crate::{
     editor_panel::EditorPanel,
     file_tree::FileTreePanel,
     notices::{self, NoticeStack},
+    papers::PapersPanel,
     pdf::{PdfPanel, PdfPanelKind},
     project::Project,
-    stand_in_panels::{StandIn, StandInPanel},
     titlebar::TitlebarDrag,
 };
 
@@ -134,7 +135,7 @@ pub struct Shell {
     /// A panel is being dragged: the webview islands stand aside.
     panel_dragging: bool,
     file_tree: Entity<FileTreePanel>,
-    papers: Entity<StandInPanel>,
+    papers: Entity<PapersPanel>,
     /// The Agent and its Git workspace (`agent_flow`).
     pub(crate) agent: agent_flow::AgentWindow,
     pdf: Entity<PdfPanel>,
@@ -296,7 +297,7 @@ impl Shell {
             TrellisWorkspace::new(views::engine_options(), LayoutDocument::default(), skin, cx)
         });
         let file_tree = cx.new(FileTreePanel::new);
-        let papers = cx.new(|cx| StandInPanel::new(StandIn::Papers, cx));
+        let papers = cx.new(|cx| PapersPanel::new(window, cx));
         let agent = agent_flow::AgentWindow::new(window, cx);
         let pdf = cx.new(|cx| PdfPanel::new(PdfPanelKind::Live, window, cx));
         let live_preview = crate::live_preview::new(cx);
@@ -349,6 +350,8 @@ impl Shell {
         crate::interface_zoom::apply(window, cx);
         crate::interface_zoom::align_traffic_lights(window, cx);
         cx.subscribe_in(&file_tree, window, Self::on_tree_event)
+            .detach();
+        cx.subscribe_in(&papers, window, Self::on_papers_event)
             .detach();
         cx.subscribe_in(
             &build_panel,
@@ -529,6 +532,11 @@ impl Shell {
     }
 
     #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn papers(&self) -> &Entity<PapersPanel> {
+        &self.papers
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     pub fn confirm(&self) -> &Entity<ConfirmHost> {
         &self.confirm
     }
@@ -620,6 +628,7 @@ impl Shell {
         });
         self.record_visit(&path, line, in_front, cx);
         self.refresh_outline(window, cx);
+        self.mark_front_paper(Some(&path), cx);
         self.file_tree
             .update(cx, |tree, cx| tree.set_current(Some(path.clone()), cx));
         Some(editor)

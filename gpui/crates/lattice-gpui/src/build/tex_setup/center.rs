@@ -287,6 +287,33 @@ impl TexSetupCenter {
         .detach();
     }
 
+    /// A paper tool failed for want of the paper tools
+    /// (`openForMissingPaperTools`): setup offers them, and when a fresh
+    /// check finds nothing to install, the failure is said instead.
+    pub fn open_for_missing_paper_tools(&mut self, failure: String, cx: &mut Context<Self>) {
+        self.paper_tools_needed = true;
+        if only_paper_tools_missing(self.report.as_ref()) {
+            self.open_wizard_now(cx);
+        }
+        let check = self.run_doctor(true, cx);
+        cx.spawn(async move |this, cx| {
+            let report = check.await;
+            if report.is_none_or(|report| !required_setup_missing(Some(&report))) {
+                this.update(cx, |this, _| this.paper_tools_needed = false)
+                    .ok();
+                cx.update(|cx| {
+                    notices::show(
+                        Notice::new(ToastLevel::Error, t!("Couldn’t start the paper tools"))
+                            .detail(failure)
+                            .key(SOURCE),
+                        cx,
+                    )
+                });
+            }
+        })
+        .detach();
+    }
+
     /// A build found no TeX toolchain: drop the stale report and show setup.
     pub fn open_for_missing_tex(&mut self, cx: &mut Context<Self>) {
         self.generation += 1;

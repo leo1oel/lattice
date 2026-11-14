@@ -55,6 +55,8 @@ impl Shell {
         self.sheets.project_changed();
         self.conflict = None;
         self.project = Some(project.clone());
+        // Sheets over the window hold the project they were opened in.
+        self.take_document_overlays(cx);
         // The editors of the project open before go with its arrangement.
         self.editors.clear();
         self.active_editor = None;
@@ -89,6 +91,8 @@ impl Shell {
         self.reset_undo = None;
         self.live_document = project.read(cx).main_document().map(str::to_string);
         self.refresh_outline(window, cx);
+        self.papers
+            .update(cx, |papers, cx| papers.set_project(project.clone(), cx));
         self.history
             .update(cx, |history, cx| history.set_project(project.clone(), cx));
         self.agent_project(Some(root.clone()), cx);

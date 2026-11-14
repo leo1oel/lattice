@@ -39,6 +39,7 @@ const DOCK_STEPS = "gpui/crates/lattice-gpui/src/scenario/shell_steps.rs";
 export const MODULES = [
   "agent",
   "assets",
+  "bib",
   "build_flow",
   "design_calls",
   "dock",
@@ -54,6 +55,7 @@ export const MODULES = [
   "markdown",
   "narrow_window",
   "overleaf",
+  "papers",
   "pdf",
   "saves",
   "settings",
@@ -70,6 +72,9 @@ export const MODULES = [
 const SOURCE = [
   [`${APP}pdf`, ["pdf"]],
   [`${APP}live_preview`, ["live_preview"]],
+  [`${APP}papers/bib_editor`, ["bib"]],
+  [`${APP}papers`, ["papers"]],
+  ["gpui/crates/lattice-gpui/src/shell/papers.rs", ["papers"]],
   ["gpui/crates/lattice-gpui/src/shell/pdfs.rs", ["pdf"]],
   [`${APP}file_tree`, ["tree"]],
   [`${APP}assets.rs`, ["assets"]],
@@ -89,6 +94,7 @@ const SOURCE = [
   [`${APP}structured`, ["structured"]],
   ["gpui/crates/lattice-gpui/src/editor_panel/structured_view.rs", ["structured"]],
   ["gpui/crates/lattice-gpui/src/editor_panel/markdown_view.rs", ["markdown"]],
+  ["gpui/crates/lattice-gpui/src/editor_panel/bib_view.rs", ["bib"]],
   ["gpui/crates/lattice-gpui/src/editor_panel/source_chrome.rs", ["source_chrome"]],
   ["gpui/crates/lattice-gpui/src/editor_panel/strip.rs", ["tab_strip"]],
   ["gpui/crates/lattice-gpui/src/editor_panel/save.rs", ["saves"]],

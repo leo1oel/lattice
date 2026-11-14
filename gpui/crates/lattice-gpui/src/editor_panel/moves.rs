@@ -34,6 +34,7 @@ impl EditorPanel {
         let left = std::mem::replace(&mut self.relative, relative);
         crate::status_counters::set_buffer(root.clone(), left, None, cx);
         self.scan_todos(Duration::ZERO, cx);
+        self.bib_moved(cx);
         // The spell check follows the file, or starts once it is prose.
         match &self.spelling {
             Some(spelling) => {

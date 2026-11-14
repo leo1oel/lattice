@@ -106,6 +106,7 @@ pub(super) fn panels_menu(
                     .icon(match preset_kind {
                         Preset::Writing => Icon::PEN_LINE,
                         Preset::Reading => Icon::BOOK_OPEN_TEXT,
+                        Preset::Bibliography => Icon::LIBRARY,
                     })
                     .checked(preset == Some(preset_kind)),
                 );

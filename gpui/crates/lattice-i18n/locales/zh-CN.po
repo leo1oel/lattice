@@ -45,6 +45,10 @@ msgid "Reading Layout"
 msgstr "阅读布局"
 
 #: lattice-gpui/src/shell/menus.rs
+msgid "Bibliography Layout"
+msgstr "参考文献布局"
+
+#: lattice-gpui/src/shell/menus.rs
 msgid "Focus Mode"
 msgstr "专注模式"
 
@@ -221,12 +225,20 @@ msgid "Reading layout"
 msgstr "阅读布局"
 
 #: lattice-gpui/src/shell/commands.rs
+msgid "Bibliography layout"
+msgstr "参考文献布局"
+
+#: lattice-gpui/src/shell/commands.rs
 msgid "Leave the Writing layout"
 msgstr "退出写作布局"
 
 #: lattice-gpui/src/shell/commands.rs
 msgid "Leave the Reading layout"
 msgstr "退出阅读布局"
+
+#: lattice-gpui/src/shell/commands.rs
+msgid "Leave the Bibliography layout"
+msgstr "退出参考文献布局"
 
 #: lattice-gpui/src/shell/commands.rs
 msgid "Show or hide Project"
@@ -273,10 +285,6 @@ msgstr "搜索命令"
 msgid "No commands or files match “{query}”"
 msgstr "没有命令或文件与“{query}”匹配"
 
-#: lattice-gpui/src/stand_in_panels.rs
-msgid "The papers library is not in the GPUI preview yet."
-msgstr "GPUI 预览版暂未提供论文库。"
-
 #: lattice-gpui/src/titlebar.rs
 msgid "{name} — not in the GPUI preview yet"
 msgstr "{name} — GPUI 预览版暂未提供"
@@ -308,6 +316,51 @@ msgstr "PDF 无法读取：这不是 PDF 文件。"
 #: lattice-gpui/src/pdf/view.rs
 msgid "The PDF could not be read: {0}"
 msgstr "PDF 无法读取：{0}"
+
+
+#: lattice-gpui/src/papers/audit/messages.rs
+msgid "The check's answer could not be read."
+msgstr "没能读懂检查返回的结果。"
+
+#: lattice-gpui/src/papers/downloads.rs
+msgid "Citation added without full text"
+msgstr "已添加引用，没有全文"
+
+#: lattice-gpui/src/papers/downloads.rs
+msgid "Could not add the paper"
+msgstr "没能添加论文"
+
+#: lattice-gpui/src/papers/downloads.rs
+msgid "Could not download the paper"
+msgstr "没能下载论文"
+
+#: lattice-gpui/src/papers/removal.rs
+msgid "Could not remove the paper"
+msgstr "没能删除论文"
+
+#: lattice-gpui/src/papers/row.rs
+msgid "Remove from the bibliography"
+msgstr "从文献中删除"
+
+#: lattice-gpui/src/papers/view.rs
+msgid "Open a project to see its papers"
+msgstr "打开项目后可查看它的论文"
+
+#: lattice-gpui/src/papers/linked/view.rs
+msgid "{target} changed while this was open. Its changes were compared again."
+msgstr "{target} 在此期间有改动，已重新比较其更改。"
+
+#: lattice-gpui/src/papers/bib_editor.rs
+msgid "Could not restore “{key}”"
+msgstr "没能恢复“{key}”"
+
+#: lattice-gpui/src/papers/bib_editor.rs
+msgid "The references around it changed since it was deleted."
+msgstr "删除后它周围的文献已有改动。"
+
+#: lattice-gpui/src/papers/add_sheet.rs
+msgid "Another import is running. Your selection is kept; add it once that finishes."
+msgstr "另一个导入正在进行。你的选择已保留，等它完成后再添加。"
 
 #: lattice-gpui/src/shell/commands/projects.rs
 msgid "Resolve conflicts…"

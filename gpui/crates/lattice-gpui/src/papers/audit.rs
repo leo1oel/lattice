@@ -1,0 +1,842 @@
+//! Check references (`bibliography-audit.tsx`, `audit-groups.ts`,
+//! `audit-carry-over.ts`): every reference the project's `.bib` files and
+//! inline reference lists hold, checked against the published record through
+//! lattice-core's `citation_audit`, and sorted by what each asks of the
+//! writer: a fix to apply, an unverified candidate to review, a check that
+//! could not finish, one not checked yet, a candidate the writer kept their
+//! own entry over, and a verified one.
+//!
+//! - Opening reads the references (`scan`) and the last report, carrying a
+//!   result over while its entry says the same thing; nothing is checked
+//!   until the writer asks.
+//! - Check all runs twenty at a time: Semantic Scholar's batch first, then
+//!   each reference the batch could not answer on its own, two at once.
+//!   Stop drains the group under way.
+//! - Apply writes a fix through `citation_audit::apply`, which refuses an
+//!   entry that changed since it was read; Apply all takes every fix that
+//!   only fills in or publishes the entry, leaving disputed values for the
+//!   writer. An inline reference is checked, never rewritten.
+//! - The report is saved per project beside the app's other state, so it
+//!   comes back next time.
+
+use std::{
+    collections::{HashMap, HashSet},
+    path::PathBuf,
+    time::Duration,
+};
+
+use futures::{
+    FutureExt as _,
+    channel::oneshot,
+    future::{Either, select},
+};
+
+use gpui::{
+    App, AppContext as _, Context, EventEmitter, FocusHandle, Focusable, ScrollHandle, Task,
+};
+use lattice_core::{
+    citation_audit::{self, AuditEntry},
+    citation_health::CitationHealth,
+};
+use lattice_i18n::t;
+use serde::{Deserialize, Serialize};
+
+mod groups;
+mod messages;
+mod report;
+mod summary;
+mod view;
+
+pub use groups::{Bucket, FixGroup, fix_group};
+
+/// References checked per group.
+const GROUP: usize = 20;
+/// How long a group waits on its Semantic Scholar batch before checking the
+/// other sources without it: a cached batch answers in time, a queued one
+/// does not hold them behind its quota wait.
+const S2_HEAD_START: Duration = Duration::from_millis(250);
+
+pub enum AuditEvent {
+    Dismiss,
+    /// Open a file (project-relative) at a 1-based line.
+    OpenSource {
+        path: String,
+        line: u32,
+    },
+    /// Files were rewritten: open editors reload what changed.
+    Applied,
+    /// A check needs the paper tools, which are not installed: setup offers
+    /// them (`onMissingPaperTools`).
+    MissingPaperTools(String),
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Change {
+    pub field: String,
+    pub before: String,
+    pub after: String,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct Source {
+    pub source: String,
+    pub outcome: String,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Candidate {
+    pub bibtex: String,
+    #[serde(default)]
+    pub changes: Vec<Change>,
+    #[serde(default)]
+    pub reasons: Vec<String>,
+}
+
+/// A check's finding, as lattice-core's `AuditResult` serializes it (and the
+/// saved report keeps it).
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Finding {
+    pub status: String,
+    pub message: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub checked_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub publication_reason: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sources: Vec<Source>,
+    pub before: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub after: Option<String>,
+    #[serde(default)]
+    pub changes: Vec<Change>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub candidate: Option<Candidate>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub health: Option<CitationHealth>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub disagreements: Vec<String>,
+}
+
+impl Finding {
+    fn from_core(result: &impl Serialize) -> Option<Self> {
+        let mut finding: Finding =
+            serde_json::from_value(serde_json::to_value(result).ok()?).ok()?;
+        finding.checked_at = Some(chrono_now());
+        Some(finding)
+    }
+
+    fn failed(message: String, before: &str) -> Self {
+        Finding {
+            status: "unavailable".into(),
+            message,
+            checked_at: Some(chrono_now()),
+            before: before.to_string(),
+            ..Default::default()
+        }
+    }
+
+    /// A publisher's notice (a retraction, an expression of concern) on the
+    /// work itself.
+    pub fn has_notice(&self) -> bool {
+        self.health
+            .as_ref()
+            .is_some_and(|health| !matches!(health.kind.as_str(), "unknown" | "unavailable"))
+    }
+}
+
+/// A Semantic Scholar batch's answers, over the group's own checks, and
+/// whether it failed, which the group's later checks and the rest of the
+/// run are told.
+fn take_batch(
+    batch: Result<citation_audit::BatchAudit, String>,
+    answered: &mut [Option<Finding>],
+    s2_failure: &mut Option<String>,
+    s2_status: &mut Option<String>,
+) {
+    match batch {
+        Ok(batch) if batch.results.len() == answered.len() => {
+            for (slot, result) in answered.iter_mut().zip(&batch.results) {
+                if let Some(finding) = result.as_ref().and_then(Finding::from_core) {
+                    *slot = Some(finding);
+                }
+            }
+            *s2_failure = batch.s2_failure;
+            *s2_status = Some(s2_failure.clone().unwrap_or_else(|| "checked".into()));
+        }
+        _ => {
+            *s2_failure = Some("unavailable".into());
+            *s2_status = s2_failure.clone();
+        }
+    }
+}
+
+fn chrono_now() -> String {
+    // Seconds since the epoch, as the report only orders and shows dates.
+    let seconds = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |since| since.as_secs());
+    format!("{seconds}")
+}
+
+fn audit_key(entry: &AuditEntry) -> String {
+    format!("{}\0{}", entry.path, entry.key)
+}
+
+/// The reference's title as a reader sees it, else its key
+/// (`auditEntryTitle`).
+pub(super) fn entry_title(entry: &AuditEntry) -> String {
+    let title = lattice_core::bib_document::bib_text_to_plain(&entry.title);
+    if title.trim().is_empty() {
+        entry.key.clone()
+    } else {
+        title
+    }
+}
+
+/// What a check says when the tools it runs are not installed
+/// (`PAPER_TOOLS_MISSING`): every later check would fail the same way.
+const PAPER_TOOLS_MISSING: &str = "Lattice's paper tools are not installed.";
+
+/// Saves what the editors hold before a scan reads the files on disk,
+/// answering whether every write landed (`onPrepare`).
+pub type Prepare = std::rc::Rc<dyn Fn(&mut App) -> Task<bool>>;
+
+pub struct Audit {
+    root: PathBuf,
+    prepare: Prepare,
+    /// Where the report is saved; none keeps it for this window only.
+    store: Option<PathBuf>,
+    pub(super) entries: Vec<AuditEntry>,
+    /// Files the scan read references from: path, kind and how many.
+    pub(super) coverage: Vec<(String, String, usize)>,
+    pub(super) results: HashMap<usize, Finding>,
+    pub(super) applied: HashSet<usize>,
+    pub(super) kept: HashSet<usize>,
+    pub(super) loading: bool,
+    pub(super) busy: bool,
+    pub(super) stopping: bool,
+    /// The other sources have answered what they can and the group waits on
+    /// its Semantic Scholar batch (`waitingForS2`).
+    pub(super) waiting_for_s2: bool,
+    /// The references being checked right now.
+    pub(super) checking: HashSet<usize>,
+    /// The run under way: how many it checks, and those it has answered.
+    pub(super) run_total: usize,
+    pub(super) run_done: HashSet<usize>,
+    pub(super) applying: bool,
+    pub(super) error: Option<String>,
+    pub(super) view: Option<Bucket>,
+    /// The reference whose finding is open; `set_scan` keeps it on the
+    /// same reference when a rescan renumbers them.
+    pub(super) open: Option<usize>,
+    pub(super) scroll: ScrollHandle,
+    generation: u64,
+    /// Stop's signal to the run, which ends a wait on Semantic Scholar.
+    cancel: Option<oneshot::Sender<()>>,
+    focus: FocusHandle,
+    _task: Option<Task<()>>,
+}
+
+impl EventEmitter<AuditEvent> for Audit {}
+
+impl Audit {
+    /// `saved`: the save of the editors made as the sheet opened, which the
+    /// first scan waits for; later scans save through `prepare`.
+    pub fn new(root: PathBuf, prepare: Prepare, saved: Task<bool>, cx: &mut Context<Self>) -> Self {
+        let store = crate::shell::workspaces::state_dir(crate::settings::scripted(cx))
+            .map(|dir| dir.join("audits"));
+        let mut this = Self {
+            root,
+            prepare,
+            store,
+            entries: Vec::new(),
+            coverage: Vec::new(),
+            run_total: 0,
+            run_done: HashSet::new(),
+            results: HashMap::new(),
+            applied: HashSet::new(),
+            kept: HashSet::new(),
+            loading: true,
+            busy: false,
+            stopping: false,
+            waiting_for_s2: false,
+            checking: HashSet::new(),
+            applying: false,
+            error: None,
+            view: None,
+            open: None,
+            scroll: ScrollHandle::new(),
+            generation: 0,
+            cancel: None,
+            focus: cx.focus_handle(),
+            _task: None,
+        };
+        this.load(saved, cx);
+        this
+    }
+
+    /// Read the references and the saved report; checks stay the writer's
+    /// to ask for.
+    fn load(&mut self, prepared: Task<bool>, cx: &mut Context<Self>) {
+        let (root, store) = (self.root.clone(), self.store.clone());
+        let read = async move {
+            let scan = citation_audit::scan(&root)?;
+            let saved = match &store {
+                Some(dir) => citation_audit::load_report(dir, &root)
+                    .ok()
+                    .flatten()
+                    .unwrap_or_default(),
+                None => Vec::new(),
+            };
+            Ok::<_, String>((scan, saved))
+        };
+        let generation = self.generation;
+        self._task = Some(cx.spawn(async move |this, cx| {
+            let read = if prepared.await {
+                cx.background_spawn(read).await
+            } else {
+                Err(t!("Save pending edits before checking references.").to_string())
+            };
+            this.update(cx, |this, cx| {
+                if this.generation != generation {
+                    return;
+                }
+                this.loading = false;
+                match read {
+                    Ok((scan, saved)) => {
+                        this.set_scan(scan);
+                        this.carry_over(&report::read(saved), true);
+                    }
+                    Err(error) => this.error = Some(error),
+                }
+                cx.notify();
+            })
+            .ok();
+        }));
+    }
+
+    /// Carry results over to a fresh scan while an entry says the same thing;
+    /// one that changed since reads as changed when `mark_changed`.
+    fn carry_over(&mut self, saved: &report::Report, mark_changed: bool) {
+        (self.results, self.applied, self.kept) = report::carry(&self.entries, saved, mark_changed);
+    }
+
+    fn report(&self) -> Vec<(String, serde_json::Value)> {
+        report::build(&self.entries, &self.results, &self.applied, &self.kept)
+    }
+
+    fn save(&self, cx: &mut Context<Self>) {
+        let Some(store) = self.store.clone() else {
+            return;
+        };
+        let (root, report) = (self.root.clone(), self.report());
+        let asked = report::ask();
+        cx.background_spawn(async move { report::write(&store, &root, asked, report) })
+            .detach();
+    }
+
+    pub(super) fn bucket(&self, index: usize) -> Bucket {
+        groups::bucket(
+            self.results.get(&index),
+            self.applied.contains(&index),
+            self.kept.contains(&index),
+        )
+    }
+
+    /// The fixes Apply all takes: verified updates that only fill in or
+    /// publish the entry, never an inline reference's.
+    /// The references new or edited since the last check: no result
+    /// carried over, or one marked changed. Checking these brings the
+    /// report up to date.
+    pub(super) fn outdated(&self) -> Vec<usize> {
+        if self.busy || self.results.is_empty() {
+            return Vec::new();
+        }
+        (0..self.entries.len())
+            .filter(|index| {
+                self.results
+                    .get(index)
+                    .is_none_or(|result| result.status == "conflict")
+            })
+            .collect()
+    }
+
+    pub(super) fn updates(&self) -> Vec<usize> {
+        let mut updates: Vec<usize> = self
+            .results
+            .iter()
+            .filter(|(index, result)| {
+                result.after.is_some()
+                    && result.candidate.is_none()
+                    && result.status != "conflict"
+                    && !self.applied.contains(index)
+                    && self
+                        .entries
+                        .get(**index)
+                        .is_some_and(|entry| entry.inline.is_none())
+                    && fix_group(&result.changes) != FixGroup::Disputed
+            })
+            .map(|(index, _)| *index)
+            .collect();
+        updates.sort_unstable();
+        updates
+    }
+
+    /// Check every reference, or only `only`.
+    pub(super) fn check(&mut self, only: Option<Vec<usize>>, cx: &mut Context<Self>) {
+        if self.loading || self.busy || self.applying {
+            return;
+        }
+        let requested: Option<HashSet<String>> = only.map(|indexes| {
+            indexes
+                .iter()
+                .filter_map(|index| self.entries.get(*index).map(audit_key))
+                .collect()
+        });
+        self.generation += 1;
+        let generation = self.generation;
+        self.busy = true;
+        self.stopping = false;
+        self.waiting_for_s2 = false;
+        self.error = None;
+        // Until the rescan says how many it checks, the last run's count
+        // would read as this one's.
+        self.run_total = 0;
+        self.run_done.clear();
+        let root = self.root.clone();
+        let saved = report::read(self.report());
+        let prepared = (self.prepare.clone())(cx);
+        let (cancel, mut cancelled) = oneshot::channel();
+        self.cancel = Some(cancel);
+        self._task = Some(cx.spawn(async move |this, cx| {
+            let scan_root = root.clone();
+            let scan = if prepared.await {
+                cx.background_spawn(async move { citation_audit::scan(&scan_root) })
+                    .await
+            } else {
+                Err(t!("Save pending edits before checking references.").to_string())
+            };
+            let indexes = this.update(cx, |this, cx| {
+                if this.generation != generation {
+                    return None;
+                }
+                match scan {
+                    Ok(scan) => {
+                        this.set_scan(scan);
+                        this.carry_over(&saved, false);
+                        cx.notify();
+                        Some(
+                            this.entries
+                                .iter()
+                                .enumerate()
+                                .filter(|(_, entry)| {
+                                    requested
+                                        .as_ref()
+                                        .is_none_or(|keys| keys.contains(&audit_key(entry)))
+                                })
+                                .map(|(index, _)| index)
+                                .collect::<Vec<_>>(),
+                        )
+                    }
+                    Err(error) => {
+                        this.error = Some(error);
+                        None
+                    }
+                }
+            });
+            let Some(indexes) = indexes.ok().flatten() else {
+                this.update(cx, |this, cx| this.finish(generation, cx)).ok();
+                return;
+            };
+            let total = indexes.len();
+            this.update(cx, |this, cx| {
+                this.run_total = total;
+                this.run_done.clear();
+                this.checking = indexes.iter().copied().collect();
+                cx.notify();
+            })
+            .ok();
+            // A Semantic Scholar batch that failed is not asked again this
+            // run; each reference's own check is told why.
+            let mut s2_failure: Option<String> = None;
+            for group in indexes.chunks(GROUP) {
+                let (entries, live) = match this.update(cx, |this, _| {
+                    let entries: Vec<AuditEntry> = group
+                        .iter()
+                        .map(|index| this.entries[*index].clone())
+                        .collect();
+                    (entries, this.generation == generation && !this.stopping)
+                }) {
+                    Ok(state) => state,
+                    Err(_) => return,
+                };
+                if !live {
+                    break;
+                }
+                // The batch answers what it can; a lone reference has no batch.
+                // While it is pending the other sources are checked without
+                // Semantic Scholar, which the batch is asking.
+                let mut answered: Vec<Option<Finding>> = vec![None; entries.len()];
+                let mut s2_status = s2_failure.clone();
+                let mut pending = None;
+                if s2_failure.is_none() && total > 1 {
+                    s2_status = Some("checked".into());
+                    let (batch_root, batch_entries) = (root.clone(), entries.clone());
+                    let batch = cx.background_spawn(async move {
+                        citation_audit::check_batch(&batch_root, batch_entries)
+                    });
+                    let head_start = cx.background_executor().timer(S2_HEAD_START);
+                    match select(batch, select(head_start, &mut cancelled)).await {
+                        Either::Left((batch, _)) => {
+                            take_batch(batch, &mut answered, &mut s2_failure, &mut s2_status);
+                            let early: Vec<(usize, Finding)> = answered
+                                .iter()
+                                .enumerate()
+                                .filter_map(|(at, finding)| Some((group[at], finding.clone()?)))
+                                .collect();
+                            this.update(cx, |this, cx| this.record(generation, early, cx))
+                                .ok();
+                        }
+                        Either::Right((_, batch)) => {
+                            pending = Some(batch);
+                            this.update(cx, |this, cx| {
+                                if this.generation == generation && !this.stopping {
+                                    this.waiting_for_s2 = true;
+                                    cx.notify();
+                                }
+                            })
+                            .ok();
+                        }
+                    }
+                }
+                // What the batch left, two at a time; Stop lets them finish.
+                loop {
+                    if let Some(batch) = pending.as_mut().and_then(|batch| batch.now_or_never()) {
+                        take_batch(batch, &mut answered, &mut s2_failure, &mut s2_status);
+                        pending = None;
+                    }
+                    let pair: Vec<usize> = (0..entries.len())
+                        .filter(|at| answered[*at].is_none())
+                        .take(2)
+                        .collect();
+                    let stopped = this
+                        .update(cx, |this, _| this.stopping || this.generation != generation)
+                        .unwrap_or(true);
+                    if stopped || pair.is_empty() {
+                        break;
+                    }
+                    let checks: Vec<_> = pair
+                        .iter()
+                        .map(|at| {
+                            let (entry_root, entry, status) =
+                                (root.clone(), entries[*at].clone(), s2_status.clone());
+                            cx.background_spawn(async move {
+                                let before = entry.bibtex.clone();
+                                match citation_audit::check_entry(
+                                    &entry_root,
+                                    entry,
+                                    status.as_deref(),
+                                ) {
+                                    Ok(result) => {
+                                        Finding::from_core(&result).unwrap_or_else(|| {
+                                            Finding::failed(
+                                                "The check's answer could not be read.".into(),
+                                                &before,
+                                            )
+                                        })
+                                    }
+                                    Err(error) => Finding::failed(error, &before),
+                                }
+                            })
+                        })
+                        .collect();
+                    let mut missing_tools = None;
+                    for (at, check) in pair.iter().zip(checks) {
+                        let finding = check.await;
+                        if finding.message.contains(PAPER_TOOLS_MISSING) {
+                            missing_tools = Some(finding.message.clone());
+                        }
+                        answered[*at] = Some(finding);
+                    }
+                    if let Some(failure) = missing_tools {
+                        this.update(cx, |this, cx| {
+                            if this.generation == generation && !this.stopping {
+                                this.stopping = true;
+                                cx.emit(AuditEvent::MissingPaperTools(failure));
+                            }
+                        })
+                        .ok();
+                    }
+                    let partial: Vec<(usize, Finding)> = pair
+                        .iter()
+                        .filter_map(|at| Some((group[*at], answered[*at].clone()?)))
+                        .collect();
+                    this.update(cx, |this, cx| this.record(generation, partial, cx))
+                        .ok();
+                }
+                let stopped = this
+                    .update(cx, |this, _| this.stopping || this.generation != generation)
+                    .unwrap_or(true);
+                if let Some(batch) = pending.filter(|_| !stopped)
+                    && let Either::Left((batch, _)) = select(batch, &mut cancelled).await
+                {
+                    take_batch(batch, &mut answered, &mut s2_failure, &mut s2_status);
+                }
+                let all: Vec<(usize, Finding)> = answered
+                    .into_iter()
+                    .enumerate()
+                    .filter_map(|(at, finding)| {
+                        let mut finding = finding?;
+                        if let Some(failure) = &s2_failure {
+                            finding
+                                .sources
+                                .retain(|source| source.source != "semanticscholar");
+                            finding.sources.push(Source {
+                                source: "semanticscholar".into(),
+                                outcome: if failure == "not_configured" {
+                                    failure.clone()
+                                } else {
+                                    format!("batch_{failure}")
+                                },
+                            });
+                        }
+                        Some((group[at], finding))
+                    })
+                    .collect();
+                this.update(cx, |this, cx| {
+                    if this.generation == generation {
+                        this.waiting_for_s2 = false;
+                    }
+                    this.record(generation, all, cx);
+                })
+                .ok();
+            }
+            this.update(cx, |this, cx| this.finish(generation, cx)).ok();
+        }));
+        cx.notify();
+    }
+
+    fn record(&mut self, generation: u64, findings: Vec<(usize, Finding)>, cx: &mut Context<Self>) {
+        if self.generation != generation {
+            return;
+        }
+        for (index, finding) in findings {
+            self.checking.remove(&index);
+            self.run_done.insert(index);
+            self.results.insert(index, finding);
+            // A fresh result replaces what the writer did with the old one.
+            self.applied.remove(&index);
+            self.kept.remove(&index);
+        }
+        self.save(cx);
+        cx.notify();
+    }
+
+    fn finish(&mut self, generation: u64, cx: &mut Context<Self>) {
+        if self.generation != generation {
+            return;
+        }
+        self.busy = false;
+        self.stopping = false;
+        self.waiting_for_s2 = false;
+        self.checking.clear();
+        cx.notify();
+    }
+
+    pub(super) fn stop(&mut self, cx: &mut Context<Self>) {
+        if self.busy {
+            self.stopping = true;
+            if let Some(cancel) = self.cancel.take() {
+                cancel.send(()).ok();
+            }
+            cx.notify();
+        }
+    }
+
+    /// Write the fixes at `indexes`, one after another; a refused one stops
+    /// the rest and says why.
+    pub(super) fn apply(&mut self, indexes: Vec<usize>, cx: &mut Context<Self>) {
+        if self.loading || self.busy || self.applying || indexes.is_empty() {
+            return;
+        }
+        let writes: Vec<(usize, String, String, String, String)> = indexes
+            .iter()
+            .filter_map(|index| {
+                let entry = self.entries.get(*index)?;
+                let result = self.results.get(index)?;
+                Some((
+                    *index,
+                    entry.path.clone(),
+                    entry.key.clone(),
+                    entry.bibtex.clone(),
+                    result.after.clone()?,
+                ))
+            })
+            .collect();
+        self.applying = true;
+        self.error = None;
+        let root = self.root.clone();
+        self._task = Some(cx.spawn(async move |this, cx| {
+            for (index, path, key, before, after) in writes {
+                let write_root = root.clone();
+                let written_after = after.clone();
+                let written = cx
+                    .background_spawn(async move {
+                        citation_audit::apply(&write_root, &path, &key, &before, &written_after)
+                    })
+                    .await;
+                let ok = this
+                    .update(cx, |this, cx| match written {
+                        Ok(()) => {
+                            report::land_fix(&mut this.entries, index, after);
+                            this.applied.insert(index);
+                            this.save(cx);
+                            cx.emit(AuditEvent::Applied);
+                            cx.notify();
+                            true
+                        }
+                        Err(error) => {
+                            this.error = Some(error);
+                            false
+                        }
+                    })
+                    .unwrap_or(false);
+                if !ok {
+                    break;
+                }
+            }
+            this.update(cx, |this, cx| {
+                this.applying = false;
+                cx.notify();
+            })
+            .ok();
+        }));
+        cx.notify();
+    }
+
+    /// Keep the writer's own entry over the candidate, or (`kept` false)
+    /// put it back for review.
+    pub(super) fn keep(&mut self, index: usize, kept: bool, cx: &mut Context<Self>) {
+        if self.busy {
+            return;
+        }
+        if kept {
+            self.kept.insert(index);
+        } else {
+            self.kept.remove(&index);
+        }
+        self.save(cx);
+        cx.notify();
+    }
+
+    pub(super) fn set_view(&mut self, view: Option<Bucket>, cx: &mut Context<Self>) {
+        self.view = view;
+        cx.notify();
+    }
+
+    pub(super) fn toggle(&mut self, index: usize, cx: &mut Context<Self>) {
+        self.open = if self.open == Some(index) {
+            None
+        } else {
+            Some(index)
+        };
+        cx.notify();
+    }
+
+    /// A fresh scan's references and the files they came from: the open one
+    /// stays open by its file, key and place among references sharing both.
+    fn set_scan(&mut self, scan: citation_audit::AuditScan) {
+        self.coverage = scan
+            .coverage
+            .iter()
+            .map(|file| (file.path.clone(), file.kind.to_string(), file.entries))
+            .collect();
+        let open = self.open.and_then(|index| {
+            let key = audit_key(self.entries.get(index)?);
+            let nth = self.entries[..index]
+                .iter()
+                .filter(|entry| audit_key(entry) == key)
+                .count();
+            Some((key, nth))
+        });
+        self.entries = scan.entries;
+        self.open = open.and_then(|(key, nth)| {
+            self.entries
+                .iter()
+                .enumerate()
+                .filter(|(_, entry)| audit_key(entry) == key)
+                .nth(nth)
+                .map(|(index, _)| index)
+        });
+    }
+
+    pub(super) fn open_source(&mut self, index: usize, cx: &mut Context<Self>) {
+        if let Some(entry) = self.entries.get(index) {
+            cx.emit(AuditEvent::OpenSource {
+                path: entry.path.clone(),
+                line: entry.line.unwrap_or(1) as u32,
+            });
+        }
+    }
+
+    /// Fixes are being written: the sheet stays until they land.
+    pub fn is_applying(&self) -> bool {
+        self.applying
+    }
+
+    /// A check under way stops with the sheet; what it found was saved as
+    /// it came in. Fixes being written keep it open until they land.
+    pub(super) fn close(&mut self, cx: &mut Context<Self>) {
+        if self.applying {
+            return;
+        }
+        self.generation += 1;
+        cx.emit(AuditEvent::Dismiss);
+    }
+
+    /// The references by key and bucket, for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn rows(&self) -> Vec<(String, Bucket)> {
+        (0..self.entries.len())
+            .map(|index| (self.entries[index].key.clone(), self.bucket(index)))
+            .collect()
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn loaded(&self) -> bool {
+        !self.loading
+    }
+}
+
+impl Focusable for Audit {
+    fn focus_handle(&self, _: &App) -> FocusHandle {
+        self.focus.clone()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_reference_reads_by_its_plain_title_else_its_key() {
+        let entry = |title: &str| AuditEntry {
+            path: "refs.bib".into(),
+            key: "devlin2019".into(),
+            title: title.into(),
+            bibtex: String::new(),
+            issues: Vec::new(),
+            inline: None,
+            line: None,
+            fingerprint: String::new(),
+        };
+        assert_eq!(
+            entry_title(&entry("{BERT}: Pre-training")),
+            "BERT: Pre-training"
+        );
+        assert_eq!(entry_title(&entry("")), "devlin2019");
+    }
+}

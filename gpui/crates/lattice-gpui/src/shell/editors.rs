@@ -37,6 +37,8 @@ impl Shell {
             cx,
         ) {
             Ok(editor) => {
+                let papers = self.papers.clone();
+                editor.update(cx, |editor, cx| editor.set_papers(papers, cx));
                 self.adopt_editor(&editor, window, cx);
                 let weak = editor.downgrade();
                 cx.on_focus_in(&editor.focus_handle(cx), window, move |this, _, _| {

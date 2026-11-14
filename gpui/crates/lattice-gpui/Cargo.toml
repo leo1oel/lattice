@@ -35,6 +35,8 @@ futures.workspace = true
 gpui.workspace = true
 gpui_platform.workspace = true
 gpui-kit.workspace = true
+# The .bib list's Author and Title sorts, in `localeCompare`'s order.
+icu_collator = "2.3"
 hdrhistogram = { version = "7", default-features = false }
 image.workspace = true
 indexmap = { version = "2", features = ["serde"] }
@@ -52,6 +54,9 @@ lattice-webview.workspace = true
 gpui-webview.workspace = true
 wry = { package = "lb-wry", version = "=0.53.3" }
 log.workspace = true
+# The paper reader renders a saved paper's Markdown (papers/reader.rs); the
+# editor already depends on it.
+markdown.workspace = true
 pdfium-render.workspace = true
 # The Tauri app's TeX message and word patterns (crate::build).
 regex = "1"

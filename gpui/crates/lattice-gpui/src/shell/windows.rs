@@ -78,6 +78,17 @@ pub(crate) fn shell_showing(
     Some((handle, shell))
 }
 
+/// Whether a sheet in any window is writing to its project.
+pub(crate) fn any_overlay_writing(cx: &App) -> bool {
+    cx.try_global::<Shells>().is_some_and(|shells| {
+        shells
+            .0
+            .values()
+            .filter_map(|shell| shell.upgrade())
+            .any(|shell| shell.read(cx).overlay_writing(cx))
+    })
+}
+
 /// Run `f` on the shell of each window `which` picks, in its own window.
 pub(crate) fn for_shells(
     cx: &mut App,
@@ -131,6 +142,9 @@ impl Shell {
     /// next project, or closes when it held no other. A save that fails or
     /// is held keeps the project here, with the save's notice.
     pub(crate) fn open_in_new_window(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.overlay_writing(cx) {
+            return;
+        }
         let Some(root) = self.root(cx) else {
             return;
         };
@@ -143,6 +157,9 @@ impl Shell {
                 return;
             }
             this.update_in(cx, |this, window, cx| {
+                if this.overlay_writing(cx) {
+                    return;
+                }
                 let from = window.bounds();
                 if this.projects.len() > 1 {
                     this.close_project(&root, window, cx);
@@ -222,6 +239,9 @@ impl Shell {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if self.overlay_writing(cx) {
+            return;
+        }
         // Leaving ends this project's shells: ask first while a command
         // runs in one (`confirmLeavingProject`).
         if self.root(cx).is_some_and(|current| current != root)
@@ -239,6 +259,11 @@ impl Shell {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        // A sheet still writing keeps its project (checked again here: the
+        // shells' confirmation can answer after a write began).
+        if self.overlay_writing(cx) {
+            return;
+        }
         self.save_layout(cx);
         let saved = self.save_before_leaving(cx);
         self._open_task = Some(cx.spawn_in(window, async move |this, cx| {
@@ -250,6 +275,9 @@ impl Shell {
             match crate::project::open(root.clone(), cx).await {
                 Ok(project) => {
                     this.update_in(cx, |this, window, cx| {
+                        if this.overlay_writing(cx) {
+                            return;
+                        }
                         this.set_project(project, window, cx);
                         if let Some(closing) = closing {
                             this.projects.retain(|p| p.root != closing);
@@ -277,6 +305,9 @@ impl Shell {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if self.overlay_writing(cx) {
+            return;
+        }
         let Some(index) = self.projects.iter().position(|p| p.root == *root) else {
             return;
         };
@@ -305,6 +336,9 @@ impl Shell {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if self.overlay_writing(cx) {
+            return;
+        }
         if self.root(cx).as_ref() == Some(&root) {
             self.open_in_new_window(window, cx);
         } else {
