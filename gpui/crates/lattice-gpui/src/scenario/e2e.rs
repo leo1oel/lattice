@@ -30,20 +30,12 @@ mod saves;
 mod settings;
 mod source_chrome;
 mod status_bar;
+mod steps;
 #[cfg(target_os = "macos")]
 mod structured;
 mod submission;
 
-/// Each step's name, whether it passed, and what it saw.
-struct Steps(Vec<Value>);
-
-impl Steps {
-    fn check(&mut self, name: &str, passed: bool, detail: Value) -> bool {
-        self.0
-            .push(json!({ "step": name, "passed": passed, "detail": detail }));
-        passed
-    }
-}
+use steps::Steps;
 
 impl Run {
     /// The writing flow, end to end, on a scratch copy of a small project:
