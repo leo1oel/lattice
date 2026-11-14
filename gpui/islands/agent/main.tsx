@@ -56,7 +56,7 @@
 import "../shared/install";
 // Ahead of the host's own message listener (`documents.ts`).
 import { createProjectDocument, setDocumentToolTarget } from "./documents";
-import { useAgentAnnotations, useAgentPaperLibrary } from "./library";
+import { NOT_LINKED, overleafState, useAgentAnnotations, useAgentPaperLibrary, type OverleafState } from "./library";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { msg } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
@@ -196,12 +196,13 @@ const noop = () => undefined;
 /** Open Slide's last request for the composer, numbered so a repeat is a new one. */
 type DeckRequest = { request: OpenSlideAgentRequest; nonce: number };
 
-function Agent({ opened, workspace, visible, appearance, git, deckRequest, takeDeckRequest }: {
+function Agent({ opened, workspace, visible, appearance, git, overleaf, deckRequest, takeDeckRequest }: {
   opened: AgentOpen;
   workspace: Workspace;
   visible: boolean;
   appearance: Appearance;
   git: GitState;
+  overleaf: OverleafState;
   deckRequest: DeckRequest | null;
   /** The request reached the composer: it is not sent again (another project's Agent, a rebuilt surface). */
   takeDeckRequest: (nonce: number) => void;
@@ -215,7 +216,7 @@ function Agent({ opened, workspace, visible, appearance, git, deckRequest, takeD
   projectRootRef.current = opened.projectRoot;
   const agentVisible = opened.surface === "agent" && visible;
   // The project's annotations and comments, held by this page (`library.ts`).
-  const annotations = useAgentAnnotations(opened.projectRoot);
+  const annotations = useAgentAnnotations(opened.projectRoot, overleaf);
   const annotationsRef = useRef(annotations);
   annotationsRef.current = annotations;
   // A closed sheet the range tools change is read from and written to disk,
@@ -445,6 +446,7 @@ function AgentIsland() {
   const [appearance, setAppearance] = useState<Appearance>({ translucency: "subtle", translucent: false, accent: "graphite" });
   const [git, setGit] = useState<GitState>({ view: "changes", turnReview: null, remoteUrl: null });
   const [settings, setSettings] = useState<SettingsLayout>({ compact: false, target: null });
+  const [overleaf, setOverleaf] = useState<OverleafState>(NOT_LINKED);
   const [deckRequest, setDeckRequest] = useState<DeckRequest | null>(null);
   const takeDeckRequest = useCallback((nonce: number) => {
     setDeckRequest((current) => (current?.nonce === nonce ? null : current));
@@ -458,6 +460,7 @@ function AgentIsland() {
       bridge.on("agent:open", (payload) => {
         const open = payload as AgentOpen;
         setOpened(open);
+        setOverleaf(NOT_LINKED);
         setVisible(open.visible);
         setAppearance(open.appearance);
         if (open.git) setGit(open.git);
@@ -477,6 +480,7 @@ function AgentIsland() {
         }
       }),
       bridge.on("agent:visible", (payload) => setVisible(Boolean((payload as { visible?: unknown } | null)?.visible))),
+      bridge.on("agent:overleaf", (payload) => setOverleaf(overleafState(payload))),
       bridge.on("agent:workspace", (payload) => setWorkspace({ ...EMPTY_WORKSPACE, ...(payload as Partial<Workspace>) })),
       bridge.on("agent:appearance", (payload) => setAppearance(payload as Appearance)),
       bridge.on("agent:git", (payload) => setGit((current) => ({ ...current, ...(payload as Partial<GitState>) }))),
@@ -519,7 +523,7 @@ function AgentIsland() {
       />
     );
   }
-  return <Agent key={`${opened.surface}\n${opened.projectRoot}`} opened={opened} workspace={workspace} visible={visible} appearance={appearance} git={git} deckRequest={deckRequest} takeDeckRequest={takeDeckRequest} />;
+  return <Agent key={`${opened.surface}\n${opened.projectRoot}`} opened={opened} workspace={workspace} visible={visible} appearance={appearance} git={git} overleaf={overleaf} deckRequest={deckRequest} takeDeckRequest={takeDeckRequest} />;
 }
 
 mount(() => <AgentIsland />, {

@@ -19,11 +19,13 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use gpui::{AppContext as _, Context, Entity, Window};
 use lattice_core::project as core_project;
+use lattice_i18n::t;
 use serde_json::{Value, json};
 
 use super::Shell;
 use crate::{
     agent::SynaraSurface,
+    notices,
     structured::{StructuredDocument, StructuredKind},
 };
 
@@ -62,10 +64,6 @@ pub(crate) struct Candidate {
     pub front: bool,
 }
 
-fn same_path(a: &str, b: &str) -> bool {
-    a.replace('\\', "/").trim_start_matches("./") == b.replace('\\', "/").trim_start_matches("./")
-}
-
 /// The document a call of `family` (Synara's `request`) goes to, by index
 /// into `candidates`; `None` when no open page holds what it needs.
 pub(crate) fn pick(family: ToolFamily, request: &Value, candidates: &[Candidate]) -> Option<usize> {
@@ -79,7 +77,7 @@ pub(crate) fn pick(family: ToolFamily, request: &Value, candidates: &[Candidate]
                 ToolFamily::Canvas => candidate.kind == StructuredKind::Board && candidate.shown,
                 ToolFamily::Spreadsheet => {
                     candidate.kind == StructuredKind::Sheet
-                        && wanted.is_some_and(|path| same_path(path, &candidate.relative))
+                        && wanted == Some(candidate.relative.as_str())
                 }
                 ToolFamily::Presentation => candidate.kind == StructuredKind::Deck,
             }
@@ -183,6 +181,9 @@ impl Shell {
         let answer = move |result: Result<Value, String>,
                            cx: &mut gpui::App,
                            surface: &gpui::WeakEntity<SynaraSurface>| {
+            if let Err(error) = &result {
+                notices::error(t!("Could not create it"), error.clone(), cx);
+            }
             surface
                 .update(cx, |surface, cx| surface.answer(id, result, cx))
                 .ok();

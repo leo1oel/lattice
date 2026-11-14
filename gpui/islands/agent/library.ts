@@ -4,7 +4,8 @@
  *
  * - the paper library (`use-project-library.ts`'s `list_papers`), which the
  *   page posts to the frame as `buildAgentPaperLibrary` builds it, again
- *   whenever the project watcher reports a change under `.research/`;
+ *   whenever the project watcher reports a change to what `list_papers`
+ *   reads: a `.bib`, the paper bundles or the project's manifest;
  * - the project's annotations, for the annotation tools (`propose`, `ask`)
  *   and the Agent's view of the project's comments. The Tauri app keeps them
  *   in its comments store (`use-editor-comments.ts`) and records the tools'
@@ -21,7 +22,7 @@ import { useEffect, useMemo, useReducer, useRef } from "react";
 import { msg } from "@lingui/core/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { host } from "../shared/host";
-import { toMessage } from "../../../src/app-utils";
+import { isBibFilePath, toMessage } from "../../../src/app-utils";
 import { useLatestRef } from "../../../src/hooks/use-latest-ref";
 import { showError } from "../../../src/app/notify";
 import { i18n } from "../../../src/i18n";
@@ -35,8 +36,22 @@ import type { PaperSummary } from "../../../src/app-types";
 /** A reducer that takes the newest value whole. */
 const replace = <T,>(_: T, next: T): T => next;
 
-/** The project files the paper library is read from. */
-const PAPERS_PREFIX = ".research/";
+/** The paper bundles and the manifest naming the primary bibliography, as `list_papers` reads them. */
+const PAPERS_DIR = ".research/papers";
+const MANIFEST = ".research/project.json";
+
+/**
+ * How long a burst that reached the library waits for the next before it is
+ * read again, as `use-project-library.ts` waits for a .bib.
+ */
+const LIBRARY_WATCH_DELAY_MS = 400;
+
+/** The burst may have changed what `list_papers` reads: a .bib, a bundle, or a folder holding either input. */
+function reachesLibrary(paths: readonly string[] | null): boolean {
+  return touches(paths, (path) => isBibFilePath(path)
+    || path.startsWith(`${PAPERS_DIR}/`)
+    || [PAPERS_DIR, MANIFEST].some((input) => input === path || input.startsWith(`${path}/`)));
+}
 
 /** What the owner reports of a burst of changes on disk (`agent:files-changed`). */
 function changedPaths(payload: unknown): readonly string[] | null {
@@ -54,6 +69,7 @@ export function useAgentPaperLibrary(projectRoot: string): AgentPaperLibrarySnap
   const [papers, setPapers] = useReducer(replace<PaperSummary[]>, []);
   useEffect(() => {
     let generation = 0;
+    let timer: number | undefined;
     const read = () => {
       const current = ++generation;
       void invoke<PaperSummary[]>("list_papers").then(
@@ -63,9 +79,12 @@ export function useAgentPaperLibrary(projectRoot: string): AgentPaperLibrarySnap
     };
     read();
     const stop = host().on("agent:files-changed", (payload) => {
-      if (touches(changedPaths(payload), (path) => path.startsWith(PAPERS_PREFIX))) read();
+      if (!reachesLibrary(changedPaths(payload))) return;
+      window.clearTimeout(timer);
+      timer = window.setTimeout(read, LIBRARY_WATCH_DELAY_MS);
     });
     return () => {
+      window.clearTimeout(timer);
       generation += 1;
       stop();
     };
@@ -76,12 +95,18 @@ export function useAgentPaperLibrary(projectRoot: string): AgentPaperLibrarySnap
 /** The project's Overleaf link and its documents' paths, as the owner reports them. */
 export type OverleafState = { linked: boolean; docPaths: Record<string, string> };
 
-const NOT_LINKED: OverleafState = { linked: false, docPaths: {} };
+export const NOT_LINKED: OverleafState = { linked: false, docPaths: {} };
+
+/** The owner's `agent:overleaf` payload. */
+export function overleafState(payload: unknown): OverleafState {
+  const next = payload as Partial<OverleafState> | null;
+  return { linked: next?.linked === true, docPaths: next?.docPaths ?? {} };
+}
 
 type Overleaf = Pick<BuildAgentCommentsOptions, "overleafThreads" | "overleafAnchors" | "overleaf">;
 
 /** The project's annotations store, with the annotation tools' host and the comments' options. */
-export function useAgentAnnotations(projectRoot: string): {
+export function useAgentAnnotations(projectRoot: string, overleafState: OverleafState): {
   annotationTools: () => AnnotationToolHost | null;
   commentsOptions: () => BuildAgentCommentsOptions | null;
 } {
@@ -90,7 +115,6 @@ export function useAgentAnnotations(projectRoot: string): {
   const loadedRef = useRef<{ error: string | null } | null>(null);
   /** The annotated files' text, to tell where each note's anchor stands. */
   const sourcesRef = useRef(new Map<string, string>());
-  const [overleafState, setOverleafState] = useReducer(replace<OverleafState>, NOT_LINKED);
   const overleafRef = useRef<Overleaf>({ overleafThreads: [], overleafAnchors: [], overleaf: { status: "not-linked" } });
 
   const rounds = useMemo(() => new AnnotationRounds(), []);
@@ -172,11 +196,8 @@ export function useAgentAnnotations(projectRoot: string): {
     };
   }, [projectRoot, rounds]);
 
-  // The owner's Overleaf link; a linked project's threads are read through it.
-  useEffect(() => host().on("agent:overleaf", (payload) => {
-    const next = payload as Partial<OverleafState> | null;
-    setOverleafState({ linked: next?.linked === true, docPaths: next?.docPaths ?? {} });
-  }), []);
+  // The owner's Overleaf link (held above the surface, `main.tsx`); a linked
+  // project's threads are read through it.
   useEffect(() => {
     let live = true;
     if (!overleafState.linked) {
