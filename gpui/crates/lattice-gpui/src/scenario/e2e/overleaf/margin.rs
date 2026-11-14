@@ -65,10 +65,31 @@ impl Run {
                 .await;
             self.adapter_shot(cx, "overleaf-margin-markers").await;
         }
+        // The open card stands off its line (under it, or above it near the
+        // view's bottom), so the passage it is about stays in sight.
+        let (painted, view) = cx.update(|cx| {
+            let editor = editor.read(cx);
+            (editor.margin_painted(), editor.margin_view())
+        });
+        let popover = painted
+            .iter()
+            .find(|(key, _)| *key == format!("popover:{comment_key}"))
+            .map(|(_, bounds)| *bounds);
+        let clear = match (layout, pip, popover) {
+            (Some(MarginLayout::Markers), Some(pip), Some(popover)) => {
+                (popover.top() >= pip.bottom() || popover.bottom() <= pip.top())
+                    && view.is_some_and(|view| {
+                        popover.top() >= view.top() && popover.bottom() <= view.bottom()
+                    })
+            }
+            // Beside the text, a card is never over it (`margin_end.rs`).
+            (Some(MarginLayout::Wide), _, _) => true,
+            _ => false,
+        };
         steps.check(
-            "margin review shows the comment and the suggestion beside their lines, and a pip opens its card",
-            markers && opened,
-            json!({ "layout": format!("{layout:?}"), "painted": format!("{painted:?}"), "opened": opened }),
+            "margin review shows the comment and the suggestion beside their lines, and a pip opens its card off its line",
+            markers && opened && clear,
+            json!({ "layout": format!("{layout:?}"), "painted": format!("{painted:?}"), "opened": opened, "clear": clear, "popover": format!("{popover:?}") }),
         );
         // Off: nothing in the margin; then Auto again.
         self.with_window(cx, |shell, _, cx| {

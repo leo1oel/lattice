@@ -45,6 +45,8 @@ pub struct IconButton {
     content: Option<AnyElement>,
     /// Laid over the button's corner (a status dot).
     badge: Option<AnyElement>,
+    /// A number after the icon, which widens the button to fit it.
+    count: Option<SharedString>,
     surface: Surface,
     on: bool,
     selected: bool,
@@ -68,6 +70,7 @@ impl IconButton {
             corners: None,
             content: None,
             badge: None,
+            count: None,
             surface: Surface::Sheet,
             on: false,
             selected: false,
@@ -111,6 +114,16 @@ impl IconButton {
     /// Lay `badge` over the button, positioned by the badge itself.
     pub fn badge(mut self, badge: impl IntoElement) -> Self {
         self.badge = Some(badge.into_any_element());
+        self
+    }
+
+    /// Show `count` after the icon, in the button's ink: the titlebar's
+    /// `toolbar-count-button` (app-shell.css), as wide as it needs (at least
+    /// square) with 6px each side and 4px between the icon and the number
+    /// (`--gap-inline-tight`), the number in the compact body's weight with
+    /// tabular figures.
+    pub fn count(mut self, count: impl Into<SharedString>) -> Self {
+        self.count = Some(count.into());
         self
     }
 
@@ -214,6 +227,16 @@ impl RenderOnce for IconButton {
             track_pointer(tab_stop(self.base), pointer)
         };
         let corners = self.corners;
+        let count = self.count.map(|count| {
+            div()
+                .text_size(crate::tokens::TEXT_BODY_COMPACT)
+                .line_height(crate::tokens::TEXT_BODY_COMPACT)
+                .font_weight(crate::tokens::FONT_WEIGHT_MEDIUM)
+                .font_features(crate::typography::tabular_nums())
+                .text_color(ink)
+                .child(count)
+        });
+        let counted = count.is_some();
         let icon = match self.content {
             Some(content) => content,
             None => self.icon.element(self.icon_size, ink).into_any_element(),
@@ -223,7 +246,13 @@ impl RenderOnce for IconButton {
             .flex_none()
             .items_center()
             .justify_center()
-            .w(self.width)
+            .map(|this| {
+                if counted {
+                    this.min_w(self.width).px(px(6.)).gap(px(4.))
+                } else {
+                    this.w(self.width)
+                }
+            })
             .h(self.height)
             .rounded(self.radius)
             .when_some(corners, |this, corners| {
@@ -238,6 +267,7 @@ impl RenderOnce for IconButton {
                 this.focus_visible(move |style| style.shadow(focus))
             })
             .child(icon)
+            .children(count)
             .children(self.badge)
             .when_some(self.tooltip, |this, tooltip| {
                 this.tooltip(move |_, cx| -> AnyView {
