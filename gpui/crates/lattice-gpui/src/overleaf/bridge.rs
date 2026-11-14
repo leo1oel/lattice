@@ -43,6 +43,7 @@ use super::{
 use crate::notices::{self, Notice, NoticeAction};
 
 mod documents;
+pub use documents::OverleafSaveState;
 mod finished;
 mod live;
 mod presence;

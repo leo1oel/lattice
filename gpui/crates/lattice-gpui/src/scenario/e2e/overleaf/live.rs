@@ -96,6 +96,24 @@ impl Run {
             json!({ "reached": reached, "updates": updates, "hashed": hashed, "rejected": mock.rejected() }),
         );
 
+        // Once Overleaf has it all, the save slot says so ("Saved and synced").
+        let slot = |shell: &gpui::Entity<crate::shell::Shell>, cx: &mut gpui::App| {
+            shell
+                .update(cx, |shell, cx| shell.open_editor(&main, cx))
+                .and_then(|editor| editor.read(cx).overleaf_save())
+        };
+        let synced = self
+            .wait_for(cx, Duration::from_secs(10), |shell, cx| {
+                slot(shell, cx) == Some(crate::overleaf::bridge::OverleafSaveState::Live)
+            })
+            .await;
+        let state = self.with_window(cx, |shell, _, cx| format!("{:?}", slot(shell, cx)))?;
+        steps.check(
+            "the status bar's save slot says the live file is synced with Overleaf",
+            synced,
+            json!({ "synced": synced, "state": state }),
+        );
+
         // Both sides at once.
         self.type_text(cx, "and Ada ").await?;
         let crossed = mock.peer_typed("main.tex", vec![insert(0, "% again\n")]);

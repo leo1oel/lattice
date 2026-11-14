@@ -55,6 +55,23 @@ struct LiveDoc {
     hashed_at: Option<std::time::Instant>,
 }
 
+/// Where a file stands with Overleaf, for the status bar's save slot.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum OverleafSaveState {
+    /// Live, and Overleaf has every edit.
+    Live,
+    /// Live, with an edit Overleaf has not acknowledged yet.
+    Sending,
+    /// A sync is running.
+    Syncing,
+    /// The live channel dropped: edits wait on this Mac.
+    Offline,
+    /// Edits go when the writer (or live mode's poll) syncs.
+    Manual,
+    /// The link is paused.
+    Paused,
+}
+
 #[derive(Default)]
 pub(super) struct DocumentsState {
     live: Option<LiveDoc>,
@@ -89,6 +106,32 @@ impl OverleafBridge {
     /// The editor the writer works in, live or not.
     pub(super) fn shown_editor(&self) -> Option<Entity<EditorPanel>> {
         self.documents.shown.as_ref()?.upgrade()
+    }
+
+    /// Where `path` stands with Overleaf, as the status bar's save slot
+    /// words it (`overleafSaveState`); none when the project is not linked.
+    pub fn save_state(&self, path: &str) -> Option<OverleafSaveState> {
+        let link = self.link.as_ref()?;
+        Some(if link.link.paused {
+            OverleafSaveState::Paused
+        } else if self.syncing {
+            OverleafSaveState::Syncing
+        } else if self.mode != OverleafSyncMode::Live {
+            OverleafSaveState::Manual
+        } else if self.channel == ChannelStatus::Live && self.live_file() == Some(path) {
+            if self.live_sending() {
+                OverleafSaveState::Sending
+            } else {
+                OverleafSaveState::Live
+            }
+        } else if self.channel == ChannelStatus::Error
+            || (self.channel == ChannelStatus::Connecting && self.channel_detail.is_some())
+        {
+            // Reconnecting after a drop, or given up on: edits wait here.
+            OverleafSaveState::Offline
+        } else {
+            OverleafSaveState::Manual
+        })
     }
 
     /// The paths the channel carries, which regular sync leaves alone.

@@ -60,7 +60,10 @@ impl Shell {
         let bridge = cx.new(OverleafBridge::new);
         let subscriptions = vec![
             cx.subscribe_in(&bridge, window, Self::on_overleaf_event),
-            cx.observe(&bridge, |_, _, cx| cx.notify()),
+            cx.observe(&bridge, |this, _, cx| {
+                this.show_overleaf_save(cx);
+                cx.notify()
+            }),
             // Another window signed in or out, or a request found the
             // session expired: read the link again.
             cx.observe_global::<crate::overleaf::SessionGeneration>(|this, cx| {

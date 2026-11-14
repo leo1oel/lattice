@@ -105,6 +105,22 @@ impl EditorPanel {
         self.overleaf_applying = false;
     }
 
+    /// Where the file stands with Overleaf (none: not linked).
+    pub fn set_overleaf_save(
+        &mut self,
+        state: Option<crate::overleaf::bridge::OverleafSaveState>,
+        cx: &mut Context<Self>,
+    ) {
+        if self.overleaf_save != state {
+            self.overleaf_save = state;
+            cx.notify();
+        }
+    }
+
+    pub(crate) fn overleaf_save(&self) -> Option<crate::overleaf::bridge::OverleafSaveState> {
+        self.overleaf_save
+    }
+
     /// The buffer changed: typing, unless live editing put it there.
     pub(super) fn note_overleaf_edit(&self, cx: &mut Context<Self>) {
         if !self.overleaf_applying {

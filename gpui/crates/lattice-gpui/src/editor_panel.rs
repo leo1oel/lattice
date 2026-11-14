@@ -183,6 +183,8 @@ pub struct EditorPanel {
     overleaf_caret: (u32, u32),
     /// Live editing is putting Overleaf's text in: not typing.
     overleaf_applying: bool,
+    /// Where the file stands with Overleaf, for the save slot.
+    overleaf_save: Option<crate::overleaf::bridge::OverleafSaveState>,
     /// The file's word count as of opening or the last save; counted off the
     /// main thread.
     words: Option<usize>,
@@ -446,6 +448,7 @@ impl EditorPanel {
             cursor: (1, 1),
             overleaf_caret: (0, 0),
             overleaf_applying: false,
+            overleaf_save: None,
             words: None,
             buffer_todos: None,
             status_width: Default::default(),

@@ -207,6 +207,21 @@ impl Shell {
         }
     }
 
+    /// Each editor's save slot says where its file stands with Overleaf.
+    pub(super) fn show_overleaf_save(&mut self, cx: &mut Context<Self>) {
+        let editors = self.open_editors();
+        let states: Vec<_> = editors
+            .iter()
+            .map(|editor| {
+                let path = editor.read(cx).relative().to_string();
+                self.overleaf.read(cx).save_state(&path)
+            })
+            .collect();
+        for (editor, state) in editors.into_iter().zip(states) {
+            editor.update(cx, |editor, cx| editor.set_overleaf_save(state, cx));
+        }
+    }
+
     /// The active editor's caret moved: tell Overleaf where it is.
     pub(super) fn tell_overleaf_caret(
         &mut self,
