@@ -1,0 +1,1 @@
+import{n as e}from"./rolldown-runtime-C0FnF6B9.js";function t(){let e=navigator.userAgent;return/\bWindows NT\b/.test(e)?`windows`:/\bLinux\b/.test(e)&&!/\bAndroid\b/.test(e)?`linux`:`mac`}function n(){return t()===`windows`}function r(){return(r=e((()=>{})))()}export{r as n,n as r,t};

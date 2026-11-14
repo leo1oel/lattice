@@ -1,0 +1,1 @@
+import{n as e}from"./rolldown-runtime-C0FnF6B9.js";import{n as t,r as n}from"./utils-C-UnG9tN.js";function r({variant:e=`secondary`,size:n=`default`,className:r}={}){return t(`ui-button`,`ui-button--${e}`,`ui-button--${n}`,r)}function i(){return(i=e((()=>{n()})))()}export{i as n,r as t};

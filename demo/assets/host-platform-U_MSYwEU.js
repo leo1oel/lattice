@@ -1,1 +1,0 @@
-import{n as e}from"./rolldown-runtime-C0FnF6B9.js";function t(){return/\bWindows NT\b/.test(navigator.userAgent)}function n(){return(n=e((()=>{})))()}export{t as n,n as t};

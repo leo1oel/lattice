@@ -1,0 +1,1 @@
+import{n as e}from"./rolldown-runtime-C0FnF6B9.js";import{n as t,r as n}from"./shared-setting-Dy_sdPMx.js";function r(){try{return localStorage.getItem(i)===`true`}catch{return!1}}var i,a;function o(){return(o=e((()=>{t(),i=`lattice.papers.save-full-text.v1`,a=n(i,r)})))()}export{a as n,o as t};
