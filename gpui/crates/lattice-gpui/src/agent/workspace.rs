@@ -46,8 +46,7 @@ pub fn of_editor(panel: Option<&EditorPanel>, cx: &App) -> Value {
         "activeSurface": "editor",
     });
     if start != end {
-        let full: String = buffer.text_for_range(start..end).collect();
-        let (text, length) = cut_selection(&full);
+        let (text, length) = cut_selection(buffer.text_for_range(start..end));
         let first = start_point.row + 1;
         let mut last: Point = end_point;
         // A selection ending at a line's start does not take that line.
@@ -64,13 +63,32 @@ pub fn of_editor(panel: Option<&EditorPanel>, cx: &App) -> Value {
 
 /// The trimmed selection cut to `SELECTION_LIMIT` characters, and the
 /// trimmed whole's length in UTF-16 units, as the page's `String.length`
-/// counts it.
-fn cut_selection(full: &str) -> (String, usize) {
-    let trimmed = full.trim();
-    (
-        trimmed.chars().take(SELECTION_LIMIT).collect(),
-        trimmed.encode_utf16().count(),
-    )
+/// counts it, read in one pass over the chunks without copying the whole.
+fn cut_selection<'a>(chunks: impl IntoIterator<Item = &'a str>) -> (String, usize) {
+    let mut text = String::new();
+    let (mut kept, mut chars, mut trailing_chars) = (0, 0, 0);
+    let (mut length, mut trailing) = (0, 0);
+    for c in chunks.into_iter().flat_map(str::chars) {
+        if chars == 0 && c.is_whitespace() {
+            continue;
+        }
+        chars += 1;
+        length += c.len_utf16();
+        if c.is_whitespace() {
+            trailing += c.len_utf16();
+            trailing_chars += 1;
+        } else {
+            (trailing, trailing_chars) = (0, 0);
+        }
+        if kept < SELECTION_LIMIT {
+            text.push(c);
+            kept += 1;
+        }
+    }
+    if kept > chars - trailing_chars {
+        text.truncate(text.trim_end().len());
+    }
+    (text, length - trailing)
 }
 
 /// The caret as the Tauri app's `EditorPosition` holds it: the line 1-based,
@@ -101,12 +119,16 @@ mod tests {
     // 100,000-character selection is that long however much of it is sent.
     #[test]
     fn a_long_selection_is_cut_but_counted_whole() {
-        let full = format!("  {}\n", "x".repeat(100_000));
-        let (text, length) = cut_selection(&full);
+        let x = "x".repeat(50_000);
+        let (text, length) = cut_selection(["  ", x.as_str(), x.as_str(), "\n "]);
         assert_eq!(length, 100_000);
         assert_eq!(text, "x".repeat(SELECTION_LIMIT));
         // "𝑥" is one character but two UTF-16 units.
-        let (_, wide) = cut_selection("𝑥a");
+        let (_, wide) = cut_selection(["𝑥a"]);
         assert_eq!(wide, 3);
+        // A short selection is sent whole, trimmed as `String.trim` would.
+        let (short, count) = cut_selection([" \tsee \\cite{a}", " \n\n"]);
+        assert_eq!(short, "see \\cite{a}");
+        assert_eq!(count, 12);
     }
 }
