@@ -60,6 +60,15 @@ impl PdfView {
             }
             // Leaving the field another way commits it too.
             InputEvent::Blur => self.commit_draft(zoom, cx),
+            // The page takes digits only (`accept: /^\d*$/`).
+            InputEvent::Change if !zoom => {
+                let input = self.page_field.input.clone();
+                let value = input.read(cx).value().to_string();
+                let digits: String = value.chars().filter(char::is_ascii_digit).collect();
+                if digits != value {
+                    input.update(cx, |input, cx| input.set_value(digits, window, cx));
+                }
+            }
             _ => {}
         }
     }
@@ -87,13 +96,20 @@ impl PdfView {
         cx.notify();
     }
 
-    /// Escape in a draft field: drop the draft and go back to reading.
+    /// Escape in a draft field: the page's draft is dropped, the zoom's
+    /// committed (only the page field has `cancelOnEscape`); either way back
+    /// to reading.
     pub(in crate::pdf) fn cancel_draft(
         &mut self,
         zoom: bool,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if zoom {
+            self.commit_draft(true, cx);
+            window.focus(&self.focus_handle, cx);
+            return;
+        }
         let field = if zoom {
             &mut self.zoom_field
         } else {

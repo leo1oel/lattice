@@ -180,7 +180,8 @@ impl PdfView {
                 self.focus_find(window, cx);
                 return;
             }
-            "c" if modifiers.secondary(cx) && !modifiers.shift && !modifiers.alt => {
+            // ⌘X copies, as cut does on the read-only page.
+            "c" | "x" if modifiers.secondary(cx) && !modifiers.shift && !modifiers.alt => {
                 if self.selection.is_some() {
                     cx.stop_propagation();
                     self.copy_selection(cx);
@@ -192,6 +193,11 @@ impl PdfView {
                 self.selection = None;
                 cx.notify();
                 return;
+            }
+            // ⌘↑ and ⌘↓: the top and the end, as WebKit scrolls.
+            "up" if modifiers.secondary(cx) && !modifiers.shift && !modifiers.alt => (x, 0.),
+            "down" if modifiers.secondary(cx) && !modifiers.shift && !modifiers.alt => {
+                (x, self.layout.height)
             }
             _ if modifiers.secondary(cx) || modifiers.alt => return,
             "down" => (x, y + LINE_SCROLL),

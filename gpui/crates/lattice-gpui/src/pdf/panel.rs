@@ -519,47 +519,46 @@ impl BasePanel for PdfPanel {
 }
 
 impl PdfPanel {
-    /// The PDF's own items at the head of its ⋯ menu.
+    /// The PDF's own items at the head of its ⋯ menu, as the Tauri app's
+    /// PDF panel has them (`use-trellis-bridge.ts`): Build project (⌘S
+    /// saves and then builds; it has no key of its own) and Reveal cursor
+    /// in PDF; a root document's tab builds that document.
     pub(crate) fn panel_menu(this: &Entity<Self>, menu: Menu, cx: &App) -> Menu {
         let panel = this.read(cx);
-        let view = panel.live_view().clone();
-        let zoom = |label: &'static str, direction: f32| {
-            let view = view.downgrade();
-            MenuAction::new(label, move |_, cx| {
-                view.update(cx, |view, cx| view.step_zoom(direction, cx))
+        let emit = |event: fn(Option<String>) -> PdfEvent, document: Option<String>| {
+            let panel = this.downgrade();
+            move |_: &mut Window, cx: &mut App| {
+                panel
+                    .update(cx, |_, cx| cx.emit(event(document.clone())))
                     .ok();
-            })
-        };
-        let fit = {
-            let view = view.downgrade();
-            MenuAction::new(t!("Fit page to width"), move |_, cx| {
-                view.update(cx, |view, cx| {
-                    if view.fit() != Some(super::layout::FitMode::Width) {
-                        view.toggle_fit(super::layout::FitMode::Width, cx)
-                    }
-                })
-                .ok();
-            })
-        };
-        let menu = menu
-            .item(zoom(t!("Zoom in"), 1.))
-            .item(zoom(t!("Zoom out"), -1.))
-            .item(fit);
-        match &panel.kind {
-            PdfPanelKind::Root(document) => {
-                let panel = this.downgrade();
-                let document = document.clone();
-                menu.item(MenuAction::new(t!("Build this document"), move |_, cx| {
-                    panel
-                        .update(cx, |_, cx| {
-                            cx.emit(PdfEvent::Build {
-                                document: Some(document.clone()),
-                            })
-                        })
-                        .ok();
-                }))
             }
-            PdfPanelKind::Live | PdfPanelKind::File(_) => menu,
+        };
+        let (save, reveal) = if cfg!(target_os = "macos") {
+            ("⌘S", "⇧⌘J")
+        } else {
+            ("Ctrl+S", "Ctrl+Shift+J")
+        };
+        match &panel.kind {
+            PdfPanelKind::Live => menu
+                .item(
+                    MenuAction::new(
+                        t!("Build project"),
+                        emit(|document| PdfEvent::Build { document }, None),
+                    )
+                    .shortcut(save),
+                )
+                .item(
+                    MenuAction::new(
+                        t!("Reveal cursor in PDF"),
+                        emit(|document| PdfEvent::RevealCursor { document }, None),
+                    )
+                    .shortcut(reveal),
+                ),
+            PdfPanelKind::Root(document) => menu.item(MenuAction::new(
+                t!("Build this document"),
+                emit(|document| PdfEvent::Build { document }, Some(document.clone())),
+            )),
+            PdfPanelKind::File(_) => menu,
         }
     }
 }
