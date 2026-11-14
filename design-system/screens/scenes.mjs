@@ -107,6 +107,17 @@ export const scenes = {
     await rest(staged.page);
     return staged;
   },
+  // The tutorial's main.tex in Visual (the .tex view switch's other mode),
+  // for the GPUI parity report (gpui/parity/regions.mjs); not an App screens
+  // artboard.
+  async latexVisual(env, theme) {
+    const staged = await project(env, theme);
+    // The active header's switch; an inactive one only holds its place.
+    await staged.page.locator("[data-trellis-part=\"accessory\"]:not([data-inactive]) .trellis-view-switcher button.ui-segmented-tab[title=Visual]").click();
+    await staged.page.waitForSelector(".cm-editor.cm-latex-visual", { timeout: 30_000 });
+    await rest(staged.page);
+    return staged;
+  },
   async html(env, theme) {
     const staged = await project(env, theme);
     await openFile(staged.page, "attention-demo.html");

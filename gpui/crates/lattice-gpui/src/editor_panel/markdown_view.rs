@@ -76,7 +76,7 @@ impl EditorPanel {
         document
     }
 
-    fn on_markdown_document(
+    pub(super) fn on_markdown_document(
         &mut self,
         document: &Entity<StructuredDocument>,
         event: &StructuredEvent,
@@ -101,6 +101,12 @@ impl EditorPanel {
             MarkdownEvent::ViewInSource(offset) => self.view_in_source(*offset, window, cx),
             MarkdownEvent::OpenPath(path) => {
                 cx.emit(EditorPanelEvent::OpenFile { path: path.clone() })
+            }
+            MarkdownEvent::OpenLocation(path, line) => {
+                cx.emit(EditorPanelEvent::OpenLocation {
+                    path: path.clone(),
+                    line: *line,
+                })
             }
             MarkdownEvent::Caret(line, column) => {
                 let moved = self.cursor.0 != *line;

@@ -104,6 +104,24 @@ export const SCREENS = {
     ],
     content: [".markdown-preview", ".pdf-viewer-host"],
   },
+  // The tutorial's main.tex in Visual (`scenes.latexVisual`): the document's
+  // card, strip and tab, its Source / Visual switch with Visual chosen, the
+  // page in the source's place and the status bar under it. The GPUI app
+  // draws the page in a webview island, which an offscreen capture does not
+  // include, so it is left out of the pixel budget; the composited capture
+  // beside the report shows it.
+  latexVisual: {
+    label: "LaTeX Visual",
+    regions: [
+      { name: "titlebar", css: "header.titlebar", chrome: true },
+      { name: "workspace", css: "main.workspace", chrome: true },
+      ...group("main.tex"),
+      { name: "editor/view-switch", css: ".trellis-view-switcher", text: true },
+      { name: "latex/surface", css: ".source-editor:has(.cm-latex-visual)" },
+      { name: "status-bar", css: ".editor-status-bar", chrome: true },
+    ],
+    content: [".source-editor", ".pdf-viewer-host"],
+  },
   // The tutorial's spreadsheet and board opened (`scenes.sheet`,
   // `scenes.board`): the document's card, strip and tab, and the surface,
   // alone in the panel with no status bar or strip tools, as the Tauri

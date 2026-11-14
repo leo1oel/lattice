@@ -3,5 +3,9 @@ msgid "Couldn’t open the Markdown editor"
 msgstr "Markdown 编辑器打不开"
 
 #: lattice-gpui/src/structured.rs
+msgid "Couldn’t open the Visual Editor"
+msgstr "可视化编辑器打不开"
+
+#: lattice-gpui/src/structured.rs
 msgid "Couldn’t open this board"
 msgstr "白板打不开"

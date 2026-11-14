@@ -153,6 +153,12 @@ choice!(
     } default Appearance
 );
 
+choice!(
+    /// How `.tex` documents draw in their editor: one choice for every
+    /// `.tex` file, shared by every window (`latex-view-choice.ts`).
+    LatexView { Source = "source", Visual = "visual" } default Source
+);
+
 /// An accent preset, or a custom colour as lowercase `#rrggbb`.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Accent {
@@ -425,6 +431,8 @@ pub struct Settings {
     /// "Your name": what signs comments when no Git or Overleaf name does.
     pub author_name: String,
     pub settings_tab: SettingsTab,
+    /// Source or Visual, for every `.tex` file (`lattice.latex-view.v1`).
+    pub latex_view: LatexView,
     /// Settings › Overleaf › Sync mode, shared by every window.
     pub overleaf_sync_mode: OverleafSyncMode,
     /// Settings › Overleaf › When you delete a file here.
@@ -483,6 +491,7 @@ impl Settings {
                 .unwrap_or_default()
                 .to_owned(),
             settings_tab: choice(field("settingsTab"), defaults.settings_tab),
+            latex_view: choice(field("latexView"), defaults.latex_view),
             overleaf_sync_mode: choice(field("overleafSyncMode"), defaults.overleaf_sync_mode),
             overleaf_remote_delete: choice(
                 field("overleafRemoteDelete"),
@@ -582,8 +591,11 @@ mod tests {
 
     #[test]
     fn the_settings_file_round_trips() {
-        let mut settings = Settings::default();
-        settings.theme_preference = ThemePreference::Dark;
+        let mut settings = Settings {
+            theme_preference: ThemePreference::Dark,
+            latex_view: LatexView::Visual,
+            ..Default::default()
+        };
         settings.appearance.accent = Accent::Preset(AccentPreset::Teal);
         settings.appearance.hidden_titlebar_tools = vec![TitlebarTool::Browser];
         settings.auto_build_mode = AutoBuildMode::Manual;

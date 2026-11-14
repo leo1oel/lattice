@@ -55,6 +55,7 @@ pub use markdown::MarkdownEvent;
 pub use slides::{DeckSession, handles as deck_handles};
 
 mod agent_tools;
+mod latex_visual;
 mod markdown;
 mod presentation;
 pub mod resources;
@@ -70,6 +71,10 @@ pub enum StructuredKind {
     /// A Markdown file's visual editor, shown by its Split and Preview
     /// views rather than alone (`markdown.rs`); never what [`Self::of`] names.
     Markdown,
+    /// A `.tex` file's Visual view: the Tauri app's source editor in Visual
+    /// mode (`latex_visual.rs`), shown in place of the source; never what
+    /// [`Self::of`] names.
+    LatexVisual,
 }
 
 impl StructuredKind {
@@ -94,7 +99,14 @@ impl StructuredKind {
             Self::Sheet => "sheet",
             Self::Deck => "slides",
             Self::Markdown => "markdown",
+            Self::LatexVisual => "latex",
         }
+    }
+
+    /// A visual editor over the panel's buffer, which reads the project's
+    /// files and speaks the visual editors' protocol (`md:*`, `markdown.rs`).
+    fn is_visual_editor(self) -> bool {
+        matches!(self, Self::Markdown | Self::LatexVisual)
     }
 
     fn entry(self) -> &'static str {
@@ -103,6 +115,7 @@ impl StructuredKind {
             Self::Sheet => "sheet/index.html",
             Self::Deck => "slides/index.html",
             Self::Markdown => "markdown/index.html",
+            Self::LatexVisual => "latex/index.html",
         }
     }
 }
@@ -142,8 +155,11 @@ pub struct StructuredDocument {
     /// The interface language the page was last given.
     locale: Locale,
     deck: Option<slides::DeckSession>,
-    /// A Markdown file's: the view, the project's files and TeX sources.
+    /// A visual editor's (a Markdown file's, a `.tex` file's Visual): the
+    /// view, the project's files and TeX sources.
     markdown: Option<markdown::MarkdownSession>,
+    /// A `.tex` file's Visual: the project's citations and labels it last sent.
+    latex: Option<latex_visual::LatexSession>,
     /// The project, for a page that reads its files (a Markdown file's images).
     files: Option<FileScope>,
     /// Reveals asked for, so each has an id of its own.
@@ -169,8 +185,9 @@ impl StructuredDocument {
                 "The island pages are not built: run gpui/script/build-islands.".to_string()
             })
             .and_then(|dir| FileScope::new(dir).map_err(|error| format!("{error:#}")));
-        // A Markdown file's images are the project's, granted one by one.
-        let files = (kind == StructuredKind::Markdown)
+        // A visual editor's images are the project's, granted one by one.
+        let files = kind
+            .is_visual_editor()
             .then(|| FileScope::new(root).ok())
             .flatten();
         let palette = cx.palette().clone();
@@ -212,6 +229,7 @@ impl StructuredDocument {
             locale: lattice_i18n::locale(),
             deck,
             markdown: None,
+            latex: None,
             files,
             reveals: 0,
             agent_calls: Default::default(),
@@ -321,6 +339,7 @@ impl StructuredDocument {
             payload["editable"] = json!(true);
         }
         self.markdown_open(&mut payload);
+        self.latex_open(&mut payload);
         self.post("doc:open", payload, cx);
     }
 
@@ -383,9 +402,10 @@ impl StructuredDocument {
             "island:notify" => show_page_notice(payload, cx),
             "agent:tool-result" => self.agent_answered(payload),
             "slides:agent-request" => cx.emit(StructuredEvent::AgentRequest(payload.clone())),
-            _ if self.kind == StructuredKind::Markdown => {
-                self.on_markdown_message(kind, payload, cx)
+            "tex:open-citation" if self.kind == StructuredKind::LatexVisual => {
+                self.open_citation(payload, cx)
             }
+            _ if self.kind.is_visual_editor() => self.on_markdown_message(kind, payload, cx),
             _ => log::debug!("{}: unhandled {kind}", self.kind.island()),
         }
     }
@@ -402,7 +422,7 @@ impl StructuredDocument {
             "doc:persist" => cx.emit(StructuredEvent::Persist(id)),
             "island:confirm" => self.confirm(id, &payload, cx),
             "tauri:invoke" => self.invoke(id, payload, window, cx),
-            _ if self.kind == StructuredKind::Markdown
+            _ if self.kind.is_visual_editor()
                 && self.on_markdown_request(id, kind, &payload, cx) => {}
             "slides:mutation" if self.kind == StructuredKind::Deck => {
                 self.apply_mutation(id, payload, cx)
@@ -431,7 +451,8 @@ impl StructuredDocument {
         match (self.kind, command.as_str()) {
             (_, "plugin:dialog|save") => self.save_panel(id, &args, window, cx),
             (StructuredKind::Sheet, "save_xlsx") => self.save_xlsx(id, &payload, cx),
-            (StructuredKind::Markdown, _) if self.invoke_markdown(id, &command, &args, cx) => {}
+            (StructuredKind::LatexVisual, _) if self.invoke_latex(id, &command, &args, cx) => {}
+            (kind, _) if kind.is_visual_editor() && self.invoke_markdown(id, &command, &args, cx) => {}
             (StructuredKind::Deck, _) if slides::handles(&command) => {
                 let result = self
                     .deck
@@ -673,6 +694,7 @@ impl Render for StructuredDocument {
                 StructuredKind::Sheet => "sheet/surface",
                 StructuredKind::Deck => "slides/surface",
                 StructuredKind::Markdown => "markdown/surface",
+                StructuredKind::LatexVisual => "latex/surface",
             }))
             .when_some(failure, |this, failure| {
                 this.child(
@@ -695,6 +717,9 @@ impl Render for StructuredDocument {
                                     StructuredKind::Deck => t!("Open Slide could not start"),
                                     StructuredKind::Markdown => {
                                         t!("Couldn’t open the Markdown editor")
+                                    }
+                                    StructuredKind::LatexVisual => {
+                                        t!("Couldn’t open the Visual Editor")
                                     }
                                 }),
                         )
