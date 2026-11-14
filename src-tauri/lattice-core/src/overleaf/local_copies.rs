@@ -87,6 +87,16 @@ pub fn remember_local_copy(config_dir: &Path, root: &Path) {
     }
 }
 
+/// The folders `config_dir`'s list remembers, most recent first, read and
+/// never tidied. For another app's list (the GPUI app reads the Tauri app's),
+/// whose folders it passes to [`local_copies`] as candidates: each is still
+/// checked against its own link there, and the list stays its owner's to
+/// rewrite.
+pub fn remembered_local_copies(config_dir: &Path) -> Vec<PathBuf> {
+    let _lock = lock_index();
+    read_index(config_dir).folders
+}
+
 fn display_path(path: &Path) -> String {
     match crate::host_paths::home_dir() {
         Some(home) => display_path_from_home(path, &home),

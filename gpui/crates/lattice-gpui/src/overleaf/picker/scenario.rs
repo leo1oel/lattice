@@ -19,6 +19,22 @@ impl OverleafPicker {
         })
     }
 
+    /// The folder here that Open would open for the project named `name`
+    /// (as its row reads it, with the home folder as `~`), once the lookup
+    /// has answered; `None` while it runs or when Open would download.
+    pub fn scenario_local_copy(&self, name: &str, cx: &App) -> Option<String> {
+        if self.copies_loading {
+            return None;
+        }
+        let project = self
+            .rows(cx)
+            .into_iter()
+            .find(|project| project.name == name)?;
+        self.local_copies
+            .get(&project.id)
+            .map(|copy| copy.display.clone())
+    }
+
     /// Show `list` for the account `status` at once, the first row chosen,
     /// with nothing asked of the network: the parity harness's picker.
     pub fn scenario_stage(
