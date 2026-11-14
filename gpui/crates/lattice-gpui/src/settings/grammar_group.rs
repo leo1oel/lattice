@@ -12,8 +12,8 @@
 //! language, showing at most 40.
 
 use std::{
-    collections::{BTreeMap, HashSet},
-    sync::{Arc, Mutex, OnceLock, PoisonError},
+    collections::BTreeMap,
+    sync::{Arc, OnceLock},
 };
 
 use gpui::{
@@ -42,21 +42,6 @@ const MATCH_LIMIT: usize = 40;
 
 /// Harper's rules, listed once for the run.
 static RULES: OnceLock<Arc<Vec<HarperRuleOut>>> = OnceLock::new();
-
-/// A rule's name as a row's `'static` id: rows and their switches are keyed
-/// by it, and Harper's rule set is fixed for the run, so each name is
-/// interned once.
-fn interned(name: &str) -> &'static str {
-    static NAMES: Mutex<Option<HashSet<&'static str>>> = Mutex::new(None);
-    let mut names = NAMES.lock().unwrap_or_else(PoisonError::into_inner);
-    let names = names.get_or_insert_with(HashSet::new);
-    if let Some(known) = names.get(name) {
-        return known;
-    }
-    let leaked: &'static str = Box::leak(format!("grammar-rule-{name}").into_boxed_str());
-    names.insert(leaked);
-    leaked
-}
 
 /// Why the academic profile turns each rule off (`ACADEMIC_RULE_REASONS`,
 /// which lattice-core's `ACADEMIC_OFF` keeps in step).
@@ -318,7 +303,7 @@ pub fn group(
                 _ => description,
             };
             let rule_name = rule.name.clone();
-            let id = interned(&rule.name);
+            let id = controls::row_id("grammar-rule", &rule.name);
             rows.push(
                 Row::new(id, name)
                     .description(description, cx)
@@ -492,8 +477,4 @@ mod tests {
         assert_eq!(names(shown_rules(&all, "oxford comma", false, &changed)), ["OxfordComma"]);
     }
 
-    #[test]
-    fn a_rule_is_interned_once() {
-        assert!(std::ptr::eq(interned("OxfordComma"), interned("OxfordComma")));
-    }
 }

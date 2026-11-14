@@ -147,6 +147,16 @@ fn groups() -> Vec<(SharedString, Vec<(Section, SharedString)>)> {
                 ),
             ],
         ),
+        (
+            t!("About").into(),
+            vec![(
+                Section {
+                    tab: SettingsTab::Acknowledgements,
+                    icon: Icon::CHAT,
+                },
+                t!("Acknowledgements").into(),
+            )],
+        ),
     ]
 }
 
