@@ -56,6 +56,19 @@ pub fn config_dir() -> PathBuf {
         })
 }
 
+/// The Tauri app's config folder (Tauri's `app_config_dir`, where
+/// `src-tauri/src/ipc/overleaf.rs` keeps its session and its list of linked
+/// folders), read for that list and never written: a project the Tauri app
+/// downloaded, adopted, published or opened linked is the folder "Open from
+/// Overleaf" opens here too, wherever it sits. A scripted run reads a stand-in
+/// under its scratch folder instead.
+pub fn tauri_config_dir() -> Option<PathBuf> {
+    if let Some(scratch) = stand_in(|stand_in| stand_in.scratch.join("tauri-config")) {
+        return Some(scratch);
+    }
+    dirs::config_dir().map(|dir| dir.join(lattice_settings::import::TAURI_BUNDLE_ID))
+}
+
 /// A scripted run's own Overleaf: the server sign-ins go to, and the scratch
 /// folder that holds the session, the links and the downloads in place of
 /// the writer's.
