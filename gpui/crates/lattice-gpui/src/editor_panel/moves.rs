@@ -31,6 +31,10 @@ impl EditorPanel {
             let relative = relative.clone();
             document.update(cx, |document, cx| document.moved_to(relative, cx));
         }
+        if let Some(document) = self.latex_visual_document().cloned() {
+            let relative = relative.clone();
+            document.update(cx, |document, cx| document.moved_to(relative, cx));
+        }
         let left = std::mem::replace(&mut self.relative, relative);
         crate::status_counters::set_buffer(root.clone(), left, None, cx);
         self.scan_todos(Duration::ZERO, cx);
@@ -71,6 +75,7 @@ impl EditorPanel {
             (None, false) => {}
         }
         self.offer_view_switch(cx);
+        crate::crash::note_editor(self, cx);
         cx.notify();
     }
 }

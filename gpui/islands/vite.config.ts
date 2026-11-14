@@ -27,7 +27,7 @@ import { reactCompilerSuppressionRules } from "../../scripts/react-compiler-supp
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repo = path.resolve(here, "../..");
-const ISLANDS = ["sheet", "board", "slides", "markdown", "agent"] as const;
+const ISLANDS = ["sheet", "board", "slides", "markdown", "latex", "agent"] as const;
 
 /**
  * `virtual:webkit-polyfills`, as the app's config serves it: the PDF.js

@@ -17,6 +17,10 @@ commands:
   # fails at once with the same command through scripts/gpui-build.mjs,
   # instead of writing a cold multi-GB gpui/target or src-tauri/target. The
   # instructions below alone did not stop agents from running plain cargo.
+  # no-mistakes runs this only when the test step starts, after the review
+  # step's agent has already compiled to check its fixes, so the guard also
+  # writes a config one directory up, which Cargo reads in every later run
+  # worktree of this repository from its first command.
   prepare: "node scripts/run-worktree-cargo-guard.mjs install && pnpm install --frozen-lockfile"
   # The scoped gate, not the full suite: the whole Vitest suite cost 19-29
   # minutes a run here for little new signal. Pull requests run no CI; the
@@ -28,10 +32,13 @@ commands:
   # scope is the branch's own diff; offline it falls back to the local ref.
   # cargo test stays with the optional `pnpm signoff` and release CI: a Tauri
   # compile takes minutes even in the machine's shared build tree.
-  test: "(git fetch --quiet origin main || true) && pnpm gate:changed"
+  # The target check first fails loudly when anything (the review step
+  # included) left a local cargo target over 500 MB in this run worktree.
+  test: "node scripts/run-worktree-cargo-guard.mjs check && (git fetch --quiet origin main || true) && pnpm gate:changed"
   # gate:changed already runs `pnpm lint` in full; this keeps the lint step
-  # to the one cheap check of its own rather than a second oxlint pass.
-  lint: "node scripts/check-use-state-allowlist.mjs"
+  # to the cheap checks of its own rather than a second oxlint pass; the
+  # target check again catches a local compile during the test step.
+  lint: "node scripts/check-use-state-allowlist.mjs && node scripts/run-worktree-cargo-guard.mjs check"
 
 test:
   instructions: |

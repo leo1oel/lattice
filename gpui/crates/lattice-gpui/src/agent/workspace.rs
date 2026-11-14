@@ -45,6 +45,24 @@ pub fn of_editor(panel: Option<&EditorPanel>, cx: &App) -> Value {
         "editorPosition": editor_position(&relative, line, column),
         "activeSurface": "editor",
     });
+    // An Open Slide deck's selected slide and element (`onOpenSlideContext`).
+    if let Some(context) = panel
+        .structured()
+        .and_then(|document| document.read(cx).deck_context())
+    {
+        workspace["presentation"] = context.clone();
+    }
+    // Text selected in a Markdown file's visual editor (`onSelectionMarkdown`).
+    if start == end
+        && let Some(text) = panel
+            .markdown_document()
+            .and_then(|document| document.read(cx).visual_selection())
+    {
+        let (text, length) = cut_selection([text]);
+        workspace["selection"] = json!(text);
+        workspace["selectionLength"] = json!(length);
+        workspace["selectionSource"] = json!("editor");
+    }
     if start != end {
         let (text, length) = cut_selection(buffer.text_for_range(start..end));
         let first = start_point.row + 1;

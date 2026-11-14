@@ -107,6 +107,17 @@ export const scenes = {
     await rest(staged.page);
     return staged;
   },
+  // The tutorial's main.tex in Visual (the .tex view switch's other mode),
+  // for the GPUI parity report (gpui/parity/regions.mjs); not an App screens
+  // artboard.
+  async latexVisual(env, theme) {
+    const staged = await project(env, theme);
+    // The active header's switch; an inactive one only holds its place.
+    await staged.page.locator("[data-trellis-part=\"accessory\"]:not([data-inactive]) .trellis-view-switcher button.ui-segmented-tab[title=Visual]").click();
+    await staged.page.waitForSelector(".cm-editor.cm-latex-visual", { timeout: 30_000 });
+    await rest(staged.page);
+    return staged;
+  },
   async html(env, theme) {
     const staged = await project(env, theme);
     await openFile(staged.page, "attention-demo.html");
@@ -210,6 +221,23 @@ export const scenes = {
     const staged = await project(env, theme);
     await palette(staged.page, "What’s new in Lattice");
     await staged.page.waitForSelector(".whats-new-modal .whats-new-list, .whats-new-modal .whats-new-date", { timeout: 30_000 });
+    await rest(staged.page);
+    return staged;
+  },
+  // Three notices on the stack, collapsed into its pile with the error in
+  // front (gpui/crates/lattice-gpui/src/scenario/parity_notices.rs). The
+  // parity harness's screens only.
+  async toasts(env, theme) {
+    const staged = await project(env, theme);
+    await staged.page.evaluate(() => {
+      const { notifyInfo, notifyWarning, notifyError } = window.__latticeBench.notify;
+      notifyInfo("Project", "Imported 2 items into figures", { timeoutMs: 0 });
+      notifyWarning("LaTeX setup", "Your TeX packages are out of date", {
+        detail: "Updates available (3). Updating asks for administrator approval and can take a few minutes.",
+        timeoutMs: 0,
+      });
+      notifyError("Build", "Build failed", { detail: "Undefined control sequence on line 12 of main.tex", timeoutMs: 0 });
+    });
     await rest(staged.page);
     return staged;
   },

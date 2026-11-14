@@ -94,6 +94,9 @@ pub struct LastBuild {
     pub success: bool,
     pub wrote_pdf: bool,
     pub root_document: String,
+    /// Where the build wrote its `.aux` files, project-relative: the root
+    /// document's folder when empty (`BuildResult::aux_folder`).
+    pub aux_folder: String,
     /// In the order the card lists them, each with its explanation.
     pub diagnostics: Vec<Diagnostic>,
     pub explained: Vec<Option<Explained>>,
@@ -441,6 +444,7 @@ impl BuildPanel {
             success: result.success,
             wrote_pdf,
             root_document: result.root_document.clone(),
+            aux_folder: result.aux_folder.clone(),
             diagnostics: sorted,
             explained,
             log: result.log.clone(),

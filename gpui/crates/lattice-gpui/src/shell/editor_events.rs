@@ -57,6 +57,8 @@ impl Shell {
                 }
             }
             EditorPanelEvent::Close => self.close_editor(editor, window, cx),
+            // The paper's reader wrapping the editor names the paper itself.
+            EditorPanelEvent::Masthead(_) | EditorPanelEvent::PaperSource(_) => {}
             EditorPanelEvent::Annotation(request) => {
                 self.on_annotation_request(request, window, cx)
             }
@@ -77,6 +79,7 @@ impl Shell {
                 self.jump_to_heading(path, *line, window, cx)
             }
             EditorPanelEvent::AgentRequest(request) => self.deck_agent_request(request, window, cx),
+            EditorPanelEvent::SurfaceContext => self.surface_context_changed(editor, cx),
             EditorPanelEvent::Focused => {
                 self.active_editor = Some(editor.downgrade());
                 self.live_preview
@@ -160,7 +163,13 @@ impl Shell {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if let Some(view) = self.view_of_editor(editor) {
+        // A paper's text stands in its reader's tab: the file going takes
+        // the reader with it.
+        let holder = self.reader_holding(editor, cx);
+        if let Some(view) = holder
+            .and_then(|reader| self.view_of_panel(reader.entity_id()))
+            .or_else(|| self.view_of_editor(editor))
+        {
             self.engine_do(cx, |engine| engine.close(&view));
         }
         let _ = window;

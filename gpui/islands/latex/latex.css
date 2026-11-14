@@ -1,0 +1,9 @@
+/* The source pane fills the island as it fills the canvas's body in the
+   Tauri app (`.canvas-body > .source-workspace`, `editor-workspace.css`); the
+   editor inside it is laid out by that stylesheet and Visual mode's own
+   (`latex-visual.css`), unchanged. */
+#root > .source-workspace {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100%;
+}

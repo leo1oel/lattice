@@ -24,9 +24,14 @@
 //!
 //! The regular sync leaves the live document to the channel (`live_paths`).
 //! A document with work unanswered when the channel drops is held for the
-//! reconnect (`resume`). Anything that cannot be proven (an operation that
-//! does not fit, an update Overleaf refuses, a send whose outcome is
-//! unknown) drops the document back to regular sync, which reconciles it.
+//! reconnect (`resume`). So is one whose send's outcome is unknown with the
+//! channel still up (`markOutcomeUnknown`): the operation may have landed,
+//! so regular sync must not touch the file; it is joined again from its
+//! version at once, and Overleaf's replay says whether the edit is there.
+//! Until a replay proves it the file stays paused, and the writer is told
+//! why. Anything else that cannot be proven (an operation that does not
+//! fit, an update Overleaf refuses) drops the document back to regular
+//! sync, which reconciles it.
 
 use std::time::Duration;
 
@@ -42,6 +47,7 @@ use crate::{editor_panel::EditorPanel, history::conflicts::has_conflict_markers}
 mod joining;
 mod resume;
 mod reviewing;
+mod uncertain;
 
 /// Typing goes out this long after the first unsent keystroke.
 const SEND_AFTER: Duration = Duration::from_millis(250);
@@ -85,8 +91,9 @@ pub(super) struct DocumentsState {
     live: Option<LiveDoc>,
     /// Draining documents left behind by a switch: by id.
     leaving: Vec<LiveDoc>,
-    /// The editor the writer works in, live or not.
+    /// The editor the writer works in, live or not, and its file.
     shown: Option<WeakEntity<EditorPanel>>,
+    shown_path: Option<String>,
     joining: Option<joining::Joining>,
     join_generation: u64,
     /// Updates for a document being joined or resumed, for the replay.
@@ -104,6 +111,11 @@ pub(super) struct DocumentsState {
     held: Vec<LiveDoc>,
     /// Joining the held documents again from their versions.
     resuming: Option<Task<()>>,
+    /// Held documents whose last send's outcome is unknown: kept out of
+    /// regular sync until a replay proves it, by id.
+    uncertain: BTreeSet<String>,
+    /// Why the shown document is paused, for the toolbar's tooltip.
+    detail: Option<(String, SharedString)>,
 }
 
 impl OverleafBridge {
@@ -184,7 +196,33 @@ impl OverleafBridge {
             return;
         }
         self.documents.shown = shown;
+        self.documents.shown_path = editor.map(|editor| editor.read(cx).relative().to_string());
+        let editing = self
+            .documents
+            .shown_path
+            .clone()
+            .filter(|path| live::is_whole_file(path))
+            .into_iter()
+            .collect();
+        self.whole_files_shown(editing, cx);
         self.reconsider_live(cx);
+        // The toolbar's explanation and the menu bar follow the shown file.
+        cx.notify();
+    }
+
+    /// The shown editor holds a file the channel cannot carry: one Overleaf
+    /// keeps whole (no document id), or a board, sheet or deck.
+    pub(super) fn shown_not_live(&self) -> bool {
+        let Some(path) = self.documents.shown_path.as_deref() else {
+            return false;
+        };
+        live::is_whole_file(path) || self.doc_of_path(path).is_none()
+    }
+
+    /// Why the shown document is paused, while it is.
+    pub(super) fn documents_detail(&self) -> Option<SharedString> {
+        let (path, detail) = self.documents.detail.as_ref()?;
+        (self.documents.shown_path.as_deref() == Some(path.as_str())).then(|| detail.clone())
     }
 
     /// Join the shown editor's document when live editing is on, after
@@ -338,6 +376,12 @@ impl OverleafBridge {
         };
         // Overleaf's setting, followed: typing goes out as suggestions.
         let tracked = self.tracking();
+        let permission = client.project().permission;
+        if !(if tracked { permission.can_suggest() } else { permission.can_write() }) {
+            // Refused before it went out: nothing landed, so regular sync
+            // reconciles the file.
+            return self.drop_live(doc_id, None, cx);
+        }
         let Some(doc) = self.doc_mut(doc_id) else {
             return;
         };
@@ -366,13 +410,17 @@ impl OverleafBridge {
         });
         let doc_id = doc.doc_id.clone();
         cx.spawn(async move |this, cx| {
-            let sent = matches!(sending.await, Ok(Ok(())));
+            let failure = match sending.await {
+                Ok(Ok(())) => return,
+                Ok(Err(error)) => error.to_string(),
+                Err(error) => error.to_string(),
+            };
             // The connection closed under it: the drop it reports next
             // holds the document for the reconnect, as unanswered work.
-            let dropping = client.current_entities().is_none();
-            if !sent && !dropping {
-                // Whether it landed is unknown: regular sync reconciles.
-                this.update(cx, |this, cx| this.drop_live(&doc_id, None, cx))
+            if client.current_entities().is_some() {
+                // A failed answer is not a rejection: the server may have
+                // applied the operation before the answer was lost.
+                this.update(cx, |this, cx| this.outcome_unknown(&doc_id, failure, cx))
                     .ok();
             }
         })
@@ -389,8 +437,10 @@ impl OverleafBridge {
                 };
                 match doc.ot.acknowledge(Some(version)) {
                     Ok(next) => {
+                        let path = doc.path.clone();
                         let draining = doc.draining.is_some();
                         let settled = doc.ot.settled();
+                        self.proven(&doc_id, &path);
                         if let Some(send) = next {
                             self.send_ops(&doc_id, send, Vec::new(), cx);
                         } else if draining && settled {
@@ -445,8 +495,12 @@ impl OverleafBridge {
                         if fits {
                             self.review_moved(&doc_id, &applied, false, suggested_by, cx);
                         } else {
-                            let notice = t!("This document drifted from Overleaf's copy, so live editing stopped. Syncing will reconcile it.").to_string();
-                            self.drop_live(&doc_id, Some(notice), cx);
+                            // The buffer moved under the channel (a reload,
+                            // an outside write): keep what is here, and say
+                            // so where the toolbar explains the file.
+                            let path = doc.path.clone();
+                            self.documents.detail = Some((path, changed_outside_notice().into()));
+                            self.drop_live(&doc_id, None, cx);
                         }
                     }
                     Ok(_) => {}
@@ -614,6 +668,15 @@ impl OverleafBridge {
         self.write_checkpoints();
         if succeeded {
             self.documents.suspended.clear();
+            // What the toolbar said of a file handed to sync is settled now;
+            // a file still held unproven stays explained.
+            let held = &self.documents.held;
+            let uncertain = &self.documents.uncertain;
+            self.documents.detail.take_if(|(path, _)| {
+                !held
+                    .iter()
+                    .any(|doc| &doc.path == path && uncertain.contains(&doc.doc_id))
+            });
         }
         self.reconsider_live(cx);
     }
@@ -685,6 +748,10 @@ impl OverleafBridge {
             self.documents.held.clear();
             handed = true;
         }
+        if !hold {
+            self.documents.uncertain.clear();
+            self.documents.detail = None;
+        }
         cx.notify();
         handed
     }
@@ -693,4 +760,9 @@ impl OverleafBridge {
 fn drift_notice(desync: &OtDesync) -> String {
     let _ = desync;
     t!("This document drifted from Overleaf's copy, so live editing stopped. Syncing will reconcile it.").to_string()
+}
+
+/// The buffer moved outside live editing: local work was kept.
+pub(super) fn changed_outside_notice() -> String {
+    t!("This file changed outside live editing. Local work was kept; regular Overleaf sync will reconcile it.").to_string()
 }

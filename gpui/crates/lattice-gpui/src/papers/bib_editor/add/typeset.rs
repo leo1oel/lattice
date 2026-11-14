@@ -20,11 +20,16 @@ impl AddReference {
         let authors = lattice_i18n::join_conjunction(&lattice_core::bib_document::author_names(
             draft.author.trim(),
         ));
-        let venue = bib_text_to_plain(match draft.entry_type.as_str() {
-            "article" => &draft.journal,
-            "inproceedings" => &draft.booktitle,
-            "book" => &draft.publisher,
-            _ => "",
+        // A book's publisher, else the first venue typed, whatever the
+        // type (the Tauri app's `recordVenue`: journal, booktitle, then
+        // publisher), so a `@misc` with a venue still previews one.
+        let venue = bib_text_to_plain(if draft.entry_type == "book" {
+            &draft.publisher
+        } else {
+            [&draft.journal, &draft.booktitle, &draft.publisher]
+                .into_iter()
+                .find(|venue| !venue.is_empty())
+                .map_or("", |venue| venue.as_str())
         });
         let year = draft.year.trim().to_string();
         let doi = draft.doi();

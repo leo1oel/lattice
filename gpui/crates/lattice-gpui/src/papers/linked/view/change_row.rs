@@ -133,20 +133,32 @@ impl LinkedLibrary {
                                     .text_color(palette.text_secondary)
                                     .child(name),
                             )
+                            // "Yours" sits inline before the writer's value
+                            // (`<em>`), not on a line of its own: a div is a
+                            // block, so the cell lays them out in a row.
                             .child(
                                 div()
+                                    .flex()
+                                    .items_baseline()
                                     .flex_1()
                                     .min_w_0()
-                                    .truncate()
                                     .text_color(if field.conflict {
                                         palette.text
                                     } else {
                                         palette.text_secondary
                                     })
                                     .when(field.conflict, |value| {
-                                        value.child(div().italic().mr(px(4.)).child(t!("Yours")))
+                                        value.child(
+                                            div()
+                                                .flex_none()
+                                                .italic()
+                                                .mr(px(4.))
+                                                .child(t!("Yours")),
+                                        )
                                     })
-                                    .child(field.local.clone().unwrap_or_else(|| none.to_string())),
+                                    .child(div().min_w_0().truncate().child(
+                                        field.local.clone().unwrap_or_else(|| none.to_string()),
+                                    )),
                             )
                             .child(Icon::ARROW_RIGHT.element(px(11.), palette.text_secondary))
                             .child(

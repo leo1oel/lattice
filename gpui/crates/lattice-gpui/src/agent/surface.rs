@@ -101,6 +101,9 @@ pub enum SurfaceEvent {
         path: String,
         expires_at: f64,
     },
+    /// The Agent's checkpoint history for the panel's thread
+    /// (`checkpoints.rs`).
+    History(super::checkpoints::Snapshot),
 }
 
 /// A turn's checkpoint diff, reviewable after the working tree moved on.
@@ -279,6 +282,13 @@ impl SynaraSurface {
         }
     }
 
+    /// Hand `message` to the Agent's frame, as the Tauri host's
+    /// `postMessage` does (a checkpoint's Undo, a build's result); dropped
+    /// while no frame is up, as there.
+    pub fn post_frame(&self, message: Value, cx: &mut App) {
+        self.post("agent:frame-message", message, cx);
+    }
+
     /// The panel was brought forward (its tab chosen, ⌘⌥3).
     pub fn opened(&self, cx: &mut App) {
         self.post("agent:opened", Value::Null, cx);
@@ -440,9 +450,12 @@ impl SynaraSurface {
             }
             "island:notify" => crate::structured::show_page_notice(payload, cx),
             "agent:notify" => self.synara_notice(payload, cx),
-            // The Agent's checkpoints, for the History panel's Agent filter,
-            // which reads the project's own activity log instead.
-            "agent:history" => {}
+            // The Agent's checkpoints: the History panel's rows, and the
+            // builds its turns' edits need (`shell/agent_checkpoints.rs`).
+            "agent:history" => match super::checkpoints::parse_snapshot(payload) {
+                Some(snapshot) => cx.emit(SurfaceEvent::History(snapshot)),
+                None => log::debug!("{}: malformed agent:history", self.kind.name()),
+            },
             _ => match surface_event(kind, payload) {
                 Some(event) => cx.emit(event),
                 None => log::debug!("{}: unhandled {kind}", self.kind.name()),
@@ -491,7 +504,21 @@ impl SynaraSurface {
             notice = notice.running();
         } else if timeout == Some(0.) {
             notice = notice.persistent();
+        } else if text("primaryActionLabel").is_some() || text("secondaryActionLabel").is_some() {
+            // `hostNotificationTimeout`: one with a choice stays an error's 9 s.
+            notice = notice.timeout(std::time::Duration::from_secs(9));
         }
+        if let Some(copy) = text("copyText") {
+            notice = notice.copy(copy);
+        }
+        let dismissed = (cx.entity().downgrade(), id.clone());
+        notice = notice.on_dismiss(move |cx| {
+            let (this, id) = &dismissed;
+            this.update(cx, |this, cx| {
+                this.post("agent:notify-action", json!({ "id": id, "action": "dismiss" }), cx)
+            })
+            .ok();
+        });
         for (label, action) in [
             (text("primaryActionLabel"), "primary"),
             (text("secondaryActionLabel"), "secondary"),
@@ -807,5 +834,6 @@ mod tests {
             None
         );
         assert_eq!(surface_event("agent:history", &json!({})), None);
+        assert_eq!(surface_event("agent:frame-message", &json!({})), None);
     }
 }

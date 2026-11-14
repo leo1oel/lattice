@@ -3,7 +3,9 @@
 //! stacked initials in the titlebar beside the Overleaf control, a card on
 //! hover saying who is where (each row, and each chip, a jump there) and,
 //! under them, "Message everyone in Chat"; and each person's caret in the
-//! editors showing their file.
+//! editors showing their file. While presence reconnects, the avatars stay
+//! through the grace period but the carets do not: they point at text that
+//! may since have moved. A jump to someone in no file says so.
 
 use gpui::{
     AnimationExt as _, AnyElement, App, Context, InteractiveElement as _, IntoElement,
@@ -69,6 +71,15 @@ impl Shell {
             .as_deref()
             .and_then(|doc| self.overleaf.read(cx).path_of_doc(doc))
         else {
+            let message = if peer.name.trim().is_empty() {
+                t!("This collaborator is not in a file right now.").to_string()
+            } else {
+                t!("{name} is not in a file right now.", name = &peer.name).to_string()
+            };
+            crate::notices::show(
+                crate::notices::Notice::new(lattice_ui::components::ToastLevel::Success, message),
+                cx,
+            );
             return;
         };
         if let Some(root) = self.root(cx) {
@@ -177,7 +188,9 @@ impl Shell {
     pub(super) fn show_overleaf_carets(&mut self, cx: &mut Context<Self>) {
         let editors = self.open_editors();
         let bridge = self.overleaf.read(cx);
-        let linked = bridge.link().is_some();
+        // Carets from before a dropped connection point at text that may
+        // since have moved.
+        let linked = bridge.link().is_some() && !bridge.peers_reconnecting();
         let carets: Vec<_> = editors
             .iter()
             .map(|editor| {
@@ -193,6 +206,7 @@ impl Shell {
                             id: peer.id.clone().into(),
                             name: name_of(peer),
                             color: hue_color(peer.hue as f32),
+                            hue: peer.hue as f64,
                             row: u32::try_from(peer.row?).ok()?,
                             column: u32::try_from(peer.column.unwrap_or(0)).unwrap_or(0),
                         })

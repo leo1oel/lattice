@@ -88,6 +88,12 @@ impl BibEditor {
         Some(field.input.focus_handle(cx))
     }
 
+    /// The focus of the form's key box, for a scenario to rename in it.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn key_focus(&self, cx: &gpui::App) -> Option<gpui::FocusHandle> {
+        Some(self.detail.as_ref()?.key_input.focus_handle(cx))
+    }
+
     /// Tell the form's box for `name` that the writer left it, for a
     /// scenario. GPUI sends a box's `Blur` only in an active window, and on
     /// a locked screen none can become active, so a scenario that moved the

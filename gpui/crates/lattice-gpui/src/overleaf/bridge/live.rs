@@ -1,8 +1,85 @@
 //! Live mode's timing: a change here pushed once the writer pauses (with a
-//! cheap local check first), Overleaf polled for co-authors' work while the
-//! channel is down or blind, and Manual mode's badge for new work there.
+//! cheap local check first), a whole-file document's held until the writer
+//! leaves it, Overleaf polled for co-authors' work (often while the channel
+//! is down or blind, rarely once it carries documents, never from a window
+//! off screen), and Manual mode's badge for new work there.
+
+use futures::{FutureExt as _, StreamExt as _};
 
 use super::*;
+use crate::structured::StructuredKind;
+
+/// A board, sheet or deck: its editor rewrites the whole file on every
+/// change, so each save would otherwise cost a project download
+/// (`isWholeFileEditorPath`).
+pub(in crate::overleaf) fn is_whole_file(path: &str) -> bool {
+    StructuredKind::of(path).is_some()
+}
+
+/// Whole-file documents' uploads, held while they are edited.
+#[derive(Default)]
+pub(in crate::overleaf) struct WholeFiles {
+    /// Shown in the window's editor now.
+    editing: BTreeSet<String>,
+    /// Shown, with an edit the page has not committed yet (a deck's
+    /// pending inspector change): held even from a flush.
+    drafts: BTreeSet<String>,
+    /// Saved since they last went up.
+    deferred: BTreeSet<String>,
+    /// Held ones the running sync carries up, as they read when it began.
+    carrying: BTreeSet<String>,
+    /// Left: flushed once their writes settle.
+    boundary: BTreeSet<String>,
+    /// Every held one goes with the next flush (⌘S, the window's blur).
+    flush_all: bool,
+    boundary_task: Option<Task<()>>,
+    /// The probe before a push.
+    probe_task: Option<Task<()>>,
+    /// The held files that probe is out for, unless saved again meanwhile.
+    probing: BTreeSet<String>,
+    idle_task: Option<Task<()>>,
+}
+
+impl WholeFiles {
+    pub(super) fn stop_timers(&mut self) {
+        self.boundary_task = None;
+        self.probe_task = None;
+        self.probing.clear();
+        self.idle_task = None;
+        self.boundary.clear();
+        self.flush_all = false;
+    }
+
+    /// A sync starts without `live`: the held files it carries.
+    pub(super) fn sync_started(&mut self, live: &BTreeSet<String>) {
+        self.carrying = self.deferred.difference(live).cloned().collect();
+    }
+
+    /// The sync ended: when it went through, what it carried is up, unless
+    /// saved again meanwhile.
+    pub(super) fn synced(&mut self, succeeded: bool) {
+        let carried = std::mem::take(&mut self.carrying);
+        if succeeded {
+            self.deferred.retain(|path| !carried.contains(path));
+        }
+    }
+
+    /// The probe answered: when it found nothing to send, what it was out
+    /// for is up, unless saved again meanwhile.
+    fn probe_ended(&mut self, unchanged: bool) {
+        let probed = std::mem::take(&mut self.probing);
+        if unchanged {
+            self.deferred.retain(|path| !probed.contains(path));
+        }
+    }
+
+    /// `path` was saved: it waits to go up.
+    fn saved(&mut self, path: &str) {
+        self.carrying.remove(path);
+        self.probing.remove(path);
+        self.deferred.insert(path.to_string());
+    }
+}
 
 impl OverleafBridge {
     /// Files changed on disk under the project (the watcher's report): in
@@ -28,7 +105,208 @@ impl OverleafBridge {
         if !relevant {
             return;
         }
-        self.schedule_push(cx);
+        let Some(paths) = paths else {
+            self.schedule_push(cx);
+            return;
+        };
+        // A whole-file editor's saves wait for a document boundary, or the
+        // idle fallback, instead of a project download after every change.
+        let (whole, other): (Vec<&String>, Vec<&String>) =
+            paths.iter().partition(|path| is_whole_file(path));
+        if !whole.is_empty() {
+            let mut left = false;
+            for path in whole {
+                self.whole_files.saved(path);
+                if !self.whole_files.editing.contains(path) {
+                    self.whole_files.boundary.insert(path.clone());
+                    left = true;
+                }
+            }
+            if left {
+                self.arm_boundary_flush(cx);
+            }
+            self.whole_files.idle_task = Some(cx.spawn(async move |this, cx| {
+                cx.background_executor().timer(WHOLE_FILE_IDLE).await;
+                this.update(cx, |this, cx| this.flush_whole_files(None, cx))
+                    .ok();
+            }));
+        }
+        if other.iter().any(|path| {
+            !(path.starts_with(".research/")
+                || path.starts_with(".git/")
+                || path.starts_with(".omp/"))
+        }) {
+            self.schedule_push(cx);
+        }
+    }
+
+    /// The whole-file documents in the shown editor are `editing` now (one,
+    /// or none); those just left go up once their last writes settle.
+    pub fn whole_files_shown(&mut self, editing: BTreeSet<String>, cx: &mut Context<Self>) {
+        let left: Vec<String> = self
+            .whole_files
+            .editing
+            .difference(&editing)
+            .cloned()
+            .collect();
+        self.whole_files.editing = editing;
+        let drafts = &self.whole_files.editing;
+        self.whole_files.drafts.retain(|path| drafts.contains(path));
+        let mut any = false;
+        for path in left {
+            if self.whole_files.deferred.contains(&path) {
+                self.whole_files.boundary.insert(path);
+                any = true;
+            }
+        }
+        if any {
+            self.arm_boundary_flush(cx);
+        }
+    }
+
+    /// `path`, shown in a deck, has an edit its page has not committed yet
+    /// (or no longer has one).
+    pub fn set_whole_file_draft(&mut self, path: &str, draft: bool) {
+        if draft && self.whole_files.editing.contains(path) {
+            self.whole_files.drafts.insert(path.to_string());
+        } else {
+            self.whole_files.drafts.remove(path);
+        }
+    }
+
+    fn arm_boundary_flush(&mut self, cx: &mut Context<Self>) {
+        self.whole_files.boundary_task = Some(cx.spawn(async move |this, cx| {
+            cx.background_executor().timer(WHOLE_FILE_SETTLE).await;
+            this.update(cx, |this, cx| {
+                let mut paths = std::mem::take(&mut this.whole_files.boundary);
+                if std::mem::take(&mut this.whole_files.flush_all) {
+                    paths.extend(this.whole_files.deferred.iter().cloned());
+                }
+                this.flush_whole_files(Some(paths), cx);
+            })
+            .ok();
+        }));
+    }
+
+    /// Flush every held whole-file document once the writes under way
+    /// settle (`save().then(flushDeferredWholeFileSync)`): ⌘S, or the
+    /// window losing focus. What those writes save is held by then too.
+    pub fn flush_whole_files_soon(&mut self, cx: &mut Context<Self>) {
+        if self.staged || self.mode != OverleafSyncMode::Live || self.link().is_none() {
+            return;
+        }
+        self.whole_files.flush_all = true;
+        self.arm_boundary_flush(cx);
+    }
+
+    /// Send the held whole-file documents (`paths`, or all of them) up now:
+    /// ⌘S, leaving them, the idle fallback (`flushDeferredWholeFileSync`).
+    /// One with an uncommitted page edit waits a little longer.
+    pub fn flush_whole_files(&mut self, paths: Option<BTreeSet<String>>, cx: &mut Context<Self>) {
+        if self.staged || self.mode != OverleafSyncMode::Live || self.link().is_none() {
+            return;
+        }
+        let requested = paths.unwrap_or_else(|| self.whole_files.deferred.clone());
+        let ready: BTreeSet<String> = requested
+            .iter()
+            .filter(|path| {
+                self.whole_files.deferred.contains(*path)
+                    && !self.whole_files.drafts.contains(*path)
+            })
+            .cloned()
+            .collect();
+        if ready.is_empty() {
+            if requested
+                .iter()
+                .any(|path| self.whole_files.deferred.contains(path))
+            {
+                self.whole_files.boundary.extend(requested);
+                self.arm_boundary_flush(cx);
+            }
+            return;
+        }
+        if self.syncing {
+            // Once the running sync is over, the flush is the next one.
+            self.whole_files.boundary.extend(ready);
+            self.arm_boundary_flush(cx);
+            return;
+        }
+        self.push_whole_files(ready, cx);
+    }
+
+    /// Sync `ready` up, once a probe that reads the files here says
+    /// something differs: a sync's own write of a board is reported like
+    /// the writer's, and must not cost a project download.
+    fn push_whole_files(&mut self, mut ready: BTreeSet<String>, cx: &mut Context<Self>) {
+        let Some(root) = self.root.clone() else {
+            return;
+        };
+        // A probe still out goes again with these, as one.
+        if self.whole_files.probe_task.take().is_some() {
+            ready.extend(std::mem::take(&mut self.whole_files.probing));
+        }
+        let options = SyncOptions {
+            automatic: true,
+            include_whole_files: ready,
+            ..Default::default()
+        };
+        let live = self.sync_live_paths(&options, cx);
+        let probe_root = root.clone();
+        let probe = cx.background_spawn(async move { sync::probe(&probe_root, Some(&live)) });
+        let probing = options.include_whole_files.clone();
+        let task = cx.spawn(async move |this, cx| {
+            let (probe, expired) = probe.await;
+            this.update(cx, |this, cx| {
+                this.whole_files.probe_task = None;
+                let unchanged = this.is_current(&root)
+                    && !this.syncing
+                    && matches!(&probe, Ok(probe) if probe.version_known && !probe.changed && !probe.local_changed);
+                this.whole_files.probe_ended(unchanged);
+                if expired {
+                    super::super::session_changed(cx);
+                }
+                if !this.is_current(&root) {
+                    return;
+                }
+                if this.syncing {
+                    // A sync started meanwhile: the flush follows it.
+                    this.whole_files
+                        .boundary
+                        .extend(options.include_whole_files);
+                    this.arm_boundary_flush(cx);
+                    return;
+                }
+                match probe {
+                    Ok(_) if unchanged => {}
+                    Ok(probe) => this.sync(
+                        SyncOptions {
+                            observed_remote_version: probe.remote_version,
+                            ..options
+                        },
+                        cx,
+                    ),
+                    Err(_) => this.sync(options, cx),
+                }
+            })
+            .ok();
+        });
+        self.whole_files.probe_task = Some(task);
+        self.whole_files.probing = probing;
+    }
+
+    /// What a sync (or its probe) leaves alone: the documents the channel
+    /// carries and, in a sync of live mode's own, whole-file documents
+    /// still being edited, unless this one carries them; a deck's
+    /// uncommitted edit stays out of every sync.
+    pub(super) fn sync_live_paths(&self, options: &SyncOptions, _cx: &App) -> BTreeSet<String> {
+        let mut live = self.live_paths();
+        for path in &self.whole_files.editing {
+            let carried = !options.automatic || options.include_whole_files.contains(path);
+            if !carried || self.whole_files.drafts.contains(path) {
+                live.insert(path.clone());
+            }
+        }
+        live
     }
 
     /// Push after the quiet period, once a probe that reads the files here
@@ -56,7 +334,15 @@ impl OverleafBridge {
             }
             let probe_root = root.clone();
             let live = this
-                .update(cx, |this, _| this.live_paths())
+                .update(cx, |this, cx| {
+                    this.sync_live_paths(
+                        &SyncOptions {
+                            automatic: true,
+                            ..Default::default()
+                        },
+                        cx,
+                    )
+                })
                 .unwrap_or_default();
             let (probe, expired) = cx
                 .background_spawn(async move { sync::probe(&probe_root, Some(&live)) })
@@ -76,6 +362,7 @@ impl OverleafBridge {
                         SyncOptions {
                             automatic: true,
                             observed_remote_version: probe.remote_version,
+                            ..Default::default()
                         },
                         cx,
                     ),
@@ -95,24 +382,60 @@ impl OverleafBridge {
 
     /// The rest of the gap since the last automatic sync.
     pub(super) fn gap_left(&self) -> Duration {
+        let gap = if self.channel_live() {
+            CHANNEL_SYNC_GAP
+        } else {
+            MIN_SYNC_GAP
+        };
         self.last_auto_sync
-            .map(|last| MIN_SYNC_GAP.saturating_sub(last.elapsed()))
+            .map(|last| gap.saturating_sub(last.elapsed()))
             .unwrap_or_default()
+    }
+
+    /// The poll's cadence while probes answer with a version.
+    fn base_poll(&self) -> Duration {
+        if self.channel_live() {
+            CHANNEL_POLL
+        } else {
+            LIVE_POLL
+        }
     }
 
     /// Live mode's poll: the probe every few seconds, the full sync only on
     /// a yes (`overleaf-live-poll.ts`). The first probe also reads the files
     /// here, so work left from before the project opened goes up.
-    pub(super) fn live_poll(&mut self, cx: &mut Context<Self>) -> Task<()> {
+    ///
+    /// Off screen the loop rests: no probe until the window is shown again,
+    /// which asks at once (as focus does, through `woken`). Without this an
+    /// idle window behind others asked Overleaf every 3 s while its channel
+    /// was down, for as long as it stayed open. Our own unsent work is the
+    /// exception: a sync owed for a failed transfer or a change here keeps
+    /// its retries going, so collaborators still get it.
+    pub(super) fn live_poll(
+        &mut self,
+        mut woken: mpsc::UnboundedReceiver<()>,
+        cx: &mut Context<Self>,
+    ) -> Task<()> {
         let Some(root) = self.root.clone() else {
             return Task::ready(());
         };
+        let mut wait = self.base_poll();
         cx.spawn(async move |this, cx| {
-            let mut wait = LIVE_POLL;
             let mut first = true;
             loop {
                 let (busy, live) = this
-                    .update(cx, |this, _| (this.syncing, this.live_paths()))
+                    .update(cx, |this, cx| {
+                        let owed = this.transport_retry || this.local_pending;
+                        let resting = !this.window_visible && !owed;
+                        let live = this.sync_live_paths(
+                            &SyncOptions {
+                                automatic: true,
+                                ..Default::default()
+                            },
+                            cx,
+                        );
+                        (this.syncing || resting, live)
+                    })
                     .unwrap_or((true, BTreeSet::new()));
                 if !busy {
                     let probe_root = root.clone();
@@ -136,7 +459,17 @@ impl OverleafBridge {
                         return;
                     }
                 }
-                cx.background_executor().timer(wait).await;
+                // Asked while that probe ran: it already answered.
+                while woken.try_recv().is_ok() {}
+                let mut timer = cx.background_executor().timer(wait).fuse();
+                futures::select_biased! {
+                    _ = timer => {}
+                    asked = woken.next() => {
+                        if asked.is_none() {
+                            return;
+                        }
+                    }
+                }
             }
         })
     }
@@ -164,13 +497,17 @@ impl OverleafBridge {
                 *wait = if outcome::is_rate_limited(&error) {
                     (*wait * 4).min(Duration::from_secs(300))
                 } else {
-                    (*wait * 2).clamp(LIVE_POLL, Duration::from_secs(60))
+                    (*wait * 2).clamp(self.base_poll(), Duration::from_secs(60))
                 };
                 return;
             }
         };
         let version_known = probe.as_ref().is_some_and(|probe| probe.version_known);
-        *wait = if version_known { LIVE_POLL } else { BLIND_POLL };
+        *wait = if version_known {
+            self.base_poll()
+        } else {
+            BLIND_POLL
+        };
         if local && probe.as_ref().is_some_and(|probe| probe.local_changed) {
             self.local_pending = true;
         }
@@ -201,6 +538,7 @@ impl OverleafBridge {
                 SyncOptions {
                     automatic: true,
                     observed_remote_version: probe.remote_version,
+                    ..Default::default()
                 },
                 cx,
             );
@@ -230,5 +568,71 @@ impl OverleafBridge {
                 cx.background_executor().timer(BADGE_POLL).await;
             }
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn boards_sheets_and_decks_are_whole_file_documents() {
+        assert!(is_whole_file("figures/plan.tldr"));
+        assert!(is_whole_file("data.lattice-sheet"));
+        assert!(!is_whole_file("main.tex"));
+        assert!(!is_whole_file("notes.md"));
+    }
+
+    #[test]
+    fn a_sync_settles_the_held_files_it_carried() {
+        let mut files = WholeFiles {
+            deferred: BTreeSet::from(["a.tldr".to_string(), "b.tldr".to_string()]),
+            ..Default::default()
+        };
+        // `b.tldr` was still being edited, so the sync left it alone.
+        files.sync_started(&BTreeSet::from(["b.tldr".to_string()]));
+        files.synced(true);
+        assert_eq!(files.deferred, BTreeSet::from(["b.tldr".to_string()]));
+    }
+
+    #[test]
+    fn a_save_during_a_sync_stays_held() {
+        let mut files = WholeFiles {
+            deferred: BTreeSet::from(["deck.slides".to_string()]),
+            ..Default::default()
+        };
+        files.sync_started(&BTreeSet::new());
+        // Saved again, and an outside tool writes a board, while it runs.
+        files.saved("deck.slides");
+        files.saved("plan.tldr");
+        files.synced(true);
+        assert_eq!(
+            files.deferred,
+            BTreeSet::from(["deck.slides".to_string(), "plan.tldr".to_string()])
+        );
+    }
+
+    #[test]
+    fn a_save_while_the_probe_is_out_stays_held() {
+        let mut files = WholeFiles {
+            deferred: BTreeSet::from(["a.tldr".to_string(), "plan.tldr".to_string()]),
+            probing: BTreeSet::from(["a.tldr".to_string(), "plan.tldr".to_string()]),
+            ..Default::default()
+        };
+        files.saved("plan.tldr");
+        files.probe_ended(true);
+        assert_eq!(files.deferred, BTreeSet::from(["plan.tldr".to_string()]));
+        assert!(files.probing.is_empty());
+    }
+
+    #[test]
+    fn a_failed_sync_leaves_the_held_files_held() {
+        let mut files = WholeFiles {
+            deferred: BTreeSet::from(["a.tldr".to_string()]),
+            ..Default::default()
+        };
+        files.sync_started(&BTreeSet::new());
+        files.synced(false);
+        assert_eq!(files.deferred, BTreeSet::from(["a.tldr".to_string()]));
     }
 }

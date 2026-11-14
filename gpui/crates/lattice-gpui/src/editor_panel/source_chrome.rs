@@ -3,18 +3,21 @@
 //! `trellis-latex-view-switch.tsx`): for a `.tex` file, the outline rail
 //! over the editor's right edge, whose width the text gives up, and the
 //! Source / Visual switch in the panel's strip, shown in room to spare
-//! before the Build chip (the ⋯ menu repeats it). Visual is not in the GPUI
-//! preview yet: the switch keeps its place and says so.
+//! before the Build chip (the ⋯ menu repeats it), which chooses the view
+//! every `.tex` file is shown in (`latex_view.rs`).
 
 use gpui::{
     AnyElement, App, AppContext as _, Context, Entity, InteractiveElement as _, IntoElement,
     ParentElement as _, Styled as _, Window, div,
 };
-use lattice_editor::{LatticeEditor, latex};
+use lattice_editor::LatticeEditor;
+use lattice_i18n::tc;
+use lattice_settings::LatexView;
 use lattice_ui::ActiveLattice as _;
 
 use super::{
-    EditorPanel, EditorPanelEvent, VISUAL_NOT_PORTED,
+    EditorPanel, EditorPanelEvent,
+    latex_view::{choose_latex_view, chosen_latex_view, is_latex_document},
     outline_rail::{OutlineRail, OutlineRailEvent, RAIL_CLEARANCE},
 };
 use crate::project::Project;
@@ -59,6 +62,10 @@ impl EditorPanel {
         root: String,
         cx: &mut Context<Self>,
     ) {
+        if self.latex_root != root {
+            self.latex_root = root.clone();
+            self.forward_latex_context(cx);
+        }
         if let Some(rail) = &self.rail {
             rail.update(cx, |rail, cx| rail.set_manuscript(headings, root, cx));
         }
@@ -68,9 +75,13 @@ impl EditorPanel {
     /// spare, before the Build chip), or take it away from another file's.
     pub(super) fn offer_view_switch(&mut self, cx: &mut Context<Self>) {
         let panel = gpui_kit::component::dock::PanelId::from(cx.entity_id());
-        let tools = latex::is_tex_source(&self.path).then(|| lattice_ui::dock::SpareTools {
+        let tools = is_latex_document(&self.path).then(|| lattice_ui::dock::SpareTools {
             width: std::rc::Rc::new(|window, cx| {
-                lattice_ui::components::ViewSwitch::width(&["Source", "Visual"], true, window, cx)
+                let names = [
+                    tc!("LaTeX editor view", "Source"),
+                    tc!("LaTeX editor view", "Visual"),
+                ];
+                lattice_ui::components::ViewSwitch::width(&names, true, window, cx)
             }),
             render: std::rc::Rc::new(|_, cx| latex_view_switch(cx).into_any_element()),
         });
@@ -188,13 +199,24 @@ impl EditorPanel {
     }
 }
 
-/// A .tex file's Source / Visual switch: Source is the view; Visual keeps its
-/// place, says it is not in the GPUI preview yet, and cannot be chosen.
+/// A .tex file's Source / Visual switch (`TrellisLatexViewSwitch`): the
+/// choice is every `.tex` file's, so every open one follows.
 fn latex_view_switch(cx: &App) -> impl IntoElement {
     let palette = cx.palette();
+    let view = chosen_latex_view(cx);
     lattice_ui::components::ViewSwitch::new("latex-view-switch")
-        .mode(lattice_ui::Icon::CODE_XML, "Source", true, |_, _, _| {})
-        .unavailable_mode(lattice_ui::Icon::TYPE, "Visual", VISUAL_NOT_PORTED)
+        .mode(
+            lattice_ui::Icon::CODE_XML,
+            tc!("LaTeX editor view", "Source"),
+            view == LatexView::Source,
+            |_, _, cx| choose_latex_view(LatexView::Source, cx),
+        )
+        .mode(
+            lattice_ui::Icon::TYPE,
+            tc!("LaTeX editor view", "Visual"),
+            view == LatexView::Visual,
+            |_, _, cx| choose_latex_view(LatexView::Visual, cx),
+        )
         .surface(palette.editor)
         .parity("editor/view-switch")
 }

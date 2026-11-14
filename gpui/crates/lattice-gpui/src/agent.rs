@@ -30,6 +30,7 @@ use gpui::{
 use gpui_kit::component::dock::{BasePanel, Panel, PanelEvent};
 use lattice_i18n::t;
 
+pub mod checkpoints;
 pub mod commands;
 pub mod runtime;
 pub mod surface;

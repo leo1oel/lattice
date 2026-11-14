@@ -151,9 +151,15 @@ fn firsts(text: &Indexed) -> Vec<usize> {
 /// DOI, then every arXiv id, then every title and year.
 fn pair(from: &Indexed, other: &Indexed) -> HashMap<usize, usize> {
     let mut pairs = HashMap::new();
+    // The entries of `other` already paired, so a candidate is checked in
+    // O(1) (`taken`): a large export that pairs few entries by key would
+    // otherwise scan every pair for every candidate.
     let mut taken = HashSet::new();
     let entries = firsts(from);
-    let mut claim = |entry: usize, found: Option<usize>, pairs: &mut HashMap<usize, usize>| {
+    let claim = |entry: usize,
+                 found: Option<usize>,
+                 pairs: &mut HashMap<usize, usize>,
+                 taken: &mut HashSet<usize>| {
         if let Some(found) = found
             && !pairs.contains_key(&entry)
             && taken.insert(found)
@@ -163,7 +169,12 @@ fn pair(from: &Indexed, other: &Indexed) -> HashMap<usize, usize> {
     };
     for entry in &entries {
         let key = from.document.entries[*entry].key.to_lowercase();
-        claim(*entry, other.by_key.get(&key).copied(), &mut pairs);
+        claim(
+            *entry,
+            other.by_key.get(&key).copied(),
+            &mut pairs,
+            &mut taken,
+        );
     }
     let known: HashMap<usize, Vec<String>> = entries
         .iter()
@@ -188,10 +199,10 @@ fn pair(from: &Indexed, other: &Indexed) -> HashMap<usize, usize> {
             let found = other.by_identity.get(identity).and_then(|candidates| {
                 candidates
                     .iter()
-                    .find(|candidate| !pairs.values().any(|v| v == *candidate))
+                    .find(|candidate| !taken.contains(*candidate))
                     .copied()
             });
-            claim(*entry, found, &mut pairs);
+            claim(*entry, found, &mut pairs, &mut taken);
         }
     }
     pairs
