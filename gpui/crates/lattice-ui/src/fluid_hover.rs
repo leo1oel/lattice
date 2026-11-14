@@ -10,8 +10,11 @@
 //! - The pointer lights the row it is over, or a row whose edge is within
 //!   3px ([`GAP_TOLERANCE`]), so the hairline between two rows is no dead
 //!   zone while a separator's margin or a section label still is.
-//! - Within a section the fill travels to the next row on the fast tier
-//!   (80 ms, `spring.fast`), position and size together. Coming onto the list,
+//! - Within a section the fill travels to the next row on the fast tier's
+//!   spring (`spring.fast`: 80 ms, no bounce), position and size together,
+//!   evaluated at every frame's time. The travel is a [`Spring`], not a
+//!   tween, so it keeps its speed when the pointer reaches the next row
+//!   before it lands, as Motion's spring does. Coming onto the list,
 //!   or crossing a separator or label into another section, starts a new
 //!   session instead: the fill fades in on the row on the fast tier, and the
 //!   one it leaves fades out where it was on the fast exit (60 ms), never
@@ -19,11 +22,13 @@
 //! - A row that may not be lit (disabled, destructive, or the selected row of
 //!   a list that keeps its own selection fill) clears the fill under the
 //!   pointer: the highlight is a promise about the click.
-//! - Leaving the list, pressing a button, and scrolling under a resting
-//!   pointer clear it; only a pointer that really moves lights a row again.
-//!   A list can also stay dark for a moment after its last scroll
-//!   ([`FluidHover::quiet_after_scroll`]), as the Project tree does for
-//!   recycled rows.
+//! - Leaving the list and pressing a button clear it. A list that scrolls
+//!   under a resting pointer moves the fill to the row that comes under the
+//!   pointer, as a browser's `:hover` and Fluid Functionalism's highlight do
+//!   after a scroll; a list can instead stay dark for a moment after its
+//!   last scroll ([`FluidHover::quiet_after_scroll`]), as the Project tree
+//!   does for recycled rows, and lights the row under the pointer once the
+//!   moment is over.
 //! - The keyboard moves the same fill: a list that has a current row (a
 //!   menu's arrow keys, a picker's selection) passes it to
 //!   [`FluidHover::follow`], and whichever hand moved last owns the fill. A
@@ -62,7 +67,7 @@ use gpui::{
     Point, ScrollEvent, Styled as _, Window, canvas, div, fill, px,
 };
 
-use crate::motion::{Motion, Tween};
+use crate::motion::{Motion, Spring, Tween};
 
 /// How far past a row's edge the pointer still lights it
 /// (`fluid-hover-surface.tsx`, `gapTolerance`).
@@ -139,7 +144,10 @@ struct Slot {
 struct Lit {
     index: usize,
     section: usize,
-    rect: Tween<Bounds<Pixels>>,
+    /// The fill's travel: a spring, so a pointer that crosses several rows
+    /// quickly bends one glide toward each new row instead of starting a
+    /// fresh leg from rest at every row.
+    rect: Spring<Bounds<Pixels>>,
     opacity: Tween<f32>,
 }
 
@@ -167,9 +175,20 @@ pub struct FluidHoverState {
     followed: Option<Option<usize>>,
     quiet_after_scroll: Option<Duration>,
     quiet_until: Option<Instant>,
+    /// The list scrolled under a resting pointer: the next paint, once the
+    /// rows have their new bounds, lights the row now under it.
+    repick: bool,
+    axis: Axis,
     /// How many fills have faded in: a glide adds none.
     sessions: u64,
+    /// The lit fill's rect at each of the last frames painted, for a
+    /// scripted check of the glide frame by frame.
+    painted: std::collections::VecDeque<(Instant, Bounds<Pixels>)>,
 }
+
+/// How many painted frames a list keeps for [`FluidHoverSnapshot::painted`]:
+/// a second at 120 Hz.
+const PAINTED_FRAMES: usize = 120;
 
 impl FluidHoverState {
     fn record(&mut self, index: usize, bounds: Bounds<Pixels>, kind: ItemKind) {
@@ -241,14 +260,44 @@ impl FluidHoverState {
         before.is_some()
     }
 
+    /// The list scrolled. A fill the keys placed rides with its row; under
+    /// a resting pointer the fill moves to the row the pointer is over once
+    /// the rows have moved, as a browser's hover does after a scroll, so the
+    /// fill never stays on a row that has scrolled away from the pointer.
     fn scrolled(&mut self, now: Instant) -> bool {
         if let Some(quiet) = self.quiet_after_scroll {
             self.quiet_until = Some(now + quiet);
+            if self.hand == Hand::Pointer {
+                self.wanted = None;
+            }
         }
         if self.hand == Hand::Keyboard {
             return false;
         }
-        self.pressed()
+        self.repick = true;
+        true
+    }
+
+    /// The row under the resting pointer, after a scroll moved the rows.
+    /// Whether the list must keep drawing frames until a quiet spell after
+    /// the scroll ends.
+    fn repick_after_scroll(&mut self, now: Instant) -> bool {
+        if !self.repick {
+            return false;
+        }
+        if self.hand != Hand::Pointer {
+            self.repick = false;
+            return false;
+        }
+        if self.quiet_until.is_some_and(|until| now < until) {
+            self.wanted = None;
+            return true;
+        }
+        self.repick = false;
+        self.wanted = self
+            .last_pointer
+            .and_then(|position| self.pick(position, self.axis));
+        false
     }
 
     fn follow(&mut self, current: Option<usize>) {
@@ -273,6 +322,7 @@ impl FluidHoverState {
     /// Bring the fills in line with what is wanted, at `now`. Returns whether
     /// anything still moves.
     fn reconcile(&mut self, now: Instant, reduce_motion: bool) -> bool {
+        let waiting = self.repick_after_scroll(now);
         let target = self.wanted.and_then(|ix| {
             let slot = self.slots.get(ix).copied().flatten()?;
             (slot.frame == self.frame && slot.kind.role == Role::Target).then_some((ix, slot))
@@ -306,7 +356,7 @@ impl FluidHoverState {
                 self.lit = Some(Lit {
                     index: ix,
                     section: slot.kind.section,
-                    rect: Tween::settled(slot.bounds, now),
+                    rect: Spring::settled(slot.bounds, now),
                     opacity,
                 });
             }
@@ -314,9 +364,11 @@ impl FluidHoverState {
         }
         self.leaving
             .retain(|leaving| leaving.opacity.is_running(now));
-        self.lit
-            .as_ref()
-            .is_some_and(|lit| lit.rect.is_running(now) || lit.opacity.is_running(now))
+        waiting
+            || self
+                .lit
+                .as_ref()
+                .is_some_and(|lit| lit.rect.is_running(now) || lit.opacity.is_running(now))
             || !self.leaving.is_empty()
     }
 
@@ -415,6 +467,9 @@ pub struct FluidHoverSnapshot {
     /// The rows laid out in the last frame: index, bounds, and whether the
     /// fill may land there.
     pub rows: Vec<(usize, Bounds<Pixels>, bool)>,
+    /// The lit fill as painted in the last frames, oldest first, with the
+    /// frame's time.
+    pub painted: Vec<(Instant, Bounds<Pixels>)>,
 }
 
 /// A list's fluid hover, for one frame: built in the view's render.
@@ -509,6 +564,7 @@ impl FluidHover {
                 .live()
                 .map(|(ix, slot)| (ix, slot.bounds, slot.kind.role == Role::Target))
                 .collect(),
+            painted: state.painted.iter().copied().collect(),
         }
     }
 
@@ -574,7 +630,17 @@ impl FluidHover {
                         listen(&state, hitbox, axis, window);
                         let now = Instant::now();
                         let reduce = cx.reduce_motion();
-                        let running = state.update(cx, |state, _| state.reconcile(now, reduce));
+                        let running = state.update(cx, |state, _| {
+                            state.axis = axis;
+                            let running = state.reconcile(now, reduce);
+                            if let Some(lit) = state.lit {
+                                if state.painted.len() == PAINTED_FRAMES {
+                                    state.painted.pop_front();
+                                }
+                                state.painted.push_back((now, lit.rect.value(now)));
+                            }
+                            running
+                        });
                         let fills: Vec<_> = state.read(cx).fills(now).collect();
                         window.with_content_mask(Some(gpui::ContentMask { bounds }), |window| {
                             for (rect, opacity) in fills {

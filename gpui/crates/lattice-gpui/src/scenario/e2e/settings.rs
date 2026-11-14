@@ -1,5 +1,6 @@
-//! Settings and the interface language, end to end: ⌘, opens Settings with
-//! native keys, typing searches it and Enter opens the row found, each
+//! Settings and the interface language, end to end: the titlebar's
+//! top-left project switcher has a Settings item that opens Settings, ⌘,
+//! opens Settings with native keys, typing searches it and Enter opens the row found, each
 //! choice applies as it is made (tint, accent, code theme, the editor's size
 //! and line height, the keymap, the automatic build), the interface switches
 //! to Simplified Chinese and back, an edit to the settings file made outside
@@ -10,27 +11,99 @@ use std::time::Duration;
 
 use ::settings::Settings as _;
 use anyhow::Result;
-use gpui::AsyncApp;
+use gpui::{AsyncApp, point, px};
 use lattice_i18n::{Locale, t};
 use lattice_settings::{
     Accent as StoredAccent, AccentPreset, AutoBuildMode, Choice as _, CodeTheme, EditorKeymap,
     InterfaceLanguage, SettingsTab, Tint, TitlebarTool,
 };
-use lattice_ui::ActiveLattice as _;
+use lattice_ui::{
+    ActiveLattice as _,
+    components::{menu_snapshot, record_menus},
+};
 use serde_json::json;
 
 use super::{super::Run, Steps};
 use crate::{
-    settings,
+    native, settings,
     shell::commands::{CommandContext, commands},
 };
 
 impl Run {
+    /// The way into Settings at the window's top left, as the app has it:
+    /// the project switcher's menu ends with Settings, which opens it.
+    pub(super) async fn settings_from_titlebar(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+    ) -> Result<()> {
+        const NAME: &str =
+            "the top-left project switcher's menu has Settings, and it opens Settings";
+        const SETTLE: Duration = Duration::from_millis(250);
+        cx.update(record_menus);
+        let start = cx.update(|cx| self.shell.read(cx).titlebar_drag().left_start());
+        let Some(start) = start else {
+            steps.check(NAME, false, json!({ "left_start": null }));
+            return Ok(());
+        };
+        let native = self.native(cx)?;
+        // The switcher: 28px tall, 4px under the titlebar's top, first in
+        // the titlebar's left group.
+        native::send_titlebar_click(native, point(px(start + 16.), px(18.)))?;
+        self.pause(cx, SETTLE).await;
+        let label = t!("Settings").to_string();
+        let menu = cx.update(|cx| menu_snapshot(&label, cx));
+        let rows: Vec<String> = menu
+            .as_ref()
+            .map(|menu| {
+                menu.rows
+                    .iter()
+                    .map(|(_, text, _)| text.to_string())
+                    .collect()
+            })
+            .unwrap_or_default();
+        let last = rows.last().cloned();
+        let row = menu
+            .as_ref()
+            .and_then(|menu| menu.rows.iter().find(|(_, text, _)| *text == label))
+            .map(|(_, _, bounds)| *bounds);
+        let Some(row) = row else {
+            steps.check(NAME, false, json!({ "switcher_at": start, "rows": rows }));
+            native::send_key(native, '\u{1b}', false)?;
+            self.pause(cx, SETTLE).await;
+            return Ok(());
+        };
+        native::send_mouse(native, native::Mouse::Moved, row.center())?;
+        self.pause(cx, SETTLE).await;
+        native::send_click(native, row.center())?;
+        let opened = self
+            .wait_for(cx, Duration::from_secs(3), |shell, cx| {
+                shell.read(cx).settings.is_some()
+            })
+            .await;
+        steps.check(
+            NAME,
+            opened && last.as_deref() == Some(label.as_str()),
+            json!({ "rows": rows, "opened": opened }),
+        );
+        if opened {
+            self.press(cx, '\u{1b}', false).await?;
+            self.wait_for(cx, Duration::from_secs(2), |shell, cx| {
+                shell.read(cx).settings.is_none()
+            })
+            .await;
+        }
+        Ok(())
+    }
+
     pub(super) async fn settings_and_language(
         &self,
         cx: &mut AsyncApp,
         steps: &mut Steps,
     ) -> Result<()> {
+        // Native keys reach only the key window of the active app
+        // (`input_lock.rs`).
+        let _front = self.foreground(cx, "settings").await?;
         let before = cx.update(|cx| settings::get(cx).clone());
 
         // ⌘, from the window, with native keys.

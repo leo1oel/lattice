@@ -13,6 +13,7 @@ use lattice_i18n::{format_count, locale, t, tc};
 use lattice_ui::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
     components::{Field, Segmented},
+    fluid_hover::FluidHover,
     scrollbar::FluidScrollbar,
     tokens::{FONT_WEIGHT_MEDIUM, RADIUS_CONTROL},
 };
@@ -20,7 +21,7 @@ use lattice_ui::{
 use super::{
     art, body, messages,
     panel::{HistoryPanel, Phase},
-    row::{RowParts, Weight, history_row, person},
+    row::{Glide, RowParts, Weight, history_row, person},
     time,
     timeline::{self, ActivityFilter, HistoryView, TimelineRow},
     widgets::{Control, inline_message, loading_line},
@@ -424,9 +425,19 @@ impl HistoryPanel {
         let palette = cx.palette().clone();
         let locale = locale();
         let days = timeline::days(rows);
-        let mut out = div().flex().flex_col().min_w_0();
+        // One fill glides over every row head of the timeline.
+        let hover = FluidHover::new("history-timeline-hover", window, cx)
+            .fill(palette.hover)
+            .radius(RADIUS_CONTROL.to_pixels(window.rem_size()));
+        let mut out = div()
+            .relative()
+            .flex()
+            .flex_col()
+            .min_w_0()
+            .child(hover.highlight());
+        let mut glide_index = 0;
         let (mut row_probed, mut fold_probed, mut day_probed) = (false, false, false);
-        for day in days {
+        for (day_ix, day) in days.into_iter().enumerate() {
             let mut lines: Vec<(TimelineRow, bool)> = Vec::new();
             for row in day.rows {
                 match &row {
@@ -468,7 +479,13 @@ impl HistoryPanel {
                     row_probed = true;
                     parts.probe = Some("history/row");
                 }
-                list = list.child(history_row(parts, window, cx));
+                let glide = Glide {
+                    hover: &hover,
+                    index: glide_index,
+                    day: day_ix,
+                };
+                glide_index += 1;
+                list = list.child(history_row(parts, glide, window, cx));
             }
             out = out.child(
                 div()
