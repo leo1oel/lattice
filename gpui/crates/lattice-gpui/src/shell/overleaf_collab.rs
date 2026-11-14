@@ -106,8 +106,12 @@ impl Shell {
         self.open_path(root.join(path), Some(line), window, cx);
     }
 
-    /// Start a thread on the selection, in a file live with Overleaf.
+    /// Start a thread on the selection, in a file live with Overleaf; in a
+    /// project not linked to it, a local annotation (`annotations_flow`).
     pub(crate) fn annotate_selection(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.overleaf.read(cx).link().is_none() {
+            return self.annotate_locally(window, cx);
+        }
         let Some(editor) = self.active_editor() else {
             return;
         };

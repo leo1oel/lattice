@@ -40,4 +40,7 @@ pub enum EditorPanelEvent {
     AgentRequest(serde_json::Value),
     /// A suggestion's card asked to accept or reject it.
     OverleafReview(super::ReviewAction),
+    /// A note's pin or card asked something of the window
+    /// (`editor_panel/annotations.rs`).
+    Annotation(crate::annotations::AnnotationRequest),
 }

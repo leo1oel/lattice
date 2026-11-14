@@ -124,6 +124,8 @@ pub struct Button {
     tooltip: Option<SharedString>,
     on_click: Option<ClickHandler>,
     parity: Option<SharedString>,
+    /// The keys that press it, after the label (`<kbd>`).
+    keys: Option<SharedString>,
 }
 
 impl Button {
@@ -142,7 +144,15 @@ impl Button {
             tooltip: None,
             on_click: None,
             parity: None,
+            keys: None,
         }
+    }
+
+    /// The keys that press it, after the label in the secondary ink, 4px
+    /// further on (`.annotation-form-actions kbd`).
+    pub fn keys(mut self, keys: impl Into<SharedString>) -> Self {
+        self.keys = Some(keys.into());
+        self
     }
 
     pub fn variant(mut self, variant: ButtonVariant) -> Self {
@@ -317,6 +327,14 @@ impl RenderOnce for Button {
                     .and_then(|(name, label)| crate::parity::text_probe(name, 0, label)),
             )
             .children(self.label)
+            .when_some(self.keys, |this, keys| {
+                this.child(
+                    gpui::div()
+                        .ml(px(4.))
+                        .text_color(if disabled { ink } else { palette.text_secondary })
+                        .child(keys),
+                )
+            })
             .when_some(self.trailing_icon, |this, icon| {
                 this.child(icon.element(icon_size, ink))
             })

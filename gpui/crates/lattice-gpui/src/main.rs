@@ -8,6 +8,7 @@
 //! `lattice-gpui PROJECT_DIR --scenario e2e|perf|ime --out RESULT.json`.
 
 mod agent;
+mod annotations;
 mod app;
 mod app_log;
 mod asset_preview;

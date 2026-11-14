@@ -181,10 +181,7 @@ impl LatticeEditor {
         text: &BufferSnapshot,
     ) -> Option<Anchored> {
         painted.iter().find_map(|&(layer, row, mark_bounds)| {
-            let row_top = mark_bounds.center().y - line_height / 2.;
-            // The mark stands at the view's left edge, in the gutter.
-            let left = mark_bounds.center().x - gutter::DOT_INSET;
-            if !gutter::hover_bounds(left, row_top, line_height).contains(&position) {
+            if !gutter::hover_area(mark_bounds, line_height).contains(&position) {
                 return None;
             }
             let card = self.gutter.get(layer)?.iter().find_map(|anchored| {
@@ -222,9 +219,7 @@ impl LatticeEditor {
                 .iter()
                 .find(|(layer, mark_row, _)| *layer == target.id && *mark_row == row)
                 .map(|(_, _, mark)| *mark)?;
-            let frame_top = mark.center().y - line_height / 2.;
-            let left = mark.center().x - gutter::DOT_INSET;
-            return Some(gutter::hover_bounds(left, frame_top, line_height));
+            return Some(gutter::hover_area(mark, line_height));
         }
         let start = targets
             .iter()

@@ -7,6 +7,7 @@ Its backend is the Tauri app's own: `lattice-core` (`../src-tauri/lattice-core`)
 What it does so far, and nothing more, one line per feature, each with its own page under [`docs/`](docs/):
 
 - [Agent](docs/agent.md): runs the Agent as the Tauri app embeds it, with its Git workspace and its document tools.
+- [Annotations](docs/annotations.md): keeps the writer's notes on passages of the sources, marked and pinned in the editor and listed in the Annotations panel.
 - [App's log and Help](docs/app-log-and-help.md): the app's log, Settings › Logs, Report a problem and What's new.
 - [Boards, spreadsheets and decks](docs/structured-documents.md): opens boards, spreadsheets and Open Slide decks in the Tauri app's own editors.
 - [Builds](docs/builds.md): builds with lattice-core's latexmk build, explains its errors and offers their fixes.

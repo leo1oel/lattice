@@ -6,7 +6,7 @@ use std::{collections::HashMap, time::Instant};
 
 use gpui::{
     App, Bounds, Context, DispatchPhase, Hitbox, MouseMoveEvent, Pixels, Point, SharedString,
-    Window,
+    Window, px,
 };
 use language::{ToOffset as _, ToPoint as _};
 
@@ -125,6 +125,16 @@ impl LatticeEditor {
         };
         painted.line_height = Some(frame.line_height);
         let text = self.buffer.read(cx).snapshot();
+        // A pin stands inside the gutter's end; the editor's ground rings it.
+        let gutter_end = view.left()
+            + self
+                .gutter_layout
+                .map_or(px(0.), |layout| layout.width());
+        let ground = {
+            use lattice_ui::ActiveLattice as _;
+            let app: &App = cx;
+            app.palette().editor
+        };
         window.with_content_mask(Some(gpui::ContentMask { bounds: view }), |window| {
             for (layer, marks) in &self.gutter {
                 for anchored in marks {
@@ -133,11 +143,25 @@ impl LatticeEditor {
                     if !frame.shows_row(top) {
                         continue;
                     }
-                    let mark_bounds = gutter::mark_bounds(view.left(), top, frame.line_height);
+                    let mark_bounds = match &anchored.mark.shape {
+                        gutter::GutterShape::Pin { label, size, .. } => gutter::pin_bounds(
+                            label,
+                            *size,
+                            gutter_end,
+                            top,
+                            frame.line_height,
+                            window,
+                            cx,
+                        ),
+                        gutter::GutterShape::Dot => {
+                            gutter::mark_bounds(view.left(), top, frame.line_height)
+                        }
+                    };
                     gutter::paint(
-                        anchored.mark.shape,
+                        &anchored.mark.shape,
                         mark_bounds,
                         anchored.mark.color,
+                        ground,
                         window,
                         cx,
                     );

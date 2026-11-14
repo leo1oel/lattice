@@ -27,6 +27,8 @@ const PROOF_MARKS_SOURCE: &str =
     include_str!("../../../../src/components/ui/research-art-proof-marks.ts");
 const LETTER_RACK_SOURCE: &str =
     include_str!("../../../../src/components/ui/research-art-letter-rack.ts");
+const ANNOTATION_FLAGS_SOURCE: &str =
+    include_str!("../../../../src/components/ui/research-art-annotation-flags.ts");
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Tone {
@@ -51,6 +53,8 @@ static NOTE_SPIKE: LazyLock<Vec<ArtPath>> = LazyLock::new(|| parse(NOTE_SPIKE_SO
 static MARGIN_NOTES: LazyLock<Vec<ArtPath>> = LazyLock::new(|| parse(MARGIN_NOTES_SOURCE));
 static PROOF_MARKS: LazyLock<Vec<ArtPath>> = LazyLock::new(|| parse(PROOF_MARKS_SOURCE));
 static LETTER_RACK: LazyLock<Vec<ArtPath>> = LazyLock::new(|| parse(LETTER_RACK_SOURCE));
+static ANNOTATION_FLAGS: LazyLock<Vec<ArtPath>> =
+    LazyLock::new(|| parse(ANNOTATION_FLAGS_SOURCE));
 
 /// The drawings ported so far, each read from the Tauri app's own module.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -65,6 +69,8 @@ pub enum Drawing {
     ProofMarks,
     /// `LETTER_RACK`: no messages (Overleaf's chat).
     LetterRack,
+    /// `ANNOTATION_FLAGS`: nothing marked yet (the Annotations panel).
+    AnnotationFlags,
 }
 
 impl Drawing {
@@ -75,6 +81,7 @@ impl Drawing {
             Drawing::MarginNotes => &MARGIN_NOTES,
             Drawing::ProofMarks => &PROOF_MARKS,
             Drawing::LetterRack => &LETTER_RACK,
+            Drawing::AnnotationFlags => &ANNOTATION_FLAGS,
         }
     }
 }
