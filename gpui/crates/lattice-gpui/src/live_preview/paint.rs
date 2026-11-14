@@ -125,7 +125,9 @@ pub fn inexact_reason<'a>(
                 Item::Glyph {
                     font, char, index, ..
                 } => {
-                    let desc = dl.fonts.get(&font.to_string())?;
+                    let Some(desc) = dl.fonts.get(&font.to_string()) else {
+                        return Some("fonts are loading".into());
+                    };
                     let Some(loaded) = fonts.get(desc) else {
                         return Some("fonts are loading".into());
                     };
@@ -768,6 +770,26 @@ mod tests {
         );
         let rule = at(20, 17);
         assert_eq!((rule.red(), rule.green(), rule.blue()), (255, 0, 0));
+    }
+
+    #[test]
+    fn a_glyph_naming_no_font_of_its_list_is_not_exact() {
+        let mut page = page_with_rule();
+        page.dl.lines[0].items.push(Item::Glyph {
+            font: 99,
+            char: 65,
+            index: None,
+            x: 0.,
+            y: 0.,
+            ef: 0.,
+        });
+        let reason = inexact_reason(
+            &page.dl,
+            &FontStore::default(),
+            &ImageStore::default(),
+            None,
+        );
+        assert_eq!(reason.as_deref(), Some("fonts are loading"));
     }
 
     #[test]
