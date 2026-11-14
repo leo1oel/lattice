@@ -141,6 +141,11 @@ impl ConfirmHost {
         true
     }
 
+    /// Whether a question is up.
+    pub fn is_open(&self) -> bool {
+        self.pending.is_some()
+    }
+
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     pub fn question(&self) -> Option<SharedString> {
         self.pending.as_ref().map(|question| question.title.clone())

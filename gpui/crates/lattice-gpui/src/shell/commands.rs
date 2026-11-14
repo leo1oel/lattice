@@ -334,6 +334,13 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
         ShowShortcuts,
     ));
     if project {
+        // Get started has no key: like every panel without one, it is shown.
+        out.push(Command::new(
+            "panel-start",
+            space_mixed_script(&t!("Show {name} panel", name = t!("Get started"))),
+            Section::Layout,
+            super::get_started_flow::ShowGetStarted,
+        ));
         out.push(Command::new(
             "layout-reset",
             t!("Reset panel layout"),

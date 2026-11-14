@@ -4,7 +4,9 @@
 //! checks read, a word budget typed and saved into the project's manifest;
 //! then a figure drawn by a chapter listed by the inventory, opened from the
 //! checklist's link, replaced by another project image and the replacement
-//! undone, the chapter back as it was.
+//! undone, the chapter back as it was; and a checklist template's items
+//! added to the list (a second time adding none) and the list saved as a
+//! template of its own.
 
 use std::{path::Path, time::Duration};
 
@@ -32,6 +34,7 @@ impl Run {
         root: &Path,
     ) -> Result<()> {
         self.checklist_panel(cx, steps, root).await?;
+        self.checklist_templates(cx, steps, root).await?;
         self.figure_inventory(cx, steps, root).await
     }
 
@@ -98,6 +101,110 @@ impl Run {
                 .is_some_and(|project| project.read(cx).manifest().word_budget.is_none())
         })
         .await;
+        if let Some(original) = original {
+            std::fs::write(&manifest, original).ok();
+        }
+        Ok(())
+    }
+
+    /// `submission-items.tsx`'s template menu, through the panel's own
+    /// entry points: Add items from, then Save these items as a template.
+    async fn checklist_templates(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+        root: &Path,
+    ) -> Result<()> {
+        use crate::submission::checklist::templates::{self, Template, TemplateLine};
+        let manifest = root.join(".research/project.json");
+        let original = std::fs::read(&manifest).ok();
+        let checklist = cx.update(|cx| self.shell.read(cx).checklist.clone());
+        let template = Template {
+            name: "E2E camera-ready".into(),
+            items: vec![
+                TemplateLine {
+                    title: "Copyright form".into(),
+                    file: Some("main.tex".into()),
+                    source: Some("https://example.org/camera-ready".into()),
+                },
+                TemplateLine {
+                    title: "Artifact badge".into(),
+                    file: None,
+                    source: None,
+                },
+            ],
+        };
+        let titles = |cx: &mut AsyncApp| {
+            cx.update(|cx| {
+                self.shell
+                    .read(cx)
+                    .project()
+                    .map(|project| {
+                        project
+                            .read(cx)
+                            .manifest()
+                            .submission_items
+                            .iter()
+                            .map(|item| {
+                                (item.title.clone(), item.status.clone(), item.file.clone())
+                            })
+                            .collect::<Vec<_>>()
+                    })
+                    .unwrap_or_default()
+            })
+        };
+        let before = titles(cx).len();
+        checklist.update(cx, |checklist, cx| {
+            checklist.add_from_template(&template, cx)
+        });
+        let added = self
+            .wait_for(cx, Duration::from_secs(10), |shell, cx| {
+                shell.read(cx).project().is_some_and(|project| {
+                    project.read(cx).manifest().submission_items.len() == before + 2
+                })
+            })
+            .await;
+        let listed = titles(cx);
+        steps.check(
+            "a checklist template's items join the list, to do, with their files",
+            added
+                && listed.iter().any(|(title, status, file)| {
+                    title == "Copyright form"
+                        && status == "todo"
+                        && file.as_deref() == Some("main.tex")
+                })
+                && listed.iter().any(|(title, ..)| title == "Artifact badge"),
+            json!({ "items": format!("{listed:?}") }),
+        );
+        checklist.update(cx, |checklist, cx| {
+            checklist.add_from_template(&template, cx)
+        });
+        self.pause(cx, Duration::from_millis(500)).await;
+        let again = titles(cx).len();
+        steps.check(
+            "adding the template again adds no item already on the list",
+            again == before + 2,
+            json!({ "count": again }),
+        );
+        checklist.update(cx, |checklist, cx| checklist.save_template("E2E all", cx));
+        let saved = cx.update(|cx| {
+            templates::global(cx)
+                .read(cx)
+                .list()
+                .iter()
+                .find(|template| template.name == "E2E all")
+                .cloned()
+        });
+        steps.check(
+            "the list saved as a template keeps its names and files",
+            saved.as_ref().is_some_and(|saved| {
+                saved.items.len() == before + 2
+                    && saved.items.iter().any(|line| {
+                        line.title == "Copyright form" && line.file.as_deref() == Some("main.tex")
+                    })
+            }),
+            json!({ "saved": format!("{saved:?}") }),
+        );
         if let Some(original) = original {
             std::fs::write(&manifest, original).ok();
         }

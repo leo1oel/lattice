@@ -21,6 +21,7 @@ mod empty_slot;
 mod file_tree;
 mod first_pages;
 mod gallery;
+mod get_started;
 mod help;
 mod history;
 mod html_preview;

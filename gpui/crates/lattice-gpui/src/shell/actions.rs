@@ -131,6 +131,11 @@ impl Shell {
                 cx.listener(|this, _: &OpenHistory, window, cx| this.open_history(window, cx)),
             )
             .on_action(cx.listener(|this, _: &OpenTodos, window, cx| this.open_todos(window, cx)))
+            .on_action(cx.listener(
+                |this, _: &super::get_started_flow::ShowGetStarted, window, cx| {
+                    this.open_get_started(window, cx)
+                },
+            ))
             .on_action(
                 cx.listener(|this, _: &OpenChecklist, window, cx| this.open_checklist(window, cx)),
             )
