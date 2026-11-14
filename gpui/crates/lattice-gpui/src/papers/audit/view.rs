@@ -653,6 +653,16 @@ impl Render for Audit {
                 ),
             );
         }
+        if self.waiting_for_s2 {
+            body.push(caption(
+                t!(
+                    "Partial results for {completed} of {progressTotal} references, waiting for Semantic Scholar…",
+                    completed = self.run_done.len(),
+                    progressTotal = self.run_total
+                ),
+                cx,
+            ));
+        }
         if let Some(error) = self.error.clone() {
             body.push(
                 div()

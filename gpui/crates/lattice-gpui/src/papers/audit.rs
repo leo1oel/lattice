@@ -218,6 +218,9 @@ pub struct Audit {
     pub(super) loading: bool,
     pub(super) busy: bool,
     pub(super) stopping: bool,
+    /// The other sources have answered what they can and the group waits on
+    /// its Semantic Scholar batch (`waitingForS2`).
+    pub(super) waiting_for_s2: bool,
     /// The references being checked right now.
     pub(super) checking: HashSet<usize>,
     /// The run under way: how many it checks, and those it has answered.
@@ -259,6 +262,7 @@ impl Audit {
             loading: true,
             busy: false,
             stopping: false,
+            waiting_for_s2: false,
             checking: HashSet::new(),
             applying: false,
             error: None,
@@ -396,6 +400,7 @@ impl Audit {
         let generation = self.generation;
         self.busy = true;
         self.stopping = false;
+        self.waiting_for_s2 = false;
         self.error = None;
         // Until the rescan says how many it checks, the last run's count
         // would read as this one's.
@@ -491,7 +496,16 @@ impl Audit {
                         Either::Left((batch, _)) => {
                             take_batch(batch, &mut answered, &mut s2_failure, &mut s2_status)
                         }
-                        Either::Right((_, batch)) => pending = Some(batch),
+                        Either::Right((_, batch)) => {
+                            pending = Some(batch);
+                            this.update(cx, |this, cx| {
+                                if this.generation == generation && !this.stopping {
+                                    this.waiting_for_s2 = true;
+                                    cx.notify();
+                                }
+                            })
+                            .ok();
+                        }
                     }
                 }
                 // What the batch left, two at a time; Stop lets them finish.
@@ -587,6 +601,9 @@ impl Audit {
                     })
                     .collect();
                 this.update(cx, |this, cx| {
+                    if this.generation == generation {
+                        this.waiting_for_s2 = false;
+                    }
                     this.record(generation, all, cx);
                     for index in group {
                         this.checking.remove(index);
@@ -620,6 +637,7 @@ impl Audit {
         }
         self.busy = false;
         self.stopping = false;
+        self.waiting_for_s2 = false;
         self.checking.clear();
         cx.notify();
     }
