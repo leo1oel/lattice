@@ -140,6 +140,12 @@ pub struct BuildPanel {
     cycle: Option<usize>,
     /// Builds finished so far, for a scenario to tell a new one from the last.
     builds: usize,
+    /// The build under way is a quiet one (`live_preview::quiet_builds`):
+    /// the Build button shows no spinner, the live preview's dot pulses
+    /// instead.
+    quiet: bool,
+    /// Quiet builds started, for a scenario.
+    quiet_runs: usize,
     _ticker: Option<Task<()>>,
 }
 
@@ -167,6 +173,8 @@ impl BuildPanel {
             panel_log: log_list(),
             cycle: None,
             builds: 0,
+            quiet: false,
+            quiet_runs: 0,
             _ticker: None,
         }
     }
@@ -256,6 +264,8 @@ impl BuildPanel {
     pub fn chip(&self) -> ChipState {
         match &self.status {
             Status::Idle => ChipState::Idle,
+            // A quiet build keeps the button at rest.
+            Status::Running { .. } if self.quiet => ChipState::Idle,
             Status::Running { started, .. } => ChipState::Running(started.elapsed()),
             Status::Finished | Status::Failed => match &self.outcome {
                 Some(outcome) if outcome.succeeded => ChipState::Succeeded(outcome.duration),
@@ -284,7 +294,20 @@ impl BuildPanel {
         })
     }
 
+    /// The next builds are quiet ones, or not.
+    pub fn set_quiet(&mut self, quiet: bool, cx: &mut Context<Self>) {
+        if self.quiet != quiet {
+            self.quiet = quiet;
+            cx.notify();
+        }
+    }
+
+    pub fn quiet_runs(&self) -> usize {
+        self.quiet_runs
+    }
+
     pub fn started(&mut self, root: &Path, document: &str, cx: &mut Context<Self>) {
+        self.quiet_runs += usize::from(self.quiet);
         self.root = root.to_path_buf();
         self.status = Status::Running {
             started: Instant::now(),

@@ -185,9 +185,9 @@ Every file ships byte-for-byte; the LPPL requires a modified file to be renamed 
 
 Each directory's `UPSTREAM.md` records the TeX Live archive, its SHA-256 and the SHA-256 of every copied file. The sample `references.bib` files are Lattice's own. The IEEEtran files ship byte-for-byte; the LPPL requires a modified file to be renamed and its changes identified, so do not edit them in place.
 
-## Realtime TeX live preview renderer (`src/live-preview/`)
+## Realtime TeX live preview renderer (`src/live-preview/`, `gpui/crates/lattice-gpui/src/live_preview/`)
 
-The LuaLaTeX live preview draws rtex's display lists with code adapted from the [Realtime TeX VS Code plugin](https://github.com/HenryXiaoYang/realtime-tex-vsc-plugin) (`webview/render.ts`, `webview/model.ts`, `webview/opentype.d.ts`, `src/fontKey.ts`, `src/type1.ts`, `src/edits.ts`, `src/protocol.ts`, `src/resources.ts`). Each adapted file names its source in its header.
+The LuaLaTeX live preview draws rtex's display lists with code adapted from the [Realtime TeX VS Code plugin](https://github.com/HenryXiaoYang/realtime-tex-vsc-plugin) (`webview/render.ts`, `webview/model.ts`, `webview/opentype.d.ts`, `src/fontKey.ts`, `src/type1.ts`, `src/edits.ts`, `src/protocol.ts`, `src/resources.ts`). The GPUI app's live preview ports those files to Rust. Each adapted file names its source in its header.
 
 MIT License
 

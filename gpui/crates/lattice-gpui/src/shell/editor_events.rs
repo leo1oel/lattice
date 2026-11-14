@@ -32,6 +32,7 @@ impl Shell {
     ) {
         match event {
             EditorPanelEvent::Saved => {
+                self.live_preview.update(cx, |live, _| live.note_saved());
                 if let Some(project) = &self.project {
                     project.update(cx, |project, _| project.mark_inputs_changed());
                 }
@@ -41,8 +42,18 @@ impl Shell {
             // Settings › Editor & builds › Automatic build: "Manual only"
             // leaves every build to the Build button and ⌘B.
             EditorPanelEvent::SavedForBuild | EditorPanelEvent::DiskEdit => {
-                if crate::settings::builds_automatically(cx) {
+                if crate::settings::builds_automatically(cx)
+                    && !self.defer_automatic_build(window, cx)
+                {
                     self.run_build(BuildRequest::automatic(), window, cx);
+                }
+            }
+            // The live preview follows the editor in front, as the Tauri
+            // app's follows its open file.
+            EditorPanelEvent::Edited => {
+                if self.active_editor().as_ref() == Some(editor) {
+                    self.live_preview
+                        .update(cx, |live, cx| live.note_editor(editor, cx));
                 }
             }
             EditorPanelEvent::Close => self.close_editor(editor, window, cx),
@@ -61,6 +72,8 @@ impl Shell {
             }
             EditorPanelEvent::Focused => {
                 self.active_editor = Some(editor.downgrade());
+                self.live_preview
+                    .update(cx, |live, cx| live.note_editor(editor, cx));
                 let path = editor.read(cx).path().to_path_buf();
                 self.file_tree
                     .update(cx, |tree, cx| tree.set_current(Some(path), cx));

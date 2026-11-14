@@ -126,9 +126,7 @@ impl Run {
             .await;
         let leaked = |labels: &Value| {
             labels.as_array().is_some_and(|labels| {
-                labels
-                    .iter()
-                    .any(|label| label == "Gamma3" || label == "Delta4")
+                labels.iter().any(|label| label == "Gamma3" || label == "Delta4")
             })
         };
         let heard_outside = {
