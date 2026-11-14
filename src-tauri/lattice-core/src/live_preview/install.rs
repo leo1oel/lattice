@@ -80,6 +80,26 @@ pub struct InstallStatus {
     version: &'static str,
 }
 
+/// What a host other than the Tauri window reads of a status (the GPUI app's
+/// live preview), as the window reads its JSON.
+impl InstallStatus {
+    pub fn supported(&self) -> bool {
+        self.supported
+    }
+
+    pub fn lualatex(&self) -> bool {
+        self.lualatex
+    }
+
+    pub fn installed(&self) -> bool {
+        self.installed
+    }
+
+    pub fn version(&self) -> &'static str {
+        self.version
+    }
+}
+
 /// Runs a `lualatex --version` until one succeeds: call it off the main thread.
 pub fn status() -> InstallStatus {
     let supported = platform_supported();
@@ -131,6 +151,16 @@ pub struct InstallProgress {
     stage: &'static str,
     /// 0 to 1; downloads report the share of bytes received.
     progress: f64,
+}
+
+impl InstallProgress {
+    pub fn stage(&self) -> &'static str {
+        self.stage
+    }
+
+    pub fn progress(&self) -> f64 {
+        self.progress
+    }
 }
 
 /// One download or removal at a time across every window: two would race to

@@ -41,7 +41,7 @@ pub use menu::{
 pub(crate) use menu_list::SubmenuBounds;
 pub use menu_list::{Menu, MenuAction, MenuSnapshot, menu_snapshot, record_menus};
 pub use overlays::{
-    DialogCard, LatticeTooltip, PopFrom, Toast, ToastLevel, pop_in, rise_in, toast_in,
+    DialogCard, LatticeTooltip, PopFrom, Toast, ToastLevel, pop_in, rise_in, tip_in, toast_in,
 };
 pub use popover::{MenuPopover, Popover, PopoverCard};
 pub use row::{DetailPlacement, Row, RowDensity};

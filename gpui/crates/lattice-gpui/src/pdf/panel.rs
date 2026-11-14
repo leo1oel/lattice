@@ -155,6 +155,18 @@ impl PdfPanel {
         }
     }
 
+    /// Draw `preview` over the live PDF's pages in this panel only: the
+    /// separate window shows the paper's own PDF, without the live layer.
+    pub fn set_live_preview(
+        &mut self,
+        preview: Option<Entity<crate::live_preview::LivePreview>>,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.view
+            .update(cx, |view, cx| view.set_live_preview(preview, cx));
+    }
+
     /// Show the build's diagnostics card over (or under) the pages.
     pub fn set_build_output(&mut self, view: AnyView, cx: &mut Context<Self>) {
         self.build_output = Some(view);

@@ -154,7 +154,7 @@ renamed. They are not all Lattice code:
 | Editor comments | 1 | `read_editor_comments` | Lattice, answered through the shared host-tools poll below. |
 | Presentations | 1 | `preview_presentation_page` | Lattice. The fork relays `{deck, page, step}` like the canvas tools; `src/agent/agent-presentation-tools.ts` brings the presentation runtime up to date with the disk, asks it to compile the deck (`deckBuildErrors` in `tools/open-slide-runtime/server.mjs`; a deck that does not build is answered with `presentation_build_failed` and Vite's located errors), opens its token-gated preview entry in a hidden 1920 × 1080 frame, and the preview page rasterizes itself (`PREVIEW_CAPTURE_SOURCE` in `tools/open-slide-runtime/server.mjs`). The model receives the JPEG as image content, so no shell or local browser is needed. |
 | LaTeX figures | 1 | `preview_latex_figure` | Lattice. The fork relays `{code, preamble, document, lineWidth, wide, caption, label, placement}` over the presentation channel as the action `preview_figure`. `src/agent/agent-figure-tools.ts` has Rust typeset the figure body alone (`preview_latex_figure`, `src-tauri/lattice-core/src/latex/figure_preview.rs`): the document's own preamble, a minipage as wide as `\columnwidth` (or the requested width), the box shipped as a cropped one-page PDF, in a scratch folder removed afterwards, with no shell escape, writes confined to that folder and a 45-second limit; a preamble that stops before the body is retried on a plain `article`. It renders that page as a PNG and answers with the image, the lines wider than the column and the preamble lines the paper lacks; a figure that does not typeset is answered with `figure_build_failed` and TeX's errors by code line. Given a caption and label, the result also carries the `figure` environment, which the agent inserts with its ordinary file edit, so the insertion is approved, checkpointed and undone like any agent edit. |
-| iOS Simulator | 15 | `device_list`, `device_boot`, `device_configure`, `device_install`, `device_launch`, `device_open_url`, `device_tap`, `device_swipe`, `device_type`, `device_press_button`, `device_screenshot`, `device_describe_ui`, `device_scroll_to_element`, `device_wait`, `device_logs` | **Upstream**, from the fork's `deviceTools.ts`. They are allowlisted rather than implemented here, and Lattice enables them by passing `LATTICE_DEVICE_CONTROL_ENABLED=true` when it starts the sidecar (`src-tauri/lattice-core/src/synara.rs`). |
+| iOS Simulator | 15 | `device_list`, `device_boot`, `device_configure`, `device_install`, `device_launch`, `device_open_url`, `device_tap`, `device_swipe`, `device_type`, `device_press_button`, `device_screenshot`, `device_describe_ui`, `device_scroll_to_element`, `device_wait`, `device_logs` | **Upstream**, from the fork's `deviceTools.ts`, and **not offered**. They are still in the fork's allowlist, but the fork builds them, and the panel's device dock, only for a host that sets `LATTICE_DEVICE_CONTROL_ENABLED=true`. Lattice sets nothing and removes any inherited value when it starts the sidecar (`AgentEnvironment::apply` in `src-tauri/lattice-core/src/synara/environment.rs`), so the Lattice catalog has 43 tools. |
 
 `cite` and `upgrade_bibliography` run with `HistoryMode::Defer`, so agent bibliography edits fold into
 Lattice's own transaction history instead of committing independently. A removal the writer confirms
@@ -216,7 +216,8 @@ The policy degrades honestly, on two axes. When a provider session has no safely
 connection, `gatewayControlAvailable` is false and the model is told the Lattice task, automation,
 device and literature tools are unavailable, instead of being handed a tool list it cannot reach.
 Independently, when `deviceControlAvailable` is false the simulator sentence is dropped and the model
-is told not to reach for shell commands or OS automation instead.
+is told not to reach for shell commands or OS automation instead. Lattice never grants device control,
+so for Lattice it is always false.
 
 The Lattice branch carries its own automation guidance rather than upstream's: modes (heartbeat,
 standalone, dedicated), schedules, the `completionPolicy` stop clause, the 32 KiB
@@ -364,6 +365,11 @@ Keep the previous checkout available until the upgrade audit passes.
    Before changing the pin, run the Lattice browser regressions from the fork root (subject to the fork's `AGENTS.md` verification permissions):
    ```sh
    bun run --cwd apps/web test:browser -- src/components/ChatMarkdown.latticeIntegration.browser.tsx src/components/ChatMarkdown.tableLayout.browser.tsx src/components/chat/ComposerLatticeContextBar.browser.tsx src/components/chat/MessageTrail.browser.tsx
+   ```
+   Then run the embed's dock and foreign-thread browser regressions: an out-of-workspace figure render opens the image viewer, never an empty dock with an "iOS Simulator" launcher, and a frame sent to another project's thread returns to its own instead of going blank:
+   ```sh
+   bun run --cwd apps/web test:browser -- src/components/ChatView.browser.tsx -t "previews out-of-workspace figure renders without opening the embedded dock"
+   bun run --cwd apps/web test:browser -- src/components/ChatThreadRoute.embedForeignThread.browser.tsx
    ```
    Then run the browser and unit regressions that keep a long draft's composer inside a short Agent panel:
    ```sh

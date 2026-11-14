@@ -63,6 +63,11 @@ serde_json.workspace = true
 settings.workspace = true
 smallvec.workspace = true
 theme.workspace = true
+# The live preview paints rtex's display lists into page images
+# (`live_preview/paint.rs`) from OpenType outlines (`live_preview/fonts.rs`);
+# both already in the graph through resvg.
+tiny-skia = { version = "0.11", default-features = false, features = ["std", "simd"] }
+ttf-parser = "0.25"
 # lattice-core's link preview runs on Tokio, on a thread of its own per
 # request; already in the graph through lattice-core.
 tokio = { version = "1", default-features = false, features = ["rt"] }

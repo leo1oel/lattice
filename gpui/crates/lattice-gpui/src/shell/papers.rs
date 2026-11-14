@@ -140,10 +140,9 @@ impl Shell {
     }
 
     /// What takes the keyboard back when a sheet closes: the editor of the
-    /// document in front while its tab is in front, else a paper's reader in
-    /// front, else that editor where it is. The editor's panel focus is its
-    /// own: a file showing only its visual form or preview takes the keys
-    /// there, not in the hidden source.
+    /// document in front while it is on screen, else a paper's reader in
+    /// front. The editor's panel focus is its own: a file showing only its
+    /// visual form or preview takes the keys there, not in the hidden source.
     pub(super) fn front_focus(
         &self,
         editor: Option<&Entity<crate::editor_panel::EditorPanel>>,
@@ -151,12 +150,11 @@ impl Shell {
     ) -> Option<gpui::FocusHandle> {
         let shown = editor.filter(|editor| {
             self.view_of_editor(editor)
-                .is_some_and(|view| self.in_front(&view, cx))
+                .is_some_and(|view| super::arrange::on_screen(self.workspace.read(cx), &view))
         });
-        match (shown, self.front_reader_entity(cx), editor) {
-            (Some(editor), _, _) => Some(editor.read(cx).focus_handle(cx)),
-            (None, Some(reader), _) => Some(reader.focus_handle(cx)),
-            (None, None, editor) => editor.map(|editor| editor.read(cx).focus_handle(cx)),
+        match shown {
+            Some(editor) => Some(editor.read(cx).focus_handle(cx)),
+            None => self.front_reader_entity(cx).map(|reader| reader.focus_handle(cx)),
         }
     }
 

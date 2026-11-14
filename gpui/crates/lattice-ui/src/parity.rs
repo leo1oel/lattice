@@ -66,6 +66,17 @@ pub fn regions() -> BTreeMap<SharedString, Region> {
     REGIONS.with(|regions| regions.borrow().clone())
 }
 
+/// Forget every region whose name starts with `prefix`, so a check that
+/// redraws what holds them sees only what that frame drew: a region that
+/// stops being drawn otherwise keeps its last bounds.
+pub fn forget(prefix: &str) {
+    REGIONS.with(|regions| {
+        regions
+            .borrow_mut()
+            .retain(|name, _| !name.starts_with(prefix));
+    });
+}
+
 /// Record a region the harness cannot probe from inside the tree, such as the
 /// editor's text, which Zed's editor styles from its settings.
 pub fn record(name: impl Into<SharedString>, region: Region) {

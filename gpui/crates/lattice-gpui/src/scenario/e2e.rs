@@ -21,12 +21,14 @@ mod history;
 #[cfg(target_os = "macos")]
 mod islands;
 mod live_controls;
+mod live_preview;
 #[cfg(target_os = "macos")]
 mod markdown;
 #[cfg(target_os = "macos")]
 mod markdown_pages;
 #[cfg(target_os = "macos")]
 mod markdown_scroll;
+mod narrow_window;
 #[cfg(target_os = "macos")]
 mod overleaf;
 mod papers;
@@ -44,6 +46,7 @@ mod tab_strip;
 mod tree;
 
 use steps::Steps;
+pub(super) use steps::set_only;
 
 impl Run {
     /// The writing flow, end to end, on a scratch copy of a small project:
@@ -113,9 +116,15 @@ impl Run {
             json!({ "rows": rows }),
         );
         self.sequence_and_words(cx, &mut steps).await?;
-        self.fluid_hover(cx, &mut steps).await?;
-        self.source_chrome(cx, &mut steps, &root).await?;
-        self.design_calls(cx, &mut steps).await?;
+        if steps::selected("fluid") {
+            self.fluid_hover(cx, &mut steps).await?;
+        }
+        if steps::selected("source_chrome") {
+            self.source_chrome(cx, &mut steps, &root).await?;
+        }
+        if steps::selected("design_calls") {
+            self.design_calls(cx, &mut steps).await?;
+        }
 
         let editor = self.open(cx, &chapter, Some(2))?;
         self.pause(cx, Duration::from_millis(300)).await;
@@ -244,7 +253,9 @@ impl Run {
         })
         .await;
         std::fs::remove_file(&scratch).ok();
-        self.status_bar_and_scrollbar(cx, &mut steps, &root).await?;
+        if steps::selected("status_bar") {
+            self.status_bar_and_scrollbar(cx, &mut steps, &root).await?;
+        }
 
         // Repairing the file outside Lattice reloads the clean buffer.
         std::fs::write(&chapter, &merged)?;
@@ -264,26 +275,51 @@ impl Run {
             reloaded && built,
             json!({ "reloaded": reloaded }),
         );
-        self.build_fixes(cx, &mut steps, &root, &stub).await?;
-        self.doctor_and_setup(cx, &mut steps, &stub).await?;
+        if steps::selected("build_flow") {
+            self.build_fixes(cx, &mut steps, &root, &stub).await?;
+            self.doctor_and_setup(cx, &mut steps, &stub).await?;
+        }
 
         // The editor adapter's extension points, through their LaTeX uses.
-        self.editor_adapter(cx, &mut steps, &root).await?;
+        if steps::selected("editor_adapter") {
+            self.editor_adapter(cx, &mut steps, &root).await?;
+        }
 
-        self.tree_operations(cx, &mut steps, &root).await?;
-        self.asset_and_bib_steps(cx, &mut steps, &root).await?;
-        self.documents_and_project(cx, &mut steps, &root).await?;
+        if steps::selected("tree") {
+            self.tree_operations(cx, &mut steps, &root).await?;
+        }
+        if steps::selected("assets") {
+            self.asset_and_bib_steps(cx, &mut steps, &root).await?;
+        }
+        if steps::selected("documents") {
+            self.standalone_setup(cx, &root).await?;
+            self.documents_and_project(cx, &mut steps, &root).await?;
+        }
         // Overlays above a page need gpui-fast's window composition, which
         // WebView2 does not join yet (gpui-webview 0.9.1), so the island
         // checks run on macOS.
         #[cfg(target_os = "macos")]
-        self.webview_islands(cx, &mut steps, &root).await?;
+        if steps::selected("islands") {
+            self.webview_islands(cx, &mut steps, &root).await?;
+        }
         #[cfg(target_os = "macos")]
-        self.structured_islands(cx, &mut steps, &root).await?;
+        if steps::selected("structured") {
+            self.structured_islands(cx, &mut steps, &root).await?;
+        }
         #[cfg(target_os = "macos")]
-        self.markdown_island(cx, &mut steps, &root).await?;
-        self.tab_strip(cx, &mut steps, &root).await?;
-        self.pdf_viewer(cx, &mut steps, &root).await?;
+        if steps::selected("markdown") {
+            self.markdown_island(cx, &mut steps, &root).await?;
+        }
+        if steps::selected("tab_strip") {
+            self.tab_strip(cx, &mut steps, &root).await?;
+        }
+        if steps::selected("narrow_window") {
+            self.narrow_window(cx, &mut steps, &root).await?;
+        }
+        if steps::selected("pdf") {
+            self.pdf_viewer(cx, &mut steps, &root).await?;
+        }
+        // Smoke: a second window opens on the project and draws its PDF.
         self.second_window_pdf(cx, &mut steps, &root).await?;
 
         // Docking: drag an editor tab from the documents' panel into the
@@ -307,45 +343,89 @@ impl Run {
             );
         }
 
-        for (name, passed, detail) in self.shell_steps(cx).await? {
-            steps.check(name, passed, detail);
+        if steps::selected("dock") {
+            for (name, passed, detail) in self.shell_steps(cx).await? {
+                steps.check(name, passed, detail);
+            }
         }
 
-        self.history_and_versions(cx, &mut steps, &root)
-            .await
-            .context("history_and_versions")?;
-        self.submission_tools(cx, &mut steps, &root)
-            .await
-            .context("submission_tools")?;
-        self.submission_checklist(cx, &mut steps, &root)
-            .await
-            .context("submission_checklist")?;
+        if steps::selected("history") {
+            self.standalone_setup(cx, &root).await?;
+            self.history_and_versions(cx, &mut steps, &root)
+                .await
+                .context("history_and_versions")?;
+        }
+        if steps::selected("submission") {
+            self.submission_tools(cx, &mut steps, &root)
+                .await
+                .context("submission_tools")?;
+        }
+        if steps::selected("submission_checklist") {
+            self.submission_checklist(cx, &mut steps, &root)
+                .await
+                .context("submission_checklist")?;
+        }
         // The sign-in window is a WKWebView page, as the islands are.
         #[cfg(target_os = "macos")]
-        self.overleaf(cx, &mut steps, &root)
-            .await
-            .context("overleaf")?;
-        self.papers_panel(cx, &mut steps, &root)
-            .await
-            .context("papers_panel")?;
-        self.bib_visual_editor(cx, &mut steps, &root)
-            .await
-            .context("bib_visual_editor")?;
-        self.settings_and_language(cx, &mut steps)
-            .await
-            .context("settings_and_language")?;
-        self.live_controls(cx, &mut steps)
-            .await
-            .context("live_controls")?;
-        self.closing_saves(cx, &mut steps, &root)
-            .await
-            .context("closing_saves")?;
+        if steps::selected("overleaf") {
+            self.overleaf(cx, &mut steps, &root)
+                .await
+                .context("overleaf")?;
+        }
+        if steps::selected("papers") {
+            self.papers_panel(cx, &mut steps, &root)
+                .await
+                .context("papers_panel")?;
+        }
+        if steps::selected("bib") {
+            self.bib_visual_editor(cx, &mut steps, &root)
+                .await
+                .context("bib_visual_editor")?;
+        }
+        if steps::selected("settings") {
+            self.standalone_setup(cx, &root).await?;
+            self.settings_and_language(cx, &mut steps)
+                .await
+                .context("settings_and_language")?;
+        }
+        if steps::selected("live_controls") {
+            self.standalone_setup(cx, &root).await?;
+            self.live_controls(cx, &mut steps)
+                .await
+                .context("live_controls")?;
+        }
+        if steps::selected("live_preview") {
+            self.live_preview(cx, &mut steps, &root)
+                .await
+                .context("live_preview")?;
+        }
+        if steps::selected("saves") {
+            self.closing_saves(cx, &mut steps, &root)
+                .await
+                .context("closing_saves")?;
+        }
         // Last: `scenario::start` quits once the result is written.
         let quit = self.type_before_quit(cx, &mut steps, &root).await?;
         steps.check_foreground(self);
 
         let passed = steps.0.iter().all(|step| step["passed"] == true);
-        Ok(json!({ "scenario": "e2e", "passed": passed, "steps": steps.0, "after_quit": quit }))
+        Ok(
+            json!({ "scenario": "e2e", "passed": passed, "modules": steps::only(), "steps": steps.0, "after_quit": quit }),
+        )
+    }
+
+    /// A module's setup in an `--only` run, for the modules that start from
+    /// what the full run's earlier modules leave behind: an editor open on
+    /// `chapters/intro.tex`, the file visited last (Settings' and the live
+    /// controls' editor steps edit the open file, History opens beside the
+    /// active document, and ⌘P's Recent lists it first). A full run leaves it
+    /// as it is.
+    async fn standalone_setup(&self, cx: &mut AsyncApp, root: &Path) -> Result<()> {
+        if steps::only().is_some() {
+            self.open(cx, &root.join("chapters/intro.tex"), Some(1))?;
+            self.pause(cx, Duration::from_millis(300)).await;
+        }
+        Ok(())
     }
 
     /// The webview island checks alone (`islands.rs`), for work on the

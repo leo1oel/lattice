@@ -39,7 +39,7 @@ impl Render for PdfView {
         let palette = cx.palette().clone();
         let view = cx.entity().downgrade();
         let width = self.width;
-        let body = self.body(cx);
+        let body = self.body(window, cx);
         div()
             .id("pdf-view")
             .key_context("PdfView")
@@ -80,7 +80,7 @@ fn redraw_next_frame(view: Entity<PdfView>, window: &Window) {
 }
 
 impl PdfView {
-    fn body(&mut self, cx: &mut Context<Self>) -> AnyElement {
+    fn body(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let palette = cx.palette().clone();
         let state = |content: AnyElement| {
             div()
@@ -145,10 +145,10 @@ impl PdfView {
             });
             return state(empty.into_any_element());
         }
-        self.pages_area(cx)
+        self.pages_area(window, cx)
     }
 
-    fn pages_area(&mut self, cx: &mut Context<Self>) -> AnyElement {
+    fn pages_area(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let palette = cx.palette().clone();
         let dark = self.dark;
         let scale = self.layout.scale;
@@ -205,6 +205,12 @@ impl PdfView {
             .child(
                 FluidScrollbar::horizontal("pdf-scrollbar-x", &self.scroll)
                     .feel(ScrollbarFeel::DOCUMENT),
+            )
+            // The live preview's pill, at the bottom left of the pages.
+            .children(
+                self.live_layer()
+                    .map(|layer| layer.preview().clone())
+                    .and_then(|preview| crate::live_preview::status::pill(&preview, window, cx)),
             )
             // `prepare_frame` sizes the pages from the scroll area's last
             // layout, so an area laid out for the first time or at a new size
@@ -272,6 +278,7 @@ impl PdfView {
                 .and_then(|key| key.region.map(|region| (key.width_px, region))),
         );
         let text = slot.text.clone();
+        let live = self.live_layer().and_then(|layer| layer.image(ix));
         let ground: Hsla = if dark {
             rgb(DARK_PAGE).into()
         } else {
@@ -391,6 +398,17 @@ impl PdfView {
                         .top(px(region.y as f32 * to_logical))
                         .w(px(region.w as f32 * to_logical))
                         .h(px(region.h as f32 * to_logical))
+                        .object_fit(ObjectFit::Fill),
+                )
+            })
+            // The live preview's drawing of the page, over the PDF's and under
+            // what marks it.
+            .when_some(live, |page, image| {
+                page.child(
+                    img(image)
+                        .absolute()
+                        .inset_0()
+                        .size_full()
                         .object_fit(ObjectFit::Fill),
                 )
             })

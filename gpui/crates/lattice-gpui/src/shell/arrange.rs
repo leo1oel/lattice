@@ -182,6 +182,13 @@ impl Shell {
     }
 
     /// The keyboard to the document in front, else to the window.
+    ///
+    /// Only to an editor that is drawn: the active document can be docked
+    /// behind another tab (a tool panel such as the checklist opened in
+    /// front of it), and an editor that is not drawn has no place in the
+    /// window's dispatch tree, so with the keyboard there no key reaches the
+    /// window's handlers, ⌘, and every other shortcut included, until a
+    /// click moves it.
     pub(crate) fn focus_front(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let editor = self
             .active_document(cx)

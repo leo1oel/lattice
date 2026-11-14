@@ -169,6 +169,9 @@ impl PdfView {
         let keep = kept_pages(visible, self.pages.len());
         for (page, slot) in self.pages.iter_mut().enumerate() {
             if !keep.contains(&page) {
+                if let Some(layer) = &mut self.live {
+                    layer.release(page, window);
+                }
                 slot.base.release(window);
                 slot.detail.release(window);
                 slot.text = None;
@@ -222,6 +225,10 @@ impl PdfView {
         };
         if needs(&self.pages[page].base, base_key) {
             self.render(page, base_key, false, window, cx);
+        }
+        // The live preview's layer, at the size of the page's image.
+        if self.live.is_some() {
+            self.request_live_page(page, base_width, (width_pt, height_pt), dark, window, cx);
         }
         if !on_screen {
             return;
@@ -395,6 +402,7 @@ impl PdfView {
             window.drop_image(old).ok();
         }
         drawn.key = Some(key);
+        self.check_promoted(cx);
         cx.notify();
     }
 
