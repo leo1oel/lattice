@@ -146,7 +146,7 @@ impl Shell {
                 let first = first.clone();
                 shell
                     .update(cx, |shell, cx| {
-                        shell.open_conflict_resolver(first, window, cx)
+                        shell.open_conflict_resolver(first, false, window, cx)
                     })
                     .ok();
             },
@@ -179,7 +179,7 @@ impl Shell {
                 .flatten()
         });
         match in_front.or_else(|| self.conflicted_files(cx).into_iter().next()) {
-            Some(path) => self.open_conflict_resolver(path, window, cx),
+            Some(path) => self.open_conflict_resolver(path, false, window, cx),
             None => notices::show(
                 Notice::new(
                     ToastLevel::Info,
@@ -193,6 +193,7 @@ impl Shell {
     pub(crate) fn open_conflict_resolver(
         &mut self,
         path: String,
+        overleaf: bool,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -202,7 +203,7 @@ impl Shell {
         for editor in self.open_editors() {
             editor.update(cx, |editor, cx| editor.write_before_quit(cx));
         }
-        let resolver = cx.new(|cx| ConflictResolver::new(root, path, cx));
+        let resolver = cx.new(|cx| ConflictResolver::new(root, path, cx).overleaf_sides(overleaf));
         let subscription =
             cx.subscribe_in(
                 &resolver,

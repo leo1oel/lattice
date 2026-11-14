@@ -42,6 +42,7 @@ pub struct Checkbox {
     description: Option<SharedString>,
     disabled: bool,
     on_toggle: Option<ToggleHandler>,
+    parity: Option<SharedString>,
 }
 
 impl Checkbox {
@@ -53,7 +54,15 @@ impl Checkbox {
             description: None,
             disabled: false,
             on_toggle: None,
+            parity: None,
         }
+    }
+
+    /// Name the field as a parity-harness region (`crate::parity`): its
+    /// bounds and its label's text style are recorded under `name`.
+    pub fn parity(mut self, name: impl Into<SharedString>) -> Self {
+        self.parity = Some(name.into());
+        self
     }
 
     pub fn label(mut self, label: impl Into<SharedString>) -> Self {
@@ -112,6 +121,8 @@ impl RenderOnce for Checkbox {
         let ring = !disabled && focus_handle.is_focused(window) && window.last_input_was_keyboard();
         let row = div()
             .id(self.id)
+            .relative()
+            .children(self.parity.clone().and_then(crate::parity::probe))
             .flex()
             .items_start()
             .gap(px(8.))
@@ -158,6 +169,9 @@ impl RenderOnce for Checkbox {
                         div()
                             .text_role(TextRole::BodyCompact, cx)
                             .text_color(palette.text)
+                            .children(self.parity.clone().zip(self.label.clone()).and_then(
+                                |(name, label)| crate::parity::text_probe(name, 0, label),
+                            ))
                             .children(self.label),
                     )
                     .children(self.description.map(|description| {

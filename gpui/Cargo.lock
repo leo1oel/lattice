@@ -8269,6 +8269,7 @@ dependencies = [
  "futures",
  "gpui",
  "gpui-kit",
+ "gpui-webview",
  "gpui_platform",
  "hdrhistogram",
  "image",
@@ -8280,6 +8281,7 @@ dependencies = [
  "lattice-settings",
  "lattice-ui",
  "lattice-webview",
+ "lb-wry",
  "libc",
  "log",
  "objc2 0.6.3",
@@ -8306,6 +8308,7 @@ dependencies = [
  "windows 0.62.2",
  "workspace",
  "zed_actions",
+ "zip 9.4.1",
 ]
 
 [[package]]

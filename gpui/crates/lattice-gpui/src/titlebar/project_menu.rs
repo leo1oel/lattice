@@ -6,23 +6,26 @@
 //!
 //! The glyph is the row's secondary action (`MenuAction::secondary`): the
 //! keys reach it with → from its row and run it with Enter, as the app's
-//! glyph is an item of its own. Export ZIP, Export for arXiv, Open from
-//! Overleaf and Settings belong to other lanes of the port.
+//! glyph is an item of its own. Export ZIP, Export for arXiv and Settings
+//! belong to other lanes of the port.
 
 use std::path::PathBuf;
 
-use gpui::{Action as _, App, WeakEntity, Window, px};
+use gpui::{Action as _, App, IntoElement, Styled as _, WeakEntity, Window, px};
 use lattice_i18n::t;
 use lattice_ui::{
     Icon,
-    components::{Menu, MenuAction},
+    components::{Menu, MenuAction, MenuPopover, ToolbarButton},
 };
 
 use crate::{
     recents::RecentProjects,
     shell::{
         Shell,
-        commands::{CloneRepository, NewProject, OpenFolder, OpenFolderHere, OpenRecentProject},
+        commands::{
+            CloneRepository, CloseProject, NewProject, OpenFolder, OpenFolderHere,
+            OpenRecentProject,
+        },
     },
 };
 
@@ -84,6 +87,13 @@ pub(super) fn project_menu(
     .item(
         MenuAction::dispatch("Clone repository…", Box::new(CloneRepository)).icon(Icon::GIT_BRANCH),
     )
+    .item(
+        MenuAction::dispatch(
+            t!("Open from Overleaf"),
+            Box::new(crate::shell::overleaf_flow::OpenOverleafProject),
+        )
+        .icon(Icon::CLOUD),
+    )
     .separator()
     .item(
         MenuAction::new("Guided tutorial", move |window, cx| {
@@ -92,5 +102,29 @@ pub(super) fn project_menu(
                 .ok();
         })
         .icon(Icon::SPARKLES),
+    )
+}
+
+/// The switcher beside a window's project tabs: the project menu, and a
+/// way to close the project shown.
+pub(super) fn switcher_for(
+    shell: &Shell,
+    weak: WeakEntity<Shell>,
+    cx: &gpui::App,
+) -> impl IntoElement {
+    MenuPopover::new(
+        "project-switcher-menu",
+        ToolbarButton::new("project-switcher", shell.project_name(cx))
+            .switcher()
+            .max_w(px(super::TAB_SWITCHER_MAX))
+            .parity("titlebar/project"),
+        move |menu, window, cx| {
+            project_menu(weak.clone(), menu, window, cx)
+                .separator()
+                .item(MenuAction::dispatch(
+                    t!("Close this project"),
+                    Box::new(CloseProject),
+                ))
+        },
     )
 }

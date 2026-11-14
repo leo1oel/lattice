@@ -153,7 +153,7 @@ impl Run {
         )?;
         self.with_window(cx, |shell, window, cx| {
             shell.update(cx, |shell, cx| {
-                shell.open_conflict_resolver("conflict-check.tex".into(), window, cx)
+                shell.open_conflict_resolver("conflict-check.tex".into(), false, window, cx)
             })
         })?;
         let opened = self

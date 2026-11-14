@@ -144,6 +144,27 @@ function trackedChanges(context: Context) {
   return changes;
 }
 
+/**
+ * The account's projects in `?overleaf=picker`, newest first: [id, name,
+ * owner, owner's email, age, access]. The GPUI parity harness reads these
+ * rows from this file (gpui/crates/lattice-gpui/src/scenario/parity_overleaf.rs),
+ * so keep each on one line in this shape.
+ */
+const PICKER_PROJECTS: Array<[string, string, string, string, number, string]> = [
+  ["ol-understanding-attention", "Understanding Attention", "Leo Gu", "leo@example.edu", 2 * HOUR, "owner"],
+  ["ol-sparse-transformers", "Sparse Transformers Survey", "Mina Park", "mina.park@example.edu", 26 * HOUR, "readAndWrite"],
+  ["ol-thesis-chapter-3", "Thesis Chapter 3: Efficient Kernels", "Leo Gu", "leo@example.edu", 5 * DAY, "owner"],
+  ["ol-reviewer-response", "Reviewer Response (NeurIPS)", "Alex Chen", "alex.chen@example.edu", 12 * DAY, "readAndWrite"],
+  ["ol-reading-notes", "Reading Notes", "Sofia Rossi", "sofia.rossi@example.org", 40 * DAY, "review"],
+];
+
+function pickerProjects() {
+  return PICKER_PROJECTS.map(([id, name, ownerName, ownerEmail, age, accessLevel]) => ({
+    id, name, ownerName, ownerEmail, accessLevel, archived: false, trashed: false,
+    lastUpdated: new Date(Date.now() - age).toISOString(),
+  }));
+}
+
 function chat(context: Context) {
   const zh = context.lang === "zh-CN";
   const lines: Array<[Person, string, string, number]> = [
@@ -167,6 +188,20 @@ function presence() {
 
 export function overleafAnswer(command: string, args: Record<string, unknown> | undefined, context: Context): unknown {
   const mode = context.params.get("overleaf") ?? "";
+  if (mode === "picker") {
+    switch (command) {
+      case "overleaf_status":
+        return { connected: true, expired: false, email: PEOPLE.me.email, name: PEOPLE.me.name, host: "https://www.overleaf.com" };
+      case "overleaf_link":
+        return null;
+      case "overleaf_list_projects":
+        return { projects: pickerProjects(), invites: [] };
+      case "overleaf_local_copies":
+        return {};
+      default:
+        return NOT_HANDLED;
+    }
+  }
   if (!["review", "long", "expired", "expired-long", "offline"].includes(mode)) return NOT_HANDLED;
   const entities = DOCS.map((doc) => ({ ...doc, kind: "doc" }));
   switch (command) {

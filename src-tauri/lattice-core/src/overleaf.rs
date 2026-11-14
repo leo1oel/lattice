@@ -70,7 +70,9 @@ pub use link::{
     set_realtime_metadata, CloneTarget, OverleafLink,
 };
 pub use local_copies::{local_copies, remember_local_copy, LocalCopy};
-pub use projects::{list_projects, resolve_link, OverleafProjectList, PastedLink};
+pub use projects::{
+    list_projects, resolve_link, OverleafInvite, OverleafProject, OverleafProjectList, PastedLink,
+};
 pub use review::{
     accept_changes, change_authors, chat_messages, comment_anchors, delete_entity, delete_message,
     delete_thread, edit_message, history_add_label, history_delete_label, history_diff,
@@ -81,6 +83,6 @@ pub use review::{
 pub use root_document::{record_root_document, reported_root_document};
 pub use sync::{
     classify_sync_error, delete_unchanged, prefetch, preview, probe, sync_prefetched,
-    sync_relocations, OverleafPreview, OverleafProbe, OverleafSyncResult, RemoteDelete,
-    READ_AHEAD_ROUNDS,
+    sync_relocations, OverleafChange, OverleafConflict, OverleafPreview, OverleafProbe,
+    OverleafSyncResult, RemoteDelete, READ_AHEAD_ROUNDS,
 };

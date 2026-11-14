@@ -201,6 +201,27 @@ export const scenes = {
     await rest(staged.page);
     return staged;
   },
+  // "Open from Overleaf" on an account with five projects
+  // (`?overleaf=picker`, tools/perf-bench/bench-overleaf.ts), the newest
+  // chosen so its Open buttons show. The parity harness's screens only.
+  async overleafPicker(env, theme) {
+    const staged = await project(env, theme, "&overleaf=picker");
+    await staged.page.locator('button[data-tour="overleaf"]').click();
+    await staged.page.waitForSelector(".overleaf-project-row", { timeout: 30_000 });
+    await staged.page.locator(".overleaf-project-main").first().click();
+    await rest(staged.page);
+    return staged;
+  },
+  // Settings › Overleaf with the tutorial linked and live (`?overleaf=review`).
+  async settingsOverleaf(env, theme) {
+    const staged = await project(env, theme, "&overleaf=review");
+    await staged.page.keyboard.press("Meta+Comma");
+    await staged.page.waitForSelector(".settings-modal", { timeout: 30_000 });
+    await staged.page.locator(".settings-nav-group > button", { hasText: "Overleaf" }).click();
+    await staged.page.waitForSelector('[data-setting="overleaf-sync-mode"]', { timeout: 30_000 });
+    await rest(staged.page, 4000);
+    return staged;
+  },
   async welcome(env, theme) {
     const staged = await open(env, theme, "welcome=1&recents=1", ".welcome-screen");
     await rest(staged.page, 1500);
