@@ -33,7 +33,7 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] The Agent: a PDF or Papers selection in its context.
 
-- [ ] The Agent: reviewing the proposals its annotation tools record (there is no comments panel).
+- [ ] The Agent: reviewing the proposals its annotation tools record.
 
 - [ ] The Agent: inline Proofread and Polish.
 

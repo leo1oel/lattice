@@ -49,4 +49,7 @@ pub enum EditorPanelEvent {
     /// A source link into the paper's own PDF was followed: open it there
     /// at this 1-based page.
     PaperSource(u32),
+    /// A note's pin or card asked something of the window
+    /// (`editor_panel/annotations.rs`).
+    Annotation(crate::annotations::AnnotationRequest),
 }

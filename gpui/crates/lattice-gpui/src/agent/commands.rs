@@ -209,6 +209,12 @@ pub fn invoke(
 /// The annotation saves this process has sent, across every page.
 static ANNOTATION_SAVES: AtomicU64 = AtomicU64::new(0);
 
+/// The next annotation save's number, for the window's own saves
+/// (`crate::annotations`), which share the pages' order.
+pub(crate) fn next_annotation_save() -> u64 {
+    ANNOTATION_SAVES.fetch_add(1, Ordering::Relaxed) + 1
+}
+
 /// `save_annotations`: the whole list and its rounds, as save `save`.
 fn save_annotations(root: &Path, args: &Value, save: u64) -> Result<Value, String> {
     let root = pinned(root, args, "saving the annotations")?;

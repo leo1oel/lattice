@@ -136,10 +136,17 @@ impl EditorPanel {
             // The writer moving on by hand ends a rail jump's hold on the
             // current section, unless it is on the rail.
             .capture_any_mouse_down(cx.listener(|this, _, _, cx| this.release_rail(cx)))
+            // A press on an annotation's pin opens its note.
+            .capture_any_mouse_down(cx.listener(|this, event: &gpui::MouseDownEvent, _, cx| {
+                if this.annotation_pin_pressed(event.position, cx) {
+                    cx.stop_propagation();
+                }
+            }))
             .capture_key_down(cx.listener(|this, _, _, cx| this.release_rail(cx)))
             .child(self.lattice.clone())
             .children(self.rail.clone())
             .children(margin.map(|(_, layer)| layer))
+            .children(self.annotation_composer(window, cx))
             .child(
                 gpui::canvas(
                     move |bounds, window, cx| {

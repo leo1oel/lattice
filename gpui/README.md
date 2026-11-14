@@ -7,6 +7,7 @@ Its backend is the Tauri app's own: `lattice-core` (`../src-tauri/lattice-core`)
 What it does so far, and nothing more, one line per feature, each with its own page under [`docs/`](docs/):
 
 - [Agent](docs/agent.md): runs the Agent as the Tauri app embeds it, with its Git workspace and its document tools.
+- [Annotations](docs/annotations.md): keeps the writer's notes on passages of the sources, marked and pinned in the editor and listed in the Annotations panel.
 - [App's log and Help](docs/app-log-and-help.md): the app's log, Settings › Logs, Report a problem and What's new.
 - [Boards, spreadsheets and decks](docs/structured-documents.md): opens boards, spreadsheets and Open Slide decks in the Tauri app's own editors.
 - [Builds](docs/builds.md): builds with lattice-core's latexmk build, explains its errors and offers their fixes.
@@ -236,7 +237,7 @@ A deck's runtime is lattice-core's supervisor, one per process (`structured/pres
 
 - marks (an underline, wavy or straight, the ink, a strike, the weight) and highlights (a wash behind the text): Zed's text and background highlights, anchored so they follow later edits; Zed keys them by a closed enum, so each layer's styles take slots of a key nothing else in the app sets;
 - the source gutter (`adapter/gutter_column.rs`), in place of Zed's, which sizes itself in whole character widths: line numbers and fold markers laid out as CodeMirror's (`src/editor/source-gutter.ts`), with the editor element inset by it and by the room the host keeps at the right (the outline rail's), so the text and its wrap match CodeMirror's; a language gives it what each line folds (`folds::FoldSource`; LaTeX's is `latex/folding.rs`, the Tauri app's text scan), and the overlay scrollbar is lattice-ui's shared one in the editor's feel;
-- gutter marks: a dot beside a line, painted over the gutter's free left edge by the adapter's overlay, with an optional hover card; nothing in the app sets one yet (the Tauri app's annotation pins will), so the end-to-end scenario proves them with a layer of its own;
+- gutter marks, painted by the adapter's overlay with an optional hover card: a dot beside a line, over the gutter's free left edge (the end-to-end scenario proves it with a layer of its own), or a numbered pin over the fold column, the annotations' ([Annotations](docs/annotations.md));
 - block widgets: Zed's blocks, between lines;
 - hover cards: Zed's editor hovers only for language servers, so the overlay runs the pointer itself: each provider names its range and builds its card, and every provider's card at the pointer (over one of the range's characters, on any row soft wrap puts it, never past a line's end) opens after it rests 300 ms (CodeMirror's `hoverTime`), stacked in provider order as CodeMirror's hover host stacks its sources' tooltips (a citation card over the lint card of a diagnostic on the same key).
   The stack rises above its ranges on the pop tier (below them when the editor has no room above) and stays inside the editor.

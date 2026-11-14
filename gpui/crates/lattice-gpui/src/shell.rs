@@ -20,6 +20,7 @@ mod actions;
 mod agent_checkpoints;
 mod agent_documents;
 mod agent_flow;
+mod annotations_flow;
 mod arrange;
 mod assets;
 mod build;
@@ -83,6 +84,9 @@ pub use commands::{
     Build, CleanBuildFiles, CleanRebuild, ForwardSync, InstallLatexTools, NextProblem,
     OpenTexDoctor, PreviousProblem, Save, StopBuild, ToggleVimMode,
 };
+pub use annotations_flow::{CommentsView, ShowAnnotations};
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+pub use overleaf_collab::AnnotateSelection;
 pub use get_started_flow::ShowGetStarted;
 pub use help_flow::{ReportProblem, WhatsNew};
 pub use insert_flow::{InsertTable, PasteImageAsFigure};
