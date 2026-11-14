@@ -656,7 +656,8 @@ mod tests {
     #[test]
     fn a_selection_inside_bold_splits_it() {
         let doc = "\\textbf{a b c}";
-        let edit = toggle_inline(doc, at(doc, "b"), InlineFormat::Bold);
+        let b = doc.find(" b ").unwrap() + 1;
+        let edit = toggle_inline(doc, b..b + 1, InlineFormat::Bold);
         assert_eq!(run(doc, &edit).0, "\\textbf{a} b \\textbf{c}");
     }
 

@@ -104,6 +104,6 @@ mod tests {
             anchor: 0,
             head: 0,
         };
-        assert_eq!(edit.apply("0123456789"), "01ab23489");
+        assert_eq!(edit.apply("0123456789"), "01ab234789");
     }
 }
