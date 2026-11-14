@@ -14,6 +14,7 @@ use serde_json::json;
 use super::Steps;
 use crate::{
     scenario::Run,
+    shell::Shell,
     submission::{arxiv::CheckState, references::SymbolKind, todos::TodosEvent},
 };
 
@@ -26,7 +27,73 @@ impl Run {
     ) -> Result<()> {
         self.todos_panel(cx, steps, root).await?;
         self.symbol_references(cx, steps, root).await?;
-        self.arxiv_export(cx, steps, root).await
+        self.arxiv_export(cx, steps, root).await?;
+        self.switch_drops_submission_tools(cx, steps, root).await
+    }
+
+    /// A second window shows the project with a label's references listed
+    /// and the arXiv export sheet open; opening another project in it drops
+    /// both, so neither acts on the project shown next (its Open, Rename,
+    /// Build first and Export would resolve against that project).
+    async fn switch_drops_submission_tools(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+        root: &Path,
+    ) -> Result<()> {
+        let (window, shell) = cx.update(|cx| Shell::open_window(Some(root.to_path_buf()), cx))?;
+        let second = Run { shell, window };
+        second.root(cx).await?;
+        second.with_window(cx, |shell, window, cx| {
+            shell.update(cx, |shell, cx| {
+                shell.show_references(SymbolKind::Label, "sec:method".into(), window, cx)
+            })
+        })?;
+        let listed = second
+            .wait_for(cx, Duration::from_secs(10), |shell, cx| {
+                shell.read(cx).references.bar.is_some()
+            })
+            .await;
+        second.with_window(cx, |shell, window, cx| {
+            shell.update(cx, |shell, cx| shell.open_arxiv_export(window, cx))
+        })?;
+        let sheet = cx.update(|cx| second.shell.read(cx).arxiv.is_some());
+
+        let other =
+            std::env::temp_dir().join(format!("lattice-gpui-tools-switch-{}", std::process::id()));
+        std::fs::create_dir_all(&other)?;
+        std::fs::write(other.join("main.tex"), "\\documentclass{article}\n")?;
+        // The project's root is the folder's canonical path (/private/var
+        // for /var on macOS).
+        let other_root = other.canonicalize()?;
+        second.with_window(cx, |shell, window, cx| {
+            shell.update(cx, |shell, cx| {
+                shell.open_project(other.clone(), window, cx)
+            })
+        })?;
+        let switched = second
+            .wait_for(cx, Duration::from_secs(10), |shell, cx| {
+                shell.read(cx).root(cx).as_deref() == Some(other_root.as_path())
+            })
+            .await;
+        let (bar_after, sheet_after) = cx.update(|cx| {
+            let shell = second.shell.read(cx);
+            (shell.references.bar.is_some(), shell.arxiv.is_some())
+        });
+        steps.check(
+            "opening another project drops the references bar and the arXiv export sheet",
+            listed && sheet && switched && !bar_after && !sheet_after,
+            json!({
+                "before": { "bar": listed, "sheet": sheet },
+                "switched": switched,
+                "after": { "bar": bar_after, "sheet": sheet_after },
+            }),
+        );
+        window
+            .update(cx, |_, window, _| window.remove_window())
+            .ok();
+        std::fs::remove_dir_all(&other).ok();
+        Ok(())
     }
 
     async fn todos_panel(&self, cx: &mut AsyncApp, steps: &mut Steps, root: &Path) -> Result<()> {
