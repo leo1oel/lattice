@@ -51,7 +51,7 @@ impl BibEditor {
         } else if self
             .rows
             .iter()
-            .any(|row| row.index != index && row.entry.key.eq_ignore_ascii_case(&key))
+            .any(|row| row.index != index && row.entry.key.to_lowercase() == key.to_lowercase())
         {
             Some(t!("Another reference already uses “{key}”.", key = key))
         } else {
@@ -208,9 +208,7 @@ impl BibEditor {
                     .collect()
             })
             .unwrap_or_default();
-        let error = if name.is_empty() {
-            return;
-        } else if !model::valid_field_name(&name) {
+        let error = if !model::valid_field_name(&name) {
             Some(t!("Field names start with a letter and have no spaces.").to_string())
         } else if entry_fields.contains(&name.to_lowercase()) {
             Some(t!(

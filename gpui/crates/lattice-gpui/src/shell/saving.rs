@@ -71,6 +71,24 @@ impl Shell {
             .collect()
     }
 
+    /// Save what the editors hold, answering whether every write landed.
+    pub(super) fn save_editors(&mut self, cx: &mut Context<Self>) -> Task<bool> {
+        let saves = Self::save_dirty(&self.open_editors(), cx);
+        cx.spawn(async move |_, _| {
+            for save in saves {
+                match save.await {
+                    Ok(true) => {}
+                    Ok(false) => return false,
+                    Err(error) => {
+                        log::error!("{error:#}");
+                        return false;
+                    }
+                }
+            }
+            true
+        })
+    }
+
     pub(super) fn save_in_background(&mut self, cx: &mut Context<Self>) {
         let editors = self.open_editors();
         for save in Self::save_dirty(&editors, cx) {

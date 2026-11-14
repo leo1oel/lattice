@@ -364,15 +364,28 @@ impl Shell {
             return;
         };
         self.dismiss_overlays_for_documents(cx);
-        // The check reads the files on disk: what the editors hold is saved
-        // first, in the background, as the Tauri app's `onPrepare` does.
-        self.save_in_background(cx);
-        let view = cx.new(|cx| Audit::new(root, cx));
+        // Every scan reads the files on disk: what the editors hold is saved
+        // first, as the Tauri app's `onPrepare` does.
+        let shell = cx.entity().downgrade();
+        let prepare: crate::papers::audit::Prepare = std::rc::Rc::new(move |cx| {
+            shell
+                .update(cx, |shell, cx| shell.save_editors(cx))
+                .unwrap_or_else(|_| gpui::Task::ready(false))
+        });
+        let view = cx.new(|cx| Audit::new(root, prepare, cx));
         cx.subscribe_in(&view, window, |this, _, event, window, cx| match event {
             AuditEvent::Dismiss => this.close_document_overlays(window, cx),
             AuditEvent::OpenSource { path, line } => {
                 if let Some(root) = this.root(cx) {
                     this.open_path(root.join(path), Some(*line), window, cx);
+                }
+            }
+            AuditEvent::MissingPaperTools(failure) => {
+                if let Some(center) = crate::build::tex_setup::center::center(cx) {
+                    let failure = failure.clone();
+                    center.update(cx, |center, cx| {
+                        center.open_for_missing_paper_tools(failure, cx)
+                    });
                 }
             }
             AuditEvent::Applied => {

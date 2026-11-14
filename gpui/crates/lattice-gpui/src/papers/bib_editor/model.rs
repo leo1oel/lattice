@@ -288,7 +288,7 @@ pub fn valid_field_name(name: &str) -> bool {
     chars
         .next()
         .is_some_and(|first| first.is_ascii_alphabetic())
-        && chars.all(|ch| ch.is_alphanumeric() || "_:.+-".contains(ch))
+        && chars.all(|ch| ch.is_ascii_alphanumeric() || "_:.+-".contains(ch))
 }
 
 /// A new entry as the add dialog drafts it (`BibEntryDraft`).
@@ -738,6 +738,9 @@ mod tests {
         assert!(valid_field_name("bdsk-url-1"));
         assert!(!valid_field_name("1st"));
         assert!(!valid_field_name("two words"));
+        // `/^[A-Za-z][\w:.+-]*$/` without the u flag: \w is ASCII only.
+        assert!(!valid_field_name("titlé"));
+        assert!(!valid_field_name(""));
     }
 
     /// `slugifyCitationKey` (bib-entry.ts), worked by hand: the first

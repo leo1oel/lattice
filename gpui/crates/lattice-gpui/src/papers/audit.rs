@@ -31,6 +31,7 @@ use lattice_core::{
     citation_audit::{self, AuditEntry},
     citation_health::CitationHealth,
 };
+use lattice_i18n::t;
 use serde::{Deserialize, Serialize};
 
 mod groups;
@@ -52,6 +53,9 @@ pub enum AuditEvent {
     },
     /// Files were rewritten: open editors reload what changed.
     Applied,
+    /// A check needs the paper tools, which are not installed: setup offers
+    /// them (`onMissingPaperTools`).
+    MissingPaperTools(String),
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -150,8 +154,13 @@ pub(super) fn entry_title(entry: &AuditEntry) -> String {
 /// (`PAPER_TOOLS_MISSING`): every later check would fail the same way.
 const PAPER_TOOLS_MISSING: &str = "Lattice's paper tools are not installed.";
 
+/// Saves what the editors hold before a scan reads the files on disk,
+/// answering whether every write landed (`onPrepare`).
+pub type Prepare = std::rc::Rc<dyn Fn(&mut App) -> Task<bool>>;
+
 pub struct Audit {
     root: PathBuf,
+    prepare: Prepare,
     /// Where the report is saved; none keeps it for this window only.
     store: Option<PathBuf>,
     pub(super) entries: Vec<AuditEntry>,
@@ -183,11 +192,12 @@ pub struct Audit {
 impl EventEmitter<AuditEvent> for Audit {}
 
 impl Audit {
-    pub fn new(root: PathBuf, cx: &mut Context<Self>) -> Self {
+    pub fn new(root: PathBuf, prepare: Prepare, cx: &mut Context<Self>) -> Self {
         let store = crate::shell::workspaces::state_dir(crate::settings::scripted(cx))
             .map(|dir| dir.join("audits"));
         let mut this = Self {
             root,
+            prepare,
             store,
             entries: Vec::new(),
             coverage: Vec::new(),
@@ -217,7 +227,8 @@ impl Audit {
     /// to ask for.
     fn load(&mut self, cx: &mut Context<Self>) {
         let (root, store) = (self.root.clone(), self.store.clone());
-        let read = cx.background_spawn(async move {
+        let prepared = (self.prepare.clone())(cx);
+        let read = async move {
             let scan = citation_audit::scan(&root)?;
             let saved = match &store {
                 Some(dir) => citation_audit::load_report(dir, &root)
@@ -227,10 +238,14 @@ impl Audit {
                 None => Vec::new(),
             };
             Ok::<_, String>((scan, saved))
-        });
+        };
         let generation = self.generation;
         self._task = Some(cx.spawn(async move |this, cx| {
-            let read = read.await;
+            let read = if prepared.await {
+                cx.background_spawn(read).await
+            } else {
+                Err(t!("Save pending edits before checking references.").to_string())
+            };
             this.update(cx, |this, cx| {
                 if this.generation != generation {
                     return;
@@ -338,11 +353,15 @@ impl Audit {
         self.run_done.clear();
         let root = self.root.clone();
         let saved = report::read(self.report());
+        let prepared = (self.prepare.clone())(cx);
         self._task = Some(cx.spawn(async move |this, cx| {
             let scan_root = root.clone();
-            let scan = cx
-                .background_spawn(async move { citation_audit::scan(&scan_root) })
-                .await;
+            let scan = if prepared.await {
+                cx.background_spawn(async move { citation_audit::scan(&scan_root) })
+                    .await
+            } else {
+                Err(t!("Save pending edits before checking references.").to_string())
+            };
             let indexes = this.update(cx, |this, cx| {
                 if this.generation != generation {
                     return None;
@@ -466,14 +485,20 @@ impl Audit {
                             })
                         })
                         .collect();
-                    let mut missing_tools = false;
+                    let mut missing_tools = None;
                     for (at, check) in pair.iter().zip(checks) {
                         let finding = check.await;
-                        missing_tools |= finding.message.contains(PAPER_TOOLS_MISSING);
+                        if finding.message.contains(PAPER_TOOLS_MISSING) {
+                            missing_tools = Some(finding.message.clone());
+                        }
                         answered[*at] = Some(finding);
                     }
-                    if missing_tools {
-                        this.update(cx, |this, _| this.stopping = true).ok();
+                    if let Some(failure) = missing_tools {
+                        this.update(cx, |this, cx| {
+                            this.stopping = true;
+                            cx.emit(AuditEvent::MissingPaperTools(failure));
+                        })
+                        .ok();
                     }
                     let partial: Vec<(usize, Finding)> = pair
                         .iter()

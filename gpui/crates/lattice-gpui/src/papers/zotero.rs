@@ -334,6 +334,7 @@ impl ZoteroBrowser {
 
     /// One read of one snapshot; opening a folder filters it.
     pub(super) fn read(&mut self, cx: &mut Context<Self>) {
+        self.folder = None;
         self.library = None;
         self.error = None;
         self.records.clear();
@@ -388,7 +389,6 @@ impl ZoteroBrowser {
             this.update(cx, |this, cx| {
                 this.chosen_dir = Some(dir.to_string_lossy().into_owned());
                 this.ticked.clear();
-                this.folder = None;
                 this.read(cx);
             })
             .ok();
