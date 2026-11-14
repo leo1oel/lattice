@@ -52,11 +52,14 @@ use serde_json::{Value, json};
 use crate::notices::{self, Notice};
 
 pub use markdown::{MarkdownEvent, PaperPdfIdentity, PaperReading};
+pub use markdown_host::VisualCaret;
 pub use slides::{DeckSession, handles as deck_handles};
 
 mod agent_tools;
+mod deck_context;
 mod latex_visual;
 mod markdown;
+mod markdown_host;
 mod presentation;
 pub mod resources;
 mod slides;
@@ -137,6 +140,10 @@ pub enum StructuredEvent {
     /// Open Slide's Ask AI, Apply comments or Draft a deck: a request for
     /// the Agent's composer (`OpenSlideAgentRequest`).
     AgentRequest(Value),
+    /// What the Agent is told of this surface changed: a deck's selection
+    /// or pending edits (`deck_context`), a Markdown file's visual selection
+    /// (`markdown_host`).
+    SurfaceContext,
 }
 
 pub struct StructuredDocument {
@@ -166,6 +173,12 @@ pub struct StructuredDocument {
     reveals: u64,
     /// The Agent's tool calls the page has not answered (`agent_tools.rs`).
     agent_calls: agent_tools::AgentCalls,
+    deck_context: Option<Value>,
+    /// The writer may edit the deck (`editorEditable`).
+    editable: bool,
+    /// The visual Markdown editor's selection, and the carets last sent.
+    visual_selection: Option<String>,
+    visual_presence: Option<Value>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -233,6 +246,10 @@ impl StructuredDocument {
             files,
             reveals: 0,
             agent_calls: Default::default(),
+            deck_context: None,
+            editable: true,
+            visual_selection: None,
+            visual_presence: None,
             _subscriptions: subscriptions,
         }
     }
@@ -336,7 +353,7 @@ impl StructuredDocument {
         });
         if self.kind == StructuredKind::Deck {
             payload["projectRoot"] = json!(self.root.to_string_lossy());
-            payload["editable"] = json!(true);
+            payload["editable"] = json!(self.editable);
         }
         self.markdown_open(&mut payload);
         self.latex_open(&mut payload);
@@ -402,6 +419,7 @@ impl StructuredDocument {
             "island:notify" => show_page_notice(payload, cx),
             "agent:tool-result" => self.agent_answered(payload),
             "slides:agent-request" => cx.emit(StructuredEvent::AgentRequest(payload.clone())),
+            "slides:context" => self.deck_context_changed(payload, cx),
             "tex:open-citation" if self.kind == StructuredKind::LatexVisual => {
                 self.open_citation(payload, cx)
             }
@@ -451,6 +469,9 @@ impl StructuredDocument {
         match (self.kind, command.as_str()) {
             (_, "plugin:dialog|save") => self.save_panel(id, &args, window, cx),
             (StructuredKind::Sheet, "save_xlsx") => self.save_xlsx(id, &payload, cx),
+            (StructuredKind::Deck, "open_project_window") => {
+                self.open_project_window(id, &args, cx)
+            }
             (StructuredKind::LatexVisual, _) if self.invoke_latex(id, &command, &args, cx) => {}
             (kind, _) if kind.is_visual_editor() && self.invoke_markdown(id, &command, &args, cx) => {}
             (StructuredKind::Deck, _) if slides::handles(&command) => {

@@ -15,6 +15,9 @@ pub struct OverleafCaret {
     pub id: SharedString,
     pub name: SharedString,
     pub color: Hsla,
+    /// The hue `color` is drawn from, which the visual Markdown editor
+    /// colours its carets by.
+    pub hue: f64,
     pub row: u32,
     /// UTF-16 units into the line.
     pub column: u32,
@@ -48,6 +51,21 @@ impl EditorPanel {
 
     /// Draw these collaborators' carets in the editor.
     pub fn set_overleaf_carets(&self, carets: Vec<OverleafCaret>, cx: &mut Context<Self>) {
+        // A Markdown file's visual editor draws them too.
+        if let Some(document) = self.markdown_document() {
+            let visual = carets
+                .iter()
+                .map(|caret| crate::structured::VisualCaret {
+                    name: caret.name.to_string(),
+                    hue: caret.hue,
+                    row: caret.row,
+                    column: caret.column,
+                })
+                .collect();
+            document.update(cx, |document, cx| {
+                document.set_markdown_presence(visual, cx)
+            });
+        }
         let snapshot = self.buffer.read(cx).snapshot();
         let max_row = snapshot.max_point().row;
         let cursors = carets

@@ -53,6 +53,7 @@ mod saving;
 mod settings_flow;
 mod shortcut_sheet;
 mod skin;
+mod structured_docs;
 mod synctex;
 mod terminal_flow;
 mod tools_flow;

@@ -76,6 +76,7 @@ impl Shell {
                 self.jump_to_heading(path, *line, window, cx)
             }
             EditorPanelEvent::AgentRequest(request) => self.deck_agent_request(request, window, cx),
+            EditorPanelEvent::SurfaceContext => self.surface_context_changed(editor, cx),
             EditorPanelEvent::Focused => {
                 self.active_editor = Some(editor.downgrade());
                 self.live_preview

@@ -206,6 +206,7 @@ impl Shell {
                             id: peer.id.clone().into(),
                             name: name_of(peer),
                             color: hue_color(peer.hue as f32),
+                            hue: peer.hue as f64,
                             row: u32::try_from(peer.row?).ok()?,
                             column: u32::try_from(peer.column.unwrap_or(0)).unwrap_or(0),
                         })
