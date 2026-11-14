@@ -572,7 +572,10 @@ impl SettingsDialog {
     }
 
     /// The window's live preview, for its rows in Editor & builds.
-    pub(super) fn live_preview(&self, cx: &App) -> Option<Entity<crate::live_preview::LivePreview>> {
+    pub(super) fn live_preview(
+        &self,
+        cx: &App,
+    ) -> Option<Entity<crate::live_preview::LivePreview>> {
         self.shell
             .upgrade()
             .map(|shell| shell.read(cx).live_preview.clone())

@@ -547,7 +547,12 @@ mod tests {
         }
     }
 
-    fn layout(model: &mut PreviewModel, revision: u64, pages: Vec<PageUpdate>, placements: Vec<Placement>) -> Dirty {
+    fn layout(
+        model: &mut PreviewModel,
+        revision: u64,
+        pages: Vec<PageUpdate>,
+        placements: Vec<Placement>,
+    ) -> Dirty {
         model.apply_layout(LayoutInput {
             pages,
             pages_total: 2,
@@ -581,7 +586,10 @@ mod tests {
             &mut model,
             1,
             vec![page(1, vec![line(10., 500., Some(3))], true)],
-            vec![Placement { par_id: 3, fragments: vec![placed] }],
+            vec![Placement {
+                par_id: 3,
+                fragments: vec![placed],
+            }],
         );
         let live = model.place_live(3, vec![fragment(1, &[10.], &[503.])]);
         assert_eq!(live[0].baselines, [500.]);
@@ -598,10 +606,17 @@ mod tests {
             vec![page(
                 1,
                 // Rows a line apart: further than the match tolerance.
-                vec![line(10., 500e3, Some(3)), line(10., 520e3, Some(3)), line(10., 540e3, Some(4))],
+                vec![
+                    line(10., 500e3, Some(3)),
+                    line(10., 520e3, Some(3)),
+                    line(10., 540e3, Some(4)),
+                ],
                 true,
             )],
-            vec![Placement { par_id: 3, fragments: vec![fragment(1, &[10.], &[500e3])] }],
+            vec![Placement {
+                par_id: 3,
+                fragments: vec![fragment(1, &[10.], &[500e3])],
+            }],
         );
         let dl = Arc::new(DisplayList {
             lines: vec![line(0., 0., None)],

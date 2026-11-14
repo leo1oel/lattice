@@ -110,7 +110,10 @@ fn number(value: Option<&Value>) -> f64 {
 }
 
 fn string(value: Option<&Value>) -> String {
-    value.and_then(Value::as_str).unwrap_or_default().to_string()
+    value
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string()
 }
 
 impl Item {
@@ -345,7 +348,9 @@ pub struct EditResult {
 pub enum Reply {
     /// `edit` and `set_document`.
     Edit(EditResult),
-    Status { source_revision: u64 },
+    Status {
+        source_revision: u64,
+    },
     /// `request_layout`, `spans`, `error` and anything newer.
     Other(String),
 }
@@ -452,7 +457,9 @@ mod tests {
                 ef: 0.
             }
         );
-        assert!(matches!(&line.items[1], Item::Color { cmd: None, data, .. } if data.contains("rg")));
+        assert!(
+            matches!(&line.items[1], Item::Color { cmd: None, data, .. } if data.contains("rg"))
+        );
         assert!(matches!(line.items[2], Item::Rule { x, .. } if x == 1.5));
         assert!(matches!(line.items[3], Item::Image { index: 1, h, .. } if h == 20.));
         assert!(matches!(&line.items[4], Item::Matrix { op, .. } if op == "set"));
@@ -463,7 +470,8 @@ mod tests {
 
     #[test]
     fn events_and_replies_parse() {
-        let status = parse(r#"{"convergence":null,"reply":"status","versions":{"source_revision":1}}"#);
+        let status =
+            parse(r#"{"convergence":null,"reply":"status","versions":{"source_revision":1}}"#);
         assert!(matches!(
             status,
             Some(Message::Reply(Reply::Status { source_revision: 1 }))

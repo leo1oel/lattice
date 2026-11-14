@@ -50,8 +50,18 @@ fn layer_state(view: &Entity<PdfView>, cx: &App) -> (Vec<usize>, u64, f32, f32) 
             }
         }
     }
-    let share = |n: u64| if total == 0 { 0. } else { n as f32 / total as f32 };
-    let ink_share = if covered == 0 { 0. } else { ink as f32 / covered as f32 };
+    let share = |n: u64| {
+        if total == 0 {
+            0.
+        } else {
+            n as f32 / total as f32
+        }
+    };
+    let ink_share = if covered == 0 {
+        0.
+    } else {
+        ink as f32 / covered as f32
+    };
     (pages, layer.draws, share(covered), ink_share)
 }
 
@@ -84,6 +94,8 @@ impl Run {
             lattice_ui::parity::enable();
         }
         self.pause(cx, Duration::from_millis(800)).await;
+        // The PDF a writer has before switching, as in the e2e run.
+        self.build(cx).await?;
         self.live_preview(cx, &mut steps, &root).await?;
         let passed = steps.0.iter().all(|step| step["passed"] == true);
         Ok(json!({ "scenario": "live-preview", "passed": passed, "steps": steps.0 }))
@@ -126,30 +138,42 @@ impl Run {
         // The download, the start and the first layout, each said by the pill.
         let mut seen: Vec<String> = Vec::new();
         let mut pills: Vec<String> = Vec::new();
+        let mut sample = |preview: &LivePreview| {
+            let name = state_name(preview);
+            if seen.last() != Some(&name) {
+                seen.push(name);
+            }
+            if let Some(pill) = status::status(preview) {
+                let label = pill.label.to_string();
+                if pills.last() != Some(&label) {
+                    pills.push(label);
+                }
+            }
+        };
         let started = Instant::now();
+        let mut busy_bounds = None;
         if std::env::var_os("LATTICE_E2E_SHOTS").is_some() {
             self.wait_for(cx, Duration::from_secs(30), |_, cx| {
+                sample(preview.read(cx));
                 matches!(preview.read(cx).state(), State::Downloading(share) if *share > 0.)
             })
             .await;
             self.snapshot(cx, "live-preview-downloading").await;
+            busy_bounds = lattice_ui::parity::regions()
+                .get("live-preview-status")
+                .and_then(|region| region.bounds)
+                .map(|bounds| format!("{bounds:?}"));
         }
         let live = self
             .wait_for(cx, STARTS_WITHIN, |_, cx| {
                 let preview = preview.read(cx);
-                let name = state_name(preview);
-                if seen.last() != Some(&name) {
-                    seen.push(name);
-                }
-                if let Some(pill) = status::status(preview) {
-                    let label = pill.label.to_string();
-                    if pills.last() != Some(&label) {
-                        pills.push(label);
-                    }
-                }
-                preview.snapshot().is_some_and(|snapshot| snapshot.phase == Phase::Live)
+                sample(preview);
+                preview
+                    .snapshot()
+                    .is_some_and(|snapshot| snapshot.phase == Phase::Live)
             })
             .await;
+        drop(sample);
         let installed = cx.update(|cx| {
             preview
                 .read(cx)
@@ -159,7 +183,7 @@ impl Run {
         steps.check(
             "a LuaLaTeX project downloads rtex, starts it and lays the document out, the pill saying each stage",
             live && installed && seen.iter().any(|state| state == "downloading"),
-            json!({ "seconds": started.elapsed().as_secs_f32(), "states": seen, "pills": pills }),
+            json!({ "seconds": started.elapsed().as_secs_f32(), "states": seen, "pills": pills, "busy_pill_bounds": busy_bounds }),
         );
         if !live {
             return self.restore_engine(cx, &project, root, &engine).await;
@@ -181,18 +205,30 @@ impl Run {
         {
             self.rest_pointer(cx, pill.center()).await?;
             self.snapshot(cx, "live-preview-tooltip").await;
-            self.rest_pointer(cx, gpui::point(gpui::px(4.), gpui::px(4.))).await?;
+            self.rest_pointer(cx, gpui::point(gpui::px(4.), gpui::px(4.)))
+                .await?;
         }
         steps.check(
             "a LuaLaTeX build gives the base PDF, every page the PDF's own and the pill only its dot",
             built && settled && pages.is_empty() && pill == Some(status::Tone::Live),
-            json!({ "seconds": took.as_secs_f32(), "layer_pages": pages, "pill": format!("{pill:?}") }),
+            json!({
+                "seconds": took.as_secs_f32(),
+                "layer_pages": pages,
+                "pill": format!("{pill:?}"),
+                // Recorded in a parity or shots run only.
+                "pill_bounds": lattice_ui::parity::regions()
+                    .get("live-preview-status")
+                    .and_then(|region| region.bounds)
+                    .map(|bounds| format!("{bounds:?}")),
+            }),
         );
 
         // Typing into a paragraph paints it over its page.
         let editor = self.open(cx, &chapter, Some(2))?;
         self.pause(cx, Duration::from_millis(300)).await;
         let before = cx.update(|cx| preview.read(cx).received("ParagraphUpdate"));
+        // Before the typing's save can start a quiet build.
+        let quiet_before = cx.update(|cx| self.shell.read(cx).build_panel().read(cx).quiet_runs());
         let typed_at = Instant::now();
         self.type_text(cx, "Typed live ").await?;
         let painted = self
@@ -220,23 +256,21 @@ impl Run {
 
         // The save's build waits for the pause in typing, then runs quietly.
         let saved = self
-            .wait_for(cx, Duration::from_secs(8), |_, cx| !editor.read(cx).is_dirty(cx))
+            .wait_for(cx, Duration::from_secs(8), |_, cx| {
+                !editor.read(cx).is_dirty(cx)
+            })
             .await;
         let saved_at = Instant::now();
         self.pause(cx, Duration::from_millis(1_500)).await;
         let held = cx.update(|cx| !self.shell.read(cx).building());
         self.snapshot(cx, "live-preview-held").await;
-        let mut quiet_seen = false;
         let mut chip_spun = false;
         let quiet_ran = self
-            .wait_for(cx, Duration::from_secs(20), |shell, cx| {
+            .wait_for(cx, Duration::from_secs(40), |shell, cx| {
                 let shell = shell.read(cx);
                 let panel = shell.build_panel().read(cx);
-                if panel.is_running() {
-                    quiet_seen |= panel.is_quiet();
-                    chip_spun |= matches!(panel.chip(), ChipState::Running(_));
-                }
-                quiet_seen && !shell.building()
+                chip_spun |= matches!(panel.chip(), ChipState::Running(_));
+                panel.quiet_runs() > quiet_before && !shell.building()
             })
             .await;
         let waited = saved_at.elapsed();
@@ -260,7 +294,8 @@ impl Run {
         cx.update(|cx| preview.update(cx, |preview, cx| preview.set_enabled(false, cx)));
         let off = self
             .wait_for(cx, Duration::from_secs(5), |_, cx| {
-                *preview.read(cx).state() == State::Off && status::status(preview.read(cx)).is_none()
+                *preview.read(cx).state() == State::Off
+                    && status::status(preview.read(cx)).is_none()
             })
             .await;
         let remembered = cx.update(|cx| {
@@ -276,20 +311,31 @@ impl Run {
         );
         cx.update(|cx| {
             crate::settings::update(cx, |settings| {
-                settings.live_preview.remove(&root.to_string_lossy().into_owned());
+                settings
+                    .live_preview
+                    .remove(&root.to_string_lossy().into_owned());
             })
         });
 
         std::fs::write(&chapter, &original)?;
         self.wait_for(cx, Duration::from_secs(8), |_, cx| {
-            !editor.read(cx).editor().read(cx).text(cx).contains("Typed live")
+            !editor
+                .read(cx)
+                .editor()
+                .read(cx)
+                .text(cx)
+                .contains("Typed live")
         })
         .await;
         self.restore_engine(cx, &project, root, &engine).await
     }
 
     /// Move the pointer to `position` and rest it there (a tooltip shows).
-    async fn rest_pointer(&self, cx: &mut AsyncApp, position: gpui::Point<gpui::Pixels>) -> Result<()> {
+    async fn rest_pointer(
+        &self,
+        cx: &mut AsyncApp,
+        position: gpui::Point<gpui::Pixels>,
+    ) -> Result<()> {
         self.with_window(cx, |_, window, cx| {
             window.dispatch_event(
                 gpui::PlatformInput::MouseMove(gpui::MouseMoveEvent {

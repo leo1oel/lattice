@@ -144,6 +144,8 @@ pub struct BuildPanel {
     /// the Build button shows no spinner, the live preview's dot pulses
     /// instead.
     quiet: bool,
+    /// Quiet builds started, for a scenario.
+    quiet_runs: usize,
     _ticker: Option<Task<()>>,
 }
 
@@ -172,6 +174,7 @@ impl BuildPanel {
             cycle: None,
             builds: 0,
             quiet: false,
+            quiet_runs: 0,
             _ticker: None,
         }
     }
@@ -299,11 +302,12 @@ impl BuildPanel {
         }
     }
 
-    pub fn is_quiet(&self) -> bool {
-        self.quiet
+    pub fn quiet_runs(&self) -> usize {
+        self.quiet_runs
     }
 
     pub fn started(&mut self, root: &Path, document: &str, cx: &mut Context<Self>) {
+        self.quiet_runs += usize::from(self.quiet);
         self.root = root.to_path_buf();
         self.status = Status::Running {
             started: Instant::now(),

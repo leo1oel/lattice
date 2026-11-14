@@ -137,8 +137,8 @@ fn split_font(file: &[u8]) -> (String, Vec<u8>) {
             if kind == 3 {
                 break;
             }
-            let len = u32::from_le_bytes([file[i + 2], file[i + 3], file[i + 4], file[i + 5]])
-                as usize;
+            let len =
+                u32::from_le_bytes([file[i + 2], file[i + 3], file[i + 4], file[i + 5]]) as usize;
             let segment = &file[i + 6..(i + 6 + len).min(file.len())];
             if kind == 1 {
                 // Only the cleartext before the binary part: the trailer's
@@ -219,13 +219,18 @@ fn parse_type1(file: &[u8]) -> Type1Font {
             decrypt(bytes, 4330, len_iv as usize)
         }
     };
-    let find = |needle: &[u8]| private.windows(needle.len()).position(|window| window == needle);
+    let find = |needle: &[u8]| {
+        private
+            .windows(needle.len())
+            .position(|window| window == needle)
+    };
     let number = |bytes: &[u8]| std::str::from_utf8(bytes).ok()?.parse::<usize>().ok();
     let subrs_at = find(b"/Subrs");
     let char_strings_at = find(b"/CharStrings");
     let mut subrs: Vec<Option<Vec<u8>>> = Vec::new();
     if let Some(at) = subrs_at {
-        let pattern = BytesRegex::new(r"(?-u)dup\s+(\d+)\s+(\d+)\s+(\S+) ").expect("a valid pattern");
+        let pattern =
+            BytesRegex::new(r"(?-u)dup\s+(\d+)\s+(\d+)\s+(\S+) ").expect("a valid pattern");
         let mut from = at;
         while let Some(captures) = pattern.captures_at(&private, from) {
             let whole = captures.get(0).expect("the whole match");
@@ -414,7 +419,15 @@ impl<'a> Glyph<'a> {
                 8 => {
                     let [a, b, c, d, e, f] = self.take();
                     let (x, y) = (self.x, self.y);
-                    self.curve_to(pen, x + a, y + b, x + a + c, y + b + d, x + a + c + e, y + b + d + f);
+                    self.curve_to(
+                        pen,
+                        x + a,
+                        y + b,
+                        x + a + c,
+                        y + b + d,
+                        x + a + c + e,
+                        y + b + d + f,
+                    );
                     self.stack.clear();
                 }
                 // closepath
@@ -472,14 +485,30 @@ impl<'a> Glyph<'a> {
                 30 => {
                     let [dy1, dx2, dy2, dx3] = self.take();
                     let (x, y) = (self.x, self.y);
-                    self.curve_to(pen, x, y + dy1, x + dx2, y + dy1 + dy2, x + dx2 + dx3, y + dy1 + dy2);
+                    self.curve_to(
+                        pen,
+                        x,
+                        y + dy1,
+                        x + dx2,
+                        y + dy1 + dy2,
+                        x + dx2 + dx3,
+                        y + dy1 + dy2,
+                    );
                     self.stack.clear();
                 }
                 // hvcurveto
                 31 => {
                     let [dx1, dx2, dy2, dy3] = self.take();
                     let (x, y) = (self.x, self.y);
-                    self.curve_to(pen, x + dx1, y, x + dx1 + dx2, y + dy2, x + dx1 + dx2, y + dy2 + dy3);
+                    self.curve_to(
+                        pen,
+                        x + dx1,
+                        y,
+                        x + dx1 + dx2,
+                        y + dy2,
+                        x + dx1 + dx2,
+                        y + dy2 + dy3,
+                    );
                     self.stack.clear();
                 }
                 12 => {
@@ -641,19 +670,66 @@ fn standard_encoding() -> Vec<Option<String>> {
         quoteleft a b c d e f g h i j k l m n o p q r s t u v w x y z braceleft bar braceright \
         asciitilde";
     const HIGH: [(usize, &str); 61] = [
-        (161, "exclamdown"), (162, "cent"), (163, "sterling"), (164, "fraction"), (165, "yen"),
-        (166, "florin"), (167, "section"), (168, "currency"), (169, "quotesingle"),
-        (170, "quotedblleft"), (171, "guillemotleft"), (172, "guilsinglleft"),
-        (173, "guilsinglright"), (174, "fi"), (175, "fl"), (177, "endash"), (178, "dagger"),
-        (179, "daggerdbl"), (180, "periodcentered"), (182, "paragraph"), (183, "bullet"),
-        (184, "quotesinglbase"), (185, "quotedblbase"), (186, "quotedblright"),
-        (187, "guillemotright"), (188, "ellipsis"), (189, "perthousand"), (191, "questiondown"),
-        (193, "grave"), (194, "acute"), (195, "circumflex"), (196, "tilde"), (197, "macron"),
-        (198, "breve"), (199, "dotaccent"), (200, "dieresis"), (202, "ring"), (203, "cedilla"),
-        (205, "hungarumlaut"), (206, "ogonek"), (207, "caron"), (208, "emdash"), (225, "AE"),
-        (227, "ordfeminine"), (232, "Lslash"), (233, "Oslash"), (234, "OE"),
-        (235, "ordmasculine"), (241, "ae"), (245, "dotlessi"), (248, "lslash"), (249, "oslash"),
-        (250, "oe"), (251, "germandbls"), (0, ""), (0, ""), (0, ""), (0, ""), (0, ""), (0, ""),
+        (161, "exclamdown"),
+        (162, "cent"),
+        (163, "sterling"),
+        (164, "fraction"),
+        (165, "yen"),
+        (166, "florin"),
+        (167, "section"),
+        (168, "currency"),
+        (169, "quotesingle"),
+        (170, "quotedblleft"),
+        (171, "guillemotleft"),
+        (172, "guilsinglleft"),
+        (173, "guilsinglright"),
+        (174, "fi"),
+        (175, "fl"),
+        (177, "endash"),
+        (178, "dagger"),
+        (179, "daggerdbl"),
+        (180, "periodcentered"),
+        (182, "paragraph"),
+        (183, "bullet"),
+        (184, "quotesinglbase"),
+        (185, "quotedblbase"),
+        (186, "quotedblright"),
+        (187, "guillemotright"),
+        (188, "ellipsis"),
+        (189, "perthousand"),
+        (191, "questiondown"),
+        (193, "grave"),
+        (194, "acute"),
+        (195, "circumflex"),
+        (196, "tilde"),
+        (197, "macron"),
+        (198, "breve"),
+        (199, "dotaccent"),
+        (200, "dieresis"),
+        (202, "ring"),
+        (203, "cedilla"),
+        (205, "hungarumlaut"),
+        (206, "ogonek"),
+        (207, "caron"),
+        (208, "emdash"),
+        (225, "AE"),
+        (227, "ordfeminine"),
+        (232, "Lslash"),
+        (233, "Oslash"),
+        (234, "OE"),
+        (235, "ordmasculine"),
+        (241, "ae"),
+        (245, "dotlessi"),
+        (248, "lslash"),
+        (249, "oslash"),
+        (250, "oe"),
+        (251, "germandbls"),
+        (0, ""),
+        (0, ""),
+        (0, ""),
+        (0, ""),
+        (0, ""),
+        (0, ""),
         (0, ""),
     ];
     let mut encoding = vec![None; 256];
@@ -689,7 +765,9 @@ mod tests {
 
     #[test]
     fn encodings_list_their_names_by_code() {
-        let names = parse_enc_file("% the 8r encoding\n/TeXBase1Encoding [ /.notdef /dotaccent % 1\n/fi ] def\n");
+        let names = parse_enc_file(
+            "% the 8r encoding\n/TeXBase1Encoding [ /.notdef /dotaccent % 1\n/fi ] def\n",
+        );
         assert_eq!(names, [".notdef", "dotaccent", "fi"]);
     }
 
@@ -702,7 +780,9 @@ mod tests {
             .iter()
             .map(|p| {
                 let c = p ^ (r >> 8) as u8;
-                r = (u16::from(c).wrapping_add(r)).wrapping_mul(52845).wrapping_add(22719);
+                r = (u16::from(c).wrapping_add(r))
+                    .wrapping_mul(52845)
+                    .wrapping_add(22719);
                 c
             })
             .collect();
@@ -712,7 +792,10 @@ mod tests {
     /// A real Type 1 font from the TeX tree draws its letters.
     #[test]
     fn the_tex_trees_computer_modern_has_outlines() {
-        let Ok(output) = std::process::Command::new("kpsewhich").arg("cmr10.pfb").output() else {
+        let Ok(output) = std::process::Command::new("kpsewhich")
+            .arg("cmr10.pfb")
+            .output()
+        else {
             return;
         };
         let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
@@ -723,7 +806,10 @@ mod tests {
         assert_eq!(outlines.upem, 1000.);
         let a = outlines.glyphs.get(&u32::from(b'A')).expect("an A");
         let bounds = a.bounds();
-        assert!(bounds.width() > 500. && bounds.height() > 600., "{bounds:?}");
+        assert!(
+            bounds.width() > 500. && bounds.height() > 600.,
+            "{bounds:?}"
+        );
         assert!(outlines.glyphs.len() > 100);
     }
 }

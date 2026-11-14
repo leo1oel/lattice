@@ -20,14 +20,24 @@ use crate::{
 };
 
 impl Session {
-    pub(super) fn load_resources(&mut self, dls: Vec<Arc<DisplayList>>, cx: &mut Context<LivePreview>) {
-        let fonts = fonts_wanted(&dls, &|key| self.fonts.has(key) || self.fonts_loading.contains(key));
-        let images = images_wanted(&dls, &|file| self.images.has(file) || self.images_loading.contains(file));
+    pub(super) fn load_resources(
+        &mut self,
+        dls: Vec<Arc<DisplayList>>,
+        cx: &mut Context<LivePreview>,
+    ) {
+        let fonts = fonts_wanted(&dls, &|key| {
+            self.fonts.has(key) || self.fonts_loading.contains(key)
+        });
+        let images = images_wanted(&dls, &|file| {
+            self.images.has(file) || self.images_loading.contains(file)
+        });
         if fonts.is_empty() && images.is_empty() {
             return;
         }
-        self.fonts_loading.extend(fonts.iter().map(|(key, _)| key.clone()));
-        self.images_loading.extend(images.iter().map(|(file, _)| file.clone()));
+        self.fonts_loading
+            .extend(fonts.iter().map(|(key, _)| key.clone()));
+        self.images_loading
+            .extend(images.iter().map(|(file, _)| file.clone()));
         let root = self.root.clone();
         let engine = self.engine.clone();
         cx.spawn(async move |this, cx| {
@@ -65,7 +75,9 @@ impl Session {
                 loaded_images.push((file, image));
             }
             this.update(cx, |this, cx| {
-                let Some(session) = this.session_mut() else { return };
+                let Some(session) = this.session_mut() else {
+                    return;
+                };
                 for (key, font) in loaded_fonts {
                     session.fonts_loading.remove(&key);
                     session.fonts.insert(key, font);
@@ -81,8 +93,15 @@ impl Session {
         .detach();
     }
 
-    pub(super) fn load_fallback(&mut self, file: String, layout_version: u64, cx: &mut Context<LivePreview>) {
-        let Some(engine) = self.engine.clone() else { return };
+    pub(super) fn load_fallback(
+        &mut self,
+        file: String,
+        layout_version: u64,
+        cx: &mut Context<LivePreview>,
+    ) {
+        let Some(engine) = self.engine.clone() else {
+            return;
+        };
         let build_dir = self.build_dir.clone();
         cx.spawn(async move |this, cx| {
             let bytes = cx

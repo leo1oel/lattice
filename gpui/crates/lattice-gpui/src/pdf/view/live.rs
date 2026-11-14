@@ -44,7 +44,10 @@ impl PdfView {
         let shown = visible.clone().all(|page| {
             self.pages.get(page).is_none_or(|slot| {
                 slot.base.pending.is_none()
-                    && slot.base.key.is_some_and(|key| key.generation == generation)
+                    && slot
+                        .base
+                        .key
+                        .is_some_and(|key| key.generation == generation)
             })
         });
         if !shown {

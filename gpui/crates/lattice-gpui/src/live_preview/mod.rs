@@ -38,8 +38,8 @@ use gpui::{App, AppContext as _, Context, Entity, EventEmitter, Subscription, Ta
 use lattice_core::{live_preview, models::FileNode};
 
 pub use model::Dirty;
-pub use session::{Phase, Snapshot};
 use session::Session;
+pub use session::{Phase, Snapshot};
 
 use crate::{
     editor_panel::EditorPanel,
@@ -213,7 +213,8 @@ impl LivePreview {
         let enabled = target.as_ref().is_some_and(|target| {
             crate::settings::get(cx).live_preview_enabled(&target.root.to_string_lossy())
         });
-        let changed = available != self.available || enabled != self.enabled || target != self.target;
+        let changed =
+            available != self.available || enabled != self.enabled || target != self.target;
         self.available = available;
         self.enabled = enabled;
         self.target = target;
@@ -274,12 +275,16 @@ impl LivePreview {
             })
             .ok();
             if !supported || !lualatex {
-                this.update(cx, |this, cx| this.set_state(State::Unavailable, cx)).ok();
+                this.update(cx, |this, cx| this.set_state(State::Unavailable, cx))
+                    .ok();
                 return;
             }
             if !installed {
                 cx.background_executor().timer(DOWNLOAD_AFTER).await;
-                if this.update(cx, |this, cx| this.set_state(State::Downloading(0.), cx)).is_err() {
+                if this
+                    .update(cx, |this, cx| this.set_state(State::Downloading(0.), cx))
+                    .is_err()
+                {
                     return;
                 }
                 let (progress, mut reports) = mpsc::unbounded::<f64>();
@@ -296,8 +301,10 @@ impl LivePreview {
                     let this = this.clone();
                     cx.spawn(async move |cx| {
                         while let Some(share) = reports.next().await {
-                            this.update(cx, |this, cx| this.set_state(State::Downloading(share), cx))
-                                .ok();
+                            this.update(cx, |this, cx| {
+                                this.set_state(State::Downloading(share), cx)
+                            })
+                            .ok();
                         }
                     })
                 };
@@ -308,12 +315,17 @@ impl LivePreview {
                         this.update(cx, |this, _| this.install = Some(status)).ok();
                     }
                     Err(error) => {
-                        this.update(cx, |this, cx| this.set_state(State::DownloadFailed(error), cx))
-                            .ok();
+                        this.update(cx, |this, cx| {
+                            this.set_state(State::DownloadFailed(error), cx)
+                        })
+                        .ok();
                         return;
                     }
                 }
-                if this.update(cx, |this, cx| this.set_state(State::Starting, cx)).is_err() {
+                if this
+                    .update(cx, |this, cx| this.set_state(State::Starting, cx))
+                    .is_err()
+                {
                     return;
                 }
             }
@@ -396,7 +408,9 @@ impl LivePreview {
 
     /// The editor in front changed its text (`project`-relative `path`).
     pub fn note_editor(&mut self, editor: &Entity<EditorPanel>, cx: &mut Context<Self>) {
-        let Some(session) = self.session.as_mut() else { return };
+        let Some(session) = self.session.as_mut() else {
+            return;
+        };
         let (path, text, saved) = {
             let editor = editor.read(cx);
             (
@@ -417,7 +431,9 @@ impl LivePreview {
     }
 
     fn files_changed(&mut self, paths: Vec<String>, cx: &mut Context<Self>) {
-        let Some(session) = self.session.as_mut() else { return };
+        let Some(session) = self.session.as_mut() else {
+            return;
+        };
         let reads = session.files_to_read(paths);
         let root = session.root.clone();
         for (path, generation) in reads {

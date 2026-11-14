@@ -159,7 +159,9 @@ impl PdfView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some(layer) = self.live_layer_mut() else { return };
+        let Some(layer) = self.live_layer_mut() else {
+            return;
+        };
         let key = Key {
             stamp: layer.stamp_of(page),
             width_px,
@@ -169,12 +171,25 @@ impl PdfView {
         if slot.drawn == Some(key) || slot.pending.as_ref().is_some_and(|(want, _)| *want == key) {
             return;
         }
-        let height_px = (width_px as f32 * height_pt / width_pt.max(1.)).round().max(1.) as u32;
+        let height_px = (width_px as f32 * height_pt / width_pt.max(1.))
+            .round()
+            .max(1.) as u32;
         let preview = layer.preview.clone();
-        let plan = preview.update(cx, |preview, cx| plan(preview, page as u32 + 1, width_px, height_px, width_pt.max(1.), cx));
+        let plan = preview.update(cx, |preview, cx| {
+            plan(
+                preview,
+                page as u32 + 1,
+                width_px,
+                height_px,
+                width_pt.max(1.),
+                cx,
+            )
+        });
         let Some(plan) = plan else {
             // Nothing to show: the page is the PDF's alone.
-            let slot = self.live_layer_mut().and_then(|layer| layer.slots.remove(&page));
+            let slot = self
+                .live_layer_mut()
+                .and_then(|layer| layer.slots.remove(&page));
             if let Some(image) = slot.and_then(|slot| slot.image) {
                 window.drop_image(image).ok();
             }
@@ -199,12 +214,18 @@ impl PdfView {
                     let pixmap = compose(job)?;
                     let bgra = to_bgra(&pixmap, dark);
                     let buffer = image::RgbaImage::from_raw(pixmap.width(), pixmap.height(), bgra)?;
-                    Some(Arc::new(RenderImage::new(smallvec![image::Frame::new(buffer)])))
+                    Some(Arc::new(RenderImage::new(smallvec![image::Frame::new(
+                        buffer
+                    )])))
                 })
                 .await;
             this.update_in(cx, |this, window, cx| {
-                let Some(layer) = this.live_layer_mut() else { return };
-                let Some(slot) = layer.slots.get_mut(&page) else { return };
+                let Some(layer) = this.live_layer_mut() else {
+                    return;
+                };
+                let Some(slot) = layer.slots.get_mut(&page) else {
+                    return;
+                };
                 if slot.pending.as_ref().map(|(want, _)| *want) != Some(key) {
                     if let Some(image) = image {
                         window.drop_image(image).ok();
@@ -229,7 +250,10 @@ impl PdfView {
             })
             .ok();
         });
-        if let Some(slot) = self.live_layer_mut().map(|layer| layer.slots.entry(page).or_default()) {
+        if let Some(slot) = self
+            .live_layer_mut()
+            .map(|layer| layer.slots.entry(page).or_default())
+        {
             slot.pending = Some((key, task));
         }
     }
@@ -272,7 +296,10 @@ fn plan(
             );
             // Not loading but missing: only the next layout or build shows
             // this edit.
-            if reason.as_deref().is_some_and(|reason| !only_loading(reason)) {
+            if reason
+                .as_deref()
+                .is_some_and(|reason| !only_loading(reason))
+            {
                 missing = true;
             }
             reason.is_none()
@@ -295,7 +322,9 @@ fn plan(
             page,
             layout_version,
         } => {
-            if let (Some(engine), Some(pdf)) = (session.engine(), session.fallback_for(layout_version)) {
+            if let (Some(engine), Some(pdf)) =
+                (session.engine(), session.fallback_for(layout_version))
+            {
                 fallback = Some((
                     engine.clone(),
                     RenderRequest {

@@ -386,9 +386,15 @@ fn live_preview_rows(
     // download's size is told where it starts (the PDF's pill).
     let description = unavailable.clone().or_else(|| match &state {
         State::Downloading(progress) => Some(
-            t!("Downloading rtex… {percent}%", percent = (progress * 100.).round() as u32).to_string(),
+            t!(
+                "Downloading rtex… {percent}%",
+                percent = (progress * 100.).round() as u32
+            )
+            .to_string(),
         ),
-        State::Failed(_) => Some(t!("Could not start: {message}", message = message.clone()).to_string()),
+        State::Failed(_) => {
+            Some(t!("Could not start: {message}", message = message.clone()).to_string())
+        }
         _ => None,
     });
     let mut rows = Vec::new();
@@ -433,7 +439,11 @@ fn live_preview_rows(
         let remove_live = live.clone();
         let remove = Button::new(
             "live-preview-remove",
-            if removing { t!("Removing…") } else { t!("Remove") },
+            if removing {
+                t!("Removing…")
+            } else {
+                t!("Remove")
+            },
         )
         .compact()
         .disabled(removing)

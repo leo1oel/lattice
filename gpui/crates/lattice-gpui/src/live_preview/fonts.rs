@@ -21,7 +21,10 @@ use super::{
 
 /// A font resource as read from the TeX tree, before it is drawn with.
 pub enum FontResource {
-    Sfnt { data: Arc<Vec<u8>>, index: u32 },
+    Sfnt {
+        data: Arc<Vec<u8>>,
+        index: u32,
+    },
     Type1 {
         upem: f64,
         glyphs: HashMap<u32, Path>,
@@ -30,7 +33,10 @@ pub enum FontResource {
     },
     /// A TeX virtual font: its characters are drawn from the base fonts in
     /// `fonts` (`virtual_font.rs`).
-    Virtual { vf: VirtualFont, fonts: Vec<FontResource> },
+    Virtual {
+        vf: VirtualFont,
+        fonts: Vec<FontResource>,
+    },
     Missing(String),
 }
 
@@ -215,13 +221,9 @@ impl ImageStore {
 /// A pixmap from straight-alpha RGBA bytes.
 pub fn pixmap_from_rgba(width: u32, height: u32, rgba: &[u8]) -> Option<Pixmap> {
     let mut pixmap = Pixmap::new(width, height)?;
-    for (pixel, source) in pixmap
-        .pixels_mut()
-        .iter_mut()
-        .zip(rgba.chunks_exact(4))
-    {
-        *pixel = tiny_skia::ColorU8::from_rgba(source[0], source[1], source[2], source[3])
-            .premultiply();
+    for (pixel, source) in pixmap.pixels_mut().iter_mut().zip(rgba.chunks_exact(4)) {
+        *pixel =
+            tiny_skia::ColorU8::from_rgba(source[0], source[1], source[2], source[3]).premultiply();
     }
     Some(pixmap)
 }

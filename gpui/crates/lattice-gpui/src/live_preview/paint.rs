@@ -82,7 +82,11 @@ fn pdf_color(data: &str) -> Option<Color> {
             "rg" | "RG" => take(3).map(|v| rgb(v[0], v[1], v[2])),
             "k" | "K" => take(4).map(|v| {
                 let [c, m, y, k] = [v[0], v[1], v[2], v[3]];
-                rgb((1. - c) * (1. - k), (1. - m) * (1. - k), (1. - y) * (1. - k))
+                rgb(
+                    (1. - c) * (1. - k),
+                    (1. - m) * (1. - k),
+                    (1. - y) * (1. - k),
+                )
             }),
             _ => continue,
         };
@@ -131,7 +135,10 @@ pub fn inexact_reason<'a>(
                     if !loaded.drawable(*index, *char) {
                         return Some(format!(
                             "a glyph is missing from {}",
-                            desc.psname.as_deref().or(desc.name.as_deref()).unwrap_or("a font")
+                            desc.psname
+                                .as_deref()
+                                .or(desc.name.as_deref())
+                                .unwrap_or("a font")
                         ));
                     }
                 }
@@ -194,7 +201,12 @@ pub struct Painter<'a> {
 }
 
 impl<'a> Painter<'a> {
-    pub fn new(pixmap: &'a mut Pixmap, base: Mat, fonts: &'a FontStore, images: &'a ImageStore) -> Self {
+    pub fn new(
+        pixmap: &'a mut Pixmap,
+        base: Mat,
+        fonts: &'a FontStore,
+        images: &'a ImageStore,
+    ) -> Self {
         Self {
             pixmap,
             base,
@@ -249,7 +261,10 @@ impl<'a> Painter<'a> {
                     if !loaded.drawable(*index, *char) {
                         continue;
                     }
-                    let extend = desc.extend.filter(|extend| *extend != 0.).map_or(1., |e| e / 1000.);
+                    let extend = desc
+                        .extend
+                        .filter(|extend| *extend != 0.)
+                        .map_or(1., |e| e / 1000.);
                     let hx = (1. + ef / 1_000_000.) * extend;
                     let slant = desc.slant.unwrap_or(0.) / 1000.;
                     self.glyph(&loaded, *index, *char, size, x + dx, y + dy, hx, slant);
@@ -281,11 +296,18 @@ impl<'a> Painter<'a> {
                                 quality: FilterQuality::Bicubic,
                                 ..PixmapPaint::default()
                             };
-                            self.pixmap
-                                .draw_pixmap(0, 0, bitmap.as_ref().as_ref(), &paint, m.mul(place).skia(), None);
+                            self.pixmap.draw_pixmap(
+                                0,
+                                0,
+                                bitmap.as_ref().as_ref(),
+                                &paint,
+                                m.mul(place).skia(),
+                                None,
+                            );
                         }
                         _ => {
-                            let grey = Color::from_rgba(0.5, 0.5, 0.5, 0.15).unwrap_or(Color::TRANSPARENT);
+                            let grey =
+                                Color::from_rgba(0.5, 0.5, 0.5, 0.15).unwrap_or(Color::TRANSPARENT);
                             self.fill_rect(m, x + dx, y_top + dy, *w, *h, grey);
                         }
                     }
@@ -294,7 +316,10 @@ impl<'a> Painter<'a> {
                     "save" => self.matrices.push(self.current),
                     "restore" => self.current = self.matrices.pop().unwrap_or(Mat::IDENTITY),
                     _ => {
-                        let v: Vec<f64> = data.split_whitespace().filter_map(|v| v.parse().ok()).collect();
+                        let v: Vec<f64> = data
+                            .split_whitespace()
+                            .filter_map(|v| v.parse().ok())
+                            .collect();
                         if let [a, b, c, d] = v[..] {
                             // PDF matrices are y-up; display lists are y-down:
                             // conjugate by the flip.
@@ -333,7 +358,12 @@ impl<'a> Painter<'a> {
         if let LoadedFont::Virtual { vf, fonts } = font.as_ref() {
             for part in vf.chars.get(&char).into_iter().flatten() {
                 match part {
-                    VirtualPart::Rule { h, v, width, height } => {
+                    VirtualPart::Rule {
+                        h,
+                        v,
+                        width,
+                        height,
+                    } => {
                         let m = self.base.mul(self.current);
                         let color = self.color;
                         self.fill_rect(
@@ -345,10 +375,24 @@ impl<'a> Painter<'a> {
                             color,
                         );
                     }
-                    VirtualPart::Char { font: sub, char, h, v } => {
+                    VirtualPart::Char {
+                        font: sub,
+                        char,
+                        h,
+                        v,
+                    } => {
                         let scale = vf.fonts.get(*sub).map_or(1., |font| font.scale);
                         if let Some(sub) = fonts.get(*sub).cloned() {
-                            self.glyph(&sub, None, *char, size * scale, x + h * size * hx, y + v * size, hx, slant);
+                            self.glyph(
+                                &sub,
+                                None,
+                                *char,
+                                size * scale,
+                                x + h * size * hx,
+                                y + v * size,
+                                hx,
+                                slant,
+                            );
                         }
                     }
                 }
@@ -387,7 +431,8 @@ impl<'a> Painter<'a> {
             .mul(self.current)
             .mul(Mat([s * stretch, 0., s * shear, -s, x, y]));
         let paint = self.paint();
-        self.pixmap.fill_path(&path, &paint, FillRule::Winding, m.skia(), None);
+        self.pixmap
+            .fill_path(&path, &paint, FillRule::Winding, m.skia(), None);
     }
 
     /// Paint the boxes of `rows` (translated) with paper, enlarged by `pad` sp
@@ -435,7 +480,10 @@ impl<'a> Painter<'a> {
             }
             _ => return,
         }
-        self.color = entries.last().and_then(|top| pdf_color(top)).unwrap_or(Color::BLACK);
+        self.color = entries
+            .last()
+            .and_then(|top| pdf_color(top))
+            .unwrap_or(Color::BLACK);
     }
 }
 
@@ -443,7 +491,9 @@ impl<'a> Painter<'a> {
 pub enum JobSource {
     /// The base PDF's own page, under the live paragraphs; `page` is rtex's
     /// layout of it as of the base, whose rows the paragraphs clear.
-    Base { page: Option<Arc<PageUpdate>> },
+    Base {
+        page: Option<Arc<PageUpdate>>,
+    },
     DisplayList(Arc<PageUpdate>),
     /// rtex's fallback PDF of the layout, drawn by PDFium: straight BGRA
     /// pixels at the job's size, or `None` when it could not be drawn.
@@ -473,7 +523,12 @@ fn device_rect(base: Mat, rect: Rect) -> (i32, i32, i32, i32) {
     let (x0, y0) = base.apply(rect.x, rect.y);
     let (x1, y1) = base.apply(rect.x + rect.w, rect.y + rect.h);
     let (x, y) = (x0.round() as i32, y0.round() as i32);
-    (x, y, (x1.round() as i32 - x).max(0), (y1.round() as i32 - y).max(0))
+    (
+        x,
+        y,
+        (x1.round() as i32 - x).max(0),
+        (y1.round() as i32 - y).max(0),
+    )
 }
 
 /// Rectangles [x0, y0, x1, y1] (sp) covering each overlay row and the gap
@@ -494,7 +549,12 @@ fn row_bands(rows: &[OverlayRow]) -> Vec<[f64; 4]> {
             _ => own_top,
         };
         let bottom = baseline + line.d.max(3. * PT);
-        out.push([line.x + row.dx - ROW_SIDE, top, line.x + row.dx + line.w + ROW_SIDE, bottom]);
+        out.push([
+            line.x + row.dx - ROW_SIDE,
+            top,
+            line.x + row.dx + line.w + ROW_SIDE,
+            bottom,
+        ]);
         previous = Some((bottom, baseline));
     }
     out
@@ -507,11 +567,21 @@ fn row_bands(rows: &[OverlayRow]) -> Vec<[f64; 4]> {
 pub fn compose(job: PageJob) -> Option<Pixmap> {
     let mut pixmap = Pixmap::new(job.width_px.max(1), job.height_px.max(1))?;
     let base = Mat::scale(job.k);
-    let hidden: HashSet<usize> = job.overlays.iter().flat_map(|(_, own)| own.iter().copied()).collect();
+    let hidden: HashSet<usize> = job
+        .overlays
+        .iter()
+        .flat_map(|(_, own)| own.iter().copied())
+        .collect();
     let mut snaps: Vec<(Pixmap, Rect)> = Vec::new();
     match &job.source {
         JobSource::DisplayList(page) => {
-            let mut lines = page.dl.lines.iter().enumerate().filter(|(ix, _)| !hidden.contains(ix)).map(|(_, l)| l);
+            let mut lines = page
+                .dl
+                .lines
+                .iter()
+                .enumerate()
+                .filter(|(ix, _)| !hidden.contains(ix))
+                .map(|(_, l)| l);
             // A font still loading or missing would draw approximately: the
             // page shows the PDF under it until everything it needs is in.
             if inexact_reason(&page.dl, &job.fonts, &job.images, Some(&mut lines)).is_some() {
@@ -529,7 +599,8 @@ pub fn compose(job: PageJob) -> Option<Pixmap> {
         JobSource::Fallback { page, pixels } => {
             if let Some(pixels) = pixels {
                 for (pixel, bgra) in pixmap.pixels_mut().iter_mut().zip(pixels.chunks_exact(4)) {
-                    *pixel = tiny_skia::ColorU8::from_rgba(bgra[2], bgra[1], bgra[0], bgra[3]).premultiply();
+                    *pixel = tiny_skia::ColorU8::from_rgba(bgra[2], bgra[1], bgra[0], bgra[3])
+                        .premultiply();
                 }
                 for (overlay, own) in &job.overlays {
                     for (src, dst) in cached_picture_moves(&page.dl, &overlay.rows, own) {
@@ -552,7 +623,8 @@ pub fn compose(job: PageJob) -> Option<Pixmap> {
                 .filter(|(ix, _)| hidden.contains(ix))
                 .map(|(_, line)| (line, 0., 0.))
                 .collect();
-            Painter::new(&mut pixmap, base, &job.fonts, &job.images).clear_lines(&rows, PT, ROW_SIDE);
+            Painter::new(&mut pixmap, base, &job.fonts, &job.images)
+                .clear_lines(&rows, PT, ROW_SIDE);
         }
         JobSource::Base { page } => {
             // The base PDF's page is rtex's page as of the base: clear the
@@ -566,7 +638,8 @@ pub fn compose(job: PageJob) -> Option<Pixmap> {
                     .filter(|(ix, _)| hidden.contains(ix))
                     .map(|(_, line)| (line, 0., 0.))
                     .collect();
-                Painter::new(&mut pixmap, base, &job.fonts, &job.images).clear_lines(&rows, PT, ROW_SIDE);
+                Painter::new(&mut pixmap, base, &job.fonts, &job.images)
+                    .clear_lines(&rows, PT, ROW_SIDE);
             }
         }
     }
@@ -575,11 +648,19 @@ pub fn compose(job: PageJob) -> Option<Pixmap> {
     // pictures back, then draw their rows, so a picture never covers live
     // text and no clear erases a picture already placed.
     for (overlay, _) in &job.overlays {
-        Painter::new(&mut pixmap, base, &job.fonts, &job.images).clear_rects(&row_bands(&overlay.rows));
+        Painter::new(&mut pixmap, base, &job.fonts, &job.images)
+            .clear_rects(&row_bands(&overlay.rows));
     }
     for (snap, dst) in &snaps {
         let (x, y, _, _) = device_rect(base, *dst);
-        pixmap.draw_pixmap(x, y, snap.as_ref(), &PixmapPaint::default(), Transform::identity(), None);
+        pixmap.draw_pixmap(
+            x,
+            y,
+            snap.as_ref(),
+            &PixmapPaint::default(),
+            Transform::identity(),
+            None,
+        );
     }
     for (overlay, _) in &job.overlays {
         let mut painter = Painter::new(&mut pixmap, base, &job.fonts, &job.images);
@@ -647,8 +728,17 @@ mod tests {
                     h: 5. * PT,
                     d: 0.,
                     items: vec![
-                        Item::Color { stack: 0, cmd: Some(1), data: "1 0 0 rg".into() },
-                        Item::Rule { x: 10. * PT, y_top: 15. * PT, w: 30. * PT, h: 5. * PT },
+                        Item::Color {
+                            stack: 0,
+                            cmd: Some(1),
+                            data: "1 0 0 rg".into(),
+                        },
+                        Item::Rule {
+                            x: 10. * PT,
+                            y_top: 15. * PT,
+                            w: 30. * PT,
+                            h: 5. * PT,
+                        },
                     ],
                     ..Line::default()
                 }],
@@ -672,7 +762,10 @@ mod tests {
         .unwrap();
         let at = |x: u32, y: u32| pixmap.pixel(x, y).unwrap();
         // Paper everywhere, and the red rule where the list puts it.
-        assert_eq!((at(2, 2).red(), at(2, 2).green(), at(2, 2).alpha()), (255, 255, 255));
+        assert_eq!(
+            (at(2, 2).red(), at(2, 2).green(), at(2, 2).alpha()),
+            (255, 255, 255)
+        );
         let rule = at(20, 17);
         assert_eq!((rule.red(), rule.green(), rule.blue()), (255, 0, 0));
     }
@@ -682,9 +775,20 @@ mod tests {
         let mut page = page_with_rule();
         page.dl.fonts.insert(
             "1".into(),
-            FontDesc { id: 1, name: Some("cmr10".into()), ..FontDesc::default() },
+            FontDesc {
+                id: 1,
+                name: Some("cmr10".into()),
+                ..FontDesc::default()
+            },
         );
-        page.dl.lines[0].items.push(Item::Glyph { font: 1, char: 65, index: None, x: 0., y: 0., ef: 0. });
+        page.dl.lines[0].items.push(Item::Glyph {
+            font: 1,
+            char: 65,
+            index: None,
+            x: 0.,
+            y: 0.,
+            ef: 0.,
+        });
         let job = PageJob {
             width_px: 10,
             height_px: 10,
@@ -706,13 +810,23 @@ mod tests {
             fragments: Vec::new(),
             revision: 2,
         };
-        let row = OverlayRow { line: page.dl.lines[0].clone(), dx: 0., dy: 40. * PT };
+        let row = OverlayRow {
+            line: page.dl.lines[0].clone(),
+            dx: 0.,
+            dy: 40. * PT,
+        };
         let pixmap = compose(PageJob {
             width_px: 100,
             height_px: 100,
             k: 1. / PT,
             source: JobSource::Base { page: Some(page) },
-            overlays: vec![(PageOverlay { overlay, rows: vec![row] }, HashSet::from([0]))],
+            overlays: vec![(
+                PageOverlay {
+                    overlay,
+                    rows: vec![row],
+                },
+                HashSet::from([0]),
+            )],
             fonts: FontStore::default(),
             images: ImageStore::default(),
         })
@@ -733,7 +847,14 @@ mod tests {
     #[test]
     fn rows_close_together_clear_the_gap_between_them() {
         let row = |y: f64| OverlayRow {
-            line: Line { x: 0., y, w: 10. * PT, h: 7. * PT, d: 2. * PT, ..Line::default() },
+            line: Line {
+                x: 0.,
+                y,
+                w: 10. * PT,
+                h: 7. * PT,
+                d: 2. * PT,
+                ..Line::default()
+            },
             dx: 0.,
             dy: 0.,
         };

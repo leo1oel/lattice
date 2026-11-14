@@ -232,7 +232,8 @@ impl Session {
                         .into_iter()
                         .filter(|path| is_tex(path))
                         .map(|path| {
-                            let generation = session.file_generation.get(&path).copied().unwrap_or(0);
+                            let generation =
+                                session.file_generation.get(&path).copied().unwrap_or(0);
                             (path, generation)
                         })
                         .collect();
@@ -264,8 +265,7 @@ impl Session {
 
     /// Ask rtex to stop; the processes end on their own thread.
     pub fn stop(&mut self, engine_close: bool) {
-        if engine_close
-            && let (Some(engine), Some(fallback)) = (&self.engine, self.fallback.take())
+        if engine_close && let (Some(engine), Some(fallback)) = (&self.engine, self.fallback.take())
         {
             engine.close(fallback.doc);
         }
@@ -353,7 +353,12 @@ impl Session {
     /// A new base PDF is loading into the viewer, built from the files as
     /// of `token`; it takes over once the viewer shows it (`base_promoted`),
     /// so the edits stay painted over the old one until then.
-    pub fn base_loading(&mut self, token: Option<usize>, quiet: bool, cx: &mut Context<LivePreview>) {
+    pub fn base_loading(
+        &mut self,
+        token: Option<usize>,
+        quiet: bool,
+        cx: &mut Context<LivePreview>,
+    ) {
         self.next_base = Some(token);
         self.quiet_base = quiet;
         self.refresh_rebuilding(cx);
@@ -437,7 +442,11 @@ impl Session {
         Some(self.queue.drain(..).map(|command| command.line()).collect())
     }
 
-    pub(super) fn batch_written(&mut self, result: Result<(), String>, cx: &mut Context<LivePreview>) {
+    pub(super) fn batch_written(
+        &mut self,
+        result: Result<(), String>,
+        cx: &mut Context<LivePreview>,
+    ) {
         self.sending = false;
         if let Err(error) = result {
             self.queue.clear();
@@ -458,7 +467,11 @@ impl Session {
         // rtex lays out again only when pagination moved, so its last layout
         // can be older than the PDF now on screen; the rows a live paragraph
         // clears come from that layout, so ask for one that matches the PDF.
-        if self.model.layout_revision.is_some_and(|layout| layout < revision) {
+        if self
+            .model
+            .layout_revision
+            .is_some_and(|layout| layout < revision)
+        {
             self.enqueue(vec![Command::RequestLayout]);
         }
         // The build laid out what the layout was awaited for.
@@ -487,7 +500,11 @@ impl Session {
         self.update_snapshot(cx, |snapshot| snapshot.layout_pending = pending);
     }
 
-    fn update_snapshot(&mut self, cx: &mut Context<LivePreview>, change: impl FnOnce(&mut Snapshot)) {
+    fn update_snapshot(
+        &mut self,
+        cx: &mut Context<LivePreview>,
+        change: impl FnOnce(&mut Snapshot),
+    ) {
         let mut next = self.snapshot.clone();
         change(&mut next);
         if next != self.snapshot {
@@ -517,7 +534,10 @@ impl Session {
                 state,
                 reason,
             } => {
-                if self.generation.is_some_and(|generation| generation != engine_generation) {
+                if self
+                    .generation
+                    .is_some_and(|generation| generation != engine_generation)
+                {
                     mark(cx, self.model.drop_overlays(None));
                 }
                 self.generation = Some(engine_generation);
@@ -660,7 +680,11 @@ impl Session {
         let revision = event.versions.source_revision;
         if event.status == "removed" {
             let dl = Arc::new(event.dl);
-            mark(cx, self.model.apply_paragraph(event.par_id, dl, Vec::new(), revision));
+            mark(
+                cx,
+                self.model
+                    .apply_paragraph(event.par_id, dl, Vec::new(), revision),
+            );
             return;
         }
         // Something in it cannot be drawn exactly, or TeX stopped on an
@@ -678,7 +702,11 @@ impl Session {
             self.model.place_live(event.par_id, event.fragments)
         };
         let dl = Arc::new(event.dl);
-        mark(cx, self.model.apply_paragraph(event.par_id, dl.clone(), fragments, revision));
+        mark(
+            cx,
+            self.model
+                .apply_paragraph(event.par_id, dl.clone(), fragments, revision),
+        );
         self.load_resources(vec![dl], cx);
         if event.pagination_stale {
             self.await_layout(Some(revision), cx);
@@ -707,13 +735,19 @@ impl LivePreview {
     /// Write the queued commands to rtex, one batch at a time, in order: the
     /// next batch goes once this one is written.
     pub(super) fn flush(&mut self, cx: &mut Context<Self>) {
-        let Some(session) = self.session_mut() else { return };
-        let Some(batch) = session.take_batch() else { return };
+        let Some(session) = self.session_mut() else {
+            return;
+        };
+        let Some(batch) = session.take_batch() else {
+            return;
+        };
         let rtex = session.rtex().clone();
         cx.spawn(async move |this, cx| {
             let written = cx
                 .background_spawn(async move {
-                    let mut rtex = rtex.lock().map_err(|_| "The live preview has stopped.".to_string())?;
+                    let mut rtex = rtex
+                        .lock()
+                        .map_err(|_| "The live preview has stopped.".to_string())?;
                     batch.iter().try_for_each(|line| {
                         let line = live_preview::allowed_command(line)?;
                         rtex.send(&line)

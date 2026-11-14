@@ -28,12 +28,18 @@ use super::{
 pub enum ImageResource {
     Bitmap(Vec<u8>),
     /// A PDF figure, drawn by PDFium at the page it names.
-    Pdf { data: Vec<u8>, page: u32 },
+    Pdf {
+        data: Vec<u8>,
+        page: u32,
+    },
     Missing(String),
 }
 
 /// The fonts `dls` need that `have` does not hold, by `FontDesc::key`.
-pub fn fonts_wanted(dls: &[Arc<DisplayList>], have: &dyn Fn(&str) -> bool) -> Vec<(String, FontDesc)> {
+pub fn fonts_wanted(
+    dls: &[Arc<DisplayList>],
+    have: &dyn Fn(&str) -> bool,
+) -> Vec<(String, FontDesc)> {
     let mut want: HashMap<String, FontDesc> = HashMap::new();
     for dl in dls {
         for desc in dl.fonts.values() {
@@ -84,9 +90,9 @@ fn type1(file: &str, entry: Option<&MapEntry>) -> Result<FontResource, String> {
     let outlines = match cached {
         Some(outlines) => outlines,
         None => {
-            let encoding = enc
-                .and_then(|enc| read_font_file(&enc).ok())
-                .map(|bytes| parse_enc_file(&bytes.iter().map(|b| char::from(*b)).collect::<String>()));
+            let encoding = enc.and_then(|enc| read_font_file(&enc).ok()).map(|bytes| {
+                parse_enc_file(&bytes.iter().map(|b| char::from(*b)).collect::<String>())
+            });
             let outlines = Arc::new(type1_outlines(&read_font_file(file)?, encoding.as_deref()));
             if let Ok(mut cache) = cache.lock() {
                 cache.insert(key, outlines.clone());
@@ -107,7 +113,10 @@ pub fn load_font(desc: &FontDesc) -> FontResource {
     let loaded = match &desc.filename {
         Some(file) => {
             let lower = file.to_ascii_lowercase();
-            if [".otf", ".ttf", ".ttc", ".otc"].iter().any(|ext| lower.ends_with(ext)) {
+            if [".otf", ".ttf", ".ttc", ".otc"]
+                .iter()
+                .any(|ext| lower.ends_with(ext))
+            {
                 // LuaTeX numbers a collection's faces from 1.
                 let collection = lower.ends_with(".ttc") || lower.ends_with(".otc");
                 let index = if collection {
@@ -220,7 +229,10 @@ mod tests {
             .collect();
         fonts.sort();
         assert_eq!(fonts, ["tfm:cmr10"]);
-        assert_eq!(images_wanted(&dls, &|_| false), [("fig.png".to_string(), 1)]);
+        assert_eq!(
+            images_wanted(&dls, &|_| false),
+            [("fig.png".to_string(), 1)]
+        );
         assert!(images_wanted(&dls, &|file| file == "fig.png").is_empty());
     }
 

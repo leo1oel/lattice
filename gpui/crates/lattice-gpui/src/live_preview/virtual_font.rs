@@ -17,8 +17,18 @@ use std::collections::{HashMap, HashSet};
 /// (h, v), or a rule.
 #[derive(Clone, Debug, PartialEq)]
 pub enum VirtualPart {
-    Char { font: usize, char: u32, h: f64, v: f64 },
-    Rule { h: f64, v: f64, width: f64, height: f64 },
+    Char {
+        font: usize,
+        char: u32,
+        h: f64,
+        v: f64,
+    },
+    Rule {
+        h: f64,
+        v: f64,
+        width: f64,
+        height: f64,
+    },
 }
 
 /// A base font a virtual font draws from, at `scale` times the virtual
@@ -223,12 +233,19 @@ fn run_packet(
                 * fonts.get(font).map_or(1., |font| font.scale)
         })
     };
-    let fix = |r: &mut Reader, n: usize| -> Option<f64> { Some(r.s(n).ok()? as f64 / f64::from(1 << 20)) };
+    let fix = |r: &mut Reader, n: usize| -> Option<f64> {
+        Some(r.s(n).ok()? as f64 / f64::from(1 << 20))
+    };
     while !r.done() {
         let op = r.u(1).ok()?;
         let mut set = |char: u32, mv: bool, h: &mut f64| {
             if let Some(font) = font {
-                parts.push(VirtualPart::Char { font, char, h: *h, v });
+                parts.push(VirtualPart::Char {
+                    font,
+                    char,
+                    h: *h,
+                    v,
+                });
             }
             if mv {
                 *h += advance(font, char);
@@ -244,7 +261,12 @@ fn run_packet(
                 let height = fix(&mut r, 4)?;
                 let width = fix(&mut r, 4)?;
                 if height > 0. && width > 0. {
-                    parts.push(VirtualPart::Rule { h, v, width, height });
+                    parts.push(VirtualPart::Rule {
+                        h,
+                        v,
+                        width,
+                        height,
+                    });
                 }
                 if op == 132 {
                     h += width;
@@ -333,10 +355,27 @@ mod tests {
     fn character_programs_run_into_parts() {
         let widths = |_: usize| Some(TfmWidths::from([(65, 0.75)]));
         let font = parse_virtual_font(&sample(), &widths).unwrap();
-        assert_eq!(font.fonts, [VirtualFontRef { name: "base".into(), scale: 1. }]);
+        assert_eq!(
+            font.fonts,
+            [VirtualFontRef {
+                name: "base".into(),
+                scale: 1.
+            }]
+        );
         let parts = &font.chars[&u32::from(b'A')];
-        assert_eq!(parts[0], VirtualPart::Char { font: 0, char: 65, h: 0., v: 0. });
-        let VirtualPart::Rule { h, width, height, .. } = parts[1] else {
+        assert_eq!(
+            parts[0],
+            VirtualPart::Char {
+                font: 0,
+                char: 65,
+                h: 0.,
+                v: 0.
+            }
+        );
+        let VirtualPart::Rule {
+            h, width, height, ..
+        } = parts[1]
+        else {
             panic!("a rule");
         };
         assert_eq!(h, 0.75);
@@ -353,14 +392,21 @@ mod tests {
     #[test]
     fn the_tex_trees_times_is_virtual_over_its_base_encoding() {
         let find = |name: &str| {
-            let output = std::process::Command::new("kpsewhich").arg(name).output().ok()?;
+            let output = std::process::Command::new("kpsewhich")
+                .arg(name)
+                .output()
+                .ok()?;
             std::fs::read(String::from_utf8_lossy(&output.stdout).trim()).ok()
         };
         let (Some(vf), Some(tfm)) = (find("ptmr8t.vf"), find("ptmr8r.tfm")) else {
             return;
         };
         let widths = parse_tfm(&tfm).unwrap();
-        assert!(widths.get(&u32::from(b'A')).is_some_and(|width| *width > 0.5));
+        assert!(
+            widths
+                .get(&u32::from(b'A'))
+                .is_some_and(|width| *width > 0.5)
+        );
         let font = parse_virtual_font(&vf, &|_| Some(widths.clone())).unwrap();
         assert_eq!(font.fonts[0].name, "ptmr8r");
         assert!(font.chars.contains_key(&u32::from(b'A')));

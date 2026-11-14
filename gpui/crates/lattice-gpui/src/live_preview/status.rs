@@ -11,15 +11,16 @@
 //! why.
 
 use gpui::{
-    Animation, AnimationExt as _, AnyElement, AnyView, App, AppContext as _, Context, Entity, InteractiveElement as _,
-    IntoElement, ParentElement as _, Render, SharedString, StatefulInteractiveElement as _, Styled as _,
-    Window, div, ease_in_out, prelude::FluentBuilder as _, px,
+    Animation, AnimationExt as _, AnyElement, AnyView, App, AppContext as _, Context, Entity,
+    InteractiveElement as _, IntoElement, ParentElement as _, Render, SharedString,
+    StatefulInteractiveElement as _, Styled as _, Window, div, ease_in_out,
+    prelude::FluentBuilder as _, px,
 };
 use lattice_i18n::t;
 use lattice_ui::{
     ActiveLattice as _, Elevation, Icon, TextRole, TextRoleStyle as _,
-    interaction::{mix, track_pointer, use_interaction},
     components::{PopFrom, tip_in},
+    interaction::{mix, track_pointer, use_interaction},
     motion::Motion,
     tokens::{RADIUS_CONTROL, SPACING_2, SPACING_3, SPACING_5, SPACING_6, SPACING_16},
 };
@@ -49,7 +50,10 @@ pub struct Status {
 pub fn status(preview: &LivePreview) -> Option<Status> {
     let state = preview.state();
     let snapshot = preview.snapshot();
-    if matches!(state, State::Off | State::Unavailable | State::DownloadFailed(_)) {
+    if matches!(
+        state,
+        State::Off | State::Unavailable | State::DownloadFailed(_)
+    ) {
         return None;
     }
     let about = t!(
@@ -114,11 +118,16 @@ pub fn status(preview: &LivePreview) -> Option<Status> {
     let rebuild_note = rebuilding.then(|| {
         t!("The full PDF is rebuilding in the background. Page breaks, references and jumps to the source catch up when it finishes.").to_string()
     });
-    let tip = [Some(label.clone()), detail, rebuild_note, Some(about.to_string())]
-        .into_iter()
-        .flatten()
-        .collect::<Vec<_>>()
-        .join("\n\n");
+    let tip = [
+        Some(label.clone()),
+        detail,
+        rebuild_note,
+        Some(about.to_string()),
+    ]
+    .into_iter()
+    .flatten()
+    .collect::<Vec<_>>()
+    .join("\n\n");
     Some(Status {
         tone,
         label: label.into(),
@@ -138,7 +147,11 @@ impl Render for PillTip {
         let paragraphs: Vec<AnyElement> = self
             .text
             .split("\n\n")
-            .map(|paragraph| div().child(SharedString::from(paragraph.to_string())).into_any_element())
+            .map(|paragraph| {
+                div()
+                    .child(SharedString::from(paragraph.to_string()))
+                    .into_any_element()
+            })
             .collect();
         let card = div()
             .flex()
@@ -158,7 +171,11 @@ impl Render for PillTip {
 }
 
 /// The pill, over the bottom left of the pages, or nothing.
-pub fn pill(preview: &Entity<LivePreview>, window: &mut Window, cx: &mut App) -> Option<AnyElement> {
+pub fn pill(
+    preview: &Entity<LivePreview>,
+    window: &mut Window,
+    cx: &mut App,
+) -> Option<AnyElement> {
     let status = status(preview.read(cx))?;
     let palette = cx.palette().clone();
     let stopped = status.tone == Tone::Stopped;
@@ -183,7 +200,11 @@ pub fn pill(preview: &Entity<LivePreview>, window: &mut Window, cx: &mut App) ->
             "live-preview-pulse",
             Animation::new(Motion::Flourish.duration() * 2).repeat(),
             |dot, delta| {
-                let half = if delta <= 0.5 { delta * 2. } else { 2. - delta * 2. };
+                let half = if delta <= 0.5 {
+                    delta * 2.
+                } else {
+                    2. - delta * 2.
+                };
                 dot.opacity(1. - 0.65 * ease_in_out(half))
             },
         )
@@ -208,7 +229,11 @@ pub fn pill(preview: &Entity<LivePreview>, window: &mut Window, cx: &mut App) ->
         })
         .shadow(Elevation::Popover.shadows(&palette))
         .text_role(TextRole::Micro, cx)
-        .text_color(if stopped { palette.text } else { palette.text_secondary })
+        .text_color(if stopped {
+            palette.text
+        } else {
+            palette.text_secondary
+        })
         .whitespace_nowrap()
         .when(live, |this| this.p(SPACING_3))
         .when(!live, |this| this.px(SPACING_5).py(SPACING_2))
@@ -223,9 +248,7 @@ pub fn pill(preview: &Entity<LivePreview>, window: &mut Window, cx: &mut App) ->
                     .child(status.label.clone()),
             )
         })
-        .tooltip(move |_, cx| -> AnyView {
-            cx.new(|_| PillTip { text: tip.clone() }).into()
-        });
+        .tooltip(move |_, cx| -> AnyView { cx.new(|_| PillTip { text: tip.clone() }).into() });
     if stopped {
         let preview = preview.clone();
         body = track_pointer(body, pointer)

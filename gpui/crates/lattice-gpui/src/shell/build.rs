@@ -244,6 +244,7 @@ impl Shell {
             .unwrap_or_default();
         let candidates: Vec<String> = main.iter().chain(&open_document).cloned().collect();
         self.build_panel.update(cx, |panel, cx| {
+            panel.set_quiet(request.quiet, cx);
             panel.set_project_files(files.clone());
             panel.started(&root, &label, cx);
         });
@@ -274,8 +275,6 @@ impl Shell {
         let aux_files = crate::settings::aux_files(cx);
         self.pdf
             .update(cx, |panel, cx| panel.set_building(true, cx));
-        self.build_panel
-            .update(cx, |panel, cx| panel.set_quiet(request.quiet, cx));
         let live_preview = self.live_preview.clone();
         self.build_task = Some(cx.spawn_in(window, async move |this, cx| {
             for save in saves {
@@ -556,9 +555,16 @@ impl Shell {
         cx: &mut Context<Self>,
     ) -> bool {
         if !self.live_on_tex(cx) {
+            log::info!(
+                "automatic build runs now: live {} in {:?}",
+                self.live_preview.read(cx).is_live(),
+                self.active_editor()
+                    .map(|editor| editor.read(cx).relative().to_string())
+            );
             self.quiet_builds.cancel();
             return false;
         }
+        log::info!("automatic build waits for typing to pause");
         let now = std::time::Instant::now();
         self.quiet_builds.saved(now);
         if self.quiet_builds.due(now) {
@@ -573,9 +579,13 @@ impl Shell {
     /// seen in the next build alone.
     fn live_on_tex(&self, cx: &App) -> bool {
         self.live_preview.read(cx).is_live()
-            && self
-                .active_editor()
-                .is_some_and(|editor| editor.read(cx).relative().to_ascii_lowercase().ends_with(".tex"))
+            && self.active_editor().is_some_and(|editor| {
+                editor
+                    .read(cx)
+                    .relative()
+                    .to_ascii_lowercase()
+                    .ends_with(".tex")
+            })
     }
 
     fn wait_for_typing_pause(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -604,6 +614,7 @@ impl Shell {
 
     fn fire_quiet_build(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let quiet = self.live_on_tex(cx);
+        log::info!("the waiting build runs, quiet: {quiet}");
         self.quiet_builds.cancel();
         let request = BuildRequest {
             quiet,

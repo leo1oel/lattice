@@ -239,11 +239,19 @@ pub fn entries(has_project: bool, known_author: Option<&str>) -> Vec<Entry> {
 /// project, which goes before the app's version.
 pub fn with_live_preview(mut entries: Vec<Entry>) -> Vec<Entry> {
     let builds = t!("Builds");
-    let entry = Entry::row(SettingsTab::Editor, t!("Editor & builds"), "live-preview", t!("Live preview"))
-        .terms(format!(
-            "{builds} LuaLaTeX rtex {}",
-            tc!("Search words for the Live preview setting, space-separated", "realtime instant")
-        ));
+    let entry = Entry::row(
+        SettingsTab::Editor,
+        t!("Editor & builds"),
+        "live-preview",
+        t!("Live preview"),
+    )
+    .terms(format!(
+        "{builds} LuaLaTeX rtex {}",
+        tc!(
+            "Search words for the Live preview setting, space-separated",
+            "realtime instant"
+        )
+    ));
     let at = entries
         .iter()
         .position(|entry| entry.id == Some("version"))

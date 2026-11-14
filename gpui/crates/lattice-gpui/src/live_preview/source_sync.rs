@@ -41,7 +41,11 @@ pub fn text_change(before: &str, after: &str) -> Option<(usize, usize, String)> 
     while !before.is_char_boundary(a.len() - end) || !after.is_char_boundary(b.len() - end) {
         end -= 1;
     }
-    Some((start, a.len() - end, after[start..b.len() - end].to_string()))
+    Some((
+        start,
+        a.len() - end,
+        after[start..b.len() - end].to_string(),
+    ))
 }
 
 /// rtex's copy of each file it has been sent, as commands that bring it to
