@@ -52,6 +52,7 @@ impl Run {
             shown && start_panel.is_some() && start_panel != document_panel,
             json!({ "start": start_panel, "documents": document_panel }),
         );
+        self.get_started_shot(cx, "get-started-panel").await;
         steps_run.check(
             "a project of the writer's own marks the checklist's last step",
             own,
@@ -90,6 +91,7 @@ impl Run {
                 && front.as_deref() == Some(root.join("main.tex").as_path()),
             json!({ "ringing": format!("{ringing:?}"), "front": front }),
         );
+        self.get_started_shot(cx, "get-started-show-me-ring").await;
         self.with_window(cx, |_, window, cx| {
             window.dispatch_event(
                 PlatformInput::KeyDown(gpui::KeyDownEvent {
@@ -208,5 +210,31 @@ impl Run {
             json!({ "back": back, "start_in_layout": start_kept }),
         );
         Ok(())
+    }
+
+    /// Save the window as `name`.png into `LATTICE_E2E_SHOTS`, when set.
+    /// Drawn and read back at once, not through `capture`: that waits up to
+    /// 8 s for two PDF pages, the fixture's PDF has one, and the Show me
+    /// ring is gone after 8 s.
+    async fn get_started_shot(&self, cx: &mut AsyncApp, name: &str) {
+        #[cfg(feature = "offscreen-shots")]
+        if let Some(dir) = std::env::var_os("LATTICE_E2E_SHOTS") {
+            let out = Path::new(&dir).join(format!("{name}.png"));
+            let shot = self.with_window(cx, |_, window, cx| {
+                window.refresh();
+                let _ = window.draw(cx);
+                window.render_to_image()
+            });
+            match shot {
+                Ok(Ok(image)) => {
+                    if let Err(error) = image.save(&out) {
+                        log::warn!("e2e shot {name}: {error:#}");
+                    }
+                }
+                Ok(Err(error)) | Err(error) => log::warn!("e2e shot {name}: {error:#}"),
+            }
+        }
+        #[cfg(not(feature = "offscreen-shots"))]
+        let _ = (cx, name);
     }
 }
