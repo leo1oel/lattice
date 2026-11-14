@@ -22,14 +22,56 @@
 //!   references and equations Visual mode draws, read through the Tauri
 //!   command its modules invoke (`read_project_file`);
 //! - a citation's Go to entry (`tex:open-citation`), opened at its entry in
-//!   the primary bibliography as the source editor's card opens it.
+//!   the primary bibliography as the source editor's card opens it;
+//! - the spell check's settings, the project's dictionary and its ignored
+//!   rules and sentences (`tex:spelling`), and a word added or a rule or
+//!   sentence ignored from a lint's card ([`LatexEvent::AddWord`],
+//!   [`LatexEvent::Ignore`]), written to the manifest as the source's are;
+//! - the labels and citation keys nothing uses (`tex:unused`), read from the
+//!   project's sources when TexLab is not there to report them, as the Tauri
+//!   app's `list_unused_symbols` reads them;
+//! - the manuscript's outline for the outline rail over the page
+//!   (`tex:outline`), and a row's jump ([`LatexEvent::OutlineJump`]);
+//! - Find references and Rename on a label or citation key, and an image
+//!   pasted into the page, handed to the window's flows
+//!   ([`LatexEvent::FindReferences`], [`LatexEvent::RenameSymbol`],
+//!   [`LatexEvent::PasteImage`]), with the page's caret mirrored in the
+//!   source ([`LatexEvent::Caret`]) so they act where the writer is.
+//!
+//! The backend commands its modules invoke are answered in
+//! `latex_services.rs`.
 
-use gpui::{Context, Entity};
-use lattice_editor::index::ProjectIndex;
+use std::path::PathBuf;
+
+use gpui::{AppContext as _, Context, Entity};
+use lattice_editor::{index::ProjectIndex, latex::spelling::Ignore, texlab::TexlabService};
 use serde_json::{Value, json};
 
-use super::{MarkdownEvent, StructuredDocument, StructuredEvent, StructuredKind};
-use crate::project::Project;
+use super::{
+    MarkdownEvent, StructuredDocument, StructuredEvent, StructuredKind,
+    latex_services::LatexServices,
+};
+use crate::project::{Project, ProjectEvent};
+
+/// What a `.tex` file's Visual page asks of its panel beside a visual
+/// editor's asks ([`MarkdownEvent`]).
+#[derive(Clone, Debug, PartialEq)]
+pub enum LatexEvent {
+    /// Add a word to the project's dictionary.
+    AddWord(String),
+    /// Leave a rule or a sentence unchecked in the project.
+    Ignore(Ignore),
+    /// List a label's (`"label"`) or citation key's (`"citation"`) uses.
+    FindReferences { kind: String, symbol: String },
+    /// Rename a label or citation key everywhere.
+    RenameSymbol { kind: String, symbol: String },
+    /// An image was pasted into the page: insert it as a figure.
+    PasteImage,
+    /// An outline rail row: open `path` at the 1-based `line`.
+    OutlineJump { path: String, line: u32 },
+    /// The page's caret, as a UTF-16 offset into the file.
+    Caret(usize),
+}
 
 /// What a `.tex` file's Visual page last had of the project beyond the
 /// visual editors' session.
@@ -41,6 +83,14 @@ pub(super) struct LatexSession {
     root_document: Option<String>,
     /// `{ rootDocument, auxFolder }` of the last build that wrote a PDF.
     build: Value,
+    /// `{ enabled, words, ignores: { rules, sentences } }`, as `tex:spelling` sends it.
+    spelling: Value,
+    /// `{ labels, citations }` nothing uses.
+    unused: Value,
+    /// `{ nodes, rootPath, pdf }` for the outline rail.
+    outline: Value,
+    /// Bumped by every read of the unused symbols, so a slow one is dropped.
+    unused_generation: u64,
 }
 
 /// The index as the page's `CitationInfo` and `ReferenceInfo` lists have it
@@ -108,6 +158,7 @@ impl StructuredDocument {
         project: &Entity<Project>,
         relative: String,
         source: String,
+        dictionaries: Option<PathBuf>,
         window: &mut gpui::Window,
         cx: &mut Context<Self>,
     ) -> Self {
@@ -125,10 +176,164 @@ impl StructuredDocument {
             index: index_payload(index.read(cx)),
             root_document: None,
             build: Value::Null,
+            spelling: Value::Null,
+            unused: json!({ "labels": [], "citations": [] }),
+            outline: Value::Null,
+            unused_generation: 0,
         });
+        let texlab = project.read(cx).texlab().clone();
+        this.latex_services = Some(LatexServices::new(texlab, dictionaries));
         this._subscriptions
             .push(cx.observe(&index, |this, index, cx| this.index_changed(&index, cx)));
+        // A source changing on disk (a save among them) may use a label or
+        // key, or stop using one.
+        this._subscriptions.push(cx.subscribe(project, |this, _, event, cx| {
+            if let ProjectEvent::FilesChanged(paths) = event
+                && paths.as_ref().is_none_or(|paths| {
+                    paths
+                        .iter()
+                        .any(|path| path.to_ascii_lowercase().ends_with(".tex"))
+                })
+            {
+                this.read_unused(cx);
+            }
+        }));
+        this.read_unused(cx);
         this
+    }
+
+    /// Read the labels and citation keys nothing uses, off the main thread.
+    /// With TexLab installed the Tauri app leaves them to TexLab's
+    /// diagnostics and lists none.
+    fn read_unused(&mut self, cx: &mut Context<Self>) {
+        let Some(session) = &mut self.latex else {
+            return;
+        };
+        if TexlabService::available() {
+            return;
+        }
+        session.unused_generation += 1;
+        let generation = session.unused_generation;
+        let root = self.root.clone();
+        cx.spawn(async move |this, cx| {
+            let unused = cx
+                .background_spawn(async move { lattice_core::project::unused_symbols(&root) })
+                .await;
+            this.update(cx, |this, cx| {
+                let Ok(unused) = unused else { return };
+                let Some(session) = &mut this.latex else { return };
+                if session.unused_generation != generation {
+                    return;
+                }
+                let payload = json!({ "labels": unused.labels, "citations": unused.citations });
+                if session.unused == payload {
+                    return;
+                }
+                session.unused = payload.clone();
+                this.post("tex:unused", payload, cx);
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    /// Whether Settings checks spelling, the project's dictionary and the
+    /// rules and sentences it leaves unchecked.
+    pub fn set_spelling(
+        &mut self,
+        enabled: bool,
+        words: &[String],
+        rules: &[String],
+        sentences: &[String],
+        cx: &mut Context<Self>,
+    ) {
+        let payload = json!({
+            "enabled": enabled,
+            "words": words,
+            "ignores": { "rules": rules, "sentences": sentences },
+        });
+        self.set_latex_value(payload, "tex:spelling", |session| &mut session.spelling, cx);
+    }
+
+    /// The manuscript's outline for the rail, as `OutlineNode`s, its root
+    /// document, and a token naming the PDF its pages come from (`None`
+    /// before a build wrote one).
+    pub fn set_outline(
+        &mut self,
+        nodes: Value,
+        root_path: &str,
+        pdf: Option<String>,
+        cx: &mut Context<Self>,
+    ) {
+        let payload = json!({ "nodes": nodes, "rootPath": root_path, "pdf": pdf });
+        self.set_latex_value(payload, "tex:outline", |session| &mut session.outline, cx);
+    }
+
+    /// Keep `payload` in the session slot `slot` picks and post it as
+    /// `kind`, when it changed.
+    fn set_latex_value(
+        &mut self,
+        payload: Value,
+        kind: &str,
+        slot: impl FnOnce(&mut LatexSession) -> &mut Value,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(session) = &mut self.latex else {
+            return;
+        };
+        let held = slot(session);
+        if *held == payload {
+            return;
+        }
+        *held = payload.clone();
+        self.post(kind, payload, cx);
+    }
+
+    /// The page's own asks of its panel (`tex:*`); false when `kind` is not one.
+    pub(super) fn on_latex_message(
+        &mut self,
+        kind: &str,
+        payload: &Value,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        let text = |key: &str| {
+            payload
+                .get(key)
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_string()
+        };
+        let event = match kind {
+            "tex:open-citation" => {
+                self.open_citation(payload, cx);
+                return true;
+            }
+            "tex:add-word" => LatexEvent::AddWord(text("word")),
+            "tex:ignore" => match (payload.get("rule"), payload.get("sentence")) {
+                (Some(_), _) => LatexEvent::Ignore(Ignore::Rule(text("rule"))),
+                (_, Some(_)) => LatexEvent::Ignore(Ignore::Sentence(text("sentence"))),
+                _ => return true,
+            },
+            "tex:find-references" => LatexEvent::FindReferences {
+                kind: text("kind"),
+                symbol: text("symbol"),
+            },
+            "tex:rename" => LatexEvent::RenameSymbol {
+                kind: text("kind"),
+                symbol: text("symbol"),
+            },
+            "tex:paste-image" => LatexEvent::PasteImage,
+            "tex:outline-jump" => LatexEvent::OutlineJump {
+                path: text("path"),
+                line: payload.get("line").and_then(Value::as_u64).unwrap_or(1).max(1) as u32,
+            },
+            "tex:caret" => LatexEvent::Caret(
+                payload.get("offset").and_then(Value::as_u64).unwrap_or(0) as usize,
+            ),
+            _ => return false,
+        };
+        cx.emit(StructuredEvent::Latex(event));
+        true
     }
 
     /// The project's index was read again: the page gets it when it changed.
@@ -199,6 +404,10 @@ impl StructuredDocument {
         payload["index"] = session.index.clone();
         payload["rootDocument"] = json!(session.root_document);
         payload["build"] = session.build.clone();
+        payload["spelling"] = session.spelling.clone();
+        payload["unused"] = session.unused.clone();
+        payload["outline"] = session.outline.clone();
+        payload["texlab"] = json!(TexlabService::available());
     }
 
     /// One of the Tauri commands Visual mode's modules invoke; false when
@@ -223,7 +432,7 @@ impl StructuredDocument {
                     lattice_core::project::read_file(&root, &path).map(Value::String)
                 });
             }
-            _ => return false,
+            _ => return self.invoke_latex_service(id, command, args, cx),
         }
         true
     }

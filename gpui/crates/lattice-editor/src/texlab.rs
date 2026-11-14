@@ -71,6 +71,13 @@ impl TexlabService {
         }
     }
 
+    /// The project's folder and TexLab's pool, for a request at a position
+    /// (hover, completion, definition) made off the main thread, as the
+    /// Tauri app's `with_texlab` makes one.
+    pub fn pool(&self) -> (PathBuf, Arc<Mutex<TexlabPool>>) {
+        (self.root.clone(), self.pool.clone())
+    }
+
     /// Whether TexLab is installed where Lattice looks for it.
     pub fn available() -> bool {
         lattice_core::commands::available("texlab")

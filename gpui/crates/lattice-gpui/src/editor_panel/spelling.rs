@@ -93,6 +93,7 @@ impl EditorPanel {
         if let Some(spelling) = &self.spelling {
             spelling.update(cx, |spelling, cx| spelling.set_input(input, cx));
         }
+        self.forward_latex_spelling(cx);
     }
 
     /// The spell check of this editor, for a scenario.
@@ -113,7 +114,7 @@ impl EditorPanel {
 
 /// Add `word` to the project's dictionary (`project-spelling-action.ts`): a
 /// word it holds already, in any case, is not added twice.
-fn add_word(project: &Entity<Project>, word: String, cx: &mut App) {
+pub(super) fn add_word(project: &Entity<Project>, word: String, cx: &mut App) {
     let mut words = project.read(cx).manifest().spelling_words.clone();
     if words
         .iter()
@@ -127,7 +128,7 @@ fn add_word(project: &Entity<Project>, word: String, cx: &mut App) {
 
 /// Leave a rule or a sentence unchecked in the project
 /// (`project-grammar-action.ts`).
-fn ignore_in_project(project: &Entity<Project>, ignore: Ignore, cx: &mut App) {
+pub(super) fn ignore_in_project(project: &Entity<Project>, ignore: Ignore, cx: &mut App) {
     let manifest = project.read(cx).manifest();
     let mut rules = manifest.grammar_ignored_rules.clone();
     let mut sentences = manifest.grammar_ignored_sentences.clone();

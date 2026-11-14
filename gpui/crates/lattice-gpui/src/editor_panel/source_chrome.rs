@@ -66,6 +66,7 @@ impl EditorPanel {
             self.latex_root = root.clone();
             self.forward_latex_context(cx);
         }
+        self.note_latex_outline(headings.clone(), cx);
         if let Some(rail) = &self.rail {
             rail.update(cx, |rail, cx| rail.set_manuscript(headings, root, cx));
         }

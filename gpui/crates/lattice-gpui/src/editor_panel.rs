@@ -53,6 +53,7 @@ mod events;
 pub mod find_bar;
 mod insert;
 mod latex_view;
+mod latex_visual_events;
 mod margin_review;
 mod markdown_view;
 mod moves;
