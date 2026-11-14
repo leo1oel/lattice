@@ -8,8 +8,9 @@
 //! move with edits. Zed styles every inlay of a kind with the editor's one
 //! inlay style (the theme's `hint`), and keeps per-inlay styling to itself,
 //! so the strike and the tint in each one's own colour are painted over it by
-//! the adapter's overlay, measured with the editor's text style. An inlay is
-//! anchored after its point, so the caret at the point stands before it,
+//! the adapter's overlay, measured on Zed's own layout of each display row
+//! the inlay takes (a soft wrap breaks it as it breaks any text). An inlay
+//! is anchored after its point, so the caret at the point stands before it,
 //! and the inlay starts at the caret's left.
 
 use gpui::{App, Bounds, Hsla, Pixels, SharedString, TextRun, Window, fill, point, px, size};

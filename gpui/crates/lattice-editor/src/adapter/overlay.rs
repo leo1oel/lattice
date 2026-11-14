@@ -30,7 +30,8 @@ pub struct Painted {
     pub cursors: Vec<PaintedCursor>,
     /// The open hover card's bounds, once it has been laid out.
     pub card: Option<Bounds<Pixels>>,
-    /// Each inline text drawn: its layer, buffer offset and bounds.
+    /// Each inline text drawn: its layer, buffer offset and bounds, once for
+    /// each display row it takes.
     pub inline: Vec<(&'static str, usize, Bounds<Pixels>)>,
 }
 
@@ -143,9 +144,10 @@ impl LatticeEditor {
                 }
             }
             if !self.inline.is_empty() {
-                let style = self
+                let details = self
                     .editor
-                    .update(cx, |editor, cx| editor.style(cx).text.clone());
+                    .update(cx, |editor, cx| editor.text_layout_details(window, cx));
+                let display = &frame.display().display_snapshot;
                 for (layer, items) in &self.inline {
                     for anchored in items {
                         let offset = anchored.anchor.to_offset(&text);
@@ -154,20 +156,29 @@ impl LatticeEditor {
                         else {
                             continue;
                         };
-                        if !frame.shows_row(caret.top()) {
+                        let rows = frame
+                            .inline_rows(anchored.anchor.to_point(&text), anchored.item.text.len());
+                        let Some((start, _)) = rows.first() else {
                             continue;
+                        };
+                        let origin = caret.left() - display.x_for_display_point(*start, &details);
+                        for (step, (from, to)) in rows.iter().enumerate() {
+                            let top = caret.top() + frame.line_height * step as f32;
+                            if !frame.shows_row(top) {
+                                continue;
+                            }
+                            let left = origin + display.x_for_display_point(*from, &details);
+                            let right = origin + display.x_for_display_point(*to, &details);
+                            let drawn = inline_texts::paint(
+                                left,
+                                top,
+                                right - left,
+                                frame.line_height,
+                                &anchored.item,
+                                window,
+                            );
+                            painted.inline.push((layer, offset, drawn));
                         }
-                        let width =
-                            inline_texts::text_width(&anchored.item.text, &style, window, cx);
-                        let drawn = inline_texts::paint(
-                            caret.left(),
-                            caret.top(),
-                            width,
-                            frame.line_height,
-                            &anchored.item,
-                            window,
-                        );
-                        painted.inline.push((layer, offset, drawn));
                     }
                 }
             }

@@ -63,7 +63,7 @@ impl Run {
 
     /// A suggested deletion of `removed` at its point is shown there, its
     /// text struck through: an inline text starting where the caret at the
-    /// point stands, as wide as the text.
+    /// point stands, as wide as the text, with the text after it moved on.
     pub(super) async fn overleaf_deletion_drawn(
         &self,
         cx: &mut AsyncApp,
@@ -85,27 +85,58 @@ impl Run {
             .await;
         let painted = cx.update(|cx| lattice.read(cx).painted().inline.clone());
         self.adapter_shot(cx, "overleaf-suggested-deletion").await;
-        let at_point = match painted.first() {
+        // Shaped on its own in the editor's text style, the removed text is
+        // as wide as the band, and the real text after the point starts
+        // where the band ends: Zed laid the inlay out there, pushing it on.
+        let measured = match painted.first() {
             Some((_, offset, bounds)) => {
-                let offset = *offset;
-                let lattice = lattice.clone();
-                let caret = self.with_window(cx, move |_, window, cx| {
-                    lattice.update(cx, |lattice, cx| lattice.offset_bounds(offset, window, cx))
-                })?;
-                caret.is_some_and(|caret| (caret.left() - bounds.left()).abs() < gpui::px(1.))
+                let (offset, bounds) = (*offset, *bounds);
+                let (lattice, editor, removed) =
+                    (lattice.clone(), editor.clone(), removed.to_string());
+                self.with_window(cx, move |_, window, cx| {
+                    let text = editor.read(cx).overleaf_text(cx);
+                    let next = text.get(offset..).and_then(|rest| rest.chars().next())?;
+                    let zed = lattice.read(cx).editor().clone();
+                    let style = zed.update(cx, |zed, cx| zed.style(cx).text.clone());
+                    let shaped =
+                        lattice_editor::inline_texts::text_width(&removed, &style, window, cx);
+                    let next_width = lattice_editor::inline_texts::text_width(
+                        &next.to_string(),
+                        &style,
+                        window,
+                        cx,
+                    );
+                    let caret = lattice
+                        .update(cx, |lattice, cx| lattice.offset_bounds(offset, window, cx))?;
+                    let after = lattice.update(cx, |lattice, cx| {
+                        lattice.offset_bounds(offset + next.len_utf8(), window, cx)
+                    })?;
+                    Some((bounds, caret, after, shaped, next_width))
+                })?
             }
-            None => false,
+            None => None,
         };
-        // It takes room as the removed text would: some pixels a character.
-        let width = painted
-            .first()
-            .map(|(_, _, bounds)| f32::from(bounds.size.width));
+        let close = |a: gpui::Pixels, b: gpui::Pixels| (a - b).abs() < gpui::px(1.5);
+        let at_point =
+            measured.is_some_and(|(bounds, caret, _, _, _)| close(caret.left(), bounds.left()));
+        let as_wide =
+            measured.is_some_and(|(bounds, _, _, shaped, _)| close(bounds.size.width, shaped));
+        let pushes_next = measured.is_some_and(|(bounds, caret, after, _, next_width)| {
+            after.top() == caret.top() && close(after.left(), bounds.right() + next_width)
+        });
         let line = cx.update(|cx| lattice.read(cx).painted().line_height.map(f32::from));
-        let wide = width.is_some_and(|width| width > removed.chars().count() as f32 * 3.);
         steps.check(
             "a suggested deletion's text is shown at its point, struck through",
-            drawn && at_point && wide,
-            json!({ "drawn": drawn, "at_point": at_point, "width": width, "line_height": line, "painted": format!("{painted:?}") }),
+            drawn && at_point && as_wide && pushes_next,
+            json!({
+                "drawn": drawn,
+                "at_point": at_point,
+                "as_wide": as_wide,
+                "pushes_next": pushes_next,
+                "measured": format!("{measured:?}"),
+                "line_height": line,
+                "painted": format!("{painted:?}"),
+            }),
         );
         Ok(())
     }

@@ -85,7 +85,15 @@ impl Shell {
         let Some(root) = self.root(cx) else {
             return;
         };
-        let text = lattice_core::project::read_file(&root, path).unwrap_or_default();
+        let open = self
+            .open_editors()
+            .into_iter()
+            .find(|editor| editor.read(cx).relative() == path.as_str());
+        let text = match (self.overleaf.read(cx).live_text(path), open) {
+            (Some(live), _) => live.to_string(),
+            (None, Some(editor)) => editor.read(cx).overleaf_text(cx),
+            (None, None) => lattice_core::project::read_file(&root, path).unwrap_or_default(),
+        };
         let units: Vec<u16> = text.encode_utf16().collect();
         let before =
             String::from_utf16_lossy(&units[..(*position).max(0).min(units.len() as i64) as usize]);

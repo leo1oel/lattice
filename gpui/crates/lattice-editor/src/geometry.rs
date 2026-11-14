@@ -103,6 +103,46 @@ impl Frame {
             .row
     }
 
+    /// Where an inline text `len` bytes long, standing at buffer `point`,
+    /// starts and ends on each display row it takes: one, or more where the
+    /// soft wrap breaks it as it breaks any text.
+    pub fn inline_rows(
+        &self,
+        point: language::Point,
+        len: usize,
+    ) -> Vec<(editor::DisplayPoint, editor::DisplayPoint)> {
+        use editor::{DisplayPoint, display_map::DisplayRow};
+        let display = &self.display.display_snapshot;
+        let inlays = display.inlay_snapshot();
+        let wrap_point = |at| {
+            let fold = display
+                .fold_snapshot()
+                .to_fold_point(inlays.to_point(at), language::Bias::Left);
+            let tab = display.tab_snapshot().fold_point_to_tab_point(fold);
+            display.wrap_snapshot().tab_point_to_wrap_point(tab).0
+        };
+        let start = point.to_display_point(display);
+        let first = inlays.to_inlay_point(point);
+        let first = inlays.to_offset(first);
+        let (from, to) = (wrap_point(first), wrap_point(first + len));
+        (0..=to.row.saturating_sub(from.row))
+            .map(|step| {
+                let row = DisplayRow(start.row().0 + step);
+                let left = if step == 0 {
+                    start.column()
+                } else {
+                    display.soft_wrap_indent(row).unwrap_or(0)
+                };
+                let right = if from.row + step == to.row {
+                    to.column
+                } else {
+                    display.line_len(row)
+                };
+                (DisplayPoint::new(row, left), DisplayPoint::new(row, right))
+            })
+            .collect()
+    }
+
     /// Whether a row starting at `top` shows in the editor.
     pub fn shows_row(&self, top: Pixels) -> bool {
         top + self.line_height > self.bounds.top() && top < self.bounds.bottom()

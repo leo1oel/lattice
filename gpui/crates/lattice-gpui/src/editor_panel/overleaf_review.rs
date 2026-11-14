@@ -40,7 +40,7 @@ const COMMENT_TINT: f32 = 0.28;
 
 /// A comment thread's passage, in UTF-16 units, with its messages for its
 /// margin card.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct CommentMark {
     pub thread_id: String,
     pub from: i64,
@@ -50,7 +50,7 @@ pub struct CommentMark {
 }
 
 /// A message as a margin card shows it.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct MarginMessage {
     pub author: SharedString,
     pub color: Hsla,
@@ -60,7 +60,7 @@ pub struct MarginMessage {
 }
 
 /// A suggestion and what its card says.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ChangeMark {
     pub change: TrackedChange,
     pub author: SharedString,
@@ -89,19 +89,28 @@ type Cards = Rc<RefCell<Vec<(Range<usize>, ChangeMark)>>>;
 pub(super) struct ReviewLayer {
     cards: Cards,
     provider: bool,
+    /// What was last shown, and the buffer's version it was shown against.
+    shown: Option<(clock::Global, Vec<CommentMark>, Vec<ChangeMark>)>,
 }
 
-/// The byte offset `units` UTF-16 units into `text`, clamped to its end and
-/// never inside a character.
-fn byte_at(text: &str, units: i64) -> usize {
+/// The byte offset of each of `units` (UTF-16 positions) in `text`, in one
+/// walk of it: clamped to its end and never inside a character.
+fn bytes_at(text: &str, units: &[i64]) -> Vec<usize> {
+    let mut order: Vec<usize> = (0..units.len()).collect();
+    order.sort_by_key(|&at| units[at]);
+    let mut bytes = vec![text.len(); units.len()];
+    let mut characters = text.char_indices().peekable();
     let mut counted = 0i64;
-    for (byte, character) in text.char_indices() {
-        if counted >= units {
-            return byte;
+    for at in order {
+        while counted < units[at] {
+            let Some((_, character)) = characters.next() else {
+                break;
+            };
+            counted += character.len_utf16() as i64;
         }
-        counted += character.len_utf16() as i64;
+        bytes[at] = characters.peek().map_or(text.len(), |&(byte, _)| byte);
     }
-    text.len()
+    bytes
 }
 
 /// A struck deletion reads on one line, as it does in the Tauri app: each
@@ -118,14 +127,31 @@ impl EditorPanel {
         changes: Vec<ChangeMark>,
         cx: &mut Context<Self>,
     ) {
+        let version = self.buffer.read(cx).version();
+        if self.overleaf_review.shown.as_ref().is_some_and(
+            |(shown, shown_comments, shown_changes)| {
+                *shown == version && *shown_comments == comments && *shown_changes == changes
+            },
+        ) {
+            return;
+        }
         let text = self.buffer.read(cx).text();
+        let units: Vec<i64> = comments
+            .iter()
+            .flat_map(|comment| [comment.from, comment.from + comment.len])
+            .chain(changes.iter().flat_map(|mark| {
+                let units = mark.change.text.encode_utf16().count() as i64;
+                [mark.change.position, mark.change.position + units]
+            }))
+            .collect();
+        let bytes = bytes_at(&text, &units);
+        let (comment_bytes, change_bytes) = bytes.split_at(comments.len() * 2);
         let mut marks = Vec::new();
         let mut inline = Vec::new();
         let mut cards = Vec::new();
         let mut margin = Vec::new();
-        for comment in &comments {
-            let from = byte_at(&text, comment.from);
-            let to = byte_at(&text, comment.from + comment.len);
+        for (comment, at) in comments.iter().zip(comment_bytes.chunks(2)) {
+            let (from, to) = (at[0], at[1]);
             if from < to {
                 marks.push(Mark {
                     range: from..to,
@@ -138,9 +164,9 @@ impl EditorPanel {
                 kind: super::margin_review::ItemKind::Comment(comment.clone()),
             });
         }
-        for mark in changes {
+        for (mark, at) in changes.iter().cloned().zip(change_bytes.chunks(2)) {
             let hue = hue_color(mark.change.hue as f32);
-            let from = byte_at(&text, mark.change.position);
+            let (from, to) = (at[0], at[1]);
             if mark.change.deletion {
                 if mark.change.text.is_empty() {
                     continue;
@@ -159,8 +185,6 @@ impl EditorPanel {
                 });
                 cards.push((from..from + next.max(1), mark));
             } else {
-                let units = mark.change.text.encode_utf16().count() as i64;
-                let to = byte_at(&text, mark.change.position + units);
                 // A stale suggestion (its text no longer there) is skipped.
                 if from >= to || text.get(from..to) != Some(mark.change.text.as_str()) {
                     continue;
@@ -194,6 +218,7 @@ impl EditorPanel {
             lattice.set_marks(LAYER, marks, cx);
             lattice.set_inline_texts(LAYER, inline, cx);
         });
+        self.overleaf_review.shown = Some((version, comments, changes));
     }
 }
 
@@ -354,16 +379,15 @@ fn change_card(
 
 #[cfg(test)]
 mod tests {
-    use super::{byte_at, one_line};
+    use super::{bytes_at, one_line};
 
     #[test]
     fn utf16_positions_become_byte_offsets() {
         // "é" is one UTF-16 unit and two bytes; "🔵" two units, four bytes.
-        assert_eq!(byte_at("é🔵ab", 1), 2);
-        assert_eq!(byte_at("é🔵ab", 3), 6);
-        assert_eq!(byte_at("é🔵ab", 99), 8);
+        // Asked out of order, each gets its own.
+        assert_eq!(bytes_at("é🔵ab", &[3, 1, 99, 0, -1]), vec![6, 2, 8, 0, 0]);
         // Inside the emoji: never splits it.
-        assert_eq!(byte_at("🔵a", 1), 4);
+        assert_eq!(bytes_at("🔵a", &[1]), vec![4]);
     }
 
     #[test]

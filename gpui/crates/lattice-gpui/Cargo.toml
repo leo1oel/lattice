@@ -23,6 +23,9 @@ chrono = { version = "0.4", default-features = false, features = ["clock", "std"
 assets.workspace = true
 # An Excel export's bytes cross the island bridge as base64.
 base64 = "0.22"
+# A buffer's version, which the Overleaf review compares with the one it last
+# drew; already in the graph through the editor.
+clock.workspace = true
 codebook-tree-sitter-latex.workspace = true
 dirs.workspace = true
 editor.workspace = true
