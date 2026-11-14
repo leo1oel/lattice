@@ -37,6 +37,7 @@
  *   tex:index         { citations, references, pending }   the project's index was read again
  *   tex:root          { path }          the manuscript's root document
  *   tex:build         { build }         the last build that wrote a PDF, or null
+ *   tex:find          { step }          "open" the editor's search panel, or step to the "next" or "previous" match
  * Page to host:
  *   md:change         { source, base }  the whole file after an edit made against `base`
  *   md:undo, md:redo
@@ -51,6 +52,8 @@ import "../shared/install";
 import { useCallback, useEffect, useMemo, useReducer } from "react";
 import { EditorSelection, Prec, type Extension } from "@codemirror/state";
 import { EditorView, keymap, type ViewUpdate } from "@codemirror/view";
+import { findNext, findPrevious, openSearchPanel } from "@codemirror/search";
+import { invoke } from "@tauri-apps/api/core";
 import { mount, activateLocale } from "../shared/boot";
 import { host } from "../shared/host";
 import "./latex.css";
@@ -215,7 +218,12 @@ const sharedHistory: Extension = Prec.highest(keymap.of([
  */
 function editorExtensions(visual: VisualModule, path: string): Extension[] {
   const data = { get current() { return liveData; } };
-  const visualHost: LatexVisualHost = { data: () => liveData, loadImage: loadAsset, open: openTarget };
+  const visualHost: LatexVisualHost = {
+    data: () => liveData,
+    loadImage: loadAsset,
+    open: openTarget,
+    readFile: (filePath) => invoke<string>("read_project_file", { path: filePath, projectRoot: liveData.projectRoot }),
+  };
   return [
     sharedHistory,
     latex(),
@@ -322,6 +330,13 @@ function Latex() {
         const { line } = payload as { id: string; line: number };
         if (editorView) revealLine(editorView, line);
         else pendingReveal = line;
+      }),
+      bridge.on("tex:find", (payload) => {
+        if (!editorView) return;
+        const { step } = payload as { step: "open" | "next" | "previous" };
+        if (step === "next") findNext(editorView);
+        else if (step === "previous") findPrevious(editorView);
+        else openSearchPanel(editorView);
       }),
       bridge.on("md:assets-changed", () => dispatch({ type: "assets" })),
       bridge.on("md:project", (payload) => {

@@ -171,6 +171,12 @@ impl StructuredDocument {
         self.post("tex:build", json!({ "build": payload }), cx);
     }
 
+    /// ⌘F, ⌘G and ⇧⌘G in the Visual view: the page's own search panel
+    /// opens, or steps to the `"next"` or `"previous"` match.
+    pub fn find(&mut self, step: &str, cx: &mut Context<Self>) {
+        self.post("tex:find", json!({ "step": step }), cx);
+    }
+
     /// A citation's Go to entry: its entry in the primary bibliography.
     pub(super) fn open_citation(&mut self, payload: &Value, cx: &mut Context<Self>) {
         let Some(session) = &self.latex else {

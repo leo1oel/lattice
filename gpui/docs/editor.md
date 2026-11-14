@@ -6,6 +6,8 @@ Edits sources in Zed's editor with LaTeX highlighting in Lattice's code themes, 
 The source gutter is the Tauri app's: four-digit line numbers and a fold column whose chevrons show over the gutter and fold a LaTeX environment, section, preamble, brace group or comment block, so the text starts where CodeMirror's does.
 A `.tex` file has the outline rail on the editor's right edge (its sections' marks, the one being read in the accent; resting on it opens the outline with numbers and PDF pages, and a row jumps there), and the Source / Visual switch in its strip (its ⋯ menu repeats it), one choice for every `.tex` file, shared by every window and remembered, as the Tauri app's is.
 Visual is the Tauri app's Visual mode, its CodeMirror source editor drawn as a page (headings, emphasis, maths through KaTeX, lists, figures, tables, references and citations as chips, the preamble folded), as a webview island in the source's place over the panel's buffer: an edit lands in the file as the change it made and nothing else, undo and redo are the buffer's, so either view steps back through the other's edits, the caret is the status bar's and crosses the switch by line, a jump to a line lands in it, and a ⌘-click on a reference, citation or `\input` opens it.
+Find (⌘F and the strip's Find) opens the page's own search panel there, and an `\input` of an editable figure's entry file draws the figure.
+What it does not have yet is in [Not yet](not-yet.md).
 It reads the project's citations and labels from the index the source's cards read, its TeX sources for macros and `\graphicspath`, its images through the island's asset protocol, and the last build's `.aux` for the numbers it draws.
 
 ## In the e2e scenario

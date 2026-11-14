@@ -581,8 +581,12 @@ impl EditorPanel {
         window.focus(&self.editor.focus_handle(cx), cx);
     }
 
-    /// ⌘F / Ctrl+F and the strip's Find: the find bar over the source.
+    /// ⌘F / Ctrl+F and the strip's Find: the find bar over the source, or
+    /// the Visual page's own search panel.
     fn deploy_search(&mut self, _: &Deploy, window: &mut Window, cx: &mut Context<Self>) {
+        if self.find_in_latex_visual("open", window, cx) {
+            return;
+        }
         self.find_bar.update(cx, |bar, cx| bar.open(window, cx));
         cx.notify();
     }
@@ -700,12 +704,16 @@ impl Render for EditorPanel {
             .key_context("LatticeEditor")
             .on_action(cx.listener(Self::deploy_search))
             .on_action(cx.listener(|this, _: &find_bar::FindNext, window, cx| {
-                this.find_bar
-                    .update(cx, |bar, cx| bar.step(false, window, cx))
+                if !this.find_in_latex_visual("next", window, cx) {
+                    this.find_bar
+                        .update(cx, |bar, cx| bar.step(false, window, cx))
+                }
             }))
             .on_action(cx.listener(|this, _: &find_bar::FindPrevious, window, cx| {
-                this.find_bar
-                    .update(cx, |bar, cx| bar.step(true, window, cx))
+                if !this.find_in_latex_visual("previous", window, cx) {
+                    this.find_bar
+                        .update(cx, |bar, cx| bar.step(true, window, cx))
+                }
             }))
             // A figure dragged from the Project tree goes in as a figure
             // (`beginFigureDrag`).

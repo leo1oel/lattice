@@ -191,6 +191,24 @@ impl EditorPanel {
         self.latex.document.clone()
     }
 
+    /// A find (`"open"`, `"next"` or `"previous"`) while the Visual view
+    /// shows goes to its page, with the keyboard; false otherwise.
+    pub(super) fn find_in_latex_visual(
+        &self,
+        step: &str,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        let Some(document) = self.jumps_in_latex_visual(cx) else {
+            return false;
+        };
+        document.update(cx, |document, cx| document.find(step, cx));
+        if let Some(focus) = document.read(cx).focus_handle(cx) {
+            window.focus(&focus, cx);
+        }
+        true
+    }
+
     /// Put the source's caret at the start of the 1-based `line`, scrolled
     /// into view.
     fn caret_to_line(&mut self, line: u32, window: &mut Window, cx: &mut Context<Self>) {
