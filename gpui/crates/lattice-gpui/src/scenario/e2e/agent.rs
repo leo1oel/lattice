@@ -17,6 +17,8 @@
 //! - its tool calls reach the window's boards and sheets, and the boards it
 //!   creates open (`agent_documents.rs`).
 
+#![cfg(target_os = "macos")]
+
 use std::{path::Path, time::Duration};
 
 use anyhow::Result;
@@ -405,3 +407,13 @@ impl Run {
         Ok(())
     }
 }
+
+/// This file's registration as the e2e module `agent` (`registry.rs`).
+pub(super) const MODULE: super::registry::Module = super::registry::Module {
+    after: super::registry::After::Repair,
+    rank: 90,
+    needs: &[],
+    setup: false,
+    covers: &[],
+    run: |run, cx, steps, fixture| Box::pin(run.agent_islands(cx, steps, &fixture.root)),
+};

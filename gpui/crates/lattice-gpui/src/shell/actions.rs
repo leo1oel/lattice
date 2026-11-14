@@ -138,11 +138,6 @@ impl Shell {
             .on_action(cx.listener(|this, _: &super::PasteImageAsFigure, window, cx| {
                 this.paste_image_as_figure(false, window, cx)
             }))
-            .on_action(cx.listener(
-                |this, _: &super::get_started_flow::ShowGetStarted, window, cx| {
-                    this.open_get_started(window, cx)
-                },
-            ))
             .on_action(
                 cx.listener(|this, _: &OpenChecklist, window, cx| this.open_checklist(window, cx)),
             )
@@ -353,7 +348,7 @@ impl Shell {
                 })))*
             };
         }
-        switches!(
+        let element = switches!(
             element,
             SwitchWorkspace1 => 0,
             SwitchWorkspace2 => 1,
@@ -364,6 +359,8 @@ impl Shell {
             SwitchWorkspace7 => 6,
             SwitchWorkspace8 => 7,
             SwitchWorkspace9 => 8
-        )
+        );
+        // The registered parts' own (`parts`).
+        Self::register_part_actions(element, cx)
     }
 }
