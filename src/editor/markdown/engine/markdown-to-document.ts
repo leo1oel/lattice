@@ -24,6 +24,7 @@ import {
 } from "./mdx-components";
 import { parseMarkdownTree, UPPERCASE_CHECK } from "./markdown-syntax";
 import { extendPhrasing, PAPER_HREF, type Phrasing } from "./inline-syntax";
+import { spanColor } from "./inline-color";
 import { inferPaperSpans, looksLikeLayoutMarker, readLayoutMarker, spansFit, type Span } from "./table-spans";
 
 /** Thrown inside a block the engine cannot model; the block is kept raw. */
@@ -153,6 +154,7 @@ function componentRange(children: RootContent[], index: number, context: Context
   if (!/^<[A-Z]/.test(context.source.slice(from, from + 2))) return null;
   const open = readOpenTag(context.source, from);
   if (!open) return null;
+  if (child.type === "paragraph" && spanColor(context.source.slice(from, open.end))) return null;
   let to: number;
   let last = index;
   let inner: string | null = null;
@@ -523,6 +525,11 @@ function extended(node: Phrasing, marks: Mark[], context: Context): JSONContent[
       return inline((node.children ?? []) as unknown as PhrasingContent[], [...marks, { type: "highlight" }], context);
     case "latticeUnderline":
       return inline((node.children ?? []) as unknown as PhrasingContent[], [...marks, { type: "underline" }], context);
+    case "latticeColor": {
+      const { color, openTag, closeTag } = node;
+      const outerMarks = marks.map((mark) => mark.type).join(" ") || null;
+      return inline((node.children ?? []) as unknown as PhrasingContent[], [...marks, { type: "latticeColor", attrs: { color, openTag, closeTag, outerMarks } }], context);
+    }
     case "latticeWiki": {
       const target = String(node.target);
       return [marked({ type: "latticeWikiLink", attrs: { target, source: node.value, sourceKey: target } }, marks)];

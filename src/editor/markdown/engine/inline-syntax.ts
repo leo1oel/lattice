@@ -14,6 +14,7 @@
  * Clean implementation for Lattice; spec: docs/visual-editor-spec.md.
  */
 import type { PhrasingContent } from "mdast";
+import { closeColorSpan, spanColor } from "./inline-color";
 
 type Position = { start: { offset?: number }; end: { offset?: number } };
 /** Phrasing as parsed, plus this module's own node kinds. */
@@ -32,10 +33,36 @@ export const PAPER_HREF = /^(?:\.\.\/)*\.research\/papers\/[^/\s]+\/(?:paper|blo
  */
 export function extendPhrasing(children: PhrasingContent[], source: string): PhrasingContent[] {
   let nodes = children as unknown as Phrasing[];
+  nodes = colorSpans(nodes);
   nodes = underlines(nodes);
   nodes = wikiLinks(nodes, source);
   nodes = highlights(nodes, source);
   return nodes as unknown as PhrasingContent[];
+}
+
+/** Pair every span, including unsupported ones, so an inner close never consumes its parent. */
+export function colorSpans(nodes: Phrasing[], onPair?: (open: Phrasing, close: Phrasing) => void): Phrasing[] {
+  const result: Phrasing[] = [];
+  const opens: number[] = [];
+  for (const node of nodes) {
+    const tag = node.type === "html" ? node.value ?? "" : "";
+    if (/^<span(?=[\s/>])/i.test(tag) && !/\/>$/.test(tag)) opens.push(result.length);
+    if (closeColorSpan.test(tag)) {
+      const index = opens.pop();
+      if (index != null && index + 1 < result.length) {
+        const opener = result[index]!;
+        const color = spanColor(opener.value ?? "");
+        if (color) {
+          onPair?.(opener, node);
+          const children = result.splice(index + 1);
+          result[index] = { type: "latticeColor", color, openTag: opener.value, closeTag: tag, children };
+          continue;
+        }
+      }
+    }
+    result.push(node);
+  }
+  return result;
 }
 
 /** A text node whose source is exactly its value: no escapes or references to misplace offsets. */
