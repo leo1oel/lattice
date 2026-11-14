@@ -112,6 +112,14 @@ pub struct DraggedEntry {
     folder: bool,
 }
 
+impl DraggedEntry {
+    /// The row's project-relative path, when it is a file (a folder dragged
+    /// out of the tree inserts nothing).
+    pub fn file(&self) -> Option<&str> {
+        (!self.folder).then_some(self.path.as_str())
+    }
+}
+
 /// What the dragged row looks like under the pointer: its glyph and name on
 /// the lifted surface.
 struct DragPreview(DraggedEntry);

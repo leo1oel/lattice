@@ -147,6 +147,8 @@ pub struct CommandContext {
     /// The project is linked to Overleaf, and the session may sync it.
     pub overleaf_linked: bool,
     pub overleaf_syncing: bool,
+    /// The editor in front is a LaTeX source (Insert table's `latexSource`).
+    pub latex_source: bool,
 }
 
 /// One row of the table.
@@ -490,6 +492,7 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
             ReplaceInProject,
         ));
         submission::edit_commands(&mut out);
+        submission::insert_commands(context, &mut out);
     }
     projects::project_commands(context, &mut out);
     appearance::appearance_commands(&mut out);

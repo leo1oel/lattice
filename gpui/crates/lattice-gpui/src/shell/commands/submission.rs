@@ -27,6 +27,25 @@ pub(super) fn edit_commands(out: &mut Vec<Command>) {
     );
 }
 
+/// Insert table (in a LaTeX source) and Paste clipboard image as figure,
+/// the Tauri app's `table` and `paste-image` commands.
+pub(super) fn insert_commands(context: &super::CommandContext, out: &mut Vec<Command>) {
+    if context.latex_source {
+        out.push(Command::new(
+            "table",
+            t!("Insert table"),
+            Section::Edit,
+            crate::shell::InsertTable,
+        ));
+    }
+    out.push(Command::new(
+        "paste-image",
+        t!("Paste clipboard image as figure"),
+        Section::Edit,
+        crate::shell::PasteImageAsFigure,
+    ));
+}
+
 /// The Project section's: Export for arXiv….
 pub(super) fn project_commands(out: &mut Vec<Command>) {
     out.push(Command::new(

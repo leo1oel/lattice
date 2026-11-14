@@ -116,7 +116,29 @@ impl Shell {
     /// on the clipboard, saved into `target` (`figures` for the project
     /// root) as `clipboard-<time>.<ext>`
     /// (lattice-core's `import_image_bytes`), and shown in the tree.
-    pub(super) fn paste_clipboard_image(&mut self, target: String, cx: &mut Context<Self>) {
+    pub(super) fn paste_clipboard_image(
+        &mut self,
+        target: String,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.save_clipboard_image(target, window, cx, |this, path, _, cx| {
+            let Some(root) = this.root(cx) else { return };
+            this.file_tree
+                .update(cx, |tree, cx| tree.set_current(Some(root.join(path)), cx));
+        });
+    }
+
+    /// Save the clipboard's image into `target` (`figures` for the project
+    /// root), then hand `saved` its project-relative path; no image, or a
+    /// save that fails, says so instead.
+    pub(super) fn save_clipboard_image(
+        &mut self,
+        target: String,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+        saved: impl FnOnce(&mut Self, String, &mut Window, &mut Context<Self>) + 'static,
+    ) {
         let Some(project) = self.project.clone() else {
             return;
         };
@@ -139,24 +161,18 @@ impl Shell {
             target
         };
         let root = project.read(cx).root().to_path_buf();
-        let saved = cx.background_spawn({
-            let root = root.clone();
-            async move {
-                let (bytes, extension) = clipboard_image_bytes(&image)?;
-                let name = clipboard_image_name(extension, chrono::Utc::now());
-                let data =
-                    base64::Engine::encode(&base64::engine::general_purpose::STANDARD, bytes);
-                core_project::import_image_bytes(&root, &target, &name, &data)
-            }
+        let save = cx.background_spawn(async move {
+            let (bytes, extension) = clipboard_image_bytes(&image)?;
+            let name = clipboard_image_name(extension, chrono::Utc::now());
+            let data = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, bytes);
+            core_project::import_image_bytes(&root, &target, &name, &data)
         });
-        cx.spawn(async move |this, cx| {
-            let saved = saved.await;
-            this.update(cx, |this, cx| {
+        cx.spawn_in(window, async move |this, cx| {
+            let result = save.await;
+            this.update_in(cx, |this, window, cx| {
                 project.update(cx, |project, cx| project.entries_changed(cx));
-                match saved {
-                    Ok(path) => this
-                        .file_tree
-                        .update(cx, |tree, cx| tree.set_current(Some(root.join(path)), cx)),
+                match result {
+                    Ok(path) => saved(this, path, window, cx),
                     Err(error) => notices::error("Could not import", error, cx),
                 }
             })
