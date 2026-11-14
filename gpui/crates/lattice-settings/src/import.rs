@@ -42,6 +42,7 @@ pub const KEYS: &[&str] = &[
     "lattice.live-preview.v1",
     "lattice.live-preview-removed.v1",
     "lattice.grammar.v1",
+    "lattice.papers.save-full-text.v1",
 ];
 
 /// What was imported, and from where.
@@ -110,6 +111,8 @@ pub fn settings_from_items(items: &BTreeMap<String, String>) -> Settings {
         live_preview: crate::model::live_preview_choices(json("lattice.live-preview.v1").as_ref()),
         live_preview_removed: item("lattice.live-preview-removed.v1").is_some(),
         grammar: crate::model::Grammar::from_value(json("lattice.grammar.v1").as_ref()),
+        // `loadSaveFullText`: on only when it says true.
+        save_full_text: item("lattice.papers.save-full-text.v1") == Some("true"),
     }
 }
 

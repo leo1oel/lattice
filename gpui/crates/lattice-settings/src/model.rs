@@ -487,6 +487,10 @@ pub struct Settings {
     pub live_preview_removed: bool,
     /// Settings › Editor & builds › Grammar.
     pub grammar: Grammar,
+    /// Adding a paper also saves its full text (Markdown and overview), not
+    /// only its citation (`lattice.papers.save-full-text.v1`); off until the
+    /// writer turns it on.
+    pub save_full_text: bool,
 }
 
 impl Settings {
@@ -543,6 +547,7 @@ impl Settings {
             live_preview: live_preview_choices(field("livePreview")),
             live_preview_removed: field("livePreviewRemoved") == Some(&Value::Bool(true)),
             grammar: Grammar::from_value(field("grammar")),
+            save_full_text: field("saveFullText") == Some(&Value::Bool(true)),
         }
     }
 

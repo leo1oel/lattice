@@ -69,23 +69,6 @@ pub enum SettingsEvent {
     CleanBuildFiles,
 }
 
-/// The pages the GPUI app draws; another remembered page opens Appearance.
-fn drawn(tab: SettingsTab) -> SettingsTab {
-    match tab {
-        SettingsTab::Editor
-        | SettingsTab::Agent
-        | SettingsTab::Mcp
-        | SettingsTab::Api
-        | SettingsTab::Usage
-        | SettingsTab::ModelEndpoint
-        | SettingsTab::Environment
-        | SettingsTab::Doctor
-        | SettingsTab::Overleaf
-        | SettingsTab::Logs => tab,
-        _ => SettingsTab::Appearance,
-    }
-}
-
 /// The editable state a page keeps while Settings is open.
 pub struct Fields {
     pub search: Entity<InputState>,
@@ -133,12 +116,8 @@ pub struct SettingsDialog {
     pub(super) results_adopted: Option<usize>,
     /// Settings › Overleaf's view of the account, once the page is drawn.
     pub(super) overleaf: Option<Entity<super::overleaf_pane::OverleafConnection>>,
-    /// Settings › Model endpoint's form, once the page is drawn.
-    pub(super) model_endpoint: Option<Entity<super::model_endpoint_pane::ModelEndpointPane>>,
-    /// Editor & builds › Grammar's filter and Harper's rules.
-    pub(super) grammar: Option<Entity<super::grammar_group::GrammarRules>>,
-    /// Settings › Environment's report, once the page is drawn.
-    pub(super) environment: Option<Entity<super::environment_pane::EnvironmentPane>>,
+    /// What the other pages keep once drawn.
+    pub(super) pages: super::pages::PageStates,
     _reveal_task: Option<Task<()>>,
     _subscriptions: Vec<Subscription>,
 }
@@ -338,7 +317,7 @@ impl SettingsDialog {
                 .update(cx, |surface, cx| surface.set_shown(false, cx));
         }));
 
-        let tab = drawn(tab.unwrap_or(settings.settings_tab));
+        let tab = super::pages::drawn(tab.unwrap_or(settings.settings_tab));
         let logs = cx.new(|cx| super::logs_pane::LogsPane::new(window, cx));
         Self {
             tab,
@@ -372,9 +351,7 @@ impl SettingsDialog {
             narrow_page: false,
             results_adopted: None,
             overleaf: None,
-            model_endpoint: None,
-            environment: None,
-            grammar: None,
+            pages: Default::default(),
             _reveal_task: None,
             _subscriptions: subscriptions,
         }
@@ -394,6 +371,11 @@ impl SettingsDialog {
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     pub fn overleaf_connection(&self) -> Option<Entity<super::overleaf_pane::OverleafConnection>> {
         self.overleaf.clone()
+    }
+
+    /// The Synara settings surface the Agent pages show.
+    pub(super) fn providers(&self) -> Entity<crate::agent::SynaraSurface> {
+        self.providers.clone()
     }
 
     /// The window Settings is open in.
@@ -445,7 +427,7 @@ impl SettingsDialog {
 
     /// Open a section's page; Settings reopens on it next time.
     pub fn open_tab(&mut self, tab: SettingsTab, cx: &mut Context<Self>) {
-        let tab = drawn(tab);
+        let tab = super::pages::drawn(tab);
         if tab != self.tab {
             self.tab = tab;
             self.sync_providers(cx);
@@ -660,21 +642,11 @@ impl SettingsDialog {
             narrow_dialog: narrow,
             width,
         };
-        let page = match self.tab {
-            // The log fills the page and scrolls inside its card instead.
-            SettingsTab::Logs => return self.logs_page(page_width, narrow, cx),
-            SettingsTab::Editor => super::editor_pane::render(self, page_width, window, cx),
-            SettingsTab::Agent | SettingsTab::Mcp | SettingsTab::Api | SettingsTab::Usage => {
-                super::providers_pane::render(self.providers.clone(), self.tab, narrow, cx)
-            }
-            SettingsTab::ModelEndpoint => {
-                super::model_endpoint_pane::render(self, page_width, window, cx)
-            }
-            SettingsTab::Environment => super::environment_pane::render(self, page_width, cx),
-            SettingsTab::Doctor => super::editor_pane::doctor(page_width, cx),
-            SettingsTab::Overleaf => super::overleaf_pane::render(self, page_width, window, cx),
-            _ => super::appearance_pane::render(self, page_width, window, cx),
-        };
+        // The log fills the page and scrolls inside its card instead.
+        if self.tab == SettingsTab::Logs {
+            return self.logs_page(page_width, narrow, cx);
+        }
+        let page = super::pages::draw(self, page_width, window, cx);
         let viewport = self.viewport.clone();
         div()
             .relative()
