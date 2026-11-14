@@ -597,6 +597,7 @@ impl OverleafCollabPanel {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let empty = state.read(cx).value().trim().is_empty();
+        let busy = self.bridge.read(cx).review_busy().is_some();
         let submit = cx.weak_entity();
         let cancel = cx.weak_entity();
         let keys = cx.weak_entity();
@@ -628,7 +629,7 @@ impl OverleafCollabPanel {
                         Button::new("overleaf-composer-send", send)
                             .variant(ButtonVariant::Tinted)
                             .size(ButtonSize::Compact)
-                            .disabled(empty)
+                            .disabled(empty || busy)
                             .on_click(move |_, _, cx| {
                                 submit.update(cx, |this, cx| this.submit(cx)).ok();
                             }),

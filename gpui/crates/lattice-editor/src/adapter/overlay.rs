@@ -1,7 +1,7 @@
 //! The overlay over the editor: gutter marks and remote carets painted in
 //! the editor's coordinates, and the pointer reported to the hover cards.
 
-use std::time::Instant;
+use std::{collections::HashMap, time::Instant};
 
 use gpui::{
     App, Bounds, Context, DispatchPhase, Hitbox, MouseMoveEvent, Pixels, Point, SharedString,
@@ -149,20 +149,25 @@ impl LatticeEditor {
                     .update(cx, |editor, cx| editor.text_layout_details(window, cx));
                 let display = &frame.display().display_snapshot;
                 for (layer, items) in &self.inline {
+                    let mut spliced: HashMap<usize, usize> = HashMap::new();
                     for anchored in items {
                         let offset = anchored.anchor.to_offset(&text);
+                        let skip = spliced.entry(offset).or_default();
+                        let before = *skip;
+                        *skip += anchored.item.text.len();
                         let Some(caret) =
                             geometry::caret_rect(&self.editor, &text, offset, bounds, window, cx)
                         else {
                             continue;
                         };
-                        let rows = frame
-                            .inline_rows(anchored.anchor.to_point(&text), anchored.item.text.len());
-                        let Some((start, _)) = rows.first() else {
-                            continue;
-                        };
-                        let origin = caret.left() - display.x_for_display_point(*start, &details);
-                        for (step, (from, to)) in rows.iter().enumerate() {
+                        let (base, rows) = frame.inline_rows(
+                            anchored.anchor.to_point(&text),
+                            before,
+                            anchored.item.text.len(),
+                        );
+                        let origin = caret.left() - display.x_for_display_point(base, &details);
+                        for (from, to) in &rows {
+                            let step = from.row().0 - base.row().0;
                             let top = caret.top() + frame.line_height * step as f32;
                             if !frame.shows_row(top) {
                                 continue;
