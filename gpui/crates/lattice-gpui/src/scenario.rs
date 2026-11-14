@@ -27,6 +27,8 @@ mod overleaf_realtime_mock;
 #[cfg(target_os = "macos")]
 mod parity;
 #[cfg(target_os = "macos")]
+mod parity_help;
+#[cfg(target_os = "macos")]
 mod parity_history;
 #[cfg(target_os = "macos")]
 mod parity_overleaf;

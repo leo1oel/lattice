@@ -16,6 +16,7 @@ mod design_calls;
 mod documents;
 mod editor_adapter;
 mod fluid;
+mod help;
 mod history;
 #[cfg(target_os = "macos")]
 mod islands;
@@ -386,6 +387,11 @@ impl Run {
             self.live_preview(cx, &mut steps, &root)
                 .await
                 .context("live_preview")?;
+        }
+        if steps::selected("help") {
+            self.help_and_logs(cx, &mut steps)
+                .await
+                .context("help_and_logs")?;
         }
         if steps::selected("saves") {
             self.closing_saves(cx, &mut steps, &root)

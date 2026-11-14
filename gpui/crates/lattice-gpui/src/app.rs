@@ -137,6 +137,11 @@ pub fn init(scripted: bool, cx: &mut App) {
     crate::recents::RecentProjects::init(scripted, cx);
     crate::first_pages::FirstPages::init(scripted, cx);
     crate::shell::menus::install(cx);
+    // The log every notice reaches, and, on the first launch after an
+    // update, the notice offering What's new.
+    let state = crate::shell::workspaces::state_dir(scripted);
+    crate::app_log::install(state.clone(), cx);
+    crate::help::whats_new::announce_update(state, cx);
     // The app ends with its last window, as the Tauri app does.
     cx.on_window_closed(|cx, _| {
         if cx.windows().is_empty() {

@@ -138,6 +138,11 @@ impl Run {
         } else {
             None
         };
+        // Help's and the log's screens (`scenes.whatsNew`, `scenes.logs`).
+        if matches!(screen.as_str(), "whatsNew" | "logs") {
+            self.parity_help(cx, &screen).await?;
+            self.park_pointer(cx)?;
+        }
         // The submission screens (`scenes.todos`, `scenes.checklist`,
         // `scenes.arxivExport`).
         let submission_shown = if matches!(screen.as_str(), "todos" | "checklist" | "arxivExport") {

@@ -48,6 +48,7 @@ pub(in crate::scenario) const MODULES: &[(&str, &[&str])] = &[
     ("settings", &[]),
     ("live_controls", &[]),
     ("live_preview", &[]),
+    ("help", &[]),
     ("saves", &[]),
 ];
 

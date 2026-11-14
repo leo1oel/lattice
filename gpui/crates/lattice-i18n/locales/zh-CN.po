@@ -349,3 +349,7 @@ msgstr "幻灯片的“问 AI”“应用批注”和“起草幻灯片”需要
 #: lattice-gpui/src/overleaf/channel.rs
 msgid "connection closed"
 msgstr "连接已断开"
+
+#: lattice-gpui/src/settings/logs_export.rs
+msgid "This run keeps no log folder."
+msgstr "此次运行不保留日志文件夹。"

@@ -23,6 +23,7 @@ mod editor_events;
 mod editors;
 mod entries;
 mod ground;
+mod help_flow;
 mod history_flow;
 mod imports;
 mod layers;
@@ -66,6 +67,7 @@ pub use commands::{
     Build, CleanBuildFiles, CleanRebuild, ForwardSync, InstallLatexTools, NextProblem,
     OpenTexDoctor, PreviousProblem, Save, StopBuild, ToggleVimMode,
 };
+pub use help_flow::{ReportProblem, WhatsNew};
 pub use references_flow::{FindReferences, RenameSymbol};
 pub use tools_flow::{ExportArxiv, OpenChecklist, OpenTodos};
 
@@ -156,7 +158,7 @@ pub struct Shell {
     pub(crate) todos: Entity<crate::submission::todos::TodosPanel>,
     /// A symbol's occurrences bar and rename dialog (`references_flow`).
     pub(crate) references: references_flow::References,
-    /// The arXiv export and figure inventory sheets, while open.
+    /// The sheets over the window, while open (`tools_flow::Sheets`).
     pub(crate) sheets: tools_flow::Sheets,
     /// The conflict resolver, while it is open.
     pub(crate) conflict: Option<(Entity<crate::history::ConflictResolver>, Subscription)>,
@@ -187,6 +189,8 @@ pub struct Shell {
     /// overlay (the palette, a menu) taking focus does not change it.
     active_editor: Option<WeakEntity<EditorPanel>>,
     build_task: Option<Task<()>>,
+    /// The build under way's entries in the app's log (`build/oplog.rs`).
+    build_trace: Option<crate::app_log::trace::Trace>,
     /// The build to run once the one under way ends.
     queued_build: Option<BuildRequest>,
     /// A build the writer asked for is under way or queued: when the last
@@ -451,6 +455,7 @@ impl Shell {
             editors: Vec::new(),
             active_editor: None,
             build_task: None,
+            build_trace: None,
             queued_build: None,
             build_sound: false,
             build_waiters: Vec::new(),
