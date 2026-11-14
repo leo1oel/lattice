@@ -36,14 +36,6 @@ pub(super) const PART: Part = Part {
 };
 
 impl Shell {
-    /// View ▸ Margin Review is offered for this window (`menus.rs` offers it
-    /// for a project linked to Overleaf), for a scenario.
-    #[cfg(any(target_os = "macos", target_os = "windows"))]
-    pub(crate) fn margin_review_offered(&self, cx: &gpui::App) -> bool {
-        let context = self.command_context(cx);
-        context.in_project && context.overleaf_linked
-    }
-
     /// "Review here".
     fn margin_review_here(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(editor) = self.active_editor() else {

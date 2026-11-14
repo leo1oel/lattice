@@ -142,6 +142,7 @@ impl OverleafBridge {
                 }),
             })
             .collect();
+        let saw_ours = replayed.iter().any(|update| update.mine);
         let (applied, mut send) = match doc.ot.catch_up(&replayed) {
             Ok(caught_up) => caught_up,
             Err(desync) => return self.give_up(doc, &desync.to_string(), cx),
@@ -155,11 +156,16 @@ impl OverleafBridge {
             return self.give_up(doc, "the replay does not fit the buffer", cx);
         }
         self.review_moved(doc_id, &applied, false, None, cx);
-        // Still unanswered after the replay: it never landed, so it goes
-        // again, as a duplicate of any copy that did land meanwhile.
+        // Still unanswered after the replay on a new connection: it never
+        // landed, so it goes again, as a duplicate of any copy that did land
+        // meanwhile. On the connection that already carried it nothing goes
+        // again: a missing answer there may still come.
         let mut dup_if_source = Vec::new();
+        let carried_here = doc.ot.submitted_via().iter().any(|id| id == &own);
         if send.is_none()
             && !doc.ot.settled()
+            && !own.is_empty()
+            && !carried_here
             && let Some(resend) = doc.ot.resend()
         {
             dup_if_source = resend.dup_if_source;
@@ -168,10 +174,11 @@ impl OverleafBridge {
                 ops: resend.ops,
             });
         }
-        // Proven either way now: the replay held our update, or nothing of
-        // ours is outstanding, or what is goes again as a duplicate.
-        if self.documents.uncertain.remove(doc_id) {
-            self.documents.detail.take_if(|(path, _)| path == &doc.path);
+        // Proven now when the replay held our update, nothing of ours is
+        // outstanding, or what is goes again as a duplicate; otherwise its
+        // answer proves it.
+        if saw_ours || doc.ot.settled() || send.is_some() {
+            self.proven(doc_id, &doc.path);
         }
         let shown = self.documents.shown.as_ref() == Some(&doc.editor);
         if shown && self.documents.live.is_none() {
@@ -209,9 +216,7 @@ impl OverleafBridge {
 
     /// `doc` cannot be carried on: regular sync merges it.
     fn give_up(&mut self, doc: LiveDoc, why: &str, cx: &mut Context<Self>) {
-        if self.documents.uncertain.remove(&doc.doc_id) {
-            self.documents.detail.take_if(|(path, _)| path == &doc.path);
-        }
+        self.proven(&doc.doc_id, &doc.path);
         log::warn!(
             "{} goes back to regular sync after the reconnect: {why}",
             doc.path

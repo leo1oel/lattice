@@ -31,12 +31,15 @@ pub(in crate::overleaf) struct WholeFiles {
     /// Every held one goes with the next flush (⌘S, the window's blur).
     flush_all: bool,
     boundary_task: Option<Task<()>>,
+    /// The probe before a push, and the files it is for.
+    probe_task: Option<(BTreeSet<String>, Task<()>)>,
     idle_task: Option<Task<()>>,
 }
 
 impl WholeFiles {
     pub(super) fn stop_timers(&mut self) {
         self.boundary_task = None;
+        self.probe_task = None;
         self.idle_task = None;
         self.boundary.clear();
         self.flush_all = false;
@@ -204,10 +207,14 @@ impl OverleafBridge {
     /// Sync `ready` up, once a probe that reads the files here says
     /// something differs: a sync's own write of a board is reported like
     /// the writer's, and must not cost a project download.
-    fn push_whole_files(&mut self, ready: BTreeSet<String>, cx: &mut Context<Self>) {
+    fn push_whole_files(&mut self, mut ready: BTreeSet<String>, cx: &mut Context<Self>) {
         let Some(root) = self.root.clone() else {
             return;
         };
+        // A probe still out goes again with these, as one.
+        if let Some((probing, _)) = self.whole_files.probe_task.take() {
+            ready.extend(probing);
+        }
         let options = SyncOptions {
             automatic: true,
             include_whole_files: ready,
@@ -216,9 +223,11 @@ impl OverleafBridge {
         let live = self.sync_live_paths(&options, cx);
         let probe_root = root.clone();
         let probe = cx.background_spawn(async move { sync::probe(&probe_root, Some(&live)) });
-        self.whole_files.boundary_task = Some(cx.spawn(async move |this, cx| {
+        let probing = options.include_whole_files.clone();
+        let task = cx.spawn(async move |this, cx| {
             let (probe, expired) = probe.await;
             this.update(cx, |this, cx| {
+                this.whole_files.probe_task = None;
                 if expired {
                     super::super::session_changed(cx);
                 }
@@ -250,7 +259,8 @@ impl OverleafBridge {
                 }
             })
             .ok();
-        }));
+        });
+        self.whole_files.probe_task = Some((probing, task));
     }
 
     /// What a sync (or its probe) leaves alone: the documents the channel

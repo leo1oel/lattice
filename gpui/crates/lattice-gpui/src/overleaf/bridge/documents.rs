@@ -376,6 +376,12 @@ impl OverleafBridge {
         };
         // Overleaf's setting, followed: typing goes out as suggestions.
         let tracked = self.tracking();
+        let permission = client.project().permission;
+        if !(if tracked { permission.can_suggest() } else { permission.can_write() }) {
+            // Refused before it went out: nothing landed, so regular sync
+            // reconciles the file.
+            return self.drop_live(doc_id, None, cx);
+        }
         let Some(doc) = self.doc_mut(doc_id) else {
             return;
         };
@@ -431,8 +437,10 @@ impl OverleafBridge {
                 };
                 match doc.ot.acknowledge(Some(version)) {
                     Ok(next) => {
+                        let path = doc.path.clone();
                         let draining = doc.draining.is_some();
                         let settled = doc.ot.settled();
+                        self.proven(&doc_id, &path);
                         if let Some(send) = next {
                             self.send_ops(&doc_id, send, Vec::new(), cx);
                         } else if draining && settled {

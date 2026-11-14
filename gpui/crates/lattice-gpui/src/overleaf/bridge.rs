@@ -193,6 +193,8 @@ pub struct OverleafBridge {
     /// session: the safe side of forgetting is a file left on Overleaf.
     declined_deletes: HashSet<(PathBuf, String)>,
     sync_task: Option<Task<()>>,
+    /// The running sync's entry in the log.
+    sync_trace: Option<crate::app_log::trace::Trace>,
     /// Told how the running sync went (Review's Apply).
     sync_waiters: Vec<oneshot::Sender<Result<(), String>>>,
     /// Asked to hear how a sync went while another was running: told by the
@@ -255,6 +257,7 @@ impl OverleafBridge {
             last_auto_sync: None,
             declined_deletes: HashSet::new(),
             sync_task: None,
+            sync_trace: None,
             sync_waiters: Vec::new(),
             queued_waiters: Vec::new(),
             poll_task: None,
@@ -381,7 +384,7 @@ impl OverleafBridge {
         self.entity_list = None;
         self.review_reset();
         self.chat_reset();
-        self.sync_task = None;
+        self.cancel_sync(cx);
         self.sync_waiters.clear();
         self.queued_waiters.clear();
         self.syncing = false;
@@ -420,7 +423,7 @@ impl OverleafBridge {
     ) {
         self.stop(cx);
         self.staged = true;
-        self.sync_task = None;
+        self.cancel_sync(cx);
         self.link_task = None;
         self.link_generation += 1;
         self.session_seen = super::session_generation(cx);
@@ -686,7 +689,7 @@ impl OverleafBridge {
         self.syncing = true;
         self.local_pending = false;
         cx.notify();
-        let mut trace = crate::app_log::trace::Trace::start(
+        let trace = crate::app_log::trace::Trace::start(
             "Overleaf",
             t!("Sync"),
             Some(if options.automatic {
@@ -697,6 +700,7 @@ impl OverleafBridge {
             "Sync",
             cx,
         );
+        self.sync_trace = Some(trace);
         let entities = self.entity_list.clone();
         let run_root = root.clone();
         // The live document is the channel's to carry, and a whole-file
@@ -718,15 +722,9 @@ impl OverleafBridge {
                 if expired {
                     super::session_changed(cx);
                 }
-                if this.root.as_deref() != Some(root.as_path()) {
-                    trace.finish(
-                        "cancelled",
-                        Some(t!("Overleaf sync cancelled").to_string()),
-                        cx,
-                    );
-                    return;
+                if let Some(mut trace) = this.sync_trace.take() {
+                    finished::trace_outcome(&mut trace, &result, &options, cx);
                 }
-                finished::trace_outcome(&mut trace, &result, &options, cx);
                 if result.is_ok() {
                     this.whole_files.synced(&live);
                 }

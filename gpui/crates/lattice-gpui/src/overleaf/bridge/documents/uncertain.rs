@@ -52,6 +52,14 @@ impl OverleafBridge {
         self.resume_held(cx);
         cx.notify();
     }
+
+    /// `doc_id`'s last send is proven, landed or not: what the toolbar said
+    /// of `path` while it was unknown goes.
+    pub(in crate::overleaf::bridge) fn proven(&mut self, doc_id: &str, path: &str) {
+        if self.documents.uncertain.remove(doc_id) {
+            self.documents.detail.take_if(|(shown, _)| shown == path);
+        }
+    }
 }
 
 /// Why regular sync is paused on a file whose last send has no proven

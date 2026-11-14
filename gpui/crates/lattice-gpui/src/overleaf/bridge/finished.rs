@@ -51,6 +51,18 @@ pub(super) fn trace_outcome(
 }
 
 impl OverleafBridge {
+    /// Drop the running sync, ending its operation in the log as cancelled.
+    pub(super) fn cancel_sync(&mut self, cx: &mut Context<Self>) {
+        self.sync_task = None;
+        if let Some(mut trace) = self.sync_trace.take() {
+            trace.finish(
+                "cancelled",
+                Some(t!("Overleaf sync cancelled").to_string()),
+                cx,
+            );
+        }
+    }
+
     /// A sync finished: say what it left, and settle what it asks of the
     /// writer.
     pub(super) fn synced(

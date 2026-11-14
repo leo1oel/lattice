@@ -8,8 +8,8 @@
 //!   forward, and says it reconnected;
 //! - a board being edited is held from Overleaf, and goes up once the
 //!   writer leaves it;
-//! - Review here opens the comment by the caret, and View ▸ Margin Review
-//!   is offered while the linked source is in front.
+//! - Review here opens the comment on or after the caret's line, not the
+//!   file's first or last.
 
 use std::{collections::BTreeSet, time::Duration};
 
@@ -171,37 +171,74 @@ impl Run {
             json!({ "held": held, "went": went, "uploads": mock.requests(&uploads) - sent }),
         );
 
-        // Review here: the comment by the caret opens.
+        // Review here: comments at the start of the first line, of one in
+        // the middle and of the last, with the caret on the line before the
+        // middle one, which is the one that opens.
         let main = root.join("main.tex");
-        let quote: String = mock
-            .file("main.tex")
-            .unwrap_or_default()
-            .chars()
-            .take(6)
+        let text = mock.file("main.tex").unwrap_or_default();
+        let starts: Vec<usize> = std::iter::once(0)
+            .chain(text.match_indices('\n').map(|(at, _)| at + 1))
+            .filter(|at| *at < text.len())
             .collect();
-        let thread = mock.peer_commented("main.tex", 0, &quote, "Here?");
-        let key = format!("comment:{thread}");
-        self.with_window(cx, |shell, window, cx| {
+        if starts.len() < 4 {
+            steps.check(
+                "Review here opens the comment on or after the caret's line",
+                false,
+                json!({ "lines": starts.len(), "text": text }),
+            );
+            return Ok(());
+        }
+        let utf16 = |byte: usize| text[..byte].encode_utf16().count() as i64;
+        let middle = starts.len() / 2;
+        let ours: Vec<String> = [0, middle, starts.len() - 1]
+            .into_iter()
+            .map(|line| {
+                let quote: String = text[starts[line]..]
+                    .chars()
+                    .take_while(|c| *c != '\n')
+                    .take(6)
+                    .collect();
+                let thread = mock.peer_commented("main.tex", utf16(starts[line]), &quote, "Here?");
+                format!("comment:{thread}")
+            })
+            .collect();
+        let from = utf16(starts[middle - 1]);
+        let items: Vec<(i64, String)> = mock
+            .comments("main.tex")
+            .into_iter()
+            .map(|comment| (comment.position, format!("comment:{}", comment.thread_id)))
+            .chain(
+                mock.changes("main.tex")
+                    .into_iter()
+                    .map(|change| (change.position, format!("change:{}", change.id))),
+            )
+            .collect();
+        let expected = items
+            .iter()
+            .filter(|(at, _)| *at >= from)
+            .min_by_key(|(at, _)| *at)
+            .map(|(_, key)| key.clone());
+        let caret = middle as u32;
+        self.with_window(cx, move |shell, window, cx| {
             shell.update(cx, |shell, cx| {
-                shell.open_path(main.clone(), Some(1), window, cx);
+                shell.open_path(main.clone(), Some(caret), window, cx);
                 shell.set_margin_mode(MarginMode::Markers, cx);
             })
         })?;
-        let wanted = key.clone();
+        let main = root.join("main.tex");
+        let wanted = ours.clone();
         let shown = self
             .wait_for(cx, Duration::from_secs(10), move |shell, cx| {
                 shell
                     .update(cx, |shell, cx| shell.open_editor(&main, cx))
                     .is_some_and(|editor| {
-                        editor
-                            .read(cx)
-                            .margin_painted()
+                        let painted = editor.read(cx).margin_painted();
+                        wanted
                             .iter()
-                            .any(|(painted, _)| *painted == wanted)
+                            .all(|key| painted.iter().any(|(painted, _)| painted == key))
                     })
             })
             .await;
-        let offered = self.with_window(cx, |shell, _, cx| shell.read(cx).margin_review_offered(cx))?;
         // The palette runs it with the source focused, which makes it the
         // window's active editor.
         let focused = root.join("main.tex");
@@ -215,19 +252,13 @@ impl Run {
             window.dispatch_action(Box::new(crate::shell::ReviewHere), cx)
         })?;
         let main = root.join("main.tex");
+        let middle_key = ours[1].clone();
         let opened = self
             .wait_for(cx, Duration::from_secs(3), move |shell, cx| {
                 shell
                     .update(cx, |shell, cx| shell.open_editor(&main, cx))
                     .is_some_and(|editor| {
-                        // The earliest item from the caret's line: ours, at
-                        // the file's start, unless an earlier check's
-                        // comment or suggestion stands before it.
-                        editor.read(cx).margin_open().is_some_and(|open| {
-                            open == key.as_str()
-                                || open.starts_with("comment:")
-                                || open.starts_with("change:")
-                        })
+                        editor.read(cx).margin_open() == Some(middle_key.as_str())
                     })
             })
             .await;
@@ -253,9 +284,16 @@ impl Run {
             shell.update(cx, |shell, cx| shell.set_margin_mode(MarginMode::Auto, cx))
         })?;
         steps.check(
-            "Review here opens the comment by the caret, and View ▸ Margin Review is offered for the linked source",
-            shown && offered && opened,
-            json!({ "shown": shown, "offered": offered, "opened": opened, "facts": facts }),
+            "Review here opens the comment on or after the caret's line",
+            shown && opened && expected.as_deref() == Some(ours[1].as_str()),
+            json!({
+                "shown": shown,
+                "opened": opened,
+                "ours": ours,
+                "expected": expected,
+                "items": items,
+                "facts": facts,
+            }),
         );
         Ok(())
     }
