@@ -22,6 +22,8 @@
 //! - hidden past the (shortened) hibernation delay the page is torn down,
 //!   and drawn again with the document when shown.
 
+#![cfg(target_os = "macos")]
+
 use std::{path::Path, time::Duration};
 
 use anyhow::Result;
@@ -626,3 +628,19 @@ impl Run {
         Ok(())
     }
 }
+
+/// This file's registration as the e2e module `markdown` (`registry.rs`).
+pub(super) const MODULE: super::registry::Module = super::registry::Module {
+    after: super::registry::After::Repair,
+    rank: 80,
+    needs: &[],
+    setup: false,
+    covers: &[
+        "gpui/crates/lattice-gpui/src/editor_panel/markdown_view.rs",
+        "gpui/crates/lattice-webview/",
+        "gpui/islands/",
+        "gpui/crates/lattice-gpui/src/scenario/e2e/markdown_pages.rs",
+        "gpui/crates/lattice-gpui/src/scenario/e2e/markdown_scroll.rs",
+    ],
+    run: |run, cx, steps, fixture| Box::pin(run.markdown_island(cx, steps, &fixture.root)),
+};

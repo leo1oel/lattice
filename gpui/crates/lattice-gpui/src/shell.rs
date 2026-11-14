@@ -11,6 +11,10 @@
 //! the command table, keymap and palette (`commands`, `actions`, `palette`),
 //! the menu bar (`menus`), windows and project tabs (`windows`), builds (`build`, `build_tools`), the tree's operations (`entries`),
 //! the PDFs (`pdfs`) and SyncTeX (`synctex`).
+//!
+//! A feature's own state, panels, command handlers and palette rows can
+//! register from its module as a window part (`parts`), instead of adding
+//! fields here and match arms in `views` and `actions`.
 
 mod actions;
 mod agent_documents;
@@ -29,6 +33,7 @@ mod ground;
 mod help_flow;
 mod history_flow;
 mod imports;
+mod insert_flow;
 mod layers;
 pub(crate) mod menus;
 mod opening;
@@ -38,6 +43,7 @@ mod overleaf_presence;
 mod overleaf_review;
 mod palette;
 mod papers;
+mod parts;
 mod pdfs;
 mod references_flow;
 mod render;
@@ -75,6 +81,7 @@ pub use commands::{
     OpenTexDoctor, PreviousProblem, Save, StopBuild, ToggleVimMode,
 };
 pub use get_started_flow::ShowGetStarted;
+pub use insert_flow::{InsertTable, PasteImageAsFigure};
 pub use help_flow::{ReportProblem, WhatsNew};
 pub use references_flow::{FindReferences, RenameSymbol};
 pub use tools_flow::{ExportArxiv, OpenChecklist, OpenTodos};
@@ -148,8 +155,10 @@ pub struct Shell {
     pub(crate) history: Entity<crate::history::HistoryPanel>,
     /// The submission checklist tool panel (`crate::submission::checklist`).
     pub(crate) checklist: Entity<crate::submission::checklist::ChecklistPanel>,
-    /// Get started, and its "Show me" ring (`get_started_flow`).
-    pub(crate) get_started: get_started_flow::GetStarted,
+    /// The figure dialog and the table generator, while open (`insert_flow`).
+    pub(crate) inserts: insert_flow::Inserts,
+    /// The registered parts' state, by type (`parts`).
+    pub(crate) parts: parts::Parts,
     /// The manuscript's TODOs tool panel (`crate::submission::todos`).
     pub(crate) todos: Entity<crate::submission::todos::TodosPanel>,
     /// The Overleaf collaboration panel (`crate::overleaf::collab`).
@@ -449,7 +458,8 @@ impl Shell {
             overleaf_collab,
             margin_mode: Default::default(),
             checklist,
-            get_started: Self::get_started_panel(window, cx),
+            inserts: Default::default(),
+            parts: parts::Parts::install(window, cx),
             sheets: Default::default(),
             references: Default::default(),
             terminal,

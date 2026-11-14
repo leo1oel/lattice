@@ -7,6 +7,8 @@
 //!   the tree, sizes included, is the same) is offered with the new heading
 //!   and without the old one, as the Tauri app's index re-reads it.
 
+#![cfg(target_os = "macos")]
+
 use std::{path::Path, time::Duration};
 
 use anyhow::Result;

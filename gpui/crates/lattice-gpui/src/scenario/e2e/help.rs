@@ -422,3 +422,16 @@ impl Run {
         Ok(())
     }
 }
+
+/// This file's registration as the e2e module `help` (`registry.rs`).
+pub(super) const MODULE: super::registry::Module = super::registry::Module {
+    after: super::registry::After::Terminal,
+    rank: 90,
+    needs: &[],
+    setup: false,
+    covers: &[
+        "gpui/crates/lattice-gpui/src/help",
+        "gpui/crates/lattice-gpui/src/app_log",
+    ],
+    run: |run, cx, steps, _| Box::pin(run.help_and_logs(cx, steps)),
+};

@@ -75,7 +75,7 @@ impl Run {
         // "Show me" for the build: main.tex comes forward, at its title
         // where it has one, with the ring on it. (The build step is the
         // sample's, so it is never done in the fixture, and the ring draws.)
-        let panel = cx.update(|cx| self.shell.read(cx).get_started.panel.clone());
+        let panel = cx.update(|cx| self.shell.read(cx).get_started().panel.clone());
         panel.update(cx, |_, cx| cx.emit(GetStartedEvent::ShowMe(Step::Build)));
         self.pause(cx, Duration::from_millis(300)).await;
         let (ringing, front) = cx.update(|cx| {
@@ -83,7 +83,7 @@ impl Run {
             let front = shell
                 .active_editor()
                 .map(|editor| editor.read(cx).path().to_path_buf());
-            (shell.get_started.showing(), front)
+            (shell.get_started().showing(), front)
         });
         steps_run.check(
             "Show me brings the manuscript forward and rings it",
@@ -103,7 +103,7 @@ impl Run {
             );
         })?;
         self.pause(cx, Duration::from_millis(200)).await;
-        let after_escape = cx.update(|cx| self.shell.read(cx).get_started.showing());
+        let after_escape = cx.update(|cx| self.shell.read(cx).get_started().showing());
         steps_run.check(
             "Escape takes the ring down",
             after_escape.is_none(),
@@ -141,7 +141,7 @@ impl Run {
             })?;
         }
         self.pause(cx, Duration::from_millis(200)).await;
-        let after_press = cx.update(|cx| self.shell.read(cx).get_started.showing());
+        let after_press = cx.update(|cx| self.shell.read(cx).get_started().showing());
         steps_run.check(
             "the ring is drawn over the manuscript, and a press anywhere takes it down",
             at.is_some() && after_press.is_none(),
@@ -238,3 +238,16 @@ impl Run {
         let _ = (cx, name);
     }
 }
+
+/// This file's registration as the e2e module `get_started` (`registry.rs`).
+pub(super) const MODULE: super::registry::Module = super::registry::Module {
+    after: super::registry::After::Terminal,
+    rank: 1000,
+    needs: &[],
+    setup: false,
+    covers: &[
+        "gpui/crates/lattice-gpui/src/get_started",
+        "gpui/crates/lattice-gpui/src/shell/get_started_flow.rs",
+    ],
+    run: |run, cx, steps, fixture| Box::pin(run.get_started(cx, steps, &fixture.root)),
+};

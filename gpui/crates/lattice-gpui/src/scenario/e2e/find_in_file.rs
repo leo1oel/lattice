@@ -36,3 +36,12 @@ impl Run {
         Ok(())
     }
 }
+
+pub(super) const MODULE: super::registry::Module = super::registry::Module {
+    after: super::registry::After::Build,
+    rank: 25,
+    needs: &[],
+    setup: false,
+    covers: &["gpui/crates/lattice-gpui/src/editor_panel/find_bar"],
+    run: |run, cx, steps, fixture| Box::pin(run.find_in_file(cx, steps, &fixture.root)),
+};

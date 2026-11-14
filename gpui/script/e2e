@@ -7,7 +7,7 @@
 #
 # Usage: script/e2e [--only MODULES] [result.json]
 #   (result default: a file in the scratch folder). --only runs the smoke flow
-#   and those modules (crates/lattice-gpui/src/scenario/e2e/steps.rs; `smoke`
+#   and those modules (crates/lattice-gpui/src/scenario/e2e/registry.rs; `smoke`
 #   for none), as the pipeline's light pass does through
 #   ../scripts/gpui-e2e-light.mjs; without it the whole scenario runs.
 # Build first, from the repository root: node scripts/gpui-build.mjs (the

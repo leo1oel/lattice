@@ -16,6 +16,8 @@
 //!   and applies it;
 //! - Settings › Overleaf says who is signed in and which project syncs.
 
+#![cfg(target_os = "macos")]
+
 mod chat;
 mod live;
 mod margin;
@@ -394,3 +396,16 @@ impl Run {
         Ok(())
     }
 }
+
+/// This file's registration as the e2e module `overleaf` (`registry.rs`).
+pub(super) const MODULE: super::registry::Module = super::registry::Module {
+    after: super::registry::After::Terminal,
+    rank: 50,
+    needs: &[],
+    setup: false,
+    covers: &[
+        "gpui/crates/lattice-gpui/src/overleaf",
+        "gpui/crates/lattice-gpui/src/shell/overleaf_flow.rs",
+    ],
+    run: |run, cx, steps, fixture| Box::pin(run.overleaf(cx, steps, &fixture.root)),
+};

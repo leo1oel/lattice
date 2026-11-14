@@ -218,3 +218,13 @@ impl Run {
         let _ = (cx, name, wait);
     }
 }
+
+/// This file's registration as the e2e module `fluid` (`registry.rs`).
+pub(super) const MODULE: super::registry::Module = super::registry::Module {
+    after: super::registry::After::Build,
+    rank: 10,
+    needs: &[],
+    setup: false,
+    covers: &[],
+    run: |run, cx, steps, _| Box::pin(run.fluid_hover(cx, steps)),
+};

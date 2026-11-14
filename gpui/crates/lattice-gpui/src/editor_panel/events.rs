@@ -16,6 +16,11 @@ pub enum EditorPanelEvent {
     OpenLocation { path: String, line: u32 },
     /// The caret moved to another line.
     CaretLine,
+    /// ⌘V with an image (and no text) on the clipboard, in a LaTeX or
+    /// Markdown file: the window saves it as a figure and inserts it.
+    PasteImage,
+    /// Insert the project's files as figures (a row dragged from the tree).
+    InsertFigures(Vec<String>),
     /// The caret or the selection changed at all (Overleaf's remote caret
     /// and the Agent's host context follow).
     CaretMoved,

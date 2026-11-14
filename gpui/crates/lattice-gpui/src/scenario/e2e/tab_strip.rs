@@ -330,3 +330,13 @@ impl Run {
         let _ = (cx, name);
     }
 }
+
+/// This file's registration as the e2e module `tab_strip` (`registry.rs`).
+pub(super) const MODULE: super::registry::Module = super::registry::Module {
+    after: super::registry::After::Repair,
+    rank: 100,
+    needs: &[],
+    setup: false,
+    covers: &["gpui/crates/lattice-gpui/src/editor_panel/strip.rs"],
+    run: |run, cx, steps, fixture| Box::pin(run.tab_strip(cx, steps, &fixture.root)),
+};

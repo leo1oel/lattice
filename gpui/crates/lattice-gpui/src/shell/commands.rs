@@ -149,6 +149,8 @@ pub struct CommandContext {
     /// The project is linked to Overleaf, and the session may sync it.
     pub overleaf_linked: bool,
     pub overleaf_syncing: bool,
+    /// The editor in front is a LaTeX source (Insert table's `latexSource`).
+    pub latex_source: bool,
 }
 
 /// One row of the table.
@@ -166,7 +168,7 @@ pub struct Command {
 }
 
 impl Command {
-    fn new(
+    pub(crate) fn new(
         id: impl Into<SharedString>,
         label: impl Into<SharedString>,
         section: Section,
@@ -182,12 +184,12 @@ impl Command {
         }
     }
 
-    fn keys_only(mut self) -> Self {
+    pub(crate) fn keys_only(mut self) -> Self {
         self.palette = false;
         self
     }
 
-    fn keywords(mut self, keywords: &'static str) -> Self {
+    pub(crate) fn keywords(mut self, keywords: &'static str) -> Self {
         self.keywords = keywords;
         self
     }
@@ -471,9 +473,13 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
             ReplaceInProject,
         ));
         submission::edit_commands(&mut out);
+        submission::insert_commands(context, &mut out);
     }
     projects::project_commands(context, &mut out);
     appearance::appearance_commands(&mut out);
+    // The registered parts' rows (`parts`): after the table's own, which
+    // keep their order in each section.
+    super::parts::commands(context, &mut out);
     out
 }
 

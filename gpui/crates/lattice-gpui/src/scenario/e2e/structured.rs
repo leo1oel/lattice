@@ -18,6 +18,8 @@
 //!   runtime or, in a build without the staged runtime, says Open Slide could
 //!   not start, rather than loading forever.
 
+#![cfg(target_os = "macos")]
+
 use std::{path::Path, time::Duration};
 
 use anyhow::Result;
@@ -548,3 +550,18 @@ impl Run {
         Ok(())
     }
 }
+
+/// This file's registration as the e2e module `structured` (`registry.rs`).
+pub(super) const MODULE: super::registry::Module = super::registry::Module {
+    after: super::registry::After::Repair,
+    rank: 70,
+    needs: &[],
+    setup: false,
+    covers: &[
+        "gpui/crates/lattice-gpui/src/structured",
+        "gpui/crates/lattice-gpui/src/editor_panel/structured_view.rs",
+        "gpui/crates/lattice-webview/",
+        "gpui/islands/",
+    ],
+    run: |run, cx, steps, fixture| Box::pin(run.structured_islands(cx, steps, &fixture.root)),
+};

@@ -277,3 +277,13 @@ impl Run {
         })
     }
 }
+
+/// This file's registration as the e2e module `tree` (`registry.rs`).
+pub(super) const MODULE: super::registry::Module = super::registry::Module {
+    after: super::registry::After::Repair,
+    rank: 30,
+    needs: &[],
+    setup: false,
+    covers: &["gpui/crates/lattice-gpui/src/file_tree"],
+    run: |run, cx, steps, fixture| Box::pin(run.tree_operations(cx, steps, &fixture.root)),
+};

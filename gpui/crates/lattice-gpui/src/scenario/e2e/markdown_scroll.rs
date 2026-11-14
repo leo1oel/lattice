@@ -4,6 +4,8 @@
 //! the same part, and the visual editor scrolled back up brings the source
 //! with it.
 
+#![cfg(target_os = "macos")]
+
 use std::{path::Path, time::Duration};
 
 use anyhow::Result;
