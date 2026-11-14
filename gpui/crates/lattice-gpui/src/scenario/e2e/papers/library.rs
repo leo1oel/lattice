@@ -30,6 +30,38 @@ impl Run {
         Ok(())
     }
 
+    /// Save the window in light and dark, English and Simplified Chinese,
+    /// under `LATTICE_E2E_SHOTS`, then put it back in light English.
+    async fn papers_looks(&self, cx: &mut AsyncApp, name: &str) -> Result<()> {
+        use lattice_settings::InterfaceLanguage;
+        use lattice_ui::{Appearance, LatticeTheme};
+        if std::env::var_os("LATTICE_E2E_SHOTS").is_none() {
+            return Ok(());
+        }
+        for (appearance, language, look) in [
+            (Appearance::Light, InterfaceLanguage::En, "light"),
+            (Appearance::Dark, InterfaceLanguage::En, "dark"),
+            (Appearance::Light, InterfaceLanguage::ZhCn, "zh-light"),
+            (Appearance::Dark, InterfaceLanguage::ZhCn, "zh-dark"),
+        ] {
+            cx.update(|cx| {
+                LatticeTheme::set_appearance(appearance, cx);
+                crate::settings::update_appearance(cx, |a| a.interface_language = language);
+            });
+            self.frame_after_input(cx).await?;
+            self.pause(cx, Duration::from_millis(300)).await;
+            self.papers_shot(cx, &format!("{name}-{look}")).await;
+        }
+        cx.update(|cx| {
+            LatticeTheme::set_appearance(Appearance::Light, cx);
+            crate::settings::update_appearance(cx, |a| {
+                a.interface_language = InterfaceLanguage::En
+            });
+        });
+        self.frame_after_input(cx).await?;
+        Ok(())
+    }
+
     fn papers_key(&self, cx: &mut AsyncApp, keys: &'static str) -> Result<()> {
         let keystroke = Keystroke::parse(keys).map_err(|error| anyhow::anyhow!("{error}"))?;
         self.with_window(cx, move |_, window, cx| {
@@ -78,6 +110,9 @@ impl Run {
             self.papers_key(cx, keys)?;
             self.pause(cx, Duration::from_millis(60)).await;
             walked.push(self.papers_keyboard_at(cx, papers)?);
+            if walked.len() == 2 {
+                self.papers_looks(cx, "papers-keyboard").await?;
+            }
         }
         let first = order.first().cloned();
         let second = order.get(1).cloned();
@@ -113,7 +148,7 @@ impl Run {
                 shell.read(cx).add_papers().is_some()
             })
             .await;
-        self.papers_shot(cx, "papers-6-add-from-palette").await;
+        self.papers_looks(cx, "papers-6-add-from-palette").await?;
         self.with_window(cx, |shell, window, cx| {
             shell.update(cx, |shell, cx| shell.close_document_overlays(window, cx))
         })?;
@@ -205,7 +240,7 @@ impl Run {
         let (preview, fields, cite, year) =
             cx.update(|cx| form.update(cx, |form, cx| form.preview_for_scenario(cx)));
         self.pause(cx, Duration::from_millis(200)).await;
-        self.papers_shot(cx, "papers-7-add-reference").await;
+        self.papers_looks(cx, "papers-7-add-reference").await?;
         self.with_window(cx, |shell, window, cx| {
             shell.update(cx, |shell, cx| shell.close_document_overlays(window, cx))
         })?;

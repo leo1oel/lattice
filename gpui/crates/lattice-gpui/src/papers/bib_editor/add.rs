@@ -127,6 +127,8 @@ pub struct AddReference {
     /// project's bibliography.
     insert_cite: bool,
     preview_open: bool,
+    /// The citation key box's placeholder now: the key the entry gets.
+    key_hint: String,
     candidates_focus: gpui::FocusHandle,
     error: Option<String>,
     generation: u64,
@@ -204,6 +206,7 @@ impl AddReference {
             edited: false,
             insert_cite: offers_cite,
             preview_open: false,
+            key_hint: "author2024title".into(),
             candidates_focus: cx.focus_handle(),
             error: None,
             generation: 0,

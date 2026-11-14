@@ -42,7 +42,7 @@ impl AddPapers {
             // The full-text switch sits at the end of the tools row,
             // the last choice sticking for every window.
             .child(
-                div().ml_auto().self_center().child(
+                div().self_center().child(
                     Checkbox::new(
                         "add-papers-full-text",
                         if crate::settings::get(cx).save_full_text {

@@ -18,7 +18,7 @@ use gpui::{
 use lattice_i18n::t;
 use lattice_ui::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
-    components::{Button, CheckState, Checkbox, MenuAction, MenuPopover},
+    components::{Button, CheckState, Checkbox, Select},
     interaction::{fade, mix, track_pointer, use_interaction},
     motion::Motion,
     tokens::{FONT_WEIGHT_MEDIUM, FONT_WEIGHT_SEMIBOLD},
@@ -189,36 +189,43 @@ impl AddReference {
         }
     }
 
-    /// The entry type's menu.
+    /// The entry type's select (`Select` over `BIB_ENTRY_TYPES`).
     fn type_menu(&self, cx: &mut Context<Self>) -> AnyElement {
-        let view = cx.entity().downgrade();
-        let kind = self.entry_type.clone();
-        MenuPopover::new(
-            "bib-entry-type",
-            Button::new("bib-entry-type-button", type_label(&self.entry_type))
-                .icon(Icon::CHEVRON_DOWN)
-                .tooltip(t!("Entry type")),
-            move |menu, _, _| {
-                TYPES.iter().fold(menu, |menu, choice| {
-                    let view = view.clone();
-                    let choice = *choice;
-                    menu.item(
-                        MenuAction::new(type_label(choice), move |window, cx| {
-                            view.update(cx, |this, cx| this.set_type(choice, window, cx))
-                                .ok();
-                        })
-                        .checked(choice == kind),
-                    )
-                })
-            },
-        )
-        .into_any_element()
+        let selected = TYPES.iter().position(|kind| *kind == self.entry_type);
+        div()
+            .flex_1()
+            .min_w_0()
+            .child(
+                Select::new("bib-entry-type", TYPES.map(type_label), selected).on_change(
+                    cx.listener(|this, at: &usize, window, cx| {
+                        if let Some(kind) = TYPES.get(*at) {
+                            this.set_type(kind, window, cx);
+                        }
+                    }),
+                ),
+            )
+            .into_any_element()
     }
 
     /// The work, then the record past a hairline.
     pub(super) fn fields(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let palette = cx.palette().clone();
         let narrow = Self::narrow(window);
+        // The key's placeholder is the key the entry gets unless one is
+        // typed, once the title or the authors say what it is.
+        let draft = self.draft(cx);
+        let placeholder = if draft.title.trim().is_empty() && draft.author.trim().is_empty() {
+            "author2024title".to_string()
+        } else {
+            draft.key()
+        };
+        let key = self.input(Field::Key).clone();
+        if self.key_hint != placeholder {
+            self.key_hint = placeholder.clone();
+            key.update(cx, |input, cx| {
+                input.set_placeholder(placeholder, window, cx)
+            });
+        }
         // Two pairs on a row, or each on its own when narrow.
         let pair_row = |left: gpui::Div, right: gpui::Div| {
             if narrow {
