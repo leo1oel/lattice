@@ -18,9 +18,11 @@
 pub mod account;
 pub mod bridge;
 mod channel;
+pub mod collab;
 pub mod download;
 pub mod outcome;
 pub(crate) mod parts;
+pub mod people;
 pub mod picker;
 mod remote_deletes;
 pub mod review;

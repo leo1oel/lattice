@@ -19,6 +19,7 @@ mod build_flow;
 mod design_calls;
 mod documents;
 mod editor_adapter;
+mod editor_pointer;
 mod fluid;
 mod help;
 mod history;

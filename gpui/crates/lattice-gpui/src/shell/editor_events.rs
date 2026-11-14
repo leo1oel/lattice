@@ -57,6 +57,9 @@ impl Shell {
                 }
             }
             EditorPanelEvent::Close => self.close_editor(editor, window, cx),
+            EditorPanelEvent::OverleafReview(action) => {
+                self.overleaf_review_action(editor, action, window, cx)
+            }
             EditorPanelEvent::OpenLocation { path, line } => {
                 if let Some(root) = self.root(cx) {
                     self.open_path(root.join(path), Some(*line), window, cx);

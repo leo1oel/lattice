@@ -56,6 +56,7 @@ use crate::{
     folds::{FoldRange, FoldSource},
     gutter::GutterMark,
     hover::HoverProvider,
+    inline_texts::InlineText,
     remote_cursors::RemoteCursor,
 };
 
@@ -70,6 +71,12 @@ pub enum LatticeEditorEvent {
 struct AnchoredGutterMark {
     anchor: language::Anchor,
     mark: GutterMark,
+}
+
+struct AnchoredInline {
+    id: project::InlayId,
+    anchor: language::Anchor,
+    item: InlineText,
 }
 
 struct AnchoredCursor {
@@ -92,6 +99,8 @@ pub struct LatticeEditor {
     sources: Sources,
     offered: Offered,
     cursors: Vec<AnchoredCursor>,
+    inline: BTreeMap<&'static str, Vec<AnchoredInline>>,
+    next_inlay: usize,
     hovered_cursor: Option<SharedString>,
     painted: Rc<RefCell<Painted>>,
     scroll: scrollbar::EditorScroll,
@@ -160,6 +169,8 @@ impl LatticeEditor {
             sources,
             offered,
             cursors: Vec::new(),
+            inline: BTreeMap::new(),
+            next_inlay: 0,
             hovered_cursor: None,
             painted: Rc::default(),
             scroll: scrollbar::EditorScroll::default(),
@@ -376,6 +387,47 @@ impl LatticeEditor {
         } else {
             self.highlights.insert(layer);
         }
+    }
+
+    // ---- inline texts ------------------------------------------------------
+
+    /// Replace `layer`'s inline texts (`inline_texts`).
+    pub fn set_inline_texts(
+        &mut self,
+        layer: &'static str,
+        items: Vec<InlineText>,
+        cx: &mut Context<Self>,
+    ) {
+        let text = self.buffer.read(cx).snapshot();
+        let previous: Vec<_> = self
+            .inline
+            .remove(layer)
+            .unwrap_or_default()
+            .into_iter()
+            .map(|anchored| anchored.id)
+            .collect();
+        let mut anchored = Vec::with_capacity(items.len());
+        let mut inlays = Vec::with_capacity(items.len());
+        for item in items {
+            let anchor = text.anchor_after(item.offset.min(text.len()));
+            let Some(position) = self.multi_anchor(anchor, cx) else {
+                continue;
+            };
+            self.next_inlay += 1;
+            let inlay = editor::Inlay::debugger(self.next_inlay, position, item.text.to_string());
+            anchored.push(AnchoredInline {
+                id: inlay.id,
+                anchor,
+                item,
+            });
+            inlays.push(inlay);
+        }
+        self.editor
+            .update(cx, |editor, cx| editor.splice_inlays(&previous, inlays, cx));
+        if !anchored.is_empty() {
+            self.inline.insert(layer, anchored);
+        }
+        cx.notify();
     }
 
     // ---- gutter marks ------------------------------------------------------

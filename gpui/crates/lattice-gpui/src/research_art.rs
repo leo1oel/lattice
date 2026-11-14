@@ -21,6 +21,10 @@ const DATED_DRAFTS_SOURCE: &str =
     include_str!("../../../../src/components/ui/research-art-dated-drafts.ts");
 const NOTE_SPIKE_SOURCE: &str =
     include_str!("../../../../src/components/ui/research-art-note-spike.ts");
+const MARGIN_NOTES_SOURCE: &str =
+    include_str!("../../../../src/components/ui/research-art-margin-notes.ts");
+const PROOF_MARKS_SOURCE: &str =
+    include_str!("../../../../src/components/ui/research-art-proof-marks.ts");
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Tone {
@@ -42,6 +46,8 @@ struct ArtPath {
 
 static DATED_DRAFTS: LazyLock<Vec<ArtPath>> = LazyLock::new(|| parse(DATED_DRAFTS_SOURCE));
 static NOTE_SPIKE: LazyLock<Vec<ArtPath>> = LazyLock::new(|| parse(NOTE_SPIKE_SOURCE));
+static MARGIN_NOTES: LazyLock<Vec<ArtPath>> = LazyLock::new(|| parse(MARGIN_NOTES_SOURCE));
+static PROOF_MARKS: LazyLock<Vec<ArtPath>> = LazyLock::new(|| parse(PROOF_MARKS_SOURCE));
 
 /// The drawings ported so far, each read from the Tauri app's own module.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -50,6 +56,10 @@ pub enum Drawing {
     DatedDrafts,
     /// `NOTE_SPIKE`: nothing left to do (the TODOs' empty state).
     NoteSpike,
+    /// `MARGIN_NOTES`: no comments (Overleaf's comments).
+    MarginNotes,
+    /// `PROOF_MARKS`: no suggestions (Overleaf's suggestions).
+    ProofMarks,
 }
 
 impl Drawing {
@@ -57,6 +67,8 @@ impl Drawing {
         match self {
             Drawing::DatedDrafts => &DATED_DRAFTS,
             Drawing::NoteSpike => &NOTE_SPIKE,
+            Drawing::MarginNotes => &MARGIN_NOTES,
+            Drawing::ProofMarks => &PROOF_MARKS,
         }
     }
 }
@@ -168,7 +180,12 @@ mod tests {
 
     #[test]
     fn reads_the_tauri_drawings() {
-        for drawing in [Drawing::DatedDrafts, Drawing::NoteSpike] {
+        for drawing in [
+            Drawing::DatedDrafts,
+            Drawing::NoteSpike,
+            Drawing::MarginNotes,
+            Drawing::ProofMarks,
+        ] {
             let paths = drawing.paths();
             assert!(
                 paths.len() > 20,

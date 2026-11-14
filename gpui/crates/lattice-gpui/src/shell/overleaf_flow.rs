@@ -56,13 +56,23 @@ impl Shell {
     pub(super) fn init_overleaf(
         window: &mut Window,
         cx: &mut Context<Self>,
-    ) -> (Entity<OverleafBridge>, Vec<Subscription>) {
+    ) -> (
+        Entity<OverleafBridge>,
+        Entity<crate::overleaf::collab::OverleafCollabPanel>,
+        Vec<Subscription>,
+    ) {
         let bridge = cx.new(OverleafBridge::new);
+        let collab =
+            cx.new(|cx| crate::overleaf::collab::OverleafCollabPanel::new(bridge.clone(), cx));
         let subscriptions = vec![
+            cx.subscribe_in(&collab, window, |this, _, event, window, cx| {
+                this.on_collab_event(event, window, cx)
+            }),
             cx.subscribe_in(&bridge, window, Self::on_overleaf_event),
             cx.observe(&bridge, |this, _, cx| {
                 this.show_overleaf_save(cx);
                 this.push_agent_overleaf(cx);
+                this.show_overleaf_review(cx);
                 cx.notify()
             }),
             // Another window signed in or out, or a request found the
@@ -72,7 +82,7 @@ impl Shell {
                     .update(cx, |bridge, cx| bridge.check_session(cx));
             }),
         ];
-        (bridge, subscriptions)
+        (bridge, collab, subscriptions)
     }
 
     fn on_overleaf_event(

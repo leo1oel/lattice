@@ -1,7 +1,8 @@
-//! The overlay over the editor: gutter marks and remote carets painted in
-//! the editor's coordinates, and the pointer reported to the hover cards.
+//! The overlay over the editor: gutter marks, remote carets and the inline
+//! texts' strikes and tints painted in the editor's coordinates, and the
+//! pointer reported to the hover cards.
 
-use std::time::Instant;
+use std::{collections::HashMap, time::Instant};
 
 use gpui::{
     App, Bounds, Context, DispatchPhase, Hitbox, MouseMoveEvent, Pixels, Point, SharedString,
@@ -12,7 +13,7 @@ use language::{ToOffset as _, ToPoint as _};
 use super::LatticeEditor;
 use crate::{
     geometry::{self, Frame},
-    gutter, remote_cursors,
+    gutter, inline_texts, remote_cursors,
 };
 
 /// What the overlay painted last frame, for the pointer and for scripted
@@ -30,6 +31,9 @@ pub struct Painted {
     pub cursors: Vec<PaintedCursor>,
     /// The open hover card's bounds, once it has been laid out.
     pub card: Option<Bounds<Pixels>>,
+    /// Each inline text drawn: its layer, buffer offset and bounds, once for
+    /// each display row it takes.
+    pub inline: Vec<(&'static str, usize, Bounds<Pixels>)>,
 }
 
 #[derive(Clone, Debug)]
@@ -110,7 +114,8 @@ impl LatticeEditor {
         };
         // Most frames have nothing to paint here: leave the editor's layout
         // unread (it costs a display snapshot) while scrolling plain text.
-        let has_overlay = !self.gutter.is_empty() || !self.cursors.is_empty();
+        let has_overlay =
+            !self.gutter.is_empty() || !self.cursors.is_empty() || !self.inline.is_empty();
         let frame = has_overlay
             .then(|| Frame::read(&self.editor, bounds, window, cx))
             .flatten();
@@ -137,6 +142,50 @@ impl LatticeEditor {
                         cx,
                     );
                     painted.gutter.push((layer, row, mark_bounds));
+                }
+            }
+            if !self.inline.is_empty() {
+                let details = self
+                    .editor
+                    .update(cx, |editor, cx| editor.text_layout_details(window, cx));
+                let display = &frame.display().display_snapshot;
+                for (layer, items) in &self.inline {
+                    let mut spliced: HashMap<usize, usize> = HashMap::new();
+                    for anchored in items {
+                        let offset = anchored.anchor.to_offset(&text);
+                        let skip = spliced.entry(offset).or_default();
+                        let before = *skip;
+                        *skip += anchored.item.text.len();
+                        let Some(caret) =
+                            geometry::caret_rect(&self.editor, &text, offset, bounds, window, cx)
+                        else {
+                            continue;
+                        };
+                        let (base, rows) = frame.inline_rows(
+                            anchored.anchor.to_point(&text),
+                            before,
+                            anchored.item.text.len(),
+                        );
+                        let origin = caret.left() - display.x_for_display_point(base, &details);
+                        for (from, to) in &rows {
+                            let step = from.row().0 - base.row().0;
+                            let top = caret.top() + frame.line_height * step as f32;
+                            if !frame.shows_row(top) {
+                                continue;
+                            }
+                            let left = origin + display.x_for_display_point(*from, &details);
+                            let right = origin + display.x_for_display_point(*to, &details);
+                            let drawn = inline_texts::paint(
+                                left,
+                                top,
+                                right - left,
+                                frame.line_height,
+                                &anchored.item,
+                                window,
+                            );
+                            painted.inline.push((layer, offset, drawn));
+                        }
+                    }
                 }
             }
             let mut animating = false;

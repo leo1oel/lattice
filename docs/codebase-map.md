@@ -222,7 +222,7 @@ header is the place to start.
 | `link_preview.rs` | Link previews (title, description, site name, favicon), fetched with each redirect re-checked. |
 | `agent_literature.rs` | Literature operations the agent requests, through the same code as the app's own interface. |
 | `overleaf.rs` + `overleaf/` | The Overleaf sync bridge: session, linking, REST, review, the three-way merge. |
-| `overleaf_rt.rs` + `overleaf_rt/` | The hand-written Socket.IO 0.9 client for Overleaf's realtime channel, and `ot.rs`, the Rust port of `src/overleaf/ot.ts` the GPUI app edits live through. |
+| `overleaf_rt.rs` + `overleaf_rt/` | The hand-written Socket.IO 0.9 client for Overleaf's realtime channel, and `ot.rs`, the Rust port of `src/overleaf/ot.ts` the GPUI app edits live through, with `tracked.rs`, the port of `src/overleaf/overleaf-suggestions.ts` that moves its comments and suggestions. |
 | `sidecar.rs` | The JavaScript runtime and process lifetime the Synara and Open Slide sidecars share. |
 | `synara.rs` + `synara/` | Supervisor for the bundled Synara agent sidecar; `synara/` holds the `.bib` write guard it runs inside, and keeps the agent off where there is none (`bibliography_guard.rs`), seeds its skill preferences and hands its provider CLIs the writer's proxy and provider settings (`environment.rs`: the login shell's, read by `shell_env.rs`, then the system proxy), and restarts the sidecar to pick up a change (`restart.rs`; Settings › Agent › Environment is `src/settings/agent-environment-settings.tsx`). |
 | `process_inspector.rs` + `process_inspector.c` | An unprivileged `ps` replacement for the Synara sidecar (macOS only). |

@@ -31,8 +31,10 @@ mod imports;
 mod layers;
 pub(crate) mod menus;
 mod opening;
+mod overleaf_collab;
 pub(crate) mod overleaf_flow;
 mod overleaf_presence;
+mod overleaf_review;
 mod palette;
 mod pdfs;
 mod references_flow;
@@ -145,6 +147,10 @@ pub struct Shell {
     pub(crate) checklist: Entity<crate::submission::checklist::ChecklistPanel>,
     /// The manuscript's TODOs tool panel (`crate::submission::todos`).
     pub(crate) todos: Entity<crate::submission::todos::TodosPanel>,
+    /// The Overleaf collaboration panel (`crate::overleaf::collab`).
+    pub(crate) overleaf_collab: Entity<crate::overleaf::collab::OverleafCollabPanel>,
+    /// The window's margin review mode (`editor_panel::margin_review`).
+    pub(crate) margin_mode: crate::editor_panel::MarginMode,
     /// A symbol's occurrences bar and rename dialog (`references_flow`).
     pub(crate) references: references_flow::References,
     /// The sheets over the window, while open (`tools_flow::Sheets`).
@@ -382,7 +388,7 @@ impl Shell {
         .detach();
         cx.observe(&notices, |_, _, cx| cx.notify()).detach();
         cx.observe(&confirm, |_, _, cx| cx.notify()).detach();
-        let (overleaf, overleaf_subscriptions) = Self::init_overleaf(window, cx);
+        let (overleaf, overleaf_collab, overleaf_subscriptions) = Self::init_overleaf(window, cx);
         let workspace_events = cx.subscribe_in(&workspace, window, Self::on_workspace_event);
         // While a panel is dragged, webview islands step aside: a page would
         // hide the drop targets under it and swallow the drag.
@@ -432,6 +438,8 @@ impl Shell {
             build_panel,
             history,
             todos,
+            overleaf_collab,
+            margin_mode: Default::default(),
             checklist,
             sheets: Default::default(),
             references: Default::default(),

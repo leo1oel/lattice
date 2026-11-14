@@ -102,6 +102,7 @@ impl OverleafBridge {
         if typed.replaced {
             panel.update(cx, |panel, cx| panel.take_overleaf_text(doc.ot.text(), cx));
         }
+        self.review_moved(doc_id, &typed.ops, true, None, cx);
         let replayed: Vec<Replayed> = joined
             .caught_up
             .iter()
@@ -125,6 +126,7 @@ impl OverleafBridge {
         {
             return self.give_up(doc, "the replay does not fit the buffer", cx);
         }
+        self.review_moved(doc_id, &applied, false, None, cx);
         // Still unanswered after the replay: it never landed, so it goes
         // again, as a duplicate of any copy that did land meanwhile.
         let mut dup_if_source = Vec::new();

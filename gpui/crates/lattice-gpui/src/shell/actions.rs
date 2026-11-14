@@ -155,6 +155,26 @@ impl Shell {
                 cx.listener(|this, _: &SyncOverleaf, window, cx| this.sync_overleaf(window, cx)),
             )
             .on_action(cx.listener(|this, _: &OpenOnOverleaf, _, cx| this.open_on_overleaf(cx)))
+            .on_action(cx.listener(
+                |this, _: &super::overleaf_collab::AnnotateSelection, window, cx| {
+                    this.annotate_selection(window, cx)
+                },
+            ))
+            .on_action(cx.listener(
+                |this, _: &super::overleaf_collab::MarginReviewAuto, _, cx| {
+                    this.set_margin_mode(crate::editor_panel::MarginMode::Auto, cx)
+                },
+            ))
+            .on_action(cx.listener(
+                |this, _: &super::overleaf_collab::MarginReviewMarkers, _, cx| {
+                    this.set_margin_mode(crate::editor_panel::MarginMode::Markers, cx)
+                },
+            ))
+            .on_action(
+                cx.listener(|this, _: &super::overleaf_collab::MarginReviewOff, _, cx| {
+                    this.set_margin_mode(crate::editor_panel::MarginMode::Off, cx)
+                }),
+            )
             .on_action(cx.listener(|this, _: &ToggleBuildPanel, window, cx| {
                 let shown = this.build_panel_shown(cx);
                 this.show_build_panel(!shown, window, cx)

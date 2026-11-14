@@ -47,6 +47,7 @@ impl Shell {
     pub(crate) fn overleaf_tools(&self, cx: &mut Context<Self>) -> Vec<AnyElement> {
         self.overleaf_sync_control(cx)
             .into_iter()
+            .chain(self.overleaf_collab_button(cx))
             .chain(self.overleaf_presence(cx))
             .collect()
     }

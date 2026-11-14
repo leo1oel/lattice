@@ -24,6 +24,7 @@ mod input_lock;
 mod measure;
 mod overleaf_mock;
 mod overleaf_realtime_mock;
+mod overleaf_review_mock;
 #[cfg(target_os = "macos")]
 mod parity;
 #[cfg(target_os = "macos")]

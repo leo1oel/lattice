@@ -8263,6 +8263,7 @@ dependencies = [
  "async-channel 2.5.0",
  "base64 0.22.1",
  "chrono",
+ "clock",
  "codebook-tree-sitter-latex",
  "dirs",
  "editor",

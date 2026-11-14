@@ -41,19 +41,23 @@ use tungstenite::{Message, protocol::Role};
 /// A collaborator the scenario plays.
 pub const PEER_ID: &str = "peer-1";
 pub const PEER_NAME: &str = "Ada Lovelace";
-const PEER_USER: &str = "u-ada";
+pub(super) const PEER_USER: &str = "u-ada";
 
 /// One document as Overleaf keeps it: every operation it accepted, in order,
 /// each at the version it applied at.
 #[derive(Default)]
-struct Doc {
+pub(super) struct Doc {
     /// Each accepted operation with its sender's public id.
-    history: Vec<(Vec<OtOp>, String)>,
+    pub(super) history: Vec<(Vec<OtOp>, String)>,
 }
 
 #[derive(Default)]
 pub(super) struct Live {
-    docs: BTreeMap<String, Doc>,
+    pub(super) docs: BTreeMap<String, Doc>,
+    /// Comment threads and suggestions (`overleaf_review_mock`).
+    pub(super) review: super::overleaf_review_mock::ReviewMock,
+    /// The project's track-changes setting, for everyone.
+    pub(super) track_changes: bool,
     /// Each open socket: its public id and its outgoing frames.
     sockets: Vec<(String, mpsc::Sender<String>)>,
     next_socket: u32,
@@ -83,7 +87,7 @@ pub(super) fn is_doc(path: &str) -> bool {
         .any(|extension| path.ends_with(extension))
 }
 
-fn event(name: &str, args: Value) -> String {
+pub(super) fn event(name: &str, args: Value) -> String {
     format!("5:::{}", json!({ "name": name, "args": args }))
 }
 
@@ -92,7 +96,7 @@ fn ack(id: &str, args: Value) -> String {
 }
 
 /// Packed the way Overleaf sends lines: each UTF-8 byte as a character.
-fn packed(line: &str) -> String {
+pub(super) fn packed(line: &str) -> String {
     line.bytes().map(char::from).collect()
 }
 
@@ -167,7 +171,7 @@ fn forget(store: &Arc<impl Store>, public_id: &str) -> std::io::Result<()> {
 }
 
 /// Tell every socket but `except` (all, when none).
-fn broadcast(live: &Live, except: Option<&str>, frame: &str) {
+pub(super) fn broadcast(live: &Live, except: Option<&str>, frame: &str) {
     for (id, sender) in &live.sockets {
         if Some(id.as_str()) != except {
             sender.send(frame.to_string()).ok();
@@ -193,10 +197,14 @@ fn answer_frame(text: &str, public_id: &str, store: &Arc<impl Store>) -> Vec<Str
     let name = message["name"].as_str().unwrap_or_default();
     let args = message["args"].as_array().cloned().unwrap_or_default();
     match name {
-        "joinProject" => vec![ack(
-            id,
-            json!([null, store.with(|files, _| tree(files)), "owner", 2]),
-        )],
+        "joinProject" => {
+            let project = store.with(|files, live| {
+                let mut project = tree(files);
+                project["trackChangesState"] = json!(live.track_changes);
+                project
+            });
+            vec![ack(id, json!([null, project, "owner", 2]))]
+        }
         "joinDoc" => {
             let doc = args.first().and_then(Value::as_str).unwrap_or_default();
             let from = args.get(1).and_then(Value::as_i64).unwrap_or(-1);
@@ -220,10 +228,8 @@ fn answer_frame(text: &str, public_id: &str, store: &Arc<impl Store>) -> Vec<Str
                             .collect()
                     })
                     .unwrap_or_default();
-                vec![ack(
-                    id,
-                    json!([null, lines, version, missed, { "comments": [], "changes": [] }]),
-                )]
+                let ranges = super::overleaf_review_mock::ranges(live, path);
+                vec![ack(id, json!([null, lines, version, missed, ranges]))]
             })
         }
         "leaveDoc" => vec![ack(id, json!([null]))],
@@ -298,6 +304,21 @@ fn apply(id: &str, update: Value, public_id: &str, store: &Arc<impl Store>) -> V
         if at < 0 || at as usize > history.len() {
             return None;
         }
+        // A comment anchor: no text moves, but the version does.
+        let comments = super::overleaf_review_mock::comment_ops(&update["op"]);
+        if !comments.is_empty() {
+            let version = history.len();
+            history.push((Vec::new(), public_id.to_string()));
+            for (position, quote, thread) in comments {
+                super::overleaf_review_mock::anchored(live, &path, position, &quote, &thread);
+            }
+            let others = event(
+                "otUpdateApplied",
+                json!([{ "doc": doc, "v": version, "op": update["op"], "meta": { "source": public_id, "user_id": "u-mock" } }]),
+            );
+            broadcast(live, Some(public_id), &others);
+            return Some(Ok((path, version, false)));
+        }
         // Already landed under an earlier connection: say so again.
         if let Some(landed) = (at as usize..history.len())
             .find(|landed| dup_if.contains(&history[*landed].1))
@@ -322,9 +343,11 @@ fn apply(id: &str, update: Value, public_id: &str, store: &Arc<impl Store>) -> V
         files.insert(path.clone(), next.into_bytes());
         let version = history.len();
         history.push((incoming.clone(), public_id.to_string()));
+        let tc = update["meta"]["tc"].clone();
+        super::overleaf_review_mock::landed(live, &path, &incoming, "u-mock", tc.is_string());
         let others = event(
             "otUpdateApplied",
-            json!([{ "doc": doc, "v": version, "op": incoming, "meta": { "source": public_id, "user_id": "u-mock" } }]),
+            json!([{ "doc": doc, "v": version, "op": incoming, "meta": { "source": public_id, "user_id": "u-mock", "tc": tc } }]),
         );
         broadcast(live, Some(public_id), &others);
         Some(Ok((path, version, true)))

@@ -33,4 +33,6 @@ pub enum EditorPanelEvent {
     Edited,
     /// Open Slide asks the Agent's composer (`OpenSlideAgentRequest`).
     AgentRequest(serde_json::Value),
+    /// A suggestion's card asked to accept or reject it.
+    OverleafReview(super::ReviewAction),
 }
