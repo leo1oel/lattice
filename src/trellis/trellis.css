@@ -837,18 +837,3 @@
 /* A panel narrower than a split's tracks must not be scrolled sideways by an
    editor's scrollIntoView (overflow: hidden still scrolls programmatically). */
 .lattice-trellis .split-canvas { overflow: clip; }
-
-/* ------------------------------------------------- visual Markdown engine
-   The heading rail sits in the writing surface's left margin. A document
-   panel is usually narrower than the surface's centered column, which leaves
-   that margin at the surface's own padding and puts the rail's ticks over the
-   first characters of every line (and over the text the pointer means to
-   click). While the rail is shown, the surface keeps the text start clear of
-   it: its padding grows by whatever the centering margin no longer provides. */
-.trellis-workspace .lx-md-editor:has(> .visual-heading-rail) .lx-md-surface {
-  --trellis-rail-clearance: calc(var(--space-6) + 2 * var(--space-12) + var(--space-4));
-  padding-inline-start: max(
-    var(--space-12),
-    min(var(--trellis-rail-clearance), calc(var(--trellis-rail-clearance) - (100% - var(--lx-md-measure) - 2 * var(--space-12)) / 2))
-  );
-}

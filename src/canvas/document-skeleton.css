@@ -60,13 +60,20 @@
 /* The places a skeleton stands in for their content: it fills them. */
 .markdown-preview-content:has(> .document-skeleton), .bib-preview:has(> .document-skeleton) { position: relative; }
 
-/* A Markdown page in a document panel draws its heading rail in the left
-   margin once it is 480px wide (document-heading-rail.tsx), and its text
-   moves clear of it (trellis.css): the skeleton's lines start there too. */
+/* A Markdown page's text sits between the block controls' lanes, centered
+   when there is room, and once the page is 480px wide its heading rail takes
+   a lane of its own before them (lattice-visual-editor.css,
+   document-heading-rail.tsx): the skeleton's lines start there too. */
 .document-skeleton-page { container-type: inline-size; }
+.document-skeleton[data-page="markdown"] .document-skeleton-column {
+  --skeleton-gutter: calc(2 * var(--space-10) + var(--gap-hairline) + 2 * var(--space-3));
+  --skeleton-centering: calc((100% - 760px) / 2);
+  max-width: none;
+  margin: 0;
+  padding-inline: max(var(--skeleton-gutter), var(--skeleton-centering));
+}
 @container (min-width: 480px) {
-  .trellis-workspace .document-skeleton[data-page="markdown"] .document-skeleton-column {
-    --rail-clearance: calc(var(--space-6) + 2 * var(--space-12) + var(--space-4));
-    padding-inline-start: max(var(--space-12), min(var(--rail-clearance), calc(var(--rail-clearance) - (100% - 760px - 2 * var(--space-12)) / 2)));
+  .document-skeleton[data-page="markdown"] .document-skeleton-column {
+    padding-inline-start: max(var(--space-6) + 2 * var(--space-12) + var(--skeleton-gutter), var(--skeleton-centering));
   }
 }

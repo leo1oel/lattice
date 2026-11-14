@@ -10,6 +10,7 @@ import type { PaperSummary } from "../../../../app-types";
 import type { VisualMarkdownEditorProps } from "../../visual-editor-props";
 import { ENGINE_SHORTCUTS } from "../engine-shortcuts";
 import { BlockControls, BlockMoveKeymap } from "./block-controls";
+import { DrawnCaret } from "../drawn-caret";
 import { createChromeHost, type ChromeHost } from "./chrome-host";
 import { FindBar, FindReplace, findShortcuts } from "./find-replace";
 import { EngineInputRules } from "./input-rules";
@@ -46,6 +47,7 @@ export function chromeExtensions(chrome: Chrome): AnyExtension[] {
     FindReplace,
     findShortcuts(chrome.host),
     BlockMoveKeymap,
+    DrawnCaret,
     Extension.create({
       name: "latticeLinkShortcut",
       addKeyboardShortcuts: () => ({
