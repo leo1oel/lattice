@@ -14,12 +14,15 @@
 //!   on the file with this computer's and Overleaf's sides;
 //! - manual mode badges new work on Overleaf, and Review changes lists it
 //!   and applies it;
-//! - Settings › Overleaf says who is signed in and which project syncs.
+//! - Settings › Overleaf says who is signed in and which project syncs;
+//! - a project the Tauri app linked somewhere else opens from that folder,
+//!   and syncs there, instead of downloading again (`local_copy`).
 
 #![cfg(target_os = "macos")]
 
 mod chat;
 mod live;
+mod local_copy;
 mod margin;
 mod margin_end;
 mod presence;
@@ -387,6 +390,8 @@ impl Run {
         window
             .update(cx, |_, window, _| window.remove_window())
             .ok();
+        self.overleaf_local_copy(cx, steps, &mock, &clone_root)
+            .await?;
         cx.update(|cx| {
             self.shell.update(cx, |shell, cx| {
                 shell

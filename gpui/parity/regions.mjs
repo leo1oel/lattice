@@ -209,6 +209,28 @@ export const SCREENS = {
     ],
     content: [".pdf-viewer-host"],
   },
+  // Find in main.tex (`scenes.find`): the source's find panel open over the
+  // text with "attention" found, at rest
+  // (crates/lattice-gpui/src/scenario/parity_find.rs).
+  find: {
+    label: "Find",
+    regions: [
+      { name: "find", css: ".cm-panel.cm-search", chrome: true },
+      { name: "find/query", css: '.cm-search input[name="search"]', chrome: true },
+      { name: "find/count", css: ".cm-search .cm-search-count", text: true },
+      { name: "find/next", css: '.cm-search button[name="next"]', text: true, chrome: true },
+      { name: "find/previous", css: '.cm-search button[name="prev"]', text: true, chrome: true },
+      { name: "find/select-all", css: '.cm-search button[name="select"]', text: true, chrome: true },
+      { name: "find/case", css: '.cm-search label:has(input[name="case"])', text: true },
+      { name: "find/regexp", css: '.cm-search label:has(input[name="re"])', text: true },
+      { name: "find/word", css: '.cm-search label:has(input[name="word"])', text: true },
+      { name: "find/replace", css: '.cm-search input[name="replace"]', chrome: true },
+      { name: "find/replace-one", css: '.cm-search button[name="replace"]', text: true, chrome: true },
+      { name: "find/replace-all", css: '.cm-search button[name="replaceAll"]', text: true, chrome: true },
+      { name: "find/close", css: '.cm-search button[name="close"]', text: true },
+    ],
+    content: [".pdf-viewer-host"],
+  },
   // Submission checklist from the palette (`scenes.checklist`), as a tool
   // panel of the documents' panel: its verdict, the automatic rows and the
   // limits (crates/lattice-gpui/src/scenario/parity_submission.rs).

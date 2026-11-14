@@ -67,16 +67,26 @@ pub fn resolve_link(pasted: &str) -> Settled<PastedLink> {
 }
 
 /// The folders on this Mac already linked to the listed projects, by
-/// project id: each listed name's download folder, and `known` (the recent
-/// projects).
+/// project id: `known` (the recent projects), the folders the Tauri app
+/// remembers linking, each listed name's download folder, then this app's
+/// own list. The Tauri app's are read before the download folder, so the
+/// copy it has been syncing wins over one only sitting where downloads go.
 pub fn local_copies(names: &[String], known: &[PathBuf]) -> BTreeMap<String, LocalCopy> {
     let Ok(parent) = projects_dir() else {
         return BTreeMap::new();
     };
+    let tauri = super::tauri_config_dir()
+        .map(|dir| overleaf::remembered_local_copies(&dir))
+        .unwrap_or_default();
     let downloads = names
         .iter()
         .filter_map(|name| overleaf::download_folder(&parent, name).ok());
-    let candidates: Vec<PathBuf> = known.iter().cloned().chain(downloads).collect();
+    let candidates: Vec<PathBuf> = known
+        .iter()
+        .cloned()
+        .chain(tauri)
+        .chain(downloads)
+        .collect();
     overleaf::local_copies(&config_dir(), &candidates)
 }
 

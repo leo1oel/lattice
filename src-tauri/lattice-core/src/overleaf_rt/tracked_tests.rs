@@ -108,7 +108,7 @@ fn ordinary_edits_move_comments_and_leave_untouched_changes_as_they_were() {
     let comments = [CommentRange { thread_id: "t".into(), position: 16, quote: "fox".into() }];
     let ops = [insert(19, "!")];
     assert_eq!(comments_after(&comments, &ops)[0].position, 16);
-    let changes = changes_after(&[untouched.clone()], &ops, None, "now");
+    let changes = changes_after(std::slice::from_ref(&untouched), &ops, None, "now");
     assert_eq!(changes[0], untouched);
     // An insert before the span moves it; a delete across its start pulls it
     // back to where the delete began.

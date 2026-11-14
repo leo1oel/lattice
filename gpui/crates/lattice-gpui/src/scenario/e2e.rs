@@ -195,15 +195,24 @@ impl Run {
         }
 
         let found = {
-            let bar = cx.update(|cx| editor.read(cx).search_bar().clone());
-            let searched = self.with_window(cx, |_, window, cx| {
+            let bar = cx.update(|cx| editor.read(cx).find_bar().clone());
+            self.with_window(cx, |_, window, cx| {
                 bar.update(cx, |bar, cx| {
-                    bar.search("undefinedmacro", None, false, window, cx)
+                    bar.open(window, cx);
+                    bar.set_query("undefinedmacro", window, cx);
+                    bar.step(false, window, cx);
                 })
             })?;
-            searched.await.ok();
-            self.pause(cx, Duration::from_millis(200)).await;
-            cx.update(|cx| bar.read(cx).has_active_match())
+            let found = self
+                .wait_for(cx, Duration::from_secs(5), {
+                    let bar = bar.clone();
+                    move |_, cx| bar.read(cx).count_label(cx) == "1/1"
+                })
+                .await;
+            self.with_window(cx, |_, window, cx| {
+                bar.update(cx, |bar, cx| bar.close(window, cx))
+            })?;
+            found
         };
         steps.check("buffer search finds the text", found, json!({}));
 
