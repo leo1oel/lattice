@@ -2,13 +2,13 @@
 //! `overleaf-collab.css`): the comments on the text and the suggested
 //! changes to it, for a project linked to Overleaf, docked as the Tauri app
 //! docks the drawer, a Trellis tool panel on the input surface (the window's
-//! "comments" view). The chat joins it later.
+//! "comments" view).
 //!
-//! A segmented switch picks Comments (with the open threads' count) or
-//! Suggestions (the open file's); each lists what the bridge knows
-//! (`overleaf::bridge::review`), and every action goes to the bridge, whose
-//! failures show above the list. Each person keeps one colour throughout
-//! (`overleaf::people`).
+//! A segmented switch picks Comments (with the open threads' count),
+//! Suggestions (the open file's) or Chat (with what arrived unread); each
+//! shows what the bridge knows (`overleaf::bridge::review`, `chat`), and
+//! every action goes to the bridge, whose failures show above the list. Each
+//! person keeps one colour throughout (`overleaf::people`).
 
 use std::collections::HashSet;
 
@@ -22,7 +22,7 @@ use gpui_kit::component::{
     dock::{BasePanel, Panel, PanelEvent},
     input::{InputEvent, TextareaState},
 };
-use lattice_i18n::t;
+use lattice_i18n::{t, tc};
 use lattice_ui::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _, components::ViewSwitch,
     scrollbar::FluidScrollbar, tokens::FONT_WEIGHT_MEDIUM, typography::tabular_nums,
@@ -32,6 +32,7 @@ use super::bridge::OverleafBridge;
 use crate::research_art::{Drawing, research_art};
 
 mod changes;
+mod chat;
 mod comments;
 
 pub(crate) use comments::avatar;
@@ -40,6 +41,7 @@ pub(crate) use comments::avatar;
 pub enum CollabTab {
     Comments,
     Suggestions,
+    Chat,
 }
 
 /// What the panel asks of the window.
@@ -84,6 +86,7 @@ pub struct OverleafCollabPanel {
     /// The file the writer works in, for "In this file" and Suggestions.
     active: Option<String>,
     scroll: ScrollHandle,
+    chat: chat::ChatView,
     _bridge: Subscription,
 }
 
@@ -102,6 +105,7 @@ impl OverleafCollabPanel {
             composer: None,
             active: None,
             scroll: ScrollHandle::new(),
+            chat: Default::default(),
         }
     }
 
@@ -244,6 +248,19 @@ impl Render for OverleafCollabPanel {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let palette = cx.palette().clone();
         let (threads, changes) = self.counts(cx);
+        let unread = self.bridge.read(cx).chat_unread();
+        let unasked = self.bridge.read(cx).chat_unasked();
+        if self.tab == CollabTab::Chat && (unread > 0 || unasked) {
+            // On screen, the chat is read; the bridge is told after this
+            // frame, since it is not to change while it is drawn.
+            let bridge = self.bridge.clone();
+            cx.defer(move |cx| {
+                bridge.update(cx, |bridge, cx| {
+                    bridge.load_chat(cx);
+                    bridge.mark_chat_read(cx);
+                })
+            });
+        }
         let label = |name: String, count: usize| {
             if count > 0 {
                 format!("{name} {count}")
@@ -268,14 +285,29 @@ impl Render for OverleafCollabPanel {
             )
             .mode(
                 Icon::FILE_PEN_LINE,
-                label(t!("Suggestions").into(), changes),
+                label(
+                    tc!("Overleaf tracked changes", "Suggestions").into(),
+                    changes,
+                ),
                 self.tab == CollabTab::Suggestions,
                 choose(CollabTab::Suggestions),
+            )
+            .mode(
+                Icon::MESSAGES_SQUARE,
+                label(t!("Chat").into(), unread),
+                self.tab == CollabTab::Chat,
+                choose(CollabTab::Chat),
             );
-        let error = self.bridge.read(cx).review_error().cloned();
-        let content = match self.tab {
-            CollabTab::Comments => self.render_comments(window, cx),
-            CollabTab::Suggestions => self.render_changes(cx),
+        let body = match self.tab {
+            CollabTab::Chat => self.render_chat(window, cx),
+            CollabTab::Comments => {
+                let content = self.render_comments(window, cx);
+                self.scrolled(content, cx)
+            }
+            CollabTab::Suggestions => {
+                let content = self.render_changes(cx);
+                self.scrolled(content, cx)
+            }
         };
         div()
             .id("overleaf-collab")
@@ -293,6 +325,20 @@ impl Render for OverleafCollabPanel {
                     .pb(px(8.))
                     .child(switch),
             )
+            .child(body)
+    }
+}
+
+impl OverleafCollabPanel {
+    /// A comments or suggestions list: the review's failure above it, and
+    /// the list scrolling under it.
+    fn scrolled(&self, content: AnyElement, cx: &App) -> AnyElement {
+        let error = self.bridge.read(cx).review_error().cloned();
+        div()
+            .flex_1()
+            .min_h_0()
+            .flex()
+            .flex_col()
             .children(error.map(|error| {
                 div()
                     .flex_none()
@@ -326,6 +372,7 @@ impl Render for OverleafCollabPanel {
                         &self.scroll,
                     )),
             )
+            .into_any_element()
     }
 }
 

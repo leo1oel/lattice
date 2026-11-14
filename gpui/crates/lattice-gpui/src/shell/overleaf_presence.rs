@@ -1,11 +1,9 @@
 //! Who else is in the linked Overleaf project, as the Tauri app shows them
 //! (`src/overleaf/overleaf-presence.tsx`, `overleaf-editor-extensions.ts`):
 //! stacked initials in the titlebar beside the Overleaf control, a card on
-//! hover saying who is where (each row, and each chip, a jump there), and
-//! each person's caret in the editors showing their file.
-//!
-//! The card's "Message everyone in Chat" row waits for the chat (a later
-//! slice of the Overleaf port).
+//! hover saying who is where (each row, and each chip, a jump there) and,
+//! under them, "Message everyone in Chat"; and each person's caret in the
+//! editors showing their file.
 
 use gpui::{
     AnimationExt as _, AnyElement, App, Context, InteractiveElement as _, IntoElement,
@@ -338,5 +336,41 @@ fn presence_card(
                 .child(head),
         )
         .children(rows)
+        .child(chat_row(shell, cx))
+        .into_any_element()
+}
+
+/// "Message everyone in Chat" (`.overleaf-presence-card-chat`): the card's
+/// last row, under a hairline, opening the collaboration panel's chat.
+fn chat_row(shell: WeakEntity<Shell>, cx: &App) -> AnyElement {
+    let palette = cx.palette().clone();
+    div()
+        .id("overleaf-presence-chat")
+        .mt(px(4.))
+        .px(px(8.))
+        .py(px(6.))
+        .border_t_1()
+        .border_color(palette.line)
+        .rounded_b(px(6.))
+        .flex()
+        .items_center()
+        .gap(px(8.))
+        .cursor_pointer()
+        .text_role(TextRole::Caption, cx)
+        .text_color(palette.text_secondary)
+        .hover(|this| this.bg(palette.hover).text_color(palette.text))
+        .on_click(move |_, window, cx| {
+            shell
+                .update(cx, |shell, cx| {
+                    shell.open_overleaf_collab(
+                        Some(crate::overleaf::collab::CollabTab::Chat),
+                        window,
+                        cx,
+                    )
+                })
+                .ok();
+        })
+        .child(lattice_ui::Icon::MESSAGES_SQUARE.element(px(14.), palette.text_secondary))
+        .child(t!("Message everyone in Chat"))
         .into_any_element()
 }
