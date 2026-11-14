@@ -303,6 +303,182 @@ impl<T: Tweenable> Tween<T> {
     }
 }
 
+/// A value that a [`Spring`] can move: a fixed number of independent
+/// channels (a rect's four, a length's one).
+pub trait Springable: Copy + PartialEq {
+    const CHANNELS: usize;
+    fn channel(&self, index: usize) -> f32;
+    /// `self` with every channel replaced by `channels(index)`.
+    fn with_channels(self, channels: impl Fn(usize) -> f32) -> Self;
+}
+
+impl Springable for f32 {
+    const CHANNELS: usize = 1;
+    fn channel(&self, _: usize) -> f32 {
+        *self
+    }
+    fn with_channels(self, channels: impl Fn(usize) -> f32) -> Self {
+        channels(0)
+    }
+}
+
+impl Springable for gpui::Pixels {
+    const CHANNELS: usize = 1;
+    fn channel(&self, _: usize) -> f32 {
+        f32::from(*self)
+    }
+    fn with_channels(self, channels: impl Fn(usize) -> f32) -> Self {
+        gpui::px(channels(0))
+    }
+}
+
+impl Springable for gpui::Bounds<gpui::Pixels> {
+    const CHANNELS: usize = 4;
+    fn channel(&self, index: usize) -> f32 {
+        f32::from(match index {
+            0 => self.origin.x,
+            1 => self.origin.y,
+            2 => self.size.width,
+            _ => self.size.height,
+        })
+    }
+    fn with_channels(self, channels: impl Fn(usize) -> f32) -> Self {
+        gpui::Bounds {
+            origin: gpui::point(gpui::px(channels(0)), gpui::px(channels(1))),
+            size: gpui::size(gpui::px(channels(2)), gpui::px(channels(3))),
+        }
+    }
+}
+
+/// `x` where a critically damped spring released from rest, `(1 + x)
+/// e^-x`, has `0.001` of its travel left: Motion's `safeMin`, the share at
+/// which a spring with a `duration` counts as done.
+const SETTLE: f32 = 9.2335;
+/// Below both, a channel is at rest (Motion's `restDelta` and `restSpeed`
+/// for pixel values, a little tighter so a fill never visibly snaps).
+const REST_DELTA: f32 = 0.05;
+const REST_SPEED: f32 = 2.;
+const MAX_CHANNELS: usize = 4;
+
+/// One value moving on a spring tier, as `transition={spring.fast}` moves a
+/// Motion value: a critically damped spring (`bounce: 0`) whose velocity
+/// carries across a retarget.
+///
+/// A [`Tween`] retargeted mid-flight starts its new leg from rest, so a fill
+/// chased across rows by a quick pointer slows to a stop at every row and
+/// sets off again, which reads as stepping. A spring keeps the speed it has
+/// and bends toward the new target instead, which is how Fluid
+/// Functionalism's highlight (`useFluidHover`, Motion's `x`/`y` on
+/// `spring.fast`) travels. The tier's duration sets the stiffness: released
+/// from rest, the value has 0.1% of its travel left after the tier's
+/// duration, and the curve it follows is the tier's own `linear()` curve
+/// (the fast tier's stops are this spring at `ω = 115.4 rad/s` to within
+/// 0.001), so a glide that is not interrupted moves exactly as a [`Tween`]
+/// on the tier would.
+///
+/// Evaluated in closed form at the frame's time, so a dropped frame skips
+/// ahead instead of slowing the motion down.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Spring<T> {
+    to: T,
+    /// Each channel's distance from `to`, and its velocity (units per
+    /// second), at `started`.
+    offset: [f32; MAX_CHANNELS],
+    velocity: [f32; MAX_CHANNELS],
+    started: std::time::Instant,
+    /// The undamped angular frequency, rad/s.
+    omega: f32,
+}
+
+impl<T: Springable> Spring<T> {
+    /// At rest on `value`.
+    pub fn settled(value: T, now: std::time::Instant) -> Self {
+        assert!(T::CHANNELS <= MAX_CHANNELS);
+        Self {
+            to: value,
+            offset: [0.; MAX_CHANNELS],
+            velocity: [0.; MAX_CHANNELS],
+            started: now,
+            omega: SETTLE / DURATION_FAST.as_secs_f32(),
+        }
+    }
+
+    /// The angular frequency a tier's spring runs at: Motion's `duration`
+    /// with `bounce: 0`.
+    pub fn omega(motion: Motion) -> f32 {
+        SETTLE / motion.duration().as_secs_f32().max(f32::EPSILON)
+    }
+
+    /// Channel `index`'s distance from the target and velocity at `now`.
+    fn channel_at(&self, index: usize, now: std::time::Instant) -> (f32, f32) {
+        let (d0, v0) = (self.offset[index], self.velocity[index]);
+        if d0 == 0. && v0 == 0. {
+            return (0., 0.);
+        }
+        let t = now.saturating_duration_since(self.started).as_secs_f32();
+        let w = self.omega;
+        // x(t) = (d0 + (v0 + w d0) t) e^(-w t), the critically damped
+        // oscillator released at d0 with velocity v0.
+        let decay = (-w * t).exp();
+        let b = v0 + w * d0;
+        let offset = (d0 + b * t) * decay;
+        let velocity = (v0 - w * b * t) * decay;
+        if offset.abs() < REST_DELTA && velocity.abs() < REST_SPEED {
+            (0., 0.)
+        } else {
+            (offset, velocity)
+        }
+    }
+
+    /// Where the value is drawn at `now`.
+    pub fn value(&self, now: std::time::Instant) -> T {
+        let to = self.to;
+        to.with_channels(|ix| to.channel(ix) + self.channel_at(ix, now).0)
+    }
+
+    /// How fast each channel moves at `now`, units per second.
+    pub fn velocity(&self, now: std::time::Instant) -> T {
+        self.to.with_channels(|ix| self.channel_at(ix, now).1)
+    }
+
+    /// Where the value is going.
+    pub fn target(&self) -> T {
+        self.to
+    }
+
+    /// Whether the value still moves at `now`.
+    pub fn is_running(&self, now: std::time::Instant) -> bool {
+        (0..T::CHANNELS).any(|ix| self.channel_at(ix, now) != (0., 0.))
+    }
+
+    /// Spring toward `to` on `motion`'s stiffness, from where the value is
+    /// drawn at `now` and at the speed it moves there.
+    pub fn retarget(&mut self, to: T, motion: Motion, now: std::time::Instant) {
+        if to == self.to {
+            return;
+        }
+        let mut offset = [0.; MAX_CHANNELS];
+        let mut velocity = [0.; MAX_CHANNELS];
+        for ix in 0..T::CHANNELS {
+            let (d, v) = self.channel_at(ix, now);
+            offset[ix] = self.to.channel(ix) + d - to.channel(ix);
+            velocity[ix] = v;
+        }
+        *self = Self {
+            to,
+            offset,
+            velocity,
+            started: now,
+            omega: Self::omega(motion),
+        };
+    }
+
+    /// Jump to `value` and stop, as reduced motion moves things.
+    pub fn jump(&mut self, value: T, now: std::time::Instant) {
+        *self = Self::settled(value, now);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -416,6 +592,65 @@ mod tests {
         tween.jump(gpui::px(4.), start);
         assert_eq!(tween.value(start), gpui::px(4.));
         assert!(!tween.is_running(start));
+    }
+
+    #[test]
+    fn a_spring_released_from_rest_follows_its_tiers_curve() {
+        let start = std::time::Instant::now();
+        let mut spring = Spring::settled(0f32, start);
+        spring.retarget(1., Motion::Fast, start);
+        for step in 0..=8 {
+            let at = start + DURATION_FAST.mul_f32(step as f32 / 8.);
+            let expected = Motion::Fast.sample(step as f32 / 8.);
+            assert!(
+                (spring.value(at) - expected).abs() < 0.01,
+                "step {step}: {} against {expected}",
+                spring.value(at)
+            );
+        }
+        assert!(!spring.is_running(start + DURATION_FAST * 2));
+        assert_eq!(spring.value(start + DURATION_FAST * 2), 1.);
+    }
+
+    #[test]
+    fn a_retargeted_spring_keeps_its_speed() {
+        let start = std::time::Instant::now();
+        let mut spring = Spring::settled(0f32, start);
+        spring.retarget(100., Motion::Fast, start);
+        let midway = start + DURATION_FAST / 4;
+        let (drawn, speed) = (spring.value(midway), spring.velocity(midway));
+        assert!(speed > 0.);
+        spring.retarget(200., Motion::Fast, midway);
+        assert!((spring.value(midway) - drawn).abs() < 1e-3);
+        assert!((spring.velocity(midway) - speed).abs() < 1e-2);
+        // A tween restarts the leg from rest; the spring is already moving,
+        // so a moment later it is further along than a fresh leg would be.
+        let soon = midway + std::time::Duration::from_millis(4);
+        let mut fresh = Spring::settled(drawn, midway);
+        fresh.retarget(200., Motion::Fast, midway);
+        assert!(spring.value(soon) > fresh.value(soon));
+        assert!(!spring.is_running(midway + DURATION_FAST * 3));
+        assert_eq!(spring.value(midway + DURATION_FAST * 3), 200.);
+    }
+
+    #[test]
+    fn a_spring_moves_every_channel_of_a_rect() {
+        let start = std::time::Instant::now();
+        let from = gpui::bounds(
+            gpui::point(gpui::px(0.), gpui::px(0.)),
+            gpui::size(gpui::px(100.), gpui::px(28.)),
+        );
+        let to = gpui::bounds(
+            gpui::point(gpui::px(0.), gpui::px(56.)),
+            gpui::size(gpui::px(100.), gpui::px(32.)),
+        );
+        let mut spring = Spring::settled(from, start);
+        spring.retarget(to, Motion::Fast, start);
+        let half = spring.value(start + DURATION_FAST / 4);
+        assert!(half.origin.y > gpui::px(0.) && half.origin.y < gpui::px(56.));
+        assert!(half.size.height > gpui::px(28.) && half.size.height < gpui::px(32.));
+        assert_eq!(half.origin.x, gpui::px(0.));
+        assert_eq!(spring.value(start + DURATION_FAST * 2), to);
     }
 
     #[test]

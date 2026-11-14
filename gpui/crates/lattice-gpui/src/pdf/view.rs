@@ -168,6 +168,11 @@ pub struct PdfView {
     /// A zoom whose fit and scale are remembered once it rests.
     zoom_unsaved: bool,
     pub(super) scroll: ScrollHandle,
+    /// The vertical bar's thumb opacity as last drawn, for a scripted check
+    /// that it hides once the pages rest.
+    pub(super) scrollbar_drawn: std::rc::Rc<std::cell::Cell<f32>>,
+    pub(super) scrollbar_thumb:
+        std::rc::Rc<std::cell::Cell<Option<lattice_ui::scrollbar::DrawnThumb>>>,
     /// The scroll container's size and window position as of the last frame.
     pub(super) viewport: Bounds<Pixels>,
     /// The whole view's width as of the last frame, which decides whether
@@ -256,6 +261,8 @@ impl PdfView {
             render_scale: preference.scale,
             zoom_unsaved: false,
             scroll: ScrollHandle::new(),
+            scrollbar_drawn: Default::default(),
+            scrollbar_thumb: Default::default(),
             viewport: Bounds::default(),
             width: px(0.),
             current_page: 0,
@@ -354,6 +361,17 @@ impl PdfView {
 
     /// Whether a place the viewer was given still waits for the pages to be
     /// laid out at the viewport's size.
+    /// The vertical scrollbar's thumb opacity as last drawn: 0 while it
+    /// hides.
+    pub fn scrollbar_opacity(&self) -> f32 {
+        self.scrollbar_drawn.get()
+    }
+
+    /// The vertical scrollbar's thumb as last drawn, `None` while it hides.
+    pub fn scrollbar_thumb(&self) -> Option<lattice_ui::scrollbar::DrawnThumb> {
+        self.scrollbar_thumb.get()
+    }
+
     pub fn has_pending_scroll(&self) -> bool {
         self.pending_scroll.is_some()
     }

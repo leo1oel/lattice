@@ -39,6 +39,8 @@ impl Run {
         self.tree_context_menu(cx, steps).await?;
         self.menu_item_over_row(cx, steps).await?;
         self.switcher_glyph_keys(cx, steps).await?;
+        // While the window shows only the project, as it does here.
+        self.settings_from_titlebar(cx, steps).await?;
         self.panel_menu_submenu_click(cx, steps).await?;
         self.submenu_pointer_grace(cx, steps).await?;
         self.submenu_focus_after_pointer_close(cx, steps).await?;
