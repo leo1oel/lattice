@@ -314,11 +314,9 @@ export const SCREENS = {
   },
   settings: {
     label: "Settings",
-    // Settings over the Main window, on Appearance (scenes.mjs `settings`).
-    // The GPUI app lists only the sections it has (Appearance, Editor &
-    // builds, TeX doctor), so the left column's lower groups differ; the
-    // regions are the dialog's frame, its columns, the page's title and
-    // first group, and the first rows.
+    // Settings over the Main window, on Appearance (scenes.mjs `settings`):
+    // the dialog's frame, its columns, the page's title and first group,
+    // and the first rows.
     regions: [
       { name: "settings/modal", css: ".settings-modal", chrome: true },
       { name: "settings/nav", css: ".settings-nav", chrome: true },
@@ -355,6 +353,57 @@ export const SCREENS = {
       { name: "overleaf/picker/open", css: ".overleaf-project-row.selected .overleaf-open-button:last-child", text: true },
       { name: "overleaf/picker/publish", css: ".overleaf-publish-card", chrome: true },
       { name: "overleaf/picker/publish/title", css: ".overleaf-publish-copy strong", text: true },
+    ],
+    content: [],
+  },
+  // Settings' own pages beyond Appearance (scenes.mjs `settingsPage`): the
+  // dialog's frame and columns, the section chosen, the page's title and
+  // its first group.
+  settingsModelEndpoint: {
+    label: "Settings · Model endpoint",
+    regions: [
+      { name: "settings/modal", css: ".settings-modal", chrome: true },
+      { name: "settings/nav", css: ".settings-nav", chrome: true },
+      { name: "settings/content", css: ".settings-content", chrome: true },
+      { name: "settings/nav/active", css: ".settings-nav-group > button.active", text: true, chrome: true },
+      { name: "settings/title", css: ".settings-section .ui-settings-section-header-title", text: true },
+      { name: "settings/group", css: ".settings-section .ui-settings-group-body", chrome: true },
+    ],
+    content: [],
+  },
+  settingsEnvironment: {
+    label: "Settings · Environment",
+    regions: [
+      { name: "settings/modal", css: ".settings-modal", chrome: true },
+      { name: "settings/nav", css: ".settings-nav", chrome: true },
+      { name: "settings/content", css: ".settings-content", chrome: true },
+      { name: "settings/nav/active", css: ".settings-nav-group > button.active", text: true, chrome: true },
+      { name: "settings/title", css: ".settings-section .ui-settings-section-header-title", text: true },
+      { name: "settings/group", css: ".settings-section .ui-settings-group-body", chrome: true },
+    ],
+    content: [],
+  },
+  settingsLiterature: {
+    label: "Settings · Literature services",
+    regions: [
+      { name: "settings/modal", css: ".settings-modal", chrome: true },
+      { name: "settings/nav", css: ".settings-nav", chrome: true },
+      { name: "settings/content", css: ".settings-content", chrome: true },
+      { name: "settings/nav/active", css: ".settings-nav-group > button.active", text: true, chrome: true },
+      { name: "settings/title", css: ".settings-section .ui-settings-section-header-title", text: true },
+      { name: "settings/group", css: ".settings-section .ui-settings-group-body", chrome: true },
+    ],
+    content: [],
+  },
+  settingsAcknowledgements: {
+    label: "Settings · Acknowledgements",
+    regions: [
+      { name: "settings/modal", css: ".settings-modal", chrome: true },
+      { name: "settings/nav", css: ".settings-nav", chrome: true },
+      { name: "settings/content", css: ".settings-content", chrome: true },
+      { name: "settings/nav/active", css: ".settings-nav-group > button.active", text: true, chrome: true },
+      { name: "settings/title", css: ".settings-section .ui-settings-section-header-title", text: true },
+      { name: "settings/group", css: ".settings-section .ui-settings-group-body", chrome: true },
     ],
     content: [],
   },

@@ -65,6 +65,18 @@ const palette = async (page, label) => {
 const openFile = async (page, path) => { await page.locator(`[data-item-path="${path}"]`).click(); await page.waitForTimeout(1500); };
 const viewMode = (page, mode) => page.locator(`button.ui-segmented-tab[title=${mode}]`).click();
 
+/** Settings opened with ⌘, on the section named `section`, nothing focused. */
+async function settingsPage(env, theme, section) {
+  const staged = await project(env, theme);
+  await staged.page.keyboard.press("Meta+Comma");
+  await staged.page.waitForSelector(".settings-modal", { timeout: 30_000 });
+  await staged.page.locator(".settings-nav-group > button", { hasText: section }).click();
+  await staged.page.waitForSelector(".settings-section", { timeout: 30_000 });
+  await staged.page.evaluate(() => (document.activeElement instanceof HTMLElement) && document.activeElement.blur());
+  await rest(staged.page, 3000);
+  return staged;
+}
+
 export const scenes = {
   mainWindow: (env, theme) => project(env, theme),
   async agent(env, theme) {
@@ -282,6 +294,12 @@ export const scenes = {
     await rest(staged.page, 4000);
     return staged;
   },
+  // Settings' own pages beyond Appearance (the parity harness's screens only):
+  // ⌘, then the section, nothing left focused.
+  settingsModelEndpoint: (env, theme) => settingsPage(env, theme, "Model endpoint"),
+  settingsEnvironment: (env, theme) => settingsPage(env, theme, "Environment"),
+  settingsLiterature: (env, theme) => settingsPage(env, theme, "Literature services"),
+  settingsAcknowledgements: (env, theme) => settingsPage(env, theme, "Acknowledgements"),
   async welcome(env, theme) {
     const staged = await open(env, theme, "welcome=1&recents=1", ".welcome-screen");
     await rest(staged.page, 1500);
