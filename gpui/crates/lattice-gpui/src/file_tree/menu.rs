@@ -133,6 +133,20 @@ impl FileTreePanel {
                 .unwrap_or_default()
         };
         let mut menu = Self::creation_items(view, &directory, menu);
+        // A folder's imports make things too (`project-file-tree.tsx`).
+        if folder {
+            let target = path.clone();
+            menu = menu.item(item(
+                view,
+                Icon::CLIPBOARD_PASTE,
+                t!("Paste clipboard image as figure"),
+                Box::new(move |_, _, cx| {
+                    cx.emit(FileTreeEvent::PasteImage {
+                        target: target.clone(),
+                    })
+                }),
+            ));
+        }
         // Which file Build compiles is the writer's to choose; the check in
         // place of its icon says which one was chosen, as the app's menu
         // marks it.
