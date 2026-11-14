@@ -62,6 +62,7 @@ mod markdown;
 mod markdown_host;
 mod presentation;
 pub mod resources;
+mod skeleton;
 mod slides;
 
 /// The kinds of structured document, by path, as the Tauri app tells them
@@ -179,6 +180,10 @@ pub struct StructuredDocument {
     /// The visual Markdown editor's selection, and the carets last sent.
     visual_selection: Option<String>,
     visual_presence: Option<Value>,
+    /// When the page was asked for, for the Markdown skeleton's clock, and
+    /// the width it was last drawn at.
+    opened: std::time::Instant,
+    skeleton_width: std::rc::Rc<std::cell::Cell<gpui::Pixels>>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -250,6 +255,8 @@ impl StructuredDocument {
             editable: true,
             visual_selection: None,
             visual_presence: None,
+            opened: std::time::Instant::now(),
+            skeleton_width: Default::default(),
             _subscriptions: subscriptions,
         }
     }
@@ -375,6 +382,8 @@ impl StructuredDocument {
             }
             IslandEvent::Hibernated => {
                 self.drawn = false;
+                // Woken, it shows its skeleton on a fresh clock.
+                self.opened = std::time::Instant::now();
                 self.agent_page_gone();
                 // The page took its leases with it, without releasing them.
                 if let Some(deck) = &mut self.deck {
@@ -688,7 +697,7 @@ pub(crate) fn show_page_notice(payload: &Value, cx: &mut App) {
 }
 
 impl Render for StructuredDocument {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         // The interface language changed (settings redraw every window).
         if lattice_i18n::locale() != self.locale {
             self.locale = lattice_i18n::locale();
@@ -704,6 +713,7 @@ impl Render for StructuredDocument {
                     _ => None,
                 })
         });
+        let skeleton = self.kind == StructuredKind::Markdown && !self.drawn && failure.is_none();
         div()
             .id(("structured", self.kind as usize))
             .relative()
@@ -752,6 +762,15 @@ impl Render for StructuredDocument {
                                 .child(failure),
                         ),
                 )
+            })
+            // Markdown's page is on its way ("Preparing preview…").
+            .when(skeleton, |this| {
+                this.child(skeleton::markdown_page(
+                    self.opened,
+                    self.skeleton_width.clone(),
+                    window,
+                    cx,
+                ))
             })
             .when_some(self.island.clone(), |this, island| this.child(island))
     }
