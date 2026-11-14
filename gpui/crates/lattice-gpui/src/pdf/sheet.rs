@@ -15,12 +15,12 @@ use gpui::{
     ScrollEvent, SharedString, StatefulInteractiveElement as _, Styled as _, StyledImage as _,
     Window, canvas, div, img, prelude::FluentBuilder as _, px, rgb,
 };
-use gpui_kit::component::scroll::Scrollbar;
 use lattice_i18n::t;
 use lattice_ui::{
     ActiveLattice as _, Icon, Palette, TextRole, TextRoleStyle as _,
     components::{Button, EmptyState, ErrorState},
     elevation,
+    scrollbar::{FluidScrollbar, ScrollbarFeel},
 };
 
 use super::{
@@ -192,11 +192,19 @@ impl PdfView {
                         .child(sheet),
                 ),
             )
+            // The app's one scrollbar, the source editor's own (a document's
+            // overlay bar: shown under the pointer on the bar and briefly
+            // after a scroll, 4px at rest and 6px under the pointer on a 10px
+            // track), on both axes since a zoomed page scrolls sideways.
             .child(
-                div()
-                    .absolute()
-                    .inset_0()
-                    .child(Scrollbar::new(&self.scroll).id("pdf-scrollbar")),
+                FluidScrollbar::vertical("pdf-scrollbar", &self.scroll)
+                    .feel(ScrollbarFeel::DOCUMENT)
+                    .drawn_opacity(self.scrollbar_drawn.clone())
+                    .drawn_thumb(self.scrollbar_thumb.clone()),
+            )
+            .child(
+                FluidScrollbar::horizontal("pdf-scrollbar-x", &self.scroll)
+                    .feel(ScrollbarFeel::DOCUMENT),
             )
             // `prepare_frame` sizes the pages from the scroll area's last
             // layout, so an area laid out for the first time or at a new size

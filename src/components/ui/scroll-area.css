@@ -36,7 +36,10 @@
   touch-action: none;
   user-select: none;
   opacity: 0;
-  transition: opacity var(--motion-fast) var(--duration-moderate);
+  /* Hide as Fluid Functionalism's scroll area does (`duration-120 ease-out
+     delay-160`): the 160ms hold lets the thumb narrow back first, and the
+     fade out runs a tier quicker than the 160ms fade in. */
+  transition: opacity var(--motion-moderate-exit) var(--duration-moderate);
 }
 
 .lattice-scrollbar[data-hovering],

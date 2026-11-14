@@ -291,6 +291,9 @@ describe("shared surface contracts", () => {
       "<ExternalScrollbar getViewport={getFunctionsScrollViewport} />",
     ])
     expectRules(read("src/components/ui/scroll-area.css"), [
+      // Hidden 160ms after the pointer leaves or the scroll rests, over
+      // 120ms ease-out, as Fluid Functionalism's scroll area hides.
+      /\.lattice-scrollbar \{[^}]*transition: opacity var\(--motion-moderate-exit\) var\(--duration-moderate\);/,
       /\.lattice-scrollbar\[data-orientation="vertical"\] \.lattice-scrollbar-thumb \{[^}]*width: 4px;/,
       /\.lattice-scrollbar\[data-orientation="vertical"\]:hover \.lattice-scrollbar-thumb \{[^}]*width: 6px;/,
     ])

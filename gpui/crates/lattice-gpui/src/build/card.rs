@@ -26,6 +26,7 @@ use lattice_ui::{
     components::{Button, IconButton, Segmented},
     dock::PANEL_RADIUS,
     elevation::{Elevation, ring},
+    fluid_hover::{FluidHover, ItemKind},
     tokens::{FONT_WEIGHT_MEDIUM, FONT_WEIGHT_SEMIBOLD},
 };
 
@@ -94,6 +95,7 @@ fn title(last: &LastBuild) -> String {
 pub fn card(
     panel: &BuildPanel,
     build: &Entity<BuildPanel>,
+    hover: &FluidHover,
     window: &mut Window,
     cx: &App,
 ) -> AnyElement {
@@ -104,7 +106,7 @@ pub fn card(
     let docked = panel.docked();
     let body = panel
         .expanded
-        .then(|| body(panel, last, build, docked, window, cx));
+        .then(|| body(panel, last, build, docked, hover, window, cx));
     let surface = div()
         .id("compile-diagnostics")
         .occlude()
@@ -240,6 +242,7 @@ fn body(
     last: &LastBuild,
     build: &Entity<BuildPanel>,
     docked: bool,
+    hover: &FluidHover,
     window: &mut Window,
     cx: &App,
 ) -> AnyElement {
@@ -288,7 +291,8 @@ fn body(
             .child(div().flex_1())
             .children(copy)
     });
-    let list = (!on_log || !has_log).then(|| messages(panel, last, build, docked, window, cx));
+    let list =
+        (!on_log || !has_log).then(|| messages(panel, last, build, docked, hover, window, cx));
     let log = (on_log && has_log).then(|| log_view(panel, last, docked, cx));
     let empty = (!last.success && !has_messages && !has_log).then(|| {
         div()
@@ -312,7 +316,12 @@ fn body(
 
 /// The panel in the dock: the headline over the same messages and log,
 /// at full height.
-pub fn panel(panel: &BuildPanel, build: &Entity<BuildPanel>, cx: &App) -> AnyElement {
+pub fn panel(
+    panel: &BuildPanel,
+    build: &Entity<BuildPanel>,
+    hover: &FluidHover,
+    cx: &App,
+) -> AnyElement {
     let palette = cx.palette().clone();
     let Some(last) = panel.last() else {
         let text = match panel.document() {
@@ -348,7 +357,7 @@ pub fn panel(panel: &BuildPanel, build: &Entity<BuildPanel>, cx: &App) -> AnyEle
             .min_h_0()
             .into_any_element()
     } else {
-        message_list(panel, last, build, cx)
+        message_list(panel, last, build, hover, cx)
             .flex_1()
             .min_h_0()
             .into_any_element()
@@ -383,6 +392,7 @@ fn messages(
     last: &LastBuild,
     build: &Entity<BuildPanel>,
     docked: bool,
+    hover: &FluidHover,
     _: &mut Window,
     cx: &App,
 ) -> AnyElement {
@@ -393,7 +403,7 @@ fn messages(
         .any(|(explained, diagnostic)| {
             explained.is_some() && severity(&diagnostic.level) == Severity::Error
         });
-    let list = message_list(panel, last, build, cx);
+    let list = message_list(panel, last, build, hover, cx);
     if docked {
         list.flex_1().min_h_0().into_any_element()
     } else {
@@ -402,10 +412,18 @@ fn messages(
     }
 }
 
+/// The messages' one gliding fill: the rows a click takes somewhere join
+/// it, one section per file, so the fill fades across a file's heading.
+pub fn diagnostics_hover(id: &'static str, window: &mut Window, cx: &mut App) -> FluidHover {
+    let fill = tone_hover(cx);
+    FluidHover::new(id, window, cx).fill(fill).radius(px(6.))
+}
+
 fn message_list(
     panel: &BuildPanel,
     last: &LastBuild,
     build: &Entity<BuildPanel>,
+    hover: &FluidHover,
     cx: &App,
 ) -> gpui::Stateful<gpui::Div> {
     let palette = cx.palette().clone();
@@ -417,44 +435,64 @@ fn message_list(
             .position(|item| std::ptr::eq(item, diagnostic))
             .unwrap_or(0)
     };
-    let groups = group_by_file(&last.diagnostics).into_iter().map(|group| {
-        let count = group.diagnostics.len();
-        let header = div()
-            .flex()
-            .items_baseline()
-            .gap(px(6.))
-            .px(px(8.))
-            .text_role(TextRole::Micro, cx)
-            .font_weight(FONT_WEIGHT_MEDIUM)
-            .text_color(palette.text_secondary)
-            .child(group.file.clone().unwrap_or_else(|| t!("Build log").into()))
-            .when(count > 1, |header| {
-                header.child(
-                    div()
-                        .font_weight(FontWeight::NORMAL)
-                        .opacity(0.8)
-                        .child(count.to_string()),
+    let groups = group_by_file(&last.diagnostics)
+        .into_iter()
+        .enumerate()
+        .map(|(section, group)| {
+            let count = group.diagnostics.len();
+            let header = div()
+                .flex()
+                .items_baseline()
+                .gap(px(6.))
+                .px(px(8.))
+                .text_role(TextRole::Micro, cx)
+                .font_weight(FONT_WEIGHT_MEDIUM)
+                .text_color(palette.text_secondary)
+                .child(group.file.clone().unwrap_or_else(|| t!("Build log").into()))
+                .when(count > 1, |header| {
+                    header.child(
+                        div()
+                            .font_weight(FontWeight::NORMAL)
+                            .opacity(0.8)
+                            .child(count.to_string()),
+                    )
+                });
+            let rows = group.diagnostics.iter().map(|diagnostic| {
+                let glide = Glide { hover, section };
+                row(
+                    panel,
+                    last,
+                    index_of(diagnostic),
+                    diagnostic,
+                    build,
+                    glide,
+                    cx,
                 )
             });
-        let rows = group
-            .diagnostics
-            .iter()
-            .map(|diagnostic| row(panel, last, index_of(diagnostic), diagnostic, build, cx));
-        div()
-            .flex()
-            .flex_col()
-            .gap(px(2.))
-            .min_w_0()
-            .child(header)
-            .child(div().flex().flex_col().children(rows))
-    });
+            div()
+                .flex()
+                .flex_col()
+                .gap(px(2.))
+                .min_w_0()
+                .child(header)
+                .child(div().flex().flex_col().children(rows))
+        });
     div()
         .id("compile-diagnostics-list")
+        .relative()
         .flex()
         .flex_col()
         .gap(px(8.))
         .overflow_y_scroll()
+        .child(hover.highlight())
         .children(groups)
+}
+
+/// A row's place in the messages' fluid hover.
+#[derive(Clone, Copy)]
+struct Glide<'a> {
+    hover: &'a FluidHover,
+    section: usize,
 }
 
 fn line_label(diagnostic: &Diagnostic, cx: &App) -> Option<AnyElement> {
@@ -485,6 +523,7 @@ fn item(
     diagnostic: &Diagnostic,
     look: ItemLook,
     build: &Entity<BuildPanel>,
+    glide: Glide<'_>,
     cx: &App,
 ) -> AnyElement {
     let ItemLook {
@@ -494,10 +533,9 @@ fn item(
         tooltip,
     } = look;
     let navigable = diagnostic.file.is_some() || diagnostic.line.is_some();
-    let hover = tone_hover(cx);
     let palette = cx.palette().clone();
     let build = build.clone();
-    div()
+    let item = div()
         .id(("compile-diagnostic", ix))
         .flex()
         .flex_1()
@@ -522,7 +560,6 @@ fn item(
         .children(line_label(diagnostic, cx))
         .when(navigable, |item| {
             item.cursor_pointer()
-                .hover(move |style| style.bg(hover))
                 .on_click(move |_, _, cx| build.update(cx, |build, cx| build.select(ix, cx)))
         })
         .when(!navigable, |item| item.opacity(0.88))
@@ -530,8 +567,16 @@ fn item(
             item.tooltip(move |_, cx| {
                 lattice_ui::components::LatticeTooltip::view(tooltip.clone(), None, cx)
             })
-        })
-        .into_any_element()
+        });
+    // Only a row a click takes somewhere joins the glide: lighting one that
+    // goes nowhere would promise a click with nowhere to land.
+    if navigable {
+        glide
+            .hover
+            .item_as(ix, ItemKind::target().section(glide.section), item)
+    } else {
+        item.into_any_element()
+    }
 }
 
 fn copy_button(
@@ -566,6 +611,7 @@ fn row(
     ix: usize,
     diagnostic: &Diagnostic,
     build: &Entity<BuildPanel>,
+    glide: Glide<'_>,
     cx: &App,
 ) -> AnyElement {
     let palette = cx.palette().clone();
@@ -624,7 +670,7 @@ fn row(
             .into_any_element();
     }
     if let Some(explained) = explained.filter(|_| level == Severity::Error) {
-        return explained_row(panel, ix, diagnostic, explained, copy, build, cx);
+        return explained_row(panel, ix, diagnostic, explained, copy, build, glide, cx);
     }
     let shown = explained.map_or_else(|| diagnostic.message.clone(), |e| e.headline.clone());
     let tooltip = Some(match explained {
@@ -698,6 +744,7 @@ fn row(
                 tooltip,
             },
             build,
+            glide,
             cx,
         ))
         .children(install)
@@ -763,6 +810,7 @@ fn package_update(ix: usize, cx: &App) -> Option<AnyElement> {
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 fn explained_row(
     _: &BuildPanel,
     ix: usize,
@@ -770,6 +818,7 @@ fn explained_row(
     explained: &Explained,
     copy: AnyElement,
     build: &Entity<BuildPanel>,
+    glide: Glide<'_>,
     cx: &App,
 ) -> AnyElement {
     let palette = cx.palette().clone();
@@ -805,6 +854,7 @@ fn explained_row(
                 tooltip: Some(t!("TeX: {0}", diagnostic.message)),
             },
             build,
+            glide,
             cx,
         ))
         .when(!explained.excerpt.is_empty(), |row| {

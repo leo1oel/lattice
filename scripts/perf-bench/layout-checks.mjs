@@ -6,6 +6,7 @@
  */
 
 import { LATEX_VISUAL_REVEAL } from "./latex-visual-check.mjs";
+import { MARKDOWN_BLOCK_CONTROLS_LANES } from "./markdown-controls-check.mjs";
 
 const overlaps = (a, b) => a.left < b.left + b.width && b.left < a.left + a.width
   && a.top < b.top + b.height && b.top < a.top + a.height;
@@ -458,6 +459,7 @@ export const LAYOUT_CHECKS = [
     },
   })),
   LATEX_VISUAL_REVEAL,
+  MARKDOWN_BLOCK_CONTROLS_LANES,
   {
     name: "source-menu-select-all",
     description: "The 18k-line long.tex in the source editor, caret near the top, scrolled to the middle: Edit › Select All, then a typed key, leaves only that key.",

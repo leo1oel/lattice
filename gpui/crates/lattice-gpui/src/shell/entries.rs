@@ -246,6 +246,7 @@ impl Shell {
                     editor.update(cx, |editor, _| editor.file_deleted());
                     this.close_editor(&editor, window, cx);
                 }
+                this.close_deleted_assets(&paths, window, cx);
             })
             .ok();
         })
@@ -270,13 +271,14 @@ impl Shell {
                     .update(cx, |tree, cx| tree.set_current(Some(root.join(&moved)), cx));
             }
         }
+        self.move_assets(changes, cx);
         cx.notify();
     }
 }
 
 /// Where `relative` is after `changes` (each a path and where it went; a
 /// folder's change carries what is in it), or `None` when it did not move.
-fn remap(relative: &str, changes: &[(String, String)]) -> Option<String> {
+pub(super) fn remap(relative: &str, changes: &[(String, String)]) -> Option<String> {
     changes.iter().find_map(|(from, to)| {
         if relative == from {
             Some(to.clone())

@@ -1,5 +1,5 @@
-//! The e2e checks for the Project tree's own operations: new file, rename,
-//! move, delete and ⌘C / ⌘V, as its menu and keys run them.
+//! The Project tree's file operations, as its menu runs them: New file,
+//! rename, move and delete.
 
 use std::{path::Path, time::Duration};
 
@@ -7,7 +7,8 @@ use anyhow::{Context as _, Result};
 use gpui::{AsyncApp, Entity};
 use serde_json::json;
 
-use super::{super::Run, Steps};
+use super::Steps;
+use crate::scenario::Run;
 
 impl Run {
     /// New file, rename, move and delete in the tree, as its menu runs them.
