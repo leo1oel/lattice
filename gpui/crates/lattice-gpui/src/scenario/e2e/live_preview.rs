@@ -248,6 +248,47 @@ impl Run {
             }),
         );
 
+        // The separate window shows the paper's own PDF, as the Tauri app's
+        // does (project-pdf-panel.tsx): the live layer stays with the panel,
+        // and is still there once the PDF returns to the workspace. The
+        // typing step below then shows it still paints.
+        let pdf = cx.update(|cx| self.shell.read(cx).pdf().clone());
+        self.with_window(cx, |_, window, cx| {
+            pdf.update(cx, |pdf, cx| pdf.detach(window, cx));
+        })?;
+        let detached = self
+            .wait_for(cx, Duration::from_secs(10), |shell, cx| {
+                shell.read(cx).pdf().read(cx).in_window()
+            })
+            .await;
+        let window_layer = cx.update(|cx| {
+            let pdf = pdf.read(cx);
+            pdf.in_window() && pdf.live_view().read(cx).live_layer().is_some()
+        });
+        self.with_window(cx, |_, window, cx| {
+            pdf.update(cx, |pdf, cx| pdf.dock(true, window, cx));
+        })?;
+        let docked = self
+            .wait_for(cx, Duration::from_secs(10), |shell, cx| {
+                !shell.read(cx).pdf().read(cx).in_window()
+            })
+            .await;
+        let panel_layer = cx.update(|cx| {
+            let pdf = pdf.read(cx);
+            pdf.live_view() == &view && view.read(cx).live_layer().is_some()
+        });
+        steps.check(
+            "Open in separate window shows the PDF without the live layer, and the panel keeps it on return",
+            detached && !window_layer && docked && panel_layer,
+            json!({
+                "detached": detached,
+                "window_has_live_layer": window_layer,
+                "docked": docked,
+                "panel_has_live_layer": panel_layer,
+            }),
+        );
+        self.pause(cx, Duration::from_millis(500)).await;
+
         // Typing into a paragraph paints it over its page.
         let editor = self.open(cx, &chapter, Some(2))?;
         self.pause(cx, Duration::from_millis(300)).await;
