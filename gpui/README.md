@@ -81,7 +81,6 @@ The first build fetches Zed at the pinned revision and compiles about 1,200 crat
 | Shortcut | Action |
 |---|---|
 | ⌘O / Ctrl+O | Open a project folder |
-| ⌘B / Ctrl+B | Save edited files and build |
 | ⌘S / Ctrl+S | Save edited files and build |
 | ⌘⇧J / Ctrl+Shift+J | Mark the caret's line in the PDF (SyncTeX); a double-click in the PDF goes back |
 | ⌘F / Ctrl+F | Find and replace in the current file (the Tauri app's find panel); in a focused PDF, Find in PDF |
@@ -99,9 +98,9 @@ The first build fetches Zed at the pinned revision and compiles about 1,200 crat
 | ⌘⇧[ / ⌘⇧] | Previous or next tab |
 | ⌘W, ⌘⇧T, ⌘⇧W | Close the document's tab (the window when none is open), reopen the last closed tab, close the window |
 | ⌃Tab, ⌃⇧Tab | Next or previous project in the window |
-| Zed's default keymap | Everything else in the editor |
+| Zed's default keymap | Everything else in the editor, but ⌘⇧K and ⌘⇧L, which the app keeps for Insert citation and Insert reference |
 
-On Windows and Linux, Ctrl stands in for ⌘, and quitting is Alt+F4 or the menu. With Vim mode on there, Vim keeps Ctrl+O, Ctrl+B, Ctrl+S, Ctrl+K and Ctrl+W in the editor, in the Vim modes where its keymap binds them.
+On Windows and Linux, Ctrl stands in for ⌘, and quitting is Alt+F4 or the menu. With Vim mode on there, Vim keeps Ctrl+O, Ctrl+S, Ctrl+K and Ctrl+W in the editor, in the Vim modes where its keymap binds them.
 
 "Vim mode" in an editor's ⋯ menu turns Zed's Vim mode on for every editor; `LATTICE_GPUI_VIM=1` turns it on for that run only, leaving the saved keymap as it is.
 

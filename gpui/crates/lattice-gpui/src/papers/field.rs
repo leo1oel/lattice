@@ -412,6 +412,12 @@ impl PapersPanel {
             ("fulltext", t!("Full text")),
             ("overview", t!("Overview")),
         ];
+        // Adding the citation alone has only the first step.
+        let stages = &stages[..if crate::settings::get(cx).save_full_text {
+            3
+        } else {
+            1
+        }];
         let at = stages
             .iter()
             .position(|(id, _)| Some(*id) == importing.stage.as_deref())

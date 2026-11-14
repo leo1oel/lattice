@@ -13,7 +13,7 @@ use gpui::{
 use lattice_i18n::t;
 use lattice_ui::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
-    components::{Button, IconButton, Textarea},
+    components::{Button, CheckState, Checkbox, IconButton, Textarea},
     icons::ICON_SMALL,
     interaction::mix,
     tokens::FONT_WEIGHT_MEDIUM,
@@ -585,6 +585,28 @@ impl Render for AddPapers {
                             .on_click(
                                 cx.listener(|this, _, window, cx| this.open_zotero(window, cx)),
                             ),
+                    )
+                    // Whether adding saves the full text too: the writer's
+                    // last choice, shared with Settings › Literature.
+                    .child(
+                        div().ml_auto().flex().items_center().child(
+                            Checkbox::new(
+                                "add-papers-full-text",
+                                if crate::settings::get(cx).save_full_text {
+                                    CheckState::On
+                                } else {
+                                    CheckState::Off
+                                },
+                            )
+                            .quiet()
+                            .label(t!("Also save full text (Markdown)"))
+                            .on_toggle(|on, _, cx| {
+                                let on = *on;
+                                crate::settings::update(cx, |settings| {
+                                    settings.save_full_text = on
+                                });
+                            }),
+                        ),
                     )
                     .into_any_element(),
             );

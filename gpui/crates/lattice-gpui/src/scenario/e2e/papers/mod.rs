@@ -288,6 +288,14 @@ impl Run {
             );
             return Ok(());
         };
+        // Also save full text is off until the writer turns it on
+        // (`save-full-text-setting.ts`): adding a paper adds its citation.
+        let full_text = cx.update(|cx| crate::settings::get(cx).save_full_text);
+        steps.check(
+            "Add papers saves only the citation until Also save full text is turned on",
+            !full_text,
+            json!({ "save_full_text": full_text }),
+        );
         self.with_window(cx, |_, window, cx| {
             sheet.update(cx, |sheet, cx| sheet.paste(pasted, window, cx))
         })?;

@@ -125,7 +125,7 @@ impl CommandPaletteView {
             .into_iter()
             .filter(|command| command.palette)
             .map(|command| Entry::Command {
-                keys: commands::keys_label(command.action.as_ref(), window),
+                keys: commands::keys_label(command.keys_action(), window),
                 label: command.label,
                 section: command.section,
                 action: std::rc::Rc::from(command.action),

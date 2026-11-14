@@ -42,7 +42,9 @@ pub fn bind_keys(cx: &mut App) {
 fn default_bindings() -> Vec<KeyBinding> {
     let mut bindings = vec![
         KeyBinding::new(m!("o"), OpenFolder, beside_vim("!(vim_mode == insert)")),
-        KeyBinding::new(m!("b"), Build, beside_vim("!VimControl")),
+        // No ⌘B: Build has no key of its own, as in the Tauri app, where ⌘S
+        // saves and builds (`use-command-table.ts`) and ⌘B is the editors'
+        // Bold.
         // Vim's insert mode keeps Ctrl+P for its word completion.
         KeyBinding::new(m!("p"), QuickOpen, beside_vim("!(vim_mode == insert)")),
         KeyBinding::new(m!("shift-f"), FindInProject, None),
@@ -53,6 +55,11 @@ fn default_bindings() -> Vec<KeyBinding> {
         KeyBinding::new(m!("["), GoBack, beside_vim("!vim_mode")),
         KeyBinding::new(m!("]"), GoForward, beside_vim("!vim_mode")),
         KeyBinding::new(m!("shift-h"), ReplaceInProject, None),
+        // ⌘⇧K and ⌘⇧L are the app's Insert citation and Insert reference
+        // (`editor-app-shortcuts.ts`), never Zed's delete line and select
+        // all matches, which the Tauri app's editor keymaps drop too.
+        KeyBinding::new(m!("shift-k"), gpui::NoAction, Some("Editor")),
+        KeyBinding::new(m!("shift-l"), gpui::NoAction, Some("Editor")),
         KeyBinding::new(m!("shift-n"), NewProject, None),
         KeyBinding::new(m!("s"), Save, beside_vim("!(vim_mode == insert)")),
         KeyBinding::new(m!("shift-j"), ForwardSync, None),
@@ -305,6 +312,31 @@ mod tests {
             resolve(bindings(), "Editor mode = full", m!("[")),
             Some(GoBack.name())
         );
+    }
+
+    #[test]
+    fn build_has_no_key_of_its_own() {
+        // ⌘S saves and builds; ⌘B is left to the editors' Bold.
+        let keymap = Keymap::new(default_bindings());
+        assert!(keymap.bindings_for_action(&Build).next().is_none());
+        assert_eq!(
+            resolve(default_bindings(), "Editor mode = full", m!("b")),
+            None
+        );
+    }
+
+    #[test]
+    fn zeds_delete_line_and_select_all_matches_leave_cite_and_ref_keys() {
+        // default-macos.json, "Editor": cmd-shift-k deletes the line and
+        // cmd-shift-l selects every match.
+        let delete = KeyBinding::new(m!("shift-k"), editor::actions::DeleteLine, Some("Editor"));
+        assert_eq!(resolve_in_editor(delete, m!("shift-k")), None);
+        let select = KeyBinding::new(
+            m!("shift-l"),
+            editor::actions::SelectAllMatches,
+            Some("Editor"),
+        );
+        assert_eq!(resolve_in_editor(select, m!("shift-l")), None);
     }
 
     #[test]

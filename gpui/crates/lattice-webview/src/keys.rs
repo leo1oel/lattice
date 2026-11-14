@@ -7,9 +7,11 @@
 //! the same way: the host tells the page which key combinations are the
 //! app's ([`relay_set`], evaluated against the island's own key context, so
 //! an editor-only binding such as ⌘] for Indent is never taken from a page),
-//! the page's bridge claims exactly those on keydown (and never while an
-//! input method composes) and posts them back, and the host dispatches them
-//! through GPUI's own key dispatch after the current update.
+//! the page's bridge posts back exactly those the page itself left alone (a
+//! key it handled, Markdown's ⌘B or a board's ⌘], is its own, as a focused
+//! surface's key is in the Tauri app; never while an input method composes),
+//! and the host dispatches them through GPUI's own key dispatch after the
+//! current update.
 //!
 //! Combinations travel as `KeyboardEvent.code` plus modifier flags, so a
 //! shifted or option-modified character (⌘⇧/ arrives as `?`) and a non-Latin
