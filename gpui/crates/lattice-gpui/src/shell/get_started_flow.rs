@@ -240,13 +240,7 @@ impl Shell {
         if progress::global_read(cx).is_some_and(|progress| progress.is_done(step)) {
             return None;
         }
-        let dialog = self.palette.is_some()
-            || self.settings.is_some()
-            || self.tex_setup.read(cx).dialog_open()
-            || self.sheets.arxiv.is_some()
-            || self.sheets.figures.is_some()
-            || self.sheets.whats_new.is_some();
-        if dialog {
+        if self.dialog_open(cx) {
             return None;
         }
         let panel = match step {

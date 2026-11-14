@@ -105,6 +105,7 @@ impl ChecklistPanel {
         };
         let counters = crate::status_counters::project_counters(cx);
         let words = crate::build::word_count::manuscript_words(cx);
+        let templates = templates::global(cx);
         // A build that ends says how it went and leaves a new PDF: the disk
         // facts are read again.
         let mut built = build.read(cx).chip();
@@ -122,6 +123,7 @@ impl ChecklistPanel {
             cx.observe(&pdf, |_, _, cx| cx.notify()),
             cx.observe(&counters, |_, _, cx| cx.notify()),
             cx.observe(&words, |_, _, cx| cx.notify()),
+            cx.observe(&templates, |_, _, cx| cx.notify()),
         ];
         Self {
             focus_handle: cx.focus_handle(),

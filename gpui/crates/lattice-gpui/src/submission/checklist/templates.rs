@@ -144,6 +144,20 @@ pub fn saved(templates: &[Template], name: &str, items: &[SubmissionItem]) -> Ve
     next
 }
 
+/// A template's name is at most this long (`maxLength`).
+const NAME_MAX: usize = 60;
+
+/// The names of `templates` holding `typed`, as the form's datalist
+/// suggests them: any case, and not the name already typed in full.
+pub fn suggestions<'a>(templates: &'a [Template], typed: &str) -> Vec<&'a str> {
+    let typed = typed.to_lowercase();
+    templates
+        .iter()
+        .map(|template| template.name.as_str())
+        .filter(|name| name.to_lowercase().contains(&typed) && name.to_lowercase() != typed)
+        .collect()
+}
+
 /// The writer's templates, shared by every window.
 pub struct Templates {
     list: Vec<Template>,
@@ -255,14 +269,25 @@ impl ChecklistPanel {
         let field = cx.new(|cx| InputState::new(window, cx).placeholder(t!("e.g. Camera-ready")));
         window.focus(&gpui::Focusable::focus_handle(field.read(cx), cx), cx);
         // The name decides Save or Replace as it is typed; Enter saves.
-        let watch = cx.subscribe_in(&field, window, |this, field, event, _, cx| match event {
-            InputEvent::PressEnter { .. } => {
-                let name = field.read(cx).value().trim().to_string();
-                this.save_template(&name, cx);
-            }
-            InputEvent::Change => cx.notify(),
-            _ => {}
-        });
+        let watch = cx.subscribe_in(
+            &field,
+            window,
+            |this, field, event, window, cx| match event {
+                InputEvent::PressEnter { .. } => {
+                    let name = field.read(cx).value().trim().to_string();
+                    this.save_template(&name, cx);
+                }
+                InputEvent::Change => {
+                    let value = field.read(cx).value().to_string();
+                    if value.chars().count() > NAME_MAX {
+                        let capped: String = value.chars().take(NAME_MAX).collect();
+                        field.update(cx, |field, cx| field.set_value(capped, window, cx));
+                    }
+                    cx.notify();
+                }
+                _ => {}
+            },
+        );
         self.items.template_form = Some((field, watch));
         cx.notify();
     }
@@ -274,11 +299,12 @@ impl ChecklistPanel {
         let field = self.items.template_form.as_ref()?.0.clone();
         let palette = cx.palette().clone();
         let name = field.read(cx).value().trim().to_string();
-        let existing = global(cx)
-            .read(cx)
-            .list()
-            .iter()
-            .any(|template| template.name == name);
+        let templates = global(cx).read(cx).list().to_vec();
+        let existing = templates.iter().any(|template| template.name == name);
+        let suggested: Vec<String> = suggestions(&templates, &name)
+            .into_iter()
+            .map(str::to_string)
+            .collect();
         let save_name = name.clone();
         let remove_name = name.clone();
         Some(
@@ -305,6 +331,21 @@ impl ChecklistPanel {
                         .child(t!("Template name"))
                         .child(Field::new(&field).compact()),
                 )
+                .when(!suggested.is_empty(), |form| {
+                    form.child(div().flex().flex_wrap().gap(px(4.)).children(
+                        suggested.into_iter().enumerate().map(|(ix, suggestion)| {
+                            let field = field.clone();
+                            Button::new(("template-suggestion", ix), suggestion.clone())
+                                .ghost()
+                                .compact()
+                                .on_click(move |_, window, cx| {
+                                    field.update(cx, |field, cx| {
+                                        field.set_value(suggestion.clone(), window, cx)
+                                    });
+                                })
+                        }),
+                    ))
+                })
                 .child(
                     div()
                         .text_role(TextRole::Caption, cx)
@@ -446,6 +487,15 @@ mod tests {
         assert_eq!(added[0].file.as_deref(), Some("Copyright form.pdf"));
         assert_eq!(added[0].owner, None);
         assert_eq!(added[0].confirmed_mtime_ms, None);
+    }
+
+    #[test]
+    fn the_form_suggests_the_names_holding_what_is_typed_but_not_one_typed_in_full() {
+        let templates = saved(&saved(&[], "Camera-ready", &[]), "Arxiv", &[]);
+        assert_eq!(suggestions(&templates, ""), ["Camera-ready", "Arxiv"]);
+        assert_eq!(suggestions(&templates, "CAMERA"), ["Camera-ready"]);
+        assert!(suggestions(&templates, "camera-ready").is_empty());
+        assert!(suggestions(&templates, "Workshop").is_empty());
     }
 
     #[test]
