@@ -111,3 +111,25 @@ impl Shell {
         generation
     }
 }
+
+impl Shell {
+    /// A double-click in the live PDF at (`x`, `y`) on `page`, with `word`
+    /// under it, for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub(crate) fn double_click_pdf(
+        &mut self,
+        page: u32,
+        (x, y): (f64, f64),
+        word: Option<lattice_editor::latex::synctex_word::SyncTexWord>,
+        window: &mut gpui::Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.inverse_sync(None, page, x, y, word, window, cx);
+    }
+
+    /// The project's PDFs open in tabs of their own, for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub(crate) fn file_pdf_tabs(&self) -> Vec<gpui::Entity<crate::pdf::PdfPanel>> {
+        self.file_pdfs.clone()
+    }
+}

@@ -629,7 +629,7 @@ impl PdfView {
                 .on_click(cx.listener(|this, _, window, cx| this.edit_draft(true, window, cx)))
                 // The wheel over the value steps the zoom (`useNonPassiveWheel`
                 // on the zoom label in `use-pdf-zoom.ts`).
-                .on_scroll_wheel(cx.listener(|this, event: &gpui::ScrollWheelEvent, _, cx| {
+                .on_scroll(cx.listener(|this, event: &gpui::ScrollEvent, _, cx| {
                     cx.stop_propagation();
                     let delta = event.delta.pixel_delta(px(20.)).y;
                     if delta != px(0.) {

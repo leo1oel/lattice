@@ -310,6 +310,12 @@ impl PdfPanel {
         }
     }
 
+    /// The status line over the pages, for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn notice(&self, cx: &App) -> Option<SharedString> {
+        self.view.read(cx).notice.clone()
+    }
+
     /// Show nothing, for a project without a built PDF.
     pub fn close(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.source = None;
