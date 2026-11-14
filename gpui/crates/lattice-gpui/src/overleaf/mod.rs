@@ -40,6 +40,9 @@ pub use bridge::{ChannelStatus, OverleafBridge, OverleafBridgeEvent};
 /// linked to Overleaf projects: its own data folder, never the Tauri app's,
 /// so signing in or out here leaves the Tauri app's session alone.
 pub fn config_dir() -> PathBuf {
+    if let Some(scratch) = stand_in(|stand_in| stand_in.scratch.join("config")) {
+        return scratch;
+    }
     std::env::var_os("LATTICE_GPUI_OVERLEAF_DIR")
         .filter(|dir| !dir.is_empty())
         .map(PathBuf::from)
@@ -51,32 +54,48 @@ pub fn config_dir() -> PathBuf {
         })
 }
 
-/// The Overleaf server a sign-in goes to, when not overleaf.com: set only by
-/// a scripted run, which signs in to its own stand-in.
-static HOST: Mutex<Option<String>> = Mutex::new(None);
+/// A scripted run's own Overleaf: the server sign-ins go to, and the scratch
+/// folder that holds the session, the links and the downloads in place of
+/// the writer's.
+struct StandIn {
+    host: String,
+    scratch: PathBuf,
+}
+
+static STAND_IN: Mutex<Option<StandIn>> = Mutex::new(None);
+
+fn stand_in<T>(read: impl FnOnce(&StandIn) -> T) -> Option<T> {
+    STAND_IN
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .as_ref()
+        .map(read)
+}
 
 /// The Overleaf server new sign-ins go to.
 pub fn host() -> String {
-    HOST.lock()
-        .unwrap_or_else(PoisonError::into_inner)
-        .clone()
+    stand_in(|stand_in| stand_in.host.clone())
         .unwrap_or_else(|| lattice_core::overleaf::normalize_host(""))
 }
 
-/// Sign in to `host` instead of overleaf.com, for the e2e scenario's
-/// stand-in (`scenario::overleaf_mock`).
+/// Sign in to `host` instead of overleaf.com, and keep the session, the
+/// links and the downloads under `scratch`, for the e2e scenario's stand-in
+/// (`scenario::overleaf_mock`).
 #[cfg(any(target_os = "macos", target_os = "windows"))]
-pub(crate) fn use_host_for_scenario(host: String) {
-    *HOST.lock().unwrap_or_else(PoisonError::into_inner) = Some(host);
+pub(crate) fn use_stand_in_for_scenario(host: String, scratch: PathBuf) {
+    *STAND_IN.lock().unwrap_or_else(PoisonError::into_inner) = Some(StandIn { host, scratch });
 }
 
 /// Where Overleaf projects are downloaded to, as the Tauri app puts them:
 /// `Documents/Overleaf Projects`.
 pub fn projects_dir() -> Result<PathBuf, String> {
-    let documents = dirs::document_dir()
-        .or_else(|| dirs::home_dir().map(|home| home.join("Documents")))
-        .ok_or_else(|| "Could not resolve Documents folder".to_string())?;
-    let folder = documents.join("Overleaf Projects");
+    let folder = match stand_in(|stand_in| stand_in.scratch.join("Overleaf Projects")) {
+        Some(folder) => folder,
+        None => dirs::document_dir()
+            .or_else(|| dirs::home_dir().map(|home| home.join("Documents")))
+            .ok_or_else(|| "Could not resolve Documents folder".to_string())?
+            .join("Overleaf Projects"),
+    };
     std::fs::create_dir_all(&folder)
         .map_err(|error| format!("Could not create the Overleaf Projects folder: {error}"))?;
     Ok(folder)

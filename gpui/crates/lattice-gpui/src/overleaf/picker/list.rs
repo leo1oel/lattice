@@ -390,17 +390,20 @@ impl OverleafPicker {
                 cx,
             ));
         }
+        // The fill and the scrollbar are laid over the list's viewport, so
+        // the scroll's own children are the rows `step` scrolls to.
         div()
             .relative()
             .flex_1()
             .min_h_0()
+            .child(hover.highlight())
             .child(
                 div()
                     .id("overleaf-project-list")
                     .size_full()
                     .overflow_y_scroll()
                     .track_scroll(&self.scroll)
-                    .child(div().relative().child(hover.highlight()).children(children)),
+                    .children(children),
             )
             .child(FluidScrollbar::vertical(
                 "overleaf-project-scroll",

@@ -42,7 +42,7 @@ pub(super) fn settle(
                 .map(|(id, kind)| (path, id.clone(), kind.clone()))
         })
         .collect();
-    if known.is_empty() {
+    if known.is_empty() || (asking && confirm::is_pending(cx)) {
         return;
     }
     if !asking {

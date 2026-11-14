@@ -4,7 +4,8 @@
 //! - the picker, signed out, offers the sign-in; Connect opens the sign-in
 //!   window on the stand-in's login page, whose cookie becomes the session,
 //!   and the picker lists the account's projects (the archived one hidden);
-//! - Open downloads the project into Documents/Overleaf Projects and opens it
+//! - Open downloads the project into the run's scratch Overleaf Projects (the
+//!   session and links kept there too, never the writer's) and opens it
 //!   in a window of its own, linked, with the split Overleaf control;
 //! - live mode pulls a co-author's edit on its own, and pushes one made here;
 //! - an edit on both sides leaves conflict markers, and the resolver opens
@@ -53,7 +54,13 @@ impl Run {
         let mock =
             MockOverleaf::start(&[("main.tex", MAIN), ("refs.bib", "@misc{a, title={A}}\n")])
                 .context("the Overleaf stand-in")?;
-        cx.update(|_| crate::overleaf::use_host_for_scenario(mock.base.clone()));
+        let scratch =
+            std::env::temp_dir().join(format!("lattice-gpui-overleaf-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&scratch);
+        cx.update(|cx| {
+            crate::overleaf::use_stand_in_for_scenario(mock.base.clone(), scratch);
+            crate::overleaf::session_changed(cx);
+        });
 
         // The picker, signed out.
         self.with_window(cx, |shell, window, cx| {
@@ -99,9 +106,8 @@ impl Run {
                 picker.scenario_open(PROJECT_NAME, false, cx)
             })
         });
-        let clone_root = dirs::document_dir()
-            .unwrap_or_default()
-            .join("Overleaf Projects")
+        let clone_root = crate::overleaf::projects_dir()
+            .map_err(|error| anyhow!(error))?
             .join(PROJECT_NAME);
         let downloaded = self
             .wait_for(cx, Duration::from_secs(30), |_, cx| {
