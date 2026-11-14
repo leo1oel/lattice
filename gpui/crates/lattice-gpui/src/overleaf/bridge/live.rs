@@ -26,6 +26,8 @@ pub(in crate::overleaf) struct WholeFiles {
     drafts: BTreeSet<String>,
     /// Saved since they last went up.
     deferred: BTreeSet<String>,
+    /// Held ones the running sync carries up, as they read when it began.
+    carrying: BTreeSet<String>,
     /// Left: flushed once their writes settle.
     boundary: BTreeSet<String>,
     /// Every held one goes with the next flush (⌘S, the window's blur).
@@ -45,9 +47,24 @@ impl WholeFiles {
         self.flush_all = false;
     }
 
-    /// A sync went through without `live`: what it carried is up.
-    pub(super) fn synced(&mut self, live: &BTreeSet<String>) {
-        self.deferred.retain(|path| live.contains(path));
+    /// A sync starts without `live`: the held files it carries.
+    pub(super) fn sync_started(&mut self, live: &BTreeSet<String>) {
+        self.carrying = self.deferred.difference(live).cloned().collect();
+    }
+
+    /// The sync ended: when it went through, what it carried is up, unless
+    /// saved again meanwhile.
+    pub(super) fn synced(&mut self, succeeded: bool) {
+        let carried = std::mem::take(&mut self.carrying);
+        if succeeded {
+            self.deferred.retain(|path| !carried.contains(path));
+        }
+    }
+
+    /// `path` was saved: it waits to go up.
+    fn saved(&mut self, path: &str) {
+        self.carrying.remove(path);
+        self.deferred.insert(path.to_string());
     }
 }
 
@@ -86,7 +103,7 @@ impl OverleafBridge {
         if !whole.is_empty() {
             let mut left = false;
             for path in whole {
-                self.whole_files.deferred.insert(path.clone());
+                self.whole_files.saved(path);
                 if !self.whole_files.editing.contains(path) {
                     self.whole_files.boundary.insert(path.clone());
                     left = true;
@@ -559,7 +576,36 @@ mod tests {
             ..Default::default()
         };
         // `b.tldr` was still being edited, so the sync left it alone.
-        files.synced(&BTreeSet::from(["b.tldr".to_string()]));
+        files.sync_started(&BTreeSet::from(["b.tldr".to_string()]));
+        files.synced(true);
         assert_eq!(files.deferred, BTreeSet::from(["b.tldr".to_string()]));
+    }
+
+    #[test]
+    fn a_save_during_a_sync_stays_held() {
+        let mut files = WholeFiles {
+            deferred: BTreeSet::from(["deck.slides".to_string()]),
+            ..Default::default()
+        };
+        files.sync_started(&BTreeSet::new());
+        // Saved again, and an outside tool writes a board, while it runs.
+        files.saved("deck.slides");
+        files.saved("plan.tldr");
+        files.synced(true);
+        assert_eq!(
+            files.deferred,
+            BTreeSet::from(["deck.slides".to_string(), "plan.tldr".to_string()])
+        );
+    }
+
+    #[test]
+    fn a_failed_sync_leaves_the_held_files_held() {
+        let mut files = WholeFiles {
+            deferred: BTreeSet::from(["a.tldr".to_string()]),
+            ..Default::default()
+        };
+        files.sync_started(&BTreeSet::new());
+        files.synced(false);
+        assert_eq!(files.deferred, BTreeSet::from(["a.tldr".to_string()]));
     }
 }

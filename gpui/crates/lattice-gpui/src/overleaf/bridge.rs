@@ -705,8 +705,8 @@ impl OverleafBridge {
         let run_root = root.clone();
         // The live document is the channel's to carry, and a whole-file
         // document being edited waits until the writer leaves it.
-        let live = self.sync_live_paths(&options, cx);
-        let run_live = live.clone();
+        let run_live = self.sync_live_paths(&options, cx);
+        self.whole_files.sync_started(&run_live);
         let observed = options.observed_remote_version;
         let run = cx
             .background_spawn(async move { sync::sync(&run_root, &run_live, observed, entities) });
@@ -725,9 +725,7 @@ impl OverleafBridge {
                 if let Some(mut trace) = this.sync_trace.take() {
                     finished::trace_outcome(&mut trace, &result, &options, cx);
                 }
-                if result.is_ok() {
-                    this.whole_files.synced(&live);
-                }
+                this.whole_files.synced(result.is_ok());
                 match result {
                     Ok(result) => this.synced(root, result, options, cx),
                     Err(error) => this.failed(error, options, cx),
