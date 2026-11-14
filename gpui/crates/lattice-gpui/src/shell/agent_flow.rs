@@ -46,13 +46,12 @@ pub(super) struct AgentState {
     git_view: String,
     /// The turn the Git workspace is pinned to, while it is.
     turn_review: Option<TurnReview>,
-    /// The selection the Agent took (its chip was cleared): it stays out of
-    /// the host context until the writer selects something else.
-    dismissed: Option<String>,
     /// The project's remote, for the Git workspace's GitHub button.
     remote_url: Option<String>,
-    /// The editor whose workspace the Agent was last told of.
-    front: Option<gpui::EntityId>,
+    /// What the Agent is told of the window (`agent_context.rs`).
+    pub(super) context: super::agent_context::ContextState,
+    /// The Agent panel's turn while one runs or waits (`agent_turn.rs`).
+    pub(super) turn: super::agent_turn::TurnState,
     /// The Agent's checkpoints (`agent_checkpoints.rs`).
     pub(super) checkpoints: super::agent_checkpoints::CheckpointState,
 }
@@ -62,16 +61,16 @@ impl Default for AgentState {
         Self {
             git_view: "changes".into(),
             turn_review: None,
-            dismissed: None,
             remote_url: None,
-            front: None,
+            context: Default::default(),
+            turn: Default::default(),
             checkpoints: Default::default(),
         }
     }
 }
 
 impl Shell {
-    fn agent_surface(&self, cx: &gpui::App) -> Entity<SynaraSurface> {
+    pub(super) fn agent_surface(&self, cx: &gpui::App) -> Entity<SynaraSurface> {
         self.agent.panel.read(cx).surface().clone()
     }
 
@@ -116,44 +115,6 @@ impl Shell {
             })
             .detach();
         }
-    }
-
-    /// The editor in front changed since the Agent was told.
-    pub(crate) fn agent_follow_front(&mut self, cx: &mut Context<Self>) {
-        let front = self.active_editor().map(|editor| editor.entity_id());
-        if front != self.agent.state.front {
-            self.push_agent_workspace(cx);
-        }
-    }
-
-    /// Tell the Agent what the writer is working in now: the editor in
-    /// front, its caret and its selection (`useAgentContext`).
-    pub(crate) fn push_agent_workspace(&mut self, cx: &mut Context<Self>) {
-        let editor = self.active_editor();
-        self.agent.state.front = editor.as_ref().map(|editor| editor.entity_id());
-        let mut workspace =
-            crate::agent::workspace::of_editor(editor.as_ref().map(|editor| editor.read(cx)), cx);
-        let selection = workspace
-            .get("selection")
-            .and_then(Value::as_str)
-            .map(str::to_string);
-        // The selection the Agent took stays out until it changes.
-        if selection.is_some() && selection == self.agent.state.dismissed {
-            if let Some(fields) = workspace.as_object_mut() {
-                for key in [
-                    "selection",
-                    "selectionLength",
-                    "selectionSource",
-                    "selectionLines",
-                ] {
-                    fields.remove(key);
-                }
-            }
-        } else {
-            self.agent.state.dismissed = None;
-        }
-        self.agent_surface(cx)
-            .update(cx, |surface, cx| surface.set_workspace(workspace, cx));
     }
 
     /// The project's files changed on disk: the Agent's paper library reads
@@ -238,18 +199,7 @@ impl Shell {
                         .update(cx, |surface, cx| surface.reveal_setting(target, cx));
                 }
             }
-            SurfaceEvent::ClearSelection => {
-                let editor = self.active_editor();
-                let workspace = crate::agent::workspace::of_editor(
-                    editor.as_ref().map(|editor| editor.read(cx)),
-                    cx,
-                );
-                self.agent.state.dismissed = workspace
-                    .get("selection")
-                    .and_then(Value::as_str)
-                    .map(str::to_string);
-                self.push_agent_workspace(cx);
-            }
+            SurfaceEvent::ClearSelection => self.agent_selection_taken(cx),
             SurfaceEvent::MinimumWidth(width) => {
                 let size = super::views::agent_min_size(*width);
                 self.engine_do(cx, |engine| engine.set_min_size("agent", size));
@@ -279,6 +229,8 @@ impl Shell {
                 expires_at,
             } => self.agent_create_document(surface, *id, path.clone(), *expires_at, window, cx),
             SurfaceEvent::History(snapshot) => self.agent_history(snapshot.clone(), window, cx),
+            SurfaceEvent::Turn(presence) => self.agent_turn(presence.clone(), cx),
+            SurfaceEvent::TurnStarted => self.agent_turn_started(cx),
         }
     }
 }

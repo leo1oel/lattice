@@ -129,6 +129,13 @@ pub fn register(surface: WeakEntity<SynaraSurface>, cx: &mut App) {
     surfaces.0.push(surface);
 }
 
+/// The Synara surfaces open in any window.
+pub(super) fn surfaces(cx: &App) -> Vec<WeakEntity<SynaraSurface>> {
+    cx.try_global::<Surfaces>()
+        .map(|surfaces| surfaces.0.clone())
+        .unwrap_or_default()
+}
+
 fn broadcast(event: &str, payload: Value, cx: &mut App) {
     match event {
         ENVIRONMENT_CHANGED => offer_restart(payload.get("stale") == Some(&Value::Bool(true)), cx),

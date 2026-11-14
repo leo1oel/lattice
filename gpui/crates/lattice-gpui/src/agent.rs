@@ -32,6 +32,8 @@ use lattice_i18n::t;
 
 pub mod checkpoints;
 pub mod commands;
+pub mod host_context;
+pub mod host_writes;
 pub mod runtime;
 pub mod surface;
 pub mod workspace;

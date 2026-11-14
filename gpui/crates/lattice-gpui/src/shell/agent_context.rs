@@ -1,0 +1,233 @@
+//! What the Agent is told of the window (its host context's inputs), as the
+//! Tauri app's App feeds `useAgentContext` (`src/app/use-agent-context.ts`)
+//! from every surface: the file in front, whatever it is (a source file, a
+//! board, a sheet, a deck, an image, a project PDF); the surface the writer
+//! works in, the editor or a PDF, as focus moves; the compiled PDF's page
+//! and page count; the one shared selection, the source editor's, the
+//! visual Markdown editor's, or a PDF's with the PDF and page it was made
+//! on; and Open Slide's deck and slide while a deck is in front.
+//!
+//! The model is `crate::agent::host_context`; this reads the window into
+//! it. The window is read on every frame (`agent_follow_front`), but only
+//! what changed is pushed, and the surface waits for the caret to rest.
+
+use gpui::{Context, Entity, EntityId, Focusable as _, Task, WeakEntity, Window};
+use serde_json::json;
+
+use super::Shell;
+use crate::{
+    agent::{
+        host_context::{self, Inputs, Selected, SharedSelection, Source},
+        workspace,
+    },
+    pdf::{PdfPanel, PdfPanelKind},
+    structured::StructuredKind,
+};
+
+/// The window's side of the Agent's host context.
+#[derive(Default)]
+pub(crate) struct ContextState {
+    pub(super) selection: SharedSelection,
+    surface: Option<Source>,
+    /// The PDF the writer last worked in, whose selection is the PDF's.
+    pdf: Option<WeakEntity<PdfPanel>>,
+    /// That PDF's selection as last seen, and its reading.
+    pdf_mark: Option<(usize, String)>,
+    _pdf_read: Option<Task<()>>,
+    /// What was last pushed from: the editor in front, the compiled PDF's
+    /// page and count. A document's own report pushes as it comes
+    /// (`surface_context_changed`).
+    front: Option<EntityId>,
+    pdf_place: (usize, usize),
+}
+
+impl Shell {
+    /// Every PDF panel of the window: the compiled PDF's, a root
+    /// document's, a project PDF's.
+    fn pdf_panels(&self) -> Vec<Entity<PdfPanel>> {
+        std::iter::once(self.pdf().clone())
+            .chain(self.root_pdfs.iter().map(|(_, panel)| panel.clone()))
+            .chain(self.file_pdfs.iter().cloned())
+            .collect()
+    }
+
+    fn context(&mut self) -> &mut ContextState {
+        &mut self.agent.state.context
+    }
+
+    /// Read the window on a frame: when the writer moved between the editor
+    /// and a PDF, or selected in a PDF, or the editor in
+    /// front or the compiled PDF's page changed, the Agent hears of it.
+    pub(crate) fn agent_follow_front(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let mut changed = false;
+        let focused_pdf = self
+            .pdf_panels()
+            .into_iter()
+            .find(|panel| panel.read(cx).focus_handle(cx).contains_focused(window, cx));
+        let editor = self.active_editor();
+        let editor_focused = editor.as_ref().is_some_and(|editor| {
+            editor
+                .read(cx)
+                .focus_handle(cx)
+                .contains_focused(window, cx)
+        });
+        let surface = match (&focused_pdf, editor_focused) {
+            (Some(_), _) => Some(Source::Pdf),
+            (None, true) => Some(Source::Editor),
+            (None, false) => None,
+        };
+        if let Some(surface) = surface
+            && self.context().surface != Some(surface)
+        {
+            let state = self.context();
+            state.surface = Some(surface);
+            state.selection.activate(surface);
+            changed = true;
+        }
+        if let Some(panel) = focused_pdf
+            && self.context().pdf.as_ref().and_then(WeakEntity::upgrade) != Some(panel.clone())
+        {
+            self.context().pdf = Some(panel.downgrade());
+            self.context().pdf_mark = None;
+        }
+        changed |= self.watch_pdf_selection(cx);
+        let front = editor.as_ref().map(Entity::entity_id);
+        let live = self.pdf().read(cx).live_view().read(cx);
+        let pdf_place = (live.current_page(), live.page_count());
+        let state = self.context();
+        if front != state.front || pdf_place != state.pdf_place {
+            changed = true;
+        }
+        if changed {
+            self.push_agent_workspace(cx);
+        }
+        // A deck opened while a turn runs lights up too.
+        if self.agent_turn_running() {
+            self.tell_decks_of_turn(cx);
+        }
+    }
+
+    /// The selection in the PDF the writer last worked in: read again when
+    /// it changes, and shared once read. True when it is now empty.
+    fn watch_pdf_selection(&mut self, cx: &mut Context<Self>) -> bool {
+        let panel = self
+            .context()
+            .pdf
+            .as_ref()
+            .and_then(WeakEntity::upgrade)
+            .unwrap_or_else(|| self.pdf().clone());
+        let view = panel.read(cx).live_view().clone();
+        let mark = view.read(cx).selection_mark();
+        if mark == self.context().pdf_mark {
+            return false;
+        }
+        self.context().pdf_mark = mark.clone();
+        let Some((page, _)) = mark else {
+            self.context()._pdf_read = None;
+            self.context()
+                .selection
+                .observe(Source::Pdf, Selected::default());
+            return true;
+        };
+        // A project PDF open as a document names itself and the page.
+        let document = match panel.read(cx).kind() {
+            PdfPanelKind::File(path) => self.root(cx).and_then(|root| {
+                path.strip_prefix(&root).ok().map(|relative| {
+                    json!({
+                        "path": relative.to_string_lossy().replace('\\', "/"),
+                        "page": page + 1,
+                        "pageCount": view.read(cx).page_count(),
+                    })
+                })
+            }),
+            _ => None,
+        };
+        let Some(text) = view.update(cx, |view, cx| view.selected_text_task(cx)) else {
+            return false;
+        };
+        let read = cx.spawn(async move |this, cx| {
+            let text = text.await;
+            this.update(cx, |this, cx| {
+                this.context().selection.observe(
+                    Source::Pdf,
+                    Selected {
+                        text: text.trim().to_string(),
+                        pdf_document: document,
+                        ..Selected::default()
+                    },
+                );
+                this.push_agent_workspace(cx);
+            })
+            .ok();
+        });
+        self.context()._pdf_read = Some(read);
+        false
+    }
+
+    /// Tell the Agent what the writer is working in now (`useAgentContext`).
+    pub(crate) fn push_agent_workspace(&mut self, cx: &mut Context<Self>) {
+        let editor = self.active_editor();
+        let front = editor.as_ref().map(Entity::entity_id);
+        let structured = editor
+            .as_ref()
+            .and_then(|editor| editor.read(cx).structured().cloned());
+        let mut active_file = self
+            .active_document(cx)
+            .filter(|key| !super::papers::is_reader_key(key))
+            .unwrap_or_default();
+        let mut editor_position = None;
+        let mut selected = Selected::default();
+        if let Some(editor) = &editor {
+            let state = workspace::of_editor(editor.read(cx), cx);
+            if active_file.is_empty() {
+                active_file = state.relative.clone();
+            }
+            // A board, sheet or deck has no caret of its own.
+            if structured.is_none() {
+                editor_position = Some(state.position);
+                selected = state.selected;
+            }
+        }
+        // The visual Markdown editor's selection, when its source has none.
+        if selected.text.is_empty()
+            && let Some(text) = editor
+                .as_ref()
+                .and_then(|editor| editor.read(cx).markdown_document())
+                .and_then(|document| document.read(cx).visual_selection())
+                .map(str::trim)
+                .filter(|text| !text.is_empty())
+        {
+            selected = Selected {
+                text: text.to_string(),
+                ..Selected::default()
+            };
+        }
+        // Open Slide's deck and slide, while a deck is in front.
+        let presentation = structured
+            .filter(|document| document.read(cx).kind() == StructuredKind::Deck)
+            .and_then(|document| document.read(cx).deck_context().cloned());
+        let live = self.pdf().read(cx).live_view().read(cx);
+        let pdf_place = (live.current_page(), live.page_count());
+        let state = self.context();
+        state.front = front;
+        state.pdf_place = pdf_place;
+        state.selection.observe(Source::Editor, selected);
+        let workspace = host_context::workspace(Inputs {
+            active_file: &active_file,
+            editor_position,
+            surface: state.surface.unwrap_or(Source::Editor),
+            pdf_page: pdf_place.0 + 1,
+            pdf_page_count: (pdf_place.1 > 0).then_some(pdf_place.1),
+            presentation,
+            selection: &state.selection,
+        });
+        self.agent_surface(cx)
+            .update(cx, |surface, cx| surface.set_workspace(workspace, cx));
+    }
+
+    /// The Agent took the selection: it stays out until it changes.
+    pub(super) fn agent_selection_taken(&mut self, cx: &mut Context<Self>) {
+        self.context().selection.dismiss();
+        self.push_agent_workspace(cx);
+    }
+}

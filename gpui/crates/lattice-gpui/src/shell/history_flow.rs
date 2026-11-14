@@ -221,6 +221,7 @@ impl Shell {
                 window,
                 move |this, _, event, window, cx| match event {
                     ConflictEvent::Resolved(path) => {
+                        this.agent_host_wrote([path.clone()], cx);
                         this.forget_agent_undo_conflict(&opened);
                         this.conflict = None;
                         notices::show(

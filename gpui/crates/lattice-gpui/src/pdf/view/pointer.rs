@@ -265,6 +265,13 @@ impl PdfView {
         cx.notify();
     }
 
+    /// The selection's first page and an identity that changes with it,
+    /// while there is one: what the Agent's context watches.
+    pub fn selection_mark(&self) -> Option<(usize, String)> {
+        let selection = self.selection.filter(|selection| !selection.is_empty())?;
+        Some((selection.ordered().0.0, format!("{selection:?}")))
+    }
+
     pub fn has_selection(&self) -> bool {
         self.selection
             .is_some_and(|selection| !selection.is_empty())

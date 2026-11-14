@@ -103,6 +103,11 @@ pub enum SurfaceEvent {
     /// The Agent's checkpoint history for the panel's thread
     /// (`checkpoints.rs`).
     History(super::checkpoints::Snapshot),
+    /// The panel's turn as it now stands (`AgentDeckPresence`), `None` once
+    /// no turn runs or waits.
+    Turn(Option<Value>),
+    /// A turn started: the writer asked the Agent something.
+    TurnStarted,
 }
 
 /// A turn's checkpoint diff, reviewable after the working tree moved on.
@@ -147,6 +152,8 @@ pub struct SynaraSurface {
     deck: Option<crate::structured::DeckSession>,
     /// What the page was last told of the project's Overleaf link.
     overleaf: Value,
+    /// The paths reported as Lattice's own writes, for a scenario.
+    host_writes: Vec<String>,
     last_pointer: Option<Instant>,
     _subscriptions: Vec<Subscription>,
 }
@@ -211,6 +218,7 @@ impl SynaraSurface {
             settings_section: ("providers", String::new()),
             deck: None,
             overleaf: Value::Null,
+            host_writes: Vec::new(),
             last_pointer: None,
             _subscriptions: subscriptions,
         }
@@ -291,6 +299,17 @@ impl SynaraSurface {
         if let Some(island) = &self.island {
             island.update(cx, |island, cx| island.set_active(active, cx));
         }
+    }
+
+    /// Lattice wrote these project files itself (`host_writes.rs`).
+    pub(super) fn host_wrote(&mut self, paths: Vec<String>, cx: &mut App) {
+        self.host_writes.extend(paths.iter().cloned());
+        self.post("agent:host-writes", json!({ "paths": paths }), cx);
+    }
+
+    /// The paths reported as Lattice's own writes, for a scenario.
+    pub fn host_writes(&self) -> &[String] {
+        &self.host_writes
     }
 
     /// Hand `message` to the Agent's frame, as the Tauri host's
@@ -636,6 +655,13 @@ fn surface_event(kind: &str, payload: &Value) -> Option<SurfaceEvent> {
             SurfaceEvent::MinimumWidth(payload.get("width").and_then(Value::as_f64)? as f32)
         }
         "agent:git-view" => SurfaceEvent::GitView(text("view")?),
+        "agent:turn" => SurfaceEvent::Turn(
+            payload
+                .get("presence")
+                .filter(|presence| presence.is_object())
+                .cloned(),
+        ),
+        "agent:turn-started" => SurfaceEvent::TurnStarted,
         "agent:close-git" => SurfaceEvent::CloseGit,
         _ => return None,
     })
@@ -793,5 +819,13 @@ mod tests {
         );
         assert_eq!(surface_event("agent:history", &json!({})), None);
         assert_eq!(surface_event("agent:frame-message", &json!({})), None);
+        assert_eq!(
+            surface_event("agent:turn", &json!({ "presence": null })),
+            Some(SurfaceEvent::Turn(None))
+        );
+        assert_eq!(
+            surface_event("agent:turn", &json!({ "presence": { "state": "running" } })),
+            Some(SurfaceEvent::Turn(Some(json!({ "state": "running" }))))
+        );
     }
 }

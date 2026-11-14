@@ -1,18 +1,15 @@
-//! What the Agent is told of the writer's workspace: the inputs the Tauri
-//! app's `useAgentContext` builds its host context from (the file in front,
-//! the caret, the one shared selection and the surface that owns it), read
-//! from the window. The page builds the snapshot itself with the Tauri app's
-//! `buildAgentHostContext`, so its shape and bounds stay that module's.
-//!
-//! The selection the Agent sees is the front editor's, with its lines; a PDF
-//! or Papers selection is not reported yet (the PDF viewer's text selection
-//! is copied, not shared, and the papers library is not in the GPUI app).
+//! The source editor's part of what the Agent is told of the writer's
+//! workspace (the inputs the Tauri app's `useAgentContext` builds its host
+//! context from): the file in front, the caret, and its selection with its
+//! lines, read from the window. The rest of the window's part (the shared
+//! selection, the PDF, a document page's own report) is `host_context.rs`.
 
 use editor::{ToOffset as _, ToPoint as _};
 use gpui::App;
 use language::Point;
 use serde_json::{Value, json};
 
+use super::host_context::Selected;
 use crate::editor_panel::EditorPanel;
 
 /// More than the host context keeps (12,000 characters); what is past it is
@@ -20,11 +17,16 @@ use crate::editor_panel::EditorPanel;
 /// as `selectionLength`.
 const SELECTION_LIMIT: usize = 24_000;
 
-/// The workspace with `panel` in front, or with no editor at all.
-pub fn of_editor(panel: Option<&EditorPanel>, cx: &App) -> Value {
-    let Some(panel) = panel else {
-        return json!({ "activeFile": "", "editorPosition": null, "activeSurface": "editor" });
-    };
+/// A source editor's file, caret and selection.
+pub struct EditorState {
+    pub relative: String,
+    /// `EditorPosition`.
+    pub position: Value,
+    pub selected: Selected,
+}
+
+/// What the source editor `panel` shows.
+pub fn of_editor(panel: &EditorPanel, cx: &App) -> EditorState {
     let relative = panel.relative().to_string();
     let (line, column) = panel.cursor();
     let editor = panel.editor().read(cx);
@@ -40,29 +42,7 @@ pub fn of_editor(panel: Option<&EditorPanel>, cx: &App) -> Value {
     );
     let (start, end) = (start.min(end), start.max(end));
     let (start_point, end_point) = (start_point.min(end_point), start_point.max(end_point));
-    let mut workspace = json!({
-        "activeFile": relative,
-        "editorPosition": editor_position(&relative, line, column),
-        "activeSurface": "editor",
-    });
-    // An Open Slide deck's selected slide and element (`onOpenSlideContext`).
-    if let Some(context) = panel
-        .structured()
-        .and_then(|document| document.read(cx).deck_context())
-    {
-        workspace["presentation"] = context.clone();
-    }
-    // Text selected in a Markdown file's visual editor (`onSelectionMarkdown`).
-    if start == end
-        && let Some(text) = panel
-            .markdown_document()
-            .and_then(|document| document.read(cx).visual_selection())
-    {
-        let (text, length) = cut_selection([text]);
-        workspace["selection"] = json!(text);
-        workspace["selectionLength"] = json!(length);
-        workspace["selectionSource"] = json!("editor");
-    }
+    let mut selected = Selected::default();
     if start != end {
         let (text, length) = cut_selection(buffer.text_for_range(start..end));
         let first = start_point.row + 1;
@@ -71,12 +51,18 @@ pub fn of_editor(panel: Option<&EditorPanel>, cx: &App) -> Value {
         if last.column == 0 && last.row + 1 > first {
             last.row -= 1;
         }
-        workspace["selection"] = json!(text);
-        workspace["selectionLength"] = json!(length);
-        workspace["selectionSource"] = json!("editor");
-        workspace["selectionLines"] = json!({ "start": first, "end": last.row + 1 });
+        selected = Selected {
+            text,
+            length: Some(length),
+            lines: Some((first, last.row + 1)),
+            pdf_document: None,
+        };
     }
-    workspace
+    EditorState {
+        position: editor_position(&relative, line, column),
+        relative,
+        selected,
+    }
 }
 
 /// The trimmed selection cut to `SELECTION_LIMIT` characters, and the

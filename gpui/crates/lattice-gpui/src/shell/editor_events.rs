@@ -33,6 +33,7 @@ impl Shell {
     ) {
         match event {
             EditorPanelEvent::Saved => {
+                self.agent_host_saved(editor, cx);
                 self.live_preview.update(cx, |live, _| live.note_saved());
                 if let Some(project) = &self.project {
                     project.update(cx, |project, _| project.mark_inputs_changed());
