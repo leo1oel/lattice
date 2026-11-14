@@ -90,7 +90,7 @@ the document updater's ShareJS model, the official web client and
 review pin, not a historical provenance pin or proof of current Overleaf Cloud
 deployment behavior, and no Workshop source was copied.
 
-One provenance gap has no candidate at all: `OtDocument` in `src/overleaf/ot.ts` says
+One provenance gap has no candidate at all: `OtDocument` in `src/overleaf/ot.ts` (and its Rust port) says
 its client state mirrors the ShareJS client Overleaf uses, but no repository,
 version or commit for that reference was recorded. Keep it **unknown** rather
 than picking a plausible ShareJS snapshot after the fact.
@@ -120,7 +120,7 @@ replace it.
 | --- | --- | --- |
 | `src-tauri/lattice-core/src/overleaf.rs` + `overleaf/` | Browser-session status, dashboard parsing, CSRF, ZIP download or fetching only what changed, REST upload and tree mutations, comments, project history, three-way file sync, sync state | `overleaf-sync`, `overleaf-sync-rs`, official server routes |
 | `src-tauri/lattice-core/src/overleaf_rt.rs` + `overleaf_rt/` | Socket.IO 0.9 handshake and framing, heartbeat and ack dispatch, project/document joins, OT updates, tree events, presence, comments, tracked changes | Overleaf Workshop's `base.ts` / `socketio.ts`, official server behaviour |
-| `src/overleaf/ot.ts` | Per-document client OT state, composition, transformation, version progression, desync detection; also moves comment quotes through the same ops that move the text, and `overleaf-suggestions.ts` does the same for tracked changes, so Accept/Reject never act on a drifted range | Lattice tests and this document; the ShareJS reference is unpinned |
+| `src/overleaf/ot.ts` (ported to Rust for the GPUI app as `overleaf_rt/ot.rs`) | Per-document client OT state, composition, transformation, version progression, desync detection; also moves comment quotes through the same ops that move the text, and `overleaf-suggestions.ts` does the same for tracked changes, so Accept/Reject never act on a drifted range | Lattice tests and this document; the ShareJS reference is unpinned |
 | `src/overleaf/use-overleaf-realtime.ts` (connection and reconnect: `use-overleaf-realtime-connection.ts`) | React-side document ownership, send interval, drain, reconnect, event handling, reviewer behaviour, comments, editor-buffer updates | Lattice application behaviour over the Rust channel |
 | `src/app/use-overleaf-workspace.ts` (`useOverleafWorkspace`) | Owns the workspace-level Overleaf state and reads the sync mode and remote-delete choice shared by every window from `src/overleaf/overleaf-sync-settings.ts`; consumed by `src/App.tsx`, which chooses between Overleaf OT and ordinary Overleaf sync, and excludes live-owned paths from ordinary sync | Lattice safety policy |
 | `scripts/verify-overleaf.mjs` | Explicit opt-in cloud smoke test against a user-selected project and document | Live compatibility check; never a default test |

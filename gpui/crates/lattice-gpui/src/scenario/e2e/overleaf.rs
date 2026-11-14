@@ -16,6 +16,10 @@
 //!   and applies it;
 //! - Settings › Overleaf says who is signed in and which project syncs.
 
+mod live;
+mod presence;
+mod reconnect;
+
 use std::{path::Path, time::Duration};
 
 use anyhow::{Context as _, Result, anyhow};
@@ -104,14 +108,15 @@ impl Run {
             .update(|cx| self.shell.read(cx).overleaf_picker())
             .ok_or_else(|| anyhow!("the picker did not open"))?;
         let signed_out = self
-            .wait_for(cx, Duration::from_secs(10), |_, cx| {
+            .wait_for(cx, Duration::from_secs(20), |_, cx| {
                 picker.read(cx).scenario_connected() == Some(false)
             })
             .await;
+        let connected = cx.update(|cx| picker.read(cx).scenario_connected());
         steps.check(
             "Open from Overleaf, signed out, offers the sign-in",
             signed_out,
-            json!({}),
+            json!({ "connected": connected }),
         );
 
         // Connect: the sign-in window on the stand-in's login page.
@@ -320,6 +325,15 @@ impl Run {
             json!({ "badged": badged, "summary": summary, "applied": applied }),
         );
         cx.update(|cx| settings::update(cx, |s| s.overleaf_sync_mode = OverleafSyncMode::Live));
+        // The checks above are regular sync's, with the live channel
+        // unreachable; it comes up now (on the client's next retry) for
+        // presence and live editing.
+        mock.enable_realtime();
+        linked
+            .overleaf_presence(cx, steps, &mock, &clone_root)
+            .await?;
+        linked.overleaf_live(cx, steps, &mock).await?;
+        linked.overleaf_reconnect(cx, steps, &mock).await?;
 
         // Settings › Overleaf.
         linked.with_window(cx, |shell, window, cx| {

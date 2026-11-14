@@ -140,6 +140,7 @@ lucide! {
     // Overleaf (src/overleaf/, canvas-toolbar.tsx).
     CLOUD_UPLOAD = "icons" / "cloud-upload";
     CLOUD_OFF = "icons" / "cloud-off";
+    CLOUD_CHECK = "icons" / "cloud-check";
     CLOUD_ALERT = "icons" / "cloud-alert";
     MAIL_OPEN = "icons" / "mail-open";
     SEARCH_X = "icons" / "search-x";
