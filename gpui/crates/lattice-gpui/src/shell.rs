@@ -86,6 +86,7 @@ pub use commands::{
 pub use get_started_flow::ShowGetStarted;
 pub use help_flow::{ReportProblem, WhatsNew};
 pub use insert_flow::{InsertTable, PasteImageAsFigure};
+pub use overleaf_menus::ReviewHere;
 pub use references_flow::{FindReferences, RenameSymbol};
 pub use tools_flow::{ExportArxiv, OpenChecklist, OpenTodos};
 pub(crate) use workspace_flow::LayoutState;

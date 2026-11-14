@@ -109,11 +109,7 @@ impl OverleafBridge {
 
     /// The whole-file documents in the shown editor are `editing` now (one,
     /// or none); those just left go up once their last writes settle.
-    pub(in crate::overleaf) fn whole_files_shown(
-        &mut self,
-        editing: BTreeSet<String>,
-        cx: &mut Context<Self>,
-    ) {
+    pub fn whole_files_shown(&mut self, editing: BTreeSet<String>, cx: &mut Context<Self>) {
         let left: Vec<String> = self
             .whole_files
             .editing
@@ -531,5 +527,29 @@ impl OverleafBridge {
                 cx.background_executor().timer(BADGE_POLL).await;
             }
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn boards_sheets_and_decks_are_whole_file_documents() {
+        assert!(is_whole_file("figures/plan.tldr"));
+        assert!(is_whole_file("data.lattice-sheet"));
+        assert!(!is_whole_file("main.tex"));
+        assert!(!is_whole_file("notes.md"));
+    }
+
+    #[test]
+    fn a_sync_settles_the_held_files_it_carried() {
+        let mut files = WholeFiles {
+            deferred: BTreeSet::from(["a.tldr".to_string(), "b.tldr".to_string()]),
+            ..Default::default()
+        };
+        // `b.tldr` was still being edited, so the sync left it alone.
+        files.synced(&BTreeSet::from(["b.tldr".to_string()]));
+        assert_eq!(files.deferred, BTreeSet::from(["b.tldr".to_string()]));
     }
 }

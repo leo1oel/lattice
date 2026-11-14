@@ -171,6 +171,17 @@ impl Default for SplitRatio {
 
 impl gpui::Global for SplitRatio {}
 
+/// The split's ratio, and setting it, for a scenario.
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+pub fn split_ratio(cx: &App) -> f32 {
+    cx.try_global::<SplitRatio>().copied().unwrap_or_default().0
+}
+
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+pub fn set_split_ratio(ratio: f32, cx: &mut App) {
+    cx.set_global(SplitRatio(ratio));
+}
+
 /// The split's columns: the source never under 240px nor the preview under
 /// 280px while both fit, shrunk in proportion when they do not
 /// (`splitGridTemplate`, `fitSplitMinimums`).
@@ -441,6 +452,14 @@ impl EditorPanel {
         {
             views.dragging = false;
             cx.notify();
+        }
+    }
+
+    /// Focus the split's divider, for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn focus_split_divider(&self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(views) = &self.views {
+            window.focus(&views.divider_focus, cx);
         }
     }
 

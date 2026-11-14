@@ -63,3 +63,16 @@ fn unconfirmed_notice(path: &str, detail: &str) -> String {
         t!("Lattice could not confirm whether Overleaf accepted the latest edit to {path} ({detail}). Syncing is paused for this file while Lattice checks.", path = path, detail = detail).to_string()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::unconfirmed_notice;
+
+    #[test]
+    fn the_paused_file_is_named_when_known() {
+        let named = unconfirmed_notice("main.tex", "timed out");
+        assert!(named.contains("main.tex") && named.contains("(timed out)"));
+        let unnamed = unconfirmed_notice("", "timed out");
+        assert!(unnamed.contains("this file (timed out)"));
+    }
+}
