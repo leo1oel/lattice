@@ -200,16 +200,14 @@ impl OverleafBridge {
                 .position(|doc| doc.doc_id == doc_id && doc.editor == editor);
             match draining {
                 Some(at) => {
-                    let in_step = editor.upgrade().is_some_and(|panel| {
-                        panel.read(cx).overleaf_text(cx) == self.documents.leaving[at].ot.text()
+                    let mut doc = self.documents.leaving.remove(at);
+                    doc.draining = None;
+                    let typed = editor.upgrade().is_some_and(|panel| {
+                        panel.read(cx).overleaf_text(cx) != doc.ot.text()
                     });
-                    if in_step {
-                        let mut doc = self.documents.leaving.remove(at);
-                        doc.draining = None;
-                        self.documents.live = Some(doc);
-                    } else {
-                        self.documents.suspended.insert(path);
-                        self.drop_live(&doc_id, None, cx);
+                    self.documents.live = Some(doc);
+                    if typed {
+                        self.flush_typing(cx);
                     }
                 }
                 None => self.join(editor, path, doc_id, cx),
@@ -409,7 +407,9 @@ impl OverleafBridge {
                 }
                 match doc.ot.remote(&ops, version) {
                     Ok(applied) if !applied.is_empty() => {
-                        let fits = doc.editor.upgrade().is_some_and(|panel| {
+                        // A left document whose tab closed keeps them in its
+                        // OT state only; regular sync brings the file up.
+                        let fits = doc.editor.upgrade().is_none_or(|panel| {
                             panel.update(cx, |panel, cx| panel.take_overleaf_ops(&applied, cx))
                         });
                         if !fits {
