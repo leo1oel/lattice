@@ -153,8 +153,12 @@ impl PapersPanel {
                     futures::future::Either::Right((Some(stage), _)) => {
                         this.update(cx, |this, cx| {
                             if let Some(importing) = &mut this.importing {
-                                importing.stage = Some(stage);
-                                importing.started = Instant::now();
+                                model::next_stage(
+                                    &mut importing.stage,
+                                    &mut importing.started,
+                                    &mut importing.from,
+                                    stage,
+                                );
                                 cx.notify();
                             }
                         })
@@ -174,6 +178,7 @@ impl PapersPanel {
             label,
             stage: None,
             started: Instant::now(),
+            from: 0.,
             cancel,
             _task: task,
         });
@@ -265,14 +270,19 @@ impl PapersPanel {
     /// How far the pending row's or the box's hairline has got: estimated
     /// motion over each stage, never 100% (`paperImportProgressAt`).
     pub(crate) fn progress(&self) -> Option<f32> {
-        let (stage, started) = if let Some(importing) = &self.importing {
-            (importing.stage.as_deref(), importing.started)
+        let (stage, started, from) = if let Some(importing) = &self.importing {
+            (
+                importing.stage.as_deref(),
+                importing.started,
+                importing.from,
+            )
         } else if self.fetching.busy() {
-            (self.fetching.stage.as_deref(), self.fetching.started?)
+            let fetching = &self.fetching;
+            (fetching.stage.as_deref(), fetching.started?, fetching.from)
         } else {
             return None;
         };
-        Some(model::progress_at(stage, started.elapsed()))
+        Some(model::progress_at(from, stage, started.elapsed()))
     }
 
     /// Open a paper with text (at a matched line), or download one that has
@@ -341,8 +351,14 @@ impl PapersPanel {
                     futures::future::Either::Left((result, _)) => break result,
                     futures::future::Either::Right((Some(stage), _)) => {
                         this.update(cx, |this, cx| {
-                            this.fetching.stage = Some(stage);
-                            this.fetching.started = Some(Instant::now());
+                            let fetching = &mut this.fetching;
+                            let started = fetching.started.get_or_insert_with(Instant::now);
+                            model::next_stage(
+                                &mut fetching.stage,
+                                started,
+                                &mut fetching.from,
+                                stage,
+                            );
                             cx.notify();
                         })
                         .ok();
@@ -353,12 +369,15 @@ impl PapersPanel {
             this.update(cx, |this, cx| this.fetched(fetch_key, result, cx))
                 .ok();
         });
+        if !self.fetching.busy() {
+            self.fetching.stage = None;
+            self.fetching.started = Some(Instant::now());
+            self.fetching.from = 0.;
+        }
         self.fetching
             .states
             .insert(key.clone(), FetchState::Loading);
         self.fetching.cancels.insert(key, cancel);
-        self.fetching.stage = None;
-        self.fetching.started = Some(Instant::now());
         self.fetching.tasks.push(task);
         cx.notify();
     }

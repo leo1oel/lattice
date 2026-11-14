@@ -26,6 +26,8 @@ use lattice_ui::{
 
 use super::{PapersEvent, PapersPanel, model};
 
+pub(super) mod uses;
+
 /// The abstracts read so far, by arXiv id; `None` for a paper without one.
 #[derive(Default)]
 pub struct Abstracts {
@@ -98,6 +100,10 @@ impl PapersPanel {
         let state = model::reading_state(paper);
         let cite_key = paper.citation_key.clone();
         let usages = self.facts.usages(paper).map(<[_]>::to_vec);
+        let details = match (&usages, cite_key.as_deref()) {
+            (Some(usages), Some(key)) if !usages.is_empty() => self.use_details_of(key, usages, cx),
+            _ => Vec::new(),
+        };
         let abstract_text = self.abstract_of(paper, cx);
         let view = cx.entity().downgrade();
         let editor_font = cx.lattice().fonts.editor.clone();
@@ -276,6 +282,51 @@ impl PapersPanel {
                     let context =
                         model::cite_context(&usage.snippet, cite_key.as_deref().unwrap_or(""));
                     let snippet = usage.snippet.trim().to_string();
+                    let detail = details.get(ix).cloned().unwrap_or_default();
+                    let place = match detail.page {
+                        Some(page) => format!(
+                            "{}:{} · {}",
+                            usage.path,
+                            usage.line,
+                            t!("p. {page}", page = page)
+                        ),
+                        None => format!("{}:{}", usage.path, usage.line),
+                    };
+                    let why = detail.reason.and_then(|(role, body)| {
+                        let label = uses::role_label(&role)?;
+                        let (fill, ink) = match role.as_str() {
+                            "supporting" => (palette.success_soft, palette.success),
+                            "counterexample" => (palette.warning_soft, palette.warning),
+                            _ => (palette.hover, palette.text),
+                        };
+                        Some(
+                            div()
+                                .flex()
+                                .items_baseline()
+                                .gap(px(6.))
+                                .min_w_0()
+                                .child(
+                                    div()
+                                        .flex_none()
+                                        .px(px(6.))
+                                        .rounded(px(4.))
+                                        .bg(fill)
+                                        .text_color(ink)
+                                        .text_role(TextRole::Micro, cx)
+                                        .child(label),
+                                )
+                                .when(!body.is_empty(), |why| {
+                                    why.child(
+                                        div()
+                                            .min_w_0()
+                                            .truncate()
+                                            .text_role(TextRole::Caption, cx)
+                                            .text_color(palette.text_secondary)
+                                            .child(body),
+                                    )
+                                }),
+                        )
+                    });
                     list = list.child(
                         track_pointer(div().id(id), pointer)
                             .flex()
@@ -314,7 +365,7 @@ impl PapersPanel {
                                     .text_size(px(11.))
                                     .line_height(px(14.))
                                     .text_color(palette.text_secondary)
-                                    .child(format!("{}:{}", usage.path, usage.line)),
+                                    .child(place),
                             )
                             .child(
                                 div()
@@ -323,7 +374,8 @@ impl PapersPanel {
                                     .text_role(TextRole::Caption, cx)
                                     .text_color(palette.text)
                                     .child(context),
-                            ),
+                            )
+                            .children(why),
                     );
                 }
                 uses = uses.child(list);
@@ -443,6 +495,14 @@ impl PapersPanel {
                     ))
                     .into_any_element(),
             };
+            let title = model::health_title(Some(health)).unwrap_or_default();
+            let value = div()
+                .id("paper-inspector-health")
+                .tooltip(move |_, cx| {
+                    lattice_ui::components::LatticeTooltip::view(title.clone(), None, cx)
+                })
+                .child(value)
+                .into_any_element();
             rows = rows.child(record_row(t!("Crossref"), value, cx));
         }
         let full_text = match (paper.has_full_text, paper.has_blog) {

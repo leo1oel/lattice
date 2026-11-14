@@ -132,7 +132,10 @@ pub use search::{
 };
 pub use search::{ReplacePreview, ReplaceResult, TodoHit};
 pub(crate) use symbols::remove_citation_usages;
-pub use symbols::{citation_usages, find_citation_usages, unused_symbols, Symbol};
+pub use symbols::{
+    citation_note_page, citation_sites, citation_usages, find_citation_usages, unused_symbols,
+    CitationSite, Symbol,
+};
 pub use symbols::{RenameSymbolResult, UnusedSymbols};
 pub use tree::{project_tree_path_visible, scan_tree, tree_files, TreeView};
 pub use tree::{read_file, stat_file, ProjectFileStat};

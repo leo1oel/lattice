@@ -440,6 +440,48 @@ pub fn citation_usages(root: &Path) -> Result<Vec<SymbolOccurrence>, String> {
     Ok(usages)
 }
 
+/// One key of one citation command as the manuscript scan reads it, with
+/// the page its note names (`\cite[p.~5]{key}`): what a use says beyond
+/// its line (`citationSites` in citation-reasons.ts).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CitationSite {
+    pub key: String,
+    pub from: usize,
+    pub to: usize,
+    pub line: u32,
+    pub page: Option<u32>,
+}
+
+/// Every citation key in `source` that TeX reads, in reading order; a
+/// command's note is its last optional argument, as natbib and biblatex
+/// read `\cite[a][b]{k}`.
+pub fn citation_sites(source: &str) -> Vec<CitationSite> {
+    static OPTION: std::sync::LazyLock<regex::Regex> =
+        std::sync::LazyLock::new(|| regex::Regex::new(r"\[([^\]]*)\]").unwrap());
+    let mut sites = Vec::new();
+    for argument in find_command_arguments(source, CITATION_COMMANDS) {
+        let options = &source[argument.command_from..argument.content_from - 1];
+        let page =
+            OPTION.captures_iter(options).last().and_then(|note| citation_note_page(&note[1]));
+        for (from, to, key) in argument.keys {
+            sites.push(CitationSite { line: line_number_at(source, from), key, from, to, page });
+        }
+    }
+    sites
+}
+
+/// The page a citation's note names: "p. 5", "pp.~5--7", "12"
+/// (`citationNotePage`); none for any other note.
+pub fn citation_note_page(note: &str) -> Option<u32> {
+    static PAGE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(
+            r"(?i)^\s*(?:(?:pp?|pg|pages?)\.?(?:\s|~|\\[ ,])*)?(\d+)(?:\s*(?:-{1,3}|–|—)\s*\d+)?\s*$",
+        )
+        .unwrap()
+    });
+    PAGE.captures(note)?[1].parse::<u32>().ok().filter(|page| *page >= 1)
+}
+
 /// A whole-file citation edit: (relative path, expected contents, new contents).
 pub(crate) type PreparedFileEdit = (String, String, String);
 
@@ -536,6 +578,31 @@ pub struct RenameSymbolResult {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// `\cite[p.~5]{key}` names page 5 (citation-reasons.ts `citationSites`
+    /// and latex-symbols.ts `citationNotePage`); a note that is not a page
+    /// names none, and a cite in a comment is not read.
+    #[test]
+    fn citation_sites_carry_the_page_their_note_names() {
+        let source = "One~\\cite[see][p.~5]{a, b}.\n% \\cite[p. 9]{c}\nTwo \\citep[chap.~2]{d} and \\cite[12--14]{e}.\n";
+        let sites: Vec<(String, u32, Option<u32>)> = citation_sites(source)
+            .into_iter()
+            .map(|site| (site.key, site.line, site.page))
+            .collect();
+        assert_eq!(
+            sites,
+            [
+                ("a".to_string(), 1, Some(5)),
+                ("b".to_string(), 1, Some(5)),
+                ("d".to_string(), 3, None),
+                ("e".to_string(), 3, Some(12)),
+            ]
+        );
+        assert_eq!(citation_note_page("pp. 3--7"), Some(3));
+        assert_eq!(citation_note_page("p.\\ 4"), Some(4));
+        assert_eq!(citation_note_page("0"), None);
+        assert_eq!(citation_note_page("see p. 5"), None);
+    }
     use crate::project::test_support::Fixture;
 
     #[test]

@@ -159,8 +159,10 @@ pub struct Importing {
     /// What was given: the pending row names it by this.
     pub label: String,
     pub stage: Option<String>,
-    /// When the stage began: the hairline's estimate runs per stage.
+    /// When the stage began, and the hairline's width then: its estimate
+    /// runs per stage.
     started: Instant,
+    from: f32,
     cancel: Arc<AtomicBool>,
     _task: Task<()>,
 }
@@ -171,6 +173,7 @@ pub struct Fetching {
     pub states: HashMap<String, FetchState>,
     pub stage: Option<String>,
     started: Option<Instant>,
+    from: f32,
     cancels: HashMap<String, Arc<AtomicBool>>,
     tasks: Vec<Task<()>>,
     /// Each download's Fetched mark, cleared a moment after it lands; its
@@ -230,6 +233,8 @@ pub struct PapersPanel {
     pub(crate) batch: batch::Batch,
     /// The selected papers' abstracts, read for the inspector.
     abstracts: inspector::Abstracts,
+    /// The inspected paper's uses' pages and reasons.
+    use_details: inspector::uses::UseDetails,
     focus_handle: FocusHandle,
     load_generation: u64,
     _load: Option<Task<()>>,
@@ -281,6 +286,7 @@ impl PapersPanel {
             scroll: ScrollHandle::new(),
             batch: batch::Batch::default(),
             abstracts: inspector::Abstracts::default(),
+            use_details: Default::default(),
             focus_handle: cx.focus_handle(),
             load_generation: 0,
             _load: None,
@@ -320,6 +326,7 @@ impl PapersPanel {
         self.just_added.clear();
         self.expanded_hits.clear();
         self.abstracts = inspector::Abstracts::default();
+        self.use_details = Default::default();
         self.cancel_fetches(cx);
         self.fetching = Fetching::default();
         // A batch belongs to the project it adds to: dropping it stops it

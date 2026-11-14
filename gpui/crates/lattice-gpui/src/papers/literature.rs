@@ -109,7 +109,10 @@ impl Literature {
                 this.search(cx);
             }
         });
-        let refresh = cx.observe(&papers, |_, _, cx| cx.notify());
+        let refresh = cx.observe(&papers, |this, _, cx| {
+            this.settle_busy(cx);
+            cx.notify();
+        });
         let mut this = Self {
             papers,
             input,
@@ -312,10 +315,27 @@ impl Literature {
         cx.notify();
     }
 
-    /// The import the drawer started has finished.
-    pub(super) fn settle_busy(&mut self, cx: &App) {
-        if self.busy.is_some() && self.papers.read(cx).importing.is_none() {
-            self.busy = None;
+    /// The import the drawer started has finished: one that added the
+    /// paper says so, since the drawer hides its row.
+    fn settle_busy(&mut self, cx: &mut App) {
+        if self.busy.is_none() || self.papers.read(cx).importing.is_some() {
+            return;
+        }
+        let key = self.busy.take();
+        let added = self
+            .results
+            .iter()
+            .find(|hit| Some(hit_key(hit)) == key)
+            .filter(|hit| self.imported(hit, cx))
+            .and_then(|hit| hit.arxiv_id.clone());
+        if let Some(id) = added {
+            crate::notices::show(
+                crate::notices::Notice::new(
+                    lattice_ui::components::ToastLevel::Success,
+                    t!("Imported arXiv:{0}", id),
+                ),
+                cx,
+            );
         }
     }
 

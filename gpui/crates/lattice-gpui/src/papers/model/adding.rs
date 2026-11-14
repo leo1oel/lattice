@@ -139,15 +139,15 @@ pub fn find_in_library<'a>(
 }
 
 /// How far an import's or a download's hairline has got after `elapsed` in
-/// `stage`, as a fraction: estimated motion, not measured bytes, through
-/// most of each stage and then creeping toward its ceiling, never 100%
-/// (`paperImportProgressAt`). The clock restarts at each stage, so a new
-/// stage continues from the previous one's ceiling.
-pub fn progress_at(stage: Option<&str>, elapsed: std::time::Duration) -> f32 {
-    let (start, ceiling, millis) = match stage {
-        Some("fulltext") => (0.33, 0.66, 12_000.),
-        Some("overview") => (0.66, 0.95, 4_000.),
-        _ => (0., 0.33, 4_000.),
+/// `stage`, from the width `start` it had when the stage began, as a
+/// fraction: estimated motion, not measured bytes, through most of each
+/// stage and then creeping toward its ceiling, never 100%
+/// (`paperImportProgressAt`).
+pub fn progress_at(start: f32, stage: Option<&str>, elapsed: std::time::Duration) -> f32 {
+    let (ceiling, millis) = match phase(stage) {
+        "fulltext" => (0.66, 12_000.),
+        "overview" => (0.95, 4_000.),
+        _ => (0.33, 4_000.),
     };
     let time = elapsed.as_secs_f32() * 1000. / millis;
     let fraction = if time <= 1. {
@@ -155,7 +155,32 @@ pub fn progress_at(stage: Option<&str>, elapsed: std::time::Duration) -> f32 {
     } else {
         1. - 0.1 * (1. - time).exp()
     };
-    start + (ceiling - start) * fraction
+    start.max(start + (ceiling - start) * fraction)
+}
+
+/// The estimate a stage id runs on: any other than the full text or the
+/// overview is still resolving.
+fn phase(stage: Option<&str>) -> &str {
+    match stage {
+        Some(stage @ ("fulltext" | "overview")) => stage,
+        _ => "resolving",
+    }
+}
+
+/// A stage the pipeline reported: the hairline's clock restarts only when
+/// the estimate changes, from the width it has reached, so a repeated
+/// stage neither jumps nor drops back (`usePaperImportProgressFill`).
+pub fn next_stage(
+    stage: &mut Option<String>,
+    started: &mut std::time::Instant,
+    from: &mut f32,
+    next: String,
+) {
+    if phase(stage.as_deref()) != phase(Some(&next)) {
+        *from = progress_at(*from, stage.as_deref(), started.elapsed());
+        *started = std::time::Instant::now();
+    }
+    *stage = Some(next);
 }
 
 /// Whether this window just added `paper`.
@@ -346,6 +371,37 @@ pub fn record_of_resolved(resolved: &ResolvedCitation) -> ReferenceRecord {
 mod tests {
     use super::*;
     use crate::papers::model::test_support::{paper, with};
+
+    /// `paper-import-progress.test.ts`'s worked values, as fractions.
+    #[test]
+    fn the_hairline_moves_as_the_tauri_app_estimates_it() {
+        use std::time::Duration;
+        let at = |start, stage, millis| progress_at(start, stage, Duration::from_millis(millis));
+        assert_eq!(at(0., Some("resolving"), 0), 0.);
+        assert!((at(0., Some("resolving"), 1000) - 0.07425).abs() < 1e-4);
+        assert!((at(0., Some("resolving"), 4000) - 0.297).abs() < 1e-4);
+        let previous = at(0., Some("resolving"), 6000);
+        assert!(previous > at(0., Some("resolving"), 4000) && previous < 0.33);
+        assert_eq!(at(previous, Some("fulltext"), 0), previous);
+        assert!(at(previous, Some("fulltext"), 1000) > previous);
+        assert_eq!(at(0.6, Some("resolving"), 5000), 0.6);
+        assert_eq!(at(0.6, Some("overview"), 1_000_000_000), 0.95);
+    }
+
+    /// A stage reported again keeps its clock; a new one starts from the
+    /// width reached, never from a fixed point.
+    #[test]
+    fn only_a_new_stage_restarts_the_hairline_from_where_it_is() {
+        use std::time::{Duration, Instant};
+        let begun = Instant::now() - Duration::from_millis(2000);
+        let (mut stage, mut started, mut from) = (Some("fulltext".to_string()), begun, 0.4);
+        next_stage(&mut stage, &mut started, &mut from, "fulltext".into());
+        assert_eq!((started, from), (begun, 0.4));
+        next_stage(&mut stage, &mut started, &mut from, "overview".into());
+        assert!(started > begun);
+        assert!(from > 0.4 && from < 0.66);
+        assert_eq!(stage.as_deref(), Some("overview"));
+    }
 
     #[test]
     fn the_box_says_what_it_would_add() {

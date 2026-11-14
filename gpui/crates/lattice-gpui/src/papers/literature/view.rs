@@ -571,7 +571,6 @@ const SCROLL_THRESHOLD: f32 = 160.;
 impl Render for Literature {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let palette = cx.palette().clone();
-        self.settle_busy(cx);
         let mut body: Vec<AnyElement> = vec![self.search_form(window, cx)];
         let message = |text: String, ink: Hsla, cx: &Context<Self>| {
             div()
