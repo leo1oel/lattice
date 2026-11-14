@@ -215,6 +215,31 @@ impl Run {
         }
         Ok(guard)
     }
+
+    /// Enter a section whose steps need only GPUI's own idea of focus: the
+    /// window active, so it draws focused editors' carets and overlays, runs
+    /// at full frame rate and gives a focused element its focus events. With
+    /// gpui-fast's lab switch `GPUI_LAB_ASSUME_KEY` (patches/README.md,
+    /// set by script/e2e) every window of this run already is, without the
+    /// machine's front, so the section takes neither the lock nor the front
+    /// and runs beside other runs; it is listed in the result's
+    /// `foreground.without_lock`. Without the switch, or if the window does
+    /// not report itself active (a binary built without the patch), it is a
+    /// foreground section. Steps that need what macOS serves only the real
+    /// key window of the active app (the input method, a webview's keyboard
+    /// focus, the menu bar's key equivalents, a menu closing as the window
+    /// resigns key) use `foreground`.
+    async fn focused(&self, cx: &mut AsyncApp, what: &'static str) -> Result<Option<Foreground>> {
+        if input_lock::assume_key()
+            && self
+                .with_window(cx, |_, window, _| window.is_window_active())
+                .unwrap_or(false)
+        {
+            self.input.without_lock(what);
+            return Ok(None);
+        }
+        self.foreground(cx, what).await.map(Some)
+    }
 }
 
 async fn sleep(cx: &AsyncApp, duration: Duration) {

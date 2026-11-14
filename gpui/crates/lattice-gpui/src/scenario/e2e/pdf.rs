@@ -109,12 +109,11 @@ impl Run {
         .await
     }
 
-    /// Bring the app and the main window to the front, as a reader working
-    /// in it has them, and wait for the window to draw. gpui-fast only slows
-    /// an inactive window to 30 frames a second, but macOS stops the frames
-    /// of a covered window, and making the window key again starts them.
-    async fn front(&self, cx: &mut AsyncApp, what: &'static str) -> Result<Foreground> {
-        let front = self.foreground(cx, what).await?;
+    /// Have the main window active (`Run::focused`), as a reader working in
+    /// it has it, and wait for it to draw: macOS stops a covered window's
+    /// frames, and making it key starts them.
+    async fn front(&self, cx: &mut AsyncApp, what: &'static str) -> Result<Option<Foreground>> {
+        let front = self.focused(cx, what).await?;
         self.next_frame(cx).await;
         Ok(front)
     }

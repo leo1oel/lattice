@@ -53,8 +53,9 @@ impl Run {
         _root: &Path,
     ) -> Result<()> {
         // The sign-in window, the project's own window and the resolver each
-        // activate a window, so the section holds the front (`input_lock.rs`).
-        let _front = self.foreground(cx, "overleaf").await?;
+        // activate a window, which takes the front unless the lab assumes
+        // the key window (`Run::focused`); nothing here sends native input.
+        let _front = self.focused(cx, "overleaf").await?;
         let mock =
             MockOverleaf::start(&[("main.tex", MAIN), ("refs.bib", "@misc{a, title={A}}\n")])
                 .context("the Overleaf stand-in")?;
