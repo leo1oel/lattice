@@ -116,4 +116,60 @@ mod tests {
         thread::sleep(Duration::from_millis(150));
         assert_eq!(fs::read_to_string(&bibliography).unwrap(), "original");
     }
+
+    /// The broker writes a bibliography through a temporary beside it and
+    /// renames that over the `.bib`. Seatbelt decides on the path when a file
+    /// is opened, so a sandboxed process that opened the temporary while it
+    /// had an ordinary name would keep writing through that descriptor into
+    /// the real bibliography after the rename. The temporary must already be
+    /// a name the guard refuses.
+    #[test]
+    fn bibliography_sandbox_cannot_write_through_the_brokers_temporary() {
+        let root = TempDir::new("bib-sandbox-temporary");
+        root.write("references.bib", "original");
+        let ready = root.join("ready.txt");
+        // Polls for the temporary, opens it for writing, waits for the rename
+        // to take it away, then writes through the descriptor it still holds.
+        let script = r#"
+            : > "$2"
+            while :; do
+              for f in "$1"/.lattice-*; do
+                [ -e "$f" ] || continue
+                if (
+                  exec 3<>"$f" || exit 1
+                  while [ -e "$f" ]; do :; done
+                  printf INJECTED >&3
+                ) 2>/dev/null; then exit 0; fi
+              done
+            done
+        "#;
+        let mut agent = Command::new("/usr/bin/sandbox-exec")
+            .args(["-p", BIBLIOGRAPHY_SANDBOX_PROFILE, "/bin/sh", "-c", script, "sandbox-test"])
+            .arg(&*root)
+            .arg(&ready)
+            .spawn()
+            .expect("run sandboxed command");
+        while !ready.exists() {
+            thread::sleep(Duration::from_millis(5));
+        }
+        // Large enough that the temporary exists for a while on every write.
+        let mut payload = b"@misc{broker,}\n".to_vec();
+        payload.resize(16 << 20, b'%');
+        let project = crate::project_fs::ProjectDir::open(&root).unwrap();
+        let mut injected = false;
+        for _ in 0..8 {
+            project.atomic_write("references.bib", &payload).unwrap();
+            thread::sleep(Duration::from_millis(50));
+            if let Some(status) = agent.try_wait().unwrap() {
+                injected = status.success();
+                break;
+            }
+        }
+        let _ = agent.kill();
+        let _ = agent.wait();
+
+        let written = fs::read(root.join("references.bib")).unwrap();
+        assert!(written == payload, "the bibliography changed behind the guard");
+        assert!(!injected, "the sandboxed process wrote through the broker's temporary");
+    }
 }

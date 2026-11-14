@@ -3,9 +3,32 @@
 use scraper::{Html, Selector};
 use sha2::{Digest, Sha256};
 use std::borrow::Cow;
+use std::ffi::{OsStr, OsString};
 use std::fs;
 use std::io;
 use std::path::Path;
+
+/// The name `ProjectDir` gives the temporary it writes (or renames) beside
+/// `destination` before putting it in place: `.lattice-<uuid>.tmp`, or
+/// `.lattice-<uuid>.tmp.bib` when `destination` is a bibliography. The agent
+/// guard (`synara::bibliography_guard`) refuses `.bib` paths when a file is
+/// opened, and a descriptor opened on an ordinarily named temporary keeps
+/// writing into the bibliography after the rename, so a bibliography's
+/// temporary carries a name the guard refuses from its first lookup.
+pub(crate) fn atomic_write_temporary(destination: &OsStr) -> OsString {
+    let bytes = destination.as_encoded_bytes();
+    let bibliography = bytes.len() >= 4 && bytes[bytes.len() - 4..].eq_ignore_ascii_case(b".bib");
+    let suffix = if bibliography { ".tmp.bib" } else { ".tmp" };
+    OsString::from(format!(".lattice-{}{suffix}", uuid::Uuid::new_v4()))
+}
+
+/// Whether the file name `name` is one [`atomic_write_temporary`] gives: a
+/// write caught midway, never project content.
+pub(crate) fn is_atomic_write_temporary(name: &str) -> bool {
+    name.strip_prefix(".lattice-")
+        .and_then(|rest| rest.strip_suffix(".tmp.bib").or_else(|| rest.strip_suffix(".tmp")))
+        .is_some_and(|id| uuid::Uuid::try_parse(id).is_ok())
+}
 
 /// Lowercase hex SHA-256 of `bytes`.
 pub(crate) fn sha256_hex(bytes: impl AsRef<[u8]>) -> String {
@@ -211,5 +234,19 @@ mod tests {
             assert_eq!(decode_html_attribute(html), text, "{html:?}");
         }
         assert!(matches!(decode_html_attribute("no references"), Cow::Borrowed(_)));
+    }
+
+    #[test]
+    fn a_bibliographys_atomic_write_temporary_keeps_the_guarded_ending() {
+        for (destination, suffix) in
+            [("references.bib", ".tmp.bib"), ("OTHER.BIB", ".tmp.bib"), ("main.tex", ".tmp")]
+        {
+            let name = atomic_write_temporary(OsStr::new(destination)).into_string().unwrap();
+            assert!(name.starts_with(".lattice-") && name.ends_with(suffix), "{name}");
+            assert!(is_atomic_write_temporary(&name), "{name}");
+        }
+        for name in ["references.bib", ".lattice-notes.tmp", "draft.tmp", ".lattice-sheet"] {
+            assert!(!is_atomic_write_temporary(name), "{name}");
+        }
     }
 }

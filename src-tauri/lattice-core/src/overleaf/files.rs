@@ -175,6 +175,8 @@ pub(super) fn is_excluded(path: &str) -> bool {
         || is_transient_pdf_render_path(path)
         || path == ".gitignore"
         || file_name == ".DS_Store"
+        // `ProjectDir::atomic_write`'s temporary, caught before its rename.
+        || crate::util::is_atomic_write_temporary(file_name)
         // Conflict copies are ours, not the project's: uploading them puts a
         // duplicate of the paper in front of everyone on Overleaf, where it
         // competes with the real file.
@@ -476,6 +478,9 @@ mod tests {
             ("lambda_gpu_proposal.bbl-SAVE-ERROR", true),
             // A source file whose name merely ends in "(busy)" is still source.
             ("notes(busy).tex", false),
+            // An atomic write's temporary, a bibliography's included.
+            (".lattice-0b7e4c1a-9f3d-4e2b-8a6c-5d1f2e3a4b5c.tmp", true),
+            ("refs/.lattice-0b7e4c1a-9f3d-4e2b-8a6c-5d1f2e3a4b5c.tmp.bib", true),
             ("figures/fig1.pdf", false), // figure pdfs sync
             ("main.tex", false),
             ("nested/chapter.tex", false),
