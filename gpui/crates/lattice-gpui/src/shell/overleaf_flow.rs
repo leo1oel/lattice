@@ -113,6 +113,7 @@ impl Shell {
 
     /// "Open from Overleaf".
     pub(crate) fn open_overleaf_picker(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.abandon_launch_reopen();
         if self.overleaf_layers.picker.is_some() {
             return;
         }

@@ -324,9 +324,12 @@ mod tests {
 
     #[test]
     fn about_names_trellis_as_its_license_asks() {
-        assert_eq!(
-            TRELLIS_ATTRIBUTION,
-            "Uses Trellis by DanFessler - github.com/DanFessler/trellis"
+        // The repository's NOTICE carries the line Trellis's license asks a
+        // shipped app to show.
+        let notice = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../../NOTICE"));
+        assert!(
+            notice.lines().any(|line| line.trim() == TRELLIS_ATTRIBUTION),
+            "NOTICE has no line {TRELLIS_ATTRIBUTION:?}"
         );
         let (website, github) = link_titles();
         assert_eq!(website, "Lattice Website");

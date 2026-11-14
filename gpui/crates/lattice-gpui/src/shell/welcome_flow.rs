@@ -48,7 +48,7 @@ impl Shell {
                 // The empty Main window while it opens, rather than the
                 // welcome screen flashing first; a reopen that takes longer
                 // (a slow or unmounted drive) shows the welcome screen
-                // meanwhile (`LAUNCH_EMPTY_WINDOW_MS`).
+                // meanwhile (`LAUNCH_EMPTY_WINDOW`).
                 self.lobby.welcome = None;
                 cx.spawn_in(window, async move |this, cx| {
                     cx.background_executor().timer(LAUNCH_EMPTY_WINDOW).await;
@@ -77,6 +77,14 @@ impl Shell {
                 }));
             }
             None => self.open_tutorial(window, cx),
+        }
+    }
+
+    /// A window without a project starting on another way into one: the
+    /// launch's reopen, still under way, no longer lands in it.
+    pub(super) fn abandon_launch_reopen(&mut self) {
+        if self.project.is_none() {
+            self._open_task = None;
         }
     }
 
@@ -147,6 +155,7 @@ impl Shell {
         if self.lobby.new_project.is_some() {
             return;
         }
+        self.abandon_launch_reopen();
         let dialog = cx.new(|cx| NewProjectDialog::new(window, cx));
         cx.subscribe_in(
             &dialog,
@@ -225,6 +234,7 @@ impl Shell {
     /// The guided tutorial: the sample project in Documents › Lattice
     /// Tutorials, made the first time and reopened after.
     pub(crate) fn open_tutorial(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.abandon_launch_reopen();
         let Some(documents) =
             dirs::document_dir().or_else(|| dirs::home_dir().map(|home| home.join("Documents")))
         else {
@@ -270,6 +280,7 @@ impl Shell {
     /// Import ZIP: a ZIP of a project (an Overleaf download), extracted
     /// where the writer says and opened.
     pub(crate) fn import_zip(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.abandon_launch_reopen();
         let zip = cx.prompt_for_paths(PathPromptOptions {
             files: true,
             directories: false,
@@ -348,6 +359,7 @@ impl Shell {
     /// ⌘O: a folder to open, in a window of its own once this one shows a
     /// project; Open a folder in this window: here.
     pub(crate) fn open_folder(&mut self, here: bool, window: &mut Window, cx: &mut Context<Self>) {
+        self.abandon_launch_reopen();
         let paths = cx.prompt_for_paths(PathPromptOptions {
             files: false,
             directories: true,
@@ -374,6 +386,7 @@ impl Shell {
         if self.lobby.clone.is_some() {
             return;
         }
+        self.abandon_launch_reopen();
         let recent = RecentProjects::list(cx)
             .first()
             .map(|project| project.path.clone());
