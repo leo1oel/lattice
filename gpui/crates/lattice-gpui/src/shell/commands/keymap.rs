@@ -32,6 +32,14 @@ fn beside_vim(context: &'static str) -> Option<&'static str> {
     Some(context)
 }
 
+/// Where the LaTeX source's own format keys apply: a text editor (the panel
+/// passes them on unless its file is LaTeX), and off macOS outside Vim's
+/// normal and visual modes, where Ctrl+B and Ctrl+I are Vim's.
+#[cfg(target_os = "macos")]
+const LATEX_FORMAT_KEYS: &str = "Editor";
+#[cfg(not(target_os = "macos"))]
+const LATEX_FORMAT_KEYS: &str = "Editor && !VimControl";
+
 /// The default keymap, as the Tauri app's command table and Trellis's keymap
 /// bind it, plus the window's own (quit, hide, minimize).
 pub fn bind_keys(cx: &mut App) {
@@ -42,9 +50,20 @@ pub fn bind_keys(cx: &mut App) {
 fn default_bindings() -> Vec<KeyBinding> {
     let mut bindings = vec![
         KeyBinding::new(m!("o"), OpenFolder, beside_vim("!(vim_mode == insert)")),
-        // No ⌘B: Build has no key of its own, as in the Tauri app, where ⌘S
-        // saves and builds (`use-command-table.ts`) and ⌘B is the editors'
-        // Bold.
+        // No ⌘B for Build: it has no key of its own, as in the Tauri app,
+        // where ⌘S saves and builds (`use-command-table.ts`). ⌘B and ⌘I are
+        // the LaTeX source's Bold and Emphasis (`latex-shortcuts.ts`), over
+        // Zed's own keys there.
+        KeyBinding::new(
+            m!("b"),
+            crate::editor_panel::ToggleBold,
+            Some(LATEX_FORMAT_KEYS),
+        ),
+        KeyBinding::new(
+            m!("i"),
+            crate::editor_panel::ToggleEmphasis,
+            Some(LATEX_FORMAT_KEYS),
+        ),
         // Vim's insert mode keeps Ctrl+P for its word completion.
         KeyBinding::new(m!("p"), QuickOpen, beside_vim("!(vim_mode == insert)")),
         KeyBinding::new(m!("shift-f"), FindInProject, None),
@@ -315,14 +334,25 @@ mod tests {
     }
 
     #[test]
-    fn build_has_no_key_of_its_own() {
-        // ⌘S saves and builds; ⌘B is left to the editors' Bold.
+    fn build_has_no_key_of_its_own_and_b_and_i_format_in_the_editor() {
+        // ⌘S saves and builds; ⌘B and ⌘I are the LaTeX source's Bold and
+        // Emphasis, over Zed's signature help on ⌘I.
         let keymap = Keymap::new(default_bindings());
         assert!(keymap.bindings_for_action(&Build).next().is_none());
         assert_eq!(
             resolve(default_bindings(), "Editor mode = full", m!("b")),
-            None
+            Some(crate::editor_panel::ToggleBold.name())
         );
+        let zed = KeyBinding::new(m!("i"), editor::actions::ShowSignatureHelp, Some("Editor"));
+        assert_eq!(
+            resolve_in_editor(zed, m!("i")),
+            Some(crate::editor_panel::ToggleEmphasis.name())
+        );
+        // Outside an editor ⌘B runs nothing.
+        let keymap = Keymap::new(default_bindings());
+        let stack = [KeyContext::parse("LatticeShell").unwrap()];
+        let (matched, _) = keymap.bindings_for_input(&[Keystroke::parse(m!("b")).unwrap()], &stack);
+        assert!(matched.is_empty());
     }
 
     #[test]

@@ -98,9 +98,10 @@ The first build fetches Zed at the pinned revision and compiles about 1,200 crat
 | ⌘⇧[ / ⌘⇧] | Previous or next tab |
 | ⌘W, ⌘⇧T, ⌘⇧W | Close the document's tab (the window when none is open), reopen the last closed tab, close the window |
 | ⌃Tab, ⌃⇧Tab | Next or previous project in the window |
-| Zed's default keymap | Everything else in the editor, but ⌘⇧K and ⌘⇧L, which the app keeps for Insert citation and Insert reference |
+| ⌘B, ⌘I | In a LaTeX file, Bold (`\textbf`) and Emphasis (`\emph`), each on or off for the selection |
+| Zed's default keymap | Everything else in the editor, but ⌘⇧K and ⌘⇧L, reserved for Insert citation and Insert reference (not yet ported), which do nothing until then |
 
-On Windows and Linux, Ctrl stands in for ⌘, and quitting is Alt+F4 or the menu. With Vim mode on there, Vim keeps Ctrl+O, Ctrl+S, Ctrl+K and Ctrl+W in the editor, in the Vim modes where its keymap binds them.
+On Windows and Linux, Ctrl stands in for ⌘, and quitting is Alt+F4 or the menu. With Vim mode on there, Vim keeps Ctrl+O, Ctrl+B, Ctrl+I, Ctrl+S, Ctrl+K and Ctrl+W in the editor, in the Vim modes where its keymap binds them.
 
 "Vim mode" in an editor's ⋯ menu turns Zed's Vim mode on for every editor; `LATTICE_GPUI_VIM=1` turns it on for that run only, leaving the saved keymap as it is.
 

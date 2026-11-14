@@ -587,7 +587,7 @@ impl Render for AddPapers {
                             ),
                     )
                     // Whether adding saves the full text too: the writer's
-                    // last choice, shared with Settings › Literature.
+                    // last choice, kept in the settings for every window.
                     .child(
                         div().ml_auto().flex().items_center().child(
                             Checkbox::new(
