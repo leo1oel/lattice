@@ -64,12 +64,16 @@ impl Run {
             return Ok(());
         };
         let drawn = self
-            .wait_for(cx, Duration::from_secs(20), |_, cx| surface.read(cx).is_drawn())
+            .wait_for(cx, Duration::from_secs(20), |_, cx| {
+                surface.read(cx).is_drawn()
+            })
             .await;
         // The page asks for the runtime, which answers missing or ready.
         let mut facts = self.evaluate(cx, &island, PAGE_FACTS).await;
         for _ in 0..60 {
-            if facts["loading"].as_str().is_some_and(|text| text.contains("missing") || text.contains("unavailable"))
+            if facts["loading"]
+                .as_str()
+                .is_some_and(|text| text.contains("missing") || text.contains("unavailable"))
                 || facts["frame"] == true
             {
                 break;
@@ -94,7 +98,13 @@ impl Run {
                 (rgba.b * 255.).round()
             )
         });
-        let theme = cx.update(|cx| if cx.palette().is_dark() { "dark" } else { "light" });
+        let theme = cx.update(|cx| {
+            if cx.palette().is_dark() {
+                "dark"
+            } else {
+                "light"
+            }
+        });
         steps.check(
             "shown, the Agent panel's island loads the Tauri app's Synara host, on its sidebar ground in the host's theme, and the runtime's state reaches it",
             drawn
@@ -144,7 +154,11 @@ impl Run {
         self.pause(cx, Duration::from_millis(2500)).await;
         let (state, stats, visible) = cx.update(|cx| {
             let island = island.read(cx);
-            (island.state().clone(), island.stats().clone(), island.native_visible(cx))
+            (
+                island.state().clone(),
+                island.stats().clone(),
+                island.native_visible(cx),
+            )
         });
         steps.check(
             "hidden past the hibernation delay, the Agent's page stays, unlike a document's",
@@ -159,7 +173,9 @@ impl Run {
         // Another folder, as another window's project would be.
         let elsewhere = root.with_file_name(format!(
             "{}-elsewhere",
-            root.file_name().map(|name| name.to_string_lossy()).unwrap_or_default()
+            root.file_name()
+                .map(|name| name.to_string_lossy())
+                .unwrap_or_default()
         ));
         std::fs::create_dir_all(&elsewhere)?;
         let ask = |command: &'static str, args: serde_json::Value| {

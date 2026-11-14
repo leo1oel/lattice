@@ -85,7 +85,12 @@ fn json<T: serde::Serialize>(value: T) -> Result<Value, String> {
 }
 
 /// Answer `command` for the panel showing `root`, off the main thread.
-pub fn invoke(root: &Path, command: &str, payload: &Value, cx: &mut App) -> Task<Result<Value, String>> {
+pub fn invoke(
+    root: &Path,
+    command: &str,
+    payload: &Value,
+    cx: &mut App,
+) -> Task<Result<Value, String>> {
     let args = payload.get("args").cloned().unwrap_or(Value::Null);
     let runtime = AgentRuntime::get(cx);
     match command {
@@ -168,7 +173,9 @@ pub fn invoke(root: &Path, command: &str, payload: &Value, cx: &mut App) -> Task
                 Some("preview") => Ok(CitationRemovalMode::Preview),
                 Some("keep") => Ok(CitationRemovalMode::Keep),
                 Some("remove") => Ok(CitationRemovalMode::Remove),
-                Some(_) => Err("Choose whether to keep or remove manuscript citations.".to_string()),
+                Some(_) => {
+                    Err("Choose whether to keep or remove manuscript citations.".to_string())
+                }
             };
             cx.background_spawn(async move {
                 let root = checked?;

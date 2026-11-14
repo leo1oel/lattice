@@ -141,7 +141,9 @@ fn broadcast(event: &str, payload: Value, cx: &mut App) {
         .unwrap_or_default();
     for surface in surfaces {
         surface
-            .update(cx, |surface, cx| surface.runtime_event(event, payload.clone(), cx))
+            .update(cx, |surface, cx| {
+                surface.runtime_event(event, payload.clone(), cx)
+            })
             .ok();
     }
 }

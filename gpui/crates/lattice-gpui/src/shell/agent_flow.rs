@@ -75,7 +75,11 @@ impl Shell {
 
     /// The window shows the project at `root` now: the Agent's frames are
     /// that project's, and start afresh.
-    pub(crate) fn agent_project(&mut self, root: Option<std::path::PathBuf>, cx: &mut Context<Self>) {
+    pub(crate) fn agent_project(
+        &mut self,
+        root: Option<std::path::PathBuf>,
+        cx: &mut Context<Self>,
+    ) {
         self.agent.state = AgentState::default();
         for surface in [self.agent_surface(cx), self.git_surface(cx)] {
             let root = root.clone();
@@ -145,7 +149,10 @@ impl Shell {
 
     /// The titlebar's Git button.
     pub(crate) fn git_button(&self, cx: &mut Context<Self>) -> lattice_ui::components::IconButton {
-        use lattice_ui::{Icon, components::{IconButton, Surface}};
+        use lattice_ui::{
+            Icon,
+            components::{IconButton, Surface},
+        };
         IconButton::new("git", Icon::GIT)
             .surface(Surface::Titlebar)
             .tooltip(lattice_i18n::t!("Git status and commit"))
@@ -172,7 +179,12 @@ impl Shell {
     /// Show `prompt` in the Agent's composer, or send it
     /// (`AgentComposerPromptMessage`), bringing the panel forward.
     #[allow(dead_code)]
-    pub(crate) fn ask_agent(&mut self, message: Value, window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn ask_agent(
+        &mut self,
+        message: Value,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.reveal_agent(window, cx);
         self.agent_surface(cx)
             .update(cx, |surface, cx| surface.compose(message, cx));

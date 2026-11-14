@@ -28,10 +28,9 @@ use std::{
 };
 
 use gpui::{
-    App, AppContext as _, Context, Entity, EventEmitter, Focusable as _, InteractiveElement as _, IntoElement,
-    MouseMoveEvent, ParentElement as _, Render, SharedString, Styled as _, Subscription, Task,
-    Window,
-    canvas, div, prelude::FluentBuilder as _, px,
+    App, AppContext as _, Context, Entity, EventEmitter, Focusable as _, InteractiveElement as _,
+    IntoElement, MouseMoveEvent, ParentElement as _, Render, SharedString, Styled as _,
+    Subscription, Task, Window, canvas, div, prelude::FluentBuilder as _, px,
 };
 use lattice_i18n::{Locale, t};
 use lattice_ui::{
@@ -130,9 +129,9 @@ impl SynaraSurface {
             })
             .and_then(|dir| FileScope::new(dir).map_err(|error| format!("{error:#}")));
         let palette = cx.palette().clone();
-        let mut subscriptions = vec![cx.observe_global::<lattice_ui::LatticeTheme>(|this, cx| {
-            this.push_appearance(cx)
-        })];
+        let mut subscriptions = vec![
+            cx.observe_global::<lattice_ui::LatticeTheme>(|this, cx| this.push_appearance(cx)),
+        ];
         let (island, unavailable) = match bundle {
             Ok(scope) => {
                 let config = IslandConfig {
