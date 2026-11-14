@@ -19,14 +19,25 @@
 //! Every command naming a project is refused unless it names the panel's own
 //! (the Tauri app's `pinned_root`): a page cannot reach another project, even
 //! one open in another window.
+//!
+//! The project documents the Tauri app's window keeps for the Agent are read
+//! and written here as its commands do: the paper library (`list_papers`),
+//! the annotations and their revision rounds the annotation tools record
+//! into, the Overleaf threads its comments view reads, and the one file the
+//! page itself writes, a closed spreadsheet the range tools changed
+//! (`write_project_file`, refused for anything but a `.lattice-sheet`).
 
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    sync::atomic::{AtomicU64, Ordering},
+};
 
 use base64::Engine as _;
 use gpui::{App, AppContext as _, Task};
 use lattice_core::{
     agent_literature::AgentBibliographyMutation,
     papers::{self, CitationRemovalMode},
+    project,
 };
 use serde_json::{Value, json};
 
@@ -51,6 +62,14 @@ pub fn handles(command: &str) -> bool {
             | "agent_text_task"
             | "set_agent_turn_running"
             | "get_model_endpoint"
+            | "list_papers"
+            | "list_annotations"
+            | "save_annotations"
+            | "read_annotation_round"
+            | "save_annotation_round"
+            | "write_project_file"
+            | "overleaf_threads"
+            | "overleaf_comment_anchors"
     )
 }
 
@@ -170,12 +189,43 @@ pub fn invoke(
                     .map(Value::String)
             })
         }
+        // The page numbers its saves from 1 each time it loads, but
+        // lattice-core keeps the newest save written for a project for the
+        // whole process and drops an older one: a reloaded page's saves would
+        // all be dropped. The broker numbers them instead, as they arrive.
+        "save_annotations" => {
+            let save = ANNOTATION_SAVES.fetch_add(1, Ordering::Relaxed) + 1;
+            let root = root.to_path_buf();
+            cx.background_spawn(async move { save_annotations(&root, &args, save) })
+        }
         _ => {
             let root = root.to_path_buf();
             let command = command.to_string();
             cx.background_spawn(async move { project_command(&root, &command, &args) })
         }
     }
+}
+
+/// The annotation saves this process has sent, across every page.
+static ANNOTATION_SAVES: AtomicU64 = AtomicU64::new(0);
+
+/// `save_annotations`: the whole list and its rounds, as save `save`.
+fn save_annotations(root: &Path, args: &Value, save: u64) -> Result<Value, String> {
+    let root = pinned(root, args, "saving the annotations")?;
+    let field = |key: &str| args.get(key).cloned().unwrap_or(Value::Null);
+    let annotations: Vec<project::EditorComment> = serde_json::from_value(field("annotations"))
+        .map_err(|error| format!("Invalid annotations: {error}"))?;
+    let rounds: Vec<project::AnnotationRound> = serde_json::from_value(field("rounds"))
+        .map_err(|error| format!("Invalid revision rounds: {error}"))?;
+    project::write_annotations(&root, annotations, rounds, save).map(|()| Value::Null)
+}
+
+/// A revision round's number.
+fn round_number(args: &Value) -> Result<u32, String> {
+    args.get("number")
+        .and_then(Value::as_u64)
+        .and_then(|number| u32::try_from(number).ok())
+        .ok_or_else(|| "No revision round".to_string())
 }
 
 /// Answer a command that reads or changes the project at `root` and needs
@@ -222,6 +272,59 @@ fn project_command(root: &Path, command: &str, args: &Value) -> Result<Value, St
                 serde_json::from_value(request)
                     .map_err(|error| format!("Invalid figure preview: {error}"))?;
             json(lattice_core::latex::preview_figure(&root, &request)?)
+        }
+        "list_papers" => json(papers::list_papers(root)?),
+        "list_annotations" => json(project::read_annotations(root)?),
+        "read_annotation_round" => json(project::read_annotation_round(root, round_number(args)?)?),
+        "save_annotation_round" => {
+            let root = pinned(root, args, "saving the revision round")?;
+            let files: Vec<lattice_core::models::FileChange> =
+                serde_json::from_value(args.get("files").cloned().unwrap_or(Value::Null))
+                    .map_err(|error| format!("Invalid revision round: {error}"))?;
+            let settled = args
+                .get("settled")
+                .and_then(Value::as_bool)
+                .unwrap_or(false);
+            json(project::save_annotation_round(
+                &root,
+                round_number(args)?,
+                files,
+                settled,
+            )?)
+        }
+        // A spreadsheet the range tools changed while it was not open
+        // (`use-agent-spreadsheet-resolver.ts`); nothing else is the page's
+        // to write, and never a bibliography.
+        "write_project_file" => {
+            let root = pinned(root, args, "the file could be written")?;
+            let path = text(args, "path").unwrap_or_default();
+            if !path.to_lowercase().ends_with(".lattice-sheet") {
+                return Err(format!(
+                    "The Agent's page writes only spreadsheets, not {path}."
+                ));
+            }
+            let content = text(args, "content").unwrap_or_default();
+            json(project::apply_editor_transaction(
+                &root,
+                path,
+                content,
+                text(args, "baseContent"),
+                text(args, "expectedContent"),
+            )?)
+        }
+        "overleaf_threads" => {
+            let root = pinned(root, args, "the comments could be read")?;
+            json(lattice_core::overleaf::threads(
+                &crate::overleaf::config_dir(),
+                &root,
+            )?)
+        }
+        "overleaf_comment_anchors" => {
+            let root = pinned(root, args, "the comments could be read")?;
+            json(lattice_core::overleaf::comment_anchors(
+                &crate::overleaf::config_dir(),
+                &root,
+            )?)
         }
         _ => Err(format!("{command} is not an Agent command")),
     }

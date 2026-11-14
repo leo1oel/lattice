@@ -62,6 +62,7 @@ impl Shell {
             cx.subscribe_in(&bridge, window, Self::on_overleaf_event),
             cx.observe(&bridge, |this, _, cx| {
                 this.show_overleaf_save(cx);
+                this.push_agent_overleaf(cx);
                 cx.notify()
             }),
             // Another window signed in or out, or a request found the

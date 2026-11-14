@@ -70,6 +70,7 @@ impl Shell {
             EditorPanelEvent::OutlineJump { path, line } => {
                 self.jump_to_heading(path, *line, window, cx)
             }
+            EditorPanelEvent::AgentRequest(request) => self.deck_agent_request(request, window, cx),
             EditorPanelEvent::Focused => {
                 self.active_editor = Some(editor.downgrade());
                 self.live_preview

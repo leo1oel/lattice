@@ -36,6 +36,11 @@
  *   agent:settings-layout { compact }        Settings' compact insets, for `settings`
  *   agent:settings-target { target }         a place on Settings › Providers to reveal
  *   host:outside-pointerdown                 a press in the app (the bridge's)
+ *   agent:deck-request { kind, deckPath }    Open Slide's request for the composer
+ *   agent:files-changed { paths }            the project watcher's burst (`library.ts`)
+ *   agent:overleaf    { linked, docPaths }   the project's Overleaf link (`library.ts`)
+ * Page to host (requests):
+ *   agent:document-tool, agent:create-document   the Agent's work on the window's documents (`documents.ts`)
  * Page to host:
  *   agent:notify      { … }                  a Synara notification, for the app's stack
  *   agent:open-path   { path }               a project file the Agent named
@@ -49,6 +54,9 @@
  *   agent:drawn                              the surface is up: reveal the page
  */
 import "../shared/install";
+// Ahead of the host's own message listener (`documents.ts`).
+import { createProjectDocument, setDocumentToolTarget } from "./documents";
+import { NOT_LINKED, overleafState, useAgentAnnotations, useAgentPaperLibrary, type OverleafState } from "./library";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { msg } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
@@ -76,7 +84,9 @@ import {
   type AgentPdfDocumentPlace,
   type AgentSelectionLines,
 } from "../../../src/agent/agent-host-context";
-import { buildAgentPaperLibrary } from "../../../src/agent/agent-paper-library";
+import { openSlideComposerPrompt } from "../../../src/agent/agent-composer-prompt";
+import { useAgentSpreadsheetResolver } from "../../../src/app/use-agent-spreadsheet-resolver";
+import type { OpenSlideAgentRequest } from "../../../src/editor/presentation/open-slide-agent-request";
 import { parseSynaraNotificationMessage } from "../../../src/agent/synara-notifications";
 import { SYNARA_POPUP_OPEN, LATTICE_OUTSIDE_POINTER_DOWN } from "../../../src/agent/synara-popup-dismissal";
 import type { AgentGitWorkspaceView } from "../../../src/agent/synara-runtime";
@@ -183,19 +193,35 @@ function useRootTheme() {
 
 const noop = () => undefined;
 
-function Agent({ opened, workspace, visible, appearance, git }: {
+/** Open Slide's last request for the composer, numbered so a repeat is a new one. */
+type DeckRequest = { request: OpenSlideAgentRequest; nonce: number };
+
+function Agent({ opened, workspace, visible, appearance, git, overleaf, deckRequest, takeDeckRequest }: {
   opened: AgentOpen;
   workspace: Workspace;
   visible: boolean;
   appearance: Appearance;
   git: GitState;
+  overleaf: OverleafState;
+  deckRequest: DeckRequest | null;
+  /** The request reached the composer: it is not sent again (another project's Agent, a rebuilt surface). */
+  takeDeckRequest: (nonce: number) => void;
 }) {
   const { t } = useLingui();
   const { theme, tint } = useRootTheme();
   const project = useMemo(() => ({ root: opened.projectRoot }) as ProjectSnapshot, [opened.projectRoot]);
   const projectRef = useRef(project);
   projectRef.current = project;
+  const projectRootRef = useRef<string | null>(opened.projectRoot);
+  projectRootRef.current = opened.projectRoot;
   const agentVisible = opened.surface === "agent" && visible;
+  // The project's annotations and comments, held by this page (`library.ts`).
+  const annotations = useAgentAnnotations(opened.projectRoot, overleaf);
+  const annotationsRef = useRef(annotations);
+  annotationsRef.current = annotations;
+  // A closed sheet the range tools change is read from and written to disk,
+  // where the watcher hands it to the window (`use-agent-spreadsheet-resolver.ts`).
+  useAgentSpreadsheetResolver(projectRootRef, noop);
 
   const bridge = useMemo(() => ({
     openProviderSettings: (target?: string) => host().post("agent:open-settings", { target: target ?? null }),
@@ -204,11 +230,9 @@ function Agent({ opened, workspace, visible, appearance, git }: {
     clearSelection: () => host().post("agent:clear-selection"),
     // The visual LaTeX editor is not in the GPUI app: nothing waits to be written.
     flushVisualMarkdown: noop,
-    // Editor comments and annotations live in surfaces the GPUI app has not
-    // ported; their tools answer that their host is unavailable.
-    agentCommentsOptions: () => null,
-    annotationTools: () => null,
-    projectDocumentCreator: () => null,
+    agentCommentsOptions: () => annotationsRef.current.commentsOptions(),
+    annotationTools: () => annotationsRef.current.annotationTools(),
+    projectDocumentCreator: () => createProjectDocument,
     onHistorySnapshot: (snapshot: unknown) => host().post("agent:history", snapshot),
     onMinimumWidth: (width: number) => host().post("agent:minimum-width", { width }),
   }), []);
@@ -227,8 +251,30 @@ function Agent({ opened, workspace, visible, appearance, git }: {
     if (opened.surface === "git") requestRuntime();
   }, [opened.surface, requestRuntime]);
 
+  // The Agent frame takes its canvas, spreadsheet and presentation tool
+  // calls through the owner's documents (`documents.ts`).
+  useEffect(() => {
+    if (opened.surface !== "agent" || !origin) return;
+    setDocumentToolTarget({
+      frame: () => frameRef.current?.contentWindow ?? null,
+      origin,
+      projectRoot: opened.projectRoot,
+      post: (message) => void postMessage(message),
+    });
+    return () => setDocumentToolTarget(null);
+  }, [frameRef, opened.projectRoot, opened.surface, origin, postMessage]);
+
+  // Open Slide's Ask AI, Apply comments and Draft a deck
+  // (`onOpenSlideAgentRequest` in `use-document-surfaces.tsx`).
+  const sendComposerPrompt = synara.sendComposerPrompt;
+  useEffect(() => {
+    if (deckRequest && opened.surface === "agent") {
+      sendComposerPrompt(openSlideComposerPrompt(deckRequest.request, opened.projectRoot));
+      takeDeckRequest(deckRequest.nonce);
+    }
+  }, [deckRequest, opened.projectRoot, opened.surface, sendComposerPrompt, takeDeckRequest]);
+
   // useAgentContext's snapshots, from what the owner reports of the window.
-  // The papers library is not in the GPUI app yet: its snapshot is empty.
   const hostContext = useMemo(() => buildAgentHostContext({
     workspaceRoot: opened.projectRoot,
     activeFile: workspace.activeFile,
@@ -247,10 +293,7 @@ function Agent({ opened, workspace, visible, appearance, git }: {
     selectionImage: null,
     activeSurface: workspace.activeSurface,
   }), [opened.projectRoot, workspace]);
-  const paperLibrary = useMemo(
-    () => buildAgentPaperLibrary({ workspaceRoot: opened.projectRoot, papers: [] }),
-    [opened.projectRoot],
-  );
+  const paperLibrary = useAgentPaperLibrary(opened.projectRoot);
   useEffect(() => {
     Object.assign(latest.current, { hostContext, paperLibrary });
   }, [hostContext, latest, paperLibrary]);
@@ -403,6 +446,11 @@ function AgentIsland() {
   const [appearance, setAppearance] = useState<Appearance>({ translucency: "subtle", translucent: false, accent: "graphite" });
   const [git, setGit] = useState<GitState>({ view: "changes", turnReview: null, remoteUrl: null });
   const [settings, setSettings] = useState<SettingsLayout>({ compact: false, target: null });
+  const [overleaf, setOverleaf] = useState<OverleafState>(NOT_LINKED);
+  const [deckRequest, setDeckRequest] = useState<DeckRequest | null>(null);
+  const takeDeckRequest = useCallback((nonce: number) => {
+    setDeckRequest((current) => (current?.nonce === nonce ? null : current));
+  }, []);
   const { theme, tint } = useRootTheme();
   const switchLocale = useCallback((locale: Locale) => activateLocale(locale), []);
 
@@ -412,6 +460,7 @@ function AgentIsland() {
       bridge.on("agent:open", (payload) => {
         const open = payload as AgentOpen;
         setOpened(open);
+        setOverleaf(NOT_LINKED);
         setVisible(open.visible);
         setAppearance(open.appearance);
         if (open.git) setGit(open.git);
@@ -422,7 +471,16 @@ function AgentIsland() {
         const { event, payload: detail } = (payload ?? {}) as { event?: unknown; payload?: unknown };
         if (typeof event === "string") emitTauriEvent(event, detail ?? null);
       }),
+      // Held here, above the surface: one that arrives with the page's
+      // first open reaches the Agent once it is up.
+      bridge.on("agent:deck-request", (payload) => {
+        const request = payload as OpenSlideAgentRequest | null;
+        if (request && typeof request.kind === "string") {
+          setDeckRequest((current) => ({ request, nonce: (current?.nonce ?? 0) + 1 }));
+        }
+      }),
       bridge.on("agent:visible", (payload) => setVisible(Boolean((payload as { visible?: unknown } | null)?.visible))),
+      bridge.on("agent:overleaf", (payload) => setOverleaf(overleafState(payload))),
       bridge.on("agent:workspace", (payload) => setWorkspace({ ...EMPTY_WORKSPACE, ...(payload as Partial<Workspace>) })),
       bridge.on("agent:appearance", (payload) => setAppearance(payload as Appearance)),
       bridge.on("agent:git", (payload) => setGit((current) => ({ ...current, ...(payload as Partial<GitState>) }))),
@@ -465,7 +523,7 @@ function AgentIsland() {
       />
     );
   }
-  return <Agent key={`${opened.surface}\n${opened.projectRoot}`} opened={opened} workspace={workspace} visible={visible} appearance={appearance} git={git} />;
+  return <Agent key={`${opened.surface}\n${opened.projectRoot}`} opened={opened} workspace={workspace} visible={visible} appearance={appearance} git={git} overleaf={overleaf} deckRequest={deckRequest} takeDeckRequest={takeDeckRequest} />;
 }
 
 mount(() => <AgentIsland />, {

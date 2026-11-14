@@ -100,6 +100,7 @@ impl Shell {
             // a sync's own writes apart).
             crate::project::ProjectEvent::FilesChanged(paths) => {
                 let paths = paths.clone();
+                this.agent_files_changed(paths.as_deref(), cx);
                 this.overleaf
                     .update(cx, |bridge, cx| bridge.files_changed(paths.as_deref(), cx));
             }

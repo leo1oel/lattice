@@ -13,6 +13,7 @@
 //! the PDFs (`pdfs`) and SyncTeX (`synctex`).
 
 mod actions;
+mod agent_documents;
 mod agent_flow;
 mod arrange;
 mod assets;

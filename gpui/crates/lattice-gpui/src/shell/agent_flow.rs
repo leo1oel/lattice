@@ -136,7 +136,12 @@ impl Shell {
         // The selection the Agent took stays out until it changes.
         if selection.is_some() && selection == self.agent.state.dismissed {
             if let Some(fields) = workspace.as_object_mut() {
-                for key in ["selection", "selectionLength", "selectionSource", "selectionLines"] {
+                for key in [
+                    "selection",
+                    "selectionLength",
+                    "selectionSource",
+                    "selectionLines",
+                ] {
                     fields.remove(key);
                 }
             }
@@ -145,6 +150,29 @@ impl Shell {
         }
         self.agent_surface(cx)
             .update(cx, |surface, cx| surface.set_workspace(workspace, cx));
+    }
+
+    /// The project's files changed on disk: the Agent's paper library reads
+    /// the papers again when theirs did.
+    pub(crate) fn agent_files_changed(&mut self, paths: Option<&[String]>, cx: &mut Context<Self>) {
+        self.agent_surface(cx)
+            .update(cx, |surface, cx| surface.files_changed(paths, cx));
+    }
+
+    /// Tell the Agent of the project's Overleaf link and its documents, for
+    /// its view of the project's comments (`useEditorComments`'s
+    /// `agentOptionsRef`: the threads are read through the link when asked).
+    pub(crate) fn push_agent_overleaf(&mut self, cx: &mut Context<Self>) {
+        let overleaf = {
+            let bridge = self.overleaf.read(cx);
+            let doc_paths: serde_json::Map<String, Value> = bridge
+                .doc_paths()
+                .map(|(id, path)| (id.to_string(), Value::String(path.to_string())))
+                .collect();
+            serde_json::json!({ "linked": bridge.link().is_some(), "docPaths": doc_paths })
+        };
+        self.agent_surface(cx)
+            .update(cx, |surface, cx| surface.set_overleaf(overleaf, cx));
     }
 
     fn push_git_state(&mut self, cx: &mut Context<Self>) {
@@ -187,7 +215,7 @@ impl Shell {
 
     pub(crate) fn on_agent_event(
         &mut self,
-        _: &Entity<SynaraSurface>,
+        surface: &Entity<SynaraSurface>,
         event: &SurfaceEvent,
         window: &mut Window,
         cx: &mut Context<Self>,
@@ -231,6 +259,21 @@ impl Shell {
                 self.engine_do(cx, |engine| engine.close("git"));
                 self.focus_front(window, cx);
             }
+            SurfaceEvent::DocumentTool {
+                id,
+                family,
+                request,
+            } => match super::agent_documents::ToolFamily::parse(family) {
+                Some(family) => self.agent_document_tool(surface, *id, family, request, cx),
+                None => surface.update(cx, |surface, cx| {
+                    surface.answer(*id, Err(format!("unknown tool family {family}")), cx)
+                }),
+            },
+            SurfaceEvent::CreateDocument {
+                id,
+                path,
+                expires_at,
+            } => self.agent_create_document(surface, *id, path.clone(), *expires_at, window, cx),
         }
     }
 }
