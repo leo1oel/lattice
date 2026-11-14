@@ -146,6 +146,9 @@ impl Run {
         } else {
             None
         };
+        if screen == "toasts" {
+            self.parity_notices(cx).await;
+        }
         // Help's and the log's screens (`scenes.whatsNew`, `scenes.logs`).
         if matches!(screen.as_str(), "whatsNew" | "logs") {
             self.parity_help(cx, &screen).await?;

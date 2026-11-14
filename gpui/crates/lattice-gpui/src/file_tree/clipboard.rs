@@ -8,7 +8,7 @@
 use gpui::{ClipboardItem, Context, KeyDownEvent, Window};
 
 use super::{FileTreeEvent, FileTreePanel};
-use crate::notices::{self, Notice};
+use crate::notices;
 
 /// The rows ⌘C copied and the text it wrote for them.
 pub(super) struct Copied {
@@ -78,12 +78,7 @@ impl FileTreePanel {
             paths: vec![path],
             text,
         });
-        notices::show(
-            Notice::new(lattice_ui::components::ToastLevel::Info, "Clipboard")
-                .detail("Path copied")
-                .key("clipboard-copied"),
-            cx,
-        );
+        notices::copied(lattice_i18n::t!("Path copied"), cx);
         true
     }
 

@@ -21,6 +21,7 @@ What it does so far, and nothing more, one line per feature, each with its own p
 - [LuaLaTeX live preview](docs/live-preview.md): previews a LuaLaTeX project live with rtex.
 - [Markdown files](docs/markdown.md): opens a Markdown file in Edit, Split and Preview, with the visual editor as an island.
 - [Named workspaces](docs/workspaces.md): keeps named workspaces, shared by every project.
+- [Notices](docs/notices.md): tells the writer what happened in the Tauri app's toast stack, with its pile, fan-out, clocks and swipe, and reminds about TeX package updates.
 - [Overleaf](docs/overleaf.md): syncs a project with Overleaf: sign-in, Live and Manual modes, realtime editing, review, chat and Overleaf's history.
 - [Papers](docs/papers.md): lists the bibliography's papers in the Papers panel, adds and checks references, and edits a `.bib` file in a visual form.
 - [PDF preview](docs/pdf-preview.md): shows the PDF in the Tauri app's viewer on PDFium, images in its image preview, and jumps between source and PDF with SyncTeX.

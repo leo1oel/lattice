@@ -134,6 +134,8 @@ struct StubState {
     providers: Vec<String>,
     /// Every install asked of it, for a scenario to check.
     calls: Vec<String>,
+    /// A package update ran since the packages were last put out of date.
+    packages_updated: bool,
 }
 
 impl StubTexSetup {
@@ -143,6 +145,7 @@ impl StubTexSetup {
                 reports: reports.into(),
                 providers,
                 calls: Vec::new(),
+                packages_updated: false,
             }),
             install_into,
         }
@@ -157,6 +160,13 @@ impl StubTexSetup {
     /// The installs asked of it so far.
     pub fn calls(&self) -> Vec<String> {
         self.state().calls.clone()
+    }
+
+    /// Put `lineno` out of date again, as before any update. Each scenario
+    /// module that needs an update to find starts here, since another module
+    /// run before it in the same e2e run may have updated it already.
+    pub fn set_packages_outdated(&self) {
+        self.state().packages_updated = false;
     }
 
     /// The reports the next doctor runs make, in order; the last repeats.
@@ -295,11 +305,7 @@ impl TexSetupBackend for StubTexSetup {
 
     /// Lattice's own BasicTeX with one package out of date, until updated.
     fn check_package_updates(&self) -> Option<TexPackageUpdates> {
-        let updated = self
-            .state()
-            .calls
-            .iter()
-            .any(|call| call == "update_packages");
+        let updated = self.state().packages_updated;
         Some(TexPackageUpdates {
             managed: true,
             packages: if updated {
@@ -321,6 +327,7 @@ impl TexSetupBackend for StubTexSetup {
             &[("authorizing", 0.1), ("updating-packages", 0.6)],
             &progress,
         );
+        self.state().packages_updated = true;
         progress(TexInstallProgress::new("complete", 1.0));
         Ok(())
     }

@@ -213,6 +213,23 @@ export const scenes = {
     await rest(staged.page);
     return staged;
   },
+  // Three notices on the stack, collapsed into its pile with the error in
+  // front (gpui/crates/lattice-gpui/src/scenario/parity_notices.rs). The
+  // parity harness's screens only.
+  async toasts(env, theme) {
+    const staged = await project(env, theme);
+    await staged.page.evaluate(() => {
+      const { notifyInfo, notifyWarning, notifyError } = window.__latticeBench.notify;
+      notifyInfo("Project", "Imported 2 items into figures", { timeoutMs: 0 });
+      notifyWarning("LaTeX setup", "Your TeX packages are out of date", {
+        detail: "Updates available (3). Updating asks for administrator approval and can take a few minutes.",
+        timeoutMs: 0,
+      });
+      notifyError("Build", "Build failed", { detail: "Undefined control sequence on line 12 of main.tex", timeoutMs: 0 });
+    });
+    await rest(staged.page);
+    return staged;
+  },
   // Settings › Logs: ⌘, then the Logs section, nothing left focused.
   async logs(env, theme) {
     const staged = await project(env, theme);
