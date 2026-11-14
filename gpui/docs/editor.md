@@ -2,7 +2,7 @@
 
 One of the features [the GPUI app](../README.md) has so far.
 
-Edits sources in Zed's editor with LaTeX highlighting in Lattice's code themes, search (Zed's buffer search bar) and an optional Vim mode (Zed's Vim); in a `.tex` file, a card for the citation key or `\ref` label under the pointer, completion of commands, citation keys and labels, and TexLab's diagnostics (when `texlab` is installed), through Lattice's editor adapter (below).
+Edits sources in Zed's editor with LaTeX highlighting in Lattice's code themes, find and replace in the file ([Finding things](find.md)) and an optional Vim mode (Zed's Vim); in a `.tex` file, a card for the citation key or `\ref` label under the pointer, completion of commands, citation keys and labels, and TexLab's diagnostics (when `texlab` is installed), through Lattice's editor adapter (below).
 The source gutter is the Tauri app's: four-digit line numbers and a fold column whose chevrons show over the gutter and fold a LaTeX environment, section, preamble, brace group or comment block, so the text starts where CodeMirror's does.
 A `.tex` file has the outline rail on the editor's right edge (its sections' marks, the one being read in the accent; resting on it opens the outline with numbers and PDF pages, and a row jumps there), and the Source / Visual switch in its strip, where Visual says it is not in the GPUI preview yet.
 

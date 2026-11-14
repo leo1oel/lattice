@@ -12,7 +12,7 @@ What it does so far, and nothing more, one line per feature, each with its own p
 - [Builds](docs/builds.md): builds with lattice-core's latexmk build, explains its errors and offers their fixes.
 - [Commands, windows and project tabs](docs/commands.md): every command from the palette, the keymap, the shortcut sheet and the menu bar; projects in new windows or as tabs.
 - [Figures and tables](docs/figures-and-tables.md): the table generator, managed tables, and figures dropped from the tree or pasted from the clipboard.
-- [Finding things in the project](docs/find.md): quick open, Find and Replace in project, and the files visited.
+- [Finding things in the project](docs/find.md): find and replace in the open file, quick open, Find and Replace in project, and the files visited.
 - [Get started](docs/get-started.md): walks a first paper with Get started's checklist and its Show me ring.
 - [Getting a manuscript ready to send](docs/submission.md): the TODOs panel, references and rename, Export for arXiv… and the submission checklist.
 - [History](docs/history.md): keeps the project's history in its History tool panel, with versions, Compare… and the conflict resolver.
@@ -82,7 +82,8 @@ The first build fetches Zed at the pinned revision and compiles about 1,200 crat
 | ⌘B / Ctrl+B | Save edited files and build |
 | ⌘S / Ctrl+S | Save edited files and build |
 | ⌘⇧J / Ctrl+Shift+J | Mark the caret's line in the PDF (SyncTeX); a double-click in the PDF goes back |
-| ⌘F / Ctrl+F | Find in the current file (Zed's search bar: regex, case, whole word, replace); in a focused PDF, Find in PDF |
+| ⌘F / Ctrl+F | Find and replace in the current file (the Tauri app's find panel); in a focused PDF, Find in PDF |
+| Enter / F3, ⇧Enter / ⇧F3 / ⌘⇧G | Next and previous match in the find panel |
 | ⌘K or ⌘⇧P | Command palette: every command, and the project's files |
 | ⌘P / Ctrl+P | Quick open: a file by name, `:42` a line, `@` a section or label |
 | ⌘⇧F, ⌘⇧H | Find in project, Replace in project |

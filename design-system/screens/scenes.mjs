@@ -183,6 +183,18 @@ export const scenes = {
     await rest(staged.page);
     return staged;
   },
+  // Find in main.tex: ⌘F in the source, "attention" typed as the query, the
+  // matches marked, nothing focused. The parity harness's screens only; not
+  // on the App screens page.
+  async find(env, theme) {
+    const staged = await project(env, theme);
+    await staged.page.locator(".source-editor .cm-content").first().focus();
+    await staged.page.keyboard.press("Meta+f");
+    await staged.page.waitForSelector(".cm-panel.cm-search", { timeout: 30_000 });
+    await staged.page.keyboard.type("attention");
+    await rest(staged.page);
+    return staged;
+  },
   // Submission checklist from the palette, once its verdict has drawn. The
   // parity harness's screens only; not on the App screens page.
   async checklist(env, theme) {

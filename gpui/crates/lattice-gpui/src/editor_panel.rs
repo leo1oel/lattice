@@ -1,5 +1,5 @@
 //! One open file: Zed's editor over a local buffer, behind Lattice's editor
-//! adapter (`lattice-editor`), with Zed's buffer search bar and Lattice's
+//! adapter (`lattice-editor`), with the find bar (`find_bar.rs`) and Lattice's
 //! status bar, as a dock panel. Its tab strip carries the build chip. A TeX
 //! source gets the LaTeX extensions: citation and reference cards, command,
 //! citation and label completion, and TexLab's diagnostics.
@@ -43,15 +43,13 @@ use lattice_editor::{
     LatticeEditor, LatticeEditorEvent,
     latex::{self, diagnostics::TexlabDiagnostics},
 };
-use lattice_ui::ActiveLattice as _;
-use search::{BufferSearchBar, buffer_search::DivRegistrar};
-use workspace::ToolbarItemView as _;
 use zed_actions::buffer_search::Deploy;
 
 mod bib_view;
 mod buffer_counts;
 mod disk_sync;
 mod events;
+pub mod find_bar;
 mod insert;
 mod margin_review;
 mod markdown_view;
@@ -151,8 +149,7 @@ pub struct EditorPanel {
     _spelling_events: Option<Subscription>,
     /// Builds seen finishing; each one has TexLab read the new log.
     builds_seen: usize,
-    search_bar: Entity<BufferSearchBar>,
-    search_visible: bool,
+    find_bar: Entity<find_bar::FindBar>,
     build: Entity<BuildPanel>,
     /// The caret's line and column, 1-based, for the status bar.
     cursor: (u32, u32),
@@ -275,11 +272,7 @@ impl EditorPanel {
             path.display(),
             started.elapsed()
         );
-        let search_bar = cx.new(|cx| {
-            let mut bar = BufferSearchBar::new(None, window, cx);
-            bar.set_active_pane_item(Some(&editor), window, cx);
-            bar
-        });
+        let find_bar = cx.new(|cx| find_bar::FindBar::new(editor.clone(), window, cx));
         let counters = crate::status_counters::project_counters(cx);
         let subscriptions = vec![
             // The status bar's counters land after the project's scan.
@@ -371,11 +364,8 @@ impl EditorPanel {
                     _ => {}
                 },
             ),
-            cx.subscribe(&search_bar, |this, _, event, cx| {
-                if matches!(event, search::buffer_search::Event::Dismissed) {
-                    this.search_visible = false;
-                    cx.notify();
-                }
+            cx.subscribe(&find_bar, |_, _, event, cx| match event {
+                find_bar::FindBarEvent::Closed => cx.notify(),
             }),
             // The watcher names the file: check it now rather than at the
             // next poll.
@@ -425,8 +415,7 @@ impl EditorPanel {
             spelling: None,
             _spelling_events: None,
             builds_seen,
-            search_bar,
-            search_visible: false,
+            find_bar,
             build,
             cursor: (1, 1),
             overleaf_caret: (0, 0),
@@ -502,8 +491,8 @@ impl EditorPanel {
     }
 
     #[cfg(any(target_os = "macos", target_os = "windows"))]
-    pub fn search_bar(&self) -> &Entity<BufferSearchBar> {
-        &self.search_bar
+    pub fn find_bar(&self) -> &Entity<find_bar::FindBar> {
+        &self.find_bar
     }
 
     /// The file's text as last loaded or saved: what is on disk, as far as
@@ -577,11 +566,9 @@ impl EditorPanel {
         window.focus(&self.editor.focus_handle(cx), cx);
     }
 
-    fn deploy_search(&mut self, action: &Deploy, window: &mut Window, cx: &mut Context<Self>) {
-        self.search_visible = true;
-        self.search_bar.update(cx, |bar, cx| {
-            bar.deploy(action, None, window, cx);
-        });
+    /// ⌘F / Ctrl+F and the strip's Find: the find bar over the source.
+    fn deploy_search(&mut self, _: &Deploy, window: &mut Window, cx: &mut Context<Self>) {
+        self.find_bar.update(cx, |bar, cx| bar.open(window, cx));
         cx.notify();
     }
 }
@@ -646,8 +633,6 @@ impl BasePanel for EditorPanel {
 
 impl Render for EditorPanel {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        // Zed's search bar registers its key handlers on whatever element
-        // hosts it; in Zed that is a pane, here it is this panel.
         // A board, sheet or deck fills its panel alone: no status bar.
         if let Some(document) = self.structured.clone() {
             return div()
@@ -659,16 +644,12 @@ impl Render for EditorPanel {
                 .child(crate::paint_probe::probe())
                 .into_any_element();
         }
-        let palette = cx.palette().clone();
         let status: AnyElement = editor_status::status_bar(self, cx).into_any_element();
-        let search = self.search_visible.then(|| {
-            div()
-                .px_2()
-                .py_1()
-                .border_b_1()
-                .border_color(palette.line)
-                .child(self.search_bar.clone())
-        });
+        let search = self
+            .find_bar
+            .read(cx)
+            .is_open()
+            .then(|| self.find_bar.clone());
         let editor = div()
             .size_full()
             .flex()
@@ -678,13 +659,17 @@ impl Render for EditorPanel {
             .into_any_element();
         let bib = self.bib_for_view(window, cx);
         let body = self.render_views(editor, status, bib, cx);
-        let mut registrar =
-            DivRegistrar::new(|this: &Self, _, _| Some(this.search_bar.clone()), cx);
-        BufferSearchBar::register(&mut registrar);
-        registrar
-            .into_div()
+        div()
             .key_context("LatticeEditor")
             .on_action(cx.listener(Self::deploy_search))
+            .on_action(cx.listener(|this, _: &find_bar::FindNext, window, cx| {
+                this.find_bar
+                    .update(cx, |bar, cx| bar.step(false, window, cx))
+            }))
+            .on_action(cx.listener(|this, _: &find_bar::FindPrevious, window, cx| {
+                this.find_bar
+                    .update(cx, |bar, cx| bar.step(true, window, cx))
+            }))
             // A figure dragged from the Project tree goes in as a figure
             // (`beginFigureDrag`).
             .on_drop(
