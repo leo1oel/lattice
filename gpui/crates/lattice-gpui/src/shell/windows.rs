@@ -6,6 +6,10 @@
 //! titlebar, each remembering its own layout; ⌃Tab and ⌃⇧Tab go round them
 //! and the last one left folds the tabs back into the project's title. A
 //! project moves to a window of its own from its tab's menu.
+//!
+//! The first window of a launch opens where the last one was left
+//! (`tauri-plugin-window-state`), and every window's minimum size follows
+//! its layout's, as the Tauri app's does (`use-native-window.ts`).
 
 use std::{
     collections::HashMap,
@@ -13,8 +17,8 @@ use std::{
 };
 
 use gpui::{
-    AnyWindowHandle, App, Bounds, Context, Entity, Global, Pixels, SharedString, WeakEntity,
-    Window, WindowId, point, px, size,
+    AnyWindowHandle, App, AppContext as _, Bounds, Context, Entity, Global, Pixels, SharedString,
+    WeakEntity, Window, WindowBounds, WindowId, point, px, size,
 };
 use lattice_i18n::t;
 
@@ -32,6 +36,206 @@ pub(super) fn register(window: AnyWindowHandle, shell: &Entity<Shell>, cx: &mut 
     cx.default_global::<Shells>()
         .0
         .insert(window.window_id(), shell.downgrade());
+    window
+        .update(cx, |_, window, cx| {
+            shell.update(cx, |shell, cx| shell.watch_placement(window, cx))
+        })
+        .ok();
+}
+
+/// The narrowest and shortest a window may be (`APP_WINDOW_MIN_WIDTH` and
+/// `APP_WINDOW_MIN_HEIGHT`): room for the titlebar's controls. The live
+/// minimum is the layout's own ([`minimum_width`]).
+pub(crate) const MIN_WIDTH: f32 = 640.;
+pub(crate) const MIN_HEIGHT: f32 = 680.;
+
+/// The workspace's padding beside the layout (`main.workspace`'s 6px on
+/// each side), which the window's minimum adds to the layout's.
+const WORKSPACE_SIDES: f64 = 12.;
+
+/// The native minimum width, in points (`minimumWindowWidth`): the layout's
+/// minimum, never below [`MIN_WIDTH`], grown by the interface size, which
+/// changes how many points the same layout needs, and never wider than the
+/// screen can show.
+pub(crate) fn minimum_width(layout: f64, scale: f32, screen: Option<f32>) -> f32 {
+    let scale = if scale.is_finite() {
+        scale.max(0.1)
+    } else {
+        1.
+    };
+    let content = if layout.is_finite() {
+        (layout as f32).max(MIN_WIDTH)
+    } else {
+        MIN_WIDTH
+    };
+    let width = (content * scale).ceil();
+    match screen {
+        Some(screen) if screen.is_finite() && screen > 0. => width.min(screen.floor()),
+        _ => width,
+    }
+}
+
+/// The minimum width each window was given last.
+#[derive(Default)]
+struct MinimumWidths(HashMap<WindowId, f32>);
+
+impl Global for MinimumWidths {}
+
+/// The minimum width `window` was given last, for a scenario.
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+pub(crate) fn applied_minimum_width(window: &Window, cx: &App) -> Option<f32> {
+    cx.try_global::<MinimumWidths>()?
+        .0
+        .get(&window.window_handle().window_id())
+        .copied()
+}
+
+/// Where the windows' place is remembered between launches, as the Tauri
+/// app's window-state plugin remembers it: the size, the position, and
+/// whether the window was maximized or full screen. A scripted run keeps
+/// none, so its windows open where the run puts them.
+#[derive(Default)]
+struct Placements {
+    file: Option<PathBuf>,
+    /// The place read at launch, which only the first window takes: a new
+    /// window steps down from the one in front instead.
+    launch: Option<WindowBounds>,
+    /// The place waiting to be written, a burst of moves written once.
+    _write: Option<gpui::Task<()>>,
+}
+
+impl Global for Placements {}
+
+/// How long a move or resize waits before its place is written.
+const PLACEMENT_SETTLE: std::time::Duration = std::time::Duration::from_millis(400);
+
+#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+struct Placement {
+    x: f32,
+    y: f32,
+    width: f32,
+    height: f32,
+    #[serde(default)]
+    maximized: bool,
+    #[serde(default)]
+    fullscreen: bool,
+}
+
+impl Placement {
+    fn of(bounds: WindowBounds) -> Self {
+        let (inner, maximized, fullscreen) = match bounds {
+            WindowBounds::Windowed(inner) => (inner, false, false),
+            WindowBounds::Maximized(inner) => (inner, true, false),
+            WindowBounds::Fullscreen(inner) => (inner, false, true),
+        };
+        Self {
+            x: f32::from(inner.origin.x),
+            y: f32::from(inner.origin.y),
+            width: f32::from(inner.size.width),
+            height: f32::from(inner.size.height),
+            maximized,
+            fullscreen,
+        }
+    }
+
+    fn bounds(&self) -> Option<WindowBounds> {
+        let values = [self.x, self.y, self.width, self.height];
+        if values.iter().any(|value| !value.is_finite())
+            || self.width < MIN_WIDTH / 2.
+            || self.height < MIN_HEIGHT / 2.
+        {
+            return None;
+        }
+        let inner = Bounds {
+            origin: point(px(self.x), px(self.y)),
+            size: size(px(self.width), px(self.height)),
+        };
+        Some(if self.fullscreen {
+            WindowBounds::Fullscreen(inner)
+        } else if self.maximized {
+            WindowBounds::Maximized(inner)
+        } else {
+            WindowBounds::Windowed(inner)
+        })
+    }
+}
+
+/// Read the place the last window was left in, from the state folder
+/// (`None`: a run that remembers none).
+pub(crate) fn init_placements(state: Option<PathBuf>, cx: &mut App) {
+    let file = state.map(|state| state.join("window-state.json"));
+    let launch = file
+        .as_ref()
+        .and_then(|file| std::fs::read_to_string(file).ok())
+        .and_then(|text| serde_json::from_str::<Placement>(&text).ok())
+        .and_then(|placement| placement.bounds());
+    cx.set_global(Placements {
+        file,
+        launch,
+        _write: None,
+    });
+}
+
+/// The first window's place: where the last one was left, when that is
+/// still on a screen, else centred at the default size. Taken once.
+pub(super) fn launch_bounds(cx: &mut App) -> WindowBounds {
+    let remembered = cx
+        .try_global::<Placements>()
+        .and_then(|placements| placements.launch);
+    if cx.has_global::<Placements>() {
+        cx.global_mut::<Placements>().launch = None;
+    }
+    // `LATTICE_WINDOW_SIZE` lays a run out as a smaller screen would.
+    let sized = std::env::var_os("LATTICE_WINDOW_SIZE").is_some();
+    remembered
+        .filter(|_| !sized)
+        .filter(|bounds| on_a_screen(bounds.get_bounds(), cx))
+        .unwrap_or_else(|| WindowBounds::Windowed(Bounds::centered(None, window_size(), cx)))
+}
+
+/// Whether enough of `bounds` shows on one of the screens to grab it: a
+/// screen unplugged since leaves a place nobody could reach.
+fn on_a_screen(bounds: Bounds<Pixels>, cx: &App) -> bool {
+    cx.displays().iter().any(|display| {
+        let screen = display.bounds();
+        let overlap = screen.intersect(&bounds);
+        f32::from(overlap.size.width) >= 100. && f32::from(overlap.size.height) >= 40.
+    })
+}
+
+/// Keep `bounds` to be written once the window has settled.
+fn remember(bounds: WindowBounds, cx: &mut App) {
+    let Some(file) = cx
+        .try_global::<Placements>()
+        .and_then(|placements| placements.file.clone())
+    else {
+        return;
+    };
+    let placement = Placement::of(bounds);
+    let write = cx.spawn(async move |cx| {
+        cx.background_executor().timer(PLACEMENT_SETTLE).await;
+        cx.background_spawn(async move {
+            if let Some(folder) = file.parent() {
+                std::fs::create_dir_all(folder).ok();
+            }
+            if let Ok(text) = serde_json::to_string(&placement) {
+                let temporary = file.with_extension("json.tmp");
+                if std::fs::write(&temporary, text).is_ok() {
+                    std::fs::rename(&temporary, &file).ok();
+                }
+            }
+        })
+        .await;
+    });
+    cx.global_mut::<Placements>()._write = Some(write);
+}
+
+/// The shell drawn in `window`, if it is a workspace window.
+pub(crate) fn shell_of(window: AnyWindowHandle, cx: &App) -> Option<Entity<Shell>> {
+    cx.try_global::<Shells>()?
+        .0
+        .get(&window.window_id())?
+        .upgrade()
 }
 
 /// The project the shell in `window` shows, if any.
@@ -136,7 +340,65 @@ pub fn new_window(root: Option<PathBuf>, from: Option<Bounds<Pixels>>, cx: &mut 
     }
 }
 
+/// The Dock icon clicked with no window open: a window again, reopening
+/// the project used last as a launch does.
+pub(crate) fn reopen(cx: &mut App) {
+    match Shell::open_window(None, cx) {
+        Ok((window, shell)) => {
+            window
+                .update(cx, |_, window, cx| {
+                    shell.update(cx, |shell, cx| shell.launch(window, cx))
+                })
+                .ok();
+            cx.activate(true);
+        }
+        Err(error) => log::error!("could not reopen Lattice: {error:#}"),
+    }
+}
+
 impl Shell {
+    /// Remember where the window goes, and keep its minimum size the
+    /// layout's (`useWindowMinimumSize`): the layout's own minimum, grown by
+    /// the interface size, never wider than the screen.
+    fn watch_placement(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        cx.observe_window_bounds(window, |this, window, cx| {
+            remember(window.window_bounds(), cx);
+            this.apply_minimum_size(window, cx);
+        })
+        .detach();
+        cx.observe_in(&self.workspace.clone(), window, |this, _, window, cx| {
+            this.apply_minimum_size(window, cx)
+        })
+        .detach();
+        cx.observe_global_in::<crate::settings::AppSettings>(window, |this, window, cx| {
+            this.apply_minimum_size(window, cx)
+        })
+        .detach();
+        self.apply_minimum_size(window, cx);
+    }
+
+    /// The layout's own minimum width, the workspace's padding included.
+    pub(crate) fn layout_minimum_width(&self, cx: &App) -> f64 {
+        self.workspace.read(cx).engine().min_width() + WORKSPACE_SIDES
+    }
+
+    fn apply_minimum_size(&self, window: &mut Window, cx: &mut Context<Self>) {
+        let layout = self.layout_minimum_width(cx);
+        let screen = window
+            .display(cx)
+            .map(|display| f32::from(display.visible_bounds().size.width));
+        let width = minimum_width(layout, crate::interface_zoom::scale(cx), screen);
+        // Setting an unchanged minimum still makes AppKit re-clamp the window.
+        let applied = cx.default_global::<MinimumWidths>();
+        if applied.0.insert(window.window_handle().window_id(), width) == Some(width) {
+            return;
+        }
+        #[cfg(target_os = "macos")]
+        if let Ok(native) = crate::native::native(window) {
+            crate::native::set_content_min_size(native, width.into(), MIN_HEIGHT.into());
+        }
+    }
+
     /// The project in front, moved to a window of its own once its edits
     /// are saved, as `should_close` saves them; this window goes on with its
     /// next project, or closes when it held no other. A save that fails or
@@ -395,4 +657,52 @@ pub(super) fn project_display_name(root: &Path) -> SharedString {
         })
         .unwrap_or_default()
         .into()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_minimum_follows_the_layout_and_the_interface_size_within_the_screen() {
+        // window-layout.test.ts's expectations.
+        assert_eq!(minimum_width(500., 1., None), MIN_WIDTH);
+        assert_eq!(minimum_width(900., 1., None), 900.);
+        assert_eq!(minimum_width(900., 1.25, None), 1125.);
+        assert_eq!(minimum_width(900., 1.25, Some(1000.4)), 1000.);
+        assert_eq!(minimum_width(f64::NAN, 1., None), MIN_WIDTH);
+        assert_eq!(minimum_width(700., f32::NAN, None), 700.);
+    }
+
+    #[test]
+    fn a_place_is_kept_with_its_state_and_a_broken_one_is_dropped() {
+        let inner = Bounds {
+            origin: point(px(40.), px(60.)),
+            size: size(px(1200.), px(800.)),
+        };
+        for bounds in [
+            WindowBounds::Windowed(inner),
+            WindowBounds::Maximized(inner),
+            WindowBounds::Fullscreen(inner),
+        ] {
+            let text = serde_json::to_string(&Placement::of(bounds)).unwrap();
+            let read: Placement = serde_json::from_str(&text).unwrap();
+            assert_eq!(read.bounds(), Some(bounds));
+        }
+        let tiny = Placement {
+            x: 0.,
+            y: 0.,
+            width: 10.,
+            height: 10.,
+            maximized: false,
+            fullscreen: false,
+        };
+        assert_eq!(tiny.bounds(), None);
+        let older: Placement =
+            serde_json::from_str(r#"{"x":1,"y":2,"width":900,"height":700}"#).unwrap();
+        assert_eq!(
+            older.bounds().map(|bounds| bounds.get_bounds().size.width),
+            Some(px(900.))
+        );
+    }
 }

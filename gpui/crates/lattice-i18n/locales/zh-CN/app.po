@@ -1,0 +1,7 @@
+#: lattice-gpui/src/crash.rs
+msgid "Lattice quit unexpectedly"
+msgstr "Lattice 意外退出"
+
+#: lattice-gpui/src/crash.rs
+msgid "{count} documents could not be saved before Lattice quit: {paths}"
+msgstr "Lattice 退出前有 {count} 个文档未能保存：{paths}"

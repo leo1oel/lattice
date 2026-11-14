@@ -27,6 +27,10 @@ use crate::{
 /// makes it.
 const TUTORIALS: &str = "Lattice Tutorials";
 
+/// How long a launch's reopen keeps the window empty before the welcome
+/// screen shows while it goes on.
+const LAUNCH_EMPTY_WINDOW: std::time::Duration = std::time::Duration::from_secs(1);
+
 /// The welcome screen and the New project dialog, while they are up.
 #[derive(Default)]
 pub(crate) struct Lobby {
@@ -42,8 +46,20 @@ impl Shell {
         match RecentProjects::list(cx).first().cloned() {
             Some(last) => {
                 // The empty Main window while it opens, rather than the
-                // welcome screen flashing first.
+                // welcome screen flashing first; a reopen that takes longer
+                // (a slow or unmounted drive) shows the welcome screen
+                // meanwhile (`LAUNCH_EMPTY_WINDOW_MS`).
                 self.lobby.welcome = None;
+                cx.spawn_in(window, async move |this, cx| {
+                    cx.background_executor().timer(LAUNCH_EMPTY_WINDOW).await;
+                    this.update_in(cx, |this, window, cx| {
+                        if this.root(cx).is_none() && this.lobby.welcome.is_none() {
+                            this.show_welcome(None, window, cx);
+                        }
+                    })
+                    .ok();
+                })
+                .detach();
                 cx.spawn_in(window, async move |this, cx| {
                     let opened = crate::project::open(last.path.clone(), cx).await;
                     this.update_in(cx, |this, window, cx| match opened {

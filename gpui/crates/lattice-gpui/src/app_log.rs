@@ -15,6 +15,7 @@
 //! Export and Help ▸ Report a Problem… go through [`export`], which keeps
 //! only allowlisted metadata unless raw text is asked for.
 
+pub mod capture;
 pub mod export;
 pub mod groups;
 pub mod trace;

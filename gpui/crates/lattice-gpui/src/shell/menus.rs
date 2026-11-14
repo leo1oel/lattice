@@ -1,18 +1,74 @@
-//! The menu bar (`src-tauri/src/native_locale.rs`, `src/app/native-locale.ts`):
-//! Lattice, File, Edit, View, Window and Help, each item an action from the
-//! command table, so the menus show the same keys the keymap binds and run
-//! what the palette runs. The app-wide actions (quit, hide, about, a new
-//! window) are handled here; the rest reach the window in front.
+//! The menu bar, as the Tauri app lays it out (`src-tauri/src/native_locale.rs`,
+//! `src/app/native-locale.ts`): Lattice, File, Edit, View, Window and Help,
+//! each item an action from the command table, so the menus show the same
+//! keys the keymap binds and run what the palette runs. The app-wide
+//! actions (quit, hide, About, the Help links) are handled here; the rest
+//! reach the window in front.
 //!
 //! The titles follow the interface language, as the Tauri app's do. Its
 //! menu keeps Apple's own wording, which can differ from the same English
-//! word inside the app, so those titles take the catalog's "macOS menu bar"
-//! context; the menus' other items are the GPUI app's own.
+//! word inside the app, so every title takes the catalog's "macOS menu bar"
+//! context.
+//!
+//! Lattice ▸ About Lattice is AppKit's About panel with the version, the
+//! attribution Trellis's license asks a shipped app to show, and the
+//! project's website and repository (`about_links.rs`, `macos_about.rs`).
 
-use gpui::{App, Menu, MenuItem, OsAction, SystemMenuType};
-use lattice_i18n::{t, tc};
+use gpui::{App, Menu, MenuItem, OsAction, SystemMenuType, actions};
+use lattice_i18n::tc;
 
 use super::{commands::*, windows};
+
+actions!(lattice, [OpenWebsite, OpenRepository, EnterFullScreen]);
+
+/// The project's repository and website (`about_links.rs`).
+pub const REPOSITORY_URL: &str = "https://github.com/leo1oel/lattice";
+pub const WEBSITE_URL: &str = "https://leo1oel.github.io/lattice/";
+
+/// The attribution Trellis's license asks a shipped app to show (NOTICE).
+pub const TRELLIS_ATTRIBUTION: &str = "Uses Trellis by DanFessler - github.com/DanFessler/trellis";
+
+/// Help's link titles, in the interface language.
+fn link_titles() -> (String, String) {
+    (
+        tc!("macOS menu bar", "{name} Website", name = "Lattice").to_string(),
+        tc!("macOS menu bar", "{name} on GitHub", name = "Lattice").to_string(),
+    )
+}
+
+/// Lattice ▸ About Lattice: the name, the version, the Trellis attribution
+/// and the two links.
+fn show_about(cx: &mut App) {
+    let (website, github) = link_titles();
+    #[cfg(target_os = "macos")]
+    {
+        let _ = cx;
+        crate::native::show_about_panel(
+            "Lattice",
+            lattice_core::VERSION,
+            TRELLIS_ATTRIBUTION,
+            &[(&website, WEBSITE_URL), (&github, REPOSITORY_URL)],
+        );
+    }
+    #[cfg(not(target_os = "macos"))]
+    if let Some(window) = cx.active_window() {
+        let detail = format!(
+            "{}\n\n{TRELLIS_ATTRIBUTION}\n\n{website}: {WEBSITE_URL}\n{github}: {REPOSITORY_URL}",
+            lattice_i18n::t!("Version {version}", version = lattice_core::VERSION)
+        );
+        window
+            .update(cx, |_, window, cx| {
+                let _ = window.prompt(
+                    gpui::PromptLevel::Info,
+                    "Lattice",
+                    Some(&detail),
+                    &[tc!("dialog button", "OK")],
+                    cx,
+                );
+            })
+            .ok();
+    }
+}
 
 pub fn install(cx: &mut App) {
     cx.on_action(|_: &Quit, cx| {
@@ -24,20 +80,14 @@ pub fn install(cx: &mut App) {
     cx.on_action(|_: &HideOthers, cx| cx.hide_other_apps());
     cx.on_action(|_: &ShowAll, cx| cx.unhide_other_apps());
     cx.on_action(|_: &NewWindow, cx| windows::new_window(None, None, cx));
-    cx.on_action(|_: &About, cx| {
+    cx.on_action(|_: &About, cx| show_about(cx));
+    cx.on_action(|_: &OpenWebsite, cx| cx.open_url(WEBSITE_URL));
+    cx.on_action(|_: &OpenRepository, cx| cx.open_url(REPOSITORY_URL));
+    // View ▸ Enter Full Screen: AppKit's own, on the window in front.
+    cx.on_action(|_: &EnterFullScreen, cx| {
         if let Some(window) = cx.active_window() {
             window
-                .update(cx, |_, window, cx| {
-                    let _ = window.prompt(
-                        gpui::PromptLevel::Info,
-                        t!("Lattice (GPUI preview)"),
-                        Some(t!(
-                            "A native preview of Lattice, growing beside the Tauri app."
-                        )),
-                        &[tc!("dialog button", "OK")],
-                        cx,
-                    );
-                })
+                .update(cx, |_, window, _| window.toggle_fullscreen())
                 .ok();
         }
     });
@@ -79,38 +129,104 @@ fn open_recent(cx: &App) -> MenuItem {
             )
         })
         .collect();
-    MenuItem::submenu(Menu::new(tc!("macOS menu bar", "Open Recent")).items(items))
+    // With no other project to offer, it stays in its place, dimmed.
+    let none = items.is_empty();
+    MenuItem::submenu(
+        Menu::new(tc!("macOS menu bar", "Open Recent"))
+            .items(items)
+            .disabled(none),
+    )
+}
+
+/// What the menus need from the window in front: whether it shows a
+/// project, and its margin review choice when its project is linked to
+/// Overleaf (the Tauri app's `marginReviewAvailable`).
+#[derive(Default)]
+struct Front {
+    project_open: bool,
+    margin: Option<crate::editor_panel::MarginMode>,
+}
+
+fn front(cx: &App) -> Front {
+    let Some(shell) = cx
+        .active_window()
+        .and_then(|window| windows::shell_of(window, cx))
+    else {
+        return Front::default();
+    };
+    let shell = shell.read(cx);
+    let context = shell.command_context(cx);
+    Front {
+        project_open: context.in_project,
+        margin: (context.in_project && context.overleaf_linked).then_some(shell.margin_mode),
+    }
+}
+
+/// View ▸ Margin Review: Auto, Markers Only and Off, the one chosen checked.
+fn margin_review(mode: crate::editor_panel::MarginMode) -> MenuItem {
+    use super::overleaf_collab::{MarginReviewAuto, MarginReviewMarkers, MarginReviewOff};
+    use crate::editor_panel::MarginMode;
+    MenuItem::submenu(
+        Menu::new(tc!("macOS menu bar", "Margin Review")).items([
+            MenuItem::action(tc!("macOS menu bar", "Auto"), MarginReviewAuto)
+                .checked(mode == MarginMode::Auto),
+            MenuItem::action(tc!("macOS menu bar", "Markers Only"), MarginReviewMarkers)
+                .checked(mode == MarginMode::Markers),
+            MenuItem::action(tc!("macOS menu bar", "Off"), MarginReviewOff)
+                .checked(mode == MarginMode::Off),
+        ]),
+    )
 }
 
 fn menus(cx: &App) -> Vec<Menu> {
     let name = "Lattice";
+    let front = front(cx);
+    let (website, github) = link_titles();
+    let mut lattice = vec![MenuItem::action(
+        tc!("macOS menu bar", "About {name}", name = name),
+        About,
+    )];
+    lattice.extend([
+        MenuItem::separator(),
+        MenuItem::action(tc!("macOS menu bar", "Settings…"), OpenSettings),
+        MenuItem::separator(),
+        MenuItem::os_submenu(tc!("macOS menu bar", "Services"), SystemMenuType::Services),
+        MenuItem::separator(),
+        MenuItem::action(tc!("macOS menu bar", "Hide {name}", name = name), Hide),
+        MenuItem::action(tc!("macOS menu bar", "Hide Others"), HideOthers),
+        MenuItem::action(tc!("macOS menu bar", "Show All"), ShowAll),
+        MenuItem::separator(),
+        MenuItem::action(tc!("macOS menu bar", "Quit {name}", name = name), Quit),
+    ]);
+    let mut view = vec![
+        MenuItem::action(tc!("macOS menu bar", "Actual Size"), ResetInterfaceSize),
+        MenuItem::action(tc!("macOS menu bar", "Bigger"), LargerInterface),
+        MenuItem::action(tc!("macOS menu bar", "Smaller"), SmallerInterface),
+        MenuItem::separator(),
+        MenuItem::action(tc!("macOS menu bar", "Enter Full Screen"), EnterFullScreen),
+    ];
+    if let Some(mode) = front.margin {
+        view.extend([MenuItem::separator(), margin_review(mode)]);
+    }
     vec![
-        Menu::new("Lattice").items([
-            MenuItem::action(tc!("macOS menu bar", "About {name}", name = name), About),
-            MenuItem::separator(),
-            MenuItem::action(tc!("macOS menu bar", "Settings…"), OpenSettings),
-            MenuItem::separator(),
-            MenuItem::os_submenu(tc!("macOS menu bar", "Services"), SystemMenuType::Services),
-            MenuItem::separator(),
-            MenuItem::action(tc!("macOS menu bar", "Hide {name}", name = name), Hide),
-            MenuItem::action(tc!("macOS menu bar", "Hide Others"), HideOthers),
-            MenuItem::action(tc!("macOS menu bar", "Show All"), ShowAll),
-            MenuItem::separator(),
-            MenuItem::action(tc!("macOS menu bar", "Quit {name}", name = name), Quit),
-        ]),
+        Menu::new("Lattice").items(lattice),
         Menu::new(tc!("macOS menu bar", "File")).items([
             MenuItem::action(tc!("macOS menu bar", "New Project…"), NewProject),
             MenuItem::action(tc!("macOS menu bar", "Open…"), OpenFolder),
             open_recent(cx),
             MenuItem::separator(),
             MenuItem::action(tc!("macOS menu bar", "Clone Repository…"), CloneRepository),
+            MenuItem::action(
+                tc!("macOS menu bar", "Open from Overleaf…"),
+                super::overleaf_flow::OpenOverleafProject,
+            ),
             MenuItem::action(tc!("macOS menu bar", "Import Overleaf ZIP…"), ImportZip),
             MenuItem::separator(),
-            MenuItem::action(t!("New Window"), NewWindow),
-            MenuItem::action(t!("Open in New Window"), OpenInNewWindow),
-            MenuItem::separator(),
-            MenuItem::action(t!("Save and Build"), Save),
-            MenuItem::action(t!("Build"), Build),
+            MenuItem::action(
+                tc!("macOS menu bar", "Export for arXiv…"),
+                super::tools_flow::ExportArxiv,
+            )
+            .disabled(!front.project_open),
             MenuItem::separator(),
             MenuItem::action(tc!("macOS menu bar", "Close Tab"), CloseTab),
             MenuItem::action(tc!("macOS menu bar", "Close Window"), CloseWindow),
@@ -148,36 +264,12 @@ fn menus(cx: &App) -> Vec<Menu> {
                 OsAction::SelectAll,
             ),
         ]),
-        Menu::new(tc!("macOS menu bar", "View")).items([
-            MenuItem::action(t!("Command Palette…"), CommandPalette),
-            MenuItem::action(t!("Keyboard Shortcuts"), ShowShortcuts),
-            MenuItem::separator(),
-            MenuItem::action(t!("Project"), ToggleProjectPanel),
-            MenuItem::action(t!("Papers"), TogglePapersPanel),
-            MenuItem::action(t!("Agent"), ToggleAgentPanel),
-            MenuItem::action(t!("PDF"), TogglePdfPanel),
-            MenuItem::action(t!("Build Log"), ToggleBuildPanel),
-            MenuItem::action(t!("Terminal"), crate::terminal::ToggleTerminalPanel),
-            MenuItem::separator(),
-            MenuItem::action(t!("Writing Layout"), WritingPreset),
-            MenuItem::action(t!("Reading Layout"), ReadingPreset),
-            MenuItem::action(t!("Bibliography Layout"), BibliographyPreset),
-            MenuItem::action(t!("Focus Mode"), ToggleFocusMode),
-            MenuItem::action(t!("Maximize Focused Panel"), ToggleMaximize),
-            MenuItem::action(t!("Reset Layout"), ResetLayout),
-            // The interface size (native_locale.rs's View ▸ Actual Size,
-            // Bigger and Smaller).
-            MenuItem::separator(),
-            MenuItem::action(tc!("macOS menu bar", "Actual Size"), ResetInterfaceSize),
-            MenuItem::action(tc!("macOS menu bar", "Bigger"), LargerInterface),
-            MenuItem::action(tc!("macOS menu bar", "Smaller"), SmallerInterface),
-        ]),
+        Menu::new(tc!("macOS menu bar", "View")).items(view),
         Menu::new(tc!("macOS menu bar", "Window")).items([
             MenuItem::action(tc!("macOS menu bar", "Minimize"), Minimize),
             MenuItem::action(tc!("macOS menu bar", "Zoom"), Zoom),
             MenuItem::separator(),
-            MenuItem::action(t!("Next Project"), NextProject),
-            MenuItem::action(t!("Previous Project"), PreviousProject),
+            MenuItem::action(tc!("macOS menu bar", "Close Window"), CloseWindow),
         ]),
         Menu::new(tc!("macOS menu bar", "Help")).items([
             MenuItem::action(
@@ -190,7 +282,24 @@ fn menus(cx: &App) -> Vec<Menu> {
                 super::ReportProblem,
             ),
             MenuItem::separator(),
-            MenuItem::action(t!("Keyboard Shortcuts"), ShowShortcuts),
+            MenuItem::action(website, OpenWebsite),
+            MenuItem::action(github, OpenRepository),
         ]),
     ]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn about_names_trellis_as_its_license_asks() {
+        assert_eq!(
+            TRELLIS_ATTRIBUTION,
+            "Uses Trellis by DanFessler - github.com/DanFessler/trellis"
+        );
+        let (website, github) = link_titles();
+        assert_eq!(website, "Lattice Website");
+        assert_eq!(github, "Lattice on GitHub");
+    }
 }
