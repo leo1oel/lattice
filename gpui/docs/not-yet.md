@@ -11,7 +11,7 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] The Tauri app's selection toolbar's Annotate (the palette's Annotate selection stands in).
 
-- [ ] The figure and table generators, and with them pasting a clipboard image into the editor as a figure.
+- [ ] A Finder drop onto the editor as a figure.
 
 - [ ] The import conflict dialog's Replace and Skip (an import keeps both).
 
