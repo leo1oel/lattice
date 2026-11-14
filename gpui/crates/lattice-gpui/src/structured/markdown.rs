@@ -46,6 +46,8 @@ pub enum MarkdownEvent {
     ViewInSource(usize),
     /// A link to a project file was followed.
     OpenPath(String),
+    /// A jump to a 1-based line of a project file (a `\ref`'s label).
+    OpenLocation(String, u32),
     /// The caret moved to this 1-based line and column of the file.
     Caret(u32, u32),
     /// Split: the source line the preview's centre maps to, fractional
@@ -185,15 +187,28 @@ impl StructuredDocument {
         window: &mut gpui::Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        let root = project.read(cx).root().to_path_buf();
-        let mut this = Self::new(
+        Self::visual_editor(
             super::StructuredKind::Markdown,
-            &root,
+            project,
             relative,
             source,
             window,
             cx,
-        );
+        )
+    }
+
+    /// A visual editor of `kind` over `source` (a Markdown file's, or a
+    /// `.tex` file's Visual), following `project`'s files and TeX sources.
+    pub(super) fn visual_editor(
+        kind: super::StructuredKind,
+        project: &Entity<Project>,
+        relative: String,
+        source: String,
+        window: &mut gpui::Window,
+        cx: &mut Context<Self>,
+    ) -> Self {
+        let root = project.read(cx).root().to_path_buf();
+        let mut this = Self::new(kind, &root, relative, source, window, cx);
         this.markdown = Some(MarkdownSession::new());
         this._subscriptions.push(
             cx.subscribe(project, |this, project, event, cx| match event {
@@ -290,7 +305,8 @@ impl StructuredDocument {
         .detach();
     }
 
-    /// The fields of `doc:open` a Markdown page needs beside the document's.
+    /// The fields of `doc:open` a visual editor's page needs beside the
+    /// document's.
     pub(super) fn markdown_open(&self, payload: &mut Value) {
         let Some(session) = &self.markdown else {
             return;
@@ -374,6 +390,13 @@ impl StructuredDocument {
                 Some(path) => MarkdownEvent::OpenPath(path),
                 None => return,
             },
+            "md:open-location" => match text(payload, "path") {
+                Some(path) => {
+                    let line = payload.get("line").and_then(Value::as_u64).unwrap_or(1);
+                    MarkdownEvent::OpenLocation(path, line.max(1) as u32)
+                }
+                None => return,
+            },
             "md:caret" => {
                 let number =
                     |key: &str| payload.get(key).and_then(Value::as_u64).unwrap_or(1) as u32;
@@ -441,7 +464,7 @@ impl StructuredDocument {
         Some(format!("{url}?v={}", revision(&absolute)))
     }
 
-    fn answer_off_thread(
+    pub(super) fn answer_off_thread(
         &mut self,
         id: u64,
         cx: &mut Context<Self>,

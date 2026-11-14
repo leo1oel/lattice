@@ -51,6 +51,7 @@ mod disk_sync;
 mod events;
 pub mod find_bar;
 mod insert;
+mod latex_view;
 mod margin_review;
 mod markdown_view;
 mod moves;
@@ -69,6 +70,7 @@ pub mod views;
 
 use disk_sync::vanished_key;
 pub use events::EditorPanelEvent;
+use latex_view::choose_latex_view;
 pub use margin_review::{MarginLayout, MarginMode};
 use outline_rail::OutlineRail;
 pub use overleaf_carets::OverleafCaret;
@@ -97,15 +99,12 @@ const DISK_POLL: Duration = Duration::from_millis(2500);
 gpui::actions!(
     lattice_editor_panel,
     [
-        /// A .tex file's Source view (the only one the preview has).
+        /// Every .tex file's Source view.
         ShowSourceView,
-        /// A .tex file's Visual view: not in the GPUI preview yet.
+        /// Every .tex file's Visual view (`latex_view.rs`).
         ShowVisualView,
     ]
 );
-
-/// Why a .tex file's Visual view cannot be chosen here.
-pub const VISUAL_NOT_PORTED: &str = "Visual: not in the GPUI preview yet";
 
 /// The last write's outcome, for the status bar's save slot.
 #[derive(Clone, Debug, PartialEq)]
@@ -205,6 +204,10 @@ pub struct EditorPanel {
     /// width as last drawn, which decides whether it has room.
     rail: Option<Entity<OutlineRail>>,
     editor_width: std::rc::Rc<std::cell::Cell<Option<gpui::Pixels>>>,
+    /// A `.tex` file's Visual view (`latex_view.rs`).
+    latex: latex_view::LatexViews,
+    /// The manuscript's root document, as the shell last named it.
+    latex_root: String,
     _autosave: Option<Task<()>>,
     _count: Option<Task<()>>,
     _todos: Option<Task<()>>,
@@ -286,6 +289,7 @@ impl EditorPanel {
                     this.schedule_autosave(cx);
                     this.scan_todos(TODO_SETTLE, cx);
                     this.views_source_changed(cx);
+                    this.latex_source_changed(cx);
                     this.structured_source_changed(cx);
                 }
                 BufferEvent::DirtyChanged | BufferEvent::Saved => cx.notify(),
@@ -304,6 +308,7 @@ impl EditorPanel {
                     if let Some(diagnostics) = &this.diagnostics {
                         diagnostics.update(cx, |diagnostics, cx| diagnostics.resync(cx));
                     }
+                    this.forward_latex_context(cx);
                 }
                 cx.notify();
             }),
@@ -393,6 +398,10 @@ impl EditorPanel {
             }),
             // Check spelling turned on or off.
             cx.observe_global::<crate::settings::AppSettings>(|this, cx| this.refresh_spelling(cx)),
+            // Source or Visual chosen, here or in another window.
+            cx.observe_global_in::<crate::settings::AppSettings>(window, |this, window, cx| {
+                this.sync_latex_view(window, cx)
+            }),
         ];
         let poll = cx.spawn(async move |this, cx| {
             loop {
@@ -446,6 +455,8 @@ impl EditorPanel {
             writing: None,
             rail,
             editor_width: Default::default(),
+            latex: Default::default(),
+            latex_root: String::new(),
             _autosave: None,
             _count: None,
             _todos: None,
@@ -546,8 +557,12 @@ impl EditorPanel {
     /// Put the cursor at the start of the 1-based `line` and scroll it to the
     /// middle of the editor.
     pub fn go_to_line(&mut self, line: u32, window: &mut Window, cx: &mut Context<Self>) {
-        // Markdown's Preview is its visual editor, which takes the jump.
-        if let Some(document) = self.jumps_in_preview() {
+        // Markdown's Preview is its visual editor, which takes the jump, as
+        // a .tex file's Visual view does.
+        if let Some(document) = self
+            .jumps_in_preview()
+            .or_else(|| self.jumps_in_latex_visual(cx))
+        {
             document.update(cx, |document, cx| document.reveal_line(line, cx));
             if let Some(focus) = document.read(cx).focus_handle(cx) {
                 window.focus(&focus, cx);
@@ -586,6 +601,13 @@ impl Focusable for EditorPanel {
         {
             return focus;
         }
+        if self.shows_latex_visual(cx)
+            && let Some(focus) = self
+                .latex_visual_document()
+                .and_then(|document| document.read(cx).focus_handle(cx))
+        {
+            return focus;
+        }
         match self.views.as_ref() {
             _ if let Some(focus) = self.bib_focus(cx) => focus,
             Some(views) if views.view() == DocumentView::Preview => views
@@ -613,6 +635,7 @@ impl BasePanel for EditorPanel {
 
     fn on_removed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.views_shown(false, window, cx);
+        self.latex_views_shown(false, window, cx);
         // A structured document's page hands over its edits first.
         if !self.close_structured(cx) {
             self.flush(cx);
@@ -627,6 +650,7 @@ impl BasePanel for EditorPanel {
     /// An HTML file's preview is shown only while its tab is the displayed one.
     fn set_active(&mut self, active: bool, window: &mut Window, cx: &mut Context<Self>) {
         self.views_shown(active, window, cx);
+        self.latex_views_shown(active, window, cx);
         self.structured_shown(active, cx);
     }
 }
@@ -650,13 +674,26 @@ impl Render for EditorPanel {
             .read(cx)
             .is_open()
             .then(|| self.find_bar.clone());
-        let editor = div()
-            .size_full()
-            .flex()
-            .flex_col()
-            .children(search)
-            .child(self.render_source(window, cx))
-            .into_any_element();
+        // A .tex file's Visual view stands in the source's place, over the
+        // same status bar; its find is the page's own (⌘F there).
+        let editor = match self
+            .latex_visual_document()
+            .filter(|_| self.shows_latex_visual(cx))
+            .cloned()
+        {
+            Some(document) => div()
+                .id("lattice-visual")
+                .size_full()
+                .child(document)
+                .into_any_element(),
+            None => div()
+                .size_full()
+                .flex()
+                .flex_col()
+                .children(search)
+                .child(self.render_source(window, cx))
+                .into_any_element(),
+        };
         let bib = self.bib_for_view(window, cx);
         let body = self.render_views(editor, status, bib, cx);
         div()
@@ -696,6 +733,16 @@ impl Render for EditorPanel {
             }))
             .on_action(cx.listener(|this, _: &ViewPreview, window, cx| {
                 this.set_document_view(DocumentView::Preview, window, cx)
+            }))
+            .on_action(cx.listener(|this, _: &ShowSourceView, _, cx| {
+                if this.latex_view(cx).is_some() {
+                    choose_latex_view(lattice_settings::LatexView::Source, cx);
+                }
+            }))
+            .on_action(cx.listener(|this, _: &ShowVisualView, _, cx| {
+                if this.latex_view(cx).is_some() {
+                    choose_latex_view(lattice_settings::LatexView::Visual, cx);
+                }
             }))
             .size_full()
             .flex()

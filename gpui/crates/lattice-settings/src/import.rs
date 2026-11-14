@@ -18,8 +18,8 @@ use std::{
 use serde_json::Value;
 
 use crate::model::{
-    Appearance, AutoBuildMode, Choice, OverleafRemoteDelete, OverleafSyncMode, Settings,
-    SettingsTab, ThemePreference,
+    Appearance, AutoBuildMode, Choice, LatexView, OverleafRemoteDelete, OverleafSyncMode,
+    Settings, SettingsTab, ThemePreference,
 };
 
 /// The Tauri app's bundle identifier (`src-tauri/tauri.conf.json`).
@@ -36,6 +36,7 @@ pub const KEYS: &[&str] = &[
     "lattice.author-name.v1",
     "lattice.collab.name",
     "lattice.settings-tab.v1",
+    "lattice.latex-view.v1",
     "lattice.overleaf.sync-mode.v1",
     "lattice.overleaf.remote-delete.v1",
     "lattice.live-preview.v1",
@@ -94,6 +95,10 @@ pub fn settings_from_items(items: &BTreeMap<String, String>) -> Settings {
         settings_tab: item("lattice.settings-tab.v1")
             .and_then(SettingsTab::from_tag)
             .unwrap_or(defaults.settings_tab),
+        // Stored as the bare choice (`latex-view-choice.ts`).
+        latex_view: item("lattice.latex-view.v1")
+            .and_then(LatexView::from_tag)
+            .unwrap_or(defaults.latex_view),
         // Stored as the bare choice (`overleaf-sync-settings.ts`).
         overleaf_sync_mode: item("lattice.overleaf.sync-mode.v1")
             .and_then(OverleafSyncMode::from_tag)
@@ -286,6 +291,7 @@ mod tests {
                 ),
                 ("lattice.author-name.v1", "Ada Lovelace"),
                 ("lattice.settings-tab.v1", "editor"),
+                ("lattice.latex-view.v1", "visual"),
                 ("lattice.recent-projects.v1", "[]"),
             ],
         );
@@ -315,6 +321,7 @@ mod tests {
         assert!(settings.hidden_build_files);
         assert_eq!(settings.author_name, "Ada Lovelace");
         assert_eq!(settings.settings_tab, SettingsTab::Editor);
+        assert_eq!(settings.latex_view, LatexView::Visual);
         assert!(
             !imported
                 .keys

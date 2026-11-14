@@ -4,14 +4,13 @@
 
 use gpui::{App, Context, Focusable as _, IntoElement, SharedString, Window, prelude::*};
 use gpui_kit::component::dock::Panel;
-use lattice_editor::latex;
 use lattice_i18n::t;
 use lattice_ui::components::{Menu, MenuAction};
 use zed_actions::buffer_search::Deploy;
 
 use super::{
-    DocumentView, EditorPanel, ShowSourceView, ShowVisualView, VISUAL_NOT_PORTED, ViewPreview,
-    ViewSource, ViewSplit, file_name,
+    DocumentView, EditorPanel, ShowSourceView, ShowVisualView, ViewPreview, ViewSource, ViewSplit,
+    file_name,
 };
 use crate::{
     editor_status,
@@ -104,14 +103,11 @@ impl EditorPanel {
             .item(command(t!("Find"), Box::new(Deploy::find())))
             // The strip's Source / Visual switch, which goes first when the
             // strip is short of room.
-            .when(latex::is_tex_source(&self.path), |menu| {
+            .when_some(self.latex_view(cx), |menu, view| {
+                let visual = view == lattice_settings::LatexView::Visual;
                 menu.separator()
-                    .item(command("Source", Box::new(ShowSourceView)).checked(true))
-                    .item(
-                        command(VISUAL_NOT_PORTED, Box::new(ShowVisualView))
-                            .checked(false)
-                            .disabled(true),
-                    )
+                    .item(command("Source", Box::new(ShowSourceView)).checked(!visual))
+                    .item(command("Visual", Box::new(ShowVisualView)).checked(visual))
             })
             .separator()
             .item(

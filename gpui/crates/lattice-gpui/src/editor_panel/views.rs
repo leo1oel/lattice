@@ -315,6 +315,8 @@ impl EditorPanel {
                 .as_ref()
                 .and_then(|views| views.preview.as_ref())
                 .and_then(|preview| preview.focus_handle(cx)),
+            self.latex_visual_document()
+                .and_then(|document| document.read(cx).focus_handle(cx)),
         ];
         handles
             .into_iter()
