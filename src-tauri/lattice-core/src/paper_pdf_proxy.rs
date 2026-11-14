@@ -72,10 +72,8 @@ pub fn fetch_pdf(url: &str) -> Result<Vec<u8>, String> {
     }))
     .build()
     .map_err(|error| format!("Failed to create PDF client: {error}"))?;
-    let response = client
-        .get(upstream)
-        .send()
-        .map_err(|error| format!("Failed to fetch PDF: {error}"))?;
+    let response =
+        client.get(upstream).send().map_err(|error| format!("Failed to fetch PDF: {error}"))?;
     if !response.status().is_success() {
         return Err(format!("PDF request failed: {}", response.status()));
     }
