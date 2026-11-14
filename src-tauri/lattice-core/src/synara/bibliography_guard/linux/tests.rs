@@ -269,6 +269,22 @@ fn refused(result: &io::Result<()>) -> bool {
     result.as_ref().err().and_then(|error| error.raw_os_error()) == Some(libc::EPERM)
 }
 
+/// A second name a bibliography had before the sandbox started, written
+/// without ever looking the `.bib` name up, which would tell the filter.
+#[test]
+fn a_second_name_made_before_the_sandbox_cannot_change_a_bibliography() {
+    if !guard_available() {
+        return;
+    }
+    let root = Guarded::new();
+    let bibliography = root.write("references.bib", "original");
+    let prelinked = root.0.join("prelinked.txt");
+    fs::hard_link(&bibliography, &prelinked).unwrap();
+    let sandbox = Sandbox::new();
+    assert!(!sandbox.run("printf changed >> \"$1\"", &[&prelinked]));
+    assert_eq!(fs::read_to_string(&bibliography).unwrap(), "original");
+}
+
 /// The broker writes a bibliography through a temporary beside it and
 /// renames that over the `.bib`, the race `ProjectDir::atomic_write`'s
 /// `.tmp.bib` name closes. The sandbox polls for the temporary, opens it

@@ -1,6 +1,6 @@
 //! The rule: which changes are a bibliography's, and so refused.
 
-use super::host::current_name;
+use super::host::{current_name, status_of};
 use super::nodes::Node;
 use fuser::{Errno, FileHandle, OpenAccMode, OpenFlags};
 use std::ffi::OsStr;
@@ -38,9 +38,13 @@ pub(super) fn is_named_bibliography(node: &Node, fh: Option<FileHandle>) -> Resu
 }
 
 /// Refuse a change to what the file `node` names holds, or to its
-/// attributes, if it is a bibliography.
+/// attributes, if it is a bibliography or may be one. A file with more than
+/// one name may be a bibliography by one the filter has not seen, such as a
+/// hard link made before the sandbox started.
 pub(super) fn may_change(node: &Node, fh: Option<FileHandle>) -> Result<(), Errno> {
-    if is_named_bibliography(node, fh)? {
+    let status = status_of(node.fd.as_raw_fd())?;
+    let other_names = status.st_mode & libc::S_IFMT == libc::S_IFREG && status.st_nlink > 1;
+    if other_names || is_named_bibliography(node, fh)? {
         return Err(DENIED);
     }
     Ok(())
