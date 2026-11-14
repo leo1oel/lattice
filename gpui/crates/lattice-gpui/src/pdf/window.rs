@@ -184,11 +184,12 @@ fn forward(owner: &WeakEntity<PdfPanel>, event: &PdfViewEvent, cx: &mut App) {
         return;
     };
     let event = match event {
-        PdfViewEvent::SourceAt { page, x, y } => super::PdfEvent::SourceAt {
+        PdfViewEvent::SourceAt { page, x, y, word } => super::PdfEvent::SourceAt {
             document: None,
             page: *page,
             x: *x,
             y: *y,
+            word: word.clone(),
         },
         PdfViewEvent::RevealCursor => super::PdfEvent::RevealCursor { document: None },
         PdfViewEvent::Build => super::PdfEvent::Build { document: None },

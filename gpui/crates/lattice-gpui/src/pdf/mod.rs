@@ -4,6 +4,7 @@
 //! selection (`text.rs`) and dark pages (`dark.rs`); the dock's PDF panels
 //! (`panel.rs`) and the live PDF's separate window (`window.rs`).
 
+mod clicked_word;
 mod dark;
 mod engine;
 mod find;

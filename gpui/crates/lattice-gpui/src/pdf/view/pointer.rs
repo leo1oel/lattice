@@ -47,10 +47,16 @@ impl PdfView {
             // Reverse SyncTeX: the point, in PDF points from the page's
             // top-left corner.
             let round = |value: f32| (f64::from(value) * 1000.).round() / 1000.;
+            let word = self
+                .pages
+                .get(page)
+                .and_then(|page| page.text.as_ref())
+                .and_then(|text| super::super::clicked_word::word_at(text, page_x, page_y));
             cx.emit(PdfViewEvent::SourceAt {
                 page: page as u32 + 1,
                 x: round(page_x),
                 y: round(page_y),
+                word,
             });
             return;
         }

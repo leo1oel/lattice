@@ -57,6 +57,7 @@ pub enum PdfEvent {
         page: u32,
         x: f64,
         y: f64,
+        word: Option<lattice_editor::latex::synctex_word::SyncTexWord>,
     },
     /// Reveal cursor in PDF, in `document`'s PDF (`None`: the live one).
     RevealCursor {
@@ -106,6 +107,13 @@ pub struct PdfPanel {
 }
 
 impl PdfPanel {
+    /// Whether Reveal cursor in PDF can jump now, and whether a jump is
+    /// being located.
+    pub fn set_reveal(&mut self, enabled: bool, locating: bool, cx: &mut Context<Self>) {
+        self.view
+            .update(cx, |view, cx| view.set_reveal(enabled, locating, cx));
+    }
+
     pub fn new(kind: PdfPanelKind, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let view = cx.new(|cx| PdfView::new(window, cx));
         let compiled = !matches!(kind, PdfPanelKind::File(_));
@@ -222,11 +230,12 @@ impl PdfPanel {
         }
         let document = self.document().map(str::to_string);
         match event {
-            PdfViewEvent::SourceAt { page, x, y } => cx.emit(PdfEvent::SourceAt {
+            PdfViewEvent::SourceAt { page, x, y, word } => cx.emit(PdfEvent::SourceAt {
                 document,
                 page: *page,
                 x: *x,
                 y: *y,
+                word: word.clone(),
             }),
             PdfViewEvent::RevealCursor => cx.emit(PdfEvent::RevealCursor { document }),
             PdfViewEvent::Build => cx.emit(PdfEvent::Build { document }),

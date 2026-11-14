@@ -40,7 +40,8 @@ impl Shell {
                 page,
                 x,
                 y,
-            } => self.inverse_sync(document.clone(), *page, *x, *y, window, cx),
+                word,
+            } => self.inverse_sync(document.clone(), *page, *x, *y, word.clone(), window, cx),
             PdfEvent::RevealCursor { document: None } => {
                 self.forward_sync(&super::ForwardSync, window, cx)
             }

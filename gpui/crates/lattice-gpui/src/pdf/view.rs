@@ -70,7 +70,13 @@ const REFIT_SETTLE: Duration = Duration::from_millis(120);
 pub enum PdfViewEvent {
     /// A double-click at (`x`, `y`) PDF points from the top-left corner of
     /// page `page` (1-based): show its source.
-    SourceAt { page: u32, x: f64, y: f64 },
+    SourceAt {
+        page: u32,
+        x: f64,
+        y: f64,
+        /// The word under the click, for the caret to land on.
+        word: Option<lattice_editor::latex::synctex_word::SyncTexWord>,
+    },
     /// The toolbar's Reveal cursor in PDF.
     RevealCursor,
     /// The toolbar action the host offered (`ToolbarAction`).
@@ -195,6 +201,10 @@ pub struct PdfView {
     next_mark: usize,
     pub(super) message: Option<SharedString>,
     pub(super) loading: bool,
+    /// Reveal cursor in PDF waits: the caret is not in a .tex file, or a
+    /// jump is being located (`locating`, which spins it).
+    pub(super) reveal_disabled: bool,
+    pub(super) locating: bool,
     pub(super) dark: bool,
     pub(super) action: Option<ToolbarAction>,
     pub(super) outline: Option<super::OutlineState>,
@@ -305,6 +315,8 @@ impl PdfView {
             next_mark: 0,
             message: None,
             loading: false,
+            reveal_disabled: false,
+            locating: false,
             dark: super::dark::enabled(),
             action: None,
             outline: None,

@@ -11,6 +11,16 @@ impl PdfView {
         cx.notify();
     }
 
+    /// Whether Reveal cursor in PDF can jump now, and whether a jump is
+    /// being located (`canForwardSync`, `locatingPdf`).
+    pub fn set_reveal(&mut self, enabled: bool, locating: bool, cx: &mut Context<Self>) {
+        if (self.reveal_disabled, self.locating) != (!enabled, locating) {
+            self.reveal_disabled = !enabled;
+            self.locating = locating;
+            cx.notify();
+        }
+    }
+
     /// Offer Reveal cursor in PDF (the live PDF and a root document's tab).
     pub fn set_can_reveal(&mut self, can: bool, cx: &mut Context<Self>) {
         self.can_reveal = can;

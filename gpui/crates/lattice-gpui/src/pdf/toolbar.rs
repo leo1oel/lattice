@@ -513,6 +513,18 @@ impl PdfView {
                         strip,
                         true,
                         tool("pdf-locate", Icon::LOCATE_FIXED, t!("Reveal cursor in PDF"))
+                            .when_some(
+                                crate::shell::commands::keys_label(&crate::shell::ForwardSync, window),
+                                |button, keys| button.shortcut(keys),
+                            )
+                            .disabled(self.reveal_disabled || self.locating)
+                            .when(self.locating, |button| {
+                                button.content(crate::build::chip_mark::infinity_loader(
+                                    "pdf-locating",
+                                    px(14.),
+                                    cx.palette(),
+                                ))
+                            })
                             .on_click(
                                 cx.listener(|_, _, _, cx| cx.emit(PdfViewEvent::RevealCursor)),
                             ),
