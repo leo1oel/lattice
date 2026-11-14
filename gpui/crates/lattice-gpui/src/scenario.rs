@@ -153,6 +153,24 @@ impl Run {
         }
     }
 
+    /// Park the pointer in the window's bottom-right gutter, where Paper's
+    /// scenes park it, so no row or button is drawn hovered wherever the real
+    /// cursor happens to be. Shots and the e2e steps on both platforms use it.
+    fn park_pointer(&self, cx: &mut AsyncApp) -> Result<()> {
+        self.with_window(cx, |_, window, cx| {
+            let size = window.viewport_size();
+            let corner = gpui::point(size.width - gpui::px(4.), size.height - gpui::px(4.));
+            window.dispatch_event(
+                gpui::PlatformInput::MouseMove(gpui::MouseMoveEvent {
+                    position: corner,
+                    pressed_button: None,
+                    modifiers: gpui::Modifiers::default(),
+                }),
+                cx,
+            );
+        })
+    }
+
     /// Draw a frame now, in a build with `offscreen-shots`: a window on a
     /// locked screen gets none from the display, and some of what a scenario
     /// checks waits for one (the tree's rename field takes focus once its
