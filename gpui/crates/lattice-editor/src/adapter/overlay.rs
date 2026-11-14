@@ -1,5 +1,6 @@
-//! The overlay over the editor: gutter marks and remote carets painted in
-//! the editor's coordinates, and the pointer reported to the hover cards.
+//! The overlay over the editor: gutter marks, remote carets and the inline
+//! texts' strikes and tints painted in the editor's coordinates, and the
+//! pointer reported to the hover cards.
 
 use std::{collections::HashMap, time::Instant};
 
