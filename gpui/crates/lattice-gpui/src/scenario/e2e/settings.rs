@@ -32,7 +32,11 @@ use crate::{
 impl Run {
     /// The way into Settings at the window's top left, as the app has it:
     /// the project switcher's menu ends with Settings, which opens it.
-    async fn settings_from_titlebar(&self, cx: &mut AsyncApp, steps: &mut Steps) -> Result<()> {
+    pub(super) async fn settings_from_titlebar(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+    ) -> Result<()> {
         const NAME: &str =
             "the top-left project switcher's menu has Settings, and it opens Settings";
         const SETTLE: Duration = Duration::from_millis(250);
@@ -97,7 +101,6 @@ impl Run {
         cx: &mut AsyncApp,
         steps: &mut Steps,
     ) -> Result<()> {
-        self.settings_from_titlebar(cx, steps).await?;
         let before = cx.update(|cx| settings::get(cx).clone());
 
         // ⌘, from the window, with native keys.

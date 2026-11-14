@@ -101,6 +101,16 @@ impl Run {
             return Ok(());
         };
         let native = self.native(cx)?;
+        // Active and in front: gpui-fast draws an inactive window at 30
+        // frames a second, which would space the glide's frames out to 33ms.
+        #[cfg(target_os = "macos")]
+        native::order_front(native);
+        self.with_window(cx, |_, window, cx| {
+            cx.activate(true);
+            window.activate_window();
+        })?;
+        self.pause(cx, SETTLE).await;
+        let active = self.with_window(cx, |_, window, _| window.is_window_active())?;
 
         native::send_mouse(native, native::Mouse::Moved, first_bounds.center())?;
         self.pause(cx, SETTLE).await;
@@ -146,7 +156,7 @@ impl Run {
         steps.check(
             "the glide moves the fill toward the row in every frame it paints until it lands",
             glides_smoothly(&frames, from_y, to_y),
-            json!({ "from": from_y, "to": to_y, "frames": frames_json(&frames) }),
+            json!({ "window_active": active, "from": from_y, "to": to_y, "frames": frames_json(&frames) }),
         );
 
         // A pointer that reaches the next row before the glide lands bends
