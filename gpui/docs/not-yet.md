@@ -61,8 +61,6 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] The paper reader's selection actions: Copy source link and Add to note, on the full text and on the original PDF.
 
-- [ ] The palette's Recent commands, "In this document" suggestions, Recent files, Papers and Settings results, its "Search the project for …" fallback and its detail column.
-
 - [ ] The shortcut sheet's filter field, its missing groups and its Esc row.
 
 - [ ] Focus mode's bar and Escape to leave it.

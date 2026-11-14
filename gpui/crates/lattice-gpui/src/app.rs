@@ -146,6 +146,7 @@ pub fn init(scripted: bool, cx: &mut App) {
     load_keymaps(cx);
     crate::shell::workspaces::Workspaces::init(scripted, cx);
     crate::recents::RecentProjects::init(scripted, cx);
+    crate::shell::init_recent_commands(scripted, cx);
     crate::first_pages::FirstPages::init(scripted, cx);
     crate::shell::menus::install(cx);
     // The log every notice reaches, and, on the first launch after an
