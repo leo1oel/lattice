@@ -535,8 +535,11 @@ impl OverleafPicker {
             },
         };
         self.selected = Some(rows[next].id.clone());
-        self.scroll
-            .scroll_to_item(next + usize::from(!self.invites(cx).is_empty()));
+        // The list's child for the row: the invitations' heading, their
+        // rows and the projects' heading stand before the projects.
+        let invites = self.invites(cx).len();
+        let ahead = if invites == 0 { 0 } else { invites + 2 };
+        self.scroll.scroll_to_item(ahead + next);
         cx.notify();
     }
 

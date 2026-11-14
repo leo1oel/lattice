@@ -24,6 +24,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+use futures::channel::oneshot;
 use gpui::{App, AppContext as _, Context, EventEmitter, SharedString, Subscription, Task};
 use lattice_core::overleaf::{OverleafLink, OverleafStatus, OverleafSyncResult};
 use lattice_i18n::t;
@@ -154,6 +155,8 @@ pub struct OverleafBridge {
     /// session: the safe side of forgetting is a file left on Overleaf.
     declined_deletes: HashSet<(PathBuf, String)>,
     sync_task: Option<Task<()>>,
+    /// Told how the running sync went (Review's Apply).
+    sync_waiters: Vec<oneshot::Sender<Result<(), String>>>,
     poll_task: Option<Task<()>>,
     push_task: Option<Task<()>>,
     badge_task: Option<Task<()>>,
@@ -195,6 +198,7 @@ impl OverleafBridge {
             last_auto_sync: None,
             declined_deletes: HashSet::new(),
             sync_task: None,
+            sync_waiters: Vec::new(),
             poll_task: None,
             push_task: None,
             badge_task: None,
@@ -259,6 +263,7 @@ impl OverleafBridge {
         self.entities.clear();
         self.entity_list = None;
         self.sync_task = None;
+        self.sync_waiters.clear();
         self.syncing = false;
         self.stop(cx);
         self.reload_link(cx);
@@ -304,7 +309,11 @@ impl OverleafBridge {
         }
         self.link_generation += 1;
         let generation = self.link_generation;
-        self.session_seen = super::session_generation(cx);
+        let session = super::session_generation(cx);
+        if session != self.session_seen && self.channel == ChannelStatus::Error {
+            self.channel_task = None;
+        }
+        self.session_seen = session;
         let Some(root) = self.root.clone() else {
             self.link = None;
             self.stop(cx);
@@ -436,6 +445,28 @@ impl OverleafBridge {
         self.entity_list = Some(entities);
     }
 
+    /// Sync now, or join the sync already running, and hear how it went:
+    /// `Err` says why it failed or could not start.
+    pub fn sync_reporting(
+        &mut self,
+        cx: &mut Context<Self>,
+    ) -> oneshot::Receiver<Result<(), String>> {
+        let (sender, receiver) = oneshot::channel();
+        if self.staged {
+            sender.send(Ok(())).ok();
+            return receiver;
+        }
+        self.sync(SyncOptions::default(), cx);
+        if self.syncing {
+            self.sync_waiters.push(sender);
+        } else {
+            sender
+                .send(Err(t!("{action} failed", action = t!("Sync")).to_string()))
+                .ok();
+        }
+        receiver
+    }
+
     /// Sync now (the toolbar's button, the palette, Review's Apply), or as
     /// live mode's own. The window saves its editors first.
     pub fn sync(&mut self, options: SyncOptions, cx: &mut Context<Self>) {
@@ -468,6 +499,10 @@ impl OverleafBridge {
             let (result, expired) = run.await;
             this.update(cx, |this, cx| {
                 this.syncing = false;
+                let outcome = result.as_ref().map(|_| ()).map_err(Clone::clone);
+                for waiter in this.sync_waiters.drain(..) {
+                    waiter.send(outcome.clone()).ok();
+                }
                 if expired {
                     super::session_changed(cx);
                 }

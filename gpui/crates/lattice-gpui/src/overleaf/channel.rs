@@ -156,7 +156,12 @@ pub(super) fn hold(root: PathBuf, bridge: WeakEntity<OverleafBridge>, cx: &Async
                     drop(client);
                     reason
                 }
-                Err(reason) => reason,
+                Err((reason, expired)) => {
+                    if expired {
+                        cx.update(super::session_changed);
+                    }
+                    reason
+                }
             };
             if super::outcome::is_project_refusal(&reason) {
                 refusals += 1;
@@ -201,12 +206,14 @@ impl Drop for Guard {
 }
 
 /// Connect and join, then record what the join said in the link; the
-/// client, and the project's files.
+/// client, and the project's files. A failure says whether it found the
+/// session expired.
 async fn join(
     root: PathBuf,
     events: mpsc::UnboundedSender<RealtimeEvent>,
-) -> Result<(Arc<RealtimeClient>, Vec<EntityEntry>), String> {
-    let (host, cookie, project_id, user_id) = overleaf::realtime_config(&config_dir(), &root)?;
+) -> Result<(Arc<RealtimeClient>, Vec<EntityEntry>), (String, bool)> {
+    let (host, cookie, project_id, user_id) =
+        overleaf::realtime_config(&config_dir(), &root).map_err(|error| (error, false))?;
     let connecting = lattice_core::runtime::spawn(RealtimeClient::connect(
         RealtimeConfig {
             user_id,
@@ -222,20 +229,23 @@ async fn join(
         Ok(Ok(client)) => Arc::new(client),
         Ok(Err(error)) => {
             let (error, expired) = super::settled::<()>(Err(error));
-            if expired {
-                // The window hears of it on its next read of the session.
-                log::info!("the Overleaf session expired while joining the project");
-            }
-            return Err(error.err().unwrap_or_default());
+            return Err((error.err().unwrap_or_default(), expired));
         }
-        Err(error) => return Err(format!("The Overleaf connection task failed: {error}")),
+        Err(error) => {
+            return Err((
+                format!("The Overleaf connection task failed: {error}"),
+                false,
+            ));
+        }
     };
     let tree = client.project();
     // `joinProject` is the only source of the root folder id uploads need:
     // recorded before the bridge hears the channel is up, as its first
     // automatic sync may start at once.
-    overleaf::set_realtime_metadata(&root, &tree.root_folder_id, tree.permission.as_str())?;
-    overleaf::record_root_document(&root, tree.root_document.as_deref())?;
+    overleaf::set_realtime_metadata(&root, &tree.root_folder_id, tree.permission.as_str())
+        .map_err(|error| (error, false))?;
+    overleaf::record_root_document(&root, tree.root_document.as_deref())
+        .map_err(|error| (error, false))?;
     let entities = tree.entities.clone();
     Ok((client, entities))
 }

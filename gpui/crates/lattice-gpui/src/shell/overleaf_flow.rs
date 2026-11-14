@@ -265,42 +265,25 @@ impl Shell {
         cx.notify();
     }
 
-    /// Review's Apply: save, sync, and tell the dialog how it went once the
-    /// sync is over.
+    /// Review's Apply: save, sync, and tell the dialog how the sync went.
     fn apply_review(&mut self, review: Entity<OverleafReview>, cx: &mut Context<Self>) {
         let saved = self.save_before_leaving(cx);
         self.overleaf_layers.pending = Some(cx.spawn(async move |this, cx| {
+            let not_run = || t!("{action} failed", action = t!("Sync")).to_string();
             if let Some(saved) = saved
                 && !saved.await
             {
-                review.update(cx, |review, cx| review.applied(None, cx));
+                review.update(cx, |review, cx| review.applied(Some(not_run()), cx));
                 return;
             }
-            let started = this
-                .update(cx, |this, cx| {
-                    this.overleaf.update(cx, |bridge, cx| {
-                        bridge.sync(SyncOptions::default(), cx);
-                        bridge.syncing()
-                    })
-                })
-                .unwrap_or(false);
-            if !started {
-                review.update(cx, |review, cx| review.applied(None, cx));
-                return;
-            }
-            // Wait the sync out; its own notice says how it went.
-            loop {
-                cx.background_executor()
-                    .timer(Duration::from_millis(200))
-                    .await;
-                let syncing = this
-                    .update(cx, |this, cx| this.overleaf.read(cx).syncing())
-                    .unwrap_or(false);
-                if !syncing {
-                    break;
-                }
-            }
-            review.update(cx, |review, cx| review.applied(None, cx));
+            let outcome = match this.update(cx, |this, cx| {
+                this.overleaf
+                    .update(cx, |bridge, cx| bridge.sync_reporting(cx))
+            }) {
+                Ok(outcome) => outcome.await.unwrap_or_else(|_| Err(not_run())),
+                Err(_) => return,
+            };
+            review.update(cx, |review, cx| review.applied(outcome.err(), cx));
         }));
     }
 

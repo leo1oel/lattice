@@ -100,6 +100,13 @@ pub fn install(cx: &mut App) -> Entity<ConfirmHost> {
     host
 }
 
+/// A question is open: a caller the writer didn't prompt waits rather than
+/// ask over it.
+pub fn is_pending(cx: &App) -> bool {
+    cx.try_global::<ConfirmCenter>()
+        .is_some_and(|center| center.0.read(cx).pending.is_some())
+}
+
 pub fn ask(question: Confirm, cx: &mut App) {
     let host = install(cx);
     let replaced = host.update(cx, |host, cx| {
