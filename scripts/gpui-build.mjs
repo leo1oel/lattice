@@ -26,6 +26,9 @@
  *   2. fetches PDFium there (`gpui/script/fetch-pdfium`), which the binary
  *      finds next to the tree it was built in;
  *   3. runs `cargo <args>` in its gpui/, with CARGO_BUILD_JOBS=4 unless set;
+ *      a `cargo test` fails as soon as one test runs past the per-test limit
+ *      (300 s, `LATTICE_GPUI_TEST_TIMEOUT_SECONDS`; scripts/lib/test-timeout.mjs)
+ *      rather than holding the lock while it loops;
  *   4. after a `cargo build` of the GPUI workspace, copies `lattice-gpui` back
  *      into this checkout.
  *
@@ -73,6 +76,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { acquireGpuiLock, releaseGpuiLock } from "./lib/gpui-lock.mjs";
 import { mirrorTree } from "./lib/mirror-tree.mjs";
+import { testTimeoutSeconds, watchTestOutput } from "./lib/test-timeout.mjs";
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const DEFAULT_ARGS = ["build", "--release", "--locked", "--features", "lattice-gpui/offscreen-shots"];
@@ -125,16 +129,54 @@ function seconds(since) {
  * Runs cargo without blocking the event loop, so a SIGTERM or Ctrl-C reaches
  * the lock module's handler at once, and stops cargo on the way out rather
  * than leaving it building in the shared tree after the lock is released.
+ *
+ * A `cargo test` runs in a process group of its own with its stdout read
+ * line by line (scripts/lib/test-timeout.mjs): a test that runs past the
+ * per-test limit stops the whole group, test binary included, and fails the
+ * run naming it, instead of holding the build lock until someone notices.
  */
 function runCargo(args, options) {
+  const testing = args[0] === "test" || args[0] === "t";
   return new Promise((resolve, reject) => {
-    const child = spawn("cargo", args, { ...options, stdio: "inherit" });
-    const stop = () => child.exitCode === null && child.kill("SIGTERM");
+    const child = spawn("cargo", args, { ...options, stdio: ["inherit", testing ? "pipe" : "inherit", "inherit"], detached: testing });
+    const signal = (name) => {
+      try {
+        // The group, so the test binary cargo started goes too.
+        process.kill(testing ? -child.pid : child.pid, name);
+      } catch {
+        // Already gone.
+      }
+    };
+    const stop = () => child.exitCode === null && signal("SIGTERM");
     process.on("exit", stop);
+    let timedOut = null;
+    let watch = null;
+    if (testing) {
+      const limitSeconds = testTimeoutSeconds();
+      watch = watchTestOutput({
+        limitSeconds,
+        onTimeout(name) {
+          timedOut = name;
+          console.error(`\n${new Date().toISOString()} gpui-build: test ${name} ran past the ${limitSeconds} s per-test limit (LATTICE_GPUI_TEST_TIMEOUT_SECONDS); stopping cargo test`);
+          signal("SIGTERM");
+          setTimeout(() => child.exitCode === null && signal("SIGKILL"), 5_000).unref();
+        },
+      });
+      let pending = "";
+      child.stdout.on("data", (chunk) => {
+        process.stdout.write(chunk);
+        pending += chunk.toString("utf8");
+        const lines = pending.split("\n");
+        pending = lines.pop();
+        for (const line of lines) watch.line(line);
+      });
+    }
     child.on("error", reject);
-    child.on("close", (code, signal) => {
+    child.on("close", (code, signalName) => {
       process.off("exit", stop);
-      resolve(code ?? (signal ? 1 : 0));
+      watch?.stop();
+      if (timedOut) console.error(`gpui-build: failed: test ${timedOut} timed out`);
+      resolve(timedOut ? 1 : (code ?? (signalName ? 1 : 0)));
     });
   });
 }

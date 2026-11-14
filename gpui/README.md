@@ -302,6 +302,7 @@ target/release/lattice-gpui /tmp/lattice-gpui-e2e --scenario e2e --out e2e.json
 ```
 
 `e2e`, `narrow-window` and `live-preview` run on macOS and Windows; `islands`, `overleaf`, `perf`, `memory`, `ime`, `ime-protocol`, `shot`, `parity` and `pdf-shots` are macOS only.
+`--scenario e2e --only <modules>` (`script/e2e --only <modules>`) runs the e2e scenario's smoke flow and only those modules, with the modules they need (`MODULES` in `crates/lattice-gpui/src/scenario/e2e/steps.rs`; `smoke` for none); a review round runs it that way through `../scripts/gpui-e2e-light.mjs`, and the full scenario runs after each merge in the main baseline ([`docs/agent-validation.md`](../docs/agent-validation.md)).
 
 A scripted run keeps the workspaces and the projects' layouts in memory, so it neither reads nor changes the writer's own; `LATTICE_GPUI_STATE_DIR` names a directory for them instead (an ordinary run keeps them in the system's data directory, under `lattice-gpui/`). `LATTICE_WINDOW_SIZE=1015x680` opens the window at another size, as a smaller screen would (GitHub's runners shrink it to about 1015px wide).
 

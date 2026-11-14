@@ -5,7 +5,11 @@
 # home directory or checkout. Then check what the scenario cannot check from
 # inside: once the app has quit, the file holds the text typed just before.
 #
-# Usage: script/e2e [result.json]   (default: a file in the scratch folder)
+# Usage: script/e2e [--only MODULES] [result.json]
+#   (result default: a file in the scratch folder). --only runs the smoke flow
+#   and those modules (crates/lattice-gpui/src/scenario/e2e/steps.rs; `smoke`
+#   for none), as the pipeline's light pass does through
+#   ../scripts/gpui-e2e-light.mjs; without it the whole scenario runs.
 # Build first, from the repository root: node scripts/gpui-build.mjs (the
 # release build with offscreen-shots, in the machine's shared build tree, copied
 # back to target/release/lattice-gpui; a plain cargo build here starts cold in
@@ -34,6 +38,12 @@
 # fails the run, since it would take the key window from the run in one.
 set -euo pipefail
 
+only=()
+if [ "${1:-}" = "--only" ]; then
+  only=(--only "${2:?--only needs a module list}")
+  shift 2
+fi
+
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 app="$root/target/release/lattice-gpui"
 [ -x "$app" ] || { echo "e2e: $app is missing; build the release binary first" >&2; exit 1; }
@@ -59,7 +69,7 @@ cp -R "$root/fixtures/e2e" "$project"
 # TeX is looked up on PATH; MacTeX's texbin is not on a non-login shell's.
 # The lock's label, shown to a run waiting for it: this checkout.
 LATTICE_GPUI_E2E_LOCK_LABEL="${LATTICE_GPUI_E2E_LOCK_LABEL:-$(cd "$root/.." && pwd)}" \
-GPUI_LAB_IGNORE_OCCLUSION=1 GPUI_LAB_ASSUME_KEY=1 PATH="$PATH:/Library/TeX/texbin" HOME="$scratch/home" "$app" "$project" --scenario e2e --out "$out"
+GPUI_LAB_IGNORE_OCCLUSION=1 GPUI_LAB_ASSUME_KEY=1 PATH="$PATH:/Library/TeX/texbin" HOME="$scratch/home" "$app" "$project" --scenario e2e --out "$out" ${only[@]+"${only[@]}"}
 cat "$out"
 jq -e '.passed == true' "$out" >/dev/null || { echo "e2e: the scenario failed" >&2; exit 1; }
 file="$(jq -r '.after_quit.file' "$out")"

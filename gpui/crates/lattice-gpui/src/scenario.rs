@@ -41,24 +41,30 @@ mod shot;
 pub struct ScenarioArgs {
     pub name: String,
     pub out: PathBuf,
+    /// `--only`: the `e2e` modules to run beside its smoke flow
+    /// (`e2e/steps.rs`, `MODULES`).
+    pub only: Option<String>,
 }
 
-/// `[PROJECT] [--scenario NAME --out FILE]`
+/// `[PROJECT] [--scenario NAME --out FILE [--only MODULES]]`
 pub fn parse_args() -> (Option<PathBuf>, Option<ScenarioArgs>) {
     let mut root = None;
     let mut name = None;
     let mut out = None;
+    let mut only = None;
     let mut args = std::env::args_os().skip(1);
     while let Some(arg) = args.next() {
         match arg.to_str() {
             Some("--scenario") => name = args.next().and_then(|v| v.into_string().ok()),
             Some("--out") => out = args.next().map(PathBuf::from),
+            Some("--only") => only = args.next().and_then(|v| v.into_string().ok()),
             _ => root = Some(PathBuf::from(arg)),
         }
     }
     let scenario = name.map(|name| ScenarioArgs {
         out: out.unwrap_or_else(|| PathBuf::from(format!("{name}.json"))),
         name,
+        only,
     });
     (root, scenario)
 }
@@ -82,7 +88,10 @@ pub fn start(shell: Entity<Shell>, window: AnyWindowHandle, args: ScenarioArgs, 
             None
         };
         let result = match args.name.as_str() {
-            "e2e" => run.e2e(cx).await,
+            "e2e" => match args.only.as_deref().map(e2e::set_only) {
+                Some(Err(error)) => Err(error),
+                _ => run.e2e(cx).await,
+            },
             "narrow-window" => run.narrow_window_alone(cx).await,
             "live-preview" => run.live_preview_scenario(cx).await,
             #[cfg(target_os = "macos")]
