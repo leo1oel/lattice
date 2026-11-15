@@ -30,7 +30,7 @@ use super::{
 impl Run {
     /// Run `call`, a promise expression in the Agent's page, and wait at most
     /// `timeout` for what it settles to: `{ ok }` or `{ error }`.
-    async fn agent_call(
+    pub(super) async fn agent_call(
         &self,
         cx: &mut AsyncApp,
         island: &Entity<Island>,
