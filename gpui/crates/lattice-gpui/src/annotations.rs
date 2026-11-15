@@ -20,6 +20,7 @@ pub mod form;
 pub mod model;
 pub mod panel;
 pub mod rounds;
+pub mod rounds_sheet;
 pub mod store;
 
 /// What an editor asks of the window about a note.

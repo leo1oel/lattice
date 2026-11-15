@@ -223,7 +223,7 @@ fn tab_items(menu: Menu, shell: &gpui::WeakEntity<super::Shell>, view: &str, cx:
 /// editor's Build and Vim mode, the PDF's zoom, the Project tree's New file.
 fn own_items(menu: Menu, view: &AnyView, cx: &App) -> Menu {
     if let Ok(tree) = view.clone().downcast::<crate::file_tree::FileTreePanel>() {
-        return crate::file_tree::FileTreePanel::background_menu(&tree.downgrade(), menu, cx);
+        return crate::file_tree::FileTreePanel::panel_menu(&tree.downgrade(), menu);
     }
     if let Ok(editor) = view.clone().downcast::<crate::editor_panel::EditorPanel>() {
         return editor.read(cx).panel_menu(menu, cx);

@@ -74,6 +74,7 @@ pub(crate) mod memory;
 mod menu;
 mod motion;
 mod naming;
+pub(crate) mod new_entries;
 mod probes;
 mod rows;
 mod search;
@@ -112,6 +113,12 @@ pub enum FileTreeEvent {
         path: String,
         folder: bool,
     },
+    /// Create the slide deck `id` under `slides/`, and open it.
+    CreateDeck {
+        id: String,
+    },
+    /// Open the project's find (the strip's Find in project).
+    FindInProject,
     /// Delete `paths`, already confirmed.
     Delete(Vec<String>),
     /// Import files…: choose files and folders to bring into `target`.
@@ -306,11 +313,11 @@ impl FileTreePanel {
         }
         if let Some(Naming {
             path,
-            kind: NamingKind::Create { folder },
+            kind: NamingKind::Create { making },
             ..
         }) = &self.naming
         {
-            insert_placeholder(&mut nodes, path, *folder);
+            insert_placeholder(&mut nodes, path, making.folder);
         }
         self.read_marks(cx);
         self.figures = Rc::new(
@@ -409,7 +416,7 @@ impl Panel for FileTreePanel {
 
     /// The strip's tools before ⋯, as the Tauri app's Project panel has them
     /// (`trellis-panel-actions.tsx`): + opens what can be added, and Find in
-    /// project, which is not in the GPUI app yet. Each is a 28px square on
+    /// project opens the project's find. Each is a 28px square on
     /// the panel's chrome with the tab's corners, a hairline apart
     /// (`.trellis-accessory-host`).
     fn title_suffix(&mut self, _: &mut Window, cx: &mut Context<Self>) -> Option<impl IntoElement> {
@@ -434,10 +441,10 @@ impl Panel for FileTreePanel {
                     IconButton::new("project-find", Icon::SEARCH)
                         .radius(TAB_RADIUS)
                         .surface(Surface::Chrome)
-                        .tooltip(t!(
-                            "{name} — not in the GPUI preview yet",
-                            name = t!("Find in project")
-                        )),
+                        .tooltip(t!("Find in project"))
+                        .on_click(cx.listener(|this, _, window, cx| {
+                            this.find_in_project(window, cx)
+                        })),
                 ),
         )
     }

@@ -5346,6 +5346,14 @@ msgstr "Data format"
 msgid "Date"
 msgstr "Date"
 
+#: src/project/paper-list-toolbar.tsx
+msgid "Date added"
+msgstr "Date added"
+
+#: src/project/paper-library.tsx
+msgid "Date unknown"
+msgstr "Date unknown"
+
 #: src/papers/bibliography-audit.tsx
 msgid "DBLP"
 msgstr "DBLP"
@@ -5960,6 +5968,10 @@ msgstr "Each checklist item needs its own id."
 #: src/pdf/review-pdf-sheet.tsx
 msgid "Each note is a comment on the passage it is about; reply in your PDF reader and send the file back."
 msgstr "Each note is a comment on the passage it is about; reply in your PDF reader and send the file back."
+
+#: src/project/paper-library.tsx
+msgid "Earlier this month"
+msgstr "Earlier this month"
 
 #: src/app/focus-mode-bar.tsx
 #: src/app/palette-sections.ts
@@ -12251,6 +12263,10 @@ msgstr "Preview unavailable"
 msgid "Preview unavailable for this figure format."
 msgstr "Preview unavailable for this figure format."
 
+#: src/project/paper-library.tsx
+msgid "Previous 7 days"
+msgstr "Previous 7 days"
+
 #: src/app/use-command-table.ts
 msgid "Previous build problem"
 msgstr "Previous build problem"
@@ -12691,6 +12707,10 @@ msgstr "Recent instructions"
 #: src/project/welcome-desk.tsx
 msgid "Recent projects"
 msgstr "Recent projects"
+
+#: src/project/paper-list-toolbar.tsx
+msgid "Recently added"
+msgstr "Recently added"
 
 #: src/onboarding/get-started-panel.tsx
 msgid "Recheck"
@@ -17351,6 +17371,10 @@ msgstr "To do"
 #: src/settings/settings-search-index.ts
 msgid "toast notification"
 msgstr "toast notification"
+
+#: src/project/paper-library.tsx
+msgid "Today"
+msgstr "Today"
 
 #: src/editor/latex/latex-command-completions.ts
 msgid "Today's date"

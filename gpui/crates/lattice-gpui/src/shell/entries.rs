@@ -29,6 +29,9 @@ impl Shell {
             FileTreeEvent::Create { path, folder } => {
                 self.create_entry(path.clone(), *folder, window, cx)
             }
+            FileTreeEvent::CreateDeck { id } => self.create_deck(id.clone(), window, cx),
+            // Opens it, never closes it (`useProjectSearch.openFind`).
+            FileTreeEvent::FindInProject => self.open_find(window, cx),
             FileTreeEvent::Rename { path, name } => {
                 self.rename_entry(path.clone(), name.clone(), window, cx)
             }
@@ -57,7 +60,34 @@ impl Shell {
         }
     }
 
-    fn create_entry(
+    /// New presentation: the deck `id` under `slides/`, made by lattice-core
+    /// as the Tauri app makes it (`create_open_slide_deck`), and opened.
+    fn create_deck(&mut self, id: String, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(project) = self.project.clone() else {
+            return;
+        };
+        let root = project.read(cx).root().to_path_buf();
+        let created = cx.background_spawn({
+            let root = root.clone();
+            async move { core_project::create_open_slide_deck(&root, &id) }
+        });
+        cx.spawn_in(window, async move |this, cx| {
+            let created = created.await;
+            this.update_in(cx, |this, window, cx| {
+                project.update(cx, |project, cx| project.rescan(cx));
+                match created {
+                    Ok(entry) => {
+                        this.open_path(root.join(entry), None, window, cx);
+                    }
+                    Err(error) => notices::error(t!("Could not create it"), error, cx),
+                }
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    pub(super) fn create_entry(
         &mut self,
         path: String,
         folder: bool,

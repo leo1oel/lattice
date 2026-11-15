@@ -134,6 +134,13 @@ impl Shell {
     }
 
     /// ⌘⇧F: Find in project, on the query it was left with.
+    /// Open the project's find, or leave it open (`useProjectSearch.openFind`).
+    pub(crate) fn open_find(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.documents.find.is_none() {
+            self.toggle_find(window, cx);
+        }
+    }
+
     pub(crate) fn toggle_find(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.documents.find.is_some() {
             self.close_document_overlays(window, cx);

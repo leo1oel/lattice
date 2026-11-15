@@ -102,6 +102,9 @@ lucide! {
     PACKAGE_CHECK = "icons" / "package-check";
     FILE_PLAY = "icons" / "file-play";
     FILE_PLUS = "icons" / "file-plus";
+    FILE_CODE_CORNER = "icons" / "file-code-corner";
+    TABLE_2 = "icons" / "table-2";
+    PRESENTATION = "icons" / "presentation";
     FOLDER_INPUT = "icons" / "folder-input";
     ROTATE_CW = "icons" / "rotate-cw";
     FOLDER_PLUS = "icons" / "folder-plus";

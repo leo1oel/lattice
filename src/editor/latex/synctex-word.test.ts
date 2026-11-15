@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clickedWordIn, sourceColumnForWord, sourceWords } from "./synctex-word";
+import { clickedWordIn, sourceColumnForWord, sourceTargetForWord, sourceWords } from "./synctex-word";
 
 /** The clicked word as the PDF reads it: `marker` stands where the double-click landed. */
 function clicked(pdfLine: string, marker = "|") {
@@ -87,5 +87,64 @@ describe("sourceColumnForWord", () => {
 
   it("ignores words in a comment", () => {
     expect(sourceColumnForWord("Text % draft text", clicked("t|ext"))).toBe(0);
+  });
+});
+
+describe("sourceTargetForWord", () => {
+  // A hard-wrapped paragraph, a blank line, and a paragraph on one source
+  // line: the PDF breaks the first one's lines elsewhere than the source does.
+  const source = [
+    String.raw`\section{Introduction}`,
+    "",
+    "Lattice is a local-first writing app for researchers who write in LaTeX and want their",
+    "drafts to stay on their own machine. Every build renders the document beside its source,",
+    "and a double-click in the preview jumps back to the line that produced the clicked word.",
+    "",
+    "A second paragraph on one long line, where the document is named once more.",
+  ];
+  const at = (line: number, word: ReturnType<typeof clicked>) => {
+    const target = sourceTargetForWord((number) => source[number - 1]!, source.length, line, word);
+    return { line: target.line, text: target.column === null ? null : source[target.line - 1]!.slice(target.column) };
+  };
+  /** The second PDF line, which starts with the first source line's last word. */
+  const pdfLine = "their drafts to stay on their own machine. Every build renders the document";
+
+  it("finds the clicked word on the paragraph's other source line SyncTeX did not name", () => {
+    // SyncTeX names the line above for the top of this PDF line's glyphs.
+    expect(at(3, clicked(pdfLine.replace("the document", "the doc|ument")))).toEqual({
+      line: 4, text: "document beside its source,",
+    });
+    expect(at(4, clicked(pdfLine.replace("their drafts", "th|eir drafts")))).toEqual({
+      line: 3, text: "their",
+    });
+  });
+
+  it("reads a word's neighbours across the paragraph's source lines", () => {
+    // "their" is on lines 3 and 4; only line 3's is followed by "drafts", on the next line.
+    expect(at(4, clicked(pdfLine.replace("their drafts", "th|eir drafts")))).toEqual({ line: 3, text: "their" });
+    expect(at(3, clicked(pdfLine.replace("their own", "the|ir own")))).toEqual({
+      line: 4, text: "their own machine. Every build renders the document beside its source,",
+    });
+  });
+
+  it("lands on the paragraph above a blank line SyncTeX named", () => {
+    // pdfTeX records the boxes it builds while reading a paragraph's ending blank line on that line.
+    expect(at(6, clicked("that produced the clicked w|ord."))).toEqual({ line: 5, text: "word." });
+    expect(at(6, clicked("some|thing absent"))).toEqual({ line: 5, text: null });
+    expect(at(2, clicked("Lattice is a lo|cal-first"))).toEqual({ line: 1, text: null });
+  });
+
+  it("keeps to the paragraph it was clicked in", () => {
+    // The second paragraph's "document" is not a candidate for a click in the first.
+    expect(at(5, clicked("renders the doc|ument beside"))).toEqual({ line: 4, text: "document beside its source," });
+    expect(at(7, clicked("where the doc|ument is"))).toEqual({ line: 7, text: "document is named once more." });
+  });
+
+  it("prefers the named line when the paragraph's occurrences score alike", () => {
+    // "a" is on lines 3 and 5, and nothing beside the click on the PDF line says which.
+    expect(at(5, clicked("|a"))).toEqual({ line: 5, text: "a double-click in the preview jumps back to the line that produced the clicked word." });
+    expect(at(3, clicked("|a"))).toEqual({ line: 3, text: "a local-first writing app for researchers who write in LaTeX and want their" });
+    // Off every named line, matching neighbours are needed to choose.
+    expect(at(4, clicked("|a"))).toEqual({ line: 4, text: null });
   });
 });

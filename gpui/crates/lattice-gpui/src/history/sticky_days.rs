@@ -59,6 +59,11 @@ impl StickyDays {
         })
     }
 
+    /// The scrolled area's top, in the window, as last painted.
+    pub(super) fn viewport_top(&self) -> Pixels {
+        self.viewport_top.get()
+    }
+
     /// A probe filling the scrolled area: where its top is.
     pub(super) fn viewport_probe(self: &Rc<Self>) -> AnyElement {
         let this = self.clone();

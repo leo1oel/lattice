@@ -9,6 +9,7 @@
 //! which bring the panel up first. Registered as a window part (`parts.rs`), so other
 //! features' rows land beside these without editing the table.
 
+use crate::file_tree::new_entries::NewEntry;
 use gpui::{Context, InteractiveElement as _, Window, actions};
 use lattice_i18n::t;
 
@@ -30,13 +31,50 @@ actions!(
         ShowDocumentPreview,
         TogglePdfWindow,
         TogglePdfDarkPages,
+        NewLatexFileInProject,
+        NewMarkdownFileInProject,
         NewFolderInProject,
         ImportFilesIntoProject,
+        NewSpreadsheetInProject,
+        NewBoardInProject,
+        NewPresentationInProject,
         RefreshFileTree,
     ]
 );
 
+/// The palette's row for each of the Project panel's entries
+/// (`project-panel-commands.ts`): its id `new-<type>` and its action.
+fn entry_command(entry: NewEntry) -> Command {
+    let label = entry.label();
+    match entry {
+        NewEntry::Latex => Command::new("new-latex", label, Section::Project, NewLatexFileInProject),
+        NewEntry::Markdown => {
+            Command::new("new-markdown", label, Section::Project, NewMarkdownFileInProject)
+        }
+        NewEntry::Folder => Command::new("new-folder", label, Section::Project, NewFolderInProject),
+        NewEntry::Import => {
+            Command::new("new-import", label, Section::Project, ImportFilesIntoProject)
+        }
+        NewEntry::Spreadsheet => {
+            Command::new("new-spreadsheet", label, Section::Project, NewSpreadsheetInProject)
+        }
+        NewEntry::Board => Command::new("new-board", label, Section::Project, NewBoardInProject),
+        NewEntry::Presentation => {
+            Command::new("new-presentation", label, Section::Project, NewPresentationInProject)
+        }
+    }
+}
+
 impl Shell {
+    /// A Project panel entry from the palette: the panel shown, then the
+    /// entry as its + menu adds it (`requestNewEntry`).
+    fn new_entry(&mut self, entry: NewEntry, window: &mut Window, cx: &mut Context<Self>) {
+        self.show_view("project", false, window, cx);
+        self.file_tree()
+            .clone()
+            .update(cx, |tree, cx| tree.new_entry(entry, window, cx))
+    }
+
     /// Show the document in front in `view`, as its switch does.
     fn show_document_view(
         &mut self,
@@ -108,18 +146,7 @@ fn commands(context: &CommandContext, out: &mut Vec<Command>) {
         TogglePdfDarkPages,
     ));
     if context.in_project {
-        out.push(Command::new(
-            "new-folder",
-            t!("New folder"),
-            Section::Project,
-            NewFolderInProject,
-        ));
-        out.push(Command::new(
-            "new-import",
-            t!("Import files…"),
-            Section::Project,
-            ImportFilesIntoProject,
-        ));
+        out.extend(NewEntry::ALL.into_iter().map(entry_command));
         out.push(
             Command::new(
                 "refresh-tree",
@@ -186,18 +213,33 @@ pub(super) const PART: Part = Part {
                     view.update(cx, |view, cx| view.toggle_dark_pages(cx))
                 }),
             )
+            .on_action(cx.listener(|this: &mut Shell, _: &NewLatexFileInProject, window, cx| {
+                this.new_entry(NewEntry::Latex, window, cx)
+            }))
             .on_action(
-                cx.listener(|this: &mut Shell, _: &NewFolderInProject, window, cx| {
-                    this.show_view("project", false, window, cx);
-                    this.file_tree()
-                        .clone()
-                        .update(cx, |tree, cx| tree.begin_create("", true, window, cx))
+                cx.listener(|this: &mut Shell, _: &NewMarkdownFileInProject, window, cx| {
+                    this.new_entry(NewEntry::Markdown, window, cx)
+                }),
+            )
+            .on_action(cx.listener(|this: &mut Shell, _: &NewFolderInProject, window, cx| {
+                this.new_entry(NewEntry::Folder, window, cx)
+            }))
+            .on_action(
+                cx.listener(|this: &mut Shell, _: &ImportFilesIntoProject, window, cx| {
+                    this.new_entry(NewEntry::Import, window, cx)
                 }),
             )
             .on_action(
-                cx.listener(|this: &mut Shell, _: &ImportFilesIntoProject, window, cx| {
-                    this.show_view("project", false, window, cx);
-                    this.choose_imports(String::new(), window, cx)
+                cx.listener(|this: &mut Shell, _: &NewSpreadsheetInProject, window, cx| {
+                    this.new_entry(NewEntry::Spreadsheet, window, cx)
+                }),
+            )
+            .on_action(cx.listener(|this: &mut Shell, _: &NewBoardInProject, window, cx| {
+                this.new_entry(NewEntry::Board, window, cx)
+            }))
+            .on_action(
+                cx.listener(|this: &mut Shell, _: &NewPresentationInProject, window, cx| {
+                    this.new_entry(NewEntry::Presentation, window, cx)
                 }),
             )
             .on_action(cx.listener(|this: &mut Shell, _: &RefreshFileTree, _, cx| {

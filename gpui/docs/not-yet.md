@@ -5,8 +5,6 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] Margin review's J/K walk between items.
 
-- [ ] The Revision rounds sheet, comparing a round's versions (and the round saved toast's Compare).
-
 - [ ] The Annotations panel's Export review PDF….
 
 - [ ] The PDF: a note's preview card on hover, and annotating a selection in a project linked to Overleaf (it becomes an Overleaf comment there).
@@ -39,8 +37,6 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] A paper dragged from Papers into the editor as a citation.
 
-- [ ] The Project panel's + and ⋯ menus' New spreadsheet, New board and New presentation, and Find in project.
-
 - [ ] The workspace switch's sliding plate, drag to reorder and keyboard.
 
 - [ ] Export figures for a journal….
@@ -48,8 +44,6 @@ A feature that lands deletes its own line (only that line, so features landing s
 - [ ] New project's My templates and Save a local template….
 
 - [ ] Each file's editor place kept across launches (the PDF's is kept).
-
-- [ ] The palette's New LaTeX file, New Markdown file, New spreadsheet, New board and New presentation (the Project panel cannot make a typed file yet).
 
 - [ ] Papers' hover prewarm of a paper the pointer is likely to open.
 

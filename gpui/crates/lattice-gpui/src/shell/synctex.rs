@@ -5,7 +5,7 @@ use editor::{SelectionEffects, scroll::Autoscroll};
 use gpui::{App, AppContext as _, Context, Entity, Window};
 use language::Point;
 use lattice_core::latex;
-use lattice_editor::latex::synctex_word::{SyncTexWord, source_column_for_word};
+use lattice_editor::latex::synctex_word::{SyncTexWord, source_target_for_word};
 use lattice_i18n::{n, t, tr};
 
 use super::{ForwardSync, Shell, pdf_sync::PdfSync};
@@ -173,7 +173,8 @@ impl Shell {
                         let editor =
                             this.open_path(root.join(&target.path), Some(target.line), window, cx);
                         // The word clicked lands the caret on it within that
-                        // line, when the line can tell it apart.
+                        // line's paragraph, when the paragraph can tell it
+                        // apart.
                         if let (Some(editor), Some(word)) = (editor, word) {
                             land_on_word(&editor, target.line, &word, window, cx);
                         }
@@ -190,8 +191,10 @@ impl Shell {
     }
 }
 
-/// Put the caret on `word` in the 1-based `line` of `editor`, when the line
-/// holds it unambiguously (`synctex_word`).
+/// Put the caret on `word` in the paragraph around the 1-based `line` of
+/// `editor`, when the paragraph holds it unambiguously, or on the
+/// paragraph's line when SyncTeX named the blank line after it
+/// (`synctex_word::source_target_for_word`).
 fn land_on_word(
     editor: &Entity<EditorPanel>,
     line: u32,
@@ -201,17 +204,22 @@ fn land_on_word(
 ) {
     let zed = editor.read(cx).editor().clone();
     let text = zed.read(cx).text(cx);
-    let row = line.saturating_sub(1) as usize;
-    let Some(source) = text.split('\n').nth(row) else {
+    let lines: Vec<&str> = text.split('\n').collect();
+    if line == 0 || line as usize > lines.len() {
         return;
-    };
-    let Some(column) = source_column_for_word(source, word) else {
+    }
+    let (found, column) = source_target_for_word(&lines, line as usize, word);
+    if found == line as usize && column.is_none() {
         return;
-    };
-    let byte = source
-        .char_indices()
-        .nth(column)
-        .map_or(source.len(), |(at, _)| at);
+    }
+    let row = found - 1;
+    let source = lines[row];
+    let byte = column.map_or(0, |column| {
+        source
+            .char_indices()
+            .nth(column)
+            .map_or(source.len(), |(at, _)| at)
+    });
     let point = Point::new(row as u32, byte as u32);
     zed.update(cx, |zed, cx| {
         zed.change_selections(

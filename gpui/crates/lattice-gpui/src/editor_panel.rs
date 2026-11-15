@@ -55,6 +55,7 @@ mod editor_events;
 mod events;
 pub mod find_bar;
 mod highlight_palette;
+pub(crate) mod index_lint;
 mod insert;
 pub(crate) mod latex_format;
 pub(crate) mod latex_input;
@@ -144,6 +145,8 @@ pub struct EditorPanel {
     editor: Entity<Editor>,
     /// TexLab's diagnostics, for a `.tex` file.
     diagnostics: Option<Entity<TexlabDiagnostics>>,
+    /// The source's own lint, for a `.tex` file (`index_lint`).
+    index_lint: Option<Entity<index_lint::IndexLint>>,
     /// The spell check, for a `.tex`, `.md` or `.txt` file (`spelling`).
     spelling: Option<Entity<lattice_editor::latex::spelling::Spelling>>,
     _spelling_events: Option<Subscription>,
@@ -412,6 +415,7 @@ impl EditorPanel {
             lattice,
             editor,
             diagnostics,
+            index_lint: None,
             spelling: None,
             _spelling_events: None,
             builds_seen,
@@ -475,6 +479,7 @@ impl EditorPanel {
         this.ensure_bib_for_view(window, cx);
         this.attach_structured(window, cx);
         this.attach_spelling(cx);
+        this.attach_index_lint(cx);
         this.attach_annotations(cx);
         this.attach_review_marks(cx);
         this.paint_highlights(cx);
