@@ -34,9 +34,9 @@ use crate::{
 /// Tauri app's outline tree (`OutlineNode` in `latex-outline.ts`): each
 /// heading holds the ones nested under it.
 pub fn outline_nodes(headings: &[Heading]) -> Value {
-    fn node(heading: &Heading) -> Value {
+    fn node(index: usize, heading: &Heading) -> Value {
         let mut node = json!({
-            "id": format!("{}:{}", heading.path, heading.line),
+            "id": format!("{}:{}:{index}", heading.path, heading.line),
             "level": heading.level,
             "title": heading.title,
             "line": heading.line,
@@ -66,14 +66,14 @@ pub fn outline_nodes(headings: &[Heading]) -> Value {
             None => roots.push(done),
         }
     };
-    for heading in headings {
+    for (index, heading) in headings.iter().enumerate() {
         while open
             .last()
             .is_some_and(|(depth, _)| *depth >= heading.depth)
         {
             close(&mut open, &mut roots);
         }
-        open.push((heading.depth, node(heading)));
+        open.push((heading.depth, node(index, heading)));
     }
     while !open.is_empty() {
         close(&mut open, &mut roots);
@@ -194,7 +194,7 @@ mod tests {
 
     /// The shape `latex-outline.ts` parses `\section{A} \subsection{A.1}
     /// \subsection{A.2} \section{B}` into: two roots, the first holding both
-    /// subsections, and ids unique by file and line.
+    /// subsections, and ids unique by file, line and place in reading order.
     #[test]
     fn nested_headings_become_the_tauri_apps_outline_tree() {
         let nodes = outline_nodes(&[
@@ -214,7 +214,7 @@ mod tests {
         assert_eq!(titles(&nodes), ["A", "B"]);
         assert_eq!(titles(&nodes[0]["children"]), ["A.1", "A.2"]);
         assert_eq!(titles(&nodes[1]["children"]), Vec::<String>::new());
-        assert_eq!(nodes[0]["children"][1]["id"], "main.tex:7");
+        assert_eq!(nodes[0]["children"][1]["id"], "main.tex:7:2");
         assert_eq!(nodes[0]["level"], 3);
         assert!(nodes[0].get("starred").is_none());
     }
@@ -227,5 +227,16 @@ mod tests {
         let nodes = outline_nodes(&[appendix]);
         assert_eq!(nodes[0]["starred"], true);
         assert_eq!(nodes[0]["appendix"], true);
+    }
+
+    /// `\chapter{Intro}\section{Background}` on one line: the rail numbers
+    /// rows by id, so the two must not share one.
+    #[test]
+    fn two_headings_on_one_line_get_distinct_ids() {
+        let nodes = outline_nodes(&[heading(2, "Intro", 4, 0), heading(3, "Background", 4, 1)]);
+        let chapter = &nodes[0]["id"];
+        let section = &nodes[0]["children"][0]["id"];
+        assert_eq!(nodes[0]["children"][0]["title"], "Background");
+        assert_ne!(chapter, section);
     }
 }

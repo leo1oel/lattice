@@ -186,13 +186,14 @@ impl StructuredDocument {
         this._subscriptions
             .push(cx.observe(&index, |this, index, cx| this.index_changed(&index, cx)));
         // A source changing on disk (a save among them) may use a label or
-        // key, or stop using one.
+        // key, or stop using one; a bibliography may define or drop a key.
         this._subscriptions.push(cx.subscribe(project, |this, _, event, cx| {
             if let ProjectEvent::FilesChanged(paths) = event
                 && paths.as_ref().is_none_or(|paths| {
-                    paths
-                        .iter()
-                        .any(|path| path.to_ascii_lowercase().ends_with(".tex"))
+                    paths.iter().any(|path| {
+                        let path = path.to_ascii_lowercase();
+                        path.ends_with(".tex") || path.ends_with(".bib")
+                    })
                 })
             {
                 this.read_unused(cx);
