@@ -113,13 +113,13 @@ impl OverleafBridge {
             // difference is typing that has not reached it.
             let typed = ot.local(&buffer);
             if typed.replaced {
-                panel.update(cx, |panel, cx| panel.take_overleaf_text(ot.text(), cx));
+                panel.update(cx, |panel, cx| panel.take_overleaf_text(ot.text(), false, cx));
             }
             typed_ops = typed.ops;
             typed.send
         } else if agreed.as_deref() == Some(buffer.as_str()) {
             // Only Overleaf moved: take its text.
-            panel.update(cx, |panel, cx| panel.take_overleaf_text(&joined.text, cx));
+            panel.update(cx, |panel, cx| panel.take_overleaf_text(&joined.text, true, cx));
             None
         } else {
             // Both moved: regular sync merges it, keeping the work here.

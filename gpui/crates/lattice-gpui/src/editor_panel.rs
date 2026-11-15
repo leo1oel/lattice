@@ -71,6 +71,8 @@ pub mod paper_text;
 pub mod proofread;
 pub mod rail_outline;
 pub(crate) mod reveal_flash;
+mod review_bar;
+mod review_marks;
 mod save;
 mod save_slot;
 mod selection_toolbar;
@@ -168,6 +170,8 @@ pub struct EditorPanel {
     proofread: proofread::ProofreadState,
     /// The agent's proposal under review (`annotation_review.rs`).
     review: Option<annotation_review::ReviewSession>,
+    /// Track changes' base, marks and accepts (`review_marks.rs`).
+    review_marks: review_marks::ReviewMarks,
     /// The file's word count as of opening or the last save; counted off the
     /// main thread.
     words: Option<usize>,
@@ -309,6 +313,7 @@ impl EditorPanel {
                     this.latex_source_changed(cx);
                     this.structured_source_changed(cx);
                     this.annotations_edited(cx);
+                    this.review_edited(cx);
                     this.highlights_edited(cx);
                 }
                 BufferEvent::DirtyChanged | BufferEvent::Saved => {
@@ -464,6 +469,7 @@ impl EditorPanel {
             toolbar: Default::default(),
             proofread: Default::default(),
             review: None,
+            review_marks: Default::default(),
             words: None,
             buffer_todos: None,
             status_width: Default::default(),
@@ -509,6 +515,7 @@ impl EditorPanel {
         this.attach_structured(window, cx);
         this.attach_spelling(cx);
         this.attach_annotations(cx);
+        this.attach_review_marks(cx);
         this.paint_highlights(cx);
         this
     }
@@ -732,6 +739,7 @@ impl Render for EditorPanel {
                 .size_full()
                 .flex()
                 .flex_col()
+                .children(self.render_review_bar(window, cx))
                 .children(search)
                 .child(self.render_source(window, cx))
                 .into_any_element(),
@@ -741,6 +749,17 @@ impl Render for EditorPanel {
         let root = Self::latex_commands(div().key_context("LatticeEditor"), cx);
         Self::panel_actions(Self::latex_input_actions(root, cx), cx)
             .on_action(cx.listener(Self::deploy_search))
+            // An accept is an undo step of the editor's (`review_marks.rs`).
+            .capture_action(cx.listener(|this, _: &editor::actions::Undo, window, cx| {
+                if this.editor().focus_handle(cx).is_focused(window) && this.review_undo(cx) {
+                    cx.stop_propagation();
+                }
+            }))
+            .capture_action(cx.listener(|this, _: &editor::actions::Redo, window, cx| {
+                if this.editor().focus_handle(cx).is_focused(window) && this.review_redo(cx) {
+                    cx.stop_propagation();
+                }
+            }))
             // Before Zed's editor pastes: an image becomes a figure.
             .capture_action(cx.listener(|this, _: &editor::actions::Paste, window, cx| {
                 if this.editor().focus_handle(cx).is_focused(window) && this.pastes_image(cx) {

@@ -21,6 +21,7 @@ mod overleaf;
 mod overleaf_rows;
 pub mod panel;
 mod prose;
+pub mod review_mode;
 mod row;
 pub(crate) mod time;
 mod timeline;
