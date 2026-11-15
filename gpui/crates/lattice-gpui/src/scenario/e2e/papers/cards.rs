@@ -40,7 +40,8 @@ impl Run {
         })?;
         let lattice = cx.update(|cx| panel.read(cx).lattice_editor().clone());
 
-        // The card over the first use lists both, in their sections.
+        // The card over the first use lists them all, in their sections.
+        self.reveal(cx, &panel, KEY).await?;
         let (_, key) = self.text_point(cx, &panel, &lattice, KEY, 4).await?;
         self.hover_at(cx, key.center()).await?;
         let shown = self.wait_for_card(cx, &lattice, "citation").await;
@@ -53,14 +54,24 @@ impl Run {
             None => Vec::new(),
         };
         self.papers_looks(cx, "papers-8-citation-card").await?;
+        // One use per cite of the key in the file. A full run's earlier
+        // modules may have cited it again in `\section{Method}` (the
+        // editor adapter's completion step does), so count them in the
+        // text rather than assume the fixture's one; only the cite added
+        // here names a page, in its own section, last.
+        let cites = cx.update(|cx| panel.read(cx).text_and_caret(cx).0).matches("{knuth1984}").count();
+        let (earlier, last) = uses.split_at(uses.len().saturating_sub(1));
         steps.check(
             "a citation card lists the key's uses here, each in its section with the page its note names",
             shown.is_some()
-                && uses.len() == 2
-                && uses[0].page.is_none()
-                && uses[1].page == Some(5)
-                && uses[1].section.as_deref().is_some_and(|section| section.ends_with("Later")),
-            json!({ "shown": shown.is_some(), "uses": format!("{uses:?}") }),
+                && cites >= 2
+                && uses.len() == cites
+                && earlier.iter().all(|row| row.page.is_none())
+                && last.first().is_some_and(|row| {
+                    row.page == Some(5)
+                        && row.section.as_deref().is_some_and(|section| section.ends_with("Later"))
+                }),
+            json!({ "shown": shown.is_some(), "cites": cites, "uses": format!("{uses:?}") }),
         );
 
         // "Why cited" from the card files a reason on that use.

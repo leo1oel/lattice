@@ -7,6 +7,7 @@
 use std::time::Duration;
 
 use anyhow::{Context as _, Result};
+use editor::{MultiBufferOffset, SelectionEffects, scroll::Autoscroll};
 use gpui::{AsyncApp, Bounds, Entity, Pixels, Point, point, px};
 use lattice_editor::LatticeEditor;
 
@@ -58,6 +59,39 @@ impl Run {
             })?
             .context("the editor was not drawn")?;
         Ok((offset, rect))
+    }
+
+    /// Put the caret on `needle` in `panel`'s text, its line in the middle
+    /// of the editor, and let the view settle, so a pointer sent to it next
+    /// rests on it. An earlier module of a full run can leave the editor in
+    /// a short split pane, where a later line sits below the pane's bottom
+    /// edge, or where an edit still scrolls the view after a character's
+    /// place was read.
+    pub(in crate::scenario) async fn reveal(
+        &self,
+        cx: &mut AsyncApp,
+        panel: &Entity<EditorPanel>,
+        needle: &str,
+    ) -> Result<()> {
+        let at = self
+            .editor_text(cx, panel)
+            .find(needle)
+            .context("the text is in the file")?;
+        let editor = cx.update(|cx| panel.read(cx).editor().clone());
+        self.with_window(cx, move |_, window, cx| {
+            editor.update(cx, |editor, cx| {
+                editor.change_selections(
+                    SelectionEffects::scroll(Autoscroll::center()),
+                    window,
+                    cx,
+                    |selections| {
+                        selections.select_ranges([MultiBufferOffset(at)..MultiBufferOffset(at)])
+                    },
+                )
+            })
+        })?;
+        self.pause(cx, Duration::from_millis(300)).await;
+        Ok(())
     }
 
     pub(in crate::scenario) async fn hover_at(

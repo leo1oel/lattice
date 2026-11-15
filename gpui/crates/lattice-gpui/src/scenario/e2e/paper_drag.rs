@@ -52,7 +52,17 @@ impl Run {
         let papers = cx.update(|cx| self.shell.read(cx).papers().clone());
 
         let outcome = self.paper_drag_steps(cx, steps, root, &papers).await;
-        std::fs::write(&bibliography, original)?;
+        std::fs::write(&bibliography, &original)?;
+        // An editor still open on the bibliography (an earlier module's)
+        // takes the file back as an outside edit a moment later; the next
+        // module (the .bib form's) must find it as it was, not have the
+        // reload land under its edits and undo steps.
+        self.wait_for(cx, Duration::from_secs(10), |shell, cx| {
+            shell
+                .update(cx, |shell, cx| shell.open_editor(&bibliography, cx))
+                .is_none_or(|editor| editor.read(cx).editor().read(cx).text(cx) == original)
+        })
+        .await;
         std::fs::remove_dir_all(root.join(BUNDLE)).ok();
         std::fs::remove_file(root.join(LATEX_PATH)).ok();
         std::fs::remove_dir_all(root.join("notes")).ok();

@@ -227,6 +227,7 @@ impl Run {
             ("fig:curve},", "reference", "figure-card"),
             ("figures/curve}", "graphics", "graphics-path-card"),
         ] {
+            self.reveal(cx, panel, needle).await?;
             let (_, at) = self.text_point(cx, panel, lattice, needle, 4).await?;
             self.hover_at(cx, at.center()).await?;
             let shown = self.wait_for_card(cx, lattice, card).await.is_some();
@@ -385,6 +386,7 @@ impl Run {
         );
 
         // The `\eqref` in the closing sentence.
+        self.reveal(cx, panel, "eq:area} and").await?;
         let (_, at) = self
             .text_point(cx, panel, lattice, "eq:area} and", 4)
             .await
