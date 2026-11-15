@@ -52,6 +52,7 @@ use super::{
 use crate::research_art::{Drawing, research_art};
 
 mod cards;
+mod rounds_view;
 
 /// A card leaving the list goes on the moderate exit (`LEAVE_MS`), then
 /// the change lands.
@@ -135,6 +136,8 @@ pub struct AnnotationsPanel {
     leaving: HashMap<String, Instant>,
     outcomes: HashMap<String, (Outcome, Instant)>,
     scroll: ScrollHandle,
+    /// The revision rounds the panel shows (`panel/rounds_view.rs`).
+    rounds: rounds_view::RoundsView,
     _tasks: Vec<Task<()>>,
     _subscriptions: Vec<Subscription>,
 }
@@ -169,6 +172,7 @@ impl AnnotationsPanel {
             leaving: HashMap::new(),
             outcomes: HashMap::new(),
             scroll: ScrollHandle::new(),
+            rounds: Default::default(),
             _tasks: Vec::new(),
             _subscriptions: subscriptions,
         }
@@ -797,11 +801,13 @@ impl Render for AnnotationsPanel {
         div()
             .track_focus(&self.focus_handle)
             .key_context("AnnotationsPanel")
+            .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, _, cx| this.rounds_key(event, cx)))
             .size_full()
             .flex()
             .flex_col()
             .px(SPACING_5)
             .child(header)
+            .children(self.rounds_banner(&notes, &self.rounds_list(cx), cx))
             .child(
                 div()
                     .relative()
@@ -817,6 +823,7 @@ impl Render for AnnotationsPanel {
                         ))
                     }),
             )
+            .children(self.rounds_foot(&notes, cx))
     }
 }
 

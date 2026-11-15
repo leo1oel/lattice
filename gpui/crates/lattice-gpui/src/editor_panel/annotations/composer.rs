@@ -261,6 +261,14 @@ impl EditorPanel {
                 .keys(save_keys)
                 .disabled(!saveable)
                 .on_click(cx.listener(|this, _, window, cx| this.save_draft(window, cx))),
+        )
+        .child(
+            Button::new("annotation-save-revise", t!("Save and revise now"))
+                .variant(ButtonVariant::Ghost)
+                .size(ButtonSize::Compact)
+                .keys(if cfg!(target_os = "macos") { "⇧⌘↵" } else { "Ctrl+Shift+Enter" })
+                .disabled(!saveable)
+                .on_click(cx.listener(|this, _, window, cx| this.save_note(true, window, cx))),
         );
         div()
             .flex()

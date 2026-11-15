@@ -264,7 +264,7 @@ pub struct Author {
     pub name: String,
 }
 
-fn now() -> String {
+pub(crate) fn now() -> String {
     Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true)
 }
 

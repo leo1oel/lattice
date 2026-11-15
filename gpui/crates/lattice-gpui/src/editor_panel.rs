@@ -45,6 +45,7 @@ use lattice_editor::{
 };
 use zed_actions::buffer_search::Deploy;
 
+mod annotation_review;
 mod annotations;
 mod bib_view;
 mod buffer_counts;
@@ -184,6 +185,8 @@ pub struct EditorPanel {
     toolbar: selection_toolbar::ToolbarState,
     /// The inline Proofread, Polish and Rewrite card (`proofread.rs`).
     proofread: proofread::ProofreadState,
+    /// The agent's proposal under review (`annotation_review.rs`).
+    review: Option<annotation_review::ReviewSession>,
     /// The file's word count as of opening or the last save; counted off the
     /// main thread.
     words: Option<usize>,
@@ -478,6 +481,7 @@ impl EditorPanel {
             annotations: Default::default(),
             toolbar: Default::default(),
             proofread: Default::default(),
+            review: None,
             words: None,
             buffer_todos: None,
             status_width: Default::default(),

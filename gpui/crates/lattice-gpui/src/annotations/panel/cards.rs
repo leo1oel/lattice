@@ -52,6 +52,8 @@ impl AnnotationsPanel {
             location,
             model::relative_time(&comment.created_at, true),
         ]);
+        let revising = self.revising(&id, cx);
+        let extras = self.round_extras(comment, window, cx);
         let meta = div()
             .flex()
             .flex_wrap()
@@ -62,7 +64,21 @@ impl AnnotationsPanel {
             .text_role(TextRole::Caption, cx)
             .font_features(tabular_nums())
             .text_color(palette.text_secondary)
-            .when(status != Status::Open, |this| {
+            .when(revising, |this| {
+                this.child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .gap(px(4.))
+                        .child(crate::build::chip_mark::infinity_loader(
+                            ("annotation-revising", hash(&id)),
+                            px(11.),
+                            &palette,
+                        ))
+                        .child(t!("Revising…")),
+                )
+            })
+            .when(status != Status::Open && !revising, |this| {
                 let ink = match status {
                     Status::Rejected => palette.text_secondary,
                     Status::Failed => palette.danger,
@@ -148,7 +164,10 @@ impl AnnotationsPanel {
             )
             .on_click(cx.listener(move |this, _, _, cx| {
                 this.active_note = Some(open_comment.id.clone());
-                cx.emit(AnnotationsPanelEvent::Open(open_comment.clone()));
+                // A proposal opens for review under its passage.
+                if !this.review_proposal(&open_comment, cx) {
+                    cx.emit(AnnotationsPanelEvent::Open(open_comment.clone()));
+                }
                 cx.notify();
             }));
         let replies =
@@ -292,6 +311,7 @@ impl AnnotationsPanel {
                 this.opacity(1. - progress).top(px(-2. * progress))
             })
             .child(body)
+            .children(extras)
             .children(replies)
             .children(writing)
             .children(actions)
@@ -357,7 +377,7 @@ impl AnnotationsPanel {
     }
 }
 
-fn hash(id: &str) -> usize {
+pub(super) fn hash(id: &str) -> usize {
     let mut hash: usize = 0xcbf2_9ce4;
     for byte in id.bytes() {
         hash = (hash ^ byte as usize).wrapping_mul(0x0100_0193);

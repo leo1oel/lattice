@@ -91,7 +91,7 @@ pub const RIGHT_ARROW: char = '\u{f703}';
 
 /// The ANSI virtual key code for a character, as Lattice's perf lab maps it.
 pub fn key_code(character: char) -> u16 {
-    const CODES: [(char, u16); 46] = [
+    const CODES: [(char, u16); 47] = [
         ('a', 0x00),
         ('s', 0x01),
         ('d', 0x02),
@@ -123,6 +123,8 @@ pub fn key_code(character: char) -> u16 {
         ('\\', 0x2A),
         (',', 0x2B),
         ('\u{1b}', 0x35),
+        // Backspace (the Delete key), which AppKit sends as DEL.
+        ('\u{8}', 0x33),
         // The interface size's ⌘=, ⌘- and ⌘0.
         ('=', 0x18),
         ('-', 0x1B),
@@ -152,6 +154,7 @@ pub fn key_code(character: char) -> u16 {
 pub fn send_key(native: Native, character: char, command: bool) -> Result<()> {
     let text = match character {
         '\n' => "\r".to_string(),
+        '\u{8}' => "\u{7f}".to_string(),
         other => other.to_string(),
     };
     let characters = NSString::from_str(&text);
