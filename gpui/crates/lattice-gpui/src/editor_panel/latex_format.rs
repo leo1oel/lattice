@@ -192,6 +192,37 @@ impl EditorPanel {
 
     /// Run `command` on the text and the main selection (its head is `to`
     /// for a caret), or pass the key on outside a LaTeX file.
+    /// An edit the window asks for on the main selection (Wrap in
+    /// environment…, Rename environment), applied as the keys' are, the
+    /// keyboard back in the text.
+    pub(crate) fn edit_latex_selection(
+        &mut self,
+        make: impl FnOnce(&str, usize, usize) -> Option<FormatEdit>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.run_latex_command(
+            |text, from, to| make(text, from, to).map_or(Outcome::Nothing, Outcome::Edit),
+            window,
+            cx,
+        );
+        let focus = gpui::Focusable::focus_handle(self.editor().read(cx), cx);
+        window.focus(&focus, cx);
+    }
+
+    /// The text, and the main selection's start and end (its head is the
+    /// end for a caret).
+    pub(crate) fn latex_selection(&self, cx: &gpui::App) -> (String, usize, usize) {
+        let editor = self.editor().read(cx);
+        let snapshot = editor.buffer().read(cx).snapshot(cx);
+        let selection = editor.selections.newest_anchor();
+        (
+            snapshot.text(),
+            selection.start.to_offset(&snapshot).0,
+            selection.end.to_offset(&snapshot).0,
+        )
+    }
+
     fn run_latex_command(
         &mut self,
         command: impl FnOnce(&str, usize, usize) -> Outcome,

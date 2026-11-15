@@ -28,6 +28,7 @@ mod build_tools;
 pub mod commands;
 mod documents;
 mod editor_events;
+mod environment_flow;
 mod editors;
 mod entries;
 mod get_started_flow;
@@ -89,6 +90,7 @@ pub use commands::{
 pub use get_started_flow::ShowGetStarted;
 pub use help_flow::{ReportProblem, WhatsNew};
 pub use insert_flow::{InsertTable, PasteImageAsFigure};
+pub use environment_flow::{RenameEnvironment, WrapInEnvironment};
 pub use insert_pickers_flow::{GoToLine, GoToSymbol, InsertCitation, InsertReference};
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 pub use overleaf_collab::AnnotateSelection;

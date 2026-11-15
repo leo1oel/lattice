@@ -121,6 +121,16 @@ fn default_bindings() -> Vec<KeyBinding> {
             Some(LATEX_FORMAT_KEYS),
         ),
         KeyBinding::new(
+            m!("shift-e"),
+            crate::shell::WrapInEnvironment,
+            Some(LATEX_FORMAT_KEYS),
+        ),
+        KeyBinding::new(
+            m!("alt-r"),
+            crate::shell::RenameEnvironment,
+            Some(LATEX_FORMAT_KEYS),
+        ),
+        KeyBinding::new(
             "ctrl-m",
             crate::editor_panel::latex_format::MatchingEnvironment,
             Some(LATEX_FORMAT_KEYS),

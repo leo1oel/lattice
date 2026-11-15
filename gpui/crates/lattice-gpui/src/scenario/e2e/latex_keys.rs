@@ -178,6 +178,44 @@ impl Run {
             json!({ "outcomes": outcomes }),
         );
 
+        // ⌘⇧E asks for the environment, `equation` to start with; Enter wraps
+        // the word in it. ⌘⌥R inside renames both its delimiters.
+        self.select(cx, &editor, at, at + word.len())?;
+        let wrap = Keystroke::parse(key("cmd-shift-e", "ctrl-shift-e"))
+            .map_err(|error| anyhow::anyhow!("{error}"))?;
+        self.with_window(cx, move |_, window, cx| window.dispatch_keystroke(wrap, cx))?;
+        self.pause(cx, Duration::from_millis(300)).await;
+        let asked = cx.update(|cx| self.shell.read(cx).references.rename.is_some());
+        self.press(cx, '\n', false).await?;
+        self.pause(cx, Duration::from_millis(300)).await;
+        let (wrapped, _) = self.text_and_selection(cx, &editor);
+        let inside = wrapped.find(word).context("the wrapped word")?;
+        self.select(cx, &editor, inside, inside)?;
+        let rename = Keystroke::parse(key("cmd-alt-r", "ctrl-alt-r"))
+            .map_err(|error| anyhow::anyhow!("{error}"))?;
+        self.with_window(cx, move |_, window, cx| {
+            window.dispatch_keystroke(rename, cx)
+        })?;
+        self.pause(cx, Duration::from_millis(300)).await;
+        // The name replaced whole, wherever the field's caret starts.
+        self.press(cx, 'a', true).await?;
+        self.type_text(cx, "equation*\n").await?;
+        self.pause(cx, Duration::from_millis(300)).await;
+        let (renamed, _) = self.text_and_selection(cx, &editor);
+        steps.check(
+            "⌘⇧E wraps the selection in the environment named (equation by default), and ⌘⌥R renames both its delimiters",
+            asked
+                && wrapped.contains(&format!("\\begin{{equation}}\n{word}\n\\end{{equation}}"))
+                && renamed.contains(&format!("\\begin{{equation*}}\n{word}\n\\end{{equation*}}")),
+            json!({ "asked": asked, "wrapped": wrapped.lines().nth(1), "renamed": renamed.lines().take(5).collect::<Vec<_>>() }),
+        );
+        self.with_window(cx, |_, window, cx| {
+            editor.update(cx, |editor, cx| {
+                let len = editor.text_and_caret(cx).0.len();
+                editor.replace_range(0, len, &original, 0, window, cx)
+            })
+        })?;
+
         // The chapter as it was, for the modules after.
         self.with_window(cx, |_, window, cx| {
             editor.update(cx, |editor, cx| {
