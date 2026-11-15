@@ -371,6 +371,10 @@ Keep the previous checkout available until the upgrade audit passes.
    bun run --cwd apps/web test:browser -- src/components/ChatView.browser.tsx -t "previews out-of-workspace figure renders without opening the embedded dock"
    bun run --cwd apps/web test:browser -- src/components/ChatThreadRoute.embedForeignThread.browser.tsx
    ```
+   Then run the regression that opens the slash menu above the Context bar a live editor selection shows, instead of behind it:
+   ```sh
+   bun run --cwd apps/web test:browser -- src/components/ChatView.browser.tsx -t "Lattice's floating context bar"
+   ```
    Then run the browser and unit regressions that keep a long draft's composer inside a short Agent panel:
    ```sh
    bun run --cwd apps/web test:browser -- src/components/ChatView.browser.tsx -t "short chat column"
