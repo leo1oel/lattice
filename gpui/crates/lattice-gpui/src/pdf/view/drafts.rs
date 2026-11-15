@@ -123,6 +123,8 @@ impl PdfView {
     }
 
     /// Start editing a value with `draft` typed in, as a scenario types it.
+    /// The zoom opens as the overflow menu's percentage does, so its field
+    /// is drawn in a toolbar too narrow to show it.
     pub fn edit_draft_to(
         &mut self,
         zoom: bool,
@@ -130,7 +132,11 @@ impl PdfView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.edit_draft(zoom, window, cx);
+        if zoom {
+            self.enter_zoom(window, cx);
+        } else {
+            self.edit_draft(zoom, window, cx);
+        }
         let field = if zoom {
             &self.zoom_field
         } else {

@@ -12,7 +12,7 @@ use serde_json::json;
 
 use super::Steps;
 use crate::{
-    pdf::{PdfEngine, clicked_word_at},
+    pdf::{PdfEngine, PdfViewEvent, clicked_word_at},
     scenario::Run,
     shell::commands,
 };
@@ -69,6 +69,8 @@ impl Run {
             landed,
             detail,
         );
+
+        self.figure_and_newest_jump(cx, steps, root).await?;
 
         let rows = cx.update(|cx| {
             let mut context = self.shell.read(cx).command_context(cx);
@@ -132,6 +134,103 @@ impl Run {
             json!({ "tab": tab, "removed": removed, "said": said, "back": back }),
         );
         std::fs::remove_file(&copy).ok();
+        Ok(())
+    }
+}
+
+type Found = (u32, (f64, f64), Option<lattice_editor::latex::synctex_word::SyncTexWord>);
+
+impl Run {
+    /// Where `word` is in the PDF's own text as PDFium reads it: its page
+    /// (1-based), the point on its second letter, and the word a click
+    /// there reads.
+    async fn find_in_pdf_text(&self, cx: &mut AsyncApp, root: &Path, word: &str) -> Result<Option<Found>> {
+        let engine = cx.update(|cx| PdfEngine::global(cx)).map_err(|error| anyhow!("{error}"))?;
+        let doc = engine.new_document();
+        let info = engine.open(doc, std::fs::read(root.join("main.pdf"))?).await??;
+        let wanted: Vec<char> = word.chars().collect();
+        let mut found = None;
+        for page in 0..info.page_sizes.len() {
+            let text = engine.text(doc, info.generation, page).await??;
+            let at = text.chars.windows(wanted.len()).position(|run| run.iter().map(|ch| ch.ch).eq(wanted.iter().copied()));
+            if let Some(at) = at {
+                let ch = text.chars[at + 1];
+                let (x, y) = ((ch.x0 + ch.x1) / 2., (ch.y0 + ch.y1) / 2.);
+                found = Some((page as u32 + 1, (f64::from(x), f64::from(y)), clicked_word_at(&text, x, y)));
+                break;
+            }
+        }
+        engine.close(doc);
+        Ok(found)
+    }
+
+    /// The caret `word`'s click should land on: SyncTeX's line for the
+    /// point, and the word's 1-based column in it.
+    fn landing(root: &Path, chapter: &Path, found: &Found, word: &str) -> Result<Option<(u32, u32)>> {
+        let line = lattice_core::latex::inverse_search_in(root, found.0, found.1.0, found.1.1, None)
+            .map_err(|error| anyhow!(error))?;
+        let text = std::fs::read_to_string(chapter)?;
+        let source = text.lines().nth(line.line as usize - 1).unwrap_or_default().to_string();
+        Ok(source.find(word).map(|column| (line.line, column as u32 + 1)))
+    }
+
+    /// A ⌘-double-click off a figure is the ordinary jump, through the PDF
+    /// view's own event; and a plain double-click made while that ⌘ lookup
+    /// still runs is the one that lands (`pdf-figure-source-open.tsx`).
+    async fn figure_and_newest_jump(&self, cx: &mut AsyncApp, steps: &mut Steps, root: &Path) -> Result<()> {
+        let chapter = root.join("chapters/intro.tex");
+        let a = self.find_in_pdf_text(cx, root, "second").await?;
+        let b = self.find_in_pdf_text(cx, root, "introduces").await?;
+        let (Some(a), Some(b)) = (a, b) else {
+            steps.check("PDF: a ⌘-double-click off a figure is the ordinary jump", false, json!({ "found": false }));
+            return Ok(());
+        };
+        let (Some(at_a), Some(at_b)) = (Self::landing(root, &chapter, &a, "second")?, Self::landing(root, &chapter, &b, "introduces")?) else {
+            steps.check("PDF: a ⌘-double-click off a figure is the ordinary jump", false, json!({ "landing": false }));
+            return Ok(());
+        };
+        let editor = self.open(cx, &chapter, Some(1))?;
+        let emit_as = |found: &Found, figure: bool| {
+            let event = PdfViewEvent::SourceAt { page: found.0, x: found.1.0, y: found.1.1, word: found.2.clone(), figure };
+            move |shell: &gpui::Entity<crate::shell::Shell>, _: &mut gpui::Window, cx: &mut gpui::App| {
+                let view = shell.read(cx).pdf().read(cx).live_view().clone();
+                view.update(cx, |_, cx| cx.emit(event));
+            }
+        };
+        let emit = |found: &Found| emit_as(found, true);
+        // The same event without ⌘, through the same path, for comparison.
+        self.with_window(cx, emit_as(&a, false))?;
+        self.pause(cx, Duration::from_millis(800)).await;
+        let plain = cx.update(|cx| editor.read(cx).cursor());
+        let editor = self.open(cx, &chapter, Some(1))?;
+        self.with_window(cx, emit(&a))?;
+        let mut caret = (0, 0);
+        for _ in 0..25 {
+            self.pause(cx, Duration::from_millis(200)).await;
+            caret = cx.update(|cx| editor.read(cx).cursor());
+            if caret == at_a {
+                break;
+            }
+        }
+        steps.check(
+            "PDF: a ⌘-double-click off a figure is the ordinary jump, landing on the clicked word",
+            caret == at_a,
+            json!({ "expected": [at_a.0, at_a.1], "caret": [caret.0, caret.1], "plain_same_path": [plain.0, plain.1] }),
+        );
+
+        let editor = self.open(cx, &chapter, Some(1))?;
+        self.with_window(cx, emit(&a))?;
+        let (page, point, word) = b.clone();
+        self.with_window(cx, move |shell, window, cx| {
+            shell.update(cx, |shell, cx| shell.double_click_pdf(page, point, word, window, cx))
+        })?;
+        self.pause(cx, Duration::from_millis(1200)).await;
+        let caret = cx.update(|cx| editor.read(cx).cursor());
+        steps.check(
+            "PDF: of a ⌘-double-click and a newer plain double-click, only the newer jump lands",
+            caret == at_b && at_a != at_b,
+            json!({ "older": [at_a.0, at_a.1], "newer": [at_b.0, at_b.1], "caret": [caret.0, caret.1] }),
+        );
         Ok(())
     }
 }
