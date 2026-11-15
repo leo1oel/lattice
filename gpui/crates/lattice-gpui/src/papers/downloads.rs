@@ -233,6 +233,9 @@ impl PapersPanel {
                     futures::future::Either::Right((Some(stage), _)) => {
                         this.update(cx, |this, cx| {
                             if let Some(importing) = &mut this.importing {
+                                if stage == "fulltext" {
+                                    importing.full_text = core_papers::FullText::Save;
+                                }
                                 model::next_stage(
                                     &mut importing.stage,
                                     &mut importing.started,
@@ -258,6 +261,7 @@ impl PapersPanel {
             label,
             ticket,
             stage: None,
+            full_text,
             started: Instant::now(),
             from: 0.,
             cancel,

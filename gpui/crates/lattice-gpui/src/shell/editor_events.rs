@@ -21,6 +21,7 @@ impl Shell {
             .detach();
         self.editors.push(editor.downgrade());
         self.show_outline(cx);
+        self.show_deck_editable(cx);
     }
 
     pub(super) fn on_editor_event(
@@ -40,7 +41,7 @@ impl Shell {
                 self.refresh_outline(window, cx);
             }
             // Settings › Editor & builds › Automatic build: "Manual only"
-            // leaves every build to the Build button and ⌘B.
+            // leaves every build to the Build button and ⌘S.
             EditorPanelEvent::SavedForBuild | EditorPanelEvent::DiskEdit => {
                 if crate::settings::builds_automatically(cx)
                     && !self.defer_automatic_build(window, cx)

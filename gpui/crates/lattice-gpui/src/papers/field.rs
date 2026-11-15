@@ -412,6 +412,11 @@ impl PapersPanel {
             ("fulltext", t!("Full text")),
             ("overview", t!("Overview")),
         ];
+        // Adding the citation alone has only the first step.
+        let stages = match importing.full_text {
+            lattice_core::papers::FullText::Save => &stages[..],
+            lattice_core::papers::FullText::Skip => &stages[..1],
+        };
         let at = stages
             .iter()
             .position(|(id, _)| Some(*id) == importing.stage.as_deref())
