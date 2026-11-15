@@ -71,6 +71,13 @@ impl Render for HistoryPanel {
                             .child(content),
                     ),
             )
+            .child(self.sticky.viewport_probe())
+            .children(
+                self.comparing
+                    .is_none()
+                    .then(|| self.sticky.render(&self.scroll, px(14.), cx))
+                    .flatten(),
+            )
             .child(FluidScrollbar::vertical("history-scrollbar", &self.scroll))
     }
 }
@@ -456,6 +463,8 @@ impl HistoryPanel {
         let palette = cx.palette().clone();
         let locale = locale();
         let days = timeline::days(rows);
+        self.sticky.reset(days.len());
+        let view = cx.entity();
         // One fill glides over every row head of the timeline.
         let hover = FluidHover::new("history-timeline-hover", window, cx)
             .fill(palette.hover)
@@ -524,12 +533,23 @@ impl HistoryPanel {
                 glide_index += 1;
                 list = list.child(history_row(parts, glide, window, cx));
             }
+            let name: gpui::SharedString = time::day_name(day.at, locale).into();
+            let label = std::rc::Rc::new(std::cell::Cell::new(px(28.)));
             out = out.child(
                 div()
                     .mt(px(8.))
+                    .relative()
+                    .child(self.sticky.day_probe(
+                        day_ix,
+                        name,
+                        label.clone(),
+                        self.scroll.clone(),
+                        &view,
+                    ))
                     .child(
                         div()
                             .relative()
+                            .child(super::sticky_days::StickyDays::label_probe(label))
                             .when(!day_probed, |this| {
                                 let name = time::day_name(day.at, locale);
                                 this.children(lattice_ui::parity::probe("history/day"))

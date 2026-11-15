@@ -63,6 +63,9 @@ pub enum HistoryEvent {
     OverleafRestored,
     /// Undo an Agent turn's file changes, through the Agent.
     RestoreAgentCheckpoint(crate::agent::checkpoints::Entry),
+    /// A restore or a saved version changed the project's files: bring the
+    /// project, the open files and the PDF up to date.
+    Restored,
 }
 
 impl EventEmitter<HistoryEvent> for HistoryPanel {}
@@ -261,6 +264,8 @@ pub struct HistoryPanel {
     /// Overleaf's own history, while the project is linked.
     pub(super) overleaf: super::overleaf::OverleafHistory,
     pub(super) overleaf_linked: bool,
+    /// The timeline's day names pinned over their rows (`sticky_days.rs`).
+    pub(super) sticky: std::rc::Rc<super::sticky_days::StickyDays>,
     pub(super) _overleaf_link: Option<Subscription>,
     _poll: Task<()>,
 }
@@ -315,6 +320,7 @@ impl HistoryPanel {
             stale: false,
             overleaf: Default::default(),
             overleaf_linked: false,
+            sticky: Default::default(),
             _overleaf_link: None,
             _poll: poll,
         }

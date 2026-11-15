@@ -90,6 +90,7 @@ impl EditorPanel {
                     return;
                 }
                 this.disk = DiskVersion::Seen(stat);
+                this.wash_landed(&content, cx);
                 this.replace_text(content, cx);
                 cx.emit(EditorPanelEvent::DiskEdit);
             })

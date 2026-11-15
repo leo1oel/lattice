@@ -62,6 +62,26 @@ impl Run {
             json!({ "synced": synced, "listed": listed, "updates": cx.update(|cx| history.read(cx).overleaf_updates().len()) }),
         );
 
+        // A linked project's restore warns that syncing replaces Overleaf's
+        // copy too (`app-history-drawers.tsx`); left unanswered here.
+        cx.update(|cx| {
+            history.update(cx, |history, cx| history.restore_project("HEAD".into(), cx))
+        });
+        let body = cx.update(|cx| {
+            let host = crate::confirm::install(cx);
+            let body = host.read(cx).question_body();
+            host.update(cx, |host, cx| host.dismiss(cx));
+            body
+        });
+        steps.check(
+            "in a project linked to Overleaf, restoring a version warns that syncing then replaces the project on Overleaf too",
+            body.as_deref().is_some_and(|body| {
+                body.contains("saved as a local version first")
+                    && body.contains("Syncing then replaces the project on Overleaf too")
+            }),
+            json!({ "body": body.as_deref() }),
+        );
+
         // The entry before it, compared with now: the file and its two texts.
         cx.update(|cx| {
             history.update(cx, |history, cx| {

@@ -101,6 +101,10 @@ pub enum LatexEvent {
     OverleafDelete(String),
     OverleafEditMessage { thread: String, message: String, content: String },
     OverleafDeleteMessage { thread: String, message: String },
+    /// A suggestion's card, over its mark or in margin review: accept or
+    /// reject Overleaf's tracked change `id`.
+    OverleafAccept(String),
+    OverleafReject(String),
 }
 
 /// What a `.tex` file's Visual page last had of the project beyond the
@@ -407,6 +411,8 @@ impl StructuredDocument {
                 resolved: payload.get("resolved").and_then(Value::as_bool).unwrap_or(true),
             },
             "tex:overleaf-delete" => LatexEvent::OverleafDelete(text("thread")),
+            "tex:overleaf-accept" => LatexEvent::OverleafAccept(text("id")),
+            "tex:overleaf-reject" => LatexEvent::OverleafReject(text("id")),
             "tex:overleaf-edit-message" => LatexEvent::OverleafEditMessage {
                 thread: text("thread"),
                 message: text("message"),

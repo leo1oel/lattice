@@ -74,6 +74,7 @@ impl EditorPanel {
         self._subscriptions
             .push(cx.subscribe_in(&document, window, Self::on_markdown_document));
         self.paper_document_made(&document, cx);
+        self.forward_markdown_review(&document, cx);
         document
     }
 
@@ -118,6 +119,12 @@ impl EditorPanel {
             MarkdownEvent::Scrolled(center) => self.follow_preview(*center, window, cx),
             MarkdownEvent::Masthead(in_view) => self.paper_masthead(*in_view, cx),
             MarkdownEvent::PaperSource(page) => cx.emit(EditorPanelEvent::PaperSource(*page)),
+            MarkdownEvent::OverleafAccept(id) => cx.emit(EditorPanelEvent::OverleafReview(
+                super::ReviewAction::Accept(id.clone()),
+            )),
+            MarkdownEvent::OverleafReject(id) => cx.emit(EditorPanelEvent::OverleafReview(
+                super::ReviewAction::Reject(id.clone()),
+            )),
         }
     }
 

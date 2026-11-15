@@ -100,11 +100,13 @@ import { EditorCommentCards } from "../../../src/canvas/editor-comment-cards";
 import { CommentCardHosts, editorCommentsExtension, setEditorCommentsEffect } from "../../../src/editor/comments/editor-comments";
 import type { EditorComment } from "../../../src/editor/comments/editor-comment-data";
 import {
-  marginReviewExtension, overleafCursorsExtension, setOverleafCursorsEffect, type PresenceCursor,
+  marginReviewExtension, overleafCursorsExtension, overleafTrackChangesExtension, setOverleafCursorsEffect,
+  type PresenceCursor,
 } from "../../../src/overleaf/overleaf-editor-extensions";
 import { VisualMarginReview } from "./margin-review";
 import {
-  NO_OVERLEAF_REVIEW, overleafEditorComments, overleafThreadActions, overleafThreadOf, type OverleafReview,
+  NO_OVERLEAF_REVIEW, changeAuthorName, overleafChangeActions, overleafEditorComments, overleafThreadActions,
+  overleafThreadOf, type OverleafReview,
 } from "./margin-review-data";
 import type { OutlineNode } from "../../../src/editor/latex/latex-outline";
 import type { FileNode } from "../../../src/app-types";
@@ -269,6 +271,8 @@ let editorView: EditorView | null = null;
 let pageSource = "";
 /** Co-authors' carets and the file's annotations and Overleaf threads, read by their extensions when they run. */
 let presenceCursors: PresenceCursor[] = [];
+/** The file's Overleaf review, which the suggestions' marks and cards read when they run. */
+let overleafReview: OverleafReview = NO_OVERLEAF_REVIEW;
 let editorComments: EditorComment[] = [];
 /** Where a note's card is drawn over its hovered passage (`EditorCommentCards`). */
 const commentCards = new CommentCardHosts();
@@ -365,6 +369,12 @@ function editorExtensions(visual: VisualModule, path: string, spellcheck: boolea
     }),
     // The source session's review layers (`source-session.ts`).
     overleafCursorsExtension({ getCursors: () => presenceCursors }),
+    overleafTrackChangesExtension({
+      getChanges: () => overleafReview.changes ?? [],
+      authorName: (userId) => changeAuthorName(overleafReview, userId),
+      canAct: () => overleafReview.canAct,
+      ...overleafChangeActions,
+    }),
     marginReviewExtension(),
     editorCommentsExtension(path, {
       pinLabel,
@@ -482,6 +492,11 @@ function Latex() {
     presenceCursors = presence;
     editorView?.dispatch({ effects: setOverleafCursorsEffect.of(presence) });
   }, [presence]);
+  // Its suggestions: read by their extension on the next transaction.
+  useEffect(() => {
+    overleafReview = overleaf;
+    editorView?.dispatch({});
+  }, [overleaf]);
   useEffect(() => {
     editorComments = [...annotations.comments, ...overleafComments];
     editorView?.dispatch({ effects: setEditorCommentsEffect.of(editorComments) });

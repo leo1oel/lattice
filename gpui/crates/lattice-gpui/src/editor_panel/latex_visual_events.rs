@@ -21,9 +21,10 @@
 //!   and a card's Reply is saved under the project's author;
 //! - co-authors' Overleaf carets, kept so a page made later starts with them
 //!   (`overleaf_carets.rs`);
-//! - a linked Overleaf project's comment threads on the file, marked and in
-//!   margin review as in the source (`shell/overleaf_review.rs`), kept the
-//!   same way; a thread card's asks go out as the source's cards' do
+//! - a linked Overleaf project's comment threads and tracked changes on the
+//!   file, marked and in margin review as in the source
+//!   (`shell/overleaf_review.rs`), kept the same way; a thread card's asks
+//!   and a suggestion's Accept and Reject go out as the source's cards' do
 //!   ([`ReviewAction`]);
 //! - the page's edits grouped for ⌘Z as its own history groups them (the
 //!   host's CodeMirror `history()`, as in the Tauri app), so a word typed in
@@ -154,6 +155,12 @@ impl EditorPanel {
                 } else {
                     ReviewAction::Reopen(thread)
                 }))
+            }
+            LatexEvent::OverleafAccept(id) => {
+                cx.emit(EditorPanelEvent::OverleafReview(ReviewAction::Accept(id.clone())))
+            }
+            LatexEvent::OverleafReject(id) => {
+                cx.emit(EditorPanelEvent::OverleafReview(ReviewAction::Reject(id.clone())))
             }
             LatexEvent::OverleafDelete(thread) => cx.emit(EditorPanelEvent::OverleafReview(
                 ReviewAction::DeleteConfirmed(thread.clone()),
