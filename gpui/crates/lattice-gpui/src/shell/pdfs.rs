@@ -35,6 +35,8 @@ impl Shell {
         cx: &mut Context<Self>,
     ) {
         match event {
+            // The marked PDF's SyncTeX is its own build's, not the paper's.
+            PdfEvent::SourceAt { document: None, .. } if self.shows_marked_pdf() => {}
             PdfEvent::SourceAt {
                 document,
                 page,
@@ -100,7 +102,10 @@ impl Shell {
             .unwrap_or(false);
         let pdf = root.join(&document).with_extension("pdf");
         self.label_pdfs(cx);
-        self.pdf.update(cx, |panel, cx| panel.open(pdf, window, cx));
+        if !self.shows_marked_pdf() {
+            self.pdf.update(cx, |panel, cx| panel.open(pdf, window, cx));
+        }
+        self.review_pdf_built(window, cx);
         self.refresh_outline(window, cx);
         match left {
             // A build not asked for leaves the reader on the document they

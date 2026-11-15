@@ -17,7 +17,7 @@ What it does so far, and nothing more, one line per feature, each with its own p
 - [Finding things in the project](docs/find.md): find and replace in the open file, quick open, Find and Replace in project, and the files visited.
 - [Get started](docs/get-started.md): walks a first paper with Get started's checklist and its Show me ring.
 - [Getting a manuscript ready to send](docs/submission.md): the TODOs panel, references and rename, Export for arXiv… and the submission checklist.
-- [History](docs/history.md): keeps the project's history in its History tool panel, with versions, Compare… and the conflict resolver.
+- [History](docs/history.md): keeps the project's history in its History tool panel, with versions, Compare… and the conflict resolver, and tracks the writer's changes for review (Track changes).
 - [HTML files](docs/html-preview.md): shows an HTML file in Preview, Edit and Split.
 - [Languages](docs/languages.md): speaks English and Simplified Chinese from the Tauri app's own catalog.
 - [LuaLaTeX live preview](docs/live-preview.md): previews a LuaLaTeX project live with rtex.
