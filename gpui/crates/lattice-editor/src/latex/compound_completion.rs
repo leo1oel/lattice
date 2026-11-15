@@ -55,10 +55,13 @@ pub struct CompoundFacts {
 /// its text, at most 300 of them read) and the last build hold of chemnum
 /// (`readCompoundProject`): the keys they name, the numbers the build's
 /// `.aux` gave them, and each drawn key's place line, numbered from `labels`
-/// (the build's, `None` before one). Reads the build's `.aux` from disk;
-/// call it off the main thread.
+/// (the build's, `None` before one). The keys leave out the `open` file,
+/// whose buffer, not its saved copy, names its keys; its floats still place
+/// the figures they input. Reads the build's `.aux` from disk; call it off
+/// the main thread.
 pub fn read_compound_facts(
     root: &std::path::Path,
+    open: &str,
     sources: &[(String, String)],
     build: Option<&super::compiled_labels::CompiledBuild>,
     labels: Option<&HashMap<String, super::compiled_labels::CompiledLabel>>,
@@ -89,7 +92,12 @@ pub fn read_compound_facts(
         })
         .collect();
     CompoundFacts {
-        keys: compound_keys_in(sources.iter().map(|(_, text)| text.as_str())),
+        keys: compound_keys_in(
+            sources
+                .iter()
+                .filter(|(path, _)| path != open)
+                .map(|(_, text)| text.as_str()),
+        ),
         numbers,
         place_lines,
     }
@@ -419,8 +427,29 @@ mod read_tests {
                 (path.to_owned(), text)
             })
             .collect();
-        let facts = read_compound_facts(root.path(), &sources, None, None);
+        let facts = read_compound_facts(root.path(), "other.tex", &sources, None, None);
         assert_eq!(facts.keys, ["ketone", "alcohol.a.num"]);
+        assert_eq!(facts.place_lines["alcohol.a.num"], "Scheme · route");
+    }
+
+    /// The open file's saved keys are not the project's (its buffer names
+    /// them), but its scheme still places the figure it inputs.
+    #[test]
+    fn the_open_file_s_saved_keys_are_left_out_but_its_floats_place() {
+        let sources = vec![
+            (
+                "main.tex".to_owned(),
+                "See \\cmpd{ket}.\n\\begin{scheme}\\input{figs/route}\\caption{Route}\\end{scheme}\n"
+                    .to_owned(),
+            ),
+            (
+                "figs/route.tex".to_owned(),
+                "% editable-figure source: route.cdxml\n\\rcmpd{alcohol.a.num}\n".to_owned(),
+            ),
+        ];
+        let root = tempfile::tempdir().expect("a scratch folder");
+        let facts = read_compound_facts(root.path(), "main.tex", &sources, None, None);
+        assert_eq!(facts.keys, ["alcohol.a.num"]);
         assert_eq!(facts.place_lines["alcohol.a.num"], "Scheme · route");
     }
 }

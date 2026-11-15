@@ -201,6 +201,7 @@ impl IndexLint {
                 .unwrap_or_default();
             let compounds = read_compound_facts(
                 &folder,
+                &path,
                 &sources,
                 build.as_ref(),
                 build.as_ref().map(|_| labels.as_ref()),
