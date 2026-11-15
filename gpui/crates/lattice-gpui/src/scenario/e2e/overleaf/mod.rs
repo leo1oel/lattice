@@ -25,6 +25,7 @@ mod live;
 mod local_copy;
 mod margin;
 mod margin_end;
+mod polish;
 mod presence;
 mod project_history;
 mod reconnect;
@@ -349,6 +350,7 @@ impl Run {
         linked.overleaf_review(cx, steps, &mock).await?;
         linked.overleaf_chat(cx, steps, &mock).await?;
         linked.overleaf_project_history(cx, steps, &mock).await?;
+        linked.overleaf_polish(cx, steps, &mock).await?;
 
         // Settings › Overleaf.
         linked.with_window(cx, |shell, window, cx| {

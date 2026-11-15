@@ -6,9 +6,10 @@ use std::{
     collections::{HashMap, HashSet},
     path::{Path, PathBuf},
     sync::{
-        LazyLock, Mutex,
+        Condvar, LazyLock, Mutex,
         atomic::{AtomicU64, Ordering},
     },
+    time::Duration,
 };
 
 use lattice_core::citation_audit::{self, AuditEntry};
@@ -167,6 +168,64 @@ pub(super) fn write(
     }
 }
 
+/// The saves asked for and not yet written, by project: a sheet opened
+/// again reads the report only once they land (`loadAuditReport` awaits
+/// `pendingWrites`), or it would read the report they replace and its own
+/// next save, asked for later, would put that older report back.
+static PENDING: LazyLock<(Mutex<HashMap<PathBuf, usize>>, Condvar)> =
+    LazyLock::new(Default::default);
+/// How long a read waits on saves before it reads anyway: a save is one
+/// small file, so only a stuck disk takes this long.
+const PENDING_WAIT: Duration = Duration::from_secs(5);
+
+/// A save of `root`'s report on its way, from when it is asked for (on the
+/// main thread, before any later read) until it is dropped once written.
+pub(super) struct Pending(PathBuf);
+
+impl Pending {
+    pub(super) fn begin(root: &Path) -> Self {
+        let mut pending = PENDING
+            .0
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        *pending.entry(root.to_path_buf()).or_insert(0) += 1;
+        Pending(root.to_path_buf())
+    }
+}
+
+impl Drop for Pending {
+    fn drop(&mut self) {
+        let mut pending = PENDING
+            .0
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        if let Some(count) = pending.get_mut(&self.0) {
+            *count -= 1;
+            if *count == 0 {
+                pending.remove(&self.0);
+            }
+        }
+        PENDING.1.notify_all();
+    }
+}
+
+/// `root`'s saved report, once every save asked for before has landed.
+/// Blocks: run it on the background executor.
+pub(super) fn load(
+    store: &Path,
+    root: &Path,
+) -> Result<Option<Vec<(String, serde_json::Value)>>, String> {
+    let pending = PENDING
+        .0
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    let settled = PENDING
+        .1
+        .wait_timeout_while(pending, PENDING_WAIT, |pending| pending.contains_key(root));
+    drop(settled);
+    citation_audit::load_report(store, root)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -187,6 +246,29 @@ mod tests {
         let stored = |root: &Path| citation_audit::load_report(&store, root).unwrap();
         assert_eq!(stored(&a), Some(report("a-new")));
         assert_eq!(stored(&b), Some(report("b")));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A sheet closed while its save is still on its way, then opened
+    /// again: the read waits for that save rather than reading the report
+    /// it replaces.
+    #[test]
+    fn a_read_waits_for_the_save_asked_for_before_it() {
+        let dir =
+            std::env::temp_dir().join(format!("lattice-audit-pending-{}", std::process::id()));
+        let (store, root) = (dir.join("store"), dir.join("project"));
+        std::fs::create_dir_all(&root).unwrap();
+        let report = |key: &str| vec![(key.to_string(), serde_json::json!({ "status": key }))];
+        write(&store, &root, ask(), report("old"));
+        let pending = Pending::begin(&root);
+        let (save_store, save_root) = (store.clone(), root.clone());
+        let save = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(150));
+            write(&save_store, &save_root, ask(), report("new"));
+            drop(pending);
+        });
+        assert_eq!(load(&store, &root).unwrap(), Some(report("new")));
+        save.join().unwrap();
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

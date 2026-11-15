@@ -1,67 +1,112 @@
 //! A saved paper's reading surface (`src/canvas/paper-reader.tsx`,
-//! `.paper-reader-*` in `editor-workspace.css`): a document tab holding the
-//! paper's full text, or its overview, rendered as Markdown in the reading
-//! face, under a strip that names it (title, authors, and its source, which
-//! opens the original on the web) with the views it has and the original
-//! PDF the bundle keeps.
+//! `.paper-reader-*` in `editor-workspace.css`): the paper's tab, holding
+//! its full text or its overview, or the original PDF in their place, under
+//! a strip that names the paper.
 //!
-//! The text is the bundle's own (`paper.md`, `blog.md`), read through the
-//! file system as lattice-core writes it; a link inside it opens in the
-//! browser. The Markdown is Zed's renderer (`markdown`), styled with
-//! Lattice's tokens: the reading face at the typeset size on the editor's
-//! sheet, a 720px column, headings in the interface's weights.
+//! The texts are the bundle's own files (`paper.md`, `blog.md`), each the
+//! shell's editor for that file (`editor_panel/paper_text.rs`), so a paper
+//! reads in the Tauri app's visual editor in its reading form (KaTeX, the
+//! figures, the heading rail, the masthead) and edits, saves and undoes as
+//! the Tauri app's paper documents do; Edit, Split and Preview are the
+//! editor's own, beside the Blog / Paper switch in the tab's strip
+//! (`trellis-header-tools.tsx`). The shell makes each editor when the view
+//! first asks for it ([`PaperReaderEvent::Show`]).
+//!
+//! The strip (`.paper-reader-header`) names the paper in one line: its
+//! title, short authors and source, the title and authors left out while the
+//! full text's own masthead is on screen. The source is the way out to the
+//! original, so it is the browser action, its arrow showing only under the
+//! pointer. Its actions: the original PDF, shown here in place of the text
+//! (`usePaperPdf`: the bundle's own, else arXiv's, alphaXiv's or a cited
+//! `.pdf`, fetched once), and a browser button when the paper has no source
+//! label. A narrow strip folds the actions to icons, then drops the authors.
 
-use lattice_i18n::{join_phrases, t};
-use std::path::PathBuf;
+use std::{cell::Cell, path::PathBuf, rc::Rc};
 
 use gpui::{
-    App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, Focusable,
-    InteractiveElement as _, IntoElement, ParentElement as _, Render, ScrollHandle, SharedString,
-    StatefulInteractiveElement as _, Styled as _, Task, TextStyleRefinement, Window, div,
-    prelude::FluentBuilder as _, px, relative,
+    AnyElement, App, Context, Entity, EventEmitter, FocusHandle, Focusable,
+    InteractiveElement as _, IntoElement, ParentElement as _, Pixels, Render, SharedString,
+    StatefulInteractiveElement as _, Styled as _, Subscription, Window, canvas, div,
+    prelude::FluentBuilder as _, px,
 };
 use gpui_kit::component::dock::{BasePanel, Panel, PanelEvent};
 use lattice_core::papers::PaperSummary;
+use lattice_i18n::{join_phrases, t};
 use lattice_ui::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
-    components::{Button, Segmented},
-    scrollbar::FluidScrollbar,
+    components::{Menu, MenuAction, Segmented},
     tokens::FONT_WEIGHT_MEDIUM,
 };
-use markdown::{HeadingLevelStyles, Markdown, MarkdownElement, MarkdownFont, MarkdownStyle};
 
 use super::{model, row::tooltip};
+use crate::editor_panel::{DocumentView, EditorPanel, EditorPanelEvent};
+use crate::structured::{PaperPdfIdentity, PaperReading};
+
+mod pdf;
+use pdf::{PdfSource, ShownPdf, browser_url, pdf_source};
 
 /// Which of the bundle's texts is on screen.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum ReaderView {
     FullText,
     Overview,
 }
 
 impl ReaderView {
-    fn file(self) -> &'static str {
+    pub fn file(self) -> &'static str {
         match self {
             ReaderView::FullText => "paper.md",
             ReaderView::Overview => "blog.md",
         }
     }
+
+    fn name(self) -> &'static str {
+        match self {
+            ReaderView::FullText => t!("Paper"),
+            ReaderView::Overview => t!("Blog"),
+        }
+    }
 }
 
+/// The reading file of `paper` in `view`, from the project root
+/// (`paperDocumentPath`).
+pub fn reading_path(arxiv_id: &str, view: ReaderView) -> String {
+    format!(".research/papers/{arxiv_id}/{}", view.file())
+}
+
+/// The strip folds its actions to icons this narrow (`@container
+/// paper-reader (max-width: 520px)`), and drops the authors at 440px.
+const ICONS_ONLY_BELOW: f32 = 520.;
+const NO_AUTHORS_BELOW: f32 = 440.;
+
 pub enum PaperReaderEvent {
-    /// Open the original PDF the bundle keeps (project-relative).
-    OpenPdf(String),
+    /// The view asks for its text's editor: the shell makes it and hands it
+    /// over with [`PaperReader::set_text`].
+    Show(ReaderView),
+}
+
+/// A text the reader holds, and whether its masthead was last reported
+/// on screen: the strip leaves out the title and authors it carries.
+struct Text {
+    view: ReaderView,
+    editor: Entity<EditorPanel>,
+    masthead: bool,
+    _subscription: Subscription,
 }
 
 pub struct PaperReader {
     root: PathBuf,
     paper: PaperSummary,
     view: ReaderView,
-    markdown: Entity<Markdown>,
-    error: Option<String>,
-    scroll: ScrollHandle,
+    texts: Vec<Text>,
+    pdf: Option<ShownPdf>,
+    /// The strip's width as last drawn, for its narrow rules.
+    width: Rc<Cell<Option<Pixels>>>,
+    /// The tab is its group's displayed one. The text's editor shows its
+    /// page only then, and only while no PDF stands in its place: the
+    /// dock tells the reader, which tells the editor on screen.
+    active: bool,
     focus: FocusHandle,
-    _read: Option<Task<()>>,
 }
 
 impl EventEmitter<PanelEvent> for PaperReader {}
@@ -74,255 +119,491 @@ impl PaperReader {
         view: ReaderView,
         cx: &mut Context<Self>,
     ) -> Self {
-        let markdown = cx.new(|cx| Markdown::new(SharedString::default(), None, None, cx));
-        let mut this = Self {
+        Self {
             root,
             paper,
             view,
-            markdown,
-            error: None,
-            scroll: ScrollHandle::new(),
+            texts: Vec::new(),
+            pdf: None,
+            width: Rc::default(),
+            active: false,
             focus: cx.focus_handle(),
-            _read: None,
-        };
-        this.read(cx);
-        this
+        }
     }
 
     pub fn paper(&self) -> &PaperSummary {
         &self.paper
     }
 
-    /// The text on screen, as read (without its front matter).
-    pub fn text(&self, cx: &App) -> Option<SharedString> {
-        self.error
-            .is_none()
-            .then(|| self.markdown.read(cx).source().clone())
+    pub fn view(&self) -> ReaderView {
+        self.view
     }
 
     /// The reading file on screen, from the project root.
     pub fn path(&self) -> String {
-        format!(
-            ".research/papers/{}/{}",
-            self.paper.arxiv_id,
-            self.view.file()
-        )
+        reading_path(&self.paper.arxiv_id, self.view)
     }
 
-    /// Show `view` (the full text or the overview).
-    pub fn show(&mut self, view: ReaderView, cx: &mut Context<Self>) {
-        if self.view != view {
-            self.view = view;
-            self.read(cx);
+    /// The editor of the text on screen, once the shell has made it.
+    pub fn editor(&self) -> Option<&Entity<EditorPanel>> {
+        self.text_of(self.view)
+    }
+
+    fn text_of(&self, view: ReaderView) -> Option<&Entity<EditorPanel>> {
+        self.texts
+            .iter()
+            .find(|text| text.view == view)
+            .map(|text| &text.editor)
+    }
+
+    /// Every text's editor the reader holds.
+    pub fn editors(&self) -> impl Iterator<Item = &Entity<EditorPanel>> {
+        self.texts.iter().map(|text| &text.editor)
+    }
+
+    /// The text on screen, as its editor holds it (for scenarios and the
+    /// Agent's context).
+    pub fn text(&self, cx: &App) -> Option<String> {
+        self.editor().map(|editor| editor.read(cx).text(cx))
+    }
+
+    fn reading(&self, view: ReaderView) -> PaperReading {
+        PaperReading {
+            title: self.paper.title.clone(),
+            // `paperAuthorNames(...).join(", ")`: the whole list.
+            authors: Some(model::author_names(&self.paper).join(", "))
+                .filter(|names| !names.is_empty()),
+            full_text: view == ReaderView::FullText,
+            pdf: pdf_source(&self.paper).map(|_| PaperPdfIdentity {
+                arxiv_id: self.paper.arxiv_id.clone(),
+                url: self.paper.url.clone(),
+                has_local_pdf: self.paper.has_local_pdf,
+            }),
         }
     }
 
-    /// The paper as the library lists it now (a refreshed record), its
-    /// text read again: a paper.md written since, or one that could not be
-    /// read before, shows as it is now.
-    pub fn set_paper(&mut self, paper: PaperSummary, cx: &mut Context<Self>) {
-        let texts = (paper.has_full_text, paper.has_blog);
-        let changed = texts != (self.paper.has_full_text, self.paper.has_blog);
-        self.paper = paper;
-        if changed {
-            // A download left a full text where only the overview was.
-            self.view = if self.paper.has_full_text {
-                ReaderView::FullText
-            } else {
-                ReaderView::Overview
-            };
-        }
-        self.read(cx);
+    /// The shell made `view`'s editor: it reads as the paper's text.
+    pub fn set_text(
+        &mut self,
+        view: ReaderView,
+        editor: Entity<EditorPanel>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let reading = self.reading(view);
+        editor.update(cx, |editor, cx| editor.set_paper_reading(Some(reading), cx));
+        let subscription =
+            cx.subscribe_in(
+                &editor,
+                window,
+                move |this, _, event, window, cx| match event {
+                    EditorPanelEvent::Masthead(in_view) => {
+                        if let Some(text) = this.texts.iter_mut().find(|text| text.view == view)
+                            && text.masthead != *in_view
+                        {
+                            text.masthead = *in_view;
+                            cx.notify();
+                        }
+                    }
+                    EditorPanelEvent::PaperSource(page) => {
+                        this.open_pdf(window, cx);
+                        this.go_to_pdf_page(*page as usize, cx);
+                    }
+                    _ => {}
+                },
+            );
+        self.texts.retain(|text| text.view != view);
+        self.texts.push(Text {
+            view,
+            editor,
+            masthead: false,
+            _subscription: subscription,
+        });
+        self.sync_shown(window, cx);
         cx.notify();
     }
 
-    fn read(&mut self, cx: &mut Context<Self>) {
-        let path = self.root.join(self.path());
-        let read = cx.background_spawn(async move { std::fs::read_to_string(&path) });
-        self._read = Some(cx.spawn(async move |this, cx| {
-            let text = read.await;
-            this.update(cx, |this, cx| {
-                match text {
-                    Ok(text) => {
-                        let body = model::strip_frontmatter(&text);
-                        if this.error.is_none() && this.markdown.read(cx).source().as_ref() == body
-                        {
-                            return;
-                        }
-                        this.error = None;
-                        let body = body.to_string();
-                        this.markdown
-                            .update(cx, |markdown, cx| markdown.reset(body.into(), cx));
-                    }
-                    Err(error) => {
-                        this.error = Some(t!(
-                            "Could not read {path}: {error}",
-                            path = this.path(),
-                            error = error
-                        ))
-                    }
-                }
-                this.scroll.set_offset(gpui::point(px(0.), px(0.)));
-                cx.notify();
-            })
-            .ok();
-        }));
+    /// Tell each text's editor whether it is on screen: the one in view,
+    /// while the tab is displayed and no PDF stands in its place.
+    fn sync_shown(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let shown = self.active && self.pdf.is_none();
+        let texts: Vec<_> = self
+            .texts
+            .iter()
+            .map(|text| (text.view == self.view && shown, text.editor.clone()))
+            .collect();
+        for (on_screen, editor) in texts {
+            editor.update(cx, |editor, cx| {
+                BasePanel::set_active(editor, on_screen, window, cx)
+            });
+        }
     }
 
-    fn style(&self, window: &Window, cx: &App) -> MarkdownStyle {
-        let palette = cx.palette().clone();
-        let fonts = cx.lattice().fonts.clone();
-        let mut style = MarkdownStyle::themed(MarkdownFont::Preview, window, cx);
-        style.base_text_style.font_family = fonts.ui.clone();
-        style.base_text_style.font_size = px(14.).into();
-        style.base_text_style.line_height = relative(1.6);
-        style.base_text_style.color = palette.text;
-        style.paragraph_spacing = px(12.);
-        style.paragraph_line_height = relative(1.6);
-        style.selection_background_color = palette.selection;
-        style.rule_color = palette.line;
-        style.block_quote_border_color = palette.line_strong;
-        style.link = TextStyleRefinement {
-            color: Some(palette.accent),
-            ..Default::default()
-        };
-        style.inline_code = TextStyleRefinement {
-            font_family: Some(fonts.editor.clone()),
-            font_size: Some(px(12.5).into()),
-            background_color: Some(palette.text.opacity(0.05)),
-            ..Default::default()
-        };
-        let heading = |size: f32, weight: gpui::FontWeight, family: Option<SharedString>| {
-            TextStyleRefinement {
-                font_size: Some(px(size).into()),
-                font_weight: Some(weight),
-                font_family: family,
-                color: Some(palette.text),
-                line_height: Some(relative(1.3)),
-                ..Default::default()
-            }
-        };
-        style.heading_level_styles = Some(HeadingLevelStyles {
-            h1: Some(heading(
-                26.,
-                gpui::FontWeight::NORMAL,
-                Some(fonts.display.clone()),
-            )),
-            h2: Some(heading(18., gpui::FontWeight::SEMIBOLD, None)),
-            h3: Some(heading(15., gpui::FontWeight::SEMIBOLD, None)),
-            h4: Some(heading(14., gpui::FontWeight::SEMIBOLD, None)),
-            h5: Some(heading(14., FONT_WEIGHT_MEDIUM, None)),
-            h6: Some(heading(13., FONT_WEIGHT_MEDIUM, None)),
-        });
-        style
+    /// Show `view` (the full text or the overview): the writer chose its
+    /// text, so the paper is no longer read as its PDF.
+    pub fn show(&mut self, view: ReaderView, window: &mut Window, cx: &mut Context<Self>) {
+        self.close_pdf(cx);
+        self.view = view;
+        self.sync_shown(window, cx);
+        if self.editor().is_none() {
+            cx.emit(PaperReaderEvent::Show(view));
+        }
+        if let Some(editor) = self.editor() {
+            window.focus(&editor.focus_handle(cx), cx);
+        }
+        cx.notify();
+    }
+
+    /// The paper as the library lists it now (a refreshed record): the
+    /// texts' mastheads follow, and a download that left a full text where
+    /// only the overview was opens it.
+    pub fn set_paper(&mut self, paper: PaperSummary, window: &mut Window, cx: &mut Context<Self>) {
+        let gained_text = paper.has_full_text && !self.paper.has_full_text;
+        self.paper = paper;
+        let readings: Vec<_> = self
+            .texts
+            .iter()
+            .map(|text| (text.editor.clone(), self.reading(text.view)))
+            .collect();
+        for (editor, reading) in readings {
+            editor.update(cx, |editor, cx| editor.set_paper_reading(Some(reading), cx));
+        }
+        if gained_text {
+            self.show(ReaderView::FullText, window, cx);
+        }
+        cx.notify();
+    }
+
+    /// Open the paper on the web.
+    fn open_in_browser(&self, cx: &mut App) {
+        if let Some(url) = browser_url(&self.paper) {
+            model::open_link(&url, cx);
+        }
+    }
+
+    /// The tooltip of the way out to the web (`browserActionLabel`): a PDF
+    /// shown here from the web opens there; otherwise the article's page.
+    fn browser_label(&self) -> &'static str {
+        match pdf_source(&self.paper) {
+            Some(PdfSource::Remote(_)) => t!("Open PDF in browser"),
+            _ => t!("Open article in browser"),
+        }
     }
 
     /// Blog and Paper, in the tab strip as the Tauri header has them
-    /// (`trellis-header-tools.tsx`), when the bundle has both.
-    fn content_switch(&self, cx: &mut Context<Self>) -> Option<impl IntoElement + use<>> {
-        (self.paper.has_full_text && self.paper.has_blog).then(|| {
-            let view = self.view;
-            Segmented::new("paper-reader-view")
-                .label(
-                    t!("Blog"),
-                    view == ReaderView::Overview,
-                    cx.listener(|this, _, _, cx| this.show(ReaderView::Overview, cx)),
-                )
-                .label(
-                    t!("Paper"),
-                    view == ReaderView::FullText,
-                    cx.listener(|this, _, _, cx| this.show(ReaderView::FullText, cx)),
-                )
-        })
+    /// (`trellis-header-tools.tsx`), before the text's own Edit, Split and
+    /// Preview. A paper with one text keeps the switch's room, unpressable.
+    fn content_switch(&self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+        let both = self.paper.has_full_text && self.paper.has_blog;
+        let view = self.view;
+        let this = cx.entity().downgrade();
+        let choice = |shown: ReaderView| {
+            let this = this.clone();
+            move |_: &gpui::ClickEvent, window: &mut Window, cx: &mut App| {
+                this.update(cx, |reader, cx| reader.show(shown, window, cx))
+                    .ok();
+            }
+        };
+        let switch = Segmented::new("paper-reader-view")
+            .parity("paper/content")
+            .icon_choice(
+                Icon::NEWSPAPER,
+                ReaderView::Overview.name(),
+                view == ReaderView::Overview,
+                choice(ReaderView::Overview),
+            )
+            .icon_choice(
+                Icon::FILE_TEXT,
+                ReaderView::FullText.name(),
+                view == ReaderView::FullText,
+                choice(ReaderView::FullText),
+            );
+        let modes = (self.pdf.is_none())
+            .then(|| self.editor().cloned())
+            .flatten()
+            .and_then(|editor| {
+                editor.update(cx, |editor, cx| editor.view_switch_element(window, cx))
+            });
+        div()
+            .flex()
+            .items_center()
+            .gap(px(6.))
+            .child(div().when(!both, |slot| slot.invisible()).child(switch))
+            .children(modes)
+            .into_any_element()
     }
 
-    /// The strip over the text: the paper's identity and the way to the
-    /// original PDF.
-    fn header(&self, cx: &mut Context<Self>) -> impl IntoElement {
+    /// The panel menu's leading items: Blog and Paper, then the text's own.
+    pub fn panel_menu(reader: &Entity<Self>, menu: Menu, cx: &App) -> Menu {
+        let this = reader.read(cx);
+        let mut menu = menu;
+        if this.paper.has_full_text && this.paper.has_blog {
+            for view in [ReaderView::Overview, ReaderView::FullText] {
+                let reader = reader.downgrade();
+                menu = menu.item(
+                    MenuAction::new(view.name(), move |window, cx| {
+                        reader
+                            .update(cx, |reader, cx| reader.show(view, window, cx))
+                            .ok();
+                    })
+                    .checked(this.view == view),
+                );
+            }
+            menu = menu.separator();
+        }
+        match this.editor() {
+            Some(editor) if this.pdf.is_none() => editor.read(cx).panel_menu(menu, cx),
+            _ => menu,
+        }
+    }
+
+    /// The shown text's masthead is on screen, so the strip leaves out the
+    /// title and authors it carries: not over the PDF, and not in Edit,
+    /// where there is no masthead.
+    pub fn masthead_on_screen(&self, cx: &App) -> bool {
+        self.texts
+            .iter()
+            .any(|text| text.view == self.view && text.masthead)
+            && self.pdf.is_none()
+            && self
+                .editor()
+                .and_then(|editor| editor.read(cx).document_view())
+                != Some(DocumentView::Source)
+    }
+
+    /// The strip over the text: the paper's identity and its actions.
+    fn header(&self, cx: &mut Context<Self>) -> impl IntoElement + use<> {
         let palette = cx.palette().clone();
+        let width = self.width.get().map_or(f32::MAX, f32::from);
+        let icons_only = width < ICONS_ONLY_BELOW;
+        let masthead = self.masthead_on_screen(cx);
         let source = model::source_label(&self.paper);
-        let link = model::link_url(&self.paper);
-        let authors = model::short_authors(&self.paper);
-        let pdf = self
-            .paper
-            .has_local_pdf
-            .then(|| format!(".research/papers/{}/original.pdf", self.paper.arxiv_id));
+        let browser = browser_url(&self.paper).is_some();
+        let authors = (!masthead && width >= NO_AUTHORS_BELOW)
+            .then(|| model::short_authors(&self.paper))
+            .flatten();
+        let browser_label = self.browser_label();
+        let pdf_source = pdf_source(&self.paper);
+        let pdf_open = self.pdf.is_some();
+        let separator = || {
+            div()
+                .flex_none()
+                .mx(px(6.))
+                .text_color(palette.text_secondary)
+                .child("\u{00a0}")
+        };
+        let mut identity = div()
+            .flex()
+            .flex_1()
+            .min_w_0()
+            .items_baseline()
+            .whitespace_nowrap()
+            .text_role(TextRole::Caption, cx)
+            .text_color(palette.text_secondary);
+        let mut parts = 0;
+        if !masthead {
+            identity = identity.child(
+                div()
+                    .min_w_0()
+                    .truncate()
+                    .text_role(TextRole::BodyCompact, cx)
+                    .font_weight(FONT_WEIGHT_MEDIUM)
+                    .text_color(palette.text)
+                    .child(self.paper.title.clone()),
+            );
+            parts += 1;
+        }
+        if let Some(authors) = authors {
+            if parts > 0 {
+                identity = identity.child(separator());
+            }
+            identity = identity.child(
+                div()
+                    .flex_none()
+                    .max_w(relative_width(width, 0.3))
+                    .truncate()
+                    .text_color(palette.text_secondary)
+                    .child(authors),
+            );
+            parts += 1;
+        }
+        if let Some(source) = source.clone() {
+            if parts > 0 {
+                identity = identity.child(separator());
+            }
+            let label = join_phrases(&[source.as_str(), browser_label]);
+            let ink = palette.text_secondary;
+            let hover_ink = palette.text;
+            identity = identity.child(
+                div()
+                    .id("paper-reader-source")
+                    .group("paper-reader-source")
+                    .flex()
+                    .flex_none()
+                    .min_w(px(40.))
+                    .max_w(relative_width(width, 0.4))
+                    .items_baseline()
+                    .text_color(ink)
+                    .child(div().min_w_0().truncate().child(source))
+                    .when(browser, |source| {
+                        source
+                            .cursor_pointer()
+                            .hover(move |style| style.text_color(hover_ink))
+                            .tooltip(tooltip(label))
+                            .on_click(cx.listener(|this, _, _, cx| this.open_in_browser(cx)))
+                            .child(
+                                // The arrow shows only under the pointer: the
+                                // source reads as text until pointed at.
+                                div()
+                                    .flex_none()
+                                    .self_center()
+                                    .ml(px(2.))
+                                    .invisible()
+                                    .group_hover("paper-reader-source", |style| style.visible())
+                                    .child(Icon::EXTERNAL_LINK.element(px(11.), hover_ink)),
+                            )
+                    }),
+            );
+        }
+        let action = |id: &'static str| {
+            div()
+                .id(id)
+                .flex()
+                .flex_none()
+                .items_center()
+                .justify_center()
+                .gap(px(4.))
+                .min_w(px(24.))
+                .h(px(24.))
+                .px(if icons_only { px(0.) } else { px(8.) })
+                .rounded(px(6.))
+                .text_role(TextRole::Micro, cx)
+                .font_weight(gpui::FontWeight::SEMIBOLD)
+                .text_color(palette.text_secondary)
+                .cursor_pointer()
+                .hover(|style| style.bg(palette.hover).text_color(palette.text))
+        };
+        let width_cell = self.width.clone();
         div()
+            .relative()
             .flex()
             .flex_none()
             .items_center()
+            .justify_end()
             .gap(px(16.))
-            .h(px(40.))
+            .min_h(px(40.))
             .pl(px(16.))
             .pr(px(10.))
             .border_b_1()
             .border_color(palette.line)
             .child(
+                canvas(
+                    move |bounds, _, _| width_cell.set(Some(bounds.size.width)),
+                    |_, _, _, _| {},
+                )
+                .absolute()
+                .size_full(),
+            )
+            .child(identity)
+            .child(
                 div()
                     .flex()
-                    .flex_1()
-                    .min_w_0()
-                    .items_baseline()
-                    .gap(px(6.))
-                    .whitespace_nowrap()
-                    .text_role(TextRole::Caption, cx)
-                    .text_color(palette.text_secondary)
-                    .child(
-                        div()
-                            .min_w_0()
-                            .truncate()
-                            .text_role(TextRole::BodyCompact, cx)
-                            .font_weight(FONT_WEIGHT_MEDIUM)
-                            .text_color(palette.text)
-                            .child(self.paper.title.clone()),
-                    )
-                    .when_some(authors, |line, authors| {
-                        line.child(div().flex_none().child(authors))
+                    .flex_none()
+                    .items_center()
+                    .justify_end()
+                    .gap(px(4.))
+                    .when_some(pdf_source, |actions, _| {
+                        actions.child(
+                            action("paper-reader-pdf")
+                                .when(pdf_open, |button| {
+                                    button.bg(palette.hover).text_color(palette.text)
+                                })
+                                .tooltip(tooltip(t!("View original PDF")))
+                                .on_click(cx.listener(move |this, _, window, cx| {
+                                    if this.pdf.is_some() {
+                                        let view = this.view;
+                                        this.show(view, window, cx);
+                                    } else {
+                                        this.open_pdf(window, cx);
+                                    }
+                                }))
+                                .child(Icon::FILE_TEXT.element(px(14.), palette.text_secondary))
+                                .when(!icons_only, |button| button.child(t!("PDF"))),
+                        )
                     })
-                    .when_some(source, |line, source| {
-                        let source_ink = palette.text_secondary;
-                        let hover_ink = palette.text;
-                        // The source is the way out to the original, so it is
-                        // the browser action.
-                        let label = join_phrases(&[source.as_str(), t!("Open article in browser")]);
-                        line.child(
-                            div()
-                                .id("paper-reader-source")
-                                .flex()
-                                .flex_none()
-                                .items_center()
-                                .gap(px(3.))
-                                .text_color(source_ink)
-                                .child(div().truncate().child(source))
-                                .when_some(link, |source, link| {
-                                    source
-                                        .cursor_pointer()
-                                        .hover(move |style| style.text_color(hover_ink))
-                                        .tooltip(tooltip(label))
-                                        .on_click(move |_, _, cx| model::open_link(&link, cx))
-                                        .child(Icon::EXTERNAL_LINK.element(px(11.), source_ink))
-                                }),
+                    .when(source.is_none() && browser, |actions| {
+                        actions.child(
+                            action("paper-reader-browser")
+                                .w(px(24.))
+                                .px(px(0.))
+                                .tooltip(tooltip(browser_label))
+                                .on_click(cx.listener(|this, _, _, cx| this.open_in_browser(cx)))
+                                .child(
+                                    Icon::EXTERNAL_LINK.element(px(14.), palette.text_secondary),
+                                ),
                         )
                     }),
             )
-            .when_some(pdf, |strip, pdf| {
-                strip.child(
-                    Button::new("paper-reader-pdf", t!("PDF"))
-                        .ghost()
-                        .compact()
-                        .icon(Icon::FILE_TEXT)
-                        .tooltip(t!("View original PDF"))
-                        .on_click(cx.listener(move |_, _, _, cx| {
-                            cx.emit(PaperReaderEvent::OpenPdf(pdf.clone()))
-                        })),
-                )
-            })
+    }
+
+    fn body(&self, cx: &mut Context<Self>) -> AnyElement {
+        let palette = cx.palette().clone();
+        let placeholder = |text: SharedString| {
+            div()
+                .flex_1()
+                .flex()
+                .flex_col()
+                .items_center()
+                .justify_center()
+                .gap(px(8.))
+                .text_role(TextRole::Body, cx)
+                .text_color(palette.text_secondary)
+                .child(Icon::FILE_TEXT.element(px(28.), palette.text_secondary))
+                .child(text)
+                .into_any_element()
+        };
+        if let Some(pdf) = &self.pdf {
+            if let Some(error) = &pdf.error {
+                return placeholder(error.clone());
+            }
+            if pdf.loading {
+                return placeholder(t!("Loading PDF…").into());
+            }
+            return div()
+                .flex_1()
+                .min_h_0()
+                .child(pdf.view.clone())
+                .into_any_element();
+        }
+        match self.editor() {
+            Some(editor) => div()
+                .flex_1()
+                .min_h_0()
+                .child(editor.clone())
+                .into_any_element(),
+            None => div().flex_1().into_any_element(),
+        }
+    }
+}
+
+/// `fraction` of the strip's width, or no cap before it has been drawn.
+fn relative_width(width: f32, fraction: f32) -> Pixels {
+    if width == f32::MAX {
+        px(f32::MAX)
+    } else {
+        px(width * fraction)
     }
 }
 
 impl Focusable for PaperReader {
-    fn focus_handle(&self, _: &App) -> FocusHandle {
-        self.focus.clone()
+    fn focus_handle(&self, cx: &App) -> FocusHandle {
+        if let Some(pdf) = &self.pdf {
+            return pdf.view.focus_handle(cx);
+        }
+        match self.editor() {
+            Some(editor) => editor.focus_handle(cx),
+            None => self.focus.clone(),
+        }
     }
 }
 
@@ -334,6 +615,21 @@ impl BasePanel for PaperReader {
     fn closable(&self, _: &App) -> bool {
         true
     }
+
+    fn set_active(&mut self, active: bool, window: &mut Window, cx: &mut Context<Self>) {
+        self.active = active;
+        self.sync_shown(window, cx);
+    }
+
+    /// The tab left the dock: each text saves what it holds first, as its
+    /// own tab would.
+    fn on_removed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.active = false;
+        let editors: Vec<_> = self.editors().cloned().collect();
+        for editor in editors {
+            editor.update(cx, |editor, cx| BasePanel::on_removed(editor, window, cx));
+        }
+    }
 }
 
 impl Panel for PaperReader {
@@ -341,12 +637,19 @@ impl Panel for PaperReader {
         Some(self.paper.title.clone().into())
     }
 
-    fn title(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
-        self.paper.title.clone()
+    fn title(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        match self.editor() {
+            Some(editor) if editor.read(cx).is_dirty(cx) => format!("{} •", self.paper.title),
+            _ => self.paper.title.clone(),
+        }
     }
 
-    fn title_suffix(&mut self, _: &mut Window, cx: &mut Context<Self>) -> Option<impl IntoElement> {
-        self.content_switch(cx)
+    fn title_suffix(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Option<impl IntoElement> {
+        Some(self.content_switch(window, cx))
     }
 
     fn inner_padding(&self, _: &App) -> bool {
@@ -355,53 +658,36 @@ impl Panel for PaperReader {
 }
 
 impl Render for PaperReader {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let palette = cx.palette().clone();
-        let style = self.style(window, cx);
-        let body = match &self.error {
-            Some(error) => div()
-                .p(px(24.))
-                .text_role(TextRole::Body, cx)
-                .text_color(palette.text_secondary)
-                .child(error.clone())
-                .into_any_element(),
-            None => MarkdownElement::new(self.markdown.clone(), style)
-                .on_url_click(|url, _, cx| model::open_link(&url, cx))
-                .into_any_element(),
-        };
+        let header = self.header(cx);
+        let body = self.body(cx);
         div()
             .id("paper-reader")
             .track_focus(&self.focus)
             .size_full()
             .flex()
             .flex_col()
+            .overflow_hidden()
             .bg(palette.editor)
-            .child(self.header(cx))
-            .child(
-                div()
-                    .relative()
-                    .flex_1()
-                    .min_h_0()
-                    .child(
-                        div()
-                            .id("paper-reader-scroll")
-                            .size_full()
-                            .overflow_y_scroll()
-                            .track_scroll(&self.scroll)
-                            .child(
-                                div()
-                                    .mx_auto()
-                                    .max_w(px(720.))
-                                    .px(px(32.))
-                                    .pt(px(28.))
-                                    .pb(px(64.))
-                                    .child(body),
-                            ),
-                    )
-                    .child(FluidScrollbar::vertical(
-                        "paper-reader-scrollbar",
-                        &self.scroll,
-                    )),
-            )
+            .child(header)
+            .child(body)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_reading_file_is_named_by_its_view() {
+        assert_eq!(
+            reading_path("1706.03762", ReaderView::FullText),
+            ".research/papers/1706.03762/paper.md"
+        );
+        assert_eq!(
+            reading_path("hep-th/9901001", ReaderView::Overview),
+            ".research/papers/hep-th/9901001/blog.md"
+        );
     }
 }

@@ -153,6 +153,12 @@ choice!(
     } default Appearance
 );
 
+choice!(
+    /// How `.tex` documents draw in their editor: one choice for every
+    /// `.tex` file, shared by every window (`latex-view-choice.ts`).
+    LatexView { Source = "source", Visual = "visual" } default Source
+);
+
 /// An accent preset, or a custom colour as lowercase `#rrggbb`.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Accent {
@@ -411,6 +417,47 @@ impl Appearance {
     }
 }
 
+choice!(
+    /// Settings › Editor & builds › Grammar › English variant.
+    GrammarDialect { American = "american", British = "british" } default American
+);
+choice!(
+    /// Which rule set Harper checks with; automatic is academic for LaTeX
+    /// and standard elsewhere.
+    GrammarProfile { Auto = "auto", Academic = "academic", Standard = "standard" } default Auto
+);
+
+/// The writer's grammar choices, for every project
+/// (`lattice.grammar.v1`, `grammar-settings-store.ts`).
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
+pub struct Grammar {
+    pub dialect: GrammarDialect,
+    pub profile: GrammarProfile,
+    /// Rules switched on or off over the profile, by Harper rule name.
+    pub rules: std::collections::BTreeMap<String, bool>,
+}
+
+impl Grammar {
+    /// `loadGrammarSettings`: British only when it says so, a profile only
+    /// when it names one, and the rules' booleans.
+    pub fn from_value(value: Option<&Value>) -> Grammar {
+        let field = |name: &str| value.and_then(|value| value.get(name));
+        Grammar {
+            dialect: choice(field("dialect"), GrammarDialect::American),
+            profile: choice(field("profile"), GrammarProfile::Auto),
+            rules: field("rules")
+                .and_then(Value::as_object)
+                .map(|rules| {
+                    rules
+                        .iter()
+                        .filter_map(|(name, on)| on.as_bool().map(|on| (name.clone(), on)))
+                        .collect()
+                })
+                .unwrap_or_default(),
+        }
+    }
+}
+
 /// Everything Settings keeps for the GPUI app.
 #[derive(Clone, Debug, Default, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -425,6 +472,8 @@ pub struct Settings {
     /// "Your name": what signs comments when no Git or Overleaf name does.
     pub author_name: String,
     pub settings_tab: SettingsTab,
+    /// Source or Visual, for every `.tex` file (`lattice.latex-view.v1`).
+    pub latex_view: LatexView,
     /// Settings › Overleaf › Sync mode, shared by every window.
     pub overleaf_sync_mode: OverleafSyncMode,
     /// Settings › Overleaf › When you delete a file here.
@@ -440,6 +489,12 @@ pub struct Settings {
     /// (false), for every project (`lattice.build-output-docked.v1`); `None`
     /// until the writer chooses, when a build that succeeded docks.
     pub build_output_docked: Option<bool>,
+    /// Settings › Editor & builds › Grammar.
+    pub grammar: Grammar,
+    /// Adding a paper also saves its full text (Markdown and overview), not
+    /// only its citation (`lattice.papers.save-full-text.v1`); off until the
+    /// writer turns it on.
+    pub save_full_text: bool,
 }
 
 impl Settings {
@@ -487,6 +542,7 @@ impl Settings {
                 .unwrap_or_default()
                 .to_owned(),
             settings_tab: choice(field("settingsTab"), defaults.settings_tab),
+            latex_view: choice(field("latexView"), defaults.latex_view),
             overleaf_sync_mode: choice(field("overleafSyncMode"), defaults.overleaf_sync_mode),
             overleaf_remote_delete: choice(
                 field("overleafRemoteDelete"),
@@ -495,6 +551,8 @@ impl Settings {
             live_preview: live_preview_choices(field("livePreview")),
             live_preview_removed: field("livePreviewRemoved") == Some(&Value::Bool(true)),
             build_output_docked: field("buildOutputDocked").and_then(Value::as_bool),
+            grammar: Grammar::from_value(field("grammar")),
+            save_full_text: field("saveFullText") == Some(&Value::Bool(true)),
         }
     }
 
@@ -511,6 +569,25 @@ impl Settings {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn the_grammar_choices_are_read_as_the_tauri_app_reads_them() {
+        let grammar = Grammar::from_value(Some(&json!({
+            "dialect": "british",
+            "profile": "nonsense",
+            "rules": { "OxfordComma": true, "LongSentences": "no" }
+        })));
+        assert_eq!(grammar.dialect, GrammarDialect::British);
+        assert_eq!(grammar.profile, GrammarProfile::Auto);
+        assert_eq!(grammar.rules.len(), 1);
+        assert!(grammar.rules["OxfordComma"]);
+        assert_eq!(Grammar::from_value(None), Grammar::default());
+        let settings = Settings {
+            grammar: grammar.clone(),
+            ..Settings::default()
+        };
+        assert_eq!(Settings::from_value(&settings.to_value()).grammar, grammar);
+    }
 
     #[test]
     fn an_empty_store_is_the_tauri_apps_defaults() {
@@ -587,8 +664,11 @@ mod tests {
 
     #[test]
     fn the_settings_file_round_trips() {
-        let mut settings = Settings::default();
-        settings.theme_preference = ThemePreference::Dark;
+        let mut settings = Settings {
+            theme_preference: ThemePreference::Dark,
+            latex_view: LatexView::Visual,
+            ..Default::default()
+        };
         settings.appearance.accent = Accent::Preset(AccentPreset::Teal);
         settings.appearance.hidden_titlebar_tools = vec![TitlebarTool::Browser];
         settings.auto_build_mode = AutoBuildMode::Manual;

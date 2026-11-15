@@ -152,6 +152,7 @@ pub fn install(cx: &mut App) -> Entity<TexSetupCenter> {
         _install: None,
     });
     cx.set_global(TexSetupCenterGlobal(center.clone()));
+    super::reminder::install(&center, cx);
     center
 }
 

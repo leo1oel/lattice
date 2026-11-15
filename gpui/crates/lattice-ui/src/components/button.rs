@@ -116,6 +116,8 @@ pub struct Button {
     base: Stateful<Div>,
     label: Option<SharedString>,
     icon: Option<Icon>,
+    /// Drawn where the icon goes, for a mark that moves (a Copy button's swap).
+    leading: Option<gpui::AnyElement>,
     trailing_icon: Option<Icon>,
     variant: ButtonVariant,
     size: ButtonSize,
@@ -124,6 +126,8 @@ pub struct Button {
     tooltip: Option<SharedString>,
     on_click: Option<ClickHandler>,
     parity: Option<SharedString>,
+    /// The keys that press it, after the label (`<kbd>`).
+    keys: Option<SharedString>,
 }
 
 impl Button {
@@ -134,6 +138,7 @@ impl Button {
             id,
             label: Some(label.into()),
             icon: None,
+            leading: None,
             trailing_icon: None,
             variant: ButtonVariant::default(),
             size: ButtonSize::default(),
@@ -142,7 +147,15 @@ impl Button {
             tooltip: None,
             on_click: None,
             parity: None,
+            keys: None,
         }
+    }
+
+    /// The keys that press it, after the label in the secondary ink, 4px
+    /// further on (`.annotation-form-actions kbd`).
+    pub fn keys(mut self, keys: impl Into<SharedString>) -> Self {
+        self.keys = Some(keys.into());
+        self
     }
 
     pub fn variant(mut self, variant: ButtonVariant) -> Self {
@@ -182,6 +195,13 @@ impl Button {
 
     /// An icon after the label, where it says where the button leads (an
     /// external link's arrow).
+    /// An element in the icon's place: a mark of the caller's own, at the
+    /// size's icon size.
+    pub fn leading(mut self, leading: impl IntoElement) -> Self {
+        self.leading = Some(leading.into_any_element());
+        self
+    }
+
     pub fn trailing_icon(mut self, icon: Icon) -> Self {
         self.trailing_icon = Some(icon);
         self
@@ -305,6 +325,7 @@ impl RenderOnce for Button {
             .when_some(self.icon, |this, icon| {
                 this.child(icon.element(icon_size, ink))
             })
+            .children(self.leading)
             .children(
                 self.parity
                     .clone()
@@ -317,6 +338,14 @@ impl RenderOnce for Button {
                     .and_then(|(name, label)| crate::parity::text_probe(name, 0, label)),
             )
             .children(self.label)
+            .when_some(self.keys, |this, keys| {
+                this.child(
+                    gpui::div()
+                        .ml(px(4.))
+                        .text_color(if disabled { ink } else { palette.text_secondary })
+                        .child(keys),
+                )
+            })
             .when_some(self.trailing_icon, |this, icon| {
                 this.child(icon.element(icon_size, ink))
             })

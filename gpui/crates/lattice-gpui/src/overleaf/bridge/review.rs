@@ -89,6 +89,20 @@ impl OverleafBridge {
         self.review.permission.is_some_and(Permission::can_write)
     }
 
+    /// May the writer edit `path` here (`editorEditableForPath`)? Always,
+    /// unlinked; linked, with a role that may write, or else for a file
+    /// that is no document of the project's once Overleaf has named a role:
+    /// an unknown role fails closed.
+    pub fn may_edit(&self, path: &str) -> bool {
+        if self.link().is_none() || self.can_review() {
+            return true;
+        }
+        self.review
+            .permission
+            .is_some_and(|permission| permission != Permission::Unknown)
+            && self.doc_of_path(path).is_none()
+    }
+
     /// Typing goes out as suggestions.
     pub fn tracking(&self) -> bool {
         self.review.track_changes || self.review.permission == Some(Permission::Review)

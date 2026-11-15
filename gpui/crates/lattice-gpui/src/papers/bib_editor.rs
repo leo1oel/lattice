@@ -509,7 +509,9 @@ impl BibEditor {
             .filter(|entry| entry.key == key)
             .or_else(|| document.entries.iter().find(|entry| entry.key == key))?;
         let change = edit(&base, entry)?;
-        if change.from == change.to && change.insert.is_empty() {
+        // A splice that writes back what is there changes nothing, and
+        // must not leave an undo step behind.
+        if base.get(change.from..change.to) == Some(change.insert.as_str()) {
             return None;
         }
         self.splice(&change, cx);

@@ -23,8 +23,9 @@ use lattice_ui::{
 
 use super::{ZoteroBrowser, ZoteroPaper, folder_rows};
 
-/// A sheet this narrow shows the folders or the papers, not both.
-const ONE_PANE: f32 = 560.;
+/// A sheet whose content is this narrow shows the folders or the papers,
+/// not both (`@container add-papers (width < 600px)`).
+const ONE_PANE: f32 = 600.;
 
 fn search(input: &gpui::Entity<InputState>, cx: &gpui::App) -> AnyElement {
     let palette = cx.palette().clone();
@@ -254,7 +255,14 @@ impl ZoteroBrowser {
         } else {
             t!("{0} annotations", paper.annotations)
         };
+        // The whole row ticks its paper, as React's `<label>` does: a click
+        // on its title, byline or badges toggles the box.
+        let (row_view, row_paper) = (view.clone(), paper.clone());
         div()
+            .id(SharedString::from(format!(
+                "zotero-paper:{}",
+                paper.citation_key
+            )))
             .flex()
             .items_start()
             .gap(px(8.))
@@ -262,6 +270,16 @@ impl ZoteroBrowser {
             .py(px(6.))
             .rounded(px(6.))
             .when(!tickable, |row| row.opacity(0.6))
+            .when(tickable, |row| {
+                row.cursor_pointer()
+                    .hover(|style| style.bg(palette.hover))
+                    .on_click(move |_, _, cx| {
+                        let paper = row_paper.clone();
+                        row_view
+                            .update(cx, |this, cx| this.tick(&[paper], !on, cx))
+                            .ok();
+                    })
+            })
             .child(
                 Checkbox::new(
                     SharedString::from(format!("zotero-tick:{}", paper.citation_key)),
@@ -269,6 +287,8 @@ impl ZoteroBrowser {
                 )
                 .disabled(!tickable)
                 .on_toggle(move |on, _, cx| {
+                    // The row would toggle it back.
+                    cx.stop_propagation();
                     let ticked = ticked.clone();
                     view.update(cx, |this, cx| this.tick(&[ticked], *on, cx))
                         .ok();
@@ -568,7 +588,7 @@ impl ZoteroBrowser {
 impl Render for ZoteroBrowser {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let palette = cx.palette().clone();
-        let one_pane = f32::from(window.viewport_size().width) - 40. < ONE_PANE;
+        let one_pane = crate::search::sheet::body_width(window) < ONE_PANE;
         let show_papers = !one_pane || (self.papers_pane && self.folder.is_some());
         let show_folders = !one_pane || !show_papers;
         div()

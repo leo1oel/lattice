@@ -96,19 +96,17 @@ impl AddPapers {
                     } else {
                         t!("Added")
                     };
-                    line(
+                    let said = line(
                         if item.already_imported {
                             palette.text_secondary
                         } else {
                             success
                         },
                         (!item.already_imported).then_some(Icon::CHECK),
-                        match &item.citation_key {
-                            Some(key) => format!("{said}  {key}"),
-                            None => said.into(),
-                        },
+                        said.into(),
                         cx,
-                    )
+                    );
+                    self.with_cite(said, &item.id, item.citation_key.as_deref(), cx)
                 }
                 ItemState::Adding => {
                     line(palette.text, Some(Icon::LOADER), t!("Adding…").into(), cx)
@@ -122,32 +120,17 @@ impl AddPapers {
                 ItemState::Failed => {
                     let id = item.id.clone();
                     let papers = self.papers.downgrade();
-                    div()
-                        .flex()
-                        .flex_none()
-                        .items_center()
-                        .gap(px(2.))
-                        .child(line(
-                            failed,
-                            Some(Icon::CIRCLE_ALERT),
-                            t!("Couldn't add").into(),
-                            cx,
-                        ))
-                        .child(
-                            IconButton::new(
-                                SharedString::from(format!("add-papers-retry:{id}")),
-                                Icon::ROTATE_CW,
-                            )
-                            .frame(px(20.), px(20.))
-                            .icon_size(px(11.))
-                            .tooltip(t!("Try again"))
-                            .on_click(move |_, _, cx| {
-                                papers
-                                    .update(cx, |papers, cx| papers.retry_batch_item(&id, cx))
-                                    .ok();
-                            }),
-                        )
-                        .into_any_element()
+                    let said = line(
+                        failed,
+                        Some(Icon::CIRCLE_ALERT),
+                        t!("Couldn't add").into(),
+                        cx,
+                    );
+                    retry(said, format!("add-papers-retry:{}", item.id), move |cx| {
+                        papers
+                            .update(cx, |papers, cx| papers.retry_batch_item(&id, cx))
+                            .ok();
+                    })
                 }
                 ItemState::Cancelled => {
                     line(palette.text_secondary, None, t!("Not added").into(), cx)
@@ -161,16 +144,25 @@ impl AddPapers {
                 String::new(),
                 cx,
             ),
-            RowState::Failed => line(failed, Some(Icon::CIRCLE_ALERT), t!("Not found").into(), cx),
-            RowState::Duplicate => line(
-                palette.text_secondary,
-                None,
-                match &row.existing_key {
-                    Some(key) => format!("{}  {key}", t!("Already in Papers")),
-                    None => t!("Already in Papers").into(),
-                },
-                cx,
-            ),
+            RowState::Failed => {
+                // Its lookup asked again: a DOI pasted offline is found
+                // once the network is back.
+                let id = row.reference.id.clone();
+                let view = cx.entity().downgrade();
+                let said = line(failed, Some(Icon::CIRCLE_ALERT), t!("Not found").into(), cx);
+                retry(said, format!("add-papers-lookup:{id}"), move |cx| {
+                    view.update(cx, |this, cx| this.retry_lookup(&id, cx)).ok();
+                })
+            }
+            RowState::Duplicate => {
+                let said = line(
+                    palette.text_secondary,
+                    None,
+                    t!("Already in Papers").into(),
+                    cx,
+                );
+                self.with_cite(said, &row.reference.id, row.existing_key.as_deref(), cx)
+            }
             RowState::Choose | RowState::New if !row.candidates.is_empty() => {
                 let id = row.reference.id.clone();
                 let pending = row.state == RowState::Choose;
@@ -394,6 +386,105 @@ fn model_byline(byline: &str, doi: &str) -> String {
     crate::papers::model::byline_of([byline, doi])
 }
 
+/// A row's state with Try again after it (`RetryButton`).
+fn retry(said: AnyElement, id: String, again: impl Fn(&mut gpui::App) + 'static) -> AnyElement {
+    div()
+        .flex()
+        .flex_none()
+        .items_center()
+        .gap(px(2.))
+        .child(said)
+        .child(
+            IconButton::new(SharedString::from(id), Icon::ROTATE_CW)
+                .frame(px(20.), px(20.))
+                .icon_size(px(11.))
+                .tooltip(t!("Try again"))
+                .on_click(move |_, _, cx| again(cx)),
+        )
+        .into_any_element()
+}
+
+impl AddPapers {
+    /// A row's state with its citation key after it, which copies the whole
+    /// `\cite` command a manuscript needs (`CiteCopy`); a long key
+    /// truncates, the copy is whole.
+    fn with_cite(
+        &self,
+        said: AnyElement,
+        id: &str,
+        key: Option<&str>,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let Some(key) = key.map(str::to_string) else {
+            return said;
+        };
+        let palette = cx.palette().clone();
+        let editor = cx.lattice().fonts.editor.clone();
+        let view = cx.entity().downgrade();
+        let copied = key.clone();
+        div()
+            .flex()
+            .flex_none()
+            .items_center()
+            .gap(px(6.))
+            .child(said)
+            .child(
+                div()
+                    .id(SharedString::from(format!("add-papers-cite:{id}")))
+                    .flex()
+                    .items_center()
+                    .gap(px(4.))
+                    .max_w(px(180.))
+                    .h(px(20.))
+                    .px(px(5.))
+                    .rounded(px(4.))
+                    .cursor_pointer()
+                    .hover(|style| style.bg(palette.hover))
+                    .tooltip(|_, cx| {
+                        lattice_ui::components::LatticeTooltip::view(
+                            t!("Copy \\cite command"),
+                            None,
+                            cx,
+                        )
+                    })
+                    .on_click(move |_, _, cx| {
+                        view.update(cx, |this, cx| this.copy_cite(&copied, cx)).ok();
+                    })
+                    .child(Icon::COPY.element(px(11.), palette.text_secondary))
+                    .child(
+                        div()
+                            .min_w_0()
+                            .truncate()
+                            .font_family(editor)
+                            .text_size(px(11.))
+                            .text_color(palette.text_secondary)
+                            .child(key),
+                    ),
+            )
+            .into_any_element()
+    }
+
+    /// The paste box: a paste is read at once, and ⌘/Ctrl+Enter adds
+    /// rather than breaking the line.
+    fn paste_box(&self, rows: usize, cx: &mut Context<Self>) -> AnyElement {
+        use gpui_kit::component::input::{Enter, Paste};
+        div()
+            .capture_action(cx.listener(|this, _: &Paste, _, cx| {
+                this.pasted = true;
+                cx.spawn(async move |this, cx| this.update(cx, |this, _| this.pasted = false).ok())
+                    .detach();
+            }))
+            .capture_action(cx.listener(|this, action: &Enter, _, cx| {
+                if action.secondary {
+                    cx.stop_propagation();
+                    this.add(cx);
+                }
+            }))
+            .child(Textarea::new(&self.text).height(px(if rows == 0 { 112. } else { 92. })))
+            .into_any_element()
+    }
+}
+
 impl Render for AddPapers {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let palette = cx.palette().clone();
@@ -459,11 +550,7 @@ impl Render for AddPapers {
                             .text_color(palette.text_secondary)
                             .child(t!("Paste references")),
                     )
-                    .child(Textarea::new(&self.text).height(px(if rows.is_empty() {
-                        112.
-                    } else {
-                        92.
-                    })))
+                    .child(self.paste_box(rows.len(), cx))
                     .into_any_element(),
             );
             // Other ways in: by hand, or from Zotero.
@@ -631,15 +718,30 @@ impl Render for AddPapers {
                 1 => t!("Add 1 paper").to_string(),
                 count => t!("Add {0} papers", count),
             };
+            // Add can hold the keyboard (`focus_on_open`): Enter or Space
+            // there adds, with the ring a focused button shows.
+            let ring = lattice_ui::components::focus_ring(&palette, palette.raised);
             actions.push(
-                Button::new("add-papers-add", label)
-                    .primary()
-                    .icon(Icon::PLUS)
-                    .disabled(addable == 0 || importing_elsewhere)
-                    .when(importing_elsewhere, |button| {
-                        button.tooltip(t!("Another paper is being added"))
-                    })
-                    .on_click(cx.listener(|this, _, _, cx| this.add(cx)))
+                div()
+                    .track_focus(&self.add_focus)
+                    .rounded(px(6.))
+                    .when(self.add_focus.is_focused(window), |wrap| wrap.shadow(ring))
+                    .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, _, cx| {
+                        if matches!(event.keystroke.key.as_str(), "enter" | "space") {
+                            cx.stop_propagation();
+                            this.add(cx);
+                        }
+                    }))
+                    .child(
+                        Button::new("add-papers-add", label)
+                            .primary()
+                            .icon(Icon::PLUS)
+                            .disabled(addable == 0 || importing_elsewhere)
+                            .when(importing_elsewhere, |button| {
+                                button.tooltip(t!("Another paper is being added"))
+                            })
+                            .on_click(cx.listener(|this, _, _, cx| this.add(cx))),
+                    )
                     .into_any_element(),
             );
         }

@@ -104,6 +104,24 @@ export const SCREENS = {
     ],
     content: [".markdown-preview", ".pdf-viewer-host"],
   },
+  // The tutorial's main.tex in Visual (`scenes.latexVisual`): the document's
+  // card, strip and tab, its Source / Visual switch with Visual chosen, the
+  // page in the source's place and the status bar under it. The GPUI app
+  // draws the page in a webview island, which an offscreen capture does not
+  // include, so it is left out of the pixel budget; the composited capture
+  // beside the report shows it.
+  latexVisual: {
+    label: "LaTeX Visual",
+    regions: [
+      { name: "titlebar", css: "header.titlebar", chrome: true },
+      { name: "workspace", css: "main.workspace", chrome: true },
+      ...group("main.tex"),
+      { name: "editor/view-switch", css: ".trellis-view-switcher", text: true },
+      { name: "latex/surface", css: ".source-editor:has(.cm-latex-visual)" },
+      { name: "status-bar", css: ".editor-status-bar", chrome: true },
+    ],
+    content: [".source-editor", ".pdf-viewer-host"],
+  },
   // The tutorial's spreadsheet and board opened (`scenes.sheet`,
   // `scenes.board`): the document's card, strip and tab, and the surface,
   // alone in the panel with no status bar or strip tools, as the Tauri
@@ -254,6 +272,17 @@ export const SCREENS = {
     ],
     content: [".pdf-viewer-host"],
   },
+  // Three notices on the stack, collapsed, the error in front
+  // (`scenes.toasts`, crates/lattice-gpui/src/scenario/parity_notices.rs):
+  // the front card and its title.
+  toasts: {
+    label: "Notifications",
+    regions: [
+      { name: "toast/front", css: ".app-toast:has(> .app-toast-content:not([data-behind]))", chrome: true },
+      { name: "toast/front/title", css: ".app-toast:has(> .app-toast-content:not([data-behind])) .app-toast-title", text: true },
+    ],
+    content: [".pdf-viewer-host"],
+  },
   // Settings › Logs (`scenes.logs`): the two apps have logged different
   // things by then, so the dialog's frame, the page's title and its action
   // row, not the log's rows.
@@ -285,11 +314,9 @@ export const SCREENS = {
   },
   settings: {
     label: "Settings",
-    // Settings over the Main window, on Appearance (scenes.mjs `settings`).
-    // The GPUI app lists only the sections it has (Appearance, Editor &
-    // builds, TeX doctor), so the left column's lower groups differ; the
-    // regions are the dialog's frame, its columns, the page's title and
-    // first group, and the first rows.
+    // Settings over the Main window, on Appearance (scenes.mjs `settings`):
+    // the dialog's frame, its columns, the page's title and first group,
+    // and the first rows.
     regions: [
       { name: "settings/modal", css: ".settings-modal", chrome: true },
       { name: "settings/nav", css: ".settings-nav", chrome: true },
@@ -326,6 +353,57 @@ export const SCREENS = {
       { name: "overleaf/picker/open", css: ".overleaf-project-row.selected .overleaf-open-button:last-child", text: true },
       { name: "overleaf/picker/publish", css: ".overleaf-publish-card", chrome: true },
       { name: "overleaf/picker/publish/title", css: ".overleaf-publish-copy strong", text: true },
+    ],
+    content: [],
+  },
+  // Settings' own pages beyond Appearance (scenes.mjs `settingsPage`): the
+  // dialog's frame and columns, the section chosen, the page's title and
+  // its first group.
+  settingsModelEndpoint: {
+    label: "Settings · Model endpoint",
+    regions: [
+      { name: "settings/modal", css: ".settings-modal", chrome: true },
+      { name: "settings/nav", css: ".settings-nav", chrome: true },
+      { name: "settings/content", css: ".settings-content", chrome: true },
+      { name: "settings/nav/active", css: ".settings-nav-group > button.active", text: true, chrome: true },
+      { name: "settings/title", css: ".settings-section .ui-settings-section-header-title", text: true },
+      { name: "settings/group", css: ".settings-section .ui-settings-group-body", chrome: true },
+    ],
+    content: [],
+  },
+  settingsEnvironment: {
+    label: "Settings · Environment",
+    regions: [
+      { name: "settings/modal", css: ".settings-modal", chrome: true },
+      { name: "settings/nav", css: ".settings-nav", chrome: true },
+      { name: "settings/content", css: ".settings-content", chrome: true },
+      { name: "settings/nav/active", css: ".settings-nav-group > button.active", text: true, chrome: true },
+      { name: "settings/title", css: ".settings-section .ui-settings-section-header-title", text: true },
+      { name: "settings/group", css: ".settings-section .ui-settings-group-body", chrome: true },
+    ],
+    content: [],
+  },
+  settingsLiterature: {
+    label: "Settings · Literature services",
+    regions: [
+      { name: "settings/modal", css: ".settings-modal", chrome: true },
+      { name: "settings/nav", css: ".settings-nav", chrome: true },
+      { name: "settings/content", css: ".settings-content", chrome: true },
+      { name: "settings/nav/active", css: ".settings-nav-group > button.active", text: true, chrome: true },
+      { name: "settings/title", css: ".settings-section .ui-settings-section-header-title", text: true },
+      { name: "settings/group", css: ".settings-section .ui-settings-group-body", chrome: true },
+    ],
+    content: [],
+  },
+  settingsAcknowledgements: {
+    label: "Settings · Acknowledgements",
+    regions: [
+      { name: "settings/modal", css: ".settings-modal", chrome: true },
+      { name: "settings/nav", css: ".settings-nav", chrome: true },
+      { name: "settings/content", css: ".settings-content", chrome: true },
+      { name: "settings/nav/active", css: ".settings-nav-group > button.active", text: true, chrome: true },
+      { name: "settings/title", css: ".settings-section .ui-settings-section-header-title", text: true },
+      { name: "settings/group", css: ".settings-section .ui-settings-group-body", chrome: true },
     ],
     content: [],
   },

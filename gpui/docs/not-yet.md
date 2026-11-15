@@ -3,7 +3,7 @@
 What the Tauri app has that the GPUI app does not port yet, one item per line.
 A feature that lands deletes its own line (only that line, so features landing side by side merge cleanly), and a gap found adds one.
 
-- [ ] The visual LaTeX editor.
+- [ ] The visual LaTeX editor, in part: its outline rail over Visual; its spellcheck, TexLab, find-references, rename, wrap-environment and paste-image hooks; live spelling, unused-label and unused-citation data; and comment highlights, margin review, Overleaf carets and track changes in Visual.
 
 - [ ] The source selection toolbar, LaTeX's and Markdown's.
 
@@ -15,9 +15,25 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] The import conflict dialog's Replace and Skip (an import keeps both).
 
+- [ ] Overlay exit motion for dialogs, sheets, menus, selects and popovers.
+
+- [ ] The spinners and loading sheens.
+
+- [ ] The 13 animated product icons.
+
+- [ ] The editor attention motions: a jump's reveal flash, an outside edit's change wash, and an accepted suggestion's strike, fold and settle.
+
+- [ ] The too-large-file toast, and a failed save's Retry and Save a copy.
+
+- [ ] The minor motions.
+
+- [ ] The bundled reading-aid fonts (Atkinson Hyperlegible, OpenDyslexic).
+
+- [ ] The translation of the host's error text in notices.
+
 - [ ] The Agent: a PDF or Papers selection in its context.
 
-- [ ] The Agent: reviewing the proposals its annotation tools record (there is no comments panel).
+- [ ] The Agent: reviewing the proposals its annotation tools record.
 
 - [ ] The Agent: inline Proofread and Polish.
 
@@ -29,19 +45,13 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] The PDF: its citation hover cards.
 
-- [ ] Settings: the grammar page (its dialect, profile and rules; spell checking uses the Tauri app's defaults).
+- [ ] Settings: the sections' product icons' hover gestures (they rest as the Tauri app's resting frames).
 
-- [ ] Settings: the Agent's MCP page.
+- [ ] Settings: Editor & builds › Your name saying which Git or Overleaf name signs comments ahead of it.
 
-- [ ] Settings: the Agent's Skills page.
+- [ ] Settings: App updates' automatic updates and Check for updates (the GPUI app shows its version and GitHub Releases).
 
-- [ ] Settings: the Agent's Usage & limits page.
-
-- [ ] Settings: the Agent's Model endpoint page.
-
-- [ ] Settings: the Agent's Environment page.
-
-- [ ] Settings: the other integrations and about pages.
+- [ ] The paper reader's selection actions: Copy source link and Add to note, on the full text and on the original PDF.
 
 - [ ] The palette's Recent commands, "In this document" suggestions, Recent files, Papers and Settings results, its "Search the project for …" fallback and its detail column.
 
@@ -52,3 +62,17 @@ A feature that lands deletes its own line (only that line, so features landing s
 - [ ] The app updater: its check, download and restart prompt, Lattice › Check for Updates…, the outdated-version hint and Report a Problem's update gate.
 
 - [ ] File › Export ZIP….
+
+- [ ] Overleaf: the live channel joining again when the network comes back (it does when the window comes forward).
+
+- [ ] Overleaf: the titlebar control's animated cloud-upload icon (the icon is still).
+
+- [ ] Overleaf: Review changes' "Could not render these changes" state.
+
+- [ ] Overleaf: the "Opening the Overleaf project…" transition when a downloaded project opens.
+
+- [ ] Overleaf: a compile after a resolved conflict (the watcher's build stands in).
+
+- [ ] The visual Markdown editor: Overleaf's tracked changes painted in it.
+
+- [ ] Papers: the Add papers sheet's "Also save full text (Markdown)" checkbox (Settings › Literature services holds the same choice).

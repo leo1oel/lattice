@@ -117,6 +117,27 @@ impl Run {
             sleep(cx, Duration::from_millis(600)).await;
             self.with_window(cx, |_, window, cx| window.blur(cx))?;
         }
+        // Settings' own pages (`scenes.settingsPage`), in English as the
+        // scenes run, nothing focused.
+        let page = match std::env::var("LATTICE_PARITY_SCREEN").as_deref() {
+            Ok("settingsModelEndpoint") => Some(lattice_settings::SettingsTab::ModelEndpoint),
+            Ok("settingsEnvironment") => Some(lattice_settings::SettingsTab::Environment),
+            Ok("settingsLiterature") => Some(lattice_settings::SettingsTab::Literature),
+            Ok("settingsAcknowledgements") => Some(lattice_settings::SettingsTab::Acknowledgements),
+            _ => None,
+        };
+        if let Some(tab) = page {
+            cx.update(|cx| {
+                crate::settings::update_appearance(cx, |appearance| {
+                    appearance.interface_language = lattice_settings::InterfaceLanguage::En
+                })
+            });
+            self.with_window(cx, |shell, window, cx| {
+                shell.update(cx, |shell, cx| shell.open_settings(Some(tab), window, cx));
+            })?;
+            sleep(cx, Duration::from_millis(1500)).await;
+            self.with_window(cx, |_, window, cx| window.blur(cx))?;
+        }
         // The Overleaf screens (`scenes.overleafPicker`,
         // `scenes.settingsOverleaf`), in English as the scenes run.
         let screen = std::env::var("LATTICE_PARITY_SCREEN").unwrap_or_default();
@@ -146,6 +167,9 @@ impl Run {
         } else {
             None
         };
+        if screen == "toasts" {
+            self.parity_notices(cx).await;
+        }
         // Help's and the log's screens (`scenes.whatsNew`, `scenes.logs`).
         if matches!(screen.as_str(), "whatsNew" | "logs") {
             self.parity_help(cx, &screen).await?;
@@ -168,6 +192,7 @@ impl Run {
         let html_loaded = match std::env::var("LATTICE_PARITY_SCREEN").as_deref() {
             Ok("html") => Some(self.parity_open_html(cx).await?),
             Ok("markdown") => Some(self.parity_open_markdown(cx).await?),
+            Ok("latexVisual") => Some(self.parity_latex_visual(cx).await?),
             Ok("sheet") => Some(
                 self.parity_open_structured(cx, "attention-results.lattice-sheet")
                     .await?,
@@ -318,6 +343,28 @@ impl Run {
 }
 
 impl Run {
+    /// Show the tutorial's main.tex in Visual as the scene does, and wait
+    /// for its page to draw; whether it did.
+    async fn parity_latex_visual(&self, cx: &mut AsyncApp) -> Result<bool> {
+        let Some(root) = cx.update(|cx| self.shell.read(cx).root(cx)) else {
+            return Ok(false);
+        };
+        let panel = self.open(cx, &root.join("main.tex"), None)?;
+        cx.update(|cx| {
+            crate::editor_panel::choose_latex_view(lattice_settings::LatexView::Visual, cx)
+        });
+        let drawn = self
+            .wait_for(cx, Duration::from_secs(30), |_, cx| {
+                panel
+                    .read(cx)
+                    .latex_visual_document()
+                    .is_some_and(|document| document.read(cx).is_drawn())
+            })
+            .await;
+        self.park_pointer(cx)?;
+        Ok(drawn)
+    }
+
     /// Open the tutorial's structured document `name` as the scene does, and
     /// wait for its island's page to draw; whether it did.
     async fn parity_open_structured(&self, cx: &mut AsyncApp, name: &str) -> Result<bool> {

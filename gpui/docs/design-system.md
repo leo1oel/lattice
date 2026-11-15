@@ -35,6 +35,8 @@ The curves are the app's own `linear()` spring samples, so a GPUI animation foll
 - `motion::Tween<T>` is one value (an `f32`, `Pixels` or a rect) that a component keeps itself and retargets mid-flight from where it is drawn: `retarget(to, motion, now)`, or `retarget_on(to, token, delay, now)` for a CSS transition whose duration, curve and delay are written apart.
   Read it with `value(now)`, and ask for a frame while `is_running(now)`.
 - `motion::Entrance` holds the popup, tooltip, dialog and toast entrances (`components::pop_in`, `rise_in`, `toast_in`).
+- `motion::Exit` holds their exits, a tier quicker on ease-out, and `motion::Keyframes` keys one number through a CSS `@keyframes` rule, eased per interval.
+- `attention` holds the editor's attention moments as functions of time: a jump's `reveal_flash`, an outside edit's `change_wash`, and an accepted edit's strike, fold and settle (`accept`).
 - Under reduced motion (`cx.reduce_motion()`), spatial travel lands at once and fades stay.
 
 ## Fluid hover

@@ -64,23 +64,69 @@ fn groups() -> Vec<(SharedString, Vec<(Section, SharedString)>)> {
         ),
         (
             t!("Agent").into(),
-            vec![(
-                Section {
-                    tab: SettingsTab::Agent,
-                    icon: Icon::BOT,
-                },
-                t!("Providers").into(),
-            )],
+            vec![
+                (
+                    Section {
+                        tab: SettingsTab::Agent,
+                        icon: Icon::ROBOT,
+                    },
+                    t!("Providers").into(),
+                ),
+                (
+                    Section {
+                        tab: SettingsTab::Mcp,
+                        icon: Icon::PLUGS,
+                    },
+                    t!("MCP").into(),
+                ),
+                (
+                    Section {
+                        tab: SettingsTab::Api,
+                        icon: Icon::PACKAGE,
+                    },
+                    t!("Skills").into(),
+                ),
+                (
+                    Section {
+                        tab: SettingsTab::Usage,
+                        icon: Icon::CLOCK_BACK,
+                    },
+                    t!("Usage & limits").into(),
+                ),
+                (
+                    Section {
+                        tab: SettingsTab::ModelEndpoint,
+                        icon: Icon::SPARKLE,
+                    },
+                    t!("Model endpoint").into(),
+                ),
+                (
+                    Section {
+                        tab: SettingsTab::Environment,
+                        icon: Icon::API_KEY,
+                    },
+                    t!("Environment").into(),
+                ),
+            ],
         ),
         (
             t!("Integrations").into(),
-            vec![(
-                Section {
-                    tab: SettingsTab::Overleaf,
-                    icon: Icon::CLOUD_UPLOAD,
-                },
-                "Overleaf".into(),
-            )],
+            vec![
+                (
+                    Section {
+                        tab: SettingsTab::Overleaf,
+                        icon: Icon::CLOUD_UPLOAD_FILL,
+                    },
+                    "Overleaf".into(),
+                ),
+                (
+                    Section {
+                        tab: SettingsTab::Literature,
+                        icon: Icon::API_KEY,
+                    },
+                    t!("Literature services").into(),
+                ),
+            ],
         ),
         (
             t!("Diagnostics").into(),
@@ -100,6 +146,16 @@ fn groups() -> Vec<(SharedString, Vec<(Section, SharedString)>)> {
                     t!("Logs").into(),
                 ),
             ],
+        ),
+        (
+            t!("About").into(),
+            vec![(
+                Section {
+                    tab: SettingsTab::Acknowledgements,
+                    icon: Icon::CHAT,
+                },
+                t!("Acknowledgements").into(),
+            )],
         ),
     ]
 }

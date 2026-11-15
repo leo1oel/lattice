@@ -16,7 +16,10 @@
 //!
 //! A document that cannot be carried on (Overleaf will not reach back that
 //! far, the replay does not fit, its editor closed) goes back to regular
-//! sync, which merges it through the copy the last sync agreed on.
+//! sync, which merges it through the copy the last sync agreed on, unless
+//! its last send's outcome is unknown: that one stays held and paused, as
+//! a blind upload could apply the edit twice, and the next join (a
+//! reconnect) tries the replay again.
 
 use lattice_core::overleaf_rt::{
     JoinedDoc,
@@ -82,9 +85,34 @@ impl OverleafBridge {
         };
         let joined = match answer {
             Ok(joined) if joined.resumed => joined,
-            Ok(_) => return self.give_up(doc, "Overleaf would not replay that far", cx),
-            Err(error) => return self.give_up(doc, &error, cx),
+            Ok(_) => {
+                let detail = t!(
+                    "Overleaf could not replay enough history to confirm the last edit to {activeFile}. Syncing remains paused for this file.",
+                    activeFile = &doc.path
+                );
+                return self
+                    .keep_unproven(doc, detail.to_string(), cx)
+                    .unwrap_or_else(|doc| {
+                        self.give_up(*doc, "Overleaf would not replay that far", cx)
+                    });
+            }
+            Err(error) => {
+                return self
+                    .keep_unproven(doc, String::new(), cx)
+                    .unwrap_or_else(|doc| self.give_up(*doc, &error, cx));
+            }
         };
+        if own.is_empty() && !joined.caught_up.is_empty() {
+            // Without our connection's id, a replayed update of ours would
+            // look like a co-author's and apply our text a second time.
+            let detail = t!(
+                "Overleaf replayed updates before Lattice could identify this connection. Syncing remains paused for this file."
+            );
+            match self.keep_unproven(doc, detail.to_string(), cx) {
+                Ok(()) => return,
+                Err(back) => doc = *back,
+            }
+        }
         let Some(panel) = doc.editor.upgrade() else {
             return self.give_up(doc, "its editor closed", cx);
         };
@@ -114,6 +142,7 @@ impl OverleafBridge {
                 }),
             })
             .collect();
+        let saw_ours = replayed.iter().any(|update| update.mine);
         let (applied, mut send) = match doc.ot.catch_up(&replayed) {
             Ok(caught_up) => caught_up,
             Err(desync) => return self.give_up(doc, &desync.to_string(), cx),
@@ -127,11 +156,16 @@ impl OverleafBridge {
             return self.give_up(doc, "the replay does not fit the buffer", cx);
         }
         self.review_moved(doc_id, &applied, false, None, cx);
-        // Still unanswered after the replay: it never landed, so it goes
-        // again, as a duplicate of any copy that did land meanwhile.
+        // Still unanswered after the replay on a new connection: it never
+        // landed, so it goes again, as a duplicate of any copy that did land
+        // meanwhile. On the connection that already carried it nothing goes
+        // again: a missing answer there may still come.
         let mut dup_if_source = Vec::new();
+        let carried_here = doc.ot.submitted_via().iter().any(|id| id == &own);
         if send.is_none()
             && !doc.ot.settled()
+            && !own.is_empty()
+            && !carried_here
             && let Some(resend) = doc.ot.resend()
         {
             dup_if_source = resend.dup_if_source;
@@ -139,6 +173,12 @@ impl OverleafBridge {
                 version: resend.version,
                 ops: resend.ops,
             });
+        }
+        // Proven now when the replay held our update, nothing of ours is
+        // outstanding, or what is goes again as a duplicate; otherwise its
+        // answer proves it.
+        if saw_ours || doc.ot.settled() || send.is_some() {
+            self.proven(doc_id, &doc.path);
         }
         let shown = self.documents.shown.as_ref() == Some(&doc.editor);
         if shown && self.documents.live.is_none() {
@@ -153,8 +193,30 @@ impl OverleafBridge {
         self.replay_early(early, cx);
     }
 
+    /// `doc`'s last send has no proven outcome, so it stays held, with
+    /// `detail` (when there is one) saying why, until a later join can
+    /// prove it; any other document is handed back.
+    fn keep_unproven(
+        &mut self,
+        doc: LiveDoc,
+        detail: String,
+        cx: &mut Context<Self>,
+    ) -> Result<(), Box<LiveDoc>> {
+        if !self.documents.uncertain.contains(&doc.doc_id) {
+            return Err(Box::new(doc));
+        }
+        log::warn!("{} stays paused: its last edit is unproven", doc.path);
+        if !detail.is_empty() {
+            self.documents.detail = Some((doc.path.clone(), detail.into()));
+        }
+        self.documents.held.push(doc);
+        cx.notify();
+        Ok(())
+    }
+
     /// `doc` cannot be carried on: regular sync merges it.
     fn give_up(&mut self, doc: LiveDoc, why: &str, cx: &mut Context<Self>) {
+        self.proven(&doc.doc_id, &doc.path);
         log::warn!(
             "{} goes back to regular sync after the reconnect: {why}",
             doc.path

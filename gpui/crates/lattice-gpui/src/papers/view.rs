@@ -38,27 +38,15 @@ impl PapersPanel {
     /// failed; never the empty library's invitation.
     fn render_load_status(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
         let palette = cx.palette().clone();
-        match &self.load {
-            Load::Ready => None,
-            Load::Loading => Some(
-                div()
-                    .flex()
-                    .items_center()
-                    .gap(px(6.))
-                    .px(px(8.))
-                    .py(px(10.))
-                    .child(Icon::LOADER.element(ICON_SMALL, palette.text_secondary))
-                    .child(
-                        div()
-                            .text_role(TextRole::Caption, cx)
-                            .text_color(palette.text_secondary)
-                            .child(t!("Loading references…")),
-                    )
-                    .into_any_element(),
-            ),
+        let label = match &self.load {
+            // Read, and empty, while the first Overleaf sync may still be
+            // bringing the bibliography: not yet the empty library.
+            Load::Ready if self.first_syncing() => t!("Syncing references…"),
+            Load::Ready => return None,
+            Load::Loading => t!("Loading references…"),
             Load::Failed(error) => {
                 let view = cx.entity().downgrade();
-                Some(
+                return Some(
                     ErrorState::new(t!("Couldn’t read your references"))
                         .detail(error.clone())
                         .action(
@@ -69,9 +57,25 @@ impl PapersPanel {
                                 }),
                         )
                         .into_any_element(),
-                )
+                );
             }
-        }
+        };
+        Some(
+            div()
+                .flex()
+                .items_center()
+                .gap(px(6.))
+                .px(px(8.))
+                .py(px(10.))
+                .child(Icon::LOADER.element(ICON_SMALL, palette.text_secondary))
+                .child(
+                    div()
+                        .text_role(TextRole::Caption, cx)
+                        .text_color(palette.text_secondary)
+                        .child(label),
+                )
+                .into_any_element(),
+        )
     }
 
     /// Where the full-text half of a search has got, when it is slow or

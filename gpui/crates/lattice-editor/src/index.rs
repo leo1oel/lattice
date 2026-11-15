@@ -98,6 +98,11 @@ impl ProjectIndex {
         }));
     }
 
+    /// A read is under way (the first, when nothing has been read yet).
+    pub fn is_loading(&self) -> bool {
+        self.loading.is_some()
+    }
+
     pub fn citations(&self) -> &[Citation] {
         &self.loaded.citations
     }

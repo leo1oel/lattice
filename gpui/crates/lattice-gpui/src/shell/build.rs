@@ -209,6 +209,7 @@ impl Shell {
         let aux_files = crate::settings::aux_files(cx);
         self.pdf
             .update(cx, |panel, cx| panel.set_building(true, cx));
+        crate::build::tex_setup::reminder::building(cx.entity_id(), true, cx);
         self.build_trace = Some(oplog::start(request, cx));
         let live_preview = self.live_preview.clone();
         self.build_task = Some(cx.spawn_in(window, async move |this, cx| {
@@ -574,6 +575,7 @@ impl Shell {
                 .update(cx, |panel, cx| panel.set_quiet(false, cx));
             self.pdf
                 .update(cx, |panel, cx| panel.set_building(false, cx));
+            crate::build::tex_setup::reminder::building(cx.entity_id(), false, cx);
             for waiter in self.build_waiters.drain(..) {
                 waiter.send(()).ok();
             }

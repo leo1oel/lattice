@@ -189,6 +189,11 @@ fn encode_component(part: &str) -> String {
     out
 }
 
+/// `value` as an http(s) address safe to hand the browser (`httpUrl`).
+pub fn web_link(value: Option<&str>) -> Option<String> {
+    web_url(value).map(|url| url.href)
+}
+
 /// Where a paper lives on the web, to read it there: its DOI's resolver,
 /// else its arXiv abstract page, else the page it was cited from.
 pub fn link_url(paper: &PaperSummary) -> Option<String> {

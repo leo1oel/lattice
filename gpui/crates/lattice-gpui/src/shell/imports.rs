@@ -12,7 +12,7 @@
 
 use gpui::{AppContext as _, Context, PathPromptOptions, Window};
 use lattice_core::project::{self as core_project, ImportRequest, NameConflict, ProjectImport};
-use lattice_ui::components::ToastLevel;
+use lattice_ui::components::{ToastLevel, ToastProgress};
 
 use lattice_i18n::t;
 
@@ -196,8 +196,11 @@ impl Shell {
             return;
         };
         let root = project.read(cx).root().to_path_buf();
+        // How far the copy is, as lattice-core counts it.
+        let progress = std::sync::Arc::new(std::sync::Mutex::new(0f32));
         let imported = cx.background_spawn({
             let (sources, target) = (sources.clone(), target.clone());
+            let progress = progress.clone();
             async move {
                 core_project::import_files(
                     &root,
@@ -207,25 +210,67 @@ impl Shell {
                         copy_existing,
                         conflict,
                     },
-                    &mut |_, _| {},
+                    &mut |written, total| {
+                        let share = if total == 0 { 1. } else { written as f32 / total as f32 };
+                        if let Ok(mut progress) = progress.lock() {
+                            *progress = share;
+                        }
+                    },
                 )
+            }
+        });
+        // An import that outlasts a glance shows its progress
+        // (`withImportProgress`), which its outcome then replaces.
+        let watch = cx.spawn(async move |_, cx| {
+            cx.background_executor().timer(IMPORT_PROGRESS_DELAY).await;
+            let share = || progress.lock().map_or(0., |share| *share);
+            cx.update(|cx| {
+                notices::show(
+                    Notice::new(ToastLevel::Info, t!("Importing files…"))
+                        .source(t!("Project"))
+                        .progress(ToastProgress::Fraction(share()))
+                        .key(IMPORT_TOAST),
+                    cx,
+                )
+            });
+            loop {
+                cx.background_executor()
+                    .timer(std::time::Duration::from_millis(100))
+                    .await;
+                cx.update(|cx| {
+                    notices::update_progress(IMPORT_TOAST, ToastProgress::Fraction(share()), cx)
+                });
             }
         });
         cx.spawn_in(window, async move |this, cx| {
             let imported = imported.await;
+            drop(watch);
             this.update_in(cx, |this, _, cx| match imported {
                 Ok(result) if !result.conflicts.is_empty() => {
+                    // Asking is the import's pause: its progress goes.
+                    notices::dismiss(IMPORT_TOAST, cx);
                     this.ask_import_conflict(sources, target, copy_existing, result.conflicts, cx)
                 }
                 Ok(result) => {
                     project.update(cx, |project, cx| project.entries_changed(cx));
-                    notices::show(
-                        Notice::new(ToastLevel::Info, imported_title(&result, &target))
-                            .key("project-import"),
-                        cx,
-                    );
+                    let mut notice = Notice::new(ToastLevel::Success, imported_title(&result, &target))
+                        .source(t!("Project"))
+                        .key(IMPORT_TOAST);
+                    if let Some(detail) = skipped_detail(&result) {
+                        notice = notice.detail(detail);
+                    }
+                    notices::show(notice, cx);
                 }
-                Err(error) => notices::error("Could not import", error, cx),
+                Err(error) => notices::show(
+                    Notice::new(
+                        ToastLevel::Error,
+                        t!("{action} failed", action = t!("Import files")),
+                    )
+                    .source(t!("Project"))
+                    .detail(error)
+                    .key(IMPORT_TOAST),
+                    cx,
+                ),
             })
             .ok();
         })
@@ -282,6 +327,13 @@ impl Shell {
     }
 }
 
+/// The notice a long import reports its progress in, which its outcome
+/// then replaces (`IMPORT_TOAST`).
+const IMPORT_TOAST: &str = "project-import";
+/// An import that outlasts a glance shows its progress
+/// (`IMPORT_PROGRESS_DELAY_MS`).
+const IMPORT_PROGRESS_DELAY: std::time::Duration = std::time::Duration::from_millis(400);
+
 /// What landed, as the app's toast titles it.
 fn imported_title(result: &ProjectImport, target: &str) -> String {
     let count = result.entries.len();
@@ -291,11 +343,36 @@ fn imported_title(result: &ProjectImport, target: &str) -> String {
         .and_then(|entry| entry.rsplit('/').next())
         .unwrap_or_default();
     match (count, target.is_empty()) {
-        (0, _) => "Nothing imported".to_string(),
-        (1, true) => format!("Imported “{name}” into the project root"),
-        (1, false) => format!("Imported “{name}” into {target}"),
-        (_, true) => format!("Imported {count} items into the project root"),
-        (_, false) => format!("Imported {count} items into {target}"),
+        (0, _) => t!("Nothing imported").to_string(),
+        (1, true) => t!("Imported “{name}” into the project root", name = name).to_string(),
+        (1, false) => t!(
+            "Imported “{name}” into {targetDirectory}",
+            name = name,
+            targetDirectory = target
+        )
+        .to_string(),
+        (_, true) => t!("Imported {count} items into the project root", count = count).to_string(),
+        (_, false) => t!(
+            "Imported {count} items into {targetDirectory}",
+            count = count,
+            targetDirectory = target
+        )
+        .to_string(),
+    }
+}
+
+/// What Skip left out, under the summary.
+fn skipped_detail(result: &ProjectImport) -> Option<String> {
+    match result.skipped.as_slice() {
+        [] => None,
+        [one] => Some(t!("Skipped “{0}”, which is already there.", one).to_string()),
+        many => Some(
+            t!(
+                "Skipped {skippedCount} items that are already there.",
+                skippedCount = many.len()
+            )
+            .to_string(),
+        ),
     }
 }
 

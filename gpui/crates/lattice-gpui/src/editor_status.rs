@@ -207,8 +207,8 @@ pub fn status_bar(panel: &EditorPanel, cx: &App) -> impl IntoElement {
 
 /// The two counters before the word count (`useCounters`): an icon, its
 /// noun and, when there is something open, the count in medium weight, the
-/// icon and the count in the accent. TODOs opens the TODOs tool panel;
-/// Annotations is not in the GPUI app yet, which its tooltip says.
+/// icon and the count in the accent. TODOs opens the TODOs tool panel,
+/// Annotations the Annotations panel.
 fn counters(panel: &EditorPanel, nouns_folded: bool, cx: &App) -> [AnyElement; 2] {
     let palette = cx.palette();
     let counts = crate::status_counters::counts(
@@ -248,12 +248,9 @@ fn counters(panel: &EditorPanel, nouns_folded: bool, cx: &App) -> [AnyElement; 2
             "status-comments",
             Icon::MESSAGE_SQUARE_TEXT,
             t!("Annotations"),
-            t!(
-                "{name} — not in the GPUI preview yet",
-                name = t!("Annotations")
-            ),
+            t!("Annotations").to_string(),
             counts.annotations,
-            None,
+            Some(Box::new(crate::shell::ShowAnnotations)),
         ),
         item(
             "status-manuscript-todos",

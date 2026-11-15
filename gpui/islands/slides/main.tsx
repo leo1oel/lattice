@@ -14,6 +14,12 @@
  * Host to page, beside the document protocol's `doc:open`, `doc:source`,
  * `doc:active` and `doc:locale`:
  *   slides:files-changed  { root, paths }   the project watcher's burst
+ *   doc:editable          { editable }      the deck's file may (not) be edited
+ *
+ * Page to host, beside the document protocol's own:
+ *   slides:context        OpenSlideContext | null   the selected slide and
+ *                         element, and whether an edit is still pending: the
+ *                         Agent's `presentation` context (`onContext`)
  */
 import "../shared/install";
 import { Fragment, useEffect, useReducer } from "react";
@@ -22,7 +28,9 @@ import { host, useHostTheme } from "../shared/host";
 import { emitTauriEvent } from "../shared/tauri-internals";
 import { serveAgentTools } from "../shared/agent-tools";
 import { OpenSlideWorkspace } from "../../../src/editor/presentation/open-slide-workspace";
-import type { OpenSlideMutation, OpenSlideSyncOperation } from "../../../src/editor/presentation/open-slide-bridge";
+import type {
+  OpenSlideContext, OpenSlideMutation, OpenSlideSyncOperation,
+} from "../../../src/editor/presentation/open-slide-bridge";
 import type { OpenSlideFileViewState } from "../../../src/app-types";
 import { showError } from "../../../src/app/notify";
 
@@ -44,6 +52,7 @@ type Action =
   | { type: "open"; open: SlidesOpen }
   | { type: "source"; source: string }
   | { type: "active"; active: boolean }
+  | { type: "editable"; editable: boolean }
   | { type: "locale"; locale: Locale }
   | { type: "ready" };
 
@@ -58,6 +67,8 @@ function reduce(state: State, action: Action): State {
       return { ...state, source: action.source };
     case "active":
       return { ...state, active: action.active };
+    case "editable":
+      return state.opened ? { ...state, opened: { ...state.opened, editable: action.editable } } : state;
     case "locale":
       return { ...state, locale: action.locale };
     case "ready":
@@ -70,6 +81,7 @@ let deckRoot: string | null = null;
 
 const onMutation = (mutation: OpenSlideMutation) => host().request<OpenSlideSyncOperation[]>("slides:mutation", mutation);
 const onViewState = (viewState: OpenSlideFileViewState) => host().post("doc:view-state", { viewState });
+const onContext = (context: OpenSlideContext | null) => host().post("slides:context", context);
 
 function Slides() {
   const [{ opened, source, active, locale, ready }, dispatch] = useReducer(reduce, {
@@ -88,6 +100,7 @@ function Slides() {
       }),
       bridge.on("doc:source", (payload) => dispatch({ type: "source", source: (payload as { source: string }).source })),
       bridge.on("doc:active", (payload) => dispatch({ type: "active", active: Boolean((payload as { active: boolean }).active) })),
+      bridge.on("doc:editable", (payload) => dispatch({ type: "editable", editable: Boolean((payload as { editable: boolean }).editable) })),
       // Open Slide saves each edit itself; nothing waits here.
       bridge.on("doc:flush", () => bridge.post("doc:flushed")),
       bridge.on("doc:locale", (payload) => {
@@ -122,6 +135,7 @@ function Slides() {
         theme={theme}
         active={active}
         onMutation={onMutation}
+        onContext={onContext}
         // As the app's canvas reports it (`use-document-surfaces.tsx`); the
         // toast reaches GPUI's stack through the page's toast relay.
         onError={showError}

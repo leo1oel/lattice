@@ -53,7 +53,7 @@ use crate::project::{Project, ProjectEvent};
 
 pub mod add_sheet;
 pub mod audit;
-mod batch;
+pub(crate) mod batch;
 pub mod bib_editor;
 mod downloads;
 mod field;
@@ -147,6 +147,14 @@ pub enum TextSearch {
     Done,
 }
 
+/// Whether an Overleaf sync runs, and whether one has ended since the
+/// project opened.
+#[derive(Default)]
+struct FirstSync {
+    syncing: bool,
+    settled: bool,
+}
+
 /// A download's glyph on its row.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum FetchState {
@@ -158,6 +166,8 @@ pub enum FetchState {
 pub struct Importing {
     /// What was given: the pending row names it by this.
     pub label: String,
+    /// Which import it is, for whoever started it to read its outcome.
+    ticket: u64,
     pub stage: Option<String>,
     /// When the stage began, and the hairline's width then: its estimate
     /// runs per stage.
@@ -210,6 +220,9 @@ pub struct PapersPanel {
     text_query: String,
     pub(crate) text_hits: HashMap<String, TextMatch>,
     pub(crate) text_search: TextSearch,
+    /// Why the last full-text pass to answer failed, kept when the box is
+    /// cleared: the next query says so until its own pass answers.
+    text_failure: Option<String>,
     text_generation: u64,
     /// The text pass for the box is waiting out its pause: Enter runs it now.
     text_waiting: bool,
@@ -230,6 +243,18 @@ pub struct PapersPanel {
     pub(crate) recent: Option<RecentImport>,
     /// Citation keys or arXiv ids this window just added.
     pub(crate) just_added: HashSet<String>,
+    /// Counts the imports started, and the last one to land with whether it
+    /// added its paper.
+    import_tickets: u64,
+    last_import: Option<(u64, bool)>,
+    /// Counts the writer's navigations (a paper chosen, another document
+    /// brought to the front): a download opens its paper only if none
+    /// happened since its click.
+    navigations: u64,
+    /// The first Overleaf sync since the project opened, while it runs: an
+    /// empty library then may only be waiting for the bibliography it
+    /// brings (`useFirstSyncWhileEmpty`).
+    first_sync: FirstSync,
     /// The panel's own width, learned while it is laid out.
     pub(crate) width: f32,
     pub(crate) scroll: ScrollHandle,
@@ -277,6 +302,7 @@ impl PapersPanel {
             text_query: String::new(),
             text_hits: HashMap::new(),
             text_search: TextSearch::Idle,
+            text_failure: None,
             text_generation: 0,
             text_waiting: false,
             text_task: None,
@@ -291,6 +317,10 @@ impl PapersPanel {
             importing: None,
             recent: None,
             just_added: HashSet::new(),
+            import_tickets: 0,
+            last_import: None,
+            navigations: 0,
+            first_sync: FirstSync::default(),
             width: 0.,
             scroll: ScrollHandle::new(),
             batch: batch::Batch::default(),
@@ -330,9 +360,17 @@ impl PapersPanel {
         self.text_hits.clear();
         self.text_query.clear();
         self.text_search = TextSearch::Idle;
+        self.text_failure = None;
+        // A new project's list opens as the Tauri app's does, its shelf
+        // mounted afresh: by title, everything, ungrouped.
+        self.sort = Sort::default();
+        self.filter = Filter::default();
+        self.group = Group::default();
+        self.first_sync.settled = false;
         self.selected = None;
         self.active = None;
         self.active_path = None;
+        self.navigations += 1;
         self.recent = None;
         self.just_added.clear();
         self.expanded_hits.clear();
@@ -362,8 +400,28 @@ impl PapersPanel {
     /// The paper whose reading file is open in the editor in front, whose
     /// row is drawn as the open one.
     pub fn set_active_path(&mut self, path: Option<&str>, cx: &mut Context<Self>) {
+        if self.active_path.as_deref() != path {
+            self.navigations += 1;
+        }
         self.active_path = path.map(str::to_string);
         self.resolve_active(cx);
+    }
+
+    /// Whether an Overleaf sync of the project is under way, as the window's
+    /// bridge says.
+    pub fn overleaf_syncing(&mut self, syncing: bool, cx: &mut Context<Self>) {
+        if self.first_sync.syncing == syncing {
+            return;
+        }
+        self.first_sync.settled |= !syncing;
+        self.first_sync.syncing = syncing;
+        cx.notify();
+    }
+
+    /// The first sync since the project opened is still bringing what may
+    /// be its bibliography: an empty list is not yet an empty library.
+    pub(crate) fn first_syncing(&self) -> bool {
+        self.first_sync.syncing && !self.first_sync.settled
     }
 
     fn resolve_active(&mut self, cx: &mut Context<Self>) {
@@ -536,8 +594,10 @@ impl PapersPanel {
         }
     }
 
+    /// Whether the list and the inspector beside it (`.paper-body`, the
+    /// panel inside its 10px left padding) are as wide as `WIDE`.
     pub(crate) fn wide(&self) -> bool {
-        self.width >= WIDE
+        self.width - 10. >= WIDE
     }
 
     pub(crate) fn select(&mut self, key: Option<String>, cx: &mut Context<Self>) {
@@ -619,6 +679,16 @@ impl PapersPanel {
         };
         self.activate(&paper, None, window, cx);
         true
+    }
+}
+
+impl PapersPanel {
+    /// The library's paper with the arXiv id (the bundle folder) `id`.
+    pub fn paper_with_id(&self, id: &str) -> Option<PaperSummary> {
+        self.papers
+            .iter()
+            .find(|paper| !paper.arxiv_id.is_empty() && paper.arxiv_id == id)
+            .cloned()
     }
 }
 

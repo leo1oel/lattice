@@ -20,6 +20,7 @@ mod actions;
 mod agent_checkpoints;
 mod agent_documents;
 mod agent_flow;
+mod annotations_flow;
 mod arrange;
 mod assets;
 mod build;
@@ -41,6 +42,7 @@ pub(crate) mod menus;
 mod opening;
 mod overleaf_collab;
 pub(crate) mod overleaf_flow;
+mod overleaf_menus;
 mod overleaf_presence;
 mod overleaf_review;
 mod palette;
@@ -53,6 +55,7 @@ mod saving;
 mod settings_flow;
 mod shortcut_sheet;
 mod skin;
+mod structured_docs;
 mod synctex;
 mod terminal_flow;
 mod tools_flow;
@@ -82,9 +85,13 @@ pub use commands::{
     Build, CleanBuildFiles, CleanRebuild, ForwardSync, InstallLatexTools, NextProblem,
     OpenTexDoctor, PreviousProblem, Save, StopBuild, ToggleVimMode,
 };
+pub use annotations_flow::{CommentsView, ShowAnnotations};
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+pub use overleaf_collab::AnnotateSelection;
 pub use get_started_flow::ShowGetStarted;
 pub use help_flow::{ReportProblem, WhatsNew};
 pub use insert_flow::{InsertTable, PasteImageAsFigure};
+pub use overleaf_menus::ReviewHere;
 pub use references_flow::{FindReferences, RenameSymbol};
 pub use tools_flow::{ExportArxiv, OpenChecklist, OpenTodos};
 pub(crate) use workspace_flow::LayoutState;
@@ -625,6 +632,10 @@ impl Shell {
         let path = path.canonicalize().unwrap_or(path);
         if self.open_if_asset(&path, window, cx) {
             return None;
+        }
+        // A saved paper's text reads in its paper's tab.
+        if let Some(editor) = self.open_in_reader(&path, line, window, cx) {
+            return editor;
         }
         let in_front = self
             .active_editor()

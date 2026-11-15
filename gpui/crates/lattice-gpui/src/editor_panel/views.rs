@@ -14,12 +14,17 @@
 //! and shown only while its panel is the displayed tab and the view includes
 //! it: an island's page does not hide by not being drawn. A bibliography's
 //! is its reference list, which `bib_view.rs` owns.
+//!
+//! A switch between views fades the new one in from the panel's ground on
+//! the moderate tier, never on the first show (`view-fade.ts`); and the
+//! split's divider takes the keyboard once focused, ← and → moving it 3%
+//! (`nudgeSplit`).
 
 use std::{collections::HashMap, path::PathBuf};
 
 use gpui::{
-    AnyElement, App, AppContext as _, Context, DragMoveEvent, Entity, Focusable as _,
-    InteractiveElement as _, IntoElement, ParentElement as _, Pixels,
+    AnimationExt as _, AnyElement, App, AppContext as _, Context, DragMoveEvent, Entity,
+    Focusable as _, InteractiveElement as _, IntoElement, ParentElement as _, Pixels,
     StatefulInteractiveElement as _, Styled as _, Window, div, prelude::FluentBuilder as _, px,
 };
 use lattice_ui::{ActiveLattice as _, Icon, components::Segmented};
@@ -94,6 +99,11 @@ struct MarkdownView(DocumentView);
 impl gpui::Global for MarkdownView {}
 
 fn remembered(path: &std::path::Path, cx: &App) -> DocumentView {
+    // A paper's text opens to be read, whatever view another Markdown file
+    // was left in (`openPaper` sets the canvas to its preview each time).
+    if super::paper_text::is_bundle_text(path) {
+        return DocumentView::Preview;
+    }
     if super::bib_view::is_bib_path(path) {
         return super::bib_view::remembered_bib_view(cx);
     }
@@ -108,6 +118,10 @@ fn remembered(path: &std::path::Path, cx: &App) -> DocumentView {
 }
 
 fn remember(path: &std::path::Path, view: DocumentView, cx: &mut App) {
+    // A paper's view is its own: it leaves other Markdown files' alone.
+    if super::paper_text::is_bundle_text(path) {
+        return;
+    }
     if super::bib_view::is_bib_path(path) {
         super::bib_view::remember_bib_view(view, cx);
     } else if is_html(path) {
@@ -157,6 +171,17 @@ impl Default for SplitRatio {
 
 impl gpui::Global for SplitRatio {}
 
+/// The split's ratio, and setting it, for a scenario.
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+pub fn split_ratio(cx: &App) -> f32 {
+    cx.try_global::<SplitRatio>().copied().unwrap_or_default().0
+}
+
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+pub fn set_split_ratio(ratio: f32, cx: &mut App) {
+    cx.set_global(SplitRatio(ratio));
+}
+
 /// The split's columns: the source never under 240px nor the preview under
 /// 280px while both fit, shrunk in proportion when they do not
 /// (`splitGridTemplate`, `fitSplitMinimums`).
@@ -193,6 +218,10 @@ pub(super) struct DocumentViews {
     width: std::rc::Rc<std::cell::Cell<Pixels>>,
     divider_hovered: bool,
     dragging: bool,
+    /// The divider, focusable so the arrow keys can move it.
+    divider_focus: gpui::FocusHandle,
+    /// How many times the view changed: each change fades the new one in.
+    switches: u64,
 }
 
 impl DocumentViews {
@@ -204,6 +233,8 @@ impl DocumentViews {
             width: Default::default(),
             divider_hovered: false,
             dragging: false,
+            divider_focus: cx.focus_handle(),
+            switches: 0,
         }
     }
 
@@ -315,6 +346,10 @@ impl EditorPanel {
                 .as_ref()
                 .and_then(|views| views.preview.as_ref())
                 .and_then(|preview| preview.focus_handle(cx)),
+            self.latex_visual_document()
+                .and_then(|document| document.read(cx).focus_handle(cx)),
+            // A bibliography's visual form is no `views.preview`.
+            self.bib_form_focus(cx),
         ];
         handles
             .into_iter()
@@ -344,6 +379,7 @@ impl EditorPanel {
             return;
         }
         views.view = view;
+        views.switches += 1;
         remember(&self.path, view, cx);
         self.sync_preview(window, cx);
         // Writing goes on in the source when it comes back.
@@ -419,10 +455,48 @@ impl EditorPanel {
         }
     }
 
-    /// The panel's body: the editor over its status bar, and for a document
-    /// with views, that beside or instead of its preview (`bib`, a
-    /// bibliography's references, or else the HTML file's page).
+    /// Focus the split's divider, for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn focus_split_divider(&self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(views) = &self.views {
+            window.focus(&views.divider_focus, cx);
+        }
+    }
+
+    /// Move the split's divider by `delta` of the width, within its range.
+    fn nudge_split(&mut self, delta: f32, cx: &mut Context<Self>) {
+        let ratio = cx.try_global::<SplitRatio>().copied().unwrap_or_default().0;
+        cx.set_global(SplitRatio((ratio + delta).clamp(0.2, 0.8)));
+        cx.notify();
+    }
+
+    /// The panel's body, faded in when the view just changed.
     pub(super) fn render_views(
+        &mut self,
+        editor: AnyElement,
+        status: AnyElement,
+        bib: Option<AnyElement>,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let body = self.render_view_body(editor, status, bib, cx);
+        match self.views.as_ref().map(|views| views.switches) {
+            Some(switches) if switches > 0 => div()
+                .size_full()
+                .child(body)
+                .with_animation(
+                    gpui::ElementId::NamedInteger("document-view-fade".into(), switches),
+                    lattice_ui::motion::Motion::Moderate.animation(),
+                    |this, t| this.opacity(t.clamp(0., 1.)),
+                )
+                .into_any_element(),
+            _ => body,
+        }
+    }
+
+    /// The editor over its status bar, and for a document with views, that
+    /// beside or instead of its preview (`bib`, a bibliography's
+    /// references, or else the HTML file's page).
+    fn render_view_body(
         &mut self,
         editor: AnyElement,
         status: AnyElement,
@@ -452,6 +526,7 @@ impl EditorPanel {
                 let ratio = cx.try_global::<SplitRatio>().copied().unwrap_or_default().0;
                 let (source_width, preview_width) = split_widths(f32::from(width.get()), ratio);
                 let measured_once = width.get() > px(0.);
+                let divider_focus = views.divider_focus.clone();
                 let strong = views.divider_hovered || views.dragging;
                 let measured = width.clone();
                 let panel = cx.entity().downgrade();
@@ -516,6 +591,22 @@ impl EditorPanel {
                             } else {
                                 palette.line
                             })
+                            // Focused from the keyboard (or by a press on
+                            // it), ← and → move it.
+                            .track_focus(&divider_focus.clone().tab_stop(true))
+                            .focus_visible(|style| style.bg(palette.line_strong))
+                            .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, _, cx| {
+                                let delta = match event.keystroke.key.as_str() {
+                                    "left" => -0.03,
+                                    "right" => 0.03,
+                                    _ => return,
+                                };
+                                if event.keystroke.modifiers.modified() {
+                                    return;
+                                }
+                                cx.stop_propagation();
+                                this.nudge_split(delta, cx);
+                            }))
                             .child(
                                 div()
                                     .id("document-split-grip")
@@ -531,6 +622,10 @@ impl EditorPanel {
                                         }
                                         cx.notify();
                                     }))
+                                    .on_mouse_down(gpui::MouseButton::Left, {
+                                        let focus = divider_focus.clone();
+                                        move |_, window, cx| window.focus(&focus, cx)
+                                    })
                                     .on_drag(SplitDrag, |drag, _, _, cx| cx.new(|_| drag.clone())),
                             ),
                     )

@@ -3,7 +3,8 @@
 //! its arXiv id or cited page downloads first, the box saying which stage
 //! it is on with Cancel; an identifier the library does not hold is
 //! imported, the pending row naming its stages. Cancel forgets the request
-//! at once, so whatever the backend answers later is ignored.
+//! at once, so whatever the backend answers later is ignored, and a download
+//! opens its paper only while it is still the writer's latest navigation.
 
 use std::{
     sync::{
@@ -24,16 +25,28 @@ use super::{
 };
 use crate::notices;
 
+/// What an import says when it lands (`ImportNotices`): Discover
+/// literature's says everything; the box's and a reviewed title's settle as
+/// a "Just added" row, so only what that row cannot say is said.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Notices {
+    All,
+    Problems,
+}
+
 /// What a cancelled import, or one of a paper the library already held,
-/// came to (`use-reference-import.ts`); none for a plain add, whose row says
-/// it.
-fn import_notice(imported: &core_papers::ImportResult) -> Option<String> {
+/// came to (`use-reference-import.ts`); a plain add says it only with
+/// `Notices::All`, its row saying it otherwise.
+fn import_notice(imported: &core_papers::ImportResult, notices: Notices) -> Option<String> {
     let command = imported
         .citation_key
         .as_deref()
         .map(|key| format!("\\cite{{{key}}}"));
     let title = &imported.title;
     let full_text = !imported.paper_path.is_empty();
+    if notices == Notices::All && !imported.cancelled && !imported.already_imported {
+        return Some(added_notice(imported, command));
+    }
     Some(match (imported.cancelled, imported.already_imported, command) {
         (true, _, Some(command)) if full_text => t!(
             "Cancellation arrived after “{0}” was added — cite it with {citationCommand}; its full text had already finished importing.",
@@ -58,6 +71,34 @@ fn import_notice(imported: &core_papers::ImportResult) -> Option<String> {
         (false, true, None) => t!("“{title}” is already in Papers.", title = title),
         (false, false, _) => return None,
     })
+}
+
+/// A plain add, said in full: whether its full text came, and why not.
+fn added_notice(imported: &core_papers::ImportResult, command: Option<String>) -> String {
+    let title = &imported.title;
+    let note = imported
+        .fetch_error
+        .as_deref()
+        .and_then(super::batch::failure_line);
+    let said = match (imported.arxiv_id.is_empty(), note, &command) {
+        (false, Some(note), Some(_)) => t!(
+            "Added “{title}” to the bibliography — cite it with {citationCommand}. The full text could not be downloaded: {fetchNote}"
+        )
+        .replace("{fetchNote}", &note),
+        (false, Some(note), None) => t!(
+            "Added “{title}” to the bibliography. The full text could not be downloaded: {fetchNote}"
+        )
+        .replace("{fetchNote}", &note),
+        (false, None, Some(_)) => t!("Imported “{title}” — cite it with {citationCommand}.").into(),
+        (false, None, None) => t!("Imported “{title}”.").into(),
+        (true, _, Some(_)) => t!(
+            "Added “{title}” to the bibliography — cite it with {citationCommand}. No full text to open."
+        )
+        .into(),
+        (true, _, None) => t!("Added “{title}” to the bibliography. No full text to open.").into(),
+    };
+    said.replace("{title}", title)
+        .replace("{citationCommand}", command.as_deref().unwrap_or(""))
 }
 
 impl PapersPanel {
@@ -99,17 +140,30 @@ impl PapersPanel {
         // never a second search that could pick another work; several, or
         // one with no entry, go to Add reference for review.
         let review = model::reference_kind(&query) == Some(ReferenceKind::Title);
-        self.import(query.clone(), query, review, cx);
+        // Each add from the box starts a fresh "Just added" set
+        // (`startBatch`); Discover literature's adds leave it be.
+        self.just_added.clear();
+        self.import(query.clone(), query, review, Notices::Problems, cx);
     }
 
-    /// Import `input` as the box's Enter would, for Discover literature's
-    /// Add; false when another import holds the pipeline.
-    pub(crate) fn import_id(&mut self, input: String, cx: &mut Context<Self>) -> bool {
+    /// Import `input` for Discover literature's Add, saying what came of it
+    /// in a notice rather than as a "Just added" row; the import's ticket,
+    /// whose outcome `import_outcome` reports, or none when another import
+    /// holds the pipeline.
+    pub(crate) fn import_id(&mut self, input: String, cx: &mut Context<Self>) -> Option<u64> {
         if self.importing.is_some() || self.batch.running {
-            return false;
+            return None;
         }
-        self.import(input.clone(), input, false, cx);
-        self.importing.is_some()
+        self.import(input.clone(), input, false, Notices::All, cx);
+        self.importing.as_ref().map(|importing| importing.ticket)
+    }
+
+    /// Whether the import `ticket` added its paper (it came back with a
+    /// citation key); none while it runs, or for another import.
+    pub(crate) fn import_outcome(&self, ticket: u64) -> Option<bool> {
+        self.last_import
+            .filter(|(landed, _)| *landed == ticket)
+            .map(|(_, added)| added)
     }
 
     /// Import an entry Add reference saved from a title the box looked up,
@@ -124,19 +178,29 @@ impl PapersPanel {
         if self.importing.is_some() || self.batch.running {
             return false;
         }
-        self.import(bibtex, label, false, cx);
+        self.import(bibtex, label, false, Notices::Problems, cx);
         self.importing.is_some()
     }
 
-    fn import(&mut self, query: String, label: String, review: bool, cx: &mut Context<Self>) {
+    fn import(
+        &mut self,
+        query: String,
+        label: String,
+        review: bool,
+        notices: Notices,
+        cx: &mut Context<Self>,
+    ) {
         let Some(root) = self.root.clone() else {
             return;
         };
-        self.just_added.clear();
+        self.import_tickets += 1;
+        let ticket = self.import_tickets;
         let cancel = Arc::new(AtomicBool::new(false));
         let (stages, mut stage_events) = mpsc::unbounded::<String>();
         let job_cancel = cancel.clone();
         let input = query.clone();
+        // Whether to save the full text too, as the writer last chose.
+        let full_text = crate::settings::paper_full_text(cx);
         let job = cx.background_spawn(async move {
             let progress = |stage: &str| {
                 stages.unbounded_send(stage.to_string()).ok();
@@ -155,7 +219,7 @@ impl PapersPanel {
                 &root,
                 &input,
                 HistoryMode::Record,
-                core_papers::FullText::Save,
+                full_text,
                 &progress,
                 &job_cancel,
             )
@@ -185,13 +249,14 @@ impl PapersPanel {
             };
             this.update(cx, |this, cx| match result {
                 Ok(Err(resolved)) => this.review(query, resolved, cx),
-                Ok(Ok(imported)) => this.imported(query, Ok(imported), cx),
-                Err(error) => this.imported(query, Err(error), cx),
+                Ok(Ok(imported)) => this.imported(query, Ok(imported), notices, cx),
+                Err(error) => this.imported(query, Err(error), notices, cx),
             })
             .ok();
         });
         self.importing = Some(Importing {
             label,
+            ticket,
             stage: None,
             started: Instant::now(),
             from: 0.,
@@ -210,10 +275,11 @@ impl PapersPanel {
         resolved: Box<lattice_core::models::ResolvedCitation>,
         cx: &mut Context<Self>,
     ) {
-        let cancelled = self
-            .importing
-            .take()
-            .is_some_and(|importing| importing.cancel.load(Ordering::Acquire));
+        let importing = self.importing.take();
+        self.last_import = importing
+            .as_ref()
+            .map(|importing| (importing.ticket, false));
+        let cancelled = importing.is_some_and(|importing| importing.cancel.load(Ordering::Acquire));
         if !cancelled {
             cx.emit(PapersEvent::Review { query, resolved });
         }
@@ -224,19 +290,26 @@ impl PapersPanel {
         &mut self,
         query: String,
         result: Result<core_papers::ImportResult, String>,
+        notices: Notices,
         cx: &mut Context<Self>,
     ) {
-        let cancelled = self
-            .importing
-            .take()
-            .is_some_and(|importing| importing.cancel.load(Ordering::Acquire));
+        let importing = self.importing.take();
+        let added = result
+            .as_ref()
+            .is_ok_and(|imported| imported.citation_key.is_some());
+        self.last_import = importing
+            .as_ref()
+            .map(|importing| (importing.ticket, added));
+        let cancelled = importing.is_some_and(|importing| importing.cancel.load(Ordering::Acquire));
         match result {
             Ok(imported) => {
                 // The row says it was added, with its key to copy, in place
                 // of a toast; a search for what was typed keeps it first. A
                 // paper the library held, or an import cancelled, is no new
-                // row: a notice says what came of it instead.
-                if !imported.cancelled && !imported.already_imported {
+                // row: a notice says what came of it instead. Discover
+                // literature's add is no row either: its notice says it all.
+                if notices == Notices::Problems && !imported.cancelled && !imported.already_imported
+                {
                     if let Some(key) = &imported.citation_key {
                         self.just_added.insert(key.clone());
                     }
@@ -244,8 +317,8 @@ impl PapersPanel {
                         self.just_added.insert(imported.arxiv_id.clone());
                     }
                 }
-                if let Some(said) = import_notice(&imported) {
-                    notices::info(t!("Papers"), said, cx);
+                if let Some(said) = import_notice(&imported, notices) {
+                    crate::notices::info(t!("Papers"), said, cx);
                 }
                 self.recent = Some(RecentImport {
                     query,
@@ -256,11 +329,11 @@ impl PapersPanel {
                     .set_offset(gpui::point(gpui::px(0.), gpui::px(0.)));
                 if let Some(error) = imported
                     .fetch_error
-                    .filter(|_| !imported.cancelled)
+                    .filter(|_| !imported.cancelled && notices == Notices::Problems)
                     .and_then(|error| super::batch::failure_line(&error))
                 {
-                    notices::show(
-                        notices::Notice::new(
+                    crate::notices::show(
+                        crate::notices::Notice::new(
                             lattice_ui::components::ToastLevel::Info,
                             t!("Citation added without full text"),
                         )
@@ -270,7 +343,7 @@ impl PapersPanel {
                 }
             }
             Err(_) if cancelled => {}
-            Err(error) => notices::error(t!("Could not add the paper"), error, cx),
+            Err(error) => crate::notices::error(t!("Could not add the paper"), error, cx),
         }
         self.reload(cx);
         cx.notify();
@@ -314,6 +387,9 @@ impl PapersPanel {
         if self.fetching.states.get(&key) == Some(&FetchState::Loading) {
             return;
         }
+        // A paper chosen is a navigation of its own: a download still on
+        // its way from an earlier click no longer opens its paper.
+        self.navigations += 1;
         if model::readable(paper) {
             // A matched line opens the text's source there; the paper
             // itself opens in its reader.
@@ -360,6 +436,9 @@ impl PapersPanel {
             }
         });
         let fetch_key = key.clone();
+        // The download opens its paper only if nothing was opened since
+        // (`claim()`, `opening.isCurrent()`).
+        let claim = self.navigations;
         let task = cx.spawn(async move |this, cx| {
             let mut job = std::pin::pin!(job);
             let result = loop {
@@ -382,7 +461,7 @@ impl PapersPanel {
                     futures::future::Either::Right((None, _)) => break job.await,
                 }
             };
-            this.update(cx, |this, cx| this.fetched(fetch_key, result, cx))
+            this.update(cx, |this, cx| this.fetched(fetch_key, claim, result, cx))
                 .ok();
         });
         if !self.fetching.busy() {
@@ -401,6 +480,7 @@ impl PapersPanel {
     fn fetched(
         &mut self,
         key: String,
+        claim: u64,
         result: Result<core_papers::FetchResult, String>,
         cx: &mut Context<Self>,
     ) {
@@ -424,6 +504,7 @@ impl PapersPanel {
                 // The listed record predates the download: it opens with the
                 // texts the download left.
                 let listed = self.papers.iter().find(|paper| paper_key(paper) == key);
+                let path = path.filter(|_| self.navigations == claim);
                 match (listed, path) {
                     (Some(paper), Some(_)) => {
                         let mut paper = paper.clone();
@@ -500,13 +581,14 @@ mod tests {
 
     #[test]
     fn a_held_or_cancelled_import_says_so_and_a_plain_add_leaves_it_to_its_row() {
-        assert_eq!(import_notice(&result(|_| {})), None);
+        let notice = |result: &core_papers::ImportResult| import_notice(result, Notices::Problems);
+        assert_eq!(notice(&result(|_| {})), None);
         assert_eq!(
-            import_notice(&result(|r| r.already_imported = true)).as_deref(),
+            notice(&result(|r| r.already_imported = true)).as_deref(),
             Some("“Attention” is already in Papers — cite it with \\cite{vaswani2017}.")
         );
         assert_eq!(
-            import_notice(&result(|r| {
+            notice(&result(|r| {
                 r.cancelled = true;
                 r.citation_key = None;
             }))
@@ -514,10 +596,41 @@ mod tests {
             Some("Paper import cancelled before making changes.")
         );
         assert_eq!(
-            import_notice(&result(|r| r.cancelled = true)).as_deref(),
+            notice(&result(|r| r.cancelled = true)).as_deref(),
             Some(
                 "Import cancelled. “Attention” remains in the bibliography — cite it with \\cite{vaswani2017}; full-text enrichment stopped."
             )
+        );
+    }
+
+    /// Discover literature's adds say everything (`notices: "all"`), worded
+    /// as `importReference` words them.
+    #[test]
+    fn a_discover_add_says_what_it_added_and_whether_its_text_came() {
+        let all = |result: &core_papers::ImportResult| import_notice(result, Notices::All);
+        let arxiv = |r: &mut core_papers::ImportResult| r.arxiv_id = "1706.03762".into();
+        assert_eq!(
+            all(&result(arxiv)).as_deref(),
+            Some("Imported “Attention” — cite it with \\cite{vaswani2017}.")
+        );
+        assert_eq!(
+            all(&result(|r| {
+                arxiv(r);
+                r.fetch_error = Some("Traceback\nError: network unreachable\n".into());
+            }))
+            .as_deref(),
+            Some(
+                "Added “Attention” to the bibliography — cite it with \\cite{vaswani2017}. The full text could not be downloaded: network unreachable"
+            )
+        );
+        assert_eq!(
+            all(&result(|r| r.citation_key = None)).as_deref(),
+            Some("Added “Attention” to the bibliography. No full text to open.")
+        );
+        // A held paper says so whichever the notices.
+        assert_eq!(
+            all(&result(|r| r.already_imported = true)).as_deref(),
+            Some("“Attention” is already in Papers — cite it with \\cite{vaswani2017}.")
         );
     }
 }
