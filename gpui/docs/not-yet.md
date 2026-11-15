@@ -23,12 +23,6 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] The Agent: a Papers selection in its context.
 
-- [ ] The Agent: its permission picker in the panel's header.
-
-- [ ] The Agent: a native skeleton before its page draws.
-
-- [ ] The Agent: a Finder drop onto its panel, and the microphone in its composer.
-
 - [ ] The Agent: reviewing the proposals its annotation tools record.
 
 - [ ] The accepted proofread's old words folding their width away (they leave at once).
