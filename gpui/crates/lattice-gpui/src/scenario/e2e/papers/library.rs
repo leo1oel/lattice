@@ -25,7 +25,7 @@ impl Run {
     ) -> Result<()> {
         self.papers_keyboard(cx, steps, papers).await?;
         self.papers_research_rows(cx, steps).await?;
-        self.papers_full_text_setting(cx, steps)?;
+        self.papers_full_text_setting(cx, steps, papers).await?;
         self.add_reference_form(cx, steps).await?;
         Ok(())
     }
@@ -134,9 +134,9 @@ impl Run {
     async fn papers_research_rows(&self, cx: &mut AsyncApp, steps: &mut Steps) -> Result<()> {
         let rows = self.with_window(cx, |shell, _, cx| {
             let context = shell.read(cx).command_context(cx);
-            let mut out = Vec::new();
-            crate::shell::research_flow::commands_for_scenario(&context, &mut out);
-            out.into_iter()
+            crate::shell::commands::commands(&context)
+                .into_iter()
+                .filter(|command| command.section == crate::shell::commands::Section::Research)
                 .map(|command| (command.id.to_string(), format!("{:?}", command.section)))
                 .collect::<Vec<_>>()
         })?;
@@ -164,19 +164,94 @@ impl Run {
         Ok(())
     }
 
-    fn papers_full_text_setting(&self, cx: &mut AsyncApp, steps: &mut Steps) -> Result<()> {
-        let (before, after) = cx.update(|cx| {
-            let before = crate::settings::paper_full_text(cx);
-            crate::settings::update(cx, |settings| settings.save_full_text = true);
-            let after = crate::settings::paper_full_text(cx);
+    /// Add papers' full-text switch decides what an import started after it
+    /// does, and the import keeps that choice when the switch moves again:
+    /// its pending row names Metadata alone, or Metadata, Full text and
+    /// Overview.
+    async fn papers_full_text_setting(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+        papers: &gpui::Entity<PapersPanel>,
+    ) -> Result<()> {
+        let root = cx
+            .update(|cx| self.shell.read(cx).root(cx))
+            .ok_or_else(|| anyhow::anyhow!("the Papers e2e needs a project"))?;
+        let manifest =
+            lattice_core::project::read_manifest(&root).map_err(|error| anyhow::anyhow!(error))?;
+        let bibliography = root.join(manifest.primary_bibliography);
+        let original = std::fs::read_to_string(&bibliography)?;
+        self.with_window(cx, |_, window, cx| {
+            window.dispatch_action(Box::new(crate::shell::research_flow::AddPapers), cx)
+        })?;
+        let sheet = self
+            .wait_for(cx, Duration::from_secs(5), |shell, cx| {
+                shell.read(cx).add_papers().is_some()
+            })
+            .await
+            .then(|| cx.update(|cx| self.shell.read(cx).add_papers().cloned()))
+            .flatten();
+        let Some(sheet) = sheet else {
+            steps.check(FULL_TEXT_STEP, false, json!({ "sheet": false }));
+            return Ok(());
+        };
+        // The switch starts on, so its first click turns it off.
+        cx.update(|cx| crate::settings::update(cx, |settings| settings.save_full_text = true));
+        let mut seen = Vec::new();
+        for (entry, key) in [(SKIP_ENTRY, SKIP_KEY), (SAVE_ENTRY, SAVE_KEY)] {
+            // A click on the switch, then the box's import of a pasted
+            // entry (no lookup, so offline), then the switch again while
+            // it runs.
+            let (sheet, panel) = (sheet.clone(), papers.clone());
+            let stages = self.with_window(cx, move |_, window, cx| {
+                sheet.update(cx, |sheet, cx| sheet.toggle_full_text(window, cx));
+                let on = crate::settings::get(cx).save_full_text;
+                let started = panel.update(cx, |panel, cx| {
+                    panel.import_entry(entry.to_string(), key.to_string(), false, cx)
+                });
+                let first = panel.read(cx).pending_stages();
+                sheet.update(cx, |sheet, cx| sheet.toggle_full_text(window, cx));
+                let moved = panel.read(cx).pending_stages();
+                sheet.update(cx, |sheet, cx| sheet.toggle_full_text(window, cx));
+                (on, started, first, moved)
+            })?;
+            let landed = self
+                .wait_for(cx, Duration::from_secs(15), |_, cx| {
+                    let panel = papers.read(cx);
+                    panel.importing.is_none()
+                        && panel
+                            .papers
+                            .iter()
+                            .any(|paper| paper.citation_key.as_deref() == Some(key))
+                })
+                .await;
+            seen.push((stages, landed));
+        }
+        std::fs::write(&bibliography, original)?;
+        cx.update(|cx| {
             crate::settings::update(cx, |settings| settings.save_full_text = false);
-            (before, after)
+            papers.update(cx, |panel, cx| panel.reload(cx));
         });
+        self.with_window(cx, |shell, window, cx| {
+            shell.update(cx, |shell, cx| shell.close_document_overlays(window, cx))
+        })?;
+        let restored = self
+            .wait_for(cx, Duration::from_secs(10), |_, cx| {
+                !papers.read(cx).papers.iter().any(|paper| {
+                    matches!(paper.citation_key.as_deref(), Some(SKIP_KEY | SAVE_KEY))
+                })
+            })
+            .await;
+        let metadata: &[&str] = &["resolving"];
+        let everything: &[&str] = &["resolving", "fulltext", "overview"];
+        let expected = [
+            ((false, true, Some(metadata), Some(metadata)), true),
+            ((true, true, Some(everything), Some(everything)), true),
+        ];
         steps.check(
-            "adding a paper saves its citation alone until \"Also save full text\" is on",
-            before == lattice_core::papers::FullText::Skip
-                && after == lattice_core::papers::FullText::Save,
-            json!({ "before": format!("{before:?}"), "after": format!("{after:?}") }),
+            FULL_TEXT_STEP,
+            seen == expected && restored,
+            json!({ "seen": format!("{seen:?}"), "restored": restored }),
         );
         Ok(())
     }
@@ -256,3 +331,11 @@ impl Run {
         Ok(())
     }
 }
+
+const FULL_TEXT_STEP: &str = "an import started from Add papers saves its citation alone until \"Also save full text\" is on, and keeps its choice when the switch moves";
+
+/// Pasted entries, imported as they stand without a lookup.
+const SKIP_KEY: &str = "e2efulltextoff2024";
+const SKIP_ENTRY: &str = "@article{e2efulltextoff2024,\n  title = {Switch Off Paper},\n  author = {Writer, Ada},\n  journal = {Journal of Tests},\n  year = {2024}\n}\n";
+const SAVE_KEY: &str = "e2efulltexton2024";
+const SAVE_ENTRY: &str = "@article{e2efulltexton2024,\n  title = {Switch On Paper},\n  author = {Writer, Ada},\n  journal = {Journal of Tests},\n  year = {2024}\n}\n";

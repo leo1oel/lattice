@@ -89,19 +89,14 @@ impl PapersPanel {
                 .px(px(8.))
                 .py(px(10.))
                 .opacity(fade.sample(t))
-                .child(
-                    div()
-                        .flex_none()
-                        .w(px(16.))
-                        .flex()
-                        .justify_center()
-                        .child(lattice_ui::loading::loader(
-                            "papers-loader",
-                            ICON_SMALL,
-                            palette.text_secondary,
-                            cx,
-                        )),
-                )
+                .child(div().flex_none().w(px(16.)).flex().justify_center().child(
+                    lattice_ui::loading::loader(
+                        "papers-loader",
+                        ICON_SMALL,
+                        palette.text_secondary,
+                        cx,
+                    ),
+                ))
                 .child(
                     div()
                         .min_w_0()

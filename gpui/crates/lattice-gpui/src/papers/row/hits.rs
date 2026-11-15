@@ -55,6 +55,7 @@ impl PapersPanel {
             let id: ElementId = SharedString::from(format!("paper-hit:{key}:{ix}")).into();
             let (interaction, pointer) = use_interaction(id.clone(), window, cx);
             let (view, paper, open) = (view.clone(), paper.clone(), hit.clone());
+            let at = key.to_string();
             list = list.child(
                 inside_row(track_pointer(div().id(id), pointer))
                     .relative()
@@ -77,6 +78,7 @@ impl PapersPanel {
                     .on_click(move |_, window, cx| {
                         cx.stop_propagation();
                         view.update(cx, |this, cx| {
+                            this.point_at(&at, ix + 1);
                             this.activate(&paper, Some(&open), window, cx)
                         })
                         .ok();
@@ -125,6 +127,7 @@ impl PapersPanel {
                     .on_click(move |_, _, cx| {
                         cx.stop_propagation();
                         view.update(cx, |this, cx| {
+                            this.point_at(&expand, shown + 1);
                             this.expanded_hits.insert(expand.clone());
                             cx.notify();
                         })

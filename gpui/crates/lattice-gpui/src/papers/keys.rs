@@ -110,6 +110,16 @@ impl PapersPanel {
         true
     }
 
+    /// A pointer's click on a stop: the keyboard goes on from there, with
+    /// the list left where the pointer had it.
+    pub(super) fn point_at(&mut self, key: &str, stop: usize) {
+        self.key_stop = Some(KeyStop {
+            key: key.to_string(),
+            stop,
+        });
+        self.reveal_stop = false;
+    }
+
     fn move_to(&mut self, stop: KeyStop, window: &mut Window, cx: &mut Context<Self>) {
         if self.wide() && stop.stop == 0 {
             self.select(Some(stop.key.clone()), cx);

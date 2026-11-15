@@ -176,12 +176,7 @@ impl AddReference {
     /// Step the year by `by`, when it reads as a number.
     fn step_year(&mut self, by: i64, window: &mut Window, cx: &mut Context<Self>) {
         let year = self.value(Field::Year, cx);
-        let digits: String = year
-            .trim()
-            .chars()
-            .take_while(|ch| ch.is_ascii_digit() || *ch == '-')
-            .collect();
-        if let Ok(parsed) = digits.parse::<i64>() {
+        if let Some(parsed) = leading_year(&year) {
             self.input(Field::Year).clone().update(cx, |input, cx| {
                 input.set_value((parsed + by).to_string(), window, cx)
             });
@@ -562,5 +557,38 @@ impl AddReference {
             self.insert_cite,
             self.value(Field::Year, cx),
         )
+    }
+}
+
+/// The number a year starts with (`Number.parseInt`): an optional sign,
+/// then its digits, whatever follows them.
+fn leading_year(year: &str) -> Option<i64> {
+    let year = year.trim();
+    let digits = year.strip_prefix('-').unwrap_or(year);
+    let end = digits
+        .find(|ch: char| !ch.is_ascii_digit())
+        .unwrap_or(digits.len());
+    let parsed = digits[..end].parse::<i64>().ok()?;
+    Some(if digits.len() < year.len() {
+        -parsed
+    } else {
+        parsed
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::leading_year;
+
+    #[test]
+    fn a_year_steps_from_the_number_it_starts_with() {
+        // `Number.parseInt`'s readings of the same text.
+        assert_eq!(leading_year("2024"), Some(2024));
+        assert_eq!(leading_year(" 2024-25 "), Some(2024));
+        assert_eq!(leading_year("1999a"), Some(1999));
+        assert_eq!(leading_year("-44"), Some(-44));
+        assert_eq!(leading_year("forthcoming"), None);
+        assert_eq!(leading_year("-"), None);
+        assert_eq!(leading_year(""), None);
     }
 }

@@ -13,7 +13,7 @@ use gpui::{
 use lattice_i18n::t;
 use lattice_ui::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
-    components::{Button, CheckState, Checkbox, IconButton, Textarea},
+    components::{Button, IconButton, Textarea},
     icons::ICON_SMALL,
     interaction::mix,
     tokens::FONT_WEIGHT_MEDIUM,
@@ -224,11 +224,13 @@ impl AddPapers {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let view = cx.entity().downgrade();
+        let focused = self.candidates_focus.is_focused(window) && window.last_input_was_keyboard();
+        let count = row.candidates.len();
         let list = crate::papers::candidates::candidate_list(
             "add-papers-candidate",
             &row.candidates,
             chosen,
-            false,
+            focused,
             move |at, take, _, cx| {
                 view.update(cx, |this, cx| {
                     this.highlight_candidate(at, cx);
@@ -247,7 +249,17 @@ impl AddPapers {
             .gap(px(8.))
             .px(px(12.))
             .pb(px(12.))
-            .child(list)
+            .child(
+                div()
+                    .id("add-papers-candidates-keys")
+                    .track_focus(&self.candidates_focus)
+                    .on_key_down(
+                        cx.listener(move |this, event, _, cx| {
+                            this.candidates_key(event, count, cx)
+                        }),
+                    )
+                    .child(list),
+            )
             .child(
                 div()
                     .flex()

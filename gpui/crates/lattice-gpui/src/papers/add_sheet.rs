@@ -141,6 +141,8 @@ pub struct AddPapers {
     /// The Add button's, which holds the keyboard when the sheet opens with
     /// references already addable.
     pub(super) add_focus: FocusHandle,
+    /// The open candidates', whose arrows choose a record and Enter uses it.
+    pub(super) candidates_focus: FocusHandle,
     /// A paste landed in the box: its `Change` is read at once, without
     /// the pause.
     pub(super) pasted: bool,
@@ -185,6 +187,7 @@ impl AddPapers {
             zotero: None,
             focus: cx.focus_handle(),
             add_focus: cx.focus_handle(),
+            candidates_focus: cx.focus_handle(),
             pasted: false,
             _settle: None,
             _lookups: HashMap::new(),
@@ -405,6 +408,29 @@ impl AddPapers {
             *at = index;
             cx.notify();
         }
+    }
+
+    /// The open candidates' arrows and Enter (a radio group's).
+    pub(super) fn candidates_key(
+        &mut self,
+        event: &gpui::KeyDownEvent,
+        count: usize,
+        cx: &mut Context<Self>,
+    ) {
+        let Some((_, at)) = &mut self.choosing else {
+            return;
+        };
+        if count == 0 || event.keystroke.modifiers.modified() {
+            return;
+        }
+        match event.keystroke.key.as_str() {
+            "down" | "right" => *at = (*at + 1) % count,
+            "up" | "left" => *at = (*at + count - 1) % count,
+            "enter" => self.use_candidate(cx),
+            _ => return,
+        }
+        cx.stop_propagation();
+        cx.notify();
     }
 
     pub(super) fn use_candidate(&mut self, cx: &mut Context<Self>) {

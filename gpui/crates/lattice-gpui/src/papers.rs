@@ -193,6 +193,18 @@ pub struct Importing {
     _task: Task<()>,
 }
 
+impl Importing {
+    /// The pipeline's steps its pending row names: adding the citation
+    /// alone has only the first.
+    pub fn stages(&self) -> &'static [&'static str] {
+        const ALL: [&str; 3] = ["resolving", "fulltext", "overview"];
+        match self.full_text {
+            lattice_core::papers::FullText::Save => &ALL,
+            lattice_core::papers::FullText::Skip => &ALL[..1],
+        }
+    }
+}
+
 /// The downloads under way, and the stage the last one reported.
 #[derive(Default)]
 pub struct Fetching {

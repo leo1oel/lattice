@@ -53,11 +53,7 @@ impl AddPapers {
                     )
                     .quiet()
                     .label(t!("Also save full text (Markdown)"))
-                    .on_toggle(|on: &bool, window, cx| {
-                        let on = *on;
-                        crate::settings::update(cx, |settings| settings.save_full_text = on);
-                        window.refresh();
-                    }),
+                    .on_toggle(|on: &bool, window, cx| set_full_text(*on, window, cx)),
                 ),
             )
             .into_any_element()
@@ -82,5 +78,20 @@ impl AddPapers {
                 cx,
             ))
             .into_any_element()
+    }
+}
+
+/// The full-text switch's toggle: the shared setting every import reads as
+/// it starts.
+fn set_full_text(on: bool, window: &mut gpui::Window, cx: &mut gpui::App) {
+    crate::settings::update(cx, |settings| settings.save_full_text = on);
+    window.refresh();
+}
+
+impl AddPapers {
+    /// A click on the full-text switch, for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn toggle_full_text(&self, window: &mut gpui::Window, cx: &mut gpui::App) {
+        set_full_text(!crate::settings::get(cx).save_full_text, window, cx);
     }
 }

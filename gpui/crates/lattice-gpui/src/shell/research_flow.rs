@@ -39,12 +39,6 @@ pub(super) const PART: Part = Part {
     commands,
 };
 
-/// The Research rows, for a scenario.
-#[cfg(any(target_os = "macos", target_os = "windows"))]
-pub(crate) fn commands_for_scenario(context: &CommandContext, out: &mut Vec<Command>) {
-    commands(context, out);
-}
-
 fn commands(context: &CommandContext, out: &mut Vec<Command>) {
     if !context.in_project {
         return;

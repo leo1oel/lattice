@@ -464,6 +464,7 @@ impl PapersPanel {
             let select_key = key.clone();
             row = row.on_click(move |event, window, cx| {
                 view.update(cx, |this, cx| {
+                    this.point_at(&select_key, 0);
                     // Wide, a click selects and a double click opens;
                     // narrower, a click opens.
                     if wide && event.click_count() == 1 {
