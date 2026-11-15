@@ -1,6 +1,6 @@
 //! The page's `invoke`s (`tauri:invoke`): those that need a window or the
 //! app here (the save panel, the browser, the clipboard, the dropped files'
-//! bytes, the annotations' store), the page preview's through its deck, the rest by `commands.rs`.
+//! bytes, the annotations' store and rounds), the page preview's through its deck, the rest by `commands.rs`.
 
 use std::path::Path;
 
@@ -68,7 +68,7 @@ impl SynaraSurface {
             // The project's annotations, through the window's store
             // (`annotations.rs`).
             "list_annotations" => self.list_annotations(id, cx),
-            "change_annotations" => self.change_annotations(id, &args, cx),
+            "record_annotation_tool" => self.record_annotation_tool(id, &args, cx),
             // The bytes of the Finder drop that just happened (`drops.rs`).
             "read_agent_composer_files" => self.read_dropped(id, cx),
             _ if documents::is_presentation(&command) => self.invoke_deck(id, &command, &args, cx),

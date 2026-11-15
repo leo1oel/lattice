@@ -1,14 +1,16 @@
 //! The Agent's page on the project's annotations, through the window's own
-//! store (`agent/surface/annotations.rs`), the file's one writer:
+//! store and revision rounds (`agent/surface/annotations.rs`,
+//! `annotations/rounds/agent_tools.rs`):
 //!
 //! - the page reads what the store holds;
 //! - a note written natively after the page read the list reaches the page;
-//! - a change the page sends from what it read before that note (its
-//!   proposal on its own note) keeps the native note, in the store and on
-//!   disk;
-//! - the page has no way left to save a whole copy over the file.
+//! - the Agent's proposal on that note, from the page, is recorded into the
+//!   open round, and every note written natively since the page loaded is
+//!   kept, in the store and on disk;
+//! - its question on another note joins the same round;
+//! - the page has no way left to write the annotations itself.
 //!
-//! The project's annotations are put back afterwards.
+//! The project's annotations and rounds are put back afterwards.
 
 #![cfg(target_os = "macos")]
 
@@ -54,6 +56,8 @@ impl Run {
         root: &Path,
     ) -> Result<()> {
         let original = project::read_annotations(root).ok();
+        let rounds_dir = root.join(".research/annotation-rounds");
+        let rounds_existed = rounds_dir.exists();
         let outcome = self.agent_annotations_steps(cx, steps, root).await;
         // Put the notes back through the store, so it holds what the file does.
         let store = cx.update(store::store);
@@ -74,6 +78,9 @@ impl Run {
                 )
             })
         });
+        if !rounds_existed {
+            std::fs::remove_dir_all(&rounds_dir).ok();
+        }
         outcome
     }
 
@@ -146,44 +153,90 @@ impl Run {
             json!({ "added": added, "heard": heard }),
         );
 
-        // The page saves its own note, from what it read before that note.
-        let page_note = serde_json::to_value(note("e2e-agent", "the Agent's proposal"))?;
-        let call = format!(
-            "window.__TAURI_INTERNALS__.invoke('change_annotations', {{ projectRoot: {}, upsert: [{page_note}] }})",
-            json!(root.to_string_lossy())
-        );
-        let saved = self
-            .agent_call(cx, &island, &call, Duration::from_secs(10))
+        // A second native note, then the Agent's tools on both, from the page.
+        cx.update(|cx| {
+            store.update(cx, |store, cx| {
+                store.add(root, note("e2e-second", "is this the right result?"), cx)
+            })
+        });
+        let tool = |mut call: Value| {
+            call["projectRoot"] = json!(root.to_string_lossy());
+            format!("window.__TAURI_INTERNALS__.invoke('record_annotation_tool', {call})")
+        };
+        let proposed = self
+            .agent_call(
+                cx,
+                &island,
+                &tool(json!({ "annotationId": "e2e-native", "action": "propose",
+                              "text": "\\documentclass{article}", "reason": "the full line" })),
+                Duration::from_secs(10),
+            )
             .await;
-        let on_disk = self
+        let asked = self
+            .agent_call(
+                cx,
+                &island,
+                &tool(json!({ "annotationId": "e2e-second", "action": "ask",
+                              "question": "Which theorem do you mean?" })),
+                Duration::from_secs(10),
+            )
+            .await;
+        let state_of = |read: &project::Annotations, id: &str| {
+            read.annotations
+                .iter()
+                .find(|note| note.id == id)
+                .and_then(|note| note.revision.as_ref().map(|revision| (revision.state.clone(), revision.round)))
+        };
+        let recorded = self
             .wait_for(cx, Duration::from_secs(5), |_, _| {
                 project::read_annotations(root).is_ok_and(|read| {
-                    let ids: Vec<_> = read.annotations.iter().map(|note| note.id.as_str()).collect();
-                    ids.contains(&"e2e-native") && ids.contains(&"e2e-agent")
+                    let open = read.rounds.last().filter(|round| round.settled_at.is_none());
+                    matches!(
+                        (state_of(&read, "e2e-native"), state_of(&read, "e2e-second"), open),
+                        (Some((proposed, a)), Some((asked, b)), Some(round))
+                            if proposed == "proposed" && asked == "asked" && a == b && round.number == a
+                                && round.outcomes.get("e2e-native").map(String::as_str) == Some("proposed")
+                                && round.outcomes.get("e2e-second").map(String::as_str) == Some("asked")
+                    )
                 })
             })
             .await;
+        let on_disk = project::read_annotations(root).ok();
         steps.check(
-            "a note written natively after the page loaded survives a page save, in the store and on disk",
-            ids(&saved["ok"]).iter().any(|id| id == "e2e-native")
-                && ids(&saved["ok"]).iter().any(|id| id == "e2e-agent")
-                && on_disk,
-            json!({ "saved": saved, "onDisk": on_disk }),
+            "the Agent's proposal and question, from the page, are recorded into the open round",
+            proposed.get("error").is_none() && asked.get("error").is_none() && recorded,
+            json!({ "proposed": proposed, "asked": asked,
+                    "rounds": on_disk.as_ref().map(|read| serde_json::to_value(&read.rounds).unwrap_or_default()) }),
+        );
+        let kept = on_disk.as_ref().is_some_and(|read| {
+            ["e2e-native", "e2e-second"]
+                .iter()
+                .all(|id| read.annotations.iter().any(|note| note.id == *id))
+        });
+        steps.check(
+            "notes written natively after the page loaded survive the Agent's tools, in the store and on disk",
+            kept && held.iter().all(|id| on_disk.as_ref().is_some_and(|read| read.annotations.iter().any(|note| &note.id == id))),
+            json!({ "kept": kept, "before": held }),
         );
 
-        // No whole-copy save is left for a page.
-        let whole = format!(
-            "window.__TAURI_INTERNALS__.invoke('save_annotations', {{ projectRoot: {}, annotations: [], rounds: [], save: 0 }})",
-            json!(root.to_string_lossy())
-        );
-        let refused = self
-            .agent_call(cx, &island, &whole, Duration::from_secs(10))
-            .await;
+        // No write of its own is left for a page.
+        let mut refused = Vec::new();
+        for call in [
+            "save_annotations', { annotations: [], rounds: [], save: 0 }",
+            "change_annotations', { remove: ['e2e-native'] }",
+        ] {
+            let (command, args) = call.split_once("', ").unwrap_or_default();
+            let script = format!(
+                "window.__TAURI_INTERNALS__.invoke('{command}', Object.assign({args}, {{ projectRoot: {} }}))",
+                json!(root.to_string_lossy())
+            );
+            refused.push(self.agent_call(cx, &island, &script, Duration::from_secs(10)).await);
+        }
         let kept = project::read_annotations(root)
             .is_ok_and(|read| read.annotations.iter().any(|note| note.id == "e2e-native"));
         steps.check(
-            "the page cannot save a whole copy of the annotations over the file",
-            refused.get("error").is_some() && kept,
+            "the page cannot write the annotations itself",
+            refused.iter().all(|answer| answer.get("error").is_some()) && kept,
             json!({ "refused": refused, "kept": kept }),
         );
         Ok(())
@@ -199,7 +252,8 @@ pub(super) const MODULE: super::registry::Module = super::registry::Module {
         "gpui/crates/lattice-gpui/src/agent/surface/annotations.rs",
         "gpui/crates/lattice-gpui/src/annotations/store.rs",
         "gpui/islands/agent/library.ts",
-        "gpui/islands/agent/annotation-change.ts",
+        "gpui/islands/agent/annotation-tools.ts",
+        "gpui/crates/lattice-gpui/src/annotations/rounds/agent_tools.rs",
     ],
     run: |run, cx, steps, fixture| Box::pin(run.agent_annotations(cx, steps, &fixture.root)),
 };

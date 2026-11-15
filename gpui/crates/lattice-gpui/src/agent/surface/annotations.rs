@@ -1,29 +1,31 @@
 //! The Agent's page on the project's annotations, through the window's own
 //! store (`crate::annotations::store`), the one writer of
-//! `.research/annotations.json` in the app. The Tauri app's Agent works on
-//! its window's comments store (`use-editor-comments.ts`); here that store
-//! is the native one:
+//! `.research/annotations.json` in the app, and its revision rounds
+//! (`crate::annotations::rounds`). The Tauri app's Agent works on its
+//! window's comments store (`use-editor-comments.ts`) and rounds
+//! (`annotation-rounds.ts`); here those are the native ones, and the page
+//! only reads:
 //!
 //! - `list_annotations` answers with what the store holds, once it has read
 //!   the file;
-//! - `change_annotations` applies the page's change, the annotations and
-//!   rounds it added, changed or removed, by id to what the store holds now,
-//!   so a note the Annotations panel wrote after the page last heard is
-//!   kept, and answers with the result;
 //! - every change the store makes, whoever made it, reaches the page
-//!   (`agent:annotations`), so the revision rounds it runs see the notes
-//!   and rounds as they are.
+//!   (`agent:annotations`), so the Agent sees the notes as they are;
+//! - `record_annotation_tool` hands an annotation tool's call from the
+//!   conversation (`propose`, `ask`), which the page has checked, to the
+//!   window, which records it into the open round
+//!   ([`SurfaceEvent::AnnotationTool`]).
 
 use std::time::Duration;
 
 use gpui::{Context, Subscription};
-use lattice_core::project::{AnnotationRound, EditorComment};
 use lattice_i18n::t;
-use serde::{Deserialize, de::DeserializeOwned};
 use serde_json::{Value, json};
 
-use super::SynaraSurface;
-use crate::annotations::store::{self, Notes};
+use super::{SurfaceEvent, SynaraSurface};
+use crate::annotations::{
+    rounds::ToolAnswer,
+    store::{self, Notes},
+};
 
 /// How long `list_annotations` waits for the store's first read.
 const READ_WAIT: Duration = Duration::from_secs(15);
@@ -35,58 +37,30 @@ pub(super) struct PageAnnotations {
     _store: Option<Subscription>,
 }
 
-/// The page's change (`change_annotations`): what it added or changed, and
-/// what it removed, of the annotations (by id) and the rounds (by number).
-#[derive(Deserialize, Default)]
-#[serde(rename_all = "camelCase", default)]
-struct Change {
-    upsert: Vec<EditorComment>,
-    remove: Vec<String>,
-    rounds_upsert: Vec<AnnotationRound>,
-    rounds_remove: Vec<u32>,
-}
-
-impl Change {
-    /// Apply it to `notes`; whether anything changed.
-    fn apply(self, notes: &mut Notes) -> bool {
-        let mut changed = merge(&mut notes.annotations, self.upsert, |note| note.id.clone());
-        let before = notes.annotations.len();
-        notes
-            .annotations
-            .retain(|note| !self.remove.contains(&note.id));
-        changed |= notes.annotations.len() != before;
-        changed |= merge(&mut notes.rounds, self.rounds_upsert, |round| round.number);
-        let before = notes.rounds.len();
-        notes
-            .rounds
-            .retain(|round| !self.rounds_remove.contains(&round.number));
-        changed | (notes.rounds.len() != before)
-    }
-}
-
-/// Put each of `incoming` in place of the item with its key, or at the end.
-fn merge<T, K: PartialEq>(items: &mut Vec<T>, incoming: Vec<T>, key: impl Fn(&T) -> K) -> bool {
-    let changed = !incoming.is_empty();
-    for item in incoming {
-        match items.iter().position(|old| key(old) == key(&item)) {
-            Some(at) => items[at] = item,
-            None => items.push(item),
-        }
-    }
-    changed
-}
-
 fn notes_value(notes: &Notes) -> Value {
     json!({ "annotations": notes.annotations, "rounds": notes.rounds })
 }
 
-fn field<T: DeserializeOwned + Default>(args: &Value, key: &str) -> Result<T, String> {
-    match args.get(key) {
-        None | Some(Value::Null) => Ok(T::default()),
-        Some(value) => {
-            serde_json::from_value(value.clone()).map_err(|error| format!("Invalid {key}: {error}"))
-        }
-    }
+/// An annotation tool's call as the page hands it over: the annotation's
+/// id and what to record about it.
+fn tool_call(args: &Value) -> Result<(String, ToolAnswer), String> {
+    let text = |key: &str| args.get(key).and_then(Value::as_str).map(str::to_string);
+    let id = text("annotationId")
+        .filter(|id| !id.is_empty())
+        .ok_or("The annotation tool named no annotation.")?;
+    let answer = match text("action").as_deref() {
+        Some("propose") => ToolAnswer::Proposal {
+            text: text("text").ok_or("The proposal has no text.")?,
+            reason: text("reason").unwrap_or_default(),
+        },
+        Some("ask") => ToolAnswer::Question(
+            text("question")
+                .filter(|question| !question.trim().is_empty())
+                .ok_or("The question is empty.")?,
+        ),
+        _ => return Err("Unknown annotation tool.".into()),
+    };
+    Ok((id, answer))
 }
 
 impl SynaraSurface {
@@ -158,45 +132,32 @@ impl SynaraSurface {
         .detach();
     }
 
-    /// `change_annotations`: the page's change, applied by id to what the
-    /// store holds now; answered with the result.
-    pub(super) fn change_annotations(&mut self, id: u64, args: &Value, cx: &mut Context<Self>) {
-        let answer = self.apply_change(args, cx);
-        self.respond(id, answer, cx);
-    }
-
-    fn apply_change(&mut self, args: &Value, cx: &mut Context<Self>) -> Result<Value, String> {
-        let root = self.root.clone().ok_or("No project is open.")?;
+    /// `record_annotation_tool`: an annotation tool's call from the
+    /// conversation, for the window's rounds to record; the window answers.
+    pub(super) fn record_annotation_tool(&mut self, id: u64, args: &Value, cx: &mut Context<Self>) {
+        let Some(root) = self.root.clone() else {
+            self.respond(id, Err("No project is open.".into()), cx);
+            return;
+        };
         let asked = args.get("projectRoot").and_then(Value::as_str);
         if asked.is_none_or(|asked| {
             !super::super::commands::same_root(std::path::Path::new(asked), &root)
         }) {
-            return Err("The project changed before saving the annotations.".into());
+            self.respond(
+                id,
+                Err("The project changed before the annotation tool ran.".into()),
+                cx,
+            );
+            return;
         }
-        let change = Change {
-            upsert: field(args, "upsert")?,
-            remove: field(args, "remove")?,
-            rounds_upsert: field(args, "roundsUpsert")?,
-            rounds_remove: field(args, "roundsRemove")?,
-        };
-        let store = store::store(cx);
-        store.update(cx, |store, cx| {
-            if let Some(error) = store.read_failure(&root) {
-                return Err(t!(
-                    "This project's annotations could not be read, so changes to them are not saved: {error}",
-                    error = error
-                )
-                .to_string());
-            }
-            if !store.loaded(&root) {
-                return Err(
-                    t!("This project's annotations are still being read. Try again in a moment.")
-                        .to_string(),
-                );
-            }
-            store.commit(&root, |notes| change.apply(notes), cx);
-            Ok(store.notes(&root).map(notes_value).unwrap_or_default())
-        })
+        match tool_call(args) {
+            Ok((annotation, answer)) => cx.emit(SurfaceEvent::AnnotationTool {
+                id,
+                annotation,
+                answer,
+            }),
+            Err(error) => self.respond(id, Err(error), cx),
+        }
     }
 }
 
@@ -204,64 +165,32 @@ impl SynaraSurface {
 mod tests {
     use super::*;
 
-    fn note(id: &str, body: &str) -> EditorComment {
-        serde_json::from_value(json!({
-            "id": id, "path": "main.tex", "from": 0, "to": 4, "quote": "text", "body": body,
-            "authorId": "writer", "authorName": "Writer",
-            "createdAt": "2026-11-15T00:00:00Z", "updatedAt": "2026-11-15T00:00:00Z",
-        }))
-        .expect("a note parses")
-    }
-
-    fn round(number: u32) -> AnnotationRound {
-        serde_json::from_value(json!({ "number": number, "startedAt": "2026-11-15T00:00:00Z" }))
-            .expect("a round parses")
-    }
-
-    // The data loss this guards against: the page's copy predates a note
-    // the Annotations panel added, and a whole-copy save would drop it.
+    // The page's wire format (`library.ts`'s tool host).
     #[test]
-    fn a_change_keeps_what_the_store_gained_since_the_page_last_heard() {
-        let mut notes = Notes {
-            annotations: vec![note("a", "old"), note("native", "written in the panel")],
-            rounds: vec![round(1)],
-        };
-        let change = Change {
-            upsert: vec![
-                note("a", "revised by the Agent"),
-                note("b", "the Agent's new note"),
-            ],
-            remove: vec![],
-            rounds_upsert: vec![round(2)],
-            rounds_remove: vec![],
-        };
-        assert!(change.apply(&mut notes));
-        let ids: Vec<_> = notes
-            .annotations
-            .iter()
-            .map(|note| note.id.as_str())
-            .collect();
-        assert_eq!(ids, ["a", "native", "b"]);
-        assert_eq!(notes.annotations[0].body, "revised by the Agent");
-        let rounds: Vec<_> = notes.rounds.iter().map(|round| round.number).collect();
-        assert_eq!(rounds, [1, 2]);
-    }
-
-    #[test]
-    fn a_removal_takes_only_what_it_names() {
-        let mut notes = Notes {
-            annotations: vec![note("a", "x"), note("b", "y")],
-            rounds: vec![round(1), round(2)],
-        };
-        let change = Change {
-            remove: vec!["a".into(), "gone".into()],
-            rounds_remove: vec![1],
-            ..Change::default()
-        };
-        assert!(change.apply(&mut notes));
-        assert_eq!(notes.annotations.len(), 1);
-        assert_eq!(notes.annotations[0].id, "b");
-        assert_eq!(notes.rounds.len(), 1);
-        assert!(!Change::default().apply(&mut notes));
+    fn a_tool_call_reads_as_the_page_sends_it() {
+        let proposal = json!({
+            "annotationId": "a1", "action": "propose", "text": "the revised passage", "reason": "clearer",
+        });
+        assert_eq!(
+            tool_call(&proposal),
+            Ok((
+                "a1".into(),
+                ToolAnswer::Proposal {
+                    text: "the revised passage".into(),
+                    reason: "clearer".into(),
+                }
+            ))
+        );
+        let question =
+            json!({ "annotationId": "a1", "action": "ask", "question": "Which result?" });
+        assert_eq!(
+            tool_call(&question),
+            Ok(("a1".into(), ToolAnswer::Question("Which result?".into())))
+        );
+        assert!(
+            tool_call(&json!({ "annotationId": "a1", "action": "ask", "question": " " })).is_err()
+        );
+        assert!(tool_call(&json!({ "action": "propose", "text": "x" })).is_err());
+        assert!(tool_call(&json!({ "annotationId": "a1", "action": "delete" })).is_err());
     }
 }

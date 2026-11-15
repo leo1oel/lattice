@@ -15,8 +15,6 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] The editor's change wash on lines an outside edit landed (`lattice_ui::attention` has its timing).
 
-- [ ] The Agent: its annotation tools, recording proposals and questions from the conversation into the open round.
-
 - [ ] The Revision rounds sheet, comparing a round's versions (and the round saved toast's Compare).
 
 - [ ] The Annotations panel's Export review PDF….
