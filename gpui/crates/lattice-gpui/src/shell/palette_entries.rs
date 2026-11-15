@@ -374,7 +374,7 @@ pub(super) fn project_files(root: &Path) -> Vec<Entry> {
             }
         }
     }
-    out.sort_by(|a, b| a.haystack().cmp(&b.haystack()));
+    out.sort_by_cached_key(Entry::haystack);
     out
 }
 

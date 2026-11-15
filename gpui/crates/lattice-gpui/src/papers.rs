@@ -53,7 +53,7 @@ use crate::project::{Project, ProjectEvent};
 
 pub mod add_sheet;
 pub mod audit;
-mod batch;
+pub(crate) mod batch;
 pub mod bib_editor;
 mod downloads;
 mod field;
@@ -169,6 +169,9 @@ pub struct Importing {
     /// Which import it is, for whoever started it to read its outcome.
     ticket: u64,
     pub stage: Option<String>,
+    /// Whether the import saves the full text too: as chosen when it began,
+    /// or because it reported converting it (a bare PDF, whatever the choice).
+    pub full_text: core_papers::FullText,
     /// When the stage began, and the hairline's width then: its estimate
     /// runs per stage.
     started: Instant,

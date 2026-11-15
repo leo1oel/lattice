@@ -173,6 +173,9 @@ pub struct Command {
     /// Whether running it from the palette puts it among the recent
     /// commands (the Tauri table's `recent: false` opts out).
     pub recent: bool,
+    /// The action whose keys the row shows, when it is not [`Self::action`]:
+    /// Build shows Save's ⌘S, which saves and builds.
+    pub keys_of: Option<Box<dyn Action>>,
 }
 
 impl Command {
@@ -191,6 +194,7 @@ impl Command {
             keywords: "",
             detail: None,
             recent: true,
+            keys_of: None,
         }
     }
 
@@ -203,6 +207,18 @@ impl Command {
     pub(crate) fn not_recent(mut self) -> Self {
         self.recent = false;
         self
+    }
+
+    /// The row shows `action`'s keys in place of its own
+    /// (`shortcut: commandCombo(saveCommand)` in the Tauri table).
+    pub(crate) fn keys_of(mut self, action: impl Action) -> Self {
+        self.keys_of = Some(Box::new(action));
+        self
+    }
+
+    /// The action whose keys the palette and the shortcut sheet draw.
+    pub fn keys_action(&self) -> &dyn Action {
+        self.keys_of.as_deref().unwrap_or(self.action.as_ref())
     }
 
     pub(crate) fn keys_only(mut self) -> Self {
@@ -238,12 +254,8 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
     let mut out = Vec::new();
     let project = context.in_project;
     if project {
-        out.push(Command::new(
-            "build",
-            t!("Build project"),
-            Section::Build,
-            Build,
-        ));
+        // ⌘S reaches it through Save, which builds what it saved.
+        out.push(Command::new("build", t!("Build project"), Section::Build, Build).keys_of(Save));
         out.push(Command::new("save", t!("Save and build"), Section::Build, Save).keys_only());
         out.push(
             Command::new("rebuild", t!("Clean rebuild"), Section::Build, CleanRebuild)
@@ -425,6 +437,7 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
                     keywords: "",
                     detail: None,
                     recent: true,
+                    keys_of: None,
                 });
             }
         }
@@ -498,6 +511,7 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
                 keywords: "panel",
                 detail: None,
                 recent: true,
+                keys_of: None,
             });
         }
         out.push(

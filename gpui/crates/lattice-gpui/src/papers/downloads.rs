@@ -199,6 +199,8 @@ impl PapersPanel {
         let (stages, mut stage_events) = mpsc::unbounded::<String>();
         let job_cancel = cancel.clone();
         let input = query.clone();
+        // Whether to save the full text too, as the writer last chose.
+        let full_text = crate::settings::paper_full_text(cx);
         let job = cx.background_spawn(async move {
             let progress = |stage: &str| {
                 stages.unbounded_send(stage.to_string()).ok();
@@ -217,7 +219,7 @@ impl PapersPanel {
                 &root,
                 &input,
                 HistoryMode::Record,
-                core_papers::FullText::Save,
+                full_text,
                 &progress,
                 &job_cancel,
             )
@@ -231,6 +233,9 @@ impl PapersPanel {
                     futures::future::Either::Right((Some(stage), _)) => {
                         this.update(cx, |this, cx| {
                             if let Some(importing) = &mut this.importing {
+                                if stage == "fulltext" {
+                                    importing.full_text = core_papers::FullText::Save;
+                                }
                                 model::next_stage(
                                     &mut importing.stage,
                                     &mut importing.started,
@@ -256,6 +261,7 @@ impl PapersPanel {
             label,
             ticket,
             stage: None,
+            full_text,
             started: Instant::now(),
             from: 0.,
             cancel,

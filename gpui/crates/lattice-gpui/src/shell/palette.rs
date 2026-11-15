@@ -102,7 +102,7 @@ impl CommandPaletteView {
         let commands = listed
             .into_iter()
             .map(|command| Entry::Command {
-                keys: commands::keys_label(command.action.as_ref(), window),
+                keys: commands::keys_label(command.keys_action(), window),
                 id: command.id,
                 label: command.label,
                 section: command.section,
@@ -369,10 +369,10 @@ impl Render for CommandPaletteView {
             .fill(palette.accent_soft)
             .radius(shape::PALETTE_LIST.inner());
         let lit = hover.lit(cx);
-        if lit != self.adopted {
-            if let Some(lit) = lit.filter(|lit| *lit < self.shown.len()) {
-                self.highlighted = lit;
-            }
+        if lit != self.adopted
+            && let Some(lit) = lit.filter(|lit| *lit < self.shown.len())
+        {
+            self.highlighted = lit;
         }
         let hover = hover.follow(Some(self.highlighted), cx);
         self.adopted = hover.lit(cx);

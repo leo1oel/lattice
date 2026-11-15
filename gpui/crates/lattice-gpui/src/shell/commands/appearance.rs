@@ -33,6 +33,7 @@ pub(super) fn appearance_commands(out: &mut Vec<Command>) {
             keywords: "theme appearance",
             detail: None,
             recent: true,
+            keys_of: None,
         });
     }
     // The interface size, as every Mac app binds it (`interface-bigger`,
@@ -63,6 +64,7 @@ pub(super) fn appearance_commands(out: &mut Vec<Command>) {
             keywords: "",
             detail: None,
             recent: true,
+            keys_of: None,
         });
     }
 }

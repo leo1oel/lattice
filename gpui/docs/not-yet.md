@@ -5,6 +5,10 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] The visual LaTeX editor, in part: its outline rail over Visual; its spellcheck, TexLab, find-references, rename, wrap-environment and paste-image hooks; live spelling, unused-label and unused-citation data; and comment highlights, margin review, Overleaf carets and track changes in Visual.
 
+- [ ] The LaTeX source's other editing keys: Inline math (⌘⇧M) and the environment commands.
+
+- [ ] Insert citation and Insert reference: ⌘⇧K and ⌘⇧L are reserved for them and do nothing until they land.
+
 - [ ] The source selection toolbar, LaTeX's and Markdown's.
 
 - [ ] Margin review's J/K walk between items.
@@ -45,19 +49,11 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] The PDF: its citation hover cards.
 
-- [ ] Settings: the grammar page (its dialect, profile and rules; spell checking uses the Tauri app's defaults).
+- [ ] Settings: the sections' product icons' hover gestures (they rest as the Tauri app's resting frames).
 
-- [ ] Settings: the Agent's MCP page.
+- [ ] Settings: Editor & builds › Your name saying which Git or Overleaf name signs comments ahead of it.
 
-- [ ] Settings: the Agent's Skills page.
-
-- [ ] Settings: the Agent's Usage & limits page.
-
-- [ ] Settings: the Agent's Model endpoint page.
-
-- [ ] Settings: the Agent's Environment page.
-
-- [ ] Settings: the other integrations and about pages.
+- [ ] Settings: App updates' automatic updates and Check for updates (the GPUI app shows its version and GitHub Releases).
 
 - [ ] The paper reader's selection actions: Copy source link and Add to note, on the full text and on the original PDF.
 

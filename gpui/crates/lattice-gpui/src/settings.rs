@@ -26,13 +26,19 @@
 //! the interface in English whatever the system's language, so a run never
 //! reads or changes the writer's own preferences.
 
+mod acknowledgements;
 mod appearance_pane;
 mod controls;
 mod dialog;
 mod editor_pane;
+mod environment_pane;
+mod grammar_group;
+mod literature_pane;
 pub(crate) mod logs_export;
 pub(crate) mod logs_pane;
+mod model_endpoint_pane;
 mod nav;
+mod pages;
 pub(crate) mod overleaf_pane;
 mod providers_pane;
 pub(crate) mod search;
@@ -80,6 +86,16 @@ impl AppSettings {
             settings.appearance.editor_keymap = keymap;
         }
         settings
+    }
+}
+
+/// Whether adding a paper saves its full text too, as Settings › Literature
+/// services and the Add papers sheet last chose (`saveFullTextSetting`).
+pub fn paper_full_text(cx: &App) -> lattice_core::papers::FullText {
+    if get(cx).save_full_text {
+        lattice_core::papers::FullText::Save
+    } else {
+        lattice_core::papers::FullText::Skip
     }
 }
 

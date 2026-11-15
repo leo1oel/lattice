@@ -121,9 +121,9 @@ use crate::{
 const WORKSPACE_SIDE: f32 = 6.;
 
 #[cfg(target_os = "macos")]
-pub const BUILD_SHORTCUT_LABEL: &str = "⌘B";
+pub const BUILD_SHORTCUT_LABEL: &str = "⌘S";
 #[cfg(not(target_os = "macos"))]
-pub const BUILD_SHORTCUT_LABEL: &str = "Ctrl+B";
+pub const BUILD_SHORTCUT_LABEL: &str = "Ctrl+S";
 
 pub fn bind_keys(cx: &mut App) {
     commands::bind_keys(cx);

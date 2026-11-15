@@ -35,6 +35,7 @@ pub(super) fn preset_commands(context: &CommandContext, out: &mut Vec<Command>) 
             keywords: "preset",
             detail: None,
             recent: true,
+            keys_of: None,
         });
     }
 }

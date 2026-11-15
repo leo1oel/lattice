@@ -5,8 +5,8 @@
 //! the project's dictionary; the automatic build, cleaning the auxiliary
 //! files and, with a project open, its engine, shell escape and whether a
 //! build stops at the first error (written to the project's manifest, as the
-//! Tauri app writes them); and the app's version. Spell checking itself and
-//! the grammar settings arrive with the editor's spelling and grammar.
+//! Tauri app writes them); the other languages' dictionaries and the
+//! grammar choices (`grammar_group.rs`); and the app's version.
 
 use gpui::{
     AnyElement, App, ClickEvent, Context, Entity, IntoElement, ParentElement as _, Styled as _,
@@ -29,7 +29,9 @@ use crate::project::Project;
 /// Where every release is published.
 const LATEST_RELEASE_URL: &str = "https://github.com/leo1oel/lattice/releases/latest";
 
-fn row(dialog: &SettingsDialog, row: Row, width: PageWidth, cx: &App) -> AnyElement {
+/// A row Settings search can reveal: measured as it is drawn, washed when
+/// revealed.
+pub(super) fn row(dialog: &SettingsDialog, row: Row, width: PageWidth, cx: &App) -> AnyElement {
     let id = row.id;
     div()
         .relative()
@@ -64,6 +66,7 @@ pub fn render(
 ) -> AnyElement {
     let groups = vec![
         editor(dialog, width, window, cx),
+        super::grammar_group::group(dialog, width, window, cx),
         builds(dialog, width, cx),
         updates(dialog, width, cx),
     ];
@@ -179,6 +182,7 @@ fn editor(
     let name = div()
         .w(controls::CONTROL_WIDTH)
         .child(Field::new(&dialog.fields.author_name));
+    let languages = spelling_languages(dialog, cx);
     let rows = vec![
         row(
             dialog,
@@ -200,9 +204,64 @@ fn editor(
             width,
             cx,
         ),
+        row(dialog, languages, width, cx),
         row(dialog, dictionary_row, width, cx),
     ];
     controls::first_group(Some(t!("Editor").into()), rows, cx)
+}
+
+/// How a document in another language is checked, and the dictionaries
+/// downloaded so far with the licence each came under
+/// (`spelling-languages-row.tsx`).
+fn spelling_languages(dialog: &mut SettingsDialog, cx: &mut Context<SettingsDialog>) -> Row {
+    let palette = cx.palette().clone();
+    let installs = crate::editor_panel::spelling::installs(cx);
+    let cached = dialog
+        .pages
+        .dictionaries
+        .take()
+        .filter(|(seen, _)| *seen == installs);
+    let downloaded = cached.map(|(_, list)| list).unwrap_or_else(|| {
+        crate::editor_panel::spelling::dictionary_store(cx)
+            .map(|store| lattice_core::spelling::dictionaries(&store))
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|dictionary| dictionary.installed)
+            .collect()
+    });
+    let list = if downloaded.is_empty() {
+        div()
+            .text_role_in(TextRole::Caption, TypeScale::Settings, cx)
+            .text_color(palette.text)
+            .child(t!("No dictionary downloaded yet"))
+    } else {
+        div().flex().flex_wrap().gap(px(4.)).children(downloaded.iter().map(|dictionary| {
+            let name = lattice_editor::latex::spelling::language_name(&dictionary.code);
+            div()
+                .flex()
+                .items_center()
+                .min_h(px(24.))
+                .px(px(8.))
+                .rounded(px(6.))
+                .bg(palette.input)
+                .border_1()
+                .border_color(palette.line)
+                .text_role_in(TextRole::Caption, TypeScale::Settings, cx)
+                .text_color(palette.text)
+                .child(t!(
+                    "{name}, licensed {license}",
+                    name = &name,
+                    license = &dictionary.license
+                ))
+        }))
+    };
+    dialog.pages.dictionaries = Some((installs, downloaded));
+    Row::new("spelling-languages", t!("Other languages"))
+        .description(
+            t!("A document whose babel or polyglossia language isn't English is checked for spelling in that language. Its dictionary downloads from wooorm/dictionaries the first time it's needed."),
+            cx,
+        )
+        .control(div().w(controls::CONTROL_WIDTH).max_w_full().child(list))
 }
 
 fn builds(
