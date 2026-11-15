@@ -314,7 +314,7 @@ impl Render for ReviewSheet {
                             button
                         }
                     })
-                    .on_click(cx.listener(|this, _, _, cx| this.export(cx))),
+                    .on_click(cx.listener(|this, _, window, cx| this.export(window, cx))),
             );
         ModalLayer::new("review-pdf", LayerPlacement::Center, sheet, move |_, cx| {
             this.update(cx, |_, cx| Self::close(cx)).ok();

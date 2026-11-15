@@ -246,7 +246,7 @@ impl ReviewSheet {
     }
 
     /// Ask where to save the copy, then write it.
-    fn export(&mut self, cx: &mut Context<Self>) {
+    fn export(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(source) = self.source.as_ref().filter(|_| !self.busy) else {
             return;
         };
@@ -257,10 +257,12 @@ impl ReviewSheet {
             .unwrap_or_else(|| source.root.clone());
         let name = review_file_name(&source.file_name());
         let chosen = cx.prompt_for_new_path(&directory, Some(&name));
-        cx.spawn(async move |this, cx| {
+        cx.spawn_in(window, async move |this, cx| {
             if let Ok(Ok(Some(destination))) = chosen.await {
-                this.update(cx, |this, cx| this.export_to(destination, cx))
-                    .ok();
+                this.update_in(cx, |this, window, cx| {
+                    this.export_to(destination, window, cx)
+                })
+                .ok();
             }
         })
         .detach();
@@ -268,7 +270,7 @@ impl ReviewSheet {
 
     /// Write the copy to `destination`; the sheet closes once it is saved,
     /// and stays, saying why, when it is not.
-    pub fn export_to(&mut self, destination: PathBuf, cx: &mut Context<Self>) {
+    pub fn export_to(&mut self, destination: PathBuf, window: &mut Window, cx: &mut Context<Self>) {
         let Some((review, shown)) = self.review(Local::now()).filter(|_| !self.busy) else {
             return;
         };
@@ -280,9 +282,9 @@ impl ReviewSheet {
             let annotated = lattice_core::review_pdf::annotate(bytes, &review)?;
             lattice_core::export::save(&destination, &annotated, &lattice_core::export::PDF)
         });
-        cx.spawn(async move |this, cx| {
+        cx.spawn_in(window, async move |this, cx| {
             let written = writing.await;
-            this.update(cx, |this, cx| match written {
+            this.update_in(cx, |this, window, cx| match written {
                 Ok(path) => {
                     crate::notices::show(
                         crate::notices::Notice::new(
@@ -293,7 +295,11 @@ impl ReviewSheet {
                         .detail(fill_named(tr("Saved to {path}"), &[("path", &path)])),
                         cx,
                     );
-                    cx.emit(ReviewSheetEvent::Close);
+                    // Leaving as Cancel does hands focus back to what held it.
+                    let sheet = cx.entity().downgrade();
+                    ModalLayer::leave("review-pdf", window, cx, move |_, cx| {
+                        sheet.update(cx, |_, cx| Self::close(cx)).ok();
+                    });
                 }
                 Err(error) => {
                     this.busy = false;

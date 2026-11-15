@@ -158,7 +158,9 @@ impl Run {
             let destination = destination.clone();
             self.with_window(cx, {
                 let sheet = sheet.clone();
-                move |_, _, cx| sheet.update(cx, |sheet, cx| sheet.export_to(destination, cx))
+                move |_, window, cx| {
+                    sheet.update(cx, |sheet, cx| sheet.export_to(destination, window, cx))
+                }
             })?;
         }
         let closed = self
