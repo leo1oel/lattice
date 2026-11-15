@@ -11,16 +11,18 @@
 use std::time::{Duration, Instant};
 
 use editor::{Editor, RowHighlightOptions};
-use gpui::{App, Entity, Global, Hsla};
+use gpui::{App, Entity, Global, Hsla, WeakEntity};
 use lattice_ui::{ActiveLattice as _, attention};
 use language::{Bias, Point};
 
-/// The flash showing now: when it began, and which flash it is, so an
-/// earlier one ending does not take a later one's row away.
+/// The flash showing now: when it began, which flash it is, so an earlier
+/// one ending does not take a later one's row away, and the editor it
+/// paints, whose row a flash in another editor takes away at once.
 struct RevealFlash {
     started: Instant,
     reduce_motion: bool,
     generation: u64,
+    editor: WeakEntity<Editor>,
 }
 
 impl Global for RevealFlash {}
@@ -41,13 +43,27 @@ fn flash_color(cx: &App) -> Hsla {
 
 /// Flash the 0-based `row` of `editor`.
 pub(super) fn flash(editor: &Entity<Editor>, row: u32, cx: &mut App) {
-    let generation = cx
+    let previous = cx
         .try_global::<RevealFlash>()
-        .map_or(0, |flash| flash.generation + 1);
+        .map(|flash| (flash.generation, flash.editor.clone()));
+    let generation = previous
+        .as_ref()
+        .map_or(0, |(generation, _)| generation + 1);
+    if let Some((_, previous)) = previous
+        && previous.entity_id() != editor.entity_id()
+    {
+        previous
+            .update(cx, |editor, cx| {
+                editor.clear_row_highlights::<RevealFlashRows>();
+                cx.notify();
+            })
+            .ok();
+    }
     cx.set_global(RevealFlash {
         started: Instant::now(),
         reduce_motion: cx.reduce_motion(),
         generation,
+        editor: editor.downgrade(),
     });
     editor.update(cx, |editor, cx| {
         let snapshot = editor.buffer().read(cx).snapshot(cx);
