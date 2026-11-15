@@ -144,11 +144,12 @@ impl Shell {
                 self.active_editor = Some(editor.downgrade());
                 self.insert_figures_at(paths.clone(), *at, window, cx)
             }
-            EditorPanelEvent::DropFiles(paths, at) => {
+            EditorPanelEvent::DropFiles(paths, at, point) => {
                 let surface = super::drops::DropSurface::Editor {
                     editor: editor.downgrade(),
                     inserts: editor.read(cx).inserts_figures(),
                     at: *at,
+                    point: *point,
                 };
                 self.drop_files(paths.clone(), surface, window, cx)
             }

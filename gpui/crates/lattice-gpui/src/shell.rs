@@ -33,6 +33,7 @@ mod build_tools;
 mod build_watch;
 pub mod commands;
 mod documents;
+mod drawing_drop;
 pub(crate) mod drops;
 mod editor_events;
 mod environment_flow;
