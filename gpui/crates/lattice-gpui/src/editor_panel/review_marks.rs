@@ -129,31 +129,36 @@ impl EditorPanel {
         self.recompute_review(cx);
     }
 
-    /// The buffer changed: the changes are worked out again. Text Overleaf's
-    /// live editing put in moves the base with it.
+    /// The buffer changed: the changes are worked out again.
     pub(super) fn review_edited(&mut self, cx: &mut Context<Self>) {
+        if self.review_marks.base.is_some() {
+            self.recompute_review(cx);
+        }
+    }
+
+    /// Overleaf's live editing replaced `before` with the buffer's text: the
+    /// base moves with the co-author's edit.
+    pub(super) fn review_coauthor_edited(&mut self, before: &str, cx: &mut Context<Self>) {
         let Some(base) = self.review_marks.base.clone() else {
             return;
         };
-        if self.overleaf_applying {
-            let after = self.buffer.read(cx).text();
-            let (advanced, touched) = diff::base_after(&base, &self.review_marks.text, &after);
-            if advanced != base {
-                // A co-author's edit is no undo step of the writer's.
-                self.review_marks.undo.clear();
-                self.review_marks.redo.clear();
-                self.store_review_base(advanced, cx);
-            }
-            if touched {
-                let root = self.project_root(cx);
-                store::store(cx).update(cx, |store, cx| {
-                    store.set_notice(
-                        &root,
-                        Some(t!("A co-author edited text you changed. Both versions are kept.").into()),
-                        cx,
-                    )
-                });
-            }
+        let after = self.buffer.read(cx).text();
+        let (advanced, touched) = diff::base_after(&base, before, &after);
+        if advanced != base {
+            // A co-author's edit is no undo step of the writer's.
+            self.review_marks.undo.clear();
+            self.review_marks.redo.clear();
+            self.store_review_base(advanced, cx);
+        }
+        if touched {
+            let root = self.project_root(cx);
+            store::store(cx).update(cx, |store, cx| {
+                store.set_notice(
+                    &root,
+                    Some(t!("A co-author edited text you changed. Both versions are kept.").into()),
+                    cx,
+                )
+            });
         }
         self.recompute_review(cx);
     }

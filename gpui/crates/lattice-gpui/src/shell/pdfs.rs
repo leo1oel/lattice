@@ -58,7 +58,10 @@ impl Shell {
             PdfEvent::Outline { path, line } => self.jump_to_heading(path, *line, window, cx),
             // In its own window, the PDF's panel stays where it is and shows
             // its placeholder, with the way back, as the Tauri app's does.
-            PdfEvent::Detached | PdfEvent::Docked => cx.notify(),
+            PdfEvent::Detached | PdfEvent::Docked => {
+                self.sync_marked_pdf(window, cx);
+                cx.notify();
+            }
         }
     }
 

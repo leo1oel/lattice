@@ -81,6 +81,7 @@ impl EditorPanel {
             }
         });
         self.overleaf_applying = false;
+        self.review_coauthor_edited(&text, cx);
         true
     }
 
@@ -88,7 +89,8 @@ impl EditorPanel {
     /// Overleaf stores for an emoji, or Overleaf's copy taken whole), out of
     /// the undo history and not as typing.
     pub fn take_overleaf_text(&mut self, text: &str, cx: &mut Context<Self>) {
-        if self.buffer.read(cx).text() == text {
+        let before = self.buffer.read(cx).text();
+        if before == text {
             return;
         }
         self.overleaf_applying = true;
@@ -103,6 +105,7 @@ impl EditorPanel {
             }
         });
         self.overleaf_applying = false;
+        self.review_coauthor_edited(&before, cx);
     }
 
     /// Where the file stands with Overleaf (none: not linked).

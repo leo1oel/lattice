@@ -8,7 +8,10 @@
 //!   the new one marked), and a sentence added later as a second;
 //! - Accept at the caret moves that change into the base, which reaches
 //!   disk a moment later, and ⌘Z takes the accept back, the text untouched;
-//! - Reject all puts the text back as the base has it;
+//! - a co-author's edit through Overleaf's live editing moves the base with
+//!   it, and one inside the writer's change brings the co-author notice;
+//! - Reject all puts the text back as the base has it, the co-author's
+//!   words kept;
 //! - Show changes in the PDF builds the PDF with the change marked (or says
 //!   why it could not, where latexdiff is missing), with the "Marking
 //!   changes…" pill meanwhile;
@@ -127,9 +130,32 @@ impl Run {
             json!({ "marked_on": marked_on, "settled": marked, "marked_pdf": shown }),
         );
 
+        // A co-author's live edits: one away from the writer's changes, then
+        // one inside the sentence the writer added.
+        let notice = |cx: &mut AsyncApp| cx.update(|cx| store::store(cx).read(cx).notice(root));
+        let base_now =
+            |cx: &mut AsyncApp| cx.update(|cx| store::store(cx).read(cx).base_for(root, "chapters/intro.tex"));
+        let away = self.editor_text(cx, &editor).replacen("The last line.", "The very last line.", 1);
+        self.with_window(cx, |_, _, cx| editor.update(cx, |editor, cx| editor.take_overleaf_text(&away, cx)))?;
+        let moved = base_now(cx).is_some_and(|base| base.contains("The very last line."))
+            && self.review_state(cx, &editor).map(|state| state.0) == Some(2)
+            && notice(cx).is_none();
+        let inside = self.editor_text(cx, &editor).replacen(" One more.", " One or two more.", 1);
+        self.with_window(cx, |_, _, cx| editor.update(cx, |editor, cx| editor.take_overleaf_text(&inside, cx)))?;
+        let noticed = notice(cx).is_some() && base_now(cx).is_some_and(|base| base.contains("or two"));
+        steps.check(
+            "a co-author's live edit moves the base with it, and one inside the writer's change says both versions are kept",
+            moved && noticed,
+            json!({ "moved": moved, "noticed": noticed, "base": base_now(cx) }),
+        );
+
         // Reject all, then Stop tracking.
         self.with_window(cx, |_, _, cx| editor.update(cx, |editor, cx| editor.review_reject_all(cx)))?;
-        let rejected = self.editor_text(cx, &editor) == original
+        let text = self.editor_text(cx, &editor);
+        let rejected = Some(&text) == base_now(cx).as_ref()
+            && text.contains("The very last line.")
+            && text.contains("or two")
+            && !text.contains("presents")
             && self.review_state(cx, &editor).map(|state| state.0) == Some(0);
         self.with_window(cx, |_, _, cx| {
             let root = root.to_path_buf();
@@ -143,7 +169,7 @@ impl Run {
             })
             .await;
         steps.check(
-            "Reject all puts the base's text back; Stop tracking with nothing waiting deletes the bases and the bar",
+            "Reject all puts the base's text back, the co-author's words kept; Stop tracking with nothing waiting deletes the bases and the bar",
             rejected && off,
             json!({ "rejected": rejected, "off": off }),
         );

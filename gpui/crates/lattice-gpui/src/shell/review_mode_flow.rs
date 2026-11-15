@@ -139,7 +139,7 @@ impl Shell {
 
     /// Ask for the marked PDF while review mode wants it in this project's
     /// docked PDF panel, or stop asking.
-    fn sync_marked_pdf(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn sync_marked_pdf(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let wanted = self.root(cx).filter(|_| !self.pdf.read(cx).in_window()).and_then(|root| {
             let store = store::try_store(cx)?;
             let store = store.read(cx);

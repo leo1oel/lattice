@@ -318,6 +318,7 @@ impl ReviewModes {
         review.timers += 1;
         let timer = review.timers;
         review.pending.insert(path.to_string(), timer);
+        cx.notify();
         let (save_root, save_path) = (root.to_path_buf(), path.to_string());
         cx.spawn(async move |this, cx| {
             cx.background_executor().timer(SAVE_DELAY).await;
