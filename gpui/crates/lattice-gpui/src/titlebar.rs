@@ -33,23 +33,22 @@ use std::{cell::Cell, rc::Rc};
 
 use gpui::{
     AnyElement, Context, InteractiveElement as _, IntoElement, MouseButton, ParentElement as _,
-    StatefulInteractiveElement as _, Styled as _, Window, WindowControlArea, canvas, div,
+    Styled as _, Window, WindowControlArea, canvas, div,
     prelude::FluentBuilder as _, px,
 };
 use gpui_kit::component::InteractiveElementExt as _;
 use lattice_i18n::t;
 use lattice_settings::TitlebarTool;
 use lattice_ui::{
-    ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
-    components::{IconButton, Keycap, SearchField, Surface},
+    ActiveLattice as _, Icon,
+    components::{IconButton, SearchField, Surface},
     dock::STRIP_HEIGHT,
     elevation::bottom_hairline,
-    icons::ICON,
-    interaction::hover_wash,
     parity,
 };
 
 mod fit;
+mod focus_bar;
 mod hidden_chips;
 mod panels_menu;
 mod project_group;
@@ -63,7 +62,7 @@ use workspace_switch::workspace_switcher;
 
 use crate::shell::{
     Shell,
-    commands::{CommandPalette, ToggleFocusMode, keys_label},
+    commands::{CommandPalette, keys_label},
 };
 
 /// Room for the traffic lights, as the app leaves it.
@@ -181,7 +180,7 @@ pub fn render(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> im
         }));
 
     if focus {
-        return bar.child(focus_bar(shell, window, cx)).into_any_element();
+        return focus_bar::focus_bar(bar, shell, window, cx);
     }
 
     let room_cell = shell.titlebar_drag().measured.clone();
@@ -340,52 +339,6 @@ pub fn render(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> im
         .child(main)
         .children(search_inline)
         .into_any_element()
-}
-
-/// Focus mode's bar: the document's tab title, and the way out with its key.
-fn focus_bar(shell: &Shell, window: &mut Window, cx: &mut Context<Shell>) -> impl IntoElement {
-    let palette = cx.palette().clone();
-    let title = shell
-        .active_document(cx)
-        .map(|key| shell.document_title(key, cx))
-        .unwrap_or_else(|| shell.project_name(cx).to_string());
-    let keys = keys_label(&ToggleFocusMode, window);
-    div()
-        .flex()
-        .flex_1()
-        .items_center()
-        .justify_between()
-        .h_full()
-        .pr(px(6.))
-        .child(
-            div()
-                .text_role(TextRole::BodyCompact, cx)
-                .text_color(palette.text_secondary)
-                .child(title),
-        )
-        .child(controls(
-            hover_wash(
-                div().id("leave-focus-mode"),
-                "leave-focus-mode-wash",
-                gpui::transparent_black(),
-                palette.chrome_hover,
-                window,
-                cx,
-            )
-            .flex()
-            .items_center()
-            .gap(px(6.))
-            .h(px(28.))
-            .px(px(8.))
-            .rounded(px(6.))
-            .cursor_pointer()
-            .text_role(TextRole::Caption, cx)
-            .text_color(palette.text_secondary)
-            .on_click(cx.listener(|shell, _, window, cx| shell.set_focus_mode(false, window, cx)))
-            .child(Icon::MINIMIZE.element(ICON, palette.text_secondary))
-            .child(t!("Leave focus mode"))
-            .children(keys.map(Keycap::new)),
-        ))
 }
 
 /// The titlebar's own press starts a window move on the next mouse move, and

@@ -171,6 +171,14 @@ impl ReviewCard {
         cx.emit(ReviewEvent::Retry(guidance));
     }
 
+    /// Keep the original for every offered edit, as clicking each would.
+    pub fn keep_all(&mut self, cx: &mut Context<Self>) {
+        if let Some(review) = &self.review {
+            self.rejected = review.edits.iter().map(|edit| edit.id).collect();
+            cx.notify();
+        }
+    }
+
     /// Whether Accept would write something: the editor takes edits and,
     /// when the agent offered edits, at least one is chosen.
     fn can_accept(&self) -> bool {

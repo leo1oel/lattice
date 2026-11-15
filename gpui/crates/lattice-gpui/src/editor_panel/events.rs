@@ -19,8 +19,12 @@ pub enum EditorPanelEvent {
     /// ⌘V with an image (and no text) on the clipboard, in a LaTeX or
     /// Markdown file: the window saves it as a figure and inserts it.
     PasteImage,
-    /// Insert the project's files as figures (a row dragged from the tree).
-    InsertFigures(Vec<String>),
+    /// Insert the project's files as figures (a row dragged from the tree),
+    /// at the start of the line holding the offset, when it is known.
+    InsertFigures(Vec<String>, Option<usize>),
+    /// Files dropped from Finder (`shell/drops.rs`): figures go in at the
+    /// start of the line holding the offset.
+    DropFiles(Vec<std::path::PathBuf>, Option<usize>),
     /// The caret or the selection changed at all (Overleaf's remote caret
     /// and the Agent's host context follow).
     CaretMoved,

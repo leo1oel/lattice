@@ -13,7 +13,7 @@ What it does so far, and nothing more, one line per feature, each with its own p
 - [Boards, spreadsheets and decks](docs/structured-documents.md): opens boards, spreadsheets and Open Slide decks in the Tauri app's own editors.
 - [Builds](docs/builds.md): builds with lattice-core's latexmk build, explains its errors and offers their fixes.
 - [Commands, windows and project tabs](docs/commands.md): every command from the palette, the keymap, the shortcut sheet and the menu bar; projects in new windows or as tabs.
-- [Figures and tables](docs/figures-and-tables.md): the table generator, managed tables, and figures dropped from the tree or pasted from the clipboard.
+- [Figures and tables](docs/figures-and-tables.md): the table generator, managed tables, and figures dropped from the tree or Finder, or pasted from the clipboard.
 - [Finding things in the project](docs/find.md): find and replace in the open file, quick open, Find and Replace in project, and the files visited.
 - [Get started](docs/get-started.md): walks a first paper with Get started's checklist and its Show me ring.
 - [Getting a manuscript ready to send](docs/submission.md): the TODOs panel, references and rename, Export for arXiv… and the submission checklist.
@@ -192,7 +192,7 @@ gpui-fast `bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa` tracks Zed commit `d2a4fb6d
 GPUI Kit 0.9.1 and gpui-webview 0.9.1 run on gpui-fast through their `gpui-fast` feature (gpui-webview checks that the two agree). That feature asks for the crates.io `gpui-fast*` 0.1.14 packages, and GPUI Kit still names the `gpui-pre` 0.3.12 snapshot besides, so Cargo would build three GPUIs; the shims in `compat/` carry those names and versions and re-export the workspace's GPUI, and `[patch.crates-io]` swaps them in.
 `Cargo.lock` was seeded from Zed's own lockfile at that commit, and Zed's `[patch.crates-io]` entries are repeated in the workspace manifest because a dependency's patches do not apply.
 
-GPUI itself, gpui-fast's macOS platform and GPUI Kit's components, foundation and webview are the copies in `patches/`, upstream at those pins plus Lattice's diffs: element scale and letter spacing in GPUI, a lab switch for uncomposited windows (`GPUI_LAB_IGNORE_OCCLUSION`), a lab switch that has every window act as the key window without taking the machine's front (`GPUI_LAB_ASSUME_KEY`), the overlay surface taking the first click in a window that is not key as GPUI's own view does, GPUI Kit's toasts and sheets drawn on the overlay surface so a webview island does not cover them, a dock region's last panel free to drag out, as Trellis lets it, and a webview island's page placed and zoomed with the interface size. `script/check-patches` rebuilds them from upstream and fails on any difference; `patches/README.md` has the provenance.
+GPUI itself, gpui-fast's macOS platform and GPUI Kit's components, foundation and webview are the copies in `patches/`, upstream at those pins plus Lattice's diffs, each listed with its reason in `patches/README.md`, which also has the provenance. `script/check-patches` rebuilds them from upstream and fails on any difference.
 
 ### Lattice's look
 

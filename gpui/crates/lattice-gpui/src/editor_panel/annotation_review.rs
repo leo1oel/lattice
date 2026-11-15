@@ -259,6 +259,13 @@ impl EditorPanel {
         self.save_note(true, window, cx);
     }
 
+    /// Keep the original for every edit on the open review card.
+    pub(crate) fn scripted_review_keep_all(&mut self, cx: &mut Context<Self>) {
+        if let Some(session) = &self.review {
+            session.card.update(cx, |card, cx| card.keep_all(cx));
+        }
+    }
+
     /// The annotation under review, for scripted checks.
     pub(crate) fn reviewing_annotation(&self) -> Option<&str> {
         self.review.as_ref().map(|session| session.id.as_str())

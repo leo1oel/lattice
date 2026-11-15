@@ -62,7 +62,7 @@ pub use tab::{
 pub use textarea::{TEXTAREA_MIN_HEIGHT, Textarea};
 pub use toast::{CopyButton, Toast, ToastLevel, ToastProgress};
 pub use toolbar_button::ToolbarButton;
-pub use tree_row::{GitMark, TreeRow};
+pub use tree_row::{DropMark, GitMark, TreeRow};
 pub use view_switch::ViewSwitch;
 
 use gpui::{BoxShadow, Hsla, px};

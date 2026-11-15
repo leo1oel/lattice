@@ -137,8 +137,9 @@ impl TrellisWorkspace {
         } else {
             content.into_any_element()
         };
+        let surround = self.skin.surround(&s.view_id, div(), cx);
         Some(
-            place(div(), body)
+            place(surround, body)
                 .overflow_hidden()
                 .opacity(s.opacity as f32)
                 .child(content)

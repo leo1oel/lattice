@@ -12,7 +12,13 @@
 //!   place: Enter creates it (a file without an extension becomes `.tex`),
 //!   Escape or leaving it unchanged drops it. A new file opens.
 //! - Rename names a row in place; the open tab follows the file.
-//! - A row dragged onto a folder (or onto a file, its folder) moves there.
+//! - A row dragged onto a folder (or onto a file, its folder) moves there,
+//!   the whole folder lit while it is aimed at (its row, and the rows shown
+//!   inside it; the whole tree for the project root). A file's row dragged
+//!   past the Project panel is carried on by Trellis (`shell/drops.rs`), and a
+//!   figure's row drags on into an editor as a figure.
+//! - Files dragged in from Finder land in the folder under the pointer, lit
+//!   the same way, as Import files… brings them in.
 //! - Delete asks first. Only the primary bibliography (or a folder holding
 //!   it) is kept, as lattice-core's `delete_entry` keeps it
 //!   (`src/project/deletion-protection.ts`): Add paper and the reference
@@ -28,43 +34,46 @@
 //! gliding between rows, never on the open file's row, and dark for 150 ms
 //! after a scroll; its scrollbar is Lattice's (`lattice_ui::scrollbar`).
 
-use std::{
-    collections::{HashMap, HashSet},
-    path::PathBuf,
-    rc::Rc,
-    time::Duration,
-};
+use std::{cell::RefCell, collections::HashSet, path::PathBuf, rc::Rc, time::Duration};
 
 use gpui::{
-    Anchor, App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, Focusable,
-    InteractiveElement as _, IntoElement, KeyDownEvent, ParentElement as _, Render, SharedString,
+    Anchor, Animation, AnimationExt as _, App, AppContext as _, Context, DragMoveEvent, Entity,
+    EventEmitter, ExternalPaths, FocusHandle, Focusable, InteractiveElement as _, IntoElement,
+    KeyDownEvent, ParentElement as _, Pixels, Point, Render, SharedString,
     StatefulInteractiveElement as _, Styled as _, Subscription, Window, div,
     prelude::FluentBuilder as _, px,
 };
 use gpui_kit::component::{
     dock::{BasePanel, Panel, PanelEvent},
     input::Input,
-    tree::{TreeItem, TreeState, tree},
+    tree::{TreeState, tree},
 };
-use lattice_core::models::FileNode;
 use lattice_i18n::t;
 use lattice_ui::{
-    ActiveLattice as _, GlyphKind, Icon, TextRole, TextRoleStyle as _,
+    ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
     components::{
-        ContextMenu, GitMark, IconButton, MenuPopover, Surface, TAB_RADIUS, TreeRow,
-        context_menu_trigger,
+        ContextMenu, IconButton, MenuPopover, Surface, TAB_RADIUS, TreeRow, context_menu_trigger,
     },
     fluid_hover::{FluidHover, ItemKind},
-    icons::{ICON, file_glyph},
     scrollbar::{FluidScrollbar, ScrollbarFeel},
     shape,
 };
 
 mod clipboard;
+mod dragged;
+mod drop_aim;
+mod git_marks;
 mod menu;
 mod naming;
+mod rows;
 
+pub use dragged::DraggedEntry;
+
+use dragged::DragPreview;
+use drop_aim::{Aim, drop_mark};
+use git_marks::GitMarks;
 use naming::{Naming, NamingKind, insert_placeholder};
+use rows::tree_items;
 
 use crate::project::{Project, ProjectEvent};
 
@@ -102,52 +111,17 @@ pub enum FileTreeEvent {
     PasteImage {
         target: String,
     },
-}
-
-/// A row on its way to another folder.
-#[derive(Clone)]
-pub struct DraggedEntry {
-    path: String,
-    name: SharedString,
-    folder: bool,
-    figure: bool,
-}
-
-impl DraggedEntry {
-    /// The row's project-relative path, when it is a figure or a binary
-    /// asset, as the Tauri app starts a figure drag only for those
-    /// (`project-file-tree.tsx`); a folder or a text file inserts nothing.
-    pub fn figure(&self) -> Option<&str> {
-        self.figure.then_some(self.path.as_str())
-    }
-}
-
-/// What the dragged row looks like under the pointer: its glyph and name on
-/// the lifted surface.
-struct DragPreview(DraggedEntry);
-
-impl Render for DragPreview {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let palette = cx.palette().clone();
-        let glyph = if self.0.folder {
-            GlyphKind::Folder
-        } else {
-            GlyphKind::for_name(&self.0.name)
-        };
-        div()
-            .flex()
-            .items_center()
-            .gap(px(6.))
-            .h(px(28.))
-            .px(px(8.))
-            .rounded(px(6.))
-            .bg(palette.raised)
-            .shadow(lattice_ui::Elevation::Popover.shadows(&palette))
-            .text_role(TextRole::Body, cx)
-            .text_color(palette.text)
-            .child(file_glyph(glyph, ICON, &palette))
-            .child(self.0.name.clone())
-    }
+    /// Files dropped from Finder on the folder `target`.
+    DropFiles {
+        paths: Vec<PathBuf>,
+        target: String,
+    },
+    /// The file row at `path` dragged out of the tree, the pointer at
+    /// `pointer` (window coordinates): the shell may carry it on.
+    DragOut {
+        path: String,
+        pointer: Point<Pixels>,
+    },
 }
 
 pub struct FileTreePanel {
@@ -169,6 +143,8 @@ pub struct FileTreePanel {
     hover: Option<FluidHover>,
     /// The rows' context menu, as last drawn (for a scripted check).
     row_menu: Option<Entity<ContextMenu<(String, bool)>>>,
+    /// Where a drag over the tree is aimed.
+    aim: Rc<RefCell<Aim>>,
     _project_subscription: Option<Subscription>,
 }
 
@@ -189,6 +165,7 @@ impl FileTreePanel {
             marks: Rc::default(),
             figures: Rc::default(),
             copied: None,
+            aim: Rc::default(),
             _project_subscription: None,
         }
     }
@@ -354,6 +331,12 @@ impl FileTreePanel {
             .collect()
     }
 
+    /// The folder a drag over the tree is aimed at now, for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn drop_folder(&self, cx: &App) -> Option<String> {
+        self.aim.borrow().folder(cx)
+    }
+
     /// What the rows' fluid hover shows, for a scenario.
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     pub fn hover_snapshot(&self, cx: &App) -> Option<lattice_ui::fluid_hover::FluidHoverSnapshot> {
@@ -374,70 +357,6 @@ impl FileTreePanel {
             .as_ref()
             .and_then(|menu| menu.read(cx).target().map(|(path, _)| path.clone()))
     }
-}
-
-/// What Git says of each row: a changed file's mark, and the folders with a
-/// change somewhere under them.
-#[derive(Default)]
-struct GitMarks {
-    files: HashMap<String, GitMark>,
-    folders: HashSet<String>,
-}
-
-impl GitMarks {
-    fn new(statuses: &HashMap<String, String>) -> Self {
-        let mut marks = GitMarks::default();
-        // Each changed file marks its row, and every folder above it.
-        for (path, status) in statuses {
-            let mark = GitMark::from_status(status);
-            marks.files.insert(path.clone(), mark);
-            if mark == GitMark::Ignored {
-                continue;
-            }
-            let mut folder = path.as_str();
-            while let Some((parent, _)) = folder.rsplit_once('/') {
-                marks.folders.insert(parent.to_string());
-                folder = parent;
-            }
-        }
-        marks
-    }
-}
-
-/// The tree's rows. A folder whose only entry is a folder shows as one row
-/// with its descendant, down the chain, as the Tauri app's tree flattens
-/// them (`flattenEmptyDirectories`): "slides / understanding-attention",
-/// which stands for the deepest folder (its id, its children, opening,
-/// renaming and dropping into it).
-fn tree_items(nodes: &[FileNode], expanded: &HashSet<String>) -> Vec<TreeItem> {
-    nodes
-        .iter()
-        .map(|node| {
-            if node.kind != "directory" {
-                return TreeItem::new(node.path.clone(), node.name.clone());
-            }
-            let (deepest, label) = flattened(node);
-            TreeItem::new(deepest.path.clone(), label)
-                .children(tree_items(&deepest.children, expanded))
-                .expanded(expanded.contains(&deepest.path))
-        })
-        .collect()
-}
-
-/// A folder and the chain of single folders under it: the deepest one and
-/// the names on the way, joined by "/".
-fn flattened(node: &FileNode) -> (&FileNode, String) {
-    let mut deepest = node;
-    let mut label = node.name.clone();
-    while let [only] = deepest.children.as_slice() {
-        if only.kind != "directory" {
-            break;
-        }
-        label.push('/');
-        label.push_str(&only.name);
-        deepest = only;
-    }
-    (deepest, label)
 }
 
 impl Focusable for FileTreePanel {
@@ -536,7 +455,8 @@ impl Render for FileTreePanel {
             .naming
             .as_ref()
             .map(|naming| (naming.path.clone(), naming.input.clone()));
-        let drop_target = cx.palette().drop_target;
+        let aimed = self.aim.borrow().folder(cx);
+        let row_aim = self.aim.clone();
         let marks = self.marks.clone();
         let figures = self.figures.clone();
         // The tree's hover is one fill gliding between rows, as the app's
@@ -566,16 +486,59 @@ impl Render for FileTreePanel {
                 }
             }))
             .on_key_down(cx.listener(Self::clipboard_key))
+            // Each move of a drag aims anew: off every row is the root.
+            .on_drag_move({
+                let aim = self.aim.clone();
+                let view = view.clone();
+                move |event: &DragMoveEvent<DraggedEntry>, _, cx| {
+                    let inside = event.bounds.contains(&event.event.position);
+                    *aim.borrow_mut() = Aim { inside, row: None };
+                    let dragged = event.drag(cx);
+                    if !inside && !dragged.folder && !dragged.figure {
+                        let (path, pointer) = (dragged.path.clone(), event.event.position);
+                        view.update(cx, |_, cx| {
+                            cx.emit(FileTreeEvent::DragOut { path, pointer })
+                        })
+                        .ok();
+                    }
+                }
+            })
+            .on_drag_move({
+                let aim = self.aim.clone();
+                move |event: &DragMoveEvent<ExternalPaths>, _, _| {
+                    let inside = event.bounds.contains(&event.event.position);
+                    *aim.borrow_mut() = Aim { inside, row: None };
+                }
+            })
             // A row dropped on the empty area moves to the top level.
-            .on_drop(move |dragged: &DraggedEntry, _, cx| {
-                root_drop
-                    .update(cx, |_, cx| {
-                        cx.emit(FileTreeEvent::Move {
-                            paths: vec![dragged.path.clone()],
+            .on_drop({
+                let aim = self.aim.clone();
+                move |dragged: &DraggedEntry, _, cx| {
+                    *aim.borrow_mut() = Aim::default();
+                    root_drop
+                        .update(cx, |_, cx| {
+                            cx.emit(FileTreeEvent::Move {
+                                paths: vec![dragged.path.clone()],
+                                target: String::new(),
+                            })
+                        })
+                        .ok();
+                }
+            })
+            .on_drop({
+                let view = view.clone();
+                let aim = self.aim.clone();
+                move |paths: &ExternalPaths, _, cx| {
+                    *aim.borrow_mut() = Aim::default();
+                    let paths = paths.paths().to_vec();
+                    view.update(cx, |_, cx| {
+                        cx.emit(FileTreeEvent::DropFiles {
+                            paths,
                             target: String::new(),
                         })
                     })
                     .ok();
+                }
             })
             .map(|this| context_menu_trigger(this, &background_menu, ()))
             .children(ContextMenu::layer(
@@ -594,6 +557,25 @@ impl Render for FileTreePanel {
             ))
             .relative()
             .child(hover.highlight())
+            // A drag aimed at the project root washes the whole tree
+            // (`.project-file-tree-surface::after`), fading in.
+            .when(aimed.as_deref() == Some(""), |tree| {
+                let palette = cx.palette().clone();
+                tree.child(
+                    div()
+                        .absolute()
+                        .inset_0()
+                        .rounded(px(6.))
+                        .bg(palette.accent_soft)
+                        .border_1()
+                        .border_color(palette.accent.opacity(0.27))
+                        .with_animation(
+                            "file-tree-root-drop",
+                            Animation::new(lattice_ui::motion::Motion::Moderate.duration()),
+                            |wash, t| wash.opacity(lattice_ui::motion::Motion::Moderate.sample(t)),
+                        ),
+                )
+            })
             .child(
                 tree(&self.state, move |ix, entry, selected, _, cx| {
                     let item = entry.item();
@@ -615,7 +597,12 @@ impl Render for FileTreePanel {
                             .selected(row_selected)
                             .git(marks.files.get(&relative).copied())
                     }
-                    .fluid(rows_hover.probe(ix, kind));
+                    .fluid(rows_hover.probe(ix, kind))
+                    .drop_mark(drop_mark(
+                        aimed.as_deref(),
+                        &relative,
+                        is_folder,
+                    ));
                     if let Some((_, input)) = naming.as_ref().filter(|(at, _)| *at == relative) {
                         // The app's rename field: 20px on the compact
                         // corner, its padding and border outside the name's
@@ -662,15 +649,42 @@ impl Render for FileTreePanel {
                     };
                     let open = view.clone();
                     let drop = view.clone();
+                    let paths_drop = view.clone();
+                    let entry_aim = row_aim.clone();
+                    let paths_aim = row_aim.clone();
+                    let entry_drop_aim = row_aim.clone();
+                    let paths_drop_aim = row_aim.clone();
+                    let (entry_target, paths_target) = (target.clone(), target.clone());
+                    let files_target = target.clone();
                     let menu_target = (relative.clone(), is_folder);
                     let item = row.into_list_item(cx);
                     context_menu_trigger(item, &rows_menu, menu_target)
                         .on_drag(dragged, |dragged, _, _, cx| {
                             cx.new(|_| DragPreview(dragged.clone()))
                         })
-                        .drag_over::<DraggedEntry>(move |style, _, _, _| style.bg(drop_target))
+                        .on_drag_move(move |event: &DragMoveEvent<DraggedEntry>, _, _| {
+                            if event.bounds.contains(&event.event.position) {
+                                entry_aim.borrow_mut().row = Some(entry_target.clone());
+                            }
+                        })
+                        .on_drag_move(move |event: &DragMoveEvent<ExternalPaths>, _, _| {
+                            if event.bounds.contains(&event.event.position) {
+                                paths_aim.borrow_mut().row = Some(paths_target.clone());
+                            }
+                        })
+                        .on_drop(move |paths: &ExternalPaths, _, cx| {
+                            cx.stop_propagation();
+                            *paths_drop_aim.borrow_mut() = Aim::default();
+                            let (paths, target) = (paths.paths().to_vec(), files_target.clone());
+                            paths_drop
+                                .update(cx, |_, cx| {
+                                    cx.emit(FileTreeEvent::DropFiles { paths, target })
+                                })
+                                .ok();
+                        })
                         .on_drop(move |dragged: &DraggedEntry, _, cx| {
                             cx.stop_propagation();
+                            *entry_drop_aim.borrow_mut() = Aim::default();
                             if dragged.path == target {
                                 return;
                             }
@@ -710,78 +724,6 @@ fn deletes_protected(path: &str, bibliography: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn a_change_marks_its_file_and_every_folder_above_it() {
-        let statuses = HashMap::from([
-            (
-                "chapters/parts/intro.tex".to_string(),
-                "modified".to_string(),
-            ),
-            ("notes.md".to_string(), "untracked".to_string()),
-            ("build/out.log".to_string(), "ignored".to_string()),
-        ]);
-        let marks = GitMarks::new(&statuses);
-        assert_eq!(
-            marks.files.get("chapters/parts/intro.tex"),
-            Some(&GitMark::Modified)
-        );
-        assert_eq!(marks.files.get("notes.md"), Some(&GitMark::Untracked));
-        assert_eq!(marks.files.get("build/out.log"), Some(&GitMark::Ignored));
-        assert!(marks.folders.contains("chapters"));
-        assert!(marks.folders.contains("chapters/parts"));
-        // An ignored file is no change to its folder.
-        assert!(!marks.folders.contains("build"));
-    }
-
-    fn node(path: &str, kind: &str, children: Vec<FileNode>) -> FileNode {
-        FileNode {
-            name: path.rsplit('/').next().unwrap_or(path).to_string(),
-            path: path.to_string(),
-            kind: kind.to_string(),
-            content_kind: String::new(),
-            size: 0,
-            children,
-        }
-    }
-
-    #[test]
-    fn a_chain_of_single_folders_is_one_row_for_the_deepest() {
-        let deck = node(
-            "slides/understanding-attention",
-            "directory",
-            vec![node(
-                "slides/understanding-attention/index.tsx",
-                "file",
-                vec![],
-            )],
-        );
-        let slides = node("slides", "directory", vec![deck]);
-        let (deepest, label) = flattened(&slides);
-        assert_eq!(deepest.path, "slides/understanding-attention");
-        assert_eq!(label, "slides/understanding-attention");
-        let items = tree_items(&[slides], &HashSet::new());
-        assert_eq!(items[0].id.as_ref(), "slides/understanding-attention");
-    }
-
-    #[test]
-    fn a_folder_holding_a_file_stays_its_own_row() {
-        let chapters = node(
-            "chapters",
-            "directory",
-            vec![node("chapters/intro.tex", "file", vec![])],
-        );
-        assert_eq!(flattened(&chapters).1, "chapters");
-        let two = node(
-            "figures",
-            "directory",
-            vec![
-                node("figures/a", "directory", vec![]),
-                node("figures/b", "directory", vec![]),
-            ],
-        );
-        assert_eq!(flattened(&two).1, "figures");
-    }
 
     #[test]
     fn only_the_primary_bibliography_is_kept_from_delete() {

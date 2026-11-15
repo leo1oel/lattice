@@ -83,6 +83,36 @@ impl AnnotationsPanel {
         true
     }
 
+    /// Send the answer typed in `id`'s field (Answer and revise); once the
+    /// agent is asked again, the field goes with the question.
+    fn send_answer(&mut self, id: &str, cx: &mut Context<Self>) {
+        let (Some(field), Some(rounds)) = (self.rounds.answers.get(id).cloned(), self.rounds.rounds.clone())
+        else {
+            return;
+        };
+        let text = field.read(cx).value().to_string();
+        rounds.update(cx, |rounds, cx| rounds.answer(id, &text, cx));
+        if rounds.read(cx).is_running(id) {
+            self.rounds.answers.remove(id);
+        }
+    }
+
+    /// Type `text` into `id`'s answer field and send it, as the writer
+    /// would; whether the field was there.
+    pub fn scripted_answer(&mut self, id: &str, text: &str, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let Some(field) = self.rounds.answers.get(id).cloned() else {
+            return false;
+        };
+        field.update(cx, |field, cx| field.set_value(text.to_string(), window, cx));
+        self.send_answer(id, cx);
+        true
+    }
+
+    /// The text waiting in `id`'s answer field, while it has one.
+    pub fn answer_draft(&self, id: &str, cx: &gpui::App) -> Option<String> {
+        self.rounds.answers.get(id).map(|field| field.read(cx).value().to_string())
+    }
+
     /// Under a card: the agent's question with the answer's field, or why
     /// it failed with Try again.
     pub(super) fn round_extras(
@@ -132,7 +162,6 @@ impl AnnotationsPanel {
                     })
                     .clone();
                 let filled = !field.read(cx).value().trim().is_empty();
-                let send = field.clone();
                 Some(
                     div()
                         .ml(px(30.))
@@ -156,13 +185,7 @@ impl AnnotationsPanel {
                                     .compact()
                                     .tinted()
                                     .disabled(!filled)
-                                    .on_click(cx.listener(move |this, _, _, cx| {
-                                        let text = send.read(cx).value().to_string();
-                                        rounds.update(cx, |rounds, cx| rounds.answer(&id, &text, cx));
-                                        if rounds.read(cx).is_running(&id) {
-                                            this.rounds.answers.remove(&id);
-                                        }
-                                    })),
+                                    .on_click(cx.listener(move |this, _, _, cx| this.send_answer(&id, cx))),
                             ),
                         )
                         .into_any_element(),

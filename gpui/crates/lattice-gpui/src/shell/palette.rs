@@ -618,6 +618,10 @@ impl Shell {
         cx.notify();
     }
 
+    pub(crate) fn shortcuts_view(&self) -> Option<Entity<super::shortcut_sheet::ShortcutSheet>> {
+        self.shortcuts.clone()
+    }
+
     pub(crate) fn open_shortcuts(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.overlay_writing(cx) {
             return;

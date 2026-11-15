@@ -10,8 +10,10 @@
 //! - reviewing it puts the card under the passage, and ⌘↵ there writes the
 //!   proposal, resolves the note and settles the round as a version; ⌘Z
 //!   takes the edit back;
-//! - the agent's question waits on the note; the writer's answer asks
-//!   again, and ⌫ on the card rejects the proposal, the text untouched.
+//! - the agent's question waits on the note; the writer's answer, sent
+//!   from the note's field, asks again and clears the field; ⌘↵ on the
+//!   card with every edit kept writes and decides nothing, and ⌫ rejects
+//!   the proposal, the text untouched.
 //!
 //! The notes and the round are taken out again, and the chapter put back.
 
@@ -108,16 +110,33 @@ impl Run {
         let asked = self.wait_state(cx, root, &second, "asked").await;
         self.adapter_shot(cx, "annotation-question").await;
         self.script_rounds(cx, &rounds, REVISION)?;
-        self.with_window(cx, |_, _, cx| {
-            rounds.update(cx, |rounds, cx| rounds.answer(&second, "The first line", cx))
+        // The answer goes in through the note's field in the panel, which
+        // leaves with the question once sent.
+        let panel = self.with_window(cx, |shell, _, cx| shell.read(cx).annotations_panel())?;
+        let field = self
+            .wait_for(cx, Duration::from_secs(5), |_, cx| panel.read(cx).answer_draft(&second, cx).is_some())
+            .await;
+        let sent = self.with_window(cx, |_, window, cx| {
+            panel.update(cx, |panel, cx| panel.scripted_answer(&second, "The first line", window, cx))
         })?;
         let answered = self.wait_state(cx, root, &second, "proposed").await;
+        let cleared = cx.update(|cx| panel.read(cx).answer_draft(&second, cx).is_none());
         self.with_window(cx, |_, _, cx| rounds.update(cx, |rounds, cx| rounds.open_review(&second, cx)))?;
         let reviewing = self
             .wait_for(cx, Duration::from_secs(5), |_, cx| {
                 editor.read(cx).reviewing_annotation() == Some(second.as_str())
             })
             .await;
+        // ⌘↵ with every edit kept writes nothing and decides nothing.
+        self.with_window(cx, |_, _, cx| editor.update(cx, |editor, cx| editor.scripted_review_keep_all(cx)))?;
+        {
+            let _front = self.focused(cx, "review card").await?;
+            self.press(cx, '\n', true).await?;
+        }
+        self.pause(cx, Duration::from_millis(400)).await;
+        let held = self.editor_text(cx, &editor) == original
+            && cx.update(|cx| editor.read(cx).reviewing_annotation() == Some(second.as_str()))
+            && self.wait_state(cx, root, &second, "proposed").await;
         {
             let _front = self.focused(cx, "review card").await?;
             self.press(cx, '\u{8}', false).await?;
@@ -125,9 +144,9 @@ impl Run {
         let rejected = self.wait_state(cx, root, &second, "rejected").await;
         let untouched = self.editor_text(cx, &editor) == original;
         steps.check(
-            "the agent's question waits on the note; the answer asks again, and ⌫ on the card rejects the proposal",
-            asked && answered && reviewing && rejected && untouched,
-            json!({ "asked": asked, "answered": answered, "reviewing": reviewing, "rejected": rejected, "untouched": untouched }),
+            "the agent's question waits on the note; the answer from its field asks again and clears it; ⌘↵ with every edit kept does nothing, and ⌫ rejects the proposal",
+            asked && field && sent && answered && cleared && reviewing && held && rejected && untouched,
+            json!({ "asked": asked, "field": field, "sent": sent, "answered": answered, "cleared": cleared, "reviewing": reviewing, "held": held, "rejected": rejected, "untouched": untouched }),
         );
 
         // Put the project back as it was.

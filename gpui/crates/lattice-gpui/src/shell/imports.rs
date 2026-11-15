@@ -175,7 +175,7 @@ impl Shell {
 
     /// Import `sources` (absolute) into `target`. Without a `conflict`
     /// policy, a name the target already has asks first.
-    fn import_sources(
+    pub(super) fn import_sources(
         &mut self,
         sources: Vec<String>,
         target: String,

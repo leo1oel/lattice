@@ -20,8 +20,9 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use gpui::{
-    Anchor, AnyElement, AnyView, App, Empty, Entity, IntoElement, ParentElement as _, Pixels,
-    Point, Styled as _, Window, canvas, div, prelude::FluentBuilder as _, px,
+    Anchor, AnyElement, AnyView, App, Empty, Entity, InteractiveElement as _, IntoElement,
+    ParentElement as _, Pixels, Point, Styled as _, Window, canvas, div,
+    prelude::FluentBuilder as _, px,
 };
 use gpui_kit::component::dock::PanelHandle;
 use lattice_ui::{
@@ -57,14 +58,17 @@ pub struct LatticeSkin {
     tools: Rc<RefCell<HashMap<String, f32>>>,
     /// The menu a right click on a tab opens, as the overlay last kept it.
     menu: Rc<RefCell<Option<Entity<ContextMenu<PanelMenu>>>>>,
+    /// The window's shell, which takes what is dropped on a view.
+    shell: gpui::WeakEntity<super::Shell>,
 }
 
 impl LatticeSkin {
-    pub fn new(views: Registry) -> Self {
+    pub fn new(views: Registry, shell: gpui::WeakEntity<super::Shell>) -> Self {
         Self {
             views,
             tools: Rc::default(),
             menu: Rc::default(),
+            shell,
         }
     }
 
@@ -216,6 +220,26 @@ impl LatticeSkin {
 }
 
 impl Skin for LatticeSkin {
+    /// Finder files dropped on a view's content that took none of them
+    /// itself (an editor and the Project tree take theirs): a document's
+    /// surface opens them (`.canvas-body`); a tool panel says where they go.
+    fn surround(&self, view_id: &str, body: gpui::Div, _: &App) -> gpui::Div {
+        let shell = self.shell.clone();
+        let canvas = !super::views::is_singleton(view_id);
+        body.on_drop(move |paths: &gpui::ExternalPaths, window, cx| {
+            let paths = paths.paths().to_vec();
+            shell
+                .update(cx, |shell, cx| {
+                    if canvas {
+                        shell.drop_files(paths, super::drops::DropSurface::Canvas, window, cx);
+                    } else {
+                        shell.refuse_drop(&paths, cx);
+                    }
+                })
+                .ok();
+        })
+    }
+
     fn content(&self, view_id: &str, _: &mut Window, _: &mut App) -> Option<AnyView> {
         self.views.borrow().get(view_id).map(|panel| panel.view())
     }
