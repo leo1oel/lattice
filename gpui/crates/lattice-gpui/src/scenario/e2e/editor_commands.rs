@@ -105,7 +105,72 @@ impl Run {
         set_text(self, cx, &original)?;
 
         self.format_document_step(cx, steps, root).await?;
+        self.emacs_ctrl_l(cx, steps, &main).await?;
+        self.vim_line_closes(cx, steps, &main).await?;
         self.vim_command_line(cx, steps, &main, &original).await
+    }
+
+    /// Under the Emacs keymap ⌃L stays Emacs's recenter, so it selects nothing.
+    async fn emacs_ctrl_l(&self, cx: &mut AsyncApp, steps: &mut Steps, main: &Path) -> Result<()> {
+        let keymap = cx.update(|cx| crate::settings::get(cx).appearance.editor_keymap);
+        cx.update(|cx| {
+            crate::settings::update_appearance(cx, |a| a.editor_keymap = EditorKeymap::Emacs)
+        });
+        self.pause(cx, Duration::from_millis(200)).await;
+        let panel = self.open(cx, main, Some(2))?;
+        self.pause(cx, Duration::from_millis(300)).await;
+        self.select(cx, &panel, 2, 2)?;
+        let ctrl_l = Keystroke::parse("ctrl-l").map_err(|error| anyhow::anyhow!("{error}"))?;
+        self.with_window(cx, move |_, window, cx| window.dispatch_keystroke(ctrl_l, cx))?;
+        self.pause(cx, Duration::from_millis(150)).await;
+        let (_, selected) = self.text_and_selection(cx, &panel);
+        cx.update(|cx| crate::settings::update_appearance(cx, |a| a.editor_keymap = keymap));
+        self.pause(cx, Duration::from_millis(200)).await;
+        steps.check(
+            "with the Emacs keymap on, ⌃L stays Emacs's recenter and selects nothing",
+            selected.is_empty(),
+            json!({ "selected": selected }),
+        );
+        Ok(())
+    }
+
+    /// Vim's `:` line closes on Escape and when focus leaves it.
+    async fn vim_line_closes(&self, cx: &mut AsyncApp, steps: &mut Steps, main: &Path) -> Result<()> {
+        let keymap = cx.update(|cx| crate::settings::get(cx).appearance.editor_keymap);
+        cx.update(|cx| {
+            crate::settings::update_appearance(cx, |a| a.editor_keymap = EditorKeymap::Vim)
+        });
+        self.pause(cx, Duration::from_millis(200)).await;
+        let panel = self.open(cx, main, Some(1))?;
+        self.pause(cx, Duration::from_millis(300)).await;
+        self.select(cx, &panel, 0, 0)?;
+        self.press(cx, '\u{1b}', false).await?;
+        self.press(cx, ':', false).await?;
+        self.pause(cx, Duration::from_millis(150)).await;
+        let opened_1 = cx.update(|cx| panel.read(cx).vim_ex_open());
+        self.press(cx, '\u{1b}', false).await?;
+        self.pause(cx, Duration::from_millis(150)).await;
+        let after_escape = cx.update(|cx| panel.read(cx).vim_ex_open());
+        self.press(cx, ':', false).await?;
+        self.pause(cx, Duration::from_millis(150)).await;
+        let opened_2 = cx.update(|cx| panel.read(cx).vim_ex_open());
+        self.with_window(cx, {
+            let panel = panel.clone();
+            move |_, window, cx| {
+                let focus = gpui::Focusable::focus_handle(panel.read(cx).editor().read(cx), cx);
+                window.focus(&focus, cx);
+            }
+        })?;
+        self.pause(cx, Duration::from_millis(150)).await;
+        let after_blur = cx.update(|cx| panel.read(cx).vim_ex_open());
+        cx.update(|cx| crate::settings::update_appearance(cx, |a| a.editor_keymap = keymap));
+        self.pause(cx, Duration::from_millis(200)).await;
+        steps.check(
+            "with Vim on, the : line closes on Escape and when focus leaves it for the text",
+            opened_1 && !after_escape && opened_2 && !after_blur,
+            json!({ "opened": opened_1, "after_escape": after_escape, "reopened": opened_2, "after_blur": after_blur }),
+        );
+        Ok(())
     }
 
     async fn format_document_step(
