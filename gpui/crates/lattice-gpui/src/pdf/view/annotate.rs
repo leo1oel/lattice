@@ -633,7 +633,10 @@ impl PdfView {
         let text = self.pages.get(page)?.text.as_ref()?;
         let chars: Vec<char> = text.chars.iter().map(|ch| ch.ch).collect();
         let wanted: Vec<char> = needle.chars().collect();
-        let start = (0..chars.len().checked_sub(wanted.len())?)
+        if wanted.is_empty() {
+            return None;
+        }
+        let start = (0..=chars.len().checked_sub(wanted.len())?)
             .find(|&at| chars[at..at + wanted.len()] == *wanted)?;
         let (first, last) = (text.chars[start], text.chars[start + wanted.len() - 1]);
         let from = self.page_box_on_window(page, (first.x0, first.y0, first.x0 + 0.5, first.y1))?;

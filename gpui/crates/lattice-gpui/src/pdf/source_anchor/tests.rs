@@ -70,3 +70,13 @@ fn a_line_outside_the_file_or_empty_places_nothing() {
     // The last line without a final newline is still a line.
     assert_eq!(quoted(source, 3, "Third").as_deref(), Some("Third"));
 }
+
+#[test]
+fn a_comment_right_after_a_command_is_not_prose() {
+    // `\relax% c` is the command then a comment: TeX never typesets "c".
+    let source = "word\\relax% c\nnext here.\n";
+    assert_eq!(
+        quoted(source, 1, "word next").as_deref(),
+        Some("word\\relax% c\nnext")
+    );
+}

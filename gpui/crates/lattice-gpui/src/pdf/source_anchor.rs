@@ -25,7 +25,6 @@ fn prose_letters(source: &str, window: Range<usize>) -> (Vec<char>, Vec<Range<us
     let mut spans = Vec::new();
     let text = &source[window.clone()];
     let mut chars = text.char_indices().peekable();
-    let mut previous = None;
     while let Some((at, ch)) = chars.next() {
         if ch == '\\' {
             while chars
@@ -34,7 +33,7 @@ fn prose_letters(source: &str, window: Range<usize>) -> (Vec<char>, Vec<Range<us
             {
                 chars.next();
             }
-        } else if ch == '%' && previous != Some('\\') {
+        } else if ch == '%' && !source[..window.start + at].ends_with('\\') {
             while chars.peek().is_some_and(|(_, next)| *next != '\n') {
                 chars.next();
             }
@@ -45,7 +44,6 @@ fn prose_letters(source: &str, window: Range<usize>) -> (Vec<char>, Vec<Range<us
                 spans.push(start..start + ch.len_utf8());
             }
         }
-        previous = Some(ch);
     }
     (letters, spans)
 }

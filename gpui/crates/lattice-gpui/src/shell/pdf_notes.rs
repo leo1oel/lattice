@@ -45,7 +45,7 @@ impl Shell {
         cx: &mut Context<Self>,
     ) {
         // A linked project's notes are Overleaf comments (`overleaf_collab`).
-        let annotatable = self.overleaf.read(cx).link().is_none();
+        let annotatable = !self.overleaf.read(cx).linked();
         let notes = self.root(cx).map(|root| {
             let store = store::store(cx);
             let notes = store
