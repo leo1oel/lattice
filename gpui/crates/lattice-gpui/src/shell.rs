@@ -36,6 +36,7 @@ mod help_flow;
 mod history_flow;
 mod imports;
 mod insert_flow;
+mod insert_pickers_flow;
 mod layers;
 pub(crate) mod menus;
 mod opening;
@@ -79,17 +80,18 @@ use lattice_i18n::t;
 use lattice_ui::{ActiveLattice as _, Appearance, LatticeTheme};
 use trellis::{TrellisWorkspace, model::LayoutDocument};
 
+pub use annotations_flow::{CommentsView, ShowAnnotations};
 use build::BuildRequest;
 pub use commands::{
     Build, CleanBuildFiles, CleanRebuild, ForwardSync, InstallLatexTools, NextProblem,
     OpenTexDoctor, PreviousProblem, Save, StopBuild, ToggleVimMode,
 };
-pub use annotations_flow::{CommentsView, ShowAnnotations};
-#[cfg(any(target_os = "macos", target_os = "windows"))]
-pub use overleaf_collab::AnnotateSelection;
 pub use get_started_flow::ShowGetStarted;
 pub use help_flow::{ReportProblem, WhatsNew};
 pub use insert_flow::{InsertTable, PasteImageAsFigure};
+pub use insert_pickers_flow::{GoToLine, GoToSymbol, InsertCitation, InsertReference};
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+pub use overleaf_collab::AnnotateSelection;
 pub use overleaf_menus::ReviewHere;
 pub use references_flow::{FindReferences, RenameSymbol};
 pub use tools_flow::{ExportArxiv, OpenChecklist, OpenTodos};

@@ -34,6 +34,7 @@ use lattice_ui::{
 };
 
 use super::{
+    insert_pickers::PickerKind,
     ranking::{RankedRow, match_ranges, rank, score_item, score_path},
     symbols::{Symbol, project_symbols},
 };
@@ -46,6 +47,8 @@ const RECENT_SHOWN: usize = 6;
 /// What each step up the recent list adds to a typed match's score.
 const RECENCY_BOOST: i64 = 12;
 const RESULT_LIMIT: usize = 40;
+/// A picker's (`SearchPickerDialog`'s) limit.
+const PICKER_LIMIT: usize = 60;
 /// The list's inset, and the rows' corner inside the dialog's 14px one.
 const LIST_INSET: f32 = 6.;
 const ROW_RADIUS: f32 = 14. - LIST_INSET;
@@ -82,8 +85,17 @@ pub struct QuickOpenSource {
 /// What a pick asks the window to do.
 #[derive(Clone, Debug, PartialEq)]
 pub enum QuickOpenPick {
-    Open { path: String, line: Option<u32> },
+    Open {
+        path: String,
+        line: Option<u32>,
+    },
     Line(u32),
+    /// Insert citation's or Insert reference's pick: `\command{key}` at
+    /// the caret.
+    Insert {
+        command: &'static str,
+        key: String,
+    },
 }
 
 pub enum QuickOpenEvent {
@@ -109,6 +121,9 @@ pub struct QuickOpen {
     /// The row the fluid hover lit when this last drew: a row it lights
     /// afterwards (a pointer that really moved) becomes the current one.
     adopted: Option<usize>,
+    /// One of the pickers over a fixed list (`insert_pickers.rs`), not
+    /// quick open over files.
+    picker: Option<PickerKind>,
     _subscription: Subscription,
 }
 
@@ -121,7 +136,32 @@ impl QuickOpen {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        let input = cx.new(|cx| InputState::new(window, cx).placeholder("Open file…"));
+        Self::build(shell, source, None, None, window, cx)
+    }
+
+    /// A picker over `items`; Go to symbol's are read from `source`'s main
+    /// document when `items` is `None`.
+    pub fn picker(
+        shell: WeakEntity<Shell>,
+        kind: PickerKind,
+        items: Option<Vec<Symbol>>,
+        source: QuickOpenSource,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Self {
+        Self::build(shell, source, Some(kind), items, window, cx)
+    }
+
+    fn build(
+        shell: WeakEntity<Shell>,
+        source: QuickOpenSource,
+        picker: Option<PickerKind>,
+        items: Option<Vec<Symbol>>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Self {
+        let placeholder = picker.map_or_else(|| "Open file…".to_string(), PickerKind::placeholder);
+        let input = cx.new(|cx| InputState::new(window, cx).placeholder(placeholder));
         let subscription =
             cx.subscribe_in(&input, window, |this, _, event, window, cx| match event {
                 InputEvent::Change => this.search(cx),
@@ -150,7 +190,7 @@ impl QuickOpen {
             source,
             recent,
             recency,
-            symbols: None,
+            symbols: items,
             symbols_task: None,
             rows: Vec::new(),
             sectioned: false,
@@ -158,6 +198,7 @@ impl QuickOpen {
             active: 0,
             scroll: ScrollHandle::new(),
             adopted: None,
+            picker,
             _subscription: subscription,
         };
         this.search(cx);
@@ -204,7 +245,8 @@ impl QuickOpen {
 
     fn search(&mut self, cx: &mut Context<Self>) {
         self.query = self.input.read(cx).value().trim().to_string();
-        if self.query.starts_with('@') && self.symbols.is_none() && self.symbols_task.is_none() {
+        let wants_symbols = self.query.starts_with('@') || self.picker.is_some();
+        if wants_symbols && self.symbols.is_none() && self.symbols_task.is_none() {
             let root = self.source.root.clone();
             let main = self.source.main.clone();
             self.symbols_task = Some(cx.spawn(async move |this, cx| {
@@ -259,6 +301,34 @@ impl QuickOpen {
     fn rank(&self) -> Vec<Row> {
         let query = self.query.as_str();
         let current = self.source.current.as_deref();
+        if self.picker.is_some() {
+            let Some(symbols) = &self.symbols else {
+                return Vec::new();
+            };
+            return rank(
+                symbols,
+                |symbol| {
+                    score_item(
+                        &RankedRow {
+                            label: &symbol.label,
+                            detail: &symbol.detail,
+                            group: symbol.group.label(),
+                        },
+                        query,
+                    )
+                },
+                |a, b| {
+                    a.group
+                        .label()
+                        .cmp(b.group.label())
+                        .then_with(|| a.label.cmp(&b.label))
+                },
+                PICKER_LIMIT,
+            )
+            .into_iter()
+            .map(|ix| Row::Symbol { ix })
+            .collect();
+        }
         if let Some(needle) = query.strip_prefix('@') {
             let Some(symbols) = &self.symbols else {
                 return Vec::new();
@@ -377,9 +447,15 @@ impl QuickOpen {
                 let Some(symbol) = self.symbols.as_ref().and_then(|symbols| symbols.get(ix)) else {
                     return;
                 };
-                QuickOpenPick::Open {
-                    path: symbol.path.clone(),
-                    line: Some(symbol.line),
+                match self.picker.and_then(PickerKind::command) {
+                    Some(command) => QuickOpenPick::Insert {
+                        command,
+                        key: symbol.label.clone(),
+                    },
+                    None => QuickOpenPick::Open {
+                        path: symbol.path.clone(),
+                        line: Some(symbol.line),
+                    },
                 }
             }
             Row::Line(line) => QuickOpenPick::Line(line),
@@ -407,7 +483,11 @@ impl QuickOpen {
         } else {
             palette.text_secondary
         };
-        let query = matched_query(&self.query);
+        let query = if self.picker.is_some() {
+            self.query.as_str()
+        } else {
+            matched_query(&self.query)
+        };
         let (icon, name, folder, tag): (AnyElement, AnyElement, Option<String>, Option<String>) =
             match row {
                 Row::File {
@@ -712,7 +792,11 @@ impl Render for QuickOpen {
                         .justify_center()
                         .text_role(TextRole::Caption, cx)
                         .text_color(palette.text_secondary)
-                        .child("No matching files"),
+                        .child(if self.picker.is_some() {
+                            lattice_i18n::t!("No matches").to_string()
+                        } else {
+                            "No matching files".to_string()
+                        }),
                 )
             })
             .when(!self.rows.is_empty(), |card| {
@@ -729,7 +813,7 @@ impl Render for QuickOpen {
                         .children(list),
                 )
             })
-            .child(footer);
+            .when(self.picker.is_none(), |card| card.child(footer));
         div()
             .id("quick-open-scrim")
             .absolute()
