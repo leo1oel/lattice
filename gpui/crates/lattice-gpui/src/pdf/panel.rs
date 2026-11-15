@@ -365,6 +365,11 @@ impl PdfPanel {
         }
     }
 
+    /// Whether the live PDF is in a window of its own.
+    pub fn is_detached(&self) -> bool {
+        self.window.is_some()
+    }
+
     /// Move the live PDF into a window of its own: the window opens where it
     /// was last left for this project, at the place the panel showed.
     pub fn detach(&mut self, window: &mut Window, cx: &mut Context<Self>) {

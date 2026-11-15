@@ -27,6 +27,7 @@
 //! [`TexlabService`], both on `lattice-core`.
 
 mod adapter;
+pub mod annotation_revision;
 pub mod blocks;
 pub mod completion;
 pub mod decorations;

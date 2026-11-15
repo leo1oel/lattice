@@ -9,14 +9,17 @@
  * - the project's annotations, for the annotation tools (`propose`, `ask`)
  *   and the Agent's view of the project's comments. The Tauri app keeps them
  *   in its comments store (`use-editor-comments.ts`) and records the tools'
- *   answers through its revision rounds (`annotation-rounds.ts`); the GPUI
- *   app has no comments panel yet, so the page holds the store itself,
- *   loaded once per project and saved as the Tauri store saves, and runs the
- *   same revision rounds over it. A proposal recorded here is the one the
+ *   answers through its revision rounds (`annotation-rounds.ts`); the page
+ *   holds its own copy of that store, loaded once per project and saved as
+ *   the Tauri store saves, and runs the same revision rounds over it,
+ *   separate from the native ones. A proposal recorded here is the one the
  *   Tauri app's review shows.
  *
- * The page is the only writer of the annotations in the GPUI app, so it never
- * reads them back from disk under its own saves.
+ * The page is not the only writer of `.research/annotations.json`: the native
+ * Annotations panel and the native revision rounds (`shell/rounds_flow.rs`)
+ * save it too. The page never reads the file back after loading it, so its
+ * saves can overwrite what they wrote since (a gap `gpui/docs/not-yet.md`
+ * lists).
  */
 import { useEffect, useMemo, useReducer, useRef } from "react";
 import { msg } from "@lingui/core/macro";

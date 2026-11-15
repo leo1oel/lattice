@@ -20,7 +20,7 @@ use crate::scenario::Run;
 type Rows = Vec<(String, String, Option<String>)>;
 
 impl Run {
-    fn open_palette_now(&self, cx: &mut AsyncApp) -> Result<()> {
+    pub(super) fn open_palette_now(&self, cx: &mut AsyncApp) -> Result<()> {
         self.with_window(cx, |shell, window, cx| {
             shell.update(cx, |shell, cx| {
                 if shell.palette_view().is_some() {
@@ -44,7 +44,7 @@ impl Run {
         }
     }
 
-    fn palette_rows_now(&self, cx: &mut AsyncApp) -> Rows {
+    pub(super) fn palette_rows_now(&self, cx: &mut AsyncApp) -> Rows {
         cx.update(|cx| {
             self.shell
                 .read(cx)
@@ -63,7 +63,7 @@ impl Run {
         })
     }
 
-    fn palette_run(&self, cx: &mut AsyncApp, label: &str) -> Result<bool> {
+    pub(super) fn palette_run(&self, cx: &mut AsyncApp, label: &str) -> Result<bool> {
         let label = label.to_string();
         self.with_window(cx, move |shell, window, cx| {
             shell.read(cx).palette_view().is_some_and(|palette| {

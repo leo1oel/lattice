@@ -19,7 +19,7 @@
 
 mod accept_marks;
 mod card;
-mod inline_edits;
+pub(super) mod inline_edits;
 mod instruction_menu;
 
 use std::{collections::BTreeSet, mem::Discriminant, ops::Range, sync::Arc, time::Duration};

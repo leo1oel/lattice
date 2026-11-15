@@ -128,13 +128,41 @@ pub(super) const LATEX_ROWS: ActionTable = &[
         n!("Emphasis (\\emph)"),
         &[("lattice::ToggleEmphasis", None)],
     ),
+    (n!("Inline math"), &[("lattice::ToggleInlineMath", None)]),
     (
         n!("Comment or uncomment lines"),
-        &[(
-            "editor::ToggleComments",
-            Some(r#"{"advance_downwards": false, "comment_empty_lines": true}"#),
-        )],
+        &[("lattice::ToggleLineComments", None)],
     ),
+    (
+        n!("Wrap in a comment environment"),
+        &[("lattice::WrapCommentEnvironment", None)],
+    ),
+    (
+        n!("Wrap in \\iffalse … \\fi"),
+        &[("lattice::WrapIfFalse", None)],
+    ),
+    (n!("Wrap in equation"), &[("lattice::WrapEquation", None)]),
+    (n!("Wrap in itemize"), &[("lattice::WrapItemize", None)]),
+    (
+        n!("Wrap in environment…"),
+        &[("lattice::WrapInEnvironment", None)],
+    ),
+    (
+        n!("Rename the environment"),
+        &[("lattice::RenameEnvironment", None)],
+    ),
+    (
+        n!("Select the environment"),
+        &[("lattice::SelectEnvironment", None)],
+    ),
+    (
+        n!("Go to the matching \\begin or \\end"),
+        &[("lattice::MatchingEnvironment", None)],
+    ),
+    (n!("Sort lines"), &[("lattice::SortLines", None)]),
+    (n!("UPPER CASE"), &[("lattice::UpperCase", None)]),
+    (n!("lower case"), &[("lattice::LowerCase", None)]),
+    (n!("Title Case"), &[("lattice::TitleCase", None)]),
     (n!("Find in document"), &[("buffer_search::Deploy", None)]),
     (n!("Go to definition"), &[("editor::GoToDefinition", None)]),
     (
@@ -331,8 +359,14 @@ pub(super) fn shortcut_groups(commands: &[Command], cx: &App) -> Vec<Group> {
     };
 
     let mut app: Vec<(Section, Vec<Entry>)> = Vec::new();
-    for command in commands.iter().filter(|command| !is_panel_key(command)) {
-        let combos = keys_in(&keymap, command.keys_action(), &places.window);
+    // A command listed by the keys of another (Build by Save's ⌘S, a
+    // workspace by name with its ⌘N) has no key of its own: the sheet lists
+    // the other, as `commandCombo` reads only a command's own `key`.
+    for command in commands
+        .iter()
+        .filter(|command| !is_panel_key(command) && command.keys_of.is_none())
+    {
+        let combos = keys_in(&keymap, command.action.as_ref(), &places.window);
         if combos.is_empty() {
             continue;
         }
