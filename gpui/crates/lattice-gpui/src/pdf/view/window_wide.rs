@@ -122,6 +122,9 @@ impl PdfView {
         if !self.viewport.contains(&event.position) && !self.in_compound_bridge(event.position) {
             self.leave_compound(cx);
         }
+        if !self.viewport.contains(&event.position) {
+            self.leave_notes(cx);
+        }
     }
 
     /// Escape closes the card, and stops autoscroll; true when it took the

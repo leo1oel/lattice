@@ -244,7 +244,7 @@ impl PdfView {
     /// The note whose highlight or pin is at a window `position`.
     fn note_at(&self, position: Point<Pixels>) -> Option<String> {
         let (x, y) = self.sheet_point(position);
-        let (page, page_x, page_y) = self.layout.to_page(x, y)?;
+        let (page, page_x, page_y) = self.layout.page_point_near(x, y)?;
         let size = *self.page_sizes().get(page)?;
         let (fx, fy) = (page_x / size.0, page_y / size.1);
         let scale = self.layout.scale;
@@ -305,6 +305,13 @@ impl PdfView {
         let under = self.note_at(position);
         if under != self.notes.hovered {
             self.notes.hovered = under;
+            cx.notify();
+        }
+    }
+
+    /// The pointer left the pages: no note is lit.
+    pub(in crate::pdf) fn leave_notes(&mut self, cx: &mut Context<Self>) {
+        if self.notes.hovered.take().is_some() {
             cx.notify();
         }
     }
