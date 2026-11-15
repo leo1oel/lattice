@@ -91,8 +91,6 @@ impl EditorPanel {
                 }
                 this.disk = DiskVersion::Seen(stat);
                 this.replace_text(content, cx);
-                this.project
-                    .update(cx, |project, _| project.mark_inputs_changed());
                 cx.emit(EditorPanelEvent::DiskEdit);
             })
             .ok();

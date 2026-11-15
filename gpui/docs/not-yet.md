@@ -39,6 +39,12 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] The custom highlight colour's two-dimensional picker (the hex field and the offered colours stand in).
 
+- [ ] The selection toolbar's Proofread, Polish and Rewrite with its instruction menu.
+
+- [ ] The highlight's colour swatch before `\colorbox` in the source.
+
+- [ ] The custom highlight colour's two-dimensional picker (the hex field and the offered colours stand in).
+
 - [ ] The PDF: its annotations.
 
 - [ ] The PDF: its comment column.
