@@ -283,7 +283,7 @@ pub struct Shell {
     save_task: Option<Task<()>>,
     /// The field a workspace's name is edited in, while it is.
     pub(crate) rename_input: Option<Entity<gpui_kit::component::input::InputState>>,
-    pub(crate) rename_subscriptions: Vec<Subscription>,
+    pub(crate) rename_subscription: Option<Subscription>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -551,7 +551,7 @@ impl Shell {
             closed_tabs: Vec::new(),
             save_task: None,
             rename_input: None,
-            rename_subscriptions: Vec::new(),
+            rename_subscription: None,
             _subscriptions: [workspace_events, workspace_drags, library]
                 .into_iter()
                 .chain(overleaf_subscriptions)
