@@ -16,7 +16,12 @@
 //! (`ProjectFacts`), the compounds' numbers and places read again after
 //! each build.
 
-use std::{collections::HashSet, path::PathBuf, time::Duration};
+use std::{
+    collections::{HashMap, HashSet},
+    path::PathBuf,
+    sync::Arc,
+    time::Duration,
+};
 
 use gpui::{App, AppContext as _, Context, Entity, Subscription, Task, WeakEntity};
 use language::BufferEvent;
@@ -24,6 +29,7 @@ use lattice_editor::{
     LatticeEditor, TexlabService,
     index::ProjectIndex,
     latex::{
+        compiled_labels::CompiledLabel,
         compound_completion::read_compound_facts,
         definition::graphics_roots,
         lint::{
@@ -53,9 +59,9 @@ pub struct IndexLint {
     path: String,
     root_document: String,
     unused: (HashSet<String>, HashSet<String>),
-    /// The last build and how many of its labels were read when the
-    /// project was last read, for its compound numbers and places.
-    compiled_seen: Option<(u64, usize)>,
+    /// The last build and the labels read of it when the project was last
+    /// read, for its compound numbers and places.
+    compiled_seen: Option<Compiled>,
     generation: u64,
     _run: Option<Task<()>>,
     _read: Option<Task<()>>,
@@ -86,7 +92,7 @@ impl IndexLint {
                 }),
                 cx.observe(&index, |this, index: Entity<ProjectIndex>, cx| {
                     // A new build (or its labels read) renumbers the compounds.
-                    if compiled(index.read(cx)) != this.compiled_seen {
+                    if !same_compiled(&compiled(index.read(cx)), &this.compiled_seen) {
                         this.read_project(cx);
                     } else {
                         this.schedule(Duration::ZERO, cx)
@@ -156,11 +162,6 @@ impl IndexLint {
         let mut paths = Vec::new();
         project_paths(project.files(), &mut paths);
         let path = self.path.clone();
-        let others: Vec<String> = paths
-            .iter()
-            .filter(|other| other.ends_with(".tex") && **other != path)
-            .cloned()
-            .collect();
         let texlab = TexlabService::available();
         let tex_paths: Vec<String> = paths
             .iter()
@@ -173,12 +174,21 @@ impl IndexLint {
         let labels = index.compiled_labels();
         self.facts.borrow_mut().paths = paths;
         let read = cx.background_spawn(async move {
-            let sources: Vec<String> = others
-                .iter()
-                .filter_map(|other| lattice_core::project::read_file(&folder, other).ok())
+            let sources: Vec<(String, String)> = tex_paths
+                .into_iter()
+                .filter_map(|tex| {
+                    let text = lattice_core::project::read_file(&folder, &tex).ok()?;
+                    Some((tex, text))
+                })
                 .collect();
-            let roots = graphics_roots(sources.iter().map(String::as_str));
-            let macros = local_macros(sources.iter().map(String::as_str));
+            let others = || {
+                sources
+                    .iter()
+                    .filter(|(tex, _)| *tex != path)
+                    .map(|(_, text)| text.as_str())
+            };
+            let roots = graphics_roots(others());
+            let macros = local_macros(others());
             let unused = (!texlab)
                 .then(|| lattice_core::project::unused_symbols(&folder).ok())
                 .flatten()
@@ -191,7 +201,7 @@ impl IndexLint {
                 .unwrap_or_default();
             let compounds = read_compound_facts(
                 &folder,
-                &tex_paths,
+                &sources,
                 build.as_ref(),
                 build.as_ref().map(|_| labels.as_ref()),
             );
@@ -283,11 +293,25 @@ impl IndexLint {
     }
 }
 
-/// Which build the index holds, and how many of its labels it has read.
-fn compiled(index: &ProjectIndex) -> Option<(u64, usize)> {
+/// A build's id and the labels the index has read of it.
+type Compiled = (u64, Arc<HashMap<String, CompiledLabel>>);
+
+/// Which build the index holds, and the labels it has read of it.
+fn compiled(index: &ProjectIndex) -> Option<Compiled> {
     index
         .compiled_build()
-        .map(|build| (build.id, index.compiled_labels().len()))
+        .map(|build| (build.id, index.compiled_labels()))
+}
+
+/// Whether two reads saw the same build and the same read of its labels.
+fn same_compiled(a: &Option<Compiled>, b: &Option<Compiled>) -> bool {
+    match (a, b) {
+        (Some((a_id, a_labels)), Some((b_id, b_labels))) => {
+            a_id == b_id && Arc::ptr_eq(a_labels, b_labels)
+        }
+        (None, None) => true,
+        _ => false,
+    }
 }
 
 impl super::EditorPanel {

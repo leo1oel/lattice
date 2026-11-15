@@ -51,25 +51,27 @@ pub struct CompoundFacts {
     pub place_lines: HashMap<String, String>,
 }
 
-/// What the project's TeX files (`tex_paths`, project-relative, at most
-/// 300 of them) and the last build hold of chemnum (`readCompoundProject`):
-/// the keys they name, the numbers the build's `.aux` gave them, and each
-/// drawn key's place line, numbered from `labels` (the build's, `None`
-/// before one). Read from disk; call it off the main thread.
+/// What the project's TeX files (`sources`, each project-relative path with
+/// its text, at most 300 of them read) and the last build hold of chemnum
+/// (`readCompoundProject`): the keys they name, the numbers the build's
+/// `.aux` gave them, and each drawn key's place line, numbered from `labels`
+/// (the build's, `None` before one). Reads the build's `.aux` from disk;
+/// call it off the main thread.
 pub fn read_compound_facts(
     root: &std::path::Path,
-    tex_paths: &[String],
+    sources: &[(String, String)],
     build: Option<&super::compiled_labels::CompiledBuild>,
     labels: Option<&HashMap<String, super::compiled_labels::CompiledLabel>>,
 ) -> CompoundFacts {
-    let sources: Vec<(String, String)> = tex_paths
+    let sources: Vec<(String, String)> = sources
         .iter()
         .take(MAX_SOURCES)
-        .map(|path| {
-            let text = lattice_core::project::read_file(root, path)
-                .ok()
-                .filter(|text| text.len() <= MAX_SOURCE_BYTES)
-                .unwrap_or_default();
+        .map(|(path, text)| {
+            let text = if text.len() <= MAX_SOURCE_BYTES {
+                text.clone()
+            } else {
+                String::new()
+            };
             (path.clone(), text)
         })
         .collect();
@@ -410,12 +412,14 @@ mod read_tests {
             "% editable-figure source: route.cdxml\n\\rcmpd{alcohol.a.num}\n",
         )
         .unwrap();
-        let facts = read_compound_facts(
-            root.path(),
-            &["main.tex".into(), "figs/route.tex".into()],
-            None,
-            None,
-        );
+        let sources: Vec<(String, String)> = ["main.tex", "figs/route.tex"]
+            .into_iter()
+            .map(|path| {
+                let text = std::fs::read_to_string(root.path().join(path)).unwrap();
+                (path.to_owned(), text)
+            })
+            .collect();
+        let facts = read_compound_facts(root.path(), &sources, None, None);
         assert_eq!(facts.keys, ["ketone", "alcohol.a.num"]);
         assert_eq!(facts.place_lines["alcohol.a.num"], "Scheme · route");
     }
