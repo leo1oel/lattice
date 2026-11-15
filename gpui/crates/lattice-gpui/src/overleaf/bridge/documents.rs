@@ -377,7 +377,11 @@ impl OverleafBridge {
         // Overleaf's setting, followed: typing goes out as suggestions.
         let tracked = self.tracking();
         let permission = client.project().permission;
-        if !(if tracked { permission.can_suggest() } else { permission.can_write() }) {
+        if !(if tracked {
+            permission.can_suggest()
+        } else {
+            permission.can_write()
+        }) {
             // Refused before it went out: nothing landed, so regular sync
             // reconciles the file.
             return self.drop_live(doc_id, None, cx);

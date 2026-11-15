@@ -78,15 +78,25 @@ pub fn quote_text(text: &str) -> String {
                 String::new()
             };
         }
-        let lead = if part.starts_with(char::is_whitespace) { " " } else { "" };
-        let trail = if part.ends_with(char::is_whitespace) { " " } else { "" };
+        let lead = if part.starts_with(char::is_whitespace) {
+            " "
+        } else {
+            ""
+        };
+        let trail = if part.ends_with(char::is_whitespace) {
+            " "
+        } else {
+            ""
+        };
         format!("{lead}{set}{trail}")
     };
     let mut out = String::new();
     let mut at = 0;
     for found in INLINE_MATH.captures_iter(text) {
         let whole = found.get(0).unwrap();
-        out.push_str(&plain(&REFERENCE.replace_all(&text[at..whole.start()], "[$1]")));
+        out.push_str(&plain(
+            &REFERENCE.replace_all(&text[at..whole.start()], "[$1]"),
+        ));
         let mut body = found
             .get(1)
             .or_else(|| found.get(2))
@@ -271,7 +281,9 @@ pub fn comment_card(
             .cursor_text()
             .hover(|this| this.border_color(palette.field_border_hover))
             .child(t!("Reply…"))
-            .on_click(move |_, window, cx| on_reply(CardEvent::Reply(reply_id.clone()), window, cx));
+            .on_click(move |_, window, cx| {
+                on_reply(CardEvent::Reply(reply_id.clone()), window, cx)
+            });
         let thread = div()
             .flex()
             .flex_col()
@@ -325,7 +337,10 @@ mod tests {
 
     #[test]
     fn a_quote_reads_as_the_pdf_sets_it() {
-        assert_eq!(quote_text(r"as shown in \cite{knuth}"), "as shown in [knuth]");
+        assert_eq!(
+            quote_text(r"as shown in \cite{knuth}"),
+            "as shown in [knuth]"
+        );
         assert_eq!(quote_text(r"the \emph{key} step"), "the key step");
         assert_eq!(quote_text(r"where $\frac{a}{b}$ holds"), "where a/b holds");
         assert_eq!(quote_text(r"take $\sqrt{x}$ now"), "take √x now");

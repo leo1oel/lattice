@@ -488,7 +488,8 @@ impl StructuredDocument {
                 self.open_project_window(id, &args, cx)
             }
             (StructuredKind::LatexVisual, _) if self.invoke_latex(id, &command, &args, cx) => {}
-            (kind, _) if kind.is_visual_editor() && self.invoke_markdown(id, &command, &args, cx) => {}
+            (kind, _)
+                if kind.is_visual_editor() && self.invoke_markdown(id, &command, &args, cx) => {}
             (StructuredKind::Deck, _) if slides::handles(&command) => {
                 let result = self
                     .deck

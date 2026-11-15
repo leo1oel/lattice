@@ -120,7 +120,9 @@ pub(super) fn host_of(url: &str) -> String {
         return String::new();
     };
     let authority = rest.split(['/', '?', '#']).next().unwrap_or_default();
-    let host = authority.rsplit_once('@').map_or(authority, |(_, host)| host);
+    let host = authority
+        .rsplit_once('@')
+        .map_or(authority, |(_, host)| host);
     let host = if let Some(bracketed) = host.strip_prefix('[') {
         bracketed.split(']').next().unwrap_or_default()
     } else {

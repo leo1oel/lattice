@@ -107,7 +107,8 @@ impl EditorPanel {
             LatexEvent::Ignore(ignore) => {
                 super::spelling::ignore_in_project(&self.project, ignore.clone(), cx)
             }
-            LatexEvent::FindReferences { kind, symbol } | LatexEvent::RenameSymbol { kind, symbol } => {
+            LatexEvent::FindReferences { kind, symbol }
+            | LatexEvent::RenameSymbol { kind, symbol } => {
                 let kind = match kind.as_str() {
                     "citation" => SymbolKind::Citation,
                     _ => SymbolKind::Label,
@@ -231,7 +232,9 @@ impl EditorPanel {
             .is_some_and(|last| last.wrote_pdf)
             .then(|| format!("build-{}", build.builds()));
         let root = self.latex_root.clone();
-        document.update(cx, |document, cx| document.set_outline(nodes, &root, pdf, cx));
+        document.update(cx, |document, cx| {
+            document.set_outline(nodes, &root, pdf, cx)
+        });
     }
 
     /// Send the Visual page whether spelling is checked, the project's

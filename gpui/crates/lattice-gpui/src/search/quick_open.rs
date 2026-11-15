@@ -237,6 +237,11 @@ impl QuickOpen {
         self.select(self.active, window, cx);
     }
 
+    /// Which picker this card is, or `None` for quick open over files.
+    pub fn picker_kind(&self) -> Option<PickerKind> {
+        self.picker
+    }
+
     /// Whether the `@` items are still being read.
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     pub fn reading_symbols(&self) -> bool {

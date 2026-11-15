@@ -100,12 +100,12 @@ pub use commands::{
 };
 pub use get_started_flow::ShowGetStarted;
 pub use help_flow::{ReportProblem, WhatsNew};
-pub(crate) use palette_groups::init as init_recent_commands;
 pub use insert_flow::{InsertTable, PasteImageAsFigure};
 pub use insert_pickers_flow::{GoToLine, GoToSymbol, InsertCitation, InsertReference};
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 pub use overleaf_collab::AnnotateSelection;
 pub use overleaf_menus::ReviewHere;
+pub(crate) use palette_groups::init as init_recent_commands;
 pub use references_flow::{FindReferences, RenameSymbol};
 pub use tools_flow::{ExportArxiv, OpenChecklist, OpenTodos};
 pub(crate) use workspace_flow::LayoutState;

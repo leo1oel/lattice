@@ -57,9 +57,7 @@ pub fn sheet(dialog: &SettingsDialog, cx: &mut gpui::App) -> Option<AnyElement> 
 pub fn marks(dialog: &SettingsDialog) -> super::controls::Marks {
     super::controls::Marks {
         rows: dialog.rows.clone(),
-        revealed: dialog
-            .revealed_row()
-            .map(|id| (id, dialog.revealed(id))),
+        revealed: dialog.revealed_row().map(|id| (id, dialog.revealed(id))),
     }
 }
 
@@ -98,9 +96,7 @@ pub fn draw(
         SettingsTab::ModelEndpoint => super::model_endpoint_pane::render(dialog, width, window, cx),
         SettingsTab::Environment => super::environment_pane::render(dialog, width, cx),
         SettingsTab::Literature => super::literature_pane::render(dialog, width, window, cx),
-        SettingsTab::Acknowledgements => {
-            super::acknowledgements::render(dialog, width, window, cx)
-        }
+        SettingsTab::Acknowledgements => super::acknowledgements::render(dialog, width, window, cx),
         SettingsTab::Doctor => super::editor_pane::doctor(width, cx),
         SettingsTab::Overleaf => super::overleaf_pane::render(dialog, width, window, cx),
         _ => super::appearance_pane::render(dialog, width, window, cx),

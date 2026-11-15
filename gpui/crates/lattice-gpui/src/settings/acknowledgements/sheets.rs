@@ -39,7 +39,10 @@ pub enum Sheet {
 fn chunks() -> &'static [String] {
     static CHUNKS: std::sync::LazyLock<Vec<String>> = std::sync::LazyLock::new(|| {
         let lines: Vec<&str> = notices::TEXT.lines().collect();
-        lines.chunks(CHUNK_LINES).map(|chunk| chunk.join("\n")).collect()
+        lines
+            .chunks(CHUNK_LINES)
+            .map(|chunk| chunk.join("\n"))
+            .collect()
     });
     &CHUNKS
 }
@@ -74,16 +77,22 @@ impl Sheet {
         cx: &mut App,
     ) -> AnyElement {
         match self {
-            Sheet::FontLicense(view) => SheetSurface::new("acknowledgements-license", credits::TIMELESS_LICENSE)
-                .on_close(close)
-                .child(div().flex_1().min_h_0().h(px(560.)).child(view.clone()))
-                .into_any_element(),
-            Sheet::Notices { package, list: state } => {
+            Sheet::FontLicense(view) => {
+                SheetSurface::new("acknowledgements-license", credits::TIMELESS_LICENSE)
+                    .on_close(close)
+                    .child(div().flex_1().min_h_0().h(px(560.)).child(view.clone()))
+                    .into_any_element()
+            }
+            Sheet::Notices {
+                package,
+                list: state,
+            } => {
                 let title: SharedString = match package {
                     Some(package) => format!("{} {}", package.name, package.version).into(),
                     None => t!("Third-party notices").into(),
                 };
-                let mut sheet = SheetSurface::new("acknowledgements-notices", title).on_close(close);
+                let mut sheet =
+                    SheetSurface::new("acknowledgements-notices", title).on_close(close);
                 match package {
                     None => {
                         let font = cx.lattice().fonts.editor.clone();
@@ -137,7 +146,10 @@ fn package_texts(mut sheet: SheetSurface, package: &Package, cx: &mut App) -> Sh
                 div()
                     .text_role_in(TextRole::Caption, TypeScale::Settings, cx)
                     .text_color(palette.text_secondary)
-                    .child(join_phrases(&[license, closure_label(package.closure).to_string()])),
+                    .child(join_phrases(&[
+                        license,
+                        closure_label(package.closure).to_string(),
+                    ])),
             )
             .child(
                 Button::new("acknowledgements-registry", host)

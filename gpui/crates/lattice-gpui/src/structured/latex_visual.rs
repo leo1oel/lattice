@@ -203,18 +203,19 @@ impl StructuredDocument {
             .push(cx.observe(&index, |this, index, cx| this.index_changed(&index, cx)));
         // A source changing on disk (a save among them) may use a label or
         // key, or stop using one; a bibliography may define or drop a key.
-        this._subscriptions.push(cx.subscribe(project, |this, _, event, cx| {
-            if let ProjectEvent::FilesChanged(paths) = event
-                && paths.as_ref().is_none_or(|paths| {
-                    paths.iter().any(|path| {
-                        let path = path.to_ascii_lowercase();
-                        path.ends_with(".tex") || path.ends_with(".bib")
+        this._subscriptions
+            .push(cx.subscribe(project, |this, _, event, cx| {
+                if let ProjectEvent::FilesChanged(paths) = event
+                    && paths.as_ref().is_none_or(|paths| {
+                        paths.iter().any(|path| {
+                            let path = path.to_ascii_lowercase();
+                            path.ends_with(".tex") || path.ends_with(".bib")
+                        })
                     })
-                })
-            {
-                this.read_unused(cx);
-            }
-        }));
+                {
+                    this.read_unused(cx);
+                }
+            }));
         this.read_unused(cx);
         this
     }
@@ -238,7 +239,9 @@ impl StructuredDocument {
                 .await;
             this.update(cx, |this, cx| {
                 let Ok(unused) = unused else { return };
-                let Some(session) = &mut this.latex else { return };
+                let Some(session) = &mut this.latex else {
+                    return;
+                };
                 if session.unused_generation != generation {
                     return;
                 }
@@ -349,7 +352,11 @@ impl StructuredDocument {
             "tex:paste-image" => LatexEvent::PasteImage,
             "tex:outline-jump" => LatexEvent::OutlineJump {
                 path: text("path"),
-                line: payload.get("line").and_then(Value::as_u64).unwrap_or(1).max(1) as u32,
+                line: payload
+                    .get("line")
+                    .and_then(Value::as_u64)
+                    .unwrap_or(1)
+                    .max(1) as u32,
             },
             "tex:caret" => LatexEvent::Caret(
                 payload.get("offset").and_then(Value::as_u64).unwrap_or(0) as usize,
@@ -417,7 +424,10 @@ impl StructuredDocument {
         let Some(session) = &self.latex else {
             return;
         };
-        let key = payload.get("key").and_then(Value::as_str).unwrap_or_default();
+        let key = payload
+            .get("key")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
         if let Some((path, line)) = session.project_index.read(cx).citation_entry(key) {
             cx.emit(StructuredEvent::Markdown(MarkdownEvent::OpenLocation(
                 path, line,

@@ -80,6 +80,54 @@ impl Run {
             self.restore(cx, &editor, &original)?;
         }
 
+        // A label typed and not saved is listed, as `liveReferences` has it.
+        let unsaved = "\\label{fig:unsaved}";
+        self.with_window(cx, |_, window, cx| {
+            editor.update(cx, |editor, cx| {
+                editor.replace_range(end_of_line, end_of_line, unsaved, end_of_line, window, cx)
+            })
+        })?;
+        self.dispatch_keys(cx, REF)?;
+        let rows = self.picker_rows(cx).await;
+        steps.check(
+            "⇧⌘L / Ctrl+Shift+L lists a label typed in the chapter before it is saved",
+            rows.iter().any(|row| row == "@fig:unsaved"),
+            json!({ "rows": rows }),
+        );
+        self.close_pickers(cx)?;
+        self.restore(cx, &editor, &original)?;
+
+        // One search dialog at a time: each key switches to its own dialog,
+        // and only its own key closes it again.
+        self.caret_at(cx, &editor, end_of_line)?;
+        let mut open = Vec::new();
+        for keys in [GOTO_LINE, CITE, REF, GOTO_LINE, REF, REF] {
+            self.dispatch_keys(cx, keys)?;
+            self.pause(cx, Duration::from_millis(200)).await;
+            open.push(cx.update(|cx| {
+                let shell = self.shell.read(cx);
+                let picker = shell
+                    .quick_open()
+                    .map(|view| format!("{:?}", view.read(cx).picker_kind()));
+                (shell.goto_line_open(), picker)
+            }));
+        }
+        let ref_picker = Some("Some(InsertReference)".to_string());
+        let wanted = [
+            (true, None),
+            (false, Some("Some(InsertCitation)".to_string())),
+            (false, ref_picker.clone()),
+            (true, None),
+            (false, ref_picker),
+            (false, None),
+        ];
+        steps.check(
+            "⌘G, ⇧⌘K and ⇧⌘L switch straight to their own dialog over another, and a dialog's own key closes it",
+            open == wanted,
+            json!({ "open": open }),
+        );
+        self.close_pickers(cx)?;
+
         // ⌘G: the caret's line starts selected, so the typed line replaces it.
         self.caret_at(cx, &editor, 0)?;
         self.dispatch_keys(cx, GOTO_LINE)?;
@@ -170,6 +218,12 @@ impl Run {
         })
     }
 
+    fn close_pickers(&self, cx: &mut AsyncApp) -> Result<()> {
+        self.with_window(cx, |shell, window, cx| {
+            shell.update(cx, |shell, cx| shell.close_document_overlays(window, cx))
+        })
+    }
+
     fn caret_at(&self, cx: &mut AsyncApp, editor: &Entity<EditorPanel>, at: usize) -> Result<()> {
         self.with_window(cx, |_, window, cx| {
             editor.update(cx, |editor, cx| editor.replace_range(at, at, "", at, window, cx))
@@ -195,6 +249,7 @@ pub(super) const MODULE: super::registry::Module = super::registry::Module {
     covers: &[
         "gpui/crates/lattice-gpui/src/search/insert_pickers.rs",
         "gpui/crates/lattice-gpui/src/search/goto_line.rs",
+        "gpui/crates/lattice-gpui/src/search/live_labels.rs",
         "gpui/crates/lattice-gpui/src/search/quick_open.rs",
         "gpui/crates/lattice-gpui/src/shell/insert_pickers_flow.rs",
     ],
