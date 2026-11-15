@@ -30,6 +30,7 @@ mod build_tools;
 mod build_watch;
 pub mod commands;
 mod documents;
+pub(crate) mod drops;
 mod editor_events;
 mod editors;
 mod entries;
@@ -322,7 +323,10 @@ impl Shell {
     fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         crate::panels::present_tabs(cx);
         let views = views::Registry::default();
-        let skin = std::rc::Rc::new(skin::LatticeSkin::new(views.clone()));
+        let skin = std::rc::Rc::new(skin::LatticeSkin::new(
+            views.clone(),
+            cx.entity().downgrade(),
+        ));
         let workspace = cx.new(|cx| {
             TrellisWorkspace::new(views::engine_options(), LayoutDocument::default(), skin, cx)
         });

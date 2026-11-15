@@ -214,8 +214,8 @@ pub(super) struct DocumentViews {
     preview: Option<Preview>,
     /// The panel is its group's displayed tab.
     shown: bool,
-    /// The split's width as last laid out, for a drag of its divider.
-    width: std::rc::Rc<std::cell::Cell<Pixels>>,
+    /// The split's bounds as last laid out, for a drag of its divider.
+    bounds: std::rc::Rc<std::cell::Cell<gpui::Bounds<Pixels>>>,
     divider_hovered: bool,
     dragging: bool,
     /// The divider, focusable so the arrow keys can move it.
@@ -230,7 +230,7 @@ impl DocumentViews {
             view: remembered(path, cx),
             preview: None,
             shown: false,
-            width: Default::default(),
+            bounds: Default::default(),
             divider_hovered: false,
             dragging: false,
             divider_focus: cx.focus_handle(),
@@ -463,6 +463,25 @@ impl EditorPanel {
         }
     }
 
+    /// The middle of the split's divider as last laid out, in window
+    /// coordinates, for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn split_divider_center(&self, cx: &App) -> Option<gpui::Point<Pixels>> {
+        let views = self
+            .views
+            .as_ref()
+            .filter(|views| views.view == DocumentView::Split)?;
+        let bounds = views.bounds.get();
+        if bounds.size.width <= px(0.) {
+            return None;
+        }
+        let (source, _) = split_widths(f32::from(bounds.size.width), split_ratio(cx));
+        Some(gpui::point(
+            bounds.left() + px(source + 0.5),
+            bounds.center().y,
+        ))
+    }
+
     /// Move the split's divider by `delta` of the width, within its range.
     fn nudge_split(&mut self, delta: f32, cx: &mut Context<Self>) {
         let ratio = cx.try_global::<SplitRatio>().copied().unwrap_or_default().0;
@@ -522,13 +541,13 @@ impl EditorPanel {
             }
             (DocumentView::Split, Some(preview)) => {
                 let palette = cx.palette().clone();
-                let width = views.width.clone();
+                let width = views.bounds.get().size.width;
                 let ratio = cx.try_global::<SplitRatio>().copied().unwrap_or_default().0;
-                let (source_width, preview_width) = split_widths(f32::from(width.get()), ratio);
-                let measured_once = width.get() > px(0.);
+                let (source_width, preview_width) = split_widths(f32::from(width), ratio);
+                let measured_once = width > px(0.);
                 let divider_focus = views.divider_focus.clone();
                 let strong = views.divider_hovered || views.dragging;
-                let measured = width.clone();
+                let measured = views.bounds.clone();
                 let panel = cx.entity().downgrade();
                 div()
                     .id("document-split")
@@ -540,8 +559,9 @@ impl EditorPanel {
                         // has no width yet, and lays its columns out on none.
                         gpui::canvas(
                             move |bounds, _, cx| {
-                                if measured.get() != bounds.size.width {
-                                    measured.set(bounds.size.width);
+                                let resized = measured.get().size.width != bounds.size.width;
+                                measured.set(bounds);
+                                if resized {
                                     let panel = panel.clone();
                                     cx.defer(move |cx| {
                                         panel.update(cx, |_, cx| cx.notify()).ok();
