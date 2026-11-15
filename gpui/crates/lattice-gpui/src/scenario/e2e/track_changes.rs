@@ -174,8 +174,22 @@ impl Run {
             json!({ "rejected": rejected, "off": off }),
         );
         // The chapter as the next modules expect it, saved.
-        std::fs::write(&chapter, &original)?;
-        self.pause(cx, Duration::from_millis(300)).await;
+        let saved = self.with_window(cx, |_, window, cx| {
+            editor.update(cx, |editor, cx| {
+                let length = editor.text(cx).len();
+                editor.replace_range(0, length, &original, 0, window, cx);
+                editor.save(cx)
+            })
+        })?;
+        saved.await?;
+        let restored = self
+            .wait_for(cx, Duration::from_secs(5), |_, cx| {
+                !editor.read(cx).is_dirty(cx)
+                    && editor.read(cx).text(cx) == original
+                    && std::fs::read_to_string(&chapter).ok().as_deref() == Some(original.as_str())
+            })
+            .await;
+        anyhow::ensure!(restored, "chapters/intro.tex was not restored to the fixture's text");
         Ok(())
     }
 
