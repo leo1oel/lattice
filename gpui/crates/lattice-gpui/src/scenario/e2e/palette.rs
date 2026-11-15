@@ -54,7 +54,7 @@ impl Run {
         })
     }
 
-    fn palette_type(&self, cx: &mut AsyncApp, text: &str) -> Result<()> {
+    pub(super) fn palette_type(&self, cx: &mut AsyncApp, text: &str) -> Result<()> {
         let text = text.to_string();
         self.with_window(cx, move |shell, window, cx| {
             if let Some(palette) = shell.read(cx).palette_view() {

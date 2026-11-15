@@ -21,6 +21,17 @@ use crate::search::live_labels::{local_labels, merge_references};
 
 actions!(lattice, [GotoDefinition]);
 
+/// What a go to definition found.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Definition {
+    /// No definition, and no TexLab to ask: the key or click goes on.
+    None,
+    /// A definition the text names, opened.
+    Found,
+    /// TexLab was asked; its answer opens when it comes.
+    Asked,
+}
+
 /// The project's files, as project-relative paths.
 fn project_paths(nodes: &[lattice_core::models::FileNode], into: &mut Vec<String>) {
     for node in nodes {
@@ -39,7 +50,7 @@ impl EditorPanel {
         use gpui::InteractiveElement as _;
         element.on_action(cx.listener(|this, _: &GotoDefinition, _, cx| {
             let (_, head) = this.latex_selection(cx);
-            if !this.go_to_definition(head, cx) {
+            if this.go_to_definition(head, cx) == Definition::None {
                 cx.propagate();
             }
         }))
@@ -47,10 +58,10 @@ impl EditorPanel {
 
     /// Open the definition of what `offset` is on; false when this is no
     /// LaTeX file or nothing there has one (and TexLab is not installed).
-    pub(crate) fn go_to_definition(&mut self, offset: usize, cx: &mut Context<Self>) -> bool {
+    pub(crate) fn go_to_definition(&mut self, offset: usize, cx: &mut Context<Self>) -> Definition {
         let relative = self.relative().to_string();
         if !lattice_editor::latex::is_tex_source(Path::new(&relative)) {
-            return false;
+            return Definition::None;
         }
         let text = self.editor().read(cx).buffer().read(cx).snapshot(cx).text();
         let project = self.project.read(cx);
@@ -99,7 +110,7 @@ impl EditorPanel {
         if let Some(event) = event {
             cx.emit(event);
         }
-        true
+        Definition::Found
     }
 
     /// TexLab's definition of what `offset` is on, opened when it answers;
@@ -110,9 +121,9 @@ impl EditorPanel {
         text: String,
         offset: usize,
         cx: &mut Context<Self>,
-    ) -> bool {
+    ) -> Definition {
         if !TexlabService::available() {
-            return false;
+            return Definition::None;
         }
         let line_start = text[..offset].rfind('\n').map_or(0, |at| at + 1);
         let line = text[..line_start].matches('\n').count() as u32 + 1;
@@ -142,6 +153,6 @@ impl EditorPanel {
             }
         })
         .detach();
-        true
+        Definition::Asked
     }
 }

@@ -1,12 +1,14 @@
 //! The source editor's pointer beyond Zed's own: a ⌘-click (Ctrl-click off
 //! macOS) on a label, citation key, `\input` or figure goes to its
 //! definition (`definition.rs`), as the Tauri app's editor's click handler
-//! does, and a right-click opens the editing menu.
+//! does; anywhere else it adds a cursor, as CodeMirror's ⌘-click does (Zed's
+//! `multi_cursor_modifier` is ⌘ here), and asks TexLab where it is
+//! installed. A right-click opens the editing menu.
 //!
 //! Right-click in the Tauri app is WebKit's own menu over the text: Cut,
 //! Copy and Paste, which the GPUI app draws as its own menu with Select All,
-//! the editing items of that menu, in the macOS menu bar's words (Zed's menu needs a Zed project, so it
-//! never opens here). A right-click outside the selection puts the caret at
+//! the editing items of that menu, in the macOS menu bar's words (Zed's
+//! menu needs a Zed project, so it never opens here). A right-click outside the selection puts the caret at
 //! the pointer first, as WebKit's does.
 
 use editor::{
@@ -20,7 +22,7 @@ use gpui::{
 use lattice_i18n::tc;
 use lattice_ui::components::{ContextMenu, MenuAction};
 
-use super::EditorPanel;
+use super::{EditorPanel, definition::Definition};
 
 impl EditorPanel {
     /// The source's ⌘-click and right-click, on its element.
@@ -48,7 +50,7 @@ impl EditorPanel {
                                 .lattice
                                 .update(cx, |lattice, cx| lattice.character_at(at, window, cx));
                             if let Some(offset) = offset
-                                && this.go_to_definition(offset, cx)
+                                && this.go_to_definition(offset, cx) == Definition::Found
                             {
                                 cx.stop_propagation();
                             }

@@ -58,6 +58,7 @@ fn shifted_from(character: char) -> Option<char> {
         '{' => '[',
         '}' => ']',
         '|' => '\\',
+        ':' => ';',
         _ => return None,
     })
 }
@@ -106,7 +107,7 @@ pub const RIGHT_ARROW: char = '\u{f703}';
 
 /// The ANSI virtual key code for a character, as Lattice's perf lab maps it.
 pub fn key_code(character: char) -> u16 {
-    const CODES: [(char, u16); 49] = [
+    const CODES: [(char, u16); 50] = [
         ('a', 0x00),
         ('s', 0x01),
         ('d', 0x02),
@@ -159,6 +160,7 @@ pub fn key_code(character: char) -> u16 {
         ('/', 0x2C),
         ('[', 0x21),
         (']', 0x1E),
+        (';', 0x29),
     ];
     CODES
         .iter()
