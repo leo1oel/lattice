@@ -168,7 +168,67 @@ impl Run {
                 && after_apply.as_deref() == Some("vaswani2017attention"),
             json!({ "applied": applied, "open": after_apply, "written": written.contains("1--483") }),
         );
+        self.check_references_narrow(cx, steps).await?;
         self.shortcut_sheet_references(cx, steps).await
+    }
+
+    /// Below Tauri's `queueWidth` (800px) the list stands alone and the open
+    /// finding unfolds under its row; back at full width the queue returns.
+    async fn check_references_narrow(&self, cx: &mut AsyncApp, steps: &mut Steps) -> Result<()> {
+        let resize = |width: f32, height: f32| {
+            move |_: &gpui::Entity<crate::shell::Shell>,
+                  window: &mut gpui::Window,
+                  _: &mut gpui::App| {
+                window.resize(gpui::size(gpui::px(width), gpui::px(height)))
+            }
+        };
+        let (wide_width, wide_height) = self.with_window(cx, |_, window, _| {
+            let size = window.viewport_size();
+            (f32::from(size.width), f32::from(size.height))
+        })?;
+        self.with_window(cx, resize(720., wide_height))?;
+        self.wait_for(cx, Duration::from_secs(3), |_, cx| {
+            self.window
+                .update(cx, |_, window, _| f32::from(window.viewport_size().width) < 800.)
+                .unwrap_or(false)
+        })
+        .await;
+        for _ in 0..2 {
+            self.with_window(cx, |shell, _, cx| shell.update(cx, |_, cx| cx.notify()))?;
+            self.frame_after_input(cx).await?;
+        }
+        let narrow_width =
+            self.with_window(cx, |_, window, _| f32::from(window.viewport_size().width))?;
+        let (narrow_open, narrow_queue) = self.audit_open(cx);
+        self.papers_looks(cx, "papers-7b-audit-narrow").await?;
+
+        self.with_window(cx, resize(wide_width, wide_height))?;
+        self.wait_for(cx, Duration::from_secs(3), |_, cx| {
+            self.window
+                .update(cx, |_, window, _| {
+                    (f32::from(window.viewport_size().width) - wide_width).abs() < 1.
+                })
+                .unwrap_or(false)
+        })
+        .await;
+        for _ in 0..2 {
+            self.with_window(cx, |shell, _, cx| shell.update(cx, |_, cx| cx.notify()))?;
+            self.frame_after_input(cx).await?;
+        }
+        let (wide_open, wide_queue) = self.audit_open(cx);
+        steps.check(
+            "narrower than 800px, Check references drops the side pane and keeps the open finding under its row; wide again, the queue returns",
+            narrow_width < 800.
+                && !narrow_queue
+                && narrow_open.as_deref() == Some("vaswani2017attention")
+                && wide_queue
+                && wide_open.as_deref() == Some("vaswani2017attention"),
+            json!({
+                "narrow": { "width": narrow_width, "queue": narrow_queue, "open": narrow_open },
+                "wide": { "width": wide_width, "queue": wide_queue, "open": wide_open },
+            }),
+        );
+        Ok(())
     }
 
     /// The shortcut sheet's Check references group, from the keymap.
