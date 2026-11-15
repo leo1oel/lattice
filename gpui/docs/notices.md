@@ -12,6 +12,7 @@ An error carries Copy (its title and detail unless it says what to copy), and a 
 
 A daily check, a minute after launch, asks the TeX repository for package updates and reminds the writer at most once a day when there are some: Lattice's BasicTeX gets Update TeX packages (whose progress then has a notice of its own), another TeX the command with Copy; Later keeps it away three days, and a running build holds it back.
 An import that outlasts 400 ms shows its progress, which its outcome replaces.
+A file past the editor's size limit does not open in a modal: an error notice gives its size and the limit, with Show in Finder, and any other failure to open shows as an error notice as it came.
 
 ## In the e2e scenario
 

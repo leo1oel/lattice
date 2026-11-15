@@ -19,9 +19,9 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] The 13 animated product icons.
 
-- [ ] The editor attention motions: a jump's reveal flash, an outside edit's change wash, and an accepted suggestion's strike, fold and settle.
+- [ ] The editor's change wash on lines an outside edit landed, and an accepted suggestion's strike, fold and settle (`lattice_ui::attention` has their timing).
 
-- [ ] The too-large-file toast, and a failed save's Retry and Save a copy.
+- [ ] A failed save's Retry and Save a copy (the status bar's save-state popover).
 
 - [ ] The minor motions.
 
