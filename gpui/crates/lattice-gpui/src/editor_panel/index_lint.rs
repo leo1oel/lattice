@@ -193,7 +193,7 @@ impl IndexLint {
                 &self.path,
                 local_labels(&self.path, text),
             ),
-            pending: index.is_loading(),
+            pending: index.is_first_read_pending(),
             unused_labels: self.unused.0.clone(),
             unused_citations: self.unused.1.clone(),
             project_paths: project_paths_list,

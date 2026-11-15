@@ -239,8 +239,8 @@ pub fn resolve_project_path(
     find_path_candidate(
         &candidates(&path, kind, graphics_roots),
         project_paths,
+        None,
         root_path,
-        false,
     )
     .map(|(file, _)| file)
 }
@@ -250,10 +250,12 @@ pub fn resolve_project_path(
 /// (`miscasedProjectPath`): macOS's disk ignores case, so the build here
 /// finds the file, but TeX on Linux (Overleaf, arXiv) does not when a
 /// folder's case differs. The respelling is `None` when it has no place in
-/// the argument (a doubled `/` the lookup collapsed).
+/// the argument (a doubled `/` the lookup collapsed). `folded_paths` is
+/// `project_paths` through [`fold_case`], folded once by the caller.
 pub fn miscased_project_path(
     raw: &str,
     project_paths: &[String],
+    folded_paths: &[String],
     kind: PathKind,
     graphics_roots: &[String],
     root_path: &str,
@@ -265,8 +267,8 @@ pub fn miscased_project_path(
     let (file, extension) = find_path_candidate(
         &candidates(&path, kind, graphics_roots),
         project_paths,
+        Some(folded_paths),
         root_path,
-        true,
     )?;
     // The file ends with the candidate, folded, and folding keeps lengths,
     // so the written path sits just before the extension the lookup added.
@@ -295,13 +297,18 @@ pub fn fold_case(path: &str) -> String {
 
 /// The first candidate on TeX's search path, else the first found by the
 /// leniency below: a file TeX would not read never wins over one it would.
-/// The file found, and the extension its candidate added.
+/// The file found, and the extension its candidate added. Case is ignored
+/// when `folded_paths` (the folded `project_paths`) is given.
 fn find_path_candidate(
     candidates: &[(String, &'static str)],
     project_paths: &[String],
+    folded_paths: Option<&[String]>,
     root_path: &str,
-    ignore_case: bool,
 ) -> Option<(String, &'static str)> {
+    let paths = ProjectPaths {
+        written: project_paths,
+        folded: folded_paths,
+    };
     // An absolute path names a file on disk, never one in the project.
     let relative: Vec<&(String, &'static str)> = candidates
         .iter()
@@ -310,12 +317,11 @@ fn find_path_candidate(
     relative
         .iter()
         .find_map(|(candidate, extension)| {
-            on_tex_search_path(candidate, project_paths, root_path, ignore_case)
-                .map(|file| (file, *extension))
+            on_tex_search_path(candidate, &paths, root_path).map(|file| (file, *extension))
         })
         .or_else(|| {
             relative.iter().find_map(|(candidate, extension)| {
-                elsewhere(candidate, project_paths, ignore_case).map(|file| (file, *extension))
+                elsewhere(candidate, &paths).map(|file| (file, *extension))
             })
         })
 }
@@ -340,38 +346,44 @@ pub fn root_folder(root_path: &str) -> &str {
     &root_path[..root_path.rfind('/').map_or(0, |at| at + 1)]
 }
 
-/// `path` as `project_paths` writes it, case ignored when `ignore_case`.
-fn project_file(
-    path: Option<String>,
-    project_paths: &[String],
-    ignore_case: bool,
-) -> Option<String> {
-    let path = path?;
-    if ignore_case {
-        let wanted = fold_case(&path);
-        project_paths
-            .iter()
-            .find(|known| fold_case(known) == wanted)
-            .cloned()
-    } else {
-        project_paths.iter().find(|known| **known == path).cloned()
+/// The project's files as written, and folded when case is ignored; a
+/// lookup matches against `folded` (when given) and answers with the
+/// written path at the same index.
+struct ProjectPaths<'a> {
+    written: &'a [String],
+    folded: Option<&'a [String]>,
+}
+
+impl ProjectPaths<'_> {
+    /// `path` as a lookup compares it.
+    fn key(&self, path: String) -> String {
+        if self.folded.is_some() {
+            fold_case(&path)
+        } else {
+            path
+        }
     }
+
+    fn compared(&self) -> &[String] {
+        self.folded.unwrap_or(self.written)
+    }
+}
+
+/// `path` as the project writes it, case ignored when `paths` is folded.
+fn project_file(path: Option<String>, paths: &ProjectPaths) -> Option<String> {
+    let wanted = paths.key(path?);
+    let at = paths.compared().iter().position(|known| *known == wanted)?;
+    Some(paths.written[at].clone())
 }
 
 /// The project file a path names where TeX reads it: from the root's folder
 /// first (the only place a `./` or `../` path can mean), then, for a root in
 /// a subfolder, from the project's folder, as Overleaf finds it.
-fn on_tex_search_path(
-    candidate: &str,
-    project_paths: &[String],
-    root_path: &str,
-    ignore_case: bool,
-) -> Option<String> {
+fn on_tex_search_path(candidate: &str, paths: &ProjectPaths, root_path: &str) -> Option<String> {
     let folder = root_folder(root_path);
     let beside = project_file(
         normalize_project_path(&format!("{folder}{candidate}")),
-        project_paths,
-        ignore_case,
+        paths,
     );
     if beside.is_some()
         || folder.is_empty()
@@ -380,37 +392,24 @@ fn on_tex_search_path(
     {
         return beside;
     }
-    project_file(
-        normalize_project_path(candidate),
-        project_paths,
-        ignore_case,
-    )
+    project_file(normalize_project_path(candidate), paths)
 }
 
 /// The one project file that ends with the path, for a file TeX would not
 /// find; none when several do, or when a `.` or `..` pins the folder.
-fn elsewhere(candidate: &str, project_paths: &[String], ignore_case: bool) -> Option<String> {
+fn elsewhere(candidate: &str, paths: &ProjectPaths) -> Option<String> {
     let wanted = normalize_project_path(candidate)?;
     if candidate.split('/').any(|part| part == "." || part == "..") {
         return None;
     }
-    let suffix = format!(
-        "/{}",
-        if ignore_case {
-            fold_case(&wanted)
-        } else {
-            wanted
-        }
-    );
-    let mut found = project_paths.iter().filter(|path| {
-        if ignore_case {
-            fold_case(path).ends_with(&suffix)
-        } else {
-            path.ends_with(&suffix)
-        }
-    });
-    let first = found.next()?;
-    found.next().is_none().then(|| first.clone())
+    let suffix = format!("/{}", paths.key(wanted));
+    let mut found = paths
+        .compared()
+        .iter()
+        .enumerate()
+        .filter(|(_, path)| path.ends_with(&suffix));
+    let (first, _) = found.next()?;
+    found.next().is_none().then(|| paths.written[first].clone())
 }
 
 #[cfg(test)]

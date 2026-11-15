@@ -21,8 +21,8 @@ use regex::Regex;
 
 use super::{
     definition::{
-        PathKind, miscased_project_path, normalize_project_path, resolve_project_path, root_folder,
-        unwrap_latex_path,
+        PathKind, fold_case, miscased_project_path, normalize_project_path, resolve_project_path,
+        root_folder, unwrap_latex_path,
     },
     diagnostics::Severity,
     environments::{Delimiter, environment_events},
@@ -284,6 +284,7 @@ pub fn path_lint(text: &str, index: &LintIndex) -> Vec<Lint> {
     if paths.is_empty() {
         return Vec::new();
     }
+    let folded: Vec<String> = paths.iter().map(|path| fold_case(path)).collect();
     let root = index.root_path.as_str();
     let mut lints = Vec::new();
     for (from, content) in arguments(text, include_pattern()) {
@@ -293,7 +294,7 @@ pub fn path_lint(text: &str, index: &LintIndex) -> Vec<Lint> {
             continue;
         }
         if let Some((file, respelled)) =
-            miscased_project_path(path, paths, PathKind::Tex, &[], root)
+            miscased_project_path(path, paths, &folded, PathKind::Tex, &[], root)
         {
             lints.push(case_lint(from, content, &file, respelled));
             continue;
@@ -315,7 +316,7 @@ pub fn path_lint(text: &str, index: &LintIndex) -> Vec<Lint> {
             continue;
         }
         if let Some((file, respelled)) =
-            miscased_project_path(raw, paths, PathKind::Graphics, roots, root)
+            miscased_project_path(raw, paths, &folded, PathKind::Graphics, roots, root)
         {
             lints.push(case_lint(from, content, &file, respelled));
             continue;
