@@ -23,7 +23,7 @@ use gpui::{
     prelude::FluentBuilder as _, px,
 };
 use lattice_core::project::{AnnotationRound, EditorComment};
-use lattice_i18n::{Locale, locale, t};
+use lattice_i18n::{Locale, join_phrases, locale, t};
 use lattice_ui::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
     components::{Button, IconButton, LayerPlacement, ModalLayer, Sheet},
@@ -372,7 +372,7 @@ impl RoundsSheet {
                     } else {
                         t!("{0} annotations", count)
                     };
-                    format!("{} · {annotations}", when(round.settled_at.as_deref()))
+                    join_phrases(&[when(round.settled_at.as_deref()), annotations])
                 }),
             };
             let tag = match &version {
@@ -388,7 +388,7 @@ impl RoundsSheet {
                     if open > 0 {
                         parts.push(t!("{open} open", open = open));
                     }
-                    parts.join(" · ")
+                    join_phrases(&parts)
                 }),
                 _ => None,
             }

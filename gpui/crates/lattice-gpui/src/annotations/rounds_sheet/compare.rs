@@ -302,7 +302,7 @@ mod tests {
     #[test]
     fn a_change_names_the_accepted_annotations_behind_it() {
         let snapshots = snapshots();
-        let mut note: EditorComment = serde_json::from_value(serde_json::json!({
+        let note: EditorComment = serde_json::from_value(serde_json::json!({
             "id": "n1", "number": 3, "path": "a.tex", "from": 0, "to": 3, "quote": "One, revised.",
             "prefix": "", "suffix": "", "body": "", "authorId": "", "authorName": "",
             "createdAt": "", "updatedAt": "",
@@ -314,7 +314,6 @@ mod tests {
         assert_eq!((found[0].older.as_str(), found[0].newer.as_str()), ("One.", "One, revised."));
         assert_eq!(found[0].numbers, [3]);
         // Its round lies outside round 1 → round 2.
-        note.revision.as_mut().unwrap().round = 1;
         let later = changes(&snapshots, &[round(1), round(2)], &[note], &Version::Round(1), &Version::Round(2));
         assert!(later.iter().all(|change| change.numbers.is_empty()));
         assert_eq!(later.len(), 2);
