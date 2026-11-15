@@ -60,10 +60,11 @@ impl EditorPanel {
     /// The app is quitting and no task on the main thread runs again: write
     /// what the buffer holds now, on this thread, merging as a save does. A
     /// write already under way lands first (it needs nothing from this
-    /// thread), and the buffer grew from the text it sent.
-    pub fn write_before_quit(&mut self, cx: &mut Context<Self>) {
+    /// thread), and the buffer grew from the text it sent. The project
+    /// path it wrote, if it wrote.
+    pub fn write_before_quit(&mut self, cx: &mut Context<Self>) -> Option<String> {
         if self.closed || self.vanished.is_some() || !self.is_dirty(cx) {
-            return;
+            return None;
         }
         let content = self.buffer.read(cx).text();
         let saved = self.saved_text.clone();
@@ -75,7 +76,7 @@ impl EditorPanel {
             None => saved,
         };
         if content == base {
-            return;
+            return None;
         }
         let root = self.project.read(cx).root().to_path_buf();
         if let Err(error) = core_project::apply_editor_transaction(
@@ -86,7 +87,9 @@ impl EditorPanel {
             None,
         ) {
             log::error!("could not save {} before quitting: {error}", self.relative);
+            return None;
         }
+        Some(self.relative.clone())
     }
 
     fn save_for_build(&mut self, cx: &mut Context<Self>) {
