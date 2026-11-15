@@ -10,12 +10,14 @@
 //!   project's own macros, and a formula KaTeX cannot set keeps its source
 //!   (`equationHtml` returns null for it);
 //! - the last build's `.aux` numbers a label (main.tex's `sec:method`, which
-//!   follows the introduction's section, is section 2 on page 1).
+//!   follows the introduction's section, is section 2 on page 1);
+//! - Go to on a reference card closes it and goes to the `\label`, and a
+//!   `\cref` naming several labels shows a section per label.
 //!
 //! The figure, the equation and their labels are written into the scratch
 //! project for this module and taken out after. With `LATTICE_E2E_SHOTS=DIR`
-//! (macOS) the figure, equation and graphics-path cards are saved there in
-//! the light and dark appearances.
+//! (macOS) the figure, equation, graphics-path and `\cref` cards are saved
+//! there in the light and dark appearances.
 
 use std::{path::Path, time::Duration, time::Instant};
 
@@ -52,6 +54,7 @@ const SOURCE: &str = r"\newcommand{\area}{\mathcal{A}}
   \label{fig:sketch}
 \end{figure}
 See Figure~\ref{fig:curve}, Equation~\eqref{eq:area} and Figure~\ref{fig:sketch}.
+Together, \cref{fig:curve,eq:area,eq:nowhere} show the area.
 ";
 
 /// A 320 by 160 picture: a dark curve over a pale grid.
@@ -205,6 +208,7 @@ impl Run {
 
         self.figure_cards(cx, steps, root, &panel, &lattice).await?;
         self.equation_card(cx, steps, &panel, &lattice).await?;
+        self.reference_sections(cx, steps, &panel, &lattice).await?;
         Ok(())
     }
 
@@ -403,6 +407,94 @@ impl Run {
         Ok(())
     }
 
+    /// The reference card's actions and sections (`fillReferenceEntry`,
+    /// `referenceKeysCard`): Go to on the `\eqref`'s card closes it and puts
+    /// the caret on the `\label`'s line; resting on a label of
+    /// `\cref{fig:curve,eq:area,eq:nowhere}` opens one card with a section
+    /// per label, the figure's image and the equation in theirs and the
+    /// undefined label said as such, so it stands taller than the
+    /// equation's card alone.
+    async fn reference_sections(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+        panel: &Entity<EditorPanel>,
+        lattice: &Entity<LatticeEditor>,
+    ) -> Result<()> {
+        self.reveal(cx, panel, "eq:area} and").await?;
+        let (_, at) = self
+            .text_point(cx, panel, lattice, "eq:area} and", 4)
+            .await?;
+        self.hover_at(cx, at.center()).await?;
+        let single = self
+            .wait_for_card(cx, lattice, "reference")
+            .await
+            .and_then(|(_, bounds)| bounds);
+        // Go to sits first on the card's foot: 11px of padding under a
+        // 28px compact button, which starts 6px into the 12px side.
+        let goto = single.map(|card| {
+            point(
+                card.origin.x + px(6. + 16.),
+                card.origin.y + card.size.height - px(11. + 14.),
+            )
+        });
+        let label_line = SOURCE[..SOURCE.find("\\label{eq:area}").unwrap_or(0)]
+            .matches('\n')
+            .count() as u32
+            + 1;
+        let mut went = false;
+        let mut closed = false;
+        if let Some(goto) = goto {
+            let native = self.native(cx)?;
+            native::send_mouse(native, native::Mouse::Moved, goto)?;
+            self.pause(cx, Duration::from_millis(200)).await;
+            native::send_mouse(native, native::Mouse::Down, goto)?;
+            native::send_mouse(native, native::Mouse::Up, goto)?;
+            went = self
+                .wait_for(cx, Duration::from_secs(5), |_, cx| {
+                    panel.read(cx).cursor().0 == label_line
+                })
+                .await;
+            closed = self
+                .wait_for(cx, Duration::from_secs(2), |_, cx| {
+                    lattice.read(cx).shown_hover(cx).is_empty()
+                })
+                .await;
+        }
+        steps.check(
+            "Go to on a reference card closes the card and puts the caret on its \\label's line",
+            went && closed,
+            json!({ "card": single.map(|card| format!("{card:?}")), "went": went, "closed": closed, "line": label_line, "at": cx.update(|cx| panel.read(cx).cursor()) }),
+        );
+        self.card_park(cx)?;
+        self.pause(cx, Duration::from_millis(400)).await;
+
+        self.reveal(cx, panel, "eq:area,eq:nowhere").await?;
+        let (_, at) = self
+            .text_point(cx, panel, lattice, "eq:area,eq:nowhere", 4)
+            .await?;
+        self.hover_at(cx, at.center()).await?;
+        let sections = self
+            .wait_for_card(cx, lattice, "reference")
+            .await
+            .and_then(|(_, bounds)| bounds);
+        self.card_looks(cx, "cref-sections-card").await;
+        let taller = matches!(
+            (single, sections),
+            (Some(single), Some(sections)) if sections.size.height > single.size.height + px(80.)
+        );
+        steps.check(
+            "resting on a label of \\cref{fig:curve,eq:area,eq:nowhere} opens one card with a section per label",
+            taller,
+            json!({
+                "single": single.map(|card| f32::from(card.size.height)),
+                "sections": sections.map(|card| f32::from(card.size.height)),
+            }),
+        );
+        self.card_park(cx)?;
+        Ok(())
+    }
+
     /// The card as it looks now, light and dark: the pointer stays, so the
     /// card stays, and its pictures are set again in the dark ink.
     async fn card_looks(&self, cx: &mut AsyncApp, name: &str) {
@@ -437,6 +529,7 @@ pub(super) const MODULE: super::registry::Module = super::registry::Module {
     setup: false,
     covers: &[
         "gpui/crates/lattice-editor/src/latex/preview_cards.rs",
+        "gpui/crates/lattice-editor/src/latex/reference_card.rs",
         "gpui/crates/lattice-editor/src/latex/previews.rs",
         "gpui/crates/lattice-editor/src/latex/compiled_labels.rs",
         "gpui/crates/lattice-editor/src/latex/graphics.rs",
