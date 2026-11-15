@@ -71,6 +71,7 @@ mod margin_review;
 mod markdown_view;
 mod moves;
 mod outline_panel;
+pub(crate) mod place_memory;
 pub mod outline_rail;
 mod overleaf_carets;
 mod overleaf_review;
@@ -242,6 +243,8 @@ pub struct EditorPanel {
     _count: Option<Task<()>>,
     _todos: Option<Task<()>>,
     _poll: Task<()>,
+    /// Keeping the place once caret and scroll rest (`place_memory.rs`).
+    place_task: Option<Task<()>>,
     /// Vim's open `:` line (`vim_ex.rs`).
     vim_ex: Option<vim_ex::VimExLine>,
     _subscriptions: Vec<Subscription>,
@@ -473,6 +476,7 @@ impl EditorPanel {
             _count: None,
             _todos: None,
             _poll: poll,
+            place_task: None,
             vim_ex: None,
             _subscriptions: subscriptions,
             bib: Default::default(),
