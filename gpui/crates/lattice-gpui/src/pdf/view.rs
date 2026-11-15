@@ -18,7 +18,6 @@
 //! size on top, as PDF.js caps a canvas and adds a detail one.
 
 use std::{
-    collections::HashSet,
     ops::Range,
     path::PathBuf,
     sync::{
@@ -45,6 +44,7 @@ mod events;
 mod host;
 mod links;
 mod live;
+mod page_changes;
 mod pages;
 mod pointer;
 mod search;
@@ -53,6 +53,7 @@ mod window_wide;
 
 pub use citation::CitationLookup;
 
+use page_changes::changed_pages;
 pub(super) use pages::PageSlot;
 pub(super) use sync_mark::{SYNC_MARK_HOLD, SyncMark};
 pub use events::{PdfViewEvent, ToolbarAction};
@@ -803,27 +804,6 @@ impl PdfView {
     }
 }
 
-/// The pages whose signatures differ, or `None` when the document as a
-/// whole changed (`changedPages` in `src/pdf/pdf-page-swap.ts`).
-pub(super) fn changed_pages(
-    before: &PageSignatures,
-    after: &PageSignatures,
-) -> Option<HashSet<usize>> {
-    if before.document != after.document || before.pages.len() != after.pages.len() {
-        return None;
-    }
-    Some(
-        after
-            .pages
-            .iter()
-            .zip(&before.pages)
-            .enumerate()
-            .filter(|(_, (new, old))| new != old)
-            .map(|(ix, _)| ix)
-            .collect(),
-    )
-}
-
 impl Drop for PdfView {
     /// The worker lets go of the document with its viewer.
     fn drop(&mut self) {
@@ -836,28 +816,5 @@ impl Drop for PdfView {
 impl Focusable for PdfView {
     fn focus_handle(&self, _: &App) -> FocusHandle {
         self.focus_handle.clone()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_rebuild_redraws_only_the_pages_whose_signatures_changed() {
-        let before = PageSignatures {
-            document: "d".into(),
-            pages: vec!["a".into(), "b".into(), "c".into()],
-        };
-        let after = PageSignatures {
-            document: "d".into(),
-            pages: vec!["a".into(), "B".into(), "c".into()],
-        };
-        assert_eq!(changed_pages(&before, &after), Some([1].into()));
-        let renumbered = PageSignatures {
-            document: "e".into(),
-            ..after
-        };
-        assert_eq!(changed_pages(&before, &renumbered), None);
     }
 }
