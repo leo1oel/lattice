@@ -35,4 +35,6 @@ pub use outline_menu::OutlineState;
 pub use panel::{PdfEvent, PdfPanel, PdfPanelKind, pdf_tab_label};
 pub use text::LinkTarget;
 pub use toolbar_hover::toolbar_section;
-pub use view::{CitationLookup, CompoundSource, PdfNotes, PdfView, PdfViewEvent, ToolbarAction};
+pub use view::{
+    CitationLookup, CompoundSource, PdfNotes, PdfView, PdfViewEvent, ToolbarAction, ViewPlace,
+};

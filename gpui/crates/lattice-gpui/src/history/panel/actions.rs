@@ -46,10 +46,13 @@ impl HistoryPanel {
         confirm::ask(confirm, cx);
     }
 
-    /// Run one git action, then read the versions again (`runAction`).
+    /// Run one git action, then read the versions again (`runAction`). The
+    /// work answers its message and whether it changed the project's files,
+    /// which brings the project, the open files and the PDF up to date
+    /// (`onVersionsChanged`, `reloadAfterRestore`).
     fn run_action(
         &mut self,
-        work: impl FnOnce(&Path) -> Result<String, String> + Send + 'static,
+        work: impl FnOnce(&Path) -> Result<(String, bool), String> + Send + 'static,
         cx: &mut Context<Self>,
     ) {
         let Some(root) = self.root.clone() else {
@@ -63,7 +66,12 @@ impl HistoryPanel {
             this.update(cx, |this, cx| {
                 this.versions.busy = false;
                 match outcome {
-                    Ok(message) => notices::show(Notice::new(ToastLevel::Success, message), cx),
+                    Ok((message, changed)) => {
+                        notices::show(Notice::new(ToastLevel::Success, message), cx);
+                        if changed {
+                            cx.emit(super::HistoryEvent::Restored);
+                        }
+                    }
                     Err(error) => notices::error(t!("Versions"), error, cx),
                 }
                 this.reload(cx);
@@ -77,7 +85,7 @@ impl HistoryPanel {
         self.run_action(
             |root| {
                 lattice_core::git::init(root)?;
-                Ok(t!("Now tracking versions of this project.").into())
+                Ok((t!("Now tracking versions of this project.").into(), false))
             },
             cx,
         );
@@ -94,8 +102,8 @@ impl HistoryPanel {
             move |root| {
                 let hash = lattice_core::git::auto_commit(root, &message, None)?;
                 Ok(match hash {
-                    Some(_) => t!("Version saved.").into(),
-                    None => t!("No changes since the last version.").into(),
+                    Some(_) => (t!("Version saved.").into(), true),
+                    None => (t!("No changes since the last version.").into(), false),
                 })
             },
             cx,
@@ -108,10 +116,18 @@ impl HistoryPanel {
         path: String,
         cx: &mut Context<Self>,
     ) {
-        let question = t!(
-            "Restore {path} to this version? The current state is saved as a version first.",
-            path = &path
-        );
+        // A linked project's restore reaches Overleaf at the next sync.
+        let question = if self.overleaf_linked {
+            t!(
+                "Restore {path} to this version? The current state is saved as a local version first. Syncing then replaces the file on Overleaf too, including co-authors' changes made there since this version; Overleaf's history keeps those.",
+                path = &path
+            )
+        } else {
+            t!(
+                "Restore {path} to this version? The current state is saved as a version first.",
+                path = &path
+            )
+        };
         self.ask(
             question,
             false,
@@ -120,7 +136,7 @@ impl HistoryPanel {
                 this.run_action(
                     move |root| {
                         lattice_core::git::restore_file(root, &hash, &path)?;
-                        Ok(t!("Restored {path}.", path = &path))
+                        Ok((t!("Restored {path}.", path = &path), true))
                     },
                     cx,
                 );
@@ -130,9 +146,15 @@ impl HistoryPanel {
     }
 
     pub(crate) fn restore_project(&mut self, hash: String, cx: &mut Context<Self>) {
-        let question = t!(
-            "Restore the project to this version?\n\nNothing is lost: the current state is saved as a version first"
-        )
+        let question = if self.overleaf_linked {
+            t!(
+                "Restore the project to this version?\n\nThe current state is saved as a local version first. Syncing then replaces the project on Overleaf too, including co-authors' changes made there since this version; Overleaf's history keeps those."
+            )
+        } else {
+            t!(
+                "Restore the project to this version?\n\nNothing is lost: the current state is saved as a version first"
+            )
+        }
         .to_string();
         self.ask(
             question,
@@ -142,7 +164,7 @@ impl HistoryPanel {
                 this.run_action(
                     move |root| {
                         lattice_core::git::restore_project(root, &hash)?;
-                        Ok(t!("Project restored.").into())
+                        Ok((t!("Project restored.").into(), true))
                     },
                     cx,
                 );
@@ -182,8 +204,9 @@ impl HistoryPanel {
                 cx.spawn(async move |this, cx| {
                     let outcome = run.await;
                     this.update(cx, |this, cx| {
-                        if let Err(error) = outcome {
-                            notices::error(t!("History"), error, cx);
+                        match outcome {
+                            Err(error) => notices::error(t!("History"), error, cx),
+                            Ok(()) => cx.emit(super::HistoryEvent::Restored),
                         }
                         this.reload(cx);
                     })

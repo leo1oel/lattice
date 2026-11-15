@@ -134,10 +134,10 @@ impl LoadedDiff {
                     DiffState::new(files, cx)
                         .with_context_lines(Some(CONTEXT))
                         .with_syntax_highlighter(move |language, text| {
-                            if language == "latex" {
-                                highlight_tex(text, appearance)
-                            } else {
-                                Vec::new()
+                            match language {
+                                "latex" => highlight_tex(text, appearance),
+                                "markdown" => highlight_markdown(text, appearance),
+                                _ => Vec::new(),
                             }
                         })
                 })
@@ -158,9 +158,68 @@ fn language_of(path: &str) -> &'static str {
         .any(|extension| lower.ends_with(extension))
     {
         "latex"
+    } else if [".md", ".markdown"]
+        .iter()
+        .any(|extension| lower.ends_with(extension))
+    {
+        "markdown"
     } else {
         "text"
     }
+}
+
+static MARKDOWN_TOKEN: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(concat!(
+        r"(?m)(?P<heading>^#{1,6}[ \t].*$)",
+        r"|(?P<marker>^[ \t]*(?:[-*+]|\d+[.)]|>)[ \t])",
+        r"|(?P<code>`[^`\n]+`)",
+        r"|(?P<strong>\*\*[^*\n]+\*\*|__[^_\n]+__)",
+        r"|(?P<emphasis>\*[^*\s][^*\n]*\*|\b_[^_\s][^_\n]*_\b)",
+        r"|(?P<link>\]\([^)\n]*\))",
+    ))
+    .expect("the Markdown token pattern compiles")
+});
+
+/// Markdown as GitHub's theme colours it (`pierre-diff.ts`'s markdown
+/// grammar): headings in its constant blue and bold, list and quote
+/// markers as keywords, inline code and link targets as strings, strong
+/// text bold and emphasis italic.
+fn highlight_markdown(text: &str, appearance: Appearance) -> Vec<(Range<usize>, HighlightStyle)> {
+    let Some(source) = CodeTheme::Github.source() else {
+        return Vec::new();
+    };
+    let syntax = source.in_app(appearance).syntax;
+    let color = |color: Hsla| HighlightStyle {
+        color: Some(color),
+        ..HighlightStyle::default()
+    };
+    MARKDOWN_TOKEN
+        .captures_iter(text)
+        .filter_map(|captures| {
+            let style = if captures.name("heading").is_some() {
+                HighlightStyle {
+                    font_weight: Some(gpui::FontWeight::BOLD),
+                    ..color(syntax.constant.hsla())
+                }
+            } else if captures.name("marker").is_some() {
+                color(syntax.keyword.hsla())
+            } else if captures.name("code").is_some() || captures.name("link").is_some() {
+                color(syntax.string.hsla())
+            } else if captures.name("strong").is_some() {
+                HighlightStyle {
+                    font_weight: Some(gpui::FontWeight::BOLD),
+                    ..HighlightStyle::default()
+                }
+            } else {
+                HighlightStyle {
+                    font_style: Some(gpui::FontStyle::Italic),
+                    ..HighlightStyle::default()
+                }
+            };
+            let range = captures.get(0)?.range();
+            Some((range, style))
+        })
+        .collect()
 }
 
 static TEX_TOKEN: LazyLock<Regex> = LazyLock::new(|| {
@@ -369,5 +428,19 @@ mod tests {
             .map(|(range, _)| &"\\section{A} $x$ % note"[range.clone()])
             .collect();
         assert_eq!(texts, vec!["\\section", "$x$", "% note"]);
+    }
+
+    #[test]
+    fn markdown_diffs_are_coloured_by_their_marks() {
+        assert_eq!(super::language_of("notes/Plan.MD"), "markdown");
+        let text = "## Results\n- see `fit.py` and [the data](data.csv)\nIt is **clear** and *new*.";
+        let spans: Vec<&str> = super::highlight_markdown(text, Appearance::Light)
+            .into_iter()
+            .map(|(range, _)| &text[range])
+            .collect();
+        assert_eq!(
+            spans,
+            ["## Results", "- ", "`fit.py`", "](data.csv)", "**clear**", "*new*"]
+        );
     }
 }

@@ -167,6 +167,7 @@ impl EditorPanel {
             .children(margin.map(|(_, layer)| layer))
             .children(self.annotation_composer(window, cx))
             .children(self.selection_toolbar(window, cx))
+            .children(self.vim_ex_line(cx))
             .child(
                 gpui::canvas(
                     move |bounds, window, cx| {

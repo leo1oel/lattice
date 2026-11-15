@@ -3,11 +3,7 @@
 What the Tauri app has that the GPUI app does not port yet, one item per line.
 A feature that lands deletes its own line (only that line, so features landing side by side merge cleanly), and a gap found adds one.
 
-- [ ] Overleaf's tracked changes in the visual LaTeX editor (their marks, cards and margin review items).
-
 - [ ] Margin review's J/K walk between items.
-
-- [ ] The editor's change wash on lines an outside edit landed (`lattice_ui::attention` has its timing).
 
 - [ ] The Revision rounds sheet, comparing a round's versions (and the round saved toast's Compare).
 
@@ -39,8 +35,6 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] Overleaf: a compile after a resolved conflict (the watcher's build stands in).
 
-- [ ] The visual Markdown editor: Overleaf's tracked changes painted in it.
-
 - [ ] A Finder drop of a drawing (`.svg`, `.drawio`) onto the editor as an editable figure.
 
 - [ ] A paper dragged from Papers into the editor as a citation.
@@ -53,7 +47,7 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] New project's My templates and Save a local template….
 
-- [ ] Each file's editor and PDF place kept across launches.
+- [ ] Each file's editor place kept across launches (the PDF's is kept).
 
 - [ ] The palette's New LaTeX file, New Markdown file, New spreadsheet, New board and New presentation (the Project panel cannot make a typed file yet).
 

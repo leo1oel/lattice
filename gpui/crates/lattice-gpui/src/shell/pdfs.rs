@@ -110,6 +110,7 @@ impl Shell {
             return;
         };
         let previous = self.live_document.replace(document.clone());
+        self.key_live_place(cx);
         let live_in_front = self.in_front("pdf", cx);
         // The PDF in its own window shows the build there: the panel's tabs
         // stay as they are.
@@ -339,7 +340,10 @@ impl Shell {
         cx.subscribe_in(&panel, window, Self::on_pdf_event).detach();
         self.give_citations(&panel, cx);
         self.give_pdf_notes_to(&panel, Some(document.to_string()), cx);
-        panel.update(cx, |panel, cx| panel.open(path, window, cx));
+        panel.update(cx, |panel, cx| {
+            panel.set_place_key(root.clone(), document.to_string(), path.clone());
+            panel.open_restoring(path, false, window, cx)
+        });
         self.root_pdfs.push((document.to_string(), panel.clone()));
         self.label_pdfs(cx);
         self.refresh_reveal(cx);
@@ -469,6 +473,15 @@ impl Shell {
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     pub fn root_pdf_tabs(&self) -> Vec<(String, Entity<PdfPanel>)> {
         self.root_pdfs.clone()
+    }
+
+    /// The live PDF keeps its place under the document it shows now.
+    pub(super) fn key_live_place(&self, cx: &mut Context<Self>) {
+        if let (Some(root), Some(document)) = (self.root(cx), self.live_document.clone()) {
+            let pdf = root.join(&document).with_extension("pdf");
+            self.pdf
+                .update(cx, |panel, _| panel.set_place_key(root, document, pdf));
+        }
     }
 
     #[cfg(any(target_os = "macos", target_os = "windows"))]

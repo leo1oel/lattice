@@ -23,6 +23,7 @@ pub mod panel;
 mod prose;
 pub mod review_mode;
 mod row;
+mod sticky_days;
 pub(crate) mod time;
 mod timeline;
 mod view;

@@ -27,6 +27,8 @@ pub enum PdfViewEvent {
     OpenCitation(String),
     /// A note's card asked something of it (Resolve, Reply).
     Annotation(crate::annotations::AnnotationRequest),
+    /// The view rested at a new place, for the host to keep.
+    PlaceChanged(super::ViewPlace),
 }
 
 /// A context-specific action before Save, such as moving the PDF into a

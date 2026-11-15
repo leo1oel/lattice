@@ -50,6 +50,40 @@ pub fn bind_keys(cx: &mut App) {
 fn default_bindings() -> Vec<KeyBinding> {
     let mut bindings = vec![
         KeyBinding::new(m!("o"), OpenFolder, beside_vim("!(vim_mode == insert)")),
+        // The source editor's base keys where Zed's differ, as CodeMirror's
+        // `defaultKeymap` and `foldKeymap` bind them in the Tauri app
+        // (`editor-keymap.ts`). ⌘I selects the enclosing syntax node; it is
+        // bound before the LaTeX source's Emphasis below, which takes the
+        // key first in a `.tex` file and passes it on elsewhere.
+        KeyBinding::new(
+            m!("i"),
+            editor::actions::SelectLargerSyntaxNode,
+            Some(LATEX_FORMAT_KEYS),
+        ),
+        KeyBinding::new(
+            if cfg!(target_os = "macos") {
+                "ctrl-l"
+            } else {
+                "alt-l"
+            },
+            editor::actions::SelectLine,
+            Some("Editor && !VimControl && !LatticeEmacs"),
+        ),
+        KeyBinding::new(
+            m!("alt-\\"),
+            editor::actions::AutoIndent,
+            Some(LATEX_FORMAT_KEYS),
+        ),
+        KeyBinding::new(
+            "ctrl-alt-[",
+            editor::actions::FoldAll,
+            Some("Editor && !VimControl"),
+        ),
+        KeyBinding::new(
+            "ctrl-alt-]",
+            editor::actions::UnfoldAll,
+            Some("Editor && !VimControl"),
+        ),
         // No ⌘B for Build: it has no key of its own, as in the Tauri app,
         // where ⌘S saves and builds (`use-command-table.ts`). ⌘B and ⌘I are
         // the LaTeX source's Bold and Emphasis (`latex-shortcuts.ts`), over
@@ -143,6 +177,13 @@ fn default_bindings() -> Vec<KeyBinding> {
             "f12",
             crate::editor_panel::definition::GotoDefinition,
             Some(LATEX_FORMAT_KEYS),
+        ),
+        // Vim's `:` (`editor_panel/vim_ex.rs`): Lattice's command line, over
+        // Zed's, which opens a command palette this app does not host.
+        KeyBinding::new(
+            ":",
+            crate::editor_panel::vim_ex::VimCommandLine,
+            Some("Editor && mode == full && VimControl && !menu"),
         ),
         // The typing rules (`editor_panel/latex_input.rs`): with Vim on they
         // act only in its insert mode, so every other mode keeps `$` and
@@ -344,6 +385,39 @@ mod tests {
             resolve(bindings, "Editor mode = full", m!("w")),
             Some(CloseTab.name())
         );
+    }
+
+    #[test]
+    fn ctrl_l_selects_the_line_but_recenters_under_emacs() {
+        // emacs.json binds ctrl-l to recenter-top-bottom in an editor, as the
+        // Tauri app's Emacs keymap does; the app loads it under its Emacs
+        // context, then Lattice's keymap again.
+        let mut bindings = default_bindings();
+        bindings.push(KeyBinding::new(
+            "ctrl-l",
+            editor::actions::ScrollCursorCenterTopBottom,
+            Some(&format!("{} > Editor", crate::app::EMACS_CONTEXT)),
+        ));
+        bindings.extend(default_bindings());
+        let keymap = Keymap::new(bindings);
+        let run = |shell: &str| {
+            let stack = [shell, "LatticeEditor", "Editor mode = full"]
+                .map(|context| KeyContext::parse(context).unwrap());
+            let (matched, _) =
+                keymap.bindings_for_input(&[Keystroke::parse("ctrl-l").unwrap()], &stack);
+            matched.first().map(|binding| binding.action().name())
+        };
+        let emacs = format!("LatticeShell {}", crate::app::EMACS_CONTEXT);
+        assert_eq!(
+            run(&emacs),
+            Some(editor::actions::ScrollCursorCenterTopBottom.name())
+        );
+        if cfg!(target_os = "macos") {
+            assert_eq!(
+                run("LatticeShell"),
+                Some(editor::actions::SelectLine.name())
+            );
+        }
     }
 
     #[test]

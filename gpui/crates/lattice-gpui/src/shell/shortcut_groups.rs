@@ -164,7 +164,7 @@ pub(super) const LATEX_ROWS: ActionTable = &[
     (n!("lower case"), &[("lattice::LowerCase", None)]),
     (n!("Title Case"), &[("lattice::TitleCase", None)]),
     (n!("Find in document"), &[("buffer_search::Deploy", None)]),
-    (n!("Go to definition"), &[("editor::GoToDefinition", None)]),
+    (n!("Go to definition"), &[("lattice::GotoDefinition", None)]),
     (
         n!("Find references"),
         &[("editor::FindAllReferences", None)],

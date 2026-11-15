@@ -110,6 +110,8 @@ The first build fetches Zed at the pinned revision and compiles about 1,200 crat
 | `$`, ↩ | In a LaTeX file, `$` pairs (and wraps a selection in `$…$`); ↩ after a `\begin{…}` writes its `\end{…}`, and on an `\item` line starts the next item or, on an empty one, leaves the list |
 | ⌘⇧K, ⌘⇧L | In a LaTeX file, Insert citation and Insert reference: a picker of the bibliography's keys or the project's labels, writing `\cite{…}` or `\ref{…}` at the caret |
 | ⌘G, ⌘⇧O | Go to line, and Go to symbol (the manuscript's sections and the project's labels) |
+| ⌃L, ⌘I, ⌥⌘\\, ⌃⌥[ / ⌃⌥] | Select the line, the enclosing syntax (outside a LaTeX file), re-indent, fold or unfold everything, as CodeMirror binds them in the Tauri app |
+| Vim `:w`, `:q`, `:wq`, `:N` | Save (and build), close the tab, both, go to line N |
 | F12, ⌘-click | In a LaTeX file, Go to definition: a label's `\label`, a citation's entry, an `\input`'s file or a figure (TexLab for the rest, when installed) |
 | Zed's default keymap | Everything else in the editor |
 
@@ -275,7 +277,7 @@ The PDF is read into memory on every (re)load, so latexmk can rewrite it while i
 Pages are laid out from their sizes at once (`pdf/layout.rs`, the Tauri viewer's column: 8px of border, 10px between pages) and scroll in one container; only the pages near the viewport are drawn, and images two pages beyond the visible ones are released from memory and from the GPU atlas. A page larger than 6 million device pixels at its zoom is drawn at that size, with the part on screen drawn again at full size on top, as PDF.js caps its canvases.
 A zoom stretches the pages' images at once and draws them again once it rests (80 ms), as the Tauri app previews a zoom as a transform.
 A rebuild compares each page's signature (`lattice-core`'s `pdf_pages`) with the last copy's: a page that draws the same keeps its image and text, and a changed one keeps its old image until the new one is drawn. A new page count, outline or page size shows the document anew.
-Dark pages are the Tauri app's CSS filter, `invert(0.86) hue-rotate(180deg)`, applied to PDFium's bitmap, so hues keep and the SyncTeX mark, search hits and the selection keep their own colours. The choice, the fit and zoom a viewer opens with, and, per project, whether its PDF is in the separate window and where that window was left are kept in `pdf.json` in the app's state directory (`LATTICE_GPUI_STATE_DIR`; a scripted run keeps them in memory).
+Dark pages are the Tauri app's CSS filter, `invert(0.86) hue-rotate(180deg)`, applied to PDFium's bitmap, so hues keep and the SyncTeX mark, search hits and the selection keep their own colours. The choice, the fit and zoom a viewer opens with, and, per project, whether its PDF is in the separate window and where that window was left, and where each document's PDF was left ([PDF preview](docs/pdf-preview.md)), are kept in `pdf.json` in the app's state directory (`LATTICE_GPUI_STATE_DIR`; a scripted run keeps them in memory).
 
 ### The build
 
