@@ -16,19 +16,15 @@
 use std::rc::Rc;
 
 use gpui::{
-    Anchor as Corner, AnyElement, App, Bounds, FontWeight, Hsla, InteractiveElement as _,
-    IntoElement, ParentElement as _, Pixels, SharedString, StatefulInteractiveElement as _,
-    Styled as _, Task, Window, anchored, canvas, deferred, div, point, prelude::FluentBuilder as _,
-    px,
+    AnyElement, App, FontWeight, Hsla, InteractiveElement as _, IntoElement, ParentElement as _,
+    Pixels, SharedString, StatefulInteractiveElement as _, Styled as _, Task, Window, div, point,
+    prelude::FluentBuilder as _, px,
 };
 use lattice_editor::{
     index::Citation,
     latex::cards::{byline_authors, card_surface, reading_font},
 };
-use lattice_ui::{
-    ActiveLattice as _, TextRole, TextRoleStyle as _,
-    components::{PopFrom, pop_in},
-};
+use lattice_ui::{ActiveLattice as _, TextRole, TextRoleStyle as _};
 
 use super::*;
 use crate::pdf::citation_keys;
@@ -37,9 +33,6 @@ use crate::pdf::citation_keys;
 const OPEN_AFTER: Duration = Duration::from_millis(250);
 /// How long the pointer may be off the link and the card before it closes.
 const CLOSE_AFTER: Duration = Duration::from_millis(180);
-/// The card's gap from its link (`offset(8)`) and from the window's edges
-/// (`shift({ padding: 8 })`).
-const CARD_GAP: Pixels = px(8.);
 const CARD_WIDTH: Pixels = px(360.);
 
 /// The entry cited under a key, as the bibliography has it.
@@ -72,7 +65,7 @@ pub(in crate::pdf) struct CitationHover {
     /// The pointer left the link and the card; it closes when this ends.
     closing: Option<Task<()>>,
     /// The card's bounds last frame, for placing it above or below.
-    card: Rc<std::cell::Cell<Option<Bounds<Pixels>>>>,
+    card: super::hover_card::CardBounds,
 }
 
 struct Shown {
@@ -240,7 +233,6 @@ impl PdfView {
             cx.defer_in(window, |this, _, cx| this.dismiss_citation(cx));
             return None;
         }
-        let page = self.layout.page(shown.target.page)?;
         let link = self
             .pages
             .get(shown.target.page)?
@@ -249,44 +241,8 @@ impl PdfView {
             .links
             .get(shown.target.link)?
             .clone();
-        let scale = self.layout.scale;
-        let (scroll_x, scroll_y) = self.scroll_offset();
-        let origin = self.viewport.origin;
-        let rect = Bounds::from_corners(
-            point(
-                origin.x + px(page.x + link.x0 * scale - scroll_x),
-                origin.y + px(page.y + link.y0 * scale - scroll_y),
-            ),
-            point(
-                origin.x + px(page.x + link.x1 * scale - scroll_x),
-                origin.y + px(page.y + link.y1 * scale - scroll_y),
-            ),
-        );
-        // Centred above the link (`placement: "top"`), flipped below when
-        // the card would cross the window's top, and shifted to stay 8px
-        // inside the window's sides (`shift({ padding: 8 })`); its size is
-        // last frame's, and a card drawn at another size is placed again.
-        let last = self.citation.card.get().map(|card| card.size);
-        let window_width = window.viewport_size().width;
-        let width = last.map_or(card_width(window_width), |size| size.width);
-        let height = last.map_or(px(0.), |size| size.height);
-        let above = rect.top() - CARD_GAP - height >= CARD_GAP;
-        let left = (rect.center().x - width / 2.)
-            .min(window_width - CARD_GAP - width)
-            .max(CARD_GAP);
-        let (at, anchor, from) = if above {
-            (
-                point(left, rect.top() - CARD_GAP),
-                Corner::BottomLeft,
-                PopFrom::Below,
-            )
-        } else {
-            (
-                point(left, rect.bottom() + CARD_GAP),
-                Corner::TopLeft,
-                PopFrom::Above,
-            )
-        };
+        let rect =
+            self.page_box_on_window(shown.target.page, (link.x0, link.y0, link.x1, link.y1))?;
         let key = shown.citation.key.clone();
         let can_open = self
             .citations
@@ -295,7 +251,6 @@ impl PdfView {
         let citation = shown.citation.clone();
         let view = cx.entity().downgrade();
         let opened = {
-            let view = view.clone();
             let key = key.clone();
             move |_: &gpui::ClickEvent, _: &mut Window, cx: &mut App| {
                 view.update(cx, |this, cx| {
@@ -312,23 +267,6 @@ impl PdfView {
                 this.close_citation_soon(cx);
             }
         });
-        let painted = self.citation.card.clone();
-        let record = canvas(
-            move |bounds, _, cx| {
-                let resized = painted.get().map(|card| card.size) != Some(bounds.size);
-                painted.set(Some(bounds));
-                if resized {
-                    cx.defer(move |cx| {
-                        view.update(cx, |_, cx| cx.notify()).ok();
-                    });
-                }
-            },
-            |_, _, _, _| {},
-        )
-        .absolute()
-        .top_0()
-        .left_0()
-        .size_full();
         let card = citation_card(
             &citation,
             can_open.then_some(opened),
@@ -339,26 +277,14 @@ impl PdfView {
             .id("pdf-citation-card")
             .occlude()
             .on_hover(hovered)
-            .child(card)
-            .child(record);
-        Some(
-            deferred(
-                anchored()
-                    .position(at)
-                    .anchor(anchor)
-                    .snap_to_window_with_margin(CARD_GAP)
-                    .child(pop_in(
-                        SharedString::from(format!(
-                            "pdf-citation-{}-{}",
-                            shown.target.page, shown.target.link
-                        )),
-                        from,
-                        content,
-                    )),
-            )
-            .with_priority(1)
-            .into_any_element(),
-        )
+            .child(card);
+        let id = SharedString::from(format!(
+            "pdf-citation-{}-{}",
+            shown.target.page, shown.target.link
+        ));
+        let painted = self.citation.card.clone();
+        let width = card_width(window.viewport_size().width);
+        Some(self.hover_card(id, rect, width, painted, content, window, cx))
     }
 }
 

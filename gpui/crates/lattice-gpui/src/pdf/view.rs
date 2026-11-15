@@ -39,8 +39,10 @@ use lattice_i18n::t;
 
 mod autoscroll;
 mod citation;
+mod compound;
 mod drafts;
 mod events;
+mod hover_card;
 mod host;
 mod links;
 mod live;
@@ -52,6 +54,7 @@ mod sync_mark;
 mod window_wide;
 
 pub use citation::CitationLookup;
+pub use compound::CompoundSource;
 
 use page_changes::changed_pages;
 pub(super) use pages::PageSlot;
@@ -204,6 +207,9 @@ pub struct PdfView {
     /// The project's citations, for the cards over citation links.
     citations: Option<CitationLookup>,
     citation: citation::CitationHover,
+    /// The last build's compounds, for the key cards over their numbers.
+    compounds: Option<CompoundSource>,
+    compound: compound::CompoundHover,
     /// Middle-click autoscroll while it runs, and the press it took whose
     /// release is not a click.
     autoscroll: Option<autoscroll::Autoscroll>,
@@ -327,6 +333,8 @@ impl PdfView {
             stats: RenderStats::default(),
             citations: None,
             citation: Default::default(),
+            compounds: None,
+            compound: Default::default(),
             autoscroll: None,
             blocked_up: None,
             escape: None,
@@ -424,6 +432,7 @@ impl PdfView {
     pub fn close(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self._open_task = None;
         self.dismiss_citation(cx);
+        self.dismiss_compound(cx);
         self.stop_autoscroll(cx);
         self.reset(window);
         if let (Ok(engine), Some(doc)) = (&self.engine, self.doc.take()) {
@@ -524,6 +533,7 @@ impl PdfView {
         self.loading = false;
         self.message = None;
         self.dismiss_citation(cx);
+        self.dismiss_compound(cx);
         self.stop_autoscroll(cx);
         let generation = info.generation;
         let count = info.page_sizes.len();

@@ -37,6 +37,7 @@ impl PdfView {
         cx: &mut Context<Self>,
     ) {
         window.focus(&self.focus_handle, cx);
+        self.compound_press(event, cx);
         let (x, y) = self.sheet_point(event.position);
         let Some((page, page_x, page_y)) = self.layout.to_page(x, y) else {
             self.selection = None;
@@ -88,6 +89,7 @@ impl PdfView {
     ) {
         if event.pressed_button.is_none() && !self.autoscrolling() {
             self.hover_citation(event.position, cx);
+            self.hover_compound(event.position, cx);
         }
         if !self.selecting || event.pressed_button != Some(MouseButton::Left) {
             return;
@@ -107,6 +109,7 @@ impl PdfView {
         _: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        self.compound_click(event, cx);
         self.selecting = false;
         let collapsed = self.selection.is_none_or(|selection| selection.is_empty());
         if collapsed {

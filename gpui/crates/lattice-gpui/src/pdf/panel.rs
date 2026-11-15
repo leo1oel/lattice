@@ -111,6 +111,8 @@ pub struct PdfPanel {
     outline: Option<super::OutlineState>,
     /// The project's citations, carried into the window.
     citations: Option<super::CitationLookup>,
+    /// The last build's compounds, carried into the window.
+    compounds: Option<super::CompoundSource>,
     /// Track changes' marked PDF building, or why it could not be made.
     pub(super) marking: super::review_marking::Marking,
     _subscriptions: Vec<gpui::Subscription>,
@@ -139,6 +141,18 @@ impl PdfPanel {
         ];
         for view in views.into_iter().flatten() {
             view.update(cx, |view, cx| view.set_citations(lookup.clone(), cx));
+        }
+    }
+
+    /// The last build's compounds, for the key cards over their numbers.
+    pub fn set_compounds(&mut self, source: Option<super::CompoundSource>, cx: &mut Context<Self>) {
+        self.compounds = source.clone();
+        let views = [
+            Some(self.view.clone()),
+            self.window.as_ref().map(|(_, view)| view.clone()),
+        ];
+        for view in views.into_iter().flatten() {
+            view.update(cx, |view, cx| view.set_compounds(source.clone(), cx));
         }
     }
 
@@ -189,6 +203,7 @@ impl PdfPanel {
             title: "PDF".into(),
             outline: None,
             citations: None,
+            compounds: None,
             marking: Default::default(),
             _subscriptions: subscriptions,
         }
@@ -470,6 +485,8 @@ impl PdfPanel {
             Ok((handle, view)) => {
                 // The panel's own viewer lets go of its pages.
                 self.view.update(cx, |view, cx| view.close(window, cx));
+                let compounds = self.compounds.clone();
+                view.update(cx, |view, cx| view.set_compounds(compounds, cx));
                 self.window = Some((handle, view));
                 if let Some(root) = project {
                     preferences::update(|preferences| preferences.window_mut(&root).open = true);

@@ -5,6 +5,7 @@
 //! (`panel.rs`) and the live PDF's separate window (`window.rs`).
 
 mod clicked_word;
+pub(crate) mod compounds;
 mod dark;
 mod engine;
 mod find;
@@ -33,4 +34,4 @@ pub use outline_menu::OutlineState;
 pub use panel::{PdfEvent, PdfPanel, PdfPanelKind, pdf_tab_label};
 pub use text::LinkTarget;
 pub use toolbar_hover::toolbar_section;
-pub use view::{CitationLookup, PdfView, PdfViewEvent, ToolbarAction};
+pub use view::{CitationLookup, CompoundSource, PdfView, PdfViewEvent, ToolbarAction};

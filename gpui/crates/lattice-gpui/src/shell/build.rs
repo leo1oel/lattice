@@ -408,6 +408,9 @@ impl Shell {
                         project.forget_compiled();
                     }
                 });
+                if wrote_pdf {
+                    self.read_compounds(result.root_document.clone(), result.aux_folder.clone(), cx);
+                }
                 if result.success && !cancelled {
                     notices::dismiss(BUILD_FAILED_NOTICE, cx);
                     self.get_started_built(cx);
