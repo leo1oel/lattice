@@ -70,6 +70,16 @@ impl Entry {
     /// The text a query searches: the label, the detail, the group, then
     /// the keywords (`scoreItem`); a file, its path (`scorePath`).
     pub(super) fn haystack(&self) -> String {
+        match self {
+            Entry::File { name, folder, .. } => {
+                return Path::new(folder.as_ref())
+                    .join(name.as_ref())
+                    .to_string_lossy()
+                    .into_owned();
+            }
+            Entry::Find { query, .. } => return query.clone(),
+            _ => {}
+        }
         let (label, detail) = entry_text(self);
         let shown = format!(
             "{label} {} {}",
@@ -78,10 +88,6 @@ impl Entry {
         );
         match self {
             Entry::Command { keywords, .. } => format!("{shown} {keywords}"),
-            Entry::File { name, folder, .. } => Path::new(folder.as_ref())
-                .join(name.as_ref())
-                .to_string_lossy()
-                .into_owned(),
             Entry::Paper { paper, .. } => format!(
                 "{shown} {} {} {}",
                 paper.citation_key.as_deref().unwrap_or_default(),
@@ -91,7 +97,7 @@ impl Entry {
             Entry::Setting(entry) => {
                 format!("{shown} {} {}", entry.terms, entry.description)
             }
-            Entry::Find { query, .. } => query.clone(),
+            Entry::File { .. } | Entry::Find { .. } => unreachable!(),
         }
     }
 
