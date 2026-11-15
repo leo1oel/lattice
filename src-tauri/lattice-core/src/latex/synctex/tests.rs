@@ -8,6 +8,64 @@ fn parses_inverse_synctex_locations() {
     assert_eq!(parse_synctex_edit(output).unwrap(), ("/tmp/paper/main.tex".to_string(), 33));
 }
 
+#[test]
+fn a_blank_line_answer_lands_on_the_paragraph_above_it() {
+    let source = "\n\nFirst line of a paragraph\nits last line.\n  \n\nNext paragraph.\n";
+    // The blank lines after a paragraph belong to it.
+    assert_eq!(paragraph_line(source, 5), 4);
+    assert_eq!(paragraph_line(source, 6), 4);
+    // Lines with text, and lines the source does not have, are left alone.
+    assert_eq!(paragraph_line(source, 3), 3);
+    assert_eq!(paragraph_line(source, 7), 7);
+    assert_eq!(paragraph_line(source, 40), 40);
+    // Blank lines opening the file have nothing above them.
+    assert_eq!(paragraph_line(source, 1), 3);
+    assert_eq!(paragraph_line("\n\n", 1), 1);
+}
+
+/// A hard-wrapped paragraph and one written as a single long source line,
+/// each followed by the blank line that ends it.
+const WRAPPED_PARAGRAPHS: &str = "\\documentclass{article}\n\\begin{document}\n\
+\\section{Introduction}\n\
+\n\
+Lattice is a local-first writing app for researchers who write in LaTeX and want their\n\
+drafts to stay on their own machine. Every build renders the document beside its source,\n\
+and a double-click in the preview jumps back to the line that produced the clicked word.\n\
+This paragraph is hard-wrapped across several source lines on purpose so that each\n\
+visual line of the PDF mixes words from two different source lines of the paragraph.\n\
+\n\
+A second paragraph is written as one long source line, the way many writers and Overleaf \
+users keep their prose, so that SyncTeX can only ever answer with that single line no matter \
+which visual line of the typeset paragraph was clicked by the writer in the preview pane.\n\
+\n\
+Short closing paragraph.\n\\end{document}\n";
+
+#[test]
+#[ignore = "requires a local latexmk and pdfLaTeX installation"]
+fn a_click_at_a_paragraph_end_never_lands_on_the_blank_line_after_it() {
+    let parent = TempDir::new("synctex-paragraph-end");
+    let root = project::create(&parent, "Paragraph end").unwrap();
+    fs::write(root.join("main.tex"), WRAPPED_PARAGRAPHS).unwrap();
+    let result = super::super::build(
+        &root,
+        true,
+        false,
+        &Default::default(),
+        None,
+        &super::super::BuildSteps::silent(),
+        super::super::AuxFiles::Beside,
+    )
+    .unwrap();
+    assert!(result.success, "{}", result.log);
+    // Past the end of each paragraph's last line (at 214pt and 262pt down
+    // page 1), where pdfTeX records the line's fill on the blank line (10
+    // and 12) that ends the paragraph.
+    for ((x, y), paragraph) in [((478.0, 214.0), 5..=9), ((478.0, 262.0), 11..=11)] {
+        let back = inverse_search(&root, 1, x, y).unwrap();
+        assert!(paragraph.contains(&back.line), "{} is outside {paragraph:?}", back.line);
+    }
+}
+
 /// A `synctex view` result block for `page`, `v` points down the page.
 fn view_block(page: &str, v: &str) -> String {
     format!(

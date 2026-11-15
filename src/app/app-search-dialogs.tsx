@@ -6,6 +6,7 @@
  * pickers. `AppProjectSearchDialogs` renders the two that run a query across
  * the whole project, find and replace, whose queries useProjectSearch runs.
  */
+import { lazy } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { GotoLineDialog } from "../editor/goto-line-dialog";
 import { QuickOpenDialog } from "../project/quick-open-dialog";
@@ -13,14 +14,19 @@ import { SearchPickerDialog, type SearchPickerItem } from "../components/ui/sear
 import { parsePaperLinkPath } from "../papers/paper-link";
 import { paperBylineAuthors } from "../papers/paper-identity";
 import { flattenOutline, type OutlineNode } from "../editor/latex/latex-outline";
-import { ProjectFindDialog } from "../project/project-find-dialog";
 import type { ProjectSearch } from "./use-project-search";
-import { ProjectReplaceDialog } from "../project/project-replace-dialog";
 import { referenceKindLabel, type CitationInfo, type ReferenceInfo } from "../editor/latex/latex-text";
 import { isProjectAssetFilePath } from "../app-utils";
 import { collectFilePaths } from "./workspace-restore";
 import { useTrellisController } from "../trellis/trellis-controller";
+import { LazyMountOnce } from "../components/lazy-mount";
 import type { EditorPosition, FileNode, OpenProjectFile } from "../app-types";
+
+// Find and Replace in project load on their first opening: neither is part of
+// what a window needs to start. Each stays mounted after that, since both keep
+// their last query (and Replace its options) across closing.
+const ProjectFindDialog = lazy(() => import("../project/project-find-dialog").then((module) => ({ default: module.ProjectFindDialog })));
+const ProjectReplaceDialog = lazy(() => import("../project/project-replace-dialog").then((module) => ({ default: module.ProjectReplaceDialog })));
 
 /** The navigation dialogs; at most one is open at a time. */
 export type SearchDialog = "quick-open" | "goto-symbol" | "goto-line" | "cite" | "ref";
@@ -164,35 +170,39 @@ export function AppProjectSearchDialogs({ search, ...props }: {
   const trellis = useTrellisController();
   return (
     <>
-      <ProjectFindDialog
-        open={find.open}
-        busy={find.busy}
-        error={find.error}
-        hits={find.hits}
-        seed={find.seed}
-        onClose={search.closeFind}
-        onSearch={search.search}
-        onOpenHit={(path, line) => {
-          if (parsePaperLinkPath(path)) props.openMarkdownProjectPath(path);
-          else {
-            // Each hit looked at takes the place of the last one's preview tab.
-            trellis?.tabs.preview(path);
+      <LazyMountOnce when={find.open}>
+        <ProjectFindDialog
+          open={find.open}
+          busy={find.busy}
+          error={find.error}
+          hits={find.hits}
+          seed={find.seed}
+          onClose={search.closeFind}
+          onSearch={search.search}
+          onOpenHit={(path, line) => {
+            if (parsePaperLinkPath(path)) props.openMarkdownProjectPath(path);
+            else {
+              // Each hit looked at takes the place of the last one's preview tab.
+              trellis?.tabs.preview(path);
+              void props.openProjectFile(path, { line });
+            }
+          }}
+        />
+      </LazyMountOnce>
+      <LazyMountOnce when={replace.open}>
+        <ProjectReplaceDialog
+          open={replace.open}
+          busy={replace.busy}
+          error={replace.error}
+          preview={replace.preview}
+          onClose={search.closeReplace}
+          onOpenMatch={(path, line) => {
             void props.openProjectFile(path, { line });
-          }
-        }}
-      />
-      <ProjectReplaceDialog
-        open={replace.open}
-        busy={replace.busy}
-        error={replace.error}
-        preview={replace.preview}
-        onClose={search.closeReplace}
-        onOpenMatch={(path, line) => {
-          void props.openProjectFile(path, { line });
-        }}
-        onPreview={(query, options) => void search.previewReplace(query, options)}
-        onReplace={(query, replacement, options) => void search.applyReplace(query, replacement, options)}
-      />
+          }}
+          onPreview={(query, options) => void search.previewReplace(query, options)}
+          onReplace={(query, replacement, options) => void search.applyReplace(query, replacement, options)}
+        />
+      </LazyMountOnce>
     </>
   );
 }

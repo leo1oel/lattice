@@ -66,6 +66,24 @@ impl AnnotationsPanel {
             .unwrap_or_default()
     }
 
+    /// The head's Revision rounds, once the project has a settled round:
+    /// opens the rounds sheet (`rounds_sheet.rs`).
+    pub(super) fn rounds_button(&self, cx: &gpui::App) -> Option<lattice_ui::components::IconButton> {
+        let rounds = self.rounds.rounds.clone()?;
+        self.rounds_list(cx).iter().any(|round| round.settled_at.is_some()).then(|| {
+            lattice_ui::components::IconButton::new("annotations-rounds", lattice_ui::Icon::HISTORY)
+                .tooltip(lattice_i18n::t!("Revision rounds"))
+                .on_click(move |_, _, cx| {
+                    rounds.update(cx, |_, cx| cx.emit(crate::annotations::rounds::RoundsEvent::OpenRounds))
+                })
+        })
+    }
+
+    /// Whether the head offers Revision rounds now (for a scenario).
+    pub(crate) fn offers_rounds(&self, cx: &gpui::App) -> bool {
+        self.rounds_button(cx).is_some()
+    }
+
     /// Whether the agent is answering `id` now.
     pub(super) fn revising(&self, id: &str, cx: &gpui::App) -> bool {
         self.rounds.rounds.as_ref().is_some_and(|rounds| rounds.read(cx).is_running(id))

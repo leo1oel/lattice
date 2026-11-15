@@ -616,7 +616,8 @@ impl AnnotationsPanel {
                             .min_w_0()
                             .when(has_notes, |this| this.child(segmented)),
                     )
-                    .when(has_notes, |this| this.child(search)),
+                    .when(has_notes, |this| this.child(search))
+                    .children(self.rounds_button(cx)),
             )
             .when(searching && has_notes, |this| {
                 this.child(

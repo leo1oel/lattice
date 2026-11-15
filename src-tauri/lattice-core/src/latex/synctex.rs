@@ -9,6 +9,7 @@ use crate::latex::PdfSyncTarget;
 use crate::models::SyncTexTarget;
 use crate::project;
 use serde::Deserialize;
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
@@ -62,7 +63,29 @@ pub fn inverse_search_in(
             return Ok(target);
         }
     }
+    // TeX breaks a paragraph into lines only once it reads the blank line
+    // that ends it, so the boxes it builds then (each line's right edge, the
+    // last line's fill) are recorded on that blank line. A click there means
+    // the paragraph above, never the empty line below it.
+    let line =
+        fs::read_to_string(&canonical_input).map_or(line, |source| paragraph_line(&source, line));
     Ok(SyncTexTarget { path: relative.to_string_lossy().replace('\\', "/"), line })
+}
+
+/// The 1-based `line` of `source`, moved off a blank line onto the nearest
+/// line with text above it (below it, for blank lines that open the file).
+fn paragraph_line(source: &str, line: u32) -> u32 {
+    let lines: Vec<&str> = source.lines().collect();
+    let blank =
+        |number: u32| lines.get(number as usize - 1).is_none_or(|text| text.trim().is_empty());
+    if line == 0 || line as usize > lines.len() || !blank(line) {
+        return line;
+    }
+    (1..line)
+        .rev()
+        .find(|number| !blank(*number))
+        .or_else(|| (line + 1..=lines.len() as u32).find(|number| !blank(*number)))
+        .unwrap_or(line)
 }
 
 pub fn forward_search(

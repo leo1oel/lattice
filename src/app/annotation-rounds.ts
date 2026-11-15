@@ -142,6 +142,12 @@ export class AnnotationRounds {
   private activeTasks = 0;
   /** Per round, the files it touches with their text from before its first answer. */
   private readonly baselines = new Map<number, Map<string, string | null>>();
+  /**
+   * The discard of a dropped round's kept files, while it runs: a round that
+   * starts meanwhile takes the same number, and waits for it before reading
+   * or writing that number's files.
+   */
+  private discarding: Promise<void> = Promise.resolve();
   /** The round being settled, so answers landing together settle it once. */
   private settling: number | null = null;
   /** Bumped by `reset`, so work for an earlier project drops its results. */
@@ -198,6 +204,7 @@ export class AnnotationRounds {
   /** Keep `round`'s files from before its first answer, adding `paths` it had not touched. */
   private async keepBaseline(round: number, paths: readonly string[]) {
     const projectRoot = this.deps?.projectRootRef.current;
+    await this.discarding;
     let baseline = this.baselines.get(round);
     if (!baseline) {
       // A round left open by an earlier session kept its baseline on disk.
@@ -284,6 +291,12 @@ export class AnnotationRounds {
     if (Object.values(round.outcomes).every((outcome) => outcome === "failed")) {
       this.baselines.delete(round.number);
       deps.store.commit((current) => ({ ...current, rounds: current.rounds.filter((item) => item.number !== round.number) }));
+      // Its kept files go too: the next round takes this number, and would
+      // otherwise start from them, counting the writer's edits since as the agent's.
+      const projectRoot = deps.projectRootRef.current;
+      this.discarding = invoke("discard_annotation_round", { projectRoot, number: round.number })
+        .then(() => {}, (reason: unknown) => showError(toMessage(reason)));
+      await this.discarding;
       return;
     }
     this.settling = round.number;

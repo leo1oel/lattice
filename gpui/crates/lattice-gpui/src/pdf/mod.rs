@@ -4,6 +4,7 @@
 //! selection (`text.rs`) and dark pages (`dark.rs`); the dock's PDF panels
 //! (`panel.rs`) and the live PDF's separate window (`window.rs`).
 
+pub(crate) mod annotation_place;
 mod clicked_word;
 pub(crate) mod compounds;
 mod dark;
@@ -34,4 +35,6 @@ pub use outline_menu::OutlineState;
 pub use panel::{PdfEvent, PdfPanel, PdfPanelKind, pdf_tab_label};
 pub use text::LinkTarget;
 pub use toolbar_hover::toolbar_section;
-pub use view::{CitationLookup, CompoundSource, PdfView, PdfViewEvent, ToolbarAction, ViewPlace};
+pub use view::{
+    CitationLookup, CompoundSource, PdfNotes, PdfView, PdfViewEvent, ToolbarAction, ViewPlace,
+};

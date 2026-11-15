@@ -52,6 +52,7 @@ impl Render for Shell {
             .child(self.tex_setup.clone())
             .children(self.conflict.as_ref().map(|(resolver, _)| resolver.clone()))
             .children(self.sheets.arxiv.as_ref().map(|(sheet, _)| sheet.clone()))
+            .children(self.rounds_sheet())
             .children(self.sheets.figures.as_ref().map(|(sheet, _)| sheet.clone()))
             .children(
                 self.sheets

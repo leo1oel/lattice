@@ -67,6 +67,7 @@ impl Shell {
             // the PDF, as a jump from the caret makes it.
             PdfEvent::Outline { path, line } => self.jump_to_heading(path, *line, window, cx),
             PdfEvent::OpenCitation(key) => self.open_citation(key, window, cx),
+            PdfEvent::Annotation(request) => self.on_annotation_request(request, window, cx),
             // In its own window the PDF gives its place in the workspace to
             // the documents, and coming back shows it there again, as the
             // Tauri app's `detachPdf` and `dockPdf` do. Either way, Track
@@ -338,6 +339,7 @@ impl Shell {
         let panel = cx.new(|cx| PdfPanel::new(kind, window, cx));
         cx.subscribe_in(&panel, window, Self::on_pdf_event).detach();
         self.give_citations(&panel, cx);
+        self.give_pdf_notes_to(&panel, Some(document.to_string()), cx);
         panel.update(cx, |panel, cx| {
             panel.set_place_key(root.clone(), document.to_string(), path.clone());
             panel.open_restoring(path, false, window, cx)

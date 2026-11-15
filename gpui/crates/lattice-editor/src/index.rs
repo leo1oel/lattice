@@ -83,6 +83,9 @@ pub struct ProjectIndex {
     /// The manuscript's root document, project-relative: a figure's path is
     /// read from its folder first.
     root_document: String,
+    /// A read has landed; a re-read keeps what it read meanwhile, as the
+    /// Tauri app's index stays `ready` while it reads again.
+    read_once: bool,
 }
 
 /// How long a burst of saves and file changes settles before the index is
@@ -99,6 +102,7 @@ impl ProjectIndex {
             loading: None,
             compiled: Compiled::default(),
             root_document: String::new(),
+            read_once: false,
         };
         this.read(Duration::ZERO, cx);
         this
@@ -128,6 +132,7 @@ impl ProjectIndex {
                     }
                     this.loaded = loaded;
                     this.loading = None;
+                    this.read_once = true;
                     cx.notify();
                 }
             })
@@ -135,9 +140,9 @@ impl ProjectIndex {
         }));
     }
 
-    /// A read is under way (the first, when nothing has been read yet).
-    pub fn is_loading(&self) -> bool {
-        self.loading.is_some()
+    /// The first read is still under way, so nothing has been read yet.
+    pub fn is_first_read_pending(&self) -> bool {
+        !self.read_once
     }
 
     pub fn citations(&self) -> &[Citation] {

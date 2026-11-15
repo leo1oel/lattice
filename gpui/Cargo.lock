@@ -8318,6 +8318,7 @@ dependencies = [
  "trellis",
  "ttf-parser",
  "tungstenite 0.29.0",
+ "unicode-normalization",
  "util",
  "uuid",
  "vim",

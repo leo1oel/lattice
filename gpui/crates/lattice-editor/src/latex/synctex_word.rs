@@ -9,11 +9,13 @@
 //! Both sides are compared as runs of letters and digits, without accents
 //! or case, and the source's markup is skipped while reading its words.
 //!
-//! One PDF line is usually a slice of the source line, so the clicked word
-//! is told apart from its other occurrences by its neighbours first. Its
-//! position among them settles a tie only when the PDF line holds the word
-//! as often as the source line does; anything still ambiguous lands on the
-//! line, as the jump always did.
+//! SyncTeX's line is only near the word, so the word is looked for in the
+//! whole paragraph around it (`source_target_for_word`). One PDF line is a
+//! slice of that paragraph, so the clicked word is told apart from its other
+//! occurrences by its neighbours first, then by being on the line SyncTeX
+//! named. Its position among them settles a tie only when the PDF line holds
+//! the word as often as the source line does; anything still ambiguous
+//! lands on the line, as the jump always did.
 
 use unicode_normalization::{UnicodeNormalization as _, char::is_combining_mark};
 
@@ -237,28 +239,83 @@ fn source_words(line: &str) -> Vec<SourceWord> {
     words
 }
 
-/// The column (in chars) in source `line` where the clicked `word` starts,
-/// or `None` when it is not there or its occurrences cannot be told apart.
-pub fn source_column_for_word(line: &str, word: &SyncTexWord) -> Option<usize> {
-    let words = source_words(line);
-    let candidates: Vec<usize> = (0..words.len())
-        .filter(|ix| words[*ix].key == word.word)
+/// How far a paragraph is read above and below the line SyncTeX named.
+const PARAGRAPH_REACH: usize = 40;
+
+fn is_blank(text: &str) -> bool {
+    text.trim().is_empty()
+}
+
+/// Where the clicked `word` stands in the paragraph around the 1-based
+/// `line` of `lines`: the 1-based line it is on and the column (in chars)
+/// it starts at, or no column on the line itself when the paragraph does not
+/// hold it or cannot tell its occurrences apart.
+///
+/// SyncTeX's line is only near the word. A hard-wrapped paragraph's source
+/// lines do not break where its PDF lines do, so one PDF line mixes words of
+/// two source lines and SyncTeX names either; and the boxes TeX builds when
+/// it reads the blank line that ends a paragraph are recorded on that blank
+/// line. So the word is looked for in the whole paragraph, its neighbours
+/// read across source lines, and the named line (or, when it is blank, the
+/// paragraph's line above it) breaks a tie, as `synctex-word.ts` does.
+pub fn source_target_for_word(
+    lines: &[&str],
+    line: usize,
+    word: &SyncTexWord,
+) -> (usize, Option<usize>) {
+    let text = |at: usize| lines.get(at.wrapping_sub(1)).copied().unwrap_or("");
+    let count = lines.len();
+    let mut anchor = line;
+    if is_blank(text(anchor)) {
+        let above = (1..anchor.min(count + 1))
+            .rev()
+            .find(|at| !is_blank(text(*at)));
+        let below = (anchor + 1..=count).find(|at| !is_blank(text(*at)));
+        match above.or(below) {
+            Some(nearest) => anchor = nearest,
+            None => return (line, None),
+        }
+    }
+    let mut first = anchor;
+    while first > 1 && anchor - first < PARAGRAPH_REACH && !is_blank(text(first - 1)) {
+        first -= 1;
+    }
+    let mut last = anchor;
+    while last < count && last - anchor < PARAGRAPH_REACH && !is_blank(text(last + 1)) {
+        last += 1;
+    }
+    let words: Vec<(usize, SourceWord)> = (first..=last)
+        .flat_map(|at| {
+            source_words(text(at))
+                .into_iter()
+                .map(move |item| (at, item))
+        })
         .collect();
-    match candidates.as_slice() {
-        [] => return None,
-        [only] => return Some(words[*only].from),
-        _ => {}
+    match pick_word(&words, anchor, word) {
+        Some(index) => (words[index].0, Some(words[index].1.from)),
+        None => (anchor, None),
+    }
+}
+
+/// Which of `words` (each with its line) the clicked `word` is, preferring
+/// those on line `anchor`; `None` when it cannot be told.
+fn pick_word(words: &[(usize, SourceWord)], anchor: usize, word: &SyncTexWord) -> Option<usize> {
+    let key = |index: usize| &words[index].1.key;
+    let candidates: Vec<usize> = (0..words.len())
+        .filter(|ix| *key(*ix) == word.word)
+        .collect();
+    if candidates.is_empty() {
+        return None;
     }
     let score = |index: usize| {
-        let before = word.before.as_ref().is_some_and(|before| {
-            index
-                .checked_sub(1)
-                .is_some_and(|ix| &words[ix].key == before)
-        });
+        let before = word
+            .before
+            .as_ref()
+            .is_some_and(|before| index.checked_sub(1).is_some_and(|ix| key(ix) == before));
         let after = word
             .after
             .as_ref()
-            .is_some_and(|after| words.get(index + 1).is_some_and(|w| &w.key == after));
+            .is_some_and(|after| index + 1 < words.len() && key(index + 1) == after);
         usize::from(before) + usize::from(after)
     };
     let best = candidates.iter().map(|ix| score(*ix)).max().unwrap_or(0);
@@ -267,18 +324,53 @@ pub fn source_column_for_word(line: &str, word: &SyncTexWord) -> Option<usize> {
         .copied()
         .filter(|ix| score(*ix) == best)
         .collect();
-    if best > 0 && top.len() == 1 {
-        return Some(words[top[0]].from);
+    if let [only] = top.as_slice() {
+        return Some(*only);
     }
-    // The PDF line and the source line hold the word equally often: they
-    // are most likely the same text, so its place among them is its place
-    // here.
-    let by_position = (candidates.len() == word.count)
-        .then(|| candidates.get(word.occurrence).copied())
-        .flatten();
-    by_position
-        .filter(|ix| score(*ix) == best)
-        .map(|ix| words[ix].from)
+    let on_line: Vec<usize> = top
+        .iter()
+        .copied()
+        .filter(|ix| words[*ix].0 == anchor)
+        .collect();
+    match on_line.as_slice() {
+        [only] => return Some(*only),
+        [_, _, ..] => {
+            // The PDF line and the source line hold the word equally often:
+            // they are most likely the same text, so its place among them is
+            // its place here.
+            let line_candidates: Vec<usize> = candidates
+                .iter()
+                .copied()
+                .filter(|ix| words[*ix].0 == anchor)
+                .collect();
+            return (line_candidates.len() == word.count)
+                .then(|| line_candidates.get(word.occurrence).copied())
+                .flatten()
+                .filter(|ix| score(*ix) == best);
+        }
+        [] => {}
+    }
+    // Only neighbours that match say which line of the paragraph it is on.
+    if best == 0 {
+        return None;
+    }
+    let distance = |index: usize| words[index].0.abs_diff(anchor);
+    let nearest = top.iter().map(|ix| distance(*ix)).min()?;
+    let closest: Vec<usize> = top
+        .iter()
+        .copied()
+        .filter(|ix| distance(*ix) == nearest)
+        .collect();
+    match closest.as_slice() {
+        [only] => Some(*only),
+        _ => None,
+    }
+}
+
+/// The column (in chars) in source `line` where the clicked `word` starts,
+/// or `None` when it is not there or its occurrences cannot be told apart.
+pub fn source_column_for_word(line: &str, word: &SyncTexWord) -> Option<usize> {
+    source_target_for_word(&[line], 1, word).1
 }
 
 #[cfg(test)]
@@ -335,5 +427,76 @@ mod tests {
             ..word
         };
         assert_eq!(source_column_for_word("a b a c a", &same), Some(4));
+    }
+
+    /// A hard-wrapped paragraph, a blank line, and a paragraph on one
+    /// source line, as `synctex-word.test.ts` reads them.
+    const SOURCE: [&str; 7] = [
+        r"\section{Introduction}",
+        "",
+        "Lattice is a local-first writing app for researchers who write in LaTeX and want their",
+        "drafts to stay on their own machine. Every build renders the document beside its source,",
+        "and a double-click in the preview jumps back to the line that produced the clicked word.",
+        "",
+        "A second paragraph on one long line, where the document is named once more.",
+    ];
+    /// The second PDF line, which starts with the first source line's last word.
+    const PDF_LINE: &str =
+        "their drafts to stay on their own machine. Every build renders the document";
+
+    fn clicked(pdf_line: &str, at: &str) -> SyncTexWord {
+        clicked_word_in(pdf_line, pdf_line.find(at).unwrap()).unwrap()
+    }
+
+    fn at(line: usize, word: &SyncTexWord) -> (usize, Option<String>) {
+        let (line, column) = source_target_for_word(&SOURCE, line, word);
+        (
+            line,
+            column.map(|column| SOURCE[line - 1].chars().skip(column).collect()),
+        )
+    }
+
+    #[test]
+    fn a_word_is_found_on_the_paragraphs_other_source_line() {
+        assert_eq!(
+            at(3, &clicked(PDF_LINE, "document")),
+            (4, Some("document beside its source,".into()))
+        );
+        assert_eq!(
+            at(4, &clicked(PDF_LINE, "their drafts")),
+            (3, Some("their".into()))
+        );
+        assert_eq!(
+            at(3, &clicked(PDF_LINE, "their own")),
+            (
+                4,
+                Some(
+                    "their own machine. Every build renders the document beside its source,".into()
+                )
+            )
+        );
+    }
+
+    #[test]
+    fn a_blank_line_lands_on_the_paragraph_above_it() {
+        let word = clicked("that produced the clicked word.", "word");
+        assert_eq!(at(6, &word), (5, Some("word.".into())));
+        assert_eq!(at(6, &clicked("something absent", "something")), (5, None));
+        assert_eq!(
+            at(2, &clicked("Lattice is a local-first", "local")),
+            (1, None)
+        );
+    }
+
+    #[test]
+    fn the_named_line_breaks_a_tie_and_the_paragraph_bounds_the_search() {
+        let a = clicked("a", "a");
+        assert_eq!(at(5, &a).0, 5);
+        assert!(at(5, &a).1.unwrap().starts_with("a double-click"));
+        assert_eq!(at(4, &a), (4, None));
+        assert_eq!(
+            at(7, &clicked("where the document is", "document")),
+            (7, Some("document is named once more.".into()))
+        );
     }
 }

@@ -17,6 +17,7 @@ impl PdfView {
             || self.blocked_up.is_some()
             || self.citation_active()
             || self.compound_active()
+            || self.note_card().is_some()
     }
 
     /// The window's presses, releases and moves, taken before any element
@@ -105,6 +106,10 @@ impl PdfView {
         if !self.viewport.contains(&event.position) && !self.in_compound_bridge(event.position) {
             self.dismiss_compound(cx);
         }
+        // One on the pages is a click the pages decide on (`click_note`).
+        if !self.viewport.contains(&event.position) && !self.on_note_card(event.position) {
+            self.close_note_card(cx);
+        }
     }
 
     fn on_window_mouse_move(&mut self, event: &MouseMoveEvent, cx: &mut Context<Self>) {
@@ -117,6 +122,9 @@ impl PdfView {
         if !self.viewport.contains(&event.position) && !self.in_compound_bridge(event.position) {
             self.leave_compound(cx);
         }
+        if !self.viewport.contains(&event.position) {
+            self.leave_notes(cx);
+        }
     }
 
     /// Escape closes the card, and stops autoscroll; true when it took the
@@ -124,6 +132,9 @@ impl PdfView {
     fn on_window_escape(&mut self, cx: &mut Context<Self>) -> bool {
         self.dismiss_citation(cx);
         self.dismiss_compound(cx);
+        if self.close_note_card(cx) && self.autoscroll.is_none() {
+            return true;
+        }
         if self.autoscroll.is_some() {
             self.stop_autoscroll(cx);
             return true;

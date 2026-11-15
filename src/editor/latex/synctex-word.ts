@@ -9,11 +9,13 @@
  * Both sides are compared as runs of letters and digits, without accents or
  * case, and the source's markup is skipped while reading its words.
  *
- * One PDF line is usually a slice of the source line, so the clicked word is
- * told apart from its other occurrences by its neighbours first. Its
- * position among them settles a tie only when the PDF line holds the word
- * as often as the source line does; anything still ambiguous lands on the
- * line, as the jump always did.
+ * SyncTeX's line is only near the word, so the word is looked for in the
+ * whole paragraph around it (`sourceTargetForWord`). One PDF line is a slice
+ * of that paragraph, so the clicked word is told apart from its other
+ * occurrences by its neighbours first, then by being on the line SyncTeX
+ * named. Its position among them settles a tie only when the PDF line holds
+ * the word as often as the source line does; anything still ambiguous lands
+ * on the line, as the jump always did.
  */
 import type { SyncTexWord } from "../../app-types";
 
@@ -129,24 +131,83 @@ export function sourceWords(line: string): SourceWord[] {
   return words;
 }
 
+/** How far a paragraph is read above and below the line SyncTeX named. */
+const PARAGRAPH_REACH = 40;
+
+const isBlank = (text: string) => text.trim() === "";
+
+type PlacedWord = SourceWord & { line: number };
+
 /**
- * The column in source `line` where the clicked `word` starts, or null when
- * it is not there or its occurrences cannot be told apart.
+ * Where the clicked `word` stands in the paragraph around the 1-based `line`
+ * of a document of `lines` lines (`lineText` reads one): the line it is on
+ * and the column it starts at, or a null column on the line itself when the
+ * paragraph does not hold it or cannot tell its occurrences apart.
+ *
+ * SyncTeX's line is only near the word. A hard-wrapped paragraph's source
+ * lines do not break where its PDF lines do, so one PDF line mixes words of
+ * two source lines and SyncTeX names either; and the boxes TeX builds when
+ * it reads the blank line that ends a paragraph are recorded on that blank
+ * line. So the word is looked for in the whole paragraph, its neighbours
+ * read across source lines, and the named line (or, when it is blank, the
+ * paragraph's line above it) breaks a tie.
  */
-export function sourceColumnForWord(line: string, word: SyncTexWord): number | null {
-  const words = sourceWords(line);
+export function sourceTargetForWord(
+  lineText: (line: number) => string, lines: number, line: number, word: SyncTexWord,
+): { line: number; column: number | null } {
+  let anchor = line;
+  if (isBlank(lineText(anchor))) {
+    const above = Array.from({ length: anchor - 1 }, (_, index) => anchor - 1 - index).find((at) => !isBlank(lineText(at)));
+    const below = Array.from({ length: lines - anchor }, (_, index) => anchor + 1 + index).find((at) => !isBlank(lineText(at)));
+    const nearest = above ?? below;
+    if (nearest === undefined) return { line, column: null };
+    anchor = nearest;
+  }
+  let first = anchor;
+  while (first > 1 && anchor - first < PARAGRAPH_REACH && !isBlank(lineText(first - 1))) first -= 1;
+  let last = anchor;
+  while (last < lines && last - anchor < PARAGRAPH_REACH && !isBlank(lineText(last + 1))) last += 1;
+  const words: PlacedWord[] = [];
+  for (let at = first; at <= last; at += 1) {
+    for (const item of sourceWords(lineText(at))) words.push({ ...item, line: at });
+  }
+  const index = pickWord(words, anchor, word);
+  return index === null ? { line: anchor, column: null } : { line: words[index]!.line, column: words[index]!.from };
+}
+
+/** Which of `words` the clicked `word` is, preferring those on line `anchor`; null when it cannot be told. */
+function pickWord(words: PlacedWord[], anchor: number, word: SyncTexWord): number | null {
   const candidates = words.flatMap((item, index) => item.key === word.word ? [index] : []);
   if (candidates.length === 0) return null;
-  if (candidates.length === 1) return words[candidates[0]!]!.from;
   const score = (index: number) => (
     Number(word.before !== null && words[index - 1]?.key === word.before)
     + Number(word.after !== null && words[index + 1]?.key === word.after)
   );
   const best = Math.max(...candidates.map(score));
   const top = candidates.filter((index) => score(index) === best);
-  if (best > 0 && top.length === 1) return words[top[0]!]!.from;
-  // The PDF line and the source line hold the word equally often: they are
-  // most likely the same text, so its place among them is its place here.
-  const byPosition = candidates.length === word.count ? candidates[word.occurrence] : undefined;
-  return byPosition !== undefined && score(byPosition) === best ? words[byPosition]!.from : null;
+  if (top.length === 1) return top[0]!;
+  const onLine = top.filter((index) => words[index]!.line === anchor);
+  if (onLine.length === 1) return onLine[0]!;
+  if (onLine.length > 1) {
+    // The PDF line and the source line hold the word equally often: they
+    // are most likely the same text, so its place among them is its place
+    // here.
+    const lineCandidates = candidates.filter((index) => words[index]!.line === anchor);
+    const byPosition = lineCandidates.length === word.count ? lineCandidates[word.occurrence] : undefined;
+    return byPosition !== undefined && score(byPosition) === best ? byPosition : null;
+  }
+  // Only neighbours that match say which line of the paragraph it is on.
+  if (best === 0) return null;
+  const distance = (index: number) => Math.abs(words[index]!.line - anchor);
+  const nearest = Math.min(...top.map(distance));
+  const closest = top.filter((index) => distance(index) === nearest);
+  return closest.length === 1 ? closest[0]! : null;
+}
+
+/**
+ * The column in source `line` where the clicked `word` starts, or null when
+ * it is not there or its occurrences cannot be told apart.
+ */
+export function sourceColumnForWord(line: string, word: SyncTexWord): number | null {
+  return sourceTargetForWord(() => line, 1, 1, word).column;
 }

@@ -266,6 +266,8 @@ pub struct HistoryPanel {
     pub(super) overleaf_linked: bool,
     /// The timeline's day names pinned over their rows (`sticky_days.rs`).
     pub(super) sticky: std::rc::Rc<super::sticky_days::StickyDays>,
+    /// An entry History was opened on (`focus_entry.rs`).
+    pub(super) focus: super::focus_entry::Focus,
     pub(super) _overleaf_link: Option<Subscription>,
     _poll: Task<()>,
 }
@@ -321,6 +323,7 @@ impl HistoryPanel {
             overleaf: Default::default(),
             overleaf_linked: false,
             sticky: Default::default(),
+            focus: Default::default(),
             _overleaf_link: None,
             _poll: poll,
         }

@@ -438,6 +438,7 @@ pub fn run() {
             ipc::files::save_annotations,
             ipc::files::save_annotation_round,
             ipc::files::read_annotation_round,
+            ipc::files::discard_annotation_round,
             ipc::files::restore_annotation_round,
             ipc::search::search_project,
             ipc::search::preview_replace_in_project,

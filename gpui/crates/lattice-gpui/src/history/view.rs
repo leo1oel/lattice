@@ -462,6 +462,7 @@ impl HistoryPanel {
     ) -> AnyElement {
         let palette = cx.palette().clone();
         let locale = locale();
+        self.apply_focus(cx);
         let days = timeline::days(rows);
         self.sticky.reset(days.len());
         let view = cx.entity();
@@ -531,7 +532,12 @@ impl HistoryPanel {
                     day: day_ix,
                 };
                 glide_index += 1;
-                list = list.child(history_row(parts, glide, window, cx));
+                let focus = self.focus_probe(&parts.key);
+                let row = history_row(parts, glide, window, cx);
+                list = match focus {
+                    Some(focus) => list.child(div().relative().child(row).child(focus)),
+                    None => list.child(row),
+                };
             }
             let name: gpui::SharedString = time::day_name(day.at, locale).into();
             let label = std::rc::Rc::new(std::cell::Cell::new(px(28.)));

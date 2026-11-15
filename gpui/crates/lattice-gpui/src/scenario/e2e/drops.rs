@@ -36,6 +36,11 @@ use crate::{
 
 impl Run {
     async fn drops(&self, cx: &mut AsyncApp, steps: &mut Steps, root: &Path) -> Result<()> {
+        // The empty slots before these steps: a tab carried into the
+        // documents and closed leaves one, which splits the documents for
+        // the modules after this one (Markdown's typing would land its
+        // click on the note's image), so it goes again at the end.
+        let slots_before = cx.update(|cx| self.empty_slots(cx));
         let finder = std::env::temp_dir().join(format!("lattice-e2e-finder-{}", std::process::id()));
         std::fs::create_dir_all(&finder)?;
         let mut png = std::io::Cursor::new(Vec::new());
@@ -324,7 +329,34 @@ impl Run {
             std::fs::remove_file(path).ok();
         }
         std::fs::remove_dir_all(&finder).ok();
+        let left: Vec<String> = cx
+            .update(|cx| self.empty_slots(cx))
+            .into_iter()
+            .filter(|slot| !slots_before.contains(slot))
+            .collect();
+        if !left.is_empty() {
+            cx.update(|cx| {
+                self.shell
+                    .read(cx)
+                    .workspace()
+                    .clone()
+                    .update(cx, |workspace, cx| workspace.close(&left, cx))
+            });
+            self.pause(cx, Duration::from_millis(300)).await;
+        }
         Ok(())
+    }
+
+    /// The layout's empty document slots.
+    fn empty_slots(&self, cx: &gpui::App) -> Vec<String> {
+        self.shell
+            .read(cx)
+            .document(cx)
+            .views
+            .iter()
+            .filter(|(_, view)| view.kind == "slot")
+            .map(|(id, _)| id.clone())
+            .collect()
     }
 
     /// A Markdown file opened in Split, its divider dragged after the

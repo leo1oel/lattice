@@ -12,7 +12,7 @@ import { StateEffect, StateField, type Extension, type Text } from "@codemirror/
 import { Decoration, EditorView, ViewPlugin, type DecorationSet } from "@codemirror/view";
 import type { SyncTexWord } from "../app-types";
 import { clamp } from "../lib/clamp";
-import { sourceColumnForWord } from "./latex/synctex-word";
+import { sourceTargetForWord } from "./latex/synctex-word";
 import { focusWhenShown } from "./focus-when-shown";
 
 /** How long a revealed target stays marked; the CSS animation (`.cm-reveal-flash`) fades within it. */
@@ -169,13 +169,15 @@ function centerAgainOnceDrawn(view: EditorView, from: number) {
 
 /**
  * The 1-based `line` of `view`'s document as a caret target, clamped to the
- * lines it has: at `word` on it when that word can be told apart there, at
- * its start otherwise.
+ * lines it has, at its start. With the `word` a PDF click was on, the target
+ * is that word in the paragraph around the line when it can be told apart
+ * there, and the paragraph's line otherwise (`sourceTargetForWord`).
  */
 export function lineTarget(view: EditorView, { line, word }: { line: number; word?: SyncTexWord | null }) {
-  const target = view.state.doc.line(clamp(line, 1, view.state.doc.lines));
-  const column = word ? sourceColumnForWord(target.text, word) : null;
-  return { from: target.from + (column ?? 0) };
+  const { doc } = view.state;
+  const number = clamp(line, 1, doc.lines);
+  const found = word ? sourceTargetForWord((at) => doc.line(at).text, doc.lines, number, word) : null;
+  return { from: doc.line(found?.line ?? number).from + (found?.column ?? 0) };
 }
 
 /** The search panel's match placement: centered, like every other jump. */

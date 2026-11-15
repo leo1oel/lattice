@@ -7,11 +7,9 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] Margin review's J/K walk between items.
 
-- [ ] The Revision rounds sheet, comparing a round's versions (and the round saved toast's Compare).
-
 - [ ] The Annotations panel's Export review PDF….
 
-- [ ] The PDF: its annotations.
+- [ ] The PDF: annotating a selection (the Annotate offer and its composer), and a note's preview card on hover.
 
 - [ ] The PDF: its comment column.
 

@@ -83,7 +83,9 @@ export function ProjectFindDialog(props: {
   // restart the timer mid-typing.
   const onSearchRef = useLatestRef(props.onSearch);
 
-  const [seenSeed, setSeenSeed] = useState(props.seed);
+  // From null, so a seed the dialog first mounts with is applied too: it
+  // loads on its first opening (AppProjectSearchDialogs), seed and all.
+  const [seenSeed, setSeenSeed] = useState<typeof props.seed>(null);
   if (seenSeed !== props.seed) {
     setSeenSeed(props.seed);
     if (props.seed) {

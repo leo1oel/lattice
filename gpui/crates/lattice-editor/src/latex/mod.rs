@@ -42,6 +42,7 @@ pub mod highlights;
 pub mod preview_cards;
 pub mod previews;
 pub mod input_rules;
+pub mod lint;
 pub mod prose;
 pub mod protected;
 pub mod region_edits;

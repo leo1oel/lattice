@@ -45,6 +45,9 @@ pub enum EditorPanelEvent {
     /// Open the project-relative `path` (a link followed in a Markdown file's
     /// visual editor).
     OpenFile { path: String },
+    /// Create the project-relative file and open it (a missing `\input`'s
+    /// Create file, from the lint's card).
+    CreateFile { path: String },
     /// An outline rail row: open `path` at the 1-based `line`, then show
     /// the same place in the PDF.
     OutlineJump { path: String, line: u32 },
