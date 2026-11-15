@@ -32,24 +32,38 @@ impl Run {
             .await;
         let view = cx.update(|cx| self.shell.read(cx).pdf().read(cx).live_view().clone());
         let found = self.find_word_in(cx, &root.join("chem-check.pdf"), "2.").await?;
-        let at = found.and_then(|(page, (x, y), _)| {
-            cx.update(|cx| view.read(cx).page_point_on_window(page as usize - 1, x as f32, y as f32))
-        });
+        let point = |cx: &mut AsyncApp| {
+            found.as_ref().and_then(|&(page, (x, y), _)| {
+                cx.update(|cx| view.read(cx).page_point_on_window(page as usize - 1, x as f32, y as f32))
+            })
+        };
+        let mut at = point(cx);
         let send = |cx: &mut AsyncApp, input: PlatformInput| {
             self.with_window(cx, move |_, window, cx| {
                 window.dispatch_event(input, cx);
             })
         };
         let (mut card, mut copied) = (None, None);
-        if let Some(at) = at {
-            send(cx, PlatformInput::MouseMove(MouseMoveEvent { position: at, pressed_button: None, modifiers: Modifiers::default() }))?;
-            for _ in 0..30 {
-                self.pause(cx, Duration::from_millis(200)).await;
-                card = cx.update(|cx| view.read(cx).compound_card());
-                if card.is_some() {
-                    break;
+        if at.is_some() {
+            // The view drops a move that comes before the build's compounds
+            // reach it (read from the .aux in the background) or while it
+            // still autoscrolls to the build's page, so the pointer rests on
+            // the number again, from where the number is now, until the card
+            // opens. Each rest outlasts the view's 250 ms before the lookup.
+            'hover: for _ in 0..15 {
+                at = point(cx);
+                let Some(position) = at else { break };
+                send(cx, PlatformInput::MouseMove(MouseMoveEvent { position, pressed_button: None, modifiers: Modifiers::default() }))?;
+                for _ in 0..4 {
+                    self.pause(cx, Duration::from_millis(200)).await;
+                    card = cx.update(|cx| view.read(cx).compound_card());
+                    if card.is_some() {
+                        break 'hover;
+                    }
                 }
             }
+        }
+        if let Some(at) = at {
             self.snapshot(cx, "pdf-compound-card").await;
             send(cx, PlatformInput::MouseDown(MouseDownEvent {
                 button: MouseButton::Left,
@@ -122,7 +136,7 @@ pub(super) const MODULE: super::registry::Module = super::registry::Module {
     setup: false,
     covers: &[
         "gpui/crates/lattice-gpui/src/shell/pdf_sync.rs",
-        "gpui/crates/lattice-gpui/src/pdf/compounds.rs",
+        "gpui/crates/lattice-editor/src/latex/compounds.rs",
         "gpui/crates/lattice-gpui/src/pdf/view/compound.rs",
     ],
     run: |run, cx, steps, fixture| Box::pin(run.pdf_compounds(cx, steps, &fixture.root)),

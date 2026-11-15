@@ -17,7 +17,7 @@ The project menu lists what the Tauri one does, in the interface language: the r
 
 The shortcut sheet (⌘?, or Keyboard shortcuts in the palette) lists what the Tauri app's does, built from the keymap as it opens, so it shows only keys that run what they say where they work.
 The command table's keyed commands come first, by section, a command with two keys showing both (Command palette, ⌘K / ⇧⌘P) and the workspaces by place a range (⌘1 – ⌘9), with Leave focus mode on ⎋ after Focus mode.
-Then Panels and tabs (the workspace's tab, panel, maximize and zoomed-view keys), Text editing (the source editor's), LaTeX (the keys this app binds for a LaTeX source) and Visual Markdown (its editor's own table).
+Then Panels and tabs (the workspace's tab, panel, maximize and zoomed-view keys), Text editing (the source editor's), LaTeX (the keys this app binds for a LaTeX source), Visual Markdown (its editor's own table) and Check references (its review queue's keys, bound in that sheet only).
 Its field filters by name or by key (⇧⌘J, or J), a group whose title matches keeping every row, and says when no shortcut matches.
 
 Focus mode's bar keeps the window's controls, the document's name centred on the window, and at its end a Markdown, HTML or bibliography file's Edit, Split and Preview, the PDF toggle (Show the PDF or Hide the PDF) and Exit focus with ⎋; it fades in on the fast tier.

@@ -1,0 +1,70 @@
+{
+  "version": "0.16.18",
+  "date": "2026-11-15",
+  "highlights": [
+    {
+      "title": {
+        "en": "Agent fixes",
+        "zh": "Agent 修复"
+      },
+      "body": {
+        "en": "An Agent thread's notifications now appear only in its own project's window, figures stay out of a simulator dock and the panel no longer goes blank, the slash menu opens above the Context chip, and the Agent is no longer granted device control.",
+        "zh": "Agent 对话的通知现在只会显示在其所属项目的窗口中；图表不再被放进模拟器停靠栏，面板也不再变成空白；斜杠菜单会在 Context 标签上方打开；并且不再授予 Agent 设备控制权限。"
+      }
+    },
+    {
+      "title": {
+        "en": "Papers grouped by date added",
+        "zh": "按添加日期分组论文"
+      },
+      "body": {
+        "en": "The Papers library can be sorted and grouped by the date each paper was added, and the grouped list no longer shakes under the pointer.",
+        "zh": "论文库现在可以按论文的添加日期排序和分组，分组列表在鼠标悬停时也不再抖动。"
+      }
+    },
+    {
+      "title": {
+        "en": "PDF clicks land where you clicked",
+        "zh": "PDF 点击位置更准确"
+      },
+      "body": {
+        "en": "Clicking in the PDF now jumps to the paragraph of the word you clicked, never the blank line after it.",
+        "zh": "在 PDF 中点击时，现在会跳转到所点单词所在的段落，而不再落到其后的空行。"
+      }
+    },
+    {
+      "title": {
+        "en": "Windows terminal starts in your project",
+        "zh": "Windows 终端从项目文件夹启动"
+      },
+      "body": {
+        "en": "On Windows the terminal now opens in the project folder. Thanks to @ivanvykopal for the fix (#988).",
+        "zh": "在 Windows 上，终端现在会在项目文件夹中打开。感谢 @ivanvykopal 提供修复（#988）。"
+      }
+    },
+    {
+      "title": {
+        "en": "Faster startup",
+        "zh": "启动更快"
+      },
+      "body": {
+        "en": "Find and Replace now load the first time you open them instead of at startup.",
+        "zh": "查找和替换现在会在首次打开时加载，而不是在启动时加载。"
+      }
+    }
+  ],
+  "fixes": [
+    {
+      "en": "Saving a bibliography writes through a temporary file the Agent's .bib guard recognises, so a sandboxed agent can no longer write into it during the save.",
+      "zh": "保存参考文献时使用的临时文件现在能被 Agent 的 `.bib` 保护识别，因此沙盒中的 Agent 无法在保存过程中写入该文件。"
+    },
+    {
+      "en": "The Markdown visual editor's block controls get their own lane beside the text, the caret has a consistent height, and controls line up with rules, formulas and tables.",
+      "zh": "Markdown 可视化编辑器的块控件现在拥有文字旁的独立区域，光标高度保持一致，控件也会与分隔线、公式和表格对齐。"
+    },
+    {
+      "en": "A revision round in which the Agent answered nothing no longer leaves its snapshot behind for the next round.",
+      "zh": "Agent 未作任何回复的修订轮次不再为下一轮留下快照。"
+    }
+  ]
+}

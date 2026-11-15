@@ -184,15 +184,37 @@ pub fn comment_card(
     max_width: gpui::Pixels,
     cx: &App,
 ) -> AnyElement {
+    comment_card_sized(comments, on, CardWidth::Within(max_width), cx)
+}
+
+/// How wide a card stands: a popup's own width within a bound, or the
+/// width it is given (a slot of the PDF's comment column).
+#[derive(Clone, Copy, Debug)]
+pub enum CardWidth {
+    Within(gpui::Pixels),
+    Filling,
+}
+
+/// The comment card, at `width`.
+pub fn comment_card_sized(
+    comments: &[EditorComment],
+    on: CardAction,
+    width: CardWidth,
+    cx: &App,
+) -> AnyElement {
     let palette = cx.palette().clone();
     let indent = px(PIN + 6.);
-    let mut card = div()
+    let card = div()
         .id("annotation-card")
         .flex()
         .flex_col()
-        .gap(SPACING_5)
-        .min_w(px(240.).min(max_width))
-        .max_w(px(320.).min(max_width))
+        .gap(SPACING_5);
+    let mut card = match width {
+        CardWidth::Within(max_width) => card
+            .min_w(px(240.).min(max_width))
+            .max_w(px(320.).min(max_width)),
+        CardWidth::Filling => card.w_full().min_w_0(),
+    }
         .pt(SPACING_5)
         .pb(SPACING_5)
         .pr(SPACING_5)
@@ -317,6 +339,117 @@ pub fn comment_card(
             })
             .child(reply_field);
         card = card.child(thread);
+    }
+    card.into_any_element()
+}
+
+/// The replies a preview shows under its comment (`PREVIEW_REPLIES`).
+const PREVIEW_REPLIES: usize = 2;
+
+/// A comment's preview (`CommentPreview`): who wrote it and when, its body
+/// in three lines at most, and its first two replies in two lines each,
+/// with how many more there are; nothing to act on.
+pub fn comment_preview(comments: &[EditorComment], width: CardWidth, cx: &App) -> AnyElement {
+    let palette = cx.palette().clone();
+    let indent = px(PIN + 6.);
+    let card = div()
+        .flex()
+        .flex_col()
+        .gap(SPACING_4)
+        .py(SPACING_4)
+        .px(SPACING_5)
+        .rounded(RADIUS_SURFACE)
+        .bg(palette.raised)
+        .text_color(palette.text)
+        .text_role(TextRole::Body, cx)
+        .overflow_hidden();
+    let mut card = match width {
+        CardWidth::Within(max_width) => card.max_w(px(300.).min(max_width)),
+        CardWidth::Filling => card.w_full().min_w_0(),
+    };
+    for comment in comments {
+        let body = if comment.body.is_empty() {
+            model::note_text(comment)
+        } else {
+            comment.body.clone()
+        };
+        let replies = comment.replies.iter().take(PREVIEW_REPLIES).map(|reply| {
+            div()
+                .flex()
+                .flex_col()
+                .gap(SPACING_2)
+                .min_w_0()
+                .child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .gap(SPACING_3)
+                        .min_h(px(20.))
+                        .text_role(TextRole::Caption, cx)
+                        .child(
+                            div().w(px(PIN)).flex().justify_center().child(
+                                div()
+                                    .size(px(8.))
+                                    .rounded_full()
+                                    .bg(reply_color(&reply.author_id, &reply.author_name)),
+                            ),
+                        )
+                        .child(
+                            div()
+                                .min_w_0()
+                                .overflow_hidden()
+                                .text_ellipsis()
+                                .whitespace_nowrap()
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .child(model::author_display(&reply.author_name)),
+                        )
+                        .child(
+                            div()
+                                .flex_none()
+                                .text_color(palette.text_secondary)
+                                .child(model::relative_time(&reply.created_at, true)),
+                        ),
+                )
+                .child(
+                    div()
+                        .ml(indent)
+                        .min_w_0()
+                        .line_clamp(2)
+                        .child(reply.body.clone()),
+                )
+        });
+        let more = comment.replies.len().saturating_sub(PREVIEW_REPLIES);
+        card = card.child(
+            div()
+                .flex()
+                .flex_col()
+                .gap(SPACING_2)
+                .min_w_0()
+                .child(meta(comment, None, &palette, cx))
+                .when(!body.is_empty(), |this| {
+                    this.child(
+                        div()
+                            .ml(indent)
+                            .min_w_0()
+                            .line_clamp(3)
+                            .child(SharedString::from(body)),
+                    )
+                })
+                .children(replies)
+                .when(more > 0, |this| {
+                    this.child(
+                        div()
+                            .ml(indent)
+                            .text_role(TextRole::Caption, cx)
+                            .text_color(palette.text_secondary)
+                            .child(if more == 1 {
+                                t!("1 more reply").to_string()
+                            } else {
+                                t!("{more} more replies", more = more).to_string()
+                            }),
+                    )
+                }),
+        );
     }
     card.into_any_element()
 }

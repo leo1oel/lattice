@@ -40,6 +40,7 @@ use lattice_i18n::t;
 mod annotate;
 mod autoscroll;
 mod citation;
+mod column;
 mod compound;
 mod drafts;
 mod events;
@@ -192,6 +193,7 @@ pub struct PdfView {
     compound: compound::CompoundHover,
     notes: notes::NoteMarks,
     annotating: annotate::Annotating,
+    column: column::CommentColumn,
     place_report: place::PlaceReport,
     /// Middle-click autoscroll while it runs, and the press it took whose
     /// release is not a click.
@@ -320,6 +322,7 @@ impl PdfView {
             compound: Default::default(),
             notes: Default::default(),
             annotating: Default::default(),
+            column: Default::default(),
             place_report: Default::default(),
             autoscroll: None,
             blocked_up: None,

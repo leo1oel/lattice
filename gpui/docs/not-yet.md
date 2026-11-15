@@ -3,15 +3,11 @@
 What the Tauri app has that the GPUI app does not port yet, one item per line.
 A feature that lands deletes its own line (only that line, so features landing side by side merge cleanly), and a gap found adds one.
 
-- [ ] The live math preview: KaTeX's picture of the formula at the caret in a card above it (`math-preview.ts`).
-
 - [ ] Margin review's J/K walk between items.
 
 - [ ] The Annotations panel's Export review PDF….
 
-- [ ] The PDF: a note's preview card on hover, and annotating a selection in a project linked to Overleaf (it becomes an Overleaf comment there).
-
-- [ ] The PDF: its comment column.
+- [ ] The PDF: annotating a selection in a project linked to Overleaf (it becomes an Overleaf comment there).
 
 - [ ] The PDF: its review export.
 
@@ -23,7 +19,9 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] The paper reader's selection actions: Copy source link and Add to note, on the full text and on the original PDF.
 
-- [ ] The shortcut sheet's Check references group (the review queue has no keys yet), and the LaTeX keys the source editor does not bind yet (the citation card, the symbol palette, Proofread), which join the sheet's LaTeX group once bound.
+- [ ] The shortcut sheet's LaTeX keys the source editor does not bind yet (the citation card, the symbol palette, Proofread), which join the sheet's LaTeX group once bound.
+
+- [ ] Check references: ticking references to check only those (Select all, Check selected), and the reading-glass drawing of a settled report.
 
 - [ ] The app updater's release channel (it ships off) and the outdated-version hint on a failure's notice.
 
@@ -36,8 +34,6 @@ A feature that lands deletes its own line (only that line, so features landing s
 - [ ] Overleaf: a compile after a resolved conflict (the watcher's build stands in).
 
 - [ ] The workspace rename field's undo history surviving a keystroke past its 24 characters (the Kit input has no length limit that clips before an edit).
-
-- [ ] New project's My templates and Save a local template….
 
 - [ ] Each file's editor place kept across launches (the PDF's is kept).
 

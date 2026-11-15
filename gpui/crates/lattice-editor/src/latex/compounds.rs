@@ -1,6 +1,7 @@
 //! chemnum compounds, as the Tauri app's `compound-keys.ts` reads them for
-//! the PDF's compound hover (`pdf-compound-key-hover.tsx`): the keys a
-//! source line names in `\cmpd` and its relatives, the number the last
+//! the PDF's compound hover (`pdf-compound-key-hover.tsx`) and the source's
+//! compound completion: the keys a source line names in `\cmpd` and its
+//! relatives, the number the last
 //! build gave each (its `.aux`), and whether a run of PDF text reads as a
 //! compound's number.
 //!
@@ -71,7 +72,7 @@ impl CompoundNumbers {
     }
 }
 
-fn is_safe_key(key: &str) -> bool {
+pub(crate) fn is_safe_key(key: &str) -> bool {
     let count = key.chars().count();
     (1..=MAX_KEY_CHARS).contains(&count)
         && !key.chars().any(|ch| {

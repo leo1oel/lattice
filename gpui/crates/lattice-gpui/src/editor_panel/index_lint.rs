@@ -12,9 +12,16 @@
 //! TexLab is not installed to report them itself, the labels and keys
 //! nothing uses. A run reads the buffer once and lints off the main thread;
 //! a later run supersedes it. What it reads of the other files also goes to
-//! the editor's path and macro completion (`ProjectFacts`).
+//! the editor's path, macro and chemnum compound completion
+//! (`ProjectFacts`), the compounds' numbers and places read again after
+//! each build.
 
-use std::{collections::HashSet, path::PathBuf, time::Duration};
+use std::{
+    collections::{HashMap, HashSet},
+    path::PathBuf,
+    sync::Arc,
+    time::Duration,
+};
 
 use gpui::{App, AppContext as _, Context, Entity, Subscription, Task, WeakEntity};
 use language::BufferEvent;
@@ -22,6 +29,8 @@ use lattice_editor::{
     LatticeEditor, TexlabService,
     index::ProjectIndex,
     latex::{
+        compiled_labels::CompiledLabel,
+        compound_completion::read_compound_facts,
         definition::graphics_roots,
         lint::{
             LintIndex, index_lint,
@@ -50,6 +59,9 @@ pub struct IndexLint {
     path: String,
     root_document: String,
     unused: (HashSet<String>, HashSet<String>),
+    /// The last build and the labels read of it when the project was last
+    /// read, for its compound numbers and places.
+    compiled_seen: Option<Compiled>,
     generation: u64,
     _run: Option<Task<()>>,
     _read: Option<Task<()>>,
@@ -78,8 +90,13 @@ impl IndexLint {
                         this.schedule(LINT_DELAY, cx);
                     }
                 }),
-                cx.observe(&index, |this, _: Entity<ProjectIndex>, cx| {
-                    this.schedule(Duration::ZERO, cx)
+                cx.observe(&index, |this, index: Entity<ProjectIndex>, cx| {
+                    // A new build (or its labels read) renumbers the compounds.
+                    if !same_compiled(&compiled(index.read(cx)), &this.compiled_seen) {
+                        this.read_project(cx);
+                    } else {
+                        this.schedule(Duration::ZERO, cx)
+                    }
                 }),
                 cx.subscribe(project, |this, _, event: &ProjectEvent, cx| {
                     if matches!(
@@ -102,6 +119,7 @@ impl IndexLint {
                 path,
                 root_document,
                 unused: Default::default(),
+                compiled_seen: None,
                 generation: 0,
                 _run: None,
                 _read: None,
@@ -110,6 +128,11 @@ impl IndexLint {
             this.read_project(cx);
             this
         })
+    }
+
+    /// What the completion reads of the project, for the e2e checks.
+    pub fn facts(&self) -> &Facts {
+        &self.facts
     }
 
     /// The marks and cards, for the e2e checks.
@@ -139,20 +162,33 @@ impl IndexLint {
         let mut paths = Vec::new();
         project_paths(project.files(), &mut paths);
         let path = self.path.clone();
-        let others: Vec<String> = paths
+        let texlab = TexlabService::available();
+        let tex_paths: Vec<String> = paths
             .iter()
-            .filter(|other| other.ends_with(".tex") && **other != path)
+            .filter(|path| path.ends_with(".tex"))
             .cloned()
             .collect();
-        let texlab = TexlabService::available();
+        let index = project.index().read(cx);
+        self.compiled_seen = compiled(index);
+        let build = index.compiled_build().cloned();
+        let labels = index.compiled_labels();
         self.facts.borrow_mut().paths = paths;
         let read = cx.background_spawn(async move {
-            let sources: Vec<String> = others
-                .iter()
-                .filter_map(|other| lattice_core::project::read_file(&folder, other).ok())
+            let sources: Vec<(String, String)> = tex_paths
+                .into_iter()
+                .filter_map(|tex| {
+                    let text = lattice_core::project::read_file(&folder, &tex).ok()?;
+                    Some((tex, text))
+                })
                 .collect();
-            let roots = graphics_roots(sources.iter().map(String::as_str));
-            let macros = local_macros(sources.iter().map(String::as_str));
+            let others = || {
+                sources
+                    .iter()
+                    .filter(|(tex, _)| *tex != path)
+                    .map(|(_, text)| text.as_str())
+            };
+            let roots = graphics_roots(others());
+            let macros = local_macros(others());
             let unused = (!texlab)
                 .then(|| lattice_core::project::unused_symbols(&folder).ok())
                 .flatten()
@@ -163,15 +199,23 @@ impl IndexLint {
                     )
                 })
                 .unwrap_or_default();
-            (roots, macros, unused)
+            let compounds = read_compound_facts(
+                &folder,
+                &path,
+                &sources,
+                build.as_ref(),
+                build.as_ref().map(|_| labels.as_ref()),
+            );
+            (roots, macros, unused, compounds)
         });
         self._read = Some(cx.spawn(async move |this, cx| {
-            let (roots, macros, unused) = read.await;
+            let (roots, macros, unused, compounds) = read.await;
             this.update(cx, |this, cx| {
                 {
                     let mut facts = this.facts.borrow_mut();
                     facts.graphics_roots = roots;
                     facts.macros = macros;
+                    facts.compounds = compounds;
                 }
                 this.unused = unused;
                 this.schedule(Duration::ZERO, cx);
@@ -250,6 +294,27 @@ impl IndexLint {
     }
 }
 
+/// A build's id and the labels the index has read of it.
+type Compiled = (u64, Arc<HashMap<String, CompiledLabel>>);
+
+/// Which build the index holds, and the labels it has read of it.
+fn compiled(index: &ProjectIndex) -> Option<Compiled> {
+    index
+        .compiled_build()
+        .map(|build| (build.id, index.compiled_labels()))
+}
+
+/// Whether two reads saw the same build and the same read of its labels.
+fn same_compiled(a: &Option<Compiled>, b: &Option<Compiled>) -> bool {
+    match (a, b) {
+        (Some((a_id, a_labels)), Some((b_id, b_labels))) => {
+            a_id == b_id && Arc::ptr_eq(a_labels, b_labels)
+        }
+        (None, None) => true,
+        _ => false,
+    }
+}
+
 impl super::EditorPanel {
     /// Put the LaTeX features that read the project on a `.tex` file's
     /// editor, from its opening or once a move makes it one: the cards and
@@ -263,8 +328,13 @@ impl super::EditorPanel {
         }
         let facts = Facts::default();
         let index = self.project.read(cx).index().clone();
-        self.lattice.update(cx, |lattice, _| {
-            lattice_editor::latex::attach(lattice, &index, facts.clone())
+        let math_preview = self.relative.ends_with(".tex");
+        self.lattice.update(cx, |lattice, cx| {
+            lattice_editor::latex::attach(lattice, &index, facts.clone());
+            // The live math preview is a `.tex` file's, as in the Tauri app.
+            if math_preview {
+                lattice_editor::latex::math_preview::attach(lattice, &index, cx);
+            }
         });
         let texlab = self.project.read(cx).texlab().clone();
         self.diagnostics = Some(
