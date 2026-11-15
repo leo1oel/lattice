@@ -1,6 +1,6 @@
 //! The PDF's SyncTeX and file details, as the Tauri app has them: a
-//! double-click lands the caret on the clicked word of the source line,
-//! not at its start; the palette words the PDF's rows as the Tauri app's
+//! double-click lands the caret on the clicked word of its paragraph,
+//! not at its line's start; the palette words the PDF's rows as the Tauri app's
 //! command table does; and a PDF of the project open in a tab says when it
 //! was removed, and takes the file back once it returns.
 
@@ -20,17 +20,23 @@ use crate::{
 
 impl Run {
     async fn pdf_sync_polish(&self, cx: &mut AsyncApp, steps: &mut Steps, root: &Path) -> Result<()> {
-        // The chapter's "second", found in the PDF's own text as PDFium
-        // reads it, and the word a double-click on it reads there; the line
-        // SyncTeX names for that point (the paragraph may answer any of its
-        // lines) must hold it, and the caret lands on it, 1-based.
+        // A word on each of the chapter's three source lines, which TeX sets
+        // as one PDF line: each found in the PDF's own text as PDFium reads
+        // it, with the word a double-click on it reads there. SyncTeX names
+        // a line of the paragraph near the point, and the caret lands on the
+        // word in whichever of the paragraph's lines holds it, 1-based.
         let chapter = root.join("chapters/intro.tex");
-        let editor = self.open(cx, &chapter, Some(1))?;
-        let found = self.find_in_pdf_text(cx, root, "second").await?;
-        let mut detail = json!({ "found": found.is_some() });
-        let mut landed = false;
-        if let Some(found) = found {
-            let expected = Self::landing(root, &chapter, &found, "second")?;
+        let mut detail = Vec::new();
+        let mut landed = true;
+        for wanted in ["introduces", "second", "last"] {
+            let editor = self.open(cx, &chapter, Some(1))?;
+            let found = self.find_in_pdf_text(cx, root, wanted).await?;
+            let Some(found) = found else {
+                landed = false;
+                detail.push(json!({ "word": wanted, "found": false }));
+                continue;
+            };
+            let expected = Self::landing(&chapter, wanted)?;
             let (page, point, clicked) = found;
             let word = clicked.as_ref().map(|clicked| clicked.word.clone());
             self.with_window(cx, |shell, window, cx| {
@@ -38,17 +44,17 @@ impl Run {
             })?;
             self.pause(cx, Duration::from_millis(600)).await;
             let caret = cx.update(|cx| editor.read(cx).cursor());
-            landed = word.as_deref() == Some("second") && expected == Some(caret);
-            detail = json!({
+            landed &= word.as_deref() == Some(wanted) && expected == Some(caret);
+            detail.push(json!({
                 "expected": expected,
                 "word": word,
                 "caret": [caret.0, caret.1],
-            });
+            }));
         }
         steps.check(
-            "SyncTeX: a double-click in the PDF lands the caret on the clicked word of its line",
+            "SyncTeX: a double-click in the PDF lands the caret on the clicked word of its paragraph",
             landed,
-            detail,
+            json!(detail),
         );
 
         self.figure_and_newest_jump(cx, steps, root).await?;
@@ -150,14 +156,13 @@ impl Run {
         Ok(found)
     }
 
-    /// The caret `word`'s click should land on: SyncTeX's line for the
-    /// point, and the word's 1-based column in it.
-    fn landing(root: &Path, chapter: &Path, found: &Found, word: &str) -> Result<Option<(u32, u32)>> {
-        let line = lattice_core::latex::inverse_search_in(root, found.0, found.1.0, found.1.1, None)
-            .map_err(|error| anyhow!(error))?;
+    /// The caret `word`'s click should land on: the 1-based line of
+    /// `chapter` that holds it, and its 1-based column there.
+    fn landing(chapter: &Path, word: &str) -> Result<Option<(u32, u32)>> {
         let text = std::fs::read_to_string(chapter)?;
-        let source = text.lines().nth(line.line as usize - 1).unwrap_or_default().to_string();
-        Ok(source.find(word).map(|column| (line.line, column as u32 + 1)))
+        Ok(text.lines().enumerate().find_map(|(row, source)| {
+            source.find(word).map(|column| (row as u32 + 1, column as u32 + 1))
+        }))
     }
 
     /// A ⌘-double-click off a figure is the ordinary jump, through the PDF
@@ -171,7 +176,7 @@ impl Run {
             steps.check("PDF: a ⌘-double-click off a figure is the ordinary jump", false, json!({ "found": false }));
             return Ok(());
         };
-        let (Some(at_a), Some(at_b)) = (Self::landing(root, &chapter, &a, "second")?, Self::landing(root, &chapter, &b, "introduces")?) else {
+        let (Some(at_a), Some(at_b)) = (Self::landing(&chapter, "second")?, Self::landing(&chapter, "introduces")?) else {
             steps.check("PDF: a ⌘-double-click off a figure is the ordinary jump", false, json!({ "landing": false }));
             return Ok(());
         };
