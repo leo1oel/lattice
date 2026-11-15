@@ -10,6 +10,13 @@ A typed query ranks the commands, the project's files, its Papers (title, author
 A row shows its detail at its end: a recent project's folder, What's new's version.
 The labels are the Tauri table's, in the interface language: Jump to PDF (from a LaTeX source only), Switch to the Writing, Reading or Bibliography layout (the one in use left out), Margin review under View, Open guided tutorial, and in focus mode Hide the PDF or Show the PDF beside the editor.
 
+The shortcut sheet (⌘?, or Keyboard shortcuts in the palette) lists what the Tauri app's does, built from the keymap as it opens, so it shows only keys that run what they say where they work.
+The command table's keyed commands come first, by section, a command with two keys showing both (Command palette, ⌘K / ⇧⌘P) and the workspaces by place a range (⌘1 – ⌘9), with Leave focus mode on ⎋ after Focus mode.
+Then Panels and tabs (the workspace's tab, panel, maximize and zoomed-view keys), Text editing (the source editor's), LaTeX (the keys this app binds for a LaTeX source) and Visual Markdown (its editor's own table).
+Its field filters by name or by key (⇧⌘J, or J), a group whose title matches keeping every row, and says when no shortcut matches.
+
+In focus mode Escape leaves it as the key's last meaning, as in the Tauri app: not when the document used it (collapsing a selection, closing its completions or its find bar), not from the palette, a sheet or a menu, which close on it instead, never with a modifier held, and never in Vim.
+
 The menu bar is the Tauri app's: Lattice (About Lattice, Settings…, Services, Hide, Quit), File (New Project…, Open…, Open Recent, dimmed with nothing to offer, Clone Repository…, Open from Overleaf…, Import Overleaf ZIP…, Export for arXiv…, dimmed without a project, Close Tab, Close Window), Edit, View (Actual Size, Bigger, Smaller, Enter Full Screen, and Margin Review's Auto, Markers Only and Off for a project linked to Overleaf, the choice checked), Window (Minimize, Zoom, Close Window) and Help (What's New, Report a Problem…, the Lattice website and GitHub).
 About Lattice is AppKit's About panel with the version, the attribution Trellis's license asks for ("Uses Trellis by DanFessler - github.com/DanFessler/trellis") and the two links.
 
@@ -22,3 +29,4 @@ A launch's reopen that takes longer than a second shows the welcome screen while
 
 `scenario/e2e/shell_lifecycle.rs`: the window's minimum following its layout's, and the menu bar's menus and their items.
 `scenario/e2e/palette.rs`: the palette's leading groups, a command run from it leading the next opening, What's new's detail, a Settings row found and opened, a paper found by its year or a run inside its title but never one only cited, the Find in project fallback, and the keyboard back in the document afterwards.
+`scenario/e2e/shortcut_sheet.rs`: the sheet's groups and rows (alternatives, ranges, the Esc row), its filter by key and its empty result, and Escape in focus mode collapsing a selection first, then leaving it, and closing the palette without leaving it.
