@@ -38,6 +38,13 @@
 //!   [`LatexEvent::PasteImage`]), with the page's caret mirrored in the
 //!   source ([`LatexEvent::Caret`]) so they act where the writer is.
 //!
+//! - the project's local annotations on the file (`tex:annotations`), which
+//!   the page marks, pins and cards as the source does, and a pin's open, a
+//!   card's Resolve and its Reply ([`LatexEvent::OpenAnnotation`],
+//!   [`LatexEvent::ResolveAnnotation`], [`LatexEvent::ReplyAnnotation`]);
+//!   co-authors' Overleaf carets come as the visual Markdown editor's do
+//!   (`md:presence`, `markdown_host.rs`).
+//!
 //! The backend commands its modules invoke are answered in
 //! `latex_services.rs`.
 
@@ -71,6 +78,12 @@ pub enum LatexEvent {
     OutlineJump { path: String, line: u32 },
     /// The page's caret, as a UTF-16 offset into the file.
     Caret(usize),
+    /// A note's gutter pin: open it in the Annotations panel.
+    OpenAnnotation(String),
+    /// A note's card: resolve it.
+    ResolveAnnotation(String),
+    /// A note's card: reply to it with `body`.
+    ReplyAnnotation { id: String, body: String },
 }
 
 /// What a `.tex` file's Visual page last had of the project beyond the
@@ -89,6 +102,8 @@ pub(super) struct LatexSession {
     unused: Value,
     /// `{ nodes, rootPath, pdf }` for the outline rail.
     outline: Value,
+    /// `{ comments, author }`: the project's annotations and who signs a reply.
+    annotations: Value,
     /// Bumped by every read of the unused symbols, so a slow one is dropped.
     unused_generation: u64,
 }
@@ -179,6 +194,7 @@ impl StructuredDocument {
             spelling: Value::Null,
             unused: json!({ "labels": [], "citations": [] }),
             outline: Value::Null,
+            annotations: Value::Null,
             unused_generation: 0,
         });
         let texlab = project.read(cx).texlab().clone();
@@ -270,6 +286,13 @@ impl StructuredDocument {
         self.set_latex_value(payload, "tex:outline", |session| &mut session.outline, cx);
     }
 
+    /// The project's local annotations (`EditorComment`s, as the Tauri app
+    /// stores them) and who signs a reply (`{ id, name }`).
+    pub fn set_annotations(&mut self, comments: Value, author: Value, cx: &mut Context<Self>) {
+        let payload = json!({ "comments": comments, "author": author });
+        self.set_latex_value(payload, "tex:annotations", |session| &mut session.annotations, cx);
+    }
+
     /// Keep `payload` in the session slot `slot` picks and post it as
     /// `kind`, when it changed.
     fn set_latex_value(
@@ -331,6 +354,12 @@ impl StructuredDocument {
             "tex:caret" => LatexEvent::Caret(
                 payload.get("offset").and_then(Value::as_u64).unwrap_or(0) as usize,
             ),
+            "tex:open-annotation" => LatexEvent::OpenAnnotation(text("id")),
+            "tex:resolve-annotation" => LatexEvent::ResolveAnnotation(text("id")),
+            "tex:reply-annotation" => LatexEvent::ReplyAnnotation {
+                id: text("id"),
+                body: text("body"),
+            },
             _ => return false,
         };
         cx.emit(StructuredEvent::Latex(event));
@@ -408,6 +437,7 @@ impl StructuredDocument {
         payload["spelling"] = session.spelling.clone();
         payload["unused"] = session.unused.clone();
         payload["outline"] = session.outline.clone();
+        payload["annotations"] = session.annotations.clone();
         payload["texlab"] = json!(TexlabService::available());
     }
 

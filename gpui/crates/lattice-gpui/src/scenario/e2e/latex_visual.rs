@@ -14,8 +14,9 @@
 //!   file and the page are back to their first text;
 //! - text put into the buffer (as the source, or an outside edit, would)
 //!   reaches the page;
-//! - the outline rail stands over the page and a misspelt word ("frist")
-//!   is marked (`latex_visual_companions.rs`);
+//! - the outline rail stands over the page, a misspelt word ("frist") is
+//!   marked, and a local annotation is marked and pinned there until it is
+//!   resolved (`latex_visual_companions.rs`);
 //! - the strip's Find there opens the page's own search panel, its query
 //!   focused, and leaves the source's find bar (which Visual does not draw)
 //!   closed;
@@ -113,11 +114,13 @@ impl Run {
         cx.update(|cx| choose_latex_view(LatexView::Visual, cx));
         let island = self.latex_visual_drawn(cx, steps, &panel).await;
         if let Some(island) = island {
-            // The rail and the spell check (`latex_visual_companions.rs`),
-            // then the window with both, when shots are asked for.
+            // The rail and the spell check (`latex_visual_companions.rs`).
             self.latex_visual_companions(cx, steps, &island, "frist")
                 .await?;
-            self.latex_visual_shots(cx).await?;
+            // A local annotation marked and pinned in the page, then the
+            // window with all three, when shots are asked for.
+            self.latex_visual_annotation(cx, steps, &island, &path, "bold words")
+                .await?;
             // Opening writes nothing.
             self.pause(cx, Duration::from_millis(1500)).await;
             let unchanged = std::fs::read_to_string(&path).is_ok_and(|text| text == PAPER);
@@ -156,7 +159,7 @@ impl Run {
 
     /// Save the window, page included, in light and dark, into
     /// `LATTICE_E2E_SHOTS` when it is set; the theme is put back after.
-    async fn latex_visual_shots(&self, cx: &mut AsyncApp) -> Result<()> {
+    pub(super) async fn latex_visual_shots(&self, cx: &mut AsyncApp) -> Result<()> {
         let Some(dir) = std::env::var_os("LATTICE_E2E_SHOTS") else {
             return Ok(());
         };

@@ -14,7 +14,13 @@
 //!   source's mirrors;
 //! - the outline rail over the page: the manuscript's outline as the Tauri
 //!   app's `OutlineNode`s, and a row's jump, which shows the same place in
-//!   the PDF as the source's rail does.
+//!   the PDF as the source's rail does;
+//! - the project's local annotations, which the page marks, pins and cards
+//!   as the source does (`annotations.rs`): a pin opens its note in the
+//!   Annotations panel and a card's Resolve resolves it, as the source's do,
+//!   and a card's Reply is saved under the project's author;
+//! - co-authors' Overleaf carets, kept so a page made later starts with them
+//!   (`overleaf_carets.rs`).
 
 use std::rc::Rc;
 
@@ -25,6 +31,7 @@ use serde_json::{Value, json};
 
 use super::{EditorPanel, EditorPanelEvent};
 use crate::{
+    annotations::{AnnotationRequest, store},
     outline::Heading,
     structured::{LatexEvent, StructuredDocument, StructuredEvent},
     submission::references::SymbolKind,
@@ -117,7 +124,77 @@ impl EditorPanel {
                 line: *line,
             }),
             LatexEvent::Caret(offset) => self.mirror_caret(*offset, window, cx),
+            LatexEvent::OpenAnnotation(id) => {
+                cx.emit(EditorPanelEvent::Annotation(AnnotationRequest::Open(id.clone())))
+            }
+            LatexEvent::ResolveAnnotation(id) => {
+                cx.emit(EditorPanelEvent::Annotation(AnnotationRequest::Resolve(id.clone())))
+            }
+            LatexEvent::ReplyAnnotation { id, body } => {
+                let root = self.project_root(cx);
+                let author = store::author(&root, cx);
+                store::store(cx).update(cx, |store, cx| {
+                    store.reply(&root, id, body, &author, cx);
+                });
+            }
         }
+    }
+
+    /// Send the Visual page the project's annotations and who signs a reply.
+    pub(super) fn forward_latex_annotations(&mut self, cx: &mut Context<Self>) {
+        let Some(document) = self.latex_visual_document().cloned() else {
+            return;
+        };
+        let root = self.project_root(cx);
+        let Some(store) = store::try_store(cx) else {
+            return;
+        };
+        let comments: Vec<_> = store
+            .read(cx)
+            .annotations(&root)
+            .into_iter()
+            .filter(|comment| comment.path == self.relative)
+            .cloned()
+            .collect();
+        let comments = serde_json::to_value(comments).unwrap_or(Value::Array(Vec::new()));
+        let author = store::author(&root, cx);
+        let author = json!({ "id": author.id, "name": author.name });
+        document.update(cx, |document, cx| document.set_annotations(comments, author, cx));
+    }
+
+    /// Co-authors' Overleaf carets: kept, and sent to the Visual page.
+    pub(super) fn latex_presence(
+        &mut self,
+        carets: Vec<(String, f64, u32, u32)>,
+        cx: &mut Context<Self>,
+    ) {
+        self.latex.presence = carets;
+        self.forward_latex_presence(cx);
+    }
+
+    fn forward_latex_presence(&mut self, cx: &mut Context<Self>) {
+        let Some(document) = self.latex_visual_document().cloned() else {
+            return;
+        };
+        let carets = self
+            .latex
+            .presence
+            .iter()
+            .map(|(name, hue, row, column)| crate::structured::VisualCaret {
+                name: name.clone(),
+                hue: *hue,
+                row: *row,
+                column: *column,
+            })
+            .collect();
+        document.update(cx, |document, cx| document.set_markdown_presence(carets, cx));
+    }
+
+    /// Everything the Visual page shows beside its text that comes from the
+    /// window's own state: sent once it is made, and when each changes.
+    pub(super) fn forward_latex_review(&mut self, cx: &mut Context<Self>) {
+        self.forward_latex_annotations(cx);
+        self.forward_latex_presence(cx);
     }
 
     /// Put the source's caret at the page's, a UTF-16 `offset`, without
