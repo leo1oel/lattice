@@ -32,9 +32,17 @@ msgstr "没能删除论文"
 msgid "Could not restore “{key}”"
 msgstr "没能恢复“{key}”"
 
+#: lattice-editor/src/latex/card_uses.rs
+msgid "Line {line}"
+msgstr "第 {line} 行"
+
 #: lattice-gpui/src/papers/view.rs
 msgid "Open a project to see its papers"
 msgstr "打开项目后可查看它的论文"
+
+#: lattice-editor/src/latex/card_uses.rs
+msgid "Open paper at page {page}"
+msgstr "在第 {page} 页打开论文"
 
 #: lattice-gpui/src/papers/row.rs
 msgid "Remove from the bibliography"

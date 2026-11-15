@@ -304,8 +304,6 @@ impl EditorPanel {
         });
         let rail = tex
             .then(|| Self::new_rail(&lattice, &project, relative.clone(), saved_text.clone(), cx));
-        let diagnostics = latex::is_tex_source(&path)
-            .then(|| attach_latex(&lattice, &project, relative.clone(), cx));
         log::debug!(
             "opened {}: buffer {buffered:?}, language {languaged:?}, editor {:?}",
             path.display(),
@@ -423,7 +421,7 @@ impl EditorPanel {
             buffer,
             lattice,
             editor,
-            diagnostics,
+            diagnostics: None,
             index_lint: None,
             spelling: None,
             _spelling_events: None,
@@ -489,8 +487,11 @@ impl EditorPanel {
         this.ensure_preview(window, cx);
         this.ensure_bib_for_view(window, cx);
         this.attach_structured(window, cx);
+        let facts = this.attach_tex(cx);
         this.attach_spelling(cx);
-        this.attach_index_lint(cx);
+        if let Some(facts) = facts {
+            this.attach_index_lint(facts, cx);
+        }
         this.attach_annotations(cx);
         this.attach_review_marks(cx);
         this.paint_highlights(cx);
@@ -763,18 +764,4 @@ fn file_name(path: &Path) -> String {
     path.file_name()
         .map(|name| name.to_string_lossy().into_owned())
         .unwrap_or_default()
-}
-
-/// Put the LaTeX extensions that read the project on `lattice` (cards and
-/// completion), and TexLab's diagnostics for the file at `relative`.
-fn attach_latex(
-    lattice: &Entity<LatticeEditor>,
-    project: &Entity<Project>,
-    relative: String,
-    cx: &mut App,
-) -> Entity<TexlabDiagnostics> {
-    let index = project.read(cx).index().clone();
-    lattice.update(cx, |lattice, _| latex::attach(lattice, &index));
-    let texlab = project.read(cx).texlab().clone();
-    TexlabDiagnostics::attach(lattice, texlab, relative, cx)
 }

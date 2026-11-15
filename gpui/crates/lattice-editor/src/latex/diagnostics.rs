@@ -211,7 +211,7 @@ impl TexlabDiagnostics {
             }));
         });
         let buffer = editor.read(cx).buffer().clone();
-        cx.new(|cx: &mut Context<Self>| {
+        let diagnostics = cx.new(|cx: &mut Context<Self>| {
             let subscriptions = vec![
                 cx.subscribe(&buffer, |this, _, event: &BufferEvent, cx| {
                     if matches!(event, BufferEvent::Edited { .. }) {
@@ -238,7 +238,27 @@ impl TexlabDiagnostics {
             };
             this.schedule_sync(cx);
             this
-        })
+        });
+        // TexLab's completions follow the same file.
+        let completions = super::texlab_completions::TexlabCompletions {
+            diagnostics: diagnostics.downgrade(),
+            latest: Default::default(),
+            available: TexlabService::available(),
+        };
+        editor.update(cx, |editor, _| {
+            editor.add_completion_source(Rc::new(completions))
+        });
+        diagnostics
+    }
+
+    /// The file, project-relative.
+    pub fn path(&self) -> &str {
+        &self.path
+    }
+
+    /// The TexLab service it syncs to.
+    pub fn service(&self) -> &Entity<TexlabService> {
+        &self.service
     }
 
     /// The file was renamed or moved: sync it under its new path, or not at
