@@ -8,9 +8,9 @@ measurements; re-run the commands rather than quoting them.
 
 ## The current pin
 
-The fork as a whole is **not** small. Measured on 2026-11-14 against upstream
+The fork as a whole is **not** small. Measured on 2026-11-15 against upstream
 `v1.5.2` (`83e0533b23099908ee14e4fecacd5ed702f4d453`), the current integration changes
-**867 files, +89,601 / −9,282 lines** (about 6,700 of the added lines are the zh-CN catalogs,
+**869 files, +89,759 / −9,283 lines** (about 6,700 of the added lines are the zh-CN catalogs,
 which upstream no longer ships). It carries embedded-workspace UI, a skills manager,
 source-control and provider-health surfaces, spreadsheet and canvas tool brokers, and their
 contracts. Treat "keep it in the seam" as the goal for new work. Re-measure after each sync:
@@ -231,7 +231,7 @@ A finished turn in the first project's frame, after that frame had moved to a ne
 The previous pin, driven the same way, raised the toast in both frames, and Open in the second frame added the first project's thread to its tabs.
 This was not run in two real Lattice windows, so WKWebView, Lattice's own toast stack and its window focus were not exercised.
 
-The current pin brings two embed fixes from one user report, and Lattice stops granting simulator control (fork `b14fd35abc28b224c02cf9b0eb809f3984683715`, [fork PR 28](https://github.com/leo1oel/synara/pull/28) and [fork PR 29](https://github.com/leo1oel/synara/pull/29)).
+The pin before this one brought two embed fixes from one user report, and Lattice stopped granting simulator control (fork `b14fd35abc28b224c02cf9b0eb809f3984683715`, [fork PR 28](https://github.com/leo1oel/synara/pull/28) and [fork PR 29](https://github.com/leo1oel/synara/pull/29)).
 The writer saw the panel's right side turn into an iOS Simulator while the agent redesigned a figure, and the panel sometimes went white.
 - **No simulator dock for a figure (PR 28).** Clicking a Read row, file chip or mention for a file outside the project, such as a figure the agent rendered in a temporary build folder, opened the thread's dock on a file pane the embed hides, so the dock showed only its launcher, whose one entry was "iOS Simulator".
   `restrictRightDockStateToKinds` now presents the dock closed when no allowed pane is left, which also repairs threads saved with that state.
@@ -248,6 +248,19 @@ Neither frame showed a device dock or an "iOS Simulator" launcher, and a live Cl
 Reloading the first project's frame on the second project's thread, twice, returned it to its own conversation each time with the transcript shown.
 Pushing that thread through the frame's own history instead reached upstream's missing-thread recovery, because the first frame's store did not hold the other project's thread, and opened a new chat draft in the frame's project: not blank, but not the writer's previous conversation either.
 This was not run in two real Lattice windows, so WKWebView, Lattice's own navigation of the frame and its toast stack were not exercised.
+The staged runtime is 175.3 MB.
+
+With a Context chip attached, the composer's slash, mention and + menus now open above the chip instead of behind it (fork `e4818ceaea63e9f9c53c2883b91ce42dde93ee19`, [fork PR 30](https://github.com/leo1oel/synara/pull/30)).
+A writer with a selection shown as "Context main.tex · Line 321 · 846 chars" typed "/advi" and the menu's rows were hidden under the chip.
+The menus open upward from the editor inside the input shell, whose stacking context keeps them below the Context bar, the shell's sibling that floats above the composer outside its measured height.
+`useComposerMenuClearance` (fork `apps/web/src/components/chat/composerMenuClearance.ts`) now measures the open menu against the bar and lifts it with a `translate` until it ends 8px above the bar's top, re-measuring when the bar or the composer resizes, so an expanded chip lifts it again.
+Without a Context bar the menu keeps upstream's position.
+
+The fork's new `ChatView.browser.tsx` regression ("opens the slash menu above Lattice's floating context bar") joins the embed regressions in [`synara-runtime.md`](synara-runtime.md), and those regressions and the server regressions pass on this pin.
+The release-staged sidecar was driven in headless Chromium and Playwright's WebKit through a host page that builds the frame URL the way a Lattice window does and posts an 846-character `main.tex` selection at line 321.
+With the Context chip shown, typing "/advi" opened the menu with its Advisor row lifted 34px, ending 9.5px above the chip, and every row was the topmost element at its own center; a bare "/" opened the full list with the same clearance.
+With no selection the menu kept its unlifted position.
+This was not run in a real Lattice window, so WKWebView itself and Lattice's own relay of the selection were not exercised.
 The staged runtime is 175.3 MB.
 
 ## Synara 0.9.1 compatibility
