@@ -24,6 +24,53 @@ const SHELF: usize = 9;
 
 impl Run {
     async fn tab_policy(&self, cx: &mut AsyncApp, steps: &mut Steps, root: &Path) -> Result<()> {
+        let result = self.tab_policy_steps(cx, steps, root).await;
+        // Its documents close and its files go with it, so the modules after
+        // it (drops, documents) find the tree's rows and ⌘P's Recent as the
+        // fixture has them.
+        let names: Vec<String> = ["alpha", "beta", "gamma", "delta"]
+            .into_iter()
+            .map(|name| format!("{name}.md"))
+            .chain((1..=SHELF).map(|n| format!("a-long-chapter-name-{n:02}.md")))
+            .collect();
+        for name in &names {
+            let Ok(path) = root.join(name).canonicalize() else {
+                continue;
+            };
+            let editor = cx.update(|cx| self.shell.update(cx, |shell, cx| shell.open_editor(&path, cx)));
+            if let Some(editor) = editor {
+                cx.update(|cx| editor.update(cx, |editor, cx| editor.save(cx))).await.ok();
+            }
+        }
+        cx.update(|cx| {
+            self.shell.update(cx, |shell, cx| {
+                for name in &names {
+                    shell.pin_document(name, false, cx);
+                }
+                let views: Vec<String> =
+                    names.iter().filter_map(|name| shell.view_of_document(name, cx)).collect();
+                shell.workspace().clone().update(cx, |workspace, cx| workspace.close(&views, cx));
+            })
+        });
+        self.pause(cx, Duration::from_millis(300)).await;
+        for name in &names {
+            std::fs::remove_file(root.join(name)).ok();
+        }
+        let tree = cx.update(|cx| self.shell.read(cx).file_tree().clone());
+        cx.update(|cx| tree.update(cx, |tree, cx| tree.refresh(cx)));
+        self.wait_for(cx, Duration::from_secs(8), |_, cx| {
+            !tree.read(cx).row_paths(cx).contains(&"delta.md".to_string())
+        })
+        .await;
+        result
+    }
+
+    async fn tab_policy_steps(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+        root: &Path,
+    ) -> Result<()> {
         for name in ["alpha", "beta", "gamma", "delta"] {
             std::fs::write(root.join(format!("{name}.md")), format!("# {name}\n"))?;
         }
@@ -217,8 +264,6 @@ impl Run {
             json!({ "chapters_open": open, "kept": kept }),
         );
 
-        // The steps after these find the project as they left it.
-        cx.update(|cx| self.shell.update(cx, |shell, cx| shell.pin_document("delta.md", false, cx)));
         Ok(())
     }
 
