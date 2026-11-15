@@ -312,17 +312,21 @@ pub fn apply(text: &str, edits: &[Edit]) -> String {
 /// rather than the writer's own tracked changes (`advancedBase`).
 ///
 /// A point inside one of the writer's changes, or at either end of one,
-/// lands after what the base has there: text the co-author typed inside the
+/// lands after what the base has there, except the end of a co-author's
+/// range that stops where the writer's change starts, which stays before it: text the co-author typed inside the
 /// writer's insertion lands in the base at that insertion, so rejecting the
 /// insertion keeps it; text they deleted that only the writer had added
 /// never was in the base. Whether `remote` touched one of the writer's
 /// changes comes back too, so that can be said aloud.
 pub fn advanced_base(base: &str, hunks: &[Hunk], remote: &[Edit]) -> (String, bool) {
-    let map = |at: usize| -> usize {
+    let map = |at: usize, closes: bool| -> usize {
         let mut delta: isize = 0;
         for hunk in hunks {
             if at < hunk.from {
                 break;
+            }
+            if closes && at == hunk.from {
+                return hunk.base_from;
             }
             if at <= hunk.to {
                 return hunk.base_to;
@@ -339,9 +343,10 @@ pub fn advanced_base(base: &str, hunks: &[Hunk], remote: &[Edit]) -> (String, bo
     let mut mapped: Vec<Edit> = remote
         .iter()
         .map(|edit| {
-            let start = map(edit.range.start);
+            let start = map(edit.range.start, false);
+            let closes = edit.range.end > edit.range.start;
             Edit {
-                range: start..map(edit.range.end).max(start),
+                range: start..map(edit.range.end, closes).max(start),
                 insert: edit.insert.clone(),
             }
         })
@@ -551,6 +556,39 @@ mod tests {
         let (advanced, touched) = advanced_base(base, &hunks(base, before), &remote);
         assert!(touched);
         assert!(advanced.contains("very "));
+        let rejected = apply(&after, &reject_all_edits(&advanced, &hunks(&advanced, &after)));
+        assert_eq!(rejected, advanced);
+    }
+
+    #[test]
+    fn a_coauthors_deletion_up_to_the_writers_replacement_keeps_its_base_text() {
+        let base = "The old cat.\n";
+        let before = "The new cat.\n";
+        assert_eq!(hunks(base, before).len(), 1);
+        let remote = [Edit {
+            range: 0..4,
+            insert: String::new(),
+        }];
+        let after = apply(before, &remote);
+        let (advanced, _) = advanced_base(base, &hunks(base, before), &remote);
+        assert_eq!(advanced, "old cat.\n");
+        let rejected = apply(&after, &reject_all_edits(&advanced, &hunks(&advanced, &after)));
+        assert_eq!(rejected, "old cat.\n");
+    }
+
+    #[test]
+    fn a_coauthors_deletion_up_to_the_writers_deletion_keeps_its_base_text() {
+        let base = "The old cat.\n";
+        let before = "The cat.\n";
+        let found = hunks(base, before);
+        assert_eq!(found.len(), 1);
+        let remote = [Edit {
+            range: 0..found[0].from,
+            insert: String::new(),
+        }];
+        let after = apply(before, &remote);
+        let (advanced, _) = advanced_base(base, &found, &remote);
+        assert_eq!(advanced, &base[found[0].from..]);
         let rejected = apply(&after, &reject_all_edits(&advanced, &hunks(&advanced, &after)));
         assert_eq!(rejected, advanced);
     }
