@@ -7,6 +7,7 @@
 pub(crate) mod annotation_place;
 mod clicked_word;
 pub(crate) mod compounds;
+mod comment_margin;
 mod dark;
 mod engine;
 mod find;

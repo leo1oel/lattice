@@ -658,7 +658,18 @@ fn find_library() -> Option<PathBuf> {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::OnceLock;
+
     use super::{PageSpace, PdfEngine, PixelRect, RenderRequest};
+
+    /// One engine for every test here: PDFium binds once per process, so two
+    /// tests starting their own engines at once fail the later one with
+    /// `PdfiumLibraryBindingsAlreadyInitialized` while the first one's worker
+    /// still holds the bindings.
+    fn engine() -> &'static PdfEngine {
+        static ENGINE: OnceLock<PdfEngine> = OnceLock::new();
+        ENGINE.get_or_init(|| PdfEngine::start().expect("PDFium (script/fetch-pdfium)"))
+    }
 
     /// A 100 × 100 pt page, its left half pure red and its right half
     /// sRGB (204, 102, 51), with an exact cross-reference table.
