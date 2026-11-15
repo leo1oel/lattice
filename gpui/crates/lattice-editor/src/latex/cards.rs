@@ -6,8 +6,12 @@
 //! - a citation card: the key as a quiet chip, the entry set as a reference
 //!   list sets it (the title in the reading face at the title size, the
 //!   authors, the venue and year in italics), its source as a badge, then
-//!   its actions on a hairline: Go to entry (the title runs it too) and
-//!   Copy key, which says "Copied" for a moment;
+//!   what is known about it as badges (Crossref's word on the paper, its
+//!   arXiv id or DOI), its uses in the manuscript ("Cited N× here",
+//!   `card_uses.rs`), then its actions on a hairline: Open paper (the lead,
+//!   when the library can open it; the title runs it, else Go to entry),
+//!   "Why cited", Go to entry and Copy key, which says "Copied" for a
+//!   moment;
 //! - a reference card: what the label names and the label, its title, its
 //!   source snippet and the file it is in; the title opens it there.
 //!
@@ -17,11 +21,14 @@
 //! left unblurred reads as ghost text, so the surface is solid (the port
 //! plan's substitute for `backdrop-filter`).
 //!
-//! Not yet: the paper library's facts (Crossref health, Open paper), the
-//! uses in this paper, "Why cited", and figure and equation previews. They
-//! read the library, the compiled build and KaTeX, which later slices bring.
+//! The library's facts, the uses and the actions that leave the card come
+//! from the host through the editor's [`CitationSlot`]; without one the
+//! card shows the bibliography's facts, Go to entry and Copy key.
 
-use std::time::{Duration, Instant};
+use std::{
+    rc::Rc,
+    time::{Duration, Instant},
+};
 
 use gpui::{
     App, ClipboardItem, ElementId, FontWeight, InteractiveElement as _, IntoElement,
@@ -31,11 +38,15 @@ use gpui::{
 use language::BufferSnapshot;
 use lattice_i18n::t;
 use lattice_ui::{
-    ActiveLattice as _, Elevation, TextRole, TextRoleStyle as _,
-    components::{Badge, Button},
+    ActiveLattice as _, Elevation, Icon, TextRole, TextRoleStyle as _,
+    components::{Badge, BadgeTone, Button},
     fonts::Fonts,
 };
 
+use super::{
+    card_uses,
+    citation_library::{CitationLibrary, CitationSlot, Health},
+};
 use crate::{
     ProjectIndex,
     hover::{HoverCardContext, HoverProvider, HoverTarget},
@@ -222,6 +233,9 @@ pub struct CitationCard {
     pub citation: Citation,
     pub context: HoverCardContext,
     pub index: WeakEntity<ProjectIndex>,
+    /// The key's bytes in the buffer: the use the card is for.
+    pub range: std::ops::Range<usize>,
+    pub library: Option<Rc<dyn CitationLibrary>>,
 }
 
 impl RenderOnce for CitationCard {
@@ -253,8 +267,62 @@ impl RenderOnce for CitationCard {
         } else {
             citation.title.clone()
         };
+        let library = self.library.clone();
+        let facts = library
+            .as_ref()
+            .map(|library| library.facts(&key, cx))
+            .unwrap_or_default();
+        let open = library.clone().filter(|_| facts.can_open).map(|library| {
+            let (context, key) = (self.context.clone(), key.clone());
+            Rc::new(
+                move |_: &gpui::ClickEvent, window: &mut Window, cx: &mut App| {
+                    context.close(cx);
+                    library.open_paper(&key, None, window, cx);
+                },
+            )
+        });
+        let why = library
+            .clone()
+            .filter(|library| library.files_reasons(cx))
+            .map(|library| {
+                let (context, key, range) = (self.context.clone(), key.clone(), self.range.clone());
+                move |_: &gpui::ClickEvent, window: &mut Window, cx: &mut App| {
+                    context.close(cx);
+                    library.why_cited(&key, range.clone(), window, cx);
+                }
+            });
+        let uses = library.as_ref().and_then(|library| {
+            let uses = library.uses(&key, &self.context.text, cx);
+            card_uses::uses_section(
+                &key,
+                uses,
+                self.range.clone(),
+                library,
+                facts.can_open,
+                &self.context,
+                window,
+                cx,
+            )
+        });
+        let health = facts.health.clone().map(|(health, title)| {
+            let badge = match health {
+                Health::Verified => Badge::new(t!("Verified by Crossref"))
+                    .tone(BadgeTone::Success)
+                    .icon(Icon::CHECK),
+                Health::Warning(kind) => Badge::new(kind)
+                    .tone(BadgeTone::Warning)
+                    .icon(Icon::TRIANGLE_ALERT),
+            };
+            let tip = title.unwrap_or_default();
+            div()
+                .id("citation-card-health")
+                .min_w_0()
+                .max_w_full()
+                .when(!tip.is_empty(), |fact| fact.tooltip(card_uses::tip(tip)))
+                .child(badge.shrinks())
+        });
         let (reading, reading_fallbacks) = reading_font(cx);
-        let byline = byline_authors(&citation.authors);
+        let byline = byline_authors(facts.authors.as_deref().unwrap_or(&citation.authors));
         // No-break spaces keep the year with the venue's last word.
         let publication = [citation.venue.as_str(), citation.year.as_str()]
             .into_iter()
@@ -264,6 +332,7 @@ impl RenderOnce for CitationCard {
         let source = source_label(&citation);
         let editor_font = cx.lattice().fonts.editor.clone();
         let goto_title = goto.clone();
+        let open_title = open.clone();
         let copy = {
             let copied = copied.clone();
             let key = key.clone();
@@ -294,7 +363,10 @@ impl RenderOnce for CitationCard {
             .line_clamp(4)
             .cursor_pointer()
             .hover(|style| style.underline())
-            .on_click(goto_title)
+            .on_click(move |event, window, cx| match &open_title {
+                Some(open) => open(event, window, cx),
+                None => goto_title(event, window, cx),
+            })
             .child(heading);
         title_style.text_style().font_fallbacks = Some(reading_fallbacks.clone());
         card_surface(cx)
@@ -345,7 +417,7 @@ impl RenderOnce for CitationCard {
                 venue.text_style().font_fallbacks = Some(fallbacks);
                 card.child(venue)
             })
-            .when_some(source, |card, source| {
+            .when(source.is_some() || health.is_some(), |card| {
                 card.child(
                     div()
                         .max_w_full()
@@ -353,9 +425,18 @@ impl RenderOnce for CitationCard {
                         .flex()
                         .flex_wrap()
                         .gap(px(4.))
-                        .child(Badge::new(source)),
+                        .children(health)
+                        .children(source.map(|source| {
+                            div()
+                                .id("citation-card-source")
+                                .min_w_0()
+                                .max_w_full()
+                                .tooltip(card_uses::tip(source.clone()))
+                                .child(Badge::new(source).shrinks())
+                        })),
                 )
             })
+            .children(uses)
             .child(
                 // Stretched past the card's padding to its 8px inset.
                 div()
@@ -367,6 +448,22 @@ impl RenderOnce for CitationCard {
                     .flex()
                     .flex_wrap()
                     .gap(px(4.))
+                    .when_some(open, |bar, open| {
+                        bar.child(
+                            Button::new("citation-card-open", t!("Open paper"))
+                                .tinted()
+                                .compact()
+                                .on_click(move |event, window, cx| open(event, window, cx)),
+                        )
+                    })
+                    .when_some(why, |bar, why| {
+                        bar.child(
+                            Button::new("citation-card-why", t!("Why cited"))
+                                .ghost()
+                                .compact()
+                                .on_click(why),
+                        )
+                    })
                     .child(
                         Button::new("citation-card-goto", t!("Go to entry"))
                             .ghost()
@@ -469,6 +566,7 @@ impl RenderOnce for ReferenceCard {
 /// The citation card for the key under the pointer.
 pub struct CitationCards {
     pub index: WeakEntity<ProjectIndex>,
+    pub library: CitationSlot,
 }
 
 impl HoverProvider for CitationCards {
@@ -477,15 +575,26 @@ impl HoverProvider for CitationCards {
         let target = syntax::citation_target(&window, offset - start)?;
         let index = self.index.upgrade()?;
         let citation = index.read(cx).citation(&target.key)?.clone();
+        let library = self.library.borrow().clone();
+        // "Why cited" is open on a key: the card stays away meanwhile.
+        if library
+            .as_ref()
+            .is_some_and(|library| library.editing_reason(cx))
+        {
+            return None;
+        }
         let weak = self.index.clone();
+        let range = target.range.start + start..target.range.end + start;
         Some(HoverTarget {
-            range: target.range.start + start..target.range.end + start,
+            range: range.clone(),
             id: "citation",
             card: std::rc::Rc::new(move |context, _, _| {
                 CitationCard {
                     citation: citation.clone(),
                     context: context.clone(),
                     index: weak.clone(),
+                    range: range.clone(),
+                    library: library.clone(),
                 }
                 .into_any_element()
             }),

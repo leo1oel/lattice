@@ -56,9 +56,11 @@ pub mod audit;
 pub(crate) mod batch;
 pub mod bib_editor;
 mod candidates;
+pub mod citation_open;
 mod downloads;
 mod field;
 mod inspector;
+pub(crate) use inspector::uses::{anchor_reasons, role_label};
 mod keys;
 pub mod linked;
 pub mod literature;
@@ -93,6 +95,9 @@ pub enum PapersEvent {
     Open { path: String, line: Option<u32> },
     /// Read a saved paper in its reader (its full text, else its overview).
     Read(Box<PaperSummary>),
+    /// Read the paper's PDF at the 1-based `page` (a citation card's Open
+    /// paper on a `\cite[p.~5]{key}`).
+    ReadAt { paper: Box<PaperSummary>, page: u32 },
     /// Read a saved paper beside the document in front (Open to the side).
     ReadBeside(Box<PaperSummary>),
     /// Open Add papers, seeded with what the box holds.
@@ -218,6 +223,9 @@ pub struct Fetching {
     /// Each download's Fetched mark, cleared a moment after it lands; its
     /// own timer, so a reload or another download does not cancel it.
     lingers: HashMap<String, Task<()>>,
+    /// Where a download started from a citation card goes instead when it
+    /// fails: the source its entry cites (`fetchAndOpenPaper`'s fallback).
+    pub(crate) fallbacks: HashMap<String, String>,
 }
 
 impl Fetching {

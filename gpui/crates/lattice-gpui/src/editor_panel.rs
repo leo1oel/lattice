@@ -49,6 +49,7 @@ mod annotation_review;
 mod annotations;
 mod bib_view;
 mod buffer_counts;
+mod citations;
 mod disk_sync;
 pub mod drops;
 mod events;
@@ -160,6 +161,8 @@ pub struct EditorPanel {
     margin: margin_review::MarginState,
     /// Local annotations' marks, pins and composer (`annotations.rs`).
     annotations: annotations::AnnotationLayer,
+    /// The citation cards' library and "Why cited" (`citations.rs`).
+    citations: citations::CitationLayer,
     /// The selection toolbar over a LaTeX or Markdown selection
     /// (`selection_toolbar.rs`).
     toolbar: selection_toolbar::ToolbarState,
@@ -307,6 +310,7 @@ impl EditorPanel {
                     this.latex_source_changed(cx);
                     this.structured_source_changed(cx);
                     this.annotations_edited(cx);
+                    this.citations_edited(cx);
                     this.highlights_edited(cx);
                 }
                 BufferEvent::DirtyChanged | BufferEvent::Saved => {
@@ -459,6 +463,7 @@ impl EditorPanel {
             overleaf_review: Default::default(),
             margin: Default::default(),
             annotations: Default::default(),
+            citations: Default::default(),
             toolbar: Default::default(),
             proofread: Default::default(),
             review: None,
@@ -681,7 +686,8 @@ impl BasePanel for EditorPanel {
             self.flush(cx);
         }
         let root = self.project_root(cx);
-        crate::status_counters::set_buffer(root, self.relative.clone(), None, cx);
+        crate::status_counters::set_buffer(root.clone(), self.relative.clone(), None, cx);
+        crate::annotations::orphans::set_live(&root, &self.relative, None, cx);
         let panel = gpui_kit::component::dock::PanelId::from(cx.entity_id());
         lattice_ui::dock::set_spare_tools(panel, None, cx);
         lattice_ui::dock::set_icon_saving(panel, None, cx);

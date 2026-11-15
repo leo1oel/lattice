@@ -493,7 +493,7 @@ impl EditorPanel {
     }
 
     /// Select bytes `range` of the buffer and bring them to the middle.
-    fn select_bytes(&mut self, range: Range<usize>, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn select_bytes(&mut self, range: Range<usize>, window: &mut Window, cx: &mut Context<Self>) {
         let snapshot = self.buffer.read(cx).snapshot();
         let (start, end) = (
             snapshot.offset_to_point(range.start),

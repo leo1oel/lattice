@@ -539,6 +539,7 @@ impl PapersPanel {
         }
         match result {
             Ok(fetched) => {
+                self.fetching.fallbacks.remove(&key);
                 self.fetching
                     .states
                     .insert(key.clone(), FetchState::Fetched);
@@ -578,6 +579,13 @@ impl PapersPanel {
             Err(error) => {
                 self.fetching.states.remove(&key);
                 notices::error(t!("Could not download the paper"), error, cx);
+                // A citation card's Open paper reads the cited source in the
+                // browser instead, unless something was opened since.
+                if let Some(url) = self.fetching.fallbacks.remove(&key)
+                    && self.navigations == claim
+                {
+                    cx.open_url(&url);
+                }
             }
         }
         if !self.fetching.busy() {

@@ -23,7 +23,9 @@ use theme::ActiveTheme as _;
 use crate::{LatticeEditor, ProjectIndex};
 
 pub mod build_diagnostics;
+pub mod card_uses;
 pub mod cards;
+pub mod citation_library;
 pub mod completions;
 pub mod diagnostics;
 pub mod edits;
@@ -93,6 +95,7 @@ pub fn attach(editor: &mut LatticeEditor, index: &Entity<ProjectIndex>) {
     let weak = index.downgrade();
     editor.add_hover_provider(Rc::new(cards::CitationCards {
         index: weak.clone(),
+        library: editor.citation_slot(),
     }));
     editor.add_hover_provider(Rc::new(cards::ReferenceCards {
         index: weak.clone(),

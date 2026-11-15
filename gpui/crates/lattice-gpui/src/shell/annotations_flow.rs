@@ -261,15 +261,17 @@ impl Shell {
     /// annotations mark, and while notes are open the toggle's wash with the
     /// count after the mark.
     pub(crate) fn annotations_button(&self, cx: &mut Context<Self>) -> AnyElement {
+        // The open notes, and the orphaned citation reasons with them.
         let open = self.root(cx).map_or(0, |root| {
-            store::try_store(cx).map_or(0, |store| {
+            let notes = store::try_store(cx).map_or(0, |store| {
                 store
                     .read(cx)
                     .annotations(&root)
                     .into_iter()
                     .filter(|comment| !comment.resolved)
                     .count()
-            })
+            });
+            notes + crate::annotations::orphans::open_orphans(&root, cx)
         });
         let mut button = IconButton::new("annotations", Icon::ANNOTATIONS)
             .animated(lattice_ui::animated_icon::ProductIcon::ChatOutline)

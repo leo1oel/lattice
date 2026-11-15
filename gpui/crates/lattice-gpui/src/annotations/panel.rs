@@ -151,6 +151,8 @@ impl AnnotationsPanel {
         let query = cx.new(|cx| InputState::new(window, cx).placeholder(t!("Filter annotations…")));
         let subscriptions = vec![
             cx.observe(&store, |_, _, cx| cx.notify()),
+            // A citation reason joins the notes once its cite is gone.
+            super::orphans::observe(cx),
             cx.subscribe(&query, |_, _, event: &InputEvent, cx| {
                 if matches!(event, InputEvent::Change) {
                     cx.notify();
@@ -252,15 +254,20 @@ impl AnnotationsPanel {
     }
 
     fn notes(&self, cx: &App) -> Vec<EditorComment> {
-        let Some(root) = &self.root else {
+        let Some(root) = self.root.clone() else {
             return Vec::new();
         };
-        self.store
+        let mut notes: Vec<EditorComment> = self
+            .store
             .read(cx)
-            .annotations(root)
+            .annotations(&root)
             .into_iter()
             .cloned()
-            .collect()
+            .collect();
+        // The citation reasons whose cite is gone (or that were resolved
+        // there) join the notes; an anchored one belongs to its card.
+        notes.extend(super::orphans::panel_reasons(&root, cx));
+        notes
     }
 
     /// Whether `filter` lists `comment`.
@@ -746,6 +753,9 @@ impl Focusable for AnnotationsPanel {
 impl Render for AnnotationsPanel {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         self.follow_host(cx);
+        if let Some(root) = self.root.clone() {
+            super::orphans::read_sources(&root, cx);
+        }
         let notes = self.notes(cx);
         let has_notes = !notes.is_empty();
         let open = notes
@@ -801,7 +811,9 @@ impl Render for AnnotationsPanel {
         div()
             .track_focus(&self.focus_handle)
             .key_context("AnnotationsPanel")
-            .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, _, cx| this.rounds_key(event, cx)))
+            .on_key_down(
+                cx.listener(|this, event: &gpui::KeyDownEvent, _, cx| this.rounds_key(event, cx)),
+            )
             .size_full()
             .flex()
             .flex_col()

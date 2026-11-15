@@ -42,6 +42,9 @@ impl Shell {
                 }
             }
             PapersEvent::Read(paper) => self.open_reader((**paper).clone(), window, cx),
+            PapersEvent::ReadAt { paper, page } => {
+                self.open_reader_at((**paper).clone(), *page, window, cx)
+            }
             PapersEvent::ReadBeside(paper) => {
                 let from = self.beside_from(cx);
                 let key = reader_key(&paper.arxiv_id);

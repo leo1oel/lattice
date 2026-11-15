@@ -226,6 +226,22 @@ pub fn pdf_url(paper: &PaperSummary) -> Option<String> {
         .then_some(url.href)
 }
 
+/// What a citation's entry points at on the web, for Open paper when the
+/// library has no paper for it (`citationSourceUrl`): its url, else its
+/// DOI's resolver, else its arXiv PDF.
+pub fn citation_source_url(url: Option<&str>, doi: Option<&str>, arxiv: Option<&str>) -> Option<String> {
+    if let Some(url) = web_url(url) {
+        return Some(url.href);
+    }
+    if let Some(doi) = doi_url(doi) {
+        return Some(doi);
+    }
+    let id = arxiv.unwrap_or_default().trim();
+    ARXIV_ID
+        .is_match(id)
+        .then(|| format!("https://arxiv.org/pdf/{id}"))
+}
+
 /// Papers has no PDF of the paper at all, neither one its bundle keeps nor
 /// one on the web, so a Zotero attachment would give it one (`keepsNoPdf`).
 pub fn keeps_no_pdf(paper: &PaperSummary) -> bool {

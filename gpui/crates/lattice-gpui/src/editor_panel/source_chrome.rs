@@ -137,6 +137,17 @@ impl EditorPanel {
             // The writer moving on by hand ends a rail jump's hold on the
             // current section, unless it is on the rail.
             .capture_any_mouse_down(cx.listener(|this, _, _, cx| this.release_rail(cx)))
+            // A right-click on a citation key files its reason ("Why
+            // cited"); anywhere else keeps the editor's own menu.
+            .capture_any_mouse_down(cx.listener(|this, event: &gpui::MouseDownEvent, window, cx| {
+                if event.button == gpui::MouseButton::Right
+                    && let Some(offset) = this.citation_offset_under(event.position, window, cx)
+                    && this.why_cited_at(offset, window, cx)
+                {
+                    window.prevent_default();
+                    cx.stop_propagation();
+                }
+            }))
             // A press on an annotation's pin opens its note.
             .capture_any_mouse_down(cx.listener(|this, event: &gpui::MouseDownEvent, _, cx| {
                 if this.annotation_pin_pressed(event.position, cx) {
@@ -166,6 +177,7 @@ impl EditorPanel {
             .children(self.rail.clone())
             .children(margin.map(|(_, layer)| layer))
             .children(self.annotation_composer(window, cx))
+            .children(self.why_cited_popover(window, cx))
             .children(self.selection_toolbar(window, cx))
             .child(
                 gpui::canvas(

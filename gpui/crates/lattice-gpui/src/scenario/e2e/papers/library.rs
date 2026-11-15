@@ -148,7 +148,7 @@ impl Run {
 
     /// Save the window in light and dark, English and Simplified Chinese,
     /// under `LATTICE_E2E_SHOTS`, then put it back in light English.
-    async fn papers_looks(&self, cx: &mut AsyncApp, name: &str) -> Result<()> {
+    pub(super) async fn papers_looks(&self, cx: &mut AsyncApp, name: &str) -> Result<()> {
         use lattice_settings::InterfaceLanguage;
         use lattice_ui::{Appearance, LatticeTheme};
         if std::env::var_os("LATTICE_E2E_SHOTS").is_none() {
