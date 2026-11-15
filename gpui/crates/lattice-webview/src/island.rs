@@ -23,7 +23,8 @@
 //!   GPUI placeholder shows and the page's first visible frame is a loaded one.
 //! - **The bridge** (`bridge.rs`): events and requests both ways, the page's
 //!   focus and presses, the theme, and the app's shortcuts pressed in the page
-//!   (only those the host last relayed to it), all from the main frame alone.
+//!   (only those the host last relayed to it, and that the page did not
+//!   handle itself), all from the main frame alone.
 //! - **The asset protocol and file bridge** (`protocol.rs`, `files.rs`): the
 //!   page and the project files granted to it, never anything else; no frame
 //!   navigates anywhere but the island's own bundle.

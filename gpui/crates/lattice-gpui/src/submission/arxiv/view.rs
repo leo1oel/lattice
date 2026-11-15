@@ -5,9 +5,8 @@
 //! the status beside Cancel and Export ZIP.
 
 use gpui::{
-    AnimationExt as _, AnyElement, App, Context, InteractiveElement as _, IntoElement,
-    ParentElement as _, Render, StatefulInteractiveElement as _, Styled as _, Transformation,
-    Window, div, percentage, prelude::FluentBuilder as _, px,
+    AnyElement, App, Context, InteractiveElement as _, IntoElement, ParentElement as _, Render,
+    StatefulInteractiveElement as _, Styled as _, Window, div, prelude::FluentBuilder as _, px,
 };
 use lattice_core::latex::{ArxivCheck, ArxivOptions, ArxivPackage};
 use lattice_i18n::{t, tc};
@@ -31,18 +30,6 @@ use super::{
     },
 };
 use crate::submission::format_size;
-
-/// A spinning loader, as `.spin` turns Lucide's.
-fn spinner(id: &'static str, size: f32, color: gpui::Hsla) -> AnyElement {
-    Icon::LOADER
-        .element(px(size), color)
-        .with_animation(
-            id,
-            gpui::Animation::new(std::time::Duration::from_secs(1)).repeat(),
-            |mark, t| mark.with_transformation(Transformation::rotate(percentage(t))),
-        )
-        .into_any_element()
-}
 
 impl Render for ArxivExportSheet {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
@@ -400,7 +387,12 @@ impl ArxivExportSheet {
                     None,
                 ),
                 CheckState::Running => (
-                    spinner("arxiv-check-spinner", 13., palette.text_secondary),
+                    lattice_ui::loading::loader(
+                        "arxiv-check-spinner",
+                        px(13.),
+                        palette.text_secondary,
+                        cx,
+                    ),
                     None,
                 ),
                 CheckState::Pending => (

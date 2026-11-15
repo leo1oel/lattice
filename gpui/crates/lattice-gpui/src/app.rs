@@ -146,6 +146,7 @@ pub fn init(scripted: bool, cx: &mut App) {
     load_keymaps(cx);
     crate::shell::workspaces::Workspaces::init(scripted, cx);
     crate::recents::RecentProjects::init(scripted, cx);
+    crate::shell::init_recent_commands(scripted, cx);
     crate::first_pages::FirstPages::init(scripted, cx);
     crate::shell::menus::install(cx);
     // The log every notice reaches, and, on the first launch after an
@@ -153,6 +154,9 @@ pub fn init(scripted: bool, cx: &mut App) {
     let state = crate::shell::workspaces::state_dir(scripted);
     crate::app_log::install(state.clone(), cx);
     crate::app_log::capture::install(cx);
+    // Off until the GPUI app has a release channel (`updater.rs`).
+    crate::updater::install(scripted, cx);
+    crate::updater::register_actions(cx);
     crate::get_started::progress::install(state.clone(), cx);
     crate::help::whats_new::announce_update(state.clone(), cx);
     // Windows open where the last one was left.

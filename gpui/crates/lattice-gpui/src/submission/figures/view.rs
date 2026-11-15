@@ -481,5 +481,6 @@ impl Render for FigureInventory {
             },
         )
         .closable_by_scrim(!self.busy && self.plan.is_none())
+        .closable(!self.busy)
     }
 }

@@ -34,7 +34,7 @@ impl ShortcutSheet {
         context.in_project = true;
         let mut groups: Vec<(&'static str, Vec<(SharedString, SharedString)>)> = Vec::new();
         for command in commands::commands(&context) {
-            let Some(keys) = commands::keys_label(command.action.as_ref(), window) else {
+            let Some(keys) = commands::keys_label(command.keys_action(), window) else {
                 continue;
             };
             let label = command.label;

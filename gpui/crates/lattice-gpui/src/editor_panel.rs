@@ -53,7 +53,9 @@ mod events;
 pub mod find_bar;
 mod highlight_palette;
 mod insert;
+mod latex_format;
 mod latex_view;
+mod latex_visual_events;
 mod margin_review;
 mod markdown_view;
 mod moves;
@@ -68,10 +70,11 @@ pub mod rail_outline;
 mod save;
 mod selection_toolbar;
 mod source_chrome;
-mod spelling;
+pub(crate) mod spelling;
 mod strip;
 mod structured_view;
 pub mod views;
+pub use latex_format::{ToggleBold, ToggleEmphasis};
 
 pub(crate) use annotations::PINS as ANNOTATION_PINS;
 use disk_sync::vanished_key;
@@ -743,6 +746,8 @@ impl Render for EditorPanel {
             .on_action(cx.listener(|this, _: &proofread::RewriteSelection, window, cx| {
                 this.proofread_action(None, window, cx)
             }))
+            .on_action(cx.listener(Self::toggle_bold))
+            .on_action(cx.listener(Self::toggle_emphasis))
             .on_action(cx.listener(|this, _: &find_bar::FindNext, window, cx| {
                 if !this.find_in_latex_visual("next", window, cx) {
                     this.find_bar

@@ -94,7 +94,7 @@ impl EditorPanel {
                         .checked(crate::app::vim_mode_enabled(cx)),
                 );
         }
-        menu.item(command(t!("Build"), Box::new(Build)))
+        menu.item(command(t!("Build"), Box::new(Build)).shortcut(crate::shell::BUILD_SHORTCUT_LABEL))
             .item(command(t!("Clean rebuild"), Box::new(CleanRebuild)))
             .when(building, |menu| {
                 menu.item(command(t!("Stop the build"), Box::new(StopBuild)))

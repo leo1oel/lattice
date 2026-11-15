@@ -36,6 +36,8 @@ The curves are the app's own `linear()` spring samples, so a GPUI animation foll
   Read it with `value(now)`, and ask for a frame while `is_running(now)`.
 - `motion::Entrance` holds the popup, tooltip, dialog and toast entrances (`components::pop_in`, `rise_in`, `toast_in`).
 - `motion::Exit` holds their exits, a tier quicker on ease-out, and `motion::Keyframes` keys one number through a CSS `@keyframes` rule, eased per interval.
+  `components::pop_out` and `sink_out` draw a popup's and a dialog's exit from the time since it closed, taking no input; a context menu and a select keep their picture through it, and a modal layer plays it before telling its owner when Escape or the scrim closes it, unless the owner marks the layer `closable(false)` while it would refuse the close.
+- `loading::spinner` turns a busy mark once every 0.8 s (a Button, IconButton or StatusItem showing `Icon::LOADER` turns it by itself), and `loading::sheen` sweeps a band across a skeleton every 1.6 s; both rest under reduced motion.
 - `attention` holds the editor's attention moments as functions of time: a jump's `reveal_flash`, an outside edit's `change_wash`, and an accepted edit's strike, fold and settle (`accept`).
 - Under reduced motion (`cx.reduce_motion()`), spatial travel lands at once and fades stay.
 

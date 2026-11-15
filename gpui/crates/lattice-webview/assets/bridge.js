@@ -7,11 +7,12 @@
 //   latticeHost.on(type, listener)       host events of one type; returns an unsubscribe
 //   latticeHost.ready()                  the page is listening: the host may post
 //   latticeHost.forwardKey(init)         a key from a child frame, relayed if it is the app's
+//                                        (the frame's own handlers had it first)
 //   latticeHost.pointerdown()            a press in a child frame
 //
 // It also reports, on its own, focus entering and leaving the page, presses in
 // the page (so the host can close its popovers), and the app's shortcuts
-// pressed in the page; and it applies the host's theme as CSS variables on
+// the page left alone; and it applies the host's theme as CSS variables on
 // the root element. Nothing here trusts a message that did not come from the
 // host: host messages arrive only through `__latticeIsland.deliver`, which the
 // host calls with evaluate_script. Every message to the host carries this
@@ -144,14 +145,23 @@
     }),
   });
 
-  // The app's shortcuts, claimed before the page's own handlers see them.
+  // The app's shortcuts, once the page has had them: a key the page handled
+  // (Markdown's ⌘B bold or ⌘K link, a board's ⌘[ and ⌘], a sheet's ⌘B) is
+  // its own, as the Tauri app's window listener skips a key a focused surface
+  // already took (`src/app/use-app-commands.ts`). The capture phase at the
+  // window comes first for every key, and a listener it adds to the window
+  // for the bubble phase is the last the key reaches, after the page's own,
+  // the window's included. A key the page stopped never gets there, and its
+  // listener goes at the next key.
   window.addEventListener(
     "keydown",
     (event) => {
-      if (forwardKey(event)) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-      }
+      const settle = (late) => {
+        window.removeEventListener("keydown", settle);
+        if (late !== event || event.defaultPrevented) return;
+        if (forwardKey(event)) event.preventDefault();
+      };
+      window.addEventListener("keydown", settle);
     },
     true,
   );

@@ -155,6 +155,21 @@ impl Shell {
         cx.notify();
     }
 
+    /// Find in project on `query`, from the palette's query that found
+    /// nothing there.
+    pub(crate) fn find_in_project_for(
+        &mut self,
+        query: String,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.documents.find.is_some() {
+            self.close_document_overlays(window, cx);
+        }
+        self.documents.find_memory.query = query;
+        self.toggle_find(window, cx);
+    }
+
     /// ⌘⇧H: Replace in project.
     pub(crate) fn toggle_replace(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.documents.replace.is_some() {
@@ -373,7 +388,7 @@ impl Shell {
     }
 
     /// The files visited this session, newest first and each once.
-    fn recent_paths(&self) -> Vec<String> {
+    pub(super) fn recent_paths(&self) -> Vec<String> {
         let mut out: Vec<String> = Vec::new();
         for (path, _) in self.documents.history.iter().rev() {
             if !out.contains(path) {

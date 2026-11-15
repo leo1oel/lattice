@@ -823,6 +823,7 @@ impl Render for ConflictResolver {
             },
         )
         .closable_by_scrim(false)
+        .closable(!self.saving)
         .into_any_element()
     }
 }

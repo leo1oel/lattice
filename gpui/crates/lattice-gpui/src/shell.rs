@@ -34,6 +34,7 @@ mod get_started_flow;
 mod ground;
 mod help_flow;
 mod history_flow;
+pub(crate) mod import_conflict;
 mod imports;
 mod insert_flow;
 mod layers;
@@ -45,6 +46,9 @@ mod overleaf_menus;
 mod overleaf_presence;
 mod overleaf_review;
 mod palette;
+mod palette_commands;
+mod palette_entries;
+mod palette_groups;
 mod papers;
 mod parts;
 mod pdfs;
@@ -89,6 +93,7 @@ pub use annotations_flow::{CommentsView, ShowAnnotations};
 pub use overleaf_collab::AnnotateSelection;
 pub use get_started_flow::ShowGetStarted;
 pub use help_flow::{ReportProblem, WhatsNew};
+pub(crate) use palette_groups::init as init_recent_commands;
 pub use insert_flow::{InsertTable, PasteImageAsFigure};
 pub use overleaf_menus::ReviewHere;
 pub use references_flow::{FindReferences, RenameSymbol};
@@ -117,9 +122,9 @@ use crate::{
 const WORKSPACE_SIDE: f32 = 6.;
 
 #[cfg(target_os = "macos")]
-pub const BUILD_SHORTCUT_LABEL: &str = "⌘B";
+pub const BUILD_SHORTCUT_LABEL: &str = "⌘S";
 #[cfg(not(target_os = "macos"))]
-pub const BUILD_SHORTCUT_LABEL: &str = "Ctrl+B";
+pub const BUILD_SHORTCUT_LABEL: &str = "Ctrl+S";
 
 pub fn bind_keys(cx: &mut App) {
     commands::bind_keys(cx);

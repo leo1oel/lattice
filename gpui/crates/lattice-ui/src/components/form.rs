@@ -43,6 +43,7 @@ pub struct Checkbox {
     disabled: bool,
     on_toggle: Option<ToggleHandler>,
     parity: Option<SharedString>,
+    quiet: bool,
 }
 
 impl Checkbox {
@@ -55,6 +56,7 @@ impl Checkbox {
             disabled: false,
             on_toggle: None,
             parity: None,
+            quiet: false,
         }
     }
 
@@ -77,6 +79,13 @@ impl Checkbox {
 
     pub fn disabled(mut self, disabled: bool) -> Self {
         self.disabled = disabled;
+        self
+    }
+
+    /// A secondary option beside a row of controls: its label in caption
+    /// size and the secondary text colour (`.add-papers-full-text`).
+    pub fn quiet(mut self) -> Self {
+        self.quiet = true;
         self
     }
 
@@ -167,8 +176,19 @@ impl RenderOnce for Checkbox {
                     .flex_col()
                     .child(
                         div()
-                            .text_role(TextRole::BodyCompact, cx)
-                            .text_color(palette.text)
+                            .text_role(
+                                if self.quiet {
+                                    TextRole::Caption
+                                } else {
+                                    TextRole::BodyCompact
+                                },
+                                cx,
+                            )
+                            .text_color(if self.quiet {
+                                palette.text_secondary
+                            } else {
+                                palette.text
+                            })
                             .children(self.parity.clone().zip(self.label.clone()).and_then(
                                 |(name, label)| crate::parity::text_probe(name, 0, label),
                             ))

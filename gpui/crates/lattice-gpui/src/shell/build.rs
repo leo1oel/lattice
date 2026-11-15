@@ -55,7 +55,7 @@ pub(super) struct BuildRequest {
     /// Lattice started it (a save, an outside edit), nobody asked: a failing
     /// document nothing changed in is not typeset again (`latex::build`).
     unattended: bool,
-    /// The writer asked (⌘B, the chip): its failure comes back even when
+    /// The writer asked (Build, the chip): its failure comes back even when
     /// dismissed, and the editor goes to its first error.
     pub(super) requested: bool,
     /// An automatic build the live preview's pause in typing let through:
@@ -174,7 +174,7 @@ fn read_sources(
 }
 
 impl Shell {
-    /// ⌘B and the build chip: save, then build, bringing the problems up if
+    /// Build and the build chip: save, then build, bringing the problems up if
     /// it fails.
     pub fn build(&mut self, _: &Build, window: &mut Window, cx: &mut Context<Self>) {
         self.run_build(BuildRequest::requested(), window, cx);

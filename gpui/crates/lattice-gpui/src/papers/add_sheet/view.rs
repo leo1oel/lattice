@@ -13,7 +13,7 @@ use gpui::{
 use lattice_i18n::t;
 use lattice_ui::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
-    components::{Button, IconButton, Textarea},
+    components::{Button, CheckState, Checkbox, IconButton, Textarea},
     icons::ICON_SMALL,
     interaction::mix,
     tokens::FONT_WEIGHT_MEDIUM,
@@ -84,7 +84,9 @@ impl AddPapers {
                 .text_role(TextRole::Caption, cx)
                 .text_color(ink)
                 .whitespace_nowrap()
-                .children(icon.map(|icon| icon.element(ICON_SMALL, ink)))
+                .children(icon.map(|icon| {
+                    lattice_ui::loading::mark("add-sheet-mark", icon, ICON_SMALL, ink, cx)
+                }))
                 .child(div().min_w_0().truncate().child(text))
                 .into_any_element()
         };
@@ -585,6 +587,28 @@ impl Render for AddPapers {
                             .on_click(
                                 cx.listener(|this, _, window, cx| this.open_zotero(window, cx)),
                             ),
+                    )
+                    // Whether adding saves the full text too: the writer's
+                    // last choice, kept in the settings for every window.
+                    .child(
+                        div().ml_auto().flex().items_center().child(
+                            Checkbox::new(
+                                "add-papers-full-text",
+                                if crate::settings::get(cx).save_full_text {
+                                    CheckState::On
+                                } else {
+                                    CheckState::Off
+                                },
+                            )
+                            .quiet()
+                            .label(t!("Also save full text (Markdown)"))
+                            .on_toggle(|on, _, cx| {
+                                let on = *on;
+                                crate::settings::update(cx, |settings| {
+                                    settings.save_full_text = on
+                                });
+                            }),
+                        ),
                     )
                     .into_any_element(),
             );

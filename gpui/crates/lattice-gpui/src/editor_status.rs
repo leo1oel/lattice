@@ -20,7 +20,7 @@
 //! they show (`build::chip_mark`). It is as wide as its widest state (the
 //! longest label, a time up to 999.9 s included), so the strip never shifts
 //! as it changes. Its fill eases under the pointer and a press shrinks it to
-//! 96%, both on the fast tier. It builds on click, as ⌘B does. In a strip
+//! 96%, both on the fast tier. It builds on click, as Build does. In a strip
 //! short of room for its tabs it keeps only its mark, 8px in at each side
 //! (`[data-tools="icon"]`), before the strip drops it for the ⋯ menu's
 //! Build.

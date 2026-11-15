@@ -73,6 +73,7 @@ impl Shell {
             in_project: self.project.is_some(),
             maximized: self.workspace.read(cx).engine().framed().is_some(),
             focus_mode: self.layout.focus.is_some(),
+            focus_pdf: Workspaces::global(cx).focus_pdf(),
             dirty: self.layout.dirty,
             building: self.build_task.is_some(),
             preset: self.layout.preset.as_ref().map(|active| active.preset),

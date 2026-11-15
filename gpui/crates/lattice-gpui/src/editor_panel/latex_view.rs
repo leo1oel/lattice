@@ -33,6 +33,9 @@ pub(super) struct LatexViews {
     /// The view the panel last drew, so a change of the shared choice
     /// carries the caret across.
     drawn: Option<LatexView>,
+    /// The manuscript's outline, as the shell last read it, for the rail
+    /// over the page (`latex_visual_events.rs`).
+    pub(super) headings: Option<std::rc::Rc<[crate::outline::Heading]>>,
 }
 
 /// Whether `path` is a LaTeX document, which has a Visual form beside its
@@ -79,11 +82,14 @@ impl EditorPanel {
         let project = self.project.clone();
         let relative = self.relative.clone();
         let source = self.buffer.read(cx).text();
-        let document =
-            cx.new(|cx| StructuredDocument::latex_visual(&project, relative, source, window, cx));
-        // Edits, undo, redo and the caret are a Markdown visual editor's.
+        let dictionaries = super::spelling::dictionary_store(cx);
+        let document = cx.new(|cx| {
+            StructuredDocument::latex_visual(&project, relative, source, dictionaries, window, cx)
+        });
+        // Edits, undo, redo and the caret are a Markdown visual editor's;
+        // the rest is the page's own (`latex_visual_events.rs`).
         self._subscriptions
-            .push(cx.subscribe_in(&document, window, Self::on_markdown_document));
+            .push(cx.subscribe_in(&document, window, Self::on_latex_document));
         document
     }
 
@@ -159,7 +165,8 @@ impl EditorPanel {
     }
 
     /// What the Visual view reads beside the text: the manuscript's root
-    /// document and the last build that wrote a PDF.
+    /// document, the last build that wrote a PDF, the outline for its rail
+    /// and the spell check's settings.
     pub(super) fn forward_latex_context(&mut self, cx: &mut Context<Self>) {
         let Some(document) = self.latex.document.clone() else {
             return;
@@ -180,6 +187,8 @@ impl EditorPanel {
                 cx,
             );
         });
+        self.forward_latex_outline(cx);
+        self.forward_latex_spelling(cx);
     }
 
     /// A jump to a 1-based line lands in the Visual view while it shows:

@@ -176,6 +176,34 @@ struct Wording {
     original: bool,
 }
 
+/// Harper's own rule name made readable (`grammarRuleLabel`):
+/// "PhrasalVerbAsCompoundNoun" reads "Phrasal verb as compound noun".
+pub fn rule_label(name: &str) -> String {
+    static LOWER_UPPER: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"([a-z0-9])([A-Z])").unwrap());
+    static UPPER_WORD: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"([A-Z])([A-Z][a-z])").unwrap());
+    let words = LOWER_UPPER.replace_all(name, "$1 $2");
+    let words = UPPER_WORD.replace_all(&words, "$1 $2");
+    let mut chars = words.chars();
+    match chars.next() {
+        Some(first) => first.to_string() + &chars.as_str().to_lowercase(),
+        None => String::new(),
+    }
+}
+
+/// A rule's name and description in the interface language
+/// (`grammarRuleText`): the language's table when it has one, else the
+/// readable English name and Harper's description without its backticks.
+pub fn rule_text(rule: &str, english_description: &str) -> (String, String) {
+    if lattice_i18n::locale() == Locale::ZhCn
+        && let Some(text) = rule_text_zh(rule)
+    {
+        return text;
+    }
+    (rule_label(rule), english_description.replace('`', ""))
+}
+
 /// How the lint card words `finding` in the interface language now: the
 /// rule's name, when the language translates it, and the finding.
 pub fn describe(finding: &Finding) -> (Option<String>, String) {
@@ -379,5 +407,18 @@ impl RenderOnce for LintCard {
                             .child(finding.source),
                     )
             }))
+    }
+}
+
+#[cfg(test)]
+mod rule_name_tests {
+    #[test]
+    fn a_rule_name_reads_as_words() {
+        assert_eq!(
+            super::rule_label("PhrasalVerbAsCompoundNoun"),
+            "Phrasal verb as compound noun"
+        );
+        assert_eq!(super::rule_label("ExpandMinimum"), "Expand minimum");
+        assert_eq!(super::rule_label("ToTwoToo"), "To two too");
     }
 }

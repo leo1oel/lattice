@@ -28,6 +28,7 @@ pub mod fonts;
 pub mod icons;
 pub mod interaction;
 pub mod kit;
+pub mod loading;
 pub mod measure;
 pub mod motion;
 pub mod palette;
