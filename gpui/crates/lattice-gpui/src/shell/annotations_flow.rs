@@ -184,6 +184,7 @@ impl Shell {
                     this.open_annotation(comment.path.clone(), comment.id.clone(), window, cx)
                 }
                 AnnotationsPanelEvent::OpenFile => this.toggle_quick_open(window, cx),
+                AnnotationsPanelEvent::ExportReviewPdf => this.open_review_sheet(None, window, cx),
             },
         );
         let view = cx.new(|cx| CommentsView {

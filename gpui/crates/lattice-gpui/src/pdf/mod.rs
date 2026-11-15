@@ -7,6 +7,8 @@
 pub(crate) mod annotation_place;
 mod clicked_word;
 pub(crate) mod compounds;
+pub(crate) mod review_place;
+pub(crate) mod review_sheet;
 mod dark;
 mod engine;
 mod find;
@@ -37,5 +39,6 @@ pub use panel::{PdfEvent, PdfPanel, PdfPanelKind, pdf_tab_label};
 pub use text::LinkTarget;
 pub use toolbar_hover::toolbar_section;
 pub use view::{
-    CitationLookup, CompoundSource, PdfNotes, PdfView, PdfViewEvent, ToolbarAction, ViewPlace,
+    CitationLookup, CompoundSource, PdfNotes, PdfView, PdfViewEvent, ReviewSource, ToolbarAction,
+    ViewPlace,
 };

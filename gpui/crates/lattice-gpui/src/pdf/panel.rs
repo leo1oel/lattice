@@ -72,6 +72,8 @@ pub enum PdfEvent {
     OpenCitation(String),
     /// A note's card on the PDF asked something of it.
     Annotation(crate::annotations::AnnotationRequest),
+    /// Export review PDF…, of this panel's PDF.
+    ExportReview,
     /// An Outline row: open `path` at `line`, and show it in the PDF.
     Outline {
         path: String,
@@ -367,6 +369,7 @@ impl PdfPanel {
             }),
             PdfViewEvent::OpenCitation(key) => cx.emit(PdfEvent::OpenCitation(key.clone())),
             PdfViewEvent::Annotation(request) => cx.emit(PdfEvent::Annotation(request.clone())),
+            PdfViewEvent::ExportReview => cx.emit(PdfEvent::ExportReview),
             PdfViewEvent::PlaceChanged(place) => self.remember_place(*place),
             PdfViewEvent::Action => self.detach(window, cx),
         }

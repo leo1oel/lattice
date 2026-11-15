@@ -93,6 +93,8 @@ pub enum AnnotationsPanelEvent {
     Open(EditorComment),
     /// Open a file to annotate (the empty panel's Open a file).
     OpenFile,
+    /// Export review PDF… over the live PDF.
+    ExportReviewPdf,
 }
 
 /// The card being written in: an edit of the note, or a reply.
@@ -617,7 +619,16 @@ impl AnnotationsPanel {
                             .when(has_notes, |this| this.child(segmented)),
                     )
                     .when(has_notes, |this| this.child(search))
-                    .children(self.rounds_button(cx)),
+                    .children(self.rounds_button(cx))
+                    .when(has_notes, |this| {
+                        this.child(
+                            IconButton::new("annotations-review-pdf", Icon::MESSAGE_SQUARE_SHARE)
+                                .tooltip(t!("Export review PDF…"))
+                                .on_click(cx.listener(|_, _, _, cx| {
+                                    cx.emit(AnnotationsPanelEvent::ExportReviewPdf)
+                                })),
+                        )
+                    }),
             )
             .when(searching && has_notes, |this| {
                 this.child(
