@@ -11,8 +11,8 @@ use super::Shell;
 use crate::{
     notices::{self, Notice},
     submission::references::{
-        self, ReferencesBar, ReferencesEvent, RenameEvent, RenameSymbolDialog, SymbolKind,
-        symbol_at,
+        self, ReferencesBar, ReferencesEvent, RenameEvent, RenameSymbolDialog, RenameTarget,
+        SymbolKind, symbol_at,
     },
 };
 
@@ -126,7 +126,8 @@ impl Shell {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let dialog = cx.new(|cx| RenameSymbolDialog::new(kind, symbol, window, cx));
+        let dialog =
+            cx.new(|cx| RenameSymbolDialog::new(RenameTarget::Symbol(kind), symbol, window, cx));
         let subscription =
             cx.subscribe_in(
                 &dialog,
@@ -158,7 +159,10 @@ impl Shell {
         let Some(root) = self.root(cx) else { return };
         let (kind, old) = {
             let dialog = dialog.read(cx);
-            (dialog.kind, dialog.old.clone())
+            let RenameTarget::Symbol(kind) = dialog.target else {
+                return;
+            };
+            (kind, dialog.old.clone())
         };
         let saved = self.save_before_leaving(cx);
         cx.spawn_in(window, async move |this, cx| {
