@@ -42,7 +42,11 @@ use lattice_webview::{
 };
 use serde_json::{Value, json};
 
-use super::{commands, runtime};
+use super::{
+    commands,
+    permission_mode::{PermissionMode, set_permission_mode},
+    runtime,
+};
 
 mod documents;
 mod notices;
@@ -528,6 +532,11 @@ impl SynaraSurface {
                 Some(snapshot) => cx.emit(SurfaceEvent::History(snapshot)),
                 None => log::debug!("{}: malformed agent:history", self.kind.name()),
             },
+            "agent:permission-mode" => {
+                if let Some(mode) = payload["mode"].as_str().and_then(PermissionMode::parse) {
+                    set_permission_mode(mode, cx);
+                }
+            }
             _ => match surface_event(kind, payload) {
                 Some(event) => cx.emit(event),
                 None => log::debug!("{}: unhandled {kind}", self.kind.name()),

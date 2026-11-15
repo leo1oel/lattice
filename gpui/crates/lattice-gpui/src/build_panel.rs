@@ -35,6 +35,7 @@ use crate::build::{
     diagnostics::{self, Severity},
     explain::{self, ExplainOptions, Explained},
     outcome::BuildOutcome,
+    repair::RepairState,
 };
 
 /// A raw log's rows, measured a little beyond the box so a scroll does not
@@ -72,6 +73,16 @@ pub enum BuildAction {
     /// Build with this engine from now on (`keep`: the writer chose it, so
     /// an automatic switch leaves it alone), then build.
     SwitchEngine { engine: String, keep: bool },
+    /// Fix all: the Agent repairs every error and warning.
+    FixAll,
+    /// Ask the agent about the diagnostic at this place in the list.
+    AskAgent(usize),
+    CancelRepair,
+    /// Unlock anyway: the editors are writable again though the repair has
+    /// not stopped.
+    UnlockRepair,
+    /// The repair's thread, in the Agent.
+    ViewRepair,
 }
 
 enum Status {
@@ -146,6 +157,11 @@ pub struct BuildPanel {
     quiet: bool,
     /// Quiet builds started, for a scenario.
     quiet_runs: usize,
+    /// The compile repair the card shows (`shell::build_repair` runs it).
+    repair: Option<RepairState>,
+    /// The project may be written: not linked to Overleaf, or linked with
+    /// write access. Fix all needs it.
+    repair_writable: bool,
     _ticker: Option<Task<()>>,
 }
 
@@ -175,6 +191,8 @@ impl BuildPanel {
             builds: 0,
             quiet: false,
             quiet_runs: 0,
+            repair: None,
+            repair_writable: true,
             _ticker: None,
         }
     }
@@ -483,14 +501,43 @@ impl BuildPanel {
         cx.notify();
     }
 
-    /// Whether the card is up: a build reported something to read, and the
-    /// writer has not dismissed it.
+    /// Whether the card is up: a build reported something to read, or a
+    /// repair ran, and the writer has not dismissed it; a running repair
+    /// keeps it up.
     pub fn card_shown(&self) -> bool {
-        !self.dismissed
-            && self
-                .last
-                .as_ref()
-                .is_some_and(|last| !last.success || !last.diagnostics.is_empty())
+        (!self.dismissed || self.repair_busy())
+            && self.last.as_ref().is_some_and(|last| {
+                !last.success || !last.diagnostics.is_empty() || self.repair.is_some()
+            })
+    }
+
+    /// The compile repair the card shows.
+    pub(crate) fn repair(&self) -> Option<&RepairState> {
+        self.repair.as_ref()
+    }
+
+    pub(crate) fn repair_busy(&self) -> bool {
+        self.repair.as_ref().is_some_and(RepairState::busy)
+    }
+
+    pub(crate) fn set_repair(&mut self, repair: Option<RepairState>, cx: &mut Context<Self>) {
+        if self.repair != repair {
+            self.repair = repair;
+            cx.notify();
+        }
+    }
+
+    /// Fix all and Ask the agent wait while a build or a repair runs, and
+    /// need a project the writer may write.
+    pub(crate) fn fix_disabled(&self) -> bool {
+        !self.repair_writable || self.is_running() || self.repair_busy()
+    }
+
+    pub(crate) fn set_repair_writable(&mut self, writable: bool, cx: &mut Context<Self>) {
+        if self.repair_writable != writable {
+            self.repair_writable = writable;
+            cx.notify();
+        }
     }
 
     pub fn docked(&self) -> bool {

@@ -26,6 +26,7 @@ mod annotations_flow;
 mod arrange;
 mod assets;
 mod build;
+mod build_repair;
 mod build_tools;
 mod build_watch;
 pub mod commands;

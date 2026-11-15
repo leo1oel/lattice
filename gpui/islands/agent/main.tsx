@@ -101,7 +101,7 @@ import { agentDeckPresence, parseAgentTurnActivity, subscribeAgentDeckPresence }
 import { noteHostFileWrites } from "../../../src/agent/agent-host-writes";
 import { SYNARA_POPUP_OPEN, LATTICE_OUTSIDE_POINTER_DOWN } from "../../../src/agent/synara-popup-dismissal";
 import type { AgentGitWorkspaceView } from "../../../src/agent/synara-runtime";
-import { persistSynaraThread, type AgentTurnReview } from "../../../src/app/app-synara-embed";
+import { isSynaraPermissionMode, persistSynaraThread, type AgentTurnReview } from "../../../src/app/app-synara-embed";
 import type { CanvasMode, EditorPosition, ProjectSnapshot } from "../../../src/app-types";
 import type { ThemeAccent, ThemeTint, Translucency } from "../../../src/settings/theme-customization";
 
@@ -291,6 +291,8 @@ function Agent({ opened, workspace, visible, appearance, git, overleaf, deckRequ
       takeDeckRequest(deckRequest.nonce);
     }
   }, [deckRequest, opened.projectRoot, opened.surface, sendComposerPrompt, takeDeckRequest]);
+  // A compile repair's View repair (`SynaraSurface::show_thread`, `showThread` in use-document-surfaces.tsx).
+  useEffect(() => host().on("agent:show-thread", (payload) => { const id = (payload as { threadId?: unknown } | null)?.threadId; if (typeof id === "string") { if (projectRootRef.current) persistSynaraThread(projectRootRef.current, id); synara.showThread(id); } }), [synara.showThread]);
 
   // useAgentContext's snapshots, from what the owner reports of the window.
   const hostContext = useMemo(() => buildAgentHostContext({
@@ -378,13 +380,14 @@ function Agent({ opened, workspace, visible, appearance, git, overleaf, deckRequ
     liveShortcuts.publish(relayCombos(bridgeHost.relay(), bridgeHost.primaryIsMeta));
     const onMessage = (event: MessageEvent) => {
       if (!origin || event.origin !== origin || event.source !== frameWindow()) return;
-      const data = event.data as { type?: unknown; open?: unknown } | null;
+      const data = event.data as { type?: unknown; open?: unknown; mode?: unknown } | null;
       if (data?.type === SYNARA_POPUP_OPEN && typeof data.open === "boolean") popupOpen = data.open;
       else if (data?.type === "synara:embed-ready") popupOpen = false;
       // Synara's notifications go to the app's stack with their buttons and
       // progress, rather than through the page's own toast relay.
       const notification = parseSynaraNotificationMessage(event.data);
       if (notification) bridgeHost.post("agent:notify", notification);
+      if (data?.type === "synara:agent-permission-mode" && isSynaraPermissionMode(data.mode)) bridgeHost.post("agent:permission-mode", { mode: data.mode });
       // A turn under way means the writer really asked the Agent something
       // (the Tauri host marks Get started's step on it).
       const activity = parseAgentTurnActivity(event.data);
