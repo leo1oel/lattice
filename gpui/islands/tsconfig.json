@@ -6,6 +6,6 @@
     "baseUrl": "../..",
     "types": ["vite/client"]
   },
-  "include": ["shared", "sheet", "board", "slides", "markdown", "agent", "math", "../../src/**/*.d.ts"],
+  "include": ["shared", "sheet", "board", "slides", "markdown", "latex", "agent", "math", "../../src/**/*.d.ts"],
   "references": []
 }
