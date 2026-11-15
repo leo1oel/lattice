@@ -208,3 +208,19 @@ impl Hangup {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_shell_starts_in_the_plain_spelling_of_the_project_folder() {
+        for (root, plain) in [
+            (r"\\?\C:\Users\Ada\Papers", r"C:\Users\Ada\Papers"),
+            (r"\\?\UNC\server\share\Papers", r"\\server\share\Papers"),
+            (r"C:\Users\Ada\Papers", r"C:\Users\Ada\Papers"),
+        ] {
+            assert_eq!(shell_cwd(Path::new(root)), Path::new(plain));
+        }
+    }
+}
