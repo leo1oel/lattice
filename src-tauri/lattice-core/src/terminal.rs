@@ -35,7 +35,7 @@ pub use session::Session;
 
 #[cfg(unix)]
 pub use launch::process_name;
-pub use launch::{shell_cwd, shell_launch, ShellLaunch};
+pub use launch::{set_location_script, shell_cwd, shell_launch, ShellLaunch};
 
 use std::collections::HashMap;
 use std::path::Path;

@@ -79,6 +79,29 @@ pub fn shell_cwd(root: &Path) -> PathBuf {
     crate::sidecar::node_script_path(root)
 }
 
+/// The PowerShell statement that moves a shell into `dir` literally.
+/// Windows PowerShell 5.1 reads `[` and `]` in its inherited working
+/// directory as wildcards and falls back to `System32\WindowsPowerShell\v1.0`
+/// (Overleaf projects are often named "[EMNLP] …"), so the folder is also set
+/// with `-LiteralPath` once the shell is up.
+pub fn set_location_script(dir: &Path) -> String {
+    format!("Set-Location -LiteralPath '{}'", dir.to_string_lossy().replace('\'', "''"))
+}
+
+#[cfg(test)]
+mod set_location_tests {
+    use super::set_location_script;
+    use std::path::Path;
+
+    #[test]
+    fn brackets_stay_literal_and_quotes_are_doubled() {
+        assert_eq!(
+            set_location_script(Path::new(r"C:\Docs\[EMNLP] Ada's thesis")),
+            r"Set-Location -LiteralPath 'C:\Docs\[EMNLP] Ada''s thesis'"
+        );
+    }
+}
+
 /// A running process's name ("latexmk"), when it still exists: what closing
 /// a terminal whose foreground job it leads would stop.
 #[cfg(unix)]
