@@ -175,7 +175,18 @@ impl TrellisWorkspace {
         }
         let p = self.local(event.position);
         match &self.held {
-            Some(Held::Press { .. }) => self.update_engine(cx, |e| e.drag_move(p)),
+            Some(Held::Press { view, .. }) => {
+                let view = view.clone();
+                let was_dragging = self.engine.dragging();
+                self.update_engine(cx, |e| e.drag_move(p));
+                // The press on a tab became its drag.
+                if !was_dragging
+                    && self.engine.dragging()
+                    && let Some(view) = view
+                {
+                    cx.emit(WorkspaceEvent::TabDragged(view));
+                }
+            }
             Some(Held::Divider) => self.update_engine(cx, |e| e.divider_move(p)),
             Some(Held::FloatResize) => self.update_engine(cx, |e| e.float_resize_move(p)),
             Some(Held::Navigation) => self.update_engine(cx, |e| e.nav_move(p)),

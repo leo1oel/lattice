@@ -308,6 +308,7 @@ impl TrellisWorkspace {
                                     if event.click_count == 2 {
                                         if !this.engine.suppress_clicks() {
                                             this.update_engine(cx, |e| e.toggle_frame(&panel));
+                                            cx.emit(WorkspaceEvent::TabDoubleClicked(view.clone()));
                                         }
                                     } else {
                                         this.press_strip(&panel, Some(&view), event, window, cx)

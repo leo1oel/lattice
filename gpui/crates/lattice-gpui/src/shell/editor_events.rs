@@ -57,6 +57,7 @@ impl Shell {
             // The live preview follows the editor in front, as the Tauri
             // app's follows its open file.
             EditorPanelEvent::Edited => {
+                self.document_edited(editor, cx);
                 if self.active_editor().as_ref() == Some(editor) {
                     self.live_preview
                         .update(cx, |live, cx| live.note_editor(editor, cx));

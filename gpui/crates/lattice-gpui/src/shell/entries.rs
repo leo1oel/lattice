@@ -23,9 +23,9 @@ impl Shell {
         cx: &mut Context<Self>,
     ) {
         match event {
-            FileTreeEvent::Open(path) => {
-                self.open_path(path.clone(), None, window, cx);
-            }
+            // A row's click is a quick look; its double-click keeps the tab.
+            FileTreeEvent::Open(path) => self.quick_look(path.clone(), None, window, cx),
+            FileTreeEvent::Keep(path) => self.open_kept(path.clone(), window, cx),
             FileTreeEvent::Create { path, folder } => {
                 self.create_entry(path.clone(), *folder, window, cx)
             }

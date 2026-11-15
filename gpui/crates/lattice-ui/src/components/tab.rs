@@ -91,6 +91,10 @@ pub struct PanelTab {
     selected: bool,
     strong: bool,
     dirty: bool,
+    /// A preview tab: its title in italics (`[data-tab-preview]`).
+    preview: bool,
+    /// A pinned tab: a pin in its close slot until the pointer is over it.
+    pinned: bool,
     closable: bool,
     fit: TabFit,
     on_close: Option<ClickHandler>,
@@ -111,6 +115,8 @@ impl PanelTab {
             selected: false,
             strong: false,
             dirty: false,
+            preview: false,
+            pinned: false,
             closable: false,
             fit: TabFit::Full,
             on_close: None,
@@ -154,6 +160,20 @@ impl PanelTab {
     /// Unsaved changes: a dot on the icon's corner.
     pub fn dirty(mut self, dirty: bool) -> Self {
         self.dirty = dirty;
+        self
+    }
+
+    /// A preview tab, which the next quick look in its panel replaces:
+    /// its title is set in italics (trellis.css `[data-tab-preview]`).
+    pub fn preview(mut self, preview: bool) -> Self {
+        self.preview = preview;
+        self
+    }
+
+    /// A pinned tab: its close slot shows a pin until the pointer is over
+    /// the tab, where it is the close square again (trellis.css).
+    pub fn pinned(mut self, pinned: bool) -> Self {
+        self.pinned = pinned;
         self
     }
 
@@ -262,7 +282,11 @@ impl RenderOnce for PanelTab {
         // until hovered) gives its room before the label gives any, so a
         // tab at its floor reads "ch…" rather than only its icon; hovering
         // brings the close square back by narrowing the label, never the tab.
-        let close_gives_way = shrinks.is_some() && !selected && interaction.hover <= 0.;
+        // A pinned tab at rest shows its pin in the slot, which then keeps
+        // its room as a selected tab's does.
+        let pin_shown = self.pinned && interaction.hover <= 0.;
+        let close_gives_way =
+            shrinks.is_some() && !selected && !pin_shown && interaction.hover <= 0.;
         // The close square fades its wash in and its ink up on the fast tier
         // (`trellis.css`, `[data-trellis-part="tab-close"]:hover`).
         let close_id = ElementId::NamedChild(std::sync::Arc::new(self.id.clone()), "close".into());
@@ -323,6 +347,7 @@ impl RenderOnce for PanelTab {
                         .text_role(TextRole::BodyCompact, cx)
                         .line_height(px(15.6))
                         .text_color(label_ink)
+                        .when(self.preview, |label| label.italic())
                         .children(
                             self.parity
                                 .and_then(|name| parity::text_probe(name, 0, self.label.clone())),
@@ -347,7 +372,7 @@ impl RenderOnce for PanelTab {
                         .flex()
                         .items_center()
                         .justify_center()
-                        .when(self.on_close.is_none() || !selected, |this| {
+                        .when((self.on_close.is_none() || !selected) && !pin_shown, |this| {
                             this.invisible()
                         })
                         .when_some(self.on_close, |this, on_close| {
@@ -361,7 +386,11 @@ impl RenderOnce for PanelTab {
                                     on_close(event, window, cx);
                                 })
                         })
-                        .child(Icon::CLOSE.element(ICON, close_ink)),
+                        .child(if pin_shown {
+                            Icon::PIN.element(ICON, close_ink)
+                        } else {
+                            Icon::CLOSE.element(ICON, close_ink)
+                        }),
                 )
             })
     }

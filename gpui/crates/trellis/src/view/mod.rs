@@ -52,6 +52,10 @@ pub enum WorkspaceEvent {
         view: String,
         dropped: bool,
     },
+    /// A tab was double-clicked (the strip also maximizes its panel).
+    TabDoubleClicked(String),
+    /// A press on a tab moved far enough to drag it.
+    TabDragged(String),
 }
 
 /// What the pointer is holding.

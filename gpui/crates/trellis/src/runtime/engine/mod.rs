@@ -778,6 +778,17 @@ impl Engine {
         self.doc.views.get(view_id)
     }
 
+    /// Whether `view_id`'s params hold `name: true`.
+    pub fn param_flag(&self, view_id: &str, name: &str) -> bool {
+        self.doc
+            .views
+            .get(view_id)
+            .and_then(|r| r.params.as_ref())
+            .and_then(|params| params.get(name))
+            .and_then(|value| value.as_bool())
+            .unwrap_or(false)
+    }
+
     pub fn params(&self, view_id: &str) -> Params {
         self.doc
             .views
