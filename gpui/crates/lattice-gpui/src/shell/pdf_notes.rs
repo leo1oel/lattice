@@ -44,6 +44,8 @@ impl Shell {
         document: Option<String>,
         cx: &mut Context<Self>,
     ) {
+        // A linked project's notes are Overleaf comments (`overleaf_collab`).
+        let annotatable = !self.overleaf.read(cx).linked();
         let notes = self.root(cx).map(|root| {
             let store = store::store(cx);
             let notes = store
@@ -56,6 +58,7 @@ impl Shell {
                 root,
                 document,
                 notes: std::sync::Arc::new(notes),
+                annotatable,
             }
         });
         panel.update(cx, |panel, cx| panel.set_notes(notes, cx));

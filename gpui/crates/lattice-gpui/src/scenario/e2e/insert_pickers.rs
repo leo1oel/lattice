@@ -264,7 +264,7 @@ impl Run {
         cx.update(|cx| lattice_ui::LatticeTheme::set_appearance(lattice_ui::Appearance::Light, cx));
     }
 
-    fn dispatch_keys(&self, cx: &mut AsyncApp, keys: &'static str) -> Result<()> {
+    pub(super) fn dispatch_keys(&self, cx: &mut AsyncApp, keys: &'static str) -> Result<()> {
         let keystroke = Keystroke::parse(keys).map_err(|error| anyhow::anyhow!("{error}"))?;
         self.with_window(cx, move |_, window, cx| {
             window.dispatch_keystroke(keystroke, cx);

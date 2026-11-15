@@ -152,6 +152,11 @@ impl PdfPanel {
         }
     }
 
+    /// Whether the notes it was given offer Annotate.
+    pub fn annotatable(&self) -> Option<bool> {
+        self.notes.as_ref().map(|notes| notes.annotatable)
+    }
+
     /// The project's notes, drawn on the PDF.
     pub fn set_notes(&mut self, notes: Option<super::PdfNotes>, cx: &mut Context<Self>) {
         self.notes = notes.clone();

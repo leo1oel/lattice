@@ -294,7 +294,7 @@ impl Run {
     }
 
     /// A press and release at `at`, as the window would get them.
-    fn click_at(&self, cx: &mut AsyncApp, at: gpui::Point<gpui::Pixels>) -> Result<()> {
+    pub(super) fn click_at(&self, cx: &mut AsyncApp, at: gpui::Point<gpui::Pixels>) -> Result<()> {
         self.with_window(cx, |_, window, cx| {
             for event in [
                 gpui::PlatformInput::MouseDown(gpui::MouseDownEvent {

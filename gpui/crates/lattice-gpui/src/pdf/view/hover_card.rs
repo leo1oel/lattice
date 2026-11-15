@@ -59,14 +59,38 @@ impl PdfView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        self.popup_over(id, about, width, painted, content, false, window, cx)
+    }
+
+    /// `content` placed as [`Self::hover_card`] is, or, with `below`, as a
+    /// note being written is (`usePdfAnchoredPopup`, `side: "below"`): under
+    /// what it is about from its left edge, above it when there is no room.
+    #[allow(clippy::too_many_arguments)]
+    pub(in crate::pdf) fn popup_over(
+        &self,
+        id: SharedString,
+        about: Bounds<Pixels>,
+        width: Pixels,
+        painted: CardBounds,
+        content: impl IntoElement,
+        below: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         let last = painted.get().map(|card| card.size);
-        let window_width = window.viewport_size().width;
+        let window_size = window.viewport_size();
+        let window_width = window_size.width;
         let width = last.map_or(width, |size| size.width);
         let height = last.map_or(px(0.), |size| size.height);
-        let above = about.top() - CARD_GAP - height >= CARD_GAP;
-        let left = (about.center().x - width / 2.)
-            .min(window_width - CARD_GAP - width)
-            .max(CARD_GAP);
+        let fits_above = about.top() - CARD_GAP - height >= CARD_GAP;
+        let fits_below = about.bottom() + CARD_GAP + height <= window_size.height - CARD_GAP;
+        let above = if below { !fits_below && fits_above } else { fits_above };
+        let start = if below {
+            about.left()
+        } else {
+            about.center().x - width / 2.
+        };
+        let left = start.min(window_width - CARD_GAP - width).max(CARD_GAP);
         let (at, anchor, from) = if above {
             (
                 point(left, about.top() - CARD_GAP),

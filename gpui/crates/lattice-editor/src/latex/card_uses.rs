@@ -51,7 +51,7 @@ pub fn role_colors(role: &str, palette: &Palette) -> (Hsla, Hsla) {
 /// "intro.tex:12" in another.
 pub fn place_label(at: &CitationUse, current: &str) -> String {
     if at.path == current {
-        t!("Line {line}", line = at.line)
+        t!("Line {0}", at.line)
     } else {
         format!("{}:{}", base_name(&at.path), at.line)
     }
@@ -124,7 +124,7 @@ pub(super) fn uses_section(
                 let (library, context, key) = (library.clone(), context.clone(), key.to_string());
                 chip.cursor_pointer()
                     .hover(|style| style.bg(palette.hover).text_color(palette.text))
-                    .tooltip(tip(t!("Open paper at page {page}", page = page)))
+                    .tooltip(tip(t!("Open paper at page {target}", target = page)))
                     .on_click(move |_, window, cx| {
                         context.close(cx);
                         library.open_paper(&key, Some(page), window, cx);
