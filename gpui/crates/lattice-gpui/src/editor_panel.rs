@@ -29,7 +29,7 @@ use std::{
 };
 
 use anyhow::{Context as _, Result};
-use editor::{Editor, EditorEvent, SelectionEffects, ToPoint as _, scroll::Autoscroll};
+use editor::{Editor, EditorEvent, SelectionEffects, scroll::Autoscroll};
 use futures::{channel::oneshot, future::Shared};
 use gpui::{
     AnyElement, App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, Focusable,
@@ -51,6 +51,7 @@ mod bib_view;
 mod buffer_counts;
 mod disk_sync;
 pub mod drops;
+mod editor_events;
 mod events;
 pub mod find_bar;
 mod highlight_palette;
@@ -352,56 +353,9 @@ impl EditorPanel {
                     }
                 },
             ),
-            cx.subscribe(
-                &editor,
-                |this, editor, event: &EditorEvent, cx| match event {
-                    EditorEvent::SelectionsChanged { .. } => {
-                        let editor = editor.read(cx);
-                        let snapshot = editor.buffer().read(cx).snapshot(cx);
-                        let head = editor.selections.newest_anchor().head().to_point(&snapshot);
-                        let line_start = Point::new(head.row, 0);
-                        let column =
-                            editor_status::caret_column(snapshot.text_for_range(line_start..head));
-                        let line = head.row + 1;
-                        let moved = this.cursor.0 != line;
-                        this.cursor = (line, column);
-                        this.overleaf_caret = (
-                            head.row,
-                            overleaf_carets::utf16_units(snapshot.text_for_range(line_start..head)),
-                        );
-                        this.bib_follow_caret(cx);
-                        if moved {
-                            cx.emit(EditorPanelEvent::CaretLine);
-                        }
-                        cx.emit(EditorPanelEvent::CaretMoved);
-                        cx.notify();
-                    }
-                    EditorEvent::Focused => {
-                        this.bib_source_focused(true);
-                        if let Some(diagnostics) = &this.diagnostics {
-                            diagnostics
-                                .update(cx, |diagnostics, cx| diagnostics.set_focused(true, cx));
-                        }
-                        cx.emit(EditorPanelEvent::Focused);
-                    }
-                    // A Markdown file's Split: the visual editor follows; a
-                    // `.tex` file's highlights are painted where it shows.
-                    EditorEvent::ScrollPositionChanged { .. } => {
-                        this.markdown_source_scrolled(cx);
-                        this.highlights_shown(cx);
-                    }
-                    // Leaving the editor saves at once, as the Tauri app does.
-                    EditorEvent::Blurred => {
-                        this.bib_source_focused(false);
-                        if let Some(diagnostics) = &this.diagnostics {
-                            diagnostics
-                                .update(cx, |diagnostics, cx| diagnostics.set_focused(false, cx));
-                        }
-                        this.leave(cx)
-                    }
-                    _ => {}
-                },
-            ),
+            cx.subscribe(&editor, |this, editor, event: &EditorEvent, cx| {
+                this.on_editor_event(editor, event, cx)
+            }),
             cx.subscribe(&find_bar, |_, _, event, cx| match event {
                 find_bar::FindBarEvent::Closed => cx.notify(),
             }),
