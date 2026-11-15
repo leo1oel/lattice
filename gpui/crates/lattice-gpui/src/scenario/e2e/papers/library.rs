@@ -5,7 +5,9 @@
 //! Research, and Add papers runs from it; adding a paper saves its citation
 //! alone until the writer turns on "Also save full text"; and Add reference,
 //! entered by hand, steps its year, shows the BibTeX it will write and
-//! offers to cite the entry at the caret.
+//! offers to cite the entry at the caret; an import asked to cite writes
+//! it at the caret and ticks Get started's Cite step, and Refresh entry
+//! leaves another project's bibliography alone.
 
 use std::time::Duration;
 
@@ -27,6 +29,117 @@ impl Run {
         self.papers_research_rows(cx, steps).await?;
         self.papers_full_text_setting(cx, steps, papers).await?;
         self.add_reference_form(cx, steps).await?;
+        self.papers_cite_and_refresh(cx, steps, papers).await?;
+        Ok(())
+    }
+
+    /// An import asked to cite writes `\cite{key}` at the caret of the .tex
+    /// in front through the shared cite-at-caret path, which ticks Get
+    /// started's Cite step as Tauri's `insertCitation` does; and Refresh
+    /// entry for another project's root does nothing, as Tauri's
+    /// `refreshEntry(importRoot, key)` returns early, while the same key for
+    /// the project open is checked (a key the bibliography lacks goes to
+    /// Check references, offline).
+    async fn papers_cite_and_refresh(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+        papers: &gpui::Entity<PapersPanel>,
+    ) -> Result<()> {
+        use crate::get_started::{Step, progress};
+        let root = cx
+            .update(|cx| self.shell.read(cx).root(cx))
+            .ok_or_else(|| anyhow::anyhow!("the Papers e2e needs a project"))?;
+        let manifest =
+            lattice_core::project::read_manifest(&root).map_err(|error| anyhow::anyhow!(error))?;
+        let bibliography = root.join(&manifest.primary_bibliography);
+        let original_bib = std::fs::read_to_string(&bibliography)?;
+        let editor = self.open(cx, &root.join("main.tex"), Some(1))?;
+        self.pause(cx, Duration::from_millis(300)).await;
+        let original = cx.update(|cx| editor.read(cx).text_and_caret(cx).0);
+        let at = original.find('\n').unwrap_or(0);
+        let caret_editor = editor.clone();
+        self.with_window(cx, move |_, window, cx| {
+            caret_editor.update(cx, |editor, cx| editor.replace_range(at, at, "", at, window, cx))
+        })?;
+        let cite_before = cx.update(|cx| progress::global(cx).read(cx).is_done(Step::Cite));
+        let panel = papers.clone();
+        let started = cx.update(|cx| {
+            panel.update(cx, |panel, cx| {
+                panel.import_entry(CITE_ENTRY.to_string(), CITE_KEY.to_string(), true, cx)
+            })
+        });
+        let written = format!("\\cite{{{CITE_KEY}}}");
+        let landed = self
+            .wait_for(cx, Duration::from_secs(15), |_, cx| {
+                editor.read(cx).text_and_caret(cx).0.contains(&written)
+            })
+            .await;
+        let (text, caret) = cx.update(|cx| editor.read(cx).text_and_caret(cx));
+        let cite_after = cx.update(|cx| progress::global(cx).read(cx).is_done(Step::Cite));
+        let restore = editor.clone();
+        let original_text = original.clone();
+        self.with_window(cx, move |_, window, cx| {
+            restore.update(cx, |editor, cx| {
+                let len = editor.text_and_caret(cx).0.len();
+                editor.replace_range(0, len, &original_text, 0, window, cx)
+            })
+        })?;
+        steps.check(
+            "an import with Insert cite writes \\cite{key} at the caret of the .tex in front and ticks Get started's Cite step",
+            started
+                && landed
+                && text.get(at..at + written.len()) == Some(written.as_str())
+                && caret == at + written.len()
+                && cite_after,
+            json!({
+                "started": started, "landed": landed, "caret": caret, "at": at,
+                "cite_before": cite_before, "cite_after": cite_after,
+                "line": text.lines().next(),
+            }),
+        );
+
+        // Refresh entry, through the panel's own event, for a key the
+        // bibliography lacks: another root is left alone, the open one is
+        // checked and sent to Check references.
+        let notices = cx.update(crate::notices::install);
+        cx.update(|cx| notices.update(cx, |stack, cx| stack.clear(cx)));
+        let review = format!(
+            "The sources differ from the entry for \\cite{{{REFRESH_KEY}}}. Compare them in Check references."
+        );
+        let mut seen = Vec::new();
+        for target in [root.join("..").join("another-project"), root.clone()] {
+            let (panel, key) = (papers.clone(), REFRESH_KEY.to_string());
+            cx.update(|cx| {
+                panel.update(cx, |_, cx| {
+                    cx.emit(crate::papers::PapersEvent::RefreshEntry { root: target, key })
+                })
+            });
+            let warned = self
+                .wait_for(cx, Duration::from_secs(5), |_, cx| {
+                    notices
+                        .read(cx)
+                        .titles()
+                        .iter()
+                        .any(|title| title.as_ref() == review)
+                })
+                .await;
+            let titles: Vec<String> = cx.update(|cx| {
+                notices.read(cx).titles().iter().map(|t| t.to_string()).collect()
+            });
+            seen.push(json!({ "warned": warned, "notices": titles }));
+            cx.update(|cx| notices.update(cx, |stack, cx| stack.clear(cx)));
+        }
+        let bib_kept_until_restore = std::fs::read_to_string(&bibliography)?;
+        std::fs::write(&bibliography, &original_bib)?;
+        cx.update(|cx| papers.update(cx, |panel, cx| panel.reload(cx)));
+        let other_ignored = seen[0]["warned"] == json!(false) && seen[0]["notices"] == json!([]);
+        let own_checked = seen[1]["warned"] == json!(true);
+        steps.check(
+            "Refresh entry for another project's root does nothing, and for the project open checks the entry",
+            other_ignored && own_checked,
+            json!({ "other": seen[0], "own": seen[1], "bib_has_cite_key": bib_kept_until_restore.contains(CITE_KEY) }),
+        );
         Ok(())
     }
 
@@ -419,6 +532,10 @@ impl Run {
 const FULL_TEXT_STEP: &str = "after Add papers' \"Also save full text\" switch, the box's import saves the citation alone or the full text too, and so does Add papers' own Add, each keeping its choice when the switch moves";
 
 /// Pasted entries, imported as they stand without a lookup.
+const CITE_KEY: &str = "e2ecitecaret2024";
+const CITE_ENTRY: &str = "@article{e2ecitecaret2024,\n  title = {Cite At Caret Paper},\n  author = {Writer, Ada},\n  journal = {Journal of Tests},\n  year = {2024}\n}\n";
+/// A key no bibliography holds, for Refresh entry.
+const REFRESH_KEY: &str = "e2enosuchentry2024";
 const SKIP_KEY: &str = "e2efulltextoff2024";
 const SKIP_ENTRY: &str = "@article{e2efulltextoff2024,\n  title = {Switch Off Paper},\n  author = {Writer, Ada},\n  journal = {Journal of Tests},\n  year = {2024}\n}\n";
 const SAVE_KEY: &str = "e2efulltexton2024";
