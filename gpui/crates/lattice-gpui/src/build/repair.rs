@@ -12,7 +12,7 @@
 use std::time::Duration;
 
 use lattice_core::models::Diagnostic;
-use lattice_i18n::t;
+use lattice_i18n::{fill_named, n, t, tr};
 use serde::Deserialize;
 
 /// How long after Cancel a task that has not stopped is left to the
@@ -110,30 +110,30 @@ pub(crate) fn start_refusal(detail: &str) -> Option<&'static str> {
     }
 }
 
+/// The relay's status lines Lattice knows (`compile-repair-messages.ts`).
+const RELAY_LINES: &[&str] = &[
+    n!("The repair agent needs an answer. Open the repair thread to respond."),
+    n!("Cancellation requested; waiting for the provider to stop."),
+    n!("Repair has no active turn."),
+    n!("The agent service is unavailable."),
+    n!(
+        "The built-in agent is off on this platform until Lattice can keep it from editing bibliography (.bib) files directly."
+    ),
+    n!("The repair request failed."),
+];
+
 /// A status line from the relay (the Synara compile-repair route, or
 /// lattice-core's relay) in the interface language; text Lattice does not
 /// know (a provider's own error) as reported.
 pub(crate) fn relay_message(message: &str) -> String {
+    relay_message_in(message, tr)
+}
+
+/// [`relay_message`], with `tr` giving each message's translation.
+fn relay_message_in(message: &str, tr: impl Fn(&'static str) -> &'static str) -> String {
     let body = message.strip_prefix("Error: ").unwrap_or(message);
-    let known = match body {
-        "The repair agent needs an answer. Open the repair thread to respond." => Some(t!(
-            "The repair agent needs an answer. Open the repair thread to respond."
-        )),
-        "Cancellation requested; waiting for the provider to stop." => Some(t!(
-            "Cancellation requested; waiting for the provider to stop."
-        )),
-        "Repair has no active turn." => Some(t!("Repair has no active turn.")),
-        "The agent service is unavailable." => Some(t!("The agent service is unavailable.")),
-        "The built-in agent is off on this platform until Lattice can keep it from editing bibliography (.bib) files directly." => {
-            Some(t!(
-                "The built-in agent is off on this platform until Lattice can keep it from editing bibliography (.bib) files directly."
-            ))
-        }
-        "The repair request failed." => Some(t!("The repair request failed.")),
-        _ => None,
-    };
-    if let Some(known) = known {
-        return known.to_string();
+    if let Some(known) = RELAY_LINES.iter().find(|line| **line == body) {
+        return tr(known).to_string();
     }
     let word = |prefix: &str| {
         body.strip_prefix(prefix)
@@ -141,17 +141,23 @@ pub(crate) fn relay_message(message: &str) -> String {
             .filter(|word| !word.is_empty() && !word.contains(char::is_whitespace))
     };
     if let Some(turn) = word("Repair turn ") {
-        return t!("Repair turn {turn}.", turn = turn);
+        return fill_named(tr(n!("Repair turn {turn}.")), &[("turn", &turn)]);
     }
     if let Some(provider) = word("Repair provider ") {
-        return t!("Repair provider {provider}.", provider = provider);
+        return fill_named(
+            tr(n!("Repair provider {provider}.")),
+            &[("provider", &provider)],
+        );
     }
     if let Some(status) = body
         .strip_prefix("Repair service returned ")
         .and_then(|rest| rest.strip_suffix('.'))
         .filter(|status| !status.is_empty())
     {
-        return t!("Repair service returned {status}.", status = status);
+        return fill_named(
+            tr(n!("Repair service returned {status}.")),
+            &[("status", &status)],
+        );
     }
     message.to_string()
 }
@@ -160,12 +166,34 @@ pub(crate) fn relay_message(message: &str) -> String {
 mod tests {
     use super::*;
 
+    /// The zh-CN catalog's words for the relay's lines
+    /// (`src/locales/zh-CN/messages.po`), whatever the interface language.
+    fn chinese(msgid: &'static str) -> &'static str {
+        lattice_i18n::chinese(None, msgid).unwrap_or(msgid)
+    }
+
     #[test]
-    fn relay_lines_are_translated_by_their_english() {
-        assert_eq!(relay_message("Error: Repair has no active turn."), "Repair has no active turn.");
-        assert_eq!(relay_message("Repair turn interrupted."), "Repair turn interrupted.");
-        assert_eq!(relay_message("Repair service returned 502 Bad Gateway."), "Repair service returned 502 Bad Gateway.");
-        assert_eq!(relay_message("Codex quota exceeded"), "Codex quota exceeded");
+    fn relay_lines_read_in_the_catalog_language() {
+        assert_eq!(
+            relay_message_in("Error: Repair has no active turn.", chinese),
+            "修正当前没有进行中的轮次。"
+        );
+        assert_eq!(
+            relay_message_in("The agent service is unavailable.", chinese),
+            "AI 助手暂不可用"
+        );
+        assert_eq!(
+            relay_message_in("Repair turn interrupted.", chinese),
+            "修正轮次：interrupted。"
+        );
+        assert_eq!(
+            relay_message_in("Codex quota exceeded", chinese),
+            "Codex quota exceeded"
+        );
+        assert_eq!(
+            relay_message("Repair turn interrupted."),
+            "Repair turn interrupted."
+        );
     }
 
     #[test]

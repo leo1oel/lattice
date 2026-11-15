@@ -21,7 +21,7 @@ impl Shell {
             .detach();
         self.editors.push(editor.downgrade());
         self.show_outline(cx);
-        self.show_deck_editable(cx);
+        self.show_editable(cx);
     }
 
     pub(super) fn on_editor_event(

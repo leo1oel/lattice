@@ -25,10 +25,13 @@ use super::{
     parts::{self, Part},
 };
 use crate::{
-    agent::runtime::AgentRuntime,
+    agent::{
+        permission_mode::{permission_mode, runtime_mode},
+        runtime::AgentRuntime,
+    },
     build::repair::{
-        POLL, POLL_RETRY, Progress, RepairState, RepairStatus, STOP_GRACE,
-        repairable, start_refusal,
+        POLL, POLL_RETRY, Progress, RepairState, RepairStatus, STOP_GRACE, repairable,
+        start_refusal,
     },
 };
 
@@ -61,7 +64,12 @@ pub(crate) struct Repair {
 }
 
 /// The relay's answer to one action, off the main thread.
-fn relay(action: &'static str, thread_id: Option<String>, payload: Value, cx: &mut gpui::App) -> Task<Result<Value, String>> {
+fn relay(
+    action: &'static str,
+    thread_id: Option<String>,
+    payload: Value,
+    cx: &mut gpui::App,
+) -> Task<Result<Value, String>> {
     let runtime = AgentRuntime::get(cx).supervisor().clone();
     cx.background_spawn(async move {
         synara::task_relay_request(
@@ -89,7 +97,6 @@ impl Shell {
 
     /// What the card shows, and the editors locked while it runs.
     fn show_repair(&mut self, state: Option<RepairState>, cx: &mut Context<Self>) {
-        let busy = state.as_ref().is_some_and(RepairState::busy);
         let stopping = self
             .parts
             .get::<Repair>()
@@ -102,15 +109,7 @@ impl Shell {
         });
         self.build_panel
             .update(cx, |panel, cx| panel.set_repair(state, cx));
-        for editor in self.open_editors() {
-            let zed = editor.read(cx).editor().clone();
-            zed.update(cx, |zed, cx| {
-                if zed.read_only(cx) != busy {
-                    zed.set_read_only(busy);
-                    cx.notify();
-                }
-            });
-        }
+        self.show_editable(cx);
     }
 
     /// Keep the current phase: a transport error says nothing about the
@@ -216,8 +215,7 @@ impl Shell {
                     "workspaceRoot": root.to_string_lossy(),
                     "diagnostics": repairable,
                     "rootDocument": root_document,
-                    // The Tauri app's default permission mode for the Agent.
-                    "runtimeMode": "full-access",
+                    "runtimeMode": runtime_mode(permission_mode(cx)),
                 });
                 Some(Ok(relay("start", None, payload, cx)))
             });
@@ -229,16 +227,16 @@ impl Shell {
             let thread_id = match started {
                 Ok(answer) => answer["threadId"].as_str().map(str::to_string),
                 Err(detail) => {
-                    let message = start_refusal(&detail)
-                        .map(str::to_string)
-                        .unwrap_or(detail);
-                    this.update(cx, |this, cx| this.fail_repair(id, message, cx)).ok();
+                    let message = start_refusal(&detail).map(str::to_string).unwrap_or(detail);
+                    this.update(cx, |this, cx| this.fail_repair(id, message, cx))
+                        .ok();
                     return;
                 }
             };
             let Some(thread_id) = thread_id else {
                 let message = t!("The repair service did not return a task.").to_string();
-                this.update(cx, |this, cx| this.fail_repair(id, message, cx)).ok();
+                this.update(cx, |this, cx| this.fail_repair(id, message, cx))
+                    .ok();
                 return;
             };
             let cancel_now = this.update(cx, |this, cx| {
@@ -257,12 +255,20 @@ impl Shell {
             });
             match cancel_now {
                 Ok(Some(true)) => {
-                    this.update(cx, |this, cx| this.request_repair_cancel(cx)).ok();
+                    this.update(cx, |this, cx| this.request_repair_cancel(cx))
+                        .ok();
                 }
                 Ok(Some(false)) => {}
                 // The window moved on before the task started: stop it.
                 _ => {
-                    let cancel = cx.update(|_, cx| relay("cancel", Some(thread_id), json!({ "workspaceRoot": root.to_string_lossy() }), cx));
+                    let cancel = cx.update(|_, cx| {
+                        relay(
+                            "cancel",
+                            Some(thread_id),
+                            json!({ "workspaceRoot": root.to_string_lossy() }),
+                            cx,
+                        )
+                    });
                     if let Ok(cancel) = cancel {
                         cancel.await.ok();
                     }
