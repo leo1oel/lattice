@@ -133,7 +133,7 @@ impl EditorPanel {
                                     offset: range.start,
                                     text: text.into(),
                                     look: InlineLook::Struck {
-                                        color: strike.opacity(strike.a * frame.ghost_opacity),
+                                        color: strike.opacity(frame.ghost_opacity),
                                         tint: ground.opacity(1. - frame.ghost_opacity),
                                         drawn: frame.strike,
                                     },
@@ -146,7 +146,7 @@ impl EditorPanel {
                             if frame.wash > 0. {
                                 washes.push(Highlight {
                                     range: range.clone(),
-                                    color: soft.opacity(soft.a * frame.wash),
+                                    color: soft.opacity(frame.wash),
                                 });
                             }
                             if frame.insert_opacity < 1. {
