@@ -222,6 +222,10 @@ impl FileTreePanel {
             return true;
         }
         self.selection.only(path);
+        // Kit's tree selects the row too when it sees the click, but an
+        // opening it starts may be followed first: Kit's row must already be
+        // the selection's, or following it would adopt the row it left.
+        self.point_kit_at(Some(path), cx);
         self.redraw_rows(cx);
         if !folder && let Some(project) = &self.project {
             let absolute = project.read(cx).root().join(path);
@@ -259,6 +263,10 @@ impl FileTreePanel {
         self.adopt_kit_row(cx);
         if !self.selection.effective(None).contains(&relative) {
             self.selection.only(&relative);
+            // Kit's row follows at once (none while the row is inside a
+            // closed folder): left on the row it had, the next adoption would
+            // take that row back as the selection.
+            self.point_kit_at(Some(&relative), cx);
         }
         if self.revealed.as_deref() != Some(relative.as_str()) {
             self.reveal = Some(vec![relative]);

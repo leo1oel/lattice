@@ -163,7 +163,7 @@ impl Run {
         })?;
 
         // A figure's row from the tree over the editor: the drop caret. The
-        // import's rescan shows figures/, which a click opens.
+        // import's rescan shows figures/ with the figure revealed in it.
         let rows = |cx: &mut gpui::App, path: &str| {
             self.shell.read(cx).file_tree().read(cx).row_paths(cx).contains(&path.to_string())
         };
@@ -394,9 +394,13 @@ impl Run {
         let rows = |cx: &mut gpui::App, path: &str| {
             self.shell.read(cx).file_tree().read(cx).row_paths(cx).contains(&path.to_string())
         };
-        let folder = self.tree_row_center(cx, "figures")?;
-        self.pointer(cx, PointerStep::Down, folder).await?;
-        self.pointer(cx, PointerStep::Up, folder).await?;
+        // The import revealed its figure, opening figures/ (revealRequest);
+        // a click opens the folder only when it was closed since.
+        if !cx.update(|cx| rows(cx, "figures/finder-plot.png")) {
+            let folder = self.tree_row_center(cx, "figures")?;
+            self.pointer(cx, PointerStep::Down, folder).await?;
+            self.pointer(cx, PointerStep::Up, folder).await?;
+        }
         self.wait_for(cx, Duration::from_secs(4), |_, cx| rows(cx, "figures/finder-plot.png"))
             .await;
         self.pause(cx, Duration::from_millis(200)).await;

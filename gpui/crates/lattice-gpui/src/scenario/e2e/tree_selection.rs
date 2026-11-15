@@ -54,6 +54,16 @@ impl Run {
             json!({ "closed_first": closed, "selected": selected, "open": open }),
         );
 
+        // Let the automatic build the openings started finish, and its
+        // outputs' rescan reach the tree: landing mid-click it would redraw
+        // the rows under the pointer, and its notice would be the newest one
+        // when ⌘C's is looked for.
+        self.wait_for(cx, Duration::from_secs(120), |shell, cx| {
+            !shell.read(cx).building()
+        })
+        .await;
+        self.pause(cx, Duration::from_millis(500)).await;
+
         // ⌘-click adds main.tex without opening it; ⇧-click takes the rows
         // shown from there to references.bib.
         let main = self.tree_row_center(cx, "main.tex")?;
@@ -184,6 +194,142 @@ impl Run {
             open.contains(&"chapters".to_string()) && rows(cx).contains(&intro),
             json!({ "open": open }),
         );
+
+        // A row reached with an arrow key is the selection: a rescan keeps
+        // it, and a ⌘-click adds to it rather than to the clicked rows. A
+        // folder's row is clicked, as a file's would hand the keyboard to the
+        // editor it opens.
+        let folder = self.tree_row_center(cx, "chapters")?;
+        self.click_with(cx, folder, Modifiers::default()).await?;
+        self.pause(cx, Duration::from_millis(200)).await;
+        self.tree_key(cx, &tree, "down")?;
+        self.pause(cx, Duration::from_millis(150)).await;
+        let (arrowed, _) = selection(cx);
+        cx.update(|cx| tree.update(cx, |tree, cx| tree.refresh(cx)));
+        self.pause(cx, Duration::from_millis(800)).await;
+        let (rescanned, _) = selection(cx);
+        let bib = self.tree_row_center(cx, "references.bib")?;
+        self.click_with(cx, bib, Modifiers::command()).await?;
+        let (toggled, _) = selection(cx);
+        let mut below_chapters = |list: &[String]| {
+            let shown = rows(cx);
+            let next = shown
+                .iter()
+                .position(|row| row == "chapters")
+                .and_then(|ix| shown.get(ix + 1).cloned());
+            (next.clone(), next.is_some_and(|next| list == [next]))
+        };
+        let (next, arrow_ok) = below_chapters(&arrowed);
+        steps.check(
+            "a row reached with ↓ stays the selection after a rescan, and ⌘-click adds to it",
+            arrow_ok
+                && rescanned == arrowed
+                && toggled.len() == 2
+                && toggled.first() == next.as_ref()
+                && toggled.get(1).map(String::as_str) == Some("references.bib"),
+            json!({ "arrowed": arrowed, "rescanned": rescanned, "toggled": toggled }),
+        );
+
+        // Switching to another project and back keeps each one's open
+        // folders: B's open figures/ survives a visit to A with it closed.
+        let other = std::env::temp_dir().join(format!("lattice-e2e-other-{}", std::process::id()));
+        std::fs::create_dir_all(other.join("figures"))?;
+        std::fs::write(other.join("main.tex"), "\\documentclass{article}\n")?;
+        std::fs::write(other.join("figures/fig.txt"), "figure\n")?;
+        let original = cx.update(|cx| self.shell.read(cx).project().cloned());
+        let opened = crate::project::open(other.clone(), cx).await;
+        let switched = match (original, opened) {
+            (Some(a), Ok(b)) => {
+                if rows(cx).iter().any(|row| row.starts_with("figures/")) {
+                    let folder = self.tree_row_center(cx, "figures")?;
+                    self.click_with(cx, folder, Modifiers::default()).await?;
+                    self.pause(cx, Duration::from_millis(200)).await;
+                }
+                let a_closed = !rows(cx).iter().any(|row| row.starts_with("figures/"));
+                cx.update(|cx| tree.update(cx, |tree, cx| tree.set_project(b.clone(), cx)));
+                self.wait_for(cx, Duration::from_secs(4), |_, cx| {
+                    tree.read(cx).row_paths(cx).contains(&"figures".to_string())
+                })
+                .await;
+                if !rows(cx).contains(&"figures/fig.txt".to_string()) {
+                    let folder = self.tree_row_center(cx, "figures")?;
+                    self.click_with(cx, folder, Modifiers::default()).await?;
+                }
+                let b_open = self
+                    .wait_for(cx, Duration::from_secs(4), |_, cx| {
+                        tree.read(cx).row_paths(cx).contains(&"figures/fig.txt".to_string())
+                    })
+                    .await;
+                cx.update(|cx| tree.update(cx, |tree, cx| tree.set_project(a.clone(), cx)));
+                self.pause(cx, Duration::from_millis(300)).await;
+                let a_still_closed = !rows(cx).iter().any(|row| row.starts_with("figures/"));
+                cx.update(|cx| tree.update(cx, |tree, cx| tree.set_project(b.clone(), cx)));
+                self.pause(cx, Duration::from_millis(300)).await;
+                let (_, b_kept) = selection(cx);
+                let b_rows = rows(cx);
+                cx.update(|cx| tree.update(cx, |tree, cx| tree.set_project(a, cx)));
+                self.pause(cx, Duration::from_millis(300)).await;
+                Ok((a_closed, b_open, a_still_closed, b_kept, b_rows))
+            }
+            (_, Err(error)) => Err(error),
+            (None, _) => Err("no project".to_string()),
+        };
+        steps.check(
+            "switching projects keeps each project's open folders: B's figures/ stays open after A with it closed",
+            matches!(&switched, Ok((true, true, true, kept, shown))
+                if kept.contains(&"figures".to_string()) && shown.contains(&"figures/fig.txt".to_string())),
+            json!({ "switched": format!("{switched:?}") }),
+        );
+        std::fs::remove_dir_all(&other).ok();
+
+        // A batch move that fails part-way: what moved first still has its
+        // tab follow it.
+        std::fs::create_dir_all(root.join("dest"))?;
+        for name in ["mv-a.tex", "mv-b.tex", "dest/mv-b.tex"] {
+            std::fs::write(root.join(name), "% move\n")?;
+        }
+        cx.update(|cx| tree.update(cx, |tree, cx| tree.refresh(cx)));
+        self.wait_for(cx, Duration::from_secs(4), |_, cx| {
+            tree.read(cx).row_paths(cx).contains(&"mv-b.tex".to_string())
+        })
+        .await;
+        self.open(cx, &root.join("mv-a.tex"), Some(1))?;
+        self.pause(cx, Duration::from_millis(300)).await;
+        cx.update(|cx| {
+            tree.update(cx, |_, cx| {
+                cx.emit(crate::file_tree::FileTreeEvent::Move {
+                    paths: vec!["mv-a.tex".into(), "mv-b.tex".into()],
+                    target: "dest".into(),
+                })
+            })
+        });
+        let moved = self
+            .wait_for(cx, Duration::from_secs(8), |_, _| root.join("dest/mv-a.tex").is_file())
+            .await;
+        self.pause(cx, Duration::from_millis(500)).await;
+        let front = cx.update(|cx| self.shell.read(cx).active_editor_path(cx));
+        let notice = self.last_notice(cx)?;
+        steps.check(
+            "a batch move that fails part-way still moves the open tab of what went first",
+            moved
+                && front.as_deref() == Some("dest/mv-a.tex")
+                && root.join("mv-b.tex").is_file()
+                && notice.as_deref().is_some_and(|notice| notice.starts_with("Could not move it")),
+            json!({ "moved": moved, "front": front, "notice": notice }),
+        );
+        if let Some(view) = cx.update(|cx| self.shell.read(cx).view_of_document("dest/mv-a.tex", cx)) {
+            cx.update(|cx| {
+                self.shell
+                    .read(cx)
+                    .workspace()
+                    .clone()
+                    .update(cx, |workspace, cx| workspace.close(&[view], cx))
+            });
+        }
+        std::fs::remove_file(root.join("mv-b.tex")).ok();
+        std::fs::remove_dir_all(root.join("dest")).ok();
+        cx.update(|cx| tree.update(cx, |tree, cx| tree.refresh(cx)));
+        self.pause(cx, Duration::from_millis(300)).await;
 
         // What a Finder drop brings in is selected.
         let finder =
