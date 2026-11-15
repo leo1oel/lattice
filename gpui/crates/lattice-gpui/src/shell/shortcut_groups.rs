@@ -331,8 +331,14 @@ pub(super) fn shortcut_groups(commands: &[Command], cx: &App) -> Vec<Group> {
     };
 
     let mut app: Vec<(Section, Vec<Entry>)> = Vec::new();
-    for command in commands.iter().filter(|command| !is_panel_key(command)) {
-        let combos = keys_in(&keymap, command.keys_action(), &places.window);
+    // A command listed by the keys of another (Build by Save's ⌘S, a
+    // workspace by name with its ⌘N) has no key of its own: the sheet lists
+    // the other, as `commandCombo` reads only a command's own `key`.
+    for command in commands
+        .iter()
+        .filter(|command| !is_panel_key(command) && command.keys_of.is_none())
+    {
+        let combos = keys_in(&keymap, command.action.as_ref(), &places.window);
         if combos.is_empty() {
             continue;
         }

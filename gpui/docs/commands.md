@@ -9,6 +9,8 @@ An empty query leads with the last three commands run from it (Recent, kept betw
 A typed query ranks the commands, the project's files, its Papers (title, authors and year) and every Settings row together; a Paper opens as its row in Papers does, a setting opens Settings at its row, and a query that finds nothing offers "Search the project for …", which opens Find in project on it.
 A row shows its detail at its end: a recent project's folder, What's new's version.
 The labels are the Tauri table's, in the interface language: Jump to PDF (from a LaTeX source only), Switch to the Writing, Reading or Bibliography layout (the one in use left out), Margin review under View, Open guided tutorial, and in focus mode Hide the PDF or Show the PDF beside the editor.
+It also has a Markdown or HTML file's Edit, Edit and preview, and Preview rows (the view shown left out), Open the PDF in a separate window or Return the PDF to the workspace, Dark or Light PDF pages, New folder, Import files… and Refresh file tree (each bringing the Project panel up), the two themes not in use, and each named workspace with its ⌘1–⌘9.
+The shortcut sheet leaves out a row shown by another command's keys (Build by Save's ⌘S, a workspace by its ⌘N), as the Tauri one does.
 
 Export ZIP (File › Export ZIP…, the project menu or the palette's Export project ZIP) asks where to save `<project>.zip`, saves the open edits, then writes the project's sources there with the build's output left out, as the Tauri app's does; while it runs the project menu ends with "Exporting ZIP…" after a loader and dims the rows that would switch or replace the project (the recent projects, Open from Overleaf, Guided tutorial), and a failure shows its message.
 The project menu lists what the Tauri one does, in the interface language: the recent projects, Open another folder, New project, Clone repository…, Open from Overleaf, Export ZIP, Export for arXiv…, Guided tutorial and Settings.
@@ -33,6 +35,7 @@ A launch's reopen that takes longer than a second shows the welcome screen while
 
 `scenario/e2e/shell_lifecycle.rs`: the window's minimum following its layout's, and the menu bar's menus and their items.
 `scenario/e2e/palette.rs`: the palette's leading groups, a command run from it leading the next opening, What's new's detail, a Settings row found and opened, a paper found by its year or a run inside its title but never one only cited, the Find in project fallback, and the keyboard back in the document afterwards.
+`scenario/e2e/palette_rows.rs`: a Markdown file's view rows and one switching it, Dark or Light PDF pages flipping the pages, the PDF window and Project panel rows, and no theme already in use.
 `scenario/e2e/export_zip.rs`: File › Export ZIP… beside Export for arXiv…, the palette row, and an export that holds an unsaved edit and leaves the build's output out.
 `scenario/e2e/shortcut_sheet.rs`: the sheet's groups and rows (alternatives, ranges, the Esc row), its filter by key and its empty result, and Escape in focus mode collapsing a selection first, then leaving it, and closing the palette without leaving it.
 The same module checks the focus bar's title centred on the window and its controls in order, the PDF toggle and Exit focus.
