@@ -19,6 +19,12 @@ use super::Steps;
 use crate::{native, scenario::Run};
 
 const MESSY: &str = "\\begin{itemize}\n\\item one\n\\item two\n\\end{itemize}\n";
+/// The fixture's main.tex as checked in. The modules before this one leave
+/// their edits in the open buffer (editor_adapter's `xcolor,` in the
+/// `\usepackage` list, palette's `%` before `\documentclass`, which rightly
+/// takes the preamble's fold away), so the key checks run on this text and
+/// the buffer is put back after them.
+const FIXTURE_MAIN: &str = include_str!("../../../../../fixtures/e2e/main.tex");
 
 impl Run {
     pub(super) async fn editor_commands(
@@ -31,9 +37,21 @@ impl Run {
         let panel = self.open(cx, &main, Some(2))?;
         self.pause(cx, Duration::from_millis(300)).await;
         let original = cx.update(|cx| panel.read(cx).text_and_caret(cx).0);
+        let set_text = |run: &Self, cx: &mut AsyncApp, text: &str| -> Result<()> {
+            let panel = panel.clone();
+            let text = text.to_string();
+            run.with_window(cx, move |_, window, cx| {
+                panel.update(cx, |panel, cx| {
+                    let len = panel.text_and_caret(cx).0.len();
+                    panel.replace_range(0, len, &text, 0, window, cx)
+                })
+            })
+        };
+        set_text(self, cx, FIXTURE_MAIN)?;
+        self.pause(cx, Duration::from_millis(150)).await;
 
         // ⌃L: the caret's whole line, its newline included.
-        let line = original.find("\\usepackage").context("line 2")?;
+        let line = FIXTURE_MAIN.find("\\usepackage").context("line 2")?;
         self.select(cx, &panel, line + 2, line + 2)?;
         let ctrl_l = Keystroke::parse("ctrl-l").map_err(|error| anyhow::anyhow!("{error}"))?;
         self.with_window(cx, move |_, window, cx| {
@@ -84,6 +102,7 @@ impl Run {
             all.contains(&0) && all.contains(&3) && none.is_empty(),
             json!({ "folded": all, "after_unfold": none }),
         );
+        set_text(self, cx, &original)?;
 
         self.format_document_step(cx, steps, root).await?;
         self.vim_command_line(cx, steps, &main, &original).await
@@ -107,17 +126,19 @@ impl Run {
         std::fs::write(&path, MESSY)?;
         let panel = self.open(cx, &path, Some(1))?;
         self.pause(cx, Duration::from_millis(300)).await;
-        self.with_window(cx, {
-            let panel = panel.clone();
-            move |_, window, cx| {
-                let focus = gpui::Focusable::focus_handle(panel.read(cx).editor().read(cx), cx);
-                focus.dispatch_action(
-                    &crate::editor_panel::format_document::FormatDocument,
-                    window,
-                    cx,
-                )
-            }
-        })?;
+        // From the palette, found by its keyword as the Tauri command table's
+        // `format` entry is (`keywords: "latexindent"`).
+        self.open_palette_now(cx)?;
+        self.palette_type(cx, "latexindent")?;
+        self.pause(cx, Duration::from_millis(150)).await;
+        let rows = self.palette_rows_now(cx);
+        let listed = rows.iter().any(|(_, label, _)| label == "Format document");
+        let ran = listed && self.palette_run(cx, "Format document")?;
+        steps.check(
+            "typing latexindent in the palette lists Format document for a LaTeX file",
+            listed && ran,
+            json!({ "rows": rows.iter().map(|(group, label, _)| format!("{group}: {label}")).collect::<Vec<_>>() }),
+        );
         let formatted = self
             .wait_for(cx, Duration::from_secs(20), |_, cx| {
                 let text = panel.read(cx).text_and_caret(cx).0;
