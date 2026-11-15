@@ -268,7 +268,6 @@ impl PdfPanel {
         if self.project.as_ref() != Some(&project) {
             if let Some((handle, _)) = self.window.take() {
                 window::close(handle, self.project.as_deref(), cx);
-                cx.emit(PdfEvent::Docked);
             }
             self.project = Some(project.clone());
         }

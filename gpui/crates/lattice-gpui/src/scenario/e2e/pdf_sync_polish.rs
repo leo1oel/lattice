@@ -6,52 +6,63 @@
 
 use std::{path::Path, time::Duration};
 
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use gpui::AsyncApp;
-use lattice_editor::latex::synctex_word::SyncTexWord;
 use serde_json::json;
 
 use super::Steps;
-use crate::{scenario::Run, shell::commands};
+use crate::{
+    pdf::{PdfEngine, clicked_word_at},
+    scenario::Run,
+    shell::commands,
+};
 
 impl Run {
     async fn pdf_sync_polish(&self, cx: &mut AsyncApp, steps: &mut Steps, root: &Path) -> Result<()> {
-        // The chapter's third line, its box in the PDF, and the line SyncTeX
-        // names for that box's middle (the paragraph may answer any of its
-        // lines).
+        // The chapter's "second", found in the PDF's own text as PDFium
+        // reads it, and the word a double-click on it reads there; the line
+        // SyncTeX names for that point (the paragraph may answer any of its
+        // lines) must hold it, and the caret lands on it, 1-based.
         let chapter = root.join("chapters/intro.tex");
         let editor = self.open(cx, &chapter, Some(1))?;
-        let target = lattice_core::latex::forward_search(root, "chapters/intro.tex", 3, 0)
-            .ok()
-            .flatten();
-        let landing = target.as_ref().and_then(|target| {
-            let (x, y) = (target.x + target.width / 2., target.y + target.height / 2.);
-            let line = lattice_core::latex::inverse_search_in(root, target.page, x, y, None).ok()?;
-            let text = std::fs::read_to_string(&chapter).ok()?;
-            let source = text.lines().nth(line.line as usize - 1)?.to_string();
-            // Its second word, as the PDF reads it.
-            let words: Vec<String> = source.split_whitespace().map(str::to_string).collect();
-            let word = words.get(1)?.trim_matches(|c: char| !c.is_alphanumeric()).to_lowercase();
-            let column = source.find(words[1].as_str())?;
-            Some((target.page, (x, y), line.line, word, words, column))
-        });
-        let mut detail = json!({ "target": target.is_some() });
+        let engine = cx.update(|cx| PdfEngine::global(cx)).map_err(|error| anyhow!("{error}"))?;
+        let doc = engine.new_document();
+        let info = engine.open(doc, std::fs::read(root.join("main.pdf"))?).await??;
+        let mut found = None;
+        for page in 0..info.page_sizes.len() {
+            let text = engine.text(doc, info.generation, page).await??;
+            let at = text.chars.windows(6).position(|run| run.iter().map(|ch| ch.ch).eq("second".chars()));
+            if let Some(at) = at {
+                let ch = text.chars[at + 1];
+                let (x, y) = ((ch.x0 + ch.x1) / 2., (ch.y0 + ch.y1) / 2.);
+                found = Some((page as u32 + 1, (x, y), clicked_word_at(&text, x, y)));
+                break;
+            }
+        }
+        engine.close(doc);
+        let mut detail = json!({ "found": found.is_some() });
         let mut landed = false;
-        if let Some((page, point, line, word, words, column)) = landing {
-            let clicked = SyncTexWord {
-                occurrence: 0,
-                count: 1,
-                before: Some(words[0].to_lowercase()),
-                after: words.get(2).map(|after| after.to_lowercase()),
-                word: word.clone(),
-            };
+        if let Some((page, (x, y), clicked)) = found {
+            let point = (f64::from(x), f64::from(y));
+            let line = lattice_core::latex::inverse_search_in(root, page, point.0, point.1, None)
+                .map_err(|error| anyhow!(error))?;
+            let text = std::fs::read_to_string(&chapter)?;
+            let source = text.lines().nth(line.line as usize - 1).unwrap_or_default().to_string();
+            let column = source.find("second");
+            let word = clicked.as_ref().map(|clicked| clicked.word.clone());
             self.with_window(cx, |shell, window, cx| {
-                shell.update(cx, |shell, cx| shell.double_click_pdf(page, point, Some(clicked), window, cx))
+                shell.update(cx, |shell, cx| shell.double_click_pdf(page, point, clicked, window, cx))
             })?;
             self.pause(cx, Duration::from_millis(600)).await;
             let caret = cx.update(|cx| editor.read(cx).cursor());
-            landed = caret == (line, column as u32 + 1) || caret == (line, column as u32);
-            detail = json!({ "line": line, "word": word, "column": column, "caret": [caret.0, caret.1] });
+            landed = word.as_deref() == Some("second")
+                && column.is_some_and(|column| caret == (line.line, column as u32 + 1));
+            detail = json!({
+                "line": line.line,
+                "word": word,
+                "column": column,
+                "caret": [caret.0, caret.1],
+            });
         }
         steps.check(
             "SyncTeX: a double-click in the PDF lands the caret on the clicked word of its line",
