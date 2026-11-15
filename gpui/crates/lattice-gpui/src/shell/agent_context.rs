@@ -85,14 +85,34 @@ impl Shell {
                 .contains_focused(window, cx)
         });
         let reader = self.focused_reader(editor.as_ref(), editor_focused, cx);
+        let focused_other = if editor_focused {
+            None
+        } else {
+            self.workspace
+                .read(cx)
+                .engine()
+                .focused_view()
+                .filter(|view| {
+                    let doc = self.document(cx);
+                    !file_key(doc.views.get(*view)).is_empty()
+                        && self.panel_of_view(view).is_some_and(|panel| {
+                            panel.view().downcast::<EditorPanel>().is_err()
+                                && panel.focus_handle(cx).contains_focused(window, cx)
+                        })
+                })
+                .map(str::to_string)
+        };
         let surface = match (&focused_pdf, &reader, editor_focused) {
             (Some(_), _, _) => Some(Source::Pdf),
             (None, Some(_), _) => Some(Source::Paper),
             (None, None, true) => Some(Source::Editor),
+            (None, None, false) if focused_other.is_some() && self.context().paper.is_some() => {
+                Some(Source::Editor)
+            }
             (None, None, false) => None,
         };
         // A paper stays in front while the keyboard is elsewhere (the
-        // Agent's composer), until another surface takes it.
+        // Agent's composer), until another surface or file view takes it.
         match reader {
             Some(reader) => self.context().paper = Some(reader.downgrade()),
             None if surface.is_some() => self.context().paper = None,
@@ -116,20 +136,7 @@ impl Shell {
         let other_front = if editor_focused {
             None
         } else {
-            self.workspace
-                .read(cx)
-                .engine()
-                .focused_view()
-                .filter(|view| {
-                    let doc = self.document(cx);
-                    !file_key(doc.views.get(*view)).is_empty()
-                        && self.panel_of_view(view).is_some_and(|panel| {
-                            panel.view().downcast::<EditorPanel>().is_err()
-                                && panel.focus_handle(cx).contains_focused(window, cx)
-                        })
-                })
-                .map(str::to_string)
-                .or_else(|| self.context().other_front.clone())
+            focused_other.or_else(|| self.context().other_front.clone())
         };
         self.context().other_front = other_front;
         let front = editor.as_ref().map(Entity::entity_id);

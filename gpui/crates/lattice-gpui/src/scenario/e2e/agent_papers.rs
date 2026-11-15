@@ -6,7 +6,9 @@
 //!   surface, with the text it shows and that text's reading file;
 //! - it stays so while the keyboard moves to the Agent's own panel;
 //! - text selected on the reading page is the paper's selection;
-//! - back in the source editor, the paper goes and the editor is in front.
+//! - back in the source editor, the paper goes and the editor is in front;
+//! - an image focused after the paper is in front instead, on the editor
+//!   surface.
 //!
 //! The bibliography and the bundle are put back afterwards.
 
@@ -19,12 +21,13 @@ use gpui::{AsyncApp, Focusable as _};
 use serde_json::{Value, json};
 
 use super::Steps;
-use crate::scenario::Run;
+use crate::{scenario::Run, shell::trellis_layout::file_key};
 
 const BUNDLE: &str = ".research/papers/1706.03762";
 const ENTRY: &str = "\n@article{vaswani2017attention,\n  title = {Attention Is All You Need},\n  author = {Vaswani, Ashish and Shazeer, Noam},\n  journal = {NeurIPS},\n  year = {2017},\n  eprint = {1706.03762}\n}\n";
 const PAPER: &str = "---\ntitle: Attention Is All You Need\n---\n\n# Attention Is All You Need\n\nWe call our particular attention scaled dot-product attention.\n";
 const SELECTED: &str = "scaled dot-product attention";
+const FIGURE: &str = "paper-figure.png";
 
 impl Run {
     pub(super) async fn agent_papers(
@@ -42,6 +45,7 @@ impl Run {
         let outcome = self.agent_papers_steps(cx, steps, root).await;
         std::fs::write(&bibliography, original)?;
         std::fs::remove_dir_all(root.join(BUNDLE))?;
+        let _ = std::fs::remove_file(root.join(FIGURE));
         outcome
     }
 
@@ -138,7 +142,9 @@ impl Run {
         );
 
         // Back in the source editor, the editor is in front.
-        let editor = self.open(cx, &root.join("main.tex"), Some(1)).unwrap_or(editor);
+        let editor = self
+            .open(cx, &root.join("main.tex"), Some(1))
+            .unwrap_or(editor);
         self.with_window(cx, |_, window, cx| {
             let focus = editor.read(cx).focus_handle(cx);
             window.focus(&focus, cx);
@@ -155,6 +161,50 @@ impl Run {
             "back in the source editor, the paper goes and the editor is in front",
             back,
             json!({ "workspace": workspace(cx) }),
+        );
+
+        // The paper again, then an image takes the keyboard: the image is
+        // in front instead.
+        let reopened = self.with_window(cx, |_, window, cx| {
+            papers.update(cx, |panel, cx| {
+                panel.open_titled("Attention Is All You Need", window, cx)
+            })
+        })? && self
+            .wait_for(cx, Duration::from_secs(10), |_, cx| {
+                in_front(surface.read(cx).workspace())
+            })
+            .await;
+        let figure = root.join(FIGURE);
+        image::RgbaImage::from_pixel(4, 4, image::Rgba([40, 80, 160, 255]))
+            .save_with_format(&figure, image::ImageFormat::Png)?;
+        self.with_window(cx, move |shell, window, cx| {
+            shell.update(cx, |shell, cx| {
+                shell.open_path(figure, None, window, cx);
+                let doc = shell.document(cx);
+                let image = doc
+                    .views
+                    .iter()
+                    .find(|(_, record)| file_key(Some(record)) == FIGURE)
+                    .map(|(id, _)| id.clone());
+                if let Some(image) = image {
+                    shell.engine_do(cx, |engine| engine.focus(&image));
+                    shell.focus_view_content(&image, window, cx);
+                }
+            })
+        })?;
+        let image_front = reopened
+            && self
+                .wait_for(cx, Duration::from_secs(5), |_, cx| {
+                    let workspace = surface.read(cx).workspace();
+                    workspace["activePaper"].is_null()
+                        && workspace["activeSurface"] == "editor"
+                        && workspace["activeFile"] == FIGURE
+                })
+                .await;
+        steps.check(
+            "an image focused after the paper is the Agent's front instead, on the editor surface",
+            image_front,
+            json!({ "reopened": reopened, "workspace": workspace(cx) }),
         );
         Ok(())
     }
