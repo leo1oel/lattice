@@ -9,11 +9,12 @@ use regex::Regex;
 /// The abstract of a saved paper, read from the "Abstract" section of its
 /// full text as paragraphs of plain text; `None` without one. ar5iv repeats
 /// the heading as the first word of the text, so that word goes
-/// (`paperAbstract`).
+/// (`paperAbstract`). Its lines may end in CRLF: JavaScript's `^` and `$`
+/// stop at `\r` too, which Rust's need the `R` flag for.
 pub fn paper_abstract(markdown: &str) -> Option<Vec<String>> {
     static HEADING: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"(?im)^#{1,4}[ \t]*\**Abstract\**[ \t.:]*$").unwrap());
-    static NEXT_HEADING: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?m)^#{1,6}\s").unwrap());
+        LazyLock::new(|| Regex::new(r"(?imR)^#{1,4}[ \t]*\**Abstract\**[ \t.:]*$").unwrap());
+    static NEXT_HEADING: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?mR)^#{1,6}\s").unwrap());
     static TAG: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"<[^>]*>").unwrap());
     static LINK: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"!?\[([^\]]*)\]\([^)]*\)").unwrap());
@@ -145,6 +146,15 @@ mod tests {
             ])
         );
         assert_eq!(paper_abstract("# Title\n\nNo abstract here.\n"), None);
+        // The same paper saved with Windows line endings.
+        let crlf = markdown.replace('\n', "\r\n");
+        assert_eq!(
+            paper_abstract(&crlf),
+            Some(vec![
+                "We study things.".to_string(),
+                "Second part.".to_string()
+            ])
+        );
     }
 
     #[test]

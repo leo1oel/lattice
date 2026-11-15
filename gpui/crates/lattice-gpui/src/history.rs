@@ -9,6 +9,7 @@
 
 mod art;
 mod body;
+mod checkpoint_rows;
 mod compare;
 pub mod conflict_resolver;
 pub mod conflicts;
@@ -30,6 +31,7 @@ mod words;
 /// A handler that opens a file at a line, as the passages and diffs call it.
 type OnLine = std::rc::Rc<dyn Fn(usize, &mut gpui::Window, &mut gpui::App)>;
 
+pub use checkpoint_rows::CheckpointItem;
 pub use conflict_resolver::{ConflictEvent, ConflictResolver};
 pub use panel::{HistoryEvent, HistoryPanel};
 pub use widgets::inline_message;

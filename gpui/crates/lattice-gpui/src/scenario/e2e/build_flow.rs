@@ -566,6 +566,7 @@ impl Run {
         steps: &mut Steps,
         stub: &StubTexSetup,
     ) -> Result<()> {
+        stub.set_packages_outdated();
         let center = cx.update(|cx| self.shell.read(cx).tex_setup().clone());
         self.dispatch_to_shell(cx, &OpenTexDoctor)?;
         let reported = self

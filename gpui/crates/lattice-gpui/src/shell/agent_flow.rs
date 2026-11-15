@@ -15,7 +15,7 @@ pub(crate) struct AgentWindow {
     pub panel: Entity<AgentPanel>,
     pub git: Entity<GitPanel>,
     pub settings: Entity<SynaraSurface>,
-    state: AgentState,
+    pub(super) state: AgentState,
 }
 
 impl AgentWindow {
@@ -41,7 +41,7 @@ impl AgentWindow {
 }
 
 /// The Agent's state in one window.
-struct AgentState {
+pub(super) struct AgentState {
     /// The Git workspace's view: `changes` or `pull-requests`.
     git_view: String,
     /// The turn the Git workspace is pinned to, while it is.
@@ -53,6 +53,8 @@ struct AgentState {
     remote_url: Option<String>,
     /// The editor whose workspace the Agent was last told of.
     front: Option<gpui::EntityId>,
+    /// The Agent's checkpoints (`agent_checkpoints.rs`).
+    pub(super) checkpoints: super::agent_checkpoints::CheckpointState,
 }
 
 impl Default for AgentState {
@@ -63,6 +65,7 @@ impl Default for AgentState {
             dismissed: None,
             remote_url: None,
             front: None,
+            checkpoints: Default::default(),
         }
     }
 }
@@ -91,6 +94,7 @@ impl Shell {
         }
         self.push_git_state(cx);
         self.push_agent_workspace(cx);
+        self.push_agent_checkpoints(cx);
         if let Some(root) = root {
             let looked_up = root.clone();
             let remote = cx.background_spawn(async move {
@@ -274,6 +278,7 @@ impl Shell {
                 path,
                 expires_at,
             } => self.agent_create_document(surface, *id, path.clone(), *expires_at, window, cx),
+            SurfaceEvent::History(snapshot) => self.agent_history(snapshot.clone(), window, cx),
         }
     }
 }

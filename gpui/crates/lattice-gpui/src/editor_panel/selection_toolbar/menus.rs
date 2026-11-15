@@ -11,7 +11,8 @@ impl EditorPanel {
     pub(super) fn toolbar_menu(
         &mut self,
         menu: Menu,
-        text: &str,
+        kind: Kind,
+        formats: &Formats,
         range: Range<usize>,
         window: &mut Window,
         cx: &mut Context<Self>,
@@ -83,7 +84,10 @@ impl EditorPanel {
                 surface(content, Some(250.))
             }
             Menu::Heading => {
-                let current = format_toggle::selection_formats(text, range).heading;
+                let current = match formats {
+                    Formats::Latex(formats) => formats.heading.clone(),
+                    Formats::Markdown(_) => None,
+                };
                 let levels = [
                     ("part", t!("Part")),
                     ("chapter", t!("Chapter")),
@@ -120,14 +124,25 @@ impl EditorPanel {
                 surface(div().flex().flex_col().children(rows).into_any_element(), Some(180.))
             }
             Menu::Highlight => {
-                let around = highlights::highlight_around(text, range.clone())
-                    .map(|highlight| highlight.color.unwrap_or_default());
-                let sample = text[range].split_whitespace().collect::<Vec<_>>().join(" ");
-                let colors = highlights::document_colors(text);
+                let buffer = self.buffer.clone();
+                let read = self.read_selection(kind, range.clone(), cx);
+                let (around, sample, colors) = read
+                    .palette
+                    .get_or_insert_with(|| {
+                        let text = buffer.read(cx).text();
+                        let around = highlights::highlight_around(&text, range.clone())
+                            .map(|highlight| highlight.color.unwrap_or_default());
+                        let sample = text[range].split_whitespace().collect::<Vec<_>>().join(" ");
+                        (around, sample, highlights::document_colors(&text))
+                    })
+                    .clone();
                 highlight_palette::palette(self, around, sample, colors, window, cx)
             }
             Menu::Block => {
-                let current = markdown_format::selection_format(text, range).block;
+                let current = match formats {
+                    Formats::Markdown(format) => format.block,
+                    Formats::Latex(_) => BlockType::Text,
+                };
                 let mut list = div().flex().flex_col().min_w(px(180.));
                 for (index, (block, separated)) in BLOCKS.iter().enumerate() {
                     if *separated {

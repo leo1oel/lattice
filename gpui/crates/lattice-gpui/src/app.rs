@@ -111,6 +111,12 @@ pub(crate) fn choose_appearance(appearance: Option<Appearance>, system: Appearan
     );
 }
 
+/// Whether the app goes on once its last window has closed: a Mac app does,
+/// until ⌘Q, except in a scripted run.
+pub fn outlives_windows(scripted: bool) -> bool {
+    cfg!(target_os = "macos") && !scripted
+}
+
 /// `scripted`: a scenario run, which keeps the layouts in memory unless
 /// `LATTICE_GPUI_STATE_DIR` names a directory.
 pub fn init(scripted: bool, cx: &mut App) {
@@ -146,11 +152,18 @@ pub fn init(scripted: bool, cx: &mut App) {
     // update, the notice offering What's new.
     let state = crate::shell::workspaces::state_dir(scripted);
     crate::app_log::install(state.clone(), cx);
+    crate::app_log::capture::install(cx);
     crate::get_started::progress::install(state.clone(), cx);
-    crate::help::whats_new::announce_update(state, cx);
-    // The app ends with its last window, as the Tauri app does.
-    cx.on_window_closed(|cx, _| {
-        if cx.windows().is_empty() {
+    crate::help::whats_new::announce_update(state.clone(), cx);
+    // Windows open where the last one was left.
+    crate::shell::windows::init_placements((!scripted).then(|| state.clone()).flatten(), cx);
+    // A Mac app outlives its windows until ⌘Q, and the Dock icon opens one
+    // again (`keeps_running_without_windows` and `reopen` in the Tauri
+    // app's lib.rs); elsewhere, and in a scripted run, the app ends with its
+    // last window.
+    let outlives_windows = outlives_windows(scripted);
+    cx.on_window_closed(move |cx, _| {
+        if cx.windows().is_empty() && !outlives_windows {
             cx.quit();
         }
     })

@@ -184,7 +184,11 @@ pub fn highlight_opening(color: &str) -> String {
     } else {
         format!(
             "\\colorbox{{{}}}{{",
-            if trimmed.is_empty() { "yellow" } else { trimmed }
+            if trimmed.is_empty() {
+                "yellow"
+            } else {
+                trimmed
+            }
         )
     }
 }
@@ -219,14 +223,21 @@ pub fn highlight_edit(doc: &str, range: Range<usize>, color: Option<&str>) -> Op
         (around.content_from == range.start && around.content_to == range.end)
             || (around.from == range.start && around.to == range.end)
     });
-    let target = if color.is_none() || whole { around } else { None };
+    let target = if color.is_none() || whole {
+        around
+    } else {
+        None
+    };
     if let Some(target) = target {
         let changes = match color {
             None => vec![
                 Replace::new(target.from..target.content_from, ""),
                 Replace::new(target.content_to..target.to, ""),
             ],
-            Some(color) => vec![Replace::new(target.from..target.content_from, highlight_opening(color))],
+            Some(color) => vec![Replace::new(
+                target.from..target.content_from,
+                highlight_opening(color),
+            )],
         };
         let anchor = map_pos(&changes, target.content_from, 1);
         let head = map_pos(&changes, target.content_to, -1);
@@ -251,8 +262,16 @@ pub fn highlight_edit(doc: &str, range: Range<usize>, color: Option<&str>) -> Op
 /// 75% in its colour, since a pastel block would put light ink on a light
 /// ground; and the `\colorbox[HTML]{…}{` wrapper and closing brace receding
 /// at 45%. Only `#RRGGBB` highlights are painted; a colour by name and soul's
-/// `\hl` are the document's to say.
-pub fn paint(text: &str, dark: bool) -> (Vec<crate::decorations::Highlight>, Vec<crate::decorations::Mark>) {
+/// `\hl` are the document's to say. `text` is the document from `offset` on,
+/// the stretch around what the editor shows.
+pub fn paint(
+    text: &str,
+    offset: usize,
+    dark: bool,
+) -> (
+    Vec<crate::decorations::Highlight>,
+    Vec<crate::decorations::Mark>,
+) {
     use crate::decorations::{Highlight, Mark, MarkStyle, Underline};
     let mut washes = Vec::new();
     let mut marks = Vec::new();
@@ -260,9 +279,15 @@ pub fn paint(text: &str, dark: bool) -> (Vec<crate::decorations::Highlight>, Vec
         fade: Some(0.55),
         ..MarkStyle::default()
     };
-    for highlight in latex_highlights(text) {
+    for mut highlight in latex_highlights(text) {
+        highlight.from += offset;
+        highlight.content_from += offset;
+        highlight.content_to += offset;
+        highlight.to += offset;
         let Some(hex) = highlight.color.as_deref().filter(|color| {
-            color.len() == 7 && color.starts_with('#') && color[1..].bytes().all(|b| b.is_ascii_hexdigit())
+            color.len() == 7
+                && color.starts_with('#')
+                && color[1..].bytes().all(|b| b.is_ascii_hexdigit())
         }) else {
             continue;
         };
@@ -340,7 +365,9 @@ mod tests {
         let word = after.find("word").unwrap()..after.find("word").unwrap() + 4;
         let around = highlight_around(&after, word.clone()).unwrap();
         assert_eq!(around.color.as_deref(), Some("#FFF1A6"));
-        let recolored = highlight_edit(&after, word.clone(), Some("#D3E4FF")).unwrap().apply(&after);
+        let recolored = highlight_edit(&after, word.clone(), Some("#D3E4FF"))
+            .unwrap()
+            .apply(&after);
         assert_eq!(recolored, r"a \colorbox[HTML]{D3E4FF}{word}");
         let removed = highlight_edit(&after, word, None).unwrap();
         assert_eq!(removed.apply(&after), doc);
@@ -350,13 +377,21 @@ mod tests {
     #[test]
     fn a_highlight_paints_its_text_and_fades_its_wrapper() {
         let text = r"a \colorbox[HTML]{FFF1A6}{word} \hl{other}";
-        let (washes, marks) = paint(text, false);
+        let (washes, marks) = paint(text, 0, false);
         let word = text.find("word").unwrap();
         assert_eq!(washes.len(), 1);
         assert_eq!(washes[0].range, word..word + 4);
+        let (shifted, _) = paint(&text[1..], 1, false);
+        assert_eq!(shifted[0].range, word..word + 4);
         assert_eq!(washes[0].color, gpui::rgb(0xFFF1A6).into());
-        assert_eq!(marks.iter().filter(|mark| mark.style.fade.is_some()).count(), 2);
-        let (dark, _) = paint(text, true);
+        assert_eq!(
+            marks
+                .iter()
+                .filter(|mark| mark.style.fade.is_some())
+                .count(),
+            2
+        );
+        let (dark, _) = paint(text, 0, true);
         assert!(dark[0].color.a < 0.2);
     }
 }

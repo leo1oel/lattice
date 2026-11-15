@@ -79,6 +79,17 @@ pub enum FixGroup {
     Disputed,
 }
 
+impl FixGroup {
+    /// The subheading the Fix list shows over the group (`groupNames`).
+    pub fn label(self) -> &'static str {
+        match self {
+            FixGroup::Published => t!("Published version or missing fields"),
+            FixGroup::Cosmetic => t!("Formatting"),
+            FixGroup::Disputed => t!("Sources differ from your entry"),
+        }
+    }
+}
+
 /// Entry types a preprint or unpublished record is filed under.
 const PREPRINT_TYPES: [&str; 6] = [
     "misc",

@@ -2,6 +2,16 @@
 msgid "Another import is running. Your selection is kept; add it once that finishes."
 msgstr "另一个导入正在进行。你的选择已保留，等它完成后再添加。"
 
+# The reader's way back from its PDF (Tauri: "Back to {view}" → "返回{view}",
+# Blog → 概览, Paper → 全文).
+#: lattice-gpui/src/papers/reader/pdf.rs
+msgid "Back to Blog"
+msgstr "返回概览"
+
+#: lattice-gpui/src/papers/reader/pdf.rs
+msgid "Back to Paper"
+msgstr "返回全文"
+
 #: lattice-gpui/src/papers/downloads.rs
 msgid "Citation added without full text"
 msgstr "已添加引用，没有全文"

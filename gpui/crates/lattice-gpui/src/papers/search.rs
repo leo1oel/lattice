@@ -3,8 +3,9 @@
 //! keystroke, asks the full-text index (`papers::search_library_text`) for
 //! the papers their saved text matched, with their best lines. A pass that
 //! runs past 400 ms says so above the list; one that fails says the list
-//! holds metadata matches only, and keeps saying so until a search answers.
-//! Hits for an older query are never shown.
+//! holds metadata matches only, and keeps saying so until a search answers,
+//! the box emptied and typed again included. Hits for an older query are
+//! never shown.
 
 use std::{collections::HashMap, time::Duration};
 
@@ -16,10 +17,23 @@ use super::{
     model::{LineHit, TextMatch},
 };
 
+/// What the box asks the index for, as typed: the trimmed query the hits
+/// answer, and the text sent, which keeps one trailing space when the box
+/// ends in whitespace, since the index matches the last word as a prefix
+/// until a space follows it (`sent`).
+fn sent_query(text: &str) -> (String, String) {
+    let query = text.trim().to_string();
+    let sent = if !query.is_empty() && text.ends_with(char::is_whitespace) {
+        format!("{query} ")
+    } else {
+        query.clone()
+    };
+    (query, sent)
+}
+
 impl PapersPanel {
     pub(super) fn query_changed(&mut self, cx: &mut Context<Self>) {
-        let text = self.query(cx);
-        let query = text.trim().to_string();
+        let (query, sent) = sent_query(&self.query(cx));
         self.text_generation += 1;
         self.expanded_hits.clear();
         if query.is_empty() || self.root.is_none() {
@@ -31,19 +45,14 @@ impl PapersPanel {
             cx.notify();
             return;
         }
-        // The index matches the last word as a prefix until a space follows
-        // it, so a trailing space is sent.
-        let sent = if text.ends_with(char::is_whitespace) {
-            format!("{query} ")
-        } else {
-            query.clone()
-        };
         // A cache that could not be read for the last query most likely
         // cannot for this one either: the failure stays until this search
-        // says otherwise, rather than blinking out at every keystroke.
-        if !matches!(self.text_search, TextSearch::Failed(_)) {
-            self.text_search = TextSearch::Pending;
-        }
+        // says otherwise, rather than blinking out at every keystroke, even
+        // when the box was emptied in between.
+        self.text_search = match &self.text_failure {
+            Some(error) => TextSearch::Failed(error.clone()),
+            None => TextSearch::Pending,
+        };
         self.run_text_search(query, sent, TEXT_SEARCH_DEBOUNCE, cx);
         cx.notify();
     }
@@ -115,12 +124,14 @@ impl PapersPanel {
                             })
                             .collect();
                         this.text_search = TextSearch::Done;
+                        this.text_failure = None;
                     }
                     Err(error) => {
                         // Metadata filtering remains useful if the cache
                         // cannot be read, but the list must not read as the
                         // whole answer.
                         this.text_hits.clear();
+                        this.text_failure = Some(error.clone());
                         this.text_search = TextSearch::Failed(error);
                     }
                 }
@@ -136,25 +147,23 @@ impl PapersPanel {
         if !self.text_waiting {
             return;
         }
-        let text = self.query(cx);
-        let query = text.trim().to_string();
+        let (query, sent) = sent_query(&self.query(cx));
         if query.is_empty() {
             return;
         }
         self.text_generation += 1;
-        self.run_text_search(query, text.trim_start().to_string(), Duration::ZERO, cx);
+        self.run_text_search(query, sent, Duration::ZERO, cx);
     }
 
     /// The pass again after it failed (Try again).
     pub(crate) fn retry_search(&mut self, cx: &mut Context<Self>) {
-        let text = self.query(cx);
-        let query = text.trim().to_string();
+        let (query, sent) = sent_query(&self.query(cx));
         if query.is_empty() {
             return;
         }
         self.text_generation += 1;
         self.text_search = TextSearch::Searching;
-        self.run_text_search(query, text.trim_start().to_string(), Duration::ZERO, cx);
+        self.run_text_search(query, sent, Duration::ZERO, cx);
         cx.notify();
     }
 
@@ -170,5 +179,40 @@ impl PapersPanel {
             input.focus(window, cx);
         });
         self.query_changed(cx);
+    }
+
+    /// A paste of two or more references (several DOIs, a `.bib`) into the
+    /// box goes to Add papers whole rather than into the one-line box as a
+    /// single query; true when it did (`onPaste`).
+    pub(super) fn paste_list(&mut self, cx: &mut Context<Self>) -> bool {
+        let Some(pasted) = cx.read_from_clipboard().and_then(|item| item.text()) else {
+            return false;
+        };
+        if (self.fetching.busy() && self.importing.is_none())
+            || super::model::parse_pasted_references(&pasted).len() < 2
+        {
+            return false;
+        }
+        cx.emit(super::PapersEvent::AddPapers(pasted));
+        true
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::sent_query;
+
+    /// The box as typed and what `usePaperTextSearch` sends for it:
+    /// `query && /\s$/.test(text) ? `${query} ` : query`.
+    #[test]
+    fn enter_and_typing_send_the_same_text() {
+        let pair = |query: &str, sent: &str| (query.to_string(), sent.to_string());
+        assert_eq!(sent_query("attention   "), pair("attention", "attention "));
+        assert_eq!(sent_query("  attention"), pair("attention", "attention"));
+        assert_eq!(
+            sent_query("dot product\t"),
+            pair("dot product", "dot product ")
+        );
+        assert_eq!(sent_query("   "), pair("", ""));
     }
 }

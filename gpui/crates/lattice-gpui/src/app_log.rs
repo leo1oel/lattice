@@ -15,6 +15,7 @@
 //! Export and Help ▸ Report a Problem… go through [`export`], which keeps
 //! only allowlisted metadata unless raw text is asked for.
 
+pub mod capture;
 pub mod export;
 pub mod groups;
 pub mod trace;
@@ -294,6 +295,22 @@ impl AppLog {
         replaces: bool,
         cx: &mut Context<Self>,
     ) -> String {
+        let entry = self.insert(new, key, replaces);
+        self.forward(&entry, cx);
+        self.persist(cx);
+        cx.notify();
+        entry.id
+    }
+
+    /// Log `new` where the file log has its line already: a crash's entry,
+    /// written as the app went down.
+    pub fn add_written(&mut self, new: NewEntry, cx: &mut Context<Self>) {
+        self.insert(new, None, false);
+        self.persist(cx);
+        cx.notify();
+    }
+
+    fn insert(&mut self, new: NewEntry, key: Option<&str>, replaces: bool) -> Entry {
         let existing = key
             .filter(|_| replaces)
             .and_then(|key| self.keyed.get(key).cloned())
@@ -312,12 +329,9 @@ impl AppLog {
         self.entries.insert(0, entry.clone());
         self.entries.truncate(MAX_ENTRIES);
         if let Some(key) = key {
-            self.keyed.insert(key.to_string(), id.clone());
+            self.keyed.insert(key.to_string(), id);
         }
-        self.forward(&entry, cx);
-        self.persist(cx);
-        cx.notify();
-        id
+        entry
     }
 
     /// Forget every entry, at once on disk too.

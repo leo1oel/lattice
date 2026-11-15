@@ -51,13 +51,18 @@ use serde_json::{Value, json};
 
 use crate::notices::{self, Notice};
 
-pub use markdown::MarkdownEvent;
+pub use markdown::{MarkdownEvent, PaperPdfIdentity, PaperReading};
+pub use markdown_host::VisualCaret;
 pub use slides::{DeckSession, handles as deck_handles};
 
 mod agent_tools;
+mod deck_context;
+mod latex_visual;
 mod markdown;
+mod markdown_host;
 mod presentation;
 pub mod resources;
+mod skeleton;
 mod slides;
 
 /// The kinds of structured document, by path, as the Tauri app tells them
@@ -70,6 +75,10 @@ pub enum StructuredKind {
     /// A Markdown file's visual editor, shown by its Split and Preview
     /// views rather than alone (`markdown.rs`); never what [`Self::of`] names.
     Markdown,
+    /// A `.tex` file's Visual view: the Tauri app's source editor in Visual
+    /// mode (`latex_visual.rs`), shown in place of the source; never what
+    /// [`Self::of`] names.
+    LatexVisual,
 }
 
 impl StructuredKind {
@@ -94,7 +103,14 @@ impl StructuredKind {
             Self::Sheet => "sheet",
             Self::Deck => "slides",
             Self::Markdown => "markdown",
+            Self::LatexVisual => "latex",
         }
+    }
+
+    /// A visual editor over the panel's buffer, which reads the project's
+    /// files and speaks the visual editors' protocol (`md:*`, `markdown.rs`).
+    fn is_visual_editor(self) -> bool {
+        matches!(self, Self::Markdown | Self::LatexVisual)
     }
 
     fn entry(self) -> &'static str {
@@ -103,6 +119,7 @@ impl StructuredKind {
             Self::Sheet => "sheet/index.html",
             Self::Deck => "slides/index.html",
             Self::Markdown => "markdown/index.html",
+            Self::LatexVisual => "latex/index.html",
         }
     }
 }
@@ -124,6 +141,10 @@ pub enum StructuredEvent {
     /// Open Slide's Ask AI, Apply comments or Draft a deck: a request for
     /// the Agent's composer (`OpenSlideAgentRequest`).
     AgentRequest(Value),
+    /// What the Agent is told of this surface changed: a deck's selection
+    /// or pending edits (`deck_context`), a Markdown file's visual selection
+    /// (`markdown_host`).
+    SurfaceContext,
 }
 
 pub struct StructuredDocument {
@@ -142,14 +163,27 @@ pub struct StructuredDocument {
     /// The interface language the page was last given.
     locale: Locale,
     deck: Option<slides::DeckSession>,
-    /// A Markdown file's: the view, the project's files and TeX sources.
+    /// A visual editor's (a Markdown file's, a `.tex` file's Visual): the
+    /// view, the project's files and TeX sources.
     markdown: Option<markdown::MarkdownSession>,
+    /// A `.tex` file's Visual: the project's citations and labels it last sent.
+    latex: Option<latex_visual::LatexSession>,
     /// The project, for a page that reads its files (a Markdown file's images).
     files: Option<FileScope>,
     /// Reveals asked for, so each has an id of its own.
     reveals: u64,
     /// The Agent's tool calls the page has not answered (`agent_tools.rs`).
     agent_calls: agent_tools::AgentCalls,
+    deck_context: Option<Value>,
+    /// The writer may edit the deck (`editorEditable`).
+    editable: bool,
+    /// The visual Markdown editor's selection, and the carets last sent.
+    visual_selection: Option<String>,
+    visual_presence: Option<Value>,
+    /// When the page was asked for, for the Markdown skeleton's clock, and
+    /// the width it was last drawn at.
+    opened: std::time::Instant,
+    skeleton_width: std::rc::Rc<std::cell::Cell<gpui::Pixels>>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -169,8 +203,9 @@ impl StructuredDocument {
                 "The island pages are not built: run gpui/script/build-islands.".to_string()
             })
             .and_then(|dir| FileScope::new(dir).map_err(|error| format!("{error:#}")));
-        // A Markdown file's images are the project's, granted one by one.
-        let files = (kind == StructuredKind::Markdown)
+        // A visual editor's images are the project's, granted one by one.
+        let files = kind
+            .is_visual_editor()
             .then(|| FileScope::new(root).ok())
             .flatten();
         let palette = cx.palette().clone();
@@ -212,9 +247,16 @@ impl StructuredDocument {
             locale: lattice_i18n::locale(),
             deck,
             markdown: None,
+            latex: None,
             files,
             reveals: 0,
             agent_calls: Default::default(),
+            deck_context: None,
+            editable: true,
+            visual_selection: None,
+            visual_presence: None,
+            opened: std::time::Instant::now(),
+            skeleton_width: Default::default(),
             _subscriptions: subscriptions,
         }
     }
@@ -318,9 +360,10 @@ impl StructuredDocument {
         });
         if self.kind == StructuredKind::Deck {
             payload["projectRoot"] = json!(self.root.to_string_lossy());
-            payload["editable"] = json!(true);
+            payload["editable"] = json!(self.editable);
         }
         self.markdown_open(&mut payload);
+        self.latex_open(&mut payload);
         self.post("doc:open", payload, cx);
     }
 
@@ -339,6 +382,8 @@ impl StructuredDocument {
             }
             IslandEvent::Hibernated => {
                 self.drawn = false;
+                // Woken, it shows its skeleton on a fresh clock.
+                self.opened = std::time::Instant::now();
                 self.agent_page_gone();
                 // The page took its leases with it, without releasing them.
                 if let Some(deck) = &mut self.deck {
@@ -383,9 +428,11 @@ impl StructuredDocument {
             "island:notify" => show_page_notice(payload, cx),
             "agent:tool-result" => self.agent_answered(payload),
             "slides:agent-request" => cx.emit(StructuredEvent::AgentRequest(payload.clone())),
-            _ if self.kind == StructuredKind::Markdown => {
-                self.on_markdown_message(kind, payload, cx)
+            "slides:context" => self.deck_context_changed(payload, cx),
+            "tex:open-citation" if self.kind == StructuredKind::LatexVisual => {
+                self.open_citation(payload, cx)
             }
+            _ if self.kind.is_visual_editor() => self.on_markdown_message(kind, payload, cx),
             _ => log::debug!("{}: unhandled {kind}", self.kind.island()),
         }
     }
@@ -402,7 +449,7 @@ impl StructuredDocument {
             "doc:persist" => cx.emit(StructuredEvent::Persist(id)),
             "island:confirm" => self.confirm(id, &payload, cx),
             "tauri:invoke" => self.invoke(id, payload, window, cx),
-            _ if self.kind == StructuredKind::Markdown
+            _ if self.kind.is_visual_editor()
                 && self.on_markdown_request(id, kind, &payload, cx) => {}
             "slides:mutation" if self.kind == StructuredKind::Deck => {
                 self.apply_mutation(id, payload, cx)
@@ -431,7 +478,11 @@ impl StructuredDocument {
         match (self.kind, command.as_str()) {
             (_, "plugin:dialog|save") => self.save_panel(id, &args, window, cx),
             (StructuredKind::Sheet, "save_xlsx") => self.save_xlsx(id, &payload, cx),
-            (StructuredKind::Markdown, _) if self.invoke_markdown(id, &command, &args, cx) => {}
+            (StructuredKind::Deck, "open_project_window") => {
+                self.open_project_window(id, &args, cx)
+            }
+            (StructuredKind::LatexVisual, _) if self.invoke_latex(id, &command, &args, cx) => {}
+            (kind, _) if kind.is_visual_editor() && self.invoke_markdown(id, &command, &args, cx) => {}
             (StructuredKind::Deck, _) if slides::handles(&command) => {
                 let result = self
                     .deck
@@ -646,7 +697,7 @@ pub(crate) fn show_page_notice(payload: &Value, cx: &mut App) {
 }
 
 impl Render for StructuredDocument {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         // The interface language changed (settings redraw every window).
         if lattice_i18n::locale() != self.locale {
             self.locale = lattice_i18n::locale();
@@ -662,6 +713,7 @@ impl Render for StructuredDocument {
                     _ => None,
                 })
         });
+        let skeleton = self.kind == StructuredKind::Markdown && !self.drawn && failure.is_none();
         div()
             .id(("structured", self.kind as usize))
             .relative()
@@ -673,6 +725,7 @@ impl Render for StructuredDocument {
                 StructuredKind::Sheet => "sheet/surface",
                 StructuredKind::Deck => "slides/surface",
                 StructuredKind::Markdown => "markdown/surface",
+                StructuredKind::LatexVisual => "latex/surface",
             }))
             .when_some(failure, |this, failure| {
                 this.child(
@@ -696,6 +749,9 @@ impl Render for StructuredDocument {
                                     StructuredKind::Markdown => {
                                         t!("Couldn’t open the Markdown editor")
                                     }
+                                    StructuredKind::LatexVisual => {
+                                        t!("Couldn’t open the Visual Editor")
+                                    }
                                 }),
                         )
                         .child(
@@ -706,6 +762,15 @@ impl Render for StructuredDocument {
                                 .child(failure),
                         ),
                 )
+            })
+            // Markdown's page is on its way ("Preparing preview…").
+            .when(skeleton, |this| {
+                this.child(skeleton::markdown_page(
+                    self.opened,
+                    self.skeleton_width.clone(),
+                    window,
+                    cx,
+                ))
             })
             .when_some(self.island.clone(), |this, island| this.child(island))
     }

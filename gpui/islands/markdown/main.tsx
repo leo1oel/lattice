@@ -32,36 +32,78 @@
  *   md:project        { files, texSources }   the project's tree and TeX sources changed
  *   md:pages-changed  { paths }       these Markdown files' text changed (null: any may have): the page index reads them again
  *   md:scroll-to      { center, min, max }   Split: the line at the source's centre, and its range
+ *   md:paper          { paper }       the file is a saved paper's reading text (null: it is not)
+ *   md:presence       { cursors }       co-authors' carets, rows of the file (also `doc:open`'s `presence`)
+ *   doc:editable      { editable }      the file may (not) be edited here
  * Page to host:
  *   md:change         { source, base }  the whole file after an edit made against `base`
  *   md:undo, md:redo
  *   md:view-in-source { offset }        show the source with the caret at a UTF-16 offset
  *   md:open-path      { path }          a project link followed
  *   md:caret          { line, column }  1-based, in the file
+ *   md:selection      { text }          the visual editor's selection, for the Agent
  *   md:scrolled       { center }        Split: the source line the preview's centre maps to
+ *   md:masthead       { inView }        a paper's masthead (its title at the top) is on screen or not
+ *   md:paper-source   { page, first, last }   a source link into the paper's own PDF was followed
  *   md:read           (request) { path } → text   a project file, for the page index
  *   md:load-asset     (request) { path } → url | null
  *   md:import-asset   (request) { base64, type } → project path | null
  */
 import "../shared/install";
-import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
 import { mount, activateLocale } from "../shared/boot";
 import { host } from "../shared/host";
 import { LineIndex, SplitScroll } from "./split-scroll";
 import "./markdown.css";
 import { ScrollArea } from "../../../src/components/ui/scroll-area";
+import { InlineMessage } from "../../../src/components/ui/inline-message";
+import { paperSourceCitation } from "../../../src/papers/paper-source";
 import { LatticeVisualMarkdownEditor } from "../../../src/editor/markdown/engine/lattice-visual-editor";
 import { MarkdownWorkspaceIndex } from "../../../src/editor/markdown/markdown-workspace-index";
 import type { VisualRevealTarget } from "../../../src/editor/markdown/visual-editor-props";
 import { katexMacrosFromSources } from "../../../src/editor/latex/latex-text";
 import { markdownFrontmatterEnd } from "../../../src/app-utils";
 import type { FileNode } from "../../../src/app-types";
+import type { PresenceCursor } from "../../../src/overleaf/overleaf-editor-extensions";
+import { restoreViewportAround } from "../../../src/canvas/viewport-restore";
 import {
   capturePreviewViewport, restorePreviewViewport, spliceMarkdownBody, useSettledPreviewText,
   type PreviewViewportSnapshot,
 } from "../../../src/canvas/markdown-preview-sync";
 
 type Locale = "en" | "zh-CN";
+
+/**
+ * A saved paper's reading text, as the Tauri canvas reads it
+ * (`document-canvas.tsx`, `activePaper`): the visual editor in its reading
+ * form, and over the full text (not the overview) its masthead, the title and
+ * the whole author list at the top of the column.
+ */
+type PaperReading = {
+  title: string;
+  authors: string | null;
+  fullText: boolean;
+  /** The paper's identity, when its reader can show its original PDF. */
+  pdf: { arxivId: string; url: string | null; hasLocalPdf: boolean } | null;
+};
+
+/**
+ * A plain click on a source link into this paper's own PDF (a page, its
+ * quote's first and last words in the title) opens the PDF in the reader at
+ * that page rather than the browser (`followPaperSourceLink`). Any other
+ * link, a modified click, or a drag that selected text is left to the editor.
+ */
+function followSourceLink(event: React.MouseEvent, paper: PaperReading | null) {
+  if (!paper?.pdf || event.button !== 0 || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
+  if (window.getSelection()?.isCollapsed === false) return;
+  const link = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>("a[href]") : null;
+  if (!link) return;
+  const citation = paperSourceCitation({ ...paper.pdf, url: paper.pdf.url ?? undefined }, link.href, link.title);
+  if (!citation) return;
+  event.preventDefault();
+  event.stopPropagation();
+  host().post("md:paper-source", citation);
+}
 
 type MarkdownOpen = {
   path: string;
@@ -74,6 +116,8 @@ type MarkdownOpen = {
   editable: boolean;
   files: FileNode[];
   texSources: string[];
+  paper?: PaperReading | null;
+  presence?: PresenceCursor[];
 };
 
 type Reveal = { id: string; target: VisualRevealTarget };
@@ -87,6 +131,9 @@ type State = {
   reveal: Reveal | null;
   files: FileNode[];
   texSources: string[];
+  paper: PaperReading | null;
+  /** Co-authors' carets, by rows of the file. */
+  presence: PresenceCursor[];
 };
 
 type Action =
@@ -96,7 +143,10 @@ type Action =
   | { type: "ready" }
   | { type: "assets" }
   | { type: "reveal"; reveal: Reveal | null }
-  | { type: "project"; files: FileNode[]; texSources: string[] };
+  | { type: "project"; files: FileNode[]; texSources: string[] }
+  | { type: "paper"; paper: PaperReading | null }
+  | { type: "presence"; presence: PresenceCursor[] }
+  | { type: "editable"; editable: boolean };
 
 function reduce(state: State, action: Action): State {
   switch (action.type) {
@@ -104,6 +154,8 @@ function reduce(state: State, action: Action): State {
       return {
         ...state, opened: action.open, source: action.open.source, split: action.open.split,
         files: action.open.files, texSources: action.open.texSources, reveal: null,
+        paper: action.open.paper ?? null,
+        presence: action.open.presence ?? [],
       };
     case "source":
       return { ...state, source: action.source };
@@ -117,6 +169,12 @@ function reduce(state: State, action: Action): State {
       return { ...state, reveal: action.reveal };
     case "project":
       return { ...state, files: action.files, texSources: action.texSources };
+    case "paper":
+      return { ...state, paper: action.paper };
+    case "presence":
+      return { ...state, presence: action.presence };
+    case "editable":
+      return state.opened ? { ...state, opened: { ...state.opened, editable: action.editable } } : state;
   }
 }
 
@@ -149,8 +207,13 @@ function lineOf(text: string, offset: number): number {
 function Markdown() {
   const [state, dispatch] = useReducer(reduce, {
     opened: null, source: "", split: false, ready: false, assetRevision: 0, reveal: null, files: [], texSources: [],
+    paper: null,
+    presence: [],
   });
-  const { opened, source, split, ready, assetRevision, reveal, files, texSources } = state;
+  const { opened, source, split, ready, assetRevision, reveal, files, texSources, paper, presence } = state;
+  // Why the engine cannot show this full text as written, for its masthead
+  // (`onEligibilityChange`, `paperVisualEligibilityReason`).
+  const [eligibility, setEligibility] = useState<string | null>(null);
   // The file as the page has it: the owner's latest, or the page's own edit.
   const sourceRef = useRef(source);
   useLayoutEffect(() => { sourceRef.current = source; }, [source]);
@@ -175,6 +238,13 @@ function Markdown() {
     if (opened) workspaceIndex.noteDocumentContent(opened.path, settled);
   }, [opened, settled, workspaceIndex]);
   const macros = useMemo(() => katexMacrosFromSources(texSources), [texSources]);
+  // The editor counts rows in the body it renders (`markdownVisualCursors`).
+  const presenceCursors = useMemo(
+    () => presence
+      .filter((cursor) => cursor.row >= lineOffset)
+      .map((cursor) => ({ ...cursor, row: cursor.row - lineOffset })),
+    [lineOffset, presence],
+  );
 
   useEffect(() => {
     const bridge = host();
@@ -204,6 +274,12 @@ function Markdown() {
         dispatch({ type: "reveal", reveal: { id, target: { line: bodyLine } } });
       }),
       bridge.on("md:assets-changed", () => dispatch({ type: "assets" })),
+      bridge.on("md:presence", (payload) => {
+        dispatch({ type: "presence", presence: (payload as { cursors: PresenceCursor[] }).cursors });
+      }),
+      bridge.on("doc:editable", (payload) => {
+        dispatch({ type: "editable", editable: Boolean((payload as { editable: boolean }).editable) });
+      }),
       bridge.on("md:project", (payload) => {
         const { files: nextFiles, texSources: nextSources } = payload as { files: FileNode[]; texSources: string[] };
         dispatch({ type: "project", files: nextFiles, texSources: nextSources });
@@ -227,6 +303,9 @@ function Markdown() {
             .then((content) => workspaceIndex.noteDocumentContent(path, content))
             .catch(() => {});
         }
+      }),
+      bridge.on("md:paper", (payload) => {
+        dispatch({ type: "paper", paper: (payload as { paper: PaperReading | null }).paper ?? null });
       }),
       bridge.on("md:scroll-to", (payload) => {
         const { center, min, max } = payload as { center: number; min: number; max: number };
@@ -317,14 +396,67 @@ function Markdown() {
   const onCaretChange = useCallback((row: number, column: number) => {
     host().post("md:caret", { line: row + lineOffset + 1, column });
   }, [lineOffset]);
+  const onSelectionMarkdown = useCallback((text: string) => host().post("md:selection", { text }), []);
+  // Adding a block (Add block below and the like) keeps the reader's place:
+  // the block acted on stays where it was on screen for the next frames,
+  // as the canvas's `lockMarkdownPreviewViewport` holds it.
+  const viewportLock = useRef({ lock: 0, anchor: "" });
+  const onRequestViewportLock = useCallback((anchor: HTMLElement | null, anchorTop: number | null, revealed: HTMLElement | null) => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    const scrollTop = viewport.scrollTop;
+    const held = viewportLock.current;
+    const lock = held.lock + 1;
+    if (held.lock === 0) held.anchor = viewport.style.overflowAnchor;
+    held.lock = lock;
+    viewport.style.overflowAnchor = "none";
+    const restore = () => {
+      if (held.lock !== lock || !viewport.isConnected) return false;
+      restoreViewportAround(viewport, scrollTop, anchor, anchorTop, revealed);
+      return true;
+    };
+    restore();
+    queueMicrotask(restore);
+    window.requestAnimationFrame(() => {
+      if (!restore()) return;
+      window.requestAnimationFrame(() => {
+        if (!restore()) return;
+        held.lock = 0;
+        viewport.style.overflowAnchor = held.anchor;
+      });
+    });
+  }, []);
   const onRevealHandled = useCallback((id: string) => {
     if (reveal?.id === id) dispatch({ type: "reveal", reveal: null });
   }, [reveal]);
+
+  const masthead = Boolean(paper?.fullText);
+  useEffect(() => { if (!masthead) setEligibility(null); }, [masthead]);
+  // The reader's strip names the paper only while the masthead is off screen
+  // (`useMastheadInView` in paper-reader.tsx): the viewport clips the title,
+  // so it stops intersecting exactly when it has scrolled out from under the
+  // strip. Without a masthead the strip keeps the whole identity.
+  useLayoutEffect(() => {
+    const title = masthead && ready ? viewportRef.current?.querySelector(".paper-visual-header h1") : null;
+    if (!title || typeof IntersectionObserver === "undefined") {
+      host().post("md:masthead", { inView: false });
+      return;
+    }
+    let last: boolean | null = null;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting === last) return;
+      last = entry.isIntersecting;
+      host().post("md:masthead", { inView: last });
+    }, { root: viewportRef.current });
+    observer.observe(title);
+    return () => observer.disconnect();
+  }, [masthead, ready, opened]);
 
   if (!opened || !ready) return null;
   return (
     <ScrollArea
       className="markdown-preview"
+      data-tour={paper ? "paper-reading-view" : "markdown-visual-editor"}
       // Wide tables, code and formulas own their horizontal overflow.
       orientation="vertical"
       // Mask gradients repaint the whole editable surface while scrolling in WebKit.
@@ -336,20 +468,40 @@ function Markdown() {
         "data-testid": "editor-scroll-container",
         // Split follows the source itself; native anchoring would be a second writer.
         style: split ? { overflowAnchor: "none" } : undefined,
+        onClickCapture: (event) => followSourceLink(event, paper),
       }}
       viewportRef={viewportRef}
       style={{ flex: "1 1 0", minWidth: 0 }}
     >
+      {masthead && paper && (
+        <header className="paper-visual-header">
+          <div>
+            {eligibility && (
+              <InlineMessage level="warning" className="paper-visual-eligibility">{eligibility}</InlineMessage>
+            )}
+            <h1>{paper.title}</h1>
+            {paper.authors && <p>{paper.authors}</p>}
+          </div>
+        </header>
+      )}
       <Fragment key={`${opened.projectRoot}\n${opened.path}`}>
         <LatticeVisualMarkdownEditor
           text={settled}
           activePath={opened.path}
-          projectRoot={opened.projectRoot}
+          // The canvas passes no project root for a paper: the root only
+          // resolves a paper dragged in from the Papers panel, which a
+          // paper's own text does not take.
+          projectRoot={paper ? undefined : opened.projectRoot}
+          optimizeForReading={Boolean(paper)}
+          onEligibilityChange={masthead ? setEligibility : undefined}
           onChangeMarkdown={onChangeMarkdown}
           onFlushPendingChange={onFlushPendingChange}
           synchronizeSourceScroll={split || reveal !== null}
           revealRequest={reveal}
           onRevealHandled={onRevealHandled}
+          onRequestViewportLock={onRequestViewportLock}
+          presenceCursors={presenceCursors}
+          onSelectionMarkdown={onSelectionMarkdown}
           onOpenProjectPath={onOpenProjectPath}
           workspaceIndex={workspaceIndex}
           macros={macros}

@@ -77,6 +77,107 @@ pub fn publication_message(message: &str, reason: Option<&str>) -> Option<String
     .to_string())
 }
 
+/// What a source answered about a reference, as the report says it.
+const SOURCE_OUTCOMES: [(&str, &str); 30] = [
+    ("matched", n!("Verified publication match")),
+    ("selected", n!("Metadata source")),
+    ("selected_cached", n!("Metadata source (cached)")),
+    ("candidate", n!("Candidate record considered, not verified")),
+    (
+        "candidate_cached",
+        n!("Candidate record considered, not verified (cached record)"),
+    ),
+    (
+        "not_configured",
+        n!("Not enabled. Add your own API key in Settings"),
+    ),
+    ("no_match", n!("No published version found")),
+    ("rate_limited", n!("Rate limited")),
+    ("batch_reused", n!("Batch result reused")),
+    ("queue_busy", n!("Request queue busy")),
+    ("daily_quota", n!("Public daily quota exhausted")),
+    (
+        "batch_rate_limited",
+        n!("Rate limited; subsequent Semantic Scholar queries skipped"),
+    ),
+    (
+        "batch_queue_busy",
+        n!("Request queue busy; subsequent Semantic Scholar queries skipped"),
+    ),
+    (
+        "batch_daily_quota",
+        n!("Public daily quota exhausted; subsequent Semantic Scholar queries skipped"),
+    ),
+    (
+        "batch_upstream_rate_limit",
+        n!("Semantic Scholar rate limited the service; subsequent queries skipped"),
+    ),
+    (
+        "batch_unauthorized",
+        n!("Semantic Scholar authorization failed; subsequent queries skipped"),
+    ),
+    (
+        "batch_network",
+        n!("Semantic Scholar connection failed; subsequent queries skipped"),
+    ),
+    (
+        "batch_malformed",
+        n!("Semantic Scholar returned an invalid response; subsequent queries skipped"),
+    ),
+    (
+        "batch_timeout",
+        n!("Semantic Scholar request timed out; subsequent queries skipped"),
+    ),
+    (
+        "batch_unavailable",
+        n!("Semantic Scholar unavailable; subsequent queries skipped"),
+    ),
+    ("blocked", n!("Requests blocked")),
+    ("timeout", n!("Request timed out")),
+    ("connection_failed", n!("Connection failed")),
+    ("network", n!("Network connection failed")),
+    ("unauthorized", n!("Authorization failed")),
+    ("malformed", n!("Invalid response from source")),
+    ("forbidden", n!("Access forbidden by provider")),
+    ("upstream_rate_limit", n!("Source rate limit reached")),
+    ("server_error", n!("Source service error")),
+    ("unavailable", n!("Source temporarily unavailable")),
+];
+
+/// A source's answer in the interface language (`auditSourceOutcome`);
+/// `status` is the whole finding's. A report saved before candidate
+/// outcomes existed may call a source selected on a result that is
+/// unavailable, which does not read as verified.
+pub fn source_outcome(status: &str, outcome: &str) -> String {
+    match (status, outcome) {
+        ("unavailable", "selected") => t!("Source record considered, not verified").to_string(),
+        ("unavailable", "selected_cached") => {
+            t!("Source record considered, not verified (cached record)").to_string()
+        }
+        _ => SOURCE_OUTCOMES
+            .iter()
+            .find(|(code, _)| *code == outcome)
+            .map_or_else(
+                || t!("Unknown source response").to_string(),
+                |(_, message)| tr(message).to_string(),
+            ),
+    }
+}
+
+/// A check's time as the report keeps it (seconds since the epoch, or the
+/// RFC 3339 the health check and the Tauri app write), in local time.
+pub fn checked_time(at: &str) -> Option<String> {
+    let at = match at.parse::<i64>() {
+        Ok(seconds) => chrono::DateTime::from_timestamp(seconds, 0)?.fixed_offset(),
+        Err(_) => chrono::DateTime::parse_from_rfc3339(at).ok()?,
+    };
+    Some(
+        at.with_timezone(&chrono::Local)
+            .format("%Y-%m-%d %H:%M")
+            .to_string(),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -97,5 +198,37 @@ mod tests {
             publication_message("No update found.", None).as_deref(),
             Some("No update found")
         );
+    }
+
+    // `auditSourceOutcome` (src/papers/audit-messages.ts): an unknown code
+    // reads as an unknown response, and a "selected" source on an
+    // unavailable result is only considered.
+    #[test]
+    fn a_source_outcome_reads_as_the_tauri_report_says() {
+        assert_eq!(
+            source_outcome("verified", "matched"),
+            "Verified publication match"
+        );
+        assert_eq!(
+            source_outcome("unavailable", "batch_timeout"),
+            "Semantic Scholar request timed out; subsequent queries skipped"
+        );
+        assert_eq!(
+            source_outcome("unavailable", "selected"),
+            "Source record considered, not verified"
+        );
+        assert_eq!(source_outcome("verified", "selected"), "Metadata source");
+        assert_eq!(source_outcome("verified", ""), "Unknown source response");
+        assert_eq!(
+            source_outcome("verified", "made_up"),
+            "Unknown source response"
+        );
+    }
+
+    #[test]
+    fn a_check_time_reads_from_seconds_or_rfc3339() {
+        assert_eq!(checked_time("0"), checked_time("1970-01-01T00:00:00Z"));
+        assert!(checked_time("2026-11-14T09:05:07Z").is_some());
+        assert_eq!(checked_time("yesterday"), None);
     }
 }

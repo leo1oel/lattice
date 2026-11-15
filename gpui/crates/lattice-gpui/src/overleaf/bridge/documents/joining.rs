@@ -122,7 +122,8 @@ impl OverleafBridge {
             panel.update(cx, |panel, cx| panel.take_overleaf_text(&joined.text, cx));
             None
         } else {
-            // Both moved: regular sync merges it.
+            // Both moved: regular sync merges it, keeping the work here.
+            self.documents.detail = Some((path.clone(), super::changed_outside_notice().into()));
             self.review_doc_left(&doc_id);
             self.release_doc(&doc_id);
             self.documents.suspended.insert(path);

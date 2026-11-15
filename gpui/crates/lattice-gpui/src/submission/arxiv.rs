@@ -252,7 +252,7 @@ impl ArxivExportSheet {
             return;
         };
         cx.write_to_clipboard(ClipboardItem::new_string(log));
-        notices::show(Notice::new(ToastLevel::Success, t!("Build log copied")), cx);
+        notices::copied(t!("Build log copied"), cx);
     }
 
     fn export(&mut self, cx: &mut Context<Self>) {

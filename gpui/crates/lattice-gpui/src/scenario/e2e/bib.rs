@@ -167,6 +167,83 @@ impl Run {
         Ok(())
     }
 
+    /// `knuth1984`, then `second` appended and picked: `knuth1984` deleted
+    /// and put back with ⌘Z leaves the pick's stored place stale, and
+    /// `second` renamed in its form after that stays in front under its
+    /// new name. The file is put back as it was after.
+    async fn rename_follows_an_undone_delete(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+        editor: &gpui::Entity<crate::editor_panel::EditorPanel>,
+        bib: &gpui::Entity<crate::papers::bib_editor::BibEditor>,
+        before: &str,
+    ) -> Result<()> {
+        let buffer = cx.update(|cx| editor.read(cx).lattice_editor().read(cx).buffer().clone());
+        let set_text = |text: String, cx: &mut AsyncApp| {
+            cx.update(|cx| {
+                buffer.update(cx, |buffer, cx| {
+                    let end = buffer.len();
+                    buffer.edit([(0..end, text)], None, cx);
+                })
+            })
+        };
+        let keys_are = |keys: &'static [&'static str]| {
+            move |_: &gpui::Entity<crate::shell::Shell>, cx: &mut gpui::App| bib.read(cx).keys() == keys
+        };
+        set_text(format!("{before}\n@misc{{second,\n  title = {{Second}}\n}}\n"), cx);
+        let both = self
+            .wait_for(cx, Duration::from_secs(5), keys_are(&["knuth1984", "second"]))
+            .await;
+        cx.update(|cx| bib.update(cx, |bib, cx| bib.pick("second", cx)));
+        self.pause(cx, Duration::from_millis(200)).await;
+        cx.update(|cx| bib.update(cx, |bib, cx| bib.delete_entry("knuth1984", 0, cx)));
+        let deleted = self
+            .wait_for(cx, Duration::from_secs(2), keys_are(&["second"]))
+            .await;
+        self.with_window(cx, |_, window, cx| {
+            window.focus(&gpui::Focusable::focus_handle(bib.read(cx), cx), cx)
+        })?;
+        self.press(cx, 'z', true).await?;
+        let back = self
+            .wait_for(cx, Duration::from_secs(2), keys_are(&["knuth1984", "second"]))
+            .await;
+        self.pause(cx, Duration::from_millis(300)).await;
+        let key_box = cx.update(|cx| bib.read(cx).key_focus(cx));
+        if let Some(focus) = &key_box {
+            self.with_window(cx, |_, window, cx| window.focus(focus, cx))?;
+            self.press(cx, 'a', true).await?;
+            self.type_text(cx, "second2").await?;
+            self.press(cx, '\n', false).await?;
+        }
+        let renamed = self
+            .wait_for(cx, Duration::from_secs(2), |_, cx| {
+                bib.read(cx).selected_key() == Some("second2")
+            })
+            .await;
+        let text = self.editor_text(cx, editor);
+        steps.check(
+            "a .bib reference renamed after a delete before it was undone stays in front under its new key",
+            both && deleted
+                && back
+                && renamed
+                && text == format!("{before}\n@misc{{second2,\n  title = {{Second}}\n}}\n"),
+            json!({
+                "listed": both,
+                "deleted": deleted,
+                "back": back,
+                "keyBox": key_box.is_some(),
+                "inFront": cx.update(|cx| bib.read(cx).selected_key().map(str::to_string)),
+            }),
+        );
+        set_text(before.to_string(), cx);
+        self.wait_for(cx, Duration::from_secs(5), keys_are(&["knuth1984"]))
+            .await;
+        cx.update(|cx| bib.update(cx, |bib, cx| bib.pick("knuth1984", cx)));
+        self.pause(cx, Duration::from_millis(200)).await;
+        Ok(())
+    }
+
     pub(super) async fn bib_visual_editor(
         &self,
         cx: &mut AsyncApp,
@@ -294,6 +371,8 @@ impl Run {
                 "copies": after_undo.matches("{knuth1984,").count(),
             }),
         );
+        self.rename_follows_an_undone_delete(cx, steps, &editor, &bib, &before)
+            .await?;
 
         // Alone, the form spans the panel; beside the source it is laid out
         // narrower, the source taking the rest.

@@ -287,6 +287,8 @@ impl Render for OverleafPicker {
                     return;
                 }
                 let key = event.keystroke.key.as_str();
+                // Home and End in the search field still move its caret.
+                let in_search = this.search.read(cx).focus_handle(cx).is_focused(window);
                 let handled = match key {
                     "up" => {
                         this.step(-1, None, cx);
@@ -294,6 +296,14 @@ impl Render for OverleafPicker {
                     }
                     "down" => {
                         this.step(1, None, cx);
+                        true
+                    }
+                    "home" if !in_search => {
+                        this.step(0, Some(false), cx);
+                        true
+                    }
+                    "end" if !in_search => {
+                        this.step(0, Some(true), cx);
                         true
                     }
                     _ => false,

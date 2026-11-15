@@ -120,6 +120,19 @@ fn the_caret_follows_the_entry_up_to_its_closing_brace() {
     assert_eq!(key_at(text.find("@misc").unwrap() + 3), Some("b"));
 }
 
+/// Two entries with nothing between them: the offset where `a` closes is
+/// also where `b` opens, and the caret there follows `b`, the last entry
+/// starting at or before it (`rowAt`'s binary search).
+#[test]
+fn the_caret_between_touching_entries_follows_the_second() {
+    let text = "@misc{a}@misc{b}";
+    let rows = parse_rows(text.to_string()).rows;
+    let key_at = |offset| model::row_holding(&rows, offset).map(|row| row.entry.key.as_str());
+    assert_eq!(key_at(8), Some("b"));
+    assert_eq!(key_at(7), Some("a"));
+    assert_eq!(key_at(16), Some("b"));
+}
+
 /// File `z`, then `smith{A}` and `smith{B}`: with `z` deleted the second
 /// smith is at place 1, and once ⌘Z puts `z` back the reference in front
 /// is still that one (now at place 2), never the first smith that took

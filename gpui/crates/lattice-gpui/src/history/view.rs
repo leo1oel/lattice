@@ -371,12 +371,16 @@ impl HistoryPanel {
                 cx.listener(move |this, _, _, cx| this.set_filter(value, cx)),
             );
         }
-        let rows = timeline::activity_rows(&self.activity, filter);
+        let mut rows = timeline::activity_rows(&self.activity, filter);
+        rows.extend(super::checkpoint_rows::rows(
+            &self.agent_checkpoints,
+            filter,
+        ));
         let none = rows.is_empty();
         let timeline = self.render_days(rows, window, cx);
         let narrow = self.narrow();
         let empty = none.then(|| {
-            if self.activity.is_empty() {
+            if self.activity.is_empty() && self.agent_checkpoints.is_empty() {
                 art::empty_state(t!("Nothing has changed yet"), narrow, None, cx)
             } else {
                 div()
@@ -402,6 +406,10 @@ impl HistoryPanel {
     fn render_everything(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let notice = self.render_versions_notice(cx);
         let mut rows = timeline::activity_rows(&self.activity, ActivityFilter::All);
+        rows.extend(super::checkpoint_rows::rows(
+            &self.agent_checkpoints,
+            ActivityFilter::All,
+        ));
         if self.versions.phase == Phase::Ready {
             rows.extend(timeline::version_rows(&self.versions.entries));
         }
@@ -494,6 +502,9 @@ impl HistoryPanel {
                     }
                     TimelineRow::Overleaf { update, .. } => {
                         self.overleaf_row(&update, first, last, window, cx)
+                    }
+                    TimelineRow::Checkpoint { at, item } => {
+                        self.checkpoint_row(&item, at, first, last, window, cx)
                     }
                 };
                 if parts.key.starts_with("fold:") {

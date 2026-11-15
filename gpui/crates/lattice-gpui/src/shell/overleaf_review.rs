@@ -144,6 +144,7 @@ impl Shell {
     /// The window's margin review mode (the palette's "Margin review: …").
     pub(crate) fn set_margin_mode(&mut self, mode: MarginMode, cx: &mut Context<Self>) {
         self.margin_mode = mode;
+        super::menus::refresh(cx);
         for editor in self.open_editors() {
             editor.update(cx, |editor, cx| editor.set_margin_mode(mode, cx));
         }
