@@ -1,4 +1,4 @@
-import { memo, Suspense, useDeferredValue, type ReactNode } from "react";
+import { memo, Suspense, useDeferredValue, useReducer, type ReactNode } from "react";
 
 /**
  * Shows `children`, which hold a `React.lazy` screen, while `when` is true,
@@ -20,4 +20,19 @@ export const LazyMount = memo(function LazyMount({ when, children }: { when: boo
   // Deferred from false, so a mount that is already open waits for the chunk too.
   const opened = useDeferredValue(when, false);
   return <Suspense fallback={null}>{when && opened ? children : null}</Suspense>;
+}, (previous, next) => !previous.when && !next.when);
+
+/**
+ * `LazyMount` for a screen that keeps its own state across closing and
+ * reopening, such as a dialog that remembers its last query: nothing loads or
+ * mounts until `when` is first true, and from then on `children` stay mounted
+ * and are told about each close themselves. The first open renders deferred,
+ * as `LazyMount`'s does. Closed, it re-renders only for the render that
+ * closes it.
+ */
+export const LazyMountOnce = memo(function LazyMountOnce({ when, children }: { when: boolean; children: ReactNode }) {
+  const [opened, markOpened] = useReducer(() => true, when);
+  if (when && !opened) markOpened();
+  const shown = useDeferredValue(opened, false);
+  return <Suspense fallback={null}>{opened && shown ? children : null}</Suspense>;
 }, (previous, next) => !previous.when && !next.when);
