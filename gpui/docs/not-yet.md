@@ -37,7 +37,7 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] A Finder drop of a drawing (`.svg`, `.drawio`) onto the editor as an editable figure.
 
-- [ ] The workspace switch's sliding plate, drag to reorder and keyboard.
+- [ ] The workspace rename field's undo history surviving a keystroke past its 24 characters (the Kit input has no length limit that clips before an edit).
 
 - [ ] Export figures for a journal….
 

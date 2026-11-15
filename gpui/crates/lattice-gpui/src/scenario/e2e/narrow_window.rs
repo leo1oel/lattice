@@ -101,6 +101,12 @@ impl Run {
         }
         for path in paths {
             others.push(self.open(cx, &path, Some(1))?);
+            // Pinned, so a strip short of room closes none of them
+            // (`shell/tab_policy.rs`): the four stay to crowd the strip.
+            if let Ok(key) = path.strip_prefix(root) {
+                let key = key.to_string_lossy().into_owned();
+                cx.update(|cx| self.shell.update(cx, |shell, cx| shell.pin_document(&key, true, cx)));
+            }
             self.pause(cx, Duration::from_millis(200)).await;
         }
         let editor = self.open(cx, &root.join("main.tex"), Some(1))?;
