@@ -50,6 +50,15 @@ pub(super) fn insert_commands(context: &super::CommandContext, out: &mut Vec<Com
         Section::Edit,
         crate::shell::PasteImageAsFigure,
     ));
+    // latexindent through `lattice_core::format_latex` (`format_document.rs`).
+    if context.latex_source {
+        out.push(Command::new(
+            "format",
+            t!("Format document"),
+            Section::Edit,
+            crate::editor_panel::format_document::FormatDocument,
+        ));
+    }
 }
 
 /// The Project section's: Export for arXiv….

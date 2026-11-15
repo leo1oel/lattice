@@ -59,6 +59,8 @@ mod insert;
 pub(crate) mod latex_format;
 pub(crate) mod latex_input;
 pub(crate) mod definition;
+pub(crate) mod format_document;
+pub(crate) mod vim_ex;
 mod source_pointer;
 mod latex_view;
 mod latex_visual_events;
@@ -232,6 +234,8 @@ pub struct EditorPanel {
     _count: Option<Task<()>>,
     _todos: Option<Task<()>>,
     _poll: Task<()>,
+    /// Vim's open `:` line (`vim_ex.rs`).
+    vim_ex: Option<vim_ex::VimExLine>,
     _subscriptions: Vec<Subscription>,
     /// A `.bib` file's Preview and library (`bib_view.rs`).
     bib: bib_view::BibState,
@@ -457,6 +461,7 @@ impl EditorPanel {
             _count: None,
             _todos: None,
             _poll: poll,
+            vim_ex: None,
             _subscriptions: subscriptions,
             bib: Default::default(),
             paper: Default::default(),
@@ -704,6 +709,7 @@ impl Render for EditorPanel {
         let body = self.render_views(editor, status, bib, cx);
         let root = Self::latex_commands(div().key_context("LatticeEditor"), cx);
         let root = Self::definition_actions(Self::latex_input_actions(root, cx), cx);
+        let root = Self::vim_ex_actions(Self::format_actions(root, cx), cx);
         Self::panel_actions(root, cx)
             .on_action(cx.listener(Self::deploy_search))
             // An accept is an undo step of the editor's (`review_marks.rs`).

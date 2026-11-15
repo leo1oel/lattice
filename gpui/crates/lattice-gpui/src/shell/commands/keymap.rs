@@ -50,6 +50,40 @@ pub fn bind_keys(cx: &mut App) {
 fn default_bindings() -> Vec<KeyBinding> {
     let mut bindings = vec![
         KeyBinding::new(m!("o"), OpenFolder, beside_vim("!(vim_mode == insert)")),
+        // The source editor's base keys where Zed's differ, as CodeMirror's
+        // `defaultKeymap` and `foldKeymap` bind them in the Tauri app
+        // (`editor-keymap.ts`). ⌘I selects the enclosing syntax node; it is
+        // bound before the LaTeX source's Emphasis below, which takes the
+        // key first in a `.tex` file and passes it on elsewhere.
+        KeyBinding::new(
+            m!("i"),
+            editor::actions::SelectLargerSyntaxNode,
+            Some(LATEX_FORMAT_KEYS),
+        ),
+        KeyBinding::new(
+            if cfg!(target_os = "macos") {
+                "ctrl-l"
+            } else {
+                "alt-l"
+            },
+            editor::actions::SelectLine,
+            Some("Editor && !VimControl"),
+        ),
+        KeyBinding::new(
+            m!("alt-\\"),
+            editor::actions::AutoIndent,
+            Some(LATEX_FORMAT_KEYS),
+        ),
+        KeyBinding::new(
+            "ctrl-alt-[",
+            editor::actions::FoldAll,
+            Some("Editor && !VimControl"),
+        ),
+        KeyBinding::new(
+            "ctrl-alt-]",
+            editor::actions::UnfoldAll,
+            Some("Editor && !VimControl"),
+        ),
         // No ⌘B for Build: it has no key of its own, as in the Tauri app,
         // where ⌘S saves and builds (`use-command-table.ts`). ⌘B and ⌘I are
         // the LaTeX source's Bold and Emphasis (`latex-shortcuts.ts`), over
@@ -143,6 +177,13 @@ fn default_bindings() -> Vec<KeyBinding> {
             "f12",
             crate::editor_panel::definition::GotoDefinition,
             Some(LATEX_FORMAT_KEYS),
+        ),
+        // Vim's `:` (`editor_panel/vim_ex.rs`): Lattice's command line, over
+        // Zed's, which opens a command palette this app does not host.
+        KeyBinding::new(
+            ":",
+            crate::editor_panel::vim_ex::VimCommandLine,
+            Some("Editor && mode == full && VimControl && !menu"),
         ),
         // The typing rules (`editor_panel/latex_input.rs`): with Vim on they
         // act only in its insert mode, so every other mode keeps `$` and
