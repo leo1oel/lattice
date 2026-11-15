@@ -11,17 +11,27 @@
 //! (`compiledCompoundNumbers` in `compound-project.ts`).
 //!
 //! A cited paper Papers can fetch but has not is fetched first and opened
-//! when it arrives, as a Papers row does (`fetchAndOpenPaper`).
+//! when it arrives, as a Papers row does (`fetchAndOpenPaper`); when the
+//! download fails, its source opens after the error.
 
-use gpui::{App, AppContext as _, Context, Entity, Window};
+use gpui::{App, AppContext as _, Context, Entity, EventEmitter, Window};
 use lattice_core::papers::PaperSummary;
 use lattice_editor::index::Citation;
 
 use super::Shell;
 use crate::{
-    papers::model as paper_model,
+    papers::{PapersPanel, model as paper_model},
     pdf::{CitationLookup, PdfPanel},
 };
+
+/// A download Papers started has come back (`fetchAndOpenPaper`'s answer):
+/// `key` is the paper's `paper_key`.
+pub(crate) struct PaperFetched {
+    pub(crate) key: String,
+    pub(crate) failed: bool,
+}
+
+impl EventEmitter<PaperFetched> for PapersPanel {}
 
 impl Shell {
     /// How a PDF of this project reads its citations; `None` without a
@@ -95,19 +105,36 @@ impl Shell {
             if paper.has_full_text || paper.has_blog {
                 self.open_reader(paper, window, cx);
             } else {
-                // Fetched, then opened in its reader (`activate`).
+                // Fetched, then opened in its reader (`activate`); a failed
+                // download opens the source instead.
                 let papers = self.papers.clone();
+                let fetching = paper_model::paper_key(&paper);
+                let source = self.citation_source(key, cx);
+                self.citation_fetch = Some(cx.subscribe(
+                    &papers,
+                    move |this, _, fetched: &PaperFetched, cx| {
+                        if fetched.key != fetching {
+                            return;
+                        }
+                        this.citation_fetch = None;
+                        if let Some(url) = source.as_deref().filter(|_| fetched.failed) {
+                            cx.open_url(url);
+                        }
+                    },
+                ));
                 papers.update(cx, |papers, cx| papers.activate(&paper, None, window, cx));
             }
             return;
         }
-        let citation = self
-            .project
-            .as_ref()
-            .and_then(|project| project.read(cx).index().read(cx).citation(key).cloned());
-        if let Some(url) = citation.as_ref().and_then(source_url) {
+        if let Some(url) = self.citation_source(key, cx) {
             cx.open_url(&url);
         }
+    }
+
+    /// The web source of the project's entry under `key`.
+    fn citation_source(&self, key: &str, cx: &App) -> Option<String> {
+        let project = self.project.as_ref()?.read(cx);
+        source_url(project.index().read(cx).citation(key)?)
     }
 }
 

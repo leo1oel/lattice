@@ -115,6 +115,7 @@ pub use insert_pickers_flow::{GoToLine, GoToSymbol, InsertCitation, InsertRefere
 pub use overleaf_collab::AnnotateSelection;
 pub use overleaf_menus::ReviewHere;
 pub(crate) use palette_groups::init as init_recent_commands;
+pub(crate) use pdf_citations::PaperFetched;
 pub use references_flow::{FindReferences, RenameSymbol};
 pub use export_zip::ExportProjectZip;
 pub use tools_flow::{ExportArxiv, OpenChecklist, OpenTodos};
@@ -214,6 +215,8 @@ pub struct Shell {
     pub(crate) conflicts_noticed: std::collections::BTreeSet<String>,
     /// Watches the open project for Git's conflicts.
     _project_git: Option<Subscription>,
+    /// Waits on the paper a PDF citation card's title is fetching.
+    citation_fetch: Option<Subscription>,
     /// The TeX doctor, setup and package installs (one for the app).
     tex_setup: Entity<TexSetupCenter>,
     /// The open project's manuscript word count (one for the app).
@@ -508,6 +511,7 @@ impl Shell {
             overleaf_layers: Default::default(),
             conflicts_noticed: Default::default(),
             _project_git: None,
+            citation_fetch: None,
             tex_setup,
             words,
             cleaning: false,

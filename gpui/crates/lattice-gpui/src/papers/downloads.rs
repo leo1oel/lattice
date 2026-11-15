@@ -537,6 +537,10 @@ impl PapersPanel {
         if cancel.load(Ordering::Acquire) {
             return;
         }
+        cx.emit(crate::shell::PaperFetched {
+            key: key.clone(),
+            failed: result.is_err(),
+        });
         match result {
             Ok(fetched) => {
                 self.fetching
