@@ -230,8 +230,18 @@ impl Shell {
                 self.overleaf.read(cx).save_state(&path)
             })
             .collect();
+        // The popover's "Last synced" is the link's, the same for each file.
+        let last_sync = self
+            .overleaf
+            .read(cx)
+            .link()
+            .and_then(|link| link.last_sync.clone());
         for (editor, state) in editors.into_iter().zip(states) {
-            editor.update(cx, |editor, cx| editor.set_overleaf_save(state, cx));
+            let last_sync = last_sync.clone();
+            editor.update(cx, |editor, cx| {
+                editor.set_overleaf_save(state, cx);
+                editor.set_overleaf_last_sync(last_sync, cx);
+            });
         }
     }
 

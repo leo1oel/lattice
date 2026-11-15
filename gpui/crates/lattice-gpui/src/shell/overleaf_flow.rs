@@ -87,7 +87,8 @@ impl Shell {
                 this.show_overleaf_save(cx);
                 this.push_agent_overleaf(cx);
                 this.show_overleaf_review(cx);
-                this.show_deck_editable(cx);
+                this.show_editable(cx);
+                this.note_repair_writable(cx);
                 super::menus::follow_front(cx);
                 cx.notify()
             }),

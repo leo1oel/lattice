@@ -102,6 +102,8 @@ impl Run {
         self.overleaf_margin_review(cx, steps, &editor, &thread)
             .await?;
         self.overleaf_margin_end(cx, steps, &editor, mock).await?;
+        self.overleaf_margin_visual(cx, steps, &editor, &thread, quote)
+            .await?;
         self.overleaf_review_panel(cx, steps).await?;
 
         // Replying, resolving and reopening.

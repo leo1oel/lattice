@@ -48,7 +48,10 @@ impl AnnotationsPanel {
         let focused = self.active_note.as_deref() == Some(id.as_str());
         let note = model::note_text(comment);
         let quote = comment.quote.trim();
-        let where_ = lattice_i18n::join_phrases(&[location, model::relative_time(&comment.created_at, true)]);
+        let where_ = lattice_i18n::join_phrases(&[
+            location,
+            model::relative_time(&comment.created_at, true),
+        ]);
         let revising = self.revising(&id, cx);
         let extras = self.round_extras(comment, window, cx);
         let meta = div()
@@ -92,23 +95,26 @@ impl AnnotationsPanel {
                 )
             })
             .child(div().min_w_0().child(where_))
-            .when_some(outcome.filter(|outcome| *outcome != Outcome::Resolved), |this, outcome| {
-                let ink = if outcome == Outcome::Reopened {
-                    palette.annotation
-                } else {
-                    palette.success
-                };
-                this.child(
-                    div()
-                        .flex()
-                        .items_center()
-                        .gap(px(4.))
-                        .text_color(ink)
-                        .font_weight(FontWeight::MEDIUM)
-                        .child(Icon::CHECK.element(px(11.), ink))
-                        .child(outcome.label()),
-                )
-            });
+            .when_some(
+                outcome.filter(|outcome| *outcome != Outcome::Resolved),
+                |this, outcome| {
+                    let ink = if outcome == Outcome::Reopened {
+                        palette.annotation
+                    } else {
+                        palette.success
+                    };
+                    this.child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .gap(px(4.))
+                            .text_color(ink)
+                            .font_weight(FontWeight::MEDIUM)
+                            .child(Icon::CHECK.element(px(11.), ink))
+                            .child(outcome.label()),
+                    )
+                },
+            );
         let open_comment = comment.clone();
         let body = div()
             .id(("annotation-card-body", hash(&id)))
@@ -118,7 +124,11 @@ impl AnnotationsPanel {
             .rounded(px(4.))
             .min_w_0()
             .cursor_pointer()
-            .child(div().pt(px(2.)).child(card::pin(comment.number, status, PIN, cx)))
+            .child(
+                div()
+                    .pt(px(2.))
+                    .child(card::pin(comment.number, status, PIN, cx)),
+            )
             .child(
                 div()
                     .flex()
@@ -160,42 +170,42 @@ impl AnnotationsPanel {
                 }
                 cx.notify();
             }));
-        let replies = (!comment.replies.is_empty()).then(|| {
-            div()
-                .ml(px(30.))
-                .flex()
-                .flex_col()
-                .gap(SPACING_3)
-                .children(comment.replies.iter().map(|reply| {
-                    div()
-                        .flex()
-                        .flex_col()
-                        .gap(px(2.))
-                        .child(
-                            div()
-                                .flex()
-                                .gap(SPACING_3)
-                                .text_role(TextRole::Caption, cx)
-                                .text_color(palette.text_secondary)
-                                .child(model::author_display(&reply.author_name))
-                                .child(model::relative_time(&reply.created_at, false)),
-                        )
-                        .child(
-                            div()
-                                .text_role(TextRole::Body, cx)
-                                .text_color(palette.text)
-                                .whitespace_normal()
-                                .child(reply.body.clone()),
-                        )
-                }))
-        });
+        let replies =
+            (!comment.replies.is_empty()).then(|| {
+                div().ml(px(30.)).flex().flex_col().gap(SPACING_3).children(
+                    comment.replies.iter().map(|reply| {
+                        div()
+                            .flex()
+                            .flex_col()
+                            .gap(px(2.))
+                            .child(
+                                div()
+                                    .flex()
+                                    .gap(SPACING_3)
+                                    .text_role(TextRole::Caption, cx)
+                                    .text_color(palette.text_secondary)
+                                    .child(model::author_display(&reply.author_name))
+                                    .child(model::relative_time(&reply.created_at, false)),
+                            )
+                            .child(
+                                div()
+                                    .text_role(TextRole::Body, cx)
+                                    .text_color(palette.text)
+                                    .whitespace_normal()
+                                    .child(reply.body.clone()),
+                            )
+                    }),
+                )
+            });
         let writing = match &self.writing {
-            Some(Writing::Edit { id: editing, field, .. }) if *editing == id => {
-                Some(self.edit_box(field.clone(), true, cx))
-            }
-            Some(Writing::Reply { id: replying, field, .. }) if *replying == id => {
-                Some(self.edit_box(field.clone(), false, cx))
-            }
+            Some(Writing::Edit {
+                id: editing, field, ..
+            }) if *editing == id => Some(self.edit_box(field.clone(), true, cx)),
+            Some(Writing::Reply {
+                id: replying,
+                field,
+                ..
+            }) if *replying == id => Some(self.edit_box(field.clone(), false, cx)),
             _ => None,
         };
         let is_author = comment.author_id == author_id;
@@ -204,63 +214,70 @@ impl AnnotationsPanel {
         let reply_id = id.clone();
         let delete_id = id.clone();
         let group = SharedString::from(format!("annotation-card-{id}"));
-        let actions = writing.is_none().then(|| {
-            div()
-                .absolute()
-                .top(SPACING_2)
-                .right(SPACING_2)
-                .flex()
-                .gap(px(2.))
-                .p(px(2.))
-                .rounded(RADIUS_CONTROL)
-                .bg(palette.raised)
-                .shadow(Elevation::Raised.shadows(&palette))
-                .when(!gone, |this| {
-                    this.invisible().group_hover(group.clone(), |style| style.visible())
-                })
-                .child(
-                    IconButton::new(
-                        ("annotation-card-resolve", hash(&id)),
-                        if comment.resolved { Icon::ROTATE_CCW } else { Icon::CHECK },
-                    )
-                    .tooltip(if comment.resolved {
-                        t!("Reopen")
-                    } else {
-                        t!("Resolve")
+        let actions =
+            writing.is_none().then(|| {
+                div()
+                    .absolute()
+                    .top(SPACING_2)
+                    .right(SPACING_2)
+                    .flex()
+                    .gap(px(2.))
+                    .p(px(2.))
+                    .rounded(RADIUS_CONTROL)
+                    .bg(palette.raised)
+                    .shadow(Elevation::Raised.shadows(&palette))
+                    .when(!gone, |this| {
+                        this.invisible()
+                            .group_hover(group.clone(), |style| style.visible())
                     })
-                    .disabled(gone)
-                    .on_click(cx.listener(move |this, _, _, cx| {
-                        this.toggle_resolved(&resolve_comment, cx)
-                    })),
-                )
-                .child(
-                    IconButton::new(("annotation-card-reply", hash(&id)), Icon::REPLY)
-                        .tooltip(t!("Reply"))
-                        .on_click(cx.listener(move |this, _, window, cx| {
-                            this.start_reply(reply_id.clone(), window, cx)
+                    .child(
+                        IconButton::new(
+                            ("annotation-card-resolve", hash(&id)),
+                            if comment.resolved {
+                                Icon::ROTATE_CCW
+                            } else {
+                                Icon::CHECK
+                            },
+                        )
+                        .tooltip(if comment.resolved {
+                            t!("Reopen")
+                        } else {
+                            t!("Resolve")
+                        })
+                        .disabled(gone)
+                        .on_click(cx.listener(move |this, _, _, cx| {
+                            this.toggle_resolved(&resolve_comment, cx)
                         })),
-                )
-                .when(is_author, |this| {
-                    this.child(
-                        IconButton::new(("annotation-card-edit", hash(&id)), Icon::PENCIL)
-                            .tooltip(t!("Edit"))
-                            .on_click(cx.listener(move |this, _, window, cx| {
-                                this.start_edit(&edit_comment, window, cx)
-                            })),
                     )
                     .child(
-                        IconButton::new(("annotation-card-delete", hash(&id)), Icon::TRASH)
-                            .tooltip(t!("Delete"))
-                            .disabled(gone)
-                            .on_click(cx.listener(move |this, _, _, cx| {
-                                this.delete(delete_id.clone(), cx)
+                        IconButton::new(("annotation-card-reply", hash(&id)), Icon::REPLY)
+                            .tooltip(t!("Reply"))
+                            .on_click(cx.listener(move |this, _, window, cx| {
+                                this.start_reply(reply_id.clone(), window, cx)
                             })),
                     )
-                })
-        });
-        let leaving = self.leaving.get(&id).map(|start| {
-            (start.elapsed().as_secs_f32() / LEAVE.as_secs_f32()).clamp(0., 1.)
-        });
+                    .when(is_author, |this| {
+                        this.child(
+                            IconButton::new(("annotation-card-edit", hash(&id)), Icon::PENCIL)
+                                .tooltip(t!("Edit"))
+                                .on_click(cx.listener(move |this, _, window, cx| {
+                                    this.start_edit(&edit_comment, window, cx)
+                                })),
+                        )
+                        .child(
+                            IconButton::new(("annotation-card-delete", hash(&id)), Icon::TRASH)
+                                .tooltip(t!("Delete"))
+                                .disabled(gone)
+                                .on_click(cx.listener(move |this, _, _, cx| {
+                                    this.delete(delete_id.clone(), cx)
+                                })),
+                        )
+                    })
+            });
+        let leaving = self
+            .leaving
+            .get(&id)
+            .map(|start| (start.elapsed().as_secs_f32() / LEAVE.as_secs_f32()).clamp(0., 1.));
         if leaving.is_some() {
             window.request_animation_frame();
         }
@@ -279,12 +296,17 @@ impl AnnotationsPanel {
             .gap(SPACING_2)
             .p(SPACING_2)
             .rounded(RADIUS_CONTROL)
-            .when(matches!(status, Status::Resolved | Status::Accepted), |this| this.opacity(0.84))
+            .when(
+                matches!(status, Status::Resolved | Status::Accepted),
+                |this| this.opacity(0.84),
+            )
             .when_some(ground, |this, ground| this.bg(ground))
             .when(focused && outcome.is_none(), |this| {
                 this.border_1().border_color(palette.line)
             })
-            .when(ground.is_none(), |this| this.hover(|style| style.bg(palette.hover)))
+            .when(ground.is_none(), |this| {
+                this.hover(|style| style.bg(palette.hover))
+            })
             .when_some(leaving, |this, progress| {
                 this.opacity(1. - progress).top(px(-2. * progress))
             })
@@ -297,7 +319,12 @@ impl AnnotationsPanel {
     }
 
     /// An edit of the note, or a reply, with Save (Reply) and Cancel.
-    fn edit_box(&self, field: Entity<TextareaState>, edit: bool, cx: &mut Context<Self>) -> AnyElement {
+    fn edit_box(
+        &self,
+        field: Entity<TextareaState>,
+        edit: bool,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         let filled = !field.read(cx).value().trim().is_empty();
         div()
             .ml(px(30.))
@@ -318,7 +345,11 @@ impl AnnotationsPanel {
                     .gap(SPACING_2)
                     .child(
                         Button::new(
-                            if edit { "annotation-edit-save" } else { "annotation-reply-send" },
+                            if edit {
+                                "annotation-edit-save"
+                            } else {
+                                "annotation-reply-send"
+                            },
                             if edit { t!("Save") } else { t!("Reply") },
                         )
                         .variant(ButtonVariant::Tinted)
@@ -353,4 +384,3 @@ pub(super) fn hash(id: &str) -> usize {
     }
     hash
 }
-

@@ -76,7 +76,10 @@ pub enum Status {
 
 impl Status {
     pub fn of(comment: &EditorComment) -> Self {
-        let state = comment.revision.as_ref().map(|revision| revision.state.as_str());
+        let state = comment
+            .revision
+            .as_ref()
+            .map(|revision| revision.state.as_str());
         if state == Some("accepted") {
             return Status::Accepted;
         }
@@ -322,7 +325,11 @@ pub fn new_reply(body: &str, author: &Author) -> Option<EditorCommentReply> {
 /// The stored sentinel for a writer without a name.
 fn signed(name: &str) -> String {
     let name = name.trim();
-    if name.is_empty() { "Anonymous".into() } else { name.into() }
+    if name.is_empty() {
+        "Anonymous".into()
+    } else {
+        name.into()
+    }
 }
 
 /// Mark `comment` as changed now.
@@ -337,10 +344,20 @@ pub fn relative_time(iso: &str, short: bool) -> String {
     let Ok(then) = DateTime::parse_from_rfc3339(iso) else {
         return iso.to_string();
     };
-    relative_time_at(then.with_timezone(&Utc), Utc::now(), short, lattice_i18n::locale())
+    relative_time_at(
+        then.with_timezone(&Utc),
+        Utc::now(),
+        short,
+        lattice_i18n::locale(),
+    )
 }
 
-fn relative_time_at(then: DateTime<Utc>, now: DateTime<Utc>, short: bool, locale: Locale) -> String {
+fn relative_time_at(
+    then: DateTime<Utc>,
+    now: DateTime<Utc>,
+    short: bool,
+    locale: Locale,
+) -> String {
     let chinese = locale.is_chinese();
     let seconds = (now - then).num_seconds();
     let elapsed = (seconds as f64).round() as i64;
@@ -411,7 +428,10 @@ mod tests {
         assert_eq!(units.to_byte(comment.from as usize), text.find("the claim"));
         assert_eq!(comment.to - comment.from, 9);
         assert_eq!(comment.author_name, "Anonymous");
-        assert_eq!(anchor_of(text, &comment), text.find("the claim").map(|at| at..at + 9));
+        assert_eq!(
+            anchor_of(text, &comment),
+            text.find("the claim").map(|at| at..at + 9)
+        );
     }
 
     #[test]
@@ -469,10 +489,25 @@ mod tests {
         let now = Utc::now();
         let ago = |seconds: i64| now - chrono::Duration::seconds(seconds);
         assert_eq!(relative_time_at(ago(10), now, true, Locale::En), "now");
-        assert_eq!(relative_time_at(ago(180), now, true, Locale::En), "3 min. ago");
-        assert_eq!(relative_time_at(ago(180), now, false, Locale::En), "3 minutes ago");
-        assert_eq!(relative_time_at(ago(7200), now, true, Locale::En), "2 hr. ago");
-        assert_eq!(relative_time_at(ago(86_400), now, true, Locale::En), "yesterday");
-        assert_eq!(relative_time_at(ago(180), now, true, Locale::ZhCn), "3分钟前");
+        assert_eq!(
+            relative_time_at(ago(180), now, true, Locale::En),
+            "3 min. ago"
+        );
+        assert_eq!(
+            relative_time_at(ago(180), now, false, Locale::En),
+            "3 minutes ago"
+        );
+        assert_eq!(
+            relative_time_at(ago(7200), now, true, Locale::En),
+            "2 hr. ago"
+        );
+        assert_eq!(
+            relative_time_at(ago(86_400), now, true, Locale::En),
+            "yesterday"
+        );
+        assert_eq!(
+            relative_time_at(ago(180), now, true, Locale::ZhCn),
+            "3分钟前"
+        );
     }
 }

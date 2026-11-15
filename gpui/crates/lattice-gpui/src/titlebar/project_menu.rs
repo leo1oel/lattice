@@ -8,8 +8,11 @@
 //!
 //! The glyph is the row's secondary action (`MenuAction::secondary`): the
 //! keys reach it with → from its row and run it with Enter, as the app's
-//! glyph is an item of its own. Export ZIP and Export for arXiv belong to
-//! other lanes of the port.
+//! glyph is an item of its own. Export ZIP and Export for arXiv… follow Open
+//! from Overleaf, and while an export runs the menu ends with "Exporting ZIP…"
+//! after a loader, and the rows that would switch or replace the project
+//! under it (the recent projects and their glyphs, Open from Overleaf, the
+//! Guided tutorial) are dimmed, as the app's `busy` dims them.
 
 use std::path::PathBuf;
 
@@ -51,11 +54,14 @@ pub(super) fn project_menu(
     cx: &mut App,
 ) -> Menu {
     let current = shell.upgrade().and_then(|shell| shell.read(cx).root(cx));
+    let exporting = shell
+        .upgrade()
+        .is_some_and(|shell| shell.read(cx).exporting_zip());
     let recents = switcher_projects(current.as_ref(), cx);
     let mut menu = menu.min_w(px(208.));
     // With no other project to go back to, the menu starts at its actions.
     if !recents.is_empty() {
-        menu = menu.label("Recent projects");
+        menu = menu.label(t!("Recent projects"));
         for (name, path) in recents {
             let here = OpenRecentProject {
                 path: path.clone(),
@@ -67,59 +73,81 @@ pub(super) fn project_menu(
                     Box::new(OpenRecentProject { path, here: false }),
                 )
                 .icon(Icon::FOLDER)
+                .disabled(exporting)
                 .secondary(
                     Icon::APP_WINDOW,
-                    format!("Open {name} in this window"),
+                    lattice_i18n::space_mixed_script(&t!(
+                        "Open {name} in this window",
+                        name = name
+                    )),
                     move |window, cx| window.dispatch_action(here.boxed_clone(), cx),
                 ),
             );
         }
         menu = menu.separator();
     }
-    menu.item(
-        MenuAction::dispatch(t!("Open another folder"), Box::new(OpenFolder))
-            .icon(Icon::FOLDER_OPEN)
-            .secondary(
-                Icon::APP_WINDOW,
-                "Open a folder in this window",
-                |window, cx| window.dispatch_action(Box::new(OpenFolderHere), cx),
-            ),
-    )
-    .item(MenuAction::dispatch("New project", Box::new(NewProject)).icon(Icon::PLUS))
-    .item(
-        MenuAction::dispatch("Clone repository…", Box::new(CloneRepository)).icon(Icon::GIT_BRANCH),
-    )
-    .item(
-        MenuAction::dispatch(
-            t!("Open from Overleaf"),
-            Box::new(crate::shell::overleaf_flow::OpenOverleafProject),
+    let menu = menu
+        .item(
+            MenuAction::dispatch(t!("Open another folder"), Box::new(OpenFolder))
+                .icon(Icon::FOLDER_OPEN)
+                .secondary(
+                    Icon::APP_WINDOW,
+                    t!("Open a folder in this window"),
+                    |window, cx| window.dispatch_action(Box::new(OpenFolderHere), cx),
+                ),
         )
-        .icon(Icon::CLOUD),
-    )
-    .separator()
-    .item(
-        MenuAction::new("Guided tutorial", {
-            let shell = shell.clone();
-            move |window, cx| {
+        .item(MenuAction::dispatch(t!("New project"), Box::new(NewProject)).icon(Icon::PLUS))
+        .item(
+            MenuAction::dispatch(t!("Clone repository…"), Box::new(CloneRepository))
+                .icon(Icon::GIT_BRANCH),
+        )
+        .item(
+            MenuAction::dispatch(
+                t!("Open from Overleaf"),
+                Box::new(crate::shell::overleaf_flow::OpenOverleafProject),
+            )
+            .icon(Icon::CLOUD)
+            .disabled(exporting),
+        )
+        .item(
+            MenuAction::dispatch(t!("Export ZIP"), Box::new(crate::shell::ExportProjectZip))
+                .icon(Icon::FILE_ARCHIVE),
+        )
+        .item(
+            MenuAction::dispatch(t!("Export for arXiv…"), Box::new(crate::shell::ExportArxiv))
+                .icon(Icon::PACKAGE_CHECK),
+        )
+        .separator()
+        .item(
+            MenuAction::new(t!("Guided tutorial"), {
+                let shell = shell.clone();
+                move |window, cx| {
+                    shell
+                        .update(cx, |shell, cx| shell.open_tutorial(window, cx))
+                        .ok();
+                }
+            })
+            .icon(Icon::SPARKLES)
+            .disabled(exporting),
+        )
+        // Settings opens on its shell directly, as the app's `onSettings` does,
+        // rather than as an action dispatched from whatever focus the menu
+        // interrupted: a press on the titlebar leaves no focused view on the
+        // shell's dispatch path to carry it there.
+        .item(
+            MenuAction::new(t!("Settings"), move |window, cx| {
                 shell
-                    .update(cx, |shell, cx| shell.open_tutorial(window, cx))
+                    .update(cx, |shell, cx| shell.open_settings(None, window, cx))
                     .ok();
-            }
-        })
-        .icon(Icon::SPARKLES),
-    )
-    // Settings opens on its shell directly, as the app's `onSettings` does,
-    // rather than as an action dispatched from whatever focus the menu
-    // interrupted: a press on the titlebar leaves no focused view on the
-    // shell's dispatch path to carry it there.
-    .item(
-        MenuAction::new(t!("Settings"), move |window, cx| {
-            shell
-                .update(cx, |shell, cx| shell.open_settings(None, window, cx))
-                .ok();
-        })
-        .icon(Icon::SETTINGS),
-    )
+            })
+            .icon(Icon::SETTINGS),
+        );
+    // The export under way, as the Tauri menu's `busyLabel` line.
+    if exporting {
+        menu.busy(t!("Exporting ZIP…"))
+    } else {
+        menu
+    }
 }
 
 /// The switcher beside a window's project tabs: the project menu, and a

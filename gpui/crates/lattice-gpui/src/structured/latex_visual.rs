@@ -43,7 +43,12 @@
 //!   card's Resolve and its Reply ([`LatexEvent::OpenAnnotation`],
 //!   [`LatexEvent::ResolveAnnotation`], [`LatexEvent::ReplyAnnotation`]);
 //!   co-authors' Overleaf carets come as the visual Markdown editor's do
-//!   (`md:presence`, `markdown_host.rs`).
+//!   (`md:presence`, `markdown_host.rs`);
+//! - a linked Overleaf project's comment threads on the file
+//!   (`tex:overleaf`), which the page marks and shows in margin review as
+//!   the source does, and what its cards ask of a thread
+//!   ([`LatexEvent::OverleafReply`] and the others after it; a card has
+//!   confirmed a deletion itself).
 //!
 //! The backend commands its modules invoke are answered in
 //! `latex_services.rs`.
@@ -84,6 +89,13 @@ pub enum LatexEvent {
     ResolveAnnotation(String),
     /// A note's card: reply to it with `body`.
     ReplyAnnotation { id: String, body: String },
+    /// What an Overleaf thread's card asks, in margin review or over its
+    /// mark: reply, resolve or reopen, delete, edit or delete a message.
+    OverleafReply { thread: String, content: String },
+    OverleafResolve { thread: String, resolved: bool },
+    OverleafDelete(String),
+    OverleafEditMessage { thread: String, message: String, content: String },
+    OverleafDeleteMessage { thread: String, message: String },
 }
 
 /// What a `.tex` file's Visual page last had of the project beyond the
@@ -104,6 +116,9 @@ pub(super) struct LatexSession {
     outline: Value,
     /// `{ comments, author }`: the project's annotations and who signs a reply.
     annotations: Value,
+    /// `{ threads, anchors, hues, mode, canAct }`: a linked Overleaf
+    /// project's comment threads on the file, for marks and margin review.
+    overleaf: Value,
     /// Bumped by every read of the unused symbols, so a slow one is dropped.
     unused_generation: u64,
 }
@@ -195,6 +210,7 @@ impl StructuredDocument {
             unused: json!({ "labels": [], "citations": [] }),
             outline: Value::Null,
             annotations: Value::Null,
+            overleaf: Value::Null,
             unused_generation: 0,
         });
         let texlab = project.read(cx).texlab().clone();
@@ -203,18 +219,19 @@ impl StructuredDocument {
             .push(cx.observe(&index, |this, index, cx| this.index_changed(&index, cx)));
         // A source changing on disk (a save among them) may use a label or
         // key, or stop using one; a bibliography may define or drop a key.
-        this._subscriptions.push(cx.subscribe(project, |this, _, event, cx| {
-            if let ProjectEvent::FilesChanged(paths) = event
-                && paths.as_ref().is_none_or(|paths| {
-                    paths.iter().any(|path| {
-                        let path = path.to_ascii_lowercase();
-                        path.ends_with(".tex") || path.ends_with(".bib")
+        this._subscriptions
+            .push(cx.subscribe(project, |this, _, event, cx| {
+                if let ProjectEvent::FilesChanged(paths) = event
+                    && paths.as_ref().is_none_or(|paths| {
+                        paths.iter().any(|path| {
+                            let path = path.to_ascii_lowercase();
+                            path.ends_with(".tex") || path.ends_with(".bib")
+                        })
                     })
-                })
-            {
-                this.read_unused(cx);
-            }
-        }));
+                {
+                    this.read_unused(cx);
+                }
+            }));
         this.read_unused(cx);
         this
     }
@@ -238,7 +255,9 @@ impl StructuredDocument {
                 .await;
             this.update(cx, |this, cx| {
                 let Ok(unused) = unused else { return };
-                let Some(session) = &mut this.latex else { return };
+                let Some(session) = &mut this.latex else {
+                    return;
+                };
                 if session.unused_generation != generation {
                     return;
                 }
@@ -291,6 +310,12 @@ impl StructuredDocument {
     pub fn set_annotations(&mut self, comments: Value, author: Value, cx: &mut Context<Self>) {
         let payload = json!({ "comments": comments, "author": author });
         self.set_latex_value(payload, "tex:annotations", |session| &mut session.annotations, cx);
+    }
+
+    /// A linked Overleaf project's comment threads on the file, as
+    /// `shell/overleaf_review.rs` puts them for the Tauri app's cards.
+    pub fn set_overleaf_review(&mut self, review: Value, cx: &mut Context<Self>) {
+        self.set_latex_value(review, "tex:overleaf", |session| &mut session.overleaf, cx);
     }
 
     /// Keep `payload` in the session slot `slot` picks and post it as
@@ -349,7 +374,11 @@ impl StructuredDocument {
             "tex:paste-image" => LatexEvent::PasteImage,
             "tex:outline-jump" => LatexEvent::OutlineJump {
                 path: text("path"),
-                line: payload.get("line").and_then(Value::as_u64).unwrap_or(1).max(1) as u32,
+                line: payload
+                    .get("line")
+                    .and_then(Value::as_u64)
+                    .unwrap_or(1)
+                    .max(1) as u32,
             },
             "tex:caret" => LatexEvent::Caret(
                 payload.get("offset").and_then(Value::as_u64).unwrap_or(0) as usize,
@@ -359,6 +388,24 @@ impl StructuredDocument {
             "tex:reply-annotation" => LatexEvent::ReplyAnnotation {
                 id: text("id"),
                 body: text("body"),
+            },
+            "tex:overleaf-reply" => LatexEvent::OverleafReply {
+                thread: text("thread"),
+                content: text("content"),
+            },
+            "tex:overleaf-resolve" => LatexEvent::OverleafResolve {
+                thread: text("thread"),
+                resolved: payload.get("resolved").and_then(Value::as_bool).unwrap_or(true),
+            },
+            "tex:overleaf-delete" => LatexEvent::OverleafDelete(text("thread")),
+            "tex:overleaf-edit-message" => LatexEvent::OverleafEditMessage {
+                thread: text("thread"),
+                message: text("message"),
+                content: text("content"),
+            },
+            "tex:overleaf-delete-message" => LatexEvent::OverleafDeleteMessage {
+                thread: text("thread"),
+                message: text("message"),
             },
             _ => return false,
         };
@@ -417,7 +464,10 @@ impl StructuredDocument {
         let Some(session) = &self.latex else {
             return;
         };
-        let key = payload.get("key").and_then(Value::as_str).unwrap_or_default();
+        let key = payload
+            .get("key")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
         if let Some((path, line)) = session.project_index.read(cx).citation_entry(key) {
             cx.emit(StructuredEvent::Markdown(MarkdownEvent::OpenLocation(
                 path, line,
@@ -438,6 +488,7 @@ impl StructuredDocument {
         payload["unused"] = session.unused.clone();
         payload["outline"] = session.outline.clone();
         payload["annotations"] = session.annotations.clone();
+        payload["overleaf"] = session.overleaf.clone();
         payload["texlab"] = json!(TexlabService::available());
     }
 

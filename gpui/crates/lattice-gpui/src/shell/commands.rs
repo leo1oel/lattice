@@ -155,6 +155,9 @@ pub struct CommandContext {
     pub latex_source: bool,
     /// How many annotations a revision round would ask about now.
     pub revisable_annotations: usize,
+    /// A text editor is in front (Go to line's and Go to symbol's
+    /// `textEditor`).
+    pub text_editor: bool,
 }
 
 /// One row of the table.

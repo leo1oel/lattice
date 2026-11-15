@@ -3,12 +3,12 @@
 //! chips, and Save (⌘↵), pinned beside the passage as the editor scrolls and
 //! kept on the side it opened on. Esc or a click outside closes it.
 
-use language::ToOffset as _;
 use gpui::{
     AnyElement, Context, InteractiveElement as _, IntoElement, KeyDownEvent, ParentElement as _,
     StatefulInteractiveElement as _, Styled as _, Window, canvas, div, prelude::FluentBuilder as _,
     px,
 };
+use language::ToOffset as _;
 use lattice_i18n::t;
 use lattice_ui::{
     ActiveLattice as _, Elevation, TextRole, TextRoleStyle as _,
@@ -76,7 +76,9 @@ impl EditorPanel {
             return Some(tracker);
         };
         let width = px(COMPOSER_WIDTH).min((view.size.width - px(16.)).max(px(0.)));
-        let below = anchor.bottom().max(end_rect.map_or(anchor.bottom(), |end| end.bottom()));
+        let below = anchor
+            .bottom()
+            .max(end_rect.map_or(anchor.bottom(), |end| end.bottom()));
         let height = self.annotations.height.get().max(px(120.));
         let above = *self
             .annotations
@@ -119,7 +121,9 @@ impl EditorPanel {
             .text_color(palette.text)
             .occlude()
             .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation())
-            .on_mouse_down_out(cx.listener(|this, _, window, cx| this.dismiss_draft(true, window, cx)))
+            .on_mouse_down_out(
+                cx.listener(|this, _, window, cx| this.dismiss_draft(true, window, cx)),
+            )
             .capture_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
                 let keys = &event.keystroke;
                 if keys.key == "escape" {
@@ -141,7 +145,11 @@ impl EditorPanel {
                 .left_0()
                 .size_full(),
             );
-        let from = if above { PopFrom::Above } else { PopFrom::Below };
+        let from = if above {
+            PopFrom::Above
+        } else {
+            PopFrom::Below
+        };
         Some(
             div()
                 .absolute()
@@ -149,13 +157,11 @@ impl EditorPanel {
                 .left_0()
                 .size_full()
                 .child(tracker)
-                .child(
-                    div()
-                        .absolute()
-                        .left(left)
-                        .top(top)
-                        .child(pop_in(("annotation-composer-in", id as usize), from, popup)),
-                )
+                .child(div().absolute().left(left).top(top).child(pop_in(
+                    ("annotation-composer-in", id as usize),
+                    from,
+                    popup,
+                )))
                 .into_any_element(),
         )
     }

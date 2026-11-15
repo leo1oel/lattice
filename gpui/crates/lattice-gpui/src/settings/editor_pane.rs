@@ -235,25 +235,29 @@ fn spelling_languages(dialog: &mut SettingsDialog, cx: &mut Context<SettingsDial
             .text_color(palette.text)
             .child(t!("No dictionary downloaded yet"))
     } else {
-        div().flex().flex_wrap().gap(px(4.)).children(downloaded.iter().map(|dictionary| {
-            let name = lattice_editor::latex::spelling::language_name(&dictionary.code);
-            div()
-                .flex()
-                .items_center()
-                .min_h(px(24.))
-                .px(px(8.))
-                .rounded(px(6.))
-                .bg(palette.input)
-                .border_1()
-                .border_color(palette.line)
-                .text_role_in(TextRole::Caption, TypeScale::Settings, cx)
-                .text_color(palette.text)
-                .child(t!(
-                    "{name}, licensed {license}",
-                    name = &name,
-                    license = &dictionary.license
-                ))
-        }))
+        div()
+            .flex()
+            .flex_wrap()
+            .gap(px(4.))
+            .children(downloaded.iter().map(|dictionary| {
+                let name = lattice_editor::latex::spelling::language_name(&dictionary.code);
+                div()
+                    .flex()
+                    .items_center()
+                    .min_h(px(24.))
+                    .px(px(8.))
+                    .rounded(px(6.))
+                    .bg(palette.input)
+                    .border_1()
+                    .border_color(palette.line)
+                    .text_role_in(TextRole::Caption, TypeScale::Settings, cx)
+                    .text_color(palette.text)
+                    .child(t!(
+                        "{name}, licensed {license}",
+                        name = &name,
+                        license = &dictionary.license
+                    ))
+            }))
     };
     dialog.pages.dictionaries = Some((installs, downloaded));
     Row::new("spelling-languages", t!("Other languages"))

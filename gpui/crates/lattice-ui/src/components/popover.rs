@@ -198,6 +198,7 @@ impl RenderOnce for PopoverCard {
 pub struct Popover<T: Selectable + IntoElement + 'static> {
     id: ElementId,
     trigger: T,
+    anchor: Anchor,
     content: BuildContent,
 }
 
@@ -210,8 +211,16 @@ impl<T: Selectable + IntoElement + 'static> Popover<T> {
         Self {
             id: id.into(),
             trigger,
+            anchor: Anchor::TopLeft,
             content: Rc::new(move |window, cx| content(window, cx).into_any_element()),
         }
+    }
+
+    /// Which corner of the card meets the trigger's: the top left by
+    /// default; `TopRight` opens it toward the left (`align="end"`).
+    pub fn anchor(mut self, anchor: Anchor) -> Self {
+        self.anchor = anchor;
+        self
     }
 }
 
@@ -220,6 +229,7 @@ impl<T: Selectable + IntoElement + 'static> RenderOnce for Popover<T> {
         let id = ElementId::NamedChild(std::sync::Arc::new(self.id.clone()), "card".into());
         let content = self.content;
         BasePopover::new(self.id)
+            .anchor(self.anchor)
             .offset(MENU_OFFSET)
             .trigger(self.trigger)
             .content(move |_, window, cx| pop_in(id.clone(), PopFrom::Above, content(window, cx)))

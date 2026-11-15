@@ -28,6 +28,15 @@ impl Run {
         let word = "paragraph";
         let at = original.find(word).context("the chapter's first line")?;
         for (key, command) in [('b', "textbf"), ('i', "emph")] {
+            if key == 'b' {
+                // A build an earlier module started (the palette's last
+                // check types into main.tex, and the pause in typing
+                // builds) must end first, or it reads as one ⌘B started.
+                self.wait_for(cx, Duration::from_secs(60), |shell, cx| {
+                    !shell.read(cx).building()
+                })
+                .await;
+            }
             self.select(cx, &editor, at, at + word.len())?;
             let builds = self.builds(cx);
             let was_building = cx.update(|cx| self.shell.read(cx).building());
@@ -90,11 +99,16 @@ impl Run {
             self.pause(cx, Duration::from_millis(200)).await;
             let (text, selected) = self.text_and_selection(cx, &editor);
             let cursors = cx.update(|cx| editor.read(cx).editor().read(cx).selections.count());
+            let picker = cx.update(|cx| self.shell.read(cx).quick_open().is_some());
             steps.check(
-                &format!("{chord} in a LaTeX file is not Zed's {zed}: the text and the one selection stay"),
-                text == original && selected == repeated && cursors == 1,
-                json!({ "unchanged": text == original, "selected": selected, "cursors": cursors }),
+                &format!("{chord} in a LaTeX file opens its insert picker, not Zed's {zed}: the text and the one selection stay"),
+                picker && text == original && selected == repeated && cursors == 1,
+                json!({ "picker": picker, "unchanged": text == original, "selected": selected, "cursors": cursors }),
             );
+            // ⎋ closes the picker, as it closes quick open.
+            let escape = Keystroke::parse("escape").map_err(|error| anyhow::anyhow!("{error}"))?;
+            self.with_window(cx, move |_, window, cx| window.dispatch_keystroke(escape, cx))?;
+            self.pause(cx, Duration::from_millis(200)).await;
         }
         // The chapter as it was, for the modules after.
         self.with_window(cx, |_, window, cx| {

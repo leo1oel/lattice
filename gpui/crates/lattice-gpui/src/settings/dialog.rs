@@ -793,10 +793,6 @@ impl Render for SettingsDialog {
         );
         // A page's sheet stands over the whole window, as a layer of its own
         // beside Settings', so Escape closes it before Settings.
-        div()
-            .absolute()
-            .inset_0()
-            .child(layer)
-            .children(sheet)
+        div().absolute().inset_0().child(layer).children(sheet)
     }
 }

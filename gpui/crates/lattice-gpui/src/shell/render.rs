@@ -67,6 +67,7 @@ impl Render for Shell {
             )
             .children(self.inserts.figure.as_ref().map(|open| open.dialog.clone()))
             .children(self.inserts.table.as_ref().map(|open| open.sheet.clone()))
+            .children(self.goto_line_dialog())
             .child(self.confirm.clone())
             .child(super::import_conflict::install(cx))
     }

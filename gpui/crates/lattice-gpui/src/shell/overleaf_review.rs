@@ -5,19 +5,58 @@
 
 use gpui::{Context, Entity, Window};
 use lattice_i18n::t;
+use serde_json::{Value, json};
 
 use super::Shell;
 use crate::{
     editor_panel::{ChangeMark, CommentMark, EditorPanel, MarginMessage, MarginMode, ReviewAction},
-    overleaf::people::person_color,
+    overleaf::{
+        bridge::OverleafBridge,
+        people::{people_hues, person_color},
+    },
 };
+
+/// What a `.tex` file's Visual page runs the Tauri app's Overleaf comment
+/// marks and margin review from: the file's threads where they are
+/// anchored, everyone's hues as the Tauri app keys them, the window's
+/// margin review mode and whether this account may act. The page lists the
+/// file as its own document, so an anchor's document is the file's path.
+fn visual_review(bridge: &OverleafBridge, path: &str, mode: MarginMode) -> Value {
+    let (anchors, threads): (Vec<Value>, Vec<Value>) = bridge
+        .comments_in(path)
+        .into_iter()
+        .map(|(range, thread)| {
+            let anchor = json!({
+                "threadId": range.thread_id,
+                "docId": path,
+                "position": range.position,
+                "quote": range.quote,
+            });
+            (anchor, serde_json::to_value(thread).unwrap_or(Value::Null))
+        })
+        .unzip();
+    let mode = match mode {
+        MarginMode::Auto => "auto",
+        MarginMode::Markers => "markers",
+        MarginMode::Off => "off",
+    };
+    json!({
+        "threads": threads,
+        "anchors": anchors,
+        "hues": people_hues(bridge, path),
+        "mode": mode,
+        "canAct": bridge.can_review(),
+    })
+}
 
 impl Shell {
     /// Every open editor shows its file's comments and suggestions.
     pub(super) fn show_overleaf_review(&mut self, cx: &mut Context<Self>) {
         let bridge = self.overleaf.read(cx);
         let can_act = bridge.can_review();
-        let shown: Vec<(Entity<EditorPanel>, Vec<CommentMark>, Vec<ChangeMark>)> = self
+        let mode = self.margin_mode;
+        type Shown = (Entity<EditorPanel>, Vec<CommentMark>, Vec<ChangeMark>, Option<Value>);
+        let shown: Vec<Shown> = self
             .open_editors()
             .into_iter()
             .filter_map(|editor| {
@@ -82,7 +121,12 @@ impl Shell {
                             .collect()
                     })
                     .unwrap_or_default();
-                Some((editor, comments, changes))
+                // Only a `.tex` file has a Visual page to send it to.
+                let visual = editor
+                    .read(cx)
+                    .latex_view(cx)
+                    .map(|_| visual_review(bridge, &path, mode));
+                Some((editor, comments, changes, visual))
             })
             .collect();
         let active = self
@@ -90,11 +134,13 @@ impl Shell {
             .map(|editor| editor.read(cx).relative().to_string());
         self.overleaf_collab
             .update(cx, |panel, cx| panel.set_active(active, cx));
-        let mode = self.margin_mode;
-        for (editor, comments, changes) in shown {
+        for (editor, comments, changes, visual) in shown {
             editor.update(cx, |editor, cx| {
                 editor.set_margin_mode(mode, cx);
-                editor.set_overleaf_review(comments, changes, cx)
+                editor.set_overleaf_review(comments, changes, cx);
+                if let Some(visual) = visual {
+                    editor.set_overleaf_visual_review(visual, cx);
+                }
             });
         }
     }
@@ -132,6 +178,25 @@ impl Shell {
                     cx,
                 );
             }
+            ReviewAction::ReplyWith { thread, content } => {
+                self.overleaf.update(cx, |bridge, cx| {
+                    bridge.reply_to_thread(thread, content.clone(), |_| {}, cx)
+                })
+            }
+            ReviewAction::Reopen(thread) => self.overleaf.update(cx, |bridge, cx| {
+                bridge.set_thread_resolved(thread, false, cx)
+            }),
+            ReviewAction::DeleteConfirmed(thread) => self
+                .overleaf
+                .update(cx, |bridge, cx| bridge.delete_thread(thread, cx)),
+            ReviewAction::EditMessage { thread, message, content } => {
+                self.overleaf.update(cx, |bridge, cx| {
+                    bridge.edit_message(thread, message, content.clone(), |_| {}, cx)
+                })
+            }
+            ReviewAction::DeleteMessage { thread, message } => self
+                .overleaf
+                .update(cx, |bridge, cx| bridge.delete_message(thread, message, cx)),
             ReviewAction::Reply(thread) => {
                 let thread = thread.clone();
                 self.overleaf_collab
@@ -148,5 +213,6 @@ impl Shell {
         for editor in self.open_editors() {
             editor.update(cx, |editor, cx| editor.set_margin_mode(mode, cx));
         }
+        self.show_overleaf_review(cx);
     }
 }

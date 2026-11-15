@@ -255,22 +255,39 @@ pub fn entries(has_project: bool, known_author: Option<&str>) -> Vec<Entry> {
             "OpenAI Anthropic Gemini Pi LLM {}",
             t!("own API base URL custom")
         )),
-        Entry::row(ModelEndpoint, endpoint, "model-endpoint-address", t!("Address"))
-            .terms(format!("{} base URL", t!("Protocol"))),
-        Entry::row(ModelEndpoint, endpoint, "model-endpoint-key", t!("API key")).description(
-            t!("Kept in the macOS keychain. Leave it empty for a local server that needs none."),
-        ),
-        Entry::row(ModelEndpoint, endpoint, "model-endpoint-models", t!("Models")).terms(format!(
-            "{} {}",
-            t!("Context window"),
-            t!("Max output")
+        Entry::row(
+            ModelEndpoint,
+            endpoint,
+            "model-endpoint-address",
+            t!("Address"),
+        )
+        .terms(format!("{} base URL", t!("Protocol"))),
+        Entry::row(ModelEndpoint, endpoint, "model-endpoint-key", t!("API key")).description(t!(
+            "Kept in the macOS keychain. Leave it empty for a local server that needs none."
         )),
-        Entry::row(ModelEndpoint, endpoint, "model-endpoint-runtime", t!("Pi runtime")),
+        Entry::row(
+            ModelEndpoint,
+            endpoint,
+            "model-endpoint-models",
+            t!("Models"),
+        )
+        .terms(format!("{} {}", t!("Context window"), t!("Max output"))),
+        Entry::row(
+            ModelEndpoint,
+            endpoint,
+            "model-endpoint-runtime",
+            t!("Pi runtime"),
+        ),
         Entry::page(Environment, environment, agent).terms(format!(
             "HTTPS_PROXY ANTHROPIC_BASE_URL {}",
             t!("proxy key endpoint shell restart")
         )),
-        Entry::row(Environment, environment, "agent-restart", t!("Restart agent")),
+        Entry::row(
+            Environment,
+            environment,
+            "agent-restart",
+            t!("Restart agent"),
+        ),
     ]);
     let overleaf = t!("Overleaf");
     out.extend([
@@ -318,20 +335,24 @@ pub fn entries(has_project: bool, known_author: Option<&str>) -> Vec<Entry> {
         out.push(Entry::row(Literature, literature, id, name).terms(t!("API key")));
     }
     out.push(
-        Entry::row(Literature, literature, "literature-email", t!("Contact email"))
-            .terms("Crossref")
-            .description(t!("Sent to Crossref")),
+        Entry::row(
+            Literature,
+            literature,
+            "literature-email",
+            t!("Contact email"),
+        )
+        .terms("Crossref")
+        .description(t!("Sent to Crossref")),
     );
     out.push(Entry::page(Doctor, t!("TeX doctor"), t!("Diagnostics")));
     out.push(Entry::page(Logs, t!("Logs"), t!("Diagnostics")));
     let fonts = lattice_ui::fonts::font_license().is_some();
-    let mut about = Entry::page(Acknowledgements, t!("Acknowledgements"), t!("About")).terms(
-        format!(
+    let mut about =
+        Entry::page(Acknowledgements, t!("Acknowledgements"), t!("About")).terms(format!(
             "{}{}",
             if fonts { "Timeless " } else { "" },
             t!("credits licenses fonts open source libraries third-party notices")
-        ),
-    );
+        ));
     if fonts {
         about = about.description("Timeless Free Font License");
     }

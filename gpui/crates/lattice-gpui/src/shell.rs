@@ -27,6 +27,7 @@ mod rounds_flow;
 mod arrange;
 mod assets;
 mod build;
+mod build_repair;
 mod build_tools;
 mod build_watch;
 pub mod commands;
@@ -34,6 +35,7 @@ mod documents;
 pub(crate) mod drops;
 mod editor_events;
 mod editors;
+mod export_zip;
 mod focus_escape;
 mod entries;
 mod get_started_flow;
@@ -44,6 +46,7 @@ pub(crate) mod import_conflict;
 mod imports;
 mod open_failure;
 mod insert_flow;
+mod insert_pickers_flow;
 mod layers;
 pub(crate) mod menus;
 mod opening;
@@ -91,20 +94,22 @@ use lattice_i18n::t;
 use lattice_ui::{ActiveLattice as _, Appearance, LatticeTheme};
 use trellis::{TrellisWorkspace, model::LayoutDocument};
 
+pub use annotations_flow::{CommentsView, ShowAnnotations};
 use build::BuildRequest;
 pub use commands::{
     Build, CleanBuildFiles, CleanRebuild, ForwardSync, InstallLatexTools, NextProblem,
     OpenTexDoctor, PreviousProblem, Save, StopBuild, ToggleVimMode,
 };
-pub use annotations_flow::{CommentsView, ShowAnnotations};
-#[cfg(any(target_os = "macos", target_os = "windows"))]
-pub use overleaf_collab::AnnotateSelection;
 pub use get_started_flow::ShowGetStarted;
 pub use help_flow::{ReportProblem, WhatsNew};
-pub(crate) use palette_groups::init as init_recent_commands;
 pub use insert_flow::{InsertTable, PasteImageAsFigure};
+pub use insert_pickers_flow::{GoToLine, GoToSymbol, InsertCitation, InsertReference};
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+pub use overleaf_collab::AnnotateSelection;
 pub use overleaf_menus::ReviewHere;
+pub(crate) use palette_groups::init as init_recent_commands;
 pub use references_flow::{FindReferences, RenameSymbol};
+pub use export_zip::ExportProjectZip;
 pub use tools_flow::{ExportArxiv, OpenChecklist, OpenTodos};
 pub(crate) use workspace_flow::LayoutState;
 

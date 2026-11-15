@@ -10,8 +10,8 @@
 //! words, which may hold a URL or a key.
 
 use gpui::{
-    AnyElement, AppContext as _, Context, ElementId, Entity, ParentElement as _,
-    SharedString, Styled as _, Subscription, Task, Window, div, prelude::FluentBuilder as _, px,
+    AnyElement, AppContext as _, Context, ElementId, Entity, ParentElement as _, SharedString,
+    Styled as _, Subscription, Task, Window, div, prelude::FluentBuilder as _, px,
 };
 use gpui_kit::component::input::{InputEvent, InputState};
 use lattice_core::literature_credentials as credentials;
@@ -78,7 +78,9 @@ pub fn render(
         .clone();
     let full_text = full_text_group(dialog, width, cx);
     let marks = super::pages::marks(dialog);
-    pane.update(cx, |pane, cx| pane.render_page(full_text, width, &marks, window, cx))
+    pane.update(cx, |pane, cx| {
+        pane.render_page(full_text, width, &marks, window, cx)
+    })
 }
 
 /// The Add papers sheet's choice, shared with it (`save-full-text-setting.ts`).
@@ -161,7 +163,8 @@ impl LiteraturePane {
                             this.notice = Some(Notice {
                                 target: "load",
                                 level: Level::Error,
-                                text: t!("Couldn’t read the keychain. Reopen Settings to retry").into(),
+                                text: t!("Couldn’t read the keychain. Reopen Settings to retry")
+                                    .into(),
                             })
                         }
                     }
@@ -257,8 +260,8 @@ impl LiteraturePane {
         self.run(
             provider,
             move || {
-                let provider = serde_json::from_value(json!(provider))
-                    .map_err(|error| error.to_string())?;
+                let provider =
+                    serde_json::from_value(json!(provider)).map_err(|error| error.to_string())?;
                 lattice_core::runtime::block_on(credentials::set_literature_credential(
                     provider, secret,
                 ))
@@ -289,15 +292,18 @@ impl LiteraturePane {
         self.run(
             provider,
             move || {
-                let provider = serde_json::from_value(json!(provider))
-                    .map_err(|error| error.to_string())?;
+                let provider =
+                    serde_json::from_value(json!(provider)).map_err(|error| error.to_string())?;
                 lattice_core::runtime::block_on(credentials::test_literature_credential(
                     provider, secret,
                 ))
                 .and_then(to_value)
             },
             move |this, result, _, _| {
-                let status = result.get("status").and_then(Value::as_str).unwrap_or_default();
+                let status = result
+                    .get("status")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default();
                 let authenticated = result
                     .get("authenticated")
                     .and_then(Value::as_bool)
@@ -351,7 +357,10 @@ impl LiteraturePane {
             .as_ref()
             .filter(|notice| notice.target == target)
             .map(|notice| {
-                controls::block(controls::inline_message(notice.level, notice.text.clone(), cx), true)
+                controls::block(
+                    controls::inline_message(notice.level, notice.text.clone(), cx),
+                    true,
+                )
             })
     }
 
@@ -374,8 +383,16 @@ impl LiteraturePane {
         if self.busy == Some("load") {
             groups.push(loader("literature-loading", 16.));
         }
-        if let Some(message) = self.notice.as_ref().filter(|notice| notice.target == "load") {
-            groups.push(controls::inline_message(message.level, message.text.clone(), cx));
+        if let Some(message) = self
+            .notice
+            .as_ref()
+            .filter(|notice| notice.target == "load")
+        {
+            groups.push(controls::inline_message(
+                message.level,
+                message.text.clone(),
+                cx,
+            ));
         }
         // A group per service, titled with its name: the page holds four,
         // so the headings are what it scans by.
@@ -394,7 +411,8 @@ impl LiteraturePane {
                 Some(_) => t!("Public access, no key needed"),
             };
             let saved = source.as_deref() == Some("saved");
-            let untestable = (provider == "semanticscholar" && source.as_deref() == Some("anonymous"))
+            let untestable = (provider == "semanticscholar"
+                && source.as_deref() == Some("anonymous"))
                 || source.as_deref() == Some("missing");
             self.drafts[index].update(cx, |input, cx| input.set_disabled(disabled, cx));
             let get_key = Button::new(
@@ -408,15 +426,18 @@ impl LiteraturePane {
             .on_click(move |_, _, cx| cx.open_url(url));
             let save = {
                 let this = this.clone();
-                Button::new(ElementId::Name(format!("literature-{provider}-save").into()), t!("Save"))
-                    .compact()
-                    .disabled(disabled || draft_empty)
-                    .on_click(move |_, window, cx| {
-                        this.update(cx, |pane, cx| {
-                            let secret = pane.drafts[index].read(cx).value().trim().to_string();
-                            pane.save(index, Some(secret), window, cx)
-                        })
+                Button::new(
+                    ElementId::Name(format!("literature-{provider}-save").into()),
+                    t!("Save"),
+                )
+                .compact()
+                .disabled(disabled || draft_empty)
+                .on_click(move |_, window, cx| {
+                    this.update(cx, |pane, cx| {
+                        let secret = pane.drafts[index].read(cx).value().trim().to_string();
+                        pane.save(index, Some(secret), window, cx)
                     })
+                })
             };
             let test = {
                 let this = this.clone();
@@ -426,7 +447,9 @@ impl LiteraturePane {
                 )
                 .compact()
                 .disabled(disabled || (untestable && draft_empty))
-                .on_click(move |_, window, cx| this.update(cx, |pane, cx| pane.test(index, window, cx)))
+                .on_click(move |_, window, cx| {
+                    this.update(cx, |pane, cx| pane.test(index, window, cx))
+                })
             };
             let remove = saved.then(|| {
                 let this = this.clone();
@@ -437,7 +460,9 @@ impl LiteraturePane {
                 .compact()
                 .ghost()
                 .disabled(disabled)
-                .on_click(move |_, window, cx| this.update(cx, |pane, cx| pane.save(index, None, window, cx)))
+                .on_click(move |_, window, cx| {
+                    this.update(cx, |pane, cx| pane.save(index, None, window, cx))
+                })
             });
             self.drafts[index].update(cx, |input, cx| {
                 input.set_placeholder(
@@ -469,31 +494,31 @@ impl LiteraturePane {
                         }),
                 );
             let key_row = Row::new(
-                    match provider {
-                        "openalex" => "literature-openalex",
-                        "semanticscholar" => "literature-semanticscholar",
-                        _ => "literature-firecrawl",
-                    },
-                    t!("API key"),
-                )
-                .description(described, cx)
-                .control(controls::in_column(get_key));
-            let mut rows = vec![
-                marks.row(key_row, width, cx),
-                controls::block(form, true),
-            ];
+                match provider {
+                    "openalex" => "literature-openalex",
+                    "semanticscholar" => "literature-semanticscholar",
+                    _ => "literature-firecrawl",
+                },
+                t!("API key"),
+            )
+            .description(described, cx)
+            .control(controls::in_column(get_key));
+            let mut rows = vec![marks.row(key_row, width, cx), controls::block(form, true)];
             rows.extend(self.message(provider, cx));
             groups.push(controls::group(Some(name.into()), rows, cx));
         }
         // Crossref's contact address.
-        self.email.update(cx, |input, cx| input.set_disabled(disabled, cx));
+        self.email
+            .update(cx, |input, cx| input.set_disabled(disabled, cx));
         let unchanged = self.email.read(cx).value().trim() == self.saved_email();
         let save_email = {
             let this = this.clone();
             Button::new("literature-email-save", t!("Save"))
                 .compact()
                 .disabled(disabled || unchanged)
-                .on_click(move |_, window, cx| this.update(cx, |pane, cx| pane.save_email(window, cx)))
+                .on_click(move |_, window, cx| {
+                    this.update(cx, |pane, cx| pane.save_email(window, cx))
+                })
         };
         let mut rows = vec![
             marks.row(

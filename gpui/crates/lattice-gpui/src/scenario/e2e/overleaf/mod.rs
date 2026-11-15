@@ -25,6 +25,7 @@ mod live;
 mod local_copy;
 mod margin;
 mod margin_end;
+mod margin_visual;
 mod polish;
 mod presence;
 mod project_history;

@@ -90,8 +90,8 @@ impl EditorPanel {
             return;
         };
         match event {
-            MarkdownEvent::Edit { base, source } => {
-                self.take_markdown_edit(document, base, source, window, cx)
+            MarkdownEvent::Edit { base, source, join } => {
+                self.take_markdown_edit(document, base, source, *join, window, cx)
             }
             MarkdownEvent::Undo => self
                 .editor
@@ -103,12 +103,10 @@ impl EditorPanel {
             MarkdownEvent::OpenPath(path) => {
                 cx.emit(EditorPanelEvent::OpenFile { path: path.clone() })
             }
-            MarkdownEvent::OpenLocation(path, line) => {
-                cx.emit(EditorPanelEvent::OpenLocation {
-                    path: path.clone(),
-                    line: *line,
-                })
-            }
+            MarkdownEvent::OpenLocation(path, line) => cx.emit(EditorPanelEvent::OpenLocation {
+                path: path.clone(),
+                line: *line,
+            }),
             MarkdownEvent::Caret(line, column) => {
                 let moved = self.cursor.0 != *line;
                 self.cursor = (*line, *column);
@@ -124,12 +122,15 @@ impl EditorPanel {
     }
 
     /// The page's edit, made against `base`: applied as the minimal change
-    /// while the buffer holds `base`, else refused.
+    /// while the buffer holds `base`, else refused. When the page says how
+    /// its own history groups the edit (`join`), the buffer's undo groups it
+    /// so too (`latex_visual_events.rs`).
     fn take_markdown_edit(
         &mut self,
         document: &Entity<StructuredDocument>,
         base: &str,
         source: &str,
+        join: Option<bool>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -143,11 +144,15 @@ impl EditorPanel {
         // Through the editor's own transaction, so its undo has the
         // selections to restore, as for an edit typed in the source.
         let range = MultiBufferOffset(range.start)..MultiBufferOffset(range.end);
-        self.editor.update(cx, |editor, cx| {
-            editor.transact(window, cx, |editor, _, cx| {
-                editor.edit([(range, insert)], cx)
+        let Some(join) = join else {
+            self.editor.update(cx, |editor, cx| {
+                editor.transact(window, cx, |editor, _, cx| {
+                    editor.edit([(range, insert)], cx)
+                });
             });
-        });
+            return;
+        };
+        self.take_grouped_page_edit(range, insert, join, window, cx);
     }
 
     /// Show the source, the caret at a UTF-16 `offset` of the file, centred.

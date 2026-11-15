@@ -157,7 +157,10 @@ pub fn invoke(
         // turn runs (`restart_impact`'s `agentTurns`). The window learns of
         // the turn itself from the page's own report (`agent:turn`).
         "set_agent_turn_running" => {
-            let running = args.get("running").and_then(Value::as_bool).unwrap_or(false);
+            let running = args
+                .get("running")
+                .and_then(Value::as_bool)
+                .unwrap_or(false);
             set_turn_running(root, running);
             Task::ready(Ok(Value::Null))
         }

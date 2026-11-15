@@ -3,13 +3,11 @@
 What the Tauri app has that the GPUI app does not port yet, one item per line.
 A feature that lands deletes its own line (only that line, so features landing side by side merge cleanly), and a gap found adds one.
 
-- [ ] The visual LaTeX editor, in part: margin review and Overleaf's tracked changes in Visual.
+- [ ] Overleaf's tracked changes in the visual LaTeX editor (their marks, cards and margin review items).
 
 - [ ] Wrapping a selection in an environment and renaming an environment (⌘⇧E, and in the source editor too).
 
 - [ ] The LaTeX source's other editing keys: Inline math (⌘⇧M) and the environment commands.
-
-- [ ] Insert citation and Insert reference: ⌘⇧K and ⌘⇧L are reserved for them and do nothing until they land.
 
 - [ ] Margin review's J/K walk between items.
 
@@ -19,19 +17,9 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] The editor's change wash on lines an outside edit landed, and an accepted suggestion's strike, fold and settle (`lattice_ui::attention` has their timing).
 
-- [ ] A failed save's Retry and Save a copy (the status bar's save-state popover).
-
 - [ ] The minor motions.
 
-- [ ] The translation of the host's error text in notices.
-
 - [ ] The Agent: a Papers selection in its context.
-
-- [ ] The Agent: its permission picker in the panel's header.
-
-- [ ] The Agent: a native skeleton before its page draws.
-
-- [ ] The Agent: a Finder drop onto its panel, and the microphone in its composer.
 
 - [ ] The Agent: its annotation tools, recording proposals and questions from the conversation into the open round.
 
@@ -65,8 +53,6 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] The app updater's release channel (it ships off) and the outdated-version hint on a failure's notice.
 
-- [ ] File › Export ZIP….
-
 - [ ] Overleaf: the live channel joining again when the network comes back (it does when the window comes forward).
 
 - [ ] Overleaf: the titlebar control's animated cloud-upload icon (the icon is still).
@@ -97,7 +83,7 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] The workspace switch's sliding plate, drag to reorder and keyboard.
 
-- [ ] Export ZIP and Export for arXiv… in the project and File menus, and Export figures for a journal….
+- [ ] Export figures for a journal….
 
 - [ ] New project's My templates and Save a local template….
 
