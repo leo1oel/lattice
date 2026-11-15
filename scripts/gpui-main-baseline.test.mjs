@@ -27,6 +27,23 @@ describe("gpui-main-baseline", () => {
     expect(parseE2e(null)).toMatchObject({ passed: false, error: "no result was written" });
   });
 
+  it("keeps the steps a scenario recorded before it stopped", () => {
+    const result = {
+      passed: false,
+      error: "the file did not open in an editor",
+      steps: [
+        { step: "a", passed: true },
+        { step: "the e2e scenario runs to its end", passed: false },
+      ],
+    };
+    expect(parseE2e(result)).toEqual({
+      passed: false,
+      total: 2,
+      failing: ["the e2e scenario runs to its end"],
+      error: "the file did not open in an editor",
+    });
+  });
+
   it("writes under the shared build directory", () => {
     expect(baselineDir({ LATTICE_GPUI_BUILD_DIR: "/x" })).toBe("/x/main-baseline");
   });

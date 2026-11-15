@@ -399,6 +399,27 @@ impl LatticeEditor {
         cx: &mut Context<Self>,
     ) {
         let text = self.buffer.read(cx).snapshot();
+        // The same texts where they stand now (a highlight's swatches painted
+        // again once typing pauses, a strike drawing in) keep their inlays
+        // and take their new looks: splicing them again would lay the lines
+        // out again for nothing.
+        let same_room = self.inline.get(layer).map_or(items.is_empty(), |shown| {
+            shown.len() == items.len()
+                && shown.iter().zip(&items).all(|(shown, item)| {
+                    use language::ToOffset as _;
+                    shown.anchor.to_offset(&text) == item.offset.min(text.len())
+                        && shown.item.text == item.text
+                })
+        });
+        if same_room {
+            if let Some(shown) = self.inline.get_mut(layer) {
+                for (shown, item) in shown.iter_mut().zip(items) {
+                    shown.item.look = item.look;
+                }
+            }
+            cx.notify();
+            return;
+        }
         let previous: Vec<_> = self
             .inline
             .remove(layer)

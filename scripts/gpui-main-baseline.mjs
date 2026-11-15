@@ -32,6 +32,9 @@
  *                              `file` naming it; it moves only forward, to a
  *                              commit that descends from the one it names.
  *
+ * `scripts/gpui-main-baseline-agent.mjs install` runs this by itself, as a
+ * launchd agent, once main has moved (docs/agent-validation.md).
+ *
  * A step whose name is in `e2e.failing` (or a gate stage in `gate.failing`)
  * for the merge base of a branch is pre-existing on main.
  *
@@ -82,16 +85,22 @@ export function parseGate(output) {
   return stages;
 }
 
-/** The failing steps of an e2e result, by name. */
+/**
+ * The failing steps of an e2e result, by name. A scenario that stopped early
+ * still lists the steps it recorded before it stopped (with a failed step
+ * saying so), and `error` says why; one that never got to a step has `error`
+ * alone.
+ */
 export function parseE2e(result) {
   if (!result) return { passed: false, total: 0, failing: [], error: "no result was written" };
-  if (result.error) return { passed: false, total: 0, failing: [], error: String(result.error) };
   const steps = Array.isArray(result.steps) ? result.steps : [];
-  return {
-    passed: result.passed === true,
+  const parsed = {
+    passed: result.passed === true && !result.error,
     total: steps.length,
     failing: steps.filter((step) => step.passed !== true).map((step) => step.step),
   };
+  if (result.error) parsed.error = String(result.error);
+  return parsed;
 }
 
 /** Runs a command, teeing its output to the terminal and to `log`; resolves with its status and output. */

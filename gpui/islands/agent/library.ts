@@ -9,28 +9,21 @@
  * - the project's annotations, for the annotation tools (`propose`, `ask`)
  *   and the Agent's view of the project's comments. The Tauri app keeps them
  *   in its comments store (`use-editor-comments.ts`) and records the tools'
- *   answers through its revision rounds (`annotation-rounds.ts`); the page
- *   holds its own copy of that store, loaded once per project and saved as
- *   the Tauri store saves, and runs the same revision rounds over it,
- *   separate from the native ones. A proposal recorded here is the one the
- *   Tauri app's review shows.
- *
- * The page is not the only writer of `.research/annotations.json`: the native
- * Annotations panel and the native revision rounds (`shell/rounds_flow.rs`)
- * save it too. The page never reads the file back after loading it, so its
- * saves can overwrite what they wrote since (a gap `gpui/docs/not-yet.md`
- * lists).
+ *   answers through its revision rounds (`annotation-rounds.ts`); here both
+ *   are the window's own (`agent/surface/annotations.rs`), the store the
+ *   file's one writer. The page only reads: it keeps a view of the store,
+ *   which the window keeps current (`agent:annotations`), and hands each
+ *   tool call to the window's rounds to record into the open round
+ *   (`annotation-tools.ts`).
  */
 import { useEffect, useMemo, useReducer, useRef } from "react";
-import { msg } from "@lingui/core/macro";
 import { invoke } from "@tauri-apps/api/core";
 import { host } from "../shared/host";
 import { isBibFilePath, toMessage } from "../../../src/app-utils";
 import { useLatestRef } from "../../../src/hooks/use-latest-ref";
 import { showError } from "../../../src/app/notify";
-import { i18n } from "../../../src/i18n";
-import { AnnotationRounds, type AnnotationRoundsDeps } from "../../../src/app/annotation-rounds";
 import type { AnnotationsState } from "../../../src/app/use-editor-comments";
+import { annotationToolHost } from "./annotation-tools";
 import { buildAgentPaperLibrary, type AgentPaperLibrarySnapshot } from "../../../src/agent/agent-paper-library";
 import type { AnnotationToolHost } from "../../../src/agent/agent-annotations";
 import type { BuildAgentCommentsOptions } from "../../../src/agent/agent-editor-comments";
@@ -114,13 +107,13 @@ export function useAgentAnnotations(projectRoot: string, overleafState: Overleaf
   commentsOptions: () => BuildAgentCommentsOptions | null;
 } {
   const stateRef = useRef<AnnotationsState>({ annotations: [], rounds: [] });
-  /** null while reading; the reason when the read failed (nothing is saved then). */
+  /** null while reading; the reason when the read failed (no tool runs then). */
   const loadedRef = useRef<{ error: string | null } | null>(null);
   /** The annotated files' text, to tell where each note's anchor stands. */
   const sourcesRef = useRef(new Map<string, string>());
   const overleafRef = useRef<Overleaf>({ overleafThreads: [], overleafAnchors: [], overleaf: { status: "not-linked" } });
 
-  const rounds = useMemo(() => new AnnotationRounds(), []);
+  const toolsRef = useRef<AnnotationToolHost | null>(null);
 
   useEffect(() => {
     let live = true;
@@ -152,52 +145,28 @@ export function useAgentAnnotations(projectRoot: string, overleafState: Overleaf
       const annotated = annotatedPaths();
       readSources(paths === null ? annotated : annotated.filter((path) => paths.includes(path)));
     });
-    const projectRootRef = { current: projectRoot as string | null };
-    // The revision rounds reach the store only through `stateRef` and
-    // `commit`, and the window only to read a file (`activeFileRef` names
-    // none, so every file is read from disk) or to show what this window
-    // has no panel for.
-    const store = {
-      stateRef,
-      commit: (change: (current: AnnotationsState) => AnnotationsState): boolean => {
-        const loaded = loadedRef.current;
-        if (loaded?.error !== null) {
-          // The Tauri store's own words (`use-editor-comments.ts`).
-          const error = loaded?.error ?? null;
-          showError(error === null
-            ? i18n._(msg`This project's annotations are still being read. Try again in a moment.`)
-            : i18n._(msg`This project's annotations could not be read, so changes to them are not saved: ${error}`));
-          return false;
-        }
-        const current = stateRef.current;
-        const next = change(current);
-        if (next === current) return false;
-        stateRef.current = next;
-        // The broker numbers the saves (`agent/commands.rs`).
-        void invoke<void>("save_annotations", { projectRoot, annotations: next.annotations, rounds: next.rounds, save: 0 })
-          .catch((reason: unknown) => showError(toMessage(reason)));
-        return true;
-      },
-    } as unknown as AnnotationRoundsDeps["store"];
-    rounds.attach({
-      store,
-      projectRootRef,
-      activeFileRef: { current: "" },
-      sourceRef: { current: "" },
-      openProjectFile: async () => undefined,
-      author: { id: "", name: "" },
-      openPanel: () => undefined,
-      openHistoryEntry: () => undefined,
-      save: async () => true,
-      reloadAfterRestore: async () => undefined,
-    } as AnnotationRoundsDeps);
+    const take = (notes: AnnotationsState) => {
+      const known = new Set(annotatedPaths());
+      stateRef.current = { annotations: notes.annotations ?? [], rounds: notes.rounds ?? [] };
+      // The window tells only what its store has read: the read is good now.
+      loadedRef.current = { error: null };
+      readSources(annotatedPaths().filter((path) => !known.has(path)));
+    };
+    const stopStore = host().on("agent:annotations", (payload) => {
+      if (live && payload && typeof payload === "object") take(payload as AnnotationsState);
+    });
+    // The tools' calls are recorded by the window; the page writes nothing.
+    toolsRef.current = annotationToolHost(() => stateRef.current, (call) => {
+      void invoke<void>("record_annotation_tool", { projectRoot, ...call })
+        .catch((reason: unknown) => { if (live) showError(toMessage(reason)); });
+    });
     return () => {
       live = false;
-      projectRootRef.current = null;
+      toolsRef.current = null;
       stop();
-      rounds.reset();
+      stopStore();
     };
-  }, [projectRoot, rounds]);
+  }, [projectRoot]);
 
   // The owner's Overleaf link (held above the surface, `main.tsx`); a linked
   // project's threads are read through it.
@@ -226,7 +195,7 @@ export function useAgentAnnotations(projectRoot: string, overleafState: Overleaf
   const docPathsRef = useLatestRef(docPaths);
 
   return useMemo(() => ({
-    annotationTools: () => (loadedRef.current?.error === null ? rounds.toolHost : null),
+    annotationTools: () => (loadedRef.current?.error === null ? toolsRef.current : null),
     // As `useEditorComments`'s `agentOptionsRef` builds them; the Overleaf
     // half refreshes when the Agent asks (`readAgentCommentsSnapshot`).
     commentsOptions: () => loadedRef.current?.error === null ? {
@@ -236,5 +205,5 @@ export function useAgentAnnotations(projectRoot: string, overleafState: Overleaf
       docPaths: docPathsRef.current,
       currentSources: sourcesRef.current,
     } : null,
-  }), [docPathsRef, projectRoot, rounds]);
+  }), [docPathsRef, projectRoot]);
 }

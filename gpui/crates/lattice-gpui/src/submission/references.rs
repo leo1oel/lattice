@@ -541,7 +541,9 @@ impl Render for RenameSymbolDialog {
                         Button::new("rename-cancel", t!("Cancel"))
                             .ghost()
                             .disabled(busy)
-                            .on_click(cx.listener(|_, _, _, cx| cx.emit(RenameEvent::Close))),
+                            .on_click(ModalLayer::closing("rename-symbol", cx, |_, _, cx| {
+                                cx.emit(RenameEvent::Close)
+                            })),
                     )
                     .child(
                         Button::new(

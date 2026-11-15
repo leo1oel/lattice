@@ -4,6 +4,7 @@
 //! selection (`text.rs`) and dark pages (`dark.rs`); the dock's PDF panels
 //! (`panel.rs`) and the live PDF's separate window (`window.rs`).
 
+mod clicked_word;
 mod dark;
 mod engine;
 mod find;
@@ -20,8 +21,8 @@ mod toolbar_hover;
 mod view;
 mod window;
 
-pub(crate) use dark::filter as dark_filter;
-pub(crate) use dark::enabled as dark_pages;
+pub(crate) use clicked_word::word_at as clicked_word_at;
+pub(crate) use dark::{enabled as dark_pages, filter as dark_filter};
 pub(crate) use engine::{DocId, PdfEngine, RenderRequest};
 pub use find::FindOptions;
 pub use layout::FitMode;

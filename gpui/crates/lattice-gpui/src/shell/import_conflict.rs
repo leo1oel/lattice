@@ -346,18 +346,24 @@ impl Render for ImportConflict {
                     .child(
                         Button::new(("import-conflict-cancel", serial), t!("Cancel"))
                             .ghost()
-                            .on_click(
-                                cx.listener(|this, _, window, cx| this.answer(None, window, cx)),
-                            ),
+                            .on_click(ModalLayer::closing(
+                                ("import-conflict", serial),
+                                cx,
+                                |this, window, cx| this.answer(None, window, cx),
+                            )),
                     )
                     .child(
                         Button::new(("import-conflict-import", serial), t!("Import"))
                             .primary()
-                            .on_click(cx.listener(move |this, _, window, cx| {
-                                let choice =
-                                    this.open.as_ref().map(|question| CHOICES[question.choice]);
-                                this.answer(choice, window, cx)
-                            })),
+                            .on_click(ModalLayer::closing(
+                                ("import-conflict", serial),
+                                cx,
+                                move |this, window, cx| {
+                                    let choice =
+                                        this.open.as_ref().map(|question| CHOICES[question.choice]);
+                                    this.answer(choice, window, cx)
+                                },
+                            )),
                     ),
             );
         let keys = div()
@@ -368,8 +374,17 @@ impl Render for ImportConflict {
                     "up" | "left" => this.step(-1, cx),
                     "down" | "right" => this.step(1, cx),
                     "enter" => {
-                        let choice = this.open.as_ref().map(|question| CHOICES[question.choice]);
-                        this.answer(choice, window, cx)
+                        // Enter answers as Import does, after the exit.
+                        let view = cx.entity().downgrade();
+                        let serial = this.serial;
+                        ModalLayer::leave(("import-conflict", serial), window, cx, move |window, cx| {
+                            view.update(cx, |this, cx| {
+                                let choice =
+                                    this.open.as_ref().map(|question| CHOICES[question.choice]);
+                                this.answer(choice, window, cx)
+                            })
+                            .ok();
+                        });
                     }
                     _ => return,
                 }

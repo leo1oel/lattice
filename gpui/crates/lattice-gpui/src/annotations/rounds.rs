@@ -108,67 +108,12 @@ pub struct AnnotationRounds {
 
 impl EventEmitter<RoundsEvent> for AnnotationRounds {}
 
-/// The open round: the last one that has not settled.
-fn open_round(rounds: &[AnnotationRound]) -> Option<&AnnotationRound> {
-    rounds.last().filter(|round| round.settled_at.is_none())
-}
+mod agent_tools;
+mod queries;
 
-fn state(comment: &EditorComment) -> Option<&str> {
-    comment.revision.as_ref().map(|revision| revision.state.as_str())
-}
-
-/// A local annotation the agent can be asked about now.
-pub fn revisable(comment: &EditorComment, running: &dyn Fn(&str) -> bool) -> bool {
-    if comment.number == 0 || comment.resolved || running(&comment.id) {
-        return false;
-    }
-    match comment.revision.as_ref() {
-        Some(revision) if revision.state == "proposed" => false,
-        // A question waits for its answer.
-        Some(revision) if revision.state == "asked" => {
-            revision.answer.as_deref().is_some_and(|answer| !answer.trim().is_empty())
-        }
-        _ => true,
-    }
-}
-
-/// Proposals still waiting for the writer, in the order the review walks
-/// them: by file, then place, then number.
-pub fn pending_proposals(annotations: &[&EditorComment]) -> Vec<EditorComment> {
-    let mut proposals: Vec<EditorComment> = annotations
-        .iter()
-        .filter(|comment| !comment.resolved && state(comment) == Some("proposed"))
-        .map(|comment| (*comment).clone())
-        .collect();
-    proposals.sort_by(|left, right| {
-        left.path
-            .cmp(&right.path)
-            .then(left.from.cmp(&right.from))
-            .then(left.number.cmp(&right.number))
-    });
-    proposals
-}
-
-/// The open round's progress: its number, how many annotations it asked
-/// about, how many are answered and how many still run.
-pub fn round_progress(
-    rounds: &[AnnotationRound],
-    annotations: &[&EditorComment],
-    running: &dyn Fn(&str) -> bool,
-) -> Option<(u32, usize, usize, usize)> {
-    let round = open_round(rounds)?;
-    let ids: Vec<&String> = round.outcomes.keys().collect();
-    let answered = annotations
-        .iter()
-        .filter(|comment| {
-            ids.contains(&&comment.id)
-                && !running(&comment.id)
-                && comment.revision.as_ref().is_some_and(|revision| revision.round == round.number)
-        })
-        .count();
-    let still = ids.iter().filter(|id| running(id)).count();
-    Some((round.number, ids.len(), answered, still))
-}
+use queries::open_round;
+pub use agent_tools::ToolAnswer;
+pub use queries::{pending_proposals, revisable, round_progress};
 
 impl AnnotationRounds {
     pub fn new(host: RoundsHost) -> Self {
@@ -877,55 +822,4 @@ pub fn new(cx: &mut App) -> Entity<AnnotationRounds> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn note(id: &str, number: u32, path: &str, from: u32, state: Option<&str>) -> EditorComment {
-        let mut comment: EditorComment = serde_json::from_value(serde_json::json!({
-            "id": id, "number": number, "path": path, "from": from, "to": from + 4,
-            "quote": "text", "body": "note", "authorId": "a", "authorName": "A",
-            "createdAt": "1", "updatedAt": "1"
-        }))
-        .unwrap();
-        comment.revision = state.map(|state| AnnotationRevision {
-            round: 1,
-            state: state.into(),
-            original: None,
-            text: None,
-            reason: None,
-            question: None,
-            answer: None,
-            error: None,
-        });
-        comment
-    }
-
-    // annotation-rounds.ts's `revisable`: a numbered, open note with no
-    // proposal waiting and no unanswered question.
-    #[test]
-    fn what_a_round_asks_about() {
-        let none = |_: &str| false;
-        assert!(revisable(&note("a", 1, "a.tex", 0, None), &none));
-        assert!(!revisable(&note("a", 0, "a.tex", 0, None), &none));
-        assert!(!revisable(&note("a", 1, "a.tex", 0, Some("proposed")), &none));
-        assert!(!revisable(&note("a", 1, "a.tex", 0, Some("asked")), &none));
-        assert!(revisable(&note("a", 1, "a.tex", 0, Some("rejected")), &none));
-        assert!(!revisable(&note("a", 1, "a.tex", 0, None), &|id| id == "a"));
-        let mut answered = note("a", 1, "a.tex", 0, Some("asked"));
-        answered.revision.as_mut().unwrap().answer = Some("yes".into());
-        assert!(revisable(&answered, &none));
-    }
-
-    #[test]
-    fn proposals_are_walked_by_file_then_place() {
-        let notes = [
-            note("c", 3, "b.tex", 0, Some("proposed")),
-            note("b", 2, "a.tex", 9, Some("proposed")),
-            note("a", 1, "a.tex", 2, Some("proposed")),
-            note("d", 4, "a.tex", 1, Some("rejected")),
-        ];
-        let refs: Vec<&EditorComment> = notes.iter().collect();
-        let order: Vec<String> = pending_proposals(&refs).into_iter().map(|comment| comment.id).collect();
-        assert_eq!(order, ["a", "b", "c"]);
-    }
-}
+mod tests;

@@ -294,7 +294,7 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
         // Only from a LaTeX source, which SyncTeX maps to the PDF.
         if context.latex_source {
             out.push(Command::new(
-                "reveal-cursor",
+                "sync-pdf",
                 t!("Jump to PDF"),
                 Section::Navigate,
                 ForwardSync,

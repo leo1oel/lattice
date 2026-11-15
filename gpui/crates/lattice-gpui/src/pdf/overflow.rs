@@ -18,7 +18,9 @@ use gpui_kit::base::Popover as BasePopover;
 use lattice_i18n::t;
 use lattice_ui::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
-    components::{IconButton, MenuItem, MenuSeparator, MenuSurface, PopFrom, pop_in},
+    components::{
+        IconButton, MenuItem, MenuSeparator, MenuSurface, PopFrom, pop_in, pop_out, popup_exit,
+    },
     fluid_hover::{FluidHover, ItemKind},
     shape,
 };
@@ -126,8 +128,9 @@ impl PdfView {
         let can_back = self.can_go_back();
         let can_forward = self.can_go_forward();
         let can_reveal = self.can_reveal;
+        let reveal_disabled = self.reveal_disabled || self.locating;
         let action = self.action.clone();
-        let can_save = self.source.is_some();
+        let can_save = self.source.is_some() && !self.saving;
         BasePopover::new("pdf-overflow")
             .anchor(gpui::Anchor::TopRight)
             .offset(px(6.))
@@ -137,7 +140,9 @@ impl PdfView {
                     .tooltip(t!("More PDF actions"))
                     .fluid(),
             )
-            .content(move |_, window, cx| {
+            .exit(popup_exit())
+            .content(move |state, window, cx| {
+                let leaving = state.leaving();
                 let popover = cx.entity();
                 // One fill gliding between the rows, as every menu's
                 // (`lattice_ui::fluid_hover`); a separator starts a section.
@@ -220,7 +225,7 @@ impl PdfView {
                                 t!("Reveal cursor in PDF"),
                                 Icon::LOCATE_FIXED,
                                 None,
-                                false,
+                                reveal_disabled,
                                 Box::new(|_, _, cx| cx.emit(PdfViewEvent::RevealCursor)),
                             ))
                             .child(separator());
@@ -283,7 +288,10 @@ impl PdfView {
                     !can_save,
                     Box::new(|view, window, cx| view.save_as(window, cx)),
                 ));
-                pop_in("pdf-overflow-menu", PopFrom::Above, menu)
+                match leaving {
+                    Some(elapsed) => pop_out(PopFrom::Above, elapsed, menu),
+                    None => pop_in("pdf-overflow-menu", PopFrom::Above, menu),
+                }
             })
             .into_any_element()
     }

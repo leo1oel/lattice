@@ -146,7 +146,9 @@ impl Render for ArxivExportSheet {
             .child(
                 Button::new("arxiv-cancel", t!("Cancel"))
                     .ghost()
-                    .on_click(cx.listener(|this, _, _, cx| this.close(cx))),
+                    .on_click(ModalLayer::closing("arxiv-export", cx, |this, _, cx| {
+                        this.close(cx)
+                    })),
             )
             .child(
                 Button::new(

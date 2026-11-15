@@ -26,7 +26,7 @@ use gpui_kit::base::Popover;
 use lattice_i18n::t;
 use lattice_ui::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
-    components::{Button, PopFrom, StatusItem, pop_in},
+    components::{Button, PopFrom, StatusItem, popup_exit, popup_motion},
     elevation::Elevation,
     tokens::FONT_WEIGHT_SEMIBOLD,
     typography::tabular_nums,
@@ -287,8 +287,10 @@ pub fn item(
         .anchor(Anchor::BottomLeft)
         .offset(px(6.))
         .trigger_with(move |_, _, _| trigger.into_any_element())
-        .content(move |_, _, cx| {
-            pop_in(
+        .exit(popup_exit())
+        .content(move |state, _, cx| {
+            popup_motion(
+                state,
                 "save-state-details",
                 PopFrom::Below,
                 details(&slot.details(), &panel, cx),

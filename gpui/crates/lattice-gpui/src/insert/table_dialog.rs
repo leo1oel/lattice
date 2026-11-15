@@ -605,8 +605,11 @@ impl Render for TableGenerator {
         let this = cx.entity().downgrade();
         let mut sheet = Sheet::new("table-generator", title).on_close({
             let this = this.clone();
-            move |_, cx| {
-                this.update(cx, |_, cx| cx.emit(TableEvent::Close)).ok();
+            move |window, cx| {
+                let this = this.clone();
+                ModalLayer::leave("table-generator", window, cx, move |_, cx| {
+                    this.update(cx, |_, cx| cx.emit(TableEvent::Close)).ok();
+                });
             }
         });
         if !supported {
@@ -638,7 +641,9 @@ impl Render for TableGenerator {
         sheet = sheet.action(
             Button::new("table-cancel", t!("Cancel"))
                 .ghost()
-                .on_click(cx.listener(|_, _, _, cx| cx.emit(TableEvent::Close))),
+                .on_click(ModalLayer::closing("table-generator", cx, |_, _, cx| {
+                    cx.emit(TableEvent::Close)
+                })),
         );
         if reviewing {
             sheet = sheet.action(Button::new("table-back", t!("Back")).on_click(cx.listener(

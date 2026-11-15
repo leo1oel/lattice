@@ -7,15 +7,17 @@
 //! window and every editor on a project sees one list. A change is refused,
 //! saying why, until the file has been read: a save replaces the whole file,
 //! so a list never read (a read still under way, a file that does not parse)
-//! must not be written over what is on disk. Saves are numbered from the
-//! process-wide counter the Agent's page saves through too
-//! (`agent::commands`), so whichever of the two writes last wins and an
-//! older save that lands late is dropped by lattice-core.
+//! must not be written over what is on disk. Saves are numbered
+//! (`agent::commands::next_annotation_save`), so an older save that lands
+//! late is dropped by lattice-core.
 //!
-//! What another writer puts in the file (the Agent's page, an edit outside
-//! Lattice) is read again when the status counters read the project again,
-//! after a save or an outside edit, unless a change made here is still on
-//! its way to disk.
+//! The store is the file's one writer in the app. The Agent's page reads
+//! and changes the annotations through it (`agent/surface/annotations.rs`):
+//! its changes are applied by id to what the store holds, so a page never
+//! saves its own copy over a note or round written here meanwhile. What a
+//! writer outside the app puts in the file is read again when the status
+//! counters read the project again, after a save or an outside edit, unless
+//! a change made here is still on its way to disk.
 
 use std::{
     collections::HashMap,
@@ -225,6 +227,14 @@ impl AnnotationStore {
         self.projects
             .get(root)
             .is_some_and(|entry| matches!(entry.loaded, Some(Ok(()))))
+    }
+
+    /// Why `root`'s annotations could not be read, once a first read failed.
+    pub fn read_failure(&self, root: &Path) -> Option<&str> {
+        match self.projects.get(root)?.loaded.as_ref()? {
+            Err(error) => Some(error),
+            Ok(()) => None,
+        }
     }
 
     /// Everything the file holds for `root`.

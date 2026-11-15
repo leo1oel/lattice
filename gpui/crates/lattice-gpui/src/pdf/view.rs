@@ -39,6 +39,7 @@ use lattice_core::{latex::PdfSyncTarget, pdf_pages::PageSignatures};
 use lattice_i18n::t;
 
 mod drafts;
+mod host;
 mod links;
 mod live;
 mod pages;
@@ -69,7 +70,15 @@ const REFIT_SETTLE: Duration = Duration::from_millis(120);
 pub enum PdfViewEvent {
     /// A double-click at (`x`, `y`) PDF points from the top-left corner of
     /// page `page` (1-based): show its source.
-    SourceAt { page: u32, x: f64, y: f64 },
+    SourceAt {
+        page: u32,
+        x: f64,
+        y: f64,
+        /// The word under the click, for the caret to land on.
+        word: Option<lattice_editor::latex::synctex_word::SyncTexWord>,
+        /// ⌘ was held: the figure's drawing, when the point is on one.
+        figure: bool,
+    },
     /// The toolbar's Reveal cursor in PDF.
     RevealCursor,
     /// The toolbar action the host offered (`ToolbarAction`).
@@ -194,6 +203,14 @@ pub struct PdfView {
     next_mark: usize,
     pub(super) message: Option<SharedString>,
     pub(super) loading: bool,
+    /// A status line over the pages (`.pdf-notice`): the file was removed.
+    pub(super) notice: Option<SharedString>,
+    /// Reveal cursor in PDF waits: the caret is not in a .tex file, or a
+    /// jump is being located (`locating`, which spins it).
+    pub(super) reveal_disabled: bool,
+    pub(super) locating: bool,
+    /// Save PDF as… is under way: a second save waits for it.
+    pub(super) saving: bool,
     pub(super) dark: bool,
     pub(super) action: Option<ToolbarAction>,
     pub(super) outline: Option<super::OutlineState>,
@@ -304,6 +321,10 @@ impl PdfView {
             next_mark: 0,
             message: None,
             loading: false,
+            notice: None,
+            reveal_disabled: false,
+            locating: false,
+            saving: false,
             dark: super::dark::enabled(),
             action: None,
             outline: None,
@@ -320,71 +341,6 @@ impl PdfView {
             settle_task: None,
             _subscriptions: subscriptions,
         }
-    }
-
-    // ---- What the host sets -------------------------------------------------
-
-    pub fn set_action(&mut self, action: Option<ToolbarAction>, cx: &mut Context<Self>) {
-        self.action = action;
-        cx.notify();
-    }
-
-    /// Offer Reveal cursor in PDF (the live PDF and a root document's tab).
-    pub fn set_can_reveal(&mut self, can: bool, cx: &mut Context<Self>) {
-        self.can_reveal = can;
-        cx.notify();
-    }
-
-    /// Offer Build project while there is no PDF, and show a build running.
-    pub fn set_build(&mut self, offers: bool, building: bool, cx: &mut Context<Self>) {
-        if (self.offers_build, self.building) != (offers, building) {
-            self.offers_build = offers;
-            self.building = building;
-            cx.notify();
-        }
-    }
-
-    /// The pages' scroll area on screen, as of the last frame.
-    pub fn viewport_bounds(&self) -> Bounds<Pixels> {
-        self.viewport
-    }
-
-    pub fn page_count(&self) -> usize {
-        self.pages.len()
-    }
-
-    /// The page in view, 0-based.
-    pub fn current_page(&self) -> usize {
-        self.current_page
-    }
-
-    pub fn scale(&self) -> f32 {
-        self.scale
-    }
-
-    pub fn fit(&self) -> Option<FitMode> {
-        self.fit
-    }
-
-    pub fn stats(&self) -> &RenderStats {
-        &self.stats
-    }
-
-    /// Whether a place the viewer was given still waits for the pages to be
-    /// laid out at the viewport's size.
-    /// The vertical scrollbar's thumb opacity as last drawn: 0 while it
-    /// hides.
-    pub fn scrollbar_opacity(&self) -> f32 {
-        self.scrollbar_drawn.get()
-    }
-
-    /// The vertical scrollbar's thumb as last drawn, `None` while it hides.
-    pub fn scrollbar_thumb(&self) -> Option<lattice_ui::scrollbar::DrawnThumb> {
-        self.scrollbar_thumb.get()
-    }
-
-    pub fn has_pending_scroll(&self) -> bool {
-        self.pending_scroll.is_some()
     }
 
     // ---- Opening ------------------------------------------------------------
@@ -830,10 +786,7 @@ impl PdfView {
 
     /// Dark pages on or off, in every viewer and window.
     pub fn toggle_dark_pages(&mut self, cx: &mut Context<Self>) {
-        let dark = !super::dark::enabled();
-        preferences::update(|preferences| preferences.dark_pages = dark);
-        // Every viewer follows (`observe_global` in `new`).
-        cx.set_global(super::dark::DarkPages);
+        super::dark::toggle(cx);
     }
 }
 

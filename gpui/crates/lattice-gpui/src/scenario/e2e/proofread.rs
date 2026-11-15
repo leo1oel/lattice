@@ -6,7 +6,8 @@
 //!   their reasons; the scenario stands in for the agent (a scratch run has
 //!   no Synara service), and everything from the reply on is the app's own;
 //! - the first edit kept as it was, ⌘↵ applies only the second, in one undo
-//!   step of its own: ⌘Z puts the sentence back;
+//!   step of its own: ⌘Z puts the sentence back; the words it replaced
+//!   stand struck where they were and fold their width away;
 //! - the card's Polish asks again, and Esc discards it, the text untouched;
 //! - with no stand-in the scratch run's agent cannot answer, and the card
 //!   says it could not proofread, with Try again;
@@ -74,6 +75,10 @@ impl Run {
             })
             .await
         };
+        // The replaced words fold from their end: the room they take
+        // narrows a character at a time, then they are gone.
+        let folds = self.ghost_widths(cx, &editor).await;
+        let folded = folds.len() >= 2 && folds.windows(2).all(|pair| pair[1] < pair[0]);
         self.adapter_shot(cx, "proofread-accepted").await;
         let undone = {
             let _front = self.focused(cx, "editor").await?;
@@ -82,9 +87,9 @@ impl Run {
                 .await
         };
         steps.check(
-            "kept edits stay as they were; ⌘↵ applies the rest in one undo step that ⌘Z takes back",
-            kept && accepted && undone,
-            json!({ "kept": kept, "accepted": accepted, "undone": undone, "text": self.editor_text(cx, &editor) }),
+            "kept edits stay as they were; ⌘↵ applies the rest in one undo step that ⌘Z takes back, its replaced words folding away",
+            kept && accepted && folded && undone,
+            json!({ "kept": kept, "accepted": accepted, "folds": folds.iter().map(|width| f32::from(*width)).collect::<Vec<_>>(), "undone": undone, "text": self.editor_text(cx, &editor) }),
         );
 
         // Polish asks again; Esc discards it all.
@@ -164,6 +169,33 @@ impl Run {
         })?;
         let _ = original;
         Ok(())
+    }
+
+    /// The widths an accepted edit's replaced words took, in the order
+    /// they were painted, until they are gone (or 1.5 s pass).
+    async fn ghost_widths(&self, cx: &mut AsyncApp, editor: &Entity<EditorPanel>) -> Vec<gpui::Pixels> {
+        let lattice = cx.update(|cx| editor.read(cx).lattice_editor().clone());
+        let start = std::time::Instant::now();
+        let mut widths: Vec<gpui::Pixels> = Vec::new();
+        while start.elapsed() < Duration::from_millis(1500) {
+            let width = cx.update(|cx| {
+                lattice
+                    .read(cx)
+                    .painted()
+                    .inline
+                    .iter()
+                    .filter(|(layer, _, _)| *layer == "proofread-accept-ghosts")
+                    .map(|(_, _, bounds)| bounds.size.width)
+                    .reduce(gpui::Pixels::max)
+            });
+            match width {
+                Some(width) if widths.last() != Some(&width) => widths.push(width),
+                None if !widths.is_empty() => break,
+                _ => {}
+            }
+            cx.background_executor().timer(Duration::from_millis(8)).await;
+        }
+        widths
     }
 
     fn select_sentence(&self, cx: &mut AsyncApp, editor: &Entity<EditorPanel>) -> Result<()> {

@@ -286,7 +286,9 @@ impl Render for ExportDialog {
                     .gap(px(8.))
                     .child(
                         Button::new("app-log-export-cancel", t!("Cancel"))
-                            .on_click(cx.listener(|_, _, _, cx| cx.emit(ExportEvent::Close))),
+                            .on_click(ModalLayer::closing("app-log-export", cx, |_, _, cx| {
+                                cx.emit(ExportEvent::Close)
+                            })),
                     )
                     .child(
                         Button::new("app-log-export-copy", t!("Copy JSON"))

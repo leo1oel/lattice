@@ -141,6 +141,7 @@ lucide! {
     /// The empty Annotations panel's Open a file.
     FILE_SEARCH = "icons" / "file-search";
     CORNER_DOWN_LEFT = "icons" / "corner-down-left";
+    PIPETTE = "icons" / "pipette";
     LIST_FILTER = "icons" / "list-filter";
     /// A .tex file's Source / Visual switch.
     CODE_XML = "icons" / "code-xml";

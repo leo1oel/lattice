@@ -808,7 +808,9 @@ impl Render for ConflictResolver {
             .child(
                 Button::new("conflict-cancel", t!("Cancel"))
                     .disabled(saving)
-                    .on_click(cx.listener(|this, _, _, cx| this.close(cx))),
+                    .on_click(ModalLayer::closing("conflict-resolver", cx, |this, _, cx| {
+                        this.close(cx)
+                    })),
             )
             .child(edit_button)
             .child(primary);
