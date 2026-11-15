@@ -65,6 +65,7 @@ mod papers;
 mod parts;
 mod pdf_citations;
 mod pdf_figure;
+mod pdf_notes;
 mod pdf_sync;
 mod pdfs;
 mod references_flow;

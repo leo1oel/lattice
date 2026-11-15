@@ -64,6 +64,7 @@ markdown.workspace = true
 pdfium-render.workspace = true
 # The Tauri app's TeX message and word patterns (crate::build).
 regex = "1"
+unicode-normalization = "0.1"
 release_channel.workspace = true
 project.workspace = true
 search.workspace = true

@@ -43,6 +43,7 @@ mod compound;
 mod drafts;
 mod events;
 mod hover_card;
+mod notes;
 mod host;
 mod links;
 mod live;
@@ -56,6 +57,7 @@ mod window_wide;
 
 pub use citation::CitationLookup;
 pub use compound::CompoundSource;
+pub use notes::PdfNotes;
 
 use page_changes::changed_pages;
 pub(super) use pages::PageSlot;
@@ -187,6 +189,7 @@ pub struct PdfView {
     /// The last build's compounds, for the key cards over their numbers.
     compounds: Option<CompoundSource>,
     compound: compound::CompoundHover,
+    notes: notes::NoteMarks,
     place_report: place::PlaceReport,
     /// Middle-click autoscroll while it runs, and the press it took whose
     /// release is not a click.
@@ -313,6 +316,7 @@ impl PdfView {
             citation: Default::default(),
             compounds: None,
             compound: Default::default(),
+            notes: Default::default(),
             place_report: Default::default(),
             autoscroll: None,
             blocked_up: None,

@@ -234,6 +234,7 @@ impl PdfView {
             )
             .children(self.citation_card_element(window, cx))
             .children(self.compound_card_element(window, cx))
+            .children(self.note_card_element(window, cx))
             .child(self.window_wide_listeners(window, cx))
             // A refresh of the PDF on screen says so, quietly.
             .when(self.loading, |area| {
@@ -480,6 +481,7 @@ impl PdfView {
             .children(hits)
             .children(selection)
             .children(mark)
+            .children(self.note_marks(ix, cx))
             .children(links)
             .into_any_element()
     }

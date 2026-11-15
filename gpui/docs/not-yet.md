@@ -7,7 +7,7 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] The Annotations panel's Export review PDF….
 
-- [ ] The PDF: its annotations.
+- [ ] The PDF: annotating a selection (the Annotate offer and its composer), and a note's preview card on hover.
 
 - [ ] The PDF: its comment column.
 

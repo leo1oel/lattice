@@ -90,6 +90,7 @@ impl PdfView {
         if event.pressed_button.is_none() && !self.autoscrolling() {
             self.hover_citation(event.position, cx);
             self.hover_compound(event.position, cx);
+            self.hover_note(event.position, cx);
         }
         if !self.selecting || event.pressed_button != Some(MouseButton::Left) {
             return;
@@ -127,7 +128,12 @@ impl PdfView {
             });
             if on_it {
                 self.follow(&target, cx);
+                return;
             }
+        }
+        // A click on a note's highlight or pin opens its card.
+        if collapsed && event.click_count == 1 {
+            self.click_note(event.position, cx);
         }
     }
 
