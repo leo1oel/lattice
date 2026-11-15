@@ -8,7 +8,8 @@
 //! - a turn the page reports running is the window's, and its start marks
 //!   Get started's Agent step; reported over, it is gone;
 //! - an image opened over the source, or focused in a split beside it, is
-//!   the active file, without a caret;
+//!   the active file, without a caret, while a tool view such as the
+//!   Project tree takes the keyboard;
 //! - an Open Slide deck in front is the active file, without a caret, and
 //!   its page hears the turn's presence and its end;
 //! - switching project mid-turn asks first and keeps the project;
@@ -152,6 +153,8 @@ impl Run {
         });
         let mut split_front = false;
         let mut split_workspace = Value::Null;
+        let mut split_kept = false;
+        let mut split_tree = Value::Null;
         if let Some((image, panel)) = views {
             self.with_window(cx, move |shell, window, cx| {
                 shell.update(cx, |shell, cx| {
@@ -177,6 +180,30 @@ impl Run {
                 })
                 .await;
             split_workspace = workspace(cx);
+            self.with_window(cx, |shell, window, cx| {
+                shell.update(cx, |shell, cx| {
+                    shell.show_view("project", true, window, cx);
+                    shell.focus_view_content("project", window, cx);
+                })
+            })?;
+            self.pause(cx, Duration::from_millis(300)).await;
+            let (tree_focused, tree_workspace) = cx.update(|cx| {
+                let focused = self
+                    .shell
+                    .read(cx)
+                    .workspace()
+                    .read(cx)
+                    .engine()
+                    .focused_view()
+                    == Some("project");
+                (focused, surface.read(cx).workspace().clone())
+            });
+            split_kept = tree_focused
+                && tree_workspace["activeFile"] == "figure.png"
+                && tree_workspace
+                    .get("editorPosition")
+                    .is_none_or(Value::is_null);
+            split_tree = json!({ "focused": tree_focused, "workspace": tree_workspace });
         }
         self.open(cx, &root.join("main.tex"), Some(1))?;
         let split_back = self
@@ -185,9 +212,9 @@ impl Run {
             })
             .await;
         steps.check(
-            "an image focused in a split beside the source is the Agent's active file, without a caret, until the source is focused again",
-            split_front && split_back,
-            json!({ "image": split_workspace, "back": workspace(cx) }),
+            "an image focused in a split beside the source is the Agent's active file, without a caret, through the Project tree's focus, until the source is focused again",
+            split_front && split_kept && split_back,
+            json!({ "image": split_workspace, "tree": split_tree, "back": workspace(cx) }),
         );
         self.with_window(cx, move |shell, _, cx| {
             shell.update(cx, |shell, cx| {

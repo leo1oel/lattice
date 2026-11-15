@@ -104,10 +104,12 @@ impl Shell {
                 .engine()
                 .focused_view()
                 .filter(|view| {
-                    self.panel_of_view(view).is_some_and(|panel| {
-                        panel.view().downcast::<EditorPanel>().is_err()
-                            && panel.focus_handle(cx).contains_focused(window, cx)
-                    })
+                    let doc = self.document(cx);
+                    !file_key(doc.views.get(*view)).is_empty()
+                        && self.panel_of_view(view).is_some_and(|panel| {
+                            panel.view().downcast::<EditorPanel>().is_err()
+                                && panel.focus_handle(cx).contains_focused(window, cx)
+                        })
                 })
                 .map(str::to_string)
                 .or_else(|| self.context().other_front.clone())
@@ -190,9 +192,8 @@ impl Shell {
     /// The document the Agent takes as in front, and whether it is the
     /// active editor's: the file view that is no editor the writer last
     /// worked in (an image, a project PDF, in any pane), or another tab
-    /// selected over the editor's
-    /// in its panel, is in front instead, without the editor's caret or
-    /// selection.
+    /// selected over the editor's in its panel, is in front instead, without
+    /// the editor's caret or selection.
     fn agent_front_document(&self, cx: &App) -> (Option<String>, bool) {
         let doc = self.document(cx);
         if let Some(focused) = self.agent.state.context.other_front.as_deref()
