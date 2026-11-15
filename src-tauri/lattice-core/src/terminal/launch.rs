@@ -6,7 +6,7 @@
 //! `pty::spawn_shell` (and `windows.rs` on Windows) give the Tauri app's
 //! shells; keep the two in step.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// The shell a terminal tab runs, and what it starts with.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -68,6 +68,17 @@ pub fn shell_launch() -> ShellLaunch {
     }
 }
 
+/// The project folder as a shell can start in it. The root is canonicalized,
+/// which on Windows spells it `\\?\C:\…` (or `\\?\UNC\…`); PowerShell (and
+/// conda's hook) does not accept that as a starting directory and falls back
+/// to System32 or shows a `FileSystem::\\?\` prompt. The conversion is the
+/// one Node's entry points get (`sidecar::node_script_path`): ordinary drive
+/// and UNC spellings, UTF-16 kept whole, other namespaces left alone. Off
+/// Windows the root is unchanged.
+pub fn shell_cwd(root: &Path) -> PathBuf {
+    crate::sidecar::node_script_path(root)
+}
+
 /// A running process's name ("latexmk"), when it still exists: what closing
 /// a terminal whose foreground job it leads would stop.
 #[cfg(unix)]
@@ -97,5 +108,25 @@ mod tests {
     fn a_running_process_is_named() {
         let name = process_name(std::process::id() as i32);
         assert!(name.is_some_and(|name| !name.is_empty()));
+    }
+}
+
+#[cfg(all(test, windows))]
+mod windows_tests {
+    use super::shell_cwd;
+    use std::path::Path;
+
+    #[test]
+    fn the_shell_starts_in_the_plain_spelling_of_the_project_folder() {
+        for (root, plain) in [
+            (r"\\?\C:\Users\Ada\Papers", r"C:\Users\Ada\Papers"),
+            (r"\\?\D:\Lattice é 中文\Papers", r"D:\Lattice é 中文\Papers"),
+            (r"\\?\UNC\server\share\Papers", r"\\server\share\Papers"),
+            (r"C:\Users\Ada\Papers", r"C:\Users\Ada\Papers"),
+            // Not a drive or a share: no plain spelling to give it.
+            (r"\\?\Volume{abc}\Papers", r"\\?\Volume{abc}\Papers"),
+        ] {
+            assert_eq!(shell_cwd(Path::new(root)), Path::new(plain));
+        }
     }
 }
