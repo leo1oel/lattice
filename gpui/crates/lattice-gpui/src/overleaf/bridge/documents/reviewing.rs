@@ -92,7 +92,7 @@ impl OverleafBridge {
         let send = live.ot.local_ops(ops.clone()).ok_or_else(|| {
             t!("This suggestion no longer matches the text. Try again in a moment.").to_string()
         })?;
-        if !panel.update(cx, |panel, cx| panel.take_overleaf_ops(&ops, cx)) {
+        if !panel.update(cx, |panel, cx| panel.take_overleaf_ops(&ops, false, cx)) {
             let notice = t!("This document drifted from Overleaf's copy, so live editing stopped. Syncing will reconcile it.").to_string();
             self.drop_live(doc_id, Some(notice), cx);
             return Ok(());

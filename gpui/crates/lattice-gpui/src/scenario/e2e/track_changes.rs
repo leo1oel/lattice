@@ -136,12 +136,12 @@ impl Run {
         let base_now =
             |cx: &mut AsyncApp| cx.update(|cx| store::store(cx).read(cx).base_for(root, "chapters/intro.tex"));
         let away = self.editor_text(cx, &editor).replacen("The last line.", "The very last line.", 1);
-        self.with_window(cx, |_, _, cx| editor.update(cx, |editor, cx| editor.take_overleaf_text(&away, cx)))?;
+        self.with_window(cx, |_, _, cx| editor.update(cx, |editor, cx| editor.take_overleaf_text(&away, true, cx)))?;
         let moved = base_now(cx).is_some_and(|base| base.contains("The very last line."))
             && self.review_state(cx, &editor).map(|state| state.0) == Some(2)
             && notice(cx).is_none();
         let inside = self.editor_text(cx, &editor).replacen(" One more.", " One or two more.", 1);
-        self.with_window(cx, |_, _, cx| editor.update(cx, |editor, cx| editor.take_overleaf_text(&inside, cx)))?;
+        self.with_window(cx, |_, _, cx| editor.update(cx, |editor, cx| editor.take_overleaf_text(&inside, true, cx)))?;
         let noticed = notice(cx).is_some() && base_now(cx).is_some_and(|base| base.contains("or two"));
         steps.check(
             "a co-author's live edit moves the base with it, and one inside the writer's change says both versions are kept",
