@@ -232,6 +232,17 @@ impl ProjectIndex {
         }));
     }
 
+    /// The last build that wrote a PDF, as [`Self::set_compiled_build`] was
+    /// given it.
+    pub fn compiled_build(&self) -> Option<&CompiledBuild> {
+        self.compiled.build.as_ref()
+    }
+
+    /// Every label the last build numbered, once its `.aux` has been read.
+    pub fn compiled_labels(&self) -> Arc<HashMap<String, CompiledLabel>> {
+        self.compiled.labels.clone()
+    }
+
     /// What the last build numbered `label`.
     pub fn compiled_label(&self, label: &str) -> Option<&CompiledLabel> {
         self.compiled.labels.get(label)

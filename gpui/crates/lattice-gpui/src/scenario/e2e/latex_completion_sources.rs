@@ -6,7 +6,9 @@
 //! writes it, `\includegraphics{` lists a figure under the `\graphicspath`
 //! root another file sets, by its path relative to that root, a command the
 //! open file defines with `\newcommand` is listed for its first letters, as
-//! is one another file defines, and, with TexLab installed, TexLab's items
+//! is one another file defines, `\cmpd{` lists another file's chemnum key
+//! and a drawing's mark, which picked there is written as `\rcmpd{…}`, and,
+//! with TexLab installed, TexLab's items
 //! join the menu (the `\input`'s folder entry, which Lattice's own sources
 //! never list). The scratch files go after.
 
@@ -24,6 +26,8 @@ use crate::{editor_panel::EditorPanel, scenario::Run};
 const SCRATCH: &str = "completion.tex";
 const MACROS: &str = "completion-macros.tex";
 const FIGURE: &str = "completion-figures/plot.png";
+/// An editable figure's entry file, which names a drawing's mark.
+const ROUTE: &str = "completion-figures/route.tex";
 const TEXT: &str = "\\newcommand{\\Rset}{\\mathbb{R}}\n\n";
 
 impl Run {
@@ -40,7 +44,12 @@ impl Run {
         std::fs::write(&figure, b"")?;
         std::fs::write(
             &macros,
-            "\\graphicspath{{completion-figures/}}\n\\newcommand{\\cZq}{\\mathcal{Z}}\n",
+            "\\graphicspath{{completion-figures/}}\n\\newcommand{\\cZq}{\\mathcal{Z}}\n\
+             See \\cmpd{ketone}.\n\\begin{scheme}\\input{completion-figures/route}\\caption{Route}\\end{scheme}\n",
+        )?;
+        std::fs::write(
+            root.join(ROUTE),
+            "% editable-figure source: route.cdxml\n\\rcmpd{alcohol.a.num}\n",
         )?;
         std::fs::write(&scratch, TEXT)?;
         // The project's tree takes the new files in before the editor reads it.
@@ -50,7 +59,9 @@ impl Run {
                 let files = project.read(cx).files();
                 let mut paths = Vec::new();
                 crate::editor_panel::definition::project_paths(files, &mut paths);
-                paths.iter().any(|path| path == FIGURE) && paths.iter().any(|path| path == MACROS)
+                [FIGURE, MACROS, ROUTE]
+                    .iter()
+                    .all(|wanted| paths.iter().any(|path| path == wanted))
             })
         })
         .await;
@@ -102,6 +113,37 @@ impl Run {
         );
 
         // Lattice's own sources list files; a folder in the menu is TexLab's.
+        // chemnum: another file's key in \cmpd{, and a drawing's mark picked
+        // there turns the command into \rcmpd{.
+        self.end_line(cx, &panel)?;
+        let keys = self.typed_menu(cx, &panel, " \\cmpd{k").await?;
+        self.press(cx, '\u{1b}', false).await?;
+        self.end_line(cx, &panel)?;
+        let marks = self.typed_menu(cx, &panel, " \\cmpd{alcohol.a").await?;
+        self.press(cx, '\n', false).await?;
+        self.pause(cx, Duration::from_millis(200)).await;
+        let text = self.editor_text(cx, &panel);
+        steps.check(
+            "in \\cmpd{ the project's compound keys are listed, and a drawing's mark picked there is written as \\rcmpd{…}",
+            keys.first().map(String::as_str) == Some("ketone")
+                && marks.first().map(String::as_str) == Some("alcohol.a.num")
+                && text.contains("\\rcmpd{alcohol.a.num}")
+                && !text.contains("\\cmpd{alcohol"),
+            json!({
+                "keys": keys,
+                "marks": marks,
+                "line": text.lines().last(),
+                "facts": cx.update(|cx| panel.read(cx).index_lint().map(|lint| {
+                    let facts = lint.read(cx).facts().borrow();
+                    json!({
+                        "paths": facts.paths.len(),
+                        "keys": facts.compounds.keys,
+                        "places": facts.compounds.place_lines,
+                    })
+                })),
+            }),
+        );
+
         if TexlabService::available() {
             steps.check(
                 "with TexLab installed, its completions join the menu: an \\input's lists TexLab's folder entry beside Lattice's files",
@@ -226,6 +268,8 @@ pub(super) const MODULE: super::registry::Module = super::registry::Module {
     covers: &[
         "gpui/crates/lattice-editor/src/latex/project_completions.rs",
         "gpui/crates/lattice-editor/src/latex/texlab_completions.rs",
+        "gpui/crates/lattice-editor/src/latex/compound_completion.rs",
+        "gpui/crates/lattice-editor/src/latex/compound_places.rs",
         "gpui/crates/lattice-editor/src/completion.rs",
     ],
     run: |run, cx, steps, fixture| Box::pin(run.latex_completion_sources(cx, steps, &fixture.root)),

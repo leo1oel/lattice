@@ -12,7 +12,9 @@
 //! TexLab is not installed to report them itself, the labels and keys
 //! nothing uses. A run reads the buffer once and lints off the main thread;
 //! a later run supersedes it. What it reads of the other files also goes to
-//! the editor's path and macro completion (`ProjectFacts`).
+//! the editor's path, macro and chemnum compound completion
+//! (`ProjectFacts`), the compounds' numbers and places read again after
+//! each build.
 
 use std::{collections::HashSet, path::PathBuf, time::Duration};
 
@@ -22,6 +24,7 @@ use lattice_editor::{
     LatticeEditor, TexlabService,
     index::ProjectIndex,
     latex::{
+        compound_completion::read_compound_facts,
         definition::graphics_roots,
         lint::{
             LintIndex, index_lint,
@@ -50,6 +53,9 @@ pub struct IndexLint {
     path: String,
     root_document: String,
     unused: (HashSet<String>, HashSet<String>),
+    /// The last build and how many of its labels were read when the
+    /// project was last read, for its compound numbers and places.
+    compiled_seen: Option<(u64, usize)>,
     generation: u64,
     _run: Option<Task<()>>,
     _read: Option<Task<()>>,
@@ -78,8 +84,13 @@ impl IndexLint {
                         this.schedule(LINT_DELAY, cx);
                     }
                 }),
-                cx.observe(&index, |this, _: Entity<ProjectIndex>, cx| {
-                    this.schedule(Duration::ZERO, cx)
+                cx.observe(&index, |this, index: Entity<ProjectIndex>, cx| {
+                    // A new build (or its labels read) renumbers the compounds.
+                    if compiled(index.read(cx)) != this.compiled_seen {
+                        this.read_project(cx);
+                    } else {
+                        this.schedule(Duration::ZERO, cx)
+                    }
                 }),
                 cx.subscribe(project, |this, _, event: &ProjectEvent, cx| {
                     if matches!(
@@ -102,6 +113,7 @@ impl IndexLint {
                 path,
                 root_document,
                 unused: Default::default(),
+                compiled_seen: None,
                 generation: 0,
                 _run: None,
                 _read: None,
@@ -110,6 +122,11 @@ impl IndexLint {
             this.read_project(cx);
             this
         })
+    }
+
+    /// What the completion reads of the project, for the e2e checks.
+    pub fn facts(&self) -> &Facts {
+        &self.facts
     }
 
     /// The marks and cards, for the e2e checks.
@@ -145,6 +162,15 @@ impl IndexLint {
             .cloned()
             .collect();
         let texlab = TexlabService::available();
+        let tex_paths: Vec<String> = paths
+            .iter()
+            .filter(|path| path.ends_with(".tex"))
+            .cloned()
+            .collect();
+        let index = project.index().read(cx);
+        self.compiled_seen = compiled(index);
+        let build = index.compiled_build().cloned();
+        let labels = index.compiled_labels();
         self.facts.borrow_mut().paths = paths;
         let read = cx.background_spawn(async move {
             let sources: Vec<String> = others
@@ -163,15 +189,22 @@ impl IndexLint {
                     )
                 })
                 .unwrap_or_default();
-            (roots, macros, unused)
+            let compounds = read_compound_facts(
+                &folder,
+                &tex_paths,
+                build.as_ref(),
+                build.as_ref().map(|_| labels.as_ref()),
+            );
+            (roots, macros, unused, compounds)
         });
         self._read = Some(cx.spawn(async move |this, cx| {
-            let (roots, macros, unused) = read.await;
+            let (roots, macros, unused, compounds) = read.await;
             this.update(cx, |this, cx| {
                 {
                     let mut facts = this.facts.borrow_mut();
                     facts.graphics_roots = roots;
                     facts.macros = macros;
+                    facts.compounds = compounds;
                 }
                 this.unused = unused;
                 this.schedule(Duration::ZERO, cx);
@@ -248,6 +281,13 @@ impl IndexLint {
             .ok();
         }));
     }
+}
+
+/// Which build the index holds, and how many of its labels it has read.
+fn compiled(index: &ProjectIndex) -> Option<(u64, usize)> {
+    index
+        .compiled_build()
+        .map(|build| (build.id, index.compiled_labels().len()))
 }
 
 impl super::EditorPanel {

@@ -34,6 +34,8 @@ pub mod citation_library;
 pub mod compiled_labels;
 pub mod definition;
 pub mod completions;
+pub mod compound_completion;
+pub mod compound_places;
 pub mod compounds;
 pub mod diagnostics;
 pub mod edits;
@@ -108,8 +110,9 @@ pub fn language_for_path(path: &Path, cx: &App) -> Option<Arc<Language>> {
 
 /// Put the LaTeX extensions that read the project on `editor`: the citation,
 /// reference and figure cards, and completion of citation keys, labels,
-/// project paths, the project's own commands and built-in ones, in the Tauri
-/// app's source order. `facts` is what the host reads of the project's files.
+/// chemnum compound keys, project paths, the project's own commands and
+/// built-in ones, in the Tauri app's source order. `facts` is what the host
+/// reads of the project's files.
 pub fn attach(
     editor: &mut LatticeEditor,
     index: &Entity<ProjectIndex>,
@@ -130,6 +133,9 @@ pub fn attach(
         index: weak.clone(),
     }));
     editor.add_completion_source(Rc::new(completions::ReferenceSource { index: weak }));
+    editor.add_completion_source(Rc::new(compound_completion::CompoundSource {
+        facts: facts.clone(),
+    }));
     editor.add_completion_source(Rc::new(project_completions::IncludeSource {
         facts: facts.clone(),
     }));

@@ -72,7 +72,7 @@ impl CompoundNumbers {
     }
 }
 
-fn is_safe_key(key: &str) -> bool {
+pub(crate) fn is_safe_key(key: &str) -> bool {
     let count = key.chars().count();
     (1..=MAX_KEY_CHARS).contains(&count)
         && !key.chars().any(|ch| {
