@@ -304,8 +304,26 @@ impl Run {
         let Some(bounds) = cx.update(|cx| island.read(cx).bounds(cx)) else {
             return Ok(json!("no bounds"));
         };
+        // The click lands on the paragraph typed into, as a writer's would:
+        // the page's middle is whatever the layout puts there (a table's
+        // button when an earlier module left the documents split, closing a
+        // document keeping its pane as an empty slot), and a press on a
+        // button leaves the editor without the keyboard.
+        let target = self
+            .evaluate(
+                cx,
+                island,
+                "(() => { const p = [...document.querySelectorAll('.lx-md-surface p')].find((node) => node.textContent.includes('Some')); \
+                 if (!p) return null; p.scrollIntoView({ block: 'nearest' }); const rect = p.getBoundingClientRect(); \
+                 return JSON.stringify({ x: rect.left + Math.min(12, rect.width / 2), y: rect.top + rect.height / 2 }); })()",
+            )
+            .await;
+        let at = match (target["x"].as_f64(), target["y"].as_f64()) {
+            (Some(x), Some(y)) => bounds.origin + gpui::point(gpui::px(x as f32), gpui::px(y as f32)),
+            _ => bounds.center(),
+        };
         let native = self.native(cx)?;
-        native::send_click(native, bounds.center())?;
+        native::send_click(native, at)?;
         self.wait_for(cx, Duration::from_secs(3), |_, cx| {
             island.read(cx).page_focused()
         })
