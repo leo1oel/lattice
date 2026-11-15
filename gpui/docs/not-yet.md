@@ -13,13 +13,7 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] Overlay exit motion for the menus and popovers GPUI Kit's popover opens, and for a dialog closed by a button of its own.
 
-- [ ] The 13 animated product icons.
-
 - [ ] The editor's change wash on lines an outside edit landed, and an accepted suggestion's strike, fold and settle (`lattice_ui::attention` has their timing).
-
-- [ ] The minor motions.
-
-- [ ] The Agent: a Papers selection in its context.
 
 - [ ] The Agent: its annotation tools, recording proposals and questions from the conversation into the open round.
 
@@ -57,8 +51,6 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] Overleaf: the live channel joining again when the network comes back (it does when the window comes forward).
 
-- [ ] Overleaf: the titlebar control's animated cloud-upload icon (the icon is still).
-
 - [ ] Overleaf: Review changes' "Could not render these changes" state.
 
 - [ ] Overleaf: the "Opening the Overleaf project…" transition when a downloaded project opens.
@@ -66,8 +58,6 @@ A feature that lands deletes its own line (only that line, so features landing s
 - [ ] Overleaf: a compile after a resolved conflict (the watcher's build stands in).
 
 - [ ] The visual Markdown editor: Overleaf's tracked changes painted in it.
-
-- [ ] A Finder drop onto the Agent panel attaching its files (the drop hook is `shell/drops.rs`'s `agent_drop_target`).
 
 - [ ] A Finder drop of a drawing (`.svg`, `.drawio`) onto the editor as an editable figure.
 

@@ -272,6 +272,7 @@ impl Shell {
             })
         });
         let mut button = IconButton::new("annotations", Icon::ANNOTATIONS)
+            .animated(lattice_ui::animated_icon::ProductIcon::ChatOutline)
             .surface(Surface::Titlebar)
             .on(open > 0)
             .tooltip(t!("Annotations"))
