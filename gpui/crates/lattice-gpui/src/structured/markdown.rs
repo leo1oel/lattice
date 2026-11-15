@@ -363,6 +363,9 @@ impl StructuredDocument {
         if let Some(cursors) = &self.visual.presence {
             payload["presence"] = cursors.clone();
         }
+        if let Some(review) = &self.visual.changes {
+            payload["overleaf"] = review.clone();
+        }
         payload["files"] = session.files.clone();
         payload["texSources"] = json!(session.tex_sources);
         payload["paper"] = session

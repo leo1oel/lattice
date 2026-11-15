@@ -34,7 +34,7 @@
  *   md:scroll-to      { center, min, max }   Split: the line at the source's centre, and its range
  *   md:paper          { paper }       the file is a saved paper's reading text (null: it is not)
  *   md:presence       { cursors }       co-authors' carets, rows of the file (also `doc:open`'s `presence`)
- *   md:overleaf       { changes, authors, canAct }   Overleaf's suggestions on the file, painted with their cards
+ *   md:overleaf       { changes, authors, canAct }   Overleaf's suggestions on the file, painted with their cards (also `doc:open`'s `overleaf`)
  *   doc:editable      { editable }      the file may (not) be edited here
  * Page to host:
  *   md:change         { source, base }  the whole file after an edit made against `base`
@@ -122,6 +122,7 @@ type MarkdownOpen = {
   texSources: string[];
   paper?: PaperReading | null;
   presence?: PresenceCursor[];
+  overleaf?: Partial<MarkdownOverleaf>;
 };
 
 type Reveal = { id: string; target: VisualRevealTarget };
@@ -167,6 +168,7 @@ function reduce(state: State, action: Action): State {
         files: action.open.files, texSources: action.open.texSources, reveal: null,
         paper: action.open.paper ?? null,
         presence: action.open.presence ?? [],
+        overleaf: { ...NO_OVERLEAF, ...action.open.overleaf },
       };
     case "source":
       return { ...state, source: action.source };

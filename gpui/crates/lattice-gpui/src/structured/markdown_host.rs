@@ -20,7 +20,7 @@ use super::{StructuredDocument, StructuredEvent};
 #[derive(Default)]
 pub(super) struct Sent {
     pub(super) presence: Option<Value>,
-    changes: Option<Value>,
+    pub(super) changes: Option<Value>,
 }
 
 /// A co-author's caret, as the visual editor takes it (`PresenceCursor`):

@@ -13,7 +13,8 @@
 //!
 //! Zed's row highlights take their colour from a function of the app, so
 //! the wash's moment lives in a global the colour reads, and a task asks
-//! the editor for frames until it is over, then takes the rows away.
+//! the editor for frames until it is over, then takes that editor's rows
+//! away unless the editor was washed again since.
 
 use std::{
     collections::HashMap,
@@ -21,7 +22,7 @@ use std::{
 };
 
 use editor::{Editor, RowHighlightOptions};
-use gpui::{App, Context, Entity, Global, Hsla};
+use gpui::{App, Context, Entity, EntityId, Global, Hsla};
 use language::{Bias, Point};
 use lattice_ui::{ActiveLattice as _, attention};
 
@@ -35,10 +36,14 @@ const TAKE_WAIT: Duration = Duration::from_secs(2);
 /// One frame at 60 Hz.
 const FRAME: Duration = Duration::from_millis(16);
 
-/// The wash showing now, which every washed row's colour reads.
+/// The wash showing now, which every washed row's colour reads, and when
+/// each editor's own rows were last washed, so each editor takes its rows
+/// away when its own wash is over.
+#[derive(Default)]
 struct ChangeWash {
-    started: Instant,
+    started: Option<Instant>,
     reduce_motion: bool,
+    editors: HashMap<EntityId, Instant>,
 }
 
 impl Global for ChangeWash {}
@@ -48,9 +53,15 @@ struct LandedRows;
 
 fn wash_color(cx: &App) -> Hsla {
     let soft = cx.palette().success_soft;
-    let share = cx.try_global::<ChangeWash>().map_or(0., |wash| {
-        attention::change_wash(wash.started.elapsed(), wash.reduce_motion)
-    });
+    let share = cx
+        .try_global::<ChangeWash>()
+        .and_then(|wash| {
+            Some(attention::change_wash(
+                wash.started?.elapsed(),
+                wash.reduce_motion,
+            ))
+        })
+        .unwrap_or(0.);
     soft.opacity(soft.a * share)
 }
 
@@ -127,10 +138,13 @@ impl EditorPanel {
 
 /// Wash `rows` of `editor` for the moment.
 fn wash(editor: &Entity<Editor>, rows: &[u32], cx: &mut App) {
-    cx.set_global(ChangeWash {
-        started: Instant::now(),
-        reduce_motion: cx.reduce_motion(),
-    });
+    let started = Instant::now();
+    let reduce_motion = cx.reduce_motion();
+    let id = editor.entity_id();
+    let wash = cx.default_global::<ChangeWash>();
+    wash.started = Some(started);
+    wash.reduce_motion = reduce_motion;
+    wash.editors.insert(id, started);
     editor.update(cx, |editor, cx| {
         let snapshot = editor.buffer().read(cx).snapshot(cx);
         editor.clear_row_highlights::<LandedRows>();
@@ -150,29 +164,36 @@ fn wash(editor: &Entity<Editor>, rows: &[u32], cx: &mut App) {
             );
         }
     });
-    let started = cx.global::<ChangeWash>().started;
     let editor = editor.downgrade();
     cx.spawn(async move |cx| {
-        let ends = started + attention::LINGER;
-        while Instant::now() < ends {
+        // The colour follows the latest wash anywhere, so the rows stay
+        // until that one has let go too.
+        let ends = |cx: &mut App| {
+            cx.try_global::<ChangeWash>()
+                .and_then(|wash| wash.started)
+                .unwrap_or(started)
+                .max(started)
+                + attention::LINGER
+        };
+        while Instant::now() < cx.update(ends) {
             cx.background_executor().timer(FRAME).await;
             if editor.update(cx, |_, cx| cx.notify()).is_err() {
-                return;
+                break;
             }
         }
         cx.update(|cx| {
-            // A later wash, anywhere, keeps its own rows.
-            let current = cx
-                .try_global::<ChangeWash>()
-                .is_some_and(|wash| wash.started == started);
-            if current {
-                editor
-                    .update(cx, |editor, cx| {
-                        editor.clear_row_highlights::<LandedRows>();
-                        cx.notify();
-                    })
-                    .ok();
+            // A later wash of the same editor keeps its own rows.
+            let wash = cx.default_global::<ChangeWash>();
+            if wash.editors.get(&id) != Some(&started) {
+                return;
             }
+            wash.editors.remove(&id);
+            editor
+                .update(cx, |editor, cx| {
+                    editor.clear_row_highlights::<LandedRows>();
+                    cx.notify();
+                })
+                .ok();
         });
     })
     .detach();
