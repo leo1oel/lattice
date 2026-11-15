@@ -27,6 +27,20 @@ struct Sources {
     tasks: Vec<Task<()>>,
 }
 
+impl Sources {
+    /// An editor holds `path` as `text` now, or no longer (`None`): the
+    /// saved file, which it may have written meanwhile, is read again once
+    /// it closes. Whether what is known of `path` changed.
+    fn hold(&mut self, path: &str, text: Option<String>) -> bool {
+        let forgot = self.saved.remove(path).is_some() | self.reading.remove(path);
+        let changed = match text {
+            Some(text) => self.live.insert(path.to_string(), text.clone()).as_ref() != Some(&text),
+            None => self.live.remove(path).is_some(),
+        };
+        forgot || changed
+    }
+}
+
 #[derive(Default)]
 pub struct ReasonSources {
     roots: HashMap<PathBuf, Sources>,
@@ -50,11 +64,7 @@ pub fn set_live(root: &Path, path: &str, text: Option<String>, cx: &mut App) {
     let entity = sources(cx);
     entity.update(cx, |sources, cx| {
         let entry = sources.roots.entry(root.to_path_buf()).or_default();
-        let changed = match text {
-            Some(text) => entry.live.insert(path.to_string(), text.clone()).as_ref() != Some(&text),
-            None => entry.live.remove(path).is_some(),
-        };
-        if changed {
+        if entry.hold(path, text) {
             cx.notify();
         }
     });
@@ -96,8 +106,8 @@ impl ReasonSources {
             this.update(cx, |this, cx| {
                 if let Some(entry) = this.roots.get_mut(&root)
                     && entry.revision == revision
+                    && entry.reading.remove(&path)
                 {
-                    entry.reading.remove(&path);
                     entry.saved.insert(path, text);
                     cx.notify();
                 }
@@ -176,4 +186,31 @@ pub fn open_orphans(root: &Path, cx: &mut App) -> usize {
 pub fn observe<V: 'static>(cx: &mut Context<V>) -> gpui::Subscription {
     let entity = sources(cx);
     cx.observe(&entity, |_, _, cx| cx.notify())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// `useCitationReasonSources`: a closed editor's file is read as it was
+    /// saved, so a cite deleted and saved there is gone from it; the copy
+    /// read before the editor held it does not speak for it.
+    #[test]
+    fn a_closed_editors_file_is_read_again_as_saved() {
+        let root = Path::new("/project");
+        let mut sources = ReasonSources::default();
+        let entry = sources.roots.entry(root.to_path_buf()).or_default();
+        entry.revision = 7;
+        entry
+            .saved
+            .insert("main.tex".into(), Some("\\cite{knuth1984}".into()));
+        assert!(entry.hold("main.tex", Some("Deleted.".into())));
+        assert_eq!(
+            sources.known(root, "main.tex", 7),
+            Some(Some("Deleted.".into()))
+        );
+        let entry = sources.roots.get_mut(root).unwrap();
+        assert!(entry.hold("main.tex", None));
+        assert_eq!(sources.known(root, "main.tex", 7), None);
+    }
 }
