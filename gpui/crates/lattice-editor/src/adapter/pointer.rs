@@ -159,17 +159,53 @@ impl LatticeEditor {
         {
             return vec![target];
         }
-        let Some(offset) = geometry::offset_at(&self.editor, &text, position, window, cx) else {
+        let Some(offset) = Self::character_in(&self.editor, &text, bounds, position, window, cx)
+        else {
             return Vec::new();
         };
+        self.text_targets(&text, offset, cx)
+    }
+
+    /// The offset of the character under `position`, a window point, when
+    /// the point is over the text (a ⌘-click's target): none past a line's
+    /// end or off the text.
+    pub fn character_at(
+        &self,
+        position: Point<Pixels>,
+        window: &mut Window,
+        cx: &mut App,
+    ) -> Option<usize> {
+        let bounds = self.painted.borrow().bounds?;
+        let text = self.buffer.read(cx).snapshot();
+        Self::character_in(&self.editor, &text, bounds, position, window, cx)
+    }
+
+    /// The offset a click at `position`, a window point, puts the caret at:
+    /// a line's end past it. None off the text.
+    pub fn caret_offset_at(
+        &self,
+        position: Point<Pixels>,
+        window: &mut Window,
+        cx: &mut App,
+    ) -> Option<usize> {
+        let text = self.buffer.read(cx).snapshot();
+        geometry::offset_at(&self.editor, &text, position, window, cx)
+    }
+
+    fn character_in(
+        editor: &gpui::Entity<editor::Editor>,
+        text: &BufferSnapshot,
+        bounds: Bounds<Pixels>,
+        position: Point<Pixels>,
+        window: &mut Window,
+        cx: &mut App,
+    ) -> Option<usize> {
+        let offset = geometry::offset_at(editor, text, position, window, cx)?;
         // `character_index_for_point` clamps a point past a line's end to
         // the end: the pointer must be over the character it names.
-        let over_text = geometry::character_rect(&self.editor, &text, offset, bounds, window, cx)
-            .is_some_and(|rect| geometry::near(rect, position, px(1.)));
-        if !over_text {
-            return Vec::new();
-        }
-        self.text_targets(&text, offset, cx)
+        geometry::character_rect(editor, text, offset, bounds, window, cx)
+            .is_some_and(|rect| geometry::near(rect, position, px(1.)))
+            .then_some(offset)
     }
 
     /// The gutter mark whose line the pointer is beside, when it has a card.

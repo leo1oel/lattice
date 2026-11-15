@@ -137,6 +137,13 @@ fn default_bindings() -> Vec<KeyBinding> {
             crate::editor_panel::latex_format::MatchingEnvironment,
             Some("Editor && !VimControl"),
         ),
+        // F12, Go to definition (`latexCommandKeymap`'s `definition`), over
+        // Zed's own, which needs a language server this editor has not.
+        KeyBinding::new(
+            "f12",
+            crate::editor_panel::definition::GotoDefinition,
+            Some(LATEX_FORMAT_KEYS),
+        ),
         // The typing rules (`editor_panel/latex_input.rs`): with Vim on they
         // act only in its insert mode, so every other mode keeps `$` and
         // Enter, the ones waiting for a character (`f$`, `r⏎`, `R`, Ctrl-V)

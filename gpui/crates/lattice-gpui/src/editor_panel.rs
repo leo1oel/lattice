@@ -57,6 +57,8 @@ mod highlight_palette;
 mod insert;
 pub(crate) mod latex_format;
 pub(crate) mod latex_input;
+pub(crate) mod definition;
+mod source_pointer;
 mod latex_view;
 mod latex_visual_events;
 mod margin_review;
@@ -747,7 +749,8 @@ impl Render for EditorPanel {
         let bib = self.bib_for_view(window, cx);
         let body = self.render_views(editor, status, bib, cx);
         let root = Self::latex_commands(div().key_context("LatticeEditor"), cx);
-        Self::panel_actions(Self::latex_input_actions(root, cx), cx)
+        let root = Self::definition_actions(Self::latex_input_actions(root, cx), cx);
+        Self::panel_actions(root, cx)
             .on_action(cx.listener(Self::deploy_search))
             // An accept is an undo step of the editor's (`review_marks.rs`).
             .capture_action(cx.listener(|this, _: &editor::actions::Undo, window, cx| {
