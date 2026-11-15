@@ -140,6 +140,8 @@ impl Run {
     /// PDF's own window, whose toolbar shows it.
     async fn zoom_wheel(&self, cx: &mut AsyncApp, steps: &mut Steps) -> Result<()> {
         lattice_ui::parity::enable();
+        // The fit the wheel leaves, put back after for the modules that follow.
+        let fit_before = cx.update(|cx| self.shell.read(cx).pdf().read(cx).live_view().read(cx).fit());
         self.with_window(cx, |shell, window, cx| {
             let pdf = shell.read(cx).pdf().clone();
             pdf.update(cx, |pdf, cx| pdf.detach(window, cx));
@@ -201,6 +203,17 @@ impl Run {
             pdf.update(cx, |pdf, cx| pdf.dock(true, window, cx));
         })?;
         self.pause(cx, Duration::from_millis(600)).await;
+        if let Some(mode) = fit_before {
+            self.with_window(cx, move |shell, _, cx| {
+                let view = shell.read(cx).pdf().read(cx).live_view().clone();
+                view.update(cx, |view, cx| {
+                    if view.fit() != Some(mode) {
+                        view.toggle_fit(mode, cx);
+                    }
+                });
+            })?;
+            self.pause(cx, Duration::from_millis(300)).await;
+        }
         steps.check(
             "PDF: the wheel over the zoom value zooms in when turned up and out when turned down",
             zoom.is_some() && up > start && down < up,
