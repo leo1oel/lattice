@@ -1,8 +1,8 @@
 //! The tree's menus, grouped and drawn as the app's
 //! (`src/project/project-file-tree.tsx`, `project-tree-context-menu.tsx`):
 //! a row's make, change, locate and view items, each with its 14px glyph,
-//! and Delete at the foot; the empty area's (and the panel's ⋯) make and
-//! view items.
+//! and Delete at the foot; the empty area's make and view items. The panel's
+//! + and ⋯ menus are `new_entries.rs`'s.
 
 use gpui::{App, ClipboardItem, Context, WeakEntity, Window};
 use lattice_i18n::{n, t, tr};
@@ -229,19 +229,15 @@ impl FileTreePanel {
         )
     }
 
-    /// What can be added at the project's top level: the ⋯ menu's first
-    /// items, and the whole of the strip's + menu.
-    pub(super) fn new_entries_menu(view: &WeakEntity<Self>, menu: Menu) -> Menu {
-        Self::creation_items(view, "", menu)
-    }
-
-    /// The menu for the empty area around the rows, and the panel's ⋯ menu.
+    /// The menu for the empty area around the rows.
     pub(crate) fn background_menu(view: &WeakEntity<Self>, menu: Menu, cx: &App) -> Menu {
         let show_hidden = view
             .upgrade()
             .and_then(|this| this.read(cx).project.clone())
             .is_some_and(|project| project.read(cx).show_hidden());
-        let menu = Self::new_entries_menu(view, menu).separator();
+        // The Tauri app's tree background: New file, New folder, Import
+        // files…, then the view items.
+        let menu = Self::creation_items(view, "", menu).separator();
         Self::view_items(view, show_hidden, menu)
     }
 

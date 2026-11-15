@@ -9,12 +9,12 @@ use gpui::{AppContext as _, Context, Entity, Subscription, Window};
 use gpui_kit::component::input::{InputEvent, InputState};
 use lattice_core::models::FileNode;
 
-use super::{FileTreeEvent, FileTreePanel};
+use super::{FileTreeEvent, FileTreePanel, new_entries::Making};
 
 pub(super) enum NamingKind {
     /// A new entry in `directory`; the row is a placeholder until then.
     Create {
-        folder: bool,
+        making: Making,
     },
     Rename,
 }
@@ -32,11 +32,25 @@ pub(super) struct Naming {
 }
 
 impl FileTreePanel {
-    /// Start naming a new entry in `directory` ("" is the top level).
+    /// Start naming a new file or folder in `directory` ("" is the top
+    /// level): New file and New folder, a name without an extension made a
+    /// `.tex` by lattice-core.
     pub fn begin_create(
         &mut self,
         directory: &str,
         folder: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let making = if folder { Making::FOLDER } else { Making::FILE };
+        self.begin_making(directory, making, window, cx);
+    }
+
+    /// Start naming a new entry `making` in `directory`.
+    pub(super) fn begin_making(
+        &mut self,
+        directory: &str,
+        making: Making,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -45,7 +59,8 @@ impl FileTreePanel {
         };
         self.naming = None;
         let taken: HashSet<String> = all_paths(project.read(cx).files());
-        let path = placeholder(directory, &taken);
+        let shown = making.extension.filter(|_| making.shown);
+        let path = placeholder(directory, shown, &taken);
         if !directory.is_empty() {
             // Its folder opens, so the new row shows.
             let mut open = String::new();
@@ -58,7 +73,7 @@ impl FileTreePanel {
             }
         }
         let name = path.rsplit('/').next().unwrap_or(&path).to_string();
-        self.start_naming(path, name, NamingKind::Create { folder }, window, cx);
+        self.start_naming(path, name, NamingKind::Create { making }, window, cx);
         self.rebuild(cx);
     }
 
@@ -160,14 +175,23 @@ impl FileTreePanel {
             None => String::new(),
         };
         match naming.kind {
-            NamingKind::Create { folder } => {
+            NamingKind::Create { making } => {
                 if !name.is_empty() && (enter || !unchanged) {
-                    let path = if parent.is_empty() {
-                        name
+                    let name = making.named(&name);
+                    if making.deck {
+                        // The name under slides/ is the deck's id.
+                        cx.emit(FileTreeEvent::CreateDeck { id: name });
                     } else {
-                        format!("{parent}/{name}")
-                    };
-                    cx.emit(FileTreeEvent::Create { path, folder });
+                        let path = if parent.is_empty() {
+                            name
+                        } else {
+                            format!("{parent}/{name}")
+                        };
+                        cx.emit(FileTreeEvent::Create {
+                            path,
+                            folder: making.folder,
+                        });
+                    }
                 }
                 self.rebuild(cx);
             }
@@ -187,15 +211,19 @@ impl FileTreePanel {
     }
 }
 
-/// "untitled" in `directory`, or "untitled-2", "untitled-3", … when taken.
-fn placeholder(directory: &str, taken: &HashSet<String>) -> String {
+/// "untitled" in `directory`, or "untitled-2", "untitled-3", … when taken,
+/// with `extension` shown when given ("untitled.tex").
+fn placeholder(directory: &str, extension: Option<&str>, taken: &HashSet<String>) -> String {
     (1..)
         .map(|suffix| {
-            let name = if suffix > 1 {
+            let mut name = if suffix > 1 {
                 format!("untitled-{suffix}")
             } else {
                 "untitled".to_string()
             };
+            if let Some(extension) = extension {
+                name = format!("{name}.{extension}");
+            }
             if directory.is_empty() {
                 name
             } else {
@@ -227,10 +255,16 @@ pub(super) fn insert_placeholder(nodes: &mut Vec<FileNode>, path: &str, folder: 
     };
     let siblings = match parent {
         None => nodes,
-        Some(parent) => match find_folder(nodes, parent) {
-            Some(folder) => &mut folder.children,
-            None => return,
-        },
+        Some(parent) => {
+            // A deck's row is drawn under slides/ before the folder exists.
+            if find_folder(nodes, parent).is_none() && !parent.contains('/') {
+                insert_placeholder(nodes, parent, true);
+            }
+            match find_folder(nodes, parent) {
+                Some(folder) => &mut folder.children,
+                None => return,
+            }
+        }
     };
     let node = FileNode {
         name: name.to_string(),
@@ -287,9 +321,11 @@ mod tests {
             .into_iter()
             .map(str::to_string)
             .collect();
-        assert_eq!(placeholder("", &taken), "untitled-2");
-        assert_eq!(placeholder("chapters", &taken), "chapters/untitled-2");
-        assert_eq!(placeholder("figures", &taken), "figures/untitled");
+        assert_eq!(placeholder("", None, &taken), "untitled-2");
+        assert_eq!(placeholder("chapters", None, &taken), "chapters/untitled-2");
+        assert_eq!(placeholder("figures", None, &taken), "figures/untitled");
+        // A LaTeX or Markdown file's row shows its extension.
+        assert_eq!(placeholder("figures", Some("tex"), &taken), "figures/untitled.tex");
     }
 
     #[test]

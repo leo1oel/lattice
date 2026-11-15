@@ -57,7 +57,7 @@ mod overleaf_menus;
 mod overleaf_presence;
 mod overleaf_review;
 mod palette;
-mod palette_commands;
+pub(crate) mod palette_commands;
 mod palette_entries;
 mod palette_groups;
 mod papers;
