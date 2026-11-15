@@ -44,12 +44,9 @@ impl ReviewSource {
         notes
             .iter()
             .map(|note| {
-                // Each source note's SyncTeX lookup is a process of its own.
-                let source = note
-                    .pdf
-                    .is_none()
-                    .then(|| std::fs::read_to_string(self.root.join(&note.path)).ok())
-                    .flatten();
+                // A note made on the PDF falls back to SyncTeX too when its
+                // page is gone from this build.
+                let source = std::fs::read_to_string(self.root.join(&note.path)).ok();
                 reader.set_path(&note.path);
                 place_review(note, source.as_deref(), &mut reader)
             })

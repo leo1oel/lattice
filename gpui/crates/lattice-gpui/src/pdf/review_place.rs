@@ -81,7 +81,8 @@ fn margin_note(page: usize, (width, height): (f32, f32), top: f64) -> ReviewPlac
 }
 
 /// Where `note` goes on the PDF `reader` reads; `source` is its .tex file's
-/// text, for a note made there (`placeAnnotation`).
+/// text, for SyncTeX when the note has no anchor on this PDF's pages
+/// (`placeAnnotation`).
 pub fn place_review(
     note: &EditorComment,
     source: Option<&str>,
@@ -146,7 +147,7 @@ pub fn place_review(
 
 /// Sticky notes that would stand on one another in a page's margin, moved
 /// down (or up, near the page's foot) until each has its own place
-/// (`separateNotes`); `bottoms` is each page's lowest user-space y.
+/// (`separateNotes`); every page's box is taken to start at y = 0.
 pub fn separate_notes(placements: Vec<ReviewPlacement>) -> Vec<ReviewPlacement> {
     let mut taken: std::collections::HashMap<usize, Vec<f64>> = Default::default();
     let step = NOTE_SIZE + 4.;

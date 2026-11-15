@@ -164,3 +164,29 @@ fn names_the_copy_after_the_pdf() {
     assert_eq!(short_quote("  a\n  b "), "a b");
     assert_eq!(short_quote(&"x".repeat(90)).chars().count(), 80);
 }
+
+#[test]
+fn places_through_synctex_a_pdf_note_whose_page_is_gone() {
+    // Made on page 3; the rebuild has one page, where SyncTeX puts the line.
+    let mut pages = reader(
+        &[&["Results beat the baseline."]],
+        Some(SyncBox {
+            page: 0,
+            x: 72.,
+            y: 92.,
+            width: 300.,
+            height: 10.,
+        }),
+    );
+    let anchor = PdfAnchor {
+        page: 3,
+        rects: Vec::new(),
+        text: "beat the baseline".into(),
+    };
+    let quote = "beat the baseline";
+    let placed = place_review(&note(quote, Some(anchor)), Some(quote), &mut pages);
+    assert!(
+        matches!(placed, ReviewPlacement::Highlight { page: 0, .. }),
+        "{placed:?}"
+    );
+}
