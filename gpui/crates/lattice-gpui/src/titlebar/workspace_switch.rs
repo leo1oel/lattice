@@ -7,11 +7,10 @@
 //! room the workspaces fold into one menu button.
 
 use gpui::{
-    AnyElement, AnyView, App, AppContext as _, Context, InteractiveElement as _, IntoElement,
+    AnyElement, AnyView, App, Context, InteractiveElement as _, IntoElement,
     KeyDownEvent, ParentElement as _, StatefulInteractiveElement as _, Styled as _, Window, div,
     prelude::FluentBuilder as _, px,
 };
-use gpui_kit::component::input::{Input, InputEvent, InputState};
 use lattice_i18n::{space_mixed_script, t};
 use lattice_ui::{
     ActiveLattice as _, Elevation, Icon, TextRole, TextRoleStyle as _,
@@ -21,15 +20,16 @@ use lattice_ui::{
     },
     elevation::ring,
     icons::{ICON, ICON_SMALL},
-    interaction::{mix, tab_stop, track_pointer, use_interaction},
+    interaction::{mix, track_pointer, use_interaction},
     parity,
     typography::shaped_width,
 };
 
+use super::workspace_rename::rename_field;
 use crate::shell::{
     Shell,
     commands::NewWorkspace,
-    workspaces::{RenameError, Workspaces, shortcut_label, shown_name},
+    workspaces::{Workspaces, shortcut_label, shown_name},
 };
 
 /// The workspace a folded switch names is cut at about 9em.
@@ -41,12 +41,12 @@ const TAB_PAD: f32 = 10.;
 const TAB_GAP: f32 = 6.;
 const DOT: f32 = 5.;
 const ADD_WIDTH: f32 = 28.;
-const RENAME_PAD: f32 = 6.;
-const RENAME_MIN: f32 = 6. * 7. + 20.;
+pub(super) const RENAME_PAD: f32 = 6.;
+pub(super) const RENAME_MIN: f32 = 6. * 7. + 20.;
 /// A workspace chip's corner: the segmented track's thumb
 /// (`shape::SEGMENTED`, a control's 6px less the 2px inset), as the chrome
 /// draws it (`shape::CHROME`).
-fn segment_chip_radius() -> gpui::Pixels {
+pub(super) fn segment_chip_radius() -> gpui::Pixels {
     let (_, chip) = lattice_ui::shape::SEGMENTED.painted(lattice_ui::shape::CHROME);
     chip
 }
@@ -164,11 +164,13 @@ pub(super) fn workspace_switcher(
 
     let renaming = shell.layout.renaming.clone();
     if folded {
+        // Folded, no workspace has a tab to drag or to give the keyboard.
+        shell.layout.track.bounds.borrow_mut().clear();
         if renaming.is_some()
             && let Some(input) = shell.rename_input()
         {
             return track
-                .child(rename_field("workspace-rename", &input, &palette, cx))
+                .child(rename_field("workspace-rename", &input, shell.layout.track.taken, &palette, cx))
                 .into_any_element();
         }
         let name = current
@@ -235,16 +237,36 @@ pub(super) fn workspace_switcher(
     // A workspace chip's right-click menu: its id, and whether the project's
     // layout differs from it.
     let chip_menu = ContextMenu::<(String, bool)>::keyed("workspace-chip-menu", window, cx);
+    *shell.layout.track.menu.borrow_mut() = Some(chip_menu.clone());
     let chip_menu_weak = weak.clone();
     let chip_menu_layer =
         ContextMenu::layer(&chip_menu, window, cx, move |menu, (id, dirty), _, cx| {
             workspace_actions(menu, id, *dirty, chip_menu_weak.clone(), cx)
         });
+    // The project's workspace's plate slides between the tabs
+    // (`SlidingTabPill`); none while a preset lies over it.
+    let selected_ix = preset
+        .is_none()
+        .then(|| workspaces.iter().position(|(id, _)| current.as_deref() == Some(id.as_str())))
+        .flatten();
+    let plate = lattice_ui::sliding::SlidingPlate::new("workspace-plate", selected_ix, window, cx);
+    let plate_drawn = plate.is_drawn(cx);
+    let chip = plate.plate(
+        |chip| {
+            chip.rounded(segment_chip_radius())
+                .bg(palette.panel)
+                .shadow(raised_plate(&palette))
+        },
+        cx,
+    );
+    let dragging = shell.layout.track.dragging.clone();
+    let tab_bounds = shell.layout.track.bounds.clone();
     let tabs = workspaces.iter().enumerate().map(|(ix, (id, name))| {
         if renaming.as_deref() == Some(id.as_str())
             && let Some(input) = shell.rename_input()
         {
-            return rename_field(("workspace-rename", ix), &input, &palette, cx);
+            let field = rename_field(("workspace-rename", ix), &input, shell.layout.track.taken, &palette, cx);
+            return plate.item(ix, field);
         }
         let selected = preset.is_none() && current.as_deref() == Some(id.as_str());
         let underlying = preset.is_some() && current.as_deref() == Some(id.as_str());
@@ -273,8 +295,34 @@ pub(super) fn workspace_switcher(
         let menu_id = id.clone();
         let focus = focus_ring(&palette, palette.titlebar);
         let is_current = current.as_deref() == Some(id.as_str());
-        track_pointer(tab_stop(div().id(tab_id)), pointer)
+        let tab_focus = shell.workspace_tab_focus(id, cx);
+        let key_focus = tab_focus.clone();
+        let (press_id, key_id) = (id.clone(), id.clone());
+        let key_menu = chip_menu.clone();
+        let key_dirty = dirty && is_current;
+        let lifted = dragging.as_deref() == Some(id.as_str());
+        let bounds_id = id.clone();
+        let bounds = tab_bounds.clone();
+        // The project's workspace is the track's one tab stop.
+        let chip = track_pointer(div().id(tab_id).track_focus(&tab_focus), pointer)
+            .when(is_current, |tab| tab.tab_index(0))
             .focus_visible(move |style| style.shadow(focus))
+            .on_mouse_down(
+                gpui::MouseButton::Left,
+                cx.listener(move |shell, event, _, _| shell.press_workspace(&press_id, event)),
+            )
+            .on_key_down(cx.listener(move |shell, event: &KeyDownEvent, window, cx| {
+                if !key_focus.is_focused(window) {
+                    return;
+                }
+                let menu = key_menu.clone();
+                let target = (key_id.clone(), key_dirty);
+                let open = move |at, window: &mut Window, cx: &mut App| {
+                    menu.update(cx, |menu, cx| menu.open(at, target.clone(), window, cx));
+                };
+                shell.workspace_tab_key(&key_id, event, &open, window, cx)
+            }))
+            .when(lifted, |tab| tab.opacity(0.7).cursor(gpui::CursorStyle::ClosedHand))
             .flex()
             .flex_none()
             .items_center()
@@ -282,16 +330,24 @@ pub(super) fn workspace_switcher(
             .h(px(24.))
             .px(px(TAB_PAD))
             .rounded(segment_chip_radius())
-            .when(selected, |this| {
+            // Until the sliding plate is measured, the tab draws its own.
+            .when(selected && !plate_drawn, |this| {
                 this.bg(palette.panel).shadow(raised_plate(&palette))
             })
-            .when(!selected, |this| this.cursor_pointer())
+            .when(!selected && !lifted, |this| this.cursor_pointer())
             .text_role(TextRole::Caption, cx)
             .line_height(px(14.))
             .text_color(ink)
             .tooltip(move |_, cx| -> AnyView { LatticeTooltip::view(tooltip.clone(), None, cx) })
             .on_click(move |event, window, cx| {
                 let id = switch_id.clone();
+                // The end of a drag switches nothing.
+                if switch_weak
+                    .read_with(cx, |shell, _| shell.tab_click_suppressed())
+                    .unwrap_or(false)
+                {
+                    return;
+                }
                 if event.click_count() >= 2 {
                     rename_weak
                         .update(cx, |shell, cx| shell.start_rename(&rename_id, window, cx))
@@ -307,12 +363,27 @@ pub(super) fn workspace_switcher(
             .when(dirty && is_current, |this| this.child(dirty_dot(&palette)))
             .map(|chip| {
                 context_menu_trigger(chip, &chip_menu, (menu_id.clone(), dirty && is_current))
-            })
-            .into_any_element()
+            });
+        // Measured for the drag, and for the plate.
+        let chip = lattice_ui::measure::measured(chip, move |tab, _| {
+            bounds.borrow_mut().insert(bounds_id, tab);
+        });
+        plate.item(ix, chip)
     });
     let add_weak = weak.clone();
     let tabs: Vec<AnyElement> = tabs.collect();
-    track
+    // While a tab is pressed, the window's pointer drives the drag.
+    let pressed = shell.workspace_pressed().then(|| {
+        let weak = weak.clone();
+        gpui::canvas(|_, _, _| (), move |_, _, window, _| {
+            super::workspace_track::listen_while_pressed(weak, window)
+        })
+        .absolute()
+        .size_0()
+    });
+    let track = track
+        .children(chip)
+        .children(pressed)
         .children(tabs)
         .children(chip_menu_layer)
         .child(
@@ -335,8 +406,8 @@ pub(super) fn workspace_switcher(
                         .ok();
                 })
                 .child(Icon::PLUS.element(ICON, palette.text_secondary)),
-        )
-        .into_any_element()
+        );
+    plate.strip(track)
 }
 
 /// Save to workspace and Revert (while the project's layout differs from
@@ -431,69 +502,6 @@ fn workspace_actions(
 }
 
 impl Shell {
-    pub(crate) fn rename_input(&self) -> Option<gpui::Entity<InputState>> {
-        self.rename_input.clone()
-    }
-
-    /// Edit workspace `id`'s name in place of its tab: Enter keeps a free
-    /// name (one already taken stays in editing), Escape keeps the old one,
-    /// and leaving the field keeps a free name or else the old one.
-    pub(crate) fn start_rename(&mut self, id: &str, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(name) = Workspaces::global(cx)
-            .get(id)
-            .map(|entry| shown_name(&entry.name))
-        else {
-            return;
-        };
-        let input = cx.new(|cx| {
-            let mut state = InputState::new(window, cx);
-            state.set_value(name, window, cx);
-            state
-        });
-        let target = id.to_string();
-        let subscription = cx.subscribe_in(
-            &input,
-            window,
-            move |this, input, event, window, cx| match event {
-                InputEvent::PressEnter { .. } => {
-                    let name = input.read(cx).value().to_string();
-                    let result = Workspaces::update(cx, |library| library.rename(&target, &name));
-                    if result != Err(RenameError::Taken) {
-                        this.finish_rename(window, cx);
-                    }
-                }
-                InputEvent::Blur => {
-                    let name = input.read(cx).value().to_string();
-                    let _ = Workspaces::update(cx, |library| library.rename(&target, &name));
-                    this.finish_rename(window, cx);
-                }
-                _ => {}
-            },
-        );
-        input.update(cx, |input, cx| {
-            input.focus(window, cx);
-            input.select_all(window, cx);
-        });
-        self.layout.renaming = Some(id.to_string());
-        self.rename_input = Some(input);
-        self.rename_subscription = Some(subscription);
-        cx.notify();
-    }
-
-    /// Close the rename field. The keyboard comes back to the window only
-    /// from the field itself: a click elsewhere keeps the focus it moved.
-    pub(crate) fn finish_rename(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let held = self.rename_input.take().is_some_and(|input| {
-            gpui::Focusable::focus_handle(input.read(cx), cx).contains_focused(window, cx)
-        });
-        self.layout.renaming = None;
-        self.rename_subscription = None;
-        if held || window.focused(cx).is_none() {
-            window.focus(&self.focus_handle, cx);
-        }
-        cx.notify();
-    }
-
     /// Delete a workspace (never the last); the project in it moves to its
     /// neighbour. A toast offers Undo.
     pub(crate) fn delete_workspace(
@@ -606,38 +614,9 @@ impl gpui::RenderOnce for FoldedSwitch {
     }
 }
 
-/// The field a workspace's name is edited in, where its tab (or the folded
-/// switch) stands; Escape keeps the old name.
-fn rename_field(
-    id: impl Into<gpui::ElementId>,
-    input: &gpui::Entity<InputState>,
-    palette: &lattice_ui::Palette,
-    cx: &mut Context<Shell>,
-) -> AnyElement {
-    div()
-        .id(id)
-        .h(px(24.))
-        .min_w(px(RENAME_MIN))
-        .px(px(RENAME_PAD))
-        .flex()
-        .items_center()
-        .rounded(segment_chip_radius())
-        .bg(palette.panel)
-        .shadow(raised_plate(palette))
-        .text_role(TextRole::Caption, cx)
-        .capture_key_down(cx.listener(|shell, event: &KeyDownEvent, window, cx| {
-            if event.keystroke.key == "escape" {
-                shell.finish_rename(window, cx);
-                cx.stop_propagation();
-            }
-        }))
-        .child(Input::new(input).appearance(false).bordered(false))
-        .into_any_element()
-}
-
 /// The selected segment's plate: the panel surface raised, with the strong
 /// hairline for its edge.
-fn raised_plate(palette: &lattice_ui::Palette) -> Vec<gpui::BoxShadow> {
+pub(super) fn raised_plate(palette: &lattice_ui::Palette) -> Vec<gpui::BoxShadow> {
     let mut plate = vec![ring(palette.line_strong)];
     plate.extend(Elevation::Raised.shadows(palette).into_iter().skip(1));
     plate

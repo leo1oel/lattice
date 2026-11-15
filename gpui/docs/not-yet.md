@@ -37,8 +37,6 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] A paper dragged from Papers into the editor as a citation.
 
-- [ ] The workspace switch's sliding plate, drag to reorder and keyboard.
-
 - [ ] Export figures for a journal….
 
 - [ ] New project's My templates and Save a local template….
