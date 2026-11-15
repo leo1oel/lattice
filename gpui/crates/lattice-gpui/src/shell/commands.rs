@@ -21,7 +21,7 @@ mod projects;
 mod section;
 mod submission;
 
-pub use key_labels::keys_label;
+pub use key_labels::{keys_label, keystrokes_label, tauri_keystroke};
 pub use keymap::bind_keys;
 pub use section::Section;
 
@@ -354,27 +354,6 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
             )
             .keys_only(),
         );
-        out.push(Command::new("next-tab", t!("Next tab"), Section::Navigate, NextTab).keys_only());
-        out.push(
-            Command::new(
-                "previous-tab",
-                t!("Previous tab"),
-                Section::Navigate,
-                PreviousTab,
-            )
-            .keys_only(),
-        );
-        // The workspace's own keys (`TRELLIS_SHORTCUTS`).
-        let nav = Section::Navigate;
-        out.push(Command::new("next-panel", "Next panel", nav, NextPanel).keys_only());
-        out.push(Command::new("previous-panel", "Previous panel", nav, PreviousPanel).keys_only());
-        out.push(
-            Command::new("navigate-back", "Previous zoomed view", nav, NavigateBack).keys_only(),
-        );
-        out.push(
-            Command::new("navigate-forward", "Next zoomed view", nav, NavigateForward).keys_only(),
-        );
-        out.push(Command::new("close-view", "Close the tab", nav, CloseView).keys_only());
     }
     out.push(
         Command::new(
@@ -657,8 +636,7 @@ mod tests {
         assert_eq!(row(&context, &StopBuild), Some(true));
         assert_eq!(row(&CommandContext::default(), &OpenTexDoctor), Some(true));
         // The shortcut sheet lists a section in table order: the Tauri table
-        // puts the build problems before Reopen the closed tab, and the tab
-        // pair stays together.
+        // puts the build problems before Reopen the closed tab.
         let navigate: Vec<_> = commands(&context)
             .into_iter()
             .filter(|command| command.section == Section::Navigate)
@@ -667,6 +645,5 @@ mod tests {
         let at = |id: &str| navigate.iter().position(|other| other == id).unwrap();
         assert_eq!(at("previous-problem"), at("next-problem") + 1);
         assert!(at("previous-problem") < at("reopen-tab"));
-        assert_eq!(at("previous-tab"), at("next-tab") + 1);
     }
 }

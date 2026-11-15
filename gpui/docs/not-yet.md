@@ -57,9 +57,7 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] The paper reader's selection actions: Copy source link and Add to note, on the full text and on the original PDF.
 
-- [ ] The shortcut sheet's filter field, its missing groups and its Esc row.
-
-- [ ] Focus mode's bar and Escape to leave it.
+- [ ] The shortcut sheet's Check references group (the review queue has no keys yet), and the LaTeX keys the source editor does not bind yet (inline math, the wrap, rename and select environment keys, sorting and case, the citation card, the symbol palette, Proofread), which join the sheet's LaTeX group once bound.
 
 - [ ] The app updater's release channel (it ships off) and the outdated-version hint on a failure's notice.
 
