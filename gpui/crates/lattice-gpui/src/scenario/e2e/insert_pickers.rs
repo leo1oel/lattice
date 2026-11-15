@@ -174,6 +174,78 @@ impl Run {
         let editor = self.open(cx, &chapter, Some(2))?;
         self.pause(cx, Duration::from_millis(200)).await;
         self.restore(cx, &editor, &original)?;
+
+        // The palette offers the four with a LaTeX source in front, as the
+        // Tauri palette does (`textEditor`, `latexSource`), and each row
+        // opens its own dialog.
+        let mut ran = Vec::new();
+        for label in ["Insert citation", "Insert reference", "Go to symbol", "Go to line"] {
+            let label_owned = label.to_string();
+            let found = self.with_window(cx, move |shell, window, cx| {
+                shell.update(cx, |shell, cx| {
+                    shell.close_document_overlays(window, cx);
+                    shell.open_palette(window, cx);
+                });
+                let palette = shell.read(cx).palette_view();
+                palette.is_some_and(|palette| {
+                    palette.update(cx, |palette, cx| {
+                        palette.type_query(&label_owned, window, cx);
+                        palette.run_labelled(&label_owned, window, cx)
+                    })
+                })
+            })?;
+            self.pause(cx, Duration::from_millis(300)).await;
+            let open = cx.update(|cx| {
+                let shell = self.shell.read(cx);
+                let picker = shell
+                    .quick_open()
+                    .map(|view| format!("{:?}", view.read(cx).picker_kind()));
+                (shell.goto_line_open(), picker)
+            });
+            ran.push((label, found, open));
+        }
+        self.close_pickers(cx)?;
+        let wanted = [
+            ("Insert citation", true, (false, Some("Some(InsertCitation)".to_string()))),
+            ("Insert reference", true, (false, Some("Some(InsertReference)".to_string()))),
+            ("Go to symbol", true, (false, Some("Some(GoToSymbol)".to_string()))),
+            ("Go to line", true, (true, None)),
+        ];
+        steps.check(
+            "the palette's Insert citation, Insert reference, Go to symbol and Go to line rows open their own dialogs",
+            ran.iter().zip(wanted.iter()).all(|(got, want)| {
+                got.0 == want.0 && got.1 == want.1 && got.2 == want.2
+            }),
+            json!({ "ran": format!("{ran:?}") }),
+        );
+
+        // With the bibliography in front (a text editor, not a LaTeX
+        // source) the palette keeps Go to line and drops the inserts.
+        self.open(cx, &root.join("references.bib"), Some(1))?;
+        self.pause(cx, Duration::from_millis(300)).await;
+        let labels = self.with_window(cx, |shell, window, cx| {
+            shell.update(cx, |shell, cx| shell.open_palette(window, cx));
+            shell.read(cx).palette_view().map(|palette| {
+                palette.update(cx, |palette, cx| palette.type_query("Go to", window, cx));
+                let mut labels: Vec<String> =
+                    palette.read(cx).rows().into_iter().map(|row| row.1).collect();
+                palette.update(cx, |palette, cx| palette.type_query("Insert", window, cx));
+                labels.extend(palette.read(cx).rows().into_iter().map(|row| row.1));
+                labels
+            })
+        })?;
+        let labels = labels.unwrap_or_default();
+        self.with_window(cx, |shell, window, cx| {
+            shell.update(cx, |shell, cx| shell.close_overlays(window, cx))
+        })?;
+        steps.check(
+            "with references.bib in front the palette offers Go to line but not Insert citation or Insert reference",
+            labels.iter().any(|label| label == "Go to line")
+                && !labels.iter().any(|label| label == "Insert citation" || label == "Insert reference"),
+            json!({ "labels": labels }),
+        );
+        self.open(cx, &chapter, Some(2))?;
+        self.pause(cx, Duration::from_millis(200)).await;
         Ok(())
     }
 
