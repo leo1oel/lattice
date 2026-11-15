@@ -6,7 +6,8 @@
 //!   notice with lattice-core's words, and writes nothing.
 //! - A figure made from a drawing that only the editor's unsaved text puts
 //!   in the paper is exported: the export saves first, writes the figure's
-//!   PDF in a folder of its own, and says so with Show in Finder.
+//!   PDF in a folder of its own, and says so with Show in Finder; a second
+//!   run while it is under way starts nothing.
 
 use std::{path::Path, time::Duration};
 
@@ -91,7 +92,10 @@ impl Run {
             })
         })?;
         let parent = tempfile::tempdir()?;
-        self.export_into(cx, parent.path()).await?;
+        // A second run while this one is under way starts nothing.
+        let second = tempfile::tempdir()?;
+        self.export_into_twice(cx, parent.path(), second.path()).await?;
+        let doubled = std::fs::read_dir(second.path())?.count();
         let said = titles(cx);
         let saved = std::fs::read_to_string(&main)?.contains(FLOAT);
         let folders: Vec<_> = std::fs::read_dir(parent.path())?
@@ -111,9 +115,13 @@ impl Run {
             title.starts_with("Exported ") && title.ends_with(" and the paper that includes them")
         });
         steps.check(
-            "Export figures for a journal saves the editor first, then writes the drawing's figure as a PDF in a folder of its own and says so",
-            saved && exported && folders.len() == 1 && figures.iter().any(|name| name.ends_with(".pdf")),
-            json!({ "saved": saved, "notices": said, "folders": folders, "figures": figures }),
+            "Export figures for a journal saves the editor first, then writes the drawing's figure as a PDF in a folder of its own and says so, and a second run meanwhile starts nothing",
+            saved
+                && exported
+                && folders.len() == 1
+                && figures.iter().any(|name| name.ends_with(".pdf"))
+                && doubled == 0,
+            json!({ "saved": saved, "notices": said, "folders": folders, "figures": figures, "second_run_wrote": doubled }),
         );
 
         // The steps after these find the project as it was.
@@ -141,9 +149,22 @@ impl Run {
     /// Run the export into `parent`, as the folder dialog would, and wait
     /// for it to end.
     async fn export_into(&self, cx: &mut AsyncApp, parent: &Path) -> Result<()> {
-        let parent = parent.to_path_buf();
+        self.export_runs(cx, &[parent]).await
+    }
+
+    /// Run the export into `first`, then at once again into `second`.
+    async fn export_into_twice(&self, cx: &mut AsyncApp, first: &Path, second: &Path) -> Result<()> {
+        self.export_runs(cx, &[first, second]).await
+    }
+
+    async fn export_runs(&self, cx: &mut AsyncApp, parents: &[&Path]) -> Result<()> {
+        let parents: Vec<_> = parents.iter().map(|parent| parent.to_path_buf()).collect();
         self.with_window(cx, move |shell, _, cx| {
-            shell.update(cx, |shell, cx| shell.export_for_journal_into(parent, cx))
+            shell.update(cx, |shell, cx| {
+                for parent in parents {
+                    shell.export_for_journal_into(parent, cx);
+                }
+            })
         })?;
         // It starts on the next turn; then the typesetting runs.
         self.pause(cx, Duration::from_millis(300)).await;

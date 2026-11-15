@@ -80,10 +80,25 @@ impl Shell {
         self.parts.get::<JournalExportState>().busy
     }
 
-    pub(crate) fn export_for_journal(&mut self, _: &mut Window, cx: &mut Context<Self>) {
-        if self.root(cx).is_none() || self.exporting_for_journal() {
-            return;
+    /// The project's root, the export marked under way, unless one already
+    /// is (from the command's run, as Tauri reads `projectRoot` then, so a
+    /// project opened meanwhile is not the one exported).
+    fn begin_export(&mut self, cx: &mut Context<Self>) -> Option<PathBuf> {
+        let root = self.root(cx)?;
+        let state = self.parts.get_mut::<JournalExportState>();
+        if state.busy {
+            return None;
         }
+        state.busy = true;
+        Some(root)
+    }
+
+    pub(crate) fn export_for_journal(&mut self, _: &mut Window, cx: &mut Context<Self>) {
+        // Marked under way from here, so a second run while the folder
+        // dialog is open (it does not block the window) starts nothing.
+        let Some(root) = self.begin_export(cx) else {
+            return;
+        };
         let chosen = cx.prompt_for_paths(PathPromptOptions {
             files: false,
             directories: true,
@@ -91,48 +106,44 @@ impl Shell {
             prompt: Some(t!("Choose where to put the figures for the journal").into()),
         });
         cx.spawn(async move |this, cx| {
-            let Ok(Ok(Some(paths))) = chosen.await else {
-                return;
+            let parent = match chosen.await {
+                Ok(Ok(Some(paths))) => paths.into_iter().next(),
+                _ => None,
             };
-            let Some(parent) = paths.into_iter().next() else {
-                return;
-            };
-            Self::export_journal_into(this, parent, cx).await;
+            Self::export_journal_into(this, root, parent, cx).await;
         })
         .detach();
     }
 
-    /// Save, then write the export into a new folder in `parent`.
+    /// Save, then write the export of `root` into a new folder in
+    /// `parent` (none when the dialog was dismissed); either way the export
+    /// is no longer under way after.
     async fn export_journal_into(
         this: gpui::WeakEntity<Self>,
-        parent: PathBuf,
+        root: PathBuf,
+        parent: Option<PathBuf>,
         cx: &mut gpui::AsyncApp,
     ) {
-        let Ok(Some(root)) = this.update(cx, |this, cx| {
-            let root = this.root(cx)?;
-            this.parts.get_mut::<JournalExportState>().busy = true;
-            Some(root)
-        }) else {
-            return;
-        };
-        // A save that fails says why itself, and nothing is written.
-        let saved = match this.update(cx, |this, cx| this.save_editors(cx)) {
-            Ok(task) => task.await,
-            Err(_) => false,
-        };
-        if saved {
-            cx.update(|cx| {
-                notices::show(
-                    Notice::new(ToastLevel::Info, t!("Typesetting the paper to cut out its figures…"))
-                        .source(t!("Export figures for a journal"))
-                        .key(KEY),
-                    cx,
-                )
-            });
-            let result = cx
-                .background_spawn(async move { export(&root, &parent) })
-                .await;
-            cx.update(|cx| notices::show(outcome(result), cx));
+        if let Some(parent) = parent {
+            // A save that fails says why itself, and nothing is written.
+            let saved = match this.update(cx, |this, cx| this.save_editors(cx)) {
+                Ok(task) => task.await,
+                Err(_) => false,
+            };
+            if saved {
+                cx.update(|cx| {
+                    notices::show(
+                        Notice::new(ToastLevel::Info, t!("Typesetting the paper to cut out its figures…"))
+                            .source(t!("Export figures for a journal"))
+                            .key(KEY),
+                        cx,
+                    )
+                });
+                let result = cx
+                    .background_spawn(async move { export(&root, &parent) })
+                    .await;
+                cx.update(|cx| notices::show(outcome(result), cx));
+            }
         }
         this.update(cx, |this, _| {
             this.parts.get_mut::<JournalExportState>().busy = false;
@@ -142,7 +153,10 @@ impl Shell {
 
     /// Export into `parent` without asking where, for scenarios.
     pub(crate) fn export_for_journal_into(&mut self, parent: PathBuf, cx: &mut Context<Self>) {
-        cx.spawn(async move |this, cx| Self::export_journal_into(this, parent, cx).await)
+        let Some(root) = self.begin_export(cx) else {
+            return;
+        };
+        cx.spawn(async move |this, cx| Self::export_journal_into(this, root, Some(parent), cx).await)
             .detach();
     }
 }
