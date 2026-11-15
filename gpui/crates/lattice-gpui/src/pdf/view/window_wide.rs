@@ -17,6 +17,7 @@ impl PdfView {
             || self.blocked_up.is_some()
             || self.citation_active()
             || self.compound_active()
+            || self.note_card().is_some()
     }
 
     /// The window's presses, releases and moves, taken before any element
@@ -124,6 +125,9 @@ impl PdfView {
     fn on_window_escape(&mut self, cx: &mut Context<Self>) -> bool {
         self.dismiss_citation(cx);
         self.dismiss_compound(cx);
+        if self.close_note_card(cx) && self.autoscroll.is_none() {
+            return true;
+        }
         if self.autoscroll.is_some() {
             self.stop_autoscroll(cx);
             return true;

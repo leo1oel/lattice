@@ -70,6 +70,8 @@ pub enum PdfEvent {
     },
     /// A citation card's title: open the paper cited under the key.
     OpenCitation(String),
+    /// A note's card on the PDF asked something of it.
+    Annotation(crate::annotations::AnnotationRequest),
     /// An Outline row: open `path` at `line`, and show it in the PDF.
     Outline {
         path: String,
@@ -113,6 +115,8 @@ pub struct PdfPanel {
     citations: Option<super::CitationLookup>,
     /// The last build's compounds, carried into the window.
     compounds: Option<super::CompoundSource>,
+    /// The project's notes, carried into the window.
+    notes: Option<super::PdfNotes>,
     /// Track changes' marked PDF building, or why it could not be made.
     pub(super) marking: super::review_marking::Marking,
     _subscriptions: Vec<gpui::Subscription>,
@@ -141,6 +145,18 @@ impl PdfPanel {
         ];
         for view in views.into_iter().flatten() {
             view.update(cx, |view, cx| view.set_citations(lookup.clone(), cx));
+        }
+    }
+
+    /// The project's notes, drawn on the PDF.
+    pub fn set_notes(&mut self, notes: Option<super::PdfNotes>, cx: &mut Context<Self>) {
+        self.notes = notes.clone();
+        let views = [
+            Some(self.view.clone()),
+            self.window.as_ref().map(|(_, view)| view.clone()),
+        ];
+        for view in views.into_iter().flatten() {
+            view.update(cx, |view, cx| view.set_notes(notes.clone(), cx));
         }
     }
 
@@ -204,6 +220,7 @@ impl PdfPanel {
             outline: None,
             citations: None,
             compounds: None,
+            notes: None,
             marking: Default::default(),
             _subscriptions: subscriptions,
         }
@@ -297,6 +314,7 @@ impl PdfPanel {
                 line: *line,
             }),
             PdfViewEvent::OpenCitation(key) => cx.emit(PdfEvent::OpenCitation(key.clone())),
+            PdfViewEvent::Annotation(request) => cx.emit(PdfEvent::Annotation(request.clone())),
             PdfViewEvent::Action => self.detach(window, cx),
         }
     }
@@ -486,7 +504,11 @@ impl PdfPanel {
                 // The panel's own viewer lets go of its pages.
                 self.view.update(cx, |view, cx| view.close(window, cx));
                 let compounds = self.compounds.clone();
-                view.update(cx, |view, cx| view.set_compounds(compounds, cx));
+                let notes = self.notes.clone();
+                view.update(cx, |view, cx| {
+                    view.set_compounds(compounds, cx);
+                    view.set_notes(notes, cx);
+                });
                 self.window = Some((handle, view));
                 if let Some(root) = project {
                     preferences::update(|preferences| preferences.window_mut(&root).open = true);

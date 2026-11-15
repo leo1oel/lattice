@@ -82,6 +82,7 @@ impl PdfView {
     /// images and text the pages on screen need, and let go of the rest.
     pub(in crate::pdf) fn prepare_frame(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.autoscroll_frame(window, cx);
+        self.place_notes(cx);
         let bounds = self.scroll.bounds();
         if bounds.size != self.viewport.size {
             let resized = self.viewport.size.width > px(0.);
