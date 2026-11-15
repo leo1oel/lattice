@@ -61,7 +61,7 @@ mod tree;
 
 pub(crate) use annotations::retain_open_annotation_saves;
 pub use annotations::{
-    read_annotation_round, read_annotations, save_annotation_round, write_annotations,
+    discard_annotation_round, read_annotation_round, read_annotations, save_annotation_round, write_annotations,
     AnnotationRevision, AnnotationRound, Annotations, EditorComment, EditorCommentReply,
 };
 pub use archive::{export_project_zip, import_project_zip};

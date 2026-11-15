@@ -285,6 +285,15 @@ pub fn read_annotation_round(root: &Path, number: u32) -> Result<Vec<FileChange>
     Ok(serde_json::from_str::<RoundSnapshot>(&raw).map_err(err)?.files)
 }
 
+/// Drop round `number`'s kept files, for a round that ended without a
+/// version and whose number the next round reuses.
+pub fn discard_annotation_round(root: &Path, number: u32) -> Result<(), String> {
+    match fs::remove_file(round_path(root, number)) {
+        Err(error) if error.kind() != std::io::ErrorKind::NotFound => Err(err(error)),
+        _ => Ok(()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

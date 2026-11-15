@@ -238,15 +238,13 @@ impl EditorPanel {
         let end = from + revised.len();
         let units = Utf16::new(&text);
         let (start16, end16) = (units.to_units(from), units.to_units(end));
-        // 32 units of the text on either side, as the anchor keeps them.
-        let prefix_from = units.to_byte(start16.saturating_sub(32)).unwrap_or(0);
-        let suffix_to = units.to_byte(end16 + 32).unwrap_or(text.len());
+        let (prefix, suffix) = model::context(&text, from, end);
         let applied = Accepted {
             from: start16 as u32,
             to: end16 as u32,
             quote: revised,
-            prefix: text[prefix_from..from].to_string(),
-            suffix: text[end..suffix_to].to_string(),
+            prefix,
+            suffix,
         };
         self.close_annotation_review(cx);
         cx.defer(move |cx| rounds.update(cx, |rounds, cx| rounds.accepted(&id, applied, cx)));

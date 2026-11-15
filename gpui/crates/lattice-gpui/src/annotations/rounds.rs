@@ -384,6 +384,16 @@ impl AnnotationRounds {
                     cx,
                 );
             });
+            let number = round.number;
+            cx.spawn(async move |_, cx| {
+                let discarded = cx
+                    .background_spawn(async move { project::discard_annotation_round(&root, number) })
+                    .await;
+                if let Err(error) = discarded {
+                    cx.update(|cx| crate::notices::error(t!("Annotations"), error, cx));
+                }
+            })
+            .detach();
             return;
         }
         self.settling = Some(round.number);
@@ -478,6 +488,23 @@ impl AnnotationRounds {
         self.record(root, id, revision, |_| {}, cx);
     }
 
+    /// The project's citation keys and titles, for the "Add a citation"
+    /// intent's prompt.
+    fn citations(root: &Path) -> Vec<revision::Citation> {
+        project::citations(root)
+            .map(|index| {
+                index
+                    .citations
+                    .into_iter()
+                    .map(|citation| revision::Citation {
+                        key: citation.key,
+                        title: Some(citation.title).filter(|title| !title.is_empty()),
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
     /// Ask the agent about one annotation in its round.
     fn ask(&mut self, job: Job, cx: &mut Context<Self>) -> Task<()> {
         let Job { root, id, round, extra, ticket } = job;
@@ -512,20 +539,7 @@ impl AnnotationRounds {
             return Task::ready(());
         }
         let intent = comment.intent.as_deref().and_then(revision::Intent::parse);
-        let citations = (intent == Some(revision::Intent::Cite)).then(|| {
-            project::citations(&root)
-                .map(|index| {
-                    index
-                        .citations
-                        .into_iter()
-                        .map(|citation| revision::Citation {
-                            key: citation.key,
-                            title: Some(citation.title).filter(|title| !title.is_empty()),
-                        })
-                        .collect()
-                })
-                .unwrap_or_default()
-        });
+        let cites = intent == Some(revision::Intent::Cite);
         let previous = comment.revision.clone();
         let (before, after) = revision::context(&source, range.start, range.end);
         let request = revision::Request {
@@ -551,27 +565,35 @@ impl AnnotationRounds {
             } else {
                 "English".into()
             },
-            citations,
-        };
-        let prompt = revision::prompt(&request);
-        let (task, answer) = match self.scripted.clone() {
-            Some(reply) => {
-                let timer = cx.background_executor().clone();
-                (
-                    None,
-                    cx.background_executor().spawn(async move {
-                        timer.timer(std::time::Duration::from_millis(300)).await;
-                        Ok(text_task::Answer { text: reply, model: None })
-                    }),
-                )
-            }
-            None => {
-                let mut task = TextTask::start(root.clone(), prompt, cx);
-                let answer = task.answer();
-                (Some(task), answer)
-            }
+            citations: None,
         };
         cx.spawn(async move |this, cx| {
+            let citations = if cites {
+                let project = root.clone();
+                Some(cx.background_spawn(async move { Self::citations(&project) }).await)
+            } else {
+                None
+            };
+            let prompt = revision::prompt(&revision::Request { citations, ..request });
+            let Ok((task, answer)) = this.update(cx, |this, cx| match this.scripted.clone() {
+                Some(reply) => {
+                    let timer = cx.background_executor().clone();
+                    (
+                        None,
+                        cx.background_executor().spawn(async move {
+                            timer.timer(std::time::Duration::from_millis(300)).await;
+                            Ok(text_task::Answer { text: reply, model: None })
+                        }),
+                    )
+                }
+                None => {
+                    let mut task = TextTask::start(root.clone(), prompt, cx);
+                    let answer = task.answer();
+                    (Some(task), answer)
+                }
+            }) else {
+                return;
+            };
             let answered = answer.await;
             drop(task);
             this.update(cx, |this, cx| {

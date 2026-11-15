@@ -112,13 +112,17 @@ impl Shell {
 }
 
 fn commands(context: &CommandContext, out: &mut Vec<Command>) {
-    if context.in_project && !context.overleaf_linked && context.revisable_annotations > 0 {
-        out.push(Command::new(
-            "annotations-revise",
-            t!("Revise from annotations"),
-            Section::Edit,
-            ReviseAnnotations,
-        ));
+    let count = context.revisable_annotations;
+    if context.in_project && count > 0 {
+        let detail = if count == 1 {
+            t!("1 annotation").to_string()
+        } else {
+            t!("{count} annotations", count = count)
+        };
+        out.push(
+            Command::new("annotations-revise", t!("Revise from annotations"), Section::Edit, ReviseAnnotations)
+                .detail(detail),
+        );
     }
 }
 

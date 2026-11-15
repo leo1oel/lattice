@@ -145,15 +145,9 @@ impl AnnotationsPanel {
                                 .placeholder(t!("Your answer…"))
                                 .auto_grow(2, 6)
                         });
-                        let (answer_id, answer_rounds) = (id.clone(), rounds.clone());
-                        cx.subscribe(&field, move |this, field, event: &InputEvent, cx| match event {
-                            InputEvent::PressEnter { secondary: true, .. } => {
-                                let text = field.read(cx).value().to_string();
-                                answer_rounds.update(cx, |rounds, cx| rounds.answer(&answer_id, &text, cx));
-                                if answer_rounds.read(cx).is_running(&answer_id) {
-                                    this.rounds.answers.remove(&answer_id);
-                                }
-                            }
+                        let answer_id = id.clone();
+                        cx.subscribe(&field, move |this, _, event: &InputEvent, cx| match event {
+                            InputEvent::PressEnter { secondary: true, .. } => this.send_answer(&answer_id, cx),
                             InputEvent::Change => cx.notify(),
                             _ => {}
                         })
