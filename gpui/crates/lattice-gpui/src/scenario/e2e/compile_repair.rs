@@ -17,6 +17,13 @@ impl Run {
     async fn compile_repair(&self, cx: &mut AsyncApp, steps: &mut Steps, root: &std::path::Path) -> Result<()> {
         let editor = self.open(cx, &root.join("chapters/intro.tex"), None)?;
         let read_only = |cx: &mut AsyncApp| cx.update(|cx| editor.read(cx).editor().read(cx).read_only(cx));
+        // Fix all waits while a build runs; one the flow before started (a
+        // watched build of the broken chapter) ends first.
+        let idle = self
+            .wait_for(cx, Duration::from_secs(60), |shell, cx| {
+                !shell.read(cx).build_panel().read(cx).is_running()
+            })
+            .await;
         let offered = cx.update(|cx| {
             let panel = self.shell.read(cx).build_panel().read(cx);
             let errors = panel
@@ -29,7 +36,7 @@ impl Run {
         steps.check(
             "a failed build's card offers Fix all",
             offered.0 > 0 && offered.1 && !offered.2,
-            json!({ "errors": offered.0, "no_repair": offered.1, "disabled": offered.2 }),
+            json!({ "errors": offered.0, "no_repair": offered.1, "disabled": offered.2, "idle": idle }),
         );
 
         cx.update(|cx| {
