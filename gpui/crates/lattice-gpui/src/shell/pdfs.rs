@@ -473,7 +473,6 @@ impl Shell {
         self.root_pdfs.clone()
     }
 
-    #[cfg(any(target_os = "macos", target_os = "windows"))]
     /// The live PDF keeps its place under the document it shows now.
     pub(super) fn key_live_place(&self, cx: &mut Context<Self>) {
         if let (Some(root), Some(document)) = (self.root(cx), self.live_document.clone()) {
@@ -482,6 +481,7 @@ impl Shell {
         }
     }
 
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     pub fn live_document(&self) -> Option<&str> {
         self.live_document.as_deref()
     }
