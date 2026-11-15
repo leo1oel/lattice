@@ -31,7 +31,7 @@ use language::{BufferSnapshot, TransactionId};
 use lattice_editor::{
     decorations::{Mark, MarkStyle, Underline},
     hover::{HoverProvider, HoverTarget},
-    inline_texts::InlineText,
+    inline_texts::{InlineLook, InlineText},
     remote_cursors::hue_color,
 };
 use lattice_i18n::{t, tc};
@@ -189,8 +189,11 @@ impl EditorPanel {
                     inline.push(InlineText {
                         offset: hunk.from,
                         text: one_line(removed).into(),
-                        color: hue,
-                        tint: hue.opacity(DELETE_TINT),
+                        look: InlineLook::Struck {
+                            color: hue,
+                            tint: hue.opacity(DELETE_TINT),
+                            drawn: 1.,
+                        },
                     });
                 }
                 if hunk.to > hunk.from {
