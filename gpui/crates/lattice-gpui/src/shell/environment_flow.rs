@@ -43,11 +43,11 @@ impl Shell {
             cx.propagate();
             return;
         };
-        let (text, _, caret) = editor.read(cx).latex_selection(cx);
+        let (text, head) = editor.read(cx).latex_selection(cx);
         let start = match target {
             RenameTarget::WrapEnvironment => "equation".to_string(),
             // Nothing to rename away from an environment: the key passes on.
-            _ => match environments::environment_name_at(&text, caret) {
+            _ => match environments::environment_name_at(&text, head) {
                 Some(name) => name,
                 None => {
                     cx.propagate();
@@ -66,7 +66,9 @@ impl Shell {
                         let name = name.clone();
                         editor.update(cx, |editor, cx| {
                             editor.edit_latex_selection(
-                                |text, from, to| environment_edit(target, text, from, to, &name),
+                                |text, from, to, head| {
+                                    environment_edit(target, text, from, to, head, &name)
+                                },
                                 window,
                                 cx,
                             )
@@ -87,6 +89,7 @@ fn environment_edit(
     text: &str,
     from: usize,
     to: usize,
+    head: usize,
     name: &str,
 ) -> Option<FormatEdit> {
     match target {
@@ -94,7 +97,7 @@ fn environment_edit(
             Some(region_edits::wrap_environment(text, from, to, name).into_format())
         }
         RenameTarget::Environment => {
-            let changes = environments::rename_environment_at(text, to, name)?;
+            let changes = environments::rename_environment_at(text, head, name)?;
             // The caret stays where it was, shifted by the \begin's rename
             // when it lies after it.
             let shift = |at: usize| {
@@ -122,16 +125,25 @@ mod tests {
     #[test]
     fn wrap_uses_the_name_given_and_rename_renames_both_delimiters() {
         let wrap =
-            environment_edit(RenameTarget::WrapEnvironment, "a x b", 2, 3, "center").unwrap();
+            environment_edit(RenameTarget::WrapEnvironment, "a x b", 2, 3, 3, "center").unwrap();
         assert_eq!(
             lattice_editor::latex::edits::apply("a x b", &wrap.changes),
             "a \\begin{center}\nx\n\\end{center} b"
         );
         let text = "\\begin{a}x\\end{a}";
         let caret = text.find('x').unwrap();
-        let rename = environment_edit(RenameTarget::Environment, text, caret, caret, "bb").unwrap();
+        let rename =
+            environment_edit(RenameTarget::Environment, text, caret, caret, caret, "bb").unwrap();
         let renamed = lattice_editor::latex::edits::apply(text, &rename.changes);
         assert_eq!(renamed, "\\begin{bb}x\\end{bb}");
         assert_eq!(&renamed[rename.head..rename.head + 1], "x");
+        // A selection made backwards renames the environment at its head.
+        let text = "\\begin{a}x\\begin{b}y\\end{b}\\end{a}";
+        let (x, y) = (text.find('x').unwrap(), text.find('y').unwrap());
+        let rename = environment_edit(RenameTarget::Environment, text, x, y, x, "c").unwrap();
+        assert_eq!(
+            lattice_editor::latex::edits::apply(text, &rename.changes),
+            "\\begin{c}x\\begin{b}y\\end{b}\\end{c}"
+        );
     }
 }

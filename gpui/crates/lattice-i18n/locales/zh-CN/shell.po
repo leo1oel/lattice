@@ -57,6 +57,10 @@ msgstr "退出全屏幕"
 msgid "Git left conflict markers in {files}."
 msgstr "Git 在 {files} 里留下了冲突标记。"
 
+#: lattice-gpui/src/shell/shortcut_groups.rs
+msgid "Go to the matching \\begin or \\end"
+msgstr "跳到配对的 \\begin 或 \\end"
+
 #: lattice-gpui/src/shell/commands.rs
 msgid "Leave the Bibliography layout"
 msgstr "退出参考文献布局"

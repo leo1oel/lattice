@@ -5,7 +5,9 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] The visual LaTeX editor, in part: margin review and Overleaf's tracked changes in Visual.
 
-- [ ] Wrapping a selection in an environment and renaming an environment (⌘⇧E, and in the source editor too).
+- [ ] Wrapping a selection in an environment and renaming an environment (⌘⇧E, ⌘⌥R) in the Visual editor.
+
+- [ ] Ctrl-M's jump to the matching math delimiter (`matchingMathDelimiter`) where no environment encloses the caret.
 
 - [ ] The LaTeX source's typing rules: `$` pairing, `\begin` closed by its `\end`, `\item` continued, `\left` closed by `\right`.
 
@@ -45,7 +47,7 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] The paper reader's selection actions: Copy source link and Add to note, on the full text and on the original PDF.
 
-- [ ] The shortcut sheet's Check references group (the review queue has no keys yet), and the LaTeX keys the source editor does not bind yet (inline math, the wrap, rename and select environment keys, sorting and case, the citation card, the symbol palette, Proofread), which join the sheet's LaTeX group once bound.
+- [ ] The shortcut sheet's Check references group (the review queue has no keys yet), and the LaTeX keys the source editor does not bind yet (the citation card, the symbol palette, Proofread), which join the sheet's LaTeX group once bound.
 
 - [ ] The app updater's release channel (it ships off) and the outdated-version hint on a failure's notice.
 

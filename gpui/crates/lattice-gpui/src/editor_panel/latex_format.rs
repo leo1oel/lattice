@@ -52,7 +52,7 @@ impl EditorPanel {
         element
             .on_action(cx.listener(|this, _: &ToggleBold, window, cx| {
                 this.run_latex_command(
-                    |text, from, to| {
+                    |text, from, to, _| {
                         Outcome::Edit(edits::toggle_inline(text, from, to, InlineFormat::Bold))
                     },
                     window,
@@ -61,7 +61,7 @@ impl EditorPanel {
             }))
             .on_action(cx.listener(|this, _: &ToggleEmphasis, window, cx| {
                 this.run_latex_command(
-                    |text, from, to| {
+                    |text, from, to, _| {
                         Outcome::Edit(edits::toggle_inline(text, from, to, InlineFormat::Emphasis))
                     },
                     window,
@@ -70,14 +70,14 @@ impl EditorPanel {
             }))
             .on_action(cx.listener(|this, _: &ToggleInlineMath, window, cx| {
                 this.run_latex_command(
-                    |text, from, to| Outcome::Edit(region_edits::toggle_math(text, from, to)),
+                    |text, from, to, _| Outcome::Edit(region_edits::toggle_math(text, from, to)),
                     window,
                     cx,
                 )
             }))
             .on_action(cx.listener(|this, _: &ToggleLineComments, window, cx| {
                 this.run_latex_command(
-                    |text, from, to| {
+                    |text, from, to, _| {
                         Outcome::Edit(
                             region_edits::toggle_line_comments(text, from, to).into_format(),
                         )
@@ -88,7 +88,7 @@ impl EditorPanel {
             }))
             .on_action(cx.listener(|this, _: &WrapCommentEnvironment, window, cx| {
                 this.run_latex_command(
-                    |text, from, to| {
+                    |text, from, to, _| {
                         Outcome::Edit(
                             region_edits::wrap_comment_region(
                                 text,
@@ -105,7 +105,7 @@ impl EditorPanel {
             }))
             .on_action(cx.listener(|this, _: &WrapIfFalse, window, cx| {
                 this.run_latex_command(
-                    |text, from, to| {
+                    |text, from, to, _| {
                         Outcome::Edit(
                             region_edits::wrap_comment_region(text, from, to, CommentWrap::IfFalse)
                                 .into_format(),
@@ -117,7 +117,7 @@ impl EditorPanel {
             }))
             .on_action(cx.listener(|this, _: &WrapEquation, window, cx| {
                 this.run_latex_command(
-                    |text, from, to| {
+                    |text, from, to, _| {
                         Outcome::Edit(
                             region_edits::wrap_environment(text, from, to, "equation")
                                 .into_format(),
@@ -129,7 +129,7 @@ impl EditorPanel {
             }))
             .on_action(cx.listener(|this, _: &WrapItemize, window, cx| {
                 this.run_latex_command(
-                    |text, from, to| {
+                    |text, from, to, _| {
                         Outcome::Edit(
                             region_edits::wrap_environment(text, from, to, "itemize").into_format(),
                         )
@@ -140,14 +140,14 @@ impl EditorPanel {
             }))
             .on_action(cx.listener(|this, _: &SortLines, window, cx| {
                 this.run_latex_command(
-                    |text, from, to| changed(region_edits::sort_selected_lines(text, from, to)),
+                    |text, from, to, _| changed(region_edits::sort_selected_lines(text, from, to)),
                     window,
                     cx,
                 )
             }))
             .on_action(cx.listener(|this, _: &UpperCase, window, cx| {
                 this.run_latex_command(
-                    |text, from, to| {
+                    |text, from, to, _| {
                         changed(region_edits::transform_case(
                             text,
                             from,
@@ -161,7 +161,7 @@ impl EditorPanel {
             }))
             .on_action(cx.listener(|this, _: &LowerCase, window, cx| {
                 this.run_latex_command(
-                    |text, from, to| {
+                    |text, from, to, _| {
                         changed(region_edits::transform_case(
                             text,
                             from,
@@ -175,7 +175,7 @@ impl EditorPanel {
             }))
             .on_action(cx.listener(|this, _: &TitleCase, window, cx| {
                 this.run_latex_command(
-                    |text, from, to| {
+                    |text, from, to, _| {
                         changed(region_edits::transform_case(
                             text,
                             from,
@@ -189,33 +189,37 @@ impl EditorPanel {
             }))
             .on_action(cx.listener(|this, _: &SelectEnvironment, window, cx| {
                 this.run_latex_command(
-                    |text, _, to| selected(environments::enclosing_environment_range(text, to)),
+                    |text, _, _, head| {
+                        selected(environments::enclosing_environment_range(text, head))
+                    },
                     window,
                     cx,
                 )
             }))
             .on_action(cx.listener(|this, _: &MatchingEnvironment, window, cx| {
                 this.run_latex_command(
-                    |text, _, to| selected(environments::matching_environment_target(text, to)),
+                    |text, _, _, head| {
+                        selected(environments::matching_environment_target(text, head))
+                    },
                     window,
                     cx,
                 )
             }))
     }
 
-    /// Run `command` on the text and the main selection (its head is `to`
-    /// for a caret), or pass the key on outside a LaTeX file.
     /// An edit the window asks for on the main selection (Wrap in
     /// environment…, Rename environment), applied as the keys' are, the
     /// keyboard back in the text.
     pub(crate) fn edit_latex_selection(
         &mut self,
-        make: impl FnOnce(&str, usize, usize) -> Option<FormatEdit>,
+        make: impl FnOnce(&str, usize, usize, usize) -> Option<FormatEdit>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         self.run_latex_command(
-            |text, from, to| make(text, from, to).map_or(Outcome::Nothing, Outcome::Edit),
+            |text, from, to, head| {
+                make(text, from, to, head).map_or(Outcome::Nothing, Outcome::Edit)
+            },
             window,
             cx,
         );
@@ -223,22 +227,19 @@ impl EditorPanel {
         window.focus(&focus, cx);
     }
 
-    /// The text, and the main selection's start and end (its head is the
-    /// end for a caret).
-    pub(crate) fn latex_selection(&self, cx: &gpui::App) -> (String, usize, usize) {
+    /// The text, and the main selection's head.
+    pub(crate) fn latex_selection(&self, cx: &gpui::App) -> (String, usize) {
         let editor = self.editor().read(cx);
         let snapshot = editor.buffer().read(cx).snapshot(cx);
-        let selection = editor.selections.newest_anchor();
-        (
-            snapshot.text(),
-            selection.start.to_offset(&snapshot).0,
-            selection.end.to_offset(&snapshot).0,
-        )
+        let head = editor.selections.newest_anchor().head();
+        (snapshot.text(), head.to_offset(&snapshot).0)
     }
 
+    /// Run `command` on the text and the main selection's start, end and
+    /// head, or pass the key on outside a LaTeX file.
     fn run_latex_command(
         &mut self,
-        command: impl FnOnce(&str, usize, usize) -> Outcome,
+        command: impl FnOnce(&str, usize, usize, usize) -> Outcome,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -250,9 +251,10 @@ impl EditorPanel {
         editor.update(cx, |editor, cx| {
             let snapshot = editor.buffer().read(cx).snapshot(cx);
             let selection = editor.selections.newest_anchor();
-            let (start, end) = (
+            let (start, end, head) = (
                 selection.start.to_offset(&snapshot).0,
                 selection.end.to_offset(&snapshot).0,
+                selection.head().to_offset(&snapshot).0,
             );
             let select = |editor: &mut editor::Editor,
                           range: std::ops::Range<usize>,
@@ -269,7 +271,7 @@ impl EditorPanel {
                     },
                 );
             };
-            match command(&snapshot.text(), start, end) {
+            match command(&snapshot.text(), start, end, head) {
                 Outcome::Nothing => {}
                 Outcome::Select(range) => select(editor, range, window, cx),
                 Outcome::Edit(result) => {

@@ -108,8 +108,10 @@ pub fn toggle_line_comments(text: &str, from: usize, to: usize) -> SelectionEdit
     // starts its line.
     let start = text[..from].rfind('\n').map_or(0, |at| at + 1);
     let probe = if to > from { to - 1 } else { from };
-    let end = text[probe.min(text.len())..]
-        .find('\n')
+    let probe = probe.min(text.len());
+    let end = text.as_bytes()[probe..]
+        .iter()
+        .position(|&byte| byte == b'\n')
         .map_or(text.len(), |at| probe + at);
     let lines: Vec<&str> = text[start..end].split('\n').collect();
     let content: Vec<&&str> = lines
@@ -317,6 +319,11 @@ mod tests {
             toggle_line_comments(doc, from, to).into_format()
         });
         assert_eq!(caret, "x\n[% abc]\ny");
+        // A selection ending in a multi-byte character, before another line.
+        let accented = run_edit("[café]\n中文", |doc, from, to| {
+            toggle_line_comments(doc, from, to).into_format()
+        });
+        assert_eq!(accented, "[% café]\n中文");
     }
 
     #[test]
