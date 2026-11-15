@@ -47,11 +47,11 @@ use zed_actions::buffer_search::Deploy;
 
 mod annotations;
 mod bib_view;
-mod highlight_palette;
 mod buffer_counts;
 mod disk_sync;
 mod events;
 pub mod find_bar;
+mod highlight_palette;
 mod insert;
 mod latex_view;
 mod margin_review;
@@ -373,8 +373,12 @@ impl EditorPanel {
                         }
                         cx.emit(EditorPanelEvent::Focused);
                     }
-                    // A Markdown file's Split: the visual editor follows.
-                    EditorEvent::ScrollPositionChanged { .. } => this.markdown_source_scrolled(cx),
+                    // A Markdown file's Split: the visual editor follows; a
+                    // `.tex` file's highlights are painted where it shows.
+                    EditorEvent::ScrollPositionChanged { .. } => {
+                        this.markdown_source_scrolled(cx);
+                        this.highlights_scrolled(cx);
+                    }
                     // Leaving the editor saves at once, as the Tauri app does.
                     EditorEvent::Blurred => {
                         this.bib_source_focused(false);

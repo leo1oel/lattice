@@ -107,8 +107,9 @@ pub(super) struct ToolbarState {
     /// The appearance the highlights were last painted for, and the paint
     /// that waits for typing to pause.
     painted_dark: Option<bool>,
-    /// How many highlights the last paint painted.
+    /// How many highlights the last paint painted, and the bytes it read.
     painted: usize,
+    painted_window: Range<usize>,
     _paint: Option<gpui::Task<()>>,
 }
 
@@ -136,6 +137,9 @@ enum Formats {
 /// wrappers.
 const PAINT: &str = "highlight-paint";
 const PAINT_MARKS: &str = "highlight-paint-marks";
+/// How far past the lines the editor shows the paint reads (the Tauri
+/// paint's `MARGIN`), so a long document costs what its view costs.
+const PAINT_MARGIN: usize = 2000;
 
 /// The file's kind of toolbar.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -183,7 +187,9 @@ impl EditorPanel {
                 .map_or(text.len(), |at| range.start + at)
                 .min(range.end);
             let formats = match kind {
-                Kind::Latex => Formats::Latex(format_toggle::selection_formats(&text, range.clone())),
+                Kind::Latex => {
+                    Formats::Latex(format_toggle::selection_formats(&text, range.clone()))
+                }
                 Kind::Markdown => {
                     Formats::Markdown(markdown_format::selection_format(&text, range.clone()))
                 }
@@ -202,7 +208,12 @@ impl EditorPanel {
     /// Whether `position` is on the toolbar or its open menu, as last drawn.
     fn on_toolbar(&self, position: gpui::Point<Pixels>) -> bool {
         self.toolbar.last.is_some()
-            && self.toolbar.areas.borrow().iter().any(|area| area.contains(&position))
+            && self
+                .toolbar
+                .areas
+                .borrow()
+                .iter()
+                .any(|area| area.contains(&position))
     }
 
     /// The pointer went down in the source (a selection may be dragged out)
@@ -225,20 +236,59 @@ impl EditorPanel {
         }
     }
 
-    /// Paint the `.tex` file's highlights (`highlights::paint`).
+    /// The bytes of the lines the editor shows.
+    fn shown_bytes(&self, cx: &mut Context<Self>) -> Range<usize> {
+        use editor::{DisplayPoint, display_map::DisplayRow};
+        self.editor.update(cx, |editor, cx| {
+            let snapshot = editor.display_snapshot(cx);
+            let top = editor.scroll_position(cx).y.max(0.);
+            let rows = editor.visible_line_count().unwrap_or(200.);
+            let offset_at = |row: f64| {
+                let row = DisplayRow(row.floor() as u32).min(snapshot.max_point().row());
+                let point = DisplayPoint::new(row, 0).to_point(&snapshot);
+                snapshot.buffer_snapshot().point_to_offset(point).0
+            };
+            offset_at(top)..offset_at(top + rows + 1.)
+        })
+    }
+
+    /// Paint the `.tex` file's highlights (`highlights::paint`) around the
+    /// lines the editor shows.
     pub(super) fn paint_highlights(&mut self, cx: &mut Context<Self>) {
         if self.toolbar_kind() != Some(Kind::Latex) {
             return;
         }
         let dark = cx.palette().appearance == lattice_ui::Appearance::Dark;
-        let text = self.buffer.read(cx).text();
-        let (washes, marks) = highlights::paint(&text, dark);
+        let shown = self.shown_bytes(cx);
+        let buffer = self.buffer.read(cx);
+        let start = buffer.clip_offset(
+            shown.start.saturating_sub(PAINT_MARGIN),
+            language::Bias::Left,
+        );
+        let end = buffer.clip_offset(
+            (shown.end + PAINT_MARGIN).min(buffer.len()),
+            language::Bias::Right,
+        );
+        let text = buffer.text_for_range(start..end).collect::<String>();
+        let (washes, marks) = highlights::paint(&text, start, dark);
         self.toolbar.painted_dark = Some(dark);
         self.toolbar.painted = washes.len();
+        self.toolbar.painted_window = start..end;
         self.lattice.update(cx, |lattice, cx| {
             lattice.set_highlights(PAINT, washes, cx);
             lattice.set_marks(PAINT_MARKS, marks, cx);
         });
+    }
+
+    /// Paint the highlights again once the view scrolls past what was read.
+    pub(super) fn highlights_scrolled(&mut self, cx: &mut Context<Self>) {
+        if self.toolbar_kind() != Some(Kind::Latex) {
+            return;
+        }
+        let (shown, painted) = (self.shown_bytes(cx), &self.toolbar.painted_window);
+        if shown.start < painted.start || shown.end > painted.end {
+            self.paint_highlights(cx);
+        }
     }
 
     /// Paint the highlights again once typing pauses.
@@ -313,7 +363,8 @@ impl EditorPanel {
                 buffer.edit(
                     edit.changes.iter().map(|change| {
                         (
-                            MultiBufferOffset(change.range.start)..MultiBufferOffset(change.range.end),
+                            MultiBufferOffset(change.range.start)
+                                ..MultiBufferOffset(change.range.end),
                             change.insert.as_str(),
                         )
                     }),
@@ -351,9 +402,13 @@ impl EditorPanel {
         }
         let text = self.buffer.read(cx).text();
         let edit = match action {
-            ToolbarAction::Latex(format) => Some(format_toggle::toggle_inline(&text, range, format)),
+            ToolbarAction::Latex(format) => {
+                Some(format_toggle::toggle_inline(&text, range, format))
+            }
             ToolbarAction::Quote => Some(format_toggle::toggle_quote(&text, range)),
-            ToolbarAction::Heading(command) => Some(format_toggle::set_heading(&text, range, command)),
+            ToolbarAction::Heading(command) => {
+                Some(format_toggle::set_heading(&text, range, command))
+            }
             ToolbarAction::Link(url) => format_toggle::link_target(&url)
                 .map(|url| format_toggle::set_link(&text, range, &url)),
             ToolbarAction::Highlight(color) => {
@@ -413,7 +468,11 @@ impl EditorPanel {
     ) -> Option<AnyElement> {
         // The appearance changed: the paint follows.
         let dark = cx.palette().appearance == lattice_ui::Appearance::Dark;
-        if self.toolbar.painted_dark.is_some_and(|painted| painted != dark) {
+        if self
+            .toolbar
+            .painted_dark
+            .is_some_and(|painted| painted != dark)
+        {
             self.paint_highlights(cx);
         }
         let view_cell = self.toolbar.view.clone();
@@ -425,17 +484,19 @@ impl EditorPanel {
                 // or past its edge.
                 window.on_mouse_event(move |event: &gpui::MouseUpEvent, phase, _, cx| {
                     if phase == gpui::DispatchPhase::Capture {
-                        this.update(cx, |this, cx| this.toolbar_pointer(false, event.position, cx))
-                            .ok();
+                        this.update(cx, |this, cx| {
+                            this.toolbar_pointer(false, event.position, cx)
+                        })
+                        .ok();
                     }
                 });
             },
         )
-            .absolute()
-            .top_0()
-            .left_0()
-            .size_full()
-            .into_any_element();
+        .absolute()
+        .top_0()
+        .left_0()
+        .size_full()
+        .into_any_element();
         let selection = self.toolbar_selection(cx);
         if selection != self.toolbar.dismissed {
             self.toolbar.dismissed = None;
@@ -462,8 +523,10 @@ impl EditorPanel {
             self.toolbar.shown += 1;
         }
         self.toolbar.last = Some(range.clone());
-        let (Some(view), Some(editor)) = (self.toolbar.view.get(), self.lattice.read(cx).painted().bounds)
-        else {
+        let (Some(view), Some(editor)) = (
+            self.toolbar.view.get(),
+            self.lattice.read(cx).painted().bounds,
+        ) else {
             cx.on_next_frame(window, |_, _, cx| cx.notify());
             return Some(tracker);
         };
@@ -484,7 +547,11 @@ impl EditorPanel {
         if start.bottom() < top_edge || start.top() > view.bottom() {
             return Some(tracker);
         }
-        let estimate = px(if kind == Kind::Markdown { MARKDOWN_WIDTH } else { LATEX_WIDTH });
+        let estimate = px(if kind == Kind::Markdown {
+            MARKDOWN_WIDTH
+        } else {
+            LATEX_WIDTH
+        });
         let max_width = (view.size.width - px(16.)).max(px(0.));
         let measured = self.toolbar.size.get();
         let width = measured.map_or(estimate.min(max_width), |size| size.width);
@@ -542,13 +609,20 @@ impl EditorPanel {
                     },
                     |_, _, _, _| {},
                 )
-                    .absolute()
-                    .top_0()
-                    .left_0()
-                    .size_full(),
+                .absolute()
+                .top_0()
+                .left_0()
+                .size_full(),
             );
-        let menu = self.toolbar.menu.map(|menu| self.toolbar_menu(menu, kind, &formats, range.clone(), window, cx));
-        let from = if below { PopFrom::Below } else { PopFrom::Above };
+        let menu = self
+            .toolbar
+            .menu
+            .map(|menu| self.toolbar_menu(menu, kind, &formats, range.clone(), window, cx));
+        let from = if below {
+            PopFrom::Below
+        } else {
+            PopFrom::Above
+        };
         let left = center - width / 2. - view.left();
         let id = self.toolbar.shown as usize;
         Some(
@@ -563,13 +637,15 @@ impl EditorPanel {
                         .absolute()
                         .left(left)
                         .top(top - view.top())
-                        .on_mouse_down_out(cx.listener(|this, event: &gpui::MouseDownEvent, _, cx| {
-                            if (this.toolbar.menu.is_some() || this.toolbar.last.is_some())
-                                && !this.on_toolbar(event.position)
-                            {
-                                this.dismiss_toolbar(cx)
-                            }
-                        }))
+                        .on_mouse_down_out(cx.listener(
+                            |this, event: &gpui::MouseDownEvent, _, cx| {
+                                if (this.toolbar.menu.is_some() || this.toolbar.last.is_some())
+                                    && !this.on_toolbar(event.position)
+                                {
+                                    this.dismiss_toolbar(cx)
+                                }
+                            },
+                        ))
                         .on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
                             if event.keystroke.key == "escape" {
                                 cx.stop_propagation();

@@ -22,6 +22,7 @@ The meanings, the pen's colour and the custom colours belong to the writer, not 
 A highlight is written as `\colorbox[HTML]{…}{…}`, and the editor paints its passage in its colour, with the wrapper receding, as the Tauri app's source does.
 Only `#RRGGBB` highlights are painted; a hand-typed `\colorbox{yellow}{…}` or soul's `\hl{…}` keeps the source's own colours.
 In the light theme the passage takes the highlight's tint under dark ink; in the dark theme it takes an 18% wash of the colour with a 2px underline at 75%, since a pastel block would put light ink on a light ground.
+The paint reads only the lines in view and 2,000 characters either side, as the Tauri app's does, and reads again as the view scrolls past them.
 
 ## In the e2e scenario
 
