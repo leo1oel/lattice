@@ -179,12 +179,18 @@ impl Render for ConfirmHost {
             ("confirm-answer", self.serial),
             question.confirm_label.clone(),
         )
-        .on_click(cx.listener(move |this, _, window, cx| {
-            // Answered: the question goes without its cancel.
-            this.pending = None;
-            cx.notify();
-            answer(window, cx);
-        }));
+        // Each answer plays the dialog's exit before it runs, as the
+        // app's dialog leaves (`ModalLayer::closing`).
+        .on_click(ModalLayer::closing(
+            ("confirm", self.serial),
+            cx,
+            move |this, window, cx| {
+                // Answered: the question goes without its cancel.
+                this.pending = None;
+                cx.notify();
+                answer(window, cx);
+            },
+        ));
         confirm = if question.destructive {
             confirm.danger()
         } else {
@@ -206,11 +212,15 @@ impl Render for ConfirmHost {
                     .unwrap_or_else(|| t!("Cancel").into()),
             )
             .ghost()
-            .on_click(cx.listener(|this, _, _, cx| this.close(cx))),
+            .on_click(ModalLayer::closing(
+                ("confirm", self.serial),
+                cx,
+                |this, _, cx| this.close(cx),
+            )),
         );
         if let Some((label, answer)) = question.alternative.clone() {
             let button = Button::new(("confirm-alternative", self.serial), label).on_click(
-                cx.listener(move |this, _, window, cx| {
+                ModalLayer::closing(("confirm", self.serial), cx, move |this, window, cx| {
                     this.pending = None;
                     cx.notify();
                     answer(window, cx);

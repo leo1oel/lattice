@@ -1,0 +1,115 @@
+diff --git a/gpui-base/src/popover.rs b/gpui-base/src/popover.rs
+index 5e2a23231..d5d795e97 100644
+--- a/gpui-base/src/popover.rs
++++ b/gpui-base/src/popover.rs
+@@ -1,4 +1,7 @@
+-use std::rc::Rc;
++use std::{
++    rc::Rc,
++    time::{Duration, Instant},
++};
+ 
+ use gpui::{
+     Anchor, AnyElement, App, Context, DismissEvent, ElementId, EventEmitter, FocusHandle,
+@@ -46,6 +49,10 @@ pub struct PopoverState {
+     /// Held while open, so that a state collected without being closed — this
+     /// lives in element state — takes its registration with it.
+     deferred_context: Option<DeferredPopover>,
++    /// How long a closed popup is still drawn, for its exit (Lattice).
++    exit: Duration,
++    /// When it last closed, while that exit may still be running.
++    closed_at: Option<Instant>,
+ }
+ 
+ impl PopoverState {
+@@ -58,6 +65,8 @@ impl PopoverState {
+             on_open_change: None,
+             dismiss_subscription: None,
+             deferred_context: None,
++            exit: Duration::ZERO,
++            closed_at: None,
+         }
+     }
+ 
+@@ -65,6 +74,13 @@ impl PopoverState {
+         self.open
+     }
+ 
++    /// How far into its exit a popup that has closed is, while the exit
++    /// given to [`Popover::exit`] runs; `None` when open or gone.
++    pub fn leaving(&self) -> Option<Duration> {
++        let elapsed = self.closed_at.filter(|_| !self.open)?.elapsed();
++        (elapsed < self.exit).then_some(elapsed)
++    }
++
+     pub fn dismiss(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+         if self.open {
+             self.toggle_open(window, cx);
+@@ -107,6 +123,7 @@ impl PopoverState {
+             self.previous_focus_handle = window.focused(cx);
+         }
+         self.set_open(opening, cx);
++        self.closed_at = (!opening).then(Instant::now);
+ 
+         if self.open {
+             // Weak: the subscription is stored on this state, so a strong
+@@ -199,6 +216,7 @@ pub struct Popover {
+     mouse_button: MouseButton,
+     overlay_closable: bool,
+     on_open_change: Option<OpenChangeHandler>,
++    exit: Duration,
+ }
+ 
+ impl Popover {
+@@ -217,6 +235,7 @@ impl Popover {
+             mouse_button: MouseButton::Left,
+             overlay_closable: true,
+             on_open_change: None,
++            exit: Duration::ZERO,
+         }
+     }
+ 
+@@ -281,6 +300,14 @@ impl Popover {
+         self
+     }
+ 
++    /// Keep drawing the content for `exit` after the popover closes, so it
++    /// can play its way out ([`PopoverState::leaving`]): drawn as it was,
++    /// taking no input, focus or dismissal (Lattice).
++    pub fn exit(mut self, exit: Duration) -> Self {
++        self.exit = exit;
++        self
++    }
++
+     pub fn overlay_closable(mut self, closable: bool) -> Self {
+         self.overlay_closable = closable;
+         self
+@@ -322,6 +349,7 @@ impl RenderOnce for Popover {
+         state.update(cx, |state, cx| {
+             state.track_focus(self.tracked_focus_handle);
+             state.set_on_open_change(self.on_open_change);
++            state.exit = self.exit;
+             if let Some(open) = self.open {
+                 state.sync_open(open, window, cx);
+             }
+@@ -361,7 +389,19 @@ impl RenderOnce for Popover {
+                 }
+             });
+         if !open {
+-            return popup.into_any_element();
++            // A popup on its way out is drawn as it was, under a cover that
++            // takes its presses, until its exit has run.
++            let leaving = state.read(cx).leaving().is_some();
++            let Some(content) = self.content.filter(|_| leaving) else {
++                return popup.into_any_element();
++            };
++            window.request_animation_frame();
++            let content = div()
++                .id("content")
++                .relative()
++                .child(state.update(cx, |state, cx| (content)(state, window, cx)))
++                .child(div().absolute().inset_0().occlude());
++            return popup.content(content).into_any_element();
+         }
+ 
+         let content = div()

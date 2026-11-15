@@ -53,9 +53,13 @@ impl FigureInsertDialog {
         let enter = [&width, &placement, &caption, &label]
             .into_iter()
             .map(|field| {
-                cx.subscribe(field, |this, _, event, cx| {
+                cx.subscribe_in(field, window, |_, _, event, window, cx| {
                     if let InputEvent::PressEnter { .. } = event {
-                        this.insert(cx);
+                        // Enter inserts as the button does, after the exit.
+                        let view = cx.entity().downgrade();
+                        ModalLayer::leave("figure-insert", window, cx, move |_, cx| {
+                            view.update(cx, |this, cx| this.insert(cx)).ok();
+                        });
                     }
                 })
             })
@@ -153,12 +157,16 @@ impl Render for FigureInsertDialog {
                     .child(
                         Button::new("figure-insert-cancel", t!("Cancel"))
                             .ghost()
-                            .on_click(cx.listener(|_, _, _, cx| cx.emit(FigureDialogEvent::Close))),
+                            .on_click(ModalLayer::closing("figure-insert", cx, |_, _, cx| {
+                                cx.emit(FigureDialogEvent::Close)
+                            })),
                     )
                     .child(
                         Button::new("figure-insert-submit", t!("Insert"))
                             .primary()
-                            .on_click(cx.listener(|this, _, _, cx| this.insert(cx))),
+                            .on_click(ModalLayer::closing("figure-insert", cx, |this, _, cx| {
+                                this.insert(cx)
+                            })),
                     ),
             );
         let this = cx.entity().downgrade();

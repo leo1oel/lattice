@@ -11,7 +11,7 @@ use gpui::{
 use gpui_kit::base::Popover;
 use lattice_ui::{
     ActiveLattice as _, TextRole, TextRoleStyle as _,
-    components::{PopFrom, StatusItem, pop_in},
+    components::{PopFrom, StatusItem, popup_exit, popup_motion},
     elevation::Elevation,
     parity,
     tokens::FONT_WEIGHT_SEMIBOLD,
@@ -134,6 +134,9 @@ pub fn item(labels: WordCountLabels, scoped: bool, cx: &App) -> AnyElement {
         .anchor(Anchor::BottomRight)
         .offset(px(6.))
         .trigger_with(move |_, _, _| trigger.into_any_element())
-        .content(move |_, _, cx| pop_in("word-count-details", PopFrom::Below, details(&labels, cx)))
+        .exit(popup_exit())
+        .content(move |state, _, cx| {
+            popup_motion(state, "word-count-details", PopFrom::Below, details(&labels, cx))
+        })
         .into_any_element()
 }

@@ -271,7 +271,15 @@ impl TexSetupCenter {
             Button::new(("tex-setup-later", self.serial), t!("Install later"))
                 .ghost()
                 .disabled(installing)
-                .on_click(move |_, _, cx| center.update(cx, |center, cx| center.close_wizard(cx)))
+                .on_click({
+                    let serial = self.serial;
+                    move |_, window, cx| {
+                        let center = center.clone();
+                        ModalLayer::leave(("tex-setup-layer", serial), window, cx, move |_, cx| {
+                            center.update(cx, |center, cx| center.close_wizard(cx))
+                        });
+                    }
+                })
                 .into_any_element()
         });
         let mut body = Vec::new();
@@ -315,12 +323,16 @@ impl TexSetupCenter {
                 cx,
             ));
         }
+        let serial = self.serial;
         let cancel = |id: &'static str| {
             let center = center.clone();
             Button::new((id, self.serial), t!("Cancel"))
                 .ghost()
-                .on_click(move |_, _, cx| {
-                    center.update(cx, |center, cx| center.close_dependency(cx))
+                .on_click(move |_, window, cx| {
+                    let center = center.clone();
+                    ModalLayer::leave(("tex-dependency-layer", serial), window, cx, move |_, cx| {
+                        center.update(cx, |center, cx| center.close_dependency(cx))
+                    });
                 })
                 .into_any_element()
         };
@@ -534,7 +546,15 @@ impl TexSetupCenter {
         let close = center.clone();
         Sheet::new(("tex-doctor", self.serial), t!("TeX doctor"))
             .size(px(560.), px(520.))
-            .on_close(move |_, cx| close.update(cx, |center, cx| center.close_doctor(cx)))
+            .on_close({
+                let serial = self.serial;
+                move |window, cx| {
+                    let close = close.clone();
+                    ModalLayer::leave(("tex-doctor-layer", serial), window, cx, move |_, cx| {
+                        close.update(cx, |center, cx| center.close_doctor(cx))
+                    });
+                }
+            })
             .child(header)
             .child(content)
             .into_any_element()

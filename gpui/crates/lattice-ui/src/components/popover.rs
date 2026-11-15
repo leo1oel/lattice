@@ -22,7 +22,10 @@ use gpui_kit::base::{Popover as BasePopover, Selectable};
 
 use crate::{
     ActiveLattice as _, TextRole, TextRoleStyle as _,
-    components::{Menu, MenuSurface, PopFrom, SubmenuBounds, menu::MENU_OFFSET, pop_in},
+    components::{
+        Menu, MenuSurface, PopFrom, SubmenuBounds, menu::MENU_OFFSET, pop_in, pop_out, popup_exit,
+        popup_motion,
+    },
 };
 
 /// Builds a popover's content each time it draws.
@@ -95,7 +98,9 @@ impl<T: Selectable + IntoElement + 'static> RenderOnce for MenuPopover<T> {
             .trigger(self.trigger)
             .track_focus(&focus)
             .overlay_closable(false)
-            .content(move |_, window, cx| {
+            .exit(popup_exit())
+            .content(move |state, window, cx| {
+                let leaving = state.leaving();
                 let popover = cx.entity();
                 let outside = popover.clone();
                 let context = interrupted.read(cx).clone();
@@ -116,7 +121,11 @@ impl<T: Selectable + IntoElement + 'static> RenderOnce for MenuPopover<T> {
                             window.refresh();
                         }
                     })
-                    .child(pop_in(menu_id.clone(), PopFrom::Above, menu))
+                    .child(match leaving {
+                        // Closed: its picture plays the exit (`popup-motion.css`).
+                        Some(elapsed) => pop_out(PopFrom::Above, elapsed, menu),
+                        None => pop_in(menu_id.clone(), PopFrom::Above, menu),
+                    })
             })
     }
 }
@@ -232,6 +241,9 @@ impl<T: Selectable + IntoElement + 'static> RenderOnce for Popover<T> {
             .anchor(self.anchor)
             .offset(MENU_OFFSET)
             .trigger(self.trigger)
-            .content(move |_, window, cx| pop_in(id.clone(), PopFrom::Above, content(window, cx)))
+            .exit(popup_exit())
+            .content(move |state, window, cx| {
+                popup_motion(state, id.clone(), PopFrom::Above, content(window, cx))
+            })
     }
 }

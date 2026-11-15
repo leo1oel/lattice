@@ -468,8 +468,19 @@ impl Render for FigureInventory {
                 px(760.).min(viewport.width - px(32.)),
                 px(640.).min(viewport.height - px(40.)),
             )
-            .on_close(move |_, cx| {
-                close.update(cx, |sheet, cx| sheet.close(cx)).ok();
+            // The X plays the exit unless the sheet is busy, when its close is
+            // refused at once, as the layer's own is.
+            .on_close(move |window, cx| {
+                let busy = close.upgrade().is_some_and(|sheet| sheet.read(cx).busy);
+                let close = close.clone();
+                let run = move |_: &mut Window, cx: &mut App| {
+                    close.update(cx, |sheet, cx| sheet.close(cx)).ok();
+                };
+                if busy {
+                    run(window, cx);
+                } else {
+                    ModalLayer::leave("figure-inventory-layer", window, cx, run);
+                }
             })
             .children(body);
         ModalLayer::new(

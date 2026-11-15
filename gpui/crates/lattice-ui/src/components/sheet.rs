@@ -23,7 +23,7 @@
 //! with its surface: the dialog scrim behind a sheet, the lighter
 //! `--scrim-surface` behind a drawer.
 
-use std::{rc::Rc, time::Instant};
+use std::{cell::RefCell, collections::HashMap, rc::Rc, time::Instant};
 
 use gpui::{
     AnimationExt as _, AnyElement, App, ElementId, FocusHandle, Hsla, InteractiveElement as _,
@@ -277,6 +277,14 @@ pub enum LayerPlacement {
     Right,
 }
 
+thread_local! {
+    // When each layer began leaving, by its window and id: a close comes
+    // from an event handler, outside the layer's render, where its keyed
+    // state cannot be reached. Main thread only.
+    static CLOSING: RefCell<HashMap<(gpui::WindowId, ElementId), Instant>> =
+        RefCell::default();
+}
+
 /// A sheet or drawer held over the whole window, modal: focus stays inside,
 /// Escape and a press on the scrim close it and hand focus back to what held
 /// it when the layer opened.
@@ -330,6 +338,79 @@ impl ModalLayer {
         self.closable = closable;
         self
     }
+
+    /// A click handler for a button of the owner's that closes the layer
+    /// `id`: in place of `cx.listener(f)`, it plays the layer's exit, then
+    /// runs `f` on the owner ([`ModalLayer::leave`]).
+    pub fn closing<T: 'static>(
+        id: impl Into<ElementId>,
+        cx: &gpui::Context<T>,
+        f: impl Fn(&mut T, &mut Window, &mut gpui::Context<T>) + 'static,
+    ) -> impl Fn(&gpui::ClickEvent, &mut Window, &mut App) + 'static {
+        let view = cx.weak_entity();
+        let id = id.into();
+        let f = Rc::new(f);
+        move |_, window, cx| {
+            let view = view.clone();
+            let f = f.clone();
+            ModalLayer::leave(id.clone(), window, cx, move |window, cx| {
+                view.update(cx, |this, cx| f(this, window, cx)).ok();
+            });
+        }
+    }
+
+    /// Close the layer `id` from a button of its owner's (Cancel, Done,
+    /// Import): its exit plays as Escape's does, the scrim fading and the
+    /// surface sinking on the slow tier's exit, and `then` runs once it has,
+    /// as the owner's answer; at once under reduced motion. A second call
+    /// while the layer is leaving does nothing.
+    pub fn leave(
+        id: impl Into<ElementId>,
+        window: &mut Window,
+        cx: &mut App,
+        then: impl FnOnce(&mut Window, &mut App) + 'static,
+    ) {
+        if cx.reduce_motion() {
+            then(window, cx);
+            return;
+        }
+        let key = (window.window_handle().window_id(), id.into());
+        let started = Instant::now();
+        let fresh = CLOSING.with(|closing| {
+            let mut closing = closing.borrow_mut();
+            if closing.contains_key(&key) {
+                return false;
+            }
+            closing.insert(key.clone(), started);
+            true
+        });
+        if !fresh {
+            return;
+        }
+        window.refresh();
+        window
+            .spawn(cx, async move |cx| {
+                cx.background_executor()
+                    .timer(Exit::DIALOG.duration())
+                    .await;
+                cx.update(|window, cx| {
+                    let ours = CLOSING.with(|closing| {
+                        let mut closing = closing.borrow_mut();
+                        let ours = closing.get(&key) == Some(&started);
+                        if ours {
+                            closing.remove(&key);
+                        }
+                        ours
+                    });
+                    if ours {
+                        then(window, cx);
+                        window.refresh();
+                    }
+                })
+                .ok();
+            })
+            .detach();
+    }
 }
 
 impl RenderOnce for ModalLayer {
@@ -355,13 +436,20 @@ impl RenderOnce for ModalLayer {
         // A close the layer takes itself (Escape, a press on the scrim)
         // plays its exit before its owner hears of it: the scrim fades and
         // the surface sinks on the slow tier's exit (`modal-scrim-out`,
-        // `modal-sink`). A close its owner takes (a button of its own) is
-        // the owner's, and the layer goes with it.
-        let closing_state = window.use_keyed_state(child("closing"), cx, |_, _| None::<Instant>);
-        let leaving = closing_state.read(cx).map(|started| started.elapsed());
-        let closing = closing_state.clone();
+        // `modal-sink`). A close its owner takes with a button of its own
+        // plays the same exit through [`ModalLayer::leave`].
+        let key = (window.window_handle().window_id(), self.id.clone());
+        let leaving = CLOSING.with(|closing| closing.borrow().get(&key).map(|at| at.elapsed()));
         if leaving.is_some() {
             window.request_animation_frame();
+            // Focus goes back to what held it before the layer opened as the
+            // layer starts to leave, not after.
+            if focus.contains_focused(window, cx) {
+                match &previous {
+                    Some(previous) => previous.focus(window, cx),
+                    None => window.blur(cx),
+                }
+            }
         }
         let exit = leaving.map(|elapsed| Exit::DIALOG.sample(elapsed).1);
         let overlay = div()
@@ -415,12 +503,13 @@ impl RenderOnce for ModalLayer {
         let on_close = self.on_close;
         let closable = self.closable;
         let layer = focus.clone();
+        let id = self.id.clone();
         deferred(
             SheetHost::new(cx)
                 .focus_handle(focus)
                 .overlay_closable(self.scrim_closable && leaving.is_none())
                 .request_close(move |window, cx| {
-                    if closing.read(cx).is_some() {
+                    if CLOSING.with(|closing| closing.borrow().contains_key(&key)) {
                         return;
                     }
                     if layer.contains_focused(window, cx) {
@@ -429,39 +518,14 @@ impl RenderOnce for ModalLayer {
                             None => window.blur(cx),
                         }
                     }
-                    if !closable || cx.reduce_motion() {
+                    if !closable {
                         on_close(window, cx);
                         return;
                     }
-                    let started = Instant::now();
-                    closing.update(cx, |closing, cx| {
-                        *closing = Some(started);
-                        cx.notify();
-                    });
-                    // The owner hears of it once the exit has run, unless the
-                    // layer went in the meantime (its owner closed it).
-                    let still = closing.downgrade();
                     let on_close = on_close.clone();
-                    window
-                        .spawn(cx, async move |cx| {
-                            cx.background_executor()
-                                .timer(Exit::DIALOG.duration())
-                                .await;
-                            cx.update(|window, cx| {
-                                let pending = still
-                                    .upgrade()
-                                    .filter(|closing| *closing.read(cx) == Some(started));
-                                if let Some(closing) = pending {
-                                    on_close(window, cx);
-                                    closing.update(cx, |closing, cx| {
-                                        *closing = None;
-                                        cx.notify();
-                                    });
-                                }
-                            })
-                            .ok();
-                        })
-                        .detach();
+                    ModalLayer::leave(id.clone(), window, cx, move |window, cx| {
+                        on_close(window, cx)
+                    });
                 })
                 .overlay(overlay)
                 .surface(surface),

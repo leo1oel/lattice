@@ -50,6 +50,26 @@ pub fn pop_in(id: impl Into<ElementId>, from: PopFrom, content: impl IntoElement
     enter(id.into(), Entrance::POPUP, from, content)
 }
 
+/// A Kit popover's content, entering on the pop tier while open and
+/// playing its exit while it leaves (`popup-motion.css`): give the popover
+/// [`popup_exit`] with `.exit(..)` and pass its state here.
+pub fn popup_motion(
+    state: &gpui_kit::base::PopoverState,
+    id: impl Into<ElementId>,
+    from: PopFrom,
+    content: impl IntoElement,
+) -> AnyElement {
+    match state.leaving() {
+        Some(elapsed) => pop_out(from, elapsed, content),
+        None => pop_in(id, from, content),
+    }
+}
+
+/// How long a popover is drawn after it closes, for [`popup_motion`].
+pub fn popup_exit() -> std::time::Duration {
+    Exit::POPUP.duration()
+}
+
 /// Wrap a hand-built tooltip's card so it enters as [`LatticeTooltip`]
 /// does ([`Entrance::TOOLTIP`]): for a tooltip that holds more than one
 /// line, such as a status pill's explanation.
@@ -81,12 +101,24 @@ fn enter(
         .into_any_element()
 }
 
+thread_local! {
+    // Exit frames drawn, popups' and dialogs': main thread only.
+    static EXIT_FRAMES: std::cell::Cell<(usize, usize)> = const { std::cell::Cell::new((0, 0)) };
+}
+
+/// How many exit frames have been drawn, popups' ([`pop_out`]) and
+/// dialogs' ([`sink_out`]): the e2e scenario reads it to see an exit play.
+pub fn exit_frames() -> (usize, usize) {
+    EXIT_FRAMES.with(std::cell::Cell::get)
+}
+
 /// A popup on its way out, `elapsed` into its exit ([`Exit::POPUP`]): back
 /// toward 95% about the edge that faces its trigger and 6px toward it as it
 /// fades, on the pop tier's exit, a plain ease-out a tier quicker than it
 /// came. Its owner keeps drawing it, without input, until
 /// [`Exit::is_done`], and asks for frames meanwhile.
 pub fn pop_out(from: PopFrom, elapsed: Duration, content: impl IntoElement) -> AnyElement {
+    EXIT_FRAMES.with(|frames| frames.set((frames.get().0 + 1, frames.get().1)));
     let exit = Exit::POPUP;
     let (direction, edge) = match from {
         PopFrom::Above => (-1., 0.),
@@ -110,6 +142,7 @@ pub fn pop_out(from: PopFrom, elapsed: Duration, content: impl IntoElement) -> A
 /// ([`Exit::DIALOG`], `modal-sink`): it sinks `--space-2` to 98% and fades
 /// on the slow tier's exit.
 pub fn sink_out(elapsed: Duration, content: impl IntoElement) -> AnyElement {
+    EXIT_FRAMES.with(|frames| frames.set((frames.get().0, frames.get().1 + 1)));
     let exit = Exit::DIALOG;
     let (movement, opacity) = exit.sample(elapsed);
     scaled(
