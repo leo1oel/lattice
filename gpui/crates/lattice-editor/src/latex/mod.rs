@@ -24,6 +24,7 @@ use crate::{LatticeEditor, ProjectIndex};
 
 pub mod build_diagnostics;
 pub mod cards;
+pub mod definition;
 pub mod completions;
 pub mod diagnostics;
 pub mod edits;

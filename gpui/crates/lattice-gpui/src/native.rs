@@ -270,8 +270,8 @@ pub fn send_double_click(native: Native, position: Point<Pixels>) -> Result<()> 
 /// press in the title bar's strip is the window's own (AppKit starts a
 /// window drag there), and the control under it never sees it.
 pub fn send_titlebar_click(native: Native, position: Point<Pixels>) -> Result<()> {
-    send_mouse_event(native, Mouse::Down, position, 1, true)?;
-    send_mouse_event(native, Mouse::Up, position, 1, true)
+    send_mouse_event(native, Mouse::Down, position, 1, true, 0)?;
+    send_mouse_event(native, Mouse::Up, position, 1, true, 0)
 }
 
 fn send_mouse_clicks(
@@ -280,7 +280,13 @@ fn send_mouse_clicks(
     position: Point<Pixels>,
     clicks: isize,
 ) -> Result<()> {
-    send_mouse_event(native, kind, position, clicks, false)
+    send_mouse_event(native, kind, position, clicks, false, 0)
+}
+
+/// A left click at `position` with ⌘ held (a ⌘-click's go to definition).
+pub fn send_command_click(native: Native, position: Point<Pixels>) -> Result<()> {
+    send_mouse_event(native, Mouse::Down, position, 1, false, COMMAND_MODIFIER)?;
+    send_mouse_event(native, Mouse::Up, position, 1, false, COMMAND_MODIFIER)
 }
 
 /// One mouse event; a press or release goes through the window unless
@@ -291,6 +297,7 @@ fn send_mouse_event(
     position: Point<Pixels>,
     clicks: isize,
     to_view: bool,
+    modifiers: usize,
 ) -> Result<()> {
     use std::sync::atomic::{AtomicIsize, Ordering};
     static EVENT_NUMBER: AtomicIsize = AtomicIsize::new(1);
@@ -308,7 +315,7 @@ fn send_mouse_event(
         let event: Option<Retained<AnyObject>> = msg_send![class!(NSEvent),
             mouseEventWithType: kind as usize,
             location: location,
-            modifierFlags: 0usize,
+            modifierFlags: modifiers,
             timestamp: uptime(),
             windowNumber: number,
             context: std::ptr::null_mut::<AnyObject>(),

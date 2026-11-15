@@ -110,6 +110,7 @@ The first build fetches Zed at the pinned revision and compiles about 1,200 crat
 | `$`, ↩ | In a LaTeX file, `$` pairs (and wraps a selection in `$…$`); ↩ after a `\begin{…}` writes its `\end{…}`, and on an `\item` line starts the next item or, on an empty one, leaves the list |
 | ⌘⇧K, ⌘⇧L | In a LaTeX file, Insert citation and Insert reference: a picker of the bibliography's keys or the project's labels, writing `\cite{…}` or `\ref{…}` at the caret |
 | ⌘G, ⌘⇧O | Go to line, and Go to symbol (the manuscript's sections and the project's labels) |
+| F12, ⌘-click | In a LaTeX file, Go to definition: a label's `\label`, a citation's entry, an `\input`'s file or a figure (TexLab for the rest, when installed) |
 | Zed's default keymap | Everything else in the editor |
 
 On Windows and Linux, Ctrl stands in for ⌘, and quitting is Alt+F4 or the menu. With Vim mode on there, Vim keeps Ctrl+O, Ctrl+B, Ctrl+I, Ctrl+G, Ctrl+S, Ctrl+K and Ctrl+W in the editor, in the Vim modes where its keymap binds them.
