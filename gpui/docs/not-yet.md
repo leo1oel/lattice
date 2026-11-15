@@ -25,8 +25,6 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] The minor motions.
 
-- [ ] The bundled reading-aid fonts (Atkinson Hyperlegible, OpenDyslexic).
-
 - [ ] The translation of the host's error text in notices.
 
 - [ ] The Agent: a PDF or Papers selection in its context.
