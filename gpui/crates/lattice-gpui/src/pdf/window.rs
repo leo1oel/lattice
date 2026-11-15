@@ -45,6 +45,7 @@ impl PdfWindow {
         source: Option<PathBuf>,
         place: ViewPlace,
         building: bool,
+        (reveal, locating): (bool, bool),
         outline: Option<super::OutlineState>,
         focus: bool,
         cx: &mut App,
@@ -79,6 +80,7 @@ impl PdfWindow {
                 let view = cx.new(|cx| {
                     let mut view = PdfView::new(window, cx);
                     view.set_can_reveal(true, cx);
+                    view.set_reveal(reveal, locating, cx);
                     view.set_build(true, building, cx);
                     view.set_action(
                         Some(ToolbarAction {

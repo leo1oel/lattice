@@ -96,6 +96,9 @@ pub struct PdfPanel {
     /// live PDF moves between them.
     source: Option<PathBuf>,
     building: bool,
+    /// Whether Reveal cursor in PDF can jump, and whether a jump is being
+    /// located, carried into the window.
+    reveal: (bool, bool),
     /// The build's diagnostics card (`crate::build::card`), over the top of
     /// the pages or docked under them, as the Tauri app puts it in its PDF
     /// column. Only the live panel has one.
@@ -111,8 +114,14 @@ impl PdfPanel {
     /// Whether Reveal cursor in PDF can jump now, and whether a jump is
     /// being located.
     pub fn set_reveal(&mut self, enabled: bool, locating: bool, cx: &mut Context<Self>) {
-        self.view
-            .update(cx, |view, cx| view.set_reveal(enabled, locating, cx));
+        self.reveal = (enabled, locating);
+        let views = [
+            Some(self.view.clone()),
+            self.window.as_ref().map(|(_, view)| view.clone()),
+        ];
+        for view in views.into_iter().flatten() {
+            view.update(cx, |view, cx| view.set_reveal(enabled, locating, cx));
+        }
     }
 
     pub fn new(kind: PdfPanelKind, window: &mut Window, cx: &mut Context<Self>) -> Self {
@@ -157,6 +166,7 @@ impl PdfPanel {
             window: None,
             source: None,
             building: false,
+            reveal: (true, false),
             build_output: None,
             title: "PDF".into(),
             outline: None,
@@ -423,6 +433,7 @@ impl PdfPanel {
             source,
             place,
             self.building,
+            self.reveal,
             outline,
             focus,
             cx,
