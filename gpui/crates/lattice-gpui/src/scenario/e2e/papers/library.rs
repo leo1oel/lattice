@@ -91,6 +91,9 @@ impl Run {
                 && landed
                 && text.get(at..at + written.len()) == Some(written.as_str())
                 && caret == at + written.len()
+                // The import is what ticks the step: it starts unticked in
+                // the scratch home, so a cite that skipped the tick fails.
+                && !cite_before
                 && cite_after,
             json!({
                 "started": started, "landed": landed, "caret": caret, "at": at,
