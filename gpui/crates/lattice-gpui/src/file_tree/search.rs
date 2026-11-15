@@ -36,7 +36,7 @@ pub(super) struct TreeSearch {
     pub(super) query: String,
     /// The match ↑ and ↓ last moved to, which Enter picks.
     pub(super) focus: Option<String>,
-    _subscription: Subscription,
+    _subscriptions: [Subscription; 2],
 }
 
 /// The query `text` types, as Pierre matches it.
@@ -152,20 +152,21 @@ impl FileTreePanel {
                     this.focus_first_match(cx);
                 }
                 InputEvent::PressEnter { .. } => this.pick_match(window, cx),
-                // Focus gone from the tree closes it; a press on a row only
-                // moves it into the tree, and the row's click closes it once
-                // it has picked the row, so the rows hold still under it.
-                InputEvent::Blur if !this.focus_handle.contains_focused(window, cx) => {
-                    this.close_search(false, window, cx)
-                }
                 InputEvent::Blur | InputEvent::Focus => {}
             }
+        });
+        // Focus gone from the tree, from the field or a row, closes it; a
+        // press on a row only moves it into the tree, and the row's click
+        // closes it once it has picked the row, so the rows hold still
+        // under it.
+        let focus_out = cx.on_focus_out(&self.focus_handle, window, |this, _, window, cx| {
+            this.close_search(false, window, cx)
         });
         self.search = Some(TreeSearch {
             input,
             query: normalize(seed),
             focus: None,
-            _subscription: subscription,
+            _subscriptions: [subscription, focus_out],
         });
         self.rebuild(cx);
         self.focus_first_match(cx);

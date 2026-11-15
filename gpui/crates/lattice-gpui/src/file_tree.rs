@@ -170,6 +170,9 @@ pub struct FileTreePanel {
     known: Rc<HashSet<String>>,
     /// The type-to-filter field, while it is open (`search.rs`).
     search: Option<search::TreeSearch>,
+    /// Whether Kit's tree holds a search's rows, whose folders the search
+    /// opened, so they are not the writer's to remember.
+    filtered: bool,
     /// A folder opening or closing, while it moves (`motion.rs`).
     motion: Option<motion::TreeMotion>,
     _project_subscription: Option<Subscription>,
@@ -216,6 +219,7 @@ impl FileTreePanel {
             revealed: None,
             known: Rc::default(),
             search: None,
+            filtered: false,
             motion: None,
             _project_subscription: None,
             _tree_subscription: tree_subscription,
@@ -315,17 +319,19 @@ impl FileTreePanel {
         );
         // While the field holds a query only its matches and their folders
         // show, opened; the folders the writer opened wait until it closes.
+        let all = tree_items(&nodes, &self.expanded);
+        let mut known = HashSet::new();
+        item_ids(&all, &mut known);
+        self.known = Rc::new(known);
+        self.filtered = self.search_query().is_some();
         let items = match self.search_query() {
             Some(query) => {
                 let mut open = HashSet::new();
                 let nodes = search::filter_nodes(&nodes, query, &mut open);
                 tree_items(&nodes, &open)
             }
-            None => tree_items(&nodes, &self.expanded),
+            None => all,
         };
-        let mut known = HashSet::new();
-        item_ids(&items, &mut known);
-        self.known = Rc::new(known);
         self.state
             .update(cx, |state, cx| state.set_items(items, cx));
         self.settle_selection(cx);
@@ -338,7 +344,7 @@ impl FileTreePanel {
 
     /// Note which folders are open, and keep it for the project.
     fn remember_expanded(&mut self, cx: &App) {
-        if self.search_query().is_some() {
+        if self.filtered {
             return;
         }
         let state = self.state.read(cx);

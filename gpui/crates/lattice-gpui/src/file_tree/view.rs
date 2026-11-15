@@ -406,7 +406,9 @@ impl Render for FileTreePanel {
                         .on_click(move |event, window, cx| {
                             open.update(cx, |this, cx| {
                                 this.click_row(&click_path, is_folder, event, window, cx);
-                                this.close_search(false, window, cx);
+                                cx.defer_in(window, |this, window, cx| {
+                                    this.close_search(false, window, cx)
+                                });
                             })
                             .ok();
                         })

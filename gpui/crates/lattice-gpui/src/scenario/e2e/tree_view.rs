@@ -7,7 +7,9 @@
 //!   matching rows and their folders show, opened, and nothing matching
 //!   leaves the tree empty.
 //! - ↓ and Enter pick a match as a click does, closing the field with the
-//!   picked row's folders open; Escape closes it and every row is back.
+//!   picked row's folders open; Escape closes it and every row is back,
+//!   with the folders only the search opened closed again; a click on a
+//!   filtered row picks that row and closes the field.
 //! - A folder scrolled past stays pinned at the top until its last row
 //!   goes; a click on it closes it and brings it back under the top.
 //! - A folder opening moves its chevron and rows for the moderate tier,
@@ -99,18 +101,71 @@ impl Run {
             json!({ "first": first, "picked": picked, "closed": closed, "selected": selected }),
         );
 
-        // Escape closes the field, and the tree shows what it did.
+        // Escape closes the field, and the tree shows what it did: queue/,
+        // closed before, was opened only for the search.
         let all = rows(cx);
-        // "c" leaves chapters/ and references.bib, and no note.
-        self.type_in_tree(cx, &tree, "c")?;
+        // "q" leaves queue/ and its files, opened, and no note.
+        self.type_in_tree(cx, &tree, "q")?;
         self.pause(cx, Duration::from_millis(100)).await;
-        let narrowed = rows(cx).len() < all.len();
+        let narrowed =
+            rows(cx).contains(&"queue/q01.md".to_string()) && rows(cx).len() < all.len();
         self.type_in_tree(cx, &tree, "escape")?;
         self.pause(cx, Duration::from_millis(100)).await;
+        let (_, open) = cx.update(|cx| tree.read(cx).selection_state(cx));
+        let remembered = cx.update(|cx| tree.read(cx).remembered_open(cx));
         steps.check(
-            "Escape closes the filter and every row is back",
-            narrowed && search(self, cx)?.is_none() && rows(cx) == all,
-            json!({ "before_search": before.len(), "rows": rows(cx).len(), "narrowed": narrowed }),
+            "Escape closes the filter and every row is back, with the folders it opened closed again",
+            narrowed
+                && search(self, cx)?.is_none()
+                && rows(cx) == all
+                && !open.contains(&"queue".to_string())
+                && !remembered.contains(&"queue".to_string()),
+            json!({
+                "before_search": before.len(),
+                "rows": rows(cx).len(),
+                "narrowed": narrowed,
+                "open": open,
+                "remembered": remembered,
+            }),
+        );
+
+        // A click on a filtered row picks that row, not the one at its
+        // place in the whole tree, and closes the field.
+        let (_, open_before) = cx.update(|cx| tree.read(cx).selection_state(cx));
+        self.type_in_tree(cx, &tree, "n")?;
+        self.with_window(cx, {
+            let tree = tree.clone();
+            move |_, window, cx| tree.update(cx, |tree, cx| tree.type_in_search("n1", window, cx))
+        })?;
+        self.pause(cx, Duration::from_millis(100)).await;
+        self.frame_after_input(cx).await?;
+        let filtered = rows(cx);
+        let row = self.tree_row_center(cx, "notes/n13.md")?;
+        self.click_with(cx, row, Modifiers::default()).await?;
+        let picked = self
+            .wait_for(cx, Duration::from_secs(4), |shell, cx| {
+                shell.read(cx).active_document(cx).as_deref() == Some("notes/n13.md")
+            })
+            .await;
+        self.pause(cx, Duration::from_millis(100)).await;
+        let closed = search(self, cx)?.is_none();
+        let (selected, open) = cx.update(|cx| tree.read(cx).selection_state(cx));
+        let at = |rows: &[String]| rows.iter().position(|row| row == "notes/n13.md");
+        steps.check(
+            "a click on a filtered row picks that row and closes the field, toggling no folder",
+            filtered.first().map(String::as_str) == Some("notes")
+                && at(&filtered) != at(&rows(cx))
+                && picked
+                && closed
+                && selected == ["notes/n13.md"]
+                && open == open_before,
+            json!({
+                "filtered": filtered,
+                "picked": picked,
+                "closed": closed,
+                "selected": selected,
+                "open": open,
+            }),
         );
 
         // Scrolled a dozen rows into notes/, its row stays pinned at the top.

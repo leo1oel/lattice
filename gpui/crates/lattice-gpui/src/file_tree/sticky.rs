@@ -91,8 +91,9 @@ impl FileTreePanel {
             // The item's open state is shared with the tree's copy of it.
             let _ = entry.item().clone().expanded(false);
         }
-        self.expanded.remove(id.as_ref());
-        self.begin_motion(&id, false, cx);
+        if !self.filtered {
+            self.expanded.remove(id.as_ref());
+        }
         self.rebuild(cx);
         let scroll = self.state.read(cx).scroll_handle().clone();
         let y = (ix as f32 - depth as f32) * ROW;

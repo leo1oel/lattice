@@ -69,6 +69,15 @@ impl FileTreePanel {
         (self.selected_paths(cx), open)
     }
 
+    /// The folders kept open for the project across runs, for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn remembered_open(&self, cx: &App) -> Vec<String> {
+        self.project
+            .as_ref()
+            .map(|project| super::memory::expanded(project.read(cx).root()).into_iter().collect())
+            .unwrap_or_default()
+    }
+
     /// The rows on screen, project-relative, for a scenario.
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     pub fn row_paths(&self, cx: &App) -> Vec<String> {
