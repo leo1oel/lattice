@@ -19,6 +19,7 @@ impl PdfView {
             || self.compound_active()
             || self.note_card().is_some()
             || self.offer_shown()
+            || self.column_dragging()
     }
 
     /// The window's presses, releases and moves, taken before any element
@@ -68,6 +69,9 @@ impl PdfView {
                 window.on_mouse_event(move |event: &MouseUpEvent, phase, _, cx| {
                     if phase == DispatchPhase::Capture {
                         up.update(cx, |this, cx| {
+                            if this.end_column_drag() {
+                                cx.notify();
+                            }
                             if this.take_blocked_up(event.button) {
                                 cx.stop_propagation();
                             }
@@ -108,7 +112,11 @@ impl PdfView {
             self.dismiss_compound(cx);
         }
         // One on the pages is a click the pages decide on (`click_note`).
-        if !self.viewport.contains(&event.position) && !self.on_note_card(event.position) {
+        // The column's cards act for themselves.
+        if !self.viewport.contains(&event.position)
+            && !self.on_note_card(event.position)
+            && !self.on_column(event.position)
+        {
             self.close_note_card(cx);
         }
         // Work anywhere else ends Annotate: a press in the source, a build.
@@ -121,6 +129,7 @@ impl PdfView {
         if let Some(autoscroll) = &mut self.autoscroll {
             autoscroll.pointer = f32::from(event.position.y);
         }
+        self.drag_column(event.position.x, cx);
         if !self.viewport.contains(&event.position) && !self.on_citation_card(event.position) {
             self.leave_citation(cx);
         }
