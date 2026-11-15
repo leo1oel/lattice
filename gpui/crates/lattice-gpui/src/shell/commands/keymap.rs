@@ -130,10 +130,12 @@ fn default_bindings() -> Vec<KeyBinding> {
             crate::shell::RenameEnvironment,
             Some(LATEX_FORMAT_KEYS),
         ),
+        // Ctrl-M is no ⌘ key, so on every platform Vim's normal and visual
+        // modes keep it as their next-line start.
         KeyBinding::new(
             "ctrl-m",
             crate::editor_panel::latex_format::MatchingEnvironment,
-            Some(LATEX_FORMAT_KEYS),
+            Some("Editor && !VimControl"),
         ),
         // Vim's insert mode keeps Ctrl+P for its word completion.
         KeyBinding::new(m!("p"), QuickOpen, beside_vim("!(vim_mode == insert)")),
