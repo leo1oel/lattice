@@ -8,7 +8,7 @@ use gpui::AsyncApp;
 use serde_json::json;
 
 use super::super::Steps;
-use crate::{pdf::FitMode, scenario::Run};
+use crate::scenario::Run;
 
 impl Run {
     /// The page value: clicked, a number typed and Enter goes there; Escape

@@ -25,42 +25,22 @@ impl Run {
         // lines) must hold it, and the caret lands on it, 1-based.
         let chapter = root.join("chapters/intro.tex");
         let editor = self.open(cx, &chapter, Some(1))?;
-        let engine = cx.update(|cx| PdfEngine::global(cx)).map_err(|error| anyhow!("{error}"))?;
-        let doc = engine.new_document();
-        let info = engine.open(doc, std::fs::read(root.join("main.pdf"))?).await??;
-        let mut found = None;
-        for page in 0..info.page_sizes.len() {
-            let text = engine.text(doc, info.generation, page).await??;
-            let at = text.chars.windows(6).position(|run| run.iter().map(|ch| ch.ch).eq("second".chars()));
-            if let Some(at) = at {
-                let ch = text.chars[at + 1];
-                let (x, y) = ((ch.x0 + ch.x1) / 2., (ch.y0 + ch.y1) / 2.);
-                found = Some((page as u32 + 1, (x, y), clicked_word_at(&text, x, y)));
-                break;
-            }
-        }
-        engine.close(doc);
+        let found = self.find_in_pdf_text(cx, root, "second").await?;
         let mut detail = json!({ "found": found.is_some() });
         let mut landed = false;
-        if let Some((page, (x, y), clicked)) = found {
-            let point = (f64::from(x), f64::from(y));
-            let line = lattice_core::latex::inverse_search_in(root, page, point.0, point.1, None)
-                .map_err(|error| anyhow!(error))?;
-            let text = std::fs::read_to_string(&chapter)?;
-            let source = text.lines().nth(line.line as usize - 1).unwrap_or_default().to_string();
-            let column = source.find("second");
+        if let Some(found) = found {
+            let expected = Self::landing(root, &chapter, &found, "second")?;
+            let (page, point, clicked) = found;
             let word = clicked.as_ref().map(|clicked| clicked.word.clone());
             self.with_window(cx, |shell, window, cx| {
                 shell.update(cx, |shell, cx| shell.double_click_pdf(page, point, clicked, window, cx))
             })?;
             self.pause(cx, Duration::from_millis(600)).await;
             let caret = cx.update(|cx| editor.read(cx).cursor());
-            landed = word.as_deref() == Some("second")
-                && column.is_some_and(|column| caret == (line.line, column as u32 + 1));
+            landed = word.as_deref() == Some("second") && expected == Some(caret);
             detail = json!({
-                "line": line.line,
+                "expected": expected,
                 "word": word,
-                "column": column,
                 "caret": [caret.0, caret.1],
             });
         }

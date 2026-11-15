@@ -67,8 +67,17 @@ impl Shell {
             // In its own window the PDF gives its place in the workspace to
             // the documents, and coming back shows it there again, as the
             // Tauri app's `detachPdf` and `dockPdf` do.
+            PdfEvent::Detached if self.layout.focus.is_some() => {
+                self.focus(Some(false), window, cx);
+                cx.notify();
+            }
             PdfEvent::Detached => {
                 self.hide_view("pdf", cx);
+                cx.notify();
+            }
+            PdfEvent::Docked if self.layout.focus.is_some() => {
+                let pdf = super::workspaces::Workspaces::global(cx).focus_pdf();
+                self.focus(Some(pdf), window, cx);
                 cx.notify();
             }
             PdfEvent::Docked => {
@@ -319,6 +328,7 @@ impl Shell {
         panel.update(cx, |panel, cx| panel.open(path, window, cx));
         self.root_pdfs.push((document.to_string(), panel.clone()));
         self.label_pdfs(cx);
+        self.refresh_reveal(cx);
         Some(panel)
     }
 
