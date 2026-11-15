@@ -136,7 +136,7 @@ impl PdfView {
         if !self.viewport.contains(&event.position) && !self.in_compound_bridge(event.position) {
             self.leave_compound(cx);
         }
-        if !self.viewport.contains(&event.position) {
+        if !self.viewport.contains(&event.position) && !self.on_column(event.position) {
             self.leave_notes(cx);
         }
     }

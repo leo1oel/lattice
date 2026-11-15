@@ -59,6 +59,9 @@ const HEAD_HEIGHT: f32 = 40.;
 const PREVIEW_DELAY: Duration = Duration::from_millis(300);
 /// A card's height before it has drawn.
 const CARD_HEIGHT: f32 = 80.;
+/// How far the resize grip reaches past the column's left edge, on either
+/// side of it.
+const GRIP_OUTSET: f32 = 3.;
 
 type Measured = Rc<Cell<Option<Bounds<Pixels>>>>;
 
@@ -167,14 +170,17 @@ impl PdfView {
             .map_or(0., |layout| layout.width)
     }
 
-    /// Whether `position` is on the open column.
+    /// Whether `position` is on the open column or its resize grip.
     pub(in crate::pdf) fn on_column(&self, position: Point<Pixels>) -> bool {
         self.column_open()
-            && self
-                .column
-                .column
-                .get()
-                .is_some_and(|column| column.contains(&position))
+            && self.column.column.get().is_some_and(|column| {
+                let outset = px(GRIP_OUTSET);
+                Bounds::new(
+                    gpui::point(column.origin.x - outset, column.origin.y),
+                    gpui::size(column.size.width + outset, column.size.height),
+                )
+                .contains(&position)
+            })
     }
 
     /// Show or hide the column, as the writer chose.
@@ -445,8 +451,8 @@ impl PdfView {
             .absolute()
             .top_0()
             .bottom_0()
-            .left(px(-3.))
-            .w(px(6.))
+            .left(px(-GRIP_OUTSET))
+            .w(px(2. * GRIP_OUTSET))
             .cursor(CursorStyle::ResizeLeftRight)
             .when(self.column.drag.is_some(), |grip| grip.bg(palette.line))
             .on_mouse_down(
