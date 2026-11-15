@@ -70,7 +70,7 @@ mod overleaf_text;
 pub mod paper_text;
 pub mod proofread;
 pub mod rail_outline;
-pub(crate) mod reveal_flash;
+pub(crate) mod attention;
 mod review_bar;
 mod review_marks;
 mod save;
@@ -622,7 +622,7 @@ impl EditorPanel {
                 |selections| selections.select_ranges([point..point]),
             );
         });
-        reveal_flash::flash(&self.editor, point.row, cx);
+        attention::flash(&self.editor, point.row, cx);
         window.focus(&self.editor.focus_handle(cx), cx);
     }
 
