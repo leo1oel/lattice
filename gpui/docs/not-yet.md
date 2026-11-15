@@ -23,6 +23,8 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] The Agent: its annotation tools, recording proposals and questions from the conversation into the open round.
 
+- [ ] The Agent's page reading back the annotations the native Annotations panel and revision rounds write after it loaded them (its saves can overwrite them).
+
 - [ ] The Revision rounds sheet, comparing a round's versions (and the round saved toast's Compare).
 
 - [ ] The Annotations panel's Export review PDF….
