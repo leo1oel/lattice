@@ -49,8 +49,6 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] The app updater's release channel (it ships off) and the outdated-version hint on a failure's notice.
 
-- [ ] File › Export ZIP….
-
 - [ ] Overleaf: the live channel joining again when the network comes back (it does when the window comes forward).
 
 - [ ] Overleaf: the titlebar control's animated cloud-upload icon (the icon is still).
@@ -81,7 +79,7 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] The workspace switch's sliding plate, drag to reorder and keyboard.
 
-- [ ] Export ZIP and Export for arXiv… in the project and File menus, and Export figures for a journal….
+- [ ] Export figures for a journal….
 
 - [ ] New project's My templates and Save a local template….
 

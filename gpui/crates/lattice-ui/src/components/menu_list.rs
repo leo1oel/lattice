@@ -19,7 +19,9 @@
 //!   other than the row (the project switcher's open-in-this-window). The
 //!   pointer presses it; the keys reach it with → from its row, go back
 //!   with ←, and run it with Enter or Space, as the app's glyph is an item
-//!   of its own the keys can land on.
+//!   of its own the keys can land on;
+//! - a busy line: a turning loader and what is under way, in muted
+//!   body-compact type, as the app's menus end with their `busyLabel`.
 //!
 //! A menu taller than the window less 8px each side scrolls inside its
 //! surface under Lattice's scrollbar (`ScrollbarFeel::LIST`), as every other
@@ -43,7 +45,7 @@ use gpui::{
 use gpui_kit::{base::POPUP_PRIORITY, component::Selectable as _};
 
 use crate::{
-    ActiveLattice as _, Icon,
+    ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
     components::{
         IconButton, MenuItem, MenuLabel, MenuSeparator, MenuSurface, PopFrom, Step, pop_in,
     },
@@ -251,6 +253,7 @@ enum Entry {
     Item(MenuAction),
     Submenu(Submenu),
     Label(SharedString),
+    Busy(SharedString),
     Separator,
 }
 
@@ -259,7 +262,7 @@ impl Entry {
         match self {
             Entry::Item(action) => !action.disabled,
             Entry::Submenu(_) => true,
-            Entry::Label(_) | Entry::Separator => false,
+            Entry::Label(_) | Entry::Busy(_) | Entry::Separator => false,
         }
     }
 
@@ -320,6 +323,12 @@ impl Menu {
 
     pub fn label(mut self, label: impl Into<SharedString>) -> Self {
         self.entries.push(Entry::Label(label.into()));
+        self
+    }
+
+    /// A line saying what is under way, after a turning loader.
+    pub fn busy(mut self, label: impl Into<SharedString>) -> Self {
+        self.entries.push(Entry::Busy(label.into()));
         self
     }
 
@@ -608,7 +617,7 @@ impl RenderOnce for Menu {
                 .map(|entry| match entry {
                     Entry::Item(action) => Some(action.label.clone()),
                     Entry::Submenu(submenu) => Some(submenu.label.clone()),
-                    Entry::Label(_) | Entry::Separator => None,
+                    Entry::Label(_) | Entry::Busy(_) | Entry::Separator => None,
                 })
                 .collect();
             let probe = MenuProbe {
@@ -660,6 +669,22 @@ impl RenderOnce for Menu {
                     section += 1;
                     MenuLabel::new(label).into_any_element()
                 }
+                Entry::Busy(label) => div()
+                    .flex()
+                    .items_center()
+                    .gap(px(8.))
+                    .px(px(10.))
+                    .py(px(6.))
+                    .text_role(TextRole::BodyCompact, cx)
+                    .text_color(cx.palette().text_secondary)
+                    .child(crate::loading::loader(
+                        child(&format!("busy-{ix}")),
+                        px(12.),
+                        cx.palette().text_secondary,
+                        cx,
+                    ))
+                    .child(label)
+                    .into_any_element(),
                 Entry::Separator => {
                     section += 1;
                     MenuSeparator.into_any_element()
@@ -955,6 +980,7 @@ mod tests {
                 Entry::Item(_) => "item",
                 Entry::Submenu(_) => "submenu",
                 Entry::Label(_) => "label",
+                Entry::Busy(_) => "busy",
                 Entry::Separator => "rule",
             })
             .collect()
@@ -1051,8 +1077,9 @@ mod tests {
             .item(action("Project"))
             .item(action("Agent").disabled(true))
             .separator()
-            .submenu("Move to", None, |menu, _, _| menu);
+            .submenu("Move to", None, |menu, _, _| menu)
+            .busy("Exporting ZIP…");
         let enabled: Vec<bool> = menu.entries.iter().map(Entry::enabled).collect();
-        assert_eq!(enabled, [false, true, false, false, true]);
+        assert_eq!(enabled, [false, true, false, false, true, false]);
     }
 }

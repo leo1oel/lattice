@@ -99,6 +99,7 @@ lucide! {
     APP_WINDOW = "icons" / "app-window";
     CASE_SENSITIVE = "icons" / "case-sensitive";
     FILE_ARCHIVE = "icons" / "file-archive";
+    PACKAGE_CHECK = "icons" / "package-check";
     FILE_PLAY = "icons" / "file-play";
     FILE_PLUS = "icons" / "file-plus";
     FOLDER_INPUT = "icons" / "folder-input";

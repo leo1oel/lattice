@@ -34,6 +34,7 @@ mod documents;
 pub(crate) mod drops;
 mod editor_events;
 mod editors;
+mod export_zip;
 mod focus_escape;
 mod entries;
 mod get_started_flow;
@@ -107,6 +108,7 @@ pub use overleaf_collab::AnnotateSelection;
 pub use overleaf_menus::ReviewHere;
 pub(crate) use palette_groups::init as init_recent_commands;
 pub use references_flow::{FindReferences, RenameSymbol};
+pub use export_zip::ExportProjectZip;
 pub use tools_flow::{ExportArxiv, OpenChecklist, OpenTodos};
 pub(crate) use workspace_flow::LayoutState;
 
