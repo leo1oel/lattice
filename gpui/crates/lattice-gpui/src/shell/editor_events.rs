@@ -109,6 +109,18 @@ impl Shell {
                     self.push_agent_workspace(cx);
                 }
             }
+            EditorPanelEvent::Symbol {
+                kind,
+                symbol,
+                rename,
+            } => {
+                self.active_editor = Some(editor.downgrade());
+                if *rename {
+                    self.begin_rename(*kind, symbol.clone(), window, cx)
+                } else {
+                    self.show_references(*kind, symbol.clone(), window, cx)
+                }
+            }
             EditorPanelEvent::PasteImage => {
                 self.active_editor = Some(editor.downgrade());
                 self.paste_image_as_figure(true, window, cx)

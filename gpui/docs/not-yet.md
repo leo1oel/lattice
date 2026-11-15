@@ -3,7 +3,9 @@
 What the Tauri app has that the GPUI app does not port yet, one item per line.
 A feature that lands deletes its own line (only that line, so features landing side by side merge cleanly), and a gap found adds one.
 
-- [ ] The visual LaTeX editor, in part: its outline rail over Visual; its spellcheck, TexLab, find-references, rename, wrap-environment and paste-image hooks; live spelling, unused-label and unused-citation data; and comment highlights, margin review, Overleaf carets and track changes in Visual.
+- [ ] The visual LaTeX editor, in part: comment highlights, margin review, Overleaf carets and track changes in Visual.
+
+- [ ] Wrapping a selection in an environment and renaming an environment (⌘⇧E, and in the source editor too).
 
 - [ ] The LaTeX source's other editing keys: Inline math (⌘⇧M) and the environment commands.
 

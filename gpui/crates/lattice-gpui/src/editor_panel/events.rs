@@ -28,6 +28,13 @@ pub enum EditorPanelEvent {
     Typed,
     /// The editor took focus: it is the one the reader works in now.
     Focused,
+    /// Find the uses of a label or citation key, or rename it (`rename`),
+    /// asked from a `.tex` file's Visual view.
+    Symbol {
+        kind: crate::submission::references::SymbolKind,
+        symbol: String,
+        rename: bool,
+    },
     /// Open the project-relative `path` (a link followed in a Markdown file's
     /// visual editor).
     OpenFile { path: String },
