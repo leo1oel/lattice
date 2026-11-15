@@ -22,8 +22,9 @@
 //!
 //! The project documents the Tauri app's window keeps for the Agent are read
 //! and written here as its commands do: the paper library (`list_papers`),
-//! the annotations and their revision rounds the annotation tools record
-//! into, the Overleaf threads its comments view reads, and the one file the
+//! the revision rounds' snapshots the annotation tools record into (the
+//! annotations themselves go through the window's store,
+//! `surface/annotations.rs`), the Overleaf threads its comments view reads, and the one file the
 //! page itself writes, a closed spreadsheet the range tools changed
 //! (`write_project_file`, refused for anything but a `.lattice-sheet`).
 
@@ -63,8 +64,6 @@ pub fn handles(command: &str) -> bool {
             | "set_agent_turn_running"
             | "get_model_endpoint"
             | "list_papers"
-            | "list_annotations"
-            | "save_annotations"
             | "read_annotation_round"
             | "save_annotation_round"
             | "write_project_file"
@@ -199,15 +198,6 @@ pub fn invoke(
                     .map(Value::String)
             })
         }
-        // The page numbers its saves from 1 each time it loads, but
-        // lattice-core keeps the newest save written for a project for the
-        // whole process and drops an older one: a reloaded page's saves would
-        // all be dropped. The broker numbers them instead, as they arrive.
-        "save_annotations" => {
-            let save = ANNOTATION_SAVES.fetch_add(1, Ordering::Relaxed) + 1;
-            let root = root.to_path_buf();
-            cx.background_spawn(async move { save_annotations(&root, &args, save) })
-        }
         _ => {
             let root = root.to_path_buf();
             let command = command.to_string();
@@ -245,24 +235,13 @@ pub fn agent_turns() -> usize {
         .len()
 }
 
-/// The annotation saves this process has sent, across every page.
+/// The annotation saves this process has sent.
 static ANNOTATION_SAVES: AtomicU64 = AtomicU64::new(0);
 
-/// The next annotation save's number, for the window's own saves
-/// (`crate::annotations`), which share the pages' order.
+/// The next annotation save's number (`crate::annotations::store`, the
+/// file's one writer, the Agent's page included).
 pub(crate) fn next_annotation_save() -> u64 {
     ANNOTATION_SAVES.fetch_add(1, Ordering::Relaxed) + 1
-}
-
-/// `save_annotations`: the whole list and its rounds, as save `save`.
-fn save_annotations(root: &Path, args: &Value, save: u64) -> Result<Value, String> {
-    let root = pinned(root, args, "saving the annotations")?;
-    let field = |key: &str| args.get(key).cloned().unwrap_or(Value::Null);
-    let annotations: Vec<project::EditorComment> = serde_json::from_value(field("annotations"))
-        .map_err(|error| format!("Invalid annotations: {error}"))?;
-    let rounds: Vec<project::AnnotationRound> = serde_json::from_value(field("rounds"))
-        .map_err(|error| format!("Invalid revision rounds: {error}"))?;
-    project::write_annotations(&root, annotations, rounds, save).map(|()| Value::Null)
 }
 
 /// A revision round's number.
@@ -319,7 +298,6 @@ fn project_command(root: &Path, command: &str, args: &Value) -> Result<Value, St
             json(lattice_core::latex::preview_figure(&root, &request)?)
         }
         "list_papers" => json(papers::list_papers(root)?),
-        "list_annotations" => json(project::read_annotations(root)?),
         "read_annotation_round" => json(project::read_annotation_round(root, round_number(args)?)?),
         "save_annotation_round" => {
             let root = pinned(root, args, "saving the revision round")?;
