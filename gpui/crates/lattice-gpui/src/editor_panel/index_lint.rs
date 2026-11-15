@@ -11,7 +11,8 @@
 //! files change, this one from the buffer), the root document, and, when
 //! TexLab is not installed to report them itself, the labels and keys
 //! nothing uses. A run reads the buffer once and lints off the main thread;
-//! a later run supersedes it.
+//! a later run supersedes it. What it reads of the other files also goes to
+//! the editor's path and macro completion (`ProjectFacts`).
 
 use std::{collections::HashSet, path::PathBuf, time::Duration};
 
@@ -26,6 +27,7 @@ use lattice_editor::{
             LintIndex, index_lint,
             marks::{LintMarks, LintMarksEvent},
         },
+        project_completions::{Facts, local_macros},
     },
 };
 
@@ -43,6 +45,8 @@ pub struct IndexLint {
     editor: WeakEntity<LatticeEditor>,
     project: Entity<Project>,
     marks: Entity<LintMarks>,
+    /// What the completion reads of the other files.
+    facts: Facts,
     path: String,
     root_document: String,
     /// The other TeX sources' `\graphicspath` roots.
@@ -62,6 +66,7 @@ impl IndexLint {
         project: &Entity<Project>,
         path: String,
         root_document: String,
+        facts: Facts,
         created: impl Fn(String, &mut App) + 'static,
         cx: &mut App,
     ) -> Entity<Self> {
@@ -95,6 +100,7 @@ impl IndexLint {
                 editor: editor.downgrade(),
                 project: project.clone(),
                 marks,
+                facts,
                 path,
                 root_document,
                 other_roots: Vec::new(),
@@ -137,16 +143,19 @@ impl IndexLint {
         project_paths(project.files(), &mut paths);
         let path = self.path.clone();
         let others: Vec<String> = paths
-            .into_iter()
-            .filter(|other| other.ends_with(".tex") && *other != path)
+            .iter()
+            .filter(|other| other.ends_with(".tex") && **other != path)
+            .cloned()
             .collect();
         let texlab = TexlabService::available();
+        self.facts.borrow_mut().paths = paths;
         let read = cx.background_spawn(async move {
             let sources: Vec<String> = others
                 .iter()
                 .filter_map(|other| lattice_core::project::read_file(&folder, other).ok())
                 .collect();
             let roots = graphics_roots(sources.iter().map(String::as_str));
+            let macros = local_macros(sources.iter().map(String::as_str));
             let unused = (!texlab)
                 .then(|| lattice_core::project::unused_symbols(&folder).ok())
                 .flatten()
@@ -157,11 +166,16 @@ impl IndexLint {
                     )
                 })
                 .unwrap_or_default();
-            (roots, unused)
+            (roots, macros, unused)
         });
         self._read = Some(cx.spawn(async move |this, cx| {
-            let (roots, unused) = read.await;
+            let (roots, macros, unused) = read.await;
             this.update(cx, |this, cx| {
+                {
+                    let mut facts = this.facts.borrow_mut();
+                    facts.graphics_roots = roots.clone();
+                    facts.macros = macros;
+                }
                 this.other_roots = roots;
                 this.unused = unused;
                 this.schedule(Duration::ZERO, cx);
@@ -243,12 +257,29 @@ impl IndexLint {
 }
 
 impl super::EditorPanel {
-    /// Lint a `.tex` file, from its opening or once a move makes it one; a
-    /// card's Create file goes to the window.
-    pub(super) fn attach_index_lint(&mut self, cx: &mut Context<Self>) {
+    /// Put the LaTeX features that read the project on a `.tex` file's
+    /// editor, from its opening or once a move makes it one: the cards and
+    /// completion (`latex::attach`), TexLab's diagnostics and completions,
+    /// and the lint, which reads the facts the completion lists. A card's
+    /// Create file goes to the window.
+    pub(super) fn attach_tex(&mut self, cx: &mut Context<Self>) {
         if self.index_lint.is_some() || !lattice_editor::latex::is_tex_source(&self.path) {
             return;
         }
+        let facts = Facts::default();
+        let index = self.project.read(cx).index().clone();
+        self.lattice.update(cx, |lattice, _| {
+            lattice_editor::latex::attach(lattice, &index, facts.clone())
+        });
+        let texlab = self.project.read(cx).texlab().clone();
+        self.diagnostics = Some(
+            lattice_editor::latex::diagnostics::TexlabDiagnostics::attach(
+                &self.lattice,
+                texlab,
+                self.relative.clone(),
+                cx,
+            ),
+        );
         let panel = cx.weak_entity();
         let created = move |path: String, cx: &mut App| {
             panel
@@ -262,6 +293,7 @@ impl super::EditorPanel {
             &self.project,
             self.relative.clone(),
             self.latex_root.clone(),
+            facts,
             created,
             cx,
         ));

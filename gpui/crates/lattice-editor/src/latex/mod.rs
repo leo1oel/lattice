@@ -34,12 +34,14 @@ pub mod format_toggle;
 pub mod highlights;
 pub mod input_rules;
 pub mod lint;
+pub mod project_completions;
 pub mod prose;
 pub mod protected;
 pub mod region_edits;
 pub mod spelling;
 pub mod synctex_word;
 pub mod syntax;
+pub mod texlab_completions;
 pub mod vocabulary;
 
 struct LatexLanguage(Arc<Language>);
@@ -92,8 +94,14 @@ pub fn language_for_path(path: &Path, cx: &App) -> Option<Arc<Language>> {
 }
 
 /// Put the LaTeX extensions that read the project on `editor`: the citation
-/// and reference cards, and command, citation and label completion.
-pub fn attach(editor: &mut LatticeEditor, index: &Entity<ProjectIndex>) {
+/// and reference cards, and completion of citation keys, labels, project
+/// paths, the project's own commands and built-in ones, in the Tauri app's
+/// source order. `facts` is what the host reads of the project's files.
+pub fn attach(
+    editor: &mut LatticeEditor,
+    index: &Entity<ProjectIndex>,
+    facts: project_completions::Facts,
+) {
     let weak = index.downgrade();
     editor.add_hover_provider(Rc::new(cards::CitationCards {
         index: weak.clone(),
@@ -105,6 +113,10 @@ pub fn attach(editor: &mut LatticeEditor, index: &Entity<ProjectIndex>) {
         index: weak.clone(),
     }));
     editor.add_completion_source(Rc::new(completions::ReferenceSource { index: weak }));
+    editor.add_completion_source(Rc::new(project_completions::IncludeSource {
+        facts: facts.clone(),
+    }));
+    editor.add_completion_source(Rc::new(project_completions::MacroSource { facts }));
     editor.add_completion_source(Rc::new(completions::CommandSource));
 }
 

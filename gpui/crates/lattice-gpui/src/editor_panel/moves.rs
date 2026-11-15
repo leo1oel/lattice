@@ -15,13 +15,6 @@ impl EditorPanel {
         if let Some(diagnostics) = &self.diagnostics {
             let relative = relative.clone();
             diagnostics.update(cx, |diagnostics, cx| diagnostics.set_path(relative, cx));
-        } else if latex::is_tex_source(&self.path) {
-            self.diagnostics = Some(attach_latex(
-                &self.lattice,
-                &self.project,
-                relative.clone(),
-                cx,
-            ));
         }
         if let Some(document) = self
             .structured
@@ -41,7 +34,7 @@ impl EditorPanel {
                 let relative = self.relative.clone();
                 lint.update(cx, |lint, cx| lint.set_path(relative, cx));
             }
-            None => self.attach_index_lint(cx),
+            None => self.attach_tex(cx),
         }
         crate::status_counters::set_buffer(root.clone(), left, None, cx);
         self.scan_todos(Duration::ZERO, cx);
