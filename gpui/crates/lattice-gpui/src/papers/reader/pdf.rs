@@ -202,6 +202,12 @@ impl PaperReader {
         })
     }
 
+    /// Open the PDF at the 1-based `page` (`openPaperSource` with a page).
+    pub fn open_pdf_page(&mut self, page: usize, window: &mut Window, cx: &mut Context<Self>) {
+        self.open_pdf(window, cx);
+        self.go_to_pdf_page(page, cx);
+    }
+
     /// Show the 1-based `page` of the PDF shown (`openPdf({ page })`).
     pub(super) fn go_to_pdf_page(&mut self, page: usize, cx: &mut Context<Self>) {
         let Some(pdf) = &mut self.pdf else {

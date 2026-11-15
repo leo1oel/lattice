@@ -74,6 +74,7 @@ impl EditorPanel {
         self._subscriptions
             .push(cx.subscribe_in(&document, window, Self::on_markdown_document));
         self.paper_document_made(&document, cx);
+        self.library_document_made(&document, cx);
         self.forward_markdown_review(&document, cx);
         document
     }

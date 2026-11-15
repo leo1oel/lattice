@@ -75,6 +75,7 @@ pub fn project_symbols(
                     snippet: reference.snippet,
                     path: reference.path,
                     line: reference.line,
+                    image_path: reference.image_path,
                 })
                 .collect();
             let references = match live {

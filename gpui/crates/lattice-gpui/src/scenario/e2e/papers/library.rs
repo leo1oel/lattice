@@ -91,6 +91,9 @@ impl Run {
                 && landed
                 && text.get(at..at + written.len()) == Some(written.as_str())
                 && caret == at + written.len()
+                // The import is what ticks the step: it starts unticked in
+                // the scratch home, so a cite that skipped the tick fails.
+                && !cite_before
                 && cite_after,
             json!({
                 "started": started, "landed": landed, "caret": caret, "at": at,
@@ -145,7 +148,7 @@ impl Run {
 
     /// Save the window in light and dark, English and Simplified Chinese,
     /// under `LATTICE_E2E_SHOTS`, then put it back in light English.
-    async fn papers_looks(&self, cx: &mut AsyncApp, name: &str) -> Result<()> {
+    pub(super) async fn papers_looks(&self, cx: &mut AsyncApp, name: &str) -> Result<()> {
         use lattice_settings::InterfaceLanguage;
         use lattice_ui::{Appearance, LatticeTheme};
         if std::env::var_os("LATTICE_E2E_SHOTS").is_none() {
