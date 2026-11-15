@@ -39,6 +39,7 @@ mod editor_events;
 mod environment_flow;
 mod editors;
 mod export_zip;
+mod journal_export;
 mod focus_escape;
 mod entries;
 mod get_started_flow;
