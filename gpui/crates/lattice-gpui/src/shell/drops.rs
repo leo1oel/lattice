@@ -14,8 +14,9 @@
 //!   imports sources into the project root and opens them; figures over a
 //!   LaTeX or Markdown editor go into `figures/` and in as figures at the
 //!   line under the pointer; figures elsewhere go into `figures/` and open.
-//! - The Agent panel attaches whatever it can read to its composer, through
-//!   [`agent_drop_target`].
+//! - The Agent panel attaches whatever it can read to its composer: its
+//!   page's webview takes the drag before the window does
+//!   (`agent/surface/drops.rs`), so no drop on it comes here.
 //! - Anything else says where it can go instead.
 //!
 //! A tree row that leaves the Project panel (a file, not a figure, which
@@ -27,13 +28,9 @@
 
 use std::path::{Path, PathBuf};
 
-use gpui::{
-    App, AppContext as _, Context, ExternalPaths, InteractiveElement, Pixels, Point, Styled as _,
-    Window,
-};
-use lattice_core::project::{self as core_project, AgentComposerFile};
+use gpui::{App, AppContext as _, Context, Pixels, Point, Window};
+use lattice_core::project as core_project;
 use lattice_i18n::t;
-use lattice_ui::ActiveLattice as _;
 use trellis::runtime::engine::ViewPlacement;
 
 use super::{
@@ -467,58 +464,6 @@ impl Shell {
         }
         self.sync_views(window, cx);
     }
-}
-
-/// Lane D's hook for the Agent panel: `element` takes Finder drops, lit as
-/// the Tauri app's `.agent-drop-active` while they are over it, and hands
-/// `attach` the files read for the composer
-/// (`read_agent_composer_files`: images as images, anything else it can
-/// read as documents, 64 MB each at most); a file it cannot read says so.
-#[allow(
-    dead_code,
-    reason = "the Agent panel's own lane wires it to its composer"
-)]
-pub(crate) fn agent_drop_target<E>(
-    element: E,
-    attach: impl Fn(Vec<AgentComposerFile>, &mut Window, &mut App) + 'static,
-    cx: &App,
-) -> E
-where
-    E: InteractiveElement + gpui::Styled,
-{
-    let accent = cx.palette().accent;
-    let attach = std::rc::Rc::new(attach);
-    element
-        .drag_over::<ExternalPaths>(move |style, paths, _, _| {
-            if classify(paths.paths()) == DropKind::Unsupported {
-                return style;
-            }
-            style.border_1().border_color(accent.opacity(0.30))
-        })
-        .on_drop(move |paths: &ExternalPaths, window, cx| {
-            if classify(paths.paths()) == DropKind::Unsupported {
-                return;
-            }
-            let sources: Vec<String> = paths
-                .paths()
-                .iter()
-                .map(|path| path.to_string_lossy().into_owned())
-                .collect();
-            let read = cx
-                .background_spawn(async move { core_project::read_agent_composer_files(&sources) });
-            let attach = attach.clone();
-            let window_handle = window.window_handle();
-            cx.spawn(async move |cx| {
-                let read = read.await;
-                window_handle
-                    .update(cx, |_, window, cx| match read {
-                        Ok(files) => attach(files, window, cx),
-                        Err(error) => notices::error(error, "", cx),
-                    })
-                    .ok();
-            })
-            .detach();
-        })
 }
 
 /// This file's registration as a window part (`parts.rs`).

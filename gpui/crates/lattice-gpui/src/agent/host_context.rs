@@ -10,7 +10,9 @@
 //!   visual Markdown editor's selection (`onSelectionMarkdown`) and Open
 //!   Slide's deck and slide (`onContext`), which the document keeps;
 //! - the surface being worked in, the compiled PDF's page and page count,
-//!   and a project PDF's place when its selection is the one shared.
+//!   and a project PDF's place when its selection is the one shared;
+//! - a paper in its reader in front (`activePaper`, `paperView`), whose
+//!   text's selection is the paper's.
 //!
 //! The page builds the snapshot itself with `buildAgentHostContext`
 //! (`islands/agent/main.tsx`); this assembles its inputs.
@@ -19,12 +21,13 @@ use std::collections::HashMap;
 
 use serde_json::{Map, Value, json};
 
-/// A surface that can own the shared selection (`AgentHostSurface`, less
-/// `paper`, which the Papers reader would report).
+/// A surface that can own the shared selection (`AgentHostSurface`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Source {
     Editor,
     Pdf,
+    /// A paper's text in its reader.
+    Paper,
 }
 
 impl Source {
@@ -32,6 +35,7 @@ impl Source {
         match self {
             Self::Editor => "editor",
             Self::Pdf => "pdf",
+            Self::Paper => "paper",
         }
     }
 }
@@ -144,6 +148,9 @@ pub struct Inputs<'a> {
     pub pdf_page: usize,
     pub pdf_page_count: Option<usize>,
     pub presentation: Option<Value>,
+    /// The paper in its reader in front, as its summary (`PaperSummary`),
+    /// and the text it shows (`"blog"` or `"fulltext"`).
+    pub paper: Option<(Value, &'static str)>,
     pub selection: &'a SharedSelection,
 }
 
@@ -159,7 +166,7 @@ pub fn workspace(inputs: Inputs<'_>) -> Value {
         "canvasMode".into(),
         json!(match inputs.surface {
             Source::Pdf => "pdf",
-            Source::Editor => "split",
+            Source::Editor | Source::Paper => "split",
         }),
     );
     workspace.insert("pdfPage".into(), json!(inputs.pdf_page.max(1)));
@@ -168,6 +175,9 @@ pub fn workspace(inputs: Inputs<'_>) -> Value {
         "presentation".into(),
         inputs.presentation.unwrap_or(Value::Null),
     );
+    let (paper, view) = inputs.paper.unwrap_or((Value::Null, "blog"));
+    workspace.insert("activePaper".into(), paper);
+    workspace.insert("paperView".into(), json!(view));
     if let Some(owner) = inputs.selection.owner() {
         let selected = inputs.selection.selected();
         workspace.insert("selection".into(), json!(selected.text));
@@ -260,6 +270,7 @@ mod tests {
             pdf_page: 3,
             pdf_page_count: Some(12),
             presentation: None,
+            paper: None,
             selection: &shared,
         });
         assert_eq!(workspace["activeSurface"], "pdf");
@@ -274,10 +285,40 @@ mod tests {
             pdf_page: 0,
             pdf_page_count: None,
             presentation: None,
+            paper: None,
             selection: &SharedSelection::default(),
         });
         assert!(none.get("selection").is_none());
+        assert_eq!(none["activePaper"], Value::Null);
         assert_eq!(none["pdfPage"], 1);
         assert_eq!(none["editorPosition"]["line"], 4);
+    }
+
+    // `buildAgentHostContext` takes a paper in front, with the paper's own
+    // selection, before the editor's file.
+    #[test]
+    fn a_paper_in_front_carries_its_summary_view_and_selection() {
+        let mut shared = SharedSelection::default();
+        shared.observe(Source::Editor, text("from the source"));
+        shared.activate(Source::Paper);
+        shared.observe(Source::Paper, text("scaled dot-product attention"));
+        let workspace = workspace(Inputs {
+            active_file: ".research/papers/1706.03762/paper.md",
+            editor_position: None,
+            surface: Source::Paper,
+            pdf_page: 1,
+            pdf_page_count: None,
+            presentation: None,
+            paper: Some((
+                json!({ "arxivId": "1706.03762", "title": "Attention" }),
+                "fulltext",
+            )),
+            selection: &shared,
+        });
+        assert_eq!(workspace["activeSurface"], "paper");
+        assert_eq!(workspace["activePaper"]["arxivId"], "1706.03762");
+        assert_eq!(workspace["paperView"], "fulltext");
+        assert_eq!(workspace["selectionSource"], "paper");
+        assert_eq!(workspace["selection"], "scaled dot-product attention");
     }
 }

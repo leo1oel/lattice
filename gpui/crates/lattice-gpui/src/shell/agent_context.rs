@@ -4,8 +4,10 @@
 //! board, a sheet, a deck, an image, a project PDF); the surface the writer
 //! works in, the editor or a PDF, as focus moves; the compiled PDF's page
 //! and page count; the one shared selection, the source editor's, the
-//! visual Markdown editor's, or a PDF's with the PDF and page it was made
-//! on; and Open Slide's deck and slide while a deck is in front.
+//! visual Markdown editor's, a PDF's with the PDF and page it was made
+//! on, or a paper's in its reader; Open Slide's deck and slide while a deck
+//! is in front; and the paper in its reader, with the text it shows, while
+//! its reader is the one worked in.
 //!
 //! The model is `crate::agent::host_context`; this reads the window into
 //! it. The window is read on every frame (`agent_follow_front`), but only
@@ -21,6 +23,7 @@ use crate::{
         workspace,
     },
     editor_panel::EditorPanel,
+    papers::reader::{PaperReader, ReaderView},
     pdf::{PdfPanel, PdfPanelKind},
     structured::StructuredKind,
 };
@@ -44,6 +47,11 @@ pub(crate) struct ContextState {
     /// last worked in, until the editor takes the keyboard again.
     other_front: Option<String>,
     pdf_place: (usize, usize),
+    /// The paper's reader the writer last worked in (its view or its text's
+    /// editor focused), until another surface takes the keyboard, and the
+    /// reading file it showed when last pushed.
+    paper: Option<WeakEntity<PaperReader>>,
+    paper_path: Option<String>,
 }
 
 impl Shell {
@@ -76,11 +84,20 @@ impl Shell {
                 .focus_handle(cx)
                 .contains_focused(window, cx)
         });
-        let surface = match (&focused_pdf, editor_focused) {
-            (Some(_), _) => Some(Source::Pdf),
-            (None, true) => Some(Source::Editor),
-            (None, false) => None,
+        let reader = self.focused_reader(editor.as_ref(), editor_focused, cx);
+        let surface = match (&focused_pdf, &reader, editor_focused) {
+            (Some(_), _, _) => Some(Source::Pdf),
+            (None, Some(_), _) => Some(Source::Paper),
+            (None, None, true) => Some(Source::Editor),
+            (None, None, false) => None,
         };
+        // A paper stays in front while the keyboard is elsewhere (the
+        // Agent's composer), until another surface takes it.
+        match reader {
+            Some(reader) => self.context().paper = Some(reader.downgrade()),
+            None if surface.is_some() => self.context().paper = None,
+            None => {}
+        }
         if let Some(surface) = surface
             && self.context().surface != Some(surface)
         {
@@ -119,8 +136,13 @@ impl Shell {
         let (document, _) = self.agent_front_document(cx);
         let live = self.pdf().read(cx).live_view().read(cx);
         let pdf_place = (live.current_page(), live.page_count());
+        let paper_path = self.agent_paper(cx).map(|reader| reader.read(cx).path());
         let state = self.context();
-        if front != state.front || document != state.document || pdf_place != state.pdf_place {
+        if front != state.front
+            || document != state.document
+            || pdf_place != state.pdf_place
+            || paper_path != state.paper_path
+        {
             changed = true;
         }
         if changed {
@@ -189,6 +211,42 @@ impl Shell {
         false
     }
 
+    /// The paper's reader the keyboard is in: its view focused, or the
+    /// editor of one of its texts.
+    fn focused_reader(
+        &self,
+        editor: Option<&Entity<EditorPanel>>,
+        editor_focused: bool,
+        cx: &App,
+    ) -> Option<Entity<PaperReader>> {
+        let doc = self.document(cx);
+        let focused = self
+            .workspace
+            .read(cx)
+            .engine()
+            .focused_view()
+            .map(|view| file_key(doc.views.get(view)))
+            .filter(|key| super::papers::is_reader_key(key))
+            .and_then(|key| self.reader_of(&key, cx));
+        focused.or_else(|| {
+            let editor = editor.filter(|_| editor_focused)?;
+            self.documents
+                .readers
+                .iter()
+                .find(|reader| reader.read(cx).editors().any(|text| text == editor))
+                .cloned()
+        })
+    }
+
+    /// The paper in its reader the Agent takes as in front, while that
+    /// reader is still open.
+    pub(super) fn agent_paper(&self, _: &App) -> Option<Entity<PaperReader>> {
+        let reader = self.agent.state.context.paper.as_ref()?.upgrade()?;
+        (self.documents.readers.contains(&reader)
+            && self.view_of_panel(reader.entity_id()).is_some())
+        .then_some(reader)
+    }
+
     /// The document the Agent takes as in front, and whether it is the
     /// active editor's: the file view that is no editor the writer last
     /// worked in (an image, a project PDF, in any pane), or another tab
@@ -224,6 +282,10 @@ impl Shell {
 
     /// Tell the Agent what the writer is working in now (`useAgentContext`).
     pub(crate) fn push_agent_workspace(&mut self, cx: &mut Context<Self>) {
+        if let Some(reader) = self.agent_paper(cx) {
+            return self.push_agent_paper(&reader, cx);
+        }
+        self.context().paper_path = None;
         let editor = self.active_editor();
         let front = editor.as_ref().map(Entity::entity_id);
         let (document, editor_in_front) = self.agent_front_document(cx);
@@ -280,6 +342,66 @@ impl Shell {
             pdf_page: pdf_place.0 + 1,
             pdf_page_count: (pdf_place.1 > 0).then_some(pdf_place.1),
             presentation,
+            paper: None,
+            selection: &state.selection,
+        });
+        self.agent_surface(cx)
+            .update(cx, |surface, cx| surface.set_workspace(workspace, cx));
+    }
+
+    /// The paper in `reader` is in front (`activePaper`): its reading file,
+    /// the text it shows and that text's selection, the paper's, with no
+    /// caret, as `buildAgentHostContext` takes a paper before any file.
+    fn push_agent_paper(&mut self, reader: &Entity<PaperReader>, cx: &mut Context<Self>) {
+        let (path, view, summary, editor) = {
+            let reader = reader.read(cx);
+            (
+                reader.path(),
+                reader.view(),
+                serde_json::to_value(reader.paper()).unwrap_or_default(),
+                reader.editor().cloned(),
+            )
+        };
+        let mut selected = editor
+            .as_ref()
+            .map(|editor| workspace::of_editor(editor.read(cx), cx).selected)
+            .unwrap_or_default();
+        selected.lines = None;
+        if selected.text.is_empty()
+            && let Some(text) = editor
+                .as_ref()
+                .and_then(|editor| editor.read(cx).markdown_document())
+                .and_then(|document| document.read(cx).visual_selection())
+                .map(str::trim)
+                .filter(|text| !text.is_empty())
+        {
+            selected.text = text.to_string();
+            selected.length = None;
+        }
+        let front = self.active_editor().as_ref().map(Entity::entity_id);
+        let (document, _) = self.agent_front_document(cx);
+        let live = self.pdf().read(cx).live_view().read(cx);
+        let pdf_place = (live.current_page(), live.page_count());
+        let state = self.context();
+        state.front = front;
+        state.document = document;
+        state.pdf_place = pdf_place;
+        state.paper_path = Some(path.clone());
+        state.selection.observe(Source::Paper, selected);
+        let workspace = host_context::workspace(Inputs {
+            active_file: &path,
+            editor_position: None,
+            surface: Source::Paper,
+            pdf_page: pdf_place.0 + 1,
+            pdf_page_count: (pdf_place.1 > 0).then_some(pdf_place.1),
+            presentation: None,
+            paper: Some((
+                summary,
+                match view {
+                    ReaderView::FullText => "fulltext",
+                    ReaderView::Overview => "blog",
+                },
+            )),
             selection: &state.selection,
         });
         self.agent_surface(cx)
