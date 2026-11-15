@@ -743,6 +743,17 @@ fn preferred_view(remembered: Option<ReaderView>, paper: &PaperSummary) -> Reade
     }
 }
 
+/// An import or check failed for want of the paper tools: setup offers them
+/// (`onMissingPaperTools`).
+fn offer_paper_tools(failure: &str, cx: &mut gpui::App) {
+    if let Some(center) = crate::build::tex_setup::center::center(cx) {
+        let failure = failure.to_string();
+        center.update(cx, |center, cx| {
+            center.open_for_missing_paper_tools(failure, cx)
+        });
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -766,16 +777,5 @@ mod tests {
         assert!(!last_used(&mut readers, |reader| *reader == "editor"));
         assert_eq!(readers, ["b", "a"]);
         assert_eq!(front_of(&readers, Some("editor")), Some(1));
-    }
-}
-
-/// An import or check failed for want of the paper tools: setup offers them
-/// (`onMissingPaperTools`).
-fn offer_paper_tools(failure: &str, cx: &mut gpui::App) {
-    if let Some(center) = crate::build::tex_setup::center::center(cx) {
-        let failure = failure.to_string();
-        center.update(cx, |center, cx| {
-            center.open_for_missing_paper_tools(failure, cx)
-        });
     }
 }
