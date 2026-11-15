@@ -107,6 +107,32 @@ impl Run {
                 editor.replace_range(0, len, &original, 0, window, cx)
             })
         })?;
+
+        // With Vim on, `f$` in Normal mode is Vim's find motion, its `$`
+        // waiting for a character (`vim_mode = waiting`), never the typing
+        // rule's pair: `x` then deletes the `$` it found, and nothing else
+        // in the file changes.
+        cx.update(|cx| crate::app::set_vim_mode(true, cx));
+        let scratch = root.join("vim-dollar.tex");
+        std::fs::write(&scratch, "a $x$ b\n")?;
+        let vim_editor = self.open(cx, &scratch, Some(1))?;
+        self.pause(cx, Duration::from_millis(300)).await;
+        self.type_text(cx, "f$").await?;
+        self.pause(cx, Duration::from_millis(100)).await;
+        self.type_text(cx, "x").await?;
+        self.pause(cx, Duration::from_millis(100)).await;
+        let vim_text = self.editor_text(cx, &vim_editor);
+        steps.check(
+            "with Vim on, f$ in a LaTeX file finds the next $ (x then deletes it) rather than writing a $ pair",
+            vim_text == "a x$ b\n",
+            json!({ "text": vim_text }),
+        );
+        cx.update(|cx| crate::app::set_vim_mode(false, cx));
+        self.wait_for(cx, Duration::from_secs(6), |_, cx| {
+            !vim_editor.read(cx).is_dirty(cx)
+        })
+        .await;
+        std::fs::remove_file(&scratch).ok();
         Ok(())
     }
 }
