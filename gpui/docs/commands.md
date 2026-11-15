@@ -21,4 +21,4 @@ A launch's reopen that takes longer than a second shows the welcome screen while
 ## In the e2e scenario
 
 `scenario/e2e/shell_lifecycle.rs`: the window's minimum following its layout's, and the menu bar's menus and their items.
-`scenario/e2e/palette.rs`: the palette's leading groups, a command run from it leading the next opening, What's new's detail, a Settings row found and opened, the Find in project fallback, and the keyboard back in the document afterwards.
+`scenario/e2e/palette.rs`: the palette's leading groups, a command run from it leading the next opening, What's new's detail, a Settings row found and opened, a paper found by its year or a run inside its title but never one only cited, the Find in project fallback, and the keyboard back in the document afterwards.

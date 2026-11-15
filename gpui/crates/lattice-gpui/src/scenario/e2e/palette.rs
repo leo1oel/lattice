@@ -5,8 +5,8 @@
 //! the one in front left out; a command run from the palette leads the next
 //! opening under "Recent", and one that opts out (Clean aux files) never
 //! does; What's new carries the running version as its detail; a typed
-//! query finds a Settings row, which opens Settings at it; and a query that
-//! finds nothing offers Find in project on it, which opens with the query.
+//! query finds a Settings row, which opens Settings at it, and a paper by
+//! its year or a run inside its title, never one that is only cited; and a query that finds nothing offers Find in project on it, which opens with the query.
 
 use std::{path::Path, time::Duration};
 
@@ -29,6 +29,19 @@ impl Run {
                 shell.open_palette(window, cx)
             })
         })
+    }
+
+    /// With `LATTICE_E2E_SHOTS=DIR` (and the `offscreen-shots` feature)
+    /// the window is saved as `DIR/<name>.png`, for a review of the look.
+    async fn palette_shot(&self, cx: &mut AsyncApp, name: &str) {
+        let Some(dir) = std::env::var_os("LATTICE_E2E_SHOTS") else {
+            return;
+        };
+        self.pause(cx, Duration::from_millis(300)).await;
+        let path = Path::new(&dir).join(format!("{name}.png"));
+        if let Err(error) = self.capture(cx, &path.to_string_lossy()).await {
+            log::warn!("no shot {name}: {error:#}");
+        }
     }
 
     fn palette_rows_now(&self, cx: &mut AsyncApp) -> Rows {
@@ -100,6 +113,7 @@ impl Run {
         self.pause(cx, Duration::from_millis(300)).await;
 
         self.open_palette_now(cx)?;
+        self.palette_shot(cx, "palette-empty").await;
         let rows = self.palette_rows_now(cx);
         let in_group = |rows: &Rows, group: &str| -> Vec<String> {
             rows.iter()
@@ -140,6 +154,7 @@ impl Run {
         let ran_clean = self.palette_run(cx, "Clean aux files")?;
         self.pause(cx, Duration::from_millis(500)).await;
         self.open_palette_now(cx)?;
+        self.palette_shot(cx, "palette-recent").await;
         let recent = in_group(&self.palette_rows_now(cx), "Recent");
         steps.check(
             "a command run from the palette leads the next opening, and Clean aux files never does",
@@ -152,6 +167,7 @@ impl Run {
         );
 
         self.palette_type(cx, "interface size")?;
+        self.palette_shot(cx, "palette-settings-row").await;
         let rows = self.palette_rows_now(cx);
         let setting = rows
             .iter()
@@ -180,9 +196,61 @@ impl Run {
             })
         })?;
 
+        // Papers, as the Tauri palette lists them (`command-palette.tsx`,
+        // `picker-ranking.ts` `scoreItem`): the fixture's one paper, The
+        // TeXbook (1984), is only cited, so it is never a row; a paper with a
+        // page to open is found by the year its row shows and by a run
+        // starting inside a word of its title ("bert" in "RoBERTa").
+        const ROBERTA: &str = "RoBERTa: A Robustly Optimized BERT Pretraining Approach";
+        let added = cx.update(|cx| {
+            let papers = self.shell.read(cx).papers().clone();
+            papers.update(cx, |panel, _| {
+                let mut paper = panel.papers.first()?.clone();
+                paper.title = ROBERTA.into();
+                paper.authors = "Liu, Yinhan and Ott, Myle".into();
+                paper.year = Some("2019".into());
+                paper.citation_key = Some("liu2019roberta".into());
+                paper.url = Some("https://example.org/roberta".into());
+                panel.papers.push(paper);
+                Some(())
+            })
+        });
+        let mut papers = Vec::new();
+        for (query, title, listed) in [
+            ("1984", "The TeXbook", false),
+            ("2019", ROBERTA, true),
+            ("bert", ROBERTA, true),
+        ] {
+            self.open_palette_now(cx)?;
+            self.palette_type(cx, query)?;
+            if query == "bert" {
+                self.palette_shot(cx, "palette-papers-row").await;
+            }
+            let rows = self.palette_rows_now(cx);
+            let found = rows
+                .iter()
+                .any(|(group, label, _)| group == "Papers" && label == title);
+            papers.push(json!({ "query": query, "title": title, "listed": found, "expected": listed, "rows": rows }));
+        }
+        cx.update(|cx| {
+            let papers = self.shell.read(cx).papers().clone();
+            papers.update(cx, |panel, _| {
+                panel.papers.retain(|paper| paper.title != ROBERTA)
+            });
+        });
+        steps.check(
+            "a typed query finds a paper by its year or a run inside its title, never one only cited",
+            added.is_some() && papers.iter().all(|paper| paper["listed"] == paper["expected"]),
+            json!({ "papers": papers }),
+        );
+        self.with_window(cx, |shell, window, cx| {
+            shell.update(cx, |shell, cx| shell.close_overlays(window, cx))
+        })?;
+
         self.open_palette_now(cx)?;
         let nothing = "zqxjvwk";
         self.palette_type(cx, nothing)?;
+        self.palette_shot(cx, "palette-fallback").await;
         let rows = self.palette_rows_now(cx);
         let fallback = format!("Search the project for “{nothing}”");
         let offered = rows.len() == 1 && rows[0].1 == fallback;

@@ -53,6 +53,19 @@ fn titles(cx: &mut AsyncApp) -> Vec<String> {
 }
 
 impl Run {
+    /// With `LATTICE_E2E_SHOTS=DIR` (and the `offscreen-shots` feature)
+    /// the window is saved as `DIR/<name>.png`, for a review of the look.
+    async fn updater_shot(&self, cx: &mut AsyncApp, name: &str) {
+        let Some(dir) = std::env::var_os("LATTICE_E2E_SHOTS") else {
+            return;
+        };
+        self.pause(cx, Duration::from_millis(300)).await;
+        let path = std::path::Path::new(&dir).join(format!("{name}.png"));
+        if let Err(error) = self.capture(cx, &path.to_string_lossy()).await {
+            log::warn!("no shot {name}: {error:#}");
+        }
+    }
+
     async fn updater_checks(&self, cx: &mut AsyncApp, steps: &mut Steps) -> Result<()> {
         let off = lattice_menu_items(cx);
         let known = cx.update(|cx| updater::known_update(cx));
@@ -98,6 +111,7 @@ impl Run {
                 updater::known_update(cx).is_some()
             })
             .await;
+        self.updater_shot(cx, "updater-offer").await;
         let shown = titles(cx);
         let menu = lattice_menu_items(cx);
         steps.check(
@@ -109,6 +123,7 @@ impl Run {
         );
 
         cx.update(crate::help::report::report_problem);
+        self.updater_shot(cx, "updater-report-gate").await;
         let shown = titles(cx);
         let gate = format!("You’re on v{}; v99.0.0 is available", lattice_core::VERSION);
         steps.check(
