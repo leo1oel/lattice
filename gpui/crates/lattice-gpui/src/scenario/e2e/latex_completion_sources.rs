@@ -146,6 +146,64 @@ impl Run {
             }),
         );
 
+        // The open file's saved copy names no keys of its own: a half-typed
+        // key the autosave wrote (any of `k`, `ket`, `ketx`) is not listed
+        // once the writer deletes back into it; the buffer is the authority.
+        self.end_line(cx, &panel)?;
+        self.type_text(cx, " \\cmpd{ketx").await?;
+        self.press(cx, '\u{1b}', false).await?;
+        let saved = scratch.clone();
+        self.wait_for(cx, Duration::from_secs(8), move |_, _| {
+            std::fs::read_to_string(&saved).is_ok_and(|text| text.contains("\\cmpd{ketx"))
+        })
+        .await;
+        let on_disk = std::fs::read_to_string(&scratch)
+            .is_ok_and(|text| text.contains("\\cmpd{ketx"));
+        // The project read the save sets off.
+        self.pause(cx, Duration::from_millis(1500)).await;
+        let caret = self.editor_text(cx, &panel).rfind('}');
+        if let Some(caret) = caret {
+            let editor = cx.update(|cx| panel.read(cx).editor().clone());
+            self.with_window(cx, move |_, window, cx| {
+                editor.update(cx, |editor, cx| {
+                    editor.change_selections(SelectionEffects::default(), window, cx, |s| {
+                        s.select_ranges([
+                            editor::MultiBufferOffset(caret)..editor::MultiBufferOffset(caret)
+                        ])
+                    });
+                })
+            })?;
+        }
+        self.press(cx, '\u{8}', false).await?;
+        self.pause(cx, Duration::from_millis(100)).await;
+        let deleted = self.typed_menu(cx, &panel, "").await?;
+        let deleted = if deleted.is_empty() {
+            // Backspace may not reopen the menu; typing a matching letter does.
+            self.press(cx, '\u{8}', false).await?;
+            self.typed_menu(cx, &panel, "t").await?
+        } else {
+            deleted
+        };
+        self.press(cx, '\u{1b}', false).await?;
+        let line = self.editor_text(cx, &panel).lines().last().map(str::to_owned);
+        steps.check(
+            "a half-typed \\cmpd{ key the autosave wrote is not listed after Backspace deletes into it",
+            on_disk
+                && deleted.iter().any(|label| label.starts_with("ketone"))
+                // No saved half-typed key (`ket`, `ketx`) beside the real one.
+                && deleted
+                    .iter()
+                    .all(|label| !label.starts_with("ket") || label.starts_with("ketone")),
+            json!({
+                "saved": on_disk,
+                "menu": deleted,
+                "line": line,
+                "facts": cx.update(|cx| panel.read(cx).index_lint().map(|lint| {
+                    lint.read(cx).facts().borrow().compounds.keys.clone()
+                })),
+            }),
+        );
+
         if TexlabService::available() {
             steps.check(
                 "with TexLab installed, its completions join the menu: an \\input's lists TexLab's folder entry beside Lattice's files",
