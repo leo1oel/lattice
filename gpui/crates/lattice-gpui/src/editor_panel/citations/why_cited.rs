@@ -50,6 +50,13 @@ fn chosen_index(role: Option<&'static str>) -> usize {
         .unwrap_or(0)
 }
 
+/// The role an arrow key moves the choice to: `step` chips on from the one
+/// holding the tab stop, wrapping round.
+fn stepped_role(role: Option<&'static str>, step: isize) -> &'static str {
+    let count = reasons::ROLES.len() as isize;
+    reasons::ROLES[(chosen_index(role) as isize + step).rem_euclid(count) as usize]
+}
+
 impl EditorPanel {
     /// Open "Why cited" on the key at bytes `range`.
     pub(in crate::editor_panel) fn open_why_cited(
@@ -137,12 +144,7 @@ impl EditorPanel {
         let Some(draft) = &mut self.citations.draft else {
             return;
         };
-        let at = draft
-            .role
-            .and_then(|role| reasons::ROLES.iter().position(|item| *item == role))
-            .map_or(if step > 0 { -1 } else { 0 }, |at| at as isize);
-        let count = reasons::ROLES.len() as isize;
-        draft.role = Some(reasons::ROLES[((at + step).rem_euclid(count)) as usize]);
+        draft.role = Some(stepped_role(draft.role, step));
         cx.notify();
     }
 
@@ -507,5 +509,20 @@ impl EditorPanel {
             field.set_value(note.to_string(), window, cx)
         });
         self.save_reason(window, cx);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// `citation-reason-editor.ts`: with no role chosen the first chip holds
+    /// focus, and an arrow steps from it, `(Math.max(0, at) + step + n) % n`.
+    #[test]
+    fn arrows_step_from_the_chip_holding_the_tab_stop() {
+        assert_eq!(stepped_role(None, 1), "counterexample");
+        assert_eq!(stepped_role(None, -1), "background");
+        assert_eq!(stepped_role(Some("background"), 1), "supporting");
+        assert_eq!(stepped_role(Some("method"), -1), "counterexample");
     }
 }

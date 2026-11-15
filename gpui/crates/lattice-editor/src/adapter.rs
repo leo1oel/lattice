@@ -198,12 +198,12 @@ impl LatticeEditor {
         &self.buffer
     }
 
-    /// What the overlay painted last frame.
     /// Where this editor's citation cards find the paper library.
     pub fn citation_slot(&self) -> crate::latex::citation_library::CitationSlot {
         self.citations.clone()
     }
 
+    /// What the overlay painted last frame.
     pub fn painted(&self) -> Painted {
         self.painted.borrow().clone()
     }
