@@ -243,8 +243,6 @@ pub struct EditorPanel {
     _count: Option<Task<()>>,
     _todos: Option<Task<()>>,
     _poll: Task<()>,
-    /// Keeping the place once caret and scroll rest (`place_memory.rs`).
-    place_task: Option<Task<()>>,
     /// Vim's open `:` line (`vim_ex.rs`).
     vim_ex: Option<vim_ex::VimExLine>,
     _subscriptions: Vec<Subscription>,
@@ -406,6 +404,11 @@ impl EditorPanel {
             cx.observe_global_in::<crate::settings::AppSettings>(window, |this, window, cx| {
                 this.sync_latex_view(window, cx)
             }),
+            cx.on_release(|_, _| place_memory::flush()),
+            cx.on_app_quit(|_, _| {
+                place_memory::flush();
+                async {}
+            }),
         ];
         let poll = cx.spawn(async move |this, cx| {
             loop {
@@ -476,7 +479,6 @@ impl EditorPanel {
             _count: None,
             _todos: None,
             _poll: poll,
-            place_task: None,
             vim_ex: None,
             _subscriptions: subscriptions,
             bib: Default::default(),

@@ -3,10 +3,12 @@
 //! its caret was and how far it was scrolled, per project, the file touched
 //! last kept newest, as many as [`MAX_PLACES`] (`FILE_VIEW_STATE_FILE_MAX`).
 //!
-//! An editor reports its place once caret and scroll have rested 250 ms (the
-//! Tauri app's persist debounce); one opened on a file goes back to the
-//! place it has, unless it was opened at a line of its own; a rename or
-//! move carries the place to the new path. The caret is a byte offset,
+//! An editor records its place at once whenever its caret or scroll moves,
+//! and the places are written 250 ms after the last change (the Tauri app's
+//! persist debounce), or as the editor closes or the app quits; one opened
+//! on a file goes back to the place it has, unless it was opened at a line
+//! of its own; a rename or move, of the file or a folder holding it, open
+//! or not, carries the place to the new path. The caret is a byte offset,
 //! clamped to the text when it comes back; the scroll is the top line,
 //! where the Tauri app keeps CodeMirror's pixels.
 //!
@@ -16,7 +18,7 @@
 //! scripted run keeps them in memory.
 
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, HashSet},
     path::{Path, PathBuf},
     sync::{Mutex, OnceLock},
     time::Duration,
@@ -32,8 +34,8 @@ use super::EditorPanel;
 /// How many files' places a project keeps.
 pub const MAX_PLACES: usize = 200;
 
-/// A place is kept once caret and scroll have rested this long.
-const REMEMBER_AFTER: Duration = Duration::from_millis(250);
+/// The places are written once they have rested this long.
+const WRITE_AFTER: Duration = Duration::from_millis(250);
 
 /// Where a file's editor was.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
@@ -55,31 +57,55 @@ impl Places {
     }
 
     /// Keep `place` as `file`'s, the newest; the oldest goes past
-    /// [`MAX_PLACES`].
-    pub fn remember(&mut self, root: &Path, file: &str, place: EditorPlace) {
+    /// [`MAX_PLACES`]. Whether anything changed.
+    pub fn remember(&mut self, root: &Path, file: &str, place: EditorPlace) -> bool {
         let places = self.0.entry(root.to_path_buf()).or_default();
+        if places
+            .last()
+            .is_some_and(|(last, at)| last == file && *at == place)
+        {
+            return false;
+        }
         places.shift_remove(file);
         places.insert(file.to_string(), place);
         while places.len() > MAX_PLACES {
             places.shift_remove_index(0);
         }
+        true
     }
 
-    /// `from` was renamed or moved to `to`: its place goes with it.
-    pub fn moved(&mut self, root: &Path, from: &str, to: &str) {
+    /// Files of `root` were renamed or moved, each file to where `moved`
+    /// says it went (`None` for one that stayed): their places go with
+    /// them, as recent as they were, over any place left at the new path.
+    /// Whether anything changed.
+    pub fn remap(&mut self, root: &Path, moved: impl Fn(&str) -> Option<String>) -> bool {
         let Some(places) = self.0.get_mut(root) else {
-            return;
+            return false;
         };
-        if let Some(place) = places.shift_remove(from) {
-            places.shift_remove(to);
-            places.insert(to.to_string(), place);
+        let moves: Vec<_> = places.keys().map(|file| moved(file)).collect();
+        if moves.iter().all(Option::is_none) {
+            return false;
         }
+        let arrived: HashSet<String> = moves.iter().flatten().cloned().collect();
+        *places = std::mem::take(places)
+            .into_iter()
+            .zip(moves)
+            .filter_map(|((file, place), to)| match to {
+                Some(to) => Some((to, place)),
+                None => (!arrived.contains(&file)).then_some((file, place)),
+            })
+            .collect();
+        true
     }
 }
 
 struct Store {
     file: Option<PathBuf>,
     places: Places,
+    /// Changed since they were last written.
+    unwritten: bool,
+    /// Counts the changes, so only the wait after the last one writes.
+    changes: u64,
 }
 
 fn store() -> &'static Mutex<Store> {
@@ -91,7 +117,12 @@ fn store() -> &'static Mutex<Store> {
             .and_then(|file| std::fs::read(file).ok())
             .and_then(|bytes| serde_json::from_slice(&bytes).ok())
             .unwrap_or_default();
-        Mutex::new(Store { file, places })
+        Mutex::new(Store {
+            file,
+            places,
+            unwritten: false,
+            changes: 0,
+        })
     })
 }
 
@@ -105,14 +136,34 @@ pub fn place(root: &Path, file: &str) -> Option<EditorPlace> {
     store().lock().ok()?.places.get(root, file)
 }
 
-/// Change the places and write them, when they changed.
-fn update(change: impl FnOnce(&mut Places)) {
+/// Change the places at once, and write them [`WRITE_AFTER`] the last
+/// change, by a wait no editor owns, so one closing does not lose it.
+fn update(change: impl FnOnce(&mut Places) -> bool, cx: &mut gpui::App) {
     let Ok(mut store) = store().lock() else {
         return;
     };
-    let before = store.places.clone();
-    change(&mut store.places);
-    if store.places == before {
+    if !change(&mut store.places) {
+        return;
+    }
+    store.unwritten = true;
+    store.changes += 1;
+    let change = store.changes;
+    drop(store);
+    cx.spawn(async move |cx| {
+        cx.background_executor().timer(WRITE_AFTER).await;
+        if self::store().lock().is_ok_and(|store| store.changes == change) {
+            flush();
+        }
+    })
+    .detach();
+}
+
+/// Write the places now, when they changed since they were last written.
+pub fn flush() {
+    let Ok(mut store) = store().lock() else {
+        return;
+    };
+    if !std::mem::take(&mut store.unwritten) {
         return;
     }
     if let Some(file) = store.file.clone()
@@ -120,6 +171,12 @@ fn update(change: impl FnOnce(&mut Places)) {
     {
         log::warn!("could not save the editors' places: {error:#}");
     }
+}
+
+/// Files of `root` were renamed or moved (see [`Places::remap`]), open in
+/// an editor or not.
+pub fn paths_moved(root: &Path, moved: impl Fn(&str) -> Option<String>, cx: &mut gpui::App) {
+    update(|places| places.remap(root, moved), cx);
 }
 
 fn write_json(path: &Path, value: &impl Serialize) -> anyhow::Result<()> {
@@ -133,25 +190,23 @@ fn write_json(path: &Path, value: &impl Serialize) -> anyhow::Result<()> {
 }
 
 impl EditorPanel {
-    /// The caret or the scroll moved: once both rest, the place is kept.
+    /// The caret or the scroll moved: the place is kept at once.
     pub(super) fn place_changed(&mut self, cx: &mut Context<Self>) {
-        self.place_task = Some(cx.spawn(async move |this, cx| {
-            cx.background_executor().timer(REMEMBER_AFTER).await;
-            this.update(cx, |this, cx| this.remember_place(cx)).ok();
-        }));
-    }
-
-    fn remember_place(&mut self, cx: &mut Context<Self>) {
         let root = self.project.read(cx).root().to_path_buf();
         let place = self.editor().clone().update(cx, |editor, cx| {
             let snapshot = editor.buffer().read(cx).snapshot(cx);
             EditorPlace {
-                cursor: editor.selections.newest_anchor().head().to_offset(&snapshot).0,
+                cursor: editor
+                    .selections
+                    .newest_anchor()
+                    .head()
+                    .to_offset(&snapshot)
+                    .0,
                 top: editor.scroll_position(cx).y.max(0.) as f32,
             }
         });
         let relative = self.relative.clone();
-        update(|places| places.remember(&root, &relative, place));
+        update(|places| places.remember(&root, &relative, place), cx);
     }
 
     /// Back to where the file was left, if it was: the caret (clamped to
@@ -177,11 +232,12 @@ impl EditorPanel {
         });
     }
 
-    /// The file moved from `from` (project-relative): its place follows.
+    /// The file moved from `from` (project-relative): its place follows,
+    /// unless the move already took it there.
     pub(super) fn place_moved(&self, from: &str, cx: &mut Context<Self>) {
         let root = self.project.read(cx).root().to_path_buf();
         let to = self.relative.clone();
-        update(|places| places.moved(&root, from, &to));
+        paths_moved(&root, |file| (file == from).then(|| to.clone()), cx);
     }
 }
 
@@ -216,11 +272,69 @@ mod tests {
     fn a_renamed_files_place_follows_it_and_reads_back_from_json() {
         let root = Path::new("/p");
         let mut places = Places::default();
-        places.remember(root, "old.tex", EditorPlace { cursor: 42, top: 12.5 });
-        places.moved(root, "old.tex", "chapters/new.tex");
+        places.remember(
+            root,
+            "old.tex",
+            EditorPlace {
+                cursor: 42,
+                top: 12.5,
+            },
+        );
+        places.remap(root, |file| {
+            (file == "old.tex").then(|| "chapters/new.tex".to_string())
+        });
         assert_eq!(places.get(root, "old.tex"), None);
-        assert_eq!(places.get(root, "chapters/new.tex"), Some(EditorPlace { cursor: 42, top: 12.5 }));
+        assert_eq!(
+            places.get(root, "chapters/new.tex"),
+            Some(EditorPlace {
+                cursor: 42,
+                top: 12.5
+            })
+        );
         let json = serde_json::to_string(&places).unwrap();
         assert_eq!(serde_json::from_str::<Places>(&json).unwrap(), places);
+    }
+
+    #[test]
+    fn a_closed_file_renamed_and_a_moved_folders_files_keep_their_places() {
+        let root = Path::new("/p");
+        let mut places = Places::default();
+        places.remember(root, "chapters/a.tex", at(1));
+        places.remember(root, "main.tex", at(2));
+        places.remember(root, "parts/chapters/a.tex", at(3));
+        places.remember(root, "chapters/b.tex", at(4));
+        places.remember(root, "chapters-old/c.tex", at(5));
+        // The tree's changes: a folder moved, a file renamed.
+        let changes = [("chapters", "parts/chapters"), ("main.tex", "paper.tex")];
+        let moved = |file: &str| {
+            changes.iter().find_map(|(from, to)| {
+                if file == *from {
+                    Some(to.to_string())
+                } else {
+                    file.strip_prefix(&format!("{from}/"))
+                        .map(|rest| format!("{to}/{rest}"))
+                }
+            })
+        };
+        assert!(places.remap(root, moved));
+        let files: Vec<_> = places.0[root]
+            .iter()
+            .map(|(file, place)| (file.as_str(), *place))
+            .collect();
+        // Each keeps its recency; the moved file wins over the place left
+        // at its new path.
+        assert_eq!(
+            files,
+            [
+                ("parts/chapters/a.tex", at(1)),
+                ("paper.tex", at(2)),
+                ("parts/chapters/b.tex", at(4)),
+                ("chapters-old/c.tex", at(5)),
+            ]
+        );
+        assert!(
+            !places.remap(root, |_| None),
+            "nothing moved, nothing changed"
+        );
     }
 }
