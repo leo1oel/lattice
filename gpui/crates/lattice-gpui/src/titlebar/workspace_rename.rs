@@ -40,6 +40,7 @@ impl Shell {
         let input = cx.new(|cx| {
             let mut state = InputState::new(window, cx);
             state.set_value(name, window, cx);
+            state.set_validator(|text, _| text.chars().count() <= NAME_MAX, cx);
             state
         });
         let target = id.to_string();
@@ -47,14 +48,8 @@ impl Shell {
             &input,
             window,
             move |this, input, event, window, cx| match event {
-                // At most 24 characters (`maxLength`); typing clears a
-                // taken name's mark.
+                // Typing clears a taken name's mark.
                 InputEvent::Change => {
-                    let value = input.read(cx).value().to_string();
-                    if value.chars().count() > NAME_MAX {
-                        let clipped: String = value.chars().take(NAME_MAX).collect();
-                        input.update(cx, |input, cx| input.set_value(clipped, window, cx));
-                    }
                     if std::mem::take(&mut this.layout.track.taken) {
                         cx.notify();
                     }

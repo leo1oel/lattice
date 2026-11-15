@@ -3,7 +3,7 @@
 //! platform's own pointer and key events:
 //!
 //! - A tab pressed and drawn past its neighbour's middle takes its place,
-//!   saved, and the press switches nothing.
+//!   saved, and the press switches nothing; Enter on it after is its click.
 //! - The project's workspace is the one tab stop; → and ← (round the ends),
 //!   Home and End switch and take the keyboard along.
 //! - F2 renames; a name already used stays in editing, marked, until the
@@ -51,37 +51,58 @@ impl Run {
         })?;
         self.pause(cx, Duration::from_millis(400)).await;
 
-        // Drag the project's workspace past the next one's middle.
+        // Drag the workspace after the project's back past its middle: the
+        // project's stays current, though the press was on the other tab.
         let before = order(cx);
         let bounds = |cx: &mut AsyncApp, id: &str| {
             let id = id.to_string();
             cx.update(|cx| self.shell.read(cx).workspace_tab_bounds(&id))
         };
-        let grabbed = bounds(cx, &first).context("the first tab is drawn")?;
         let next = before
             .iter()
             .skip_while(|id| **id != first)
             .nth(1)
             .cloned()
             .context("a workspace after the first")?;
-        let past = bounds(cx, &next).context("the next tab is drawn")?;
+        let grabbed = bounds(cx, &next).context("the next tab is drawn")?;
+        let past = bounds(cx, &first).context("the first tab is drawn")?;
         let from = grabbed.center();
-        let to = point(past.right() - px(2.), from.y);
+        let to = point(past.left() + px(2.), from.y);
         self.pointer(cx, PointerStep::Down, from).await?;
-        self.pointer(cx, PointerStep::Move, from + point(px(6.), px(0.))).await?;
+        self.pointer(cx, PointerStep::Move, from - point(px(6.), px(0.))).await?;
         let lifted = cx.update(|cx| self.shell.read(cx).layout.track.dragging.clone());
         self.pointer(cx, PointerStep::Move, to).await?;
         self.pointer(cx, PointerStep::Up, to).await?;
         self.pause(cx, Duration::from_millis(300)).await;
         let after = order(cx);
         let current = cx.update(|cx| self.shell.read(cx).layout.workspace.clone());
-        let moved = after.iter().position(|id| *id == first)
-            == before.iter().position(|id| *id == first).map(|at| at + 1);
+        let moved = after.iter().position(|id| *id == next)
+            == before.iter().position(|id| *id == first);
         steps.check(
             "a workspace tab dragged past its neighbour's middle takes its place, and the drag switches nothing",
-            lifted.as_deref() == Some(first.as_str()) && moved && current.as_deref() == Some(first.as_str()),
+            lifted.as_deref() == Some(next.as_str()) && moved && current.as_deref() == Some(first.as_str()),
             json!({ "lifted": lifted, "before": before, "after": after, "current": current }),
         );
+
+        // After the drag, Enter on the dragged tab is still its click.
+        self.with_window(cx, {
+            let next = next.clone();
+            move |shell, window, cx| shell.update(cx, |shell, cx| shell.focus_workspace_tab(&next, window, cx))
+        })?;
+        self.key(cx, "enter")?;
+        self.key_up(cx, "enter")?;
+        self.pause(cx, Duration::from_millis(300)).await;
+        let entered = cx.update(|cx| self.shell.read(cx).layout.workspace.clone());
+        steps.check(
+            "after a drag, Enter on a workspace's tab switches to it",
+            entered.as_deref() == Some(next.as_str()),
+            json!({ "entered": entered, "tab": next }),
+        );
+        self.with_window(cx, {
+            let first = first.clone();
+            move |shell, window, cx| shell.update(cx, |shell, cx| shell.switch_workspace(&first, window, cx))
+        })?;
+        self.pause(cx, Duration::from_millis(400)).await;
 
         // The keyboard: → switches to the next workspace and goes with it;
         // End and Home reach the ends; ← from the first goes round.
@@ -190,6 +211,14 @@ impl Run {
             self.open(cx, &root.join("main.tex"), Some(1))?;
         }
         Ok(())
+    }
+
+    /// One key let go where the keyboard is, as the platform sends it.
+    fn key_up(&self, cx: &mut AsyncApp, key: &'static str) -> Result<()> {
+        let keystroke = gpui::Keystroke::parse(key)?;
+        self.with_window(cx, move |_, window, cx| {
+            window.dispatch_event(PlatformInput::KeyUp(gpui::KeyUpEvent { keystroke }), cx);
+        })
     }
 
     /// One key pressed where the keyboard is, as the platform sends it.

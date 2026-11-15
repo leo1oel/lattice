@@ -37,8 +37,6 @@ pub(crate) struct TrackState {
     press: Option<(String, Pixels)>,
     /// The workspace being dragged.
     pub(crate) dragging: Option<String>,
-    /// The last press was a drag, so its click switches nothing.
-    dragged: bool,
     /// The name typed in the rename field is another workspace's.
     pub(crate) taken: bool,
     /// The tabs' menu, as last drawn (for a scenario's check).
@@ -59,17 +57,15 @@ impl Shell {
 
     /// A left press on workspace `id`'s tab.
     pub(super) fn press_workspace(&mut self, id: &str, event: &MouseDownEvent) {
-        let track = &mut self.layout.track;
-        track.dragged = false;
         if event.button == MouseButton::Left {
-            track.press = Some((id.to_string(), event.position.x));
+            self.layout.track.press = Some((id.to_string(), event.position.x));
         }
     }
 
     /// Whether a click on a tab is the end of a drag, which switches
     /// nothing.
     pub(super) fn tab_click_suppressed(&self) -> bool {
-        self.layout.track.dragging.is_some() || self.layout.track.dragged
+        self.layout.track.dragging.is_some()
     }
 
     /// The pointer moved with a tab pressed: past the threshold it drags
@@ -115,7 +111,6 @@ impl Shell {
         let track = &mut self.layout.track;
         track.press = None;
         if track.dragging.take().is_some() {
-            track.dragged = true;
             cx.notify();
         }
     }
