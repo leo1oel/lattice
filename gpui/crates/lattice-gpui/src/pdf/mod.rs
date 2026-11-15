@@ -6,7 +6,9 @@
 
 pub(crate) mod annotation_place;
 mod clicked_word;
-pub(crate) mod compounds;
+/// chemnum's keys and numbers, read in lattice-editor, where the source's
+/// compound completion reads them too.
+pub(crate) use lattice_editor::latex::compounds;
 mod comment_margin;
 mod dark;
 mod engine;

@@ -34,6 +34,7 @@ pub mod citation_library;
 pub mod compiled_labels;
 pub mod definition;
 pub mod completions;
+pub mod compounds;
 pub mod diagnostics;
 pub mod edits;
 pub mod environments;
