@@ -22,6 +22,7 @@
 use lattice_i18n::t;
 use std::{ops::Range, sync::Arc};
 
+use gpui::AnimationExt as _;
 use gpui::{
     AnyElement, AnyView, App, ClickEvent, Context, Div, ElementId, HighlightStyle, Hsla,
     InteractiveElement as _, IntoElement, MouseButton, ParentElement as _, SharedString,
@@ -43,7 +44,7 @@ use super::{FetchState, PapersEvent, PapersPanel, model};
 
 mod hits;
 mod marks;
-use marks::{just_added_wash, open_tip};
+use marks::open_tip;
 
 #[cfg(target_os = "macos")]
 const REVEAL_LABEL: &str = lattice_i18n::n!("Show in Finder");
@@ -435,13 +436,29 @@ impl PapersPanel {
                     .bg(palette.line)
                     .opacity(hairline),
             )
-            // A paper this window just added arrives in the accent's wash.
-            .children(
-                facts
-                    .recent
-                    .then(|| just_added_wash(&row_id, palette.accent_soft, window, cx))
-                    .flatten(),
-            )
+            // A paper just added holds the accent's soft wash for four slow
+            // tiers, then lets it go over one (`paper-just-added`); the text
+            // draws over it.
+            .when(facts.recent && !cx.reduce_motion(), |row| {
+                let token = lattice_ui::Motion::Slow.token();
+                let hold = token.duration.as_secs_f32() * 4.;
+                let total = hold + token.duration.as_secs_f32();
+                row.child(
+                    div()
+                        .absolute()
+                        .inset_0()
+                        .rounded(px(6.))
+                        .bg(palette.accent_soft)
+                        .with_animation(
+                            ElementId::Name(format!("paper-just-added:{key}").into()),
+                            gpui::Animation::new(std::time::Duration::from_secs_f32(total)),
+                            move |wash, t| {
+                                let fading = ((t * total - hold) / (total - hold)).clamp(0., 1.);
+                                wash.opacity(1. - token.ease.sample(fading))
+                            },
+                        ),
+                )
+            })
             // What a click would do with it, named before it happens.
             .tooltip(tooltip(open_tip(paper)))
             // The keyboard's ring lies inside the row's corners

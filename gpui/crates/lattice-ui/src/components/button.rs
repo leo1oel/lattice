@@ -344,7 +344,11 @@ impl RenderOnce for Button {
                 this.child(
                     gpui::div()
                         .ml(px(4.))
-                        .text_color(if disabled { ink } else { palette.text_secondary })
+                        .text_color(if disabled {
+                            ink
+                        } else {
+                            palette.text_secondary
+                        })
                         .child(keys),
                 )
             })
