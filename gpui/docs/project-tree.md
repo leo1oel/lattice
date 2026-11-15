@@ -13,7 +13,7 @@ Which folders are open is kept for each project, and Show hidden files for all o
 
 A letter or digit typed in the tree opens a filter field over the rows, seeded with it, as the Tauri app's tree does.
 Only the rows whose project-relative path holds the query (any case) and the folders on the way show, opened; nothing matching leaves the tree empty.
-↑ and ↓ move among the matches, Enter picks one as a click does, and Escape, a click on a row, a rename or leaving the field closes it, with the folders that were open before back and the picked row's folders opened.
+↑ and ↓ move among the matches, Enter picks one as a click does, and Escape, a click on a row, a rename or focus leaving the tree closes it, with the folders that were open before back and the picked row's folders opened.
 While the query holds text a row cannot be dragged.
 An open folder scrolled past stays pinned at the top, one under another down the open folders, pushed up as its last row goes; a click on a pinned folder closes it and brings its row back under the top.
 A folder opening or closing moves for 160 ms: its chevron sweeps a quarter turn, the rows below slide, and the rows it shows are uncovered top-down, or the rows it hid wiped bottom-up; a scroll, a key or a press ends it, and with reduced motion nothing moves.
