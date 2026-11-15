@@ -25,6 +25,30 @@ pub(super) fn tree_items(nodes: &[FileNode], expanded: &HashSet<String>) -> Vec<
         .collect()
 }
 
+/// The tree's rows' ids (each folder by the deepest of its chain), shown or
+/// inside a closed folder.
+pub(super) fn item_ids(items: &[TreeItem], ids: &mut HashSet<String>) {
+    for item in items {
+        ids.insert(item.id.to_string());
+        item_ids(&item.children, ids);
+    }
+}
+
+/// The files the tree leaves out until Show hidden files: a class's or a
+/// bibliography style's support files (`.sty`, `.bst`), which a template
+/// brings and the writer rarely opens (`hideTemplateFiles`).
+pub(super) fn hide_template_files(nodes: &mut Vec<FileNode>) {
+    nodes.retain(|node| {
+        node.kind == "directory" || {
+            let name = node.name.to_ascii_lowercase();
+            !(name.ends_with(".sty") || name.ends_with(".bst"))
+        }
+    });
+    for node in nodes {
+        hide_template_files(&mut node.children);
+    }
+}
+
 /// A folder and the chain of single folders under it: the deepest one and
 /// the names on the way, joined by "/".
 fn flattened(node: &FileNode) -> (&FileNode, String) {
@@ -73,6 +97,29 @@ mod tests {
         assert_eq!(label, "slides/understanding-attention");
         let items = tree_items(&[slides], &HashSet::new());
         assert_eq!(items[0].id.as_ref(), "slides/understanding-attention");
+    }
+
+    #[test]
+    fn template_support_files_are_left_out_at_any_depth() {
+        let mut nodes = vec![
+            node("main.tex", "file", vec![]),
+            node("acl.STY", "file", vec![]),
+            node(
+                "style",
+                "directory",
+                vec![
+                    node("style/natbib.bst", "file", vec![]),
+                    node("style/notes.md", "file", vec![]),
+                ],
+            ),
+        ];
+        hide_template_files(&mut nodes);
+        let mut ids = HashSet::new();
+        item_ids(&tree_items(&nodes, &HashSet::new()), &mut ids);
+        assert_eq!(
+            ids,
+            HashSet::from(["main.tex", "style", "style/notes.md"].map(String::from))
+        );
     }
 
     #[test]

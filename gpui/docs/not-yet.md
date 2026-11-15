@@ -81,11 +81,7 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] A paper dragged from Papers into the editor as a citation.
 
-- [ ] The Project tree's multi-select, type-to-filter, sticky folders and expand motion.
-
-- [ ] The Project tree's expanded folders and Show hidden files kept per project.
-
-- [ ] The Project tree revealing and selecting what an import brought in.
+- [ ] The Project tree's type-to-filter, sticky folders and expand motion.
 
 - [ ] The Project panel's + and ⋯ menus' New spreadsheet, New board and New presentation, and Find in project.
 
