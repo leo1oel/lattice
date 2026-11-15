@@ -104,6 +104,9 @@ impl Run {
             json!({ "shown": shown, "accepted": accepted, "resolved": resolved, "settled": settled, "undone": undone }),
         );
 
+        // The round, compared and opened in History from the rounds sheet.
+        self.rounds_sheet(cx, steps, &rounds, &first, root).await?;
+
         // A question, the writer's answer, then ⌫ rejects the proposal.
         self.script_rounds(cx, &rounds, QUESTION)?;
         let second = self.note_and_revise(cx, &editor, root).await?;
@@ -221,6 +224,83 @@ impl Run {
             .unwrap_or_default())
     }
 
+    /// Revision rounds: the sheet compares round 1 with the text before it,
+    /// the revised paragraph tagged with the note's number, and its Open in
+    /// History shows the round's entry, opened.
+    async fn rounds_sheet(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+        rounds: &Entity<AnnotationRounds>,
+        note: &str,
+        root: &Path,
+    ) -> Result<()> {
+        let number = cx.update(|cx| {
+            store::try_store(cx)
+                .and_then(|store| store.read(cx).get(root, note).map(|note| note.number))
+                .unwrap_or_default()
+        });
+        self.with_window(cx, |_, _, cx| rounds.update(cx, |_, cx| cx.emit(crate::annotations::rounds::RoundsEvent::OpenRounds)))?;
+        let mut shown = None;
+        let compared = self
+            .wait_for(cx, Duration::from_secs(5), |shell, cx| {
+                shown = shell
+                    .read(cx)
+                    .rounds_sheet_entity()
+                    .and_then(|sheet| sheet.read(cx).shown_changes());
+                shown.as_ref().is_some_and(|changes| {
+                    changes
+                        .iter()
+                        .any(|(newer, numbers)| newer.contains(REVISED) && numbers.contains(&number))
+                })
+            })
+            .await;
+        self.shots(cx, "revision-rounds").await;
+        let sheet = cx.update(|cx| self.shell.read(cx).rounds_sheet_entity());
+        if let Some(sheet) = &sheet {
+            self.with_window(cx, |_, _, cx| sheet.update(cx, |sheet, cx| sheet.open_in_history(cx)))?;
+        }
+        let history_id = cx.update(|cx| {
+            store::try_store(cx)
+                .and_then(|store| store.read(cx).notes(root).cloned())
+                .and_then(|notes| notes.rounds.iter().find(|round| round.number == 1).and_then(|round| round.history_id.clone()))
+        });
+        let opened = match &history_id {
+            Some(id) => {
+                let key = crate::history::activity_key(id);
+                self.wait_for(cx, Duration::from_secs(10), move |shell, cx| {
+                    let shell = shell.read(cx);
+                    shell.rounds_sheet_entity().is_none()
+                        && shell.history.read(cx).expanded_row() == Some(key.as_str())
+                })
+                .await
+            }
+            None => false,
+        };
+        // History opened as a tab over the editor: close it, for the steps
+        // after annotate the editor's passage again.
+        self.with_window(cx, |shell, _, cx| shell.update(cx, |shell, cx| shell.engine_do(cx, |engine| engine.close("history"))))?;
+        steps.check(
+            "the Revision rounds sheet compares round 1 with the text before it, the revised paragraph tagged with its note; Open in History shows the round's entry, opened",
+            compared && opened,
+            json!({ "compared": compared, "shown": shown, "history_id": history_id, "opened": opened }),
+        );
+        Ok(())
+    }
+
+    /// Save the window as `<name>-light.png` and `<name>-dark.png` into
+    /// `LATTICE_E2E_SHOTS`, when set.
+    async fn shots(&self, cx: &mut AsyncApp, name: &str) {
+        if std::env::var_os("LATTICE_E2E_SHOTS").is_none() {
+            return;
+        }
+        use lattice_ui::{Appearance, LatticeTheme};
+        for (appearance, suffix) in [(Appearance::Dark, "dark"), (Appearance::Light, "light")] {
+            cx.update(|cx| LatticeTheme::set_appearance(appearance, cx));
+            self.adapter_shot(cx, &format!("{name}-{suffix}")).await;
+        }
+    }
+
     fn note_ids(root: &Path, cx: &gpui::App) -> Vec<String> {
         store::try_store(cx).map_or_else(Vec::new, |store| {
             store.read(cx).annotations(root).into_iter().map(|note| note.id.clone()).collect()
@@ -254,6 +334,10 @@ pub(super) const MODULE: super::registry::Module = super::registry::Module {
         "gpui/crates/lattice-gpui/src/editor_panel/annotation_review.rs",
         "gpui/crates/lattice-gpui/src/editor_panel/annotation_review/card.rs",
         "gpui/crates/lattice-gpui/src/shell/rounds_flow.rs",
+        "gpui/crates/lattice-gpui/src/shell/rounds_sheet_flow.rs",
+        "gpui/crates/lattice-gpui/src/annotations/rounds_sheet",
+        "gpui/crates/lattice-gpui/src/annotations/rounds_sheet.rs",
+        "gpui/crates/lattice-gpui/src/history/focus_entry.rs",
         "gpui/crates/lattice-editor/src/annotation_revision.rs",
     ],
     run: |run, cx, steps, fixture| Box::pin(run.annotation_rounds(cx, steps, &fixture.root)),

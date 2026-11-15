@@ -33,6 +33,7 @@ impl Shell {
             || self.tex_setup.read(cx).dialog_open()
             || self.conflict.is_some()
             || self.sheets.arxiv.is_some()
+            || self.rounds_sheet_open()
             || self.sheets.figures.is_some()
             || self.sheets.whats_new.is_some()
             || self.references.rename.is_some()
