@@ -332,12 +332,22 @@ impl Run {
             json!({ "placed": placed, "saved": saved, "text": if text == expected { Value::Null } else { json!(text) } }),
         );
 
-        native::send_key(native, 'z', true)?;
-        let undone = self
-            .wait_for(cx, Duration::from_secs(10), |_, _| {
-                std::fs::read_to_string(path).is_ok_and(|text| text == PAPER)
+        // The page's typed characters can reach the buffer as more than one
+        // md:change, so the buffer may hold "quokka" and " " as separate undo
+        // groups; a ⌘Z press undoes one group. Press until the file is back
+        // as it was, at most once per plausible group.
+        let mut presses = 0;
+        let mut undone = false;
+        while presses < 3 && !undone {
+            let before = std::fs::read_to_string(path).unwrap_or_default();
+            native::send_key(native, 'z', true)?;
+            presses += 1;
+            self.wait_for(cx, Duration::from_secs(10), |_, _| {
+                std::fs::read_to_string(path).is_ok_and(|text| text == PAPER || text != before)
             })
             .await;
+            undone = std::fs::read_to_string(path).is_ok_and(|text| text == PAPER);
+        }
         // The page takes the buffer's text once the typing pause has passed.
         let mut page = Value::Null;
         let started = std::time::Instant::now();
@@ -349,10 +359,11 @@ impl Run {
             self.pause(cx, Duration::from_millis(150)).await;
         }
         steps.check(
-            "⌘Z typed in the Visual view undoes the word through the buffer: the file and the page are back as they were",
+            "⌘Z typed in the Visual view undoes the typed word through the buffer (a press per undo group): the file and the page are back as they were",
             undone && page["text"].as_str().is_some_and(|text| !text.contains("quokka")),
             json!({
                 "undone": undone,
+                "presses": presses,
                 "text": if undone { Value::Null } else { json!(std::fs::read_to_string(path).unwrap_or_default()) },
             }),
         );
