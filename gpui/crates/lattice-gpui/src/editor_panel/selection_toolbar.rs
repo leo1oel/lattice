@@ -339,7 +339,6 @@ impl EditorPanel {
         self.toolbar_action(action, window, cx);
     }
 
-    /// Put the toolbar away until the selection changes.
     /// The palette's Rewrite selection…: the toolbar again, with its Rewrite
     /// menu open (`openRewriteMenu`).
     pub(super) fn open_rewrite_menu(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -352,6 +351,7 @@ impl EditorPanel {
         cx.notify();
     }
 
+    /// Put the toolbar away until the selection changes.
     pub(super) fn dismiss_toolbar(&mut self, cx: &mut Context<Self>) {
         self.toolbar.dismissed = self.toolbar_selection(cx);
         self.toolbar.menu = None;

@@ -22,14 +22,14 @@ mod card;
 mod inline_edits;
 mod instruction_menu;
 
-use std::{collections::BTreeSet, ops::Range, sync::Arc, time::Duration};
+use std::{collections::BTreeSet, mem::Discriminant, ops::Range, sync::Arc, time::Duration};
 
-use editor::{MultiBufferOffset, SelectionEffects, scroll::Autoscroll};
+use editor::{MultiBufferOffset, SelectionEffects, display_map::ToDisplayPoint as _, scroll::Autoscroll};
 use gpui::{
     AppContext as _, Context, Entity, Focusable as _, IntoElement as _, Subscription, Task,
     Window,
 };
-use language::{Anchor, ToOffset as _};
+use language::{Anchor, Point, ToOffset as _};
 use lattice_editor::{
     blocks::{BlockSide, BlockWidget},
     decorations::Highlight,
@@ -80,6 +80,9 @@ struct Session {
     range: Range<Anchor>,
     card: Entity<ProofreadCard>,
     _events: Subscription,
+    _status: Subscription,
+    /// The card status last scrolled into view.
+    revealed: Option<Discriminant<CardState>>,
     /// The agent's task and the wait for its answer; dropped, both stop.
     run: Option<(Option<TextTask>, Task<()>)>,
 }
@@ -133,6 +136,19 @@ impl EditorPanel {
         let events = cx.subscribe_in(&card, window, |this, _, event, window, cx| {
             this.card_event(event.clone(), window, cx)
         });
+        let status = cx.observe_in(&card, window, |this, card, window, cx| {
+            let status = std::mem::discriminant(card.read(cx).state());
+            let Some(session) = &mut this.proofread.session else {
+                return;
+            };
+            if session.revealed.replace(status) != Some(status) {
+                // One frame lays the card out and Zed measures its block;
+                // the next reads the block at its real height.
+                cx.on_next_frame(window, |_, window, cx| {
+                    cx.on_next_frame(window, |this, window, cx| this.reveal_proofread(window, cx))
+                });
+            }
+        });
         self.proofread.session = Some(Session {
             original,
             context,
@@ -140,6 +156,8 @@ impl EditorPanel {
             range: anchors,
             card,
             _events: events,
+            _status: status,
+            revealed: None,
             run: None,
         });
         self.dismiss_toolbar(cx);
@@ -187,6 +205,48 @@ impl EditorPanel {
                     cx,
                 );
             })
+        });
+    }
+
+    /// Scroll the card into view, its top first when it is taller than the
+    /// editor (`revealCard`): a selection near the bottom opened it below
+    /// the fold.
+    fn reveal_proofread(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(session) = &self.proofread.session else {
+            return;
+        };
+        let snapshot = self.buffer.read(cx).snapshot();
+        let range = session.range.start.to_offset(&snapshot)..session.range.end.to_offset(&snapshot);
+        let last = if range.end > range.start { range.end - 1 } else { range.end };
+        let line = snapshot.offset_to_point(last).row;
+        let line_len = snapshot.line_len(line);
+        let below_last_line = line >= snapshot.max_point().row;
+        self.editor.update(cx, |editor, cx| {
+            let Some(visible) = editor.visible_line_count() else {
+                return;
+            };
+            let display = editor.snapshot(window, cx);
+            let map = &display.display_snapshot;
+            // The card's rows: after its line's last display row, up to the
+            // next line's first (or the end, under the last line).
+            let top = Point::new(line, line_len).to_display_point(map).row().0 as f64 + 1.;
+            let bottom = if below_last_line {
+                map.max_point().row().0 as f64 + 1.
+            } else {
+                Point::new(line + 1, 0).to_display_point(map).row().0 as f64
+            };
+            let margin = 0.5;
+            let scroll = editor.scroll_position(cx);
+            let above = top - margin - scroll.y;
+            let below = bottom + margin - (scroll.y + visible);
+            let shift = if above < 0. {
+                above
+            } else if below > 0. {
+                below.min(above)
+            } else {
+                return;
+            };
+            editor.set_scroll_position(gpui::point(scroll.x, scroll.y + shift), window, cx);
         });
     }
 
@@ -418,17 +478,11 @@ impl EditorPanel {
         cx.notify();
     }
 
-    /// ⌘↵ while a card is open: accept the edits still made, when there
-    /// are any. Whether the card took the key.
+    /// ⌘↵ while a card is open: accept the edits still made, or close a
+    /// card with none, once the agent has answered. Whether the card took
+    /// the key.
     pub(super) fn proofread_accept_key(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
-        let Some(session) = &self.proofread.session else {
-            return false;
-        };
-        let (offered, _) = session.card.read(cx).counts();
-        if offered > 0 {
-            self.accept_proofread(false, window, cx);
-        }
-        true
+        self.accept_proofread(false, window, cx)
     }
 
     /// Esc while a card is open: discard it. Whether the card took the key.

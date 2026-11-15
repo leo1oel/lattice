@@ -10,7 +10,7 @@
 //! or dismissed while the agent works costs nothing more.
 
 use std::{
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::{Arc, Mutex},
     time::Duration,
 };
@@ -44,17 +44,26 @@ pub struct Answer {
 /// A text task under way. Await [`TextTask::answer`]; drop it to cancel.
 pub struct TextTask {
     answer: Option<Task<Result<Answer, Failure>>>,
-    started: Arc<Mutex<Option<String>>>,
+    started: Arc<Mutex<Started>>,
     root: PathBuf,
     runtime: Arc<SynaraRuntime>,
     executor: BackgroundExecutor,
+}
+
+/// The service's id for the task once `start` returns, and whether the
+/// [`TextTask`] was dropped first: `start` blocks a background thread the
+/// drop cannot interrupt, so the thread cancels what it started on its own.
+#[derive(Default)]
+struct Started {
+    id: Option<String>,
+    dropped: bool,
 }
 
 impl TextTask {
     /// Start `prompt` as a task in the project at `root`.
     pub fn start(root: PathBuf, prompt: String, cx: &mut App) -> Self {
         let runtime = AgentRuntime::get(cx).supervisor().clone();
-        let started = Arc::new(Mutex::new(None));
+        let started = Arc::new(Mutex::new(Started::default()));
         let executor = cx.background_executor().clone();
         let answer = {
             let runtime = runtime.clone();
@@ -77,7 +86,14 @@ impl TextTask {
                     .filter(|id| !id.is_empty())
                     .ok_or_else(|| Failure::Failed(String::new()))?
                     .to_string();
-                *started.lock().unwrap() = Some(id.clone());
+                {
+                    let mut started = started.lock().unwrap();
+                    if started.dropped {
+                        cancel(&runtime, &root, &id);
+                        return Err(Failure::Failed(String::new()));
+                    }
+                    started.id = Some(id.clone());
+                }
                 loop {
                     timer.timer(POLL).await;
                     let progress = synara::task_relay_request(
@@ -95,7 +111,7 @@ impl TextTask {
                         }
                         Some("completed") => {
                             // Settled: nothing left for a drop to cancel.
-                            started.lock().unwrap().take();
+                            started.lock().unwrap().id.take();
                             let text = progress.get("text").and_then(Value::as_str);
                             let model = progress
                                 .get("model")
@@ -131,24 +147,31 @@ impl TextTask {
 
 impl Drop for TextTask {
     fn drop(&mut self) {
-        let Some(id) = self.started.lock().unwrap().take() else {
+        let id = {
+            let mut started = self.started.lock().unwrap();
+            started.dropped = true;
+            started.id.take()
+        };
+        let Some(id) = id else {
             return;
         };
         let runtime = self.runtime.clone();
         let root = self.root.clone();
         self.executor
-            .spawn(async move {
-                // A task the service already finished or lost has nothing to
-                // stop.
-                synara::task_relay_request(
-                    &runtime,
-                    TEXT_TASK_ROUTE,
-                    "cancel",
-                    Some(&id),
-                    json!({ "workspaceRoot": root }),
-                )
-                .ok();
-            })
+            .spawn(async move { cancel(&runtime, &root, &id) })
             .detach();
     }
+}
+
+/// Ask the service to stop task `id`. A task it already finished or lost has
+/// nothing to stop.
+fn cancel(runtime: &SynaraRuntime, root: &Path, id: &str) {
+    synara::task_relay_request(
+        runtime,
+        TEXT_TASK_ROUTE,
+        "cancel",
+        Some(id),
+        json!({ "workspaceRoot": root }),
+    )
+    .ok();
 }
