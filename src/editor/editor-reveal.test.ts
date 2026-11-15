@@ -124,6 +124,14 @@ describe("revealInEditor", () => {
     expect(lineTarget(view, { line: 2, word })).toEqual({ from: 6 + "We train \\emph{the} model on ".length });
     expect(lineTarget(view, { line: 2, word: { ...word, word: "absent" } })).toEqual({ from: 6 });
   });
+
+  it("lands a reverse SyncTeX jump in the paragraph, not on the blank line after it", () => {
+    const view = editor("We train the model\non the data.\n\nNext.");
+    const word = { word: "data", occurrence: 0, count: 1, before: "the", after: null };
+    // SyncTeX names the blank line for a paragraph's last boxes.
+    expect(lineTarget(view, { line: 3, word })).toEqual({ from: "We train the model\non the ".length });
+    expect(lineTarget(view, { line: 3, word: { ...word, word: "absent" } })).toEqual({ from: "We train the model\n".length });
+  });
 });
 
 describe("source editors", () => {
