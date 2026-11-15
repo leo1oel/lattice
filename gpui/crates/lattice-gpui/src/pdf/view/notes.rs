@@ -460,6 +460,28 @@ impl PdfView {
         self.notes.card.as_deref()
     }
 
+    /// The note lit by the pointer, for a scenario.
+    pub fn note_hovered(&self) -> Option<&str> {
+        self.notes.hovered.as_deref()
+    }
+
+    /// Where on the window a placed note's pin centres, as it is drawn
+    /// (stacked beside the pins of passages on its line), for a scenario.
+    pub fn note_pin_center(&self, id: &str) -> Option<Point<Pixels>> {
+        let page = self.notes.places.get(id)?.page;
+        let size = *self.page_sizes().get(page)?;
+        let scale = self.layout.scale;
+        let (_, _, (x, y)) = self
+            .pins_on_page(page, size)
+            .into_iter()
+            .find(|(note, _, _)| note.id == id)?;
+        let bounds = self.page_box_on_window(
+            page,
+            (x / scale, y / scale, (x + PIN) / scale, (y + PIN) / scale),
+        )?;
+        Some(bounds.center())
+    }
+
     /// Where on the window a placed note's first band centres, for a
     /// scenario.
     pub fn note_center(&self, id: &str) -> Option<Point<Pixels>> {

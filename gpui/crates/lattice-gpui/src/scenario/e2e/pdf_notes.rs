@@ -6,7 +6,10 @@
 use std::{path::Path, time::Duration};
 
 use anyhow::Result;
-use gpui::{AsyncApp, Modifiers, MouseButton, MouseDownEvent, MouseUpEvent, PlatformInput};
+use gpui::{
+    AsyncApp, Modifiers, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, Pixels,
+    PlatformInput, Point, point, px,
+};
 use serde_json::json;
 
 use super::Steps;
@@ -118,8 +121,137 @@ impl Run {
                 && closed,
             json!({ "id": id, "placed": placed, "place": format!("{place:?}"), "opened": opened, "closed": closed }),
         );
+        self.pdf_notes_stacked(cx, steps, &project, &store, &view, &text, start, &id)
+            .await;
         cx.update(|cx| store.update(cx, |store, cx| store.delete(&project, &id, cx)));
         Ok(())
+    }
+
+    /// A second note starting on the same line: its pin stands beside the
+    /// first one, outward from the column, and each pin opens its own card;
+    /// a click off the pages closes the card, and the pointer leaving the
+    /// pages unlights the note it lit.
+    #[allow(clippy::too_many_arguments)]
+    async fn pdf_notes_stacked(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+        project: &Path,
+        store: &gpui::Entity<store::AnnotationStore>,
+        view: &gpui::Entity<crate::pdf::PdfView>,
+        text: &str,
+        start: usize,
+        first: &str,
+    ) {
+        let send = |cx: &mut AsyncApp, input: PlatformInput| {
+            self.with_window(cx, move |_, window, cx| {
+                window.dispatch_event(input, cx);
+            })
+        };
+        let click = |cx: &mut AsyncApp, at: Point<Pixels>| {
+            send(
+                cx,
+                PlatformInput::MouseDown(MouseDownEvent {
+                    button: MouseButton::Left,
+                    position: at,
+                    modifiers: Modifiers::default(),
+                    click_count: 1,
+                    first_mouse: false,
+                }),
+            )
+            .ok();
+            send(
+                cx,
+                PlatformInput::MouseUp(MouseUpEvent {
+                    button: MouseButton::Left,
+                    position: at,
+                    modifiers: Modifiers::default(),
+                    click_count: 1,
+                }),
+            )
+            .ok();
+        };
+        let hover = |cx: &mut AsyncApp, at: Point<Pixels>| {
+            send(
+                cx,
+                PlatformInput::MouseMove(MouseMoveEvent {
+                    position: at,
+                    pressed_button: None,
+                    modifiers: Modifiers::default(),
+                }),
+            )
+            .ok();
+        };
+        // "introduces", inside the first note's quote: the same line.
+        let inner = "introduces";
+        let from = start + text[start..].find(inner).unwrap_or(0);
+        let second = cx
+            .update(|cx| {
+                let author = store::author(project, cx);
+                let note = model::new_note(
+                    "chapters/intro.tex",
+                    text,
+                    from,
+                    from + inner.len(),
+                    "Second.",
+                    None,
+                    &author,
+                )?;
+                store.update(cx, |store, cx| store.add(project, note, cx))
+            })
+            .unwrap_or_default();
+        let placed = self
+            .wait_for(cx, Duration::from_secs(20), |_, cx| {
+                view.read(cx)
+                    .note_places()
+                    .iter()
+                    .any(|(placed, _)| *placed == second)
+            })
+            .await;
+        let pins = cx.update(|cx| {
+            let view = view.read(cx);
+            (view.note_pin_center(first), view.note_pin_center(&second))
+        });
+        let (mut beside, mut opens_second, mut opens_first) = (false, false, false);
+        let (mut off_closes, mut lit, mut unlit) = (false, false, false);
+        if let (Some(a), Some(b)) = pins {
+            // Side by side on one row, apart by at least a pin (18px), the
+            // later one farther from the text (left of the first, on this
+            // single-column page).
+            beside = (f32::from(a.y) - f32::from(b.y)).abs() < 1.
+                && f32::from(a.x) - f32::from(b.x) >= 18.;
+            click(cx, b);
+            self.pause(cx, Duration::from_millis(300)).await;
+            opens_second = cx.update(|cx| view.read(cx).note_card() == Some(second.as_str()));
+            self.snapshot(cx, "pdf-note-stacked-pins").await;
+            click(cx, a);
+            self.pause(cx, Duration::from_millis(300)).await;
+            opens_first = cx.update(|cx| view.read(cx).note_card() == Some(first));
+            // Off the pages: left of the PDF's viewport, in the editor.
+            let viewport = cx.update(|cx| view.read(cx).viewport_bounds());
+            let off = point(viewport.origin.x - px(250.), viewport.center().y);
+            click(cx, off);
+            self.pause(cx, Duration::from_millis(300)).await;
+            off_closes = cx.update(|cx| view.read(cx).note_card().is_none());
+            hover(cx, a);
+            self.pause(cx, Duration::from_millis(200)).await;
+            lit = cx.update(|cx| view.read(cx).note_hovered() == Some(first));
+            self.snapshot(cx, "pdf-note-hover-lit").await;
+            hover(cx, off);
+            self.pause(cx, Duration::from_millis(200)).await;
+            unlit = cx.update(|cx| view.read(cx).note_hovered().is_none());
+            self.snapshot(cx, "pdf-note-hover-left").await;
+        }
+        steps.check(
+            "PDF: two notes on one line stand their pins side by side, each pin opens its own card, a click off the pages closes it, and leaving the pages unlights the note",
+            placed && beside && opens_second && opens_first && off_closes && lit && unlit,
+            json!({
+                "placed": placed, "pins": format!("{pins:?}"), "beside": beside,
+                "opens_second": opens_second, "opens_first": opens_first,
+                "off_closes": off_closes, "lit": lit, "unlit": unlit,
+            }),
+        );
+        cx.update(|cx| store.update(cx, |store, cx| store.delete(project, &second, cx)));
     }
 }
 
