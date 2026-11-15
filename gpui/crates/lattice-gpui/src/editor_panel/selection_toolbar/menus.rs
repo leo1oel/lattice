@@ -31,6 +31,10 @@ impl EditorPanel {
                 .into_any_element()
         };
         match menu {
+            Menu::Rewrite => {
+                let content = self.instruction_menu(cx);
+                surface(content, None)
+            }
             Menu::Link => {
                 let Some((field, _)) = &self.toolbar.link else {
                     return div().into_any_element();

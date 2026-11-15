@@ -39,6 +39,7 @@ pub mod inline_texts;
 pub mod latex;
 pub mod markdown;
 pub mod markdown_format;
+pub mod proofread;
 pub mod remote_cursors;
 pub mod texlab;
 pub mod text_edit;

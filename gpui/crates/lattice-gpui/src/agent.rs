@@ -36,6 +36,7 @@ pub mod host_context;
 pub mod host_writes;
 pub mod runtime;
 pub mod surface;
+pub mod text_task;
 pub mod workspace;
 
 pub use surface::{SurfaceEvent, SurfaceKind, SynaraSurface, TurnReview};

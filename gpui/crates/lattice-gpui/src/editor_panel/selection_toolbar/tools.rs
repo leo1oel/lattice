@@ -3,6 +3,7 @@
 //! and caret, and the Markdown row (`markdown-source-toolbar.tsx`).
 
 use super::*;
+use lattice_editor::proofread::Ask;
 
 impl EditorPanel {
     /// The LaTeX toolbar's buttons.
@@ -57,6 +58,39 @@ impl EditorPanel {
             cx.listener(|this, _, window, cx| this.toolbar_action(ToolbarAction::Annotate, window, cx)),
             cx,
         ));
+        // The agent's Proofread and Polish, and Rewrite by an instruction.
+        if self.can_proofread(cx) {
+            let proofread_keys = if cfg!(target_os = "macos") { "⌘⌥P" } else { "Ctrl+Alt+P" };
+            bar = bar
+                .child(keyed_tool(
+                    "latex-proofread",
+                    Icon::SPELL_CHECK,
+                    t!("Proofread"),
+                    Some(proofread_keys),
+                    None,
+                    false,
+                    cx.listener(|this, _, window, cx| this.start_proofread(Ask::Proofread, window, cx)),
+                    cx,
+                ))
+                .child(tool(
+                    "latex-polish",
+                    Icon::WAND_SPARKLES,
+                    t!("Polish"),
+                    None,
+                    false,
+                    cx.listener(|this, _, window, cx| this.start_proofread(Ask::Polish, window, cx)),
+                    cx,
+                ))
+                .child(tool(
+                    "latex-rewrite",
+                    Icon::PENCIL_LINE,
+                    t!("Rewrite with an instruction"),
+                    Some(self.toolbar.menu == Some(Menu::Rewrite)),
+                    false,
+                    cx.listener(|this, _, window, cx| this.open_menu(Menu::Rewrite, window, cx)),
+                    cx,
+                ));
+        }
         if editable {
             let menu = self.toolbar.menu;
             bar = bar
@@ -282,6 +316,21 @@ pub(super) fn tool(
     on_click: impl Fn(&gpui::ClickEvent, &mut Window, &mut App) + 'static,
     cx: &App,
 ) -> AnyElement {
+    keyed_tool(id, icon, label, None, pressed, separated_before, on_click, cx)
+}
+
+/// A [`tool`] whose tooltip names its keys too.
+#[allow(clippy::too_many_arguments)]
+pub(super) fn keyed_tool(
+    id: impl Into<gpui::ElementId>,
+    icon: Icon,
+    label: &'static str,
+    keys: Option<&'static str>,
+    pressed: Option<bool>,
+    separated_before: bool,
+    on_click: impl Fn(&gpui::ClickEvent, &mut Window, &mut App) + 'static,
+    cx: &App,
+) -> AnyElement {
     let palette = cx.palette().clone();
     let on = pressed == Some(true);
     let button = div()
@@ -295,7 +344,9 @@ pub(super) fn tool(
         .when(on, |this| this.bg(palette.toolbar_active))
         .hover(|this| this.bg(palette.accent_soft))
         .child(icon.element(px(14.), if on { palette.text } else { palette.text_secondary }))
-        .tooltip(move |_, cx| LatticeTooltip::view(SharedString::from(label), None, cx))
+        .tooltip(move |_, cx| {
+            LatticeTooltip::view(SharedString::from(label), keys.map(SharedString::from), cx)
+        })
         .on_click(on_click);
     let wrap = div().flex();
     if separated_before {

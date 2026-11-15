@@ -31,6 +31,7 @@ pub mod folding;
 pub mod format_toggle;
 pub mod highlights;
 pub mod prose;
+pub mod protected;
 pub mod spelling;
 pub mod syntax;
 pub mod vocabulary;
