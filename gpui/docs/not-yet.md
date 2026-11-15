@@ -37,6 +37,8 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] A paper dragged from Papers into the editor as a citation.
 
+- [ ] The workspace rename field's undo history surviving a keystroke past its 24 characters (the Kit input has no length limit that clips before an edit).
+
 - [ ] Export figures for a journal….
 
 - [ ] New project's My templates and Save a local template….

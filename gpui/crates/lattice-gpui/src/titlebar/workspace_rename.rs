@@ -59,6 +59,12 @@ impl Shell {
                             (input.value().to_string(), input.cursor())
                         };
                         if let Some((value, caret)) = fit_name(&value, caret) {
+                            // `set_value` clears the field's undo history
+                            // (gpui-base resets its undo manager), where the
+                            // Tauri app's `maxLength` field keeps it: the Kit
+                            // input has no hook that clips an insertion before
+                            // it is applied. A `max_length` on the patched
+                            // input would remove this.
                             input.update(cx, |input, cx| {
                                 input.set_value(value, window, cx);
                                 input.set_selected_range(caret..caret, cx);
