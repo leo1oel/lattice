@@ -36,6 +36,9 @@ pub(super) struct LatexViews {
     /// The manuscript's outline, as the shell last read it, for the rail
     /// over the page (`latex_visual_events.rs`).
     pub(super) headings: Option<std::rc::Rc<[crate::outline::Heading]>>,
+    /// Co-authors' Overleaf carets as the page takes them: name, hue, row
+    /// and UTF-16 column (`latex_visual_events.rs`).
+    pub(super) presence: Vec<(String, f64, u32, u32)>,
 }
 
 /// Whether `path` is a LaTeX document, which has a Visual form beside its
@@ -90,6 +93,11 @@ impl EditorPanel {
         // the rest is the page's own (`latex_visual_events.rs`).
         self._subscriptions
             .push(cx.subscribe_in(&document, window, Self::on_latex_document));
+        // The page marks the project's annotations as the source does.
+        let store = crate::annotations::store::store(cx);
+        self._subscriptions.push(cx.observe(&store, |this, _, cx| {
+            this.forward_latex_annotations(cx)
+        }));
         document
     }
 
@@ -189,6 +197,7 @@ impl EditorPanel {
         });
         self.forward_latex_outline(cx);
         self.forward_latex_spelling(cx);
+        self.forward_latex_review(cx);
     }
 
     /// A jump to a 1-based line lands in the Visual view while it shows:

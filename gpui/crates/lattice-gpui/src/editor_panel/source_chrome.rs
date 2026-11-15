@@ -149,6 +149,19 @@ impl EditorPanel {
                 this.toolbar_pointer(true, event.position, cx)
             }))
             .capture_key_down(cx.listener(|this, _, _, cx| this.release_rail(cx)))
+            // The open proofread card's ⌘↵ and Esc, ahead of the editor's
+            // own (Zed's keymap binds them to its actions, which a window
+            // dispatches before any key listener).
+            .capture_action(cx.listener(|this, _: &editor::actions::NewlineBelow, window, cx| {
+                if this.proofread_accept_key(window, cx) {
+                    cx.stop_propagation();
+                }
+            }))
+            .capture_action(cx.listener(|this, _: &editor::actions::Cancel, window, cx| {
+                if this.proofread_escape(window, cx) {
+                    cx.stop_propagation();
+                }
+            }))
             .child(self.lattice.clone())
             .children(self.rail.clone())
             .children(margin.map(|(_, layer)| layer))

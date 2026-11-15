@@ -3,7 +3,7 @@
 What the Tauri app has that the GPUI app does not port yet, one item per line.
 A feature that lands deletes its own line (only that line, so features landing side by side merge cleanly), and a gap found adds one.
 
-- [ ] The visual LaTeX editor, in part: comment highlights, margin review, Overleaf carets and track changes in Visual.
+- [ ] The visual LaTeX editor, in part: margin review and Overleaf's tracked changes in Visual.
 
 - [ ] Wrapping a selection in an environment and renaming an environment (⌘⇧E, and in the source editor too).
 
@@ -27,13 +27,17 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] The translation of the host's error text in notices.
 
-- [ ] The Agent: a PDF or Papers selection in its context.
+- [ ] The Agent: a Papers selection in its context.
+
+- [ ] The Agent: its permission picker in the panel's header.
+
+- [ ] The Agent: a native skeleton before its page draws.
+
+- [ ] The Agent: a Finder drop onto its panel, and the microphone in its composer.
 
 - [ ] The Agent: reviewing the proposals its annotation tools record.
 
-- [ ] The Agent: inline Proofread and Polish.
-
-- [ ] The selection toolbar's Proofread, Polish and Rewrite with its instruction menu.
+- [ ] The accepted proofread's old words folding their width away (they leave at once).
 
 - [ ] The highlight's colour swatch before `\colorbox` in the source.
 

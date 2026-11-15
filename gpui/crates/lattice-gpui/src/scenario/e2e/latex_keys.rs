@@ -30,6 +30,7 @@ impl Run {
         for (key, command) in [('b', "textbf"), ('i', "emph")] {
             self.select(cx, &editor, at, at + word.len())?;
             let builds = self.builds(cx);
+            let was_building = cx.update(|cx| self.shell.read(cx).building());
             self.press(cx, key, true).await?;
             self.pause(cx, Duration::from_millis(150)).await;
             let (on, on_selected) = self.text_and_selection(cx, &editor);
@@ -44,8 +45,8 @@ impl Run {
                 });
                 steps.check(
                     "⌘B / Ctrl+B in a LaTeX file starts no build",
-                    !building && after == builds,
-                    json!({ "building": building, "builds_before": builds, "builds_after": after }),
+                    (was_building || !building) && after == builds,
+                    json!({ "was_building": was_building, "building": building, "builds_before": builds, "builds_after": after }),
                 );
             }
             self.press(cx, key, true).await?;

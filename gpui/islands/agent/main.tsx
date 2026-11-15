@@ -39,6 +39,8 @@
  *   host:outside-pointerdown                 a press in the app (the bridge's)
  *   agent:deck-request { kind, deckPath }    Open Slide's request for the composer
  *   agent:files-changed { paths }            the project watcher's burst (`library.ts`)
+ *   agent:host-writes { paths }              project files Lattice wrote itself, for a running
+ *                                            turn's Undo to keep (`agent-host-writes.ts`)
  *   agent:frame-message { … }                a message for the Agent's frame, as the Tauri
  *                                            host posts it (a checkpoint's Undo, a build's result)
  *   agent:overleaf    { linked, docPaths }   the project's Overleaf link (`library.ts`)
@@ -54,6 +56,8 @@
  *   agent:history     { … }                  the Agent's checkpoint history (its thread kept
  *                                            for the project, as `useAgentCheckpoints` keeps it)
  *   agent:git-view    { view }               a Git view tab chosen
+ *   agent:turn        { presence }           the panel's turn while it runs or waits, or null
+ *   agent:turn-started                       a turn started in the panel's project
  *   agent:close-git
  *   agent:drawn                              the surface is up: reveal the page
  */
@@ -91,7 +95,10 @@ import {
 import { openSlideComposerPrompt } from "../../../src/agent/agent-composer-prompt";
 import { useAgentSpreadsheetResolver } from "../../../src/app/use-agent-spreadsheet-resolver";
 import type { OpenSlideAgentRequest } from "../../../src/editor/presentation/open-slide-agent-request";
+import type { OpenSlideContext } from "../../../src/editor/presentation/open-slide-bridge";
 import { parseSynaraNotificationMessage } from "../../../src/agent/synara-notifications";
+import { agentDeckPresence, parseAgentTurnActivity, subscribeAgentDeckPresence } from "../../../src/agent/agent-turn-activity";
+import { noteHostFileWrites } from "../../../src/agent/agent-host-writes";
 import { SYNARA_POPUP_OPEN, LATTICE_OUTSIDE_POINTER_DOWN } from "../../../src/agent/synara-popup-dismissal";
 import type { AgentGitWorkspaceView } from "../../../src/agent/synara-runtime";
 import { isSynaraPermissionMode, persistSynaraThread, type AgentTurnReview } from "../../../src/app/app-synara-embed";
@@ -128,6 +135,8 @@ type Workspace = {
   selectionLines: AgentSelectionLines | null;
   selectionPdfDocument: AgentPdfDocumentPlace | null;
   activeSurface: AgentHostSurface;
+  /** Open Slide's deck and slide, while a deck is the active file. */
+  presentation: OpenSlideContext | null;
 };
 
 const EMPTY_WORKSPACE: Workspace = {
@@ -142,6 +151,7 @@ const EMPTY_WORKSPACE: Workspace = {
   selectionLines: null,
   selectionPdfDocument: null,
   activeSurface: "editor",
+  presentation: null,
 };
 
 /** How long after its commit the surface is taken to have drawn (see the slides island). */
@@ -294,7 +304,7 @@ function Agent({ opened, workspace, visible, appearance, git, overleaf, deckRequ
     paperView: "blog",
     pdfPage: workspace.pdfPage,
     pdfPageCount: workspace.pdfPageCount,
-    presentation: null,
+    presentation: workspace.presentation,
     selection: workspace.selection,
     selectionLength: workspace.selectionLength,
     selectionSource: workspace.selectionSource,
@@ -356,6 +366,13 @@ function Agent({ opened, workspace, visible, appearance, git, overleaf, deckRequ
           target.postMessage({ type: "lattice:embedded-notification-action", id, action }, origin);
         }
       }),
+      // Lattice's own writes, for a running turn's Undo to keep.
+      bridgeHost.on("agent:host-writes", (payload) => {
+        const paths = (payload as { paths?: unknown } | null)?.paths;
+        if (opened.surface === "agent" && Array.isArray(paths)) {
+          noteHostFileWrites(opened.projectRoot, paths.filter((path): path is string => typeof path === "string"));
+        }
+      }),
       bridgeHost.on("host:relay", (payload) => {
         liveShortcuts.publish(relayCombos(Array.isArray(payload) ? payload : [], bridgeHost.primaryIsMeta));
       }),
@@ -371,13 +388,28 @@ function Agent({ opened, workspace, visible, appearance, git, overleaf, deckRequ
       const notification = parseSynaraNotificationMessage(event.data);
       if (notification) bridgeHost.post("agent:notify", notification);
       if (data?.type === "synara:agent-permission-mode" && isSynaraPermissionMode(data.mode)) bridgeHost.post("agent:permission-mode", { mode: data.mode });
+      // A turn under way means the writer really asked the Agent something
+      // (the Tauri host marks Get started's step on it).
+      const activity = parseAgentTurnActivity(event.data);
+      if (activity?.state === "running" && activity.workspaceRoot === opened.projectRoot) {
+        bridgeHost.post("agent:turn-started");
+      }
     };
     window.addEventListener("message", onMessage);
     return () => {
       for (const stop of stops) stop();
       window.removeEventListener("message", onMessage);
     };
-  }, [frameRef, opened.surface, origin, sourceControlFrameRef]);
+  }, [frameRef, opened.projectRoot, opened.surface, origin, sourceControlFrameRef]);
+
+  // The turn's presence, which the Tauri host keeps as window state, goes to
+  // the owner: its leave-project question and the open decks follow it.
+  useEffect(() => {
+    if (opened.surface !== "agent") return;
+    const report = () => host().post("agent:turn", { presence: agentDeckPresence() });
+    report();
+    return subscribeAgentDeckPresence(report);
+  }, [opened.surface]);
 
   if (opened.surface === "git") {
     const frame = origin ? {
