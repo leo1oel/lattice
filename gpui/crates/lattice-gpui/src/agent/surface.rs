@@ -152,8 +152,10 @@ pub struct SynaraSurface {
     deck: Option<crate::structured::DeckSession>,
     /// What the page was last told of the project's Overleaf link.
     overleaf: Value,
-    /// The last paths reported as Lattice's own writes, for a scenario.
+    /// The last paths reported as Lattice's own writes, for a scenario,
+    /// and how many were ever reported.
     host_writes: std::collections::VecDeque<String>,
+    host_writes_reported: usize,
     last_pointer: Option<Instant>,
     _subscriptions: Vec<Subscription>,
 }
@@ -222,6 +224,7 @@ impl SynaraSurface {
             deck: None,
             overleaf: Value::Null,
             host_writes: std::collections::VecDeque::new(),
+            host_writes_reported: 0,
             last_pointer: None,
             _subscriptions: subscriptions,
         }
@@ -307,14 +310,24 @@ impl SynaraSurface {
     /// Lattice wrote these project files itself (`host_writes.rs`).
     pub(super) fn host_wrote(&mut self, paths: Vec<String>, cx: &mut App) {
         self.host_writes.extend(paths.iter().cloned());
+        self.host_writes_reported += paths.len();
         let over = self.host_writes.len().saturating_sub(HOST_WRITES_KEPT);
         self.host_writes.drain(..over);
         self.post("agent:host-writes", json!({ "paths": paths }), cx);
     }
 
-    /// The last paths reported as Lattice's own writes, for a scenario.
-    pub fn host_writes(&self) -> impl Iterator<Item = &String> {
-        self.host_writes.iter()
+    /// How many paths were ever reported as Lattice's own writes, for a
+    /// scenario to count from.
+    pub fn host_writes_reported(&self) -> usize {
+        self.host_writes_reported
+    }
+
+    /// The paths reported as Lattice's own writes since `count` were, as far
+    /// as the last kept go, for a scenario.
+    pub fn host_writes_since(&self, count: usize) -> impl Iterator<Item = &String> {
+        let new = self.host_writes_reported.saturating_sub(count);
+        let kept = self.host_writes.len();
+        self.host_writes.iter().skip(kept.saturating_sub(new))
     }
 
     /// Hand `message` to the Agent's frame, as the Tauri host's

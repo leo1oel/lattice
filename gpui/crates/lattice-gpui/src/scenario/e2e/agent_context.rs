@@ -407,13 +407,20 @@ impl Run {
         let editor = self.open(cx, &root.join("main.tex"), None)?;
 
         // The writer's save, beside a turn.
+        let before = cx.update(|cx| surface.read(cx).host_writes_reported());
         cx.update(|cx| editor.update(cx, |_, cx| cx.emit(EditorPanelEvent::Saved)));
         self.pause(cx, Duration::from_millis(100)).await;
-        let writes: Vec<String> = cx.update(|cx| surface.read(cx).host_writes().cloned().collect());
+        let writes: Vec<String> = cx.update(|cx| {
+            surface
+                .read(cx)
+                .host_writes_since(before)
+                .cloned()
+                .collect()
+        });
         steps.check(
             "an editor's save is reported to the Agent as Lattice's own write",
             writes.iter().any(|path| path == "main.tex"),
-            json!({ "writes": writes }),
+            json!({ "before": before, "writes": writes }),
         );
         Ok(())
     }

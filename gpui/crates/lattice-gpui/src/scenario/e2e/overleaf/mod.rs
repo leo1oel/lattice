@@ -217,22 +217,8 @@ impl Run {
         // The pull is Lattice's own write, reported to this window's Agent
         // (`agent/host_writes.rs`), so an Agent Undo keeps the co-author's
         // edit; counted from here so the download's own report is not it.
-        let reported_main = |cx: &mut AsyncApp| {
-            cx.update(|cx| {
-                linked
-                    .shell
-                    .read(cx)
-                    .agent
-                    .panel
-                    .read(cx)
-                    .surface()
-                    .read(cx)
-                    .host_writes()
-                    .filter(|path| *path == "main.tex")
-                    .count()
-            })
-        };
-        let reported_before = reported_main(cx);
+        let surface = cx.update(|cx| linked.shell.read(cx).agent.panel.read(cx).surface().clone());
+        let reported_before = cx.update(|cx| surface.read(cx).host_writes_reported());
         let theirs = MAIN.replace("A paper", "A shared paper");
         mock.edit("main.tex", &theirs);
         let pulled = linked
@@ -247,11 +233,17 @@ impl Run {
             json!({ "version": mock.version() }),
         );
         linked.pause(cx, Duration::from_millis(200)).await;
-        let reported_after = reported_main(cx);
+        let reported: Vec<String> = cx.update(|cx| {
+            surface
+                .read(cx)
+                .host_writes_since(reported_before)
+                .cloned()
+                .collect()
+        });
         steps.check(
             "the co-author's edit pulled in is reported to the Agent as Lattice's own write",
-            pulled && reported_after > reported_before,
-            json!({ "before": reported_before, "after": reported_after }),
+            pulled && reported.iter().any(|path| path == "main.tex"),
+            json!({ "before": reported_before, "reported": reported }),
         );
 
         // And pushes one made here, after the writer pauses.
