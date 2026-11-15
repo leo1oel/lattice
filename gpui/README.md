@@ -86,7 +86,7 @@ The first build fetches Zed at the pinned revision and compiles about 1,200 crat
 | ⌘⇧J / Ctrl+Shift+J | Mark the caret's line in the PDF (SyncTeX); a double-click in the PDF goes back |
 | ⌘F / Ctrl+F | Find and replace in the current file (the Tauri app's find panel); in a focused PDF, Find in PDF |
 | Enter / F3, ⇧Enter / ⇧F3 / ⌘⇧G | Next and previous match in the find panel |
-| ⌘K or ⌘⇧P | Command palette: every command, and the project's files |
+| ⌘K or ⌘⇧P | Command palette: every command, the project's files, its Papers and every Settings row |
 | ⌘P / Ctrl+P | Quick open: a file by name, `:42` a line, `@` a section or label |
 | ⌘⇧F, ⌘⇧H | Find in project, Replace in project |
 | ⌘⇧N | New project |
