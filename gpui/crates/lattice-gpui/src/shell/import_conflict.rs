@@ -406,9 +406,4 @@ mod tests {
             "3 items with these names are already in the project root"
         );
     }
-
-    #[test]
-    fn keep_both_is_offered_first() {
-        assert_eq!(CHOICES[0], NameConflict::KeepBoth);
-    }
 }

@@ -325,5 +325,6 @@ impl Render for OverleafPicker {
             },
         )
         .closable_by_scrim(!transferring)
+        .closable(!transferring)
     }
 }

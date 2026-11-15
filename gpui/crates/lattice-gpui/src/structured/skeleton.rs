@@ -59,6 +59,8 @@ pub(super) fn markdown_page(
         .pl(px(start))
         .pr(px(end))
         .opacity(opacity)
+        // `.document-skeleton-column.loading-sheen`, on the editor's ground.
+        .relative()
         .children(BLOCKS.iter().enumerate().map(|(ix, block)| {
             if block.len() == 1 {
                 // The first is the title: 1.8em at a 1.2 line; the others
@@ -97,7 +99,12 @@ pub(super) fn markdown_page(
                     }))
                     .into_any_element()
             }
-        }));
+        }))
+        .children(lattice_ui::loading::sheen(
+            "markdown-preview-sheen",
+            palette.editor,
+            cx,
+        ));
     div()
         .absolute()
         .inset_0()

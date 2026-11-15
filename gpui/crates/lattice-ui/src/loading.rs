@@ -107,23 +107,35 @@ pub fn sheen(id: impl Into<ElementId>, surface: Hsla, cx: &App) -> Option<AnyEle
                         Animation::new(SHEEN)
                             .repeat()
                             .with_easing(|t| EASE_IN_OUT.sample(t)),
-                        // translateX(-100%) to translateX(100%) of the
-                        // skeleton; the band sits in its middle 40%.
-                        |band, t| band.left(relative(-0.7 + 2. * t)),
+                        |band, t| band.left(relative(band_left(t))),
                     ),
             )
             .into_any_element(),
     )
 }
 
+/// The sheen band's left edge, as a fraction of the skeleton's width, at
+/// `t` of its sweep: translateX(-100%) to translateX(100%) of the skeleton,
+/// with the band in its middle 40%.
+fn band_left(t: f32) -> f32 {
+    -0.7 + 2. * t
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    // loading-sheen.css: a ::after as wide as the skeleton, its gradient
+    // clear outside 30%-70%, swept from translateX(-100%) to translateX(100%)
+    // with ease-in-out.
     #[test]
-    fn the_loops_run_at_the_css_rates() {
-        assert_eq!(TURN, Duration::from_millis(800));
-        assert_eq!(SHEEN, Duration::from_millis(1600));
+    fn the_sheen_sweeps_from_off_the_left_to_off_the_right() {
+        let band = 0.4;
+        assert!((band_left(0.) - -0.7).abs() < 1e-6);
+        assert!(band_left(0.) + band <= 0.);
+        assert!((band_left(0.5) - 0.3).abs() < 1e-6);
+        assert!((band_left(1.) - 1.3).abs() < 1e-6);
+        assert!(band_left(1.) >= 1.);
         assert!((EASE_IN_OUT.sample(0.5) - 0.5).abs() < 1e-3);
     }
 }

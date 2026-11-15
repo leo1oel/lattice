@@ -286,6 +286,7 @@ pub struct ModalLayer {
     placement: LayerPlacement,
     surface: AnyElement,
     closable: bool,
+    scrim_closable: bool,
     initial_focus: Option<FocusHandle>,
     on_close: CloseHandler,
 }
@@ -302,6 +303,7 @@ impl ModalLayer {
             placement,
             surface: surface.into_any_element(),
             closable: true,
+            scrim_closable: true,
             initial_focus: None,
             on_close: Rc::new(on_close),
         }
@@ -317,6 +319,14 @@ impl ModalLayer {
     /// Keep a press on the scrim from closing a surface that holds unsaved
     /// input (the app's `dirty`); Escape and the X still close it.
     pub fn closable_by_scrim(mut self, closable: bool) -> Self {
+        self.scrim_closable = closable;
+        self
+    }
+
+    /// Whether the owner takes a close now. One it would refuse (an install
+    /// or a save under way) goes straight to the owner, without the exit,
+    /// so a layer that stays is never left faded out.
+    pub fn closable(mut self, closable: bool) -> Self {
         self.closable = closable;
         self
     }
@@ -403,11 +413,12 @@ impl RenderOnce for ModalLayer {
             ),
         };
         let on_close = self.on_close;
+        let closable = self.closable;
         let layer = focus.clone();
         deferred(
             SheetHost::new(cx)
                 .focus_handle(focus)
-                .overlay_closable(self.closable && leaving.is_none())
+                .overlay_closable(self.scrim_closable && leaving.is_none())
                 .request_close(move |window, cx| {
                     if closing.read(cx).is_some() {
                         return;
@@ -418,7 +429,7 @@ impl RenderOnce for ModalLayer {
                             None => window.blur(cx),
                         }
                     }
-                    if cx.reduce_motion() {
+                    if !closable || cx.reduce_motion() {
                         on_close(window, cx);
                         return;
                     }
@@ -439,9 +450,13 @@ impl RenderOnce for ModalLayer {
                             cx.update(|window, cx| {
                                 let pending = still
                                     .upgrade()
-                                    .is_some_and(|closing| *closing.read(cx) == Some(started));
-                                if pending {
+                                    .filter(|closing| *closing.read(cx) == Some(started));
+                                if let Some(closing) = pending {
                                     on_close(window, cx);
+                                    closing.update(cx, |closing, cx| {
+                                        *closing = None;
+                                        cx.notify();
+                                    });
                                 }
                             })
                             .ok();
