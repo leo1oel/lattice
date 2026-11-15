@@ -48,6 +48,7 @@ mod links;
 mod live;
 mod page_changes;
 mod pages;
+mod place;
 mod pointer;
 mod search;
 mod sync_mark;
@@ -58,6 +59,7 @@ pub use compound::CompoundSource;
 
 use page_changes::changed_pages;
 pub(super) use pages::PageSlot;
+pub use place::ViewPlace;
 pub(super) use sync_mark::{SYNC_MARK_HOLD, SyncMark};
 pub use events::{PdfViewEvent, ToolbarAction};
 pub(super) use {drafts::DraftField, search::FindState};
@@ -81,31 +83,6 @@ const REFIT_SETTLE: Duration = Duration::from_millis(120);
 pub(super) struct Document {
     pub info: DocumentInfo,
     pub signatures: Option<PageSignatures>,
-}
-
-/// Where a viewer is in its document, carried from the panel to the
-/// separate window and back, and kept for back and forward over link jumps.
-/// The top-left corner of the view is held as a point of the page under it,
-/// in PDF points, so a viewer at another width (and so another fit scale)
-/// shows the same place.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct ViewPlace {
-    page: usize,
-    scale: f32,
-    fit: Option<FitMode>,
-    top: (usize, f32, f32),
-}
-
-impl ViewPlace {
-    fn scroll(&self) -> PendingScroll {
-        let (page, x, y) = self.top;
-        PendingScroll::PagePoint {
-            page,
-            x: Some(x),
-            y,
-            at_y: 0.,
-        }
-    }
 }
 
 /// Where the view should be once the document is laid out.
