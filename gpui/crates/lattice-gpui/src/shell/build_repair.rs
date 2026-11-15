@@ -59,7 +59,6 @@ struct Operation {
 pub(crate) struct Repair {
     operation: Option<Operation>,
     starts: u64,
-    _run: Option<Task<()>>,
     _grace: Option<Task<()>>,
 }
 
@@ -190,7 +189,7 @@ impl Shell {
         self.show_repair(Some(RepairState::new(RepairStatus::Starting)), cx);
         let editors = self.open_editors();
         let saves = Self::save_dirty(&editors, cx);
-        let run = cx.spawn_in(window, async move |this, cx| {
+        cx.spawn_in(window, async move |this, cx| {
             let mut saved = true;
             for save in saves {
                 saved &= save.await.unwrap_or(false);
@@ -338,8 +337,8 @@ impl Shell {
                     _ => return,
                 }
             }
-        });
-        self.repair()._run = Some(run);
+        })
+        .detach();
     }
 
     /// The task completed: build again, and say so once that build is in.
@@ -406,7 +405,6 @@ impl Shell {
         let Some(operation) = repair.operation.take_if(|operation| !operation.task_done) else {
             return;
         };
-        repair._run = None;
         repair._grace = None;
         if let Some(thread_id) = operation.thread_id.clone() {
             let payload = json!({ "workspaceRoot": operation.root.to_string_lossy() });
@@ -507,7 +505,6 @@ impl Shell {
     /// The project is left: its repair goes with it, asked to stop.
     pub(super) fn repair_left_project(&mut self, cx: &mut Context<Self>) {
         let repair = self.repair();
-        repair._run = None;
         repair._grace = None;
         if let Some(operation) = repair.operation.take()
             && let Some(thread_id) = operation.thread_id
