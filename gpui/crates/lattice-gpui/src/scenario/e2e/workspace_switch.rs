@@ -6,8 +6,9 @@
 //!   saved, and the press switches nothing; Enter on it after is its click.
 //! - The project's workspace is the one tab stop; → and ← (round the ends),
 //!   Home and End switch and take the keyboard along.
-//! - F2 renames; a name already used stays in editing, marked, until the
-//!   next keystroke; Escape gives the keyboard back to the tab.
+//! - F2 renames; a pasted name keeps its first 24 characters; a name
+//!   already used stays in editing, marked, until the next keystroke;
+//!   Escape gives the keyboard back to the tab.
 //! - ⇧F10 opens the workspace's menu.
 
 use std::time::Duration;
@@ -154,6 +155,25 @@ impl Run {
         self.key(cx, "f2")?;
         self.pause(cx, Duration::from_millis(200)).await;
         let opened = cx.update(|cx| self.shell.read(cx).workspace_renaming());
+
+        // A 30-character name pasted over the selected one keeps its first
+        // 24, as an HTML `maxLength` field cuts a paste to the room left.
+        let pasted = "abcdefghijklmnopqrstuvwxyz0123";
+        cx.update(|cx| cx.write_to_clipboard(gpui::ClipboardItem::new_string(pasted.into())));
+        self.key(cx, if cfg!(target_os = "macos") { "cmd-v" } else { "ctrl-v" })?;
+        self.pause(cx, Duration::from_millis(200)).await;
+        let field = cx.update(|cx| {
+            self.shell
+                .read(cx)
+                .rename_input()
+                .map(|input| input.read(cx).value().to_string())
+        });
+        steps.check(
+            "a name pasted into the rename field longer than 24 characters keeps its first 24",
+            field.as_deref() == Some("abcdefghijklmnopqrstuvwx"),
+            json!({ "pasted": pasted, "field": field }),
+        );
+
         self.with_window(cx, move |shell, window, cx| {
             if let Some(input) = shell.read(cx).rename_input() {
                 input.update(cx, |input, cx| input.set_value(taken_name.clone(), window, cx));

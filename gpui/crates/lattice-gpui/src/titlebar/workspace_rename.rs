@@ -10,7 +10,7 @@ use gpui::{
     KeyDownEvent, ParentElement as _, StatefulInteractiveElement as _, Styled as _, Window, div,
     prelude::FluentBuilder as _, px,
 };
-use gpui_kit::component::input::{Input, InputEvent, InputState};
+use gpui_kit::component::input::{Input, InputEditsEvent, InputEvent, InputState};
 use lattice_i18n::t;
 use lattice_ui::{
     TextRole, TextRoleStyle as _, components::LatticeTooltip, elevation::ring,
@@ -40,9 +40,33 @@ impl Shell {
         let input = cx.new(|cx| {
             let mut state = InputState::new(window, cx);
             state.set_value(name, window, cx);
-            state.set_validator(|text, _| text.chars().count() <= NAME_MAX, cx);
             state
         });
+        // At most 24 characters (`maxLength`): what goes in is cut to the
+        // room left, so a 25th character typed goes nowhere.
+        let limit = cx.subscribe_in(
+            &input,
+            window,
+            |_, input, event: &InputEditsEvent, window, cx| {
+                let Some((edit, after)) = event.edits().last() else {
+                    return;
+                };
+                let text = after.to_string();
+                if text.chars().count() <= NAME_MAX {
+                    return;
+                }
+                let (head, rest) = text.split_at(edit.start_byte);
+                let (inserted, tail) = rest.split_at(edit.new_end_byte - edit.start_byte);
+                let room = NAME_MAX.saturating_sub(head.chars().count() + tail.chars().count());
+                let kept: String = inserted.chars().take(room).collect();
+                let caret = head.len() + kept.len();
+                let value = format!("{head}{kept}{tail}");
+                input.update(cx, |input, cx| {
+                    input.set_value(value, window, cx);
+                    input.set_selected_range(caret..caret, cx);
+                });
+            },
+        );
         let target = id.to_string();
         let subscription = cx.subscribe_in(
             &input,
@@ -79,7 +103,7 @@ impl Shell {
         self.layout.renaming = Some(id.to_string());
         self.layout.track.taken = false;
         self.rename_input = Some(input);
-        self.rename_subscription = Some(subscription);
+        self.rename_subscriptions = vec![limit, subscription];
         cx.notify();
     }
 
@@ -91,7 +115,7 @@ impl Shell {
         });
         let renamed = self.layout.renaming.take();
         self.layout.track.taken = false;
-        self.rename_subscription = None;
+        self.rename_subscriptions.clear();
         // The keyboard goes back to the workspace's tab (the folded switch
         // has none, so to the window).
         if held || window.focused(cx).is_none() {
