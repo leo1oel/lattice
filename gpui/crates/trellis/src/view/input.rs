@@ -169,6 +169,10 @@ impl TrellisWorkspace {
     }
 
     fn pointer_moved(&mut self, event: &MouseMoveEvent, cx: &mut Context<Self>) {
+        if self.carried.is_some() && !event.dragging() {
+            self.pointer_released(event.position, false, cx);
+            return;
+        }
         let p = self.local(event.position);
         match &self.held {
             Some(Held::Press { .. }) => self.update_engine(cx, |e| e.drag_move(p)),

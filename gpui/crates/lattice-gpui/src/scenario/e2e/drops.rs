@@ -5,6 +5,8 @@
 //!
 //! - Finder files dropped on a folder's row land in that folder, the folder
 //!   lit while it is aimed at; off the rows, the project root is aimed at.
+//! - Another kind of drag after a Finder drag left (a split's divider)
+//!   lights no folder of the tree and no editor.
 //! - A Finder figure dropped on a LaTeX editor goes into `figures/` and in
 //!   as a figure at the line under the pointer, the editor lit meanwhile.
 //! - A Finder source dropped on an editor is imported and opens; a mix of
@@ -12,7 +14,8 @@
 //! - A figure's row dragged from the tree over the editor draws the drop
 //!   caret, and goes in as a figure.
 //! - A file's row dragged out of the Project panel is carried on by
-//!   Trellis and lands in the documents' panel.
+//!   Trellis and lands in the documents' panel; one let go before Trellis
+//!   takes it is let go at the next move, its tab closed again.
 
 use std::{
     path::{Path, PathBuf},
@@ -26,7 +29,10 @@ use gpui::{
 use serde_json::json;
 
 use super::Steps;
-use crate::{editor_panel::drops::DropLit, scenario::Run};
+use crate::{
+    editor_panel::{DocumentView, drops::DropLit},
+    scenario::Run,
+};
 
 impl Run {
     async fn drops(&self, cx: &mut AsyncApp, steps: &mut Steps, root: &Path) -> Result<()> {
@@ -85,6 +91,27 @@ impl Run {
             root_aimed.as_deref() == Some("") && after.is_none(),
             json!({ "aimed": root_aimed, "after": after }),
         );
+
+        // Another kind of drag after a Finder drag left (a Markdown split's
+        // divider): no folder of the tree, nor the editor it left, lit.
+        let marks = self.divider_drag_marks(cx, root, &notes).await?;
+        steps.check(
+            "a drag of a split's divider after a Finder drag left lights no folder of the tree and no editor",
+            marks.tree_dragging
+                && marks.tree_aimed.is_none()
+                && marks.editor_lit_before == Some(DropLit::Open)
+                && marks.editor_dragging
+                && marks.editor_lit.is_none(),
+            json!({
+                "tree_dragging": marks.tree_dragging,
+                "tree_aimed": marks.tree_aimed,
+                "editor_lit_before": format!("{:?}", marks.editor_lit_before),
+                "editor_dragging": marks.editor_dragging,
+                "editor_lit": format!("{:?}", marks.editor_lit),
+            }),
+        );
+        self.open(cx, &chapter, Some(1))?;
+        self.pause(cx, Duration::from_millis(300)).await;
 
         // Finder figure → the LaTeX editor's second line: a figure there.
         let (text, _) = cx.update(|cx| editor.read(cx).text_and_caret(cx));
@@ -230,6 +257,65 @@ impl Run {
             });
         }
 
+        // A row flicked out and let go before the frame Trellis takes it on:
+        // the next move without the button lets go of it, the tab it opened
+        // closed again, rather than the tab following the bare pointer.
+        self.pause(cx, Duration::from_millis(300)).await;
+        let bib = self.tree_row_center(cx, "references.bib")?;
+        self.pointer(cx, PointerStep::Down, bib).await?;
+        self.pointer(cx, PointerStep::Move, bib + gpui::point(gpui::px(12.), gpui::px(0.)))
+            .await?;
+        self.with_window(cx, |_, window, cx| {
+            window.dispatch_event(
+                PlatformInput::MouseMove(gpui::MouseMoveEvent {
+                    position: target,
+                    pressed_button: Some(MouseButton::Left),
+                    modifiers: Modifiers::default(),
+                }),
+                cx,
+            );
+            window.dispatch_event(
+                PlatformInput::MouseUp(gpui::MouseUpEvent {
+                    button: MouseButton::Left,
+                    position: target,
+                    modifiers: Modifiers::default(),
+                    click_count: 1,
+                }),
+                cx,
+            );
+        })?;
+        self.frame_after_input(cx).await?;
+        self.pause(cx, Duration::from_millis(300)).await;
+        let lifted = cx.update(|cx| self.shell.read(cx).view_of_document("references.bib", cx));
+        let past = target + gpui::point(gpui::px(24.), gpui::px(0.));
+        self.with_window(cx, |_, window, cx| {
+            window.dispatch_event(
+                PlatformInput::MouseMove(gpui::MouseMoveEvent {
+                    position: past,
+                    pressed_button: None,
+                    modifiers: Modifiers::default(),
+                }),
+                cx,
+            );
+        })?;
+        self.frame_after_input(cx).await?;
+        self.pause(cx, Duration::from_millis(300)).await;
+        let left = cx.update(|cx| self.shell.read(cx).view_of_document("references.bib", cx));
+        steps.check(
+            "a row released before Trellis carries it is let go at the next move, its tab closed again",
+            lifted.is_some() && left.is_none(),
+            json!({ "lifted": lifted, "left": left }),
+        );
+        if let Some(view) = left {
+            cx.update(|cx| {
+                self.shell
+                    .read(cx)
+                    .workspace()
+                    .clone()
+                    .update(cx, |workspace, cx| workspace.close(&[view], cx))
+            });
+        }
+
         for path in [
             root.join("chapters/finder-notes.txt"),
             root.join("finder-notes.txt"),
@@ -239,6 +325,61 @@ impl Run {
         }
         std::fs::remove_dir_all(&finder).ok();
         Ok(())
+    }
+
+    /// A Markdown file opened in Split, its divider dragged after the
+    /// Finder drag that last left the tree, then again after one that left
+    /// the file's editor: what each drag showed.
+    async fn divider_drag_marks(
+        &self,
+        cx: &mut AsyncApp,
+        root: &Path,
+        notes: &Path,
+    ) -> Result<DividerMarks> {
+        let path = root.join("e2e-drop-split.md");
+        std::fs::write(&path, "# Split\n\nA paragraph to drop beside.\n")?;
+        let panel = self.open(cx, &path, None)?;
+        self.with_window(cx, |_, window, cx| {
+            panel.update(cx, |panel, cx| {
+                panel.set_document_view(DocumentView::Split, window, cx)
+            })
+        })?;
+        self.pause(cx, Duration::from_millis(500)).await;
+        let ratio = cx.update(|cx| crate::editor_panel::views::split_ratio(cx));
+        let tree = cx.update(|cx| self.shell.read(cx).file_tree().clone());
+        let grip = cx
+            .update(|cx| panel.read(cx).split_divider_center(cx))
+            .context("the split is laid out")?;
+        let aside = grip - gpui::point(gpui::px(30.), gpui::px(0.));
+
+        self.pointer(cx, PointerStep::Down, grip).await?;
+        self.pointer(cx, PointerStep::Move, aside).await?;
+        let (tree_dragging, tree_aimed) =
+            cx.update(|cx| (cx.has_active_drag(), tree.read(cx).drop_folder(cx)));
+        self.pointer(cx, PointerStep::Up, aside).await?;
+        cx.update(|cx| crate::editor_panel::views::set_split_ratio(ratio, cx));
+        self.pause(cx, Duration::from_millis(200)).await;
+
+        let source = grip - gpui::point(gpui::px(120.), gpui::px(0.));
+        self.file_drag(cx, source, &[notes.to_path_buf()]).await?;
+        let editor_lit_before = cx.update(|cx| panel.read(cx).drop_lit(cx).0);
+        self.file_event(cx, FileDropEvent::Exited).await?;
+        self.pointer(cx, PointerStep::Down, grip).await?;
+        self.pointer(cx, PointerStep::Move, aside).await?;
+        let (editor_dragging, editor_lit) =
+            cx.update(|cx| (cx.has_active_drag(), panel.read(cx).drop_lit(cx).0));
+        self.pointer(cx, PointerStep::Up, aside).await?;
+        cx.update(|cx| crate::editor_panel::views::set_split_ratio(ratio, cx));
+
+        self.close_tab(cx, panel)?;
+        std::fs::remove_file(&path).ok();
+        Ok(DividerMarks {
+            tree_dragging,
+            tree_aimed,
+            editor_lit_before,
+            editor_dragging,
+            editor_lit,
+        })
     }
 
     /// Open figures/ and drag finder-plot.png's row onto the editor's line
@@ -402,6 +543,15 @@ impl Run {
                 .map(|entry| format!("{}: {}", entry.title, entry.detail))
         })
     }
+}
+
+/// What the drags of [`Run::divider_drag_marks`] showed.
+struct DividerMarks {
+    tree_dragging: bool,
+    tree_aimed: Option<String>,
+    editor_lit_before: Option<DropLit>,
+    editor_dragging: bool,
+    editor_lit: Option<DropLit>,
 }
 
 #[derive(Clone, Copy)]
