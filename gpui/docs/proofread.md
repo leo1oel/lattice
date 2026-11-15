@@ -4,7 +4,7 @@ One of the features [the GPUI app](../README.md) has so far.
 
 Asks the embedded agent to proofread, polish or rewrite a selection of a LaTeX source, as the Tauri app does, and shows its answer as edits to review in place.
 Proofread (⌘⌥P, the selection toolbar, or Proofread selection in the palette) corrects errors and nothing else, and Polish also improves flow and clarity.
-Rewrite with an instruction (the toolbar's Rewrite button, or Rewrite selection… in the palette) asks in the writer's own words, such as "Translate into academic English", and keeps the last five instructions for reuse.
+Rewrite with an instruction (the toolbar's Rewrite button, or Rewrite selection… in the palette) asks in the writer's own words, such as "Translate into academic English", and keeps the last five instructions for reuse, the writer's rather than a project's, in `selection-instructions.json` in the app's state folder.
 With nothing selected, it asks for a selection first.
 
 The card opens under the selection's last line, so the text below moves down rather than hiding behind it, and the passage it would replace is marked in the accent.

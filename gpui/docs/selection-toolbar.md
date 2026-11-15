@@ -7,7 +7,7 @@ It waits while the pointer is still dragging the selection out, goes on a press 
 Pressing its buttons never takes the editor's focus or selection.
 
 Over a LaTeX selection it has Bold, Italic, Underline, Strikethrough and Quote, each pressed when the selection already has that format, and pressing a pressed one takes the format off.
-Then come Annotate, which opens the [annotation](annotations.md) composer on the selection, Link, whose URL field writes `\href`, the heading level menu, and the highlighter.
+Then come Annotate, which opens the [annotation](annotations.md) composer on the selection, the agent's [Proofread, Polish and Rewrite](proofread.md), Link, whose URL field writes `\href`, the heading level menu, and the highlighter.
 The pen applies the last highlighter at once, and its caret opens the highlighter palette.
 
 Over a Markdown selection it has the block type menu (text, six heading levels, bulleted, numbered and task lists, quote and code block), then Bold, Italic, Underline, Strikethrough, inline code and Highlight written in Markdown's syntax, Insert link, inline math and Annotate.
