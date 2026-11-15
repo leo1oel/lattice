@@ -190,3 +190,22 @@ fn places_through_synctex_a_pdf_note_whose_page_is_gone() {
         "{placed:?}"
     );
 }
+
+#[test]
+fn reads_the_source_of_a_note_without_an_anchor_on_this_pdf() {
+    // As placeAnnotation: an anchor past the last page is dropped and the
+    // note goes to SyncTeX, which reads its .tex line.
+    let anchored = |page| {
+        note(
+            "beat the baseline",
+            Some(PdfAnchor {
+                page,
+                rects: Vec::new(),
+                text: "beat the baseline".into(),
+            }),
+        )
+    };
+    assert!(reads_source(&note("beat the baseline", None), 2));
+    assert!(reads_source(&anchored(3), 2));
+    assert!(!reads_source(&anchored(2), 2));
+}

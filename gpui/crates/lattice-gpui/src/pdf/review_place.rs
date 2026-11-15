@@ -13,7 +13,7 @@
 //! Positions here are PDF user space: points from the page's bottom-left
 //! corner, as the review copy's annotations take them.
 
-use lattice_core::project::EditorComment;
+use lattice_core::project::{EditorComment, PdfAnchor};
 
 use super::annotation_place::{
     Band, MarkReader, find_bands, line_and_column, pdf_text_letters, quote_letters,
@@ -80,6 +80,19 @@ fn margin_note(page: usize, (width, height): (f32, f32), top: f64) -> ReviewPlac
     }
 }
 
+/// The PDF anchor of `note`, while its page is one of the `count` pages.
+fn anchor_on(note: &EditorComment, count: usize) -> Option<&PdfAnchor> {
+    note.pdf
+        .as_ref()
+        .filter(|anchor| anchor.page >= 1 && (anchor.page as usize) <= count)
+}
+
+/// Whether placing `note` on a PDF of `count` pages needs its .tex source:
+/// it has no anchor on those pages, so SyncTeX finds its line.
+pub fn reads_source(note: &EditorComment, count: usize) -> bool {
+    anchor_on(note, count).is_none()
+}
+
 /// Where `note` goes on the PDF `reader` reads; `source` is its .tex file's
 /// text, for SyncTeX when the note has no anchor on this PDF's pages
 /// (`placeAnnotation`).
@@ -89,10 +102,7 @@ pub fn place_review(
     reader: &mut impl MarkReader,
 ) -> ReviewPlacement {
     let count = reader.page_count();
-    let anchor = note
-        .pdf
-        .as_ref()
-        .filter(|anchor| anchor.page >= 1 && (anchor.page as usize) <= count);
+    let anchor = anchor_on(note, count);
     // Where on its page it was: the selection's first line, or SyncTeX's box.
     let (home, top_from_page_top) = match anchor {
         Some(anchor) => (anchor.page as usize - 1, None),

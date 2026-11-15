@@ -11,7 +11,7 @@ use lattice_core::project::EditorComment;
 use super::{notes::Reader, *};
 use crate::pdf::{
     engine::{DocId, PdfEngine},
-    review_place::{ReviewPlacement, place_review},
+    review_place::{ReviewPlacement, place_review, reads_source},
 };
 
 /// The PDF on screen, as a review copy is made from it.
@@ -44,9 +44,10 @@ impl ReviewSource {
         notes
             .iter()
             .map(|note| {
-                // A note made on the PDF falls back to SyncTeX too when its
-                // page is gone from this build.
-                let source = std::fs::read_to_string(self.root.join(&note.path)).ok();
+                // Each source note's SyncTeX lookup is a process of its own.
+                let source = reads_source(note, self.sizes.len())
+                    .then(|| std::fs::read_to_string(self.root.join(&note.path)).ok())
+                    .flatten();
                 reader.set_path(&note.path);
                 place_review(note, source.as_deref(), &mut reader)
             })
@@ -63,6 +64,17 @@ impl ReviewSource {
 }
 
 impl PdfView {
+    /// Whether the PDF on screen can host a review copy, as
+    /// [`Self::review_source`] would give one, without reading the file.
+    pub fn can_review(&self) -> bool {
+        self.engine.is_ok()
+            && self.doc.is_some()
+            && self.document.is_some()
+            && self.notes_source().is_some()
+            && self.source.is_some()
+            && self.shown_digest.is_some()
+    }
+
     /// The PDF on screen, for a review copy; `None` while none is loaded or
     /// it shows no project's notes.
     pub fn review_source(&self) -> Option<ReviewSource> {
