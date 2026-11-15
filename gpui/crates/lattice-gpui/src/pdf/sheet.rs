@@ -233,7 +233,7 @@ impl PdfView {
                     .feel(ScrollbarFeel::DOCUMENT),
             )
             .children(self.citation_card_element(window, cx))
-            .children(self.window_wide_listeners(window, cx))
+            .child(self.window_wide_listeners(window, cx))
             // A refresh of the PDF on screen says so, quietly.
             .when(self.loading, |area| {
                 area.child(super::loading::updating(self.loading_since, window, cx))

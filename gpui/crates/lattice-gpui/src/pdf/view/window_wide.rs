@@ -17,19 +17,24 @@ impl PdfView {
     }
 
     /// The window's presses, releases and moves, taken before any element
-    /// hears them, while [`Self::listens_window_wide`]; and Escape from any
-    /// focus in this window.
+    /// hears them; and Escape from any focus in this window, while
+    /// [`Self::listens_window_wide`].
+    ///
+    /// The mouse listeners are registered on every paint, not only while
+    /// autoscroll or a card is under way: a paint's listeners are the only
+    /// ones the window has until the next paint, so ones added only once a
+    /// middle press had started autoscroll would miss the moves and the
+    /// release that arrive before the next frame (the release would then
+    /// reach the page as a click). Each handler does nothing while idle.
     pub(in crate::pdf) fn window_wide_listeners(
         &mut self,
         window: &mut Window,
         cx: &mut Context<Self>,
-    ) -> Option<AnyElement> {
+    ) -> AnyElement {
+        let view = cx.entity().downgrade();
         if !self.listens_window_wide() {
             self.escape = None;
-            return None;
-        }
-        let view = cx.entity().downgrade();
-        if self.escape.is_none() {
+        } else if self.escape.is_none() {
             let view = view.clone();
             let handle = window.window_handle();
             self.escape = Some(cx.intercept_keystrokes(move |event, window, cx| {
@@ -44,42 +49,40 @@ impl PdfView {
                 }
             }));
         }
-        Some(
-            canvas(
-                |_, _, _| {},
-                move |_, _, window, _| {
-                    let down = view.clone();
-                    window.on_mouse_event(move |event: &MouseDownEvent, phase, _, cx| {
-                        if phase == DispatchPhase::Capture {
-                            down.update(cx, |this, cx| this.on_window_mouse_down(event, cx))
-                                .ok();
-                        }
-                    });
-                    let up = view.clone();
-                    window.on_mouse_event(move |event: &MouseUpEvent, phase, _, cx| {
-                        if phase == DispatchPhase::Capture {
-                            up.update(cx, |this, cx| {
-                                if this.take_blocked_up(event.button) {
-                                    cx.stop_propagation();
-                                }
-                            })
+        canvas(
+            |_, _, _| {},
+            move |_, _, window, _| {
+                let down = view.clone();
+                window.on_mouse_event(move |event: &MouseDownEvent, phase, _, cx| {
+                    if phase == DispatchPhase::Capture {
+                        down.update(cx, |this, cx| this.on_window_mouse_down(event, cx))
                             .ok();
-                        }
-                    });
-                    let moved = view.clone();
-                    window.on_mouse_event(move |event: &MouseMoveEvent, phase, _, cx| {
-                        if phase == DispatchPhase::Capture {
-                            moved
-                                .update(cx, |this, cx| this.on_window_mouse_move(event, cx))
-                                .ok();
-                        }
-                    });
-                },
-            )
-            .absolute()
-            .size_0()
-            .into_any_element(),
+                    }
+                });
+                let up = view.clone();
+                window.on_mouse_event(move |event: &MouseUpEvent, phase, _, cx| {
+                    if phase == DispatchPhase::Capture {
+                        up.update(cx, |this, cx| {
+                            if this.take_blocked_up(event.button) {
+                                cx.stop_propagation();
+                            }
+                        })
+                        .ok();
+                    }
+                });
+                let moved = view.clone();
+                window.on_mouse_event(move |event: &MouseMoveEvent, phase, _, cx| {
+                    if phase == DispatchPhase::Capture {
+                        moved
+                            .update(cx, |this, cx| this.on_window_mouse_move(event, cx))
+                            .ok();
+                    }
+                });
+            },
         )
+        .absolute()
+        .size_0()
+        .into_any_element()
     }
 
     /// A press anywhere: it stops autoscroll and is not also a click, or it
