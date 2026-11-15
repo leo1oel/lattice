@@ -705,14 +705,6 @@ mod tests {
         pdf
     }
 
-    /// The one engine the tests share: PDFium binds once per process, so a
-    /// second `start` while another test holds it fails with
-    /// `PdfiumLibraryBindingsAlreadyInitialized`.
-    fn engine() -> &'static PdfEngine {
-        static ENGINE: std::sync::OnceLock<PdfEngine> = std::sync::OnceLock::new();
-        ENGINE.get_or_init(|| PdfEngine::start().expect("PDFium (script/fetch-pdfium)"))
-    }
-
     /// The BGRA pixel at `(x, y)` of the page drawn 100 px across, whole or
     /// through a region, light or dark.
     fn pixel(engine: &PdfEngine, region: bool, dark: bool, x: u32, y: u32) -> [u8; 4] {
