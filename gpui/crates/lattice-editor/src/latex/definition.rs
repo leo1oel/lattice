@@ -91,13 +91,14 @@ pub fn label_at(text: &str, position: usize) -> Option<String> {
 
 /// What `position` names, with the project's labels (`references`, the open
 /// file's unsaved ones among them), its files (`project_paths`), its
-/// `\graphicspath` roots and the root document (`root_path`).
+/// `\graphicspath` roots (read only for a figure) and the root document
+/// (`root_path`).
 pub fn definition_target_at(
     text: &str,
     position: usize,
     references: &[Reference],
     project_paths: &[String],
-    graphics_roots: &[String],
+    graphics_roots: impl FnOnce() -> Vec<String>,
     root_path: &str,
 ) -> Option<DefinitionTarget> {
     if let Some(label) = label_at(text, position)
@@ -117,7 +118,7 @@ pub fn definition_target_at(
             &figure,
             project_paths,
             PathKind::Graphics,
-            graphics_roots,
+            &graphics_roots(),
             root_path,
         )
         .unwrap_or(figure);

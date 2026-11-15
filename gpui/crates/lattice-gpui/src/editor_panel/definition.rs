@@ -63,21 +63,24 @@ impl EditorPanel {
         let mut paths = Vec::new();
         project_paths(project.files(), &mut paths);
         let root = self.latex_root.clone();
-        let mut target = definition_target_at(&text, offset, &references, &paths, &[], &root);
-        // A figure not found as written may be under a `\graphicspath` root
-        // one of the project's TeX sources sets.
-        if let Some(DefinitionTarget::Asset { path }) = &target
-            && !paths.contains(path)
-        {
-            let folder = self.project_root(cx);
+        let folder = self.project_root(cx);
+        // A figure is read under the `\graphicspath` roots the project's TeX
+        // sources set, the open file's unsaved text standing in for its own.
+        let roots = || {
             let sources: Vec<String> = paths
                 .iter()
                 .filter(|path| path.ends_with(".tex"))
-                .filter_map(|path| lattice_core::project::read_file(&folder, path).ok())
+                .filter_map(|path| {
+                    if *path == relative {
+                        Some(text.clone())
+                    } else {
+                        lattice_core::project::read_file(&folder, path).ok()
+                    }
+                })
                 .collect();
-            let roots = graphics_roots(sources.iter().map(String::as_str));
-            target = definition_target_at(&text, offset, &references, &paths, &roots, &root);
-        }
+            graphics_roots(sources.iter().map(String::as_str))
+        };
+        let target = definition_target_at(&text, offset, &references, &paths, roots, &root);
         let event = match target {
             Some(DefinitionTarget::Reference { path, line, .. }) => {
                 Some(EditorPanelEvent::OpenLocation { path, line })

@@ -180,6 +180,18 @@ impl LatticeEditor {
         Self::character_in(&self.editor, &text, bounds, position, window, cx)
     }
 
+    /// The offset a click at `position`, a window point, puts the caret at:
+    /// a line's end past it. None off the text.
+    pub fn caret_offset_at(
+        &self,
+        position: Point<Pixels>,
+        window: &mut Window,
+        cx: &mut App,
+    ) -> Option<usize> {
+        let text = self.buffer.read(cx).snapshot();
+        geometry::offset_at(&self.editor, &text, position, window, cx)
+    }
+
     fn character_in(
         editor: &gpui::Entity<editor::Editor>,
         text: &BufferSnapshot,

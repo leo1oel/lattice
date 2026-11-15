@@ -35,7 +35,7 @@ fn labels_go_to_their_definition_and_keys_to_their_entry() {
     });
     let at = |needle: &str, skip: usize| source.find(needle).unwrap() + skip;
     assert_eq!(
-        definition_target_at(source, at("fig:model", 2), &references, &[], &[], ""),
+        definition_target_at(source, at("fig:model", 2), &references, &[], Vec::new, ""),
         reference
     );
     assert_eq!(
@@ -44,24 +44,24 @@ fn labels_go_to_their_definition_and_keys_to_their_entry() {
             at("\\label{fig:model}", 10),
             &references,
             &[],
-            &[],
+            Vec::new,
             ""
         ),
         reference
     );
     assert_eq!(
-        definition_target_at(source, at("vaswani", 2), &references, &[], &[], ""),
+        definition_target_at(source, at("vaswani", 2), &references, &[], Vec::new, ""),
         Some(DefinitionTarget::Citation {
             key: "vaswani2017".into()
         })
     );
     // A label nothing defines has no target.
     assert_eq!(
-        definition_target_at(source, at("fig:model", 2), &[], &[], &[], ""),
+        definition_target_at(source, at("fig:model", 2), &[], &[], Vec::new, ""),
         None
     );
     assert_eq!(
-        definition_target_at(source, 1, &references, &[], &[], ""),
+        definition_target_at(source, 1, &references, &[], Vec::new, ""),
         None
     );
 }
@@ -71,17 +71,24 @@ fn includes_and_figures_resolve_to_project_files() {
     let source = "\\input{sections/method}\n\\include{appendix}";
     let at = |needle: &str| source.find(needle).unwrap() + 2;
     assert_eq!(
-        definition_target_at(source, at("method"), &[], &[], &[], ""),
+        definition_target_at(source, at("method"), &[], &[], Vec::new, ""),
         include("sections/method.tex")
     );
     assert_eq!(
-        definition_target_at(source, at("appendix"), &[], &[], &[], ""),
+        definition_target_at(source, at("appendix"), &[], &[], Vec::new, ""),
         include("appendix.tex")
     );
     let figure = "\\includegraphics[width=\\linewidth]{figures/plot}";
     let plot = figure.find("plot").unwrap() + 1;
     assert_eq!(
-        definition_target_at(figure, plot, &[], &paths(&["figures/plot.png"]), &[], ""),
+        definition_target_at(
+            figure,
+            plot,
+            &[],
+            &paths(&["figures/plot.png"]),
+            Vec::new,
+            ""
+        ),
         asset("figures/plot.png")
     );
 }
@@ -99,7 +106,7 @@ fn includes_are_read_from_the_root_documents_folder() {
     let main = "\\documentclass{article}\n\\input{../common/macros}\n\\begin{document}\n\\input{sections/intro}\n\\end{document}\n";
     let at = main.find("sections/intro").unwrap() + 2;
     assert_eq!(
-        definition_target_at(main, at, &[], &project, &[], "paper/main.tex"),
+        definition_target_at(main, at, &[], &project, Vec::new, "paper/main.tex"),
         include("paper/sections/intro.tex")
     );
     let tex = |raw: &str, root: &str| resolve_project_path(raw, &project, PathKind::Tex, &[], root);
@@ -168,7 +175,7 @@ fn figures_are_read_from_the_root_documents_folder_and_graphicspath() {
         let source = format!("\\includegraphics[width=\\linewidth]{{{path}}}");
         let at = source.find(path).unwrap() + 1;
         assert_eq!(
-            definition_target_at(&source, at, &[], &figures, &roots, root),
+            definition_target_at(&source, at, &[], &figures, || roots.clone(), root),
             asset(file),
             "{path} from {root}"
         );
@@ -176,6 +183,7 @@ fn figures_are_read_from_the_root_documents_folder_and_graphicspath() {
     let source = "\\includegraphics{plot}";
     let at = source.find("plot").unwrap();
     let figs = ["figs".to_string()];
+    let sources = ["\\graphicspath{{figs/}}"];
     for (list, file) in [
         (
             vec!["main.tex", "a/plot.pdf", "figs/plot.pdf", "c/plot.png"],
@@ -187,7 +195,14 @@ fn figures_are_read_from_the_root_documents_folder_and_graphicspath() {
         ),
     ] {
         assert_eq!(
-            definition_target_at(source, at, &[], &paths(&list), &figs, "main.tex"),
+            definition_target_at(
+                source,
+                at,
+                &[],
+                &paths(&list),
+                || graphics_roots(sources),
+                "main.tex"
+            ),
             asset(file)
         );
     }
@@ -197,7 +212,7 @@ fn figures_are_read_from_the_root_documents_folder_and_graphicspath() {
             at,
             &[],
             &paths(&["paper/main.tex", "plot.png", "paper/figs/plot.pdf"]),
-            &figs,
+            || figs.to_vec(),
             "paper/main.tex"
         ),
         asset("paper/figs/plot.pdf")
@@ -210,12 +225,12 @@ fn figures_are_read_from_the_root_documents_folder_and_graphicspath() {
         "paper/figures/plot.jpg",
     ];
     assert_eq!(
-        definition_target_at(source, at, &[], &paths(&list), &[], "paper/main.tex"),
+        definition_target_at(source, at, &[], &paths(&list), Vec::new, "paper/main.tex"),
         asset("figures/plot.png")
     );
     list.push("paper/figures/plot.png");
     assert_eq!(
-        definition_target_at(source, at, &[], &paths(&list), &[], "paper/main.tex"),
+        definition_target_at(source, at, &[], &paths(&list), Vec::new, "paper/main.tex"),
         asset("paper/figures/plot.png")
     );
 }
@@ -231,4 +246,34 @@ fn graphicspath_roots_are_read_from_every_source() {
         unwrap_latex_path(" \\detokenize{my fig\\plot} "),
         "my fig/plot"
     );
+}
+
+#[test]
+fn graphicspath_roots_are_read_only_for_a_figure() {
+    let source = "\\ref{fig:model} \\input{intro} \\includegraphics{plot}";
+    let references = [Reference {
+        label: "fig:model".into(),
+        path: "main.tex".into(),
+        line: 3,
+        ..Reference::default()
+    }];
+    let project = paths(&["main.tex", "intro.tex", "figs/plot.png"]);
+    let read = std::cell::Cell::new(0);
+    let roots = || {
+        read.set(read.get() + 1);
+        vec!["figs".to_string()]
+    };
+    for needle in ["fig:model", "intro"] {
+        let at = source.find(needle).unwrap() + 1;
+        assert!(
+            definition_target_at(source, at, &references, &project, roots, "main.tex").is_some()
+        );
+    }
+    assert_eq!(read.get(), 0);
+    let at = source.find("plot").unwrap();
+    assert_eq!(
+        definition_target_at(source, at, &references, &project, roots, "main.tex"),
+        asset("figs/plot.png")
+    );
+    assert_eq!(read.get(), 1);
 }

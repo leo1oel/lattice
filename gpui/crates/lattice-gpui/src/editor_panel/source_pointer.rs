@@ -37,6 +37,9 @@ impl EditorPanel {
             .capture_any_mouse_down(
                 cx.listener(move |this, event: &MouseDownEvent, window, cx| {
                     let at = event.position;
+                    if this.over_margin_review(at) {
+                        return;
+                    }
                     match event.button {
                         MouseButton::Left
                             if event.modifiers.secondary(cx) && event.click_count == 1 =>
@@ -101,7 +104,21 @@ impl EditorPanel {
             ))
     }
 
-    /// A right-click outside the selection puts the caret under the pointer.
+    /// Whether `at` is over a margin review card, pip or popover, drawn over
+    /// the source without blocking the pointer (the composer, the selection
+    /// toolbar and the outline rail block it).
+    fn over_margin_review(&self, at: gpui::Point<gpui::Pixels>) -> bool {
+        self.margin.layout.is_some()
+            && self
+                .margin
+                .painted
+                .borrow()
+                .iter()
+                .any(|(_, bounds)| bounds.contains(&at))
+    }
+
+    /// A right-click outside the selection puts the caret under the pointer,
+    /// at the line's end past it.
     fn caret_to_pointer(
         &mut self,
         at: gpui::Point<gpui::Pixels>,
@@ -110,7 +127,7 @@ impl EditorPanel {
     ) {
         let Some(offset) = self
             .lattice
-            .update(cx, |lattice, cx| lattice.character_at(at, window, cx))
+            .update(cx, |lattice, cx| lattice.caret_offset_at(at, window, cx))
         else {
             return;
         };
