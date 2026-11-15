@@ -103,6 +103,13 @@ pub enum SurfaceEvent {
         family: String,
         request: Value,
     },
+    /// An annotation tool's call to record into the open round
+    /// (`annotations.rs`); answered with [`SynaraSurface::answer`].
+    AnnotationTool {
+        id: u64,
+        annotation: String,
+        answer: crate::annotations::rounds::ToolAnswer,
+    },
     /// The Agent creates a board or sheet at `path`.
     CreateDocument {
         id: u64,

@@ -108,9 +108,11 @@ pub struct AnnotationRounds {
 
 impl EventEmitter<RoundsEvent> for AnnotationRounds {}
 
+mod agent_tools;
 mod queries;
 
 use queries::open_round;
+pub use agent_tools::ToolAnswer;
 pub use queries::{pending_proposals, revisable, round_progress};
 
 impl AnnotationRounds {

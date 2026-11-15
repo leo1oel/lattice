@@ -224,6 +224,19 @@ impl Shell {
                     surface.answer(*id, Err(format!("unknown tool family {family}")), cx)
                 }),
             },
+            SurfaceEvent::AnnotationTool {
+                id,
+                annotation,
+                answer,
+            } => {
+                self.sync_rounds(cx);
+                let recorded = self.annotation_rounds().update(cx, |rounds, cx| {
+                    rounds.record_tool(annotation, answer.clone(), cx)
+                });
+                surface.update(cx, |surface, cx| {
+                    surface.answer(*id, recorded.map(|()| serde_json::Value::Null), cx)
+                });
+            }
             SurfaceEvent::CreateDocument {
                 id,
                 path,
