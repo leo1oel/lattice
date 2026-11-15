@@ -323,7 +323,9 @@ impl RenderOnce for Button {
                     .focus_visible(move |style| style.shadow(focus))
             })
             .when_some(self.icon, |this, icon| {
-                this.child(icon.element(icon_size, ink))
+                // A busy Button turns its loader (`.spin`).
+                let id = ElementId::NamedChild(std::sync::Arc::new(self.id.clone()), "icon".into());
+                this.child(crate::loading::mark(id, icon, icon_size, ink, cx))
             })
             .children(self.leading)
             .children(

@@ -182,7 +182,10 @@ mod tests {
         assert_eq!(change_wash(Duration::ZERO, true), 1.);
         assert_eq!(change_wash(LINGER, true), 0.);
         let frame = accept(Moment::new(2, Duration::ZERO), true);
-        assert_eq!((frame.ghost_width, frame.insert_opacity, frame.wash), (0., 1., 1.));
+        assert_eq!(
+            (frame.ghost_width, frame.insert_opacity, frame.wash),
+            (0., 1., 1.)
+        );
     }
 
     #[test]

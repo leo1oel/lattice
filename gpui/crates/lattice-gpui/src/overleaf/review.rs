@@ -729,6 +729,7 @@ impl Render for OverleafReview {
             },
         )
         .closable_by_scrim(!self.applying)
+        .closable(!self.applying)
     }
 }
 
