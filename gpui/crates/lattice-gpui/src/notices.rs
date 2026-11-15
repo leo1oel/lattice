@@ -603,6 +603,16 @@ impl NoticeStack {
             .collect()
     }
 
+    /// The details of the notices showing, newest last, for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn details(&self) -> Vec<SharedString> {
+        self.shown
+            .iter()
+            .rev()
+            .filter_map(|shown| shown.notice.detail.clone())
+            .collect()
+    }
+
     /// Every showing card as it is drawn now, front first, for a scenario.
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     pub fn cards(&self) -> Vec<stack::CardState> {

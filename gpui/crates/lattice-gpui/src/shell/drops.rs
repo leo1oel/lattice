@@ -201,6 +201,16 @@ impl Shell {
         if paths.is_empty() || self.project.is_none() {
             return;
         }
+        // One drawing on a LaTeX source becomes an editable figure there
+        // (`drawing_drop.rs`), a `.drawio` too, which no other path takes.
+        if let DropSurface::Editor { editor, at, .. } = &surface
+            && let Some(panel) = editor.upgrade()
+            && super::drawing_drop::takes_drawing(&paths, panel.read(cx))
+        {
+            let drawing = paths[0].clone();
+            self.drop_drawing(drawing, editor.clone(), *at, window, cx);
+            return;
+        }
         let kind = classify(&paths);
         let sources: Vec<String> = paths
             .iter()
