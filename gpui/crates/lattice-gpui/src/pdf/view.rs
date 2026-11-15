@@ -422,6 +422,8 @@ impl PdfView {
     /// Show nothing, for a project without a built PDF.
     pub fn close(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self._open_task = None;
+        self.dismiss_citation(cx);
+        self.stop_autoscroll(cx);
         self.reset(window);
         if let (Ok(engine), Some(doc)) = (&self.engine, self.doc.take()) {
             engine.close(doc);
@@ -520,6 +522,8 @@ impl PdfView {
     ) {
         self.loading = false;
         self.message = None;
+        self.dismiss_citation(cx);
+        self.stop_autoscroll(cx);
         let generation = info.generation;
         let count = info.page_sizes.len();
         let previous = self.document.take();
