@@ -79,11 +79,10 @@ fn rows_in(
         .map(|site| CitationUse {
             path: path.to_string(),
             line: site.line,
-            range: with_ranges.then(|| site.from..site.to),
+            range: with_ranges.then_some(site.from..site.to),
             section: sections
                 .iter()
-                .filter(|(offset, _)| *offset <= site.from)
-                .last()
+                .rfind(|(offset, _)| *offset <= site.from)
                 .map(|(_, label)| label.clone()),
             page: site.page,
             reason: reason_at.get(&site.from).and_then(|reason| {

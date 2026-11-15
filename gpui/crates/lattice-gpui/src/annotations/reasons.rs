@@ -104,10 +104,10 @@ pub fn placed(
 /// An anchored reason belongs to its citation card, not the panel.
 /// `source_for` gives a file's text: `Some(None)` for a file that is gone,
 /// `None` while it is unread.
-pub fn panel_reasons<'a>(
-    all: &'a [EditorComment],
+pub fn panel_reasons(
+    all: &[EditorComment],
     source_for: impl Fn(&str) -> Option<Option<String>>,
-) -> Vec<&'a EditorComment> {
+) -> Vec<&EditorComment> {
     let mut placed_in: HashMap<String, Option<HashMap<String, Range<usize>>>> = HashMap::new();
     all.iter()
         .filter(|reason| reason.citation.is_some())
@@ -169,7 +169,7 @@ mod tests {
         assert_eq!(at.get(&reason.id), Some(&second_cite()));
         let without = TEXT.replace(" Later work extends it at length~\\cite{vaswani2017}.", "");
         let (_, at) = placed(&without, "main.tex", &all);
-        assert!(at.get(&reason.id).is_none());
+        assert!(!at.contains_key(&reason.id));
         let listed = panel_reasons(&all, |_| Some(Some(without.clone())));
         assert_eq!(listed.len(), 1);
         let listed = panel_reasons(&all, |_| Some(Some(TEXT.to_string())));

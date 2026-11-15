@@ -237,13 +237,12 @@ pub(crate) fn apply_editor_settings(cx: &mut App) {
         )
         .replace(
             "EDITOR_FONT",
-            &serde_json::to_string(&editor_family(
+            serde_json::to_string(&editor_family(
                 &appearance.source_font,
                 &lattice.fonts.editor,
             ))
             .unwrap_or_default()
-            .trim_matches('"')
-            .to_owned(),
+            .trim_matches('"'),
         )
         .replace("UI_FONT", &lattice.fonts.ui)
         .replace("VIM_MODE", if vim_mode { "true" } else { "false" });

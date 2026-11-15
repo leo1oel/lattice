@@ -65,6 +65,7 @@ pub fn where_label(at: &CitationUse) -> String {
 }
 
 /// The section; `None` when the key has no uses to show.
+#[allow(clippy::too_many_arguments)]
 pub(super) fn uses_section(
     key: &str,
     uses: Vec<CitationUse>,

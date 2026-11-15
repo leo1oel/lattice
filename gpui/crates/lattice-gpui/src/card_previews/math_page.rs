@@ -334,7 +334,7 @@ impl Page {
 fn decode(png: &[u8]) -> Result<Arc<RenderImage>> {
     let mut pixels =
         image::load_from_memory_with_format(png, image::ImageFormat::Png)?.into_rgba8();
-    for pixel in pixels.chunks_exact_mut(4) {
+    for pixel in pixels.as_chunks_mut::<4>().0 {
         pixel.swap(0, 2);
     }
     Ok(Arc::new(RenderImage::new(smallvec::smallvec![

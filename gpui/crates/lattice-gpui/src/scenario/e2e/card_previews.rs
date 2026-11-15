@@ -76,9 +76,9 @@ fn pixels(picture: &gpui::RenderImage) -> Vec<[u8; 4]> {
     picture
         .as_bytes(0)
         .unwrap_or_default()
-        .chunks_exact(4)
-        .map(|pixel| [pixel[0], pixel[1], pixel[2], pixel[3]])
-        .collect()
+        .as_chunks::<4>()
+        .0
+        .to_vec()
 }
 
 /// How much of a picture is inked: the share of its pixels that are not clear.
