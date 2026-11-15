@@ -3,8 +3,8 @@
 //! actions, then what a test or an action found.
 
 use gpui::{
-    AnyElement, Context, ElementId, IntoElement, ParentElement as _, Pixels,
-    SharedString, Styled as _, Window, div, prelude::FluentBuilder as _, px,
+    AnyElement, Context, ElementId, IntoElement, ParentElement as _, Pixels, SharedString,
+    Styled as _, Window, div, prelude::FluentBuilder as _, px,
 };
 use lattice_i18n::t;
 use lattice_settings::SettingsTab;
@@ -114,21 +114,29 @@ impl ModelEndpointPane {
         // Endpoint.
         let mut protocols: Vec<(Protocol, SharedString)> = vec![
             (Protocol::OpenAiCompletions, t!("OpenAI-compatible").into()),
-            (Protocol::AnthropicMessages, t!("Anthropic-compatible").into()),
+            (
+                Protocol::AnthropicMessages,
+                t!("Anthropic-compatible").into(),
+            ),
         ];
         if self.advanced {
             protocols.extend(ADVANCED_NAMES.map(|(protocol, name)| (protocol, name.into())));
         }
         let protocol_select = {
             let this = this.clone();
-            controls::select("model-endpoint-protocol", protocols, self.protocol, move |protocol, _, cx| {
-                this.update(cx, |pane, cx| {
-                    pane.protocol = protocol;
-                    pane.notice = None;
-                    pane.report = None;
-                    cx.notify();
-                })
-            })
+            controls::select(
+                "model-endpoint-protocol",
+                protocols,
+                self.protocol,
+                move |protocol, _, cx| {
+                    this.update(cx, |pane, cx| {
+                        pane.protocol = protocol;
+                        pane.notice = None;
+                        pane.report = None;
+                        cx.notify();
+                    })
+                },
+            )
         };
         let more = {
             let this = this.clone();
@@ -175,17 +183,13 @@ impl ModelEndpointPane {
                     .control(protocol_select)
                     .render(width, cx),
                 Row::new("model-endpoint-advanced", t!("More protocols"))
-                    .description(
-                        ADVANCED_NAMES.map(|(_, name)| name).join(", "),
-                        cx,
-                    )
+                    .description(ADVANCED_NAMES.map(|(_, name)| name).join(", "), cx)
                     .control(more)
                     .wrap(Wrap::Never)
                     .render(width, cx),
                 marks.row(
                     Row::new("model-endpoint-address", t!("Address"))
-                    .description(self.protocol.address_help(), cx)
-                    ,
+                        .description(self.protocol.address_help(), cx),
                     width,
                     cx,
                 ),
@@ -282,7 +286,9 @@ impl ModelEndpointPane {
                     .py(px(4.))
                     .text_role_in(TextRole::Caption, TypeScale::Settings, cx)
                     .text_color(palette.text_secondary)
-                    .child(t!("Asking the first model to call a tool. This can take up to 45 seconds."))
+                    .child(t!(
+                        "Asking the first model to call a tool. This can take up to 45 seconds."
+                    ))
                     .into_any_element(),
             );
         }
@@ -303,7 +309,11 @@ impl ModelEndpointPane {
                     .flex_wrap()
                     .items_center()
                     .gap(px(4.))
-                    .child(controls::inline_message(notice.level, notice.text.clone(), cx))
+                    .child(controls::inline_message(
+                        notice.level,
+                        notice.text.clone(),
+                        cx,
+                    ))
                     .children(restart)
                     .into_any_element(),
             );
@@ -476,16 +486,14 @@ impl ModelEndpointPane {
                     } else {
                         palette.text_secondary
                     })
-                    .child(
-                        if done { Icon::CHECK } else { Icon::X }.element(
-                            px(13.),
-                            if done {
-                                palette.success
-                            } else {
-                                palette.text_secondary
-                            },
-                        ),
-                    )
+                    .child(if done { Icon::CHECK } else { Icon::X }.element(
+                        px(13.),
+                        if done {
+                            palette.success
+                        } else {
+                            palette.text_secondary
+                        },
+                    ))
                     .child(label)
             }));
         let detail = report

@@ -25,7 +25,7 @@ const HISTORY_KEPT: usize = 80;
 /// The search surfaces open in the window, and the files visited.
 #[derive(Default)]
 pub(crate) struct Documents {
-    quick_open: Option<Entity<QuickOpen>>,
+    pub(super) quick_open: Option<Entity<QuickOpen>>,
     find: Option<Entity<ProjectFind>>,
     /// Find's query and tab, kept across reopening.
     find_memory: FindMemory,
@@ -60,7 +60,12 @@ pub(crate) struct Documents {
 impl Shell {
     /// ⌘P: quick open over the project's files, or closed again.
     pub(crate) fn toggle_quick_open(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.documents.quick_open.is_some() {
+        if self
+            .documents
+            .quick_open
+            .as_ref()
+            .is_some_and(|open| open.read(cx).picker_kind().is_none())
+        {
             self.close_document_overlays(window, cx);
             return;
         }
@@ -90,6 +95,7 @@ impl Shell {
             current,
             root,
             main,
+            live: self.live_latex(cx),
         };
         let weak = cx.entity().downgrade();
         let view = cx.new(|cx| QuickOpen::new(weak, source, window, cx));
@@ -120,6 +126,9 @@ impl Shell {
                 if let Some(editor) = self.active_editor() {
                     editor.update(cx, |editor, cx| editor.go_to_line(line, window, cx));
                 }
+            }
+            QuickOpenPick::Insert { command, key } => {
+                self.insert_at_caret(command, &key, window, cx)
             }
         }
     }
@@ -274,6 +283,9 @@ impl Shell {
 
     pub(super) fn take_document_overlays(&mut self, cx: &mut Context<Self>) {
         self.documents.quick_open = None;
+        self.parts
+            .get_mut::<super::insert_pickers_flow::GotoLine>()
+            .close();
         if let Some(find) = self.documents.find.take() {
             self.documents.find_memory = find.read(cx).memory(cx);
         }
@@ -304,6 +316,7 @@ impl Shell {
     /// sheet to close it first.
     pub(crate) fn document_overlay_open(&self) -> bool {
         self.documents.quick_open.is_some()
+            || self.goto_line_open()
             || self.documents.find.is_some()
             || self.documents.replace.is_some()
             || self.documents.add_papers.is_some()

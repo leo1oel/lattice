@@ -89,7 +89,8 @@ impl Global for Dictionaries {}
 
 /// How many dictionary downloads have finished this session.
 pub fn installs(cx: &App) -> u64 {
-    cx.try_global::<Dictionaries>().map_or(0, |state| state.installed)
+    cx.try_global::<Dictionaries>()
+        .map_or(0, |state| state.installed)
 }
 
 impl EditorPanel {

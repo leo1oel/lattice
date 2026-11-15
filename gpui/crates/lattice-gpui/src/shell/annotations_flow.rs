@@ -55,7 +55,10 @@ pub struct CommentsView {
     /// Overleaf's bridge and collaboration panel, handed over once the
     /// window is made (the view is made while it is); never read through
     /// the shell, which is mid-update whenever it asks the view anything.
-    overleaf: Option<(Entity<crate::overleaf::bridge::OverleafBridge>, Entity<OverleafCollabPanel>)>,
+    overleaf: Option<(
+        Entity<crate::overleaf::bridge::OverleafBridge>,
+        Entity<OverleafCollabPanel>,
+    )>,
     _observe: Vec<Subscription>,
 }
 
@@ -213,7 +216,10 @@ impl Shell {
 
     /// The open editors.
     fn editors_open(&self, _: &App) -> Vec<Entity<EditorPanel>> {
-        self.editors.iter().filter_map(WeakEntity::upgrade).collect()
+        self.editors
+            .iter()
+            .filter_map(WeakEntity::upgrade)
+            .collect()
     }
 
     /// Show the Annotations panel (`openPanel`): Overleaf's comments for a
@@ -243,7 +249,9 @@ impl Shell {
             return;
         };
         let panel = self.parts.get::<Annotations>().panel.clone();
-        panel.update(cx, |panel, cx| panel.set_active_note(root.clone(), Some(id.clone()), cx));
+        panel.update(cx, |panel, cx| {
+            panel.set_active_note(root.clone(), Some(id.clone()), cx)
+        });
         if let Some(editor) = self.open_path(root.join(&path), None, window, cx) {
             editor.update(cx, |editor, cx| editor.reveal_annotation(&id, window, cx));
         }
@@ -296,11 +304,15 @@ impl Shell {
         };
         match request {
             AnnotationRequest::Created(id) => {
-                panel.update(cx, |panel, cx| panel.set_active_note(root.clone(), Some(id.clone()), cx));
+                panel.update(cx, |panel, cx| {
+                    panel.set_active_note(root.clone(), Some(id.clone()), cx)
+                });
                 crate::status_counters::refresh(root, cx);
             }
             AnnotationRequest::Open(id) => {
-                panel.update(cx, |panel, cx| panel.set_active_note(root.clone(), Some(id.clone()), cx));
+                panel.update(cx, |panel, cx| {
+                    panel.set_active_note(root.clone(), Some(id.clone()), cx)
+                });
                 self.open_annotations(window, cx);
             }
             AnnotationRequest::Resolve(id) => {
@@ -309,7 +321,9 @@ impl Shell {
             }
             AnnotationRequest::Reply(id) => {
                 self.open_annotations(window, cx);
-                panel.update(cx, |panel, cx| panel.reply_to(root.clone(), id.clone(), window, cx));
+                panel.update(cx, |panel, cx| {
+                    panel.reply_to(root.clone(), id.clone(), window, cx)
+                });
             }
         }
     }

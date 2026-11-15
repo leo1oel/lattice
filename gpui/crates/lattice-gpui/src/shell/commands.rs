@@ -155,6 +155,9 @@ pub struct CommandContext {
     pub latex_source: bool,
     /// The project's PDF is in a window of its own.
     pub pdf_in_window: bool,
+    /// A text editor is in front (Go to line's and Go to symbol's
+    /// `textEditor`).
+    pub text_editor: bool,
 }
 
 /// One row of the table.
