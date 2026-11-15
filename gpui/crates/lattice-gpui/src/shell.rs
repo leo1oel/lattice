@@ -77,6 +77,7 @@ mod shortcut_sheet;
 mod skin;
 mod structured_docs;
 mod synctex;
+mod tab_policy;
 mod terminal_flow;
 mod tools_flow;
 pub mod trellis_layout;
@@ -229,6 +230,8 @@ pub struct Shell {
     zoom_hud: Entity<crate::interface_zoom::ZoomHud>,
     confirm: Entity<ConfirmHost>,
     editors: Vec<WeakEntity<EditorPanel>>,
+    /// Preview and pinned tabs, and which tabs a full strip spares.
+    tabs: tab_policy::TabPolicy,
     /// The editor the writer was last in (opened, or holding the keyboard),
     /// which a build compiles from and a jump to the PDF starts from. An
     /// overlay (the palette, a menu) taking focus does not change it.
@@ -517,6 +520,7 @@ impl Shell {
             zoom_hud: crate::interface_zoom::new_hud(cx),
             confirm,
             editors: Vec::new(),
+            tabs: tab_policy::TabPolicy::default(),
             active_editor: None,
             build_task: None,
             build_trace: None,

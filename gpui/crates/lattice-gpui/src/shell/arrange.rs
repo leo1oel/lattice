@@ -74,6 +74,10 @@ impl Shell {
             WorkspaceEvent::Focused(None) | WorkspaceEvent::Announce(_) => {}
             WorkspaceEvent::FocusContent(view) => self.focus_view_content(view, window, cx),
             WorkspaceEvent::Navigated(_) => cx.notify(),
+            // A preview tab double-clicked or dragged is kept.
+            WorkspaceEvent::TabDoubleClicked(view) | WorkspaceEvent::TabDragged(view) => {
+                self.keep_view(view, cx)
+            }
             WorkspaceEvent::CarryEnded { view, dropped } => {
                 self.carry_ended(view, *dropped, window, cx)
             }
@@ -122,6 +126,7 @@ impl Shell {
         self.forget_closed_assets();
         self.refresh_dirty(cx);
         self.follow_active_document(cx);
+        self.tabs_settled(window, cx);
         self.schedule_save(window, cx);
         // A view hidden with the keyboard in it (⌃`, the Panels menu's Hide)
         // would leave the keyboard where nothing is drawn, so the window's
@@ -515,6 +520,7 @@ impl Shell {
         cx: &mut Context<Self>,
     ) -> String {
         if let Some(view) = self.view_of_document(key, cx) {
+            self.reopened(key, cx);
             self.engine_do(cx, |engine| {
                 if focus {
                     engine.focus(&view);
@@ -540,22 +546,7 @@ impl Shell {
             });
             return id;
         };
-        let mut params = trellis::model::Params::new();
-        params.insert("key".into(), key.into());
-        self.engine_do(cx, |engine| {
-            engine.open(
-                "file",
-                OpenOptions {
-                    params: Some(params),
-                    placement: Some(Placement::Into {
-                        into: panel,
-                        index: None,
-                    }),
-                    focus: Some(focus),
-                    ..OpenOptions::default()
-                },
-            )
-        })
+        self.open_document_tab(key, panel, focus, cx)
     }
 
     /// Where an open to the side starts from (`openToTheSide`): the panel of

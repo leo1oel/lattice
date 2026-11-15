@@ -93,7 +93,10 @@ use crate::project::{Project, ProjectEvent};
 
 /// What the tree asks the shell to do.
 pub enum FileTreeEvent {
+    /// A row's click: a quick look at the file (its panel's preview tab).
     Open(PathBuf),
+    /// A row's double-click: the file's tab kept.
+    Keep(PathBuf),
     /// Rename the entry at `path` (project-relative) to `name`.
     Rename {
         path: String,

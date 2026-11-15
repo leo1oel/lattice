@@ -41,6 +41,11 @@ pub struct TabFrame {
     pub offset: f64,
     /// The tab being sorted, following the pointer.
     pub sorting: bool,
+    /// Whether the view's params mark it a preview (`preview`) and pinned
+    /// (`pinned`): flags the host keeps on a file view
+    /// (`trellis-tab-policy.ts`), which the skin draws.
+    pub preview: bool,
+    pub pinned: bool,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -454,6 +459,8 @@ impl Engine {
                             .flatten(),
                         offset,
                         sorting: sort.as_ref().is_some_and(|(_, d)| d == view_id),
+                        preview: self.param_flag(view_id, "preview"),
+                        pinned: self.param_flag(view_id, "pinned"),
                     }
                 })
                 .collect();

@@ -231,6 +231,9 @@ impl Icon {
     // The app's own, from `assets/icons`.
     /// The 1.5-stroke X a panel tab closes with.
     pub const CLOSE: Icon = Icon("lattice/close.svg");
+    /// A pinned tab's mark in its close slot (Lucide's pin, as trellis.css
+    /// draws it).
+    pub const PIN: Icon = Icon("lattice/pin.svg");
     /// A panel's ⋯ menu: three filled dots.
     pub const DOTS: Icon = Icon("lattice/dots.svg");
     /// The tree's filled disclosure chevron, pointing down (open).
@@ -372,6 +375,7 @@ const BUNDLED: &[(&str, &[u8])] = bundled![
     "eye.svg",
     "info.svg",
     "pencil.svg",
+    "pin.svg",
     "plus.svg",
     "trash.svg",
     // Lucide's, whose names Zed's icon set shadows (LICENSE-LUCIDE).

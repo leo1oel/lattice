@@ -46,6 +46,20 @@ impl Run {
     ) -> Result<()> {
         let dir = root.join("tab-strip");
         let result = self.tab_strip_steps(cx, steps, &dir).await;
+        // Its documents close with it, as the steps after these found the
+        // window.
+        cx.update(|cx| {
+            self.shell.update(cx, |shell, cx| {
+                let views: Vec<String> = (1..=FILES)
+                    .filter_map(|i| shell.view_of_document(&format!("tab-strip/strip-{i:02}.tex"), cx))
+                    .collect();
+                shell
+                    .workspace()
+                    .clone()
+                    .update(cx, |workspace, cx| workspace.close(&views, cx));
+            })
+        });
+        self.pause(cx, Duration::from_millis(300)).await;
         std::fs::remove_dir_all(&dir).ok();
         if let Err(error) = result {
             steps.check(
@@ -74,6 +88,11 @@ impl Run {
             let path = dir.join(title);
             std::fs::write(&path, format!("% {title}\n"))?;
             editors.push(self.open(cx, &path, Some(1))?);
+            // Pinned, which a full strip never closes
+            // (`shell/tab_policy.rs`), so all of them stay and the strip
+            // overflows, as the Tauri app's does with the tabs it keeps.
+            let key = format!("tab-strip/{title}");
+            cx.update(|cx| self.shell.update(cx, |shell, cx| shell.pin_document(&key, true, cx)));
             self.pause(cx, Duration::from_millis(40)).await;
         }
         self.pause(cx, Duration::from_millis(600)).await;

@@ -47,8 +47,6 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] The Project panel's + and ⋯ menus' New spreadsheet, New board and New presentation, and Find in project.
 
-- [ ] Preview tabs, pinned tabs and tab eviction.
-
 - [ ] The workspace switch's sliding plate, drag to reorder and keyboard.
 
 - [ ] Export figures for a journal….
