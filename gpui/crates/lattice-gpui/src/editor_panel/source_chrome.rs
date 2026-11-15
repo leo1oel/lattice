@@ -65,6 +65,10 @@ impl EditorPanel {
         if self.latex_root != root {
             self.latex_root = root.clone();
             self.forward_latex_context(cx);
+            if let Some(lint) = &self.index_lint {
+                let root = root.clone();
+                lint.update(cx, |lint, cx| lint.set_root_document(root, cx));
+            }
         }
         self.note_latex_outline(headings.clone(), cx);
         if let Some(rail) = &self.rail {

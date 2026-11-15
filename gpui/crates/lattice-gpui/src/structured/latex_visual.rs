@@ -175,7 +175,7 @@ fn index_payload(index: &ProjectIndex) -> Value {
     json!({
         "citations": citations,
         "references": references,
-        "pending": index.is_loading(),
+        "pending": index.is_first_read_pending(),
     })
 }
 
