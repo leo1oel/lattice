@@ -593,6 +593,7 @@ impl PdfView {
         let percent = format!("{}", (self.scale * 100.).round() as i64);
         let frame = div()
             .id("pdf-zoom-value")
+            .relative()
             .flex_none()
             .w(px(44.))
             .h(px(28.))
@@ -640,6 +641,7 @@ impl PdfView {
                     }
                 }))
                 .child(format!("{percent}%"))
+                .children(lattice_ui::parity::probe("pdf/zoom"))
                 .into_any_element()
         }
     }

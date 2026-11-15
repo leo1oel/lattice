@@ -86,4 +86,17 @@ impl PdfView {
     pub fn has_pending_scroll(&self) -> bool {
         self.pending_scroll.is_some()
     }
+
+    /// Reveal cursor in PDF's state as the toolbar draws it: (disabled,
+    /// locating), for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn reveal_state(&self) -> (bool, bool) {
+        (self.reveal_disabled || self.locating, self.locating)
+    }
+
+    /// The load failure shown and whether it offers a build, for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn load_failure(&self) -> (Option<SharedString>, bool) {
+        (self.message.clone(), self.offers_build)
+    }
 }

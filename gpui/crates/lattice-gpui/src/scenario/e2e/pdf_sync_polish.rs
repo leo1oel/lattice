@@ -11,6 +11,7 @@ use gpui::AsyncApp;
 use serde_json::json;
 
 use super::Steps;
+
 use crate::{
     pdf::{PdfEngine, PdfViewEvent, clicked_word_at},
     scenario::Run,
@@ -114,20 +115,25 @@ impl Run {
             json!({ "tab": tab, "removed": removed, "said": said, "back": back }),
         );
         std::fs::remove_file(&copy).ok();
-        Ok(())
+        self.pdf_states(cx, steps, root).await
     }
 }
 
-type Found = (u32, (f64, f64), Option<lattice_editor::latex::synctex_word::SyncTexWord>);
+pub(super) type Found = (u32, (f64, f64), Option<lattice_editor::latex::synctex_word::SyncTexWord>);
 
 impl Run {
     /// Where `word` is in the PDF's own text as PDFium reads it: its page
     /// (1-based), the point on its second letter, and the word a click
     /// there reads.
     async fn find_in_pdf_text(&self, cx: &mut AsyncApp, root: &Path, word: &str) -> Result<Option<Found>> {
+        self.find_word_in(cx, &root.join("main.pdf"), word).await
+    }
+
+    /// [`Self::find_in_pdf_text`] in the PDF at `pdf`.
+    pub(super) async fn find_word_in(&self, cx: &mut AsyncApp, pdf: &Path, word: &str) -> Result<Option<Found>> {
         let engine = cx.update(|cx| PdfEngine::global(cx)).map_err(|error| anyhow!("{error}"))?;
         let doc = engine.new_document();
-        let info = engine.open(doc, std::fs::read(root.join("main.pdf"))?).await??;
+        let info = engine.open(doc, std::fs::read(pdf)?).await??;
         let wanted: Vec<char> = word.chars().collect();
         let mut found = None;
         for page in 0..info.page_sizes.len() {
