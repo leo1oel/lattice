@@ -695,7 +695,10 @@ fn draw(
     let id = shown.id;
     let notice = &shown.notice;
     let look = &shown.look;
-    let mut toast = Toast::new(("notice", id), notice.level, notice.title.clone())
+    // A host error reads in the interface language on screen only; the
+    // log and Copy keep the English a report is searched by.
+    let title: gpui::SharedString = crate::host_errors::text(&notice.title).into();
+    let mut toast = Toast::new(("notice", id), notice.level, title)
         .width(px(width))
         .height(px(look.height.value(now).max(0.)))
         .content_opacity(look.content.value(now).clamp(0., 1.));
@@ -707,7 +710,7 @@ fn draw(
         .as_ref()
         .filter(|detail| !detail.trim().is_empty())
     {
-        toast = toast.detail(detail.clone());
+        toast = toast.detail(crate::host_errors::text(detail));
     }
     if let Some(copy) = notice.copy_text() {
         toast = toast.copy(copy);

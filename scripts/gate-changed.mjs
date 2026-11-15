@@ -71,6 +71,8 @@ export function changedFiles(base) {
   return { mergeBase, files: [...new Set(lines.filter(Boolean))].filter((file) => existsSync(path.join(repo, file))) };
 }
 
+// What the GPUI host error catalog is written from, and the file it is.
+const HOST_ERROR_INPUTS = /^(src\/platform\/host-errors?-[a-z-]+\.ts|scripts\/gpui-host-errors\.mjs|gpui\/crates\/lattice-gpui\/src\/host_errors\/catalog\.rs)$/;
 // The inputs mise.toml's `notices` task lists: the closures are read from the
 // installed trees, so the lockfiles and manifests are what moves them.
 const NOTICE_INPUTS = /^(package\.json|pnpm-lock\.yaml|src-tauri\/(lattice-core\/)?Cargo\.(toml|lock)|scripts\/generate-notices\.mjs|scripts\/lib\/(util|package-notices|license-classification|license-grouping|dependency-closures|upstream-licenses)\.mjs|(public\/)?licenses\/.*|THIRD_PARTY_NOTICES\.md)$/;
@@ -181,6 +183,11 @@ export function gateStages(files) {
     files.some((file) => PERF_EVIDENCE_INPUTS.test(file))
       ? { name: "perf", why: "benchmark tables against their evidence", command: "pnpm", args: ["perf:evidence"], timeout: 60_000 }
       : { name: "perf", skip: "docs/performance* unchanged" },
+    // The GPUI app's copy of the host error catalog is written from the
+    // Tauri app's (`scripts/gpui-host-errors.mjs`).
+    files.some((file) => HOST_ERROR_INPUTS.test(file))
+      ? { name: "host-errors", why: "GPUI host error catalog against src/platform", command: "node", args: ["scripts/gpui-host-errors.mjs", "--check"], timeout: 60_000 }
+      : { name: "host-errors", skip: "no host error catalog changed" },
     files.some((file) => NOTICE_INPUTS.test(file))
       ? { name: "notices", why: "THIRD_PARTY_NOTICES.md against the installed trees", command: "pnpm", args: ["notices:check"], timeout: 120_000 }
       : { name: "notices", skip: "no lockfile, manifest or notice changed" },

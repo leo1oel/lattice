@@ -26,6 +26,7 @@ mod gallery;
 mod get_started;
 mod help;
 mod history;
+mod host_errors;
 mod html_preview;
 mod insert;
 mod interface_zoom;

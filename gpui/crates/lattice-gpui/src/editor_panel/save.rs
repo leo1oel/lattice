@@ -239,6 +239,7 @@ impl EditorPanel {
                 // outside write may land between this save and its stat.
                 this.disk = DiskVersion::Unread;
                 this.status = SaveStatus::Saved;
+                this.note_saved(cx);
                 log::debug!("saved {relative}");
                 this.buffer
                     .update(cx, |buffer, cx| buffer.did_save(version.clone(), None, cx));

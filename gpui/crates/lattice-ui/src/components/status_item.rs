@@ -10,7 +10,7 @@
 use std::rc::Rc;
 
 use gpui::{
-    AnyElement, AnyView, App, ClickEvent, ElementId, InteractiveElement as _, IntoElement,
+    AnyElement, AnyView, App, ClickEvent, ElementId, Hsla, InteractiveElement as _, IntoElement,
     ParentElement as _, RenderOnce, SharedString, StatefulInteractiveElement as _, Styled as _,
     Window, div, prelude::FluentBuilder as _, px,
 };
@@ -36,6 +36,10 @@ pub struct StatusItem {
     tooltip: Option<SharedString>,
     /// The icon in the accent: a counter with something open.
     accent_icon: bool,
+    /// The ink, held under the pointer too (a failed save's danger).
+    steady_ink: Option<Hsla>,
+    /// The icon's own ink (an offline save slot's warning mark).
+    icon_ink: Option<Hsla>,
     parity: Option<SharedString>,
 }
 
@@ -49,6 +53,8 @@ impl StatusItem {
             on_click: None,
             tooltip: None,
             accent_icon: false,
+            steady_ink: None,
+            icon_ink: None,
             parity: None,
         }
     }
@@ -61,6 +67,19 @@ impl StatusItem {
 
     /// Set the icon in the accent, as an open counter's is
     /// (`.status-counter[data-active]`).
+    /// An ink that holds under the pointer too
+    /// (`.status-save[data-mode="error"]`).
+    pub fn steady_ink(mut self, ink: Hsla) -> Self {
+        self.steady_ink = Some(ink);
+        self
+    }
+
+    /// The icon's own ink.
+    pub fn icon_ink(mut self, ink: Hsla) -> Self {
+        self.icon_ink = Some(ink);
+        self
+    }
+
     pub fn accent_icon(mut self, accent: bool) -> Self {
         self.accent_icon = accent;
         self
@@ -109,17 +128,16 @@ impl RenderOnce for StatusItem {
         let clickable = self.on_click.is_some();
         let icon_id = ElementId::NamedChild(std::sync::Arc::new(self.id.clone()), "icon".into());
         let item = div().id(self.id.clone());
+        let rest = palette.text_secondary;
         let (bg, ink) = if clickable {
             let (interaction, pointer) = use_interaction(self.id, window, cx);
             let wash = interaction.wash(gpui::transparent_black(), palette.hover, palette.pressed);
             let lit = interaction.hover.max(interaction.press);
-            (
-                Some((wash, pointer)),
-                mix(palette.text_secondary, palette.text, lit),
-            )
+            (Some((wash, pointer)), mix(rest, palette.text, lit))
         } else {
-            (None, palette.text_secondary)
+            (None, rest)
         };
+        let ink = self.steady_ink.unwrap_or(ink);
         let item = match &bg {
             Some((_, pointer)) => track_pointer(tab_stop(item), pointer.clone()),
             None => item,
@@ -139,7 +157,7 @@ impl RenderOnce for StatusItem {
                 let ink = if self.accent_icon {
                     palette.accent
                 } else {
-                    ink
+                    self.icon_ink.unwrap_or(ink)
                 };
                 // A busy status turns its loader (`.spin`).
                 this.child(crate::loading::mark(icon_id, icon, ICON_SMALL, ink, cx))
