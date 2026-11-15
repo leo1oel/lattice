@@ -26,6 +26,8 @@ pub mod cards;
 pub mod completions;
 pub mod diagnostics;
 pub mod edits;
+pub mod environments;
+pub mod format_toggle;
 pub mod folding;
 pub mod prose;
 pub mod spelling;

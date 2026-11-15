@@ -98,7 +98,10 @@ The first build fetches Zed at the pinned revision and compiles about 1,200 crat
 | ⌘⇧[ / ⌘⇧] | Previous or next tab |
 | ⌘W, ⌘⇧T, ⌘⇧W | Close the document's tab (the window when none is open), reopen the last closed tab, close the window |
 | ⌃Tab, ⌃⇧Tab | Next or previous project in the window |
-| ⌘B, ⌘I | In a LaTeX file, Bold (`\textbf`) and Emphasis (`\emph`), each on or off for the selection |
+| ⌘B, ⌘I, ⌘⇧M | In a LaTeX file, Bold (`\textbf`), Emphasis (`\emph`) and Inline math, each on or off for the selection |
+| ⌘/, ⌘⌥/, ⌘⌥; | In a LaTeX file, comment the lines, or wrap them in a `comment` environment or `\iffalse … \fi` |
+| ⌘⌥E, ⌘⌥I, ⌘⌥A, ⌃M | Wrap in `equation` or `itemize`, select the environment, go to the matching `\begin` or `\end` |
+| ⌘⌥S, ⌘⌥U, ⌘⌥L, ⌘⌥C | Sort lines, UPPER, lower and Title Case |
 | ⌘⇧K, ⌘⇧L | In a LaTeX file, Insert citation and Insert reference: a picker of the bibliography's keys or the project's labels, writing `\cite{…}` or `\ref{…}` at the caret |
 | ⌘G, ⌘⇧O | Go to line, and Go to symbol (the manuscript's sections and the project's labels) |
 | Zed's default keymap | Everything else in the editor |

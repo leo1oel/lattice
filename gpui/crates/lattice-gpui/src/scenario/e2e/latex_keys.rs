@@ -97,9 +97,87 @@ impl Run {
             );
             // ⎋ closes the picker, as it closes quick open.
             let escape = Keystroke::parse("escape").map_err(|error| anyhow::anyhow!("{error}"))?;
-            self.with_window(cx, move |_, window, cx| window.dispatch_keystroke(escape, cx))?;
+            self.with_window(cx, move |_, window, cx| {
+                window.dispatch_keystroke(escape, cx)
+            })?;
             self.pause(cx, Duration::from_millis(200)).await;
         }
+        // The rest of the LaTeX source's keys, each on a selection of the
+        // chapter's first line, put back between them.
+        let mac = cfg!(target_os = "macos");
+        let key =
+            |on_mac: &'static str, elsewhere: &'static str| if mac { on_mac } else { elsewhere };
+        let line = original
+            .find("This paragraph")
+            .context("the chapter's line")?;
+        let word = "paragraph";
+        let at = original.find(word).context("the word")?;
+        let mut outcomes = Vec::new();
+        for (keys, from, to, wanted, selected) in [
+            (
+                key("cmd-shift-m", "ctrl-shift-m"),
+                at,
+                at + word.len(),
+                format!("This ${word}$ introduces"),
+                word.to_string(),
+            ),
+            (
+                key("cmd-alt-e", "ctrl-alt-e"),
+                at,
+                at + word.len(),
+                format!("This \\begin{{equation}}\n{word}\n\\end{{equation}} introduces"),
+                word.to_string(),
+            ),
+            (
+                key("cmd-/", "ctrl-/"),
+                line,
+                line,
+                "% This paragraph introduces".to_string(),
+                "% This paragraph introduces the document.".to_string(),
+            ),
+            (
+                key("cmd-alt-u", "ctrl-alt-u"),
+                at,
+                at + word.len(),
+                "This PARAGRAPH introduces".to_string(),
+                "PARAGRAPH".to_string(),
+            ),
+        ] {
+            self.select(cx, &editor, from, to)?;
+            let keystroke = Keystroke::parse(keys).map_err(|error| anyhow::anyhow!("{error}"))?;
+            self.with_window(cx, move |_, window, cx| {
+                window.dispatch_keystroke(keystroke, cx)
+            })?;
+            self.pause(cx, Duration::from_millis(150)).await;
+            let (text, now) = self.text_and_selection(cx, &editor);
+            let ok = text.contains(&wanted) && now == selected;
+            outcomes.push(json!({ "keys": keys, "ok": ok, "selected": now }));
+            // ⌘⌥A selects the equation just made, from inside it.
+            if keys.ends_with("alt-e") {
+                let inside = text.find(word).context("the wrapped word")?;
+                self.select(cx, &editor, inside, inside)?;
+                let select_all = Keystroke::parse(key("cmd-alt-a", "ctrl-alt-a"))
+                    .map_err(|error| anyhow::anyhow!("{error}"))?;
+                self.with_window(cx, move |_, window, cx| {
+                    window.dispatch_keystroke(select_all, cx)
+                })?;
+                self.pause(cx, Duration::from_millis(150)).await;
+                let (_, environment) = self.text_and_selection(cx, &editor);
+                outcomes.push(json!({ "keys": "alt-a", "ok": environment == format!("\\begin{{equation}}\n{word}\n\\end{{equation}}"), "selected": environment }));
+            }
+            self.with_window(cx, |_, window, cx| {
+                editor.update(cx, |editor, cx| {
+                    let len = editor.text_and_caret(cx).0.len();
+                    editor.replace_range(0, len, &original, 0, window, cx)
+                })
+            })?;
+        }
+        steps.check(
+            "in a LaTeX file ⌘⇧M makes inline math, ⌘⌥E wraps in equation and ⌘⌥A selects it, ⌘/ comments the line, ⌘⌥U upper-cases, each leaving its result selected",
+            outcomes.iter().all(|outcome| outcome["ok"] == true),
+            json!({ "outcomes": outcomes }),
+        );
+
         // The chapter as it was, for the modules after.
         self.with_window(cx, |_, window, cx| {
             editor.update(cx, |editor, cx| {

@@ -5,7 +5,7 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] The visual LaTeX editor, in part: its outline rail over Visual; its spellcheck, TexLab, find-references, rename, wrap-environment and paste-image hooks; live spelling, unused-label and unused-citation data; and comment highlights, margin review, Overleaf carets and track changes in Visual.
 
-- [ ] The LaTeX source's other editing keys: Inline math (⌘⇧M) and the environment commands.
+- [ ] The LaTeX source's Wrap in environment… (⌘⇧E) and Rename the environment (⌘⌥R) dialogs, and its typing rules: `$` pairing, `\begin` closed by its `\end`, `\item` continued, `\left` closed by `\right`.
 
 - [ ] The source selection toolbar, LaTeX's and Markdown's.
 

@@ -56,12 +56,73 @@ fn default_bindings() -> Vec<KeyBinding> {
         // Zed's own keys there.
         KeyBinding::new(
             m!("b"),
-            crate::editor_panel::ToggleBold,
+            crate::editor_panel::latex_format::ToggleBold,
             Some(LATEX_FORMAT_KEYS),
         ),
         KeyBinding::new(
             m!("i"),
-            crate::editor_panel::ToggleEmphasis,
+            crate::editor_panel::latex_format::ToggleEmphasis,
+            Some(LATEX_FORMAT_KEYS),
+        ),
+        // The rest of `latex-shortcuts.ts`, in the LaTeX source.
+        KeyBinding::new(
+            m!("shift-m"),
+            crate::editor_panel::latex_format::ToggleInlineMath,
+            Some(LATEX_FORMAT_KEYS),
+        ),
+        KeyBinding::new(
+            m!("/"),
+            crate::editor_panel::latex_format::ToggleLineComments,
+            Some(LATEX_FORMAT_KEYS),
+        ),
+        KeyBinding::new(
+            m!("alt-/"),
+            crate::editor_panel::latex_format::WrapCommentEnvironment,
+            Some(LATEX_FORMAT_KEYS),
+        ),
+        KeyBinding::new(
+            m!("alt-;"),
+            crate::editor_panel::latex_format::WrapIfFalse,
+            Some(LATEX_FORMAT_KEYS),
+        ),
+        KeyBinding::new(
+            m!("alt-e"),
+            crate::editor_panel::latex_format::WrapEquation,
+            Some(LATEX_FORMAT_KEYS),
+        ),
+        KeyBinding::new(
+            m!("alt-i"),
+            crate::editor_panel::latex_format::WrapItemize,
+            Some(LATEX_FORMAT_KEYS),
+        ),
+        KeyBinding::new(
+            m!("alt-s"),
+            crate::editor_panel::latex_format::SortLines,
+            Some(LATEX_FORMAT_KEYS),
+        ),
+        KeyBinding::new(
+            m!("alt-u"),
+            crate::editor_panel::latex_format::UpperCase,
+            Some(LATEX_FORMAT_KEYS),
+        ),
+        KeyBinding::new(
+            m!("alt-l"),
+            crate::editor_panel::latex_format::LowerCase,
+            Some(LATEX_FORMAT_KEYS),
+        ),
+        KeyBinding::new(
+            m!("alt-c"),
+            crate::editor_panel::latex_format::TitleCase,
+            Some(LATEX_FORMAT_KEYS),
+        ),
+        KeyBinding::new(
+            m!("alt-a"),
+            crate::editor_panel::latex_format::SelectEnvironment,
+            Some(LATEX_FORMAT_KEYS),
+        ),
+        KeyBinding::new(
+            "ctrl-m",
+            crate::editor_panel::latex_format::MatchingEnvironment,
             Some(LATEX_FORMAT_KEYS),
         ),
         // Vim's insert mode keeps Ctrl+P for its word completion.
@@ -351,12 +412,12 @@ mod tests {
         assert!(keymap.bindings_for_action(&Build).next().is_none());
         assert_eq!(
             resolve(default_bindings(), "Editor mode = full", m!("b")),
-            Some(crate::editor_panel::ToggleBold.name())
+            Some(crate::editor_panel::latex_format::ToggleBold.name())
         );
         let zed = KeyBinding::new(m!("i"), editor::actions::ShowSignatureHelp, Some("Editor"));
         assert_eq!(
             resolve_in_editor(zed, m!("i")),
-            Some(crate::editor_panel::ToggleEmphasis.name())
+            Some(crate::editor_panel::latex_format::ToggleEmphasis.name())
         );
         // Outside an editor ⌘B runs nothing.
         let keymap = Keymap::new(default_bindings());

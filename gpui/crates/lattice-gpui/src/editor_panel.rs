@@ -52,7 +52,7 @@ mod disk_sync;
 mod events;
 pub mod find_bar;
 mod insert;
-mod latex_format;
+pub(crate) mod latex_format;
 mod latex_view;
 mod margin_review;
 mod markdown_view;
@@ -70,7 +70,6 @@ pub(crate) mod spelling;
 mod strip;
 mod structured_view;
 pub mod views;
-pub use latex_format::{ToggleBold, ToggleEmphasis};
 
 pub(crate) use annotations::PINS as ANNOTATION_PINS;
 use disk_sync::vanished_key;
@@ -717,11 +716,8 @@ impl Render for EditorPanel {
         };
         let bib = self.bib_for_view(window, cx);
         let body = self.render_views(editor, status, bib, cx);
-        div()
-            .key_context("LatticeEditor")
+        Self::latex_commands(div().key_context("LatticeEditor"), cx)
             .on_action(cx.listener(Self::deploy_search))
-            .on_action(cx.listener(Self::toggle_bold))
-            .on_action(cx.listener(Self::toggle_emphasis))
             .on_action(cx.listener(|this, _: &find_bar::FindNext, window, cx| {
                 if !this.find_in_latex_visual("next", window, cx) {
                     this.find_bar
