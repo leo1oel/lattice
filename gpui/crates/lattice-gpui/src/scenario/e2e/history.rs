@@ -163,6 +163,8 @@ impl Run {
                     editor.text(cx) == named && !washed.is_empty()
                 })
                 .await;
+            // The washed line, while the wash shows (with LATTICE_E2E_SHOTS).
+            self.window_shots(cx, "history-restore-wash").await?;
             let built = self
                 .wait_for(cx, Duration::from_secs(60), |shell, cx| {
                     shell.read(cx).build_panel().read(cx).builds() > builds
