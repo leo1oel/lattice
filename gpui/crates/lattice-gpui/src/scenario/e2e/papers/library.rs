@@ -166,8 +166,8 @@ impl Run {
 
     /// Add papers' full-text switch decides what an import started after it
     /// does, and the import keeps that choice when the switch moves again:
-    /// its pending row names Metadata alone, or Metadata, Full text and
-    /// Overview.
+    /// the box's pending row names Metadata alone, or Metadata, Full text
+    /// and Overview, and Add papers' own batch saves full text with it on.
     async fn papers_full_text_setting(
         &self,
         cx: &mut AsyncApp,
@@ -227,6 +227,40 @@ impl Run {
                 .await;
             seen.push((stages, landed));
         }
+        // Add papers' own Add, the switch on: its batch saves full text,
+        // and keeps that when the switch moves while it runs.
+        let pasted = sheet.clone();
+        self.with_window(cx, move |_, window, cx| {
+            pasted.update(cx, |sheet, cx| sheet.paste(BATCH_ENTRY, window, cx))
+        })?;
+        let listed = self
+            .wait_for(cx, Duration::from_secs(5), |_, cx| {
+                sheet
+                    .read(cx)
+                    .row_states(cx)
+                    .iter()
+                    .any(|(_, state)| *state == crate::papers::add_sheet::RowState::New)
+            })
+            .await;
+        let (adder, panel) = (sheet.clone(), papers.clone());
+        let batch = self.with_window(cx, move |_, window, cx| {
+            let on = crate::settings::get(cx).save_full_text;
+            adder.update(cx, |sheet, cx| sheet.add(cx));
+            let first = panel.read(cx).batch_full_text();
+            adder.update(cx, |sheet, cx| sheet.toggle_full_text(window, cx));
+            let moved = panel.read(cx).batch_full_text();
+            (on, first, moved)
+        })?;
+        let batch_landed = self
+            .wait_for(cx, Duration::from_secs(15), |_, cx| {
+                let panel = papers.read(cx);
+                !panel.batch.running
+                    && panel
+                        .papers
+                        .iter()
+                        .any(|paper| paper.citation_key.as_deref() == Some(BATCH_KEY))
+            })
+            .await;
         std::fs::write(&bibliography, original)?;
         cx.update(|cx| {
             crate::settings::update(cx, |settings| settings.save_full_text = false);
@@ -238,7 +272,10 @@ impl Run {
         let restored = self
             .wait_for(cx, Duration::from_secs(10), |_, cx| {
                 !papers.read(cx).papers.iter().any(|paper| {
-                    matches!(paper.citation_key.as_deref(), Some(SKIP_KEY | SAVE_KEY))
+                    matches!(
+                        paper.citation_key.as_deref(),
+                        Some(SKIP_KEY | SAVE_KEY | BATCH_KEY)
+                    )
                 })
             })
             .await;
@@ -248,10 +285,21 @@ impl Run {
             ((false, true, Some(metadata), Some(metadata)), true),
             ((true, true, Some(everything), Some(everything)), true),
         ];
+        let save = Some(lattice_core::papers::FullText::Save);
         steps.check(
             FULL_TEXT_STEP,
-            seen == expected && restored,
-            json!({ "seen": format!("{seen:?}"), "restored": restored }),
+            seen == expected
+                && listed
+                && batch == (true, save, save)
+                && batch_landed
+                && restored,
+            json!({
+                "seen": format!("{seen:?}"),
+                "batch": format!("{batch:?}"),
+                "listed": listed,
+                "batch_landed": batch_landed,
+                "restored": restored,
+            }),
         );
         Ok(())
     }
@@ -332,10 +380,12 @@ impl Run {
     }
 }
 
-const FULL_TEXT_STEP: &str = "an import started from Add papers saves its citation alone until \"Also save full text\" is on, and keeps its choice when the switch moves";
+const FULL_TEXT_STEP: &str = "after Add papers' \"Also save full text\" switch, the box's import saves the citation alone or the full text too, and so does Add papers' own Add, each keeping its choice when the switch moves";
 
 /// Pasted entries, imported as they stand without a lookup.
 const SKIP_KEY: &str = "e2efulltextoff2024";
 const SKIP_ENTRY: &str = "@article{e2efulltextoff2024,\n  title = {Switch Off Paper},\n  author = {Writer, Ada},\n  journal = {Journal of Tests},\n  year = {2024}\n}\n";
 const SAVE_KEY: &str = "e2efulltexton2024";
 const SAVE_ENTRY: &str = "@article{e2efulltexton2024,\n  title = {Switch On Paper},\n  author = {Writer, Ada},\n  journal = {Journal of Tests},\n  year = {2024}\n}\n";
+const BATCH_KEY: &str = "e2efulltextbatch2024";
+const BATCH_ENTRY: &str = "@article{e2efulltextbatch2024,\n  title = {Switch Batch Paper},\n  author = {Writer, Ada},\n  journal = {Journal of Tests},\n  year = {2024}\n}\n";

@@ -491,6 +491,12 @@ impl PapersPanel {
         self.pump(cx);
     }
 
+    /// Whether the batch under way saves full text, for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn batch_full_text(&self) -> Option<FullText> {
+        self.batch.run.as_ref().map(|run| run.full_text)
+    }
+
     /// Forget a finished batch; one still running keeps its rows for the
     /// next opening.
     pub(crate) fn clear_batch(&mut self, cx: &mut Context<Self>) {

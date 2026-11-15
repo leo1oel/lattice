@@ -56,14 +56,7 @@ impl Shell {
             PapersEvent::AddPapers(seed) => self.open_add_papers(seed.clone(), window, cx),
             PapersEvent::SearchLiterature(query) => self.open_literature(query.clone(), window, cx),
             PapersEvent::CheckReferences => self.open_audit(window, cx),
-            PapersEvent::MissingPaperTools(failure) => {
-                if let Some(center) = crate::build::tex_setup::center::center(cx) {
-                    let failure = failure.clone();
-                    center.update(cx, |center, cx| {
-                        center.open_for_missing_paper_tools(failure, cx)
-                    });
-                }
-            }
+            PapersEvent::MissingPaperTools(failure) => offer_paper_tools(failure, cx),
             PapersEvent::Remove(paper) => self.remove_paper((**paper).clone(), cx),
             PapersEvent::EditEntry(paper) => self.edit_entry((**paper).clone(), window, cx),
             PapersEvent::Review { query, resolved } => {
@@ -464,6 +457,7 @@ impl Shell {
     ) {
         cx.subscribe_in(&view, window, |this, view, event, window, cx| match event {
             AddReferenceEvent::Dismiss => this.close_document_overlays(window, cx),
+            AddReferenceEvent::MissingPaperTools(failure) => offer_paper_tools(failure, cx),
             AddReferenceEvent::Save {
                 key,
                 entry,
@@ -661,14 +655,7 @@ impl Shell {
                     this.open_path(root.join(path), Some(*line), window, cx);
                 }
             }
-            AuditEvent::MissingPaperTools(failure) => {
-                if let Some(center) = crate::build::tex_setup::center::center(cx) {
-                    let failure = failure.clone();
-                    center.update(cx, |center, cx| {
-                        center.open_for_missing_paper_tools(failure, cx)
-                    });
-                }
-            }
+            AuditEvent::MissingPaperTools(failure) => offer_paper_tools(failure, cx),
             AuditEvent::Applied => {
                 for editor in this.open_editors() {
                     editor.update(cx, |editor, cx| editor.check_disk(cx));
@@ -779,5 +766,16 @@ mod tests {
         assert!(!last_used(&mut readers, |reader| *reader == "editor"));
         assert_eq!(readers, ["b", "a"]);
         assert_eq!(front_of(&readers, Some("editor")), Some(1));
+    }
+}
+
+/// An import or check failed for want of the paper tools: setup offers them
+/// (`onMissingPaperTools`).
+fn offer_paper_tools(failure: &str, cx: &mut gpui::App) {
+    if let Some(center) = crate::build::tex_setup::center::center(cx) {
+        let failure = failure.to_string();
+        center.update(cx, |center, cx| {
+            center.open_for_missing_paper_tools(failure, cx)
+        });
     }
 }

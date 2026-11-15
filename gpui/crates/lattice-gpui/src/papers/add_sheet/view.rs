@@ -253,11 +253,9 @@ impl AddPapers {
                 div()
                     .id("add-papers-candidates-keys")
                     .track_focus(&self.candidates_focus)
-                    .on_key_down(
-                        cx.listener(move |this, event, _, cx| {
-                            this.candidates_key(event, count, cx)
-                        }),
-                    )
+                    .on_key_down(cx.listener(move |this, event, window, cx| {
+                        this.candidates_key(event, count, window, cx)
+                    }))
                     .child(list),
             )
             .child(

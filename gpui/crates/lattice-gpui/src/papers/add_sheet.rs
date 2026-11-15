@@ -187,7 +187,7 @@ impl AddPapers {
             zotero: None,
             focus: cx.focus_handle(),
             add_focus: cx.focus_handle(),
-            candidates_focus: cx.focus_handle(),
+            candidates_focus: cx.focus_handle().tab_stop(true),
             pasted: false,
             _settle: None,
             _lookups: HashMap::new(),
@@ -415,6 +415,7 @@ impl AddPapers {
         &mut self,
         event: &gpui::KeyDownEvent,
         count: usize,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         let Some((_, at)) = &mut self.choosing else {
@@ -426,7 +427,10 @@ impl AddPapers {
         match event.keystroke.key.as_str() {
             "down" | "right" => *at = (*at + 1) % count,
             "up" | "left" => *at = (*at + count - 1) % count,
-            "enter" => self.use_candidate(cx),
+            "enter" => {
+                self.use_candidate(cx);
+                window.focus(&self.add_focus, cx);
+            }
             _ => return,
         }
         cx.stop_propagation();
@@ -442,7 +446,7 @@ impl AddPapers {
 
     /// Add every new reference, as a batch the Papers panel imports
     /// (`run_batch` starts nothing while another import holds the pipeline).
-    pub(super) fn add(&mut self, cx: &mut Context<Self>) {
+    pub(crate) fn add(&mut self, cx: &mut Context<Self>) {
         let requests: Vec<BatchRequest> = self
             .rows(cx)
             .into_iter()

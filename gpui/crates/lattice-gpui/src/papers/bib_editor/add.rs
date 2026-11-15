@@ -89,6 +89,9 @@ pub enum ProjectSave {
 
 pub enum AddReferenceEvent {
     Dismiss,
+    /// The lookup failed for want of the paper tools: setup offers them
+    /// (`onMissingPaperTools`).
+    MissingPaperTools(String),
     /// Save `entry` under `key` into the project's bibliography; `label`
     /// names the import's pending row.
     Save {
@@ -207,7 +210,7 @@ impl AddReference {
             insert_cite: offers_cite,
             preview_open: false,
             key_hint: "author2024title".into(),
-            candidates_focus: cx.focus_handle(),
+            candidates_focus: cx.focus_handle().tab_stop(true),
             error: None,
             generation: 0,
             _lookup: None,
@@ -333,7 +336,12 @@ impl AddReference {
                 this.resolving = false;
                 match resolved {
                     Ok(resolved) => this.take_resolved(resolved, window, cx),
-                    Err(error) => this.error = Some(error),
+                    Err(error) => {
+                        if error.contains(crate::papers::audit::PAPER_TOOLS_MISSING) {
+                            cx.emit(AddReferenceEvent::MissingPaperTools(error.clone()));
+                        }
+                        this.error = Some(error);
+                    }
                 }
                 cx.notify();
             })
