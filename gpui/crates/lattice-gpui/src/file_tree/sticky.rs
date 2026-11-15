@@ -11,7 +11,7 @@
 use gpui::{
     AnyElement, App, Context, InteractiveElement as _, IntoElement as _, ParentElement as _,
     StatefulInteractiveElement as _,
-    Styled as _, div, point, px,
+    Styled as _, Window, div, point, px,
 };
 use lattice_ui::{ActiveLattice as _, components::TreeRow};
 
@@ -77,23 +77,24 @@ impl FileTreePanel {
 
     /// A pinned folder clicked: selected, closed, and scrolled to just
     /// under its pinned folders.
-    pub(crate) fn click_pinned(&mut self, ix: usize, cx: &mut Context<Self>) {
-        let Some((id, depth)) = self
-            .state
-            .read(cx)
-            .entry(ix)
-            .map(|entry| (entry.item().id.clone(), entry.depth()))
-        else {
+    pub(crate) fn click_pinned(&mut self, ix: usize, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(id) = self.state.read(cx).entry(ix).map(|entry| entry.item().id.clone()) else {
             return;
         };
         self.pick(&id, true, gpui::Modifiers::default(), cx);
-        if let Some(entry) = self.state.read(cx).entry(ix) {
+        self.close_search(false, window, cx);
+        let state = self.state.read(cx);
+        let Some((ix, depth)) = state
+            .index_of(&id)
+            .and_then(|ix| state.entry(ix).map(|entry| (ix, entry.depth())))
+        else {
+            return;
+        };
+        if let Some(entry) = state.entry(ix) {
             // The item's open state is shared with the tree's copy of it.
             let _ = entry.item().clone().expanded(false);
         }
-        if !self.filtered {
-            self.expanded.remove(id.as_ref());
-        }
+        self.expanded.remove(id.as_ref());
         self.rebuild(cx);
         let scroll = self.state.read(cx).scroll_handle().clone();
         let y = (ix as f32 - depth as f32) * ROW;
@@ -146,8 +147,8 @@ impl FileTreePanel {
                         .overflow_hidden()
                         .bg(ground)
                         .block_mouse_except_scroll()
-                        .on_click(move |_, _, cx| {
-                            view.update(cx, |this, cx| this.click_pinned(ix, cx)).ok();
+                        .on_click(move |_, window, cx| {
+                            view.update(cx, |this, cx| this.click_pinned(ix, window, cx)).ok();
                         })
                         .child(
                             div()
