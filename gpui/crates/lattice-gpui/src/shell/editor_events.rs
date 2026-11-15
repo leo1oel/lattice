@@ -82,6 +82,9 @@ impl Shell {
                     self.open_path(root.join(path), None, window, cx);
                 }
             }
+            EditorPanelEvent::CreateFile { path } => {
+                self.create_entry(path.clone(), false, window, cx)
+            }
             EditorPanelEvent::OutlineJump { path, line } => {
                 self.jump_to_heading(path, *line, window, cx)
             }

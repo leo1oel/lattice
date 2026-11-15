@@ -87,7 +87,7 @@ impl Shell {
         .detach();
     }
 
-    fn create_entry(
+    pub(super) fn create_entry(
         &mut self,
         path: String,
         folder: bool,

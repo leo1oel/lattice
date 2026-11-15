@@ -33,7 +33,7 @@ pub(crate) enum Definition {
 }
 
 /// The project's files, as project-relative paths.
-fn project_paths(nodes: &[lattice_core::models::FileNode], into: &mut Vec<String>) {
+pub(super) fn project_paths(nodes: &[lattice_core::models::FileNode], into: &mut Vec<String>) {
     for node in nodes {
         if node.kind == "directory" {
             project_paths(&node.children, into);

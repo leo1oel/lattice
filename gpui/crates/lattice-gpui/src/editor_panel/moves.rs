@@ -36,6 +36,13 @@ impl EditorPanel {
             document.update(cx, |document, cx| document.moved_to(relative, cx));
         }
         let left = std::mem::replace(&mut self.relative, relative);
+        match &self.index_lint {
+            Some(lint) => {
+                let relative = self.relative.clone();
+                lint.update(cx, |lint, cx| lint.set_path(relative, cx));
+            }
+            None => self.attach_index_lint(cx),
+        }
         crate::status_counters::set_buffer(root.clone(), left, None, cx);
         self.scan_todos(Duration::ZERO, cx);
         self.bib_moved(cx);
