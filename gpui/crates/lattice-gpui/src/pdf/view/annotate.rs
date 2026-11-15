@@ -21,7 +21,7 @@ use gpui::{
 };
 use gpui_kit::component::input::{InputEvent, TextareaState};
 use lattice_core::project::{PdfAnchor, PdfRect};
-use lattice_i18n::t;
+use lattice_i18n::{fill_named, t, tr};
 use lattice_ui::{
     ActiveLattice as _, Elevation, Icon, TextRole, TextRoleStyle as _,
     components::{PopFrom, pop_in},
@@ -359,13 +359,13 @@ impl PdfView {
                     Ok(mapped) => note.mapped = Some(mapped),
                     Err(Unmapped::Search(error)) => note.error = Some(error.into()),
                     Err(Unmapped::Unread(path)) => {
-                        note.error = Some(t!("Lattice could not read {path}.", path = path).into())
+                        note.error = Some(t!("Lattice could not read {0}.", path).into())
                     }
                     Err(Unmapped::Outside(path)) => {
                         note.error = Some(
                             t!(
-                                "SyncTeX placed this text outside {path}. Build the PDF again, then annotate.",
-                                path = path
+                                "SyncTeX placed this text outside {0}. Build the PDF again, then annotate.",
+                                path
                             )
                             .into(),
                         )
@@ -525,15 +525,13 @@ impl PdfView {
                     .file_name()
                     .map(|name| name.to_string_lossy().into_owned())
                     .unwrap_or_default();
-                t!(
-                    "PDF p.{page} → {name}:{line}",
-                    page = page,
-                    name = name,
-                    line = mapped.line
+                fill_named(
+                    tr("PDF p.{0} → {name}:{1}"),
+                    &[("0", &page), ("name", &name), ("1", &mapped.line)],
                 )
                 .into()
             }
-            None => t!("PDF p.{page} → …", page = page).into(),
+            None => t!("PDF p.{0} → …", page).into(),
         };
         let id = note.id;
         let body = form::note_form(
