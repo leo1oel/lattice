@@ -26,7 +26,8 @@ use super::AnnotationsPanel;
 use crate::annotations::rounds::{self, AnnotationRounds};
 
 /// What the panel keeps of the rounds: the window's rounds, and the answers
-/// being typed to the agent's questions.
+/// being typed to the agent's questions, each dropped once sent or once its
+/// note no longer waits on a question, so a follow-up starts empty.
 #[derive(Default)]
 pub(super) struct RoundsView {
     rounds: Option<Entity<AnnotationRounds>>,

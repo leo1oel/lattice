@@ -199,7 +199,9 @@ impl AnnotationRounds {
         self.host.project.clone()
     }
 
-    /// What the window has open now.
+    /// What the window has open now. Switching projects drops the old
+    /// project's work (its tasks, queue, baselines and review), as the Tauri
+    /// app's `reset` does, since a round's baselines belong to one project.
     pub fn set_host(&mut self, host: RoundsHost, cx: &mut Context<Self>) {
         let switched = host.project != self.host.project;
         self.host = host;
