@@ -35,19 +35,28 @@ use gpui::{
 use lattice_core::citation_audit::{self, AuditEntry, AuditIssue};
 use lattice_i18n::t;
 
+mod compare;
 mod detail;
 mod finding;
+mod fix;
 mod groups;
 mod issues;
+mod mark;
 mod messages;
+mod pane;
+mod queue;
 mod report;
+mod row;
 mod run;
 mod running;
 mod summary;
+mod tabs;
+mod typeset;
 mod view;
 
-pub use finding::{Change, Finding, Source};
+pub use finding::{Candidate, Change, Finding, Source};
 pub use groups::{Bucket, FixGroup, fix_group};
+pub use queue::{KEY_CONTEXT, bindings};
 pub use running::{running, stop_others};
 
 pub enum AuditEvent {
@@ -123,6 +132,13 @@ pub struct Audit {
     /// The reference whose finding is open; `set_scan` keeps it on the
     /// same reference when a rescan renumbers them.
     pub(super) open: Option<usize>,
+    /// The sheet is wide enough for the review queue's two panes, as the
+    /// last frame measured the window (`queueWidth`).
+    pub(super) queue: bool,
+    /// The sheet is narrower than 520px: a folded row keeps no Apply.
+    pub(super) narrow: bool,
+    /// The row to bring into view next frame: the finding just opened.
+    pub(super) reveal: Option<usize>,
     pub(super) scroll: ScrollHandle,
     /// The disclosures opened, by reference and name.
     pub(super) disclosed: HashSet<(usize, &'static str)>,
@@ -170,6 +186,9 @@ impl Audit {
             error: None,
             view: None,
             open: None,
+            queue: false,
+            narrow: false,
+            reveal: None,
             scroll: ScrollHandle::new(),
             disclosed: HashSet::new(),
             generation: 0,
@@ -294,6 +313,17 @@ impl Audit {
     /// Write the fixes at `indexes`, one after another; a refused one stops
     /// the rest and says why.
     pub(super) fn apply(&mut self, indexes: Vec<usize>, cx: &mut Context<Self>) {
+        self.apply_then(indexes, None, cx);
+    }
+
+    /// [`Audit::apply`], then, once every write landed, open `advance`'s
+    /// finding (none closes the open one), as Apply moves to the next.
+    fn apply_then(
+        &mut self,
+        indexes: Vec<usize>,
+        advance: Option<Option<usize>>,
+        cx: &mut Context<Self>,
+    ) {
         if self.loading || self.busy || self.applying || indexes.is_empty() {
             return;
         }
@@ -315,6 +345,7 @@ impl Audit {
         self.error = None;
         let root = self.root.clone();
         self._task = Some(cx.spawn(async move |this, cx| {
+            let mut landed = true;
             for (index, path, key, before, after) in writes {
                 let write_root = root.clone();
                 let written_after = after.clone();
@@ -340,11 +371,15 @@ impl Audit {
                     })
                     .unwrap_or(false);
                 if !ok {
+                    landed = false;
                     break;
                 }
             }
             this.update(cx, |this, cx| {
                 this.applying = false;
+                if landed && let Some(next) = advance {
+                    this.open_finding(next, cx);
+                }
                 cx.notify();
             })
             .ok();
@@ -358,12 +393,17 @@ impl Audit {
         if self.busy {
             return;
         }
+        // Keep mine finishes the finding: the queue moves on to the next.
+        let next = kept.then(|| self.listing().next_after(index));
         if kept {
             self.kept.insert(index);
         } else {
             self.kept.remove(&index);
         }
         self.save(cx);
+        if let Some(next) = next {
+            self.open_finding(next, cx);
+        }
         cx.notify();
     }
 
@@ -372,14 +412,11 @@ impl Audit {
         cx.notify();
     }
 
+    /// A row pressed: its finding opens, or (unfolded under its row, below
+    /// the queue's width) folds again.
     pub(super) fn toggle(&mut self, index: usize, cx: &mut Context<Self>) {
-        self.open = if self.open == Some(index) {
-            None
-        } else {
-            Some(index)
-        };
-        self.move_disclosed(None, None);
-        cx.notify();
+        let open = self.current(&self.listing()) == Some(index);
+        self.open_finding((self.queue || !open).then_some(index), cx);
     }
 
     /// The open reference's disclosures follow it from `from` to `to`; any

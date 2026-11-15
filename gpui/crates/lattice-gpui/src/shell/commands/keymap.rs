@@ -279,6 +279,7 @@ fn default_bindings() -> Vec<KeyBinding> {
     ];
     bindings.extend(crate::editor_panel::find_bar::bindings());
     bindings.extend(crate::editor_panel::proofread::bindings());
+    bindings.extend(crate::papers::audit::bindings());
     bindings.extend(submission::bindings());
     #[cfg(target_os = "macos")]
     bindings.extend([
