@@ -16,6 +16,7 @@
 //! - [`gutter`]: a mark beside a line, with an optional hover card;
 //! - [`blocks`]: a widget between lines;
 //! - [`hover`]: a card for what the pointer rests on;
+//! - [`caret_card`]: a card for what the caret is in;
 //! - [`completion`]: sources for Zed's completion menu;
 //! - [`remote_cursors`]: other people's carets, named as they move.
 //!
@@ -29,6 +30,7 @@
 mod adapter;
 pub mod annotation_revision;
 pub mod blocks;
+pub mod caret_card;
 pub mod completion;
 pub mod decorations;
 pub mod folds;

@@ -31,6 +31,10 @@ pub struct Painted {
     pub cursors: Vec<PaintedCursor>,
     /// The open hover card's bounds, once it has been laid out.
     pub card: Option<Bounds<Pixels>>,
+    /// The whole view's bounds: the editor with its gutter.
+    pub view: Option<Bounds<Pixels>>,
+    /// The caret card's bounds, once it has been laid out.
+    pub caret_card: Option<Bounds<Pixels>>,
     /// Each inline text drawn: its layer, buffer offset and bounds, once for
     /// each display row it takes.
     pub inline: Vec<(&'static str, usize, Bounds<Pixels>)>,
@@ -109,7 +113,9 @@ impl LatticeEditor {
         let bounds = self.editor_bounds(view).unwrap_or(view);
         let mut painted = Painted {
             bounds: Some(bounds),
+            view: Some(view),
             card: self.painted.borrow().card,
+            caret_card: self.painted.borrow().caret_card,
             ..Painted::default()
         };
         // Most frames have nothing to paint here: leave the editor's layout

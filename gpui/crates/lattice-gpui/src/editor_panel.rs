@@ -774,7 +774,13 @@ fn attach_latex(
     cx: &mut App,
 ) -> Entity<TexlabDiagnostics> {
     let index = project.read(cx).index().clone();
-    lattice.update(cx, |lattice, _| latex::attach(lattice, &index));
+    lattice.update(cx, |lattice, cx| {
+        latex::attach(lattice, &index);
+        // The live math preview is a `.tex` file's, as in the Tauri app.
+        if relative.ends_with(".tex") {
+            latex::math_preview::attach(lattice, &index, cx);
+        }
+    });
     let texlab = project.read(cx).texlab().clone();
     TexlabDiagnostics::attach(lattice, texlab, relative, cx)
 }

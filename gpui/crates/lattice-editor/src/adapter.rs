@@ -38,6 +38,7 @@ use gpui::{
 use language::{Buffer, BufferEvent, BufferSnapshot};
 use lattice_ui::ActiveLattice as _;
 
+mod caret_card;
 mod current_line;
 mod gutter_column;
 mod overlay;
@@ -96,6 +97,7 @@ pub struct LatticeEditor {
     blocks: HashMap<&'static str, HashSet<CustomBlockId>>,
     hover_providers: Vec<Rc<dyn HoverProvider>>,
     hover: Hover,
+    caret_card: caret_card::CaretCardState,
     sources: Sources,
     offered: Offered,
     cursors: Vec<AnchoredCursor>,
@@ -146,9 +148,13 @@ impl LatticeEditor {
         let subscriptions = vec![
             // The overlay follows the editor's layout.
             cx.observe(&editor, |_, _, cx| cx.notify()),
-            cx.subscribe(&editor, |this, _, event: &EditorEvent, _| {
+            cx.subscribe(&editor, |this, _, event: &EditorEvent, cx| {
                 if matches!(event, EditorEvent::Blurred) {
                     this.hovered_cursor = None;
+                }
+                // The caret card shows only while the editor has the keyboard.
+                if matches!(event, EditorEvent::Blurred | EditorEvent::Focused) {
+                    cx.notify();
                 }
             }),
             // An edit closes the card, as typing into a key closes the
@@ -170,6 +176,7 @@ impl LatticeEditor {
             hover_providers: Vec::new(),
             citations: Default::default(),
             hover: Hover::Idle,
+            caret_card: Default::default(),
             sources,
             offered,
             cursors: Vec::new(),
@@ -602,6 +609,7 @@ impl Focusable for LatticeEditor {
 impl Render for LatticeEditor {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let card = self.render_card(window, cx);
+        let caret_card = self.render_caret_card(window, cx);
         let scrollbar = self.render_scrollbar(window, cx);
         let layout = self.measure_gutter(window, cx);
         let fades = self.gutter_fades(window, cx);
@@ -633,8 +641,12 @@ impl Render for LatticeEditor {
                 .left_0()
                 .size_full(),
             )
-            // Any key closes the card, as typing does in the Tauri app.
-            .capture_key_down(cx.listener(|this, _, _, cx| this.dismiss_hover(cx)))
+            // Any key closes the card, as typing does in the Tauri app;
+            // Escape also puts the caret card away.
+            .capture_key_down(cx.listener(|this, event, _, cx| {
+                this.dismiss_hover(cx);
+                this.caret_card_key(event, cx);
+            }))
             .capture_action(cx.listener(|this, _: &editor::actions::Fold, window, cx| {
                 if this.fold_at_caret(window, cx) {
                     cx.stop_propagation();
@@ -701,6 +713,7 @@ impl Render for LatticeEditor {
                 .size_full(),
             )
             .child(scrollbar)
+            .children(caret_card)
             .children(card)
     }
 }
