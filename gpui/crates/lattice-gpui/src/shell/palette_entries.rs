@@ -67,24 +67,29 @@ impl Entry {
         }
     }
 
+    /// The text a query searches: the label, the detail, the group, then
+    /// the keywords (`scoreItem`); a file, its path (`scorePath`).
     pub(super) fn haystack(&self) -> String {
+        let (label, detail) = entry_text(self);
+        let shown = format!(
+            "{label} {} {}",
+            detail.as_deref().unwrap_or_default(),
+            self.group()
+        );
         match self {
-            Entry::Command {
-                label, keywords, ..
-            } => format!("{label} {keywords}"),
+            Entry::Command { keywords, .. } => format!("{shown} {keywords}"),
             Entry::File { name, folder, .. } => Path::new(folder.as_ref())
                 .join(name.as_ref())
                 .to_string_lossy()
                 .into_owned(),
             Entry::Paper { paper, .. } => format!(
-                "{} {} {} {}",
-                paper.title,
+                "{shown} {} {} {}",
                 paper.citation_key.as_deref().unwrap_or_default(),
                 paper.arxiv_id,
                 paper.authors
             ),
             Entry::Setting(entry) => {
-                format!("{} {} {}", entry.label, entry.terms, entry.description)
+                format!("{shown} {} {}", entry.terms, entry.description)
             }
             Entry::Find { query, .. } => query.clone(),
         }
@@ -378,7 +383,40 @@ pub(super) fn row_of<G: PartialEq>(groups: &[G], ix: usize) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use super::{Entry, FILE_LIMIT, project_files, prose_score, ranked, row_of, score};
+    use super::{
+        Entry, FILE_LIMIT, paper_detail, project_files, prose_score, ranked, row_of, score,
+    };
+    use crate::papers::model::test_support::{paper, with};
+
+    /// As the Tauri palette's rows (`command-palette.tsx`): a Paper's year
+    /// is in its detail and a Settings row's tab in its place, so a query
+    /// for either finds the row.
+    #[test]
+    fn a_prose_row_is_found_by_its_detail_and_group() {
+        let attention = with(paper("Attention is all you need"), |paper| {
+            paper.year = Some("2017".into());
+        });
+        let detail = paper_detail(&attention);
+        let papers = [Entry::Paper {
+            paper: Box::new(attention),
+            detail,
+        }];
+        assert_eq!(super::scored(&papers, "2017", 6, true).len(), 1);
+        assert_eq!(super::scored(&papers, "papers", 6, true).len(), 1);
+        assert!(super::scored(&papers, "2018", 6, true).is_empty());
+
+        let setting = Entry::Setting(Box::new(crate::settings::search::Entry {
+            tab: lattice_settings::SettingsTab::Editor,
+            label: "Font size".into(),
+            place: "Editor › Source".into(),
+            id: None,
+            terms: String::new(),
+            description: String::new(),
+        }));
+        let settings = [setting];
+        assert_eq!(super::scored(&settings, "editor", 6, true).len(), 1);
+        assert_eq!(super::scored(&settings, "settings", 6, true).len(), 1);
+    }
 
     /// As the Tauri palette's `scoreItem` over `PROSE_FLOOR`: a run of the
     /// query mid-word, or every spaced part of it apart, lists a Paper or a
