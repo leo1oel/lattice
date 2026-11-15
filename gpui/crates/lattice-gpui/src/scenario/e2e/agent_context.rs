@@ -366,6 +366,42 @@ impl Run {
         if let Some((panel, _)) = &opened {
             self.close_panel(cx, panel).await?;
         }
+
+        // A build running alone, with no turn and no terminal command, also
+        // asks before the switch interrupts it (`confirmLeavingProject`).
+        let before = cx.update(|cx| self.shell.read(cx).root(cx));
+        let (alone, settled) = self.with_window(cx, |shell, window, cx| {
+            shell.update(cx, |shell, cx| {
+                let settled = shell.build_and_settle(window, cx);
+                let alone = shell.building()
+                    && !shell.agent_turn_running()
+                    && shell.terminal.read(cx).running(None, cx).is_empty();
+                shell.open_project(other.clone(), window, cx);
+                (alone, settled)
+            })
+        })?;
+        let (asked, question, after) = cx.update(|cx| {
+            let host = crate::confirm::install(cx);
+            (
+                crate::confirm::is_pending(cx),
+                host.read(cx).question().map(|title| title.to_string()),
+                self.shell.read(cx).root(cx),
+            )
+        });
+        self.with_window(cx, |_, window, cx| {
+            crate::confirm::ask(crate::confirm::Confirm::new("e2e").on_confirm(|_, _| {}), cx);
+            crate::confirm::install(cx).update(cx, |host, cx| host.accept(window, cx));
+        })?;
+        settled.await;
+        steps.check(
+            "switching project while only a build runs asks before interrupting it, and the project stays",
+            alone
+                && asked
+                && question.as_deref().is_some_and(|title| title.starts_with("Switch away"))
+                && before.is_some()
+                && after == before,
+            json!({ "alone": alone, "asked": asked, "question": question, "before": before, "after": after }),
+        );
         std::fs::remove_dir_all(root.join("slides/agent-deck")).ok();
         std::fs::remove_dir_all(&other).ok();
         let editor = self.open(cx, &root.join("main.tex"), None)?;

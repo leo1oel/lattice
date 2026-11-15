@@ -214,6 +214,25 @@ impl Run {
         );
 
         // Live mode pulls a co-author's edit on its own.
+        // The pull is Lattice's own write, reported to this window's Agent
+        // (`agent/host_writes.rs`), so an Agent Undo keeps the co-author's
+        // edit; counted from here so the download's own report is not it.
+        let reported_main = |cx: &mut AsyncApp| {
+            cx.update(|cx| {
+                linked
+                    .shell
+                    .read(cx)
+                    .agent
+                    .panel
+                    .read(cx)
+                    .surface()
+                    .read(cx)
+                    .host_writes()
+                    .filter(|path| *path == "main.tex")
+                    .count()
+            })
+        };
+        let reported_before = reported_main(cx);
         let theirs = MAIN.replace("A paper", "A shared paper");
         mock.edit("main.tex", &theirs);
         let pulled = linked
@@ -226,6 +245,13 @@ impl Run {
             "live mode pulls a co-author's edit on its own",
             pulled,
             json!({ "version": mock.version() }),
+        );
+        linked.pause(cx, Duration::from_millis(200)).await;
+        let reported_after = reported_main(cx);
+        steps.check(
+            "the co-author's edit pulled in is reported to the Agent as Lattice's own write",
+            pulled && reported_after > reported_before,
+            json!({ "before": reported_before, "after": reported_after }),
         );
 
         // And pushes one made here, after the writer pauses.
