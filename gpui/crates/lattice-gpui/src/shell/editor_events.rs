@@ -126,6 +126,10 @@ impl Shell {
                     self.show_references(*kind, symbol.clone(), window, cx)
                 }
             }
+            EditorPanelEvent::Environment { rename } => {
+                self.active_editor = Some(editor.downgrade());
+                self.visual_environment_dialog(editor.clone(), rename.clone(), window, cx)
+            }
             EditorPanelEvent::PasteImage => {
                 self.active_editor = Some(editor.downgrade());
                 self.paste_image_as_figure(true, window, cx)

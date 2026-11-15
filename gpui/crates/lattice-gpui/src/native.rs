@@ -46,6 +46,21 @@ unsafe extern "C" {
 const KEY_DOWN: usize = 10;
 const KEY_UP: usize = 11;
 const COMMAND_MODIFIER: usize = 1 << 20;
+const SHIFT_MODIFIER: usize = 1 << 17;
+
+/// The unshifted key of a character an ANSI keyboard types with Shift, as
+/// GPUI reads a key from its key code and modifiers, not its characters.
+fn shifted_from(character: char) -> Option<char> {
+    Some(match character {
+        '$' => '4',
+        '(' => '9',
+        ')' => '0',
+        '{' => '[',
+        '}' => ']',
+        '|' => '\\',
+        _ => return None,
+    })
+}
 
 /// The AppKit view GPUI draws into, and its window. Valid while the GPUI
 /// window is open.
@@ -91,7 +106,7 @@ pub const RIGHT_ARROW: char = '\u{f703}';
 
 /// The ANSI virtual key code for a character, as Lattice's perf lab maps it.
 pub fn key_code(character: char) -> u16 {
-    const CODES: [(char, u16); 47] = [
+    const CODES: [(char, u16); 49] = [
         ('a', 0x00),
         ('s', 0x01),
         ('d', 0x02),
@@ -142,6 +157,8 @@ pub fn key_code(character: char) -> u16 {
         ('9', 0x19),
         ('.', 0x2F),
         ('/', 0x2C),
+        ('[', 0x21),
+        (']', 0x1E),
     ];
     CODES
         .iter()
@@ -158,7 +175,9 @@ pub fn send_key(native: Native, character: char, command: bool) -> Result<()> {
         other => other.to_string(),
     };
     let characters = NSString::from_str(&text);
-    let modifiers = if command { COMMAND_MODIFIER } else { 0 };
+    let shifted = shifted_from(character);
+    let modifiers = if command { COMMAND_MODIFIER } else { 0 }
+        | if shifted.is_some() { SHIFT_MODIFIER } else { 0 };
     unsafe {
         let number: isize = msg_send![native.window, windowNumber];
         for kind in [KEY_DOWN, KEY_UP] {
@@ -172,7 +191,7 @@ pub fn send_key(native: Native, character: char, command: bool) -> Result<()> {
                 characters: &*characters,
                 charactersIgnoringModifiers: &*characters,
                 isARepeat: Bool::NO,
-                keyCode: key_code(character)];
+                keyCode: key_code(shifted.unwrap_or(character))];
             let event = event.context("NSEvent refused the key event")?;
             let _: () = msg_send![native.window, sendEvent: &*event];
         }

@@ -136,6 +136,9 @@ impl Run {
             self.latex_visual_follows(cx, steps, &panel, &island)
                 .await?;
             self.latex_visual_find(cx, steps, &panel, &island).await?;
+            // ⌘⇧E and ⌘⌥R (`latex_visual_environment.rs`).
+            self.latex_visual_environment(cx, steps, &panel, &island)
+                .await?;
         }
         // The choice is every .tex file's: back to Source for the rest of the run.
         cx.update(|cx| choose_latex_view(LatexView::Source, cx));
@@ -472,6 +475,9 @@ pub(super) const MODULE: super::registry::Module = super::registry::Module {
         "gpui/crates/lattice-gpui/src/editor_panel/latex_view.rs",
         "gpui/crates/lattice-gpui/src/structured/latex_visual.rs",
         "gpui/islands/latex/",
+        "gpui/crates/lattice-gpui/src/shell/environment_flow.rs",
+        "gpui/crates/lattice-gpui/src/editor_panel/latex_visual_events.rs",
+        "gpui/crates/lattice-webview/src/island/page_focus.rs",
         "src/editor/latex/visual/",
     ],
     run: |run, cx, steps, fixture| Box::pin(run.latex_visual(cx, steps, &fixture.root)),

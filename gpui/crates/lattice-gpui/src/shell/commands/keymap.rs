@@ -137,6 +137,20 @@ fn default_bindings() -> Vec<KeyBinding> {
             crate::editor_panel::latex_format::MatchingEnvironment,
             Some("Editor && !VimControl"),
         ),
+        // The typing rules (`editor_panel/latex_input.rs`): Vim's normal and
+        // visual modes keep `$` and Enter, and a menu keeps Enter to accept
+        // its item. Bound after Zed's keymap, they come before its Newline,
+        // which a rule with nothing to do passes the key on to.
+        KeyBinding::new(
+            "$",
+            crate::editor_panel::latex_input::TypeDollar,
+            Some("Editor && mode == full && !VimControl"),
+        ),
+        KeyBinding::new(
+            "enter",
+            crate::editor_panel::latex_input::LatexNewline,
+            Some("Editor && mode == full && !VimControl && !menu"),
+        ),
         // Vim's insert mode keeps Ctrl+P for its word completion.
         KeyBinding::new(m!("p"), QuickOpen, beside_vim("!(vim_mode == insert)")),
         KeyBinding::new(m!("shift-f"), FindInProject, None),

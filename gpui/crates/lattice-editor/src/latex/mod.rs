@@ -31,6 +31,7 @@ pub mod environments;
 pub mod folding;
 pub mod format_toggle;
 pub mod highlights;
+pub mod input_rules;
 pub mod prose;
 pub mod protected;
 pub mod region_edits;
