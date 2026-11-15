@@ -10,7 +10,7 @@ A figure goes in at the start of the line under the pointer when it is dropped: 
 ⌘V with an image (and no text) on the clipboard, or the palette's Paste clipboard image as figure (which saves the image into `figures/` first), puts one at the start of the caret's line.
 In a LaTeX file, lattice-core prepares it (an SVG as PDF, a WebP as PNG) and Insert figure asks its width, placement, caption and label; in a Markdown file it goes in at once as an image linked from the file.
 One drawing (`.svg`, `.drawio` or `.dio`) dropped from Finder onto a LaTeX editor becomes an editable figure instead (`shell/drawing_drop.rs`): lattice-core copies it into `figures/`, renders it with Inkscape or draw.io beside its source and writes an entry file naming it, so Edit figure source finds it again.
-Its `\input` goes in at the line under the pointer, as a whole `figure` float on an empty body line (`insert/editable_figure.rs`), with the packages a root document's preamble lacks; a file that is not the root gets a notice listing the preamble lines to add.
+Its `\input` goes in under the point it was dropped at, read once the import is done so text typed meanwhile moves it, as a whole `figure` float on an empty body line (`insert/editable_figure.rs`), with the packages a root document's preamble lacks; a file that is not the root gets a notice listing the preamble lines to add.
 Without Inkscape or draw.io the drawing is still copied and a notice says which program to install, leaving the source as it was.
 Unlike the Tauri app, which uses the LaTeX editor last focused, the figure goes into the editor it was dropped on.
 

@@ -58,7 +58,7 @@ pub type SharedDropHover = Rc<RefCell<DropHover>>;
 impl EditorPanel {
     /// The byte offset of the character under `position` (window
     /// coordinates), from Zed's editor as the input method asks it.
-    pub(super) fn offset_under(
+    pub(crate) fn offset_under(
         &self,
         position: Point<Pixels>,
         window: &mut Window,
@@ -165,9 +165,10 @@ impl EditorPanel {
             .on_drop(cx.listener(|this, paths: &ExternalPaths, window, cx| {
                 cx.stop_propagation();
                 *this.drop_hover.borrow_mut() = DropHover::default();
-                let at = this.offset_under(window.mouse_position(), window, cx);
+                let point = window.mouse_position();
+                let at = this.offset_under(point, window, cx);
                 let paths: Vec<PathBuf> = paths.paths().to_vec();
-                cx.emit(EditorPanelEvent::DropFiles(paths, at));
+                cx.emit(EditorPanelEvent::DropFiles(paths, at, point));
             }))
     }
 

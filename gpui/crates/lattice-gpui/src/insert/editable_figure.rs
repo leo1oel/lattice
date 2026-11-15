@@ -39,7 +39,8 @@ pub struct Edit {
 /// What putting a figure in a source does.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FigureChanges {
-    /// The preamble's additions, every one before `body.from`.
+    /// The preamble's additions, in the source's own offsets: before
+    /// `body.from`, or after it when the figure goes into the preamble.
     pub preamble: Vec<Edit>,
     /// The include, or the float holding it, over the selection.
     pub body: Edit,
@@ -48,6 +49,25 @@ pub struct FigureChanges {
     pub caret: usize,
     /// Lines to add by hand: the file is not the root document.
     pub unplaced: Vec<String>,
+}
+
+impl FigureChanges {
+    /// Every edit in the source's own offsets, highest offset first, so each
+    /// applies over text the ones before it left unchanged; at the body's own
+    /// offset a preamble edit comes first, so the body's text goes before it.
+    /// With them, the caret's offset once all are applied.
+    pub fn ordered(&self) -> (Vec<Edit>, usize) {
+        let mut edits = self.preamble.clone();
+        edits.push(self.body.clone());
+        edits.sort_by_key(|edit| std::cmp::Reverse(edit.from));
+        let before: usize = self
+            .preamble
+            .iter()
+            .filter(|edit| edit.from < self.body.from)
+            .map(|edit| edit.insert.len() - (edit.to - edit.from))
+            .sum();
+        (edits, self.body.from + before + self.caret)
+    }
 }
 
 /// The folder with its closing slash; empty for the project root.
@@ -306,6 +326,16 @@ pub fn figure_changes(
 mod tests {
     use super::*;
 
+    /// `changes` applied to `source`, as the drop applies them, and the caret.
+    fn applied(source: &str, changes: &FigureChanges) -> (String, usize) {
+        let (edits, caret) = changes.ordered();
+        let mut text = source.to_string();
+        for edit in edits {
+            text.replace_range(edit.from..edit.to, &edit.insert);
+        }
+        (text, caret)
+    }
+
     const ROOT: &str = "\\documentclass{article}\n\\usepackage{amsmath}\n\\begin{document}\nText.\n\n\\end{document}\n";
 
     // editable-figure.test.ts: the include names the entry from the project
@@ -367,6 +397,31 @@ mod tests {
         assert_eq!(changes.body.insert, "\\input{figures/a}");
         assert!(changes.preamble.is_empty());
         assert_eq!(changes.unplaced, ["\\usepackage{graphicx}", "\\graphicspath{{figures/}}"]);
+    }
+
+    // A drop at the very start of a root document, in its preamble: the
+    // include goes in at the start of line 1, the preamble's lines after
+    // `\usepackage{amsmath}`, and the caret right after the include.
+    #[test]
+    fn a_drop_in_the_preamble_keeps_the_include_where_it_was_dropped() {
+        let changes = figure_changes(ROOT, 0, 0, "figures", "x.tex", &[]);
+        let (text, caret) = applied(ROOT, &changes);
+        assert_eq!(
+            text,
+            "\\input{figures/x}\\documentclass{article}\n\\usepackage{amsmath}\n\\usepackage{graphicx}\n\\graphicspath{{figures/}}\n\\begin{document}\nText.\n\n\\end{document}\n"
+        );
+        assert_eq!(caret, "\\input{figures/x}".len());
+    }
+
+    // On the body's empty line the preamble's lines come before the float,
+    // and the caret lands in its caption.
+    #[test]
+    fn a_body_drop_lands_after_the_preamble_lines() {
+        let at = ROOT.find("Text.\n\n").unwrap() + "Text.\n".len();
+        let changes = figure_changes(ROOT, at, at, "figures", "plot.tex", &[]);
+        let (text, caret) = applied(ROOT, &changes);
+        assert!(text.starts_with("\\documentclass{article}\n\\usepackage{amsmath}\n\\usepackage{graphicx}\n\\graphicspath{{figures/}}\n\\begin{document}\nText.\n\\begin{figure}\n\t\\centering\n\t\\input{figures/plot}\n\t\\caption{}"));
+        assert!(text[..caret].ends_with("\\caption{"));
     }
 
     #[test]

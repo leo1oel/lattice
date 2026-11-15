@@ -4,8 +4,11 @@
 //! an editable figure by lattice-core (`import_drawing_path`: Inkscape or
 //! draw.io renders it beside its source, with an entry file whose first line
 //! names the drawing, so Edit figure source finds it), then its `\input` goes
-//! in at the line under the pointer, as a whole float on an empty body line,
-//! with what a root document's preamble lacks (`insert/editable_figure.rs`).
+//! in under the pointer, as a whole float on an empty body line, with what a
+//! root document's preamble lacks (`insert/editable_figure.rs`). The drop's
+//! window point becomes an offset only once the import is done, as
+//! `dropDrawingAt` takes `posAtCoords` then, so text typed meanwhile moves
+//! it; off the editor's text by then, the figure goes in at the caret.
 //!
 //! The figure goes into the editor it was dropped on (the Tauri app uses the
 //! LaTeX editor last focused, the one under the pointer when it is there).
@@ -14,7 +17,7 @@
 
 use std::path::{Path, PathBuf};
 
-use gpui::{AppContext as _, Context, WeakEntity, Window};
+use gpui::{AppContext as _, Context, Pixels, Point, WeakEntity, Window};
 use lattice_core::project as core_project;
 use lattice_i18n::t;
 
@@ -42,12 +45,13 @@ pub(super) fn takes_drawing(paths: &[PathBuf], editor: &EditorPanel) -> bool {
 
 impl Shell {
     /// Make the dropped `drawing` an editable figure, and put it into
-    /// `editor` at `at` (the offset under the pointer), else at its caret.
+    /// `editor` under `point` (where it was dropped, in window coordinates),
+    /// else at its caret.
     pub(super) fn drop_drawing(
         &mut self,
         drawing: PathBuf,
         editor: WeakEntity<EditorPanel>,
-        at: Option<usize>,
+        point: Point<Pixels>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -76,32 +80,22 @@ impl Shell {
                 let Some(editor) = editor.upgrade() else {
                     return;
                 };
+                let at = editor.update(cx, |editor, cx| editor.offset_under(point, window, cx));
                 let (text, caret) = editor.read(cx).text_and_caret(cx);
                 let at = at.unwrap_or(caret).min(text.len());
                 let at = (0..=at).rev().find(|at| text.is_char_boundary(*at)).unwrap_or(0);
                 let changes =
                     figure_changes(&text, at, at, &figure.directory, &figure.entry, &figure.packages);
-                // The preamble's lines first, last offset first: each lies
-                // before the include, which then moves down by what they add.
-                let mut shift = 0;
-                let mut preamble = changes.preamble.clone();
-                preamble.sort_by_key(|edit| std::cmp::Reverse(edit.from));
+                let (edits, caret) = changes.ordered();
                 editor.update(cx, |editor, cx| {
-                    for edit in &preamble {
-                        shift += edit.insert.len() - (edit.to - edit.from);
-                        let end = edit.from + edit.insert.len();
+                    for (ix, edit) in edits.iter().enumerate() {
+                        let end = if ix + 1 == edits.len() {
+                            caret
+                        } else {
+                            edit.from + edit.insert.len()
+                        };
                         editor.replace_range(edit.from, edit.to, &edit.insert, end, window, cx);
                     }
-                    let from = changes.body.from + shift;
-                    let to = changes.body.to + shift;
-                    editor.replace_range(
-                        from,
-                        to,
-                        &changes.body.insert,
-                        from + changes.caret,
-                        window,
-                        cx,
-                    );
                 });
                 this.active_editor = Some(editor.downgrade());
                 window.focus(&gpui::Focusable::focus_handle(editor.read(cx), cx), cx);
