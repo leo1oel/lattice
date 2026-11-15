@@ -113,7 +113,7 @@ The first build fetches Zed at the pinned revision and compiles about 1,200 crat
 | Zed's default keymap | Everything else in the editor |
 
 On Windows and Linux, Ctrl stands in for ⌘, and quitting is Alt+F4 or the menu. With Vim mode on there, Vim keeps Ctrl+O, Ctrl+B, Ctrl+I, Ctrl+G, Ctrl+S, Ctrl+K and Ctrl+W in the editor, in the Vim modes where its keymap binds them.
-On every platform, Vim's normal and visual modes keep ⌃M as their next-line start, and `$` and ↩ as their own.
+On every platform, Vim's normal and visual modes keep ⌃M as their next-line start, and with Vim on, `$` and ↩ follow the typing rules only in its insert mode.
 
 "Vim mode" in an editor's ⋯ menu turns Zed's Vim mode on for every editor; `LATTICE_GPUI_VIM=1` turns it on for that run only, leaving the saved keymap as it is.
 
