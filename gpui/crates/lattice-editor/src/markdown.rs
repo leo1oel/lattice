@@ -8,7 +8,8 @@
 //! The block grammar hands each run of inline text to the inline grammar by
 //! an injection, which Zed's syntax map resolves through the buffer's
 //! language registry; so a Markdown buffer carries [`registry`], which holds
-//! both grammars and LaTeX (for a fenced `latex` or `tex` block).
+//! both grammars, LaTeX (for a fenced `latex` or `tex` block) and the other
+//! bundled languages (`crate::languages`: BibTeX, HTML, CSS, JavaScript).
 
 use std::{path::Path, sync::Arc};
 
@@ -50,11 +51,20 @@ pub(crate) fn init(latex: Arc<Language>, cx: &mut App) {
     registry.add(markdown.clone());
     registry.add(Arc::new(build_inline()));
     registry.add(latex);
+    let bundled = crate::languages::Bundled::build();
+    for language in bundled.all() {
+        language.set_theme(cx.theme().syntax());
+        registry.add(language);
+    }
+    cx.set_global(bundled);
     registry.set_theme(cx.theme().clone());
     cx.set_global(MarkdownLanguages { markdown, registry });
 
     cx.observe_global::<theme::GlobalTheme>(|cx| {
         let theme = cx.theme().clone();
+        for language in cx.global::<crate::languages::Bundled>().all() {
+            language.set_theme(theme.syntax());
+        }
         cx.global::<MarkdownLanguages>().registry.set_theme(theme);
     })
     .detach();

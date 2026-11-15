@@ -8252,6 +8252,10 @@ dependencies = [
  "tempfile",
  "theme",
  "theme_settings",
+ "tree-sitter-bibtex",
+ "tree-sitter-css",
+ "tree-sitter-html",
+ "tree-sitter-javascript",
  "tree-sitter-md",
  "unicode-normalization",
 ]
@@ -15692,6 +15696,45 @@ dependencies = [
  "streaming-iterator",
  "tree-sitter-language",
  "wasmtime-c-api-impl",
+]
+
+[[package]]
+name = "tree-sitter-bibtex"
+version = "0.1.0"
+source = "git+https://github.com/latex-lsp/tree-sitter-bibtex?rev=8d04ed27b3bc7929f14b7df9236797dab9f3fa66#8d04ed27b3bc7929f14b7df9236797dab9f3fa66"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "tree-sitter-css"
+version = "0.25.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a5cbc5e18f29a2c6d6435891f42569525cf95435a3e01c2f1947abcde178686f"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "tree-sitter-html"
+version = "0.23.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "261b708e5d92061ede329babaaa427b819329a9d427a1d710abb0f67bbef63ee"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "tree-sitter-javascript"
+version = "0.25.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "68204f2abc0627a90bdf06e605f5c470aa26fdcb2081ea553a04bdad756693f5"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
 ]
 
 [[package]]

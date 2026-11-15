@@ -12,6 +12,10 @@ lattice-i18n.workspace = true
 anyhow.workspace = true
 codebook-tree-sitter-latex.workspace = true
 tree-sitter-md.workspace = true
+tree-sitter-bibtex.workspace = true
+tree-sitter-html.workspace = true
+tree-sitter-css.workspace = true
+tree-sitter-javascript.workspace = true
 editor.workspace = true
 futures.workspace = true
 # The menu row the completion provider hears selected (`StringMatch`);
