@@ -167,7 +167,8 @@ impl Run {
     /// Add papers' full-text switch decides what an import started after it
     /// does, and the import keeps that choice when the switch moves again:
     /// the box's pending row names Metadata alone, or Metadata, Full text
-    /// and Overview, and Add papers' own batch saves full text with it on.
+    /// and Overview, and Add papers' own batch saves the full text or not
+    /// as the switch said at Add.
     async fn papers_full_text_setting(
         &self,
         cx: &mut AsyncApp,
@@ -227,40 +228,72 @@ impl Run {
                 .await;
             seen.push((stages, landed));
         }
-        // Add papers' own Add, the switch on: its batch saves full text,
-        // and keeps that when the switch moves while it runs.
-        let pasted = sheet.clone();
-        self.with_window(cx, move |_, window, cx| {
-            pasted.update(cx, |sheet, cx| sheet.paste(BATCH_ENTRY, window, cx))
-        })?;
-        let listed = self
-            .wait_for(cx, Duration::from_secs(5), |_, cx| {
-                sheet
-                    .read(cx)
-                    .row_states(cx)
-                    .iter()
-                    .any(|(_, state)| *state == crate::papers::add_sheet::RowState::New)
-            })
-            .await;
-        let (adder, panel) = (sheet.clone(), papers.clone());
-        let batch = self.with_window(cx, move |_, window, cx| {
-            let on = crate::settings::get(cx).save_full_text;
-            adder.update(cx, |sheet, cx| sheet.add(cx));
-            let first = panel.read(cx).batch_full_text();
-            adder.update(cx, |sheet, cx| sheet.toggle_full_text(window, cx));
-            let moved = panel.read(cx).batch_full_text();
-            (on, first, moved)
-        })?;
-        let batch_landed = self
-            .wait_for(cx, Duration::from_secs(15), |_, cx| {
-                let panel = papers.read(cx);
-                !panel.batch.running
-                    && panel
-                        .papers
+        // Add papers' own Add, in a sheet of its own each time: its batch
+        // saves what the switch said at Add, and keeps that when the switch
+        // moves while it runs.
+        let mut batches = Vec::new();
+        for (entry, key, on) in [
+            (BATCH_SKIP_ENTRY, BATCH_SKIP_KEY, false),
+            (BATCH_ENTRY, BATCH_KEY, true),
+        ] {
+            self.with_window(cx, |shell, window, cx| {
+                shell.update(cx, |shell, cx| shell.close_document_overlays(window, cx));
+                window.dispatch_action(Box::new(crate::shell::research_flow::AddPapers), cx)
+            })?;
+            let opened = self
+                .wait_for(cx, Duration::from_secs(5), |shell, cx| {
+                    shell.read(cx).add_papers().is_some()
+                })
+                .await
+                .then(|| cx.update(|cx| self.shell.read(cx).add_papers().cloned()))
+                .flatten();
+            let Some(sheet) = opened else {
+                batches.push(json!({ "sheet": false }));
+                continue;
+            };
+            let pasted = sheet.clone();
+            self.with_window(cx, move |_, window, cx| {
+                if crate::settings::get(cx).save_full_text != on {
+                    pasted.update(cx, |sheet, cx| sheet.toggle_full_text(window, cx));
+                }
+                pasted.update(cx, |sheet, cx| sheet.paste(entry, window, cx))
+            })?;
+            let listed = self
+                .wait_for(cx, Duration::from_secs(5), |_, cx| {
+                    sheet
+                        .read(cx)
+                        .row_states(cx)
                         .iter()
-                        .any(|paper| paper.citation_key.as_deref() == Some(BATCH_KEY))
-            })
-            .await;
+                        .any(|(_, state)| *state == crate::papers::add_sheet::RowState::New)
+                })
+                .await;
+            let (adder, panel) = (sheet.clone(), papers.clone());
+            let (switch, first, moved) = self.with_window(cx, move |_, window, cx| {
+                let switch = crate::settings::get(cx).save_full_text;
+                adder.update(cx, |sheet, cx| sheet.add(cx));
+                let first = panel.read(cx).batch_full_text();
+                adder.update(cx, |sheet, cx| sheet.toggle_full_text(window, cx));
+                let moved = panel.read(cx).batch_full_text();
+                (switch, first, moved)
+            })?;
+            let landed = self
+                .wait_for(cx, Duration::from_secs(15), |_, cx| {
+                    let panel = papers.read(cx);
+                    !panel.batch.running
+                        && panel
+                            .papers
+                            .iter()
+                            .any(|paper| paper.citation_key.as_deref() == Some(key))
+                })
+                .await;
+            batches.push(json!({
+                "switch": switch,
+                "listed": listed,
+                "first": first.map(|full_text| format!("{full_text:?}")),
+                "moved": moved.map(|full_text| format!("{full_text:?}")),
+                "landed": landed,
+            }));
+        }
         std::fs::write(&bibliography, original)?;
         cx.update(|cx| {
             crate::settings::update(cx, |settings| settings.save_full_text = false);
@@ -274,7 +307,7 @@ impl Run {
                 !papers.read(cx).papers.iter().any(|paper| {
                     matches!(
                         paper.citation_key.as_deref(),
-                        Some(SKIP_KEY | SAVE_KEY | BATCH_KEY)
+                        Some(SKIP_KEY | SAVE_KEY | BATCH_SKIP_KEY | BATCH_KEY)
                     )
                 })
             })
@@ -285,19 +318,22 @@ impl Run {
             ((false, true, Some(metadata), Some(metadata)), true),
             ((true, true, Some(everything), Some(everything)), true),
         ];
-        let save = Some(lattice_core::papers::FullText::Save);
+        let batch = |switch: bool, full_text: &str| {
+            json!({
+                "switch": switch,
+                "listed": true,
+                "first": full_text,
+                "moved": full_text,
+                "landed": true,
+            })
+        };
+        let batches_expected = vec![batch(false, "Skip"), batch(true, "Save")];
         steps.check(
             FULL_TEXT_STEP,
-            seen == expected
-                && listed
-                && batch == (true, save, save)
-                && batch_landed
-                && restored,
+            seen == expected && batches == batches_expected && restored,
             json!({
                 "seen": format!("{seen:?}"),
-                "batch": format!("{batch:?}"),
-                "listed": listed,
-                "batch_landed": batch_landed,
+                "batches": batches,
                 "restored": restored,
             }),
         );
@@ -389,3 +425,5 @@ const SAVE_KEY: &str = "e2efulltexton2024";
 const SAVE_ENTRY: &str = "@article{e2efulltexton2024,\n  title = {Switch On Paper},\n  author = {Writer, Ada},\n  journal = {Journal of Tests},\n  year = {2024}\n}\n";
 const BATCH_KEY: &str = "e2efulltextbatch2024";
 const BATCH_ENTRY: &str = "@article{e2efulltextbatch2024,\n  title = {Switch Batch Paper},\n  author = {Writer, Ada},\n  journal = {Journal of Tests},\n  year = {2024}\n}\n";
+const BATCH_SKIP_KEY: &str = "e2efulltextbatchoff2024";
+const BATCH_SKIP_ENTRY: &str = "@article{e2efulltextbatchoff2024,\n  title = {Switch Batch Off Paper},\n  author = {Writer, Ada},\n  journal = {Journal of Tests},\n  year = {2024}\n}\n";
