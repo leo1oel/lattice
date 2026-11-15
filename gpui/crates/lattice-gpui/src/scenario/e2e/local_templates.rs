@@ -39,12 +39,19 @@ impl Run {
         let dialog = cx
             .update(|cx| self.shell.read(cx).new_project_dialog().cloned())
             .context("New project is up")?;
-        self.pause(cx, Duration::from_millis(300)).await;
+        // The run's own store, read: empty, so no list.
+        let loaded = self
+            .wait_until(cx, Duration::from_secs(5), |cx| dialog.read(cx).templates_loaded())
+            .await;
         let (listed, _) = cx.update(|cx| dialog.read(cx).local_templates());
+        let store = crate::welcome::local_templates::store();
+        // Never the writer's own store (the app's state folder outside a run).
+        let writers = dirs::data_dir().map(|dir| dir.join("lattice-gpui").join("templates"));
+        let apart = writers.as_ref() != Some(&store);
         steps.check(
-            "New project shows My templates, with no list while nothing is saved",
-            listed.is_empty(),
-            json!({ "listed": listed }),
+            "New project reads My templates from the run's own store, with no list while nothing is saved",
+            loaded && listed.is_empty() && apart,
+            json!({ "loaded": loaded, "listed": listed, "store": store, "apart": apart }),
         );
 
         // Save a local template from the open project.

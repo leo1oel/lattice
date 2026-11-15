@@ -74,12 +74,15 @@ pub struct MyTemplates {
     pub error: Option<String>,
     /// The chosen template's Files are unfolded.
     pub files_open: bool,
+    /// The store has been read (or failed to be).
+    pub loaded: bool,
 }
 
 impl MyTemplates {
     /// The list as lattice-core reads it, saved ones this dialog added kept
     /// after it (`[...value, ...previous.filter(...)]`).
     pub fn loaded(&mut self, result: Result<Vec<LocalTemplate>, String>) {
+        self.loaded = true;
         match result {
             Ok(value) => {
                 let previous = std::mem::take(&mut self.items);

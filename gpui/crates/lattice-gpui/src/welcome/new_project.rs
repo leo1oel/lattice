@@ -155,6 +155,11 @@ impl NewProjectDialog {
         self.saving.as_ref().map(|(dialog, _)| dialog)
     }
 
+    /// Whether My templates has read the store.
+    pub fn templates_loaded(&self) -> bool {
+        self.mine.loaded
+    }
+
     /// The saved templates My templates lists, and the one chosen.
     pub fn local_templates(&self) -> (Vec<String>, Option<String>) {
         let chosen = match &self.venue {
