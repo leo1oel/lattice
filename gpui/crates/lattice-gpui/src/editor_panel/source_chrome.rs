@@ -65,6 +65,7 @@ impl EditorPanel {
         if self.latex_root != root {
             self.latex_root = root.clone();
             self.forward_latex_context(cx);
+            self.forward_card_context(cx);
         }
         self.note_latex_outline(headings.clone(), cx);
         if let Some(rail) = &self.rail {

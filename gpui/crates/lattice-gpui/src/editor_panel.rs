@@ -49,6 +49,7 @@ mod annotation_review;
 mod annotations;
 mod bib_view;
 mod buffer_counts;
+mod card_context;
 mod disk_sync;
 pub mod drops;
 mod events;
@@ -329,6 +330,7 @@ impl EditorPanel {
                         diagnostics.update(cx, |diagnostics, cx| diagnostics.resync(cx));
                     }
                     this.forward_latex_context(cx);
+                    this.forward_card_context(cx);
                 }
                 cx.notify();
             }),

@@ -143,6 +143,7 @@ pub fn init(scripted: bool, cx: &mut App) {
     search::init(cx);
     vim::init(cx);
     lattice_editor::init(cx);
+    crate::card_previews::install(cx);
     load_keymaps(cx);
     crate::shell::workspaces::Workspaces::init(scripted, cx);
     crate::recents::RecentProjects::init(scripted, cx);

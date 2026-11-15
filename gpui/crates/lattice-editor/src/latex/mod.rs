@@ -2,7 +2,10 @@
 //! and the first of Lattice's LaTeX extensions, each on one extension point:
 //!
 //! - TexLab's diagnostics as marks and hover cards ([`diagnostics`]);
-//! - the citation card and the reference card ([`cards`]);
+//! - the citation card and the reference card ([`cards`]), with a figure's
+//!   image, an equation set by KaTeX and the last build's numbers, and the
+//!   figure card over an `\includegraphics` path ([`preview_cards`], drawn
+//!   through the app's [`previews`] host);
 //! - command and citation completion ([`completions`]);
 //! - spell and grammar checking with Harper, or a language's dictionary,
 //!   as marks and lint cards ([`spelling`], over [`prose`]).
@@ -24,13 +27,17 @@ use crate::{LatticeEditor, ProjectIndex};
 
 pub mod build_diagnostics;
 pub mod cards;
+pub mod compiled_labels;
 pub mod completions;
 pub mod diagnostics;
 pub mod edits;
 pub mod environments;
 pub mod folding;
 pub mod format_toggle;
+pub mod graphics;
 pub mod highlights;
+pub mod preview_cards;
+pub mod previews;
 pub mod prose;
 pub mod protected;
 pub mod region_edits;
@@ -87,14 +94,17 @@ pub fn language_for_path(path: &Path, cx: &App) -> Option<Arc<Language>> {
     is_tex_source(path).then(|| cx.global::<LatexLanguage>().0.clone())
 }
 
-/// Put the LaTeX extensions that read the project on `editor`: the citation
-/// and reference cards, and command, citation and label completion.
+/// Put the LaTeX extensions that read the project on `editor`: the citation,
+/// reference and figure cards, and command, citation and label completion.
 pub fn attach(editor: &mut LatticeEditor, index: &Entity<ProjectIndex>) {
     let weak = index.downgrade();
     editor.add_hover_provider(Rc::new(cards::CitationCards {
         index: weak.clone(),
     }));
     editor.add_hover_provider(Rc::new(cards::ReferenceCards {
+        index: weak.clone(),
+    }));
+    editor.add_hover_provider(Rc::new(preview_cards::GraphicsCards {
         index: weak.clone(),
     }));
     editor.add_completion_source(Rc::new(completions::CitationSource {
