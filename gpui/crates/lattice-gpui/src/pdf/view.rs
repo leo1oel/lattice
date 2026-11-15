@@ -487,6 +487,7 @@ impl PdfView {
         self.scroll.set_offset(point(px(0.), px(0.)));
         self.current_page = 0;
         self.pending_scroll = None;
+        self.place_report = Default::default();
     }
 
     fn failed(&mut self, message: SharedString, cx: &mut Context<Self>) {

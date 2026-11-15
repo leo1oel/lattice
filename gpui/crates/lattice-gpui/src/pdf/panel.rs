@@ -113,9 +113,10 @@ pub struct PdfPanel {
     citations: Option<super::CitationLookup>,
     /// The last build's compounds, carried into the window.
     compounds: Option<super::CompoundSource>,
-    /// The project and the document (project-relative) whose place this
-    /// panel's PDF keeps.
-    place_key: Option<(PathBuf, String)>,
+    /// The project, the document (project-relative) whose place this
+    /// panel's PDF keeps, and that document's PDF: a place taken in any
+    /// other PDF shown here (the marked one) is not that document's.
+    place_key: Option<(PathBuf, String, PathBuf)>,
     /// Track changes' marked PDF building, or why it could not be made.
     pub(super) marking: super::review_marking::Marking,
     _subscriptions: Vec<gpui::Subscription>,
@@ -159,15 +160,17 @@ impl PdfPanel {
         }
     }
 
-    /// The document (project-relative) in `root` whose PDF this panel
-    /// shows, under which its place is kept.
-    pub fn set_place_key(&mut self, root: PathBuf, document: String) {
-        self.place_key = Some((root, document));
+    /// The document (project-relative) in `root` whose PDF, `pdf`, this
+    /// panel shows, under which its place is kept.
+    pub fn set_place_key(&mut self, root: PathBuf, document: String, pdf: PathBuf) {
+        self.place_key = Some((root, document, pdf));
     }
 
     /// Keep where the PDF was left, under the document it shows.
     pub(super) fn remember_place(&self, place: super::view::ViewPlace) {
-        if let Some((root, document)) = &self.place_key {
+        if let Some((root, document, pdf)) = &self.place_key
+            && self.source.as_ref() == Some(pdf)
+        {
             preferences::update(|preferences| preferences.remember_place(root, document, place));
         }
     }
@@ -186,7 +189,7 @@ impl PdfPanel {
         let saved = self
             .place_key
             .as_ref()
-            .and_then(|(root, document)| preferences::get().place(root, document));
+            .and_then(|(root, document, _)| preferences::get().place(root, document));
         let fresh =
             self.window.is_none() && (mounted || self.view.read(cx).page_count() == 0);
         match saved {
@@ -361,7 +364,7 @@ impl PdfPanel {
         if self
             .place_key
             .as_ref()
-            .is_some_and(|(root, _)| *root != project)
+            .is_some_and(|(root, ..)| *root != project)
         {
             self.place_key = None;
         }

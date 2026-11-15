@@ -339,7 +339,7 @@ impl Shell {
         cx.subscribe_in(&panel, window, Self::on_pdf_event).detach();
         self.give_citations(&panel, cx);
         panel.update(cx, |panel, cx| {
-            panel.set_place_key(root.clone(), document.to_string());
+            panel.set_place_key(root.clone(), document.to_string(), path.clone());
             panel.open_restoring(path, false, window, cx)
         });
         self.root_pdfs.push((document.to_string(), panel.clone()));
@@ -476,8 +476,9 @@ impl Shell {
     /// The live PDF keeps its place under the document it shows now.
     pub(super) fn key_live_place(&self, cx: &mut Context<Self>) {
         if let (Some(root), Some(document)) = (self.root(cx), self.live_document.clone()) {
+            let pdf = root.join(&document).with_extension("pdf");
             self.pdf
-                .update(cx, |panel, _| panel.set_place_key(root, document));
+                .update(cx, |panel, _| panel.set_place_key(root, document, pdf));
         }
     }
 
