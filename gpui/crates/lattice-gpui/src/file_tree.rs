@@ -24,8 +24,17 @@
 //!   (`src/project/deletion-protection.ts`): Add paper and the reference
 //!   tools write into it, and Delete there says so instead of asking. Any
 //!   `.tex` may go, the main document included.
-//! - Import files… brings files and folders in from the Mac; ⌘C copies the
-//!   selected row's path and ⌘V duplicates it into the selected folder.
+//! - Import files… brings files and folders in from the Mac, and what came
+//!   in is selected and brought into view; ⌘C copies the selected rows'
+//!   paths and ⌘V duplicates them into the selected folder.
+//! - Enter names the one selected row anew, as Rename does.
+//!
+//! Rows are selected as the app's are (`selection.rs`): ⌘-click and ⇧-click
+//! pick several, which a drag, Delete and ⌘C then take together, and the
+//! open file's row is selected, its folders opened and its row brought into
+//! view. Which folders are open is kept for each project, and Show hidden
+//! files for all of them, across runs (`memory.rs`); until it is on, the
+//! tree also leaves out a template's `.sty` and `.bst` files.
 //!
 //! A file Git sees changed carries its status's colour and letter, and a
 //! folder holding one a dot (`TreeRow::git`), read with the project's scans.
@@ -46,7 +55,7 @@ use gpui::{
 use gpui_kit::component::{
     dock::{BasePanel, Panel, PanelEvent},
     input::Input,
-    tree::{TreeState, tree},
+    tree::{TreeEvent, TreeState, tree},
 };
 use lattice_i18n::t;
 use lattice_ui::{
@@ -63,17 +72,20 @@ mod clipboard;
 mod dragged;
 mod drop_aim;
 mod git_marks;
+pub(crate) mod memory;
 mod menu;
 mod naming;
+mod probes;
 mod rows;
+mod selection;
 
 pub use dragged::DraggedEntry;
-
 use dragged::DragPreview;
 use drop_aim::{Aim, drop_mark};
 use git_marks::GitMarks;
 use naming::{Naming, NamingKind, insert_placeholder};
-use rows::tree_items;
+use rows::{hide_template_files, item_ids, tree_items};
+use selection::{Selection, including};
 
 use crate::project::{Project, ProjectEvent};
 
@@ -145,7 +157,17 @@ pub struct FileTreePanel {
     row_menu: Option<Entity<ContextMenu<(String, bool)>>>,
     /// Where a drag over the tree is aimed.
     aim: Rc<RefCell<Aim>>,
+    selection: Selection,
+    /// Rows to open the folders down to and bring into view once they are
+    /// in the tree; `reveal_selects` when they are to be selected too.
+    reveal: Option<Vec<String>>,
+    reveal_selects: bool,
+    /// The open file whose row was last brought into view.
+    revealed: Option<String>,
+    /// Every row's id, shown or inside a closed folder.
+    known: Rc<HashSet<String>>,
     _project_subscription: Option<Subscription>,
+    _tree_subscription: Subscription,
 }
 
 impl EventEmitter<PanelEvent> for FileTreePanel {}
@@ -153,10 +175,15 @@ impl EventEmitter<FileTreeEvent> for FileTreePanel {}
 
 impl FileTreePanel {
     pub fn new(cx: &mut Context<Self>) -> Self {
+        let state = cx.new(|cx| TreeState::new(cx));
+        // A folder opened or closed is remembered then, not at the next scan.
+        let tree_subscription = cx.subscribe(&state, |this, _, _: &TreeEvent, cx| {
+            this.remember_expanded(cx)
+        });
         Self {
             project: None,
             current: None,
-            state: cx.new(|cx| TreeState::new(cx)),
+            state,
             focus_handle: cx.focus_handle(),
             naming: None,
             hover: None,
@@ -166,13 +193,20 @@ impl FileTreePanel {
             figures: Rc::default(),
             copied: None,
             aim: Rc::default(),
+            selection: Selection::default(),
+            reveal: None,
+            reveal_selects: false,
+            revealed: None,
+            known: Rc::default(),
             _project_subscription: None,
+            _tree_subscription: tree_subscription,
         }
     }
 
     pub fn set_current(&mut self, path: Option<PathBuf>, cx: &mut Context<Self>) {
         if self.current != path {
             self.current = path;
+            self.follow_current(cx);
             self.redraw_rows(cx);
         }
     }
@@ -188,18 +222,35 @@ impl FileTreePanel {
     pub fn set_project(&mut self, project: Entity<Project>, cx: &mut Context<Self>) {
         self._project_subscription =
             Some(cx.subscribe(&project, |this, _, event, cx| match event {
-                ProjectEvent::TreeChanged | ProjectEvent::ManifestChanged => this.rebuild(cx),
+                ProjectEvent::TreeChanged => {
+                    this.rebuild(cx);
+                    this.reveal_scanned(cx);
+                }
+                ProjectEvent::ManifestChanged => this.rebuild(cx),
                 ProjectEvent::GitChanged => {
                     this.read_marks(cx);
                     this.redraw_rows(cx);
                 }
                 ProjectEvent::FilesChanged(_) => {}
             }));
+        // The folders open when this project was last shown come back, and
+        // Kit's tree lets go of the last project's rows first: the rebuild
+        // notes which of the rows it holds are open, and those are not this
+        // project's.
+        self.state
+            .update(cx, |state, cx| state.set_items(Vec::new(), cx));
+        self.expanded = memory::expanded(project.read(cx).root())
+            .into_iter()
+            .collect();
         self.project = Some(project);
         self.naming = None;
         self.copied = None;
-        self.expanded.clear();
+        self.selection.clear();
+        self.reveal = None;
+        self.reveal_selects = false;
+        self.revealed = None;
         self.rebuild(cx);
+        self.follow_current(cx);
     }
 
     fn read_marks(&mut self, cx: &App) {
@@ -221,8 +272,12 @@ impl FileTreePanel {
         let Some(project) = self.project.clone() else {
             return;
         };
+        self.adopt_kit_row(cx);
         self.remember_expanded(cx);
         let mut nodes = project.read(cx).files().to_vec();
+        if !project.read(cx).show_hidden() {
+            hide_template_files(&mut nodes);
+        }
         if let Some(Naming {
             path,
             kind: NamingKind::Create { folder },
@@ -240,11 +295,20 @@ impl FileTreePanel {
                 .collect(),
         );
         let items = tree_items(&nodes, &self.expanded);
+        let mut known = HashSet::new();
+        item_ids(&items, &mut known);
+        self.known = Rc::new(known);
         self.state
             .update(cx, |state, cx| state.set_items(items, cx));
+        self.settle_selection(cx);
         cx.notify();
     }
 
+    fn all_paths(&self, _: &App) -> Rc<HashSet<String>> {
+        self.known.clone()
+    }
+
+    /// Note which folders are open, and keep it for the project.
     fn remember_expanded(&mut self, cx: &App) {
         let state = self.state.read(cx);
         for entry in (0..).map_while(|ix| state.entry(ix)) {
@@ -258,6 +322,12 @@ impl FileTreePanel {
                 self.expanded.remove(&id);
             }
         }
+        if let Some(project) = &self.project {
+            memory::set_expanded(
+                project.read(cx).root(),
+                self.expanded.iter().cloned().collect(),
+            );
+        }
     }
 
     /// Whether deleting `path` would remove the primary bibliography, itself
@@ -267,95 +337,6 @@ impl FileTreePanel {
             return true;
         };
         deletes_protected(path, &project.read(cx).manifest().primary_bibliography)
-    }
-
-    /// Drop the row at `path` on the folder `target`, as a drag ending there
-    /// does, for a scenario.
-    #[cfg(any(target_os = "macos", target_os = "windows"))]
-    pub fn drop_on(&mut self, path: String, target: String, cx: &mut Context<Self>) {
-        cx.emit(FileTreeEvent::Move {
-            paths: vec![path],
-            target,
-        });
-    }
-
-    /// The row being named, its field's text and whether the field has
-    /// focus, for a scenario.
-    #[cfg(any(target_os = "macos", target_os = "windows"))]
-    pub fn naming_state(&self, window: &Window, cx: &App) -> Option<(String, String, bool)> {
-        self.naming.as_ref().map(|naming| {
-            let input = naming.input.read(cx);
-            (
-                naming.path.clone(),
-                input.value().to_string(),
-                input.focus_handle(cx).is_focused(window),
-            )
-        })
-    }
-
-    /// Give the row being named `name` and confirm it as Enter does, for a
-    /// scenario. Typing into the field is GPUI Kit's own, and takes a window
-    /// that draws: a scripted run on a locked screen gets no frames.
-    #[cfg(any(target_os = "macos", target_os = "windows"))]
-    pub fn confirm_name(&mut self, name: &str, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(input) = self.naming.as_ref().map(|naming| naming.input.clone()) else {
-            return;
-        };
-        input.update(cx, |input, cx| {
-            input.set_value(name.to_string(), window, cx)
-        });
-        self.commit_naming(true, window, cx);
-    }
-
-    /// Select the row at `path` and give the tree the keyboard, as a click
-    /// on the row does, for a scenario.
-    #[cfg(any(target_os = "macos", target_os = "windows"))]
-    pub fn select_row(&mut self, path: &str, window: &mut Window, cx: &mut Context<Self>) -> bool {
-        let id = SharedString::from(path.to_string());
-        let Some(ix) = self.state.read(cx).index_of(&id) else {
-            return false;
-        };
-        self.state
-            .update(cx, |state, cx| state.set_selected_index(Some(ix), cx));
-        window.focus(&self.focus_handle, cx);
-        true
-    }
-
-    /// The rows on screen, project-relative, for a scenario.
-    #[cfg(any(target_os = "macos", target_os = "windows"))]
-    pub fn row_paths(&self, cx: &App) -> Vec<String> {
-        let state = self.state.read(cx);
-        (0..)
-            .map_while(|ix| state.entry(ix))
-            .map(|entry| entry.item().id.to_string())
-            .collect()
-    }
-
-    /// The folder a drag over the tree is aimed at now, for a scenario.
-    #[cfg(any(target_os = "macos", target_os = "windows"))]
-    pub fn drop_folder(&self, cx: &App) -> Option<String> {
-        self.aim.borrow().folder(cx)
-    }
-
-    /// What the rows' fluid hover shows, for a scenario.
-    #[cfg(any(target_os = "macos", target_os = "windows"))]
-    pub fn hover_snapshot(&self, cx: &App) -> Option<lattice_ui::fluid_hover::FluidHoverSnapshot> {
-        self.hover.as_ref().map(|hover| hover.snapshot(cx))
-    }
-
-    /// Whether the rows' context menu is open and holds focus, for a scripted
-    /// check.
-    pub fn row_menu_focused(&self, window: &Window, cx: &App) -> bool {
-        self.row_menu
-            .as_ref()
-            .is_some_and(|menu| menu.read(cx).is_focused(window))
-    }
-
-    /// The row whose context menu is open (its path), for a scripted check.
-    pub fn row_menu_target(&self, cx: &App) -> Option<String> {
-        self.row_menu
-            .as_ref()
-            .and_then(|menu| menu.read(cx).target().map(|(path, _)| path.clone()))
     }
 }
 
@@ -428,7 +409,7 @@ impl Panel for FileTreePanel {
 
 impl Render for FileTreePanel {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let Some(project) = self.project.clone() else {
+        if self.project.is_none() {
             return div()
                 .id("file-tree-empty")
                 .track_focus(&self.focus_handle)
@@ -439,7 +420,7 @@ impl Render for FileTreePanel {
                 .text_color(cx.palette().text_secondary)
                 .child(t!("Open a LaTeX project folder to start"))
                 .into_any_element();
-        };
+        }
         let view = cx.entity().downgrade();
         let menu_view = view.clone();
         let background_view = view.clone();
@@ -449,8 +430,7 @@ impl Render for FileTreePanel {
         let rows_menu = row_menu.clone();
         self.row_menu = Some(row_menu.clone());
         let root_drop = view.clone();
-        let current = self.current.clone();
-        let root = project.read(cx).root().to_path_buf();
+        let selected = Rc::new(self.selected_paths(cx));
         let naming = self
             .naming
             .as_ref()
@@ -486,6 +466,7 @@ impl Render for FileTreePanel {
                 }
             }))
             .on_key_down(cx.listener(Self::clipboard_key))
+            .on_key_down(cx.listener(Self::rename_key))
             // Each move of a drag aims anew: off every row is the root.
             .on_drag_move({
                 let aim = self.aim.clone();
@@ -494,7 +475,7 @@ impl Render for FileTreePanel {
                     let inside = event.bounds.contains(&event.event.position);
                     *aim.borrow_mut() = Aim { inside, row: None };
                     let dragged = event.drag(cx);
-                    if !inside && !dragged.folder && !dragged.figure {
+                    if !inside && dragged.single_file() && !dragged.figure {
                         let (path, pointer) = (dragged.path.clone(), event.event.position);
                         view.update(cx, |_, cx| {
                             cx.emit(FileTreeEvent::DragOut { path, pointer })
@@ -518,7 +499,7 @@ impl Render for FileTreePanel {
                     root_drop
                         .update(cx, |_, cx| {
                             cx.emit(FileTreeEvent::Move {
-                                paths: vec![dragged.path.clone()],
+                                paths: dragged.paths.clone(),
                                 target: String::new(),
                             })
                         })
@@ -577,13 +558,11 @@ impl Render for FileTreePanel {
                 )
             })
             .child(
-                tree(&self.state, move |ix, entry, selected, _, cx| {
+                tree(&self.state, move |ix, entry, _, _, cx| {
                     let item = entry.item();
                     let relative = item.id.to_string();
-                    let path = root.join(&relative);
                     let is_folder = entry.is_folder();
-                    let row_selected =
-                        !is_folder && (selected || current.as_deref() == Some(path.as_path()));
+                    let row_selected = selected.contains(&relative);
                     let kind = if row_selected {
                         ItemKind::skip()
                     } else {
@@ -591,6 +570,7 @@ impl Render for FileTreePanel {
                     };
                     let mut row = if is_folder {
                         TreeRow::folder(ix, item.label.clone(), entry.depth(), entry.is_expanded())
+                            .selected(row_selected)
                             .contains_change(marks.folders.contains(&relative))
                     } else {
                         TreeRow::file(ix, item.label.clone(), entry.depth())
@@ -632,6 +612,7 @@ impl Render for FileTreePanel {
                         row = row.parity(format!("row/{relative}"));
                     }
                     let dragged = DraggedEntry {
+                        paths: including(&selected, &relative),
                         path: relative.clone(),
                         name: item.label.clone(),
                         folder: is_folder,
@@ -648,6 +629,7 @@ impl Render for FileTreePanel {
                             .unwrap_or_default()
                     };
                     let open = view.clone();
+                    let click_path = relative.clone();
                     let drop = view.clone();
                     let paths_drop = view.clone();
                     let entry_aim = row_aim.clone();
@@ -685,22 +667,32 @@ impl Render for FileTreePanel {
                         .on_drop(move |dragged: &DraggedEntry, _, cx| {
                             cx.stop_propagation();
                             *entry_drop_aim.borrow_mut() = Aim::default();
-                            if dragged.path == target {
+                            // Nothing moves into itself or a folder inside
+                            // it; the rest still go.
+                            let paths: Vec<String> = dragged
+                                .paths
+                                .iter()
+                                .filter(|path| {
+                                    **path != target && !target.starts_with(&format!("{path}/"))
+                                })
+                                .cloned()
+                                .collect();
+                            if paths.is_empty() {
                                 return;
                             }
                             drop.update(cx, |_, cx| {
                                 cx.emit(FileTreeEvent::Move {
-                                    paths: vec![dragged.path.clone()],
+                                    paths,
                                     target: target.clone(),
                                 })
                             })
                             .ok();
                         })
-                        .on_click(move |_, _, cx| {
-                            if !is_folder {
-                                open.update(cx, |_, cx| cx.emit(FileTreeEvent::Open(path.clone())))
-                                    .ok();
-                            }
+                        .on_click(move |event, window, cx| {
+                            open.update(cx, |this, cx| {
+                                this.click_row(&click_path, is_folder, event, window, cx)
+                            })
+                            .ok();
                         })
                 })
                 // Lattice's scrollbar, below, in place of Kit's.

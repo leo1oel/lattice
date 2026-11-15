@@ -249,6 +249,11 @@ impl Shell {
                 }
                 Ok(result) => {
                     project.update(cx, |project, cx| project.entries_changed(cx));
+                    // What came in is selected and brought into view, once
+                    // the scan has it (`revealRequest`).
+                    let entries = result.entries.clone();
+                    this.file_tree
+                        .update(cx, |tree, cx| tree.reveal_paths(entries, cx));
                     let mut notice =
                         Notice::new(ToastLevel::Success, imported_title(&result, &target))
                             .source(t!("Project"))

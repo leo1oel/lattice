@@ -1,0 +1,115 @@
+//! What a scenario reads from the tree and does to it, as a pointer or the
+//! keyboard would.
+
+use gpui::{App, Context, Focusable as _, SharedString, Window};
+
+use super::{FileTreeEvent, FileTreePanel};
+
+impl FileTreePanel {
+    /// Drop the row at `path` on the folder `target`, as a drag ending there
+    /// does, for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn drop_on(&mut self, path: String, target: String, cx: &mut Context<Self>) {
+        cx.emit(FileTreeEvent::Move {
+            paths: vec![path],
+            target,
+        });
+    }
+
+    /// The row being named, its field's text and whether the field has
+    /// focus, for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn naming_state(&self, window: &Window, cx: &App) -> Option<(String, String, bool)> {
+        self.naming.as_ref().map(|naming| {
+            let input = naming.input.read(cx);
+            (
+                naming.path.clone(),
+                input.value().to_string(),
+                input.focus_handle(cx).is_focused(window),
+            )
+        })
+    }
+
+    /// Give the row being named `name` and confirm it as Enter does, for a
+    /// scenario. Typing into the field is GPUI Kit's own, and takes a window
+    /// that draws: a scripted run on a locked screen gets no frames.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn confirm_name(&mut self, name: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(input) = self.naming.as_ref().map(|naming| naming.input.clone()) else {
+            return;
+        };
+        input.update(cx, |input, cx| {
+            input.set_value(name.to_string(), window, cx)
+        });
+        self.commit_naming(true, window, cx);
+    }
+
+    /// Select the row at `path` and give the tree the keyboard, as a click
+    /// on the row does, for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn select_row(&mut self, path: &str, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let id = SharedString::from(path.to_string());
+        let Some(ix) = self.state.read(cx).index_of(&id) else {
+            return false;
+        };
+        self.state
+            .update(cx, |state, cx| state.set_selected_index(Some(ix), cx));
+        self.selection.only(path);
+        window.focus(&self.focus_handle, cx);
+        self.redraw_rows(cx);
+        true
+    }
+
+    /// The selected rows, project-relative, and the folders kept open for
+    /// the project, for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn selection_state(&self, cx: &App) -> (Vec<String>, Vec<String>) {
+        let mut open: Vec<String> = self.expanded.iter().cloned().collect();
+        open.sort();
+        (self.selected_paths(cx), open)
+    }
+
+    /// The rows on screen, project-relative, for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn row_paths(&self, cx: &App) -> Vec<String> {
+        let state = self.state.read(cx);
+        (0..)
+            .map_while(|ix| state.entry(ix))
+            .map(|entry| entry.item().id.to_string())
+            .collect()
+    }
+
+    /// The folder a drag over the tree is aimed at now, for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn drop_folder(&self, cx: &App) -> Option<String> {
+        self.aim.borrow().folder(cx)
+    }
+
+    /// What the rows' fluid hover shows, for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn hover_snapshot(&self, cx: &App) -> Option<lattice_ui::fluid_hover::FluidHoverSnapshot> {
+        self.hover.as_ref().map(|hover| hover.snapshot(cx))
+    }
+
+    /// Whether the rows' context menu is open and holds focus, for a scripted
+    /// check.
+    pub fn row_menu_focused(&self, window: &Window, cx: &App) -> bool {
+        self.row_menu
+            .as_ref()
+            .is_some_and(|menu| menu.read(cx).is_focused(window))
+    }
+
+    /// The row whose context menu is open (its path), for a scripted check.
+    pub fn row_menu_target(&self, cx: &App) -> Option<String> {
+        self.row_menu
+            .as_ref()
+            .and_then(|menu| menu.read(cx).target().map(|(path, _)| path.clone()))
+    }
+
+    /// What Delete in the row menu of `path` does, for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn delete_from_menu(&mut self, path: &str, cx: &mut Context<Self>) {
+        let paths = super::including(&self.selected_paths(cx), path);
+        self.ask_delete(paths, cx);
+    }
+}
