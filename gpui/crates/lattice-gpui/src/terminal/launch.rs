@@ -123,7 +123,9 @@ pub fn start(
     #[cfg(not(unix))]
     env.extend(launch.env.iter().cloned());
     let task = TerminalBuilder::new(
-        Some(root.to_path_buf()),
+        // The plain spelling of the canonical root: PowerShell will not start
+        // in a `\\?\` folder (lattice-core's `shell_cwd`).
+        Some(lattice_core::terminal::shell_cwd(root)),
         terminal::TerminalMode::interactive_with_completion(exited),
         Shell::WithArguments {
             program,
