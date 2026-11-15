@@ -35,8 +35,6 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] The workspace rename field's undo history surviving a keystroke past its 24 characters (the Kit input has no length limit that clips before an edit).
 
-- [ ] New project's My templates and Save a local template….
-
 - [ ] Each file's editor place kept across launches (the PDF's is kept).
 
 - [ ] Papers' hover prewarm of a paper the pointer is likely to open.
