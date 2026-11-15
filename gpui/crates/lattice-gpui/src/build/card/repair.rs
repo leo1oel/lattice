@@ -23,14 +23,22 @@ use crate::{
     build_panel::{BuildAction, BuildPanel, LastBuild},
 };
 
-fn act(build: &Entity<BuildPanel>, action: fn() -> BuildAction) -> impl Fn(&gpui::ClickEvent, &mut gpui::Window, &mut App) + 'static {
+fn act(
+    build: &Entity<BuildPanel>,
+    action: fn() -> BuildAction,
+) -> impl Fn(&gpui::ClickEvent, &mut gpui::Window, &mut App) + 'static {
     let build = build.clone();
     move |_, _, cx| build.update(cx, |build, cx| build.act(action(), cx))
 }
 
 /// The bar's repair control: the progress of a running repair, else Fix
 /// all when there is an error or a warning to fix.
-pub(super) fn bar_control(panel: &BuildPanel, last: &LastBuild, build: &Entity<BuildPanel>, cx: &App) -> Option<AnyElement> {
+pub(super) fn bar_control(
+    panel: &BuildPanel,
+    last: &LastBuild,
+    build: &Entity<BuildPanel>,
+    cx: &App,
+) -> Option<AnyElement> {
     let palette = cx.palette().clone();
     if let Some(repair) = panel.repair().filter(|repair| repair.busy()) {
         let spinner = icons::LOADER
@@ -115,7 +123,12 @@ pub(super) fn details(panel: &BuildPanel, cx: &App) -> Vec<AnyElement> {
 }
 
 /// The footer once the task has a thread: its outcome, and View repair.
-pub(super) fn footer(panel: &BuildPanel, last: &LastBuild, build: &Entity<BuildPanel>, cx: &App) -> Option<AnyElement> {
+pub(super) fn footer(
+    panel: &BuildPanel,
+    last: &LastBuild,
+    build: &Entity<BuildPanel>,
+    cx: &App,
+) -> Option<AnyElement> {
     let repair = panel.repair()?;
     repair.thread_id.as_ref()?;
     let palette = cx.palette().clone();

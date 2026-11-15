@@ -54,6 +54,8 @@ pub struct IconButton {
     disabled: bool,
     fluid: bool,
     tooltip: Option<SharedString>,
+    /// The keys the tooltip names beside its label.
+    shortcut: Option<SharedString>,
     on_click: Option<ClickHandler>,
     /// The icon replays this gesture when the button is hovered or
     /// focused (`AnimatedProductIcon`).
@@ -81,6 +83,7 @@ impl IconButton {
             disabled: false,
             fluid: false,
             tooltip: None,
+            shortcut: None,
             on_click: None,
             animated: None,
         }
@@ -168,6 +171,12 @@ impl IconButton {
 
     pub fn tooltip(mut self, tooltip: impl Into<SharedString>) -> Self {
         self.tooltip = Some(tooltip.into());
+        self
+    }
+
+    /// The keys the tooltip shows beside its label (`Tip`'s `shortcut`).
+    pub fn shortcut(mut self, keys: impl Into<SharedString>) -> Self {
+        self.shortcut = Some(keys.into());
         self
     }
 
@@ -306,8 +315,9 @@ impl RenderOnce for IconButton {
             .children(count)
             .children(self.badge)
             .when_some(self.tooltip, |this, tooltip| {
+                let shortcut = self.shortcut;
                 this.tooltip(move |_, cx| -> AnyView {
-                    LatticeTooltip::view(tooltip.clone(), None, cx)
+                    LatticeTooltip::view(tooltip.clone(), shortcut.clone(), cx)
                 })
             })
             .when_some(self.on_click.filter(|_| !disabled), |this, on_click| {

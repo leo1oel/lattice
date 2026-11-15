@@ -81,20 +81,16 @@ impl Run {
             let view = view.read(cx);
             (view.fit(), view.scale())
         });
+        // A fit lands once the view lays out at its new scale, which a busy
+        // machine can take longer than a fixed pause to do; wait for it.
         self.with_view(cx, |view, _, cx| view.toggle_fit(FitMode::Height, cx))?;
-        self.pause(cx, Duration::from_millis(300)).await;
-        let (height_fit, height_scale) = cx.update(|cx| {
-            let view = self.live_view_of(cx);
-            let view = view.read(cx);
-            (view.fit(), view.scale())
-        });
+        let (height_fit, height_scale) = self
+            .settled_fit(cx, |fit, scale| fit == Some(FitMode::Height) && scale <= fitted + 0.001)
+            .await;
         self.with_view(cx, |view, _, cx| view.toggle_fit(FitMode::Width, cx))?;
-        self.pause(cx, Duration::from_millis(300)).await;
-        let (back_fit, back_scale) = cx.update(|cx| {
-            let view = self.live_view_of(cx);
-            let view = view.read(cx);
-            (view.fit(), view.scale())
-        });
+        let (back_fit, back_scale) = self
+            .settled_fit(cx, |fit, scale| fit == Some(FitMode::Width) && (scale - fitted).abs() < 0.01)
+            .await;
         // A zoom step is a tenth from the scale rounded to one decimal.
         let step = ((fitted + 0.1) * 10.).round() / 10.;
         steps.check(
@@ -109,5 +105,31 @@ impl Run {
             json!({ "fitted": fitted, "zoomed": zoomed, "height": height_scale, "back": back_scale }),
         );
         Ok(())
+    }
+}
+
+impl Run {
+    /// The live view's fit and scale once `settled` holds of them, or as
+    /// they are after five seconds.
+    async fn settled_fit(
+        &self,
+        cx: &mut AsyncApp,
+        settled: impl Fn(Option<FitMode>, f32) -> bool,
+    ) -> (Option<FitMode>, f32) {
+        let read = |cx: &mut AsyncApp| {
+            cx.update(|cx| {
+                let view = self.live_view_of(cx);
+                let view = view.read(cx);
+                (view.fit(), view.scale())
+            })
+        };
+        for _ in 0..50 {
+            let (fit, scale) = read(cx);
+            if settled(fit, scale) {
+                return (fit, scale);
+            }
+            self.pause(cx, Duration::from_millis(100)).await;
+        }
+        read(cx)
     }
 }

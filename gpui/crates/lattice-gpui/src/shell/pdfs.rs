@@ -40,7 +40,17 @@ impl Shell {
                 page,
                 x,
                 y,
-            } => self.inverse_sync(document.clone(), *page, *x, *y, window, cx),
+                word,
+                figure: false,
+            } => self.inverse_sync(document.clone(), *page, *x, *y, word.clone(), window, cx),
+            PdfEvent::SourceAt {
+                document,
+                page,
+                x,
+                y,
+                word,
+                figure: true,
+            } => self.figure_source_at(document.clone(), *page, *x, *y, word.clone(), window, cx),
             PdfEvent::RevealCursor { document: None } => {
                 self.forward_sync(&super::ForwardSync, window, cx)
             }
@@ -54,9 +64,26 @@ impl Shell {
             // An Outline row: the line in the editor, then the same place in
             // the PDF, as a jump from the caret makes it.
             PdfEvent::Outline { path, line } => self.jump_to_heading(path, *line, window, cx),
-            // In its own window, the PDF's panel stays where it is and shows
-            // its placeholder, with the way back, as the Tauri app's does.
-            PdfEvent::Detached | PdfEvent::Docked => cx.notify(),
+            // In its own window the PDF gives its place in the workspace to
+            // the documents, and coming back shows it there again, as the
+            // Tauri app's `detachPdf` and `dockPdf` do.
+            PdfEvent::Detached if self.layout.focus.is_some() => {
+                self.focus(Some(false), window, cx);
+                cx.notify();
+            }
+            PdfEvent::Detached => {
+                self.hide_view("pdf", cx);
+                cx.notify();
+            }
+            PdfEvent::Docked if self.layout.focus.is_some() => {
+                let pdf = super::workspaces::Workspaces::global(cx).focus_pdf();
+                self.focus(Some(pdf), window, cx);
+                cx.notify();
+            }
+            PdfEvent::Docked => {
+                self.show_view("pdf", false, window, cx);
+                cx.notify();
+            }
         }
     }
 
@@ -301,6 +328,7 @@ impl Shell {
         panel.update(cx, |panel, cx| panel.open(path, window, cx));
         self.root_pdfs.push((document.to_string(), panel.clone()));
         self.label_pdfs(cx);
+        self.refresh_reveal(cx);
         Some(panel)
     }
 
@@ -334,6 +362,30 @@ impl Shell {
         self.file_pdf_for(path.clone(), window, cx);
         self.place_document(&super::views::document_key(&root, &path), true, cx);
         self.sync_views(window, cx);
+    }
+
+    /// The project's files changed on disk: each open PDF of the project
+    /// among them is read again, or says it was removed.
+    pub(super) fn pdf_files_changed(
+        &mut self,
+        paths: Option<&[String]>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(root) = self.root(cx) else {
+            return;
+        };
+        for panel in self.file_pdfs.clone() {
+            let PdfPanelKind::File(path) = panel.read(cx).kind().clone() else {
+                continue;
+            };
+            let reached =
+                paths.is_none_or(|paths| paths.iter().any(|changed| root.join(changed) == path));
+            if reached {
+                let removed = !path.is_file();
+                panel.update(cx, |panel, cx| panel.file_changed(removed, window, cx));
+            }
+        }
     }
 
     /// The tab of a PDF of the project, opened if it is not yet; it is not

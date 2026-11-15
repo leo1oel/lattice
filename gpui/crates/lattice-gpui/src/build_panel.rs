@@ -72,7 +72,10 @@ pub enum BuildAction {
     },
     /// Build with this engine from now on (`keep`: the writer chose it, so
     /// an automatic switch leaves it alone), then build.
-    SwitchEngine { engine: String, keep: bool },
+    SwitchEngine {
+        engine: String,
+        keep: bool,
+    },
     /// Fix all: the Agent repairs every error and warning.
     FixAll,
     /// Ask the agent about the diagnostic at this place in the list.

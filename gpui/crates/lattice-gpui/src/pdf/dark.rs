@@ -65,6 +65,14 @@ pub fn enabled() -> bool {
     DARK_PAGES.load(Ordering::Relaxed)
 }
 
+/// Turn dark pages on or off in every viewer, and remember it.
+pub fn toggle(cx: &mut gpui::App) {
+    let dark = !enabled();
+    super::preferences::update(|preferences| preferences.dark_pages = dark);
+    // Every viewer follows (`observe_global` in `PdfView::new`).
+    cx.set_global(DarkPages);
+}
+
 pub(super) fn set_enabled(dark: bool) {
     DARK_PAGES.store(dark, Ordering::Relaxed);
 }

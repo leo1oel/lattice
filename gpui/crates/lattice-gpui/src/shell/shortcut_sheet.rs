@@ -40,6 +40,7 @@ impl ShortcutSheet {
         let mut context = shell.command_context(cx);
         // Every command, as the sheet lists keys whatever applies now.
         context.in_project = true;
+        context.latex_source = true;
         let groups = shortcut_groups(&commands::commands(&context), cx);
         let input =
             cx.new(|cx| InputState::new(window, cx).placeholder(t!("Filter by name or key")));
