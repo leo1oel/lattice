@@ -62,7 +62,7 @@ impl Shell {
             project: self.root(cx),
             editors: self.editors.clone(),
         };
-        self.annotation_rounds().update(cx, |rounds, _| rounds.set_host(host));
+        self.annotation_rounds().update(cx, |rounds, cx| rounds.set_host(host, cx));
     }
 
     /// The window's revision rounds.

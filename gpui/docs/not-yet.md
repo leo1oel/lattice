@@ -35,6 +35,8 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] The Agent: a Finder drop onto its panel, and the microphone in its composer.
 
+- [ ] The Agent: its annotation tools, recording proposals and questions from the conversation into the open round.
+
 - [ ] The Revision rounds sheet, comparing a round's versions (and the round saved toast's Compare).
 
 - [ ] The Annotations panel's Export review PDF….

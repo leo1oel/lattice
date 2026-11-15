@@ -200,8 +200,18 @@ impl AnnotationRounds {
     }
 
     /// What the window has open now.
-    pub fn set_host(&mut self, host: RoundsHost) {
+    pub fn set_host(&mut self, host: RoundsHost, cx: &mut Context<Self>) {
+        let switched = host.project != self.host.project;
         self.host = host;
+        if switched {
+            self.running.clear();
+            self.queue.clear();
+            self.active.clear();
+            self.baselines.clear();
+            self.settling = None;
+            self.close_review(cx);
+            cx.notify();
+        }
     }
 
     /// `path`'s live text, when an editor has it open.

@@ -171,6 +171,14 @@ impl ReviewCard {
         cx.emit(ReviewEvent::Retry(guidance));
     }
 
+    /// Whether Accept would write something: the editor takes edits and,
+    /// when the agent offered edits, at least one is chosen.
+    fn can_accept(&self) -> bool {
+        let offered = self.review.as_ref().map_or(0, |review| review.edits.len());
+        let chosen = self.chosen().map_or(0, |(_, chosen)| chosen.len());
+        self.editable && !(offered > 0 && chosen == 0)
+    }
+
     /// One of the card's keys, which reach it as the editor's actions (the
     /// card is drawn in the editor, whose keymap binds them): ⌘↵ accepts,
     /// ⌫ rejects, ↑ and ↓ move between proposals, Esc closes.
@@ -180,7 +188,7 @@ impl ReviewCard {
         }
         let decidable = self.proposal().is_some() && !self.running;
         match key {
-            "accept" if decidable => cx.emit(ReviewEvent::Accept),
+            "accept" if decidable && self.can_accept() => cx.emit(ReviewEvent::Accept),
             "reject" if decidable => cx.emit(ReviewEvent::Reject),
             "down" | "up" if self.total > 1 => {
                 cx.emit(ReviewEvent::Navigate(if key == "down" { 1 } else { -1 }))
@@ -208,7 +216,7 @@ impl ReviewCard {
         let decidable = self.proposal().is_some() && !self.running;
         match keys.key.as_str() {
             "enter" if command => {
-                if decidable {
+                if decidable && self.can_accept() {
                     cx.emit(ReviewEvent::Accept);
                 }
             }
@@ -346,8 +354,6 @@ impl ReviewCard {
                 .into_any_element();
         }
         if self.proposal().is_some() && !self.running {
-            let offered = self.review.as_ref().map_or(0, |review| review.edits.len());
-            let chosen = self.chosen().map_or(0, |(_, chosen)| chosen.len());
             let accept_keys = if cfg!(target_os = "macos") { "⌘↩" } else { "Ctrl+↩" };
             row = row
                 .child(
@@ -355,7 +361,7 @@ impl ReviewCard {
                         .compact()
                         .tinted()
                         .keys(accept_keys)
-                        .disabled(!self.editable || (offered > 0 && chosen == 0))
+                        .disabled(!self.can_accept())
                         .on_click(emit(ReviewEvent::Accept, cx)),
                 )
                 .child(

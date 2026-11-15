@@ -91,6 +91,10 @@ impl AnnotationsPanel {
         cx: &mut Context<Self>,
     ) -> Option<AnyElement> {
         let rounds = self.rounds.rounds.clone()?;
+        let asked = comment.revision.as_ref().is_some_and(|revision| revision.state == "asked");
+        if comment.resolved || !asked || rounds.read(cx).is_running(&comment.id) {
+            self.rounds.answers.remove(&comment.id);
+        }
         let revision = comment.revision.as_ref()?;
         if comment.resolved || rounds.read(cx).is_running(&comment.id) {
             return None;
@@ -111,10 +115,13 @@ impl AnnotationsPanel {
                                 .auto_grow(2, 6)
                         });
                         let (answer_id, answer_rounds) = (id.clone(), rounds.clone());
-                        cx.subscribe(&field, move |_, field, event: &InputEvent, cx| match event {
+                        cx.subscribe(&field, move |this, field, event: &InputEvent, cx| match event {
                             InputEvent::PressEnter { secondary: true, .. } => {
                                 let text = field.read(cx).value().to_string();
                                 answer_rounds.update(cx, |rounds, cx| rounds.answer(&answer_id, &text, cx));
+                                if answer_rounds.read(cx).is_running(&answer_id) {
+                                    this.rounds.answers.remove(&answer_id);
+                                }
                             }
                             InputEvent::Change => cx.notify(),
                             _ => {}
@@ -148,10 +155,13 @@ impl AnnotationsPanel {
                                     .compact()
                                     .tinted()
                                     .disabled(!filled)
-                                    .on_click(move |_, _, cx| {
+                                    .on_click(cx.listener(move |this, _, _, cx| {
                                         let text = send.read(cx).value().to_string();
                                         rounds.update(cx, |rounds, cx| rounds.answer(&id, &text, cx));
-                                    }),
+                                        if rounds.read(cx).is_running(&id) {
+                                            this.rounds.answers.remove(&id);
+                                        }
+                                    })),
                             ),
                         )
                         .into_any_element(),
