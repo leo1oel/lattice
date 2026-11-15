@@ -34,6 +34,22 @@ pub(super) fn item_ids(items: &[TreeItem], ids: &mut HashSet<String>) {
     }
 }
 
+/// The row `entry` is drawn as, among the rows' ids `known`: its own, or,
+/// for a folder drawn as one row with its chain of single folders, that
+/// row (the deepest of the chain, the shortest id inside it). None when the
+/// tree leaves it out.
+pub(super) fn row_for(entry: &str, known: &HashSet<String>) -> Option<String> {
+    if known.contains(entry) {
+        return Some(entry.to_string());
+    }
+    let inside = format!("{entry}/");
+    known
+        .iter()
+        .filter(|id| id.starts_with(&inside))
+        .min_by_key(|id| id.len())
+        .cloned()
+}
+
 /// The files the tree leaves out until Show hidden files: a class's or a
 /// bibliography style's support files (`.sty`, `.bst`), which a template
 /// brings and the writer rarely opens (`hideTemplateFiles`).
@@ -97,6 +113,33 @@ mod tests {
         assert_eq!(label, "slides/understanding-attention");
         let items = tree_items(&[slides], &HashSet::new());
         assert_eq!(items[0].id.as_ref(), "slides/understanding-attention");
+    }
+
+    #[test]
+    fn an_entry_is_found_as_its_own_row_or_its_chains_row() {
+        let theme = node(
+            "theme",
+            "directory",
+            vec![node(
+                "theme/fonts",
+                "directory",
+                vec![node("theme/fonts/serif.otf", "file", vec![])],
+            )],
+        );
+        let mut nodes = vec![
+            theme,
+            node("main.tex", "file", vec![]),
+            node("acl.sty", "file", vec![]),
+        ];
+        hide_template_files(&mut nodes);
+        let mut known = HashSet::new();
+        item_ids(&tree_items(&nodes, &HashSet::new()), &mut known);
+        assert_eq!(row_for("main.tex", &known).as_deref(), Some("main.tex"));
+        // The folder imported is drawn as "theme/fonts", under that id.
+        assert_eq!(row_for("theme", &known).as_deref(), Some("theme/fonts"));
+        // A hidden support file, and a look-alike name, have no row.
+        assert_eq!(row_for("acl.sty", &known), None);
+        assert_eq!(row_for("them", &known), None);
     }
 
     #[test]

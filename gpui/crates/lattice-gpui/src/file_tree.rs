@@ -222,14 +222,23 @@ impl FileTreePanel {
     pub fn set_project(&mut self, project: Entity<Project>, cx: &mut Context<Self>) {
         self._project_subscription =
             Some(cx.subscribe(&project, |this, _, event, cx| match event {
-                ProjectEvent::TreeChanged | ProjectEvent::ManifestChanged => this.rebuild(cx),
+                ProjectEvent::TreeChanged => {
+                    this.rebuild(cx);
+                    this.reveal_scanned(cx);
+                }
+                ProjectEvent::ManifestChanged => this.rebuild(cx),
                 ProjectEvent::GitChanged => {
                     this.read_marks(cx);
                     this.redraw_rows(cx);
                 }
                 ProjectEvent::FilesChanged(_) => {}
             }));
-        // The folders open when this project was last shown come back.
+        // The folders open when this project was last shown come back, and
+        // Kit's tree lets go of the last project's rows first: the rebuild
+        // notes which of the rows it holds are open, and those are not this
+        // project's.
+        self.state
+            .update(cx, |state, cx| state.set_items(Vec::new(), cx));
         self.expanded = memory::expanded(project.read(cx).root())
             .into_iter()
             .collect();
@@ -238,6 +247,7 @@ impl FileTreePanel {
         self.copied = None;
         self.selection.clear();
         self.reveal = None;
+        self.reveal_selects = false;
         self.revealed = None;
         self.rebuild(cx);
         self.follow_current(cx);
@@ -262,6 +272,7 @@ impl FileTreePanel {
         let Some(project) = self.project.clone() else {
             return;
         };
+        self.adopt_kit_row(cx);
         self.remember_expanded(cx);
         let mut nodes = project.read(cx).files().to_vec();
         if !project.read(cx).show_hidden() {
@@ -656,11 +667,14 @@ impl Render for FileTreePanel {
                         .on_drop(move |dragged: &DraggedEntry, _, cx| {
                             cx.stop_propagation();
                             *entry_drop_aim.borrow_mut() = Aim::default();
-                            // Nothing moves into itself; the rest still go.
+                            // Nothing moves into itself or a folder inside
+                            // it; the rest still go.
                             let paths: Vec<String> = dragged
                                 .paths
                                 .iter()
-                                .filter(|path| **path != target)
+                                .filter(|path| {
+                                    **path != target && !target.starts_with(&format!("{path}/"))
+                                })
                                 .cloned()
                                 .collect();
                             if paths.is_empty() {

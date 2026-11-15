@@ -17,7 +17,7 @@ use gpui::{
     App, ClickEvent, Context, KeyDownEvent, Modifiers, ScrollStrategy, SharedString, Window,
 };
 
-use super::{FileTreeEvent, FileTreePanel};
+use super::{FileTreeEvent, FileTreePanel, rows::row_for};
 
 #[derive(Default)]
 pub(super) struct Selection {
@@ -76,6 +76,16 @@ impl Selection {
         }
     }
 
+    /// Kit's tree's row `kit` moved on from the cursor (an arrow key): it
+    /// is the one row selected now, before the selection changes again.
+    pub(super) fn adopt(&mut self, kit: Option<&str>) {
+        if let Some(kit) = kit
+            && self.cursor.as_deref() != Some(kit)
+        {
+            self.only(kit);
+        }
+    }
+
     pub(super) fn cursor(&self) -> Option<&str> {
         self.cursor.as_deref()
     }
@@ -120,12 +130,22 @@ pub(super) fn including(selected: &[String], path: &str) -> Vec<String> {
 impl FileTreePanel {
     /// The selected rows, project-relative, in the order chosen.
     pub(crate) fn selected_paths(&self, cx: &App) -> Vec<String> {
-        let kit = self
-            .state
+        self.selection.effective(self.kit_row(cx).as_deref())
+    }
+
+    /// The row Kit's tree has selected, the keyboard's.
+    fn kit_row(&self, cx: &App) -> Option<String> {
+        self.state
             .read(cx)
             .selected_entry()
-            .map(|entry| entry.item().id.to_string());
-        self.selection.effective(kit.as_deref())
+            .map(|entry| entry.item().id.to_string())
+    }
+
+    /// Make the row an arrow key moved Kit's tree to the selection, before
+    /// anything picks rows from it or points Kit's tree elsewhere.
+    pub(super) fn adopt_kit_row(&mut self, cx: &App) {
+        let kit = self.kit_row(cx);
+        self.selection.adopt(kit.as_deref());
     }
 
     /// The rows shown, top to bottom, project-relative.
@@ -148,7 +168,8 @@ impl FileTreePanel {
             .update(cx, |state, cx| state.set_selected_index(ix, cx));
     }
 
-    /// After Kit's tree took new rows (which drops its selection): the
+    /// After Kit's tree took new rows (which drops its selection, so the
+    /// rebuild adopted its row before): the
     /// selection keeps what is still there, the keyboard's row with it, and a
     /// file waiting to be revealed is revealed when its row has arrived.
     pub(super) fn settle_selection(&mut self, cx: &mut Context<Self>) {
@@ -156,7 +177,7 @@ impl FileTreePanel {
         self.selection.retain(|path| rows.contains(path));
         let cursor = self.selection.cursor().map(str::to_string);
         self.point_kit_at(cursor.as_deref(), cx);
-        self.reveal_pending(cx);
+        self.reveal_pending(false, cx);
     }
 
     /// A click on the row at `path`, before Kit's tree sees it: ⌘ and ⇧ pick
@@ -185,6 +206,7 @@ impl FileTreePanel {
         modifiers: Modifiers,
         cx: &mut Context<Self>,
     ) -> bool {
+        self.adopt_kit_row(cx);
         let Modifiers {
             platform, shift, ..
         } = modifiers;
@@ -230,38 +252,62 @@ impl FileTreePanel {
     /// alone, and bring its row into view the first time it is open.
     pub(super) fn follow_current(&mut self, cx: &mut Context<Self>) {
         let Some(relative) = self.current_relative(cx) else {
+            // The next file opened, even the same one again, is a new opening.
+            self.revealed = None;
             return;
         };
-        if !self.selected_paths(cx).contains(&relative) {
+        self.adopt_kit_row(cx);
+        if !self.selection.effective(None).contains(&relative) {
             self.selection.only(&relative);
         }
         if self.revealed.as_deref() != Some(relative.as_str()) {
             self.reveal = Some(vec![relative]);
+            self.reveal_selects = false;
         }
-        self.reveal_pending(cx);
+        self.reveal_pending(false, cx);
     }
 
     /// Select `paths` and bring the first into view, opening the folders down
     /// to each: what an import does with what it brought in. Rows that have
-    /// not reached the tree yet wait for its next scan.
+    /// not reached the tree yet wait for its next scan; what that scan does
+    /// not show (a hidden file) is left out then.
     pub(crate) fn reveal_paths(&mut self, paths: Vec<String>, cx: &mut Context<Self>) {
         if paths.is_empty() {
             return;
         }
         self.reveal_selects = true;
         self.reveal = Some(paths);
-        self.reveal_pending(cx);
+        self.reveal_pending(false, cx);
     }
 
-    fn reveal_pending(&mut self, cx: &mut Context<Self>) {
-        let Some(paths) = self.reveal.clone() else {
+    /// A scan arrived: an import's rows waiting for it are revealed as far as
+    /// the tree shows them.
+    pub(super) fn reveal_scanned(&mut self, cx: &mut Context<Self>) {
+        if self.reveal_selects {
+            self.reveal_pending(true, cx);
+        }
+    }
+
+    /// Reveal the rows waiting to be revealed once every one is in the tree,
+    /// or, `scanned`, those of them the tree shows.
+    fn reveal_pending(&mut self, scanned: bool, cx: &mut Context<Self>) {
+        let Some(entries) = self.reveal.clone() else {
             return;
         };
+        self.adopt_kit_row(cx);
         let known = self.all_paths(cx);
-        if !paths.iter().all(|path| known.contains(path)) {
+        let paths: Vec<String> = entries
+            .iter()
+            .filter_map(|entry| row_for(entry, &known))
+            .collect();
+        if paths.len() < entries.len() && !scanned {
             return;
         }
         self.reveal = None;
+        if paths.is_empty() {
+            self.reveal_selects = false;
+            return;
+        }
         for path in &paths {
             let id = SharedString::from(path.clone());
             self.state.update(cx, |state, cx| {
@@ -285,8 +331,9 @@ impl FileTreePanel {
             .read(cx)
             .index_of(&SharedString::from(paths[0].clone()))
         {
-            self.state
-                .update(cx, |state, _| state.scroll_to_item(ix, ScrollStrategy::Nearest));
+            self.state.update(cx, |state, _| {
+                state.scroll_to_item(ix, ScrollStrategy::Nearest)
+            });
         }
         self.remember_expanded(cx);
         self.redraw_rows(cx);
@@ -314,10 +361,16 @@ mod tests {
         let mut selection = Selection::default();
         selection.only("chapters/a.tex");
         selection.toggle("main.tex");
-        assert_eq!(selection.effective(None), rows(&["chapters/a.tex", "main.tex"]));
+        assert_eq!(
+            selection.effective(None),
+            rows(&["chapters/a.tex", "main.tex"])
+        );
         // ⇧ runs from the last row clicked, either way up.
         selection.extend("chapters/b.tex", &shown);
-        assert_eq!(selection.effective(None), rows(&["chapters/b.tex", "main.tex"]));
+        assert_eq!(
+            selection.effective(None),
+            rows(&["chapters/b.tex", "main.tex"])
+        );
         selection.extend("chapters", &shown);
         assert_eq!(selection.effective(None), shown);
         // ⌘ on a selected row takes it out.
@@ -333,17 +386,50 @@ mod tests {
         let mut selection = Selection::default();
         selection.only("a.tex");
         selection.toggle("b.tex");
-        assert_eq!(selection.effective(Some("b.tex")), rows(&["a.tex", "b.tex"]));
+        assert_eq!(
+            selection.effective(Some("b.tex")),
+            rows(&["a.tex", "b.tex"])
+        );
         assert_eq!(selection.effective(Some("c.tex")), rows(&["c.tex"]));
+    }
+
+    #[test]
+    fn a_row_reached_by_arrow_keys_is_where_the_next_click_starts_from() {
+        let shown = rows(&["a.tex", "b.tex", "c.tex", "d.tex"]);
+        let mut selection = Selection::default();
+        selection.only("a.tex");
+        selection.toggle("b.tex");
+        // Kit's row still where the last click left it, or none, keeps both.
+        selection.adopt(Some("b.tex"));
+        selection.adopt(None);
+        assert_eq!(selection.effective(None), rows(&["a.tex", "b.tex"]));
+        // Down to c.tex, then ⌘-click d.tex: c.tex and d.tex, not a, b, d.
+        selection.adopt(Some("c.tex"));
+        assert_eq!(selection.effective(None), rows(&["c.tex"]));
+        selection.toggle("d.tex");
+        assert_eq!(selection.effective(None), rows(&["c.tex", "d.tex"]));
+        // Up to b.tex, then ⇧-click d.tex runs from b.tex.
+        selection.adopt(Some("b.tex"));
+        selection.extend("d.tex", &shown);
+        assert_eq!(
+            selection.effective(None),
+            rows(&["b.tex", "c.tex", "d.tex"])
+        );
     }
 
     #[test]
     fn a_batch_is_the_selection_holding_the_row_with_folders_taking_their_rows() {
         let selected = rows(&["figures", "figures/plot.png", "main.tex", "main.tex"]);
-        assert_eq!(including(&selected, "main.tex"), rows(&["figures", "main.tex"]));
+        assert_eq!(
+            including(&selected, "main.tex"),
+            rows(&["figures", "main.tex"])
+        );
         // A row outside the selection goes alone.
         assert_eq!(including(&selected, "notes.md"), rows(&["notes.md"]));
         // A look-alike name is not inside the folder.
-        assert_eq!(outermost(&rows(&["fig", "figures/a.png"])), rows(&["fig", "figures/a.png"]));
+        assert_eq!(
+            outermost(&rows(&["fig", "figures/a.png"])),
+            rows(&["fig", "figures/a.png"])
+        );
     }
 }
