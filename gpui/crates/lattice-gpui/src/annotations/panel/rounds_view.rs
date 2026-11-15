@@ -79,6 +79,11 @@ impl AnnotationsPanel {
         })
     }
 
+    /// Whether the head offers Revision rounds now (for a scenario).
+    pub(crate) fn offers_rounds(&self, cx: &gpui::App) -> bool {
+        self.rounds_button(cx).is_some()
+    }
+
     /// Whether the agent is answering `id` now.
     pub(super) fn revising(&self, id: &str, cx: &gpui::App) -> bool {
         self.rounds.rounds.as_ref().is_some_and(|rounds| rounds.read(cx).is_running(id))

@@ -154,6 +154,25 @@ impl RoundsSheet {
         }
     }
 
+    /// Select `version` in the rail, as a click on its row does (for a
+    /// scenario).
+    pub fn select(&mut self, version: Version, cx: &mut Context<Self>) {
+        self.selected = version;
+        self.base = None;
+        cx.notify();
+    }
+
+    /// Ask to restore the version selected, as its Restore button does
+    /// (for a scenario).
+    pub fn ask_to_restore(&mut self, cx: &mut Context<Self>) {
+        self.ask_restore(cx);
+    }
+
+    /// The error the sheet shows, if any (for a scenario).
+    pub fn shown_error(&self) -> Option<SharedString> {
+        self.error.clone()
+    }
+
     /// The restore did not go through: why, and the sheet stays.
     pub fn restore_failed(&mut self, error: String, cx: &mut Context<Self>) {
         self.restoring = false;
