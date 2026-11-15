@@ -45,8 +45,39 @@ impl Run {
     /// language included), close a dirty tab, a vanished file's tab and a window,
     /// and type before the quit that ends the run, which the result's `after_quit`
     /// names for the CI workflow to check on disk.
+    ///
+    /// A step that cannot go on (an error the flow returns with `?`) ends
+    /// the flow, but not the result: the steps recorded until then are kept,
+    /// with a failed step and `error` saying where it stopped, so the main
+    /// baseline (`scripts/gpui-main-baseline.mjs`) still knows which of them
+    /// main passes. A feature module that stops is recorded the same way and
+    /// the run goes on with the next one (`run_modules`).
     pub(super) async fn e2e(&self, cx: &mut AsyncApp) -> Result<Value> {
         let mut steps = Steps::new(self);
+        let (quit, error) = match self.e2e_flow(cx, &mut steps).await {
+            Ok(quit) => (Some(quit), None),
+            Err(error) => {
+                let error = format!("{error:#}");
+                steps.check(
+                    "the e2e scenario runs to its end",
+                    false,
+                    json!({ "error": error }),
+                );
+                (None, Some(error))
+            }
+        };
+        steps.check_foreground(self);
+
+        let passed = steps.0.iter().all(|step| step["passed"] == true);
+        let mut result = json!({ "scenario": "e2e", "passed": passed, "modules": steps::only(), "steps": steps.0, "after_quit": quit });
+        if let Some(error) = error {
+            result["error"] = json!(error);
+        }
+        Ok(result)
+    }
+
+    /// The flow itself; returns what `after_quit` names.
+    async fn e2e_flow(&self, cx: &mut AsyncApp, steps: &mut Steps) -> Result<Value> {
         let root = self.root(cx).await?;
         // No step may reach a real TeX install.
         let stub = self.stub_tex_setup(cx, &root);
@@ -97,9 +128,8 @@ impl Run {
                 .any(|row| row.ends_with(".aux") || row.ends_with(".log") || row == "main.pdf"),
             json!({ "rows": rows }),
         );
-        self.sequence_and_words(cx, &mut steps).await?;
-        self.run_modules(After::Build, cx, &mut steps, &fixture)
-            .await?;
+        self.sequence_and_words(cx, steps).await?;
+        self.run_modules(After::Build, cx, steps, &fixture).await?;
 
         let editor = self.open(cx, &chapter, Some(2))?;
         self.pause(cx, Duration::from_millis(300)).await;
@@ -124,9 +154,9 @@ impl Run {
             json!({ "language": language }),
         );
 
-        let intro_top = self.synctex(cx, &mut steps, &root, &editor).await?;
-        self.bib_sync(cx, &mut steps, &root, intro_top).await?;
-        self.autosave_and_outside_edits(cx, &mut steps, &chapter, &editor)
+        let intro_top = self.synctex(cx, steps, &root, &editor).await?;
+        self.bib_sync(cx, steps, &root, intro_top).await?;
+        self.autosave_and_outside_edits(cx, steps, &chapter, &editor)
             .await?;
         // The chapter as the merge left it, for the repair below.
         let merged = std::fs::read_to_string(&chapter).unwrap_or_else(|_| original.clone());
@@ -177,7 +207,7 @@ impl Run {
             !built && located,
             json!({ "seconds": took.as_secs_f32(), "error": error.as_ref().map(|(d, _)| format!("{:?}:{:?} {}", d.file, d.line, d.message)) }),
         );
-        self.explained_failure(cx, &mut steps).await?;
+        self.explained_failure(cx, steps).await?;
 
         if let Some((_, Some(location))) = error {
             self.with_window(cx, |shell, window, cx| {
@@ -237,8 +267,7 @@ impl Run {
         })
         .await;
         std::fs::remove_file(&scratch).ok();
-        self.run_modules(After::Vim, cx, &mut steps, &fixture)
-            .await?;
+        self.run_modules(After::Vim, cx, steps, &fixture).await?;
 
         // Repairing the file outside Lattice reloads the clean buffer.
         std::fs::write(&chapter, &merged)?;
@@ -261,15 +290,14 @@ impl Run {
         // Overlays above a page need gpui-fast's window composition, which
         // WebView2 does not join yet (gpui-webview 0.9.1), so the island
         // modules run on macOS.
-        self.run_modules(After::Repair, cx, &mut steps, &fixture)
-            .await?;
+        self.run_modules(After::Repair, cx, steps, &fixture).await?;
 
         // Smoke: a second window opens on the project and draws its PDF.
-        self.second_window_pdf(cx, &mut steps, &root).await?;
+        self.second_window_pdf(cx, steps, &root).await?;
         // The terminal steps type Unix commands (`pwd`, `printenv`, `cat`);
         // Windows' shell is PowerShell, checked by hand for now.
         #[cfg(target_os = "macos")]
-        self.terminal_panel(cx, &mut steps, &root)
+        self.terminal_panel(cx, steps, &root)
             .await
             .context("terminal_panel")?;
 
@@ -297,16 +325,10 @@ impl Run {
         // Get started runs last among these (its rank): it opens the tutorial,
         // then the fixture again, so the modules that start from the
         // fixture's layout run before it.
-        self.run_modules(After::Terminal, cx, &mut steps, &fixture)
+        self.run_modules(After::Terminal, cx, steps, &fixture)
             .await?;
         // Last: `scenario::start` quits once the result is written.
-        let quit = self.type_before_quit(cx, &mut steps, &root).await?;
-        steps.check_foreground(self);
-
-        let passed = steps.0.iter().all(|step| step["passed"] == true);
-        Ok(
-            json!({ "scenario": "e2e", "passed": passed, "modules": steps::only(), "steps": steps.0, "after_quit": quit }),
-        )
+        self.type_before_quit(cx, steps, &root).await
     }
 
     /// A module's setup in an `--only` run, for the modules that start from
@@ -343,9 +365,17 @@ impl Run {
             if module.setup {
                 self.standalone_setup(cx, &fixture.root).await?;
             }
-            (module.run)(self, cx, steps, fixture)
-                .await
-                .context(registered.name)?;
+            // A module that stops part way is one failed step, and the next
+            // module runs: most start from the project as the smoke flow left
+            // it, so one module's abort costs the run only its own steps.
+            if let Err(error) = (module.run)(self, cx, steps, fixture).await {
+                log::error!("e2e module {} stopped: {error:#}", registered.name);
+                steps.check(
+                    &format!("the {} module runs to its end", registered.name),
+                    false,
+                    json!({ "error": format!("{error:#}") }),
+                );
+            }
         }
         Ok(())
     }
