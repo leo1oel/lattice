@@ -154,10 +154,11 @@ export function useAgentAnnotations(projectRoot: string, overleafState: Overleaf
     const take = (notes: AnnotationsState) => {
       const known = new Set(annotatedPaths());
       stateRef.current = { annotations: notes.annotations ?? [], rounds: notes.rounds ?? [] };
+      loadedRef.current = { error: null };
       readSources(annotatedPaths().filter((path) => !known.has(path)));
     };
     const stopStore = host().on("agent:annotations", (payload) => {
-      if (live && pending === 0 && loadedRef.current?.error === null && payload && typeof payload === "object") {
+      if (live && pending === 0 && payload && typeof payload === "object") {
         take(payload as AnnotationsState);
       }
     });
