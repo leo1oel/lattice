@@ -65,6 +65,7 @@ mod parts;
 mod pdfs;
 mod references_flow;
 mod render;
+pub(crate) mod research_flow;
 mod saving;
 mod settings_flow;
 mod shortcut_groups;

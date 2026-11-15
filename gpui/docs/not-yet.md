@@ -84,3 +84,7 @@ A feature that lands deletes its own line (only that line, so features landing s
 - [ ] Each file's editor and PDF place kept across launches.
 
 - [ ] The palette's New LaTeX file, New Markdown file, New spreadsheet, New board and New presentation (the Project panel cannot make a typed file yet).
+
+- [ ] Papers' hover prewarm of a paper the pointer is likely to open.
+
+- [ ] Papers' notice when the browser could not open an article (GPUI's opener reports no failure).

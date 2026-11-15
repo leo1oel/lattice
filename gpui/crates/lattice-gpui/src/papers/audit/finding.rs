@@ -56,7 +56,7 @@ pub struct Finding {
 }
 
 impl Finding {
-    pub(super) fn from_core(result: &impl Serialize) -> Option<Self> {
+    pub(crate) fn from_core(result: &impl Serialize) -> Option<Self> {
         let mut finding: Finding =
             serde_json::from_value(serde_json::to_value(result).ok()?).ok()?;
         finding.checked_at = Some(chrono_now());

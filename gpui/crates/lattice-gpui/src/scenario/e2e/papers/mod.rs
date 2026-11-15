@@ -17,6 +17,7 @@ use serde_json::json;
 use super::Steps;
 use crate::{papers::model::Filter, scenario::Run};
 
+mod library;
 mod reader;
 
 const BUNDLE: &str = ".research/papers/1706.03762";
@@ -179,6 +180,7 @@ impl Run {
             cited == ["The TeXbook"],
             json!({ "shown": cited }),
         );
+        self.papers_library(cx, steps, &papers).await?;
 
         // A click opens the saved text in the paper's reader (its body under
         // the converter's front matter, which the visual editor leaves out),
@@ -384,7 +386,12 @@ impl Run {
         let entry = "@article{kingma2013vae,\n  title = {Auto-Encoding Variational Bayes},\n  author = {Kingma, Diederik P. and Welling, Max},\n  year = {2013},\n  eprint = {1312.6114},\n  archivePrefix = {arXiv}\n}\n";
         let started = cx.update(|cx| {
             papers.update(cx, |panel, cx| {
-                panel.import_entry(entry.to_string(), "Auto-Encoding Variational Bayes".into(), cx)
+                panel.import_entry(
+                    entry.to_string(),
+                    "Auto-Encoding Variational Bayes".into(),
+                    false,
+                    cx,
+                )
             })
         });
         let mut stages: Vec<String> = Vec::new();

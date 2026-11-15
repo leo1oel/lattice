@@ -29,6 +29,10 @@ const LETTER_RACK_SOURCE: &str =
     include_str!("../../../../src/components/ui/research-art-letter-rack.ts");
 const ANNOTATION_FLAGS_SOURCE: &str =
     include_str!("../../../../src/components/ui/research-art-annotation-flags.ts");
+const CARD_INDEX_SOURCE: &str =
+    include_str!("../../../../src/components/ui/research-art-card-index.ts");
+const CATALOGUE_DRAWER_SOURCE: &str =
+    include_str!("../../../../src/components/ui/research-art-catalogue-drawer.ts");
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Tone {
@@ -54,6 +58,8 @@ static MARGIN_NOTES: LazyLock<Vec<ArtPath>> = LazyLock::new(|| parse(MARGIN_NOTE
 static PROOF_MARKS: LazyLock<Vec<ArtPath>> = LazyLock::new(|| parse(PROOF_MARKS_SOURCE));
 static LETTER_RACK: LazyLock<Vec<ArtPath>> = LazyLock::new(|| parse(LETTER_RACK_SOURCE));
 static ANNOTATION_FLAGS: LazyLock<Vec<ArtPath>> = LazyLock::new(|| parse(ANNOTATION_FLAGS_SOURCE));
+static CARD_INDEX: LazyLock<Vec<ArtPath>> = LazyLock::new(|| parse(CARD_INDEX_SOURCE));
+static CATALOGUE_DRAWER: LazyLock<Vec<ArtPath>> = LazyLock::new(|| parse(CATALOGUE_DRAWER_SOURCE));
 
 /// The drawings ported so far, each read from the Tauri app's own module.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -70,6 +76,10 @@ pub enum Drawing {
     LetterRack,
     /// `ANNOTATION_FLAGS`: nothing marked yet (the Annotations panel).
     AnnotationFlags,
+    /// `CARD_INDEX`: the empty Papers library.
+    CardIndex,
+    /// `CATALOGUE_DRAWER`: Add papers with nothing pasted yet.
+    CatalogueDrawer,
 }
 
 impl Drawing {
@@ -81,6 +91,8 @@ impl Drawing {
             Drawing::ProofMarks => &PROOF_MARKS,
             Drawing::LetterRack => &LETTER_RACK,
             Drawing::AnnotationFlags => &ANNOTATION_FLAGS,
+            Drawing::CardIndex => &CARD_INDEX,
+            Drawing::CatalogueDrawer => &CATALOGUE_DRAWER,
         }
     }
 }

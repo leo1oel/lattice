@@ -255,9 +255,9 @@ impl AddReference {
             .relative()
             .flex()
             .flex_1()
-            .min_w(px(140.))
+            .min_w_0()
             .capture_key_down(cx.listener(Self::venue_key))
-            .child(self.field(Field::Venue, t!("Venue"), cx))
+            .child(self.field_box(Field::Venue, cx))
             .children(menu)
             .into_any_element()
     }

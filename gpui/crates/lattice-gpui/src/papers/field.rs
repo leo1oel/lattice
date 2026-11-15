@@ -204,6 +204,14 @@ impl PapersPanel {
                                 }
                             },
                         ))
+                        // The down arrow goes on to the results.
+                        .capture_action(cx.listener(
+                            |this, _: &gpui_kit::component::input::MoveDown, window, cx| {
+                                if this.focus_list(window, cx) {
+                                    cx.stop_propagation();
+                                }
+                            },
+                        ))
                         .child(
                             Input::new(self.input())
                                 .appearance(false)
@@ -398,6 +406,12 @@ impl PapersPanel {
         })
     }
 
+    /// The steps the import under way's pending row names, for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn pending_stages(&self) -> Option<&'static [&'static str]> {
+        self.importing.as_ref().map(super::Importing::stages)
+    }
+
     /// The import under way: what was given, the pipeline's three steps,
     /// Cancel, and a hairline of progress.
     pub(super) fn render_pending(
@@ -407,16 +421,18 @@ impl PapersPanel {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let palette = cx.palette().clone();
-        let stages = [
-            ("resolving", t!("Metadata")),
-            ("fulltext", t!("Full text")),
-            ("overview", t!("Overview")),
-        ];
-        // Adding the citation alone has only the first step.
-        let stages = match importing.full_text {
-            lattice_core::papers::FullText::Save => &stages[..],
-            lattice_core::papers::FullText::Skip => &stages[..1],
-        };
+        let stages: Vec<_> = importing
+            .stages()
+            .iter()
+            .map(|id| {
+                let name = match *id {
+                    "resolving" => t!("Metadata"),
+                    "fulltext" => t!("Full text"),
+                    _ => t!("Overview"),
+                };
+                (*id, name)
+            })
+            .collect();
         let at = stages
             .iter()
             .position(|(id, _)| Some(*id) == importing.stage.as_deref())

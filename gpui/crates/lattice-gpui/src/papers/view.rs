@@ -36,7 +36,11 @@ const INSPECTOR_WIDTH: f32 = 360.;
 impl PapersPanel {
     /// The library while its list is not there yet, or why reading it
     /// failed; never the empty library's invitation.
-    fn render_load_status(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
+    fn render_load_status(
+        &self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Option<AnyElement> {
         let palette = cx.palette().clone();
         let label = match &self.load {
             // Read, and empty, while the first Overleaf sync may still be
@@ -60,22 +64,43 @@ impl PapersPanel {
                 );
             }
         };
+        // One line on the rows' icon gutter, where the first row will be;
+        // it holds back a moment before fading in, so a list read at once
+        // never flashes it (`.papers-load-status`, `papers-load-in`).
+        let shown = window
+            .use_keyed_state("papers-load-status", cx, |_, _| std::time::Instant::now())
+            .read(cx)
+            .elapsed();
+        let fade = lattice_ui::motion::Motion::Fast;
+        let t = shown
+            .checked_sub(lattice_ui::motion::Motion::Moderate.duration())
+            .map_or(0., |faded| {
+                (faded.as_secs_f32() / fade.duration().as_secs_f32()).min(1.)
+            });
+        if t < 1. {
+            window.request_animation_frame();
+        }
         Some(
             div()
                 .flex()
                 .items_center()
                 .gap(px(6.))
+                .mx(px(2.))
                 .px(px(8.))
                 .py(px(10.))
-                .child(lattice_ui::loading::loader(
-                    "papers-loader",
-                    ICON_SMALL,
-                    palette.text_secondary,
-                    cx,
+                .opacity(fade.sample(t))
+                .child(div().flex_none().w(px(16.)).flex().justify_center().child(
+                    lattice_ui::loading::loader(
+                        "papers-loader",
+                        ICON_SMALL,
+                        palette.text_secondary,
+                        cx,
+                    ),
                 ))
                 .child(
                     div()
-                        .text_role(TextRole::Caption, cx)
+                        .min_w_0()
+                        .text_role(TextRole::Body, cx)
                         .text_color(palette.text_secondary)
                         .child(label),
                 )
@@ -387,23 +412,56 @@ impl PapersPanel {
         if let Some(add) = self.render_add_rows(0, window, cx) {
             return body.child(add).into_any_element();
         }
-        if let Some(status) = self.render_load_status(cx) {
+        if let Some(status) = self.render_load_status(window, cx) {
             return body.child(status).into_any_element();
         }
         let input = self.input().clone();
-        body = body.items_center().justify_center().child(reveal(
-            "papers-empty",
-            Arrival::PRODUCT,
-            EmptyState::new(t!("No papers yet")).action(
-                // Only focuses the box: what to add is the writer's to type.
-                Button::new("papers-first", t!("Add your first paper"))
-                    .compact()
-                    .on_click(move |_, window, cx| {
-                        input.update(cx, |input, cx| input.focus(window, cx));
-                    }),
-            ),
-            cx,
-        ));
+        let palette = cx.palette().clone();
+        // The card-index drawing over its heading and the action that takes
+        // the writer to the box above, centred in the room under it
+        // (`.papers-empty-state`); straight on the panel, which is already
+        // the card.
+        body = body
+            .pt(px(10.))
+            .items_center()
+            .justify_center()
+            .child(reveal(
+                "papers-empty",
+                Arrival::PRODUCT,
+                div()
+                    .flex()
+                    .flex_col()
+                    .items_center()
+                    .gap(px(6.))
+                    .min_w_0()
+                    .px(px(8.))
+                    .py(px(12.))
+                    .text_center()
+                    .child(crate::research_art::research_art(
+                        crate::research_art::Drawing::CardIndex,
+                        px(64.),
+                        palette.panel,
+                        cx,
+                    ))
+                    .child(
+                        div()
+                            .text_role(TextRole::Subtitle, cx)
+                            .text_color(palette.text)
+                            .child(t!("No papers yet")),
+                    )
+                    .child(
+                        div().mt(px(4.)).max_w_full().child(
+                            // Only focuses the box: what to add is the writer's
+                            // to type.
+                            Button::new("papers-first", t!("Add your first paper"))
+                                .compact()
+                                .on_click(move |_, window, cx| {
+                                    input.update(cx, |input, cx| input.focus(window, cx));
+                                }),
+                        ),
+                    ),
+                cx,
+            ));
         body.into_any_element()
     }
 }
@@ -426,6 +484,10 @@ impl Render for PapersPanel {
             .pb(px(10.))
             .pl(px(10.))
             .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| {
+                if this.list_key(event, window, cx) {
+                    cx.stop_propagation();
+                    return;
+                }
                 if event.keystroke.key != "escape" {
                     return;
                 }

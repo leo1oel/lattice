@@ -30,6 +30,7 @@ use super::{
     model::{self, PastedReference, ReferenceKind},
 };
 
+mod tools;
 mod view;
 
 /// What a paste looks like: one of each kind the box reads. Identifiers and
@@ -140,6 +141,8 @@ pub struct AddPapers {
     /// The Add button's, which holds the keyboard when the sheet opens with
     /// references already addable.
     pub(super) add_focus: FocusHandle,
+    /// The open candidates', whose arrows choose a record and Enter uses it.
+    pub(super) candidates_focus: FocusHandle,
     /// A paste landed in the box: its `Change` is read at once, without
     /// the pause.
     pub(super) pasted: bool,
@@ -184,6 +187,7 @@ impl AddPapers {
             zotero: None,
             focus: cx.focus_handle(),
             add_focus: cx.focus_handle(),
+            candidates_focus: cx.focus_handle().tab_stop(true),
             pasted: false,
             _settle: None,
             _lookups: HashMap::new(),
@@ -406,6 +410,33 @@ impl AddPapers {
         }
     }
 
+    /// The open candidates' arrows and Enter (a radio group's).
+    pub(super) fn candidates_key(
+        &mut self,
+        event: &gpui::KeyDownEvent,
+        count: usize,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some((_, at)) = &mut self.choosing else {
+            return;
+        };
+        if count == 0 || event.keystroke.modifiers.modified() {
+            return;
+        }
+        match event.keystroke.key.as_str() {
+            "down" | "right" => *at = (*at + 1) % count,
+            "up" | "left" => *at = (*at + count - 1) % count,
+            "enter" => {
+                self.use_candidate(cx);
+                window.focus(&self.add_focus, cx);
+            }
+            _ => return,
+        }
+        cx.stop_propagation();
+        cx.notify();
+    }
+
     pub(super) fn use_candidate(&mut self, cx: &mut Context<Self>) {
         if let Some((id, index)) = self.choosing.take() {
             self.chosen.insert(id, index);
@@ -415,7 +446,7 @@ impl AddPapers {
 
     /// Add every new reference, as a batch the Papers panel imports
     /// (`run_batch` starts nothing while another import holds the pipeline).
-    pub(super) fn add(&mut self, cx: &mut Context<Self>) {
+    pub(crate) fn add(&mut self, cx: &mut Context<Self>) {
         let requests: Vec<BatchRequest> = self
             .rows(cx)
             .into_iter()
