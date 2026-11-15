@@ -128,6 +128,7 @@ function parseCss(text) {
     if (open < 0) break;
     const head = css.slice(at, open).trim();
     if (head.startsWith("@")) {
+      if (head.includes(";")) fail(`statement at-rule ${head}`);
       let depth = 1;
       let index = open + 1;
       while (depth > 0) {
@@ -139,6 +140,8 @@ function parseCss(text) {
       if (head.startsWith("@keyframes")) {
         const name = head.slice("@keyframes".length).trim();
         keyframes.set(name, parseKeyframes(css.slice(open + 1, index - 1), name));
+      } else if (/\.(animated-product-icon|bakai-icon|lg-)/.test(css.slice(open + 1, index - 1))) {
+        fail(`${head}: an icon rule under a condition`);
       }
       at = index;
     } else {
