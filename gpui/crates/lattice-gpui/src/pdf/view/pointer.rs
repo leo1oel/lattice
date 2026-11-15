@@ -74,7 +74,7 @@ impl PdfView {
         cx.notify();
     }
 
-    fn link_at(&self, page: usize, x: f32, y: f32) -> Option<LinkTarget> {
+    pub(in crate::pdf) fn link_at(&self, page: usize, x: f32, y: f32) -> Option<LinkTarget> {
         let text = self.pages.get(page)?.text.as_ref()?;
         let link = text.links.iter().find(|link| link.contains(x, y))?;
         Some(link.target.clone())
@@ -86,6 +86,9 @@ impl PdfView {
         _: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if event.pressed_button.is_none() && !self.autoscrolling() {
+            self.hover_citation(event.position, cx);
+        }
         if !self.selecting || event.pressed_button != Some(MouseButton::Left) {
             return;
         }

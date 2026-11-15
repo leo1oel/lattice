@@ -29,6 +29,7 @@ use smallvec::smallvec;
 
 use super::{
     find::{FindOptions, Match, find_in_page},
+    named_links::{self, NamedLink},
     text::{Link, LinkTarget, PageText, TextChar},
 };
 
@@ -76,6 +77,7 @@ enum Request {
     Open {
         doc: DocId,
         bytes: Vec<u8>,
+        names: HashMap<usize, Vec<NamedLink>>,
         reply: oneshot::Sender<Result<DocumentInfo>>,
     },
     Close {
@@ -172,8 +174,25 @@ impl PdfEngine {
 
     /// Show `bytes` as `doc`, in place of what it showed before.
     pub fn open(&self, doc: DocId, bytes: Vec<u8>) -> oneshot::Receiver<Result<DocumentInfo>> {
+        self.open_named(doc, bytes, HashMap::new())
+    }
+
+    /// [`Self::open`], with each page's links to named destinations
+    /// (`named_links::read`, done off this worker), whose names the pages'
+    /// links then carry.
+    pub(super) fn open_named(
+        &self,
+        doc: DocId,
+        bytes: Vec<u8>,
+        names: HashMap<usize, Vec<NamedLink>>,
+    ) -> oneshot::Receiver<Result<DocumentInfo>> {
         let (reply, receiver) = oneshot::channel();
-        self.push(Request::Open { doc, bytes, reply });
+        self.push(Request::Open {
+            doc,
+            bytes,
+            names,
+            reply,
+        });
         receiver
     }
 
@@ -274,6 +293,8 @@ struct Open {
     generation: u64,
     document: PdfDocument<'static>,
     texts: HashMap<usize, Arc<PageText>>,
+    /// Each page's links to named destinations, by their rectangles.
+    names: HashMap<usize, Vec<NamedLink>>,
 }
 
 fn worker(pdfium: Pdfium, queue: &(Mutex<Queue>, Condvar)) {
@@ -284,7 +305,12 @@ fn worker(pdfium: Pdfium, queue: &(Mutex<Queue>, Condvar)) {
 
     while let Some(work) = next_work(queue) {
         match work {
-            Work::Request(Request::Open { doc, bytes, reply }) => {
+            Work::Request(Request::Open {
+                doc,
+                bytes,
+                names,
+                reply,
+            }) => {
                 if reply.is_canceled() {
                     continue;
                 }
@@ -304,6 +330,7 @@ fn worker(pdfium: Pdfium, queue: &(Mutex<Queue>, Condvar)) {
                                 generation,
                                 document,
                                 texts: HashMap::new(),
+                                names,
                             },
                         );
                         DocumentInfo {
@@ -508,6 +535,17 @@ fn page_text(open: &mut Open, index: usize) -> Result<Arc<PageText>> {
         let Some(target) = target else {
             continue;
         };
+        let raw = [
+            rect.left().value,
+            rect.bottom().value,
+            rect.right().value,
+            rect.top().value,
+        ];
+        let name = open
+            .names
+            .get(&index)
+            .and_then(|named| named.iter().find(|named| named_links::same_rect(&named.rect, raw)))
+            .map(|named| named.name.clone());
         let (x0, y0, x1, y1) = flip(rect);
         links.push(Link {
             x0,
@@ -515,6 +553,7 @@ fn page_text(open: &mut Open, index: usize) -> Result<Arc<PageText>> {
             x1,
             y1,
             target,
+            name,
         });
     }
     let text = Arc::new(PageText { chars, links });
@@ -711,6 +750,33 @@ mod tests {
             top: 812.,
             quarter_turns,
         }
+    }
+
+    #[test]
+    fn citation_links_keep_the_names_pdfium_resolves_away() {
+        let engine = PdfEngine::start().expect("PDFium (script/fetch-pdfium)");
+        let doc = engine.new_document();
+        let pdf = crate::pdf::named_links::tests::linked_pdf();
+        let names = crate::pdf::named_links::read(&pdf);
+        let info = futures::executor::block_on(engine.open_named(doc, pdf, names))
+            .unwrap()
+            .unwrap();
+        let text = futures::executor::block_on(engine.text(doc, info.generation, 0))
+            .unwrap()
+            .unwrap();
+        let names: Vec<Option<&str>> = text.links.iter().map(|link| link.name.as_deref()).collect();
+        // The web address is a link PDFium keeps, with no name; the two
+        // citations name theirs, wherever their rectangles' corners start.
+        assert!(names.contains(&Some("cite.knuth1984")), "{names:?}");
+        assert!(names.contains(&Some("cite.0@lamport1994")), "{names:?}");
+        let knuth = text
+            .links
+            .iter()
+            .find(|link| link.name.as_deref() == Some("cite.knuth1984"))
+            .unwrap();
+        // Its box from the page's top-left corner: 200 - 162 down.
+        assert_eq!((knuth.x0, knuth.y0, knuth.x1, knuth.y1), (20., 38., 40., 50.));
+        engine.close(doc);
     }
 
     #[test]
