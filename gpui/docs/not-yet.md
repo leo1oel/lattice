@@ -3,7 +3,7 @@
 What the Tauri app has that the GPUI app does not port yet, one item per line.
 A feature that lands deletes its own line (only that line, so features landing side by side merge cleanly), and a gap found adds one.
 
-- [ ] The visual LaTeX editor, in part: margin review and Overleaf's tracked changes in Visual.
+- [ ] Overleaf's tracked changes in the visual LaTeX editor (their marks, cards and margin review items).
 
 - [ ] Wrapping a selection in an environment and renaming an environment (⌘⇧E, and in the source editor too).
 

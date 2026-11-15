@@ -10,8 +10,9 @@
 //! - opening it writes nothing: the file on disk is the same bytes, and the
 //!   buffer is clean;
 //! - a jump to a line lands in the page, its caret there; a word typed
-//!   there with native keys lands in the file as exactly that word; ⌘Z typed there undoes it through the buffer, and the
-//!   file and the page are back to their first text;
+//!   there with native keys lands in the file as exactly that word; one ⌘Z
+//!   typed there undoes it all through the buffer, as the Tauri app's editor
+//!   groups it, and the file and the page are back to their first text;
 //! - text put into the buffer (as the source, or an outside edit, would)
 //!   reaches the page;
 //! - the outline rail stands over the page, a misspelt word ("frist") is
@@ -160,6 +161,13 @@ impl Run {
     /// Save the window, page included, in light and dark, into
     /// `LATTICE_E2E_SHOTS` when it is set; the theme is put back after.
     pub(super) async fn latex_visual_shots(&self, cx: &mut AsyncApp) -> Result<()> {
+        self.window_shots(cx, "latex-visual").await
+    }
+
+    /// The window as the screen shows it, island pages and all (an
+    /// offscreen capture leaves webviews out), light and dark, as
+    /// `<prefix>-light.png` and `<prefix>-dark.png`, when shots are asked for.
+    pub(in crate::scenario) async fn window_shots(&self, cx: &mut AsyncApp, prefix: &str) -> Result<()> {
         let Some(dir) = std::env::var_os("LATTICE_E2E_SHOTS") else {
             return Ok(());
         };
@@ -173,7 +181,7 @@ impl Run {
             let number = native::window_number(self.native(cx)?);
             native::order_front(self.native(cx)?);
             self.pause(cx, Duration::from_millis(300)).await;
-            let out = Path::new(&dir).join(format!("latex-visual-{name}.png"));
+            let out = Path::new(&dir).join(format!("{prefix}-{name}.png"));
             std::process::Command::new("screencapture")
                 .args(["-x", "-o", &format!("-l{number}")])
                 .arg(&out)
@@ -315,7 +323,13 @@ impl Run {
             .await;
             self.pause(cx, Duration::from_millis(150)).await;
         }
+        // The space comes a beat after the word: past the buffer's own
+        // grouping interval (300 ms), inside the page's history's (500 ms),
+        // so one ⌘Z undoing both shows the page's grouping is the one kept.
         for character in "quokka ".chars() {
+            if character == ' ' {
+                self.pause(cx, Duration::from_millis(400)).await;
+            }
             native::send_key(native, character, false)?;
             self.pause(cx, Duration::from_millis(40)).await;
         }
@@ -332,22 +346,14 @@ impl Run {
             json!({ "placed": placed, "saved": saved, "text": if text == expected { Value::Null } else { json!(text) } }),
         );
 
-        // The page's typed characters can reach the buffer as more than one
-        // md:change, so the buffer may hold "quokka" and " " as separate undo
-        // groups; a ⌘Z press undoes one group. Press until the file is back
-        // as it was, at most once per plausible group.
-        let mut presses = 0;
-        let mut undone = false;
-        while presses < 3 && !undone {
-            let before = std::fs::read_to_string(path).unwrap_or_default();
-            native::send_key(native, 'z', true)?;
-            presses += 1;
-            self.wait_for(cx, Duration::from_secs(10), |_, _| {
-                std::fs::read_to_string(path).is_ok_and(|text| text == PAPER || text != before)
+        // Each keystroke reaches the buffer as its own md:change; the page
+        // says which belong to one undo group, so one ⌘Z takes the word.
+        native::send_key(native, 'z', true)?;
+        let undone = self
+            .wait_for(cx, Duration::from_secs(10), |_, _| {
+                std::fs::read_to_string(path).is_ok_and(|text| text == PAPER)
             })
             .await;
-            undone = std::fs::read_to_string(path).is_ok_and(|text| text == PAPER);
-        }
         // The page takes the buffer's text once the typing pause has passed.
         let mut page = Value::Null;
         let started = std::time::Instant::now();
@@ -359,11 +365,10 @@ impl Run {
             self.pause(cx, Duration::from_millis(150)).await;
         }
         steps.check(
-            "⌘Z typed in the Visual view undoes the typed word through the buffer (a press per undo group): the file and the page are back as they were",
+            "one ⌘Z typed in the Visual view undoes the typed word through the buffer, as the Tauri app's editor groups it: the file and the page are back as they were",
             undone && page["text"].as_str().is_some_and(|text| !text.contains("quokka")),
             json!({
                 "undone": undone,
-                "presses": presses,
                 "text": if undone { Value::Null } else { json!(std::fs::read_to_string(path).unwrap_or_default()) },
             }),
         );
