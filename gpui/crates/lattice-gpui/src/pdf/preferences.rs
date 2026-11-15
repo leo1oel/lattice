@@ -3,7 +3,10 @@
 //! and zoom a viewer opens with when its file has none of its own
 //! (`lattice.pdf-view-preference.v1`), and, per project, whether its PDF is
 //! in a window of its own and where that window was left
-//! (`lattice.pdf-window.v1:<root>`).
+//! (`lattice.pdf-window.v1:<root>`); and, per project, where each document's
+//! PDF was last left (the `pdf` of `FileViewState` in the Tauri app's
+//! `use-file-view-states.ts`), the most recent last, as many as
+//! [`MAX_PLACES`].
 //!
 //! One JSON file in the app's state directory, written whole beside itself
 //! and moved over it. `LATTICE_GPUI_STATE_DIR` names another directory (empty
@@ -16,9 +19,16 @@ use std::{
     sync::{Mutex, OnceLock},
 };
 
+use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
-use super::layout::{DEFAULT_SCALE, FitMode, clamp_scale};
+use super::{
+    view::ViewPlace,
+    layout::{DEFAULT_SCALE, FitMode, clamp_scale},
+};
+
+/// How many documents' places a project keeps.
+pub const MAX_PLACES: usize = 200;
 
 /// A window's outer corner and content size, in logical points.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
@@ -50,6 +60,9 @@ pub struct Preferences {
     pub scale: f32,
     #[serde(default)]
     pub windows: BTreeMap<PathBuf, ProjectWindow>,
+    /// Each project's documents' PDF places, by project-relative path.
+    #[serde(default)]
+    pub places: BTreeMap<PathBuf, IndexMap<String, ViewPlace>>,
 }
 
 fn default_fit() -> Option<FitMode> {
@@ -69,6 +82,22 @@ impl Preferences {
     pub fn window_mut(&mut self, root: &Path) -> &mut ProjectWindow {
         self.windows.entry(root.to_path_buf()).or_default()
     }
+
+    /// Where `document`'s PDF was last left in `root`.
+    pub fn place(&self, root: &Path, document: &str) -> Option<ViewPlace> {
+        self.places.get(root)?.get(document).copied()
+    }
+
+    /// Keep `place` as `document`'s, the most recent; the oldest goes past
+    /// [`MAX_PLACES`].
+    pub fn remember_place(&mut self, root: &Path, document: &str, place: ViewPlace) {
+        let places = self.places.entry(root.to_path_buf()).or_default();
+        places.shift_remove(document);
+        places.insert(document.to_string(), place);
+        while places.len() > MAX_PLACES {
+            places.shift_remove_index(0);
+        }
+    }
 }
 
 impl Default for Preferences {
@@ -78,6 +107,7 @@ impl Default for Preferences {
             fit_mode: default_fit(),
             scale: DEFAULT_SCALE,
             windows: BTreeMap::new(),
+            places: BTreeMap::new(),
         }
     }
 }
@@ -169,6 +199,38 @@ mod tests {
         assert_eq!(zoomed.fit_mode, None);
         assert_eq!(zoomed.scale, 1.5);
         assert!(zoomed.dark_pages);
+    }
+
+    #[test]
+    fn each_documents_place_is_kept_per_project_the_oldest_going_first() {
+        let place = |page: usize| ViewPlace {
+            page,
+            scale: 1.5,
+            fit: None,
+            top: (page, 10., 20.),
+        };
+        let (a, b) = (Path::new("/a"), Path::new("/b"));
+        let mut preferences = Preferences::default();
+        preferences.remember_place(a, "main.tex", place(3));
+        preferences.remember_place(b, "main.tex", place(7));
+        assert_eq!(preferences.place(a, "main.tex"), Some(place(3)));
+        assert_eq!(preferences.place(b, "main.tex"), Some(place(7)));
+        assert_eq!(preferences.place(a, "other.tex"), None);
+        // A place written and read back is the same place.
+        let read: Preferences =
+            serde_json::from_str(&serde_json::to_string(&preferences).unwrap()).unwrap();
+        assert_eq!(read.place(a, "main.tex"), Some(place(3)));
+        // Touching a document makes it the newest; past the cap the oldest go.
+        for ix in 0..MAX_PLACES {
+            preferences.remember_place(a, &format!("d{ix}.tex"), place(ix));
+            if ix == 0 {
+                preferences.remember_place(a, "main.tex", place(4));
+            }
+        }
+        assert_eq!(preferences.places[a].len(), MAX_PLACES);
+        assert_eq!(preferences.place(a, "d0.tex"), None, "the oldest went");
+        assert_eq!(preferences.place(a, "main.tex"), Some(place(4)), "touched, it stays");
+        assert!(preferences.place(a, "d1.tex").is_some());
     }
 
     #[test]

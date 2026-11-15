@@ -113,6 +113,10 @@ pub struct PdfPanel {
     citations: Option<super::CitationLookup>,
     /// The last build's compounds, carried into the window.
     compounds: Option<super::CompoundSource>,
+    /// The project, the document (project-relative) whose place this
+    /// panel's PDF keeps, and that document's PDF: a place taken in any
+    /// other PDF shown here (the marked one) is not that document's.
+    place_key: Option<(PathBuf, String, PathBuf)>,
     /// Track changes' marked PDF building, or why it could not be made.
     pub(super) marking: super::review_marking::Marking,
     _subscriptions: Vec<gpui::Subscription>,
@@ -153,6 +157,48 @@ impl PdfPanel {
         ];
         for view in views.into_iter().flatten() {
             view.update(cx, |view, cx| view.set_compounds(source.clone(), cx));
+        }
+    }
+
+    /// The document (project-relative) in `root` whose PDF, `pdf`, this
+    /// panel shows, under which its place is kept.
+    pub fn set_place_key(&mut self, root: PathBuf, document: String, pdf: PathBuf) {
+        self.place_key = Some((root, document, pdf));
+    }
+
+    /// Keep where the PDF was left, under the document it shows.
+    pub(super) fn remember_place(&self, place: super::view::ViewPlace) {
+        if let Some((root, document, pdf)) = &self.place_key
+            && self.source.as_ref() == Some(pdf)
+        {
+            preferences::update(|preferences| preferences.remember_place(root, document, place));
+        }
+    }
+
+    /// Show `path` where its document was last left, when this viewer shows
+    /// nothing yet or `mounted` (a project shown anew): the Tauri app
+    /// restores the place a viewer mounts with (`SavedViewState`). Else as
+    /// [`Self::open`] does.
+    pub fn open_restoring(
+        &mut self,
+        path: PathBuf,
+        mounted: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let saved = self
+            .place_key
+            .as_ref()
+            .and_then(|(root, document, _)| preferences::get().place(root, document));
+        let fresh =
+            self.window.is_none() && (mounted || self.view.read(cx).page_count() == 0);
+        match saved {
+            Some(place) if fresh => {
+                self.source = Some(path.clone());
+                self.view.update(cx, |view, cx| view.open_at(path, place, window, cx));
+                cx.notify();
+            }
+            _ => self.open(path, window, cx),
         }
     }
 
@@ -204,6 +250,7 @@ impl PdfPanel {
             outline: None,
             citations: None,
             compounds: None,
+            place_key: None,
             marking: Default::default(),
             _subscriptions: subscriptions,
         }
@@ -297,6 +344,7 @@ impl PdfPanel {
                 line: *line,
             }),
             PdfViewEvent::OpenCitation(key) => cx.emit(PdfEvent::OpenCitation(key.clone())),
+            PdfViewEvent::PlaceChanged(place) => self.remember_place(*place),
             PdfViewEvent::Action => self.detach(window, cx),
         }
     }
@@ -311,14 +359,23 @@ impl PdfPanel {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if self.project.as_ref() != Some(&project) {
+        let switched = self.project.as_ref() != Some(&project);
+        // A place is kept per project: another project's key never applies.
+        if self
+            .place_key
+            .as_ref()
+            .is_some_and(|(root, ..)| *root != project)
+        {
+            self.place_key = None;
+        }
+        if switched {
             if let Some((handle, _)) = self.window.take() {
                 window::close(handle, self.project.as_deref(), cx);
             }
             self.project = Some(project.clone());
         }
         match pdf {
-            Some(pdf) => self.open(pdf, window, cx),
+            Some(pdf) => self.open_restoring(pdf, switched, window, cx),
             None => self.close(window, cx),
         }
         if preferences::get().window(&project).open {

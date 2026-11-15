@@ -209,6 +209,10 @@ fn forward(owner: &WeakEntity<PdfPanel>, event: &PdfViewEvent, cx: &mut App) {
             line: *line,
         },
         PdfViewEvent::OpenCitation(key) => super::PdfEvent::OpenCitation(key.clone()),
+        PdfViewEvent::PlaceChanged(place) => {
+            owner.update(cx, |panel, _| panel.remember_place(*place));
+            return;
+        }
         PdfViewEvent::Action => return,
     };
     owner.update(cx, |_, cx| cx.emit(event));

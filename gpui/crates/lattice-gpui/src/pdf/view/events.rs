@@ -25,6 +25,8 @@ pub enum PdfViewEvent {
     Outline { path: String, line: u32 },
     /// A citation card's title: open the paper cited under the key.
     OpenCitation(String),
+    /// The view rested at a new place, for the host to keep.
+    PlaceChanged(super::ViewPlace),
 }
 
 /// A context-specific action before Save, such as moving the PDF into a
