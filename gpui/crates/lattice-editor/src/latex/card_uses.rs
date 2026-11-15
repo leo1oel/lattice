@@ -64,6 +64,14 @@ pub fn where_label(at: &CitationUse) -> String {
         .unwrap_or_else(|| base_name(&at.path).to_string())
 }
 
+/// The page the note of the use at `hovered` in `path` names: the page
+/// the card's Open paper opens.
+pub fn hovered_page(uses: &[CitationUse], path: &str, hovered: &Range<usize>) -> Option<u32> {
+    uses.iter()
+        .find(|item| item.path == path && item.range.as_ref() == Some(hovered))
+        .and_then(|item| item.page)
+}
+
 /// The section; `None` when the key has no uses to show.
 #[allow(clippy::too_many_arguments)]
 pub(super) fn uses_section(

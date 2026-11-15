@@ -1,7 +1,7 @@
 /**
  * The math island: KaTeX setting one formula at a time for the GPUI app's
  * editor cards (a `\ref` card's equation), which draw the picture the host
- * takes of it (`gpui/crates/lattice-gpui/src/structured/card_math.rs`).
+ * takes of it (`gpui/crates/lattice-gpui/src/card_previews/math_page.rs`).
  *
  * The page is never shown. The host loads it into a windowless WKWebView,
  * calls `latticeMath.render` and snapshots the box it returns, so the card

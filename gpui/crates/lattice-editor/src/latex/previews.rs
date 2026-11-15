@@ -5,7 +5,7 @@
 //! `use-reference-images.ts`).
 //!
 //! The editor draws neither itself. The app installs a [`PreviewHost`]
-//! (`lattice-gpui`'s `structured/card_math.rs`): it sets math with KaTeX in a
+//! (`lattice-gpui`'s `card_previews.rs`, its math in `card_previews/math_page.rs`): it sets math with KaTeX in a
 //! page of its own and hands back the picture, and reads a figure (an image,
 //! or a PDF's first page). This module keeps what came back, keyed by what
 //! it shows, and asks the editors that waited for it to draw again once it
@@ -22,7 +22,7 @@ use std::{
         Arc,
         atomic::{AtomicU64, Ordering},
     },
-    time::SystemTime,
+    time::{Duration, Instant, SystemTime},
 };
 
 use gpui::{AnyElement, App, ElementId, Global, Hsla, ImageSource, Pixels, Task, WeakEntity};
@@ -94,8 +94,13 @@ pub enum Figure {
 
 /// What the app draws previews with.
 pub trait PreviewHost {
-    /// KaTeX's picture of `request`, or `None` where KaTeX cannot set it.
-    fn math(&self, request: &MathRequest, cx: &mut App) -> Task<Option<MathPicture>>;
+    /// KaTeX's picture of `request`, or `None` where KaTeX cannot set it;
+    /// an error when the page that sets it failed, which is asked again.
+    fn math(
+        &self,
+        request: &MathRequest,
+        cx: &mut App,
+    ) -> Task<anyhow::Result<Option<MathPicture>>>;
     /// The figure at `path` (absolute).
     fn figure(&self, path: &Path, cx: &mut App) -> Task<Figure>;
     /// The loader a preview shows while it is read (`InfinityLoader`).
@@ -113,6 +118,11 @@ pub enum Preview<T> {
 /// (`CACHE_ENTRY_LIMIT`); pictures of equations are small.
 const MATH_KEPT: usize = 256;
 const FIGURES_KEPT: usize = 48;
+
+/// How long an equation whose page failed shows its source before a draw
+/// asks for its picture again: a page that cannot load is not asked on
+/// every frame.
+const MATH_RETRY: Duration = Duration::from_secs(2);
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 struct MathKey {
@@ -148,6 +158,11 @@ enum Slot<T> {
     /// Being read, with the editors to draw again once it is in.
     Pending(Vec<WeakEntity<LatticeEditor>>),
     Ready(T),
+    /// Shown as `value` until `after`, then read again.
+    Retry {
+        value: T,
+        after: Instant,
+    },
 }
 
 /// A cache that forgets what was used longest ago.
@@ -174,6 +189,11 @@ impl<K: Clone + Eq + Hash, T: Clone> Kept<K, T> {
         *used = self.tick;
         Some(match slot {
             Slot::Ready(value) => Preview::Ready(value.clone()),
+            Slot::Retry { after, .. } if Instant::now() >= *after => {
+                self.entries.remove(key);
+                return None;
+            }
+            Slot::Retry { value, .. } => Preview::Ready(value.clone()),
             Slot::Pending(waiting) => {
                 if !waiting.iter().any(|known| known == editor) {
                     waiting.push(editor.clone());
@@ -191,7 +211,7 @@ impl<K: Clone + Eq + Hash, T: Clone> Kept<K, T> {
             let oldest = self
                 .entries
                 .iter()
-                .filter(|(_, (slot, _))| matches!(slot, Slot::Ready(_)))
+                .filter(|(_, (slot, _))| !matches!(slot, Slot::Pending(_)))
                 .min_by_key(|(_, (_, used))| *used)
                 .map(|(key, _)| key.clone());
             match oldest {
@@ -203,12 +223,22 @@ impl<K: Clone + Eq + Hash, T: Clone> Kept<K, T> {
 
     /// Keep `value` for `key`: the editors that waited for it.
     fn finish(&mut self, key: K, value: T) -> Vec<WeakEntity<LatticeEditor>> {
+        self.settle(key, Slot::Ready(value))
+    }
+
+    /// Show `value` for `key` until `after`, then read it again: the
+    /// editors that waited for it.
+    fn retry(&mut self, key: K, value: T, after: Instant) -> Vec<WeakEntity<LatticeEditor>> {
+        self.settle(key, Slot::Retry { value, after })
+    }
+
+    fn settle(&mut self, key: K, settled: Slot<T>) -> Vec<WeakEntity<LatticeEditor>> {
         let Some((slot, _)) = self.entries.get_mut(&key) else {
             return Vec::new();
         };
-        match std::mem::replace(slot, Slot::Ready(value)) {
+        match std::mem::replace(slot, settled) {
             Slot::Pending(waiting) => waiting,
-            Slot::Ready(_) => Vec::new(),
+            Slot::Ready(_) | Slot::Retry { .. } => Vec::new(),
         }
     }
 }
@@ -261,7 +291,14 @@ pub fn math(
     cx.spawn(async move |cx| {
         let picture = task.await;
         cx.update(|cx| {
-            let waiting = cx.global_mut::<Previews>().math.finish(key, picture);
+            let math = &mut cx.global_mut::<Previews>().math;
+            let waiting = match picture {
+                Ok(picture) => math.finish(key, picture),
+                Err(error) => {
+                    log::warn!("an equation's picture failed: {error:#}");
+                    math.retry(key, None, Instant::now() + MATH_RETRY)
+                }
+            };
             redraw(waiting, cx);
         });
     })
@@ -335,6 +372,26 @@ mod tests {
         assert!(matches!(kept.get(&1, &editor), Some(Preview::Ready(10))));
         // One still being read is never forgotten.
         assert!(matches!(kept.get(&3, &editor), Some(Preview::Loading)));
+    }
+
+    /// A picture whose page failed is not kept as KaTeX's refusal: it shows
+    /// the source for a moment, then the next draw asks for it again.
+    #[test]
+    fn a_failed_picture_is_read_again_after_a_moment() {
+        let editor = WeakEntity::<LatticeEditor>::new_invalid();
+        let mut kept: Kept<u32, Option<u32>> = Kept::new(4);
+        kept.start(1, editor.clone());
+        kept.retry(1, None, Instant::now() + Duration::from_secs(60));
+        assert!(matches!(kept.get(&1, &editor), Some(Preview::Ready(None))));
+        kept.start(2, editor.clone());
+        kept.retry(2, None, Instant::now());
+        assert!(kept.get(&2, &editor).is_none());
+        kept.start(2, editor.clone());
+        kept.finish(2, Some(20));
+        assert!(matches!(
+            kept.get(&2, &editor),
+            Some(Preview::Ready(Some(20)))
+        ));
     }
 
     #[test]

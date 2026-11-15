@@ -227,6 +227,9 @@ pub struct Fetching {
     /// Where a download started from a citation card goes instead when it
     /// fails: the source its entry cites (`fetchAndOpenPaper`'s fallback).
     pub(crate) fallbacks: HashMap<String, String>,
+    /// The page a download started from a citation card opens its paper at
+    /// (`\cite[p.~5]{key}`).
+    pub(crate) pages: HashMap<String, u32>,
 }
 
 impl Fetching {

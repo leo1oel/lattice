@@ -537,6 +537,7 @@ impl PapersPanel {
         if cancel.load(Ordering::Acquire) {
             return;
         }
+        let page = self.fetching.pages.remove(&key);
         match result {
             Ok(fetched) => {
                 self.fetching.fallbacks.remove(&key);
@@ -557,7 +558,11 @@ impl PapersPanel {
                         paper.arxiv_id = fetched.arxiv_id.clone();
                         paper.has_full_text = !fetched.paper_path.is_empty();
                         paper.has_blog = fetched.blog_path.is_some();
-                        cx.emit(PapersEvent::Read(Box::new(paper)));
+                        let paper = Box::new(paper);
+                        cx.emit(match page {
+                            Some(page) => PapersEvent::ReadAt { paper, page },
+                            None => PapersEvent::Read(paper),
+                        });
                     }
                     (None, Some(path)) => cx.emit(PapersEvent::Open { path, line: None }),
                     (_, None) => {}
@@ -603,6 +608,8 @@ impl PapersPanel {
             cancel.store(true, Ordering::Release);
         }
         self.fetching.cancels.clear();
+        self.fetching.fallbacks.clear();
+        self.fetching.pages.clear();
         self.fetching
             .states
             .retain(|_, state| *state != FetchState::Loading);

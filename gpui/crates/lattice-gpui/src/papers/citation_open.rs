@@ -67,10 +67,12 @@ impl PapersPanel {
             }
             _ if readable => self.activate(&paper, None, window, cx),
             _ => {
+                let key = model::paper_key(&paper);
                 if let Some(url) = source {
-                    self.fetching
-                        .fallbacks
-                        .insert(model::paper_key(&paper), url);
+                    self.fetching.fallbacks.insert(key.clone(), url);
+                }
+                if let Some(page) = page {
+                    self.fetching.pages.insert(key, page);
                 }
                 self.activate(&paper, None, window, cx);
             }

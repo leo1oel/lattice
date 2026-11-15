@@ -74,17 +74,25 @@ fn read_figure(path: &Path) -> Option<Vec<u8>> {
 }
 
 impl PreviewHost for Host {
-    fn math(&self, request: &MathRequest, cx: &mut App) -> Task<Option<MathPicture>> {
+    fn math(
+        &self,
+        request: &MathRequest,
+        cx: &mut App,
+    ) -> Task<anyhow::Result<Option<MathPicture>>> {
         #[cfg(target_os = "macos")]
         {
             let picture = self.math.picture(request.clone());
-            cx.spawn(async move |_| picture.await.ok().flatten())
+            cx.spawn(async move |_| {
+                picture
+                    .await
+                    .unwrap_or_else(|_| Err(anyhow::anyhow!("the math page stopped")))
+            })
         }
         // Elsewhere the card keeps the equation's source.
         #[cfg(not(target_os = "macos"))]
         {
             let _ = (request, cx);
-            Task::ready(None)
+            Task::ready(Ok(None))
         }
     }
 

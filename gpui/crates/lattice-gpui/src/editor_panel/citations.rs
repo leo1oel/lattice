@@ -457,6 +457,28 @@ impl EditorPanel {
 mod tests {
     use super::*;
 
+    /// `latex-hover-cards.test.ts`: the card over `\citep[p.~5]{vaswani2017}`
+    /// opens the paper at page 5 (`onOpenCitation("vaswani2017", 5)`); the
+    /// card over the same key's bare cite opens it at its start.
+    #[test]
+    fn the_card_opens_the_paper_at_the_page_its_cite_names() {
+        let text = "See \\citep[p.~5]{vaswani2017} and \\cite{vaswani2017}.";
+        let rows = rows_in(text, "main.tex", "vaswani2017", &[], true);
+        let first = text.find("vaswani2017").unwrap();
+        let second = text.rfind("vaswani2017").unwrap();
+        let page = |at: usize| {
+            lattice_editor::latex::card_uses::hovered_page(&rows, "main.tex", &(at..at + 11))
+        };
+        assert_eq!(page(first), Some(5));
+        assert_eq!(page(second), None);
+        let other = lattice_editor::latex::card_uses::hovered_page(
+            &rows,
+            "other.tex",
+            &(first..first + 11),
+        );
+        assert_eq!(other, None);
+    }
+
     /// `citation-card-uses.ts` `usesIn`: each cite of the key is a row, in
     /// the section it sits in, with its note's page and its reason.
     #[test]

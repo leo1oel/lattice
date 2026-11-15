@@ -274,12 +274,19 @@ impl RenderOnce for CitationCard {
             .as_ref()
             .map(|library| library.facts(&key, cx))
             .unwrap_or_default();
+        let uses = library
+            .as_ref()
+            .map(|library| library.uses(&key, &self.context.text, cx))
+            .unwrap_or_default();
+        let page = library
+            .as_ref()
+            .and_then(|library| card_uses::hovered_page(&uses, &library.path(), &self.range));
         let open = library.clone().filter(|_| facts.can_open).map(|library| {
             let (context, key) = (self.context.clone(), key.clone());
             Rc::new(
                 move |_: &gpui::ClickEvent, window: &mut Window, cx: &mut App| {
                     context.close(cx);
-                    library.open_paper(&key, None, window, cx);
+                    library.open_paper(&key, page, window, cx);
                 },
             )
         });
@@ -294,7 +301,6 @@ impl RenderOnce for CitationCard {
                 }
             });
         let uses = library.as_ref().and_then(|library| {
-            let uses = library.uses(&key, &self.context.text, cx);
             card_uses::uses_section(
                 &key,
                 uses,

@@ -50,7 +50,7 @@ const VIEWPORT: (f64, f64) = (1600., 1200.);
 
 struct Job {
     request: MathRequest,
-    reply: oneshot::Sender<Option<MathPicture>>,
+    reply: oneshot::Sender<Result<Option<MathPicture>>>,
 }
 
 /// The queue the page works through.
@@ -82,21 +82,22 @@ impl MathPage {
                 if page.is_none() {
                     match Page::load(cx).await {
                         Ok(loaded) => page = Some(loaded),
-                        Err(error) => log::warn!("the math page did not load: {error:#}"),
+                        Err(error) => {
+                            job.reply
+                                .send(Err(error.context("the math page did not load")))
+                                .ok();
+                            continue;
+                        }
                     }
                 }
-                let picture = match &mut page {
-                    Some(loaded) => match loaded.picture(&job.request).await {
-                        Ok(picture) => picture,
-                        Err(error) => {
-                            log::warn!("the math page could not set a formula: {error:#}");
-                            // A page that failed is loaded afresh next time.
-                            page = None;
-                            None
-                        }
-                    },
-                    None => None,
+                let Some(loaded) = page.as_mut() else {
+                    continue;
                 };
+                let picture = loaded.picture(&job.request).await;
+                if picture.is_err() {
+                    // A page that failed is loaded afresh next time.
+                    page = None;
+                }
                 job.reply.send(picture).ok();
             }
         })
@@ -104,9 +105,9 @@ impl MathPage {
         Self { jobs }
     }
 
-    /// KaTeX's picture of `request`; `None` when KaTeX cannot set it or the
-    /// page is not there.
-    pub fn picture(&self, request: MathRequest) -> oneshot::Receiver<Option<MathPicture>> {
+    /// KaTeX's picture of `request`; `None` when KaTeX cannot set it, an
+    /// error when the page did not load or failed.
+    pub fn picture(&self, request: MathRequest) -> oneshot::Receiver<Result<Option<MathPicture>>> {
         let (reply, picture) = oneshot::channel();
         self.jobs.unbounded_send(Job { request, reply }).ok();
         picture
