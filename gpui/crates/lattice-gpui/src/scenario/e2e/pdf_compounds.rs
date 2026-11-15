@@ -122,7 +122,7 @@ pub(super) const MODULE: super::registry::Module = super::registry::Module {
     setup: false,
     covers: &[
         "gpui/crates/lattice-gpui/src/shell/pdf_sync.rs",
-        "gpui/crates/lattice-gpui/src/pdf/compounds.rs",
+        "gpui/crates/lattice-editor/src/latex/compounds.rs",
         "gpui/crates/lattice-gpui/src/pdf/view/compound.rs",
     ],
     run: |run, cx, steps, fixture| Box::pin(run.pdf_compounds(cx, steps, &fixture.root)),
