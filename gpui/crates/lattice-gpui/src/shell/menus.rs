@@ -209,6 +209,7 @@ fn menus(front: Front, cx: &App) -> Vec<Menu> {
         tc!("macOS menu bar", "About {name}", name = name),
         About,
     )];
+    lattice.extend(crate::updater::menu_item(cx));
     lattice.extend([
         MenuItem::separator(),
         MenuItem::action(tc!("macOS menu bar", "Settings…"), OpenSettings),
@@ -328,7 +329,9 @@ mod tests {
         // shipped app to show.
         let notice = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../../NOTICE"));
         assert!(
-            notice.lines().any(|line| line.trim() == TRELLIS_ATTRIBUTION),
+            notice
+                .lines()
+                .any(|line| line.trim() == TRELLIS_ATTRIBUTION),
             "NOTICE has no line {TRELLIS_ATTRIBUTION:?}"
         );
         let (website, github) = link_titles();

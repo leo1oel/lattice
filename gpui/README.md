@@ -8,6 +8,7 @@ What it does so far, and nothing more, one line per feature, each with its own p
 
 - [Agent](docs/agent.md): runs the Agent as the Tauri app embeds it, with its Git workspace and its document tools.
 - [Annotations](docs/annotations.md): keeps the writer's notes on passages of the sources, marked and pinned in the editor and listed in the Annotations panel.
+- [App updater](docs/updater.md): updates the app as the Tauri app does, from a release channel the GPUI app does not have yet, so it ships off.
 - [App's log and Help](docs/app-log-and-help.md): the app's log, Settings › Logs, Report a problem and What's new.
 - [Boards, spreadsheets and decks](docs/structured-documents.md): opens boards, spreadsheets and Open Slide decks in the Tauri app's own editors.
 - [Builds](docs/builds.md): builds with lattice-core's latexmk build, explains its errors and offers their fixes.
@@ -85,7 +86,7 @@ The first build fetches Zed at the pinned revision and compiles about 1,200 crat
 | ⌘⇧J / Ctrl+Shift+J | Mark the caret's line in the PDF (SyncTeX); a double-click in the PDF goes back |
 | ⌘F / Ctrl+F | Find and replace in the current file (the Tauri app's find panel); in a focused PDF, Find in PDF |
 | Enter / F3, ⇧Enter / ⇧F3 / ⌘⇧G | Next and previous match in the find panel |
-| ⌘K or ⌘⇧P | Command palette: every command, and the project's files |
+| ⌘K or ⌘⇧P | Command palette: every command, the project's files, its Papers and every Settings row |
 | ⌘P / Ctrl+P | Quick open: a file by name, `:42` a line, `@` a section or label |
 | ⌘⇧F, ⌘⇧H | Find in project, Replace in project |
 | ⌘⇧N | New project |

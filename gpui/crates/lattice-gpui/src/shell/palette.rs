@@ -3,19 +3,20 @@
 //! app draws them (`src/app/command-palette.tsx`, the quick-open
 //! picker's look in `src/styles/app-shell.css`).
 //!
-//! The palette is one keyboard-first list: an empty query lists every
-//! command that applies, by section; a typed one ranks the commands and the
-//! project's files together. ↑↓ move, ↩ runs, ⎋ or a press outside closes.
-//! The card is 640px wide on the dialog surface, a 32px search row over a
-//! hairline, then 28px rows 6px in, each with its section's icon (or the
-//! file's glyph), its label, its detail at the end and its keys.
-
-use std::path::{Path, PathBuf};
+//! The palette is one keyboard-first list. An empty query leads with the
+//! recent commands and the document's own (`super::palette_groups`), then
+//! the files opened recently, then every command that applies, by section.
+//! A typed one ranks the commands, the project's files, its Papers and every
+//! Settings row together, best first; one that finds nothing offers Find in
+//! project on it. ↑↓ move, ↩ runs, ⎋ or a press outside closes. The card is
+//! 640px wide on the dialog surface, a 32px search row over a hairline, then
+//! 28px rows 6px in, each with its section's icon (or the file's glyph), its
+//! label, its detail at the end and its keys.
 
 use gpui::{
-    Action, AnyElement, App, AppContext as _, Context, Entity, EventEmitter, FocusHandle,
-    Focusable, InteractiveElement as _, IntoElement, KeyDownEvent, MouseButton, ParentElement as _,
-    Render, ScrollHandle, SharedString, StatefulInteractiveElement as _, Styled as _, Subscription,
+    AnyElement, App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, Focusable,
+    InteractiveElement as _, IntoElement, KeyDownEvent, MouseButton, ParentElement as _, Render,
+    ScrollHandle, SharedString, StatefulInteractiveElement as _, Styled as _, Subscription,
     WeakEntity, Window, div, prelude::FluentBuilder as _, px,
 };
 use gpui_kit::component::input::{Input, InputEvent, InputState};
@@ -31,54 +32,16 @@ use lattice_ui::{
 };
 
 use super::{
-    Shell,
-    commands::{self, Section},
+    Shell, commands,
+    palette_entries::{
+        COMMAND_LIMIT, Entry, FILE_LIMIT, PAPER_LIMIT, SETTING_LIMIT, entry_text, leading_entries,
+        paper_detail, project_files, row_of, scored, sorted_by_section,
+    },
+    palette_groups::{RecentCommands, Surface},
 };
 
 const WIDTH: f32 = 640.;
 const LIST_HEIGHT: f32 = 460.;
-const FILE_LIMIT: usize = 12;
-const COMMAND_LIMIT: usize = 40;
-/// A deep project must not stall opening the palette.
-const MAX_FILES: usize = 4_000;
-
-/// One row.
-#[derive(Clone)]
-enum Entry {
-    Command {
-        label: SharedString,
-        section: Section,
-        keys: Option<SharedString>,
-        action: std::rc::Rc<dyn Action>,
-        keywords: &'static str,
-    },
-    File {
-        path: PathBuf,
-        name: SharedString,
-        folder: SharedString,
-    },
-}
-
-impl Entry {
-    fn group(&self) -> &'static str {
-        match self {
-            Entry::Command { section, .. } => section.label(),
-            Entry::File { .. } => t!("Files"),
-        }
-    }
-
-    fn haystack(&self) -> String {
-        match self {
-            Entry::Command {
-                label, keywords, ..
-            } => format!("{label} {keywords}"),
-            Entry::File { name, folder, .. } => Path::new(folder.as_ref())
-                .join(name.as_ref())
-                .to_string_lossy()
-                .into_owned(),
-        }
-    }
-}
 
 pub(crate) enum PaletteEvent {
     Dismiss,
@@ -88,8 +51,15 @@ pub(crate) struct CommandPaletteView {
     shell: WeakEntity<Shell>,
     input: Entity<InputState>,
     focus: FocusHandle,
+    in_project: bool,
     commands: Vec<Entry>,
+    /// What an empty query leads with.
+    leading: Vec<Entry>,
     files: Vec<Entry>,
+    papers: Vec<Entry>,
+    settings: Vec<Entry>,
+    /// Find in project's keys, when the palette offers it.
+    find_keys: Option<Option<SharedString>>,
     shown: Vec<Entry>,
     highlighted: usize,
     adopted: Option<usize>,
@@ -109,9 +79,9 @@ impl CommandPaletteView {
         let in_project = shell.project.is_some();
         let input = cx.new(|cx| {
             InputState::new(window, cx).placeholder(if in_project {
-                t!("Search commands and files…")
+                t!("Search commands, files, papers and settings…")
             } else {
-                t!("Search commands…")
+                t!("Search commands and settings…")
             })
         });
         let subscription =
@@ -121,29 +91,90 @@ impl CommandPaletteView {
                 _ => {}
             });
         let context = shell.command_context(cx);
-        let commands = commands::commands(&context)
+        let listed: Vec<commands::Command> = commands::commands(&context)
             .into_iter()
             .filter(|command| command.palette)
+            .collect();
+        let find_keys = listed
+            .iter()
+            .find(|command| command.id == "find")
+            .map(|command| commands::keys_label(command.action.as_ref(), window));
+        let commands = listed
+            .into_iter()
             .map(|command| Entry::Command {
                 keys: commands::keys_label(command.keys_action(), window),
+                id: command.id,
                 label: command.label,
                 section: command.section,
                 action: std::rc::Rc::from(command.action),
                 keywords: command.keywords,
+                detail: command.detail,
+                recent: command.recent,
+                lead: None,
             })
             .collect::<Vec<_>>();
-        let files = shell
-            .root(cx)
+        let commands = sorted_by_section(commands);
+        let root = shell.root(cx);
+        let files = root.as_deref().map(project_files).unwrap_or_default();
+        // The document in front decides the suggestions, and is left out of
+        // the recent files.
+        let front = shell.active_document(cx);
+        let surface = front
             .as_deref()
-            .map(project_files)
-            .unwrap_or_default();
+            .and_then(|key| Surface::of(key, super::papers::is_reader_key(key)));
+        let leading = leading_entries(
+            &commands,
+            &RecentCommands::list(cx),
+            surface,
+            root.as_deref()
+                .map(|root| {
+                    shell
+                        .recent_paths()
+                        .into_iter()
+                        .filter(|path| Some(path) != front.as_ref())
+                        .filter(|path| root.join(path).is_file())
+                        .collect()
+                })
+                .unwrap_or_default(),
+            root.as_deref(),
+        );
+        let papers = if in_project {
+            shell
+                .papers
+                .read(cx)
+                .papers
+                .iter()
+                // A paper that is only cited has nothing to open or fetch.
+                .filter(|paper| {
+                    paper.has_full_text
+                        || paper.has_blog
+                        || !paper.arxiv_id.is_empty()
+                        || paper.url.is_some()
+                })
+                .map(|paper| Entry::Paper {
+                    detail: paper_detail(paper),
+                    paper: Box::new(paper.clone()),
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
+        let settings = crate::settings::search::entries(in_project, None)
+            .into_iter()
+            .map(|entry| Entry::Setting(Box::new(entry)))
+            .collect();
         let mut this = Self {
             shell: weak,
             input,
             focus: cx.focus_handle(),
+            in_project,
             shown: Vec::new(),
-            commands: sorted_by_section(commands),
+            commands,
+            leading,
             files,
+            papers,
+            settings,
+            find_keys,
             highlighted: 0,
             adopted: None,
             scroll: ScrollHandle::new(),
@@ -154,14 +185,42 @@ impl CommandPaletteView {
     }
 
     fn filter(&mut self, cx: &mut Context<Self>) {
-        let query = self.input.read(cx).value().trim().to_lowercase();
-        self.shown = if query.is_empty() {
-            self.commands.clone()
-        } else {
-            let mut commands = ranked(&self.commands, &query, COMMAND_LIMIT);
-            commands.extend(ranked(&self.files, &query, FILE_LIMIT));
-            commands
-        };
+        let raw = self.input.read(cx).value().trim().to_string();
+        let query = raw.to_lowercase();
+        self.shown =
+            if query.is_empty() {
+                let led: Vec<SharedString> = self
+                    .leading
+                    .iter()
+                    .filter_map(|entry| match entry {
+                        Entry::Command { id, .. } => Some(id.clone()),
+                        _ => None,
+                    })
+                    .collect();
+                self.leading
+                .iter()
+                .cloned()
+                .chain(self.commands.iter().filter(|entry| {
+                    !matches!(entry, Entry::Command { id, .. } if led.contains(id))
+                }).cloned())
+                .collect()
+            } else {
+                let mut found = scored(&self.commands, &query, COMMAND_LIMIT, false);
+                found.extend(scored(&self.files, &query, FILE_LIMIT, false));
+                found.extend(scored(&self.papers, &query, PAPER_LIMIT, true));
+                found.extend(scored(&self.settings, &query, SETTING_LIMIT, true));
+                found.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.order().cmp(&b.1.order())));
+                let found: Vec<Entry> = found.into_iter().map(|(_, entry)| entry).collect();
+                match (&self.find_keys, found.is_empty()) {
+                    // A query that found nothing hands itself to Find in
+                    // project, which reads every source file's text too.
+                    (Some(keys), true) => vec![Entry::Find {
+                        query: raw,
+                        keys: keys.clone(),
+                    }],
+                    _ => found,
+                }
+            };
         self.highlighted = 0;
         self.scroll.scroll_to_item(0);
         cx.notify();
@@ -173,7 +232,7 @@ impl CommandPaletteView {
         }
         let count = self.shown.len() as isize;
         self.highlighted = (self.highlighted as isize + step).rem_euclid(count) as usize;
-        let groups: Vec<&str> = self.shown.iter().map(Entry::group).collect();
+        let groups: Vec<SharedString> = self.shown.iter().map(Entry::group).collect();
         self.scroll
             .scroll_to_item(row_of(&groups, self.highlighted));
         cx.notify();
@@ -186,7 +245,12 @@ impl CommandPaletteView {
         cx.emit(PaletteEvent::Dismiss);
         let shell = self.shell.clone();
         match entry {
-            Entry::Command { action, .. } => {
+            Entry::Command {
+                id, action, recent, ..
+            } => {
+                if recent {
+                    RecentCommands::remember(&id, cx);
+                }
                 let action = action.boxed_clone();
                 window.defer(cx, move |window, cx| {
                     if window.focused(cx).is_none()
@@ -205,122 +269,85 @@ impl CommandPaletteView {
                         .ok();
                 });
             }
+            Entry::Paper { paper, .. } => {
+                window.defer(cx, move |window, cx| {
+                    shell
+                        .update(cx, |shell, cx| {
+                            shell
+                                .papers
+                                .clone()
+                                .update(cx, |papers, cx| papers.activate(&paper, None, window, cx))
+                        })
+                        .ok();
+                });
+            }
+            Entry::Setting(entry) => {
+                window.defer(cx, move |window, cx| {
+                    shell
+                        .update(cx, |shell, cx| {
+                            shell.open_settings(Some(entry.tab), window, cx);
+                            if let Some(settings) = shell.settings.clone() {
+                                settings.update(cx, |settings, cx| {
+                                    settings.open_entry((*entry).clone(), cx)
+                                });
+                            }
+                        })
+                        .ok();
+                });
+            }
+            Entry::Find { query, .. } => {
+                window.defer(cx, move |window, cx| {
+                    shell
+                        .update(cx, |shell, cx| shell.find_in_project_for(query, window, cx))
+                        .ok();
+                });
+            }
         }
     }
-}
 
-fn sorted_by_section(mut entries: Vec<Entry>) -> Vec<Entry> {
-    entries.sort_by_key(|entry| match entry {
-        Entry::Command { section, .. } => *section as usize,
-        Entry::File { .. } => usize::MAX,
-    });
-    entries
-}
-
-/// The best `limit` of `entries` for `query`, best first, the table's order
-/// breaking ties.
-fn ranked(entries: &[Entry], query: &str, limit: usize) -> Vec<Entry> {
-    let mut scored: Vec<(i64, usize)> = entries
-        .iter()
-        .enumerate()
-        .filter_map(|(ix, entry)| score(&entry.haystack().to_lowercase(), query).map(|s| (s, ix)))
-        .collect();
-    scored.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)));
-    scored
-        .into_iter()
-        .take(limit)
-        .map(|(_, ix)| entries[ix].clone())
-        .collect()
-}
-
-/// How well `query` matches `text`: every query character in order, more
-/// for a run of them, for one at a word's start, and for an earlier start;
-/// `None` when they are not all there.
-pub(crate) fn score(text: &str, query: &str) -> Option<i64> {
-    if let Some(at) = text.find(query) {
-        let word_start = at == 0 || !text[..at].ends_with(char::is_alphanumeric);
-        return Some(1_000 + if word_start { 500 } else { 0 } - at as i64);
+    /// The rows shown, as (group, label) pairs, for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub(crate) fn rows(&self) -> Vec<(String, String, Option<String>)> {
+        self.shown
+            .iter()
+            .map(|entry| {
+                let (label, detail) = entry_text(entry);
+                (
+                    entry.group().to_string(),
+                    label.to_string(),
+                    detail.map(|detail| detail.to_string()),
+                )
+            })
+            .collect()
     }
-    let chars: Vec<char> = text.chars().collect();
-    let mut score = 0i64;
-    let mut position = 0;
-    let mut previous: Option<usize> = None;
-    for wanted in query.chars() {
-        let found = (position..chars.len()).find(|ix| chars[*ix] == wanted)?;
-        let word_start = found == 0 || !chars[found - 1].is_alphanumeric();
-        score += 10;
-        if word_start {
-            score += 30;
-        }
-        if previous == Some(found.wrapping_sub(1)) {
-            score += 20;
-        }
-        score -= (found - position) as i64;
-        previous = Some(found);
-        position = found + 1;
-    }
-    Some(score)
-}
 
-/// The project's files, as the tree lists them (no build products, no
-/// hidden folders), relative to the root.
-fn project_files(root: &Path) -> Vec<Entry> {
-    const SKIPPED: [&str; 4] = ["node_modules", "target", "__pycache__", "_minted"];
-    const HIDDEN: [&str; 14] = [
-        "aux",
-        "bbl",
-        "bcf",
-        "blg",
-        "fdb_latexmk",
-        "fls",
-        "log",
-        "out",
-        "toc",
-        "synctex",
-        "gz",
-        "xdv",
-        "run.xml",
-        "lof",
-    ];
-    let mut out = Vec::new();
-    let mut stack = vec![root.to_path_buf()];
-    'walk: while let Some(dir) = stack.pop() {
-        let Ok(entries) = std::fs::read_dir(&dir) else {
-            continue;
+    /// Type `text` in the search field, for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub(crate) fn type_query(&mut self, text: &str, window: &mut Window, cx: &mut Context<Self>) {
+        self.input.update(cx, |input, cx| {
+            input.set_value(text.to_string(), window, cx)
+        });
+        self.filter(cx);
+    }
+
+    /// Run the row labelled `label`, for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub(crate) fn run_labelled(
+        &mut self,
+        label: &str,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        let Some(ix) = self
+            .shown
+            .iter()
+            .position(|entry| entry_text(entry).0 == label)
+        else {
+            return false;
         };
-        for entry in entries.flatten() {
-            let path = entry.path();
-            let name = entry.file_name().to_string_lossy().into_owned();
-            if name.starts_with('.') {
-                continue;
-            }
-            if path.is_dir() {
-                let linked = entry.file_type().is_ok_and(|kind| kind.is_symlink());
-                if !linked && !SKIPPED.contains(&name.as_str()) {
-                    stack.push(path);
-                }
-                continue;
-            }
-            if HIDDEN.iter().any(|ext| name.ends_with(&format!(".{ext}"))) {
-                continue;
-            }
-            let relative = path.strip_prefix(root).unwrap_or(&path);
-            let folder = relative
-                .parent()
-                .map(|parent| parent.to_string_lossy().into_owned())
-                .unwrap_or_default();
-            out.push(Entry::File {
-                name: name.into(),
-                folder: folder.into(),
-                path,
-            });
-            if out.len() >= MAX_FILES {
-                break 'walk;
-            }
-        }
+        self.run(ix, window, cx);
+        true
     }
-    out.sort_by(|a, b| a.haystack().cmp(&b.haystack()));
-    out
 }
 
 impl Focusable for CommandPaletteView {
@@ -342,17 +369,26 @@ impl Render for CommandPaletteView {
             .fill(palette.accent_soft)
             .radius(shape::PALETTE_LIST.inner());
         let lit = hover.lit(cx);
-        if lit != self.adopted {
-            if let Some(lit) = lit.filter(|lit| *lit < self.shown.len()) {
-                self.highlighted = lit;
-            }
+        if lit != self.adopted
+            && let Some(lit) = lit.filter(|lit| *lit < self.shown.len())
+        {
+            self.highlighted = lit;
         }
         let hover = hover.follow(Some(self.highlighted), cx);
         self.adopted = hover.lit(cx);
         let mut rows: Vec<AnyElement> = Vec::new();
-        let mut group = None;
+        let mut group: Option<SharedString> = None;
         for (ix, entry) in self.shown.iter().enumerate() {
-            if group != Some(entry.group()) {
+            let heading = match entry {
+                // A query that found nothing says so over its one row.
+                Entry::Find { query, .. } => Some(SharedString::from(t!(
+                    "No commands, files or papers match “{query}”",
+                    query = query
+                ))),
+                _ if group.as_ref() != Some(&entry.group()) => Some(entry.group()),
+                _ => None,
+            };
+            if let Some(heading) = heading {
                 group = Some(entry.group());
                 rows.push(
                     div()
@@ -362,43 +398,32 @@ impl Render for CommandPaletteView {
                         .text_role(TextRole::Caption, cx)
                         .font_weight(FONT_WEIGHT_MEDIUM)
                         .text_color(palette.text_secondary)
-                        .child(entry.group())
+                        .child(heading)
                         .into_any_element(),
                 );
             }
             let active = ix == self.highlighted;
-            let (icon, label, detail, keys): (
-                AnyElement,
-                SharedString,
-                Option<SharedString>,
-                Option<SharedString>,
-            ) = match entry {
-                Entry::Command {
-                    label,
-                    section,
-                    keys,
-                    ..
-                } => (
-                    section
-                        .icon()
-                        .element(
-                            ICON,
-                            if active {
-                                palette.text
-                            } else {
-                                palette.text_secondary
-                            },
-                        )
-                        .into_any_element(),
-                    label.clone(),
-                    None,
+            let tint = if active {
+                palette.text
+            } else {
+                palette.text_secondary
+            };
+            let (label, detail) = entry_text(entry);
+            let (icon, keys): (AnyElement, Option<SharedString>) = match entry {
+                Entry::Command { section, keys, .. } => (
+                    section.icon().element(ICON, tint).into_any_element(),
                     keys.clone(),
                 ),
-                Entry::File { name, folder, .. } => (
-                    file_glyph(GlyphKind::for_name(name), ICON, &palette),
-                    name.clone(),
-                    (!folder.is_empty()).then(|| folder.clone()),
-                    None,
+                Entry::File { name, .. } => {
+                    (file_glyph(GlyphKind::for_name(name), ICON, &palette), None)
+                }
+                Entry::Paper { .. } => {
+                    (Icon::BOOK_OPEN.element(ICON, tint).into_any_element(), None)
+                }
+                Entry::Setting(_) => (Icon::SETTINGS.element(ICON, tint).into_any_element(), None),
+                Entry::Find { keys, .. } => (
+                    Icon::SEARCH.element(ICON, tint).into_any_element(),
+                    keys.clone(),
                 ),
             };
             rows.push(
@@ -451,6 +476,7 @@ impl Render for CommandPaletteView {
                 ),
             );
         }
+        let in_project = self.in_project;
         let empty = self.shown.is_empty().then(|| {
             let query = self.input.read(cx).value();
             div()
@@ -463,7 +489,14 @@ impl Render for CommandPaletteView {
                     div()
                         .text_role(TextRole::Subtitle, cx)
                         .text_color(palette.text)
-                        .child(t!("No commands or files match “{query}”", query = query)),
+                        .child(if in_project {
+                            t!(
+                                "No commands, files or papers match “{query}”",
+                                query = query
+                            )
+                        } else {
+                            t!("No commands or settings match “{query}”", query = query)
+                        }),
                 )
         });
         let card = div()
@@ -553,6 +586,12 @@ impl Shell {
         Some(self.palette.as_ref()?.read(cx).shown.len())
     }
 
+    /// The palette, while it is open, for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub(crate) fn palette_view(&self) -> Option<Entity<CommandPaletteView>> {
+        self.palette.clone()
+    }
+
     pub(crate) fn open_palette(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.palette.is_some() {
             self.close_overlays(window, cx);
@@ -603,86 +642,5 @@ impl Shell {
         // Back to the document in front, where the keyboard was.
         self.focus_front(window, cx);
         cx.notify();
-    }
-}
-
-/// The list row showing entry `ix` of entries in `groups` (each entry's
-/// section): a header row stands before each section's first entry.
-fn row_of(groups: &[&str], ix: usize) -> usize {
-    let headers = (0..=ix.min(groups.len().saturating_sub(1)))
-        .filter(|&i| i == 0 || groups[i] != groups[i - 1])
-        .count();
-    ix + headers
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{Entry, FILE_LIMIT, project_files, ranked, row_of, score};
-
-    #[test]
-    fn a_highlighted_entry_scrolls_to_its_row_past_the_section_headers() {
-        // Edit, Edit, Build, Layout, Layout: headers stand before entries 0,
-        // 2 and 3, so the rows read H E E H E H E E.
-        let groups = ["Edit", "Edit", "Build", "Layout", "Layout"];
-        assert_eq!(row_of(&groups, 0), 1);
-        assert_eq!(row_of(&groups, 1), 2);
-        assert_eq!(row_of(&groups, 2), 4);
-        assert_eq!(row_of(&groups, 4), 7);
-    }
-
-    #[test]
-    fn files_rank_by_their_path_inside_the_project() {
-        let root = std::env::temp_dir()
-            .join(format!("lattice-gpui-palette-{}", std::process::id()))
-            .join("thesis");
-        std::fs::remove_dir_all(&root).ok();
-        std::fs::create_dir_all(root.join("chapters")).unwrap();
-        for ix in 0..FILE_LIMIT + 4 {
-            std::fs::write(root.join("chapters").join(format!("a{ix:02}.tex")), "").unwrap();
-        }
-        std::fs::write(root.join("thesis.tex"), "").unwrap();
-        let shown = ranked(&project_files(&root), "thesis", FILE_LIMIT);
-        let names: Vec<String> = shown
-            .iter()
-            .map(|entry| match entry {
-                Entry::File { name, .. } => name.to_string(),
-                Entry::Command { .. } => String::new(),
-            })
-            .collect();
-        std::fs::remove_dir_all(root.parent().unwrap()).ok();
-        assert_eq!(names, ["thesis.tex"]);
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn a_folder_linked_back_into_the_project_lists_its_files_once() {
-        let root = std::env::temp_dir()
-            .join(format!("lattice-gpui-palette-link-{}", std::process::id()))
-            .join("thesis");
-        std::fs::remove_dir_all(&root).ok();
-        std::fs::create_dir_all(root.join("chapters")).unwrap();
-        std::fs::write(root.join("main.tex"), "").unwrap();
-        std::fs::write(root.join("chapters").join("intro.tex"), "").unwrap();
-        std::os::unix::fs::symlink(&root, root.join("chapters").join("loop")).unwrap();
-        let count = project_files(&root).len();
-        std::fs::remove_dir_all(root.parent().unwrap()).ok();
-        assert_eq!(count, 2);
-    }
-
-    #[test]
-    fn a_run_at_a_word_start_beats_scattered_letters() {
-        let run = score("show or hide the pdf", "pdf").unwrap();
-        let scattered = score("pick a document folder", "pdf").unwrap();
-        assert!(run > scattered);
-    }
-
-    #[test]
-    fn letters_out_of_order_do_not_match() {
-        assert_eq!(score("build project", "dliub"), None);
-    }
-
-    #[test]
-    fn an_earlier_match_ranks_higher() {
-        assert!(score("build project", "build") > score("clean build", "build"));
     }
 }
