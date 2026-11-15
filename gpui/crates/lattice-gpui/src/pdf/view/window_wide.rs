@@ -13,7 +13,10 @@ impl PdfView {
     /// Autoscroll runs, its press's release is still to come, or a card
     /// shows or waits to open.
     fn listens_window_wide(&self) -> bool {
-        self.autoscroll.is_some() || self.blocked_up.is_some() || self.citation_active()
+        self.autoscroll.is_some()
+            || self.blocked_up.is_some()
+            || self.citation_active()
+            || self.compound_active()
     }
 
     /// The window's presses, releases and moves, taken before any element
@@ -97,6 +100,11 @@ impl PdfView {
         if !self.on_citation_card(event.position) {
             self.dismiss_citation(cx);
         }
+        // A press off the pages closes the key card; one on them is a
+        // click the pages decide on (`compound_click`).
+        if !self.viewport.contains(&event.position) && !self.in_compound_bridge(event.position) {
+            self.dismiss_compound(cx);
+        }
     }
 
     fn on_window_mouse_move(&mut self, event: &MouseMoveEvent, cx: &mut Context<Self>) {
@@ -106,12 +114,16 @@ impl PdfView {
         if !self.viewport.contains(&event.position) && !self.on_citation_card(event.position) {
             self.leave_citation(cx);
         }
+        if !self.viewport.contains(&event.position) && !self.in_compound_bridge(event.position) {
+            self.leave_compound(cx);
+        }
     }
 
     /// Escape closes the card, and stops autoscroll; true when it took the
     /// key from the rest of the window.
     fn on_window_escape(&mut self, cx: &mut Context<Self>) -> bool {
         self.dismiss_citation(cx);
+        self.dismiss_compound(cx);
         if self.autoscroll.is_some() {
             self.stop_autoscroll(cx);
             return true;

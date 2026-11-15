@@ -18,7 +18,6 @@
 //! size on top, as PDF.js caps a canvas and adds a detail one.
 
 use std::{
-    collections::HashSet,
     ops::Range,
     path::PathBuf,
     sync::{
@@ -40,11 +39,14 @@ use lattice_i18n::t;
 
 mod autoscroll;
 mod citation;
+mod compound;
 mod drafts;
 mod events;
+mod hover_card;
 mod host;
 mod links;
 mod live;
+mod page_changes;
 mod pages;
 mod pointer;
 mod search;
@@ -52,7 +54,9 @@ mod sync_mark;
 mod window_wide;
 
 pub use citation::CitationLookup;
+pub use compound::CompoundSource;
 
+use page_changes::changed_pages;
 pub(super) use pages::PageSlot;
 pub(super) use sync_mark::{SYNC_MARK_HOLD, SyncMark};
 pub use events::{PdfViewEvent, ToolbarAction};
@@ -203,6 +207,9 @@ pub struct PdfView {
     /// The project's citations, for the cards over citation links.
     citations: Option<CitationLookup>,
     citation: citation::CitationHover,
+    /// The last build's compounds, for the key cards over their numbers.
+    compounds: Option<CompoundSource>,
+    compound: compound::CompoundHover,
     /// Middle-click autoscroll while it runs, and the press it took whose
     /// release is not a click.
     autoscroll: Option<autoscroll::Autoscroll>,
@@ -326,6 +333,8 @@ impl PdfView {
             stats: RenderStats::default(),
             citations: None,
             citation: Default::default(),
+            compounds: None,
+            compound: Default::default(),
             autoscroll: None,
             blocked_up: None,
             escape: None,
@@ -423,6 +432,7 @@ impl PdfView {
     pub fn close(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self._open_task = None;
         self.dismiss_citation(cx);
+        self.dismiss_compound(cx);
         self.stop_autoscroll(cx);
         self.reset(window);
         if let (Ok(engine), Some(doc)) = (&self.engine, self.doc.take()) {
@@ -523,6 +533,7 @@ impl PdfView {
         self.loading = false;
         self.message = None;
         self.dismiss_citation(cx);
+        self.dismiss_compound(cx);
         self.stop_autoscroll(cx);
         let generation = info.generation;
         let count = info.page_sizes.len();
@@ -803,27 +814,6 @@ impl PdfView {
     }
 }
 
-/// The pages whose signatures differ, or `None` when the document as a
-/// whole changed (`changedPages` in `src/pdf/pdf-page-swap.ts`).
-pub(super) fn changed_pages(
-    before: &PageSignatures,
-    after: &PageSignatures,
-) -> Option<HashSet<usize>> {
-    if before.document != after.document || before.pages.len() != after.pages.len() {
-        return None;
-    }
-    Some(
-        after
-            .pages
-            .iter()
-            .zip(&before.pages)
-            .enumerate()
-            .filter(|(_, (new, old))| new != old)
-            .map(|(ix, _)| ix)
-            .collect(),
-    )
-}
-
 impl Drop for PdfView {
     /// The worker lets go of the document with its viewer.
     fn drop(&mut self) {
@@ -836,28 +826,5 @@ impl Drop for PdfView {
 impl Focusable for PdfView {
     fn focus_handle(&self, _: &App) -> FocusHandle {
         self.focus_handle.clone()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_rebuild_redraws_only_the_pages_whose_signatures_changed() {
-        let before = PageSignatures {
-            document: "d".into(),
-            pages: vec!["a".into(), "b".into(), "c".into()],
-        };
-        let after = PageSignatures {
-            document: "d".into(),
-            pages: vec!["a".into(), "B".into(), "c".into()],
-        };
-        assert_eq!(changed_pages(&before, &after), Some([1].into()));
-        let renumbered = PageSignatures {
-            document: "e".into(),
-            ..after
-        };
-        assert_eq!(changed_pages(&before, &renumbered), None);
     }
 }

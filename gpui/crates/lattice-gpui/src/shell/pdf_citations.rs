@@ -6,18 +6,32 @@
 //! overview, else its source on the web (the entry's own address, its DOI's
 //! resolver, or arXiv's PDF).
 //!
-//! Not yet: a cited paper Papers can fetch but has not is opened at its
-//! source rather than downloaded first (`fetchAndOpenPaper`).
+//! And the key cards over chemnum compound numbers: once a build writes a
+//! PDF, what chemnum numbered in it (its `.aux` files) goes to the live PDF
+//! (`compiledCompoundNumbers` in `compound-project.ts`).
+//!
+//! A cited paper Papers can fetch but has not is fetched first and opened
+//! when it arrives, as a Papers row does (`fetchAndOpenPaper`); when the
+//! download fails, its source opens after the error.
 
-use gpui::{App, Context, Entity, Window};
+use gpui::{App, AppContext as _, Context, Entity, EventEmitter, Window};
 use lattice_core::papers::PaperSummary;
 use lattice_editor::index::Citation;
 
 use super::Shell;
 use crate::{
-    papers::model as paper_model,
+    papers::{PapersPanel, model as paper_model},
     pdf::{CitationLookup, PdfPanel},
 };
+
+/// A download Papers started has come back (`fetchAndOpenPaper`'s answer):
+/// `key` is the paper's `paper_key`.
+pub(crate) struct PaperFetched {
+    pub(crate) key: String,
+    pub(crate) failed: bool,
+}
+
+impl EventEmitter<PaperFetched> for PapersPanel {}
 
 impl Shell {
     /// How a PDF of this project reads its citations; `None` without a
@@ -36,7 +50,7 @@ impl Shell {
                     .and_then(|index| index.read(cx).citation(key).cloned());
                 let readable = papers
                     .upgrade()
-                    .is_some_and(|papers| paper_to_read(&papers.read(cx).papers, key).is_some());
+                    .is_some_and(|papers| paper_cited(&papers.read(cx).papers, key).is_some());
                 readable || citation.as_ref().and_then(source_url).is_some()
             }),
         })
@@ -48,32 +62,95 @@ impl Shell {
         panel.update(cx, |panel, cx| panel.set_citations(lookup, cx));
     }
 
-    /// A citation card's title: the paper in its reader, else its source.
+    /// A build of `root_document` wrote the live PDF: its compounds, read
+    /// off the main thread, go to it.
+    pub(super) fn read_compounds(
+        &self,
+        root_document: String,
+        aux_folder: String,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(root) = self.root(cx) else {
+            return;
+        };
+        let read = cx.background_spawn({
+            let root = root.clone();
+            async move {
+                crate::pdf::compounds::read_compound_numbers(&root, &root_document, &aux_folder)
+            }
+        });
+        cx.spawn(async move |this, cx| {
+            let numbers = read.await;
+            this.update(cx, |this, cx| {
+                if this.root(cx).as_deref() != Some(root.as_path()) {
+                    return;
+                }
+                let source = crate::pdf::CompoundSource {
+                    root,
+                    numbers: std::sync::Arc::new(numbers),
+                };
+                let pdf = this.pdf.clone();
+                pdf.update(cx, |pdf, cx| pdf.set_compounds(Some(source), cx));
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    /// A citation card's title: the paper in its reader, fetched first when
+    /// Papers can fetch it, else its source.
     pub(super) fn open_citation(&mut self, key: &str, window: &mut Window, cx: &mut Context<Self>) {
-        let paper = paper_to_read(&self.papers.read(cx).papers, key).cloned();
+        let paper = paper_cited(&self.papers.read(cx).papers, key).cloned();
         if let Some(paper) = paper {
-            self.open_reader(paper, window, cx);
+            if paper.has_full_text || paper.has_blog {
+                self.open_reader(paper, window, cx);
+            } else {
+                // Fetched, then opened in its reader (`activate`); a failed
+                // download opens the source instead.
+                let papers = self.papers.clone();
+                let fetching = paper_model::paper_key(&paper);
+                let source = self.citation_source(key, cx);
+                self.citation_fetch = Some(cx.subscribe(
+                    &papers,
+                    move |this, _, fetched: &PaperFetched, cx| {
+                        if fetched.key != fetching {
+                            return;
+                        }
+                        this.citation_fetch = None;
+                        if let Some(url) = source.as_deref().filter(|_| fetched.failed) {
+                            cx.open_url(url);
+                        }
+                    },
+                ));
+                papers.update(cx, |papers, cx| papers.activate(&paper, None, window, cx));
+            }
             return;
         }
-        let citation = self
-            .project
-            .as_ref()
-            .and_then(|project| project.read(cx).index().read(cx).citation(key).cloned());
-        if let Some(url) = citation.as_ref().and_then(source_url) {
+        if let Some(url) = self.citation_source(key, cx) {
             cx.open_url(&url);
         }
     }
+
+    /// The web source of the project's entry under `key`.
+    fn citation_source(&self, key: &str, cx: &App) -> Option<String> {
+        let project = self.project.as_ref()?.read(cx);
+        source_url(project.index().read(cx).citation(key)?)
+    }
 }
 
-/// The library's paper cited under `key` that the reader can show: its
-/// text or its overview is saved (`paperCited`).
-fn paper_to_read<'a>(papers: &'a [PaperSummary], key: &str) -> Option<&'a PaperSummary> {
+/// The library's paper cited under `key` that opens (`paperCited`): its
+/// text or overview is saved, or Papers can fetch it by its arXiv id or DOI.
+fn paper_cited<'a>(papers: &'a [PaperSummary], key: &str) -> Option<&'a PaperSummary> {
     papers.iter().find(|paper| {
+        let identified =
+            !paper.arxiv_id.is_empty() || paper.doi.as_deref().is_some_and(|doi| !doi.is_empty());
         paper
             .citation_key
             .as_deref()
             .is_some_and(|cited| cited.eq_ignore_ascii_case(key))
-            && (paper.has_full_text || paper.has_blog)
+            && (paper.has_full_text
+                || paper.has_blog
+                || (identified && paper_model::can_download(paper)))
     })
 }
 
@@ -101,6 +178,31 @@ mod tests {
             arxiv_id: arxiv.map(str::to_string),
             ..Default::default()
         }
+    }
+
+    #[test]
+    fn a_cited_paper_opens_when_papers_has_it_or_can_fetch_it() {
+        use crate::papers::model::test_support::{paper, with};
+        // `paperCited` in `use-document-surfaces.tsx`.
+        let cited = |key: &str| with(paper(key), |p| p.citation_key = Some(key.into()));
+        let papers = vec![
+            with(cited("read"), |p| p.has_full_text = true),
+            with(cited("arxiv"), |p| p.arxiv_id = "1706.03762".into()),
+            with(cited("doi-only"), |p| p.doi = Some("10.1000/x".into())),
+            cited("bare"),
+        ];
+        assert!(
+            paper_cited(&papers, "READ").is_some(),
+            "keys match without case"
+        );
+        assert!(
+            paper_cited(&papers, "arxiv").is_some(),
+            "Papers can fetch it"
+        );
+        // A DOI identifies a work, not a downloadable text (`canDownloadPaper`).
+        assert!(paper_cited(&papers, "doi-only").is_none());
+        assert!(paper_cited(&papers, "bare").is_none());
+        assert!(paper_cited(&papers, "absent").is_none());
     }
 
     #[test]

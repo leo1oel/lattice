@@ -455,10 +455,11 @@ impl PapersPanel {
     }
 
     fn fetch(&mut self, paper: PaperSummary, cx: &mut Context<Self>) {
+        let key = paper_key(&paper);
         let Some(root) = self.root.clone() else {
+            cx.emit(crate::shell::PaperFetched { key, failed: false });
             return;
         };
-        let key = paper_key(&paper);
         let cancel = Arc::new(AtomicBool::new(false));
         let (stages, mut stage_events) = mpsc::unbounded::<String>();
         let job_cancel = cancel.clone();
@@ -537,6 +538,10 @@ impl PapersPanel {
         if cancel.load(Ordering::Acquire) {
             return;
         }
+        cx.emit(crate::shell::PaperFetched {
+            key: key.clone(),
+            failed: result.is_err(),
+        });
         match result {
             Ok(fetched) => {
                 self.fetching
@@ -591,8 +596,12 @@ impl PapersPanel {
     /// Stop the downloads under way: each paper is left as it was, ready to
     /// download again.
     pub(crate) fn cancel_fetches(&mut self, cx: &mut Context<Self>) {
-        for cancel in self.fetching.cancels.values() {
+        for (key, cancel) in &self.fetching.cancels {
             cancel.store(true, Ordering::Release);
+            cx.emit(crate::shell::PaperFetched {
+                key: key.clone(),
+                failed: false,
+            });
         }
         self.fetching.cancels.clear();
         self.fetching
