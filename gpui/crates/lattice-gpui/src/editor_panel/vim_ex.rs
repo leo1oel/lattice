@@ -3,7 +3,8 @@
 //! CodeMirror Vim does (its panel at the bottom, `.cm-panels-bottom`), and
 //! Enter runs what was typed: `:w` saves (and builds) as ⌘S does, `:q`
 //! closes the tab as ⌘W does, `:wq` both (`src/canvas/vim-ex-commands.ts`),
-//! and `:N` goes to line N. Escape closes it, the keys back in the text.
+//! and `:N` goes to line N. Escape closes it, the keys back in the text, and
+//! it closes when its field loses the keyboard, as CodeMirror Vim's does.
 //!
 //! Zed's own `:` opens Zed's command palette, which the GPUI app does not
 //! host, and its `:w` saves through a Zed workspace, so neither reached
@@ -76,14 +77,19 @@ impl EditorPanel {
         let subscription = cx.subscribe_in(
             &input,
             window,
-            |this, input, event: &InputEvent, window, cx| {
-                if let InputEvent::PressEnter { .. } = event {
+            |this, input, event: &InputEvent, window, cx| match event {
+                InputEvent::PressEnter { .. } => {
                     let command = ex_command(&input.read(cx).value());
                     this.close_vim_ex(window, cx);
                     if let Some(command) = command {
                         this.run_ex(command, window, cx);
                     }
                 }
+                InputEvent::Blur => {
+                    this.vim_ex = None;
+                    cx.notify();
+                }
+                _ => {}
             },
         );
         let focus = input.read(cx).focus_handle(cx);

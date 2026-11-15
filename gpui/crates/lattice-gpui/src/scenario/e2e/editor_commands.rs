@@ -1,7 +1,8 @@
 #![cfg(target_os = "macos")]
 //! The e2e checks of the source editor's keys and commands where Zed's
 //! differ from the Tauri app's: ⌃L selects the caret's line, a native
-//! ⌘-click on plain text adds a cursor, Format document runs latexindent on
+//! ⌘-click on plain text adds a cursor, ⌃⌥[ and ⌃⌥] fold and unfold the
+//! LaTeX fold column's ranges, Format document runs latexindent on
 //! a scratch file (skipped without latexindent), and with the Vim keymap on,
 //! `:` opens Lattice's command line, where `:w` saves the file to disk, `:3`
 //! goes to line 3 and `:q` closes the tab (`editor_panel/vim_ex.rs`). The
@@ -62,6 +63,27 @@ impl Run {
             json!({ "cursors": cursors }),
         );
         self.press(cx, '\u{1b}', false).await?;
+
+        // ⌃⌥[ and ⌃⌥]: the LaTeX ranges the fold column folds, from the top.
+        let folded_rows = |run: &Self, cx: &mut AsyncApp, keys: &'static str| -> Result<Vec<u32>> {
+            let keys = Keystroke::parse(keys).map_err(|error| anyhow::anyhow!("{error}"))?;
+            let lattice = lattice.clone();
+            run.with_window(cx, move |_, window, cx| {
+                window.dispatch_keystroke(keys, cx);
+                lattice.update(cx, |lattice, cx| {
+                    (0..11)
+                        .filter(|row| lattice.is_folded(*row, window, cx))
+                        .collect()
+                })
+            })
+        };
+        let all = folded_rows(self, cx, "ctrl-alt-[")?;
+        let none = folded_rows(self, cx, "ctrl-alt-]")?;
+        steps.check(
+            "⌃⌥[ folds the preamble and the document environment as the LaTeX fold column does, and ⌃⌥] unfolds them",
+            all.contains(&0) && all.contains(&3) && none.is_empty(),
+            json!({ "folded": all, "after_unfold": none }),
+        );
 
         self.format_document_step(cx, steps, root).await?;
         self.vim_command_line(cx, steps, &main, &original).await

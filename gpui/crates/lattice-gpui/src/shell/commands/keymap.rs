@@ -67,7 +67,7 @@ fn default_bindings() -> Vec<KeyBinding> {
                 "alt-l"
             },
             editor::actions::SelectLine,
-            Some("Editor && !VimControl"),
+            Some("Editor && !VimControl && !LatticeEmacs"),
         ),
         KeyBinding::new(
             m!("alt-\\"),
@@ -385,6 +385,39 @@ mod tests {
             resolve(bindings, "Editor mode = full", m!("w")),
             Some(CloseTab.name())
         );
+    }
+
+    #[test]
+    fn ctrl_l_selects_the_line_but_recenters_under_emacs() {
+        // emacs.json binds ctrl-l to recenter-top-bottom in an editor, as the
+        // Tauri app's Emacs keymap does; the app loads it under its Emacs
+        // context, then Lattice's keymap again.
+        let mut bindings = default_bindings();
+        bindings.push(KeyBinding::new(
+            "ctrl-l",
+            editor::actions::ScrollCursorCenterTopBottom,
+            Some(&format!("{} > Editor", crate::app::EMACS_CONTEXT)),
+        ));
+        bindings.extend(default_bindings());
+        let keymap = Keymap::new(bindings);
+        let run = |shell: &str| {
+            let stack = [shell, "LatticeEditor", "Editor mode = full"]
+                .map(|context| KeyContext::parse(context).unwrap());
+            let (matched, _) =
+                keymap.bindings_for_input(&[Keystroke::parse("ctrl-l").unwrap()], &stack);
+            matched.first().map(|binding| binding.action().name())
+        };
+        let emacs = format!("LatticeShell {}", crate::app::EMACS_CONTEXT);
+        assert_eq!(
+            run(&emacs),
+            Some(editor::actions::ScrollCursorCenterTopBottom.name())
+        );
+        if cfg!(target_os = "macos") {
+            assert_eq!(
+                run("LatticeShell"),
+                Some(editor::actions::SelectLine.name())
+            );
+        }
     }
 
     #[test]

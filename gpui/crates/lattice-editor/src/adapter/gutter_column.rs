@@ -479,6 +479,51 @@ impl LatticeEditor {
         cx.notify();
     }
 
+    /// Fold the caret's line as the language says, as CodeMirror's
+    /// `foldCode` does; `false` without a fold source, for Zed's own folding.
+    pub fn fold_at_caret(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        if self.folds.is_none() {
+            return false;
+        }
+        if let Some(row) = self.caret_row(cx)
+            && !self.is_folded(row, window, cx)
+        {
+            self.toggle_fold(row, window, cx);
+        }
+        true
+    }
+
+    /// Fold every range the language folds from the top down, skipping the
+    /// ones inside a range already folded, as CodeMirror's `foldAll` walks
+    /// the document; `false` without a fold source, for Zed's own folding.
+    pub fn fold_all(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let Some(source) = self.folds.clone() else {
+            return false;
+        };
+        let text = self.buffer.read(cx).snapshot();
+        let placeholder = self.fold_placeholder(cx);
+        let mut creases = Vec::new();
+        let mut row = 0;
+        while row <= text.max_point().row {
+            match self.fold_at(&source, &text, row) {
+                Some(range) => {
+                    creases.push(Crease::simple(
+                        language::Point::new(range.start.0, range.start.1)
+                            ..language::Point::new(range.end.0, range.end.1),
+                        placeholder.clone(),
+                    ));
+                    row = range.end.0 + 1;
+                }
+                None => row += 1,
+            }
+        }
+        self.editor.update(cx, |editor, cx| {
+            editor.fold_creases(creases, false, window, cx);
+        });
+        cx.notify();
+        true
+    }
+
     /// Whether `row` is folded.
     pub fn is_folded(&self, row: u32, window: &mut Window, cx: &mut App) -> bool {
         self.editor.update(cx, |editor, cx| {
