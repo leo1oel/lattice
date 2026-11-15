@@ -263,8 +263,13 @@ impl super::EditorPanel {
         }
         let facts = Facts::default();
         let index = self.project.read(cx).index().clone();
-        self.lattice.update(cx, |lattice, _| {
-            lattice_editor::latex::attach(lattice, &index, facts.clone())
+        let math_preview = self.relative.ends_with(".tex");
+        self.lattice.update(cx, |lattice, cx| {
+            lattice_editor::latex::attach(lattice, &index, facts.clone());
+            // The live math preview is a `.tex` file's, as in the Tauri app.
+            if math_preview {
+                lattice_editor::latex::math_preview::attach(lattice, &index, cx);
+            }
         });
         let texlab = self.project.read(cx).texlab().clone();
         self.diagnostics = Some(

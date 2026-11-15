@@ -17,6 +17,7 @@ use serde_json::json;
 use super::Steps;
 use crate::{papers::model::Filter, scenario::Run};
 
+mod audit;
 mod cards;
 mod library;
 mod reader;
@@ -489,6 +490,9 @@ impl Run {
             }),
             json!({ "rows": rows }),
         );
+        if read {
+            self.check_references_queue(cx, steps, root).await?;
+        }
         self.with_window(cx, |shell, window, cx| {
             shell.update(cx, |shell, cx| shell.close_document_overlays(window, cx))
         })?;

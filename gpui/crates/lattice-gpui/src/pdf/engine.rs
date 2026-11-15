@@ -694,6 +694,14 @@ mod tests {
         pdf
     }
 
+    /// The one engine the tests share: PDFium binds once per process, so a
+    /// second `start` while another test holds it fails with
+    /// `PdfiumLibraryBindingsAlreadyInitialized`.
+    fn engine() -> &'static PdfEngine {
+        static ENGINE: std::sync::OnceLock<PdfEngine> = std::sync::OnceLock::new();
+        ENGINE.get_or_init(|| PdfEngine::start().expect("PDFium (script/fetch-pdfium)"))
+    }
+
     /// The BGRA pixel at `(x, y)` of the page drawn 100 px across, whole or
     /// through a region, light or dark.
     fn pixel(engine: &PdfEngine, region: bool, dark: bool, x: u32, y: u32) -> [u8; 4] {
@@ -729,14 +737,14 @@ mod tests {
     // B = 0, G = 0, R = 255, whether it is drawn whole or a region at a time.
     #[test]
     fn page_images_reach_gpui_as_bgra_in_light_and_dark() {
-        let engine = PdfEngine::start().expect("PDFium (script/fetch-pdfium)");
+        let engine = engine();
         for region in [false, true] {
-            assert_eq!(pixel(&engine, region, false, 25, 50), [0, 0, 255, 255]);
-            assert_eq!(pixel(&engine, region, false, 75, 50), [51, 102, 204, 255]);
+            assert_eq!(pixel(engine, region, false, 25, 50), [0, 0, 255, 255]);
+            assert_eq!(pixel(engine, region, false, 75, 50), [51, 102, 204, 255]);
             // Dark pages: the CSS filter of the Tauri app, applied in RGB.
             let [r, g, b] =
                 super::super::dark::filter([1., 0., 0.]).map(|c| (c * 255.).round() as u8);
-            assert_eq!(pixel(&engine, region, true, 25, 50), [b, g, r, 255]);
+            assert_eq!(pixel(engine, region, true, 25, 50), [b, g, r, 255]);
         }
     }
 
@@ -754,7 +762,7 @@ mod tests {
 
     #[test]
     fn citation_links_keep_the_names_pdfium_resolves_away() {
-        let engine = PdfEngine::start().expect("PDFium (script/fetch-pdfium)");
+        let engine = engine();
         let doc = engine.new_document();
         let pdf = crate::pdf::named_links::tests::linked_pdf();
         let names = crate::pdf::named_links::read(&pdf);
