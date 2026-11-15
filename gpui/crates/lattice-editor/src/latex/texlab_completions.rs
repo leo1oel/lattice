@@ -4,17 +4,19 @@
 //! TexLab is asked at the caret with the file's text, and its items join
 //! the menu after Lattice's own (the provider drops one an earlier source
 //! offers already). They are matched on the word, a command first, the
-//! detail TexLab's or "TexLab". Any failure is no answer. An ask waits for
-//! TexLab to finish what it is doing (a diagnostics sync, the last ask),
-//! and is dropped unasked when a later keystroke has asked again meanwhile,
-//! so asks never pile up behind a slow TexLab.
+//! detail TexLab's or "TexLab". Any failure is no answer. The menu does
+//! not wait for it past `completion::SYNC_TIME`. An ask waits for TexLab to
+//! finish what it is doing (a diagnostics sync, the last ask) without
+//! holding a thread, and is dropped unasked once a later keystroke has
+//! asked again, so asks never pile up behind a slow TexLab.
 
 use std::{
     path::Path,
     sync::{
-        Arc, LazyLock,
+        Arc, LazyLock, TryLockError,
         atomic::{AtomicU64, Ordering},
     },
+    time::Duration,
 };
 
 use gpui::{App, Task, WeakEntity};
@@ -22,12 +24,12 @@ use lattice_core::texlab::{DocumentAt, TexlabCompletionItem};
 use regex::Regex;
 
 use super::{completions::match_rank, diagnostics::TexlabDiagnostics};
-use crate::{
-    TexlabService,
-    completion::{
-        CompletionItem, CompletionKind, CompletionList, CompletionQuery, CompletionSource,
-    },
+use crate::completion::{
+    CompletionItem, CompletionKind, CompletionList, CompletionQuery, CompletionSource,
 };
+
+/// How often a waiting ask looks whether TexLab is free again.
+const POOL_RETRY: Duration = Duration::from_millis(20);
 
 static WORD: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"\\?[A-Za-z@*]*$").expect("the word pattern compiles"));
@@ -69,6 +71,9 @@ pub struct TexlabCompletions {
     pub diagnostics: WeakEntity<TexlabDiagnostics>,
     /// The last ask made; an earlier one still waiting is dropped.
     pub latest: Arc<AtomicU64>,
+    /// Whether TexLab was installed when the editor opened, as the Tauri
+    /// app decides once per editor.
+    pub available: bool,
 }
 
 impl TexlabCompletions {
@@ -84,7 +89,7 @@ impl CompletionSource for TexlabCompletions {
     }
 
     fn asks_later(&self, query: &CompletionQuery, cx: &App) -> bool {
-        word_start(query.before).is_some() && self.path(cx).is_some() && TexlabService::available()
+        self.available && word_start(query.before).is_some() && self.path(cx).is_some()
     }
 
     fn complete_later(
@@ -109,11 +114,19 @@ impl CompletionSource for TexlabCompletions {
         let (root, pool) = service.read(cx).pool();
         let latest = self.latest.clone();
         let ask = latest.fetch_add(1, Ordering::SeqCst) + 1;
+        let executor = cx.background_executor().clone();
         Some(cx.background_executor().spawn(async move {
-            let mut pool = pool.lock().ok()?;
-            if latest.load(Ordering::SeqCst) != ask {
-                return None;
-            }
+            let mut pool = loop {
+                if latest.load(Ordering::SeqCst) != ask {
+                    return None;
+                }
+                match pool.try_lock() {
+                    Ok(pool) => break pool,
+                    Err(TryLockError::WouldBlock) => {}
+                    Err(TryLockError::Poisoned(_)) => return None,
+                }
+                executor.timer(POOL_RETRY).await;
+            };
             let at = DocumentAt {
                 path: &path,
                 text: Some(&text),

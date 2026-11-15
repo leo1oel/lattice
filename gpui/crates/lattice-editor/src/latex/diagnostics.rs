@@ -243,6 +243,7 @@ impl TexlabDiagnostics {
         let completions = super::texlab_completions::TexlabCompletions {
             diagnostics: diagnostics.downgrade(),
             latest: Default::default(),
+            available: TexlabService::available(),
         };
         editor.update(cx, |editor, _| {
             editor.add_completion_source(Rc::new(completions))

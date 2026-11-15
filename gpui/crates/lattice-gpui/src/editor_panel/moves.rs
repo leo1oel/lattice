@@ -34,7 +34,11 @@ impl EditorPanel {
                 let relative = self.relative.clone();
                 lint.update(cx, |lint, cx| lint.set_path(relative, cx));
             }
-            None => self.attach_tex(cx),
+            None => {
+                if let Some(facts) = self.attach_tex(cx) {
+                    self.attach_index_lint(facts, cx);
+                }
+            }
         }
         crate::status_counters::set_buffer(root.clone(), left, None, cx);
         self.scan_todos(Duration::ZERO, cx);

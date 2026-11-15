@@ -49,8 +49,6 @@ pub struct IndexLint {
     facts: Facts,
     path: String,
     root_document: String,
-    /// The other TeX sources' `\graphicspath` roots.
-    other_roots: Vec<String>,
     unused: (HashSet<String>, HashSet<String>),
     generation: u64,
     _run: Option<Task<()>>,
@@ -103,7 +101,6 @@ impl IndexLint {
                 facts,
                 path,
                 root_document,
-                other_roots: Vec::new(),
                 unused: Default::default(),
                 generation: 0,
                 _run: None,
@@ -173,10 +170,9 @@ impl IndexLint {
             this.update(cx, |this, cx| {
                 {
                     let mut facts = this.facts.borrow_mut();
-                    facts.graphics_roots = roots.clone();
+                    facts.graphics_roots = roots;
                     facts.macros = macros;
                 }
-                this.other_roots = roots;
                 this.unused = unused;
                 this.schedule(Duration::ZERO, cx);
             })
@@ -186,11 +182,9 @@ impl IndexLint {
 
     /// What the lint is given besides the text.
     fn lint_index(&self, text: &str, cx: &App) -> LintIndex {
-        let project = self.project.read(cx);
-        let index = project.index().read(cx);
-        let mut project_paths_list = Vec::new();
-        project_paths(project.files(), &mut project_paths_list);
-        let mut roots = self.other_roots.clone();
+        let index = self.project.read(cx).index().read(cx);
+        let facts = self.facts.borrow();
+        let mut roots = facts.graphics_roots.clone();
         for root in graphics_roots([text]) {
             if !roots.contains(&root) {
                 roots.push(root);
@@ -210,7 +204,7 @@ impl IndexLint {
             pending: index.is_first_read_pending(),
             unused_labels: self.unused.0.clone(),
             unused_citations: self.unused.1.clone(),
-            project_paths: project_paths_list,
+            project_paths: facts.paths.clone(),
             graphics_roots: roots,
             root_path: self.root_document.clone(),
         }
@@ -259,12 +253,13 @@ impl IndexLint {
 impl super::EditorPanel {
     /// Put the LaTeX features that read the project on a `.tex` file's
     /// editor, from its opening or once a move makes it one: the cards and
-    /// completion (`latex::attach`), TexLab's diagnostics and completions,
-    /// and the lint, which reads the facts the completion lists. A card's
-    /// Create file goes to the window.
-    pub(super) fn attach_tex(&mut self, cx: &mut Context<Self>) {
-        if self.index_lint.is_some() || !lattice_editor::latex::is_tex_source(&self.path) {
-            return;
+    /// completion (`latex::attach`) and TexLab's diagnostics and completions.
+    /// The facts the completion lists go to the lint
+    /// ([`attach_index_lint`](Self::attach_index_lint)), which is put on
+    /// after the spell check, as hover cards stack in the order put on.
+    pub(super) fn attach_tex(&mut self, cx: &mut Context<Self>) -> Option<Facts> {
+        if self.diagnostics.is_some() || !lattice_editor::latex::is_tex_source(&self.path) {
+            return None;
         }
         let facts = Facts::default();
         let index = self.project.read(cx).index().clone();
@@ -280,6 +275,12 @@ impl super::EditorPanel {
                 cx,
             ),
         );
+        Some(facts)
+    }
+
+    /// Lint the `.tex` file with the `facts` [`attach_tex`](Self::attach_tex)
+    /// made. A card's Create file goes to the window.
+    pub(super) fn attach_index_lint(&mut self, facts: Facts, cx: &mut Context<Self>) {
         let panel = cx.weak_entity();
         let created = move |path: String, cx: &mut App| {
             panel

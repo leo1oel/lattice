@@ -476,8 +476,11 @@ impl EditorPanel {
         this.ensure_preview(window, cx);
         this.ensure_bib_for_view(window, cx);
         this.attach_structured(window, cx);
+        let facts = this.attach_tex(cx);
         this.attach_spelling(cx);
-        this.attach_tex(cx);
+        if let Some(facts) = facts {
+            this.attach_index_lint(facts, cx);
+        }
         this.attach_annotations(cx);
         this.attach_review_marks(cx);
         this.paint_highlights(cx);

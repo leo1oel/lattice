@@ -15,14 +15,17 @@
 //! into it, as a CodeMirror template puts it in the first empty `{}`.
 //!
 //! A source that has to ask elsewhere (TexLab) answers later: its list
-//! joins the others' once it comes, after them, without the options an
-//! earlier source already offered, as CodeMirror waits for its async
-//! sources before it opens the menu.
+//! joins the others', after them, without the options an earlier source
+//! already offered. As CodeMirror's `updateSyncTime`, the menu waits for it
+//! [`SYNC_TIME`] at most and then shows what it has; an answer that comes
+//! after that opens the menu again where it was asked, if nothing was typed
+//! and the menu was not dismissed meanwhile.
 
-use std::{cell::RefCell, ops::Range, rc::Rc, sync::Arc};
+use std::{cell::RefCell, ops::Range, rc::Rc, sync::Arc, time::Duration};
 
 use anyhow::Result;
-use editor::{CompletionProvider, Editor, SelectionEffects};
+use editor::{CompletionProvider, Editor, SelectionEffects, ToPoint as _};
+use futures::future::{Either, join_all, select};
 use gpui::{App, Context, Entity, SharedString, Task, WeakEntity, Window};
 use language::{Buffer, BufferSnapshot, CodeLabel, ToOffset as _};
 use project::{
@@ -112,6 +115,20 @@ pub(crate) type Sources = Rc<RefCell<Vec<Rc<dyn CompletionSource>>>>;
 /// The labels the menu was last given, in order.
 pub(crate) type Offered = Rc<RefCell<Vec<SharedString>>>;
 
+/// How long the menu waits for the sources that answer later
+/// (CodeMirror's default `updateSyncTime`).
+pub const SYNC_TIME: Duration = Duration::from_millis(100);
+
+/// The answers that came after [`SYNC_TIME`], for the text and caret they
+/// were asked at.
+pub(crate) struct LateAnswers {
+    snapshot: BufferSnapshot,
+    offset: usize,
+    lists: Vec<CompletionList>,
+}
+
+pub(crate) type Late = Rc<RefCell<Option<LateAnswers>>>;
+
 /// The text before `offset`, at most [`TEXT_BEFORE`] bytes, starting on a
 /// character boundary.
 pub(crate) fn text_before(text: &BufferSnapshot, offset: usize) -> String {
@@ -120,12 +137,13 @@ pub(crate) fn text_before(text: &BufferSnapshot, offset: usize) -> String {
     text.text_for_range(start..offset).collect()
 }
 
-/// Every source's options at `offset`, in source order, and the answers
-/// still to come.
+/// Every source's options at `offset`, in source order, and, when
+/// `ask_later`, the answers still to come.
 pub(crate) fn collect(
     sources: &[Rc<dyn CompletionSource>],
     text: &BufferSnapshot,
     offset: usize,
+    ask_later: bool,
     cx: &App,
 ) -> (Vec<CompletionList>, Vec<Task<Option<CompletionList>>>) {
     let before = text_before(text, offset);
@@ -141,6 +159,7 @@ pub(crate) fn collect(
         .collect();
     let later = sources
         .iter()
+        .filter(|_| ask_later)
         .filter_map(|source| source.complete_later(&query, cx))
         .collect();
     (lists, later)
@@ -167,6 +186,15 @@ fn any_options(
     })
 }
 
+/// `lists` with each of `later` joined after them.
+fn join_later(lists: &mut Vec<CompletionList>, later: impl IntoIterator<Item = CompletionList>) {
+    for list in later {
+        if let Some(list) = without_offered(lists, list) {
+            lists.push(list);
+        }
+    }
+}
+
 /// `later`'s options without those `earlier` lists offer already.
 pub(crate) fn without_offered(
     earlier: &[CompletionList],
@@ -187,6 +215,7 @@ pub(crate) struct Provider {
     pub sources: Sources,
     pub editor: gpui::WeakEntity<Editor>,
     pub offered: Offered,
+    pub late: Late,
 }
 
 impl Provider {
@@ -322,22 +351,70 @@ impl CompletionProvider for Provider {
         buffer: &Entity<Buffer>,
         buffer_position: language::Anchor,
         _trigger: editor::CompletionContext,
-        _window: &mut Window,
+        window: &mut Window,
         cx: &mut Context<Editor>,
     ) -> Task<Result<Vec<CompletionResponse>>> {
         let snapshot = buffer.read(cx).snapshot();
         let offset = buffer_position.to_offset(&snapshot);
         let sources = self.sources.borrow().clone();
-        let (lists, later) = collect(&sources, &snapshot, offset, cx);
+        let late = self.late.borrow().as_ref().and_then(|late| {
+            (late.offset == offset
+                && late.snapshot.remote_id() == snapshot.remote_id()
+                && late.snapshot.version() == snapshot.version())
+            .then(|| late.lists.clone())
+        });
+        let (mut lists, later) = collect(&sources, &snapshot, offset, late.is_none(), cx);
+        if let Some(late) = late {
+            join_later(&mut lists, late);
+        }
         if later.is_empty() {
             return Task::ready(Ok(self.respond(lists, &snapshot, buffer)));
         }
-        let (editor, offered, buffer) = (self.editor.clone(), self.offered.clone(), buffer.clone());
-        cx.spawn(async move |_, _| {
-            let mut lists = lists;
-            for answer in later {
-                if let Some(list) = answer.await.and_then(|list| without_offered(&lists, list)) {
-                    lists.push(list);
+        let (editor, offered, late, buffer) = (
+            self.editor.clone(),
+            self.offered.clone(),
+            self.late.clone(),
+            buffer.clone(),
+        );
+        let timer = cx.background_executor().timer(SYNC_TIME);
+        cx.spawn_in(window, async move |_, cx| {
+            match select(Box::pin(join_all(later)), timer).await {
+                Either::Left((answers, _)) => join_later(&mut lists, answers.into_iter().flatten()),
+                Either::Right(((), answers)) => {
+                    let shown = !lists.is_empty();
+                    let (editor, snapshot, buffer) =
+                        (editor.clone(), snapshot.clone(), buffer.clone());
+                    cx.spawn(async move |cx| {
+                        let lists: Vec<_> = answers.await.into_iter().flatten().collect();
+                        if lists.is_empty() {
+                            return;
+                        }
+                        editor
+                            .update_in(cx, |editor, window, cx| {
+                                let caret = editor
+                                    .selections
+                                    .newest_anchor()
+                                    .head()
+                                    .to_point(&editor.buffer().read(cx).snapshot(cx));
+                                let unchanged = buffer.read(cx).version() == *snapshot.version()
+                                    && caret == snapshot.offset_to_point(offset);
+                                if !unchanged || (shown && !editor.has_visible_completions_menu()) {
+                                    return;
+                                }
+                                *late.borrow_mut() = Some(LateAnswers {
+                                    snapshot,
+                                    offset,
+                                    lists,
+                                });
+                                editor.show_completions(
+                                    &editor::actions::ShowCompletions,
+                                    window,
+                                    cx,
+                                );
+                            })
+                            .ok();
+                    })
+                    .detach();
                 }
             }
             Ok(respond(&editor, &offered, lists, &snapshot, &buffer))
