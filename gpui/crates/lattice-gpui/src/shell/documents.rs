@@ -95,6 +95,7 @@ impl Shell {
             current,
             root,
             main,
+            live: self.live_latex(cx),
         };
         let weak = cx.entity().downgrade();
         let view = cx.new(|cx| QuickOpen::new(weak, source, window, cx));

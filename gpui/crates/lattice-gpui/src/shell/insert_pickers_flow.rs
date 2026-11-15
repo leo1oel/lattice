@@ -128,21 +128,15 @@ impl Shell {
         if !self.dismiss_overlays_for_documents(cx) {
             return;
         }
-        let live = self
-            .active_editor()
-            .filter(|_| kind == PickerKind::InsertReference)
-            .map(|editor| {
-                let editor = editor.read(cx);
-                (editor.relative().to_string(), editor.text_and_caret(cx).0)
-            });
+        let live = self.live_latex(cx);
         let (root, main, items) = {
             let project = project.read(cx);
             let index = project.index().read(cx);
             let items = match kind {
                 PickerKind::InsertCitation => Some(citation_items(index.citations())),
-                PickerKind::InsertReference => Some(reference_items(&match live {
+                PickerKind::InsertReference => Some(reference_items(&match &live {
                     Some((path, text)) => {
-                        merge_references(index.references(), &path, local_labels(&path, &text))
+                        merge_references(index.references(), path, local_labels(path, text))
                     }
                     None => index.references().to_vec(),
                 })),
@@ -165,6 +159,7 @@ impl Shell {
             current,
             root,
             main,
+            live,
         };
         let weak = cx.entity().downgrade();
         let view = cx.new(|cx| QuickOpen::picker(weak, kind, items, source, window, cx));
@@ -175,6 +170,17 @@ impl Shell {
         view.update(cx, |view, cx| view.focus_input(window, cx));
         self.documents.quick_open = Some(view);
         cx.notify();
+    }
+
+    /// The LaTeX source in front, its path and its unsaved text, which the
+    /// pickers' labels and sections are read from over the saved ones
+    /// (`liveReferences`, `outlineNodes`).
+    pub(crate) fn live_latex(&self, cx: &gpui::App) -> Option<(String, String)> {
+        let editor = self
+            .active_editor()
+            .filter(|_| self.latex_source_in_front(cx))?;
+        let editor = editor.read(cx);
+        Some((editor.relative().to_string(), editor.text_and_caret(cx).0))
     }
 
     /// A cite or ref pick: `\command{key}` at the editor's caret.

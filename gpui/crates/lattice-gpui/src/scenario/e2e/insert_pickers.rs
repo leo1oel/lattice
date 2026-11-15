@@ -144,7 +144,13 @@ impl Run {
             json!({ "opened": opened, "closed": closed, "row": row }),
         );
 
-        // ⌘⇧O: sections and labels; the label opens where it is.
+        // ⌘⇧O: sections and labels, an unsaved one among them; the label
+        // opens where it is.
+        self.with_window(cx, |_, window, cx| {
+            editor.update(cx, |editor, cx| {
+                editor.replace_range(end_of_line, end_of_line, unsaved, end_of_line, window, cx)
+            })
+        })?;
         self.dispatch_keys(cx, GOTO_SYMBOL)?;
         let rows = self.picker_rows(cx).await;
         self.type_text(cx, "sec:method").await?;
@@ -156,8 +162,11 @@ impl Run {
             })
             .await;
         steps.check(
-            "⌘⇧O / Ctrl+Shift+O lists the manuscript's sections and labels, and a label picked opens its file",
-            landed && rows.iter().any(|row| row == "@Method") && rows.iter().any(|row| row == "@sec:method"),
+            "⌘⇧O / Ctrl+Shift+O lists the manuscript's sections and labels, one typed and not saved among them, and a label picked opens its file",
+            landed
+                && rows.iter().any(|row| row == "@Method")
+                && rows.iter().any(|row| row == "@sec:method")
+                && rows.iter().any(|row| row == "@fig:unsaved"),
             json!({ "rows": rows, "landed": landed }),
         );
 
