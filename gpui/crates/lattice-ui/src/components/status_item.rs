@@ -65,8 +65,6 @@ impl StatusItem {
         self
     }
 
-    /// Set the icon in the accent, as an open counter's is
-    /// (`.status-counter[data-active]`).
     /// An ink that holds under the pointer too
     /// (`.status-save[data-mode="error"]`).
     pub fn steady_ink(mut self, ink: Hsla) -> Self {
@@ -80,6 +78,8 @@ impl StatusItem {
         self
     }
 
+    /// Set the icon in the accent, as an open counter's is
+    /// (`.status-counter[data-active]`).
     pub fn accent_icon(mut self, accent: bool) -> Self {
         self.accent_icon = accent;
         self

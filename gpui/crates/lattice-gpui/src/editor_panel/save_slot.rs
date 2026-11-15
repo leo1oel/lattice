@@ -10,7 +10,7 @@
 //! (a name without an extension becomes `.txt`). A cancelled panel writes
 //! nothing; the outcome is a Save notice either way.
 
-use std::{path::Path, time::Duration};
+use std::{path::PathBuf, time::Duration};
 
 use gpui::{AppContext as _, Context};
 use lattice_i18n::t;
@@ -67,8 +67,13 @@ impl EditorPanel {
     /// The slot's Save a copy…: ask where, then write the text on screen
     /// there.
     pub fn save_copy(&mut self, cx: &mut Context<Self>) {
-        let root = self.project.read(cx).root().to_path_buf();
-        let directory = self.path.parent().map_or(root, Path::to_path_buf);
+        // The file's own folder may be the one that cannot be written, so
+        // the panel opens where the system would (`save-source-copy.ts`
+        // passes the name only). GPUI's panel takes no title, so the app's
+        // "Save a copy of {name}" has no place here.
+        let directory = dirs::document_dir()
+            .or_else(dirs::home_dir)
+            .unwrap_or_else(|| PathBuf::from("/"));
         let name = self
             .path
             .file_name()

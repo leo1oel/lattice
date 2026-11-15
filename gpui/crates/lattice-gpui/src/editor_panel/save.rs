@@ -158,6 +158,10 @@ impl EditorPanel {
                 self.buffer
                     .update(cx, |buffer, cx| buffer.did_save(version, None, cx));
             }
+            if matches!(self.status, SaveStatus::Failed(_)) {
+                self.status = SaveStatus::Saved;
+                cx.notify();
+            }
             return Task::ready(Ok(true));
         }
         // The file left its path while these edits were unsaved: writing

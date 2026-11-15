@@ -271,8 +271,15 @@ pub fn item(
     if labelled {
         trigger = trigger.label(label);
         if let Some(age) = slot.shown_age().filter(|_| aged) {
-            // `.status-save-age`: a no-break space and 4px after the label.
-            trigger = trigger.child(div().ml(px(4.)).child(format!("\u{a0}{age}")));
+            // `.status-save-age`: 4px after the label, then a no-break
+            // space with 4px after it.
+            trigger = trigger.child(
+                div()
+                    .ml(px(4.))
+                    .flex()
+                    .child("\u{a0}")
+                    .child(div().ml(px(4.)).child(age.to_string())),
+            );
         }
     }
     let trigger = trigger.on_click(|_, _, _| {});
