@@ -39,6 +39,13 @@ pub(super) struct LatexViews {
     /// Co-authors' Overleaf carets as the page takes them: name, hue, row
     /// and UTF-16 column (`latex_visual_events.rs`).
     pub(super) presence: Vec<(String, f64, u32, u32)>,
+    /// The page's last edit in the buffer: its undo transaction and the
+    /// buffer's version just after it, so the next edit joins its group
+    /// only if nothing else changed the buffer since (`latex_visual_events.rs`).
+    pub(super) page_edit: Option<(language::TransactionId, clock::Global)>,
+    /// A linked Overleaf project's threads on the file, as the shell last
+    /// put them for the page's marks and margin review.
+    pub(super) overleaf: Option<serde_json::Value>,
 }
 
 /// Whether `path` is a LaTeX document, which has a Visual form beside its

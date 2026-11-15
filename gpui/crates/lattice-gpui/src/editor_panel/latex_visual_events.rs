@@ -20,16 +20,23 @@
 //!   Annotations panel and a card's Resolve resolves it, as the source's do,
 //!   and a card's Reply is saved under the project's author;
 //! - co-authors' Overleaf carets, kept so a page made later starts with them
-//!   (`overleaf_carets.rs`).
+//!   (`overleaf_carets.rs`);
+//! - a linked Overleaf project's comment threads on the file, marked and in
+//!   margin review as in the source (`shell/overleaf_review.rs`), kept the
+//!   same way; a thread card's asks go out as the source's cards' do
+//!   ([`ReviewAction`]);
+//! - the page's edits grouped for ⌘Z as its own history groups them (the
+//!   host's CodeMirror `history()`, as in the Tauri app), so a word typed in
+//!   one go is undone at once however its keystrokes' edits arrive.
 
-use std::rc::Rc;
+use std::{ops::Range, rc::Rc};
 
-use editor::SelectionEffects;
+use editor::{MultiBufferOffset, SelectionEffects};
 use gpui::{Context, Entity, Window};
 use language::{Bias, OffsetUtf16};
 use serde_json::{Value, json};
 
-use super::{EditorPanel, EditorPanelEvent};
+use super::{EditorPanel, EditorPanelEvent, ReviewAction};
 use crate::{
     annotations::{AnnotationRequest, store},
     outline::Heading,
@@ -88,6 +95,23 @@ pub fn outline_nodes(headings: &[Heading]) -> Value {
     Value::Array(roots)
 }
 
+/// An Overleaf thread card's ask, as the source's cards send theirs.
+fn overleaf_action(event: LatexEvent) -> Option<ReviewAction> {
+    Some(match event {
+        LatexEvent::OverleafReply { thread, content } => ReviewAction::ReplyWith { thread, content },
+        LatexEvent::OverleafResolve { thread, resolved: true } => ReviewAction::Resolve(thread),
+        LatexEvent::OverleafResolve { thread, resolved: false } => ReviewAction::Reopen(thread),
+        LatexEvent::OverleafDelete(thread) => ReviewAction::DeleteConfirmed(thread),
+        LatexEvent::OverleafEditMessage { thread, message, content } => {
+            ReviewAction::EditMessage { thread, message, content }
+        }
+        LatexEvent::OverleafDeleteMessage { thread, message } => {
+            ReviewAction::DeleteMessage { thread, message }
+        }
+        _ => return None,
+    })
+}
+
 impl EditorPanel {
     /// The Visual page's reports: its own asks here, a visual editor's in
     /// `markdown_view.rs`.
@@ -129,6 +153,15 @@ impl EditorPanel {
             }
             LatexEvent::ResolveAnnotation(id) => {
                 cx.emit(EditorPanelEvent::Annotation(AnnotationRequest::Resolve(id.clone())))
+            }
+            LatexEvent::OverleafReply { .. }
+            | LatexEvent::OverleafResolve { .. }
+            | LatexEvent::OverleafDelete(_)
+            | LatexEvent::OverleafEditMessage { .. }
+            | LatexEvent::OverleafDeleteMessage { .. } => {
+                if let Some(action) = overleaf_action(event.clone()) {
+                    cx.emit(EditorPanelEvent::OverleafReview(action));
+                }
             }
             LatexEvent::ReplyAnnotation { id, body } => {
                 let root = self.project_root(cx);
@@ -190,11 +223,66 @@ impl EditorPanel {
         document.update(cx, |document, cx| document.set_markdown_presence(carets, cx));
     }
 
+    /// A linked Overleaf project's threads on the file: kept, and sent to
+    /// the Visual page.
+    pub fn set_overleaf_visual_review(&mut self, review: Value, cx: &mut Context<Self>) {
+        self.latex.overleaf = Some(review);
+        self.forward_latex_overleaf(cx);
+    }
+
+    fn forward_latex_overleaf(&mut self, cx: &mut Context<Self>) {
+        let (Some(document), Some(review)) =
+            (self.latex_visual_document().cloned(), self.latex.overleaf.clone())
+        else {
+            return;
+        };
+        document.update(cx, |document, cx| document.set_overleaf_review(review, cx));
+    }
+
     /// Everything the Visual page shows beside its text that comes from the
     /// window's own state: sent once it is made, and when each changes.
     pub(super) fn forward_latex_review(&mut self, cx: &mut Context<Self>) {
         self.forward_latex_annotations(cx);
         self.forward_latex_presence(cx);
+        self.forward_latex_overleaf(cx);
+    }
+
+    /// Apply the page's edit in its own undo transaction, then group it as
+    /// the page's history did: with the page's previous edit when `join` and
+    /// nothing else has changed the buffer since, else on its own (an edit
+    /// arriving within the buffer's grouping interval of the last would
+    /// otherwise join it, a word typed elsewhere joining the last word).
+    pub(super) fn take_grouped_page_edit(
+        &mut self,
+        range: Range<MultiBufferOffset>,
+        insert: String,
+        join: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let version = self.buffer.read(cx).version();
+        let previous = self
+            .latex
+            .page_edit
+            .take()
+            .filter(|(_, after)| join && *after == version)
+            .map(|(transaction, _)| transaction);
+        let transaction = self.editor.update(cx, |editor, cx| {
+            if previous.is_none() {
+                editor.finalize_last_transaction(cx);
+            }
+            let transaction = editor.transact(window, cx, |editor, _, cx| {
+                editor.edit([(range, insert)], cx)
+            })?;
+            Some(match previous {
+                Some(previous) => {
+                    editor.group_until_transaction(previous, cx);
+                    previous
+                }
+                None => transaction,
+            })
+        });
+        self.latex.page_edit = transaction.map(|transaction| (transaction, self.buffer.read(cx).version()));
     }
 
     /// Put the source's caret at the page's, a UTF-16 `offset`, without

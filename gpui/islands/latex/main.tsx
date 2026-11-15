@@ -43,8 +43,11 @@
  *   tex:outline       { nodes, rootPath, pdf }   the manuscript's outline for the rail, and its PDF's token
  *   tex:annotations   { comments, author }   the project's local annotations on the file, and who signs a reply
  *   md:presence       { cursors }       co-authors' Overleaf carets (also `doc:open`'s `presence`)
+ *   tex:overleaf      { threads, anchors, hues, mode, canAct }   a linked Overleaf project's threads on the
+ *                     file, for their marks and margin review (also `doc:open`'s `overleaf`)
  * Page to host:
- *   md:change         { source, base }  the whole file after an edit made against `base`
+ *   md:change         { source, base, join }  the whole file after an edit made against `base`;
+ *                     `join` when the page's history counts it in the previous edit's undo group
  *   md:undo, md:redo
  *   md:caret          { line, column }  1-based, in the file
  *   md:open-path      { path }          an `\input`'s file, or a figure's
@@ -67,6 +70,7 @@ import { useLingui } from "@lingui/react/macro";
 import { t as tGlobal } from "@lingui/core/macro";
 import { EditorSelection, Prec, type Extension } from "@codemirror/state";
 import { EditorView, keymap, type ViewUpdate } from "@codemirror/view";
+import { undoDepth } from "@codemirror/commands";
 import { findNext, findPrevious, openSearchPanel } from "@codemirror/search";
 import { invoke } from "@tauri-apps/api/core";
 import { mount, activateLocale } from "../shared/boot";
@@ -89,8 +93,12 @@ import { EditorCommentCards } from "../../../src/canvas/editor-comment-cards";
 import { CommentCardHosts, editorCommentsExtension, setEditorCommentsEffect } from "../../../src/editor/comments/editor-comments";
 import type { EditorComment } from "../../../src/editor/comments/editor-comment-data";
 import {
-  overleafCursorsExtension, setOverleafCursorsEffect, type PresenceCursor,
+  marginReviewExtension, overleafCursorsExtension, setOverleafCursorsEffect, type PresenceCursor,
 } from "../../../src/overleaf/overleaf-editor-extensions";
+import { VisualMarginReview } from "./margin-review";
+import {
+  NO_OVERLEAF_REVIEW, overleafEditorComments, overleafThreadActions, overleafThreadOf, type OverleafReview,
+} from "./margin-review-data";
 import type { OutlineNode } from "../../../src/editor/latex/latex-outline";
 import type { FileNode } from "../../../src/app-types";
 
@@ -123,6 +131,7 @@ type LatexOpen = {
   outline: Outline | null;
   annotations: Annotations | null;
   presence?: PresenceCursor[];
+  overleaf?: OverleafReview | null;
   /** TexLab is installed: its completion, hovers and definitions join the editor's. */
   texlab: boolean;
 };
@@ -149,6 +158,7 @@ type State = {
   outline: Outline;
   annotations: Annotations;
   presence: PresenceCursor[];
+  overleaf: OverleafReview;
 };
 
 type Action =
@@ -167,7 +177,8 @@ type Action =
   | { type: "unused"; unused: Unused }
   | { type: "outline"; outline: Outline }
   | { type: "annotations"; annotations: Annotations }
-  | { type: "presence"; presence: PresenceCursor[] };
+  | { type: "presence"; presence: PresenceCursor[] }
+  | { type: "overleaf"; overleaf: OverleafReview };
 
 const NO_INDEX: ProjectIndex = { citations: [], references: [], pending: true };
 const NO_SPELLING: Spelling = { enabled: false, words: [], ignores: { rules: [], sentences: [] } };
@@ -193,6 +204,7 @@ function reduce(state: State, action: Action): State {
         outline: action.open.outline ?? NO_OUTLINE,
         annotations: action.open.annotations ?? NO_ANNOTATIONS,
         presence: action.open.presence ?? [],
+        overleaf: action.open.overleaf ?? NO_OVERLEAF_REVIEW,
       };
     case "source":
       return { ...state, source: action.source };
@@ -224,6 +236,8 @@ function reduce(state: State, action: Action): State {
       return { ...state, annotations: action.annotations };
     case "presence":
       return { ...state, presence: action.presence };
+    case "overleaf":
+      return { ...state, overleaf: action.overleaf };
   }
 }
 
@@ -246,7 +260,7 @@ let liveData: LatexEditorLiveData = {
 let editorView: EditorView | null = null;
 /** The file as the page last had it, so the owner's echo is not a change. */
 let pageSource = "";
-/** Co-authors' carets and the file's annotations, read by their extensions when they run. */
+/** Co-authors' carets and the file's annotations and Overleaf threads, read by their extensions when they run. */
 let presenceCursors: PresenceCursor[] = [];
 let editorComments: EditorComment[] = [];
 /** Where a note's card is drawn over its hovered passage (`EditorCommentCards`). */
@@ -256,8 +270,17 @@ const pinLabel = (numbers: number[]) => {
   const list = numbers.join(", ");
   return numbers.length === 1 ? tGlobal`Annotation ${list}` : tGlobal`Annotations ${list}`;
 };
-const resolveAnnotation = (id: string) => host().post("tex:resolve-annotation", { id });
-const replyToAnnotation = (id: string, body: string) => host().post("tex:reply-annotation", { id, body });
+/** A card over a marked passage: a local annotation's, or an Overleaf thread's (as `use-editor-comments.ts` routes them). */
+const resolveAnnotation = (id: string) => {
+  const thread = overleafThreadOf(id);
+  if (thread !== null) void overleafThreadActions.onResolve(thread, true);
+  else host().post("tex:resolve-annotation", { id });
+};
+const replyToAnnotation = (id: string, body: string) => {
+  const thread = overleafThreadOf(id);
+  if (thread !== null) void overleafThreadActions.onReply(thread, body);
+  else host().post("tex:reply-annotation", { id, body });
+};
 /** A jump that arrived before the editor was there, taken once it is. */
 let pendingReveal: number | null = null;
 
@@ -330,6 +353,7 @@ function editorExtensions(visual: VisualModule, path: string, spellcheck: boolea
     }),
     // The source session's review layers (`source-session.ts`).
     overleafCursorsExtension({ getCursors: () => presenceCursors }),
+    marginReviewExtension(),
     editorCommentsExtension(path, {
       pinLabel,
       cards: commentCards,
@@ -340,9 +364,21 @@ function editorExtensions(visual: VisualModule, path: string, spellcheck: boolea
   ];
 }
 
+/** The page's undo depth after its last edit (`sendChange`). */
+let lastUndoDepth = 0;
+
+/**
+ * Send an edit, and say whether the page's own history (the host's
+ * `history()`, as in the Tauri app) put it in the previous edit's undo group:
+ * ⌘Z goes to the buffer, which then undoes what the Tauri app's editor would,
+ * a word typed in one go at once, whatever the edits' arrival times.
+ */
 function sendChange(next: string, base: string): void {
   pageSource = next;
-  host().post("md:change", { source: next, base });
+  const depth = editorView ? undoDepth(editorView.state) : 0;
+  const join = depth > 0 && depth === lastUndoDepth;
+  lastUndoDepth = depth;
+  host().post("md:change", { source: next, base, join });
 }
 
 function reportView(update: ViewUpdate): void {
@@ -362,10 +398,11 @@ function Latex() {
     opened: null, source: "", settled: "", ready: false, files: [], texSources: [], index: NO_INDEX,
     rootDocument: null, build: null, assetRevision: 0, visual: null, view: null,
     spelling: NO_SPELLING, unused: NO_UNUSED, outline: NO_OUTLINE, annotations: NO_ANNOTATIONS, presence: [],
+    overleaf: NO_OVERLEAF_REVIEW,
   });
   const {
     opened, source, settled, ready, files, texSources, index, rootDocument, build, assetRevision, visual, view,
-    spelling, unused, outline, annotations, presence,
+    spelling, unused, outline, annotations, presence, overleaf,
   } = state;
   const { t } = useLingui();
   const texlab = opened?.texlab ?? false;
@@ -423,16 +460,20 @@ function Latex() {
     build, citationKeys, graphicsRoots, index, katexMacros, localMacros, projectPaths, projectRoot, references,
     rootDocument, spelling, texlab, unused,
   ]);
-  // Co-authors' carets and the file's annotations, pushed to the editor as
-  // they change (`use-source-session.ts` pushes the same effects).
+  // A linked Overleaf project's threads on the file, as comments to mark.
+  const openedPath = opened?.path ?? "";
+  const overleafComments = useMemo(() => overleafEditorComments(overleaf, openedPath), [openedPath, overleaf]);
+  // Co-authors' carets, the file's annotations and its Overleaf threads,
+  // pushed to the editor as they change (`use-source-session.ts` pushes the
+  // same effects).
   useEffect(() => {
     presenceCursors = presence;
     editorView?.dispatch({ effects: setOverleafCursorsEffect.of(presence) });
   }, [presence]);
   useEffect(() => {
-    editorComments = annotations.comments;
-    editorView?.dispatch({ effects: setEditorCommentsEffect.of(annotations.comments) });
-  }, [annotations.comments]);
+    editorComments = [...annotations.comments, ...overleafComments];
+    editorView?.dispatch({ effects: setEditorCommentsEffect.of(editorComments) });
+  }, [annotations.comments, overleafComments]);
   // Figures load again once the project's files change.
   useEffect(() => {
     if (assetRevision) editorView?.dispatch({ effects: latexVisualDataChanged.of(null) });
@@ -482,6 +523,7 @@ function Latex() {
       bridge.on("tex:unused", (payload) => dispatch({ type: "unused", unused: payload as Unused })),
       bridge.on("tex:outline", (payload) => dispatch({ type: "outline", outline: payload as Outline })),
       bridge.on("tex:annotations", (payload) => dispatch({ type: "annotations", annotations: payload as Annotations })),
+      bridge.on("tex:overleaf", (payload) => dispatch({ type: "overleaf", overleaf: payload as OverleafReview })),
       bridge.on("md:presence", (payload) => {
         dispatch({ type: "presence", presence: (payload as { cursors: PresenceCursor[] }).cursors });
       }),
@@ -515,6 +557,7 @@ function Latex() {
   const saved = opened?.viewState;
   const onCreateEditor = useCallback((editor: EditorView) => {
     editorView = editor;
+    lastUndoDepth = 0;
     dispatch({ type: "view", view: editor });
     const pending = pendingReveal;
     pendingReveal = null;
@@ -551,6 +594,9 @@ function Latex() {
             onResolve={resolveAnnotation}
             onReply={replyToAnnotation}
           />
+          {view && (
+            <VisualMarginReview view={view} path={opened.path} review={overleaf} comments={overleafComments} />
+          )}
           {view && (
             <LatexOutlineRail
               view={view}

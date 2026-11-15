@@ -35,10 +35,13 @@ use crate::project::{Project, ProjectEvent};
 #[derive(Clone, Debug, PartialEq)]
 pub enum MarkdownEvent {
     /// The file after an edit made against `base`: the panel applies the
-    /// change only while its buffer still holds `base`.
+    /// change only while its buffer still holds `base`. `join` is the page's
+    /// own history's word on whether the edit belongs to the previous one's
+    /// undo group, when the page says (a `.tex` file's Visual page does).
     Edit {
         base: String,
         source: String,
+        join: Option<bool>,
     },
     Undo,
     Redo,
@@ -436,7 +439,8 @@ impl StructuredDocument {
                 // sends nothing back; a buffer no longer holding `base`
                 // resends its own (`resend_source`).
                 self.source = source.clone();
-                MarkdownEvent::Edit { base, source }
+                let join = payload.get("join").and_then(Value::as_bool);
+                MarkdownEvent::Edit { base, source, join }
             }
             "md:selection" => return self.visual_selection_changed(payload, cx),
             "md:undo" => MarkdownEvent::Undo,
