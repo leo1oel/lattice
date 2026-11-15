@@ -112,4 +112,83 @@ impl FileTreePanel {
         let paths = super::including(&self.selected_paths(cx), path);
         self.ask_delete(paths, cx);
     }
+
+    /// The type-to-filter field's text, its query, the match in focus and
+    /// whether the field has the keyboard, while it is open, for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn search_state(
+        &self,
+        window: &Window,
+        cx: &App,
+    ) -> Option<(String, String, Option<String>, bool)> {
+        self.search.as_ref().map(|search| {
+            let input = search.input.read(cx);
+            (
+                input.value().to_string(),
+                search.query.clone(),
+                search.focus.clone(),
+                input.focus_handle(cx).is_focused(window),
+            )
+        })
+    }
+
+    /// Put `text` in the open filter field, as typing it there does, for a
+    /// scenario: typing into the field is GPUI Kit's own (`confirm_name`).
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn type_in_search(&mut self, text: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(input) = self.search.as_ref().map(|search| search.input.clone()) else {
+            return;
+        };
+        input.update(cx, |input, cx| input.set_value(text.to_string(), window, cx));
+        if let Some(search) = &mut self.search {
+            search.query = super::search::normalize(text);
+        }
+        self.rebuild(cx);
+        let first = self.search_matches(cx).into_iter().next();
+        if let Some(search) = &mut self.search {
+            search.focus = first;
+        }
+    }
+
+    /// The pinned folders' paths and tops, for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn pinned_state(&self, cx: &App) -> Vec<(String, f32)> {
+        let state = self.state.read(cx);
+        self.pinned_rows(cx)
+            .into_iter()
+            .filter_map(|pin| Some((state.entry(pin.ix)?.item().id.to_string(), pin.top)))
+            .collect()
+    }
+
+    /// How far the rows are scrolled, in rows, for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn scrolled_rows(&self, cx: &App) -> f32 {
+        let scroll = self.state.read(cx).scroll_handle().clone();
+        -f32::from(scroll.0.borrow().base_handle.offset().y) / super::motion::ROW
+    }
+
+    /// The folder moving, whether it opened, and how many rows it moves,
+    /// for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn motion_state(&self, cx: &App) -> Option<(String, bool, usize)> {
+        let motion = self.motion.as_ref()?;
+        let folder = self.state.read(cx).entry(motion.folder)?.item().id.to_string();
+        Some((folder, motion.opened, motion.rows))
+    }
+
+    /// Every row's id, shown or inside a closed folder, for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn all_row_ids(&self, _: &App) -> std::rc::Rc<std::collections::HashSet<String>> {
+        self.known.clone()
+    }
+
+    /// Scroll the rows to `rows` down, as the scrollbar would, for a
+    /// scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn scroll_rows_to(&mut self, rows: f32, cx: &mut Context<Self>) {
+        let scroll = self.state.read(cx).scroll_handle().clone();
+        let y = gpui::px(-rows * super::motion::ROW);
+        scroll.0.borrow().base_handle.set_offset(gpui::point(gpui::px(0.), y));
+        self.redraw_rows(cx);
+    }
 }
