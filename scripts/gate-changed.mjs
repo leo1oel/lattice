@@ -73,6 +73,8 @@ export function changedFiles(base) {
 
 // What the GPUI host error catalog is written from, and the file it is.
 const HOST_ERROR_INPUTS = /^(src\/platform\/host-errors?-[a-z-]+\.ts|scripts\/gpui-host-errors\.mjs|gpui\/crates\/lattice-gpui\/src\/host_errors\/catalog\.rs)$/;
+// What the GPUI animated icons are written from, and the file they are.
+const ANIMATED_ICON_INPUTS = /^(src\/animated-icons\/.*|scripts\/gpui-animated-icons\.mjs|gpui\/crates\/lattice-ui\/src\/animated_icon\/catalog\.rs)$/;
 // The inputs mise.toml's `notices` task lists: the closures are read from the
 // installed trees, so the lockfiles and manifests are what moves them.
 const NOTICE_INPUTS = /^(package\.json|pnpm-lock\.yaml|src-tauri\/(lattice-core\/)?Cargo\.(toml|lock)|scripts\/generate-notices\.mjs|scripts\/lib\/(util|package-notices|license-classification|license-grouping|dependency-closures|upstream-licenses)\.mjs|(public\/)?licenses\/.*|THIRD_PARTY_NOTICES\.md)$/;
@@ -188,6 +190,10 @@ export function gateStages(files) {
     files.some((file) => HOST_ERROR_INPUTS.test(file))
       ? { name: "host-errors", why: "GPUI host error catalog against src/platform", command: "node", args: ["scripts/gpui-host-errors.mjs", "--check"], timeout: 60_000 }
       : { name: "host-errors", skip: "no host error catalog changed" },
+    // So are its animated product icons (`scripts/gpui-animated-icons.mjs`).
+    files.some((file) => ANIMATED_ICON_INPUTS.test(file))
+      ? { name: "animated-icons", why: "GPUI animated icons against src/animated-icons", command: "node", args: ["scripts/gpui-animated-icons.mjs", "--check"], timeout: 120_000 }
+      : { name: "animated-icons", skip: "no animated icon changed" },
     files.some((file) => NOTICE_INPUTS.test(file))
       ? { name: "notices", why: "THIRD_PARTY_NOTICES.md against the installed trees", command: "pnpm", args: ["notices:check"], timeout: 120_000 }
       : { name: "notices", skip: "no lockfile, manifest or notice changed" },

@@ -18,6 +18,7 @@ use lattice_i18n::t;
 use lattice_settings::{Choice as _, SettingsTab};
 use lattice_ui::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _, TypeScale,
+    animated_icon::{self, ProductIcon},
     components::Field,
     fluid_hover::{FluidHover, ItemKind},
     interaction::{mix, track_pointer, use_interaction},
@@ -38,7 +39,9 @@ const NAV_RADIUS: Pixels = px(6.);
 #[derive(Clone, Copy)]
 struct Section {
     tab: SettingsTab,
-    icon: Icon,
+    /// Replays its gesture when the row is hovered (`AnimatedProductIcon`
+    /// in settings-dialog.tsx).
+    icon: ProductIcon,
 }
 
 fn groups() -> Vec<(SharedString, Vec<(Section, SharedString)>)> {
@@ -49,14 +52,14 @@ fn groups() -> Vec<(SharedString, Vec<(Section, SharedString)>)> {
                 (
                     Section {
                         tab: SettingsTab::Appearance,
-                        icon: Icon::FADERS,
+                        icon: ProductIcon::Faders,
                     },
                     t!("Appearance").into(),
                 ),
                 (
                     Section {
                         tab: SettingsTab::Editor,
-                        icon: Icon::CLIPBOARD_TEXT,
+                        icon: ProductIcon::Logs,
                     },
                     t!("Editor & builds").into(),
                 ),
@@ -68,42 +71,42 @@ fn groups() -> Vec<(SharedString, Vec<(Section, SharedString)>)> {
                 (
                     Section {
                         tab: SettingsTab::Agent,
-                        icon: Icon::ROBOT,
+                        icon: ProductIcon::Robot,
                     },
                     t!("Providers").into(),
                 ),
                 (
                     Section {
                         tab: SettingsTab::Mcp,
-                        icon: Icon::PLUGS,
+                        icon: ProductIcon::Plugs,
                     },
                     t!("MCP").into(),
                 ),
                 (
                     Section {
                         tab: SettingsTab::Api,
-                        icon: Icon::PACKAGE,
+                        icon: ProductIcon::Package,
                     },
                     t!("Skills").into(),
                 ),
                 (
                     Section {
                         tab: SettingsTab::Usage,
-                        icon: Icon::CLOCK_BACK,
+                        icon: ProductIcon::ClockBack,
                     },
                     t!("Usage & limits").into(),
                 ),
                 (
                     Section {
                         tab: SettingsTab::ModelEndpoint,
-                        icon: Icon::SPARKLE,
+                        icon: ProductIcon::Sparkle,
                     },
                     t!("Model endpoint").into(),
                 ),
                 (
                     Section {
                         tab: SettingsTab::Environment,
-                        icon: Icon::API_KEY,
+                        icon: ProductIcon::ApiKey,
                     },
                     t!("Environment").into(),
                 ),
@@ -115,14 +118,14 @@ fn groups() -> Vec<(SharedString, Vec<(Section, SharedString)>)> {
                 (
                     Section {
                         tab: SettingsTab::Overleaf,
-                        icon: Icon::CLOUD_UPLOAD_FILL,
+                        icon: ProductIcon::CloudUpload,
                     },
                     "Overleaf".into(),
                 ),
                 (
                     Section {
                         tab: SettingsTab::Literature,
-                        icon: Icon::API_KEY,
+                        icon: ProductIcon::ApiKey,
                     },
                     t!("Literature services").into(),
                 ),
@@ -134,14 +137,14 @@ fn groups() -> Vec<(SharedString, Vec<(Section, SharedString)>)> {
                 (
                     Section {
                         tab: SettingsTab::Doctor,
-                        icon: Icon::SPARKLE,
+                        icon: ProductIcon::Sparkle,
                     },
                     t!("TeX doctor").into(),
                 ),
                 (
                     Section {
                         tab: SettingsTab::Logs,
-                        icon: Icon::RECEIPT,
+                        icon: ProductIcon::Receipt,
                     },
                     t!("Logs").into(),
                 ),
@@ -152,7 +155,7 @@ fn groups() -> Vec<(SharedString, Vec<(Section, SharedString)>)> {
             vec![(
                 Section {
                     tab: SettingsTab::Acknowledgements,
-                    icon: Icon::CHAT,
+                    icon: ProductIcon::Chat,
                 },
                 t!("Acknowledgements").into(),
             )],
@@ -314,6 +317,9 @@ impl SettingsDialog {
         let (interaction, pointer) = use_interaction(id.clone(), window, cx);
         let active = section.tab == self.tab && !(narrow && !self.narrow_page);
         let tab = section.tab;
+        let icon_id = ElementId::NamedChild(std::sync::Arc::new(id.clone()), "icon".into());
+        // The row's hover is `track_pointer`'s; the icon replays as it begins.
+        animated_icon::replay_on(icon_id.clone(), interaction.pointer.hovered, window, cx);
         let item = div()
             .id(id)
             .relative()
@@ -372,12 +378,19 @@ impl SettingsDialog {
         };
         let item = item
             .child(
-                svg()
-                    .path(section.icon.path())
-                    .size(px(15.))
+                div()
                     .flex_none()
-                    .when(section.tab == SettingsTab::Doctor, |this| this.mt(px(-1.)))
-                    .text_color(ink),
+                    .when(section.icon == ProductIcon::Sparkle, |this| {
+                        this.mt(px(-1.))
+                    })
+                    .child(animated_icon::product_icon(
+                        icon_id,
+                        section.icon,
+                        px(15.),
+                        ink,
+                        window,
+                        cx,
+                    )),
             )
             .child(
                 div()

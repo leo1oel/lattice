@@ -22,6 +22,7 @@
 use lattice_i18n::t;
 use std::{ops::Range, sync::Arc};
 
+use gpui::AnimationExt as _;
 use gpui::{
     AnyElement, AnyView, App, ClickEvent, Context, Div, ElementId, HighlightStyle, Hsla,
     InteractiveElement as _, IntoElement, MouseButton, ParentElement as _, SharedString,
@@ -430,7 +431,30 @@ impl PapersPanel {
                     .h(px(1.))
                     .bg(palette.line)
                     .opacity(hairline),
-            );
+            )
+            // A paper just added holds the accent's soft wash for four slow
+            // tiers, then lets it go over one (`paper-just-added`); the text
+            // draws over it.
+            .when(facts.recent && !cx.reduce_motion(), |row| {
+                let token = lattice_ui::Motion::Slow.token();
+                let hold = token.duration.as_secs_f32() * 4.;
+                let total = hold + token.duration.as_secs_f32();
+                row.child(
+                    div()
+                        .absolute()
+                        .inset_0()
+                        .rounded(px(6.))
+                        .bg(palette.accent_soft)
+                        .with_animation(
+                            ElementId::Name(format!("paper-just-added:{key}").into()),
+                            gpui::Animation::new(std::time::Duration::from_secs_f32(total)),
+                            move |wash, t| {
+                                let fading = ((t * total - hold) / (total - hold)).clamp(0., 1.);
+                                wash.opacity(1. - token.ease.sample(fading))
+                            },
+                        ),
+                )
+            });
         {
             let view = cx.entity().downgrade();
             let opened = paper.clone();

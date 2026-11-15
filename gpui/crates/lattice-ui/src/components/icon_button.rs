@@ -21,6 +21,7 @@ use gpui::transparent_black;
 
 use crate::{
     ActiveLattice as _, Icon,
+    animated_icon::{self, ProductIcon},
     components::LatticeTooltip,
     components::{Surface, focus_ring},
     icons::ICON,
@@ -54,6 +55,9 @@ pub struct IconButton {
     fluid: bool,
     tooltip: Option<SharedString>,
     on_click: Option<ClickHandler>,
+    /// The icon replays this gesture when the button is hovered or
+    /// focused (`AnimatedProductIcon`).
+    animated: Option<ProductIcon>,
 }
 
 impl IconButton {
@@ -78,6 +82,7 @@ impl IconButton {
             fluid: false,
             tooltip: None,
             on_click: None,
+            animated: None,
         }
     }
 
@@ -148,6 +153,14 @@ impl IconButton {
     /// buttons with no selected item lights one fill that glides between
     /// them (design call 2). The button keeps its own pressed wash and its
     /// ink's step up to the primary.
+    /// Draw the icon as `icon`, which replays its gesture each time the
+    /// pointer comes onto the button or focus lands on it; at rest it is
+    /// `icon`'s glyph, whatever [`IconButton::new`] was given.
+    pub fn animated(mut self, icon: ProductIcon) -> Self {
+        self.animated = Some(icon);
+        self
+    }
+
     pub fn fluid(mut self) -> Self {
         self.fluid = true;
         self
@@ -237,16 +250,32 @@ impl RenderOnce for IconButton {
                 .child(count)
         });
         let counted = count.is_some();
-        let icon = match self.content {
-            Some(content) => content,
+        let icon_id = ElementId::NamedChild(std::sync::Arc::new(self.id.clone()), "icon".into());
+        // An animated icon replays when the pointer arrives or focus lands
+        // on the button: the button keeps its focus handle to tell, and reads
+        // its hover from its interaction (its one hover listener is
+        // `track_pointer`'s).
+        let base = match self.animated.filter(|_| !disabled) {
+            Some(_) => {
+                let focus = window.use_keyed_state(
+                    ElementId::NamedChild(std::sync::Arc::new(self.id.clone()), "focus".into()),
+                    cx,
+                    |_, cx| cx.focus_handle().tab_stop(true),
+                );
+                let handle = focus.read(cx).clone();
+                let active = interaction.pointer.hovered || handle.is_focused(window);
+                animated_icon::replay_on(icon_id.clone(), active, window, cx);
+                base.track_focus(&handle)
+            }
+            None => base,
+        };
+        let icon = match (self.content, self.animated) {
+            (Some(content), _) => content,
+            (None, Some(animated)) => {
+                animated_icon::product_icon(icon_id, animated, self.icon_size, ink, window, cx)
+            }
             // A busy control turns its loader (`.spin`).
-            None => crate::loading::mark(
-                ElementId::NamedChild(std::sync::Arc::new(self.id.clone()), "icon".into()),
-                self.icon,
-                self.icon_size,
-                ink,
-                cx,
-            ),
+            (None, None) => crate::loading::mark(icon_id, self.icon, self.icon_size, ink, cx),
         };
         base.relative()
             .flex()

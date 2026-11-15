@@ -13,11 +13,7 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] Overlay exit motion for the menus and popovers GPUI Kit's popover opens, and for a dialog closed by a button of its own.
 
-- [ ] The 13 animated product icons.
-
 - [ ] The editor's change wash on lines an outside edit landed, and an accepted suggestion's strike, fold and settle (`lattice_ui::attention` has their timing).
-
-- [ ] The minor motions.
 
 - [ ] The Agent: a Papers selection in its context.
 
@@ -52,8 +48,6 @@ A feature that lands deletes its own line (only that line, so features landing s
 - [ ] File › Export ZIP….
 
 - [ ] Overleaf: the live channel joining again when the network comes back (it does when the window comes forward).
-
-- [ ] Overleaf: the titlebar control's animated cloud-upload icon (the icon is still).
 
 - [ ] Overleaf: Review changes' "Could not render these changes" state.
 

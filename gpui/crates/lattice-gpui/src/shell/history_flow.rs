@@ -47,6 +47,7 @@ impl Shell {
     /// The titlebar's History button (`onHistory` in canvas-toolbar.tsx).
     pub(crate) fn history_button(&self, cx: &mut Context<Self>) -> IconButton {
         IconButton::new("history", Icon::HISTORY)
+            .animated(lattice_ui::animated_icon::ProductIcon::ClockBackTitlebar)
             .surface(Surface::Titlebar)
             .tooltip(t!("Project history"))
             .disabled(self.project.is_none())
