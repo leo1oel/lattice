@@ -81,7 +81,7 @@ pub use margin_review::{MarginLayout, MarginMode};
 use outline_rail::OutlineRail;
 pub use overleaf_carets::OverleafCaret;
 pub use overleaf_review::{ChangeMark, CommentMark, MarginMessage, ReviewAction};
-use save::normalize_breaks;
+pub(crate) use save::normalize_breaks;
 pub use views::DocumentView;
 use views::DocumentViews;
 

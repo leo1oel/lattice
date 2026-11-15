@@ -71,7 +71,9 @@ pub(super) fn read_sources(
         let path = diagnostics::resolve_path(Some(file), files, root_document);
         let text = match saved.get(&path) {
             Some(text) => Some(text.clone()),
-            None if files.contains(&path) => std::fs::read_to_string(root.join(&path)).ok(),
+            None if files.contains(&path) => std::fs::read_to_string(root.join(&path))
+                .ok()
+                .map(|text| crate::editor_panel::normalize_breaks(&text)),
             None => None,
         };
         if let Some(text) = text {
@@ -125,13 +127,17 @@ mod tests {
     }
 
     #[test]
-    fn sources_are_the_text_the_build_saved_and_only_project_files() {
+    fn sources_are_the_text_the_build_saved_and_only_project_files_with_buffer_breaks() {
         let base =
             std::env::temp_dir().join(format!("lattice-read-sources-{}", std::process::id()));
         let root = base.join("paper");
         std::fs::create_dir_all(root.join("chapters")).unwrap();
         std::fs::write(root.join("main.tex"), "autosaved during the build").unwrap();
-        std::fs::write(root.join("chapters/intro.tex"), "on disk").unwrap();
+        std::fs::write(
+            root.join("chapters/intro.tex"),
+            "on disk\r\nwith CRLF breaks\r\n",
+        )
+        .unwrap();
         std::fs::write(base.join("secret.tex"), "outside the project").unwrap();
         let files = vec![
             "main.tex".to_string(),
@@ -159,7 +165,7 @@ mod tests {
         );
         assert_eq!(
             sources.get("./chapters/intro.tex").map(String::as_str),
-            Some("on disk")
+            Some("on disk\nwith CRLF breaks\n")
         );
         assert_eq!(sources.get("../secret.tex"), None);
         assert_eq!(sources.len(), 2);

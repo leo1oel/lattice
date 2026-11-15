@@ -140,9 +140,11 @@ impl Shell {
             return;
         };
         let root_documents = root_documents(&project, cx);
-        if self.build_watch().watched.noted(path, &root_documents)
-            && crate::settings::builds_automatically(cx)
-        {
+        if !self.build_watch().watched.noted(path, &root_documents) {
+            return;
+        }
+        project.update(cx, |project, _| project.mark_inputs_changed());
+        if crate::settings::builds_automatically(cx) {
             self.wait_for_writes_to_pause(window, cx);
         }
     }
