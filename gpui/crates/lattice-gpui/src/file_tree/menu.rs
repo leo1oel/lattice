@@ -77,7 +77,7 @@ impl FileTreePanel {
         .item(item(
             view,
             Icon::FOLDER_INPUT,
-            "Import files…",
+            t!("Import files…"),
             Box::new(move |_, _, cx| {
                 cx.emit(FileTreeEvent::Import {
                     target: import.clone(),
