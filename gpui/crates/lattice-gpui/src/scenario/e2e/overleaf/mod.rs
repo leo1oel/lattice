@@ -297,6 +297,17 @@ impl Run {
                 .map(|(resolver, _)| resolver.clone())
         });
         if let Some(resolver) = resolver {
+            // The resolver reads the file in the background once it opens.
+            // Choosing before that read lands picks no spots and saves
+            // against an empty expected text, which the write refuses as
+            // changed on disk, so the markers stay and every later sync of
+            // main.tex stops on them (a loaded run hit this).
+            let loaded = resolver.clone();
+            linked
+                .wait_for(cx, Duration::from_secs(10), move |_, cx| {
+                    loaded.read(cx).spots() > 0
+                })
+                .await;
             cx.update(|cx| {
                 resolver.update(cx, |resolver, cx| resolver.choose_and_save_for_scenario(cx))
             });
