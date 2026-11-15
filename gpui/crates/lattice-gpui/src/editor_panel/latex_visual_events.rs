@@ -293,9 +293,6 @@ impl EditorPanel {
         self.latex.page_edit = transaction.map(|transaction| (transaction, self.buffer.read(cx).version()));
     }
 
-    /// Put the source's caret at the page's, a UTF-16 `offset`, without
-    /// scrolling or taking the keyboard: what acts at the caret (a pasted
-    /// figure, a symbol's references) acts where the writer is.
     /// Wrap in environment… or Rename the environment's name, sent to the
     /// Visual page while it is in front, the keyboard back in it; false when
     /// the source is in front, for the source's edit.
@@ -316,12 +313,31 @@ impl EditorPanel {
         document.update(cx, |document, cx| {
             document.edit_environment(rename, name, cx)
         });
-        if let Some(island) = document.read(cx).island().cloned() {
-            island.update(cx, |island, cx| island.focus_page(window, cx));
-        }
+        self.focus_visual_page(window, cx);
         true
     }
 
+    /// The keyboard back in the Visual page while it is in front, as after
+    /// its dialog closes; false when the source is in front.
+    pub(crate) fn focus_visual_page(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        let Some(island) = self
+            .latex_visual_document()
+            .filter(|_| self.shows_latex_visual(cx))
+            .and_then(|document| document.read(cx).island().cloned())
+        else {
+            return false;
+        };
+        island.update(cx, |island, cx| island.focus_page(window, cx));
+        true
+    }
+
+    /// Put the source's caret at the page's, a UTF-16 `offset`, without
+    /// scrolling or taking the keyboard: what acts at the caret (a pasted
+    /// figure, a symbol's references) acts where the writer is.
     fn mirror_caret(&mut self, offset: usize, window: &mut Window, cx: &mut Context<Self>) {
         let snapshot = self.buffer.read(cx).snapshot();
         let offset = snapshot.clip_offset_utf16(OffsetUtf16(offset), Bias::Left);

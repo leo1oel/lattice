@@ -5,9 +5,10 @@
 //! (`insertLatexNewline`), and a typed or completed `\begin{…}` or `\left(`
 //! gets its `\end{…}` or `\right)` (the editor's update listener).
 //!
-//! The keys are bound outside Vim's normal and visual modes, where `$` and
-//! Enter are Vim's (the Tauri app gives `$` the lowest precedence for the
-//! same reason), and outside a menu, where Enter accepts the completion.
+//! With Vim on the keys are bound only in its insert mode: in every other
+//! mode `$` and Enter are Vim's, a motion or the character `f`, `r` or `R`
+//! waits for (the Tauri app gives `$` the lowest precedence for the same
+//! reason). Enter is also left to a menu, where it accepts the completion.
 //! Each passes on to the editor's own key when its rule has nothing to do,
 //! when the keyboard is in another editor on the panel, or with several
 //! carets: the rules act on the main selection, so the editor types at

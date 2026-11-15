@@ -92,7 +92,14 @@ impl Shell {
         let subscription = cx.subscribe_in(&dialog, window, move |this, _, event, window, cx| {
             this.references.rename = None;
             match event {
-                RenameEvent::Close => this.focus_front(window, cx),
+                RenameEvent::Close => {
+                    let page = target_editor.upgrade().is_some_and(|editor| {
+                        editor.update(cx, |editor, cx| editor.focus_visual_page(window, cx))
+                    });
+                    if !page {
+                        this.focus_front(window, cx)
+                    }
+                }
                 RenameEvent::Submit(name) => {
                     if let Some(editor) = target_editor.upgrade() {
                         let name = name.clone();
