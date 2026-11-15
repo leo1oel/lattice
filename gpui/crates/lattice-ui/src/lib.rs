@@ -20,6 +20,7 @@
 pub mod accent_fit;
 pub mod animated_icon;
 pub mod attention;
+pub mod color;
 pub mod components;
 pub mod dock;
 pub mod editor_theme;

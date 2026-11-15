@@ -11,9 +11,9 @@
 //! The meanings, the pen's colour and the custom colours are the writer's,
 //! not a project's: kept in `highlighters.json` in the app's state folder.
 //!
-//! The custom colour view offers the colours this document uses, the
-//! writer's own and the paper tones, and a hex field, with the text set on
-//! paper in the chosen colour; a colour too dark for black ink says so.
+//! "+" opens the custom colour view (`custom.rs`): the picker, with the
+//! text set on paper in the draft, the colours this document uses, the
+//! writer's own and the paper tones.
 
 use std::{
     collections::BTreeMap,
@@ -30,11 +30,13 @@ use lattice_i18n::t;
 use lattice_ui::{
     ActiveLattice as _, Elevation, Icon,
     components::Field,
-    tokens::{RADIUS_SURFACE, SPACING_2, SPACING_3},
+    tokens::{RADIUS_SURFACE, SPACING_2},
 };
 use serde::{Deserialize, Serialize};
 
 use super::{EditorPanel, selection_toolbar::ToolbarAction};
+
+mod custom;
 
 /// The ink a highlight is printed under.
 const PAPER_INK: u32 = 0x242426;
@@ -184,19 +186,11 @@ pub fn hex_color(hex: &str) -> Hsla {
         .unwrap_or_else(|_| rgb(0xFFF1A6).into())
 }
 
-fn luminance(hex: &str) -> f32 {
-    let value = u32::from_str_radix(hex.trim_start_matches('#'), 16).unwrap_or(0xffffff);
-    let channel = |shift: u32| {
-        let c = ((value >> shift) & 0xff) as f32 / 255.;
-        if c <= 0.04045 { c / 12.92 } else { ((c + 0.055) / 1.055).powf(2.4) }
-    };
-    0.2126 * channel(16) + 0.7152 * channel(8) + 0.0722 * channel(0)
-}
-
 /// The contrast between `hex` and the paper's ink.
+#[cfg(test)]
 fn contrast(hex: &str) -> f32 {
-    let (a, b) = (luminance(hex), luminance(&format!("#{PAPER_INK:06X}")));
-    (a.max(b) + 0.05) / (a.min(b) + 0.05)
+    let value = lattice_ui::color::hex_value(hex).unwrap_or(0xFFFFFF);
+    lattice_ui::accent_fit::contrast_ratio(value, PAPER_INK) as f32
 }
 
 /// Which view the palette shows, and what is being typed in it.
@@ -205,9 +199,8 @@ pub(super) struct PaletteState {
     /// The palette takes the keys while it is open, so a digit applies its
     /// highlighter rather than typing.
     pub(super) focus: Option<gpui::FocusHandle>,
-    custom: bool,
+    custom: Option<custom::Custom>,
     renaming: Option<(&'static str, Entity<InputState>, Subscription)>,
-    hex: Option<(Entity<InputState>, Subscription)>,
 }
 
 impl EditorPanel {
@@ -252,32 +245,6 @@ impl EditorPanel {
             window.focus(focus, cx);
         }
     }
-
-    fn open_custom(&mut self, current: Option<String>, window: &mut Window, cx: &mut Context<Self>) {
-        let start = current
-            .filter(|hex| is_hex(hex))
-            .unwrap_or_else(|| prefs(cx).last.clone());
-        let field = cx.new(|cx| InputState::new(window, cx).default_value(start));
-        let sub = cx.subscribe_in(&field, window, |this, field, event, window, cx| match event {
-            InputEvent::PressEnter { .. } => {
-                let hex = normalize_hex(&field.read(cx).value());
-                if let Some(hex) = hex.filter(|hex| contrast(hex) >= READABLE) {
-                    this.toolbar_action(ToolbarAction::Highlight(hex), window, cx);
-                }
-            }
-            InputEvent::Change => cx.notify(),
-            _ => {}
-        });
-        self.toolbar.palette.custom = true;
-        self.toolbar.palette.hex = Some((field, sub));
-        cx.notify();
-    }
-}
-
-fn normalize_hex(value: &str) -> Option<String> {
-    let trimmed = value.trim().trim_start_matches('#');
-    (trimmed.len() == 6 && trimmed.bytes().all(|b| b.is_ascii_hexdigit()))
-        .then(|| format!("#{}", trimmed.to_ascii_uppercase()))
 }
 
 /// The palette, for the highlight around the selection (`current`: its
@@ -309,54 +276,7 @@ pub(super) fn palette(
         .gap(px(2.))
         .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation());
     let row_text = |cx: &App| cx.lattice().fonts.ui.clone();
-    if panel.toolbar.palette.custom {
-        let Some((field, _)) = &panel.toolbar.palette.hex else {
-            return surface.into_any_element();
-        };
-        let field = field.clone();
-        let typed = normalize_hex(&field.read(cx).value());
-        let readable = typed.as_ref().is_some_and(|hex| contrast(hex) >= READABLE);
-        let sample = if sample.is_empty() {
-            t!("Highlighted text").to_string()
-        } else {
-            sample.chars().take(64).collect()
-        };
-        let swatches = |label: &'static str, colors: Vec<String>, cx: &mut Context<EditorPanel>| {
-            (!colors.is_empty()).then(|| {
-                div()
-                    .flex()
-                    .flex_col()
-                    .gap(px(4.))
-                    .child(
-                        div()
-                            .text_size(px(11.))
-                            .text_color(palette.text_secondary)
-                            .child(label),
-                    )
-                    .child(div().flex().flex_wrap().gap(px(4.)).children(
-                        colors.into_iter().enumerate().map(|(index, hex)| {
-                            let chosen = hex.clone();
-                            let field = field.clone();
-                            div()
-                                .id(SharedString::from(format!("swatch-{label}-{index}")))
-                                .size(px(18.))
-                                .rounded(px(4.))
-                                .bg(hex_color(&hex))
-                                .border_1()
-                                .border_color(gpui::black().opacity(0.18))
-                                .cursor_pointer()
-                                .on_click(cx.listener(move |_, _, window, cx| {
-                                    field.update(cx, |field, cx| {
-                                        field.set_value(chosen.clone(), window, cx)
-                                    });
-                                    cx.notify();
-                                }))
-                        }),
-                    ))
-            })
-        };
-        let document = document.into_iter().take(8).collect();
-        let tones = PAPER_TONES.iter().map(|hex| hex.to_string()).collect();
+    if let Some(custom) = &panel.toolbar.palette.custom {
         let back = div()
             .id("highlight-back")
             .h(px(28.))
@@ -372,63 +292,17 @@ pub(super) fn palette(
             .child(Icon::CHEVRON_LEFT.element(px(14.), palette.text_secondary))
             .child(t!("Highlighters"))
             .on_click(cx.listener(|this, _, window, cx| {
-                this.toolbar.palette.custom = false;
+                this.toolbar.palette.custom = None;
                 this.refocus_palette(window, cx);
                 cx.notify();
             }));
-        let apply = typed.clone();
-        let content = div()
-            .flex()
-            .flex_col()
-            .gap(SPACING_3)
-            .p(px(4.))
-            .child(
-                div()
-                    .p(px(10.))
-                    .rounded(px(6.))
-                    .bg(rgb(0xffffff))
-                    .text_size(px(13.))
-                    .text_color(rgb(PAPER_INK))
-                    .child(
-                        div()
-                            .px(px(2.))
-                            .rounded(px(2.))
-                            .bg(typed.as_deref().map_or(rgb(0xffffff).into(), hex_color))
-                            .child(sample),
-                    ),
-            )
-            .child(Field::new(&field).compact())
-            .when(typed.is_some() && !readable, |this| {
-                this.child(
-                    div()
-                        .text_size(px(11.))
-                        .text_color(palette.warning)
-                        .child(t!("Too dark for black text")),
-                )
-            })
-            .children(swatches(t!("In this document"), document, cx))
-            .children(swatches(t!("Your colours"), prefs.custom.clone(), cx))
-            .children(swatches(t!("Paper tones"), tones, cx))
-            .child(
-                div()
-                    .id("highlight-custom-apply")
-                    .h(px(28.))
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .rounded(px(6.))
-                    .text_size(px(12.))
-                    .bg(if readable { palette.tinted } else { palette.disabled_surface })
-                    .text_color(if readable { palette.text } else { palette.disabled_ink })
-                    .when(readable, |this| this.cursor_pointer().hover(|this| this.bg(palette.tinted_hover)))
-                    .child(t!("Highlight"))
-                    .on_click(cx.listener(move |this, _, window, cx| {
-                        if let Some(hex) = apply.clone().filter(|hex| contrast(hex) >= READABLE) {
-                            this.toolbar_action(ToolbarAction::Highlight(hex), window, cx);
-                        }
-                    })),
-            );
-        return surface.child(back).child(content).into_any_element();
+        let content = custom::view(custom, sample, document, window, cx);
+        return surface
+            .w(px(custom::WIDTH + 8.))
+            .pb_0()
+            .child(back)
+            .child(content)
+            .into_any_element();
     }
     let font = row_text(cx);
     let mut list = div().flex().flex_col().gap(px(1.));
@@ -623,7 +497,7 @@ pub(super) fn palette(
     surface
         // The digits apply their highlighter while the palette is open.
         .on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
-            if this.toolbar.palette.renaming.is_some() || this.toolbar.palette.custom {
+            if this.toolbar.palette.renaming.is_some() || this.toolbar.palette.custom.is_some() {
                 return;
             }
             let keys = &event.keystroke;
@@ -654,7 +528,5 @@ mod tests {
             assert!(contrast(tone) >= 10.5, "{tone} is too dark");
         }
         assert!(contrast("#333333") < READABLE);
-        assert_eq!(normalize_hex(" fff1a6"), Some("#FFF1A6".into()));
-        assert_eq!(normalize_hex("#12"), None);
     }
 }

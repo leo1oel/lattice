@@ -169,7 +169,7 @@ impl Run {
         .await;
 
         // Delete: asked first; the tab closes with the file.
-        cx.update(|cx| tree.update(cx, |tree, cx| tree.ask_delete("results.tex".into(), cx)));
+        cx.update(|cx| tree.update(cx, |tree, cx| tree.ask_delete(vec!["results.tex".into()], cx)));
         self.pause(cx, Duration::from_millis(200)).await;
         let question = cx.update(|cx| self.shell.read(cx).confirm().read(cx).question());
         let confirm = cx.update(|cx| self.shell.read(cx).confirm().clone());

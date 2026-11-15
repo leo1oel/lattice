@@ -193,6 +193,19 @@ impl Run {
             tutorial,
             json!({}),
         );
+        // Opening the tutorial builds its sample, and a switch while a build
+        // runs asks first ("Switch away from …?", the shells'
+        // `ask_before_leaving`). Left unanswered, the window stayed on the
+        // sample, so the fixture's files were no longer in its project and
+        // the scenario's last step (`type_before_quit`) could not open its
+        // file. The switch waits for the build instead, as `submission.rs`'s
+        // does.
+        let was_building = cx.update(|cx| self.shell.read(cx).building());
+        let built = self
+            .wait_for(cx, Duration::from_secs(60), |shell, cx| {
+                !shell.read(cx).building()
+            })
+            .await;
         let fixture = root.to_path_buf();
         self.with_window(cx, |shell, window, cx| {
             shell.update(cx, |shell, cx| shell.open_project(fixture, window, cx))
@@ -203,11 +216,21 @@ impl Run {
             })
             .await;
         self.pause(cx, Duration::from_millis(300)).await;
-        let start_kept = cx.update(|cx| self.shell.read(cx).placement("start", cx).is_some());
+        let (start_kept, question) = cx.update(|cx| {
+            (
+                self.shell.read(cx).placement("start", cx).is_some(),
+                crate::confirm::is_pending(cx),
+            )
+        });
         steps_run.check(
             "the writer's own project, opened again, leaves the sample's checklist out",
-            back && !start_kept,
-            json!({ "back": back, "start_in_layout": start_kept }),
+            built && back && !start_kept && !question,
+            json!({
+                "build": { "running": was_building, "finished": built },
+                "back": back,
+                "start_in_layout": start_kept,
+                "question_left_open": question,
+            }),
         );
         Ok(())
     }

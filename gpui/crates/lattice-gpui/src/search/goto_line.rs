@@ -37,9 +37,9 @@ impl GotoLineDialog {
             input.select_all(window, cx);
             input
         });
-        let enter = cx.subscribe(&field, |this, _, event, cx| {
+        let enter = cx.subscribe_in(&field, window, |this, _, event, window, cx| {
             if let InputEvent::PressEnter { .. } = event {
-                this.submit(cx);
+                this.leave_and_submit(window, cx);
             }
         });
         Self {
@@ -49,11 +49,17 @@ impl GotoLineDialog {
         }
     }
 
-    fn submit(&mut self, cx: &mut Context<Self>) {
+    /// Go to the typed line, after the dialog's exit; a line out of range
+    /// keeps the dialog, as before.
+    fn leave_and_submit(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let value = self.field.read(cx).value().to_string();
-        if let Some(line) = target_line(&value, self.max_line) {
-            cx.emit(GotoLineEvent::Go(line));
-        }
+        let Some(line) = target_line(&value, self.max_line) else {
+            return;
+        };
+        let view = cx.entity().downgrade();
+        ModalLayer::leave("goto-line", window, cx, move |_, cx| {
+            view.update(cx, |_, cx| cx.emit(GotoLineEvent::Go(line))).ok();
+        });
     }
 }
 
@@ -128,12 +134,16 @@ impl Render for GotoLineDialog {
                     .child(
                         Button::new("goto-line-cancel", t!("Cancel"))
                             .ghost()
-                            .on_click(cx.listener(|_, _, _, cx| cx.emit(GotoLineEvent::Close))),
+                            .on_click(ModalLayer::closing("goto-line", cx, |_, _, cx| {
+                                cx.emit(GotoLineEvent::Close)
+                            })),
                     )
                     .child(
                         Button::new("goto-line-go", t!("Go"))
                             .primary()
-                            .on_click(cx.listener(|this, _, _, cx| this.submit(cx))),
+                            .on_click(cx.listener(|this, _, window, cx| {
+                                this.leave_and_submit(window, cx)
+                            })),
                     ),
             );
         let this = cx.entity().downgrade();

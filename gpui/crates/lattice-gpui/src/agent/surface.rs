@@ -48,6 +48,7 @@ use super::{
     runtime,
 };
 
+mod annotations;
 mod documents;
 mod drops;
 mod invoke;
@@ -101,6 +102,13 @@ pub enum SurfaceEvent {
         id: u64,
         family: String,
         request: Value,
+    },
+    /// An annotation tool's call to record into the open round
+    /// (`annotations.rs`); answered with [`SynaraSurface::answer`].
+    AnnotationTool {
+        id: u64,
+        annotation: String,
+        answer: crate::annotations::rounds::ToolAnswer,
     },
     /// The Agent creates a board or sheet at `path`.
     CreateDocument {
@@ -175,6 +183,8 @@ pub struct SynaraSurface {
     /// The paths of the Finder drop the page may read (`drops.rs`).
     dropped: Vec<String>,
     drop_read: Option<Result<usize, String>>,
+    /// The project's annotations as the page last heard (`annotations.rs`).
+    annotations: annotations::PageAnnotations,
     last_pointer: Option<Instant>,
     _subscriptions: Vec<Subscription>,
 }
@@ -256,6 +266,7 @@ impl SynaraSurface {
             endpoint_saved: false,
             dropped: Vec::new(),
             drop_read: None,
+            annotations: Default::default(),
             last_pointer: None,
             _subscriptions: subscriptions,
         }
@@ -316,6 +327,9 @@ impl SynaraSurface {
         self.overleaf = Value::Null;
         self.permission = None;
         self.deck = None;
+        if self.kind == SurfaceKind::Agent {
+            self.follow_annotations(cx);
+        }
         self.open_page(cx);
         self.sync_active(cx);
         cx.notify();

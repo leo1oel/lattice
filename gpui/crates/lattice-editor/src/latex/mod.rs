@@ -44,6 +44,7 @@ pub mod prose;
 pub mod protected;
 pub mod region_edits;
 pub mod spelling;
+pub mod synctex_word;
 pub mod syntax;
 pub mod vocabulary;
 

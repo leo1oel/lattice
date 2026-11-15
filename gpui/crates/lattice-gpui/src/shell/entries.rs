@@ -168,53 +168,64 @@ impl Shell {
                         .collect()
                 })
                 .unwrap_or_default();
-            let moved = cx
+            // A move that fails stops the batch, but what moved before it
+            // (and the move that failed to rewrite after it) is on disk: its
+            // tabs follow it all the same.
+            let (changes, rewritten, failed) = cx
                 .background_spawn(async move {
                     let mut changes = Vec::new();
                     let mut rewritten = Vec::new();
                     for path in &paths {
-                        let moved = core_project::move_entry(&root, path, &target)?;
+                        let moved = match core_project::move_entry(&root, path, &target) {
+                            Ok(moved) => moved,
+                            Err(error) => return (changes, rewritten, Some(error)),
+                        };
+                        changes.push((path.clone(), moved.clone()));
                         if !moved_paths::is_movable_document(path) || moved == *path {
-                            changes.push((path.clone(), moved));
                             continue;
                         }
                         let text = match open_texts.iter().find(|(open, _)| open == path) {
-                            Some((_, text)) => text.clone(),
-                            None => core_project::read_file(&root, &moved)?,
+                            Some((_, text)) => Ok(text.clone()),
+                            None => core_project::read_file(&root, &moved),
                         };
-                        let updated =
-                            moved_paths::rewrite_moved_document(&text, path, &moved, &assets);
-                        if updated != text {
-                            let written = core_project::apply_editor_transaction(
+                        let written = text.and_then(|text| {
+                            let updated =
+                                moved_paths::rewrite_moved_document(&text, path, &moved, &assets);
+                            if updated == text {
+                                return Ok(None);
+                            }
+                            core_project::apply_editor_transaction(
                                 &root,
                                 moved.clone(),
                                 updated,
                                 None,
                                 None,
-                            )?;
-                            rewritten.push((moved.clone(), written.content));
+                            )
+                            .map(|written| Some(written.content))
+                        });
+                        match written {
+                            Ok(Some(text)) => rewritten.push((moved, text)),
+                            Ok(None) => {}
+                            Err(error) => return (changes, rewritten, Some(error)),
                         }
-                        changes.push((path.clone(), moved));
                     }
-                    Ok::<_, String>((changes, rewritten))
+                    (changes, rewritten, None)
                 })
                 .await;
             this.update(cx, |this, cx| {
                 project.update(cx, |project, cx| project.entries_changed(cx));
-                match moved {
-                    Ok((changes, rewritten)) => {
-                        this.apply_path_changes(&changes, cx);
-                        for (path, text) in rewritten {
-                            if let Some(editor) = this
-                                .open_editors()
-                                .into_iter()
-                                .find(|editor| editor.read(cx).relative() == path)
-                            {
-                                editor.update(cx, |editor, cx| editor.accept_written(text, cx));
-                            }
-                        }
+                this.apply_path_changes(&changes, cx);
+                for (path, text) in rewritten {
+                    if let Some(editor) = this
+                        .open_editors()
+                        .into_iter()
+                        .find(|editor| editor.read(cx).relative() == path)
+                    {
+                        editor.update(cx, |editor, cx| editor.accept_written(text, cx));
                     }
-                    Err(error) => notices::error(t!("Could not move it"), error, cx),
+                }
+                if let Some(error) = failed {
+                    notices::error(t!("Could not move it"), error, cx);
                 }
             })
             .ok();

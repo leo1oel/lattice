@@ -762,7 +762,9 @@ impl Render for SettingsDialog {
         let page = show_page.then(|| self.content(narrow, content_width, window, cx));
         let close = IconButton::new("settings-close", Icon::X)
             .tooltip(t!("Close settings"))
-            .on_click(cx.listener(|this, _, _, cx| this.close(cx)));
+            .on_click(ModalLayer::closing("settings-layer", cx, |this, _, cx| {
+                this.close(cx)
+            }));
         let card = div()
             .id("settings-modal")
             .children(lattice_ui::parity::probe("settings/modal"))

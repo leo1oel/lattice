@@ -1,6 +1,6 @@
 # Patched upstream crates
 
-Five crates the app builds on are vendored here, four of them with Lattice's changes, and swapped in through the workspace manifest's `[patch]` tables.
+Five crates the app builds on are vendored here, each with Lattice's changes, and swapped in through the workspace manifest's `[patch]` tables.
 Each is upstream's source at an exact pin plus the diffs in this directory, nothing else; `script/check-patches` rebuilds them from upstream and fails on any difference (CI runs it), and `script/check-patches --write` rebuilds them after a diff is edited or a pin moves.
 
 | Crate | Upstream | Pin | License | Diffs |
@@ -8,7 +8,7 @@ Each is upstream's source at an exact pin plus the diffs in this directory, noth
 | `gpui-fast/crates/gpui` | [longbridge/gpui-fast](https://github.com/longbridge/gpui-fast) `crates/gpui` | commit `bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa` | Apache-2.0 | `gpui-fast-vendoring.diff`, `gpui-fast-motion-and-type.diff`, `gpui-fast-interface-zoom.diff`, `gpui-fast-file-drop-modality.diff`, `gpui-fast-active-drag-type.diff` |
 | `gpui-fast/crates/gpui_macos` | the same repository's `crates/gpui_macos` | the same commit | Apache-2.0 | `gpui-fast-lab-occlusion.diff`, `gpui-fast-overlay-first-mouse.diff`, `gpui-fast-lab-assume-key.diff` |
 | `gpui-component` | [crates.io `gpui-component`](https://crates.io/crates/gpui-component) (GPUI Kit's components) | 0.9.1, crate SHA-256 `e155c4914bd809d966660610d596f7b57c5cd38979ca2c132215057a91f23f03` | Apache-2.0 | `gpui-component-overlays.diff`, `gpui-component-lattice-hooks.diff` |
-| `gpui-base` | [crates.io `gpui-base`](https://crates.io/crates/gpui-base) (GPUI Kit's foundation, which `gpui-component` builds on) | 0.9.1, crate SHA-256 `f3e9ae5237737cfd110d0ff513fcd9c20f97d98ebabd0a73164068177f0aca4f` | Apache-2.0 | none (vendored as upstream, kept so the workspace builds from one source) |
+| `gpui-base` | [crates.io `gpui-base`](https://crates.io/crates/gpui-base) (GPUI Kit's foundation, which `gpui-component` builds on) | 0.9.1, crate SHA-256 `f3e9ae5237737cfd110d0ff513fcd9c20f97d98ebabd0a73164068177f0aca4f` | Apache-2.0 | `gpui-base-popover-exit.diff` |
 | `gpui-webview` | [crates.io `gpui-webview`](https://crates.io/crates/gpui-webview) (GPUI Kit's webview: the islands' native page) | 0.9.1, crate SHA-256 `6b355bcda56e128a7c2e27257653a6441ab792dcfbdae49c63ce329c846f4b5d` | Apache-2.0 | `gpui-webview-interface-zoom.diff` |
 
 What is copied: each crate's sources, manifest, build script, README and license (a copy of the repository's, which upstream links), without examples, benches and docs, and for the crates.io crates without their packaging files (`Cargo.lock`, `Cargo.toml.orig`); `gpui-base` keeps the tests and benches its manifest names.
@@ -39,6 +39,9 @@ The vendored copies cannot run their own tests where they sit (the gpui crate's 
   The platform keeps measuring in points: every event it delivers has its positions (and a pixel scroll delta) divided by `z` on the way in, the input method's caret and selection rectangles are multiplied by `z` on the way out (and the point it asks about divided), as are the window menu's position, the visual viewport and the platform's insets.
   Without a zoom set (1) the crate behaves as upstream.
   A native composition surface is placed from GPUI's device pixels, so it lands where its element is laid out; what a surface's owner puts inside it in points is that owner's to scale (`gpui-webview-interface-zoom.diff`).
+- **`gpui-base-popover-exit.diff`**: a popover that plays its way out.
+  `Popover::exit(duration)` keeps the content drawn for that long after the popover closes, as it was, under a cover that takes its presses, with no focus, Escape or dismissal; `PopoverState::leaving()` tells the content builder how far into the exit it is, so Lattice's popovers draw their exit (`pop_out`) where the Tauri app's `popup-motion.css` plays one.
+  Without `exit` the crate behaves as upstream.
 - **`gpui-webview-interface-zoom.diff`**: a webview island at another interface size.
   The surface sits where GPUI laid the page out, but gpui-webview set the WKWebView's frame inside it from GPUI's pixels as if they were points, so at 120% the page covered only part of its island and below 100% it was clipped.
   The frame and its offset are scaled by the window's interface zoom, and the page is zoomed with the interface (on top of `WebView::set_zoom`'s own zoom), so it keeps the island's size in its own pixels, as the Tauri app's interface zoom zooms its pages.

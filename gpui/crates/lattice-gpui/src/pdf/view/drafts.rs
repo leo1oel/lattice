@@ -60,6 +60,15 @@ impl PdfView {
             }
             // Leaving the field another way commits it too.
             InputEvent::Blur => self.commit_draft(zoom, cx),
+            // The page takes digits only (`accept: /^\d*$/`).
+            InputEvent::Change if !zoom => {
+                let input = self.page_field.input.clone();
+                let value = input.read(cx).value().to_string();
+                let digits: String = value.chars().filter(char::is_ascii_digit).collect();
+                if digits != value {
+                    input.update(cx, |input, cx| input.set_value(digits, window, cx));
+                }
+            }
             _ => {}
         }
     }
@@ -87,22 +96,21 @@ impl PdfView {
         cx.notify();
     }
 
-    /// Escape in a draft field: drop the draft and go back to reading.
+    /// Escape in a draft field: the page's draft is dropped, the zoom's
+    /// committed (only the page field has `cancelOnEscape`); either way back
+    /// to reading.
     pub(in crate::pdf) fn cancel_draft(
         &mut self,
         zoom: bool,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let field = if zoom {
-            &mut self.zoom_field
-        } else {
-            &mut self.page_field
-        };
-        field.editing = false;
         if zoom {
-            self.zoom_entry = false;
+            self.commit_draft(true, cx);
+            window.focus(&self.focus_handle, cx);
+            return;
         }
+        self.page_field.editing = false;
         window.focus(&self.focus_handle, cx);
         cx.notify();
     }
@@ -115,6 +123,8 @@ impl PdfView {
     }
 
     /// Start editing a value with `draft` typed in, as a scenario types it.
+    /// The zoom opens as the overflow menu's percentage does, so its field
+    /// is drawn in a toolbar too narrow to show it.
     pub fn edit_draft_to(
         &mut self,
         zoom: bool,
@@ -122,7 +132,11 @@ impl PdfView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.edit_draft(zoom, window, cx);
+        if zoom {
+            self.enter_zoom(window, cx);
+        } else {
+            self.edit_draft(zoom, window, cx);
+        }
         let field = if zoom {
             &self.zoom_field
         } else {

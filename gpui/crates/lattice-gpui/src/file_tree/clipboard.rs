@@ -1,14 +1,24 @@
 //! The tree's ⌘C and ⌘V, as the Tauri app's (`project-tree-clipboard.ts`):
-//! ⌘C puts the selected row's absolute path on the clipboard, and ⌘V
-//! duplicates that row into the selected folder while the clipboard still
+//! ⌘C puts the selected rows' absolute paths on the clipboard, one a line,
+//! and ⌘V duplicates those rows into the selected folder while the clipboard still
 //! holds exactly that text, so a later copy in the editor or another app
 //! supersedes it; otherwise ⌘V saves the clipboard's image into that folder
 //! (`FileTreeEvent::PasteImage`).
 
 use gpui::{ClipboardItem, Context, KeyDownEvent, Window};
+use lattice_i18n::t;
 
-use super::{FileTreeEvent, FileTreePanel};
+use super::{FileTreeEvent, FileTreePanel, selection::outermost};
 use crate::notices;
+
+/// "Path copied", or how many were (`notifyCopied`).
+pub(super) fn notify_copied(count: usize, cx: &mut gpui::App) {
+    let title = match count {
+        1 => t!("Path copied").to_string(),
+        count => t!("{count} paths copied", count = count).to_string(),
+    };
+    notices::copied(title, cx);
+}
 
 /// The rows ⌘C copied and the text it wrote for them.
 pub(super) struct Copied {
@@ -61,24 +71,22 @@ impl FileTreePanel {
     }
 
     fn copy_selected(&mut self, cx: &mut Context<Self>) -> bool {
-        let Some((path, _)) = self.selected_row(cx) else {
+        let paths = outermost(&self.selected_paths(cx));
+        if paths.is_empty() {
             return false;
-        };
+        }
         let Some(project) = &self.project else {
             return false;
         };
-        let text = project
-            .read(cx)
-            .root()
-            .join(&path)
-            .to_string_lossy()
-            .into_owned();
+        let root = project.read(cx).root().to_path_buf();
+        let text = paths
+            .iter()
+            .map(|path| root.join(path).to_string_lossy().into_owned())
+            .collect::<Vec<_>>()
+            .join("\n");
         cx.write_to_clipboard(ClipboardItem::new_string(text.clone()));
-        self.copied = Some(Copied {
-            paths: vec![path],
-            text,
-        });
-        notices::copied(lattice_i18n::t!("Path copied"), cx);
+        notify_copied(paths.len(), cx);
+        self.copied = Some(Copied { paths, text });
         true
     }
 

@@ -57,6 +57,8 @@ pub enum PdfEvent {
         page: u32,
         x: f64,
         y: f64,
+        word: Option<lattice_editor::latex::synctex_word::SyncTexWord>,
+        figure: bool,
     },
     /// Reveal cursor in PDF, in `document`'s PDF (`None`: the live one).
     RevealCursor {
@@ -94,6 +96,9 @@ pub struct PdfPanel {
     /// live PDF moves between them.
     source: Option<PathBuf>,
     building: bool,
+    /// Whether Reveal cursor in PDF can jump, and whether a jump is being
+    /// located, carried into the window.
+    reveal: (bool, bool),
     /// The build's diagnostics card (`crate::build::card`), over the top of
     /// the pages or docked under them, as the Tauri app puts it in its PDF
     /// column. Only the live panel has one.
@@ -106,6 +111,19 @@ pub struct PdfPanel {
 }
 
 impl PdfPanel {
+    /// Whether Reveal cursor in PDF can jump now, and whether a jump is
+    /// being located.
+    pub fn set_reveal(&mut self, enabled: bool, locating: bool, cx: &mut Context<Self>) {
+        self.reveal = (enabled, locating);
+        let views = [
+            Some(self.view.clone()),
+            self.window.as_ref().map(|(_, view)| view.clone()),
+        ];
+        for view in views.into_iter().flatten() {
+            view.update(cx, |view, cx| view.set_reveal(enabled, locating, cx));
+        }
+    }
+
     pub fn new(kind: PdfPanelKind, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let view = cx.new(|cx| PdfView::new(window, cx));
         let compiled = !matches!(kind, PdfPanelKind::File(_));
@@ -148,6 +166,7 @@ impl PdfPanel {
             window: None,
             source: None,
             building: false,
+            reveal: (true, false),
             build_output: None,
             title: "PDF".into(),
             outline: None,
@@ -222,11 +241,19 @@ impl PdfPanel {
         }
         let document = self.document().map(str::to_string);
         match event {
-            PdfViewEvent::SourceAt { page, x, y } => cx.emit(PdfEvent::SourceAt {
+            PdfViewEvent::SourceAt {
+                page,
+                x,
+                y,
+                word,
+                figure,
+            } => cx.emit(PdfEvent::SourceAt {
                 document,
                 page: *page,
                 x: *x,
                 y: *y,
+                word: word.clone(),
+                figure: *figure,
             }),
             PdfViewEvent::RevealCursor => cx.emit(PdfEvent::RevealCursor { document }),
             PdfViewEvent::Build => cx.emit(PdfEvent::Build { document }),
@@ -251,7 +278,6 @@ impl PdfPanel {
         if self.project.as_ref() != Some(&project) {
             if let Some((handle, _)) = self.window.take() {
                 window::close(handle, self.project.as_deref(), cx);
-                cx.emit(PdfEvent::Docked);
             }
             self.project = Some(project.clone());
         }
@@ -279,6 +305,23 @@ impl PdfPanel {
             None => self.view.update(cx, |view, cx| view.open(path, window, cx)),
         }
         cx.notify();
+    }
+
+    /// The PDF of the project this tab shows changed on disk (`removed`:
+    /// it is gone): it is read again, or says it was removed, keeping the
+    /// pages it showed until it comes back (`useProjectPdfWatch`).
+    pub fn file_changed(&mut self, removed: bool, window: &mut Window, cx: &mut Context<Self>) {
+        let notice = removed.then(|| t!("This PDF was removed from the project.").into());
+        self.view.update(cx, |view, cx| view.set_notice(notice, cx));
+        if !removed && let Some(path) = self.source.clone() {
+            self.open(path, window, cx);
+        }
+    }
+
+    /// The status line over the pages, for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn notice(&self, cx: &App) -> Option<SharedString> {
+        self.view.read(cx).notice.clone()
     }
 
     /// Show nothing, for a project without a built PDF.
@@ -395,6 +438,7 @@ impl PdfPanel {
             source,
             place,
             self.building,
+            self.reveal,
             outline,
             focus,
             cx,
@@ -515,47 +559,49 @@ impl BasePanel for PdfPanel {
 }
 
 impl PdfPanel {
-    /// The PDF's own items at the head of its ⋯ menu.
+    /// The PDF's own items at the head of its ⋯ menu, as the Tauri app's
+    /// PDF panel has them (`use-trellis-bridge.ts`): Build project (⌘S
+    /// saves and then builds; it has no key of its own) and Reveal cursor
+    /// in PDF; a root document's tab builds that document.
     pub(crate) fn panel_menu(this: &Entity<Self>, menu: Menu, cx: &App) -> Menu {
         let panel = this.read(cx);
-        let view = panel.live_view().clone();
-        let zoom = |label: &'static str, direction: f32| {
-            let view = view.downgrade();
-            MenuAction::new(label, move |_, cx| {
-                view.update(cx, |view, cx| view.step_zoom(direction, cx))
+        let emit = |event: fn(Option<String>) -> PdfEvent, document: Option<String>| {
+            let panel = this.downgrade();
+            move |_: &mut Window, cx: &mut App| {
+                panel
+                    .update(cx, |_, cx| cx.emit(event(document.clone())))
                     .ok();
-            })
-        };
-        let fit = {
-            let view = view.downgrade();
-            MenuAction::new(t!("Fit page to width"), move |_, cx| {
-                view.update(cx, |view, cx| {
-                    if view.fit() != Some(super::layout::FitMode::Width) {
-                        view.toggle_fit(super::layout::FitMode::Width, cx)
-                    }
-                })
-                .ok();
-            })
-        };
-        let menu = menu
-            .item(zoom(t!("Zoom in"), 1.))
-            .item(zoom(t!("Zoom out"), -1.))
-            .item(fit);
-        match &panel.kind {
-            PdfPanelKind::Root(document) => {
-                let panel = this.downgrade();
-                let document = document.clone();
-                menu.item(MenuAction::new(t!("Build this document"), move |_, cx| {
-                    panel
-                        .update(cx, |_, cx| {
-                            cx.emit(PdfEvent::Build {
-                                document: Some(document.clone()),
-                            })
-                        })
-                        .ok();
-                }))
             }
-            PdfPanelKind::Live | PdfPanelKind::File(_) => menu,
+        };
+        let (save, reveal) = if cfg!(target_os = "macos") {
+            ("⌘S", "⇧⌘J")
+        } else {
+            ("Ctrl+S", "Ctrl+Shift+J")
+        };
+        match &panel.kind {
+            PdfPanelKind::Live => menu
+                .item(
+                    MenuAction::new(
+                        t!("Build project"),
+                        emit(|document| PdfEvent::Build { document }, None),
+                    )
+                    .shortcut(save),
+                )
+                .item(
+                    MenuAction::new(
+                        t!("Reveal cursor in PDF"),
+                        emit(|document| PdfEvent::RevealCursor { document }, None),
+                    )
+                    .shortcut(reveal),
+                ),
+            PdfPanelKind::Root(document) => menu.item(MenuAction::new(
+                t!("Build this document"),
+                emit(
+                    |document| PdfEvent::Build { document },
+                    Some(document.clone()),
+                ),
+            )),
+            PdfPanelKind::File(_) => menu,
         }
     }
 }

@@ -47,7 +47,7 @@ impl Surface {
     /// skipped.
     pub(super) fn commands(self) -> &'static [&'static str] {
         match self {
-            Surface::Source => &["build", "reveal-cursor", "cite", "ref"],
+            Surface::Source => &["build", "sync-pdf", "cite", "ref"],
             Surface::Markdown => &["find", "quick-open", "discover"],
             Surface::Paper => &["find", "discover", "quick-open"],
         }
@@ -166,7 +166,7 @@ mod tests {
         // command-palette-leading.test.ts's expectations.
         let available = [
             ("build", true),
-            ("reveal-cursor", true),
+            ("sync-pdf", true),
             ("rebuild", false),
             ("find", true),
             ("settings", true),
@@ -183,7 +183,7 @@ mod tests {
                 ("build", Lead::Recent),
                 ("settings", Lead::Recent),
                 ("vim", Lead::Recent),
-                ("reveal-cursor", Lead::Surface),
+                ("sync-pdf", Lead::Surface),
             ]
         );
         assert_eq!(leading(&available, &[], None), vec![]);

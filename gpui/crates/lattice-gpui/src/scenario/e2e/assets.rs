@@ -137,7 +137,7 @@ impl Run {
         // Delete on a second bibliography asks first, as on any file.
         let notices = cx.update(crate::notices::install);
         cx.update(|cx| notices.update(cx, |stack, cx| stack.clear(cx)));
-        cx.update(|cx| tree.update(cx, |tree, cx| tree.ask_delete("extra.bib".into(), cx)));
+        cx.update(|cx| tree.update(cx, |tree, cx| tree.ask_delete(vec!["extra.bib".into()], cx)));
         self.pause(cx, Duration::from_millis(200)).await;
         let question = cx.update(|cx| self.shell.read(cx).confirm().read(cx).question());
         let confirm = cx.update(|cx| self.shell.read(cx).confirm().clone());
@@ -164,7 +164,7 @@ impl Run {
                 .map(|project| project.read(cx).manifest().primary_bibliography.clone())
                 .unwrap_or_default()
         });
-        cx.update(|cx| tree.update(cx, |tree, cx| tree.ask_delete(primary.clone(), cx)));
+        cx.update(|cx| tree.update(cx, |tree, cx| tree.ask_delete(vec![primary.clone()], cx)));
         self.pause(cx, Duration::from_millis(200)).await;
         let asked = cx.update(|cx| self.shell.read(cx).confirm().read(cx).question());
         let titles: Vec<String> = cx.update(|cx| {

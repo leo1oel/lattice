@@ -113,6 +113,9 @@ raw-window-handle = "0.6"
 # the version Wry's WebKit bindings already use, so it adds no crate.
 block2 = "0.6"
 libc = "0.2"
+# AppKit's colour sampler takes its handler as a block (`screen_color.rs`);
+# the version objc2 0.6 and GPUI's macOS platform already use.
+block2 = "0.6"
 objc2 = "0.6"
 objc2-foundation = { version = "0.3", features = ["NSArray", "NSGeometry", "NSLocale", "NSRange", "NSString"] }
 
