@@ -293,6 +293,18 @@ fn remember(bounds: WindowBounds, display: Option<String>, cx: &mut App) {
     cx.global_mut::<Placements>()._write = Some(write);
 }
 
+/// How many windows have a build under way, for a restart's warning.
+pub(crate) fn running_builds(cx: &App) -> usize {
+    cx.try_global::<Shells>().map_or(0, |shells| {
+        shells
+            .0
+            .values()
+            .filter_map(|shell| shell.upgrade())
+            .filter(|shell| shell.read(cx).building())
+            .count()
+    })
+}
+
 /// The shell drawn in `window`, if it is a workspace window.
 pub(crate) fn shell_of(window: AnyWindowHandle, cx: &App) -> Option<Entity<Shell>> {
     cx.try_global::<Shells>()?

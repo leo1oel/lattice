@@ -7,27 +7,22 @@
 //! errors (lattice-core's `build::unchanged`), and a build that finds no TeX
 //! opens setup.
 
-use std::{
-    collections::HashMap,
-    hash::{Hash as _, Hasher as _},
-    path::{Path, PathBuf},
-    time::Duration,
-};
+use std::{collections::HashMap, time::Duration};
 
 use futures::{StreamExt as _, channel::mpsc, channel::oneshot};
 use gpui::{App, AppContext as _, AsyncWindowContext, Context, Entity, WeakEntity, Window};
-use lattice_core::{
-    latex::{self, BuildResult, BuildStep, BuildSteps},
-    models::{Diagnostic, FileNode},
-};
+use lattice_core::latex::{self, BuildResult, BuildStep, BuildSteps};
 use lattice_i18n::{n, t, tr};
 use lattice_ui::components::ToastLevel;
 
+mod compiled;
 mod oplog;
+
+use compiled::{fingerprint_pdfs, flatten, read_sources, rewrote};
 
 use super::{Build, Shell};
 use crate::{
-    build::{diagnostics, tex_setup},
+    build::tex_setup,
     notices::{self, Notice, NoticeAction},
     project::Project,
     sounds,
@@ -104,75 +99,6 @@ impl BuildRequest {
     }
 }
 
-/// Every path in the project tree, parents before their children.
-fn flatten(nodes: &[FileNode], out: &mut Vec<String>) {
-    for node in nodes {
-        if !node.path.is_empty() {
-            out.push(node.path.clone());
-        }
-        flatten(&node.children, out);
-    }
-}
-
-/// What a PDF holds, to tell whether a failed build wrote a new one. Not its
-/// time: lattice-core puts the last good PDF back after a failed build
-/// (`shown_pdf.rs`), which writes the file without a new page in it.
-fn fingerprint(path: &Path) -> Option<u64> {
-    let bytes = std::fs::read(path).ok()?;
-    let mut hasher = std::collections::hash_map::DefaultHasher::new();
-    bytes.hash(&mut hasher);
-    Some(hasher.finish())
-}
-
-/// The PDF of each document a build could compile, fingerprinted before it.
-fn fingerprint_pdfs(root: &Path, documents: &[String]) -> HashMap<PathBuf, u64> {
-    documents
-        .iter()
-        .filter_map(|document| {
-            let pdf = root.join(document).with_extension("pdf");
-            fingerprint(&pdf).map(|hash| (pdf, hash))
-        })
-        .collect()
-}
-
-/// The build wrote `pdf` anew: it holds other bytes than before the build,
-/// or there was none.
-fn rewrote(pdf: &Path, before: &HashMap<PathBuf, u64>) -> bool {
-    fingerprint(pdf) != before.get(pdf).copied()
-}
-
-/// The text of each project file the diagnostics name, keyed as they name
-/// it: what the build compiled. An editor's text as the build saved it, since
-/// an autosave during the build writes newer text to disk; else the file on
-/// disk, and only a file in the project tree.
-fn read_sources(
-    root: &Path,
-    diagnostics: &[Diagnostic],
-    root_document: &str,
-    files: &[String],
-    saved: &HashMap<String, String>,
-) -> HashMap<String, String> {
-    let mut sources = HashMap::new();
-    for diagnostic in diagnostics {
-        let Some(file) = &diagnostic.file else {
-            continue;
-        };
-        if sources.contains_key(file) {
-            continue;
-        }
-        let path = diagnostics::resolve_path(Some(file), files, root_document);
-        let text = match saved.get(&path) {
-            Some(text) => Some(text.clone()),
-            None if files.contains(&path) => std::fs::read_to_string(root.join(&path)).ok(),
-            None => None,
-        };
-        if let Some(text) = text {
-            sources.insert(file.clone(), text);
-        }
-    }
-    sources
-}
-
 impl Shell {
     /// Build and the build chip: save, then build, bringing the problems up if
     /// it fails.
@@ -209,6 +135,12 @@ impl Shell {
             if request.requested {
                 notices::error(t!("Build"), tr(NO_DOCUMENT), cx);
             }
+            self.settle_builds(cx);
+            return;
+        }
+        // The last build stalled on these very inputs: only an ask, or a
+        // change, builds them again (`build::stall`).
+        if request.unattended && self.build_held(project.read(cx).input_revision()) {
             self.settle_builds(cx);
             return;
         }
@@ -307,6 +239,7 @@ impl Shell {
             let (revision, active) = project.read_with(cx, |project, _| {
                 (project.input_revision(), project.active_build().clone())
             });
+            this.update(cx, |this, _| this.build_pass_started()).ok();
             // latexmk reads the inputs after this: the live preview's token
             // for the files as they are now.
             let live = live_preview.update(cx, |live, cx| live.build_started(request.quiet, cx));
@@ -445,9 +378,11 @@ impl Shell {
                 let wrote_pdf = result.has_pdf
                     && !cancelled
                     && (result.success || result.unchanged || rewritten);
+                self.show_build_marks(&result, &sources, cx);
                 self.build_panel.update(cx, |panel, cx| {
                     panel.finished(&result, wrote_pdf, request.requested, sources, cx)
                 });
+                self.build_pass_finished(&result, revision, cx);
                 project.update(cx, |project, cx| {
                     // A build may adopt the open document or switch the
                     // engine, which it writes to the manifest.
@@ -546,7 +481,8 @@ impl Shell {
                 {
                     sounds::play(cue, cx);
                 }
-                self.settle_builds(cx)
+                self.settle_builds(cx);
+                self.builds_idle(window, cx);
             }
         }
         cx.notify();
@@ -725,85 +661,5 @@ mod tests {
         assert!(automatic.unattended && !automatic.requested);
         let clean = BuildRequest::automatic().merge(BuildRequest::clean_rebuild());
         assert!(clean.clean && clean.force && clean.requested && !clean.unattended);
-    }
-
-    #[test]
-    fn a_pdf_is_rewritten_only_against_its_own_bytes_before_the_build() {
-        let root = std::env::temp_dir().join(format!("lattice-rewrote-{}", std::process::id()));
-        std::fs::create_dir_all(root.join("figures")).unwrap();
-        std::fs::write(root.join("main.pdf"), "the paper").unwrap();
-        std::fs::write(root.join("figures/plot.pdf"), "the figure").unwrap();
-        let documents = ["main.tex".to_string(), "figures/plot.tex".to_string()];
-        let before = fingerprint_pdfs(&root, &documents);
-        let plot = root.join("figures/plot.pdf");
-        let main = root.join("main.pdf");
-        let chapter = root.join("chapters/intro.pdf");
-
-        let left_in_place = rewrote(&plot, &before);
-        std::fs::write(&main, "the paper, typeset again").unwrap();
-        let typeset = rewrote(&main, &before);
-        std::fs::create_dir_all(root.join("chapters")).unwrap();
-        std::fs::write(&chapter, "a first chapter").unwrap();
-        let first = rewrote(&chapter, &before);
-        std::fs::remove_dir_all(&root).ok();
-
-        assert!(!left_in_place);
-        assert!(typeset);
-        assert!(first);
-    }
-
-    fn naming(file: &str) -> Diagnostic {
-        Diagnostic {
-            file: Some(file.to_string()),
-            line: Some(1),
-            column: None,
-            end_line: None,
-            end_column: None,
-            level: "error".into(),
-            message: "Undefined control sequence.".into(),
-            code: None,
-            params: Default::default(),
-        }
-    }
-
-    #[test]
-    fn sources_are_the_text_the_build_saved_and_only_project_files() {
-        let base =
-            std::env::temp_dir().join(format!("lattice-read-sources-{}", std::process::id()));
-        let root = base.join("paper");
-        std::fs::create_dir_all(root.join("chapters")).unwrap();
-        std::fs::write(root.join("main.tex"), "autosaved during the build").unwrap();
-        std::fs::write(root.join("chapters/intro.tex"), "on disk").unwrap();
-        std::fs::write(base.join("secret.tex"), "outside the project").unwrap();
-        let files = vec![
-            "main.tex".to_string(),
-            "chapters".to_string(),
-            "chapters/intro.tex".to_string(),
-        ];
-        let saved = HashMap::from([("main.tex".to_string(), "as built".to_string())]);
-
-        let sources = read_sources(
-            &root,
-            &[
-                naming("main.tex"),
-                naming("./chapters/intro.tex"),
-                naming("../secret.tex"),
-            ],
-            "main.tex",
-            &files,
-            &saved,
-        );
-        std::fs::remove_dir_all(&base).ok();
-
-        assert_eq!(
-            sources.get("main.tex").map(String::as_str),
-            Some("as built")
-        );
-        assert_eq!(
-            sources.get("./chapters/intro.tex").map(String::as_str),
-            Some("on disk")
-        );
-        assert_eq!(sources.get("../secret.tex"), None);
-        assert_eq!(sources.len(), 2);
     }
 }

@@ -8,6 +8,7 @@ What it does so far, and nothing more, one line per feature, each with its own p
 
 - [Agent](docs/agent.md): runs the Agent as the Tauri app embeds it, with its Git workspace and its document tools.
 - [Annotations](docs/annotations.md): keeps the writer's notes on passages of the sources, marked and pinned in the editor and listed in the Annotations panel.
+- [App updater](docs/updater.md): updates the app as the Tauri app does, from a release channel the GPUI app does not have yet, so it ships off.
 - [App's log and Help](docs/app-log-and-help.md): the app's log, Settings › Logs, Report a problem and What's new.
 - [Boards, spreadsheets and decks](docs/structured-documents.md): opens boards, spreadsheets and Open Slide decks in the Tauri app's own editors.
 - [Builds](docs/builds.md): builds with lattice-core's latexmk build, explains its errors and offers their fixes.
@@ -29,6 +30,7 @@ What it does so far, and nothing more, one line per feature, each with its own p
 - [Project tree](docs/project-tree.md): opens a project folder as the Tauri app does, in the Project tree with its file operations and Git status.
 - [Saving and outside edits](docs/saving.md): saves as the Tauri app does, and takes outside edits into clean buffers and merges them into edited ones.
 - [Settings](docs/settings.md): Settings (⌘,) as the Tauri app's, with the interface size, sounds, spell checking and translucency.
+- [Selection toolbar and highlights](docs/selection-toolbar.md): formats, links, headings and highlights a selection from the Tauri app's selection toolbar and highlighter palette.
 - [Source editor](docs/editor.md): edits sources in Zed's editor with LaTeX highlighting, search, Vim, the editor adapter's cards, completion and diagnostics, the gutter, the outline rail and a `.tex` file's Visual view.
 - [Terminal panel](docs/terminal.md): the Tauri app's Terminal panel, on Zed's alacritty-based terminal.
 - [TeX doctor and setup](docs/tex-setup.md): the TeX doctor, the setup wizard and package installs.
@@ -58,6 +60,7 @@ The window's panels are laid out with it, so the GPUI app as built includes Trel
 These are the facts of how the code is licensed, not legal advice; the license texts themselves are what apply.
 
 Lucide icons in `crates/lattice-ui/assets/icons/` (`download.svg`, `ellipsis.svg` and `file.svg`, which Zed's icon set shadows, and `tool-history.svg` from Lucide itself, as GPUI Kit's set lacks it) are copied unmodified and keep Lucide's license ([`crates/lattice-ui/assets/LICENSE-LUCIDE`](crates/lattice-ui/assets/LICENSE-LUCIDE)).
+The reading-aid faces in `crates/lattice-ui/assets/fonts/reading-aids/` (Atkinson Hyperlegible and OpenDyslexic, the Latin subset @fontsource publishes, unpacked from WOFF2 to TTF without other change) keep the SIL Open Font License 1.1 and their reserved names ([`LICENSE-atkinson-hyperlegible`](crates/lattice-ui/assets/fonts/reading-aids/LICENSE-atkinson-hyperlegible), [`LICENSE-opendyslexic`](crates/lattice-ui/assets/fonts/reading-aids/LICENSE-opendyslexic)).
 Everything outside `gpui/`, the Tauri app and the backend crate the two apps share (`lattice-core`) included, stays Apache-2.0 ([`../LICENSE`](../LICENSE)); Apache-2.0 code can be part of this GPL work, not the other way round, so nothing under `gpui/` may be copied out of it into the Apache-2.0 tree.
 
 ## Running it
@@ -85,7 +88,7 @@ The first build fetches Zed at the pinned revision and compiles about 1,200 crat
 | ⌘⇧J / Ctrl+Shift+J | Mark the caret's line in the PDF (SyncTeX); a double-click in the PDF goes back |
 | ⌘F / Ctrl+F | Find and replace in the current file (the Tauri app's find panel); in a focused PDF, Find in PDF |
 | Enter / F3, ⇧Enter / ⇧F3 / ⌘⇧G | Next and previous match in the find panel |
-| ⌘K or ⌘⇧P | Command palette: every command, and the project's files |
+| ⌘K or ⌘⇧P | Command palette: every command, the project's files, its Papers and every Settings row |
 | ⌘P / Ctrl+P | Quick open: a file by name, `:42` a line, `@` a section or label |
 | ⌘⇧F, ⌘⇧H | Find in project, Replace in project |
 | ⌘⇧N | New project |
@@ -197,7 +200,7 @@ The app draws what the Tauri app draws: the parity target is the running app as 
 - `crates/lattice-ui/src/tokens/` is generated from the JSON, and from `design-system/code-themes.json` for the code themes; a test fails while they disagree. After a Paper export, or after `node design-system/code-themes.mjs` re-exports the Tauri app's code themes, regenerate with `LATTICE_UI_WRITE_TOKENS=1 cargo test -p lattice-ui generated_tokens`.
 - `Palette` resolves every colour role for an appearance, tint and accent preset the way `src/styles/theme.css` derives them; GPUI Kit and Zed's editor are themed from it (`kit.rs`, `editor_theme/`, one Zed theme per Lattice code theme), so their own components start in Lattice's colours.
 - The panels are Trellis's, ported (`crates/trellis`), and wear Lattice's skin (`shell/skin.rs`, from `src/trellis/trellis.css`): rounded cards whose surface follows the selected view, 40px strips of pill tabs, the divider's grip in the accent after a hover delay, Trellis's drop slot with "Add as tab". A strip short of room gives way as Lattice's Trellis patch plans it (`planHeader`), from the tabs' shaped widths.
-- Fonts: Inter, Ioskeley Mono and Instrument Serif are bundled (`script/make-fonts` writes them). The private Timeless faces are embedded at build time by `crates/lattice-ui/build.rs` when `LATTICE_PRIVATE_FONTS_DIR` (default `~/Downloads/Timeless-Type-Family-1.094`, empty for none) holds the complete download, as the Tauri build embeds them; `LATTICE_PRIVATE_FONTS_REQUIRED=1` fails the build without them. The download's `LICENSE.pdf` is embedded, unmodified, with them (`lattice_ui::fonts::font_license()`); a download without it counts as incomplete, so the faces are not embedded. The app never reads them at run time, and they are never committed.
+- Fonts: Inter, Ioskeley Mono and Instrument Serif are bundled (`script/make-fonts` writes them), with the reading aids Atkinson Hyperlegible and OpenDyslexic. The private Timeless faces are embedded at build time by `crates/lattice-ui/build.rs` when `LATTICE_PRIVATE_FONTS_DIR` (default `~/Downloads/Timeless-Type-Family-1.094`, empty for none) holds the complete download, as the Tauri build embeds them; `LATTICE_PRIVATE_FONTS_REQUIRED=1` fails the build without them. The download's `LICENSE.pdf` is embedded, unmodified, with them (`lattice_ui::fonts::font_license()`); a download without it counts as incomplete, so the faces are not embedded. The app never reads them at run time, and they are never committed.
 - `LATTICE_APPEARANCE=light|dark` fixes the appearance instead of following the system's.
 - Hover, motion, reveal, scrollbars and nested corners are Fluid Functionalism's, as the Tauri app has them: one gliding fill per list (`fluid_hover`), the motion tiers and `Tween` (`motion`), a sliding selection plate (`sliding`), `reveal`, Lattice's scrollbar (`scrollbar`) and `shape::Nest`.
   [`docs/design-system.md`](docs/design-system.md) is their API; use them rather than a per-row hover, a hand-written duration or a restated radius.
@@ -270,7 +273,7 @@ The build is `lattice-core`'s `latex::build`, the Tauri app's own: the main docu
 While it runs, the Build button's card fills in the passes latexmk announces; one build runs at a time, and a build asked for meanwhile runs once it ends, standing for every ask made in between.
 A build after a save is unattended, as the Tauri app's automatic builds are, so a failing document nothing changed in is not typeset again: its errors are restated from the log the failed build left.
 
-`crates/lattice-gpui/src/build/` ports the Tauri app's build surfaces line by line, with their tests: `compile-diagnostics.ts` (`diagnostics.rs`), `compile-explain.ts` (`explain.rs`), `build-result-text.ts` and `build-outcome.ts` (`outcome.rs`), the diagnostics card (`card.rs`), the Build button's sequence (`sequence.rs`), `tex-setup.ts` and the setup dialogs (`tex_setup/`), the TeX doctor pane (`doctor.rs`) and the status bar's word counts (`word_count.rs`).
+`crates/lattice-gpui/src/build/` ports the Tauri app's build surfaces line by line, with their tests: `compile-diagnostics.ts` (`diagnostics.rs`), `compile-explain.ts` (`explain.rs`), `build-result-text.ts` and `build-outcome.ts` (`outcome.rs`), `build-log-messages.ts` (`messages.rs`), `build-inputs.ts` (`inputs.rs`), `watched-builds.ts` (`watched.rs`), `stalled-build.ts` (`stall.rs`), the diagnostics card (`card.rs`), the Build button's sequence (`sequence.rs`), `tex-setup.ts` and the setup dialogs (`tex_setup/`), the TeX doctor pane (`doctor.rs`) and the status bar's word counts (`word_count.rs`).
 The doctor and the installers are lattice-core's (`doctor::run`, `tex_setup::install_tex`, `install_dependency`); the scripted scenarios replace them with a stand-in (`tex_setup::backend::StubTexSetup`), so no run of them installs anything or asks for an administrator.
 
 ### Saving and outside edits

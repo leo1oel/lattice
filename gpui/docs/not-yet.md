@@ -11,11 +11,7 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] Insert citation and Insert reference: ⌘⇧K and ⌘⇧L are reserved for them and do nothing until they land.
 
-- [ ] The source selection toolbar, LaTeX's and Markdown's.
-
 - [ ] Margin review's J/K walk between items.
-
-- [ ] The Tauri app's selection toolbar's Annotate (the palette's Annotate selection stands in).
 
 - [ ] A Finder drop onto the editor as a figure.
 
@@ -23,13 +19,11 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] The 13 animated product icons.
 
-- [ ] The editor attention motions: a jump's reveal flash, an outside edit's change wash, and an accepted suggestion's strike, fold and settle.
+- [ ] The editor's change wash on lines an outside edit landed, and an accepted suggestion's strike, fold and settle (`lattice_ui::attention` has their timing).
 
-- [ ] The too-large-file toast, and a failed save's Retry and Save a copy.
+- [ ] A failed save's Retry and Save a copy (the status bar's save-state popover).
 
 - [ ] The minor motions.
-
-- [ ] The bundled reading-aid fonts (Atkinson Hyperlegible, OpenDyslexic).
 
 - [ ] The translation of the host's error text in notices.
 
@@ -44,6 +38,12 @@ A feature that lands deletes its own line (only that line, so features landing s
 - [ ] The Agent: reviewing the proposals its annotation tools record.
 
 - [ ] The Agent: inline Proofread and Polish.
+
+- [ ] The selection toolbar's Proofread, Polish and Rewrite with its instruction menu.
+
+- [ ] The highlight's colour swatch before `\colorbox` in the source.
+
+- [ ] The custom highlight colour's two-dimensional picker (the hex field and the offered colours stand in).
 
 - [ ] The PDF: its annotations.
 
@@ -61,13 +61,11 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] The paper reader's selection actions: Copy source link and Add to note, on the full text and on the original PDF.
 
-- [ ] The palette's Recent commands, "In this document" suggestions, Recent files, Papers and Settings results, its "Search the project for …" fallback and its detail column.
-
 - [ ] The shortcut sheet's filter field, its missing groups and its Esc row.
 
 - [ ] Focus mode's bar and Escape to leave it.
 
-- [ ] The app updater: its check, download and restart prompt, Lattice › Check for Updates…, the outdated-version hint and Report a Problem's update gate.
+- [ ] The app updater's release channel (it ships off) and the outdated-version hint on a failure's notice.
 
 - [ ] File › Export ZIP….
 

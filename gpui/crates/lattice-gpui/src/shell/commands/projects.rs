@@ -11,7 +11,7 @@ use crate::shell::overleaf_flow::{OpenOnOverleaf, OpenOverleafProject, SyncOverl
 pub(super) fn project_commands(context: &CommandContext, out: &mut Vec<Command>) {
     out.push(Command::new(
         "new-project",
-        "New project",
+        t!("New project"),
         Section::Project,
         NewProject,
     ));
@@ -24,7 +24,7 @@ pub(super) fn project_commands(context: &CommandContext, out: &mut Vec<Command>)
     if context.in_project {
         out.push(Command::new(
             "open-folder-here",
-            "Open a folder in this window",
+            t!("Open a folder in this window"),
             Section::Project,
             OpenFolderHere,
         ));
@@ -39,26 +39,35 @@ pub(super) fn project_commands(context: &CommandContext, out: &mut Vec<Command>)
             let (id, label) = if here {
                 (
                     format!("recent-project-here-{index}"),
-                    format!("Open {name} in this window"),
+                    space_mixed_script(&t!("Open {name} in this window", name = name)),
                 )
             } else {
-                (format!("recent-project-{index}"), format!("Open {name}"))
+                (
+                    format!("recent-project-{index}"),
+                    space_mixed_script(&t!("Open {name}", name = name)),
+                )
             };
-            out.push(Command::new(
-                id,
-                label,
-                Section::Project,
-                OpenRecentProject {
-                    path: path.clone(),
-                    here,
-                },
-            ));
+            out.push(
+                Command::new(
+                    id,
+                    label,
+                    Section::Project,
+                    OpenRecentProject {
+                        path: path.clone(),
+                        here,
+                    },
+                )
+                .detail(path.display().to_string())
+                // By position, so never among the recent commands, where a
+                // place may name another project.
+                .not_recent(),
+            );
         }
     }
     out.push(
         Command::new(
             "clone-repository",
-            "Clone a Git repository",
+            t!("Clone a Git repository"),
             Section::Project,
             CloneRepository,
         )
@@ -95,19 +104,19 @@ pub(super) fn project_commands(context: &CommandContext, out: &mut Vec<Command>)
         out.push(Command::new(
             "margin-review-auto",
             t!("Margin review: Auto"),
-            Section::Overleaf,
+            Section::View,
             super::super::overleaf_collab::MarginReviewAuto,
         ));
         out.push(Command::new(
             "margin-review-markers",
             t!("Margin review: Markers only"),
-            Section::Overleaf,
+            Section::View,
             super::super::overleaf_collab::MarginReviewMarkers,
         ));
         out.push(Command::new(
             "margin-review-off",
             t!("Margin review: Off"),
-            Section::Overleaf,
+            Section::View,
             super::super::overleaf_collab::MarginReviewOff,
         ));
         out.push(Command::new(
@@ -156,7 +165,8 @@ pub(super) fn project_commands(context: &CommandContext, out: &mut Vec<Command>)
             Section::Project,
             crate::shell::WhatsNew,
         )
-        .keywords(crate::help::whats_new::RUNNING_VERSION),
+        .keywords(crate::help::whats_new::RUNNING_VERSION)
+        .detail(crate::help::whats_new::RUNNING_VERSION),
     );
     out.push(Command::new(
         "doctor",
@@ -177,18 +187,24 @@ pub(super) fn project_commands(context: &CommandContext, out: &mut Vec<Command>)
         OpenSettings,
     ));
     if context.projects > 1 {
-        out.push(Command::new(
-            "next-project",
-            t!("Next project in this window"),
-            Section::Project,
-            NextProject,
-        ));
-        out.push(Command::new(
-            "previous-project",
-            t!("Previous project in this window"),
-            Section::Project,
-            PreviousProject,
-        ));
+        out.push(
+            Command::new(
+                "next-project",
+                t!("Next project in this window"),
+                Section::Project,
+                NextProject,
+            )
+            .keys_only(),
+        );
+        out.push(
+            Command::new(
+                "previous-project",
+                t!("Previous project in this window"),
+                Section::Project,
+                PreviousProject,
+            )
+            .keys_only(),
+        );
         out.push(Command::new(
             "close-project",
             t!("Close this project"),

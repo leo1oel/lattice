@@ -51,6 +51,7 @@ mod buffer_counts;
 mod disk_sync;
 mod events;
 pub mod find_bar;
+mod highlight_palette;
 mod insert;
 mod latex_format;
 mod latex_view;
@@ -65,7 +66,9 @@ mod overleaf_review;
 mod overleaf_text;
 pub mod paper_text;
 pub mod rail_outline;
+pub(crate) mod reveal_flash;
 mod save;
+mod selection_toolbar;
 mod source_chrome;
 pub(crate) mod spelling;
 mod strip;
@@ -81,7 +84,7 @@ pub use margin_review::{MarginLayout, MarginMode};
 use outline_rail::OutlineRail;
 pub use overleaf_carets::OverleafCaret;
 pub use overleaf_review::{ChangeMark, CommentMark, MarginMessage, ReviewAction};
-use save::normalize_breaks;
+pub(crate) use save::normalize_breaks;
 pub use views::DocumentView;
 use views::DocumentViews;
 
@@ -168,6 +171,9 @@ pub struct EditorPanel {
     margin: margin_review::MarginState,
     /// Local annotations' marks, pins and composer (`annotations.rs`).
     annotations: annotations::AnnotationLayer,
+    /// The selection toolbar over a LaTeX or Markdown selection
+    /// (`selection_toolbar.rs`).
+    toolbar: selection_toolbar::ToolbarState,
     /// The file's word count as of opening or the last save; counted off the
     /// main thread.
     words: Option<usize>,
@@ -303,6 +309,7 @@ impl EditorPanel {
                     this.latex_source_changed(cx);
                     this.structured_source_changed(cx);
                     this.annotations_edited(cx);
+                    this.highlights_edited(cx);
                 }
                 BufferEvent::DirtyChanged | BufferEvent::Saved => {
                     crate::crash::note_editor(this, cx);
@@ -370,8 +377,12 @@ impl EditorPanel {
                         }
                         cx.emit(EditorPanelEvent::Focused);
                     }
-                    // A Markdown file's Split: the visual editor follows.
-                    EditorEvent::ScrollPositionChanged { .. } => this.markdown_source_scrolled(cx),
+                    // A Markdown file's Split: the visual editor follows; a
+                    // `.tex` file's highlights are painted where it shows.
+                    EditorEvent::ScrollPositionChanged { .. } => {
+                        this.markdown_source_scrolled(cx);
+                        this.highlights_shown(cx);
+                    }
                     // Leaving the editor saves at once, as the Tauri app does.
                     EditorEvent::Blurred => {
                         this.bib_source_focused(false);
@@ -393,7 +404,7 @@ impl EditorPanel {
                 if let crate::project::ProjectEvent::FilesChanged(paths) = event {
                     if paths
                         .as_ref()
-                        .is_none_or(|paths| paths.iter().any(|path| *path == this.relative))
+                        .is_none_or(|paths| paths.contains(&this.relative))
                     {
                         this.check_disk(cx);
                     }
@@ -448,6 +459,7 @@ impl EditorPanel {
             overleaf_review: Default::default(),
             margin: Default::default(),
             annotations: Default::default(),
+            toolbar: Default::default(),
             words: None,
             buffer_todos: None,
             status_width: Default::default(),
@@ -491,6 +503,7 @@ impl EditorPanel {
         this.attach_structured(window, cx);
         this.attach_spelling(cx);
         this.attach_annotations(cx);
+        this.paint_highlights(cx);
         this
     }
 
@@ -596,6 +609,7 @@ impl EditorPanel {
                 |selections| selections.select_ranges([point..point]),
             );
         });
+        reveal_flash::flash(&self.editor, point.row, cx);
         window.focus(&self.editor.focus_handle(cx), cx);
     }
 

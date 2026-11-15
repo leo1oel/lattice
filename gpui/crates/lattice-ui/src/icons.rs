@@ -123,6 +123,16 @@ lucide! {
     // ARROW_DOWN, ARROW_DOWN_UP, ARROW_UP_RIGHT, BOOK_MARKED, FILE_DOWN and
     // LINK_2 below).
     HIGHLIGHTER = "icons" / "highlighter";
+    /// The selection toolbar's tools (`latex-selection-toolbar.tsx`,
+    /// `markdown-source-toolbar.tsx`) and the highlighter palette.
+    BOLD = "icons" / "bold";
+    ITALIC = "icons" / "italic";
+    UNDERLINE = "icons" / "underline";
+    STRIKETHROUGH = "icons" / "strikethrough";
+    HEADING = "icons" / "heading";
+    RADICAL = "icons" / "radical";
+    SPELL_CHECK = "icons" / "spell-check";
+    WAND_SPARKLES = "icons" / "wand-sparkles";
     /// The Annotations panel's tab (`trellis-icons.tsx`).
     MESSAGE_SQUARE = "icons" / "message-square";
     /// The Annotations panel: a card's Reply.
@@ -198,6 +208,11 @@ lucide! {
     REPLACE = "lattice" / "replace";
     SETTINGS = "lattice" / "settings";
     TRASH = "lattice" / "trash";
+    /// The selection toolbar's Quote, Link, Remove highlight and inline code.
+    QUOTE = "lattice" / "quote";
+    LINK = "lattice" / "link";
+    ERASER = "lattice" / "eraser";
+    CODE = "lattice" / "code";
 }
 
 impl Icon {
@@ -357,6 +372,10 @@ const BUNDLED: &[(&str, &[u8])] = bundled![
     "image.svg",
     "replace.svg",
     "settings.svg",
+    "quote.svg",
+    "link.svg",
+    "eraser.svg",
+    "code.svg",
     "glyph-bib-body.svg",
     "glyph-bib.svg",
     "glyph-board-body.svg",

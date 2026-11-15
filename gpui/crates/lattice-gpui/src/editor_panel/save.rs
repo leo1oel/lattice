@@ -301,7 +301,7 @@ impl EditorPanel {
 
 /// `text` with "\n" line breaks, as the buffer holds it. lattice-core puts
 /// a CRLF file's own breaks back on save (project/editor_save.rs).
-pub(super) fn normalize_breaks(text: &str) -> String {
+pub(crate) fn normalize_breaks(text: &str) -> String {
     if text.contains('\r') {
         text.replace("\r\n", "\n").replace('\r', "\n")
     } else {

@@ -89,10 +89,10 @@ pub struct Located {
 }
 
 #[derive(Clone)]
-struct Anchored {
-    range: Range<Anchor>,
-    severity: Severity,
-    message: String,
+pub(crate) struct Anchored {
+    pub(crate) range: Range<Anchor>,
+    pub(crate) severity: Severity,
+    pub(crate) message: String,
 }
 
 /// `file` with forward slashes and no `.` or empty segments.
@@ -352,8 +352,8 @@ impl TexlabDiagnostics {
 }
 
 /// The card over a diagnostic's underline: what TexLab found there.
-struct DiagnosticCards {
-    shown: Rc<RefCell<Vec<Anchored>>>,
+pub(crate) struct DiagnosticCards {
+    pub(crate) shown: Rc<RefCell<Vec<Anchored>>>,
 }
 
 impl HoverProvider for DiagnosticCards {

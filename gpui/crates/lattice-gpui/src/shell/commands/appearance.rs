@@ -31,6 +31,8 @@ pub(super) fn appearance_commands(out: &mut Vec<Command>) {
             action,
             palette: true,
             keywords: "theme appearance",
+            detail: None,
+            recent: true,
             keys_of: None,
         });
     }
@@ -60,6 +62,8 @@ pub(super) fn appearance_commands(out: &mut Vec<Command>) {
             action,
             palette: true,
             keywords: "",
+            detail: None,
+            recent: true,
             keys_of: None,
         });
     }

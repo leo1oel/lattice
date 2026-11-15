@@ -2,6 +2,9 @@
 
 One of the features [the GPUI app](../README.md) has so far.
 
+A jump to a line (an error, the outline, SyncTeX, Go to line) flashes the whole line on the find-match colour, holds it and fades it over 1.6 s, as the Tauri app's `reveal-flash` does; under reduced motion it holds without fading; a jump into another editor takes the earlier editor's flash away at once.
+The `attention` e2e module checks the flash comes and goes, and goes from the first editor when a jump lands in a second.
+
 Edits sources in Zed's editor with LaTeX highlighting in Lattice's code themes, find and replace in the file ([Finding things](find.md)) and an optional Vim mode (Zed's Vim); in a `.tex` file, a card for the citation key or `\ref` label under the pointer, completion of commands, citation keys and labels, Bold and Emphasis (⌘B and ⌘I, putting `\textbf` or `\emph` on the selection or taking it off, as the Tauri app does), and TexLab's diagnostics (when `texlab` is installed), through Lattice's editor adapter (below).
 The source gutter is the Tauri app's: four-digit line numbers and a fold column whose chevrons show over the gutter and fold a LaTeX environment, section, preamble, brace group or comment block, so the text starts where CodeMirror's does.
 A `.tex` file has the outline rail on the editor's right edge (its sections' marks, the one being read in the accent; resting on it opens the outline with numbers and PDF pages, and a row jumps there), and the Source / Visual switch in its strip (its ⋯ menu repeats it), one choice for every `.tex` file, shared by every window and remembered, as the Tauri app's is.
