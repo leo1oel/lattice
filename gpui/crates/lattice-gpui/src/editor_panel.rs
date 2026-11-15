@@ -56,6 +56,7 @@ pub mod find_bar;
 mod highlight_palette;
 mod insert;
 pub(crate) mod latex_format;
+pub(crate) mod latex_input;
 mod latex_view;
 mod latex_visual_events;
 mod margin_review;
@@ -292,6 +293,7 @@ impl EditorPanel {
         let find_bar = cx.new(|cx| find_bar::FindBar::new(editor.clone(), window, cx));
         let counters = crate::status_counters::project_counters(cx);
         let subscriptions = vec![
+            Self::latex_input_rules(&editor, window, cx),
             // The status bar's counters land after the project's scan.
             cx.observe(&counters, |_, _, cx| cx.notify()),
             // The tab shows whether the file has unsaved edits; an edit
@@ -736,7 +738,8 @@ impl Render for EditorPanel {
         };
         let bib = self.bib_for_view(window, cx);
         let body = self.render_views(editor, status, bib, cx);
-        Self::panel_actions(Self::latex_commands(div().key_context("LatticeEditor"), cx), cx)
+        let root = Self::latex_commands(div().key_context("LatticeEditor"), cx);
+        Self::panel_actions(Self::latex_input_actions(root, cx), cx)
             .on_action(cx.listener(Self::deploy_search))
             // Before Zed's editor pastes: an image becomes a figure.
             .capture_action(cx.listener(|this, _: &editor::actions::Paste, window, cx| {

@@ -137,6 +137,22 @@ fn default_bindings() -> Vec<KeyBinding> {
             crate::editor_panel::latex_format::MatchingEnvironment,
             Some("Editor && !VimControl"),
         ),
+        // The typing rules (`editor_panel/latex_input.rs`): with Vim on they
+        // act only in its insert mode, so every other mode keeps `$` and
+        // Enter, the ones waiting for a character (`f$`, `r⏎`, `R`, Ctrl-V)
+        // too, and a menu keeps Enter to accept its item. Bound after Zed's
+        // keymap, they come before its Newline, which a rule with nothing to
+        // do passes the key on to.
+        KeyBinding::new(
+            "$",
+            crate::editor_panel::latex_input::TypeDollar,
+            Some("Editor && mode == full && (!vim_mode || vim_mode == insert)"),
+        ),
+        KeyBinding::new(
+            "enter",
+            crate::editor_panel::latex_input::LatexNewline,
+            Some("Editor && mode == full && (!vim_mode || vim_mode == insert) && !menu"),
+        ),
         // Vim's insert mode keeps Ctrl+P for its word completion.
         KeyBinding::new(m!("p"), QuickOpen, beside_vim("!(vim_mode == insert)")),
         KeyBinding::new(m!("shift-f"), FindInProject, None),
@@ -351,6 +367,42 @@ mod tests {
             );
         }
         assert!(switch_workspace_action(9).is_none());
+    }
+
+    #[test]
+    fn typing_rules_take_dollar_and_enter_only_outside_vims_other_modes() {
+        // Zed's Vim (vim.rs, `extend_key_context`): `f`, `t` and `r` wait
+        // for their character in `vim_mode = waiting`, Ctrl-V in `literal`,
+        // `R` types over in `replace`, none of them with `VimControl`.
+        let dollar = Some(crate::editor_panel::latex_input::TypeDollar.name());
+        let newline = Some(crate::editor_panel::latex_input::LatexNewline.name());
+        for editor in ["Editor mode = full", "Editor mode = full vim_mode = insert"] {
+            assert_eq!(resolve(default_bindings(), editor, "$"), dollar, "{editor}");
+            assert_eq!(
+                resolve(default_bindings(), editor, "enter"),
+                newline,
+                "{editor}"
+            );
+        }
+        for mode in [
+            "normal VimControl",
+            "visual VimControl",
+            "operator VimControl",
+            "waiting",
+            "literal",
+            "replace",
+        ] {
+            let editor = format!("Editor mode = full vim_mode = {mode}");
+            for keys in ["$", "enter"] {
+                assert_eq!(
+                    resolve(default_bindings(), &editor, keys),
+                    None,
+                    "{keys} in {mode}"
+                );
+            }
+        }
+        let menu = "Editor mode = full vim_mode = insert menu";
+        assert_eq!(resolve(default_bindings(), menu, "enter"), None);
     }
 
     #[test]

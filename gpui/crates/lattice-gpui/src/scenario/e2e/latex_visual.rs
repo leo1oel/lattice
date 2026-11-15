@@ -136,6 +136,9 @@ impl Run {
             self.latex_visual_follows(cx, steps, &panel, &island)
                 .await?;
             self.latex_visual_find(cx, steps, &panel, &island).await?;
+            // ⌘⇧E and ⌘⌥R (`latex_visual_environment.rs`).
+            self.latex_visual_environment(cx, steps, &panel, &island)
+                .await?;
         }
         // The choice is every .tex file's: back to Source for the rest of the run.
         cx.update(|cx| choose_latex_view(LatexView::Source, cx));
@@ -326,13 +329,18 @@ impl Run {
         // The space comes a beat after the word: past the buffer's own
         // grouping interval (300 ms), inside the page's history's (500 ms),
         // so one ⌘Z undoing both shows the page's grouping is the one kept.
-        for character in "quokka ".chars() {
-            if character == ' ' {
-                self.pause(cx, Duration::from_millis(400)).await;
+        // The beat is timed from the word's last key with a plain sleep:
+        // `pause` draws a frame every 50 ms, and with the page on screen a
+        // frame can take longer than that, so its 40 ms and 400 ms overran
+        // to more than the page's 500 ms between the two keys.
+        for (index, character) in "quokka".chars().enumerate() {
+            if index > 0 {
+                self.pause(cx, Duration::from_millis(40)).await;
             }
             native::send_key(native, character, false)?;
-            self.pause(cx, Duration::from_millis(40)).await;
         }
+        crate::scenario::sleep(cx, Duration::from_millis(400)).await;
+        native::send_key(native, ' ', false)?;
         let expected = PAPER.replacen("Some prose", "quokka Some prose", 1);
         let saved = self
             .wait_for(cx, Duration::from_secs(10), |_, _| {
@@ -472,6 +480,9 @@ pub(super) const MODULE: super::registry::Module = super::registry::Module {
         "gpui/crates/lattice-gpui/src/editor_panel/latex_view.rs",
         "gpui/crates/lattice-gpui/src/structured/latex_visual.rs",
         "gpui/islands/latex/",
+        "gpui/crates/lattice-gpui/src/shell/environment_flow.rs",
+        "gpui/crates/lattice-gpui/src/editor_panel/latex_visual_events.rs",
+        "gpui/crates/lattice-webview/src/island/page_focus.rs",
         "src/editor/latex/visual/",
     ],
     run: |run, cx, steps, fixture| Box::pin(run.latex_visual(cx, steps, &fixture.root)),

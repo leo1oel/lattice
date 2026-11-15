@@ -86,6 +86,7 @@ use crate::{
 };
 
 mod file_drops;
+mod page_focus;
 
 /// How long a hidden island keeps its page: the Tauri app's
 /// `HIBERNATE_AFTER_MS`.

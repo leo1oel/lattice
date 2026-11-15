@@ -5,12 +5,6 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] Overleaf's tracked changes in the visual LaTeX editor (their marks, cards and margin review items).
 
-- [ ] Wrapping a selection in an environment and renaming an environment (⌘⇧E, ⌘⌥R) in the Visual editor.
-
-- [ ] Ctrl-M's jump to the matching math delimiter (`matchingMathDelimiter`) where no environment encloses the caret.
-
-- [ ] The LaTeX source's typing rules: `$` pairing, `\begin` closed by its `\end`, `\item` continued, `\left` closed by `\right`.
-
 - [ ] Margin review's J/K walk between items.
 
 - [ ] The editor's change wash on lines an outside edit landed (`lattice_ui::attention` has its timing).

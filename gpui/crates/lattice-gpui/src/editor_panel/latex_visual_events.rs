@@ -126,6 +126,9 @@ impl EditorPanel {
                     rename: matches!(event, LatexEvent::RenameSymbol { .. }),
                 });
             }
+            LatexEvent::Environment { rename } => cx.emit(EditorPanelEvent::Environment {
+                rename: rename.clone(),
+            }),
             LatexEvent::PasteImage => cx.emit(EditorPanelEvent::PasteImage),
             LatexEvent::OutlineJump { path, line } => cx.emit(EditorPanelEvent::OutlineJump {
                 path: path.clone(),
@@ -288,6 +291,48 @@ impl EditorPanel {
             })
         });
         self.latex.page_edit = transaction.map(|transaction| (transaction, self.buffer.read(cx).version()));
+    }
+
+    /// Wrap in environment… or Rename the environment's name, sent to the
+    /// Visual page while it is in front, the keyboard back in it; false when
+    /// the source is in front, for the source's edit.
+    pub(crate) fn edit_visual_environment(
+        &mut self,
+        rename: bool,
+        name: &str,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        let Some(document) = self
+            .latex_visual_document()
+            .filter(|_| self.shows_latex_visual(cx))
+            .cloned()
+        else {
+            return false;
+        };
+        document.update(cx, |document, cx| {
+            document.edit_environment(rename, name, cx)
+        });
+        self.focus_visual_page(window, cx);
+        true
+    }
+
+    /// The keyboard back in the Visual page while it is in front, as after
+    /// its dialog closes; false when the source is in front.
+    pub(crate) fn focus_visual_page(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        let Some(island) = self
+            .latex_visual_document()
+            .filter(|_| self.shows_latex_visual(cx))
+            .and_then(|document| document.read(cx).island().cloned())
+        else {
+            return false;
+        };
+        island.update(cx, |island, cx| island.focus_page(window, cx));
+        true
     }
 
     /// Put the source's caret at the page's, a UTF-16 `offset`, without
