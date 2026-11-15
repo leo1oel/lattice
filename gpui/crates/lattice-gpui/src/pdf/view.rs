@@ -187,6 +187,7 @@ pub struct PdfView {
     /// The last build's compounds, for the key cards over their numbers.
     compounds: Option<CompoundSource>,
     compound: compound::CompoundHover,
+    place_report: place::PlaceReport,
     /// Middle-click autoscroll while it runs, and the press it took whose
     /// release is not a click.
     autoscroll: Option<autoscroll::Autoscroll>,
@@ -312,6 +313,7 @@ impl PdfView {
             citation: Default::default(),
             compounds: None,
             compound: Default::default(),
+            place_report: Default::default(),
             autoscroll: None,
             blocked_up: None,
             escape: None,

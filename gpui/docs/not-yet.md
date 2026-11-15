@@ -53,7 +53,7 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] New project's My templates and Save a local template….
 
-- [ ] Each file's editor and PDF place kept across launches.
+- [ ] Each file's editor place kept across launches (the PDF's is kept).
 
 - [ ] The palette's New LaTeX file, New Markdown file, New spreadsheet, New board and New presentation (the Project panel cannot make a typed file yet).
 
