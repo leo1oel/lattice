@@ -18,7 +18,8 @@ Each is marked in the source as Overleaf's suggestions are, in the writer's blue
 The review bar over the editor counts them ("3 changes", or "2 of 3" at the caret), steps to the previous and next, accepts or rejects the one at the caret and then selects the next, accepts or rejects them all, shows the PDF with or without the changes marked, and stops tracking (asking first while changes wait); at 760px or less its text buttons keep only their icons, and at 520px or less the title keeps only its dot.
 An accept moves the base, written to disk 400 ms later, and is an undo step like a reject: ⌘Z takes it back while nothing was typed or undone since.
 Text a co-author's live edit puts in moves the base with it instead of reading as the writer's change, and when it lands in text the writer had changed the bar says "A co-author edited text you changed. Both versions are kept."; a sync that pulls or merges files moves their bases the same way.
-While review mode is on, the PDF panel shows the PDF with the changes marked (latexdiff against the bases, built after each build of the paper and each accept, 600 ms later), with the "Marking changes…" pill while it builds; when it cannot be made, the paper's own PDF stays with the reason above it. The PDF in its own window shows the paper's own, and a double-click on the marked PDF jumps nowhere.
+While review mode is on, the PDF panel shows the PDF with the changes marked (latexdiff against the bases, built after each build of the paper and each accept, 600 ms later), with the "Marking changes…" pill while it builds; when it cannot be made, the paper's own PDF stays with the reason above it.
+The PDF in its own window shows the paper's own, and a double-click on the marked PDF jumps nowhere.
 Stop tracking changes deletes the bases and leaves the files as they are.
 
 ## In the e2e scenario
