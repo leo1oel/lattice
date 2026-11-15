@@ -95,23 +95,6 @@ pub fn outline_nodes(headings: &[Heading]) -> Value {
     Value::Array(roots)
 }
 
-/// An Overleaf thread card's ask, as the source's cards send theirs.
-fn overleaf_action(event: LatexEvent) -> Option<ReviewAction> {
-    Some(match event {
-        LatexEvent::OverleafReply { thread, content } => ReviewAction::ReplyWith { thread, content },
-        LatexEvent::OverleafResolve { thread, resolved: true } => ReviewAction::Resolve(thread),
-        LatexEvent::OverleafResolve { thread, resolved: false } => ReviewAction::Reopen(thread),
-        LatexEvent::OverleafDelete(thread) => ReviewAction::DeleteConfirmed(thread),
-        LatexEvent::OverleafEditMessage { thread, message, content } => {
-            ReviewAction::EditMessage { thread, message, content }
-        }
-        LatexEvent::OverleafDeleteMessage { thread, message } => {
-            ReviewAction::DeleteMessage { thread, message }
-        }
-        _ => return None,
-    })
-}
-
 impl EditorPanel {
     /// The Visual page's reports: its own asks here, a visual editor's in
     /// `markdown_view.rs`.
@@ -154,14 +137,35 @@ impl EditorPanel {
             LatexEvent::ResolveAnnotation(id) => {
                 cx.emit(EditorPanelEvent::Annotation(AnnotationRequest::Resolve(id.clone())))
             }
-            LatexEvent::OverleafReply { .. }
-            | LatexEvent::OverleafResolve { .. }
-            | LatexEvent::OverleafDelete(_)
-            | LatexEvent::OverleafEditMessage { .. }
-            | LatexEvent::OverleafDeleteMessage { .. } => {
-                if let Some(action) = overleaf_action(event.clone()) {
-                    cx.emit(EditorPanelEvent::OverleafReview(action));
-                }
+            LatexEvent::OverleafReply { thread, content } => {
+                cx.emit(EditorPanelEvent::OverleafReview(ReviewAction::ReplyWith {
+                    thread: thread.clone(),
+                    content: content.clone(),
+                }))
+            }
+            LatexEvent::OverleafResolve { thread, resolved } => {
+                let thread = thread.clone();
+                cx.emit(EditorPanelEvent::OverleafReview(if *resolved {
+                    ReviewAction::Resolve(thread)
+                } else {
+                    ReviewAction::Reopen(thread)
+                }))
+            }
+            LatexEvent::OverleafDelete(thread) => cx.emit(EditorPanelEvent::OverleafReview(
+                ReviewAction::DeleteConfirmed(thread.clone()),
+            )),
+            LatexEvent::OverleafEditMessage { thread, message, content } => {
+                cx.emit(EditorPanelEvent::OverleafReview(ReviewAction::EditMessage {
+                    thread: thread.clone(),
+                    message: message.clone(),
+                    content: content.clone(),
+                }))
+            }
+            LatexEvent::OverleafDeleteMessage { thread, message } => {
+                cx.emit(EditorPanelEvent::OverleafReview(ReviewAction::DeleteMessage {
+                    thread: thread.clone(),
+                    message: message.clone(),
+                }))
             }
             LatexEvent::ReplyAnnotation { id, body } => {
                 let root = self.project_root(cx);

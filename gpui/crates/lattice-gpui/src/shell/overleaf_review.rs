@@ -213,5 +213,6 @@ impl Shell {
         for editor in self.open_editors() {
             editor.update(cx, |editor, cx| editor.set_margin_mode(mode, cx));
         }
+        self.show_overleaf_review(cx);
     }
 }
