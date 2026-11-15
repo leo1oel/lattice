@@ -97,8 +97,24 @@ impl Shell {
             overleaf_linked: self.overleaf.read(cx).link().is_some(),
             overleaf_syncing: self.overleaf.read(cx).syncing(),
             latex_source: self.latex_source_in_front(cx),
-            pdf_in_window: self.pdf.read(cx).in_window(),
+            revisable_annotations: self.revisable_annotations(cx),
             text_editor: self.text_editor_in_front(cx),
+            document_views: self.active_editor().and_then(|editor| {
+                let editor = editor.read(cx);
+                // An HTML or Markdown file's views; a bibliography's are its own.
+                let extension = editor
+                    .path()
+                    .extension()
+                    .map(|extension| extension.to_ascii_lowercase());
+                if extension.as_deref() == Some(std::ffi::OsStr::new("bib")) {
+                    return None;
+                }
+                let html = extension.as_deref() == Some(std::ffi::OsStr::new("html"));
+                Some((html, editor.document_view()?))
+            }),
+            pdf_dark: crate::pdf::dark_pages(),
+            pdf_window: self.pdf.read(cx).is_detached(),
+            theme: crate::settings::get(cx).theme_preference,
         }
     }
 
@@ -142,12 +158,20 @@ impl Shell {
             // did not take them itself (its focus went to the palette).
             .on_action(cx.listener(
                 |this, _: &crate::editor_panel::proofread::ProofreadSelection, window, cx| {
-                    this.proofread_in_front(Some(lattice_editor::proofread::Ask::Proofread), window, cx)
+                    this.proofread_in_front(
+                        Some(lattice_editor::proofread::Ask::Proofread),
+                        window,
+                        cx,
+                    )
                 },
             ))
             .on_action(cx.listener(
                 |this, _: &crate::editor_panel::proofread::PolishSelection, window, cx| {
-                    this.proofread_in_front(Some(lattice_editor::proofread::Ask::Polish), window, cx)
+                    this.proofread_in_front(
+                        Some(lattice_editor::proofread::Ask::Polish),
+                        window,
+                        cx,
+                    )
                 },
             ))
             .on_action(cx.listener(

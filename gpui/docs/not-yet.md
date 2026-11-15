@@ -5,9 +5,11 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] Overleaf's tracked changes in the visual LaTeX editor (their marks, cards and margin review items).
 
-- [ ] Wrapping a selection in an environment and renaming an environment (⌘⇧E, and in the source editor too).
+- [ ] Wrapping a selection in an environment and renaming an environment (⌘⇧E, ⌘⌥R) in the Visual editor.
 
-- [ ] The LaTeX source's other editing keys: Inline math (⌘⇧M) and the environment commands.
+- [ ] Ctrl-M's jump to the matching math delimiter (`matchingMathDelimiter`) where no environment encloses the caret.
+
+- [ ] The LaTeX source's typing rules: `$` pairing, `\begin` closed by its `\end`, `\item` continued, `\left` closed by `\right`.
 
 - [ ] Margin review's J/K walk between items.
 
@@ -15,9 +17,11 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] The editor's change wash on lines an outside edit landed, and an accepted suggestion's strike, fold and settle (`lattice_ui::attention` has their timing).
 
-- [ ] The Agent: a Papers selection in its context.
+- [ ] The Agent: its annotation tools, recording proposals and questions from the conversation into the open round.
 
-- [ ] The Agent: reviewing the proposals its annotation tools record.
+- [ ] The Revision rounds sheet, comparing a round's versions (and the round saved toast's Compare).
+
+- [ ] The Annotations panel's Export review PDF….
 
 - [ ] The accepted proofread's old words folding their width away (they leave at once).
 
@@ -41,7 +45,7 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] The paper reader's selection actions: Copy source link and Add to note, on the full text and on the original PDF.
 
-- [ ] The shortcut sheet's Check references group (the review queue has no keys yet), and the LaTeX keys the source editor does not bind yet (inline math, the wrap, rename and select environment keys, sorting and case, the citation card, the symbol palette, Proofread), which join the sheet's LaTeX group once bound.
+- [ ] The shortcut sheet's Check references group (the review queue has no keys yet), and the LaTeX keys the source editor does not bind yet (the citation card, the symbol palette, Proofread), which join the sheet's LaTeX group once bound.
 
 - [ ] The app updater's release channel (it ships off) and the outdated-version hint on a failure's notice.
 
@@ -55,17 +59,11 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] The visual Markdown editor: Overleaf's tracked changes painted in it.
 
-- [ ] A Finder drop onto the Agent panel attaching its files (the drop hook is `shell/drops.rs`'s `agent_drop_target`).
-
 - [ ] A Finder drop of a drawing (`.svg`, `.drawio`) onto the editor as an editable figure.
 
 - [ ] A paper dragged from Papers into the editor as a citation.
 
-- [ ] The Project tree's multi-select, type-to-filter, sticky folders and expand motion.
-
-- [ ] The Project tree's expanded folders and Show hidden files kept per project.
-
-- [ ] The Project tree revealing and selecting what an import brought in.
+- [ ] The Project tree's type-to-filter, sticky folders and expand motion.
 
 - [ ] The Project panel's + and ⋯ menus' New spreadsheet, New board and New presentation, and Find in project.
 
@@ -78,3 +76,9 @@ A feature that lands deletes its own line (only that line, so features landing s
 - [ ] New project's My templates and Save a local template….
 
 - [ ] Each file's editor and PDF place kept across launches.
+
+- [ ] The palette's New LaTeX file, New Markdown file, New spreadsheet, New board and New presentation (the Project panel cannot make a typed file yet).
+
+- [ ] Papers' hover prewarm of a paper the pointer is likely to open.
+
+- [ ] Papers' notice when the browser could not open an article (GPUI's opener reports no failure).

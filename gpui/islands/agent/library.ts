@@ -9,14 +9,12 @@
  * - the project's annotations, for the annotation tools (`propose`, `ask`)
  *   and the Agent's view of the project's comments. The Tauri app keeps them
  *   in its comments store (`use-editor-comments.ts`) and records the tools'
- *   answers through its revision rounds (`annotation-rounds.ts`); the GPUI
- *   app has no comments panel yet, so the page holds the store itself,
- *   loaded once per project and saved as the Tauri store saves, and runs the
- *   same revision rounds over it. A proposal recorded here is the one the
- *   Tauri app's review shows.
- *
- * The page is the only writer of the annotations in the GPUI app, so it never
- * reads them back from disk under its own saves.
+ *   answers through its revision rounds (`annotation-rounds.ts`); here the
+ *   store is the window's own (`agent/surface/annotations.rs`), the file's
+ *   one writer. The page runs the same revision rounds over its view of it,
+ *   which the window keeps current (`agent:annotations`), and hands each
+ *   change back as what it added, changed or removed (`annotation-change.ts`),
+ *   so a note written in the Annotations panel meanwhile is never saved over.
  */
 import { useEffect, useMemo, useReducer, useRef } from "react";
 import { msg } from "@lingui/core/macro";
@@ -28,6 +26,7 @@ import { showError } from "../../../src/app/notify";
 import { i18n } from "../../../src/i18n";
 import { AnnotationRounds, type AnnotationRoundsDeps } from "../../../src/app/annotation-rounds";
 import type { AnnotationsState } from "../../../src/app/use-editor-comments";
+import { annotationsChange } from "./annotation-change";
 import { buildAgentPaperLibrary, type AgentPaperLibrarySnapshot } from "../../../src/agent/agent-paper-library";
 import type { AnnotationToolHost } from "../../../src/agent/agent-annotations";
 import type { BuildAgentCommentsOptions } from "../../../src/agent/agent-editor-comments";
@@ -149,6 +148,20 @@ export function useAgentAnnotations(projectRoot: string, overleafState: Overleaf
       const annotated = annotatedPaths();
       readSources(paths === null ? annotated : annotated.filter((path) => paths.includes(path)));
     });
+    // Changes on their way to the store: until they land, its earlier word
+    // would undo them here, so its answer to the last one is taken instead.
+    let pending = 0;
+    const take = (notes: AnnotationsState) => {
+      const known = new Set(annotatedPaths());
+      stateRef.current = { annotations: notes.annotations ?? [], rounds: notes.rounds ?? [] };
+      loadedRef.current = { error: null };
+      readSources(annotatedPaths().filter((path) => !known.has(path)));
+    };
+    const stopStore = host().on("agent:annotations", (payload) => {
+      if (live && pending === 0 && payload && typeof payload === "object") {
+        take(payload as AnnotationsState);
+      }
+    });
     const projectRootRef = { current: projectRoot as string | null };
     // The revision rounds reach the store only through `stateRef` and
     // `commit`, and the window only to read a file (`activeFileRef` names
@@ -169,10 +182,22 @@ export function useAgentAnnotations(projectRoot: string, overleafState: Overleaf
         const current = stateRef.current;
         const next = change(current);
         if (next === current) return false;
+        const changed = annotationsChange(current, next);
         stateRef.current = next;
-        // The broker numbers the saves (`agent/commands.rs`).
-        void invoke<void>("save_annotations", { projectRoot, annotations: next.annotations, rounds: next.rounds, save: 0 })
-          .catch((reason: unknown) => showError(toMessage(reason)));
+        if (changed === null) return true;
+        pending += 1;
+        void invoke<AnnotationsState>("change_annotations", { projectRoot, ...changed }).then(
+          (notes) => {
+            pending -= 1;
+            if (live && pending === 0) take(notes);
+          },
+          (reason: unknown) => {
+            pending -= 1;
+            showError(toMessage(reason));
+            // What the store kept, in place of the change it refused.
+            if (live && pending === 0) void invoke<AnnotationsState>("list_annotations").then((notes) => { if (live && pending === 0) take(notes); }, () => undefined);
+          },
+        );
         return true;
       },
     } as unknown as AnnotationRoundsDeps["store"];
@@ -192,6 +217,7 @@ export function useAgentAnnotations(projectRoot: string, overleafState: Overleaf
       live = false;
       projectRootRef.current = null;
       stop();
+      stopStore();
       rounds.reset();
     };
   }, [projectRoot, rounds]);

@@ -683,7 +683,14 @@ impl Shell {
             && engine.placement_of(&view) != ViewPlacement::Hidden
             && let Some(key) = key_of(&view)
         {
-            return Some(key);
+            // Another document's tab selected over it in its panel (an image
+            // opened from the tree) is in front, though the keyboard was last
+            // in this editor; a tool's tab over it (the checklist) is not a
+            // document, so this one stays the document in front.
+            let covering = trellis::model::panel_of_view(&doc, &view)
+                .filter(|panel| panel.selected != view)
+                .and_then(|panel| key_of(&panel.selected));
+            return Some(covering.unwrap_or(key));
         }
         if let Some(key) = engine.focused_view().and_then(key_of) {
             return Some(key);

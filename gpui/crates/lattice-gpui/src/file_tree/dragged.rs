@@ -1,19 +1,22 @@
-//! A Project tree row being dragged: what it carries, and how it looks under
-//! the pointer.
+//! A Project tree row being dragged: what it carries, and how it looks
+//! under the pointer.
 
 use gpui::{
     App, Context, ExternalPaths, IntoElement, ParentElement as _, Render, SharedString,
-    Styled as _, Window, div, px,
+    Styled as _, Window, div, prelude::FluentBuilder as _, px,
 };
 use lattice_ui::{
     ActiveLattice as _, GlyphKind, TextRole, TextRoleStyle as _,
     icons::{ICON, file_glyph},
 };
 
-/// A row on its way to another folder.
+/// A row on its way to another folder, and the other selected rows with it
+/// when it was one of them.
 #[derive(Clone)]
 pub struct DraggedEntry {
     pub(super) path: String,
+    /// Every row the drag carries, `path` among them.
+    pub(super) paths: Vec<String>,
     pub(super) name: SharedString,
     pub(super) folder: bool,
     pub(super) figure: bool,
@@ -21,10 +24,17 @@ pub struct DraggedEntry {
 
 impl DraggedEntry {
     /// The row's project-relative path, when it is a figure or a binary
-    /// asset, as the Tauri app starts a figure drag only for those
-    /// (`project-file-tree.tsx`); a folder or a text file inserts nothing.
+    /// asset dragged alone, as the Tauri app starts a figure drag only for
+    /// those (`project-file-tree.tsx`); a folder or a text file inserts
+    /// nothing.
     pub fn figure(&self) -> Option<&str> {
-        self.figure.then_some(self.path.as_str())
+        (self.figure && self.paths.len() == 1).then_some(self.path.as_str())
+    }
+
+    /// Whether it is one file's row alone, which can be carried on past the
+    /// tree into the layout.
+    pub(super) fn single_file(&self) -> bool {
+        !self.folder && self.paths.len() == 1
     }
 
     /// Whether what is being dragged is a drop the tree and the editors
@@ -62,5 +72,17 @@ impl Render for DragPreview {
             .text_color(palette.text)
             .child(file_glyph(glyph, ICON, &palette))
             .child(self.0.name.clone())
+            // The other selected rows going with it, counted beside it.
+            .when(self.0.paths.len() > 1, |preview| {
+                preview.child(
+                    div()
+                        .px(px(6.))
+                        .rounded_full()
+                        .bg(palette.accent_soft)
+                        .text_color(palette.accent)
+                        .text_role(TextRole::Caption, cx)
+                        .child(self.0.paths.len().to_string()),
+                )
+            })
     }
 }

@@ -2,7 +2,7 @@
 
 use gpui::{
     AnyElement, Context, IntoElement, ParentElement as _, SharedString, Styled as _, div,
-    prelude::FluentBuilder as _, px,
+    prelude::FluentBuilder as _, px, relative,
 };
 use lattice_core::bib_document::bib_text_to_plain;
 use lattice_i18n::t;
@@ -33,50 +33,65 @@ impl AddReference {
         });
         let year = draft.year.trim().to_string();
         let doi = draft.doi();
-        let mut tail = vec![venue.clone(), year.clone()]
+        let printed = [venue.clone(), year.clone()]
             .into_iter()
             .filter(|part| !part.is_empty())
             .collect::<Vec<_>>()
             .join(", ");
-        if !doi.is_empty() {
-            tail = if tail.is_empty() {
-                format!("doi:{doi}")
-            } else {
-                format!("{tail} doi:{doi}")
-            };
-        }
+        let key = (!title.is_empty()).then(|| {
+            div()
+                .flex_none()
+                .max_w(relative(0.45))
+                .ml(px(12.))
+                .mb(px(4.))
+                .px(px(6.))
+                .rounded(px(4.))
+                .bg(palette.text.opacity(0.05))
+                .truncate()
+                .font_family(cx.lattice().fonts.editor.clone())
+                .text_role(TextRole::Micro, cx)
+                .line_height(px(18.))
+                .text_color(palette.text_secondary)
+                .child(draft.key())
+        });
+        // The key sits at the card's corner, the authors' line beside it
+        // (`.bib-typeset-key`'s float).
         div()
             .flex()
             .flex_col()
-            .gap(px(2.))
-            .p(px(12.))
-            .rounded(px(8.))
-            .bg(palette.text.opacity(0.03))
-            .when(!title.is_empty(), |card| {
-                card.child(
-                    div()
-                        .font_family(cx.lattice().fonts.editor.clone())
-                        .text_role(TextRole::Micro, cx)
-                        .text_color(palette.text_secondary)
-                        .child(draft.key()),
-                )
-            })
+            .flex_none()
+            .py(px(12.))
+            .px(px(16.))
+            .rounded(px(10.))
+            .bg(palette.raised)
+            .border_1()
+            .border_color(palette.line)
             .child(
                 div()
-                    .text_role(TextRole::Caption, cx)
-                    .text_color(if authors.is_empty() {
-                        unfilled
-                    } else {
-                        palette.text_secondary
-                    })
-                    .child(if authors.is_empty() {
-                        SharedString::from(t!("Author"))
-                    } else {
-                        authors.into()
-                    }),
+                    .flex()
+                    .items_start()
+                    .min_w_0()
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .text_role(TextRole::Caption, cx)
+                            .text_color(if authors.is_empty() {
+                                unfilled
+                            } else {
+                                palette.text_secondary
+                            })
+                            .child(if authors.is_empty() {
+                                SharedString::from(t!("Author"))
+                            } else {
+                                authors.into()
+                            }),
+                    )
+                    .children(key),
             )
             .child(
                 div()
+                    .my(px(2.))
                     .text_role(TextRole::Typeset, cx)
                     .text_color(if title.is_empty() {
                         unfilled
@@ -89,25 +104,43 @@ impl AddReference {
                         title.into()
                     }),
             )
-            .child(
+            .child(if printed.is_empty() && doi.is_empty() {
                 div()
+                    .font_family(cx.lattice().fonts.display.clone())
                     .text_role(TextRole::Caption, cx)
-                    .italic()
-                    .text_color(if tail.is_empty() {
-                        unfilled
+                    .text_color(unfilled)
+                    .child(if draft.entry_type == "book" {
+                        t!("Publisher")
                     } else {
-                        palette.text_secondary
+                        t!("Venue")
                     })
-                    .child(if tail.is_empty() {
-                        SharedString::from(if draft.entry_type == "book" {
-                            t!("Publisher")
-                        } else {
-                            t!("Venue")
+            } else {
+                // The venue and year as printed, then the DOI in the
+                // interface's own type, set apart by spacing.
+                div()
+                    .flex()
+                    .flex_wrap()
+                    .font_family(cx.lattice().fonts.display.clone())
+                    .text_role(TextRole::Caption, cx)
+                    .text_color(palette.text_secondary)
+                    .when(!venue.is_empty() && !year.is_empty(), |line| {
+                        line.child(div().italic().child(venue.clone())).child(", ")
+                    })
+                    .when(!venue.is_empty() && year.is_empty(), |line| {
+                        line.child(div().italic().child(venue.clone()))
+                    })
+                    .when(!year.is_empty(), |line| line.child(year))
+                    .when(!doi.is_empty(), |line| {
+                        line.when(!printed.is_empty(), |line| {
+                            line.child(div().px(px(6.)).child("\u{a0}"))
                         })
-                    } else {
-                        tail.into()
-                    }),
-            )
+                        .child(
+                            div()
+                                .font_family(cx.lattice().fonts.ui.clone())
+                                .child(format!("doi:{doi}")),
+                        )
+                    })
+            })
             .into_any_element()
     }
 }

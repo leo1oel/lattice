@@ -3,68 +3,16 @@
 //! in the PDF is the newest (only its answer lands), and whether a jump to
 //! the PDF is being located (the toolbar's locate button spins and waits).
 
-use gpui::{Context, InteractiveElement as _, actions};
-use lattice_i18n::t;
+use gpui::Context;
 
-use super::{
-    Shell,
-    commands::{Command, CommandContext, Section},
-    parts::Part,
-};
-
-actions!(lattice, [TogglePdfWindow, TogglePdfDarkPages]);
+use super::{Shell, parts::Part};
 
 pub(super) const PART: Part = Part {
     install: |_, _| Box::new(PdfSync::default()),
     views: &[],
-    actions: |element, cx| {
-        element
-            .on_action(cx.listener(|this, _: &TogglePdfWindow, window, cx| {
-                let pdf = this.pdf.clone();
-                pdf.update(cx, |pdf, cx| {
-                    if pdf.in_window() {
-                        pdf.dock(true, window, cx);
-                    } else {
-                        pdf.detach(window, cx);
-                    }
-                });
-            }))
-            .on_action(
-                cx.listener(|_, _: &TogglePdfDarkPages, _, cx| crate::pdf::toggle_dark_pages(cx)),
-            )
-    },
-    commands,
+    actions: |element, _| element,
+    commands: super::parts::no_commands,
 };
-
-/// The PDF's rows in the palette, as the Tauri command table words them.
-fn commands(context: &CommandContext, out: &mut Vec<Command>) {
-    // The PDF in a window of its own, for a second screen, and back.
-    if context.pdf_in_window {
-        out.push(Command::new(
-            "pdf-window",
-            t!("Return the PDF to the workspace"),
-            Section::Layout,
-            TogglePdfWindow,
-        ));
-    } else if context.in_project {
-        out.push(Command::new(
-            "pdf-window",
-            t!("Open the PDF in a separate window"),
-            Section::Layout,
-            TogglePdfWindow,
-        ));
-    }
-    out.push(Command::new(
-        "pdf-dark-pages",
-        if crate::pdf::dark_pages() {
-            t!("Light PDF pages")
-        } else {
-            t!("Dark PDF pages")
-        },
-        Section::Layout,
-        TogglePdfDarkPages,
-    ));
-}
 
 #[derive(Default)]
 pub(crate) struct PdfSync {

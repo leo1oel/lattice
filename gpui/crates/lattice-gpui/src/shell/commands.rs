@@ -153,11 +153,20 @@ pub struct CommandContext {
     pub overleaf_syncing: bool,
     /// The editor in front is a LaTeX source (Insert table's `latexSource`).
     pub latex_source: bool,
-    /// The project's PDF is in a window of its own.
-    pub pdf_in_window: bool,
+    /// How many annotations a revision round would ask about now.
+    pub revisable_annotations: usize,
     /// A text editor is in front (Go to line's and Go to symbol's
     /// `textEditor`).
     pub text_editor: bool,
+    /// The document in front's Edit, Split and Preview: whether it is an
+    /// HTML file (else Markdown), and the view it shows.
+    pub document_views: Option<(bool, crate::editor_panel::views::DocumentView)>,
+    /// The PDF's pages are drawn dark.
+    pub pdf_dark: bool,
+    /// The live PDF is in a window of its own.
+    pub pdf_window: bool,
+    /// The theme the writer chose.
+    pub theme: lattice_settings::ThemePreference,
 }
 
 /// One row of the table.
@@ -402,13 +411,16 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
             Section::Layout,
             ToggleMaximize,
         ));
-        for (id, name) in &context.workspaces {
-            out.push(Command::new(
+        // Each by name, with ⌘1 to ⌘9 beside the first nine (`shortcut`).
+        for (index, (id, name)) in context.workspaces.iter().enumerate() {
+            let mut row = Command::new(
                 format!("switch-{id}"),
                 space_mixed_script(&t!("Switch to {name}", name = name)),
                 Section::Layout,
                 SwitchWorkspace { id: id.clone() },
-            ));
+            );
+            row.keys_of = switch_workspace_action(index);
+            out.push(row);
         }
         for index in 0..context.workspaces.len() {
             if let Some(action) = switch_workspace_action(index) {
@@ -526,7 +538,7 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
         submission::insert_commands(context, &mut out);
     }
     projects::project_commands(context, &mut out);
-    appearance::appearance_commands(&mut out);
+    appearance::appearance_commands(context.theme, &mut out);
     // The registered parts' rows (`parts`): after the table's own, which
     // keep their order in each section.
     super::parts::commands(context, &mut out);
@@ -540,12 +552,13 @@ mod tests {
     #[test]
     fn without_a_project_only_project_overleaf_and_appearance_commands_apply() {
         let commands = commands(&CommandContext::default());
-        // Dark PDF pages has no condition in the Tauri app's table either.
-        assert!(commands.iter().all(|command| command.id == "pdf-dark-pages"
-            || matches!(
-                command.section,
-                Section::Project | Section::Overleaf | Section::Appearance
-            )));
+        // Dark or Light PDF pages is the PDF viewer's preference, which the
+        // Tauri table offers with or without a project (`pdf-dark-pages`
+        // has no `when`).
+        assert!(commands.iter().all(|command| matches!(
+            command.section,
+            Section::Project | Section::Overleaf | Section::Appearance
+        ) || command.id == "pdf-dark-pages"));
         // Opening a project from Overleaf needs none open; syncing needs a link.
         assert!(commands.iter().any(|command| command.id == "overleaf-open"));
         assert!(!commands.iter().any(|command| command.id == "overleaf-sync"));

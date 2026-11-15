@@ -102,12 +102,17 @@ The first build fetches Zed at the pinned revision and compiles about 1,200 crat
 | ⌘⇧[ / ⌘⇧] | Previous or next tab |
 | ⌘W, ⌘⇧T, ⌘⇧W | Close the document's tab (the window when none is open), reopen the last closed tab, close the window |
 | ⌃Tab, ⌃⇧Tab | Next or previous project in the window |
-| ⌘B, ⌘I | In a LaTeX file, Bold (`\textbf`) and Emphasis (`\emph`), each on or off for the selection |
+| ⌘B, ⌘I, ⌘⇧M | In a LaTeX file, Bold (`\textbf`), Emphasis (`\emph`) and Inline math, each on or off for the selection |
+| ⌘/, ⌘⌥/, ⌘⌥; | In a LaTeX file, comment the lines, or wrap them in a `comment` environment or `\iffalse … \fi` |
+| ⌘⌥E, ⌘⌥I, ⌘⌥A, ⌃M | Wrap in `equation` or `itemize`, select the environment, go to the matching `\begin` or `\end` |
+| ⌘⌥S, ⌘⌥U, ⌘⌥L, ⌘⌥C | Sort lines, UPPER, lower and Title Case |
+| ⌘⇧E, ⌘⌥R | Wrap in environment… (the name asked for), and Rename environment (both its `\begin` and its `\end`) |
 | ⌘⇧K, ⌘⇧L | In a LaTeX file, Insert citation and Insert reference: a picker of the bibliography's keys or the project's labels, writing `\cite{…}` or `\ref{…}` at the caret |
 | ⌘G, ⌘⇧O | Go to line, and Go to symbol (the manuscript's sections and the project's labels) |
 | Zed's default keymap | Everything else in the editor |
 
 On Windows and Linux, Ctrl stands in for ⌘, and quitting is Alt+F4 or the menu. With Vim mode on there, Vim keeps Ctrl+O, Ctrl+B, Ctrl+I, Ctrl+G, Ctrl+S, Ctrl+K and Ctrl+W in the editor, in the Vim modes where its keymap binds them.
+On every platform, Vim's normal and visual modes keep ⌃M as their next-line start.
 
 "Vim mode" in an editor's ⋯ menu turns Zed's Vim mode on for every editor; `LATTICE_GPUI_VIM=1` turns it on for that run only, leaving the saved keymap as it is.
 

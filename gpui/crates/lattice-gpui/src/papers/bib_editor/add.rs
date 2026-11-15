@@ -12,13 +12,10 @@ use gpui::{
     WeakEntity, Window, anchored, deferred, div, prelude::FluentBuilder as _, px,
 };
 use gpui_kit::component::input::{Input, InputEvent, InputState};
-use lattice_core::{bib_document::bib_text_to_plain, models::ResolvedCitation};
+use lattice_core::models::ResolvedCitation;
 use lattice_i18n::t;
 use lattice_ui::{
-    ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
-    components::{Button, MenuAction, MenuPopover},
-    interaction::mix,
-    tokens::FONT_WEIGHT_MEDIUM,
+    ActiveLattice as _, Icon, TextRole, TextRoleStyle as _, components::Button, interaction::mix,
 };
 
 use super::{
@@ -26,6 +23,7 @@ use super::{
     model::{self, Draft, QueryFill},
 };
 
+mod form;
 mod typeset;
 mod venue;
 use crate::search::sheet::SheetFrame;
@@ -91,6 +89,9 @@ pub enum ProjectSave {
 
 pub enum AddReferenceEvent {
     Dismiss,
+    /// The lookup failed for want of the paper tools: setup offers them
+    /// (`onMissingPaperTools`).
+    MissingPaperTools(String),
     /// Save `entry` under `key` into the project's bibliography; `label`
     /// names the import's pending row.
     Save {
@@ -98,6 +99,8 @@ pub enum AddReferenceEvent {
         entry: String,
         label: String,
         how: ProjectSave,
+        /// Cite the entry at the caret once it is saved.
+        cite: bool,
     },
 }
 
@@ -118,6 +121,18 @@ pub struct AddReference {
     candidates: Vec<ResolvedCitation>,
     chosen: usize,
     extra: Vec<(String, String)>,
+    /// How the record the fields came from was matched, the fields as it
+    /// gave them, and whether any has been changed since.
+    evidence: Option<serde_json::Value>,
+    retrieved: Option<Draft>,
+    edited: bool,
+    /// Insert cite at cursor after saving, offered for a new entry of the
+    /// project's bibliography.
+    insert_cite: bool,
+    preview_open: bool,
+    /// The citation key box's placeholder now: the key the entry gets.
+    key_hint: String,
+    candidates_focus: gpui::FocusHandle,
     error: Option<String>,
     generation: u64,
     _lookup: Option<Task<()>>,
@@ -168,6 +183,13 @@ impl AddReference {
                 ));
             }
         }
+        let offers_cite = matches!(
+            target,
+            AddTarget::Project {
+                save: ProjectSave::Append | ProjectSave::Import,
+                ..
+            }
+        );
         Self {
             target,
             saving: false,
@@ -182,6 +204,13 @@ impl AddReference {
             candidates: Vec::new(),
             chosen: 0,
             extra: Vec::new(),
+            evidence: None,
+            retrieved: None,
+            edited: false,
+            insert_cite: offers_cite,
+            preview_open: false,
+            key_hint: "author2024title".into(),
+            candidates_focus: cx.focus_handle().tab_stop(true),
             error: None,
             generation: 0,
             _lookup: None,
@@ -307,7 +336,12 @@ impl AddReference {
                 this.resolving = false;
                 match resolved {
                     Ok(resolved) => this.take_resolved(resolved, window, cx),
-                    Err(error) => this.error = Some(error),
+                    Err(error) => {
+                        if error.contains(crate::papers::audit::PAPER_TOOLS_MISSING) {
+                            cx.emit(AddReferenceEvent::MissingPaperTools(error.clone()));
+                        }
+                        this.error = Some(error);
+                    }
                 }
                 cx.notify();
             })
@@ -356,8 +390,13 @@ impl AddReference {
                 .update(cx, |input, cx| input.set_value(value, window, cx));
         }
         self.extra = record.extra_fields.into_iter().collect();
+        self.evidence = record.evidence;
+        self.retrieved = None;
+        self.edited = false;
         self.candidates.clear();
         self.show_fields = true;
+        // What the fields hold now is the record as retrieved.
+        self.retrieved = self.evidence.is_some().then(|| self.draft(cx));
         cx.notify();
     }
 
@@ -436,11 +475,13 @@ impl AddReference {
                 self.error = None;
                 let how = *save;
                 let label = draft.title.trim().to_string();
+                let cite = self.insert_cite && how != ProjectSave::Edit;
                 cx.emit(AddReferenceEvent::Save {
                     key,
                     entry,
                     label,
                     how,
+                    cite,
                 });
                 cx.notify();
             }
@@ -473,90 +514,6 @@ impl AddReference {
             }
             AddTarget::Project { .. } => cx.emit(AddReferenceEvent::Dismiss),
         }
-    }
-
-    fn field(&self, field: Field, label: &'static str, cx: &Context<Self>) -> AnyElement {
-        let palette = cx.palette().clone();
-        div()
-            .flex()
-            .flex_col()
-            .flex_1()
-            .min_w(px(140.))
-            .gap(px(4.))
-            .child(
-                div()
-                    .text_role(TextRole::Caption, cx)
-                    .font_weight(FONT_WEIGHT_MEDIUM)
-                    .text_color(palette.text_secondary)
-                    .child(label),
-            )
-            .child(
-                div()
-                    .h(px(30.))
-                    .px(px(8.))
-                    .flex()
-                    .items_center()
-                    .rounded(px(6.))
-                    .bg(palette.input)
-                    .border_1()
-                    .border_color(palette.field_border)
-                    .child(
-                        Input::new(self.input(field))
-                            .disabled(field == Field::Key && self.editing())
-                            .appearance(false)
-                            .bordered(false)
-                            .px_0(),
-                    ),
-            )
-            .into_any_element()
-    }
-
-    fn candidates(&self, cx: &mut Context<Self>) -> AnyElement {
-        let palette = cx.palette().clone();
-        let mut list = div().flex().flex_col().gap(px(4.));
-        for (at, candidate) in self.candidates.iter().enumerate() {
-            let chosen = at == self.chosen;
-            let byline = [candidate.author.as_str(), candidate.year.as_str()]
-                .iter()
-                .filter(|part| !part.is_empty())
-                .copied()
-                .collect::<Vec<_>>()
-                .join(" · ");
-            list = list.child(
-                div()
-                    .id(("bib-candidate", at))
-                    .flex()
-                    .flex_col()
-                    .gap(px(2.))
-                    .p(px(10.))
-                    .rounded(px(8.))
-                    .border_1()
-                    .border_color(if chosen { palette.accent } else { palette.line })
-                    .cursor_pointer()
-                    .hover(|style| style.bg(palette.hover))
-                    .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
-                        this.chosen = at;
-                        if event.click_count() == 2 {
-                            let record = this.candidates[at].clone();
-                            this.apply_with_window(record, window, cx);
-                        }
-                        cx.notify();
-                    }))
-                    .child(
-                        div()
-                            .text_role(TextRole::Typeset, cx)
-                            .text_color(palette.text)
-                            .child(bib_text_to_plain(&candidate.title)),
-                    )
-                    .child(
-                        div()
-                            .text_role(TextRole::Caption, cx)
-                            .text_color(palette.text_secondary)
-                            .child(byline),
-                    ),
-            );
-        }
-        list.into_any_element()
     }
 }
 
@@ -629,120 +586,69 @@ impl Render for AddReference {
                     .into_any_element(),
             );
         }
-        if let Some(error) = self.error.clone() {
+        let error = self.error.clone().map(|error| {
+            div()
+                .text_role(TextRole::Caption, cx)
+                .text_color(mix(palette.danger, palette.text, 0.2))
+                .child(error)
+                .into_any_element()
+        });
+        // The lookup's own failure says so under the way past it; once the
+        // fields show, a failure follows the preview.
+        if !self.show_fields {
+            body.extend(error);
+            if !self.candidates.is_empty() {
+                body.push(self.candidates(window, cx));
+            }
+        } else {
+            let mut form: Vec<AnyElement> = Vec::new();
+            if !self.candidates.is_empty() {
+                form.push(self.candidates(window, cx));
+            }
+            form.extend(self.record_evidence(window, cx));
+            if self.candidates.is_empty() {
+                form.push(self.typeset(cx));
+            }
+            form.push(self.fields(window, cx));
             body.push(
                 div()
-                    .text_role(TextRole::Caption, cx)
-                    .text_color(mix(palette.danger, palette.text, 0.2))
-                    .child(error)
-                    .into_any_element(),
-            );
-        }
-        if !self.candidates.is_empty() {
-            body.push(self.candidates(cx));
-        }
-        if self.show_fields && self.candidates.is_empty() {
-            let view = cx.entity().downgrade();
-            let kind = self.entry_type.clone();
-            let types_menu = move |menu: lattice_ui::components::Menu| {
-                TYPES.iter().fold(menu, |menu, choice| {
-                    let view = view.clone();
-                    let choice = *choice;
-                    menu.item(
-                        MenuAction::new(type_label(choice), move |window, cx| {
-                            view.update(cx, |this, cx| this.set_type(choice, window, cx))
-                                .ok();
-                        })
-                        .checked(choice == kind),
-                    )
-                })
-            };
-            body.push(self.typeset(cx));
-            body.push(
-                div()
-                    .id("bib-entry-fields")
+                    .id("bib-entry-form")
+                    .flex_1()
+                    .min_h_0()
+                    .overflow_y_scroll()
                     .flex()
                     .flex_col()
-                    .gap(px(10.))
-                    .overflow_y_scroll()
-                    .child(self.field(Field::Title, t!("Title"), cx))
-                    .child(self.field(Field::Author, t!("Author"), cx))
-                    .child(
-                        div()
-                            .flex()
-                            .flex_wrap()
-                            .gap(px(10.))
-                            .child(self.field(Field::Year, t!("Year"), cx))
-                            .child(if self.entry_type == "book" {
-                                self.field(Field::Publisher, t!("Publisher"), cx)
-                            } else {
-                                self.venue_field(cx)
-                            }),
-                    )
-                    .child(
-                        div()
-                            .flex()
-                            .flex_wrap()
-                            .gap(px(10.))
-                            .child(self.field(Field::Doi, "DOI", cx))
-                            .child(self.field(Field::Url, "URL", cx)),
-                    )
-                    .child(
-                        div()
-                            .flex()
-                            .flex_wrap()
-                            .items_end()
-                            .gap(px(10.))
-                            .child(
-                                div()
-                                    .flex()
-                                    .flex_col()
-                                    .gap(px(4.))
-                                    .child(
-                                        div()
-                                            .text_role(TextRole::Caption, cx)
-                                            .font_weight(FONT_WEIGHT_MEDIUM)
-                                            .text_color(palette.text_secondary)
-                                            .child(t!("Type")),
-                                    )
-                                    .child(MenuPopover::new(
-                                        "bib-entry-type",
-                                        Button::new(
-                                            "bib-entry-type-button",
-                                            type_label(&self.entry_type),
-                                        )
-                                        .icon(Icon::CHEVRON_DOWN)
-                                        .tooltip(t!("Entry type")),
-                                        move |menu, _, _| types_menu(menu),
-                                    )),
-                            )
-                            .child(self.field(Field::Key, t!("Citation key"), cx)),
-                    )
+                    .gap(px(16.))
+                    .children(form)
                     .into_any_element(),
             );
+            body.push(self.preview(window, cx));
+            body.extend(error);
         }
         let draft = self.draft(cx);
         let complete = !draft.title.trim().is_empty()
             && !draft.author.trim().is_empty()
             && !draft.year.trim().is_empty();
-        let mut actions: Vec<AnyElement> = vec![
-            Button::new("bib-add-cancel", t!("Cancel"))
-                .ghost()
-                .on_click(cx.listener(|this, _: &ClickEvent, window, cx| this.close(window, cx)))
-                .into_any_element(),
-        ];
+        let mut actions: Vec<AnyElement> = Vec::new();
+        if self.show_fields && !editing && matches!(self.target, AddTarget::Project { .. }) {
+            actions.push(self.cite_choice(cx));
+        }
+        actions.extend([Button::new("bib-add-cancel", t!("Cancel"))
+            .ghost()
+            .on_click(cx.listener(|this, _: &ClickEvent, window, cx| this.close(window, cx)))
+            .into_any_element()]);
         if !self.candidates.is_empty() {
             actions.push(
                 Button::new("bib-use-record", t!("Use this record"))
                     .primary()
                     .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
-                        let record =
-                            this.candidates[this.chosen.min(this.candidates.len() - 1)].clone();
-                        this.apply_with_window(record, window, cx);
+                        let at = this.chosen.min(this.candidates.len() - 1);
+                        this.use_candidate(at, window, cx);
                     }))
                     .into_any_element(),
             );
-        } else if self.show_fields {
+        }
+        if self.show_fields {
             actions.push(
                 Button::new(
                     "bib-save-entry",
@@ -755,7 +661,7 @@ impl Render for AddReference {
                     },
                 )
                 .primary()
-                .disabled(!complete || resolving || self.saving)
+                .disabled(!complete || resolving || self.saving || !self.candidates.is_empty())
                 .on_click(cx.listener(|this, _: &ClickEvent, window, cx| this.save(window, cx)))
                 .into_any_element(),
             );

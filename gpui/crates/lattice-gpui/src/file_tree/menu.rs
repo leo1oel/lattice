@@ -11,7 +11,7 @@ use lattice_ui::{
     components::{Menu, MenuAction},
 };
 
-use super::{FileTreeEvent, FileTreePanel};
+use super::{FileTreeEvent, FileTreePanel, including};
 use crate::confirm::{self, Confirm};
 
 #[cfg(target_os = "macos")]
@@ -33,23 +33,29 @@ fn item(view: &WeakEntity<FileTreePanel>, icon: Icon, label: &'static str, run: 
 }
 
 impl FileTreePanel {
-    pub(crate) fn ask_delete(&mut self, path: String, cx: &mut Context<Self>) {
+    /// Ask before deleting `paths` (a row, or the selection holding it).
+    pub(crate) fn ask_delete(&mut self, paths: Vec<String>, cx: &mut Context<Self>) {
         // lattice-core refuses it with these words; say them before asking.
-        if self.protected(&path, cx) {
+        if paths.iter().any(|path| self.protected(path, cx)) {
             crate::notices::warning(t!("The primary bibliography cannot be deleted."), cx);
             return;
         }
+        let title = match paths.as_slice() {
+            [path] => t!("Delete “{path}” from this project?", path = path),
+            _ => t!(
+                "Delete {count} selected items from this project?",
+                count = paths.len()
+            ),
+        };
         let view = cx.entity().downgrade();
         confirm::ask(
-            Confirm::new(t!("Delete “{path}” from this project?", path = path))
+            Confirm::new(title)
                 .body(t!("This action cannot be undone."))
                 .confirm_label(t!("Delete"))
                 .destructive()
                 .on_confirm(move |_, cx| {
-                    view.update(cx, |_, cx| {
-                        cx.emit(FileTreeEvent::Delete(vec![path.clone()]))
-                    })
-                    .ok();
+                    view.update(cx, |_, cx| cx.emit(FileTreeEvent::Delete(paths.clone())))
+                        .ok();
                 }),
             cx,
         );
@@ -77,7 +83,7 @@ impl FileTreePanel {
         .item(item(
             view,
             Icon::FOLDER_INPUT,
-            "Import files…",
+            t!("Import files…"),
             Box::new(move |_, _, cx| {
                 cx.emit(FileTreeEvent::Import {
                     target: import.clone(),
@@ -191,6 +197,7 @@ impl FileTreePanel {
                             cx.write_to_clipboard(ClipboardItem::new_string(
                                 absolute.to_string_lossy().into_owned(),
                             ));
+                            super::clipboard::notify_copied(1, cx);
                         }
                     }
                 })
@@ -213,7 +220,10 @@ impl FileTreePanel {
                 view,
                 Icon::TRASH,
                 t!("Delete"),
-                Box::new(move |this, _, cx| this.ask_delete(path.clone(), cx)),
+                Box::new(move |this, _, cx| {
+                    let paths = including(&this.selected_paths(cx), &path);
+                    this.ask_delete(paths, cx)
+                }),
             )
             .destructive(),
         )
