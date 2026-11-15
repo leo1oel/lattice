@@ -8,9 +8,9 @@ import type { SymbolOccurrence } from "./references-panel";
 import { citationHealthLabel } from "./citation-health";
 
 /** "title" is the library's own order (by title), or best match first while searching. */
-export type PaperSort = "title" | "year" | "author" | "venue" | "cited";
+export type PaperSort = "title" | "added" | "year" | "author" | "venue" | "cited";
 export type PaperFilter = "all" | "cited" | "uncited" | "fullText" | "flagged";
-export type PaperGroup = "none" | "year" | "venue" | "state";
+export type PaperGroup = "none" | "added" | "year" | "venue" | "state";
 /** What a click on the row can open: the paper, a download of it, or nothing yet. */
 export type PaperReadingState = "fullText" | "downloadable" | "citation";
 
@@ -93,11 +93,13 @@ export function paperFilter(filter: PaperFilter, facts: PaperFacts): (paper: Pap
 /**
  * The chosen sort as a comparison, or none for the library's own order (by
  * title, best match first while searching). Text sorts run A to Z, the year
- * newest first and uses most first; a paper with no value goes last.
+ * and the date added newest first and uses most first; a paper with no value
+ * goes last.
  */
 export function paperOrder(sort: PaperSort, facts: PaperFacts): ((a: PaperSummary, b: PaperSummary) => number) | undefined {
   if (sort === "title") return undefined;
   if (sort === "cited") return (a, b) => (facts.uses(b) ?? 0) - (facts.uses(a) ?? 0);
+  if (sort === "added") return (a, b) => (b.addedAt ?? -Infinity) - (a.addedAt ?? -Infinity) || 0;
   const key = (paper: PaperSummary) => (
     sort === "year" ? paper.year?.trim() : sort === "venue" ? facts.venue(paper) : paperShortAuthors(paper)
   ) || "";
@@ -111,22 +113,56 @@ export function paperOrder(sort: PaperSort, facts: PaperFacts): ((a: PaperSummar
 export type PaperGroupSection = { id: string; name: string; papers: PaperSummary[] };
 
 const READING_ORDER: readonly PaperReadingState[] = ["fullText", "downloadable", "citation"];
+/** The date-added groups before the months, newest first. */
+const RECENT_ORDER = ["today", "week", "month"] as const;
+export type RecentAdded = typeof RECENT_ORDER[number];
 
 /**
- * The shown papers in sections, each keeping the order it was given: years
- * newest first, venues A to Z, reading states from readable to cited only,
- * and the papers that record no year or venue last. `name` turns a group's
- * value into its heading; an empty value is the "none recorded" group.
+ * The date-added group of a paper the library first listed at `addedAt`, as
+ * of `now` (both in ms, read on the local calendar): "today", "week" for the
+ * six days before it, "month" for the rest of this month, else the month it
+ * came in as `YYYY-MM`, which sorts newest first as text. Empty when the
+ * paper was there before the library kept dates. A time ahead of the clock
+ * (another machine's) counts as today.
+ */
+export function addedGroup(addedAt: number | undefined, now: number): string {
+  if (addedAt === undefined || !Number.isFinite(addedAt)) return "";
+  const when = new Date(addedAt);
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+  if (when >= today) return "today";
+  // Calendar days back, not 24-hour spans, so a clock change cannot move it.
+  const weekStart = new Date(today);
+  weekStart.setDate(weekStart.getDate() - 6);
+  if (when >= weekStart) return "week";
+  if (when.getFullYear() === today.getFullYear() && when.getMonth() === today.getMonth()) return "month";
+  return `${when.getFullYear()}-${String(when.getMonth() + 1).padStart(2, "0")}`;
+}
+
+/** A `YYYY-MM` date-added group as the interface language writes a month: "October 2026", 2026年10月. */
+export function addedMonthName(month: string, locale: string): string {
+  const [year, index] = month.split("-").map(Number);
+  return new Date(year!, index! - 1, 1).toLocaleDateString(locale, { year: "numeric", month: "long" });
+}
+
+/**
+ * The shown papers in sections, each keeping the order it was given: dates
+ * added and years newest first, venues A to Z, reading states from readable
+ * to cited only, and the papers that record no date, year or venue last.
+ * `name` turns a group's value into its heading; an empty value is the
+ * "none recorded" group.
  */
 export function groupPapers(
   papers: readonly PaperSummary[],
   group: PaperGroup,
   facts: PaperFacts,
   name: (value: string) => string,
+  now = Date.now(),
 ): PaperGroupSection[] {
   if (group === "none") return [{ id: "", name: "", papers: [...papers] }];
   const valueOf = (paper: PaperSummary) => (
-    group === "year" ? paper.year?.trim() ?? "" : group === "venue" ? facts.venue(paper) : paperReadingState(paper)
+    group === "added" ? addedGroup(paper.addedAt, now)
+      : group === "year" ? paper.year?.trim() ?? "" : group === "venue" ? facts.venue(paper) : paperReadingState(paper)
   );
   const sections = new Map<string, PaperSummary[]>();
   for (const paper of papers) {
@@ -135,10 +171,14 @@ export function groupPapers(
     if (members) members.push(paper);
     else sections.set(value, [paper]);
   }
-  const rank = (value: string) => (group === "state" ? READING_ORDER.indexOf(value as PaperReadingState) : 0);
+  const rank = (value: string) => (
+    group === "state" ? READING_ORDER.indexOf(value as PaperReadingState)
+      : group === "added" ? (RECENT_ORDER.indexOf(value as RecentAdded) + 4) % 4
+      : 0
+  );
   return [...sections].sort(([a], [b]) => (
     Number(!a) - Number(!b)
     || rank(a) - rank(b)
-    || (group === "year" ? b.localeCompare(a, undefined, { numeric: true }) : a.localeCompare(b))
+    || (group === "year" ? b.localeCompare(a, undefined, { numeric: true }) : group === "added" ? b.localeCompare(a) : a.localeCompare(b))
   )).map(([value, members]) => ({ id: value, name: name(value), papers: members }));
 }

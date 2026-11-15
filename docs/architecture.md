@@ -404,6 +404,7 @@ creates it.
 | `.research/project.json` | `project/manifest.rs` (`MANIFEST_PATH`) | project manifest: name, venue, root documents, spelling words, ignored grammar rules and sentences, submission checklist items |
 | `.research/brief.md` | `project/create.rs` | the project brief shown in the sidebar |
 | `.research/papers/<arxivId>/` | `papers/` | imported papers: `paper.md`, `blog.md`, `metadata.json`, `paper_assets/` |
+| `.research/papers-added.json` | `papers/added.rs` | when the library first listed each citation key (lowercased), for the Papers list's Date added sort and groups; `null` for a key already there when the file was made |
 | `.research/history/<id>.json` | `project/history.rs` | transaction history records (schema v2, `HISTORY_SCHEMA_VERSION`); capped at 100 (`MAX_HISTORY_ENTRIES`) |
 | `.research/sessions/` | `project/create.rs` | agent session records |
 | `.research/checkpoints/` | agent runtime | turn checkpoints; capped at 100 per session / 256 MB (`project/history.rs`) |

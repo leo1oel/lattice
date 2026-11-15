@@ -10,6 +10,7 @@ use lattice_core::{models::SymbolOccurrence, papers::PaperSummary};
 
 use crate::papers::bib_editor::model::{locale_compare, numeric_locale_compare};
 
+use super::added::{added_group, added_group_name, compare_added, compare_added_groups};
 use super::identity::{
     ReadingState, TOKEN_ARXIV, base_arxiv_id, is_flagged, readable, reading_state, search_identity,
     short_authors,
@@ -80,6 +81,7 @@ impl Facts {
 pub enum Sort {
     #[default]
     Title,
+    Added,
     Year,
     Author,
     Venue,
@@ -87,8 +89,9 @@ pub enum Sort {
 }
 
 impl Sort {
-    pub const ALL: [Sort; 5] = [
+    pub const ALL: [Sort; 6] = [
         Sort::Title,
+        Sort::Added,
         Sort::Year,
         Sort::Author,
         Sort::Venue,
@@ -98,6 +101,7 @@ impl Sort {
     pub fn label(self) -> &'static str {
         match self {
             Sort::Title => t!("Title"),
+            Sort::Added => t!("Recently added"),
             Sort::Year => t!("Newest first"),
             Sort::Author => t!("First author"),
             Sort::Venue => t!("Venue"),
@@ -155,17 +159,25 @@ impl Filter {
 pub enum Group {
     #[default]
     None,
+    Added,
     Year,
     Venue,
     State,
 }
 
 impl Group {
-    pub const ALL: [Group; 4] = [Group::None, Group::Year, Group::Venue, Group::State];
+    pub const ALL: [Group; 5] = [
+        Group::None,
+        Group::Added,
+        Group::Year,
+        Group::Venue,
+        Group::State,
+    ];
 
     pub fn label(self) -> &'static str {
         match self {
             Group::None => t!("No grouping"),
+            Group::Added => t!("Date added"),
             Group::Year => t!("Year"),
             Group::Venue => t!("Venue"),
             Group::State => t!("Reading state"),
@@ -192,12 +204,13 @@ pub fn compare(sort: Sort, facts: &Facts, a: &PaperSummary, b: &PaperSummary) ->
             Sort::Year => paper.year.as_deref().unwrap_or("").trim().to_string(),
             Sort::Venue => facts.venue(paper).to_string(),
             Sort::Author => short_authors(paper).unwrap_or_default(),
-            Sort::Title | Sort::Cited => String::new(),
+            Sort::Title | Sort::Added | Sort::Cited => String::new(),
         }
     };
     match sort {
         Sort::Title => Ordering::Equal,
         Sort::Cited => facts.uses(b).unwrap_or(0).cmp(&facts.uses(a).unwrap_or(0)),
+        Sort::Added => compare_added(a, b),
         _ => {
             let (left, right) = (key(a), key(b));
             left.is_empty()
@@ -409,8 +422,10 @@ pub fn group<'a>(papers: Vec<&'a PaperSummary>, group: Group, facts: &Facts) -> 
             papers,
         }];
     }
+    let now = chrono::Local::now();
     let value_of = |paper: &PaperSummary| -> String {
         match group {
+            Group::Added => added_group(paper.added_at, now),
             Group::Year => paper.year.as_deref().unwrap_or("").trim().to_string(),
             Group::Venue => facts.venue(paper).to_string(),
             Group::State => format!("{:?}", reading_state(paper)),
@@ -435,6 +450,7 @@ pub fn group<'a>(papers: Vec<&'a PaperSummary>, group: Group, facts: &Facts) -> 
     order.sort_by(|a, b| {
         a.is_empty().cmp(&b.is_empty()).then_with(|| match group {
             Group::State => state_rank(a).cmp(&state_rank(b)),
+            Group::Added => compare_added_groups(a, b),
             Group::Year => numeric_compare(b, a),
             _ => text_compare(a, b),
         })
@@ -443,6 +459,7 @@ pub fn group<'a>(papers: Vec<&'a PaperSummary>, group: Group, facts: &Facts) -> 
         .into_iter()
         .map(|value| {
             let name = match group {
+                Group::Added => added_group_name(&value, lattice_i18n::locale()),
                 Group::State => ReadingState::ORDER
                     .iter()
                     .find(|state| format!("{state:?}") == value)

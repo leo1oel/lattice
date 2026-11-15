@@ -33,11 +33,16 @@ export function benchScale(params: URLSearchParams) {
     const value = Number(params.get(key));
     return [key, Number.isFinite(value) && value > 0 ? Math.floor(value) : 0];
   })) as Record<"paperCount" | "bibEntries" | "historyEntries" | "gitVersions", number>;
+  const addedFrom = Date.now();
   const SCALE_PAPERS = Array.from({ length: scale.paperCount }, (_, index) => ({
     arxivId: index % 5 === 4 ? "" : `${2100 + (index % 500)}.${String(10000 + index).slice(-5)}`,
     ...index % 5 === 4 ? { doi: `10.5555/scale.${index}`, url: `https://doi.org/10.5555/scale.${index}` } : {},
     title: scaleTitle(index), citationKey: scaleKey(index), year: String(2000 + (index % 26)), authors: scaleAuthors(index),
     hasFullText: index % 5 !== 4 && index % 3 !== 0, hasBlog: index % 7 === 0,
+    // Added one every 9 hours back from the page's load, so "Date added"
+    // fills Today, the week, the month and earlier months; every eleventh
+    // came before the library kept dates.
+    ...index % 11 === 10 ? {} : { addedAt: addedFrom - index * 9 * 3_600_000 },
     ...index % 41 === 0 ? { citationHealth: { kind: "retracted", source: "retraction-watch", date: "2024-06-02", checkedAt: "2026-10-01T00:00:00Z" } } : {},
   }));
 

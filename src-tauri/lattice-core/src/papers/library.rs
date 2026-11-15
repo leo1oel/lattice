@@ -79,8 +79,10 @@ pub fn list_papers(root: &Path) -> Result<Vec<PaperSummary>, String> {
             has_blog: matched.as_ref().is_some_and(|bundle| bundle.has_blog),
             has_local_pdf: matched.as_ref().is_some_and(|bundle| bundle.has_local_pdf),
             asset_paths: matched.map(|bundle| bundle.asset_paths).unwrap_or_default(),
+            added_at: None,
         });
     }
+    super::added::stamp(root, &mut papers);
     papers.sort_by_key(|paper| paper.title.to_lowercase());
     Ok(papers)
 }
@@ -117,6 +119,7 @@ pub fn list_bibliography_downloads(root: &Path) -> Result<Vec<PaperSummary>, Str
             has_blog: bundle.has_blog,
             has_local_pdf: bundle.has_local_pdf,
             asset_paths: bundle.asset_paths,
+            added_at: None,
         });
     }
     Ok(papers)
