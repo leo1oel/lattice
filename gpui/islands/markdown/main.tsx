@@ -146,6 +146,8 @@ type State = {
 /** What the owner sends of Overleaf's suggestions (`md:overleaf`, `markdown_host.rs`). */
 type MarkdownOverleaf = { changes: TrackedChange[]; authors: [string, string][]; canAct: boolean };
 const NO_OVERLEAF: MarkdownOverleaf = { changes: [], authors: [], canAct: false };
+/** The editor's suggestions when the file has none, one array so typing keeps it. */
+const NO_CHANGES: TrackedChange[] = [];
 
 type Action =
   | { type: "open"; open: MarkdownOpen }
@@ -262,11 +264,16 @@ function Markdown() {
     [lineOffset, presence],
   );
   // Suggestions within the body the editor renders, moved past the front
-  // matter it never shows (`markdownVisualChanges`).
-  const overleafChanges = useMemo(() => overleaf.changes.flatMap((change) => {
-    const end = change.deletion ? change.position : change.position + change.text.length;
-    return change.position < start || end > source.length ? [] : [{ ...change, position: change.position - start }];
-  }), [overleaf.changes, source.length, start]);
+  // matter it never shows (`markdownVisualChanges`). Keyed on the front
+  // matter's end, not the text: a new array on every keystroke reconfigures
+  // the editor mid-typing and splits its undo group. One past the text's end
+  // needs no check here, since the editor drops those itself.
+  const overleafChanges = useMemo(() => {
+    if (overleaf.changes.length === 0) return NO_CHANGES;
+    return overleaf.changes.flatMap((change) => (
+      change.position < start ? [] : [{ ...change, position: change.position - start }]
+    ));
+  }, [overleaf.changes, start]);
   const overleafTrackChangeActions = useMemo((): TrackedChangeTooltipActions => ({
     authorName: (userId) => overleaf.authors.find(([id]) => id === userId)?.[1] ?? tGlobal`Unknown`,
     canAct: () => overleaf.canAct,

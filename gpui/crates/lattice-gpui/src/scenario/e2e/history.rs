@@ -130,6 +130,14 @@ impl Run {
                 history.update(cx, |history, cx| history.restore_project(hash.clone(), cx))
             });
             self.pause(cx, Duration::from_millis(300)).await;
+            let body = cx.update(|cx| crate::confirm::install(cx).read(cx).question_body());
+            steps.check(
+                "in a project not linked to Overleaf, the restore question says nothing of Overleaf",
+                body.as_deref().is_some_and(|body| {
+                    body.contains("Nothing is lost") && !body.contains("Overleaf")
+                }),
+                json!({ "body": body.as_deref() }),
+            );
             let asked = self.with_window(cx, |_, window, cx| {
                 let confirm = crate::confirm::install(cx);
                 confirm.update(cx, |host, cx| host.accept(window, cx))
