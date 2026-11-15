@@ -7,7 +7,8 @@
 //!   selection, on the PDF surface; back in the editor, it goes;
 //! - a turn the page reports running is the window's, and its start marks
 //!   Get started's Agent step; reported over, it is gone;
-//! - an image opened over the source is the active file, without a caret;
+//! - an image opened over the source, or focused in a split beside it, is
+//!   the active file, without a caret;
 //! - an Open Slide deck in front is the active file, without a caret, and
 //!   its page hears the turn's presence and its end;
 //! - switching project mid-turn asks first and keeps the project;
@@ -26,7 +27,10 @@ const DECK: &str = include_str!(
 );
 
 use super::Steps;
-use crate::{agent::SurfaceEvent, editor_panel::EditorPanelEvent, scenario::Run};
+use crate::{
+    agent::SurfaceEvent, editor_panel::EditorPanelEvent, scenario::Run,
+    shell::trellis_layout::file_key,
+};
 
 impl Run {
     pub(super) async fn agent_context(
@@ -125,6 +129,71 @@ impl Run {
             image_in_front && source_back,
             json!({ "image": image_workspace, "back": workspace(cx) }),
         );
+
+        // The image in a split beside the source, focused there: the
+        // Agent's active file, with no caret; the source focused again is.
+        let before = cx.update(|cx| self.shell.read(cx).document(cx));
+        let views = cx.update(|cx| {
+            let doc = self.shell.read(cx).document(cx);
+            let view_of = |key: &str| {
+                doc.views
+                    .iter()
+                    .find(|(_, record)| file_key(Some(record)) == key)
+                    .map(|(id, _)| id.clone())
+            };
+            let source = view_of("main.tex");
+            let panel = source.as_ref().and_then(|source| {
+                trellis::model::panels_of(doc.root.as_ref())
+                    .into_iter()
+                    .find(|panel| panel.views.contains(source))
+                    .map(|panel| panel.id.clone())
+            });
+            view_of("figure.png").zip(panel)
+        });
+        let mut split_front = false;
+        let mut split_workspace = Value::Null;
+        if let Some((image, panel)) = views {
+            self.with_window(cx, move |shell, window, cx| {
+                shell.update(cx, |shell, cx| {
+                    shell.engine_do(cx, |engine| {
+                        engine.dock(
+                            &image,
+                            Some(trellis::model::DockTarget::Beside {
+                                beside: panel,
+                                edge: trellis::model::Edge::Right,
+                                share: Some(0.5),
+                            }),
+                        );
+                        engine.focus(&image);
+                    });
+                    shell.focus_view_content(&image, window, cx);
+                })
+            })?;
+            split_front = self
+                .wait_for(cx, Duration::from_secs(5), |_, cx| {
+                    let workspace = surface.read(cx).workspace();
+                    workspace["activeFile"] == "figure.png"
+                        && workspace.get("editorPosition").is_none_or(Value::is_null)
+                })
+                .await;
+            split_workspace = workspace(cx);
+        }
+        self.open(cx, &root.join("main.tex"), Some(1))?;
+        let split_back = self
+            .wait_for(cx, Duration::from_secs(5), |_, cx| {
+                surface.read(cx).workspace()["activeFile"] == "main.tex"
+            })
+            .await;
+        steps.check(
+            "an image focused in a split beside the source is the Agent's active file, without a caret, until the source is focused again",
+            split_front && split_back,
+            json!({ "image": split_workspace, "back": workspace(cx) }),
+        );
+        self.with_window(cx, move |shell, _, cx| {
+            shell.update(cx, |shell, cx| {
+                shell.engine_do(cx, |engine| engine.set_document(before, false))
+            })
+        })?;
         std::fs::remove_file(&figure).ok();
 
         // An Open Slide deck in front: the Agent's active file, with no caret.

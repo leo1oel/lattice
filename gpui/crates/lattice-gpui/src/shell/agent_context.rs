@@ -20,6 +20,7 @@ use crate::{
         host_context::{self, Inputs, Selected, SharedSelection, Source},
         workspace,
     },
+    editor_panel::EditorPanel,
     pdf::{PdfPanel, PdfPanelKind},
     structured::StructuredKind,
 };
@@ -39,6 +40,9 @@ pub(crate) struct ContextState {
     /// it comes (`surface_context_changed`).
     front: Option<EntityId>,
     document: Option<String>,
+    /// The file view that is no editor (an image, a project PDF) the writer
+    /// last worked in, until the editor takes the keyboard again.
+    other_front: Option<String>,
     pdf_place: (usize, usize),
 }
 
@@ -92,6 +96,23 @@ impl Shell {
             self.context().pdf_mark = None;
         }
         changed |= self.watch_pdf_selection(cx);
+        let other_front = if editor_focused {
+            None
+        } else {
+            self.workspace
+                .read(cx)
+                .engine()
+                .focused_view()
+                .filter(|view| {
+                    self.panel_of_view(view).is_some_and(|panel| {
+                        panel.view().downcast::<EditorPanel>().is_err()
+                            && panel.focus_handle(cx).contains_focused(window, cx)
+                    })
+                })
+                .map(str::to_string)
+                .or_else(|| self.context().other_front.clone())
+        };
+        self.context().other_front = other_front;
         let front = editor.as_ref().map(Entity::entity_id);
         let (document, _) = self.agent_front_document(cx);
         let live = self.pdf().read(cx).live_view().read(cx);
@@ -167,10 +188,20 @@ impl Shell {
     }
 
     /// The document the Agent takes as in front, and whether it is the
-    /// active editor's: another tab selected over the editor's in its panel
-    /// (an image opened beside it) is in front instead, without the
-    /// editor's caret or selection.
+    /// active editor's: the file view that is no editor the writer last
+    /// worked in (an image, a project PDF, in any pane), or another tab
+    /// selected over the editor's
+    /// in its panel, is in front instead, without the editor's caret or
+    /// selection.
     fn agent_front_document(&self, cx: &App) -> (Option<String>, bool) {
+        let doc = self.document(cx);
+        if let Some(focused) = self.agent.state.context.other_front.as_deref()
+            && let key = file_key(doc.views.get(focused))
+            && !key.is_empty()
+            && !super::papers::is_reader_key(&key)
+        {
+            return (Some(key), false);
+        }
         let document = self.active_document(cx);
         let Some(view) = self
             .active_editor()
@@ -178,7 +209,6 @@ impl Shell {
         else {
             return (document, true);
         };
-        let doc = self.document(cx);
         let covering = trellis::model::panels_of(doc.root.as_ref())
             .into_iter()
             .find(|panel| panel.views.contains(&view))
