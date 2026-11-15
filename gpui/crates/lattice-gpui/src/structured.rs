@@ -402,7 +402,7 @@ impl StructuredDocument {
             IslandEvent::Request { id, kind, payload } => {
                 self.on_request(*id, kind, payload.clone(), window, cx)
             }
-            IslandEvent::Focus(_) | IslandEvent::PointerDown => {}
+            IslandEvent::Focus(_) | IslandEvent::PointerDown | IslandEvent::FileDrop(_) => {}
         }
     }
 
@@ -488,7 +488,8 @@ impl StructuredDocument {
                 self.open_project_window(id, &args, cx)
             }
             (StructuredKind::LatexVisual, _) if self.invoke_latex(id, &command, &args, cx) => {}
-            (kind, _) if kind.is_visual_editor() && self.invoke_markdown(id, &command, &args, cx) => {}
+            (kind, _)
+                if kind.is_visual_editor() && self.invoke_markdown(id, &command, &args, cx) => {}
             (StructuredKind::Deck, _) if slides::handles(&command) => {
                 let result = self
                     .deck

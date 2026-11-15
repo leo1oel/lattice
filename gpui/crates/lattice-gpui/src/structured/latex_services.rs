@@ -242,7 +242,9 @@ mod tests {
             Some("v1")
         );
         assert_eq!(
-            texts.text_for(&request("main.tex", None, Some(1))).as_deref(),
+            texts
+                .text_for(&request("main.tex", None, Some(1)))
+                .as_deref(),
             Some("v1")
         );
         assert_eq!(texts.text_for(&request("main.tex", None, Some(2))), None);

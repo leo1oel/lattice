@@ -22,18 +22,18 @@
 use std::{cell::Cell, ops::Range, rc::Rc, time::Duration};
 
 use editor::ToOffset as _;
-use language::ToOffset as _;
 use gpui::{
     App, AppContext as _, Bounds, Context, Entity, Focusable as _, Pixels, Point, SharedString,
     Subscription, Task, Window, px,
 };
 use gpui_kit::component::input::{InputEvent, TextareaState};
+use language::ToOffset as _;
 use language::{Anchor, Point as BufferPoint};
 use lattice_core::project::EditorComment;
 use lattice_editor::{
     decorations::{Highlight, Mark, MarkStyle, Underline},
     gutter::{GutterMark, GutterShape},
-    hover::{HoverTarget, HoverProvider},
+    hover::{HoverProvider, HoverTarget},
 };
 use lattice_i18n::t;
 use lattice_ui::ActiveLattice as _;
@@ -114,7 +114,8 @@ impl EditorPanel {
         let store = store::store(cx);
         let root = self.project_root(cx);
         store.update(cx, |store, cx| store.ensure(&root, cx));
-        self.annotations._store = Some(cx.observe(&store, |this, _, cx| this.place_annotations(cx)));
+        self.annotations._store =
+            Some(cx.observe(&store, |this, _, cx| this.place_annotations(cx)));
         self.place_annotations(cx);
     }
 
@@ -204,7 +205,10 @@ impl EditorPanel {
                 },
                 hover: None,
             });
-            pins.push((row, notes.iter().map(|comment| comment.id.clone()).collect()));
+            pins.push((
+                row,
+                notes.iter().map(|comment| comment.id.clone()).collect(),
+            ));
         }
         self.annotations.pins = pins;
         *self.annotations.placed.borrow_mut() = placed;
@@ -214,8 +218,9 @@ impl EditorPanel {
                 placed: self.annotations.placed.clone(),
                 panel: cx.weak_entity(),
             };
-            self.lattice
-                .update(cx, |lattice, _| lattice.add_hover_provider(Rc::new(provider)));
+            self.lattice.update(cx, |lattice, _| {
+                lattice.add_hover_provider(Rc::new(provider))
+            });
         }
         let draft = self.draft_highlight(&text, cx);
         self.lattice.update(cx, |lattice, cx| {
@@ -305,12 +310,7 @@ impl EditorPanel {
     }
 
     /// Open a note on its passage, found again in the buffer.
-    fn open_draft(
-        &mut self,
-        note: Discarded,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> bool {
+    fn open_draft(&mut self, note: Discarded, window: &mut Window, cx: &mut Context<Self>) -> bool {
         let text = self.buffer.read(cx).text();
         let Some(range) = model::resolve_anchor(
             &text,
@@ -332,15 +332,14 @@ impl EditorPanel {
                 .default_value(note.body.clone())
         });
         field.update(cx, |field, cx| field.focus(window, cx));
-        let subscription = cx.subscribe_in(&field, window, |this, _, event, window, cx| {
-            match event {
+        let subscription =
+            cx.subscribe_in(&field, window, |this, _, event, window, cx| match event {
                 InputEvent::PressEnter {
                     secondary: true, ..
                 } => this.save_draft(window, cx),
                 InputEvent::Change => cx.notify(),
                 _ => {}
-            }
-        });
+            });
         self.annotations.drafts += 1;
         self.annotations.draft = Some(Draft {
             id: self.annotations.drafts,
@@ -503,10 +502,15 @@ impl EditorPanel {
 
     /// Show the annotation `id`'s passage, selected, in the middle of the
     /// editor (`revealInEditor`); false when it no longer anchors here.
-    pub fn reveal_annotation(&mut self, id: &str, window: &mut Window, cx: &mut Context<Self>) -> bool {
+    pub fn reveal_annotation(
+        &mut self,
+        id: &str,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> bool {
         let root = self.project_root(cx);
-        let Some(comment) = store::try_store(cx)
-            .and_then(|store| store.read(cx).get(&root, id).cloned())
+        let Some(comment) =
+            store::try_store(cx).and_then(|store| store.read(cx).get(&root, id).cloned())
         else {
             return false;
         };
@@ -520,7 +524,11 @@ impl EditorPanel {
     }
 
     /// A press on a pin opens its note (`onOpenAnnotation`).
-    pub(super) fn annotation_pin_pressed(&mut self, position: Point<Pixels>, cx: &mut Context<Self>) -> bool {
+    pub(super) fn annotation_pin_pressed(
+        &mut self,
+        position: Point<Pixels>,
+        cx: &mut Context<Self>,
+    ) -> bool {
         let painted = self.lattice.read(cx).painted();
         let Some(line_height) = painted.line_height else {
             return false;
@@ -595,7 +603,9 @@ impl HoverProvider for NoteCards {
                     };
                     panel
                         .update(cx, |panel, cx| {
-                            panel.lattice.update(cx, |lattice, cx| lattice.dismiss_hover(cx));
+                            panel
+                                .lattice
+                                .update(cx, |lattice, cx| lattice.dismiss_hover(cx));
                             cx.emit(EditorPanelEvent::Annotation(request));
                         })
                         .ok();

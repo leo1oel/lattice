@@ -21,7 +21,7 @@ use crate::{
         diagnostics::Severity,
         explain::{ExcerptLine, Explained},
     },
-    build_panel::BuildPanel,
+    build_panel::{BuildAction, BuildPanel},
 };
 
 /// How far into a failing line its token may start before the line is cut
@@ -30,7 +30,7 @@ const EXCERPT_LEAD: usize = 24;
 
 #[allow(clippy::too_many_arguments)]
 pub(super) fn explained_row(
-    _: &BuildPanel,
+    panel: &BuildPanel,
     ix: usize,
     diagnostic: &Diagnostic,
     explained: &Explained,
@@ -96,6 +96,7 @@ pub(super) fn explained_row(
                 .gap(px(6.))
                 .pl(px(8.))
                 .children(replace)
+                .child(ask_agent(panel, ix, build))
                 .child(div().flex_1())
                 .child(copy),
         )
@@ -197,4 +198,18 @@ fn floor_char(text: &str, at: usize) -> usize {
         at -= 1;
     }
     at
+}
+
+/// Ask the agent: a repair of this one error.
+fn ask_agent(panel: &BuildPanel, ix: usize, build: &Entity<BuildPanel>) -> AnyElement {
+    let build = build.clone();
+    Button::new(("compile-explained-ask-agent", ix), t!("Ask the agent"))
+        .ghost()
+        .compact()
+        .icon(crate::build::icons::WAND_SPARKLES)
+        .disabled(panel.fix_disabled())
+        .on_click(move |_, _, cx| {
+            build.update(cx, |build, cx| build.act(BuildAction::AskAgent(ix), cx))
+        })
+        .into_any_element()
 }

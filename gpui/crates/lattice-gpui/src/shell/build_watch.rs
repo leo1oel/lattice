@@ -92,6 +92,7 @@ impl Shell {
         watch._pause = None;
         watch.marks.clear();
         watch._project = Some(subscription);
+        self.repair_left_project(cx);
         self.run_build(BuildRequest::default(), window, cx);
     }
 
@@ -191,6 +192,7 @@ impl Shell {
         revision: u64,
         cx: &mut Context<Self>,
     ) {
+        self.note_repair_writable(cx);
         let watch = self.build_watch();
         watch.stall.note(&result.diagnostics, revision);
         watch.watched.pass_wrote(&result.outputs);

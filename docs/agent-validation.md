@@ -18,7 +18,8 @@ check, local or remote. Run only what directly proves your change:
 Before pushing any change to `src/`, run `pnpm gate:changed` once (2–5 min;
 the App suites run for any change reachable from `App.tsx`): lint, knip,
 typecheck, the i18n catalogs, and, when their inputs changed, `perf:evidence`,
-`notices:check` and `cargo fmt --check`; then the tests `vitest related` finds
+`notices:check`, the GPUI host error catalog
+(`scripts/gpui-host-errors.mjs --check`) and `cargo fmt --check`; then the tests `vitest related` finds
 from your changed files, and `pnpm test:invariants`, the tests that read
 stylesheets and fixtures, or run scripts, no import leads to. Do not assemble
 your own list of test files. The no-mistakes pipeline's test step runs this

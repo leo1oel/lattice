@@ -46,3 +46,31 @@ pub fn person_color(bridge: &OverleafBridge, name: &str, email: Option<&str>, mi
     }
     crate::history::widgets::peer_color(email.filter(|email| !email.is_empty()).unwrap_or(name))
 }
+
+/// Every hue the live channel told of, keyed as the Tauri app's
+/// `collabPeopleHues` keys them (`name:…`, `email:…` in lower case), for
+/// the pages that run its React review cards: the suggestions' authors
+/// first, then the people online, who win over a name that merely matches.
+pub fn people_hues(bridge: &OverleafBridge, path: &str) -> Vec<(String, u32)> {
+    let mut hues: Vec<(String, u32)> = Vec::new();
+    let mut set = |key: String, hue: u32| match hues.iter_mut().find(|(known, _)| *known == key) {
+        Some(entry) => entry.1 = hue,
+        None => hues.push((key, hue)),
+    };
+    if let Some(review) = bridge.live_review(path) {
+        for change in &review.changes {
+            if let Some(name) = bridge.author_name(change.user_id.as_deref()) {
+                set(format!("name:{}", name.trim()), change.hue);
+            }
+        }
+    }
+    for peer in bridge.peers() {
+        if !peer.name.trim().is_empty() {
+            set(format!("name:{}", peer.name.trim()), peer.hue);
+        }
+        if let Some(email) = &peer.email {
+            set(format!("email:{}", email.trim().to_lowercase()), peer.hue);
+        }
+    }
+    hues
+}

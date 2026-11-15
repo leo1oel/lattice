@@ -85,6 +85,8 @@ use crate::{
     theme::{IslandTheme, theme_payload},
 };
 
+mod file_drops;
+
 /// How long a hidden island keeps its page: the Tauri app's
 /// `HIBERNATE_AFTER_MS`.
 pub const HIBERNATE_AFTER: Duration = Duration::from_secs(20);
@@ -146,6 +148,9 @@ pub enum IslandEvent {
     },
     /// The page took or gave up the keyboard.
     Focus(bool),
+    /// A phase of a Finder drag, from the host alone
+    /// ([`Island::accept_file_drops`]): no page message can produce it.
+    FileDrop(Value),
     /// A press in the page.
     PointerDown,
     /// The island was torn down while hidden.
@@ -196,7 +201,11 @@ pub struct Island {
     building: bool,
     hibernation: Option<Task<()>>,
     stats: IslandStats,
+    /// Files dragged in from the Finder come to the owner instead of the
+    /// page ([`Island::accept_file_drops`]).
+    file_drops: bool,
     _inbox: Option<Task<()>>,
+    _drops: Option<Task<()>>,
     _drawn_poll: Option<Task<()>>,
     _webview_subscriptions: Vec<Subscription>,
     _subscriptions: Vec<Subscription>,
@@ -236,7 +245,9 @@ impl Island {
             building: false,
             hibernation: None,
             stats: IslandStats::default(),
+            file_drops: false,
             _inbox: None,
+            _drops: None,
             _drawn_poll: None,
             _webview_subscriptions: Vec::new(),
             _subscriptions: subscriptions,
@@ -532,6 +543,7 @@ impl Island {
             .with_hotkeys_zoom(false)
             .with_back_forward_navigation_gestures(false)
             .with_devtools(cfg!(debug_assertions));
+        builder = self.take_file_drops(builder, window, cx);
         if let Some(ground) = self.config.ground {
             let rgba = Rgba::from(ground);
             let channel = |value: f32| (value.clamp(0., 1.) * 255.).round() as u8;
@@ -612,6 +624,10 @@ impl Island {
                 }
                 cx.emit(IslandEvent::Ready);
                 cx.notify();
+            }
+            Inbound::Event { kind, .. } if kind.starts_with("island:file-drop") => {
+                self.stats.rejected += 1;
+                log::warn!("{}: dropped a page-posted {kind}", self.config.name);
             }
             Inbound::Event { kind, payload } => {
                 cx.emit(IslandEvent::Message { kind, payload });

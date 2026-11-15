@@ -82,7 +82,8 @@ pub fn store(cx: &mut App) -> Entity<AnnotationStore> {
 
 /// The store, when anything has asked for it yet.
 pub fn try_store(cx: &App) -> Option<Entity<AnnotationStore>> {
-    cx.try_global::<StoreGlobal>().map(|global| global.0.clone())
+    cx.try_global::<StoreGlobal>()
+        .map(|global| global.0.clone())
 }
 
 /// The writer's stable id (the Tauri app's `lattice.editor-comment-author-id.v1`):
@@ -397,38 +398,35 @@ impl AnnotationStore {
             )
             .source(t!("Annotations"))
             .key(format!("editor-comment-deleted:{id}"))
-            .action(crate::notices::NoticeAction::new(t!("Undo"), move |_, cx| {
-                let removed = removed.clone();
-                store
-                    .update(cx, |store, cx| {
-                        store.commit(
-                            &root,
-                            |notes| {
-                                if notes.annotations.iter().any(|item| item.id == removed.id) {
-                                    return false;
-                                }
-                                let at = index.min(notes.annotations.len());
-                                notes.annotations.insert(at, removed);
-                                true
-                            },
-                            cx,
-                        );
-                    })
-                    .ok();
-            })),
+            .action(crate::notices::NoticeAction::new(
+                t!("Undo"),
+                move |_, cx| {
+                    let removed = removed.clone();
+                    store
+                        .update(cx, |store, cx| {
+                            store.commit(
+                                &root,
+                                |notes| {
+                                    if notes.annotations.iter().any(|item| item.id == removed.id) {
+                                        return false;
+                                    }
+                                    let at = index.min(notes.annotations.len());
+                                    notes.annotations.insert(at, removed);
+                                    true
+                                },
+                                cx,
+                            );
+                        })
+                        .ok();
+                },
+            )),
             cx,
         );
     }
 
     /// Resolve or reopen `id`, saying so with a toast that offers it back
     /// (`changeResolved`).
-    pub fn set_resolved(
-        &mut self,
-        root: &Path,
-        id: &str,
-        resolved: bool,
-        cx: &mut Context<Self>,
-    ) {
+    pub fn set_resolved(&mut self, root: &Path, id: &str, resolved: bool, cx: &mut Context<Self>) {
         if !self.update(root, id, |comment| comment.resolved = resolved, cx) {
             return;
         }
@@ -444,18 +442,21 @@ impl AnnotationStore {
             crate::notices::Notice::new(lattice_ui::components::ToastLevel::Info, title)
                 .source(t!("Comments"))
                 .key(format!("editor-comment-resolved:{id}"))
-                .action(crate::notices::NoticeAction::new(t!("Undo"), move |_, cx| {
-                    store
-                        .update(cx, |store, cx| {
-                            store.update(
-                                &root,
-                                &undo_id,
-                                |comment| comment.resolved = !resolved,
-                                cx,
-                            );
-                        })
-                        .ok();
-                })),
+                .action(crate::notices::NoticeAction::new(
+                    t!("Undo"),
+                    move |_, cx| {
+                        store
+                            .update(cx, |store, cx| {
+                                store.update(
+                                    &root,
+                                    &undo_id,
+                                    |comment| comment.resolved = !resolved,
+                                    cx,
+                                );
+                            })
+                            .ok();
+                    },
+                )),
             cx,
         );
     }
@@ -497,7 +498,11 @@ mod tests {
             notes.annotations.push(note);
         }
         assert_eq!(
-            notes.annotations.iter().map(|note| note.number).collect::<Vec<_>>(),
+            notes
+                .annotations
+                .iter()
+                .map(|note| note.number)
+                .collect::<Vec<_>>(),
             vec![1, 2]
         );
         notes.annotations.remove(0);

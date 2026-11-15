@@ -74,11 +74,21 @@ fn default_bindings() -> Vec<KeyBinding> {
         KeyBinding::new(m!("["), GoBack, beside_vim("!vim_mode")),
         KeyBinding::new(m!("]"), GoForward, beside_vim("!vim_mode")),
         KeyBinding::new(m!("shift-h"), ReplaceInProject, None),
-        // ⌘⇧K and ⌘⇧L are the app's Insert citation and Insert reference
-        // (`editor-app-shortcuts.ts`), never Zed's delete line and select
-        // all matches, which the Tauri app's editor keymaps drop too.
-        KeyBinding::new(m!("shift-k"), gpui::NoAction, Some("Editor")),
-        KeyBinding::new(m!("shift-l"), gpui::NoAction, Some("Editor")),
+        // ⌘⇧K and ⌘⇧L are the app's Insert citation and Insert reference,
+        // and ⌘⇧O its Go to symbol (`command-keys.ts`), in the editor too:
+        // never Zed's delete line and select all matches, which the Tauri
+        // app's editor keymaps drop (`editor-app-shortcuts.ts`).
+        KeyBinding::new(m!("shift-k"), crate::shell::InsertCitation, None),
+        KeyBinding::new(m!("shift-l"), crate::shell::InsertReference, None),
+        KeyBinding::new(m!("shift-o"), crate::shell::GoToSymbol, None),
+        KeyBinding::new(m!("shift-k"), crate::shell::InsertCitation, Some("Editor")),
+        KeyBinding::new(m!("shift-l"), crate::shell::InsertReference, Some("Editor")),
+        KeyBinding::new(m!("shift-o"), crate::shell::GoToSymbol, Some("Editor")),
+        // ⌘G is Go to line (`GOTO_LINE_KEY`), over Zed's find next in the
+        // editor; find next stays on Enter and F3 in the find bar. Off
+        // macOS Vim's normal mode keeps Ctrl+G.
+        KeyBinding::new(m!("g"), crate::shell::GoToLine, beside_vim("!VimControl")),
+        KeyBinding::new(m!("g"), crate::shell::GoToLine, Some(LATEX_FORMAT_KEYS)),
         KeyBinding::new(m!("shift-n"), NewProject, None),
         KeyBinding::new(m!("s"), Save, beside_vim("!(vim_mode == insert)")),
         KeyBinding::new(m!("shift-j"), ForwardSync, None),
@@ -357,17 +367,31 @@ mod tests {
     }
 
     #[test]
-    fn zeds_delete_line_and_select_all_matches_leave_cite_and_ref_keys() {
+    fn cite_and_ref_keys_win_over_zeds_delete_line_and_select_all_matches() {
         // default-macos.json, "Editor": cmd-shift-k deletes the line and
         // cmd-shift-l selects every match.
         let delete = KeyBinding::new(m!("shift-k"), editor::actions::DeleteLine, Some("Editor"));
-        assert_eq!(resolve_in_editor(delete, m!("shift-k")), None);
+        assert_eq!(
+            resolve_in_editor(delete, m!("shift-k")),
+            Some(crate::shell::InsertCitation.name())
+        );
         let select = KeyBinding::new(
             m!("shift-l"),
             editor::actions::SelectAllMatches,
             Some("Editor"),
         );
-        assert_eq!(resolve_in_editor(select, m!("shift-l")), None);
+        assert_eq!(
+            resolve_in_editor(select, m!("shift-l")),
+            Some(crate::shell::InsertReference.name())
+        );
+        let keymap = Keymap::new(default_bindings());
+        let stack = [KeyContext::parse("LatticeShell").unwrap()];
+        let (matched, _) =
+            keymap.bindings_for_input(&[Keystroke::parse(m!("shift-o")).unwrap()], &stack);
+        assert_eq!(
+            matched.first().map(|binding| binding.action().name()),
+            Some(crate::shell::GoToSymbol.name())
+        );
     }
 
     #[test]

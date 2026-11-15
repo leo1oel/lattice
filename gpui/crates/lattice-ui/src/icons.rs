@@ -175,6 +175,10 @@ lucide! {
     EXTERNAL_LINK = "icons" / "external-link";
     GIT_MERGE = "icons" / "git-merge";
     SHIELD_ALERT = "icons" / "shield-alert";
+    /// The Agent's permission modes (`synara-permission-picker.tsx`).
+    SHIELD = "icons" / "shield";
+    SHIELD_CHECK = "icons" / "shield-check";
+    HAND = "icons" / "hand";
     ARROW_DOWN_TO_LINE = "icons" / "arrow-down-to-line";
     ARROW_UP_FROM_LINE = "icons" / "arrow-up-from-line";
     FEATHER = "icons" / "feather";

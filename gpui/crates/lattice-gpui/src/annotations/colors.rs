@@ -16,17 +16,32 @@ fn dark(palette: &Palette) -> bool {
 
 /// `--annotation-proposed-ink` (`--glyph-tex`).
 pub fn proposed(palette: &Palette) -> Hsla {
-    if dark(palette) { rgb(0x8fa5ff) } else { rgb(0x3b5bd6) }.into()
+    if dark(palette) {
+        rgb(0x8fa5ff)
+    } else {
+        rgb(0x3b5bd6)
+    }
+    .into()
 }
 
 /// `--annotation-asked-ink` (`--glyph-style`).
 pub fn asked(palette: &Palette) -> Hsla {
-    if dark(palette) { rgb(0xbba3f2) } else { rgb(0x7a52c4) }.into()
+    if dark(palette) {
+        rgb(0xbba3f2)
+    } else {
+        rgb(0x7a52c4)
+    }
+    .into()
 }
 
 /// `--annotation-pin-text` (`--annotation-contrast`).
 pub fn pin_text(palette: &Palette) -> Hsla {
-    if dark(palette) { rgb(0x1a1a1c) } else { rgb(0xffffff) }.into()
+    if dark(palette) {
+        rgb(0x1a1a1c)
+    } else {
+        rgb(0xffffff)
+    }
+    .into()
 }
 
 /// A pin's or chip's ink for `status` (`--annotation-pin-ink`).
