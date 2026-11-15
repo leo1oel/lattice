@@ -102,6 +102,7 @@ impl Shell {
                 }
             }
             RoundsEvent::OpenPanel => self.open_annotations(window, cx),
+            RoundsEvent::OpenRounds => self.open_rounds_sheet(window, cx),
         }
     }
 

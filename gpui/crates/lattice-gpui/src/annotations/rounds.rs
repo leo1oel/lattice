@@ -62,6 +62,8 @@ pub enum RoundsEvent {
     CloseReview,
     /// Show the Annotations panel.
     OpenPanel,
+    /// Show the Revision rounds sheet (`rounds_sheet.rs`).
+    OpenRounds,
 }
 
 /// Where an accepted proposal now stands in its file, as the editor applied
@@ -181,7 +183,7 @@ impl AnnotationRounds {
 
     /// A file's current text: the open buffer when an editor has it, else
     /// the disk.
-    fn read_source(&self, root: &Path, path: &str, cx: &App) -> Option<String> {
+    pub(crate) fn read_source(&self, root: &Path, path: &str, cx: &App) -> Option<String> {
         self.live_source(path, cx).or_else(|| std::fs::read_to_string(root.join(path)).ok())
     }
 
@@ -387,12 +389,16 @@ impl AnnotationRounds {
                     );
                 });
                 if accepted {
+                    let rounds = cx.entity().downgrade();
                     crate::notices::show(
                         crate::notices::Notice::new(
                             lattice_ui::components::ToastLevel::Info,
                             t!("Annotations"),
                         )
                         .detail(t!("Round {number} is saved as a version", number = number))
+                        .action(crate::notices::NoticeAction::new(t!("Compare"), move |_, cx| {
+                            rounds.update(cx, |_, cx| cx.emit(RoundsEvent::OpenRounds)).ok();
+                        }))
                         .key(format!("annotation-round-settled:{number}")),
                         cx,
                     );
