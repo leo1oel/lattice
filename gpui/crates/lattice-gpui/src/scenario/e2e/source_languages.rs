@@ -110,6 +110,7 @@ impl Run {
         let (language, found) = self
             .parsed_highlights(cx, &panel, &[(entry.as_str(), 1), ("title", 0)])
             .await;
+        self.completion_shot(cx, "source-language-bibtex").await;
         steps.check(
             "a .bib file opens in BibTeX, its entry type a keyword and a field name a property, as codemirror-lang-bib styles them",
             language.as_deref() == Some("BibTeX")
@@ -136,6 +137,7 @@ impl Run {
                 ],
             )
             .await;
+        self.completion_shot(cx, "source-language-html").await;
         steps.check(
             "a .html file opens in HTML: a tag a type, an attribute an attribute, its <style> CSS and its <script> JavaScript, as lang-html nests them",
             language.as_deref() == Some("HTML")
@@ -153,6 +155,7 @@ impl Run {
         std::fs::write(&notes, NOTES_TEXT)?;
         let panel = self.open(cx, &notes, Some(1))?;
         let (language, found) = self.parsed_highlights(cx, &panel, &[("margin", 0)]).await;
+        self.completion_shot(cx, "source-language-markdown-css").await;
         steps.check(
             "a Markdown file's fenced css block is highlighted as CSS",
             language.as_deref() == Some("Markdown")

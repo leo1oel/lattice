@@ -117,9 +117,11 @@ impl Run {
         // there turns the command into \rcmpd{.
         self.end_line(cx, &panel)?;
         let keys = self.typed_menu(cx, &panel, " \\cmpd{k").await?;
+        self.completion_shot(cx, "completion-cmpd-keys").await;
         self.press(cx, '\u{1b}', false).await?;
         self.end_line(cx, &panel)?;
         let marks = self.typed_menu(cx, &panel, " \\cmpd{alcohol.a").await?;
+        self.completion_shot(cx, "completion-cmpd-mark").await;
         self.press(cx, '\n', false).await?;
         self.pause(cx, Duration::from_millis(200)).await;
         let text = self.editor_text(cx, &panel);
@@ -177,7 +179,7 @@ impl Run {
 
     /// With `LATTICE_E2E_SHOTS` set, the window with its open menu, as
     /// `name.png` in that folder, for a reviewer to look at.
-    async fn completion_shot(&self, cx: &mut AsyncApp, name: &str) {
+    pub(super) async fn completion_shot(&self, cx: &mut AsyncApp, name: &str) {
         let Some(dir) = std::env::var_os("LATTICE_E2E_SHOTS") else {
             return;
         };
