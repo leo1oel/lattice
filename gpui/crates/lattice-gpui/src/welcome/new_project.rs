@@ -5,10 +5,17 @@
 //! template (NeurIPS by default), then Cancel and Choose location, which
 //! asks where to create the folder. Enter in the name chooses too.
 //!
-//! The project is made by lattice-core (`create_with_venue`, as the Tauri
-//! app's `create_project`), and an error lands under the fields.
+//! Under the venue, My templates lists the templates the writer saved and
+//! offers Save a local template… (`local_templates.rs`, `save_template.rs`);
+//! choosing one creates the project from it instead.
+//!
+//! The project is made by lattice-core (`create_with_venue`, or
+//! `templates::instantiate` for a saved template, as the Tauri app's
+//! `create_project`), and an error lands under the fields.
 
 use std::path::PathBuf;
+
+use super::save_template::{SaveTemplateDialog, SaveTemplateEvent};
 
 use gpui::{
     App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, Focusable,
@@ -16,6 +23,7 @@ use gpui::{
     Styled as _, Subscription, Window, div, px,
 };
 use gpui_kit::component::input::{InputEvent, InputState};
+use lattice_i18n::t;
 use lattice_ui::{
     ActiveLattice as _, Elevation, TextRole, TextRoleStyle as _,
     components::{Button, Field, Select, rise_in},
@@ -42,21 +50,35 @@ pub const VENUES: [(&str, &str); 14] = [
     ("ustcthesis", "USTC thesis (ustcthesis)"),
 ];
 const DEFAULT_VENUE: usize = 2;
-pub const UNTITLED: &str = "Untitled research";
 
 pub enum NewProjectEvent {
     Dismiss,
-    /// Create a project named `name` from `venue`; the window asks where.
+    /// Create a project named `name` from `venue` (a built-in venue's id,
+    /// or `local:<id>`); the window asks where.
     Create {
         name: String,
-        venue: &'static str,
+        venue: String,
     },
+}
+
+/// What the project is made from.
+#[derive(Clone, PartialEq)]
+enum Venue {
+    BuiltIn(usize),
+    /// A saved template, by id.
+    Local(String),
 }
 
 pub struct NewProjectDialog {
     name: Entity<InputState>,
-    venue: usize,
+    venue: Venue,
     error: Option<String>,
+    /// My templates.
+    mine: super::local_templates::MyTemplates,
+    /// The project open in the window, which Save a local template offers.
+    current: Option<PathBuf>,
+    /// Save a local template, while it is up.
+    saving: Option<(Entity<SaveTemplateDialog>, Subscription)>,
     focus: FocusHandle,
     _subscription: Subscription,
 }
@@ -64,20 +86,82 @@ pub struct NewProjectDialog {
 impl EventEmitter<NewProjectEvent> for NewProjectDialog {}
 
 impl NewProjectDialog {
-    pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let name = cx.new(|cx| InputState::new(window, cx).placeholder(UNTITLED));
+    pub fn new(current: Option<PathBuf>, window: &mut Window, cx: &mut Context<Self>) -> Self {
+        let name = cx.new(|cx| InputState::new(window, cx).placeholder(t!("Untitled research")));
         let subscription = cx.subscribe(&name, |this, _, event, cx| {
             if let InputEvent::PressEnter { .. } = event {
                 this.create(cx);
             }
         });
+        let load = super::local_templates::load(cx);
+        cx.spawn(async move |this, cx| {
+            let listed = load.await;
+            this.update(cx, |this, cx| {
+                this.mine.loaded(listed);
+                cx.notify();
+            })
+            .ok();
+        })
+        .detach();
         Self {
             name,
-            venue: DEFAULT_VENUE,
+            venue: Venue::BuiltIn(DEFAULT_VENUE),
             error: None,
+            mine: Default::default(),
+            current,
+            saving: None,
             focus: cx.focus_handle(),
             _subscription: subscription,
         }
+    }
+
+    /// The saved template at `ix` in My templates, chosen.
+    pub(crate) fn choose_local(&mut self, ix: usize, cx: &mut Context<Self>) {
+        if let Some(item) = self.mine.items.get(ix) {
+            self.venue = Venue::Local(item.id.clone());
+            cx.notify();
+        }
+    }
+
+    pub(super) fn toggle_template_files(&mut self, cx: &mut Context<Self>) {
+        self.mine.files_open = !self.mine.files_open;
+        cx.notify();
+    }
+
+    /// Save a local template… : its dialog over this one.
+    pub(crate) fn open_save_template(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.saving.is_some() {
+            return;
+        }
+        let store = super::local_templates::store();
+        let dialog = cx.new(|cx| SaveTemplateDialog::new(self.current.clone(), store, window, cx));
+        let subscription = cx.subscribe_in(&dialog, window, |this, _, event, window, cx| {
+            if let SaveTemplateEvent::Saved(item) = event {
+                this.mine.items.push(item.clone());
+                this.mine.error = None;
+                this.venue = Venue::Local(item.id.clone());
+            }
+            this.saving = None;
+            this.focus_input(window, cx);
+            cx.notify();
+        });
+        dialog.update(cx, |dialog, cx| dialog.focus_dialog(window, cx));
+        self.saving = Some((dialog, subscription));
+        cx.notify();
+    }
+
+    /// Save a local template, while it is up (for a scenario).
+    pub fn save_template_dialog(&self) -> Option<&Entity<SaveTemplateDialog>> {
+        self.saving.as_ref().map(|(dialog, _)| dialog)
+    }
+
+    /// The saved templates My templates lists, and the one chosen.
+    pub fn local_templates(&self) -> (Vec<String>, Option<String>) {
+        let chosen = match &self.venue {
+            Venue::Local(id) => Some(id.clone()),
+            Venue::BuiltIn(_) => None,
+        };
+        (self.mine.items.iter().map(|item| item.id.clone()).collect(), chosen)
     }
 
     pub fn focus_input(&self, window: &mut Window, cx: &mut App) {
@@ -91,19 +175,28 @@ impl NewProjectDialog {
 
     fn create(&mut self, cx: &mut Context<Self>) {
         let name = self.name.read(cx).value().trim().to_string();
+        let venue = match &self.venue {
+            Venue::BuiltIn(ix) => VENUES[*ix].0.to_string(),
+            Venue::Local(id) => format!("{}{id}", super::local_templates::LOCAL_PREFIX),
+        };
         cx.emit(NewProjectEvent::Create {
             name: if name.is_empty() {
-                UNTITLED.to_string()
+                t!("Untitled research").to_string()
             } else {
                 name
             },
-            venue: VENUES[self.venue].0,
+            venue,
         });
     }
 }
 
-/// Create the project in `parent` from the venue, with lattice-core.
+/// Create the project in `parent` from the venue, or the saved template
+/// `local:<id>` names, with lattice-core.
 pub fn create_project(parent: PathBuf, name: String, venue: &str) -> Result<PathBuf, String> {
+    if let Some(id) = venue.strip_prefix(super::local_templates::LOCAL_PREFIX) {
+        let store = super::local_templates::store();
+        return lattice_core::project::templates::instantiate(&store, id, &parent, &name);
+    }
     let venue = lattice_core::project::Venue::parse(venue)?;
     lattice_core::project::create_with_venue(&parent, &name, venue)
 }
@@ -132,16 +225,25 @@ impl Render for NewProjectDialog {
                 .child(text)
                 .child(control)
         };
+        let built_in = match self.venue {
+            Venue::BuiltIn(ix) => Some(ix),
+            Venue::Local(_) => None,
+        };
         let venue = Select::new(
             "new-project-venue",
             VENUES.iter().map(|(_, label)| *label),
-            Some(self.venue),
+            built_in,
         )
-        .placeholder("Choose a built-in template")
+        .placeholder(t!("Choose a built-in template"))
         .on_change(cx.listener(|this, ix: &usize, _, cx| {
-            this.venue = *ix;
+            this.venue = Venue::BuiltIn(*ix);
             cx.notify();
         }));
+        let chosen = match &self.venue {
+            Venue::Local(id) => Some(id.as_str()),
+            Venue::BuiltIn(_) => None,
+        };
+        let mine = super::local_templates::render(&self.mine, chosen, cx);
         let card = div()
             .id("new-project")
             .w(width)
@@ -158,7 +260,7 @@ impl Render for NewProjectDialog {
                 div()
                     .text_role(TextRole::Title, cx)
                     .text_color(palette.text)
-                    .child("Create a research project"),
+                    .child(t!("Create a research project")),
             )
             .child(
                 div()
@@ -167,12 +269,13 @@ impl Render for NewProjectDialog {
                     .flex_col()
                     .gap(px(12.))
                     .child(label(
-                        "Project name",
+                        t!("Project name"),
                         Field::new(&self.name).into_any_element(),
                         cx,
                     ))
-                    .child(label("Venue template", venue.into_any_element(), cx)),
+                    .child(label(t!("Venue template"), venue.into_any_element(), cx)),
             )
+            .child(mine)
             .children(self.error.clone().map(|error| {
                 div()
                     .pt(px(6.))
@@ -187,12 +290,12 @@ impl Render for NewProjectDialog {
                     .gap(px(8.))
                     .pt(px(if self.error.is_some() { 16. } else { 24. }))
                     .child(
-                        Button::new("new-project-cancel", "Cancel")
+                        Button::new("new-project-cancel", t!("Cancel"))
                             .ghost()
                             .on_click(cx.listener(|_, _, _, cx| cx.emit(NewProjectEvent::Dismiss))),
                     )
                     .child(
-                        Button::new("new-project-create", "Choose location")
+                        Button::new("new-project-create", t!("Choose location"))
                             .primary()
                             .on_click(cx.listener(|this, _, _, cx| this.create(cx))),
                     ),
@@ -221,6 +324,7 @@ impl Render for NewProjectDialog {
                 cx.listener(|_, _, _, cx| cx.emit(NewProjectEvent::Dismiss)),
             )
             .child(rise_in("new-project-in", card))
+            .children(self.saving.as_ref().map(|(dialog, _)| dialog.clone()))
     }
 }
 
