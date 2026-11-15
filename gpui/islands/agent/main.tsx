@@ -41,6 +41,8 @@
  *   agent:files-changed { paths }            the project watcher's burst (`library.ts`)
  *   agent:host-writes { paths }              project files Lattice wrote itself, for a running
  *                                            turn's Undo to keep (`agent-host-writes.ts`)
+ *   agent:set-permission-mode { mode }       the header's picker chose a mode
+ *   agent:file-drag   { phase, paths }       a Finder drag over the panel, for its composer (`drops.ts`)
  *   agent:frame-message { … }                a message for the Agent's frame, as the Tauri
  *                                            host posts it (a checkpoint's Undo, a build's result)
  *   agent:overleaf    { linked, docPaths }   the project's Overleaf link (`library.ts`)
@@ -58,6 +60,8 @@
  *   agent:git-view    { view }               a Git view tab chosen
  *   agent:turn        { presence }           the panel's turn while it runs or waits, or null
  *   agent:turn-started                       a turn started in the panel's project
+ *   agent:permission  { mode, autoModeAvailable }  the frame's permission mode (mode null
+ *                                            while there is no runtime), for the header's picker
  *   agent:close-git
  *   agent:drawn                              the surface is up: reveal the page
  */
@@ -99,9 +103,10 @@ import type { OpenSlideContext } from "../../../src/editor/presentation/open-sli
 import { parseSynaraNotificationMessage } from "../../../src/agent/synara-notifications";
 import { agentDeckPresence, parseAgentTurnActivity, subscribeAgentDeckPresence } from "../../../src/agent/agent-turn-activity";
 import { noteHostFileWrites } from "../../../src/agent/agent-host-writes";
+import { useAgentFileDrops } from "./drops";
 import { SYNARA_POPUP_OPEN, LATTICE_OUTSIDE_POINTER_DOWN } from "../../../src/agent/synara-popup-dismissal";
 import type { AgentGitWorkspaceView } from "../../../src/agent/synara-runtime";
-import { persistSynaraThread, type AgentTurnReview } from "../../../src/app/app-synara-embed";
+import { isSynaraPermissionMode, persistSynaraThread, type AgentTurnReview } from "../../../src/app/app-synara-embed";
 import type { CanvasMode, EditorPosition, ProjectSnapshot } from "../../../src/app-types";
 import type { ThemeAccent, ThemeTint, Translucency } from "../../../src/settings/theme-customization";
 
@@ -263,6 +268,7 @@ function Agent({ opened, workspace, visible, appearance, git, overleaf, deckRequ
     appearance: { theme, tint, accent: appearance.accent, translucency: appearance.translucency, translucent: appearance.translucent },
   });
   const { latest, deliverable, postMessage, requestRuntime, origin, frameRef, sourceControlFrameRef } = synara;
+  const dropActive = useAgentFileDrops(opened.surface === "agent", postMessage);
 
   // The Git workspace starts the runtime as the Tauri app's Git button does.
   useEffect(() => {
@@ -336,6 +342,11 @@ function Agent({ opened, workspace, visible, appearance, git, overleaf, deckRequ
     let popupOpen = false;
     const stops = [
       bridgeHost.on("agent:opened", () => synaraRef.current.notifyPanelOpened()),
+      // The header's permission picker, drawn by the owner (`permission.rs`).
+      bridgeHost.on("agent:set-permission-mode", (payload) => {
+        const mode = (payload as { mode?: unknown } | null)?.mode;
+        if (opened.surface === "agent" && isSynaraPermissionMode(mode)) synaraRef.current.changePermissionMode(mode);
+      }),
       // What the Tauri host posts the Agent's frame from the rest of its
       // window (`useAgentCheckpoints`, `AppHistoryDrawers`' Undo).
       bridgeHost.on("agent:frame-message", (payload) => {
@@ -398,6 +409,15 @@ function Agent({ opened, workspace, visible, appearance, git, overleaf, deckRequ
       window.removeEventListener("message", onMessage);
     };
   }, [frameRef, opened.projectRoot, opened.surface, origin, sourceControlFrameRef]);
+
+  // The frame's permission mode, for the picker the owner draws in the
+  // panel's header; none while the runtime is not up, as the Tauri header
+  // shows the picker only with an origin (`trellis-panel-actions.tsx`).
+  const { permissionMode, autoModeAvailable } = synara;
+  useEffect(() => {
+    if (opened.surface !== "agent") return;
+    host().post("agent:permission", origin ? { mode: permissionMode, autoModeAvailable } : { mode: null });
+  }, [autoModeAvailable, opened.surface, origin, permissionMode]);
 
   // The turn's presence, which the Tauri host keeps as window state, goes to
   // the owner: its leave-project question and the open decks follow it.
@@ -479,7 +499,7 @@ function Agent({ opened, workspace, visible, appearance, git, overleaf, deckRequ
         projectRoot={opened.projectRoot}
         theme={theme}
         appLocale={opened.locale}
-        dropActive={false}
+        dropActive={dropActive}
       />
     </div>
   );

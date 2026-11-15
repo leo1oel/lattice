@@ -129,6 +129,21 @@ impl Panel for SynaraPanel {
     fn inner_padding(&self, _: &App) -> bool {
         false
     }
+
+    /// The Agent's header tool: its permission picker, once the frame has
+    /// said its mode (`trellis-panel-actions.tsx`).
+    fn title_suffix(&mut self, _: &mut Window, cx: &mut Context<Self>) -> Option<impl IntoElement> {
+        let surface = self.surface.read(cx);
+        if surface.kind() != SurfaceKind::Agent {
+            return None;
+        }
+        let permission = surface.permission()?;
+        Some(surface::permission::picker(
+            &self.surface,
+            permission,
+            surface.endpoint_saved(),
+        ))
+    }
 }
 
 impl SynaraPanel {

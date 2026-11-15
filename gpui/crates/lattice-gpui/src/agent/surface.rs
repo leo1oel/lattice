@@ -45,8 +45,11 @@ use serde_json::{Value, json};
 use super::{commands, runtime};
 
 mod documents;
+mod drops;
 mod invoke;
 mod notices;
+pub mod permission;
+mod skeleton;
 
 /// Which of the page's three surfaces this is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -134,6 +137,10 @@ pub struct SynaraSurface {
     shown: bool,
     /// The page has drawn since it was (re)built.
     drawn: bool,
+    /// When the Agent's page was asked to open, for its placeholder's
+    /// loading clock (`skeleton.rs`), and the panel's width as last drawn.
+    opening: Option<Instant>,
+    width: std::rc::Rc<std::cell::Cell<gpui::Pixels>>,
     locale: Locale,
     /// What the page was last told of the appearance.
     appearance: Value,
@@ -157,6 +164,13 @@ pub struct SynaraSurface {
     /// and how many were ever reported.
     host_writes: std::collections::VecDeque<String>,
     host_writes_reported: usize,
+    /// The frame's permission mode, once it has said (`permission.rs`).
+    permission: Option<permission::AgentPermission>,
+    /// A model endpoint is saved, for the picker's note.
+    endpoint_saved: bool,
+    /// The paths of the Finder drop the page may read (`drops.rs`).
+    dropped: Vec<String>,
+    drop_read: Option<Result<usize, String>>,
     last_pointer: Option<Instant>,
     _subscriptions: Vec<Subscription>,
 }
@@ -191,7 +205,13 @@ impl SynaraSurface {
                     // Settings' page owns neither.
                     hibernates: kind == SurfaceKind::Settings,
                 };
-                let island = cx.new(|cx| Island::new(config, window, cx));
+                let island = cx.new(|cx| {
+                    let mut island = Island::new(config, window, cx);
+                    if kind == SurfaceKind::Agent {
+                        island.accept_file_drops();
+                    }
+                    island
+                });
                 subscriptions.push(cx.subscribe_in(&island, window, Self::on_island));
                 subscriptions.push(cx.observe(&island, |_, _, cx| cx.notify()));
                 subscriptions.push(cx.on_release(|this: &mut Self, _| {
@@ -215,6 +235,8 @@ impl SynaraSurface {
             root: None,
             shown: false,
             drawn: false,
+            opening: None,
+            width: Default::default(),
             locale: lattice_i18n::locale(),
             appearance,
             workspace: Value::Null,
@@ -226,6 +248,10 @@ impl SynaraSurface {
             overleaf: Value::Null,
             host_writes: std::collections::VecDeque::new(),
             host_writes_reported: 0,
+            permission: None,
+            endpoint_saved: false,
+            dropped: Vec::new(),
+            drop_read: None,
             last_pointer: None,
             _subscriptions: subscriptions,
         }
@@ -284,6 +310,7 @@ impl SynaraSurface {
         // (the page keys its host by the project).
         self.workspace = Value::Null;
         self.overleaf = Value::Null;
+        self.permission = None;
         self.deck = None;
         self.open_page(cx);
         self.sync_active(cx);
@@ -442,6 +469,9 @@ impl SynaraSurface {
             return;
         };
         self.locale = lattice_i18n::locale();
+        if !self.drawn && self.opening.is_none() {
+            self.opening = Some(Instant::now());
+        }
         let payload = json!({
             "surface": self.kind.name(),
             "projectRoot": root.to_string_lossy(),
@@ -516,6 +546,7 @@ impl SynaraSurface {
         match kind {
             "agent:drawn" => {
                 self.drawn = true;
+                self.opening = None;
                 if let Some(island) = &self.island {
                     island.update(cx, |island, cx| island.reveal(cx));
                 }
@@ -523,6 +554,8 @@ impl SynaraSurface {
             }
             "island:notify" => crate::structured::show_page_notice(payload, cx),
             "agent:notify" => self.synara_notice(payload, cx),
+            "agent:permission" => self.permission_reported(payload, cx),
+            "island:file-drop" => self.file_dragged(payload, cx),
             // The Agent's checkpoints: the History panel's rows, and the
             // builds its turns' edits need (`shell/agent_checkpoints.rs`).
             "agent:history" => match super::checkpoints::parse_snapshot(payload) {
@@ -641,7 +674,7 @@ fn appearance(cx: &App) -> Value {
 }
 
 impl Render for SynaraSurface {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         // The interface language changed (settings redraw every window).
         if lattice_i18n::locale() != self.locale {
             self.locale = lattice_i18n::locale();
@@ -661,6 +694,7 @@ impl Render for SynaraSurface {
                     })
             })
             .map(Into::into);
+        let placeholder = self.awaiting_page().filter(|_| failure.is_none());
         let this = cx.entity().downgrade();
         div()
             .id(("synara-surface", self.kind as usize))
@@ -714,6 +748,10 @@ impl Render for SynaraSurface {
                                 .child(failure),
                         ),
                 )
+            })
+            // The panel the Agent opens on, until its page has drawn.
+            .when_some(placeholder, |this, since| {
+                this.child(skeleton::agent(since, self.width.clone(), window, cx))
             })
             .when(self.root.is_some(), |this| {
                 this.children(self.island.clone())

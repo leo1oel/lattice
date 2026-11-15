@@ -85,6 +85,8 @@ use crate::{
     theme::{IslandTheme, theme_payload},
 };
 
+mod file_drops;
+
 /// How long a hidden island keeps its page: the Tauri app's
 /// `HIBERNATE_AFTER_MS`.
 pub const HIBERNATE_AFTER: Duration = Duration::from_secs(20);
@@ -196,7 +198,11 @@ pub struct Island {
     building: bool,
     hibernation: Option<Task<()>>,
     stats: IslandStats,
+    /// Files dragged in from the Finder come to the owner instead of the
+    /// page ([`Island::accept_file_drops`]).
+    file_drops: bool,
     _inbox: Option<Task<()>>,
+    _drops: Option<Task<()>>,
     _drawn_poll: Option<Task<()>>,
     _webview_subscriptions: Vec<Subscription>,
     _subscriptions: Vec<Subscription>,
@@ -236,7 +242,9 @@ impl Island {
             building: false,
             hibernation: None,
             stats: IslandStats::default(),
+            file_drops: false,
             _inbox: None,
+            _drops: None,
             _drawn_poll: None,
             _webview_subscriptions: Vec::new(),
             _subscriptions: subscriptions,
@@ -532,6 +540,7 @@ impl Island {
             .with_hotkeys_zoom(false)
             .with_back_forward_navigation_gestures(false)
             .with_devtools(cfg!(debug_assertions));
+        builder = self.take_file_drops(builder, window, cx);
         if let Some(ground) = self.config.ground {
             let rgba = Rgba::from(ground);
             let channel = |value: f32| (value.clamp(0., 1.) * 255.).round() as u8;
