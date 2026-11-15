@@ -30,6 +30,7 @@ What it does so far, and nothing more, one line per feature, each with its own p
 - [Project tree](docs/project-tree.md): opens a project folder as the Tauri app does, in the Project tree with its file operations and Git status.
 - [Saving and outside edits](docs/saving.md): saves as the Tauri app does, and takes outside edits into clean buffers and merges them into edited ones.
 - [Settings](docs/settings.md): Settings (⌘,) as the Tauri app's, with the interface size, sounds, spell checking and translucency.
+- [Selection toolbar and highlights](docs/selection-toolbar.md): formats, links, headings and highlights a selection from the Tauri app's selection toolbar and highlighter palette.
 - [Source editor](docs/editor.md): edits sources in Zed's editor with LaTeX highlighting, search, Vim, the editor adapter's cards, completion and diagnostics, the gutter, the outline rail and a `.tex` file's Visual view.
 - [Terminal panel](docs/terminal.md): the Tauri app's Terminal panel, on Zed's alacritty-based terminal.
 - [TeX doctor and setup](docs/tex-setup.md): the TeX doctor, the setup wizard and package installs.

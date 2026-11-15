@@ -481,7 +481,7 @@ impl AnnotationsPanel {
                 .collect();
             placed.sort_by_key(|(comment, from, _)| (*from, comment.number));
             for (comment, from, line) in placed {
-                let section = sections.iter().filter(|(offset, _)| *offset <= from).last();
+                let section = sections.iter().rev().find(|(offset, _)| *offset <= from);
                 let label = match section {
                     Some((_, label)) => Some(label.clone()),
                     None if !sections.is_empty() => Some(t!("Before the first section").to_string()),

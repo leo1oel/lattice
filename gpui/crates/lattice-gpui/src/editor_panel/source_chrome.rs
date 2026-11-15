@@ -143,11 +143,17 @@ impl EditorPanel {
                     cx.stop_propagation();
                 }
             }))
+            // The selection toolbar waits while a selection is dragged out
+            // (it hears the pointer come up anywhere in the window).
+            .capture_any_mouse_down(cx.listener(|this, event: &gpui::MouseDownEvent, _, cx| {
+                this.toolbar_pointer(true, event.position, cx)
+            }))
             .capture_key_down(cx.listener(|this, _, _, cx| this.release_rail(cx)))
             .child(self.lattice.clone())
             .children(self.rail.clone())
             .children(margin.map(|(_, layer)| layer))
             .children(self.annotation_composer(window, cx))
+            .children(self.selection_toolbar(window, cx))
             .child(
                 gpui::canvas(
                     move |bounds, window, cx| {

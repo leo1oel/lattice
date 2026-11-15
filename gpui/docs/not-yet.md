@@ -11,11 +11,7 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] Insert citation and Insert reference: ⌘⇧K and ⌘⇧L are reserved for them and do nothing until they land.
 
-- [ ] The source selection toolbar, LaTeX's and Markdown's.
-
 - [ ] Margin review's J/K walk between items.
-
-- [ ] The Tauri app's selection toolbar's Annotate (the palette's Annotate selection stands in).
 
 - [ ] A Finder drop onto the editor as a figure.
 
@@ -38,6 +34,12 @@ A feature that lands deletes its own line (only that line, so features landing s
 - [ ] The Agent: reviewing the proposals its annotation tools record.
 
 - [ ] The Agent: inline Proofread and Polish.
+
+- [ ] The selection toolbar's Proofread, Polish and Rewrite with its instruction menu.
+
+- [ ] The highlight's colour swatch before `\colorbox` in the source.
+
+- [ ] The custom highlight colour's two-dimensional picker (the hex field and the offered colours stand in).
 
 - [ ] The PDF: its annotations.
 
