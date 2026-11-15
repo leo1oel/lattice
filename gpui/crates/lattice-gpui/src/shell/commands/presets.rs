@@ -27,6 +27,7 @@ pub(super) fn preset_commands(context: &CommandContext, out: &mut Vec<Command>) 
             action,
             palette: true,
             keywords: "preset",
+            keys_of: None,
         });
     }
 }

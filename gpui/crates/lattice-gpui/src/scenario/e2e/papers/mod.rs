@@ -241,6 +241,7 @@ impl Run {
 
         self.add_papers_sheet(cx, steps, &papers).await?;
         self.check_references(cx, steps, &papers, root).await?;
+        self.add_without_full_text(cx, steps, &papers, root).await?;
 
         Ok(())
     }
@@ -354,6 +355,71 @@ impl Run {
             queued == 0 && held == 2,
             json!({ "queued": queued, "papers": held }),
         );
+        Ok(())
+    }
+
+    /// Adding a paper with Also save full text off, its default
+    /// (`save-full-text-setting.ts`), adds its citation and never fetches
+    /// or writes its text: an entry with an arXiv id, which a full-text add
+    /// would download and convert under `.research/papers/<id>/` (reporting
+    /// the "fulltext" stage before it reaches the network, and offline
+    /// raising "Citation added without full text"), lands in the
+    /// bibliography alone and raises no notice, its row saying it. The bibliographies are put back after, so
+    /// what follows sees the fixture as it was.
+    async fn add_without_full_text(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+        papers: &gpui::Entity<crate::papers::PapersPanel>,
+        root: &Path,
+    ) -> Result<()> {
+        let bibliographies: Vec<(std::path::PathBuf, Vec<u8>)> = std::fs::read_dir(root)?
+            .filter_map(|entry| entry.ok().map(|entry| entry.path()))
+            .filter(|path| path.extension().is_some_and(|ext| ext == "bib"))
+            .filter_map(|path| std::fs::read(&path).ok().map(|bytes| (path, bytes)))
+            .collect();
+        let full_text = cx.update(|cx| crate::settings::get(cx).save_full_text);
+        let notices = cx.update(crate::notices::install);
+        cx.update(|cx| notices.update(cx, |stack, cx| stack.clear(cx)));
+        let entry = "@article{kingma2013vae,\n  title = {Auto-Encoding Variational Bayes},\n  author = {Kingma, Diederik P. and Welling, Max},\n  year = {2013},\n  eprint = {1312.6114},\n  archivePrefix = {arXiv}\n}\n";
+        let started = cx.update(|cx| {
+            papers.update(cx, |panel, cx| {
+                panel.import_entry(entry.to_string(), "Auto-Encoding Variational Bayes".into(), cx)
+            })
+        });
+        let mut stages: Vec<String> = Vec::new();
+        let settled = self
+            .wait_for(cx, Duration::from_secs(20), |_, cx| {
+                let Some(importing) = &papers.read(cx).importing else {
+                    return true;
+                };
+                if let Some(stage) = &importing.stage
+                    && stages.last() != Some(stage)
+                {
+                    stages.push(stage.clone());
+                }
+                false
+            })
+            .await;
+        let fetched = stages.iter().any(|stage| stage == "fulltext");
+        let raised: Vec<String> = cx.update(|cx| {
+            notices.read(cx).titles().into_iter().map(|title| title.to_string()).collect()
+        });
+        let cited = bibliographies.iter().any(|(path, _)| {
+            std::fs::read_to_string(path).is_ok_and(|text| text.contains("kingma2013vae"))
+        });
+        let bundle = root.join(".research/papers/1312.6114");
+        let text_written = bundle.join("paper.md").exists();
+        steps.check(
+            "with Also save full text off (its default), adding a paper adds its citation and writes no full text",
+            !full_text && started && settled && cited && !fetched && raised.is_empty() && !text_written,
+            json!({ "save_full_text": full_text, "started": started, "settled": settled, "cited": cited, "stages": stages, "notices": raised, "paper_md": text_written }),
+        );
+        for (path, bytes) in &bibliographies {
+            std::fs::write(path, bytes)?;
+        }
+        std::fs::remove_dir_all(&bundle).ok();
+        self.pause(cx, Duration::from_millis(500)).await;
         Ok(())
     }
 

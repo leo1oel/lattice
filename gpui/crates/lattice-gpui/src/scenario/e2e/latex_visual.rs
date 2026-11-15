@@ -14,6 +14,8 @@
 //!   file and the page are back to their first text;
 //! - text put into the buffer (as the source, or an outside edit, would)
 //!   reaches the page;
+//! - the outline rail stands over the page and a misspelt word ("frist")
+//!   is marked (`latex_visual_companions.rs`);
 //! - the strip's Find there opens the page's own search panel, its query
 //!   focused, and leaves the source's find bar (which Visual does not draw)
 //!   closed;
@@ -52,9 +54,11 @@ Some prose with \\textbf{bold words} and $x^2 + y^2$ in it.
 \\end{equation}
 
 \\begin{itemize}
-  \\item first point
+  \\item frist point
   \\item second point
 \\end{itemize}
+
+\\section{Closing notes}
 
 As argued before~\\cite{e2e-key}.
 
@@ -109,6 +113,10 @@ impl Run {
         cx.update(|cx| choose_latex_view(LatexView::Visual, cx));
         let island = self.latex_visual_drawn(cx, steps, &panel).await;
         if let Some(island) = island {
+            // The rail and the spell check (`latex_visual_companions.rs`),
+            // then the window with both, when shots are asked for.
+            self.latex_visual_companions(cx, steps, &island, "frist")
+                .await?;
             self.latex_visual_shots(cx).await?;
             // Opening writes nothing.
             self.pause(cx, Duration::from_millis(1500)).await;

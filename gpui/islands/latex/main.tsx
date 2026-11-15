@@ -38,6 +38,9 @@
  *   tex:root          { path }          the manuscript's root document
  *   tex:build         { build }         the last build that wrote a PDF, or null
  *   tex:find          { step }          "open" the editor's search panel, or step to the "next" or "previous" match
+ *   tex:spelling      { enabled, words, ignores }   Settings' spell check, the project's dictionary and ignores
+ *   tex:unused        { labels, citations }   what nothing uses (empty while TexLab reports it)
+ *   tex:outline       { nodes, rootPath, pdf }   the manuscript's outline for the rail, and its PDF's token
  * Page to host:
  *   md:change         { source, base }  the whole file after an edit made against `base`
  *   md:undo, md:redo
@@ -46,10 +49,17 @@
  *   md:open-location  { path, line }    a `\ref`'s label
  *   tex:open-citation { key }           a citation's entry
  *   doc:view-state    { viewState }     the caret and the line at the top, for a woken page
+ *   tex:caret         { offset }        the caret, a UTF-16 offset, for the source to mirror
+ *   tex:add-word      { word }          a lint card's Add to dictionary
+ *   tex:ignore        { rule } | { sentence }   a lint card's Ignore
+ *   tex:find-references, tex:rename  { kind, symbol }   a label's or citation key's (⇧F12, F2)
+ *   tex:paste-image                     an image pasted: insert it as a figure
+ *   tex:outline-jump  { path, line }    an outline rail row
  *   md:load-asset     (request) { path } → url | null
  */
 import "../shared/install";
 import { useCallback, useEffect, useMemo, useReducer } from "react";
+import { useLingui } from "@lingui/react/macro";
 import { EditorSelection, Prec, type Extension } from "@codemirror/state";
 import { EditorView, keymap, type ViewUpdate } from "@codemirror/view";
 import { findNext, findPrevious, openSearchPanel } from "@codemirror/search";
@@ -64,15 +74,22 @@ import { latexEditorExtensions, latexIndexChanged, type LatexEditorLiveData } fr
 import { latexVisualDataChanged, type LatexVisualHost } from "../../../src/editor/latex/latex-visual-switch";
 import {
   katexMacrosFromSources, mergeReferences, parseGraphicsPaths, parseLocalLabels, parseLocalMacros,
-  type CitationInfo, type DefinitionTarget, type ReferenceInfo,
+  type CitationInfo, type DefinitionTarget, type ReferenceInfo, type SymbolTarget,
 } from "../../../src/editor/latex/latex-text";
 import type { CompiledBuild } from "../../../src/editor/latex/compiled-labels";
 import { flattenProjectPaths } from "../../../src/build/compile-diagnostics";
+import type { GrammarIgnores, IgnoreGrammar } from "../../../src/editor/harper-spellcheck";
+import { LatexOutlineRail } from "../../../src/editor/latex/latex-outline-rail";
+import type { OutlineNode } from "../../../src/editor/latex/latex-outline";
 import type { FileNode } from "../../../src/app-types";
 
 type Locale = "en" | "zh-CN";
 
 type ProjectIndex = { citations: CitationInfo[]; references: ReferenceInfo[]; pending: boolean };
+
+type Spelling = { enabled: boolean; words: string[]; ignores: GrammarIgnores };
+type Unused = { labels: string[]; citations: string[] };
+type Outline = { nodes: OutlineNode[]; rootPath: string; pdf: string | null };
 
 /** Where the reader was: the caret and the line at the top, as offsets into the file. */
 type ViewState = { head: number; top: number };
@@ -89,6 +106,11 @@ type LatexOpen = {
   index: ProjectIndex | null;
   rootDocument: string | null;
   build: CompiledBuild | null;
+  spelling: Spelling | null;
+  unused: Unused | null;
+  outline: Outline | null;
+  /** TexLab is installed: its completion, hovers and definitions join the editor's. */
+  texlab: boolean;
 };
 
 type State = {
@@ -106,8 +128,11 @@ type State = {
   assetRevision: number;
   /** Visual mode's module, once loaded. */
   visual: VisualModule | null;
-  /** The editor, for its overlay scrollbar. */
+  /** The editor, for its overlay scrollbar and outline rail. */
   view: EditorView | null;
+  spelling: Spelling;
+  unused: Unused;
+  outline: Outline;
 };
 
 type Action =
@@ -121,9 +146,15 @@ type Action =
   | { type: "build"; build: CompiledBuild | null }
   | { type: "assets" }
   | { type: "visual"; visual: VisualModule }
-  | { type: "view"; view: EditorView };
+  | { type: "view"; view: EditorView }
+  | { type: "spelling"; spelling: Spelling }
+  | { type: "unused"; unused: Unused }
+  | { type: "outline"; outline: Outline };
 
 const NO_INDEX: ProjectIndex = { citations: [], references: [], pending: true };
+const NO_SPELLING: Spelling = { enabled: false, words: [], ignores: { rules: [], sentences: [] } };
+const NO_UNUSED: Unused = { labels: [], citations: [] };
+const NO_OUTLINE: Outline = { nodes: [], rootPath: "", pdf: null };
 
 function reduce(state: State, action: Action): State {
   switch (action.type) {
@@ -138,6 +169,9 @@ function reduce(state: State, action: Action): State {
         index: action.open.index ?? NO_INDEX,
         rootDocument: action.open.rootDocument,
         build: action.open.build,
+        spelling: action.open.spelling ?? NO_SPELLING,
+        unused: action.open.unused ?? NO_UNUSED,
+        outline: action.open.outline ?? NO_OUTLINE,
       };
     case "source":
       return { ...state, source: action.source };
@@ -159,6 +193,12 @@ function reduce(state: State, action: Action): State {
       return { ...state, visual: action.visual };
     case "view":
       return { ...state, view: action.view };
+    case "spelling":
+      return { ...state, spelling: action.spelling };
+    case "unused":
+      return { ...state, unused: action.unused };
+    case "outline":
+      return { ...state, outline: action.outline };
   }
 }
 
@@ -216,7 +256,18 @@ const sharedHistory: Extension = Prec.highest(keymap.of([
  * document: everything that changes as the writer works is read from
  * `liveData` when it runs (`source-session.ts`).
  */
-function editorExtensions(visual: VisualModule, path: string): Extension[] {
+/** A lint card's Add to dictionary and Ignore, written to the project's manifest by the owner. */
+const addSpellingWord = (word: string) => { host().post("tex:add-word", { word }); return true; };
+const ignoreGrammar: IgnoreGrammar = (ignore) => { host().post("tex:ignore", ignore); return true; };
+/** ⇧F12 and F2 on a label or citation key: the window's references bar and rename dialog. */
+const askAboutSymbol = (type: string) => (target: SymbolTarget) => {
+  host().post(type, { kind: target.kind, symbol: target.kind === "label" ? target.label : target.key });
+};
+/** The owner reads the pasted image from the clipboard, as ⌘V in the source does. */
+const pasteImage = () => { host().post("tex:paste-image"); return true; };
+const jumpToHeading = (path: string, line: number) => host().post("tex:outline-jump", { path, line });
+
+function editorExtensions(visual: VisualModule, path: string, spellcheck: boolean, texlab: boolean): Extension[] {
   const data = { get current() { return liveData; } };
   const visualHost: LatexVisualHost = {
     data: () => liveData,
@@ -228,7 +279,18 @@ function editorExtensions(visual: VisualModule, path: string): Extension[] {
     sharedHistory,
     latex(),
     visual.latexVisual(visualHost),
-    ...latexEditorExtensions({ live: data, currentPath: path, loadReferenceImage: loadAsset, onGotoDefinition: openTarget }),
+    ...latexEditorExtensions({
+      live: data,
+      currentPath: path,
+      spellcheck,
+      texlab,
+      loadReferenceImage: loadAsset,
+      onGotoDefinition: openTarget,
+      onFindReferences: askAboutSymbol("tex:find-references"),
+      onRenameSymbol: askAboutSymbol("tex:rename"),
+      onPasteImage: pasteImage,
+      onTexlabGoto: (target, line) => host().post("md:open-location", { path: target, line }),
+    }),
   ];
 }
 
@@ -243,6 +305,7 @@ function reportView(update: ViewUpdate): void {
   if (update.selectionSet || update.docChanged) {
     const line = update.state.doc.lineAt(head);
     host().post("md:caret", { line: line.number, column: head - line.from + 1 });
+    host().post("tex:caret", { offset: head });
   }
   const top = update.view.lineBlockAtHeight(update.view.scrollDOM.scrollTop).from;
   host().post("doc:view-state", { viewState: { head, top } satisfies ViewState });
@@ -252,8 +315,14 @@ function Latex() {
   const [state, dispatch] = useReducer(reduce, {
     opened: null, source: "", settled: "", ready: false, files: [], texSources: [], index: NO_INDEX,
     rootDocument: null, build: null, assetRevision: 0, visual: null, view: null,
+    spelling: NO_SPELLING, unused: NO_UNUSED, outline: NO_OUTLINE,
   });
-  const { opened, source, settled, ready, files, texSources, index, rootDocument, build, assetRevision, visual, view } = state;
+  const {
+    opened, source, settled, ready, files, texSources, index, rootDocument, build, assetRevision, visual, view,
+    spelling, unused, outline,
+  } = state;
+  const { t } = useLingui();
+  const texlab = opened?.texlab ?? false;
 
   useEffect(() => {
     let current = true;
@@ -287,8 +356,9 @@ function Latex() {
       citations: index.citations,
       references,
       indexPending: index.pending,
-      unusedLabels: [],
-      unusedCitations: [],
+      // With TexLab the Tauri app leaves unused symbols to its diagnostics.
+      unusedLabels: texlab ? [] : unused.labels,
+      unusedCitations: texlab ? [] : unused.citations,
       localMacros,
       graphicsRoots,
       projectPaths,
@@ -296,11 +366,17 @@ function Latex() {
       projectRoot,
       katexMacros,
       compiledBuild: build ?? undefined,
-      spellingWords: [],
+      spellingWords: spelling.words,
+      onAddSpellingWord: addSpellingWord,
+      grammarIgnores: spelling.ignores,
+      onIgnoreGrammar: ignoreGrammar,
     };
     // Draw again from the new data, and lint against the new index.
     editorView?.dispatch({ effects: [latexVisualDataChanged.of(null), latexIndexChanged.of(null)] });
-  }, [build, citationKeys, graphicsRoots, index, katexMacros, localMacros, projectPaths, projectRoot, references, rootDocument]);
+  }, [
+    build, citationKeys, graphicsRoots, index, katexMacros, localMacros, projectPaths, projectRoot, references,
+    rootDocument, spelling, texlab, unused,
+  ]);
   // Figures load again once the project's files change.
   useEffect(() => {
     if (assetRevision) editorView?.dispatch({ effects: latexVisualDataChanged.of(null) });
@@ -346,6 +422,9 @@ function Latex() {
       bridge.on("tex:index", (payload) => dispatch({ type: "index", index: payload as ProjectIndex })),
       bridge.on("tex:root", (payload) => dispatch({ type: "root", rootDocument: (payload as { path: string | null }).path })),
       bridge.on("tex:build", (payload) => dispatch({ type: "build", build: (payload as { build: CompiledBuild | null }).build })),
+      bridge.on("tex:spelling", (payload) => dispatch({ type: "spelling", spelling: payload as Spelling })),
+      bridge.on("tex:unused", (payload) => dispatch({ type: "unused", unused: payload as Unused })),
+      bridge.on("tex:outline", (payload) => dispatch({ type: "outline", outline: payload as Outline })),
     ];
     bridge.ready();
     return () => { for (const stop of stops) stop(); };
@@ -361,7 +440,12 @@ function Latex() {
     return () => window.clearTimeout(timer);
   }, [opened, ready, visual]);
 
-  const extensions = useMemo(() => (visual ? editorExtensions(visual, path) : []), [path, visual]);
+  // Built again only when what they run changes: spell checking turned on
+  // or off, which the Tauri app's source session rebuilds for too.
+  const extensions = useMemo(
+    () => (visual ? editorExtensions(visual, path, spelling.enabled, texlab) : []),
+    [path, spelling.enabled, texlab, visual],
+  );
 
   const onChange = useCallback((next: string, base: string) => {
     sendChange(next, base);
@@ -401,6 +485,18 @@ function Latex() {
             onCreateEditor={onCreateEditor}
           />
           <CodeMirrorScrollbar view={view} />
+          {view && (
+            <LatexOutlineRail
+              view={view}
+              path={opened.path}
+              source={settled}
+              nodes={outline.nodes}
+              rootPath={outline.rootPath}
+              label={t`Outline`}
+              pdfUrl={outline.pdf}
+              onSelect={jumpToHeading}
+            />
+          )}
         </div>
       </div>
     </div>

@@ -278,6 +278,61 @@ impl Run {
         self.with_window(cx, |shell, window, cx| {
             shell.update(cx, |shell, cx| shell.close_overlays(window, cx))
         })?;
+
+        // A key the page handles itself is the page's: Markdown's ⌘B and ⌘K,
+        // a board's ⌘[ and ⌘] (`use-app-commands.ts` skips a key a focused
+        // surface took); one it leaves alone is the app's. The document here
+        // sits in a sandboxed frame the host cannot script, so the bridge is
+        // driven with the key ⌘K / Ctrl+K arrives as, dispatched on its body.
+        self.pause(cx, Duration::from_millis(500)).await;
+        let chord = if cfg!(target_os = "macos") {
+            "metaKey"
+        } else {
+            "ctrlKey"
+        };
+        let press = |handled: bool| {
+            format!(
+                "(() => {{ const own = (event) => event.preventDefault(); \
+                 if ({handled}) document.addEventListener('keydown', own); \
+                 const event = new KeyboardEvent('keydown', {{ code: 'KeyK', key: 'k', \
+                 {chord}: true, bubbles: true, cancelable: true }}); \
+                 document.body.dispatchEvent(event); \
+                 document.removeEventListener('keydown', own); \
+                 return event.defaultPrevented; }})()"
+            )
+        };
+        let shell = self.shell.clone();
+        let mut outcomes = Vec::new();
+        for handled in [true, false] {
+            let forwards = cx.update(|cx| island.read(cx).stats().shortcuts);
+            let prevented = self.evaluate(cx, island, &press(handled)).await;
+            self.pause(cx, Duration::from_millis(400)).await;
+            let (palette, forwarded) = cx.update(|cx| {
+                (
+                    shell.read(cx).palette_rows(cx).is_some(),
+                    island.read(cx).stats().shortcuts - forwards,
+                )
+            });
+            outcomes.push(json!({ "page_handles": handled, "prevented": prevented, "palette": palette, "forwarded": forwarded }));
+            self.with_window(cx, |shell, window, cx| {
+                shell.update(cx, |shell, cx| shell.close_overlays(window, cx))
+            })?;
+            self.pause(cx, Duration::from_millis(500)).await;
+        }
+        let kept = &outcomes[0];
+        let relayed = &outcomes[1];
+        steps.check(
+            "a shortcut the page handles itself stays the page's, and one it leaves alone opens GPUI's palette",
+            kept["palette"] == false
+                && kept["forwarded"] == 0
+                && relayed["palette"] == true
+                && relayed["forwarded"] == 1
+                && relayed["prevented"] == true,
+            json!({ "outcomes": outcomes }),
+        );
+        self.with_window(cx, |shell, window, cx| {
+            shell.update(cx, |shell, cx| shell.close_overlays(window, cx))
+        })?;
         Ok(())
     }
 
