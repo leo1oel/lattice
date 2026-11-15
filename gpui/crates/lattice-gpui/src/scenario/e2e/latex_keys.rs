@@ -90,11 +90,16 @@ impl Run {
             self.pause(cx, Duration::from_millis(200)).await;
             let (text, selected) = self.text_and_selection(cx, &editor);
             let cursors = cx.update(|cx| editor.read(cx).editor().read(cx).selections.count());
+            let picker = cx.update(|cx| self.shell.read(cx).quick_open().is_some());
             steps.check(
-                &format!("{chord} in a LaTeX file is not Zed's {zed}: the text and the one selection stay"),
-                text == original && selected == repeated && cursors == 1,
-                json!({ "unchanged": text == original, "selected": selected, "cursors": cursors }),
+                &format!("{chord} in a LaTeX file opens its insert picker, not Zed's {zed}: the text and the one selection stay"),
+                picker && text == original && selected == repeated && cursors == 1,
+                json!({ "picker": picker, "unchanged": text == original, "selected": selected, "cursors": cursors }),
             );
+            // ⎋ closes the picker, as it closes quick open.
+            let escape = Keystroke::parse("escape").map_err(|error| anyhow::anyhow!("{error}"))?;
+            self.with_window(cx, move |_, window, cx| window.dispatch_keystroke(escape, cx))?;
+            self.pause(cx, Duration::from_millis(200)).await;
         }
         // The chapter as it was, for the modules after.
         self.with_window(cx, |_, window, cx| {

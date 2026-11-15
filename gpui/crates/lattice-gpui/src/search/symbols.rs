@@ -25,6 +25,10 @@ pub struct Symbol {
 pub enum SymbolGroup {
     Section,
     Label,
+    /// Insert citation's rows: the bibliography's keys.
+    Citation,
+    /// Insert reference's rows: the project's labels.
+    Reference,
 }
 
 impl SymbolGroup {
@@ -32,6 +36,8 @@ impl SymbolGroup {
         match self {
             SymbolGroup::Section => "Section",
             SymbolGroup::Label => "Label",
+            SymbolGroup::Citation => "Citation",
+            SymbolGroup::Reference => "Reference",
         }
     }
 }

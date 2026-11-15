@@ -25,7 +25,7 @@ const HISTORY_KEPT: usize = 80;
 /// The search surfaces open in the window, and the files visited.
 #[derive(Default)]
 pub(crate) struct Documents {
-    quick_open: Option<Entity<QuickOpen>>,
+    pub(super) quick_open: Option<Entity<QuickOpen>>,
     find: Option<Entity<ProjectFind>>,
     /// Find's query and tab, kept across reopening.
     find_memory: FindMemory,
@@ -120,6 +120,9 @@ impl Shell {
                 if let Some(editor) = self.active_editor() {
                     editor.update(cx, |editor, cx| editor.go_to_line(line, window, cx));
                 }
+            }
+            QuickOpenPick::Insert { command, key } => {
+                self.insert_at_caret(command, &key, window, cx)
             }
         }
     }

@@ -97,6 +97,7 @@ impl Shell {
             overleaf_linked: self.overleaf.read(cx).link().is_some(),
             overleaf_syncing: self.overleaf.read(cx).syncing(),
             latex_source: self.latex_source_in_front(cx),
+            text_editor: self.text_editor_in_front(cx),
         }
     }
 
