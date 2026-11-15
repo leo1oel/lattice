@@ -35,7 +35,6 @@ use gpui::{
 use lattice_i18n::{Locale, t};
 use lattice_ui::{
     ActiveLattice as _, TextRole, TextRoleStyle as _,
-    components::ToastLevel,
     palette::{Accent, Palette},
 };
 use lattice_webview::{
@@ -44,9 +43,9 @@ use lattice_webview::{
 use serde_json::{Value, json};
 
 use super::{commands, runtime};
-use crate::notices::{self, Notice, NoticeAction};
 
 mod documents;
+mod notices;
 
 /// Which of the page's three surfaces this is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -104,6 +103,11 @@ pub enum SurfaceEvent {
     /// The Agent's checkpoint history for the panel's thread
     /// (`checkpoints.rs`).
     History(super::checkpoints::Snapshot),
+    /// The panel's turn as it now stands (`AgentDeckPresence`), `None` once
+    /// no turn runs or waits.
+    Turn(Option<Value>),
+    /// A turn started: the writer asked the Agent something.
+    TurnStarted,
 }
 
 /// A turn's checkpoint diff, reviewable after the working tree moved on.
@@ -148,9 +152,16 @@ pub struct SynaraSurface {
     deck: Option<crate::structured::DeckSession>,
     /// What the page was last told of the project's Overleaf link.
     overleaf: Value,
+    /// The last paths reported as Lattice's own writes, for a scenario,
+    /// and how many were ever reported.
+    host_writes: std::collections::VecDeque<String>,
+    host_writes_reported: usize,
     last_pointer: Option<Instant>,
     _subscriptions: Vec<Subscription>,
 }
+
+/// How many of Lattice's own writes [`SynaraSurface::host_writes`] keeps.
+const HOST_WRITES_KEPT: usize = 32;
 
 impl EventEmitter<SurfaceEvent> for SynaraSurface {}
 
@@ -212,6 +223,8 @@ impl SynaraSurface {
             settings_section: ("providers", String::new()),
             deck: None,
             overleaf: Value::Null,
+            host_writes: std::collections::VecDeque::new(),
+            host_writes_reported: 0,
             last_pointer: None,
             _subscriptions: subscriptions,
         }
@@ -292,6 +305,29 @@ impl SynaraSurface {
         if let Some(island) = &self.island {
             island.update(cx, |island, cx| island.set_active(active, cx));
         }
+    }
+
+    /// Lattice wrote these project files itself (`host_writes.rs`).
+    pub(super) fn host_wrote(&mut self, paths: Vec<String>, cx: &mut App) {
+        self.host_writes.extend(paths.iter().cloned());
+        self.host_writes_reported += paths.len();
+        let over = self.host_writes.len().saturating_sub(HOST_WRITES_KEPT);
+        self.host_writes.drain(..over);
+        self.post("agent:host-writes", json!({ "paths": paths }), cx);
+    }
+
+    /// How many paths were ever reported as Lattice's own writes, for a
+    /// scenario to count from.
+    pub fn host_writes_reported(&self) -> usize {
+        self.host_writes_reported
+    }
+
+    /// The paths reported as Lattice's own writes since `count` were, as far
+    /// as the last kept go, for a scenario.
+    pub fn host_writes_since(&self, count: usize) -> impl Iterator<Item = &String> {
+        let new = self.host_writes_reported.saturating_sub(count);
+        let kept = self.host_writes.len();
+        self.host_writes.iter().skip(kept.saturating_sub(new))
     }
 
     /// Hand `message` to the Agent's frame, as the Tauri host's
@@ -499,83 +535,6 @@ impl SynaraSurface {
         }
     }
 
-    /// One of Synara's notifications (`synara-notifications.ts`'s parsed
-    /// message), on the app's stack under its id: a later one with the same
-    /// id replaces it, a loading one runs until its outcome does, and its
-    /// buttons answer the frame.
-    fn synara_notice(&mut self, payload: &Value, cx: &mut Context<Self>) {
-        let text = |key: &str| {
-            payload
-                .get(key)
-                .and_then(Value::as_str)
-                .filter(|text| !text.is_empty())
-                .map(str::to_string)
-        };
-        let Some(id) = text("id") else { return };
-        let key = format!("synara:{}:{id}", self.kind.name());
-        if text("operation").as_deref() == Some("dismiss") {
-            // Only a running one follows Synara's close; a finished one keeps
-            // the app's own display time (as the Tauri host does).
-            if notices::is_running(&key, cx) {
-                notices::dismiss(&key, cx);
-            }
-            return;
-        }
-        let level = text("level").unwrap_or_default();
-        let mut notice = Notice::new(
-            match level.as_str() {
-                "error" => ToastLevel::Error,
-                "warning" => ToastLevel::Warning,
-                "success" => ToastLevel::Success,
-                _ => ToastLevel::Info,
-            },
-            text("title").unwrap_or_default(),
-        )
-        .key(key);
-        if let Some(detail) = text("detail") {
-            notice = notice.detail(detail);
-        }
-        let timeout = payload.get("timeoutMs").and_then(Value::as_f64);
-        if level == "loading" {
-            notice = notice.running();
-        } else if timeout == Some(0.) {
-            notice = notice.persistent();
-        } else if text("primaryActionLabel").is_some() || text("secondaryActionLabel").is_some() {
-            // `hostNotificationTimeout`: one with a choice stays an error's 9 s.
-            notice = notice.timeout(std::time::Duration::from_secs(9));
-        }
-        if let Some(copy) = text("copyText") {
-            notice = notice.copy(copy);
-        }
-        let dismissed = (cx.entity().downgrade(), id.clone());
-        notice = notice.on_dismiss(move |cx| {
-            let (this, id) = &dismissed;
-            this.update(cx, |this, cx| {
-                this.post("agent:notify-action", json!({ "id": id, "action": "dismiss" }), cx)
-            })
-            .ok();
-        });
-        for (label, action) in [
-            (text("primaryActionLabel"), "primary"),
-            (text("secondaryActionLabel"), "secondary"),
-        ] {
-            let Some(label) = label else { continue };
-            let this = cx.entity().downgrade();
-            let id = id.clone();
-            notice = notice.action(NoticeAction::new(label, move |_, cx| {
-                this.update(cx, |this, cx| {
-                    this.post(
-                        "agent:notify-action",
-                        json!({ "id": id, "action": action }),
-                        cx,
-                    )
-                })
-                .ok();
-            }));
-        }
-        notices::show(notice, cx);
-    }
-
     fn on_request(
         &mut self,
         id: u64,
@@ -714,6 +673,13 @@ fn surface_event(kind: &str, payload: &Value) -> Option<SurfaceEvent> {
             SurfaceEvent::MinimumWidth(payload.get("width").and_then(Value::as_f64)? as f32)
         }
         "agent:git-view" => SurfaceEvent::GitView(text("view")?),
+        "agent:turn" => SurfaceEvent::Turn(
+            payload
+                .get("presence")
+                .filter(|presence| presence.is_object())
+                .cloned(),
+        ),
+        "agent:turn-started" => SurfaceEvent::TurnStarted,
         "agent:close-git" => SurfaceEvent::CloseGit,
         _ => return None,
     })
@@ -871,5 +837,13 @@ mod tests {
         );
         assert_eq!(surface_event("agent:history", &json!({})), None);
         assert_eq!(surface_event("agent:frame-message", &json!({})), None);
+        assert_eq!(
+            surface_event("agent:turn", &json!({ "presence": null })),
+            Some(SurfaceEvent::Turn(None))
+        );
+        assert_eq!(
+            surface_event("agent:turn", &json!({ "presence": { "state": "running" } })),
+            Some(SurfaceEvent::Turn(Some(json!({ "state": "running" }))))
+        );
     }
 }

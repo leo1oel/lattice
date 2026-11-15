@@ -206,7 +206,12 @@ impl Shell {
         // The editor's unsaved edits reach the file first, so the markers
         // read are the ones on screen.
         for editor in self.open_editors() {
-            editor.update(cx, |editor, cx| editor.write_before_quit(cx));
+            if editor
+                .update(cx, |editor, cx| editor.write_before_quit(cx))
+                .is_some()
+            {
+                self.agent_host_saved(&editor, cx);
+            }
         }
         let agent_undo = self.is_agent_undo_conflict(&path);
         let opened = path.clone();
@@ -221,6 +226,7 @@ impl Shell {
                 window,
                 move |this, _, event, window, cx| match event {
                     ConflictEvent::Resolved(path) => {
+                        this.agent_host_wrote([path.clone()], cx);
                         this.forget_agent_undo_conflict(&opened);
                         this.conflict = None;
                         notices::show(

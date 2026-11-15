@@ -119,6 +119,7 @@ impl OverleafBridge {
             notices::show(notice, cx);
         }
         self.report_conflicts(&root, &result, cx);
+        crate::agent::host_writes::note(&root, crate::agent::host_writes::sync_writes(&result), cx);
         let incoming = outcome::incoming(&result);
         if incoming {
             cx.emit(OverleafBridgeEvent::Incoming);
