@@ -57,7 +57,15 @@ impl Run {
         let panel = self.open(cx, &scratch, Some(3))?;
         self.pause(cx, Duration::from_millis(600)).await;
 
-        let input_menu = self.typed_menu(cx, &panel, "\\input{chap").await?;
+        // With TexLab installed, read the menu once TexLab's answer has joined
+        // it: the first ask may wait for TexLab to start (1.5 s) behind a
+        // diagnostics sync holding its pool (up to 1.2 s), and then for the
+        // ask itself (up to 1.2 s), well past the pause `typed_menu` takes.
+        let texlab = TexlabService::available().then_some("chapters");
+        let input_menu = self
+            .typed_menu_until(cx, &panel, "\\input{chap", texlab)
+            .await?;
+        self.completion_shot(cx, "completion-input").await;
         self.press(cx, '\n', false).await?;
         self.pause(cx, Duration::from_millis(200)).await;
         let text = self.editor_text(cx, &panel);
@@ -72,6 +80,7 @@ impl Run {
         let menu = self
             .typed_menu(cx, &panel, "\n\\includegraphics{plo")
             .await?;
+        self.completion_shot(cx, "completion-includegraphics").await;
         self.press(cx, '\u{1b}', false).await?;
         steps.check(
             "an \\includegraphics lists a figure by its path and by its path under the \\graphicspath root another file sets",
@@ -124,6 +133,18 @@ impl Run {
         Ok(())
     }
 
+    /// With `LATTICE_E2E_SHOTS` set, the window with its open menu, as
+    /// `name.png` in that folder, for a reviewer to look at.
+    async fn completion_shot(&self, cx: &mut AsyncApp, name: &str) {
+        let Some(dir) = std::env::var_os("LATTICE_E2E_SHOTS") else {
+            return;
+        };
+        let path = Path::new(&dir).join(format!("{name}.png"));
+        if let Err(error) = self.capture(cx, &path.to_string_lossy()).await {
+            log::warn!("no shot {name}: {error:#}");
+        }
+    }
+
     /// The caret to the end of the buffer.
     fn end_line(&self, cx: &mut AsyncApp, panel: &Entity<EditorPanel>) -> Result<()> {
         let editor = cx.update(|cx| panel.read(cx).editor().clone());
@@ -146,6 +167,18 @@ impl Run {
         panel: &Entity<EditorPanel>,
         text: &str,
     ) -> Result<Vec<String>> {
+        self.typed_menu_until(cx, panel, text, None).await
+    }
+
+    /// [`Self::typed_menu`], reading the menu once it offers `label` (an item
+    /// a later-answering source adds), or after a bound if it never does.
+    async fn typed_menu_until(
+        &self,
+        cx: &mut AsyncApp,
+        panel: &Entity<EditorPanel>,
+        text: &str,
+        label: Option<&'static str>,
+    ) -> Result<Vec<String>> {
         self.type_text(cx, text).await?;
         let editor = cx.update(|cx| panel.read(cx).editor().clone());
         let wait_editor = editor.clone();
@@ -153,9 +186,22 @@ impl Run {
             wait_editor.read(cx).has_visible_completions_menu()
         })
         .await;
-        // TexLab's answer joins the menu a little after it opens.
-        self.pause(cx, Duration::from_millis(400)).await;
         let lattice = cx.update(|cx| panel.read(cx).lattice_editor().clone());
+        match label {
+            Some(label) => {
+                let wait_lattice = lattice.clone();
+                self.wait_for(cx, Duration::from_secs(5), move |_, cx| {
+                    wait_lattice
+                        .read(cx)
+                        .offered_completions()
+                        .iter()
+                        .any(|offered| offered.as_ref() == label)
+                })
+                .await;
+            }
+            // TexLab's answer joins the menu a little after it opens.
+            None => self.pause(cx, Duration::from_millis(400)).await,
+        }
         Ok(cx.update(|cx| {
             if !editor.read(cx).has_visible_completions_menu() {
                 return Vec::new();
