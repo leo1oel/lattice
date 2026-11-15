@@ -1,8 +1,9 @@
 /**
  * The GPUI app's island pages (`gpui/README.md`, "Webview islands"): the
  * spreadsheet, the board, the Open Slide workspace, the visual Markdown
- * editor and the Agent's Synara host, each a page built from the Tauri
- * app's own modules in `src/`,
+ * editor, the Agent's Synara host and the math page the editor's cards
+ * picture KaTeX through, each a page built from the Tauri app's own modules
+ * in `src/`,
  * compiled the way the app compiles them (React Compiler, Lingui, Tailwind,
  * the private faces), into
  * `gpui/islands/dist/`, which the GPUI app serves under its island protocol
@@ -27,7 +28,7 @@ import { reactCompilerSuppressionRules } from "../../scripts/react-compiler-supp
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repo = path.resolve(here, "../..");
-const ISLANDS = ["sheet", "board", "slides", "markdown", "latex", "agent"] as const;
+const ISLANDS = ["sheet", "board", "slides", "markdown", "latex", "agent", "math"] as const;
 
 /**
  * `virtual:webkit-polyfills`, as the app's config serves it: the PDF.js

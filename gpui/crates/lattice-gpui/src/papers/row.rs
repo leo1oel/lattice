@@ -87,7 +87,7 @@ pub struct RowFacts {
     pub hits: Option<(Vec<model::LineHit>, bool)>,
 }
 
-fn glyph(
+pub(super) fn glyph(
     paper: &PaperSummary,
     fetch: Option<FetchState>,
     palette: &Palette,
@@ -474,6 +474,8 @@ impl PapersPanel {
                 )
             })
             .children(self.reveal_probe(&key, 0, cx));
+        // Dragged, it cites the paper where it lands (`drag.rs`).
+        row = self.paper_drag_source(row, paper, facts.width);
         {
             let view = cx.entity().downgrade();
             let opened = paper.clone();

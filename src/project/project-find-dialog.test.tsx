@@ -53,6 +53,15 @@ describe("ProjectFindDialog", () => {
     await activateAppLocale("en");
   });
 
+  it("opens on a seed it first mounts with", () => {
+    // The dialog loads on its first opening, so a Find in project seeded from
+    // a selection mounts it with the seed already set.
+    const { input, props } = renderFind({ seed: { query: "latent alignment" } });
+    expect(input()).toHaveValue("latent alignment");
+    act(() => vi.advanceTimersByTime(180));
+    expect(props.onSearch).toHaveBeenLastCalledWith("latent alignment");
+  });
+
   it("updates the panel title and search label when switching to Chinese", async () => {
     vi.useRealTimers();
     renderFind();

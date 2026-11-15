@@ -8248,6 +8248,7 @@ dependencies = [
  "regex",
  "serde_json",
  "settings",
+ "tempfile",
  "theme",
  "theme_settings",
  "tree-sitter-md",

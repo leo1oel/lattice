@@ -469,6 +469,19 @@ pub async fn restore_annotation_round(
     .await
 }
 
+/// Drop a revision round's kept files, for a round that ended without a
+/// version: the next round reuses its number, and must not start from them.
+#[tauri::command]
+pub async fn discard_annotation_round(
+    state: State<'_, AppState>, window: Window, project_root: String, number: u32,
+) -> Result<(), String> {
+    let root = pinned_root(&state, &window, &project_root, "discarding the revision round")?;
+    run_blocking("Annotation round discard", move || {
+        project::discard_annotation_round(&root, number)
+    })
+    .await
+}
+
 #[tauri::command]
 pub async fn read_annotation_round(
     state: State<'_, AppState>, window: Window, number: u32,

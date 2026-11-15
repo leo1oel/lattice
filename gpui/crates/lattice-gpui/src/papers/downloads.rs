@@ -542,8 +542,10 @@ impl PapersPanel {
             key: key.clone(),
             failed: result.is_err(),
         });
+        let page = self.fetching.pages.remove(&key);
         match result {
             Ok(fetched) => {
+                self.fetching.fallbacks.remove(&key);
                 self.fetching
                     .states
                     .insert(key.clone(), FetchState::Fetched);
@@ -561,7 +563,11 @@ impl PapersPanel {
                         paper.arxiv_id = fetched.arxiv_id.clone();
                         paper.has_full_text = !fetched.paper_path.is_empty();
                         paper.has_blog = fetched.blog_path.is_some();
-                        cx.emit(PapersEvent::Read(Box::new(paper)));
+                        let paper = Box::new(paper);
+                        cx.emit(match page {
+                            Some(page) => PapersEvent::ReadAt { paper, page },
+                            None => PapersEvent::Read(paper),
+                        });
                     }
                     (None, Some(path)) => cx.emit(PapersEvent::Open { path, line: None }),
                     (_, None) => {}
@@ -583,6 +589,13 @@ impl PapersPanel {
             Err(error) => {
                 self.fetching.states.remove(&key);
                 notices::error(t!("Could not download the paper"), error, cx);
+                // A citation card's Open paper reads the cited source in the
+                // browser instead, unless something was opened since.
+                if let Some(url) = self.fetching.fallbacks.remove(&key)
+                    && self.navigations == claim
+                {
+                    cx.open_url(&url);
+                }
             }
         }
         if !self.fetching.busy() {
@@ -604,6 +617,8 @@ impl PapersPanel {
             });
         }
         self.fetching.cancels.clear();
+        self.fetching.fallbacks.clear();
+        self.fetching.pages.clear();
         self.fetching
             .states
             .retain(|_, state| *state != FetchState::Loading);

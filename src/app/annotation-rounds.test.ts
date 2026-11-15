@@ -209,3 +209,52 @@ describe("AnnotationRounds / revise scope", () => {
     expect(await asked()).toEqual([passage(1)]);
   });
 });
+
+describe("AnnotationRounds / a round the agent answered nothing in", () => {
+  // The kept round files as the backend stores them, one snapshot per number.
+  function roundFilesOnDisk(discardDone: Promise<void> = Promise.resolve()) {
+    const disk = new Map<number, Array<{ path: string; before: string | null }>>();
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      const { number, files } = (args ?? {}) as { number: number; files?: Array<{ path: string; before: string | null }> };
+      if (command === "read_annotation_round") return disk.get(number) ?? [];
+      if (command === "save_annotation_round") disk.set(number, files!.map(({ path, before }) => ({ path, before })));
+      if (command === "discard_annotation_round") {
+        await discardDone;
+        disk.delete(number);
+      }
+      return null;
+    });
+    return disk;
+  }
+
+  /** Round 1 fails and is dropped; the writer then edits main.tex and asks again. */
+  async function failThenAskAgain(discardDone?: Promise<void>) {
+    const annotations = [annotationOn(0, 1, "shorten"), annotationOn(1, 2, "shorten")];
+    const { rounds, store, sourceRef } = roundsWith(annotations);
+    const disk = roundFilesOnDisk(discardDone);
+    vi.mocked(reviseAnnotationWithAgent).mockRejectedValueOnce(new Error("offline"));
+    rounds.revise([annotations[0]!.id]);
+    await vi.waitFor(() => expect(store.stateRef.current.rounds).toEqual([]));
+    const edited = SOURCE.replace("in order to be thorough", "thoroughly");
+    sourceRef.current = edited;
+    rounds.revise([annotations[1]!.id]);
+    return { rounds, store, disk, edited };
+  }
+
+  it("keeps the next round's baseline when that round starts before the discard lands", async () => {
+    let release = () => {};
+    const { rounds, disk, edited } = await failThenAskAgain(new Promise<void>((resolve) => { release = resolve; }));
+    await Promise.resolve();
+    release();
+    await vi.waitFor(() => expect(rounds.getSnapshot().running.size).toBe(0));
+    expect(disk.get(1)).toEqual([{ path: "main.tex", before: edited }]);
+  });
+
+  it("leaves no baseline behind for the next round that takes its number", async () => {
+    const { rounds, store, disk, edited } = await failThenAskAgain();
+    await vi.waitFor(() => expect(rounds.getSnapshot().running.size).toBe(0));
+    expect(store.stateRef.current.rounds.map((round) => round.number)).toEqual([1]);
+    // Its baseline is the text as the writer left it, so their edit is not the agent's.
+    expect(disk.get(1)).toEqual([{ path: "main.tex", before: edited }]);
+  });
+});

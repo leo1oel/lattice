@@ -275,6 +275,27 @@ pub fn math_region_at(text: &str, position: usize) -> Option<Range<usize>> {
     math_delimiters_at(text, position).map(|(open, close)| open.start..close.end)
 }
 
+/// A math region with what is inside its delimiters.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MathRegion {
+    /// Delimiters included.
+    pub range: Range<usize>,
+    /// The math between the delimiters, trimmed.
+    pub source: String,
+    /// Display math: everything but `\(…\)` and `$…$`.
+    pub display: bool,
+}
+
+/// The math region `position` is in, with its source (`mathRegionAt`).
+pub fn math_region(text: &str, position: usize) -> Option<MathRegion> {
+    let (open, close) = math_delimiters_at(text, position)?;
+    Some(MathRegion {
+        source: text[open.end..close.start].trim().to_string(),
+        display: !matches!(&text[open.clone()], "$" | "\\("),
+        range: open.start..close.end,
+    })
+}
+
 /// The opening and closing delimiters of the math region `position` is in.
 fn math_delimiters_at(text: &str, position: usize) -> Option<(Range<usize>, Range<usize>)> {
     let position = floor_boundary(text, position.min(text.len()));
@@ -386,5 +407,16 @@ mod tests {
         assert!(math_region_at(text, text.find("more").unwrap()).is_none());
         // An unpaired `$` past a blank line opens nothing.
         assert!(math_region_at(text, text.find("lone").unwrap()).is_none());
+    }
+
+    #[test]
+    fn math_regions_carry_their_source_and_kind() {
+        let text = "Text $a+b$ more.\n\\begin{equation}\n  x^2 \\label{eq:x}\n\\end{equation}";
+        let inline = math_region(text, text.find("a+b").unwrap()).expect("inline math");
+        assert_eq!((inline.source.as_str(), inline.display), ("a+b", false));
+        let display = math_region(text, text.find("\\label").unwrap()).expect("an equation");
+        assert_eq!(display.source, "x^2 \\label{eq:x}");
+        assert!(display.display);
+        assert_eq!(&text[display.range.clone()][..16], "\\begin{equation}");
     }
 }

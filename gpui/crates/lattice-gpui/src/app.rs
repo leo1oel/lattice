@@ -144,6 +144,7 @@ pub fn init(scripted: bool, cx: &mut App) {
     search::init(cx);
     vim::init(cx);
     lattice_editor::init(cx);
+    crate::card_previews::install(cx);
     load_keymaps(cx);
     crate::shell::workspaces::Workspaces::init(scripted, cx);
     crate::recents::RecentProjects::init(scripted, cx);
@@ -237,13 +238,12 @@ pub(crate) fn apply_editor_settings(cx: &mut App) {
         )
         .replace(
             "EDITOR_FONT",
-            &serde_json::to_string(&editor_family(
+            serde_json::to_string(&editor_family(
                 &appearance.source_font,
                 &lattice.fonts.editor,
             ))
             .unwrap_or_default()
-            .trim_matches('"')
-            .to_owned(),
+            .trim_matches('"'),
         )
         .replace("UI_FONT", &lattice.fonts.ui)
         .replace("VIM_MODE", if vim_mode { "true" } else { "false" });

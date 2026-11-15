@@ -46,6 +46,10 @@ impl EditorPanel {
         crate::status_counters::set_buffer(root.clone(), left, None, cx);
         self.scan_todos(Duration::ZERO, cx);
         self.bib_moved(cx);
+        // The citation cards' library knows the file by its new path.
+        if let Some(papers) = self.bib.papers.clone() {
+            self.attach_citations(&papers, cx);
+        }
         // The spell check follows the file, or starts once it is prose.
         match &self.spelling {
             Some(spelling) => {

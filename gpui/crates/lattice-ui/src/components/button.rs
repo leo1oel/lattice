@@ -40,6 +40,9 @@ pub enum ButtonVariant {
     #[default]
     Secondary,
     Ghost,
+    /// A ghost button in the danger ink: a destructive choice among quiet
+    /// ones (`.citation-reason-remove`).
+    GhostDanger,
     Danger,
 }
 
@@ -97,6 +100,14 @@ impl ButtonVariant {
                 border: none,
                 ink: p.text_secondary,
                 hover_ink: p.text,
+            },
+            ButtonVariant::GhostDanger => Look {
+                rest: none,
+                hover: p.hover,
+                pressed: p.pressed,
+                border: none,
+                ink: p.danger,
+                hover_ink: p.danger,
             },
             ButtonVariant::Danger => Look {
                 rest: p.danger_soft,
@@ -173,6 +184,10 @@ impl Button {
 
     pub fn ghost(self) -> Self {
         self.variant(ButtonVariant::Ghost)
+    }
+
+    pub fn ghost_danger(self) -> Self {
+        self.variant(ButtonVariant::GhostDanger)
     }
 
     pub fn danger(self) -> Self {

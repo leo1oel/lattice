@@ -3,6 +3,8 @@
 What the Tauri app has that the GPUI app does not port yet, one item per line.
 A feature that lands deletes its own line (only that line, so features landing side by side merge cleanly), and a gap found adds one.
 
+- [ ] The live math preview: KaTeX's picture of the formula at the caret in a card above it (`math-preview.ts`).
+
 - [ ] Margin review's J/K walk between items.
 
 - [ ] The Annotations panel's Export review PDF….
@@ -34,8 +36,6 @@ A feature that lands deletes its own line (only that line, so features landing s
 - [ ] Overleaf: a compile after a resolved conflict (the watcher's build stands in).
 
 - [ ] A Finder drop of a drawing (`.svg`, `.drawio`) onto the editor as an editable figure.
-
-- [ ] A paper dragged from Papers into the editor as a citation.
 
 - [ ] The workspace switch's sliding plate, drag to reorder and keyboard.
 
