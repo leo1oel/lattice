@@ -133,7 +133,7 @@ impl EditorPanel {
                                     offset: range.start,
                                     text: text.into(),
                                     look: InlineLook::Struck {
-                                        color: strike,
+                                        color: strike.opacity(strike.a * frame.ghost_opacity),
                                         tint: ground.opacity(1. - frame.ghost_opacity),
                                         drawn: frame.strike,
                                     },

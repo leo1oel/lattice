@@ -118,7 +118,7 @@ impl ColorPicker {
                     }
                     cx.notify();
                 }
-                InputEvent::Blur => {
+                InputEvent::Blur if this.typed => {
                     let text = field.read(cx).value().to_string();
                     match color::normalize_hex(&text) {
                         Some(hex) => this.set_hex(&hex, window, cx),

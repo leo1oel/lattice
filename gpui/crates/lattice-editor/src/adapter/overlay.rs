@@ -174,13 +174,24 @@ impl LatticeEditor {
                     .update(cx, |editor, cx| editor.text_layout_details(window, cx));
                 let display = &frame.display().display_snapshot;
                 let (_, font_size) = super::gutter_column::buffer_font(cx);
+                // Zed lays the inlays at one point out in splice order across
+                // every layer, and inlay ids grow with each splice.
+                let mut at_offset: HashMap<usize, Vec<(project::InlayId, usize)>> =
+                    HashMap::new();
+                for anchored in self.inline.values().flatten() {
+                    at_offset
+                        .entry(anchored.anchor.to_offset(&text))
+                        .or_default()
+                        .push((anchored.id, anchored.item.text.len()));
+                }
                 for (layer, items) in &self.inline {
-                    let mut spliced: HashMap<usize, usize> = HashMap::new();
                     for anchored in items {
                         let offset = anchored.anchor.to_offset(&text);
-                        let skip = spliced.entry(offset).or_default();
-                        let before = *skip;
-                        *skip += anchored.item.text.len();
+                        let before: usize = at_offset[&offset]
+                            .iter()
+                            .filter(|(id, _)| *id < anchored.id)
+                            .map(|(_, len)| len)
+                            .sum();
                         let Some(caret) =
                             geometry::caret_rect(&self.editor, &text, offset, bounds, window, cx)
                         else {
