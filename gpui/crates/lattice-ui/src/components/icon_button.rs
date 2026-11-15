@@ -148,11 +148,6 @@ impl IconButton {
         self
     }
 
-    /// Leave the hover fill to the strip's fluid hover (`crate::fluid_hover`,
-    /// [`crate::fluid_hover::Axis::Horizontal`]): a toolbar of equal icon
-    /// buttons with no selected item lights one fill that glides between
-    /// them (design call 2). The button keeps its own pressed wash and its
-    /// ink's step up to the primary.
     /// Draw the icon as `icon`, which replays its gesture each time the
     /// pointer comes onto the button or focus lands on it; at rest it is
     /// `icon`'s glyph, whatever [`IconButton::new`] was given.
@@ -161,6 +156,11 @@ impl IconButton {
         self
     }
 
+    /// Leave the hover fill to the strip's fluid hover (`crate::fluid_hover`,
+    /// [`crate::fluid_hover::Axis::Horizontal`]): a toolbar of equal icon
+    /// buttons with no selected item lights one fill that glides between
+    /// them (design call 2). The button keeps its own pressed wash and its
+    /// ink's step up to the primary.
     pub fn fluid(mut self) -> Self {
         self.fluid = true;
         self

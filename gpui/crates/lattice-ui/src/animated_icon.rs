@@ -573,19 +573,21 @@ fn state(id: &ElementId, window: &mut Window, cx: &mut App) -> gpui::Entity<Play
     window.use_keyed_state(id.clone(), cx, |_, _| Playback::default())
 }
 
+/// Which icon a gesture plays on: its id in its window, as the same
+/// control shows in every window.
+type Started = (gpui::WindowId, ElementId);
+
 thread_local! {
-    // When each icon's gesture began, by its id: a replay comes from an
-    // event handler, outside any element's render, where keyed element
-    // state cannot be reached. Main thread only.
-    static STARTED: std::cell::RefCell<std::collections::HashMap<ElementId, std::time::Instant>> =
+    // When each icon's gesture began: a replay is read as the control draws,
+    // and the icon draws later inside the control's children, under another
+    // element path, so keyed element state cannot join the two. Main thread
+    // only.
+    static STARTED: std::cell::RefCell<std::collections::HashMap<Started, std::time::Instant>> =
         std::cell::RefCell::default();
 }
 
-/// Play `id`'s gesture from its start: its control was hovered or focused.
-pub fn replay(id: impl Into<ElementId>, window: &mut Window, _: &mut App) {
-    let id = id.into();
-    STARTED.with(|started| started.borrow_mut().insert(id, std::time::Instant::now()));
-    window.refresh();
+fn started(id: &ElementId, window: &Window) -> Started {
+    (window.window_handle().window_id(), id.clone())
 }
 
 /// Replay `id`'s gesture when `active` (its control hovered or focused)
@@ -603,12 +605,14 @@ pub fn replay_on(id: impl Into<ElementId>, active: bool, window: &mut Window, cx
         was.update(cx, |was, _| *was = active);
     }
     if rose {
-        replay(id, window, cx);
+        let key = started(&id, window);
+        STARTED.with(|started| started.borrow_mut().insert(key, std::time::Instant::now()));
+        window.refresh();
     }
 }
 
-/// `icon` at `size` in `color`, playing its gesture after [`replay`] with
-/// the same `id`, its glyph at rest otherwise.
+/// `icon` at `size` in `color`, playing its gesture after [`replay_on`]
+/// with the same `id` in the same window, its glyph at rest otherwise.
 pub fn product_icon(
     id: impl Into<ElementId>,
     icon: ProductIcon,
@@ -652,7 +656,8 @@ fn draw(
     cx: &mut App,
 ) -> AnyElement {
     let state = state(&id, window, cx);
-    let elapsed = STARTED.with(|started| started.borrow().get(&id).map(|at| at.elapsed()));
+    let key = started(&id, window);
+    let elapsed = STARTED.with(|started| started.borrow().get(&key).map(|at| at.elapsed()));
     let rest = || icon.rest().element(size, color).into_any_element();
     let give_back = |window: &mut Window, cx: &mut App| {
         if let Some(frame) = state.update(cx, |state, _| state.frame.take()) {
@@ -665,7 +670,7 @@ fn draw(
     if cx.reduce_motion() {
         give_back(window, cx);
         if elapsed >= REDUCED {
-            STARTED.with(|started| started.borrow_mut().remove(&id));
+            STARTED.with(|started| started.borrow_mut().remove(&key));
             return rest();
         }
         window.request_animation_frame();
@@ -682,7 +687,7 @@ fn draw(
     }
     if elapsed >= icon.duration() {
         give_back(window, cx);
-        STARTED.with(|started| started.borrow_mut().remove(&id));
+        STARTED.with(|started| started.borrow_mut().remove(&key));
         return rest();
     }
     window.request_animation_frame();
@@ -775,6 +780,33 @@ mod tests {
             assert!(start.len() == end.len() && worst <= 48, "{icon:?}: {worst}");
             assert!(icon.duration() > Duration::from_millis(300), "{icon:?}");
         }
+    }
+
+    // bakai-icons.css's `lg-gb-trunk`: the trunk (x 72→88, y 95→161 in
+    // Phosphor's GitBranch) is drawn solid at rest and fully hidden at
+    // `stroke-dashoffset: 1.02` from 10.01% to 46%, with ring A faded out and
+    // the head still to its right. A dash read in user units, not in the
+    // path's `pathLength`, draws it dotted in both.
+    #[test]
+    fn the_git_trunk_is_solid_at_rest_and_gone_while_it_is_rewritten() {
+        let renderer = gpui::SvgRenderer::new(std::sync::Arc::new(crate::UiAssets));
+        let icon = ProductIcon::GitBranch;
+        let trunk_alpha = |at: Duration| {
+            let svg = icon.frame_svg(at, VIEW, "#000000");
+            let image = renderer.render_single_frame(svg.as_bytes(), 1.).unwrap();
+            let bytes = image.as_bytes(0).unwrap().to_vec();
+            let width = image.size(0).width.0 as usize;
+            // In view-box units, whatever the renderer's oversampling.
+            let scale = width / VIEW as usize;
+            (104..156)
+                .flat_map(|y| (77..84).map(move |x| (x * scale, y * scale)))
+                .map(|(x, y)| bytes[(y * width + x) * 4 + 3])
+                .collect::<Vec<_>>()
+        };
+        let rest = trunk_alpha(Duration::ZERO);
+        assert!(rest.iter().all(|alpha| *alpha > 200), "{rest:?}");
+        let rewriting = trunk_alpha(icon.duration().mul_f32(0.3));
+        assert!(rewriting.iter().all(|alpha| *alpha == 0), "{rewriting:?}");
     }
 
     // bakai-icons.css: the left fader's knob is at translateY(-48px) from

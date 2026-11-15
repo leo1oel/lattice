@@ -39,19 +39,9 @@ const KINDS = [
 ];
 /** The titlebar's variants: [kind, the icon drawn, converted]. */
 const TITLEBAR = [["chat-outline", "chat", true], ["git-branch-titlebar", "git-branch", false], ["clock-back-titlebar", "clock-back", false]];
-/**
- * `.canvas-actions .animated-product-icon--…` in app-shell.css: attributes
- * set on the element of a class (or on its `path` children, for `> path`).
- */
-const OVERRIDES = {
-  "chat-outline": [{ cls: "ct-pop", child: "path", attrs: { "stroke-width": "21.333" } }],
-  "git-branch-titlebar": [{ cls: "lg-branch", attrs: { "stroke-width": "20" } }],
-  "clock-back-titlebar": [
-    { cls: "ck-hour", attrs: { "stroke-width": "20" } },
-    { cls: "ck-min", attrs: { "stroke-width": "20" } },
-    { cls: "ck-arrow", attrs: { stroke: "currentColor", "stroke-width": "4", "stroke-linejoin": "round", "paint-order": "stroke fill" } },
-  ],
-};
+/** The titlebar's own strokes: `.canvas-actions .animated-product-icon--<icon drawn> …`. */
+const SHELL_CSS = "src/styles/app-shell.css";
+const SHELL_SCOPE = ".canvas-actions .animated-product-icon--";
 const PLAYING = ".bakai-icon.is-playing:not(.is-reduced)";
 /** Declarations a frame writes; anything else in a rule is markup. */
 const ANIMATED = new Set(["transform", "opacity", "visibility", "d", "stroke-dashoffset"]);
@@ -82,7 +72,8 @@ async function renderIcons() {
     const icons = KINDS.map((kind) => ({ kind, markup: render(kind, false) }));
     // The titlebar's copies (`.canvas-actions` in app-shell.css): the chat
     // as an outline, and heavier strokes at 14px.
-    for (const [kind, from, converted] of TITLEBAR) icons.push({ kind, markup: render(from, converted), overrides: OVERRIDES[kind] });
+    const shell = parseCss(readFileSync(join(ROOT, SHELL_CSS), "utf8"));
+    for (const [kind, from, converted] of TITLEBAR) icons.push({ kind, markup: render(from, converted), overrides: overrides(shell, from) });
     return icons;
   } finally {
     await server.close();
@@ -103,6 +94,26 @@ function tags(markup) {
 function writeTag(tag) {
   const attrs = [...tag.attrs].map(([name, value]) => ` ${name}="${value}"`).join("");
   return `<${tag.name}${attrs}>`;
+}
+
+/**
+ * The rules app-shell.css scopes to the titlebar's copy of icon `from`:
+ * attributes set on the element of a class (or on its children of a tag,
+ * for `.class > tag`).
+ */
+function overrides(shell, from) {
+  const scope = `${SHELL_SCOPE}${from} `;
+  const found = [];
+  for (const rule of shell.rules) {
+    for (const selector of rule.selectors) {
+      if (!selector.startsWith(scope)) continue;
+      const match = /^\.([\w-]+)(?: > ([a-z]+))?$/.exec(selector.slice(scope.length));
+      if (!match) fail(`${SHELL_CSS}: ${selector}`);
+      found.push({ cls: match[1], child: match[2], attrs: Object.fromEntries(rule.decls) });
+    }
+  }
+  if (!found.length) fail(`${SHELL_CSS}: no ${scope}rules`);
+  return found;
 }
 
 // ── Stylesheet ──────────────────────────────────────────────────────────
@@ -234,6 +245,38 @@ function pathShape(d) {
   return { shape: d.replace(/-?\d*\.?\d+(?:e-?\d+)?/g, "#"), numbers };
 }
 
+/**
+ * The length of a shape in user units: a circle's circumference, or a
+ * path of absolute lines and circular arcs.
+ */
+function shapeLength(tag, where) {
+  const a = (name) => number(tag.attrs.get(name) ?? fail(`${where}: length needs ${name}`), where);
+  if (tag.name === "circle") return 2 * Math.PI * a("r");
+  if (tag.name !== "path") fail(`${where}: length of a ${tag.name}`);
+  let [x, y] = [0, 0];
+  let length = 0;
+  for (const [, command, args] of (tag.attrs.get("d") ?? fail(`${where}: length needs d`)).matchAll(/([A-Za-z])([^A-Za-z]*)/g)) {
+    const values = args.split(/[\s,]+/).filter(Boolean).map((arg) => number(arg, where));
+    let next;
+    if (command === "M") next = [values[0], values[1]];
+    else if (command === "L") next = [values[0], values[1]];
+    else if (command === "H") next = [values[0], y];
+    else if (command === "V") next = [x, values[0]];
+    else if (command === "A") {
+      const [rx, ry, , large, , ex, ey] = values;
+      if (rx !== ry) fail(`${where}: elliptical arc`);
+      const chord = Math.hypot(ex - x, ey - y);
+      const sweep = 2 * Math.asin(Math.min(1, chord / (2 * rx)));
+      length += rx * (large ? 2 * Math.PI - sweep : sweep);
+      [x, y] = [ex, ey];
+      continue;
+    } else fail(`${where}: path command ${command}`);
+    if (command !== "M") length += Math.hypot(next[0] - x, next[1] - y);
+    [x, y] = next;
+  }
+  return length;
+}
+
 // ── Icons ───────────────────────────────────────────────────────────────
 
 /** Whether a selector picks an element of class list `classes` in icon `root`. */
@@ -294,9 +337,13 @@ function iconParts(icon, css) {
     }
     tag.attrs.delete("class");
     const where = `${icon.kind} .${classes.join(".")}`;
+    // GPUI's SVG renderer ignores `pathLength`, so dash lengths in its
+    // units are written in user units.
+    const unit = tag.attrs.has("pathLength") ? shapeLength(tag, where) / number(tag.attrs.get("pathLength"), where) : 1;
+    tag.attrs.delete("pathLength");
     for (const [name, value] of statics) {
       if (ANIMATED.has(name) || name === "transform-box" || name === "transform-origin") continue;
-      if (name === "stroke-dasharray") tag.attrs.set(name, value);
+      if (name === "stroke-dasharray") tag.attrs.set(name, value.split(/[\s,]+/).map((dash) => String(Number((number(dash, where) * unit).toFixed(3)))).join(" "));
       else if (!LAYOUT.has(name)) fail(`${where}: static ${name}`);
     }
     if (!animations.length && ![...statics.keys()].some((name) => ANIMATED.has(name))) {
@@ -323,12 +370,12 @@ function iconParts(icon, css) {
       opacity: statics.has("opacity") ? number(statics.get("opacity"), where) : 1,
       visible: statics.get("visibility") !== "hidden",
       d: tag.attrs.get("d") ?? null,
-      dash: statics.has("stroke-dashoffset") ? number(statics.get("stroke-dashoffset"), where) : 0,
+      dash: statics.has("stroke-dashoffset") ? number(statics.get("stroke-dashoffset"), where) * unit : 0,
     };
     const index = parts.length;
     tag.attrs.set("data-part", String(index));
     if (base.d !== null) tag.attrs.delete("d");
-    parts.push({ origin, base, animations: animations.map((animation) => tracks(animation, base, css, where)) });
+    parts.push({ origin, base, animations: animations.map((animation) => tracks(animation, base, css, where, unit)) });
     markup += icon.markup.slice(last, tag.start) + writeTag(tag);
     last = tag.end;
   }
@@ -341,7 +388,7 @@ function iconParts(icon, css) {
 }
 
 /** One animation's tracks, a property each. */
-function tracks(animation, base, css, where) {
+function tracks(animation, base, css, where, unit = 1) {
   const frames = css.keyframes.get(animation.name) ?? fail(`${where}: no @keyframes ${animation.name}`);
   const props = new Set(frames.flatMap((frame) => [...frame.decls.keys()]));
   const result = [];
@@ -368,6 +415,8 @@ function tracks(animation, base, css, where) {
       values = shapes.map((shape) => ({ path: shape }));
     } else if (prop === "visibility") {
       values = stops.map((stop) => ({ visible: stop.raw !== "hidden" }));
+    } else if (prop === "stroke-dashoffset") {
+      values = stops.map((stop) => ({ number: stop.own ? base.dash : number(stop.raw, where) * unit }));
     } else {
       values = stops.map((stop) => ({ number: number(stop.raw, where) }));
     }

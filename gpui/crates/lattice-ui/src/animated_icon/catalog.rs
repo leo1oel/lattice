@@ -362,7 +362,7 @@ pub(super) static ICONS: &[IconData] = &[
     },
     IconData {
         kind: "git-branch",
-        svg: "<svg viewBox=\"0 0 256 256\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"16\"><path pathLength=\"1\" stroke-dasharray=\"1.02\" data-part=\"0\"></path><path pathLength=\"1\" stroke-dasharray=\"1.02\" data-part=\"1\"></path><circle cx=\"80\" cy=\"64\" r=\"24\" data-part=\"2\"></circle><circle pathLength=\"1\" cx=\"80\" cy=\"192\" r=\"24\" stroke-dasharray=\"1.02\" data-part=\"3\"></circle><g data-part=\"4\"><circle cx=\"200\" cy=\"64\" r=\"24\"></circle><circle cx=\"200\" cy=\"64\" r=\"17\" fill=\"currentColor\" stroke=\"none\" data-part=\"5\"></circle></g></svg>",
+        svg: "<svg viewBox=\"0 0 256 256\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"16\"><path stroke-dasharray=\"81.6\" data-part=\"0\"></path><path stroke-dasharray=\"172.515\" data-part=\"1\"></path><circle cx=\"80\" cy=\"64\" r=\"24\" data-part=\"2\"></circle><circle cx=\"80\" cy=\"192\" r=\"24\" stroke-dasharray=\"153.812\" data-part=\"3\"></circle><g data-part=\"4\"><circle cx=\"200\" cy=\"64\" r=\"24\"></circle><circle cx=\"200\" cy=\"64\" r=\"17\" fill=\"currentColor\" stroke=\"none\" data-part=\"5\"></circle></g></svg>",
         parts: &[
             Part {
                 origin: [0., 0.],
@@ -388,8 +388,8 @@ pub(super) static ICONS: &[IconData] = &[
                             stops: &[
                                 Stop { at: 0., ease: [0.55, 0., 1., 0.45], value: Value::Number(0.) },
                                 Stop { at: 0.1, ease: [0.25, 0.1, 0.25, 1.], value: Value::Number(0.) },
-                                Stop { at: 0.1001, ease: [0.45, 0., 0.15, 1.], value: Value::Number(1.02) },
-                                Stop { at: 0.46, ease: [0.45, 0., 0.15, 1.], value: Value::Number(1.02) },
+                                Stop { at: 0.1001, ease: [0.45, 0., 0.15, 1.], value: Value::Number(81.6) },
+                                Stop { at: 0.46, ease: [0.45, 0., 0.15, 1.], value: Value::Number(81.6) },
                                 Stop { at: 0.64, ease: [0.25, 0.1, 0.25, 1.], value: Value::Number(0.) },
                                 Stop { at: 1., ease: [0.25, 0.1, 0.25, 1.], value: Value::Number(0.) },
                             ],
@@ -410,9 +410,9 @@ pub(super) static ICONS: &[IconData] = &[
                             prop: Prop::DashOffset,
                             stops: &[
                                 Stop { at: 0., ease: [0.55, 0., 1., 0.45], value: Value::Number(0.) },
-                                Stop { at: 0.09, ease: [0.25, 0.1, 0.25, 1.], value: Value::Number(-1.02) },
-                                Stop { at: 0.0901, ease: [0.45, 0., 0.15, 1.], value: Value::Number(1.02) },
-                                Stop { at: 0.78, ease: [0.45, 0., 0.15, 1.], value: Value::Number(1.02) },
+                                Stop { at: 0.09, ease: [0.25, 0.1, 0.25, 1.], value: Value::Number(-172.5154) },
+                                Stop { at: 0.0901, ease: [0.45, 0., 0.15, 1.], value: Value::Number(172.5154) },
+                                Stop { at: 0.78, ease: [0.45, 0., 0.15, 1.], value: Value::Number(172.5154) },
                                 Stop { at: 0.93, ease: [0.25, 0.1, 0.25, 1.], value: Value::Number(0.) },
                                 Stop { at: 1., ease: [0.25, 0.1, 0.25, 1.], value: Value::Number(0.) },
                             ],
@@ -467,8 +467,8 @@ pub(super) static ICONS: &[IconData] = &[
                             stops: &[
                                 Stop { at: 0., ease: [0.55, 0., 1., 0.45], value: Value::Number(0.) },
                                 Stop { at: 0.1, ease: [0.25, 0.1, 0.25, 1.], value: Value::Number(0.) },
-                                Stop { at: 0.1001, ease: [0.45, 0., 0.15, 1.], value: Value::Number(1.02) },
-                                Stop { at: 0.62, ease: [0.45, 0., 0.15, 1.], value: Value::Number(1.02) },
+                                Stop { at: 0.1001, ease: [0.45, 0., 0.15, 1.], value: Value::Number(153.81238) },
+                                Stop { at: 0.62, ease: [0.45, 0., 0.15, 1.], value: Value::Number(153.81238) },
                                 Stop { at: 0.78, ease: [0.25, 0.1, 0.25, 1.], value: Value::Number(0.) },
                                 Stop { at: 1., ease: [0.25, 0.1, 0.25, 1.], value: Value::Number(0.) },
                             ],
@@ -1229,7 +1229,7 @@ pub(super) static ICONS: &[IconData] = &[
     },
     IconData {
         kind: "git-branch-titlebar",
-        svg: "<svg viewBox=\"0 0 256 256\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"20\"><path pathLength=\"1\" stroke-dasharray=\"1.02\" data-part=\"0\"></path><path pathLength=\"1\" stroke-dasharray=\"1.02\" data-part=\"1\"></path><circle cx=\"80\" cy=\"64\" r=\"24\" data-part=\"2\"></circle><circle pathLength=\"1\" cx=\"80\" cy=\"192\" r=\"24\" stroke-dasharray=\"1.02\" data-part=\"3\"></circle><g data-part=\"4\"><circle cx=\"200\" cy=\"64\" r=\"24\"></circle><circle cx=\"200\" cy=\"64\" r=\"17\" fill=\"currentColor\" stroke=\"none\" data-part=\"5\"></circle></g></svg>",
+        svg: "<svg viewBox=\"0 0 256 256\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"20\"><path stroke-dasharray=\"81.6\" data-part=\"0\"></path><path stroke-dasharray=\"172.515\" data-part=\"1\"></path><circle cx=\"80\" cy=\"64\" r=\"24\" data-part=\"2\"></circle><circle cx=\"80\" cy=\"192\" r=\"24\" stroke-dasharray=\"153.812\" data-part=\"3\"></circle><g data-part=\"4\"><circle cx=\"200\" cy=\"64\" r=\"24\"></circle><circle cx=\"200\" cy=\"64\" r=\"17\" fill=\"currentColor\" stroke=\"none\" data-part=\"5\"></circle></g></svg>",
         parts: &[
             Part {
                 origin: [0., 0.],
@@ -1255,8 +1255,8 @@ pub(super) static ICONS: &[IconData] = &[
                             stops: &[
                                 Stop { at: 0., ease: [0.55, 0., 1., 0.45], value: Value::Number(0.) },
                                 Stop { at: 0.1, ease: [0.25, 0.1, 0.25, 1.], value: Value::Number(0.) },
-                                Stop { at: 0.1001, ease: [0.45, 0., 0.15, 1.], value: Value::Number(1.02) },
-                                Stop { at: 0.46, ease: [0.45, 0., 0.15, 1.], value: Value::Number(1.02) },
+                                Stop { at: 0.1001, ease: [0.45, 0., 0.15, 1.], value: Value::Number(81.6) },
+                                Stop { at: 0.46, ease: [0.45, 0., 0.15, 1.], value: Value::Number(81.6) },
                                 Stop { at: 0.64, ease: [0.25, 0.1, 0.25, 1.], value: Value::Number(0.) },
                                 Stop { at: 1., ease: [0.25, 0.1, 0.25, 1.], value: Value::Number(0.) },
                             ],
@@ -1277,9 +1277,9 @@ pub(super) static ICONS: &[IconData] = &[
                             prop: Prop::DashOffset,
                             stops: &[
                                 Stop { at: 0., ease: [0.55, 0., 1., 0.45], value: Value::Number(0.) },
-                                Stop { at: 0.09, ease: [0.25, 0.1, 0.25, 1.], value: Value::Number(-1.02) },
-                                Stop { at: 0.0901, ease: [0.45, 0., 0.15, 1.], value: Value::Number(1.02) },
-                                Stop { at: 0.78, ease: [0.45, 0., 0.15, 1.], value: Value::Number(1.02) },
+                                Stop { at: 0.09, ease: [0.25, 0.1, 0.25, 1.], value: Value::Number(-172.5154) },
+                                Stop { at: 0.0901, ease: [0.45, 0., 0.15, 1.], value: Value::Number(172.5154) },
+                                Stop { at: 0.78, ease: [0.45, 0., 0.15, 1.], value: Value::Number(172.5154) },
                                 Stop { at: 0.93, ease: [0.25, 0.1, 0.25, 1.], value: Value::Number(0.) },
                                 Stop { at: 1., ease: [0.25, 0.1, 0.25, 1.], value: Value::Number(0.) },
                             ],
@@ -1334,8 +1334,8 @@ pub(super) static ICONS: &[IconData] = &[
                             stops: &[
                                 Stop { at: 0., ease: [0.55, 0., 1., 0.45], value: Value::Number(0.) },
                                 Stop { at: 0.1, ease: [0.25, 0.1, 0.25, 1.], value: Value::Number(0.) },
-                                Stop { at: 0.1001, ease: [0.45, 0., 0.15, 1.], value: Value::Number(1.02) },
-                                Stop { at: 0.62, ease: [0.45, 0., 0.15, 1.], value: Value::Number(1.02) },
+                                Stop { at: 0.1001, ease: [0.45, 0., 0.15, 1.], value: Value::Number(153.81238) },
+                                Stop { at: 0.62, ease: [0.45, 0., 0.15, 1.], value: Value::Number(153.81238) },
                                 Stop { at: 0.78, ease: [0.25, 0.1, 0.25, 1.], value: Value::Number(0.) },
                                 Stop { at: 1., ease: [0.25, 0.1, 0.25, 1.], value: Value::Number(0.) },
                             ],
