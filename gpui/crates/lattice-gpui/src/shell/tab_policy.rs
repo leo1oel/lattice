@@ -150,24 +150,19 @@ impl Shell {
         cx: &mut Context<Self>,
     ) -> String {
         let preview = self.tabs.preview_key.take().as_deref() == Some(key);
+        let dirty = if preview { self.dirty_documents(cx) } else { HashSet::new() };
         let doc = self.document(cx);
+        let engine = self.workspace.read(cx).engine();
         let replaced = preview
             .then(|| {
-                panel_views(&doc, &panel)
-                    .iter().enumerate().find_map(|(index, view)| {
+                panel_views(&doc, &panel).iter().enumerate().find_map(|(index, view)| {
                     let record = doc.views.get(view)?;
-                    let flag = |name: &str| {
-                        record
-                            .params
-                            .as_ref()
-                            .and_then(|params| params.get(name))
-                            .and_then(|value| value.as_bool())
-                            .unwrap_or(false)
-                    };
+                    let other = file_key(Some(record));
                     (record.kind == "file"
-                        && flag("preview")
-                        && !flag("pinned")
-                        && file_key(Some(record)) != key)
+                        && engine.param_flag(view, "preview")
+                        && !engine.param_flag(view, "pinned")
+                        && other != key
+                        && !dirty.contains(&other))
                         .then(|| (index, view.clone()))
                 })
             })
@@ -264,9 +259,8 @@ impl Shell {
             return;
         }
         let key = super::views::document_key(&root, editor.read(cx).path());
-        if self.tabs.held.insert(key.clone()) {
-            self.keep_document(&key, cx);
-        }
+        self.keep_document(&key, cx);
+        self.tabs.held.insert(key);
     }
 
     /// After a change to the layout: the document in front is the most
@@ -347,12 +341,25 @@ impl Shell {
     /// The open documents that are a LaTeX root: their text holds
     /// `\documentclass`.
     fn root_documents(&mut self, cx: &App) -> HashSet<String> {
+        self.documents_where(cx, |editor, _| editor.saved_text().contains("\\documentclass"))
+    }
+
+    /// The open documents holding unsaved edits.
+    fn dirty_documents(&mut self, cx: &App) -> HashSet<String> {
+        self.documents_where(cx, |editor, cx| editor.is_dirty(cx))
+    }
+
+    fn documents_where(
+        &mut self,
+        cx: &App,
+        matches: impl Fn(&crate::editor_panel::EditorPanel, &App) -> bool,
+    ) -> HashSet<String> {
         let Some(root) = self.root(cx) else {
             return HashSet::new();
         };
         self.open_editors()
             .iter()
-            .filter(|editor| editor.read(cx).saved_text().contains("\\documentclass"))
+            .filter(|editor| matches(editor.read(cx), cx))
             .map(|editor| super::views::document_key(&root, editor.read(cx).path()))
             .collect()
     }

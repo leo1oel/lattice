@@ -4,7 +4,8 @@
 //!
 //! - A click on a tree row opens its file as the panel's preview tab, and
 //!   the next one takes its place.
-//! - A double-click on the row keeps the tab; so does an edit.
+//! - A double-click on the row keeps the tab; so does an edit, each time
+//!   the document comes back as a preview.
 //! - A pinned preview is never replaced.
 //! - A strip out of room closes the tabs it can spare, never a pinned,
 //!   edited, root or front one.
@@ -116,6 +117,51 @@ impl Run {
             "an edit keeps a preview tab",
             previewed.as_ref().is_some_and(|(_, _, preview, _)| *preview) && edited,
             json!({ "gamma": previewed, "kept": edited }),
+        );
+
+        // Saved and closed, then a preview again, an edited document is kept
+        // by its next edit, and the next quick look leaves it.
+        let gamma_path = root.join("gamma.md").canonicalize()?;
+        let editor = cx
+            .update(|cx| self.shell.update(cx, |shell, cx| shell.open_editor(&gamma_path, cx)))
+            .ok_or_else(|| anyhow::anyhow!("gamma.md has no editor"))?;
+        cx.update(|cx| editor.update(cx, |editor, cx| editor.save(cx))).await?;
+        self.close_tab(cx, editor)?;
+        self.wait_for(cx, Duration::from_secs(4), |shell, cx| {
+            shell.read(cx).tab_state("gamma.md", cx).is_none()
+        })
+        .await;
+        let gamma = self.tree_row_center(cx, "gamma.md")?;
+        self.click_with(cx, gamma, Modifiers::default()).await?;
+        self.wait_for(cx, Duration::from_secs(4), |shell, cx| {
+            shell.read(cx).tab_state("gamma.md", cx).is_some()
+        })
+        .await;
+        self.pause(cx, Duration::from_millis(300)).await;
+        let reopened = state(cx, "gamma.md");
+        native::send_key(native, 'y', false)?;
+        let rekept = self
+            .wait_for(cx, Duration::from_secs(4), |shell, cx| {
+                shell
+                    .read(cx)
+                    .tab_state("gamma.md", cx)
+                    .is_some_and(|(_, _, preview, _)| !preview)
+            })
+            .await;
+        let alpha = self.tree_row_center(cx, "alpha.md")?;
+        self.click_with(cx, alpha, Modifiers::default()).await?;
+        self.wait_for(cx, Duration::from_secs(4), |shell, cx| {
+            shell.read(cx).tab_state("alpha.md", cx).is_some()
+        })
+        .await;
+        self.pause(cx, Duration::from_millis(200)).await;
+        let after_alpha = state(cx, "gamma.md");
+        steps.check(
+            "a document edited before, reopened as a preview and edited again is kept, and the next quick look leaves it",
+            reopened.as_ref().is_some_and(|(_, _, preview, _)| *preview)
+                && rekept
+                && after_alpha.as_ref().is_some_and(|(_, _, preview, _)| !*preview),
+            json!({ "reopened": reopened, "kept": rekept, "after_next": after_alpha }),
         );
 
         // A pinned preview stays when the next quick look comes.

@@ -163,7 +163,6 @@ impl PanelTab {
         self
     }
 
-    /// How the tab fits its strip.
     /// A preview tab, which the next quick look in its panel replaces:
     /// its title is set in italics (trellis.css `[data-tab-preview]`).
     pub fn preview(mut self, preview: bool) -> Self {
@@ -178,6 +177,7 @@ impl PanelTab {
         self
     }
 
+    /// How the tab fits its strip.
     pub fn fit(mut self, fit: TabFit) -> Self {
         self.fit = fit;
         self
