@@ -635,6 +635,18 @@ impl Render for LatticeEditor {
             )
             // Any key closes the card, as typing does in the Tauri app.
             .capture_key_down(cx.listener(|this, _, _, cx| this.dismiss_hover(cx)))
+            .capture_action(cx.listener(|this, _: &editor::actions::Fold, window, cx| {
+                if this.fold_at_caret(window, cx) {
+                    cx.stop_propagation();
+                }
+            }))
+            .capture_action(
+                cx.listener(|this, _: &editor::actions::FoldAll, window, cx| {
+                    if this.fold_all(window, cx) {
+                        cx.stop_propagation();
+                    }
+                }),
+            )
             // Zed scrolls only under its own text: the gutter and the padding
             // strips pass the wheel on, as CodeMirror's scroller takes it
             // over its gutter.

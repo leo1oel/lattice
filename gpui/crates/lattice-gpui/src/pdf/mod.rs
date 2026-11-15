@@ -5,13 +5,17 @@
 //! (`panel.rs`) and the live PDF's separate window (`window.rs`).
 
 mod clicked_word;
+pub(crate) mod compounds;
 mod dark;
 mod engine;
 mod find;
 mod layout;
+mod loading;
+mod named_links;
 mod outline_menu;
 mod overflow;
 mod panel;
+mod review_marking;
 pub(crate) mod preferences;
 mod sheet;
 mod text;
@@ -25,8 +29,9 @@ pub(crate) use dark::{enabled as dark_pages, filter as dark_filter};
 pub(crate) use engine::{DocId, PdfEngine, RenderRequest};
 pub use find::FindOptions;
 pub use layout::FitMode;
+pub(crate) use named_links::citation_keys;
 pub use outline_menu::OutlineState;
 pub use panel::{PdfEvent, PdfPanel, PdfPanelKind, pdf_tab_label};
 pub use text::LinkTarget;
 pub use toolbar_hover::toolbar_section;
-pub use view::{PdfView, PdfViewEvent, ToolbarAction};
+pub use view::{CitationLookup, CompoundSource, PdfView, PdfViewEvent, ToolbarAction, ViewPlace};

@@ -18,14 +18,13 @@
 //! size on top, as PDF.js caps a canvas and adds a detail one.
 
 use std::{
-    collections::HashSet,
     ops::Range,
     path::PathBuf,
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
     },
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use gpui::{
@@ -38,17 +37,31 @@ use gpui_kit::component::input::{InputEvent, InputState};
 use lattice_core::{latex::PdfSyncTarget, pdf_pages::PageSignatures};
 use lattice_i18n::t;
 
+mod autoscroll;
+mod citation;
+mod compound;
 mod drafts;
+mod events;
+mod hover_card;
 mod host;
 mod links;
 mod live;
+mod page_changes;
 mod pages;
+mod place;
 mod pointer;
 mod search;
 mod sync_mark;
+mod window_wide;
 
+pub use citation::CitationLookup;
+pub use compound::CompoundSource;
+
+use page_changes::changed_pages;
 pub(super) use pages::PageSlot;
+pub use place::ViewPlace;
 pub(super) use sync_mark::{SYNC_MARK_HOLD, SyncMark};
+pub use events::{PdfViewEvent, ToolbarAction};
 pub(super) use {drafts::DraftField, search::FindState};
 
 use super::{
@@ -66,68 +79,10 @@ const ZOOM_SETTLE: Duration = Duration::from_millis(80);
 /// (`PDF_REFIT_SETTLE_MS`).
 const REFIT_SETTLE: Duration = Duration::from_millis(120);
 
-/// What the viewer tells whoever shows it.
-pub enum PdfViewEvent {
-    /// A double-click at (`x`, `y`) PDF points from the top-left corner of
-    /// page `page` (1-based): show its source.
-    SourceAt {
-        page: u32,
-        x: f64,
-        y: f64,
-        /// The word under the click, for the caret to land on.
-        word: Option<lattice_editor::latex::synctex_word::SyncTexWord>,
-        /// ⌘ was held: the figure's drawing, when the point is on one.
-        figure: bool,
-    },
-    /// The toolbar's Reveal cursor in PDF.
-    RevealCursor,
-    /// The toolbar action the host offered (`ToolbarAction`).
-    Action,
-    /// The empty state's Build project.
-    Build,
-    /// An Outline row: open `path` (project-relative) at `line` and show the
-    /// place in the PDF.
-    Outline { path: String, line: u32 },
-}
-
-/// A context-specific action before Save, such as moving the PDF into a
-/// window of its own; a narrow toolbar moves it into the overflow menu.
-#[derive(Clone)]
-pub struct ToolbarAction {
-    /// An `n!` message, translated where shown.
-    pub label: &'static str,
-    pub icon: lattice_ui::Icon,
-}
-
 /// A document shown: its pages, and what a rebuild is compared against.
 pub(super) struct Document {
     pub info: DocumentInfo,
     pub signatures: Option<PageSignatures>,
-}
-
-/// Where a viewer is in its document, carried from the panel to the
-/// separate window and back, and kept for back and forward over link jumps.
-/// The top-left corner of the view is held as a point of the page under it,
-/// in PDF points, so a viewer at another width (and so another fit scale)
-/// shows the same place.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct ViewPlace {
-    page: usize,
-    scale: f32,
-    fit: Option<FitMode>,
-    top: (usize, f32, f32),
-}
-
-impl ViewPlace {
-    fn scroll(&self) -> PendingScroll {
-        let (page, x, y) = self.top;
-        PendingScroll::PagePoint {
-            page,
-            x: Some(x),
-            y,
-            at_y: 0.,
-        }
-    }
 }
 
 /// Where the view should be once the document is laid out.
@@ -203,6 +158,10 @@ pub struct PdfView {
     next_mark: usize,
     pub(super) message: Option<SharedString>,
     pub(super) loading: bool,
+    /// When the load under way began, for its indicator's delay; and the
+    /// area the first load's skeleton last filled.
+    pub(super) loading_since: Instant,
+    pub(super) loading_area: std::rc::Rc<std::cell::Cell<gpui::Size<Pixels>>>,
     /// A status line over the pages (`.pdf-notice`): the file was removed.
     pub(super) notice: Option<SharedString>,
     /// Reveal cursor in PDF waits: the caret is not in a .tex file, or a
@@ -222,6 +181,20 @@ pub struct PdfView {
     /// scenario's look at it).
     pub(super) toolbar_hover: Option<lattice_ui::fluid_hover::FluidHover>,
     stats: RenderStats,
+    /// The project's citations, for the cards over citation links.
+    citations: Option<CitationLookup>,
+    citation: citation::CitationHover,
+    /// The last build's compounds, for the key cards over their numbers.
+    compounds: Option<CompoundSource>,
+    compound: compound::CompoundHover,
+    place_report: place::PlaceReport,
+    /// Middle-click autoscroll while it runs, and the press it took whose
+    /// release is not a click.
+    autoscroll: Option<autoscroll::Autoscroll>,
+    blocked_up: Option<MouseButton>,
+    /// Escape from any focus in the window, while autoscroll runs or a card
+    /// shows (`window_wide.rs`).
+    escape: Option<gpui::Subscription>,
     /// The live preview's layer over the pages (`crate::live_preview`).
     live: Option<crate::live_preview::layer::Layer>,
     /// A document shown whose pages on screen are not all drawn yet: once
@@ -321,6 +294,8 @@ impl PdfView {
             next_mark: 0,
             message: None,
             loading: false,
+            loading_since: Instant::now(),
+            loading_area: Default::default(),
             notice: None,
             reveal_disabled: false,
             locating: false,
@@ -334,6 +309,14 @@ impl PdfView {
             zoom_entry: false,
             toolbar_hover: None,
             stats: RenderStats::default(),
+            citations: None,
+            citation: Default::default(),
+            compounds: None,
+            compound: Default::default(),
+            place_report: Default::default(),
+            autoscroll: None,
+            blocked_up: None,
+            escape: None,
             live: None,
             promote: None,
             _open_task: None,
@@ -359,6 +342,10 @@ impl PdfView {
         }
         self.source = Some(path.clone());
         let doc = *self.doc.get_or_insert_with(|| engine.new_document());
+        let cited = self.citations.is_some();
+        if !self.loading {
+            self.loading_since = Instant::now();
+        }
         self.loading = true;
         cx.notify();
         self._open_task = Some(cx.spawn_in(window, async move |this, cx| {
@@ -391,7 +378,17 @@ impl PdfView {
                 let bytes = bytes.clone();
                 async move { lattice_core::pdf_pages::signatures(&bytes).ok() }
             });
-            let opened = engine.open(doc, bytes).await;
+            let naming = cited.then(|| {
+                let bytes = bytes.clone();
+                cx.background_spawn(async move { super::named_links::read(&bytes) })
+            });
+            // A viewer that shows citations reads its links' names first,
+            // off the PDFium worker.
+            let names = match naming {
+                Some(naming) => naming.await,
+                None => Default::default(),
+            };
+            let opened = engine.open_named(doc, bytes, names).await;
             let signatures = signing.await;
             this.update_in(cx, |this, window, cx| {
                 if this.source.as_ref() != Some(&path) {
@@ -413,6 +410,9 @@ impl PdfView {
     /// Show nothing, for a project without a built PDF.
     pub fn close(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self._open_task = None;
+        self.dismiss_citation(cx);
+        self.dismiss_compound(cx);
+        self.stop_autoscroll(cx);
         self.reset(window);
         if let (Ok(engine), Some(doc)) = (&self.engine, self.doc.take()) {
             engine.close(doc);
@@ -487,6 +487,7 @@ impl PdfView {
         self.scroll.set_offset(point(px(0.), px(0.)));
         self.current_page = 0;
         self.pending_scroll = None;
+        self.place_report = Default::default();
     }
 
     fn failed(&mut self, message: SharedString, cx: &mut Context<Self>) {
@@ -511,6 +512,9 @@ impl PdfView {
     ) {
         self.loading = false;
         self.message = None;
+        self.dismiss_citation(cx);
+        self.dismiss_compound(cx);
+        self.stop_autoscroll(cx);
         let generation = info.generation;
         let count = info.page_sizes.len();
         let previous = self.document.take();
@@ -790,27 +794,6 @@ impl PdfView {
     }
 }
 
-/// The pages whose signatures differ, or `None` when the document as a
-/// whole changed (`changedPages` in `src/pdf/pdf-page-swap.ts`).
-pub(super) fn changed_pages(
-    before: &PageSignatures,
-    after: &PageSignatures,
-) -> Option<HashSet<usize>> {
-    if before.document != after.document || before.pages.len() != after.pages.len() {
-        return None;
-    }
-    Some(
-        after
-            .pages
-            .iter()
-            .zip(&before.pages)
-            .enumerate()
-            .filter(|(_, (new, old))| new != old)
-            .map(|(ix, _)| ix)
-            .collect(),
-    )
-}
-
 impl Drop for PdfView {
     /// The worker lets go of the document with its viewer.
     fn drop(&mut self) {
@@ -823,28 +806,5 @@ impl Drop for PdfView {
 impl Focusable for PdfView {
     fn focus_handle(&self, _: &App) -> FocusHandle {
         self.focus_handle.clone()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_rebuild_redraws_only_the_pages_whose_signatures_changed() {
-        let before = PageSignatures {
-            document: "d".into(),
-            pages: vec!["a".into(), "b".into(), "c".into()],
-        };
-        let after = PageSignatures {
-            document: "d".into(),
-            pages: vec!["a".into(), "B".into(), "c".into()],
-        };
-        assert_eq!(changed_pages(&before, &after), Some([1].into()));
-        let renumbered = PageSignatures {
-            document: "e".into(),
-            ..after
-        };
-        assert_eq!(changed_pages(&before, &renumbered), None);
     }
 }

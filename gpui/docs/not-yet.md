@@ -3,19 +3,9 @@
 What the Tauri app has that the GPUI app does not port yet, one item per line.
 A feature that lands deletes its own line (only that line, so features landing side by side merge cleanly), and a gap found adds one.
 
-- [ ] Overleaf's tracked changes in the visual LaTeX editor (their marks, cards and margin review items).
-
-- [ ] Wrapping a selection in an environment and renaming an environment (⌘⇧E, ⌘⌥R) in the Visual editor.
-
 - [ ] The live math preview: KaTeX's picture of the formula at the caret in a card above it (`math-preview.ts`).
 
-- [ ] Ctrl-M's jump to the matching math delimiter (`matchingMathDelimiter`) where no environment encloses the caret.
-
-- [ ] The LaTeX source's typing rules: `$` pairing, `\begin` closed by its `\end`, `\item` continued, `\left` closed by `\right`.
-
 - [ ] Margin review's J/K walk between items.
-
-- [ ] The editor's change wash on lines an outside edit landed (`lattice_ui::attention` has its timing).
 
 - [ ] The Revision rounds sheet, comparing a round's versions (and the round saved toast's Compare).
 
@@ -26,8 +16,6 @@ A feature that lands deletes its own line (only that line, so features landing s
 - [ ] The PDF: its comment column.
 
 - [ ] The PDF: its review export.
-
-- [ ] The PDF: its citation hover cards.
 
 - [ ] Settings: the sections' product icons' hover gestures (they rest as the Tauri app's resting frames).
 
@@ -49,15 +37,8 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] Overleaf: a compile after a resolved conflict (the watcher's build stands in).
 
-- [ ] The visual Markdown editor: Overleaf's tracked changes painted in it.
-
 - [ ] A Finder drop of a drawing (`.svg`, `.drawio`) onto the editor as an editable figure.
 
-- [ ] The Project tree's type-to-filter, sticky folders and expand motion.
-
-- [ ] The Project panel's + and ⋯ menus' New spreadsheet, New board and New presentation, and Find in project.
-
-- [ ] Preview tabs, pinned tabs and tab eviction.
 
 - [ ] The workspace switch's sliding plate, drag to reorder and keyboard.
 
@@ -65,9 +46,7 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] New project's My templates and Save a local template….
 
-- [ ] Each file's editor and PDF place kept across launches.
-
-- [ ] The palette's New LaTeX file, New Markdown file, New spreadsheet, New board and New presentation (the Project panel cannot make a typed file yet).
+- [ ] Each file's editor place kept across launches (the PDF's is kept).
 
 - [ ] Papers' hover prewarm of a paper the pointer is likely to open.
 

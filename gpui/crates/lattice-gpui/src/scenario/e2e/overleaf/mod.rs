@@ -26,6 +26,7 @@ mod local_copy;
 mod margin;
 mod margin_end;
 mod margin_visual;
+mod markdown_review;
 mod polish;
 mod presence;
 mod project_history;
@@ -103,9 +104,13 @@ impl Run {
                         .is_some_and(|view| !shell.view_on_screen(&view, cx))
             })
             .await;
-        let mock =
-            MockOverleaf::start(&[("main.tex", MAIN), ("refs.bib", "@misc{a, title={A}}\n")])
-                .context("the Overleaf stand-in")?;
+        let mock = MockOverleaf::start(&[
+            ("main.tex", MAIN),
+            ("refs.bib", "@misc{a, title={A}}\n"),
+            (markdown_review::NOTES_PATH, markdown_review::NOTES),
+            (markdown_review::PRIMER_PATH, markdown_review::PRIMER),
+        ])
+        .context("the Overleaf stand-in")?;
         let scratch =
             std::env::temp_dir().join(format!("lattice-gpui-overleaf-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&scratch);
@@ -378,6 +383,7 @@ impl Run {
         linked.overleaf_live(cx, steps, &mock).await?;
         linked.overleaf_reconnect(cx, steps, &mock).await?;
         linked.overleaf_review(cx, steps, &mock).await?;
+        linked.overleaf_markdown_review(cx, steps, &mock).await?;
         linked.overleaf_chat(cx, steps, &mock).await?;
         linked.overleaf_project_history(cx, steps, &mock).await?;
         linked.overleaf_polish(cx, steps, &mock).await?;

@@ -708,10 +708,14 @@ impl OverleafBridge {
         let run_live = self.sync_live_paths(&options, cx);
         self.whole_files.sync_started(&run_live);
         let observed = options.observed_remote_version;
-        let run = cx
-            .background_spawn(async move { sync::sync(&run_root, &run_live, observed, entities) });
+        let reviewing = crate::history::review_mode::store::reviewing(&root, cx);
+        let run = cx.background_spawn(async move {
+            // Track changes reads the files the sync may change, first.
+            let reviewed = crate::history::review_mode::store::before_sync(&run_root, reviewing);
+            (sync::sync(&run_root, &run_live, observed, entities), reviewed)
+        });
         self.sync_task = Some(cx.spawn(async move |this, cx| {
-            let (result, expired) = run.await;
+            let ((result, expired), reviewed) = run.await;
             this.update(cx, |this, cx| {
                 this.syncing = false;
                 this.after_sync_documents(result.is_ok(), cx);
@@ -727,7 +731,11 @@ impl OverleafBridge {
                 }
                 this.whole_files.synced(result.is_ok());
                 match result {
-                    Ok(result) => this.synced(root, result, options, cx),
+                    Ok(result) => {
+                        let brought = [result.pulled.clone(), result.merged.clone()].concat();
+                        crate::history::review_mode::store::after_sync(&root, reviewed, &brought, cx);
+                        this.synced(root, result, options, cx)
+                    }
                     Err(error) => this.failed(error, options, cx),
                 }
                 this.run_queued(cx);

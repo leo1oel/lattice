@@ -130,7 +130,7 @@ impl EditorPanel {
         let width = self.editor_width.clone();
         let rail = self.rail.clone();
         let this = cx.entity().downgrade();
-        div()
+        let source = div()
             .id("lattice-source")
             .relative()
             .flex_1()
@@ -180,6 +180,7 @@ impl EditorPanel {
             .children(self.annotation_composer(window, cx))
             .children(self.why_cited_popover(window, cx))
             .children(self.selection_toolbar(window, cx))
+            .children(self.vim_ex_line(cx))
             .child(
                 gpui::canvas(
                     move |bounds, window, cx| {
@@ -211,8 +212,8 @@ impl EditorPanel {
                 .top_0()
                 .left_0()
                 .size_full(),
-            )
-            .into_any_element()
+            );
+        self.source_pointer(source, window, cx).into_any_element()
     }
 
     fn release_rail(&mut self, cx: &mut Context<Self>) {

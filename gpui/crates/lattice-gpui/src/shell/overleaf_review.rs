@@ -40,13 +40,38 @@ fn visual_review(bridge: &OverleafBridge, path: &str, mode: MarginMode) -> Value
         MarginMode::Markers => "markers",
         MarginMode::Off => "off",
     };
+    let changes = changes_payload(bridge, path);
     json!({
         "threads": threads,
         "anchors": anchors,
         "hues": people_hues(bridge, path),
         "mode": mode,
         "canAct": bridge.can_review(),
+        "changes": changes["changes"],
+        "authors": changes["authors"],
     })
+}
+
+/// A file's Overleaf suggestions, their authors' names and whether this
+/// account may act on them, for a visual editor's marks, cards and margin
+/// review (`overleafTrackChangesExtension`; `markdownVisualChanges`).
+fn changes_payload(bridge: &OverleafBridge, path: &str) -> Value {
+    let changes = bridge
+        .live_review(path)
+        .map(|review| review.changes.clone())
+        .unwrap_or_default();
+    let mut authors: Vec<(String, String)> = Vec::new();
+    for user in changes
+        .iter()
+        .filter_map(|change| change.user_id.as_deref())
+    {
+        if !authors.iter().any(|(id, _)| id == user)
+            && let Some(name) = bridge.author_name(Some(user))
+        {
+            authors.push((user.to_string(), name.to_string()));
+        }
+    }
+    json!({ "changes": changes, "authors": authors, "canAct": bridge.can_review() })
 }
 
 impl Shell {
@@ -55,7 +80,13 @@ impl Shell {
         let bridge = self.overleaf.read(cx);
         let can_act = bridge.can_review();
         let mode = self.margin_mode;
-        type Shown = (Entity<EditorPanel>, Vec<CommentMark>, Vec<ChangeMark>, Option<Value>);
+        type Shown = (
+            Entity<EditorPanel>,
+            Vec<CommentMark>,
+            Vec<ChangeMark>,
+            Option<Value>,
+            Option<Value>,
+        );
         let shown: Vec<Shown> = self
             .open_editors()
             .into_iter()
@@ -126,7 +157,12 @@ impl Shell {
                     .read(cx)
                     .latex_view(cx)
                     .map(|_| visual_review(bridge, &path, mode));
-                Some((editor, comments, changes, visual))
+                // A Markdown file's visual editor paints the suggestions too.
+                let markdown = editor
+                    .read(cx)
+                    .paints_markdown_changes()
+                    .then(|| changes_payload(bridge, &path));
+                Some((editor, comments, changes, visual, markdown))
             })
             .collect();
         let active = self
@@ -134,12 +170,15 @@ impl Shell {
             .map(|editor| editor.read(cx).relative().to_string());
         self.overleaf_collab
             .update(cx, |panel, cx| panel.set_active(active, cx));
-        for (editor, comments, changes, visual) in shown {
+        for (editor, comments, changes, visual, markdown) in shown {
             editor.update(cx, |editor, cx| {
                 editor.set_margin_mode(mode, cx);
                 editor.set_overleaf_review(comments, changes, cx);
                 if let Some(visual) = visual {
                     editor.set_overleaf_visual_review(visual, cx);
+                }
+                if let Some(markdown) = markdown {
+                    editor.set_markdown_overleaf_changes(markdown, cx);
                 }
             });
         }

@@ -102,7 +102,20 @@ impl Shell {
                 bridge.sync(crate::overleaf::bridge::SyncOptions::default(), cx)
             }),
             HistoryEvent::RestoreAgentCheckpoint(entry) => self.agent_restore_checkpoint(entry, cx),
+            HistoryEvent::Restored => self.reload_after_restore(window, cx),
         }
+    }
+
+    /// Bring the project, the open files and the PDF up to date after a
+    /// restore (`reloadAfterRestore`): the tree read again, every open
+    /// file checked against disk at once (a clean one takes the restored
+    /// text), and the paper built. The History panel reads itself again.
+    pub(crate) fn reload_after_restore(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.file_tree.update(cx, |tree, cx| tree.refresh(cx));
+        for editor in self.open_editors() {
+            editor.update(cx, |editor, cx| editor.check_disk(cx));
+        }
+        self.run_build(super::build::BuildRequest::default(), window, cx);
     }
 
     /// The files Git names as conflicts, in the project's terms.

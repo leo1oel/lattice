@@ -42,7 +42,7 @@ fn flash_color(cx: &App) -> Hsla {
 }
 
 /// Flash the 0-based `row` of `editor`.
-pub(super) fn flash(editor: &Entity<Editor>, row: u32, cx: &mut App) {
+pub(in crate::editor_panel) fn flash(editor: &Entity<Editor>, row: u32, cx: &mut App) {
     let previous = cx
         .try_global::<RevealFlash>()
         .map(|flash| (flash.generation, flash.editor.clone()));

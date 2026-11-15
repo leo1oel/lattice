@@ -25,6 +25,7 @@ use gpui::{
     prelude::FluentBuilder as _, px,
 };
 use gpui_kit::component::dock::PanelHandle;
+use lattice_i18n::t;
 use lattice_ui::{
     ActiveLattice as _, Elevation, Icon, Palette, TextRole, TextRoleStyle as _,
     components::{
@@ -182,11 +183,47 @@ fn add_entries(
     menu
 }
 
+/// A document tab's own items after the document's (`withTabItems`): Keep
+/// open on a preview, then Pin tab or Unpin tab, then a separator before
+/// the workspace's.
+fn tab_items(menu: Menu, shell: &gpui::WeakEntity<super::Shell>, view: &str, cx: &App) -> Menu {
+    let Some(this) = shell.upgrade() else {
+        return menu;
+    };
+    let shell_ref = this.read(cx);
+    let engine = shell_ref.workspace().read(cx).engine();
+    if engine.view_record(view).is_none_or(|record| record.kind != "file") {
+        return menu;
+    }
+    let (preview, pinned) = (
+        engine.param_flag(view, "preview"),
+        engine.param_flag(view, "pinned"),
+    );
+    let item = |label: String, run: fn(&mut super::Shell, &str, &mut gpui::Context<super::Shell>)| {
+        let (shell, view) = (shell.clone(), view.to_string());
+        Item::new(label, move |_, cx| {
+            shell.update(cx, |shell, cx| run(shell, &view, cx)).ok();
+        })
+    };
+    let mut menu = menu;
+    if preview {
+        menu = menu.item(item(t!("Keep open").to_string(), |shell, view, cx| {
+            shell.keep_view(view, cx)
+        }));
+    }
+    menu.item(if pinned {
+        item(t!("Unpin tab").to_string(), |shell, view, cx| shell.pin_view(view, false, cx))
+    } else {
+        item(t!("Pin tab").to_string(), |shell, view, cx| shell.pin_view(view, true, cx))
+    })
+    .separator()
+}
+
 /// The items a panel's ⋯ menu leads with, for the view it shows: the
 /// editor's Build and Vim mode, the PDF's zoom, the Project tree's New file.
 fn own_items(menu: Menu, view: &AnyView, cx: &App) -> Menu {
     if let Ok(tree) = view.clone().downcast::<crate::file_tree::FileTreePanel>() {
-        return crate::file_tree::FileTreePanel::background_menu(&tree.downgrade(), menu, cx);
+        return crate::file_tree::FileTreePanel::panel_menu(&tree.downgrade(), menu);
     }
     if let Ok(editor) = view.clone().downcast::<crate::editor_panel::EditorPanel>() {
         return editor.read(cx).panel_menu(menu, cx);
@@ -206,7 +243,13 @@ fn own_items(menu: Menu, view: &AnyView, cx: &App) -> Menu {
 impl LatticeSkin {
     /// A panel's whole menu: its selected view's own items, then the
     /// workspace's (Maximize, Float or Dock, Move to, Hide, Close).
-    fn build_menu(views: &Registry, request: &PanelMenu, menu: Menu, cx: &App) -> Menu {
+    fn build_menu(
+        views: &Registry,
+        shell: &gpui::WeakEntity<super::Shell>,
+        request: &PanelMenu,
+        menu: Menu,
+        cx: &App,
+    ) -> Menu {
         let selected = (request.selected)(cx).unwrap_or_default();
         let panel = views.borrow().get(&selected).cloned();
         let menu = match panel {
@@ -214,6 +257,7 @@ impl LatticeSkin {
             None => menu,
         }
         .separator();
+        let menu = tab_items(menu, shell, &selected, cx);
         let built_ins = (request.built_ins)(cx);
         add_entries(menu, built_ins, &request.run)
     }
@@ -315,6 +359,8 @@ impl Skin for LatticeSkin {
         .selected(tab.selected)
         .strong(panel.focused)
         .dirty(look.dirty)
+        .preview(tab.preview)
+        .pinned(tab.pinned)
         .fit(fit)
         .when(!tab.atomic, |tab| tab.max_w(px(TAB_MAX)))
         .when(lattice_ui::parity::enabled(), |el| {
@@ -404,6 +450,7 @@ impl Skin for LatticeSkin {
             self.tools.borrow_mut().insert(panel.id.clone(), 0.);
         }
         let views = self.views.clone();
+        let shell = self.shell.clone();
         let id = crate::shell::skin::hash(&panel.id);
         let button = MenuPopover::new(
             ("lattice-panel-menu-popover", id),
@@ -411,7 +458,7 @@ impl Skin for LatticeSkin {
                 .frame(strip::MENU_WIDTH, px(28.))
                 .radius(TAB_RADIUS)
                 .surface(surface_kind),
-            move |popup, _, cx| Self::build_menu(&views, &menu, popup, cx),
+            move |popup, _, cx| Self::build_menu(&views, &shell, &menu, popup, cx),
         )
         .anchor(Anchor::TopRight);
         StripEnd {
@@ -565,8 +612,9 @@ impl Skin for LatticeSkin {
         let menu = ContextMenu::<PanelMenu>::keyed("lattice-panel-context-menu", window, cx);
         *self.menu.borrow_mut() = Some(menu.clone());
         let views = self.views.clone();
+        let shell = self.shell.clone();
         ContextMenu::layer(&menu, window, cx, move |menu, request, _, cx| {
-            Self::build_menu(&views, request, menu, cx)
+            Self::build_menu(&views, &shell, request, menu, cx)
         })
     }
 }

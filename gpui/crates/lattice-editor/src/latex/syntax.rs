@@ -272,7 +272,7 @@ fn find_delimited(
 
 /// The math region `position` is in, if any (`mathRegionAt`).
 pub fn math_region_at(text: &str, position: usize) -> Option<Range<usize>> {
-    math_region(text, position).map(|region| region.range)
+    math_delimiters_at(text, position).map(|(open, close)| open.start..close.end)
 }
 
 /// A math region with what is inside its delimiters.
@@ -288,24 +288,64 @@ pub struct MathRegion {
 
 /// The math region `position` is in, with its source (`mathRegionAt`).
 pub fn math_region(text: &str, position: usize) -> Option<MathRegion> {
+    let (open, close) = math_delimiters_at(text, position)?;
+    Some(MathRegion {
+        source: text[open.end..close.start].trim().to_string(),
+        display: !matches!(&text[open.clone()], "$" | "\\("),
+        range: open.start..close.end,
+    })
+}
+
+/// The opening and closing delimiters of the math region `position` is in.
+fn math_delimiters_at(text: &str, position: usize) -> Option<(Range<usize>, Range<usize>)> {
     let position = floor_boundary(text, position.min(text.len()));
     let paragraph = paragraph_around(text, position);
     let inner = &text[paragraph.clone()];
-    DELIMITERS.iter().find_map(|&(open, close)| {
-        let region = find_delimited(inner, position - paragraph.start, (open, close))?;
-        Some(MathRegion {
-            source: inner[region.start + open.len()..region.end - close.len()]
-                .trim()
-                .to_string(),
-            display: !matches!(open, "$" | "\\("),
-            range: region.start + paragraph.start..region.end + paragraph.start,
-        })
+    DELIMITERS.iter().find_map(|delimiter| {
+        let region = find_delimited(inner, position - paragraph.start, *delimiter)?;
+        let (from, to) = (region.start + paragraph.start, region.end + paragraph.start);
+        Some((from..from + delimiter.0.len(), to - delimiter.1.len()..to))
+    })
+}
+
+/// Ctrl-M where no environment holds the caret (`matchingMathDelimiter`):
+/// from the opening delimiter of the math under `position` to its closing
+/// one, and from anywhere else in it to the opening one.
+pub fn matching_math_delimiter(text: &str, position: usize) -> Option<Range<usize>> {
+    let (open, close) = math_delimiters_at(text, position)?;
+    Some(if open.contains(&position) {
+        close
+    } else {
+        open
     })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ctrl_m_jumps_between_math_delimiters() {
+        // The Tauri app's `math-region.test.ts` cases.
+        let inline = "Value $a+b$ here";
+        let (open, close) = (inline.find('$').unwrap(), inline.rfind('$').unwrap());
+        assert_eq!(
+            matching_math_delimiter(inline, open),
+            Some(close..close + 1)
+        );
+        assert_eq!(matching_math_delimiter(inline, close), Some(open..open + 1));
+        assert_eq!(
+            matching_math_delimiter(inline, open + 2),
+            Some(open..open + 1)
+        );
+        let display = "See \\[x^2\\] done";
+        let end = display.find("\\]").unwrap();
+        assert_eq!(
+            matching_math_delimiter(display, display.find("\\[").unwrap()),
+            Some(end..end + 2)
+        );
+        assert_eq!(matching_math_delimiter("no math", 2), None);
+    }
 
     #[test]
     fn citation_slots_complete_the_last_key() {

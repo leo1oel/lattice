@@ -50,6 +50,40 @@ pub fn bind_keys(cx: &mut App) {
 fn default_bindings() -> Vec<KeyBinding> {
     let mut bindings = vec![
         KeyBinding::new(m!("o"), OpenFolder, beside_vim("!(vim_mode == insert)")),
+        // The source editor's base keys where Zed's differ, as CodeMirror's
+        // `defaultKeymap` and `foldKeymap` bind them in the Tauri app
+        // (`editor-keymap.ts`). ⌘I selects the enclosing syntax node; it is
+        // bound before the LaTeX source's Emphasis below, which takes the
+        // key first in a `.tex` file and passes it on elsewhere.
+        KeyBinding::new(
+            m!("i"),
+            editor::actions::SelectLargerSyntaxNode,
+            Some(LATEX_FORMAT_KEYS),
+        ),
+        KeyBinding::new(
+            if cfg!(target_os = "macos") {
+                "ctrl-l"
+            } else {
+                "alt-l"
+            },
+            editor::actions::SelectLine,
+            Some("Editor && !VimControl && !LatticeEmacs"),
+        ),
+        KeyBinding::new(
+            m!("alt-\\"),
+            editor::actions::AutoIndent,
+            Some(LATEX_FORMAT_KEYS),
+        ),
+        KeyBinding::new(
+            "ctrl-alt-[",
+            editor::actions::FoldAll,
+            Some("Editor && !VimControl"),
+        ),
+        KeyBinding::new(
+            "ctrl-alt-]",
+            editor::actions::UnfoldAll,
+            Some("Editor && !VimControl"),
+        ),
         // No ⌘B for Build: it has no key of its own, as in the Tauri app,
         // where ⌘S saves and builds (`use-command-table.ts`). ⌘B and ⌘I are
         // the LaTeX source's Bold and Emphasis (`latex-shortcuts.ts`), over
@@ -136,6 +170,36 @@ fn default_bindings() -> Vec<KeyBinding> {
             "ctrl-m",
             crate::editor_panel::latex_format::MatchingEnvironment,
             Some("Editor && !VimControl"),
+        ),
+        // F12, Go to definition (`latexCommandKeymap`'s `definition`), over
+        // Zed's own, which needs a language server this editor has not.
+        KeyBinding::new(
+            "f12",
+            crate::editor_panel::definition::GotoDefinition,
+            Some(LATEX_FORMAT_KEYS),
+        ),
+        // Vim's `:` (`editor_panel/vim_ex.rs`): Lattice's command line, over
+        // Zed's, which opens a command palette this app does not host.
+        KeyBinding::new(
+            ":",
+            crate::editor_panel::vim_ex::VimCommandLine,
+            Some("Editor && mode == full && VimControl && !menu"),
+        ),
+        // The typing rules (`editor_panel/latex_input.rs`): with Vim on they
+        // act only in its insert mode, so every other mode keeps `$` and
+        // Enter, the ones waiting for a character (`f$`, `r⏎`, `R`, Ctrl-V)
+        // too, and a menu keeps Enter to accept its item. Bound after Zed's
+        // keymap, they come before its Newline, which a rule with nothing to
+        // do passes the key on to.
+        KeyBinding::new(
+            "$",
+            crate::editor_panel::latex_input::TypeDollar,
+            Some("Editor && mode == full && (!vim_mode || vim_mode == insert)"),
+        ),
+        KeyBinding::new(
+            "enter",
+            crate::editor_panel::latex_input::LatexNewline,
+            Some("Editor && mode == full && (!vim_mode || vim_mode == insert) && !menu"),
         ),
         // Vim's insert mode keeps Ctrl+P for its word completion.
         KeyBinding::new(m!("p"), QuickOpen, beside_vim("!(vim_mode == insert)")),
@@ -324,6 +388,39 @@ mod tests {
     }
 
     #[test]
+    fn ctrl_l_selects_the_line_but_recenters_under_emacs() {
+        // emacs.json binds ctrl-l to recenter-top-bottom in an editor, as the
+        // Tauri app's Emacs keymap does; the app loads it under its Emacs
+        // context, then Lattice's keymap again.
+        let mut bindings = default_bindings();
+        bindings.push(KeyBinding::new(
+            "ctrl-l",
+            editor::actions::ScrollCursorCenterTopBottom,
+            Some(&format!("{} > Editor", crate::app::EMACS_CONTEXT)),
+        ));
+        bindings.extend(default_bindings());
+        let keymap = Keymap::new(bindings);
+        let run = |shell: &str| {
+            let stack = [shell, "LatticeEditor", "Editor mode = full"]
+                .map(|context| KeyContext::parse(context).unwrap());
+            let (matched, _) =
+                keymap.bindings_for_input(&[Keystroke::parse("ctrl-l").unwrap()], &stack);
+            matched.first().map(|binding| binding.action().name())
+        };
+        let emacs = format!("LatticeShell {}", crate::app::EMACS_CONTEXT);
+        assert_eq!(
+            run(&emacs),
+            Some(editor::actions::ScrollCursorCenterTopBottom.name())
+        );
+        if cfg!(target_os = "macos") {
+            assert_eq!(
+                run("LatticeShell"),
+                Some(editor::actions::SelectLine.name())
+            );
+        }
+    }
+
+    #[test]
     fn each_workspace_key_switches_to_the_workspace_at_that_place() {
         // The README: ⌘1 … ⌘9 (Ctrl off macOS) is the workspace at that place.
         let keymap = Keymap::new(default_bindings());
@@ -351,6 +448,42 @@ mod tests {
             );
         }
         assert!(switch_workspace_action(9).is_none());
+    }
+
+    #[test]
+    fn typing_rules_take_dollar_and_enter_only_outside_vims_other_modes() {
+        // Zed's Vim (vim.rs, `extend_key_context`): `f`, `t` and `r` wait
+        // for their character in `vim_mode = waiting`, Ctrl-V in `literal`,
+        // `R` types over in `replace`, none of them with `VimControl`.
+        let dollar = Some(crate::editor_panel::latex_input::TypeDollar.name());
+        let newline = Some(crate::editor_panel::latex_input::LatexNewline.name());
+        for editor in ["Editor mode = full", "Editor mode = full vim_mode = insert"] {
+            assert_eq!(resolve(default_bindings(), editor, "$"), dollar, "{editor}");
+            assert_eq!(
+                resolve(default_bindings(), editor, "enter"),
+                newline,
+                "{editor}"
+            );
+        }
+        for mode in [
+            "normal VimControl",
+            "visual VimControl",
+            "operator VimControl",
+            "waiting",
+            "literal",
+            "replace",
+        ] {
+            let editor = format!("Editor mode = full vim_mode = {mode}");
+            for keys in ["$", "enter"] {
+                assert_eq!(
+                    resolve(default_bindings(), &editor, keys),
+                    None,
+                    "{keys} in {mode}"
+                );
+            }
+        }
+        let menu = "Editor mode = full vim_mode = insert menu";
+        assert_eq!(resolve(default_bindings(), menu, "enter"), None);
     }
 
     #[test]

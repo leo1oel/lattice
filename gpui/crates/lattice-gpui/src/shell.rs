@@ -57,15 +57,17 @@ mod overleaf_menus;
 mod overleaf_presence;
 mod overleaf_review;
 mod palette;
-mod palette_commands;
+pub(crate) mod palette_commands;
 mod palette_entries;
 mod palette_groups;
 mod papers;
 mod parts;
+mod pdf_citations;
 mod pdf_figure;
 mod pdf_sync;
 mod pdfs;
 mod references_flow;
+mod review_mode_flow;
 mod render;
 pub(crate) mod research_flow;
 mod saving;
@@ -75,6 +77,7 @@ mod shortcut_sheet;
 mod skin;
 mod structured_docs;
 mod synctex;
+mod tab_policy;
 mod terminal_flow;
 mod tools_flow;
 pub mod trellis_layout;
@@ -113,6 +116,7 @@ pub use insert_pickers_flow::{GoToLine, GoToSymbol, InsertCitation, InsertRefere
 pub use overleaf_collab::AnnotateSelection;
 pub use overleaf_menus::ReviewHere;
 pub(crate) use palette_groups::init as init_recent_commands;
+pub(crate) use pdf_citations::PaperFetched;
 pub use references_flow::{FindReferences, RenameSymbol};
 pub use export_zip::ExportProjectZip;
 pub use tools_flow::{ExportArxiv, OpenChecklist, OpenTodos};
@@ -212,6 +216,8 @@ pub struct Shell {
     pub(crate) conflicts_noticed: std::collections::BTreeSet<String>,
     /// Watches the open project for Git's conflicts.
     _project_git: Option<Subscription>,
+    /// Waits on the paper a PDF citation card's title is fetching.
+    citation_fetch: Option<Subscription>,
     /// The TeX doctor, setup and package installs (one for the app).
     tex_setup: Entity<TexSetupCenter>,
     /// The open project's manuscript word count (one for the app).
@@ -227,6 +233,8 @@ pub struct Shell {
     zoom_hud: Entity<crate::interface_zoom::ZoomHud>,
     confirm: Entity<ConfirmHost>,
     editors: Vec<WeakEntity<EditorPanel>>,
+    /// Preview and pinned tabs, and which tabs a full strip spares.
+    tabs: tab_policy::TabPolicy,
     /// The editor the writer was last in (opened, or holding the keyboard),
     /// which a build compiles from and a jump to the PDF starts from. An
     /// overlay (the palette, a menu) taking focus does not change it.
@@ -506,6 +514,7 @@ impl Shell {
             overleaf_layers: Default::default(),
             conflicts_noticed: Default::default(),
             _project_git: None,
+            citation_fetch: None,
             tex_setup,
             words,
             cleaning: false,
@@ -515,6 +524,7 @@ impl Shell {
             zoom_hud: crate::interface_zoom::new_hud(cx),
             confirm,
             editors: Vec::new(),
+            tabs: tab_policy::TabPolicy::default(),
             active_editor: None,
             build_task: None,
             build_trace: None,

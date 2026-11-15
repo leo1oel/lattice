@@ -77,6 +77,11 @@ pub enum LatexEvent {
     FindReferences { kind: String, symbol: String },
     /// Rename a label or citation key everywhere.
     RenameSymbol { kind: String, symbol: String },
+    /// Wrap in environment… (⌘⇧E, `None`) or Rename the environment
+    /// (⌘⌥R, the environment's name at the page's caret): the window's
+    /// dialog asks for the name, which goes back to the page
+    /// ([`StructuredDocument::edit_environment`]).
+    Environment { rename: Option<String> },
     /// An image was pasted into the page: insert it as a figure.
     PasteImage,
     /// An outline rail row: open `path` at the 1-based `line`.
@@ -96,6 +101,10 @@ pub enum LatexEvent {
     OverleafDelete(String),
     OverleafEditMessage { thread: String, message: String, content: String },
     OverleafDeleteMessage { thread: String, message: String },
+    /// A suggestion's card, over its mark or in margin review: accept or
+    /// reject Overleaf's tracked change `id`.
+    OverleafAccept(String),
+    OverleafReject(String),
 }
 
 /// What a `.tex` file's Visual page last had of the project beyond the
@@ -371,6 +380,10 @@ impl StructuredDocument {
                 kind: text("kind"),
                 symbol: text("symbol"),
             },
+            "tex:wrap-environment" => LatexEvent::Environment { rename: None },
+            "tex:rename-environment" => LatexEvent::Environment {
+                rename: Some(text("name")),
+            },
             "tex:paste-image" => LatexEvent::PasteImage,
             "tex:outline-jump" => LatexEvent::OutlineJump {
                 path: text("path"),
@@ -398,6 +411,8 @@ impl StructuredDocument {
                 resolved: payload.get("resolved").and_then(Value::as_bool).unwrap_or(true),
             },
             "tex:overleaf-delete" => LatexEvent::OverleafDelete(text("thread")),
+            "tex:overleaf-accept" => LatexEvent::OverleafAccept(text("id")),
+            "tex:overleaf-reject" => LatexEvent::OverleafReject(text("id")),
             "tex:overleaf-edit-message" => LatexEvent::OverleafEditMessage {
                 thread: text("thread"),
                 message: text("message"),
@@ -451,6 +466,17 @@ impl StructuredDocument {
         }
         session.build = payload.clone();
         self.post("tex:build", json!({ "build": payload }), cx);
+    }
+
+    /// The window's Wrap in environment… or Rename the environment
+    /// dialog's name, for the page to apply at its own selection, as the
+    /// Tauri app's canvas does (`wrapEnvRequest`, `envRenameRequest`).
+    pub fn edit_environment(&mut self, rename: bool, name: &str, cx: &mut Context<Self>) {
+        self.post(
+            "tex:environment",
+            json!({ "rename": rename, "name": name }),
+            cx,
+        );
     }
 
     /// ⌘F, ⌘G and ⇧⌘G in the Visual view: the page's own search panel

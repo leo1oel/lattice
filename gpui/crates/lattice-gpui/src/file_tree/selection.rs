@@ -234,6 +234,15 @@ impl FileTreePanel {
         false
     }
 
+    /// A file row double-clicked: its tab is kept, not a preview
+    /// (`project-file-tree.tsx`).
+    pub(super) fn keep_row(&mut self, path: &str, cx: &mut Context<Self>) {
+        if let Some(project) = &self.project {
+            let absolute = project.read(cx).root().join(path);
+            cx.emit(FileTreeEvent::Keep(absolute));
+        }
+    }
+
     /// Enter names the one selected row anew (`project-file-tree.tsx`); with
     /// several selected it does nothing.
     pub(super) fn rename_key(

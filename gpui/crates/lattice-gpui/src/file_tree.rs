@@ -36,6 +36,11 @@
 //! files for all of them, across runs (`memory.rs`); until it is on, the
 //! tree also leaves out a template's `.sty` and `.bst` files.
 //!
+//! A letter typed in the tree filters it (`search.rs`), an open folder
+//! scrolled past stays pinned at the top (`sticky.rs`), and a folder opening
+//! or closing moves as the app's does (`motion.rs`); the panel is drawn in
+//! `view.rs`.
+//!
 //! A file Git sees changed carries its status's colour and letter, and a
 //! folder holding one a dot (`TreeRow::git`), read with the project's scans.
 //!
@@ -43,29 +48,22 @@
 //! gliding between rows, never on the open file's row, and dark for 150 ms
 //! after a scroll; its scrollbar is Lattice's (`lattice_ui::scrollbar`).
 
-use std::{cell::RefCell, collections::HashSet, path::PathBuf, rc::Rc, time::Duration};
+use std::{cell::RefCell, collections::HashSet, path::PathBuf, rc::Rc};
 
 use gpui::{
-    Anchor, Animation, AnimationExt as _, App, AppContext as _, Context, DragMoveEvent, Entity,
-    EventEmitter, ExternalPaths, FocusHandle, Focusable, InteractiveElement as _, IntoElement,
-    KeyDownEvent, ParentElement as _, Pixels, Point, Render, SharedString,
-    StatefulInteractiveElement as _, Styled as _, Subscription, Window, div,
-    prelude::FluentBuilder as _, px,
+    Anchor, App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, Focusable,
+    IntoElement, ParentElement as _, Pixels, Point, SharedString, Styled as _, Subscription,
+    Window, div, px,
 };
 use gpui_kit::component::{
     dock::{BasePanel, Panel, PanelEvent},
-    input::Input,
-    tree::{TreeEvent, TreeState, tree},
+    tree::{TreeEvent, TreeState},
 };
 use lattice_i18n::t;
 use lattice_ui::{
-    ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
-    components::{
-        ContextMenu, IconButton, MenuPopover, Surface, TAB_RADIUS, TreeRow, context_menu_trigger,
-    },
-    fluid_hover::{FluidHover, ItemKind},
-    scrollbar::{FluidScrollbar, ScrollbarFeel},
-    shape,
+    Icon,
+    components::{ContextMenu, IconButton, MenuPopover, Surface, TAB_RADIUS},
+    fluid_hover::FluidHover,
 };
 
 mod clipboard;
@@ -74,14 +72,19 @@ mod drop_aim;
 mod git_marks;
 pub(crate) mod memory;
 mod menu;
+mod motion;
 mod naming;
+pub(crate) mod new_entries;
 mod probes;
 mod rows;
+mod search;
 mod selection;
+mod sticky;
+mod view;
 
 pub use dragged::DraggedEntry;
 use dragged::DragPreview;
-use drop_aim::{Aim, drop_mark};
+use drop_aim::Aim;
 use git_marks::GitMarks;
 use naming::{Naming, NamingKind, insert_placeholder};
 use rows::{hide_template_files, item_ids, tree_items};
@@ -91,7 +94,10 @@ use crate::project::{Project, ProjectEvent};
 
 /// What the tree asks the shell to do.
 pub enum FileTreeEvent {
+    /// A row's click: a quick look at the file (its panel's preview tab).
     Open(PathBuf),
+    /// A row's double-click: the file's tab kept.
+    Keep(PathBuf),
     /// Rename the entry at `path` (project-relative) to `name`.
     Rename {
         path: String,
@@ -107,6 +113,12 @@ pub enum FileTreeEvent {
         path: String,
         folder: bool,
     },
+    /// Create the slide deck `id` under `slides/`, and open it.
+    CreateDeck {
+        id: String,
+    },
+    /// Open the project's find (the strip's Find in project).
+    FindInProject,
     /// Delete `paths`, already confirmed.
     Delete(Vec<String>),
     /// Import files…: choose files and folders to bring into `target`.
@@ -166,6 +178,13 @@ pub struct FileTreePanel {
     revealed: Option<String>,
     /// Every row's id, shown or inside a closed folder.
     known: Rc<HashSet<String>>,
+    /// The type-to-filter field, while it is open (`search.rs`).
+    search: Option<search::TreeSearch>,
+    /// Whether Kit's tree holds a search's rows, whose folders the search
+    /// opened, so they are not the writer's to remember.
+    filtered: bool,
+    /// A folder opening or closing, while it moves (`motion.rs`).
+    motion: Option<motion::TreeMotion>,
     _project_subscription: Option<Subscription>,
     _tree_subscription: Subscription,
 }
@@ -177,7 +196,18 @@ impl FileTreePanel {
     pub fn new(cx: &mut Context<Self>) -> Self {
         let state = cx.new(|cx| TreeState::new(cx));
         // A folder opened or closed is remembered then, not at the next scan.
-        let tree_subscription = cx.subscribe(&state, |this, _, _: &TreeEvent, cx| {
+        // It moves as it opens or closes, but not under a search's query,
+        // which opens and closes folders itself.
+        let tree_subscription = cx.subscribe(&state, |this, _, event: &TreeEvent, cx| {
+            match event {
+                TreeEvent::Expanded(id) if this.search_query().is_none() => {
+                    this.begin_motion(id, true, cx)
+                }
+                TreeEvent::Collapsed(id) if this.search_query().is_none() => {
+                    this.begin_motion(id, false, cx)
+                }
+                _ => {}
+            }
             this.remember_expanded(cx)
         });
         Self {
@@ -198,6 +228,9 @@ impl FileTreePanel {
             reveal_selects: false,
             revealed: None,
             known: Rc::default(),
+            search: None,
+            filtered: false,
+            motion: None,
             _project_subscription: None,
             _tree_subscription: tree_subscription,
         }
@@ -280,11 +313,11 @@ impl FileTreePanel {
         }
         if let Some(Naming {
             path,
-            kind: NamingKind::Create { folder },
+            kind: NamingKind::Create { making },
             ..
         }) = &self.naming
         {
-            insert_placeholder(&mut nodes, path, *folder);
+            insert_placeholder(&mut nodes, path, making.folder);
         }
         self.read_marks(cx);
         self.figures = Rc::new(
@@ -294,10 +327,21 @@ impl FileTreePanel {
                 .map(|node| node.path.clone())
                 .collect(),
         );
-        let items = tree_items(&nodes, &self.expanded);
+        // While the field holds a query only its matches and their folders
+        // show, opened; the folders the writer opened wait until it closes.
+        let all = tree_items(&nodes, &self.expanded);
         let mut known = HashSet::new();
-        item_ids(&items, &mut known);
+        item_ids(&all, &mut known);
         self.known = Rc::new(known);
+        self.filtered = self.search_query().is_some();
+        let items = match self.search_query() {
+            Some(query) => {
+                let mut open = HashSet::new();
+                let nodes = search::filter_nodes(&nodes, query, &mut open);
+                tree_items(&nodes, &open)
+            }
+            None => all,
+        };
         self.state
             .update(cx, |state, cx| state.set_items(items, cx));
         self.settle_selection(cx);
@@ -310,6 +354,9 @@ impl FileTreePanel {
 
     /// Note which folders are open, and keep it for the project.
     fn remember_expanded(&mut self, cx: &App) {
+        if self.filtered {
+            return;
+        }
         let state = self.state.read(cx);
         for entry in (0..).map_while(|ix| state.entry(ix)) {
             if !entry.is_folder() {
@@ -369,7 +416,7 @@ impl Panel for FileTreePanel {
 
     /// The strip's tools before ⋯, as the Tauri app's Project panel has them
     /// (`trellis-panel-actions.tsx`): + opens what can be added, and Find in
-    /// project, which is not in the GPUI app yet. Each is a 28px square on
+    /// project opens the project's find. Each is a 28px square on
     /// the panel's chrome with the tab's corners, a hairline apart
     /// (`.trellis-accessory-host`).
     fn title_suffix(&mut self, _: &mut Window, cx: &mut Context<Self>) -> Option<impl IntoElement> {
@@ -394,314 +441,16 @@ impl Panel for FileTreePanel {
                     IconButton::new("project-find", Icon::SEARCH)
                         .radius(TAB_RADIUS)
                         .surface(Surface::Chrome)
-                        .tooltip(t!(
-                            "{name} — not in the GPUI preview yet",
-                            name = t!("Find in project")
-                        )),
+                        .tooltip(t!("Find in project"))
+                        .on_click(cx.listener(|this, _, window, cx| {
+                            this.find_in_project(window, cx)
+                        })),
                 ),
         )
     }
 
     fn inner_padding(&self, _: &App) -> bool {
         false
-    }
-}
-
-impl Render for FileTreePanel {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        if self.project.is_none() {
-            return div()
-                .id("file-tree-empty")
-                .track_focus(&self.focus_handle)
-                .size_full()
-                .px(px(20.))
-                .py(px(12.))
-                .text_role(TextRole::Body, cx)
-                .text_color(cx.palette().text_secondary)
-                .child(t!("Open a LaTeX project folder to start"))
-                .into_any_element();
-        }
-        let view = cx.entity().downgrade();
-        let menu_view = view.clone();
-        let background_view = view.clone();
-        // The rows' menu and the empty area's: Lattice's menu at the pointer.
-        let row_menu = ContextMenu::<(String, bool)>::keyed("file-tree-row-menu", window, cx);
-        let background_menu = ContextMenu::<()>::keyed("file-tree-menu", window, cx);
-        let rows_menu = row_menu.clone();
-        self.row_menu = Some(row_menu.clone());
-        let root_drop = view.clone();
-        let selected = Rc::new(self.selected_paths(cx));
-        let naming = self
-            .naming
-            .as_ref()
-            .map(|naming| (naming.path.clone(), naming.input.clone()));
-        let aimed = self.aim.borrow().folder(cx);
-        let row_aim = self.aim.clone();
-        let marks = self.marks.clone();
-        let figures = self.figures.clone();
-        // The tree's hover is one fill gliding between rows, as the app's
-        // (`project-tree-hover.tsx`): the open file's row keeps its own
-        // selection fill and is never lit, and rows recycled under a resting
-        // pointer stay dark until 150 ms after the scroll.
-        let hover = FluidHover::new("file-tree-hover", window, cx)
-            .fill(cx.palette().hover)
-            .radius(shape::RADIUS_TARGET)
-            .quiet_after_scroll(Duration::from_millis(150), cx);
-        let rows_hover = hover.clone();
-        self.hover = Some(hover.clone());
-        let scroll = self.state.read(cx).scroll_handle().clone();
-        // Measured on the Main window: rows 12px in from both sides, the
-        // first 7px under the tab strip.
-        div()
-            .id("file-tree")
-            .key_context("LatticeFileTree")
-            .track_focus(&self.focus_handle)
-            .size_full()
-            .pt(px(7.))
-            .px(px(12.))
-            .capture_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
-                if event.keystroke.key == "escape" && this.naming.is_some() {
-                    cx.stop_propagation();
-                    this.cancel_naming(window, cx);
-                }
-            }))
-            .on_key_down(cx.listener(Self::clipboard_key))
-            .on_key_down(cx.listener(Self::rename_key))
-            // Each move of a drag aims anew: off every row is the root.
-            .on_drag_move({
-                let aim = self.aim.clone();
-                let view = view.clone();
-                move |event: &DragMoveEvent<DraggedEntry>, _, cx| {
-                    let inside = event.bounds.contains(&event.event.position);
-                    *aim.borrow_mut() = Aim { inside, row: None };
-                    let dragged = event.drag(cx);
-                    if !inside && dragged.single_file() && !dragged.figure {
-                        let (path, pointer) = (dragged.path.clone(), event.event.position);
-                        view.update(cx, |_, cx| {
-                            cx.emit(FileTreeEvent::DragOut { path, pointer })
-                        })
-                        .ok();
-                    }
-                }
-            })
-            .on_drag_move({
-                let aim = self.aim.clone();
-                move |event: &DragMoveEvent<ExternalPaths>, _, _| {
-                    let inside = event.bounds.contains(&event.event.position);
-                    *aim.borrow_mut() = Aim { inside, row: None };
-                }
-            })
-            // A row dropped on the empty area moves to the top level.
-            .on_drop({
-                let aim = self.aim.clone();
-                move |dragged: &DraggedEntry, _, cx| {
-                    *aim.borrow_mut() = Aim::default();
-                    root_drop
-                        .update(cx, |_, cx| {
-                            cx.emit(FileTreeEvent::Move {
-                                paths: dragged.paths.clone(),
-                                target: String::new(),
-                            })
-                        })
-                        .ok();
-                }
-            })
-            .on_drop({
-                let view = view.clone();
-                let aim = self.aim.clone();
-                move |paths: &ExternalPaths, _, cx| {
-                    *aim.borrow_mut() = Aim::default();
-                    let paths = paths.paths().to_vec();
-                    view.update(cx, |_, cx| {
-                        cx.emit(FileTreeEvent::DropFiles {
-                            paths,
-                            target: String::new(),
-                        })
-                    })
-                    .ok();
-                }
-            })
-            .map(|this| context_menu_trigger(this, &background_menu, ()))
-            .children(ContextMenu::layer(
-                &background_menu,
-                window,
-                cx,
-                move |menu, _, _, cx| Self::background_menu(&background_view, menu, cx),
-            ))
-            .children(ContextMenu::layer(
-                &row_menu,
-                window,
-                cx,
-                move |menu, (path, folder), _, cx| {
-                    Self::row_menu(&menu_view, path.clone(), *folder, menu, cx)
-                },
-            ))
-            .relative()
-            .child(hover.highlight())
-            // A drag aimed at the project root washes the whole tree
-            // (`.project-file-tree-surface::after`), fading in.
-            .when(aimed.as_deref() == Some(""), |tree| {
-                let palette = cx.palette().clone();
-                tree.child(
-                    div()
-                        .absolute()
-                        .inset_0()
-                        .rounded(px(6.))
-                        .bg(palette.accent_soft)
-                        .border_1()
-                        .border_color(palette.accent.opacity(0.27))
-                        .with_animation(
-                            "file-tree-root-drop",
-                            Animation::new(lattice_ui::motion::Motion::Moderate.duration()),
-                            |wash, t| wash.opacity(lattice_ui::motion::Motion::Moderate.sample(t)),
-                        ),
-                )
-            })
-            .child(
-                tree(&self.state, move |ix, entry, _, _, cx| {
-                    let item = entry.item();
-                    let relative = item.id.to_string();
-                    let is_folder = entry.is_folder();
-                    let row_selected = selected.contains(&relative);
-                    let kind = if row_selected {
-                        ItemKind::skip()
-                    } else {
-                        ItemKind::target()
-                    };
-                    let mut row = if is_folder {
-                        TreeRow::folder(ix, item.label.clone(), entry.depth(), entry.is_expanded())
-                            .selected(row_selected)
-                            .contains_change(marks.folders.contains(&relative))
-                    } else {
-                        TreeRow::file(ix, item.label.clone(), entry.depth())
-                            .selected(row_selected)
-                            .git(marks.files.get(&relative).copied())
-                    }
-                    .fluid(rows_hover.probe(ix, kind))
-                    .drop_mark(drop_mark(
-                        aimed.as_deref(),
-                        &relative,
-                        is_folder,
-                    ));
-                    if let Some((_, input)) = naming.as_ref().filter(|(at, _)| *at == relative) {
-                        // The app's rename field: 20px on the compact
-                        // corner, its padding and border outside the name's
-                        // left edge, so the name stays where it was.
-                        let palette = cx.palette().clone();
-                        row = row.editing(
-                            div()
-                                .flex()
-                                .items_center()
-                                .h(px(20.))
-                                .ml(px(-9.))
-                                .px(px(8.))
-                                .rounded(px(4.))
-                                .border_1()
-                                .border_color(palette.field_border_hover)
-                                .bg(palette.input)
-                                .text_role(TextRole::Body, cx)
-                                .text_color(palette.text)
-                                .child(
-                                    Input::new(input).appearance(false).px_0().py_0().h(px(18.)),
-                                ),
-                        );
-                    }
-                    // Parity regions are named by the path from the project
-                    // root, as the app's tree names its rows (`data-item-path`).
-                    if lattice_ui::parity::enabled() {
-                        row = row.parity(format!("row/{relative}"));
-                    }
-                    let dragged = DraggedEntry {
-                        paths: including(&selected, &relative),
-                        path: relative.clone(),
-                        name: item.label.clone(),
-                        folder: is_folder,
-                        figure: figures.contains(&relative),
-                    };
-                    // A drop on a folder moves into it; on a file, into the
-                    // file's folder.
-                    let target = if is_folder {
-                        relative.clone()
-                    } else {
-                        relative
-                            .rsplit_once('/')
-                            .map(|(parent, _)| parent.to_string())
-                            .unwrap_or_default()
-                    };
-                    let open = view.clone();
-                    let click_path = relative.clone();
-                    let drop = view.clone();
-                    let paths_drop = view.clone();
-                    let entry_aim = row_aim.clone();
-                    let paths_aim = row_aim.clone();
-                    let entry_drop_aim = row_aim.clone();
-                    let paths_drop_aim = row_aim.clone();
-                    let (entry_target, paths_target) = (target.clone(), target.clone());
-                    let files_target = target.clone();
-                    let menu_target = (relative.clone(), is_folder);
-                    let item = row.into_list_item(cx);
-                    context_menu_trigger(item, &rows_menu, menu_target)
-                        .on_drag(dragged, |dragged, _, _, cx| {
-                            cx.new(|_| DragPreview(dragged.clone()))
-                        })
-                        .on_drag_move(move |event: &DragMoveEvent<DraggedEntry>, _, _| {
-                            if event.bounds.contains(&event.event.position) {
-                                entry_aim.borrow_mut().row = Some(entry_target.clone());
-                            }
-                        })
-                        .on_drag_move(move |event: &DragMoveEvent<ExternalPaths>, _, _| {
-                            if event.bounds.contains(&event.event.position) {
-                                paths_aim.borrow_mut().row = Some(paths_target.clone());
-                            }
-                        })
-                        .on_drop(move |paths: &ExternalPaths, _, cx| {
-                            cx.stop_propagation();
-                            *paths_drop_aim.borrow_mut() = Aim::default();
-                            let (paths, target) = (paths.paths().to_vec(), files_target.clone());
-                            paths_drop
-                                .update(cx, |_, cx| {
-                                    cx.emit(FileTreeEvent::DropFiles { paths, target })
-                                })
-                                .ok();
-                        })
-                        .on_drop(move |dragged: &DraggedEntry, _, cx| {
-                            cx.stop_propagation();
-                            *entry_drop_aim.borrow_mut() = Aim::default();
-                            // Nothing moves into itself or a folder inside
-                            // it; the rest still go.
-                            let paths: Vec<String> = dragged
-                                .paths
-                                .iter()
-                                .filter(|path| {
-                                    **path != target && !target.starts_with(&format!("{path}/"))
-                                })
-                                .cloned()
-                                .collect();
-                            if paths.is_empty() {
-                                return;
-                            }
-                            drop.update(cx, |_, cx| {
-                                cx.emit(FileTreeEvent::Move {
-                                    paths,
-                                    target: target.clone(),
-                                })
-                            })
-                            .ok();
-                        })
-                        .on_click(move |event, window, cx| {
-                            open.update(cx, |this, cx| {
-                                this.click_row(&click_path, is_folder, event, window, cx)
-                            })
-                            .ok();
-                        })
-                })
-                // Lattice's scrollbar, below, in place of Kit's.
-                .scrollbar(false),
-            )
-            .child(
-                FluidScrollbar::vertical("file-tree-scrollbar", &scroll).feel(ScrollbarFeel::LIST),
-            )
-            .into_any_element()
     }
 }
 

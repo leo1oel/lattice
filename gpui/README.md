@@ -17,7 +17,7 @@ What it does so far, and nothing more, one line per feature, each with its own p
 - [Finding things in the project](docs/find.md): find and replace in the open file, quick open, Find and Replace in project, and the files visited.
 - [Get started](docs/get-started.md): walks a first paper with Get started's checklist and its Show me ring.
 - [Getting a manuscript ready to send](docs/submission.md): the TODOs panel, references and rename, Export for arXiv… and the submission checklist.
-- [History](docs/history.md): keeps the project's history in its History tool panel, with versions, Compare… and the conflict resolver.
+- [History](docs/history.md): keeps the project's history in its History tool panel, with versions, Compare… and the conflict resolver, and tracks the writer's changes for review (Track changes).
 - [HTML files](docs/html-preview.md): shows an HTML file in Preview, Edit and Split.
 - [Languages](docs/languages.md): speaks English and Simplified Chinese from the Tauri app's own catalog.
 - [LuaLaTeX live preview](docs/live-preview.md): previews a LuaLaTeX project live with rtex.
@@ -60,7 +60,7 @@ The window's panels are laid out with it, so the GPUI app as built includes Trel
 
 These are the facts of how the code is licensed, not legal advice; the license texts themselves are what apply.
 
-Lucide icons in `crates/lattice-ui/assets/icons/` (`download.svg`, `ellipsis.svg` and `file.svg`, which Zed's icon set shadows, and `tool-history.svg` from Lucide itself, as GPUI Kit's set lacks it) are copied unmodified and keep Lucide's license ([`crates/lattice-ui/assets/LICENSE-LUCIDE`](crates/lattice-ui/assets/LICENSE-LUCIDE)).
+Lucide icons in `crates/lattice-ui/assets/icons/` (`download.svg`, `ellipsis.svg` and `file.svg`, which Zed's icon set shadows, and `tool-history.svg` from Lucide itself, as GPUI Kit's set lacks it) are copied unmodified, and `pin.svg` (a pinned tab's mark) is Lucide's pin with its stroke drawn in black as the app's own marks are; all keep Lucide's license ([`crates/lattice-ui/assets/LICENSE-LUCIDE`](crates/lattice-ui/assets/LICENSE-LUCIDE)).
 The reading-aid faces in `crates/lattice-ui/assets/fonts/reading-aids/` (Atkinson Hyperlegible and OpenDyslexic, the Latin subset @fontsource publishes, unpacked from WOFF2 to TTF without other change) keep the SIL Open Font License 1.1 and their reserved names ([`LICENSE-atkinson-hyperlegible`](crates/lattice-ui/assets/fonts/reading-aids/LICENSE-atkinson-hyperlegible), [`LICENSE-opendyslexic`](crates/lattice-ui/assets/fonts/reading-aids/LICENSE-opendyslexic)).
 Everything outside `gpui/`, the Tauri app and the backend crate the two apps share (`lattice-core`) included, stays Apache-2.0 ([`../LICENSE`](../LICENSE)); Apache-2.0 code can be part of this GPL work, not the other way round, so nothing under `gpui/` may be copied out of it into the Apache-2.0 tree.
 
@@ -104,15 +104,19 @@ The first build fetches Zed at the pinned revision and compiles about 1,200 crat
 | ⌃Tab, ⌃⇧Tab | Next or previous project in the window |
 | ⌘B, ⌘I, ⌘⇧M | In a LaTeX file, Bold (`\textbf`), Emphasis (`\emph`) and Inline math, each on or off for the selection |
 | ⌘/, ⌘⌥/, ⌘⌥; | In a LaTeX file, comment the lines, or wrap them in a `comment` environment or `\iffalse … \fi` |
-| ⌘⌥E, ⌘⌥I, ⌘⌥A, ⌃M | Wrap in `equation` or `itemize`, select the environment, go to the matching `\begin` or `\end` |
+| ⌘⌥E, ⌘⌥I, ⌘⌥A, ⌃M | Wrap in `equation` or `itemize`, select the environment, go to the matching `\begin` or `\end` (else the matching math delimiter) |
 | ⌘⌥S, ⌘⌥U, ⌘⌥L, ⌘⌥C | Sort lines, UPPER, lower and Title Case |
-| ⌘⇧E, ⌘⌥R | Wrap in environment… (the name asked for), and Rename environment (both its `\begin` and its `\end`) |
+| ⌘⇧E, ⌘⌥R | Wrap in environment… (the name asked for), and Rename environment (both its `\begin` and its `\end`), in the Source and the Visual view |
+| `$`, ↩ | In a LaTeX file, `$` pairs (and wraps a selection in `$…$`); ↩ after a `\begin{…}` writes its `\end{…}`, and on an `\item` line starts the next item or, on an empty one, leaves the list |
 | ⌘⇧K, ⌘⇧L | In a LaTeX file, Insert citation and Insert reference: a picker of the bibliography's keys or the project's labels, writing `\cite{…}` or `\ref{…}` at the caret |
 | ⌘G, ⌘⇧O | Go to line, and Go to symbol (the manuscript's sections and the project's labels) |
+| ⌃L, ⌘I, ⌥⌘\\, ⌃⌥[ / ⌃⌥] | Select the line, the enclosing syntax (outside a LaTeX file), re-indent, fold or unfold everything, as CodeMirror binds them in the Tauri app |
+| Vim `:w`, `:q`, `:wq`, `:N` | Save (and build), close the tab, both, go to line N |
+| F12, ⌘-click | In a LaTeX file, Go to definition: a label's `\label`, a citation's entry, an `\input`'s file or a figure (TexLab for the rest, when installed) |
 | Zed's default keymap | Everything else in the editor |
 
 On Windows and Linux, Ctrl stands in for ⌘, and quitting is Alt+F4 or the menu. With Vim mode on there, Vim keeps Ctrl+O, Ctrl+B, Ctrl+I, Ctrl+G, Ctrl+S, Ctrl+K and Ctrl+W in the editor, in the Vim modes where its keymap binds them.
-On every platform, Vim's normal and visual modes keep ⌃M as their next-line start.
+On every platform, Vim's normal and visual modes keep ⌃M as their next-line start, and with Vim on, `$` and ↩ follow the typing rules only in its insert mode.
 
 "Vim mode" in an editor's ⋯ menu turns Zed's Vim mode on for every editor; `LATTICE_GPUI_VIM=1` turns it on for that run only, leaving the saved keymap as it is.
 
@@ -208,7 +212,7 @@ The app draws what the Tauri app draws: the parity target is the running app as 
 - `crates/lattice-ui/src/tokens/` is generated from the JSON, and from `design-system/code-themes.json` for the code themes; a test fails while they disagree. After a Paper export, or after `node design-system/code-themes.mjs` re-exports the Tauri app's code themes, regenerate with `LATTICE_UI_WRITE_TOKENS=1 cargo test -p lattice-ui generated_tokens`.
 - `Palette` resolves every colour role for an appearance, tint and accent preset the way `src/styles/theme.css` derives them; GPUI Kit and Zed's editor are themed from it (`kit.rs`, `editor_theme/`, one Zed theme per Lattice code theme), so their own components start in Lattice's colours.
 - The panels are Trellis's, ported (`crates/trellis`), and wear Lattice's skin (`shell/skin.rs`, from `src/trellis/trellis.css`): rounded cards whose surface follows the selected view, 40px strips of pill tabs, the divider's grip in the accent after a hover delay, Trellis's drop slot with "Add as tab". A strip short of room gives way as Lattice's Trellis patch plans it (`planHeader`), from the tabs' shaped widths.
-- Fonts: Inter, Ioskeley Mono and Instrument Serif are bundled (`script/make-fonts` writes them), with the reading aids Atkinson Hyperlegible and OpenDyslexic. The private Timeless faces are embedded at build time by `crates/lattice-ui/build.rs` when `LATTICE_PRIVATE_FONTS_DIR` (default `~/Downloads/Timeless-Type-Family-1.094`, empty for none) holds the complete download, as the Tauri build embeds them; `LATTICE_PRIVATE_FONTS_REQUIRED=1` fails the build without them. The download's `LICENSE.pdf` is embedded, unmodified, with them (`lattice_ui::fonts::font_license()`); a download without it counts as incomplete, so the faces are not embedded. The app never reads them at run time, and they are never committed.
+- Fonts: Inter, Ioskeley Mono and Instrument Serif are bundled (`script/make-fonts` writes them, all but Inter Italic and Medium Italic, its Regular and Medium slanted 14° for a preview tab's title), with the reading aids Atkinson Hyperlegible and OpenDyslexic. The private Timeless faces are embedded at build time by `crates/lattice-ui/build.rs` when `LATTICE_PRIVATE_FONTS_DIR` (default `~/Downloads/Timeless-Type-Family-1.094`, empty for none) holds the complete download, as the Tauri build embeds them; `LATTICE_PRIVATE_FONTS_REQUIRED=1` fails the build without them. The download's `LICENSE.pdf` is embedded, unmodified, with them (`lattice_ui::fonts::font_license()`); a download without it counts as incomplete, so the faces are not embedded. The app never reads them at run time, and they are never committed.
 - `LATTICE_APPEARANCE=light|dark` fixes the appearance instead of following the system's.
 - Hover, motion, reveal, scrollbars and nested corners are Fluid Functionalism's, as the Tauri app has them: one gliding fill per list (`fluid_hover`), the motion tiers and `Tween` (`motion`), a sliding selection plate (`sliding`), `reveal`, Lattice's scrollbar (`scrollbar`) and `shape::Nest`.
   [`docs/design-system.md`](docs/design-system.md) is their API; use them rather than a per-row hover, a hand-written duration or a restated radius.
@@ -274,7 +278,7 @@ The PDF is read into memory on every (re)load, so latexmk can rewrite it while i
 Pages are laid out from their sizes at once (`pdf/layout.rs`, the Tauri viewer's column: 8px of border, 10px between pages) and scroll in one container; only the pages near the viewport are drawn, and images two pages beyond the visible ones are released from memory and from the GPU atlas. A page larger than 6 million device pixels at its zoom is drawn at that size, with the part on screen drawn again at full size on top, as PDF.js caps its canvases.
 A zoom stretches the pages' images at once and draws them again once it rests (80 ms), as the Tauri app previews a zoom as a transform.
 A rebuild compares each page's signature (`lattice-core`'s `pdf_pages`) with the last copy's: a page that draws the same keeps its image and text, and a changed one keeps its old image until the new one is drawn. A new page count, outline or page size shows the document anew.
-Dark pages are the Tauri app's CSS filter, `invert(0.86) hue-rotate(180deg)`, applied to PDFium's bitmap, so hues keep and the SyncTeX mark, search hits and the selection keep their own colours. The choice, the fit and zoom a viewer opens with, and, per project, whether its PDF is in the separate window and where that window was left are kept in `pdf.json` in the app's state directory (`LATTICE_GPUI_STATE_DIR`; a scripted run keeps them in memory).
+Dark pages are the Tauri app's CSS filter, `invert(0.86) hue-rotate(180deg)`, applied to PDFium's bitmap, so hues keep and the SyncTeX mark, search hits and the selection keep their own colours. The choice, the fit and zoom a viewer opens with, and, per project, whether its PDF is in the separate window and where that window was left, and where each document's PDF was left ([PDF preview](docs/pdf-preview.md)), are kept in `pdf.json` in the app's state directory (`LATTICE_GPUI_STATE_DIR`; a scripted run keeps them in memory).
 
 ### The build
 

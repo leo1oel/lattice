@@ -29,7 +29,7 @@ use std::{
 };
 
 use anyhow::{Context as _, Result};
-use editor::{Editor, EditorEvent, SelectionEffects, ToPoint as _, scroll::Autoscroll};
+use editor::{Editor, EditorEvent, SelectionEffects, scroll::Autoscroll};
 use futures::{channel::oneshot, future::Shared};
 use gpui::{
     AnyElement, App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, Focusable,
@@ -53,11 +53,17 @@ mod card_context;
 mod citations;
 mod disk_sync;
 pub mod drops;
+mod editor_events;
 mod events;
 pub mod find_bar;
 mod highlight_palette;
 mod insert;
 pub(crate) mod latex_format;
+pub(crate) mod latex_input;
+pub(crate) mod definition;
+pub(crate) mod format_document;
+pub(crate) mod vim_ex;
+mod source_pointer;
 mod latex_view;
 mod latex_visual_events;
 mod margin_review;
@@ -72,7 +78,9 @@ pub mod paper_text;
 mod papers;
 pub mod proofread;
 pub mod rail_outline;
-pub(crate) mod reveal_flash;
+pub(crate) mod attention;
+mod review_bar;
+mod review_marks;
 mod save;
 mod save_slot;
 mod selection_toolbar;
@@ -172,6 +180,8 @@ pub struct EditorPanel {
     proofread: proofread::ProofreadState,
     /// The agent's proposal under review (`annotation_review.rs`).
     review: Option<annotation_review::ReviewSession>,
+    /// Track changes' base, marks and accepts (`review_marks.rs`).
+    review_marks: review_marks::ReviewMarks,
     /// The file's word count as of opening or the last save; counted off the
     /// main thread.
     words: Option<usize>,
@@ -229,6 +239,8 @@ pub struct EditorPanel {
     _count: Option<Task<()>>,
     _todos: Option<Task<()>>,
     _poll: Task<()>,
+    /// Vim's open `:` line (`vim_ex.rs`).
+    vim_ex: Option<vim_ex::VimExLine>,
     _subscriptions: Vec<Subscription>,
     /// A `.bib` file's Preview and library (`bib_view.rs`).
     bib: bib_view::BibState,
@@ -299,6 +311,7 @@ impl EditorPanel {
         let find_bar = cx.new(|cx| find_bar::FindBar::new(editor.clone(), window, cx));
         let counters = crate::status_counters::project_counters(cx);
         let subscriptions = vec![
+            Self::latex_input_rules(&editor, window, cx),
             // The status bar's counters land after the project's scan.
             cx.observe(&counters, |_, _, cx| cx.notify()),
             // The tab shows whether the file has unsaved edits; an edit
@@ -315,6 +328,7 @@ impl EditorPanel {
                     this.structured_source_changed(cx);
                     this.annotations_edited(cx);
                     this.citations_edited(cx);
+                    this.review_edited(cx);
                     this.highlights_edited(cx);
                 }
                 BufferEvent::DirtyChanged | BufferEvent::Saved => {
@@ -352,56 +366,9 @@ impl EditorPanel {
                     }
                 },
             ),
-            cx.subscribe(
-                &editor,
-                |this, editor, event: &EditorEvent, cx| match event {
-                    EditorEvent::SelectionsChanged { .. } => {
-                        let editor = editor.read(cx);
-                        let snapshot = editor.buffer().read(cx).snapshot(cx);
-                        let head = editor.selections.newest_anchor().head().to_point(&snapshot);
-                        let line_start = Point::new(head.row, 0);
-                        let column =
-                            editor_status::caret_column(snapshot.text_for_range(line_start..head));
-                        let line = head.row + 1;
-                        let moved = this.cursor.0 != line;
-                        this.cursor = (line, column);
-                        this.overleaf_caret = (
-                            head.row,
-                            overleaf_carets::utf16_units(snapshot.text_for_range(line_start..head)),
-                        );
-                        this.bib_follow_caret(cx);
-                        if moved {
-                            cx.emit(EditorPanelEvent::CaretLine);
-                        }
-                        cx.emit(EditorPanelEvent::CaretMoved);
-                        cx.notify();
-                    }
-                    EditorEvent::Focused => {
-                        this.bib_source_focused(true);
-                        if let Some(diagnostics) = &this.diagnostics {
-                            diagnostics
-                                .update(cx, |diagnostics, cx| diagnostics.set_focused(true, cx));
-                        }
-                        cx.emit(EditorPanelEvent::Focused);
-                    }
-                    // A Markdown file's Split: the visual editor follows; a
-                    // `.tex` file's highlights are painted where it shows.
-                    EditorEvent::ScrollPositionChanged { .. } => {
-                        this.markdown_source_scrolled(cx);
-                        this.highlights_shown(cx);
-                    }
-                    // Leaving the editor saves at once, as the Tauri app does.
-                    EditorEvent::Blurred => {
-                        this.bib_source_focused(false);
-                        if let Some(diagnostics) = &this.diagnostics {
-                            diagnostics
-                                .update(cx, |diagnostics, cx| diagnostics.set_focused(false, cx));
-                        }
-                        this.leave(cx)
-                    }
-                    _ => {}
-                },
-            ),
+            cx.subscribe(&editor, |this, editor, event: &EditorEvent, cx| {
+                this.on_editor_event(editor, event, cx)
+            }),
             cx.subscribe(&find_bar, |_, _, event, cx| match event {
                 find_bar::FindBarEvent::Closed => cx.notify(),
             }),
@@ -472,6 +439,7 @@ impl EditorPanel {
             toolbar: Default::default(),
             proofread: Default::default(),
             review: None,
+            review_marks: Default::default(),
             words: None,
             buffer_todos: None,
             status_width: Default::default(),
@@ -503,6 +471,7 @@ impl EditorPanel {
             _count: None,
             _todos: None,
             _poll: poll,
+            vim_ex: None,
             _subscriptions: subscriptions,
             bib: Default::default(),
             paper: Default::default(),
@@ -518,6 +487,7 @@ impl EditorPanel {
         this.attach_structured(window, cx);
         this.attach_spelling(cx);
         this.attach_annotations(cx);
+        this.attach_review_marks(cx);
         this.paint_highlights(cx);
         this
     }
@@ -624,7 +594,7 @@ impl EditorPanel {
                 |selections| selections.select_ranges([point..point]),
             );
         });
-        reveal_flash::flash(&self.editor, point.row, cx);
+        attention::flash(&self.editor, point.row, cx);
         window.focus(&self.editor.focus_handle(cx), cx);
     }
 
@@ -742,14 +712,29 @@ impl Render for EditorPanel {
                 .size_full()
                 .flex()
                 .flex_col()
+                .children(self.render_review_bar(window, cx))
                 .children(search)
                 .child(self.render_source(window, cx))
                 .into_any_element(),
         };
         let bib = self.bib_for_view(window, cx);
         let body = self.render_views(editor, status, bib, cx);
-        Self::panel_actions(Self::latex_commands(div().key_context("LatticeEditor"), cx), cx)
+        let root = Self::latex_commands(div().key_context("LatticeEditor"), cx);
+        let root = Self::definition_actions(Self::latex_input_actions(root, cx), cx);
+        let root = Self::vim_ex_actions(Self::format_actions(root, cx), cx);
+        Self::panel_actions(root, cx)
             .on_action(cx.listener(Self::deploy_search))
+            // An accept is an undo step of the editor's (`review_marks.rs`).
+            .capture_action(cx.listener(|this, _: &editor::actions::Undo, window, cx| {
+                if this.editor().focus_handle(cx).is_focused(window) && this.review_undo(cx) {
+                    cx.stop_propagation();
+                }
+            }))
+            .capture_action(cx.listener(|this, _: &editor::actions::Redo, window, cx| {
+                if this.editor().focus_handle(cx).is_focused(window) && this.review_redo(cx) {
+                    cx.stop_propagation();
+                }
+            }))
             // Before Zed's editor pastes: an image becomes a figure.
             .capture_action(cx.listener(|this, _: &editor::actions::Paste, window, cx| {
                 if this.editor().focus_handle(cx).is_focused(window) && this.pastes_image(cx) {

@@ -60,7 +60,7 @@ use crate::{
 const COPIED_FOR: Duration = Duration::from_millis(1600);
 
 /// The popover surface every card stands on.
-pub(crate) fn card_surface(cx: &App) -> gpui::Div {
+pub fn card_surface(cx: &App) -> gpui::Div {
     let palette = cx.palette();
     div()
         .flex()
@@ -73,7 +73,7 @@ pub(crate) fn card_surface(cx: &App) -> gpui::Div {
 
 /// The reading face: Timeless Serif Text when this build embeds Timeless,
 /// the interface sans otherwise (`--reading-font`).
-fn reading_font(cx: &App) -> (SharedString, gpui::FontFallbacks) {
+pub fn reading_font(cx: &App) -> (SharedString, gpui::FontFallbacks) {
     let fonts = &cx.lattice().fonts;
     if fonts.private {
         (fonts.display.clone(), Fonts::display_fallbacks())

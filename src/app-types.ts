@@ -318,6 +318,12 @@ export type PaperSummary = {
   assetPaths?: string[];
   /** Advisory DOI-exact update metadata from Crossref. */
   citationHealth?: CitationHealth;
+  /**
+   * When the library first listed the paper, in ms since the epoch; absent
+   * when it was there before the library kept dates (lattice-core's
+   * `papers/added.rs`).
+   */
+  addedAt?: number;
 };
 
 type CitationHealth = {

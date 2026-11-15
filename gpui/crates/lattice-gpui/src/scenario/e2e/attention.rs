@@ -1,4 +1,4 @@
-//! The editor's attention motions (`editor_panel/reveal_flash.rs`): a jump
+//! The editor's attention motions (`editor_panel/attention/reveal_flash.rs`): a jump
 //! to a line flashes that whole line on the find-match colour for the
 //! linger tier, then takes the flash away; a jump into another editor takes
 //! the first editor's flash away at once.
@@ -11,7 +11,7 @@ use serde_json::json;
 
 use super::{Fixture, Steps};
 use crate::{
-    editor_panel::{EditorPanel, reveal_flash},
+    editor_panel::{EditorPanel, attention::reveal_flash},
     scenario::Run,
 };
 
@@ -78,7 +78,7 @@ pub(super) const MODULE: super::registry::Module = super::registry::Module {
     needs: &[],
     setup: false,
     covers: &[
-        "gpui/crates/lattice-gpui/src/editor_panel/reveal_flash.rs",
+        "gpui/crates/lattice-gpui/src/editor_panel/attention",
         "gpui/crates/lattice-ui/src/attention.rs",
     ],
     run: |run, cx, steps, fixture| Box::pin(run.attention(cx, steps, fixture)),

@@ -35,6 +35,8 @@ impl Shell {
         cx: &mut Context<Self>,
     ) {
         match event {
+            // The marked PDF's SyncTeX is its own build's, not the paper's.
+            PdfEvent::SourceAt { document: None, .. } if self.shows_marked_pdf() => {}
             PdfEvent::SourceAt {
                 document,
                 page,
@@ -64,24 +66,30 @@ impl Shell {
             // An Outline row: the line in the editor, then the same place in
             // the PDF, as a jump from the caret makes it.
             PdfEvent::Outline { path, line } => self.jump_to_heading(path, *line, window, cx),
+            PdfEvent::OpenCitation(key) => self.open_citation(key, window, cx),
             // In its own window the PDF gives its place in the workspace to
             // the documents, and coming back shows it there again, as the
-            // Tauri app's `detachPdf` and `dockPdf` do.
+            // Tauri app's `detachPdf` and `dockPdf` do. Either way, Track
+            // changes' marked PDF is the docked panel's alone.
             PdfEvent::Detached if self.layout.focus.is_some() => {
                 self.focus(Some(false), window, cx);
+                self.sync_marked_pdf(window, cx);
                 cx.notify();
             }
             PdfEvent::Detached => {
                 self.hide_view("pdf", cx);
+                self.sync_marked_pdf(window, cx);
                 cx.notify();
             }
             PdfEvent::Docked if self.layout.focus.is_some() => {
                 let pdf = super::workspaces::Workspaces::global(cx).focus_pdf();
                 self.focus(Some(pdf), window, cx);
+                self.sync_marked_pdf(window, cx);
                 cx.notify();
             }
             PdfEvent::Docked => {
                 self.show_view("pdf", false, window, cx);
+                self.sync_marked_pdf(window, cx);
                 cx.notify();
             }
         }
@@ -101,6 +109,7 @@ impl Shell {
             return;
         };
         let previous = self.live_document.replace(document.clone());
+        self.key_live_place(cx);
         let live_in_front = self.in_front("pdf", cx);
         // The PDF in its own window shows the build there: the panel's tabs
         // stay as they are.
@@ -127,7 +136,10 @@ impl Shell {
             .unwrap_or(false);
         let pdf = root.join(&document).with_extension("pdf");
         self.label_pdfs(cx);
-        self.pdf.update(cx, |panel, cx| panel.open(pdf, window, cx));
+        if !self.shows_marked_pdf() {
+            self.pdf.update(cx, |panel, cx| panel.open(pdf, window, cx));
+        }
+        self.review_pdf_built(window, cx);
         self.refresh_outline(window, cx);
         match left {
             // A build not asked for leaves the reader on the document they
@@ -325,7 +337,11 @@ impl Shell {
         let kind = PdfPanelKind::Root(document.to_string());
         let panel = cx.new(|cx| PdfPanel::new(kind, window, cx));
         cx.subscribe_in(&panel, window, Self::on_pdf_event).detach();
-        panel.update(cx, |panel, cx| panel.open(path, window, cx));
+        self.give_citations(&panel, cx);
+        panel.update(cx, |panel, cx| {
+            panel.set_place_key(root.clone(), document.to_string(), path.clone());
+            panel.open_restoring(path, false, window, cx)
+        });
         self.root_pdfs.push((document.to_string(), panel.clone()));
         self.label_pdfs(cx);
         self.refresh_reveal(cx);
@@ -455,6 +471,15 @@ impl Shell {
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     pub fn root_pdf_tabs(&self) -> Vec<(String, Entity<PdfPanel>)> {
         self.root_pdfs.clone()
+    }
+
+    /// The live PDF keeps its place under the document it shows now.
+    pub(super) fn key_live_place(&self, cx: &mut Context<Self>) {
+        if let (Some(root), Some(document)) = (self.root(cx), self.live_document.clone()) {
+            let pdf = root.join(&document).with_extension("pdf");
+            self.pdf
+                .update(cx, |panel, _| panel.set_place_key(root, document, pdf));
+        }
     }
 
     #[cfg(any(target_os = "macos", target_os = "windows"))]

@@ -36,10 +36,12 @@
  *   md:presence       { cursors }       co-authors' carets, rows of the file (also `doc:open`'s `presence`)
  *   md:papers         { papers }        the library's papers, for the `@` menu and a paper's drop
  *   md:paper-drag     { phase, x, y, paper }   a paper from the Papers list over the page (`paper-drag.ts`)
+ *   md:overleaf       { changes, authors, canAct }   Overleaf's suggestions on the file, painted with their cards (also `doc:open`'s `overleaf`)
  *   doc:editable      { editable }      the file may (not) be edited here
  * Page to host:
  *   md:change         { source, base }  the whole file after an edit made against `base`
  *   md:undo, md:redo
+ *   md:overleaf-accept, md:overleaf-reject   { id }   a suggestion card's Accept or Reject
  *   md:view-in-source { offset }        show the source with the caret at a UTF-16 offset
  *   md:open-path      { path }          a project link followed
  *   md:caret          { line, column }  1-based, in the file
@@ -67,7 +69,9 @@ import type { VisualRevealTarget } from "../../../src/editor/markdown/visual-edi
 import { katexMacrosFromSources } from "../../../src/editor/latex/latex-text";
 import { markdownFrontmatterEnd } from "../../../src/app-utils";
 import type { FileNode, PaperSummary } from "../../../src/app-types";
-import type { PresenceCursor } from "../../../src/overleaf/overleaf-editor-extensions";
+import { t as tGlobal } from "@lingui/core/macro";
+import type { PresenceCursor, TrackedChangeTooltipActions } from "../../../src/overleaf/overleaf-editor-extensions";
+import type { TrackedChange } from "../../../src/overleaf/overleaf-realtime-model";
 import { restoreViewportAround } from "../../../src/canvas/viewport-restore";
 import {
   capturePreviewViewport, restorePreviewViewport, spliceMarkdownBody, useSettledPreviewText,
@@ -122,6 +126,7 @@ type MarkdownOpen = {
   paper?: PaperReading | null;
   presence?: PresenceCursor[];
   papers?: PaperSummary[];
+  overleaf?: Partial<MarkdownOverleaf>;
 };
 
 type Reveal = { id: string; target: VisualRevealTarget };
@@ -140,7 +145,15 @@ type State = {
   presence: PresenceCursor[];
   /** The library's papers (`document-canvas.tsx`'s `papers`). */
   papers: PaperSummary[];
+  /** Overleaf's suggestions on the file, positioned in it. */
+  overleaf: MarkdownOverleaf;
 };
+
+/** What the owner sends of Overleaf's suggestions (`md:overleaf`, `markdown_host.rs`). */
+type MarkdownOverleaf = { changes: TrackedChange[]; authors: [string, string][]; canAct: boolean };
+const NO_OVERLEAF: MarkdownOverleaf = { changes: [], authors: [], canAct: false };
+/** The editor's suggestions when the file has none, one array so typing keeps it. */
+const NO_CHANGES: TrackedChange[] = [];
 
 type Action =
   | { type: "open"; open: MarkdownOpen }
@@ -153,6 +166,7 @@ type Action =
   | { type: "paper"; paper: PaperReading | null }
   | { type: "presence"; presence: PresenceCursor[] }
   | { type: "papers"; papers: PaperSummary[] }
+  | { type: "overleaf"; overleaf: MarkdownOverleaf }
   | { type: "editable"; editable: boolean };
 
 function reduce(state: State, action: Action): State {
@@ -164,6 +178,7 @@ function reduce(state: State, action: Action): State {
         paper: action.open.paper ?? null,
         presence: action.open.presence ?? [],
         papers: action.open.papers ?? [],
+        overleaf: { ...NO_OVERLEAF, ...action.open.overleaf },
       };
     case "source":
       return { ...state, source: action.source };
@@ -183,6 +198,8 @@ function reduce(state: State, action: Action): State {
       return { ...state, presence: action.presence };
     case "papers":
       return { ...state, papers: action.papers };
+    case "overleaf":
+      return { ...state, overleaf: action.overleaf };
     case "editable":
       return state.opened ? { ...state, opened: { ...state.opened, editable: action.editable } } : state;
   }
@@ -220,8 +237,9 @@ function Markdown() {
     paper: null,
     presence: [],
     papers: [],
+    overleaf: NO_OVERLEAF,
   });
-  const { opened, source, split, ready, assetRevision, reveal, files, texSources, paper, presence, papers } = state;
+  const { opened, source, split, ready, assetRevision, reveal, files, texSources, paper, presence, papers, overleaf } = state;
   // Why the engine cannot show this full text as written, for its masthead
   // (`onEligibilityChange`, `paperVisualEligibilityReason`).
   const [eligibility, setEligibility] = useState<string | null>(null);
@@ -256,6 +274,23 @@ function Markdown() {
       .map((cursor) => ({ ...cursor, row: cursor.row - lineOffset })),
     [lineOffset, presence],
   );
+  // Suggestions within the body the editor renders, moved past the front
+  // matter it never shows (`markdownVisualChanges`). Keyed on the front
+  // matter's end, not the text: a new array on every keystroke reconfigures
+  // the editor mid-typing and splits its undo group. One past the text's end
+  // needs no check here, since the editor drops those itself.
+  const overleafChanges = useMemo(() => {
+    if (overleaf.changes.length === 0) return NO_CHANGES;
+    return overleaf.changes.flatMap((change) => (
+      change.position < start ? [] : [{ ...change, position: change.position - start }]
+    ));
+  }, [overleaf.changes, start]);
+  const overleafTrackChangeActions = useMemo((): TrackedChangeTooltipActions => ({
+    authorName: (userId) => overleaf.authors.find(([id]) => id === userId)?.[1] ?? tGlobal`Unknown`,
+    canAct: () => overleaf.canAct,
+    onAccept: (change) => host().post("md:overleaf-accept", { id: change.id }),
+    onReject: (change) => host().post("md:overleaf-reject", { id: change.id }),
+  }), [overleaf]);
 
   useEffect(() => {
     const bridge = host();
@@ -286,6 +321,7 @@ function Markdown() {
         dispatch({ type: "reveal", reveal: { id, target: { line: bodyLine } } });
       }),
       bridge.on("md:assets-changed", () => dispatch({ type: "assets" })),
+      bridge.on("md:overleaf", (payload) => dispatch({ type: "overleaf", overleaf: { ...NO_OVERLEAF, ...(payload as Partial<MarkdownOverleaf>) } })),
       bridge.on("md:presence", (payload) => {
         dispatch({ type: "presence", presence: (payload as { cursors: PresenceCursor[] }).cursors });
       }),
@@ -517,6 +553,8 @@ function Markdown() {
           onRevealHandled={onRevealHandled}
           onRequestViewportLock={onRequestViewportLock}
           presenceCursors={presenceCursors}
+          overleafChanges={overleafChanges}
+          overleafTrackChangeActions={overleafTrackChangeActions}
           onSelectionMarkdown={onSelectionMarkdown}
           onOpenProjectPath={onOpenProjectPath}
           workspaceIndex={workspaceIndex}

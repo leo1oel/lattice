@@ -10,7 +10,8 @@
  * hues as the Tauri app keys them, the window's mode and whether this account
  * may act (`tex:overleaf`); a card's asks go back as `tex:overleaf-*`. The
  * page lists the file as its own document: an anchor's document is its path.
- * Overleaf's tracked changes are not shown here yet (gpui/docs/not-yet.md).
+ * Overleaf's tracked changes come the same way, as cards beside their marks
+ * with Accept and Reject (`tex:overleaf-accept`, `tex:overleaf-reject`).
  */
 import { useEffect, useLayoutEffect, useMemo, useReducer, useSyncExternalStore } from "react";
 import type { EditorView } from "@codemirror/view";
@@ -21,12 +22,9 @@ import {
   marginReviewMode, registerMarginReviewLayer, setMarginReviewMode, subscribeMarginReview,
 } from "../../../src/overleaf/margin-review-mode";
 import type { PeopleHues } from "../../../src/overleaf/overleaf-collab-people";
-import { overleafThreadActions, overleafThreadOf, type OverleafReview } from "./margin-review-data";
-
-/** Overleaf's tracked changes are the Visual page's next step; none are shown yet. */
-const NO_CHANGES: never[] = [];
-const noAuthor = () => "";
-const noChange = () => {};
+import {
+  changeAuthorName, overleafChangeActions, overleafThreadActions, overleafThreadOf, type OverleafReview,
+} from "./margin-review-data";
 
 /** Margin review over the page's editor, laid out from its width before it paints. */
 export function VisualMarginReview({ view, path, review, comments }: {
@@ -53,7 +51,8 @@ export function VisualMarginReview({ view, path, review, comments }: {
       }];
     });
   }, [comments, path, review.threads]);
-  const reserved = mode !== "off" && margin.length > 0;
+  const changes = useMemo(() => review.changes ?? [], [review.changes]);
+  const reserved = mode !== "off" && (margin.length > 0 || changes.length > 0);
   const wantWide = mode === "auto";
   // The layer reports a change of geometry back; an equal layout keeps the state.
   const [layout, setLayout] = useReducer(
@@ -82,12 +81,12 @@ export function VisualMarginReview({ view, path, review, comments }: {
       path={path}
       focusMode={false}
       comments={margin}
-      changes={NO_CHANGES}
-      authorName={noAuthor}
+      changes={changes}
+      authorName={(userId) => changeAuthorName(review, userId)}
       canAct={review.canAct}
       changeBusy={null}
-      onAccept={noChange}
-      onReject={noChange}
+      onAccept={overleafChangeActions.onAccept}
+      onReject={overleafChangeActions.onReject}
       hues={hues}
     />
   );

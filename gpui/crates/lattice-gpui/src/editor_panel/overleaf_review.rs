@@ -12,8 +12,8 @@
 use std::{cell::RefCell, ops::Range, rc::Rc};
 
 use gpui::{
-    App, Context, Hsla, InteractiveElement as _, IntoElement, ParentElement as _, SharedString,
-    Styled as _, WeakEntity, div, prelude::FluentBuilder as _, px,
+    App, Context, Entity, Hsla, InteractiveElement as _, IntoElement, ParentElement as _,
+    SharedString, Styled as _, WeakEntity, div, prelude::FluentBuilder as _, px,
 };
 use language::BufferSnapshot;
 use lattice_core::overleaf_rt::TrackedChange;
@@ -30,6 +30,7 @@ use lattice_ui::{
 };
 
 use super::{EditorPanel, EditorPanelEvent};
+use crate::structured::StructuredDocument;
 
 const LAYER: &str = "overleaf-review";
 /// The tint behind a suggested insertion, and behind a deletion's text.
@@ -99,6 +100,9 @@ pub(super) struct ReviewLayer {
     provider: bool,
     /// What was last shown, and the buffer's version it was shown against.
     shown: Option<(clock::Global, Vec<CommentMark>, Vec<ChangeMark>)>,
+    /// A Markdown file's suggestions as its visual editor takes them, kept
+    /// for a visual editor made later.
+    markdown: Option<serde_json::Value>,
 }
 
 /// The byte offset of each of `units` (UTF-16 positions) in `text`, in one
@@ -249,6 +253,41 @@ impl EditorPanel {
             return None;
         }
         Some((text[..from].encode_utf16().count() as i64, quote))
+    }
+}
+
+/// Overleaf's tracked changes in a Markdown file's visual editor, as the
+/// Tauri app's canvas hands them to it (`markdownVisualChanges`,
+/// `overleafTrackChangeActions`): the page paints them as the source does,
+/// and a card's Accept or Reject comes back as the source's cards' do.
+impl EditorPanel {
+    /// Whether the file is Markdown, whose visual editor paints suggestions.
+    pub(crate) fn paints_markdown_changes(&self) -> bool {
+        lattice_editor::markdown::is_markdown(&self.path)
+    }
+
+    /// Paint `review` (`{ changes, authors, canAct }`) in the visual editor,
+    /// now or when it is made.
+    pub(crate) fn set_markdown_overleaf_changes(
+        &mut self,
+        review: serde_json::Value,
+        cx: &mut Context<Self>,
+    ) {
+        self.overleaf_review.markdown = Some(review);
+        if let Some(document) = self.markdown_document().cloned() {
+            self.forward_markdown_review(&document, cx);
+        }
+    }
+
+    /// Hand the suggestions last set to `document`, the visual editor.
+    pub(super) fn forward_markdown_review(
+        &self,
+        document: &Entity<StructuredDocument>,
+        cx: &mut Context<Self>,
+    ) {
+        if let Some(review) = self.overleaf_review.markdown.clone() {
+            document.update(cx, |document, cx| document.set_markdown_changes(review, cx));
+        }
     }
 }
 

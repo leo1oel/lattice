@@ -119,7 +119,7 @@ impl Shell {
         match pick {
             QuickOpenPick::Open { path, line } => {
                 if let Some(root) = self.root(cx) {
-                    self.open_path(root.join(path), line, window, cx);
+                    self.quick_look(root.join(path), line, window, cx);
                 }
             }
             QuickOpenPick::Line(line) => {
@@ -134,6 +134,13 @@ impl Shell {
     }
 
     /// ⌘⇧F: Find in project, on the query it was left with.
+    /// Open the project's find, or leave it open (`useProjectSearch.openFind`).
+    pub(crate) fn open_find(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.documents.find.is_none() {
+            self.toggle_find(window, cx);
+        }
+    }
+
     pub(crate) fn toggle_find(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.documents.find.is_some() {
             self.close_document_overlays(window, cx);
@@ -153,7 +160,7 @@ impl Shell {
                 // The sheet stays up, as the app's does: F3 opens the next
                 // hit from it, so the keyboard goes back to its field.
                 if let Some(root) = this.root(cx) {
-                    this.open_path(root.join(path), *line, window, cx);
+                    this.quick_look(root.join(path), *line, window, cx);
                 }
                 find.update(cx, |find, cx| find.focus_input(window, cx));
             }

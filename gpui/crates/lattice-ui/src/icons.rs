@@ -102,6 +102,9 @@ lucide! {
     PACKAGE_CHECK = "icons" / "package-check";
     FILE_PLAY = "icons" / "file-play";
     FILE_PLUS = "icons" / "file-plus";
+    FILE_CODE_CORNER = "icons" / "file-code-corner";
+    TABLE_2 = "icons" / "table-2";
+    PRESENTATION = "icons" / "presentation";
     FOLDER_INPUT = "icons" / "folder-input";
     ROTATE_CW = "icons" / "rotate-cw";
     FOLDER_PLUS = "icons" / "folder-plus";
@@ -189,6 +192,10 @@ lucide! {
     SHAPES = "icons" / "shapes";
     ARROW_UP_RIGHT = "icons" / "arrow-up-right";
     LIST_CHECKS = "icons" / "list-checks";
+    // Track changes' review bar (`review-mode-bar.tsx`).
+    LIST_X = "icons" / "list-x";
+    FILE_DIFF = "icons" / "file-diff";
+    PEN_OFF = "icons" / "pen-off";
     // The paper reader's Blog view (`Newspaper` in trellis-header-tools.tsx).
     NEWSPAPER = "icons" / "newspaper";
     LAYOUT_TEMPLATE = "icons" / "layout-template";
@@ -227,6 +234,9 @@ impl Icon {
     // The app's own, from `assets/icons`.
     /// The 1.5-stroke X a panel tab closes with.
     pub const CLOSE: Icon = Icon("lattice/close.svg");
+    /// A pinned tab's mark in its close slot (Lucide's pin, as trellis.css
+    /// draws it).
+    pub const PIN: Icon = Icon("lattice/pin.svg");
     /// A panel's ⋯ menu: three filled dots.
     pub const DOTS: Icon = Icon("lattice/dots.svg");
     /// The tree's filled disclosure chevron, pointing down (open).
@@ -368,6 +378,7 @@ const BUNDLED: &[(&str, &[u8])] = bundled![
     "eye.svg",
     "info.svg",
     "pencil.svg",
+    "pin.svg",
     "plus.svg",
     "trash.svg",
     // Lucide's, whose names Zed's icon set shadows (LICENSE-LUCIDE).

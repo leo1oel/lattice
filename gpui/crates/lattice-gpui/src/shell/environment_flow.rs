@@ -5,11 +5,14 @@
 //! its Rename wraps the selection in `\begin{name}` … `\end{name}`, or
 //! renames both delimiters of the environment at the caret
 //! (`lattice_editor::latex::{region_edits, environments}`), as one edit ⌘Z undoes.
+//! In the Visual view the page asks for the dialog itself and applies its
+//! name at the page's own selection (`StructuredDocument::edit_environment`).
 
-use gpui::{AppContext as _, Context, InteractiveElement as _, Window, actions};
+use gpui::{AppContext as _, Context, Entity, InteractiveElement as _, Window, actions};
 use lattice_editor::latex::{edits::FormatEdit, environments, region_edits};
 
 use super::{Shell, parts::Part};
+use crate::editor_panel::EditorPanel;
 use crate::submission::references::{RenameEvent, RenameSymbolDialog, RenameTarget};
 
 actions!(lattice, [WrapInEnvironment, RenameEnvironment]);
@@ -30,6 +33,8 @@ pub(super) const PART: Part = Part {
 };
 
 impl Shell {
+    /// The keys and the palette: the source's selection, or the Visual
+    /// page's caret mirrored in it.
     fn open_environment_dialog(
         &mut self,
         target: RenameTarget,
@@ -55,23 +60,61 @@ impl Shell {
                 }
             },
         };
+        self.environment_dialog(editor, target, start, window, cx);
+    }
+
+    /// The Visual page's ⌘⇧E (`rename` empty) or ⌘⌥R (the environment's
+    /// name at its caret).
+    pub(super) fn visual_environment_dialog(
+        &mut self,
+        editor: Entity<EditorPanel>,
+        rename: Option<String>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let (target, start) = match rename {
+            Some(name) => (RenameTarget::Environment, name),
+            None => (RenameTarget::WrapEnvironment, "equation".to_string()),
+        };
+        self.environment_dialog(editor, target, start, window, cx);
+    }
+
+    fn environment_dialog(
+        &mut self,
+        editor: Entity<EditorPanel>,
+        target: RenameTarget,
+        start: String,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let target_editor = editor.downgrade();
         let dialog = cx.new(|cx| RenameSymbolDialog::new(target, start, window, cx));
         let subscription = cx.subscribe_in(&dialog, window, move |this, _, event, window, cx| {
             this.references.rename = None;
             match event {
-                RenameEvent::Close => this.focus_front(window, cx),
+                RenameEvent::Close => {
+                    let page = target_editor.upgrade().is_some_and(|editor| {
+                        editor.update(cx, |editor, cx| editor.focus_visual_page(window, cx))
+                    });
+                    if !page {
+                        this.focus_front(window, cx)
+                    }
+                }
                 RenameEvent::Submit(name) => {
                     if let Some(editor) = target_editor.upgrade() {
                         let name = name.clone();
                         editor.update(cx, |editor, cx| {
-                            editor.edit_latex_selection(
-                                |text, from, to, head| {
-                                    environment_edit(target, text, from, to, head, &name)
-                                },
-                                window,
-                                cx,
-                            )
+                            let rename = target == RenameTarget::Environment;
+                            // The Visual page applies it at its own selection.
+                            if !editor.edit_visual_environment(rename, &name, window, cx) {
+                                editor.edit_latex_selection(
+                                    |text, from, to, head| {
+                                        environment_edit(target, text, from, to, head, &name)
+                                    },
+                                    window,
+                                    cx,
+                                )
+                            }
                         });
                     }
                 }

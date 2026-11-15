@@ -4,9 +4,10 @@
 //! environment (⌘⌥/), `\iffalse … \fi` (⌘⌥;), equation (⌘⌥E) and itemize
 //! (⌘⌥I) around the selection; sort lines (⌘⌥S) and UPPER, lower and Title
 //! Case (⌘⌥U, ⌘⌥L, ⌘⌥C); Select the environment (⌘⌥A) and the matching
-//! `\begin` or `\end` (Ctrl-M). Each acts on the main selection
-//! (`lattice_editor::latex::{edits, region_edits, environments}`) as one edit ⌘Z undoes,
-//! the result selected. In a file that is not LaTeX the key passes on.
+//! `\begin` or `\end` (Ctrl-M, else the matching math delimiter). Each acts
+//! on the main selection (`lattice_editor::latex::{edits, region_edits,
+//! environments, syntax}`) as one edit ⌘Z undoes, the result selected. In a
+//! file that is not LaTeX the key passes on.
 
 use editor::{MultiBufferOffset, SelectionEffects, ToOffset as _, scroll::Autoscroll};
 use gpui::{Context, Window, actions};
@@ -14,6 +15,7 @@ use lattice_editor::latex::{
     edits::{self, FormatEdit, InlineFormat},
     environments,
     region_edits::{self, CaseMode, CommentWrap},
+    syntax,
 };
 
 use super::EditorPanel;
@@ -39,10 +41,12 @@ actions!(
 );
 
 /// What a command does with the text and the main selection.
-enum Outcome {
+pub(super) enum Outcome {
     Edit(FormatEdit),
     Select(std::ops::Range<usize>),
     Nothing,
+    /// The key is not the command's here: it goes on to the editor.
+    Pass,
 }
 
 impl EditorPanel {
@@ -199,7 +203,10 @@ impl EditorPanel {
             .on_action(cx.listener(|this, _: &MatchingEnvironment, window, cx| {
                 this.run_latex_command(
                     |text, _, _, head| {
-                        selected(environments::matching_environment_target(text, head))
+                        selected(
+                            environments::matching_environment_target(text, head)
+                                .or_else(|| syntax::matching_math_delimiter(text, head)),
+                        )
                     },
                     window,
                     cx,
@@ -237,7 +244,7 @@ impl EditorPanel {
 
     /// Run `command` on the text and the main selection's start, end and
     /// head, or pass the key on outside a LaTeX file.
-    fn run_latex_command(
+    pub(super) fn run_latex_command(
         &mut self,
         command: impl FnOnce(&str, usize, usize, usize) -> Outcome,
         window: &mut Window,
@@ -248,7 +255,7 @@ impl EditorPanel {
             return;
         }
         let editor = self.editor().clone();
-        editor.update(cx, |editor, cx| {
+        let passed = editor.update(cx, |editor, cx| {
             let snapshot = editor.buffer().read(cx).snapshot(cx);
             let selection = editor.selections.newest_anchor();
             let (start, end, head) = (
@@ -272,6 +279,7 @@ impl EditorPanel {
                 );
             };
             match command(&snapshot.text(), start, end, head) {
+                Outcome::Pass => return true,
                 Outcome::Nothing => {}
                 Outcome::Select(range) => select(editor, range, window, cx),
                 Outcome::Edit(result) => {
@@ -293,7 +301,11 @@ impl EditorPanel {
                     });
                 }
             }
+            false
         });
+        if passed {
+            cx.propagate();
+        }
     }
 }
 

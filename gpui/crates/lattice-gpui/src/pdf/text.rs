@@ -69,6 +69,9 @@ pub struct Link {
     pub x1: f32,
     pub y1: f32,
     pub target: LinkTarget,
+    /// The named destination it goes to, as the file names it
+    /// (`cite.knuth1984`); `None` for a link to a page or a web address.
+    pub name: Option<String>,
 }
 
 impl Link {

@@ -19,7 +19,7 @@ import { paperLinkUrl } from "../papers/paper-source";
 import { usePaperImportProgressFill } from "../papers/paper-import-progress";
 import { paperSearchIdentity, rankPapers, usePaperTextSearch, type PaperLineHit, type RecentPaperImport } from "./paper-library-search";
 import {
-  groupPapers, paperFilter, paperOrder, paperReadingState, readablePaper, usePaperFacts,
+  addedMonthName, groupPapers, paperFilter, paperOrder, paperReadingState, readablePaper, usePaperFacts,
   type PaperFilter, type PaperGroup, type PaperSort,
 } from "./paper-library-view";
 import { EmptyIllustration } from "../components/ui/empty-illustration";
@@ -350,7 +350,7 @@ function PaperShelf(props: PaperLibraryProps & {
   focusListRef: RefObject<(() => boolean) | null>;
 }) {
   const { query, textHits } = props;
-  const { t } = useLingui();
+  const { t, i18n } = useLingui();
   const rowId = useId();
   const viewportRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -412,8 +412,11 @@ function PaperShelf(props: PaperLibraryProps & {
   const total = props.papers.length;
   const emptyState = filteredPapers.length || props.hasKind ? null : t`No matching papers`;
   const stateLabels: Record<string, string> = { fullText: t`Full text`, downloadable: t`Not downloaded`, citation: t`Citation only` };
+  const addedLabels: Record<string, string> = { today: t`Today`, week: t`Previous 7 days`, month: t`Earlier this month`, "": t`Date unknown` };
   const sections = groupPapers(filteredPapers, group, facts, (value) => (
-    group === "state" ? stateLabels[value] : value || (group === "year" ? t`No year` : t`No venue`)
+    group === "state" ? stateLabels[value]
+      : group === "added" ? addedLabels[value] ?? addedMonthName(value, i18n.locale)
+      : value || (group === "year" ? t`No year` : t`No venue`)
   ));
   // Every paper's key in the order the list shows them, and where each group
   // starts: a long list draws only the rows near the view.

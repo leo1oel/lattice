@@ -81,6 +81,12 @@ const BUNDLED: &[&[u8]] = &[
     include_bytes!("../assets/fonts/inter/Inter-Medium.ttf"),
     include_bytes!("../assets/fonts/inter/Inter-SemiBold.ttf"),
     include_bytes!("../assets/fonts/inter/Inter-Bold.ttf"),
+    // Inter in italics at the two weights the chrome sets so (a preview
+    // tab's title): the upright Regular and Medium slanted 14°, as WebKit
+    // synthesizes an oblique for the Tauri build, which loads no italic
+    // Inter. CoreText draws no italic it is not given.
+    include_bytes!("../assets/fonts/inter/Inter-Italic.ttf"),
+    include_bytes!("../assets/fonts/inter/Inter-MediumItalic.ttf"),
     include_bytes!("../assets/fonts/ioskeley-mono/IoskeleyMono-Regular.ttf"),
     include_bytes!("../assets/fonts/ioskeley-mono/IoskeleyMono-Medium.ttf"),
     include_bytes!("../assets/fonts/ioskeley-mono/IoskeleyMono-Bold.ttf"),

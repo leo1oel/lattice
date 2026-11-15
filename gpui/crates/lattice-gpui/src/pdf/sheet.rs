@@ -81,7 +81,6 @@ fn redraw_next_frame(view: Entity<PdfView>, window: &Window) {
 
 impl PdfView {
     fn body(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
-        let palette = cx.palette().clone();
         let state = |content: AnyElement| {
             div()
                 .flex_1()
@@ -113,29 +112,30 @@ impl PdfView {
         }
         if self.document.is_none() {
             if self.loading {
-                return state(
-                    div()
-                        .flex()
-                        .items_center()
-                        .gap(px(6.))
-                        .px(px(10.))
-                        .py(px(4.))
-                        .rounded(px(6.))
-                        .bg(palette.raised)
-                        .shadow(lattice_ui::Elevation::Popover.shadows(&palette))
-                        .text_role(TextRole::Micro, cx)
-                        .text_color(palette.text_secondary)
-                        .child(lattice_ui::loading::loader(
-                            "pdf-loading-loader",
-                            px(12.),
-                            palette.text_secondary,
-                            cx,
-                        ))
-                        .child(t!("Loading PDF…"))
-                        .into_any_element(),
-                );
+                // The first load: the page's skeleton where the page will be.
+                let area = self.loading_area.clone();
+                let measured = area.get();
+                return div()
+                    .relative()
+                    .flex_1()
+                    .min_h_0()
+                    .child(
+                        canvas(move |bounds, _, _| area.set(bounds.size), |_, _, _, _| {})
+                            .absolute()
+                            .size_full(),
+                    )
+                    .child(super::loading::skeleton(
+                        self.loading_since,
+                        (measured.width, measured.height),
+                        self.fit,
+                        self.scale,
+                        window,
+                        cx,
+                    ))
+                    .into_any_element();
             }
             let building = self.building;
+            let palette = cx.palette().clone();
             let empty = EmptyState::new(t!("No PDF yet")).when(self.offers_build, |this| {
                 this.action(
                     Button::new(
@@ -147,7 +147,22 @@ impl PdfView {
                         },
                     )
                     .compact()
-                    .icon(if building { Icon::LOADER } else { Icon::PLAY })
+                    // The loader while it builds; otherwise the play mark
+                    // and the keys that build (`buildShortcut`, Save's ⌘S).
+                    .when(building, |button| {
+                        button.leading(crate::build::chip_mark::infinity_loader(
+                            "pdf-build-loader",
+                            px(13.),
+                            &palette,
+                        ))
+                    })
+                    .when(!building, |button| button.icon(Icon::PLAY))
+                    .when_some(
+                        (!building)
+                            .then(|| crate::shell::commands::keys_label(&crate::shell::commands::Save, window))
+                            .flatten(),
+                        |button, keys| button.keys(keys),
+                    )
                     .disabled(building)
                     .on_click(cx.listener(|_, _, _, cx| cx.emit(PdfViewEvent::Build))),
                 )
@@ -182,6 +197,8 @@ impl PdfView {
             .h(px(self.layout.height))
             .children(pages)
             .on_mouse_down(MouseButton::Left, cx.listener(Self::on_sheet_mouse_down))
+            .on_mouse_down(MouseButton::Middle, cx.listener(Self::on_sheet_middle_down))
+            .when(self.autoscrolling(), |sheet| sheet.cursor(CursorStyle::ResizeUpDown))
             .on_mouse_move(cx.listener(Self::on_sheet_mouse_move))
             .on_mouse_up(MouseButton::Left, cx.listener(Self::on_sheet_mouse_up))
             .on_mouse_up_out(MouseButton::Left, cx.listener(Self::on_sheet_mouse_up));
@@ -215,6 +232,13 @@ impl PdfView {
                 FluidScrollbar::horizontal("pdf-scrollbar-x", &self.scroll)
                     .feel(ScrollbarFeel::DOCUMENT),
             )
+            .children(self.citation_card_element(window, cx))
+            .children(self.compound_card_element(window, cx))
+            .child(self.window_wide_listeners(window, cx))
+            // A refresh of the PDF on screen says so, quietly.
+            .when(self.loading, |area| {
+                area.child(super::loading::updating(self.loading_since, window, cx))
+            })
             // `.pdf-notice`: a status line centred over the top of the pages.
             .children(self.notice.clone().map(|notice| {
                 div()
@@ -275,10 +299,12 @@ impl PdfView {
                         let view = view.clone();
                         window.on_mouse_event(move |event: &ScrollEvent, phase, _, cx| {
                             let zoom = event.modifiers.platform || event.modifiers.control;
-                            if phase != DispatchPhase::Capture
-                                || !zoom
-                                || !bounds.contains(&event.position)
-                            {
+                            if phase != DispatchPhase::Capture || !bounds.contains(&event.position) {
+                                return;
+                            }
+                            // The wheel stops autoscroll, and scrolls as ever.
+                            if !zoom {
+                                view.update(cx, |this, cx| this.stop_autoscroll(cx)).ok();
                                 return;
                             }
                             cx.stop_propagation();
@@ -382,6 +408,13 @@ impl PdfView {
             .sync_mark
             .filter(|mark| mark.page == ix)
             .map(|mark| sync_mark(mark, scale, mark_color));
+        // While autoscroll runs the cursor is its arrow over text and links
+        // too (`.pdf-autoscrolling *`).
+        let (text_cursor, link_cursor) = if self.autoscrolling() {
+            (CursorStyle::ResizeUpDown, CursorStyle::ResizeUpDown)
+        } else {
+            (CursorStyle::IBeam, CursorStyle::PointingHand)
+        };
         let links: Vec<AnyElement> = text
             .as_ref()
             .map(|text| {
@@ -396,7 +429,7 @@ impl PdfView {
                             .top(px(link.y0 * scale))
                             .w(px((link.x1 - link.x0) * scale))
                             .h(px((link.y1 - link.y0) * scale))
-                            .cursor_pointer()
+                            .cursor(link_cursor)
                             .into_any_element()
                     })
                     .collect()
@@ -410,7 +443,7 @@ impl PdfView {
             .h(px(rect.h))
             .bg(ground)
             .shadow(elevation::pdf_page(palette))
-            .cursor(CursorStyle::IBeam)
+            .cursor(text_cursor)
             .when_some(base, |page, image| {
                 page.child(
                     img(image)

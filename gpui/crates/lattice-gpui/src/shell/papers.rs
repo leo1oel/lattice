@@ -83,7 +83,7 @@ impl Shell {
 
     /// A saved paper in its reader, a document tab of its own; a paper
     /// already open there comes to the front, with the texts it has now.
-    fn open_reader(&mut self, paper: PaperSummary, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn open_reader(&mut self, paper: PaperSummary, window: &mut Window, cx: &mut Context<Self>) {
         let Some(root) = self.root(cx) else {
             return;
         };

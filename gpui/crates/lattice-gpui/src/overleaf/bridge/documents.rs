@@ -341,7 +341,7 @@ impl OverleafBridge {
         let typed = doc.ot.local(&buffer);
         if typed.replaced {
             let stored = doc.ot.text().to_string();
-            panel.update(cx, |panel, cx| panel.take_overleaf_text(&stored, cx));
+            panel.update(cx, |panel, cx| panel.take_overleaf_text(&stored, false, cx));
             if !self.documents.replaced_told {
                 self.documents.replaced_told = true;
                 notices::show(
@@ -494,7 +494,7 @@ impl OverleafBridge {
                         // A left document whose tab closed keeps them in its
                         // OT state only; regular sync brings the file up.
                         let fits = doc.editor.upgrade().is_none_or(|panel| {
-                            panel.update(cx, |panel, cx| panel.take_overleaf_ops(&applied, cx))
+                            panel.update(cx, |panel, cx| panel.take_overleaf_ops(&applied, true, cx))
                         });
                         if fits {
                             self.review_moved(&doc_id, &applied, false, suggested_by, cx);

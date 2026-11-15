@@ -130,6 +130,11 @@ impl Shell {
         }
         self.get_started_project_opened(&venue, window, cx);
         self.label_pdfs(cx);
+        self.give_citations(&self.pdf.clone(), cx);
+        self.citation_fetch = None;
+        self.pdf
+            .update(cx, |panel, cx| panel.set_compounds(None, cx));
+        self.key_live_place(cx);
         self.pdf
             .update(cx, |panel, cx| panel.show_project(root, pdf, window, cx));
         self.watch_builds(&project, window, cx);

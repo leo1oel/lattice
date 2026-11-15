@@ -45,6 +45,7 @@ const BASE_SETTINGS: &str = r#"{
     "diagnostics": "none"
   },
   "show_wrap_guides": false,
+  "multi_cursor_modifier": "cmd_or_ctrl",
   "indent_guides": { "enabled": false },
   "telemetry": { "diagnostics": false, "metrics": false },
   "vim_mode": VIM_MODE

@@ -185,7 +185,7 @@ pub struct StructuredDocument {
     editable: bool,
     /// The visual Markdown editor's selection, and the carets last sent.
     visual_selection: Option<String>,
-    visual_presence: Option<Value>,
+    visual: markdown_host::Sent,
     /// When the page was asked for, for the Markdown skeleton's clock, and
     /// the width it was last drawn at.
     opened: std::time::Instant,
@@ -261,7 +261,7 @@ impl StructuredDocument {
             deck_context: None,
             editable: true,
             visual_selection: None,
-            visual_presence: None,
+            visual: <_>::default(),
             opened: std::time::Instant::now(),
             skeleton_width: Default::default(),
             _subscriptions: subscriptions,

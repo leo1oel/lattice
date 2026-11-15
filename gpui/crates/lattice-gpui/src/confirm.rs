@@ -166,6 +166,20 @@ impl ConfirmHost {
     pub fn question(&self) -> Option<SharedString> {
         self.pending.as_ref().map(|question| question.title.clone())
     }
+
+    /// The open question's body, for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn question_body(&self) -> Option<SharedString> {
+        self.pending
+            .as_ref()
+            .and_then(|question| question.body.clone())
+    }
+
+    /// Leave the open question unanswered, as Cancel would, for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn dismiss(&mut self, cx: &mut Context<Self>) {
+        self.close(cx);
+    }
 }
 
 impl Render for ConfirmHost {
