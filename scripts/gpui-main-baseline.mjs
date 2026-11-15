@@ -32,6 +32,9 @@
  *                              `file` naming it; it moves only forward, to a
  *                              commit that descends from the one it names.
  *
+ * `scripts/gpui-main-baseline-agent.mjs install` runs this by itself, as a
+ * launchd agent, once main has moved (docs/agent-validation.md).
+ *
  * A step whose name is in `e2e.failing` (or a gate stage in `gate.failing`)
  * for the merge base of a branch is pre-existing on main.
  *

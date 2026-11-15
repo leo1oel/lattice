@@ -102,6 +102,16 @@ node scripts/gpui-main-baseline.mjs --sha origin/main   # in a clean checkout se
 
 It checks the commit out, runs `pnpm gate:changed --base <sha>`, the release build through `scripts/gpui-build.mjs` and the full `e2e` scenario, and writes `known-failures@<sha>.json` (failing gate stages and e2e steps, quarantined ones listed again), `e2e@<sha>.json`, `logs@<sha>/` and `latest.json` into `~/Library/Caches/lattice-gpui-build/main-baseline/` (under `$LATTICE_GPUI_BUILD_DIR` when that is set).
 `latest.json` moves only to a commit that descends from the one it names.
+
+Nothing in the app runs it; a machine that hosts lanes keeps it current with an opt-in launchd agent:
+
+```bash
+node scripts/gpui-main-baseline-agent.mjs install   # once origin/main has the script; `uninstall` and `status` too
+```
+
+It clones a checkout of its own beside the baseline directory (`main-checkout`) and runs a `tick` every 15 minutes.
+A tick records `origin/main` only when it has moved past `latest.json` and was not tried already, the last run started two hours ago or more (`--min-hours`), so a burst of merges is one run, and nothing holds the machine-wide build lock.
+Its output goes to `agent.log` and its state to `agent-state.json`, both in the baseline directory.
 A failure listed there for your merge base with `origin/main` is pre-existing on main: say so, naming the file, rather than re-running main to prove it.
 
 The full local gate, `pnpm check` (stages and CI parity in
