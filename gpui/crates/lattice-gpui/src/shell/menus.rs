@@ -254,6 +254,11 @@ fn menus(front: Front, cx: &App) -> Vec<Menu> {
             MenuItem::action(tc!("macOS menu bar", "Import Overleaf ZIP…"), ImportZip),
             MenuItem::separator(),
             MenuItem::action(
+                tc!("macOS menu bar", "Export ZIP…"),
+                super::export_zip::ExportProjectZip,
+            )
+            .disabled(!front.project_open),
+            MenuItem::action(
                 tc!("macOS menu bar", "Export for arXiv…"),
                 super::tools_flow::ExportArxiv,
             )

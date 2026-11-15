@@ -35,6 +35,7 @@ use std::{
     time::Duration,
 };
 
+use gpui::AnimationExt as _;
 use gpui::{
     AnyElement, Bounds, Context, InteractiveElement as _, IntoElement, ParentElement as _, Pixels,
     Point, SharedString, StatefulInteractiveElement as _, Styled as _, Task, Window, canvas, div,
@@ -611,7 +612,7 @@ impl EditorPanel {
         for item in &self.margin.items {
             list = list.child(self.margin_card(item, CardVariant::Rail, cx));
         }
-        div()
+        let rail = div()
             .id("margin-review-rail")
             .absolute()
             .top_0()
@@ -662,8 +663,18 @@ impl EditorPanel {
                         "Comments and suggestions on the lines you can see. Scroll to see others."
                     )),
             )
-            .child(list)
-            .into_any_element()
+            .child(list);
+        // It arrives as the overlay drawers do (`drawer-in`): 24px in from the
+        // edge it stands on, fading up, on the slow tier.
+        if cx.reduce_motion() {
+            return rail.into_any_element();
+        }
+        rail.with_animation(
+            "margin-review-rail-in",
+            lattice_ui::Motion::Slow.animation(),
+            |rail, t| rail.right(px(-24. * (1. - t))).opacity(t.clamp(0., 1.)),
+        )
+        .into_any_element()
     }
 }
 
