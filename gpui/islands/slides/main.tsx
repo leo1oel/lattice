@@ -33,6 +33,7 @@ import type {
 } from "../../../src/editor/presentation/open-slide-bridge";
 import type { OpenSlideFileViewState } from "../../../src/app-types";
 import { showError } from "../../../src/app/notify";
+import { publishAgentDeckPresence, type AgentDeckPresence } from "../../../src/agent/agent-turn-activity";
 
 type Locale = "en" | "zh-CN";
 
@@ -103,6 +104,8 @@ function Slides() {
       bridge.on("doc:editable", (payload) => dispatch({ type: "editable", editable: Boolean((payload as { editable: boolean }).editable) })),
       // Open Slide saves each edit itself; nothing waits here.
       bridge.on("doc:flush", () => bridge.post("doc:flushed")),
+      // The Agent panel's turn, which lights up the decks it names.
+      bridge.on("agent:deck-presence", (payload) => publishAgentDeckPresence(payload as AgentDeckPresence | null)),
       bridge.on("doc:locale", (payload) => {
         const next = (payload as { locale: Locale }).locale;
         void activateLocale(next).then(() => dispatch({ type: "locale", locale: next }));

@@ -50,7 +50,15 @@ impl EditorPanel {
     }
 
     /// Draw these collaborators' carets in the editor.
-    pub fn set_overleaf_carets(&self, carets: Vec<OverleafCaret>, cx: &mut Context<Self>) {
+    pub fn set_overleaf_carets(&mut self, carets: Vec<OverleafCaret>, cx: &mut Context<Self>) {
+        // A .tex file's Visual page draws them too (`latex_visual_events.rs`).
+        if super::latex_view::is_latex_document(&self.path) {
+            let visual = carets
+                .iter()
+                .map(|caret| (caret.name.to_string(), caret.hue, caret.row, caret.column))
+                .collect();
+            self.latex_presence(visual, cx);
+        }
         // A Markdown file's visual editor draws them too.
         if let Some(document) = self.markdown_document() {
             let visual = carets

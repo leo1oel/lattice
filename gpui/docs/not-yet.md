@@ -3,7 +3,7 @@
 What the Tauri app has that the GPUI app does not port yet, one item per line.
 A feature that lands deletes its own line (only that line, so features landing side by side merge cleanly), and a gap found adds one.
 
-- [ ] The visual LaTeX editor, in part: comment highlights, margin review, Overleaf carets and track changes in Visual.
+- [ ] The visual LaTeX editor, in part: margin review and Overleaf's tracked changes in Visual.
 
 - [ ] Wrapping a selection in an environment and renaming an environment (⌘⇧E, and in the source editor too).
 
@@ -19,17 +19,21 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] The 13 animated product icons.
 
-- [ ] The editor attention motions: a jump's reveal flash, an outside edit's change wash, and an accepted suggestion's strike, fold and settle.
+- [ ] The editor's change wash on lines an outside edit landed, and an accepted suggestion's strike, fold and settle (`lattice_ui::attention` has their timing).
 
-- [ ] The too-large-file toast, and a failed save's Retry and Save a copy.
+- [ ] A failed save's Retry and Save a copy (the status bar's save-state popover).
 
 - [ ] The minor motions.
 
-- [ ] The bundled reading-aid fonts (Atkinson Hyperlegible, OpenDyslexic).
-
 - [ ] The translation of the host's error text in notices.
 
-- [ ] The Agent: a PDF or Papers selection in its context.
+- [ ] The Agent: a Papers selection in its context.
+
+- [ ] The Agent: its permission picker in the panel's header.
+
+- [ ] The Agent: a native skeleton before its page draws.
+
+- [ ] The Agent: a Finder drop onto its panel, and the microphone in its composer.
 
 - [ ] The Revision rounds sheet, comparing a round's versions (and the round saved toast's Compare).
 

@@ -9,7 +9,7 @@ use super::*;
 impl Render for Shell {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         // Another editor came to the front: the Agent's context follows.
-        self.agent_follow_front(cx);
+        self.agent_follow_front(window, cx);
         // The revision rounds read the project and its open editors.
         self.sync_rounds(cx);
         let palette = cx.palette().clone();

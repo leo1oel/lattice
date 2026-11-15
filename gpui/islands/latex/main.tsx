@@ -41,6 +41,8 @@
  *   tex:spelling      { enabled, words, ignores }   Settings' spell check, the project's dictionary and ignores
  *   tex:unused        { labels, citations }   what nothing uses (empty while TexLab reports it)
  *   tex:outline       { nodes, rootPath, pdf }   the manuscript's outline for the rail, and its PDF's token
+ *   tex:annotations   { comments, author }   the project's local annotations on the file, and who signs a reply
+ *   md:presence       { cursors }       co-authors' Overleaf carets (also `doc:open`'s `presence`)
  * Page to host:
  *   md:change         { source, base }  the whole file after an edit made against `base`
  *   md:undo, md:redo
@@ -55,11 +57,14 @@
  *   tex:find-references, tex:rename  { kind, symbol }   a label's or citation key's (⇧F12, F2)
  *   tex:paste-image                     an image pasted: insert it as a figure
  *   tex:outline-jump  { path, line }    an outline rail row
+ *   tex:open-annotation, tex:resolve-annotation  { id }   a note's pin, its card's Resolve
+ *   tex:reply-annotation  { id, body }  its card's Reply
  *   md:load-asset     (request) { path } → url | null
  */
 import "../shared/install";
 import { useCallback, useEffect, useMemo, useReducer } from "react";
 import { useLingui } from "@lingui/react/macro";
+import { t as tGlobal } from "@lingui/core/macro";
 import { EditorSelection, Prec, type Extension } from "@codemirror/state";
 import { EditorView, keymap, type ViewUpdate } from "@codemirror/view";
 import { findNext, findPrevious, openSearchPanel } from "@codemirror/search";
@@ -80,6 +85,12 @@ import type { CompiledBuild } from "../../../src/editor/latex/compiled-labels";
 import { flattenProjectPaths } from "../../../src/build/compile-diagnostics";
 import type { GrammarIgnores, IgnoreGrammar } from "../../../src/editor/harper-spellcheck";
 import { LatexOutlineRail } from "../../../src/editor/latex/latex-outline-rail";
+import { EditorCommentCards } from "../../../src/canvas/editor-comment-cards";
+import { CommentCardHosts, editorCommentsExtension, setEditorCommentsEffect } from "../../../src/editor/comments/editor-comments";
+import type { EditorComment } from "../../../src/editor/comments/editor-comment-data";
+import {
+  overleafCursorsExtension, setOverleafCursorsEffect, type PresenceCursor,
+} from "../../../src/overleaf/overleaf-editor-extensions";
 import type { OutlineNode } from "../../../src/editor/latex/latex-outline";
 import type { FileNode } from "../../../src/app-types";
 
@@ -90,6 +101,7 @@ type ProjectIndex = { citations: CitationInfo[]; references: ReferenceInfo[]; pe
 type Spelling = { enabled: boolean; words: string[]; ignores: GrammarIgnores };
 type Unused = { labels: string[]; citations: string[] };
 type Outline = { nodes: OutlineNode[]; rootPath: string; pdf: string | null };
+type Annotations = { comments: EditorComment[]; author: { id: string; name: string } };
 
 /** Where the reader was: the caret and the line at the top, as offsets into the file. */
 type ViewState = { head: number; top: number };
@@ -109,6 +121,8 @@ type LatexOpen = {
   spelling: Spelling | null;
   unused: Unused | null;
   outline: Outline | null;
+  annotations: Annotations | null;
+  presence?: PresenceCursor[];
   /** TexLab is installed: its completion, hovers and definitions join the editor's. */
   texlab: boolean;
 };
@@ -133,6 +147,8 @@ type State = {
   spelling: Spelling;
   unused: Unused;
   outline: Outline;
+  annotations: Annotations;
+  presence: PresenceCursor[];
 };
 
 type Action =
@@ -149,12 +165,15 @@ type Action =
   | { type: "view"; view: EditorView }
   | { type: "spelling"; spelling: Spelling }
   | { type: "unused"; unused: Unused }
-  | { type: "outline"; outline: Outline };
+  | { type: "outline"; outline: Outline }
+  | { type: "annotations"; annotations: Annotations }
+  | { type: "presence"; presence: PresenceCursor[] };
 
 const NO_INDEX: ProjectIndex = { citations: [], references: [], pending: true };
 const NO_SPELLING: Spelling = { enabled: false, words: [], ignores: { rules: [], sentences: [] } };
 const NO_UNUSED: Unused = { labels: [], citations: [] };
 const NO_OUTLINE: Outline = { nodes: [], rootPath: "", pdf: null };
+const NO_ANNOTATIONS: Annotations = { comments: [], author: { id: "", name: "" } };
 
 function reduce(state: State, action: Action): State {
   switch (action.type) {
@@ -172,6 +191,8 @@ function reduce(state: State, action: Action): State {
         spelling: action.open.spelling ?? NO_SPELLING,
         unused: action.open.unused ?? NO_UNUSED,
         outline: action.open.outline ?? NO_OUTLINE,
+        annotations: action.open.annotations ?? NO_ANNOTATIONS,
+        presence: action.open.presence ?? [],
       };
     case "source":
       return { ...state, source: action.source };
@@ -199,6 +220,10 @@ function reduce(state: State, action: Action): State {
       return { ...state, unused: action.unused };
     case "outline":
       return { ...state, outline: action.outline };
+    case "annotations":
+      return { ...state, annotations: action.annotations };
+    case "presence":
+      return { ...state, presence: action.presence };
   }
 }
 
@@ -221,6 +246,18 @@ let liveData: LatexEditorLiveData = {
 let editorView: EditorView | null = null;
 /** The file as the page last had it, so the owner's echo is not a change. */
 let pageSource = "";
+/** Co-authors' carets and the file's annotations, read by their extensions when they run. */
+let presenceCursors: PresenceCursor[] = [];
+let editorComments: EditorComment[] = [];
+/** Where a note's card is drawn over its hovered passage (`EditorCommentCards`). */
+const commentCards = new CommentCardHosts();
+/** A gutter pin's name, as the canvas names it (`document-canvas.tsx`). */
+const pinLabel = (numbers: number[]) => {
+  const list = numbers.join(", ");
+  return numbers.length === 1 ? tGlobal`Annotation ${list}` : tGlobal`Annotations ${list}`;
+};
+const resolveAnnotation = (id: string) => host().post("tex:resolve-annotation", { id });
+const replyToAnnotation = (id: string, body: string) => host().post("tex:reply-annotation", { id, body });
 /** A jump that arrived before the editor was there, taken once it is. */
 let pendingReveal: number | null = null;
 
@@ -291,6 +328,15 @@ function editorExtensions(visual: VisualModule, path: string, spellcheck: boolea
       onPasteImage: pasteImage,
       onTexlabGoto: (target, line) => host().post("md:open-location", { path: target, line }),
     }),
+    // The source session's review layers (`source-session.ts`).
+    overleafCursorsExtension({ getCursors: () => presenceCursors }),
+    editorCommentsExtension(path, {
+      pinLabel,
+      cards: commentCards,
+      onOpenAnnotation: (comment) => host().post("tex:open-annotation", { id: comment.id }),
+      getComments: () => editorComments,
+      getDraft: () => null,
+    }),
   ];
 }
 
@@ -315,11 +361,11 @@ function Latex() {
   const [state, dispatch] = useReducer(reduce, {
     opened: null, source: "", settled: "", ready: false, files: [], texSources: [], index: NO_INDEX,
     rootDocument: null, build: null, assetRevision: 0, visual: null, view: null,
-    spelling: NO_SPELLING, unused: NO_UNUSED, outline: NO_OUTLINE,
+    spelling: NO_SPELLING, unused: NO_UNUSED, outline: NO_OUTLINE, annotations: NO_ANNOTATIONS, presence: [],
   });
   const {
     opened, source, settled, ready, files, texSources, index, rootDocument, build, assetRevision, visual, view,
-    spelling, unused, outline,
+    spelling, unused, outline, annotations, presence,
   } = state;
   const { t } = useLingui();
   const texlab = opened?.texlab ?? false;
@@ -377,6 +423,16 @@ function Latex() {
     build, citationKeys, graphicsRoots, index, katexMacros, localMacros, projectPaths, projectRoot, references,
     rootDocument, spelling, texlab, unused,
   ]);
+  // Co-authors' carets and the file's annotations, pushed to the editor as
+  // they change (`use-source-session.ts` pushes the same effects).
+  useEffect(() => {
+    presenceCursors = presence;
+    editorView?.dispatch({ effects: setOverleafCursorsEffect.of(presence) });
+  }, [presence]);
+  useEffect(() => {
+    editorComments = annotations.comments;
+    editorView?.dispatch({ effects: setEditorCommentsEffect.of(annotations.comments) });
+  }, [annotations.comments]);
   // Figures load again once the project's files change.
   useEffect(() => {
     if (assetRevision) editorView?.dispatch({ effects: latexVisualDataChanged.of(null) });
@@ -425,6 +481,10 @@ function Latex() {
       bridge.on("tex:spelling", (payload) => dispatch({ type: "spelling", spelling: payload as Spelling })),
       bridge.on("tex:unused", (payload) => dispatch({ type: "unused", unused: payload as Unused })),
       bridge.on("tex:outline", (payload) => dispatch({ type: "outline", outline: payload as Outline })),
+      bridge.on("tex:annotations", (payload) => dispatch({ type: "annotations", annotations: payload as Annotations })),
+      bridge.on("md:presence", (payload) => {
+        dispatch({ type: "presence", presence: (payload as { cursors: PresenceCursor[] }).cursors });
+      }),
     ];
     bridge.ready();
     return () => { for (const stop of stops) stop(); };
@@ -485,6 +545,12 @@ function Latex() {
             onCreateEditor={onCreateEditor}
           />
           <CodeMirrorScrollbar view={view} />
+          <EditorCommentCards
+            cards={commentCards}
+            author={annotations.author}
+            onResolve={resolveAnnotation}
+            onReply={replyToAnnotation}
+          />
           {view && (
             <LatexOutlineRail
               view={view}

@@ -3,8 +3,7 @@
 
 use std::path::Path;
 
-use gpui::{App, Context, Entity, Focusable as _, PromptLevel, WeakEntity, Window};
-use lattice_i18n::{t, tc};
+use gpui::{App, Context, Entity, Focusable as _, WeakEntity, Window};
 
 use super::Shell;
 use crate::editor_panel::EditorPanel;
@@ -48,14 +47,8 @@ impl Shell {
                 Some(editor)
             }
             Err(error) => {
-                log::error!("{error:#}");
-                let _ = window.prompt(
-                    PromptLevel::Critical,
-                    t!("Could not open the file"),
-                    Some(&format!("{error:#}")),
-                    &[tc!("dialog button", "OK")],
-                    cx,
-                );
+                let root = self.project.as_ref().map(|project| project.read(cx).root().to_path_buf());
+                super::open_failure::show(&error, root.as_deref(), path, cx);
                 None
             }
         }

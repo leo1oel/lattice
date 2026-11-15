@@ -18,8 +18,10 @@
 
 mod actions;
 mod agent_checkpoints;
+mod agent_context;
 mod agent_documents;
 mod agent_flow;
+mod agent_turn;
 mod annotations_flow;
 mod rounds_flow;
 mod arrange;
@@ -38,6 +40,7 @@ mod help_flow;
 mod history_flow;
 pub(crate) mod import_conflict;
 mod imports;
+mod open_failure;
 mod insert_flow;
 mod layers;
 pub(crate) mod menus;
