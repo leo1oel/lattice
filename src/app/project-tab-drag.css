@@ -5,10 +5,6 @@
 .titlebar-sidebar[data-project-tabbed] .project-switcher { flex: 0 1 auto; }
 .project-switcher .project-tabs { overflow-x: auto; scrollbar-width: none; }
 .project-switcher .project-tabs::-webkit-scrollbar { display: none; }
-.project-switcher .project-tabs .project-tab {
-  flex: 0 1 auto;
-  min-width: calc(2 * var(--titlebar-action-size));
-}
 .project-switcher .project-tab .project-title { flex: 0 1 auto; }
 .project-switcher[data-project-drop-enabled] .project-title:disabled { pointer-events: none; }
 .project-switcher [data-project-dragging] { opacity: 0.55; cursor: grabbing; }

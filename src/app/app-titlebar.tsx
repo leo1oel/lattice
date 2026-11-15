@@ -16,7 +16,7 @@
  */
 import { Suspense, type ReactNode, useRef } from "react";
 import { useLingui } from "@lingui/react/macro";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Folder } from "lucide-react";
 import { DropdownMenu, DropdownMenuTrigger } from "../components/ui/dropdown-menu";
 import { chunk, lazyChunk } from "../lib/lazy-chunk";
 import { LazyMount } from "../components/lazy-mount";
@@ -91,6 +91,7 @@ export function AppTitlebar({ project, documents, projectMenu, panelControls, ca
       </header>
     );
   }
+  const tabbed = projects.length > 1 && projects.some((entry) => entry.root === project.root);
   const projectTitle = (
     <DropdownMenu open={lifecycle.projectMenuOpen} onOpenChange={lifecycle.setProjectMenuOpen} modal={false}>
       <DropdownMenuTrigger asChild>
@@ -112,6 +113,7 @@ export function AppTitlebar({ project, documents, projectMenu, panelControls, ca
           onFocus={warmProjectMenu}
         >
           <span>{projectName}</span>
+          {tabbed && <Folder className="project-tab-icon" size={12} aria-hidden="true" />}
           <ChevronDown size={12} />
         </button>
       </DropdownMenuTrigger>
@@ -126,7 +128,6 @@ export function AppTitlebar({ project, documents, projectMenu, panelControls, ca
     </DropdownMenu>
   );
   // A window holding one project shows its title alone, as it always has.
-  const tabbed = projects.length > 1 && projects.some((entry) => entry.root === project.root);
   const singleProjectTitle = (
     <div className="project-tab-single" data-project-root={project.root} data-window-drag-exclude>
       {projectTitle}

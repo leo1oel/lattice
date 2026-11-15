@@ -14,7 +14,7 @@
 import { useReducer, type KeyboardEvent, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useLingui } from "@lingui/react/macro";
-import { SquareArrowOutUpRight, X } from "lucide-react";
+import { Folder, SquareArrowOutUpRight, X } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../components/ui/dropdown-menu";
 import { windowProjects, type WindowProject } from "./window-projects";
 import type { useProjectLifecycle } from "./use-project-lifecycle";
@@ -87,7 +87,8 @@ export default function ProjectTabs({ projects, active, activeTab, actions, disa
                 disabled={disabled}
                 onClick={() => void actions.openInThisWindow(entry.root)}
               >
-                {name}
+                <Folder className="project-tab-icon" size={12} aria-hidden="true" />
+                <span>{name}</span>
               </button>
             )}
             <button
