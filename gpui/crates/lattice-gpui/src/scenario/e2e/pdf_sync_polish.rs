@@ -176,7 +176,7 @@ impl Run {
             steps.check("PDF: a ⌘-double-click off a figure is the ordinary jump", false, json!({ "found": false }));
             return Ok(());
         };
-        let (Some(at_a), Some(at_b)) = (Self::landing(root, &chapter, &a, "second")?, Self::landing(root, &chapter, &b, "introduces")?) else {
+        let (Some(at_a), Some(at_b)) = (Self::landing(&chapter, "second")?, Self::landing(&chapter, "introduces")?) else {
             steps.check("PDF: a ⌘-double-click off a figure is the ordinary jump", false, json!({ "landing": false }));
             return Ok(());
         };
