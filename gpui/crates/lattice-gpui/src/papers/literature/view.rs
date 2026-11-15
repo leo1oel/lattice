@@ -702,8 +702,11 @@ impl Render for Literature {
         let drawer = Drawer::new("literature", t!("Discover literature"))
             .width(px(480.).min(viewport.width))
             .track_scroll(&self.scroll)
-            .on_close(move |_, cx| {
-                close.update(cx, |this, cx| this.close(cx)).ok();
+            .on_close(move |window, cx| {
+                let close = close.clone();
+                ModalLayer::leave("literature-layer", window, cx, move |_, cx| {
+                    close.update(cx, |this, cx| this.close(cx)).ok();
+                });
             })
             .children(body);
         ModalLayer::new(

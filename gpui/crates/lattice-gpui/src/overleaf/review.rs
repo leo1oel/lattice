@@ -683,7 +683,9 @@ impl Render for OverleafReview {
             .child(
                 Button::new("overleaf-review-cancel", t!("Cancel"))
                     .disabled(self.applying)
-                    .on_click(cx.listener(|this, _, _, cx| this.close(cx))),
+                    .on_click(ModalLayer::closing("overleaf-review-layer", cx, |this, _, cx| {
+                        this.close(cx)
+                    })),
             )
             .child(
                 Button::new(

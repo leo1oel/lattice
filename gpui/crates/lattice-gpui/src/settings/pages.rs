@@ -32,9 +32,18 @@ pub fn sheet(dialog: &SettingsDialog, cx: &mut gpui::App) -> Option<AnyElement> 
     let surface = {
         let close = pane.downgrade();
         let sheet = pane.read(cx).sheet.clone()?;
+        // The sheet's own close plays the layer's exit first.
         sheet.render(
-            move |_, cx| {
-                close.update(cx, |pane, cx| pane.close_sheet(cx)).ok();
+            move |window, cx| {
+                let close = close.clone();
+                lattice_ui::components::ModalLayer::leave(
+                    "settings-sheet-layer",
+                    window,
+                    cx,
+                    move |_, cx| {
+                        close.update(cx, |pane, cx| pane.close_sheet(cx)).ok();
+                    },
+                );
             },
             cx,
         )

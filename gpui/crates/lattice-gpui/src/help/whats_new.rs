@@ -531,7 +531,9 @@ impl Render for WhatsNewSheet {
                     .child(
                         Button::new("whats-new-done", t!("Done"))
                             .primary()
-                            .on_click(cx.listener(|_, _, _, cx| cx.emit(WhatsNewEvent::Close))),
+                            .on_click(ModalLayer::closing("whats-new", cx, |_, _, cx| {
+                                cx.emit(WhatsNewEvent::Close)
+                            })),
                     ),
             );
         let this = cx.entity().downgrade();

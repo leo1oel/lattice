@@ -17,7 +17,7 @@ use gpui_kit::base::Popover as BasePopover;
 use lattice_i18n::t;
 use lattice_ui::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
-    components::{IconButton, MenuSurface, PopFrom, pop_in},
+    components::{IconButton, MenuSurface, PopFrom, pop_in, pop_out, popup_exit},
     fluid_hover::{FluidHover, ItemKind},
     scrollbar::FluidScrollbar,
     shape,
@@ -63,16 +63,18 @@ impl PdfView {
                     .anchor(gpui::Anchor::TopLeft)
                     .offset(px(7.))
                     .trigger(trigger)
-                    .content(move |_, window, cx| {
+                    .exit(popup_exit())
+                    .content(move |state, window, cx| {
+                        let leaving = state.leaving();
                         let popover = cx.entity();
                         let close = move |window: &mut Window, cx: &mut App| {
                             popover.update(cx, |state, cx| state.dismiss(window, cx));
                         };
-                        pop_in(
-                            "pdf-outline-card",
-                            PopFrom::Above,
-                            outline_card(&outline, view.clone(), close, window, cx),
-                        )
+                        let card = outline_card(&outline, view.clone(), close, window, cx);
+                        match leaving {
+                            Some(elapsed) => pop_out(PopFrom::Above, elapsed, card),
+                            None => pop_in("pdf-outline-card", PopFrom::Above, card),
+                        }
                     }),
             ),
         )

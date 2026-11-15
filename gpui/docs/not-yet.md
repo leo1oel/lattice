@@ -13,8 +13,6 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] Margin review's J/K walk between items.
 
-- [ ] Overlay exit motion for the menus and popovers GPUI Kit's popover opens, and for a dialog closed by a button of its own.
-
 - [ ] The editor's change wash on lines an outside edit landed (`lattice_ui::attention` has its timing).
 
 - [ ] The Agent: its annotation tools, recording proposals and questions from the conversation into the open round.
