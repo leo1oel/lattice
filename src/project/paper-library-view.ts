@@ -115,7 +115,7 @@ export type PaperGroupSection = { id: string; name: string; papers: PaperSummary
 const READING_ORDER: readonly PaperReadingState[] = ["fullText", "downloadable", "citation"];
 /** The date-added groups before the months, newest first. */
 const RECENT_ORDER = ["today", "week", "month"] as const;
-export type RecentAdded = typeof RECENT_ORDER[number];
+type RecentAdded = typeof RECENT_ORDER[number];
 
 /**
  * The date-added group of a paper the library first listed at `addedAt`, as

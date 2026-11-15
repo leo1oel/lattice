@@ -212,4 +212,33 @@ describe("interaction states", () => {
     setState(railOther, "hover")
     expect(computed(railOther, "background")).toBe(wash)
   })
+
+  it("keeps the Papers list's group headings in place while the hover fill comes and goes", () => {
+    // The fill mounts as the first div of .paper-rows when the pointer lights
+    // a row and leaves when it crosses a heading. A first heading picked by
+    // :first-of-type took the in-between groups' larger margin while the fill
+    // was there, so every row moved each time it came or went, and the list
+    // shook under a pointer moving down over the headings.
+    mount(read("src/styles/foundations.css") + read("src/styles/app-shell.css"))
+    const margins = (lit: boolean) => {
+      render(`<div class="paper-rows fluid-hover-surface">
+        <span hidden aria-hidden="true"></span>
+        ${lit ? '<div data-slot="fluid-hover-highlight" class="fluid-hover-highlight"></div>' : ""}
+        <div class="paper-group" data-slot="paper-group-label"><span class="paper-group-name">2025</span></div>
+        <div role="list" class="paper-group-list"><div class="paper-row" data-paper-key="a"></div></div>
+        <div class="paper-group" data-slot="paper-group-label"><span class="paper-group-name">2024</span></div>
+        <div role="list" class="paper-group-list"><div class="paper-row" data-paper-key="b"></div></div>
+      </div>`)
+      const headings = [...document.querySelectorAll(".paper-group")].map((heading) => computed(heading, "margin-top"))
+      document.body.replaceChildren()
+      return headings
+    }
+
+    // jsdom gives the in-between headings 0 for a `margin` shorthand holding
+    // var(), so only the first heading's own, smaller margin reads as a value;
+    // the rest still read the same with and without the fill.
+    const resting = margins(false)
+    expect(resting[0]).toBe(token(document.body, "--space-2"))
+    expect(margins(true)).toEqual(resting)
+  })
 })
