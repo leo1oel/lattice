@@ -358,7 +358,7 @@ impl Run {
     }
 
     /// A click at `at` with `modifiers` held, pressed and released there.
-    async fn click_with(
+    pub(super) async fn click_with(
         &self,
         cx: &mut AsyncApp,
         at: Point<Pixels>,
