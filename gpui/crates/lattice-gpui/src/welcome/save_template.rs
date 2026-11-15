@@ -2,8 +2,8 @@
 //! `src/project/local-templates.tsx`): over New project, a 520px dialog that
 //! reads a source, From folder, From ZIP or (with a project open) Current
 //! project, through lattice-core's `templates::inspect`, then asks the
-//! template's name, source URL and version (each at most 300 characters,
-//! as the Tauri fields' `maxLength`), its compile root (a `.tex` file of
+//! template's name and version (each at most 300 characters, as the Tauri
+//! fields' `maxLength`) and source URL, its compile root (a `.tex` file of
 //! the source), engine and preview image (one of the files chosen), and
 //! which of the source's reusable files to copy, none ticked at first. Save
 //! template is offered once it has a name and the compile root is ticked;
