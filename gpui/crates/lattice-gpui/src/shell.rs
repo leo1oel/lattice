@@ -62,6 +62,7 @@ mod palette_entries;
 mod palette_groups;
 mod papers;
 mod parts;
+mod pdf_citations;
 mod pdf_figure;
 mod pdf_sync;
 mod pdfs;

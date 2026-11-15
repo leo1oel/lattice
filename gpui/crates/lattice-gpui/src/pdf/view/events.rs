@@ -23,6 +23,8 @@ pub enum PdfViewEvent {
     /// An Outline row: open `path` (project-relative) at `line` and show the
     /// place in the PDF.
     Outline { path: String, line: u32 },
+    /// A citation card's title: open the paper cited under the key.
+    OpenCitation(String),
 }
 
 /// A context-specific action before Save, such as moving the PDF into a

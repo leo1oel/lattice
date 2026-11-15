@@ -56,6 +56,8 @@ lattice-webview.workspace = true
 gpui-webview.workspace = true
 wry = { package = "lb-wry", version = "=0.53.3" }
 log.workspace = true
+# A PDF link's destination name, which PDFium resolves away (`pdf/named_links.rs`).
+lopdf = { version = "0.42", default-features = false }
 # The paper reader renders a saved paper's Markdown (papers/reader.rs); the
 # editor already depends on it.
 markdown.workspace = true

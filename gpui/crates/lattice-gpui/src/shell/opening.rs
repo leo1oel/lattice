@@ -132,6 +132,7 @@ impl Shell {
         self.label_pdfs(cx);
         self.pdf
             .update(cx, |panel, cx| panel.show_project(root, pdf, window, cx));
+        self.give_citations(&self.pdf.clone(), cx);
         self.watch_builds(&project, window, cx);
         cx.notify();
     }

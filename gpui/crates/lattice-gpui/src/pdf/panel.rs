@@ -68,6 +68,8 @@ pub enum PdfEvent {
     Build {
         document: Option<String>,
     },
+    /// A citation card's title: open the paper cited under the key.
+    OpenCitation(String),
     /// An Outline row: open `path` at `line`, and show it in the PDF.
     Outline {
         path: String,
@@ -107,6 +109,8 @@ pub struct PdfPanel {
     title: SharedString,
     /// The live PDF's Outline, carried into its window.
     outline: Option<super::OutlineState>,
+    /// The project's citations, carried into the window.
+    citations: Option<super::CitationLookup>,
     _subscriptions: Vec<gpui::Subscription>,
 }
 
@@ -121,6 +125,18 @@ impl PdfPanel {
         ];
         for view in views.into_iter().flatten() {
             view.update(cx, |view, cx| view.set_reveal(enabled, locating, cx));
+        }
+    }
+
+    /// The project's citations, for the cards over citation links.
+    pub fn set_citations(&mut self, lookup: Option<super::CitationLookup>, cx: &mut Context<Self>) {
+        self.citations = lookup.clone();
+        let views = [
+            Some(self.view.clone()),
+            self.window.as_ref().map(|(_, view)| view.clone()),
+        ];
+        for view in views.into_iter().flatten() {
+            view.update(cx, |view, cx| view.set_citations(lookup.clone(), cx));
         }
     }
 
@@ -170,6 +186,7 @@ impl PdfPanel {
             build_output: None,
             title: "PDF".into(),
             outline: None,
+            citations: None,
             _subscriptions: subscriptions,
         }
     }
@@ -261,6 +278,7 @@ impl PdfPanel {
                 path: path.clone(),
                 line: *line,
             }),
+            PdfViewEvent::OpenCitation(key) => cx.emit(PdfEvent::OpenCitation(key.clone())),
             PdfViewEvent::Action => self.detach(window, cx),
         }
     }
@@ -447,6 +465,8 @@ impl PdfPanel {
             Ok((handle, view)) => {
                 // The panel's own viewer lets go of its pages.
                 self.view.update(cx, |view, cx| view.close(window, cx));
+                let citations = self.citations.clone();
+                view.update(cx, |view, cx| view.set_citations(citations, cx));
                 self.window = Some((handle, view));
                 if let Some(root) = project {
                     preferences::update(|preferences| preferences.window_mut(&root).open = true);

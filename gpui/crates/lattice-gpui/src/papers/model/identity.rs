@@ -169,7 +169,7 @@ fn web_url(value: Option<&str>) -> Option<WebUrl<'_>> {
 /// The DOI's resolver page, each part of the DOI escaped as
 /// `encodeURIComponent` does (`doiUrl`): a `#` or `<` in a DOI is part of it,
 /// not of the address.
-fn doi_url(doi: Option<&str>) -> Option<String> {
+pub fn doi_url(doi: Option<&str>) -> Option<String> {
     let doi = doi?.trim();
     BARE_DOI.is_match(doi).then(|| {
         let path: Vec<String> = doi.split('/').map(encode_component).collect();
@@ -187,6 +187,11 @@ fn encode_component(part: &str) -> String {
         }
     }
     out
+}
+
+/// Whether `id` is an arXiv identifier (`2101.00001`, `hep-th/9901001`).
+pub fn is_arxiv_id(id: &str) -> bool {
+    ARXIV_ID.is_match(id)
 }
 
 /// `value` as an http(s) address safe to hand the browser (`httpUrl`).

@@ -27,9 +27,16 @@ impl Run {
         self.open(cx, &chapter, Some(3))?;
         self.pause(cx, Duration::from_millis(400)).await;
         let before = reveal(cx);
-        let during = self.with_window(cx, |shell, window, cx| {
+        let (during, root_tabs) = self.with_window(cx, |shell, window, cx| {
             shell.update(cx, |shell, cx| shell.forward_sync(&ForwardSync, window, cx));
-            shell.read(cx).pdf().read(cx).live_view().read(cx).reveal_state()
+            let shell = shell.read(cx);
+            // A root document's tab never spins for the live PDF's jump.
+            let root_tabs: Vec<bool> = shell
+                .root_pdf_tabs()
+                .iter()
+                .map(|(_, panel)| panel.read(cx).live_view().read(cx).reveal_state().1)
+                .collect();
+            (shell.pdf().read(cx).live_view().read(cx).reveal_state(), root_tabs)
         })?;
         self.snapshot(cx, "pdf-locating").await;
         let ended = self
@@ -39,8 +46,8 @@ impl Run {
             .await;
         steps.check(
             "PDF: Reveal cursor in PDF is disabled and spins while the jump is located, then comes back",
-            before == (false, false) && during == (true, true) && ended,
-            json!({ "before": before, "during": during, "ended": ended }),
+            before == (false, false) && during == (true, true) && ended && !root_tabs.contains(&true),
+            json!({ "before": before, "during": during, "ended": ended, "root_tabs_locating": root_tabs }),
         );
 
         // With the caret in a .bib file it waits; in its own window too.

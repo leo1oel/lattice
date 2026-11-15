@@ -25,8 +25,6 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] The PDF: its review export.
 
-- [ ] The PDF: its citation hover cards.
-
 - [ ] Settings: the sections' product icons' hover gestures (they rest as the Tauri app's resting frames).
 
 - [ ] Settings: Editor & builds › Your name saying which Git or Overleaf name signs comments ahead of it.

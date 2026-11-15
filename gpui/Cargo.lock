@@ -8289,6 +8289,7 @@ dependencies = [
  "lb-wry",
  "libc",
  "log",
+ "lopdf",
  "markdown 0.1.0",
  "minisign-verify",
  "objc2 0.6.3",

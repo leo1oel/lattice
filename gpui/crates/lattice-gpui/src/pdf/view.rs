@@ -25,7 +25,7 @@ use std::{
         Arc,
         atomic::{AtomicBool, Ordering},
     },
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use gpui::{
@@ -38,6 +38,8 @@ use gpui_kit::component::input::{InputEvent, InputState};
 use lattice_core::{latex::PdfSyncTarget, pdf_pages::PageSignatures};
 use lattice_i18n::t;
 
+mod autoscroll;
+mod citation;
 mod drafts;
 mod events;
 mod host;
@@ -47,6 +49,8 @@ mod pages;
 mod pointer;
 mod search;
 mod sync_mark;
+
+pub use citation::CitationLookup;
 
 pub(super) use pages::PageSlot;
 pub(super) use sync_mark::{SYNC_MARK_HOLD, SyncMark};
@@ -172,6 +176,10 @@ pub struct PdfView {
     next_mark: usize,
     pub(super) message: Option<SharedString>,
     pub(super) loading: bool,
+    /// When the load under way began, for its indicator's delay; and the
+    /// area the first load's skeleton last filled.
+    pub(super) loading_since: Instant,
+    pub(super) loading_area: std::rc::Rc<std::cell::Cell<gpui::Size<Pixels>>>,
     /// A status line over the pages (`.pdf-notice`): the file was removed.
     pub(super) notice: Option<SharedString>,
     /// Reveal cursor in PDF waits: the caret is not in a .tex file, or a
@@ -191,6 +199,13 @@ pub struct PdfView {
     /// scenario's look at it).
     pub(super) toolbar_hover: Option<lattice_ui::fluid_hover::FluidHover>,
     stats: RenderStats,
+    /// The project's citations, for the cards over citation links.
+    citations: Option<CitationLookup>,
+    citation: citation::CitationHover,
+    /// Middle-click autoscroll while it runs, and the press it took whose
+    /// release is not a click.
+    autoscroll: Option<autoscroll::Autoscroll>,
+    blocked_up: Option<MouseButton>,
     /// The live preview's layer over the pages (`crate::live_preview`).
     live: Option<crate::live_preview::layer::Layer>,
     /// A document shown whose pages on screen are not all drawn yet: once
@@ -290,6 +305,8 @@ impl PdfView {
             next_mark: 0,
             message: None,
             loading: false,
+            loading_since: Instant::now(),
+            loading_area: Default::default(),
             notice: None,
             reveal_disabled: false,
             locating: false,
@@ -303,6 +320,10 @@ impl PdfView {
             zoom_entry: false,
             toolbar_hover: None,
             stats: RenderStats::default(),
+            citations: None,
+            citation: Default::default(),
+            autoscroll: None,
+            blocked_up: None,
             live: None,
             promote: None,
             _open_task: None,
@@ -328,6 +349,9 @@ impl PdfView {
         }
         self.source = Some(path.clone());
         let doc = *self.doc.get_or_insert_with(|| engine.new_document());
+        if !self.loading {
+            self.loading_since = Instant::now();
+        }
         self.loading = true;
         cx.notify();
         self._open_task = Some(cx.spawn_in(window, async move |this, cx| {

@@ -36,7 +36,11 @@ impl PdfView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if self.stop_autoscroll_on_press(event.button, cx) {
+            return;
+        }
         window.focus(&self.focus_handle, cx);
+        self.dismiss_citation(cx);
         let (x, y) = self.sheet_point(event.position);
         let Some((page, page_x, page_y)) = self.layout.to_page(x, y) else {
             self.selection = None;
@@ -74,7 +78,7 @@ impl PdfView {
         cx.notify();
     }
 
-    fn link_at(&self, page: usize, x: f32, y: f32) -> Option<LinkTarget> {
+    pub(in crate::pdf) fn link_at(&self, page: usize, x: f32, y: f32) -> Option<LinkTarget> {
         let text = self.pages.get(page)?.text.as_ref()?;
         let link = text.links.iter().find(|link| link.contains(x, y))?;
         Some(link.target.clone())
@@ -86,6 +90,10 @@ impl PdfView {
         _: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        self.autoscroll_pointer(event.position);
+        if event.pressed_button.is_none() && !self.autoscrolling() {
+            self.hover_citation(event.position, cx);
+        }
         if !self.selecting || event.pressed_button != Some(MouseButton::Left) {
             return;
         }
@@ -104,6 +112,10 @@ impl PdfView {
         _: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if self.take_blocked_up(event.button) {
+            self.selecting = false;
+            return;
+        }
         self.selecting = false;
         let collapsed = self.selection.is_none_or(|selection| selection.is_empty());
         if collapsed {
@@ -166,6 +178,14 @@ impl PdfView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if event.keystroke.key == "escape" {
+            self.dismiss_citation(cx);
+            if self.autoscrolling() {
+                cx.stop_propagation();
+                self.stop_autoscroll(cx);
+                return;
+            }
+        }
         // Keys typed into the toolbar's fields are theirs.
         if !self.focus_handle.is_focused(window) {
             return;
