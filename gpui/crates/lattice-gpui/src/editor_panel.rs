@@ -747,13 +747,13 @@ impl Render for EditorPanel {
         Self::panel_actions(Self::latex_commands(div().key_context("LatticeEditor"), cx), cx)
             .on_action(cx.listener(Self::deploy_search))
             // An accept is an undo step of the editor's (`review_marks.rs`).
-            .capture_action(cx.listener(|this, _: &editor::actions::Undo, _, cx| {
-                if this.review_undo(cx) {
+            .capture_action(cx.listener(|this, _: &editor::actions::Undo, window, cx| {
+                if this.editor().focus_handle(cx).is_focused(window) && this.review_undo(cx) {
                     cx.stop_propagation();
                 }
             }))
-            .capture_action(cx.listener(|this, _: &editor::actions::Redo, _, cx| {
-                if this.review_redo(cx) {
+            .capture_action(cx.listener(|this, _: &editor::actions::Redo, window, cx| {
+                if this.editor().focus_handle(cx).is_focused(window) && this.review_redo(cx) {
                     cx.stop_propagation();
                 }
             }))

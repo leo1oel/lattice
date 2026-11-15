@@ -70,6 +70,7 @@ impl MarkedPdf {
         if wanted == self.wanted {
             return;
         }
+        self.exports.cancel();
         let same_project = matches!((&wanted, &self.wanted), (Some(a), Some(b)) if a.0 == b.0);
         self.wanted = wanted.clone();
         self.generation += 1;
@@ -102,25 +103,23 @@ impl MarkedPdf {
             let built = cx
                 .background_executor()
                 .spawn(async move {
-                    let bytes =
-                        lattice_core::latex::review_changes_pdf(&build_root, &exports, export)?;
-                    let file = file_for(&build_root, export);
-                    if let Some(folder) = file.parent() {
-                        std::fs::create_dir_all(folder).map_err(|error| error.to_string())?;
-                    }
-                    std::fs::write(&file, bytes).map_err(|error| error.to_string())?;
-                    Ok::<_, String>(file)
+                    lattice_core::latex::review_changes_pdf(&build_root, &exports, export)
                 })
                 .await;
             this.update(cx, |this, cx| {
                 if this.generation != generation {
-                    if let Ok(file) = built {
-                        let _ = std::fs::remove_file(file);
-                    }
                     return;
                 }
                 this.building = false;
-                match built {
+                let written = built.and_then(|bytes| {
+                    let file = file_for(&root, export);
+                    if let Some(folder) = file.parent() {
+                        std::fs::create_dir_all(folder).map_err(|error| error.to_string())?;
+                    }
+                    std::fs::write(&file, bytes).map_err(|error| error.to_string())?;
+                    Ok(file)
+                });
+                match written {
                     Ok(file) => {
                         if let Some(old) = this.shown.replace(file) {
                             let _ = std::fs::remove_file(old);
