@@ -6,7 +6,10 @@
 //! Markdown, and Leave focus mode on Escape; its field filters by name or by
 //! key and says when nothing matches. In focus mode Escape in the document
 //! first collapses a selection, then leaves focus mode; with the palette
-//! open it closes the palette and focus mode stays.
+//! open it closes the palette and focus mode stays. Focus mode's bar centres the
+//! title on the window and ends with a Markdown file's Edit, Split and
+//! Preview, the PDF toggle and Exit focus (`focus-mode-bar.tsx`), each doing
+//! what it says.
 
 use std::{path::Path, time::Duration};
 
@@ -149,7 +152,113 @@ impl Run {
         self.pause(cx, Duration::from_millis(200)).await;
         self.close_tab(cx, editor)?;
         std::fs::remove_file(&file).ok();
+        self.focus_bar_checks(cx, steps, root).await
+    }
+
+    /// Focus mode's bar over a Markdown file: its title centred on the
+    /// window, the file's Edit, Split and Preview, the PDF toggle and Exit
+    /// focus, each doing what it says.
+    async fn focus_bar_checks(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+        root: &Path,
+    ) -> Result<()> {
+        lattice_ui::parity::enable();
+        let file = root.join("focus-bar-check.md");
+        std::fs::write(&file, "# Focus\n\nA note.\n")?;
+        let editor = self.open(cx, &file, Some(1))?;
+        self.pause(cx, Duration::from_millis(300)).await;
+        let pdf_before =
+            cx.update(|cx| crate::shell::workspaces::Workspaces::global(cx).focus_pdf());
+        self.with_window(cx, |shell, window, cx| {
+            shell.update(cx, |shell, cx| shell.set_focus_mode(true, window, cx))
+        })?;
+        lattice_ui::parity::forget("focus-bar/");
+        self.pause(cx, Duration::from_millis(400)).await;
+        let regions = lattice_ui::parity::regions();
+        let bounds = |name: &str| regions.get(name).and_then(|region| region.bounds);
+        let (title, views, pdf, exit) = (
+            bounds("focus-bar/title"),
+            bounds("focus-bar/views"),
+            bounds("focus-bar/pdf"),
+            bounds("focus-bar/exit"),
+        );
+        let width = self.with_window(cx, |_, window, _| f32::from(window.viewport_size().width))?;
+        let centred =
+            title.is_some_and(|title| (f32::from(title.center().x) - width / 2.).abs() <= 2.);
+        let ordered = match (views, pdf, exit) {
+            (Some(views), Some(pdf), Some(exit)) => {
+                views.right() <= pdf.left() && pdf.right() <= exit.left()
+            }
+            _ => false,
+        };
+        steps.check(
+            "focus mode's bar centres the title on the window and ends with Edit, Split and Preview, the PDF and Exit focus",
+            centred && ordered,
+            json!({ "title": format!("{title:?}"), "views": format!("{views:?}"), "pdf": format!("{pdf:?}"), "exit": format!("{exit:?}"), "width": width }),
+        );
+
+        if let Some(pdf) = pdf {
+            self.click_at(cx, pdf.center())?;
+        }
+        let toggled = self
+            .wait_for(cx, Duration::from_secs(2), |_, cx| {
+                crate::shell::workspaces::Workspaces::global(cx).focus_pdf() != pdf_before
+            })
+            .await;
+        lattice_ui::parity::forget("focus-bar/");
+        self.pause(cx, Duration::from_millis(300)).await;
+        let exit = lattice_ui::parity::regions()
+            .get("focus-bar/exit")
+            .and_then(|region| region.bounds);
+        if let Some(exit) = exit {
+            self.click_at(cx, exit.center())?;
+        }
+        let left = self
+            .wait_for(cx, Duration::from_secs(2), |shell, cx| {
+                !shell.read(cx).in_focus_mode()
+            })
+            .await;
+        steps.check(
+            "the bar's PDF toggle shows or hides the PDF, and Exit focus leaves focus mode",
+            toggled && left,
+            json!({ "toggled": toggled, "left": left }),
+        );
+        // The PDF choice is every project's: put it back.
+        if toggled {
+            cx.update(|cx| {
+                crate::shell::workspaces::Workspaces::update(cx, |library| {
+                    library.set_focus_pdf(pdf_before)
+                })
+            });
+        }
+        self.close_tab(cx, editor)?;
+        std::fs::remove_file(&file).ok();
         Ok(())
+    }
+
+    /// A press and release at `at`, as the window would get them.
+    fn click_at(&self, cx: &mut AsyncApp, at: gpui::Point<gpui::Pixels>) -> Result<()> {
+        self.with_window(cx, |_, window, cx| {
+            for event in [
+                gpui::PlatformInput::MouseDown(gpui::MouseDownEvent {
+                    button: gpui::MouseButton::Left,
+                    position: at,
+                    modifiers: gpui::Modifiers::default(),
+                    click_count: 1,
+                    first_mouse: false,
+                }),
+                gpui::PlatformInput::MouseUp(gpui::MouseUpEvent {
+                    button: gpui::MouseButton::Left,
+                    position: at,
+                    modifiers: gpui::Modifiers::default(),
+                    click_count: 1,
+                }),
+            ] {
+                window.dispatch_event(event, cx);
+            }
+        })
     }
 
     /// The groups the sheet shows, as JSON for the step's evidence.
@@ -204,6 +313,7 @@ pub(super) const MODULE: super::registry::Module = super::registry::Module {
         "gpui/crates/lattice-gpui/src/shell/shortcut_groups.rs",
         "gpui/crates/lattice-gpui/src/shell/focus_escape.rs",
         "gpui/crates/lattice-gpui/src/shell/commands/key_labels.rs",
+        "gpui/crates/lattice-gpui/src/titlebar/focus_bar.rs",
     ],
     run: |run, cx, steps, fixture| Box::pin(run.shortcut_sheet_checks(cx, steps, &fixture.root)),
 };

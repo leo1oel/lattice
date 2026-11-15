@@ -53,9 +53,9 @@ impl DocumentView {
 
     pub fn label(self) -> &'static str {
         match self {
-            DocumentView::Source => "Edit",
-            DocumentView::Split => "Split",
-            DocumentView::Preview => "Preview",
+            DocumentView::Source => lattice_i18n::n!("Edit"),
+            DocumentView::Split => lattice_i18n::n!("Split"),
+            DocumentView::Preview => lattice_i18n::n!("Preview"),
         }
     }
 
@@ -434,7 +434,7 @@ impl EditorPanel {
             let this = cx.entity().downgrade();
             switch = switch.icon_choice(
                 view.icon(),
-                view.label(),
+                lattice_i18n::tr(view.label()),
                 view == current,
                 move |_, window, cx| {
                     this.update(cx, |panel, cx| panel.set_document_view(view, window, cx))
