@@ -77,6 +77,7 @@ enum Request {
     Open {
         doc: DocId,
         bytes: Vec<u8>,
+        names: HashMap<usize, Vec<NamedLink>>,
         reply: oneshot::Sender<Result<DocumentInfo>>,
     },
     Close {
@@ -173,8 +174,25 @@ impl PdfEngine {
 
     /// Show `bytes` as `doc`, in place of what it showed before.
     pub fn open(&self, doc: DocId, bytes: Vec<u8>) -> oneshot::Receiver<Result<DocumentInfo>> {
+        self.open_named(doc, bytes, HashMap::new())
+    }
+
+    /// [`Self::open`], with each page's links to named destinations
+    /// (`named_links::read`, done off this worker), whose names the pages'
+    /// links then carry.
+    pub(super) fn open_named(
+        &self,
+        doc: DocId,
+        bytes: Vec<u8>,
+        names: HashMap<usize, Vec<NamedLink>>,
+    ) -> oneshot::Receiver<Result<DocumentInfo>> {
         let (reply, receiver) = oneshot::channel();
-        self.push(Request::Open { doc, bytes, reply });
+        self.push(Request::Open {
+            doc,
+            bytes,
+            names,
+            reply,
+        });
         receiver
     }
 
@@ -287,12 +305,16 @@ fn worker(pdfium: Pdfium, queue: &(Mutex<Queue>, Condvar)) {
 
     while let Some(work) = next_work(queue) {
         match work {
-            Work::Request(Request::Open { doc, bytes, reply }) => {
+            Work::Request(Request::Open {
+                doc,
+                bytes,
+                names,
+                reply,
+            }) => {
                 if reply.is_canceled() {
                     continue;
                 }
                 generation += 1;
-                let names = named_links::read(&bytes);
                 let result = pdfium
                     .load_pdf_from_byte_vec(bytes, None)
                     .map_err(|error| anyhow!("{error}"))
@@ -735,7 +757,10 @@ mod tests {
         let engine = PdfEngine::start().expect("PDFium (script/fetch-pdfium)");
         let doc = engine.new_document();
         let pdf = crate::pdf::named_links::tests::linked_pdf();
-        let info = futures::executor::block_on(engine.open(doc, pdf)).unwrap().unwrap();
+        let names = crate::pdf::named_links::read(&pdf);
+        let info = futures::executor::block_on(engine.open_named(doc, pdf, names))
+            .unwrap()
+            .unwrap();
         let text = futures::executor::block_on(engine.text(doc, info.generation, 0))
             .unwrap()
             .unwrap();

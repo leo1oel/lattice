@@ -71,6 +71,34 @@ impl Run {
             json!({ "built": built, "shown": shown, "link": at.map(|at| format!("{at:?}")), "early": early, "opened": opened, "closed": closed }),
         );
 
+        // The document's listeners: a pointer leaving the pages straight
+        // from the link closes the card, and Escape closes it with the focus
+        // off the PDF.
+        let (mut left_open, mut left_closed, mut escape_open, mut escape_closed) = (None, None, None, None);
+        let pages = cx.update(|cx| view.read(cx).pages_bounds());
+        if let Some(at) = at {
+            move_to(cx, at)?;
+            self.pause(cx, Duration::from_millis(500)).await;
+            left_open = card(cx);
+            move_to(cx, gpui::point(pages.left() - gpui::px(4.), at.y))?;
+            self.pause(cx, Duration::from_millis(500)).await;
+            left_closed = card(cx);
+            move_to(cx, at)?;
+            self.pause(cx, Duration::from_millis(500)).await;
+            escape_open = card(cx);
+            self.with_window(cx, |_, window, cx| {
+                window.blur(cx);
+                window.dispatch_keystroke(gpui::Keystroke::parse("escape").expect("a key"), cx);
+            })?;
+            escape_closed = card(cx);
+            move_to(cx, gpui::point(at.x, at.y + gpui::px(200.)))?;
+        }
+        steps.check(
+            "PDF: a citation card closes when the pointer leaves the pages from its link, and on Escape without the PDF's focus",
+            left_open.is_some() && left_closed.is_none() && escape_open.is_some() && escape_closed.is_none(),
+            json!({ "left_open": left_open, "left_closed": left_closed, "escape_open": escape_open, "escape_closed": escape_closed }),
+        );
+
         // main.tex built again takes the live PDF back.
         self.open(cx, &root.join("main.tex"), Some(1))?;
         self.pause(cx, Duration::from_millis(300)).await;
@@ -90,6 +118,7 @@ pub(super) const MODULE: super::registry::Module = super::registry::Module {
     setup: false,
     covers: &[
         "gpui/crates/lattice-gpui/src/pdf/view/citation.rs",
+        "gpui/crates/lattice-gpui/src/pdf/view/window_wide.rs",
         "gpui/crates/lattice-gpui/src/pdf/named_links.rs",
         "gpui/crates/lattice-gpui/src/shell/pdf_citations.rs",
     ],

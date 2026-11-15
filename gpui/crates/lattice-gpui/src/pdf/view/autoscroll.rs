@@ -20,7 +20,7 @@ const MAX_STEP: Duration = Duration::from_millis(32);
 
 pub(in crate::pdf) struct Autoscroll {
     origin: f32,
-    pointer: f32,
+    pub(super) pointer: f32,
     previous: Instant,
     /// The window was active when it started: its going to the background
     /// (`blur`) stops it.
@@ -36,16 +36,14 @@ pub(in crate::pdf) fn speed(distance: f32) -> f32 {
 
 impl PdfView {
     /// A middle press on the pages: autoscroll starts, unless it is on a
-    /// link (whose middle click keeps its own meaning) or already running.
+    /// link (whose middle click keeps its own meaning). A press while it
+    /// runs never reaches the pages (`window_wide.rs`).
     pub(in crate::pdf) fn on_sheet_middle_down(
         &mut self,
         event: &MouseDownEvent,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if self.stop_autoscroll_on_press(event.button, cx) {
-            return;
-        }
         let (x, y) = self.sheet_point(event.position);
         let on_link = self
             .layout
@@ -67,22 +65,6 @@ impl PdfView {
         cx.notify();
     }
 
-    /// A press while autoscroll runs stops it, and its release is not a
-    /// click; true when it did.
-    pub(in crate::pdf) fn stop_autoscroll_on_press(
-        &mut self,
-        button: MouseButton,
-        cx: &mut Context<Self>,
-    ) -> bool {
-        if self.autoscroll.is_none() {
-            return false;
-        }
-        self.blocked_up = Some(button);
-        self.stop_autoscroll(cx);
-        cx.stop_propagation();
-        true
-    }
-
     /// The release of a press autoscroll took; true when it was one.
     pub(in crate::pdf) fn take_blocked_up(&mut self, button: MouseButton) -> bool {
         if self.blocked_up == Some(button) {
@@ -98,24 +80,22 @@ impl PdfView {
         }
     }
 
-    pub(in crate::pdf) fn autoscroll_pointer(&mut self, position: Point<Pixels>) {
-        if let Some(autoscroll) = &mut self.autoscroll {
-            autoscroll.pointer = f32::from(position.y);
-        }
-    }
-
     pub fn autoscrolling(&self) -> bool {
         self.autoscroll.is_some()
     }
 
-    /// How far the pages are scrolled down, and the middle of their area on
-    /// the window, for a scenario.
+    /// How far the pages are scrolled down, and their area on the window
+    /// and its middle, for a scenario.
     pub fn scroll_top(&self) -> f32 {
         self.scroll_offset().1
     }
 
     pub fn pages_center(&self) -> Point<Pixels> {
         self.viewport.center()
+    }
+
+    pub fn pages_bounds(&self) -> Bounds<Pixels> {
+        self.viewport
     }
 
     /// One frame's scroll, asking for the next while it runs; it stops when

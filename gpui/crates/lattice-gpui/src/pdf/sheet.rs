@@ -198,18 +198,6 @@ impl PdfView {
             .children(pages)
             .on_mouse_down(MouseButton::Left, cx.listener(Self::on_sheet_mouse_down))
             .on_mouse_down(MouseButton::Middle, cx.listener(Self::on_sheet_middle_down))
-            .on_mouse_down(
-                MouseButton::Right,
-                cx.listener(|this, event: &gpui::MouseDownEvent, _, cx| {
-                    this.stop_autoscroll_on_press(event.button, cx);
-                }),
-            )
-            .on_mouse_up(
-                MouseButton::Middle,
-                cx.listener(|this, event: &gpui::MouseUpEvent, _, _| {
-                    this.take_blocked_up(event.button);
-                }),
-            )
             .when(self.autoscrolling(), |sheet| sheet.cursor(CursorStyle::ResizeUpDown))
             .on_mouse_move(cx.listener(Self::on_sheet_mouse_move))
             .on_mouse_up(MouseButton::Left, cx.listener(Self::on_sheet_mouse_up))
@@ -245,6 +233,7 @@ impl PdfView {
                     .feel(ScrollbarFeel::DOCUMENT),
             )
             .children(self.citation_card_element(window, cx))
+            .children(self.window_wide_listeners(window, cx))
             // A refresh of the PDF on screen says so, quietly.
             .when(self.loading, |area| {
                 area.child(super::loading::updating(self.loading_since, window, cx))

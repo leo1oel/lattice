@@ -148,12 +148,32 @@ impl PdfView {
                     .ok();
                 });
                 hover.pending = Some((target, task));
+                cx.notify();
             }
-            None => {
-                hover.pending = None;
-                self.close_citation_soon(cx);
-            }
+            None => self.leave_citation(cx),
         }
+    }
+
+    /// The pointer is off every citation link and off the card: a card about
+    /// to open does not, and one shown starts closing.
+    pub(in crate::pdf) fn leave_citation(&mut self, cx: &mut Context<Self>) {
+        self.citation.pending = None;
+        self.close_citation_soon(cx);
+    }
+
+    /// A card shows or waits to open.
+    pub(in crate::pdf) fn citation_active(&self) -> bool {
+        self.citation.shown.is_some() || self.citation.pending.is_some()
+    }
+
+    /// Whether a window position is on the card shown.
+    pub(in crate::pdf) fn on_citation_card(&self, position: Point<Pixels>) -> bool {
+        self.citation.shown.is_some()
+            && self
+                .citation
+                .card
+                .get()
+                .is_some_and(|card| card.contains(&position))
     }
 
     /// Close the card after [`CLOSE_AFTER`], unless the pointer comes back.
@@ -245,7 +265,7 @@ impl PdfView {
         // Centred above the link (`placement: "top"`), flipped below when
         // the card would cross the window's top, and shifted to stay 8px
         // inside the window's sides (`shift({ padding: 8 })`); its size is
-        // last frame's.
+        // last frame's, and a card drawn at another size is placed again.
         let last = self.citation.card.get().map(|card| card.size);
         let window_width = window.viewport_size().width;
         let width = last.map_or(card_width(window_width), |size| size.width);
@@ -294,7 +314,15 @@ impl PdfView {
         });
         let painted = self.citation.card.clone();
         let record = canvas(
-            move |bounds, _, _| painted.set(Some(bounds)),
+            move |bounds, _, cx| {
+                let resized = painted.get().map(|card| card.size) != Some(bounds.size);
+                painted.set(Some(bounds));
+                if resized {
+                    cx.defer(move |cx| {
+                        view.update(cx, |_, cx| cx.notify()).ok();
+                    });
+                }
+            },
             |_, _, _, _| {},
         )
         .absolute()

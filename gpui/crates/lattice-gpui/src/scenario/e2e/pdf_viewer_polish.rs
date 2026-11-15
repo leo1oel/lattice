@@ -122,6 +122,61 @@ impl Run {
             started && moved > before + 20. && stopped && (after - at_stop).abs() < 0.5,
             json!({ "started": started, "before": before, "moved": moved, "stopped": stopped, "at_stop": at_stop, "after": after }),
         );
+        // The document's listeners: Escape with the focus off the PDF, and a
+        // press off the pages, each stop it too.
+        let start = |cx: &mut AsyncApp| -> Result<bool> {
+            for input in [
+                PlatformInput::MouseDown(MouseDownEvent {
+                    button: MouseButton::Middle,
+                    position: center,
+                    modifiers: Modifiers::default(),
+                    click_count: 1,
+                    first_mouse: false,
+                }),
+                PlatformInput::MouseUp(MouseUpEvent {
+                    button: MouseButton::Middle,
+                    position: center,
+                    modifiers: Modifiers::default(),
+                    click_count: 1,
+                }),
+            ] {
+                send(cx, input)?;
+            }
+            Ok(cx.update(|cx| view.read(cx).autoscrolling()))
+        };
+        let escape_started = start(cx)?;
+        self.pause(cx, Duration::from_millis(100)).await;
+        self.with_window(cx, |_, window, cx| {
+            window.blur(cx);
+            window.dispatch_keystroke(gpui::Keystroke::parse("escape").expect("a key"), cx);
+        })?;
+        let escape_stopped = cx.update(|cx| !view.read(cx).autoscrolling());
+        let press_started = start(cx)?;
+        self.pause(cx, Duration::from_millis(100)).await;
+        // Left of the PDF panel, over the editor.
+        let pages = cx.update(|cx| view.read(cx).pages_bounds());
+        let off_pages = (pages.left() > px(240.)).then(|| point(pages.left() - px(200.), pages.center().y));
+        if let Some(position) = off_pages {
+            send(cx, PlatformInput::MouseDown(MouseDownEvent {
+                button: MouseButton::Left,
+                position,
+                modifiers: Modifiers::default(),
+                click_count: 1,
+                first_mouse: false,
+            }))?;
+            send(cx, PlatformInput::MouseUp(MouseUpEvent {
+                button: MouseButton::Left,
+                position,
+                modifiers: Modifiers::default(),
+                click_count: 1,
+            }))?;
+        }
+        let press_stopped = cx.update(|cx| !view.read(cx).autoscrolling());
+        steps.check(
+            "PDF: Escape stops autoscroll without the PDF's focus, and a press off the pages stops it",
+            escape_started && escape_stopped && press_started && off_pages.is_some() && press_stopped,
+            json!({ "escape_started": escape_started, "escape_stopped": escape_stopped, "press_started": press_started, "off_pages": off_pages.map(|at| format!("{at:?}")), "press_stopped": press_stopped }),
+        );
         // The fit it had, for the modules after this one.
         if let Some(mode) = fit {
             self.with_window(cx, move |_, _, cx| view.update(cx, |view, cx| view.toggle_fit(mode, cx)))?;
@@ -141,6 +196,7 @@ pub(super) const MODULE: super::registry::Module = super::registry::Module {
     covers: &[
         "gpui/crates/lattice-gpui/src/pdf/loading.rs",
         "gpui/crates/lattice-gpui/src/pdf/view/autoscroll.rs",
+        "gpui/crates/lattice-gpui/src/pdf/view/window_wide.rs",
     ],
     run: |run, cx, steps, fixture| Box::pin(run.pdf_viewer_polish(cx, steps, &fixture.root)),
 };

@@ -49,6 +49,7 @@ mod pages;
 mod pointer;
 mod search;
 mod sync_mark;
+mod window_wide;
 
 pub use citation::CitationLookup;
 
@@ -206,6 +207,9 @@ pub struct PdfView {
     /// release is not a click.
     autoscroll: Option<autoscroll::Autoscroll>,
     blocked_up: Option<MouseButton>,
+    /// Escape from any focus in the window, while autoscroll runs or a card
+    /// shows (`window_wide.rs`).
+    escape: Option<gpui::Subscription>,
     /// The live preview's layer over the pages (`crate::live_preview`).
     live: Option<crate::live_preview::layer::Layer>,
     /// A document shown whose pages on screen are not all drawn yet: once
@@ -324,6 +328,7 @@ impl PdfView {
             citation: Default::default(),
             autoscroll: None,
             blocked_up: None,
+            escape: None,
             live: None,
             promote: None,
             _open_task: None,
@@ -349,6 +354,7 @@ impl PdfView {
         }
         self.source = Some(path.clone());
         let doc = *self.doc.get_or_insert_with(|| engine.new_document());
+        let cited = self.citations.is_some();
         if !self.loading {
             self.loading_since = Instant::now();
         }
@@ -384,7 +390,17 @@ impl PdfView {
                 let bytes = bytes.clone();
                 async move { lattice_core::pdf_pages::signatures(&bytes).ok() }
             });
-            let opened = engine.open(doc, bytes).await;
+            let naming = cited.then(|| {
+                let bytes = bytes.clone();
+                cx.background_spawn(async move { super::named_links::read(&bytes) })
+            });
+            // A viewer that shows citations reads its links' names first,
+            // off the PDFium worker.
+            let names = match naming {
+                Some(naming) => naming.await,
+                None => Default::default(),
+            };
+            let opened = engine.open_named(doc, bytes, names).await;
             let signatures = signing.await;
             this.update_in(cx, |this, window, cx| {
                 if this.source.as_ref() != Some(&path) {

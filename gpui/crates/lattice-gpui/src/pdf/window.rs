@@ -47,6 +47,7 @@ impl PdfWindow {
         building: bool,
         (reveal, locating): (bool, bool),
         outline: Option<super::OutlineState>,
+        citations: Option<super::CitationLookup>,
         focus: bool,
         cx: &mut App,
     ) -> anyhow::Result<(AnyWindowHandle, Entity<PdfView>)> {
@@ -90,6 +91,7 @@ impl PdfWindow {
                         cx,
                     );
                     view.set_outline(outline.clone(), cx);
+                    view.set_citations(citations.clone(), cx);
                     if let Some(source) = source.clone() {
                         view.open_at(source, place, window, cx);
                     }

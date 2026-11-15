@@ -5,8 +5,9 @@
 //! number (`pdfCitationForLink` in `src/pdf/pdf-citation-hover.tsx`).
 //!
 //! pdfium-render keeps a link's raw handles to itself, so the names are read
-//! from the file with lopdf, a page's link annotations by their `/Rect`; the
-//! engine pairs each with PDFium's link of the same rectangle.
+//! from the file with lopdf, a page's link annotations by their `/Rect`, off
+//! the PDFium worker and only for a viewer that shows citations; the engine
+//! pairs each with PDFium's link of the same rectangle.
 
 use std::collections::HashMap;
 
@@ -25,11 +26,16 @@ pub(super) struct NamedLink {
 }
 
 /// Each page's named links (0-based pages), read from the file's bytes;
-/// empty for a file that cannot be read or is too large.
+/// empty for a file that cannot be read or is too large, or that lopdf
+/// panics on.
 pub(super) fn read(bytes: &[u8]) -> HashMap<usize, Vec<NamedLink>> {
     if bytes.len() > MAX_BYTES {
         return HashMap::new();
     }
+    std::panic::catch_unwind(|| read_pages(bytes)).unwrap_or_default()
+}
+
+fn read_pages(bytes: &[u8]) -> HashMap<usize, Vec<NamedLink>> {
     let Ok(document) = Document::load_mem(bytes) else {
         return HashMap::new();
     };

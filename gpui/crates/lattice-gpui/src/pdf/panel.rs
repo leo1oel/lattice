@@ -449,6 +449,7 @@ impl PdfPanel {
         let project = self.project.clone();
         let title = self.title.clone();
         let outline = self.outline.clone();
+        let citations = self.citations.clone();
         let opened = PdfWindow::open(
             owner,
             project.clone(),
@@ -458,6 +459,7 @@ impl PdfPanel {
             self.building,
             self.reveal,
             outline,
+            citations,
             focus,
             cx,
         );
@@ -465,8 +467,6 @@ impl PdfPanel {
             Ok((handle, view)) => {
                 // The panel's own viewer lets go of its pages.
                 self.view.update(cx, |view, cx| view.close(window, cx));
-                let citations = self.citations.clone();
-                view.update(cx, |view, cx| view.set_citations(citations, cx));
                 self.window = Some((handle, view));
                 if let Some(root) = project {
                     preferences::update(|preferences| preferences.window_mut(&root).open = true);
