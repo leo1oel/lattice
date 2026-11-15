@@ -280,8 +280,9 @@ impl EditorPanel {
         });
     }
 
-    /// Paint the highlights again once the view scrolls past what was read.
-    pub(super) fn highlights_scrolled(&mut self, cx: &mut Context<Self>) {
+    /// Paint the highlights again once the lines the editor shows (scrolled,
+    /// resized or folded) go past what was read.
+    pub(super) fn highlights_shown(&mut self, cx: &mut Context<Self>) {
         if self.toolbar_kind() != Some(Kind::Latex) {
             return;
         }
@@ -477,8 +478,15 @@ impl EditorPanel {
         }
         let view_cell = self.toolbar.view.clone();
         let this = cx.entity().downgrade();
+        let shown = this.clone();
         let tracker = canvas(
-            move |bounds, _, _| view_cell.set(Some(bounds)),
+            move |bounds, _, cx| {
+                view_cell.set(Some(bounds));
+                // Read after the editor has laid out this frame's lines.
+                cx.defer(move |cx| {
+                    shown.update(cx, |this, cx| this.highlights_shown(cx)).ok();
+                });
+            },
             move |_, _, window, _| {
                 // A drag settles wherever the pointer comes up, in the source
                 // or past its edge.

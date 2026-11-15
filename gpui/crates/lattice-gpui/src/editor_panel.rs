@@ -377,7 +377,7 @@ impl EditorPanel {
                     // `.tex` file's highlights are painted where it shows.
                     EditorEvent::ScrollPositionChanged { .. } => {
                         this.markdown_source_scrolled(cx);
-                        this.highlights_scrolled(cx);
+                        this.highlights_shown(cx);
                     }
                     // Leaving the editor saves at once, as the Tauri app does.
                     EditorEvent::Blurred => {
