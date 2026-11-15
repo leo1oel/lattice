@@ -122,12 +122,9 @@ impl Shell {
     ) {
         match event {
             // The files reach the editors and the tree through the watcher;
-            // the PDF follows them, as after any outside edit.
-            OverleafBridgeEvent::Incoming => {
-                if crate::settings::builds_automatically(cx) {
-                    self.run_build(super::build::BuildRequest::automatic(), window, cx);
-                }
-            }
+            // the PDF follows them, as after any outside edit, once the
+            // writes pause (`build_watch`).
+            OverleafBridgeEvent::Incoming => {}
             OverleafBridgeEvent::OpenConflict(path) => {
                 self.open_conflict_resolver(path.clone(), true, window, cx)
             }
