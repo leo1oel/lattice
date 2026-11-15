@@ -119,7 +119,7 @@ impl Shell {
             .update(cx, |live, cx| live.set_project(Some(project.clone()), cx));
         let venue = project.read(cx).manifest().venue.clone();
         self.file_tree
-            .update(cx, |tree, cx| tree.set_project(project, cx));
+            .update(cx, |tree, cx| tree.set_project(project.clone(), cx));
         self.set_window_title(window, cx);
         let restored = self.restore_layout(&root, main.as_deref(), window, cx);
         if terminal_moved {
@@ -132,6 +132,7 @@ impl Shell {
         self.label_pdfs(cx);
         self.pdf
             .update(cx, |panel, cx| panel.show_project(root, pdf, window, cx));
+        self.watch_builds(&project, window, cx);
         cx.notify();
     }
 }

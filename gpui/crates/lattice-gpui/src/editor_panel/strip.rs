@@ -94,31 +94,33 @@ impl EditorPanel {
                         .checked(crate::app::vim_mode_enabled(cx)),
                 );
         }
-        menu.item(command(t!("Build"), Box::new(Build)).shortcut(crate::shell::BUILD_SHORTCUT_LABEL))
-            .item(command(t!("Clean rebuild"), Box::new(CleanRebuild)))
-            .when(building, |menu| {
-                menu.item(command(t!("Stop the build"), Box::new(StopBuild)))
-            })
-            .item(command(t!("Reveal cursor in PDF"), Box::new(ForwardSync)))
-            .item(command(t!("Find"), Box::new(Deploy::find())))
-            // The strip's Source / Visual switch, which goes first when the
-            // strip is short of room.
-            .when_some(self.latex_view(cx), |menu, view| {
-                let visual = view == lattice_settings::LatexView::Visual;
-                menu.separator()
-                    .item(
-                        command(tc!("LaTeX editor view", "Source"), Box::new(ShowSourceView))
-                            .checked(!visual),
-                    )
-                    .item(
-                        command(tc!("LaTeX editor view", "Visual"), Box::new(ShowVisualView))
-                            .checked(visual),
-                    )
-            })
-            .separator()
-            .item(
-                command(t!("Vim mode"), Box::new(ToggleVimMode))
-                    .checked(crate::app::vim_mode_enabled(cx)),
-            )
+        menu.item(
+            command(t!("Build"), Box::new(Build)).shortcut(crate::shell::BUILD_SHORTCUT_LABEL),
+        )
+        .item(command(t!("Clean rebuild"), Box::new(CleanRebuild)))
+        .when(building, |menu| {
+            menu.item(command(t!("Stop the build"), Box::new(StopBuild)))
+        })
+        .item(command(t!("Reveal cursor in PDF"), Box::new(ForwardSync)))
+        .item(command(t!("Find"), Box::new(Deploy::find())))
+        // The strip's Source / Visual switch, which goes first when the
+        // strip is short of room.
+        .when_some(self.latex_view(cx), |menu, view| {
+            let visual = view == lattice_settings::LatexView::Visual;
+            menu.separator()
+                .item(
+                    command(tc!("LaTeX editor view", "Source"), Box::new(ShowSourceView))
+                        .checked(!visual),
+                )
+                .item(
+                    command(tc!("LaTeX editor view", "Visual"), Box::new(ShowVisualView))
+                        .checked(visual),
+                )
+        })
+        .separator()
+        .item(
+            command(t!("Vim mode"), Box::new(ToggleVimMode))
+                .checked(crate::app::vim_mode_enabled(cx)),
+        )
     }
 }

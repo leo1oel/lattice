@@ -39,6 +39,10 @@
  *   host:outside-pointerdown                 a press in the app (the bridge's)
  *   agent:deck-request { kind, deckPath }    Open Slide's request for the composer
  *   agent:files-changed { paths }            the project watcher's burst (`library.ts`)
+ *   agent:host-writes { paths }              project files Lattice wrote itself, for a running
+ *                                            turn's Undo to keep (`agent-host-writes.ts`)
+ *   agent:set-permission-mode { mode }       the header's picker chose a mode
+ *   agent:file-drag   { phase, paths }       a Finder drag over the panel, for its composer (`drops.ts`)
  *   agent:frame-message { … }                a message for the Agent's frame, as the Tauri
  *                                            host posts it (a checkpoint's Undo, a build's result)
  *   agent:overleaf    { linked, docPaths }   the project's Overleaf link (`library.ts`)
@@ -54,6 +58,10 @@
  *   agent:history     { … }                  the Agent's checkpoint history (its thread kept
  *                                            for the project, as `useAgentCheckpoints` keeps it)
  *   agent:git-view    { view }               a Git view tab chosen
+ *   agent:turn        { presence }           the panel's turn while it runs or waits, or null
+ *   agent:turn-started                       a turn started in the panel's project
+ *   agent:permission  { mode, autoModeAvailable }  the frame's permission mode (mode null
+ *                                            while there is no runtime), for the header's picker
  *   agent:close-git
  *   agent:drawn                              the surface is up: reveal the page
  */
@@ -91,10 +99,14 @@ import {
 import { openSlideComposerPrompt } from "../../../src/agent/agent-composer-prompt";
 import { useAgentSpreadsheetResolver } from "../../../src/app/use-agent-spreadsheet-resolver";
 import type { OpenSlideAgentRequest } from "../../../src/editor/presentation/open-slide-agent-request";
+import type { OpenSlideContext } from "../../../src/editor/presentation/open-slide-bridge";
 import { parseSynaraNotificationMessage } from "../../../src/agent/synara-notifications";
+import { agentDeckPresence, parseAgentTurnActivity, subscribeAgentDeckPresence } from "../../../src/agent/agent-turn-activity";
+import { noteHostFileWrites } from "../../../src/agent/agent-host-writes";
+import { useAgentFileDrops } from "./drops";
 import { SYNARA_POPUP_OPEN, LATTICE_OUTSIDE_POINTER_DOWN } from "../../../src/agent/synara-popup-dismissal";
 import type { AgentGitWorkspaceView } from "../../../src/agent/synara-runtime";
-import { persistSynaraThread, type AgentTurnReview } from "../../../src/app/app-synara-embed";
+import { isSynaraPermissionMode, persistSynaraThread, type AgentTurnReview } from "../../../src/app/app-synara-embed";
 import type { CanvasMode, EditorPosition, ProjectSnapshot } from "../../../src/app-types";
 import type { ThemeAccent, ThemeTint, Translucency } from "../../../src/settings/theme-customization";
 
@@ -128,6 +140,8 @@ type Workspace = {
   selectionLines: AgentSelectionLines | null;
   selectionPdfDocument: AgentPdfDocumentPlace | null;
   activeSurface: AgentHostSurface;
+  /** Open Slide's deck and slide, while a deck is the active file. */
+  presentation: OpenSlideContext | null;
 };
 
 const EMPTY_WORKSPACE: Workspace = {
@@ -142,6 +156,7 @@ const EMPTY_WORKSPACE: Workspace = {
   selectionLines: null,
   selectionPdfDocument: null,
   activeSurface: "editor",
+  presentation: null,
 };
 
 /** How long after its commit the surface is taken to have drawn (see the slides island). */
@@ -253,6 +268,7 @@ function Agent({ opened, workspace, visible, appearance, git, overleaf, deckRequ
     appearance: { theme, tint, accent: appearance.accent, translucency: appearance.translucency, translucent: appearance.translucent },
   });
   const { latest, deliverable, postMessage, requestRuntime, origin, frameRef, sourceControlFrameRef } = synara;
+  const dropActive = useAgentFileDrops(opened.surface === "agent", postMessage);
 
   // The Git workspace starts the runtime as the Tauri app's Git button does.
   useEffect(() => {
@@ -281,6 +297,8 @@ function Agent({ opened, workspace, visible, appearance, git, overleaf, deckRequ
       takeDeckRequest(deckRequest.nonce);
     }
   }, [deckRequest, opened.projectRoot, opened.surface, sendComposerPrompt, takeDeckRequest]);
+  // A compile repair's View repair (`SynaraSurface::show_thread`, `showThread` in use-document-surfaces.tsx).
+  useEffect(() => host().on("agent:show-thread", (payload) => { const id = (payload as { threadId?: unknown } | null)?.threadId; if (typeof id === "string") { if (projectRootRef.current) persistSynaraThread(projectRootRef.current, id); synara.showThread(id); } }), [synara.showThread]);
 
   // useAgentContext's snapshots, from what the owner reports of the window.
   const hostContext = useMemo(() => buildAgentHostContext({
@@ -292,7 +310,7 @@ function Agent({ opened, workspace, visible, appearance, git, overleaf, deckRequ
     paperView: "blog",
     pdfPage: workspace.pdfPage,
     pdfPageCount: workspace.pdfPageCount,
-    presentation: null,
+    presentation: workspace.presentation,
     selection: workspace.selection,
     selectionLength: workspace.selectionLength,
     selectionSource: workspace.selectionSource,
@@ -326,6 +344,11 @@ function Agent({ opened, workspace, visible, appearance, git, overleaf, deckRequ
     let popupOpen = false;
     const stops = [
       bridgeHost.on("agent:opened", () => synaraRef.current.notifyPanelOpened()),
+      // The header's permission picker, drawn by the owner (`permission.rs`).
+      bridgeHost.on("agent:set-permission-mode", (payload) => {
+        const mode = (payload as { mode?: unknown } | null)?.mode;
+        if (opened.surface === "agent" && isSynaraPermissionMode(mode)) synaraRef.current.changePermissionMode(mode);
+      }),
       // What the Tauri host posts the Agent's frame from the rest of its
       // window (`useAgentCheckpoints`, `AppHistoryDrawers`' Undo).
       bridgeHost.on("agent:frame-message", (payload) => {
@@ -354,6 +377,13 @@ function Agent({ opened, workspace, visible, appearance, git, overleaf, deckRequ
           target.postMessage({ type: "lattice:embedded-notification-action", id, action }, origin);
         }
       }),
+      // Lattice's own writes, for a running turn's Undo to keep.
+      bridgeHost.on("agent:host-writes", (payload) => {
+        const paths = (payload as { paths?: unknown } | null)?.paths;
+        if (opened.surface === "agent" && Array.isArray(paths)) {
+          noteHostFileWrites(opened.projectRoot, paths.filter((path): path is string => typeof path === "string"));
+        }
+      }),
       bridgeHost.on("host:relay", (payload) => {
         liveShortcuts.publish(relayCombos(Array.isArray(payload) ? payload : [], bridgeHost.primaryIsMeta));
       }),
@@ -361,20 +391,45 @@ function Agent({ opened, workspace, visible, appearance, git, overleaf, deckRequ
     liveShortcuts.publish(relayCombos(bridgeHost.relay(), bridgeHost.primaryIsMeta));
     const onMessage = (event: MessageEvent) => {
       if (!origin || event.origin !== origin || event.source !== frameWindow()) return;
-      const data = event.data as { type?: unknown; open?: unknown } | null;
+      const data = event.data as { type?: unknown; open?: unknown; mode?: unknown } | null;
       if (data?.type === SYNARA_POPUP_OPEN && typeof data.open === "boolean") popupOpen = data.open;
       else if (data?.type === "synara:embed-ready") popupOpen = false;
       // Synara's notifications go to the app's stack with their buttons and
       // progress, rather than through the page's own toast relay.
       const notification = parseSynaraNotificationMessage(event.data);
       if (notification) bridgeHost.post("agent:notify", notification);
+      if (data?.type === "synara:agent-permission-mode" && isSynaraPermissionMode(data.mode)) bridgeHost.post("agent:permission-mode", { mode: data.mode });
+      // A turn under way means the writer really asked the Agent something
+      // (the Tauri host marks Get started's step on it).
+      const activity = parseAgentTurnActivity(event.data);
+      if (activity?.state === "running" && activity.workspaceRoot === opened.projectRoot) {
+        bridgeHost.post("agent:turn-started");
+      }
     };
     window.addEventListener("message", onMessage);
     return () => {
       for (const stop of stops) stop();
       window.removeEventListener("message", onMessage);
     };
-  }, [frameRef, opened.surface, origin, sourceControlFrameRef]);
+  }, [frameRef, opened.projectRoot, opened.surface, origin, sourceControlFrameRef]);
+
+  // The frame's permission mode, for the picker the owner draws in the
+  // panel's header; none while the runtime is not up, as the Tauri header
+  // shows the picker only with an origin (`trellis-panel-actions.tsx`).
+  const { permissionMode, autoModeAvailable } = synara;
+  useEffect(() => {
+    if (opened.surface !== "agent") return;
+    host().post("agent:permission", origin ? { mode: permissionMode, autoModeAvailable } : { mode: null });
+  }, [autoModeAvailable, opened.surface, origin, permissionMode]);
+
+  // The turn's presence, which the Tauri host keeps as window state, goes to
+  // the owner: its leave-project question and the open decks follow it.
+  useEffect(() => {
+    if (opened.surface !== "agent") return;
+    const report = () => host().post("agent:turn", { presence: agentDeckPresence() });
+    report();
+    return subscribeAgentDeckPresence(report);
+  }, [opened.surface]);
 
   if (opened.surface === "git") {
     const frame = origin ? {
@@ -447,7 +502,7 @@ function Agent({ opened, workspace, visible, appearance, git, overleaf, deckRequ
         projectRoot={opened.projectRoot}
         theme={theme}
         appLocale={opened.locale}
-        dropActive={false}
+        dropActive={dropActive}
       />
     </div>
   );

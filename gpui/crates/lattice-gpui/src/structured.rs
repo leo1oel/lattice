@@ -51,12 +51,14 @@ use serde_json::{Value, json};
 
 use crate::notices::{self, Notice};
 
+pub use latex_visual::LatexEvent;
 pub use markdown::{MarkdownEvent, PaperPdfIdentity, PaperReading};
 pub use markdown_host::VisualCaret;
 pub use slides::{DeckSession, handles as deck_handles};
 
 mod agent_tools;
 mod deck_context;
+mod latex_services;
 mod latex_visual;
 mod markdown;
 mod markdown_host;
@@ -138,6 +140,8 @@ pub enum StructuredEvent {
     Wrote { path: String, text: Option<String> },
     /// A Markdown file's visual editor asks its panel for something.
     Markdown(MarkdownEvent),
+    /// A `.tex` file's Visual page asks its panel for something more.
+    Latex(LatexEvent),
     /// Open Slide's Ask AI, Apply comments or Draft a deck: a request for
     /// the Agent's composer (`OpenSlideAgentRequest`).
     AgentRequest(Value),
@@ -168,6 +172,8 @@ pub struct StructuredDocument {
     markdown: Option<markdown::MarkdownSession>,
     /// A `.tex` file's Visual: the project's citations and labels it last sent.
     latex: Option<latex_visual::LatexSession>,
+    /// A `.tex` file's Visual: the backend commands its modules invoke.
+    latex_services: Option<latex_services::LatexServices>,
     /// The project, for a page that reads its files (a Markdown file's images).
     files: Option<FileScope>,
     /// Reveals asked for, so each has an id of its own.
@@ -248,6 +254,7 @@ impl StructuredDocument {
             deck,
             markdown: None,
             latex: None,
+            latex_services: None,
             files,
             reveals: 0,
             agent_calls: Default::default(),
@@ -395,7 +402,7 @@ impl StructuredDocument {
             IslandEvent::Request { id, kind, payload } => {
                 self.on_request(*id, kind, payload.clone(), window, cx)
             }
-            IslandEvent::Focus(_) | IslandEvent::PointerDown => {}
+            IslandEvent::Focus(_) | IslandEvent::PointerDown | IslandEvent::FileDrop(_) => {}
         }
     }
 
@@ -429,9 +436,8 @@ impl StructuredDocument {
             "agent:tool-result" => self.agent_answered(payload),
             "slides:agent-request" => cx.emit(StructuredEvent::AgentRequest(payload.clone())),
             "slides:context" => self.deck_context_changed(payload, cx),
-            "tex:open-citation" if self.kind == StructuredKind::LatexVisual => {
-                self.open_citation(payload, cx)
-            }
+            _ if self.kind == StructuredKind::LatexVisual
+                && self.on_latex_message(kind, payload, cx) => {}
             _ if self.kind.is_visual_editor() => self.on_markdown_message(kind, payload, cx),
             _ => log::debug!("{}: unhandled {kind}", self.kind.island()),
         }
@@ -482,7 +488,8 @@ impl StructuredDocument {
                 self.open_project_window(id, &args, cx)
             }
             (StructuredKind::LatexVisual, _) if self.invoke_latex(id, &command, &args, cx) => {}
-            (kind, _) if kind.is_visual_editor() && self.invoke_markdown(id, &command, &args, cx) => {}
+            (kind, _)
+                if kind.is_visual_editor() && self.invoke_markdown(id, &command, &args, cx) => {}
             (StructuredKind::Deck, _) if slides::handles(&command) => {
                 let result = self
                     .deck

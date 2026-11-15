@@ -111,10 +111,7 @@ pub fn present_tabs(cx: &mut App) {
             .is_ok()
         {
             look(Icon::SQUARE_TERMINAL, Surface::Sheet)
-        } else if let Ok(comments) = view
-            .clone()
-            .downcast::<crate::shell::CommentsView>()
-        {
+        } else if let Ok(comments) = view.clone().downcast::<crate::shell::CommentsView>() {
             // Overleaf's for a linked project, else Annotations' (the Tauri
             // app's `comments` view, trellis-icons.tsx).
             if comments.read(cx).shows_overleaf(cx) {

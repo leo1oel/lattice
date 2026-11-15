@@ -21,7 +21,7 @@ impl Shell {
             .detach();
         self.editors.push(editor.downgrade());
         self.show_outline(cx);
-        self.show_deck_editable(cx);
+        self.show_editable(cx);
     }
 
     pub(super) fn on_editor_event(
@@ -33,6 +33,7 @@ impl Shell {
     ) {
         match event {
             EditorPanelEvent::Saved => {
+                self.agent_host_saved(editor, cx);
                 self.live_preview.update(cx, |live, _| live.note_saved());
                 if let Some(project) = &self.project {
                     project.update(cx, |project, _| project.mark_inputs_changed());
@@ -42,7 +43,11 @@ impl Shell {
             }
             // Settings › Editor & builds › Automatic build: "Manual only"
             // leaves every build to the Build button and ⌘S.
-            EditorPanelEvent::SavedForBuild | EditorPanelEvent::DiskEdit => {
+            EditorPanelEvent::DiskEdit => {
+                let path = editor.read(cx).relative().to_string();
+                self.outside_edit(&path, window, cx)
+            }
+            EditorPanelEvent::SavedForBuild => {
                 if crate::settings::builds_automatically(cx)
                     && !self.defer_automatic_build(window, cx)
                 {
@@ -109,14 +114,34 @@ impl Shell {
                     self.push_agent_workspace(cx);
                 }
             }
+            EditorPanelEvent::Symbol {
+                kind,
+                symbol,
+                rename,
+            } => {
+                self.active_editor = Some(editor.downgrade());
+                if *rename {
+                    self.begin_rename(*kind, symbol.clone(), window, cx)
+                } else {
+                    self.show_references(*kind, symbol.clone(), window, cx)
+                }
+            }
             EditorPanelEvent::PasteImage => {
                 self.active_editor = Some(editor.downgrade());
                 self.paste_image_as_figure(true, window, cx)
             }
-            EditorPanelEvent::InsertFigures(paths) => {
+            EditorPanelEvent::InsertFigures(paths, at) => {
                 // Into the editor it was dropped on, front or not.
                 self.active_editor = Some(editor.downgrade());
-                self.insert_figures(paths.clone(), window, cx)
+                self.insert_figures_at(paths.clone(), *at, window, cx)
+            }
+            EditorPanelEvent::DropFiles(paths, at) => {
+                let surface = super::drops::DropSurface::Editor {
+                    editor: editor.downgrade(),
+                    inserts: editor.read(cx).inserts_figures(),
+                    at: *at,
+                };
+                self.drop_files(paths.clone(), surface, window, cx)
             }
             EditorPanelEvent::CaretLine => {
                 if self.active_editor().as_ref() == Some(editor) {

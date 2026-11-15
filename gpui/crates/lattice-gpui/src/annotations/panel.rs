@@ -27,8 +27,8 @@ use std::{
 
 use gpui::{
     AnyElement, App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, Focusable,
-    InteractiveElement as _, IntoElement, ParentElement as _, Render, ScrollHandle,
-    SharedString, StatefulInteractiveElement as _, Styled as _, Subscription, Task, Window, div,
+    InteractiveElement as _, IntoElement, ParentElement as _, Render, ScrollHandle, SharedString,
+    StatefulInteractiveElement as _, Styled as _, Subscription, Task, Window, div,
     prelude::FluentBuilder as _, px,
 };
 use gpui_kit::component::{
@@ -183,7 +183,11 @@ impl AnnotationsPanel {
         };
         self.set_root(root, cx);
         self.active = active;
-        let paths: HashSet<String> = self.notes(cx).into_iter().map(|comment| comment.path).collect();
+        let paths: HashSet<String> = self
+            .notes(cx)
+            .into_iter()
+            .map(|comment| comment.path)
+            .collect();
         self.sources = paths
             .into_iter()
             .filter_map(|path| Some(((self.host.source)(&path, cx)?, path)))
@@ -217,7 +221,13 @@ impl AnnotationsPanel {
 
     /// Open the reply box on the note `id` in the project `root` (a card's
     /// Reply…), showing every note so it is listed.
-    pub fn reply_to(&mut self, root: PathBuf, id: String, window: &mut Window, cx: &mut Context<Self>) {
+    pub fn reply_to(
+        &mut self,
+        root: PathBuf,
+        id: String,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.set_root(Some(root), cx);
         self.filter = Filter::All;
         self.active_note = Some(id.clone());
@@ -231,7 +241,10 @@ impl AnnotationsPanel {
 
     /// The notes the panel lists now, by id, for scripted checks.
     pub fn listed(&self, cx: &App) -> Vec<String> {
-        self.visible(cx).into_iter().map(|comment| comment.id).collect()
+        self.visible(cx)
+            .into_iter()
+            .map(|comment| comment.id)
+            .collect()
     }
 
     fn notes(&self, cx: &App) -> Vec<EditorComment> {
@@ -252,7 +265,14 @@ impl AnnotationsPanel {
             .root
             .as_ref()
             .and_then(|root| self.store.read(cx).notes(root))
-            .and_then(|notes| notes.rounds.iter().filter(|round| round.settled_at.is_none()).map(|round| round.number).max());
+            .and_then(|notes| {
+                notes
+                    .rounds
+                    .iter()
+                    .filter(|round| round.settled_at.is_none())
+                    .map(|round| round.number)
+                    .max()
+            });
         let open = !comment.resolved
             || (round.is_some()
                 && comment.revision.as_ref().is_some_and(|revision| {
@@ -391,7 +411,11 @@ impl AnnotationsPanel {
                 cx.notify();
             }
         });
-        self.writing = Some(Writing::Reply { id, field, _sub: sub });
+        self.writing = Some(Writing::Reply {
+            id,
+            field,
+            _sub: sub,
+        });
         cx.notify();
     }
 
@@ -403,10 +427,15 @@ impl AnnotationsPanel {
         let Some(root) = self.root.clone() else {
             return;
         };
-        let before = self.store.read(cx).get(&root, &id).map(|comment| comment.body.clone());
+        let before = self
+            .store
+            .read(cx)
+            .get(&root, &id)
+            .map(|comment| comment.body.clone());
         if !body.is_empty() && before.as_deref() != Some(body.as_str()) {
-            self.store
-                .update(cx, |store, cx| store.update(&root, &id, |comment| comment.body = body, cx));
+            self.store.update(cx, |store, cx| {
+                store.update(&root, &id, |comment| comment.body = body, cx)
+            });
             self.answer(id, Outcome::Saved, cx);
         }
         cx.notify();
@@ -434,12 +463,17 @@ impl AnnotationsPanel {
         let Some(root) = self.root.clone() else {
             return;
         };
-        self.leave(id.clone(), cx, move |store, cx| store.delete(&root, &id, cx));
+        self.leave(id.clone(), cx, move |store, cx| {
+            store.delete(&root, &id, cx)
+        });
     }
 
     /// The visible notes in reading order, under the file and section each
     /// sits in: the open file first, then the others by name.
-    fn groups(&self, visible: Vec<EditorComment>) -> Vec<(Option<String>, Vec<(EditorComment, Option<u32>)>)> {
+    fn groups(
+        &self,
+        visible: Vec<EditorComment>,
+    ) -> Vec<(Option<String>, Vec<(EditorComment, Option<u32>)>)> {
         let mut by_file: Vec<(String, Vec<EditorComment>)> = Vec::new();
         for comment in visible {
             match by_file.iter_mut().find(|(path, _)| *path == comment.path) {
@@ -457,7 +491,9 @@ impl AnnotationsPanel {
         let mut out: Vec<(Option<String>, Vec<(EditorComment, Option<u32>)>)> = Vec::new();
         for (path, notes) in by_file {
             let source = self.sources.get(&path);
-            let sections = source.map(|source| sections_of(source, &path)).unwrap_or_default();
+            let sections = source
+                .map(|source| sections_of(source, &path))
+                .unwrap_or_default();
             let name = file_name(&path);
             let mut placed: Vec<(EditorComment, usize, Option<u32>)> = notes
                 .into_iter()
@@ -473,22 +509,29 @@ impl AnnotationsPanel {
                         },
                         |range| range.start,
                     );
-                    let line = source
-                        .zip(range)
-                        .map(|(source, range)| source[..range.start].matches('\n').count() as u32 + 1);
+                    let line = source.zip(range).map(|(source, range)| {
+                        source[..range.start].matches('\n').count() as u32 + 1
+                    });
                     (comment, from, line)
                 })
                 .collect();
             placed.sort_by_key(|(comment, from, _)| (*from, comment.number));
             for (comment, from, line) in placed {
-                let section = sections.iter().filter(|(offset, _)| *offset <= from).last();
+                let section = sections.iter().rev().find(|(offset, _)| *offset <= from);
                 let label = match section {
                     Some((_, label)) => Some(label.clone()),
-                    None if !sections.is_empty() => Some(t!("Before the first section").to_string()),
+                    None if !sections.is_empty() => {
+                        Some(t!("Before the first section").to_string())
+                    }
                     None => None,
                 };
                 let heading = if many {
-                    Some(lattice_i18n::join_phrases(&[Some(name.clone()), label].into_iter().flatten().collect::<Vec<_>>()))
+                    Some(lattice_i18n::join_phrases(
+                        &[Some(name.clone()), label]
+                            .into_iter()
+                            .flatten()
+                            .collect::<Vec<_>>(),
+                    ))
                 } else {
                     label
                 };
@@ -501,7 +544,13 @@ impl AnnotationsPanel {
         out
     }
 
-    fn header(&mut self, open: usize, resolved: usize, has_notes: bool, cx: &mut Context<Self>) -> AnyElement {
+    fn header(
+        &mut self,
+        open: usize,
+        resolved: usize,
+        has_notes: bool,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         let palette = cx.palette().clone();
         let count = |label: &str, count: usize| {
             if count > 0 {
@@ -550,7 +599,12 @@ impl AnnotationsPanel {
                     .items_center()
                     .gap(SPACING_2)
                     .min_w_0()
-                    .child(div().flex_1().min_w_0().when(has_notes, |this| this.child(segmented)))
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .when(has_notes, |this| this.child(segmented)),
+                    )
                     .when(has_notes, |this| this.child(search)),
             )
             .when(searching && has_notes, |this| {
@@ -559,8 +613,9 @@ impl AnnotationsPanel {
                         .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| {
                             if event.keystroke.key == "escape" {
                                 this.searching = false;
-                                this.query
-                                    .update(cx, |query, cx| query.set_value(String::new(), window, cx));
+                                this.query.update(cx, |query, cx| {
+                                    query.set_value(String::new(), window, cx)
+                                });
                                 cx.notify();
                             }
                         }))
@@ -596,7 +651,11 @@ impl AnnotationsPanel {
             .gap(SPACING_3)
             .py(px(20.))
             .px(SPACING_6)
-            .child(div().mb(SPACING_4).child(research_art(drawing, px(144.), palette.panel, cx)))
+            .child(
+                div()
+                    .mb(SPACING_4)
+                    .child(research_art(drawing, px(144.), palette.panel, cx)),
+            )
             .children(title.map(|title| {
                 div()
                     .text_role(TextRole::Subtitle, cx)
@@ -617,9 +676,9 @@ impl AnnotationsPanel {
                         Button::new("annotations-open-file", t!("Open a file"))
                             .size(ButtonSize::Compact)
                             .icon(Icon::FILE_SEARCH)
-                            .on_click(cx.listener(|_, _, _, cx| {
-                                cx.emit(AnnotationsPanelEvent::OpenFile)
-                            })),
+                            .on_click(
+                                cx.listener(|_, _, _, cx| cx.emit(AnnotationsPanelEvent::OpenFile)),
+                            ),
                     ),
                 )
             })
@@ -636,7 +695,8 @@ fn file_name(path: &str) -> String {
 /// LaTeX numbers them (a starred one has none); Markdown's top headings for
 /// Markdown. Each is its byte offset and its label.
 pub fn sections_of(source: &str, path: &str) -> Vec<(usize, String)> {
-    static MARKDOWN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?m)^(#{1,2})\s+(.+)$").unwrap());
+    static MARKDOWN: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"(?m)^(#{1,2})\s+(.+)$").unwrap());
     static LATEX: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"\\(chapter|section)(\*?)\{([^{}]*)\}").unwrap());
     let lower = path.to_lowercase();
@@ -684,8 +744,14 @@ impl Render for AnnotationsPanel {
         self.follow_host(cx);
         let notes = self.notes(cx);
         let has_notes = !notes.is_empty();
-        let open = notes.iter().filter(|comment| self.shown_in(Filter::Open, comment, cx)).count();
-        let resolved = notes.iter().filter(|comment| self.shown_in(Filter::Resolved, comment, cx)).count();
+        let open = notes
+            .iter()
+            .filter(|comment| self.shown_in(Filter::Open, comment, cx))
+            .count();
+        let resolved = notes
+            .iter()
+            .filter(|comment| self.shown_in(Filter::Resolved, comment, cx))
+            .count();
         let visible = self.visible(cx);
         let header = self.header(open, resolved, has_notes, cx);
         let author_id = self.store.read(cx).author_id().to_string();
@@ -694,7 +760,12 @@ impl Render for AnnotationsPanel {
         } else {
             let palette = cx.palette().clone();
             let groups = self.groups(visible);
-            let mut list = div().flex().flex_col().gap(px(2.)).pt(SPACING_3).pb(SPACING_6);
+            let mut list = div()
+                .flex()
+                .flex_col()
+                .gap(px(2.))
+                .pt(SPACING_3)
+                .pb(SPACING_6);
             for (index, (label, items)) in groups.into_iter().enumerate() {
                 if let Some(label) = label {
                     list = list.child(
@@ -731,9 +802,21 @@ impl Render for AnnotationsPanel {
             .flex_col()
             .px(SPACING_5)
             .child(header)
-            .child(div().relative().flex_1().min_h_0().flex().flex_col().child(list).when(has_notes, |this| {
-                this.child(FluidScrollbar::vertical("annotations-scrollbar", &self.scroll))
-            }))
+            .child(
+                div()
+                    .relative()
+                    .flex_1()
+                    .min_h_0()
+                    .flex()
+                    .flex_col()
+                    .child(list)
+                    .when(has_notes, |this| {
+                        this.child(FluidScrollbar::vertical(
+                            "annotations-scrollbar",
+                            &self.scroll,
+                        ))
+                    }),
+            )
     }
 }
 
@@ -774,6 +857,12 @@ mod tests {
         let chapters = sections_of("\\chapter{One}\\section{A}\\chapter{Two}", "book.tex");
         assert_eq!(chapters.len(), 2);
         let markdown = sections_of("# Title\n## Sub\n# Next\n", "notes.md");
-        assert_eq!(markdown.iter().map(|(_, label)| label.as_str()).collect::<Vec<_>>(), ["Title", "Next"]);
+        assert_eq!(
+            markdown
+                .iter()
+                .map(|(_, label)| label.as_str())
+                .collect::<Vec<_>>(),
+            ["Title", "Next"]
+        );
     }
 }

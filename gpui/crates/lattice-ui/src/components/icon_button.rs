@@ -239,7 +239,14 @@ impl RenderOnce for IconButton {
         let counted = count.is_some();
         let icon = match self.content {
             Some(content) => content,
-            None => self.icon.element(self.icon_size, ink).into_any_element(),
+            // A busy control turns its loader (`.spin`).
+            None => crate::loading::mark(
+                ElementId::NamedChild(std::sync::Arc::new(self.id.clone()), "icon".into()),
+                self.icon,
+                self.icon_size,
+                ink,
+                cx,
+            ),
         };
         base.relative()
             .flex()

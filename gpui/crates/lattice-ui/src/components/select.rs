@@ -33,11 +33,12 @@ use crate::{
     ActiveLattice as _, Icon, TextRole, TextRoleStyle as _,
     components::{
         MENU_INSET, MenuItem, MenuSurface, PopFrom, Step, field::field_height, menu::MENU_OFFSET,
-        pop_in, step_highlight,
+        pop_in, pop_out, step_highlight,
     },
     fluid_hover::FluidHover,
     icons::ICON_SMALL,
     interaction::{mix, track_pointer, use_interaction},
+    motion::Exit,
     scrollbar::FluidScrollbar,
     shape,
     tokens::{FONT_WEIGHT_REGULAR, OPACITY_FIELD_DISABLED},
@@ -193,6 +194,9 @@ struct SelectMemory {
     bounds: Bounds<Pixels>,
     /// The list's scroll, which follows the highlight.
     scroll: ScrollHandle,
+    /// When the list last closed: it plays its exit until the pop tier's
+    /// exit has run (`popup-motion.css`).
+    closed: Option<std::time::Instant>,
 }
 
 impl SelectMemory {
@@ -285,8 +289,10 @@ impl RenderOnce for Select {
             list: cx.focus_handle(),
             bounds: Bounds::default(),
             scroll: ScrollHandle::new(),
+            closed: None,
         });
-        let (open, highlighted, trigger_focus, list_focus, bounds, scroll) = {
+        let reduce = cx.reduce_motion();
+        let (open, highlighted, trigger_focus, list_focus, bounds, scroll, closed) = {
             let m = memory.read(cx);
             (
                 m.open && !self.disabled,
@@ -295,8 +301,18 @@ impl RenderOnce for Select {
                 m.list.clone(),
                 m.bounds,
                 m.scroll.clone(),
+                m.closed,
             )
         };
+        // The list just closed: its picture leaves as a popup does.
+        let leaving = (!open)
+            .then_some(closed)
+            .flatten()
+            .map(|closed| closed.elapsed())
+            .filter(|elapsed| !Exit::POPUP.is_done(*elapsed));
+        if leaving.is_some() {
+            window.request_animation_frame();
+        }
         let value = self
             .selected
             .and_then(|ix| self.options.get(ix).cloned())
@@ -310,6 +326,9 @@ impl RenderOnce for Select {
             let memory = memory.clone();
             Rc::new(move |open: bool, cx: &mut App| {
                 memory.update(cx, |m, cx| {
+                    if m.open && !open && !reduce {
+                        m.closed = Some(std::time::Instant::now());
+                    }
                     m.open = open;
                     m.highlight(selected);
                     cx.notify();
@@ -340,7 +359,7 @@ impl RenderOnce for Select {
             .disabled(self.disabled)
             .when(self.compact, SelectTrigger::compact);
 
-        let list = (open && bounds.size.width > px(0.)).then(|| {
+        let list = ((open || leaving.is_some()) && bounds.size.width > px(0.)).then(|| {
             // One fill for the pointer and the keys (the app's select runs
             // the menu's fluid hover), opening on the chosen option.
             let hover = FluidHover::new(child("fluid"), window, cx)
@@ -407,7 +426,9 @@ impl RenderOnce for Select {
                     }
                     cx.stop_propagation();
                 })
-                .on_mouse_down_out(move |_, window, cx| close(None, window, cx))
+                .when(leaving.is_none(), |list| {
+                    list.on_mouse_down_out(move |_, window, cx| close(None, window, cx))
+                })
                 .child(
                     MenuSurface::new()
                         .min_w(bounds.size.width)
@@ -435,7 +456,10 @@ impl RenderOnce for Select {
                 anchored()
                     .position(point(bounds.left(), bounds.bottom() + MENU_OFFSET))
                     .snap_to_window_with_margin(px(8.))
-                    .child(pop_in(child("pop"), PopFrom::Above, surface)),
+                    .child(match leaving {
+                        Some(elapsed) => pop_out(PopFrom::Above, elapsed, surface),
+                        None => pop_in(child("pop"), PopFrom::Above, surface),
+                    }),
             )
             .with_priority(POPUP_PRIORITY)
         });

@@ -212,6 +212,7 @@ fn default_bindings() -> Vec<KeyBinding> {
         KeyBinding::new("ctrl-shift-tab", PreviousProject, None),
     ];
     bindings.extend(crate::editor_panel::find_bar::bindings());
+    bindings.extend(crate::editor_panel::proofread::bindings());
     bindings.extend(submission::bindings());
     #[cfg(target_os = "macos")]
     bindings.extend([

@@ -41,7 +41,9 @@ pub use menu::{
 };
 pub(crate) use menu_list::SubmenuBounds;
 pub use menu_list::{Menu, MenuAction, MenuSnapshot, menu_snapshot, record_menus};
-pub use overlays::{DialogCard, LatticeTooltip, PopFrom, pop_in, rise_in, tip_in, toast_in};
+pub use overlays::{
+    DialogCard, LatticeTooltip, PopFrom, pop_in, pop_out, rise_in, sink_out, tip_in, toast_in,
+};
 pub use popover::{MenuPopover, Popover, PopoverCard};
 pub use row::{DetailPlacement, Row, RowDensity};
 pub use select::{Select, SelectTrigger};
@@ -60,7 +62,7 @@ pub use tab::{
 pub use textarea::{TEXTAREA_MIN_HEIGHT, Textarea};
 pub use toast::{CopyButton, Toast, ToastLevel, ToastProgress};
 pub use toolbar_button::ToolbarButton;
-pub use tree_row::{GitMark, TreeRow};
+pub use tree_row::{DropMark, GitMark, TreeRow};
 pub use view_switch::ViewSwitch;
 
 use gpui::{BoxShadow, Hsla, px};

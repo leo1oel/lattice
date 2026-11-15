@@ -76,13 +76,22 @@ use Closure::{Crates, Npm, PresentationRuntime};
 pub const CORE_SOFTWARE: &[Credit] = &[
     of(credit("Tauri", "https://tauri.app"), Crates, "tauri"),
     of(credit("React", "https://react.dev"), Npm, "react"),
-    of(credit("CodeMirror", "https://codemirror.net"), Npm, "@codemirror/view"),
+    of(
+        credit("CodeMirror", "https://codemirror.net"),
+        Npm,
+        "@codemirror/view",
+    ),
     of(credit("Tiptap", "https://tiptap.dev"), Npm, "@tiptap/core"),
-    of(credit("PDF.js", "https://mozilla.github.io/pdf.js/"), Npm, "pdfjs-dist"),
+    of(
+        credit("PDF.js", "https://mozilla.github.io/pdf.js/"),
+        Npm,
+        "pdfjs-dist",
+    ),
     licensed(
-        by(credit("Synara", "https://github.com/Emanuele-web04/synara"), || {
-            t!("By T3 Tools Inc. and Emanuele Di Pietro")
-        }),
+        by(
+            credit("Synara", "https://github.com/Emanuele-web04/synara"),
+            || t!("By T3 Tools Inc. and Emanuele Di Pietro"),
+        ),
         "MIT",
     ),
     Credit {
@@ -94,7 +103,10 @@ pub const CORE_SOFTWARE: &[Credit] = &[
         PresentationRuntime,
         "@open-slide/core",
     ),
-    licensed(of(credit("tldraw", "https://tldraw.dev"), Npm, "tldraw"), "tldraw license"),
+    licensed(
+        of(credit("tldraw", "https://tldraw.dev"), Npm, "tldraw"),
+        "tldraw license",
+    ),
     Credit {
         attribution: Some("Uses Trellis by DanFessler - github.com/DanFessler/trellis"),
         ..licensed(
@@ -106,13 +118,25 @@ pub const CORE_SOFTWARE: &[Credit] = &[
             "Trellis license",
         )
     },
-    of(credit("Pierre Trees", "https://pierre.computer"), Npm, "@pierre/trees"),
-    of(credit("Pierre Diffs", "https://diffs.com"), Npm, "@pierre/diffs"),
+    of(
+        credit("Pierre Trees", "https://pierre.computer"),
+        Npm,
+        "@pierre/trees",
+    ),
+    of(
+        credit("Pierre Diffs", "https://diffs.com"),
+        Npm,
+        "@pierre/diffs",
+    ),
     of(credit("Univer", "https://univer.ai"), Npm, "@univerjs/core"),
     of(credit("KaTeX", "https://katex.org"), Npm, "katex"),
     of(credit("Pele", "https://pele.run"), Npm, "pele"),
     of(credit("Shiki", "https://shiki.style"), Npm, "shiki"),
-    of(credit("Harper", "https://writewithharper.com"), Crates, "harper-core"),
+    of(
+        credit("Harper", "https://writewithharper.com"),
+        Crates,
+        "harper-core",
+    ),
     of(
         credit("tantivy", "https://github.com/quickwit-oss/tantivy"),
         Crates,
@@ -128,26 +152,37 @@ pub const CORE_SOFTWARE: &[Credit] = &[
 /// Type, icons and sound; the Timeless family, when embedded, leads.
 pub const DESIGN_CREDITS: &[Credit] = &[
     by(
-        of(credit("Inter", "https://rsms.me/inter/"), Npm, "@fontsource-variable/inter"),
+        of(
+            credit("Inter", "https://rsms.me/inter/"),
+            Npm,
+            "@fontsource-variable/inter",
+        ),
         || t!("By Rasmus Andersson"),
     ),
     of(
-        credit("Instrument Serif", "https://github.com/Instrument/instrument-serif"),
+        credit(
+            "Instrument Serif",
+            "https://github.com/Instrument/instrument-serif",
+        ),
         Npm,
         "@fontsource/instrument-serif",
     ),
     Credit {
         version: Some(|| "2.0.0"),
         ..licensed(
-            by(credit("Ioskeley Mono", "https://github.com/ahatem/IoskeleyMono"), || {
-                t!("By Ahmed Hatem, built on Iosevka by Renzhi Li")
-            }),
+            by(
+                credit("Ioskeley Mono", "https://github.com/ahatem/IoskeleyMono"),
+                || t!("By Ahmed Hatem, built on Iosevka by Renzhi Li"),
+            ),
             "OFL-1.1",
         )
     },
     by(
         of(
-            credit("Atkinson Hyperlegible", "https://www.brailleinstitute.org/freefont/"),
+            credit(
+                "Atkinson Hyperlegible",
+                "https://www.brailleinstitute.org/freefont/",
+            ),
             Npm,
             "@fontsource/atkinson-hyperlegible",
         ),
@@ -167,13 +202,18 @@ pub const DESIGN_CREDITS: &[Credit] = &[
     ),
     of(credit("Lucide", "https://lucide.dev"), Npm, "lucide-react"),
     licensed(
-        by(credit("Phosphor Icons", "https://phosphoricons.com"), || {
-            t!("Redrawn from Phosphor glyphs")
-        }),
+        by(
+            credit("Phosphor Icons", "https://phosphoricons.com"),
+            || t!("Redrawn from Phosphor glyphs"),
+        ),
         "MIT",
     ),
     by(
-        of(credit("Cuelume", "https://github.com/Danilaa1/cuelume"), Npm, "cuelume"),
+        of(
+            credit("Cuelume", "https://github.com/Danilaa1/cuelume"),
+            Npm,
+            "cuelume",
+        ),
         || t!("By Daniel Belyi"),
     ),
 ];
@@ -191,7 +231,9 @@ pub const ORIGIN_CREDITS: &[Credit] = &[
                 "https://github.com/mickadesign/fluid-functionalism",
             ),
             || {
-                t!("By Micka Touillaud and Sameer Singh; several interface controls are adapted from them")
+                t!(
+                    "By Micka Touillaud and Sameer Singh; several interface controls are adapted from them"
+                )
             },
         ),
         "MIT",
@@ -199,7 +241,9 @@ pub const ORIGIN_CREDITS: &[Credit] = &[
     Credit {
         name: "ICLR, ICML and NeurIPS style files",
         role: Some(|| {
-            t!("From the official conference author kits, bundled unmodified with their authors' credits")
+            t!(
+                "From the official conference author kits, bundled unmodified with their authors' credits"
+            )
         }),
         url: None,
         attribution: None,
@@ -267,9 +311,17 @@ mod tests {
     #[test]
     fn every_credited_package_is_in_the_shipped_notices() {
         let notices = super::super::notices::shipped();
-        for credit in CORE_SOFTWARE.iter().chain(DESIGN_CREDITS).chain(ORIGIN_CREDITS) {
+        for credit in CORE_SOFTWARE
+            .iter()
+            .chain(DESIGN_CREDITS)
+            .chain(ORIGIN_CREDITS)
+        {
             if credit.package.is_some() {
-                assert!(credit.recorded(notices).is_some(), "{} is not in the notices", credit.name);
+                assert!(
+                    credit.recorded(notices).is_some(),
+                    "{} is not in the notices",
+                    credit.name
+                );
             }
         }
     }

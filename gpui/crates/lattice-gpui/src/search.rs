@@ -6,9 +6,11 @@
 //! `shell/documents.rs`.
 
 mod field;
+pub(crate) use field::search_field;
 pub mod find;
 pub mod goto_line;
 pub mod insert_pickers;
+pub mod live_labels;
 pub mod quick_open;
 mod ranking;
 pub mod replace;

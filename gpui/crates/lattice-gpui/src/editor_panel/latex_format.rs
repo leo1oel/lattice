@@ -5,15 +5,15 @@
 //! (⌘⌥I) around the selection; sort lines (⌘⌥S) and UPPER, lower and Title
 //! Case (⌘⌥U, ⌘⌥L, ⌘⌥C); Select the environment (⌘⌥A) and the matching
 //! `\begin` or `\end` (Ctrl-M). Each acts on the main selection
-//! (`lattice_editor::latex::{edits, format_toggle, environments}`) as one edit ⌘Z undoes,
+//! (`lattice_editor::latex::{edits, region_edits, environments}`) as one edit ⌘Z undoes,
 //! the result selected. In a file that is not LaTeX the key passes on.
 
 use editor::{MultiBufferOffset, SelectionEffects, ToOffset as _, scroll::Autoscroll};
 use gpui::{Context, Window, actions};
 use lattice_editor::latex::{
-    edits::{self, CaseMode, CommentWrap, FormatEdit},
+    edits::{self, FormatEdit, InlineFormat},
     environments,
-    format_toggle::{self, InlineFormat},
+    region_edits::{self, CaseMode, CommentWrap},
 };
 
 use super::EditorPanel;
@@ -53,12 +53,7 @@ impl EditorPanel {
             .on_action(cx.listener(|this, _: &ToggleBold, window, cx| {
                 this.run_latex_command(
                     |text, from, to| {
-                        Outcome::Edit(format_toggle::toggle_inline(
-                            text,
-                            from,
-                            to,
-                            InlineFormat::Bold,
-                        ))
+                        Outcome::Edit(edits::toggle_inline(text, from, to, InlineFormat::Bold))
                     },
                     window,
                     cx,
@@ -67,12 +62,7 @@ impl EditorPanel {
             .on_action(cx.listener(|this, _: &ToggleEmphasis, window, cx| {
                 this.run_latex_command(
                     |text, from, to| {
-                        Outcome::Edit(format_toggle::toggle_inline(
-                            text,
-                            from,
-                            to,
-                            InlineFormat::Emphasis,
-                        ))
+                        Outcome::Edit(edits::toggle_inline(text, from, to, InlineFormat::Emphasis))
                     },
                     window,
                     cx,
@@ -80,7 +70,7 @@ impl EditorPanel {
             }))
             .on_action(cx.listener(|this, _: &ToggleInlineMath, window, cx| {
                 this.run_latex_command(
-                    |text, from, to| Outcome::Edit(format_toggle::toggle_math(text, from, to)),
+                    |text, from, to| Outcome::Edit(region_edits::toggle_math(text, from, to)),
                     window,
                     cx,
                 )
@@ -88,7 +78,9 @@ impl EditorPanel {
             .on_action(cx.listener(|this, _: &ToggleLineComments, window, cx| {
                 this.run_latex_command(
                     |text, from, to| {
-                        Outcome::Edit(edits::toggle_line_comments(text, from, to).into_format())
+                        Outcome::Edit(
+                            region_edits::toggle_line_comments(text, from, to).into_format(),
+                        )
                     },
                     window,
                     cx,
@@ -98,8 +90,13 @@ impl EditorPanel {
                 this.run_latex_command(
                     |text, from, to| {
                         Outcome::Edit(
-                            edits::wrap_comment_region(text, from, to, CommentWrap::Environment)
-                                .into_format(),
+                            region_edits::wrap_comment_region(
+                                text,
+                                from,
+                                to,
+                                CommentWrap::Environment,
+                            )
+                            .into_format(),
                         )
                     },
                     window,
@@ -110,7 +107,7 @@ impl EditorPanel {
                 this.run_latex_command(
                     |text, from, to| {
                         Outcome::Edit(
-                            edits::wrap_comment_region(text, from, to, CommentWrap::IfFalse)
+                            region_edits::wrap_comment_region(text, from, to, CommentWrap::IfFalse)
                                 .into_format(),
                         )
                     },
@@ -122,7 +119,8 @@ impl EditorPanel {
                 this.run_latex_command(
                     |text, from, to| {
                         Outcome::Edit(
-                            edits::wrap_environment(text, from, to, "equation").into_format(),
+                            region_edits::wrap_environment(text, from, to, "equation")
+                                .into_format(),
                         )
                     },
                     window,
@@ -133,7 +131,7 @@ impl EditorPanel {
                 this.run_latex_command(
                     |text, from, to| {
                         Outcome::Edit(
-                            edits::wrap_environment(text, from, to, "itemize").into_format(),
+                            region_edits::wrap_environment(text, from, to, "itemize").into_format(),
                         )
                     },
                     window,
@@ -142,7 +140,7 @@ impl EditorPanel {
             }))
             .on_action(cx.listener(|this, _: &SortLines, window, cx| {
                 this.run_latex_command(
-                    |text, from, to| changed(edits::sort_selected_lines(text, from, to)),
+                    |text, from, to| changed(region_edits::sort_selected_lines(text, from, to)),
                     window,
                     cx,
                 )
@@ -150,7 +148,12 @@ impl EditorPanel {
             .on_action(cx.listener(|this, _: &UpperCase, window, cx| {
                 this.run_latex_command(
                     |text, from, to| {
-                        changed(edits::transform_case(text, from, to, CaseMode::Upper))
+                        changed(region_edits::transform_case(
+                            text,
+                            from,
+                            to,
+                            CaseMode::Upper,
+                        ))
                     },
                     window,
                     cx,
@@ -159,7 +162,12 @@ impl EditorPanel {
             .on_action(cx.listener(|this, _: &LowerCase, window, cx| {
                 this.run_latex_command(
                     |text, from, to| {
-                        changed(edits::transform_case(text, from, to, CaseMode::Lower))
+                        changed(region_edits::transform_case(
+                            text,
+                            from,
+                            to,
+                            CaseMode::Lower,
+                        ))
                     },
                     window,
                     cx,
@@ -168,7 +176,12 @@ impl EditorPanel {
             .on_action(cx.listener(|this, _: &TitleCase, window, cx| {
                 this.run_latex_command(
                     |text, from, to| {
-                        changed(edits::transform_case(text, from, to, CaseMode::Title))
+                        changed(region_edits::transform_case(
+                            text,
+                            from,
+                            to,
+                            CaseMode::Title,
+                        ))
                     },
                     window,
                     cx,
@@ -282,7 +295,7 @@ impl EditorPanel {
     }
 }
 
-fn changed(edit: Option<edits::SelectionEdit>) -> Outcome {
+fn changed(edit: Option<region_edits::SelectionEdit>) -> Outcome {
     edit.map_or(Outcome::Nothing, |edit| Outcome::Edit(edit.into_format()))
 }
 

@@ -35,7 +35,6 @@ use gpui::{
 use lattice_i18n::{Locale, t};
 use lattice_ui::{
     ActiveLattice as _, TextRole, TextRoleStyle as _,
-    components::ToastLevel,
     palette::{Accent, Palette},
 };
 use lattice_webview::{
@@ -43,10 +42,18 @@ use lattice_webview::{
 };
 use serde_json::{Value, json};
 
-use super::{commands, runtime};
-use crate::notices::{self, Notice, NoticeAction};
+use super::{
+    commands,
+    permission_mode::{PermissionMode, set_permission_mode},
+    runtime,
+};
 
 mod documents;
+mod drops;
+mod invoke;
+mod notices;
+pub mod permission;
+mod skeleton;
 
 /// Which of the page's three surfaces this is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -104,6 +111,11 @@ pub enum SurfaceEvent {
     /// The Agent's checkpoint history for the panel's thread
     /// (`checkpoints.rs`).
     History(super::checkpoints::Snapshot),
+    /// The panel's turn as it now stands (`AgentDeckPresence`), `None` once
+    /// no turn runs or waits.
+    Turn(Option<Value>),
+    /// A turn started: the writer asked the Agent something.
+    TurnStarted,
 }
 
 /// A turn's checkpoint diff, reviewable after the working tree moved on.
@@ -129,6 +141,10 @@ pub struct SynaraSurface {
     shown: bool,
     /// The page has drawn since it was (re)built.
     drawn: bool,
+    /// When the Agent's page was asked to open, for its placeholder's
+    /// loading clock (`skeleton.rs`), and the panel's width as last drawn.
+    opening: Option<Instant>,
+    width: std::rc::Rc<std::cell::Cell<gpui::Pixels>>,
     locale: Locale,
     /// What the page was last told of the appearance.
     appearance: Value,
@@ -148,9 +164,23 @@ pub struct SynaraSurface {
     deck: Option<crate::structured::DeckSession>,
     /// What the page was last told of the project's Overleaf link.
     overleaf: Value,
+    /// The last paths reported as Lattice's own writes, for a scenario,
+    /// and how many were ever reported.
+    host_writes: std::collections::VecDeque<String>,
+    host_writes_reported: usize,
+    /// The frame's permission mode, once it has said (`permission.rs`).
+    permission: Option<permission::AgentPermission>,
+    /// A model endpoint is saved, for the picker's note.
+    endpoint_saved: bool,
+    /// The paths of the Finder drop the page may read (`drops.rs`).
+    dropped: Vec<String>,
+    drop_read: Option<Result<usize, String>>,
     last_pointer: Option<Instant>,
     _subscriptions: Vec<Subscription>,
 }
+
+/// How many of Lattice's own writes [`SynaraSurface::host_writes`] keeps.
+const HOST_WRITES_KEPT: usize = 32;
 
 impl EventEmitter<SurfaceEvent> for SynaraSurface {}
 
@@ -179,7 +209,13 @@ impl SynaraSurface {
                     // Settings' page owns neither.
                     hibernates: kind == SurfaceKind::Settings,
                 };
-                let island = cx.new(|cx| Island::new(config, window, cx));
+                let island = cx.new(|cx| {
+                    let mut island = Island::new(config, window, cx);
+                    if kind == SurfaceKind::Agent {
+                        island.accept_file_drops();
+                    }
+                    island
+                });
                 subscriptions.push(cx.subscribe_in(&island, window, Self::on_island));
                 subscriptions.push(cx.observe(&island, |_, _, cx| cx.notify()));
                 subscriptions.push(cx.on_release(|this: &mut Self, _| {
@@ -203,6 +239,8 @@ impl SynaraSurface {
             root: None,
             shown: false,
             drawn: false,
+            opening: None,
+            width: Default::default(),
             locale: lattice_i18n::locale(),
             appearance,
             workspace: Value::Null,
@@ -212,6 +250,12 @@ impl SynaraSurface {
             settings_section: ("providers", String::new()),
             deck: None,
             overleaf: Value::Null,
+            host_writes: std::collections::VecDeque::new(),
+            host_writes_reported: 0,
+            permission: None,
+            endpoint_saved: false,
+            dropped: Vec::new(),
+            drop_read: None,
             last_pointer: None,
             _subscriptions: subscriptions,
         }
@@ -270,6 +314,7 @@ impl SynaraSurface {
         // (the page keys its host by the project).
         self.workspace = Value::Null;
         self.overleaf = Value::Null;
+        self.permission = None;
         self.deck = None;
         self.open_page(cx);
         self.sync_active(cx);
@@ -292,6 +337,29 @@ impl SynaraSurface {
         if let Some(island) = &self.island {
             island.update(cx, |island, cx| island.set_active(active, cx));
         }
+    }
+
+    /// Lattice wrote these project files itself (`host_writes.rs`).
+    pub(super) fn host_wrote(&mut self, paths: Vec<String>, cx: &mut App) {
+        self.host_writes.extend(paths.iter().cloned());
+        self.host_writes_reported += paths.len();
+        let over = self.host_writes.len().saturating_sub(HOST_WRITES_KEPT);
+        self.host_writes.drain(..over);
+        self.post("agent:host-writes", json!({ "paths": paths }), cx);
+    }
+
+    /// How many paths were ever reported as Lattice's own writes, for a
+    /// scenario to count from.
+    pub fn host_writes_reported(&self) -> usize {
+        self.host_writes_reported
+    }
+
+    /// The paths reported as Lattice's own writes since `count` were, as far
+    /// as the last kept go, for a scenario.
+    pub fn host_writes_since(&self, count: usize) -> impl Iterator<Item = &String> {
+        let new = self.host_writes_reported.saturating_sub(count);
+        let kept = self.host_writes.len();
+        self.host_writes.iter().skip(kept.saturating_sub(new))
     }
 
     /// Hand `message` to the Agent's frame, as the Tauri host's
@@ -405,6 +473,9 @@ impl SynaraSurface {
             return;
         };
         self.locale = lattice_i18n::locale();
+        if !self.drawn && self.opening.is_none() {
+            self.opening = Some(Instant::now());
+        }
         let payload = json!({
             "surface": self.kind.name(),
             "projectRoot": root.to_string_lossy(),
@@ -471,6 +542,7 @@ impl SynaraSurface {
             IslandEvent::Request { id, kind, payload } => {
                 self.on_request(*id, kind, payload.clone(), window, cx)
             }
+            IslandEvent::FileDrop(payload) => self.file_dragged(payload, cx),
             IslandEvent::Focus(_) | IslandEvent::PointerDown => {}
         }
     }
@@ -479,6 +551,7 @@ impl SynaraSurface {
         match kind {
             "agent:drawn" => {
                 self.drawn = true;
+                self.opening = None;
                 if let Some(island) = &self.island {
                     island.update(cx, |island, cx| island.reveal(cx));
                 }
@@ -486,94 +559,23 @@ impl SynaraSurface {
             }
             "island:notify" => crate::structured::show_page_notice(payload, cx),
             "agent:notify" => self.synara_notice(payload, cx),
+            "agent:permission" => self.permission_reported(payload, cx),
             // The Agent's checkpoints: the History panel's rows, and the
             // builds its turns' edits need (`shell/agent_checkpoints.rs`).
             "agent:history" => match super::checkpoints::parse_snapshot(payload) {
                 Some(snapshot) => cx.emit(SurfaceEvent::History(snapshot)),
                 None => log::debug!("{}: malformed agent:history", self.kind.name()),
             },
+            "agent:permission-mode" => {
+                if let Some(mode) = payload["mode"].as_str().and_then(PermissionMode::parse) {
+                    set_permission_mode(mode, cx);
+                }
+            }
             _ => match surface_event(kind, payload) {
                 Some(event) => cx.emit(event),
                 None => log::debug!("{}: unhandled {kind}", self.kind.name()),
             },
         }
-    }
-
-    /// One of Synara's notifications (`synara-notifications.ts`'s parsed
-    /// message), on the app's stack under its id: a later one with the same
-    /// id replaces it, a loading one runs until its outcome does, and its
-    /// buttons answer the frame.
-    fn synara_notice(&mut self, payload: &Value, cx: &mut Context<Self>) {
-        let text = |key: &str| {
-            payload
-                .get(key)
-                .and_then(Value::as_str)
-                .filter(|text| !text.is_empty())
-                .map(str::to_string)
-        };
-        let Some(id) = text("id") else { return };
-        let key = format!("synara:{}:{id}", self.kind.name());
-        if text("operation").as_deref() == Some("dismiss") {
-            // Only a running one follows Synara's close; a finished one keeps
-            // the app's own display time (as the Tauri host does).
-            if notices::is_running(&key, cx) {
-                notices::dismiss(&key, cx);
-            }
-            return;
-        }
-        let level = text("level").unwrap_or_default();
-        let mut notice = Notice::new(
-            match level.as_str() {
-                "error" => ToastLevel::Error,
-                "warning" => ToastLevel::Warning,
-                "success" => ToastLevel::Success,
-                _ => ToastLevel::Info,
-            },
-            text("title").unwrap_or_default(),
-        )
-        .key(key);
-        if let Some(detail) = text("detail") {
-            notice = notice.detail(detail);
-        }
-        let timeout = payload.get("timeoutMs").and_then(Value::as_f64);
-        if level == "loading" {
-            notice = notice.running();
-        } else if timeout == Some(0.) {
-            notice = notice.persistent();
-        } else if text("primaryActionLabel").is_some() || text("secondaryActionLabel").is_some() {
-            // `hostNotificationTimeout`: one with a choice stays an error's 9 s.
-            notice = notice.timeout(std::time::Duration::from_secs(9));
-        }
-        if let Some(copy) = text("copyText") {
-            notice = notice.copy(copy);
-        }
-        let dismissed = (cx.entity().downgrade(), id.clone());
-        notice = notice.on_dismiss(move |cx| {
-            let (this, id) = &dismissed;
-            this.update(cx, |this, cx| {
-                this.post("agent:notify-action", json!({ "id": id, "action": "dismiss" }), cx)
-            })
-            .ok();
-        });
-        for (label, action) in [
-            (text("primaryActionLabel"), "primary"),
-            (text("secondaryActionLabel"), "secondary"),
-        ] {
-            let Some(label) = label else { continue };
-            let this = cx.entity().downgrade();
-            let id = id.clone();
-            notice = notice.action(NoticeAction::new(label, move |_, cx| {
-                this.update(cx, |this, cx| {
-                    this.post(
-                        "agent:notify-action",
-                        json!({ "id": id, "action": action }),
-                        cx,
-                    )
-                })
-                .ok();
-            }));
-        }
-        notices::show(notice, cx);
     }
 
     fn on_request(
@@ -597,92 +599,6 @@ impl SynaraSurface {
                 Some(event) => cx.emit(event),
                 None => self.respond(id, Err(format!("unknown request {kind}")), cx),
             },
-        }
-    }
-
-    fn invoke(&mut self, id: u64, payload: Value, window: &mut Window, cx: &mut Context<Self>) {
-        let command = payload
-            .get("command")
-            .and_then(Value::as_str)
-            .unwrap_or_default()
-            .to_string();
-        let args = payload.get("args").cloned().unwrap_or(Value::Null);
-        let text = |key: &str| args.get(key).and_then(Value::as_str).map(str::to_string);
-        match command.as_str() {
-            "plugin:dialog|save" => {
-                let suggested = args
-                    .get("options")
-                    .and_then(|options| options.get("defaultPath"))
-                    .and_then(Value::as_str)
-                    .and_then(|path| Path::new(path).file_name())
-                    .map(|name| name.to_string_lossy().into_owned());
-                let directory = dirs::document_dir()
-                    .or_else(dirs::home_dir)
-                    .or_else(|| self.root.clone())
-                    .unwrap_or_default();
-                let chosen = cx.prompt_for_new_path(&directory, suggested.as_deref());
-                cx.spawn_in(window, async move |this, cx| {
-                    let answer = match chosen.await {
-                        Ok(Ok(Some(path))) => Ok(json!(path.to_string_lossy())),
-                        Ok(Ok(None)) | Err(_) => Ok(Value::Null),
-                        Ok(Err(error)) => Err(format!("{error:#}")),
-                    };
-                    this.update(cx, |this, cx| this.respond(id, answer, cx))
-                        .ok();
-                })
-                .detach();
-            }
-            // Web links only: WebKit does not hand an embedded frame's
-            // `_blank` navigation to the browser, so the host does.
-            "plugin:opener|open_url" => {
-                let url = text("url").unwrap_or_default();
-                let lower = url.to_ascii_lowercase();
-                if lower.starts_with("https://") || lower.starts_with("http://") {
-                    cx.open_url(&url);
-                    self.respond(id, Ok(Value::Null), cx);
-                } else {
-                    self.respond(id, Err("Only web links open in the browser.".into()), cx);
-                }
-            }
-            "plugin:clipboard-manager|write_text" => {
-                let text = text("text").unwrap_or_default();
-                cx.write_to_clipboard(gpui::ClipboardItem::new_string(text));
-                self.respond(id, Ok(Value::Null), cx);
-            }
-            _ if documents::is_presentation(&command) => self.invoke_deck(id, &command, &args, cx),
-            _ if commands::handles(&command) => {
-                let Some(root) = self.root.clone() else {
-                    self.respond(id, Err("No project is open.".into()), cx);
-                    return;
-                };
-                let task = commands::invoke(&root, &command, &payload, cx);
-                let ensures = command == "synara_ensure_ready";
-                cx.spawn(async move |this, cx| {
-                    let result = task.await;
-                    this.update(cx, |this, cx| {
-                        // The frame may load the runtime's origin, and nothing
-                        // else, before the page learns where it is.
-                        if ensures
-                            && let Ok(info) = &result
-                            && let Some(origin) = info.get("origin").and_then(Value::as_str)
-                            && let Some(island) = &this.island
-                        {
-                            island.update(cx, |island, _| island.allow_frame_origin(origin));
-                        }
-                        this.respond(id, result, cx);
-                    })
-                    .ok();
-                })
-                .detach();
-            }
-            _ => {
-                log::warn!("{}: refused {command}", self.kind.name());
-                self.respond(
-                    id,
-                    Err(format!("{command} is not available in the GPUI preview")),
-                    cx,
-                );
-            }
         }
     }
 }
@@ -714,6 +630,13 @@ fn surface_event(kind: &str, payload: &Value) -> Option<SurfaceEvent> {
             SurfaceEvent::MinimumWidth(payload.get("width").and_then(Value::as_f64)? as f32)
         }
         "agent:git-view" => SurfaceEvent::GitView(text("view")?),
+        "agent:turn" => SurfaceEvent::Turn(
+            payload
+                .get("presence")
+                .filter(|presence| presence.is_object())
+                .cloned(),
+        ),
+        "agent:turn-started" => SurfaceEvent::TurnStarted,
         "agent:close-git" => SurfaceEvent::CloseGit,
         _ => return None,
     })
@@ -760,7 +683,7 @@ fn appearance(cx: &App) -> Value {
 }
 
 impl Render for SynaraSurface {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         // The interface language changed (settings redraw every window).
         if lattice_i18n::locale() != self.locale {
             self.locale = lattice_i18n::locale();
@@ -780,6 +703,7 @@ impl Render for SynaraSurface {
                     })
             })
             .map(Into::into);
+        let placeholder = self.awaiting_page().filter(|_| failure.is_none());
         let this = cx.entity().downgrade();
         div()
             .id(("synara-surface", self.kind as usize))
@@ -834,6 +758,10 @@ impl Render for SynaraSurface {
                         ),
                 )
             })
+            // The panel the Agent opens on, until its page has drawn.
+            .when_some(placeholder, |this, since| {
+                this.child(skeleton::agent(since, self.width.clone(), window, cx))
+            })
             .when(self.root.is_some(), |this| {
                 this.children(self.island.clone())
             })
@@ -871,5 +799,13 @@ mod tests {
         );
         assert_eq!(surface_event("agent:history", &json!({})), None);
         assert_eq!(surface_event("agent:frame-message", &json!({})), None);
+        assert_eq!(
+            surface_event("agent:turn", &json!({ "presence": null })),
+            Some(SurfaceEvent::Turn(None))
+        );
+        assert_eq!(
+            surface_event("agent:turn", &json!({ "presence": { "state": "running" } })),
+            Some(SurfaceEvent::Turn(Some(json!({ "state": "running" }))))
+        );
     }
 }

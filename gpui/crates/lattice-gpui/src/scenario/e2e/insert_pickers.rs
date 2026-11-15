@@ -80,6 +80,54 @@ impl Run {
             self.restore(cx, &editor, &original)?;
         }
 
+        // A label typed and not saved is listed, as `liveReferences` has it.
+        let unsaved = "\\label{fig:unsaved}";
+        self.with_window(cx, |_, window, cx| {
+            editor.update(cx, |editor, cx| {
+                editor.replace_range(end_of_line, end_of_line, unsaved, end_of_line, window, cx)
+            })
+        })?;
+        self.dispatch_keys(cx, REF)?;
+        let rows = self.picker_rows(cx).await;
+        steps.check(
+            "⇧⌘L / Ctrl+Shift+L lists a label typed in the chapter before it is saved",
+            rows.iter().any(|row| row == "@fig:unsaved"),
+            json!({ "rows": rows }),
+        );
+        self.close_pickers(cx)?;
+        self.restore(cx, &editor, &original)?;
+
+        // One search dialog at a time: each key switches to its own dialog,
+        // and only its own key closes it again.
+        self.caret_at(cx, &editor, end_of_line)?;
+        let mut open = Vec::new();
+        for keys in [GOTO_LINE, CITE, REF, GOTO_LINE, REF, REF] {
+            self.dispatch_keys(cx, keys)?;
+            self.pause(cx, Duration::from_millis(200)).await;
+            open.push(cx.update(|cx| {
+                let shell = self.shell.read(cx);
+                let picker = shell
+                    .quick_open()
+                    .map(|view| format!("{:?}", view.read(cx).picker_kind()));
+                (shell.goto_line_open(), picker)
+            }));
+        }
+        let ref_picker = Some("Some(InsertReference)".to_string());
+        let wanted = [
+            (true, None),
+            (false, Some("Some(InsertCitation)".to_string())),
+            (false, ref_picker.clone()),
+            (true, None),
+            (false, ref_picker),
+            (false, None),
+        ];
+        steps.check(
+            "⌘G, ⇧⌘K and ⇧⌘L switch straight to their own dialog over another, and a dialog's own key closes it",
+            open == wanted,
+            json!({ "open": open }),
+        );
+        self.close_pickers(cx)?;
+
         // ⌘G: the caret's line starts selected, so the typed line replaces it.
         self.caret_at(cx, &editor, 0)?;
         self.dispatch_keys(cx, GOTO_LINE)?;
@@ -96,7 +144,13 @@ impl Run {
             json!({ "opened": opened, "closed": closed, "row": row }),
         );
 
-        // ⌘⇧O: sections and labels; the label opens where it is.
+        // ⌘⇧O: sections and labels, an unsaved one among them; the label
+        // opens where it is.
+        self.with_window(cx, |_, window, cx| {
+            editor.update(cx, |editor, cx| {
+                editor.replace_range(end_of_line, end_of_line, unsaved, end_of_line, window, cx)
+            })
+        })?;
         self.dispatch_keys(cx, GOTO_SYMBOL)?;
         let rows = self.picker_rows(cx).await;
         self.type_text(cx, "sec:method").await?;
@@ -108,8 +162,11 @@ impl Run {
             })
             .await;
         steps.check(
-            "⌘⇧O / Ctrl+Shift+O lists the manuscript's sections and labels, and a label picked opens its file",
-            landed && rows.iter().any(|row| row == "@Method") && rows.iter().any(|row| row == "@sec:method"),
+            "⌘⇧O / Ctrl+Shift+O lists the manuscript's sections and labels, one typed and not saved among them, and a label picked opens its file",
+            landed
+                && rows.iter().any(|row| row == "@Method")
+                && rows.iter().any(|row| row == "@sec:method")
+                && rows.iter().any(|row| row == "@fig:unsaved"),
             json!({ "rows": rows, "landed": landed }),
         );
 
@@ -117,6 +174,78 @@ impl Run {
         let editor = self.open(cx, &chapter, Some(2))?;
         self.pause(cx, Duration::from_millis(200)).await;
         self.restore(cx, &editor, &original)?;
+
+        // The palette offers the four with a LaTeX source in front, as the
+        // Tauri palette does (`textEditor`, `latexSource`), and each row
+        // opens its own dialog.
+        let mut ran = Vec::new();
+        for label in ["Insert citation", "Insert reference", "Go to symbol", "Go to line"] {
+            let label_owned = label.to_string();
+            let found = self.with_window(cx, move |shell, window, cx| {
+                shell.update(cx, |shell, cx| {
+                    shell.close_document_overlays(window, cx);
+                    shell.open_palette(window, cx);
+                });
+                let palette = shell.read(cx).palette_view();
+                palette.is_some_and(|palette| {
+                    palette.update(cx, |palette, cx| {
+                        palette.type_query(&label_owned, window, cx);
+                        palette.run_labelled(&label_owned, window, cx)
+                    })
+                })
+            })?;
+            self.pause(cx, Duration::from_millis(300)).await;
+            let open = cx.update(|cx| {
+                let shell = self.shell.read(cx);
+                let picker = shell
+                    .quick_open()
+                    .map(|view| format!("{:?}", view.read(cx).picker_kind()));
+                (shell.goto_line_open(), picker)
+            });
+            ran.push((label, found, open));
+        }
+        self.close_pickers(cx)?;
+        let wanted = [
+            ("Insert citation", true, (false, Some("Some(InsertCitation)".to_string()))),
+            ("Insert reference", true, (false, Some("Some(InsertReference)".to_string()))),
+            ("Go to symbol", true, (false, Some("Some(GoToSymbol)".to_string()))),
+            ("Go to line", true, (true, None)),
+        ];
+        steps.check(
+            "the palette's Insert citation, Insert reference, Go to symbol and Go to line rows open their own dialogs",
+            ran.iter().zip(wanted.iter()).all(|(got, want)| {
+                got.0 == want.0 && got.1 == want.1 && got.2 == want.2
+            }),
+            json!({ "ran": format!("{ran:?}") }),
+        );
+
+        // With the bibliography in front (a text editor, not a LaTeX
+        // source) the palette keeps Go to line and drops the inserts.
+        self.open(cx, &root.join("references.bib"), Some(1))?;
+        self.pause(cx, Duration::from_millis(300)).await;
+        let labels = self.with_window(cx, |shell, window, cx| {
+            shell.update(cx, |shell, cx| shell.open_palette(window, cx));
+            shell.read(cx).palette_view().map(|palette| {
+                palette.update(cx, |palette, cx| palette.type_query("Go to", window, cx));
+                let mut labels: Vec<String> =
+                    palette.read(cx).rows().into_iter().map(|row| row.1).collect();
+                palette.update(cx, |palette, cx| palette.type_query("Insert", window, cx));
+                labels.extend(palette.read(cx).rows().into_iter().map(|row| row.1));
+                labels
+            })
+        })?;
+        let labels = labels.unwrap_or_default();
+        self.with_window(cx, |shell, window, cx| {
+            shell.update(cx, |shell, cx| shell.close_overlays(window, cx))
+        })?;
+        steps.check(
+            "with references.bib in front the palette offers Go to line but not Insert citation or Insert reference",
+            labels.iter().any(|label| label == "Go to line")
+                && !labels.iter().any(|label| label == "Insert citation" || label == "Insert reference"),
+            json!({ "labels": labels }),
+        );
+        self.open(cx, &chapter, Some(2))?;
+        self.pause(cx, Duration::from_millis(200)).await;
         Ok(())
     }
 
@@ -170,6 +299,12 @@ impl Run {
         })
     }
 
+    fn close_pickers(&self, cx: &mut AsyncApp) -> Result<()> {
+        self.with_window(cx, |shell, window, cx| {
+            shell.update(cx, |shell, cx| shell.close_document_overlays(window, cx))
+        })
+    }
+
     fn caret_at(&self, cx: &mut AsyncApp, editor: &Entity<EditorPanel>, at: usize) -> Result<()> {
         self.with_window(cx, |_, window, cx| {
             editor.update(cx, |editor, cx| editor.replace_range(at, at, "", at, window, cx))
@@ -195,6 +330,7 @@ pub(super) const MODULE: super::registry::Module = super::registry::Module {
     covers: &[
         "gpui/crates/lattice-gpui/src/search/insert_pickers.rs",
         "gpui/crates/lattice-gpui/src/search/goto_line.rs",
+        "gpui/crates/lattice-gpui/src/search/live_labels.rs",
         "gpui/crates/lattice-gpui/src/search/quick_open.rs",
         "gpui/crates/lattice-gpui/src/shell/insert_pickers_flow.rs",
     ],

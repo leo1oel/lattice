@@ -9,6 +9,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use lattice_editor::index::Reference;
+
+use super::live_labels::{local_labels, merge_references};
+
 /// One item: what it is called, where it is, and its group's heading.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Symbol {
@@ -47,33 +51,56 @@ const SECTION_COMMANDS: [&str; 5] = ["part", "chapter", "section", "subsection",
 const MAX_DEPTH: usize = 16;
 
 /// The project's sections, then its labels. `main` is the main document,
-/// project-relative.
-pub fn project_symbols(root: &Path, main: Option<&str>) -> Vec<Symbol> {
+/// project-relative; `live` is a file's path and its unsaved text, read in
+/// place of what is saved there.
+pub fn project_symbols(
+    root: &Path,
+    main: Option<&str>,
+    live: Option<&(String, String)>,
+) -> Vec<Symbol> {
     let mut out = Vec::new();
     if let Some(main) = main {
         let mut seen = HashSet::new();
-        sections_in(root, main, 0, &mut seen, &mut out);
+        sections_in(root, main, live, 0, &mut seen, &mut out);
     }
     match lattice_core::project::references(root) {
-        Ok(index) => out.extend(index.references.into_iter().map(|reference| {
-            let title = if reference.title.is_empty() {
-                reference.kind.clone()
-            } else {
-                reference.title.clone()
+        Ok(index) => {
+            let saved: Vec<Reference> = index
+                .references
+                .into_iter()
+                .map(|reference| Reference {
+                    label: reference.label,
+                    kind: reference.kind,
+                    title: reference.title,
+                    snippet: reference.snippet,
+                    path: reference.path,
+                    line: reference.line,
+                })
+                .collect();
+            let references = match live {
+                Some((path, text)) => merge_references(&saved, path, local_labels(path, text)),
+                None => saved,
             };
-            let detail = if title != reference.label {
-                format!("{}:{}, {title}", reference.path, reference.line)
-            } else {
-                format!("{}:{}", reference.path, reference.line)
-            };
-            Symbol {
-                label: reference.label,
-                detail,
-                group: SymbolGroup::Label,
-                path: reference.path,
-                line: reference.line,
-            }
-        })),
+            out.extend(references.into_iter().map(|reference| {
+                let title = if reference.title.is_empty() {
+                    reference.kind.clone()
+                } else {
+                    reference.title.clone()
+                };
+                let detail = if title != reference.label {
+                    format!("{}:{}, {title}", reference.path, reference.line)
+                } else {
+                    format!("{}:{}", reference.path, reference.line)
+                };
+                Symbol {
+                    label: reference.label,
+                    detail,
+                    group: SymbolGroup::Label,
+                    path: reference.path,
+                    line: reference.line,
+                }
+            }))
+        }
         Err(error) => log::warn!("could not read the project's labels: {error}"),
     }
     out
@@ -82,6 +109,7 @@ pub fn project_symbols(root: &Path, main: Option<&str>) -> Vec<Symbol> {
 fn sections_in(
     root: &Path,
     path: &str,
+    live: Option<&(String, String)>,
     depth: usize,
     seen: &mut HashSet<String>,
     out: &mut Vec<Symbol>,
@@ -89,8 +117,12 @@ fn sections_in(
     if depth > MAX_DEPTH || !seen.insert(path.to_string()) {
         return;
     }
-    let Ok(source) = std::fs::read_to_string(root.join(path)) else {
-        return;
+    let source = match live {
+        Some((live_path, text)) if live_path == path => text.clone(),
+        _ => match std::fs::read_to_string(root.join(path)) {
+            Ok(source) => source,
+            Err(_) => return,
+        },
     };
     for event in outline_events(&strip_comments(&source)) {
         match event {
@@ -103,7 +135,7 @@ fn sections_in(
             }),
             Event::Input(target) => {
                 if let Some(included) = resolve_input(root, path, &target) {
-                    sections_in(root, &included, depth + 1, seen, out);
+                    sections_in(root, &included, live, depth + 1, seen, out);
                 }
             }
         }
@@ -317,7 +349,7 @@ mod tests {
             "\n\\section{Two}\\label{sec:two}\n",
         )
         .unwrap();
-        let symbols = project_symbols(&root, Some("main.tex"));
+        let symbols = project_symbols(&root, Some("main.tex"), None);
         std::fs::remove_dir_all(&root).ok();
         let sections: Vec<_> = symbols
             .iter()
@@ -338,5 +370,41 @@ mod tests {
             .expect("the label is listed");
         assert_eq!(label.label, "sec:two");
         assert_eq!((label.path.as_str(), label.line), ("chapters/two.tex", 2));
+    }
+
+    #[test]
+    fn a_files_unsaved_text_gives_its_sections_and_labels() {
+        let root =
+            std::env::temp_dir().join(format!("lattice-gpui-symbols-live-{}", std::process::id()));
+        std::fs::remove_dir_all(&root).ok();
+        std::fs::create_dir_all(root.join("chapters")).unwrap();
+        std::fs::write(
+            root.join("main.tex"),
+            "\\section{One}\n\\input{chapters/two}\n",
+        )
+        .unwrap();
+        std::fs::write(
+            root.join("chapters/two.tex"),
+            "\\section{Saved}\\label{sec:saved}\n",
+        )
+        .unwrap();
+        let live = (
+            "chapters/two.tex".to_string(),
+            "\n\\section{Typed}\n\\label{fig:new}\n".to_string(),
+        );
+        let symbols = project_symbols(&root, Some("main.tex"), Some(&live));
+        std::fs::remove_dir_all(&root).ok();
+        let listed: Vec<_> = symbols
+            .iter()
+            .map(|symbol| (symbol.label.as_str(), symbol.path.as_str(), symbol.line))
+            .collect();
+        assert_eq!(
+            listed,
+            [
+                ("One", "main.tex", 1),
+                ("Typed", "chapters/two.tex", 2),
+                ("fig:new", "chapters/two.tex", 3),
+            ]
+        );
     }
 }

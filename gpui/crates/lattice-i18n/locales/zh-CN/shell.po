@@ -73,10 +73,6 @@ msgstr "退出写作布局"
 msgid "New window"
 msgstr "新建窗口"
 
-#: lattice-gpui/src/shell/commands.rs
-msgid "Next tab"
-msgstr "下一个标签"
-
 #: lattice-gpui/src/shell/palette.rs
 msgid "No commands or files match “{query}”"
 msgstr "没有命令或文件与“{query}”匹配"
@@ -96,10 +92,6 @@ msgstr "打开项目"
 #: lattice-gpui/src/shell/commands.rs
 msgid "Open this project in a new window"
 msgstr "在新窗口中打开此项目"
-
-#: lattice-gpui/src/shell/commands.rs
-msgid "Previous tab"
-msgstr "上一个标签"
 
 #: lattice-gpui/src/shell/commands.rs
 msgid "Reading layout"

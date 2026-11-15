@@ -18,24 +18,32 @@
 
 mod actions;
 mod agent_checkpoints;
+mod agent_context;
 mod agent_documents;
 mod agent_flow;
+mod agent_turn;
 mod annotations_flow;
 mod arrange;
 mod assets;
 mod build;
+mod build_repair;
 mod build_tools;
+mod build_watch;
 pub mod commands;
 mod documents;
+pub(crate) mod drops;
 mod editor_events;
 mod environment_flow;
 mod editors;
+mod focus_escape;
 mod entries;
 mod get_started_flow;
 mod ground;
 mod help_flow;
 mod history_flow;
+pub(crate) mod import_conflict;
 mod imports;
+mod open_failure;
 mod insert_flow;
 mod insert_pickers_flow;
 mod layers;
@@ -47,6 +55,9 @@ mod overleaf_menus;
 mod overleaf_presence;
 mod overleaf_review;
 mod palette;
+mod palette_commands;
+mod palette_entries;
+mod palette_groups;
 mod papers;
 mod parts;
 mod pdfs;
@@ -54,6 +65,7 @@ mod references_flow;
 mod render;
 mod saving;
 mod settings_flow;
+mod shortcut_groups;
 mod shortcut_sheet;
 mod skin;
 mod structured_docs;
@@ -95,6 +107,7 @@ pub use insert_pickers_flow::{GoToLine, GoToSymbol, InsertCitation, InsertRefere
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 pub use overleaf_collab::AnnotateSelection;
 pub use overleaf_menus::ReviewHere;
+pub(crate) use palette_groups::init as init_recent_commands;
 pub use references_flow::{FindReferences, RenameSymbol};
 pub use tools_flow::{ExportArxiv, OpenChecklist, OpenTodos};
 pub(crate) use workspace_flow::LayoutState;
@@ -317,7 +330,10 @@ impl Shell {
     fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         crate::panels::present_tabs(cx);
         let views = views::Registry::default();
-        let skin = std::rc::Rc::new(skin::LatticeSkin::new(views.clone()));
+        let skin = std::rc::Rc::new(skin::LatticeSkin::new(
+            views.clone(),
+            cx.entity().downgrade(),
+        ));
         let workspace = cx.new(|cx| {
             TrellisWorkspace::new(views::engine_options(), LayoutDocument::default(), skin, cx)
         });

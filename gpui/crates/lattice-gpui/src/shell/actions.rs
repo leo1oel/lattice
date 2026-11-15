@@ -73,6 +73,7 @@ impl Shell {
             in_project: self.project.is_some(),
             maximized: self.workspace.read(cx).engine().framed().is_some(),
             focus_mode: self.layout.focus.is_some(),
+            focus_pdf: Workspaces::global(cx).focus_pdf(),
             dirty: self.layout.dirty,
             building: self.build_task.is_some(),
             preset: self.layout.preset.as_ref().map(|active| active.preset),
@@ -136,6 +137,23 @@ impl Shell {
             .on_action(cx.listener(|this, _: &super::InsertTable, window, cx| {
                 this.open_table_generator(window, cx)
             }))
+            // The palette's Proofread, Polish and Rewrite when the editor
+            // did not take them itself (its focus went to the palette).
+            .on_action(cx.listener(
+                |this, _: &crate::editor_panel::proofread::ProofreadSelection, window, cx| {
+                    this.proofread_in_front(Some(lattice_editor::proofread::Ask::Proofread), window, cx)
+                },
+            ))
+            .on_action(cx.listener(
+                |this, _: &crate::editor_panel::proofread::PolishSelection, window, cx| {
+                    this.proofread_in_front(Some(lattice_editor::proofread::Ask::Polish), window, cx)
+                },
+            ))
+            .on_action(cx.listener(
+                |this, _: &crate::editor_panel::proofread::RewriteSelection, window, cx| {
+                    this.proofread_in_front(None, window, cx)
+                },
+            ))
             .on_action(
                 cx.listener(|this, _: &super::PasteImageAsFigure, window, cx| {
                     this.paste_image_as_figure(false, window, cx)

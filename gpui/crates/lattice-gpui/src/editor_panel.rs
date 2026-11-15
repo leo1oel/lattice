@@ -34,7 +34,7 @@ use futures::{channel::oneshot, future::Shared};
 use gpui::{
     AnyElement, App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, Focusable,
     InteractiveElement as _, IntoElement, ParentElement as _, Render, SharedString, Styled as _,
-    Subscription, Task, Window, div,
+    Subscription, Task, Window, div, prelude::FluentBuilder as _,
 };
 use gpui_kit::component::dock::{BasePanel, PanelEvent};
 use language::{Buffer, BufferEvent, Point};
@@ -49,11 +49,14 @@ mod annotations;
 mod bib_view;
 mod buffer_counts;
 mod disk_sync;
+pub mod drops;
 mod events;
 pub mod find_bar;
+mod highlight_palette;
 mod insert;
 pub(crate) mod latex_format;
 mod latex_view;
+mod latex_visual_events;
 mod margin_review;
 mod markdown_view;
 mod moves;
@@ -63,13 +66,19 @@ mod overleaf_carets;
 mod overleaf_review;
 mod overleaf_text;
 pub mod paper_text;
+pub mod proofread;
 pub mod rail_outline;
+pub(crate) mod reveal_flash;
 mod save;
+mod save_slot;
+mod selection_toolbar;
 mod source_chrome;
 pub(crate) mod spelling;
 mod strip;
 mod structured_view;
 pub mod views;
+mod panel_actions;
+pub use panel_actions::{ShowSourceView, ShowVisualView, ViewPreview, ViewSource, ViewSplit};
 
 pub(crate) use annotations::PINS as ANNOTATION_PINS;
 use disk_sync::vanished_key;
@@ -79,36 +88,15 @@ pub use margin_review::{MarginLayout, MarginMode};
 use outline_rail::OutlineRail;
 pub use overleaf_carets::OverleafCaret;
 pub use overleaf_review::{ChangeMark, CommentMark, MarginMessage, ReviewAction};
-use save::normalize_breaks;
+pub(crate) use save::normalize_breaks;
 pub use views::DocumentView;
 use views::DocumentViews;
-
-gpui::actions!(
-    lattice_document,
-    [
-        /// Show an HTML file's source ("Edit").
-        ViewSource,
-        /// Show an HTML file's source beside its preview.
-        ViewSplit,
-        /// Show an HTML file's preview alone.
-        ViewPreview,
-    ]
-);
 
 use crate::{build_panel::BuildPanel, editor_status, project::Project};
 use buffer_counts::TODO_SETTLE;
 
 /// How often the open file is checked for an edit made behind the editor.
 const DISK_POLL: Duration = Duration::from_millis(2500);
-gpui::actions!(
-    lattice_editor_panel,
-    [
-        /// Every .tex file's Source view.
-        ShowSourceView,
-        /// Every .tex file's Visual view (`latex_view.rs`).
-        ShowVisualView,
-    ]
-);
 
 /// The last write's outcome, for the status bar's save slot.
 #[derive(Clone, Debug, PartialEq)]
@@ -153,6 +141,8 @@ pub struct EditorPanel {
     /// Builds seen finishing; each one has TexLab read the new log.
     builds_seen: usize,
     find_bar: Entity<find_bar::FindBar>,
+    /// What a drag over the editor last saw (`drops.rs`).
+    drop_hover: drops::SharedDropHover,
     build: Entity<BuildPanel>,
     /// The caret's line and column, 1-based, for the status bar.
     cursor: (u32, u32),
@@ -162,10 +152,18 @@ pub struct EditorPanel {
     overleaf_applying: bool,
     /// Where the file stands with Overleaf, for the save slot.
     overleaf_save: Option<crate::overleaf::bridge::OverleafSaveState>,
+    /// When the linked project last synced (RFC 3339), for the save slot's
+    /// popover.
+    overleaf_last_sync: Option<String>,
     overleaf_review: overleaf_review::ReviewLayer,
     margin: margin_review::MarginState,
     /// Local annotations' marks, pins and composer (`annotations.rs`).
     annotations: annotations::AnnotationLayer,
+    /// The selection toolbar over a LaTeX or Markdown selection
+    /// (`selection_toolbar.rs`).
+    toolbar: selection_toolbar::ToolbarState,
+    /// The inline Proofread, Polish and Rewrite card (`proofread.rs`).
+    proofread: proofread::ProofreadState,
     /// The file's word count as of opening or the last save; counted off the
     /// main thread.
     words: Option<usize>,
@@ -197,6 +195,11 @@ pub struct EditorPanel {
     /// the source (`markdown_view.rs`).
     markdown_led: Option<(bool, std::time::Instant)>,
     status: SaveStatus,
+    /// When this editor last wrote its file, for the save slot's age;
+    /// nothing until its first save, as the app's `NOTHING_SAVED` has it.
+    saved_at: Option<chrono::DateTime<chrono::Utc>>,
+    /// Redraws the save slot's age every half minute while there is one.
+    _age_tick: Option<Task<()>>,
     /// Saves run one at a time; this settles when the last one queued has.
     save_queue: Option<Shared<Task<()>>>,
     /// Saves and reloads in flight, which the disk check waits out.
@@ -301,6 +304,7 @@ impl EditorPanel {
                     this.latex_source_changed(cx);
                     this.structured_source_changed(cx);
                     this.annotations_edited(cx);
+                    this.highlights_edited(cx);
                 }
                 BufferEvent::DirtyChanged | BufferEvent::Saved => {
                     crate::crash::note_editor(this, cx);
@@ -368,8 +372,12 @@ impl EditorPanel {
                         }
                         cx.emit(EditorPanelEvent::Focused);
                     }
-                    // A Markdown file's Split: the visual editor follows.
-                    EditorEvent::ScrollPositionChanged { .. } => this.markdown_source_scrolled(cx),
+                    // A Markdown file's Split: the visual editor follows; a
+                    // `.tex` file's highlights are painted where it shows.
+                    EditorEvent::ScrollPositionChanged { .. } => {
+                        this.markdown_source_scrolled(cx);
+                        this.highlights_shown(cx);
+                    }
                     // Leaving the editor saves at once, as the Tauri app does.
                     EditorEvent::Blurred => {
                         this.bib_source_focused(false);
@@ -391,7 +399,7 @@ impl EditorPanel {
                 if let crate::project::ProjectEvent::FilesChanged(paths) = event {
                     if paths
                         .as_ref()
-                        .is_none_or(|paths| paths.iter().any(|path| *path == this.relative))
+                        .is_none_or(|paths| paths.contains(&this.relative))
                     {
                         this.check_disk(cx);
                     }
@@ -438,14 +446,18 @@ impl EditorPanel {
             _spelling_events: None,
             builds_seen,
             find_bar,
+            drop_hover: Default::default(),
             build,
             cursor: (1, 1),
             overleaf_caret: (0, 0),
             overleaf_applying: false,
             overleaf_save: None,
+            overleaf_last_sync: None,
             overleaf_review: Default::default(),
             margin: Default::default(),
             annotations: Default::default(),
+            toolbar: Default::default(),
+            proofread: Default::default(),
             words: None,
             buffer_todos: None,
             status_width: Default::default(),
@@ -463,6 +475,8 @@ impl EditorPanel {
             page_flushed: None,
             markdown_led: None,
             status: SaveStatus::Saved,
+            saved_at: None,
+            _age_tick: None,
             save_queue: None,
             saves_pending: 0,
             save_generation: 0,
@@ -489,6 +503,7 @@ impl EditorPanel {
         this.attach_structured(window, cx);
         this.attach_spelling(cx);
         this.attach_annotations(cx);
+        this.paint_highlights(cx);
         this
     }
 
@@ -594,6 +609,7 @@ impl EditorPanel {
                 |selections| selections.select_ranges([point..point]),
             );
         });
+        reveal_flash::flash(&self.editor, point.row, cx);
         window.focus(&self.editor.focus_handle(cx), cx);
     }
 
@@ -688,7 +704,7 @@ impl Render for EditorPanel {
                 .child(crate::paint_probe::probe())
                 .into_any_element();
         }
-        let status: AnyElement = editor_status::status_bar(self, cx).into_any_element();
+        let status: AnyElement = editor_status::status_bar(self, cx.entity().downgrade(), cx).into_any_element();
         let search = self
             .find_bar
             .read(cx)
@@ -716,31 +732,8 @@ impl Render for EditorPanel {
         };
         let bib = self.bib_for_view(window, cx);
         let body = self.render_views(editor, status, bib, cx);
-        Self::latex_commands(div().key_context("LatticeEditor"), cx)
+        Self::panel_actions(Self::latex_commands(div().key_context("LatticeEditor"), cx), cx)
             .on_action(cx.listener(Self::deploy_search))
-            .on_action(cx.listener(|this, _: &find_bar::FindNext, window, cx| {
-                if !this.find_in_latex_visual("next", window, cx) {
-                    this.find_bar
-                        .update(cx, |bar, cx| bar.step(false, window, cx))
-                }
-            }))
-            .on_action(cx.listener(|this, _: &find_bar::FindPrevious, window, cx| {
-                if !this.find_in_latex_visual("previous", window, cx) {
-                    this.find_bar
-                        .update(cx, |bar, cx| bar.step(true, window, cx))
-                }
-            }))
-            // A figure dragged from the Project tree goes in as a figure
-            // (`beginFigureDrag`).
-            .on_drop(
-                cx.listener(|this, dragged: &crate::file_tree::DraggedEntry, _, cx| {
-                    if let Some(path) = dragged.figure()
-                        && this.inserts_figures()
-                    {
-                        cx.emit(EditorPanelEvent::InsertFigures(vec![path.to_string()]));
-                    }
-                }),
-            )
             // Before Zed's editor pastes: an image becomes a figure.
             .capture_action(cx.listener(|this, _: &editor::actions::Paste, window, cx| {
                 if this.editor().focus_handle(cx).is_focused(window) && this.pastes_image(cx) {
@@ -748,30 +741,14 @@ impl Render for EditorPanel {
                     cx.stop_propagation();
                 }
             }))
-            .on_action(cx.listener(|this, _: &ViewSource, window, cx| {
-                this.set_document_view(DocumentView::Source, window, cx)
-            }))
-            .on_action(cx.listener(|this, _: &ViewSplit, window, cx| {
-                this.set_document_view(DocumentView::Split, window, cx)
-            }))
-            .on_action(cx.listener(|this, _: &ViewPreview, window, cx| {
-                this.set_document_view(DocumentView::Preview, window, cx)
-            }))
-            .on_action(cx.listener(|this, _: &ShowSourceView, _, cx| {
-                if this.latex_view(cx).is_some() {
-                    choose_latex_view(lattice_settings::LatexView::Source, cx);
-                }
-            }))
-            .on_action(cx.listener(|this, _: &ShowVisualView, _, cx| {
-                if this.latex_view(cx).is_some() {
-                    choose_latex_view(lattice_settings::LatexView::Visual, cx);
-                }
-            }))
             .size_full()
+            .relative()
             .flex()
             .flex_col()
             .child(div().flex_1().min_h_0().child(body))
             .child(crate::paint_probe::probe())
+            .child(self.drop_marks(cx))
+            .map(|root| self.wire_drops(root, cx))
             .into_any_element()
     }
 }

@@ -67,7 +67,12 @@ impl PapersPanel {
                 .gap(px(6.))
                 .px(px(8.))
                 .py(px(10.))
-                .child(Icon::LOADER.element(ICON_SMALL, palette.text_secondary))
+                .child(lattice_ui::loading::loader(
+                    "papers-loader",
+                    ICON_SMALL,
+                    palette.text_secondary,
+                    cx,
+                ))
                 .child(
                     div()
                         .text_role(TextRole::Caption, cx)
@@ -104,9 +109,12 @@ impl PapersPanel {
         match &self.text_search {
             TextSearch::Searching => Some(
                 line(
-                    Icon::LOADER
-                        .element(ICON_SMALL, palette.text_secondary)
-                        .into_any_element(),
+                    lattice_ui::loading::loader(
+                        "papers-text-loader",
+                        ICON_SMALL,
+                        palette.text_secondary,
+                        cx,
+                    ),
                     t!("Searching saved text…"),
                     cx,
                 )

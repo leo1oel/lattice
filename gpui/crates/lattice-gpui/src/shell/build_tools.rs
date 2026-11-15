@@ -187,6 +187,18 @@ impl Shell {
             BuildAction::SwitchEngine { engine, keep } => {
                 self.switch_engine(engine.clone(), *keep, window, cx)
             }
+            BuildAction::FixAll | BuildAction::AskAgent(_) => {
+                let diagnostics = self.build_panel.read(cx).last().map_or_else(Vec::new, |last| {
+                    match action {
+                        BuildAction::AskAgent(ix) => last.diagnostics.get(*ix).cloned().into_iter().collect(),
+                        _ => last.diagnostics.clone(),
+                    }
+                });
+                self.start_repair(diagnostics, window, cx);
+            }
+            BuildAction::CancelRepair => self.cancel_repair(cx),
+            BuildAction::UnlockRepair => self.unlock_repair(cx),
+            BuildAction::ViewRepair => self.view_repair(window, cx),
         }
     }
 

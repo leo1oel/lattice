@@ -33,6 +33,12 @@ pub(super) struct LatexViews {
     /// The view the panel last drew, so a change of the shared choice
     /// carries the caret across.
     drawn: Option<LatexView>,
+    /// The manuscript's outline, as the shell last read it, for the rail
+    /// over the page (`latex_visual_events.rs`).
+    pub(super) headings: Option<std::rc::Rc<[crate::outline::Heading]>>,
+    /// Co-authors' Overleaf carets as the page takes them: name, hue, row
+    /// and UTF-16 column (`latex_visual_events.rs`).
+    pub(super) presence: Vec<(String, f64, u32, u32)>,
 }
 
 /// Whether `path` is a LaTeX document, which has a Visual form beside its
@@ -79,11 +85,19 @@ impl EditorPanel {
         let project = self.project.clone();
         let relative = self.relative.clone();
         let source = self.buffer.read(cx).text();
-        let document =
-            cx.new(|cx| StructuredDocument::latex_visual(&project, relative, source, window, cx));
-        // Edits, undo, redo and the caret are a Markdown visual editor's.
+        let dictionaries = super::spelling::dictionary_store(cx);
+        let document = cx.new(|cx| {
+            StructuredDocument::latex_visual(&project, relative, source, dictionaries, window, cx)
+        });
+        // Edits, undo, redo and the caret are a Markdown visual editor's;
+        // the rest is the page's own (`latex_visual_events.rs`).
         self._subscriptions
-            .push(cx.subscribe_in(&document, window, Self::on_markdown_document));
+            .push(cx.subscribe_in(&document, window, Self::on_latex_document));
+        // The page marks the project's annotations as the source does.
+        let store = crate::annotations::store::store(cx);
+        self._subscriptions.push(cx.observe(&store, |this, _, cx| {
+            this.forward_latex_annotations(cx)
+        }));
         document
     }
 
@@ -159,7 +173,8 @@ impl EditorPanel {
     }
 
     /// What the Visual view reads beside the text: the manuscript's root
-    /// document and the last build that wrote a PDF.
+    /// document, the last build that wrote a PDF, the outline for its rail
+    /// and the spell check's settings.
     pub(super) fn forward_latex_context(&mut self, cx: &mut Context<Self>) {
         let Some(document) = self.latex.document.clone() else {
             return;
@@ -180,11 +195,17 @@ impl EditorPanel {
                 cx,
             );
         });
+        self.forward_latex_outline(cx);
+        self.forward_latex_spelling(cx);
+        self.forward_latex_review(cx);
     }
 
     /// A jump to a 1-based line lands in the Visual view while it shows:
     /// the island takes it.
-    pub(super) fn jumps_in_latex_visual(&self, cx: &gpui::App) -> Option<Entity<StructuredDocument>> {
+    pub(super) fn jumps_in_latex_visual(
+        &self,
+        cx: &gpui::App,
+    ) -> Option<Entity<StructuredDocument>> {
         if !self.shows_latex_visual(cx) {
             return None;
         }
@@ -231,7 +252,9 @@ mod tests {
     #[test]
     fn only_a_tex_document_has_a_visual_view() {
         assert!(is_latex_document(std::path::Path::new("main.tex")));
-        assert!(is_latex_document(std::path::Path::new("chapters/Intro.TEX")));
+        assert!(is_latex_document(std::path::Path::new(
+            "chapters/Intro.TEX"
+        )));
         assert!(!is_latex_document(std::path::Path::new("style.sty")));
         assert!(!is_latex_document(std::path::Path::new("class.cls")));
         assert!(!is_latex_document(std::path::Path::new("notes.md")));

@@ -103,12 +103,10 @@ impl EditorPanel {
             MarkdownEvent::OpenPath(path) => {
                 cx.emit(EditorPanelEvent::OpenFile { path: path.clone() })
             }
-            MarkdownEvent::OpenLocation(path, line) => {
-                cx.emit(EditorPanelEvent::OpenLocation {
-                    path: path.clone(),
-                    line: *line,
-                })
-            }
+            MarkdownEvent::OpenLocation(path, line) => cx.emit(EditorPanelEvent::OpenLocation {
+                path: path.clone(),
+                line: *line,
+            }),
             MarkdownEvent::Caret(line, column) => {
                 let moved = self.cursor.0 != *line;
                 self.cursor = (*line, *column);

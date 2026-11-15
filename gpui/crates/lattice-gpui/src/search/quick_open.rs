@@ -80,6 +80,9 @@ pub struct QuickOpenSource {
     pub line_target: Option<String>,
     pub root: std::path::PathBuf,
     pub main: Option<String>,
+    /// The LaTeX source on screen, its path and unsaved text, read for
+    /// `@` and Go to symbol in place of the saved file.
+    pub live: Option<(String, String)>,
 }
 
 /// What a pick asks the window to do.
@@ -237,6 +240,11 @@ impl QuickOpen {
         self.select(self.active, window, cx);
     }
 
+    /// Which picker this card is, or `None` for quick open over files.
+    pub fn picker_kind(&self) -> Option<PickerKind> {
+        self.picker
+    }
+
     /// Whether the `@` items are still being read.
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     pub fn reading_symbols(&self) -> bool {
@@ -249,10 +257,11 @@ impl QuickOpen {
         if wants_symbols && self.symbols.is_none() && self.symbols_task.is_none() {
             let root = self.source.root.clone();
             let main = self.source.main.clone();
+            let live = self.source.live.clone();
             self.symbols_task = Some(cx.spawn(async move |this, cx| {
                 let symbols = cx
                     .background_executor()
-                    .spawn(async move { project_symbols(&root, main.as_deref()) })
+                    .spawn(async move { project_symbols(&root, main.as_deref(), live.as_ref()) })
                     .await;
                 this.update(cx, |this, cx| {
                     this.symbols = Some(symbols);

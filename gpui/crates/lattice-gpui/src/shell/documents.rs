@@ -60,7 +60,12 @@ pub(crate) struct Documents {
 impl Shell {
     /// ⌘P: quick open over the project's files, or closed again.
     pub(crate) fn toggle_quick_open(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.documents.quick_open.is_some() {
+        if self
+            .documents
+            .quick_open
+            .as_ref()
+            .is_some_and(|open| open.read(cx).picker_kind().is_none())
+        {
             self.close_document_overlays(window, cx);
             return;
         }
@@ -90,6 +95,7 @@ impl Shell {
             current,
             root,
             main,
+            live: self.live_latex(cx),
         };
         let weak = cx.entity().downgrade();
         let view = cx.new(|cx| QuickOpen::new(weak, source, window, cx));
@@ -156,6 +162,21 @@ impl Shell {
         view.update(cx, |view, cx| view.focus_input(window, cx));
         self.documents.find = Some(view);
         cx.notify();
+    }
+
+    /// Find in project on `query`, from the palette's query that found
+    /// nothing there.
+    pub(crate) fn find_in_project_for(
+        &mut self,
+        query: String,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.documents.find.is_some() {
+            self.close_document_overlays(window, cx);
+        }
+        self.documents.find_memory.query = query;
+        self.toggle_find(window, cx);
     }
 
     /// ⌘⇧H: Replace in project.
@@ -262,6 +283,9 @@ impl Shell {
 
     pub(super) fn take_document_overlays(&mut self, cx: &mut Context<Self>) {
         self.documents.quick_open = None;
+        self.parts
+            .get_mut::<super::insert_pickers_flow::GotoLine>()
+            .close();
         if let Some(find) = self.documents.find.take() {
             self.documents.find_memory = find.read(cx).memory(cx);
         }
@@ -292,6 +316,7 @@ impl Shell {
     /// sheet to close it first.
     pub(crate) fn document_overlay_open(&self) -> bool {
         self.documents.quick_open.is_some()
+            || self.goto_line_open()
             || self.documents.find.is_some()
             || self.documents.replace.is_some()
             || self.documents.add_papers.is_some()
@@ -376,7 +401,7 @@ impl Shell {
     }
 
     /// The files visited this session, newest first and each once.
-    fn recent_paths(&self) -> Vec<String> {
+    pub(super) fn recent_paths(&self) -> Vec<String> {
         let mut out: Vec<String> = Vec::new();
         for (path, _) in self.documents.history.iter().rev() {
             if !out.contains(path) {

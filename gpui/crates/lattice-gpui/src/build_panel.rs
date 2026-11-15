@@ -35,10 +35,8 @@ use crate::build::{
     diagnostics::{self, Severity},
     explain::{self, ExplainOptions, Explained},
     outcome::BuildOutcome,
+    repair::RepairState,
 };
-
-/// The log view keeps the tail; a full multi-pass log can run to megabytes.
-const LOG_TAIL_LINES: usize = 2_000;
 
 /// A raw log's rows, measured a little beyond the box so a scroll does not
 /// show them arriving.
@@ -75,6 +73,16 @@ pub enum BuildAction {
     /// Build with this engine from now on (`keep`: the writer chose it, so
     /// an automatic switch leaves it alone), then build.
     SwitchEngine { engine: String, keep: bool },
+    /// Fix all: the Agent repairs every error and warning.
+    FixAll,
+    /// Ask the agent about the diagnostic at this place in the list.
+    AskAgent(usize),
+    CancelRepair,
+    /// Unlock anyway: the editors are writable again though the repair has
+    /// not stopped.
+    UnlockRepair,
+    /// The repair's thread, in the Agent.
+    ViewRepair,
 }
 
 enum Status {
@@ -149,6 +157,11 @@ pub struct BuildPanel {
     quiet: bool,
     /// Quiet builds started, for a scenario.
     quiet_runs: usize,
+    /// The compile repair the card shows (`shell::build_repair` runs it).
+    repair: Option<RepairState>,
+    /// The project may be written: not linked to Overleaf, or linked with
+    /// write access. Fix all needs it.
+    repair_writable: bool,
     _ticker: Option<Task<()>>,
 }
 
@@ -168,7 +181,7 @@ impl BuildPanel {
             expanded: false,
             dismissed: false,
             dismissed_fingerprint: None,
-            docked_choice: None,
+            docked_choice: crate::settings::get(cx).build_output_docked,
             tab: OutputTab::Messages,
             replaced: HashMap::new(),
             copied: None,
@@ -178,6 +191,8 @@ impl BuildPanel {
             builds: 0,
             quiet: false,
             quiet_runs: 0,
+            repair: None,
+            repair_writable: true,
             _ticker: None,
         }
     }
@@ -250,7 +265,8 @@ impl BuildPanel {
     /// The last outcome's moment, while it may still arrive (`chip_mark`):
     /// its key, one per build, and how long ago it ended.
     pub fn chip_moment(&self) -> Option<(usize, Duration)> {
-        let outcome = self.outcome.as_ref()?;
+        // A quiet build's success shows its check without the flourish.
+        let outcome = self.outcome.as_ref().filter(|outcome| !outcome.quiet)?;
         let age = outcome.finished_at.elapsed();
         (!self.is_running() && age < crate::build::chip_mark::FRESH_WINDOW)
             .then_some((self.builds, age))
@@ -375,7 +391,10 @@ impl BuildPanel {
     ) {
         self.builds += 1;
         self.status = Status::Finished;
-        self.outcome = BuildOutcome::of(result, wrote_pdf);
+        self.outcome = BuildOutcome::of(result, wrote_pdf).map(|outcome| BuildOutcome {
+            quiet: self.quiet && outcome.succeeded,
+            ..outcome
+        });
         let sorted = diagnostics::sort(&result.diagnostics);
         let counts = diagnostics::summarize(&sorted);
         let table_ends_clash = sorted
@@ -407,13 +426,15 @@ impl BuildPanel {
                 )
             })
             .collect();
+        // The whole log, as the Tauri app's field holds it: a multi-pass
+        // log can run to megabytes, and the list lays out only the rows in
+        // view.
         let lines: Vec<&str> = result.log.lines().collect();
-        let tail = lines.len().saturating_sub(LOG_TAIL_LINES);
         let log_anchor = (!result.success).then(|| {
             let anchor = diagnostics::failed_log_anchor(&result.log);
             let line = result.log[..anchor].matches('\n').count();
             // One line of what came before stays in view above the error.
-            line.saturating_sub(tail).saturating_sub(1)
+            line.saturating_sub(1)
         });
         // Reopening the card is for news: autosave rebuilds after every
         // pause in typing, and a warning the writer chose to live with must
@@ -448,14 +469,14 @@ impl BuildPanel {
             diagnostics: sorted,
             explained,
             log: result.log.clone(),
-            log_lines: lines[tail..]
+            log_lines: lines
                 .iter()
                 .map(|line| SharedString::from(line.to_string()))
                 .collect(),
             log_anchor,
         });
         for list in [&self.card_log, &self.panel_log] {
-            list.reset(lines.len() - tail);
+            list.reset(lines.len());
         }
         self.scroll_log_to_anchor();
         cx.notify();
@@ -480,14 +501,43 @@ impl BuildPanel {
         cx.notify();
     }
 
-    /// Whether the card is up: a build reported something to read, and the
-    /// writer has not dismissed it.
+    /// Whether the card is up: a build reported something to read, or a
+    /// repair ran, and the writer has not dismissed it; a running repair
+    /// keeps it up.
     pub fn card_shown(&self) -> bool {
-        !self.dismissed
-            && self
-                .last
-                .as_ref()
-                .is_some_and(|last| !last.success || !last.diagnostics.is_empty())
+        (!self.dismissed || self.repair_busy())
+            && self.last.as_ref().is_some_and(|last| {
+                !last.success || !last.diagnostics.is_empty() || self.repair.is_some()
+            })
+    }
+
+    /// The compile repair the card shows.
+    pub(crate) fn repair(&self) -> Option<&RepairState> {
+        self.repair.as_ref()
+    }
+
+    pub(crate) fn repair_busy(&self) -> bool {
+        self.repair.as_ref().is_some_and(RepairState::busy)
+    }
+
+    pub(crate) fn set_repair(&mut self, repair: Option<RepairState>, cx: &mut Context<Self>) {
+        if self.repair != repair {
+            self.repair = repair;
+            cx.notify();
+        }
+    }
+
+    /// Fix all and Ask the agent wait while a build or a repair runs, and
+    /// need a project the writer may write.
+    pub(crate) fn fix_disabled(&self) -> bool {
+        !self.repair_writable || self.is_running() || self.repair_busy()
+    }
+
+    pub(crate) fn set_repair_writable(&mut self, writable: bool, cx: &mut Context<Self>) {
+        if self.repair_writable != writable {
+            self.repair_writable = writable;
+            cx.notify();
+        }
     }
 
     pub fn docked(&self) -> bool {
@@ -495,8 +545,18 @@ impl BuildPanel {
             .unwrap_or_else(|| self.last.as_ref().is_some_and(|last| last.success))
     }
 
+    /// The writer's choice, kept for every project and the next run.
     pub fn set_docked(&mut self, docked: bool, cx: &mut Context<Self>) {
         self.docked_choice = Some(docked);
+        crate::settings::update(cx, |settings| settings.build_output_docked = Some(docked));
+        cx.notify();
+    }
+
+    /// Back to no choice made, for a scenario that made one.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn forget_docked_choice(&mut self, cx: &mut Context<Self>) {
+        self.docked_choice = None;
+        crate::settings::update(cx, |settings| settings.build_output_docked = None);
         cx.notify();
     }
 

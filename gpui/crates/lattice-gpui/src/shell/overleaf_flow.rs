@@ -87,7 +87,8 @@ impl Shell {
                 this.show_overleaf_save(cx);
                 this.push_agent_overleaf(cx);
                 this.show_overleaf_review(cx);
-                this.show_deck_editable(cx);
+                this.show_editable(cx);
+                this.note_repair_writable(cx);
                 super::menus::follow_front(cx);
                 cx.notify()
             }),
@@ -122,12 +123,9 @@ impl Shell {
     ) {
         match event {
             // The files reach the editors and the tree through the watcher;
-            // the PDF follows them, as after any outside edit.
-            OverleafBridgeEvent::Incoming => {
-                if crate::settings::builds_automatically(cx) {
-                    self.run_build(super::build::BuildRequest::automatic(), window, cx);
-                }
-            }
+            // the PDF follows them, as after any outside edit, once the
+            // writes pause (`build_watch`).
+            OverleafBridgeEvent::Incoming => {}
             OverleafBridgeEvent::OpenConflict(path) => {
                 self.open_conflict_resolver(path.clone(), true, window, cx)
             }

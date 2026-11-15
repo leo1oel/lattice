@@ -3,8 +3,7 @@
 
 use std::path::Path;
 
-use gpui::{App, Context, Entity, Focusable as _, PromptLevel, WeakEntity, Window};
-use lattice_i18n::{t, tc};
+use gpui::{App, Context, Entity, Focusable as _, WeakEntity, Window};
 
 use super::Shell;
 use crate::editor_panel::EditorPanel;
@@ -48,14 +47,8 @@ impl Shell {
                 Some(editor)
             }
             Err(error) => {
-                log::error!("{error:#}");
-                let _ = window.prompt(
-                    PromptLevel::Critical,
-                    t!("Could not open the file"),
-                    Some(&format!("{error:#}")),
-                    &[tc!("dialog button", "OK")],
-                    cx,
-                );
+                let root = self.project.as_ref().map(|project| project.read(cx).root().to_path_buf());
+                super::open_failure::show(&error, root.as_deref(), path, cx);
                 None
             }
         }
@@ -67,6 +60,22 @@ impl Shell {
             .iter()
             .filter_map(WeakEntity::upgrade)
             .collect()
+    }
+
+    /// Proofread, polish or (with no ask) rewrite the selection of the
+    /// editor in front, focused again first.
+    pub(crate) fn proofread_in_front(
+        &mut self,
+        ask: Option<lattice_editor::proofread::Ask>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(editor) = self.active_editor() else {
+            return;
+        };
+        let source = editor.read(cx).editor().focus_handle(cx);
+        window.focus(&source, cx);
+        editor.update(cx, |editor, cx| editor.proofread_action(ask, window, cx));
     }
 
     /// The editor the writer was last in, if it is still open.

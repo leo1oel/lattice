@@ -9,7 +9,7 @@
 //! or restore on ⌘⇧↩, the palette on ⌘K (and ⌘⇧P).
 
 use gpui::{Action, SharedString, actions};
-use lattice_i18n::{space_mixed_script, t};
+use lattice_i18n::{space_mixed_script, t, tc};
 
 use super::trellis_layout::Preset;
 
@@ -21,7 +21,7 @@ mod projects;
 mod section;
 mod submission;
 
-pub use key_labels::keys_label;
+pub use key_labels::{keys_label, keystrokes_label, tauri_keystroke};
 pub use keymap::bind_keys;
 pub use section::Section;
 
@@ -136,6 +136,8 @@ pub struct CommandContext {
     pub in_project: bool,
     pub maximized: bool,
     pub focus_mode: bool,
+    /// Focus mode shows the PDF beside the documents.
+    pub focus_pdf: bool,
     pub dirty: bool,
     /// A build is under way or queued.
     pub building: bool,
@@ -168,6 +170,12 @@ pub struct Command {
     /// Whether the palette lists it (⌘W and the like are keys only).
     pub palette: bool,
     pub keywords: &'static str,
+    /// What the palette shows at the row's end (a version, a folder, a
+    /// count), as the Tauri table's `detail`.
+    pub detail: Option<SharedString>,
+    /// Whether running it from the palette puts it among the recent
+    /// commands (the Tauri table's `recent: false` opts out).
+    pub recent: bool,
     /// The action whose keys the row shows, when it is not [`Self::action`]:
     /// Build shows Save's ⌘S, which saves and builds.
     pub keys_of: Option<Box<dyn Action>>,
@@ -187,8 +195,21 @@ impl Command {
             action: Box::new(action),
             palette: true,
             keywords: "",
+            detail: None,
+            recent: true,
             keys_of: None,
         }
+    }
+
+    pub(crate) fn detail(mut self, detail: impl Into<SharedString>) -> Self {
+        self.detail = Some(detail.into());
+        self
+    }
+
+    /// Never among the recent commands.
+    pub(crate) fn not_recent(mut self) -> Self {
+        self.recent = false;
+        self
     }
 
     /// The row shows `action`'s keys in place of its own
@@ -241,28 +262,33 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
         out.push(Command::new("save", t!("Save and build"), Section::Build, Save).keys_only());
         out.push(
             Command::new("rebuild", t!("Clean rebuild"), Section::Build, CleanRebuild)
-                .keywords("latexmk"),
+                .keywords("latexmk")
+                .not_recent(),
         );
-        out.push(Command::new(
-            "clean",
-            t!("Clean aux files"),
-            Section::Build,
-            CleanBuildFiles,
-        ));
-        if context.building {
-            out.push(Command::new(
-                "stop-build",
-                t!("Stop build"),
+        out.push(
+            Command::new(
+                "clean",
+                t!("Clean aux files"),
                 Section::Build,
-                StopBuild,
+                CleanBuildFiles,
+            )
+            .not_recent(),
+        );
+        if context.building {
+            out.push(
+                Command::new("stop-build", t!("Stop build"), Section::Build, StopBuild)
+                    .not_recent(),
+            );
+        }
+        // Only from a LaTeX source, which SyncTeX maps to the PDF.
+        if context.latex_source {
+            out.push(Command::new(
+                "reveal-cursor",
+                t!("Jump to PDF"),
+                Section::Navigate,
+                ForwardSync,
             ));
         }
-        out.push(Command::new(
-            "reveal-cursor",
-            t!("Reveal cursor in PDF"),
-            Section::Build,
-            ForwardSync,
-        ));
         out.push(Command::new(
             "build-panel",
             t!("Show or hide the build log"),
@@ -273,12 +299,28 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
     if project {
         out.push(Command::new(
             "quick-open",
-            "Quick open file",
+            t!("Quick open file"),
             Section::Navigate,
             QuickOpen,
         ));
-        out.push(Command::new("back", "Back", Section::Navigate, GoBack).keys_only());
-        out.push(Command::new("forward", "Forward", Section::Navigate, GoForward).keys_only());
+        out.push(
+            Command::new(
+                "back",
+                tc!("Document history", "Back"),
+                Section::Navigate,
+                GoBack,
+            )
+            .keys_only(),
+        );
+        out.push(
+            Command::new(
+                "forward",
+                tc!("Document history", "Forward"),
+                Section::Navigate,
+                GoForward,
+            )
+            .keys_only(),
+        );
         out.push(
             Command::new(
                 "close-tab",
@@ -315,27 +357,6 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
             )
             .keys_only(),
         );
-        out.push(Command::new("next-tab", t!("Next tab"), Section::Navigate, NextTab).keys_only());
-        out.push(
-            Command::new(
-                "previous-tab",
-                t!("Previous tab"),
-                Section::Navigate,
-                PreviousTab,
-            )
-            .keys_only(),
-        );
-        // The workspace's own keys (`TRELLIS_SHORTCUTS`).
-        let nav = Section::Navigate;
-        out.push(Command::new("next-panel", "Next panel", nav, NextPanel).keys_only());
-        out.push(Command::new("previous-panel", "Previous panel", nav, PreviousPanel).keys_only());
-        out.push(
-            Command::new("navigate-back", "Previous zoomed view", nav, NavigateBack).keys_only(),
-        );
-        out.push(
-            Command::new("navigate-forward", "Next zoomed view", nav, NavigateForward).keys_only(),
-        );
-        out.push(Command::new("close-view", "Close the tab", nav, CloseView).keys_only());
     }
     out.push(
         Command::new(
@@ -360,12 +381,15 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
             Section::Layout,
             super::get_started_flow::ShowGetStarted,
         ));
-        out.push(Command::new(
-            "layout-reset",
-            t!("Reset panel layout"),
-            Section::Layout,
-            ResetLayout,
-        ));
+        out.push(
+            Command::new(
+                "layout-reset",
+                t!("Reset panel layout"),
+                Section::Layout,
+                ResetLayout,
+            )
+            .not_recent(),
+        );
         out.push(Command::new(
             "frame",
             if context.maximized {
@@ -393,6 +417,8 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
                     action,
                     palette: false,
                     keywords: "",
+                    detail: None,
+                    recent: true,
                     keys_of: None,
                 });
             }
@@ -420,12 +446,15 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
                 Section::Layout,
                 SaveWorkspace,
             ));
-            out.push(Command::new(
-                "workspace-revert",
-                t!("Revert to saved"),
-                Section::Layout,
-                RevertWorkspace,
-            ));
+            out.push(
+                Command::new(
+                    "workspace-revert",
+                    t!("Revert to saved"),
+                    Section::Layout,
+                    RevertWorkspace,
+                )
+                .not_recent(),
+            );
         }
         presets::preset_commands(context, &mut out);
         for (id, label, action) in [
@@ -462,6 +491,8 @@ pub fn commands(context: &CommandContext) -> Vec<Command> {
                 action,
                 palette: true,
                 keywords: "panel",
+                detail: None,
+                recent: true,
                 keys_of: None,
             });
         }
@@ -532,7 +563,8 @@ mod tests {
     }
 
     #[test]
-    fn a_preset_on_screen_offers_the_way_back() {
+    fn the_preset_in_use_is_not_offered_again() {
+        // use-command-table.ts: "the one in use is not offered again".
         let context = CommandContext {
             in_project: true,
             preset: Some(Preset::Writing),
@@ -542,8 +574,9 @@ mod tests {
             .into_iter()
             .map(|command| command.label.to_string())
             .collect();
-        assert!(labels.contains(&"Leave the Writing layout".to_string()));
-        assert!(labels.contains(&"Reading layout".to_string()));
+        assert!(!labels.contains(&"Switch to the Writing layout".to_string()));
+        assert!(labels.contains(&"Switch to the Reading layout".to_string()));
+        assert!(labels.contains(&"Switch to the Bibliography layout".to_string()));
     }
 
     #[test]
@@ -606,8 +639,7 @@ mod tests {
         assert_eq!(row(&context, &StopBuild), Some(true));
         assert_eq!(row(&CommandContext::default(), &OpenTexDoctor), Some(true));
         // The shortcut sheet lists a section in table order: the Tauri table
-        // puts the build problems before Reopen the closed tab, and the tab
-        // pair stays together.
+        // puts the build problems before Reopen the closed tab.
         let navigate: Vec<_> = commands(&context)
             .into_iter()
             .filter(|command| command.section == Section::Navigate)
@@ -616,6 +648,5 @@ mod tests {
         let at = |id: &str| navigate.iter().position(|other| other == id).unwrap();
         assert_eq!(at("previous-problem"), at("next-problem") + 1);
         assert!(at("previous-problem") < at("reopen-tab"));
-        assert_eq!(at("previous-tab"), at("next-tab") + 1);
     }
 }

@@ -11,7 +11,9 @@
 //! configuration when it starts: a restart stops every window's running
 //! turns, so while one runs it is offered, not made.
 
-use gpui::{AppContext as _, Context, Entity, SharedString, Subscription, Task, WeakEntity, Window};
+use gpui::{
+    AppContext as _, Context, Entity, SharedString, Subscription, Task, WeakEntity, Window,
+};
 use gpui_kit::component::input::{InputEvent, InputState};
 use lattice_i18n::t;
 use serde_json::{Value, json};
@@ -32,7 +34,6 @@ const DEFAULT_CONTEXT: &str = "128000";
 const DEFAULT_MAX_TOKENS: &str = "16384";
 /// Pi takes at most this many models (`MAX_MODELS`).
 pub(super) const MAX_MODELS: usize = 16;
-
 
 /// One model's row; typed numbers stay text until saved, so a half-typed
 /// field is not reset.
@@ -181,7 +182,9 @@ impl ModelEndpointPane {
 
     /// The fields as `status` has them (`draftOf`); the key field empties.
     fn adopt(&mut self, status: Value, window: &mut Window, cx: &mut Context<Self>) {
-        let endpoint = status.get("endpoint").filter(|endpoint| !endpoint.is_null());
+        let endpoint = status
+            .get("endpoint")
+            .filter(|endpoint| !endpoint.is_null());
         self.protocol = Protocol::from_tag(
             endpoint
                 .and_then(|endpoint| endpoint.get("protocol"))
@@ -215,7 +218,10 @@ impl ModelEndpointPane {
                 model.get("id").and_then(Value::as_str).unwrap_or_default(),
                 &number("contextWindow"),
                 &number("maxTokens"),
-                model.get("images").and_then(Value::as_bool).unwrap_or(false),
+                model
+                    .get("images")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false),
                 window,
                 cx,
             );
@@ -249,7 +255,10 @@ impl ModelEndpointPane {
                             this.saved = Some(json!({ "endpoint": null, "keySaved": false }));
                             this.notice = Some(Notice {
                                 level: Level::Error,
-                                text: t!("Couldn’t read the endpoint settings. Reopen Settings to retry").into(),
+                                text: t!(
+                                    "Couldn’t read the endpoint settings. Reopen Settings to retry"
+                                )
+                                .into(),
                                 restart: false,
                             });
                         }
@@ -337,7 +346,13 @@ impl ModelEndpointPane {
 
     /// Saved or removed: the agent takes it at its next start, which is now
     /// unless a turn is running.
-    fn applied(&mut self, status: Value, text: String, window: &mut Window, cx: &mut Context<Self>) {
+    fn applied(
+        &mut self,
+        status: Value,
+        text: String,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.adopt(status, window, cx);
         if agent_turns() > 0 {
             let restart =
@@ -449,9 +464,9 @@ impl ModelEndpointPane {
         }
         self.call(
             || {
-                lattice_core::runtime::block_on(lattice_core::model_endpoint::remove_model_endpoint(
-                    agent_home(),
-                ))
+                lattice_core::runtime::block_on(
+                    lattice_core::model_endpoint::remove_model_endpoint(agent_home()),
+                )
                 .and_then(|status| serde_json::to_value(status).map_err(|error| error.to_string()))
             },
             |this, status, window, cx| {
@@ -473,7 +488,8 @@ impl ModelEndpointPane {
         let key = (!typed.is_empty()).then_some(typed);
         self.call(
             move || {
-                let endpoint = serde_json::from_value(endpoint).map_err(|error| error.to_string())?;
+                let endpoint =
+                    serde_json::from_value(endpoint).map_err(|error| error.to_string())?;
                 lattice_core::runtime::block_on(lattice_core::model_endpoint::test_model_endpoint(
                     endpoint, key,
                 ))

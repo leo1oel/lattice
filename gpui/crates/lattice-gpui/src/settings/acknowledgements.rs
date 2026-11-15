@@ -75,9 +75,8 @@ pub fn render(
 
 impl Acknowledgements {
     fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let search = cx.new(|cx| {
-            InputState::new(window, cx).placeholder(t!("Search by name or license"))
-        });
+        let search =
+            cx.new(|cx| InputState::new(window, cx).placeholder(t!("Search by name or license")));
         let subscription = cx.subscribe(&search, |_, _, event: &InputEvent, cx| {
             if let InputEvent::Change = event {
                 cx.notify();
@@ -110,16 +109,14 @@ impl Acknowledgements {
     fn render_page(&mut self, width: PageWidth, cx: &mut Context<Self>) -> AnyElement {
         let notices = notices::shipped();
         let this = cx.entity();
-        let mut groups = vec![
-            controls::first_group(
-                Some(t!("Core components").into()),
-                CORE_SOFTWARE
-                    .iter()
-                    .map(|credit| credit_row(credit, width, cx))
-                    .collect(),
-                cx,
-            ),
-        ];
+        let mut groups = vec![controls::first_group(
+            Some(t!("Core components").into()),
+            CORE_SOFTWARE
+                .iter()
+                .map(|credit| credit_row(credit, width, cx))
+                .collect(),
+            cx,
+        )];
         let mut design: Vec<AnyElement> = Vec::new();
         if lattice_ui::fonts::font_license().is_some() {
             let view = {
@@ -153,7 +150,11 @@ impl Acknowledgements {
                     .render(width, cx),
             );
         }
-        design.extend(DESIGN_CREDITS.iter().map(|credit| credit_row(credit, width, cx)));
+        design.extend(
+            DESIGN_CREDITS
+                .iter()
+                .map(|credit| credit_row(credit, width, cx)),
+        );
         groups.push(controls::group(
             Some(t!("Type, icons and sound").into()),
             design,
@@ -174,7 +175,9 @@ impl Acknowledgements {
             .icon(Icon::FILE_TEXT)
             .disabled(notices.packages.is_empty())
             .on_click(move |_, window, cx| {
-                this.update(cx, |pane, cx| pane.open_sheet(Sheet::notices(None, window, cx), cx))
+                this.update(cx, |pane, cx| {
+                    pane.open_sheet(Sheet::notices(None, window, cx), cx)
+                })
             });
         // The header's action sits at the right of the title
         // (`SettingsSectionHeader`'s `actions`).
@@ -249,7 +252,10 @@ impl Acknowledgements {
                         .child(closure_label(closure))
                         .into_any_element(),
                 );
-                body.extend(rows.into_iter().map(|package| self.package_row(package, false, cx)));
+                body.extend(
+                    rows.into_iter()
+                        .map(|package| self.package_row(package, false, cx)),
+                );
             }
             if matches.len() > shown.len() {
                 body.push(lead(
@@ -270,15 +276,22 @@ impl Acknowledgements {
                 let expanded = self.open.contains(&closure);
                 body.push(self.closure_toggle(closure, rows.len(), expanded, cx));
                 if expanded {
-                    body.extend(rows.into_iter().map(|package| self.package_row(package, true, cx)));
+                    body.extend(
+                        rows.into_iter()
+                            .map(|package| self.package_row(package, true, cx)),
+                    );
                 }
             }
         }
         let title = t!("All third-party software ({total})", total = total);
-        controls::group(Some(title.into()), vec![controls::block(
-            div().flex().flex_col().children(body),
-            false,
-        )], cx)
+        controls::group(
+            Some(title.into()),
+            vec![controls::block(
+                div().flex().flex_col().children(body),
+                false,
+            )],
+            cx,
+        )
     }
 
     /// A closure folded to one row, its chevron turning as it opens.
@@ -291,7 +304,9 @@ impl Acknowledgements {
     ) -> AnyElement {
         let palette = cx.palette().clone();
         div()
-            .id(ElementId::Name(format!("acknowledgements-closure-{closure:?}").into()))
+            .id(ElementId::Name(
+                format!("acknowledgements-closure-{closure:?}").into(),
+            ))
             .w_full()
             .px(px(4.))
             .py(px(6.))
@@ -338,8 +353,11 @@ impl Acknowledgements {
         };
         div()
             .id(ElementId::Name(
-                format!("acknowledgements-package-{:?}-{}@{}", package.closure, package.name, package.version)
-                    .into(),
+                format!(
+                    "acknowledgements-package-{:?}-{}@{}",
+                    package.closure, package.name, package.version
+                )
+                .into(),
             ))
             .w_full()
             .py(px(2.))
@@ -351,7 +369,10 @@ impl Acknowledgements {
             .rounded(px(6.))
             .text_role_in(TextRole::Caption, TypeScale::Settings, cx)
             .text_color(palette.text_secondary)
-            .hover(|this| this.bg(palette.settings_control_hover).text_color(palette.text))
+            .hover(|this| {
+                this.bg(palette.settings_control_hover)
+                    .text_color(palette.text)
+            })
             .child(
                 div()
                     .min_w_0()
@@ -384,7 +405,10 @@ impl Acknowledgements {
 fn credit_row(credit: &Credit, width: PageWidth, cx: &mut Context<Acknowledgements>) -> AnyElement {
     let palette = cx.palette().clone();
     let notices = notices::shipped();
-    let mut row = Row::new(controls::row_id("acknowledgements-credit", credit.name), credit.name);
+    let mut row = Row::new(
+        controls::row_id("acknowledgements-credit", credit.name),
+        credit.name,
+    );
     if let Some(description) = credit.description() {
         row = row.description(description, cx);
     }
@@ -404,7 +428,14 @@ fn credit_row(credit: &Credit, width: PageWidth, cx: &mut Context<Acknowledgemen
         .on_click(move |_, _, cx| cx.open_url(url))
     });
     if terms.is_some() || site.is_some() {
-        row = row.control(div().flex().items_center().gap(px(8.)).children(terms).children(site));
+        row = row.control(
+            div()
+                .flex()
+                .items_center()
+                .gap(px(8.))
+                .children(terms)
+                .children(site),
+        );
     }
     row.render(width, cx)
 }

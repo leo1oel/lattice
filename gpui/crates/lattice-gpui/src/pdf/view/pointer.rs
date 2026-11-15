@@ -182,6 +182,7 @@ impl PdfView {
                 return;
             }
             "escape" if self.selection.is_some() => {
+                cx.stop_propagation();
                 self.selection = None;
                 cx.notify();
                 return;
@@ -263,6 +264,13 @@ impl PdfView {
             focus: to,
         });
         cx.notify();
+    }
+
+    /// The selection's first page and an identity that changes with it,
+    /// while there is one: what the Agent's context watches.
+    pub fn selection_mark(&self) -> Option<(usize, String)> {
+        let selection = self.selection.filter(|selection| !selection.is_empty())?;
+        Some((selection.ordered().0.0, format!("{selection:?}")))
     }
 
     pub fn has_selection(&self) -> bool {

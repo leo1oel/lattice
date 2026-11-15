@@ -16,8 +16,8 @@ use std::time::Duration;
 
 use gpui::{
     AnyElement, App, Entity, FontWeight, Hsla, InteractiveElement as _, IntoElement,
-    ParentElement as _, SharedString, StatefulInteractiveElement as _, Styled as _, Window, div,
-    prelude::*, px, relative,
+    ParentElement as _, StatefulInteractiveElement as _, Styled as _, Window, div, prelude::*, px,
+    relative,
 };
 use lattice_core::models::Diagnostic;
 use lattice_i18n::t;
@@ -27,25 +27,24 @@ use lattice_ui::{
     dock::PANEL_RADIUS,
     elevation::{Elevation, ring},
     fluid_hover::{FluidHover, ItemKind},
-    tokens::{FONT_WEIGHT_MEDIUM, FONT_WEIGHT_SEMIBOLD},
+    tokens::FONT_WEIGHT_MEDIUM,
 };
 
 use super::{
     diagnostics::{self, Severity, group_by_file, install_target, location_label, severity},
-    explain::{ExcerptLine, Explained},
     icons,
     outcome::headline,
 };
 use crate::build_panel::{BuildAction, BuildPanel, LastBuild, OutputTab};
 
+mod explained;
 mod log;
+mod repair;
+use explained::explained_row;
 use log::{log_lines, log_view};
 
 /// How long a copy button shows its check.
 pub const COPIED_FOR: Duration = Duration::from_millis(1500);
-/// How far into a failing line its token may start before the line is cut
-/// in front of it.
-const EXCERPT_LEAD: usize = 24;
 /// The copy button of the log, beside the per-message ones.
 const LOG_COPY: usize = usize::MAX;
 
@@ -115,7 +114,9 @@ pub fn card(
         .overflow_hidden()
         .text_color(palette.text_secondary)
         .child(bar(panel, last, build, docked, cx))
-        .children(body);
+        .children(repair::details(panel, cx))
+        .children(body)
+        .children(repair::footer(panel, last, build, cx));
     if docked {
         surface
             .flex_none()
@@ -232,6 +233,7 @@ fn bar(
         .pl(px(8.))
         .pr(px(10.))
         .child(toggle)
+        .children(repair::bar_control(panel, last, build, cx))
         .child(dock)
         .child(close)
         .into_any_element()
@@ -625,7 +627,10 @@ fn row(
     );
     let explained = last.explained.get(ix).and_then(Option::as_ref);
     if let Some(replacement) = panel.replaced.get(&ix) {
-        let headline = explained.map_or_else(|| diagnostic.message.clone(), |e| e.headline.clone());
+        let headline = explained.map_or_else(
+            || crate::build::messages::text(diagnostic),
+            |e| e.headline.clone(),
+        );
         return div()
             .flex()
             .flex_col()
@@ -672,14 +677,15 @@ fn row(
     if let Some(explained) = explained.filter(|_| level == Severity::Error) {
         return explained_row(panel, ix, diagnostic, explained, copy, build, glide, cx);
     }
-    let shown = explained.map_or_else(|| diagnostic.message.clone(), |e| e.headline.clone());
+    let text = crate::build::messages::text(diagnostic);
+    let shown = explained.map_or_else(|| text.clone(), |e| e.headline.clone());
     let tooltip = Some(match explained {
         Some(explained) => format!(
             "{}\n\n{}",
             explained.explanation,
             t!("TeX: {0}", diagnostic.message)
         ),
-        None => diagnostic.message.clone(),
+        None => text,
     });
     let install = install_target(diagnostic).map(|file| {
         let build = build.clone();
@@ -808,173 +814,4 @@ fn package_update(ix: usize, cx: &App) -> Option<AnyElement> {
                 .into_any_element()
         }
     })
-}
-
-#[allow(clippy::too_many_arguments)]
-fn explained_row(
-    _: &BuildPanel,
-    ix: usize,
-    diagnostic: &Diagnostic,
-    explained: &Explained,
-    copy: AnyElement,
-    build: &Entity<BuildPanel>,
-    glide: Glide<'_>,
-    cx: &App,
-) -> AnyElement {
-    let palette = cx.palette().clone();
-    let replace = explained
-        .suggestion
-        .clone()
-        .filter(|_| explained.token.is_some())
-        .map(|suggestion| {
-            let build = build.clone();
-            Button::new(
-                ("compile-explained-replace", ix),
-                strip_tags(&t!(
-                    "Replace with <0>{suggestion}</0>",
-                    suggestion = suggestion
-                )),
-            )
-            .compact()
-            .on_click(move |_, _, cx| build.update(cx, |build, cx| build.replace(ix, cx)))
-        });
-    div()
-        .flex()
-        .flex_col()
-        .gap(px(6.))
-        .pb(px(6.))
-        .child(item(
-            ix,
-            diagnostic,
-            ItemLook {
-                message: explained.headline.clone(),
-                weight: FONT_WEIGHT_MEDIUM,
-                mark: severity_icon(Severity::Error, cx),
-                // TeX's own words stay a hover away (and in the row's Copy).
-                tooltip: Some(t!("TeX: {0}", diagnostic.message)),
-            },
-            build,
-            glide,
-            cx,
-        ))
-        .when(!explained.excerpt.is_empty(), |row| {
-            row.child(excerpt(&explained.excerpt, cx))
-        })
-        .child(
-            div()
-                .px(px(8.))
-                .text_role(TextRole::Caption, cx)
-                .line_height(px(18.))
-                .text_color(palette.text)
-                .child(explained.explanation.clone()),
-        )
-        .child(
-            div()
-                .flex()
-                .flex_wrap()
-                .items_center()
-                .gap(px(6.))
-                .pl(px(8.))
-                .children(replace)
-                .child(div().flex_1())
-                .child(copy),
-        )
-        .into_any_element()
-}
-
-/// The failing line and one either side, numbered, the failing one tinted
-/// and its token underlined. The token stays in view however narrow the
-/// card: a long line is cut a little before it.
-fn excerpt(lines: &[ExcerptLine], cx: &App) -> AnyElement {
-    let palette = cx.palette().clone();
-    let font = cx.lattice().fonts.editor.clone();
-    let rows = lines.iter().map(|line| {
-        let text: AnyElement = match line.token {
-            Some((start, end)) => {
-                let cut = if start > EXCERPT_LEAD {
-                    floor_char(&line.text, start - EXCERPT_LEAD + 4)
-                } else {
-                    0
-                };
-                let lead = format!(
-                    "{}{}",
-                    if cut > 0 { "…" } else { "" },
-                    &line.text[cut..start]
-                );
-                div()
-                    .flex()
-                    .min_w_0()
-                    .overflow_hidden()
-                    .child(div().flex_none().child(SharedString::from(lead)))
-                    .child(
-                        div()
-                            .flex_none()
-                            .font_weight(FONT_WEIGHT_SEMIBOLD)
-                            .text_color(palette.danger)
-                            .underline()
-                            .text_decoration_wavy()
-                            .text_decoration_1()
-                            .text_decoration_color(palette.danger)
-                            .child(SharedString::from(line.text[start..end].to_string())),
-                    )
-                    .child(
-                        div()
-                            .min_w_0()
-                            .truncate()
-                            .child(SharedString::from(line.text[end..].to_string())),
-                    )
-                    .into_any_element()
-            }
-            None => div()
-                .min_w_0()
-                .truncate()
-                .child(SharedString::from(line.text.clone()))
-                .into_any_element(),
-        };
-        div()
-            .flex()
-            .pr(px(8.))
-            .whitespace_nowrap()
-            .when(line.failing, |row| {
-                row.bg(palette.danger.opacity(0.07))
-                    .border_l_2()
-                    .border_color(palette.danger)
-                    .text_color(palette.text)
-            })
-            .child(
-                div()
-                    .flex_none()
-                    .w(px(30.))
-                    .pr(px(8.))
-                    .text_right()
-                    .text_color(palette.text_secondary)
-                    .child(line.number.to_string()),
-            )
-            .child(div().flex_1().min_w_0().child(text))
-    });
-    div()
-        .mx(px(8.))
-        .py(px(6.))
-        .rounded(px(6.))
-        .overflow_hidden()
-        .bg(palette.editor)
-        .shadow(vec![gpui::BoxShadow {
-            inset: true,
-            ..ring(palette.line)
-        }])
-        .font_family(font)
-        .text_size(px(11.))
-        .line_height(px(20.))
-        .text_color(palette.text_secondary)
-        .children(rows)
-        .into_any_element()
-}
-
-/// The char boundary at or before `at`.
-fn floor_char(text: &str, at: usize) -> usize {
-    let mut at = at.min(text.len());
-    while !text.is_char_boundary(at) {
-        at -= 1;
-    }
-    at
 }

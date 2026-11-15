@@ -60,7 +60,23 @@ pub fn font_license() -> Option<&'static [u8]> {
 /// size-adjust in the Tauri build, so only the sans is scaled.
 const TIMELESS_SANS_SIZE_ADJUST: f32 = 1.04;
 
+/// The reading aids' families, as Settings › Appearance offers them by name.
+pub const READING_AIDS: [&str; 2] = ["Atkinson Hyperlegible", "OpenDyslexic"];
+
 const BUNDLED: &[&[u8]] = &[
+    // The reading aids a writer can set the editors in (Settings ›
+    // Appearance › Editor fonts), as the Tauri app ships them from
+    // @fontsource (`src/assets/fonts/reading-aids/`): the Latin subset at 400
+    // and 700, upright and italic, unpacked losslessly from WOFF2 to TTF.
+    // SIL OFL 1.1 (`assets/fonts/reading-aids/LICENSE-*`).
+    include_bytes!("../assets/fonts/reading-aids/atkinson-hyperlegible-latin-400-normal.ttf"),
+    include_bytes!("../assets/fonts/reading-aids/atkinson-hyperlegible-latin-400-italic.ttf"),
+    include_bytes!("../assets/fonts/reading-aids/atkinson-hyperlegible-latin-700-normal.ttf"),
+    include_bytes!("../assets/fonts/reading-aids/atkinson-hyperlegible-latin-700-italic.ttf"),
+    include_bytes!("../assets/fonts/reading-aids/opendyslexic-latin-400-normal.ttf"),
+    include_bytes!("../assets/fonts/reading-aids/opendyslexic-latin-400-italic.ttf"),
+    include_bytes!("../assets/fonts/reading-aids/opendyslexic-latin-700-normal.ttf"),
+    include_bytes!("../assets/fonts/reading-aids/opendyslexic-latin-700-italic.ttf"),
     include_bytes!("../assets/fonts/inter/Inter-Regular.ttf"),
     include_bytes!("../assets/fonts/inter/Inter-Medium.ttf"),
     include_bytes!("../assets/fonts/inter/Inter-SemiBold.ttf"),
@@ -213,6 +229,7 @@ mod tests {
         let roles: BTreeSet<String> = [&fonts.ui, &fonts.display, &fonts.editor]
             .into_iter()
             .map(|name| name.to_string())
+            .chain(READING_AIDS.iter().map(|name| name.to_string()))
             .collect();
         assert_eq!(bundled, roles);
     }

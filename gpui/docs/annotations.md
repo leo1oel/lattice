@@ -3,9 +3,9 @@
 One of the features [the GPUI app](../README.md) has so far.
 
 Keeps the writer's notes on passages of the project's sources, as the Tauri app does, in `.research/annotations.json` beside the project, the file both apps read and write through lattice-core.
-Annotate selection (the palette) opens the note's composer beside the selected passage: the quote in the highlighter's amber with its file and line, a line for what should change, the intent chips (Rewrite, Shorten, Clarify, Add a citation, Fix) and Save (⌘↵).
+Annotate selection (the palette), or Annotate on the [selection toolbar](selection-toolbar.md), opens the note's composer beside the selected passage: the quote in the highlighter's amber with its file and line, a line for what should change, the intent chips (Rewrite, Shorten, Clarify, Add a citation, Fix) and Save (⌘↵).
 Esc or a click outside closes it, and a note with words in it is offered back with "Note discarded" and Undo, on its passage, in the file it was written on.
-In a project linked to Overleaf, Annotate selection starts an Overleaf comment thread instead, as the Tauri app does.
+In a project linked to Overleaf, either Annotate starts an Overleaf comment thread instead, as the Tauri app does.
 
 Each open note's passage reads as an amber highlighter stroke, blue while the agent's proposal waits and violet while its question does, with its numbered pin in the gutter over the fold column on the line its passage starts (ringed when more notes start there).
 The pointer resting on a passage shows its comment card: the pin, the author and the time, the note and its replies, Resolve and Reply….

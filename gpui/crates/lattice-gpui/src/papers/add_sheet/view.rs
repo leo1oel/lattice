@@ -84,7 +84,9 @@ impl AddPapers {
                 .text_role(TextRole::Caption, cx)
                 .text_color(ink)
                 .whitespace_nowrap()
-                .children(icon.map(|icon| icon.element(ICON_SMALL, ink)))
+                .children(icon.map(|icon| {
+                    lattice_ui::loading::mark("add-sheet-mark", icon, ICON_SMALL, ink, cx)
+                }))
                 .child(div().min_w_0().truncate().child(text))
                 .into_any_element()
         };

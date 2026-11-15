@@ -154,9 +154,13 @@ pub fn invoke(
         // The Tauri app keeps a running turn from an app restart; the GPUI
         // app restarts nothing under the writer, but Settings › Model
         // endpoint offers the agent's restart rather than making it while a
-        // turn runs (`restart_impact`'s `agentTurns`).
+        // turn runs (`restart_impact`'s `agentTurns`). The window learns of
+        // the turn itself from the page's own report (`agent:turn`).
         "set_agent_turn_running" => {
-            let running = args.get("running").and_then(Value::as_bool).unwrap_or(false);
+            let running = args
+                .get("running")
+                .and_then(Value::as_bool)
+                .unwrap_or(false);
             set_turn_running(root, running);
             Task::ready(Ok(Value::Null))
         }

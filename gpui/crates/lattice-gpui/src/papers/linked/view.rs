@@ -512,7 +512,12 @@ impl Render for LinkedLibrary {
                     .flex()
                     .items_center()
                     .gap(px(8.))
-                    .child(Icon::LOADER.element(ICON_SMALL, palette.text_secondary))
+                    .child(lattice_ui::loading::loader(
+                        "linked-loader",
+                        ICON_SMALL,
+                        palette.text_secondary,
+                        cx,
+                    ))
                     .child(caption(
                         match &source {
                             Some(source) => t!("Reading {0}…", file_name(source)),

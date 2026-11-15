@@ -572,6 +572,7 @@ impl Render for RenameSymbolDialog {
             },
         )
         .closable_by_scrim(!busy)
+        .closable(!busy)
         .initial_focus(self.field.focus_handle(cx))
     }
 }

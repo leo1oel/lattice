@@ -14,6 +14,9 @@
 //!   file and the page are back to their first text;
 //! - text put into the buffer (as the source, or an outside edit, would)
 //!   reaches the page;
+//! - the outline rail stands over the page, a misspelt word ("frist") is
+//!   marked, and a local annotation is marked and pinned there until it is
+//!   resolved (`latex_visual_companions.rs`);
 //! - the strip's Find there opens the page's own search panel, its query
 //!   focused, and leaves the source's find bar (which Visual does not draw)
 //!   closed;
@@ -52,9 +55,11 @@ Some prose with \\textbf{bold words} and $x^2 + y^2$ in it.
 \\end{equation}
 
 \\begin{itemize}
-  \\item first point
+  \\item frist point
   \\item second point
 \\end{itemize}
+
+\\section{Closing notes}
 
 As argued before~\\cite{e2e-key}.
 
@@ -109,7 +114,13 @@ impl Run {
         cx.update(|cx| choose_latex_view(LatexView::Visual, cx));
         let island = self.latex_visual_drawn(cx, steps, &panel).await;
         if let Some(island) = island {
-            self.latex_visual_shots(cx).await?;
+            // The rail and the spell check (`latex_visual_companions.rs`).
+            self.latex_visual_companions(cx, steps, &island, "frist")
+                .await?;
+            // A local annotation marked and pinned in the page, then the
+            // window with all three, when shots are asked for.
+            self.latex_visual_annotation(cx, steps, &island, &path, "bold words")
+                .await?;
             // Opening writes nothing.
             self.pause(cx, Duration::from_millis(1500)).await;
             let unchanged = std::fs::read_to_string(&path).is_ok_and(|text| text == PAPER);
@@ -148,7 +159,7 @@ impl Run {
 
     /// Save the window, page included, in light and dark, into
     /// `LATTICE_E2E_SHOTS` when it is set; the theme is put back after.
-    async fn latex_visual_shots(&self, cx: &mut AsyncApp) -> Result<()> {
+    pub(super) async fn latex_visual_shots(&self, cx: &mut AsyncApp) -> Result<()> {
         let Some(dir) = std::env::var_os("LATTICE_E2E_SHOTS") else {
             return Ok(());
         };
@@ -321,12 +332,22 @@ impl Run {
             json!({ "placed": placed, "saved": saved, "text": if text == expected { Value::Null } else { json!(text) } }),
         );
 
-        native::send_key(native, 'z', true)?;
-        let undone = self
-            .wait_for(cx, Duration::from_secs(10), |_, _| {
-                std::fs::read_to_string(path).is_ok_and(|text| text == PAPER)
+        // The page's typed characters can reach the buffer as more than one
+        // md:change, so the buffer may hold "quokka" and " " as separate undo
+        // groups; a ⌘Z press undoes one group. Press until the file is back
+        // as it was, at most once per plausible group.
+        let mut presses = 0;
+        let mut undone = false;
+        while presses < 3 && !undone {
+            let before = std::fs::read_to_string(path).unwrap_or_default();
+            native::send_key(native, 'z', true)?;
+            presses += 1;
+            self.wait_for(cx, Duration::from_secs(10), |_, _| {
+                std::fs::read_to_string(path).is_ok_and(|text| text == PAPER || text != before)
             })
             .await;
+            undone = std::fs::read_to_string(path).is_ok_and(|text| text == PAPER);
+        }
         // The page takes the buffer's text once the typing pause has passed.
         let mut page = Value::Null;
         let started = std::time::Instant::now();
@@ -338,10 +359,11 @@ impl Run {
             self.pause(cx, Duration::from_millis(150)).await;
         }
         steps.check(
-            "⌘Z typed in the Visual view undoes the word through the buffer: the file and the page are back as they were",
+            "⌘Z typed in the Visual view undoes the typed word through the buffer (a press per undo group): the file and the page are back as they were",
             undone && page["text"].as_str().is_some_and(|text| !text.contains("quokka")),
             json!({
                 "undone": undone,
+                "presses": presses,
                 "text": if undone { Value::Null } else { json!(std::fs::read_to_string(path).unwrap_or_default()) },
             }),
         );

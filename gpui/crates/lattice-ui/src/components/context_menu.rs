@@ -20,6 +20,8 @@
 //!     .children(ContextMenu::layer(&menu, window, cx, |menu, path, window, cx| { … }))
 //! ```
 
+use std::time::Instant;
+
 use gpui::{
     AnyElement, App, Context, ElementId, Empty, Entity, FocusHandle, InteractiveElement,
     IntoElement, KeyDownEvent, MouseButton, ParentElement as _, Pixels, Point, RenderOnce,
@@ -27,12 +29,18 @@ use gpui::{
 };
 use gpui_kit::base::POPUP_PRIORITY;
 
-use crate::components::{Menu, PopFrom, SubmenuBounds, pop_in};
+use crate::{
+    components::{Menu, PopFrom, SubmenuBounds, pop_in, pop_out},
+    motion::Exit,
+};
 
 /// Where a context menu is open, and on what.
 pub struct ContextMenu<T: Clone + 'static> {
     id: ElementId,
     open: Option<(Point<Pixels>, T)>,
+    /// The menu just closed, drawn without input while it plays its exit:
+    /// where it stood, what it was on, and when it closed.
+    leaving: Option<(Point<Pixels>, T, Instant)>,
     focus: FocusHandle,
     /// The focus the menu took over, given back when it closes.
     interrupted: Option<FocusHandle>,
@@ -51,6 +59,7 @@ impl<T: Clone + 'static> ContextMenu<T> {
         window.use_keyed_state(id.clone(), cx, move |_, cx| ContextMenu {
             id,
             open: None,
+            leaving: None,
             focus: cx.focus_handle(),
             interrupted: None,
             submenus: SubmenuBounds::default(),
@@ -83,14 +92,20 @@ impl<T: Clone + 'static> ContextMenu<T> {
             self.interrupted = window.focused(cx).filter(|focus| *focus != self.focus);
         }
         self.open = Some((at, target));
+        self.leaving = None;
         self.focus.focus(window, cx);
         cx.notify();
     }
 
     /// Close the menu and give focus back to what it took it from.
     pub fn close(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.open.take().is_none() {
+        let Some((at, target)) = self.open.take() else {
             return;
+        };
+        // Its picture plays the exit where it stood (`popup-motion.css`);
+        // under reduced motion it goes at once.
+        if !cx.reduce_motion() {
+            self.leaving = Some((at, target, Instant::now()));
         }
         if let Some(focus) = self.interrupted.take()
             && self.focus.contains_focused(window, cx)
@@ -112,18 +127,49 @@ impl<T: Clone + 'static> ContextMenu<T> {
         cx: &mut App,
         build: impl Fn(Menu, &T, &mut Window, &mut App) -> Menu + 'static,
     ) -> Option<AnyElement> {
-        let (id, at) = {
+        let (id, open, leaving) = {
             let state = this.read(cx);
-            let (at, _) = state.open.as_ref()?;
-            (state.id.clone(), *at)
+            (
+                state.id.clone(),
+                state.open.as_ref().map(|(at, _)| *at),
+                state
+                    .leaving
+                    .as_ref()
+                    .map(|(at, _, closed)| (*at, closed.elapsed())),
+            )
         };
         let child = |name: &'static str| {
             ElementId::NamedChild(std::sync::Arc::new(id.clone()), name.into())
+        };
+        let Some(at) = open else {
+            let (at, elapsed) = leaving?;
+            if Exit::POPUP.is_done(elapsed) {
+                this.update(cx, |state, _| state.leaving = None);
+                return None;
+            }
+            window.request_animation_frame();
+            let menu = LazyMenu {
+                id: child("menu"),
+                state: this.clone(),
+                build: Box::new(build),
+                leaving: true,
+            };
+            return Some(
+                deferred(
+                    anchored()
+                        .position(at)
+                        .snap_to_window_with_margin(px(8.))
+                        .child(pop_out(PopFrom::Above, elapsed, menu)),
+                )
+                .with_priority(POPUP_PRIORITY)
+                .into_any_element(),
+            );
         };
         let menu = LazyMenu {
             id: child("menu"),
             state: this.clone(),
             build: Box::new(build),
+            leaving: false,
         };
         let outside = this.clone();
         let escape = this.clone();
@@ -181,14 +227,22 @@ struct LazyMenu<T: Clone + 'static> {
     id: ElementId,
     state: Entity<ContextMenu<T>>,
     build: BuildMenu<T>,
+    /// The picture of a menu that has closed: drawn as it was, taking no
+    /// focus or input.
+    leaving: bool,
 }
 
 impl<T: Clone + 'static> RenderOnce for LazyMenu<T> {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let (target, focus, interrupted, submenus) = {
             let state = self.state.read(cx);
+            let target = if self.leaving {
+                state.leaving.as_ref().map(|(_, target, _)| target.clone())
+            } else {
+                state.target().cloned()
+            };
             (
-                state.target().cloned(),
+                target,
                 state.focus.clone(),
                 state.interrupted.clone(),
                 state.submenus.clone(),
@@ -197,6 +251,9 @@ impl<T: Clone + 'static> RenderOnce for LazyMenu<T> {
         let Some(target) = target else {
             return Empty.into_any_element();
         };
+        if self.leaving {
+            return (self.build)(Menu::new(self.id), &target, window, cx).into_any_element();
+        }
         let dismiss = self.state.clone();
         submenus.clear();
         (self.build)(Menu::new(self.id), &target, window, cx)

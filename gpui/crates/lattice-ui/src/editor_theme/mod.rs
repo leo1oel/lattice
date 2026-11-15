@@ -109,6 +109,11 @@ pub fn ground(theme: CodeTheme, palette: &Palette) -> Hsla {
     CodePalette::new(theme, palette).ground
 }
 
+/// The caret's colour in `theme` (`--code-caret`).
+pub fn caret(theme: CodeTheme, palette: &Palette) -> Hsla {
+    CodePalette::new(theme, palette).caret
+}
+
 /// The current line's wash in `theme`, over [`ground`].
 pub fn current_line(theme: CodeTheme, palette: &Palette) -> Hsla {
     CodePalette::new(theme, palette).line

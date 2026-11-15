@@ -120,9 +120,6 @@ impl Shell {
         cx: &mut Context<Self>,
     ) -> bool {
         let commands = self.terminal.read(cx).running(None, cx);
-        if commands.is_empty() {
-            return false;
-        }
         let mut running: Vec<String> = Vec::new();
         if self.build_task.is_some() {
             running.push(t!("the build").to_string());
@@ -136,6 +133,12 @@ impl Shell {
             if !running.contains(&item) {
                 running.push(item);
             }
+        }
+        if self.agent_turn_running() {
+            running.push(t!("the agent’s turn").to_string());
+        }
+        if running.is_empty() {
+            return false;
         }
         let name = self.project_name(cx);
         let shell = cx.entity().downgrade();

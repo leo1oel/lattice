@@ -5,10 +5,8 @@
 //! file on content (UTF-8 text through the transaction log, the rest
 //! copied). Nothing opens; what landed is summarized.
 //!
-//! Names the target already has are asked about once for the whole batch.
-//! The app offers Keep both, Replace and Skip as a radio group; this asks
-//! Keep both or Cancel, the app's default choice, until the radio group is
-//! ported.
+//! Names the target already has are asked about once for the whole batch,
+//! Keep both, Replace or Skip (`import_conflict.rs`).
 
 use gpui::{AppContext as _, Context, PathPromptOptions, Window};
 use lattice_core::project::{self as core_project, ImportRequest, NameConflict, ProjectImport};
@@ -17,10 +15,7 @@ use lattice_ui::components::{ToastLevel, ToastProgress};
 use lattice_i18n::t;
 
 use super::Shell;
-use crate::{
-    confirm::{self, Confirm},
-    notices::{self, Notice},
-};
+use crate::notices::{self, Notice};
 
 /// The clipboard image's bytes as the project keeps them: PNG, JPEG and
 /// WebP as they are, anything else the clipboard holds (a TIFF from
@@ -50,9 +45,6 @@ pub(crate) fn clipboard_image_bytes(
 pub(crate) fn clipboard_image_name(extension: &str, now: chrono::DateTime<chrono::Utc>) -> String {
     format!("clipboard-{}.{extension}", now.format("%Y-%m-%dT%H-%M-%S"))
 }
-
-/// How many taken names the question lists before "and N more".
-const LISTED_NAMES: usize = 5;
 
 impl Shell {
     /// Import files…: the Mac's open panel, files and folders together, into
@@ -183,7 +175,7 @@ impl Shell {
 
     /// Import `sources` (absolute) into `target`. Without a `conflict`
     /// policy, a name the target already has asks first.
-    fn import_sources(
+    pub(super) fn import_sources(
         &mut self,
         sources: Vec<String>,
         target: String,
@@ -211,7 +203,11 @@ impl Shell {
                         conflict,
                     },
                     &mut |written, total| {
-                        let share = if total == 0 { 1. } else { written as f32 / total as f32 };
+                        let share = if total == 0 {
+                            1.
+                        } else {
+                            written as f32 / total as f32
+                        };
                         if let Ok(mut progress) = progress.lock() {
                             *progress = share;
                         }
@@ -253,9 +249,10 @@ impl Shell {
                 }
                 Ok(result) => {
                     project.update(cx, |project, cx| project.entries_changed(cx));
-                    let mut notice = Notice::new(ToastLevel::Success, imported_title(&result, &target))
-                        .source(t!("Project"))
-                        .key(IMPORT_TOAST);
+                    let mut notice =
+                        Notice::new(ToastLevel::Success, imported_title(&result, &target))
+                            .source(t!("Project"))
+                            .key(IMPORT_TOAST);
                     if let Some(detail) = skipped_detail(&result) {
                         notice = notice.detail(detail);
                     }
@@ -277,6 +274,19 @@ impl Shell {
         .detach();
     }
 
+    /// Import `sources` into `target` as Import files… does, asking about
+    /// taken names, for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub(crate) fn import_for_scenario(
+        &mut self,
+        sources: Vec<String>,
+        target: String,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.import_sources(sources, target, false, None, window, cx);
+    }
+
     fn ask_import_conflict(
         &mut self,
         sources: Vec<String>,
@@ -286,42 +296,17 @@ impl Shell {
         cx: &mut Context<Self>,
     ) {
         let view = cx.entity().downgrade();
-        let count = names.len();
-        let title = match (count, target.is_empty()) {
-            (1, true) => "An item with this name is already in the project root".to_string(),
-            (1, false) => format!("An item with this name is already in {target}"),
-            (_, true) => format!("{count} items with these names are already in the project root"),
-            (_, false) => format!("{count} items with these names are already in {target}"),
-        };
-        let mut listed = names
-            .iter()
-            .take(LISTED_NAMES)
-            .map(String::as_str)
-            .collect::<Vec<_>>()
-            .join(", ");
-        if count > LISTED_NAMES {
-            listed.push_str(&format!(" and {} more", count - LISTED_NAMES));
-        }
-        confirm::ask(
-            Confirm::new(title)
-                .body(format!(
-                    "{listed}. Keep both lands each under the next free name."
-                ))
-                .confirm_label("Keep both")
-                .on_confirm(move |window, cx| {
-                    let (sources, target) = (sources.clone(), target.clone());
-                    view.update(cx, |this, cx| {
-                        this.import_sources(
-                            sources,
-                            target,
-                            copy_existing,
-                            Some(NameConflict::KeepBoth),
-                            window,
-                            cx,
-                        )
-                    })
-                    .ok();
-                }),
+        super::import_conflict::ask(
+            names,
+            target.clone(),
+            move |choice, window, cx| {
+                // Cancel imports nothing.
+                let Some(choice) = choice else { return };
+                view.update(cx, |this, cx| {
+                    this.import_sources(sources, target, copy_existing, Some(choice), window, cx)
+                })
+                .ok();
+            },
             cx,
         );
     }
@@ -351,7 +336,11 @@ fn imported_title(result: &ProjectImport, target: &str) -> String {
             targetDirectory = target
         )
         .to_string(),
-        (_, true) => t!("Imported {count} items into the project root", count = count).to_string(),
+        (_, true) => t!(
+            "Imported {count} items into the project root",
+            count = count
+        )
+        .to_string(),
         (_, false) => t!(
             "Imported {count} items into {targetDirectory}",
             count = count,

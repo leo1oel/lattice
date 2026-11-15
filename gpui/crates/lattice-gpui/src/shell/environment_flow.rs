@@ -4,10 +4,10 @@
 //! asks for the name, `equation` or the environment's own to start with, and
 //! its Rename wraps the selection in `\begin{name}` … `\end{name}`, or
 //! renames both delimiters of the environment at the caret
-//! (`lattice_editor::latex::{edits, environments}`), as one edit ⌘Z undoes.
+//! (`lattice_editor::latex::{region_edits, environments}`), as one edit ⌘Z undoes.
 
 use gpui::{AppContext as _, Context, InteractiveElement as _, Window, actions};
-use lattice_editor::latex::{edits, edits::FormatEdit, environments};
+use lattice_editor::latex::{edits::FormatEdit, environments, region_edits};
 
 use super::{Shell, parts::Part};
 use crate::submission::references::{RenameEvent, RenameSymbolDialog, RenameTarget};
@@ -91,7 +91,7 @@ fn environment_edit(
 ) -> Option<FormatEdit> {
     match target {
         RenameTarget::WrapEnvironment => {
-            Some(edits::wrap_environment(text, from, to, name).into_format())
+            Some(region_edits::wrap_environment(text, from, to, name).into_format())
         }
         RenameTarget::Environment => {
             let changes = environments::rename_environment_at(text, to, name)?;
@@ -124,13 +124,13 @@ mod tests {
         let wrap =
             environment_edit(RenameTarget::WrapEnvironment, "a x b", 2, 3, "center").unwrap();
         assert_eq!(
-            edits::apply("a x b", &wrap.changes),
+            lattice_editor::latex::edits::apply("a x b", &wrap.changes),
             "a \\begin{center}\nx\n\\end{center} b"
         );
         let text = "\\begin{a}x\\end{a}";
         let caret = text.find('x').unwrap();
         let rename = environment_edit(RenameTarget::Environment, text, caret, caret, "bb").unwrap();
-        let renamed = edits::apply(text, &rename.changes);
+        let renamed = lattice_editor::latex::edits::apply(text, &rename.changes);
         assert_eq!(renamed, "\\begin{bb}x\\end{bb}");
         assert_eq!(&renamed[rename.head..rename.head + 1], "x");
     }

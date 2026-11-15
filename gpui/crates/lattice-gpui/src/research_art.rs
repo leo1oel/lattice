@@ -53,8 +53,7 @@ static NOTE_SPIKE: LazyLock<Vec<ArtPath>> = LazyLock::new(|| parse(NOTE_SPIKE_SO
 static MARGIN_NOTES: LazyLock<Vec<ArtPath>> = LazyLock::new(|| parse(MARGIN_NOTES_SOURCE));
 static PROOF_MARKS: LazyLock<Vec<ArtPath>> = LazyLock::new(|| parse(PROOF_MARKS_SOURCE));
 static LETTER_RACK: LazyLock<Vec<ArtPath>> = LazyLock::new(|| parse(LETTER_RACK_SOURCE));
-static ANNOTATION_FLAGS: LazyLock<Vec<ArtPath>> =
-    LazyLock::new(|| parse(ANNOTATION_FLAGS_SOURCE));
+static ANNOTATION_FLAGS: LazyLock<Vec<ArtPath>> = LazyLock::new(|| parse(ANNOTATION_FLAGS_SOURCE));
 
 /// The drawings ported so far, each read from the Tauri app's own module.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

@@ -21,6 +21,7 @@ use super::{
 use crate::search::{
     goto_line::{GotoLineDialog, GotoLineEvent},
     insert_pickers::{PickerKind, citation_items, inserted, reference_items},
+    live_labels::{local_labels, merge_references},
     quick_open::{QuickOpen, QuickOpenEvent, QuickOpenSource},
 };
 
@@ -33,6 +34,12 @@ actions!(
 #[derive(Default)]
 pub(crate) struct GotoLine {
     open: Option<(Entity<GotoLineDialog>, Subscription)>,
+}
+
+impl GotoLine {
+    pub(super) fn close(&mut self) {
+        self.open = None;
+    }
 }
 
 pub(super) const PART: Part = Part {
@@ -100,7 +107,12 @@ impl Shell {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if self.documents.quick_open.is_some() {
+        if self
+            .documents
+            .quick_open
+            .as_ref()
+            .is_some_and(|open| open.read(cx).picker_kind() == Some(kind))
+        {
             self.close_document_overlays(window, cx);
             return;
         }
@@ -116,12 +128,18 @@ impl Shell {
         if !self.dismiss_overlays_for_documents(cx) {
             return;
         }
+        let live = self.live_latex(cx);
         let (root, main, items) = {
             let project = project.read(cx);
             let index = project.index().read(cx);
             let items = match kind {
                 PickerKind::InsertCitation => Some(citation_items(index.citations())),
-                PickerKind::InsertReference => Some(reference_items(index.references())),
+                PickerKind::InsertReference => Some(reference_items(&match &live {
+                    Some((path, text)) => {
+                        merge_references(index.references(), path, local_labels(path, text))
+                    }
+                    None => index.references().to_vec(),
+                })),
                 // Read in the background from the main document, as `@` is.
                 PickerKind::GoToSymbol => None,
             };
@@ -141,6 +159,7 @@ impl Shell {
             current,
             root,
             main,
+            live,
         };
         let weak = cx.entity().downgrade();
         let view = cx.new(|cx| QuickOpen::picker(weak, kind, items, source, window, cx));
@@ -151,6 +170,17 @@ impl Shell {
         view.update(cx, |view, cx| view.focus_input(window, cx));
         self.documents.quick_open = Some(view);
         cx.notify();
+    }
+
+    /// The LaTeX source in front, its path and its unsaved text, which the
+    /// pickers' labels and sections are read from over the saved ones
+    /// (`liveReferences`, `outlineNodes`).
+    pub(crate) fn live_latex(&self, cx: &gpui::App) -> Option<(String, String)> {
+        let editor = self
+            .active_editor()
+            .filter(|_| self.latex_source_in_front(cx))?;
+        let editor = editor.read(cx);
+        Some((editor.relative().to_string(), editor.text_and_caret(cx).0))
     }
 
     /// A cite or ref pick: `\command{key}` at the editor's caret.
@@ -174,7 +204,7 @@ impl Shell {
         }
     }
 
-    /// Whether Go to line is open, for a scenario.
+    /// Whether Go to line is open.
     pub(crate) fn goto_line_open(&self) -> bool {
         self.parts.get::<GotoLine>().open.is_some()
     }
@@ -191,9 +221,8 @@ impl Shell {
     /// ⌘G: Go to line on the text editor in front, starting from its
     /// caret's line; or closed again.
     pub(crate) fn open_goto_line(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.parts.get_mut::<GotoLine>().open.take().is_some() {
-            self.focus_front(window, cx);
-            cx.notify();
+        if self.goto_line_open() {
+            self.close_document_overlays(window, cx);
             return;
         }
         if !self.text_editor_in_front(cx) {
@@ -202,6 +231,9 @@ impl Shell {
         let Some(editor) = self.active_editor() else {
             return;
         };
+        if !self.dismiss_overlays_for_documents(cx) {
+            return;
+        }
         let (text, caret) = editor.read(cx).text_and_caret(cx);
         let line = text[..caret.min(text.len())].matches('\n').count() as u32 + 1;
         let max_line = text.matches('\n').count() as u32 + 1;
