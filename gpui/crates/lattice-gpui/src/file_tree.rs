@@ -137,6 +137,15 @@ impl DraggedEntry {
     pub fn figure(&self) -> Option<&str> {
         self.figure.then_some(self.path.as_str())
     }
+
+    /// Whether what is being dragged is a drop the tree and the editors
+    /// take (a row of the tree, or files from Finder). Their highlights are
+    /// drawn from what those drags' moves last saw, which another kind of
+    /// drag (the editor's split divider) never updates, and a Finder drag
+    /// that leaves the window never clears.
+    pub fn dropping(cx: &App) -> bool {
+        cx.has_active_drag_of::<Self>() || cx.has_active_drag_of::<ExternalPaths>()
+    }
 }
 
 /// What the dragged row looks like under the pointer: its glyph and name on
@@ -554,15 +563,19 @@ impl Render for FileTreePanel {
                 }
             })
             // A row dropped on the empty area moves to the top level.
-            .on_drop(move |dragged: &DraggedEntry, _, cx| {
-                root_drop
-                    .update(cx, |_, cx| {
-                        cx.emit(FileTreeEvent::Move {
-                            paths: vec![dragged.path.clone()],
-                            target: String::new(),
+            .on_drop({
+                let aim = self.aim.clone();
+                move |dragged: &DraggedEntry, _, cx| {
+                    *aim.borrow_mut() = Aim::default();
+                    root_drop
+                        .update(cx, |_, cx| {
+                            cx.emit(FileTreeEvent::Move {
+                                paths: vec![dragged.path.clone()],
+                                target: String::new(),
+                            })
                         })
-                    })
-                    .ok();
+                        .ok();
+                }
             })
             .on_drop({
                 let view = view.clone();
@@ -691,6 +704,8 @@ impl Render for FileTreePanel {
                     let paths_drop = view.clone();
                     let entry_aim = row_aim.clone();
                     let paths_aim = row_aim.clone();
+                    let entry_drop_aim = row_aim.clone();
+                    let paths_drop_aim = row_aim.clone();
                     let (entry_target, paths_target) = (target.clone(), target.clone());
                     let files_target = target.clone();
                     let menu_target = (relative.clone(), is_folder);
@@ -711,6 +726,7 @@ impl Render for FileTreePanel {
                         })
                         .on_drop(move |paths: &ExternalPaths, _, cx| {
                             cx.stop_propagation();
+                            *paths_drop_aim.borrow_mut() = Aim::default();
                             let (paths, target) = (paths.paths().to_vec(), files_target.clone());
                             paths_drop
                                 .update(cx, |_, cx| {
@@ -720,6 +736,7 @@ impl Render for FileTreePanel {
                         })
                         .on_drop(move |dragged: &DraggedEntry, _, cx| {
                             cx.stop_propagation();
+                            *entry_drop_aim.borrow_mut() = Aim::default();
                             if dragged.path == target {
                                 return;
                             }

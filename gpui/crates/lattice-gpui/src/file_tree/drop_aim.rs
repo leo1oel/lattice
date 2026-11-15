@@ -5,6 +5,8 @@
 use gpui::App;
 use lattice_ui::components::DropMark;
 
+use super::DraggedEntry;
+
 /// Where a drag over the tree is aimed, as its moves last saw it: whether
 /// the pointer is over the tree at all, and the folder of the row under it.
 /// The tree's own listener sees each move first and the rows' after, so a
@@ -18,7 +20,7 @@ pub(super) struct Aim {
 impl Aim {
     /// The folder a drop would land in now ("" is the project root).
     pub(super) fn folder(&self, cx: &App) -> Option<String> {
-        (self.inside && cx.has_active_drag()).then(|| self.row.clone().unwrap_or_default())
+        (self.inside && DraggedEntry::dropping(cx)).then(|| self.row.clone().unwrap_or_default())
     }
 }
 

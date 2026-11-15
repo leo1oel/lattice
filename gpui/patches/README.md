@@ -5,7 +5,7 @@ Each is upstream's source at an exact pin plus the diffs in this directory, noth
 
 | Crate | Upstream | Pin | License | Diffs |
 |---|---|---|---|---|
-| `gpui-fast/crates/gpui` | [longbridge/gpui-fast](https://github.com/longbridge/gpui-fast) `crates/gpui` | commit `bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa` | Apache-2.0 | `gpui-fast-vendoring.diff`, `gpui-fast-motion-and-type.diff`, `gpui-fast-interface-zoom.diff`, `gpui-fast-file-drop-modality.diff` |
+| `gpui-fast/crates/gpui` | [longbridge/gpui-fast](https://github.com/longbridge/gpui-fast) `crates/gpui` | commit `bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa` | Apache-2.0 | `gpui-fast-vendoring.diff`, `gpui-fast-motion-and-type.diff`, `gpui-fast-interface-zoom.diff`, `gpui-fast-file-drop-modality.diff`, `gpui-fast-active-drag-type.diff` |
 | `gpui-fast/crates/gpui_macos` | the same repository's `crates/gpui_macos` | the same commit | Apache-2.0 | `gpui-fast-lab-occlusion.diff`, `gpui-fast-overlay-first-mouse.diff`, `gpui-fast-lab-assume-key.diff` |
 | `gpui-component` | [crates.io `gpui-component`](https://crates.io/crates/gpui-component) (GPUI Kit's components) | 0.9.1, crate SHA-256 `e155c4914bd809d966660610d596f7b57c5cd38979ca2c132215057a91f23f03` | Apache-2.0 | `gpui-component-overlays.diff`, `gpui-component-lattice-hooks.diff` |
 | `gpui-base` | [crates.io `gpui-base`](https://crates.io/crates/gpui-base) (GPUI Kit's foundation, which `gpui-component` builds on) | 0.9.1, crate SHA-256 `f3e9ae5237737cfd110d0ff513fcd9c20f97d98ebabd0a73164068177f0aca4f` | Apache-2.0 | none (vendored as upstream, kept so the workspace builds from one source) |
@@ -28,6 +28,9 @@ The vendored copies cannot run their own tests where they sit (the gpui crate's 
 - **`gpui-fast-file-drop-modality.diff`**: a drag of files from Finder counts as pointer input.
   AppKit sends a window no mouse moves while another app's drag is over it, only the drag's own events, which GPUI turns into mouse moves and a release after it has noted the input's modality; so after typing, the window stayed in keyboard modality, which hides hover, and the drop's release found no element under the pointer: a file dropped on the Project tree or an editor did nothing.
   The drag's entering, moving and dropping now set the pointer's modality, as a mouse move does.
+- **`gpui-fast-active-drag-type.diff`**: `App::has_active_drag_of::<T>()`, whether the drag in progress carries a `T`.
+  GPUI only said whether anything was dragged, so the Project tree's and an editor's drop highlights, left by a Finder drag that went out of the window (which GPUI's elements never see) or by a drop on a row, came back for an unrelated drag such as the editor's split divider.
+  They now show only while a drag of the kinds they take is in progress.
 - **`gpui-fast-motion-and-type.diff`**: two things CSS has and GPUI lacked, which Lattice's look needs (`fast/scale.rs`, `fast/letter_spacing.rs`; upstream files get only hooks, as gpui-fast's own rules ask).
   - *Element scale*: `gpui::scaled(child).scale(s).origin(..).translate(..)`, CSS's `transform: translate() scale()` about a `transform-origin`, for the popup, dialog and toast entrances. Paint is transformed in the scene, every primitive kind, layer and rounded clip alike; layout and hit testing are not. Sprites are stretched from their raster at rest rather than rasterized at every fractional size, as a browser composites a transformed layer, so an entrance adds nothing to the atlas. A view replayed from last frame is replayed only under the scale it was drawn with, and a view drawn again inside a replayed one keeps the scale it is drawn under.
   - *Letter spacing*: `TextStyle::letter_spacing` and `Styled::letter_spacing` (pixels, rems, or a fraction of the font size, which is CSS's `em`), applied after shaping and keyed in the line layout cache, so wrapping and hit testing read the spaced glyphs.
@@ -49,7 +52,7 @@ The vendored copies cannot run their own tests where they sit (the gpui crate's 
     The default draws it, as upstream.
 - **`gpui-component-overlays.diff`**: GPUI Kit's notification and sheet layers are drawn `deferred`, as its dialogs already are. gpui-fast composes native views (a webview island) between a window's base content and its overlay surface, and only deferred draws reach the overlay surface, so without this a toast or a Kit sheet is covered by any webview under it.
 
-The new public API (`scaled`, `Scaled`, `TextStyle::letter_spacing`, `Styled::letter_spacing`, `Window::set_interface_zoom`, `Window::interface_zoom`) is not gpui-fast's, which adds no public API without its maintainers' agreement; it is kept here, on the pin, until it is upstreamed or replaced.
+The new public API (`scaled`, `Scaled`, `TextStyle::letter_spacing`, `Styled::letter_spacing`, `Window::set_interface_zoom`, `Window::interface_zoom`, `App::has_active_drag_of`) is not gpui-fast's, which adds no public API without its maintainers' agreement; it is kept here, on the pin, until it is upstreamed or replaced.
 
 ## Moving a pin
 

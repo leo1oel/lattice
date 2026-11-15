@@ -3015,6 +3015,14 @@ impl App {
         self.active_drag.is_some()
     }
 
+    /// Is a `T` being dragged? A view that marks where a drag of its own
+    /// kinds would land keeps the mark off while another kind is dragged.
+    pub fn has_active_drag_of<T: 'static>(&self) -> bool {
+        self.active_drag
+            .as_ref()
+            .is_some_and(|drag| drag.value.as_ref().is::<T>())
+    }
+
     /// Gets the cursor style of the currently active drag operation.
     pub fn active_drag_cursor_style(&self) -> Option<CursorStyle> {
         self.active_drag.as_ref().and_then(|drag| drag.cursor_style)

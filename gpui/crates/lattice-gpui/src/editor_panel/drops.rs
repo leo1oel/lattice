@@ -12,7 +12,8 @@
 //!   (`file-drop-active`); the shell routes the drop (`shell/drops.rs`).
 //!
 //! The marks are painted from what the drag's moves last saw, and only while
-//! a drag is on, so a drag that ends anywhere leaves none behind.
+//! a row or Finder's files are being dragged, so a drag that ends anywhere
+//! leaves none behind, and another kind of drag shows none.
 
 use std::{cell::RefCell, path::PathBuf, rc::Rc};
 
@@ -103,7 +104,7 @@ impl EditorPanel {
     pub fn drop_lit(&self, cx: &App) -> (Option<DropLit>, bool) {
         let hover = self.drop_hover.borrow();
         (
-            hover.lit.filter(|_| cx.has_active_drag()),
+            hover.lit.filter(|_| DraggedEntry::dropping(cx)),
             hover.caret.is_some(),
         )
     }
@@ -172,7 +173,7 @@ impl EditorPanel {
         canvas(
             |_, _, _| {},
             move |bounds, _, window, cx| {
-                if !cx.has_active_drag() {
+                if !DraggedEntry::dropping(cx) {
                     return;
                 }
                 let hover = hover.borrow();
