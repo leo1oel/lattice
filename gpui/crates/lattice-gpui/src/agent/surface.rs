@@ -138,8 +138,11 @@ pub struct SynaraSurface {
     workspace_report: Option<Task<()>>,
     /// The Git workspace's view and pinned turn.
     git: Value,
-    /// Settings' compact insets, for Settings › Providers.
+    /// Settings' compact insets, for Settings' Synara pages.
     settings_compact: bool,
+    /// The Synara settings section on screen (`providers`, `integrations`,
+    /// `skills`, `usage`) and its Settings tab's label.
+    settings_section: (&'static str, String),
     /// The Agent's own page previews' standing with Open Slide, made on
     /// the first (`documents.rs`).
     deck: Option<crate::structured::DeckSession>,
@@ -179,6 +182,11 @@ impl SynaraSurface {
                 let island = cx.new(|cx| Island::new(config, window, cx));
                 subscriptions.push(cx.subscribe_in(&island, window, Self::on_island));
                 subscriptions.push(cx.observe(&island, |_, _, cx| cx.notify()));
+                subscriptions.push(cx.on_release(|this: &mut Self, _| {
+                    if let Some(root) = &this.root {
+                        commands::forget_turn(root);
+                    }
+                }));
                 (Some(island), None)
             }
             Err(error) => {
@@ -201,6 +209,7 @@ impl SynaraSurface {
             workspace_report: None,
             git: json!({ "view": "changes", "turnReview": null, "remoteUrl": null }),
             settings_compact: false,
+            settings_section: ("providers", String::new()),
             deck: None,
             overleaf: Value::Null,
             last_pointer: None,
@@ -252,6 +261,9 @@ impl SynaraSurface {
     pub fn set_project(&mut self, root: Option<PathBuf>, cx: &mut Context<Self>) {
         if self.root == root {
             return;
+        }
+        if let Some(old) = &self.root {
+            commands::forget_turn(old);
         }
         self.root = root;
         // A frame belongs to one project: another project's starts afresh
@@ -339,12 +351,37 @@ impl SynaraSurface {
         self.post("agent:git", git, cx);
     }
 
-    /// Settings' insets: compact while the dialog is in its narrow form.
-    pub fn set_settings_compact(&mut self, compact: bool, cx: &mut App) {
-        if compact != self.settings_compact {
+    /// Settings' insets, compact while the dialog is in its narrow form, and
+    /// the Synara page on screen with its tab's label. The page switches
+    /// sections in its loaded frame (`synara-settings-pane.tsx`).
+    pub fn set_settings_layout(
+        &mut self,
+        compact: bool,
+        section: &'static str,
+        label: String,
+        cx: &mut App,
+    ) {
+        let next = (section, label);
+        if compact != self.settings_compact || next != self.settings_section {
             self.settings_compact = compact;
-            self.post("agent:settings-layout", json!({ "compact": compact }), cx);
+            self.settings_section = next;
+            self.post_settings_layout(cx);
         }
+    }
+
+    fn post_settings_layout(&self, cx: &mut App) {
+        let (section, label) = &self.settings_section;
+        self.post(
+            "agent:settings-layout",
+            json!({ "compact": self.settings_compact, "section": section, "label": label }),
+            cx,
+        );
+    }
+
+    /// The Synara settings section Settings shows (`providers`,
+    /// `integrations`, `skills`, `usage`).
+    pub fn settings_section(&self) -> &'static str {
+        self.settings_section.0
     }
 
     /// Open and reveal a place on Settings › Providers.
@@ -378,8 +415,7 @@ impl SynaraSurface {
         });
         self.post("agent:open", payload, cx);
         if self.kind == SurfaceKind::Settings {
-            let compact = self.settings_compact;
-            self.post("agent:settings-layout", json!({ "compact": compact }), cx);
+            self.post_settings_layout(cx);
         }
         if !self.workspace.is_null() {
             self.post("agent:workspace", self.workspace.clone(), cx);

@@ -17,10 +17,8 @@
 //! a list of cards with chevrons under a "Settings" title, a section opens
 //! as a page with a way back, and Escape goes back before it closes.
 //!
-//! Only the sections the GPUI app has are listed: Appearance, Editor &
-//! builds, Providers (Synara's own page, the Agent island's `settings`
-//! surface) and the TeX doctor. The other agent pages, the integration and
-//! the about pages come with the features they configure.
+//! The sections are the Tauri app's, in its order (`nav.rs`); which page
+//! each draws, and what a page keeps once drawn, is `pages.rs`.
 
 use std::{
     cell::RefCell,
@@ -67,18 +65,6 @@ pub enum SettingsEvent {
     Close,
     /// Settings › Editor & builds › Auxiliary files › Clean.
     CleanBuildFiles,
-}
-
-/// The pages the GPUI app draws; another remembered page opens Appearance.
-fn drawn(tab: SettingsTab) -> SettingsTab {
-    match tab {
-        SettingsTab::Editor
-        | SettingsTab::Agent
-        | SettingsTab::Doctor
-        | SettingsTab::Overleaf
-        | SettingsTab::Logs => tab,
-        _ => SettingsTab::Appearance,
-    }
 }
 
 /// The editable state a page keeps while Settings is open.
@@ -128,6 +114,8 @@ pub struct SettingsDialog {
     pub(super) results_adopted: Option<usize>,
     /// Settings › Overleaf's view of the account, once the page is drawn.
     pub(super) overleaf: Option<Entity<super::overleaf_pane::OverleafConnection>>,
+    /// What the other pages keep once drawn.
+    pub(super) pages: super::pages::PageStates,
     _reveal_task: Option<Task<()>>,
     _subscriptions: Vec<Subscription>,
 }
@@ -327,7 +315,7 @@ impl SettingsDialog {
                 .update(cx, |surface, cx| surface.set_shown(false, cx));
         }));
 
-        let tab = drawn(tab.unwrap_or(settings.settings_tab));
+        let tab = super::pages::drawn(tab.unwrap_or(settings.settings_tab));
         let logs = cx.new(|cx| super::logs_pane::LogsPane::new(window, cx));
         Self {
             tab,
@@ -361,6 +349,7 @@ impl SettingsDialog {
             narrow_page: false,
             results_adopted: None,
             overleaf: None,
+            pages: Default::default(),
             _reveal_task: None,
             _subscriptions: subscriptions,
         }
@@ -380,6 +369,11 @@ impl SettingsDialog {
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     pub fn overleaf_connection(&self) -> Option<Entity<super::overleaf_pane::OverleafConnection>> {
         self.overleaf.clone()
+    }
+
+    /// The Synara settings surface the Agent pages show.
+    pub(super) fn providers(&self) -> Entity<crate::agent::SynaraSurface> {
+        self.providers.clone()
     }
 
     /// The window Settings is open in.
@@ -423,20 +417,22 @@ impl SettingsDialog {
 
     /// Settings › Providers' page is shown while its tab is open.
     pub fn sync_providers(&self, cx: &mut App) {
-        let shown = self.tab == SettingsTab::Agent;
+        // Providers, MCP, Skills and Usage & limits share the one page.
+        let shown = super::providers_pane::section(self.tab).is_some();
         self.providers
             .update(cx, |surface, cx| surface.set_shown(shown, cx));
     }
 
     /// Open a section's page; Settings reopens on it next time.
     pub fn open_tab(&mut self, tab: SettingsTab, cx: &mut Context<Self>) {
-        let tab = drawn(tab);
+        let tab = super::pages::drawn(tab);
         if tab != self.tab {
             self.tab = tab;
             self.sync_providers(cx);
             // Every page shares the viewport, which starts at its top.
             self.scroll.set_offset(point(px(0.), px(0.)));
             self.rows.borrow_mut().clear();
+            self.pages.dictionaries = None;
         }
         self.narrow_page = true;
         super::update(cx, |settings| settings.settings_tab = tab);
@@ -645,15 +641,11 @@ impl SettingsDialog {
             narrow_dialog: narrow,
             width,
         };
-        let page = match self.tab {
-            // The log fills the page and scrolls inside its card instead.
-            SettingsTab::Logs => return self.logs_page(page_width, narrow, cx),
-            SettingsTab::Editor => super::editor_pane::render(self, page_width, window, cx),
-            SettingsTab::Agent => super::providers_pane::render(self.providers.clone(), narrow, cx),
-            SettingsTab::Doctor => super::editor_pane::doctor(page_width, cx),
-            SettingsTab::Overleaf => super::overleaf_pane::render(self, page_width, window, cx),
-            _ => super::appearance_pane::render(self, page_width, window, cx),
-        };
+        // The log fills the page and scrolls inside its card instead.
+        if self.tab == SettingsTab::Logs {
+            return self.logs_page(page_width, narrow, cx);
+        }
+        let page = super::pages::draw(self, page_width, window, cx);
         let viewport = self.viewport.clone();
         div()
             .relative()
@@ -674,7 +666,7 @@ impl SettingsDialog {
                 div()
                     .id("settings-page")
                     .size_full()
-                    .when(self.tab == SettingsTab::Agent, |this| {
+                    .when(super::providers_pane::section(self.tab).is_some(), |this| {
                         this.flex().flex_col()
                     })
                     .overflow_y_scroll()
@@ -789,7 +781,8 @@ impl Render for SettingsDialog {
             .children(page)
             .child(div().absolute().top(px(10.)).right(px(10.)).child(close));
         let this = cx.entity();
-        ModalLayer::new(
+        let sheet = super::pages::sheet(self, cx);
+        let layer = ModalLayer::new(
             "settings-layer",
             LayerPlacement::Center,
             div()
@@ -797,6 +790,13 @@ impl Render for SettingsDialog {
                 .h(height)
                 .child(rise_in("settings-rise", card)),
             move |_, cx| this.update(cx, |this, cx| this.close(cx)),
-        )
+        );
+        // A page's sheet stands over the whole window, as a layer of its own
+        // beside Settings', so Escape closes it before Settings.
+        div()
+            .absolute()
+            .inset_0()
+            .child(layer)
+            .children(sheet)
     }
 }

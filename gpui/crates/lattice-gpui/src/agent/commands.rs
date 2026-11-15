@@ -152,8 +152,14 @@ pub fn invoke(
             .and_then(json)
         }),
         // The Tauri app keeps a running turn from an app restart; the GPUI
-        // app restarts nothing under the writer.
-        "set_agent_turn_running" => Task::ready(Ok(Value::Null)),
+        // app restarts nothing under the writer, but Settings › Model
+        // endpoint offers the agent's restart rather than making it while a
+        // turn runs (`restart_impact`'s `agentTurns`).
+        "set_agent_turn_running" => {
+            let running = args.get("running").and_then(Value::as_bool).unwrap_or(false);
+            set_turn_running(root, running);
+            Task::ready(Ok(Value::Null))
+        }
         "agent_text_task" => {
             let action = text(&args, "action").unwrap_or_default();
             // Status and cancel may name the outgoing project.
@@ -204,6 +210,35 @@ pub fn invoke(
             cx.background_spawn(async move { project_command(&root, &command, &args) })
         }
     }
+}
+
+/// The projects whose Agent panel has a turn running, as each panel reports
+/// it (the Tauri app keys them by window; a GPUI window shows one project).
+static RUNNING_TURNS: std::sync::Mutex<Vec<PathBuf>> = std::sync::Mutex::new(Vec::new());
+
+fn set_turn_running(root: &Path, running: bool) {
+    let mut turns = RUNNING_TURNS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    turns.retain(|turn| !same_root(turn, root));
+    if running {
+        turns.push(root.to_path_buf());
+    }
+}
+
+/// Forgets a project's running turn once its Agent panel shows another
+/// project or goes (`AppRestart::forget`).
+pub fn forget_turn(root: &Path) {
+    set_turn_running(root, false);
+}
+
+/// How many Agent panels have a turn running (`restart_impact`'s
+/// `agentTurns`), which a restart of the agent would stop.
+pub fn agent_turns() -> usize {
+    RUNNING_TURNS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .len()
 }
 
 /// The annotation saves this process has sent, across every page.

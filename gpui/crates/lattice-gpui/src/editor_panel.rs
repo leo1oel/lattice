@@ -65,7 +65,7 @@ pub mod paper_text;
 pub mod rail_outline;
 mod save;
 mod source_chrome;
-mod spelling;
+pub(crate) mod spelling;
 mod strip;
 mod structured_view;
 pub mod views;
