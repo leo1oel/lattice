@@ -107,7 +107,7 @@ import { useAgentFileDrops } from "./drops";
 import { SYNARA_POPUP_OPEN, LATTICE_OUTSIDE_POINTER_DOWN } from "../../../src/agent/synara-popup-dismissal";
 import type { AgentGitWorkspaceView } from "../../../src/agent/synara-runtime";
 import { isSynaraPermissionMode, persistSynaraThread, type AgentTurnReview } from "../../../src/app/app-synara-embed";
-import type { CanvasMode, EditorPosition, ProjectSnapshot } from "../../../src/app-types";
+import type { CanvasMode, EditorPosition, PaperSummary, ProjectSnapshot } from "../../../src/app-types";
 import type { ThemeAccent, ThemeTint, Translucency } from "../../../src/settings/theme-customization";
 
 type Locale = "en" | "zh-CN";
@@ -142,6 +142,9 @@ type Workspace = {
   activeSurface: AgentHostSurface;
   /** Open Slide's deck and slide, while a deck is the active file. */
   presentation: OpenSlideContext | null;
+  /** The paper in its reader in front, and the text it shows. */
+  activePaper: PaperSummary | null;
+  paperView: "blog" | "fulltext";
 };
 
 const EMPTY_WORKSPACE: Workspace = {
@@ -157,6 +160,8 @@ const EMPTY_WORKSPACE: Workspace = {
   selectionPdfDocument: null,
   activeSurface: "editor",
   presentation: null,
+  activePaper: null,
+  paperView: "blog",
 };
 
 /** How long after its commit the surface is taken to have drawn (see the slides island). */
@@ -305,9 +310,9 @@ function Agent({ opened, workspace, visible, appearance, git, overleaf, deckRequ
     workspaceRoot: opened.projectRoot,
     activeFile: workspace.activeFile,
     editorPosition: workspace.editorPosition,
-    activePaper: null,
+    activePaper: workspace.activePaper,
     canvasMode: workspace.canvasMode,
-    paperView: "blog",
+    paperView: workspace.paperView,
     pdfPage: workspace.pdfPage,
     pdfPageCount: workspace.pdfPageCount,
     presentation: workspace.presentation,

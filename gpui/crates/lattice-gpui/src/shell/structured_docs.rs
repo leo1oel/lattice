@@ -48,7 +48,11 @@ impl Shell {
         };
         self.overleaf
             .update(cx, |bridge, _| bridge.set_whole_file_draft(&path, pending));
-        if self.active_editor().as_ref() == Some(editor) {
+        // The paper in front's reading text reports its selection too.
+        let paper_text = self
+            .agent_paper(cx)
+            .is_some_and(|reader| reader.read(cx).editor() == Some(editor));
+        if self.active_editor().as_ref() == Some(editor) || paper_text {
             self.push_agent_workspace(cx);
         }
     }
