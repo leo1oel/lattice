@@ -37,6 +37,7 @@ mod help_flow;
 mod history_flow;
 pub(crate) mod import_conflict;
 mod imports;
+mod open_failure;
 mod insert_flow;
 mod layers;
 pub(crate) mod menus;
