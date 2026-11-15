@@ -28,7 +28,7 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc, time::Instant};
 use gpui::{
     AnimationExt as _, AnyElement, App, ElementId, FocusHandle, Hsla, InteractiveElement as _,
     IntoElement, ParentElement, Pixels, RenderOnce, SharedString, StatefulInteractiveElement as _,
-    Styled as _, Window, deferred, div, hsla, prelude::FluentBuilder as _, px,
+    Styled as _, WeakEntity, Window, deferred, div, hsla, prelude::FluentBuilder as _, px,
 };
 use gpui_kit::base::Sheet as SheetHost;
 
@@ -281,8 +281,20 @@ thread_local! {
     // When each layer began leaving, by its window and id: a close comes
     // from an event handler, outside the layer's render, where its keyed
     // state cannot be reached. Main thread only.
-    static CLOSING: RefCell<HashMap<(gpui::WindowId, ElementId), Instant>> =
+    static CLOSING: RefCell<HashMap<(gpui::WindowId, ElementId), Leaving>> =
         RefCell::default();
+}
+
+/// A layer's focus state, kept while the layer draws under its id.
+type LayerFocus = (FocusHandle, Option<FocusHandle>);
+
+struct Leaving {
+    started: Instant,
+    /// The layer's keyed state as it last drew while leaving: it lapses
+    /// once the layer stops drawing under its id (its owner closed it, or
+    /// put up another question under a new id), and the answer then goes
+    /// unsent, so it never reaches what took the layer's place.
+    drawn: Option<WeakEntity<LayerFocus>>,
 }
 
 /// A sheet or drawer held over the whole window, modal: focus stays inside,
@@ -363,7 +375,8 @@ impl ModalLayer {
     /// Import): its exit plays as Escape's does, the scrim fading and the
     /// surface sinking on the slow tier's exit, and `then` runs once it has,
     /// as the owner's answer; at once under reduced motion. A second call
-    /// while the layer is leaving does nothing.
+    /// while the layer is leaving does nothing, and a layer that stopped
+    /// drawing under `id` during its exit gets no answer.
     pub fn leave(
         id: impl Into<ElementId>,
         window: &mut Window,
@@ -381,7 +394,13 @@ impl ModalLayer {
             if closing.contains_key(&key) {
                 return false;
             }
-            closing.insert(key.clone(), started);
+            closing.insert(
+                key.clone(),
+                Leaving {
+                    started,
+                    drawn: None,
+                },
+            );
             true
         });
         if !fresh {
@@ -394,15 +413,17 @@ impl ModalLayer {
                     .timer(Exit::DIALOG.duration())
                     .await;
                 cx.update(|window, cx| {
-                    let ours = CLOSING.with(|closing| {
+                    let answer = CLOSING.with(|closing| {
                         let mut closing = closing.borrow_mut();
-                        let ours = closing.get(&key) == Some(&started);
-                        if ours {
-                            closing.remove(&key);
-                        }
-                        ours
+                        let ours = closing
+                            .get(&key)
+                            .is_some_and(|leaving| leaving.started == started);
+                        ours && closing
+                            .remove(&key)
+                            .and_then(|leaving| leaving.drawn)
+                            .is_some_and(|drawn| drawn.upgrade().is_some())
                     });
-                    if ours {
+                    if answer {
                         then(window, cx);
                         window.refresh();
                     }
@@ -422,13 +443,13 @@ impl RenderOnce for ModalLayer {
         // the host; after that focus moves only inside it. What held focus
         // before is kept to be given it back on close.
         let initial = self.initial_focus;
-        let focus = window.use_keyed_state(child("focus"), cx, |window, cx| {
+        let state = window.use_keyed_state(child("focus"), cx, |window, cx| {
             let previous = window.focused(cx);
             let focus = cx.focus_handle();
             initial.as_ref().unwrap_or(&focus).focus(window, cx);
             (focus, previous)
         });
-        let (focus, previous) = focus.read(cx).clone();
+        let (focus, previous) = state.read(cx).clone();
         let scrim = match self.placement {
             LayerPlacement::Center | LayerPlacement::UpperThird => cx.palette().scrim,
             LayerPlacement::Right => drawer_scrim(),
@@ -439,7 +460,12 @@ impl RenderOnce for ModalLayer {
         // `modal-sink`). A close its owner takes with a button of its own
         // plays the same exit through [`ModalLayer::leave`].
         let key = (window.window_handle().window_id(), self.id.clone());
-        let leaving = CLOSING.with(|closing| closing.borrow().get(&key).map(|at| at.elapsed()));
+        let leaving = CLOSING.with(|closing| {
+            closing.borrow_mut().get_mut(&key).map(|leaving| {
+                leaving.drawn = Some(state.downgrade());
+                leaving.started.elapsed()
+            })
+        });
         if leaving.is_some() {
             window.request_animation_frame();
             // Focus goes back to what held it before the layer opened as the

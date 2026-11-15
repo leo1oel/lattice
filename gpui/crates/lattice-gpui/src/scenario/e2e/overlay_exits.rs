@@ -77,6 +77,48 @@ impl Run {
             }),
         );
 
+        // A second question put up during the first's exit takes the
+        // dialog's place: the first's answer reaches neither, and the
+        // second stays up, unanswered.
+        let first: Answered = Rc::default();
+        let second: Answered = Rc::default();
+        let record = first.clone();
+        cx.update(|cx| {
+            import_conflict::ask(
+                vec!["main.tex".into()],
+                String::new(),
+                move |choice, _, _| *record.borrow_mut() = Some((choice, Instant::now())),
+                cx,
+            )
+        });
+        self.pause(cx, Duration::from_millis(500)).await;
+        self.dispatch_key(cx, "enter").await?;
+        self.pause(cx, Duration::from_millis(40)).await;
+        let record = second.clone();
+        cx.update(|cx| {
+            import_conflict::ask(
+                vec!["refs.bib".into()],
+                String::new(),
+                move |choice, _, _| *record.borrow_mut() = Some((choice, Instant::now())),
+                cx,
+            )
+        });
+        self.pause(cx, Duration::from_millis(400)).await;
+        let first_answered = first.borrow().is_some();
+        let second_answered = second.borrow().is_some();
+        let still_asking = cx.update(|cx| import_conflict::install(cx).read(cx).asking().is_some());
+        steps.check(
+            "a question put up during the import conflict dialog's exit stays up, unanswered",
+            !first_answered && !second_answered && still_asking,
+            json!({
+                "first_answered": first_answered,
+                "second_answered": second_answered,
+                "second_up": still_asking,
+            }),
+        );
+        self.dispatch_key(cx, "escape").await?;
+        self.pause(cx, Duration::from_millis(400)).await;
+
         // The popover: the word count's details, opened with a press on
         // the item and closed with Escape, draw their exit after closing.
         let editor = self.open(cx, &fixture.root.join("main.tex"), Some(1))?;
