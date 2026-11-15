@@ -59,10 +59,11 @@ impl EditorPanel {
         self.buffer.read(cx).text()
     }
 
-    /// Take in operations a co-author made on Overleaf, out of the undo
-    /// history and not as typing; false (nothing changed) when they do not
-    /// fit the text.
-    pub fn take_overleaf_ops(&mut self, ops: &[OtOp], cx: &mut Context<Self>) -> bool {
+    /// Take in operations made on Overleaf, out of the undo history and not
+    /// as typing; false (nothing changed) when they do not fit the text.
+    /// `coauthor` when someone else made them, which review mode takes into
+    /// the base.
+    pub fn take_overleaf_ops(&mut self, ops: &[OtOp], coauthor: bool, cx: &mut Context<Self>) -> bool {
         let text = self.buffer.read(cx).text();
         let Some(edits) = byte_edits(&text, ops) else {
             return false;
@@ -81,14 +82,19 @@ impl EditorPanel {
             }
         });
         self.overleaf_applying = false;
+        if coauthor {
+            self.review_coauthor_edited(&text, cx);
+        }
         true
     }
 
     /// Show `text` in place of the buffer's, as live editing has it (what
     /// Overleaf stores for an emoji, or Overleaf's copy taken whole), out of
-    /// the undo history and not as typing.
-    pub fn take_overleaf_text(&mut self, text: &str, cx: &mut Context<Self>) {
-        if self.buffer.read(cx).text() == text {
+    /// the undo history and not as typing. `coauthor` when the change is
+    /// someone else's, which review mode takes into the base.
+    pub fn take_overleaf_text(&mut self, text: &str, coauthor: bool, cx: &mut Context<Self>) {
+        let before = self.buffer.read(cx).text();
+        if before == text {
             return;
         }
         self.overleaf_applying = true;
@@ -103,6 +109,9 @@ impl EditorPanel {
             }
         });
         self.overleaf_applying = false;
+        if coauthor {
+            self.review_coauthor_edited(&before, cx);
+        }
     }
 
     /// Where the file stands with Overleaf (none: not linked).

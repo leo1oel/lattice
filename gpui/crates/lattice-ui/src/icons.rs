@@ -189,6 +189,10 @@ lucide! {
     SHAPES = "icons" / "shapes";
     ARROW_UP_RIGHT = "icons" / "arrow-up-right";
     LIST_CHECKS = "icons" / "list-checks";
+    // Track changes' review bar (`review-mode-bar.tsx`).
+    LIST_X = "icons" / "list-x";
+    FILE_DIFF = "icons" / "file-diff";
+    PEN_OFF = "icons" / "pen-off";
     // The paper reader's Blog view (`Newspaper` in trellis-header-tools.tsx).
     NEWSPAPER = "icons" / "newspaper";
     LAYOUT_TEMPLATE = "icons" / "layout-template";

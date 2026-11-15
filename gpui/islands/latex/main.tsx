@@ -45,6 +45,8 @@
  *   md:presence       { cursors }       co-authors' Overleaf carets (also `doc:open`'s `presence`)
  *   tex:overleaf      { threads, anchors, hues, mode, canAct }   a linked Overleaf project's threads on the
  *                     file, for their marks and margin review (also `doc:open`'s `overleaf`)
+ *   tex:environment   { rename, name }   the window's dialog's name: wrap the selection in that
+ *                     environment, or rename the one at the caret (`rename`), as the canvas does
  * Page to host:
  *   md:change         { source, base, join }  the whole file after an edit made against `base`;
  *                     `join` when the page's history counts it in the previous edit's undo group
@@ -59,6 +61,8 @@
  *   tex:ignore        { rule } | { sentence }   a lint card's Ignore
  *   tex:find-references, tex:rename  { kind, symbol }   a label's or citation key's (⇧F12, F2)
  *   tex:paste-image                     an image pasted: insert it as a figure
+ *   tex:wrap-environment                ⌘⇧E: the window's Wrap in environment… dialog
+ *   tex:rename-environment  { name }    ⌘⌥R on an environment: the window's rename dialog
  *   tex:outline-jump  { path, line }    an outline rail row
  *   tex:open-annotation, tex:resolve-annotation  { id }   a note's pin, its card's Resolve
  *   tex:reply-annotation  { id, body }  its card's Reply
@@ -81,6 +85,9 @@ import { CodeMirrorScrollbar } from "../../../src/canvas/codemirror-scrollbar";
 import { latex } from "../../../src/editor/latex/latex-language";
 import { latexEditorExtensions, latexIndexChanged, type LatexEditorLiveData } from "../../../src/editor/latex/latex-editor";
 import { latexVisualDataChanged, type LatexVisualHost } from "../../../src/editor/latex/latex-visual-switch";
+import { wrapEnvironment } from "../../../src/editor/latex/latex-edits";
+import { renameEnvironmentAt } from "../../../src/editor/latex/latex-environments";
+import { editAndFocus } from "../../../src/canvas/source-selection-edits";
 import {
   katexMacrosFromSources, mergeReferences, parseGraphicsPaths, parseLocalLabels, parseLocalMacros,
   type CitationInfo, type DefinitionTarget, type ReferenceInfo, type SymbolTarget,
@@ -323,6 +330,9 @@ const ignoreGrammar: IgnoreGrammar = (ignore) => { host().post("tex:ignore", ign
 const askAboutSymbol = (type: string) => (target: SymbolTarget) => {
   host().post(type, { kind: target.kind, symbol: target.kind === "label" ? target.label : target.key });
 };
+/** ⌘⇧E and ⌘⌥R: the window's dialog asks for the name (`tex:environment` brings it back). */
+const askToWrapEnvironment = () => host().post("tex:wrap-environment");
+const askToRenameEnvironment = (name: string) => host().post("tex:rename-environment", { name });
 /** The owner reads the pasted image from the clipboard, as ⌘V in the source does. */
 const pasteImage = () => { host().post("tex:paste-image"); return true; };
 const jumpToHeading = (path: string, line: number) => host().post("tex:outline-jump", { path, line });
@@ -348,6 +358,8 @@ function editorExtensions(visual: VisualModule, path: string, spellcheck: boolea
       onGotoDefinition: openTarget,
       onFindReferences: askAboutSymbol("tex:find-references"),
       onRenameSymbol: askAboutSymbol("tex:rename"),
+      onWrapEnvironment: askToWrapEnvironment,
+      onRenameEnvironment: askToRenameEnvironment,
       onPasteImage: pasteImage,
       onTexlabGoto: (target, line) => host().post("md:open-location", { path: target, line }),
     }),
@@ -510,6 +522,19 @@ function Latex() {
         if (step === "next") findNext(editorView);
         else if (step === "previous") findPrevious(editorView);
         else openSearchPanel(editorView);
+      }),
+      bridge.on("tex:environment", (payload) => {
+        if (!editorView) return;
+        const { rename, name } = payload as { rename: boolean; name: string };
+        const { state } = editorView;
+        if (rename) {
+          const edits = renameEnvironmentAt(state.doc.toString(), state.selection.main.head, name);
+          if (edits) editAndFocus(editorView, { changes: edits });
+        } else {
+          const { from, to } = state.selection.main;
+          const edit = wrapEnvironment(state.doc.toString(), from, to, name);
+          editAndFocus(editorView, { changes: edit, selection: { anchor: edit.cursorFrom, head: edit.cursorTo } });
+        }
       }),
       bridge.on("md:assets-changed", () => dispatch({ type: "assets" })),
       bridge.on("md:project", (payload) => {

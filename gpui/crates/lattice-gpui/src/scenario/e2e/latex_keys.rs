@@ -237,7 +237,7 @@ impl Run {
     }
 
     /// Select `from..to` in the editor, which takes the keyboard.
-    fn select(
+    pub(super) fn select(
         &self,
         cx: &mut AsyncApp,
         editor: &Entity<EditorPanel>,
@@ -256,7 +256,7 @@ impl Run {
     }
 
     /// The buffer's text and its main selection's text.
-    fn text_and_selection(
+    pub(super) fn text_and_selection(
         &self,
         cx: &mut AsyncApp,
         editor: &Entity<EditorPanel>,

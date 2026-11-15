@@ -39,6 +39,9 @@ pub enum EditorPanelEvent {
         symbol: String,
         rename: bool,
     },
+    /// Wrap in environment… (`None`) or Rename the environment (its name),
+    /// asked from a `.tex` file's Visual view.
+    Environment { rename: Option<String> },
     /// Open the project-relative `path` (a link followed in a Markdown file's
     /// visual editor).
     OpenFile { path: String },

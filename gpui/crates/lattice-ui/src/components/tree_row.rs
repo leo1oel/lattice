@@ -118,6 +118,8 @@ pub struct TreeRow {
     /// The list's fluid hover probe (`FluidHover::probe`): the row records
     /// its bounds for the tree's one gliding fill and draws none of its own.
     fluid: Option<AnyElement>,
+    /// Radians the chevron is turned past its rest, while it sweeps.
+    turn: f32,
 }
 
 impl TreeRow {
@@ -134,6 +136,7 @@ impl TreeRow {
             contains_change: false,
             fluid: None,
             drop: DropMark::None,
+            turn: 0.,
         }
     }
 
@@ -176,6 +179,13 @@ impl TreeRow {
     /// through `probe` (`FluidHover::probe`).
     pub fn fluid(mut self, probe: AnyElement) -> Self {
         self.fluid = Some(probe);
+        self
+    }
+
+    /// Turn a folder's chevron `radians` past where it rests, as a frame of
+    /// its sweep when the folder opens or closes (`project-tree-motion.ts`).
+    pub fn turn(mut self, radians: f32) -> Self {
+        self.turn = radians;
         self
     }
 
@@ -246,9 +256,14 @@ impl TreeRow {
                         .size(ICON_SMALL)
                         .flex_none()
                         .text_color(palette.text_secondary)
-                        .when(!expanded, |chevron| {
+                        .when(!expanded || self.turn != 0., |chevron| {
+                            let rest = if expanded {
+                                0.
+                            } else {
+                                -std::f32::consts::FRAC_PI_2
+                            };
                             chevron.with_transformation(Transformation::rotate(radians(
-                                -std::f32::consts::FRAC_PI_2,
+                                rest + self.turn,
                             )))
                         }),
                 )

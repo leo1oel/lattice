@@ -17,7 +17,7 @@ What it does so far, and nothing more, one line per feature, each with its own p
 - [Finding things in the project](docs/find.md): find and replace in the open file, quick open, Find and Replace in project, and the files visited.
 - [Get started](docs/get-started.md): walks a first paper with Get started's checklist and its Show me ring.
 - [Getting a manuscript ready to send](docs/submission.md): the TODOs panel, references and rename, Export for arXiv… and the submission checklist.
-- [History](docs/history.md): keeps the project's history in its History tool panel, with versions, Compare… and the conflict resolver.
+- [History](docs/history.md): keeps the project's history in its History tool panel, with versions, Compare… and the conflict resolver, and tracks the writer's changes for review (Track changes).
 - [HTML files](docs/html-preview.md): shows an HTML file in Preview, Edit and Split.
 - [Languages](docs/languages.md): speaks English and Simplified Chinese from the Tauri app's own catalog.
 - [LuaLaTeX live preview](docs/live-preview.md): previews a LuaLaTeX project live with rtex.
@@ -104,15 +104,16 @@ The first build fetches Zed at the pinned revision and compiles about 1,200 crat
 | ⌃Tab, ⌃⇧Tab | Next or previous project in the window |
 | ⌘B, ⌘I, ⌘⇧M | In a LaTeX file, Bold (`\textbf`), Emphasis (`\emph`) and Inline math, each on or off for the selection |
 | ⌘/, ⌘⌥/, ⌘⌥; | In a LaTeX file, comment the lines, or wrap them in a `comment` environment or `\iffalse … \fi` |
-| ⌘⌥E, ⌘⌥I, ⌘⌥A, ⌃M | Wrap in `equation` or `itemize`, select the environment, go to the matching `\begin` or `\end` |
+| ⌘⌥E, ⌘⌥I, ⌘⌥A, ⌃M | Wrap in `equation` or `itemize`, select the environment, go to the matching `\begin` or `\end` (else the matching math delimiter) |
 | ⌘⌥S, ⌘⌥U, ⌘⌥L, ⌘⌥C | Sort lines, UPPER, lower and Title Case |
-| ⌘⇧E, ⌘⌥R | Wrap in environment… (the name asked for), and Rename environment (both its `\begin` and its `\end`) |
+| ⌘⇧E, ⌘⌥R | Wrap in environment… (the name asked for), and Rename environment (both its `\begin` and its `\end`), in the Source and the Visual view |
+| `$`, ↩ | In a LaTeX file, `$` pairs (and wraps a selection in `$…$`); ↩ after a `\begin{…}` writes its `\end{…}`, and on an `\item` line starts the next item or, on an empty one, leaves the list |
 | ⌘⇧K, ⌘⇧L | In a LaTeX file, Insert citation and Insert reference: a picker of the bibliography's keys or the project's labels, writing `\cite{…}` or `\ref{…}` at the caret |
 | ⌘G, ⌘⇧O | Go to line, and Go to symbol (the manuscript's sections and the project's labels) |
 | Zed's default keymap | Everything else in the editor |
 
 On Windows and Linux, Ctrl stands in for ⌘, and quitting is Alt+F4 or the menu. With Vim mode on there, Vim keeps Ctrl+O, Ctrl+B, Ctrl+I, Ctrl+G, Ctrl+S, Ctrl+K and Ctrl+W in the editor, in the Vim modes where its keymap binds them.
-On every platform, Vim's normal and visual modes keep ⌃M as their next-line start.
+On every platform, Vim's normal and visual modes keep ⌃M as their next-line start, and with Vim on, `$` and ↩ follow the typing rules only in its insert mode.
 
 "Vim mode" in an editor's ⋯ menu turns Zed's Vim mode on for every editor; `LATTICE_GPUI_VIM=1` turns it on for that run only, leaving the saved keymap as it is.
 

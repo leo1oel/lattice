@@ -35,6 +35,8 @@ impl Shell {
         cx: &mut Context<Self>,
     ) {
         match event {
+            // The marked PDF's SyncTeX is its own build's, not the paper's.
+            PdfEvent::SourceAt { document: None, .. } if self.shows_marked_pdf() => {}
             PdfEvent::SourceAt {
                 document,
                 page,
@@ -67,22 +69,27 @@ impl Shell {
             PdfEvent::OpenCitation(key) => self.open_citation(key, window, cx),
             // In its own window the PDF gives its place in the workspace to
             // the documents, and coming back shows it there again, as the
-            // Tauri app's `detachPdf` and `dockPdf` do.
+            // Tauri app's `detachPdf` and `dockPdf` do. Either way, Track
+            // changes' marked PDF is the docked panel's alone.
             PdfEvent::Detached if self.layout.focus.is_some() => {
                 self.focus(Some(false), window, cx);
+                self.sync_marked_pdf(window, cx);
                 cx.notify();
             }
             PdfEvent::Detached => {
                 self.hide_view("pdf", cx);
+                self.sync_marked_pdf(window, cx);
                 cx.notify();
             }
             PdfEvent::Docked if self.layout.focus.is_some() => {
                 let pdf = super::workspaces::Workspaces::global(cx).focus_pdf();
                 self.focus(Some(pdf), window, cx);
+                self.sync_marked_pdf(window, cx);
                 cx.notify();
             }
             PdfEvent::Docked => {
                 self.show_view("pdf", false, window, cx);
+                self.sync_marked_pdf(window, cx);
                 cx.notify();
             }
         }
@@ -128,7 +135,10 @@ impl Shell {
             .unwrap_or(false);
         let pdf = root.join(&document).with_extension("pdf");
         self.label_pdfs(cx);
-        self.pdf.update(cx, |panel, cx| panel.open(pdf, window, cx));
+        if !self.shows_marked_pdf() {
+            self.pdf.update(cx, |panel, cx| panel.open(pdf, window, cx));
+        }
+        self.review_pdf_built(window, cx);
         self.refresh_outline(window, cx);
         match left {
             // A build not asked for leaves the reader on the document they

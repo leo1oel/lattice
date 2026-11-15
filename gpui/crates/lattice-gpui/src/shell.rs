@@ -67,6 +67,7 @@ mod pdf_figure;
 mod pdf_sync;
 mod pdfs;
 mod references_flow;
+mod review_mode_flow;
 mod render;
 pub(crate) mod research_flow;
 mod saving;

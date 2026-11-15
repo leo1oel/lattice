@@ -77,6 +77,8 @@ impl FileTreePanel {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        // Naming a row ends a search, as in the Tauri app's tree.
+        self.close_search(false, window, cx);
         let input = cx.new(|cx| InputState::new(window, cx).default_value(name.clone()));
         // The part before the extension is selected, as Finder does, so
         // typing keeps the ".tex".

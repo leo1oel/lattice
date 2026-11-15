@@ -111,6 +111,8 @@ pub struct PdfPanel {
     outline: Option<super::OutlineState>,
     /// The project's citations, carried into the window.
     citations: Option<super::CitationLookup>,
+    /// Track changes' marked PDF building, or why it could not be made.
+    pub(super) marking: super::review_marking::Marking,
     _subscriptions: Vec<gpui::Subscription>,
 }
 
@@ -187,6 +189,7 @@ impl PdfPanel {
             title: "PDF".into(),
             outline: None,
             citations: None,
+            marking: Default::default(),
             _subscriptions: subscriptions,
         }
     }
@@ -652,8 +655,10 @@ impl Render for PdfPanel {
                 .relative()
                 .rounded_b(PANEL_RADIUS)
                 .overflow_hidden()
+                .children(self.marking_message(cx))
                 .child(div().flex_1().min_h_0().child(self.view.clone()))
                 .children(self.build_output.clone())
+                .children(self.marking_pill(cx))
                 .into_any_element();
         }
         // In its own window, the PDF leaves the panel: a layout that brings
