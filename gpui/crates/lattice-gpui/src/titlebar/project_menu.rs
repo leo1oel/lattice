@@ -9,7 +9,10 @@
 //! The glyph is the row's secondary action (`MenuAction::secondary`): the
 //! keys reach it with → from its row and run it with Enter, as the app's
 //! glyph is an item of its own. Export ZIP and Export for arXiv… follow Open
-//! from Overleaf, and while an export runs the menu ends with "Exporting ZIP…".
+//! from Overleaf, and while an export runs the menu ends with "Exporting ZIP…"
+//! after a loader, and the rows that would switch or replace the project
+//! under it (the recent projects and their glyphs, Open from Overleaf, the
+//! Guided tutorial) are dimmed, as the app's `busy` dims them.
 
 use std::path::PathBuf;
 
@@ -70,6 +73,7 @@ pub(super) fn project_menu(
                     Box::new(OpenRecentProject { path, here: false }),
                 )
                 .icon(Icon::FOLDER)
+                .disabled(exporting)
                 .secondary(
                     Icon::APP_WINDOW,
                     lattice_i18n::space_mixed_script(&t!(
@@ -102,7 +106,8 @@ pub(super) fn project_menu(
                 t!("Open from Overleaf"),
                 Box::new(crate::shell::overleaf_flow::OpenOverleafProject),
             )
-            .icon(Icon::CLOUD),
+            .icon(Icon::CLOUD)
+            .disabled(exporting),
         )
         .item(
             MenuAction::dispatch(t!("Export ZIP"), Box::new(crate::shell::ExportProjectZip))
@@ -122,7 +127,8 @@ pub(super) fn project_menu(
                         .ok();
                 }
             })
-            .icon(Icon::SPARKLES),
+            .icon(Icon::SPARKLES)
+            .disabled(exporting),
         )
         // Settings opens on its shell directly, as the app's `onSettings` does,
         // rather than as an action dispatched from whatever focus the menu
@@ -138,7 +144,7 @@ pub(super) fn project_menu(
         );
     // The export under way, as the Tauri menu's `busyLabel` line.
     if exporting {
-        menu.label(t!("Exporting ZIP…"))
+        menu.busy(t!("Exporting ZIP…"))
     } else {
         menu
     }
