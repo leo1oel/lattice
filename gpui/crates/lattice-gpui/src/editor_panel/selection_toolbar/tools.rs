@@ -6,10 +6,13 @@ use super::*;
 
 impl EditorPanel {
     /// The LaTeX toolbar's buttons.
-    pub(super) fn latex_tools(&mut self, text: &str, range: Range<usize>, cx: &mut Context<Self>) -> AnyElement {
-        let formats = format_toggle::selection_formats(text, range.clone());
+    pub(super) fn latex_tools(
+        &mut self,
+        formats: &format_toggle::SelectionFormats,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         let editable = true;
-        let mut bar = div().flex().items_center();
+        let mut bar = div().flex().flex_wrap().items_center();
         let inline = [
             (format_toggle::InlineFormat::Bold, Icon::BOLD, t!("Bold")),
             (format_toggle::InlineFormat::Italic, Icon::ITALIC, t!("Italic")),
@@ -136,8 +139,11 @@ impl EditorPanel {
     }
 
     /// The Markdown toolbar's buttons.
-    pub(super) fn markdown_tools(&mut self, text: &str, range: Range<usize>, cx: &mut Context<Self>) -> AnyElement {
-        let format = markdown_format::selection_format(text, range);
+    pub(super) fn markdown_tools(
+        &mut self,
+        format: &markdown_format::SelectionFormat,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         let palette = cx.palette().clone();
         let formats = !format.in_code;
         let current = block_label(format.block);

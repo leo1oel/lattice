@@ -19,8 +19,9 @@ The custom colour view offers the colours the document already uses, the writer'
 Inside a highlight, Remove highlight takes it off.
 The meanings, the pen's colour and the custom colours belong to the writer, not to a project, and are kept in `highlighters.json` in the app's state folder.
 
-A highlight is written as `\colorbox[HTML]{…}{…}`, and the editor paints its passage, and a hand-typed `\colorbox{yellow}{…}` or soul's `\hl{…}`, in its colour, with the wrapper receding.
-The paint stays light in the dark theme too, since a highlight stands for a paper colour printed under black ink.
+A highlight is written as `\colorbox[HTML]{…}{…}`, and the editor paints its passage in its colour, with the wrapper receding, as the Tauri app's source does.
+Only `#RRGGBB` highlights are painted; a hand-typed `\colorbox{yellow}{…}` or soul's `\hl{…}` keeps the source's own colours.
+In the light theme the passage takes the highlight's tint under dark ink; in the dark theme it takes an 18% wash of the colour with a 2px underline at 75%, since a pastel block would put light ink on a light ground.
 
 ## In the e2e scenario
 

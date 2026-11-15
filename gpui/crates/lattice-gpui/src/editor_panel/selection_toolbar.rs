@@ -50,7 +50,7 @@ use super::{EditorPanel, highlight_palette};
 /// The toolbar's buttons and its padding.
 const BUTTON: f32 = 28.;
 const PAD: f32 = 3.;
-/// Its height, for placing it above the selection.
+/// Its height on one row, before it is measured.
 const HEIGHT: f32 = BUTTON + PAD * 2.;
 /// About its width, before it is measured: the Markdown one carries the
 /// block menu too.
@@ -92,9 +92,11 @@ pub(super) struct ToolbarState {
     dragging: bool,
     pub(super) menu: Option<Menu>,
     link: Option<(Entity<InputState>, Subscription)>,
-    /// The source view's bounds, and the toolbar's width, as last drawn.
+    /// The source view's bounds, and the toolbar's size, as last drawn.
     view: Rc<Cell<Option<Bounds<Pixels>>>>,
-    width: Rc<Cell<Pixels>>,
+    size: Rc<Cell<Option<gpui::Size<Pixels>>>>,
+    /// What it last read of the selection.
+    read: Option<SelectionRead>,
     /// Where the toolbar and its open menu were drawn: a press there is not
     /// the start of a selection.
     areas: Rc<std::cell::RefCell<Vec<Bounds<Pixels>>>>,
@@ -108,6 +110,26 @@ pub(super) struct ToolbarState {
     /// How many highlights the last paint painted.
     painted: usize,
     _paint: Option<gpui::Task<()>>,
+}
+
+/// What the toolbar read of the selection, kept while neither the text nor
+/// the selection changes, so drawing it again reads nothing again.
+struct SelectionRead {
+    version: clock::Global,
+    range: Range<usize>,
+    /// The end of the selection's first line.
+    line_end: usize,
+    formats: Formats,
+    /// The highlight palette's: the highlight around the selection (its
+    /// colour, "" for an uncoloured one), the selected text and the
+    /// document's colours, once the palette opens.
+    palette: Option<(Option<String>, String, Vec<String>)>,
+}
+
+#[derive(Clone)]
+enum Formats {
+    Latex(format_toggle::SelectionFormats),
+    Markdown(markdown_format::SelectionFormat),
 }
 
 /// The paint's layers: the tints, and the ink, underlines and faded
@@ -146,18 +168,52 @@ impl EditorPanel {
         (start != end).then(|| start.min(end)..start.max(end))
     }
 
+    /// Read what the selection is, unless it was read already for this text.
+    fn read_selection(&mut self, kind: Kind, range: Range<usize>, cx: &App) -> &mut SelectionRead {
+        let version = self.buffer.read(cx).version();
+        let fresh = self
+            .toolbar
+            .read
+            .as_ref()
+            .is_some_and(|read| read.version == version && read.range == range);
+        if !fresh {
+            let text = self.buffer.read(cx).text();
+            let line_end = text[range.start..]
+                .find('\n')
+                .map_or(text.len(), |at| range.start + at)
+                .min(range.end);
+            let formats = match kind {
+                Kind::Latex => Formats::Latex(format_toggle::selection_formats(&text, range.clone())),
+                Kind::Markdown => {
+                    Formats::Markdown(markdown_format::selection_format(&text, range.clone()))
+                }
+            };
+            self.toolbar.read = Some(SelectionRead {
+                version,
+                range,
+                line_end,
+                formats,
+                palette: None,
+            });
+        }
+        self.toolbar.read.as_mut().expect("read above")
+    }
+
+    /// Whether `position` is on the toolbar or its open menu, as last drawn.
+    fn on_toolbar(&self, position: gpui::Point<Pixels>) -> bool {
+        self.toolbar.last.is_some()
+            && self.toolbar.areas.borrow().iter().any(|area| area.contains(&position))
+    }
+
     /// The pointer went down in the source (a selection may be dragged out)
-    /// or came up (the drag settled): the toolbar waits for it.
+    /// or came up anywhere (the drag settled): the toolbar waits for it.
     pub(super) fn toolbar_pointer(
         &mut self,
         down: bool,
         position: gpui::Point<Pixels>,
         cx: &mut Context<Self>,
     ) {
-        if down
-            && self.toolbar.last.is_some()
-            && self.toolbar.areas.borrow().iter().any(|area| area.contains(&position))
-        {
+        if down && self.on_toolbar(position) {
             return;
         }
         if self.toolbar.dragging != down {
@@ -238,6 +294,11 @@ impl EditorPanel {
         cx.notify();
     }
 
+    /// Give the editor its keys back from a menu that took them.
+    fn refocus_editor(&self, window: &mut Window, cx: &mut Context<Self>) {
+        window.focus(&self.editor.focus_handle(cx), cx);
+    }
+
     /// Whether the toolbar is showing, for scripted checks.
     pub fn selection_toolbar_shown(&self) -> bool {
         self.toolbar.last.is_some()
@@ -306,18 +367,22 @@ impl EditorPanel {
         };
         if let Some(edit) = edit {
             self.apply_text_edit(edit, window, cx);
+        } else {
+            self.refocus_editor(window, cx);
         }
         cx.notify();
     }
 
     fn open_menu(&mut self, menu: Menu, window: &mut Window, cx: &mut Context<Self>) {
+        self.toolbar.link = None;
+        self.toolbar.palette = Default::default();
+        self.refocus_editor(window, cx);
         if self.toolbar.menu == Some(menu) {
             self.toolbar.menu = None;
             cx.notify();
             return;
         }
         self.toolbar.menu = Some(menu);
-        self.toolbar.palette = Default::default();
         if menu == Menu::Highlight {
             let focus = cx.focus_handle();
             window.focus(&focus, cx);
@@ -352,7 +417,20 @@ impl EditorPanel {
             self.paint_highlights(cx);
         }
         let view_cell = self.toolbar.view.clone();
-        let tracker = canvas(move |bounds, _, _| view_cell.set(Some(bounds)), |_, _, _, _| {})
+        let this = cx.entity().downgrade();
+        let tracker = canvas(
+            move |bounds, _, _| view_cell.set(Some(bounds)),
+            move |_, _, window, _| {
+                // A drag settles wherever the pointer comes up, in the source
+                // or past its edge.
+                window.on_mouse_event(move |event: &gpui::MouseUpEvent, phase, _, cx| {
+                    if phase == gpui::DispatchPhase::Capture {
+                        this.update(cx, |this, cx| this.toolbar_pointer(false, event.position, cx))
+                            .ok();
+                    }
+                });
+            },
+        )
             .absolute()
             .top_0()
             .left_0()
@@ -391,11 +469,8 @@ impl EditorPanel {
         };
         // The selection's first line on screen: its start, and its end on
         // that line.
-        let text = self.buffer.read(cx).text();
-        let line_end = text[range.start..]
-            .find('\n')
-            .map_or(text.len(), |at| range.start + at)
-            .min(range.end);
+        let read = self.read_selection(kind, range.clone(), cx);
+        let (line_end, formats) = (read.line_end, read.formats.clone());
         let (start, end) = self.lattice.update(cx, |lattice, cx| {
             (
                 lattice.offset_bounds(range.start, window, cx),
@@ -411,8 +486,9 @@ impl EditorPanel {
         }
         let estimate = px(if kind == Kind::Markdown { MARKDOWN_WIDTH } else { LATEX_WIDTH });
         let max_width = (view.size.width - px(16.)).max(px(0.));
-        let measured = self.toolbar.width.get();
-        let width = if measured > px(0.) { measured } else { estimate.min(max_width) };
+        let measured = self.toolbar.size.get();
+        let width = measured.map_or(estimate.min(max_width), |size| size.width);
+        let height = measured.map_or(px(HEIGHT), |size| size.height);
         let center = if (start.top() - end.top()).abs() < px(1.) {
             (start.left() + end.right()) / 2.
         } else {
@@ -426,14 +502,15 @@ impl EditorPanel {
         let top = if below {
             start.bottom() + px(GAP)
         } else {
-            start.top() - px(GAP) - px(HEIGHT)
+            start.top() - px(GAP) - height
         };
-        let bar = match kind {
-            Kind::Latex => self.latex_tools(&text, range.clone(), cx),
-            Kind::Markdown => self.markdown_tools(&text, range.clone(), cx),
+        let bar = match &formats {
+            Formats::Latex(formats) => self.latex_tools(formats, cx),
+            Formats::Markdown(format) => self.markdown_tools(format, cx),
         };
         let palette = cx.palette().clone();
-        let width_cell = self.toolbar.width.clone();
+        let size_cell = self.toolbar.size.clone();
+        let panel = cx.entity_id();
         self.toolbar.areas.borrow_mut().clear();
         let areas = self.toolbar.areas.clone();
         let menu_areas = self.toolbar.areas.clone();
@@ -456,8 +533,11 @@ impl EditorPanel {
             .child(bar)
             .child(
                 canvas(
-                    move |bounds, _, _| {
-                        width_cell.set(bounds.size.width);
+                    move |bounds, window, _| {
+                        // A new size places it anew.
+                        if size_cell.replace(Some(bounds.size)) != Some(bounds.size) {
+                            window.on_next_frame(move |_, cx| cx.notify(panel));
+                        }
                         areas.borrow_mut().push(bounds);
                     },
                     |_, _, _, _| {},
@@ -467,7 +547,7 @@ impl EditorPanel {
                     .left_0()
                     .size_full(),
             );
-        let menu = self.toolbar.menu.map(|menu| self.toolbar_menu(menu, &text, range.clone(), window, cx));
+        let menu = self.toolbar.menu.map(|menu| self.toolbar_menu(menu, kind, &formats, range.clone(), window, cx));
         let from = if below { PopFrom::Below } else { PopFrom::Above };
         let left = center - width / 2. - view.left();
         let id = self.toolbar.shown as usize;
@@ -483,15 +563,18 @@ impl EditorPanel {
                         .absolute()
                         .left(left)
                         .top(top - view.top())
-                        .on_mouse_down_out(cx.listener(|this, _, _, cx| {
-                            if this.toolbar.menu.is_some() || this.toolbar.last.is_some() {
+                        .on_mouse_down_out(cx.listener(|this, event: &gpui::MouseDownEvent, _, cx| {
+                            if (this.toolbar.menu.is_some() || this.toolbar.last.is_some())
+                                && !this.on_toolbar(event.position)
+                            {
                                 this.dismiss_toolbar(cx)
                             }
                         }))
-                        .on_key_down(cx.listener(|this, event: &KeyDownEvent, _, cx| {
+                        .on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
                             if event.keystroke.key == "escape" {
                                 cx.stop_propagation();
                                 this.dismiss_toolbar(cx);
+                                this.refocus_editor(window, cx);
                             }
                         }))
                         .child(pop_in(("selection-toolbar-in", id), from, toolbar))
@@ -503,9 +586,9 @@ impl EditorPanel {
                                 .left_0()
                                 .map(|this| {
                                     if below {
-                                        this.top(px(HEIGHT + GAP))
+                                        this.top(height + px(GAP))
                                     } else {
-                                        this.bottom(px(GAP))
+                                        this.bottom(height + px(GAP))
                                     }
                                 })
                                 .child(menu)
