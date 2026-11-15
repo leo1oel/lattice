@@ -3,7 +3,8 @@
 //! collaborator's comment on it, choosing Visual shows the thread's passage
 //! marked in the page, and its margin review item (a card in the wide
 //! layout, a pip in the markers one) beside the text, as the source shows
-//! them. Source is chosen again after, for the checks that follow.
+//! them, and the collaborator's tracked change marked there too. Source is
+//! chosen again after, for the checks that follow.
 
 use std::time::Duration;
 
@@ -47,6 +48,7 @@ impl Run {
             "JSON.stringify({{ \
              mark: document.querySelector('.cm-editor-comment[data-comment-id={id:?}]')?.textContent ?? null, \
              items: document.querySelectorAll('.margin-review-card, .margin-review-pip').length, \
+             suggested: document.querySelectorAll('.cm-tracked-change-insert, .cm-tracked-change-delete').length, \
              layout: document.querySelector('.source-editor')?.getAttribute('data-margin-review') ?? null }})",
             id = format!("overleaf:{thread}"),
         );
@@ -55,7 +57,10 @@ impl Run {
             let started = std::time::Instant::now();
             while started.elapsed() < Duration::from_secs(15) {
                 facts = self.evaluate(cx, &island, &probe).await;
-                if facts["mark"].is_string() && facts["items"].as_u64().is_some_and(|items| items > 0) {
+                if facts["mark"].is_string()
+                    && facts["items"].as_u64().is_some_and(|items| items > 0)
+                    && facts["suggested"].as_u64().is_some_and(|marks| marks > 0)
+                {
                     break;
                 }
                 self.pause(cx, Duration::from_millis(250)).await;
@@ -69,6 +74,11 @@ impl Run {
                 && facts["items"].as_u64().is_some_and(|items| items > 0)
                 && facts["layout"].is_string(),
             json!({ "drawn": drawn, "page": facts }),
+        );
+        steps.check(
+            "in a .tex file's Visual view, a collaborator's Overleaf suggestion is marked as in the source",
+            drawn && facts["suggested"].as_u64().is_some_and(|marks| marks > 0),
+            json!({ "drawn": drawn, "suggested": facts["suggested"] }),
         );
         cx.update(|cx| choose_latex_view(LatexView::Source, cx));
         let watched = editor.clone();

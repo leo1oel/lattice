@@ -2,7 +2,9 @@
 //! writer's eye (`lattice_ui::attention` has their timing):
 //!
 //! - [`reveal_flash`]: a jump's target line flashed.
+//! - [`change_wash`]: the lines an outside edit landed, washed.
 
+pub(crate) mod change_wash;
 pub(crate) mod reveal_flash;
 
 pub(super) use reveal_flash::flash;

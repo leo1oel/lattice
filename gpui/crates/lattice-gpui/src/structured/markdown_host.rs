@@ -5,6 +5,8 @@
 //! - co-authors' carets on the file, while it is live with Overleaf, drawn
 //!   in the visual editor as in the source (`md:presence`, rows of the
 //!   file; the page leaves out the front matter it never shows);
+//! - Overleaf's suggestions on the file, painted with their cards' Accept
+//!   and Reject (`md:overleaf`, `md:overleaf-accept`, `md:overleaf-reject`);
 //! - the text selected in the visual editor, which the Agent is told as
 //!   the writer's selection (`md:selection`).
 
@@ -12,6 +14,14 @@ use gpui::Context;
 use serde_json::{Value, json};
 
 use super::{StructuredDocument, StructuredEvent};
+
+/// What was last sent to the visual editor beside its text, so the same
+/// is not sent again: co-authors' carets and Overleaf's suggestions.
+#[derive(Default)]
+pub(super) struct Sent {
+    pub(super) presence: Option<Value>,
+    changes: Option<Value>,
+}
 
 /// A co-author's caret, as the visual editor takes it (`PresenceCursor`):
 /// the 0-based row of the file and the UTF-16 column in it.
@@ -37,11 +47,22 @@ impl StructuredDocument {
             })
             .collect();
         let cursors = Value::Array(cursors);
-        if self.visual_presence.as_ref() == Some(&cursors) {
+        if self.visual.presence.as_ref() == Some(&cursors) {
             return;
         }
         self.post("md:presence", json!({ "cursors": cursors }), cx);
-        self.visual_presence = Some(cursors);
+        self.visual.presence = Some(cursors);
+    }
+
+    /// Paint Overleaf's suggestions on the file in the visual editor:
+    /// `{ changes, authors, canAct }` (`md:overleaf`), positions in UTF-16
+    /// units of the file, which the page moves past the front matter.
+    pub fn set_markdown_changes(&mut self, review: Value, cx: &mut Context<Self>) {
+        if self.visual.changes.as_ref() == Some(&review) {
+            return;
+        }
+        self.post("md:overleaf", review.clone(), cx);
+        self.visual.changes = Some(review);
     }
 
     /// The visual editor's selection, if any text is selected in it.

@@ -119,6 +119,13 @@ impl Run {
         // Restore the project to the named version, answering the question.
         let hash = cx.update(|cx| history.read(cx).newest_version_hash());
         if let Some(hash) = hash.clone() {
+            // The chapter open, so the restore's reload reaches its editor.
+            let editor = self.open(cx, &chapter, None)?;
+            self.wait_for(cx, Duration::from_secs(5), |_, cx| {
+                editor.read(cx).text(cx).contains("the opening")
+            })
+            .await;
+            let builds = cx.update(|cx| self.shell.read(cx).build_panel().read(cx).builds());
             cx.update(|cx| {
                 history.update(cx, |history, cx| history.restore_project(hash.clone(), cx))
             });
@@ -136,6 +143,27 @@ impl Run {
                 "restoring the project to a version asks first, then puts its files back",
                 asked && restored,
                 json!({ "hash": hash }),
+            );
+            // Brought up to date at once (`reloadAfterRestore`): the open
+            // file takes the restored text, its changed line washed, and the
+            // paper builds.
+            let mut washed = Vec::new();
+            let reloaded = self
+                .wait_for(cx, Duration::from_secs(5), |_, cx| {
+                    let editor = editor.read(cx);
+                    washed = crate::editor_panel::attention::change_wash::washed_rows(editor.editor().read(cx), cx);
+                    editor.text(cx) == named && !washed.is_empty()
+                })
+                .await;
+            let built = self
+                .wait_for(cx, Duration::from_secs(60), |shell, cx| {
+                    shell.read(cx).build_panel().read(cx).builds() > builds
+                })
+                .await;
+            steps.check(
+                "after a restore the open file reloads with its landed line washed, and the paper builds",
+                reloaded && built,
+                json!({ "reloaded": reloaded, "washed": washed, "built": built }),
             );
         }
 
@@ -298,6 +326,7 @@ pub(super) const MODULE: super::registry::Module = super::registry::Module {
     covers: &[
         "gpui/crates/lattice-gpui/src/history",
         "gpui/crates/lattice-gpui/src/shell/history_flow.rs",
+        "gpui/crates/lattice-gpui/src/editor_panel/attention/change_wash.rs",
     ],
     run: |run, cx, steps, fixture| Box::pin(run.history_and_versions(cx, steps, &fixture.root)),
 };

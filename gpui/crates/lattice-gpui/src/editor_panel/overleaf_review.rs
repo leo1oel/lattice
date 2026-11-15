@@ -252,6 +252,28 @@ impl EditorPanel {
     }
 }
 
+/// Overleaf's tracked changes in a Markdown file's visual editor, as the
+/// Tauri app's canvas hands them to it (`markdownVisualChanges`,
+/// `overleafTrackChangeActions`): the page paints them as the source does,
+/// and a card's Accept or Reject comes back as the source's cards' do.
+impl EditorPanel {
+    /// Whether the file has a visual Markdown editor to paint suggestions in.
+    pub(crate) fn shows_markdown_page(&self) -> bool {
+        self.markdown_document().is_some()
+    }
+
+    /// Paint `review` (`{ changes, authors, canAct }`) in the visual editor.
+    pub(crate) fn set_markdown_overleaf_changes(
+        &mut self,
+        review: serde_json::Value,
+        cx: &mut Context<Self>,
+    ) {
+        if let Some(document) = self.markdown_document().cloned() {
+            document.update(cx, |document, cx| document.set_markdown_changes(review, cx));
+        }
+    }
+}
+
 fn underlined(color: Hsla, tint: f32) -> MarkStyle {
     MarkStyle {
         underline: Some(Underline {

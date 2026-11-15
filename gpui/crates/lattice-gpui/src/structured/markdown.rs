@@ -62,6 +62,9 @@ pub enum MarkdownEvent {
     /// A source link into the paper's own PDF was followed: its 1-based
     /// page (`paperSourceCitation`).
     PaperSource(u32),
+    /// A suggestion's card: accept or reject Overleaf's tracked change.
+    OverleafAccept(String),
+    OverleafReject(String),
 }
 
 /// A saved paper's reading text, as the canvas reads one (`activePaper` in
@@ -357,7 +360,7 @@ impl StructuredDocument {
         payload["projectRoot"] = json!(self.root.to_string_lossy());
         payload["editable"] = json!(self.editable);
         payload["split"] = json!(session.split);
-        if let Some(cursors) = &self.visual_presence {
+        if let Some(cursors) = &self.visual.presence {
             payload["presence"] = cursors.clone();
         }
         payload["files"] = session.files.clone();
@@ -443,6 +446,14 @@ impl StructuredDocument {
                 MarkdownEvent::Edit { base, source, join }
             }
             "md:selection" => return self.visual_selection_changed(payload, cx),
+            "md:overleaf-accept" => match text(payload, "id") {
+                Some(id) => MarkdownEvent::OverleafAccept(id),
+                None => return,
+            },
+            "md:overleaf-reject" => match text(payload, "id") {
+                Some(id) => MarkdownEvent::OverleafReject(id),
+                None => return,
+            },
             "md:undo" => MarkdownEvent::Undo,
             "md:redo" => MarkdownEvent::Redo,
             "md:view-in-source" => {
