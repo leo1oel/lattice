@@ -632,6 +632,7 @@ impl Shell {
         let owner = cx.entity_id();
         crate::papers::audit::stop_others(owner, &root, cx);
         if let Some(running) = crate::papers::audit::running(owner, &root, cx) {
+            window.focus(&running.focus_handle(cx), cx);
             self.documents.audit = Some(running);
             cx.notify();
             return;
@@ -673,6 +674,7 @@ impl Shell {
             }
         })
         .detach();
+        window.focus(&view.focus_handle(cx), cx);
         self.documents.audit = Some(view);
         cx.notify();
     }
