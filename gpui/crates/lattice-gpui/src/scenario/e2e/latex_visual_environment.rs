@@ -82,7 +82,10 @@ impl Run {
             .await;
         // The dialog starts at `equation`: Enter takes it.
         self.press(cx, '\n', false).await?;
-        let wrapped_text = "\\begin{equation}\n  \n\\end{equation}Some prose";
+        // The empty environment the wrap writes at the caret, which the
+        // fixture has nowhere else; what follows it is left to the steps
+        // before (an undo step that fails leaves its word there).
+        let wrapped_text = "\\begin{equation}\n  \n\\end{equation}";
         let wrapped = self
             .wait_for(cx, Duration::from_secs(5), |_, cx| {
                 panel.read(cx).text_and_caret(cx).0.contains(wrapped_text)
@@ -113,7 +116,7 @@ impl Run {
             .await;
         self.press(cx, 'a', true).await?;
         self.type_text(cx, "align\n").await?;
-        let renamed_text = "\\begin{align}\n  \n\\end{align}Some prose";
+        let renamed_text = "\\begin{align}\n  \n\\end{align}";
         let renamed = self
             .wait_for(cx, Duration::from_secs(5), |_, cx| {
                 panel.read(cx).text_and_caret(cx).0.contains(renamed_text)
