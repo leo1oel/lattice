@@ -78,7 +78,7 @@ export default function ProjectTabs({ projects, active, activeTab, actions, disa
         const { name } = entry;
         const current = entry.root === active;
         return (
-          <div key={entry.root} className="project-tab" data-project-root={entry.root} data-active={current || undefined}>
+          <div key={entry.root} className="project-tab" data-project-root={entry.root} data-active={current || undefined} data-window-drag-exclude>
             {current ? activeTab : (
               <button
                 type="button"

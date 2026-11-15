@@ -221,6 +221,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(AppState::from_environment());
     app.manage(browser_host::BrowserHost::default());
     app.manage(save_before_close::SaveBeforeClose::default());
+    app.manage(ipc::project_tabs::ProjectTabMoves::default());
     app.manage(app_restart::AppRestart::default());
     app_terminate::install(app.handle());
     let resources = resources(app)?;
@@ -386,6 +387,9 @@ pub fn run() {
             ipc::workspace::set_submission_items,
             ipc::workspace::watch_project,
             ipc::windows::open_project_window,
+            ipc::project_tab_drag::project_tab_drag_target,
+            ipc::project_tabs::move_project_tab,
+            ipc::project_tabs::receive_project_tab,
             ipc::windows::open_in_browser,
             ipc::windows::return_to_desktop,
             ipc::windows::get_app_log_dir,
