@@ -8,7 +8,9 @@
 //! - text selected on the reading page is the paper's selection;
 //! - back in the source editor, the paper goes and the editor is in front;
 //! - an image focused after the paper is in front instead, on the editor
-//!   surface.
+//!   surface;
+//! - its reader closed while the keyboard is in the Agent's panel, the
+//!   paper goes.
 //!
 //! The bibliography and the bundle are put back afterwards.
 
@@ -205,6 +207,57 @@ impl Run {
             "an image focused after the paper is the Agent's front instead, on the editor surface",
             image_front,
             json!({ "reopened": reopened, "workspace": workspace(cx) }),
+        );
+
+        // The paper again, the keyboard in the Agent's panel (where it would
+        // otherwise stay in front), then its reader closes: the paper goes.
+        let again = self.with_window(cx, |_, window, cx| {
+            papers.update(cx, |panel, cx| {
+                panel.open_titled("Attention Is All You Need", window, cx)
+            })
+        })? && self
+            .wait_for(cx, Duration::from_secs(10), |_, cx| {
+                in_front(surface.read(cx).workspace())
+            })
+            .await;
+        self.with_window(cx, |shell, window, cx| {
+            shell.update(cx, |shell, cx| shell.show_view("agent", true, window, cx));
+            if let Some(focus) = surface.read(cx).focus_handle(cx) {
+                window.focus(&focus, cx);
+            }
+        })?;
+        self.pause(cx, Duration::from_millis(300)).await;
+        let kept_before_close = in_front(&workspace(cx));
+        let closed = self.with_window(cx, |shell, _, cx| {
+            let view = shell
+                .read(cx)
+                .front_reader_panel(cx)
+                .and_then(|reader| shell.read(cx).view_of_panel(reader.entity_id()));
+            let workspace = shell.read(cx).workspace().clone();
+            view.inspect(|view| {
+                workspace.update(cx, |workspace, cx| workspace.close(&[view.clone()], cx));
+            })
+            .is_some()
+        })?;
+        let gone = again
+            && kept_before_close
+            && closed
+            && self
+                .wait_for(cx, Duration::from_secs(5), |_, cx| {
+                    let workspace = surface.read(cx).workspace();
+                    // `buildAgentHostContext` names the paper surface only
+                    // with an active paper; without one, any surface but
+                    // the PDF is the editor's, so a lingering "paper" here
+                    // reaches the Agent as "editor".
+                    workspace["activePaper"].is_null()
+                        && workspace["activeFile"] != json!(reading)
+                        && workspace["activeSurface"] != "pdf"
+                })
+                .await;
+        steps.check(
+            "closing the paper's reader while the keyboard is in the Agent's panel takes the paper from the Agent's context",
+            gone,
+            json!({ "again": again, "kept_before_close": kept_before_close, "closed": closed, "workspace": workspace(cx) }),
         );
         Ok(())
     }
