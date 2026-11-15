@@ -223,7 +223,7 @@ const DELIMITERS: &[(&str, &str)] = &[
     ("$", "$"),
 ];
 
-fn is_blank(line: &str) -> bool {
+pub(crate) fn is_blank(line: &str) -> bool {
     line.chars().all(|c| matches!(c, ' ' | '\t' | '\r'))
 }
 

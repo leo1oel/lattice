@@ -354,7 +354,8 @@ impl PdfView {
         }
         let under = self.note_at(position);
         if under != self.notes.hovered {
-            self.notes.hovered = under;
+            self.notes.hovered = under.clone();
+            self.rest_on_note(under, cx);
             cx.notify();
         }
     }
@@ -362,6 +363,7 @@ impl PdfView {
     /// The pointer left the pages: no note is lit.
     pub(in crate::pdf) fn leave_notes(&mut self, cx: &mut Context<Self>) {
         if self.notes.hovered.take().is_some() {
+            self.rest_on_note(None, cx);
             cx.notify();
         }
     }
@@ -456,6 +458,10 @@ impl PdfView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Option<AnyElement> {
+        // With the comment column open, the card stands there.
+        if self.column_open() {
+            return None;
+        }
         let id = self.notes.card.clone()?;
         let note = self
             .notes
@@ -477,8 +483,21 @@ impl PdfView {
                 (first.y + first.height) * size.1,
             ),
         )?;
+        let on = self.note_card_action(cx);
+        let content = div()
+            .id("pdf-note-card")
+            .occlude()
+            .child(card::comment_card(&[note], on, px(320.), cx));
+        let painted = self.notes.card_bounds.clone();
+        let id = SharedString::from(format!("pdf-note-{id}"));
+        Some(self.hover_card(id, about, px(320.), painted, content, window, cx))
+    }
+
+    /// What a note's card asks (Resolve, Reply) goes to the host, and the
+    /// card closes.
+    pub(in crate::pdf) fn note_card_action(&self, cx: &mut Context<Self>) -> card::CardAction {
         let view = cx.entity().downgrade();
-        let on: card::CardAction = std::rc::Rc::new(move |event, _, cx| {
+        std::rc::Rc::new(move |event, _, cx| {
             let request = match event {
                 CardEvent::Resolve(id) => AnnotationRequest::Resolve(id),
                 CardEvent::Reply(id) => AnnotationRequest::Reply(id),
@@ -489,14 +508,54 @@ impl PdfView {
                 cx.notify();
             })
             .ok();
-        });
-        let content = div()
-            .id("pdf-note-card")
-            .occlude()
-            .child(card::comment_card(&[note], on, px(320.), cx));
-        let painted = self.notes.card_bounds.clone();
-        let id = SharedString::from(format!("pdf-note-{id}"));
-        Some(self.hover_card(id, about, px(320.), painted, content, window, cx))
+        })
+    }
+
+    /// The notes drawn on the pages with where, in reading order: by page,
+    /// then down it (the comment column's order).
+    pub(in crate::pdf) fn placed_notes(&self) -> Vec<(EditorComment, MarkPlace)> {
+        let Some(source) = &self.notes.source else {
+            return Vec::new();
+        };
+        let mut placed: Vec<_> = source
+            .notes
+            .iter()
+            .filter_map(|note| Some((note.clone(), self.notes.places.get(&note.id)?.clone())))
+            .collect();
+        placed.sort_by(|(_, a), (_, b)| a.page.cmp(&b.page).then(a.pin.y.total_cmp(&b.pin.y)));
+        placed
+    }
+
+    /// Open `id`'s card (`None` closes it).
+    pub(in crate::pdf) fn open_note_card(&mut self, id: Option<String>, cx: &mut Context<Self>) {
+        if self.notes.card != id {
+            self.notes.card = id;
+            cx.notify();
+        }
+    }
+
+    /// Light `id`'s passage, as the pointer over its card in the column does.
+    pub(in crate::pdf) fn light_note(&mut self, id: Option<String>, cx: &mut Context<Self>) {
+        if self.notes.hovered != id {
+            self.notes.hovered = id;
+            cx.notify();
+        }
+    }
+
+    /// The window bounds of `id`'s first band, what its popups stand over.
+    pub(in crate::pdf) fn note_passage_on_window(&self, id: &str) -> Option<Bounds<Pixels>> {
+        let place = self.notes.places.get(id)?;
+        let first: Band = *place.bands.first()?;
+        let size = *self.page_sizes().get(place.page)?;
+        self.page_box_on_window(
+            place.page,
+            (
+                first.x * size.0,
+                first.y * size.1,
+                (first.x + first.width) * size.0,
+                (first.y + first.height) * size.1,
+            ),
+        )
     }
 
     /// The notes placed, and the note whose card is open, for a scenario.

@@ -63,6 +63,10 @@ pub struct Preferences {
     /// Each project's documents' PDF places, by project-relative path.
     #[serde(default)]
     pub places: BTreeMap<PathBuf, IndexMap<String, ViewPlace>>,
+    /// The width the writer last dragged the comment column to, in pixels;
+    /// one for every PDF (`lattice.pdf-comment-column-width.v1`).
+    #[serde(default)]
+    pub comment_column_width: Option<f32>,
 }
 
 fn default_fit() -> Option<FitMode> {
@@ -108,6 +112,7 @@ impl Default for Preferences {
             scale: DEFAULT_SCALE,
             windows: BTreeMap::new(),
             places: BTreeMap::new(),
+            comment_column_width: None,
         }
     }
 }

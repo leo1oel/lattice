@@ -417,6 +417,7 @@ pub struct CopyButton {
     id: ElementId,
     text: SharedString,
     label: SharedString,
+    ghost: bool,
 }
 
 impl CopyButton {
@@ -425,7 +426,20 @@ impl CopyButton {
             id: id.into(),
             text: text.into(),
             label: lattice_i18n::t!("Copy").into(),
+            ghost: false,
         }
+    }
+
+    /// What it says it copies, in place of Copy ("Copy corrected \bibitem").
+    pub fn label(mut self, label: impl Into<SharedString>) -> Self {
+        self.label = label.into();
+        self
+    }
+
+    /// A ghost Button, among a finding's quiet actions.
+    pub fn ghost(mut self) -> Self {
+        self.ghost = true;
+        self
     }
 }
 
@@ -456,22 +470,27 @@ impl RenderOnce for CopyButton {
                 .opacity(opacity)
                 .child(icon.element(px(13. * scale), ink))
         };
+        // The copy mark takes the label's ink: a ghost Button's is secondary.
+        let idle = if self.ghost {
+            palette.text_secondary
+        } else {
+            palette.text
+        };
         let mark = div()
             .relative()
             .flex_none()
             .size(px(14.))
-            .child(swap(Icon::COPY, palette.text, 1. - shown))
+            .child(swap(Icon::COPY, idle, 1. - shown))
             .child(swap(Icon::CHECK, palette.success, shown));
         let text = self.text;
-        Button::new(self.id, self.label)
-            .compact()
-            .leading(mark)
-            .on_click(move |_, _, cx| {
-                cx.write_to_clipboard(ClipboardItem::new_string(text.to_string()));
-                copied_at.update(cx, |at, cx| {
-                    *at = Some(std::time::Instant::now());
-                    cx.notify();
-                });
-            })
+        let button = Button::new(self.id, self.label).compact();
+        let button = if self.ghost { button.ghost() } else { button };
+        button.leading(mark).on_click(move |_, _, cx| {
+            cx.write_to_clipboard(ClipboardItem::new_string(text.to_string()));
+            copied_at.update(cx, |at, cx| {
+                *at = Some(std::time::Instant::now());
+                cx.notify();
+            });
+        })
     }
 }

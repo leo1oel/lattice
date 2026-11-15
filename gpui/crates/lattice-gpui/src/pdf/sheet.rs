@@ -202,36 +202,53 @@ impl PdfView {
             .on_mouse_move(cx.listener(Self::on_sheet_mouse_move))
             .on_mouse_up(MouseButton::Left, cx.listener(Self::on_sheet_mouse_up))
             .on_mouse_up_out(MouseButton::Left, cx.listener(Self::on_sheet_mouse_up));
+        // A docked comment column takes its width from the pages, and their
+        // scrollbars end at its edge (`pdf-comment-column.css`).
+        let column_inset = self.column_inset();
+        let column = self.comment_column(window, cx);
         div()
             .id("pdf-scroll-area")
             .relative()
             .flex_1()
             .min_h_0()
             .child(
-                div().absolute().inset_0().p(px(PAGE_INSET)).child(
-                    div()
-                        .id("pdf-pages")
-                        .size_full()
-                        .overflow_scroll()
-                        .track_scroll(&self.scroll)
-                        .on_pinch(cx.listener(|this, event, _, cx| this.on_pinch(event, cx)))
-                        .child(sheet),
-                ),
+                div()
+                    .absolute()
+                    .top_0()
+                    .bottom_0()
+                    .left_0()
+                    .right(px(column_inset))
+                    .child(
+                        div().absolute().inset_0().p(px(PAGE_INSET)).child(
+                            div()
+                                .id("pdf-pages")
+                                .size_full()
+                                .overflow_scroll()
+                                .track_scroll(&self.scroll)
+                                .on_pinch(
+                                    cx.listener(|this, event, _, cx| this.on_pinch(event, cx)),
+                                )
+                                .child(sheet),
+                        ),
+                    )
+                    // The app's one scrollbar, the source editor's own (a
+                    // document's overlay bar: shown under the pointer on the
+                    // bar and briefly after a scroll, 4px at rest and 6px
+                    // under the pointer on a 10px track), on both axes since
+                    // a zoomed page scrolls sideways.
+                    .child(
+                        FluidScrollbar::vertical("pdf-scrollbar", &self.scroll)
+                            .feel(ScrollbarFeel::DOCUMENT)
+                            .drawn_opacity(self.scrollbar_drawn.clone())
+                            .drawn_thumb(self.scrollbar_thumb.clone()),
+                    )
+                    .child(
+                        FluidScrollbar::horizontal("pdf-scrollbar-x", &self.scroll)
+                            .feel(ScrollbarFeel::DOCUMENT),
+                    ),
             )
-            // The app's one scrollbar, the source editor's own (a document's
-            // overlay bar: shown under the pointer on the bar and briefly
-            // after a scroll, 4px at rest and 6px under the pointer on a 10px
-            // track), on both axes since a zoomed page scrolls sideways.
-            .child(
-                FluidScrollbar::vertical("pdf-scrollbar", &self.scroll)
-                    .feel(ScrollbarFeel::DOCUMENT)
-                    .drawn_opacity(self.scrollbar_drawn.clone())
-                    .drawn_thumb(self.scrollbar_thumb.clone()),
-            )
-            .child(
-                FluidScrollbar::horizontal("pdf-scrollbar-x", &self.scroll)
-                    .feel(ScrollbarFeel::DOCUMENT),
-            )
+            .children(column)
+            .children(self.note_preview_element(window, cx))
             .children(self.citation_card_element(window, cx))
             .children(self.compound_card_element(window, cx))
             .children(self.note_card_element(window, cx))

@@ -6,6 +6,8 @@
 //!   image, an equation set by KaTeX and the last build's numbers, and the
 //!   figure card over an `\includegraphics` path ([`preview_cards`], drawn
 //!   through the app's [`previews`] host);
+//! - the live preview of the math at the caret ([`math_preview`]), in a
+//!   `.tex` file;
 //! - command and citation completion ([`completions`]);
 //! - spell and grammar checking with Harper, or a language's dictionary,
 //!   as marks and lint cards ([`spelling`], over [`prose`]).
@@ -43,6 +45,7 @@ pub mod preview_cards;
 pub mod previews;
 pub mod input_rules;
 pub mod lint;
+pub mod math_preview;
 pub mod project_completions;
 pub mod prose;
 pub mod protected;

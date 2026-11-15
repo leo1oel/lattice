@@ -158,14 +158,15 @@ impl Shell {
             return;
         }
         self.abandon_launch_reopen();
-        let dialog = cx.new(|cx| NewProjectDialog::new(window, cx));
+        let current = self.root(cx);
+        let dialog = cx.new(|cx| NewProjectDialog::new(current, window, cx));
         cx.subscribe_in(
             &dialog,
             window,
             |this, dialog, event, window, cx| match event {
                 NewProjectEvent::Dismiss => this.dismiss_new_project(window, cx),
                 NewProjectEvent::Create { name, venue } => {
-                    this.create_project(dialog.clone(), name.clone(), venue, window, cx)
+                    this.create_project(dialog.clone(), name.clone(), venue.clone(), window, cx)
                 }
             },
         )
@@ -195,7 +196,7 @@ impl Shell {
         &mut self,
         dialog: Entity<NewProjectDialog>,
         name: String,
-        venue: &'static str,
+        venue: String,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -216,7 +217,7 @@ impl Shell {
                 .ok();
             let created = cx
                 .background_executor()
-                .spawn(async move { create_project(parent, name, venue) })
+                .spawn(async move { create_project(parent, name, &venue) })
                 .await;
             this.update_in(cx, |this, window, cx| {
                 this.set_busy(None, cx);

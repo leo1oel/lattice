@@ -1,213 +1,31 @@
-//! Check references drawn (`bibliography-audit.css`): what the check
-//! covered and Check all, the findings' buckets as pills with their counts,
-//! then one row per reference in a raised list, ordered by what it asks of
-//! the writer, each with its status mark, citation key, title and what the
-//! check said, and a publisher's notice on the work. A row opens its finding
-//! under it (`detail.rs`); fixes sit under the kind of change they make.
-//! At the foot, Apply all takes the fixes that only fill in or publish.
+//! Check references drawn (`bibliography-audit.css`): the verdict and its
+//! actions, what the check covered, a bar of the findings and the filters
+//! (`tabs.rs`), then the references grouped by what each asks of the writer,
+//! fixes under the kind of change they make (`row.rs`). At 800px and wider
+//! the list stands beside the finding it has open as a review queue
+//! (`pane.rs`); narrower, a finding unfolds under its row. The sheet holds
+//! the keyboard while it is up, for the queue's keys (`queue.rs`).
 
 use gpui::{
-    AnyElement, App, Context, Hsla, InteractiveElement as _, IntoElement, ParentElement as _,
-    Render, SharedString, StatefulInteractiveElement as _, Styled as _, Window, div,
-    prelude::FluentBuilder as _, px,
+    AnyElement, App, Context, InteractiveElement as _, IntoElement, ParentElement as _, Render,
+    StatefulInteractiveElement as _, Styled as _, Window, div, prelude::FluentBuilder as _, px,
+    relative,
 };
 use lattice_i18n::{comma, join_list, t};
 use lattice_ui::{
-    ActiveLattice as _, Icon, Palette, TextRole, TextRoleStyle as _,
-    components::Button,
-    icons::{ICON, ICON_SMALL},
-    interaction::mix,
-    tokens::FONT_WEIGHT_MEDIUM,
+    ActiveLattice as _, Icon, Palette, TextRole, TextRoleStyle as _, components::Button,
+    icons::ICON, interaction::mix, tokens::FONT_WEIGHT_MEDIUM,
 };
 
-use super::{Audit, Bucket};
+use super::{Audit, Bucket, queue::Listing};
 use crate::search::sheet::SheetFrame;
 
-fn mark(bucket: Bucket, checking: bool, palette: &Palette) -> (Icon, Hsla) {
-    if checking {
-        return (Icon::LOADER, palette.text_secondary);
-    }
-    match bucket {
-        Bucket::Fix => (Icon::WRENCH, palette.accent),
-        Bucket::Review => (
-            Icon::TRIANGLE_ALERT,
-            mix(palette.warning, palette.text, 0.22),
-        ),
-        Bucket::Incomplete => (Icon::CIRCLE_ALERT, palette.text_secondary),
-        Bucket::Unchecked => (Icon::CIRCLE_DOT, palette.text_secondary),
-        Bucket::Kept => (Icon::CHECK, palette.text_secondary),
-        Bucket::Verified => (Icon::CIRCLE_CHECK, palette.success),
-    }
-}
-
-impl Audit {
-    /// `view`: the filter the list shows, as `render` settled it.
-    fn pills(
-        &self,
-        counts: &[(Bucket, usize)],
-        view: Option<Bucket>,
-        cx: &mut Context<Self>,
-    ) -> AnyElement {
-        let palette = cx.palette().clone();
-        let total = self.entries.len();
-        let pill = |id: SharedString,
-                    label: String,
-                    count: usize,
-                    on: bool,
-                    view: Option<Bucket>,
-                    cx: &mut Context<Self>| {
-            div()
-                .id(id)
-                .flex()
-                .items_center()
-                .gap(px(6.))
-                .h(px(26.))
-                .px(px(8.))
-                .rounded_full()
-                .cursor_pointer()
-                .when(on, |pill| pill.bg(palette.text.opacity(0.07)))
-                .when(!on, |pill| pill.hover(|style| style.bg(palette.hover)))
-                .text_role(TextRole::Caption, cx)
-                .text_color(if on {
-                    palette.text
-                } else {
-                    palette.text_secondary
-                })
-                .on_click(cx.listener(move |this, _, _, cx| this.set_view(view, cx)))
-                .child(label)
-                .child(count.to_string())
-        };
-        let mut pills = div().flex().flex_wrap().gap(px(4.)).child(pill(
-            "audit-all".into(),
-            t!("All").into(),
-            total,
-            view.is_none(),
-            None,
-            cx,
-        ));
-        for (bucket, count) in counts.iter().filter(|(_, count)| *count > 0) {
-            pills = pills.child(pill(
-                SharedString::from(format!("audit-{bucket:?}")),
-                bucket.label().into(),
-                *count,
-                view == Some(*bucket),
-                Some(*bucket),
-                cx,
-            ));
-        }
-        pills.into_any_element()
-    }
-
-    fn row(&self, index: usize, first: bool, cx: &mut Context<Self>) -> AnyElement {
-        let palette = cx.palette().clone();
-        let editor = cx.lattice().fonts.editor.clone();
-        let entry = &self.entries[index];
-        let bucket = self.bucket(index);
-        let (icon, ink) = mark(bucket, self.checking.contains(&index), &palette);
-        let message =
-            super::summary::summary(self.results.get(&index), bucket, entry.inline.is_some());
-        let open = self.open == Some(index);
-        let notice = self
-            .results
-            .get(&index)
-            .and_then(super::detail::notice_line);
-        div()
-            .flex()
-            .flex_col()
-            .when(!first, |row| row.border_t_1().border_color(palette.line))
-            .child(
-                div()
-                    .id(("audit-row", index))
-                    .flex()
-                    .items_center()
-                    .gap(px(10.))
-                    .px(px(12.))
-                    .py(px(8.))
-                    .cursor_pointer()
-                    .hover(|style| style.bg(palette.hover))
-                    .when(open, |row| row.bg(palette.row_selected))
-                    .on_click(cx.listener(move |this, _, _, cx| this.toggle(index, cx)))
-                    .child(div().flex_none().child(lattice_ui::loading::mark(
-                        ("audit-mark", index),
-                        icon,
-                        ICON,
-                        ink,
-                        cx,
-                    )))
-                    .child(
-                        div()
-                            .flex()
-                            .flex_col()
-                            .flex_1()
-                            .min_w_0()
-                            .gap(px(2.))
-                            .child(
-                                div()
-                                    .flex()
-                                    .items_baseline()
-                                    .gap(px(8.))
-                                    .min_w_0()
-                                    .child(
-                                        div()
-                                            .flex_none()
-                                            .max_w(px(220.))
-                                            .truncate()
-                                            .font_family(editor)
-                                            .text_size(px(11.))
-                                            .text_color(palette.text_secondary)
-                                            .child(entry.key.clone()),
-                                    )
-                                    .child(
-                                        div()
-                                            .min_w_0()
-                                            .truncate()
-                                            .text_role(TextRole::Body, cx)
-                                            .text_color(palette.text)
-                                            .child(super::entry_title(entry)),
-                                    ),
-                            )
-                            .when(!message.is_empty(), |text| {
-                                text.child(
-                                    div()
-                                        .truncate()
-                                        .text_role(TextRole::Caption, cx)
-                                        .text_color(palette.text_secondary)
-                                        .child(message),
-                                )
-                            })
-                            // A publisher's notice shows on the row, before
-                            // it is opened.
-                            .when_some(notice, |text, (line, kind)| {
-                                let ink = if kind == "retracted" {
-                                    mix(palette.danger, palette.text, 0.2)
-                                } else {
-                                    mix(palette.warning, palette.text, 0.22)
-                                };
-                                text.child(
-                                    div()
-                                        .flex()
-                                        .items_center()
-                                        .gap(px(4.))
-                                        .min_w_0()
-                                        .text_role(TextRole::Caption, cx)
-                                        .text_color(ink)
-                                        .child(Icon::TRIANGLE_ALERT.element(ICON_SMALL, ink))
-                                        .child(div().min_w_0().truncate().child(line)),
-                                )
-                            }),
-                    )
-                    .child(
-                        div()
-                            .flex_none()
-                            .text_role(TextRole::Caption, cx)
-                            .text_color(ink)
-                            .child(bucket.label()),
-                    ),
-            )
-            .when(open, |row| row.child(self.finding(index, cx)))
-            .into_any_element()
-    }
-}
+/// The window width from which the list and the open finding stand side by
+/// side (`queueWidth`, `(min-width: 800px)`).
+const QUEUE_WIDTH: f32 = 800.;
+/// The sheet's content width under which a folded row keeps no Apply
+/// (`@container bibliography-audit (width < 520px)`).
+const ROW_APPLY_WIDTH: f32 = 520.;
 
 fn caption(text: String, cx: &App) -> AnyElement {
     div()
@@ -452,52 +270,89 @@ impl Audit {
     }
 }
 
+impl Audit {
+    /// The references as the list draws them: bucket headings while all
+    /// are shown, fix groups inside the fixes, a row each. The row the
+    /// last opening asked for is brought into view.
+    fn list(
+        &mut self,
+        listing: &Listing,
+        current: Option<usize>,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let mut children: Vec<AnyElement> = Vec::new();
+        if listing.view.is_none()
+            && let Some(issues) = self.issues_list(cx)
+        {
+            children.push(div().pb(px(4.)).child(issues).into_any_element());
+        }
+        let group = |index: usize| {
+            self.results
+                .get(&index)
+                .map(|result| super::fix_group(&result.changes))
+        };
+        let reveal = self.reveal.take();
+        let mut revealed = None;
+        for (at, index) in listing.shown.iter().copied().enumerate() {
+            let bucket = listing.buckets[index];
+            let previous = at.checked_sub(1).map(|at| listing.shown[at]);
+            let mut rule = previous.is_some() && previous != current;
+            if listing.view.is_none()
+                && previous.is_none_or(|previous| listing.buckets[previous] != bucket)
+            {
+                children.push(self.group_head(bucket, listing.count(bucket), at == 0, cx));
+                rule = false;
+            }
+            // Fixes under what kind they are, which says why Apply all
+            // leaves the disputed ones.
+            if bucket == Bucket::Fix
+                && self.entries[index].inline.is_none()
+                && previous.is_none_or(|previous| {
+                    listing.buckets[previous] != Bucket::Fix || group(previous) != group(index)
+                })
+                && let Some(group) = group(index)
+            {
+                children.push(self.subgroup_head(group, cx));
+                rule = false;
+            }
+            if reveal == Some(index) {
+                revealed = Some(children.len());
+            }
+            children.push(self.row(index, listing, current, rule, cx));
+        }
+        if let Some(child) = revealed {
+            self.scroll.scroll_to_item(child);
+        }
+        let list = div()
+            .id("audit-rows")
+            .flex()
+            .flex_col()
+            .min_h_0()
+            .overflow_y_scroll()
+            .track_scroll(&self.scroll)
+            .pb(px(16.))
+            .children(children);
+        if self.queue {
+            // The list's share of the queue: min(340px, 42%).
+            list.flex_none()
+                .w(relative(0.42))
+                .max_w(px(340.))
+                .pr(px(8.))
+                .into_any_element()
+        } else {
+            list.flex_1().into_any_element()
+        }
+    }
+}
+
 impl Render for Audit {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let palette = cx.palette().clone();
-        let buckets: Vec<Bucket> = (0..self.entries.len())
-            .map(|index| self.bucket(index))
-            .collect();
-        let counts: Vec<(Bucket, usize)> = Bucket::ORDER
-            .iter()
-            .map(|bucket| {
-                (
-                    *bucket,
-                    buckets.iter().filter(|value| *value == bucket).count(),
-                )
-            })
-            .collect();
-        // A filter with nothing in it shows everything (`shownView`); the
-        // writer's choice stays, for when its findings come back.
-        let view = self.view.filter(|view| {
-            counts
-                .iter()
-                .any(|(bucket, count)| bucket == view && *count > 0)
-        });
-        let shown: Vec<usize> = Bucket::ORDER
-            .iter()
-            .filter(|bucket| view.is_none_or(|view| view == **bucket))
-            .flat_map(|bucket| {
-                let mut indexes: Vec<usize> = (0..buckets.len())
-                    .filter(|index| buckets[*index] == *bucket)
-                    .collect();
-                // Fixes Apply all takes first, a disputed one last.
-                if *bucket == Bucket::Fix {
-                    indexes.sort_by_key(|index| {
-                        self.results
-                            .get(index)
-                            .map(|result| super::fix_group(&result.changes))
-                    });
-                }
-                indexes
-            })
-            .collect();
-        let count = |bucket: Bucket| {
-            counts
-                .iter()
-                .find(|(each, _)| *each == bucket)
-                .map_or(0, |(_, count)| *count)
-        };
+        self.queue = f32::from(window.viewport_size().width) >= QUEUE_WIDTH;
+        self.narrow = crate::search::sheet::body_width(window) < ROW_APPLY_WIDTH;
+        let listing = self.listing();
+        let current = self.current(&listing);
+        let count = |bucket: Bucket| listing.count(bucket);
         let total = self.entries.len();
         let outdated = self.outdated();
         let mut body: Vec<AnyElement> = vec![
@@ -576,82 +431,47 @@ impl Render for Audit {
             );
         }
         if total > 0 && (self.busy || count(Bucket::Unchecked) < total) {
-            body.push(bar(&counts, &palette));
+            body.push(bar(&listing.counts, &palette));
         }
         if total > 0 && count(Bucket::Unchecked) < total {
-            body.push(self.pills(&counts, view, cx));
+            body.push(self.tabs(&listing, window, cx));
         }
         if total > 0 {
-            let mut list = div()
-                .id("audit-rows")
-                .flex()
-                .flex_col()
-                .flex_1()
-                .min_h_0()
-                .overflow_y_scroll()
-                .track_scroll(&self.scroll)
-                .rounded(px(10.))
-                .border_1()
-                .border_color(palette.line)
-                .bg(palette.raised);
-            if view.is_none()
-                && let Some(issues) = self.issues_list(cx)
-            {
-                list = list.child(div().p(px(12.)).child(issues));
-            }
-            let group = |index: usize| {
-                self.results
-                    .get(&index)
-                    .map(|result| super::fix_group(&result.changes))
-            };
-            for (at, index) in shown.iter().enumerate() {
-                // Fixes under what kind they are, which says why Apply all
-                // leaves the disputed ones.
-                let inline = self.entries[*index].inline.is_some();
-                let previous = at.checked_sub(1).map(|at| shown[at]);
-                let mut headed = false;
-                if buckets[*index] == Bucket::Fix
-                    && !inline
-                    && previous.is_none_or(|previous| {
-                        buckets[previous] != Bucket::Fix || group(previous) != group(*index)
-                    })
-                    && let Some(group) = group(*index)
-                {
-                    list = list.child(
-                        div()
-                            .px(px(12.))
-                            .pt(px(10.))
-                            .pb(px(4.))
-                            .when(at > 0, |head| head.border_t_1().border_color(palette.line))
-                            .text_role(TextRole::Micro, cx)
-                            .font_weight(FONT_WEIGHT_MEDIUM)
-                            .text_color(palette.text_secondary)
-                            .child(group.label()),
-                    );
-                    headed = true;
+            let list = self.list(&listing, current, cx);
+            let findings = div().flex().flex_1().min_h_0().child(list);
+            body.push(
+                if self.queue {
+                    findings.child(self.pane(&listing, current, cx))
+                } else {
+                    findings.flex_col()
                 }
-                list = list.child(self.row(*index, at == 0 || headed, cx));
-            }
-            body.push(list.into_any_element());
-        }
-        let mut actions: Vec<AnyElement> = vec![div().flex_1().into_any_element()];
-        actions.push(
-            Button::new("audit-close", t!("Close"))
-                .disabled(self.applying)
-                .on_click(cx.listener(|this, _, _, cx| this.close(cx)))
                 .into_any_element(),
-        );
+            );
+        }
         let view = cx.entity().downgrade();
-        SheetFrame {
+        let sheet = SheetFrame {
             id: "check-references",
             icon: Icon::CLIPBOARD_CHECK,
             title: t!("Check references"),
             body,
-            actions,
+            // No foot: the header's X closes it, as the Tauri sheet's does.
+            actions: Vec::new(),
             scrim_closes: !self.busy && !self.applying,
         }
         .render(window, cx, move |_, cx| {
             view.update(cx, |this, cx| this.close(cx)).ok();
-        })
+        });
+        // The sheet holds the keyboard, so the queue's keys are its own.
+        div()
+            .absolute()
+            .inset_0()
+            .track_focus(&self.focus)
+            .key_context(super::KEY_CONTEXT)
+            .on_action(cx.listener(Self::next_reference))
+            .on_action(cx.listener(Self::previous_reference))
+            .on_action(cx.listener(Self::apply_fix))
+            .on_action(cx.listener(Self::apply_fix_chord))
+            .on_action(cx.listener(Self::skip_finding))
+            .child(sheet)
     }
 }

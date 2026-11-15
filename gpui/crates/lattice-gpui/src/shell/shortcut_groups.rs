@@ -15,8 +15,9 @@
 //!
 //! The visual Markdown editor is the Tauri app's own engine in its island,
 //! which binds its keys itself, so its rows are `engine-shortcuts.ts`'s table
-//! as the Tauri sheet lists it. Check references' review queue has no keys
-//! in this app yet, so it has no group.
+//! as the Tauri sheet lists it. Check references' review queue binds its keys
+//! in its sheet's own context (`papers/audit/queue.rs`), where they are
+//! looked up.
 
 use gpui::{Action, App, KeyBinding, KeyContext, Keymap, SharedString};
 use lattice_i18n::{n, t};
@@ -172,6 +173,28 @@ pub(super) const LATEX_ROWS: ActionTable = &[
     (n!("Rename label or citation"), &[("editor::Rename", None)]),
 ];
 
+/// Check references' review queue (`REFERENCE_CHECK_SHORTCUTS`, in its
+/// order): Apply has two keys, one row.
+const REFERENCE_ROWS: ActionTable = &[
+    (
+        n!("Next reference"),
+        &[("check_references::NextReference", None)],
+    ),
+    (
+        n!("Previous reference"),
+        &[("check_references::PreviousReference", None)],
+    ),
+    (n!("Apply the fix"), &[("check_references::ApplyFix", None)]),
+    (
+        n!("Apply the fix"),
+        &[("check_references::ApplyFixChord", None)],
+    ),
+    (
+        n!("Skip to the next finding"),
+        &[("check_references::SkipFinding", None)],
+    ),
+];
+
 /// `ENGINE_SHORTCUTS` (`engine-shortcuts.ts`): the visual Markdown editor's
 /// keys, as its engine binds them.
 const MARKDOWN_ROWS: &[(&str, &[&str])] = &[
@@ -230,11 +253,13 @@ fn panel_rows() -> Vec<(SharedString, Vec<Box<dyn Action>>)> {
     ]
 }
 
-/// Where a key is looked up: the window's own context, and the stack a
-/// `.tex` file's editor sits in (the panel's, then Zed's editor's).
+/// Where a key is looked up: the window's own context, the stack a `.tex`
+/// file's editor sits in (the panel's, then Zed's editor's), and Check
+/// references' sheet.
 struct Places {
     window: Vec<KeyContext>,
     editor: Vec<KeyContext>,
+    references: Vec<KeyContext>,
 }
 
 impl Places {
@@ -247,6 +272,10 @@ impl Places {
         editor.set("extension", "tex");
         Self {
             window: vec![root.clone()],
+            references: vec![
+                root.clone(),
+                KeyContext::parse(crate::papers::audit::KEY_CONTEXT).unwrap_or_default(),
+            ],
             editor: vec![
                 root,
                 KeyContext::parse("LatticeEditor").unwrap_or_default(),
@@ -424,6 +453,10 @@ pub(super) fn shortcut_groups(commands: &[Command], cx: &App) -> Vec<Group> {
             table_rows(LATEX_ROWS, &keymap, &places.editor, cx),
         ),
         (t!("Visual Markdown"), markdown_entries),
+        (
+            t!("Check references"),
+            table_rows(REFERENCE_ROWS, &keymap, &places.references, cx),
+        ),
     ] {
         let rows = merged_rows(entries);
         if !rows.is_empty() {

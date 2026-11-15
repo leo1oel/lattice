@@ -1,8 +1,11 @@
 //! A reference's open finding (`bibliography-audit.tsx` `detailFor`): what
 //! its bucket asks of the writer and the actions that answer it, the
 //! publisher's notice on the work, the evidence under Details, and the
-//! entry as written. A reference not checked yet offers Check this
-//! reference. Go to opens the entry only where the scan placed it.
+//! entry as written. A fix is drawn by `fix.rs`, an unverified candidate's
+//! fields beside the entry's by `compare.rs`; Skip and the "N of M"
+//! stepper move on through the review queue (`queue.rs`). A reference not
+//! checked yet offers Check this reference. Go to opens the entry only
+//! where the scan placed it.
 
 use gpui::{
     AnyElement, App, Context, Hsla, InteractiveElement as _, IntoElement, ParentElement as _,
@@ -16,34 +19,13 @@ use lattice_ui::{
     interaction::mix,
 };
 
-use super::{Audit, Bucket, Change, Finding, FixGroup, summary};
+use super::{Audit, Bucket, Finding, queue::Listing, summary};
 
 /// A LaTeX command the copy names; never translated.
-const BIBITEM: &str = "\\bibitem";
-
-/// A field's name where the reference itself is shown (`bibFieldName`):
-/// English, as the `.bib` file and the printed bibliography are.
-pub(super) fn bib_field_name(field: &str) -> &str {
-    match field {
-        "title" => "Title",
-        "author" => "Authors",
-        "year" => "Year",
-        "journal" => "Journal",
-        "booktitle" => "Booktitle",
-        "publisher" => "Publisher",
-        "volume" => "Volume",
-        "number" => "Number",
-        "pages" => "Pages",
-        "doi" => "DOI",
-        "url" => "URL",
-        "ENTRYTYPE" => "Entry type",
-        "venue" => "Venue",
-        other => other,
-    }
-}
+pub(super) const BIBITEM: &str = "\\bibitem";
 
 /// "Go to \bibitem in {path}" for an inline reference.
-fn go_to_bibitem(path: &str) -> String {
+pub(super) fn go_to_bibitem(path: &str) -> String {
     t!("Go to {BIBITEM} in {0}", path).replace("{BIBITEM}", BIBITEM)
 }
 
@@ -120,29 +102,75 @@ impl Audit {
             .into_any_element()
     }
 
-    /// A BibTeX record as it is written, under its label.
-    fn bibtex(&self, label: Option<String>, text: String, cx: &App) -> AnyElement {
+    /// A note in the secondary ink (`.bibliography-audit-note`).
+    pub(super) fn note(&self, text: String, cx: &App) -> AnyElement {
+        self.caption(text, cx.palette().text_secondary, cx)
+    }
+
+    /// A finding's actions, in a wrapping row (`-detail-actions`).
+    pub(super) fn actions(&self) -> gpui::Div {
+        div()
+            .flex()
+            .flex_wrap()
+            .items_center()
+            .gap(px(6.))
+            .min_w_0()
+    }
+
+    /// An opened disclosure's body (`.bibliography-audit-more-body`).
+    pub(super) fn more_body(&self, cx: &App) -> gpui::Div {
+        div()
+            .flex()
+            .flex_col()
+            .gap(px(10.))
+            .text_role(TextRole::Caption, cx)
+            .text_color(cx.palette().text_secondary)
+    }
+
+    /// A BibTeX record as it is written, under its label
+    /// (`.bibliography-audit-source`): the input's surface, the diff's code
+    /// type in the secondary ink, scrolling past 200px.
+    pub(super) fn bibtex(&self, label: Option<String>, text: String, cx: &App) -> AnyElement {
         let palette = cx.palette();
+        // Its scroll is its own: keyed by what it shows, as two records of
+        // one finding differ.
+        let id = {
+            use std::hash::{Hash as _, Hasher as _};
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            (&label, &text).hash(&mut hasher);
+            SharedString::from(format!("audit-bibtex-{:x}", hasher.finish()))
+        };
         div()
             .flex()
             .flex_col()
             .gap(px(4.))
-            .children(label.map(|label| self.caption(label, palette.text_secondary, cx)))
+            .children(label.map(|label| {
+                div()
+                    .text_role(TextRole::Micro, cx)
+                    .text_color(palette.text_secondary.opacity(0.8))
+                    .child(label)
+            }))
             .child(
                 div()
-                    .p(px(8.))
+                    .id(id)
+                    .max_h(px(200.))
+                    .overflow_y_scroll()
+                    .p(px(10.))
                     .rounded(px(6.))
-                    .bg(palette.text.opacity(0.03))
+                    .bg(palette.input)
                     .font_family(cx.lattice().fonts.editor.clone())
                     .text_size(px(11.))
-                    .text_color(palette.text)
+                    .line_height(px(17.))
+                    .text_color(palette.text_secondary)
                     .child(text),
             )
             .into_any_element()
     }
 
-    /// A fold the writer opens: its summary, and its body once open.
-    fn disclosure(
+    /// A fold the writer opens (`Disclosure`): its summary in the caption's
+    /// secondary ink with a chevron that turns, lighting under the pointer,
+    /// and its body 8px under it once open.
+    pub(super) fn disclosure(
         &self,
         index: usize,
         name: &'static str,
@@ -152,90 +180,42 @@ impl Audit {
     ) -> AnyElement {
         let palette = cx.palette().clone();
         let open = self.disclosed.contains(&(index, name));
+        let chevron = Icon::CHEVRON_RIGHT.element(ICON_SMALL, palette.text_secondary.opacity(0.8));
         div()
             .flex()
             .flex_col()
-            .gap(px(6.))
+            .gap(px(8.))
             .child(
                 div()
                     .id(SharedString::from(format!("audit-{name}-{index}")))
                     .flex()
+                    .flex_none()
+                    .self_start()
                     .items_center()
-                    .gap(px(4.))
+                    .gap(px(6.))
+                    .px(px(4.))
+                    .py(px(2.))
+                    .ml(px(-4.))
+                    .rounded(px(4.))
                     .cursor_pointer()
                     .text_role(TextRole::Caption, cx)
                     .text_color(palette.text_secondary)
-                    .hover(|style| style.text_color(palette.text))
+                    .hover(|style| style.text_color(palette.text).bg(palette.hover))
                     .on_click(
                         cx.listener(move |this, _, _, cx| this.toggle_disclosure(index, name, cx)),
                     )
-                    .child(
-                        if open {
-                            Icon::CHEVRON_DOWN
-                        } else {
-                            Icon::CHEVRON_RIGHT
-                        }
-                        .element(ICON_SMALL, palette.text_secondary),
-                    )
+                    .child(if open {
+                        chevron
+                            .with_transformation(gpui::Transformation::rotate(gpui::percentage(
+                                0.25,
+                            )))
+                            .into_any_element()
+                    } else {
+                        chevron.into_any_element()
+                    })
                     .child(summary),
             )
             .when(open, |fold| fold.child(body(self, cx)))
-            .into_any_element()
-    }
-
-    /// The fields a fix or a candidate changes, each struck and replaced.
-    fn changes(&self, changes: &[Change], label: impl Fn(&str) -> String, cx: &App) -> AnyElement {
-        let palette = cx.palette();
-        let editor = cx.lattice().fonts.editor.clone();
-        div()
-            .flex()
-            .flex_col()
-            .gap(px(4.))
-            .p(px(8.))
-            .rounded(px(6.))
-            .bg(palette.text.opacity(0.03))
-            .children(changes.iter().map(|change| {
-                div()
-                    .flex()
-                    .gap(px(8.))
-                    .text_role(TextRole::Caption, cx)
-                    .child(
-                        div()
-                            .flex_none()
-                            .w(px(96.))
-                            .truncate()
-                            .font_family(editor.clone())
-                            .text_size(px(11.))
-                            .text_color(palette.text_secondary)
-                            .child(label(&change.field)),
-                    )
-                    .child(
-                        div()
-                            .flex()
-                            .flex_col()
-                            .flex_1()
-                            .min_w_0()
-                            .child(
-                                div()
-                                    .text_color(mix(palette.danger, palette.text, 0.25))
-                                    .line_through()
-                                    .child(if change.before.is_empty() {
-                                        "—".to_string()
-                                    } else {
-                                        change.before.clone()
-                                    }),
-                            )
-                            .child(
-                                div()
-                                    .text_color(mix(palette.success, palette.text, 0.2))
-                                    .child(if change.after.is_empty() {
-                                        "—".to_string()
-                                    } else {
-                                        change.after.clone()
-                                    }),
-                            ),
-                    )
-            }))
             .into_any_element()
     }
 
@@ -283,7 +263,7 @@ impl Audit {
     }
 
     /// Go to the entry, where the scan placed it; none otherwise.
-    fn go_to(
+    pub(super) fn go_to(
         &self,
         index: usize,
         entry: &AuditEntry,
@@ -294,7 +274,6 @@ impl Audit {
         entry.line?;
         let button = Button::new(("audit-source", index), label)
             .compact()
-            .icon(Icon::EXTERNAL_LINK)
             .disabled(self.applying);
         let button = if tinted {
             button.tinted()
@@ -386,10 +365,17 @@ impl Audit {
             cx,
         )
     }
+}
 
-    /// The open finding: what to do about it, and the evidence.
-    pub(super) fn finding(&self, index: usize, cx: &mut Context<Self>) -> AnyElement {
-        let palette = cx.palette().clone();
+impl Audit {
+    /// The open finding: what to do about it, and the evidence. Under its
+    /// row or in the queue's pane, the caller places it.
+    pub(super) fn finding(
+        &self,
+        index: usize,
+        listing: &Listing,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         let entry = self.entries[index].clone();
         let bucket = self.bucket(index);
         let applied = self.applied.contains(&index);
@@ -418,75 +404,25 @@ impl Audit {
                 cx,
             )
         };
-        let mut body = div().flex().flex_col().gap(px(8.)).px(px(12.)).pb(px(12.));
-        let actions = || div().flex().flex_wrap().gap(px(6.));
+        let mut body = div().flex().flex_col().gap(px(10.)).min_w_0();
         let Some(result) = result else {
             return body
-                .child(actions().child(self.recheck(index, t!("Check this reference"), cx)))
+                .child(
+                    self.actions()
+                        .child(self.recheck(index, t!("Check this reference"), cx)),
+                )
                 .child(written(self, cx))
                 .into_any_element();
         };
-        let note_ink = palette.text;
         let has_candidate = result.candidate.is_some();
         let inline = entry.inline.is_some();
         if bucket == Bucket::Fix {
-            if !inline && super::fix_group(&result.changes) == FixGroup::Disputed {
-                body = body.child(self.caption(
-                    t!("Your entry and the source give different values, and either may be right, so Apply all leaves this one to you.").into(),
-                    note_ink,
-                    cx,
-                ));
-            }
-            body =
-                body.child(self.changes(&result.changes, |field| bib_field_name(field).into(), cx));
-            if inline {
-                body = body
-                    .child(self.caption(
-                        t!(
-                            "{0} keeps its own reference list. Lattice compares it with the verified record but never edits it",
-                            entry.path
-                        ),
-                        note_ink,
-                        cx,
-                    ))
-                    .children(self.go_to(index, &entry, go_to_bibitem(&entry.path), true, cx));
-            } else {
-                body = body.child(
-                    actions().child(
-                        Button::new(("audit-apply", index), t!("Apply"))
-                            .tinted()
-                            .compact()
-                            .icon(Icon::CHECK)
-                            .disabled(self.applying || self.busy || result.after.is_none())
-                            .on_click(
-                                cx.listener(move |this, _, _, cx| this.apply(vec![index], cx)),
-                            ),
-                    ),
-                );
-            }
-            let proposed: String = if inline {
-                t!("Verified record (BibTeX)").into()
-            } else {
-                t!("Proposed BibTeX").into()
-            };
-            let (after, written_label, written_text) = (
-                result.after.clone().unwrap_or_default(),
-                written_label.clone(),
-                written_text.clone(),
-            );
-            body = body.child(self.disclosure(
+            body = body.children(self.fix_finding(
                 index,
-                "fields",
-                t!("Fields and BibTeX").into(),
-                move |this, cx| {
-                    div()
-                        .flex()
-                        .flex_col()
-                        .gap(px(8.))
-                        .child(this.bibtex(Some(proposed), after, cx))
-                        .child(this.bibtex(Some(written_label), written_text, cx))
-                        .into_any_element()
-                },
+                &entry,
+                &result,
+                listing,
+                (written_label.clone(), written_text.clone()),
                 cx,
             ));
         }
@@ -494,9 +430,8 @@ impl Audit {
             // The bucket and the comparison say the rest; a notice not yet
             // read is the one thing to warn about.
             if bucket == Bucket::Review && !has_candidate {
-                body = body.child(self.caption(
+                body = body.child(self.note(
                     t!("The publisher has issued a notice about this paper. Read it before you keep citing it.").into(),
-                    note_ink,
                     cx,
                 ));
             }
@@ -504,22 +439,19 @@ impl Audit {
                 body = body.children(self.health_notice(&result, cx));
             }
             if let Some(candidate) = &result.candidate {
-                if !candidate.changes.is_empty() {
-                    body = body.child(self.changes(&candidate.changes, summary::field_label, cx));
-                }
+                body = body.children(super::compare::compare(&result, &candidate.changes, cx));
                 if !candidate.reasons.is_empty() {
                     let reasons: Vec<String> = candidate
                         .reasons
                         .iter()
                         .map(|reason| summary::reason_label(reason))
                         .collect();
-                    body = body.child(self.caption(
+                    body = body.child(self.note(
                         format!(
                             "{}: {}",
                             t!("Conflicting or insufficient fields"),
                             join_list(&reasons)
                         ),
-                        palette.text_secondary,
                         cx,
                     ));
                 }
@@ -543,11 +475,16 @@ impl Audit {
             } else {
                 t!("Open entry").into()
             };
-            body = body.child(
-                actions()
-                    .child(keep)
-                    .children(self.go_to(index, &entry, go_to, false, cx)),
-            );
+            let mut actions = self
+                .actions()
+                .child(keep)
+                .children(self.go_to(index, &entry, go_to, false, cx));
+            if bucket == Bucket::Review {
+                actions = actions
+                    .children(self.skip(index, listing, cx))
+                    .children(self.step(index, listing, cx));
+            }
+            body = body.child(actions);
             if let Some(bibtex) = result
                 .candidate
                 .as_ref()
@@ -573,11 +510,14 @@ impl Audit {
                 )
             };
             body = body
-                .children(note.map(|note| self.caption(note, note_ink, cx)))
+                .children(note.map(|note| self.note(note, cx)))
                 .when(bucket == Bucket::Incomplete, |body| {
                     body.children(sources_list(source_rows(&result), cx))
                 })
-                .child(actions().child(self.recheck(index, t!("Check again"), cx)));
+                .child(
+                    self.actions()
+                        .child(self.recheck(index, t!("Check again"), cx)),
+                );
         }
         if !(matches!(bucket, Bucket::Review | Bucket::Kept) && !has_candidate) {
             body = body.children(self.health_notice(&result, cx));
@@ -625,12 +565,5 @@ mod tests {
             Some("Publisher notice: erratum".into())
         );
         assert_eq!(notice_line(&health("unknown", Some("x"))), None);
-    }
-
-    #[test]
-    fn a_field_reads_by_its_bibtex_name() {
-        assert_eq!(bib_field_name("ENTRYTYPE"), "Entry type");
-        assert_eq!(bib_field_name("booktitle"), "Booktitle");
-        assert_eq!(bib_field_name("howpublished"), "howpublished");
     }
 }

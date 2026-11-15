@@ -135,8 +135,12 @@ impl PdfView {
                 return;
             }
         }
-        // A click on a note's highlight or pin opens its card.
-        if collapsed && event.click_count == 1 {
+        // A click on a note's highlight or pin opens its card. A release on
+        // the comment column reaches here too (`on_mouse_up_out`, the column
+        // being outside the sheet or occluding it) and is not a click on the
+        // pages: the column's cards act for themselves, and a click on its
+        // ground, head or grip keeps the open card.
+        if collapsed && event.click_count == 1 && !self.on_column(event.position) {
             self.click_note(event.position, cx);
         }
     }

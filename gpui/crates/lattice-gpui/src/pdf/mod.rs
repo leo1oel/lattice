@@ -7,6 +7,7 @@
 pub(crate) mod annotation_place;
 mod clicked_word;
 pub(crate) mod compounds;
+mod comment_margin;
 pub(crate) mod review_place;
 pub(crate) mod review_sheet;
 mod dark;
