@@ -4,8 +4,10 @@
 //! `lattice_editor::markdown_format`): a word of the chapter selected shows
 //! the LaTeX toolbar over it; Bold wraps it in `\textbf` and shows pressed,
 //! and Bold again takes it off; the pen highlights it with the palette's
-//! yellow, which paints it in the source, and Remove highlight takes that
-//! off; then in a Markdown file a selection shows the Markdown toolbar, whose
+//! yellow, which paints it in the source behind a swatch of its colour, and
+//! Remove highlight takes that off; the palette's custom colour takes a
+//! drag on its field and Return, and highlights in the colour dragged to;
+//! then in a Markdown file a selection shows the Markdown toolbar, whose
 //! Bold writes `**…**` and whose block menu makes the line a heading. The
 //! chapter and the Markdown file are put back as they were.
 
@@ -65,13 +67,98 @@ impl Run {
                 editor.read(cx).highlights_painted(cx) == 1
             })
             .await;
+        let swatch = self.swatch(cx, &editor).await;
         self.adapter_shot(cx, "selection-toolbar-highlight").await;
         self.toolbar(cx, &editor, ToolbarStep::Unhighlight)?;
         let removed = self.editor_text(cx, &editor) == original;
         steps.check(
-            "the pen highlights the selection in the yellow highlighter, painted in the source; Remove highlight takes it off",
-            highlighted && painted && removed,
-            json!({ "highlighted": highlighted, "painted": painted, "removed": removed }),
+            "the pen highlights the selection in the yellow highlighter, painted in the source behind a square swatch before its \\colorbox; Remove highlight takes it off",
+            highlighted && painted && swatch.is_some() && removed,
+            json!({ "highlighted": highlighted, "painted": painted, "swatch": swatch.map(|b| format!("{b:?}")), "removed": removed }),
+        );
+
+        // The custom colour: a press on the field and a drag up and right, to
+        // 30% saturation and 95% brightness of the field's box, then Return.
+        self.select_text(cx, &editor, WORD)?;
+        self.toolbar(cx, &editor, ToolbarStep::Custom)?;
+        let laid_out = self
+            .wait_for(cx, Duration::from_secs(3), |_, cx| {
+                editor
+                    .read(cx)
+                    .custom_picker()
+                    .is_some_and(|picker| picker.read(cx).field_bounds().is_some())
+            })
+            .await;
+        let picker = cx.update(|cx| editor.read(cx).custom_picker());
+        let field = picker.as_ref().and_then(|picker| cx.update(|cx| picker.read(cx).field_bounds()));
+        self.adapter_shot(cx, "selection-toolbar-custom-colour").await;
+        let mut dragged = None;
+        let mut applied = false;
+        if let (Some(picker), Some(field)) = (picker, field) {
+            let at = |x: f32, y: f32| {
+                gpui::point(field.left() + field.size.width * x, field.top() + field.size.height * y)
+            };
+            let (start, end) = (at(0.1, 0.5), at(0.3, 0.05));
+            self.with_window(cx, |_, window, cx| {
+                for event in [
+                    gpui::PlatformInput::MouseDown(gpui::MouseDownEvent {
+                        button: gpui::MouseButton::Left,
+                        position: start,
+                        modifiers: gpui::Modifiers::default(),
+                        click_count: 1,
+                        first_mouse: false,
+                    }),
+                    gpui::PlatformInput::MouseMove(gpui::MouseMoveEvent {
+                        position: end,
+                        pressed_button: Some(gpui::MouseButton::Left),
+                        modifiers: gpui::Modifiers::default(),
+                    }),
+                    gpui::PlatformInput::MouseUp(gpui::MouseUpEvent {
+                        button: gpui::MouseButton::Left,
+                        position: end,
+                        modifiers: gpui::Modifiers::default(),
+                        click_count: 1,
+                    }),
+                ] {
+                    window.dispatch_event(event, cx);
+                }
+            })?;
+            let (hsv, hex) = cx.update(|cx| (picker.read(cx).hsv(), picker.read(cx).hex(cx)));
+            dragged = Some((hsv.s, hsv.v, hex.clone()));
+            self.with_window(cx, |_, window, cx| {
+                window.dispatch_event(
+                    gpui::PlatformInput::KeyDown(gpui::KeyDownEvent {
+                        keystroke: gpui::Keystroke::parse("enter").expect("enter parses"),
+                        is_held: false,
+                        prefer_character_input: false,
+                    }),
+                    cx,
+                )
+            })?;
+            applied = hex.is_some_and(|hex| {
+                hex != "#FFF1A6"
+                    && self
+                        .editor_text(cx, &editor)
+                        .contains(&format!("\\colorbox[HTML]{{{}}}{{{WORD}}}", &hex[1..]))
+            });
+        }
+        let at_drag = dragged
+            .as_ref()
+            .is_some_and(|(s, v, _)| (s - 30.).abs() < 0.5 && (v - 95.).abs() < 0.5);
+        let custom_swatch = self.swatch(cx, &editor).await;
+        self.adapter_shot(cx, "selection-toolbar-custom-highlight").await;
+        self.toolbar(cx, &editor, ToolbarStep::Unhighlight)?;
+        let custom_removed = self.editor_text(cx, &editor) == original;
+        steps.check(
+            "the palette's custom colour takes a drag on its field to 30% saturation and 95% brightness, and Return highlights the selection in that colour behind its swatch",
+            laid_out && at_drag && applied && custom_swatch.is_some() && custom_removed,
+            json!({
+                "laid_out": laid_out,
+                "dragged": dragged.map(|(s, v, hex)| json!({ "s": s, "v": v, "hex": hex })),
+                "applied": applied,
+                "swatch": custom_swatch.map(|b| format!("{b:?}")),
+                "removed": custom_removed,
+            }),
         );
         self.save_and_restore(cx, &editor, &chapter, &original).await?;
 
@@ -113,6 +200,30 @@ impl Run {
         })
     }
 
+    /// The swatch painted before the one `\\colorbox` in `editor`, once it
+    /// is: square, smaller than a line, standing where the wrapper starts.
+    async fn swatch(&self, cx: &mut AsyncApp, editor: &Entity<EditorPanel>) -> Option<gpui::Bounds<gpui::Pixels>> {
+        let lattice = cx.update(|cx| editor.read(cx).lattice_editor().clone());
+        let wrapper = self.editor_text(cx, editor).find("\\colorbox[HTML]")?;
+        let found = |cx: &gpui::App| {
+            lattice
+                .read(cx)
+                .painted()
+                .inline
+                .iter()
+                .find(|(layer, offset, bounds)| {
+                    *layer == "highlight-paint-swatches"
+                        && *offset == wrapper
+                        && (bounds.size.width - bounds.size.height).abs() < gpui::px(0.5)
+                        && bounds.size.width > gpui::px(4.)
+                        && bounds.size.width < gpui::px(16.)
+                })
+                .map(|(_, _, bounds)| *bounds)
+        };
+        self.wait_for(cx, Duration::from_secs(3), |_, cx| found(cx).is_some()).await;
+        cx.update(|cx| found(cx))
+    }
+
     fn toolbar(&self, cx: &mut AsyncApp, editor: &Entity<EditorPanel>, step: ToolbarStep) -> Result<()> {
         self.with_window(cx, |_, window, cx| {
             editor.update(cx, |editor, cx| editor.scripted_toolbar(step.name(), window, cx))
@@ -146,6 +257,7 @@ enum ToolbarStep {
     Pen,
     Unhighlight,
     Heading,
+    Custom,
 }
 
 impl ToolbarStep {
@@ -155,6 +267,7 @@ impl ToolbarStep {
             ToolbarStep::Pen => "pen",
             ToolbarStep::Unhighlight => "unhighlight",
             ToolbarStep::Heading => "heading-1",
+            ToolbarStep::Custom => "custom",
         }
     }
 }
@@ -171,6 +284,10 @@ pub(super) const MODULE: super::registry::Module = super::registry::Module {
         "gpui/crates/lattice-gpui/src/editor_panel/selection_toolbar/tools.rs",
         "gpui/crates/lattice-gpui/src/editor_panel/selection_toolbar/menus.rs",
         "gpui/crates/lattice-gpui/src/editor_panel/highlight_palette.rs",
+        "gpui/crates/lattice-gpui/src/editor_panel/highlight_palette/custom.rs",
+        "gpui/crates/lattice-ui/src/components/color_picker.rs",
+        "gpui/crates/lattice-ui/src/color.rs",
+        "gpui/crates/lattice-editor/src/inline_texts.rs",
         "gpui/crates/lattice-editor/src/latex/format_toggle.rs",
         "gpui/crates/lattice-editor/src/latex/highlights.rs",
         "gpui/crates/lattice-editor/src/markdown_format.rs",

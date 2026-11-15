@@ -261,20 +261,15 @@ pub fn highlight_edit(doc: &str, range: Range<usize>, color: Option<&str>) -> Op
 /// editor, as it prints; in a dark one a wash at 18% and a 2px underline at
 /// 75% in its colour, since a pastel block would put light ink on a light
 /// ground; and the `\colorbox[HTML]{…}{` wrapper and closing brace receding
-/// at 45%. Only `#RRGGBB` highlights are painted; a colour by name and soul's
-/// `\hl` are the document's to say. `text` is the document from `offset` on,
-/// the stretch around what the editor shows.
-pub fn paint(
-    text: &str,
-    offset: usize,
-    dark: bool,
-) -> (
-    Vec<crate::decorations::Highlight>,
-    Vec<crate::decorations::Mark>,
-) {
+/// at 45% behind a swatch of its colour. Only `#RRGGBB` highlights are
+/// painted; a colour by name and soul's `\hl` are the document's to say.
+/// `text` is the document from `offset` on, the stretch around what the
+/// editor shows.
+pub fn paint(text: &str, offset: usize, dark: bool) -> HighlightPaint {
     use crate::decorations::{Highlight, Mark, MarkStyle, Underline};
     let mut washes = Vec::new();
     let mut marks = Vec::new();
+    let mut swatches = Vec::new();
     let wrapper = MarkStyle {
         fade: Some(0.55),
         ..MarkStyle::default()
@@ -295,6 +290,10 @@ pub fn paint(
             continue;
         };
         let tint: gpui::Hsla = gpui::rgb(value).into();
+        swatches.push(crate::inline_texts::InlineText::swatch(
+            highlight.from,
+            tint,
+        ));
         marks.push(Mark {
             range: highlight.from..highlight.content_from,
             style: wrapper,
@@ -337,7 +336,21 @@ pub fn paint(
             });
         }
     }
-    (washes, marks)
+    HighlightPaint {
+        washes,
+        marks,
+        swatches,
+    }
+}
+
+/// What [`paint`] lays over the source: the washes under the highlighted
+/// words, the marks on them and on the receding wrappers, and the swatch
+/// before each wrapper.
+#[derive(Debug, Default)]
+pub struct HighlightPaint {
+    pub washes: Vec<crate::decorations::Highlight>,
+    pub marks: Vec<crate::decorations::Mark>,
+    pub swatches: Vec<crate::inline_texts::InlineText>,
 }
 
 #[cfg(test)]
@@ -377,12 +390,16 @@ mod tests {
     #[test]
     fn a_highlight_paints_its_text_and_fades_its_wrapper() {
         let text = r"a \colorbox[HTML]{FFF1A6}{word} \hl{other}";
-        let (washes, marks) = paint(text, 0, false);
+        let HighlightPaint {
+            washes,
+            marks,
+            swatches,
+        } = paint(text, 0, false);
         let word = text.find("word").unwrap();
         assert_eq!(washes.len(), 1);
         assert_eq!(washes[0].range, word..word + 4);
-        let (shifted, _) = paint(&text[1..], 1, false);
-        assert_eq!(shifted[0].range, word..word + 4);
+        let shifted = paint(&text[1..], 1, false);
+        assert_eq!(shifted.washes[0].range, word..word + 4);
         assert_eq!(washes[0].color, gpui::rgb(0xFFF1A6).into());
         assert_eq!(
             marks
@@ -391,7 +408,16 @@ mod tests {
                 .count(),
             2
         );
-        let (dark, _) = paint(text, 0, true);
-        assert!(dark[0].color.a < 0.2);
+        let dark = paint(text, 0, true);
+        assert!(dark.washes[0].color.a < 0.2);
+        // One swatch, before the `\colorbox` (soul's `\hl` has no colour of
+        // its own to show), in the highlight's colour.
+        assert_eq!(swatches.len(), 1);
+        assert_eq!(swatches[0].offset, text.find(r"\colorbox").unwrap());
+        assert_eq!(shifted.swatches[0].offset, swatches[0].offset);
+        assert_eq!(
+            swatches[0].look,
+            crate::inline_texts::InlineLook::Swatch(gpui::rgb(0xFFF1A6).into())
+        );
     }
 }

@@ -49,6 +49,7 @@ mod recents;
 mod research_art;
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 mod scenario;
+mod screen_color;
 mod search;
 mod settings;
 mod shell;
