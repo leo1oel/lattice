@@ -7,6 +7,8 @@
 //! The shell saves what the editors hold first, as the Tauri app saves the
 //! document in front, then hands the key back to [`PapersPanel::refresh_saved`].
 
+use std::path::PathBuf;
+
 use gpui::{AppContext as _, Context};
 use lattice_core::citation_audit;
 use lattice_i18n::t;
@@ -67,8 +69,12 @@ fn refresh(root: &std::path::Path, bibliography: &str, key: &str) -> Result<Outc
 impl PapersPanel {
     /// Check the cited entry `key` against its sources and write what they
     /// say, the editors' edits saved already.
-    pub(crate) fn refresh_saved(&mut self, key: String, cx: &mut Context<Self>) {
-        let (Some(root), Some(project)) = (self.root.clone(), self.project.clone()) else {
+    pub(crate) fn refresh_saved(&mut self, root: PathBuf, key: String, cx: &mut Context<Self>) {
+        let Some(project) = self
+            .project
+            .clone()
+            .filter(|_| self.root.as_deref() == Some(root.as_path()))
+        else {
             return;
         };
         let bibliography = project.read(cx).manifest().primary_bibliography.clone();

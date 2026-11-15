@@ -114,8 +114,9 @@ pub enum PapersEvent {
     /// after saving", once its import has landed.
     Cite(String),
     /// Refresh entry for the cited key: the window saves what its editors
-    /// hold first, then hands it back to `refresh_saved`.
-    RefreshEntry(String),
+    /// hold first, then hands it back to `refresh_saved`. The root is the
+    /// project the import added to: another project's entry is not touched.
+    RefreshEntry { root: PathBuf, key: String },
     /// A title the box looked up, for Add reference to review: several works,
     /// or one without an entry.
     Review {

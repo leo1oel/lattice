@@ -2,7 +2,9 @@
 //! Refresh entry): what the editors hold is saved first, and a save that
 //! fails stops them, as `remove-reference-action.ts` does.
 
-use gpui::{Context, Window};
+use std::path::PathBuf;
+
+use gpui::Context;
 use lattice_core::papers::PaperSummary;
 use lattice_i18n::t;
 
@@ -10,25 +12,6 @@ use super::Shell;
 use crate::notices;
 
 impl Shell {
-    /// `\cite{key}` at the caret of the LaTeX editor the writer was last in
-    /// (`insertCitation`), which takes the keyboard.
-    pub(super) fn insert_cite(&mut self, key: &str, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(editor) = self.active_editor().filter(|editor| {
-            editor
-                .read(cx)
-                .relative()
-                .to_ascii_lowercase()
-                .ends_with(".tex")
-        }) else {
-            return;
-        };
-        let insert = format!("\\cite{{{key}}}");
-        editor.update(cx, |editor, cx| {
-            let (_, caret) = editor.text_and_caret(cx);
-            editor.replace_range(caret, caret, &insert, caret + insert.len(), window, cx);
-        });
-    }
-
     /// The removal's scan for citations reads the files on disk: what the
     /// editors hold is saved first, and a save that fails stops it, as
     /// `remove-reference-action.ts` does.
@@ -65,7 +48,7 @@ impl Shell {
 
     /// Refresh entry re-reads the bibliography on disk: what the editors
     /// hold is saved first, and a save that fails stops it.
-    pub(super) fn refresh_entry(&mut self, key: String, cx: &mut Context<Self>) {
+    pub(super) fn refresh_entry(&mut self, root: PathBuf, key: String, cx: &mut Context<Self>) {
         let saves = Self::save_dirty(&self.open_editors(), cx);
         let papers = self.papers.downgrade();
         cx.spawn(async move |_, cx| {
@@ -80,7 +63,7 @@ impl Shell {
                 }
             }
             papers
-                .update(cx, |papers, cx| papers.refresh_saved(key, cx))
+                .update(cx, |papers, cx| papers.refresh_saved(root, key, cx))
                 .ok();
         })
         .detach();

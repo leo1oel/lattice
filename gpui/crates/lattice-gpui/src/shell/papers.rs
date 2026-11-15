@@ -62,8 +62,14 @@ impl Shell {
             PapersEvent::Review { query, resolved } => {
                 self.review_reference(query.clone(), (**resolved).clone(), window, cx)
             }
-            PapersEvent::Cite(key) => self.insert_cite(key, window, cx),
-            PapersEvent::RefreshEntry(key) => self.refresh_entry(key.clone(), cx),
+            PapersEvent::Cite(key) => {
+                if self.latex_source_in_front(cx) {
+                    self.insert_at_caret("cite", key, window, cx);
+                }
+            }
+            PapersEvent::RefreshEntry { root, key } => {
+                self.refresh_entry(root.clone(), key.clone(), cx)
+            }
             PapersEvent::Removed | PapersEvent::Rewritten => {
                 for editor in self.open_editors() {
                     editor.update(cx, |editor, cx| editor.check_disk(cx));
@@ -532,8 +538,8 @@ impl Shell {
                         }
                         this.papers.update(cx, |papers, cx| papers.reload(cx));
                         this.close_reference(&view, window, cx);
-                        if cite {
-                            this.insert_cite(&key, window, cx);
+                        if cite && this.latex_source_in_front(cx) {
+                            this.insert_at_caret("cite", &key, window, cx);
                         }
                     })
                     .ok();

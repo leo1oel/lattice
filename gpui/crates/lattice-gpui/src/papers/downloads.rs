@@ -7,6 +7,7 @@
 //! opens its paper only while it is still the writer's latest navigation.
 
 use std::{
+    path::PathBuf,
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
@@ -210,6 +211,7 @@ impl PapersPanel {
         let (stages, mut stage_events) = mpsc::unbounded::<String>();
         let job_cancel = cancel.clone();
         let input = query.clone();
+        let import_root = root.clone();
         // Whether to save the full text too, as the writer last chose.
         let full_text = crate::settings::paper_full_text(cx);
         let job = cx.background_spawn(async move {
@@ -263,8 +265,8 @@ impl PapersPanel {
             };
             this.update(cx, |this, cx| match result {
                 Ok(Err(resolved)) => this.review(query, resolved, cx),
-                Ok(Ok(imported)) => this.imported(query, Ok(imported), notices, cx),
-                Err(error) => this.imported(query, Err(error), notices, cx),
+                Ok(Ok(imported)) => this.imported(query, import_root, Ok(imported), notices, cx),
+                Err(error) => this.imported(query, import_root, Err(error), notices, cx),
             })
             .ok();
         });
@@ -304,6 +306,7 @@ impl PapersPanel {
     fn imported(
         &mut self,
         query: String,
+        root: PathBuf,
         result: Result<core_papers::ImportResult, String>,
         notices: Notices,
         cx: &mut Context<Self>,
@@ -361,7 +364,10 @@ impl PapersPanel {
                             t!("Refresh entry"),
                             move |_, cx| {
                                 view.update(cx, |_, cx| {
-                                    cx.emit(PapersEvent::RefreshEntry(key.clone()))
+                                    cx.emit(PapersEvent::RefreshEntry {
+                                        root: root.clone(),
+                                        key: key.clone(),
+                                    })
                                 })
                                 .ok();
                             },
