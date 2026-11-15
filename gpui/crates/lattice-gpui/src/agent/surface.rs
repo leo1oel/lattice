@@ -538,6 +538,7 @@ impl SynaraSurface {
             IslandEvent::Request { id, kind, payload } => {
                 self.on_request(*id, kind, payload.clone(), window, cx)
             }
+            IslandEvent::FileDrop(payload) => self.file_dragged(payload, cx),
             IslandEvent::Focus(_) | IslandEvent::PointerDown => {}
         }
     }
@@ -555,7 +556,6 @@ impl SynaraSurface {
             "island:notify" => crate::structured::show_page_notice(payload, cx),
             "agent:notify" => self.synara_notice(payload, cx),
             "agent:permission" => self.permission_reported(payload, cx),
-            "island:file-drop" => self.file_dragged(payload, cx),
             // The Agent's checkpoints: the History panel's rows, and the
             // builds its turns' edits need (`shell/agent_checkpoints.rs`).
             "agent:history" => match super::checkpoints::parse_snapshot(payload) {

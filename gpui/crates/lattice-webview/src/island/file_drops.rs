@@ -12,7 +12,7 @@ use super::{Island, IslandEvent};
 
 impl Island {
     /// Take the Finder's drags for the owner, from the next build on: it
-    /// hears each phase as the message `island:file-drop`, `{ phase:
+    /// hears each phase as [`IslandEvent::FileDrop`], `{ phase:
     /// "enter" | "over" | "leave" | "drop", paths, x, y }`, the paths
     /// absolute (none while over), the point in the page's pixels from its
     /// top left.
@@ -33,12 +33,7 @@ impl Island {
         let (sender, mut drops) = mpsc::unbounded::<Value>();
         self._drops = Some(cx.spawn_in(window, async move |this, cx| {
             while let Some(payload) = drops.next().await {
-                let delivered = this.update(cx, |_, cx| {
-                    cx.emit(IslandEvent::Message {
-                        kind: "island:file-drop".into(),
-                        payload,
-                    })
-                });
+                let delivered = this.update(cx, |_, cx| cx.emit(IslandEvent::FileDrop(payload)));
                 if delivered.is_err() {
                     break;
                 }

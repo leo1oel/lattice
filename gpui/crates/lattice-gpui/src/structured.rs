@@ -402,7 +402,7 @@ impl StructuredDocument {
             IslandEvent::Request { id, kind, payload } => {
                 self.on_request(*id, kind, payload.clone(), window, cx)
             }
-            IslandEvent::Focus(_) | IslandEvent::PointerDown => {}
+            IslandEvent::Focus(_) | IslandEvent::PointerDown | IslandEvent::FileDrop(_) => {}
         }
     }
 

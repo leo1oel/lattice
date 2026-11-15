@@ -17,7 +17,7 @@ use serde_json::{Value, json};
 use super::SynaraSurface;
 
 impl SynaraSurface {
-    /// A phase of a Finder drag over the page (`island:file-drop`).
+    /// A phase of a Finder drag over the page ([`lattice_webview::IslandEvent::FileDrop`]).
     pub(super) fn file_dragged(&mut self, payload: &Value, cx: &mut Context<Self>) {
         let phase = payload
             .get("phase")

@@ -148,6 +148,9 @@ pub enum IslandEvent {
     },
     /// The page took or gave up the keyboard.
     Focus(bool),
+    /// A phase of a Finder drag, from the host alone
+    /// ([`Island::accept_file_drops`]): no page message can produce it.
+    FileDrop(Value),
     /// A press in the page.
     PointerDown,
     /// The island was torn down while hidden.
@@ -621,6 +624,10 @@ impl Island {
                 }
                 cx.emit(IslandEvent::Ready);
                 cx.notify();
+            }
+            Inbound::Event { kind, .. } if kind.starts_with("island:file-drop") => {
+                self.stats.rejected += 1;
+                log::warn!("{}: dropped a page-posted {kind}", self.config.name);
             }
             Inbound::Event { kind, payload } => {
                 cx.emit(IslandEvent::Message { kind, payload });

@@ -192,6 +192,30 @@ impl Run {
             refused,
             json!({ "page": again, "outcome": format!("{:?}", cx.update(|cx| surface.read(cx).drop_read().cloned())) }),
         );
+        // Nor by posting a drop of its own before the read.
+        self.evaluate(
+            cx,
+            &island,
+            &format!(
+                "(() => {{ const paths = [{path}, {path}]; \
+                 window.latticeHost?.post('island:file-drop', {{ phase: 'drop', paths }}); \
+                 setTimeout(() => window.__TAURI_INTERNALS__.invoke(\
+                   'read_agent_composer_files', {{ paths }}).catch(() => {{}}), 200); \
+                 return true; }})()",
+                path = json!(figure_path)
+            ),
+        )
+        .await;
+        let forged = self
+            .wait_for(cx, Duration::from_secs(3), |_, cx| {
+                surface.read(cx).drop_read() == Some(&Ok(2))
+            })
+            .await;
+        steps.check(
+            "a drop the page posts itself does not let it read that path",
+            !forged,
+            json!({ "outcome": format!("{:?}", cx.update(|cx| surface.read(cx).drop_read().cloned())) }),
+        );
         std::fs::remove_file(&figure).ok();
         std::fs::remove_file(&archive).ok();
         Ok(())
@@ -255,10 +279,7 @@ fn drag(cx: &mut AsyncApp, island: &Entity<Island>, phase: &str, paths: &[&str])
     let payload = json!({ "phase": phase, "paths": paths, "x": 40., "y": 40. });
     cx.update(|cx| {
         island.update(cx, |_, cx| {
-            cx.emit(IslandEvent::Message {
-                kind: "island:file-drop".into(),
-                payload,
-            })
+            cx.emit(IslandEvent::FileDrop(payload))
         })
     });
 }
