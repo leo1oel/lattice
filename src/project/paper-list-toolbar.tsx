@@ -27,7 +27,7 @@ export function PaperListToolbar({ shown: shownCount, total, filter: shownFilter
 }) {
   const { t } = useLingui();
   const sortLabels: Record<PaperSort, string> = {
-    title: t`Title`, year: t`Newest first`, author: t`First author`, venue: t`Venue`, cited: t`Most cited here`,
+    title: t`Title`, added: t`Recently added`, year: t`Newest first`, author: t`First author`, venue: t`Venue`, cited: t`Most cited here`,
   };
   const filterLabels: Record<PaperFilter, string> = {
     all: t`All papers`,
@@ -36,7 +36,7 @@ export function PaperListToolbar({ shown: shownCount, total, filter: shownFilter
     fullText: t`With full text`,
     flagged: t`Flagged`,
   };
-  const groupLabels: Record<PaperGroup, string> = { none: t`No grouping`, year: t`Year`, venue: t`Venue`, state: t`Reading state` };
+  const groupLabels: Record<PaperGroup, string> = { none: t`No grouping`, added: t`Date added`, year: t`Year`, venue: t`Venue`, state: t`Reading state` };
   const sortOn = sort !== "title" || group !== "none";
   const shown = formatCount(shownCount);
   const totalText = formatCount(total);

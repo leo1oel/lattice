@@ -248,6 +248,7 @@ pub fn entry_paper(
                 has_local_pdf: false,
                 asset_paths: Vec::new(),
                 citation_health: None,
+                added_at: None,
             })
         });
     let Some(paper) = found else {

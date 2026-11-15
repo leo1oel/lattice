@@ -22,6 +22,7 @@ use std::process::Output;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
+mod added;
 mod agent_library;
 mod attach;
 mod bibliography;
@@ -196,4 +197,9 @@ pub struct PaperSummary {
     /// never removed or blocked based on it.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub citation_health: Option<crate::citation_health::CitationHealth>,
+    /// When the library first listed the paper, in milliseconds since the Unix
+    /// epoch (`papers/added.rs`); absent when it was there before Lattice
+    /// recorded it, or for a row that is not the library's.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub added_at: Option<i64>,
 }

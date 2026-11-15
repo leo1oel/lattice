@@ -1186,7 +1186,11 @@ button.paper-citation-health:hover > .paper-citation-health-detail { color: var(
 .row-delete:hover { background: color-mix(in srgb, var(--status-danger) 10%, transparent) !important; color: var(--status-danger) !important; }
 /* Grouped, each group is a counted caption over its own list. */
 .paper-group { min-width: 0; margin: var(--space-8) var(--space-4) var(--space-2); display: flex; align-items: baseline; gap: var(--space-3); color: var(--text-primary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-weight: var(--weight-medium); }
-.paper-rows > .paper-group:first-of-type { margin-top: var(--space-2); }
+/* The first heading by class, not :first-of-type: the hover fill is a div that
+   mounts first in .paper-rows, so counting it gave the first heading the 16px
+   margin whenever a row was lit and every row below moved 12px down; with the
+   pointer on that heading the fill went, the list moved back, and it shook. */
+.paper-rows > .paper-group:not(.paper-group ~ .paper-group) { margin-top: var(--space-2); }
 .paper-group-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .paper-group-count { flex: none; color: var(--text-secondary); font-weight: var(--weight-regular); font-variant-numeric: tabular-nums; }
 /* A wide list (a maximised panel) is a table: a header that stays in view

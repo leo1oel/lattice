@@ -6,10 +6,12 @@
 //!   citation-health notice;
 //! - `narrowing`: the filters, sorts and groups the toolbar offers, and how a
 //!   query ranks the library;
+//! - `added`: the date-added sort and groups;
 //! - `adding`: what the search box would add, and whether the library
 //!   already holds it;
 //! - `reading`: what the inspector reads out of a saved paper.
 
+mod added;
 mod adding;
 mod identity;
 mod narrowing;
@@ -38,6 +40,7 @@ pub(crate) mod test_support {
             has_local_pdf: false,
             asset_paths: Vec::new(),
             citation_health: None,
+            added_at: None,
         }
     }
 
