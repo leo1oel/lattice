@@ -21,7 +21,7 @@ use anyhow::{Context as _, Result};
 use gpui::{AsyncApp, Entity, Modifiers, PlatformInput, Point, Pixels, px};
 use serde_json::json;
 
-use super::Steps;
+use super::{Steps, drops::PointerStep};
 use crate::{file_tree::FileTreePanel, native, scenario::Run};
 
 /// The files the steps scroll through: enough rows to pass a window.
@@ -225,9 +225,24 @@ impl Run {
         );
 
         // Opening it again moves: its chevron and rows for 160ms, then rest.
+        // The motion is read as the release lands, before a frame: waiting
+        // for the next frame can take the whole 160ms on a loaded machine,
+        // and then the motion has already ended.
         let notes = self.tree_row_center(cx, "notes")?;
-        self.click_with(cx, notes, Modifiers::default()).await?;
+        self.pointer(cx, PointerStep::Down, notes).await?;
+        self.with_window(cx, move |_, window, cx| {
+            window.dispatch_event(
+                PlatformInput::MouseUp(gpui::MouseUpEvent {
+                    button: gpui::MouseButton::Left,
+                    position: notes,
+                    modifiers: Modifiers::default(),
+                    click_count: 1,
+                }),
+                cx,
+            );
+        })?;
         let moving = cx.update(|cx| tree.read(cx).motion_state(cx));
+        self.frame_after_input(cx).await?;
         self.pause(cx, Duration::from_millis(300)).await;
         self.frame_after_input(cx).await?;
         let rest = cx.update(|cx| tree.read(cx).motion_state(cx));
