@@ -43,6 +43,20 @@ fn size(cols: u16, rows: u16) -> PtySize {
     PtySize { cols: cols.clamp(2, 1000), rows: rows.clamp(1, 500), pixel_width: 0, pixel_height: 0 }
 }
 
+/// The project folder as a shell can start in it. The root is canonicalized,
+/// which on Windows spells it `\\?\C:\…`; PowerShell (and conda's hook) does
+/// not accept that as a starting directory and falls back to System32.
+fn shell_cwd(root: &Path) -> PathBuf {
+    let text = root.to_string_lossy();
+    if let Some(unc) = text.strip_prefix(r"\\?\UNC\") {
+        PathBuf::from(format!(r"\\{unc}"))
+    } else if let Some(plain) = text.strip_prefix(r"\\?\") {
+        PathBuf::from(plain)
+    } else {
+        root.to_path_buf()
+    }
+}
+
 impl Session {
     pub fn spawn(
         window: String, root: PathBuf, cols: u16, rows: u16, output: Arc<dyn Sink<StreamBody>>,
@@ -53,7 +67,7 @@ impl Session {
         let name = shell.file_name().unwrap_or_default().to_string_lossy().into_owned();
         let mut command = CommandBuilder::new(&shell);
         command.args(["-NoLogo", "-NoExit"]);
-        command.cwd(&root);
+        command.cwd(shell_cwd(&root));
         command.env("PATH", crate::commands::child_path());
         command.env("TERM", "xterm-256color");
         command.env("COLORTERM", "truecolor");
@@ -191,6 +205,22 @@ impl Hangup {
         drop(exited);
         if !done {
             self.kill();
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_shell_starts_in_the_plain_spelling_of_the_project_folder() {
+        for (root, plain) in [
+            (r"\\?\C:\Users\Ada\Papers", r"C:\Users\Ada\Papers"),
+            (r"\\?\UNC\server\share\Papers", r"\\server\share\Papers"),
+            (r"C:\Users\Ada\Papers", r"C:\Users\Ada\Papers"),
+        ] {
+            assert_eq!(shell_cwd(Path::new(root)), Path::new(plain));
         }
     }
 }
