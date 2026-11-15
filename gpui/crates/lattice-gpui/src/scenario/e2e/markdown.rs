@@ -91,6 +91,16 @@ fn caret_after(text: &str) -> String {
     )
 }
 
+/// The middle of the visual editor's paragraph holding `text`, in the
+/// page's coordinates, brought into view first; null when it is missing.
+fn paragraph_point(text: &str) -> String {
+    format!(
+        "(() => {{ const p = [...document.querySelectorAll('.lx-md-surface p')].find((node) => node.textContent.includes({text:?})); \
+         if (!p) return null; p.scrollIntoView({{ block: 'center' }}); const r = p.getBoundingClientRect(); \
+         return [r.left + Math.min(r.width / 2, 40), r.top + r.height / 2]; }})()"
+    )
+}
+
 impl Run {
     pub(super) async fn markdown_island(
         &self,
@@ -305,7 +315,18 @@ impl Run {
             return Ok(json!("no bounds"));
         };
         let native = self.native(cx)?;
-        native::send_click(native, bounds.center())?;
+        // The click lands on the paragraph typed into, not the island's
+        // middle: in a short panel the middle is the note's image, and a
+        // click there zooms it (react-medium-image-zoom's dialog), which
+        // then takes the keys.
+        let at = self
+            .evaluate(cx, island, &paragraph_point("Some"))
+            .await
+            .as_array()
+            .and_then(|xy| Some((xy.first()?.as_f64()?, xy.get(1)?.as_f64()?)))
+            .map(|(x, y)| bounds.origin + gpui::point(gpui::px(x as f32), gpui::px(y as f32)))
+            .unwrap_or_else(|| bounds.center());
+        native::send_click(native, at)?;
         self.wait_for(cx, Duration::from_secs(3), |_, cx| {
             island.read(cx).page_focused()
         })
