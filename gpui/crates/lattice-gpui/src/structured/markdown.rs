@@ -12,6 +12,8 @@
 //!   the source editor's caret and history ([`MarkdownEvent::Edit`]);
 //! - undo and redo through the buffer's history, which the source shares;
 //! - View in source, a project link followed, the caret, the Split's scroll;
+//! - the library's papers for its `@` menu, and a paper dragged in from the
+//!   Papers list (`markdown_host.rs`);
 //! - the project's files for its page index (`md:project` when the tree
 //!   changes, `md:pages-changed` when another Markdown file's text does),
 //!   its TeX sources for KaTeX's macros, its images through the island's asset protocol (granted one by
@@ -117,6 +119,9 @@ pub(super) struct MarkdownSession {
     generation: u64,
     /// The file is a saved paper's reading text.
     paper: Option<PaperReading>,
+    /// The library's papers, for the `@` menu and a paper's drop
+    /// (`markdown_host.rs`).
+    pub(super) papers: Value,
 }
 
 impl MarkdownSession {
@@ -130,6 +135,7 @@ impl MarkdownSession {
             tex_read: 0,
             generation: 0,
             paper: None,
+            papers: json!([]),
         }
     }
 }
@@ -362,6 +368,7 @@ impl StructuredDocument {
         }
         payload["files"] = session.files.clone();
         payload["texSources"] = json!(session.tex_sources);
+        payload["papers"] = session.papers.clone();
         payload["paper"] = session
             .paper
             .as_ref()

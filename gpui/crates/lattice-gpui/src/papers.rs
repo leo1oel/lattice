@@ -58,6 +58,7 @@ pub mod bib_editor;
 mod candidates;
 pub mod citation_open;
 mod downloads;
+pub mod drag;
 mod field;
 mod inspector;
 pub(crate) use inspector::uses::{anchor_reasons, role_label};
@@ -300,6 +301,8 @@ pub struct PapersPanel {
     first_sync: FirstSync,
     /// The panel's own width, learned while it is laid out.
     pub(crate) width: f32,
+    /// The rows' fluid hover, as last drawn, for a scenario's check.
+    hover: Option<lattice_ui::fluid_hover::FluidHover>,
     pub(crate) scroll: ScrollHandle,
     /// Add papers' batch, which outlives the sheet.
     pub(crate) batch: batch::Batch,
@@ -341,6 +344,7 @@ impl PapersPanel {
             facts: Facts::default(),
             usage_revision: 0,
             list_revision: 0,
+            hover: None,
             input,
             text_query: String::new(),
             text_hits: HashMap::new(),

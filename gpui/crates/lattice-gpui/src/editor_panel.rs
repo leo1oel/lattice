@@ -68,6 +68,7 @@ mod overleaf_carets;
 mod overleaf_review;
 mod overleaf_text;
 pub mod paper_text;
+mod papers;
 pub mod proofread;
 pub mod rail_outline;
 pub(crate) mod reveal_flash;
@@ -232,6 +233,8 @@ pub struct EditorPanel {
     bib: bib_view::BibState,
     /// The saved paper the file is the reading text of (`paper_text.rs`).
     paper: paper_text::PaperText,
+    /// The Papers panel's library, and a paper dragged over the page (`papers.rs`).
+    library: papers::PaperLink,
 }
 
 impl EditorPanel {
@@ -501,6 +504,7 @@ impl EditorPanel {
             _subscriptions: subscriptions,
             bib: Default::default(),
             paper: Default::default(),
+            library: Default::default(),
         };
         this.count_words(cx);
         this.scan_todos(Duration::ZERO, cx);

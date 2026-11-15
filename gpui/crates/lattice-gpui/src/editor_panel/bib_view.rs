@@ -59,7 +59,8 @@ impl EditorPanel {
             bib.update(cx, |bib, cx| bib.set_papers(papers.clone(), cx));
         }
         self.attach_citations(&papers, cx);
-        self.bib.papers = Some(papers);
+        self.bib.papers = Some(papers.clone());
+        self.follow_library(papers, cx);
     }
 
     /// The `.bib` file's visual form, when it is showing.
