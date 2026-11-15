@@ -25,6 +25,8 @@
 //! (`[data-tools="icon"]`), before the strip drops it for the ⋯ menu's
 //! Build.
 
+pub(crate) mod save_state;
+
 use gpui::{
     AnyElement, App, BoxShadow, Edges, Entity, InteractiveElement as _, IntoElement,
     ParentElement as _, SharedString, StatefulInteractiveElement as _, Styled as _, Window, canvas,
@@ -50,7 +52,7 @@ use crate::{
         sequence, word_count,
     },
     build_panel::{BuildPanel, ChipState},
-    editor_panel::{EditorPanel, SaveStatus},
+    editor_panel::EditorPanel,
     shell::{Build, CleanRebuild},
 };
 
@@ -59,10 +61,11 @@ use crate::{
 /// counters' nouns at 520px, the save state's label and the word count's
 /// scope at 420px, the word count at 340px, the caret's words at 240px (it
 /// reads "61:2"), and the counters at 180px, so the bar never spills past
-/// its end. Until the bar has been drawn once, nothing folds.
+/// its end; the save slot's age goes at 600px. Until the bar has been drawn once, nothing folds.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct StatusFolds {
     pub counter_labels: bool,
+    pub save_age: bool,
     pub save_label: bool,
     pub word_scope: bool,
     pub words: bool,
@@ -77,6 +80,7 @@ impl StatusFolds {
         };
         Self {
             counter_labels: width <= 520.,
+            save_age: width <= 600.,
             save_label: width <= 420.,
             word_scope: width <= 420.,
             words: width <= 340.,
@@ -86,24 +90,15 @@ impl StatusFolds {
     }
 }
 
-pub fn status_bar(panel: &EditorPanel, cx: &App) -> impl IntoElement {
+pub fn status_bar(
+    panel: &EditorPanel,
+    weak: gpui::WeakEntity<EditorPanel>,
+    cx: &App,
+) -> impl IntoElement {
     let palette = cx.palette();
     let measured = panel.status_width().clone();
     let folds = StatusFolds::at(measured.get().map(f32::from));
     let (line, column) = panel.cursor();
-    // With a linked Overleaf project, the slot also says whether the text
-    // reached Overleaf (`StatusSaveState`).
-    use crate::overleaf::bridge::OverleafSaveState as Overleaf;
-    let (save_icon, save_label) = match (panel.save_status(), panel.overleaf_save()) {
-        (SaveStatus::Failed(_), _) => (Icon::CIRCLE_ALERT, t!("Couldn’t save")),
-        (SaveStatus::Saving, _) => (Icon::LOADER, t!("Saving…")),
-        (SaveStatus::Saved, Some(Overleaf::Offline)) => (Icon::CLOUD_OFF, t!("Saved on this Mac")),
-        (SaveStatus::Saved, Some(Overleaf::Live)) => (Icon::CLOUD_CHECK, t!("Saved and synced")),
-        (SaveStatus::Saved, Some(Overleaf::Syncing | Overleaf::Sending)) => {
-            (Icon::LOADER, t!("Saved, syncing…"))
-        }
-        (SaveStatus::Saved, _) => (Icon::HARD_DRIVE, t!("Saved")),
-    };
     // The caret's words and numbers, each its own run, as the app's
     // `.status-caret` spans are; folded, the numbers with a colon between.
     // The words come from the one translated sentence split at its numbers,
@@ -147,14 +142,15 @@ pub fn status_bar(panel: &EditorPanel, cx: &App) -> impl IntoElement {
                     .child(shown)
             }),
     );
-    let save = StatusItem::new("save-state")
-        .icon(save_icon)
-        .parity("status/save");
-    let save = if folds.save_label {
-        save
-    } else {
-        save.label(save_label)
-    };
+    // With a linked Overleaf project, the slot also says whether the text
+    // reached Overleaf; a click opens what it knows (`save_state`).
+    let save = save_state::item(
+        save_state::SaveSlot::read(panel),
+        weak,
+        !folds.save_label,
+        !folds.save_age,
+        cx,
+    );
     div()
         .relative()
         .flex()
@@ -447,6 +443,8 @@ mod tests {
     fn the_status_bar_folds_at_the_app_s_widths() {
         assert_eq!(StatusFolds::at(None), StatusFolds::default());
         assert_eq!(StatusFolds::at(Some(640.)), StatusFolds::default());
+        let at_590 = StatusFolds::at(Some(590.));
+        assert!(at_590.save_age && !at_590.counter_labels);
         let at_500 = StatusFolds::at(Some(500.));
         assert!(at_500.counter_labels && !at_500.save_label);
         let at_400 = StatusFolds::at(Some(400.));

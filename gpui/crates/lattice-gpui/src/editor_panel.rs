@@ -70,6 +70,7 @@ pub mod proofread;
 pub mod rail_outline;
 pub(crate) mod reveal_flash;
 mod save;
+mod save_slot;
 mod selection_toolbar;
 mod source_chrome;
 pub(crate) mod spelling;
@@ -171,6 +172,9 @@ pub struct EditorPanel {
     overleaf_applying: bool,
     /// Where the file stands with Overleaf, for the save slot.
     overleaf_save: Option<crate::overleaf::bridge::OverleafSaveState>,
+    /// When the linked project last synced (RFC 3339), for the save slot's
+    /// popover.
+    overleaf_last_sync: Option<String>,
     overleaf_review: overleaf_review::ReviewLayer,
     margin: margin_review::MarginState,
     /// Local annotations' marks, pins and composer (`annotations.rs`).
@@ -211,6 +215,11 @@ pub struct EditorPanel {
     /// the source (`markdown_view.rs`).
     markdown_led: Option<(bool, std::time::Instant)>,
     status: SaveStatus,
+    /// When this editor last wrote its file, for the save slot's age;
+    /// nothing until its first save, as the app's `NOTHING_SAVED` has it.
+    saved_at: Option<chrono::DateTime<chrono::Utc>>,
+    /// Redraws the save slot's age every half minute while there is one.
+    _age_tick: Option<Task<()>>,
     /// Saves run one at a time; this settles when the last one queued has.
     save_queue: Option<Shared<Task<()>>>,
     /// Saves and reloads in flight, which the disk check waits out.
@@ -463,6 +472,7 @@ impl EditorPanel {
             overleaf_caret: (0, 0),
             overleaf_applying: false,
             overleaf_save: None,
+            overleaf_last_sync: None,
             overleaf_review: Default::default(),
             margin: Default::default(),
             annotations: Default::default(),
@@ -485,6 +495,8 @@ impl EditorPanel {
             page_flushed: None,
             markdown_led: None,
             status: SaveStatus::Saved,
+            saved_at: None,
+            _age_tick: None,
             save_queue: None,
             saves_pending: 0,
             save_generation: 0,
@@ -712,7 +724,7 @@ impl Render for EditorPanel {
                 .child(crate::paint_probe::probe())
                 .into_any_element();
         }
-        let status: AnyElement = editor_status::status_bar(self, cx).into_any_element();
+        let status: AnyElement = editor_status::status_bar(self, cx.entity().downgrade(), cx).into_any_element();
         let search = self
             .find_bar
             .read(cx)

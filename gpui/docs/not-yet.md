@@ -19,11 +19,7 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] The editor's change wash on lines an outside edit landed, and an accepted suggestion's strike, fold and settle (`lattice_ui::attention` has their timing).
 
-- [ ] A failed save's Retry and Save a copy (the status bar's save-state popover).
-
 - [ ] The minor motions.
-
-- [ ] The translation of the host's error text in notices.
 
 - [ ] The Agent: a Papers selection in its context.
 

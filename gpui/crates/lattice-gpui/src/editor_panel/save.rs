@@ -158,6 +158,10 @@ impl EditorPanel {
                 self.buffer
                     .update(cx, |buffer, cx| buffer.did_save(version, None, cx));
             }
+            if matches!(self.status, SaveStatus::Failed(_)) {
+                self.status = SaveStatus::Saved;
+                cx.notify();
+            }
             return Task::ready(Ok(true));
         }
         // The file left its path while these edits were unsaved: writing
@@ -239,6 +243,7 @@ impl EditorPanel {
                 // outside write may land between this save and its stat.
                 this.disk = DiskVersion::Unread;
                 this.status = SaveStatus::Saved;
+                this.note_saved(cx);
                 log::debug!("saved {relative}");
                 this.buffer
                     .update(cx, |buffer, cx| buffer.did_save(version.clone(), None, cx));
