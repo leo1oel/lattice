@@ -127,18 +127,22 @@ function parseCss(text) {
     const open = css.indexOf("{", at);
     if (open < 0) break;
     const head = css.slice(at, open).trim();
-    if (head.startsWith("@keyframes")) {
-      const name = head.slice("@keyframes".length).trim();
+    if (head.startsWith("@")) {
       let depth = 1;
       let index = open + 1;
       while (depth > 0) {
+        if (index >= css.length) fail(`unclosed ${head}`);
         if (css[index] === "{") depth += 1;
         if (css[index] === "}") depth -= 1;
         index += 1;
       }
-      keyframes.set(name, parseKeyframes(css.slice(open + 1, index - 1), name));
+      if (head.startsWith("@keyframes")) {
+        const name = head.slice("@keyframes".length).trim();
+        keyframes.set(name, parseKeyframes(css.slice(open + 1, index - 1), name));
+      }
       at = index;
     } else {
+      if (/[@{};]/.test(head)) fail(`rule head ${head}`);
       const close = css.indexOf("}", open);
       rules.push({ selectors: head.split(",").map((s) => s.trim().replace(/\s+/g, " ")), decls: declarations(css.slice(open + 1, close)) });
       at = close + 1;
