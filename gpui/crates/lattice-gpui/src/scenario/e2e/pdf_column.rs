@@ -184,6 +184,9 @@ impl Run {
             (Some(column), Some(pin)) => column.x > pin.x,
             _ => false,
         };
+        let width = layout.map(|layout| layout.width);
+        self.pdf_column_docked_pointer(cx, steps, view, id, width, slot, column)
+            .await?;
         self.with_window(cx, |shell, window, cx| {
             shell.update(cx, |shell, cx| shell.set_focus_mode(false, window, cx))
         })?;
@@ -199,6 +202,126 @@ impl Run {
             json!({
                 "docked": docked, "layout": format!("{layout:?}"), "slot": format!("{slot:?}"),
                 "pin": format!("{pin:?}"), "level": level, "beside": beside,
+            }),
+        );
+        Ok(())
+    }
+}
+
+impl Run {
+    /// The docked column sits outside the narrowed pages' viewport, where
+    /// the window-wide listeners otherwise end a hover and close the card:
+    /// moving within a docked card keeps its passage lit past the first
+    /// move, and a press on the resize grip's outer half (left of the
+    /// column, over the pages' padding) leaves the open card open.
+    #[allow(clippy::too_many_arguments)]
+    async fn pdf_column_docked_pointer(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+        view: &gpui::Entity<crate::pdf::PdfView>,
+        id: &str,
+        width: Option<f32>,
+        slot: Option<gpui::Bounds<gpui::Pixels>>,
+        column: Option<gpui::Point<gpui::Pixels>>,
+    ) -> Result<()> {
+        const POINTER: &str = "PDF: a docked comment card keeps its passage lit while the pointer moves on it, and a press on the column's resize grip keeps its open card open";
+        let move_to = |run: &Self, cx: &mut AsyncApp, at: gpui::Point<gpui::Pixels>| {
+            run.with_window(cx, move |_, window, cx| {
+                window.dispatch_event(
+                    PlatformInput::MouseMove(MouseMoveEvent {
+                        position: at,
+                        pressed_button: None,
+                        modifiers: Modifiers::default(),
+                    }),
+                    cx,
+                );
+            })
+        };
+        let (Some(drawn), Some(slot), Some(column)) = (width, slot, column) else {
+            steps.check(POINTER, false, json!({ "docked": false }));
+            return Ok(());
+        };
+        // Several moves inside the card, as a real pointer makes.
+        let mut lit = Vec::new();
+        for step in 0..4 {
+            let at = slot.center() + point(px(4. * step as f32), px(step as f32));
+            move_to(self, cx, at)?;
+            self.pause(cx, Duration::from_millis(60)).await;
+            lit.push(cx.update(|cx| view.read(cx).note_hovered() == Some(id)));
+        }
+        self.snapshot(cx, "pdf-column-docked-hover").await;
+        let stays_lit = lit.iter().all(|lit| *lit);
+        // Open the card in place, then press the grip's outer half.
+        self.click_at(cx, slot.center())?;
+        let opened = self
+            .wait_for(cx, Duration::from_secs(2), |_, cx| {
+                view.read(cx).note_card() == Some(id)
+            })
+            .await;
+        let edge = column.x - px(drawn / 2.);
+        let open_slot = cx.update(|cx| view.read(cx).comment_slot(id));
+        // The grip's inner half lies on the column itself.
+        let inner = point(edge + px(2.), column.y);
+        self.click_at(cx, inner)?;
+        self.pause(cx, Duration::from_millis(300)).await;
+        let kept_inner = cx.update(|cx| view.read(cx).note_card() == Some(id));
+        // Its outer half: the press and the release apart, to tell which
+        // of them closes the card when one does.
+        let grip = point(edge - px(2.), column.y);
+        let button = |down: bool| {
+            if down {
+                PlatformInput::MouseDown(gpui::MouseDownEvent {
+                    button: gpui::MouseButton::Left,
+                    position: grip,
+                    modifiers: Modifiers::default(),
+                    click_count: 1,
+                    first_mouse: false,
+                })
+            } else {
+                PlatformInput::MouseUp(gpui::MouseUpEvent {
+                    button: gpui::MouseButton::Left,
+                    position: grip,
+                    modifiers: Modifiers::default(),
+                    click_count: 1,
+                })
+            }
+        };
+        self.with_window(cx, move |_, window, cx| {
+            window.dispatch_event(button(true), cx);
+        })?;
+        self.pause(cx, Duration::from_millis(100)).await;
+        let kept_pressed = cx.update(|cx| view.read(cx).note_card() == Some(id));
+        self.with_window(cx, move |_, window, cx| {
+            window.dispatch_event(button(false), cx);
+        })?;
+        self.pause(cx, Duration::from_millis(300)).await;
+        let (kept, width) = cx.update(|cx| {
+            let view = view.read(cx);
+            (
+                view.note_card() == Some(id),
+                view.comment_column_layout().map(|layout| layout.width),
+            )
+        });
+        self.snapshot(cx, "pdf-column-docked-grip-press").await;
+        self.dispatch_keys(cx, "escape")?;
+        self.pause(cx, Duration::from_millis(300)).await;
+        let closed = cx.update(|cx| view.read(cx).note_card().is_none());
+        move_to(self, cx, point(px(4.), px(4.)))?;
+        steps.check(
+            POINTER,
+            stays_lit
+                && opened
+                && kept_inner
+                && kept_pressed
+                && kept
+                && width == Some(drawn)
+                && closed,
+            json!({
+                "lit": lit, "opened": opened, "grip": format!("{grip:?}"),
+                "slot": format!("{open_slot:?}"), "kept_inner": kept_inner,
+                "kept_pressed": kept_pressed, "kept": kept,
+                "width": width, "closed": closed,
             }),
         );
         Ok(())
