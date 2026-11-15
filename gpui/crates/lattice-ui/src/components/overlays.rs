@@ -5,9 +5,7 @@
 //!
 //! - a tooltip is popover level, its shortcut quiet text beside the label,
 //!   never typed into it;
-//! - a toast is 320 wide at the floating level: a 16px level icon (the only
-//!   thing severity colours), a 13/18 medium title, caption detail, the first
-//!   action compact tinted and the rest compact secondary, and an X;
+//! - a toast is `toast.rs`'s card;
 //! - a dialog is 390 wide with 14px corners at the dialog level: 20px in,
 //!   16 at the foot, a serif title, one line of copy, fields 12px apart,
 //!   actions 24px below. A 36px mark only when it asks something risky.
@@ -19,18 +17,19 @@
 //! height from 96%. The scale is a paint transform (`gpui::scaled`), so
 //! layout and the pointer see the surface at rest throughout.
 
+use std::time::Duration;
+
 use gpui::{
-    AnimationExt as _, AnyElement, AnyView, App, AppContext as _, ElementId, Hsla, IntoElement,
-    ParentElement as _, Render, RenderOnce, SharedString, Styled as _, Window, div, point,
-    prelude::FluentBuilder as _, px, scaled,
+    AnimationExt as _, AnyElement, AnyView, App, AppContext as _, ElementId, Hsla,
+    InteractiveElement as _, IntoElement, ParentElement as _, Render, RenderOnce, SharedString,
+    Styled as _, Window, div, point, prelude::FluentBuilder as _, px, scaled,
 };
 
 use crate::{
     ActiveLattice as _, Elevation, Icon, TextRole, TextRoleStyle as _,
-    components::IconButton,
     icons::ICON_LARGE,
-    motion::Entrance,
-    tokens::{CONTAINER_DIALOG, CONTAINER_TOAST, FONT_WEIGHT_MEDIUM},
+    motion::{Entrance, Exit},
+    tokens::CONTAINER_DIALOG,
 };
 
 /// Where a popup comes from, relative to its trigger.
@@ -80,6 +79,56 @@ fn enter(
             })
         })
         .into_any_element()
+}
+
+/// A popup on its way out, `elapsed` into its exit ([`Exit::POPUP`]): back
+/// toward 95% about the edge that faces its trigger and 6px toward it as it
+/// fades, on the pop tier's exit, a plain ease-out a tier quicker than it
+/// came. Its owner keeps drawing it, without input, until
+/// [`Exit::is_done`], and asks for frames meanwhile.
+pub fn pop_out(from: PopFrom, elapsed: Duration, content: impl IntoElement) -> AnyElement {
+    let exit = Exit::POPUP;
+    let (direction, edge) = match from {
+        PopFrom::Above => (-1., 0.),
+        PopFrom::Below => (1., 1.),
+    };
+    let (movement, opacity) = exit.sample(elapsed);
+    scaled(
+        div()
+            .relative()
+            .top(px(direction * movement * exit.travel))
+            .opacity(opacity)
+            .child(content)
+            .child(input_cover()),
+    )
+    .origin(point(0.5, edge))
+    .scale(exit.scale(movement))
+    .into_any_element()
+}
+
+/// A dialog or sheet on its way out, `elapsed` into its exit
+/// ([`Exit::DIALOG`], `modal-sink`): it sinks `--space-2` to 98% and fades
+/// on the slow tier's exit.
+pub fn sink_out(elapsed: Duration, content: impl IntoElement) -> AnyElement {
+    let exit = Exit::DIALOG;
+    let (movement, opacity) = exit.sample(elapsed);
+    scaled(
+        div()
+            .relative()
+            .top(px(movement * exit.travel))
+            .opacity(opacity)
+            .child(content)
+            .child(input_cover()),
+    )
+    .scale(exit.scale(movement))
+    .into_any_element()
+}
+
+/// Laid over a surface on its way out, so the picture takes no press or
+/// hover (`pointer-events: none` on `[data-leaving]`), nor does what is
+/// under it until it has gone.
+fn input_cover() -> impl IntoElement {
+    div().absolute().inset_0().occlude()
 }
 
 /// Wrap a dialog or sheet so it enters on the slow tier
@@ -165,124 +214,6 @@ impl Render for LatticeTooltip {
             PopFrom::Above,
             card,
         )
-    }
-}
-
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-pub enum ToastLevel {
-    #[default]
-    Info,
-    Success,
-    Warning,
-    Error,
-}
-
-impl ToastLevel {
-    fn mark(self, palette: &crate::Palette) -> (Icon, Hsla) {
-        match self {
-            ToastLevel::Info => (Icon::INFO, palette.info),
-            ToastLevel::Success => (Icon::CIRCLE_CHECK, palette.success),
-            ToastLevel::Warning => (Icon::TRIANGLE_ALERT, palette.warning),
-            ToastLevel::Error => (Icon::CIRCLE_ALERT, palette.danger),
-        }
-    }
-}
-
-#[derive(IntoElement)]
-pub struct Toast {
-    id: ElementId,
-    level: ToastLevel,
-    title: SharedString,
-    detail: Option<SharedString>,
-    actions: Vec<AnyElement>,
-    on_dismiss: Option<Box<dyn Fn(&gpui::ClickEvent, &mut Window, &mut App)>>,
-}
-
-impl Toast {
-    pub fn new(
-        id: impl Into<ElementId>,
-        level: ToastLevel,
-        title: impl Into<SharedString>,
-    ) -> Self {
-        Self {
-            id: id.into(),
-            level,
-            title: title.into(),
-            detail: None,
-            actions: Vec::new(),
-            on_dismiss: None,
-        }
-    }
-
-    pub fn detail(mut self, detail: impl Into<SharedString>) -> Self {
-        self.detail = Some(detail.into());
-        self
-    }
-
-    /// The first action is the compact tinted lead, the rest compact
-    /// secondary; pass the Buttons already sized.
-    pub fn action(mut self, action: impl IntoElement) -> Self {
-        self.actions.push(action.into_any_element());
-        self
-    }
-
-    pub fn on_dismiss(
-        mut self,
-        handler: impl Fn(&gpui::ClickEvent, &mut Window, &mut App) + 'static,
-    ) -> Self {
-        self.on_dismiss = Some(Box::new(handler));
-        self
-    }
-}
-
-impl RenderOnce for Toast {
-    fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
-        let palette = cx.palette().clone();
-        let (icon, hue) = self.level.mark(&palette);
-        let has_actions = !self.actions.is_empty();
-        div()
-            .w(CONTAINER_TOAST)
-            .flex()
-            .items_start()
-            .gap(px(8.))
-            .pl(px(12.))
-            .pr(px(8.))
-            .py(px(10.))
-            .rounded(px(10.))
-            .bg(palette.raised)
-            .shadow(Elevation::Floating.shadows(&palette))
-            .child(div().pt(px(1.)).child(icon.element(ICON_LARGE, hue)))
-            .child(
-                div()
-                    .flex()
-                    .flex_col()
-                    .flex_1()
-                    .min_w_0()
-                    .child(
-                        div()
-                            .text_role(TextRole::Subtitle, cx)
-                            .font_weight(FONT_WEIGHT_MEDIUM)
-                            .text_color(palette.text)
-                            .child(self.title),
-                    )
-                    .children(self.detail.map(|detail| {
-                        div()
-                            .text_role(TextRole::Caption, cx)
-                            .text_color(palette.text_secondary)
-                            .child(detail)
-                    }))
-                    .when(has_actions, |this| {
-                        this.child(div().flex().gap(px(6.)).pt(px(8.)).children(self.actions))
-                    }),
-            )
-            .when_some(self.on_dismiss, |this, on_dismiss| {
-                this.child(
-                    IconButton::new(self.id, Icon::CLOSE)
-                        .frame(px(24.), px(24.))
-                        .tooltip(lattice_i18n::t!("Dismiss"))
-                        .on_click(on_dismiss),
-                )
-            })
     }
 }
 

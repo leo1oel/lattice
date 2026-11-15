@@ -145,6 +145,19 @@ impl Run {
         cx: &mut AsyncApp,
         steps: &mut Steps,
     ) -> Result<()> {
+        // The build on opening typeset the project, so the one the smoke
+        // flow asked for found latexmk nothing to do: a forced build runs
+        // its passes again.
+        let before = self.builds(cx);
+        steps.check(
+            "opening the project builds it, before the build the smoke flow asks for",
+            before >= 2,
+            json!({ "builds": before }),
+        );
+        self.with_window(cx, |shell, window, cx| {
+            shell.update(cx, |shell, cx| shell.build_forced(window, cx))
+        })?;
+        self.built_after(cx, before).await;
         let passes: Vec<String> = cx.update(|cx| {
             self.shell
                 .read(cx)
@@ -566,6 +579,7 @@ impl Run {
         steps: &mut Steps,
         stub: &StubTexSetup,
     ) -> Result<()> {
+        stub.set_packages_outdated();
         let center = cx.update(|cx| self.shell.read(cx).tex_setup().clone());
         self.dispatch_to_shell(cx, &OpenTexDoctor)?;
         let reported = self

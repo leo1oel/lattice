@@ -58,9 +58,18 @@ impl Run {
             self.hover_at(cx, pip.center()).await?;
             let watched = editor.clone();
             let wanted = comment_key.clone();
+            // Open, and painted: the card's bounds are recorded when a frame
+            // draws it, which can come a tick after the open state, so
+            // reading them as soon as it opens can find no card yet.
+            let popover_key = format!("popover:{comment_key}");
             opened = self
                 .wait_for(cx, Duration::from_secs(3), move |_, cx| {
-                    watched.read(cx).margin_open() == Some(wanted.as_str())
+                    let editor = watched.read(cx);
+                    editor.margin_open() == Some(wanted.as_str())
+                        && editor
+                            .margin_painted()
+                            .iter()
+                            .any(|(key, _)| *key == popover_key)
                 })
                 .await;
             self.adapter_shot(cx, "overleaf-margin-markers").await;

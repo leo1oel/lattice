@@ -279,7 +279,8 @@ impl Permission {
         matches!(self, Permission::Owner | Permission::ReadAndWrite)
     }
 
-    pub(super) fn can_suggest(self) -> bool {
+    /// True when this account may send an update, as a suggestion or not.
+    pub fn can_suggest(self) -> bool {
         self.can_write() || self == Permission::Review
     }
 

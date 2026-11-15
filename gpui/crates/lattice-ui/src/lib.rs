@@ -18,6 +18,7 @@
 #![recursion_limit = "512"]
 
 pub mod accent_fit;
+pub mod attention;
 pub mod components;
 pub mod dock;
 pub mod editor_theme;
@@ -27,6 +28,7 @@ pub mod fonts;
 pub mod icons;
 pub mod interaction;
 pub mod kit;
+pub mod loading;
 pub mod measure;
 pub mod motion;
 pub mod palette;

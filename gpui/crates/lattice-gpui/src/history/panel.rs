@@ -61,6 +61,8 @@ pub enum HistoryEvent {
     /// Overleaf's copy was restored from its history: the files here
     /// follow once the project syncs.
     OverleafRestored,
+    /// Undo an Agent turn's file changes, through the Agent.
+    RestoreAgentCheckpoint(crate::agent::checkpoints::Entry),
 }
 
 impl EventEmitter<HistoryEvent> for HistoryPanel {}
@@ -239,6 +241,8 @@ pub struct HistoryPanel {
     pub(super) compare_key: Option<String>,
     pub(super) open_folds: HashSet<String>,
     pub(super) activity: Vec<HistoryItem>,
+    /// The Agent's checkpoints, from its panel's snapshots (`checkpoint_rows.rs`).
+    pub(super) agent_checkpoints: Vec<super::CheckpointItem>,
     pub(super) activity_error: Option<String>,
     activity_seq: u64,
     pub(super) entry: Latest<OpenedEntry>,
@@ -297,6 +301,7 @@ impl HistoryPanel {
             compare_key: None,
             open_folds: HashSet::new(),
             activity: Vec::new(),
+            agent_checkpoints: Vec::new(),
             activity_error: None,
             activity_seq: 0,
             entry: Latest::default(),

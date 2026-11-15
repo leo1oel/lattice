@@ -1,7 +1,9 @@
 /**
- * The Agent island's `settings` surface: Settings › Providers, Synara's own
- * settings page for the open project, as the Tauri app's Settings dialog
- * hosts it (`src/settings/settings-dialog.tsx`, `synara-settings-pane.tsx`).
+ * The Agent island's `settings` surface: Settings › Providers, MCP, Skills
+ * and Usage & limits, Synara's own settings pages for the open project, as
+ * the Tauri app's Settings dialog hosts them (`src/settings/settings-dialog.tsx`,
+ * `synara-settings-pane.tsx`). One frame serves the four, so switching
+ * between them is a message to the loaded page, never a reload.
  * The page is the dialog's content column: its scroll area here is the one
  * the Tauri dialog's page scrolls in, and the pane sizes the frame and
  * forwards its wheel to it exactly as it does there.
@@ -17,6 +19,10 @@ import type { ThemeAccent, ThemeTint, Translucency } from "../../../src/settings
 export type SettingsLayout = {
   /** Settings' compact insets (the GPUI dialog in its narrow form). */
   compact: boolean;
+  /** Synara's settings section on screen (`SYNARA_SETTINGS_SECTIONS`'s values). */
+  section: string;
+  /** The Settings tab's own label, in the interface language; null for Providers'. */
+  label: string | null;
   /** A place on the page to open and reveal; a fresh object per request. */
   target: { target: string } | null;
 };
@@ -48,9 +54,9 @@ export function SettingsSurface(props: {
     <ScrollArea className="settings-content agent-island-host" viewportRef={viewportRef} fadeEdges={false}>
       <SynaraSettingsPane
         runtime={runtime}
-        section="providers"
+        section={props.layout.section}
         url={url}
-        synaraSettingsLabel={t`Providers`}
+        synaraSettingsLabel={props.layout.label ?? t`Providers`}
         viewportRef={viewportRef}
         appearance={{ theme: props.theme, tint: props.tint, ...props.appearance }}
         target={props.layout.target}

@@ -4,6 +4,10 @@
 //! what a sync would do, without writing anything, and shows it as the files
 //! grouped by what happens to them beside their diffs, so nothing lands on
 //! disk until the writer says so.
+//!
+//! The list and the diffs keep each other in view: a file clicked in the
+//! list scrolls its diff smoothly to the top, and scrolling the diffs moves
+//! the list's selection to the file at the top (`syncSelectedFromViewport`).
 
 use std::collections::BTreeSet;
 
@@ -161,6 +165,11 @@ pub struct OverleafReview {
     selected: Option<String>,
     list_scroll: ScrollHandle,
     diff_scroll: ScrollHandle,
+    /// The diff last seen at the top of the column, for the scroll-spy.
+    spied: Option<usize>,
+    /// The smooth scroll to a file clicked in the list, while it runs; the
+    /// selection is the click's meanwhile.
+    revealing: Option<Task<()>>,
     focus: FocusHandle,
     task: Option<Task<()>>,
 }
@@ -185,6 +194,8 @@ impl OverleafReview {
             selected: None,
             list_scroll: ScrollHandle::new(),
             diff_scroll: ScrollHandle::new(),
+            spied: None,
+            revealing: None,
             focus: cx.focus_handle(),
             task: None,
         };
@@ -202,6 +213,8 @@ impl OverleafReview {
             let (preview, expired) = read.await;
             this.update(cx, |this, cx| {
                 this.loading = false;
+                this.spied = None;
+                this.revealing = None;
                 if expired {
                     super::session_changed(cx);
                 }
@@ -266,12 +279,62 @@ impl OverleafReview {
         cx.notify();
     }
 
+    /// Scroll `path`'s diff to the top of the column, smoothly (`scrollTo`
+    /// with `behavior: "smooth"`), and select it.
     fn reveal(&mut self, path: String, cx: &mut Context<Self>) {
-        if let Some(index) = self.diffs.iter().position(|(diff, ..)| diff == &path) {
-            self.diff_scroll.scroll_to_item(index);
-        }
-        self.selected = Some(path);
+        self.selected = Some(path.clone());
         cx.notify();
+        let Some(index) = self.diffs.iter().position(|(diff, ..)| diff == &path) else {
+            return;
+        };
+        let scroll = self.diff_scroll.clone();
+        let (Some(item), viewport) = (scroll.bounds_for_item(index), scroll.bounds()) else {
+            scroll.scroll_to_top_of_item(index);
+            return;
+        };
+        let from = scroll.offset();
+        let lowest = -scroll.max_offset().y;
+        let target = (viewport.top() - item.top()).clamp(lowest, px(0.));
+        let motion = lattice_ui::motion::Motion::Slow;
+        let duration = motion.duration();
+        self.spied = Some(index);
+        self.revealing = Some(cx.spawn(async move |this, cx| {
+            let started = std::time::Instant::now();
+            loop {
+                let t = (started.elapsed().as_secs_f32() / duration.as_secs_f32()).min(1.);
+                // The scroll eases out and never overshoots its file.
+                let eased = motion.sample(t).min(1.);
+                let y = from.y + (target - from.y) * eased;
+                scroll.set_offset(gpui::point(from.x, y));
+                if this.update(cx, |_, cx| cx.notify()).is_err() || t >= 1. {
+                    break;
+                }
+                cx.background_executor()
+                    .timer(std::time::Duration::from_millis(8))
+                    .await;
+            }
+            this.update(cx, |this, cx| {
+                this.revealing = None;
+                this.spied = Some(this.diff_scroll.top_item());
+                cx.notify();
+            })
+            .ok();
+        }));
+    }
+
+    /// The scroll-spy: the file whose diff is at the top of the column is
+    /// the one selected in the list.
+    fn spy(&mut self) {
+        if self.revealing.is_some() || self.diffs.is_empty() {
+            return;
+        }
+        let top = self.diff_scroll.top_item();
+        if self.spied.replace(top) == Some(top) {
+            return;
+        }
+        if let Some((path, ..)) = self.diffs.get(top) {
+            self.selected = Some(path.clone());
+        }
     }
 
     fn close(&mut self, cx: &mut Context<Self>) {
@@ -422,6 +485,8 @@ fn mix_over(color: Hsla, share: f32, ground: Hsla) -> Hsla {
 
 impl Render for OverleafReview {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        self.spy();
+        let on_diff_scroll = cx.listener(|_, _: &gpui::ScrollEvent, _, cx| cx.notify());
         let palette = cx.palette().clone();
         let viewport = window.viewport_size();
         let width = px(920.).min(viewport.width - px(48.));
@@ -580,6 +645,8 @@ impl Render for OverleafReview {
                     .size_full()
                     .overflow_y_scroll()
                     .track_scroll(&self.diff_scroll)
+                    // Drawn again as it scrolls, so the spy sees the new top.
+                    .on_scroll(on_diff_scroll)
                     .children(frames)
                     .into_any_element()
             };
@@ -662,6 +729,7 @@ impl Render for OverleafReview {
             },
         )
         .closable_by_scrim(!self.applying)
+        .closable(!self.applying)
     }
 }
 

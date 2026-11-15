@@ -43,6 +43,9 @@ pub(crate) struct Documents {
     pub(super) audit: Option<Entity<crate::papers::audit::Audit>>,
     /// Saved papers open in their reader, one tab each.
     pub(super) readers: Vec<Entity<crate::papers::reader::PaperReader>>,
+    /// The view each paper was last shown in, by arXiv id, for one opened
+    /// again after its tab closed.
+    pub(super) paper_views: std::collections::HashMap<String, crate::papers::reader::ReaderView>,
     /// The places the writer went (project-relative path, line), oldest
     /// first, and the one back and forward stand on.
     history: Vec<(String, u32)>,
@@ -150,6 +153,21 @@ impl Shell {
         view.update(cx, |view, cx| view.focus_input(window, cx));
         self.documents.find = Some(view);
         cx.notify();
+    }
+
+    /// Find in project on `query`, from the palette's query that found
+    /// nothing there.
+    pub(crate) fn find_in_project_for(
+        &mut self,
+        query: String,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.documents.find.is_some() {
+            self.close_document_overlays(window, cx);
+        }
+        self.documents.find_memory.query = query;
+        self.toggle_find(window, cx);
     }
 
     /// ⌘⇧H: Replace in project.
@@ -370,7 +388,7 @@ impl Shell {
     }
 
     /// The files visited this session, newest first and each once.
-    fn recent_paths(&self) -> Vec<String> {
+    pub(super) fn recent_paths(&self) -> Vec<String> {
         let mut out: Vec<String> = Vec::new();
         for (path, _) in self.documents.history.iter().rev() {
             if !out.contains(path) {

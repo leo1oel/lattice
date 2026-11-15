@@ -56,11 +56,13 @@ impl EditorPanel {
                     flushed.send(()).ok();
                 }
             }
-            // A Markdown file's visual editor is the views' (`markdown_view.rs`).
-            StructuredEvent::Markdown(_) => {}
+            // A Markdown file's visual editor is the views' (`markdown_view.rs`),
+            // a .tex file's Visual page `latex_visual_events.rs`'s.
+            StructuredEvent::Markdown(_) | StructuredEvent::Latex(_) => {}
             StructuredEvent::AgentRequest(request) => {
                 cx.emit(super::EditorPanelEvent::AgentRequest(request.clone()))
             }
+            StructuredEvent::SurfaceContext => cx.emit(super::EditorPanelEvent::SurfaceContext),
             StructuredEvent::Wrote { path, text } => {
                 // Open Slide saved this deck's own file: the buffer takes
                 // what landed as what is on disk.

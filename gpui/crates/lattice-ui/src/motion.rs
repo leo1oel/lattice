@@ -170,6 +170,117 @@ pub fn stagger(index: usize) -> Duration {
     DURATION_STAGGER * index.min(8) as u32
 }
 
+/// How a floating surface leaves, as the app's CSS dismisses it: one tier
+/// quicker than it came, on plain ease-out tweens, toward a picture a few
+/// pixels short of where it rests (`modal-sink`, the popups' exit, a toast
+/// lifting back out of its stack).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Exit {
+    pub motion: Motion,
+    /// The fade's tier, when it is not the movement's.
+    pub fade: Option<Motion>,
+    /// The scale it ends at.
+    pub to_scale: f32,
+    /// How far it travels, in pixels, toward the side it came from.
+    pub travel: f32,
+}
+
+impl Exit {
+    /// Menus, selects and popovers (`popup-motion.css`, the pop-exit tier):
+    /// back to 95% and 6px toward the trigger as they fade.
+    pub const POPUP: Exit = Exit {
+        motion: Motion::PopExit,
+        fade: None,
+        to_scale: 0.95,
+        travel: 6.,
+    };
+
+    /// Dialogs and sheets (`dialogs.css`, `modal-sink` and
+    /// `modal-scrim-out`): down `--space-2` to 98% on the slow tier's exit,
+    /// the scrim fading on the same tween.
+    pub const DIALOG: Exit = Exit {
+        motion: Motion::SlowExit,
+        fade: None,
+        to_scale: 0.98,
+        travel: 4.,
+    };
+
+    /// Toasts (`toast-stack.css`, `[data-ending-style]`): 40% of the card's
+    /// height back toward the stack's edge (see the stack, which travels by
+    /// that share rather than by `travel`) and to 96%, moving on the slow
+    /// tier's exit and fading on the moderate's.
+    pub const TOAST: Exit = Exit {
+        motion: Motion::SlowExit,
+        fade: Some(Motion::ModerateExit),
+        to_scale: 0.96,
+        travel: 0.,
+    };
+
+    /// How long the exit runs: its longer tier.
+    pub fn duration(self) -> Duration {
+        self.fade
+            .map_or(self.motion.duration(), |fade| fade.duration())
+            .max(self.motion.duration())
+    }
+
+    /// The movement's progress (0 at rest, 1 gone) and the opacity left,
+    /// `elapsed` into the exit, each on its own tween.
+    pub fn sample(self, elapsed: Duration) -> (f32, f32) {
+        let at = |motion: Motion| {
+            let t = elapsed.as_secs_f32() / motion.duration().as_secs_f32().max(f32::EPSILON);
+            motion.sample(t.clamp(0., 1.)).clamp(0., 1.)
+        };
+        let movement = at(self.motion);
+        let opacity = 1. - at(self.fade.unwrap_or(self.motion));
+        (movement, opacity)
+    }
+
+    /// The scale at the movement's progress `p`.
+    pub fn scale(self, progress: f32) -> f32 {
+        1. + (self.to_scale - 1.) * progress
+    }
+
+    /// Whether the exit is over `elapsed` into it.
+    pub fn is_done(self, elapsed: Duration) -> bool {
+        elapsed >= self.duration()
+    }
+}
+
+/// One number keyed through a CSS `@keyframes` rule: stops at offsets
+/// 0..=1, held flat where two neighbours share a value, and each interval
+/// eased by the animation's timing function over its own span, as a browser
+/// applies `animation-timing-function` between every pair of keyframes
+/// rather than once over the whole run.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Keyframes {
+    /// `(offset, value)`, in order; the first at 0 and the last at 1.
+    pub stops: &'static [(f32, f32)],
+    pub ease: crate::token_types::Ease,
+}
+
+impl Keyframes {
+    /// The value at the animation's progress `t` (0..=1).
+    pub fn sample(&self, t: f32) -> f32 {
+        let t = t.clamp(0., 1.);
+        let Some(&(_, first)) = self.stops.first() else {
+            return 0.;
+        };
+        let mut previous = (0., first);
+        for &(offset, value) in self.stops {
+            if t <= offset {
+                let span = offset - previous.0;
+                if span <= f32::EPSILON {
+                    return value;
+                }
+                let local = self.ease.sample((t - previous.0) / span);
+                return previous.1 + (value - previous.1) * local;
+            }
+            previous = (offset, value);
+        }
+        previous.1
+    }
+}
+
 /// A value that can travel between two of itself.
 pub trait Tweenable: Copy + PartialEq {
     /// `self` toward `to` by `t`; a spring's `t` may pass 1.
@@ -651,6 +762,41 @@ mod tests {
         assert!(half.size.height > gpui::px(28.) && half.size.height < gpui::px(32.));
         assert_eq!(half.origin.x, gpui::px(0.));
         assert_eq!(spring.value(start + DURATION_FAST * 2), to);
+    }
+
+    #[test]
+    fn an_exit_leaves_a_tier_quicker_and_ends_faded() {
+        assert_eq!(Exit::DIALOG.duration(), DURATION_SLOW_EXIT);
+        assert_eq!(Exit::TOAST.duration(), DURATION_SLOW_EXIT);
+        let (movement, opacity) = Exit::DIALOG.sample(Duration::ZERO);
+        assert!(movement.abs() < 1e-6 && (opacity - 1.).abs() < 1e-6);
+        let (movement, opacity) = Exit::TOAST.sample(DURATION_MODERATE_EXIT);
+        assert_eq!(opacity, 0.);
+        assert!(movement < 1.);
+        let (movement, opacity) = Exit::POPUP.sample(DURATION_POP_EXIT);
+        assert_eq!((movement, opacity), (1., 0.));
+        assert_eq!(Exit::POPUP.scale(1.), 0.95);
+        assert!(Exit::DIALOG.is_done(DURATION_SLOW_EXIT));
+    }
+
+    #[test]
+    fn keyframes_hold_flat_runs_and_ease_each_interval() {
+        // `reveal-flash`: 0%, 55% held, then out.
+        let flash = Keyframes {
+            stops: &[(0., 1.), (0.55, 1.), (1., 0.)],
+            ease: Ease::Linear(&[0., 1.]),
+        };
+        assert_eq!(flash.sample(0.), 1.);
+        assert_eq!(flash.sample(0.5), 1.);
+        assert!((flash.sample(0.775) - 0.5).abs() < 1e-4);
+        assert_eq!(flash.sample(1.), 0.);
+        // The timing function bends each interval on its own span.
+        let eased = Keyframes {
+            stops: &[(0., 0.), (0.5, 1.), (1., 0.)],
+            ease: Ease::EaseOut,
+        };
+        assert!((eased.sample(0.25) - Ease::EaseOut.sample(0.5)).abs() < 1e-4);
+        assert!((eased.sample(0.75) - (1. - Ease::EaseOut.sample(0.5))).abs() < 1e-4);
     }
 
     #[test]

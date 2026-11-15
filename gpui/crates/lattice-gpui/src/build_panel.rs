@@ -37,9 +37,6 @@ use crate::build::{
     outcome::BuildOutcome,
 };
 
-/// The log view keeps the tail; a full multi-pass log can run to megabytes.
-const LOG_TAIL_LINES: usize = 2_000;
-
 /// A raw log's rows, measured a little beyond the box so a scroll does not
 /// show them arriving.
 fn log_list() -> ListState {
@@ -94,6 +91,9 @@ pub struct LastBuild {
     pub success: bool,
     pub wrote_pdf: bool,
     pub root_document: String,
+    /// Where the build wrote its `.aux` files, project-relative: the root
+    /// document's folder when empty (`BuildResult::aux_folder`).
+    pub aux_folder: String,
     /// In the order the card lists them, each with its explanation.
     pub diagnostics: Vec<Diagnostic>,
     pub explained: Vec<Option<Explained>>,
@@ -165,7 +165,7 @@ impl BuildPanel {
             expanded: false,
             dismissed: false,
             dismissed_fingerprint: None,
-            docked_choice: None,
+            docked_choice: crate::settings::get(cx).build_output_docked,
             tab: OutputTab::Messages,
             replaced: HashMap::new(),
             copied: None,
@@ -247,7 +247,8 @@ impl BuildPanel {
     /// The last outcome's moment, while it may still arrive (`chip_mark`):
     /// its key, one per build, and how long ago it ended.
     pub fn chip_moment(&self) -> Option<(usize, Duration)> {
-        let outcome = self.outcome.as_ref()?;
+        // A quiet build's success shows its check without the flourish.
+        let outcome = self.outcome.as_ref().filter(|outcome| !outcome.quiet)?;
         let age = outcome.finished_at.elapsed();
         (!self.is_running() && age < crate::build::chip_mark::FRESH_WINDOW)
             .then_some((self.builds, age))
@@ -372,7 +373,10 @@ impl BuildPanel {
     ) {
         self.builds += 1;
         self.status = Status::Finished;
-        self.outcome = BuildOutcome::of(result, wrote_pdf);
+        self.outcome = BuildOutcome::of(result, wrote_pdf).map(|outcome| BuildOutcome {
+            quiet: self.quiet && outcome.succeeded,
+            ..outcome
+        });
         let sorted = diagnostics::sort(&result.diagnostics);
         let counts = diagnostics::summarize(&sorted);
         let table_ends_clash = sorted
@@ -404,13 +408,15 @@ impl BuildPanel {
                 )
             })
             .collect();
+        // The whole log, as the Tauri app's field holds it: a multi-pass
+        // log can run to megabytes, and the list lays out only the rows in
+        // view.
         let lines: Vec<&str> = result.log.lines().collect();
-        let tail = lines.len().saturating_sub(LOG_TAIL_LINES);
         let log_anchor = (!result.success).then(|| {
             let anchor = diagnostics::failed_log_anchor(&result.log);
             let line = result.log[..anchor].matches('\n').count();
             // One line of what came before stays in view above the error.
-            line.saturating_sub(tail).saturating_sub(1)
+            line.saturating_sub(1)
         });
         // Reopening the card is for news: autosave rebuilds after every
         // pause in typing, and a warning the writer chose to live with must
@@ -441,17 +447,18 @@ impl BuildPanel {
             success: result.success,
             wrote_pdf,
             root_document: result.root_document.clone(),
+            aux_folder: result.aux_folder.clone(),
             diagnostics: sorted,
             explained,
             log: result.log.clone(),
-            log_lines: lines[tail..]
+            log_lines: lines
                 .iter()
                 .map(|line| SharedString::from(line.to_string()))
                 .collect(),
             log_anchor,
         });
         for list in [&self.card_log, &self.panel_log] {
-            list.reset(lines.len() - tail);
+            list.reset(lines.len());
         }
         self.scroll_log_to_anchor();
         cx.notify();
@@ -491,8 +498,18 @@ impl BuildPanel {
             .unwrap_or_else(|| self.last.as_ref().is_some_and(|last| last.success))
     }
 
+    /// The writer's choice, kept for every project and the next run.
     pub fn set_docked(&mut self, docked: bool, cx: &mut Context<Self>) {
         self.docked_choice = Some(docked);
+        crate::settings::update(cx, |settings| settings.build_output_docked = Some(docked));
+        cx.notify();
+    }
+
+    /// Back to no choice made, for a scenario that made one.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn forget_docked_choice(&mut self, cx: &mut Context<Self>) {
+        self.docked_choice = None;
+        crate::settings::update(cx, |settings| settings.build_output_docked = None);
         cx.notify();
     }
 

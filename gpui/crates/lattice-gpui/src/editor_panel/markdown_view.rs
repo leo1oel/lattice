@@ -73,10 +73,11 @@ impl EditorPanel {
             cx.new(|cx| StructuredDocument::markdown(&project, relative, source, window, cx));
         self._subscriptions
             .push(cx.subscribe_in(&document, window, Self::on_markdown_document));
+        self.paper_document_made(&document, cx);
         document
     }
 
-    fn on_markdown_document(
+    pub(super) fn on_markdown_document(
         &mut self,
         document: &Entity<StructuredDocument>,
         event: &StructuredEvent,
@@ -102,6 +103,12 @@ impl EditorPanel {
             MarkdownEvent::OpenPath(path) => {
                 cx.emit(EditorPanelEvent::OpenFile { path: path.clone() })
             }
+            MarkdownEvent::OpenLocation(path, line) => {
+                cx.emit(EditorPanelEvent::OpenLocation {
+                    path: path.clone(),
+                    line: *line,
+                })
+            }
             MarkdownEvent::Caret(line, column) => {
                 let moved = self.cursor.0 != *line;
                 self.cursor = (*line, *column);
@@ -111,6 +118,8 @@ impl EditorPanel {
                 cx.notify();
             }
             MarkdownEvent::Scrolled(center) => self.follow_preview(*center, window, cx),
+            MarkdownEvent::Masthead(in_view) => self.paper_masthead(*in_view, cx),
+            MarkdownEvent::PaperSource(page) => cx.emit(EditorPanelEvent::PaperSource(*page)),
         }
     }
 

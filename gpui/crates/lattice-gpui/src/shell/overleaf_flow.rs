@@ -8,12 +8,18 @@
 //! a split button on the accent wash, its left half syncing (Review changes
 //! in manual mode) and its chevron opening a menu with the project's name,
 //! Open in Overleaf and Open another Overleaf project. A dot on its corner
-//! says where the link stands: green while syncing or live, a breathing
-//! amber while the channel joins, red when it failed (syncing carries on;
-//! the tooltip says why), and an accent dot for work waiting on Overleaf in
-//! manual mode.
+//! says where the link stands: green while syncing, editing live or with
+//! the channel up, an accent dot for work waiting on Overleaf in manual
+//! mode, a breathing amber while the channel joins, and red when it failed
+//! (syncing carries on; the tooltip says why). Its icon fades up into place
+//! when it changes between linked and syncing (`StateSwap`).
+//!
+//! The window tells the bridge when it comes forward (a probe, and a
+//! channel waiting out its backoff joins now) or loses focus (a held
+//! board, sheet or deck goes up), and when it goes off screen, where the
+//! live poll rests.
 
-use std::time::Duration;
+use std::{cell::Cell, time::Duration};
 
 use gpui::{
     AnimationExt as _, AnyElement, AppContext as _, Context, Corners, Entity, IntoElement,
@@ -49,6 +55,9 @@ pub(crate) struct OverleafLayers {
     review: Option<(Entity<OverleafReview>, Subscription)>,
     /// Saving the window's editors before a sync or an upload.
     pending: Option<Task<()>>,
+    /// The control's icon as last drawn, and how many times it changed:
+    /// each change fades the new one in.
+    swap: Cell<Option<(&'static str, u32)>>,
 }
 
 impl Shell {
@@ -69,10 +78,17 @@ impl Shell {
                 this.on_collab_event(event, window, cx)
             }),
             cx.subscribe_in(&bridge, window, Self::on_overleaf_event),
-            cx.observe(&bridge, |this, _, cx| {
+            cx.observe(&bridge, |this, bridge, cx| {
+                // Papers holds its empty state while the first sync may
+                // still bring the bibliography.
+                let syncing = bridge.read(cx).syncing();
+                this.papers
+                    .update(cx, |papers, cx| papers.overleaf_syncing(syncing, cx));
                 this.show_overleaf_save(cx);
                 this.push_agent_overleaf(cx);
                 this.show_overleaf_review(cx);
+                this.show_deck_editable(cx);
+                super::menus::follow_front(cx);
                 cx.notify()
             }),
             // Another window signed in or out, or a request found the
@@ -81,7 +97,19 @@ impl Shell {
                 this.overleaf
                     .update(cx, |bridge, cx| bridge.check_session(cx));
             }),
+            cx.observe_window_activation(window, |this, window, cx| {
+                let active = window.is_window_active();
+                this.overleaf
+                    .update(cx, |bridge, cx| bridge.set_window_active(active, cx));
+            }),
+            cx.observe_window_visibility(window, |this, visibility, _, cx| {
+                this.overleaf.update(cx, |bridge, _| {
+                    bridge.set_window_visible(visibility.is_visible())
+                });
+            }),
         ];
+        let visible = window.is_visible();
+        bridge.update(cx, |bridge, _| bridge.set_window_visible(visible));
         (bridge, collab, subscriptions)
     }
 
@@ -94,12 +122,9 @@ impl Shell {
     ) {
         match event {
             // The files reach the editors and the tree through the watcher;
-            // the PDF follows them, as after any outside edit.
-            OverleafBridgeEvent::Incoming => {
-                if crate::settings::builds_automatically(cx) {
-                    self.run_build(super::build::BuildRequest::automatic(), window, cx);
-                }
-            }
+            // the PDF follows them, as after any outside edit, once the
+            // writes pause (`build_watch`).
+            OverleafBridgeEvent::Incoming => {}
             OverleafBridgeEvent::OpenConflict(path) => {
                 self.open_conflict_resolver(path.clone(), true, window, cx)
             }
@@ -112,6 +137,7 @@ impl Shell {
 
     /// "Open from Overleaf".
     pub(crate) fn open_overleaf_picker(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.abandon_launch_reopen();
         if self.overleaf_layers.picker.is_some() {
             return;
         }
@@ -352,7 +378,7 @@ impl Shell {
         let syncing = bridge.syncing();
         let pending = bridge.remote_changes();
         let channel = bridge.channel();
-        let detail = bridge.channel_detail().cloned();
+        let detail = bridge.channel_detail();
         let live_editing = bridge.live_file().is_some();
         let project_name = bridge.link().map(|link| link.project_name.clone());
         let label: String = if !linked {
@@ -374,8 +400,7 @@ impl Shell {
                     Some(detail) => t!(
                         "Live editing unavailable ({detail}), syncing instead",
                         detail = detail.as_ref()
-                    )
-                    .into(),
+                    ),
                     None => t!("Live editing unavailable, syncing instead").into(),
                 },
                 ChannelStatus::Live => detail
@@ -395,7 +420,10 @@ impl Shell {
                 .border(px(1.5))
                 .border_color(palette.titlebar)
         };
-        let badge: Option<AnyElement> = if linked && syncing {
+        // Online whenever something reaches Overleaf: a sync, live editing,
+        // or the channel up.
+        let online = syncing || live_editing || channel == ChannelStatus::Live;
+        let badge: Option<AnyElement> = if linked && online {
             Some(dot(palette.success).into_any_element())
         } else if linked && pending {
             Some(dot(palette.accent).into_any_element())
@@ -455,8 +483,47 @@ impl Shell {
                 shell.open_overleaf_picker(window, cx)
             }
         }));
-        if syncing {
-            primary = primary.content(infinity_loader("overleaf-syncing", px(14.), &palette));
+        let key = if syncing {
+            "syncing"
+        } else if linked {
+            "linked"
+        } else {
+            "unlinked"
+        };
+        let changes = match self.overleaf_layers.swap.get() {
+            None => 0,
+            Some((last, changes)) if last == key => changes,
+            Some((_, changes)) => changes + 1,
+        };
+        self.overleaf_layers.swap.set(Some((key, changes)));
+        // The unlinked cloud keeps the button's own ink, which follows the
+        // pointer; the linked icons sit on the accent wash in its ink.
+        let swapped: Option<AnyElement> = if syncing {
+            Some(infinity_loader("overleaf-syncing", px(14.), &palette).into_any_element())
+        } else if linked {
+            Some(
+                Icon::CLOUD_UPLOAD
+                    .element(px(14.), palette.accent)
+                    .into_any_element(),
+            )
+        } else {
+            None
+        };
+        if let Some(content) = swapped {
+            primary = primary.content(if changes == 0 {
+                content
+            } else {
+                // Rises 3px as it fades up, on the moderate spring.
+                div()
+                    .relative()
+                    .child(content)
+                    .with_animation(
+                        gpui::ElementId::NamedInteger("overleaf-swap".into(), changes as u64),
+                        Motion::Moderate.animation(),
+                        |this, t| this.opacity(t.clamp(0., 1.)).top(px(3. * (1. - t))),
+                    )
+                    .into_any_element()
+            });
         }
         if let Some(badge) = badge {
             primary = primary.badge(badge);

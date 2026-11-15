@@ -1,7 +1,7 @@
 //! Interface sounds (Settings › Appearance › Interface sounds), as the Tauri
 //! app plays them (`src/telemetry/interface-sounds.ts`): two cues, and only
 //! when an operation the writer asked for has finished. A build they asked
-//! for (the Build chip, ⌘B / ⌘S, the palette, a clean rebuild) ends in
+//! for (the Build chip, ⌘S, the palette, a clean rebuild) ends in
 //! `ready` or `error`, and a notice that showed a running operation settling
 //! into success or failure plays the matching one. Routine clicks,
 //! navigation, editing and automatic builds stay silent.

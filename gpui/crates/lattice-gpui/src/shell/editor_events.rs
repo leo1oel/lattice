@@ -21,6 +21,7 @@ impl Shell {
             .detach();
         self.editors.push(editor.downgrade());
         self.show_outline(cx);
+        self.show_deck_editable(cx);
     }
 
     pub(super) fn on_editor_event(
@@ -40,8 +41,12 @@ impl Shell {
                 self.refresh_outline(window, cx);
             }
             // Settings › Editor & builds › Automatic build: "Manual only"
-            // leaves every build to the Build button and ⌘B.
-            EditorPanelEvent::SavedForBuild | EditorPanelEvent::DiskEdit => {
+            // leaves every build to the Build button and ⌘S.
+            EditorPanelEvent::DiskEdit => {
+                let path = editor.read(cx).relative().to_string();
+                self.outside_edit(&path, window, cx)
+            }
+            EditorPanelEvent::SavedForBuild => {
                 if crate::settings::builds_automatically(cx)
                     && !self.defer_automatic_build(window, cx)
                 {
@@ -57,6 +62,8 @@ impl Shell {
                 }
             }
             EditorPanelEvent::Close => self.close_editor(editor, window, cx),
+            // The paper's reader wrapping the editor names the paper itself.
+            EditorPanelEvent::Masthead(_) | EditorPanelEvent::PaperSource(_) => {}
             EditorPanelEvent::Annotation(request) => {
                 self.on_annotation_request(request, window, cx)
             }
@@ -77,6 +84,7 @@ impl Shell {
                 self.jump_to_heading(path, *line, window, cx)
             }
             EditorPanelEvent::AgentRequest(request) => self.deck_agent_request(request, window, cx),
+            EditorPanelEvent::SurfaceContext => self.surface_context_changed(editor, cx),
             EditorPanelEvent::Focused => {
                 self.active_editor = Some(editor.downgrade());
                 self.live_preview
@@ -103,6 +111,18 @@ impl Shell {
                 self.tell_overleaf_caret(editor, cx);
                 if self.active_editor().as_ref() == Some(editor) {
                     self.push_agent_workspace(cx);
+                }
+            }
+            EditorPanelEvent::Symbol {
+                kind,
+                symbol,
+                rename,
+            } => {
+                self.active_editor = Some(editor.downgrade());
+                if *rename {
+                    self.begin_rename(*kind, symbol.clone(), window, cx)
+                } else {
+                    self.show_references(*kind, symbol.clone(), window, cx)
                 }
             }
             EditorPanelEvent::PasteImage => {
@@ -160,7 +180,13 @@ impl Shell {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if let Some(view) = self.view_of_editor(editor) {
+        // A paper's text stands in its reader's tab: the file going takes
+        // the reader with it.
+        let holder = self.reader_holding(editor, cx);
+        if let Some(view) = holder
+            .and_then(|reader| self.view_of_panel(reader.entity_id()))
+            .or_else(|| self.view_of_editor(editor))
+        {
             self.engine_do(cx, |engine| engine.close(&view));
         }
         let _ = window;

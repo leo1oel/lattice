@@ -14,8 +14,10 @@
 //! A conflict comes from Git (a merge or a pull that stopped): the current
 //! text is the side Git calls ours, the other is named as Git names it in the
 //! marker (`>>>>>>> feature`); or from an Overleaf sync, which puts this
-//! computer's text against Overleaf's, and names the sides so. The Tauri
-//! app's Agent Undo conflicts have no counterpart here yet.
+//! computer's text against Overleaf's, and names the sides so; or from an
+//! Agent Undo, which reverses the Agent's change onto the text as it is now
+//! and marks just the spots where newer edits overlap it, the current text
+//! against the text from before the Agent.
 //!
 //! Saving writes through lattice-core's editor transaction, only over the
 //! exact text the choices were made against: a file rewritten while the
@@ -81,6 +83,9 @@ pub struct ConflictResolver {
     changed_on_disk: bool,
     /// The markers are an Overleaf sync's: this computer against Overleaf.
     overleaf: bool,
+    /// The markers are an Agent Undo's: the current text against the text
+    /// from before the Agent.
+    agent_undo: bool,
     load_version: usize,
     focus: FocusHandle,
     scroll: ScrollHandle,
@@ -102,6 +107,7 @@ impl ConflictResolver {
             error: None,
             changed_on_disk: false,
             overleaf: false,
+            agent_undo: false,
             load_version: 0,
             focus: cx.focus_handle(),
             scroll: ScrollHandle::new(),
@@ -114,6 +120,18 @@ impl ConflictResolver {
     pub fn overleaf_sides(mut self, overleaf: bool) -> Self {
         self.overleaf = overleaf;
         self
+    }
+
+    /// Name the sides as an Agent Undo's: the current text, and the text
+    /// from before the Agent (`ConflictSides` `agent-undo`).
+    pub fn agent_undo_sides(mut self, agent_undo: bool) -> Self {
+        self.agent_undo = agent_undo;
+        self
+    }
+
+    /// Whether the sides are named as an Agent Undo's, for a scenario.
+    pub fn is_agent_undo(&self) -> bool {
+        self.agent_undo
     }
 
     /// Whether the sides are named as an Overleaf sync's, for a scenario.
@@ -296,6 +314,16 @@ struct Words {
 
 impl ConflictResolver {
     fn words(&self) -> Words {
+        if self.agent_undo {
+            return Words {
+                ours: t!("Current text").into(),
+                keeping_ours: t!("Keeping the current text").into(),
+                ours_empty: t!("The current text removed this part.").into(),
+                theirs: t!("Before the agent").into(),
+                keeping_theirs: t!("Keeping the text from before the agent").into(),
+                theirs_empty: t!("Before the agent, this part was empty.").into(),
+            };
+        }
         if self.overleaf {
             return Words {
                 ours: t!("This computer").into(),
@@ -795,6 +823,7 @@ impl Render for ConflictResolver {
             },
         )
         .closable_by_scrim(false)
+        .closable(!self.saving)
         .into_any_element()
     }
 }

@@ -15,7 +15,7 @@ use objc2::{
     rc::Retained,
     runtime::{AnyObject, Bool},
 };
-use objc2_foundation::{NSPoint, NSRect, NSString};
+use objc2_foundation::{NSPoint, NSRect, NSSize, NSString};
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
 #[link(name = "CoreGraphics", kind = "framework")]
@@ -390,6 +390,85 @@ pub fn select_input_source(native: Native, source: &str) -> Result<Option<String
     }
 }
 
+/// The least size the window's content may be resized to, in points
+/// (`-[NSWindow setContentMinSize:]`), which GPUI sets only when it opens
+/// the window.
+pub fn set_content_min_size(native: Native, width: f64, height: f64) {
+    unsafe {
+        let _: () = msg_send![native.window, setContentMinSize: NSSize::new(width, height)];
+    }
+}
+
+/// The window's content minimum size as AppKit holds it, for a scenario.
+pub fn content_min_size(native: Native) -> (f64, f64) {
+    let size: NSSize = unsafe { msg_send![native.window, contentMinSize] };
+    (size.width, size.height)
+}
+
+/// AppKit's standard About panel for `name` `version` (`macos_about.rs`):
+/// `credits`, then each `(title, url)` link on one line, which the panel's
+/// credits view opens in the default browser.
+pub fn show_about_panel(name: &str, version: &str, credits: &str, links: &[(&str, &str)]) {
+    let (text, ranges) = about_credits(credits, links);
+    unsafe {
+        let string = NSString::from_str(&text);
+        let attributed: *mut AnyObject = msg_send![class!(NSMutableAttributedString), alloc];
+        let attributed: *mut AnyObject = msg_send![attributed, initWithString: &*string];
+        let link_key = NSString::from_str("NSLink");
+        for ((start, length), (_, url)) in ranges.into_iter().zip(links) {
+            let url_string = NSString::from_str(url);
+            let url: *mut AnyObject = msg_send![class!(NSURL), URLWithString: &*url_string];
+            if url.is_null() {
+                continue;
+            }
+            let range = objc2_foundation::NSRange::new(start, length);
+            let _: () = msg_send![attributed, addAttribute: &*link_key, value: url, range: range];
+        }
+        let keys = [
+            NSString::from_str("ApplicationName"),
+            NSString::from_str("ApplicationVersion"),
+            NSString::from_str("Credits"),
+        ];
+        let name = NSString::from_str(name);
+        let version = NSString::from_str(version);
+        let objects: [*const AnyObject; 3] = [
+            (&*name as *const NSString).cast(),
+            (&*version as *const NSString).cast(),
+            attributed.cast_const(),
+        ];
+        let key_pointers: [*const AnyObject; 3] = [
+            (&*keys[0] as *const NSString).cast(),
+            (&*keys[1] as *const NSString).cast(),
+            (&*keys[2] as *const NSString).cast(),
+        ];
+        let options: *mut AnyObject = msg_send![
+            class!(NSDictionary),
+            dictionaryWithObjects: objects.as_ptr(),
+            forKeys: key_pointers.as_ptr(),
+            count: 3usize
+        ];
+        let app: *mut AnyObject = msg_send![class!(NSApplication), sharedApplication];
+        let _: () = msg_send![app, orderFrontStandardAboutPanelWithOptions: options];
+        let _: () = msg_send![attributed, release];
+    }
+}
+
+/// The About panel's credits, and each link title's (start, length) in
+/// them in UTF-16 units, the indices `NSRange` counts in.
+pub fn about_credits(credits: &str, links: &[(&str, &str)]) -> (String, Vec<(usize, usize)>) {
+    let mut text = format!("{credits}\n\n");
+    let mut ranges = Vec::with_capacity(links.len());
+    for (index, (title, _)) in links.iter().enumerate() {
+        if index > 0 {
+            text.push_str("  ·  ");
+        }
+        let start = text.encode_utf16().count();
+        text.push_str(title);
+        ranges.push((start, title.encode_utf16().count()));
+    }
+    (text, ranges)
+}
+
 /// The window server's number for the window, which `screencapture -l` takes.
 #[cfg_attr(feature = "offscreen-shots", allow(dead_code))]
 pub fn window_number(native: Native) -> isize {
@@ -673,5 +752,29 @@ pub fn windows_menu_title() -> Option<String> {
         }
         let title: Option<Retained<NSString>> = msg_send![menu, title];
         title.map(|title| title.to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::about_credits;
+
+    #[test]
+    fn link_ranges_count_utf16_units_after_the_credits() {
+        // macos_about.rs's own test.
+        let (text, ranges) = about_credits(
+            "Uses Trellis",
+            &[
+                ("Lattice 的 GitHub", "https://a"),
+                ("Lattice 网站", "https://b"),
+            ],
+        );
+        assert_eq!(text, "Uses Trellis\n\nLattice 的 GitHub  ·  Lattice 网站");
+        let units: Vec<u16> = text.encode_utf16().collect();
+        let slice = |(start, length): (usize, usize)| {
+            String::from_utf16(&units[start..start + length]).unwrap()
+        };
+        assert_eq!(slice(ranges[0]), "Lattice 的 GitHub");
+        assert_eq!(slice(ranges[1]), "Lattice 网站");
     }
 }

@@ -18,8 +18,8 @@ use std::{
 use serde_json::Value;
 
 use crate::model::{
-    Appearance, AutoBuildMode, Choice, OverleafRemoteDelete, OverleafSyncMode, Settings,
-    SettingsTab, ThemePreference,
+    Appearance, AutoBuildMode, Choice, LatexView, OverleafRemoteDelete, OverleafSyncMode,
+    Settings, SettingsTab, ThemePreference,
 };
 
 /// The Tauri app's bundle identifier (`src-tauri/tauri.conf.json`).
@@ -36,10 +36,14 @@ pub const KEYS: &[&str] = &[
     "lattice.author-name.v1",
     "lattice.collab.name",
     "lattice.settings-tab.v1",
+    "lattice.latex-view.v1",
     "lattice.overleaf.sync-mode.v1",
     "lattice.overleaf.remote-delete.v1",
     "lattice.live-preview.v1",
     "lattice.live-preview-removed.v1",
+    "lattice.build-output-docked.v1",
+    "lattice.grammar.v1",
+    "lattice.papers.save-full-text.v1",
 ];
 
 /// What was imported, and from where.
@@ -94,6 +98,10 @@ pub fn settings_from_items(items: &BTreeMap<String, String>) -> Settings {
         settings_tab: item("lattice.settings-tab.v1")
             .and_then(SettingsTab::from_tag)
             .unwrap_or(defaults.settings_tab),
+        // Stored as the bare choice (`latex-view-choice.ts`).
+        latex_view: item("lattice.latex-view.v1")
+            .and_then(LatexView::from_tag)
+            .unwrap_or(defaults.latex_view),
         // Stored as the bare choice (`overleaf-sync-settings.ts`).
         overleaf_sync_mode: item("lattice.overleaf.sync-mode.v1")
             .and_then(OverleafSyncMode::from_tag)
@@ -103,6 +111,15 @@ pub fn settings_from_items(items: &BTreeMap<String, String>) -> Settings {
             .unwrap_or(defaults.overleaf_remote_delete),
         live_preview: crate::model::live_preview_choices(json("lattice.live-preview.v1").as_ref()),
         live_preview_removed: item("lattice.live-preview-removed.v1").is_some(),
+        // Stored as "1" or "0" (`compile-diagnostics-panel.tsx`).
+        build_output_docked: match item("lattice.build-output-docked.v1") {
+            Some("1") => Some(true),
+            Some("0") => Some(false),
+            _ => None,
+        },
+        grammar: crate::model::Grammar::from_value(json("lattice.grammar.v1").as_ref()),
+        // `loadSaveFullText`: on only when it says true.
+        save_full_text: item("lattice.papers.save-full-text.v1") == Some("true"),
     }
 }
 
@@ -286,6 +303,7 @@ mod tests {
                 ),
                 ("lattice.author-name.v1", "Ada Lovelace"),
                 ("lattice.settings-tab.v1", "editor"),
+                ("lattice.latex-view.v1", "visual"),
                 ("lattice.recent-projects.v1", "[]"),
             ],
         );
@@ -315,6 +333,7 @@ mod tests {
         assert!(settings.hidden_build_files);
         assert_eq!(settings.author_name, "Ada Lovelace");
         assert_eq!(settings.settings_tab, SettingsTab::Editor);
+        assert_eq!(settings.latex_view, LatexView::Visual);
         assert!(
             !imported
                 .keys

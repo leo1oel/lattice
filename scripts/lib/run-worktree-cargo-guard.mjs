@@ -56,3 +56,39 @@ export function gpuiBuildCommand(cargoArgs, cwd, manifestDir) {
     : undefined;
   return { compiles: true, command, note };
 }
+
+function shellQuote(value) {
+  return `'${value.replaceAll("'", `'\\''`)}'`;
+}
+
+/**
+ * The rustc wrapper for the directory `runs` that holds a repository's
+ * no-mistakes run worktrees (<home>/worktrees/<repo>/). It hands each rustc
+ * call to the guard script of the run worktree the call belongs to, found from
+ * its own working directory or else from its parent cargo's: Cargo runs rustc
+ * for a registry crate in that crate's source directory, and caches its
+ * `rustc -vV` probe in target/, so the first call need not run in the
+ * worktree. A call it cannot place, or a worktree whose commit predates the
+ * guard, is refused with the generic advice.
+ */
+export function repoLevelWrapper(marker, runs) {
+  return `#!/bin/sh
+${marker}: the rustc wrapper of ./config.toml.
+[ -n "\${LATTICE_ALLOW_LOCAL_CARGO:-}" ] && exec "$@"
+runs=${shellQuote(runs)}
+for dir in "$(pwd -P)" "$(lsof -a -p "$PPID" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p')"; do
+  case "$dir" in
+    "$runs"/*)
+      run=\${dir#"$runs"/}
+      guard="$runs/\${run%%/*}/scripts/run-worktree-cargo-guard.mjs"
+      [ -f "$guard" ] && exec node "$guard" refuse "$@"
+      ;;
+  esac
+done
+echo "lattice: plain cargo that compiles is refused in no-mistakes run worktrees (under $runs)," >&2
+echo "where it writes a cold multi-GB gpui/target or src-tauri/target. Run it from the worktree root as" >&2
+echo "    node scripts/gpui-build.mjs -- <the same cargo arguments>" >&2
+echo "LATTICE_ALLOW_LOCAL_CARGO=1 lifts this for one command. Written by scripts/run-worktree-cargo-guard.mjs." >&2
+exit 1
+`;
+}

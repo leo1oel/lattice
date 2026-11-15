@@ -100,6 +100,7 @@ impl Shell {
             HistoryEvent::OverleafRestored => self.overleaf.update(cx, |bridge, cx| {
                 bridge.sync(crate::overleaf::bridge::SyncOptions::default(), cx)
             }),
+            HistoryEvent::RestoreAgentCheckpoint(entry) => self.agent_restore_checkpoint(entry, cx),
         }
     }
 
@@ -207,13 +208,20 @@ impl Shell {
         for editor in self.open_editors() {
             editor.update(cx, |editor, cx| editor.write_before_quit(cx));
         }
-        let resolver = cx.new(|cx| ConflictResolver::new(root, path, cx).overleaf_sides(overleaf));
+        let agent_undo = self.is_agent_undo_conflict(&path);
+        let opened = path.clone();
+        let resolver = cx.new(|cx| {
+            ConflictResolver::new(root, path, cx)
+                .overleaf_sides(overleaf)
+                .agent_undo_sides(agent_undo)
+        });
         let subscription =
             cx.subscribe_in(
                 &resolver,
                 window,
-                |this, _, event, window, cx| match event {
+                move |this, _, event, window, cx| match event {
                     ConflictEvent::Resolved(path) => {
+                        this.forget_agent_undo_conflict(&opened);
                         this.conflict = None;
                         notices::show(
                             Notice::new(ToastLevel::Success, t!("Resolved {path}", path = path)),
@@ -226,6 +234,7 @@ impl Shell {
                         cx.notify();
                     }
                     ConflictEvent::Closed => {
+                        this.forget_agent_undo_conflict(&opened);
                         this.conflict = None;
                         cx.notify();
                     }

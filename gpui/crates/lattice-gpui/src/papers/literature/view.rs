@@ -206,10 +206,13 @@ impl Literature {
                             cx.stop_propagation();
                             add_view.update(cx, |this, cx| this.add(&add_hit, cx)).ok();
                         })
-                        .child(
-                            if busy { Icon::LOADER } else { Icon::PLUS }
-                                .element(px(13.), palette.accent),
-                        )
+                        .child(lattice_ui::loading::mark(
+                            "literature-add-mark",
+                            if busy { Icon::LOADER } else { Icon::PLUS },
+                            px(13.),
+                            palette.accent,
+                            cx,
+                        ))
                         .child(t!("Add")),
                 )
             })
@@ -532,21 +535,21 @@ impl Literature {
                             })
                             .tooltip(tooltip(t!("Search")))
                             .on_click(cx.listener(|this, _, _, cx| this.search(cx)))
-                            .child(
+                            .child(lattice_ui::loading::mark(
+                                "literature-search-mark",
                                 if self.loading {
                                     Icon::LOADER
                                 } else {
                                     Icon::ARROW_RIGHT
-                                }
-                                .element(
-                                    ICON,
-                                    if ready {
-                                        palette.accent
-                                    } else {
-                                        palette.text_secondary
-                                    },
-                                ),
-                            ),
+                                },
+                                ICON,
+                                if ready {
+                                    palette.accent
+                                } else {
+                                    palette.text_secondary
+                                },
+                                cx,
+                            )),
                     ),
             )
             .child(

@@ -9,7 +9,7 @@
 //! cannot be read for certain is left as written. Offsets are bytes of the
 //! document; every pattern is ASCII.
 
-use std::{collections::HashSet, ops::Range};
+use std::{collections::HashSet, ops::Range, sync::LazyLock};
 
 use regex::Regex;
 
@@ -21,7 +21,6 @@ use crate::text_edit::{Replace, TextEdit, map_pos, normalize};
 pub enum InlineFormat {
     Bold,
     Italic,
-    Emphasis,
     Underline,
     Strikethrough,
 }
@@ -31,28 +30,39 @@ impl InlineFormat {
         match self {
             InlineFormat::Bold => "textbf",
             InlineFormat::Italic => "textit",
-            InlineFormat::Emphasis => "emph",
             InlineFormat::Underline => "underline",
             InlineFormat::Strikethrough => "sout",
         }
     }
 
     /// Visual mode draws `\emph` and `\textit` alike, so either is italic to
-    /// Italic and to ⌘I's emphasis: neither nests in the other.
-    fn reads(self) -> &'static str {
+    /// Italic: neither nests in the other.
+    fn reads(self) -> &'static Regex {
+        static BOLD: LazyLock<Regex> = LazyLock::new(|| command_pattern("textbf"));
+        static ITALIC: LazyLock<Regex> = LazyLock::new(|| command_pattern("textit|emph"));
+        static UNDERLINE: LazyLock<Regex> = LazyLock::new(|| command_pattern("underline|uline"));
+        static STRIKETHROUGH: LazyLock<Regex> = LazyLock::new(|| command_pattern("sout"));
         match self {
-            InlineFormat::Bold => "textbf",
-            InlineFormat::Italic => "textit|emph",
-            InlineFormat::Emphasis => "emph|textit",
-            InlineFormat::Underline => "underline|uline",
-            InlineFormat::Strikethrough => "sout",
+            InlineFormat::Bold => &BOLD,
+            InlineFormat::Italic => &ITALIC,
+            InlineFormat::Underline => &UNDERLINE,
+            InlineFormat::Strikethrough => &STRIKETHROUGH,
         }
     }
 }
 
+/// The commands `names` matches, by name.
+fn command_pattern(names: &str) -> Regex {
+    Regex::new(&format!(r"\\({names})")).expect("command names compile")
+}
+
 /// The sectioning commands the heading menu offers, and the deeper ones it
 /// may meet.
-const HEADING_COMMANDS: &str = "part|chapter|section|subsection|subsubsection|paragraph|subparagraph";
+static HEADING_COMMANDS: LazyLock<Regex> = LazyLock::new(|| {
+    command_pattern("part|chapter|section|subsection|subsubsection|paragraph|subparagraph")
+});
+static HREF: LazyLock<Regex> = LazyLock::new(|| command_pattern("href"));
+static QUOTE: LazyLock<Regex> = LazyLock::new(|| environment_pattern("quote"));
 
 /// How far from a selection a group's ends may lie (a formatted paragraph,
 /// not a chapter).
@@ -142,13 +152,12 @@ fn balanced(text: &[u8], from: usize, to: usize) -> bool {
     depth == 0
 }
 
-/// Every `\name{…}` group in `text` whose name `names` matches;
-/// `options` also takes a `*` and one `[…]` before the brace, as a
-/// sectioning command does.
-fn command_groups(text: &str, names: &str, options: bool) -> Vec<Group> {
+/// Every `\name{…}` group in `text` whose name `names` matches
+/// (`command_pattern`); `options` also takes a `*` and one `[…]` before the
+/// brace, as a sectioning command does.
+fn command_groups(text: &str, names: &Regex, options: bool) -> Vec<Group> {
     // The name must not run on into more letters; match it, then read what
     // follows by hand (the regex crate has no lookahead).
-    let names = Regex::new(&format!(r"\\({names})")).expect("command names compile");
     let bytes = text.as_bytes();
     let mut groups = Vec::new();
     for found in names.captures_iter(text) {
@@ -196,14 +205,19 @@ fn command_groups(text: &str, names: &str, options: bool) -> Vec<Group> {
     groups
 }
 
-/// Every `\begin{name}…\end{name}`; its content leaves out the newline after
-/// `\begin` and before `\end`.
-fn environment_groups(text: &str, name: &str) -> Vec<Group> {
+/// `\begin{name}` and `\end{name}`.
+fn environment_pattern(name: &str) -> Regex {
+    Regex::new(&format!(r"\\(begin|end)\{{{}\}}", regex::escape(name)))
+        .expect("environment pattern compiles")
+}
+
+/// Every `\begin{name}…\end{name}` that `pattern` (`environment_pattern`)
+/// finds; its content leaves out the newline after `\begin` and before
+/// `\end`.
+fn environment_groups(text: &str, name: &str, pattern: &Regex) -> Vec<Group> {
     let bytes = text.as_bytes();
     let begin = format!("\\begin{{{name}}}");
     let end = format!("\\end{{{name}}}");
-    let pattern = Regex::new(&format!(r"\\(begin|end)\{{{}\}}", regex::escape(name)))
-        .expect("environment pattern compiles");
     let mut open: Vec<usize> = Vec::new();
     let mut groups = Vec::new();
     for found in pattern.captures_iter(text) {
@@ -468,7 +482,7 @@ pub fn toggle_inline(doc: &str, range: Range<usize>, format: InlineFormat) -> Te
 /// A `quote` environment around the selection, on or off; it never splits.
 pub fn toggle_quote(doc: &str, range: Range<usize>) -> TextEdit {
     let (text, offset) = window_around(doc, range.start, range.end);
-    let groups = environment_groups(text, "quote");
+    let groups = environment_groups(text, "quote", &QUOTE);
     toggle(text, offset, &groups, range, "\\begin{quote}\n", "\n\\end{quote}", false)
 }
 
@@ -476,7 +490,7 @@ pub fn toggle_quote(doc: &str, range: Range<usize>) -> TextEdit {
 /// that level it stops being one, inside another level's it changes level.
 pub fn set_heading(doc: &str, range: Range<usize>, command: &str) -> TextEdit {
     let (text, offset) = window_around(doc, range.start, range.end);
-    let groups = command_groups(text, HEADING_COMMANDS, true);
+    let groups = command_groups(text, &HEADING_COMMANDS, true);
     let selected = trimmed(text.as_bytes(), range.start - offset, range.end - offset);
     let heading = (range.start != range.end)
         .then(|| enclosing(&groups, selected.0, selected.1))
@@ -506,7 +520,7 @@ pub fn set_heading(doc: &str, range: Range<usize>, command: &str) -> TextEdit {
 fn link_groups(text: &str) -> Vec<Group> {
     let bytes = text.as_bytes();
     let mut links = Vec::new();
-    for target in command_groups(text, "href", false) {
+    for target in command_groups(text, &HREF, false) {
         if target.content_from != target.from + "\\href{".len() {
             continue;
         }
@@ -608,8 +622,8 @@ pub fn selection_formats(doc: &str, range: Range<usize>) -> SelectionFormats {
     }
     SelectionFormats {
         inline,
-        heading: inside(&command_groups(text, HEADING_COMMANDS, true)).map(|group| group.name),
-        quote: inside(&environment_groups(text, "quote")).is_some(),
+        heading: inside(&command_groups(text, &HEADING_COMMANDS, true)).map(|group| group.name),
+        quote: inside(&environment_groups(text, "quote", &QUOTE)).is_some(),
         link: inside(&link_groups(text)).is_some(),
     }
 }

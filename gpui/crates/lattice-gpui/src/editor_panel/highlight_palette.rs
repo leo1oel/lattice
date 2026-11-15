@@ -224,7 +224,7 @@ impl EditorPanel {
                 .default_value(renamed)
         });
         field.update(cx, |field, cx| field.focus(window, cx));
-        let sub = cx.subscribe_in(&field, window, move |this, field, event, _, cx| match event {
+        let sub = cx.subscribe_in(&field, window, move |this, field, event, window, cx| match event {
             InputEvent::PressEnter { .. } | InputEvent::Blur => {
                 let value = field.read(cx).value().trim().chars().take(40).collect::<String>();
                 update(cx, |prefs| {
@@ -235,12 +235,22 @@ impl EditorPanel {
                     }
                 });
                 this.toolbar.palette.renaming = None;
+                if matches!(event, InputEvent::PressEnter { .. }) {
+                    this.refocus_palette(window, cx);
+                }
                 cx.notify();
             }
             _ => {}
         });
         self.toolbar.palette.renaming = Some((hex, field, sub));
         cx.notify();
+    }
+
+    /// Give the palette its digit keys back from a field it opened.
+    fn refocus_palette(&self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(focus) = &self.toolbar.palette.focus {
+            window.focus(focus, cx);
+        }
     }
 
     fn open_custom(&mut self, current: Option<String>, window: &mut Window, cx: &mut Context<Self>) {
@@ -361,8 +371,9 @@ pub(super) fn palette(
             .hover(|this| this.bg(palette.accent_soft).text_color(palette.text))
             .child(Icon::CHEVRON_LEFT.element(px(14.), palette.text_secondary))
             .child(t!("Highlighters"))
-            .on_click(cx.listener(|this, _, _, cx| {
+            .on_click(cx.listener(|this, _, window, cx| {
                 this.toolbar.palette.custom = false;
+                this.refocus_palette(window, cx);
                 cx.notify();
             }));
         let apply = typed.clone();
@@ -449,10 +460,11 @@ pub(super) fn palette(
                     .flex()
                     .items_center()
                     .gap(px(8.))
-                    .on_key_down(cx.listener(|this, event: &KeyDownEvent, _, cx| {
+                    .on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
                         if event.keystroke.key == "escape" {
                             cx.stop_propagation();
                             this.toolbar.palette.renaming = None;
+                            this.refocus_palette(window, cx);
                             cx.notify();
                         }
                     }))

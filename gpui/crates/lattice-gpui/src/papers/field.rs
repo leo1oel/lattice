@@ -195,6 +195,15 @@ impl PapersPanel {
                         .flex_1()
                         .min_w_0()
                         .text_role(TextRole::BodyCompact, cx)
+                        // Before the box takes a paste: a list of references
+                        // goes to Add papers instead.
+                        .capture_action(cx.listener(
+                            |this, _: &gpui_kit::component::input::Paste, _, cx| {
+                                if this.paste_list(cx) {
+                                    cx.stop_propagation();
+                                }
+                            },
+                        ))
                         .child(
                             Input::new(self.input())
                                 .appearance(false)
@@ -403,6 +412,11 @@ impl PapersPanel {
             ("fulltext", t!("Full text")),
             ("overview", t!("Overview")),
         ];
+        // Adding the citation alone has only the first step.
+        let stages = match importing.full_text {
+            lattice_core::papers::FullText::Save => &stages[..],
+            lattice_core::papers::FullText::Skip => &stages[..1],
+        };
         let at = stages
             .iter()
             .position(|(id, _)| Some(*id) == importing.stage.as_deref())
@@ -428,7 +442,12 @@ impl PapersPanel {
                     .rounded(px(6.))
                     .overflow_hidden()
                     .bg(palette.text.opacity(0.04))
-                    .child(Icon::LOADER.element(ICON_SMALL, palette.text_secondary))
+                    .child(lattice_ui::loading::loader(
+                        "papers-field-loader",
+                        ICON_SMALL,
+                        palette.text_secondary,
+                        cx,
+                    ))
                     .child(
                         div()
                             .flex_1()

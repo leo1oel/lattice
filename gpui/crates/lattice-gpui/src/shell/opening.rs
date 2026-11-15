@@ -92,6 +92,9 @@ impl Shell {
         self.refresh_outline(window, cx);
         self.papers
             .update(cx, |papers, cx| papers.set_project(project.clone(), cx));
+        // A check left running with its sheet closed belongs to the project
+        // left behind: it stops, as the Tauri app's sheet unmounts.
+        crate::papers::audit::stop_others(cx.entity_id(), &root, cx);
         self.history
             .update(cx, |history, cx| history.set_project(project.clone(), cx));
         self.agent_project(Some(root.clone()), cx);
@@ -116,7 +119,7 @@ impl Shell {
             .update(cx, |live, cx| live.set_project(Some(project.clone()), cx));
         let venue = project.read(cx).manifest().venue.clone();
         self.file_tree
-            .update(cx, |tree, cx| tree.set_project(project, cx));
+            .update(cx, |tree, cx| tree.set_project(project.clone(), cx));
         self.set_window_title(window, cx);
         let restored = self.restore_layout(&root, main.as_deref(), window, cx);
         if terminal_moved {
@@ -129,6 +132,7 @@ impl Shell {
         self.label_pdfs(cx);
         self.pdf
             .update(cx, |panel, cx| panel.show_project(root, pdf, window, cx));
+        self.watch_builds(&project, window, cx);
         cx.notify();
     }
 }

@@ -31,6 +31,7 @@ dirs.workspace = true
 editor.workspace = true
 # The Tauri app's figure-path patterns use lookahead (moved_paths.rs).
 fancy-regex = "0.19"
+flate2 = "1"
 futures.workspace = true
 gpui.workspace = true
 gpui_platform.workspace = true
@@ -39,6 +40,7 @@ gpui-kit.workspace = true
 icu_collator = "2.3"
 hdrhistogram = { version = "7", default-features = false }
 image.workspace = true
+minisign-verify = "0.2"
 indexmap = { version = "2", features = ["serde"] }
 language.workspace = true
 lattice-core.workspace = true
@@ -84,6 +86,8 @@ theme_settings.workspace = true
 # Trellis ported to GPUI: under its own non-commercial license (crates/trellis/README.md).
 trellis.workspace = true
 # Open Slide lease owners (structured/slides.rs).
+tar = "0.4"
+tempfile = "3"
 uuid = { version = "1", features = ["v4"] }
 util.workspace = true
 vim.workspace = true
@@ -100,7 +104,6 @@ zip = { version = "9.0.5", default-features = false, features = ["deflate"] }
 tungstenite = { version = "0.29.0", default-features = false, features = ["handshake"] }
 
 [dev-dependencies]
-tempfile = "3"
 
 [target.'cfg(any(target_os = "macos", target_os = "windows"))'.dependencies]
 raw-window-handle = "0.6"
@@ -108,7 +111,7 @@ raw-window-handle = "0.6"
 [target.'cfg(target_os = "macos")'.dependencies]
 libc = "0.2"
 objc2 = "0.6"
-objc2-foundation = { version = "0.3", features = ["NSArray", "NSGeometry", "NSLocale", "NSString"] }
+objc2-foundation = { version = "0.3", features = ["NSArray", "NSGeometry", "NSLocale", "NSRange", "NSString"] }
 
 # The version Zed's gpui_windows already uses, so it adds no crate.
 [target.'cfg(target_os = "windows")'.dependencies]

@@ -573,6 +573,7 @@ impl Render for TexSetupCenter {
                     },
                 )
                 .closable_by_scrim(can_close)
+                .closable(can_close)
                 .into_any_element(),
             );
         }
@@ -590,6 +591,7 @@ impl Render for TexSetupCenter {
                     move |_, cx| close.update(cx, |center, cx| center.close_dependency(cx)),
                 )
                 .closable_by_scrim(!installing)
+                .closable(!installing)
                 .into_any_element(),
             );
         }

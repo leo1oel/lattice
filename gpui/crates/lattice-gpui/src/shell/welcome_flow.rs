@@ -27,6 +27,10 @@ use crate::{
 /// makes it.
 const TUTORIALS: &str = "Lattice Tutorials";
 
+/// How long a launch's reopen keeps the window empty before the welcome
+/// screen shows while it goes on.
+const LAUNCH_EMPTY_WINDOW: std::time::Duration = std::time::Duration::from_secs(1);
+
 /// The welcome screen and the New project dialog, while they are up.
 #[derive(Default)]
 pub(crate) struct Lobby {
@@ -42,9 +46,21 @@ impl Shell {
         match RecentProjects::list(cx).first().cloned() {
             Some(last) => {
                 // The empty Main window while it opens, rather than the
-                // welcome screen flashing first.
+                // welcome screen flashing first; a reopen that takes longer
+                // (a slow or unmounted drive) shows the welcome screen
+                // meanwhile (`LAUNCH_EMPTY_WINDOW`).
                 self.lobby.welcome = None;
                 cx.spawn_in(window, async move |this, cx| {
+                    cx.background_executor().timer(LAUNCH_EMPTY_WINDOW).await;
+                    this.update_in(cx, |this, window, cx| {
+                        if this.root(cx).is_none() && this.lobby.welcome.is_none() {
+                            this.show_welcome(None, window, cx);
+                        }
+                    })
+                    .ok();
+                })
+                .detach();
+                self._open_task = Some(cx.spawn_in(window, async move |this, cx| {
                     let opened = crate::project::open(last.path.clone(), cx).await;
                     this.update_in(cx, |this, window, cx| match opened {
                         Ok(project) => this.set_project(project, window, cx),
@@ -58,10 +74,17 @@ impl Shell {
                         ),
                     })
                     .ok();
-                })
-                .detach();
+                }));
             }
             None => self.open_tutorial(window, cx),
+        }
+    }
+
+    /// A window without a project starting on another way into one: the
+    /// launch's reopen, still under way, no longer lands in it.
+    pub(super) fn abandon_launch_reopen(&mut self) {
+        if self.project.is_none() {
+            self._open_task = None;
         }
     }
 
@@ -129,9 +152,12 @@ impl Shell {
 
     /// ⌘⇧N: the New project dialog.
     pub(crate) fn open_new_project(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.lobby.new_project.is_some() {
+        // A sheet writing to the project keeps the keyboard until it lands:
+        // a dialog over it would hand the keyboard to the editor on dismiss.
+        if self.lobby.new_project.is_some() || self.overlay_writing(cx) {
             return;
         }
+        self.abandon_launch_reopen();
         let dialog = cx.new(|cx| NewProjectDialog::new(window, cx));
         cx.subscribe_in(
             &dialog,
@@ -210,6 +236,7 @@ impl Shell {
     /// The guided tutorial: the sample project in Documents › Lattice
     /// Tutorials, made the first time and reopened after.
     pub(crate) fn open_tutorial(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.abandon_launch_reopen();
         let Some(documents) =
             dirs::document_dir().or_else(|| dirs::home_dir().map(|home| home.join("Documents")))
         else {
@@ -255,6 +282,7 @@ impl Shell {
     /// Import ZIP: a ZIP of a project (an Overleaf download), extracted
     /// where the writer says and opened.
     pub(crate) fn import_zip(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.abandon_launch_reopen();
         let zip = cx.prompt_for_paths(PathPromptOptions {
             files: true,
             directories: false,
@@ -326,13 +354,14 @@ impl Shell {
         if here || self.project.is_none() {
             self.open_project(root, window, cx);
         } else {
-            windows::new_window(Some(root), Some(window.bounds()), cx);
+            windows::new_window(Some(root), Some(windows::place_of(window, cx)), cx);
         }
     }
 
     /// ⌘O: a folder to open, in a window of its own once this one shows a
     /// project; Open a folder in this window: here.
     pub(crate) fn open_folder(&mut self, here: bool, window: &mut Window, cx: &mut Context<Self>) {
+        self.abandon_launch_reopen();
         let paths = cx.prompt_for_paths(PathPromptOptions {
             files: false,
             directories: true,
@@ -356,9 +385,10 @@ impl Shell {
 
     /// Clone repository's dialog.
     pub(crate) fn open_clone(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.lobby.clone.is_some() {
+        if self.lobby.clone.is_some() || self.overlay_writing(cx) {
             return;
         }
+        self.abandon_launch_reopen();
         let recent = RecentProjects::list(cx)
             .first()
             .map(|project| project.path.clone());

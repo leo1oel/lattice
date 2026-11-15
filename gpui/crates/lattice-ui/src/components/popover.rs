@@ -25,6 +25,8 @@ use crate::{
     components::{Menu, MenuSurface, PopFrom, SubmenuBounds, menu::MENU_OFFSET, pop_in},
 };
 
+/// Builds a popover's content each time it draws.
+type BuildContent = Rc<dyn Fn(&mut Window, &mut App) -> AnyElement>;
 type BuildMenu = Rc<dyn Fn(Menu, &mut Window, &mut App) -> Menu>;
 
 /// A trigger that opens a [`Menu`] below it.
@@ -196,7 +198,7 @@ impl RenderOnce for PopoverCard {
 pub struct Popover<T: Selectable + IntoElement + 'static> {
     id: ElementId,
     trigger: T,
-    content: Rc<dyn Fn(&mut Window, &mut App) -> AnyElement>,
+    content: BuildContent,
 }
 
 impl<T: Selectable + IntoElement + 'static> Popover<T> {

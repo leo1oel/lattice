@@ -65,6 +65,18 @@ const palette = async (page, label) => {
 const openFile = async (page, path) => { await page.locator(`[data-item-path="${path}"]`).click(); await page.waitForTimeout(1500); };
 const viewMode = (page, mode) => page.locator(`button.ui-segmented-tab[title=${mode}]`).click();
 
+/** Settings opened with ⌘, on the section named `section`, nothing focused. */
+async function settingsPage(env, theme, section) {
+  const staged = await project(env, theme);
+  await staged.page.keyboard.press("Meta+Comma");
+  await staged.page.waitForSelector(".settings-modal", { timeout: 30_000 });
+  await staged.page.locator(".settings-nav-group > button", { hasText: section }).click();
+  await staged.page.locator(".settings-nav-group > button.active", { hasText: section }).waitFor({ timeout: 30_000 });
+  await staged.page.evaluate(() => (document.activeElement instanceof HTMLElement) && document.activeElement.blur());
+  await rest(staged.page, 3000);
+  return staged;
+}
+
 export const scenes = {
   mainWindow: (env, theme) => project(env, theme),
   async agent(env, theme) {
@@ -104,6 +116,17 @@ export const scenes = {
     const staged = await project(env, theme);
     await openFile(staged.page, "notes.md");
     await viewMode(staged.page, "Preview");
+    await rest(staged.page);
+    return staged;
+  },
+  // The tutorial's main.tex in Visual (the .tex view switch's other mode),
+  // for the GPUI parity report (gpui/parity/regions.mjs); not an App screens
+  // artboard.
+  async latexVisual(env, theme) {
+    const staged = await project(env, theme);
+    // The active header's switch; an inactive one only holds its place.
+    await staged.page.locator("[data-trellis-part=\"accessory\"]:not([data-inactive]) .trellis-view-switcher button.ui-segmented-tab[title=Visual]").click();
+    await staged.page.waitForSelector(".cm-editor.cm-latex-visual", { timeout: 30_000 });
     await rest(staged.page);
     return staged;
   },
@@ -213,6 +236,23 @@ export const scenes = {
     await rest(staged.page);
     return staged;
   },
+  // Three notices on the stack, collapsed into its pile with the error in
+  // front (gpui/crates/lattice-gpui/src/scenario/parity_notices.rs). The
+  // parity harness's screens only.
+  async toasts(env, theme) {
+    const staged = await project(env, theme);
+    await staged.page.evaluate(() => {
+      const { notifyInfo, notifyWarning, notifyError } = window.__latticeBench.notify;
+      notifyInfo("Project", "Imported 2 items into figures", { timeoutMs: 0 });
+      notifyWarning("LaTeX setup", "Your TeX packages are out of date", {
+        detail: "Updates available (3). Updating asks for administrator approval and can take a few minutes.",
+        timeoutMs: 0,
+      });
+      notifyError("Build", "Build failed", { detail: "Undefined control sequence on line 12 of main.tex", timeoutMs: 0 });
+    });
+    await rest(staged.page);
+    return staged;
+  },
   // Settings › Logs: ⌘, then the Logs section, nothing left focused.
   async logs(env, theme) {
     const staged = await project(env, theme);
@@ -254,6 +294,12 @@ export const scenes = {
     await rest(staged.page, 4000);
     return staged;
   },
+  // Settings' own pages beyond Appearance (the parity harness's screens only):
+  // ⌘, then the section, nothing left focused.
+  settingsModelEndpoint: (env, theme) => settingsPage(env, theme, "Model endpoint"),
+  settingsEnvironment: (env, theme) => settingsPage(env, theme, "Environment"),
+  settingsLiterature: (env, theme) => settingsPage(env, theme, "Literature services"),
+  settingsAcknowledgements: (env, theme) => settingsPage(env, theme, "Acknowledgements"),
   async welcome(env, theme) {
     const staged = await open(env, theme, "welcome=1&recents=1", ".welcome-screen");
     await rest(staged.page, 1500);

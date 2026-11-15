@@ -17,6 +17,7 @@
 //! fields here and match arms in `views` and `actions`.
 
 mod actions;
+mod agent_checkpoints;
 mod agent_documents;
 mod agent_flow;
 mod annotations_flow;
@@ -25,6 +26,7 @@ mod arrange;
 mod assets;
 mod build;
 mod build_tools;
+mod build_watch;
 pub mod commands;
 mod documents;
 mod editor_events;
@@ -34,6 +36,7 @@ mod get_started_flow;
 mod ground;
 mod help_flow;
 mod history_flow;
+pub(crate) mod import_conflict;
 mod imports;
 mod insert_flow;
 mod layers;
@@ -41,9 +44,13 @@ pub(crate) mod menus;
 mod opening;
 mod overleaf_collab;
 pub(crate) mod overleaf_flow;
+mod overleaf_menus;
 mod overleaf_presence;
 mod overleaf_review;
 mod palette;
+mod palette_commands;
+mod palette_entries;
+mod palette_groups;
 mod papers;
 mod parts;
 mod pdfs;
@@ -53,6 +60,7 @@ mod saving;
 mod settings_flow;
 mod shortcut_sheet;
 mod skin;
+mod structured_docs;
 mod synctex;
 mod terminal_flow;
 mod tools_flow;
@@ -67,7 +75,7 @@ use std::path::PathBuf;
 
 use futures::channel::oneshot;
 use gpui::{
-    AnyWindowHandle, App, AppContext as _, Bounds, Context, Entity, FocusHandle, Focusable,
+    AnyWindowHandle, App, AppContext as _, Context, Entity, FocusHandle, Focusable,
     InteractiveElement as _, IntoElement, ParentElement as _, Render, SharedString, Styled as _,
     Subscription, Task, WeakEntity, Window, WindowBounds, WindowOptions,
     prelude::FluentBuilder as _, px, size,
@@ -87,7 +95,9 @@ pub use annotations_flow::{CommentsView, ShowAnnotations};
 pub use overleaf_collab::AnnotateSelection;
 pub use get_started_flow::ShowGetStarted;
 pub use help_flow::{ReportProblem, WhatsNew};
+pub(crate) use palette_groups::init as init_recent_commands;
 pub use insert_flow::{InsertTable, PasteImageAsFigure};
+pub use overleaf_menus::ReviewHere;
 pub use references_flow::{FindReferences, RenameSymbol};
 pub use tools_flow::{ExportArxiv, OpenChecklist, OpenTodos};
 pub(crate) use workspace_flow::LayoutState;
@@ -114,9 +124,9 @@ use crate::{
 const WORKSPACE_SIDE: f32 = 6.;
 
 #[cfg(target_os = "macos")]
-pub const BUILD_SHORTCUT_LABEL: &str = "⌘B";
+pub const BUILD_SHORTCUT_LABEL: &str = "⌘S";
 #[cfg(not(target_os = "macos"))]
-pub const BUILD_SHORTCUT_LABEL: &str = "Ctrl+B";
+pub const BUILD_SHORTCUT_LABEL: &str = "Ctrl+S";
 
 pub fn bind_keys(cx: &mut App) {
     commands::bind_keys(cx);
@@ -259,17 +269,21 @@ impl Shell {
         Self::open_window_with(root, None, cx)
     }
 
-    /// A window `size` wide and high (1440×900 by default), cascaded from the
-    /// active one when there is one.
+    /// A window at `place`, else where the last one was left (1440×900 by
+    /// default) when it is the launch's first (`windows::launch_bounds`).
     pub fn open_window_with(
         root: Option<PathBuf>,
-        bounds: Option<Bounds<gpui::Pixels>>,
+        place: Option<windows::Place>,
         cx: &mut App,
     ) -> anyhow::Result<(AnyWindowHandle, Entity<Shell>)> {
-        let bounds = bounds.unwrap_or_else(|| Bounds::centered(None, windows::window_size(), cx));
+        let (bounds, display_id) = match place {
+            Some(place) => (WindowBounds::Windowed(place.bounds), place.display),
+            None => windows::launch_bounds(cx),
+        };
         let options = WindowOptions {
-            window_bounds: Some(WindowBounds::Windowed(bounds)),
-            window_min_size: Some(size(px(720.), px(480.))),
+            window_bounds: Some(bounds),
+            display_id,
+            window_min_size: Some(size(px(windows::MIN_WIDTH), px(windows::MIN_HEIGHT))),
             titlebar: windows::titlebar_options(),
             ..Default::default()
         };
@@ -624,6 +638,10 @@ impl Shell {
         let path = path.canonicalize().unwrap_or(path);
         if self.open_if_asset(&path, window, cx) {
             return None;
+        }
+        // A saved paper's text reads in its paper's tab.
+        if let Some(editor) = self.open_in_reader(&path, line, window, cx) {
+            return editor;
         }
         let in_front = self
             .active_editor()

@@ -69,7 +69,6 @@ impl Shell {
             .collect()
     }
 
-    /// The editor the writer was last in, if it is still open.
     /// Proofread, polish or (with no ask) rewrite the selection of the
     /// editor in front, focused again first.
     pub(crate) fn proofread_in_front(
@@ -86,6 +85,7 @@ impl Shell {
         editor.update(cx, |editor, cx| editor.proofread_action(ask, window, cx));
     }
 
+    /// The editor the writer was last in, if it is still open.
     pub(crate) fn active_editor(&self) -> Option<Entity<EditorPanel>> {
         self.active_editor.as_ref().and_then(WeakEntity::upgrade)
     }

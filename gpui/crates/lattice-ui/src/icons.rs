@@ -183,6 +183,8 @@ lucide! {
     SHAPES = "icons" / "shapes";
     ARROW_UP_RIGHT = "icons" / "arrow-up-right";
     LIST_CHECKS = "icons" / "list-checks";
+    // The paper reader's Blog view (`Newspaper` in trellis-header-tools.tsx).
+    NEWSPAPER = "icons" / "newspaper";
     LAYOUT_TEMPLATE = "icons" / "layout-template";
     CLIPBOARD_PASTE = "icons" / "clipboard-paste";
     // Names Zed's icon set also has, which the app's asset source finds
@@ -243,6 +245,16 @@ impl Icon {
     /// Settings › Logs: the resting frame of the Tauri app's animated
     /// receipt (`src/animated-icons/bakai/receipt.tsx`).
     pub const RECEIPT: Icon = Icon("lattice/receipt.svg");
+    /// The Agent and the other Settings sections the Tauri app marks with
+    /// its product icons (`src/animated-icons/bakai/`): each one's resting
+    /// frame, the knockouts its gesture moves drawn as masks.
+    pub const ROBOT: Icon = Icon("lattice/robot.svg");
+    pub const PLUGS: Icon = Icon("lattice/plugs.svg");
+    pub const PACKAGE: Icon = Icon("lattice/package.svg");
+    pub const CLOCK_BACK: Icon = Icon("lattice/clock-back.svg");
+    pub const API_KEY: Icon = Icon("lattice/api-key.svg");
+    pub const CHAT: Icon = Icon("lattice/chat.svg");
+    pub const CLOUD_UPLOAD_FILL: Icon = Icon("lattice/cloud-upload.svg");
     /// The Build button's idle mark: Lucide's play, filled, as the app
     /// draws it (`<Play fill="currentColor" />`). Lucide's play.svg (ISC,
     /// `assets/LICENSE-LUCIDE`) with its fill set to the ink.
@@ -338,6 +350,13 @@ const BUNDLED: &[(&str, &[u8])] = bundled![
     "clipboard-text.svg",
     "sparkle.svg",
     "receipt.svg",
+    "robot.svg",
+    "plugs.svg",
+    "package.svg",
+    "clock-back.svg",
+    "api-key.svg",
+    "chat.svg",
+    "cloud-upload.svg",
     "play-filled.svg",
     "check.svg",
     "eye.svg",

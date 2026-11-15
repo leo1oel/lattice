@@ -22,9 +22,11 @@ use theme::ActiveTheme as _;
 
 use crate::{LatticeEditor, ProjectIndex};
 
+pub mod build_diagnostics;
 pub mod cards;
 pub mod completions;
 pub mod diagnostics;
+pub mod edits;
 pub mod folding;
 pub mod format_toggle;
 pub mod highlights;

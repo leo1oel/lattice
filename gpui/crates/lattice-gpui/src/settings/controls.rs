@@ -22,7 +22,7 @@ use gpui::{
     Pixels, SharedString, Styled as _, Window, div, prelude::FluentBuilder as _, px,
 };
 use lattice_ui::{
-    ActiveLattice as _, TextRole, TextRoleStyle as _, TypeScale,
+    ActiveLattice as _, Icon, TextRole, TextRoleStyle as _, TypeScale,
     components::{Select, Switch},
     parity,
     tokens::FONT_WEIGHT_SEMIBOLD,
@@ -69,6 +69,22 @@ pub fn page(
     groups: Vec<AnyElement>,
     cx: &App,
 ) -> AnyElement {
+    described_page(title, None, width, groups, cx)
+}
+
+/// `.ui-settings-section-header-description`'s 54ch, in the caption's face.
+const DESCRIPTION_MAX_WIDTH: Pixels = px(356.);
+
+/// A page whose title has a description under it (`SettingsSectionHeader`'s
+/// `description`: the caption in the secondary ink, 6px under the title, at
+/// most 54ch wide), then its groups.
+pub fn described_page(
+    title: impl Into<SharedString>,
+    description: Option<SharedString>,
+    width: PageWidth,
+    groups: Vec<AnyElement>,
+    cx: &App,
+) -> AnyElement {
     let palette = cx.palette();
     let top = if width.narrow_dialog { px(8.) } else { px(32.) };
     div()
@@ -82,15 +98,28 @@ pub fn page(
         .child({
             // The heading's box fits its text, as the app's does.
             let title: SharedString = title.into();
-            div().flex().mb(px(24.)).child(
-                div()
-                    .relative()
-                    .text_role_in(TextRole::Title, TypeScale::Settings, cx)
-                    .text_color(palette.text)
-                    .children(parity::probe("settings/title"))
-                    .children(parity::text_probe("settings/title", 0, title.clone()))
-                    .child(title),
-            )
+            div()
+                .flex()
+                .flex_col()
+                .items_start()
+                .mb(px(24.))
+                .child(
+                    div()
+                        .relative()
+                        .text_role_in(TextRole::Title, TypeScale::Settings, cx)
+                        .text_color(palette.text)
+                        .children(parity::probe("settings/title"))
+                        .children(parity::text_probe("settings/title", 0, title.clone()))
+                        .child(title),
+                )
+                .children(description.map(|description| {
+                    div()
+                        .mt(px(6.))
+                        .max_w(DESCRIPTION_MAX_WIDTH)
+                        .text_role_in(TextRole::Caption, TypeScale::Settings, cx)
+                        .text_color(palette.text_secondary)
+                        .child(description)
+                }))
         })
         .children(
             groups
@@ -328,6 +357,21 @@ pub fn select<T: Copy + PartialEq + 'static>(
         .into_any_element()
 }
 
+/// A button (or a few) at the right of the 170px control column, as a
+/// settings row's button sits (`--settings-control-width`), so the copy
+/// beside it wraps where the Tauri app's does.
+pub fn in_column(control: impl IntoElement) -> AnyElement {
+    div()
+        .w(CONTROL_WIDTH)
+        .max_w_full()
+        .flex()
+        .items_center()
+        .justify_end()
+        .gap(px(8.))
+        .child(control)
+        .into_any_element()
+}
+
 /// A switch, as a row's control.
 pub fn switch(
     id: &'static str,
@@ -339,4 +383,130 @@ pub fn switch(
         .disabled(disabled)
         .on_toggle(move |on, window, cx| on_toggle(*on, window, cx))
         .into_any_element()
+}
+
+/// What an inline message says of itself (`InlineMessageLevel`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Level {
+    Info,
+    Success,
+    Warning,
+    Error,
+}
+
+/// A message that stays where it is (`components/ui/inline-message.tsx`,
+/// chrome.css `.ui-inline-message`): the level's 13px mark, in its status
+/// colour, centred on the first line of the caption beside it, 6px apart;
+/// the caption in the secondary ink, or the primary for an error.
+pub fn inline_message(level: Level, text: impl Into<SharedString>, cx: &App) -> AnyElement {
+    let palette = cx.palette();
+    let (icon, color) = match level {
+        Level::Info => (Icon::INFO, palette.info),
+        Level::Success => (Icon::CIRCLE_CHECK, palette.success),
+        Level::Warning => (Icon::CIRCLE_ALERT, palette.warning),
+        Level::Error => (Icon::CIRCLE_ALERT, palette.danger),
+    };
+    let leading = TextRole::Caption.leading(TypeScale::Settings);
+    div()
+        .min_w_0()
+        .flex()
+        .items_start()
+        .gap(px(6.))
+        .text_role_in(TextRole::Caption, TypeScale::Settings, cx)
+        .text_color(if level == Level::Error {
+            palette.text
+        } else {
+            palette.text_secondary
+        })
+        .child(
+            // The first line's height, so the mark sits centred on it.
+            div()
+                .flex_none()
+                .h(leading)
+                .flex()
+                .items_center()
+                .child(icon.element(px(13.), color)),
+        )
+        .child(div().min_w_0().flex_1().child(text.into()))
+        .into_any_element()
+}
+
+/// What sits among a group's rows without being one (a key's field, a
+/// notice): the card's 12px and 16px inset, under the hairline (chrome.css
+/// `.ui-settings-group-body > *`). `joined` drops the space over it, for a
+/// field that belongs to the row naming it.
+pub fn block(child: impl IntoElement, joined: bool) -> AnyElement {
+    div()
+        .px(px(16.))
+        .pt(if joined { px(0.) } else { px(12.) })
+        .pb(px(12.))
+        .child(child)
+        .into_any_element()
+}
+
+/// A `'static` row id for a row made from data (a Harper rule, a credited
+/// work): rows and their controls are keyed by it, and each name is interned
+/// once for the run, so the ids stay few and distinct.
+pub fn row_id(prefix: &str, name: &str) -> &'static str {
+    use std::{
+        collections::HashSet,
+        sync::{Mutex, PoisonError},
+    };
+    static IDS: Mutex<Option<HashSet<&'static str>>> = Mutex::new(None);
+    let id = format!("{prefix}-{name}");
+    let mut ids = IDS.lock().unwrap_or_else(PoisonError::into_inner);
+    let ids = ids.get_or_insert_with(HashSet::new);
+    if let Some(known) = ids.get(id.as_str()) {
+        return known;
+    }
+    let leaked: &'static str = Box::leak(id.into_boxed_str());
+    ids.insert(leaked);
+    leaked
+}
+
+/// What a page drawn in an entity of its own needs to make its rows
+/// revealable by Settings search: the dialog's record of each row's place,
+/// and the row being washed, with how much.
+#[derive(Clone, Default)]
+pub struct Marks {
+    pub rows: std::rc::Rc<
+        std::cell::RefCell<std::collections::HashMap<&'static str, gpui::Bounds<Pixels>>>,
+    >,
+    pub revealed: Option<(&'static str, f32)>,
+}
+
+impl Marks {
+    /// `row`, measured as it is drawn and washed while revealed.
+    pub fn row(&self, row: Row, width: PageWidth, cx: &App) -> AnyElement {
+        let id = row.id;
+        let rows = self.rows.clone();
+        let amount = match self.revealed {
+            Some((revealed, amount)) if revealed == id => amount,
+            _ => 0.,
+        };
+        div()
+            .relative()
+            .child(
+                gpui::canvas(
+                    move |bounds, _, _| {
+                        rows.borrow_mut().insert(id, bounds);
+                    },
+                    |_, _, _, _| {},
+                )
+                .absolute()
+                .size_full(),
+            )
+            .child(row.revealed(amount).render(width, cx))
+            .into_any_element()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn a_row_id_is_interned_once() {
+        let first = super::row_id("grammar-rule", "OxfordComma");
+        assert_eq!(first, "grammar-rule-OxfordComma");
+        assert!(std::ptr::eq(first, super::row_id("grammar-rule", "OxfordComma")));
+    }
 }

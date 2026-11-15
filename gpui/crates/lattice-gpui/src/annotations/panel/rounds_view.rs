@@ -144,7 +144,7 @@ impl AnnotationsPanel {
                         .child(Textarea::new(&field).grows())
                         .child(
                             div().flex().child(
-                                Button::new(("annotation-answer", super::hash(&id)), t!("Answer and revise"))
+                                Button::new(("annotation-answer", super::cards::hash(&id)), t!("Answer and revise"))
                                     .compact()
                                     .tinted()
                                     .disabled(!filled)
@@ -170,7 +170,7 @@ impl AnnotationsPanel {
                         .text_color(palette.danger)
                         .child(error)
                         .child(
-                            Button::new(("annotation-retry", super::hash(&id)), t!("Try again"))
+                            Button::new(("annotation-retry", super::cards::hash(&id)), t!("Try again"))
                                 .compact()
                                 .ghost()
                                 .on_click(move |_, _, cx| {

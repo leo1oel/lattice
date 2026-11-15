@@ -16,6 +16,7 @@ mod assets;
 mod build;
 mod build_panel;
 mod confirm;
+mod crash;
 mod editor_panel;
 mod editor_status;
 mod empty_slot;
@@ -56,6 +57,7 @@ mod structured;
 mod submission;
 mod terminal;
 mod titlebar;
+mod updater;
 mod welcome;
 mod window_material;
 
@@ -78,6 +80,13 @@ fn main() {
     let (root, scenario) = scenario::parse_args();
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     let root = std::env::args_os().nth(1).map(std::path::PathBuf::from);
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    let scripted = scenario.is_some();
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    let scripted = false;
+    // From here a panic is logged and the open edits are written before
+    // the app ends (`crash.rs`).
+    crash::install(shell::workspaces::state_dir(scripted));
 
     // A scenario run copies and pastes on a pasteboard of its own, so runs
     // side by side (`scenario/input_lock.rs`) cannot read each other's copies.
@@ -96,55 +105,62 @@ fn main() {
         lattice_ui::parity::enable();
     }
 
-    gpui_kit::application()
-        .with_assets(assets::Assets)
-        .run(move |cx| {
-            #[cfg(any(target_os = "macos", target_os = "windows"))]
-            app::init(scenario.is_some(), cx);
-            #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-            app::init(false, cx);
-            // `--gallery`: the component sheet instead of a project window.
-            if std::env::args().any(|arg| arg == "--gallery") {
-                if let Err(error) = gallery::open(cx) {
-                    log::error!("could not open the gallery: {error:#}");
-                    cx.quit();
-                }
-                cx.activate(true);
-                return;
-            }
-            // A scripted measurement leaves the user's frontmost app alone.
-            #[cfg(any(target_os = "macos", target_os = "windows"))]
-            let activate = scenario.is_none();
-            #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-            let activate = true;
-            let launch = root.is_none() && activate;
-            match shell::Shell::open_window(root, cx) {
-                Ok((_window, _shell)) => {
-                    // Without a project named, reopen the one used last.
-                    if launch {
-                        _window
-                            .update(cx, |_, window, cx| {
-                                _shell.update(cx, |shell, cx| shell.launch(window, cx))
-                            })
-                            .ok();
-                    }
-                    #[cfg(any(target_os = "macos", target_os = "windows"))]
-                    if let Some(scenario) = scenario {
-                        scenario::start(_shell, _window, scenario, cx);
-                    }
-                }
-                Err(error) => {
-                    log::error!("could not open the window: {error:#}");
-                    cx.quit();
-                }
-            }
-            if activate {
-                cx.activate(true);
+    let application = gpui_kit::application().with_assets(assets::Assets);
+    // The Dock icon clicked with no window open opens one again.
+    if app::outlives_windows(scripted) {
+        application.on_reopen(|cx| {
+            if cx.windows().is_empty() {
+                shell::windows::reopen(cx);
             }
         });
+    }
+    application.run(move |cx| {
+        app::init(scripted, cx);
+        // `--gallery`: the component sheet instead of a project window.
+        if std::env::args().any(|arg| arg == "--gallery") {
+            if let Err(error) = gallery::open(cx) {
+                log::error!("could not open the gallery: {error:#}");
+                cx.quit();
+            }
+            cx.activate(true);
+            return;
+        }
+        // A scripted measurement leaves the user's frontmost app alone.
+        #[cfg(any(target_os = "macos", target_os = "windows"))]
+        let activate = scenario.is_none();
+        #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+        let activate = true;
+        let launch = root.is_none() && activate;
+        match shell::Shell::open_window(root, cx) {
+            Ok((_window, _shell)) => {
+                // Without a project named, reopen the one used last.
+                if launch {
+                    _window
+                        .update(cx, |_, window, cx| {
+                            _shell.update(cx, |shell, cx| shell.launch(window, cx))
+                        })
+                        .ok();
+                }
+                // The launch after a crash says so, once a window shows.
+                crash::announce_previous_crash(cx);
+                #[cfg(any(target_os = "macos", target_os = "windows"))]
+                if let Some(scenario) = scenario {
+                    scenario::start(_shell, _window, scenario, cx);
+                }
+            }
+            Err(error) => {
+                log::error!("could not open the window: {error:#}");
+                cx.quit();
+            }
+        }
+        if activate {
+            cx.activate(true);
+        }
+    });
 }
 
-/// Warnings and errors to stderr; `LATTICE_GPUI_LOG=info` for more.
+/// Warnings and errors to stderr, and to the app's log
+/// (`app_log::capture`); `LATTICE_GPUI_LOG=info` for more on stderr.
 fn init_logging() {
     struct StderrLogger(log::LevelFilter);
 
@@ -157,6 +173,8 @@ fn init_logging() {
             if self.enabled(record.metadata()) {
                 eprintln!("[{} {}] {}", record.level(), record.target(), record.args());
             }
+            // Errors, and Lattice's own warnings, reach the app's log too.
+            app_log::capture::capture(record);
         }
 
         fn flush(&self) {}
