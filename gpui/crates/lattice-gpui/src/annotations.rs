@@ -16,8 +16,11 @@
 
 pub mod card;
 pub mod colors;
+pub mod form;
 pub mod model;
+pub mod orphans;
 pub mod panel;
+pub mod reasons;
 pub mod rounds;
 pub mod rounds_sheet;
 pub mod store;

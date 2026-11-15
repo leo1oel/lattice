@@ -17,6 +17,7 @@ use serde_json::json;
 use super::Steps;
 use crate::{papers::model::Filter, scenario::Run};
 
+mod cards;
 mod library;
 mod reader;
 
@@ -181,6 +182,7 @@ impl Run {
             json!({ "shown": cited }),
         );
         self.papers_library(cx, steps, &papers).await?;
+        self.papers_citation_card(cx, steps).await?;
 
         // A click opens the saved text in the paper's reader (its body under
         // the converter's front matter, which the visual editor leaves out),

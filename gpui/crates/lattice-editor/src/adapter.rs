@@ -116,6 +116,9 @@ pub struct LatticeEditor {
     end_clearance: Pixels,
     /// The editor element's bounds as last laid out.
     editor_bounds: Rc<Cell<Option<Bounds<Pixels>>>>,
+    /// What this editor's citation cards read beyond the bibliography,
+    /// filled by the host (`latex::citation_library`).
+    citations: crate::latex::citation_library::CitationSlot,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -165,6 +168,7 @@ impl LatticeEditor {
             gutter: BTreeMap::new(),
             blocks: HashMap::new(),
             hover_providers: Vec::new(),
+            citations: Default::default(),
             hover: Hover::Idle,
             sources,
             offered,
@@ -192,6 +196,11 @@ impl LatticeEditor {
 
     pub fn buffer(&self) -> &Entity<Buffer> {
         &self.buffer
+    }
+
+    /// Where this editor's citation cards find the paper library.
+    pub fn citation_slot(&self) -> crate::latex::citation_library::CitationSlot {
+        self.citations.clone()
     }
 
     /// What the overlay painted last frame.

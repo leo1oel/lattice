@@ -23,7 +23,7 @@ use crate::papers::{
 #[derive(Default)]
 pub(super) struct BibState {
     editor: Option<Entity<BibEditor>>,
-    papers: Option<Entity<PapersPanel>>,
+    pub(super) papers: Option<Entity<PapersPanel>>,
     /// The source editor has the keyboard: only then does the list follow
     /// its caret (`use-bib-source-sync.ts`), never a caret moved for it.
     source_focused: bool,
@@ -58,7 +58,9 @@ impl EditorPanel {
         if let Some(bib) = &self.bib.editor {
             bib.update(cx, |bib, cx| bib.set_papers(papers.clone(), cx));
         }
-        self.bib.papers = Some(papers);
+        self.attach_citations(&papers, cx);
+        self.bib.papers = Some(papers.clone());
+        self.follow_library(papers, cx);
     }
 
     /// The `.bib` file's visual form, when it is showing.

@@ -83,6 +83,7 @@ impl PdfView {
     pub(in crate::pdf) fn prepare_frame(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.autoscroll_frame(window, cx);
         self.place_notes(cx);
+        self.retire_offer(cx);
         self.report_place(cx);
         let bounds = self.scroll.bounds();
         if bounds.size != self.viewport.size {

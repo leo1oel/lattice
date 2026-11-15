@@ -37,6 +37,7 @@ use gpui_kit::component::input::{InputEvent, InputState};
 use lattice_core::{latex::PdfSyncTarget, pdf_pages::PageSignatures};
 use lattice_i18n::t;
 
+mod annotate;
 mod autoscroll;
 mod citation;
 mod compound;
@@ -190,6 +191,7 @@ pub struct PdfView {
     compounds: Option<CompoundSource>,
     compound: compound::CompoundHover,
     notes: notes::NoteMarks,
+    annotating: annotate::Annotating,
     place_report: place::PlaceReport,
     /// Middle-click autoscroll while it runs, and the press it took whose
     /// release is not a click.
@@ -317,6 +319,7 @@ impl PdfView {
             compounds: None,
             compound: Default::default(),
             notes: Default::default(),
+            annotating: Default::default(),
             place_report: Default::default(),
             autoscroll: None,
             blocked_up: None,

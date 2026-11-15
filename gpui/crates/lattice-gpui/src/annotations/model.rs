@@ -237,6 +237,12 @@ fn occurs_after(text: &str, needle: &str, at: usize) -> bool {
 
 /// A comment's span in `text`, found again.
 pub fn anchor_of(text: &str, comment: &EditorComment) -> Option<std::ops::Range<usize>> {
+    // A citation reason is placed nowhere by its quote: the panel lists only
+    // those whose cite is gone, and its stale context could name some other
+    // cite (`annotationAnchor`).
+    if comment.citation.is_some() {
+        return None;
+    }
     resolve_anchor(
         text,
         comment.from,

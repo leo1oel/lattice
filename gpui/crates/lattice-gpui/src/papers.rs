@@ -56,9 +56,12 @@ pub mod audit;
 pub(crate) mod batch;
 pub mod bib_editor;
 mod candidates;
+pub mod citation_open;
 mod downloads;
+pub mod drag;
 mod field;
 mod inspector;
+pub(crate) use inspector::uses::{anchor_reasons, role_label};
 mod keys;
 pub mod linked;
 pub mod literature;
@@ -93,6 +96,9 @@ pub enum PapersEvent {
     Open { path: String, line: Option<u32> },
     /// Read a saved paper in its reader (its full text, else its overview).
     Read(Box<PaperSummary>),
+    /// Read the paper's PDF at the 1-based `page` (a citation card's Open
+    /// paper on a `\cite[p.~5]{key}`).
+    ReadAt { paper: Box<PaperSummary>, page: u32 },
     /// Read a saved paper beside the document in front (Open to the side).
     ReadBeside(Box<PaperSummary>),
     /// Open Add papers, seeded with what the box holds.
@@ -218,6 +224,12 @@ pub struct Fetching {
     /// Each download's Fetched mark, cleared a moment after it lands; its
     /// own timer, so a reload or another download does not cancel it.
     lingers: HashMap<String, Task<()>>,
+    /// Where a download started from a citation card goes instead when it
+    /// fails: the source its entry cites (`fetchAndOpenPaper`'s fallback).
+    pub(crate) fallbacks: HashMap<String, String>,
+    /// The page a download started from a citation card opens its paper at
+    /// (`\cite[p.~5]{key}`).
+    pub(crate) pages: HashMap<String, u32>,
 }
 
 impl Fetching {
@@ -292,6 +304,8 @@ pub struct PapersPanel {
     first_sync: FirstSync,
     /// The panel's own width, learned while it is laid out.
     pub(crate) width: f32,
+    /// The rows' fluid hover, as last drawn, for a scenario's check.
+    hover: Option<lattice_ui::fluid_hover::FluidHover>,
     pub(crate) scroll: ScrollHandle,
     /// Add papers' batch, which outlives the sheet.
     pub(crate) batch: batch::Batch,
@@ -333,6 +347,7 @@ impl PapersPanel {
             facts: Facts::default(),
             usage_revision: 0,
             list_revision: 0,
+            hover: None,
             input,
             text_query: String::new(),
             text_hits: HashMap::new(),

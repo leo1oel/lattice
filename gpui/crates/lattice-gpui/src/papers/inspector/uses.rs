@@ -72,7 +72,7 @@ fn score(source: &str, site: &CitationSite, reason: &EditorComment) -> usize {
 }
 
 /// The cite each of `reasons` belongs to in `source`, by the cite's offset.
-fn anchor_reasons<'a>(
+pub(crate) fn anchor_reasons<'a>(
     source: &str,
     sites: &[CitationSite],
     reasons: &[&'a EditorComment],

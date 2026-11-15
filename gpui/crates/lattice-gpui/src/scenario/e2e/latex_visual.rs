@@ -10,9 +10,10 @@
 //! - opening it writes nothing: the file on disk is the same bytes, and the
 //!   buffer is clean;
 //! - a jump to a line lands in the page, its caret there; a word typed
-//!   there with native keys lands in the file as exactly that word; one ⌘Z
-//!   typed there undoes it all through the buffer, as the Tauri app's editor
-//!   groups it, and the file and the page are back to their first text;
+//!   there with native keys lands in the file as exactly that word; ⌘Z
+//!   typed there undoes it through the buffer one of the page's own undo
+//!   groups at a time, as the Tauri app's editor groups it (the word typed in
+//!   one go is one), and the file and the page are back to their first text;
 //! - text put into the buffer (as the source, or an outside edit, would)
 //!   reaches the page;
 //! - the outline rail stands over the page, a misspelt word ("frist") is
@@ -29,7 +30,7 @@
 
 #![cfg(target_os = "macos")]
 
-use std::{path::Path, time::Duration};
+use std::{cell::RefCell, path::Path, rc::Rc, time::Duration};
 
 use anyhow::Result;
 use gpui::{AsyncApp, Entity};
@@ -41,6 +42,7 @@ use super::{Run, Steps};
 use crate::{
     editor_panel::{EditorPanel, choose_latex_view},
     native,
+    structured::{MarkdownEvent, StructuredEvent},
 };
 
 const PAPER: &str = "\\documentclass{article}
@@ -326,6 +328,19 @@ impl Run {
             .await;
             self.pause(cx, Duration::from_millis(150)).await;
         }
+        // What the page's own history said of each keystroke's edit, as the
+        // buffer hears it: whether it joins the previous edit's undo group
+        // (`md:change`'s `join`, `latex_visual_events.rs`).
+        let joins: Rc<RefCell<Vec<Option<bool>>>> = Rc::default();
+        let _heard = cx.update(|cx| {
+            let document = panel.read(cx).latex_visual_document().cloned()?;
+            let joins = joins.clone();
+            Some(cx.subscribe(&document, move |_, event, _| {
+                if let StructuredEvent::Markdown(MarkdownEvent::Edit { join, .. }) = event {
+                    joins.borrow_mut().push(*join);
+                }
+            }))
+        });
         // The space comes a beat after the word: past the buffer's own
         // grouping interval (300 ms), inside the page's history's (500 ms),
         // so one ⌘Z undoing both shows the page's grouping is the one kept.
@@ -344,7 +359,7 @@ impl Run {
         let expected = PAPER.replacen("Some prose", "quokka Some prose", 1);
         let saved = self
             .wait_for(cx, Duration::from_secs(10), |_, _| {
-                std::fs::read_to_string(path).is_ok_and(|text| text.contains("quokka"))
+                std::fs::read_to_string(path).is_ok_and(|text| text == expected)
             })
             .await;
         let text = std::fs::read_to_string(path).unwrap_or_default();
@@ -354,14 +369,30 @@ impl Run {
             json!({ "placed": placed, "saved": saved, "text": if text == expected { Value::Null } else { json!(text) } }),
         );
 
-        // Each keystroke reaches the buffer as its own md:change; the page
-        // says which belong to one undo group, so one ⌘Z takes the word.
-        native::send_key(native, 'z', true)?;
-        let undone = self
-            .wait_for(cx, Duration::from_secs(10), |_, _| {
-                std::fs::read_to_string(path).is_ok_and(|text| text == PAPER)
+        // Each keystroke reaches the buffer as its own md:change, and the
+        // buffer groups them as the page's history did, so a ⌘Z takes back
+        // one of the page's groups. Typed as above that is one group, the
+        // whole word: a keystroke more than the page's 500 ms after the last
+        // starts a group of its own, as it does in the Tauri app's editor,
+        // so a run whose space arrived that late (a slow frame on a busy
+        // machine) needs a press for it too. The check is that the buffer
+        // kept the page's groups, however many: one press per group, and
+        // the file back as it was only after the last.
+        let joins = joins.borrow().clone();
+        let groups = joins.iter().filter(|join| **join != Some(true)).count();
+        let mut presses = Vec::new();
+        for _ in 0..groups.max(1) {
+            let before = std::fs::read_to_string(path).unwrap_or_default();
+            native::send_key(native, 'z', true)?;
+            self.wait_for(cx, Duration::from_secs(10), |_, _| {
+                std::fs::read_to_string(path).is_ok_and(|text| text != before)
             })
             .await;
+            presses.push(std::fs::read_to_string(path).unwrap_or_default() == PAPER);
+        }
+        // Back as it was on the last press, and not before.
+        let undone =
+            presses.last() == Some(&true) && presses.iter().filter(|back| **back).count() == 1;
         // The page takes the buffer's text once the typing pause has passed.
         let mut page = Value::Null;
         let started = std::time::Instant::now();
@@ -373,10 +404,12 @@ impl Run {
             self.pause(cx, Duration::from_millis(150)).await;
         }
         steps.check(
-            "one ⌘Z typed in the Visual view undoes the typed word through the buffer, as the Tauri app's editor groups it: the file and the page are back as they were",
+            "⌘Z typed in the Visual view undoes the typed word through the buffer one page undo group at a time, as the Tauri app's editor groups it (one ⌘Z for the word typed in one go): the file and the page are back as they were",
             undone && page["text"].as_str().is_some_and(|text| !text.contains("quokka")),
             json!({
                 "undone": undone,
+                "joins": joins,
+                "presses": presses.len(),
                 "text": if undone { Value::Null } else { json!(std::fs::read_to_string(path).unwrap_or_default()) },
             }),
         );

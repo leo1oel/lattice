@@ -19,6 +19,7 @@ mod panel;
 mod review_marking;
 pub(crate) mod preferences;
 mod sheet;
+pub(crate) mod source_anchor;
 mod text;
 mod toolbar;
 mod toolbar_hover;

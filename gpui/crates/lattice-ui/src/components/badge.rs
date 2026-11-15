@@ -5,10 +5,11 @@
 //! (the only place a status colours words is the badge that names it).
 
 use gpui::{
-    App, IntoElement, ParentElement as _, RenderOnce, SharedString, Styled as _, Window, div, px,
+    App, IntoElement, ParentElement as _, RenderOnce, SharedString, Styled as _, Window, div,
+    prelude::FluentBuilder as _, px,
 };
 
-use crate::{ActiveLattice as _, TextRole, TextRoleStyle as _};
+use crate::{ActiveLattice as _, Icon, TextRole, TextRoleStyle as _};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub enum BadgeTone {
@@ -25,6 +26,8 @@ pub struct Badge {
     tone: BadgeTone,
     compact: bool,
     elevated: bool,
+    icon: Option<Icon>,
+    shrinks: bool,
 }
 
 impl Badge {
@@ -34,7 +37,23 @@ impl Badge {
             tone: BadgeTone::Neutral,
             compact: false,
             elevated: false,
+            icon: None,
+            shrinks: false,
         }
+    }
+
+    /// A 12px glyph before the label, in the label's ink (a citation
+    /// card's fact: a check, or a warning triangle).
+    pub fn icon(mut self, icon: Icon) -> Self {
+        self.icon = Some(icon);
+        self
+    }
+
+    /// Narrower than its words when its row is: the words give way to an
+    /// ellipsis (a long DOI on a citation card, `.citation-card-fact`).
+    pub fn shrinks(mut self) -> Self {
+        self.shrinks = true;
+        self
     }
 
     pub fn tone(mut self, tone: BadgeTone) -> Self {
@@ -73,8 +92,10 @@ impl RenderOnce for Badge {
         };
         div()
             .flex()
-            .flex_none()
+            .when(!self.shrinks, |badge| badge.flex_none())
+            .when(self.shrinks, |badge| badge.min_w_0().max_w_full())
             .items_center()
+            .gap(px(4.))
             .h(height)
             .px(px(if self.compact && !self.elevated {
                 4.
@@ -87,6 +108,21 @@ impl RenderOnce for Badge {
             .text_role(role, cx)
             .font_weight(crate::tokens::FONT_WEIGHT_MEDIUM)
             .text_color(ink)
-            .child(self.label)
+            .when_some(self.icon, |badge, icon| {
+                badge.child(icon.element(px(12.), ink).flex_none())
+            })
+            .map(|badge| {
+                if self.shrinks {
+                    badge.child(
+                        div()
+                            .min_w_0()
+                            .overflow_hidden()
+                            .text_ellipsis()
+                            .child(self.label),
+                    )
+                } else {
+                    badge.child(self.label)
+                }
+            })
     }
 }

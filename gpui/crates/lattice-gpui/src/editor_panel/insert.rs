@@ -34,6 +34,11 @@ impl EditorPanel {
                 .any(|entry| matches!(entry, gpui::ClipboardEntry::String(_)))
     }
 
+    /// The buffer as it is now, for scripted checks of what reads it.
+    pub fn buffer_snapshot(&self, cx: &App) -> language::BufferSnapshot {
+        self.buffer.read(cx).snapshot()
+    }
+
     /// The buffer's text and the caret's offset in it.
     pub fn text_and_caret(&self, cx: &App) -> (String, usize) {
         let editor = self.editor().read(cx);

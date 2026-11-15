@@ -37,6 +37,7 @@ impl PdfView {
         cx: &mut Context<Self>,
     ) {
         window.focus(&self.focus_handle, cx);
+        self.dismiss_offer(cx);
         self.compound_press(event, cx);
         let (x, y) = self.sheet_point(event.position);
         let Some((page, page_x, page_y)) = self.layout.to_page(x, y) else {
@@ -116,6 +117,9 @@ impl PdfView {
         if collapsed {
             self.selection = None;
             cx.notify();
+        } else {
+            // A drag that selected text offers Annotate.
+            self.offer_annotate(cx);
         }
         // Released on the link it was pressed on, without a selection made:
         // a click.
@@ -204,6 +208,7 @@ impl PdfView {
             "escape" if self.selection.is_some() => {
                 cx.stop_propagation();
                 self.selection = None;
+                self.dismiss_offer(cx);
                 cx.notify();
                 return;
             }

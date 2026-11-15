@@ -11,8 +11,11 @@
 //!   ring at 30% and a soft inner glow when it would import and open them
 //!   (`file-drop-active`); the shell routes the drop (`shell/drops.rs`).
 //!
+//! - A paper dragged from the Papers list draws the drop caret alone, where
+//!   its citation would go (`papers.rs`).
+//!
 //! The marks are painted from what the drag's moves last saw, and only while
-//! a row or Finder's files are being dragged, so a drag that ends anywhere
+//! a row, a paper or Finder's files are being dragged, so a drag that ends anywhere
 //! leaves none behind, and another kind of drag shows none.
 
 use std::{cell::RefCell, path::PathBuf, rc::Rc};
@@ -28,6 +31,7 @@ use lattice_ui::ActiveLattice as _;
 use super::{EditorPanel, EditorPanelEvent};
 use crate::{
     file_tree::DraggedEntry,
+    papers::drag::DraggedPaper,
     shell::drops::{EditorTake, classify, editor_take},
 };
 
@@ -43,9 +47,10 @@ pub enum DropLit {
 /// What the drag over the editor last saw.
 #[derive(Default)]
 pub struct DropHover {
-    lit: Option<DropLit>,
-    /// The drop caret, in window coordinates (a tree figure's drag only).
-    caret: Option<Bounds<Pixels>>,
+    pub(super) lit: Option<DropLit>,
+    /// The drop caret, in window coordinates (a tree figure's or a paper's
+    /// drag only).
+    pub(super) caret: Option<Bounds<Pixels>>,
 }
 
 pub type SharedDropHover = Rc<RefCell<DropHover>>;
@@ -53,7 +58,7 @@ pub type SharedDropHover = Rc<RefCell<DropHover>>;
 impl EditorPanel {
     /// The byte offset of the character under `position` (window
     /// coordinates), from Zed's editor as the input method asks it.
-    fn offset_under(
+    pub(super) fn offset_under(
         &self,
         position: Point<Pixels>,
         window: &mut Window,
@@ -69,7 +74,7 @@ impl EditorPanel {
     }
 
     /// The caret rectangle before `offset`, in window coordinates.
-    fn caret_before(
+    pub(super) fn caret_before(
         &self,
         offset: usize,
         window: &mut Window,
@@ -115,7 +120,8 @@ impl EditorPanel {
         let entry_hover = hover.clone();
         let paths_hover = hover.clone();
         let inserts = self.inserts_figures();
-        element
+        // A paper from the Papers list (`papers.rs`).
+        self.wire_paper_drops(element, cx)
             .on_drag_move(cx.listener(
                 move |this, event: &gpui::DragMoveEvent<DraggedEntry>, window, cx| {
                     let inside = event.bounds.contains(&event.event.position);
@@ -173,16 +179,18 @@ impl EditorPanel {
         canvas(
             |_, _, _| {},
             move |bounds, _, window, cx| {
-                if !DraggedEntry::dropping(cx) {
+                if !DraggedEntry::dropping(cx) && !DraggedPaper::dragging(cx) {
                     return;
                 }
                 let hover = hover.borrow();
-                let Some(lit) = hover.lit else { return };
-                let (ring, glow) = match lit {
-                    DropLit::Insert => (0.24, 0.),
-                    DropLit::Open => (0.30, 0.04),
-                };
-                paint_ring(window, bounds, palette.accent, ring, glow);
+                // A paper's drag draws its caret alone.
+                if let Some(lit) = hover.lit {
+                    let (ring, glow) = match lit {
+                        DropLit::Insert => (0.24, 0.),
+                        DropLit::Open => (0.30, 0.04),
+                    };
+                    paint_ring(window, bounds, palette.accent, ring, glow);
+                }
                 if let Some(caret) = hover.caret {
                     // `--editor-caret-width`, centred on the caret's left.
                     let width = px(2.);

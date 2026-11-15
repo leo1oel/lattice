@@ -8,9 +8,15 @@
 //! - Overleaf's suggestions on the file, painted with their cards' Accept
 //!   and Reject (`md:overleaf`, `md:overleaf-accept`, `md:overleaf-reject`);
 //! - the text selected in the visual editor, which the Agent is told as
-//!   the writer's selection (`md:selection`).
+//!   the writer's selection (`md:selection`);
+//! - the library's papers (`papers`), which its `@` menu offers and a
+//!   paper dropped on it is looked up in (`md:papers`, and `doc:open`'s
+//!   `papers`);
+//! - a paper dragged from the Papers list over the page, which GPUI's drag
+//!   never makes WebKit's: its moves, where it left, and its drop, in the
+//!   page's pixels from its top left (`md:paper-drag`).
 
-use gpui::Context;
+use gpui::{App, Bounds, Context, Pixels, Point};
 use serde_json::{Value, json};
 
 use super::{StructuredDocument, StructuredEvent};
@@ -63,6 +69,40 @@ impl StructuredDocument {
         }
         self.post("md:overleaf", review.clone(), cx);
         self.visual.changes = Some(review);
+    }
+
+    /// The library's papers changed: the `@` menu lists these.
+    pub fn set_library_papers(&mut self, papers: Value, cx: &mut Context<Self>) {
+        let Some(session) = &mut self.markdown else {
+            return;
+        };
+        if session.papers == papers {
+            return;
+        }
+        session.papers = papers.clone();
+        self.post("md:papers", json!({ "papers": papers }), cx);
+    }
+
+    /// The page's bounds in the window, while it is laid out.
+    pub fn page_bounds(&self, cx: &App) -> Option<Bounds<Pixels>> {
+        self.island.as_ref()?.read(cx).bounds(cx)
+    }
+
+    /// A paper's drag over the page: `phase` is `over`, `leave` or `drop`,
+    /// `at` in the page's pixels, `paper` its identity (`PaperDrag`).
+    pub fn paper_drag(
+        &mut self,
+        phase: &str,
+        at: Option<Point<Pixels>>,
+        paper: Option<Value>,
+        cx: &mut Context<Self>,
+    ) {
+        let (x, y) = at.map_or((0., 0.), |at| (f32::from(at.x), f32::from(at.y)));
+        self.post(
+            "md:paper-drag",
+            json!({ "phase": phase, "x": x, "y": y, "paper": paper }),
+            cx,
+        );
     }
 
     /// The visual editor's selection, if any text is selected in it.
