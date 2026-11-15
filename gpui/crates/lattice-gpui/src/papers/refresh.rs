@@ -125,7 +125,7 @@ impl PapersPanel {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::papers::audit::{Candidate, Change};
+    use crate::papers::audit::Change;
 
     fn finding(status: &str, after: Option<&str>, changes: Vec<Change>) -> Finding {
         Finding {
@@ -151,7 +151,7 @@ mod tests {
             Some(Outcome::Review)
         );
         let mut candidate = finding("update", Some("@article{a,}"), vec![]);
-        candidate.candidate = Some(Candidate::default());
+        candidate.candidate = Some(Default::default());
         assert_eq!(decide(&candidate), Some(Outcome::Review));
     }
 

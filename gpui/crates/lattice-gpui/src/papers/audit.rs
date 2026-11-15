@@ -51,7 +51,7 @@ mod summary;
 mod view;
 
 use finding::take_batch;
-pub use finding::{Candidate, Change, Finding, Source};
+pub use finding::{Change, Finding, Source};
 pub use groups::{Bucket, FixGroup, fix_group};
 pub use running::{running, stop_others};
 
