@@ -44,6 +44,7 @@ license = "GPL-3.0-or-later"
 assets = { git = "https://github.com/zed-industries/zed", rev = "d2a4fb6ded7c470be25d1541281da3882495b65b" }
 clock = { git = "https://github.com/zed-industries/zed", rev = "d2a4fb6ded7c470be25d1541281da3882495b65b" }
 editor = { git = "https://github.com/zed-industries/zed", rev = "d2a4fb6ded7c470be25d1541281da3882495b65b" }
+fuzzy = { git = "https://github.com/zed-industries/zed", rev = "d2a4fb6ded7c470be25d1541281da3882495b65b" }
 gpui = { git = "https://github.com/zed-industries/zed", rev = "d2a4fb6ded7c470be25d1541281da3882495b65b", features = ["profiler"] }
 gpui_macros = { git = "https://github.com/zed-industries/zed", rev = "d2a4fb6ded7c470be25d1541281da3882495b65b" }
 gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "d2a4fb6ded7c470be25d1541281da3882495b65b", features = ["font-kit", "runtime_shaders"] }

@@ -14,6 +14,9 @@ codebook-tree-sitter-latex.workspace = true
 tree-sitter-md.workspace = true
 editor.workspace = true
 futures.workspace = true
+# The menu row the completion provider hears selected (`StringMatch`);
+# already in the graph through the editor.
+fuzzy.workspace = true
 gpui.workspace = true
 gpui-kit.workspace = true
 language.workspace = true

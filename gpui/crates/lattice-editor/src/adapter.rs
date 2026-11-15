@@ -139,6 +139,7 @@ impl LatticeEditor {
                 editor: editor.downgrade(),
                 offered: offered.clone(),
                 late: Rc::default(),
+                selected: Rc::default(),
             })));
         });
         let subscriptions = vec![

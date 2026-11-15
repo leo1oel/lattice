@@ -18,10 +18,18 @@
 //! joins the others', after them, without the options an earlier source
 //! already offered. As CodeMirror's `updateSyncTime`, the menu waits for it
 //! [`SYNC_TIME`] at most and then shows what it has; an answer that comes
-//! after that opens the menu again where it was asked, if nothing was typed
-//! and the menu was not dismissed meanwhile.
+//! after that and offers something new opens the menu again where it was
+//! asked, if nothing was typed, the menu was not dismissed and its first
+//! row is still the one selected meanwhile, so the row the writer moved to
+//! stays selected as CodeMirror keeps it.
 
-use std::{cell::RefCell, ops::Range, rc::Rc, sync::Arc, time::Duration};
+use std::{
+    cell::{Cell, RefCell},
+    ops::Range,
+    rc::Rc,
+    sync::Arc,
+    time::Duration,
+};
 
 use anyhow::Result;
 use editor::{CompletionProvider, Editor, SelectionEffects, ToPoint as _};
@@ -216,6 +224,8 @@ pub(crate) struct Provider {
     pub editor: gpui::WeakEntity<Editor>,
     pub offered: Offered,
     pub late: Late,
+    /// The menu row selected, from its top.
+    pub selected: Rc<Cell<usize>>,
 }
 
 impl Provider {
@@ -370,10 +380,11 @@ impl CompletionProvider for Provider {
         if later.is_empty() {
             return Task::ready(Ok(self.respond(lists, &snapshot, buffer)));
         }
-        let (editor, offered, late, buffer) = (
+        let (editor, offered, late, selected, buffer) = (
             self.editor.clone(),
             self.offered.clone(),
             self.late.clone(),
+            self.selected.clone(),
             buffer.clone(),
         );
         let timer = cx.background_executor().timer(SYNC_TIME);
@@ -381,14 +392,19 @@ impl CompletionProvider for Provider {
             match select(Box::pin(join_all(later)), timer).await {
                 Either::Left((answers, _)) => join_later(&mut lists, answers.into_iter().flatten()),
                 Either::Right(((), answers)) => {
-                    let shown = !lists.is_empty();
-                    let (editor, snapshot, buffer) =
-                        (editor.clone(), snapshot.clone(), buffer.clone());
+                    let (editor, snapshot, buffer, mut joined) = (
+                        editor.clone(),
+                        snapshot.clone(),
+                        buffer.clone(),
+                        lists.clone(),
+                    );
                     cx.spawn(async move |cx| {
-                        let lists: Vec<_> = answers.await.into_iter().flatten().collect();
-                        if lists.is_empty() {
+                        let shown = joined.len();
+                        join_later(&mut joined, answers.await.into_iter().flatten());
+                        if joined.len() == shown {
                             return;
                         }
+                        let lists = joined.split_off(shown);
                         editor
                             .update_in(cx, |editor, window, cx| {
                                 let caret = editor
@@ -398,7 +414,10 @@ impl CompletionProvider for Provider {
                                     .to_point(&editor.buffer().read(cx).snapshot(cx));
                                 let unchanged = buffer.read(cx).version() == *snapshot.version()
                                     && caret == snapshot.offset_to_point(offset);
-                                if !unchanged || (shown && !editor.has_visible_completions_menu()) {
+                                let kept = shown == 0
+                                    || (editor.has_visible_completions_menu()
+                                        && selected.get() == 0);
+                                if !unchanged || !kept {
                                     return;
                                 }
                                 *late.borrow_mut() = Some(LateAnswers {
@@ -433,6 +452,16 @@ impl CompletionProvider for Provider {
         let offset = position.to_offset(&snapshot);
         let sources = self.sources.borrow().clone();
         any_options(&sources, &snapshot, offset, cx)
+    }
+
+    fn selection_changed(
+        &self,
+        selected: Option<&fuzzy::StringMatch>,
+        _window: &mut Window,
+        _cx: &mut App,
+    ) {
+        self.selected
+            .set(selected.map_or(0, |selected| selected.candidate_id));
     }
 
     fn filter_completions(&self) -> bool {
