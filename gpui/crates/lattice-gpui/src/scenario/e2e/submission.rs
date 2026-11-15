@@ -66,6 +66,18 @@ impl Run {
         // The project's root is the folder's canonical path (/private/var
         // for /var on macOS).
         let other_root = other.canonicalize()?;
+        // Opening the project in the second window builds it, and a switch
+        // while a build runs asks first ("Switch away from …?", the
+        // shells' `ask_before_leaving`). That question is the app's one
+        // (`crate::confirm`), so left unanswered it stayed over the first
+        // window too and took the clicks of the modules after this one (the
+        // focus bar's PDF toggle). The switch waits for the build instead.
+        let was_building = cx.update(|cx| second.shell.read(cx).building());
+        let built = second
+            .wait_for(cx, Duration::from_secs(60), |shell, cx| {
+                !shell.read(cx).building()
+            })
+            .await;
         second.with_window(cx, |shell, window, cx| {
             shell.update(cx, |shell, cx| {
                 shell.open_project(other.clone(), window, cx)
@@ -76,15 +88,21 @@ impl Run {
                 shell.read(cx).root(cx).as_deref() == Some(other_root.as_path())
             })
             .await;
-        let (bar_after, sheet_after) = cx.update(|cx| {
+        let (bar_after, sheet_after, question) = cx.update(|cx| {
             let shell = second.shell.read(cx);
-            (shell.references.bar.is_some(), shell.sheets.arxiv.is_some())
+            (
+                shell.references.bar.is_some(),
+                shell.sheets.arxiv.is_some(),
+                crate::confirm::is_pending(cx),
+            )
         });
         steps.check(
             "opening another project drops the references bar and the arXiv export sheet",
-            listed && sheet && switched && !bar_after && !sheet_after,
+            listed && sheet && built && switched && !bar_after && !sheet_after && !question,
             json!({
                 "before": { "bar": listed, "sheet": sheet },
+                "build": { "running": was_building, "finished": built },
+                "question_left_open": question,
                 "switched": switched,
                 "after": { "bar": bar_after, "sheet": sheet_after },
             }),
