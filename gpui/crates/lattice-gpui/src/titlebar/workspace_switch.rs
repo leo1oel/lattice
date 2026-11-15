@@ -16,7 +16,6 @@ use lattice_ui::{
     ActiveLattice as _, Elevation, Icon, TextRole, TextRoleStyle as _,
     components::{
         ContextMenu, LatticeTooltip, Menu, MenuAction, MenuPopover, context_menu_trigger,
-        focus_ring,
     },
     elevation::ring,
     icons::{ICON, ICON_SMALL},
@@ -43,6 +42,27 @@ const DOT: f32 = 5.;
 const ADD_WIDTH: f32 = 28.;
 pub(super) const RENAME_PAD: f32 = 6.;
 pub(super) const RENAME_MIN: f32 = 6. * 7. + 20.;
+
+/// Tauri's `:focus-visible` outline: 2px of the focus colour, 2px off the
+/// tab. It is an outline-only border rather than `focus_ring`'s shadows,
+/// which GPUI fills behind the tab: over the translucent titlebar that fill
+/// hid the sliding plate, which moves exactly when the keyboard is on a tab.
+fn focus_outline(palette: &lattice_ui::Palette) -> AnyElement {
+    const OFFSET: f32 = 2.;
+    const WIDTH: f32 = 2.;
+    let out = px(OFFSET + WIDTH);
+    div()
+        .absolute()
+        .top(-out)
+        .left(-out)
+        .right(-out)
+        .bottom(-out)
+        .rounded(segment_chip_radius() + out)
+        .border(px(WIDTH))
+        .border_color(palette.focus)
+        .into_any_element()
+}
+
 /// A workspace chip's corner: the segmented track's thumb
 /// (`shape::SEGMENTED`, a control's 6px less the 2px inset), as the chrome
 /// draws it (`shape::CHROME`).
@@ -293,9 +313,9 @@ pub(super) fn workspace_switcher(
         let switch_id = id.clone();
         let rename_id = id.clone();
         let menu_id = id.clone();
-        let focus = focus_ring(&palette, palette.titlebar);
         let is_current = current.as_deref() == Some(id.as_str());
         let tab_focus = shell.workspace_tab_focus(id, cx);
+        let outlined = tab_focus.is_focused(window) && window.last_input_was_keyboard();
         let key_focus = tab_focus.clone();
         let (press_id, key_id) = (id.clone(), id.clone());
         let key_menu = chip_menu.clone();
@@ -306,7 +326,7 @@ pub(super) fn workspace_switcher(
         // The project's workspace is the track's one tab stop.
         let chip = track_pointer(div().id(tab_id).track_focus(&tab_focus), pointer)
             .when(is_current, |tab| tab.tab_index(0))
-            .focus_visible(move |style| style.shadow(focus))
+            .relative()
             .on_mouse_down(
                 gpui::MouseButton::Left,
                 cx.listener(move |shell, event, _, _| shell.press_workspace(&press_id, event)),
@@ -361,6 +381,7 @@ pub(super) fn workspace_switcher(
             .children(parity::text_probe("titlebar/workspace", ix, name.clone()))
             .child(name.clone())
             .when(dirty && is_current, |this| this.child(dirty_dot(&palette)))
+            .when(outlined, |this| this.child(focus_outline(&palette)))
             .map(|chip| {
                 context_menu_trigger(chip, &chip_menu, (menu_id.clone(), dirty && is_current))
             });
