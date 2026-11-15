@@ -425,7 +425,34 @@ impl Shell {
         // or the channel up.
         let online = syncing || live_editing || channel == ChannelStatus::Live;
         let badge: Option<AnyElement> = if linked && online {
-            Some(dot(palette.success).into_any_element())
+            // Coming online sends one ripple out of the green dot
+            // (`overleaf-dot-ripple`): a 1.5px ring in the success hue at
+            // 90%, swelling to 2.6× as it fades, on the flourish tier. The
+            // dot is the same element while it stays online, so the ripple
+            // runs once per coming online; none under reduced motion.
+            // The ring is the shadow spread round the dot's 4px padding box,
+            // scaled about its centre: 7px across with a 1.5px edge at rest.
+            let ripple = (!cx.reduce_motion()).then(|| {
+                div()
+                    .absolute()
+                    .rounded(RADIUS_PILL)
+                    .border_color(palette.success)
+                    .with_animation(
+                        "overleaf-channel-ripple",
+                        Motion::Flourish.animation(),
+                        |ring, t| {
+                            let scale = 1. + 1.6 * t;
+                            let across = 7. * scale;
+                            let at = (4. - across) / 2.;
+                            ring.size(px(across))
+                                .left(px(at))
+                                .top(px(at))
+                                .border(px(1.5 * scale))
+                                .opacity(0.9 * (1. - t))
+                        },
+                    )
+            });
+            Some(dot(palette.success).children(ripple).into_any_element())
         } else if linked && pending {
             Some(dot(palette.accent).into_any_element())
         } else if linked && channel == ChannelStatus::Connecting {
@@ -484,6 +511,9 @@ impl Shell {
                 shell.open_overleaf_picker(window, cx)
             }
         }));
+        if linked {
+            primary = primary.animated(lattice_ui::animated_icon::ProductIcon::CloudUploadOutline);
+        }
         let key = if syncing {
             "syncing"
         } else if linked {
@@ -502,10 +532,16 @@ impl Shell {
         let swapped: Option<AnyElement> = if syncing {
             Some(infinity_loader("overleaf-syncing", px(14.), &palette).into_any_element())
         } else if linked {
+            // The linked cloud's arrow dips when the button is hovered or
+            // focused (`provided-icons.tsx`).
             Some(
-                Icon::CLOUD_UPLOAD
-                    .element(px(14.), palette.accent)
-                    .into_any_element(),
+                lattice_ui::animated_icon::AnimatedProductIcon::new(
+                    lattice_ui::animated_icon::button_icon_id("overleaf"),
+                    lattice_ui::animated_icon::ProductIcon::CloudUploadOutline,
+                    px(14.),
+                    palette.accent,
+                )
+                .into_any_element(),
             )
         } else {
             None

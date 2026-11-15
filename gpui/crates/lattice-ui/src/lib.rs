@@ -18,6 +18,7 @@
 #![recursion_limit = "512"]
 
 pub mod accent_fit;
+pub mod animated_icon;
 pub mod attention;
 pub mod components;
 pub mod dock;
