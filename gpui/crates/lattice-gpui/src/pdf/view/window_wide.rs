@@ -18,6 +18,7 @@ impl PdfView {
             || self.citation_active()
             || self.compound_active()
             || self.note_card().is_some()
+            || self.offer_shown()
     }
 
     /// The window's presses, releases and moves, taken before any element
@@ -109,6 +110,10 @@ impl PdfView {
         // One on the pages is a click the pages decide on (`click_note`).
         if !self.viewport.contains(&event.position) && !self.on_note_card(event.position) {
             self.close_note_card(cx);
+        }
+        // Work anywhere else ends Annotate: a press in the source, a build.
+        if !self.viewport.contains(&event.position) {
+            self.dismiss_offer(cx);
         }
     }
 

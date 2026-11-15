@@ -3,22 +3,22 @@
 //! chips, and Save (⌘↵), pinned beside the passage as the editor scrolls and
 //! kept on the side it opened on. Esc or a click outside closes it.
 
+use std::rc::Rc;
+
 use gpui::{
     AnyElement, Context, InteractiveElement as _, IntoElement, KeyDownEvent, ParentElement as _,
-    StatefulInteractiveElement as _, Styled as _, Window, canvas, div, prelude::FluentBuilder as _,
-    px,
+    StatefulInteractiveElement as _, Styled as _, Window, canvas, div, px,
 };
 use language::ToOffset as _;
-use lattice_i18n::t;
 use lattice_ui::{
-    ActiveLattice as _, Elevation, TextRole, TextRoleStyle as _,
-    components::{Button, ButtonSize, ButtonVariant, PopFrom, Textarea, pop_in},
-    tokens::{RADIUS_CONTROL, RADIUS_SURFACE, SPACING_3, SPACING_4, SPACING_5},
+    ActiveLattice as _, Elevation,
+    components::{PopFrom, pop_in},
+    tokens::{RADIUS_SURFACE, SPACING_5},
 };
 
 use super::Draft;
 use crate::{
-    annotations::{colors, model::Intent},
+    annotations::form,
     editor_panel::EditorPanel,
 };
 
@@ -168,123 +168,26 @@ impl EditorPanel {
 
     /// The note itself (`AnnotationForm`).
     fn composer_body(&self, draft: &Draft, cx: &mut Context<Self>) -> AnyElement {
-        let palette = cx.palette().clone();
-        let body = draft.field.read(cx).value().to_string();
-        let saveable = !body.trim().is_empty() || draft.intent.is_some();
         let name = std::path::Path::new(&self.relative)
             .file_name()
             .map(|name| name.to_string_lossy().into_owned())
             .unwrap_or_default();
-        let quote_text = draft.quote.trim();
-        let quote = div()
-            .flex()
-            .items_start()
-            .gap(SPACING_4)
-            .min_w_0()
-            .py(SPACING_3)
-            .px(SPACING_4)
-            .rounded(RADIUS_CONTROL)
-            .bg(palette.annotation_highlight)
-            .border_l_2()
-            .border_color(palette.annotation)
-            .child(
-                div()
-                    .flex_1()
-                    .min_w_0()
-                    .line_clamp(2)
-                    .italic()
-                    .font_family(cx.lattice().fonts.ui.clone())
-                    .text_size(px(13.))
-                    .line_height(px(16.))
-                    .text_color(palette.text)
-                    .child(if quote_text.is_empty() {
-                        t!("(empty span)").to_string()
-                    } else {
-                        quote_text.to_string()
-                    }),
-            )
-            .child(
-                div()
-                    .flex_none()
-                    .max_w(gpui::relative(0.55))
-                    .overflow_hidden()
-                    .text_ellipsis()
-                    .whitespace_nowrap()
-                    .text_role(TextRole::Caption, cx)
-                    .text_color(palette.text_secondary)
-                    .font_features(lattice_ui::typography::tabular_nums())
-                    .child(format!("{name}:{}", draft.line)),
-            );
-        let chips = div().flex().flex_wrap().gap(px(4.)).min_w_0().children(
-            Intent::ALL.iter().enumerate().map(|(index, intent)| {
-                let intent = *intent;
-                let pressed = draft.intent == Some(intent);
-                div()
-                    .id(("annotation-intent", index))
-                    .h(px(24.))
-                    .px(SPACING_4)
-                    .flex()
-                    .items_center()
-                    .rounded_full()
-                    .border_1()
-                    .text_role(TextRole::Caption, cx)
-                    .whitespace_nowrap()
-                    .cursor_pointer()
-                    .when(pressed, |this| {
-                        this.bg(palette.annotation_highlight)
-                            .border_color(colors::highlight_edge(&palette))
-                            .text_color(palette.text)
-                    })
-                    .when(!pressed, |this| {
-                        this.border_color(palette.line)
-                            .text_color(palette.text_secondary)
-                            .hover(|this| this.bg(palette.hover).text_color(palette.text))
-                    })
-                    .child(intent.label())
-                    .on_click(cx.listener(move |this, _, _, cx| {
-                        if let Some(draft) = &mut this.annotations.draft {
-                            draft.intent = (draft.intent != Some(intent)).then_some(intent);
-                        }
-                        cx.notify();
-                    }))
+        form::note_form(
+            form::NoteForm {
+                quote: &draft.quote,
+                location: format!("{name}:{}", draft.line).into(),
+                field: &draft.field,
+                intent: draft.intent,
+                error: draft.error.clone(),
+                ready: true,
+            },
+            Rc::new(|this: &mut Self, intent, _| {
+                if let Some(draft) = &mut this.annotations.draft {
+                    draft.intent = intent;
+                }
             }),
-        );
-        let save_keys = if cfg!(target_os = "macos") {
-            "⌘↵"
-        } else {
-            "Ctrl+Enter"
-        };
-        let actions = div().flex().flex_wrap().items_center().gap(px(4.)).child(
-            Button::new("annotation-save", t!("Save"))
-                .variant(ButtonVariant::Tinted)
-                .size(ButtonSize::Compact)
-                .keys(save_keys)
-                .disabled(!saveable)
-                .on_click(cx.listener(|this, _, window, cx| this.save_draft(window, cx))),
+            Rc::new(|this: &mut Self, revise, window, cx| this.save_note(revise, window, cx)),
+            cx,
         )
-        .child(
-            Button::new("annotation-save-revise", t!("Save and revise now"))
-                .variant(ButtonVariant::Ghost)
-                .size(ButtonSize::Compact)
-                .keys(if cfg!(target_os = "macos") { "⇧⌘↵" } else { "Ctrl+Shift+Enter" })
-                .disabled(!saveable)
-                .on_click(cx.listener(|this, _, window, cx| this.save_note(true, window, cx))),
-        );
-        div()
-            .flex()
-            .flex_col()
-            .gap(SPACING_4)
-            .min_w_0()
-            .child(quote)
-            .child(Textarea::new(&draft.field).grows())
-            .child(chips)
-            .children(draft.error.clone().map(|error| {
-                div()
-                    .text_role(TextRole::Caption, cx)
-                    .text_color(palette.danger)
-                    .child(error)
-            }))
-            .child(actions)
-            .into_any_element()
     }
 }

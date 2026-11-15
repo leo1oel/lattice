@@ -63,7 +63,7 @@ pub(crate) use annotations::retain_open_annotation_saves;
 pub use annotations::{
     discard_annotation_round, read_annotation_round, read_annotations, save_annotation_round,
     write_annotations, AnnotationRevision, AnnotationRound, Annotations, EditorComment,
-    EditorCommentReply,
+    EditorCommentReply, PdfAnchor, PdfRect,
 };
 pub use archive::{export_project_zip, import_project_zip};
 pub(crate) use archive::{safe_zip_entry_name, zip_entry_display_name, zip_time};

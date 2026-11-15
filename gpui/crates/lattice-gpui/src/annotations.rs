@@ -16,6 +16,7 @@
 
 pub mod card;
 pub mod colors;
+pub mod form;
 pub mod model;
 pub mod panel;
 pub mod rounds;

@@ -41,12 +41,16 @@ use crate::{
 const PIN_GAP: f32 = 4.;
 
 /// What the host tells the PDF of the project's notes: the project, the
-/// root document whose PDF this is (`None`: the compiled one), and the notes.
+/// root document whose PDF this is (`None`: the compiled one), the notes,
+/// and whether new ones are made here.
 #[derive(Clone)]
 pub struct PdfNotes {
     pub root: PathBuf,
     pub document: Option<String>,
     pub notes: Arc<Vec<EditorComment>>,
+    /// Whether text selected here may be annotated: the notes are local
+    /// annotations (a project linked to Overleaf comments there instead).
+    pub annotatable: bool,
 }
 
 /// Whether the PDF draws `note`: open and numbered, made on the PDF or in a
@@ -146,6 +150,11 @@ impl MarkReader for Reader {
 }
 
 impl PdfView {
+    /// The project's notes, as the host last told them.
+    pub(in crate::pdf) fn notes_source(&self) -> Option<&PdfNotes> {
+        self.notes.source.as_ref()
+    }
+
     /// Tell the viewer the project's notes; `None` draws none.
     pub fn set_notes(&mut self, source: Option<PdfNotes>, cx: &mut Context<Self>) {
         let marks = &mut self.notes;
@@ -182,6 +191,7 @@ impl PdfView {
         {
             marks.places.clear();
         }
+        self.end_annotating();
         cx.notify();
     }
 
