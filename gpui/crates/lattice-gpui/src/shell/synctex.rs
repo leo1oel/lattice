@@ -120,14 +120,40 @@ impl Shell {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        let generation = self.next_inverse();
+        self.inverse_sync_as(generation, document, page, x, y, word, window, cx);
+    }
+
+    /// Only the newest double-click lands: an older answer arriving late
+    /// would take the caret from where the newer one put it. Each takes
+    /// its number as it happens.
+    pub(super) fn next_inverse(&mut self) -> u64 {
+        let sync = self.parts.get_mut::<PdfSync>();
+        sync.inverse += 1;
+        sync.inverse
+    }
+
+    /// Whether `generation` is still the newest double-click.
+    pub(super) fn newest_inverse(&self, generation: u64) -> bool {
+        self.parts.get::<PdfSync>().inverse == generation
+    }
+
+    /// The jump of double-click `generation`.
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn inverse_sync_as(
+        &mut self,
+        generation: u64,
+        document: Option<String>,
+        page: u32,
+        x: f64,
+        y: f64,
+        word: Option<SyncTexWord>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let Some(root) = self.root(cx) else {
             return;
         };
-        // Only the newest double-click lands: an older answer arriving
-        // late would take the caret from where the newer one put it.
-        let sync = self.parts.get_mut::<PdfSync>();
-        sync.inverse += 1;
-        let generation = sync.inverse;
         let lookup = cx.background_spawn({
             let root = root.clone();
             async move { latex::inverse_search_in(&root, page, x, y, document.as_deref()) }
@@ -137,7 +163,7 @@ impl Shell {
             this.update_in(cx, |this, window, cx| {
                 // The answer names a path in the project the click was in.
                 if this.root(cx).as_deref() != Some(root.as_path())
-                    || this.parts.get::<PdfSync>().inverse != generation
+                    || !this.newest_inverse(generation)
                 {
                     return;
                 }

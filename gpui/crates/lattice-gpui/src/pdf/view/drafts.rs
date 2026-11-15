@@ -110,15 +110,7 @@ impl PdfView {
             window.focus(&self.focus_handle, cx);
             return;
         }
-        let field = if zoom {
-            &mut self.zoom_field
-        } else {
-            &mut self.page_field
-        };
-        field.editing = false;
-        if zoom {
-            self.zoom_entry = false;
-        }
+        self.page_field.editing = false;
         window.focus(&self.focus_handle, cx);
         cx.notify();
     }

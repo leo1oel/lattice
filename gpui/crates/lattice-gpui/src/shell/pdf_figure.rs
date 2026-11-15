@@ -73,6 +73,7 @@ impl Shell {
         let Some(root) = self.root(cx) else {
             return;
         };
+        let generation = self.next_inverse();
         let lookup = cx.background_spawn({
             let root = root.clone();
             let document = document.clone();
@@ -90,12 +91,16 @@ impl Shell {
         cx.spawn_in(window, async move |this, cx| {
             let source = lookup.await;
             this.update_in(cx, |this, window, cx| {
-                if this.root(cx).as_deref() != Some(root.as_path()) {
+                if this.root(cx).as_deref() != Some(root.as_path())
+                    || !this.newest_inverse(generation)
+                {
                     return;
                 }
                 match source {
                     Some(source) => open_figure_source(&root, source, false, cx),
-                    None => this.inverse_sync(document, page, x, y, word, window, cx),
+                    None => {
+                        this.inverse_sync_as(generation, document, page, x, y, word, window, cx)
+                    }
                 }
             })
             .ok();
