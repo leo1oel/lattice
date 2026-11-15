@@ -12,5 +12,5 @@ Each open editor underlines the whole line of each of the build's diagnostics wh
 
 ## In the e2e scenario
 
-The `watched_builds` module (`scenario/e2e/watched_builds.rs`): a write to a file no editor has open building once the writes pause, a file only a build writes starting no build, and the card's docked or floating choice kept in the settings.
+The `watched_builds` module (`scenario/e2e/watched_builds.rs`): a write to a file no editor has open building once the writes pause, a burst of such writes building once after the last of them, an outside edit of an open file waiting for the pause too, a file only a build writes starting no build (nor, open in an editor, making the PDF older when it reloads), and the card's docked or floating choice kept in the settings.
 The `build_marks` module (`scenario/e2e/build_marks.rs`): the broken build's error underlined in the editor whose text it compiled, gone on an edit and back on its undo.

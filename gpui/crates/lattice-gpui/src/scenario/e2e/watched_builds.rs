@@ -58,6 +58,87 @@ impl Run {
             self.built_after(cx, before).await;
         }
 
+        // An Agent's run of tool calls: writes closer together than the
+        // pause build once, timed from the last of them.
+        let before = self.builds(cx);
+        for pass in 0..4 {
+            std::fs::write(&appendix, format!("% Agent pass {pass}.\n"))?;
+            self.pause(cx, Duration::from_millis(400)).await;
+        }
+        let started = self.build_starts(cx, before, Duration::from_secs(15)).await;
+        let built = self.built_after(cx, before).await;
+        let after_first = self.builds(cx);
+        let again = self.build_starts(cx, after_first, Duration::from_secs(4)).await;
+        steps.check(
+            "a burst of outside writes builds once, after the last of them pauses",
+            built
+                && after_first == before + 1
+                && again.is_none()
+                // The loop's last pause already counts 400 ms of the wait.
+                && started.is_some_and(|after| after + Duration::from_millis(400) >= watched::IDLE - Duration::from_millis(300)),
+            json!({
+                "builds": after_first - before,
+                "started_after_last_write_ms": started.map(|after| (after + Duration::from_millis(400)).as_millis()),
+                "another_started_ms": again.map(|after| after.as_millis()),
+            }),
+        );
+
+        // An outside edit of a file open in an editor reloads it and waits
+        // for the pause too.
+        let editor = self.open(cx, &appendix, None)?;
+        self.pause(cx, Duration::from_millis(600)).await;
+        let before = self.builds(cx);
+        std::fs::write(&appendix, "% Rewritten while open.\n")?;
+        let started = self.build_starts(cx, before, Duration::from_secs(15)).await;
+        let built = self.built_after(cx, before).await;
+        steps.check(
+            "an outside edit of an open file builds once the writes pause, not at once",
+            built && started.is_some_and(|after| after >= watched::IDLE - Duration::from_millis(300)),
+            json!({ "started_after_ms": started.map(|after| after.as_millis()) }),
+        );
+        self.close_tab(cx, editor)?;
+
+        // A build output open in an editor (a log the writer inspects):
+        // its reload neither builds nor makes the PDF older.
+        let output = root.join("notes.log");
+        std::fs::write(&output, "This is pdfTeX, first run\n")?;
+        let editor = self.open(cx, &output, None)?;
+        self.pause(cx, Duration::from_millis(2_500)).await;
+        let revision = |cx: &mut AsyncApp| {
+            cx.update(|cx| {
+                self.shell
+                    .read(cx)
+                    .project()
+                    .map(|project| project.read(cx).input_revision())
+            })
+        };
+        let before = self.builds(cx);
+        let revision_before = revision(cx);
+        std::fs::write(&output, "This is pdfTeX, second run\n")?;
+        let reloaded = self
+            .wait_for(cx, Duration::from_secs(5), |_, cx| {
+                editor.read(cx).editor().read(cx).text(cx).contains("second run")
+            })
+            .await;
+        let started = self.build_starts(cx, before, Duration::from_secs(4)).await;
+        let revision_after = revision(cx);
+        steps.check(
+            "a build output open in an editor reloads without building or aging the PDF",
+            reloaded && started.is_none() && revision_before == revision_after,
+            json!({
+                "reloaded": reloaded,
+                "started_after_ms": started.map(|after| after.as_millis()),
+                "revision": [revision_before, revision_after],
+            }),
+        );
+        self.close_tab(cx, editor)?;
+        std::fs::remove_file(&output).ok();
+        let before = self.builds(cx);
+        std::fs::remove_file(&appendix).ok();
+        if self.build_starts(cx, before, Duration::from_secs(10)).await.is_some() {
+            self.built_after(cx, before).await;
+        }
+
         let docked = cx.update(|cx| {
             let panel = self.shell.read(cx).build_panel().clone();
             let was = panel.read(cx).docked();
