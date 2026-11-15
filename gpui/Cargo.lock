@@ -8236,6 +8236,7 @@ dependencies = [
  "codebook-tree-sitter-latex",
  "editor",
  "futures",
+ "fuzzy",
  "gpui",
  "gpui-kit",
  "language",

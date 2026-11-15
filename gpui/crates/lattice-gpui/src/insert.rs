@@ -4,6 +4,7 @@
 //! (`table_dialog`). The window wires them to the editor in front
 //! (`shell/insert_flow.rs`).
 
+pub mod editable_figure;
 pub mod figure;
 pub mod figure_dialog;
 pub mod table;

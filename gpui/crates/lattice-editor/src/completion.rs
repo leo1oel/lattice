@@ -13,12 +13,28 @@
 //! filtering and sorting off and asks again on every keystroke. A picked
 //! option replaces its range with `insert` and puts the caret `caret` bytes
 //! into it, as a CodeMirror template puts it in the first empty `{}`.
+//!
+//! A source that has to ask elsewhere (TexLab) answers later: its list
+//! joins the others', after them, without the options an earlier source
+//! already offered. As CodeMirror's `updateSyncTime`, the menu waits for it
+//! [`SYNC_TIME`] at most and then shows what it has; an answer that comes
+//! after that and offers something new opens the menu again where it was
+//! asked, if nothing was typed, the menu was not dismissed and its first
+//! row is still the one selected meanwhile, so the row the writer moved to
+//! stays selected as CodeMirror keeps it.
 
-use std::{cell::RefCell, ops::Range, rc::Rc, sync::Arc};
+use std::{
+    cell::{Cell, RefCell},
+    ops::Range,
+    rc::Rc,
+    sync::Arc,
+    time::Duration,
+};
 
 use anyhow::Result;
-use editor::{CompletionProvider, Editor, SelectionEffects};
-use gpui::{App, Context, Entity, SharedString, Task, Window};
+use editor::{CompletionProvider, Editor, SelectionEffects, ToPoint as _};
+use futures::future::{Either, join_all, select};
+use gpui::{App, Context, Entity, SharedString, Task, WeakEntity, Window};
 use language::{Buffer, BufferSnapshot, CodeLabel, ToOffset as _};
 use project::{
     Completion, CompletionDisplayOptions, CompletionResponse, CompletionSource as ZedSource,
@@ -52,6 +68,8 @@ pub enum CompletionKind {
     Citation,
     Label,
     Package,
+    /// A project file (an `\input`'s or a figure's path).
+    File,
 }
 
 /// One option.
@@ -83,12 +101,41 @@ pub trait CompletionSource {
     /// The options for the caret in `query`, if the caret is in this
     /// source's kind of slot.
     fn complete(&self, query: &CompletionQuery, cx: &App) -> Option<CompletionList>;
+
+    /// Whether this source would answer later for the caret in `query`
+    /// (the typed character opens the menu then).
+    fn asks_later(&self, _query: &CompletionQuery, _cx: &App) -> bool {
+        false
+    }
+
+    /// The options it answers later with, when it [`asks_later`](Self::asks_later).
+    fn complete_later(
+        &self,
+        _query: &CompletionQuery,
+        _cx: &App,
+    ) -> Option<Task<Option<CompletionList>>> {
+        None
+    }
 }
 
 pub(crate) type Sources = Rc<RefCell<Vec<Rc<dyn CompletionSource>>>>;
 
 /// The labels the menu was last given, in order.
 pub(crate) type Offered = Rc<RefCell<Vec<SharedString>>>;
+
+/// How long the menu waits for the sources that answer later
+/// (CodeMirror's default `updateSyncTime`).
+pub const SYNC_TIME: Duration = Duration::from_millis(100);
+
+/// The answers that came after [`SYNC_TIME`], for the text and caret they
+/// were asked at.
+pub(crate) struct LateAnswers {
+    snapshot: BufferSnapshot,
+    offset: usize,
+    lists: Vec<CompletionList>,
+}
+
+pub(crate) type Late = Rc<RefCell<Option<LateAnswers>>>;
 
 /// The text before `offset`, at most [`TEXT_BEFORE`] bytes, starting on a
 /// character boundary.
@@ -98,24 +145,77 @@ pub(crate) fn text_before(text: &BufferSnapshot, offset: usize) -> String {
     text.text_for_range(start..offset).collect()
 }
 
-/// Every source's options at `offset`, in source order.
+/// Every source's options at `offset`, in source order, and, when
+/// `ask_later`, the answers still to come.
 pub(crate) fn collect(
     sources: &[Rc<dyn CompletionSource>],
     text: &BufferSnapshot,
     offset: usize,
+    ask_later: bool,
     cx: &App,
-) -> Vec<CompletionList> {
+) -> (Vec<CompletionList>, Vec<Task<Option<CompletionList>>>) {
     let before = text_before(text, offset);
     let query = CompletionQuery {
         text,
         offset,
         before: &before,
     };
-    sources
+    let lists = sources
         .iter()
         .filter_map(|source| source.complete(&query, cx))
         .filter(|list| !list.items.is_empty())
-        .collect()
+        .collect();
+    let later = sources
+        .iter()
+        .filter(|_| ask_later)
+        .filter_map(|source| source.complete_later(&query, cx))
+        .collect();
+    (lists, later)
+}
+
+/// Whether any source has options at `offset`, or would answer later.
+fn any_options(
+    sources: &[Rc<dyn CompletionSource>],
+    text: &BufferSnapshot,
+    offset: usize,
+    cx: &App,
+) -> bool {
+    let before = text_before(text, offset);
+    let query = CompletionQuery {
+        text,
+        offset,
+        before: &before,
+    };
+    sources.iter().any(|source| {
+        source.asks_later(&query, cx)
+            || source
+                .complete(&query, cx)
+                .is_some_and(|list| !list.items.is_empty())
+    })
+}
+
+/// `lists` with each of `later` joined after them.
+fn join_later(lists: &mut Vec<CompletionList>, later: impl IntoIterator<Item = CompletionList>) {
+    for list in later {
+        if let Some(list) = without_offered(lists, list) {
+            lists.push(list);
+        }
+    }
+}
+
+/// `later`'s options without those `earlier` lists offer already.
+pub(crate) fn without_offered(
+    earlier: &[CompletionList],
+    mut later: CompletionList,
+) -> Option<CompletionList> {
+    let offered: std::collections::HashSet<&str> = earlier
+        .iter()
+        .flat_map(|list| list.items.iter().map(|item| item.insert.as_str()))
+        .collect();
+    later
+        .items
+        .retain(|item| !offered.contains(item.insert.as_str()));
+    (!later.items.is_empty()).then_some(later)
 }
 
 /// The adapter's `editor::CompletionProvider`: the sources, in order.
@@ -123,60 +223,105 @@ pub(crate) struct Provider {
     pub sources: Sources,
     pub editor: gpui::WeakEntity<Editor>,
     pub offered: Offered,
+    pub late: Late,
+    /// The menu row selected, from its top.
+    pub selected: Rc<Cell<usize>>,
 }
 
 impl Provider {
-    fn icon(kind: CompletionKind) -> Option<SharedString> {
-        match kind {
-            // The book the Tauri app draws beside a citation (`citationIcon`).
-            CompletionKind::Citation => Some("icons/book-open.svg".into()),
-            _ => None,
-        }
-    }
-
-    fn completion(
+    fn respond(
         &self,
-        item: CompletionItem,
-        range: Range<language::Anchor>,
-        start: language::Anchor,
+        lists: Vec<CompletionList>,
+        snapshot: &BufferSnapshot,
         buffer: &Entity<Buffer>,
-    ) -> Completion {
-        let label = CodeLabel::plain(item.label.to_string(), None);
-        let caret = item.caret.filter(|caret| *caret < item.insert.len());
-        let reopen = item.reopen;
-        let confirm = (caret.is_some() || reopen).then(|| {
-            let editor = self.editor.clone();
-            let buffer = buffer.downgrade();
-            let caret = caret.unwrap_or(item.insert.len());
-            Arc::new(move |_, window: &mut Window, cx: &mut App| {
-                place_caret(
-                    editor.clone(),
-                    buffer.clone(),
-                    start,
-                    caret,
-                    reopen,
-                    window,
-                    cx,
-                );
-                false
-            }) as Arc<dyn Send + Sync + Fn(_, &mut Window, &mut App) -> bool>
-        });
-        Completion {
-            replace_range: range,
-            new_text: item.insert,
-            label,
-            documentation: item
-                .detail
-                .map(project::lsp_store::CompletionDocumentation::SingleLine),
-            source: ZedSource::Custom,
-            icon_path: Self::icon(item.kind),
-            icon_color: None,
-            match_start: None,
-            snippet_deduplication_key: None,
-            insert_text_mode: None,
-            confirm,
-            group: None,
-        }
+    ) -> Vec<CompletionResponse> {
+        respond(&self.editor, &self.offered, lists, snapshot, buffer)
+    }
+}
+
+/// The menu's response for `lists`, remembered as what was offered.
+fn respond(
+    editor: &WeakEntity<Editor>,
+    offered: &Offered,
+    lists: Vec<CompletionList>,
+    snapshot: &BufferSnapshot,
+    buffer: &Entity<Buffer>,
+) -> Vec<CompletionResponse> {
+    *offered.borrow_mut() = lists
+        .iter()
+        .flat_map(|list| list.items.iter().map(|item| item.label.clone()))
+        .collect();
+    let completions: Vec<Completion> = lists
+        .into_iter()
+        .flat_map(|list| {
+            let start = snapshot.anchor_before(list.range.start);
+            let range = start..snapshot.anchor_after(list.range.end.max(list.range.start));
+            list.items
+                .into_iter()
+                .map(|item| completion(editor, item, range.clone(), start, buffer))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    vec![CompletionResponse {
+        completions,
+        display_options: CompletionDisplayOptions {
+            dynamic_width: true,
+        },
+        // Sources filter by themselves, on every keystroke.
+        is_incomplete: true,
+    }]
+}
+
+fn icon(kind: CompletionKind) -> Option<SharedString> {
+    match kind {
+        // The book the Tauri app draws beside a citation (`citationIcon`).
+        CompletionKind::Citation => Some("icons/book-open.svg".into()),
+        _ => None,
+    }
+}
+
+fn completion(
+    editor: &WeakEntity<Editor>,
+    item: CompletionItem,
+    range: Range<language::Anchor>,
+    start: language::Anchor,
+    buffer: &Entity<Buffer>,
+) -> Completion {
+    let label = CodeLabel::plain(item.label.to_string(), None);
+    let caret = item.caret.filter(|caret| *caret < item.insert.len());
+    let reopen = item.reopen;
+    let confirm = (caret.is_some() || reopen).then(|| {
+        let editor = editor.clone();
+        let buffer = buffer.downgrade();
+        let caret = caret.unwrap_or(item.insert.len());
+        Arc::new(move |_, window: &mut Window, cx: &mut App| {
+            place_caret(
+                editor.clone(),
+                buffer.clone(),
+                start,
+                caret,
+                reopen,
+                window,
+                cx,
+            );
+            false
+        }) as Arc<dyn Send + Sync + Fn(_, &mut Window, &mut App) -> bool>
+    });
+    Completion {
+        replace_range: range,
+        new_text: item.insert,
+        label,
+        documentation: item
+            .detail
+            .map(project::lsp_store::CompletionDocumentation::SingleLine),
+        source: ZedSource::Custom,
+        icon_path: icon(item.kind),
+        icon_color: None,
+        match_start: None,
+        snippet_deduplication_key: None,
+        insert_text_mode: None,
+        confirm,
+        group: None,
     }
 }
 
@@ -216,36 +361,83 @@ impl CompletionProvider for Provider {
         buffer: &Entity<Buffer>,
         buffer_position: language::Anchor,
         _trigger: editor::CompletionContext,
-        _window: &mut Window,
+        window: &mut Window,
         cx: &mut Context<Editor>,
     ) -> Task<Result<Vec<CompletionResponse>>> {
         let snapshot = buffer.read(cx).snapshot();
         let offset = buffer_position.to_offset(&snapshot);
         let sources = self.sources.borrow().clone();
-        let lists = collect(&sources, &snapshot, offset, cx);
-        *self.offered.borrow_mut() = lists
-            .iter()
-            .flat_map(|list| list.items.iter().map(|item| item.label.clone()))
-            .collect();
-        let completions: Vec<Completion> = lists
-            .into_iter()
-            .flat_map(|list| {
-                let start = snapshot.anchor_before(list.range.start);
-                let range = start..snapshot.anchor_after(list.range.end.max(list.range.start));
-                list.items
-                    .into_iter()
-                    .map(|item| self.completion(item, range.clone(), start, buffer))
-                    .collect::<Vec<_>>()
-            })
-            .collect();
-        Task::ready(Ok(vec![CompletionResponse {
-            completions,
-            display_options: CompletionDisplayOptions {
-                dynamic_width: true,
-            },
-            // Sources filter by themselves, on every keystroke.
-            is_incomplete: true,
-        }]))
+        let late = self.late.borrow().as_ref().and_then(|late| {
+            (late.offset == offset
+                && late.snapshot.remote_id() == snapshot.remote_id()
+                && late.snapshot.version() == snapshot.version())
+            .then(|| late.lists.clone())
+        });
+        let (mut lists, later) = collect(&sources, &snapshot, offset, late.is_none(), cx);
+        if let Some(late) = late {
+            join_later(&mut lists, late);
+        }
+        if later.is_empty() {
+            return Task::ready(Ok(self.respond(lists, &snapshot, buffer)));
+        }
+        let (editor, offered, late, selected, buffer) = (
+            self.editor.clone(),
+            self.offered.clone(),
+            self.late.clone(),
+            self.selected.clone(),
+            buffer.clone(),
+        );
+        let timer = cx.background_executor().timer(SYNC_TIME);
+        cx.spawn_in(window, async move |_, cx| {
+            match select(Box::pin(join_all(later)), timer).await {
+                Either::Left((answers, _)) => join_later(&mut lists, answers.into_iter().flatten()),
+                Either::Right(((), answers)) => {
+                    let (editor, snapshot, buffer, mut joined) = (
+                        editor.clone(),
+                        snapshot.clone(),
+                        buffer.clone(),
+                        lists.clone(),
+                    );
+                    cx.spawn(async move |cx| {
+                        let shown = joined.len();
+                        join_later(&mut joined, answers.await.into_iter().flatten());
+                        if joined.len() == shown {
+                            return;
+                        }
+                        let lists = joined.split_off(shown);
+                        editor
+                            .update_in(cx, |editor, window, cx| {
+                                let caret = editor
+                                    .selections
+                                    .newest_anchor()
+                                    .head()
+                                    .to_point(&editor.buffer().read(cx).snapshot(cx));
+                                let unchanged = buffer.read(cx).version() == *snapshot.version()
+                                    && caret == snapshot.offset_to_point(offset);
+                                let kept = shown == 0
+                                    || (editor.has_visible_completions_menu()
+                                        && selected.get() == 0);
+                                if !unchanged || !kept {
+                                    return;
+                                }
+                                *late.borrow_mut() = Some(LateAnswers {
+                                    snapshot,
+                                    offset,
+                                    lists,
+                                });
+                                editor.show_completions(
+                                    &editor::actions::ShowCompletions,
+                                    window,
+                                    cx,
+                                );
+                            })
+                            .ok();
+                    })
+                    .detach();
+                }
+            }
+            Ok(respond(&editor, &offered, lists, &snapshot, &buffer))
+        })
     }
 
     fn is_completion_trigger(
@@ -259,7 +451,17 @@ impl CompletionProvider for Provider {
         let snapshot = buffer.read(cx).snapshot();
         let offset = position.to_offset(&snapshot);
         let sources = self.sources.borrow().clone();
-        !collect(&sources, &snapshot, offset, cx).is_empty()
+        any_options(&sources, &snapshot, offset, cx)
+    }
+
+    fn selection_changed(
+        &self,
+        selected: Option<&fuzzy::StringMatch>,
+        _window: &mut Window,
+        _cx: &mut App,
+    ) {
+        self.selected
+            .set(selected.map_or(0, |selected| selected.candidate_id));
     }
 
     fn filter_completions(&self) -> bool {

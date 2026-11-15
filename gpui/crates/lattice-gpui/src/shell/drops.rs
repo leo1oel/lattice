@@ -143,11 +143,12 @@ pub(crate) enum DropSurface {
     Tree(String),
     /// A source editor: whether it takes figures into its text (a LaTeX or
     /// Markdown file), and the start of the line under the pointer, where
-    /// they go.
+    /// they go; and the window point it was dropped at.
     Editor {
         editor: gpui::WeakEntity<crate::editor_panel::EditorPanel>,
         inserts: bool,
         at: Option<usize>,
+        point: gpui::Point<gpui::Pixels>,
     },
     /// Any other document's surface: a PDF, an image, a board, an empty slot.
     Canvas,
@@ -201,6 +202,16 @@ impl Shell {
         if paths.is_empty() || self.project.is_none() {
             return;
         }
+        // One drawing on a LaTeX source becomes an editable figure there
+        // (`drawing_drop.rs`), a `.drawio` too, which no other path takes.
+        if let DropSurface::Editor { editor, point, .. } = &surface
+            && let Some(panel) = editor.upgrade()
+            && super::drawing_drop::takes_drawing(&paths, panel.read(cx))
+        {
+            let drawing = paths[0].clone();
+            self.drop_drawing(drawing, editor.clone(), *point, window, cx);
+            return;
+        }
         let kind = classify(&paths);
         let sources: Vec<String> = paths
             .iter()
@@ -231,6 +242,7 @@ impl Shell {
                 editor,
                 inserts: true,
                 at,
+                ..
             } => {
                 self.active_editor = Some(editor);
                 self.import_figures(sources, window, cx, move |this, paths, window, cx| {

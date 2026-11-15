@@ -54,7 +54,9 @@ mod hidden_chips;
 mod panels_menu;
 mod project_group;
 mod project_menu;
+mod workspace_rename;
 mod workspace_switch;
+pub(crate) mod workspace_track;
 
 use fit::{GROUP_GAP, PANELS_START, Search, Switch, TOOLS_LEAD, plan, switcher_max, widths};
 use panels_menu::panels_menu;

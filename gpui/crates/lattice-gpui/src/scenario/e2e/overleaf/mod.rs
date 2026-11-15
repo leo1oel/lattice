@@ -219,6 +219,24 @@ impl Run {
             json!({}),
         );
 
+        // A linked project's PDF notes are Overleaf comments, which GPUI
+        // does not make yet, so its PDF offers no Annotate. The link loads
+        // after the notes were first given (`bridge.set_project` reads it
+        // asynchronously), so this proves the bridge observer re-gives them;
+        // the unlinked fixture's window keeps offering it.
+        let withheld = linked
+            .wait_for(cx, Duration::from_secs(10), |shell, cx| {
+                shell.read(cx).pdf().read(cx).annotatable() == Some(false)
+            })
+            .await;
+        let linked_offer = cx.update(|cx| linked.shell.read(cx).pdf().read(cx).annotatable());
+        let unlinked_offer = cx.update(|cx| self.shell.read(cx).pdf().read(cx).annotatable());
+        steps.check(
+            "in a project linked to Overleaf the PDF offers no Annotate, while an unlinked project's still does",
+            withheld && unlinked_offer == Some(true),
+            json!({ "linked": linked_offer, "unlinked": unlinked_offer }),
+        );
+
         // Live mode pulls a co-author's edit on its own.
         // The pull is Lattice's own write, reported to this window's Agent
         // (`agent/host_writes.rs`), so an Agent Undo keeps the co-author's

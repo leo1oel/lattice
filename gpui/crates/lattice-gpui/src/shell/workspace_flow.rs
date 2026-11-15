@@ -46,6 +46,8 @@ pub(crate) struct LayoutState {
     pub dirty: bool,
     /// The workspace whose name is being edited in place.
     pub renaming: Option<String>,
+    /// The switch's track: its tabs' focus and bounds, a drag, a taken name.
+    pub track: crate::titlebar::workspace_track::TrackState,
     /// Where each document sat in each workspace, by workspace id.
     pub places: std::collections::BTreeMap<String, trellis_layout::DocumentPlaces>,
 }

@@ -7,7 +7,7 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] The Annotations panel's Export review PDF….
 
-- [ ] The PDF: annotating a selection (the Annotate offer and its composer), and a note's preview card on hover.
+- [ ] The PDF: a note's preview card on hover, and annotating a selection in a project linked to Overleaf (it becomes an Overleaf comment there).
 
 - [ ] The PDF: its comment column.
 
@@ -35,11 +35,7 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] Overleaf: a compile after a resolved conflict (the watcher's build stands in).
 
-- [ ] A Finder drop of a drawing (`.svg`, `.drawio`) onto the editor as an editable figure.
-
-- [ ] The workspace switch's sliding plate, drag to reorder and keyboard.
-
-- [ ] Export figures for a journal….
+- [ ] The workspace rename field's undo history surviving a keystroke past its 24 characters (the Kit input has no length limit that clips before an edit).
 
 - [ ] New project's My templates and Save a local template….
 

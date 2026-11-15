@@ -23,8 +23,9 @@ pub enum EditorPanelEvent {
     /// at the start of the line holding the offset, when it is known.
     InsertFigures(Vec<String>, Option<usize>),
     /// Files dropped from Finder (`shell/drops.rs`): figures go in at the
-    /// start of the line holding the offset.
-    DropFiles(Vec<std::path::PathBuf>, Option<usize>),
+    /// start of the line holding the offset; the window point it was
+    /// dropped at.
+    DropFiles(Vec<std::path::PathBuf>, Option<usize>, gpui::Point<gpui::Pixels>),
     /// The caret or the selection changed at all (Overleaf's remote caret
     /// and the Agent's host context follow).
     CaretMoved,
