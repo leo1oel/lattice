@@ -60,6 +60,18 @@ pub fn drawn_on_pdf(note: &EditorComment) -> bool {
 /// Each annotated source file's text, by path (`None` when unreadable).
 type BuiltSources = HashMap<String, Option<String>>;
 
+/// What a note's place depends on, besides the document: the note, its
+/// range and its quote.
+type PlaceKey = (String, u32, u32, String);
+
+/// Each note's place (`None`: it has none on the document), by what it was
+/// placed from.
+type PlaceCache = HashMap<PlaceKey, Option<MarkPlace>>;
+
+fn place_key(note: &EditorComment) -> PlaceKey {
+    (note.id.clone(), note.from, note.to, note.quote.clone())
+}
+
 #[derive(Default)]
 pub(in crate::pdf) struct NoteMarks {
     source: Option<PdfNotes>,
@@ -67,6 +79,9 @@ pub(in crate::pdf) struct NoteMarks {
     /// notes they were placed for.
     places: HashMap<String, MarkPlace>,
     placed_for: Option<(u64, usize)>,
+    /// The places found on a generation, so a new list of notes places only
+    /// the notes that changed.
+    cache: Option<(u64, Arc<PlaceCache>)>,
     /// Each annotated source file's text as the PDF arrived (what it was
     /// built from), by path, for the generation it was read for.
     built: Option<(u64, Arc<BuiltSources>)>,
@@ -146,14 +161,26 @@ impl PdfView {
             ),
             ..source
         });
+        let drawn = |id: &Option<String>| {
+            id.as_ref().is_some_and(|id| {
+                marks
+                    .source
+                    .as_ref()
+                    .is_some_and(|source| source.notes.iter().any(|note| &note.id == id))
+            })
+        };
+        if !drawn(&marks.hovered) {
+            marks.hovered = None;
+        }
+        if !drawn(&marks.card) {
+            marks.card = None;
+        }
         if marks
             .source
             .as_ref()
             .is_none_or(|source| source.notes.is_empty())
         {
             marks.places.clear();
-            marks.hovered = None;
-            marks.card = None;
         }
         cx.notify();
     }
@@ -180,30 +207,33 @@ impl PdfView {
         }
         self.notes.placed_for = Some(now);
         // The annotated files as this PDF arrived: what it was built from.
-        let built = match &self.notes.built {
+        // A file first annotated later is read when its first note comes.
+        let mut built = match &self.notes.built {
             Some((at, built)) if *at == generation => built.clone(),
-            _ => {
-                let mut built = HashMap::new();
-                for note in source.notes.iter().filter(|note| note.pdf.is_none()) {
-                    built.entry(note.path.clone()).or_insert_with(|| {
-                        std::fs::read_to_string(source.root.join(&note.path)).ok()
-                    });
-                }
-                let built = Arc::new(built);
-                self.notes.built = Some((generation, built.clone()));
-                built
+            _ => Arc::default(),
+        };
+        for note in source.notes.iter().filter(|note| note.pdf.is_none()) {
+            if !built.contains_key(&note.path) {
+                let text = std::fs::read_to_string(source.root.join(&note.path)).ok();
+                Arc::make_mut(&mut built).insert(note.path.clone(), text);
             }
+        }
+        self.notes.built = Some((generation, built.clone()));
+        let cache = match &self.notes.cache {
+            Some((at, cache)) if *at == generation => cache.clone(),
+            _ => Arc::default(),
         };
         let engine = engine.clone();
         let sizes = document.info.page_sizes.clone();
         let job = cx.background_spawn(async move {
-            place_all(&source, &engine, doc, generation, sizes, &built)
+            place_all(&source, &engine, doc, generation, sizes, &built, &cache)
         });
         self.notes.task = Some(cx.spawn(async move |this, cx| {
-            let places = job.await;
+            let (places, cache) = job.await;
             this.update(cx, |this, cx| {
                 if this.notes.placed_for == Some(now) {
                     this.notes.places = places;
+                    this.notes.cache = Some((generation, Arc::new(cache)));
                     cx.notify();
                 }
             })
@@ -218,23 +248,53 @@ impl PdfView {
         let size = *self.page_sizes().get(page)?;
         let (fx, fy) = (page_x / size.0, page_y / size.1);
         let scale = self.layout.scale;
-        self.notes.places.iter().find_map(|(id, place)| {
-            if place.page != page {
-                return None;
-            }
-            let on_band = place.bands.iter().any(|band| {
-                fx >= band.x
-                    && fx <= band.x + band.width
-                    && fy >= band.y
-                    && fy <= band.y + band.height
-            });
-            let (pin_x, pin_y) = pin_origin(place, size, scale, 0);
-            let on_pin = page_x * scale >= pin_x
-                && page_x * scale <= pin_x + PIN
-                && page_y * scale >= pin_y
-                && page_y * scale <= pin_y + PIN;
-            (on_band || on_pin).then(|| id.clone())
-        })
+        self.pins_on_page(page, size)
+            .into_iter()
+            .find_map(|(note, place, (pin_x, pin_y))| {
+                let on_band = place.bands.iter().any(|band| {
+                    fx >= band.x
+                        && fx <= band.x + band.width
+                        && fy >= band.y
+                        && fy <= band.y + band.height
+                });
+                let on_pin = page_x * scale >= pin_x
+                    && page_x * scale <= pin_x + PIN
+                    && page_y * scale >= pin_y
+                    && page_y * scale <= pin_y + PIN;
+                (on_band || on_pin).then(|| note.id.clone())
+            })
+    }
+
+    /// The notes placed on page `page` (of `size`), in the order they are
+    /// drawn, each with its pin's top-left on the page at the current scale.
+    /// Pins of passages starting on one line stand side by side, outward
+    /// from the column.
+    fn pins_on_page(
+        &self,
+        page: usize,
+        size: (f32, f32),
+    ) -> Vec<(&EditorComment, &MarkPlace, (f32, f32))> {
+        let Some(source) = &self.notes.source else {
+            return Vec::new();
+        };
+        let scale = self.layout.scale;
+        let mut rows: HashMap<(Side, i32), usize> = HashMap::new();
+        source
+            .notes
+            .iter()
+            .filter_map(|note| {
+                let place = self
+                    .notes
+                    .places
+                    .get(&note.id)
+                    .filter(|place| place.page == page)?;
+                let row = (place.pin.side, (place.pin.y * 200.).round() as i32);
+                let stack = rows.entry(row).or_default();
+                let origin = pin_origin(place, size, scale, *stack);
+                *stack += 1;
+                Some((note, place, origin))
+            })
+            .collect()
     }
 
     /// The pointer moved over the pages: the note under it lights.
@@ -266,6 +326,16 @@ impl PdfView {
         took
     }
 
+    /// Whether a window `position` is on the open note's card.
+    pub(in crate::pdf) fn on_note_card(&self, position: Point<Pixels>) -> bool {
+        self.notes.card.is_some()
+            && self
+                .notes
+                .card_bounds
+                .get()
+                .is_some_and(|card| card.contains(&position))
+    }
+
     /// Escape: the open card closes; true when one was open.
     pub(in crate::pdf) fn close_note_card(&mut self, cx: &mut Context<Self>) -> bool {
         let had = self.notes.card.take().is_some();
@@ -278,26 +348,14 @@ impl PdfView {
     /// The marks on page `page` (`rect`'s size at `scale`): each placed
     /// note's highlight and pin, the hovered or open one lit.
     pub(in crate::pdf) fn note_marks(&self, page: usize, cx: &App) -> Vec<AnyElement> {
-        let Some(source) = &self.notes.source else {
-            return Vec::new();
-        };
         let Some(size) = self.page_sizes().get(page).copied() else {
             return Vec::new();
         };
         let palette = cx.palette().clone();
         let scale = self.layout.scale;
         let (w, h) = (size.0 * scale, size.1 * scale);
-        let mut rows: HashMap<(Side, i32), usize> = HashMap::new();
         let mut out = Vec::new();
-        for note in source.notes.iter() {
-            let Some(place) = self
-                .notes
-                .places
-                .get(&note.id)
-                .filter(|place| place.page == page)
-            else {
-                continue;
-            };
+        for (note, place, (x, y)) in self.pins_on_page(page, size) {
             let status = Status::of(note);
             let colors = colors::mark(status, &palette);
             let lit = self.notes.hovered.as_deref() == Some(note.id.as_str())
@@ -321,12 +379,6 @@ impl PdfView {
                         .into_any_element(),
                 );
             }
-            // Pins of passages starting on one line stand side by side,
-            // outward from the column.
-            let row = (place.pin.side, (place.pin.y * 200.).round() as i32);
-            let stack = rows.entry(row).or_default();
-            let (x, y) = pin_origin(place, size, scale, *stack);
-            *stack += 1;
             out.push(
                 div()
                     .absolute()
@@ -431,15 +483,18 @@ fn pin_origin(place: &MarkPlace, size: (f32, f32), scale: f32, stack: usize) -> 
     }
 }
 
-/// Every note's place on the document (off the main thread).
+/// Every note's place on the document (off the main thread), and the cache
+/// of the current notes' places; a note already in `cache` is not placed
+/// again.
 fn place_all(
     source: &PdfNotes,
     engine: &Arc<PdfEngine>,
     doc: DocId,
     generation: u64,
     sizes: Vec<(f32, f32)>,
-    built: &HashMap<String, Option<String>>,
-) -> HashMap<String, MarkPlace> {
+    built: &BuiltSources,
+    cache: &PlaceCache,
+) -> (HashMap<String, MarkPlace>, PlaceCache) {
     let mut reader = Reader {
         engine: engine.clone(),
         doc,
@@ -451,7 +506,16 @@ fn place_all(
         texts: HashMap::new(),
     };
     let mut places = HashMap::new();
+    let mut placed = PlaceCache::new();
     for note in source.notes.iter() {
+        let key = place_key(note);
+        if let Some(place) = cache.get(&key) {
+            if let Some(place) = place {
+                places.insert(note.id.clone(), place.clone());
+            }
+            placed.insert(key, place.clone());
+            continue;
+        }
         let place = match &note.pdf {
             Some(anchor) => {
                 let page = (anchor.page as usize).checked_sub(1);
@@ -498,9 +562,10 @@ fn place_all(
                     })
             }
         };
-        if let Some(place) = place {
-            places.insert(note.id.clone(), place);
+        if let Some(place) = &place {
+            places.insert(note.id.clone(), place.clone());
         }
+        placed.insert(key, place);
     }
-    places
+    (places, placed)
 }
