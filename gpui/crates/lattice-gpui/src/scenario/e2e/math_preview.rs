@@ -102,6 +102,17 @@ impl Run {
         steps: &mut Steps,
         root: &Path,
     ) -> Result<()> {
+        // A build the modules before left under way or queued (editor
+        // commands' `:w` saves a main.tex that palette left with its
+        // `\documentclass` commented out) ends by opening its first error,
+        // which would take the tab and the keyboard from the chapter
+        // opened here. Let it finish first.
+        self.pause(cx, Duration::from_secs(1)).await;
+        self.wait_for(cx, Duration::from_secs(180), |shell, cx| {
+            !shell.read(cx).building()
+        })
+        .await;
+        self.pause(cx, Duration::from_millis(500)).await;
         let panel = self.open(cx, &root.join(CHAPTER), Some(1))?;
         let lattice = cx.update(|cx| panel.read(cx).lattice_editor().clone());
         // The index reads the new chapter's macro.
