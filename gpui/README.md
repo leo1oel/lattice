@@ -13,7 +13,7 @@ What it does so far, and nothing more, one line per feature, each with its own p
 - [Boards, spreadsheets and decks](docs/structured-documents.md): opens boards, spreadsheets and Open Slide decks in the Tauri app's own editors.
 - [Builds](docs/builds.md): builds with lattice-core's latexmk build, explains its errors and offers their fixes.
 - [Commands, windows and project tabs](docs/commands.md): every command from the palette, the keymap, the shortcut sheet and the menu bar; projects in new windows or as tabs.
-- [Figures and tables](docs/figures-and-tables.md): the table generator, managed tables, and figures dropped from the tree or pasted from the clipboard.
+- [Figures and tables](docs/figures-and-tables.md): the table generator, managed tables, and figures dropped from the tree or Finder, or pasted from the clipboard.
 - [Finding things in the project](docs/find.md): find and replace in the open file, quick open, Find and Replace in project, and the files visited.
 - [Get started](docs/get-started.md): walks a first paper with Get started's checklist and its Show me ring.
 - [Getting a manuscript ready to send](docs/submission.md): the TODOs panel, references and rename, Export for arXiv… and the submission checklist.
