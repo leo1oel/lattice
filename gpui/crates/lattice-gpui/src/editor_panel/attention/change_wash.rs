@@ -14,7 +14,7 @@
 //! Zed's row highlights take their colour from a function of the app, so
 //! the wash's moment lives in a global the colour reads, and a task asks
 //! the editor for frames until it is over, then takes that editor's rows
-//! away unless the editor was washed again since.
+//! away unless a later wash took them over.
 
 use std::{
     collections::HashMap,
@@ -22,7 +22,7 @@ use std::{
 };
 
 use editor::{Editor, RowHighlightOptions};
-use gpui::{App, Context, Entity, EntityId, Global, Hsla};
+use gpui::{App, Context, Entity, EntityId, Global, Hsla, WeakEntity};
 use language::{Bias, Point};
 use lattice_ui::{ActiveLattice as _, attention};
 
@@ -36,14 +36,18 @@ const TAKE_WAIT: Duration = Duration::from_secs(2);
 /// One frame at 60 Hz.
 const FRAME: Duration = Duration::from_millis(16);
 
-/// The wash showing now, which every washed row's colour reads, and when
-/// each editor's own rows were last washed, so each editor takes its rows
-/// away when its own wash is over.
+/// Washes that start this close together (a restore reloading every open
+/// file) share one moment.
+const TOGETHER: Duration = Duration::from_millis(150);
+
+/// The wash showing now, which every washed row's colour reads, and the
+/// editors whose rows it paints, each with the wash that painted them.
 #[derive(Default)]
 struct ChangeWash {
     started: Option<Instant>,
     reduce_motion: bool,
-    editors: HashMap<EntityId, Instant>,
+    next: u64,
+    editors: HashMap<EntityId, (u64, WeakEntity<Editor>)>,
 }
 
 impl Global for ChangeWash {}
@@ -136,15 +140,40 @@ impl EditorPanel {
     }
 }
 
-/// Wash `rows` of `editor` for the moment.
+/// Wash `rows` of `editor` for the moment. A wash that does not share the
+/// moment of the one showing takes the other editors' rows away first: the
+/// colour is one for every row, so theirs would light up again.
 fn wash(editor: &Entity<Editor>, rows: &[u32], cx: &mut App) {
-    let started = Instant::now();
+    let now = Instant::now();
     let reduce_motion = cx.reduce_motion();
     let id = editor.entity_id();
     let wash = cx.default_global::<ChangeWash>();
+    let mut others = Vec::new();
+    let started = match wash.started {
+        Some(started) if now.duration_since(started) <= TOGETHER => started,
+        _ => {
+            others.extend(
+                wash.editors
+                    .drain()
+                    .filter(|(other, _)| *other != id)
+                    .map(|(_, (_, other))| other),
+            );
+            now
+        }
+    };
     wash.started = Some(started);
     wash.reduce_motion = reduce_motion;
-    wash.editors.insert(id, started);
+    wash.next += 1;
+    let generation = wash.next;
+    wash.editors.insert(id, (generation, editor.downgrade()));
+    for other in others {
+        other
+            .update(cx, |other, cx| {
+                other.clear_row_highlights::<LandedRows>();
+                cx.notify();
+            })
+            .ok();
+    }
     editor.update(cx, |editor, cx| {
         let snapshot = editor.buffer().read(cx).snapshot(cx);
         editor.clear_row_highlights::<LandedRows>();
@@ -166,28 +195,27 @@ fn wash(editor: &Entity<Editor>, rows: &[u32], cx: &mut App) {
     });
     let editor = editor.downgrade();
     cx.spawn(async move |cx| {
-        // The colour follows the latest wash anywhere, so the rows stay
-        // until that one has let go too.
-        let ends = |cx: &mut App| {
+        let ends = started + attention::LINGER;
+        let ours = |cx: &mut App| {
             cx.try_global::<ChangeWash>()
-                .and_then(|wash| wash.started)
-                .unwrap_or(started)
-                .max(started)
-                + attention::LINGER
+                .and_then(|wash| wash.editors.get(&id))
+                .is_some_and(|(owner, _)| *owner == generation)
         };
-        while Instant::now() < cx.update(ends) {
+        while Instant::now() < ends {
             cx.background_executor().timer(FRAME).await;
+            // A later wash took these rows over, or away.
+            if !cx.update(ours) {
+                return;
+            }
             if editor.update(cx, |_, cx| cx.notify()).is_err() {
                 break;
             }
         }
         cx.update(|cx| {
-            // A later wash of the same editor keeps its own rows.
-            let wash = cx.default_global::<ChangeWash>();
-            if wash.editors.get(&id) != Some(&started) {
+            if !ours(cx) {
                 return;
             }
-            wash.editors.remove(&id);
+            cx.global_mut::<ChangeWash>().editors.remove(&id);
             editor
                 .update(cx, |editor, cx| {
                     editor.clear_row_highlights::<LandedRows>();
