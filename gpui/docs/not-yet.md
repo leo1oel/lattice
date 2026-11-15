@@ -9,8 +9,6 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] The LaTeX source's other editing keys: Inline math (⌘⇧M) and the environment commands.
 
-- [ ] Insert citation and Insert reference: ⌘⇧K and ⌘⇧L are reserved for them and do nothing until they land.
-
 - [ ] Margin review's J/K walk between items.
 
 - [ ] Overlay exit motion for the menus and popovers GPUI Kit's popover opens, and for a dialog closed by a button of its own.

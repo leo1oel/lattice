@@ -142,7 +142,10 @@ pub fn install(center: &Entity<TexSetupCenter>, cx: &mut App) {
 
 /// A window's build started or ended; the reminder waits out every build.
 pub fn building(window: EntityId, running: bool, cx: &mut App) {
-    let Some(reminder) = cx.try_global::<ReminderGlobal>().map(|global| global.0.clone()) else {
+    let Some(reminder) = cx
+        .try_global::<ReminderGlobal>()
+        .map(|global| global.0.clone())
+    else {
         return;
     };
     reminder.update(cx, |this, cx| {
@@ -206,7 +209,8 @@ impl Reminder {
         let count = outdated(packages.report.as_ref());
         // Updating, or nothing left to update: the reminder has said its piece.
         if self.shown
-            && (running || (packages.report.as_ref().is_some_and(|r| r.error.is_none()) && count == 0))
+            && (running
+                || (packages.report.as_ref().is_some_and(|r| r.error.is_none()) && count == 0))
         {
             notices::dismiss(REMINDER_KEY, cx);
         }
@@ -322,13 +326,10 @@ fn reminder_notice(report: &TexPackageUpdates, reminder: Entity<Reminder>) -> No
             reminder.update(cx, |this, _| this.snooze());
         })
     };
-    let notice = Notice::new(
-        ToastLevel::Warning,
-        t!("Your TeX packages are out of date"),
-    )
-    .source(t!("LaTeX setup"))
-    .key(REMINDER_KEY)
-    .persistent();
+    let notice = Notice::new(ToastLevel::Warning, t!("Your TeX packages are out of date"))
+        .source(t!("LaTeX setup"))
+        .key(REMINDER_KEY)
+        .persistent();
     if report.managed {
         notice
             .detail(t!(
@@ -354,7 +355,8 @@ fn reminder_notice(report: &TexPackageUpdates, reminder: Entity<Reminder>) -> No
 /// The reminder, once a center has made it, for a scenario.
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 pub fn reminder(cx: &App) -> Option<Entity<Reminder>> {
-    cx.try_global::<ReminderGlobal>().map(|global| global.0.clone())
+    cx.try_global::<ReminderGlobal>()
+        .map(|global| global.0.clone())
 }
 
 #[cfg(test)]
@@ -395,7 +397,10 @@ mod tests {
     #[test]
     fn the_record_reads_the_tauri_apps_field_names() {
         let record: Record = serde_json::from_str(r#"{"shownAt":5,"snoozedUntil":7}"#).unwrap();
-        assert_eq!((record.shown_at, record.snoozed_until, record.checked_at), (5, 7, 0));
+        assert_eq!(
+            (record.shown_at, record.snoozed_until, record.checked_at),
+            (5, 7, 0)
+        );
     }
 
     #[test]

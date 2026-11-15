@@ -31,9 +31,9 @@ mod parity;
 #[cfg(target_os = "macos")]
 mod parity_find;
 mod parity_help;
-mod parity_notices;
 #[cfg(target_os = "macos")]
 mod parity_history;
+mod parity_notices;
 #[cfg(target_os = "macos")]
 mod parity_overleaf;
 mod parity_submission;

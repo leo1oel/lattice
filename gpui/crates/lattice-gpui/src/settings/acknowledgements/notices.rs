@@ -98,7 +98,10 @@ pub fn parse(markdown: &str) -> Notices {
         [
             (Regex::new(r"^## npm packages\b").unwrap(), Closure::Npm),
             (Regex::new(r"^## Rust crates\b").unwrap(), Closure::Crates),
-            (Regex::new(r"^## Synara agent sidecar\b").unwrap(), Closure::Sidecar),
+            (
+                Regex::new(r"^## Synara agent sidecar\b").unwrap(),
+                Closure::Sidecar,
+            ),
             (
                 Regex::new(r"^## Open Slide presentation runtime\b").unwrap(),
                 Closure::PresentationRuntime,
@@ -127,14 +130,15 @@ pub fn parse(markdown: &str) -> Notices {
     // closure → package id → license, the first declaration standing.
     let mut licenses: BTreeMap<Closure, Vec<(String, String)>> = BTreeMap::new();
     let mut seen: HashSet<(Closure, String)> = HashSet::new();
-    let mut record = |closure: Closure, id: &str, license: String, licenses: &mut BTreeMap<_, Vec<_>>| {
-        if seen.insert((closure, id.to_string())) {
-            licenses
-                .entry(closure)
-                .or_insert_with(Vec::new)
-                .push((id.to_string(), license));
-        }
-    };
+    let mut record =
+        |closure: Closure, id: &str, license: String, licenses: &mut BTreeMap<_, Vec<_>>| {
+            if seen.insert((closure, id.to_string())) {
+                licenses
+                    .entry(closure)
+                    .or_insert_with(Vec::new)
+                    .push((id.to_string(), license));
+            }
+        };
     let mut unresolved: Vec<(Closure, String, String)> = Vec::new();
     let mut closure: Option<Closure> = None;
     // The group lines below belong to, by index into `groups`.

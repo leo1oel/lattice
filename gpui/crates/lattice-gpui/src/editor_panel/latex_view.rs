@@ -202,7 +202,10 @@ impl EditorPanel {
 
     /// A jump to a 1-based line lands in the Visual view while it shows:
     /// the island takes it.
-    pub(super) fn jumps_in_latex_visual(&self, cx: &gpui::App) -> Option<Entity<StructuredDocument>> {
+    pub(super) fn jumps_in_latex_visual(
+        &self,
+        cx: &gpui::App,
+    ) -> Option<Entity<StructuredDocument>> {
         if !self.shows_latex_visual(cx) {
             return None;
         }
@@ -249,7 +252,9 @@ mod tests {
     #[test]
     fn only_a_tex_document_has_a_visual_view() {
         assert!(is_latex_document(std::path::Path::new("main.tex")));
-        assert!(is_latex_document(std::path::Path::new("chapters/Intro.TEX")));
+        assert!(is_latex_document(std::path::Path::new(
+            "chapters/Intro.TEX"
+        )));
         assert!(!is_latex_document(std::path::Path::new("style.sty")));
         assert!(!is_latex_document(std::path::Path::new("class.cls")));
         assert!(!is_latex_document(std::path::Path::new("notes.md")));

@@ -9,13 +9,11 @@
 //! that finishes after a newer one started is dropped.
 
 use gpui::{
-    AnyElement, AppContext as _, Context, IntoElement, ParentElement as _, SharedString, Styled as _, Task, div,
-    prelude::FluentBuilder as _, px,
+    AnyElement, AppContext as _, Context, IntoElement, ParentElement as _, SharedString,
+    Styled as _, Task, div, prelude::FluentBuilder as _, px,
 };
 use lattice_i18n::t;
-use lattice_ui::{
-    ActiveLattice as _, TextRole, TextRoleStyle as _, TypeScale, components::Button,
-};
+use lattice_ui::{ActiveLattice as _, TextRole, TextRoleStyle as _, TypeScale, components::Button};
 use serde_json::Value;
 
 use super::{
@@ -163,7 +161,9 @@ impl EnvironmentPane {
         let service_description = if !running {
             t!("The agent reads these each time it starts.")
         } else if stale {
-            t!("The running agent started with different values. Restarting it stops any running turns.")
+            t!(
+                "The running agent started with different values. Restarting it stops any running turns."
+            )
         } else {
             t!("Restarting the agent stops any running turns.")
         };
@@ -199,7 +199,11 @@ impl EnvironmentPane {
                     })
                     .children(restart),
             );
-        groups.push(controls::first_group(None, vec![marks.row(service, width, cx)], cx));
+        groups.push(controls::first_group(
+            None,
+            vec![marks.row(service, width, cx)],
+            cx,
+        ));
 
         let mut rows: Vec<AnyElement> = Vec::new();
         if let Some(notice) = shell_notice {
@@ -240,9 +244,7 @@ impl EnvironmentPane {
                 "systemProxy" => t!("From the macOS proxy settings"),
                 _ => t!("From the environment Lattice was opened with"),
             };
-            rows.push(
-                variable_row(&name, &value, source.into(), mono.clone(), cx),
-            );
+            rows.push(variable_row(&name, &value, source.into(), mono.clone(), cx));
         }
         groups.push(controls::group(
             Some(t!("Variables the agent receives").into()),

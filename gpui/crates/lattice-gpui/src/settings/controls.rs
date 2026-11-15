@@ -507,6 +507,9 @@ mod tests {
     fn a_row_id_is_interned_once() {
         let first = super::row_id("grammar-rule", "OxfordComma");
         assert_eq!(first, "grammar-rule-OxfordComma");
-        assert!(std::ptr::eq(first, super::row_id("grammar-rule", "OxfordComma")));
+        assert!(std::ptr::eq(
+            first,
+            super::row_id("grammar-rule", "OxfordComma")
+        ));
     }
 }

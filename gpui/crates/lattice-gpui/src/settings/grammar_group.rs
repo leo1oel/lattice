@@ -17,8 +17,8 @@ use std::{
 };
 
 use gpui::{
-    AnyElement, App, AppContext as _, Context, ElementId, Entity, IntoElement,
-    ParentElement as _, SharedString, Styled as _, Subscription, Task, Window, div, px,
+    AnyElement, App, AppContext as _, Context, ElementId, Entity, IntoElement, ParentElement as _,
+    SharedString, Styled as _, Subscription, Task, Window, div, px,
 };
 use gpui_kit::component::input::{InputEvent, InputState};
 use lattice_core::{harper::HarperRuleOut, project as core_project};
@@ -149,7 +149,12 @@ impl GrammarRules {
 }
 
 /// Replace what the project ignores, through lattice-core's manifest.
-fn set_ignores(project: &Entity<Project>, rules: Vec<String>, sentences: Vec<String>, cx: &mut App) {
+fn set_ignores(
+    project: &Entity<Project>,
+    rules: Vec<String>,
+    sentences: Vec<String>,
+    cx: &mut App,
+) {
     let root = project.read(cx).root().to_path_buf();
     match core_project::set_grammar_ignores(&root, rules, sentences) {
         Ok(_) => project.update(cx, |project, cx| project.reload_manifest(cx)),
@@ -410,8 +415,11 @@ fn ignored_row(
             .children(sentences.iter().enumerate().map(|(index, sentence)| {
                 let project = project.clone();
                 let rules = rules.clone();
-                let others: Vec<String> =
-                    sentences.iter().filter(|s| *s != sentence).cloned().collect();
+                let others: Vec<String> = sentences
+                    .iter()
+                    .filter(|s| *s != sentence)
+                    .cloned()
+                    .collect();
                 div()
                     .min_w_0()
                     .flex()
@@ -466,15 +474,27 @@ mod tests {
 
     #[test]
     fn without_a_filter_only_the_rules_worth_seeing_are_listed() {
-        let all = vec![rule("OxfordComma", true), rule("RepeatedWords", false), rule("Spaces", false)];
+        let all = vec![
+            rule("OxfordComma", true),
+            rule("RepeatedWords", false),
+            rule("Spaces", false),
+        ];
         let changed = BTreeMap::from([("Spaces".to_string(), false)]);
         let names = |shown: Vec<&HarperRuleOut>| -> Vec<String> {
             shown.into_iter().map(|rule| rule.name.clone()).collect()
         };
-        assert_eq!(names(shown_rules(&all, "", true, &changed)), ["OxfordComma", "Spaces"]);
+        assert_eq!(
+            names(shown_rules(&all, "", true, &changed)),
+            ["OxfordComma", "Spaces"]
+        );
         assert_eq!(names(shown_rules(&all, "", false, &changed)), ["Spaces"]);
-        assert_eq!(names(shown_rules(&all, "repeated", false, &changed)), ["RepeatedWords"]);
-        assert_eq!(names(shown_rules(&all, "oxford comma", false, &changed)), ["OxfordComma"]);
+        assert_eq!(
+            names(shown_rules(&all, "repeated", false, &changed)),
+            ["RepeatedWords"]
+        );
+        assert_eq!(
+            names(shown_rules(&all, "oxford comma", false, &changed)),
+            ["OxfordComma"]
+        );
     }
-
 }
