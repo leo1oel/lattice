@@ -17,3 +17,4 @@ A file past the editor's size limit does not open in a modal: an error notice gi
 ## In the e2e scenario
 
 The `notices` module (`scenario/e2e/notices.rs`): five notices leave four, newest in front; a repeat stacks no copy; the collapsed pile's slivers, scale and hidden fourth card; the fan-out under the native pointer; a 1 s clock held while hovered and running out once the pointer leaves; a native swipe to the right dismissing the front card with its exit; an error's Copy text and a running notice's bar replaced by its outcome; and the TeX reminder's Update and Later, its update reported to the end on the stand-in installer.
+The `open_failure` module (`scenario/e2e/open_failure.rs`): a 9 MiB `.tex` file does not open and is named too large in an error notice, a missing file is an error notice not called too large, and Atkinson Hyperlegible and OpenDyslexic resolve from the bundle and set the source editor when chosen.

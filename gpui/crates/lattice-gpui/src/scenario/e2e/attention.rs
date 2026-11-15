@@ -22,14 +22,14 @@ impl Run {
         let rows = |editor: &Entity<EditorPanel>, cx: &mut AsyncApp| {
             cx.update(|cx| {
                 let panel = editor.read(cx);
-                reveal_flash::flashing_rows(&panel.editor().read(cx), cx)
+                reveal_flash::flashing_rows(panel.editor().read(cx), cx)
             })
         };
         let during = rows(&editor, cx);
         let cleared = self
             .wait_for(cx, Duration::from_secs(3), |_, cx| {
                 let panel = editor.read(cx);
-                reveal_flash::flashing_rows(&panel.editor().read(cx), cx).is_empty()
+                reveal_flash::flashing_rows(panel.editor().read(cx), cx).is_empty()
             })
             .await;
         steps.check(
@@ -48,7 +48,7 @@ impl Run {
         let second_cleared = self
             .wait_for(cx, Duration::from_secs(3), |_, cx| {
                 let panel = second.read(cx);
-                reveal_flash::flashing_rows(&panel.editor().read(cx), cx).is_empty()
+                reveal_flash::flashing_rows(panel.editor().read(cx), cx).is_empty()
             })
             .await;
         let first_final = rows(&first, cx);
