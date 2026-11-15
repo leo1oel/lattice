@@ -34,7 +34,7 @@ use futures::{channel::oneshot, future::Shared};
 use gpui::{
     AnyElement, App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, Focusable,
     InteractiveElement as _, IntoElement, ParentElement as _, Render, SharedString, Styled as _,
-    Subscription, Task, Window, div,
+    Subscription, Task, Window, div, prelude::FluentBuilder as _,
 };
 use gpui_kit::component::dock::{BasePanel, PanelEvent};
 use language::{Buffer, BufferEvent, Point};
@@ -49,6 +49,7 @@ mod annotations;
 mod bib_view;
 mod buffer_counts;
 mod disk_sync;
+pub mod drops;
 mod events;
 pub mod find_bar;
 mod highlight_palette;
@@ -159,6 +160,8 @@ pub struct EditorPanel {
     /// Builds seen finishing; each one has TexLab read the new log.
     builds_seen: usize,
     find_bar: Entity<find_bar::FindBar>,
+    /// What a drag over the editor last saw (`drops.rs`).
+    drop_hover: drops::SharedDropHover,
     build: Entity<BuildPanel>,
     /// The caret's line and column, 1-based, for the status bar.
     cursor: (u32, u32),
@@ -454,6 +457,7 @@ impl EditorPanel {
             _spelling_events: None,
             builds_seen,
             find_bar,
+            drop_hover: Default::default(),
             build,
             cursor: (1, 1),
             overleaf_caret: (0, 0),
@@ -762,17 +766,6 @@ impl Render for EditorPanel {
                         .update(cx, |bar, cx| bar.step(true, window, cx))
                 }
             }))
-            // A figure dragged from the Project tree goes in as a figure
-            // (`beginFigureDrag`).
-            .on_drop(
-                cx.listener(|this, dragged: &crate::file_tree::DraggedEntry, _, cx| {
-                    if let Some(path) = dragged.figure()
-                        && this.inserts_figures()
-                    {
-                        cx.emit(EditorPanelEvent::InsertFigures(vec![path.to_string()]));
-                    }
-                }),
-            )
             // Before Zed's editor pastes: an image becomes a figure.
             .capture_action(cx.listener(|this, _: &editor::actions::Paste, window, cx| {
                 if this.editor().focus_handle(cx).is_focused(window) && this.pastes_image(cx) {
@@ -800,10 +793,13 @@ impl Render for EditorPanel {
                 }
             }))
             .size_full()
+            .relative()
             .flex()
             .flex_col()
             .child(div().flex_1().min_h_0().child(body))
             .child(crate::paint_probe::probe())
+            .child(self.drop_marks(cx))
+            .map(|root| self.wire_drops(root, cx))
             .into_any_element()
     }
 }

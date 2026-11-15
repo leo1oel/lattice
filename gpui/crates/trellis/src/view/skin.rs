@@ -58,15 +58,21 @@ pub struct TabActions {
     pub close: Callback,
 }
 
+/// How a panel's menu runs one of its actions.
+type MenuRun = Rc<dyn Fn(&MenuAction, &mut Window, &mut App)>;
+
+/// What a panel's menu reads of the app.
+type MenuRead<T> = Rc<dyn Fn(&App) -> T>;
+
 /// A panel's menu: the workspace's built-in items for it (the skin puts the
 /// view's own items before them, then a separator) and how to run one.
 #[derive(Clone)]
 pub struct PanelMenu {
     pub panel_id: String,
     /// The panel's selected view now (a right click selects its tab first).
-    pub selected: Rc<dyn Fn(&App) -> Option<String>>,
-    pub built_ins: Rc<dyn Fn(&App) -> Vec<MenuEntry>>,
-    pub run: Rc<dyn Fn(&MenuAction, &mut Window, &mut App)>,
+    pub selected: MenuRead<Option<String>>,
+    pub built_ins: MenuRead<Vec<MenuEntry>>,
+    pub run: MenuRun,
 }
 
 /// What the skin draws in a panel's tab strip, besides its tabs.
@@ -150,6 +156,12 @@ pub trait Skin: 'static {
     /// overlays (a native view in a docked panel); `None` draws them in line.
     fn raised_priority(&self) -> Option<usize> {
         None
+    }
+
+    /// Lattice's patch: the host's own listeners on the box a view's
+    /// content is drawn in (a drop onto a document's surface).
+    fn surround(&self, _view_id: &str, body: gpui::Div, _cx: &App) -> gpui::Div {
+        body
     }
 
     /// Extra elements laid inside a panel's card (marks for a test harness).

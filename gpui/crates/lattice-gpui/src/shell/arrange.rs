@@ -74,6 +74,9 @@ impl Shell {
             WorkspaceEvent::Focused(None) | WorkspaceEvent::Announce(_) => {}
             WorkspaceEvent::FocusContent(view) => self.focus_view_content(view, window, cx),
             WorkspaceEvent::Navigated(_) => cx.notify(),
+            WorkspaceEvent::CarryEnded { view, dropped } => {
+                self.carry_ended(view, *dropped, window, cx)
+            }
             WorkspaceEvent::CloseRequested(views) => {
                 let views = views.clone();
                 if views.iter().any(|view| view == "terminal") {

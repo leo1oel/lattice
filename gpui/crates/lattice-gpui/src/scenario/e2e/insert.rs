@@ -304,7 +304,7 @@ impl Run {
 
     /// Save the window as `name`.png into `LATTICE_E2E_SHOTS`, when set,
     /// drawn and read back at once as `get_started.rs` does.
-    async fn insert_shot(&self, cx: &mut AsyncApp, name: &str) {
+    pub(super) async fn insert_shot(&self, cx: &mut AsyncApp, name: &str) {
         #[cfg(feature = "offscreen-shots")]
         if let Some(dir) = std::env::var_os("LATTICE_E2E_SHOTS") {
             self.pause(cx, Duration::from_millis(300)).await;

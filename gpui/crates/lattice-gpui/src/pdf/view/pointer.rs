@@ -182,6 +182,7 @@ impl PdfView {
                 return;
             }
             "escape" if self.selection.is_some() => {
+                cx.stop_propagation();
                 self.selection = None;
                 cx.notify();
                 return;

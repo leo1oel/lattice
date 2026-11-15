@@ -140,6 +140,18 @@ impl Shell {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        self.insert_figures_at(paths, None, window, cx)
+    }
+
+    /// Insert the project's `paths` into the editor in front, at the start
+    /// of the line holding `at` (a drop's line), else of the caret's.
+    pub(crate) fn insert_figures_at(
+        &mut self,
+        paths: Vec<String>,
+        at: Option<usize>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let Some(editor) = self.active_editor() else {
             return;
         };
@@ -147,7 +159,7 @@ impl Shell {
             return;
         }
         let (text, caret) = editor.read(cx).text_and_caret(cx);
-        let position = line_start(&text, caret);
+        let position = line_start(&text, at.unwrap_or(caret));
         if is_markdown(editor.read(cx)) {
             let relative = editor.read(cx).relative().to_string();
             let edit = markdown_assets(&text, position, &paths, &relative);

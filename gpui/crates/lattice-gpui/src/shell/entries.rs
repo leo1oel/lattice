@@ -43,6 +43,17 @@ impl Shell {
             FileTreeEvent::PasteImage { target } => {
                 self.paste_clipboard_image(target.clone(), window, cx)
             }
+            FileTreeEvent::DropFiles { paths, target } => self.drop_files(
+                paths.clone(),
+                super::drops::DropSurface::Tree(target.clone()),
+                window,
+                cx,
+            ),
+            FileTreeEvent::DragOut { path, pointer } => {
+                if self.carry_tree_row(path, *pointer, window, cx) {
+                    cx.stop_active_drag(window);
+                }
+            }
         }
     }
 
