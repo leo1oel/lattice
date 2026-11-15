@@ -689,9 +689,8 @@ impl Run {
         Ok(())
     }
 
-    /// The PDF sharing the right dock with Project: Open in separate window
-    /// takes only the PDF away, the dock staying open at its width with
-    /// Project in it, and Return to workspace leaves them as they were too.
+    /// The PDF sharing a dock with Project: its own window takes it out
+    /// (`detachPdf`), the dock keeping its width, and Return puts it back.
     async fn separate_window_shared_dock(
         &self,
         cx: &mut AsyncApp,
@@ -720,22 +719,21 @@ impl Run {
                     == panel_of_view(&doc, "pdf").map(|panel| panel.id.clone())
             })
         })?;
-        // The PDF's panel: on screen, its width, and Project in it.
+        // Project's panel: its width, and the PDF on screen in it.
         let dock = |cx: &mut AsyncApp| {
             cx.update(|cx| {
                 let shell = self.shell.read(cx);
                 let doc = shell.document(cx);
-                let panel = panel_of_view(&doc, "pdf").map(|panel| panel.id.clone());
-                let open = panel.is_some()
-                    && shell.workspace().read(cx).engine().placement_of("pdf")
-                        != trellis::runtime::engine::ViewPlacement::Hidden;
+                let panel = panel_of_view(&doc, "project").map(|panel| panel.id.clone());
                 let width = panel
                     .as_deref()
                     .and_then(|panel| shell.workspace().read(cx).panel_bounds(panel))
                     .map(|bounds| bounds.size.width);
-                let with_project = panel.is_some()
-                    && panel_of_view(&doc, "project").map(|p| p.id.clone()) == panel;
-                (open, width, with_project)
+                let with_pdf = panel.is_some()
+                    && panel_of_view(&doc, "pdf").map(|p| p.id.clone()) == panel
+                    && shell.workspace().read(cx).engine().placement_of("pdf")
+                        != trellis::runtime::engine::ViewPlacement::Hidden;
+                (panel.is_some(), width, with_pdf)
             })
         };
         let in_window = |open: bool| {
@@ -764,10 +762,10 @@ impl Run {
         })?;
         self.pause(cx, Duration::from_millis(300)).await;
 
-        let shown = |state: &(bool, Option<gpui::Pixels>, bool)| json!({ "open": state.0, "width": format!("{:?}", state.1), "with_project": state.2 });
+        let shown = |state: &(bool, Option<gpui::Pixels>, bool)| json!({ "open": state.0, "width": format!("{:?}", state.1), "with_pdf": state.2 });
         steps.check(
-            "PDF: sharing its panel with Project, Open in separate window and Return to workspace leave the panel on screen at its width with Project in it",
-            shared && opened && docked && before.0 && before.2 && during == before && after == before,
+            "PDF: its own window takes it out of the panel it shares with Project, which keeps its width; Return puts it back",
+            shared && opened && docked && before.0 && before.2 && during.0 && !during.2 && during.1 == before.1 && after == before,
             json!({
                 "shared": shared,
                 "opened": opened,

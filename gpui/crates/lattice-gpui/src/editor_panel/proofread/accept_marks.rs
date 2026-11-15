@@ -1,35 +1,44 @@
 //! A moment's mark on an accepted suggestion, so the eye finds what moved
 //! without reading the passage again (`src/editor/change-marks.ts`,
 //! `.cm-accept-*` in `editor-workspace.css`): one edit after another, the
-//! old words stand struck where they were and then go (a picture: the
-//! document already reads the new ones), and the new words come up on the
-//! success wash, hold it, and let it go.
+//! old words are struck through where they stood, then fold their width
+//! away (a picture: the document already reads the new ones), and the new
+//! words settle in on the success wash, hold it, and let it go. The timing
+//! is `lattice_ui::attention::accept`'s.
 //!
 //! Marks only, never the text: they follow edits made meanwhile, and are
 //! gone when their moment is. The old words are inline texts, which take
-//! the room they took, so they leave at once where the Tauri app folds
-//! their width away.
+//! the room their text takes, so they fold a character at a time from the
+//! end, as `max-width` with `overflow: hidden` clips them, and fade under a
+//! veil of the editor's ground. Under reduced motion the old words go at
+//! once and the new ones show with the wash.
 
 use std::{ops::Range, time::Duration};
 
-use gpui::{Context, Hsla, Task};
-use lattice_editor::{decorations::Highlight, inline_texts::InlineText};
-use lattice_ui::{ActiveLattice as _, Motion};
+use gpui::{Context, Task};
 use language::{Anchor, ToOffset as _};
+use lattice_editor::{
+    decorations::{Highlight, Mark, MarkStyle},
+    inline_texts::{InlineLook, InlineText},
+};
+use lattice_ui::{
+    ActiveLattice as _,
+    attention::{self, AcceptFrame, Moment},
+};
 
 use super::super::EditorPanel;
 
-/// How long the marks stay: the last edit's wash, after the strikes before
-/// it, with room to finish (`CHANGE_MARK_MS`).
-const CHANGE_MARK: Duration = Duration::from_millis(2600);
 /// A longer passage, or one over a line break, leaves at once rather than as
 /// a picture.
 const MAX_GHOST_LENGTH: usize = 80;
+/// Edits after this many arrive together, as the card's own edits do.
+const MAX_STAGGER: usize = 8;
 /// One frame of the moment.
 const FRAME: Duration = Duration::from_millis(16);
 
 const GHOSTS: &str = "proofread-accept-ghosts";
 const WASH: &str = "proofread-accept-wash";
+const SETTLE: &str = "proofread-accept-settle";
 
 /// One accepted edit in the new text: `[from, to)` reads its new words,
 /// which replaced `removed`.
@@ -43,7 +52,7 @@ pub struct Accepted {
 struct Marked {
     range: Range<Anchor>,
     ghost: Option<String>,
-    order: u32,
+    order: usize,
 }
 
 #[derive(Default)]
@@ -51,23 +60,21 @@ pub(in crate::editor_panel) struct AcceptMarks {
     _moment: Option<Task<()>>,
 }
 
-/// The wash's strength at `t` of its linger (`@keyframes change-wash`): up
-/// by 8%, held to 45%, gone by the end.
-fn wash(t: f32) -> f32 {
-    if t <= 0. || t >= 1. {
-        0.
-    } else if t < 0.08 {
-        t / 0.08
-    } else if t <= 0.45 {
-        1.
-    } else {
-        1. - (t - 0.45) / 0.55
-    }
+/// What of `ghost` (the old words and the space after them) still stands
+/// with `width` of it left: its first characters, none once folded.
+fn folded(ghost: &str, width: f32) -> Option<String> {
+    let room: Vec<char> = format!("{ghost} ").chars().collect();
+    let kept = (room.len() as f32 * width.clamp(0., 1.)).ceil() as usize;
+    (kept > 0).then(|| room[..kept.min(room.len())].iter().collect())
 }
 
 impl EditorPanel {
     /// Mark `edits`, made in the text as it reads now.
-    pub(in crate::editor_panel) fn mark_accepted(&mut self, edits: Vec<Accepted>, cx: &mut Context<Self>) {
+    pub(in crate::editor_panel) fn mark_accepted(
+        &mut self,
+        edits: Vec<Accepted>,
+        cx: &mut Context<Self>,
+    ) {
         let snapshot = self.buffer.read(cx).snapshot();
         let length = snapshot.len();
         let mut edits = edits;
@@ -86,76 +93,77 @@ impl EditorPanel {
                 Marked {
                     range: snapshot.anchor_before(from)..snapshot.anchor_after(to),
                     ghost,
-                    order: index.min(8) as u32,
+                    order: index.min(MAX_STAGGER),
                 }
             })
             .collect();
         let palette = cx.palette().clone();
-        let (strike, soft) = (palette.danger, palette.success_soft);
-        let moderate = Motion::Moderate.duration();
-        let fast = Motion::Fast.duration();
-        let linger = Motion::Linger.duration();
-        let stagger = lattice_ui::motion::stagger(1);
+        let (strike, soft, ground) = (palette.danger, palette.success_soft, palette.editor);
+        let reduce = cx.reduce_motion();
+        let length = marked
+            .iter()
+            .map(|mark| Moment::new(mark.order, Duration::ZERO).duration())
+            .max()
+            .unwrap_or_default();
         self.proofread.accepted._moment = Some(cx.spawn(async move |this, cx| {
             let start = std::time::Instant::now();
-            let mut ghosts_shown: Option<Vec<bool>> = None;
             loop {
                 let elapsed = start.elapsed();
-                let done = elapsed >= CHANGE_MARK;
+                let done = elapsed >= length;
                 let alive = this
                     .update(cx, |this, cx| {
                         let snapshot = this.buffer.read(cx).snapshot();
-                        // Each edit's old words stay struck through its strike
-                        // and its fold.
-                        let shown: Vec<bool> = marked
+                        let frames: Vec<AcceptFrame> = marked
                             .iter()
-                            .map(|mark| {
-                                !done
-                                    && mark.ghost.is_some()
-                                    && elapsed < moderate * 2 + stagger * mark.order
-                            })
+                            .map(|mark| attention::accept(Moment::new(mark.order, elapsed), reduce))
                             .collect();
-                        if ghosts_shown.as_ref() != Some(&shown) {
-                            let ghosts = marked
-                                .iter()
-                                .zip(&shown)
-                                .filter(|(_, shown)| **shown)
-                                .filter_map(|(mark, _)| {
-                                    Some(InlineText {
-                                        offset: mark.range.start.to_offset(&snapshot),
-                                        text: format!("{} ", mark.ghost.as_ref()?).into(),
-                                        color: strike,
-                                        tint: Hsla::transparent_black(),
-                                    })
-                                })
-                                .collect();
-                            this.lattice.update(cx, |lattice, cx| {
-                                lattice.set_inline_texts(GHOSTS, ghosts, cx)
-                            });
-                            ghosts_shown = Some(shown);
+                        let mut ghosts = Vec::new();
+                        let mut washes = Vec::new();
+                        let mut settling = Vec::new();
+                        for (mark, frame) in marked.iter().zip(&frames).filter(|_| !done) {
+                            let range = mark.range.start.to_offset(&snapshot)
+                                ..mark.range.end.to_offset(&snapshot);
+                            // The old words, struck, folding, fading.
+                            if let Some(text) = mark
+                                .ghost
+                                .as_deref()
+                                .and_then(|ghost| folded(ghost, frame.ghost_width))
+                            {
+                                ghosts.push(InlineText {
+                                    offset: range.start,
+                                    text: text.into(),
+                                    look: InlineLook::Struck {
+                                        color: strike.opacity(frame.ghost_opacity),
+                                        tint: ground.opacity(1. - frame.ghost_opacity),
+                                        drawn: frame.strike,
+                                    },
+                                });
+                            }
+                            if range.is_empty() {
+                                continue;
+                            }
+                            // The new words settle in on the wash.
+                            if frame.wash > 0. {
+                                washes.push(Highlight {
+                                    range: range.clone(),
+                                    color: soft.opacity(frame.wash),
+                                });
+                            }
+                            if frame.insert_opacity < 1. {
+                                settling.push(Mark {
+                                    range,
+                                    style: MarkStyle {
+                                        fade: Some(1. - frame.insert_opacity),
+                                        ..MarkStyle::default()
+                                    },
+                                });
+                            }
                         }
-                        // The new words settle in on the wash.
-                        let washes = if done {
-                            Vec::new()
-                        } else {
-                            marked
-                                .iter()
-                                .filter_map(|mark| {
-                                    let delay = moderate + fast + stagger * mark.order;
-                                    let t = elapsed.saturating_sub(delay).as_secs_f32()
-                                        / linger.as_secs_f32();
-                                    let strength = if elapsed < delay { 0. } else { wash(t) };
-                                    let range = mark.range.start.to_offset(&snapshot)
-                                        ..mark.range.end.to_offset(&snapshot);
-                                    (strength > 0. && !range.is_empty()).then(|| Highlight {
-                                        range,
-                                        color: soft.opacity(soft.a * strength),
-                                    })
-                                })
-                                .collect()
-                        };
-                        this.lattice
-                            .update(cx, |lattice, cx| lattice.set_highlights(WASH, washes, cx));
+                        this.lattice.update(cx, |lattice, cx| {
+                            lattice.set_inline_texts(GHOSTS, ghosts, cx);
+                            lattice.set_highlights(WASH, washes, cx);
+                            lattice.set_marks(SETTLE, settling, cx);
+                        });
                     })
                     .is_ok();
                 if done || !alive {
@@ -169,17 +177,18 @@ impl EditorPanel {
 
 #[cfg(test)]
 mod tests {
-    use super::wash;
+    use super::folded;
 
-    // `@keyframes change-wash`: transparent, the wash from 8% to 45%, then
-    // transparent again at the end.
+    // `accept-fold` takes `max-width` from the words' width to 0 with
+    // `overflow: hidden`: what is left is the words' start, and nothing at
+    // the end.
     #[test]
-    fn the_wash_comes_up_holds_and_goes() {
-        assert_eq!(wash(0.), 0.);
-        assert!((wash(0.04) - 0.5).abs() < 1e-6);
-        assert_eq!(wash(0.08), 1.);
-        assert_eq!(wash(0.45), 1.);
-        assert!(wash(0.7) > 0. && wash(0.7) < 1.);
-        assert_eq!(wash(1.), 0.);
+    fn the_old_words_fold_from_their_end() {
+        assert_eq!(folded("teh", 1.).as_deref(), Some("teh "));
+        assert_eq!(folded("teh", 0.5).as_deref(), Some("te"));
+        assert_eq!(folded("teh", 0.01).as_deref(), Some("t"));
+        assert_eq!(folded("teh", 0.), None);
+        // A character is never split.
+        assert_eq!(folded("é ü", 0.7).as_deref(), Some("é ü"));
     }
 }

@@ -66,8 +66,9 @@ export default defineConfig({
     // glob happily collected hundreds of foreign tests that fail under this
     // config — enough to make `pnpm check` unusable. A Synara checkout staged
     // in the worktree as `.synara-src/` (SYNARA_SOURCE_DIR) does the same.
-    // `gpui/` is the GPUI preview app, a Rust workspace with no tests here,
-    // whose build output would only slow the walk.
+    // `gpui/` is the GPUI preview app, a Rust workspace whose build output
+    // would only slow the walk; its island pages' unit tests run under their
+    // own config (`gpui/islands/vitest.config.ts`).
     exclude: ["**/node_modules/**", "literature-worker/**", ".tmp/**", ".synara-src/**", "gpui/**"],
     environment: "jsdom",
     setupFiles: ["./src/platform/test-setup.ts"],

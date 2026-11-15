@@ -182,7 +182,8 @@ function alive(pid) {
 }
 
 // /tmp, not os.tmpdir(): macOS gives each user session its own TMPDIR.
-const build = machineLock("/tmp/lattice-gpui-release.lock", "the GPUI release build lock", {
+export const GPUI_BUILD_LOCK_DIR = "/tmp/lattice-gpui-release.lock";
+const build = machineLock(GPUI_BUILD_LOCK_DIR, "the GPUI release build lock", {
   maxHoldMs: maxHoldFromEnv("LATTICE_GPUI_BUILD_LOCK_MAX_MINUTES", 30),
 });
 export const acquireGpuiLock = build.acquire;

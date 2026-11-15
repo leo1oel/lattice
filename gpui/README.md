@@ -102,12 +102,17 @@ The first build fetches Zed at the pinned revision and compiles about 1,200 crat
 | ⌘⇧[ / ⌘⇧] | Previous or next tab |
 | ⌘W, ⌘⇧T, ⌘⇧W | Close the document's tab (the window when none is open), reopen the last closed tab, close the window |
 | ⌃Tab, ⌃⇧Tab | Next or previous project in the window |
-| ⌘B, ⌘I | In a LaTeX file, Bold (`\textbf`) and Emphasis (`\emph`), each on or off for the selection |
+| ⌘B, ⌘I, ⌘⇧M | In a LaTeX file, Bold (`\textbf`), Emphasis (`\emph`) and Inline math, each on or off for the selection |
+| ⌘/, ⌘⌥/, ⌘⌥; | In a LaTeX file, comment the lines, or wrap them in a `comment` environment or `\iffalse … \fi` |
+| ⌘⌥E, ⌘⌥I, ⌘⌥A, ⌃M | Wrap in `equation` or `itemize`, select the environment, go to the matching `\begin` or `\end` |
+| ⌘⌥S, ⌘⌥U, ⌘⌥L, ⌘⌥C | Sort lines, UPPER, lower and Title Case |
+| ⌘⇧E, ⌘⌥R | Wrap in environment… (the name asked for), and Rename environment (both its `\begin` and its `\end`) |
 | ⌘⇧K, ⌘⇧L | In a LaTeX file, Insert citation and Insert reference: a picker of the bibliography's keys or the project's labels, writing `\cite{…}` or `\ref{…}` at the caret |
 | ⌘G, ⌘⇧O | Go to line, and Go to symbol (the manuscript's sections and the project's labels) |
 | Zed's default keymap | Everything else in the editor |
 
 On Windows and Linux, Ctrl stands in for ⌘, and quitting is Alt+F4 or the menu. With Vim mode on there, Vim keeps Ctrl+O, Ctrl+B, Ctrl+I, Ctrl+G, Ctrl+S, Ctrl+K and Ctrl+W in the editor, in the Vim modes where its keymap binds them.
+On every platform, Vim's normal and visual modes keep ⌃M as their next-line start.
 
 "Vim mode" in an editor's ⋯ menu turns Zed's Vim mode on for every editor; `LATTICE_GPUI_VIM=1` turns it on for that run only, leaving the saved keymap as it is.
 
@@ -250,7 +255,7 @@ A deck's runtime is lattice-core's supervisor, one per process (`structured/pres
   While the pointer stays by the stack, it follows the ranges under the pointer: a card whose range the pointer comes onto joins after the hover delay with its own entrance, and one whose range it leaves goes after a 150 ms grace; on ranges none of which has a card shown, the stack closes at once and their cards open after the hover delay.
   The stack closes when the pointer leaves the ranges and the cards, on a key or an edit;
 - completion sources, given to Zed's completion menu through one provider; each source filters and orders its own options, as the Tauri app's citation source must, and a pick can put the caret inside the inserted template and open the menu again (a `\cite{}` lists the keys next);
-- inline texts: text shown at a point that is not in the buffer, as CodeMirror's inline widgets (Overleaf's suggested deletions, struck through): Zed's inlays, with each one's strike and tint painted over it by the overlay, since Zed styles all inlays alike;
+- inline texts: text shown at a point that is not in the buffer, as CodeMirror's inline widgets (Overleaf's suggested deletions and an accepted proofread's old words, struck through; a highlight's colour swatch before its `\colorbox`): Zed's inlays, with each one's look (`InlineLook`: a strike and tint, or a swatch in two spaces' room) painted over it by the overlay, since Zed styles all inlays alike, and kept without a re-splice when only the looks change;
 - remote carets, drawn as Overleaf draws them (`../src/overleaf/overleaf-editor-extensions.ts`): a 2px bar and dot in the person's colour, the name for a moment when the caret arrives or moves (2 s, then a short fade) and while the pointer rests on it, below the caret near the top edge.
 
 Positions come from the two questions Zed's editor answers for input methods (`bounds_for_range`, `character_index_for_point`) and its display snapshot, read in the same frame as the editor's own paint.

@@ -139,6 +139,7 @@ enum Formats {
 /// wrappers.
 const PAINT: &str = "highlight-paint";
 const PAINT_MARKS: &str = "highlight-paint-marks";
+const PAINT_SWATCHES: &str = "highlight-paint-swatches";
 /// How far past the lines the editor shows the paint reads (the Tauri
 /// paint's `MARGIN`), so a long document costs what its view costs.
 const PAINT_MARGIN: usize = 2000;
@@ -272,13 +273,14 @@ impl EditorPanel {
             language::Bias::Right,
         );
         let text = buffer.text_for_range(start..end).collect::<String>();
-        let (washes, marks) = highlights::paint(&text, start, dark);
+        let paint = highlights::paint(&text, start, dark);
         self.toolbar.painted_dark = Some(dark);
-        self.toolbar.painted = washes.len();
+        self.toolbar.painted = paint.washes.len();
         self.toolbar.painted_window = start..end;
         self.lattice.update(cx, |lattice, cx| {
-            lattice.set_highlights(PAINT, washes, cx);
-            lattice.set_marks(PAINT_MARKS, marks, cx);
+            lattice.set_highlights(PAINT, paint.washes, cx);
+            lattice.set_marks(PAINT_MARKS, paint.marks, cx);
+            lattice.set_inline_texts(PAINT_SWATCHES, paint.swatches, cx);
         });
     }
 
@@ -324,7 +326,8 @@ impl EditorPanel {
     }
 
     /// Press one of the toolbar's tools by name (scripted runs): `bold`,
-    /// `pen`, `unhighlight`, or a block such as `heading-1` in Markdown.
+    /// `pen`, `unhighlight`, a block such as `heading-1` in Markdown, or
+    /// `custom`, the highlight palette's "+" (its custom colour view).
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     pub fn scripted_toolbar(&mut self, name: &str, window: &mut Window, cx: &mut Context<Self>) {
         let markdown = self.toolbar_kind() == Some(Kind::Markdown);
@@ -334,6 +337,11 @@ impl EditorPanel {
             "pen" => ToolbarAction::Highlight(highlight_palette::prefs(cx).last.clone()),
             "unhighlight" => ToolbarAction::Unhighlight,
             "heading-1" => ToolbarAction::Block(BlockType::Heading(1)),
+            "custom" => {
+                self.open_menu(Menu::Highlight, window, cx);
+                self.open_custom(None, window, cx);
+                return;
+            }
             _ => return,
         };
         self.toolbar_action(action, window, cx);

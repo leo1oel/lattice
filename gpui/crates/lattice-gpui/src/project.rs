@@ -126,13 +126,14 @@ impl Project {
         });
         let index = cx.new(|cx| ProjectIndex::new(root.clone(), cx));
         let texlab = cx.new(|cx| TexlabService::new(root.clone(), cx));
-        Self {
+        let mut project = Self {
             root,
             manifest,
             files,
             index,
             texlab,
-            show_hidden: false,
+            // One choice for every project, kept across runs.
+            show_hidden: crate::file_tree::memory::show_hidden(),
             git: HashMap::new(),
             active_build: ActiveBuild::default(),
             input_revision: 0,
@@ -141,7 +142,13 @@ impl Project {
             _watch_task: Some(watch_task),
             _scan: None,
             _git: None,
+        };
+        // The folder was opened with the usual listing; a writer who shows
+        // hidden files gets that one.
+        if project.show_hidden {
+            project.rescan(cx);
         }
+        project
     }
 
     pub fn root(&self) -> &Path {
@@ -178,6 +185,7 @@ impl Project {
     }
 
     pub fn set_show_hidden(&mut self, show: bool, cx: &mut Context<Self>) {
+        crate::file_tree::memory::set_show_hidden(show);
         if self.show_hidden != show {
             self.show_hidden = show;
             self.rescan(cx);

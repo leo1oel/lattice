@@ -84,6 +84,7 @@ impl Shell {
         let subscription = cx.subscribe_in(project, window, |this, _, event, window, cx| {
             if let ProjectEvent::FilesChanged(paths) = event {
                 this.watched_files_changed(paths.as_deref(), window, cx);
+                this.pdf_files_changed(paths.as_deref(), window, cx);
             }
         });
         let watch = self.build_watch();

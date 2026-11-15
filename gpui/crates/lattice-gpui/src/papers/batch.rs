@@ -14,7 +14,7 @@ use std::{
 };
 
 use gpui::{AppContext as _, Context, Task};
-use lattice_core::papers::{self as core_papers, HistoryMode};
+use lattice_core::papers::{self as core_papers, FullText, HistoryMode};
 
 use lattice_i18n::t;
 
@@ -95,8 +95,9 @@ fn bring_from_zotero<'a>(
     root: &std::path::Path,
     key: &str,
     extras: &ZoteroExtras,
-    saves_text: bool,
-    fresh_without_text: bool,
+    // Whether the paper came without text of its own, or `None` when the
+    // batch saves no text at all.
+    fresh_without_text: Option<bool>,
     annotations: impl Fn() -> Result<&'a Annotations, String>,
     labels: &super::zotero::notes::Labels,
     words: &ZoteroWords,
@@ -115,7 +116,8 @@ fn bring_from_zotero<'a>(
         note: None,
         attached: None,
     };
-    if let Some(pdf) = extras.pdf.as_ref().filter(|_| saves_text) {
+    // A batch adding citations alone saves no text, a Zotero PDF's included.
+    if let (Some(pdf), Some(fresh_without_text)) = (&extras.pdf, fresh_without_text) {
         let needs = if extras.existing.is_some() {
             paper_of().is_some_and(|paper| super::model::keeps_no_pdf(&paper))
         } else {
@@ -175,8 +177,9 @@ struct Run {
     annotations: Arc<std::sync::OnceLock<Result<Annotations, String>>>,
     labels: super::zotero::notes::Labels,
     words: ZoteroWords,
-    /// The whole batch saves full text or not, as Settings said when it began.
-    full_text: core_papers::FullText,
+    /// Whether the batch saves full text, as Add papers' switch said when
+    /// it began.
+    full_text: FullText,
 }
 
 /// How many papers import at once: enough to hide each lookup's latency,
@@ -192,6 +195,8 @@ pub struct Batch {
     requests: HashMap<String, BatchRequest>,
     pending: VecDeque<String>,
     tasks: HashMap<String, (Task<()>, Arc<AtomicBool>)>,
+    /// The paper tools' install was offered for this batch already.
+    tools_offered: bool,
 }
 
 impl Batch {
@@ -267,8 +272,7 @@ fn import_one(
         &run.root,
         &key,
         extras,
-        run.full_text == core_papers::FullText::Save,
-        fresh_without_text,
+        (run.full_text == FullText::Save).then_some(fresh_without_text),
         annotations,
         &run.labels,
         &run.words,
@@ -346,6 +350,7 @@ impl PapersPanel {
                 .map(|request| (request.id.clone(), request))
                 .collect(),
             tasks: HashMap::new(),
+            tools_offered: false,
         };
         self.pump(cx);
         true
@@ -390,7 +395,7 @@ impl PapersPanel {
                         return;
                     }
                     this.batch.tasks.remove(&task_id);
-                    this.settle_item(&task_id, result);
+                    this.settle_item(&task_id, result, cx);
                     this.reload(cx);
                     this.pump(cx);
                 })
@@ -406,6 +411,7 @@ impl PapersPanel {
         &mut self,
         id: &str,
         result: Result<(core_papers::ImportResult, Option<String>), String>,
+        cx: &mut Context<Self>,
     ) {
         let Some(item) = self.batch.items.iter_mut().find(|item| item.id == id) else {
             return;
@@ -439,6 +445,12 @@ impl PapersPanel {
                 item.citation_key = imported.citation_key;
             }
             Err(error) => {
+                // Missing paper tools fail every paper alike: offer the
+                // install once a batch.
+                if error.contains(super::audit::PAPER_TOOLS_MISSING) && !self.batch.tools_offered {
+                    self.batch.tools_offered = true;
+                    cx.emit(super::PapersEvent::MissingPaperTools(error.clone()));
+                }
                 item.state = ItemState::Failed;
                 item.note = Some(error);
             }
@@ -477,6 +489,12 @@ impl PapersPanel {
         item.note = None;
         self.batch.pending.push_back(id.to_string());
         self.pump(cx);
+    }
+
+    /// Whether the batch under way saves full text, for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn batch_full_text(&self) -> Option<FullText> {
+        self.batch.run.as_ref().map(|run| run.full_text)
     }
 
     /// Forget a finished batch; one still running keeps its rows for the

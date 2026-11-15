@@ -388,6 +388,16 @@ fn symbol_title(kind: SymbolKind) -> (String, String) {
     }
 }
 
+/// What the rename dialog renames (`RenameTarget` in the Tauri app): a
+/// label or a citation key across the project, the environment at the caret
+/// (⌘⌥R), or the name of an environment to wrap the selection in (⌘⇧E).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RenameTarget {
+    Symbol(SymbolKind),
+    Environment,
+    WrapEnvironment,
+}
+
 /// What the rename dialog asks of the window.
 pub enum RenameEvent {
     /// Rename to the name given; the window saves, renames and answers.
@@ -398,7 +408,7 @@ pub enum RenameEvent {
 /// The rename dialog (`.modal.rename-modal`): the title, what else it
 /// edits, the name, an error, Cancel and Rename.
 pub struct RenameSymbolDialog {
-    pub kind: SymbolKind,
+    pub target: RenameTarget,
     pub old: String,
     field: Entity<InputState>,
     pub error: Option<String>,
@@ -409,7 +419,12 @@ pub struct RenameSymbolDialog {
 impl EventEmitter<RenameEvent> for RenameSymbolDialog {}
 
 impl RenameSymbolDialog {
-    pub fn new(kind: SymbolKind, old: String, window: &mut Window, cx: &mut Context<Self>) -> Self {
+    pub fn new(
+        target: RenameTarget,
+        old: String,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Self {
         let field = cx.new(|cx| InputState::new(window, cx).default_value(old.clone()));
         let subscription = cx.subscribe(&field, |this, _, event, cx| {
             if let InputEvent::PressEnter { .. } = event {
@@ -417,7 +432,7 @@ impl RenameSymbolDialog {
             }
         });
         Self {
-            kind,
+            target,
             old,
             field,
             error: None,
@@ -458,12 +473,17 @@ impl Render for RenameSymbolDialog {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let palette = cx.palette().clone();
         let width = px(420.).min(window.viewport_size().width - px(40.));
-        let (title, copy) = match self.kind {
-            SymbolKind::Label => (t!("Rename label"), t!("Updates every \\ref to it")),
-            SymbolKind::Citation => (
+        // Only a rename that reaches past the caret says where else it edits.
+        let (title, copy) = match self.target {
+            RenameTarget::Symbol(SymbolKind::Label) => {
+                (t!("Rename label"), Some(t!("Updates every \\ref to it")))
+            }
+            RenameTarget::Symbol(SymbolKind::Citation) => (
                 t!("Rename citation key"),
-                t!("Updates the .bib entry and every \\cite"),
+                Some(t!("Updates the .bib entry and every \\cite")),
             ),
+            RenameTarget::Environment => (t!("Rename environment"), None),
+            RenameTarget::WrapEnvironment => (t!("Wrap in environment"), None),
         };
         let busy = self.busy;
         let empty = self.name(cx).is_empty();
@@ -485,15 +505,16 @@ impl Render for RenameSymbolDialog {
                     .text_color(palette.text)
                     .child(title),
             )
-            .child(
+            .children(copy.map(|copy| {
                 div()
-                    .mb(px(20.))
+                    .mb(px(4.))
                     .text_role(TextRole::Body, cx)
                     .text_color(palette.text_secondary)
-                    .child(copy),
-            )
+                    .child(copy)
+            }))
             .child(
                 div()
+                    .mt(px(16.))
                     .flex()
                     .flex_col()
                     .gap(px(6.))

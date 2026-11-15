@@ -510,7 +510,7 @@ impl Shell {
     }
 
     /// Focus mode on with or without the PDF (`Some`), or off.
-    fn focus(&mut self, pdf: Option<bool>, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn focus(&mut self, pdf: Option<bool>, window: &mut Window, cx: &mut Context<Self>) {
         let current = self.layout.focus.clone();
         if let (Some(pdf), Some(current)) = (pdf, &current)
             && current.pdf == pdf

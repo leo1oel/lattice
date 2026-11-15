@@ -27,12 +27,15 @@ pub mod cards;
 pub mod completions;
 pub mod diagnostics;
 pub mod edits;
+pub mod environments;
 pub mod folding;
 pub mod format_toggle;
 pub mod highlights;
 pub mod prose;
 pub mod protected;
+pub mod region_edits;
 pub mod spelling;
+pub mod synctex_word;
 pub mod syntax;
 pub mod vocabulary;
 

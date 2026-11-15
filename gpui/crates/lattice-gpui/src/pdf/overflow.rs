@@ -128,8 +128,9 @@ impl PdfView {
         let can_back = self.can_go_back();
         let can_forward = self.can_go_forward();
         let can_reveal = self.can_reveal;
+        let reveal_disabled = self.reveal_disabled || self.locating;
         let action = self.action.clone();
-        let can_save = self.source.is_some();
+        let can_save = self.source.is_some() && !self.saving;
         BasePopover::new("pdf-overflow")
             .anchor(gpui::Anchor::TopRight)
             .offset(px(6.))
@@ -224,7 +225,7 @@ impl PdfView {
                                 t!("Reveal cursor in PDF"),
                                 Icon::LOCATE_FIXED,
                                 None,
-                                false,
+                                reveal_disabled,
                                 Box::new(|_, _, cx| cx.emit(PdfViewEvent::RevealCursor)),
                             ))
                             .child(separator());

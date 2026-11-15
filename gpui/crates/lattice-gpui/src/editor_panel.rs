@@ -55,7 +55,7 @@ mod events;
 pub mod find_bar;
 mod highlight_palette;
 mod insert;
-mod latex_format;
+pub(crate) mod latex_format;
 mod latex_view;
 mod latex_visual_events;
 mod margin_review;
@@ -78,7 +78,8 @@ pub(crate) mod spelling;
 mod strip;
 mod structured_view;
 pub mod views;
-pub use latex_format::{ToggleBold, ToggleEmphasis};
+mod panel_actions;
+pub use panel_actions::{ShowSourceView, ShowVisualView, ViewPreview, ViewSource, ViewSplit};
 
 pub(crate) use annotations::PINS as ANNOTATION_PINS;
 use disk_sync::vanished_key;
@@ -92,32 +93,11 @@ pub(crate) use save::normalize_breaks;
 pub use views::DocumentView;
 use views::DocumentViews;
 
-gpui::actions!(
-    lattice_document,
-    [
-        /// Show an HTML file's source ("Edit").
-        ViewSource,
-        /// Show an HTML file's source beside its preview.
-        ViewSplit,
-        /// Show an HTML file's preview alone.
-        ViewPreview,
-    ]
-);
-
 use crate::{build_panel::BuildPanel, editor_status, project::Project};
 use buffer_counts::TODO_SETTLE;
 
 /// How often the open file is checked for an edit made behind the editor.
 const DISK_POLL: Duration = Duration::from_millis(2500);
-gpui::actions!(
-    lattice_editor_panel,
-    [
-        /// Every .tex file's Source view.
-        ShowSourceView,
-        /// Every .tex file's Visual view (`latex_view.rs`).
-        ShowVisualView,
-    ]
-);
 
 /// The last write's outcome, for the status bar's save slot.
 #[derive(Clone, Debug, PartialEq)]
@@ -756,56 +736,13 @@ impl Render for EditorPanel {
         };
         let bib = self.bib_for_view(window, cx);
         let body = self.render_views(editor, status, bib, cx);
-        div()
-            .key_context("LatticeEditor")
+        Self::panel_actions(Self::latex_commands(div().key_context("LatticeEditor"), cx), cx)
             .on_action(cx.listener(Self::deploy_search))
-            .on_action(cx.listener(|this, _: &proofread::ProofreadSelection, window, cx| {
-                this.proofread_action(Some(lattice_editor::proofread::Ask::Proofread), window, cx)
-            }))
-            .on_action(cx.listener(|this, _: &proofread::PolishSelection, window, cx| {
-                this.proofread_action(Some(lattice_editor::proofread::Ask::Polish), window, cx)
-            }))
-            .on_action(cx.listener(|this, _: &proofread::RewriteSelection, window, cx| {
-                this.proofread_action(None, window, cx)
-            }))
-            .on_action(cx.listener(Self::toggle_bold))
-            .on_action(cx.listener(Self::toggle_emphasis))
-            .on_action(cx.listener(|this, _: &find_bar::FindNext, window, cx| {
-                if !this.find_in_latex_visual("next", window, cx) {
-                    this.find_bar
-                        .update(cx, |bar, cx| bar.step(false, window, cx))
-                }
-            }))
-            .on_action(cx.listener(|this, _: &find_bar::FindPrevious, window, cx| {
-                if !this.find_in_latex_visual("previous", window, cx) {
-                    this.find_bar
-                        .update(cx, |bar, cx| bar.step(true, window, cx))
-                }
-            }))
             // Before Zed's editor pastes: an image becomes a figure.
             .capture_action(cx.listener(|this, _: &editor::actions::Paste, window, cx| {
                 if this.editor().focus_handle(cx).is_focused(window) && this.pastes_image(cx) {
                     cx.emit(EditorPanelEvent::PasteImage);
                     cx.stop_propagation();
-                }
-            }))
-            .on_action(cx.listener(|this, _: &ViewSource, window, cx| {
-                this.set_document_view(DocumentView::Source, window, cx)
-            }))
-            .on_action(cx.listener(|this, _: &ViewSplit, window, cx| {
-                this.set_document_view(DocumentView::Split, window, cx)
-            }))
-            .on_action(cx.listener(|this, _: &ViewPreview, window, cx| {
-                this.set_document_view(DocumentView::Preview, window, cx)
-            }))
-            .on_action(cx.listener(|this, _: &ShowSourceView, _, cx| {
-                if this.latex_view(cx).is_some() {
-                    choose_latex_view(lattice_settings::LatexView::Source, cx);
-                }
-            }))
-            .on_action(cx.listener(|this, _: &ShowVisualView, _, cx| {
-                if this.latex_view(cx).is_some() {
-                    choose_latex_view(lattice_settings::LatexView::Visual, cx);
                 }
             }))
             .size_full()

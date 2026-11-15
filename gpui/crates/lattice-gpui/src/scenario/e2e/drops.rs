@@ -163,7 +163,7 @@ impl Run {
         })?;
 
         // A figure's row from the tree over the editor: the drop caret. The
-        // import's rescan shows figures/, which a click opens.
+        // import's rescan shows figures/ with the figure revealed in it.
         let rows = |cx: &mut gpui::App, path: &str| {
             self.shell.read(cx).file_tree().read(cx).row_paths(cx).contains(&path.to_string())
         };
@@ -394,9 +394,13 @@ impl Run {
         let rows = |cx: &mut gpui::App, path: &str| {
             self.shell.read(cx).file_tree().read(cx).row_paths(cx).contains(&path.to_string())
         };
-        let folder = self.tree_row_center(cx, "figures")?;
-        self.pointer(cx, PointerStep::Down, folder).await?;
-        self.pointer(cx, PointerStep::Up, folder).await?;
+        // The import revealed its figure, opening figures/ (revealRequest);
+        // a click opens the folder only when it was closed since.
+        if !cx.update(|cx| rows(cx, "figures/finder-plot.png")) {
+            let folder = self.tree_row_center(cx, "figures")?;
+            self.pointer(cx, PointerStep::Down, folder).await?;
+            self.pointer(cx, PointerStep::Up, folder).await?;
+        }
         self.wait_for(cx, Duration::from_secs(4), |_, cx| rows(cx, "figures/finder-plot.png"))
             .await;
         self.pause(cx, Duration::from_millis(200)).await;
@@ -421,7 +425,7 @@ impl Run {
 
     /// Save the window as `<name>-light.png` and `<name>-dark.png` into
     /// `LATTICE_E2E_SHOTS`, when set; the drag stays on meanwhile.
-    async fn drop_shot(&self, cx: &mut AsyncApp, name: &str) {
+    pub(super) async fn drop_shot(&self, cx: &mut AsyncApp, name: &str) {
         if std::env::var_os("LATTICE_E2E_SHOTS").is_none() {
             return;
         }
@@ -433,7 +437,7 @@ impl Run {
     }
 
     /// The middle of the tree's row for `path`, as last drawn.
-    fn tree_row_center(&self, cx: &mut AsyncApp, path: &str) -> Result<Point<Pixels>> {
+    pub(super) fn tree_row_center(&self, cx: &mut AsyncApp, path: &str) -> Result<Point<Pixels>> {
         let tree = cx.update(|cx| self.shell.read(cx).file_tree().clone());
         cx.update(|cx| {
             let tree = tree.read(cx);
@@ -453,7 +457,7 @@ impl Run {
     }
 
     /// A point in the tree below its last row.
-    fn tree_below_rows(&self, cx: &mut AsyncApp) -> Result<Point<Pixels>> {
+    pub(super) fn tree_below_rows(&self, cx: &mut AsyncApp) -> Result<Point<Pixels>> {
         let tree = cx.update(|cx| self.shell.read(cx).file_tree().clone());
         cx.update(|cx| {
             let snapshot = tree.read(cx).hover_snapshot(cx).context("the tree was drawn")?;
@@ -468,7 +472,7 @@ impl Run {
     }
 
     /// Finder's drag of `paths` entering the window, then moving, at `at`.
-    async fn file_drag(&self, cx: &mut AsyncApp, at: Point<Pixels>, paths: &[PathBuf]) -> Result<()> {
+    pub(super) async fn file_drag(&self, cx: &mut AsyncApp, at: Point<Pixels>, paths: &[PathBuf]) -> Result<()> {
         let paths = ExternalPaths(paths.iter().cloned().collect());
         self.file_event(cx, FileDropEvent::Entered { position: at, paths })
             .await?;
@@ -476,7 +480,7 @@ impl Run {
     }
 
     /// Finder's drop at `at`.
-    async fn file_drop(&self, cx: &mut AsyncApp, at: Point<Pixels>) -> Result<()> {
+    pub(super) async fn file_drop(&self, cx: &mut AsyncApp, at: Point<Pixels>) -> Result<()> {
         self.file_event(cx, FileDropEvent::Submit { position: at }).await
     }
 
@@ -489,7 +493,7 @@ impl Run {
     }
 
     /// One pointer event at `at`, with a frame drawn after it.
-    async fn pointer(&self, cx: &mut AsyncApp, step: PointerStep, at: Point<Pixels>) -> Result<()> {
+    pub(super) async fn pointer(&self, cx: &mut AsyncApp, step: PointerStep, at: Point<Pixels>) -> Result<()> {
         let event = match step {
             PointerStep::Down => PlatformInput::MouseDown(gpui::MouseDownEvent {
                 button: MouseButton::Left,
@@ -534,7 +538,7 @@ impl Run {
     }
 
     /// The app log's newest entry, "title: detail".
-    fn last_notice(&self, cx: &mut AsyncApp) -> Result<Option<String>> {
+    pub(super) fn last_notice(&self, cx: &mut AsyncApp) -> Result<Option<String>> {
         self.with_window(cx, |_, _, cx| {
             crate::app_log::global(cx)
                 .read(cx)
@@ -555,7 +559,7 @@ struct DividerMarks {
 }
 
 #[derive(Clone, Copy)]
-enum PointerStep {
+pub(super) enum PointerStep {
     Down,
     Move,
     Up,

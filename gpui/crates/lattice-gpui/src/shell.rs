@@ -34,6 +34,7 @@ pub mod commands;
 mod documents;
 pub(crate) mod drops;
 mod editor_events;
+mod environment_flow;
 mod editors;
 mod export_zip;
 mod focus_escape;
@@ -61,9 +62,12 @@ mod palette_entries;
 mod palette_groups;
 mod papers;
 mod parts;
+mod pdf_figure;
+mod pdf_sync;
 mod pdfs;
 mod references_flow;
 mod render;
+pub(crate) mod research_flow;
 mod saving;
 mod settings_flow;
 mod shortcut_groups;
@@ -103,6 +107,7 @@ pub use commands::{
 pub use get_started_flow::ShowGetStarted;
 pub use help_flow::{ReportProblem, WhatsNew};
 pub use insert_flow::{InsertTable, PasteImageAsFigure};
+pub use environment_flow::{RenameEnvironment, WrapInEnvironment};
 pub use insert_pickers_flow::{GoToLine, GoToSymbol, InsertCitation, InsertReference};
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 pub use overleaf_collab::AnnotateSelection;

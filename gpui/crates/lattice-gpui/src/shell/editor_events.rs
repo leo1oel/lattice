@@ -88,6 +88,7 @@ impl Shell {
             EditorPanelEvent::SurfaceContext => self.surface_context_changed(editor, cx),
             EditorPanelEvent::Focused => {
                 self.active_editor = Some(editor.downgrade());
+                self.refresh_reveal(cx);
                 self.live_preview
                     .update(cx, |live, cx| live.note_editor(editor, cx));
                 let path = editor.read(cx).path().to_path_buf();

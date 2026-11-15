@@ -513,6 +513,21 @@ impl PdfView {
                         strip,
                         true,
                         tool("pdf-locate", Icon::LOCATE_FIXED, t!("Reveal cursor in PDF"))
+                            .when_some(
+                                crate::shell::commands::keys_label(
+                                    &crate::shell::ForwardSync,
+                                    window,
+                                ),
+                                |button, keys| button.shortcut(keys),
+                            )
+                            .disabled(self.reveal_disabled || self.locating)
+                            .when(self.locating, |button| {
+                                button.content(crate::build::chip_mark::infinity_loader(
+                                    "pdf-locating",
+                                    px(14.),
+                                    cx.palette(),
+                                ))
+                            })
                             .on_click(
                                 cx.listener(|_, _, _, cx| cx.emit(PdfViewEvent::RevealCursor)),
                             ),
@@ -554,7 +569,14 @@ impl PdfView {
                         strip,
                         self.source.is_some(),
                         tool("pdf-save", Icon::DOWNLOAD, t!("Save PDF as…"))
-                            .disabled(self.source.is_none())
+                            .disabled(self.source.is_none() || self.saving)
+                            .when(self.saving, |button| {
+                                button.content(crate::build::chip_mark::infinity_loader(
+                                    "pdf-saving",
+                                    px(14.),
+                                    cx.palette(),
+                                ))
+                            })
                             .on_click(cx.listener(|this, _, window, cx| this.save_as(window, cx))),
                     ),
                 )
@@ -571,6 +593,7 @@ impl PdfView {
         let percent = format!("{}", (self.scale * 100.).round() as i64);
         let frame = div()
             .id("pdf-zoom-value")
+            .relative()
             .flex_none()
             .w(px(44.))
             .h(px(28.))
@@ -608,7 +631,17 @@ impl PdfView {
             frame
                 .cursor_text()
                 .on_click(cx.listener(|this, _, window, cx| this.edit_draft(true, window, cx)))
+                // The wheel over the value steps the zoom (`useNonPassiveWheel`
+                // on the zoom label in `use-pdf-zoom.ts`).
+                .on_scroll(cx.listener(|this, event: &gpui::ScrollEvent, _, cx| {
+                    cx.stop_propagation();
+                    let delta = event.delta.pixel_delta(px(20.)).y;
+                    if delta != px(0.) {
+                        this.step_zoom(if delta > px(0.) { 1. } else { -1. }, cx);
+                    }
+                }))
                 .child(format!("{percent}%"))
+                .children(lattice_ui::parity::probe("pdf/zoom"))
                 .into_any_element()
         }
     }
@@ -616,9 +649,11 @@ impl PdfView {
     /// Save PDF as…: the file as it is on disk now, copied where the reader
     /// picks (`saveProjectPdf`).
     pub(super) fn save_as(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(source) = self.source.clone() else {
+        let Some(source) = self.source.clone().filter(|_| !self.saving) else {
             return;
         };
+        self.saving = true;
+        cx.notify();
         let name = source
             .file_name()
             .map(|name| name.to_string_lossy().to_string())
@@ -632,8 +667,13 @@ impl PdfView {
                     .unwrap_or_default()
             });
         let destination = cx.prompt_for_new_path(&directory, Some(&name));
-        cx.spawn_in(window, async move |_, cx| {
+        cx.spawn_in(window, async move |this, cx| {
             let Ok(Ok(Some(destination))) = destination.await else {
+                this.update(cx, |this, cx| {
+                    this.saving = false;
+                    cx.notify();
+                })
+                .ok();
                 return;
             };
             let copied = cx
@@ -642,6 +682,11 @@ impl PdfView {
                     async move { copy_pdf(&source, &destination) }
                 })
                 .await;
+            this.update(cx, |this, cx| {
+                this.saving = false;
+                cx.notify();
+            })
+            .ok();
             cx.update(|_, cx| match copied {
                 Ok(_) => crate::notices::info(
                     t!("PDF saved"),
