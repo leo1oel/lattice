@@ -489,7 +489,7 @@ impl Run {
     }
 
     /// One pointer event at `at`, with a frame drawn after it.
-    async fn pointer(&self, cx: &mut AsyncApp, step: PointerStep, at: Point<Pixels>) -> Result<()> {
+    pub(super) async fn pointer(&self, cx: &mut AsyncApp, step: PointerStep, at: Point<Pixels>) -> Result<()> {
         let event = match step {
             PointerStep::Down => PlatformInput::MouseDown(gpui::MouseDownEvent {
                 button: MouseButton::Left,
@@ -555,7 +555,7 @@ struct DividerMarks {
 }
 
 #[derive(Clone, Copy)]
-enum PointerStep {
+pub(super) enum PointerStep {
     Down,
     Move,
     Up,

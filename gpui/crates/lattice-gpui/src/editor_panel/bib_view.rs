@@ -58,7 +58,8 @@ impl EditorPanel {
         if let Some(bib) = &self.bib.editor {
             bib.update(cx, |bib, cx| bib.set_papers(papers.clone(), cx));
         }
-        self.bib.papers = Some(papers);
+        self.bib.papers = Some(papers.clone());
+        self.follow_library(papers, cx);
     }
 
     /// The `.bib` file's visual form, when it is showing.

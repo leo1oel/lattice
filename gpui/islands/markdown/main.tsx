@@ -24,7 +24,7 @@
  *   source is mounted), so the two views step through one history.
  *
  * Host to page, beside the document protocol's `doc:open` (with `projectRoot`,
- * `files`, `texSources`, `split`), `doc:source`, `doc:active`, `doc:flush`
+ * `files`, `texSources`, `split`, `papers`), `doc:source`, `doc:active`, `doc:flush`
  * and `doc:locale`:
  *   md:split          { split }         the view is Split (source labels kept for its scroll sync)
  *   md:reveal         { id, line }      land on a 1-based line of the file
@@ -34,6 +34,8 @@
  *   md:scroll-to      { center, min, max }   Split: the line at the source's centre, and its range
  *   md:paper          { paper }       the file is a saved paper's reading text (null: it is not)
  *   md:presence       { cursors }       co-authors' carets, rows of the file (also `doc:open`'s `presence`)
+ *   md:papers         { papers }        the library's papers, for the `@` menu and a paper's drop
+ *   md:paper-drag     { phase, x, y, paper }   a paper from the Papers list over the page (`paper-drag.ts`)
  *   doc:editable      { editable }      the file may (not) be edited here
  * Page to host:
  *   md:change         { source, base }  the whole file after an edit made against `base`
@@ -54,6 +56,7 @@ import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useReducer,
 import { mount, activateLocale } from "../shared/boot";
 import { host } from "../shared/host";
 import { LineIndex, SplitScroll } from "./split-scroll";
+import { paperDragReplay, type PaperDragMessage } from "./paper-drag";
 import "./markdown.css";
 import { ScrollArea } from "../../../src/components/ui/scroll-area";
 import { InlineMessage } from "../../../src/components/ui/inline-message";
@@ -63,7 +66,7 @@ import { MarkdownWorkspaceIndex } from "../../../src/editor/markdown/markdown-wo
 import type { VisualRevealTarget } from "../../../src/editor/markdown/visual-editor-props";
 import { katexMacrosFromSources } from "../../../src/editor/latex/latex-text";
 import { markdownFrontmatterEnd } from "../../../src/app-utils";
-import type { FileNode } from "../../../src/app-types";
+import type { FileNode, PaperSummary } from "../../../src/app-types";
 import type { PresenceCursor } from "../../../src/overleaf/overleaf-editor-extensions";
 import { restoreViewportAround } from "../../../src/canvas/viewport-restore";
 import {
@@ -118,6 +121,7 @@ type MarkdownOpen = {
   texSources: string[];
   paper?: PaperReading | null;
   presence?: PresenceCursor[];
+  papers?: PaperSummary[];
 };
 
 type Reveal = { id: string; target: VisualRevealTarget };
@@ -134,6 +138,8 @@ type State = {
   paper: PaperReading | null;
   /** Co-authors' carets, by rows of the file. */
   presence: PresenceCursor[];
+  /** The library's papers (`document-canvas.tsx`'s `papers`). */
+  papers: PaperSummary[];
 };
 
 type Action =
@@ -146,6 +152,7 @@ type Action =
   | { type: "project"; files: FileNode[]; texSources: string[] }
   | { type: "paper"; paper: PaperReading | null }
   | { type: "presence"; presence: PresenceCursor[] }
+  | { type: "papers"; papers: PaperSummary[] }
   | { type: "editable"; editable: boolean };
 
 function reduce(state: State, action: Action): State {
@@ -156,6 +163,7 @@ function reduce(state: State, action: Action): State {
         files: action.open.files, texSources: action.open.texSources, reveal: null,
         paper: action.open.paper ?? null,
         presence: action.open.presence ?? [],
+        papers: action.open.papers ?? [],
       };
     case "source":
       return { ...state, source: action.source };
@@ -173,6 +181,8 @@ function reduce(state: State, action: Action): State {
       return { ...state, paper: action.paper };
     case "presence":
       return { ...state, presence: action.presence };
+    case "papers":
+      return { ...state, papers: action.papers };
     case "editable":
       return state.opened ? { ...state, opened: { ...state.opened, editable: action.editable } } : state;
   }
@@ -209,8 +219,9 @@ function Markdown() {
     opened: null, source: "", split: false, ready: false, assetRevision: 0, reveal: null, files: [], texSources: [],
     paper: null,
     presence: [],
+    papers: [],
   });
-  const { opened, source, split, ready, assetRevision, reveal, files, texSources, paper, presence } = state;
+  const { opened, source, split, ready, assetRevision, reveal, files, texSources, paper, presence, papers } = state;
   // Why the engine cannot show this full text as written, for its masthead
   // (`onEligibilityChange`, `paperVisualEligibilityReason`).
   const [eligibility, setEligibility] = useState<string | null>(null);
@@ -248,6 +259,7 @@ function Markdown() {
 
   useEffect(() => {
     const bridge = host();
+    const replayPaperDrag = paperDragReplay();
     const stops = [
       bridge.on("doc:open", (payload) => {
         const open = payload as MarkdownOpen;
@@ -304,6 +316,10 @@ function Markdown() {
             .catch(() => {});
         }
       }),
+      bridge.on("md:papers", (payload) => {
+        dispatch({ type: "papers", papers: (payload as { papers: PaperSummary[] }).papers ?? [] });
+      }),
+      bridge.on("md:paper-drag", (payload) => replayPaperDrag(payload as PaperDragMessage)),
       bridge.on("md:paper", (payload) => {
         dispatch({ type: "paper", paper: (payload as { paper: PaperReading | null }).paper ?? null });
       }),
@@ -504,6 +520,7 @@ function Markdown() {
           onSelectionMarkdown={onSelectionMarkdown}
           onOpenProjectPath={onOpenProjectPath}
           workspaceIndex={workspaceIndex}
+          papers={papers}
           macros={macros}
           onUndo={onUndo}
           onRedo={onRedo}

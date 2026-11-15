@@ -63,8 +63,6 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] A Finder drop of a drawing (`.svg`, `.drawio`) onto the editor as an editable figure.
 
-- [ ] A paper dragged from Papers into the editor as a citation.
-
 - [ ] The Project tree's multi-select, type-to-filter, sticky folders and expand motion.
 
 - [ ] The Project tree's expanded folders and Show hidden files kept per project.
