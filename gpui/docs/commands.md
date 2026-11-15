@@ -10,7 +10,7 @@ A typed query ranks the commands, the project's files, its Papers (title, author
 A row shows its detail at its end: a recent project's folder, What's new's version.
 The labels are the Tauri table's, in the interface language: Jump to PDF (from a LaTeX source only), Switch to the Writing, Reading or Bibliography layout (the one in use left out), Margin review under View, Open guided tutorial, and in focus mode Hide the PDF or Show the PDF beside the editor.
 
-Export ZIP (File › Export ZIP…, the project menu or the palette's Export project ZIP) asks where to save `<project>.zip`, saves the open edits, then writes the project's sources there with the build's output left out, as the Tauri app's does; the project menu says "Exporting ZIP…" while it runs, and a failure shows its message.
+Export ZIP (File › Export ZIP…, the project menu or the palette's Export project ZIP) asks where to save `<project>.zip`, saves the open edits, then writes the project's sources there with the build's output left out, as the Tauri app's does; while it runs the project menu ends with "Exporting ZIP…" after a loader and dims the rows that would switch or replace the project (the recent projects, Open from Overleaf, Guided tutorial), and a failure shows its message.
 The project menu lists what the Tauri one does, in the interface language: the recent projects, Open another folder, New project, Clone repository…, Open from Overleaf, Export ZIP, Export for arXiv…, Guided tutorial and Settings.
 
 The shortcut sheet (⌘?, or Keyboard shortcuts in the palette) lists what the Tauri app's does, built from the keymap as it opens, so it shows only keys that run what they say where they work.
