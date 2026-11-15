@@ -272,12 +272,34 @@ fn find_delimited(
 
 /// The math region `position` is in, if any (`mathRegionAt`).
 pub fn math_region_at(text: &str, position: usize) -> Option<Range<usize>> {
+    math_region(text, position).map(|region| region.range)
+}
+
+/// A math region with what is inside its delimiters.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MathRegion {
+    /// Delimiters included.
+    pub range: Range<usize>,
+    /// The math between the delimiters, trimmed.
+    pub source: String,
+    /// Display math: everything but `\(…\)` and `$…$`.
+    pub display: bool,
+}
+
+/// The math region `position` is in, with its source (`mathRegionAt`).
+pub fn math_region(text: &str, position: usize) -> Option<MathRegion> {
     let position = floor_boundary(text, position.min(text.len()));
     let paragraph = paragraph_around(text, position);
     let inner = &text[paragraph.clone()];
-    DELIMITERS.iter().find_map(|delimiter| {
-        let region = find_delimited(inner, position - paragraph.start, *delimiter)?;
-        Some(region.start + paragraph.start..region.end + paragraph.start)
+    DELIMITERS.iter().find_map(|&(open, close)| {
+        let region = find_delimited(inner, position - paragraph.start, (open, close))?;
+        Some(MathRegion {
+            source: inner[region.start + open.len()..region.end - close.len()]
+                .trim()
+                .to_string(),
+            display: !matches!(open, "$" | "\\("),
+            range: region.start + paragraph.start..region.end + paragraph.start,
+        })
     })
 }
 
@@ -345,5 +367,16 @@ mod tests {
         assert!(math_region_at(text, text.find("more").unwrap()).is_none());
         // An unpaired `$` past a blank line opens nothing.
         assert!(math_region_at(text, text.find("lone").unwrap()).is_none());
+    }
+
+    #[test]
+    fn math_regions_carry_their_source_and_kind() {
+        let text = "Text $a+b$ more.\n\\begin{equation}\n  x^2 \\label{eq:x}\n\\end{equation}";
+        let inline = math_region(text, text.find("a+b").unwrap()).expect("inline math");
+        assert_eq!((inline.source.as_str(), inline.display), ("a+b", false));
+        let display = math_region(text, text.find("\\label").unwrap()).expect("an equation");
+        assert_eq!(display.source, "x^2 \\label{eq:x}");
+        assert!(display.display);
+        assert_eq!(&text[display.range.clone()][..16], "\\begin{equation}");
     }
 }

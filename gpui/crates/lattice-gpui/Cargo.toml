@@ -109,6 +109,9 @@ tungstenite = { version = "0.29.0", default-features = false, features = ["hands
 raw-window-handle = "0.6"
 
 [target.'cfg(target_os = "macos")'.dependencies]
+# The math page's script and snapshot replies (`card_previews/math_page.rs`);
+# the version Wry's WebKit bindings already use, so it adds no crate.
+block2 = "0.6"
 libc = "0.2"
 objc2 = "0.6"
 objc2-foundation = { version = "0.3", features = ["NSArray", "NSGeometry", "NSLocale", "NSRange", "NSString"] }

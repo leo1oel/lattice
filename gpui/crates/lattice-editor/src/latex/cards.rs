@@ -13,7 +13,9 @@
 //!   "Why cited", Go to entry and Copy key, which says "Copied" for a
 //!   moment;
 //! - a reference card: what the label names and the label, its title, its
-//!   source snippet and the file it is in; the title opens it there.
+//!   source snippet and the file it is in; the title opens it there. A
+//!   figure's image, an equation set by KaTeX and the last build's number
+//!   are its previews (`preview_cards.rs`).
 //!
 //! Both stand on the popover surface: the panel radius, the lifted surface,
 //! the popover elevation. The Tauri app frosts them (97% of the surface over
@@ -51,7 +53,7 @@ use crate::{
     ProjectIndex,
     hover::{HoverCardContext, HoverProvider, HoverTarget},
     index::{Citation, Reference},
-    latex::syntax,
+    latex::{preview_cards, syntax},
 };
 
 /// How long Copy key says "Copied".
@@ -492,12 +494,25 @@ impl RenderOnce for CitationCard {
 pub struct ReferenceCard {
     pub reference: Reference,
     pub context: HoverCardContext,
+    pub previews: preview_cards::ReferencePreviews,
 }
 
 impl RenderOnce for ReferenceCard {
-    fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
+    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let palette = cx.palette().clone();
         let reference = self.reference;
+        let previews = self.previews;
+        let figure = previews
+            .figure
+            .as_deref()
+            .and_then(|path| preview_cards::figure_media(path, &self.context, cx));
+        let equation = previews
+            .equation
+            .as_ref()
+            .map(|(body, macros)| preview_cards::equation(body, macros, &self.context, window, cx));
+        let fact = previews
+            .fact
+            .map(|fact| preview_cards::compiled_line(fact, cx));
         let editor_font = cx.lattice().fonts.editor.clone();
         let heading = if reference.title.is_empty() {
             reference.label.clone()
@@ -517,6 +532,7 @@ impl RenderOnce for ReferenceCard {
             .px(px(12.))
             .pb(px(11.))
             .text_role(TextRole::Body, cx)
+            .children(figure)
             .child(
                 div()
                     .mb(px(5.))
@@ -540,18 +556,13 @@ impl RenderOnce for ReferenceCard {
                     .on_click(open)
                     .child(heading),
             )
-            .when(!reference.snippet.is_empty(), |card| {
-                card.child(
-                    div()
-                        .mt(px(7.))
-                        .max_h(px(132.))
-                        .overflow_hidden()
-                        .text_color(palette.text_secondary)
-                        .font_family(editor_font)
-                        .text_size(lattice_ui::tokens::TEXT_MICRO)
-                        .line_height(relative(1.45))
-                        .child(reference.snippet.clone()),
-                )
+            .children(fact)
+            .map(|card| match equation {
+                Some(equation) => card.child(equation),
+                None if !reference.snippet.is_empty() => {
+                    card.child(preview_cards::source_block(reference.snippet.clone(), cx))
+                }
+                None => card,
             })
             .child(
                 div()
@@ -613,11 +624,20 @@ impl HoverProvider for ReferenceCards {
         let target = syntax::reference_target(&window, offset - start)?;
         let index = self.index.upgrade()?;
         let reference = index.read(cx).reference(&target.key)?.clone();
+        let weak = self.index.clone();
+        let body = std::cell::OnceCell::new();
         Some(HoverTarget {
             range: target.range.start + start..target.range.end + start,
             id: "reference",
-            card: std::rc::Rc::new(move |context, _, _| {
+            card: std::rc::Rc::new(move |context, _, cx| {
                 ReferenceCard {
+                    previews: preview_cards::ReferencePreviews::read(
+                        &reference,
+                        &body,
+                        &weak,
+                        &context.text,
+                        cx,
+                    ),
                     reference: reference.clone(),
                     context: context.clone(),
                 }

@@ -7,6 +7,8 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] Wrapping a selection in an environment and renaming an environment (⌘⇧E, ⌘⌥R) in the Visual editor.
 
+- [ ] The live math preview: KaTeX's picture of the formula at the caret in a card above it (`math-preview.ts`).
+
 - [ ] Ctrl-M's jump to the matching math delimiter (`matchingMathDelimiter`) where no environment encloses the caret.
 
 - [ ] The LaTeX source's typing rules: `$` pairing, `\begin` closed by its `\end`, `\item` continued, `\left` closed by `\right`.
