@@ -8,6 +8,7 @@
 mod badge;
 mod button;
 mod chrome;
+mod color_picker;
 mod context_menu;
 mod field;
 mod form;
@@ -32,6 +33,7 @@ mod view_switch;
 pub use badge::{Badge, BadgeTone};
 pub use button::{Button, ButtonSize, ButtonVariant};
 pub use chrome::{Keycap, SearchField, Segmented};
+pub use color_picker::{ColorPicker, ColorPickerEvent, PICKER_WIDTH, SwatchGrid};
 pub use context_menu::{ContextMenu, context_menu_trigger};
 pub use field::Field;
 pub use form::{CheckState, Checkbox, Switch};

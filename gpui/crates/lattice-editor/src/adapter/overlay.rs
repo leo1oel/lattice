@@ -173,6 +173,7 @@ impl LatticeEditor {
                     .editor
                     .update(cx, |editor, cx| editor.text_layout_details(window, cx));
                 let display = &frame.display().display_snapshot;
+                let (_, font_size) = super::gutter_column::buffer_font(cx);
                 for (layer, items) in &self.inline {
                     let mut spliced: HashMap<usize, usize> = HashMap::new();
                     for anchored in items {
@@ -191,7 +192,7 @@ impl LatticeEditor {
                             anchored.item.text.len(),
                         );
                         let origin = caret.left() - display.x_for_display_point(base, &details);
-                        for (from, to) in &rows {
+                        for (index, (from, to)) in rows.iter().enumerate() {
                             let step = from.row().0 - base.row().0;
                             let top = caret.top() + frame.line_height * step as f32;
                             if !frame.shows_row(top) {
@@ -204,6 +205,8 @@ impl LatticeEditor {
                                 top,
                                 right - left,
                                 frame.line_height,
+                                font_size,
+                                index == 0,
                                 &anchored.item,
                                 window,
                             );

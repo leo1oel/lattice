@@ -179,12 +179,12 @@ impl EditorPanel {
                 if mark.change.text.is_empty() {
                     continue;
                 }
-                inline.push(InlineText {
-                    offset: from,
-                    text: one_line(&mark.change.text).into(),
-                    color: hue,
-                    tint: hue.opacity(DELETE_TINT),
-                });
+                inline.push(InlineText::struck(
+                    from,
+                    one_line(&mark.change.text),
+                    hue,
+                    hue.opacity(DELETE_TINT),
+                ));
                 let next = text[from..].chars().next().map_or(0, char::len_utf8);
                 margin.push(super::margin_review::MarginItem {
                     key: format!("change:{}", mark.change.id),

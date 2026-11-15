@@ -98,8 +98,47 @@ fn fits(appearance: Appearance, value: f64) -> bool {
 
 /// `fitAccent`: the custom accent `rgb` (`0xRRGGBB`) as `appearance` uses it.
 pub fn fit_accent(rgb: u32, appearance: Appearance) -> u32 {
+    fit_lightness(rgb, |value| fits(appearance, value), appearance)
+}
+
+/// `fitContrast`: `rgb` when it reads at `ratio` against every one of
+/// `grounds`, otherwise the nearest colour with its hue that does, moving
+/// away from a ground of `ground`'s kind (a highlight too dark for the
+/// paper's black ink lightens: `Appearance::Dark`, as its ink is).
+pub fn fit_contrast(rgb: u32, grounds: &[u32], ratio: f64, ground: Appearance) -> u32 {
+    let limits: Vec<f64> = grounds
+        .iter()
+        .map(|color| luminance(parse(*color)))
+        .collect();
+    fit_lightness(
+        rgb,
+        |value| {
+            limits.iter().all(|limit| {
+                let (lighter, darker) = if value > *limit {
+                    (value, *limit)
+                } else {
+                    (*limit, value)
+                };
+                (lighter + 0.05) / (darker + 0.05) >= ratio
+            })
+        },
+        ground,
+    )
+}
+
+/// The WCAG contrast between two colours (`contrastRatio`).
+pub fn contrast_ratio(first: u32, second: u32) -> f64 {
+    let (a, b) = (luminance(parse(first)), luminance(parse(second)));
+    let (lighter, darker) = if a > b { (a, b) } else { (b, a) };
+    (lighter + 0.05) / (darker + 0.05)
+}
+
+/// `fitLightness`: `rgb` itself when its luminance `fits`, otherwise the
+/// nearest colour with its hue that does, found by moving lightness away
+/// from a `ground` of that kind (giving up chroma only where sRGB runs out).
+fn fit_lightness(rgb: u32, fits: impl Fn(f64) -> bool, ground: Appearance) -> u32 {
     let color = parse(rgb);
-    if fits(appearance, luminance(color)) {
+    if fits(luminance(color)) {
         return format(color);
     }
     let [start, chroma, hue] = to_oklch(color);
@@ -115,13 +154,13 @@ pub fn fit_accent(rgb: u32, appearance: Appearance) -> u32 {
     };
     // Light grounds darken toward black, dark ones lighten toward white; the
     // first lightness that fits is the closest, to 0.001 in OKLCH.
-    let (mut inside, mut outside) = match appearance {
+    let (mut inside, mut outside) = match ground {
         Appearance::Light => (0., start),
         Appearance::Dark => (1., start),
     };
     for _ in 0..14 {
         let middle = (inside + outside) / 2.;
-        if fits(appearance, luminance(at(middle))) {
+        if fits(luminance(at(middle))) {
             inside = middle;
         } else {
             outside = middle;
@@ -159,5 +198,30 @@ mod tests {
         // In dark, a deep navy is lightened.
         let fitted = fit_accent(0x10204a, Appearance::Dark);
         assert!(accent_contrast(fitted, Appearance::Dark) >= 4.55);
+    }
+
+    // WCAG 2's own figures: black on white is 21:1, a colour on itself 1:1.
+    #[test]
+    fn contrast_is_wcags_ratio() {
+        assert!((contrast_ratio(0xffffff, 0x000000) - 21.).abs() < 1e-9);
+        assert!((contrast_ratio(0x777777, 0x777777) - 1.).abs() < 1e-9);
+    }
+
+    // The highlight palette's Lighten: a mustard too dark for the paper's
+    // ink comes out light enough to read it at 9:1, still a yellow, and a
+    // colour that already reads stays as it is.
+    #[test]
+    fn a_colour_too_dark_for_its_ink_is_lightened_to_the_ratio() {
+        const INK: u32 = 0x242426;
+        assert!(contrast_ratio(0x806000, INK) < 4.5);
+        let fixed = fit_contrast(0x806000, &[INK], 9., Appearance::Dark);
+        let ratio = contrast_ratio(fixed, INK);
+        assert!((8.9..9.4).contains(&ratio), "{ratio}");
+        let [r, g, b] = [fixed >> 16, (fixed >> 8) & 0xff, fixed & 0xff];
+        assert!(r > b && g > b, "{fixed:06X} is no longer a yellow");
+        assert_eq!(
+            fit_contrast(0xfff1a6, &[INK], 9., Appearance::Dark),
+            0xfff1a6
+        );
     }
 }
