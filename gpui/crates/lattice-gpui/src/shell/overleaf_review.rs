@@ -160,7 +160,7 @@ impl Shell {
                 // A Markdown file's visual editor paints the suggestions too.
                 let markdown = editor
                     .read(cx)
-                    .shows_markdown_page()
+                    .paints_markdown_changes()
                     .then(|| changes_payload(bridge, &path));
                 Some((editor, comments, changes, visual, markdown))
             })
