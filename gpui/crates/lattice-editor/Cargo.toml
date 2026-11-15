@@ -40,3 +40,7 @@ settings.workspace = true
 theme.workspace = true
 # The buffer font, which the source gutter's digits are drawn and measured in.
 theme_settings.workspace = true
+
+[dev-dependencies]
+# Scratch projects for the `.aux` reader and the project index.
+tempfile = "3"

@@ -49,6 +49,8 @@ mod annotation_review;
 mod annotations;
 mod bib_view;
 mod buffer_counts;
+mod card_context;
+mod citations;
 mod disk_sync;
 pub mod drops;
 mod editor_events;
@@ -74,6 +76,7 @@ mod overleaf_carets;
 mod overleaf_review;
 mod overleaf_text;
 pub mod paper_text;
+mod papers;
 pub mod proofread;
 pub mod rail_outline;
 pub(crate) mod attention;
@@ -171,6 +174,8 @@ pub struct EditorPanel {
     margin: margin_review::MarginState,
     /// Local annotations' marks, pins and composer (`annotations.rs`).
     annotations: annotations::AnnotationLayer,
+    /// The citation cards' library and "Why cited" (`citations.rs`).
+    citations: citations::CitationLayer,
     /// The selection toolbar over a LaTeX or Markdown selection
     /// (`selection_toolbar.rs`).
     toolbar: selection_toolbar::ToolbarState,
@@ -244,6 +249,8 @@ pub struct EditorPanel {
     bib: bib_view::BibState,
     /// The saved paper the file is the reading text of (`paper_text.rs`).
     paper: paper_text::PaperText,
+    /// The Papers panel's library, and a paper dragged over the page (`papers.rs`).
+    library: papers::PaperLink,
 }
 
 impl EditorPanel {
@@ -321,6 +328,7 @@ impl EditorPanel {
                     this.latex_source_changed(cx);
                     this.structured_source_changed(cx);
                     this.annotations_edited(cx);
+                    this.citations_edited(cx);
                     this.review_edited(cx);
                     this.highlights_edited(cx);
                 }
@@ -344,6 +352,7 @@ impl EditorPanel {
                         diagnostics.update(cx, |diagnostics, cx| diagnostics.resync(cx));
                     }
                     this.forward_latex_context(cx);
+                    this.forward_card_context(cx);
                 }
                 cx.notify();
             }),
@@ -428,6 +437,7 @@ impl EditorPanel {
             overleaf_review: Default::default(),
             margin: Default::default(),
             annotations: Default::default(),
+            citations: Default::default(),
             toolbar: Default::default(),
             proofread: Default::default(),
             review: None,
@@ -467,6 +477,7 @@ impl EditorPanel {
             _subscriptions: subscriptions,
             bib: Default::default(),
             paper: Default::default(),
+            library: Default::default(),
         };
         this.count_words(cx);
         this.scan_todos(Duration::ZERO, cx);
@@ -657,7 +668,8 @@ impl BasePanel for EditorPanel {
             self.flush(cx);
         }
         let root = self.project_root(cx);
-        crate::status_counters::set_buffer(root, self.relative.clone(), None, cx);
+        crate::status_counters::set_buffer(root.clone(), self.relative.clone(), None, cx);
+        crate::annotations::orphans::set_live(&root, &self.relative, None, cx);
         let panel = gpui_kit::component::dock::PanelId::from(cx.entity_id());
         lattice_ui::dock::set_spare_tools(panel, None, cx);
         lattice_ui::dock::set_icon_saving(panel, None, cx);

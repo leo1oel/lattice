@@ -39,6 +39,7 @@ pub fn local_labels(path: &str, source: &str) -> Vec<Reference> {
             snippet: source[line_start..line_end].trim().to_string(),
             path: path.to_string(),
             line,
+            image_path: None,
         });
     }
     labels
@@ -106,6 +107,7 @@ mod tests {
             snippet: snippet.into(),
             path: path.into(),
             line,
+            image_path: None,
         }
     }
 

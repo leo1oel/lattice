@@ -288,6 +288,7 @@ impl PapersPanel {
             .fill(palette.hover)
             .radius(shape::RADIUS_TARGET)
             .quiet_after_scroll(std::time::Duration::from_millis(150), cx);
+        self.hover = Some(hover.clone());
         let mut out: Vec<AnyElement> = vec![];
         if let Some(status) = self.render_text_status(cx) {
             out.push(status);

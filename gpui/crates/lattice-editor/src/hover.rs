@@ -50,6 +50,14 @@ impl HoverCardContext {
             })
             .ok();
     }
+
+    /// Put the card away, before an action that leaves it (Open paper, a
+    /// jump to a use, "Why cited").
+    pub fn close(&self, cx: &mut App) {
+        self.editor
+            .update(cx, |editor, cx| editor.dismiss_hover(cx))
+            .ok();
+    }
 }
 
 /// Builds a card's content each frame it shows.
