@@ -15,7 +15,7 @@
 
 use std::{any::Any, ops::Range};
 
-use gpui::{AnyElement, App, Bounds, Pixels, WeakEntity, Window, point, px, size};
+use gpui::{AnyElement, App, Bounds, Pixels, Size, WeakEntity, Window, point, px, size};
 use language::BufferSnapshot;
 
 use crate::LatticeEditor;
@@ -47,8 +47,27 @@ pub trait CaretCardProvider: Any {
     /// stands by it. `None`: no card.
     fn target(&self, text: &BufferSnapshot, caret: usize, cx: &App) -> Option<Range<usize>>;
 
-    /// The card for `target`, built each frame it shows; `None` while it
-    /// has nothing to show yet.
+    /// An edit just left the caret in `target`: start whatever the card
+    /// will need, rather than at the frame that draws the edit, so work done
+    /// elsewhere (KaTeX's page setting a formula) runs while that frame is
+    /// waited for. `context.max_height` is unbounded here.
+    fn prefetch(&self, _target: Range<usize>, _context: &CaretCardContext, _cx: &mut App) {}
+
+    /// The size the card for `target` takes before it is fitted to the room
+    /// beside the target (its `max_height`, which this ignores): CodeMirror
+    /// measures a tooltip before it places it, and so the card is placed in
+    /// the same frame it first shows. Called each frame the card may show,
+    /// before [`card`](Self::card); `None` while it has nothing to show yet.
+    fn size(
+        &self,
+        target: Range<usize>,
+        context: &CaretCardContext,
+        window: &mut Window,
+        cx: &mut App,
+    ) -> Option<Size<Pixels>>;
+
+    /// The card for `target`, no taller than `context.max_height`, built
+    /// each frame it shows, right after [`size`](Self::size).
     fn card(
         &self,
         target: Range<usize>,
@@ -61,14 +80,15 @@ pub trait CaretCardProvider: Any {
     fn as_any(&self) -> &dyn Any;
 }
 
-/// Where the target is on screen.
+/// Where the target is on screen, by the text's box on each line
+/// ([`text_box`]), as CodeMirror's `coordsAtPos` measures it.
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct TargetRects {
-    /// The caret rectangle at the target's start.
+    /// The text box at the target's start.
     pub start: Bounds<Pixels>,
-    /// The bottom of the target's last line.
+    /// The bottom of the text box at the target's end.
     pub end_bottom: Pixels,
-    /// The caret's own line.
+    /// The text box at the caret.
     pub caret: Bounds<Pixels>,
 }
 
@@ -131,6 +151,19 @@ pub(crate) fn place(
         above,
         room,
     })
+}
+
+/// The box the text on `line` covers, as a browser's rectangle for a
+/// character (what CodeMirror's `coordsAtPos` returns, and so what the
+/// Tauri card is placed by): the font's ascent and descent, `content`
+/// tall, centred in the line box with the line height's leading split
+/// above and below it, as CSS lays out an inline box.
+pub(crate) fn text_box(line: Bounds<Pixels>, content: Pixels) -> Bounds<Pixels> {
+    let content = content.min(line.size.height);
+    Bounds {
+        origin: point(line.left(), line.top() + (line.size.height - content) / 2.),
+        size: size(line.size.width, content),
+    }
 }
 
 /// `bounds` less `inset` on every side.
@@ -212,6 +245,56 @@ mod tests {
     fn a_target_out_of_view_hides_the_card() {
         assert!(placed(-200., -100., -150., 40.).is_none());
         assert!(placed(700., 760., 720., 40.).is_none());
+    }
+
+    /// A character's box in the Tauri editor (WebKit, Ioskeley Mono at
+    /// 14px in a 22.39px line starting at 134.78) is 16.59 tall from
+    /// 137.68: half the leading above it.
+    #[test]
+    fn the_text_box_is_the_font_s_height_centred_in_the_line() {
+        let line = Bounds {
+            origin: point(px(414.39), px(134.78)),
+            size: size(px(8.), px(22.39)),
+        };
+        let text = text_box(line, px(16.59));
+        assert!((f32::from(text.top()) - 137.68).abs() < 0.01);
+        assert!((f32::from(text.bottom()) - 154.27).abs() < 0.01);
+        // Text taller than its line is the line.
+        assert_eq!(text_box(line, px(40.)), line);
+    }
+
+    /// The Tauri card for `$E = mc^2$` on the third line: placed by the
+    /// character's box, its 38.39 fits above with the gap (its top at
+    /// 95.36, inside the editor's 94), where by the line box it would not.
+    #[test]
+    fn a_card_placed_by_the_text_box_fits_where_tauri_s_does() {
+        let editor = Bounds {
+            origin: point(px(288.), px(86.)),
+            size: size(px(648.), px(774.)),
+        };
+        let line = Bounds {
+            origin: point(px(414.39), px(134.78)),
+            size: size(px(8.), px(22.39)),
+        };
+        let text = text_box(line, px(16.59));
+        let placed = |start: Bounds<Pixels>| {
+            place(
+                TargetRects {
+                    start,
+                    end_bottom: start.bottom(),
+                    caret: start,
+                },
+                editor,
+                inset(editor, CARD_INSET),
+                size(px(89.06), px(38.39)),
+                px(22.39),
+            )
+            .expect("shown")
+        };
+        let by_text = placed(text);
+        assert!(by_text.above);
+        assert!((f32::from(by_text.edge - px(38.39)) - 95.29).abs() < 0.1);
+        assert!(!placed(line).above);
     }
 
     /// The card shifts left to stay inside the editor, never past its left

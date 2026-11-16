@@ -318,8 +318,11 @@ impl Run {
         Ok(())
     }
 
-    /// Whether the card drawn last frame stands above the line `needle`
-    /// starts on, and the gap between them.
+    /// Whether the card drawn last frame (the first that showed it, as the
+    /// callers read it straight after) stands above the line `needle`
+    /// starts on, and stays where it opened: a card is placed from its own
+    /// size in the frame it first shows, with no frame drawn unseen to
+    /// measure it. Also the gap between them.
     async fn card_above(
         &self,
         cx: &mut AsyncApp,
@@ -327,12 +330,12 @@ impl Run {
         lattice: &Entity<LatticeEditor>,
         needle: &str,
     ) -> Option<(bool, f32)> {
-        // The card opens unseen for a frame, to learn its size.
+        let opened = cx.update(|cx| lattice.read(cx).painted().caret_card)?;
         self.pause(cx, Duration::from_millis(100)).await;
         let (_, line) = self.text_point(cx, panel, lattice, needle, 0).await.ok()?;
         let card = cx.update(|cx| lattice.read(cx).painted().caret_card)?;
         let gap = f32::from(line.top() - card.bottom());
-        Some(((0. ..=8.).contains(&gap), gap))
+        Some(((0. ..=8.).contains(&gap) && opened == card, gap))
     }
 
     /// The window with the card, light and dark, under `LATTICE_E2E_SHOTS`.

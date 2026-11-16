@@ -27,8 +27,8 @@ use std::{
 
 use gpui::{
     AnyElement, App, Context, Entity, InteractiveElement as _, IntoElement, ParentElement as _,
-    Pixels, ScrollHandle, StatefulInteractiveElement as _, Styled as _, WeakEntity, Window, img,
-    point, px,
+    Pixels, ScrollHandle, Size, StatefulInteractiveElement as _, Styled as _, WeakEntity, Window,
+    img, point, px, size,
 };
 use language::{BufferSnapshot, ToOffset as _};
 use lattice_ui::{
@@ -245,18 +245,16 @@ impl MathPreview {
     }
 }
 
-impl CaretCardProvider for MathPreview {
-    fn target(&self, text: &BufferSnapshot, caret: usize, _: &App) -> Option<Range<usize>> {
-        region_at(text, caret).map(|region| region.range)
-    }
-
-    fn card(
+impl MathPreview {
+    /// Bring the card up to the formula `target` the caret is in: a fresh
+    /// card for another formula, and KaTeX asked for its source as it is
+    /// now. `None`: the caret is not in that formula.
+    fn refresh(
         &self,
         target: Range<usize>,
         context: &CaretCardContext,
-        window: &mut Window,
         cx: &mut App,
-    ) -> Option<AnyElement> {
+    ) -> Option<()> {
         let text = &context.text;
         let region = region_at(text, context.caret).filter(|region| region.range == target)?;
         let mut slot = self.card.borrow_mut();
@@ -293,7 +291,45 @@ impl CaretCardProvider for MathPreview {
         });
         let preview = card.ask(request.as_ref(), &context.editor, cx);
         card.look.update(&region.source, region.display, preview);
+        Some(())
+    }
+}
+
+impl CaretCardProvider for MathPreview {
+    fn target(&self, text: &BufferSnapshot, caret: usize, _: &App) -> Option<Range<usize>> {
+        region_at(text, caret).map(|region| region.range)
+    }
+
+    fn prefetch(&self, target: Range<usize>, context: &CaretCardContext, cx: &mut App) {
+        self.refresh(target, context, cx);
+    }
+
+    fn size(
+        &self,
+        target: Range<usize>,
+        context: &CaretCardContext,
+        window: &mut Window,
+        cx: &mut App,
+    ) -> Option<Size<Pixels>> {
+        self.refresh(target, context, cx)?;
+        let card = self.card.borrow();
+        let picture = card.as_ref()?.look.picture.as_ref()?;
+        Some(natural_size(picture, context.max_width, window))
+    }
+
+    fn card(
+        &self,
+        target: Range<usize>,
+        context: &CaretCardContext,
+        window: &mut Window,
+        cx: &mut App,
+    ) -> Option<AnyElement> {
+        let region =
+            region_at(&context.text, context.caret).filter(|region| region.range == target)?;
+        let mut slot = self.card.borrow_mut();
+        let card = slot.as_mut()?;
         let picture = card.look.picture.clone()?;
+        let natural = natural_size(&picture, context.max_width, window);
 
         let now = Instant::now();
         let opacity = if card.look.stale { STALE_OPACITY } else { 1. };
@@ -302,18 +338,14 @@ impl CaretCardProvider for MathPreview {
             window.request_animation_frame();
         }
 
-        let width = (picture.width + PAD_X * 2.).min(MAX_WIDTH.min(context.max_width));
-        let cap = MAX_HEIGHT
-            .min(window.viewport_size().height * MAX_HEIGHT_SHARE)
-            .min(context.max_height);
         let content = picture.height + PAD_Y * 2.;
-        let height = content.min(cap);
+        let height = natural.height.min(context.max_height);
         follow_caret(card, &region, context.caret, content - height, &picture);
 
         Some(
             card_surface(cx)
                 .id("math-preview")
-                .w(width)
+                .w(natural.width)
                 .h(height)
                 .px(PAD_X)
                 .py(PAD_Y)
@@ -333,6 +365,15 @@ impl CaretCardProvider for MathPreview {
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
+}
+
+/// The card's size for `picture` before it is fitted to the room beside
+/// the formula: the picture and its padding, no wider than
+/// `min(560px, --math-preview-room)` and no taller than `min(240px, 40vh)`.
+fn natural_size(picture: &MathPicture, max_width: Pixels, window: &Window) -> Size<Pixels> {
+    let width = (picture.width + PAD_X * 2.).min(MAX_WIDTH.min(max_width));
+    let cap = MAX_HEIGHT.min(window.viewport_size().height * MAX_HEIGHT_SHARE);
+    size(width, (picture.height + PAD_Y * 2.).min(cap))
 }
 
 /// Scroll a picture taller than the card (`room` taller) as far through as

@@ -7,14 +7,16 @@ use std::{ops::Range, rc::Rc};
 use editor::ToOffset as _;
 use gpui::{
     Anchor as Corner, AnyElement, App, Context, Focusable as _, InteractiveElement as _,
-    IntoElement, KeyDownEvent, ParentElement as _, Styled as _, Window, anchored, canvas, deferred,
-    div, point, prelude::FluentBuilder as _, px,
+    IntoElement, KeyDownEvent, ParentElement as _, Pixels, Styled as _, Window, anchored, canvas,
+    deferred, div, point, px,
 };
 use language::ToOffset as _;
 
 use super::LatticeEditor;
 use crate::{
-    caret_card::{CARD_INSET, CaretCardContext, CaretCardProvider, TargetRects, inset, place},
+    caret_card::{
+        CARD_INSET, CaretCardContext, CaretCardProvider, TargetRects, inset, place, text_box,
+    },
     geometry,
 };
 
@@ -82,6 +84,36 @@ impl LatticeEditor {
         }
     }
 
+    /// After an edit, let the provider start on the card for the target
+    /// the caret is now in (KaTeX's picture of the formula as typed), so it
+    /// is being made while the frame that draws the edit is waited for.
+    /// Nothing for a target Escape put the card away for.
+    pub(super) fn prefetch_caret_card(&mut self, cx: &mut Context<Self>) {
+        let Some(provider) = self.caret_card.provider.clone() else {
+            return;
+        };
+        let text = self.buffer.read(cx).snapshot();
+        let caret = self.caret_offset(cx);
+        let Some(target) = provider.target(&text, caret, cx) else {
+            return;
+        };
+        if self
+            .caret_card
+            .dismissed
+            .is_some_and(|dismissed| dismissed.to_offset(&text) == target.start)
+        {
+            return;
+        }
+        let context = CaretCardContext {
+            editor: cx.weak_entity(),
+            max_width: Pixels::MAX,
+            max_height: Pixels::MAX,
+            caret,
+            text,
+        };
+        provider.prefetch(target, &context, cx);
+    }
+
     pub(super) fn render_caret_card(
         &mut self,
         window: &mut Window,
@@ -122,42 +154,42 @@ impl LatticeEditor {
         }
         let painted = self.painted.borrow().clone();
         let (bounds, view) = (painted.bounds?, painted.view?);
-        let mut rect =
-            |offset| geometry::caret_rect(&self.editor, &text, offset, bounds, window, cx);
-        let start_rect = rect(target.start)?;
-        let end_rect = rect(target.end)?;
-        let caret_rect = rect(caret)?;
+        // Placed by the text's own box on each line, not the line's, as
+        // CodeMirror's `coordsAtPos` gives the Tauri card a character's box.
+        let content = text_height(window, cx);
+        let mut rect = |offset| {
+            geometry::caret_rect(&self.editor, &text, offset, bounds, window, cx)
+                .map(|line| (line, text_box(line, content)))
+        };
+        let (_, start_rect) = rect(target.start)?;
+        let (_, end_rect) = rect(target.end)?;
+        let (caret_line, caret_rect) = rect(caret)?;
         let rects = TargetRects {
             start: start_rect,
             end_bottom: end_rect.bottom(),
             caret: caret_rect,
         };
-        // The card's size is last frame's. A card for another target is
-        // laid out once unseen first, so it opens on the side it fits.
-        let measured = self.caret_card.shown == Some(target.start);
-        let last = painted
-            .caret_card
-            .filter(|_| measured)
-            .map(|card| card.size)
-            .unwrap_or_default();
+        let mut context = CaretCardContext {
+            editor: cx.weak_entity(),
+            max_width: (view.size.width - px(16.)).max(px(160.)),
+            max_height: Pixels::MAX,
+            caret,
+            text,
+        };
+        // The provider says the card's size before it is placed, as
+        // CodeMirror measures a tooltip first, so a card opens on the side
+        // it fits in the frame it first shows, with no frame laid out
+        // unseen to measure it.
+        let size = provider.size(target.clone(), &context, window, cx)?;
         let placement = place(
             rects,
             view,
             inset(view, CARD_INSET),
-            last,
-            caret_rect.size.height,
+            size,
+            caret_line.size.height,
         )?;
-        let context = CaretCardContext {
-            editor: cx.weak_entity(),
-            max_width: (view.size.width - px(16.)).max(px(160.)),
-            max_height: placement.room,
-            caret,
-            text,
-        };
+        context.max_height = placement.room;
         let content = provider.card(target.clone(), &context, window, cx)?;
-        if !measured {
-            cx.on_next_frame(window, |_, _, cx| cx.notify());
-        }
         self.caret_card.shown = Some(target.start);
         let record = {
             let painted = self.painted.clone();
@@ -187,7 +219,6 @@ impl LatticeEditor {
                             // It takes no focus, and a press on it leaves
                             // the caret where it is.
                             .occlude()
-                            .when(!measured, |card| card.opacity(0.))
                             .child(content)
                             .child(record),
                     ),
@@ -195,4 +226,13 @@ impl LatticeEditor {
             .into_any_element(),
         )
     }
+}
+
+/// How tall the buffer font's text is (its ascent and descent), the box a
+/// browser gives a character inside its line.
+fn text_height(window: &Window, cx: &App) -> Pixels {
+    let (font, font_size) = super::gutter_column::buffer_font(cx);
+    let text_system = window.text_system();
+    let font_id = text_system.resolve_font(&font);
+    text_system.ascent(font_id, font_size) + text_system.descent(font_id, font_size).abs()
 }

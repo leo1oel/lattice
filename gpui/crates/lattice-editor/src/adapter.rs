@@ -165,6 +165,7 @@ impl LatticeEditor {
                 if matches!(event, BufferEvent::Edited { .. }) {
                     this.fold_cache.get_mut().clear();
                     this.dismiss_hover(cx);
+                    this.prefetch_caret_card(cx);
                 }
             }),
         ];
