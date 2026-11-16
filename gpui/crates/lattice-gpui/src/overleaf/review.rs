@@ -614,10 +614,7 @@ impl Render for OverleafReview {
                 div()
                     .p(px(12.))
                     .child(inline_message(
-                        t!(
-                            "Could not render these changes: {renderError}",
-                            renderError = error
-                        ),
+                        t!("Could not render these changes: {0}", error),
                         true,
                         cx,
                     ))
