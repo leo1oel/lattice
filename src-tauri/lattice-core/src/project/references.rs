@@ -2,10 +2,13 @@
 //! figure, table, equation, or section it names.
 
 use super::index_sources::SkippedSource;
+use super::skip_bytes;
 use super::symbols::read_tex_sources;
-use super::{line_number_at, skip_bytes};
+use landmarks::{Landmarks, LineCounter};
 use serde::Serialize;
 use std::path::Path;
+
+mod landmarks;
 
 /// Every label the project's readable `.tex` files define, and the files that
 /// could not be read: one unreadable draft leaves out its own labels, not the
@@ -54,6 +57,8 @@ fn parse_latex_references(
     root: &Path, source_path: &Path, display_path: &str, source: &str,
 ) -> Vec<ReferenceInfo> {
     let mut references = Vec::new();
+    let landmarks = Landmarks::scan(source);
+    let mut lines = LineCounter::default();
     let mut cursor = 0;
     while let Some(offset) = source[cursor..].find("\\label") {
         let position = cursor + offset;
@@ -70,14 +75,15 @@ fn parse_latex_references(
         let environment = LABELLED_ENVIRONMENTS
             .iter()
             .filter_map(|(name, kind)| {
-                enclosing_environment(source, position, name)
+                landmarks
+                    .enclosing_environment(position, name)
                     .map(|(start, finish)| (*kind, start, finish))
             })
             .max_by_key(|(_, start, _)| *start);
         let (kind, title, snippet, image_path) = if let Some((kind, start, finish)) = environment {
             // A label in its own minipage or subfigure names that panel: its
             // caption, graphic and lines, when the panel has a caption.
-            let (start, finish) = subfloat_around(source, position, start)
+            let (start, finish) = subfloat_around(&landmarks, position, start)
                 .filter(|(from, to)| !captions(&source[*from..*to]).is_empty())
                 .unwrap_or((start, finish));
             let body = &source[start..finish];
@@ -91,7 +97,7 @@ fn parse_latex_references(
             // Uncaptioned: the interface names the kind in its own language.
             let title = caption.unwrap_or_default();
             (kind.to_string(), title, environment_snippet(body, kind), image_path)
-        } else if let Some(title) = nearest_section_title(source, position) {
+        } else if let Some(title) = landmarks.nearest_section_title(source, position) {
             ("section".to_string(), title, String::new(), None)
         } else {
             ("reference".to_string(), label.to_string(), String::new(), None)
@@ -102,32 +108,23 @@ fn parse_latex_references(
             title,
             snippet,
             path: display_path.to_string(),
-            line: line_number_at(source, position),
+            line: lines.line_at(source, position),
             image_path,
         });
     }
     references
 }
 
-fn enclosing_environment(source: &str, position: usize, name: &str) -> Option<(usize, usize)> {
-    let opening = format!("\\begin{{{name}}}");
-    let closing = format!("\\end{{{name}}}");
-    let start = source.get(..position)?.rfind(&opening)?;
-    if source.get(..position)?.rfind(&closing).is_some_and(|end| end > start) {
-        return None;
-    }
-    let finish = position + source.get(position..)?.find(&closing)? + closing.len();
-    Some((start, finish))
-}
-
 /// Environments that hold one panel of a float, each with its own caption and label.
 const SUBFLOAT_ENVIRONMENTS: &[&str] = &["minipage", "subfigure", "subtable"];
 
 /// The innermost panel environment around `position` that opens inside the float starting at `float_start`.
-fn subfloat_around(source: &str, position: usize, float_start: usize) -> Option<(usize, usize)> {
+fn subfloat_around(
+    landmarks: &Landmarks, position: usize, float_start: usize,
+) -> Option<(usize, usize)> {
     SUBFLOAT_ENVIRONMENTS
         .iter()
-        .filter_map(|name| enclosing_environment(source, position, name))
+        .filter_map(|name| landmarks.enclosing_environment(position, name))
         .filter(|(start, _)| *start > float_start)
         .max_by_key(|(start, _)| *start)
 }
@@ -297,20 +294,6 @@ fn normalized_graphics_path(value: &str) -> Option<String> {
     }
     let (path, end) = command_argument_at(value, "\\detokenize".len())?;
     (end == value.len() && !path.trim().is_empty()).then(|| path.trim().to_string())
-}
-
-fn nearest_section_title(source: &str, position: usize) -> Option<String> {
-    let before = source.get(..position)?;
-    ["\\part", "\\chapter", "\\section", "\\subsection", "\\subsubsection", "\\paragraph"]
-        .into_iter()
-        .filter_map(|command| {
-            let start = before.rfind(command)?;
-            let (title, _) = command_argument_at(source, start + command.len())?;
-            (position.saturating_sub(start) < 1_200)
-                .then_some((start, crate::util::collapse_whitespace(&title)))
-        })
-        .max_by_key(|(start, _)| *start)
-        .map(|(_, title)| title)
 }
 
 fn environment_snippet(source: &str, kind: &str) -> String {

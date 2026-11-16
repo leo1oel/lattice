@@ -250,6 +250,8 @@ impl Run {
         // A comment made here, on the selection.
         self.overleaf_annotate(cx, steps, mock, &editor, "Suggested", "Check this word.")
             .await?;
+        // One made on the PDF goes there too.
+        self.overleaf_pdf_note(cx, steps, mock).await?;
 
         // Track changes on: typing goes out as a suggestion.
         mock.set_track_changes(true);

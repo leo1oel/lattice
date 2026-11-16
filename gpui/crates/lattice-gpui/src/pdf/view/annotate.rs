@@ -150,10 +150,49 @@ fn map_selection(
 }
 
 impl PdfView {
-    /// Whether this PDF takes notes: it shows a project's notes, made
-    /// here as local annotations.
+    /// Whether this PDF takes notes: it shows a project's notes. They are
+    /// local annotations, or in a project linked to Overleaf comments there.
     fn annotatable(&self) -> bool {
-        self.notes_source().is_some_and(|source| source.annotatable)
+        self.notes_source().is_some()
+    }
+
+    /// Where the note being written goes, once SyncTeX has placed it.
+    fn composing_destination(&self) -> Option<NoteDestination> {
+        let mapped = self.annotating.composing.as_ref()?.mapped.as_ref()?;
+        let overleaf = self.notes_source()?.overleaf.as_ref();
+        Some(note_destination(overleaf, &mapped.path))
+    }
+
+    /// The host's answer to a note sent to Overleaf (`OverleafNote`):
+    /// taken, the note closes; refused, it stays and says why.
+    pub fn answer_overleaf_note(
+        &mut self,
+        id: u64,
+        answer: Result<(), SharedString>,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(note) = self
+            .annotating
+            .composing
+            .as_mut()
+            .filter(|note| note.id == id)
+        else {
+            return;
+        };
+        match answer {
+            Ok(()) => {
+                self.annotating.composing = None;
+                self.selection = None;
+                let (focus, window) = (self.focus_handle.clone(), self.window);
+                cx.defer(move |cx| {
+                    window
+                        .update(cx, |_, window, cx| window.focus(&focus, cx))
+                        .ok();
+                });
+            }
+            Err(error) => note.error = Some(error),
+        }
+        cx.notify();
     }
 
     /// Offer a drag's selection to the host (`SelectionOffered`) rather
@@ -351,11 +390,7 @@ impl PdfView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some(source) = self
-            .notes_source()
-            .filter(|source| source.annotatable)
-            .cloned()
-        else {
+        let Some(source) = self.notes_source().cloned() else {
             return;
         };
         self.dismiss_offer(cx);
@@ -430,13 +465,46 @@ impl PdfView {
             return;
         };
         let sizes = self.page_sizes().to_vec();
+        let Some(note) = &self.annotating.composing else {
+            return;
+        };
+        let body = note.field.read(cx).value().to_string();
+        let overleaf = self
+            .notes_source()
+            .and_then(|source| source.overleaf.clone());
         let Some(note) = &mut self.annotating.composing else {
             return;
         };
         let Some(mapped) = &note.mapped else {
             return;
         };
-        let body = note.field.read(cx).value().to_string();
+        match note_destination(overleaf.as_ref(), &mapped.path) {
+            NoteDestination::Annotation => {}
+            // Sent to the host, which places it in Overleaf's live text and
+            // answers (`answer_overleaf_note`).
+            NoteDestination::Overleaf | NoteDestination::OtherFile => {
+                if body.trim().is_empty() {
+                    return;
+                }
+                let quote = mapped.source[mapped.range.clone()].to_string();
+                if quote.trim().is_empty() {
+                    note.error =
+                        Some(t!("There is no text to comment on in this selection.").into());
+                    cx.notify();
+                    return;
+                }
+                cx.emit(PdfViewEvent::OverleafNote {
+                    id: note.id,
+                    path: mapped.path.clone(),
+                    line: mapped.line,
+                    selection: note.selected.text.clone(),
+                    quote,
+                    body: body.trim().to_string(),
+                });
+                return;
+            }
+            NoteDestination::Offline => return,
+        }
         if body.trim().is_empty() && note.intent.is_none() {
             return;
         }
@@ -568,14 +636,33 @@ impl PdfView {
             None => t!("PDF p.{0} → …", page).into(),
         };
         let id = note.id;
+        let destination = self.composing_destination();
+        let to_overleaf = matches!(
+            destination,
+            Some(NoteDestination::Overleaf | NoteDestination::OtherFile | NoteDestination::Offline)
+        );
+        // Not live: say so, and wait (`notLive`).
+        let offline = (destination == Some(NoteDestination::Offline)).then(|| {
+            let name = note.mapped.as_ref().map_or(String::new(), |mapped| {
+                Path::new(&mapped.path)
+                    .file_name()
+                    .map(|name| name.to_string_lossy().into_owned())
+                    .unwrap_or_default()
+            });
+            SharedString::from(t!(
+                "This comment would go to Overleaf, but {name} is not being edited live with Overleaf right now. Reconnect live editing (or turn on Live sync), then select it again.",
+                name = name
+            ))
+        });
         let body = form::note_form(
             NoteForm {
                 quote: &selected.text,
                 location,
                 field: &note.field,
                 intent: note.intent,
-                error: note.error.clone(),
-                ready: note.mapped.is_some(),
+                error: note.error.clone().or(offline.clone()),
+                ready: note.mapped.is_some() && offline.is_none(),
+                overleaf: to_overleaf,
             },
             Rc::new(|this: &mut Self, intent, _| {
                 if let Some(note) = &mut this.annotating.composing {

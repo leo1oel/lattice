@@ -61,7 +61,7 @@ mod window_wide;
 
 pub use citation::CitationLookup;
 pub use compound::CompoundSource;
-pub use notes::PdfNotes;
+pub use notes::{NoteDestination, OverleafNotes, PdfNotes, note_destination};
 
 pub use events::{OfferedSelection, PdfViewEvent, ToolbarAction};
 use page_changes::changed_pages;
@@ -124,7 +124,7 @@ pub struct PdfView {
     pub(super) focus_handle: FocusHandle,
     /// The window the view is in, to ask for and let go of page images
     /// outside a frame.
-    window: AnyWindowHandle,
+    pub(super) window: AnyWindowHandle,
     pub(super) engine: Result<Arc<PdfEngine>, SharedString>,
     doc: Option<DocId>,
     pub(super) source: Option<PathBuf>,

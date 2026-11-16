@@ -8,6 +8,10 @@ src/locales/**/*.po merge=lingui-po
 # Included shell scripts retain their LF syntax in Windows checkouts too.
 *.sh text eol=lf
 
+# The bundled agent skills ship as resource files the Synara sidecar reads, so
+# a Windows build must carry the same LF bytes, front matter included.
+src-tauri/src/embedded_skills/** text eol=lf
+
 # The GPUI app embeds its own icons byte for byte, and lattice-gpui's tests
 # compare them with the Lucide files GPUI Kit ships (LF), so a Windows
 # checkout must not rewrite their line endings.
