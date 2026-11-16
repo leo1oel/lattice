@@ -131,11 +131,25 @@ pub(crate) fn is_build_output(path: &str, root_documents: &[String]) -> bool {
         } else {
             document.as_str()
         };
-        !stem.is_empty()
-            && file.starts_with(stem)
+        if stem.is_empty() {
+            return false;
+        }
+        if file.starts_with(stem)
             && GENERATED_FOR_DOCUMENT
                 .iter()
                 .any(|suffix| file[stem.len()..].eq_ignore_ascii_case(suffix))
+        {
+            return true;
+        }
+        // achemso (the ACS journals' class) writes `acs-main.bib` beside the
+        // document on every compile: a prefix, not a suffix, of the name.
+        let (folder, name) = stem.rsplit_once('/').unwrap_or(("", stem));
+        let acs = if folder.is_empty() {
+            format!("acs-{name}.bib")
+        } else {
+            format!("{folder}/acs-{name}.bib")
+        };
+        file == acs
     })
 }
 
@@ -159,6 +173,8 @@ mod tests {
             "main.pdf",
             "main.bbl",
             "main-blx.bib",
+            "acs-main.bib",
+            "chapters/acs-thesis.bib",
             "chapters/thesis.pdf",
             "_minted-main/default.pygstyle",
             "svg-inkscape/plot_svg-tex.pdf",
@@ -175,6 +191,8 @@ mod tests {
         for path in [
             "main.tex",
             "main.bib",
+            "acs-refs.bib",
+            "acs-thesis.bib",
             "figures/plot.pdf",
             "appendix.pdf",
             "chapters/intro.tex",
