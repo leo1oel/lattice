@@ -643,6 +643,7 @@ mod tests {
             already_imported: false,
             fetch_error: None,
             cancelled: false,
+            note: None,
         };
         edit(&mut result);
         result
