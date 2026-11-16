@@ -14,22 +14,40 @@ use std::time::{Duration, Instant};
 pub(crate) const FLAG: &str = "--lattice-process-snapshot";
 
 unsafe extern "C" {
-    fn lattice_process_snapshot(with_parent: i32, pids: *const i32, pid_count: usize) -> i32;
+    fn lattice_process_snapshot(mode: SnapshotMode, pids: *const i32, pid_count: usize) -> i32;
 }
 
-fn query(args: &[String]) -> Result<(bool, Vec<i32>), &'static str> {
+#[derive(Debug, PartialEq, Eq)]
+#[repr(i32)]
+enum SnapshotMode {
+    Tree,
+    Identities,
+    Status,
+}
+
+fn query(args: &[String]) -> Result<(SnapshotMode, Vec<i32>), &'static str> {
     if args == ["-eo", "pid=,ppid=,command="] {
-        return Ok((true, Vec::new()));
+        return Ok((SnapshotMode::Tree, Vec::new()));
     }
-    if args.len() == 4 && args[0] == "-p" && args[2] == "-o" && args[3] == "pid=,command=" {
-        let pids = args[1]
-            .split(',')
-            .map(|pid| pid.parse::<i32>().ok().filter(|pid| *pid > 0))
-            .collect::<Option<Vec<_>>>()
-            .ok_or("Invalid process IDs")?;
-        return Ok((false, pids));
+    if args.len() != 4 || args[0] != "-p" || args[2] != "-o" {
+        return Err("Unsupported process snapshot arguments");
     }
-    Err("Unsupported process snapshot arguments")
+    let parse_pid = |pid: &str| pid.parse::<i32>().ok().filter(|pid| *pid > 0);
+    match args[3].as_str() {
+        "pid=,command=" => {
+            let pids = args[1]
+                .split(',')
+                .map(parse_pid)
+                .collect::<Option<Vec<_>>>()
+                .ok_or("Invalid process IDs")?;
+            Ok((SnapshotMode::Identities, pids))
+        }
+        "stat=" => {
+            let pid = parse_pid(&args[1]).ok_or("Invalid process IDs")?;
+            Ok((SnapshotMode::Status, vec![pid]))
+        }
+        _ => Err("Unsupported process snapshot arguments"),
+    }
 }
 
 pub fn run_if_requested() {
@@ -37,14 +55,13 @@ pub fn run_if_requested() {
     if args.next().as_deref() != Some(FLAG) {
         return;
     }
-    let (with_parent, pids) = query(&args.collect::<Vec<_>>()).unwrap_or_else(|error| {
+    let (mode, pids) = query(&args.collect::<Vec<_>>()).unwrap_or_else(|error| {
         eprintln!("{error}");
         std::process::exit(2);
     });
     // SAFETY: the native function reads exactly pid_count entries, borrows the
     // slice only for this call, and uses SDK definitions for the kernel ABI.
-    let error =
-        unsafe { lattice_process_snapshot(i32::from(with_parent), pids.as_ptr(), pids.len()) };
+    let error = unsafe { lattice_process_snapshot(mode, pids.as_ptr(), pids.len()) };
     if error != 0 {
         eprintln!("Process snapshot failed: {}", std::io::Error::from_raw_os_error(error));
         std::process::exit(1);
@@ -127,16 +144,22 @@ mod tests {
     use super::*;
 
     #[test]
-    fn accepts_only_the_two_synara_snapshot_formats() {
+    fn accepts_only_the_synara_snapshot_formats() {
         let args = |values: &[&str]| values.iter().map(|s| s.to_string()).collect::<Vec<_>>();
-        assert_eq!(query(&args(&["-eo", "pid=,ppid=,command="])), Ok((true, vec![])));
+        assert_eq!(query(&args(&["-eo", "pid=,ppid=,command="])), Ok((SnapshotMode::Tree, vec![])));
         assert_eq!(
             query(&args(&["-p", "31,72", "-o", "pid=,command="])),
-            Ok((false, vec![31, 72]))
+            Ok((SnapshotMode::Identities, vec![31, 72]))
+        );
+        assert_eq!(
+            query(&args(&["-p", "31", "-o", "stat="])),
+            Ok((SnapshotMode::Status, vec![31]))
         );
         for pids in ["", "0", "-1", "31,", "31,abc", "2147483648"] {
             assert!(query(&args(&["-p", pids, "-o", "pid=,command="])).is_err());
+            assert!(query(&args(&["-p", pids, "-o", "stat="])).is_err());
         }
+        assert!(query(&args(&["-p", "31,72", "-o", "stat="])).is_err());
         assert!(query(&args(&["-eo", "pid="])).is_err());
         assert!(query(&[]).is_err());
     }

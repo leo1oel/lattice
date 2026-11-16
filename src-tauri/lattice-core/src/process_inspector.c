@@ -3,13 +3,28 @@
 // others, even when codesign --verify accepts the copy. Keep the SDK's native
 // kinfo_proc layout here rather than reproducing its ABI in Rust.
 #include <sys/types.h>
+#include <sys/proc.h>
 #include <sys/sysctl.h>
 #include <errno.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-int lattice_process_snapshot(int with_parent, const int *pids, size_t pid_count) {
+// Keep the values in sync with Rust's SnapshotMode.
+enum snapshot_mode { SNAPSHOT_TREE, SNAPSHOT_IDENTITIES, SNAPSHOT_STATUS };
+
+static char process_status(int status) {
+    switch (status) {
+        case SIDL: return 'I';
+        case SRUN: return 'R';
+        case SSLEEP: return 'S';
+        case SSTOP: return 'T';
+        case SZOMB: return 'Z';
+        default: return '?';
+    }
+}
+
+int lattice_process_snapshot(int mode, const int *pids, size_t pid_count) {
     int mib[] = {CTL_KERN, KERN_PROC, KERN_PROC_ALL, 0};
     struct kinfo_proc *processes = NULL;
     size_t size = 0;
@@ -40,17 +55,21 @@ int lattice_process_snapshot(int with_parent, const int *pids, size_t pid_count)
         const struct kinfo_proc *process = &processes[i];
         int pid = process->kp_proc.p_pid;
         if (pid <= 0) continue;
-        if (!with_parent) {
+        if (mode != SNAPSHOT_TREE) {
             int selected = 0;
             for (size_t j = 0; j < pid_count; j++) {
                 if (pids[j] == pid) selected = 1;
             }
             if (!selected) continue;
         }
+        if (mode == SNAPSHOT_STATUS) {
+            printf("%c\n", process_status(process->kp_proc.p_stat));
+            continue;
+        }
         // Synara treats the command column as an opaque identity, not argv.
         // Birth time stays stable across exec/reparenting and distinguishes PID
         // reuse, without exposing prompts or credentials from command lines.
-        if (with_parent) printf("%d %d ", pid, process->kp_eproc.e_ppid);
+        if (mode == SNAPSHOT_TREE) printf("%d %d ", pid, process->kp_eproc.e_ppid);
         else printf("%d ", pid);
         printf("lattice-process:%lld:%d\n",
                (long long)process->kp_proc.p_starttime.tv_sec,
