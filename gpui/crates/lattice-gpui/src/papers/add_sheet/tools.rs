@@ -12,18 +12,25 @@ use lattice_ui::{
 use super::{AddPapers, AddPapersEvent};
 
 impl AddPapers {
-    /// Enter manually, Linked library…, Zotero… and the full-text switch.
+    /// Enter manually, Linked library…, Zotero… and the full-text switch
+    /// (`.add-papers-manual`): drawn 6px up into the gap under the box, the
+    /// first button 8px out so its label lines up with the box's edge.
     pub(super) fn tools_row(&self, cx: &mut Context<Self>) -> AnyElement {
         div()
             .flex()
             .flex_wrap()
             .gap(px(4.))
+            .mt(px(-6.))
             .child(
-                Button::new("add-papers-manual", t!("Enter manually"))
-                    .compact()
-                    .ghost()
-                    .icon(Icon::PEN_LINE)
-                    .on_click(cx.listener(|_, _, _, cx| cx.emit(AddPapersEvent::EnterManually))),
+                div().ml(px(-8.)).child(
+                    Button::new("add-papers-manual", t!("Enter manually"))
+                        .compact()
+                        .ghost()
+                        .icon(Icon::PEN_LINE)
+                        .on_click(
+                            cx.listener(|_, _, _, cx| cx.emit(AddPapersEvent::EnterManually)),
+                        ),
+                ),
             )
             .child(
                 Button::new("add-papers-linked", t!("Linked library…"))
@@ -39,10 +46,11 @@ impl AddPapers {
                     .icon(Icon::LIBRARY)
                     .on_click(cx.listener(|this, _, window, cx| this.open_zotero(window, cx))),
             )
-            // The full-text switch sits at the end of the tools row,
-            // the last choice sticking for every window.
+            // The full-text switch sits at the end of the tools row
+            // (`margin-inline-start: auto`), the last choice sticking for
+            // every window.
             .child(
-                div().self_center().child(
+                div().ml_auto().self_center().child(
                     Checkbox::new(
                         "add-papers-full-text",
                         if crate::settings::get(cx).save_full_text {
