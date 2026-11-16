@@ -233,6 +233,82 @@ impl Run {
             shown.is_empty() && md_after == md_text,
             json!({ "shown": shown, "text_unchanged": md_after == md_text }),
         );
+
+        self.citation_card_scrolled(cx, steps, root, native).await
+    }
+
+    /// A key whose \cite is scrolled out of the editor: ⌥⌘K opens no card
+    /// (it could not show), and a card scrolled out while it holds the
+    /// keyboard gives the editor the keyboard back.
+    async fn citation_card_scrolled(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+        root: &Path,
+        native: native::Native,
+    ) -> Result<()> {
+        let long = root.join("citation-card-scroll.tex");
+        let mut body = String::from("See \\cite{knuth1984} here.\n");
+        for line in 0..300 {
+            body.push_str(&format!("Filler line {line} of the long file.\n"));
+        }
+        std::fs::write(&long, &body)?;
+        let panel = self.open(cx, &long, Some(1))?;
+        self.pause(cx, Duration::from_millis(400)).await;
+        let lattice = cx.update(|cx| panel.read(cx).lattice_editor().clone());
+        let key_at = body.find("knuth1984").context("the long \\cite")? + 3;
+        let zed = cx.update(|cx| panel.read(cx).editor().clone());
+        let top = move |cx: &mut AsyncApp| cx.update(|cx| zed.update(cx, |zed, cx| zed.scroll_position(cx).y));
+        let wheel_at = |cx: &mut AsyncApp| -> Result<gpui::Point<gpui::Pixels>> {
+            let bounds = cx
+                .update(|cx| lattice.read(cx).painted().bounds)
+                .context("the editor was not drawn")?;
+            Ok(point(bounds.center().x, bounds.bottom() - px(40.)))
+        };
+
+        // The caret on the key, the text scrolled away with the wheel (the
+        // caret stays), then ⌥⌘K: no card, the text keeps the keyboard.
+        self.select(cx, &panel, key_at, key_at)?;
+        self.pause(cx, Duration::from_millis(200)).await;
+        let before = top(cx);
+        let at = wheel_at(cx)?;
+        for _ in 0..6 {
+            native::send_wheel(native, at, -400)?;
+            self.pause(cx, Duration::from_millis(80)).await;
+        }
+        self.pause(cx, Duration::from_millis(300)).await;
+        let scrolled = top(cx);
+        self.option_command_k(cx, native).await?;
+        let (shown, keyboard, caret, in_text, _) = self.card_state(cx, &panel)?;
+        self.completion_shot(cx, "citation-card-offscreen-no-card").await;
+        steps.check(
+            "⌥⌘K on a citation key scrolled out of the editor opens no card and the text keeps the keyboard",
+            scrolled > before + 5. && shown.is_empty() && !keyboard && caret == key_at && in_text,
+            json!({ "scroll_before": before, "scroll_after": scrolled, "shown": shown, "keyboard": keyboard, "caret": caret, "text_focused": in_text }),
+        );
+
+        // Back on the key (the caret move scrolls it in), ⌥⌘K opens the card
+        // holding the keyboard; the wheel then scrolls it out, and the editor
+        // gets the keyboard back.
+        self.select(cx, &panel, key_at + 1, key_at + 1)?;
+        self.select(cx, &panel, key_at, key_at)?;
+        self.pause(cx, Duration::from_millis(300)).await;
+        self.option_command_k(cx, native).await?;
+        let (opened, held, ..) = self.card_state(cx, &panel)?;
+        self.completion_shot(cx, "citation-card-before-scroll-out").await;
+        let at = wheel_at(cx)?;
+        for _ in 0..6 {
+            native::send_wheel(native, at, -400)?;
+            self.pause(cx, Duration::from_millis(80)).await;
+        }
+        self.pause(cx, Duration::from_millis(400)).await;
+        let (shown, keyboard, _, in_text, focused) = self.card_state(cx, &panel)?;
+        self.completion_shot(cx, "citation-card-scrolled-out").await;
+        steps.check(
+            "a ⌥⌘K card scrolled out of the editor gives the editor the keyboard back",
+            opened == ["citation"] && held && !keyboard && in_text && focused && shown.is_empty(),
+            json!({ "opened": opened, "held_focus": held, "shown": shown, "keyboard": keyboard, "text_focused": in_text, "focused": focused }),
+        );
         Ok(())
     }
 

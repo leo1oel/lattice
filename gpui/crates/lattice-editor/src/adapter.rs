@@ -97,10 +97,11 @@ pub struct LatticeEditor {
     blocks: HashMap<&'static str, HashSet<CustomBlockId>>,
     hover_providers: Vec<Rc<dyn HoverProvider>>,
     hover: Hover,
-    /// A keyboard card just closed: if focus was in it, or went nowhere
-    /// (the card scrolled out with its focused action), the next frame
-    /// gives the editor the keyboard back (an edit or a caret move closes
-    /// the card without a window to move focus with).
+    /// A keyboard card just closed: if focus was in it, or went nowhere,
+    /// the next frame gives the editor the keyboard back (an edit or a
+    /// caret move closes the card without a window to move focus with). A
+    /// card scrolled out of the editor is closed and refocused in
+    /// `render_card` instead.
     refocus: Option<FocusHandle>,
     caret_card: caret_card::CaretCardState,
     sources: Sources,

@@ -594,7 +594,19 @@ impl LatticeEditor {
             return None;
         }
         let targets = targets.clone();
-        let rect = self.visible_rect(&targets, window, cx)?;
+        let Some(rect) = self.visible_rect(&targets, window, cx) else {
+            // A card opened from the keyboard scrolled out with its focused
+            // action: close it and give the editor the keyboard here. The
+            // action's handle outlives the frame it last drew in, so the
+            // window still names it as focused and the refocus `render`
+            // applies after a close would see focus somewhere and leave it.
+            if keyboard.is_some() {
+                self.dismiss_hover(cx);
+                self.refocus = None;
+                window.focus(&self.focus_handle(cx), cx);
+            }
+            return None;
+        };
         let bounds = self.painted.borrow().bounds?;
         let context = HoverCardContext {
             editor: cx.weak_entity(),
