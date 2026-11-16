@@ -5,9 +5,6 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] Margin review's J/K walk between items.
 
-
 - [ ] Settings: App updates' automatic updates and Check for updates (the GPUI app shows its version and GitHub Releases).
-
-- [ ] The shortcut sheet's LaTeX keys the source editor does not bind yet (the citation card, Proofread), which join the sheet's LaTeX group once bound.
 
 - [ ] The app updater's release channel (it ships off) and the outdated-version hint on a failure's notice.

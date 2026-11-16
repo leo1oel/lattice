@@ -14,12 +14,27 @@
 //! over the targets or the stack, and goes when it leaves both, on a key
 //! press, or when the text changes.
 
-use std::{ops::Range, rc::Rc, time::Duration};
+use std::{cell::Cell, ops::Range, rc::Rc, time::Duration};
 
-use gpui::{AnyElement, App, Pixels, WeakEntity, Window};
+use gpui::{AnyElement, App, FocusHandle, Pixels, WeakEntity, Window};
 use language::BufferSnapshot;
 
 use crate::LatticeEditor;
+
+gpui::actions!(
+    lattice_hover,
+    [
+        /// The next action of a card opened from the keyboard (Tab).
+        NextCardAction,
+        /// The previous action of a card opened from the keyboard (⇧Tab).
+        PreviousCardAction,
+    ]
+);
+
+/// The key context of a card opened from the keyboard, where Tab and ⇧Tab
+/// walk its actions. It sits under the window root's own Tab, which would
+/// walk every tab stop in the window and take focus out of the card.
+pub const KEYBOARD_CARD_CONTEXT: &str = "LatticeHoverCard";
 
 /// How long the pointer rests on a target before its card opens.
 pub const HOVER_DELAY: Duration = Duration::from_millis(300);
@@ -39,6 +54,33 @@ pub struct HoverCardContext {
     /// The buffer as it is now. A card is built while the editor draws, so
     /// it reads the text from here, never from `editor`.
     pub text: BufferSnapshot,
+    /// Set when the card was opened from the keyboard
+    /// ([`LatticeEditor::open_card_at`]): it holds focus until it closes.
+    pub keyboard: Option<KeyboardCard>,
+}
+
+/// A card opened from the keyboard, as the Tauri app's ⌥⌘K opens the
+/// citation card: the stack tracks `focus`, the card puts its first action
+/// in it once, and the stack closes when focus leaves it.
+#[derive(Clone)]
+pub struct KeyboardCard {
+    pub focus: FocusHandle,
+    focused: Rc<Cell<bool>>,
+}
+
+impl KeyboardCard {
+    pub(crate) fn new(focus: FocusHandle) -> Self {
+        Self {
+            focus,
+            focused: Rc::default(),
+        }
+    }
+
+    /// True the first time it is asked: the frame the card should move
+    /// focus to its first action.
+    pub fn take_first_focus(&self) -> bool {
+        !self.focused.replace(true)
+    }
 }
 
 impl HoverCardContext {

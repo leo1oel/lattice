@@ -30,7 +30,7 @@ use std::{
 };
 
 use gpui::{
-    App, ClipboardItem, ElementId, FontWeight, InteractiveElement as _, IntoElement,
+    App, ClipboardItem, ElementId, FocusHandle, FontWeight, InteractiveElement as _, IntoElement,
     ParentElement as _, RenderOnce, SharedString, StatefulInteractiveElement as _, Styled as _,
     WeakEntity, Window, div, prelude::FluentBuilder as _, px,
 };
@@ -48,7 +48,7 @@ use super::{
 };
 use crate::{
     ProjectIndex,
-    hover::{HoverCardContext, HoverProvider, HoverTarget},
+    hover::{HoverCardContext, HoverProvider, HoverTarget, NextCardAction, PreviousCardAction},
     index::Citation,
     latex::syntax,
 };
@@ -248,6 +248,19 @@ impl RenderOnce for CitationCard {
             |_, _| None::<Instant>,
         );
         let is_copied = copied.read(cx).is_some_and(|at| at.elapsed() < COPIED_FOR);
+        // Opened from the keyboard (⌥⌘K), the actions take focus: Open
+        // paper, Why cited, Go to entry, Copy key, each its own handle.
+        let keyboard = self.context.keyboard.clone();
+        let action_focus = keyboard.as_ref().map(|_| {
+            window
+                .use_keyed_state(
+                    ElementId::Name(format!("citation-card-focus-{key}").into()),
+                    cx,
+                    |_, cx| [(); 4].map(|_| cx.focus_handle()),
+                )
+                .read(cx)
+                .clone()
+        });
         let goto = {
             let context = self.context.clone();
             let index = self.index.clone();
@@ -336,6 +349,30 @@ impl RenderOnce for CitationCard {
             .join(",\u{a0}");
         let source = source_label(&citation);
         let editor_font = cx.lattice().fonts.editor.clone();
+        // The handles of the actions this card shows, in their order.
+        let shown_focus: Vec<FocusHandle> = action_focus
+            .iter()
+            .flat_map(|[open_focus, why_focus, goto_focus, copy_focus]| {
+                [
+                    open.is_some().then(|| open_focus.clone()),
+                    why.is_some().then(|| why_focus.clone()),
+                    Some(goto_focus.clone()),
+                    Some(copy_focus.clone()),
+                ]
+            })
+            .flatten()
+            .collect();
+        // The first action takes focus, not the title, so Return runs the
+        // lead action its hint names.
+        if let Some(keyboard) = &keyboard
+            && let Some(first) = shown_focus.first()
+            && keyboard.take_first_focus()
+        {
+            window.focus(first, cx);
+        }
+        let walk = shown_focus.clone();
+        let focus_of = |slot: usize| action_focus.as_ref().map(|handles| handles[slot].clone());
+        let lead_keys = keyboard.is_some().then_some("↩");
         let goto_title = goto.clone();
         let open_title = open.clone();
         let copy = {
@@ -380,6 +417,18 @@ impl RenderOnce for CitationCard {
             .px(px(16.))
             .pb(px(8.))
             .text_role(TextRole::Body, cx)
+            // Tab and ⇧Tab walk the actions, round from the last to the
+            // first ([`KEYBOARD_CARD_CONTEXT`]); Return presses the focused
+            // one (the element's own activation).
+            .when(!walk.is_empty(), |card| {
+                let back = walk.clone();
+                card.on_action(move |_: &NextCardAction, window, cx| {
+                    step_focus(&walk, 1, window, cx);
+                })
+                .on_action(move |_: &PreviousCardAction, window, cx| {
+                    step_focus(&back, -1, window, cx);
+                })
+            })
             .when(!citation.title.is_empty(), |card| {
                 card.child(
                     div()
@@ -458,6 +507,8 @@ impl RenderOnce for CitationCard {
                             Button::new("citation-card-open", t!("Open paper"))
                                 .tinted()
                                 .compact()
+                                .when_some(lead_keys, Button::keys)
+                                .when_some(focus_of(0), |button, focus| button.track_focus(&focus))
                                 .on_click(move |event, window, cx| open(event, window, cx)),
                         )
                     })
@@ -466,6 +517,7 @@ impl RenderOnce for CitationCard {
                             Button::new("citation-card-why", t!("Why cited"))
                                 .ghost()
                                 .compact()
+                                .when_some(focus_of(1), |button, focus| button.track_focus(&focus))
                                 .on_click(why),
                         )
                     })
@@ -473,6 +525,7 @@ impl RenderOnce for CitationCard {
                         Button::new("citation-card-goto", t!("Go to entry"))
                             .ghost()
                             .compact()
+                            .when_some(focus_of(2), |button, focus| button.track_focus(&focus))
                             .on_click(goto),
                     )
                     .child(
@@ -486,10 +539,22 @@ impl RenderOnce for CitationCard {
                         )
                         .ghost()
                         .compact()
+                        .when_some(focus_of(3), |button, focus| button.track_focus(&focus))
                         .on_click(copy),
                     ),
             )
     }
+}
+
+/// Move focus `by` one among `handles`, round from either end; from none
+/// of them, to the first.
+fn step_focus(handles: &[FocusHandle], by: isize, window: &mut Window, cx: &mut App) {
+    let count = handles.len() as isize;
+    let next = handles
+        .iter()
+        .position(|handle| handle.is_focused(window))
+        .map_or(0, |at| (at as isize + by).rem_euclid(count));
+    window.focus(&handles[next as usize], cx);
 }
 
 /// The citation card for the key under the pointer.

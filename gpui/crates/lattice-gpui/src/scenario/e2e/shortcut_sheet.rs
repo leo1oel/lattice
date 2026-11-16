@@ -82,6 +82,36 @@ impl Run {
             json!({ "titles": titles, "palette": palette, "workspaces": workspaces, "leave": leave, "undo": undo, "bold": bold, "heading": heading, "tabs": tabs }),
         );
 
+        // The LaTeX group's ⌥⌘ keys, in the Tauri app's order
+        // (`latex-shortcuts.ts`: citationCard Mod-Alt-k, symbolPalette
+        // Mod-Alt-m, proofread Mod-Alt-p), each shown with the key the
+        // keymap actually binds.
+        let latex: Vec<Value> = groups
+            .iter()
+            .find(|group| group["title"] == "LaTeX")
+            .and_then(|group| group["rows"].as_array().cloned())
+            .unwrap_or_default();
+        let at = |label: &str| latex.iter().position(|row| row["label"] == label);
+        let combos = |label: &str| at(label).map(|index| latex[index]["combos"].clone());
+        let (card, symbol, proofread) = (
+            at("Show the citation card"),
+            at("Insert a math symbol…"),
+            at("Proofread the selection"),
+        );
+        steps.check(
+            "the sheet's LaTeX group lists Show the citation card on ⌥⌘K and Proofread the selection on ⌥⌘P, in the Tauri order",
+            combos("Show the citation card") == Some(json!(["⌥⌘K"]))
+                && combos("Proofread the selection") == Some(json!(["⌥⌘P"]))
+                && matches!((card, symbol, proofread), (Some(c), Some(s), Some(p)) if c < s && s < p),
+            json!({ "citation_card": combos("Show the citation card"), "proofread": combos("Proofread the selection"), "order": [card, symbol, proofread] }),
+        );
+
+        for (query, shot) in [("citation card", "sheet-citation-card"), ("Proofread", "sheet-proofread")] {
+            self.sheet_type(cx, query)?;
+            self.pause(cx, Duration::from_millis(200)).await;
+            self.completion_shot(cx, shot).await;
+        }
+
         self.sheet_type(cx, "⇧⌘J")?;
         let by_key = self.sheet_groups(cx);
         self.sheet_type(cx, "no such shortcut")?;

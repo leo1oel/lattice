@@ -47,6 +47,7 @@ const KEY_DOWN: usize = 10;
 const KEY_UP: usize = 11;
 const COMMAND_MODIFIER: usize = 1 << 20;
 const SHIFT_MODIFIER: usize = 1 << 17;
+const OPTION_MODIFIER: usize = 1 << 19;
 
 /// The unshifted key of a character an ANSI keyboard types with Shift, as
 /// GPUI reads a key from its key code and modifiers, not its characters.
@@ -113,7 +114,7 @@ pub const DOWN_ARROW: char = '\u{f701}';
 
 /// The ANSI virtual key code for a character, as Lattice's perf lab maps it.
 pub fn key_code(character: char) -> u16 {
-    const CODES: [(char, u16); 52] = [
+    const CODES: [(char, u16); 53] = [
         ('a', 0x00),
         ('s', 0x01),
         ('d', 0x02),
@@ -145,6 +146,7 @@ pub fn key_code(character: char) -> u16 {
         ('\\', 0x2A),
         (',', 0x2B),
         ('\u{1b}', 0x35),
+        ('\t', 0x30),
         // Backspace (the Delete key), which AppKit sends as DEL.
         ('\u{8}', 0x33),
         // The interface size's ⌘=, ⌘- and ⌘0.
@@ -179,6 +181,18 @@ pub fn key_code(character: char) -> u16 {
 
 /// One keyDown and keyUp for `character`, through the window.
 pub fn send_key(native: Native, character: char, command: bool) -> Result<()> {
+    send_chord(native, character, command, false, false)
+}
+
+/// One keyDown and keyUp for `character` with ⌘, ⌥ and ⇧ held as asked
+/// (⇧ also for a character typed with it), through the window.
+pub fn send_chord(
+    native: Native,
+    character: char,
+    command: bool,
+    option: bool,
+    shift: bool,
+) -> Result<()> {
     let text = match character {
         '\n' => "\r".to_string(),
         '\u{8}' => "\u{7f}".to_string(),
@@ -187,7 +201,12 @@ pub fn send_key(native: Native, character: char, command: bool) -> Result<()> {
     let characters = NSString::from_str(&text);
     let shifted = shifted_from(character);
     let modifiers = if command { COMMAND_MODIFIER } else { 0 }
-        | if shifted.is_some() { SHIFT_MODIFIER } else { 0 };
+        | if option { OPTION_MODIFIER } else { 0 }
+        | if shift || shifted.is_some() {
+            SHIFT_MODIFIER
+        } else {
+            0
+        };
     unsafe {
         let number: isize = msg_send![native.window, windowNumber];
         for kind in [KEY_DOWN, KEY_UP] {

@@ -120,6 +120,24 @@ fn default_bindings() -> Vec<KeyBinding> {
             Some(LATEX_FORMAT_KEYS),
         ),
         KeyBinding::new(
+            m!("alt-k"),
+            crate::editor_panel::citation_card::ShowCitationCard,
+            Some(LATEX_FORMAT_KEYS),
+        ),
+        // Tab and ⇧Tab in that card walk its actions, as a browser's focus
+        // order does in the Tauri card, over the window root's Tab, which
+        // walks every tab stop in the window.
+        KeyBinding::new(
+            "tab",
+            lattice_editor::hover::NextCardAction,
+            Some(lattice_editor::hover::KEYBOARD_CARD_CONTEXT),
+        ),
+        KeyBinding::new(
+            "shift-tab",
+            lattice_editor::hover::PreviousCardAction,
+            Some(lattice_editor::hover::KEYBOARD_CARD_CONTEXT),
+        ),
+        KeyBinding::new(
             m!("alt-e"),
             crate::editor_panel::latex_format::WrapEquation,
             Some(LATEX_FORMAT_KEYS),
