@@ -51,7 +51,9 @@ impl Run {
         cx.update(|cx| {
             self.shell.update(cx, |shell, cx| {
                 let views: Vec<String> = (1..=FILES)
-                    .filter_map(|i| shell.view_of_document(&format!("tab-strip/strip-{i:02}.tex"), cx))
+                    .filter_map(|i| {
+                        shell.view_of_document(&format!("tab-strip/strip-{i:02}.tex"), cx)
+                    })
                     .collect();
                 shell
                     .workspace()
@@ -92,7 +94,10 @@ impl Run {
             // (`shell/tab_policy.rs`), so all of them stay and the strip
             // overflows, as the Tauri app's does with the tabs it keeps.
             let key = format!("tab-strip/{title}");
-            cx.update(|cx| self.shell.update(cx, |shell, cx| shell.pin_document(&key, true, cx)));
+            cx.update(|cx| {
+                self.shell
+                    .update(cx, |shell, cx| shell.pin_document(&key, true, cx))
+            });
             self.pause(cx, Duration::from_millis(40)).await;
         }
         self.pause(cx, Duration::from_millis(600)).await;
@@ -231,14 +236,17 @@ impl Run {
                 );
             }
         }
-        // Each tab inside a slot: the slot whose left edge is the tab's.
+        // Each tab inside a slot: the slot whose left edge and top are the
+        // tab's (a slot measured off the tab's row read one tab low).
         let outside: Vec<&String> = drawn
             .iter()
             .filter(|(_, tab)| {
                 let (l, r) = edges(tab);
                 !slots.iter().any(|(_, slot)| {
                     let (sl, sr) = edges(slot);
-                    (sl - l).abs() <= 0.5 && r <= sr + 0.5
+                    (sl - l).abs() <= 0.5
+                        && r <= sr + 0.5
+                        && (f32::from(slot.top()) - f32::from(tab.top())).abs() <= 0.5
                 })
             })
             .map(|(title, _)| title)

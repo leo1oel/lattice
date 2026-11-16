@@ -294,7 +294,12 @@ impl TrellisWorkspace {
                             },
                             |_, _, _, _| {},
                         )
+                        // Pinned to the slot's corner: left at its static
+                        // position, the block flow put it below the tab, and
+                        // every box read one tab's height low.
                         .absolute()
+                        .top_0()
+                        .left_0()
                         .size_full(),
                     )
                     .on_mouse_down(MouseButton::Left, {

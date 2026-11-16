@@ -301,26 +301,17 @@ impl Run {
             .await
             .context("terminal_panel")?;
 
-        // Docking: drag an editor tab from the documents' panel into the
-        // PDF's panel with native mouse events. (The shell steps after it
-        // drag the PDF by its tab to the documents' edge and middle.)
-        //
-        // A known flake, so it runs only when LATTICE_E2E_DRAG is set and
-        // cannot block a release's gpui.yml run. On the 1024px macOS runner
-        // the center is ~180px wide with three tabs open, and the drag
-        // starts at a fixed point that assumes the first tab sits at the
-        // strip's left edge; it misses a draggable tab there (failed every
-        // macOS run of fm/lattice-main-ci-green once Stop stopped stalling,
-        // with notices closed). Taking the point from the tab's recorded
-        // parity region would fix it.
-        if std::env::var_os("LATTICE_E2E_DRAG").is_some() {
-            let (moved, layout) = self.drag_editor_tab_to_right_dock(cx).await?;
-            steps.check(
-                "an editor tab drags from the center into the right dock",
-                moved,
-                layout,
-            );
-        }
+        // Docking: drag the active document's tab from the documents' panel
+        // into the PDF's panel with native mouse events. (The shell steps
+        // after it drag the PDF by its tab to the documents' edge and
+        // middle.) The press lands on the tab as the strip last drew it
+        // (`tab_grip`), wherever a narrow panel's strip has scrolled it.
+        let (moved, layout) = self.drag_editor_tab_to_right_dock(cx).await?;
+        steps.check(
+            "an editor tab drags from the center into the right dock",
+            moved,
+            layout,
+        );
 
         // Get started runs last among these (its rank): it opens the tutorial,
         // then the fixture again, so the modules that start from the
@@ -549,20 +540,18 @@ impl Run {
             };
             (view.as_deref().and_then(panel_of), panel_of("pdf"), view)
         });
+        let editor_view = editor_view.context("no document is active")?;
         let from_panel = from_panel.context("no document is in a panel")?;
         let pdf_panel = pdf_panel.context("the PDF is in no panel")?;
-        let bounds = |panel: &str, cx: &mut AsyncApp| {
-            cx.update(|cx| self.shell.read(cx).workspace().read(cx).panel_bounds(panel))
-        };
-        let from_bounds = bounds(&from_panel, cx).context("the documents' panel is not drawn")?;
-        let to_bounds = bounds(&pdf_panel, cx).context("the PDF's panel is not drawn")?;
-        // The icon of the documents' first tab: the strip's 6px inset and the
-        // tab's 14px, mid-strip. The icon is where the tab begins, so it stays
-        // under the pointer however narrow the panel leaves its title.
-        let from = gpui::point(
-            from_bounds.left() + gpui::px(6. + 14.) + lattice_ui::icons::ICON / 2.,
-            from_bounds.top() + gpui::px(20.),
-        );
+        let to_bounds = cx
+            .update(|cx| {
+                self.shell
+                    .read(cx)
+                    .workspace()
+                    .read(cx)
+                    .panel_bounds(&pdf_panel)
+            })
+            .context("the PDF's panel is not drawn")?;
         // The middle of the PDF panel.
         let to = gpui::point(
             to_bounds.left() + to_bounds.size.width / 2.,
@@ -579,15 +568,24 @@ impl Run {
             titles
         });
         self.pause(cx, Duration::from_millis(200)).await;
+        // The documents' strip as drawn, for a failure's detail.
+        let strip = cx.update(|cx| {
+            let workspace = self.shell.read(cx).workspace().read(cx);
+            json!({
+                "tabs": format!("{:?}", workspace.tab_bounds(&from_panel)),
+                "list": format!("{:?}", workspace.tab_list_bounds(&from_panel)),
+            })
+        });
+        let from = self.tab_grip(cx, &from_panel, &editor_view)?;
         let mut detail = self.native_drag(cx, from, to).await?;
         let panel = cx.update(|cx| {
             let doc = self.shell.read(cx).document(cx);
             trellis::model::panel_of_view(&doc, "pdf").cloned()
         });
-        // The first tab moved, whichever document it was.
-        let moved = panel.as_ref().is_some_and(|panel| {
-            panel.views.len() > 1 && panel.views.iter().any(|view| view.starts_with("file"))
-        });
+        let moved = panel
+            .as_ref()
+            .is_some_and(|panel| panel.views.contains(&editor_view));
+        detail["strip"] = strip;
         detail["notices_closed"] = json!(notices);
         detail["dragged"] = json!(editor_view);
         detail["pdf_panel"] = serde_json::to_value(panel).unwrap_or_default();
