@@ -63,6 +63,9 @@ pub(super) fn build_artifact_ignore_lines() -> impl Iterator<Item = String> {
         // SyncTeX's file while a build writes it: a version saved mid-build
         // would record it, and the next would show it deleted.
         .chain(["*.synctex(busy)", "*.synctex.gz(busy)", "*-SAVE-ERROR"].map(String::from))
+        // The package cache folders `crate::util::in_package_cache_folder`
+        // names, at any depth: rewritten by every build that uses them.
+        .chain(["_minted/", "_minted-*/", "svg-inkscape/"].map(String::from))
 }
 
 /// Extensions of the stale outputs a moved `.tex` file leaves behind. Spelled
