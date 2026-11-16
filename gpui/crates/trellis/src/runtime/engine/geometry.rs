@@ -27,7 +27,7 @@ impl Engine {
         }
     }
 
-    pub(crate) fn from_screen(&self, p: Point) -> Point {
+    pub(crate) fn screen_to_world(&self, p: Point) -> Point {
         let c = self.camera.value;
         let q = self.pad();
         Point {
@@ -36,11 +36,11 @@ impl Engine {
         }
     }
 
-    pub(crate) fn from_screen_rect(&self, screen: Option<Rect>) -> Option<Rect> {
+    pub(crate) fn screen_rect_to_world(&self, screen: Option<Rect>) -> Option<Rect> {
         let screen = screen?;
         let p = self.pad();
-        let a = self.from_screen(Point::new(screen.x - p, screen.y - p));
-        let b = self.from_screen(Point::new(screen.x + screen.w + p, screen.y + screen.h + p));
+        let a = self.screen_to_world(Point::new(screen.x - p, screen.y - p));
+        let b = self.screen_to_world(Point::new(screen.x + screen.w + p, screen.y + screen.h + p));
         Some(Rect::new(a.x, a.y, b.x - a.x, b.y - a.y))
     }
 

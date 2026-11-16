@@ -6,12 +6,17 @@ use std::{collections::HashMap, rc::Rc};
 use gpui::{AnyElement, App, Global, Pixels, Window};
 use gpui_kit::component::dock::PanelId;
 
+/// How wide the spare tools are in a window.
+pub type SpareWidth = Rc<dyn Fn(&Window, &App) -> Pixels>;
+/// The spare tools, drawn.
+pub type SpareRender = Rc<dyn Fn(&mut Window, &mut App) -> AnyElement>;
+
 /// A panel's spare tools: what it shows before its tools only in room to
 /// spare, and how wide that is.
 #[derive(Clone)]
 pub struct SpareTools {
-    pub width: Rc<dyn Fn(&Window, &App) -> Pixels>,
-    pub render: Rc<dyn Fn(&mut Window, &mut App) -> AnyElement>,
+    pub width: SpareWidth,
+    pub render: SpareRender,
 }
 
 #[derive(Default)]

@@ -56,10 +56,11 @@ impl PlateState {
         let changed = self.selected != selected;
         // The plate is not drawn until a selection changes, but the item the
         // selection leaves was measured: the first slide starts there.
-        if self.rect.is_none() && changed {
-            if let Some(from) = self.selected.and_then(|ix| self.relative(ix)) {
-                self.rect = Some(Tween::settled(from, now));
-            }
+        if self.rect.is_none()
+            && changed
+            && let Some(from) = self.selected.and_then(|ix| self.relative(ix))
+        {
+            self.rect = Some(Tween::settled(from, now));
         }
         self.selected = selected;
         let Some(target) = selected.and_then(|ix| self.relative(ix)) else {

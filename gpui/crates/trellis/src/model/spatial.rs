@@ -550,7 +550,7 @@ pub fn insert_at_seam(
             });
         }
         if let LayoutNode::Split(split) = node {
-            if let Some(container) = split.children.iter().position(|c| holds_all(c)) {
+            if let Some(container) = split.children.iter().position(holds_all) {
                 let mut children = split.children.clone();
                 children[container] = insert(
                     &split.children[container],
