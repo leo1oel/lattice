@@ -10,6 +10,8 @@ mod clicked_word;
 /// compound completion reads them too.
 pub(crate) use lattice_editor::latex::compounds;
 mod comment_margin;
+pub(crate) mod review_place;
+pub(crate) mod review_sheet;
 mod dark;
 mod engine;
 mod find;
@@ -41,5 +43,5 @@ pub use text::LinkTarget;
 pub use toolbar_hover::toolbar_section;
 pub use view::{
     CitationLookup, CompoundSource, NoteDestination, OverleafNotes, PdfNotes, PdfView,
-    PdfViewEvent, ToolbarAction, ViewPlace, note_destination,
+    PdfViewEvent, ReviewSource, ToolbarAction, ViewPlace, note_destination,
 };

@@ -42,6 +42,9 @@ The vendored copies cannot run their own tests where they sit (the gpui crate's 
 - **`gpui-base-popover-exit.diff`**: a popover that plays its way out.
   `Popover::exit(duration)` keeps the content drawn for that long after the popover closes, as it was, under a cover that takes its presses, with no focus, Escape or dismissal; `PopoverState::leaving()` tells the content builder how far into the exit it is, so Lattice's popovers draw their exit (`pop_out`) where the Tauri app's `popup-motion.css` plays one.
   Without `exit` the crate behaves as upstream.
+- **`gpui-base-max-length.diff`**: `InputState::max_length(n)`, HTML's `maxLength` for a Kit input.
+  An insertion (typed, pasted, or a composition when it is committed) is cut to the room the rest of the text leaves before it is applied, and a keystroke at the limit inserts nothing, so the edit is one ordinary step of the undo history; Lattice's workspace rename field (24 characters) and Save a local template's name and version (300) had clipped after the fact with `set_value`, which cleared the field's undo history.
+  Without `max_length` the crate behaves as upstream.
 - **`gpui-webview-interface-zoom.diff`**: a webview island at another interface size.
   The surface sits where GPUI laid the page out, but gpui-webview set the WKWebView's frame inside it from GPUI's pixels as if they were points, so at 120% the page covered only part of its island and below 100% it was clipped.
   The frame and its offset are scaled by the window's interface zoom, and the page is zoomed with the interface (on top of `WebView::set_zoom`'s own zoom), so it keeps the island's size in its own pixels, as the Tauri app's interface zoom zooms its pages.

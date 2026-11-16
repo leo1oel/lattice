@@ -105,9 +105,15 @@ fn uptime() -> f64 {
 /// (`NSRightArrowFunctionKey`).
 pub const RIGHT_ARROW: char = '\u{f703}';
 
+/// The ← key (`NSLeftArrowFunctionKey`).
+pub const LEFT_ARROW: char = '\u{f702}';
+
+/// The ↓ key (`NSDownArrowFunctionKey`).
+pub const DOWN_ARROW: char = '\u{f701}';
+
 /// The ANSI virtual key code for a character, as Lattice's perf lab maps it.
 pub fn key_code(character: char) -> u16 {
-    const CODES: [(char, u16); 50] = [
+    const CODES: [(char, u16); 52] = [
         ('a', 0x00),
         ('s', 0x01),
         ('d', 0x02),
@@ -146,6 +152,8 @@ pub fn key_code(character: char) -> u16 {
         ('-', 0x1B),
         ('0', 0x1D),
         (RIGHT_ARROW, 0x7C),
+        (LEFT_ARROW, 0x7B),
+        (DOWN_ARROW, 0x7D),
         // Commands typed into the terminal (`exit 3`, `./x`).
         ('1', 0x12),
         ('2', 0x13),

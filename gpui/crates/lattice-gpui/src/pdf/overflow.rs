@@ -131,6 +131,7 @@ impl PdfView {
         let reveal_disabled = self.reveal_disabled || self.locating;
         let action = self.action.clone();
         let can_save = self.source.is_some() && !self.saving;
+        let can_review = self.has_local_notes();
         BasePopover::new("pdf-overflow")
             .anchor(gpui::Anchor::TopRight)
             .offset(px(6.))
@@ -288,6 +289,16 @@ impl PdfView {
                     !can_save,
                     Box::new(|view, window, cx| view.save_as(window, cx)),
                 ));
+                if can_review.is_some() {
+                    menu = menu.child(item(
+                        "pdf-menu-review",
+                        t!("Export review PDF…"),
+                        Icon::MESSAGE_SQUARE_SHARE,
+                        None,
+                        can_review != Some(true),
+                        Box::new(|_, _, cx| cx.emit(PdfViewEvent::ExportReview)),
+                    ));
+                }
                 match leaving {
                     Some(elapsed) => pop_out(PopFrom::Above, elapsed, menu),
                     None => pop_in("pdf-overflow-menu", PopFrom::Above, menu),

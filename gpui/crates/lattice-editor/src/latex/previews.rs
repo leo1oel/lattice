@@ -25,7 +25,9 @@ use std::{
     time::{Duration, Instant, SystemTime},
 };
 
-use gpui::{AnyElement, App, ElementId, Global, Hsla, ImageSource, Pixels, Task, WeakEntity};
+use gpui::{
+    AnyElement, App, ElementId, EntityId, Global, Hsla, ImageSource, Pixels, Task, WeakEntity,
+};
 
 use crate::LatticeEditor;
 
@@ -115,8 +117,9 @@ pub enum Preview<T> {
 }
 
 /// How many pictures and figures are kept: the Tauri app keeps 48 figures
-/// (`CACHE_ENTRY_LIMIT`); pictures of equations are small.
-const MATH_KEPT: usize = 256;
+/// (`CACHE_ENTRY_LIMIT`); pictures of equations are small, and the symbol
+/// palette's 223 cells are among them, so its pictures survive the cards'.
+const MATH_KEPT: usize = 512;
 const FIGURES_KEPT: usize = 48;
 
 /// How long an equation whose page failed shows its source before a draw
@@ -155,8 +158,9 @@ struct FigureKey {
 }
 
 enum Slot<T> {
-    /// Being read, with the editors to draw again once it is in.
-    Pending(Vec<WeakEntity<LatticeEditor>>),
+    /// Being read, with the views (an editor, the symbol palette) to draw
+    /// again once it is in.
+    Pending(Vec<EntityId>),
     Ready(T),
     /// Shown as `value` until `after`, then read again.
     Retry {
@@ -183,7 +187,7 @@ impl<K: Clone + Eq + Hash, T: Clone> Kept<K, T> {
 
     /// What is kept for `key`, waiting with `editor` if it is still being
     /// read; `None` when nothing is, and it should be.
-    fn get(&mut self, key: &K, editor: &WeakEntity<LatticeEditor>) -> Option<Preview<T>> {
+    fn get(&mut self, key: &K, editor: EntityId) -> Option<Preview<T>> {
         self.tick += 1;
         let (slot, used) = self.entries.get_mut(key)?;
         *used = self.tick;
@@ -195,15 +199,15 @@ impl<K: Clone + Eq + Hash, T: Clone> Kept<K, T> {
             }
             Slot::Retry { value, .. } => Preview::Ready(value.clone()),
             Slot::Pending(waiting) => {
-                if !waiting.iter().any(|known| known == editor) {
-                    waiting.push(editor.clone());
+                if !waiting.contains(&editor) {
+                    waiting.push(editor);
                 }
                 Preview::Loading
             }
         })
     }
 
-    fn start(&mut self, key: K, editor: WeakEntity<LatticeEditor>) {
+    fn start(&mut self, key: K, editor: EntityId) {
         self.tick += 1;
         self.entries
             .insert(key, (Slot::Pending(vec![editor]), self.tick));
@@ -222,17 +226,17 @@ impl<K: Clone + Eq + Hash, T: Clone> Kept<K, T> {
     }
 
     /// Keep `value` for `key`: the editors that waited for it.
-    fn finish(&mut self, key: K, value: T) -> Vec<WeakEntity<LatticeEditor>> {
+    fn finish(&mut self, key: K, value: T) -> Vec<EntityId> {
         self.settle(key, Slot::Ready(value))
     }
 
     /// Show `value` for `key` until `after`, then read it again: the
     /// editors that waited for it.
-    fn retry(&mut self, key: K, value: T, after: Instant) -> Vec<WeakEntity<LatticeEditor>> {
+    fn retry(&mut self, key: K, value: T, after: Instant) -> Vec<EntityId> {
         self.settle(key, Slot::Retry { value, after })
     }
 
-    fn settle(&mut self, key: K, settled: Slot<T>) -> Vec<WeakEntity<LatticeEditor>> {
+    fn settle(&mut self, key: K, settled: Slot<T>) -> Vec<EntityId> {
         let Some((slot, _)) = self.entries.get_mut(&key) else {
             return Vec::new();
         };
@@ -265,9 +269,9 @@ pub fn installed(cx: &App) -> bool {
     cx.has_global::<Previews>()
 }
 
-fn redraw(editors: Vec<WeakEntity<LatticeEditor>>, cx: &mut App) {
-    for editor in editors {
-        editor.update(cx, |_, cx| cx.notify()).ok();
+fn redraw(views: Vec<EntityId>, cx: &mut App) {
+    for view in views {
+        cx.notify(view);
     }
 }
 
@@ -278,15 +282,23 @@ pub fn math(
     editor: &WeakEntity<LatticeEditor>,
     cx: &mut App,
 ) -> Option<Preview<Option<MathPicture>>> {
+    math_for(request, editor.entity_id(), cx)
+}
+
+/// [`math`] for any view: `view` (its entity) draws again when the picture
+/// is in, as the symbol palette's grid does.
+pub fn math_for(
+    request: &MathRequest,
+    editor: EntityId,
+    cx: &mut App,
+) -> Option<Preview<Option<MathPicture>>> {
     let key = MathKey::of(request);
     let previews = cx.try_global::<Previews>()?;
     let host = previews.host.clone();
     if let Some(kept) = cx.global_mut::<Previews>().math.get(&key, editor) {
         return Some(kept);
     }
-    cx.global_mut::<Previews>()
-        .math
-        .start(key.clone(), editor.clone());
+    cx.global_mut::<Previews>().math.start(key.clone(), editor);
     let task = host.math(request, cx);
     cx.spawn(async move |cx| {
         let picture = task.await;
@@ -323,12 +335,16 @@ pub fn figure(
             .and_then(|metadata| metadata.modified().ok()),
         len: metadata.as_ref().map_or(0, |metadata| metadata.len()),
     };
-    if let Some(kept) = cx.global_mut::<Previews>().figures.get(&key, editor) {
+    if let Some(kept) = cx
+        .global_mut::<Previews>()
+        .figures
+        .get(&key, editor.entity_id())
+    {
         return Some(kept);
     }
     cx.global_mut::<Previews>()
         .figures
-        .start(key.clone(), editor.clone());
+        .start(key.clone(), editor.entity_id());
     let task = host.figure(path, cx);
     cx.spawn(async move |cx| {
         let figure = task.await;
@@ -359,37 +375,37 @@ mod tests {
 
     #[test]
     fn the_cache_forgets_the_least_recently_used_finished_entry() {
-        let editor = WeakEntity::<LatticeEditor>::new_invalid();
+        let editor = WeakEntity::<LatticeEditor>::new_invalid().entity_id();
         let mut kept: Kept<u32, u32> = Kept::new(2);
-        kept.start(1, editor.clone());
+        kept.start(1, editor);
         kept.finish(1, 10);
-        kept.start(2, editor.clone());
+        kept.start(2, editor);
         kept.finish(2, 20);
         // 1 is used again, so 2 is the one to go.
-        assert!(matches!(kept.get(&1, &editor), Some(Preview::Ready(10))));
-        kept.start(3, editor.clone());
-        assert!(kept.get(&2, &editor).is_none());
-        assert!(matches!(kept.get(&1, &editor), Some(Preview::Ready(10))));
+        assert!(matches!(kept.get(&1, editor), Some(Preview::Ready(10))));
+        kept.start(3, editor);
+        assert!(kept.get(&2, editor).is_none());
+        assert!(matches!(kept.get(&1, editor), Some(Preview::Ready(10))));
         // One still being read is never forgotten.
-        assert!(matches!(kept.get(&3, &editor), Some(Preview::Loading)));
+        assert!(matches!(kept.get(&3, editor), Some(Preview::Loading)));
     }
 
     /// A picture whose page failed is not kept as KaTeX's refusal: it shows
     /// the source for a moment, then the next draw asks for it again.
     #[test]
     fn a_failed_picture_is_read_again_after_a_moment() {
-        let editor = WeakEntity::<LatticeEditor>::new_invalid();
+        let editor = WeakEntity::<LatticeEditor>::new_invalid().entity_id();
         let mut kept: Kept<u32, Option<u32>> = Kept::new(4);
-        kept.start(1, editor.clone());
+        kept.start(1, editor);
         kept.retry(1, None, Instant::now() + Duration::from_secs(60));
-        assert!(matches!(kept.get(&1, &editor), Some(Preview::Ready(None))));
-        kept.start(2, editor.clone());
+        assert!(matches!(kept.get(&1, editor), Some(Preview::Ready(None))));
+        kept.start(2, editor);
         kept.retry(2, None, Instant::now());
-        assert!(kept.get(&2, &editor).is_none());
-        kept.start(2, editor.clone());
+        assert!(kept.get(&2, editor).is_none());
+        kept.start(2, editor);
         kept.finish(2, Some(20));
         assert!(matches!(
-            kept.get(&2, &editor),
+            kept.get(&2, editor),
             Some(Preview::Ready(Some(20)))
         ));
     }

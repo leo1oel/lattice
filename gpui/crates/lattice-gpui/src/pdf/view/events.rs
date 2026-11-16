@@ -39,6 +39,8 @@ pub enum PdfViewEvent {
     },
     /// A note's card asked something of it (Resolve, Reply).
     Annotation(crate::annotations::AnnotationRequest),
+    /// Export review PDF… was chosen.
+    ExportReview,
     /// The view rested at a new place, for the host to keep.
     PlaceChanged(super::ViewPlace),
 }

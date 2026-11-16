@@ -291,8 +291,11 @@ impl Run {
         let lattice = cx.update(|cx| panel.read(cx).lattice_editor().clone());
         match label {
             Some(label) => {
+                // Up to about 4 s by the bounds above, longer on a busy
+                // machine (it failed once in four at 5 s); the wait ends as
+                // soon as the item is in.
                 let wait_lattice = lattice.clone();
-                self.wait_for(cx, Duration::from_secs(5), move |_, cx| {
+                self.wait_for(cx, Duration::from_secs(15), move |_, cx| {
                     wait_lattice
                         .read(cx)
                         .offered_completions()

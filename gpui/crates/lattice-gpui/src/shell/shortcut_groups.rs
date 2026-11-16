@@ -171,6 +171,10 @@ pub(super) const LATEX_ROWS: ActionTable = &[
         &[("editor::FindAllReferences", None)],
     ),
     (n!("Rename label or citation"), &[("editor::Rename", None)]),
+    (
+        n!("Insert a math symbol…"),
+        &[("lattice::InsertMathSymbol", None)],
+    ),
 ];
 
 /// Check references' review queue (`REFERENCE_CHECK_SHORTCUTS`, in its

@@ -5,9 +5,6 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] Margin review's J/K walk between items.
 
-- [ ] The Annotations panel's Export review PDF….
-
-- [ ] The PDF: its review export.
 
 - [ ] Settings: the sections' product icons' hover gestures (they rest as the Tauri app's resting frames).
 
@@ -17,9 +14,7 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] The paper reader's selection actions: Copy source link and Add to note, on the full text and on the original PDF.
 
-- [ ] The shortcut sheet's LaTeX keys the source editor does not bind yet (the citation card, the symbol palette, Proofread), which join the sheet's LaTeX group once bound.
-
-- [ ] Check references: ticking references to check only those (Select all, Check selected), and the reading-glass drawing of a settled report.
+- [ ] The shortcut sheet's LaTeX keys the source editor does not bind yet (the citation card, Proofread), which join the sheet's LaTeX group once bound.
 
 - [ ] The app updater's release channel (it ships off) and the outdated-version hint on a failure's notice.
 
@@ -30,8 +25,6 @@ A feature that lands deletes its own line (only that line, so features landing s
 - [ ] Overleaf: the "Opening the Overleaf project…" transition when a downloaded project opens.
 
 - [ ] Overleaf: a compile after a resolved conflict (the watcher's build stands in).
-
-- [ ] The workspace rename field's undo history surviving a keystroke past its 24 characters (the Kit input has no length limit that clips before an edit).
 
 - [ ] Papers' hover prewarm of a paper the pointer is likely to open.
 

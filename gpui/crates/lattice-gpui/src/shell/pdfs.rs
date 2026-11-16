@@ -79,6 +79,10 @@ impl Shell {
                 let panel = panel.clone();
                 self.post_pdf_note(&panel, *id, path, *line, selection, quote, body, window, cx);
             }
+            PdfEvent::ExportReview => {
+                let view = panel.read(cx).live_view().clone();
+                self.open_review_sheet(Some(view), window, cx)
+            }
             // In its own window the PDF gives its place in the workspace to
             // the documents, and coming back shows it there again, as the
             // Tauri app's `detachPdf` and `dockPdf` do. Either way, Track

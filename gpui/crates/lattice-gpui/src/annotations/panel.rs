@@ -26,9 +26,9 @@ use std::{
 };
 
 use gpui::{
-    AnyElement, App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, Focusable,
-    InteractiveElement as _, IntoElement, ParentElement as _, Render, ScrollHandle, SharedString,
-    StatefulInteractiveElement as _, Styled as _, Subscription, Task, Window, div,
+    AnyElement, App, AppContext as _, Context, Entity, EntityId, EventEmitter, FocusHandle,
+    Focusable, InteractiveElement as _, IntoElement, ParentElement as _, Render, ScrollHandle,
+    SharedString, StatefulInteractiveElement as _, Styled as _, Subscription, Task, Window, div,
     prelude::FluentBuilder as _, px,
 };
 use gpui_kit::component::{
@@ -49,7 +49,10 @@ use super::{
     model,
     store::{self, AnnotationStore},
 };
-use crate::research_art::{Drawing, research_art};
+use crate::{
+    pdf::PdfPanel,
+    research_art::{Drawing, research_art},
+};
 
 mod cards;
 mod rounds_view;
@@ -93,6 +96,8 @@ pub enum AnnotationsPanelEvent {
     Open(EditorComment),
     /// Open a file to annotate (the empty panel's Open a file).
     OpenFile,
+    /// Export review PDF… over the live PDF.
+    ExportReviewPdf,
 }
 
 /// The card being written in: an edit of the note, or a reply.
@@ -114,6 +119,8 @@ enum Writing {
 pub struct PanelHost {
     pub project: Box<dyn Fn(&App) -> Option<(PathBuf, Option<String>)>>,
     pub source: Box<dyn Fn(&str, &App) -> Option<String>>,
+    /// The live PDF's panel, whose viewer hosts a review copy.
+    pub live_pdf: Box<dyn Fn(&App) -> Option<Entity<PdfPanel>>>,
 }
 
 pub struct AnnotationsPanel {
@@ -138,6 +145,9 @@ pub struct AnnotationsPanel {
     scroll: ScrollHandle,
     /// The revision rounds the panel shows (`panel/rounds_view.rs`).
     rounds: rounds_view::RoundsView,
+    /// The live PDF followed, so the panel hears it load: its panel and
+    /// the viewer the live PDF is in, which moves with its window.
+    live_pdf: Option<(EntityId, Subscription, Subscription)>,
     _tasks: Vec<Task<()>>,
     _subscriptions: Vec<Subscription>,
 }
@@ -175,6 +185,7 @@ impl AnnotationsPanel {
             outcomes: HashMap::new(),
             scroll: ScrollHandle::new(),
             rounds: Default::default(),
+            live_pdf: None,
             _tasks: Vec::new(),
             _subscriptions: subscriptions,
         }
@@ -189,6 +200,7 @@ impl AnnotationsPanel {
         };
         self.set_root(root, cx);
         self.active = active;
+        self.follow_live_pdf(cx);
         let paths: HashSet<String> = self
             .notes(cx)
             .into_iter()
@@ -199,6 +211,46 @@ impl AnnotationsPanel {
             .filter_map(|path| Some(((self.host.source)(&path, cx)?, path)))
             .map(|(text, path)| (path, text))
             .collect();
+    }
+
+    /// Hear the live PDF's viewer, the one in its window while it has one.
+    fn follow_live_pdf(&mut self, cx: &mut Context<Self>) {
+        let Some(pdf) = (self.host.live_pdf)(cx) else {
+            self.live_pdf = None;
+            return;
+        };
+        let view = pdf.read(cx).live_view().clone();
+        if self
+            .live_pdf
+            .as_ref()
+            .is_some_and(|(id, _, _)| *id == view.entity_id())
+        {
+            return;
+        }
+        self.live_pdf = Some((
+            view.entity_id(),
+            cx.observe(&pdf, |_, _, cx| cx.notify()),
+            cx.observe(&view, |_, _, cx| cx.notify()),
+        ));
+    }
+
+    /// Whether the live PDF can host a review copy: one is built and shows
+    /// this project's notes.
+    fn review_ready(&self, cx: &App) -> bool {
+        (self.host.live_pdf)(cx)
+            .is_some_and(|pdf| pdf.read(cx).live_view().read(cx).can_review())
+    }
+
+    /// Whether the project has local numbered notes, resolved ones too, for
+    /// a review copy.
+    fn has_numbered_notes(&self, cx: &App) -> bool {
+        self.root.as_ref().is_some_and(|root| {
+            self.store
+                .read(cx)
+                .annotations(root)
+                .into_iter()
+                .any(|note| note.number > 0)
+        })
     }
 
     /// The project the panel lists: a change from one project to another
@@ -560,6 +612,7 @@ impl AnnotationsPanel {
         open: usize,
         resolved: usize,
         has_notes: bool,
+        review: Option<bool>,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let palette = cx.palette().clone();
@@ -617,7 +670,21 @@ impl AnnotationsPanel {
                             .when(has_notes, |this| this.child(segmented)),
                     )
                     .when(has_notes, |this| this.child(search))
-                    .children(self.rounds_button(cx)),
+                    .children(self.rounds_button(cx))
+                    .when_some(review, |this, ready| {
+                        this.child(
+                            IconButton::new("annotations-review-pdf", Icon::MESSAGE_SQUARE_SHARE)
+                                .disabled(!ready)
+                                .tooltip(if ready {
+                                    t!("Export review PDF…")
+                                } else {
+                                    t!("Build the PDF to export a review copy")
+                                })
+                                .on_click(cx.listener(|_, _, _, cx| {
+                                    cx.emit(AnnotationsPanelEvent::ExportReviewPdf)
+                                })),
+                        )
+                    }),
             )
             .when(searching && has_notes, |this| {
                 this.child(
@@ -768,7 +835,8 @@ impl Render for AnnotationsPanel {
             .filter(|comment| self.shown_in(Filter::Resolved, comment, cx))
             .count();
         let visible = self.visible(cx);
-        let header = self.header(open, resolved, has_notes, cx);
+        let review = self.has_numbered_notes(cx).then(|| self.review_ready(cx));
+        let header = self.header(open, resolved, has_notes, review, cx);
         let author_id = self.store.read(cx).author_id().to_string();
         let list: AnyElement = if visible.is_empty() {
             self.empty(has_notes, cx)

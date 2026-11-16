@@ -3,7 +3,9 @@
 //! `src/editor/paper-drop.ts`, `references.tsx`'s `paperDropExtension`):
 //!
 //! - A Markdown file's visual editor offers the library's papers in its `@`
-//!   menu (`md:papers`), kept up as the library changes.
+//!   menu (`md:papers`), kept up as the library changes; a `.tex` file's
+//!   Visual page reads it for its citation cards
+//!   (`latex_visual_citations.rs`).
 //! - A paper dragged from the Papers list over a LaTeX or Markdown source
 //!   draws the drop caret where it would go (after the word under the
 //!   pointer, or at a key boundary of a citation there), and goes in as
@@ -104,6 +106,8 @@ impl EditorPanel {
     /// The panel changed (it notifies for much else): a new list goes to
     /// the visual editor.
     fn library_changed(&mut self, cx: &mut Context<Self>) {
+        // The Visual page's citation cards read it too.
+        self.forward_latex_library(false, cx);
         let Some(document) = self.markdown_document().cloned() else {
             return;
         };

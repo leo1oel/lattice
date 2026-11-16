@@ -39,6 +39,8 @@ use lattice_i18n::t;
 
 mod annotate;
 mod autoscroll;
+mod review;
+pub use review::ReviewSource;
 mod citation;
 mod column;
 mod compound;
@@ -126,6 +128,9 @@ pub struct PdfView {
     pub(super) engine: Result<Arc<PdfEngine>, SharedString>,
     doc: Option<DocId>,
     pub(super) source: Option<PathBuf>,
+    /// The SHA-256 of the bytes shown, which a review copy is checked
+    /// against (`review.rs`).
+    shown_digest: Option<String>,
     pub(super) document: Option<Document>,
     pub(super) pages: Vec<PageSlot>,
     pub(super) layout: Layout,
@@ -259,6 +264,7 @@ impl PdfView {
             engine,
             doc: None,
             source: None,
+            shown_digest: None,
             document: None,
             pages: Vec::new(),
             layout: Layout::default(),
@@ -386,7 +392,10 @@ impl PdfView {
             // PDFium's load, tells a rebuild's changed pages from the rest.
             let signing = cx.background_spawn({
                 let bytes = bytes.clone();
-                async move { lattice_core::pdf_pages::signatures(&bytes).ok() }
+                async move {
+                    let digest = lattice_core::review_pdf::digest(&bytes);
+                    (lattice_core::pdf_pages::signatures(&bytes).ok(), digest)
+                }
             });
             let naming = cited.then(|| {
                 let bytes = bytes.clone();
@@ -399,13 +408,16 @@ impl PdfView {
                 None => Default::default(),
             };
             let opened = engine.open_named(doc, bytes, names).await;
-            let signatures = signing.await;
+            let (signatures, digest) = signing.await;
             this.update_in(cx, |this, window, cx| {
                 if this.source.as_ref() != Some(&path) {
                     return;
                 }
                 match opened {
-                    Ok(Ok(info)) => this.set_document(info, signatures, reload, window, cx),
+                    Ok(Ok(info)) => {
+                        this.shown_digest = Some(digest);
+                        this.set_document(info, signatures, reload, window, cx)
+                    }
                     Ok(Err(error)) => this.failed(
                         t!("The PDF could not be read: {0}", format!("{error:#}")).into(),
                         cx,

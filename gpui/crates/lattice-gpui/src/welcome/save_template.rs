@@ -2,8 +2,8 @@
 //! `src/project/local-templates.tsx`): over New project, a 520px dialog that
 //! reads a source, From folder, From ZIP or (with a project open) Current
 //! project, through lattice-core's `templates::inspect`, then asks the
-//! template's name and version (each at most 300 characters, as the Tauri
-//! fields' `maxLength`) and source URL, its compile root (a `.tex` file of
+//! template's name and version (each at most 300 characters, the input's
+//! `max_length`, as the Tauri fields' `maxLength`) and source URL, its compile root (a `.tex` file of
 //! the source), engine and preview image (one of the files chosen), and
 //! which of the source's reusable files to copy, none ticked at first. Save
 //! template is offered once it has a name and the compile root is ticked;
@@ -15,8 +15,8 @@
 use std::path::PathBuf;
 
 use gpui::{
-    App, AppContext as _, Context, Entity, EntityInputHandler as _, EventEmitter, FocusHandle,
-    Focusable, InteractiveElement as _, IntoElement, KeyDownEvent, MouseButton, ParentElement as _,
+    App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, Focusable,
+    InteractiveElement as _, IntoElement, KeyDownEvent, MouseButton, ParentElement as _,
     PathPromptOptions, Render, StatefulInteractiveElement as _, Styled as _, Subscription, Window,
     div, px,
 };
@@ -80,13 +80,6 @@ pub struct SaveTemplateDialog {
 
 impl EventEmitter<SaveTemplateEvent> for SaveTemplateDialog {}
 
-/// `value` held to its first `MAX_CHARS` characters with the caret inside
-/// it, or `None` when it fits.
-fn fit(value: &str, caret: usize) -> Option<(String, usize)> {
-    let end = value.char_indices().nth(MAX_CHARS).map(|(at, _)| at)?;
-    Some((value[..end].to_string(), caret.min(end)))
-}
-
 /// Whether `file` can be a template's preview image.
 fn is_preview(file: &str) -> bool {
     let lower = file.to_ascii_lowercase();
@@ -102,33 +95,25 @@ impl SaveTemplateDialog {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        let mut field = |cx: &mut Context<Self>| cx.new(|cx| InputState::new(window, cx));
-        let (name, url, version) = (field(cx), field(cx), field(cx));
+        // The name and version hold at most 300 characters, as the Tauri
+        // fields' `maxLength`: the input cuts an insertion to the room left.
+        let mut field = |max: Option<usize>, cx: &mut Context<Self>| {
+            cx.new(|cx| {
+                let input = InputState::new(window, cx);
+                match max {
+                    Some(max) => input.max_length(max),
+                    None => input,
+                }
+            })
+        };
+        let (name, url, version) = (
+            field(Some(MAX_CHARS), cx),
+            field(None, cx),
+            field(Some(MAX_CHARS), cx),
+        );
         let mut subscriptions = Vec::new();
         for input in [&name, &version] {
-            // At most 300 characters (`maxLength`), once a composition is
-            // committed (`set_value` clears the field's undo history, as the
-            // workspace rename's does).
-            subscriptions.push(
-                cx.subscribe_in(input, window, |_, input, event, window, cx| {
-                    if let InputEvent::Change = event {
-                        let composing = input.update(cx, |input, cx| {
-                            input.marked_text_range(window, cx).is_some()
-                        });
-                        let (value, caret) = {
-                            let input = input.read(cx);
-                            (input.value().to_string(), input.cursor())
-                        };
-                        if !composing && let Some((value, caret)) = fit(&value, caret) {
-                            input.update(cx, |input, cx| {
-                                input.set_value(value, window, cx);
-                                input.set_selected_range(caret..caret, cx);
-                            });
-                        }
-                    }
-                    cx.notify();
-                }),
-            );
+            subscriptions.push(cx.subscribe(input, |_, _, _: &InputEvent, cx| cx.notify()));
         }
         subscriptions.push(cx.subscribe(&url, |_, _, _: &InputEvent, cx| cx.notify()));
         Self {
@@ -588,15 +573,6 @@ impl Render for SaveTemplateDialog {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn a_field_keeps_its_first_300_characters() {
-        let long = "é".repeat(310);
-        let (kept, caret) = fit(&long, long.len()).unwrap();
-        assert_eq!(kept.chars().count(), 300);
-        assert_eq!(caret, kept.len());
-        assert!(fit(&"a".repeat(300), 300).is_none());
-    }
 
     #[test]
     fn previews_are_the_image_and_pdf_files() {

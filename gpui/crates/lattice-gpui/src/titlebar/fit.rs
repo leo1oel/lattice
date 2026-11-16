@@ -43,12 +43,17 @@ pub(super) const SWITCHER_CHROME: f32 = 8. + 8. + 12. + 8.;
 pub(super) const SWITCHER_MAX: f32 = 260.;
 pub(super) const SWITCHER_MAX_COMPACT: f32 = 200.;
 pub(super) const TAB_SWITCHER_MAX: f32 = 220.;
-/// Another project's tab: its name 8px in and 4px before the close button,
-/// cut at 180px, then the 20px close button 4px from the tab's end; tabs
-/// 2px apart; the group 6px before the Panels menu's own 6px.
-pub(super) const PROJECT_TAB_PAD: f32 = 8. + 4.;
-pub(super) const PROJECT_TAB_MAX: f32 = 180.;
+/// Another project's tab: 8px in, its 12px folder 4px before its name and
+/// 4px before the close button, cut at 200px, then the 20px close button
+/// 4px from the tab's end, all inside a 1px outline at each side; a tab at
+/// least 80px wide (96px the active one); tabs 2px apart; the group 6px
+/// before the Panels menu's own 6px.
+pub(super) const PROJECT_TAB_PAD: f32 = 8. + 12. + 4. + 4.;
+pub(super) const PROJECT_TAB_MAX: f32 = 200.;
 pub(super) const PROJECT_CLOSE: f32 = 20. + 4.;
+pub(super) const PROJECT_TAB_OUTLINE: f32 = 2.;
+pub(super) const PROJECT_TAB_MIN: f32 = 80.;
+pub(super) const PROJECT_ACTIVE_TAB_MIN: f32 = 96.;
 pub(super) const PROJECT_TAB_GAP: f32 = 2.;
 pub(super) const PROJECT_GROUP_END: f32 = 6.;
 pub(super) const PANELS_START: f32 = 6.;
@@ -77,12 +82,18 @@ pub(super) fn project_group_width(switcher: f32, tabs: &[(f32, bool)], switcher_
     let tabs_width: f32 = tabs
         .iter()
         .map(|&(name, current)| {
-            let body = if current {
-                (name + SWITCHER_CHROME).min(TAB_SWITCHER_MAX)
+            let (body, least) = if current {
+                (
+                    (name + SWITCHER_CHROME).min(TAB_SWITCHER_MAX),
+                    PROJECT_ACTIVE_TAB_MIN,
+                )
             } else {
-                (name + PROJECT_TAB_PAD).min(PROJECT_TAB_MAX)
+                (
+                    (name + PROJECT_TAB_PAD).min(PROJECT_TAB_MAX),
+                    PROJECT_TAB_MIN,
+                )
             };
-            body + PROJECT_CLOSE
+            (body + PROJECT_CLOSE + PROJECT_TAB_OUTLINE).max(least)
         })
         .sum();
     tabs_width + PROJECT_TAB_GAP * (tabs.len() - 1) as f32 + PROJECT_GROUP_END
@@ -518,12 +529,18 @@ mod tests {
         assert_eq!(project_group_width(100., &[(100., true)], 260.), 136. + 6.);
         assert_eq!(project_group_width(400., &[], 260.), 260. + 6.);
         // A second project turns the switcher into two tabs, each with its
-        // 20px close button 4px from its end, 2px apart.
+        // 20px close button 4px from its end inside a 1px outline, 2px
+        // apart; the other's name after its 12px folder (project-tabs.css).
         let two = project_group_width(100., &[(100., true), (80., false)], 260.);
-        assert_eq!(two, (136. + 24.) + 2. + (92. + 24.) + 6.);
+        assert_eq!(two, (136. + 24. + 2.) + 2. + (80. + 28. + 24. + 2.) + 6.);
         assert_eq!(
             project_group_width(100., &[(100., true), (400., false)], 260.),
-            (136. + 24.) + 2. + (180. + 24.) + 6.
+            (136. + 24. + 2.) + 2. + (200. + 24. + 2.) + 6.
+        );
+        // A short name still makes an 80px tab (96px the active one).
+        assert_eq!(
+            project_group_width(10., &[(10., true), (4., false)], 260.),
+            96. + 2. + 80. + 6.
         );
         // Snug at 1015px with one project, the second one folds the search
         // field on the frame it opens.

@@ -48,7 +48,14 @@
 //!   (`tex:overleaf`), which the page marks and shows in margin review as
 //!   the source does, and what its cards ask of a thread
 //!   ([`LatexEvent::OverleafReply`] and the others after it; a card has
-//!   confirmed a deletion itself).
+//!   confirmed a deletion itself);
+//! - what its citation cards know beyond the bibliography (`tex:library`,
+//!   `tex:reasons`): the library's papers, the keys Open paper opens, the
+//!   citation scan's revision and the project's citation reasons, and what
+//!   the cards ask, Open paper and a reason saved or removed
+//!   ([`LatexEvent::OpenPaper`], [`LatexEvent::SaveReason`],
+//!   [`LatexEvent::DeleteReason`]), which the panel answers as the source's
+//!   cards are answered (`editor_panel/latex_visual_citations.rs`).
 //!
 //! The backend commands its modules invoke are answered in
 //! `latex_services.rs`.
@@ -56,6 +63,7 @@
 use std::path::PathBuf;
 
 use gpui::{AppContext as _, Context, Entity};
+use lattice_core::project::EditorComment;
 use lattice_editor::{index::ProjectIndex, latex::spelling::Ignore, texlab::TexlabService};
 use serde_json::{Value, json};
 
@@ -67,7 +75,7 @@ use crate::project::{Project, ProjectEvent};
 
 /// What a `.tex` file's Visual page asks of its panel beside a visual
 /// editor's asks ([`MarkdownEvent`]).
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub enum LatexEvent {
     /// Add a word to the project's dictionary.
     AddWord(String),
@@ -132,6 +140,14 @@ pub enum LatexEvent {
     /// reject Overleaf's tracked change `id`.
     OverleafAccept(String),
     OverleafReject(String),
+    /// A citation card's Open paper on `key`, at the page its cite's note
+    /// names (`\cite[p.~5]{key}`).
+    OpenPaper { key: String, page: Option<u32> },
+    /// Why cited's Save: a citation reason on the file, new or replacing
+    /// the one with its id, as the page made it.
+    SaveReason(Box<EditorComment>),
+    /// Why cited's Remove on the reason with this id.
+    DeleteReason(String),
 }
 
 /// What a `.tex` file's Visual page last had of the project beyond the
@@ -155,8 +171,25 @@ pub(super) struct LatexSession {
     /// `{ threads, anchors, hues, mode, canAct }`: a linked Overleaf
     /// project's comment threads on the file, for marks and margin review.
     overleaf: Value,
+    /// `{ papers, openable, revision }`: the library as the citation cards read it.
+    library: Value,
+    /// `{ reasons, author }`: the project's citation reasons and who files one.
+    reasons: Value,
     /// Bumped by every read of the unused symbols, so a slow one is dropped.
     unused_generation: u64,
+}
+
+/// An entry's authors as the Tauri app's `CitationInfo` has them: the
+/// index keeps BibTeX's braces for the native cards, which tell a corporate
+/// author by them, but the Tauri app's `list_citations` drops them
+/// (lattice-core's `clean_bibliography_value`), and a chip read
+/// `{Lattice Team}` as a surname ending in a brace.
+fn brace_free(authors: &str) -> String {
+    authors
+        .replace(['{', '}'], "")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 /// The index as the page's `CitationInfo` and `ReferenceInfo` lists have it
@@ -169,7 +202,7 @@ fn index_payload(index: &ProjectIndex) -> Value {
             let mut entry = json!({
                 "key": citation.key,
                 "title": citation.title,
-                "authors": citation.authors,
+                "authors": brace_free(&citation.authors),
                 "year": citation.year,
                 "venue": citation.venue,
             });
@@ -247,6 +280,8 @@ impl StructuredDocument {
             outline: Value::Null,
             annotations: Value::Null,
             overleaf: Value::Null,
+            library: Value::Null,
+            reasons: Value::Null,
             unused_generation: 0,
         });
         let texlab = project.read(cx).texlab().clone();
@@ -359,6 +394,18 @@ impl StructuredDocument {
         self.set_latex_value(review, "tex:overleaf", |session| &mut session.overleaf, cx);
     }
 
+    /// The library as the citation cards read it: `{ papers, openable,
+    /// revision }` (`gpui/islands/latex/citations.ts`).
+    pub fn set_citation_library(&mut self, library: Value, cx: &mut Context<Self>) {
+        self.set_latex_value(library, "tex:library", |session| &mut session.library, cx);
+    }
+
+    /// The project's citation reasons (`EditorComment`s) and who files
+    /// one: `{ reasons, author }`.
+    pub fn set_citation_reasons(&mut self, reasons: Value, cx: &mut Context<Self>) {
+        self.set_latex_value(reasons, "tex:reasons", |session| &mut session.reasons, cx);
+    }
+
     /// Keep `payload` in the session slot `slot` picks and post it as
     /// `kind`, when it changed.
     fn set_latex_value(
@@ -457,6 +504,24 @@ impl StructuredDocument {
                 thread: text("thread"),
                 message: text("message"),
             },
+            "tex:open-paper" => LatexEvent::OpenPaper {
+                key: text("key"),
+                page: payload
+                    .get("page")
+                    .and_then(Value::as_u64)
+                    .filter(|page| *page > 0)
+                    .and_then(|page| u32::try_from(page).ok()),
+            },
+            // A reason the store could not read is not filed.
+            "tex:save-reason" => match payload
+                .get("reason")
+                .cloned()
+                .map(serde_json::from_value::<EditorComment>)
+            {
+                Some(Ok(reason)) => LatexEvent::SaveReason(Box::new(reason)),
+                _ => return true,
+            },
+            "tex:delete-reason" => LatexEvent::DeleteReason(text("id")),
             _ => return false,
         };
         cx.emit(StructuredEvent::Latex(event));
@@ -550,6 +615,8 @@ impl StructuredDocument {
         payload["outline"] = session.outline.clone();
         payload["annotations"] = session.annotations.clone();
         payload["overleaf"] = session.overleaf.clone();
+        payload["library"] = session.library.clone();
+        payload["reasons"] = session.reasons.clone();
         payload["texlab"] = json!(TexlabService::available());
     }
 
@@ -584,6 +651,17 @@ impl StructuredDocument {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// lattice-core's `parse_bibliography` gives `list_citations` the
+    /// author field without its braces, as `CitationInfo.authors`.
+    #[test]
+    fn a_citation_s_authors_lose_bibtex_s_braces_as_the_tauri_app_s_do() {
+        assert_eq!(
+            brace_free("{Lattice Team} and  Doe, Jane"),
+            "Lattice Team and Doe, Jane"
+        );
+        assert_eq!(brace_free("Knuth, Donald E."), "Knuth, Donald E.");
+    }
 
     #[test]
     fn a_build_is_named_as_compiled_build_names_it() {

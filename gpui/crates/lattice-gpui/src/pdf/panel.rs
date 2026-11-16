@@ -82,6 +82,8 @@ pub enum PdfEvent {
         quote: String,
         body: String,
     },
+    /// Export review PDF…, of this panel's PDF.
+    ExportReview,
     /// An Outline row: open `path` at `line`, and show it in the PDF.
     Outline {
         path: String,
@@ -394,6 +396,7 @@ impl PdfPanel {
                 quote: quote.clone(),
                 body: body.clone(),
             }),
+            PdfViewEvent::ExportReview => cx.emit(PdfEvent::ExportReview),
             PdfViewEvent::PlaceChanged(place) => self.remember_place(*place),
             PdfViewEvent::Action => self.detach(window, cx),
         }
