@@ -29,7 +29,7 @@ use crate::{
 impl Shell {
     pub(super) fn on_pdf_event(
         &mut self,
-        _: &Entity<PdfPanel>,
+        panel: &Entity<PdfPanel>,
         event: &PdfEvent,
         window: &mut Window,
         cx: &mut Context<Self>,
@@ -68,6 +68,10 @@ impl Shell {
             PdfEvent::Outline { path, line } => self.jump_to_heading(path, *line, window, cx),
             PdfEvent::OpenCitation(key) => self.open_citation(key, window, cx),
             PdfEvent::Annotation(request) => self.on_annotation_request(request, window, cx),
+            PdfEvent::ExportReview => {
+                let view = panel.read(cx).live_view().clone();
+                self.open_review_sheet(Some(view), window, cx)
+            }
             // In its own window the PDF gives its place in the workspace to
             // the documents, and coming back shows it there again, as the
             // Tauri app's `detachPdf` and `dockPdf` do. Either way, Track

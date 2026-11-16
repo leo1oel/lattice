@@ -712,7 +712,10 @@ impl OverleafBridge {
         let run = cx.background_spawn(async move {
             // Track changes reads the files the sync may change, first.
             let reviewed = crate::history::review_mode::store::before_sync(&run_root, reviewing);
-            (sync::sync(&run_root, &run_live, observed, entities), reviewed)
+            (
+                sync::sync(&run_root, &run_live, observed, entities),
+                reviewed,
+            )
         });
         self.sync_task = Some(cx.spawn(async move |this, cx| {
             let ((result, expired), reviewed) = run.await;
@@ -733,7 +736,9 @@ impl OverleafBridge {
                 match result {
                     Ok(result) => {
                         let brought = [result.pulled.clone(), result.merged.clone()].concat();
-                        crate::history::review_mode::store::after_sync(&root, reviewed, &brought, cx);
+                        crate::history::review_mode::store::after_sync(
+                            &root, reviewed, &brought, cx,
+                        );
                         this.synced(root, result, options, cx)
                     }
                     Err(error) => this.failed(error, options, cx),

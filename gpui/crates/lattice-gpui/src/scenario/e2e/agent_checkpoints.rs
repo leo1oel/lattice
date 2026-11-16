@@ -131,6 +131,8 @@ impl Run {
 
         // The rows as they look, for a change's evidence (light and dark by
         // `LATTICE_APPEARANCE`), when asked for.
+        // Window captures are macOS-only (`scenario/shot.rs`).
+        #[cfg(target_os = "macos")]
         if let Ok(dir) = std::env::var("LATTICE_E2E_EVIDENCE_DIR") {
             self.with_window(cx, |shell, window, cx| {
                 shell.update(cx, |shell, cx| shell.open_history(window, cx))

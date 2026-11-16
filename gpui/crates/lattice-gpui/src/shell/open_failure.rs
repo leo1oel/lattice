@@ -65,8 +65,7 @@ mod tests {
     #[test]
     fn it_reads_lattice_cores_sizes() {
         // The text lattice-core's `too_large` writes.
-        let message =
-            "This file is too large to open in the editor (12500000 bytes; the limit is 10000000 bytes).";
+        let message = "This file is too large to open in the editor (12500000 bytes; the limit is 10000000 bytes).";
         assert_eq!(too_large(message), Some((12_500_000, 10_000_000)));
         assert_eq!(too_large("No such file or directory"), None);
     }

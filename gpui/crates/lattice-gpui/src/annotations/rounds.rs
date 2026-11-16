@@ -112,9 +112,10 @@ impl EventEmitter<RoundsEvent> for AnnotationRounds {}
 
 mod agent_tools;
 mod queries;
+mod review;
 
-use queries::open_round;
 pub use agent_tools::ToolAnswer;
+use queries::open_round;
 pub use queries::{pending_proposals, revisable, round_progress};
 
 impl AnnotationRounds {
@@ -184,7 +185,8 @@ impl AnnotationRounds {
     /// A file's current text: the open buffer when an editor has it, else
     /// the disk.
     pub(crate) fn read_source(&self, root: &Path, path: &str, cx: &App) -> Option<String> {
-        self.live_source(path, cx).or_else(|| std::fs::read_to_string(root.join(path)).ok())
+        self.live_source(path, cx)
+            .or_else(|| std::fs::read_to_string(root.join(path)).ok())
     }
 
     /// Change `id`'s revision and its outcome in its round together.
@@ -206,7 +208,11 @@ impl AnnotationRounds {
                     else {
                         return false;
                     };
-                    if let Some(round) = notes.rounds.iter_mut().find(|round| round.number == revision.round) {
+                    if let Some(round) = notes
+                        .rounds
+                        .iter_mut()
+                        .find(|round| round.number == revision.round)
+                    {
                         round.outcomes.insert(id.clone(), revision.state.clone());
                     }
                     change(comment);
@@ -229,7 +235,8 @@ impl AnnotationRounds {
                 root,
                 |notes| {
                     let open = open_round(&notes.rounds).map(|round| round.number);
-                    number = open.unwrap_or_else(|| notes.rounds.last().map_or(0, |round| round.number) + 1);
+                    number = open
+                        .unwrap_or_else(|| notes.rounds.last().map_or(0, |round| round.number) + 1);
                     if open.is_none() {
                         notes.rounds.push(AnnotationRound {
                             number,
@@ -239,11 +246,17 @@ impl AnnotationRounds {
                             history_id: None,
                         });
                     }
-                    let round = notes.rounds.last_mut().expect("the round just found or made");
+                    let round = notes
+                        .rounds
+                        .last_mut()
+                        .expect("the round just found or made");
                     // Present in the round from the start; the answer
                     // replaces it.
                     for id in &ids {
-                        round.outcomes.entry(id.clone()).or_insert_with(|| "failed".into());
+                        round
+                            .outcomes
+                            .entry(id.clone())
+                            .or_insert_with(|| "failed".into());
                     }
                     true
                 },
@@ -265,22 +278,34 @@ impl AnnotationRounds {
                 .map(|file| (file.path, file.before))
                 .collect()
         });
-        let added: Vec<&String> = paths.iter().filter(|path| !baseline.contains_key(*path)).collect();
+        let added: Vec<&String> = paths
+            .iter()
+            .filter(|path| !baseline.contains_key(*path))
+            .collect();
         if added.is_empty() {
             return;
         }
         for path in added {
             let before = self.read_source(root, path, cx);
-            self.baselines.get_mut(&round).expect("kept above").insert(path.clone(), before);
+            self.baselines
+                .get_mut(&round)
+                .expect("kept above")
+                .insert(path.clone(), before);
         }
         let files: Vec<FileChange> = self.baselines[&round]
             .iter()
-            .map(|(path, before)| FileChange { path: path.clone(), before: before.clone(), after: None })
+            .map(|(path, before)| FileChange {
+                path: path.clone(),
+                before: before.clone(),
+                after: None,
+            })
             .collect();
         let root = root.to_path_buf();
         cx.spawn(async move |_, cx| {
             let saved = cx
-                .background_spawn(async move { project::save_annotation_round(&root, round, files, false) })
+                .background_spawn(async move {
+                    project::save_annotation_round(&root, round, files, false)
+                })
                 .await;
             if let Err(error) = saved {
                 cx.update(|cx| crate::notices::error(t!("Annotations"), error, cx));
@@ -296,22 +321,25 @@ impl AnnotationRounds {
         let Some(root) = self.root(cx) else {
             return;
         };
-        let Some(notes) = store::try_store(cx).and_then(|store| store.read(cx).notes(&root).cloned()) else {
+        let Some(notes) =
+            store::try_store(cx).and_then(|store| store.read(cx).notes(&root).cloned())
+        else {
             return;
         };
         let Some(round) = open_round(&notes.rounds).cloned() else {
             return;
         };
-        if self.settling == Some(round.number) || round.outcomes.keys().any(|id| self.is_running(id)) {
+        if self.settling == Some(round.number)
+            || round.outcomes.keys().any(|id| self.is_running(id))
+        {
             return;
         }
         let waiting = notes.annotations.iter().any(|comment| {
             round.outcomes.contains_key(&comment.id)
                 && !comment.resolved
-                && comment
-                    .revision
-                    .as_ref()
-                    .is_some_and(|revision| revision.round == round.number && revision.state == "proposed")
+                && comment.revision.as_ref().is_some_and(|revision| {
+                    revision.round == round.number && revision.state == "proposed"
+                })
         });
         if waiting {
             return;
@@ -334,7 +362,9 @@ impl AnnotationRounds {
             let number = round.number;
             cx.spawn(async move |_, cx| {
                 let discarded = cx
-                    .background_spawn(async move { project::discard_annotation_round(&root, number) })
+                    .background_spawn(
+                        async move { project::discard_annotation_round(&root, number) },
+                    )
                     .await;
                 if let Err(error) = discarded {
                     cx.update(|cx| crate::notices::error(t!("Annotations"), error, cx));
@@ -355,7 +385,11 @@ impl AnnotationRounds {
             .into_iter()
             .map(|(path, before)| {
                 let after = self.read_source(&root, &path, cx);
-                FileChange { path, before, after }
+                FileChange {
+                    path,
+                    before,
+                    after,
+                }
             })
             .collect();
         let accepted = round.outcomes.values().any(|outcome| outcome == "accepted");
@@ -363,7 +397,9 @@ impl AnnotationRounds {
         cx.spawn(async move |this, cx| {
             let written = root.clone();
             let saved = cx
-                .background_spawn(async move { project::save_annotation_round(&written, number, files, true) })
+                .background_spawn(async move {
+                    project::save_annotation_round(&written, number, files, true)
+                })
                 .await;
             this.update(cx, |this, cx| {
                 this.settling = None;
@@ -378,7 +414,9 @@ impl AnnotationRounds {
                     store.commit(
                         &root,
                         |notes| {
-                            let Some(item) = notes.rounds.iter_mut().find(|item| item.number == number) else {
+                            let Some(item) =
+                                notes.rounds.iter_mut().find(|item| item.number == number)
+                            else {
                                 return false;
                             };
                             item.settled_at = Some(model::now());
@@ -396,9 +434,14 @@ impl AnnotationRounds {
                             t!("Annotations"),
                         )
                         .detail(t!("Round {number} is saved as a version", number = number))
-                        .action(crate::notices::NoticeAction::new(t!("Compare"), move |_, cx| {
-                            rounds.update(cx, |_, cx| cx.emit(RoundsEvent::OpenRounds)).ok();
-                        }))
+                        .action(crate::notices::NoticeAction::new(
+                            t!("Compare"),
+                            move |_, cx| {
+                                rounds
+                                    .update(cx, |_, cx| cx.emit(RoundsEvent::OpenRounds))
+                                    .ok();
+                            },
+                        ))
                         .key(format!("annotation-round-settled:{number}")),
                         cx,
                     );
@@ -458,7 +501,13 @@ impl AnnotationRounds {
 
     /// Ask the agent about one annotation in its round.
     fn ask(&mut self, job: Job, cx: &mut Context<Self>) -> Task<()> {
-        let Job { root, id, round, extra, ticket } = job;
+        let Job {
+            root,
+            id,
+            round,
+            extra,
+            ticket,
+        } = job;
         let Some(comment) = Self::find(&root, &id, cx) else {
             return Task::ready(());
         };
@@ -484,7 +533,10 @@ impl AnnotationRounds {
                 &root,
                 &id,
                 round,
-                t!("Annotate at most {limit} characters for the agent to revise.", limit = limit),
+                t!(
+                    "Annotate at most {limit} characters for the agent to revise.",
+                    limit = limit
+                ),
                 cx,
             );
             return Task::ready(());
@@ -501,8 +553,12 @@ impl AnnotationRounds {
             passage: passage.clone(),
             before,
             after,
-            question: previous.as_ref().and_then(|revision| revision.question.clone()),
-            answer: previous.as_ref().and_then(|revision| revision.answer.clone()),
+            question: previous
+                .as_ref()
+                .and_then(|revision| revision.question.clone()),
+            answer: previous
+                .as_ref()
+                .and_then(|revision| revision.answer.clone()),
             // A proposal turned down earlier is what not to propose again.
             rejected: extra.rejected.or_else(|| {
                 previous
@@ -521,11 +577,17 @@ impl AnnotationRounds {
         cx.spawn(async move |this, cx| {
             let citations = if cites {
                 let project = root.clone();
-                Some(cx.background_spawn(async move { Self::citations(&project) }).await)
+                Some(
+                    cx.background_spawn(async move { Self::citations(&project) })
+                        .await,
+                )
             } else {
                 None
             };
-            let prompt = revision::prompt(&revision::Request { citations, ..request });
+            let prompt = revision::prompt(&revision::Request {
+                citations,
+                ..request
+            });
             let Ok((task, answer)) = this.update(cx, |this, cx| match this.scripted.clone() {
                 Some(reply) => {
                     let timer = cx.background_executor().clone();
@@ -533,7 +595,10 @@ impl AnnotationRounds {
                         None,
                         cx.background_executor().spawn(async move {
                             timer.timer(std::time::Duration::from_millis(300)).await;
-                            Ok(text_task::Answer { text: reply, model: None })
+                            Ok(text_task::Answer {
+                                text: reply,
+                                model: None,
+                            })
                         }),
                     )
                 }
@@ -575,7 +640,8 @@ impl AnnotationRounds {
                             error: None,
                         },
                         None => {
-                            let error = t!("The agent's reply held neither a revision nor a question.");
+                            let error =
+                                t!("The agent's reply held neither a revision nor a question.");
                             this.fail(&root, &id, round, error.to_string(), cx);
                             return;
                         }
@@ -643,7 +709,13 @@ impl AnnotationRounds {
             self.queue.retain(|job| job.id != id);
             self.running.insert(id.clone(), ticket);
             let extra = extra(&id);
-            self.queue.push_back(Job { root: root.clone(), id, round, extra, ticket });
+            self.queue.push_back(Job {
+                root: root.clone(),
+                id,
+                round,
+                extra,
+                ticket,
+            });
         }
         self.pump(cx);
     }
@@ -659,7 +731,9 @@ impl AnnotationRounds {
             .into_iter()
             .filter(|comment| {
                 revisable(comment, &running)
-                    && scope.as_ref().is_none_or(|scope| scope.contains(&comment.id))
+                    && scope
+                        .as_ref()
+                        .is_none_or(|scope| scope.contains(&comment.id))
             })
             .map(|comment| comment.id.clone())
             .collect();
@@ -695,7 +769,10 @@ impl AnnotationRounds {
         let guidance = Some(guidance.trim().to_string()).filter(|guidance| !guidance.is_empty());
         self.start(
             vec![id.to_string()],
-            move |_| Extra { guidance: guidance.clone(), rejected: rejected.clone() },
+            move |_| Extra {
+                guidance: guidance.clone(),
+                rejected: rejected.clone(),
+            },
             cx,
         );
     }
@@ -715,7 +792,10 @@ impl AnnotationRounds {
         if text.trim().is_empty() {
             return;
         }
-        let answered = AnnotationRevision { answer: Some(text.trim().to_string()), ..revision };
+        let answered = AnnotationRevision {
+            answer: Some(text.trim().to_string()),
+            ..revision
+        };
         self.record(&root, id, answered, |_| {}, cx);
         self.start(vec![id.to_string()], |_| Extra::default(), cx);
     }
@@ -736,7 +816,10 @@ impl AnnotationRounds {
         self.record(
             &root,
             id,
-            AnnotationRevision { state: "accepted".into(), ..revision },
+            AnnotationRevision {
+                state: "accepted".into(),
+                ..revision
+            },
             move |comment| {
                 comment.from = applied.from;
                 comment.to = applied.to;
@@ -762,7 +845,16 @@ impl AnnotationRounds {
             return;
         };
         let next = self.neighbour(Some(id), 1, cx);
-        self.record(&root, id, AnnotationRevision { state: "rejected".into(), ..revision }, |_| {}, cx);
+        self.record(
+            &root,
+            id,
+            AnnotationRevision {
+                state: "rejected".into(),
+                ..revision
+            },
+            |_| {},
+            cx,
+        );
         self.decided(next, cx);
     }
 
@@ -772,53 +864,6 @@ impl AnnotationRounds {
             None => self.close_review(cx),
         }
         self.settle(cx);
-    }
-
-    /// Open `id`'s proposal in the editor, its card under the passage.
-    pub fn open_review(&mut self, id: &str, cx: &mut Context<Self>) {
-        self.review = Some(id.to_string());
-        cx.emit(RoundsEvent::Review(id.to_string()));
-        cx.notify();
-    }
-
-    pub fn close_review(&mut self, cx: &mut Context<Self>) {
-        if self.review.take().is_some() {
-            cx.emit(RoundsEvent::CloseReview);
-            cx.notify();
-        }
-    }
-
-    /// The next (or previous) waiting proposal after `id`, wrapping; none
-    /// when there is none.
-    pub fn neighbour(&self, id: Option<&str>, step: isize, cx: &App) -> Option<String> {
-        let root = self.root(cx)?;
-        let proposals = pending_proposals(&Self::notes(&root, cx));
-        if proposals.is_empty() {
-            return None;
-        }
-        let count = proposals.len() as isize;
-        let Some(index) = id.and_then(|id| proposals.iter().position(|comment| comment.id == id)) else {
-            let first = if step > 0 { 0 } else { proposals.len() - 1 };
-            return Some(proposals[first].id.clone());
-        };
-        let next = &proposals[((index as isize + step + count) % count) as usize];
-        (Some(next.id.as_str()) != id).then(|| next.id.clone())
-    }
-
-    /// Review the proposal before or after `id`.
-    pub fn navigate(&mut self, id: &str, step: isize, cx: &mut Context<Self>) {
-        if let Some(next) = self.neighbour(Some(id), step, cx) {
-            self.open_review(&next, cx);
-        }
-    }
-
-    /// Where `id` stands among the waiting proposals, and how many wait.
-    pub fn position(&self, id: &str, cx: &App) -> (Option<usize>, usize) {
-        let Some(root) = self.root(cx) else {
-            return (None, 0);
-        };
-        let proposals = pending_proposals(&Self::notes(&root, cx));
-        (proposals.iter().position(|comment| comment.id == id), proposals.len())
     }
 }
 

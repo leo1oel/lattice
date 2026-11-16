@@ -372,9 +372,10 @@ impl RenderOnce for PanelTab {
                         .flex()
                         .items_center()
                         .justify_center()
-                        .when((self.on_close.is_none() || !selected) && !pin_shown, |this| {
-                            this.invisible()
-                        })
+                        .when(
+                            (self.on_close.is_none() || !selected) && !pin_shown,
+                            |this| this.invisible(),
+                        )
                         .when_some(self.on_close, |this, on_close| {
                             track_pointer(tab_stop(this), close_pointer)
                                 .group_hover(group, |style| style.visible())

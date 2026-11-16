@@ -66,7 +66,11 @@ impl Shell {
 
     /// The sheet, while it is up (for a scenario).
     pub(crate) fn rounds_sheet_entity(&self) -> Option<Entity<RoundsSheet>> {
-        self.parts.get::<SheetFlow>().sheet.as_ref().map(|(sheet, _)| sheet.clone())
+        self.parts
+            .get::<SheetFlow>()
+            .sheet
+            .as_ref()
+            .map(|(sheet, _)| sheet.clone())
     }
 
     pub(super) fn rounds_sheet_open(&self) -> bool {
@@ -90,7 +94,8 @@ impl Shell {
             RoundsSheetEvent::OpenInHistory(id) => {
                 self.close_rounds_sheet(cx);
                 self.open_history(window, cx);
-                self.history.update(cx, |history, cx| history.focus_entry(id, cx));
+                self.history
+                    .update(cx, |history, cx| history.focus_entry(id, cx));
             }
             RoundsSheetEvent::Restore { label, files } => {
                 self.restore_round(sheet.clone(), label.clone(), files.clone(), window, cx)
@@ -115,13 +120,18 @@ impl Shell {
         cx.spawn_in(window, async move |this, cx| {
             if !saved.await {
                 sheet.update(cx, |sheet, cx| {
-                    sheet.restore_failed(t!("Save pending edits before restoring a round.").into(), cx)
+                    sheet.restore_failed(
+                        t!("Save pending edits before restoring a round.").into(),
+                        cx,
+                    )
                 });
                 return;
             }
             let written = cx
                 .background_executor()
-                .spawn(async move { lattice_core::project::apply_annotation_restore(&root, &label, files) })
+                .spawn(async move {
+                    lattice_core::project::apply_annotation_restore(&root, &label, files)
+                })
                 .await;
             this.update_in(cx, |this, window, cx| match written {
                 Ok(_) => {

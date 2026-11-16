@@ -47,24 +47,23 @@ use zed_actions::buffer_search::Deploy;
 
 mod annotation_review;
 mod annotations;
+pub(crate) mod attention;
 mod bib_view;
 mod buffer_counts;
 mod card_context;
 mod citations;
+pub(crate) mod definition;
 mod disk_sync;
 pub mod drops;
 mod editor_events;
 mod events;
 pub mod find_bar;
+pub(crate) mod format_document;
 mod highlight_palette;
 pub(crate) mod index_lint;
 mod insert;
 pub(crate) mod latex_format;
 pub(crate) mod latex_input;
-pub(crate) mod definition;
-pub(crate) mod format_document;
-pub(crate) mod vim_ex;
-mod source_pointer;
 mod latex_view;
 mod latex_visual_citations;
 mod latex_visual_events;
@@ -72,27 +71,29 @@ mod margin_review;
 mod markdown_view;
 mod moves;
 mod outline_panel;
-pub(crate) mod place_memory;
 pub mod outline_rail;
 mod overleaf_carets;
 mod overleaf_review;
 mod overleaf_text;
+mod panel_actions;
 pub mod paper_text;
 mod papers;
+pub(crate) mod place_memory;
 pub mod proofread;
 pub mod rail_outline;
-pub(crate) mod attention;
 mod review_bar;
 mod review_marks;
 mod save;
 mod save_slot;
 mod selection_toolbar;
 mod source_chrome;
+mod source_pointer;
 pub(crate) mod spelling;
+pub(crate) mod symbol_palette;
 mod strip;
 mod structured_view;
 pub mod views;
-mod panel_actions;
+pub(crate) mod vim_ex;
 pub use panel_actions::{ShowSourceView, ShowVisualView, ViewPreview, ViewSource, ViewSplit};
 
 pub(crate) use annotations::PINS as ANNOTATION_PINS;
@@ -246,6 +247,8 @@ pub struct EditorPanel {
     _poll: Task<()>,
     /// Vim's open `:` line (`vim_ex.rs`).
     vim_ex: Option<vim_ex::VimExLine>,
+    /// The math symbol palette, while open (`symbol_palette.rs`).
+    symbols: Option<symbol_palette::SymbolPalette>,
     _subscriptions: Vec<Subscription>,
     /// A `.bib` file's Preview and library (`bib_view.rs`).
     bib: bib_view::BibState,
@@ -481,6 +484,7 @@ impl EditorPanel {
             _todos: None,
             _poll: poll,
             vim_ex: None,
+            symbols: None,
             _subscriptions: subscriptions,
             bib: Default::default(),
             paper: Default::default(),
@@ -703,7 +707,8 @@ impl Render for EditorPanel {
                 .child(crate::paint_probe::probe())
                 .into_any_element();
         }
-        let status: AnyElement = editor_status::status_bar(self, cx.entity().downgrade(), cx).into_any_element();
+        let status: AnyElement =
+            editor_status::status_bar(self, cx.entity().downgrade(), cx).into_any_element();
         let search = self
             .find_bar
             .read(cx)
@@ -735,6 +740,7 @@ impl Render for EditorPanel {
         let root = Self::latex_commands(div().key_context("LatticeEditor"), cx);
         let root = Self::definition_actions(Self::latex_input_actions(root, cx), cx);
         let root = Self::vim_ex_actions(Self::format_actions(root, cx), cx);
+        let root = Self::symbol_palette_actions(root, cx);
         Self::panel_actions(root, cx)
             .on_action(cx.listener(Self::deploy_search))
             // An accept is an undo step of the editor's (`review_marks.rs`).

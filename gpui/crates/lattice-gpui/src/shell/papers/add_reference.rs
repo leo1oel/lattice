@@ -1,7 +1,6 @@
-//! Add reference, the Papers panel's sheet for one bibliography entry
-//! (`bib-entry-sheet.tsx`): an entry typed by hand, a looked-up title to
-//! review, or an entry of the bibliography to edit, saved into the
-//! project's bibliography after the editors' own saves.
+//! Add reference: a reference entered by hand, reviewed after a lookup, or
+//! an entry edited, for the project's bibliography, in the sheet that takes
+//! Add papers' place, and what its Save writes.
 
 use gpui::{AppContext as _, Context, Entity, Window};
 use lattice_core::papers::PaperSummary;

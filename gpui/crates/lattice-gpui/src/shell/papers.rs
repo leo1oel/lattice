@@ -14,8 +14,8 @@ use trellis::runtime::engine::ViewPlacement;
 
 use super::Shell;
 
+mod add_reference;
 pub(super) mod prewarm;
-mod reference;
 mod writes;
 use crate::papers::{
     PapersEvent, PapersPanel,

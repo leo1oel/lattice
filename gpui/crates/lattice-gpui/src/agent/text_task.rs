@@ -72,8 +72,9 @@ impl TextTask {
             let timer = executor.clone();
             executor.spawn(async move {
                 let payload = json!({ "workspaceRoot": root, "prompt": prompt });
-                let begun = synara::task_relay_request(&runtime, TEXT_TASK_ROUTE, "start", None, payload)
-                    .map_err(|error| {
+                let begun =
+                    synara::task_relay_request(&runtime, TEXT_TASK_ROUTE, "start", None, payload)
+                        .map_err(|error| {
                         if error == synara::ROUTE_UNAVAILABLE {
                             Failure::Unavailable
                         } else {

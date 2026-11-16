@@ -24,8 +24,8 @@ use std::{cell::RefCell, ops::Range, rc::Rc};
 
 use editor::{SelectionEffects, ToOffset as _, scroll::Autoscroll};
 use gpui::{
-    App, Context, Focusable as _, InteractiveElement as _, IntoElement, ParentElement as _, SharedString,
-    Styled as _, WeakEntity, Window, div, px,
+    App, Context, Focusable as _, InteractiveElement as _, IntoElement, ParentElement as _,
+    SharedString, Styled as _, WeakEntity, Window, div, px,
 };
 use language::{BufferSnapshot, TransactionId};
 use lattice_editor::{
@@ -227,8 +227,9 @@ impl EditorPanel {
                 cards: self.review_marks.cards.clone(),
                 panel: cx.weak_entity(),
             };
-            self.lattice
-                .update(cx, |lattice, _| lattice.add_hover_provider(Rc::new(provider)));
+            self.lattice.update(cx, |lattice, _| {
+                lattice.add_hover_provider(Rc::new(provider))
+            });
         }
         self.lattice.update(cx, |lattice, cx| {
             lattice.set_marks(LAYER, marks, cx);
@@ -275,7 +276,10 @@ impl EditorPanel {
     fn select_hunk(&mut self, hunk: Hunk, window: &mut Window, cx: &mut Context<Self>) {
         let (start, end) = {
             let buffer = self.buffer.read(cx);
-            (buffer.offset_to_point(hunk.from), buffer.offset_to_point(hunk.to))
+            (
+                buffer.offset_to_point(hunk.from),
+                buffer.offset_to_point(hunk.to),
+            )
         };
         self.editor.update(cx, |editor, cx| {
             editor.change_selections(
@@ -288,7 +292,12 @@ impl EditorPanel {
     }
 
     /// Select the next (or previous) change, wrapping round at the end.
-    pub(super) fn review_step(&mut self, forward: bool, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn review_step(
+        &mut self,
+        forward: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let (tail, head) = self.selection_offsets(cx);
         let (from, to) = (tail.min(head), tail.max(head));
         let Some(index) = diff::step(&self.review_marks.hunks, from, to, forward) else {
@@ -372,7 +381,11 @@ impl EditorPanel {
         }
         let edits = diff::reject_all_edits(&base, &self.review_marks.hunks);
         self.buffer.update(cx, |buffer, cx| {
-            buffer.edit(edits.into_iter().map(|edit| (edit.range, edit.insert)), None, cx);
+            buffer.edit(
+                edits.into_iter().map(|edit| (edit.range, edit.insert)),
+                None,
+                cx,
+            );
         });
         self.recompute_review(cx);
     }

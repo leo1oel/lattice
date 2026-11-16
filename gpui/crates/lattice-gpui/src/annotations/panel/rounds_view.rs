@@ -46,7 +46,11 @@ impl AnnotationsPanel {
     /// ⇧⌘↵ in the panel: Revise from annotations.
     pub(super) fn rounds_key(&mut self, event: &gpui::KeyDownEvent, cx: &mut Context<Self>) {
         let keys = &event.keystroke;
-        let command = if cfg!(target_os = "macos") { keys.modifiers.platform } else { keys.modifiers.control };
+        let command = if cfg!(target_os = "macos") {
+            keys.modifiers.platform
+        } else {
+            keys.modifiers.control
+        };
         if keys.key != "enter" || !command || !keys.modifiers.shift {
             return;
         }
@@ -59,24 +63,43 @@ impl AnnotationsPanel {
     }
 
     /// The project's revision rounds.
-    pub(super) fn rounds_list(&self, cx: &gpui::App) -> Vec<lattice_core::project::AnnotationRound> {
+    pub(super) fn rounds_list(
+        &self,
+        cx: &gpui::App,
+    ) -> Vec<lattice_core::project::AnnotationRound> {
         self.root
             .as_ref()
-            .and_then(|root| self.store.read(cx).notes(root).map(|notes| notes.rounds.clone()))
+            .and_then(|root| {
+                self.store
+                    .read(cx)
+                    .notes(root)
+                    .map(|notes| notes.rounds.clone())
+            })
             .unwrap_or_default()
     }
 
     /// The head's Revision rounds, once the project has a settled round:
     /// opens the rounds sheet (`rounds_sheet.rs`).
-    pub(super) fn rounds_button(&self, cx: &gpui::App) -> Option<lattice_ui::components::IconButton> {
+    pub(super) fn rounds_button(
+        &self,
+        cx: &gpui::App,
+    ) -> Option<lattice_ui::components::IconButton> {
         let rounds = self.rounds.rounds.clone()?;
-        self.rounds_list(cx).iter().any(|round| round.settled_at.is_some()).then(|| {
-            lattice_ui::components::IconButton::new("annotations-rounds", lattice_ui::Icon::HISTORY)
+        self.rounds_list(cx)
+            .iter()
+            .any(|round| round.settled_at.is_some())
+            .then(|| {
+                lattice_ui::components::IconButton::new(
+                    "annotations-rounds",
+                    lattice_ui::Icon::HISTORY,
+                )
                 .tooltip(lattice_i18n::t!("Revision rounds"))
                 .on_click(move |_, _, cx| {
-                    rounds.update(cx, |_, cx| cx.emit(crate::annotations::rounds::RoundsEvent::OpenRounds))
+                    rounds.update(cx, |_, cx| {
+                        cx.emit(crate::annotations::rounds::RoundsEvent::OpenRounds)
+                    })
                 })
-        })
+            })
     }
 
     /// Whether the head offers Revision rounds now (for a scenario).
@@ -86,13 +109,19 @@ impl AnnotationsPanel {
 
     /// Whether the agent is answering `id` now.
     pub(super) fn revising(&self, id: &str, cx: &gpui::App) -> bool {
-        self.rounds.rounds.as_ref().is_some_and(|rounds| rounds.read(cx).is_running(id))
+        self.rounds
+            .rounds
+            .as_ref()
+            .is_some_and(|rounds| rounds.read(cx).is_running(id))
     }
 
     /// Open `comment`'s proposal for review, when one waits: whether it did.
     pub(super) fn review_proposal(&self, comment: &EditorComment, cx: &mut Context<Self>) -> bool {
         let proposed = !comment.resolved
-            && comment.revision.as_ref().is_some_and(|revision| revision.state == "proposed");
+            && comment
+                .revision
+                .as_ref()
+                .is_some_and(|revision| revision.state == "proposed");
         let Some(rounds) = self.rounds.rounds.clone().filter(|_| proposed) else {
             return false;
         };
@@ -104,8 +133,10 @@ impl AnnotationsPanel {
     /// Send the answer typed in `id`'s field (Answer and revise); once the
     /// agent is asked again, the field goes with the question.
     fn send_answer(&mut self, id: &str, cx: &mut Context<Self>) {
-        let (Some(field), Some(rounds)) = (self.rounds.answers.get(id).cloned(), self.rounds.rounds.clone())
-        else {
+        let (Some(field), Some(rounds)) = (
+            self.rounds.answers.get(id).cloned(),
+            self.rounds.rounds.clone(),
+        ) else {
             return;
         };
         let text = field.read(cx).value().to_string();
@@ -117,18 +148,29 @@ impl AnnotationsPanel {
 
     /// Type `text` into `id`'s answer field and send it, as the writer
     /// would; whether the field was there.
-    pub fn scripted_answer(&mut self, id: &str, text: &str, window: &mut Window, cx: &mut Context<Self>) -> bool {
+    pub fn scripted_answer(
+        &mut self,
+        id: &str,
+        text: &str,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> bool {
         let Some(field) = self.rounds.answers.get(id).cloned() else {
             return false;
         };
-        field.update(cx, |field, cx| field.set_value(text.to_string(), window, cx));
+        field.update(cx, |field, cx| {
+            field.set_value(text.to_string(), window, cx)
+        });
         self.send_answer(id, cx);
         true
     }
 
     /// The text waiting in `id`'s answer field, while it has one.
     pub fn answer_draft(&self, id: &str, cx: &gpui::App) -> Option<String> {
-        self.rounds.answers.get(id).map(|field| field.read(cx).value().to_string())
+        self.rounds
+            .answers
+            .get(id)
+            .map(|field| field.read(cx).value().to_string())
     }
 
     /// Under a card: the agent's question with the answer's field, or why
@@ -140,7 +182,10 @@ impl AnnotationsPanel {
         cx: &mut Context<Self>,
     ) -> Option<AnyElement> {
         let rounds = self.rounds.rounds.clone()?;
-        let asked = comment.revision.as_ref().is_some_and(|revision| revision.state == "asked");
+        let asked = comment
+            .revision
+            .as_ref()
+            .is_some_and(|revision| revision.state == "asked");
         if comment.resolved || !asked || rounds.read(cx).is_running(&comment.id) {
             self.rounds.answers.remove(&comment.id);
         }
@@ -165,7 +210,9 @@ impl AnnotationsPanel {
                         });
                         let answer_id = id.clone();
                         cx.subscribe(&field, move |this, _, event: &InputEvent, cx| match event {
-                            InputEvent::PressEnter { secondary: true, .. } => this.send_answer(&answer_id, cx),
+                            InputEvent::PressEnter {
+                                secondary: true, ..
+                            } => this.send_answer(&answer_id, cx),
                             InputEvent::Change => cx.notify(),
                             _ => {}
                         })
@@ -193,11 +240,16 @@ impl AnnotationsPanel {
                         .child(Textarea::new(&field).grows())
                         .child(
                             div().flex().child(
-                                Button::new(("annotation-answer", super::cards::hash(&id)), t!("Answer and revise"))
-                                    .compact()
-                                    .tinted()
-                                    .disabled(!filled)
-                                    .on_click(cx.listener(move |this, _, _, cx| this.send_answer(&id, cx))),
+                                Button::new(
+                                    ("annotation-answer", super::cards::hash(&id)),
+                                    t!("Answer and revise"),
+                                )
+                                .compact()
+                                .tinted()
+                                .disabled(!filled)
+                                .on_click(
+                                    cx.listener(move |this, _, _, cx| this.send_answer(&id, cx)),
+                                ),
                             ),
                         )
                         .into_any_element(),
@@ -216,12 +268,15 @@ impl AnnotationsPanel {
                         .text_color(palette.danger)
                         .child(error)
                         .child(
-                            Button::new(("annotation-retry", super::cards::hash(&id)), t!("Try again"))
-                                .compact()
-                                .ghost()
-                                .on_click(move |_, _, cx| {
-                                    rounds.update(cx, |rounds, cx| rounds.retry(&id, "", cx));
-                                }),
+                            Button::new(
+                                ("annotation-retry", super::cards::hash(&id)),
+                                t!("Try again"),
+                            )
+                            .compact()
+                            .ghost()
+                            .on_click(move |_, _, cx| {
+                                rounds.update(cx, |rounds, cx| rounds.retry(&id, "", cx));
+                            }),
                         )
                         .into_any_element(),
                 )
@@ -255,7 +310,11 @@ impl AnnotationsPanel {
         };
         let palette = cx.palette().clone();
         let ink = crate::annotations::colors::proposed(&palette);
-        let share = if total == 0 { 0. } else { answered as f32 / total as f32 };
+        let share = if total == 0 {
+            0.
+        } else {
+            answered as f32 / total as f32
+        };
         Some(
             div()
                 .flex()
@@ -287,7 +346,11 @@ impl AnnotationsPanel {
 
     /// The foot: Review N proposals while any wait, else Revise from N
     /// annotations.
-    pub(super) fn rounds_foot(&self, notes: &[EditorComment], cx: &mut Context<Self>) -> Option<AnyElement> {
+    pub(super) fn rounds_foot(
+        &self,
+        notes: &[EditorComment],
+        cx: &mut Context<Self>,
+    ) -> Option<AnyElement> {
         let rounds = self.rounds.rounds.clone()?;
         if notes.is_empty() {
             return None;
@@ -305,7 +368,9 @@ impl AnnotationsPanel {
             let first = first.id.clone();
             Button::new("annotations-review", label)
                 .tinted()
-                .on_click(move |_, _, cx| rounds.update(cx, |rounds, cx| rounds.open_review(&first, cx)))
+                .on_click(move |_, _, cx| {
+                    rounds.update(cx, |rounds, cx| rounds.open_review(&first, cx))
+                })
         } else {
             let count = rounds.read(cx).revisable_count(cx);
             let label = match count {
@@ -313,7 +378,11 @@ impl AnnotationsPanel {
                 1 => t!("Revise from 1 annotation").to_string(),
                 count => t!("Revise from {0} annotations", count),
             };
-            let keys = if cfg!(target_os = "macos") { "⇧⌘↩" } else { "Ctrl+Shift+↩" };
+            let keys = if cfg!(target_os = "macos") {
+                "⇧⌘↩"
+            } else {
+                "Ctrl+Shift+↩"
+            };
             Button::new("annotations-revise", label)
                 .tinted()
                 .keys(keys)

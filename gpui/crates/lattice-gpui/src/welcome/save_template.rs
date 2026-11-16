@@ -2,8 +2,8 @@
 //! `src/project/local-templates.tsx`): over New project, a 520px dialog that
 //! reads a source, From folder, From ZIP or (with a project open) Current
 //! project, through lattice-core's `templates::inspect`, then asks the
-//! template's name and version (each at most 300 characters, as the Tauri
-//! fields' `maxLength`) and source URL, its compile root (a `.tex` file of
+//! template's name and version (each at most 300 characters, the input's
+//! `max_length`, as the Tauri fields' `maxLength`) and source URL, its compile root (a `.tex` file of
 //! the source), engine and preview image (one of the files chosen), and
 //! which of the source's reusable files to copy, none ticked at first. Save
 //! template is offered once it has a name and the compile root is ticked;
@@ -15,10 +15,10 @@
 use std::path::PathBuf;
 
 use gpui::{
-    App, AppContext as _, Context, Entity, EntityInputHandler as _, EventEmitter, FocusHandle, Focusable,
+    App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, Focusable,
     InteractiveElement as _, IntoElement, KeyDownEvent, MouseButton, ParentElement as _,
-    PathPromptOptions, Render, StatefulInteractiveElement as _, Styled as _, Subscription,
-    Window, div, px,
+    PathPromptOptions, Render, StatefulInteractiveElement as _, Styled as _, Subscription, Window,
+    div, px,
 };
 use gpui_kit::component::input::{InputEvent, InputState};
 use lattice_core::project::templates::{self, LocalTemplate};
@@ -33,7 +33,11 @@ use lattice_ui::{
 const MAX_CHARS: usize = 300;
 
 /// The engines a template may name, as the Tauri select lists them.
-const ENGINES: [(&str, &str); 3] = [("pdf", "pdfLaTeX"), ("xelatex", "XeLaTeX"), ("lualatex", "LuaLaTeX")];
+const ENGINES: [(&str, &str); 3] = [
+    ("pdf", "pdfLaTeX"),
+    ("xelatex", "XeLaTeX"),
+    ("lualatex", "LuaLaTeX"),
+];
 
 pub enum SaveTemplateEvent {
     Close,
@@ -76,45 +80,40 @@ pub struct SaveTemplateDialog {
 
 impl EventEmitter<SaveTemplateEvent> for SaveTemplateDialog {}
 
-/// `value` held to its first `MAX_CHARS` characters with the caret inside
-/// it, or `None` when it fits.
-fn fit(value: &str, caret: usize) -> Option<(String, usize)> {
-    let end = value.char_indices().nth(MAX_CHARS).map(|(at, _)| at)?;
-    Some((value[..end].to_string(), caret.min(end)))
-}
-
 /// Whether `file` can be a template's preview image.
 fn is_preview(file: &str) -> bool {
     let lower = file.to_ascii_lowercase();
-    [".png", ".jpg", ".jpeg", ".pdf", ".svg"].iter().any(|extension| lower.ends_with(extension))
+    [".png", ".jpg", ".jpeg", ".pdf", ".svg"]
+        .iter()
+        .any(|extension| lower.ends_with(extension))
 }
 
 impl SaveTemplateDialog {
-    pub fn new(current: Option<PathBuf>, store: PathBuf, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let mut field = |cx: &mut Context<Self>| cx.new(|cx| InputState::new(window, cx));
-        let (name, url, version) = (field(cx), field(cx), field(cx));
+    pub fn new(
+        current: Option<PathBuf>,
+        store: PathBuf,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Self {
+        // The name and version hold at most 300 characters, as the Tauri
+        // fields' `maxLength`: the input cuts an insertion to the room left.
+        let mut field = |max: Option<usize>, cx: &mut Context<Self>| {
+            cx.new(|cx| {
+                let input = InputState::new(window, cx);
+                match max {
+                    Some(max) => input.max_length(max),
+                    None => input,
+                }
+            })
+        };
+        let (name, url, version) = (
+            field(Some(MAX_CHARS), cx),
+            field(None, cx),
+            field(Some(MAX_CHARS), cx),
+        );
         let mut subscriptions = Vec::new();
         for input in [&name, &version] {
-            // At most 300 characters (`maxLength`), once a composition is
-            // committed (`set_value` clears the field's undo history, as the
-            // workspace rename's does).
-            subscriptions.push(cx.subscribe_in(input, window, |_, input, event, window, cx| {
-                if let InputEvent::Change = event {
-                    let composing =
-                        input.update(cx, |input, cx| input.marked_text_range(window, cx).is_some());
-                    let (value, caret) = {
-                        let input = input.read(cx);
-                        (input.value().to_string(), input.cursor())
-                    };
-                    if !composing && let Some((value, caret)) = fit(&value, caret) {
-                        input.update(cx, |input, cx| {
-                            input.set_value(value, window, cx);
-                            input.set_selected_range(caret..caret, cx);
-                        });
-                    }
-                }
-                cx.notify();
-            }));
+            subscriptions.push(cx.subscribe(input, |_, _, _: &InputEvent, cx| cx.notify()));
         }
         subscriptions.push(cx.subscribe(&url, |_, _, _: &InputEvent, cx| cx.notify()));
         Self {
@@ -171,7 +170,8 @@ impl SaveTemplateDialog {
             };
             let read = {
                 let path = path.clone();
-                cx.background_spawn(async move { templates::inspect(&path) }).await
+                cx.background_spawn(async move { templates::inspect(&path) })
+                    .await
             };
             this.update(cx, |this, cx| {
                 this.busy = false;
@@ -287,7 +287,9 @@ impl SaveTemplateDialog {
     }
 
     pub fn set_name(&mut self, name: &str, window: &mut Window, cx: &mut Context<Self>) {
-        self.name.update(cx, |input, cx| input.set_value(name.to_string(), window, cx));
+        self.name.update(cx, |input, cx| {
+            input.set_value(name.to_string(), window, cx)
+        });
     }
 
     pub fn saveable(&self, cx: &App) -> bool {
@@ -341,18 +343,24 @@ impl Render for SaveTemplateDialog {
             .child(
                 Button::new("template-from-folder", t!("From folder"))
                     .disabled(busy)
-                    .on_click(cx.listener(|this, _, window, cx| this.choose(Kind::Folder, window, cx))),
+                    .on_click(
+                        cx.listener(|this, _, window, cx| this.choose(Kind::Folder, window, cx)),
+                    ),
             )
             .child(
                 Button::new("template-from-zip", t!("From ZIP"))
                     .disabled(busy)
-                    .on_click(cx.listener(|this, _, window, cx| this.choose(Kind::Zip, window, cx))),
+                    .on_click(
+                        cx.listener(|this, _, window, cx| this.choose(Kind::Zip, window, cx)),
+                    ),
             );
         if self.current.is_some() {
             sources = sources.child(
                 Button::new("template-from-current", t!("Current project"))
                     .disabled(busy)
-                    .on_click(cx.listener(|this, _, window, cx| this.choose(Kind::Current, window, cx))),
+                    .on_click(
+                        cx.listener(|this, _, window, cx| this.choose(Kind::Current, window, cx)),
+                    ),
             );
         }
         let mut card = div()
@@ -384,15 +392,24 @@ impl Render for SaveTemplateDialog {
             )
             .child(sources);
         if let Some(review) = &self.review {
-            let tex: Vec<String> = review.files.iter().filter(|file| file.ends_with(".tex")).cloned().collect();
-            let root = Select::new("template-root", tex.clone(), tex.iter().position(|file| *file == self.root))
-                .disabled(busy)
-                .on_change(cx.listener(move |this, ix: &usize, _, cx| {
-                    if let Some(file) = tex.get(*ix) {
-                        this.root = file.clone();
-                        cx.notify();
-                    }
-                }));
+            let tex: Vec<String> = review
+                .files
+                .iter()
+                .filter(|file| file.ends_with(".tex"))
+                .cloned()
+                .collect();
+            let root = Select::new(
+                "template-root",
+                tex.clone(),
+                tex.iter().position(|file| *file == self.root),
+            )
+            .disabled(busy)
+            .on_change(cx.listener(move |this, ix: &usize, _, cx| {
+                if let Some(file) = tex.get(*ix) {
+                    this.root = file.clone();
+                    cx.notify();
+                }
+            }));
             let engine = Select::new(
                 "template-engine",
                 ENGINES.iter().map(|(_, name)| *name),
@@ -403,12 +420,20 @@ impl Render for SaveTemplateDialog {
                 this.engine = ENGINES[*ix].0.to_string();
                 cx.notify();
             }));
-            let images: Vec<String> = self.files.iter().filter(|file| is_preview(file)).cloned().collect();
+            let images: Vec<String> = self
+                .files
+                .iter()
+                .filter(|file| is_preview(file))
+                .cloned()
+                .collect();
             let mut previews = vec![t!("None").to_string()];
             previews.extend(images.iter().cloned());
             let chosen = match &self.preview {
                 None => Some(0),
-                Some(preview) => images.iter().position(|file| file == preview).map(|at| at + 1),
+                Some(preview) => images
+                    .iter()
+                    .position(|file| file == preview)
+                    .map(|at| at + 1),
             };
             let preview = Select::new("template-preview", previews, chosen)
                 .disabled(busy)
@@ -427,12 +452,21 @@ impl Render for SaveTemplateDialog {
                     let ticked = self.files.contains(file);
                     let entity = cx.entity().downgrade();
                     let name = file.clone();
-                    Checkbox::new(("template-file", ix), if ticked { CheckState::On } else { CheckState::Off })
-                        .label(file.clone())
-                        .disabled(busy)
-                        .on_toggle(move |checked, _, cx| {
-                            entity.update(cx, |this, cx| this.toggle(&name, *checked, cx)).ok();
-                        })
+                    Checkbox::new(
+                        ("template-file", ix),
+                        if ticked {
+                            CheckState::On
+                        } else {
+                            CheckState::Off
+                        },
+                    )
+                    .label(file.clone())
+                    .disabled(busy)
+                    .on_toggle(move |checked, _, cx| {
+                        entity
+                            .update(cx, |this, cx| this.toggle(&name, *checked, cx))
+                            .ok();
+                    })
                 }));
             let mut fields = div()
                 .pt(px(12.))
@@ -440,9 +474,21 @@ impl Render for SaveTemplateDialog {
                 .flex_col()
                 .gap(px(12.))
                 .min_w_0()
-                .child(label(t!("Template name"), Field::new(&self.name).disabled(busy).into_any_element(), cx))
-                .child(label(t!("Source URL"), Field::new(&self.url).disabled(busy).into_any_element(), cx))
-                .child(label(t!("Version or year"), Field::new(&self.version).disabled(busy).into_any_element(), cx))
+                .child(label(
+                    t!("Template name"),
+                    Field::new(&self.name).disabled(busy).into_any_element(),
+                    cx,
+                ))
+                .child(label(
+                    t!("Source URL"),
+                    Field::new(&self.url).disabled(busy).into_any_element(),
+                    cx,
+                ))
+                .child(label(
+                    t!("Version or year"),
+                    Field::new(&self.version).disabled(busy).into_any_element(),
+                    cx,
+                ))
                 .child(label(t!("Compile root"), root.into_any_element(), cx))
                 .child(label(t!("LaTeX engine"), engine.into_any_element(), cx))
                 .child(label(t!("Preview image"), preview.into_any_element(), cx))
@@ -489,7 +535,11 @@ impl Render for SaveTemplateDialog {
                 .child(
                     Button::new(
                         "save-template-save",
-                        if busy { t!("Working…") } else { t!("Save template") },
+                        if busy {
+                            t!("Working…")
+                        } else {
+                            t!("Save template")
+                        },
                     )
                     .primary()
                     .disabled(!can_save)
@@ -523,15 +573,6 @@ impl Render for SaveTemplateDialog {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn a_field_keeps_its_first_300_characters() {
-        let long = "é".repeat(310);
-        let (kept, caret) = fit(&long, long.len()).unwrap();
-        assert_eq!(kept.chars().count(), 300);
-        assert_eq!(caret, kept.len());
-        assert!(fit(&"a".repeat(300), 300).is_none());
-    }
 
     #[test]
     fn previews_are_the_image_and_pdf_files() {

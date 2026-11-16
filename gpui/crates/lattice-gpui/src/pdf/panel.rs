@@ -72,6 +72,8 @@ pub enum PdfEvent {
     OpenCitation(String),
     /// A note's card on the PDF asked something of it.
     Annotation(crate::annotations::AnnotationRequest),
+    /// Export review PDF…, of this panel's PDF.
+    ExportReview,
     /// An Outline row: open `path` at `line`, and show it in the PDF.
     Outline {
         path: String,
@@ -211,12 +213,12 @@ impl PdfPanel {
             .place_key
             .as_ref()
             .and_then(|(root, document, _)| preferences::get().place(root, document));
-        let fresh =
-            self.window.is_none() && (mounted || self.view.read(cx).page_count() == 0);
+        let fresh = self.window.is_none() && (mounted || self.view.read(cx).page_count() == 0);
         match saved {
             Some(place) if fresh => {
                 self.source = Some(path.clone());
-                self.view.update(cx, |view, cx| view.open_at(path, place, window, cx));
+                self.view
+                    .update(cx, |view, cx| view.open_at(path, place, window, cx));
                 cx.notify();
             }
             _ => self.open(path, window, cx),
@@ -367,6 +369,7 @@ impl PdfPanel {
             }),
             PdfViewEvent::OpenCitation(key) => cx.emit(PdfEvent::OpenCitation(key.clone())),
             PdfViewEvent::Annotation(request) => cx.emit(PdfEvent::Annotation(request.clone())),
+            PdfViewEvent::ExportReview => cx.emit(PdfEvent::ExportReview),
             PdfViewEvent::PlaceChanged(place) => self.remember_place(*place),
             PdfViewEvent::Action => self.detach(window, cx),
             // The project's PDFs annotate their selection instead.

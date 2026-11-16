@@ -377,14 +377,19 @@ impl Render for ImportConflict {
                         // Enter answers as Import does, after the exit.
                         let view = cx.entity().downgrade();
                         let serial = this.serial;
-                        ModalLayer::leave(("import-conflict", serial), window, cx, move |window, cx| {
-                            view.update(cx, |this, cx| {
-                                let choice =
-                                    this.open.as_ref().map(|question| CHOICES[question.choice]);
-                                this.answer(choice, window, cx)
-                            })
-                            .ok();
-                        });
+                        ModalLayer::leave(
+                            ("import-conflict", serial),
+                            window,
+                            cx,
+                            move |window, cx| {
+                                view.update(cx, |this, cx| {
+                                    let choice =
+                                        this.open.as_ref().map(|question| CHOICES[question.choice]);
+                                    this.answer(choice, window, cx)
+                                })
+                                .ok();
+                            },
+                        );
                     }
                     _ => return,
                 }

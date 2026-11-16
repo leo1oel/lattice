@@ -41,6 +41,14 @@ actions!(
 /// (`TERMINAL_SHARE`).
 pub const TERMINAL_SHARE: f64 = 0.3;
 
+/// Ctrl and every letter, which the terminal hands the shell off macOS.
+#[cfg(not(target_os = "macos"))]
+const SHELL_CTRL_KEYS: [&str; 26] = [
+    "ctrl-a", "ctrl-b", "ctrl-c", "ctrl-d", "ctrl-e", "ctrl-f", "ctrl-g", "ctrl-h", "ctrl-i",
+    "ctrl-j", "ctrl-k", "ctrl-l", "ctrl-m", "ctrl-n", "ctrl-o", "ctrl-p", "ctrl-q", "ctrl-r",
+    "ctrl-s", "ctrl-t", "ctrl-u", "ctrl-v", "ctrl-w", "ctrl-x", "ctrl-y", "ctrl-z",
+];
+
 /// The terminal's keys. ⌃` toggles the panel from anywhere. On macOS, in
 /// the terminal, ⌘F finds, ⌘A selects everything, ⌘W closes the tab in
 /// front and ⌘K is the command palette, over what Zed's keymap gives its
@@ -67,10 +75,11 @@ pub fn key_bindings() -> Vec<KeyBinding> {
     ]);
     // Lattice's Ctrl shortcuts (Ctrl+K, Ctrl+W, Ctrl+P…) stand aside for
     // the shell, which xterm.js hands every Ctrl+letter.
+    // `KeyBinding::new` keeps its keystrokes as `&'static str`, so they are
+    // spelled out rather than formatted.
     #[cfg(not(target_os = "macos"))]
     bindings.extend(
-        ('a'..='z')
-            .map(|key| KeyBinding::new(&format!("ctrl-{key}"), gpui::NoAction, Some("Terminal"))),
+        SHELL_CTRL_KEYS.map(|keys| KeyBinding::new(keys, gpui::NoAction, Some("Terminal"))),
     );
     bindings
 }

@@ -59,6 +59,12 @@ pub struct ReviewPdf {
     pub notes: Vec<ReviewNote>,
 }
 
+/// The SHA-256 (hex) [`annotate`] checks the notes were placed on: what a
+/// host that measured on bytes of its own sends as [`ReviewPdf::digest`].
+pub fn digest(bytes: &[u8]) -> String {
+    sha256_hex(bytes)
+}
+
 pub const PDF_CHANGED: &str = "The PDF was rebuilt while you were exporting. Export again.";
 
 /// `bytes` with `review`'s notes added; refused if they are not the PDF the

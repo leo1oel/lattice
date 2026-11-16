@@ -13,8 +13,8 @@
 //! panels).
 
 use gpui::{
-    AnyElement, Context, InteractiveElement as _, IntoElement, ParentElement as _, SharedString, Styled as _, Window, div,
-    prelude::FluentBuilder as _, px,
+    AnyElement, Context, InteractiveElement as _, IntoElement, ParentElement as _, SharedString,
+    Styled as _, Window, div, prelude::FluentBuilder as _, px,
 };
 use gpui_kit::component::Selectable as _;
 use lattice_editor::remote_cursors::hue_color;
@@ -60,12 +60,15 @@ impl EditorPanel {
         let none = state.count == 0;
         let at_change = state.index.is_some();
         let this = cx.entity().downgrade();
-        let act = move |run: fn(&mut EditorPanel, &mut Window, &mut Context<EditorPanel>)| -> Click {
-            let this = this.clone();
-            Box::new(move |_: &gpui::ClickEvent, window: &mut Window, cx: &mut gpui::App| {
-                this.update(cx, |panel, cx| run(panel, window, cx)).ok();
-            })
-        };
+        let act =
+            move |run: fn(&mut EditorPanel, &mut Window, &mut Context<EditorPanel>)| -> Click {
+                let this = this.clone();
+                Box::new(
+                    move |_: &gpui::ClickEvent, window: &mut Window, cx: &mut gpui::App| {
+                        this.update(cx, |panel, cx| run(panel, window, cx)).ok();
+                    },
+                )
+            };
         // A text button (`.review-bar-text`): 28px, its icon and its words,
         // or in a narrow editor its icon alone; named by a tooltip either way.
         let text_button = |id: &'static str,
@@ -105,9 +108,19 @@ impl EditorPanel {
             )
             .into()
         } else {
-            tc!("tracked changes waiting for review", "{0} changes", state.count).into()
+            tc!(
+                "tracked changes waiting for review",
+                "{0} changes",
+                state.count
+            )
+            .into()
         };
-        let group = |gap: f32| div().flex().items_center().gap(px(if dot_only { 0. } else { gap }));
+        let group = |gap: f32| {
+            div()
+                .flex()
+                .items_center()
+                .gap(px(if dot_only { 0. } else { gap }))
+        };
         let stop_label: SharedString = t!("Stop tracking").into();
         let pdf_label: SharedString = if marked {
             t!("Show the PDF without changes").into()
@@ -140,7 +153,13 @@ impl EditorPanel {
                     .text_color(palette.text)
                     .font_weight(gpui::FontWeight::MEDIUM)
                     .whitespace_nowrap()
-                    .child(div().size(px(8.)).rounded_full().flex_none().bg(hue_color(REVIEW_HUE)))
+                    .child(
+                        div()
+                            .size(px(8.))
+                            .rounded_full()
+                            .flex_none()
+                            .bg(hue_color(REVIEW_HUE)),
+                    )
                     .when(!dot_only, |title| title.child(t!("Tracking changes"))),
             )
             .child(
@@ -155,9 +174,15 @@ impl EditorPanel {
             .child(
                 group(2.)
                     .child(
-                        compact("review-previous", Icon::CHEVRON_UP, t!("Previous change").into())
-                            .disabled(none)
-                            .on_click(act(|panel, window, cx| panel.review_step(false, window, cx))),
+                        compact(
+                            "review-previous",
+                            Icon::CHEVRON_UP,
+                            t!("Previous change").into(),
+                        )
+                        .disabled(none)
+                        .on_click(act(|panel, window, cx| {
+                            panel.review_step(false, window, cx)
+                        })),
                     )
                     .child(
                         compact("review-next", Icon::CHEVRON_DOWN, t!("Next change").into())
@@ -240,12 +265,14 @@ impl EditorPanel {
                     .min_w_0()
                     .text_color(palette.text)
                     .child(div().min_w_0().whitespace_normal().child(notice))
-                    .child(compact("review-notice-dismiss", Icon::X, t!("Dismiss").into()).on_click(
-                        move |_, _, cx| {
-                            let store = store::store(cx);
-                            store.update(cx, |store, cx| store.set_notice(&root, None, cx));
-                        },
-                    ))
+                    .child(
+                        compact("review-notice-dismiss", Icon::X, t!("Dismiss").into()).on_click(
+                            move |_, _, cx| {
+                                let store = store::store(cx);
+                                store.update(cx, |store, cx| store.set_notice(&root, None, cx));
+                            },
+                        ),
+                    )
             }));
         Some(bar.into_any_element())
     }

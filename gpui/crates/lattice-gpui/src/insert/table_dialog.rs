@@ -638,13 +638,9 @@ impl Render for TableGenerator {
             }
         }
         sheet = sheet.children(self.error.clone().map(alert));
-        sheet = sheet.action(
-            Button::new("table-cancel", t!("Cancel"))
-                .ghost()
-                .on_click(ModalLayer::closing("table-generator", cx, |_, _, cx| {
-                    cx.emit(TableEvent::Close)
-                })),
-        );
+        sheet = sheet.action(Button::new("table-cancel", t!("Cancel")).ghost().on_click(
+            ModalLayer::closing("table-generator", cx, |_, _, cx| cx.emit(TableEvent::Close)),
+        ));
         if reviewing {
             sheet = sheet.action(Button::new("table-back", t!("Back")).on_click(cx.listener(
                 |this, _, _, cx| {

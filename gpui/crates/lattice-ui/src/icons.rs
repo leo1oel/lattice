@@ -127,6 +127,9 @@ lucide! {
     // ARROW_DOWN, ARROW_DOWN_UP, ARROW_UP_RIGHT, BOOK_MARKED, FILE_DOWN and
     // LINK_2 below).
     HIGHLIGHTER = "icons" / "highlighter";
+    /// Export review PDF and its sheet's margin-note chip (`review-pdf-sheet.tsx`).
+    MESSAGE_SQUARE_SHARE = "icons" / "message-square-share";
+    STICKY_NOTE = "icons" / "sticky-note";
     /// The selection toolbar's tools (`latex-selection-toolbar.tsx`,
     /// `markdown-source-toolbar.tsx`) and the highlighter palette.
     BOLD = "icons" / "bold";

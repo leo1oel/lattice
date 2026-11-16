@@ -73,6 +73,19 @@ export const windowProjects = {
     const projects = projectsNow();
     if (projects.some((entry) => entry.root === root)) store.setState({ projects: projects.filter((entry) => entry.root !== root) });
   },
+  /** Insert before the named neighbour, or at the end if the neighbour is gone. */
+  reorder(root: string, beforeRoot: string | null) {
+    if (root === beforeRoot) return;
+    const projects = projectsNow();
+    const entry = projects.find((project) => project.root === root);
+    if (!entry) return;
+    const next = projects.filter((project) => project !== entry);
+    const index = next.findIndex((project) => project.root === beforeRoot);
+    const slot = index < 0 ? next.length : index;
+    if (projects[slot] === entry) return;
+    next.splice(slot, 0, entry);
+    store.setState({ projects: next });
+  },
 };
 
 export function useWindowProjects() {

@@ -84,7 +84,11 @@ impl PdfView {
         let height = last.map_or(px(0.), |size| size.height);
         let fits_above = about.top() - CARD_GAP - height >= CARD_GAP;
         let fits_below = about.bottom() + CARD_GAP + height <= window_size.height - CARD_GAP;
-        let above = if below { !fits_below && fits_above } else { fits_above };
+        let above = if below {
+            !fits_below && fits_above
+        } else {
+            fits_above
+        };
         let start = if below {
             about.left()
         } else {

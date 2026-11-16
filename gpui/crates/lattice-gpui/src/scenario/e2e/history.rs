@@ -164,6 +164,7 @@ impl Run {
                 })
                 .await;
             // The washed line, while the wash shows (with LATTICE_E2E_SHOTS).
+            #[cfg(target_os = "macos")]
             self.window_shots(cx, "history-restore-wash").await?;
             let built = self
                 .wait_for(cx, Duration::from_secs(60), |shell, cx| {

@@ -13,7 +13,9 @@ mod card;
 
 use std::{ops::Range, sync::Arc};
 
-use gpui::{AppContext as _, Context, Entity, Focusable as _, IntoElement as _, Subscription, Window};
+use gpui::{
+    AppContext as _, Context, Entity, Focusable as _, IntoElement as _, Subscription, Window,
+};
 use language::{Anchor, ToOffset as _};
 use lattice_editor::{
     blocks::{BlockSide, BlockWidget},
@@ -52,7 +54,9 @@ fn reviewed(original: &str, proposal: &str, context: &proofread::Context, cite: 
         let (allowed, held): (Vec<_>, Vec<_>) = std::mem::take(&mut review.held)
             .into_iter()
             .partition(|held| held.kind == ProtectedKind::Reference);
-        review.edits.extend(allowed.into_iter().map(|held| held.edit));
+        review
+            .edits
+            .extend(allowed.into_iter().map(|held| held.edit));
         review.edits.sort_by_key(|edit| edit.from);
         review.held = held;
     }
@@ -71,7 +75,8 @@ impl EditorPanel {
     ) {
         self.close_annotation_review(cx);
         let root = self.project_root(cx);
-        let Some(comment) = store::try_store(cx).and_then(|store| store.read(cx).get(&root, id).cloned())
+        let Some(comment) =
+            store::try_store(cx).and_then(|store| store.read(cx).get(&root, id).cloned())
         else {
             return;
         };
@@ -90,9 +95,12 @@ impl EditorPanel {
         let context = proofread::context(&text, range.start, range.end);
         let editable = !self.editor.read(cx).read_only(cx);
         let card = cx.new(|cx| ReviewCard::new(comment, context, editable, window, cx));
-        let mut subscriptions = vec![cx.subscribe_in(&card, window, |this, _, event, window, cx| {
-            this.review_event(event.clone(), window, cx)
-        })];
+        let mut subscriptions =
+            vec![
+                cx.subscribe_in(&card, window, |this, _, event, window, cx| {
+                    this.review_event(event.clone(), window, cx)
+                }),
+            ];
         // The card follows its annotation, and the rounds, as they change.
         if let Some(store) = store::try_store(cx) {
             subscriptions.push(cx.observe(&store, |this, _, cx| this.refresh_review(cx)));
@@ -116,7 +124,11 @@ impl EditorPanel {
                 |selections| selections.select_ranges([at..at]),
             )
         });
-        let last = if range.end > range.start { range.end - 1 } else { range.end };
+        let last = if range.end > range.start {
+            range.end - 1
+        } else {
+            range.end
+        };
         let line = snapshot.offset_to_point(last).row;
         let wash = crate::annotations::colors::proposed(cx.palette()).opacity(0.12);
         let lattice = self.lattice.clone();
@@ -159,14 +171,17 @@ impl EditorPanel {
             return;
         };
         let root = self.project_root(cx);
-        let Some(comment) = store::try_store(cx).and_then(|store| store.read(cx).get(&root, &session.id).cloned())
+        let Some(comment) =
+            store::try_store(cx).and_then(|store| store.read(cx).get(&root, &session.id).cloned())
         else {
             return;
         };
         let rounds = session.rounds.read(cx);
         let running = rounds.is_running(&session.id);
         let (position, total) = rounds.position(&session.id, cx);
-        session.card.update(cx, |card, cx| card.set(comment, running, position, total, cx));
+        session.card.update(cx, |card, cx| {
+            card.set(comment, running, position, total, cx)
+        });
     }
 
     fn review_event(&mut self, event: ReviewEvent, window: &mut Window, cx: &mut Context<Self>) {
@@ -178,7 +193,9 @@ impl EditorPanel {
         // update is over.
         match event {
             ReviewEvent::Accept => self.accept_review(window, cx),
-            ReviewEvent::Reject => cx.defer(move |cx| rounds.update(cx, |rounds, cx| rounds.rejected(&id, cx))),
+            ReviewEvent::Reject => {
+                cx.defer(move |cx| rounds.update(cx, |rounds, cx| rounds.rejected(&id, cx)))
+            }
             ReviewEvent::Retry(guidance) => {
                 cx.defer(move |cx| rounds.update(cx, |rounds, cx| rounds.retry(&id, &guidance, cx)))
             }
@@ -209,7 +226,9 @@ impl EditorPanel {
         let from = session.range.start.to_offset(&snapshot);
         let to = session.range.end.to_offset(&snapshot).max(from);
         if snapshot.text_for_range(from..to).collect::<String>() != original {
-            let message = t!("The passage changed after the agent read it. Try again to have it read the passage as it is now.");
+            let message = t!(
+                "The passage changed after the agent read it. Try again to have it read the passage as it is now."
+            );
             card.update(cx, |card, cx| card.set_error(message.to_string(), cx));
             return;
         }

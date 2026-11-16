@@ -21,6 +21,9 @@ mod audit;
 mod cards;
 mod library;
 mod prewarm;
+// The reader's checks read its page from the webview island, which only
+// macOS has.
+#[cfg(target_os = "macos")]
 mod reader;
 mod selection_actions;
 
@@ -259,6 +262,7 @@ impl Run {
             );
             self.papers_shot(cx, "papers-reader").await;
             self.press(cx, 'w', true).await?;
+            #[cfg(target_os = "macos")]
             self.paper_reader(cx, steps, root, &papers, BUNDLE).await?;
         }
 
