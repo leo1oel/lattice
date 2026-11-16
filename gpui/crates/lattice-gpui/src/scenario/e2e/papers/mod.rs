@@ -18,6 +18,7 @@ use super::Steps;
 use crate::{papers::model::Filter, scenario::Run};
 
 mod audit;
+mod batch;
 mod cards;
 mod library;
 mod prewarm;
