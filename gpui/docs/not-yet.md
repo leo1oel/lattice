@@ -24,4 +24,3 @@ A feature that lands deletes its own line (only that line, so features landing s
 - [ ] Overleaf: the "Opening the Overleaf project…" transition when a downloaded project opens.
 
 - [ ] Overleaf: a compile after a resolved conflict (the watcher's build stands in).
-
