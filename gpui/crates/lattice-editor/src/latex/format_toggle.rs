@@ -89,7 +89,10 @@ fn escaped(text: &[u8], at: usize) -> bool {
 
 /// Whether an unescaped `%` earlier on its line makes `at` a comment.
 fn commented(text: &[u8], at: usize) -> bool {
-    let start = text[..at].iter().rposition(|&b| b == b'\n').map_or(0, |i| i + 1);
+    let start = text[..at]
+        .iter()
+        .rposition(|&b| b == b'\n')
+        .map_or(0, |i| i + 1);
     let mut index = start;
     while index < at {
         match text[index] {
@@ -275,7 +278,11 @@ fn trimmed(text: &[u8], from: usize, to: usize) -> (usize, usize) {
     while end > start && text[end - 1].is_ascii_whitespace() {
         end -= 1;
     }
-    if start < end { (start, end) } else { (from, to) }
+    if start < end {
+        (start, end)
+    } else {
+        (from, to)
+    }
 }
 
 /// The innermost group that holds `from..to`: the selection lies in its
@@ -316,7 +323,12 @@ fn finish(
     let changes = normalize(
         edits
             .into_iter()
-            .map(|edit| Replace::new(edit.range.start + offset..edit.range.end + offset, edit.insert))
+            .map(|edit| {
+                Replace::new(
+                    edit.range.start + offset..edit.range.end + offset,
+                    edit.insert,
+                )
+            })
             .collect(),
     );
     let (anchor, head) = select(&changes);
@@ -336,7 +348,14 @@ struct Cut {
 /// Take `group` off `from..to` (window offsets). With `split`, a selection
 /// inside part of the group's text leaves the rest formatted:
 /// `\textbf{a b c}` with `b` selected becomes `\textbf{a} b \textbf{c}`.
-fn remove_group(text: &str, groups: &[Group], group: &Group, from: usize, to: usize, split: bool) -> Cut {
+fn remove_group(
+    text: &str,
+    groups: &[Group],
+    group: &Group,
+    from: usize,
+    to: usize,
+    split: bool,
+) -> Cut {
     let bytes = text.as_bytes();
     let chain = stacked(groups, group);
     let outer = chain[chain.len() - 1];
@@ -350,18 +369,27 @@ fn remove_group(text: &str, groups: &[Group], group: &Group, from: usize, to: us
     }
     let opening = &text[group.from..group.content_from];
     let kept = trimmed(bytes, group.content_from, start);
-    let before = start > group.content_from && text[kept.0..kept.1].chars().any(|c| !c.is_whitespace());
+    let before =
+        start > group.content_from && text[kept.0..kept.1].chars().any(|c| !c.is_whitespace());
     let kept_after = trimmed(bytes, end, group.content_to);
     let after = end < group.content_to
-        && text[kept_after.0..kept_after.1].chars().any(|c| !c.is_whitespace());
-    let mut edits = vec![Replace::new(outer.from..group.content_from, if before { opening } else { "" })];
+        && text[kept_after.0..kept_after.1]
+            .chars()
+            .any(|c| !c.is_whitespace());
+    let mut edits = vec![Replace::new(
+        outer.from..group.content_from,
+        if before { opening } else { "" },
+    )];
     if before {
         edits.push(Replace::new(kept.1..kept.1, "}"));
     }
     if after {
         edits.push(Replace::new(kept_after.0..kept_after.0, opening));
     }
-    edits.push(Replace::new(group.content_to..outer.to, if after { "}" } else { "" }));
+    edits.push(Replace::new(
+        group.content_to..outer.to,
+        if after { "}" } else { "" },
+    ));
     edits.retain(|edit| edit.insert != text[edit.range.clone()]);
     Cut {
         edits,
@@ -436,7 +464,9 @@ fn toggle(
             .find(|group| group.content_from == from && group.content_to == from)
         {
             let at = empty.from + offset;
-            return finish(vec![Replace::new(empty.from..empty.to, "")], offset, |_| (at, at));
+            return finish(vec![Replace::new(empty.from..empty.to, "")], offset, |_| {
+                (at, at)
+            });
         }
         let caret = range.start + open.len();
         return finish(
@@ -483,7 +513,15 @@ pub fn toggle_inline(doc: &str, range: Range<usize>, format: InlineFormat) -> Te
 pub fn toggle_quote(doc: &str, range: Range<usize>) -> TextEdit {
     let (text, offset) = window_around(doc, range.start, range.end);
     let groups = environment_groups(text, "quote", &QUOTE);
-    toggle(text, offset, &groups, range, "\\begin{quote}\n", "\n\\end{quote}", false)
+    toggle(
+        text,
+        offset,
+        &groups,
+        range,
+        "\\begin{quote}\n",
+        "\n\\end{quote}",
+        false,
+    )
 }
 
 /// Make the selection a heading at `command`'s level: inside a heading of
@@ -634,7 +672,10 @@ pub fn wrap_range(doc: &str, range: Range<usize>, before: &str, after: &str) -> 
     let selected = &doc[range.clone()];
     let start = range.start + before.len();
     TextEdit {
-        changes: vec![Replace::new(range.clone(), format!("{before}{selected}{after}"))],
+        changes: vec![Replace::new(
+            range.clone(),
+            format!("{before}{selected}{after}"),
+        )],
         anchor: start,
         head: start + selected.len(),
     }
@@ -695,7 +736,10 @@ mod tests {
     fn headings_change_level_or_come_off() {
         let doc = "\\section{Intro}";
         let edit = set_heading(doc, at(doc, "Intro"), "subsection");
-        assert_eq!(run(doc, &edit), ("\\subsection{Intro}".into(), "Intro".into()));
+        assert_eq!(
+            run(doc, &edit),
+            ("\\subsection{Intro}".into(), "Intro".into())
+        );
         let edit = set_heading(doc, at(doc, "Intro"), "section");
         assert_eq!(run(doc, &edit).0, "Intro");
         let formats = selection_formats(doc, at(doc, "Intro"));
@@ -717,7 +761,13 @@ mod tests {
     fn a_link_inside_a_link_changes_its_target() {
         let doc = "see \\href{https://a.org}{the site}";
         let edit = set_link(doc, at(doc, "the site"), "https://b.org");
-        assert_eq!(run(doc, &edit), ("see \\href{https://b.org}{the site}".into(), "the site".into()));
+        assert_eq!(
+            run(doc, &edit),
+            (
+                "see \\href{https://b.org}{the site}".into(),
+                "the site".into()
+            )
+        );
         let plain = "see the site";
         let edit = set_link(plain, at(plain, "the site"), "https://b.org");
         assert_eq!(run(plain, &edit).0, doc.replace("a.org", "b.org"));

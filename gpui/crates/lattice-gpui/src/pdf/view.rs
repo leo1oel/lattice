@@ -44,11 +44,11 @@ mod column;
 mod compound;
 mod drafts;
 mod events;
-mod hover_card;
-mod notes;
 mod host;
+mod hover_card;
 mod links;
 mod live;
+mod notes;
 mod page_changes;
 mod pages;
 mod place;
@@ -61,11 +61,11 @@ pub use citation::CitationLookup;
 pub use compound::CompoundSource;
 pub use notes::PdfNotes;
 
+pub use events::{PdfViewEvent, ToolbarAction};
 use page_changes::changed_pages;
 pub(super) use pages::PageSlot;
 pub use place::ViewPlace;
 pub(super) use sync_mark::{SYNC_MARK_HOLD, SyncMark};
-pub use events::{PdfViewEvent, ToolbarAction};
 pub(super) use {drafts::DraftField, search::FindState};
 
 use super::{

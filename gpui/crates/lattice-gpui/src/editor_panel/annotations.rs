@@ -372,7 +372,12 @@ impl EditorPanel {
     }
 
     /// Save the draft as a note; with `revise`, ask the agent about it.
-    pub(in crate::editor_panel) fn save_note(&mut self, revise: bool, window: &mut Window, cx: &mut Context<Self>) {
+    pub(in crate::editor_panel) fn save_note(
+        &mut self,
+        revise: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let Some(draft) = &self.annotations.draft else {
             return;
         };
@@ -413,7 +418,9 @@ impl EditorPanel {
             self.annotations.draft = None;
             self.place_annotations(cx);
             window.focus(&self.editor.focus_handle(cx), cx);
-            cx.emit(EditorPanelEvent::Annotation(AnnotationRequest::Created(id.clone())));
+            cx.emit(EditorPanelEvent::Annotation(AnnotationRequest::Created(
+                id.clone(),
+            )));
             if revise {
                 cx.emit(EditorPanelEvent::Annotation(AnnotationRequest::Revise(id)));
             }
@@ -493,7 +500,12 @@ impl EditorPanel {
     }
 
     /// Select bytes `range` of the buffer and bring them to the middle.
-    pub(super) fn select_bytes(&mut self, range: Range<usize>, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn select_bytes(
+        &mut self,
+        range: Range<usize>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let snapshot = self.buffer.read(cx).snapshot();
         let (start, end) = (
             snapshot.offset_to_point(range.start),

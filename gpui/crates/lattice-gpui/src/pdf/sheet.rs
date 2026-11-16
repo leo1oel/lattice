@@ -159,7 +159,12 @@ impl PdfView {
                     .when(!building, |button| button.icon(Icon::PLAY))
                     .when_some(
                         (!building)
-                            .then(|| crate::shell::commands::keys_label(&crate::shell::commands::Save, window))
+                            .then(|| {
+                                crate::shell::commands::keys_label(
+                                    &crate::shell::commands::Save,
+                                    window,
+                                )
+                            })
                             .flatten(),
                         |button, keys| button.keys(keys),
                     )
@@ -198,7 +203,9 @@ impl PdfView {
             .children(pages)
             .on_mouse_down(MouseButton::Left, cx.listener(Self::on_sheet_mouse_down))
             .on_mouse_down(MouseButton::Middle, cx.listener(Self::on_sheet_middle_down))
-            .when(self.autoscrolling(), |sheet| sheet.cursor(CursorStyle::ResizeUpDown))
+            .when(self.autoscrolling(), |sheet| {
+                sheet.cursor(CursorStyle::ResizeUpDown)
+            })
             .on_mouse_move(cx.listener(Self::on_sheet_mouse_move))
             .on_mouse_up(MouseButton::Left, cx.listener(Self::on_sheet_mouse_up))
             .on_mouse_up_out(MouseButton::Left, cx.listener(Self::on_sheet_mouse_up));
@@ -318,7 +325,8 @@ impl PdfView {
                         let view = view.clone();
                         window.on_mouse_event(move |event: &ScrollEvent, phase, _, cx| {
                             let zoom = event.modifiers.platform || event.modifiers.control;
-                            if phase != DispatchPhase::Capture || !bounds.contains(&event.position) {
+                            if phase != DispatchPhase::Capture || !bounds.contains(&event.position)
+                            {
                                 return;
                             }
                             // The wheel stops autoscroll, and scrolls as ever.

@@ -2,8 +2,8 @@
 //! field, the heading levels, the highlighter palette and the Markdown
 //! block types, each on the popover surface 8px clear of the toolbar.
 
-use super::*;
 use super::tools::{BLOCKS, block_label};
+use super::*;
 
 impl EditorPanel {
     /// The open menu: the link field, the heading levels, the highlight
@@ -67,10 +67,19 @@ impl EditorPanel {
                             .items_center()
                             .rounded(px(6.))
                             .text_size(px(11.))
-                            .text_color(if filled { palette.text } else { palette.disabled_ink })
-                            .bg(if filled { palette.tinted } else { palette.disabled_surface })
+                            .text_color(if filled {
+                                palette.text
+                            } else {
+                                palette.disabled_ink
+                            })
+                            .bg(if filled {
+                                palette.tinted
+                            } else {
+                                palette.disabled_surface
+                            })
                             .when(filled, |this| {
-                                this.cursor_pointer().hover(|this| this.bg(palette.tinted_hover))
+                                this.cursor_pointer()
+                                    .hover(|this| this.bg(palette.tinted_hover))
                             })
                             .child(t!("Apply"))
                             .on_click(cx.listener(move |this, _, window, cx| {
@@ -95,33 +104,43 @@ impl EditorPanel {
                     ("subsection", t!("Subsection")),
                     ("subsubsection", t!("Subsubsection")),
                 ];
-                let rows = levels.into_iter().enumerate().map(|(index, (command, label))| {
-                    let on = current.as_deref() == Some(command);
-                    div()
-                        .id(("latex-heading-level", index))
-                        .h(px(28.))
-                        .px(SPACING_3)
-                        .flex()
-                        .items_center()
-                        .justify_between()
-                        .rounded(px(6.))
-                        .text_size(px(11.))
-                        .cursor_pointer()
-                        .text_color(if on { palette.text } else { palette.text_secondary })
-                        .when(on, |this| this.bg(palette.toolbar_active))
-                        .hover(|this| this.bg(palette.accent_soft).text_color(palette.text))
-                        .child(label)
-                        .child(
-                            div()
-                                .font_family(cx.lattice().fonts.editor.clone())
-                                .text_color(palette.text_secondary.opacity(0.8))
-                                .child(format!("\\{command}")),
-                        )
-                        .on_click(cx.listener(move |this, _, window, cx| {
-                            this.toolbar_action(ToolbarAction::Heading(command), window, cx)
-                        }))
-                });
-                surface(div().flex().flex_col().children(rows).into_any_element(), Some(180.))
+                let rows = levels
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, (command, label))| {
+                        let on = current.as_deref() == Some(command);
+                        div()
+                            .id(("latex-heading-level", index))
+                            .h(px(28.))
+                            .px(SPACING_3)
+                            .flex()
+                            .items_center()
+                            .justify_between()
+                            .rounded(px(6.))
+                            .text_size(px(11.))
+                            .cursor_pointer()
+                            .text_color(if on {
+                                palette.text
+                            } else {
+                                palette.text_secondary
+                            })
+                            .when(on, |this| this.bg(palette.toolbar_active))
+                            .hover(|this| this.bg(palette.accent_soft).text_color(palette.text))
+                            .child(label)
+                            .child(
+                                div()
+                                    .font_family(cx.lattice().fonts.editor.clone())
+                                    .text_color(palette.text_secondary.opacity(0.8))
+                                    .child(format!("\\{command}")),
+                            )
+                            .on_click(cx.listener(move |this, _, window, cx| {
+                                this.toolbar_action(ToolbarAction::Heading(command), window, cx)
+                            }))
+                    });
+                surface(
+                    div().flex().flex_col().children(rows).into_any_element(),
+                    Some(180.),
+                )
             }
             Menu::Highlight => {
                 let buffer = self.buffer.clone();
@@ -163,13 +182,9 @@ impl EditorPanel {
                             .text_role(TextRole::Body, cx)
                             .text_color(palette.text)
                             .hover(|this| this.bg(palette.hover))
-                            .child(
-                                div()
-                                    .w(px(14.))
-                                    .flex()
-                                    .justify_center()
-                                    .when(on, |this| this.child(Icon::CHECK.element(px(13.), palette.text))),
-                            )
+                            .child(div().w(px(14.)).flex().justify_center().when(on, |this| {
+                                this.child(Icon::CHECK.element(px(13.), palette.text))
+                            }))
                             .child(block_label(block))
                             .on_click(cx.listener(move |this, _, window, cx| {
                                 this.toolbar_action(ToolbarAction::Block(block), window, cx)

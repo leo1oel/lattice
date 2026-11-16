@@ -74,7 +74,11 @@ impl FileTreePanel {
     pub fn remembered_open(&self, cx: &App) -> Vec<String> {
         self.project
             .as_ref()
-            .map(|project| super::memory::expanded(project.read(cx).root()).into_iter().collect())
+            .map(|project| {
+                super::memory::expanded(project.read(cx).root())
+                    .into_iter()
+                    .collect()
+            })
             .unwrap_or_default()
     }
 
@@ -148,7 +152,9 @@ impl FileTreePanel {
         let Some(input) = self.search.as_ref().map(|search| search.input.clone()) else {
             return;
         };
-        input.update(cx, |input, cx| input.set_value(text.to_string(), window, cx));
+        input.update(cx, |input, cx| {
+            input.set_value(text.to_string(), window, cx)
+        });
         if let Some(search) = &mut self.search {
             search.query = super::search::normalize(text);
         }
@@ -181,7 +187,13 @@ impl FileTreePanel {
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     pub fn motion_state(&self, cx: &App) -> Option<(String, bool, usize)> {
         let motion = self.motion.as_ref()?;
-        let folder = self.state.read(cx).entry(motion.folder)?.item().id.to_string();
+        let folder = self
+            .state
+            .read(cx)
+            .entry(motion.folder)?
+            .item()
+            .id
+            .to_string();
         Some((folder, motion.opened, motion.rows))
     }
 
@@ -197,7 +209,11 @@ impl FileTreePanel {
     pub fn scroll_rows_to(&mut self, rows: f32, cx: &mut Context<Self>) {
         let scroll = self.state.read(cx).scroll_handle().clone();
         let y = gpui::px(-rows * super::motion::ROW);
-        scroll.0.borrow().base_handle.set_offset(gpui::point(gpui::px(0.), y));
+        scroll
+            .0
+            .borrow()
+            .base_handle
+            .set_offset(gpui::point(gpui::px(0.), y));
         self.redraw_rows(cx);
     }
 }

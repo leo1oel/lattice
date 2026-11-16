@@ -29,9 +29,15 @@ fn what_a_round_asks_about() {
     let none = |_: &str| false;
     assert!(revisable(&note("a", 1, "a.tex", 0, None), &none));
     assert!(!revisable(&note("a", 0, "a.tex", 0, None), &none));
-    assert!(!revisable(&note("a", 1, "a.tex", 0, Some("proposed")), &none));
+    assert!(!revisable(
+        &note("a", 1, "a.tex", 0, Some("proposed")),
+        &none
+    ));
     assert!(!revisable(&note("a", 1, "a.tex", 0, Some("asked")), &none));
-    assert!(revisable(&note("a", 1, "a.tex", 0, Some("rejected")), &none));
+    assert!(revisable(
+        &note("a", 1, "a.tex", 0, Some("rejected")),
+        &none
+    ));
     assert!(!revisable(&note("a", 1, "a.tex", 0, None), &|id| id == "a"));
     let mut answered = note("a", 1, "a.tex", 0, Some("asked"));
     answered.revision.as_mut().unwrap().answer = Some("yes".into());
@@ -47,6 +53,9 @@ fn proposals_are_walked_by_file_then_place() {
         note("d", 4, "a.tex", 1, Some("rejected")),
     ];
     let refs: Vec<&EditorComment> = notes.iter().collect();
-    let order: Vec<String> = pending_proposals(&refs).into_iter().map(|comment| comment.id).collect();
+    let order: Vec<String> = pending_proposals(&refs)
+        .into_iter()
+        .map(|comment| comment.id)
+        .collect();
     assert_eq!(order, ["a", "b", "c"]);
 }

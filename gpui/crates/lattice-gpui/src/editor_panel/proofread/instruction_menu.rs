@@ -94,9 +94,8 @@ impl EditorPanel {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let field = cx.new(|cx| {
-            InputState::new(window, cx).placeholder(t!("What should the agent change?"))
-        });
+        let field = cx
+            .new(|cx| InputState::new(window, cx).placeholder(t!("What should the agent change?")));
         field.update(cx, |field, cx| field.focus(window, cx));
         let submit = cx.subscribe_in(&field, window, |this, field, event, window, cx| {
             if let InputEvent::PressEnter { .. } = event {
@@ -110,18 +109,30 @@ impl EditorPanel {
         });
     }
 
-    pub(in crate::editor_panel) fn submit_instruction(&mut self, text: &str, window: &mut Window, cx: &mut Context<Self>) {
+    pub(in crate::editor_panel) fn submit_instruction(
+        &mut self,
+        text: &str,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let instruction = tidy(text);
         if instruction.is_empty() {
             return;
         }
         remember(&instruction, cx);
         self.proofread.instruction = None;
-        self.start_proofread(lattice_editor::proofread::Ask::Instruction(instruction), window, cx);
+        self.start_proofread(
+            lattice_editor::proofread::Ask::Instruction(instruction),
+            window,
+            cx,
+        );
     }
 
     /// The menu's content.
-    pub(in crate::editor_panel) fn instruction_menu(&mut self, cx: &mut Context<Self>) -> AnyElement {
+    pub(in crate::editor_panel) fn instruction_menu(
+        &mut self,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         let palette = cx.palette().clone();
         let Some(menu) = &self.proofread.instruction else {
             return div().into_any_element();
@@ -156,8 +167,16 @@ impl EditorPanel {
                     .items_center()
                     .rounded(px(6.))
                     .text_role(TextRole::BodyCompact, cx)
-                    .text_color(if filled { palette.text } else { palette.disabled_ink })
-                    .bg(if filled { palette.tinted } else { palette.disabled_surface })
+                    .text_color(if filled {
+                        palette.text
+                    } else {
+                        palette.disabled_ink
+                    })
+                    .bg(if filled {
+                        palette.tinted
+                    } else {
+                        palette.disabled_surface
+                    })
                     .when(filled, |this| {
                         this.cursor_pointer()
                             .hover(|style| style.bg(palette.tinted_hover))

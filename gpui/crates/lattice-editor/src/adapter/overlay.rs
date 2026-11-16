@@ -132,10 +132,7 @@ impl LatticeEditor {
         painted.line_height = Some(frame.line_height);
         let text = self.buffer.read(cx).snapshot();
         // A pin stands inside the gutter's end; the editor's ground rings it.
-        let gutter_end = view.left()
-            + self
-                .gutter_layout
-                .map_or(px(0.), |layout| layout.width());
+        let gutter_end = view.left() + self.gutter_layout.map_or(px(0.), |layout| layout.width());
         let ground = {
             use lattice_ui::ActiveLattice as _;
             let app: &App = cx;
@@ -182,8 +179,7 @@ impl LatticeEditor {
                 let (_, font_size) = super::gutter_column::buffer_font(cx);
                 // Zed lays the inlays at one point out in splice order across
                 // every layer, and inlay ids grow with each splice.
-                let mut at_offset: HashMap<usize, Vec<(project::InlayId, usize)>> =
-                    HashMap::new();
+                let mut at_offset: HashMap<usize, Vec<(project::InlayId, usize)>> = HashMap::new();
                 for anchored in self.inline.values().flatten() {
                     at_offset
                         .entry(anchored.anchor.to_offset(&text))

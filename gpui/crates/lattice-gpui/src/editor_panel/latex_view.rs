@@ -102,9 +102,8 @@ impl EditorPanel {
             .push(cx.subscribe_in(&document, window, Self::on_latex_document));
         // The page marks the project's annotations as the source does.
         let store = crate::annotations::store::store(cx);
-        self._subscriptions.push(cx.observe(&store, |this, _, cx| {
-            this.forward_latex_annotations(cx)
-        }));
+        self._subscriptions
+            .push(cx.observe(&store, |this, _, cx| this.forward_latex_annotations(cx)));
         document
     }
 

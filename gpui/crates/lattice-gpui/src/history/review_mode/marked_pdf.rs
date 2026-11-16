@@ -170,5 +170,9 @@ fn file_for(root: &Path, export: u64) -> PathBuf {
     root.hash(&mut hasher);
     std::env::temp_dir()
         .join("lattice-review-pdf")
-        .join(format!("{:016x}-{}-{export}.pdf", hasher.finish(), std::process::id()))
+        .join(format!(
+            "{:016x}-{}-{export}.pdf",
+            hasher.finish(),
+            std::process::id()
+        ))
 }

@@ -133,12 +133,10 @@ impl LoadedDiff {
                 cx.new(|cx| {
                     DiffState::new(files, cx)
                         .with_context_lines(Some(CONTEXT))
-                        .with_syntax_highlighter(move |language, text| {
-                            match language {
-                                "latex" => highlight_tex(text, appearance),
-                                "markdown" => highlight_markdown(text, appearance),
-                                _ => Vec::new(),
-                            }
+                        .with_syntax_highlighter(move |language, text| match language {
+                            "latex" => highlight_tex(text, appearance),
+                            "markdown" => highlight_markdown(text, appearance),
+                            _ => Vec::new(),
                         })
                 })
             });
@@ -433,14 +431,22 @@ mod tests {
     #[test]
     fn markdown_diffs_are_coloured_by_their_marks() {
         assert_eq!(super::language_of("notes/Plan.MD"), "markdown");
-        let text = "## Results\n- see `fit.py` and [the data](data.csv)\nIt is **clear** and *new*.";
+        let text =
+            "## Results\n- see `fit.py` and [the data](data.csv)\nIt is **clear** and *new*.";
         let spans: Vec<&str> = super::highlight_markdown(text, Appearance::Light)
             .into_iter()
             .map(|(range, _)| &text[range])
             .collect();
         assert_eq!(
             spans,
-            ["## Results", "- ", "`fit.py`", "](data.csv)", "**clear**", "*new*"]
+            [
+                "## Results",
+                "- ",
+                "`fit.py`",
+                "](data.csv)",
+                "**clear**",
+                "*new*"
+            ]
         );
     }
 }

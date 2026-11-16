@@ -151,7 +151,10 @@ fn update(change: impl FnOnce(&mut Places) -> bool, cx: &mut gpui::App) {
     drop(store);
     cx.spawn(async move |cx| {
         cx.background_executor().timer(WRITE_AFTER).await;
-        if self::store().lock().is_ok_and(|store| store.changes == change) {
+        if self::store()
+            .lock()
+            .is_ok_and(|store| store.changes == change)
+        {
             flush();
         }
     })
