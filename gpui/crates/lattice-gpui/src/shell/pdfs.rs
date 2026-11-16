@@ -68,6 +68,17 @@ impl Shell {
             PdfEvent::Outline { path, line } => self.jump_to_heading(path, *line, window, cx),
             PdfEvent::OpenCitation(key) => self.open_citation(key, window, cx),
             PdfEvent::Annotation(request) => self.on_annotation_request(request, window, cx),
+            PdfEvent::OverleafNote {
+                id,
+                path,
+                line,
+                selection,
+                quote,
+                body,
+            } => {
+                let panel = panel.clone();
+                self.post_pdf_note(&panel, *id, path, *line, selection, quote, body, window, cx);
+            }
             PdfEvent::ExportReview => {
                 let view = panel.read(cx).live_view().clone();
                 self.open_review_sheet(Some(view), window, cx)

@@ -89,9 +89,7 @@ impl Shell {
                 this.show_overleaf_review(cx);
                 this.show_editable(cx);
                 this.note_repair_writable(cx);
-                if this.pdf.read(cx).annotatable() == Some(bridge.read(cx).linked()) {
-                    this.give_pdf_notes(cx);
-                }
+                this.follow_overleaf_for_pdf_notes(cx);
                 super::menus::follow_front(cx);
                 cx.notify()
             }),

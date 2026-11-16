@@ -5,7 +5,6 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] Margin review's J/K walk between items.
 
-- [ ] The PDF: annotating a selection in a project linked to Overleaf (it becomes an Overleaf comment there).
 
 - [ ] Settings: the sections' product icons' hover gestures (they rest as the Tauri app's resting frames).
 
