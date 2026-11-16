@@ -158,6 +158,7 @@ pub(in crate::overleaf) fn plan_sync(
     all_paths.extend(local.keys());
     all_paths.extend(state.files.keys());
 
+    let built_here = crate::latex::built_pdfs(root);
     let mut plan = SyncPlan::default();
     for path in all_paths {
         let base_hash = state.files.get(path);
@@ -185,6 +186,17 @@ pub(in crate::overleaf) fn plan_sync(
                     plan.files.insert(path.clone(), local_hash);
                     continue;
                 }
+                // A PDF still exactly as this copy's last build of it left it
+                // is build output, not an edit: next to any other copy on
+                // Overleaf it is not a change "here" at all, so Overleaf's
+                // wins quietly instead of raising a conflict and setting the
+                // build aside as a `(local conflict …)` copy. It is rebuilt
+                // whenever it is wanted (`shown_pdf::replaced`). This is
+                // what happens to a root document's PDF each time Build
+                // moves between documents: the one no longer built rejoins
+                // sync with no agreed copy, while Overleaf still holds one
+                // an earlier sync sent up.
+                let local_changed = local_changed && built_here.get(path) != Some(&local_hash);
                 // Still marked up: merging again would nest markers. Hold it.
                 if local_changed && has_conflict_markers(lb) {
                     if let Some(base) = base_hash {

@@ -387,7 +387,13 @@ state). The PDF of the default root document, the one Build compiles
 copy's build and stays out of sync in both directions, at any depth
 (`BuildPdf` in `overleaf/files.rs`). Other root documents' PDFs sync like
 any other file, so after the writer builds another root document, a
-collaborator's PDF can come down over the previous one's. A build of a
+collaborator's PDF can come down over the previous one's. A PDF still
+byte-for-byte what this copy's last build of it left
+(`latex::built_pdfs`) never counts as a local edit when Overleaf's copy
+differs: Overleaf's comes down quietly, with no conflict and no
+`(local conflict …)` copy, which is what happens each time Build moves
+between root documents and the PDF no longer built rejoins sync with no
+agreed copy. A build of a
 document whose PDF no longer matches the hash its last build here recorded
 (`shown_pdf::replaced`) typesets again even when latexmk finds nothing to
 do, so the preview never shows that PDF as this copy's build.
