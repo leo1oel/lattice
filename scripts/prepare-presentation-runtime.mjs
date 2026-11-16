@@ -4,7 +4,7 @@
 // editor (scripts/check-presentation-runtime.mjs), and sign its Mach-O binaries
 // with the Developer ID in APPLE_SIGNING_IDENTITY (skipped without one).
 import { cpSync, existsSync, lstatSync, mkdirSync, readdirSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
-import { dirname, join, relative } from "node:path";
+import { dirname, join, relative, sep } from "node:path";
 import { checkPresentationRuntime } from "./check-presentation-runtime.mjs";
 import { signMachOTree, signingIdentity } from "./lib/codesign.mjs";
 import { pruneNodeModules } from "./lib/runtime-prune.mjs";
@@ -152,7 +152,9 @@ export function prunePresentationRuntime(runtimeRoot) {
   }
 
   for (const path of walkFiles(nodeModules)) {
-    if (removablePackageFiles.some((pattern) => pattern.test(relative(nodeModules, path)))) rmSync(path);
+    // The patterns are written with "/", which a Windows path is not.
+    const file = relative(nodeModules, path).split(sep).join("/");
+    if (removablePackageFiles.some((pattern) => pattern.test(file))) rmSync(path);
   }
 
   // Vite compiles TypeScript straight out of node_modules (Open Slide's own

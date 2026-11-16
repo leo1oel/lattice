@@ -19,7 +19,7 @@ afterEach(() => {
 /** A copy of what the check reads, for one test to break. */
 function copy() {
   root = mkdtempSync(path.join(os.tmpdir(), "perf-evidence-"));
-  for (const item of ["docs/performance.md", "docs/performance-history.md", "docs/performance-data", "scripts/perf-bench/pdf-window-figures.mjs"]) {
+  for (const item of ["docs/performance.md", "docs/performance-history.md", "docs/performance-data", "scripts/perf-bench/pdf-window-figures.mjs", "scripts/perf-bench/divider-drag-figures.mjs"]) {
     cpSync(path.join(repo, item), path.join(root, item), { recursive: true });
   }
   return root;
@@ -35,6 +35,12 @@ const measured = (manifest) => manifest.tables.find((entry) => entry.kind === "m
 describe("check-perf-evidence", () => {
   it("passes on the repository as it is", async () => {
     expect(await checkPerfEvidence(repo)).toEqual([]);
+  });
+
+  it("passes on a CRLF checkout of the repository", async () => {
+    copy();
+    for (const doc of ["docs/performance.md", "docs/performance-history.md"]) edit(doc, (text) => text.replace(/\r?\n/g, "\r\n"));
+    expect(await checkPerfEvidence(root)).toEqual([]);
   });
 
   it("fails when a raw dataset is gone", async () => {

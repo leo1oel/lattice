@@ -64,6 +64,15 @@ describe("caret to source (R-SRC-1)", () => {
     expect(map.offsetToPosition(offset!)).toBe(inText(map.doc, "Second", 3));
   });
 
+  it("places a code block's line break of a CRLF file at its \\r\\n", () => {
+    const text = "```sh\r\nmkdir -p x\r\ntouch x/y\r\n```\r\n";
+    const map = mapOf(text);
+    const lineBreak = inText(map.doc, "mkdir", "mkdir -p x".length);
+    const offset = map.positionToOffset(lineBreak);
+    expect(offset).toBe(text.indexOf("\r\ntouch"));
+    expect(map.offsetToPosition(offset!)).toBe(lineBreak);
+  });
+
   it("maps through escapes, and has no place inside an escape or an atom", () => {
     const text = "A \\*star\\* and $x^2$ here";
     const map = mapOf(text);
@@ -218,8 +227,10 @@ describe("the corpus", () => {
         if (offset == null) continue;
         mapped += 1;
         const char = text[offset];
-        // The source shows the character itself, or the escape or reference that writes it.
-        if (char !== value[index] && char !== "\\" && char !== "&" && !(value[index] === " " && /\s/.test(char ?? ""))) {
+        // The source shows the character itself, or the escape or reference that writes it,
+        // or, for a line break of a CRLF file (a Windows checkout), the "\r\n" that writes it.
+        const crlfBreak = value[index] === "\n" && text.startsWith("\r\n", offset);
+        if (char !== value[index] && char !== "\\" && char !== "&" && !crlfBreak && !(value[index] === " " && /\s/.test(char ?? ""))) {
           throw new Error(`${name}: position ${pos + index} (${JSON.stringify(value.slice(index, index + 12))}) maps to ${JSON.stringify(text.slice(offset, offset + 12))}`);
         }
         if (linkSyntax.some(([from, to]) => offset >= from && offset < to)) {

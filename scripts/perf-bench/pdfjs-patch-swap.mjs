@@ -32,7 +32,9 @@ export function patchedAt(installed, currentPatch, refPatch, tmpRoot = os.tmpdir
       const patch = path.join(work, name);
       writeFileSync(patch, text);
       const was = new Map(touched(text).map((file) => [file, readFileSync(path.join(tree, file), "utf8")]));
-      execFileSync("git", ["apply", ...args, patch], { cwd: tree, env, stdio: ["ignore", "ignore", "pipe"] });
+      // A user's core.autocrlf (Git for Windows sets it) would write the
+      // package's LF files back with CRLF.
+      execFileSync("git", ["-c", "core.autocrlf=false", "apply", ...args, patch], { cwd: tree, env, stdio: ["ignore", "ignore", "pipe"] });
       const unchanged = [...was].filter(([file, text]) => readFileSync(path.join(tree, file), "utf8") === text).map(([file]) => file);
       if (unchanged.length) throw new Error(`git apply ${[...args, name].join(" ")} left ${unchanged.join(", ")} unchanged`);
     };
