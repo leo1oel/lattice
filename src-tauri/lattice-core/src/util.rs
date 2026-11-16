@@ -30,6 +30,22 @@ pub(crate) fn is_atomic_write_temporary(name: &str) -> bool {
         .is_some_and(|id| uuid::Uuid::try_parse(id).is_ok())
 }
 
+/// Whether `relative` (forward slashes) is in a folder a package fills while
+/// compiling, through a program it runs with shell escape: minted's
+/// `_minted` / `_minted-<jobname>`, the svg package's `svg-inkscape`. TeX's
+/// output directory never reaches it, so it lands beside the sources; the
+/// tree hides it and Overleaf sync leaves it out. Exact names only: a
+/// writer's `_minted_snippets/` is a source. Never deleted as build output,
+/// since a project may keep it on purpose (minted's `frozencache`).
+pub(crate) fn in_package_cache_folder(relative: &str) -> bool {
+    relative.split('/').any(|name| {
+        name == "svg-inkscape"
+            || name
+                .strip_prefix("_minted")
+                .is_some_and(|rest| rest.is_empty() || (rest.len() > 1 && rest.starts_with('-')))
+    })
+}
+
 /// Lowercase hex SHA-256 of `bytes`.
 pub(crate) fn sha256_hex(bytes: impl AsRef<[u8]>) -> String {
     format!("{:x}", Sha256::digest(bytes))
@@ -247,6 +263,22 @@ mod tests {
         }
         for name in ["references.bib", ".lattice-notes.tmp", "draft.tmp", ".lattice-sheet"] {
             assert!(!is_atomic_write_temporary(name), "{name}");
+        }
+    }
+
+    #[test]
+    fn package_cache_folders_are_matched_by_exact_name_at_any_depth() {
+        for (path, cache) in [
+            ("_minted", true),
+            ("_minted-main/default.pygstyle", true),
+            ("chapters/_minted-intro/0A1B2C.pygtex", true),
+            ("figures/svg-inkscape/plot_svg-tex.pdf", true),
+            ("_minted_snippets/hello.py", false),
+            ("_minted_listing.tex", false),
+            ("_minted-/stray.tex", false),
+            ("svg-inkscape-notes/readme.md", false),
+        ] {
+            assert_eq!(in_package_cache_folder(path), cache, "{path}");
         }
     }
 }

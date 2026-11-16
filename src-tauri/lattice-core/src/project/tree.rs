@@ -272,6 +272,7 @@ fn exclusion_reason(relative: &Path, name: &str, path: &Path) -> Option<&'static
         return Some("generated-directory");
     }
     if is_build_artifact(path)
+        || crate::util::in_package_cache_folder(&normalized)
         || name.ends_with('~')
         || name.ends_with(".swp")
         || name.ends_with(".tmp")
