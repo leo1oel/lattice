@@ -22,6 +22,7 @@ import type { ProjectState } from "./use-project-state";
 import { useLatestRef } from "../hooks/use-latest-ref";
 import { markGetStartedStep, TUTORIAL_VENUE } from "../onboarding/get-started-progress";
 import { windowProjects } from "./window-projects";
+import { useProjectTabTransfer } from "./project-tab-transfer";
 
 /** Asked only when the window already shows a project, so the question waits for the first switch. */
 const loadLeaveProject = () => import("./leave-project");
@@ -39,7 +40,7 @@ const OPEN_IN_ANOTHER_WINDOW = "already open in another Lattice window";
 
 export type ProjectLifecycleDeps = {
   projectState: ProjectState;
-  documents: Pick<OpenDocuments, "claim" | "flush" | "save" | "hasUnsavedEdits" | "enter" | "chooseMode">;
+  documents: Pick<OpenDocuments, "claim" | "clear" | "flush" | "save" | "hasUnsavedEdits" | "enter" | "chooseMode" | "persistSession">;
   library: Pick<
     ReturnType<typeof useProjectLibrary>,
     "claimBibliographyRefresh" | "resetBibliographyIndex" | "applyCitations" | "applyReferences" | "failIndex" | "publishPapers"
@@ -92,7 +93,7 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     project, setProject, projectRef, projectBeforeTransitionRef, beginTransition, cancelProjectTransition,
     captureProjectScope,
   } = projectState;
-  const { claim, flush, save, hasUnsavedEdits, enter: enterDocuments, chooseMode } = documents;
+  const { claim, clear, flush, save, hasUnsavedEdits, enter: enterDocuments, chooseMode } = documents;
   const {
     claimBibliographyRefresh, resetBibliographyIndex, applyCitations, applyReferences, failIndex, publishPapers, failPapers,
   } = library;
@@ -172,10 +173,11 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     if (saved === "composing") showNotice(t`Finish the current text composition, then switch projects again.`);
     if (saved === "changed") showNotice(t`The document changed while saving. Save it, then switch projects again.`);
     if (saved !== "saved") return false;
+    depsRef.current.documents.persistSession();
     if (beginProjectTransition()) return true;
     showNotice(t`Overleaf sync is finishing. Try switching projects again in a moment.`, "Overleaf");
     return false;
-  }, [beginProjectTransition, flush, flushWholeFilesRef, hasUnsavedEdits, save, settledRef, syncingRef, t]);
+  }, [beginProjectTransition, depsRef, flush, flushWholeFilesRef, hasUnsavedEdits, save, settledRef, syncingRef, t]);
 
   const rememberProject = useCallback((snapshot: ProjectSnapshot) => {
     setRecents((current) => ({ ...current, projects: rememberRecentProject({ name: snapshot.manifest.name, path: snapshot.root }) }));
@@ -567,6 +569,16 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
   // ---- Closing, quitting and reloading save first -----------------------------------------------------------------
   useSaveBeforeClose({ browserHosted, flush, save, hasUnsavedEdits });
 
+  const moveProjectTab = useProjectTabTransfer({
+    browserHosted, building, projectRef, holdWindow, startProjectTransition, cancelProjectTransition, enterProject,
+    setMovingWorkspace, setBusyLabel,
+    forgetTransferredProject: () => {
+      projectBeforeTransitionRef.current = null;
+      clear();
+      setProject(null);
+    },
+  });
+
   // ---- Handing the workspace to a browser tab and back ------------------------------------------------------------
   /** "Open in browser" from a Lattice window, "Open in Lattice app" from a browser tab. */
   const moveWorkspace = useCallback(() => holdWindow(undefined, async () => {
@@ -602,6 +614,6 @@ export function useProjectLifecycle(deps: ProjectLifecycleDeps) {
     launching, busyLabel, recentProjects: recents.projects, unopenedProject: recents.unopened, projectMenuOpen, setProjectMenuOpen, createForm, updateCreateForm,
     startProjectTransition, cancelProjectTransition, revealNewProject, openExistingProject, chooseExisting, createProject,
     chooseRecentProject, openTutorialProject, importOverleafZip, clone, exportProjectZip, moveWorkspace,
-    movingWorkspace, openInThisWindow, openProjectWindow,
+    movingWorkspace, openInThisWindow, openProjectWindow, moveProjectTab,
   };
 }

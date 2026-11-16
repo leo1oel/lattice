@@ -20,6 +20,9 @@ use crate::{papers::model::Filter, scenario::Run};
 mod audit;
 mod cards;
 mod library;
+// The reader's checks read its page from the webview island, which only
+// macOS has.
+#[cfg(target_os = "macos")]
 mod reader;
 
 const BUNDLE: &str = ".research/papers/1706.03762";
@@ -241,6 +244,7 @@ impl Run {
             );
             self.papers_shot(cx, "papers-reader").await;
             self.press(cx, 'w', true).await?;
+            #[cfg(target_os = "macos")]
             self.paper_reader(cx, steps, root, &papers, BUNDLE).await?;
         }
 

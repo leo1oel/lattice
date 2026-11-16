@@ -330,9 +330,12 @@ impl TexSetupCenter {
                 .ghost()
                 .on_click(move |_, window, cx| {
                     let center = center.clone();
-                    ModalLayer::leave(("tex-dependency-layer", serial), window, cx, move |_, cx| {
-                        center.update(cx, |center, cx| center.close_dependency(cx))
-                    });
+                    ModalLayer::leave(
+                        ("tex-dependency-layer", serial),
+                        window,
+                        cx,
+                        move |_, cx| center.update(cx, |center, cx| center.close_dependency(cx)),
+                    );
                 })
                 .into_any_element()
         };

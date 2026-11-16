@@ -32,8 +32,11 @@ pub mod card_uses;
 pub mod cards;
 pub mod citation_library;
 pub mod compiled_labels;
-pub mod definition;
 pub mod completions;
+pub mod compound_completion;
+pub mod compound_places;
+pub mod compounds;
+pub mod definition;
 pub mod diagnostics;
 pub mod edits;
 pub mod environments;
@@ -41,11 +44,11 @@ pub mod folding;
 pub mod format_toggle;
 pub mod graphics;
 pub mod highlights;
-pub mod preview_cards;
-pub mod previews;
 pub mod input_rules;
 pub mod lint;
 pub mod math_preview;
+pub mod preview_cards;
+pub mod previews;
 pub mod project_completions;
 pub mod prose;
 pub mod protected;
@@ -96,19 +99,24 @@ pub fn is_tex_source(path: &Path) -> bool {
 }
 
 /// The language for a file, by extension: LaTeX for TeX sources, Markdown
-/// for `.md` files (whose buffer also needs [`crate::markdown::registry`]),
-/// plain text for everything else.
+/// for `.md` files, BibTeX for a bibliography and HTML for a `.html` file
+/// (whose buffers also need [`crate::markdown::registry`] for their
+/// injections), plain text for everything else.
 pub fn language_for_path(path: &Path, cx: &App) -> Option<Arc<Language>> {
     if crate::markdown::is_markdown(path) {
         return Some(crate::markdown::language(cx));
+    }
+    if let Some(language) = crate::languages::for_path(path, cx) {
+        return Some(language);
     }
     is_tex_source(path).then(|| cx.global::<LatexLanguage>().0.clone())
 }
 
 /// Put the LaTeX extensions that read the project on `editor`: the citation,
 /// reference and figure cards, and completion of citation keys, labels,
-/// project paths, the project's own commands and built-in ones, in the Tauri
-/// app's source order. `facts` is what the host reads of the project's files.
+/// chemnum compound keys, project paths, the project's own commands and
+/// built-in ones, in the Tauri app's source order. `facts` is what the host
+/// reads of the project's files.
 pub fn attach(
     editor: &mut LatticeEditor,
     index: &Entity<ProjectIndex>,
@@ -129,6 +137,9 @@ pub fn attach(
         index: weak.clone(),
     }));
     editor.add_completion_source(Rc::new(completions::ReferenceSource { index: weak }));
+    editor.add_completion_source(Rc::new(compound_completion::CompoundSource {
+        facts: facts.clone(),
+    }));
     editor.add_completion_source(Rc::new(project_completions::IncludeSource {
         facts: facts.clone(),
     }));

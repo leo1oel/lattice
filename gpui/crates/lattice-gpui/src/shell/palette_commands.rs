@@ -47,21 +47,35 @@ actions!(
 fn entry_command(entry: NewEntry) -> Command {
     let label = entry.label();
     match entry {
-        NewEntry::Latex => Command::new("new-latex", label, Section::Project, NewLatexFileInProject),
-        NewEntry::Markdown => {
-            Command::new("new-markdown", label, Section::Project, NewMarkdownFileInProject)
+        NewEntry::Latex => {
+            Command::new("new-latex", label, Section::Project, NewLatexFileInProject)
         }
+        NewEntry::Markdown => Command::new(
+            "new-markdown",
+            label,
+            Section::Project,
+            NewMarkdownFileInProject,
+        ),
         NewEntry::Folder => Command::new("new-folder", label, Section::Project, NewFolderInProject),
-        NewEntry::Import => {
-            Command::new("new-import", label, Section::Project, ImportFilesIntoProject)
-        }
-        NewEntry::Spreadsheet => {
-            Command::new("new-spreadsheet", label, Section::Project, NewSpreadsheetInProject)
-        }
+        NewEntry::Import => Command::new(
+            "new-import",
+            label,
+            Section::Project,
+            ImportFilesIntoProject,
+        ),
+        NewEntry::Spreadsheet => Command::new(
+            "new-spreadsheet",
+            label,
+            Section::Project,
+            NewSpreadsheetInProject,
+        ),
         NewEntry::Board => Command::new("new-board", label, Section::Project, NewBoardInProject),
-        NewEntry::Presentation => {
-            Command::new("new-presentation", label, Section::Project, NewPresentationInProject)
-        }
+        NewEntry::Presentation => Command::new(
+            "new-presentation",
+            label,
+            Section::Project,
+            NewPresentationInProject,
+        ),
     }
 }
 
@@ -213,35 +227,41 @@ pub(super) const PART: Part = Part {
                     view.update(cx, |view, cx| view.toggle_dark_pages(cx))
                 }),
             )
-            .on_action(cx.listener(|this: &mut Shell, _: &NewLatexFileInProject, window, cx| {
-                this.new_entry(NewEntry::Latex, window, cx)
-            }))
             .on_action(
-                cx.listener(|this: &mut Shell, _: &NewMarkdownFileInProject, window, cx| {
-                    this.new_entry(NewEntry::Markdown, window, cx)
+                cx.listener(|this: &mut Shell, _: &NewLatexFileInProject, window, cx| {
+                    this.new_entry(NewEntry::Latex, window, cx)
                 }),
             )
-            .on_action(cx.listener(|this: &mut Shell, _: &NewFolderInProject, window, cx| {
-                this.new_entry(NewEntry::Folder, window, cx)
-            }))
+            .on_action(cx.listener(
+                |this: &mut Shell, _: &NewMarkdownFileInProject, window, cx| {
+                    this.new_entry(NewEntry::Markdown, window, cx)
+                },
+            ))
+            .on_action(
+                cx.listener(|this: &mut Shell, _: &NewFolderInProject, window, cx| {
+                    this.new_entry(NewEntry::Folder, window, cx)
+                }),
+            )
             .on_action(
                 cx.listener(|this: &mut Shell, _: &ImportFilesIntoProject, window, cx| {
                     this.new_entry(NewEntry::Import, window, cx)
                 }),
             )
-            .on_action(
-                cx.listener(|this: &mut Shell, _: &NewSpreadsheetInProject, window, cx| {
+            .on_action(cx.listener(
+                |this: &mut Shell, _: &NewSpreadsheetInProject, window, cx| {
                     this.new_entry(NewEntry::Spreadsheet, window, cx)
-                }),
-            )
-            .on_action(cx.listener(|this: &mut Shell, _: &NewBoardInProject, window, cx| {
-                this.new_entry(NewEntry::Board, window, cx)
-            }))
+                },
+            ))
             .on_action(
-                cx.listener(|this: &mut Shell, _: &NewPresentationInProject, window, cx| {
-                    this.new_entry(NewEntry::Presentation, window, cx)
+                cx.listener(|this: &mut Shell, _: &NewBoardInProject, window, cx| {
+                    this.new_entry(NewEntry::Board, window, cx)
                 }),
             )
+            .on_action(cx.listener(
+                |this: &mut Shell, _: &NewPresentationInProject, window, cx| {
+                    this.new_entry(NewEntry::Presentation, window, cx)
+                },
+            ))
             .on_action(cx.listener(|this: &mut Shell, _: &RefreshFileTree, _, cx| {
                 this.file_tree()
                     .clone()

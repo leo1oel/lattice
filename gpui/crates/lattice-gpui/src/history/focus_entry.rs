@@ -61,8 +61,11 @@ impl HistoryPanel {
         if self.focus.scroll_to.borrow().as_deref() != Some(key) {
             return None;
         }
-        let (wanted, scroll, sticky) =
-            (self.focus.scroll_to.clone(), self.scroll.clone(), self.sticky.clone());
+        let (wanted, scroll, sticky) = (
+            self.focus.scroll_to.clone(),
+            self.scroll.clone(),
+            self.sticky.clone(),
+        );
         Some(
             canvas(
                 move |bounds: Bounds<Pixels>, _, _| {

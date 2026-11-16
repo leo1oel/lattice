@@ -7,8 +7,8 @@
 //! room the workspaces fold into one menu button.
 
 use gpui::{
-    AnyElement, AnyView, App, Context, InteractiveElement as _, IntoElement,
-    KeyDownEvent, ParentElement as _, StatefulInteractiveElement as _, Styled as _, Window, div,
+    AnyElement, AnyView, App, Context, InteractiveElement as _, IntoElement, KeyDownEvent,
+    ParentElement as _, StatefulInteractiveElement as _, Styled as _, Window, div,
     prelude::FluentBuilder as _, px,
 };
 use lattice_i18n::{space_mixed_script, t};
@@ -190,7 +190,13 @@ pub(super) fn workspace_switcher(
             && let Some(input) = shell.rename_input()
         {
             return track
-                .child(rename_field("workspace-rename", &input, shell.layout.track.taken, &palette, cx))
+                .child(rename_field(
+                    "workspace-rename",
+                    &input,
+                    shell.layout.track.taken,
+                    &palette,
+                    cx,
+                ))
                 .into_any_element();
         }
         let name = current
@@ -267,7 +273,11 @@ pub(super) fn workspace_switcher(
     // (`SlidingTabPill`); none while a preset lies over it.
     let selected_ix = preset
         .is_none()
-        .then(|| workspaces.iter().position(|(id, _)| current.as_deref() == Some(id.as_str())))
+        .then(|| {
+            workspaces
+                .iter()
+                .position(|(id, _)| current.as_deref() == Some(id.as_str()))
+        })
         .flatten();
     let plate = lattice_ui::sliding::SlidingPlate::new("workspace-plate", selected_ix, window, cx);
     let plate_drawn = plate.is_drawn(cx);
@@ -285,7 +295,13 @@ pub(super) fn workspace_switcher(
         if renaming.as_deref() == Some(id.as_str())
             && let Some(input) = shell.rename_input()
         {
-            let field = rename_field(("workspace-rename", ix), &input, shell.layout.track.taken, &palette, cx);
+            let field = rename_field(
+                ("workspace-rename", ix),
+                &input,
+                shell.layout.track.taken,
+                &palette,
+                cx,
+            );
             return plate.item(ix, field);
         }
         let selected = preset.is_none() && current.as_deref() == Some(id.as_str());
@@ -342,7 +358,9 @@ pub(super) fn workspace_switcher(
                 };
                 shell.workspace_tab_key(&key_id, event, &open, window, cx)
             }))
-            .when(lifted, |tab| tab.opacity(0.7).cursor(gpui::CursorStyle::ClosedHand))
+            .when(lifted, |tab| {
+                tab.opacity(0.7).cursor(gpui::CursorStyle::ClosedHand)
+            })
             .flex()
             .flex_none()
             .items_center()
@@ -396,9 +414,10 @@ pub(super) fn workspace_switcher(
     // While a tab is pressed, the window's pointer drives the drag.
     let pressed = shell.workspace_pressed().then(|| {
         let weak = weak.clone();
-        gpui::canvas(|_, _, _| (), move |_, _, window, _| {
-            super::workspace_track::listen_while_pressed(weak, window)
-        })
+        gpui::canvas(
+            |_, _, _| (),
+            move |_, _, window, _| super::workspace_track::listen_while_pressed(weak, window),
+        )
         .absolute()
         .size_0()
     });

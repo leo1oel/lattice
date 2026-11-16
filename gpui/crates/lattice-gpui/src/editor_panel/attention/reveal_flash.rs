@@ -12,8 +12,8 @@ use std::time::{Duration, Instant};
 
 use editor::{Editor, RowHighlightOptions};
 use gpui::{App, Entity, Global, Hsla, WeakEntity};
-use lattice_ui::{ActiveLattice as _, attention};
 use language::{Bias, Point};
+use lattice_ui::{ActiveLattice as _, attention};
 
 /// The flash showing now: when it began, which flash it is, so an earlier
 /// one ending does not take a later one's row away, and the editor it

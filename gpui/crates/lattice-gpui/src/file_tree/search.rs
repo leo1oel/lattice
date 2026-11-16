@@ -21,8 +21,8 @@
 use std::collections::HashSet;
 
 use gpui::{
-    AnyElement, App, AppContext as _, Context, Entity, IntoElement as _, KeyDownEvent, ParentElement as _,
-    Styled as _, Subscription, Window, div, px,
+    AnyElement, App, AppContext as _, Context, Entity, IntoElement as _, KeyDownEvent,
+    ParentElement as _, Styled as _, Subscription, Window, div, px,
 };
 use gpui_kit::component::input::{Input, InputEvent, InputState};
 use lattice_core::models::FileNode;
@@ -141,20 +141,23 @@ impl FileTreePanel {
                 })
                 .ok();
         });
-        let subscription = cx.subscribe_in(&input, window, |this, input, event, window, cx| {
-            match event {
-                InputEvent::Change => {
-                    let query = normalize(&input.read(cx).value());
-                    if let Some(search) = &mut this.search {
-                        search.query = query;
+        let subscription =
+            cx.subscribe_in(
+                &input,
+                window,
+                |this, input, event, window, cx| match event {
+                    InputEvent::Change => {
+                        let query = normalize(&input.read(cx).value());
+                        if let Some(search) = &mut this.search {
+                            search.query = query;
+                        }
+                        this.rebuild(cx);
+                        this.focus_first_match(cx);
                     }
-                    this.rebuild(cx);
-                    this.focus_first_match(cx);
-                }
-                InputEvent::PressEnter { .. } => this.pick_match(window, cx),
-                InputEvent::Blur | InputEvent::Focus => {}
-            }
-        });
+                    InputEvent::PressEnter { .. } => this.pick_match(window, cx),
+                    InputEvent::Blur | InputEvent::Focus => {}
+                },
+            );
         // Focus gone from the tree, from the field or a row, closes it; a
         // press on a row only moves it into the tree, and the row's click
         // closes it once it has picked the row, so the rows hold still
@@ -203,7 +206,9 @@ impl FileTreePanel {
             .as_ref()
             .and_then(|focus| shown.iter().position(|row| row == focus));
         let next = match at {
-            Some(at) => at.saturating_add_signed(step).min(shown.len().saturating_sub(1)),
+            Some(at) => at
+                .saturating_add_signed(step)
+                .min(shown.len().saturating_sub(1)),
             None => 0,
         };
         search.focus = shown.get(next).cloned();
@@ -265,7 +270,12 @@ impl FileTreePanel {
     /// Close the field: the folders open before come back, with the
     /// selected rows' folders opened so a row picked in the search stays in
     /// view. `refocus` puts the keyboard back in the tree.
-    pub(crate) fn close_search(&mut self, refocus: bool, window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn close_search(
+        &mut self,
+        refocus: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         if self.search.take().is_none() {
             return;
         }
@@ -370,19 +380,31 @@ mod tests {
         ];
         let mut open = HashSet::new();
         let mut kept = Vec::new();
-        paths(&filter_nodes(&nodes, &normalize("  INTRO "), &mut open), &mut kept);
+        paths(
+            &filter_nodes(&nodes, &normalize("  INTRO "), &mut open),
+            &mut kept,
+        );
         assert_eq!(kept, ["sections", "sections/Intro.tex"]);
         assert_eq!(open, HashSet::from(["sections".to_string()]));
 
         let (mut open, mut kept) = (HashSet::new(), Vec::new());
-        paths(&filter_nodes(&nodes, &normalize("fig"), &mut open), &mut kept);
+        paths(
+            &filter_nodes(&nodes, &normalize("fig"), &mut open),
+            &mut kept,
+        );
         assert_eq!(kept, ["figures", "figures/plot.png"]);
 
         // A folder's path ends in "/", so "s/" finds what is in sections/
         // and not main.tex.
         let (mut open, mut kept) = (HashSet::new(), Vec::new());
-        paths(&filter_nodes(&nodes, &normalize("sections\\"), &mut open), &mut kept);
-        assert_eq!(kept, ["sections", "sections/Intro.tex", "sections/method.tex"]);
+        paths(
+            &filter_nodes(&nodes, &normalize("sections\\"), &mut open),
+            &mut kept,
+        );
+        assert_eq!(
+            kept,
+            ["sections", "sections/Intro.tex", "sections/method.tex"]
+        );
 
         let mut open = HashSet::new();
         assert!(filter_nodes(&nodes, "nothing", &mut open).is_empty());

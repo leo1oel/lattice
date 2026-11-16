@@ -264,13 +264,7 @@ impl Run {
     }
 
     async fn find_shot(&self, cx: &mut AsyncApp, name: &str) {
-        let Some(dir) = std::env::var_os("LATTICE_E2E_SHOTS") else {
-            return;
-        };
-        let path = std::path::Path::new(&dir).join(format!("{name}.png"));
-        if let Err(error) = self.capture(cx, &path.to_string_lossy()).await {
-            log::warn!("no shot {name}: {error:#}");
-        }
+        self.snapshot(cx, name).await;
     }
 
     fn set_find_options(

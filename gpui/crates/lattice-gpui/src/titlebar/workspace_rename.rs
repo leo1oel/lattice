@@ -6,15 +6,13 @@
 //! a free one. The keyboard goes back to the workspace's tab.
 
 use gpui::{
-    AnyElement, AnyView, AppContext as _, Context, EntityInputHandler as _, InteractiveElement as _, IntoElement,
-    KeyDownEvent, ParentElement as _, StatefulInteractiveElement as _, Styled as _, Window, div,
-    prelude::FluentBuilder as _, px,
+    AnyElement, AnyView, AppContext as _, Context, EntityInputHandler as _,
+    InteractiveElement as _, IntoElement, KeyDownEvent, ParentElement as _,
+    StatefulInteractiveElement as _, Styled as _, Window, div, prelude::FluentBuilder as _, px,
 };
 use gpui_kit::component::input::{Input, InputEvent, InputState};
 use lattice_i18n::t;
-use lattice_ui::{
-    TextRole, TextRoleStyle as _, components::LatticeTooltip, elevation::ring,
-};
+use lattice_ui::{TextRole, TextRoleStyle as _, components::LatticeTooltip, elevation::ring};
 
 use super::workspace_switch::{RENAME_MIN, RENAME_PAD, raised_plate, segment_chip_radius};
 use crate::shell::{
@@ -51,8 +49,9 @@ impl Shell {
                 // composition is committed; typing clears a taken name's
                 // mark.
                 InputEvent::Change => {
-                    let composing = input
-                        .update(cx, |input, cx| input.marked_text_range(window, cx).is_some());
+                    let composing = input.update(cx, |input, cx| {
+                        input.marked_text_range(window, cx).is_some()
+                    });
                     if !composing {
                         let (value, caret) = {
                             let input = input.read(cx);
@@ -125,7 +124,6 @@ impl Shell {
         }
         cx.notify();
     }
-
 }
 
 /// The field a workspace's name is edited in, where its tab (or the folded
@@ -170,7 +168,6 @@ pub(super) fn rename_field(
         .child(Input::new(input).appearance(false).bordered(false))
         .into_any_element()
 }
-
 
 /// `value` held to [`NAME_MAX`] characters the way a `maxLength` field holds
 /// it, `caret` (a byte offset) just after what went in: what went in is cut

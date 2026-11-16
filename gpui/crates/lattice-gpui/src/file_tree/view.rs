@@ -55,7 +55,9 @@ fn moving(
     if ix == frame.folder && !frame.opened && !gone.is_empty() {
         let rows = gone.iter().enumerate().map(|(at, row)| {
             let drawn = match row.folder {
-                Some(open) => TreeRow::folder(("file-tree-gone", at), row.label.clone(), row.depth, open),
+                Some(open) => {
+                    TreeRow::folder(("file-tree-gone", at), row.label.clone(), row.depth, open)
+                }
                 None => TreeRow::file(("file-tree-gone", at), row.label.clone(), row.depth),
             };
             div().h(px(ROW)).flex_none().child(drawn.into_list_item(cx))
@@ -245,115 +247,135 @@ impl Render for FileTreePanel {
             })
             .children(self.search_field(cx))
             .child(
-                div().relative().flex_1().min_h_0().child(
-                // Rows scrolling up are cut off at the pinned rows' bottom
-                // edge (`--trees-sticky-overlay-height`), so none shows
-                // through them; the list keeps its full height inside.
                 div()
-                    .absolute()
-                    .top(px(pinned_bottom))
-                    .bottom_0()
-                    .left_0()
-                    .right_0()
-                    .overflow_hidden()
+                    .relative()
+                    .flex_1()
+                    .min_h_0()
                     .child(
+                        // Rows scrolling up are cut off at the pinned rows' bottom
+                        // edge (`--trees-sticky-overlay-height`), so none shows
+                        // through them; the list keeps its full height inside.
                         div()
                             .absolute()
-                            .top(px(-pinned_bottom))
+                            .top(px(pinned_bottom))
                             .bottom_0()
                             .left_0()
                             .right_0()
+                            .overflow_hidden()
                             .child(
-                tree(&self.state, move |ix, entry, _, window, cx| {
-                    let item = entry.item();
-                    let relative = item.id.to_string();
-                    let is_folder = entry.is_folder();
-                    let row_selected = selected.contains(&relative);
-                    let kind = if row_selected {
-                        ItemKind::skip()
-                    } else {
-                        ItemKind::target()
-                    };
-                    let mut row = if is_folder {
-                        TreeRow::folder(ix, item.label.clone(), entry.depth(), entry.is_expanded())
-                            .selected(row_selected)
-                            .contains_change(marks.folders.contains(&relative))
-                    } else {
-                        TreeRow::file(ix, item.label.clone(), entry.depth())
-                            .selected(row_selected)
-                            .git(marks.files.get(&relative).copied())
-                    }
-                    .turn(frame.as_ref().map_or(0., |(frame, _)| frame.turn(ix)))
-                    .fluid(rows_hover.probe(ix, kind))
-                    .drop_mark(drop_mark(
-                        aimed.as_deref(),
-                        &relative,
-                        is_folder,
-                    ));
-                    if let Some((_, input)) = naming.as_ref().filter(|(at, _)| *at == relative) {
-                        // The app's rename field: 20px on the compact
-                        // corner, its padding and border outside the name's
-                        // left edge, so the name stays where it was.
-                        let palette = cx.palette().clone();
-                        row = row.editing(
-                            div()
-                                .flex()
-                                .items_center()
-                                .h(px(20.))
-                                .ml(px(-9.))
-                                .px(px(8.))
-                                .rounded(px(4.))
-                                .border_1()
-                                .border_color(palette.field_border_hover)
-                                .bg(palette.input)
-                                .text_role(TextRole::Body, cx)
-                                .text_color(palette.text)
-                                .child(
-                                    Input::new(input).appearance(false).px_0().py_0().h(px(18.)),
-                                ),
-                        );
-                    }
-                    // Parity regions are named by the path from the project
-                    // root, as the app's tree names its rows (`data-item-path`).
-                    if lattice_ui::parity::enabled() {
-                        row = row.parity(format!("row/{relative}"));
-                    }
-                    let dragged = DraggedEntry {
-                        paths: including(&selected, &relative),
-                        path: relative.clone(),
-                        name: item.label.clone(),
-                        folder: is_folder,
-                        figure: figures.contains(&relative),
-                    };
-                    // A drop on a folder moves into it; on a file, into the
-                    // file's folder.
-                    let target = if is_folder {
-                        relative.clone()
-                    } else {
-                        relative
-                            .rsplit_once('/')
-                            .map(|(parent, _)| parent.to_string())
-                            .unwrap_or_default()
-                    };
-                    let open = view.clone();
-                    let click_path = relative.clone();
-                    let drop = view.clone();
-                    let paths_drop = view.clone();
-                    let entry_aim = row_aim.clone();
-                    let paths_aim = row_aim.clone();
-                    let entry_drop_aim = row_aim.clone();
-                    let paths_drop_aim = row_aim.clone();
-                    let (entry_target, paths_target) = (target.clone(), target.clone());
-                    let files_target = target.clone();
-                    let menu_target = (relative.clone(), is_folder);
-                    let mut item = row.into_list_item(cx);
-                    if let Some((frame, gone)) = &frame {
-                        window.request_animation_frame();
-                        item = moving(item, frame, gone, ix, ground, cx);
-                    }
-                    // A row waits to be dragged until the search's query is
-                    // empty (Pierre's `canDrag` while filtering).
-                    context_menu_trigger(item, &rows_menu, menu_target)
+                                div()
+                                    .absolute()
+                                    .top(px(-pinned_bottom))
+                                    .bottom_0()
+                                    .left_0()
+                                    .right_0()
+                                    .child(
+                                        tree(&self.state, move |ix, entry, _, window, cx| {
+                                            let item = entry.item();
+                                            let relative = item.id.to_string();
+                                            let is_folder = entry.is_folder();
+                                            let row_selected = selected.contains(&relative);
+                                            let kind = if row_selected {
+                                                ItemKind::skip()
+                                            } else {
+                                                ItemKind::target()
+                                            };
+                                            let mut row = if is_folder {
+                                                TreeRow::folder(
+                                                    ix,
+                                                    item.label.clone(),
+                                                    entry.depth(),
+                                                    entry.is_expanded(),
+                                                )
+                                                .selected(row_selected)
+                                                .contains_change(marks.folders.contains(&relative))
+                                            } else {
+                                                TreeRow::file(ix, item.label.clone(), entry.depth())
+                                                    .selected(row_selected)
+                                                    .git(marks.files.get(&relative).copied())
+                                            }
+                                            .turn(
+                                                frame
+                                                    .as_ref()
+                                                    .map_or(0., |(frame, _)| frame.turn(ix)),
+                                            )
+                                            .fluid(rows_hover.probe(ix, kind))
+                                            .drop_mark(drop_mark(
+                                                aimed.as_deref(),
+                                                &relative,
+                                                is_folder,
+                                            ));
+                                            if let Some((_, input)) =
+                                                naming.as_ref().filter(|(at, _)| *at == relative)
+                                            {
+                                                // The app's rename field: 20px on the compact
+                                                // corner, its padding and border outside the name's
+                                                // left edge, so the name stays where it was.
+                                                let palette = cx.palette().clone();
+                                                row = row.editing(
+                                                    div()
+                                                        .flex()
+                                                        .items_center()
+                                                        .h(px(20.))
+                                                        .ml(px(-9.))
+                                                        .px(px(8.))
+                                                        .rounded(px(4.))
+                                                        .border_1()
+                                                        .border_color(palette.field_border_hover)
+                                                        .bg(palette.input)
+                                                        .text_role(TextRole::Body, cx)
+                                                        .text_color(palette.text)
+                                                        .child(
+                                                            Input::new(input)
+                                                                .appearance(false)
+                                                                .px_0()
+                                                                .py_0()
+                                                                .h(px(18.)),
+                                                        ),
+                                                );
+                                            }
+                                            // Parity regions are named by the path from the project
+                                            // root, as the app's tree names its rows (`data-item-path`).
+                                            if lattice_ui::parity::enabled() {
+                                                row = row.parity(format!("row/{relative}"));
+                                            }
+                                            let dragged = DraggedEntry {
+                                                paths: including(&selected, &relative),
+                                                path: relative.clone(),
+                                                name: item.label.clone(),
+                                                folder: is_folder,
+                                                figure: figures.contains(&relative),
+                                            };
+                                            // A drop on a folder moves into it; on a file, into the
+                                            // file's folder.
+                                            let target = if is_folder {
+                                                relative.clone()
+                                            } else {
+                                                relative
+                                                    .rsplit_once('/')
+                                                    .map(|(parent, _)| parent.to_string())
+                                                    .unwrap_or_default()
+                                            };
+                                            let open = view.clone();
+                                            let click_path = relative.clone();
+                                            let drop = view.clone();
+                                            let paths_drop = view.clone();
+                                            let entry_aim = row_aim.clone();
+                                            let paths_aim = row_aim.clone();
+                                            let entry_drop_aim = row_aim.clone();
+                                            let paths_drop_aim = row_aim.clone();
+                                            let (entry_target, paths_target) =
+                                                (target.clone(), target.clone());
+                                            let files_target = target.clone();
+                                            let menu_target = (relative.clone(), is_folder);
+                                            let mut item = row.into_list_item(cx);
+                                            if let Some((frame, gone)) = &frame {
+                                                window.request_animation_frame();
+                                                item = moving(item, frame, gone, ix, ground, cx);
+                                            }
+                                            // A row waits to be dragged until the search's query is
+                                            // empty (Pierre's `canDrag` while filtering).
+                                            context_menu_trigger(item, &rows_menu, menu_target)
                         .when(!filtering, |item| {
                             item.on_drag(dragged, |dragged, _, _, cx| {
                                 cx.new(|_| DragPreview(dragged.clone()))
@@ -415,17 +437,17 @@ impl Render for FileTreePanel {
                             })
                             .ok();
                         })
-                })
-                // Lattice's scrollbar, below, in place of Kit's.
-                .scrollbar(false),
+                                        })
+                                        // Lattice's scrollbar, below, in place of Kit's.
+                                        .scrollbar(false),
+                                    ),
                             ),
+                    )
+                    .children(pinned)
+                    .child(
+                        FluidScrollbar::vertical("file-tree-scrollbar", &scroll)
+                            .feel(ScrollbarFeel::LIST),
                     ),
-                )
-                .children(pinned)
-                .child(
-                    FluidScrollbar::vertical("file-tree-scrollbar", &scroll)
-                        .feel(ScrollbarFeel::LIST),
-                ),
             )
             .into_any_element()
     }

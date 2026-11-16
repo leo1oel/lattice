@@ -180,7 +180,9 @@ pub(super) fn listen_while_pressed(shell: WeakEntity<Shell>, window: &mut Window
     let moved = shell.clone();
     window.on_mouse_event(move |event: &MouseMoveEvent, phase, _, cx| {
         if phase == DispatchPhase::Bubble {
-            moved.update(cx, |shell, cx| shell.drag_move(event, cx)).ok();
+            moved
+                .update(cx, |shell, cx| shell.drag_move(event, cx))
+                .ok();
         }
     });
     window.on_mouse_event(move |_: &MouseUpEvent, phase, _, cx| {
@@ -226,7 +228,9 @@ impl Shell {
     pub fn workspace_menu_open(&self, cx: &App) -> Option<String> {
         let menu = self.layout.track.menu.borrow().clone()?;
         let menu = menu.read(cx);
-        menu.is_open().then(|| menu.target().map(|(id, _)| id.clone())).flatten()
+        menu.is_open()
+            .then(|| menu.target().map(|(id, _)| id.clone()))
+            .flatten()
     }
 
     /// The workspace being renamed, and whether the name typed is taken.

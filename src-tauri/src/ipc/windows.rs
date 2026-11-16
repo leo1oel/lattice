@@ -30,12 +30,19 @@ fn next_project_window_label(is_taken: impl Fn(&str) -> bool) -> String {
         .expect("an unused window label always exists")
 }
 
+pub(super) fn free_project_window_label(app: &AppHandle, state: &AppState) -> String {
+    // A tab transfer claims its new label before creating the native window.
+    next_project_window_label(|label| {
+        app.get_webview_window(label).is_some() || state.root_for(label).ok().flatten().is_some()
+    })
+}
+
 /// Show `root` in a new desktop window. The window is bound before it is
 /// built: it asks for its project during startup, which must already resolve.
 pub(crate) fn open_desktop_window(
     app: &AppHandle, state: &AppState, root: PathBuf,
 ) -> Result<(String, WebviewWindow), String> {
-    let label = next_project_window_label(|label| app.get_webview_window(label).is_some());
+    let label = free_project_window_label(app, state);
     state.bind_window(&label, root)?;
     match crate::workspace_window(app, &label, false) {
         Ok(window) => Ok((label, window)),

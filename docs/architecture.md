@@ -315,6 +315,7 @@ Practical consequence: to find what a button does, grep the command name in
 | `build` | 31 | `build_project`, `abort_build`, `export_changes_pdf`, `save_review_pdf`, `synctex_edit`, `texlab_diagnostics`, `start_tex_install`, `run_doctor` |
 | `search` | 10 | `search_project`, `replace_in_project`, `rename_symbol`, `list_todos` |
 | `windows` | 11 | `open_project_window`, `open_in_browser`, `return_to_desktop`, `set_window_material` |
+| `project_tab_drag` + `project_tabs` | 3 | `project_tab_drag_target`, `move_project_tab`, `receive_project_tab` |
 | `bibliography` | 16 | `list_citations`, `save_bib_entry`, `bibliography_audit_scan`, `agent_bibliography_mutation` |
 | `workspace` | 21 | `create_project`, `open_project`, `import_project_zip`, `check_arxiv_package`, `update_project_manifest` |
 | `papers` | 12 | `search_literature`, `fetch_paper`, `import_reference`, `read_paper` |

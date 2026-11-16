@@ -192,14 +192,18 @@ fn tab_items(menu: Menu, shell: &gpui::WeakEntity<super::Shell>, view: &str, cx:
     };
     let shell_ref = this.read(cx);
     let engine = shell_ref.workspace().read(cx).engine();
-    if engine.view_record(view).is_none_or(|record| record.kind != "file") {
+    if engine
+        .view_record(view)
+        .is_none_or(|record| record.kind != "file")
+    {
         return menu;
     }
     let (preview, pinned) = (
         engine.param_flag(view, "preview"),
         engine.param_flag(view, "pinned"),
     );
-    let item = |label: String, run: fn(&mut super::Shell, &str, &mut gpui::Context<super::Shell>)| {
+    let item = |label: String,
+                run: fn(&mut super::Shell, &str, &mut gpui::Context<super::Shell>)| {
         let (shell, view) = (shell.clone(), view.to_string());
         Item::new(label, move |_, cx| {
             shell.update(cx, |shell, cx| run(shell, &view, cx)).ok();
@@ -212,9 +216,13 @@ fn tab_items(menu: Menu, shell: &gpui::WeakEntity<super::Shell>, view: &str, cx:
         }));
     }
     menu.item(if pinned {
-        item(t!("Unpin tab").to_string(), |shell, view, cx| shell.pin_view(view, false, cx))
+        item(t!("Unpin tab").to_string(), |shell, view, cx| {
+            shell.pin_view(view, false, cx)
+        })
     } else {
-        item(t!("Pin tab").to_string(), |shell, view, cx| shell.pin_view(view, true, cx))
+        item(t!("Pin tab").to_string(), |shell, view, cx| {
+            shell.pin_view(view, true, cx)
+        })
     })
     .separator()
 }

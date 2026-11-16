@@ -6,6 +6,8 @@
 //! or renames both delimiters of the environment at its caret, as the Tauri
 //! app's canvas does.
 
+#![cfg(target_os = "macos")]
+
 use std::time::Duration;
 
 use anyhow::Result;

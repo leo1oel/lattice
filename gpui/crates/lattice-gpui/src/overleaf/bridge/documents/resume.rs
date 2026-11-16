@@ -128,7 +128,9 @@ impl OverleafBridge {
             return self.give_up(doc, "nothing was in flight", cx);
         }
         if typed.replaced {
-            panel.update(cx, |panel, cx| panel.take_overleaf_text(doc.ot.text(), false, cx));
+            panel.update(cx, |panel, cx| {
+                panel.take_overleaf_text(doc.ot.text(), false, cx)
+            });
         }
         self.review_moved(doc_id, &typed.ops, true, None, cx);
         let replayed: Vec<Replayed> = joined

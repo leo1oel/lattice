@@ -213,12 +213,12 @@ impl PdfPanel {
             .place_key
             .as_ref()
             .and_then(|(root, document, _)| preferences::get().place(root, document));
-        let fresh =
-            self.window.is_none() && (mounted || self.view.read(cx).page_count() == 0);
+        let fresh = self.window.is_none() && (mounted || self.view.read(cx).page_count() == 0);
         match saved {
             Some(place) if fresh => {
                 self.source = Some(path.clone());
-                self.view.update(cx, |view, cx| view.open_at(path, place, window, cx));
+                self.view
+                    .update(cx, |view, cx| view.open_at(path, place, window, cx));
                 cx.notify();
             }
             _ => self.open(path, window, cx),

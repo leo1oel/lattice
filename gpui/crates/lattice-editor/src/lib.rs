@@ -39,6 +39,7 @@ pub mod gutter;
 pub mod hover;
 pub mod index;
 pub mod inline_texts;
+pub mod languages;
 pub mod latex;
 pub mod markdown;
 pub mod markdown_format;

@@ -9783,6 +9783,10 @@ msgstr "已移动"
 msgid "Moved “{name}” to position {position} of {count}"
 msgstr "“{name}”已移到第 {position} 位（共 {count} 个）"
 
+#: src/app/project-tab-transfer.ts
+msgid "Moving project tab…"
+msgstr "正在移动项目标签页…"
+
 #: src/editor/latex/latex-vocabulary.ts
 msgid "Mu"
 msgstr "缪"
