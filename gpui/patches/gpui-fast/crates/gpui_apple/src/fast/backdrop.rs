@@ -14,20 +14,27 @@
 //! stored, to draw the blurred pixels back inside the backdrop's rounded
 //! rectangle and content mask (`backdrop.metal`).
 //!
-//! Where the target's pixels are not what the backdrop is over, its
-//! rectangle is filled with its fallback colour instead: an overlay surface
-//! drawn over native views (the pixels under it are the native views', not
-//! the surface's), a scroll layer's tile (a piece of its layer), a drawable
-//! the layer made framebuffer-only (not readable; the layer is asked for
-//! readable drawables from then on), or a device without Metal Performance
-//! Shaders.
+//! An overlay surface, drawn over native views on a layer of its own, holds
+//! only what the window draws over them, so its backdrops blur the base
+//! surface's frame (kept for it by [`MetalRenderer::keep_frame_for_backdrops`]
+//! and handed over by [`MetalRenderer::set_backdrop_frame`]) with what the
+//! overlay drew so far composited over it: what Core Animation will show
+//! under the backdrop, as long as no native view lies between them.
+//!
+//! Where the pixels at hand are not what the backdrop is over, its rectangle
+//! is filled with its fallback colour instead: an overlay surface's backdrop
+//! over a native view (its pixels are the view's own, which Metal cannot
+//! read) or with no base frame handed over, a scroll layer's tile (a piece
+//! of its layer), a drawable the layer made framebuffer-only (not readable;
+//! the layer is asked for readable drawables from then on), or a device
+//! without Metal Performance Shaders.
 
 use std::{mem, ptr::NonNull};
 
 use anyhow::{Context as _, Result};
-use gpui::{Backdrop, DevicePixels, PolychromeSprite, Size};
+use gpui::{Backdrop, Bounds, DevicePixels, PolychromeSprite, Size};
 use objc2::{
-    msg_send,
+    Message, msg_send,
     rc::{Allocated, Retained},
     runtime::{AnyClass, AnyObject, Bool, ProtocolObject},
 };
@@ -92,15 +99,36 @@ pub(crate) struct Region {
     pub(crate) height: usize,
 }
 
-/// The renderer's backdrop state: the two pipelines, whether its target is
-/// what its backdrops are over, and the scratch textures and kernels it
-/// blurs with.
+/// A frame a surface's renderer drew, kept for the surfaces drawn over it
+/// ([`MetalRenderer::keep_frame_for_backdrops`]).
+#[derive(Clone)]
+pub struct BackdropFrame(Texture);
+
+/// What an overlay surface's backdrops are over: the base surface's frame,
+/// except over the native views between them.
+struct Under {
+    frame: Texture,
+    /// The native views between, in device pixels.
+    covered: Vec<Bounds<DevicePixels>>,
+}
+
+/// The renderer's backdrop state: the pipelines, what its backdrops are
+/// over, and the scratch textures and kernels it blurs with.
 pub(crate) struct Backdrops {
     blur_pipeline: Pipeline,
     fill_pipeline: Pipeline,
+    /// The blur pipeline drawing into a scratch texture: composites an
+    /// overlay's pixels over the base frame's.
+    composite_pipeline: Pipeline,
     /// False for a renderer whose target is not what is under its backdrops:
     /// an overlay surface over native views.
     samples_target: bool,
+    /// For an overlay surface: the base frame under it this frame.
+    under: Option<Under>,
+    /// For the base surface: whether to keep the frames it draws, and the
+    /// last one kept.
+    keep_frame: bool,
+    kept: Option<Texture>,
     /// True while scroll layer tiles are rasterized.
     in_tiles: bool,
     /// Whether the device runs Metal Performance Shaders, once asked.
@@ -133,7 +161,18 @@ impl Backdrops {
                 "backdrop_fill_fragment",
                 format,
             )?,
+            composite_pipeline: build_pipeline_state(
+                device,
+                library,
+                "backdrop_composite",
+                "backdrop_vertex",
+                "backdrop_blur_fragment",
+                format,
+            )?,
             samples_target: true,
+            under: None,
+            keep_frame: false,
+            kept: None,
             in_tiles: false,
             supported: None,
             source: None,
@@ -143,10 +182,59 @@ impl Backdrops {
     }
 
     /// Called for an overlay surface's renderer, which draws over native
-    /// views: its backdrops are filled.
+    /// views: its backdrops blur the base frame handed to it, or are filled.
     pub(crate) fn fill_only(&mut self) {
         self.samples_target = false;
     }
+}
+
+impl MetalRenderer {
+    /// Whether to keep each frame this renderer draws, for the backdrops of
+    /// the surfaces drawn over it this frame ([`Self::kept_frame`]); `false`
+    /// lets the last one go. A frame is kept only once the layer's drawables
+    /// are readable, which this asks it for.
+    pub fn keep_frame_for_backdrops(&mut self, keep: bool) {
+        self.fast_backdrop.keep_frame = keep;
+        if !keep {
+            self.fast_backdrop.kept = None;
+        }
+    }
+
+    /// The frame this renderer last drew, while it keeps them.
+    pub fn kept_frame(&self) -> Option<BackdropFrame> {
+        self.fast_backdrop.kept.clone().map(BackdropFrame)
+    }
+
+    /// What this overlay surface's backdrops are over until it is changed:
+    /// `frame`, drawn by the surface under it in the same command queue
+    /// before this renderer draws, except within `covered`, the device pixel
+    /// bounds of the native views between them, where they are filled.
+    /// `None`: every backdrop is filled.
+    pub fn set_backdrop_frame(
+        &mut self,
+        frame: Option<BackdropFrame>,
+        covered: Vec<Bounds<DevicePixels>>,
+    ) {
+        self.fast_backdrop.under = frame.map(|BackdropFrame(frame)| Under { frame, covered });
+    }
+}
+
+/// Forwarded to once a frame is encoded into `target`: keeps it if asked.
+pub(crate) fn frame_rendered(
+    renderer: &mut MetalRenderer,
+    target: &ProtocolObject<dyn MTLTexture>,
+) {
+    if !renderer.fast_backdrop.keep_frame {
+        return;
+    }
+    if target.isFramebufferOnly() {
+        if let Some(layer) = &renderer.layer {
+            layer.setFramebufferOnly(false);
+        }
+        renderer.fast_backdrop.kept = None;
+        return;
+    }
+    renderer.fast_backdrop.kept = Some(target.retain());
 }
 
 /// Runs `f`, which rasterizes scroll layer tiles, with every backdrop filled.
@@ -177,17 +265,17 @@ pub(crate) fn draw(
         let Some(region) = region(&backdrop, viewport) else {
             continue;
         };
-        let blurred = if can_sample(renderer, target) {
-            blur(
+        let blurred = match sample(renderer, &backdrop, target, viewport) {
+            Some(under) => blur(
                 renderer,
                 &backdrop,
                 region,
                 target,
+                under.as_ref(),
                 command_buffer,
                 &encoder,
-            )?
-        } else {
-            None
+            )?,
+            None => None,
         };
         match blurred {
             Some(blurred) => {
@@ -231,13 +319,49 @@ fn fill_one(
     draw_rect(encoder, &uniforms);
 }
 
-/// Whether `target` holds what the backdrops drawn into it are over, and
-/// can be read.
-fn can_sample(renderer: &mut MetalRenderer, target: &ProtocolObject<dyn MTLTexture>) -> bool {
+/// What to blur under `backdrop`: `Some(None)` the target, `Some(Some(frame))`
+/// the base surface's frame with the target composited over it, `None`
+/// nothing (it is filled).
+fn sample(
+    renderer: &mut MetalRenderer,
+    backdrop: &Backdrop,
+    target: &ProtocolObject<dyn MTLTexture>,
+    viewport: Size<DevicePixels>,
+) -> Option<Option<Texture>> {
     let state = &renderer.fast_backdrop;
-    if !state.samples_target || state.in_tiles {
-        return false;
+    if state.in_tiles {
+        return None;
     }
+    let under = if state.samples_target {
+        None
+    } else {
+        let under = state.under.as_ref()?;
+        let fits = under.frame.width() == viewport.width.0 as usize
+            && under.frame.height() == viewport.height.0 as usize
+            && under.frame.pixelFormat() == target.pixelFormat();
+        if !fits || covers(&under.covered, backdrop) {
+            return None;
+        }
+        Some(under.frame.clone())
+    };
+    can_read(renderer, target).then_some(under)
+}
+
+/// Whether any of `covered` overlaps what is visible of `backdrop`.
+pub(crate) fn covers(covered: &[Bounds<DevicePixels>], backdrop: &Backdrop) -> bool {
+    let visible = backdrop.bounds.intersect(&backdrop.content_mask.bounds);
+    covered.iter().any(|view| {
+        let (left, top) = (view.left().0 as f32, view.top().0 as f32);
+        let (right, bottom) = (view.right().0 as f32, view.bottom().0 as f32);
+        left < visible.right().0
+            && visible.left().0 < right
+            && top < visible.bottom().0
+            && visible.top().0 < bottom
+    })
+}
+
+/// Whether `target` can be read, on a device that blurs.
+fn can_read(renderer: &mut MetalRenderer, target: &ProtocolObject<dyn MTLTexture>) -> bool {
     if target.isFramebufferOnly() {
         // A drawable is only readable when its layer was asked for that
         // before handing it out; this frame fills, the next ones blur.
@@ -341,14 +465,16 @@ fn draw_rect(encoder: &ProtocolObject<dyn MTLRenderCommandEncoder>, uniforms: &U
     }
 }
 
-/// Ends `encoder`, then copies `region` of `target` and blurs it. Returns
-/// the blurred texture, whose first texel is `region`'s top left corner, or
-/// `None`, with `encoder` still open, when there is nothing to blur with.
+/// Ends `encoder`, then copies `region` of `target` (or of `under`, with
+/// `target` composited over it) and blurs it. Returns the blurred texture,
+/// whose first texel is `region`'s top left corner, or `None`, with
+/// `encoder` still open, when there is nothing to blur with.
 fn blur(
     renderer: &mut MetalRenderer,
     backdrop: &Backdrop,
     region: Region,
     target: &ProtocolObject<dyn MTLTexture>,
+    under: Option<&Texture>,
     command_buffer: &ProtocolObject<dyn MTLCommandBuffer>,
     encoder: &ProtocolObject<dyn MTLRenderCommandEncoder>,
 ) -> Result<Option<Texture>> {
@@ -368,11 +494,11 @@ fn blur(
         .blitCommandEncoder()
         .context("creating a backdrop's blit encoder")?;
     // SAFETY: `region` lies within the target (it is cut to the viewport,
-    // the target's size) and `source` is exactly its size, in the target's
-    // pixel format.
+    // the target's size, which `under` is too) and `source` is exactly its
+    // size, in the target's pixel format, which `under` has too.
     unsafe {
         blit.copyFromTexture_sourceSlice_sourceLevel_sourceOrigin_sourceSize_toTexture_destinationSlice_destinationLevel_destinationOrigin(
-            target,
+            under.map_or(target, |under| &**under),
             0,
             0,
             MTLOrigin { x: region.x, y: region.y, z: 0 },
@@ -384,6 +510,15 @@ fn blur(
         );
     }
     blit.endEncoding();
+    if under.is_some() {
+        composite(
+            &renderer.fast_backdrop.composite_pipeline,
+            region,
+            target,
+            &source,
+            command_buffer,
+        )?;
+    }
     // SAFETY: The kernel was made for this device; `source` is readable and
     // `blurred` writable, both of one size and format.
     unsafe {
@@ -395,6 +530,41 @@ fn blur(
         ];
     }
     Ok(Some(blurred))
+}
+
+/// Draws `region` of `overlay` over `source`, which holds the same region
+/// of the frame under it: what is seen through the overlay there.
+fn composite(
+    pipeline: &Pipeline,
+    region: Region,
+    overlay: &ProtocolObject<dyn MTLTexture>,
+    source: &ProtocolObject<dyn MTLTexture>,
+    command_buffer: &ProtocolObject<dyn MTLCommandBuffer>,
+) -> Result<()> {
+    let (width, height) = (region.width as f32, region.height as f32);
+    let viewport = Size {
+        width: DevicePixels(region.width as i32),
+        height: DevicePixels(region.height as i32),
+    };
+    let encoder = new_command_encoder_for_texture(command_buffer, source, viewport, None)?;
+    // The blur fragment reads `overlay` at the position less
+    // `source_origin`: the region's own corner, as `source` starts there.
+    let uniforms = Uniforms {
+        bounds: [0., 0., width, height],
+        clip: [0., 0., width, height],
+        radii: [0.; 4],
+        fallback: [0.; 4],
+        viewport: [width, height],
+        source_origin: [-(region.x as f32), -(region.y as f32)],
+        opacity: 1.,
+        padding: [0.; 3],
+    };
+    encoder.setRenderPipelineState(pipeline);
+    // SAFETY: The texture slot is the one the fragment reads.
+    unsafe { encoder.setFragmentTexture_atIndex(Some(overlay), 0) };
+    draw_rect(&encoder, &uniforms);
+    encoder.endEncoding();
+    Ok(())
 }
 
 /// The scratch texture in `slot`, made again unless it is `region`'s size
@@ -420,7 +590,11 @@ fn scratch(
             descriptor.setHeight(region.height);
         }
         descriptor.setPixelFormat(format);
-        descriptor.setUsage(MTLTextureUsage::ShaderRead | MTLTextureUsage::ShaderWrite);
+        descriptor.setUsage(
+            MTLTextureUsage::ShaderRead
+                | MTLTextureUsage::ShaderWrite
+                | MTLTextureUsage::RenderTarget,
+        );
         descriptor.setStorageMode(MTLStorageMode::Private);
         *slot = device.newTextureWithDescriptor(&descriptor);
         if slot.is_none() {

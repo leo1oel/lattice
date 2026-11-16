@@ -1,6 +1,6 @@
 diff --git a/gpui-fast/crates/gpui/src/fast/backdrop.rs b/gpui-fast/crates/gpui/src/fast/backdrop.rs
 new file mode 100644
-index 000000000..ede94cedc
+index 0000000..ede94ce
 --- /dev/null
 +++ b/gpui-fast/crates/gpui/src/fast/backdrop.rs
 @@ -0,0 +1,208 @@
@@ -214,7 +214,7 @@ index 000000000..ede94cedc
 +mod tests;
 diff --git a/gpui-fast/crates/gpui/src/fast/backdrop_tests.rs b/gpui-fast/crates/gpui/src/fast/backdrop_tests.rs
 new file mode 100644
-index 000000000..b1022a167
+index 0000000..b1022a1
 --- /dev/null
 +++ b/gpui-fast/crates/gpui/src/fast/backdrop_tests.rs
 @@ -0,0 +1,239 @@
@@ -458,7 +458,7 @@ index 000000000..b1022a167
 +    });
 +}
 diff --git a/gpui-fast/crates/gpui/src/fast/layers/overlay.rs b/gpui-fast/crates/gpui/src/fast/layers/overlay.rs
-index 5cfda71c8..7e9569f39 100644
+index 5cfda71..7e9569f 100644
 --- a/gpui-fast/crates/gpui/src/fast/layers/overlay.rs
 +++ b/gpui-fast/crates/gpui/src/fast/layers/overlay.rs
 @@ -11,7 +11,9 @@
@@ -495,7 +495,7 @@ index 5cfda71c8..7e9569f39 100644
                  && reaches.iter().any(|earlier| earlier.intersects(&reach))
          {
 diff --git a/gpui-fast/crates/gpui/src/fast/mod.rs b/gpui-fast/crates/gpui/src/fast/mod.rs
-index 9fa70e445..791056959 100644
+index 9fa70e4..7910569 100644
 --- a/gpui-fast/crates/gpui/src/fast/mod.rs
 +++ b/gpui-fast/crates/gpui/src/fast/mod.rs
 @@ -15,6 +15,7 @@
@@ -507,7 +507,7 @@ index 9fa70e445..791056959 100644
  pub(crate) mod dependencies;
  pub(crate) mod dispatch;
 diff --git a/gpui-fast/crates/gpui/src/fast/scale.rs b/gpui-fast/crates/gpui/src/fast/scale.rs
-index cc264f985..30a094936 100644
+index cc264f9..30a0949 100644
 --- a/gpui-fast/crates/gpui/src/fast/scale.rs
 +++ b/gpui-fast/crates/gpui/src/fast/scale.rs
 @@ -52,7 +52,7 @@ pub(crate) struct SceneScale {
@@ -537,7 +537,7 @@ index cc264f985..30a094936 100644
              Primitive::Surface(surface) => {
                  surface.bounds = self.map_bounds(surface.bounds);
 diff --git a/gpui-fast/crates/gpui/src/gpui.rs b/gpui-fast/crates/gpui/src/gpui.rs
-index bd601548b..5f6bfbb82 100644
+index bd60154..5f6bfbb 100644
 --- a/gpui-fast/crates/gpui/src/gpui.rs
 +++ b/gpui-fast/crates/gpui/src/gpui.rs
 @@ -124,6 +124,9 @@ pub use color::*;
@@ -551,7 +551,7 @@ index bd601548b..5f6bfbb82 100644
      ComposedScene, ComposedSceneLayer, CompositionSurfaceId, CompositionSurfaceKind,
      PlatformCompositionSurface, PlatformCompositionSurfaceContent, PlatformSurfaceAttachment,
 diff --git a/gpui-fast/crates/gpui/src/scene.rs b/gpui-fast/crates/gpui/src/scene.rs
-index 22b0c4727..f61869b56 100644
+index 22b0c47..f61869b 100644
 --- a/gpui-fast/crates/gpui/src/scene.rs
 +++ b/gpui-fast/crates/gpui/src/scene.rs
 @@ -91,6 +91,11 @@ impl Scene {
@@ -567,7 +567,7 @@ index 22b0c4727..f61869b56 100644
          let mut primitive = primitive.into();
          crate::fast::scale::transform_primitive(self, &mut primitive);
 diff --git a/gpui-fast/crates/gpui/src/style.rs b/gpui-fast/crates/gpui/src/style.rs
-index a6eb102a7..2c297086c 100644
+index a6eb102..2c29708 100644
 --- a/gpui-fast/crates/gpui/src/style.rs
 +++ b/gpui-fast/crates/gpui/src/style.rs
 @@ -291,6 +291,10 @@ pub struct Style {
@@ -598,7 +598,7 @@ index a6eb102a7..2c297086c 100644
              mouse_cursor: None,
              opacity: None,
 diff --git a/gpui-fast/crates/gpui/src/styled.rs b/gpui-fast/crates/gpui/src/styled.rs
-index b8336f19d..4d800d6ad 100644
+index b8336f1..4d800d6 100644
 --- a/gpui-fast/crates/gpui/src/styled.rs
 +++ b/gpui-fast/crates/gpui/src/styled.rs
 @@ -757,6 +757,22 @@ pub trait Styled: Sized {
@@ -626,7 +626,7 @@ index b8336f19d..4d800d6ad 100644
          self.style().grid_cols = Some(GridTemplate {
 diff --git a/gpui-fast/crates/gpui_apple/src/fast/backdrop.metal b/gpui-fast/crates/gpui_apple/src/fast/backdrop.metal
 new file mode 100644
-index 000000000..ec62a7f8b
+index 0000000..ec62a7f
 --- /dev/null
 +++ b/gpui-fast/crates/gpui_apple/src/fast/backdrop.metal
 @@ -0,0 +1,76 @@
@@ -708,10 +708,10 @@ index 000000000..ec62a7f8b
 +}
 diff --git a/gpui-fast/crates/gpui_apple/src/fast/backdrop.rs b/gpui-fast/crates/gpui_apple/src/fast/backdrop.rs
 new file mode 100644
-index 000000000..7c14ba6dd
+index 0000000..bdf1c27
 --- /dev/null
 +++ b/gpui-fast/crates/gpui_apple/src/fast/backdrop.rs
-@@ -0,0 +1,467 @@
+@@ -0,0 +1,641 @@
 +//! Backdrop blur on Metal: the renderer's side of `gpui::fast::backdrop`,
 +//! CSS's `backdrop-filter: blur()`.
 +//!
@@ -728,20 +728,27 @@ index 000000000..7c14ba6dd
 +//! stored, to draw the blurred pixels back inside the backdrop's rounded
 +//! rectangle and content mask (`backdrop.metal`).
 +//!
-+//! Where the target's pixels are not what the backdrop is over, its
-+//! rectangle is filled with its fallback colour instead: an overlay surface
-+//! drawn over native views (the pixels under it are the native views', not
-+//! the surface's), a scroll layer's tile (a piece of its layer), a drawable
-+//! the layer made framebuffer-only (not readable; the layer is asked for
-+//! readable drawables from then on), or a device without Metal Performance
-+//! Shaders.
++//! An overlay surface, drawn over native views on a layer of its own, holds
++//! only what the window draws over them, so its backdrops blur the base
++//! surface's frame (kept for it by [`MetalRenderer::keep_frame_for_backdrops`]
++//! and handed over by [`MetalRenderer::set_backdrop_frame`]) with what the
++//! overlay drew so far composited over it: what Core Animation will show
++//! under the backdrop, as long as no native view lies between them.
++//!
++//! Where the pixels at hand are not what the backdrop is over, its rectangle
++//! is filled with its fallback colour instead: an overlay surface's backdrop
++//! over a native view (its pixels are the view's own, which Metal cannot
++//! read) or with no base frame handed over, a scroll layer's tile (a piece
++//! of its layer), a drawable the layer made framebuffer-only (not readable;
++//! the layer is asked for readable drawables from then on), or a device
++//! without Metal Performance Shaders.
 +
 +use std::{mem, ptr::NonNull};
 +
 +use anyhow::{Context as _, Result};
-+use gpui::{Backdrop, DevicePixels, PolychromeSprite, Size};
++use gpui::{Backdrop, Bounds, DevicePixels, PolychromeSprite, Size};
 +use objc2::{
-+    msg_send,
++    Message, msg_send,
 +    rc::{Allocated, Retained},
 +    runtime::{AnyClass, AnyObject, Bool, ProtocolObject},
 +};
@@ -806,15 +813,36 @@ index 000000000..7c14ba6dd
 +    pub(crate) height: usize,
 +}
 +
-+/// The renderer's backdrop state: the two pipelines, whether its target is
-+/// what its backdrops are over, and the scratch textures and kernels it
-+/// blurs with.
++/// A frame a surface's renderer drew, kept for the surfaces drawn over it
++/// ([`MetalRenderer::keep_frame_for_backdrops`]).
++#[derive(Clone)]
++pub struct BackdropFrame(Texture);
++
++/// What an overlay surface's backdrops are over: the base surface's frame,
++/// except over the native views between them.
++struct Under {
++    frame: Texture,
++    /// The native views between, in device pixels.
++    covered: Vec<Bounds<DevicePixels>>,
++}
++
++/// The renderer's backdrop state: the pipelines, what its backdrops are
++/// over, and the scratch textures and kernels it blurs with.
 +pub(crate) struct Backdrops {
 +    blur_pipeline: Pipeline,
 +    fill_pipeline: Pipeline,
++    /// The blur pipeline drawing into a scratch texture: composites an
++    /// overlay's pixels over the base frame's.
++    composite_pipeline: Pipeline,
 +    /// False for a renderer whose target is not what is under its backdrops:
 +    /// an overlay surface over native views.
 +    samples_target: bool,
++    /// For an overlay surface: the base frame under it this frame.
++    under: Option<Under>,
++    /// For the base surface: whether to keep the frames it draws, and the
++    /// last one kept.
++    keep_frame: bool,
++    kept: Option<Texture>,
 +    /// True while scroll layer tiles are rasterized.
 +    in_tiles: bool,
 +    /// Whether the device runs Metal Performance Shaders, once asked.
@@ -847,7 +875,18 @@ index 000000000..7c14ba6dd
 +                "backdrop_fill_fragment",
 +                format,
 +            )?,
++            composite_pipeline: build_pipeline_state(
++                device,
++                library,
++                "backdrop_composite",
++                "backdrop_vertex",
++                "backdrop_blur_fragment",
++                format,
++            )?,
 +            samples_target: true,
++            under: None,
++            keep_frame: false,
++            kept: None,
 +            in_tiles: false,
 +            supported: None,
 +            source: None,
@@ -857,10 +896,59 @@ index 000000000..7c14ba6dd
 +    }
 +
 +    /// Called for an overlay surface's renderer, which draws over native
-+    /// views: its backdrops are filled.
++    /// views: its backdrops blur the base frame handed to it, or are filled.
 +    pub(crate) fn fill_only(&mut self) {
 +        self.samples_target = false;
 +    }
++}
++
++impl MetalRenderer {
++    /// Whether to keep each frame this renderer draws, for the backdrops of
++    /// the surfaces drawn over it this frame ([`Self::kept_frame`]); `false`
++    /// lets the last one go. A frame is kept only once the layer's drawables
++    /// are readable, which this asks it for.
++    pub fn keep_frame_for_backdrops(&mut self, keep: bool) {
++        self.fast_backdrop.keep_frame = keep;
++        if !keep {
++            self.fast_backdrop.kept = None;
++        }
++    }
++
++    /// The frame this renderer last drew, while it keeps them.
++    pub fn kept_frame(&self) -> Option<BackdropFrame> {
++        self.fast_backdrop.kept.clone().map(BackdropFrame)
++    }
++
++    /// What this overlay surface's backdrops are over until it is changed:
++    /// `frame`, drawn by the surface under it in the same command queue
++    /// before this renderer draws, except within `covered`, the device pixel
++    /// bounds of the native views between them, where they are filled.
++    /// `None`: every backdrop is filled.
++    pub fn set_backdrop_frame(
++        &mut self,
++        frame: Option<BackdropFrame>,
++        covered: Vec<Bounds<DevicePixels>>,
++    ) {
++        self.fast_backdrop.under = frame.map(|BackdropFrame(frame)| Under { frame, covered });
++    }
++}
++
++/// Forwarded to once a frame is encoded into `target`: keeps it if asked.
++pub(crate) fn frame_rendered(
++    renderer: &mut MetalRenderer,
++    target: &ProtocolObject<dyn MTLTexture>,
++) {
++    if !renderer.fast_backdrop.keep_frame {
++        return;
++    }
++    if target.isFramebufferOnly() {
++        if let Some(layer) = &renderer.layer {
++            layer.setFramebufferOnly(false);
++        }
++        renderer.fast_backdrop.kept = None;
++        return;
++    }
++    renderer.fast_backdrop.kept = Some(target.retain());
 +}
 +
 +/// Runs `f`, which rasterizes scroll layer tiles, with every backdrop filled.
@@ -891,17 +979,17 @@ index 000000000..7c14ba6dd
 +        let Some(region) = region(&backdrop, viewport) else {
 +            continue;
 +        };
-+        let blurred = if can_sample(renderer, target) {
-+            blur(
++        let blurred = match sample(renderer, &backdrop, target, viewport) {
++            Some(under) => blur(
 +                renderer,
 +                &backdrop,
 +                region,
 +                target,
++                under.as_ref(),
 +                command_buffer,
 +                &encoder,
-+            )?
-+        } else {
-+            None
++            )?,
++            None => None,
 +        };
 +        match blurred {
 +            Some(blurred) => {
@@ -945,13 +1033,49 @@ index 000000000..7c14ba6dd
 +    draw_rect(encoder, &uniforms);
 +}
 +
-+/// Whether `target` holds what the backdrops drawn into it are over, and
-+/// can be read.
-+fn can_sample(renderer: &mut MetalRenderer, target: &ProtocolObject<dyn MTLTexture>) -> bool {
++/// What to blur under `backdrop`: `Some(None)` the target, `Some(Some(frame))`
++/// the base surface's frame with the target composited over it, `None`
++/// nothing (it is filled).
++fn sample(
++    renderer: &mut MetalRenderer,
++    backdrop: &Backdrop,
++    target: &ProtocolObject<dyn MTLTexture>,
++    viewport: Size<DevicePixels>,
++) -> Option<Option<Texture>> {
 +    let state = &renderer.fast_backdrop;
-+    if !state.samples_target || state.in_tiles {
-+        return false;
++    if state.in_tiles {
++        return None;
 +    }
++    let under = if state.samples_target {
++        None
++    } else {
++        let under = state.under.as_ref()?;
++        let fits = under.frame.width() == viewport.width.0 as usize
++            && under.frame.height() == viewport.height.0 as usize
++            && under.frame.pixelFormat() == target.pixelFormat();
++        if !fits || covers(&under.covered, backdrop) {
++            return None;
++        }
++        Some(under.frame.clone())
++    };
++    can_read(renderer, target).then_some(under)
++}
++
++/// Whether any of `covered` overlaps what is visible of `backdrop`.
++pub(crate) fn covers(covered: &[Bounds<DevicePixels>], backdrop: &Backdrop) -> bool {
++    let visible = backdrop.bounds.intersect(&backdrop.content_mask.bounds);
++    covered.iter().any(|view| {
++        let (left, top) = (view.left().0 as f32, view.top().0 as f32);
++        let (right, bottom) = (view.right().0 as f32, view.bottom().0 as f32);
++        left < visible.right().0
++            && visible.left().0 < right
++            && top < visible.bottom().0
++            && visible.top().0 < bottom
++    })
++}
++
++/// Whether `target` can be read, on a device that blurs.
++fn can_read(renderer: &mut MetalRenderer, target: &ProtocolObject<dyn MTLTexture>) -> bool {
 +    if target.isFramebufferOnly() {
 +        // A drawable is only readable when its layer was asked for that
 +        // before handing it out; this frame fills, the next ones blur.
@@ -1055,14 +1179,16 @@ index 000000000..7c14ba6dd
 +    }
 +}
 +
-+/// Ends `encoder`, then copies `region` of `target` and blurs it. Returns
-+/// the blurred texture, whose first texel is `region`'s top left corner, or
-+/// `None`, with `encoder` still open, when there is nothing to blur with.
++/// Ends `encoder`, then copies `region` of `target` (or of `under`, with
++/// `target` composited over it) and blurs it. Returns the blurred texture,
++/// whose first texel is `region`'s top left corner, or `None`, with
++/// `encoder` still open, when there is nothing to blur with.
 +fn blur(
 +    renderer: &mut MetalRenderer,
 +    backdrop: &Backdrop,
 +    region: Region,
 +    target: &ProtocolObject<dyn MTLTexture>,
++    under: Option<&Texture>,
 +    command_buffer: &ProtocolObject<dyn MTLCommandBuffer>,
 +    encoder: &ProtocolObject<dyn MTLRenderCommandEncoder>,
 +) -> Result<Option<Texture>> {
@@ -1082,11 +1208,11 @@ index 000000000..7c14ba6dd
 +        .blitCommandEncoder()
 +        .context("creating a backdrop's blit encoder")?;
 +    // SAFETY: `region` lies within the target (it is cut to the viewport,
-+    // the target's size) and `source` is exactly its size, in the target's
-+    // pixel format.
++    // the target's size, which `under` is too) and `source` is exactly its
++    // size, in the target's pixel format, which `under` has too.
 +    unsafe {
 +        blit.copyFromTexture_sourceSlice_sourceLevel_sourceOrigin_sourceSize_toTexture_destinationSlice_destinationLevel_destinationOrigin(
-+            target,
++            under.map_or(target, |under| &**under),
 +            0,
 +            0,
 +            MTLOrigin { x: region.x, y: region.y, z: 0 },
@@ -1098,6 +1224,15 @@ index 000000000..7c14ba6dd
 +        );
 +    }
 +    blit.endEncoding();
++    if under.is_some() {
++        composite(
++            &renderer.fast_backdrop.composite_pipeline,
++            region,
++            target,
++            &source,
++            command_buffer,
++        )?;
++    }
 +    // SAFETY: The kernel was made for this device; `source` is readable and
 +    // `blurred` writable, both of one size and format.
 +    unsafe {
@@ -1109,6 +1244,41 @@ index 000000000..7c14ba6dd
 +        ];
 +    }
 +    Ok(Some(blurred))
++}
++
++/// Draws `region` of `overlay` over `source`, which holds the same region
++/// of the frame under it: what is seen through the overlay there.
++fn composite(
++    pipeline: &Pipeline,
++    region: Region,
++    overlay: &ProtocolObject<dyn MTLTexture>,
++    source: &ProtocolObject<dyn MTLTexture>,
++    command_buffer: &ProtocolObject<dyn MTLCommandBuffer>,
++) -> Result<()> {
++    let (width, height) = (region.width as f32, region.height as f32);
++    let viewport = Size {
++        width: DevicePixels(region.width as i32),
++        height: DevicePixels(region.height as i32),
++    };
++    let encoder = new_command_encoder_for_texture(command_buffer, source, viewport, None)?;
++    // The blur fragment reads `overlay` at the position less
++    // `source_origin`: the region's own corner, as `source` starts there.
++    let uniforms = Uniforms {
++        bounds: [0., 0., width, height],
++        clip: [0., 0., width, height],
++        radii: [0.; 4],
++        fallback: [0.; 4],
++        viewport: [width, height],
++        source_origin: [-(region.x as f32), -(region.y as f32)],
++        opacity: 1.,
++        padding: [0.; 3],
++    };
++    encoder.setRenderPipelineState(pipeline);
++    // SAFETY: The texture slot is the one the fragment reads.
++    unsafe { encoder.setFragmentTexture_atIndex(Some(overlay), 0) };
++    draw_rect(&encoder, &uniforms);
++    encoder.endEncoding();
++    Ok(())
 +}
 +
 +/// The scratch texture in `slot`, made again unless it is `region`'s size
@@ -1134,7 +1304,11 @@ index 000000000..7c14ba6dd
 +            descriptor.setHeight(region.height);
 +        }
 +        descriptor.setPixelFormat(format);
-+        descriptor.setUsage(MTLTextureUsage::ShaderRead | MTLTextureUsage::ShaderWrite);
++        descriptor.setUsage(
++            MTLTextureUsage::ShaderRead
++                | MTLTextureUsage::ShaderWrite
++                | MTLTextureUsage::RenderTarget,
++        );
 +        descriptor.setStorageMode(MTLStorageMode::Private);
 +        *slot = device.newTextureWithDescriptor(&descriptor);
 +        if slot.is_none() {
@@ -1181,14 +1355,15 @@ index 000000000..7c14ba6dd
 +mod tests;
 diff --git a/gpui-fast/crates/gpui_apple/src/fast/backdrop_tests.rs b/gpui-fast/crates/gpui_apple/src/fast/backdrop_tests.rs
 new file mode 100644
-index 000000000..b19d24e12
+index 0000000..7359839
 --- /dev/null
 +++ b/gpui-fast/crates/gpui_apple/src/fast/backdrop_tests.rs
-@@ -0,0 +1,206 @@
+@@ -0,0 +1,270 @@
 +//! Backdrops drawn by the headless renderer, read back pixel by pixel: the
 +//! page under a backdrop blurred inside its rounded rectangle and nowhere
-+//! else, without darkening at its edges, and the fallback colour where the
-+//! renderer cannot read what is under it.
++//! else, without darkening at its edges, an overlay surface's backdrop
++//! blurring the base surface's frame with the overlay over it, and the
++//! fallback colour where the renderer cannot read what is under it.
 +
 +use std::sync::Arc;
 +
@@ -1253,6 +1428,14 @@ index 000000000..b19d24e12
 +
 +/// White, with black vertical stripes, and `backdrop` over it.
 +fn page_under(backdrop: Backdrop) -> Scene {
++    let mut scene = striped_page();
++    scene.insert_primitive(backdrop.sprite());
++    scene.finish();
++    scene
++}
++
++/// White, with black vertical stripes, unfinished.
++fn striped_page() -> Scene {
 +    let mut scene = Scene::default();
 +    scene.insert_primitive(quad(sp(0., 0., WIDTH as f32, HEIGHT as f32), Hsla::white()));
 +    let mut x = 0.;
@@ -1260,8 +1443,6 @@ index 000000000..b19d24e12
 +        scene.insert_primitive(quad(sp(x, 0., STRIPE, HEIGHT as f32), Hsla::black()));
 +        x += STRIPE * 2.;
 +    }
-+    scene.insert_primitive(backdrop.sprite());
-+    scene.finish();
 +    scene
 +}
 +
@@ -1391,8 +1572,65 @@ index 000000000..b19d24e12
 +        .collect();
 +    assert!(sizes.iter().all(|size| *size == sizes[0]), "{sizes:?}");
 +}
++
++/// An overlay surface over the striped page: an opaque red pane on its left
++/// half, under the card's backdrop.
++fn overlay_over_page(covered: Vec<Bounds<DevicePixels>>) -> Option<Vec<u8>> {
++    let mut base = blurring_renderer()?;
++    base.keep_frame_for_backdrops(true);
++    let mut page = striped_page();
++    page.finish();
++    render(&mut base, &page);
++    let frame = base.kept_frame().expect("the base frame is kept");
++    let mut overlay = renderer()?;
++    // An overlay's layer is transparent: it starts each frame clear.
++    overlay.opaque = false;
++    overlay.fast_backdrop.fill_only();
++    overlay.set_backdrop_frame(Some(frame), covered);
++    let mut scene = Scene::default();
++    let red = Hsla {
++        h: 0.,
++        s: 1.,
++        l: 0.5,
++        a: 1.,
++    };
++    scene.insert_primitive(quad(sp(0., 0., 100., HEIGHT as f32), red));
++    scene.insert_primitive(card().sprite());
++    scene.finish();
++    Some(render(&mut overlay, &scene))
++}
++
++#[test]
++fn an_overlay_s_backdrop_blurs_the_base_frame_with_the_overlay_over_it() {
++    let Some(pixels) = overlay_over_page(Vec::new()) else {
++        return;
++    };
++    // Under the red pane the blur is the pane's red, not the page's stripes
++    // and not the fallback's blue.
++    assert_eq!(at(&pixels, 60, 60), (255, 0));
++    // Beside it, where the overlay is clear, the page's stripes blurred.
++    let (red, blue) = at(&pixels, 140, 60);
++    assert!((115..=140).contains(&red), "(140, 60) is {red}");
++    assert_eq!(red, blue, "(140, 60) is grey");
++    // Outside the card the overlay stays clear.
++    let index = (60 * WIDTH as usize + 180) * 4;
++    assert_eq!(pixels[index + 3], 0);
++}
++
++#[test]
++fn an_overlay_s_backdrop_over_a_native_view_fills_the_fallback() {
++    let view = Bounds {
++        origin: point(DevicePixels(150), DevicePixels(80)),
++        size: size(DevicePixels(40), DevicePixels(30)),
++    };
++    let Some(pixels) = overlay_over_page(vec![view]) else {
++        return;
++    };
++    // The view's pixels are its own, which the base frame does not hold.
++    assert_eq!(at(&pixels, 100, 60), (0, 255));
++}
 diff --git a/gpui-fast/crates/gpui_apple/src/fast/composition.rs b/gpui-fast/crates/gpui_apple/src/fast/composition.rs
-index 9ecc4f5d4..bb8752096 100644
+index 9ecc4f5..bb87520 100644
 --- a/gpui-fast/crates/gpui_apple/src/fast/composition.rs
 +++ b/gpui-fast/crates/gpui_apple/src/fast/composition.rs
 @@ -16,9 +16,12 @@ use parking_lot::Mutex;
@@ -1411,7 +1649,7 @@ index 9ecc4f5d4..bb8752096 100644
  
  /// A renderer on a new `CAMetalLayer` that draws with `base`'s device and
 diff --git a/gpui-fast/crates/gpui_apple/src/fast/layers/raster.rs b/gpui-fast/crates/gpui_apple/src/fast/layers/raster.rs
-index b9d6b6a44..d658f9c81 100644
+index b9d6b6a..d658f9c 100644
 --- a/gpui-fast/crates/gpui_apple/src/fast/layers/raster.rs
 +++ b/gpui-fast/crates/gpui_apple/src/fast/layers/raster.rs
 @@ -53,7 +53,9 @@ pub(crate) fn rasterize_tiles(renderer: &mut MetalRenderer, scene: &Scene) {
@@ -1444,7 +1682,7 @@ index b9d6b6a44..d658f9c81 100644
                  .draw_polychrome_sprites(
                      texture_id,
 diff --git a/gpui-fast/crates/gpui_apple/src/fast/mod.rs b/gpui-fast/crates/gpui_apple/src/fast/mod.rs
-index 76e3e5921..0a38f18dd 100644
+index 76e3e59..0a38f18 100644
 --- a/gpui-fast/crates/gpui_apple/src/fast/mod.rs
 +++ b/gpui-fast/crates/gpui_apple/src/fast/mod.rs
 @@ -8,6 +8,7 @@
@@ -1456,7 +1694,7 @@ index 76e3e5921..0a38f18dd 100644
  pub(crate) mod color_bitmap_fonts;
  pub(crate) mod composition;
 diff --git a/gpui-fast/crates/gpui_apple/src/fast/paths.rs b/gpui-fast/crates/gpui_apple/src/fast/paths.rs
-index 9537a4337..3e9a443ba 100644
+index 9537a43..3e9a443 100644
 --- a/gpui-fast/crates/gpui_apple/src/fast/paths.rs
 +++ b/gpui-fast/crates/gpui_apple/src/fast/paths.rs
 @@ -177,6 +177,19 @@ pub(crate) fn draw_primitives_to_texture(
@@ -1480,7 +1718,7 @@ index 9537a4337..3e9a443ba 100644
                  .draw_polychrome_sprites(
                      texture_id,
 diff --git a/gpui-fast/crates/gpui_apple/src/fast/rounded_clip.rs b/gpui-fast/crates/gpui_apple/src/fast/rounded_clip.rs
-index b6951bcf4..3ca583ed2 100644
+index b6951bc..3ca583e 100644
 --- a/gpui-fast/crates/gpui_apple/src/fast/rounded_clip.rs
 +++ b/gpui-fast/crates/gpui_apple/src/fast/rounded_clip.rs
 @@ -218,6 +218,21 @@ fn encode(
@@ -1506,7 +1744,7 @@ index b6951bcf4..3ca583ed2 100644
                  if let Some(frame) = group(scene, texture_id) {
                      let child = frame.content.scene().context("rounded clip content")?;
 diff --git a/gpui-fast/crates/gpui_apple/src/fast/rounded_clip_shader.rs b/gpui-fast/crates/gpui_apple/src/fast/rounded_clip_shader.rs
-index 26f6a9bbe..d1925b794 100644
+index 26f6a9b..d1925b7 100644
 --- a/gpui-fast/crates/gpui_apple/src/fast/rounded_clip_shader.rs
 +++ b/gpui-fast/crates/gpui_apple/src/fast/rounded_clip_shader.rs
 @@ -5,6 +5,9 @@
@@ -1529,10 +1767,18 @@ index 26f6a9bbe..d1925b794 100644
          let start = source
              .find(&format!("fragment float4 {name}("))
 diff --git a/gpui-fast/crates/gpui_apple/src/metal_renderer.rs b/gpui-fast/crates/gpui_apple/src/metal_renderer.rs
-index ac98ee180..c846c9215 100644
+index ac98ee1..8603cb7 100644
 --- a/gpui-fast/crates/gpui_apple/src/metal_renderer.rs
 +++ b/gpui-fast/crates/gpui_apple/src/metal_renderer.rs
-@@ -159,6 +159,7 @@ pub struct MetalRenderer {
+@@ -49,6 +49,7 @@ const MAX_INSTANCE_BUFFER_SIZE: usize = 256 * 1024 * 1024;
+ 
+ pub type Context = Arc<Mutex<InstanceBufferPool>>;
+ pub type Renderer = MetalRenderer;
++pub use crate::fast::backdrop::BackdropFrame;
+ 
+ pub fn new_renderer(
+     context: self::Context,
+@@ -159,6 +160,7 @@ pub struct MetalRenderer {
      #[cfg(any(test, feature = "bench-support", feature = "test-support"))]
      headless_render_target: Option<Retained<ProtocolObject<dyn MTLTexture>>>,
      pub(crate) fast_layers: crate::fast::layers::TileCache,
@@ -1540,7 +1786,7 @@ index ac98ee180..c846c9215 100644
  }
  
  #[repr(C)]
-@@ -398,6 +399,7 @@ impl MetalRenderer {
+@@ -398,6 +400,7 @@ impl MetalRenderer {
              "surface_fragment",
              MTLPixelFormat::BGRA8Unorm,
          )?;
@@ -1548,7 +1794,7 @@ index ac98ee180..c846c9215 100644
  
          let command_queue = crate::fast::dynamic_textures::command_queue(&device)?;
          let supports_shared_storage = cfg!(target_os = "ios") || is_apple_gpu;
-@@ -447,6 +449,7 @@ impl MetalRenderer {
+@@ -447,6 +450,7 @@ impl MetalRenderer {
              #[cfg(any(test, feature = "bench-support", feature = "test-support"))]
              headless_render_target: None,
              fast_layers: crate::fast::layers::TileCache::default(),
@@ -1556,7 +1802,15 @@ index ac98ee180..c846c9215 100644
          })
      }
  
-@@ -938,6 +941,19 @@ impl MetalRenderer {
+@@ -690,6 +694,7 @@ impl MetalRenderer {
+             viewport_size,
+             &mut surface_textures,
+         )?;
++        crate::fast::backdrop::frame_rendered(self, texture);
+ 
+         let instance_buffer_pool = self.instance_buffer_pool.clone();
+         let frame_resources = Cell::new(Some((writer.finish(), surface_textures)));
+@@ -938,6 +943,19 @@ impl MetalRenderer {
                          viewport_size,
                          &command_encoder,
                      ),
@@ -1576,7 +1830,7 @@ index ac98ee180..c846c9215 100644
                  PrimitiveBatch::PolychromeSprites { texture_id, range } => self
                      .draw_polychrome_sprites(
                          texture_id,
-@@ -1586,7 +1602,7 @@ fn read_texture_to_image(texture: &ProtocolObject<dyn MTLTexture>) -> Result<Rgb
+@@ -1586,7 +1604,7 @@ fn read_texture_to_image(texture: &ProtocolObject<dyn MTLTexture>) -> Result<Rgb
      RgbaImage::from_raw(width, height, pixels).context("creating RGBA image from pixel data")
  }
  
@@ -1585,3 +1839,151 @@ index ac98ee180..c846c9215 100644
      device: &ProtocolObject<dyn MTLDevice>,
      library: &ProtocolObject<dyn MTLLibrary>,
      label: &str,
+diff --git a/gpui-fast/crates/gpui_macos/src/fast/composition.rs b/gpui-fast/crates/gpui_macos/src/fast/composition.rs
+index 961b4a0..c05bad1 100644
+--- a/gpui-fast/crates/gpui_macos/src/fast/composition.rs
++++ b/gpui-fast/crates/gpui_macos/src/fast/composition.rs
+@@ -75,6 +75,9 @@ pub(crate) struct MacComposition {
+     /// Native identities, parents and sibling order, independent of geometry.
+     view_order: Vec<(CompositionSurfaceId, usize, usize)>,
+     native_views: Rc<Vec<usize>>,
++    /// Every surface above the base one, bottom to top: a GPUI surface's
++    /// backdrops blur the base frame except over the native views under it.
++    stacking: Vec<Stacked>,
+     input_order: Rc<Vec<InputLayer>>,
+     native_event: usize,
+     pointer_capture: PointerCapture,
+@@ -91,6 +94,7 @@ impl MacComposition {
+             renderer_context,
+             view_order: Vec::new(),
+             native_views: Rc::new(Vec::new()),
++            stacking: Vec::new(),
+             input_order: Rc::new(Vec::new()),
+             native_event: 0,
+             pointer_capture: PointerCapture::default(),
+@@ -104,6 +108,12 @@ impl MacComposition {
+     }
+ }
+ 
++enum Stacked {
++    Gpui(CompositionSurfaceId),
++    /// A native or external view, and its container's `NSView`.
++    Native(Rc<dyn PlatformSurfaceAttachment>, usize),
++}
++
+ enum InputLayer {
+     Gpui(Rc<RefCell<Vec<gpui::Hitbox>>>),
+     Native(usize),
+@@ -620,21 +630,36 @@ pub(crate) fn draw_composed(window_state: &Rc<Mutex<MacWindowState>>, scene: Com
+         return;
+     };
+     let whole_scene = whole_scene_layer(scene.scene(), scene.layers());
++    let mut replayed = Vec::with_capacity(scene.layers().len());
+     for (layer_index, layer) in scene.layers().iter().enumerate() {
+-        let replayed_scene;
+-        let surface_scene = match whole_scene {
+-            Some((target_index, whole_scene)) if target_index == layer_index => whole_scene,
+-            _ => {
+-                replayed_scene = match scene.layer_scene(layer) {
+-                    Ok(surface_scene) => surface_scene,
+-                    Err(error) => {
+-                        log::error!("replaying AppKit composition scene: {error:#}");
+-                        return;
+-                    }
+-                };
+-                &replayed_scene
+-            }
+-        };
++        replayed.push(match whole_scene {
++            Some((target_index, _)) if target_index == layer_index => None,
++            _ => match scene.layer_scene(layer) {
++                Ok(surface_scene) => Some(surface_scene),
++                Err(error) => {
++                    log::error!("replaying AppKit composition scene: {error:#}");
++                    return;
++                }
++            },
++        });
++    }
++    let surface_scene = |layer_index: usize| match &replayed[layer_index] {
++        Some(surface_scene) => surface_scene,
++        None => whole_scene.map(|(_, scene)| scene).unwrap_or(scene.scene()),
++    };
++    // The surfaces over the base one draw on layers of their own, so their
++    // backdrops blur the base frame, which is kept for them (it is drawn
++    // first, in the command queue they share).
++    let backdrops_over_base = scene.layers().iter().enumerate().any(|(index, layer)| {
++        layer.surface != base_surface
++            && surface_scene(index)
++                .polychrome_sprites
++                .iter()
++                .any(|sprite| gpui::is_backdrop_texture(sprite.tile.texture_id))
++    });
++    state.renderer.keep_frame_for_backdrops(backdrops_over_base);
++    for (layer_index, layer) in scene.layers().iter().enumerate() {
++        let surface_scene = surface_scene(layer_index);
+         if layer.surface == base_surface {
+             state.renderer.draw(surface_scene);
+         } else if let Some(surface) = state.fast_composition.gpui_surfaces.get_mut(&layer.surface) {
+@@ -643,7 +668,12 @@ pub(crate) fn draw_composed(window_state: &Rc<Mutex<MacWindowState>>, scene: Com
+                 regions.clear();
+                 regions.extend(scene.layer_hitboxes(layer).iter().cloned());
+             }
++            let covered = native_bounds_under(&state.fast_composition.stacking, layer.surface);
++            surface
++                .renderer
++                .set_backdrop_frame(state.renderer.kept_frame(), covered);
+             surface.renderer.draw(surface_scene);
++            surface.renderer.set_backdrop_frame(None, Vec::new());
+         } else {
+             log::error!(
+                 "missing AppKit GPUI composition surface {:?}",
+@@ -651,6 +681,30 @@ pub(crate) fn draw_composed(window_state: &Rc<Mutex<MacWindowState>>, scene: Com
+             );
+         }
+     }
++    state.renderer.keep_frame_for_backdrops(false);
++}
++
++/// The bounds of the shown native views stacked under the GPUI surface
++/// `surface`, in window-content device pixels.
++fn native_bounds_under(
++    stacking: &[Stacked],
++    surface: CompositionSurfaceId,
++) -> Vec<Bounds<DevicePixels>> {
++    let mut covered = Vec::new();
++    for stacked in stacking {
++        match stacked {
++            Stacked::Gpui(id) if *id == surface => break,
++            Stacked::Gpui(_) => {}
++            Stacked::Native(attachment, view) => {
++                // SAFETY: The container view is retained by its attachment.
++                let hidden: Bool = unsafe { msg_send![*view as Id, isHiddenOrHasHiddenAncestor] };
++                if !hidden.as_bool() {
++                    covered.push(attachment.bounds());
++                }
++            }
++        }
++    }
++    covered
+ }
+ 
+ /// `present` supplies the current frame's scene after `Frame::finish`.
+@@ -793,6 +847,17 @@ pub(crate) fn set_composition_order(
+         .collect::<Result<Vec<_>>>()?;
+ 
+     let views_by_id = views.iter().copied().collect::<FxHashMap<_, _>>();
++    lock.fast_composition.stacking = surfaces
++        .iter()
++        .filter(|surface| surface.id != base_surface)
++        .filter_map(|surface| match &surface.content {
++            PlatformCompositionSurfaceContent::Gpui => Some(Stacked::Gpui(surface.id)),
++            PlatformCompositionSurfaceContent::Native(attachment)
++            | PlatformCompositionSurfaceContent::ExternalGpu(attachment) => views_by_id
++                .get(&surface.id)
++                .map(|view| Stacked::Native(attachment.clone(), *view as usize)),
++        })
++        .collect();
+ 
+     unsafe {
+         let native_view = lock.native_view.as_ptr();
