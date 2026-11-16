@@ -109,6 +109,7 @@ The first build fetches Zed at the pinned revision and compiles about 1,200 crat
 | ⌘⇧E, ⌘⌥R | Wrap in environment… (the name asked for), and Rename environment (both its `\begin` and its `\end`), in the Source and the Visual view |
 | `$`, ↩ | In a LaTeX file, `$` pairs (and wraps a selection in `$…$`); ↩ after a `\begin{…}` writes its `\end{…}`, and on an `\item` line starts the next item or, on an empty one, leaves the list |
 | ⌘⇧K, ⌘⇧L | In a LaTeX file, Insert citation and Insert reference: a picker of the bibliography's keys or the project's labels, writing `\cite{…}` or `\ref{…}` at the caret |
+| ⌥⌘M | In a LaTeX file, the math symbol palette: search the maths commands by name, meaning or symbol and write one at the caret (in `$…$` outside maths) |
 | ⌘G, ⌘⇧O | Go to line, and Go to symbol (the manuscript's sections and the project's labels) |
 | ⌃L, ⌘I, ⌥⌘\\, ⌃⌥[ / ⌃⌥] | Select the line, the enclosing syntax (outside a LaTeX file), re-indent, fold or unfold everything, as CodeMirror binds them in the Tauri app |
 | Vim `:w`, `:q`, `:wq`, `:N` | Save (and build), close the tab, both, go to line N |
