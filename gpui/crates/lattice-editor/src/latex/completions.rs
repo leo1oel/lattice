@@ -58,7 +58,7 @@ pub(crate) fn match_rank(label: &str, query: &str) -> Option<u8> {
 
 /// `localeCompare`'s order for ASCII names: case-insensitive, and between
 /// names that differ only in case, lowercase first.
-fn locale_order(a: &str, b: &str) -> std::cmp::Ordering {
+pub(crate) fn locale_order(a: &str, b: &str) -> std::cmp::Ordering {
     a.to_lowercase()
         .cmp(&b.to_lowercase())
         .then_with(|| b.cmp(a))
