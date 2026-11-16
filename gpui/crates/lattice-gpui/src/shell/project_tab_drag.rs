@@ -191,7 +191,7 @@ impl Shell {
         if event.button != MouseButton::Left
             || event.modifiers.control
             || !self.takes_project_drops(cx)
-            || !(self.projects.len() > 1 || another_project_window(cx))
+            || !(self.projects.len() > 1 || windows::other_project_window(cx.entity_id(), cx))
         {
             return false;
         }
@@ -335,28 +335,7 @@ impl Shell {
         if self.projects.len() < 2 {
             return;
         }
-        if self.root(cx).as_ref() == Some(&root) {
-            let shell = cx.entity().downgrade();
-            let moving = root.clone();
-            let asked = self.confirm_leaving(
-                move |window, cx| {
-                    let root = moving.clone();
-                    shell
-                        .update(cx, |shell, cx| {
-                            shell.move_project_to_window(root, window, cx)
-                        })
-                        .ok();
-                },
-                |_| {},
-                cx,
-            );
-            if asked {
-                return;
-            }
-            self.move_project_to_window(root, window, cx);
-        } else {
-            self.move_project_to_window(root, window, cx);
-        }
+        self.move_project_to_window(root, window, cx);
     }
 
     /// `root` dropped on `peer`'s window at `screen`: asked of that window,
@@ -390,7 +369,7 @@ impl Shell {
             }
         };
         // Asked, it goes on once agreed; else at once, in this update.
-        if active && self.confirm_leaving(go, |_| {}, cx) {
+        if active && self.confirm_leaving(go, |_| {}, window, cx) {
             return;
         }
         self.release_project_tab(root, handle, peer, screen, window, cx);
@@ -496,7 +475,7 @@ impl Shell {
             }
         };
         window.activate_window();
-        if self.confirm_leaving(accept, refuse, cx) {
+        if self.confirm_leaving(accept, refuse, window, cx) {
             return;
         }
         self.take_project_tab(root, slot_before, source, source_window, window, cx);
@@ -582,12 +561,7 @@ impl Shell {
             cx.notify();
             return true;
         }
-        let next = self
-            .projects
-            .get(index + 1)
-            .or_else(|| index.checked_sub(1).and_then(|ix| self.projects.get(ix)))
-            .map(|p| p.root.clone());
-        match next {
+        match self.neighbour_of(root) {
             // Already saved: `leave_now` finds nothing to save.
             Some(next) => self.leave_now(next, Some(root.to_path_buf()), window, cx),
             None => window.remove_window(),
@@ -643,11 +617,6 @@ fn escape_drag(own: gpui::WindowId, cx: &mut App) -> gpui::Subscription {
             }
         });
     })
-}
-
-/// Whether another window shows a project (a lone tab can go there).
-fn another_project_window(cx: &App) -> bool {
-    windows::shell_count(cx) > 1
 }
 
 /// The window at `local` (this window's coordinates): the frontmost of the

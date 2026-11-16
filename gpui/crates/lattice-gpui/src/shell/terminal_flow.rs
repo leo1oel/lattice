@@ -117,6 +117,7 @@ impl Shell {
         &mut self,
         root: PathBuf,
         closing: Option<PathBuf>,
+        window: &Window,
         cx: &mut Context<Self>,
     ) -> bool {
         let shell = cx.entity().downgrade();
@@ -128,18 +129,21 @@ impl Shell {
                     .ok();
             },
             |_| {},
+            window,
             cx,
         )
     }
 
     /// While a build, a terminal command or the agent's turn runs here, ask
     /// before the shown project goes (`confirmLeavingProject`): `then` runs
-    /// once agreed, `cancelled` when not. False, and nothing asked, when
-    /// nothing runs: the caller goes on itself.
+    /// once agreed, in `window` whichever window the answer came from,
+    /// `cancelled` when not. False, and nothing asked, when nothing runs:
+    /// the caller goes on itself.
     pub(crate) fn confirm_leaving(
         &mut self,
         then: impl Fn(&mut Window, &mut gpui::App) + 'static,
         cancelled: impl FnOnce(&mut gpui::App) + 'static,
+        window: &Window,
         cx: &mut Context<Self>,
     ) -> bool {
         let commands = self.terminal.read(cx).running(None, cx);
@@ -164,6 +168,14 @@ impl Shell {
             return false;
         }
         let name = self.project_name(cx);
+        let asking = window.window_handle();
+        let then = move |window: &mut Window, cx: &mut gpui::App| {
+            if window.window_handle().window_id() == asking.window_id() {
+                then(window, cx);
+            } else {
+                asking.update(cx, |_, window, cx| then(window, cx)).ok();
+            }
+        };
         crate::confirm::ask(
             crate::confirm::Confirm::new(t!("Switch away from “{name}”?", name = name))
                 .body(t!(

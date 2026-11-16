@@ -218,7 +218,7 @@ impl Run {
                 && moved
                 && closed
                 && order == vec![first.clone(), other.clone()]
-                && (caret_here.is_none() || caret_here == Some(caret)),
+                && caret_here == Some(caret),
             json!({ "incoming": incoming.map(|slot| slot.before), "moved": moved, "closed": closed, "order": order, "caret": [caret, caret_here] }),
         );
 
