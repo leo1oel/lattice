@@ -15924,10 +15924,6 @@ msgid "The bibliography changed while resolving the citation. Retry the import."
 msgstr "The bibliography changed while resolving the citation. Retry the import."
 
 #: src/platform/host-errors-papers.ts
-msgid "The bibliography changed while upgrading. Retry the operation."
-msgstr "The bibliography changed while upgrading. Retry the operation."
-
-#: src/platform/host-errors-papers.ts
 msgid "The bibliography entry changed after the preview. Scan it again."
 msgstr "The bibliography entry changed after the preview. Scan it again."
 

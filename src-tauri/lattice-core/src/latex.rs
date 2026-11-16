@@ -77,6 +77,9 @@ pub use changes::{
 };
 pub use figure_preview::{preview_figure, FigurePreview, FigurePreviewRequest};
 pub use pinned::{build_pinned, PinnedBuild};
+pub(crate) use shown_pdf::built_pdfs;
+#[cfg(test)]
+pub(crate) use shown_pdf::record_build;
 pub use submission_review::{
     review_submission, Check as ReviewCheck, Finding as ReviewFinding, ReviewMode, SubmissionReview,
 };
