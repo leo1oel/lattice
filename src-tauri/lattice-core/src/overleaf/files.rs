@@ -104,6 +104,7 @@ pub(super) fn is_build_output_of(path: &str, is_source: impl Fn(&str) -> bool) -
     let folder = path.rsplit_once('/').map_or(String::new(), |(folder, _)| format!("{folder}/"));
     (ARTIFACT_SUFFIXES.iter().filter_map(|suffix| name.strip_suffix(suffix)))
         .any(|stem| is_source(&format!("{folder}{stem}.tex")))
+        || is_generated_bibliography(path, &is_source)
 }
 
 /// Whether `path`, one of `files`, takes no part in sync: [`is_excluded`]
