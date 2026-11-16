@@ -17,8 +17,8 @@ use std::{
 };
 
 use gpui::{
-    AnyWindowHandle, App, AppContext as _, Bounds, Context, DisplayId, Entity, Global, Pixels,
-    SharedString, WeakEntity, Window, WindowBounds, WindowId, point, px, size,
+    AnyWindowHandle, App, AppContext as _, Bounds, Context, DisplayId, Entity, EntityId, Global,
+    Pixels, SharedString, WeakEntity, Window, WindowBounds, WindowId, point, px, size,
 };
 use lattice_i18n::t;
 
@@ -368,6 +368,17 @@ pub(crate) fn any_overlay_writing(cx: &App) -> bool {
     })
 }
 
+/// Whether a window other than `own`'s shows a project.
+pub(crate) fn other_project_window(own: EntityId, cx: &App) -> bool {
+    cx.try_global::<Shells>().is_some_and(|shells| {
+        shells
+            .0
+            .values()
+            .filter_map(|shell| shell.upgrade())
+            .any(|shell| shell.entity_id() != own && shell.read(cx).project.is_some())
+    })
+}
+
 /// Run `f` on the shell of each window `which` picks, in its own window.
 pub(crate) fn for_shells(
     cx: &mut App,
@@ -493,6 +504,25 @@ impl Shell {
         if self.overlay_writing(cx) {
             return;
         }
+        if self.root(cx).is_none() {
+            return;
+        }
+        let shell = cx.entity().downgrade();
+        let go = move |window: &mut Window, cx: &mut App| {
+            shell
+                .update(cx, |shell, cx| shell.open_in_new_window_now(window, cx))
+                .ok();
+        };
+        if self.projects.len() > 1 && self.confirm_leaving(go, |_| {}, window, cx) {
+            return;
+        }
+        self.open_in_new_window_now(window, cx);
+    }
+
+    fn open_in_new_window_now(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.overlay_writing(cx) {
+            return;
+        }
         let Some(root) = self.root(cx) else {
             return;
         };
@@ -509,16 +539,26 @@ impl Shell {
                     return;
                 }
                 let from = place_of(window, cx);
-                if this.projects.len() > 1 {
-                    this.close_project(&root, window, cx);
-                } else {
-                    window.remove_window();
+                match this.neighbour_of(&root) {
+                    // Already saved: `leave_now` finds nothing to save.
+                    Some(next) => this.leave_now(next, Some(root.clone()), window, cx),
+                    None => window.remove_window(),
                 }
                 new_window(Some(root), Some(from), cx);
             })
             .ok();
         })
         .detach();
+    }
+
+    /// The project that takes `root`'s place when it goes: its right-hand
+    /// neighbour, else its left; none when it is alone or not here.
+    pub(super) fn neighbour_of(&self, root: &Path) -> Option<PathBuf> {
+        let index = self.projects.iter().position(|p| p.root == root)?;
+        self.projects
+            .get(index + 1)
+            .or_else(|| index.checked_sub(1).and_then(|ix| self.projects.get(ix)))
+            .map(|p| p.root.clone())
     }
 
     /// Step the interface size from a key, the menu or the palette, and
@@ -593,7 +633,7 @@ impl Shell {
         // Leaving ends this project's shells: ask first while a command
         // runs in one (`confirmLeavingProject`).
         if self.root(cx).is_some_and(|current| current != root)
-            && self.ask_before_leaving(root.clone(), closing.clone(), cx)
+            && self.ask_before_leaving(root.clone(), closing.clone(), window, cx)
         {
             return;
         }
@@ -656,19 +696,11 @@ impl Shell {
         if self.overlay_writing(cx) {
             return;
         }
-        let Some(index) = self.projects.iter().position(|p| p.root == *root) else {
-            return;
-        };
-        if self.projects.len() < 2 {
+        if !self.projects.iter().any(|p| p.root == *root) || self.projects.len() < 2 {
             return;
         }
         if self.root(cx).as_ref() == Some(root) {
-            let next = self
-                .projects
-                .get(index + 1)
-                .or_else(|| index.checked_sub(1).and_then(|ix| self.projects.get(ix)))
-                .map(|p| p.root.clone());
-            if let Some(next) = next {
+            if let Some(next) = self.neighbour_of(root) {
                 self.leave_for(next, Some(root.clone()), window, cx);
             }
             return;
