@@ -191,6 +191,7 @@ impl EditorPanel {
             .children(self.why_cited_popover(window, cx))
             .children(self.selection_toolbar(window, cx))
             .children(self.vim_ex_line(cx))
+            .children(self.symbol_palette_popover(window, cx))
             .child(
                 gpui::canvas(
                     move |bounds, window, cx| {

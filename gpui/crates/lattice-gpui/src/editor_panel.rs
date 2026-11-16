@@ -89,6 +89,7 @@ mod selection_toolbar;
 mod source_chrome;
 mod source_pointer;
 pub(crate) mod spelling;
+pub(crate) mod symbol_palette;
 mod strip;
 mod structured_view;
 pub mod views;
@@ -246,6 +247,8 @@ pub struct EditorPanel {
     _poll: Task<()>,
     /// Vim's open `:` line (`vim_ex.rs`).
     vim_ex: Option<vim_ex::VimExLine>,
+    /// The math symbol palette, while open (`symbol_palette.rs`).
+    symbols: Option<symbol_palette::SymbolPalette>,
     _subscriptions: Vec<Subscription>,
     /// A `.bib` file's Preview and library (`bib_view.rs`).
     bib: bib_view::BibState,
@@ -481,6 +484,7 @@ impl EditorPanel {
             _todos: None,
             _poll: poll,
             vim_ex: None,
+            symbols: None,
             _subscriptions: subscriptions,
             bib: Default::default(),
             paper: Default::default(),
@@ -736,6 +740,7 @@ impl Render for EditorPanel {
         let root = Self::latex_commands(div().key_context("LatticeEditor"), cx);
         let root = Self::definition_actions(Self::latex_input_actions(root, cx), cx);
         let root = Self::vim_ex_actions(Self::format_actions(root, cx), cx);
+        let root = Self::symbol_palette_actions(root, cx);
         Self::panel_actions(root, cx)
             .on_action(cx.listener(Self::deploy_search))
             // An accept is an undo step of the editor's (`review_marks.rs`).

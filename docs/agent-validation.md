@@ -20,7 +20,8 @@ the App suites run for any change reachable from `App.tsx`): lint, knip,
 typecheck, the i18n catalogs, and, when their inputs changed, `perf:evidence`,
 `notices:check`, the GPUI host error catalog
 (`scripts/gpui-host-errors.mjs --check`), the GPUI animated icons
-(`scripts/gpui-animated-icons.mjs --check`) and `cargo fmt --check`; then the tests `vitest related` finds
+(`scripts/gpui-animated-icons.mjs --check`), the GPUI symbol palette glyphs
+(`scripts/gpui-symbol-glyphs.mjs --check`) and `cargo fmt --check`; then the tests `vitest related` finds
 from your changed files, and `pnpm test:invariants`, the tests that read
 stylesheets and fixtures, or run scripts, no import leads to. Do not assemble
 your own list of test files. The no-mistakes pipeline's test step runs this

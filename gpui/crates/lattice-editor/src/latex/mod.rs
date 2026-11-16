@@ -57,6 +57,8 @@ pub mod reference_card;
 pub mod region_edits;
 pub mod spelling;
 pub mod synctex_word;
+pub mod symbol_palette;
+mod symbol_glyphs;
 pub mod syntax;
 pub mod texlab_completions;
 pub mod vocabulary;
