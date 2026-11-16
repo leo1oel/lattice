@@ -3,7 +3,7 @@
 One of the features [the GPUI app](../README.md) has so far.
 
 Builds with lattice-core's latexmk build on one click (or ⌘S / Ctrl+S, which saves and builds, as in the Tauri app; ⇧-click rebuilds clean), once when a project is entered (whatever Settings › Editor & builds says), and after each save (the Tauri app's default automatic builds), and reloads the PDF in place.
-A write the window's open editors do not own (the Agent, a terminal, another editor, an Overleaf pull) to a build input builds once the writes pause for 1.5 s, and so does an outside edit of an open file; files only a build writes (its aux, log and synctex files, the root document's PDF, bbl and -blx.bib, `_minted`/`svg-inkscape`, the atomic-write temporary, `.git`, and whatever the last pass's recorder named) start no build.
+A write the window's open editors do not own (the Agent, a terminal, another editor, an Overleaf pull) to a build input builds once the writes pause for 1.5 s, and so does an outside edit of an open file; files only a build writes (its aux, log and synctex files, the root document's PDF, bbl, -blx.bib and achemso's acs-<name>.bib, `_minted`/`svg-inkscape`, the atomic-write temporary, `.git`, and whatever the last pass's recorder named) start no build.
 After a build that stalled, automatic builds wait until an input changes; Build still runs on request.
 A successful build of an Overleaf-linked project becomes an "Auto-saved version" git commit, at most every 2 minutes.
 The Build button's hover card lists the passes latexmk ran; a build can be stopped, a switch to another project asks first while one runs, and the build files cleaned; a quiet (live-preview) build's success shows the chip's check without the flourish.

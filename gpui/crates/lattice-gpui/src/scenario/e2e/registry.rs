@@ -35,9 +35,8 @@ pub(in crate::scenario) enum After {
     Vim,
     /// The file repaired outside Lattice and built cleanly again.
     Repair,
-    /// A second window's PDF, the Terminal panel (macOS) and the tab drag
-    /// (`LATTICE_E2E_DRAG`); the modules after it run before the typing
-    /// that ends the run.
+    /// A second window's PDF, the Terminal panel (macOS) and the tab drag;
+    /// the modules after it run before the typing that ends the run.
     Terminal,
 }
 

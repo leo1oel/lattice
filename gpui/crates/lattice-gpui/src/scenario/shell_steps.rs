@@ -97,7 +97,7 @@ impl Run {
         .context("no document is open")
     }
 
-    /// Drag a view by its tab (the first tab of its panel) to `to`, a point
+    /// Drag a view by its tab (`tab_grip`) to `to`, a point
     /// given as fractions of panel `onto`.
     async fn drag_tab(
         &self,
@@ -108,9 +108,6 @@ impl Run {
     ) -> Result<Value> {
         let doc = self.document(cx);
         let from_panel = panel_with(&doc, view).context("the view is in no panel")?;
-        let from = self
-            .panel_bounds(cx, &from_panel)
-            .context("its panel is not drawn")?;
         let drawn = cx.update(|cx| {
             let workspace = self.shell.read(cx).workspace().read(cx);
             format!(
@@ -126,11 +123,7 @@ impl Run {
         let onto = self
             .panel_bounds(cx, onto)
             .with_context(|| format!("the target panel {onto} is not drawn: {drawn}"))?;
-        // The tab's icon: 6px into the strip, 14px into the tab, mid-strip.
-        let from = gpui::point(
-            from.left() + gpui::px(6. + 14.) + lattice_ui::icons::ICON / 2.,
-            from.top() + gpui::px(20.),
-        );
+        let from = self.tab_grip(cx, &from_panel, view)?;
         let to = gpui::point(
             onto.left() + onto.size.width * to.0,
             onto.top() + onto.size.height * to.1,

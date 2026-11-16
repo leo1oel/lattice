@@ -4,7 +4,7 @@
 //! (`project::resolve_citation_query`, three at a time). What the library
 //! already holds is set aside, a title that matches more than one record
 //! waits for a choice, and nothing is written until the writer adds; then
-//! the Papers panel imports each in turn (`batch.rs`) and the sheet can
+//! the Papers panel imports them four at a time (`batch.rs`) and the sheet can
 //! close while the writer keeps writing. It reads the box once typing
 //! pauses (450 ms), so a half-typed DOI is not looked up letter by letter,
 //! and a paste at once, since a paste is whole. ⌘/Ctrl+Enter in the box

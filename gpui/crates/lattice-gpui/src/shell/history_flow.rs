@@ -251,6 +251,10 @@ impl Shell {
                             this.open_path(root.join(path), None, window, cx);
                         }
                         this.history.update(cx, |history, cx| history.reload(cx));
+                        // The PDF is built from the settled text, as the Tauri app
+                        // compiles once a conflict is resolved: in manual builds
+                        // no watcher would.
+                        this.run_build(super::build::BuildRequest::automatic(), window, cx);
                         cx.notify();
                     }
                     ConflictEvent::Closed => {

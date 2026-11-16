@@ -97,6 +97,12 @@ pub struct LatticeEditor {
     blocks: HashMap<&'static str, HashSet<CustomBlockId>>,
     hover_providers: Vec<Rc<dyn HoverProvider>>,
     hover: Hover,
+    /// A keyboard card just closed: if focus was in it, or went nowhere,
+    /// the next frame gives the editor the keyboard back (an edit or a
+    /// caret move closes the card without a window to move focus with). A
+    /// card scrolled out of the editor is closed and refocused in
+    /// `render_card` instead.
+    refocus: Option<FocusHandle>,
     caret_card: caret_card::CaretCardState,
     sources: Sources,
     offered: Offered,
@@ -158,6 +164,13 @@ impl LatticeEditor {
                 if matches!(event, EditorEvent::Blurred | EditorEvent::Focused) {
                     cx.notify();
                 }
+                // A caret move closes a card opened from the keyboard, as the
+                // Tauri app's ⌥⌘K card closes on any selection change.
+                if matches!(event, EditorEvent::SelectionsChanged { .. })
+                    && this.hover_from_keyboard()
+                {
+                    this.dismiss_hover(cx);
+                }
             }),
             // An edit closes the card, as typing into a key closes the
             // Tauri app's.
@@ -179,6 +192,7 @@ impl LatticeEditor {
             hover_providers: Vec::new(),
             citations: Default::default(),
             hover: Hover::Idle,
+            refocus: None,
             caret_card: Default::default(),
             sources,
             offered,
@@ -611,6 +625,11 @@ impl Focusable for LatticeEditor {
 
 impl Render for LatticeEditor {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        if let Some(card) = self.refocus.take()
+            && (card.contains_focused(window, cx) || window.focused(cx).is_none())
+        {
+            window.focus(&self.focus_handle(cx), cx);
+        }
         let card = self.render_card(window, cx);
         let caret_card = self.render_caret_card(window, cx);
         let scrollbar = self.render_scrollbar(window, cx);
@@ -645,8 +664,14 @@ impl Render for LatticeEditor {
                 .size_full(),
             )
             // Any key closes the card, as typing does in the Tauri app;
-            // Escape also puts the caret card away.
+            // Escape also puts the caret card away. A card opened from the
+            // keyboard holds focus and takes its own keys (Tab, Return,
+            // Escape), so its Escape leaves the caret card be; an edit or a
+            // caret move closes it.
             .capture_key_down(cx.listener(|this, event, _, cx| {
+                if this.hover_from_keyboard() {
+                    return;
+                }
                 this.dismiss_hover(cx);
                 this.caret_card_key(event, cx);
             }))

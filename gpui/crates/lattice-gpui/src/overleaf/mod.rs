@@ -20,6 +20,7 @@ pub mod bridge;
 mod channel;
 pub mod collab;
 pub mod download;
+pub mod network;
 pub mod outcome;
 pub(crate) mod parts;
 pub mod people;
