@@ -18,9 +18,13 @@
 //! elevation, and the Tauri app's frosted surface (`surfaces.css`): 97% of
 //! the lifted surface over the page blurred by 14px (`backdrop_blur`, CSS's
 //! `backdrop-filter: blur(14px)`). Where the renderer cannot read the page
-//! under a card (a card over a webview island, which GPUI draws on a surface
-//! above the native view), the blur's fallback fills the card with the
-//! surface, opaque, since 3% of page left unblurred reads as ghost text.
+//! under a card, the blur's fallback fills the card with the surface,
+//! opaque, since 3% of page left unblurred reads as ghost text. That is
+//! every card while the window holds a native surface anywhere (a webview
+//! island such as the Agent panel or a board, sheet or deck), even one not
+//! under the card: the cards are drawn deferred, and GPUI then draws all
+//! deferred content on its own surface above the native views, which cannot
+//! read the window's page.
 //!
 //! The library's facts, the uses and the actions that leave the card come
 //! from the host through the editor's [`CitationSlot`]; without one the

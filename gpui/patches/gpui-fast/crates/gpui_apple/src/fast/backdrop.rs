@@ -5,8 +5,10 @@
 //! id, ordered like any other primitive, so it arrives here as a batch of
 //! its own after what is under it and before what goes over it. For each
 //! backdrop the frame's render pass is ended, the target's pixels under it,
-//! with a margin of three standard deviations, are copied into a scratch
-//! texture the size of that region and blurred into another by
+//! with a margin of three standard deviations, grown to whole 64 pixel steps
+//! within the target so a card scaling in or out keeps its textures, are
+//! copied into a scratch texture the size of that region and blurred into
+//! another by
 //! `MPSImageGaussianBlur` (clamping at the region's edges, so the blur does
 //! not darken toward them), and the pass is begun again, loading what it
 //! stored, to draw the blurred pixels back inside the backdrop's rounded
@@ -51,6 +53,15 @@ const EDGE_MODE_CLAMP: usize = 1;
 
 /// How many blur kernels, one per standard deviation, are kept.
 const MAX_KERNELS: usize = 8;
+
+/// The step, in device pixels, a sampled region's width and height are
+/// rounded up to, so a backdrop that changes size by a few pixels a frame
+/// (a card scaling in) samples into the same scratch textures.
+const REGION_STEP: f32 = 64.;
+
+/// The step, in device pixels, a standard deviation is rounded to, so a
+/// backdrop whose blur scales with it reuses a few kernels.
+const SIGMA_STEP: f32 = 0.5;
 
 /// The parameters `backdrop.metal` reads, in its `BackdropUniforms` layout.
 #[repr(C)]
@@ -249,12 +260,12 @@ pub(crate) fn device_blurs(device: &ProtocolObject<dyn MTLDevice>) -> bool {
 }
 
 /// The whole device pixels a backdrop samples: what of it is visible, grown
-/// by three standard deviations and cut to the viewport. `None` when none of
-/// it is visible.
+/// by three standard deviations, then to whole `REGION_STEP`s, all within
+/// the viewport. `None` when none of it is visible.
 pub(crate) fn region(backdrop: &Backdrop, viewport: Size<DevicePixels>) -> Option<Region> {
     let visible = backdrop.bounds.intersect(&backdrop.content_mask.bounds);
     let (width, height) = (viewport.width.0 as f32, viewport.height.0 as f32);
-    let margin = (backdrop.sigma.0.max(0.) * 3.).ceil();
+    let margin = (sigma(backdrop) * 3.).ceil();
     let left = (visible.left().0 - margin).floor().max(0.);
     let top = (visible.top().0 - margin).floor().max(0.);
     let right = (visible.right().0 + margin).ceil().min(width);
@@ -265,12 +276,30 @@ pub(crate) fn region(backdrop: &Backdrop, viewport: Size<DevicePixels>) -> Optio
         && visible.top().0 < height
         && visible.right().0 > 0.
         && visible.bottom().0 > 0.;
-    shown.then(|| Region {
-        x: left as usize,
-        y: top as usize,
-        width: (right - left) as usize,
-        height: (bottom - top) as usize,
+    shown.then(|| {
+        let (x, width) = stepped(left, right, width);
+        let (y, height) = stepped(top, bottom, height);
+        Region {
+            x,
+            y,
+            width,
+            height,
+        }
     })
+}
+
+/// The span from `start` to `end`, both within `0..extent`, grown to whole
+/// `REGION_STEP`s or to `extent`, past `end` where there is room and back
+/// from `start` where there is not.
+fn stepped(start: f32, end: f32, extent: f32) -> (usize, usize) {
+    let length = (((end - start) / REGION_STEP).ceil() * REGION_STEP).min(extent);
+    (start.min(extent - length) as usize, length as usize)
+}
+
+/// The standard deviation a backdrop is blurred by, in device pixels,
+/// rounded to `SIGMA_STEP`.
+fn sigma(backdrop: &Backdrop) -> f32 {
+    (backdrop.sigma.0.max(0.) / SIGMA_STEP).round() * SIGMA_STEP
 }
 
 /// What `backdrop.metal` draws with; `source_origin` is where the blurred
@@ -329,7 +358,7 @@ fn blur(
     let (Some(source), Some(blurred), Some(kernel)) = (
         scratch(&device, &mut state.source, region, format),
         scratch(&device, &mut state.blurred, region, format),
-        kernel(&device, &mut state.kernels, backdrop.sigma.0),
+        kernel(&device, &mut state.kernels, sigma(backdrop)),
     ) else {
         return Ok(None);
     };

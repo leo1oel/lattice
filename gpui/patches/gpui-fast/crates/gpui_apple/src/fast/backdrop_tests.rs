@@ -167,21 +167,40 @@ fn a_renderer_that_cannot_read_its_target_fills_the_fallback() {
 }
 
 #[test]
-fn the_region_sampled_is_the_visible_rectangle_grown_by_three_sigma() {
+fn the_region_sampled_is_the_visible_rectangle_grown_by_three_sigma_then_to_64px_steps() {
+    // 28..172 × 18..102 grown by 3σ; 192 wide, moved back from the right
+    // edge to fit, and the viewport's whole height, as 128 would not fit.
     let sampled = region(&card(), viewport()).unwrap();
     assert_eq!(
         (sampled.x, sampled.y, sampled.width, sampled.height),
-        (28, 18, 144, 84)
+        (8, 0, 192, 120)
     );
-    // Cut to the viewport.
+    // Cut to the viewport (0..42 each way), then grown to a step.
     let mut corner = card();
     corner.bounds = sp(-20., -20., 50., 50.);
     let sampled = region(&corner, viewport()).unwrap();
     assert_eq!(
         (sampled.x, sampled.y, sampled.width, sampled.height),
-        (0, 0, 42, 42)
+        (0, 0, 64, 64)
     );
     // Nothing visible, nothing sampled.
     corner.bounds = sp(300., 0., 50., 50.);
     assert_eq!(region(&corner, viewport()), None);
+}
+
+#[test]
+fn a_card_scaling_in_samples_regions_of_one_size() {
+    // A pop-in's frames scale the card and its σ together about its centre.
+    let sizes: Vec<_> = [0.96f32, 0.97, 0.98, 0.99, 1.]
+        .into_iter()
+        .map(|scale| {
+            let mut frame = card();
+            let (w, h) = (120. * scale, 60. * scale);
+            frame.bounds = sp(100. - w / 2., 60. - h / 2., w, h);
+            frame.sigma = ScaledPixels(4. * scale);
+            let sampled = region(&frame, viewport()).unwrap();
+            (sampled.width, sampled.height)
+        })
+        .collect();
+    assert!(sizes.iter().all(|size| *size == sizes[0]), "{sizes:?}");
 }
