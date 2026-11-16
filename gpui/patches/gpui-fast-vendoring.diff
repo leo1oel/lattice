@@ -2,7 +2,7 @@ diff --git a/gpui-fast/Cargo.toml b/gpui-fast/Cargo.toml
 index f9aeb75..53250e9 100644
 --- a/gpui-fast/Cargo.toml
 +++ b/gpui-fast/Cargo.toml
-@@ -1,43 +1,9 @@
+@@ -1,43 +1,10 @@
  [workspace]
  resolver = "2"
  members = [
@@ -15,7 +15,7 @@ index f9aeb75..53250e9 100644
 -    "crates/bench_metrics",
 -    "crates/collections",
      "crates/gpui",
--    "crates/gpui_apple",
+     "crates/gpui_apple",
 -    "crates/gpui_ios",
 -    "crates/gpui_linux",
      "crates/gpui_macos",
@@ -46,7 +46,7 @@ index f9aeb75..53250e9 100644
  
  [workspace.package]
  publish = false
-@@ -57,33 +23,33 @@ objc2-security = { version = "0.3.2", default-features = false, features = ["std
+@@ -57,33 +24,33 @@ objc2-security = { version = "0.3.2", default-features = false, features = ["std
  objc2-quartz-core = { version = "=0.3.2", default-features = false, features = ["std", "CALayer", "CAMetalDisplayLink", "CAMetalLayer", "objc2-metal"] }
  dispatch2 = { version = "0.3", default-features = false, features = ["std"] }
  bytemuck = "1"
@@ -57,10 +57,9 @@ index f9aeb75..53250e9 100644
 +collections = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa", version = "0.1.0" }
 +derive_refineable = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
  gpui = { path = "crates/gpui", default-features = false }
--gpui_apple = { path = "crates/gpui_apple" }
+ gpui_apple = { path = "crates/gpui_apple" }
 -gpui_ios = { path = "crates/gpui_ios" }
 -gpui_linux = { path = "crates/gpui_linux", default-features = false }
-+gpui_apple = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
 +gpui_ios = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
 +gpui_linux = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa", default-features = false }
  gpui_macos = { path = "crates/gpui_macos", default-features = false }
@@ -105,7 +104,7 @@ index f9aeb75..53250e9 100644
  
  accesskit = { version = "0.24.0", features = ["enumn"] }
  accesskit_macos = "0.26.0"
-@@ -456,56 +422,3 @@ nonminimal_bool = "allow"
+@@ -456,56 +423,3 @@ nonminimal_bool = "allow"
  # runs them without a `--path` argument. The `lints` package pins its own
  # nightly toolchain (see `tooling/lints/rust-toolchain.toml`) and is kept out of
  # this workspace on purpose.

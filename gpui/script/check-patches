@@ -74,7 +74,7 @@ out="$work/patches"
 src="$work/gpui-fast-src"
 mkdir -p "$out/gpui-fast/crates"
 cp "$src/Cargo.toml" "$src/LICENSE-APACHE" "$out/gpui-fast/"
-for crate in gpui gpui_macos; do
+for crate in gpui gpui_apple gpui_macos; do
   mkdir -p "$out/gpui-fast/crates/$crate"
   (cd "$src/crates/$crate" && tar -cf - --exclude ./examples --exclude ./benches --exclude ./docs .) |
     (cd "$out/gpui-fast/crates/$crate" && tar -xf -)
