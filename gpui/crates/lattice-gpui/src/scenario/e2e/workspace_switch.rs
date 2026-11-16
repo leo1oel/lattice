@@ -171,12 +171,7 @@ impl Run {
         cx.update(|cx| cx.write_to_clipboard(gpui::ClipboardItem::new_string(pasted.into())));
         self.key(cx, if cfg!(target_os = "macos") { "cmd-v" } else { "ctrl-v" })?;
         self.pause(cx, Duration::from_millis(200)).await;
-        let field = cx.update(|cx| {
-            self.shell
-                .read(cx)
-                .rename_input()
-                .map(|input| input.read(cx).value().to_string())
-        });
+        let field = field_value(cx);
         // The paste was cut before it applied, so it is one step of the
         // field's history: ⌘Z gives the name back, then the paste again.
         let undo = if cfg!(target_os = "macos") { "cmd-z" } else { "ctrl-z" };
