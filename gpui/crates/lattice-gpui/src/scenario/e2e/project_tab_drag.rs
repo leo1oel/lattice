@@ -181,6 +181,31 @@ impl Run {
         second.pause(cx, Duration::from_millis(500)).await;
         let caret = cx.update(|cx| editor.read(cx).text_and_caret(cx).1);
 
+        // A window's only project let go over no window stays where it is:
+        // tearing it off would leave this window empty for a new one.
+        let windows_before = cx.update(|cx| cx.windows().len());
+        let lone = cx
+            .update(|cx| {
+                let bounds = second.shell.read(cx).project_strip_bounds();
+                let tabs = bounds.borrow();
+                tabs.tabs.first().map(|(_, rect)| rect.center())
+            })
+            .context("the lone project's title is drawn")?;
+        second.pointer(cx, PointerStep::Down, lone).await?;
+        second.pointer(cx, PointerStep::Move, lone + point(px(0.), px(12.))).await?;
+        second.pointer(cx, PointerStep::Move, away).await?;
+        second.pointer(cx, PointerStep::Up, away).await?;
+        self.pause(cx, Duration::from_millis(800)).await;
+        let stayed = cx.update(|cx| second.shell.read(cx).root(cx));
+        let windows_after = cx.update(|cx| cx.windows().len());
+        steps.check(
+            "a window's only project let go over no window stays in that window, opening no new one",
+            stayed.as_ref() == Some(&first)
+                && windows_after == windows_before
+                && self.project_order(cx) == vec![other.clone()],
+            json!({ "shown": stayed, "windows": [windows_before, windows_after], "order": self.project_order(cx) }),
+        );
+
         // Its lone project let go over this window's strip moves here, in
         // front, before the tab under it; the window it left closes.
         let target = self.tab_middle(cx, &other).context("this window's tab")? - point(px(20.), px(0.));
