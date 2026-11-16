@@ -25,6 +25,18 @@ pub enum PdfViewEvent {
     Outline { path: String, line: u32 },
     /// A citation card's title: open the paper cited under the key.
     OpenCitation(String),
+    /// A note made here goes to Overleaf as a comment: the text selected on
+    /// the PDF, placed by SyncTeX on `line` of `path` where the file read
+    /// `quote`, and the comment. The host answers with
+    /// [`super::PdfView::answer_overleaf_note`].
+    OverleafNote {
+        id: u64,
+        path: String,
+        line: usize,
+        selection: String,
+        quote: String,
+        body: String,
+    },
     /// A note's card asked something of it (Resolve, Reply).
     Annotation(crate::annotations::AnnotationRequest),
     /// The view rested at a new place, for the host to keep.

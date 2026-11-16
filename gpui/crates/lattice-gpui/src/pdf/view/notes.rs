@@ -48,10 +48,51 @@ pub struct PdfNotes {
     pub root: PathBuf,
     pub document: Option<String>,
     pub notes: Arc<Vec<EditorComment>>,
-    /// Whether text selected here may be annotated: the notes are local
-    /// annotations (a project linked to Overleaf comments there instead).
-    pub annotatable: bool,
+    /// For a project linked to Overleaf, where its comments can go now: a
+    /// note made here is an Overleaf comment on a file Overleaf holds.
+    pub overleaf: Option<OverleafNotes>,
 }
+
+/// What a PDF knows of a linked project's Overleaf side: the file open
+/// live with it, and the files it holds.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct OverleafNotes {
+    pub live_file: Option<String>,
+    pub doc_paths: Arc<Vec<String>>,
+}
+
+/// Where a note made on the PDF and placed in a file goes
+/// (`CommentDestination`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NoteDestination {
+    /// A local annotation (a project not linked, or a file Overleaf does
+    /// not hold).
+    Annotation,
+    /// A comment on the file open live with Overleaf.
+    Overleaf,
+    /// A comment on another file Overleaf holds, which must open live first.
+    OtherFile,
+    /// Overleaf's live editing is not connected.
+    Offline,
+}
+
+/// Where a note placed in `path` goes now.
+pub fn note_destination(overleaf: Option<&OverleafNotes>, path: &str) -> NoteDestination {
+    let Some(overleaf) = overleaf else {
+        return NoteDestination::Annotation;
+    };
+    if !overleaf.doc_paths.is_empty() && !overleaf.doc_paths.iter().any(|doc| doc == path) {
+        return NoteDestination::Annotation;
+    }
+    match overleaf.live_file.as_deref() {
+        Some(live) if live == path => NoteDestination::Overleaf,
+        Some(_) => NoteDestination::OtherFile,
+        None => NoteDestination::Offline,
+    }
+}
+
+#[cfg(test)]
+mod destination_tests;
 
 /// Whether the PDF draws `note`: open and numbered, made on the PDF or in a
 /// .tex file, whose text TeX typesets (`drawnOnPdf`).

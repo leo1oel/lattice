@@ -144,3 +144,7 @@ msgstr "写作布局"
 #: lattice-gpui/src/shell.rs
 msgid "{0} — Lattice (GPUI preview)"
 msgstr "{0} — Lattice（GPUI 预览版）"
+
+#: lattice-gpui/src/shell/pdf_notes.rs
+msgid "{name} is opening live with Overleaf beside the PDF. Comment again once it has opened."
+msgstr "{name} 正在 PDF 旁以 Overleaf 实时编辑打开，打开后再评论一次。"

@@ -27,6 +27,7 @@ mod margin;
 mod margin_end;
 mod margin_visual;
 mod markdown_review;
+mod pdf_note;
 mod polish;
 mod presence;
 mod project_history;
@@ -219,22 +220,27 @@ impl Run {
             json!({}),
         );
 
-        // A linked project's PDF notes are Overleaf comments, which GPUI
-        // does not make yet, so its PDF offers no Annotate. The link loads
+        // A linked project's PDF notes are Overleaf comments. The link loads
         // after the notes were first given (`bridge.set_project` reads it
-        // asynchronously), so this proves the bridge observer re-gives them;
-        // the unlinked fixture's window keeps offering it.
-        let withheld = linked
+        // asynchronously), so this proves the bridge observer tells the PDF
+        // again; the unlinked fixture's PDF keeps making local annotations.
+        let linked_knows = linked
             .wait_for(cx, Duration::from_secs(10), |shell, cx| {
-                shell.read(cx).pdf().read(cx).annotatable() == Some(false)
+                shell
+                    .read(cx)
+                    .pdf()
+                    .read(cx)
+                    .overleaf_notes()
+                    .is_some_and(|overleaf| overleaf.is_some())
             })
             .await;
-        let linked_offer = cx.update(|cx| linked.shell.read(cx).pdf().read(cx).annotatable());
-        let unlinked_offer = cx.update(|cx| self.shell.read(cx).pdf().read(cx).annotatable());
+        let unlinked_local = cx.update(|cx| {
+            self.shell.read(cx).pdf().read(cx).overleaf_notes() == Some(None)
+        });
         steps.check(
-            "in a project linked to Overleaf the PDF offers no Annotate, while an unlinked project's still does",
-            withheld && unlinked_offer == Some(true),
-            json!({ "linked": linked_offer, "unlinked": unlinked_offer }),
+            "in a project linked to Overleaf the PDF's notes go to Overleaf, while an unlinked project's stay local annotations",
+            linked_knows && unlinked_local,
+            json!({ "linked": linked_knows, "unlinked_local": unlinked_local }),
         );
 
         // Live mode pulls a co-author's edit on its own.

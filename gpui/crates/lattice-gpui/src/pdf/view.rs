@@ -59,7 +59,7 @@ mod window_wide;
 
 pub use citation::CitationLookup;
 pub use compound::CompoundSource;
-pub use notes::PdfNotes;
+pub use notes::{NoteDestination, OverleafNotes, PdfNotes, note_destination};
 
 pub use events::{PdfViewEvent, ToolbarAction};
 use page_changes::changed_pages;

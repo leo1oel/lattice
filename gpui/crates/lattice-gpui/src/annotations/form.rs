@@ -31,6 +31,9 @@ pub struct NoteForm<'a> {
     pub error: Option<SharedString>,
     /// Whether Save may run yet (the PDF's note waits for SyncTeX).
     pub ready: bool,
+    /// An Overleaf comment: no intent chips, no Save and revise now, and
+    /// Save reads Comment on Overleaf.
+    pub overleaf: bool,
 }
 
 /// A chip's choice: the intent now chosen (`None` when it was unpicked).
@@ -47,7 +50,9 @@ pub fn note_form<T: 'static>(
 ) -> AnyElement {
     let palette = cx.palette().clone();
     let body = form.field.read(cx).value().to_string();
-    let saveable = form.ready && (!body.trim().is_empty() || form.intent.is_some());
+    let overleaf = form.overleaf;
+    let saveable =
+        form.ready && (!body.trim().is_empty() || (!overleaf && form.intent.is_some()));
     let quote_text = form.quote.trim();
     let quote = div()
         .flex()
@@ -134,21 +139,32 @@ pub fn note_form<T: 'static>(
         .items_center()
         .gap(px(4.))
         .child(
-            Button::new("annotation-save", t!("Save"))
+            Button::new(
+                "annotation-save",
+                if overleaf {
+                    t!("Comment on Overleaf")
+                } else {
+                    t!("Save")
+                },
+            )
                 .variant(ButtonVariant::Tinted)
                 .size(ButtonSize::Compact)
                 .keys(save_keys)
                 .disabled(!saveable)
                 .on_click(cx.listener(move |this, _, window, cx| save(this, false, window, cx))),
         )
-        .child(
-            Button::new("annotation-save-revise", t!("Save and revise now"))
-                .variant(ButtonVariant::Ghost)
-                .size(ButtonSize::Compact)
-                .keys(revise_keys)
-                .disabled(!saveable)
-                .on_click(cx.listener(move |this, _, window, cx| on_save(this, true, window, cx))),
-        );
+        .when(!overleaf, |actions| {
+            actions.child(
+                Button::new("annotation-save-revise", t!("Save and revise now"))
+                    .variant(ButtonVariant::Ghost)
+                    .size(ButtonSize::Compact)
+                    .keys(revise_keys)
+                    .disabled(!saveable)
+                    .on_click(
+                        cx.listener(move |this, _, window, cx| on_save(this, true, window, cx)),
+                    ),
+            )
+        });
     div()
         .flex()
         .flex_col()
@@ -156,7 +172,7 @@ pub fn note_form<T: 'static>(
         .min_w_0()
         .child(quote)
         .child(Textarea::new(form.field).grows())
-        .child(chips)
+        .when(!overleaf, |form| form.child(chips))
         .children(form.error.map(|error| {
             div()
                 .text_role(TextRole::Caption, cx)

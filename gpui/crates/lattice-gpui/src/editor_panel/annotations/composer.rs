@@ -177,6 +177,7 @@ impl EditorPanel {
                 intent: draft.intent,
                 error: draft.error.clone(),
                 ready: true,
+                overleaf: false,
             },
             Rc::new(|this: &mut Self, intent, _| {
                 if let Some(draft) = &mut this.annotations.draft {
