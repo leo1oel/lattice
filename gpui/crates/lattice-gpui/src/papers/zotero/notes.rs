@@ -13,9 +13,15 @@
 
 use std::path::Path;
 
-use lattice_core::{papers::PaperSummary, project as core_project, zotero::ZoteroAnnotation};
+use lattice_core::{papers::PaperSummary, zotero::ZoteroAnnotation};
 
-use crate::papers::model::pdf_url;
+use crate::papers::{
+    paper_note::{update_note, with_entry},
+    source_link::{
+        escape_line_start, markdown_text, quote_markdown, source_href, source_link,
+        source_quote_anchors,
+    },
+};
 
 /// The words the note is written with, in the interface language: its
 /// heading, and a page's name with `{page}` for the page.
@@ -23,74 +29,6 @@ use crate::papers::model::pdf_url;
 pub struct Labels {
     pub heading: String,
     pub page: String,
-}
-
-/// Between a quote's first and last words in a source link's title.
-const QUOTE_ANCHOR_SEPARATOR: &str = " … ";
-
-/// Backslash-escape what Markdown would read as syntax in link text, a
-/// heading or a quote (`markdownLinkText`).
-pub fn markdown_text(text: &str) -> String {
-    let mut out = String::with_capacity(text.len());
-    for ch in text.chars() {
-        if "\\`*_~$[]<>".contains(ch) {
-            out.push('\\');
-        }
-        out.push(ch);
-    }
-    out
-}
-
-/// `notes/<citation key>.md`, or the library id for a paper the
-/// bibliography does not key.
-pub fn note_path(paper: &PaperSummary) -> String {
-    let source = paper
-        .citation_key
-        .as_deref()
-        .map(str::trim)
-        .filter(|key| !key.is_empty())
-        .unwrap_or(&paper.arxiv_id);
-    static UNSAFE: std::sync::LazyLock<regex::Regex> =
-        std::sync::LazyLock::new(|| regex::Regex::new(r"[^\p{L}\p{N}._-]+").unwrap());
-    let name = UNSAFE.replace_all(source, "-");
-    let name = name.trim_start_matches(['-', '.']).trim_end_matches('-');
-    format!("notes/{}.md", if name.is_empty() { "paper" } else { name })
-}
-
-/// The paper's reading file, from a note at `note` (relative, so any tool
-/// resolves it).
-fn paper_link_href(note: &str, paper: &PaperSummary) -> String {
-    let depth = note
-        .split('/')
-        .filter(|part| !part.is_empty())
-        .count()
-        .saturating_sub(1);
-    let file = if paper.has_full_text { "paper" } else { "blog" };
-    format!(
-        "{}.research/papers/{}/{file}.md",
-        "../".repeat(depth),
-        paper.arxiv_id
-    )
-}
-
-/// The note after adding `entry`: appended after a blank line, or, for a
-/// note not yet written, below the paper's title linking to the paper.
-fn with_entry(current: Option<&str>, paper: &PaperSummary, entry: &str) -> String {
-    let Some(current) = current else {
-        let title = markdown_text(if paper.title.trim().is_empty() {
-            &paper.arxiv_id
-        } else {
-            paper.title.trim()
-        });
-        let href = paper_link_href(&note_path(paper), paper);
-        return format!("# {title}\n\n[{title}]({href})\n\n{entry}\n");
-    };
-    let kept = current.trim_end();
-    if kept.is_empty() {
-        format!("{entry}\n")
-    } else {
-        format!("{kept}\n\n{entry}\n")
-    }
 }
 
 /// The annotation in Zotero's PDF reader: its PDF, at its page, with it
@@ -108,78 +46,6 @@ fn zotero_href(annotation: &ZoteroAnnotation) -> String {
 /// The annotation's page; Zotero's 0 names none.
 fn page_of(annotation: &ZoteroAnnotation) -> Option<u32> {
     annotation.page.filter(|page| *page > 0)
-}
-
-/// The paper's own PDF at `page`: the one its bundle keeps, from the
-/// project root, else the one on the web.
-fn source_href(paper: &PaperSummary, page: u32) -> Option<String> {
-    if paper.has_local_pdf {
-        return Some(format!(
-            "/.research/papers/{}/original.pdf#page={page}",
-            paper.arxiv_id
-        ));
-    }
-    let url = pdf_url(paper)?;
-    let base = url.split('#').next().unwrap_or(&url);
-    Some(format!("{base}#page={page}"))
-}
-
-/// The first and last words that name a quote: four of each (ten
-/// characters of unspaced text), else the whole quote.
-fn quote_anchors(quote: &str) -> Option<(String, String)> {
-    let words: Vec<&str> = quote.split_whitespace().collect();
-    let unspaced = words.len() < 4 && quote.chars().count() > 24;
-    let (units, joiner, count): (Vec<String>, &str, usize) = if unspaced {
-        let collapsed = words.join(" ");
-        (collapsed.chars().map(String::from).collect(), "", 10)
-    } else {
-        (words.iter().map(|word| word.to_string()).collect(), " ", 4)
-    };
-    if units.is_empty() {
-        return None;
-    }
-    let take = if count * 2 < units.len() {
-        count
-    } else {
-        units.len()
-    };
-    Some((
-        units[..take].join(joiner),
-        units[units.len() - take..].join(joiner),
-    ))
-}
-
-/// A source link as Markdown: `label` to `href`, the quote's anchors as its
-/// title.
-fn source_link(label: &str, href: &str, anchors: &(String, String)) -> String {
-    let title = format!("{}{QUOTE_ANCHOR_SEPARATOR}{}", anchors.0, anchors.1)
-        .replace('\\', "\\\\")
-        .replace('"', "\\\"");
-    let destination = if href.contains(|ch: char| ch.is_whitespace() || "()<>".contains(ch)) {
-        format!("<{}>", href.replace('<', "%3C").replace('>', "%3E"))
-    } else {
-        href.to_string()
-    };
-    format!("[{}]({destination} \"{title}\")", markdown_text(label))
-}
-
-/// A leading `#`, `-`, `+` or `1.` would make a heading or list item.
-fn escape_line_start(line: &str) -> String {
-    if line.starts_with(['#', '+', '-']) {
-        return format!("\\{line}");
-    }
-    let digits = line.chars().take_while(char::is_ascii_digit).count();
-    if (1..=9).contains(&digits) && line[digits..].starts_with(['.', ')']) {
-        return format!("{}\\{}", &line[..digits], &line[digits..]);
-    }
-    line.to_string()
-}
-
-/// A quote for a note: one line, its syntax escaped, as a block quote
-/// ending with its source link.
-fn quote_markdown(quote: &str, link: &str) -> String {
-    let text = markdown_text(&quote.split_whitespace().collect::<Vec<_>>().join(" "));
-    format!("> {} {link}", escape_line_start(&text))
 }
 
 fn decode_entities(text: &str) -> String {
@@ -286,7 +152,8 @@ fn annotation_markdown(
     };
     let href = page_of(annotation).and_then(|page| source_href(paper, page));
     let anchors = (!annotation.text.is_empty())
-        .then(|| quote_anchors(&annotation.text))
+        // Zotero's page text is not at hand: the shortest pair names it.
+        .then(|| source_quote_anchors(&annotation.text, |_, _| true))
         .flatten();
     let reader = match (&href, label.is_empty(), &anchors) {
         (Some(href), false, Some(anchors)) => source_link(&label, href, anchors),
@@ -365,17 +232,12 @@ pub fn add_annotations(
     annotations: &[ZoteroAnnotation],
     labels: &Labels,
 ) -> Result<(String, usize), String> {
-    let path = note_path(paper);
-    let current = root
-        .join(&path)
-        .is_file()
-        .then(|| core_project::read_file(root, &path))
-        .transpose()?;
-    let (content, added) = with_annotations(current.as_deref(), paper, annotations, labels);
-    if added > 0 {
-        // The text read is the base: an edit that lands meanwhile is merged.
-        core_project::apply_editor_transaction(root, path.clone(), content, current, None)?;
-    }
+    let mut added = 0;
+    let path = update_note(root, paper, |current| {
+        let (content, fresh) = with_annotations(current, paper, annotations, labels);
+        added = fresh;
+        (fresh > 0).then_some(content)
+    })?;
     Ok((path, added))
 }
 
@@ -383,6 +245,7 @@ pub fn add_annotations(
 mod tests {
     use super::*;
     use crate::papers::model::test_support::{paper, with};
+    use crate::papers::paper_note::note_path;
 
     fn annotation(key: &str, text: &str, comment: &str, page: Option<u32>) -> ZoteroAnnotation {
         ZoteroAnnotation {

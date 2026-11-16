@@ -35,7 +35,7 @@ use lattice_ui::{
     ActiveLattice as _, Icon, Palette, TextRole, TextRoleStyle as _,
     components::LatticeTooltip,
     icons::{ICON, ICON_SMALL},
-    interaction::{fade, mix, track_pointer, use_interaction},
+    interaction::{fade, mix, track_pointer, track_pointer_and_hover, use_interaction},
     motion::Motion,
     tokens::FONT_WEIGHT_REGULAR,
 };
@@ -410,7 +410,18 @@ impl PapersPanel {
                 .children(self.row_actions(paper, &row_id, &facts, window, cx))
         });
 
-        let mut row = track_pointer(div().id(row_id.clone()), pointer)
+        // The pointer coming to a readable paper says it is likely to be
+        // opened (`reportIntent`).
+        let likely = model::readable(paper).then(|| (cx.entity().downgrade(), paper.clone()));
+        let mut row =
+            track_pointer_and_hover(div().id(row_id.clone()), pointer, move |hovered, _, cx| {
+                if let (true, Some((view, paper))) = (*hovered, &likely) {
+                    view.update(cx, |_, cx| {
+                        cx.emit(PapersEvent::Likely(Box::new(paper.clone())))
+                    })
+                    .ok();
+                }
+            })
             .relative()
             .flex()
             .flex_col()
@@ -726,7 +737,7 @@ impl PapersPanel {
                 .cursor_pointer()
                 .on_click(move |_, _, cx| {
                     cx.stop_propagation();
-                    model::open_link(&link, cx);
+                    model::open_notice_link(&link, cx);
                 })
                 .into_any_element(),
             None => notice.into_any_element(),

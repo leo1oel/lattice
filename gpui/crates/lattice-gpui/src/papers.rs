@@ -66,11 +66,13 @@ mod keys;
 pub mod linked;
 pub mod literature;
 pub mod model;
+pub mod paper_note;
 pub mod reader;
 mod refresh;
 mod removal;
 mod row;
 mod search;
+pub mod source_link;
 mod toolbar;
 mod view;
 pub mod zotero;
@@ -96,6 +98,9 @@ pub enum PapersEvent {
     Open { path: String, line: Option<u32> },
     /// Read a saved paper in its reader (its full text, else its overview).
     Read(Box<PaperSummary>),
+    /// The pointer or the keyboard came to a readable paper's row: the
+    /// writer is likely to open it (`onLikelyPaper`).
+    Likely(Box<PaperSummary>),
     /// Read the paper's PDF at the 1-based `page` (a citation card's Open
     /// paper on a `\cite[p.~5]{key}`).
     ReadAt { paper: Box<PaperSummary>, page: u32 },

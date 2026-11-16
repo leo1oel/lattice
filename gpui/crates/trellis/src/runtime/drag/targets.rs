@@ -26,7 +26,7 @@ impl Engine {
     /// edges, centres).
     pub(super) fn retarget(&self, d: &DragSession, p: Point) -> Option<DropTarget> {
         let (vw, vh) = self.viewport;
-        let point = self.from_screen(p);
+        let point = self.screen_to_world(p);
         let within = p.x >= 0. && p.y >= 0. && p.x <= vw && p.y <= vh;
         let layer = self.floating_layer();
         let doc = &d.pdoc;

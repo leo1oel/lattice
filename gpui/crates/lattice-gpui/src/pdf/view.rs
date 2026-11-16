@@ -63,7 +63,7 @@ pub use citation::CitationLookup;
 pub use compound::CompoundSource;
 pub use notes::{NoteDestination, OverleafNotes, PdfNotes, note_destination};
 
-pub use events::{PdfViewEvent, ToolbarAction};
+pub use events::{OfferedSelection, PdfViewEvent, ToolbarAction};
 use page_changes::changed_pages;
 pub(super) use pages::PageSlot;
 pub use place::ViewPlace;

@@ -55,6 +55,8 @@ pub(crate) struct Documents {
     /// Counts the surfaces opened over the documents: an Edit bibliography
     /// entry whose read lands after another opened opens nothing.
     pub(super) overlays_opened: u64,
+    /// The paper texts readied ahead of a likely open (`papers/prewarm.rs`).
+    pub(super) prewarm: super::papers::prewarm::PaperPrewarm,
 }
 
 impl Shell {

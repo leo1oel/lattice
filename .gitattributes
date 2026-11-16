@@ -8,6 +8,10 @@ src/locales/**/*.po merge=lingui-po
 # Included shell scripts retain their LF syntax in Windows checkouts too.
 *.sh text eol=lf
 
+# Both apps read the notices line by line; a Windows checkout keeps them LF
+# (the parsers accept CRLF too).
+THIRD_PARTY_NOTICES.md text eol=lf
+
 # The bundled agent skills ship as resource files the Synara sidecar reads, so
 # a Windows build must carry the same LF bytes, front matter included.
 src-tauri/src/embedded_skills/** text eol=lf

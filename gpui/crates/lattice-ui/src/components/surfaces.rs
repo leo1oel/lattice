@@ -129,12 +129,15 @@ impl RenderOnce for SettingsRow {
     }
 }
 
+/// What the header's X runs.
+type CloseHandler = Box<dyn Fn(&gpui::ClickEvent, &mut Window, &mut App)>;
+
 /// A panel or drawer header: its title and the X that closes it.
 #[derive(IntoElement)]
 pub struct PanelHeader {
     id: ElementId,
     title: SharedString,
-    on_close: Option<Box<dyn Fn(&gpui::ClickEvent, &mut Window, &mut App)>>,
+    on_close: Option<CloseHandler>,
 }
 
 impl PanelHeader {

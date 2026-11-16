@@ -177,7 +177,7 @@ impl Engine {
     }
 
     pub(super) fn world_of(&self, id: &str) -> Option<Rect> {
-        self.from_screen_rect(self.last_rects.get(id).copied())
+        self.screen_rect_to_world(self.last_rects.get(id).copied())
     }
 
     /// Where a node is on screen right now (world units): its own rect, or
@@ -246,7 +246,7 @@ impl Engine {
                     }
                     None => {
                         if let Some(screen) = self.last_rects.get(panel).copied() {
-                            if let Some(world) = self.from_screen_rect(Some(screen)) {
+                            if let Some(world) = self.screen_rect_to_world(Some(screen)) {
                                 d.layout_targets.insert(DROP_SLOT.into(), world);
                             }
                             previous.insert(DROP_SLOT.into(), screen);
@@ -297,7 +297,7 @@ impl Engine {
                 // the desktop just lets it fade where it is.
                 if let Some(target) = &d.target
                     && *target != DropTarget::Float
-                    && let Some(world) = self.from_screen_rect(previous.get(DROP_SLOT).copied())
+                    && let Some(world) = self.screen_rect_to_world(previous.get(DROP_SLOT).copied())
                 {
                     let edge = match target {
                         DropTarget::Dock(spec) => spec.edge,
