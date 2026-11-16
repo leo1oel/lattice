@@ -119,6 +119,29 @@ impl Shell {
         closing: Option<PathBuf>,
         cx: &mut Context<Self>,
     ) -> bool {
+        let shell = cx.entity().downgrade();
+        self.confirm_leaving(
+            move |window, cx| {
+                let (root, closing) = (root.clone(), closing.clone());
+                shell
+                    .update(cx, |shell, cx| shell.leave_now(root, closing, window, cx))
+                    .ok();
+            },
+            |_| {},
+            cx,
+        )
+    }
+
+    /// While a build, a terminal command or the agent's turn runs here, ask
+    /// before the shown project goes (`confirmLeavingProject`): `then` runs
+    /// once agreed, `cancelled` when not. False, and nothing asked, when
+    /// nothing runs: the caller goes on itself.
+    pub(crate) fn confirm_leaving(
+        &mut self,
+        then: impl Fn(&mut Window, &mut gpui::App) + 'static,
+        cancelled: impl FnOnce(&mut gpui::App) + 'static,
+        cx: &mut Context<Self>,
+    ) -> bool {
         let commands = self.terminal.read(cx).running(None, cx);
         let mut running: Vec<String> = Vec::new();
         if self.build_task.is_some() {
@@ -141,7 +164,6 @@ impl Shell {
             return false;
         }
         let name = self.project_name(cx);
-        let shell = cx.entity().downgrade();
         crate::confirm::ask(
             crate::confirm::Confirm::new(t!("Switch away from “{name}”?", name = name))
                 .body(t!(
@@ -150,12 +172,8 @@ impl Shell {
                 ))
                 .confirm_label(t!("Switch project"))
                 .destructive()
-                .on_confirm(move |window, cx| {
-                    let (root, closing) = (root.clone(), closing.clone());
-                    shell
-                        .update(cx, |shell, cx| shell.leave_now(root, closing, window, cx))
-                        .ok();
-                }),
+                .on_confirm(then)
+                .on_cancel(cancelled),
             cx,
         );
         true

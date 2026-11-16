@@ -368,6 +368,19 @@ pub(crate) fn any_overlay_writing(cx: &App) -> bool {
     })
 }
 
+/// How many windows show a shell.
+pub(crate) fn shell_count(cx: &App) -> usize {
+    cx.try_global::<Shells>()
+        .map(|shells| {
+            shells
+                .0
+                .values()
+                .filter(|shell| shell.upgrade().is_some())
+                .count()
+        })
+        .unwrap_or(0)
+}
+
 /// Run `f` on the shell of each window `which` picks, in its own window.
 pub(crate) fn for_shells(
     cx: &mut App,

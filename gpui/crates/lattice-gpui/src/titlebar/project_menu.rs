@@ -54,6 +54,9 @@ pub(super) fn project_menu(
     cx: &mut App,
 ) -> Menu {
     let current = shell.upgrade().and_then(|shell| shell.read(cx).root(cx));
+    let moving = shell
+        .upgrade()
+        .is_some_and(|shell| shell.read(cx).project_drag_view().2);
     let exporting = shell
         .upgrade()
         .is_some_and(|shell| shell.read(cx).exporting_zip());
@@ -142,8 +145,11 @@ pub(super) fn project_menu(
             })
             .icon(Icon::SETTINGS),
         );
-    // The export under way, as the Tauri menu's `busyLabel` line.
-    if exporting {
+    // The export or a tab's move under way, as the Tauri menu's
+    // `busyLabel` line.
+    if moving {
+        menu.busy(t!("Moving project tab…"))
+    } else if exporting {
         menu.busy(t!("Exporting ZIP…"))
     } else {
         menu
