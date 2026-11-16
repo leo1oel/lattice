@@ -32,7 +32,7 @@ export function useWorkspaceLayout(store: DocumentStore, opens: DocumentOpens) {
   const { loadFile, openPaper, openAsset } = opens;
 
   // ---- Layout persistence -----------------------------------------------------------------------------------------
-  useEffect(() => {
+  const persist = useCallback(() => {
     if (!projectRoot || persistenceReadyRoot !== projectRoot) return;
     persistWorkspaceLayout(projectRoot, {
       openTabs: tabs,
@@ -44,6 +44,7 @@ export function useWorkspaceLayout(store: DocumentStore, opens: DocumentOpens) {
       paperView,
     });
   }, [activeTab, bibModeRef, documentModeRef, file, mode, paperView, persistenceReadyRoot, projectRoot, tabs]);
+  useEffect(persist, [persist]);
   // Remember the file open per project, so reopening it lands on the last page.
   useEffect(() => {
     if (projectRoot && file) persistLastFile(projectRoot, file);
@@ -142,5 +143,5 @@ export function useWorkspaceLayout(store: DocumentStore, opens: DocumentOpens) {
     setPaperBuffers, setPaperView, setPersistenceReadyRoot, setTabs, setTabsSettledRoot, showFileText, viewStates,
   ]);
 
-  return enter;
+  return { enter, persist };
 }

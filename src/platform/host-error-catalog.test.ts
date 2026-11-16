@@ -124,6 +124,7 @@ const UNTRANSLATED: Record<string, string> = {
   "git.rs: Invalid revision: expected a commit hash.": "the interface sends a hash from the history list",
   "ipc/build.rs: The PDF was not sent as binary data.": "the interface always sends the PDF's bytes",
   "ipc/live_preview.rs: Unknown live preview file kind {other:?}.": "the interface sends one of the known kinds",
+  "ipc/project_tab_drag.rs: Project tab drop is covered by another window.": "the drag controller treats an ambiguous native hit as a cancelled drop",
   "live_preview/session.rs: Live preview does not accept the command {command:?}.": "the interface sends one of the known commands",
   "app_state/overleaf_realtime.rs: Invalid Overleaf checkpoint version.": "the interface sends Overleaf's own version back",
   "synara.rs: Invalid agent task action.": "the agent panel sends one of the known actions",

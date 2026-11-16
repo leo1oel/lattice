@@ -162,6 +162,8 @@ fn on_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
         git::clone::cancel(window.label());
         // Its page never released its deck leases, which block other decks.
         window.state::<presentation::PresentationRuntime>().forget_page(window.label());
+        // A tab dropped on this window waits for an answer it can't give now.
+        window.state::<ipc::project_tabs::ProjectTabMoves>().reject_destination(window.label());
         let state = window.state::<AppState>();
         state.release_window(window.label());
         let browser = window.state::<browser_host::BrowserHost>();
@@ -192,6 +194,10 @@ fn on_page_load<R: Runtime>(
         if let Some(runtime) = webview.try_state::<presentation::PresentationRuntime>() {
             runtime.forget_page(webview.label());
         }
+        // The page that would have answered a tab dropped on it is gone.
+        if let Some(moves) = webview.try_state::<ipc::project_tabs::ProjectTabMoves>() {
+            moves.reject_destination(webview.label());
+        }
         // Nothing is left to draw a live preview that page had started, or
         // the terminals it had open.
         if let Some(state) = webview.try_state::<AppState>() {
@@ -221,6 +227,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(AppState::from_environment());
     app.manage(browser_host::BrowserHost::default());
     app.manage(save_before_close::SaveBeforeClose::default());
+    app.manage(ipc::project_tabs::ProjectTabMoves::default());
     app.manage(app_restart::AppRestart::default());
     app_terminate::install(app.handle());
     let resources = resources(app)?;
@@ -386,6 +393,9 @@ pub fn run() {
             ipc::workspace::set_submission_items,
             ipc::workspace::watch_project,
             ipc::windows::open_project_window,
+            ipc::project_tab_drag::project_tab_drag_target,
+            ipc::project_tabs::move_project_tab,
+            ipc::project_tabs::receive_project_tab,
             ipc::windows::open_in_browser,
             ipc::windows::return_to_desktop,
             ipc::windows::get_app_log_dir,
