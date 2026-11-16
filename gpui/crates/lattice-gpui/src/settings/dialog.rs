@@ -95,6 +95,8 @@ pub struct SettingsDialog {
     /// Settings › Providers' page, the window's Agent settings surface.
     providers: Entity<crate::agent::SynaraSurface>,
     pub(super) project: Option<Entity<Project>>,
+    /// The Git or Overleaf name that signs comments ahead of "Your name".
+    pub(super) known_author: Option<String>,
     /// The window's live preview, for its rows in Editor & builds.
     live_preview: Option<Entity<crate::live_preview::LivePreview>>,
     focus: FocusHandle,
@@ -162,7 +164,21 @@ impl SettingsDialog {
             })
         };
         let search = input("", t!("Search").into(), window, cx);
-        let author_name = input(&settings.author_name, t!("Anonymous").into(), window, cx);
+        // The name Git or Overleaf signs comments with ahead of this one,
+        // read as Settings opens (where a writer goes after signing in).
+        let root = project
+            .as_ref()
+            .map(|project| project.read(cx).root().to_path_buf());
+        let known_author = crate::annotations::store::known_name(root.as_deref());
+        let author_name = input(
+            &settings.author_name,
+            known_author
+                .clone()
+                .map(SharedString::from)
+                .unwrap_or_else(|| t!("Anonymous").into()),
+            window,
+            cx,
+        );
         let project_word = input("", t!("e.g. Lattice").into(), window, cx);
         let listed_source = super::appearance_pane::SOURCE_FACES
             .iter()
@@ -338,6 +354,7 @@ impl SettingsDialog {
             shell,
             providers,
             project,
+            known_author,
             live_preview,
             focus: cx.focus_handle(),
             scroll: ScrollHandle::new(),

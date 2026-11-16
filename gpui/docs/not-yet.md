@@ -7,10 +7,6 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] The PDF: annotating a selection in a project linked to Overleaf (it becomes an Overleaf comment there).
 
-- [ ] Settings: the sections' product icons' hover gestures (they rest as the Tauri app's resting frames).
-
-- [ ] Settings: Editor & builds › Your name saying which Git or Overleaf name signs comments ahead of it.
-
 - [ ] Settings: App updates' automatic updates and Check for updates (the GPUI app shows its version and GitHub Releases).
 
 - [ ] The paper reader's selection actions: Copy source link and Add to note, on the full text and on the original PDF.
