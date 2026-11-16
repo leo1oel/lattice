@@ -17,6 +17,10 @@
 //!   the page (`md:paper-drag`), which replays them as the Tauri app's
 //!   native bridge does (`paper-drop-bridge.ts`), its own drop cursor drawn
 //!   and an `@key` citation put in at the pointer.
+//! - Over a `.tex` file's Visual page the same (`tex:paper-drag`): the page
+//!   runs the source's `paperDropExtension`, as the Tauri app's Visual
+//!   LaTeX is its source editor, so the caret goes after the word under the
+//!   pointer and `~\citep{key}` goes in, or the key joins a citation there.
 //!
 //! The paper is looked up in the library as it is at each move and at the
 //! drop, so a paper of another project, or one removed meanwhile, inserts
@@ -160,15 +164,26 @@ impl EditorPanel {
         }
     }
 
-    /// The visual editor's page, when a paper over `position` is its.
-    fn paper_page_at(&self, position: Point<Pixels>, cx: &App) -> Option<Bounds<Pixels>> {
+    /// The page a paper dragged over the panel is handed to: a `.tex`
+    /// file's Visual page (the Tauri app's Visual LaTeX is its source
+    /// editor, so `paperDropExtension` cites there too), or a Markdown
+    /// file's visual editor in Split or Preview.
+    fn paper_page(&self, cx: &App) -> Option<&Entity<StructuredDocument>> {
+        if self.shows_latex_visual(cx) {
+            return self.latex_visual_document();
+        }
         if !matches!(
             self.document_view(),
             Some(DocumentView::Split | DocumentView::Preview)
         ) {
             return None;
         }
-        let bounds = self.markdown_document()?.read(cx).page_bounds(cx)?;
+        self.markdown_document()
+    }
+
+    /// The visual page's bounds, when a paper over `position` is its.
+    fn paper_page_at(&self, position: Point<Pixels>, cx: &App) -> Option<Bounds<Pixels>> {
+        let bounds = self.paper_page(cx)?.read(cx).page_bounds(cx)?;
         bounds.contains(&position).then_some(bounds)
     }
 
@@ -237,7 +252,7 @@ impl EditorPanel {
         drop: bool,
         cx: &mut Context<Self>,
     ) {
-        let Some(document) = self.markdown_document().cloned() else {
+        let Some(document) = self.paper_page(cx).cloned() else {
             self.library.on_page = None;
             return;
         };

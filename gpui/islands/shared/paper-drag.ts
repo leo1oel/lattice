@@ -1,13 +1,15 @@
 /**
- * A paper dragged from the GPUI app's Papers list over this page. GPUI's drag
- * never becomes WebKit's, so the host hands its moves and its drop over
- * (`md:paper-drag`), and they are replayed here as the Tauri app's native
- * bridge replays Tauri's (`src/papers/paper-drop-bridge.ts`): each move as a
+ * A paper dragged from the GPUI app's Papers list over an island's page.
+ * GPUI's drag never becomes WebKit's, so the host hands its moves and its
+ * drop over (`md:paper-drag`, or `tex:paper-drag` on a `.tex` file's Visual
+ * page), and they are replayed here as the Tauri app's native bridge
+ * replays Tauri's (`src/papers/paper-drop-bridge.ts`): each move as a
  * `dragover` on the element under the point, so the editor's drop cursor
  * follows it, a `dragleave` where it left, and the drop as a `drop` carrying
- * the paper's identity, which the editor's own paper drop
- * (`references.tsx`'s `paperDropExtension`) resolves against its library and
- * writes as an `@key` citation at the pointer.
+ * the paper's identity, which the editor's own paper drop resolves against
+ * its library: the Markdown editor's (`references.tsx`'s `paperDropExtension`)
+ * as an `@key` citation at the pointer, the LaTeX source's
+ * (`src/editor/paper-drop.ts`) as `~\citep{key}` after the word there.
  */
 import { PAPER_DRAG_TYPE, type PaperDrag } from "../../../src/papers/paper-drag";
 
