@@ -1,16 +1,17 @@
 //! "Review here" (`requestMarginReviewHere` in `margin-review-mode.ts`):
 //! the palette's way to the comment or suggestion by the caret, the one on
 //! or after its line, else the first. Markers open its card over its pip
-//! (a narrow editor, the rail); wide cards are open already.
+//! (a narrow editor, the rail); wide cards are open already. Its pip or card
+//! takes focus, so J and K walk on from it (`walk.rs`).
 
-use gpui::Context;
+use gpui::{Context, Window};
 
 use super::{MarginLayout, MarginMode};
 use crate::editor_panel::EditorPanel;
 
 impl EditorPanel {
     /// Open the item by the caret; false when there is none.
-    pub fn margin_review_here(&mut self, cx: &mut Context<Self>) -> bool {
+    pub fn margin_review_here(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
         if self.margin.mode == MarginMode::Off {
             return false;
         }
@@ -30,10 +31,11 @@ impl EditorPanel {
         let layout = self.margin.layout.unwrap_or(MarginLayout::Markers);
         if layout != MarginLayout::Wide {
             self.margin.hover = None;
-            self.margin.open = Some((key, true));
+            self.margin.open = Some((key.clone(), true));
             self.margin.rail = layout == MarginLayout::Narrow;
             cx.notify();
         }
+        self.margin_focus_item(&key, window, cx);
         true
     }
 }

@@ -101,7 +101,9 @@ pub(crate) use annotations::PINS as ANNOTATION_PINS;
 use disk_sync::vanished_key;
 pub use events::EditorPanelEvent;
 pub use latex_view::choose_latex_view;
-pub use margin_review::{MarginLayout, MarginMode};
+pub use margin_review::{
+    LeaveReviewItem, MARGIN_CONTEXT, MarginLayout, MarginMode, NextReviewItem, PreviousReviewItem,
+};
 use outline_rail::OutlineRail;
 pub use overleaf_carets::OverleafCaret;
 pub use overleaf_review::{ChangeMark, CommentMark, MarginMessage, ReviewAction};
