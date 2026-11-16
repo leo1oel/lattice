@@ -203,8 +203,17 @@ fn relocate_entry(
 
 fn remove_tex_build_artifacts(root: &Path, relative: &str) -> Result<(), String> {
     let tex_path = root.join(relative);
-    for extension in tex_build_outputs() {
-        match fs::remove_file(tex_path.with_extension(extension)) {
+    // achemso's `acs-main.bib` and biblatex's `main-blx.bib` are named, not
+    // extended, after the document; left behind, nothing beside them gives
+    // them away any more and they would show and sync as sources.
+    let stem = tex_path.file_stem().and_then(|stem| stem.to_str()).unwrap_or_default();
+    let named = [format!("acs-{stem}.bib"), format!("{stem}-blx.bib")]
+        .map(|name| tex_path.with_file_name(name))
+        .into_iter()
+        .filter(|_| !stem.is_empty());
+    let extended = tex_build_outputs().map(|extension| tex_path.with_extension(extension));
+    for path in extended.chain(named) {
+        match fs::remove_file(path) {
             Err(error) if error.kind() != std::io::ErrorKind::NotFound => {
                 return Err(error.to_string())
             }
@@ -470,7 +479,15 @@ mod tests {
         create_entry(root, "sections/method", "file").unwrap();
         // biber's leftovers are not single extensions, and `main.gz` shares the
         // stem without being an artifact: moving a source must not eat it.
-        let stale = ["main.pdf", "main.aux", "main.bcf", "main.run.xml", "main.bbl-SAVE-ERROR"];
+        let stale = [
+            "main.pdf",
+            "main.aux",
+            "main.bcf",
+            "main.run.xml",
+            "main.bbl-SAVE-ERROR",
+            "acs-main.bib",
+            "main-blx.bib",
+        ];
         for path in stale.iter().chain(&["main.gz", "sections/main.pdf"]) {
             fixture.write(path, b"stale");
         }

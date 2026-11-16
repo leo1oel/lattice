@@ -31,7 +31,8 @@ fn borrowed<'a>(files: &'a [(String, &'static [u8])]) -> Vec<(&'a str, &'static 
 
 /// What a build of `A/main.tex` and the standalone `A/figs/sub/plot.tex`
 /// leaves beside them, known by their names.
-const BUILD_OUTPUTS: [&str; 11] = [
+const BUILD_OUTPUTS: [&str; 12] = [
+    "A/acs-main.bib",
     "A/main.aux",
     "A/main.bbl",
     "A/main.blg",

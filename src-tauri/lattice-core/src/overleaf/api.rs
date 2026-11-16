@@ -4,7 +4,7 @@
 //! project. Uploads are `upload`'s.
 
 use super::account::{ensure_user_id, load_session, normalize_host, SessionFile};
-use super::files::{is_excluded, BuildPdf};
+use super::files::{retain_syncable, BuildPdf};
 use super::link::{load_state, SyncState, PAUSED};
 use crate::overleaf_rt::{SESSION_EXPIRED, USER_AGENT};
 use crate::util::err;
@@ -443,7 +443,7 @@ impl Remote {
         let build_pdf = BuildPdf::of(root);
         // Dropped from the table, not deleted: a file the last sync agreed on
         // that now takes no part stays where it is on both sides.
-        state.files.retain(|path, _| !is_excluded(path) && !build_pdf.is(path));
+        retain_syncable(&mut state.files, &build_pdf);
         let host = sync_host(&state, &session)?;
         ensure_user_id(config_dir, &mut session);
         Ok(Remote { session, state, host, build_pdf })
