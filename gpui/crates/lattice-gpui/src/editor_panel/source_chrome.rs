@@ -144,15 +144,17 @@ impl EditorPanel {
             .capture_any_mouse_down(cx.listener(|this, _, _, cx| this.release_rail(cx)))
             // A right-click on a citation key files its reason ("Why
             // cited"); anywhere else keeps the editor's own menu.
-            .capture_any_mouse_down(cx.listener(|this, event: &gpui::MouseDownEvent, window, cx| {
-                if event.button == gpui::MouseButton::Right
-                    && let Some(offset) = this.citation_offset_under(event.position, window, cx)
-                    && this.why_cited_at(offset, window, cx)
-                {
-                    window.prevent_default();
-                    cx.stop_propagation();
-                }
-            }))
+            .capture_any_mouse_down(cx.listener(
+                |this, event: &gpui::MouseDownEvent, window, cx| {
+                    if event.button == gpui::MouseButton::Right
+                        && let Some(offset) = this.citation_offset_under(event.position, window, cx)
+                        && this.why_cited_at(offset, window, cx)
+                    {
+                        window.prevent_default();
+                        cx.stop_propagation();
+                    }
+                },
+            ))
             // A press on an annotation's pin opens its note.
             .capture_any_mouse_down(cx.listener(|this, event: &gpui::MouseDownEvent, _, cx| {
                 if this.annotation_pin_pressed(event.position, cx) {
@@ -168,16 +170,20 @@ impl EditorPanel {
             // The open proofread card's ⌘↵ and Esc, ahead of the editor's
             // own (Zed's keymap binds them to its actions, which a window
             // dispatches before any key listener).
-            .capture_action(cx.listener(|this, _: &editor::actions::NewlineBelow, window, cx| {
-                if this.proofread_accept_key(window, cx) {
-                    cx.stop_propagation();
-                }
-            }))
-            .capture_action(cx.listener(|this, _: &editor::actions::Cancel, window, cx| {
-                if this.proofread_escape(window, cx) {
-                    cx.stop_propagation();
-                }
-            }))
+            .capture_action(
+                cx.listener(|this, _: &editor::actions::NewlineBelow, window, cx| {
+                    if this.proofread_accept_key(window, cx) {
+                        cx.stop_propagation();
+                    }
+                }),
+            )
+            .capture_action(
+                cx.listener(|this, _: &editor::actions::Cancel, window, cx| {
+                    if this.proofread_escape(window, cx) {
+                        cx.stop_propagation();
+                    }
+                }),
+            )
             .child(self.lattice.clone())
             .children(self.rail.clone())
             .children(margin.map(|(_, layer)| layer))

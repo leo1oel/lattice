@@ -136,12 +136,12 @@ impl EditorPanel {
                 line: *line,
             }),
             LatexEvent::Caret(offset) => self.mirror_caret(*offset, window, cx),
-            LatexEvent::OpenAnnotation(id) => {
-                cx.emit(EditorPanelEvent::Annotation(AnnotationRequest::Open(id.clone())))
-            }
-            LatexEvent::ResolveAnnotation(id) => {
-                cx.emit(EditorPanelEvent::Annotation(AnnotationRequest::Resolve(id.clone())))
-            }
+            LatexEvent::OpenAnnotation(id) => cx.emit(EditorPanelEvent::Annotation(
+                AnnotationRequest::Open(id.clone()),
+            )),
+            LatexEvent::ResolveAnnotation(id) => cx.emit(EditorPanelEvent::Annotation(
+                AnnotationRequest::Resolve(id.clone()),
+            )),
             LatexEvent::OverleafReply { thread, content } => {
                 cx.emit(EditorPanelEvent::OverleafReview(ReviewAction::ReplyWith {
                     thread: thread.clone(),
@@ -156,28 +156,32 @@ impl EditorPanel {
                     ReviewAction::Reopen(thread)
                 }))
             }
-            LatexEvent::OverleafAccept(id) => {
-                cx.emit(EditorPanelEvent::OverleafReview(ReviewAction::Accept(id.clone())))
-            }
-            LatexEvent::OverleafReject(id) => {
-                cx.emit(EditorPanelEvent::OverleafReview(ReviewAction::Reject(id.clone())))
-            }
+            LatexEvent::OverleafAccept(id) => cx.emit(EditorPanelEvent::OverleafReview(
+                ReviewAction::Accept(id.clone()),
+            )),
+            LatexEvent::OverleafReject(id) => cx.emit(EditorPanelEvent::OverleafReview(
+                ReviewAction::Reject(id.clone()),
+            )),
             LatexEvent::OverleafDelete(thread) => cx.emit(EditorPanelEvent::OverleafReview(
                 ReviewAction::DeleteConfirmed(thread.clone()),
             )),
-            LatexEvent::OverleafEditMessage { thread, message, content } => {
-                cx.emit(EditorPanelEvent::OverleafReview(ReviewAction::EditMessage {
+            LatexEvent::OverleafEditMessage {
+                thread,
+                message,
+                content,
+            } => cx.emit(EditorPanelEvent::OverleafReview(
+                ReviewAction::EditMessage {
                     thread: thread.clone(),
                     message: message.clone(),
                     content: content.clone(),
-                }))
-            }
-            LatexEvent::OverleafDeleteMessage { thread, message } => {
-                cx.emit(EditorPanelEvent::OverleafReview(ReviewAction::DeleteMessage {
+                },
+            )),
+            LatexEvent::OverleafDeleteMessage { thread, message } => cx.emit(
+                EditorPanelEvent::OverleafReview(ReviewAction::DeleteMessage {
                     thread: thread.clone(),
                     message: message.clone(),
-                }))
-            }
+                }),
+            ),
             LatexEvent::ReplyAnnotation { id, body } => {
                 let root = self.project_root(cx);
                 let author = store::author(&root, cx);
@@ -207,7 +211,9 @@ impl EditorPanel {
         let comments = serde_json::to_value(comments).unwrap_or(Value::Array(Vec::new()));
         let author = store::author(&root, cx);
         let author = json!({ "id": author.id, "name": author.name });
-        document.update(cx, |document, cx| document.set_annotations(comments, author, cx));
+        document.update(cx, |document, cx| {
+            document.set_annotations(comments, author, cx)
+        });
     }
 
     /// Co-authors' Overleaf carets: kept, and sent to the Visual page.
@@ -235,7 +241,9 @@ impl EditorPanel {
                 column: *column,
             })
             .collect();
-        document.update(cx, |document, cx| document.set_markdown_presence(carets, cx));
+        document.update(cx, |document, cx| {
+            document.set_markdown_presence(carets, cx)
+        });
     }
 
     /// A linked Overleaf project's threads on the file: kept, and sent to
@@ -246,9 +254,10 @@ impl EditorPanel {
     }
 
     fn forward_latex_overleaf(&mut self, cx: &mut Context<Self>) {
-        let (Some(document), Some(review)) =
-            (self.latex_visual_document().cloned(), self.latex.overleaf.clone())
-        else {
+        let (Some(document), Some(review)) = (
+            self.latex_visual_document().cloned(),
+            self.latex.overleaf.clone(),
+        ) else {
             return;
         };
         document.update(cx, |document, cx| document.set_overleaf_review(review, cx));
@@ -297,7 +306,8 @@ impl EditorPanel {
                 None => transaction,
             })
         });
-        self.latex.page_edit = transaction.map(|transaction| (transaction, self.buffer.read(cx).version()));
+        self.latex.page_edit =
+            transaction.map(|transaction| (transaction, self.buffer.read(cx).version()));
     }
 
     /// Wrap in environment… or Rename the environment's name, sent to the

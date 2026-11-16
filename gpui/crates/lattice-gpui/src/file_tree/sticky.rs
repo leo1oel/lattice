@@ -10,8 +10,7 @@
 
 use gpui::{
     AnyElement, App, Context, InteractiveElement as _, IntoElement as _, ParentElement as _,
-    StatefulInteractiveElement as _,
-    Styled as _, Window, div, point, px,
+    StatefulInteractiveElement as _, Styled as _, Window, div, point, px,
 };
 use lattice_ui::{ActiveLattice as _, components::TreeRow};
 
@@ -78,7 +77,12 @@ impl FileTreePanel {
     /// A pinned folder clicked: selected, closed, and scrolled to just
     /// under its pinned folders.
     pub(crate) fn click_pinned(&mut self, ix: usize, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(id) = self.state.read(cx).entry(ix).map(|entry| entry.item().id.clone()) else {
+        let Some(id) = self
+            .state
+            .read(cx)
+            .entry(ix)
+            .map(|entry| entry.item().id.clone())
+        else {
             return;
         };
         self.pick(&id, true, gpui::Modifiers::default(), cx);
@@ -98,7 +102,11 @@ impl FileTreePanel {
         self.rebuild(cx);
         let scroll = self.state.read(cx).scroll_handle().clone();
         let y = (ix as f32 - depth as f32) * ROW;
-        scroll.0.borrow().base_handle.set_offset(point(px(0.), px(-y)));
+        scroll
+            .0
+            .borrow()
+            .base_handle
+            .set_offset(point(px(0.), px(-y)));
         cx.notify();
     }
 
@@ -109,10 +117,7 @@ impl FileTreePanel {
         if pinned.is_empty() {
             return (None, 0.);
         }
-        let bottom = pinned
-            .iter()
-            .map(|pin| pin.top + ROW)
-            .fold(0., f32::max);
+        let bottom = pinned.iter().map(|pin| pin.top + ROW).fold(0., f32::max);
         let palette = cx.palette().clone();
         let ground = match palette.glass {
             lattice_ui::palette::Glass::Off => palette.navigator,
@@ -148,7 +153,8 @@ impl FileTreePanel {
                         .bg(ground)
                         .block_mouse_except_scroll()
                         .on_click(move |_, window, cx| {
-                            view.update(cx, |this, cx| this.click_pinned(ix, window, cx)).ok();
+                            view.update(cx, |this, cx| this.click_pinned(ix, window, cx))
+                                .ok();
                         })
                         .child(
                             div()
@@ -186,7 +192,14 @@ mod tests {
     // main.tex: rows 0 figures, 1 a.png, 2 raw/ (open), 3 raw/x, 4 raw/y,
     // 5 main.tex.
     fn rows() -> Vec<(usize, bool)> {
-        vec![(0, true), (1, false), (1, true), (2, false), (2, false), (0, false)]
+        vec![
+            (0, true),
+            (1, false),
+            (1, true),
+            (2, false),
+            (2, false),
+            (0, false),
+        ]
     }
 
     #[test]
@@ -197,20 +210,39 @@ mod tests {
     #[test]
     fn open_folders_pin_one_under_another_and_are_pushed_out_by_their_end() {
         // Scrolled one row: figures/ is above its place, raw/ not yet.
-        assert_eq!(pinned(&rows(), 28., 28.), vec![Pinned { ix: 0, depth: 0, top: 0. }]);
+        assert_eq!(
+            pinned(&rows(), 28., 28.),
+            vec![Pinned {
+                ix: 0,
+                depth: 0,
+                top: 0.
+            }]
+        );
         // Three rows: raw/ (row 2) has gone above its place at 28px.
         assert_eq!(
             pinned(&rows(), 3. * 28., 28.),
             vec![
-                Pinned { ix: 0, depth: 0, top: 0. },
-                Pinned { ix: 2, depth: 1, top: 28. },
+                Pinned {
+                    ix: 0,
+                    depth: 0,
+                    top: 0.
+                },
+                Pinned {
+                    ix: 2,
+                    depth: 1,
+                    top: 28.
+                },
             ]
         );
         // Four and a half rows: figures/ ends at row 4, so it is pushed
         // up by half a row; raw/ is pushed out past its place.
         assert_eq!(
             pinned(&rows(), 4.5 * 28., 28.),
-            vec![Pinned { ix: 0, depth: 0, top: -14. }]
+            vec![Pinned {
+                ix: 0,
+                depth: 0,
+                top: -14.
+            }]
         );
         // Past figures/' last row nothing stays pinned.
         assert!(pinned(&rows(), 5. * 28., 28.).is_empty());

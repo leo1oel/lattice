@@ -62,7 +62,8 @@ impl Shell {
             project: self.root(cx),
             editors: self.editors.clone(),
         };
-        self.annotation_rounds().update(cx, |rounds, cx| rounds.set_host(host, cx));
+        self.annotation_rounds()
+            .update(cx, |rounds, cx| rounds.set_host(host, cx));
     }
 
     /// The window's revision rounds.
@@ -82,9 +83,12 @@ impl Shell {
                 let Some(root) = self.root(cx) else {
                     return;
                 };
-                let Some(path) = store::try_store(cx)
-                    .and_then(|store| store.read(cx).get(&root, id).map(|comment| comment.path.clone()))
-                else {
+                let Some(path) = store::try_store(cx).and_then(|store| {
+                    store
+                        .read(cx)
+                        .get(&root, id)
+                        .map(|comment| comment.path.clone())
+                }) else {
                     return;
                 };
                 // Another file's card leaves with its editor's focus.
@@ -93,12 +97,16 @@ impl Shell {
                 }
                 if let Some(editor) = self.open_path(root.join(&path), None, window, cx) {
                     let id = id.clone();
-                    editor.update(cx, |editor, cx| editor.open_annotation_review(&id, rounds, window, cx));
+                    editor.update(cx, |editor, cx| {
+                        editor.open_annotation_review(&id, rounds, window, cx)
+                    });
                 }
             }
             RoundsEvent::CloseReview => {
                 for editor in self.open_editors() {
-                    editor.update(cx, |editor: &mut EditorPanel, cx| editor.close_annotation_review(cx));
+                    editor.update(cx, |editor: &mut EditorPanel, cx| {
+                        editor.close_annotation_review(cx)
+                    });
                 }
             }
             RoundsEvent::OpenPanel => self.open_annotations(window, cx),
@@ -108,7 +116,11 @@ impl Shell {
 
     /// How many annotations a round would ask about now, for the palette.
     pub(crate) fn revisable_annotations(&self, cx: &App) -> usize {
-        self.parts.get::<Rounds>().rounds.read(cx).revisable_count(cx)
+        self.parts
+            .get::<Rounds>()
+            .rounds
+            .read(cx)
+            .revisable_count(cx)
     }
 }
 
@@ -121,8 +133,13 @@ fn commands(context: &CommandContext, out: &mut Vec<Command>) {
             t!("{count} annotations", count = count)
         };
         out.push(
-            Command::new("annotations-revise", t!("Revise from annotations"), Section::Edit, ReviseAnnotations)
-                .detail(detail),
+            Command::new(
+                "annotations-revise",
+                t!("Revise from annotations"),
+                Section::Edit,
+                ReviseAnnotations,
+            )
+            .detail(detail),
         );
     }
 }

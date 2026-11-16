@@ -6,6 +6,11 @@
 //! The write is made to fail as a full disk or a lost folder would, for
 //! real: the file's folder is made read-only, so lattice-core cannot place
 //! its temporary file beside it.
+//!
+//! A read-only folder is a Unix permission; NTFS lets a file be created in
+//! one, so the module is macOS-only, as the e2e scenario is.
+
+#![cfg(target_os = "macos")]
 
 use std::{os::unix::fs::PermissionsExt as _, path::Path, time::Duration};
 

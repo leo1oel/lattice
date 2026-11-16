@@ -54,11 +54,16 @@ fn outcome(result: Result<JournalExport, String>) -> Notice {
     let export = match result {
         Ok(export) => export,
         Err(message) => {
-            return Notice::new(ToastLevel::Error, message).source(source).key(KEY);
+            return Notice::new(ToastLevel::Error, message)
+                .source(source)
+                .key(KEY);
         }
     };
     let figures = export.figures.join(", ");
-    let title = t!("Exported {figures} and the paper that includes them", figures = figures);
+    let title = t!(
+        "Exported {figures} and the paper that includes them",
+        figures = figures
+    );
     let mut notice = if export.problems.is_empty() {
         Notice::new(ToastLevel::Success, title)
     } else {
@@ -133,9 +138,12 @@ impl Shell {
             if saved {
                 cx.update(|cx| {
                     notices::show(
-                        Notice::new(ToastLevel::Info, t!("Typesetting the paper to cut out its figures…"))
-                            .source(t!("Export figures for a journal"))
-                            .key(KEY),
+                        Notice::new(
+                            ToastLevel::Info,
+                            t!("Typesetting the paper to cut out its figures…"),
+                        )
+                        .source(t!("Export figures for a journal"))
+                        .key(KEY),
                         cx,
                     )
                 });
@@ -156,8 +164,10 @@ impl Shell {
         let Some(root) = self.begin_export(cx) else {
             return;
         };
-        cx.spawn(async move |this, cx| Self::export_journal_into(this, root, Some(parent), cx).await)
-            .detach();
+        cx.spawn(async move |this, cx| {
+            Self::export_journal_into(this, root, Some(parent), cx).await
+        })
+        .detach();
     }
 }
 

@@ -23,8 +23,8 @@ use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    view::ViewPlace,
     layout::{DEFAULT_SCALE, FitMode, clamp_scale},
+    view::ViewPlace,
 };
 
 /// How many documents' places a project keeps.
@@ -234,7 +234,11 @@ mod tests {
         }
         assert_eq!(preferences.places[a].len(), MAX_PLACES);
         assert_eq!(preferences.place(a, "d0.tex"), None, "the oldest went");
-        assert_eq!(preferences.place(a, "main.tex"), Some(place(4)), "touched, it stays");
+        assert_eq!(
+            preferences.place(a, "main.tex"),
+            Some(place(4)),
+            "touched, it stays"
+        );
         assert!(preferences.place(a, "d1.tex").is_some());
     }
 

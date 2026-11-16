@@ -27,7 +27,12 @@ pub(super) struct Marking {
 
 impl PdfPanel {
     /// The marked PDF is building, or could not be made (`error`).
-    pub fn set_marking(&mut self, building: bool, error: Option<SharedString>, cx: &mut Context<Self>) {
+    pub fn set_marking(
+        &mut self,
+        building: bool,
+        error: Option<SharedString>,
+        cx: &mut Context<Self>,
+    ) {
         let marking = Marking { building, error };
         if self.marking != marking {
             self.marking = marking;
@@ -46,7 +51,9 @@ impl PdfPanel {
         let palette = cx.palette().clone();
         let text = format!(
             "{} {error}",
-            t!("The changes could not be marked in the PDF, so it shows the paper as it is now: edits included, without marks.")
+            t!(
+                "The changes could not be marked in the PDF, so it shows the paper as it is now: edits included, without marks."
+            )
         );
         Some(
             div()
@@ -87,7 +94,11 @@ impl PdfPanel {
                 "review-pdf-pulse",
                 Animation::new(Motion::Flourish.duration() * 2).repeat(),
                 |dot, delta| {
-                    let half = if delta <= 0.5 { delta * 2. } else { 2. - delta * 2. };
+                    let half = if delta <= 0.5 {
+                        delta * 2.
+                    } else {
+                        2. - delta * 2.
+                    };
                     dot.opacity(1. - 0.65 * ease_in_out(half))
                 },
             );

@@ -74,18 +74,29 @@ pub enum LatexEvent {
     /// Leave a rule or a sentence unchecked in the project.
     Ignore(Ignore),
     /// List a label's (`"label"`) or citation key's (`"citation"`) uses.
-    FindReferences { kind: String, symbol: String },
+    FindReferences {
+        kind: String,
+        symbol: String,
+    },
     /// Rename a label or citation key everywhere.
-    RenameSymbol { kind: String, symbol: String },
+    RenameSymbol {
+        kind: String,
+        symbol: String,
+    },
     /// Wrap in environment… (⌘⇧E, `None`) or Rename the environment
     /// (⌘⌥R, the environment's name at the page's caret): the window's
     /// dialog asks for the name, which goes back to the page
     /// ([`StructuredDocument::edit_environment`]).
-    Environment { rename: Option<String> },
+    Environment {
+        rename: Option<String>,
+    },
     /// An image was pasted into the page: insert it as a figure.
     PasteImage,
     /// An outline rail row: open `path` at the 1-based `line`.
-    OutlineJump { path: String, line: u32 },
+    OutlineJump {
+        path: String,
+        line: u32,
+    },
     /// The page's caret, as a UTF-16 offset into the file.
     Caret(usize),
     /// A note's gutter pin: open it in the Annotations panel.
@@ -93,14 +104,30 @@ pub enum LatexEvent {
     /// A note's card: resolve it.
     ResolveAnnotation(String),
     /// A note's card: reply to it with `body`.
-    ReplyAnnotation { id: String, body: String },
+    ReplyAnnotation {
+        id: String,
+        body: String,
+    },
     /// What an Overleaf thread's card asks, in margin review or over its
     /// mark: reply, resolve or reopen, delete, edit or delete a message.
-    OverleafReply { thread: String, content: String },
-    OverleafResolve { thread: String, resolved: bool },
+    OverleafReply {
+        thread: String,
+        content: String,
+    },
+    OverleafResolve {
+        thread: String,
+        resolved: bool,
+    },
     OverleafDelete(String),
-    OverleafEditMessage { thread: String, message: String, content: String },
-    OverleafDeleteMessage { thread: String, message: String },
+    OverleafEditMessage {
+        thread: String,
+        message: String,
+        content: String,
+    },
+    OverleafDeleteMessage {
+        thread: String,
+        message: String,
+    },
     /// A suggestion's card, over its mark or in margin review: accept or
     /// reject Overleaf's tracked change `id`.
     OverleafAccept(String),
@@ -318,7 +345,12 @@ impl StructuredDocument {
     /// stores them) and who signs a reply (`{ id, name }`).
     pub fn set_annotations(&mut self, comments: Value, author: Value, cx: &mut Context<Self>) {
         let payload = json!({ "comments": comments, "author": author });
-        self.set_latex_value(payload, "tex:annotations", |session| &mut session.annotations, cx);
+        self.set_latex_value(
+            payload,
+            "tex:annotations",
+            |session| &mut session.annotations,
+            cx,
+        );
     }
 
     /// A linked Overleaf project's comment threads on the file, as
@@ -408,7 +440,10 @@ impl StructuredDocument {
             },
             "tex:overleaf-resolve" => LatexEvent::OverleafResolve {
                 thread: text("thread"),
-                resolved: payload.get("resolved").and_then(Value::as_bool).unwrap_or(true),
+                resolved: payload
+                    .get("resolved")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(true),
             },
             "tex:overleaf-delete" => LatexEvent::OverleafDelete(text("thread")),
             "tex:overleaf-accept" => LatexEvent::OverleafAccept(text("id")),

@@ -325,7 +325,10 @@ mod tests {
         assert_eq!(placeholder("chapters", None, &taken), "chapters/untitled-2");
         assert_eq!(placeholder("figures", None, &taken), "figures/untitled");
         // A LaTeX or Markdown file's row shows its extension.
-        assert_eq!(placeholder("figures", Some("tex"), &taken), "figures/untitled.tex");
+        assert_eq!(
+            placeholder("figures", Some("tex"), &taken),
+            "figures/untitled.tex"
+        );
     }
 
     #[test]

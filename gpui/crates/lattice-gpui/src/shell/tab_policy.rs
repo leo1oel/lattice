@@ -123,7 +123,12 @@ impl Shell {
     }
 
     /// Open `path` kept: its tab, a preview before, stays.
-    pub(crate) fn open_kept(&mut self, path: std::path::PathBuf, window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn open_kept(
+        &mut self,
+        path: std::path::PathBuf,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.open_path(path.clone(), None, window, cx);
         if let Some(root) = self.root(cx) {
             let path = path.canonicalize().unwrap_or(path);
@@ -154,14 +159,17 @@ impl Shell {
         let engine = self.workspace.read(cx).engine();
         let replaced = preview
             .then(|| {
-                panel_views(&doc, &panel).iter().enumerate().find_map(|(index, view)| {
-                    let record = doc.views.get(view)?;
-                    (record.kind == "file"
-                        && engine.param_flag(view, "preview")
-                        && !engine.param_flag(view, "pinned")
-                        && file_key(Some(record)) != key)
-                        .then(|| (index, view.clone()))
-                })
+                panel_views(&doc, &panel)
+                    .iter()
+                    .enumerate()
+                    .find_map(|(index, view)| {
+                        let record = doc.views.get(view)?;
+                        (record.kind == "file"
+                            && engine.param_flag(view, "preview")
+                            && !engine.param_flag(view, "pinned")
+                            && file_key(Some(record)) != key)
+                            .then(|| (index, view.clone()))
+                    })
             })
             .flatten();
         let mut params = trellis::model::Params::new();
@@ -274,7 +282,13 @@ impl Shell {
     }
 
     /// Close the tabs `panel`'s strip can spare for `incoming`'s.
-    fn make_room(&mut self, panel: &str, incoming: &str, window: &mut Window, cx: &mut Context<Self>) {
+    fn make_room(
+        &mut self,
+        panel: &str,
+        incoming: &str,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let workspace = self.workspace.read(cx);
         let Some(room) = workspace.tab_list_bounds(panel) else {
             return;
@@ -296,7 +310,13 @@ impl Shell {
                 // A file tab at rest, its close slot left out unless it is
                 // the incoming one, which is measured selected.
                 Some(key) => {
-                    let label = shaped_width(&engine.title_of(view), TextRole::BodyCompact, None, window, cx);
+                    let label = shaped_width(
+                        &engine.title_of(view),
+                        TextRole::BodyCompact,
+                        None,
+                        window,
+                        cx,
+                    );
                     let selected = key == incoming;
                     let mut width = f32::from(TabFit::natural_width(label, true));
                     if !selected {
@@ -315,7 +335,11 @@ impl Shell {
                 view: view.clone(),
                 preview: engine.param_flag(view, "preview"),
                 pinned: engine.param_flag(view, "pinned"),
-                used: key.as_ref().and_then(|key| self.tabs.used.get(key)).copied().unwrap_or(0),
+                used: key
+                    .as_ref()
+                    .and_then(|key| self.tabs.used.get(key))
+                    .copied()
+                    .unwrap_or(0),
                 key,
                 width,
             });
@@ -328,7 +352,13 @@ impl Shell {
                 || self.tabs.held.contains(key)
                 || roots.contains(key)
         };
-        let close = evictions(&tabs, incoming_width, f32::from(TAB_GAP), f32::from(room.size.width), &held);
+        let close = evictions(
+            &tabs,
+            incoming_width,
+            f32::from(TAB_GAP),
+            f32::from(room.size.width),
+            &held,
+        );
         if !close.is_empty() {
             self.workspace
                 .update(cx, |workspace, cx| workspace.close(&close, cx));
