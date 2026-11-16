@@ -1,0 +1,70 @@
+diff --git a/gpui-base/src/input/base/state.rs b/gpui-base/src/input/base/state.rs
+index 82ff48020..71d291bd3 100644
+--- a/gpui-base/src/input/base/state.rs
++++ b/gpui-base/src/input/base/state.rs
+@@ -522,6 +522,9 @@ pub struct InputBaseState<M: InputModeKind> {
+     pub(crate) cursor_line_end_affinity: bool,
+     pub(super) pattern: Option<regex::Regex>,
+     pub(super) validate: Option<Box<dyn Fn(&str, &mut App) -> bool + 'static>>,
++    /// The most characters the text may hold, as HTML's `maxLength`: an
++    /// insertion is cut to the room left before it applies.
++    pub(super) max_length: Option<usize>,
+     /// The step strategy for [`super::NumberInput`] to increment/decrement.
+     /// See [`Self::step`] and [`Self::step_by`].
+     pub(crate) number_step: Option<NumberStep>,
+@@ -1017,6 +1020,7 @@ impl<M: InputModeKind> InputBaseState<M> {
+             loading: false,
+             pattern: None,
+             validate: None,
++            max_length: None,
+             number_step: Some(NumberStep::Fixed(1.)),
+             number_min: None,
+             number_max: None,
+@@ -4671,6 +4675,32 @@ impl<M: InputModeKind> EntityInputHandler for InputBaseState<M> {
+             .unwrap_or(self.selected_range());
+         let range = self.normalize_token_range(range);
+ 
++        // `maxLength`: cut the insertion to the room the rest of the text
++        // leaves, before it applies, so it is one edit in the history (a
++        // composition is cut when it is committed, as a browser cuts it).
++        let clipped;
++        let new_text: &str = match self.max_length {
++            Some(max) if !self.replaying_history => {
++                let text = self.text.to_string();
++                let start = range.start.min(text.len());
++                let end = range.end.clamp(start, text.len());
++                let kept = text[..start].chars().count() + text[end..].chars().count();
++                let room = max.saturating_sub(kept);
++                match new_text.char_indices().nth(room) {
++                    Some((cut, _)) => {
++                        if room == 0 && range.is_empty() {
++                            cx.notify();
++                            return;
++                        }
++                        clipped = new_text[..cut].to_string();
++                        &clipped
++                    }
++                    None => new_text,
++                }
++            }
++            _ => new_text,
++        };
++
+         // Skip-over as a pure cursor move: a typed closer that already follows
+         // the cursor moves past it without touching text or history, so Undo
+         // never exposes a transient duplicate. Only for interactive single
+@@ -12645,6 +12675,14 @@ impl InputBaseState<crate::input::InputMode> {
+         self.pattern = Some(pattern);
+     }
+ 
++    /// Hold the text to at most `max` characters, as HTML's `maxLength`:
++    /// typed, pasted or committed text past it is cut to the room left
++    /// before it is applied, so the edit stays one step of the undo history.
++    pub fn max_length(mut self, max: usize) -> Self {
++        self.max_length = Some(max);
++        self
++    }
++
+     /// Set the validation function of the input field.
+     pub fn validate(mut self, f: impl Fn(&str, &mut App) -> bool + 'static) -> Self {
+         self.validate = Some(Box::new(f));

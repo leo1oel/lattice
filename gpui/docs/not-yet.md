@@ -31,8 +31,6 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] Overleaf: a compile after a resolved conflict (the watcher's build stands in).
 
-- [ ] The workspace rename field's undo history surviving a keystroke past its 24 characters (the Kit input has no length limit that clips before an edit).
-
 - [ ] Papers' hover prewarm of a paper the pointer is likely to open.
 
 - [ ] Papers' notice when the browser could not open an article (GPUI's opener reports no failure).
