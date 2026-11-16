@@ -4,11 +4,14 @@
 //! the writer walks them from the keyboard as the Tauri app's queue does
 //! (`reference-check-keys.ts`): wide, the list stands beside the first fix;
 //! J and K walk the list, S skips to the next finding, and A applies the
-//! open fix, writes it into the `.bib` and moves to the next. The shortcut
-//! sheet lists the queue's keys under Check references. With
-//! `LATTICE_E2E_SHOTS=DIR` it saves the queue on a fix with its edits
-//! marked, and on the candidate's word comparison, light and dark, in
-//! English and Simplified Chinese.
+//! open fix, writes it into the `.bib` and moves to the next. Ticking
+//! references shows Select all and Check selected, which checks only the
+//! ticked ones; the last fix applied settles the report, whose pane shows
+//! the reading glass. The shortcut sheet lists the queue's keys under Check
+//! references. With `LATTICE_E2E_SHOTS=DIR` it saves the queue on a fix
+//! with its edits marked, on the candidate's word comparison, with two
+//! references ticked and settled, light and dark, in English and
+//! Simplified Chinese.
 
 use std::{path::Path, time::Duration};
 
@@ -169,7 +172,150 @@ impl Run {
             json!({ "applied": applied, "open": after_apply, "written": written.contains("1--483") }),
         );
         self.check_references_narrow(cx, steps).await?;
+        self.check_references_selection(cx, steps).await?;
+        self.check_references_settled(cx, steps).await?;
         self.shortcut_sheet_references(cx, steps).await
+    }
+
+    fn audit_update<R>(
+        &self,
+        cx: &mut AsyncApp,
+        f: impl FnOnce(
+            &mut crate::papers::audit::Audit,
+            &mut gpui::Context<crate::papers::audit::Audit>,
+        ) -> R,
+    ) -> Option<R> {
+        cx.update(|cx| {
+            let audit = self.shell.read(cx).audit().cloned()?;
+            Some(audit.update(cx, f))
+        })
+    }
+
+    /// Ticking references as the Tauri sheet's test does (`checks one row
+    /// without its neighbors, then only selected rows`): two ticked show the
+    /// bar with Select all mixed, Select all ticks the rest and a press on the
+    /// full box clears them, and Check selected checks only the ticked ones,
+    /// clearing the ticks once the references are read again. The run is
+    /// cancelled as soon as it has counted them, so nothing is looked up.
+    async fn check_references_selection(&self, cx: &mut AsyncApp, steps: &mut Steps) -> Result<()> {
+        use lattice_ui::components::CheckState;
+        let picked = ["knuth1984", "unsaved2024"];
+        for key in picked {
+            self.audit_update(cx, |audit, cx| audit.tick(key, true, cx));
+        }
+        self.frame_after_input(cx).await?;
+        let (two, two_box) = self
+            .audit_update(cx, |audit, _| audit.ticked())
+            .unwrap_or_default();
+        self.papers_looks(cx, "papers-7c-audit-selection").await?;
+        self.audit_update(cx, |audit, cx| audit.press_select_all(cx));
+        let (all, all_box) = self
+            .audit_update(cx, |audit, _| audit.ticked())
+            .unwrap_or_default();
+        self.audit_update(cx, |audit, cx| audit.press_select_all(cx));
+        let (none, _) = self
+            .audit_update(cx, |audit, _| audit.ticked())
+            .unwrap_or_default();
+        let total = cx.update(|cx| {
+            self.shell
+                .read(cx)
+                .audit()
+                .map_or(0, |audit| audit.read(cx).rows().len())
+        });
+        steps.check(
+            "ticking two references shows Select all mixed; Select all ticks every reference, and pressed again clears them",
+            two == picked
+                && two_box == CheckState::Mixed
+                && all.len() == total
+                && total > picked.len()
+                && all_box == CheckState::On
+                && none.is_empty(),
+            json!({ "two": two, "two_box": format!("{two_box:?}"), "all": all.len(), "total": total, "all_box": format!("{all_box:?}"), "cleared": none }),
+        );
+
+        for key in picked {
+            self.audit_update(cx, |audit, cx| audit.tick(key, true, cx));
+        }
+        self.audit_update(cx, |audit, cx| audit.press_check_selected(cx));
+        let mut run = None;
+        let counted = self
+            .wait_for(cx, Duration::from_secs(10), |shell, cx| {
+                let Some(audit) = shell.read(cx).audit().cloned() else {
+                    return false;
+                };
+                let Some(keys) = audit.read(cx).run_keys() else {
+                    return false;
+                };
+                run = Some(keys);
+                // Cancelled before Semantic Scholar's head start runs out:
+                // no reference is looked up on its own.
+                audit.update(cx, |audit, cx| audit.press_cancel(cx));
+                true
+            })
+            .await;
+        let finished = self
+            .wait_for(cx, Duration::from_secs(60), |shell, cx| {
+                shell
+                    .read(cx)
+                    .audit()
+                    .is_some_and(|audit| !audit.read(cx).is_busy())
+            })
+            .await;
+        let (after, _) = self
+            .audit_update(cx, |audit, _| audit.ticked())
+            .unwrap_or_default();
+        let (run_total, run_keys) = run.clone().unwrap_or_default();
+        steps.check(
+            "Check selected checks only the ticked references, and the fresh read clears the ticks",
+            counted
+                && finished
+                && run_total == picked.len()
+                && run_keys == ["knuth1984", "unsaved2024"]
+                && after.is_empty(),
+            json!({ "counted": counted, "finished": finished, "run": run, "ticked_after": after }),
+        );
+        Ok(())
+    }
+
+    /// The last fix applied with every other reference verified: nothing is
+    /// left to act on, so Apply opens no next finding and the queue's pane
+    /// shows the research desk's reading glass.
+    async fn check_references_settled(&self, cx: &mut AsyncApp, steps: &mut Steps) -> Result<()> {
+        self.audit_update(cx, |audit, cx| {
+            audit.seed(
+                |entry| {
+                    (entry.key != "vaswani2017attention").then(|| Finding {
+                        status: "checked".into(),
+                        message: "The record matches.".into(),
+                        before: entry.bibtex.clone(),
+                        ..Finding::default()
+                    })
+                },
+                cx,
+            )
+        });
+        self.frame_after_input(cx).await?;
+        let (last, _) = self.audit_open(cx);
+        self.audit_key(cx, "a").await?;
+        self.wait_for(cx, Duration::from_secs(10), |shell, cx| {
+            shell.read(cx).audit().is_some_and(|audit| {
+                let audit = audit.read(cx);
+                !audit.is_applying() && audit.is_settled()
+            })
+        })
+        .await;
+        self.frame_after_input(cx).await?;
+        let settled = self
+            .audit_update(cx, |audit, _| audit.is_settled())
+            .unwrap_or(false);
+        let (open, queue) = self.audit_open(cx);
+        self.papers_looks(cx, "papers-7d-audit-settled").await?;
+        steps.check(
+            "applying the last fix settles the report: the queue opens nothing and shows the reading glass",
+            last.as_deref() == Some("vaswani2017attention") && settled && queue && open.is_none(),
+            json!({ "last": last, "settled": settled, "queue": queue, "open": open }),
+        );
+        Ok(())
     }
 
     /// Below Tauri's `queueWidth` (800px) the list stands alone and the open
@@ -189,7 +335,9 @@ impl Run {
         self.with_window(cx, resize(720., wide_height))?;
         self.wait_for(cx, Duration::from_secs(3), |_, cx| {
             self.window
-                .update(cx, |_, window, _| f32::from(window.viewport_size().width) < 800.)
+                .update(cx, |_, window, _| {
+                    f32::from(window.viewport_size().width) < 800.
+                })
                 .unwrap_or(false)
         })
         .await;
