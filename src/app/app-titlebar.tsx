@@ -16,7 +16,7 @@
  */
 import { Suspense, type ReactNode, useRef } from "react";
 import { useLingui } from "@lingui/react/macro";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Folder } from "lucide-react";
 import { DropdownMenu, DropdownMenuTrigger } from "../components/ui/dropdown-menu";
 import { chunk, lazyChunk } from "../lib/lazy-chunk";
 import { LazyMount } from "../components/lazy-mount";
@@ -26,8 +26,10 @@ import type { OpenDocuments } from "./use-open-documents";
 import type { useProjectLifecycle } from "./use-project-lifecycle";
 import { useWindowProjects } from "./window-projects";
 import { useWindowTitle } from "./use-native-window";
+import { useProjectTabDrag } from "./use-project-tab-drag";
 import { cn } from "@/lib/utils";
 import { baseName } from "../lib/base-name";
+import "./project-tab-drag.css";
 
 const loadProjectTabs = chunk(() => import("./project-tabs"));
 const ProjectTabs = lazyChunk(loadProjectTabs, (module) => module.default);
@@ -49,7 +51,7 @@ export function AppTitlebar({ project, documents, projectMenu, panelControls, ca
     lifecycle: Pick<
       ReturnType<typeof useProjectLifecycle>,
       | "projectMenuOpen" | "setProjectMenuOpen" | "recentProjects" | "busyLabel" | "chooseRecentProject" | "chooseExisting"
-      | "clone" | "openTutorialProject" | "exportProjectZip" | "openInThisWindow" | "openProjectWindow"
+      | "clone" | "openTutorialProject" | "exportProjectZip" | "openInThisWindow" | "openProjectWindow" | "moveProjectTab"
     >;
     onNew: () => void;
     onOpenOverleaf: () => void;
@@ -68,6 +70,10 @@ export function AppTitlebar({ project, documents, projectMenu, panelControls, ca
   const { t } = useLingui();
   const { lifecycle, importing, building, onSettings, onNew, onOpenOverleaf, onExportArxiv } = projectMenu;
   const projects = useWindowProjects();
+  const projectStrip = useRef<HTMLDivElement>(null);
+  const titlePress = useRef(false);
+  const dragEnabled = !focusBar && !importing && !lifecycle.busyLabel;
+  const tabDrag = useProjectTabDrag(projectStrip, dragEnabled, lifecycle.moveProjectTab);
   // The menu item that opens Settings closes with the menu, so Settings is
   // handed the trigger to return focus to instead.
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -85,6 +91,7 @@ export function AppTitlebar({ project, documents, projectMenu, panelControls, ca
       </header>
     );
   }
+  const tabbed = projects.length > 1 && projects.some((entry) => entry.root === project.root);
   const projectTitle = (
     <DropdownMenu open={lifecycle.projectMenuOpen} onOpenChange={lifecycle.setProjectMenuOpen} modal={false}>
       <DropdownMenuTrigger asChild>
@@ -94,9 +101,19 @@ export function AppTitlebar({ project, documents, projectMenu, panelControls, ca
           aria-label={t`Switch project`}
           disabled={building || importing}
           onPointerEnter={warmProjectMenu}
+          onPointerDown={(event) => {
+            titlePress.current = tabDrag.canDragTitle(event);
+            if (titlePress.current) event.preventDefault();
+          }}
+          onClick={(event) => {
+            if (!titlePress.current || event.detail === 0) return;
+            titlePress.current = false;
+            lifecycle.setProjectMenuOpen(!lifecycle.projectMenuOpen);
+          }}
           onFocus={warmProjectMenu}
         >
           <span>{projectName}</span>
+          {tabbed && <Folder className="project-tab-icon" size={12} aria-hidden="true" />}
           <ChevronDown size={12} />
         </button>
       </DropdownMenuTrigger>
@@ -111,22 +128,33 @@ export function AppTitlebar({ project, documents, projectMenu, panelControls, ca
     </DropdownMenu>
   );
   // A window holding one project shows its title alone, as it always has.
-  const tabbed = projects.length > 1 && projects.some((entry) => entry.root === project.root);
+  const singleProjectTitle = (
+    <div className="project-tab-single" data-project-root={project.root} data-window-drag-exclude>
+      {projectTitle}
+    </div>
+  );
   return (
     <header className={bar} onMouseDown={beginWindowDrag} onDoubleClick={titleBarDoubleClick}>
-      <div className="titlebar-sidebar">
+      <div className="titlebar-sidebar" data-project-tabbed={tabbed || undefined}>
         <div className="titlebar-navigator">
           <div className="traffic-space" />
         </div>
-        <div className="project-switcher">
+        <div
+          className="project-switcher"
+          ref={projectStrip}
+          data-project-drop-enabled={dragEnabled || undefined}
+          onPointerEnter={tabDrag.onPointerEnter}
+          onPointerDown={tabDrag.onPointerDown}
+          onClickCapture={tabDrag.onClickCapture}
+        >
           {tabbed ? (
-            <Suspense fallback={projectTitle}>
+            <Suspense fallback={singleProjectTitle}>
               <ProjectTabs
                 projects={projects} active={project.root} activeTab={projectTitle} actions={lifecycle}
                 disabled={Boolean(lifecycle.busyLabel)}
               />
             </Suspense>
-          ) : projectTitle}
+          ) : singleProjectTitle}
           <div className="titlebar-drag-area" aria-hidden="true" />
         </div>
       </div>

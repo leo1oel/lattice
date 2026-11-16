@@ -544,7 +544,11 @@ fn page_text(open: &mut Open, index: usize) -> Result<Arc<PageText>> {
         let name = open
             .names
             .get(&index)
-            .and_then(|named| named.iter().find(|named| named_links::same_rect(&named.rect, raw)))
+            .and_then(|named| {
+                named
+                    .iter()
+                    .find(|named| named_links::same_rect(&named.rect, raw))
+            })
             .map(|named| named.name.clone());
         let (x0, y0, x1, y1) = flip(rect);
         links.push(Link {
@@ -786,7 +790,10 @@ mod tests {
             .find(|link| link.name.as_deref() == Some("cite.knuth1984"))
             .unwrap();
         // Its box from the page's top-left corner: 200 - 162 down.
-        assert_eq!((knuth.x0, knuth.y0, knuth.x1, knuth.y1), (20., 38., 40., 50.));
+        assert_eq!(
+            (knuth.x0, knuth.y0, knuth.x1, knuth.y1),
+            (20., 38., 40., 50.)
+        );
         engine.close(doc);
     }
 

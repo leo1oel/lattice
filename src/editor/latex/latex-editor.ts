@@ -493,7 +493,8 @@ export function latexEditorExtensions(options: LatexEditorOptions): Extension[] 
     ])),
     // Typing a full `\cite{}` must compose with the pair inserted after
     // `\cite`: swallow the duplicate opening brace and step over its close.
-    // Highest precedence also keeps optional Vim handling from seeing them.
+    // The optional Vim keymap still sees them first (see editor-extensions),
+    // so these run only in insert mode, where Vim passes them on.
     Prec.highest(keymap.of([
       { key: "{", run: (view) => bracedCommandContentBeforeCursor(view) === "" },
       { key: "}", run: skipExistingCommandCloseBrace },
@@ -510,7 +511,8 @@ export function latexEditorExtensions(options: LatexEditorOptions): Extension[] 
       wrapEnvironment: onWrapEnvironment,
       renameEnvironment: onRenameEnvironment,
     }))),
-    // Lowest precedence so Vim's `$` (end of line) still wins when that keymap is active.
+    // Lowest precedence so other `$` bindings win. Vim's `$` (end of line) does
+    // not depend on this: the Vim keymap handles keys before any keymap runs.
     Prec.lowest(keymap.of([{ key: "$", run: dollarPairCommand }])),
     EditorView.updateListener.of((update) => {
       // Cursor/focus entry is independent of typing. Ignore document edits

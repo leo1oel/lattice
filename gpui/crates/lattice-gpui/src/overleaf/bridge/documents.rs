@@ -494,7 +494,8 @@ impl OverleafBridge {
                         // A left document whose tab closed keeps them in its
                         // OT state only; regular sync brings the file up.
                         let fits = doc.editor.upgrade().is_none_or(|panel| {
-                            panel.update(cx, |panel, cx| panel.take_overleaf_ops(&applied, true, cx))
+                            panel
+                                .update(cx, |panel, cx| panel.take_overleaf_ops(&applied, true, cx))
                         });
                         if fits {
                             self.review_moved(&doc_id, &applied, false, suggested_by, cx);

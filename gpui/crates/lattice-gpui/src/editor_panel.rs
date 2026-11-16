@@ -47,24 +47,23 @@ use zed_actions::buffer_search::Deploy;
 
 mod annotation_review;
 mod annotations;
+pub(crate) mod attention;
 mod bib_view;
 mod buffer_counts;
 mod card_context;
 mod citations;
+pub(crate) mod definition;
 mod disk_sync;
 pub mod drops;
 mod editor_events;
 mod events;
 pub mod find_bar;
+pub(crate) mod format_document;
 mod highlight_palette;
 pub(crate) mod index_lint;
 mod insert;
 pub(crate) mod latex_format;
 pub(crate) mod latex_input;
-pub(crate) mod definition;
-pub(crate) mod format_document;
-pub(crate) mod vim_ex;
-mod source_pointer;
 mod latex_view;
 mod latex_visual_events;
 mod margin_review;
@@ -75,23 +74,25 @@ pub mod outline_rail;
 mod overleaf_carets;
 mod overleaf_review;
 mod overleaf_text;
+mod panel_actions;
 pub mod paper_text;
 mod papers;
+pub(crate) mod place_memory;
 pub mod proofread;
 pub mod rail_outline;
-pub(crate) mod attention;
 mod review_bar;
 mod review_marks;
 mod save;
 mod save_slot;
 mod selection_toolbar;
 mod source_chrome;
+mod source_pointer;
 pub(crate) mod spelling;
 pub(crate) mod symbol_palette;
 mod strip;
 mod structured_view;
 pub mod views;
-mod panel_actions;
+pub(crate) mod vim_ex;
 pub use panel_actions::{ShowSourceView, ShowVisualView, ViewPreview, ViewSource, ViewSplit};
 
 pub(crate) use annotations::PINS as ANNOTATION_PINS;
@@ -406,6 +407,11 @@ impl EditorPanel {
             cx.observe_global_in::<crate::settings::AppSettings>(window, |this, window, cx| {
                 this.sync_latex_view(window, cx)
             }),
+            cx.on_release(|_, _| place_memory::flush()),
+            cx.on_app_quit(|_, _| {
+                place_memory::flush();
+                async {}
+            }),
         ];
         let poll = cx.spawn(async move |this, cx| {
             loop {
@@ -700,7 +706,8 @@ impl Render for EditorPanel {
                 .child(crate::paint_probe::probe())
                 .into_any_element();
         }
-        let status: AnyElement = editor_status::status_bar(self, cx.entity().downgrade(), cx).into_any_element();
+        let status: AnyElement =
+            editor_status::status_bar(self, cx.entity().downgrade(), cx).into_any_element();
         let search = self
             .find_bar
             .read(cx)

@@ -10,6 +10,7 @@ import TrellisWorkspace from "./trellis-workspace";
 vi.mock("../canvas/canvas-lazy-editors", () => ({
   PdfPreview: ({ url }: { url: string }) => <div className="stub-pdf" data-url={url} />,
   PdfPreviewLoading: () => null,
+  DeferredVisualMarkdownEditor: ({ text }: { text: string }) => <div className="stub-markdown">{text}</div>,
 }));
 
 beforeEach(() => localStorage.clear());
@@ -161,6 +162,7 @@ describe("a Paper opened to the side", () => {
     expect(document.querySelector(".trellis-paper-snapshot")).toBeNull();
     act(() => paperPdfReading.set("1706.03762", null));
     await waitFor(() => expect(document.querySelector(".trellis-paper-snapshot")).not.toBeNull());
+    await waitFor(() => expect(document.querySelector(".trellis-paper-snapshot .stub-markdown")).not.toBeNull());
     expect(document.querySelector(".stub-pdf")).toBeNull();
   });
 });

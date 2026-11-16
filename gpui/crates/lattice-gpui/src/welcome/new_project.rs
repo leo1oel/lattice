@@ -166,7 +166,10 @@ impl NewProjectDialog {
             Venue::Local(id) => Some(id.clone()),
             Venue::BuiltIn(_) => None,
         };
-        (self.mine.items.iter().map(|item| item.id.clone()).collect(), chosen)
+        (
+            self.mine.items.iter().map(|item| item.id.clone()).collect(),
+            chosen,
+        )
     }
 
     pub fn focus_input(&self, window: &mut Window, cx: &mut App) {

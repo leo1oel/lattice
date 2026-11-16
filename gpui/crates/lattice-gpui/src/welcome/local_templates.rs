@@ -36,7 +36,9 @@ pub const LOCAL_PREFIX: &str = "local:";
 pub fn store() -> PathBuf {
     let scripted = std::env::args().any(|arg| arg == "--scenario");
     crate::shell::workspaces::state_dir(scripted)
-        .unwrap_or_else(|| std::env::temp_dir().join(format!("lattice-gpui-{}", std::process::id())))
+        .unwrap_or_else(|| {
+            std::env::temp_dir().join(format!("lattice-gpui-{}", std::process::id()))
+        })
         .join("templates")
 }
 
@@ -139,11 +141,16 @@ pub fn render(
         .min_w_0()
         .child(head);
     if !mine.items.is_empty() {
-        let selected = active.and_then(|active| mine.items.iter().position(|item| item.id == active.id));
+        let selected =
+            active.and_then(|active| mine.items.iter().position(|item| item.id == active.id));
         section = section.child(
-            Select::new("my-templates-select", mine.items.iter().map(label), selected)
-                .placeholder(t!("Choose a saved template"))
-                .on_change(cx.listener(|this, ix: &usize, _, cx| this.choose_local(*ix, cx))),
+            Select::new(
+                "my-templates-select",
+                mine.items.iter().map(label),
+                selected,
+            )
+            .placeholder(t!("Choose a saved template"))
+            .on_change(cx.listener(|this, ix: &usize, _, cx| this.choose_local(*ix, cx))),
         );
     }
     if let Some(active) = active {
@@ -165,8 +172,12 @@ pub fn render(
                 .text_role(TextRole::Caption, cx)
                 .text_color(palette.text)
                 .child(
-                    if open { Icon::CHEVRON_DOWN } else { Icon::CHEVRON_RIGHT }
-                        .element(px(12.), secondary),
+                    if open {
+                        Icon::CHEVRON_DOWN
+                    } else {
+                        Icon::CHEVRON_RIGHT
+                    }
+                    .element(px(12.), secondary),
                 )
                 .child(t!("Files"))
                 .on_click(cx.listener(|this, _, _, cx| this.toggle_template_files(cx))),
@@ -182,7 +193,12 @@ pub fn render(
                     .flex_col()
                     .text_role(TextRole::Caption, cx)
                     .text_color(palette.text)
-                    .children(active.files.iter().map(|file| div().child(format!("• {file}")))),
+                    .children(
+                        active
+                            .files
+                            .iter()
+                            .map(|file| div().child(format!("• {file}"))),
+                    ),
             );
         }
     }
@@ -238,7 +254,10 @@ mod tests {
         mine.loaded(Ok(vec![item("old", "Stored", "")]));
         let ids: Vec<_> = mine.items.iter().map(|item| item.id.as_str()).collect();
         assert_eq!(ids, ["old", "new"]);
-        mine.loaded(Ok(vec![item("old", "Stored", ""), item("new", "Saved here", "")]));
+        mine.loaded(Ok(vec![
+            item("old", "Stored", ""),
+            item("new", "Saved here", ""),
+        ]));
         assert_eq!(mine.items.len(), 2);
     }
 }

@@ -10,6 +10,7 @@ use lattice_i18n::t;
 
 use super::Shell;
 use crate::{
+    editor_panel::place_memory,
     file_tree::{FileTreeEvent, FileTreePanel},
     moved_paths, notices,
 };
@@ -308,12 +309,13 @@ impl Shell {
         .detach();
     }
 
-    /// Everything that names a path follows a rename or move: the open tabs
-    /// and the tree's open file.
+    /// Everything that names a path follows a rename or move: the open tabs,
+    /// the tree's open file and every file's editor place.
     fn apply_path_changes(&mut self, changes: &[(String, String)], cx: &mut Context<Self>) {
         let Some(root) = self.root(cx) else {
             return;
         };
+        place_memory::paths_moved(&root, |file| remap(file, changes), cx);
         for editor in self.open_editors() {
             let relative = editor.read(cx).relative().to_string();
             let Some(moved) = remap(&relative, changes) else {

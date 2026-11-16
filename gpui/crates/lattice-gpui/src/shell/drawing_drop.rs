@@ -60,9 +60,8 @@ impl Shell {
         };
         let root = project.read(cx).root().to_path_buf();
         let dropped = drawing.to_string_lossy().into_owned();
-        let made = cx.background_spawn(async move {
-            core_project::import_drawing_path(&root, &dropped)
-        });
+        let made =
+            cx.background_spawn(async move { core_project::import_drawing_path(&root, &dropped) });
         cx.spawn_in(window, async move |this, cx| {
             let made = made.await;
             this.update_in(cx, |this, window, cx| {
@@ -83,9 +82,18 @@ impl Shell {
                 let at = editor.update(cx, |editor, cx| editor.offset_under(point, window, cx));
                 let (text, caret) = editor.read(cx).text_and_caret(cx);
                 let at = at.unwrap_or(caret).min(text.len());
-                let at = (0..=at).rev().find(|at| text.is_char_boundary(*at)).unwrap_or(0);
-                let changes =
-                    figure_changes(&text, at, at, &figure.directory, &figure.entry, &figure.packages);
+                let at = (0..=at)
+                    .rev()
+                    .find(|at| text.is_char_boundary(*at))
+                    .unwrap_or(0);
+                let changes = figure_changes(
+                    &text,
+                    at,
+                    at,
+                    &figure.directory,
+                    &figure.entry,
+                    &figure.packages,
+                );
                 let (edits, caret) = changes.ordered();
                 editor.update(cx, |editor, cx| {
                     for (ix, edit) in edits.iter().enumerate() {
@@ -103,7 +111,10 @@ impl Shell {
                     let lines = changes.unplaced.join(" ");
                     notices::info(
                         t!("Figures"),
-                        t!("Add to the main document's preamble: {lines}", lines = lines),
+                        t!(
+                            "Add to the main document's preamble: {lines}",
+                            lines = lines
+                        ),
                         cx,
                     );
                 }

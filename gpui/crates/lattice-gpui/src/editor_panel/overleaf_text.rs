@@ -63,7 +63,12 @@ impl EditorPanel {
     /// as typing; false (nothing changed) when they do not fit the text.
     /// `coauthor` when someone else made them, which review mode takes into
     /// the base.
-    pub fn take_overleaf_ops(&mut self, ops: &[OtOp], coauthor: bool, cx: &mut Context<Self>) -> bool {
+    pub fn take_overleaf_ops(
+        &mut self,
+        ops: &[OtOp],
+        coauthor: bool,
+        cx: &mut Context<Self>,
+    ) -> bool {
         let text = self.buffer.read(cx).text();
         let Some(edits) = byte_edits(&text, ops) else {
             return false;

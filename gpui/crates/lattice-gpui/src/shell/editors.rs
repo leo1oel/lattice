@@ -37,7 +37,12 @@ impl Shell {
         ) {
             Ok(editor) => {
                 let papers = self.papers.clone();
-                editor.update(cx, |editor, cx| editor.set_papers(papers, cx));
+                editor.update(cx, |editor, cx| {
+                    editor.set_papers(papers, cx);
+                    // Where the file was left, in this run or an earlier
+                    // one; an open at a line of its own moves on from it.
+                    editor.restore_place(window, cx);
+                });
                 self.adopt_editor(&editor, window, cx);
                 let weak = editor.downgrade();
                 cx.on_focus_in(&editor.focus_handle(cx), window, move |this, _, _| {
@@ -47,7 +52,10 @@ impl Shell {
                 Some(editor)
             }
             Err(error) => {
-                let root = self.project.as_ref().map(|project| project.read(cx).root().to_path_buf());
+                let root = self
+                    .project
+                    .as_ref()
+                    .map(|project| project.read(cx).root().to_path_buf());
                 super::open_failure::show(&error, root.as_deref(), path, cx);
                 None
             }

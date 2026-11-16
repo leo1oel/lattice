@@ -81,5 +81,5 @@ export function useFileViewStates(
     removedRef.current = [];
   }, [flush, invalidate]);
 
-  return { statesRef, get, remember, allow, forget, remap, loadForProject };
+  return { statesRef, get, remember, allow, forget, flush, remap, loadForProject };
 }

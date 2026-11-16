@@ -62,7 +62,13 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
   const { remove, move } = treeChanges;
   const { onAssetChanged, assetMissing } = useDocumentDiskSync(store, saveActivityRef, save, treeChanges);
   const { onEditorLeave, onLeaveForPdf, onCompletionActiveChange, registerCompletionClose } = useDocumentAutosave(store, save);
-  const enter = useWorkspaceLayout(store, opens);
+  const { enter, persist: persistLayout } = useWorkspaceLayout(store, opens);
+  const { flush: persistViewStates } = viewStates;
+  const persistSession = useCallback(() => {
+    captureViewportRef.current?.();
+    persistViewStates();
+    persistLayout();
+  }, [captureViewportRef, persistLayout, persistViewStates]);
 
   const close = useCallback(async (key: string) => {
     const { file: activeFile, paper: openPaperNow, asset: openAsset, assetPaths: assets } = renderedRef.current;
@@ -317,7 +323,7 @@ export function useOpenDocuments(deps: OpenDocumentsDeps) {
     saveStatus,
     flush, save, bufferText, hasUnsavedEdits, edit: setText, pinText, accept, load: loadFile as LoadFile, clear, markDiskVersion, claim, scope,
     // Project and tree.
-    projectRoot, enter, remove, move,
+    projectRoot, enter, persistSession, remove, move,
   };
 }
 
