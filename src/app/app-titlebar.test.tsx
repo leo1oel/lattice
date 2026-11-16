@@ -179,7 +179,8 @@ it("reorders by where the project tab is released and keeps the active project",
   fireEvent.pointerDown(notes, dragPointer(160));
   fireEvent.blur(within(tabs).getByRole("button", { name: "Switch project" }));
   fireEvent.pointerMove(window, dragPointer(65));
-  expect(strip).toHaveAttribute("data-project-drop");
+  // The first press loads the drag controller.
+  await waitFor(() => expect(strip).toHaveAttribute("data-project-drop"));
   expect(windowProjects.get().map(({ root }) => root)).toEqual(["/paper", "/notes"]);
   fireEvent.pointerUp(window, dragPointer(65));
   fireEvent.click(notes, { detail: 1 });
@@ -188,7 +189,7 @@ it("reorders by where the project tab is released and keeps the active project",
   expect(strip).not.toHaveAttribute("data-project-drop");
 });
 
-it("opens the project menu on a click and clears the drag when Escape is pressed", () => {
+it("opens the project menu on a click and clears the drag when Escape is pressed", async () => {
   appWindow.label = "main";
   const moveProjectTab = vi.fn(async () => {});
   const setProjectMenuOpen = vi.fn();
@@ -203,7 +204,7 @@ it("opens the project menu on a click and clears the drag when Escape is pressed
 
   fireEvent.pointerDown(title, dragPointer(80));
   fireEvent.pointerMove(window, dragPointer(120));
-  expect(title.parentElement).toHaveAttribute("data-project-dragging");
+  await waitFor(() => expect(title.parentElement).toHaveAttribute("data-project-dragging"));
   fireEvent.keyDown(window, { key: "Escape" });
   fireEvent.pointerUp(window, dragPointer(-10));
   fireEvent.click(title, { detail: 1 });

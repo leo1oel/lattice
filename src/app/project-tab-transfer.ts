@@ -1,24 +1,21 @@
 import { useEffect } from "react";
 import { useLingui } from "@lingui/react/macro";
 import { invoke } from "@tauri-apps/api/core";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { ProjectSnapshot } from "../app-types";
 import { toMessage } from "../app-utils";
 import { useLatestRef } from "../hooks/use-latest-ref";
+import { chunk } from "../lib/lazy-chunk";
 import { disposeWhenSettled } from "./effect-helpers";
 import { showError } from "./notify";
 import { listenInThisWindow } from "./window-events";
-import { windowProjects } from "./window-projects";
 
 export type ProjectTabDestination = { windowLabel: string; beforeRoot: string | null };
-type MoveRequest = { id: string; beforeRoot: string | null };
+export type MoveRequest = { id: string; beforeRoot: string | null };
 
 const REQUEST_EVENT = "project-tab-move-request";
-const confirmLeaving = (project: ProjectSnapshot, building: boolean) => (
-  import("./leave-project").then(({ confirmLeavingProject }) => confirmLeavingProject(project.manifest.name, building))
-);
+const loadMoves = chunk(() => import("./project-tab-moves"));
 
-type TransferDeps = {
+export type TransferDeps = {
   browserHosted: boolean;
   building: boolean;
   projectRef: { current: ProjectSnapshot | null };
@@ -31,80 +28,33 @@ type TransferDeps = {
   setBusyLabel: (label: string | null) => void;
 };
 
-async function moveProjectTabFrom(
-  actions: TransferDeps & { title: string }, root: string, target: ProjectTabDestination | null,
-) {
-  if (actions.browserHosted) return;
-  await actions.holdWindow(undefined, async () => {
-    const active = actions.projectRef.current;
-    const tabs = windowProjects.get();
-    const index = tabs.findIndex((tab) => tab.root === root);
-    if (!active || index < 0 || (!target && tabs.length < 2)) return;
-    const movingActive = active.root === root;
-    const neighbour = tabs[index + 1] ?? tabs[index - 1];
-    let transferred = false;
-    if (movingActive && !await confirmLeaving(active, actions.building)) return;
-    actions.setBusyLabel(actions.title);
-    await (async () => {
-      if (movingActive) {
-        if (!await actions.startProjectTransition()) return;
-        actions.setMovingWorkspace(true);
-      }
-      transferred = await invoke<boolean>("move_project_tab", {
-        id: crypto.randomUUID(), root, sourceRoot: active.root, target,
-      });
-      if (!transferred) return;
-      windowProjects.remove(root);
-      if (!movingActive) return;
-      actions.forgetTransferredProject();
-      if (neighbour) {
-        await actions.enterProject(await invoke<ProjectSnapshot>("open_project", { path: neighbour.root }));
-      } else {
-        await getCurrentWindow().close();
-      }
-    })().catch((reason: unknown) => showError(toMessage(reason))).finally(() => {
-      if (movingActive && !transferred) actions.cancelProjectTransition();
-      actions.setMovingWorkspace(false);
-      actions.setBusyLabel(null);
-    });
-  }).catch((reason: unknown) => showError(toMessage(reason)));
-}
-
-/** The source keeps its editor and tab until the desktop host accepts the move. */
+/** The source keeps its editor and tab until the desktop host accepts the move.
+ * Only the request listener runs at startup; both ends of a move load with
+ * project-tab-moves.ts the first time one happens. */
 export function useProjectTabTransfer(deps: TransferDeps) {
   const { t } = useLingui();
   const title = t`Moving project tab…`;
   const latest = useLatestRef({ ...deps, title });
 
-  const moveProjectTab = (root: string, target: ProjectTabDestination | null) => (
-    moveProjectTabFrom(latest.current, root, target)
-  );
+  const moveProjectTab = async (root: string, target: ProjectTabDestination | null) => {
+    if (latest.current.browserHosted) return;
+    try {
+      const { moveProjectTabFrom } = await loadMoves();
+      await moveProjectTabFrom(latest.current, root, target);
+    } catch (reason) {
+      showError(toMessage(reason));
+    }
+  };
 
   useEffect(() => {
     if (deps.browserHosted) return;
-    const respond = async ({ id, beforeRoot }: MoveRequest) => {
-      const actions = latest.current;
-      let transferred = false;
-      await actions.holdWindow(undefined, async () => {
-        const active = actions.projectRef.current;
-        if (!active || !await confirmLeaving(active, actions.building)) return;
-        actions.setBusyLabel(actions.title);
-        await (async () => {
-          if (!await actions.startProjectTransition()) return;
-          actions.setMovingWorkspace(true);
-          const snapshot = await invoke<ProjectSnapshot | null>("receive_project_tab", { id, activeRoot: active.root });
-          if (!snapshot) return;
-          transferred = true;
-          const entering = actions.enterProject(snapshot);
-          windowProjects.reorder(snapshot.root, beforeRoot);
-          await entering;
-        })().catch((reason: unknown) => showError(toMessage(reason))).finally(() => {
-          if (!transferred) actions.cancelProjectTransition();
-          actions.setMovingWorkspace(false);
-          actions.setBusyLabel(null);
-        });
+    const respond = async (request: MoveRequest) => {
+      const moves = await loadMoves().catch(async (reason: unknown) => {
+        // Refuse rather than leave the source waiting on an answer.
+        await invoke("receive_project_tab", { id: request.id, activeRoot: null });
+        throw reason;
       });
-      if (!transferred) await invoke("receive_project_tab", { id, activeRoot: null });
+      await moves.receiveProjectTab(latest.current, request);
     };
     return disposeWhenSettled(listenInThisWindow<MoveRequest>(REQUEST_EVENT, ({ payload }) => {
       void respond(payload).catch((reason: unknown) => showError(toMessage(reason)));

@@ -1,6 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
 import { emitTo } from "@tauri-apps/api/event";
-import { getCurrentWindowSafely } from "./use-native-window";
 import { subscribeTauriEvent } from "./effect-helpers";
 import { findProjectDropSlot, markProjectDrop, type Point } from "./project-tab-hit";
 import type { ProjectTabDestination } from "./project-tab-transfer";
@@ -17,13 +16,6 @@ type DragMessage =
   | { kind: "hover"; id: string; point: Point | null }
   | { kind: "drop"; id: string; source: string; point: Point };
 type DropReply = { id: string; destination: ProjectTabDestination | null };
-
-export function nativeProjectTabWindow(): string | undefined {
-  // Browser-host windows use browser-* labels, and the website has no bridge.
-  if (import.meta.env.LATTICE_WEB_DEMO) return;
-  const label = getCurrentWindowSafely()?.label;
-  return label && (label === "main" || label.startsWith("project-")) ? label : undefined;
-}
 
 function slotInPeer(strip: HTMLElement, point: Point | null) {
   if (!point || !strip.hasAttribute("data-project-drop-enabled")) return;

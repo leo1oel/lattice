@@ -143,6 +143,7 @@ export function AppTitlebar({ project, documents, projectMenu, panelControls, ca
           className="project-switcher"
           ref={projectStrip}
           data-project-drop-enabled={dragEnabled || undefined}
+          onPointerEnter={tabDrag.onPointerEnter}
           onPointerDown={tabDrag.onPointerDown}
           onClickCapture={tabDrag.onClickCapture}
         >
