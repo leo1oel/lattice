@@ -46,6 +46,9 @@ pub(super) struct LatexViews {
     /// A linked Overleaf project's threads on the file, as the shell last
     /// put them for the page's marks and margin review.
     pub(super) overleaf: Option<serde_json::Value>,
+    /// The library's list and citation scan revisions last sent to the
+    /// page's citation cards (`latex_visual_citations.rs`).
+    pub(super) library_sent: Option<(u64, u64)>,
 }
 
 /// Whether `path` is a LaTeX document, which has a Visual form beside its
@@ -100,11 +103,18 @@ impl EditorPanel {
         // the rest is the page's own (`latex_visual_events.rs`).
         self._subscriptions
             .push(cx.subscribe_in(&document, window, Self::on_latex_document));
-        // The page marks the project's annotations as the source does.
+        // The page marks the project's annotations as the source does, and
+        // its citation cards read the reasons among them.
         let store = crate::annotations::store::store(cx);
         self._subscriptions.push(cx.observe(&store, |this, _, cx| {
-            this.forward_latex_annotations(cx)
+            this.forward_latex_annotations(cx);
+            this.forward_latex_reasons(cx);
         }));
+        // An entry's DOI or URL is what Open paper falls back to.
+        let index = self.project.read(cx).index().clone();
+        self._subscriptions
+            .push(cx.observe(&index, |this, _, cx| this.forward_latex_library(true, cx)));
+        self.latex.library_sent = None;
         document
     }
 

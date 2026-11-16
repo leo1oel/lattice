@@ -26,7 +26,10 @@ use std::{
 use gpui::{App, AppContext as _, Context, Entity, Focusable as _, Task, WeakEntity, Window};
 use language::BufferSnapshot;
 use lattice_core::project::{EditorComment, citation_sites};
-use lattice_editor::latex::citation_library::{CitationLibrary, CitationUse, Health, PaperFacts};
+use lattice_editor::{
+    index::ProjectIndex,
+    latex::citation_library::{CitationLibrary, CitationUse, Health, PaperFacts},
+};
 
 use super::EditorPanel;
 use crate::{
@@ -94,6 +97,17 @@ fn rows_in(
         .collect()
 }
 
+/// The source the index's entry for `key` cites (its web page, DOI or
+/// arXiv preprint), which Open paper opens when the library has no paper.
+pub(super) fn citation_source(index: &ProjectIndex, key: &str) -> Option<String> {
+    let citation = index.citation(key)?;
+    model::citation_source_url(
+        citation.url.as_deref(),
+        citation.doi.as_deref(),
+        citation.arxiv_id.as_deref(),
+    )
+}
+
 /// The citation library of one editor.
 struct PanelCitations {
     panel: WeakEntity<EditorPanel>,
@@ -120,12 +134,7 @@ impl PanelCitations {
     fn source_of(&self, key: &str, cx: &App) -> Option<String> {
         let panel = self.panel.upgrade()?;
         let index = panel.read(cx).project.read(cx).index().clone();
-        let citation = index.read(cx).citation(key)?.clone();
-        model::citation_source_url(
-            citation.url.as_deref(),
-            citation.doi.as_deref(),
-            citation.arxiv_id.as_deref(),
-        )
+        citation_source(index.read(cx), key)
     }
 
     /// The other files' uses of `key`; read in the background when the

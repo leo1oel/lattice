@@ -66,6 +66,7 @@ pub(crate) mod format_document;
 pub(crate) mod vim_ex;
 mod source_pointer;
 mod latex_view;
+mod latex_visual_citations;
 mod latex_visual_events;
 mod margin_review;
 mod markdown_view;
