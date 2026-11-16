@@ -54,7 +54,16 @@ impl Run {
         .await;
 
         // The channel is up: only figures and new files are left to the
-        // poll, so it asks every 45 s, not every 3 s.
+        // poll, so it asks every 45 s, not every 3 s. The window counts the
+        // poll's probes alone: a push the steps before left owed (a sync's
+        // own writes, which a probe reading the files here clears) probes
+        // once it has waited out the 30 s sync gap, so it is let land first.
+        // Otherwise it fell in the window or not by where that gap ended.
+        self.wait_for(cx, Duration::from_secs(40), |shell, cx| {
+            let bridge = shell.read(cx).overleaf.read(cx);
+            !bridge.push_waiting() && !bridge.syncing()
+        })
+        .await;
         let before = mock.requests(&probes);
         self.pause(cx, Duration::from_secs(8)).await;
         let live_probes = mock.requests(&probes) - before;

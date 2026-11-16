@@ -209,6 +209,9 @@ pub struct OverleafBridge {
     channel_retry: Option<mpsc::UnboundedSender<()>>,
     whole_files: live::WholeFiles,
     push_task: Option<Task<()>>,
+    /// A push is waiting out its quiet period and the sync gap, or its
+    /// probe is still out.
+    push_waiting: bool,
     badge_task: Option<Task<()>>,
     channel_task: Option<Task<()>>,
     link_task: Option<Task<()>>,
@@ -266,6 +269,7 @@ impl OverleafBridge {
             channel_retry: None,
             whole_files: Default::default(),
             push_task: None,
+            push_waiting: false,
             badge_task: None,
             channel_task: None,
             link_task: None,
@@ -295,6 +299,13 @@ impl OverleafBridge {
 
     pub fn syncing(&self) -> bool {
         self.syncing
+    }
+
+    /// Whether a push of ours is still to probe, for a scenario that counts
+    /// the live poll's own probes.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub fn push_waiting(&self) -> bool {
+        self.push_waiting
     }
 
     pub fn remote_changes(&self) -> bool {
@@ -408,6 +419,7 @@ impl OverleafBridge {
         self.poll_task = None;
         self.poll_wake = None;
         self.push_task = None;
+        self.push_waiting = false;
         self.badge_task = None;
         self.channel_task = None;
         self.channel_retry = None;
@@ -532,6 +544,7 @@ impl OverleafBridge {
                 self.poll_task = None;
                 self.poll_wake = None;
                 self.push_task = None;
+                self.push_waiting = false;
                 self.whole_files.stop_timers();
                 if self.badge_task.is_none() {
                     self.badge_task = Some(self.badge_poll(root, cx));
