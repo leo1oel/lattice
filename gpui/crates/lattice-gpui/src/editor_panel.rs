@@ -71,6 +71,7 @@ mod margin_review;
 mod markdown_view;
 mod moves;
 mod outline_panel;
+pub(crate) mod place_memory;
 pub mod outline_rail;
 mod overleaf_carets;
 mod overleaf_review;
@@ -402,6 +403,11 @@ impl EditorPanel {
             // Source or Visual chosen, here or in another window.
             cx.observe_global_in::<crate::settings::AppSettings>(window, |this, window, cx| {
                 this.sync_latex_view(window, cx)
+            }),
+            cx.on_release(|_, _| place_memory::flush()),
+            cx.on_app_quit(|_, _| {
+                place_memory::flush();
+                async {}
             }),
         ];
         let poll = cx.spawn(async move |this, cx| {

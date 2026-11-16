@@ -37,7 +37,12 @@ impl Shell {
         ) {
             Ok(editor) => {
                 let papers = self.papers.clone();
-                editor.update(cx, |editor, cx| editor.set_papers(papers, cx));
+                editor.update(cx, |editor, cx| {
+                    editor.set_papers(papers, cx);
+                    // Where the file was left, in this run or an earlier
+                    // one; an open at a line of its own moves on from it.
+                    editor.restore_place(window, cx);
+                });
                 self.adopt_editor(&editor, window, cx);
                 let weak = editor.downgrade();
                 cx.on_focus_in(&editor.focus_handle(cx), window, move |this, _, _| {
