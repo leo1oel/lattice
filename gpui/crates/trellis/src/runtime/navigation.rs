@@ -296,7 +296,7 @@ impl Engine {
 
     /// Frame the child under the centre of the viewport.
     pub fn nav_step_in(&mut self) {
-        let p = self.from_screen(Point::new(self.viewport.0 / 2., self.viewport.1 / 2.));
+        let p = self.screen_to_world(Point::new(self.viewport.0 / 2., self.viewport.1 / 2.));
         let focused = self.nav.framed.clone().unwrap_or_else(|| self.root_id());
         let next = hierarchy_step(&self.nav.entries, &focused, StepDirection::In, p);
         self.nav_focus(Some(&next), true);
@@ -597,7 +597,7 @@ impl Engine {
             wheel.stepped_at = now;
             let out = wheel.total > 0.;
             wheel.total = 0.;
-            let point = self.from_screen(at);
+            let point = self.screen_to_world(at);
             let focused = self.nav.framed.clone().unwrap_or_else(|| self.root_id());
             let next = hierarchy_step(
                 &self.nav.entries,

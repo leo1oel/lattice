@@ -210,12 +210,27 @@ fn forward(owner: &WeakEntity<PdfPanel>, event: &PdfViewEvent, cx: &mut App) {
         },
         PdfViewEvent::OpenCitation(key) => super::PdfEvent::OpenCitation(key.clone()),
         PdfViewEvent::Annotation(request) => super::PdfEvent::Annotation(request.clone()),
+        PdfViewEvent::OverleafNote {
+            id,
+            path,
+            line,
+            selection,
+            quote,
+            body,
+        } => super::PdfEvent::OverleafNote {
+            id: *id,
+            path: path.clone(),
+            line: *line,
+            selection: selection.clone(),
+            quote: quote.clone(),
+            body: body.clone(),
+        },
         PdfViewEvent::ExportReview => super::PdfEvent::ExportReview,
         PdfViewEvent::PlaceChanged(place) => {
             owner.update(cx, |panel, _| panel.remember_place(*place));
             return;
         }
-        PdfViewEvent::Action => return,
+        PdfViewEvent::Action | PdfViewEvent::SelectionOffered(_) => return,
     };
     owner.update(cx, |_, cx| cx.emit(event));
 }

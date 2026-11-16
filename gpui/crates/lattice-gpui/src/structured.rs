@@ -43,16 +43,16 @@ use gpui::{
     prelude::FluentBuilder as _, px,
 };
 use lattice_i18n::{Locale, t};
-use lattice_ui::{ActiveLattice as _, TextRole, TextRoleStyle as _, components::ToastLevel};
+use lattice_ui::{ActiveLattice as _, TextRole, TextRoleStyle as _};
 use lattice_webview::{
     Bundle, FileScope, Island, IslandConfig, IslandEvent, IslandState, IslandTheme,
 };
 use serde_json::{Value, json};
 
-use crate::notices::{self, Notice};
+use crate::notices;
 
 pub use latex_visual::LatexEvent;
-pub use markdown::{MarkdownEvent, PaperPdfIdentity, PaperReading};
+pub use markdown::{MarkdownEvent, PaperNoteIdentity, PaperPdfIdentity, PaperReading};
 pub use markdown_host::VisualCaret;
 pub use slides::{DeckSession, handles as deck_handles};
 
@@ -62,6 +62,8 @@ mod latex_services;
 mod latex_visual;
 mod markdown;
 mod markdown_host;
+mod page_notice;
+pub(crate) use page_notice::show as show_page_notice;
 mod presentation;
 pub mod resources;
 mod skeleton;
@@ -432,7 +434,9 @@ impl StructuredDocument {
                 }
                 cx.notify();
             }
-            "island:notify" => show_page_notice(payload, cx),
+            "island:notify" => {
+                page_notice::show(payload, self.island.as_ref().map(Entity::downgrade), cx)
+            }
             "agent:tool-result" => self.agent_answered(payload),
             "slides:agent-request" => cx.emit(StructuredEvent::AgentRequest(payload.clone())),
             "slides:context" => self.deck_context_changed(payload, cx),
@@ -678,29 +682,6 @@ pub(crate) fn ask_page_confirm(
         .on_confirm(move |_, cx| answer(json!("confirm"), cx))
         .on_cancel(move |cx| cancelled(json!("cancel"), cx));
     crate::confirm::ask(question, cx);
-}
-
-/// A toast the page raised (`island:notify`), on the app's stack.
-pub(crate) fn show_page_notice(payload: &Value, cx: &mut App) {
-    let text = |key: &str| {
-        payload
-            .get(key)
-            .and_then(Value::as_str)
-            .unwrap_or_default()
-            .to_string()
-    };
-    let level = match text("level").as_str() {
-        "error" => ToastLevel::Error,
-        "warning" => ToastLevel::Warning,
-        "success" => ToastLevel::Success,
-        _ => ToastLevel::Info,
-    };
-    let mut notice = Notice::new(level, text("title"));
-    let detail = text("detail");
-    if !detail.is_empty() {
-        notice = notice.detail(detail);
-    }
-    notices::show(notice, cx);
 }
 
 impl Render for StructuredDocument {

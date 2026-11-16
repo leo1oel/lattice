@@ -77,7 +77,8 @@ export function splitPackageId(id: string): { name: string; version: string } | 
 
 export function parseThirdPartyNotices(markdown: string): ThirdPartyNotices {
   const start = markdown.indexOf(BEGIN);
-  const lines = start === -1 ? [] : markdown.slice(start).split("\n");
+  // A Windows checkout, and a build made from one, has CRLF line endings.
+  const lines = start === -1 ? [] : markdown.slice(start).split(/\r?\n/);
 
   const groups: LicenseGroup[] = [];
   // closure → package id → license

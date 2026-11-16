@@ -172,7 +172,7 @@ impl Engine {
     /// The part of a collapsed group under a point (workspace px), as deep
     /// as its outline shows: double-clicking zooms there.
     pub fn group_segment_at(&mut self, group_id: &str, at: crate::model::Point) {
-        let p = self.from_screen(at);
+        let p = self.screen_to_world(at);
         let outline = self.options.detail.map_or(0, |(_, o)| o).max(1);
         let mut node = self.entries.get(group_id).map(|e| e.node.clone());
         let mut target = group_id.to_string();

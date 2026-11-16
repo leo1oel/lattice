@@ -364,6 +364,14 @@ impl OverleafBridge {
         }
     }
 
+    /// The network came back (`network.rs`): a channel waiting to join
+    /// does so now, as when the window comes forward.
+    pub fn network_came_back(&mut self) {
+        if let Some(retry) = &self.channel_retry {
+            retry.unbounded_send(()).ok();
+        }
+    }
+
     /// The channel carries documents (it is up, in live mode).
     fn channel_live(&self) -> bool {
         self.mode == OverleafSyncMode::Live && self.channel == ChannelStatus::Live

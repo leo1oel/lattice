@@ -237,8 +237,7 @@ impl AnnotationsPanel {
     /// Whether the live PDF can host a review copy: one is built and shows
     /// this project's notes.
     fn review_ready(&self, cx: &App) -> bool {
-        (self.host.live_pdf)(cx)
-            .is_some_and(|pdf| pdf.read(cx).live_view().read(cx).can_review())
+        (self.host.live_pdf)(cx).is_some_and(|pdf| pdf.read(cx).live_view().read(cx).can_review())
     }
 
     /// Whether the project has local numbered notes, resolved ones too, for

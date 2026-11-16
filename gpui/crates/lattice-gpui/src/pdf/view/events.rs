@@ -25,12 +25,42 @@ pub enum PdfViewEvent {
     Outline { path: String, line: u32 },
     /// A citation card's title: open the paper cited under the key.
     OpenCitation(String),
+    /// A note made here goes to Overleaf as a comment: the text selected on
+    /// the PDF, placed by SyncTeX on `line` of `path` where the file read
+    /// `quote`, and the comment. The host answers with
+    /// [`super::PdfView::answer_overleaf_note`].
+    OverleafNote {
+        id: u64,
+        path: String,
+        line: usize,
+        selection: String,
+        quote: String,
+        body: String,
+    },
     /// A note's card asked something of it (Resolve, Reply).
     Annotation(crate::annotations::AnnotationRequest),
     /// Export review PDF… was chosen.
     ExportReview,
     /// The view rested at a new place, for the host to keep.
     PlaceChanged(super::ViewPlace),
+    /// A drag selected text, offered to the host
+    /// ([`super::PdfView::set_offers_selection`]); `None` takes the offer
+    /// away (a press elsewhere, a scroll, a zoom, Escape).
+    SelectionOffered(Option<OfferedSelection>),
+}
+
+/// Text a drag selected, as the host is offered it.
+#[derive(Clone, Debug)]
+pub struct OfferedSelection {
+    /// The 0-based page the selection starts on.
+    pub page: usize,
+    /// What a copy of it would hold.
+    pub text: String,
+    /// That page's whole text, a line end after each line, to name the
+    /// passage by words it holds once.
+    pub page_text: String,
+    /// The selection's last line, on the window.
+    pub end: gpui::Bounds<gpui::Pixels>,
 }
 
 /// A context-specific action before Save, such as moving the PDF into a

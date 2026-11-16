@@ -28,6 +28,7 @@ impl Run {
         self.papers_keyboard(cx, steps, papers).await?;
         self.papers_research_rows(cx, steps).await?;
         self.papers_full_text_setting(cx, steps, papers).await?;
+        self.papers_batch_add(cx, steps, papers).await?;
         self.add_reference_form(cx, steps).await?;
         self.papers_cite_and_refresh(cx, steps, papers).await?;
         Ok(())

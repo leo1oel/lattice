@@ -31,15 +31,21 @@ function unescapeRust(literal: string): string {
  */
 const RUST_ROOTS = ["src-tauri/src", "src-tauri/lattice-core/src"];
 
+/**
+ * A Rust file as rustc reads it: with CRLF turned into LF, so a Windows
+ * checkout's `\` line continuations and multi-line literals match too.
+ */
+const readRust = (file: string) => readFileSync(file, "utf8").replaceAll("\r\n", "\n");
+
 /** The source of `rustFile`, from whichever root holds it. */
 function rustSource(rustFile: string): string {
   const root = RUST_ROOTS.find((candidate) => existsSync(`${candidate}/${rustFile}`)) ?? RUST_ROOTS[0];
-  return readFileSync(`${root}/${rustFile}`, "utf8");
+  return readRust(`${root}/${rustFile}`);
 }
 
 /** Every root's copy of `rustFile`: `lib.rs` is in both. */
 function rustSources(rustFile: string): string[] {
-  return RUST_ROOTS.filter((root) => existsSync(`${root}/${rustFile}`)).map((root) => readFileSync(`${root}/${rustFile}`, "utf8"));
+  return RUST_ROOTS.filter((root) => existsSync(`${root}/${rustFile}`)).map((root) => readRust(`${root}/${rustFile}`));
 }
 
 const literalsByFile = new Map<string, Set<string>>();
@@ -154,7 +160,8 @@ function testOnlyFiles(files: string[]): Set<string> {
 
 /** Each `Err("…")` or `Err(format!("…"))` sentence a Rust file outside its tests returns, as the audit counted them. */
 function returnedErrors(): Array<{ file: string; literal: string }> {
-  const files = [...new Set(RUST_ROOTS.flatMap((root) => readdirSync(root, { recursive: true }) as string[]))]
+  // Named with `/`, as `UNTRANSLATED` names them; Windows lists them with `\`.
+  const files = [...new Set(RUST_ROOTS.flatMap((root) => (readdirSync(root, { recursive: true }) as string[]).map((file) => file.replaceAll("\\", "/"))))]
     .filter((file) => file.endsWith(".rs"));
   const tests = testOnlyFiles(files);
   return files.filter((file) => !tests.has(file) && ![...tests].some((test) => file.startsWith(test.replace(/\.rs$/, "/")))).flatMap((file) => {

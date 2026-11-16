@@ -26,7 +26,9 @@ import { I18nProvider } from "@lingui/react";
 import { registerConfirmActionHandler, type ConfirmActionChoice, type ConfirmActionOptions } from "../../../src/app-utils";
 import { activateAppLocale, i18n } from "../../../src/i18n";
 import { installPointerFocus } from "../../../src/components/ui/pointer-focus";
-import { dismissAppToast, useAppToastsSnapshot, type AppLogEntry } from "../../../src/telemetry/app-log-store";
+import {
+  dismissAppToast, useAppToastsSnapshot, type AppLogEntry, type AppToastAction,
+} from "../../../src/telemetry/app-log-store";
 import { host } from "./host";
 
 export type MountOptions = {
@@ -34,13 +36,46 @@ export type MountOptions = {
   relayToast?: (entry: AppLogEntry) => boolean;
 };
 
-/** Forwards each toast the page raises to the host once, then drops it here. */
+/**
+ * The primary actions of the toasts relayed to the host, by toast id: the
+ * host's card shows the label and, when it is chosen, asks the page to run it
+ * (`island:notify-action`). Only the latest few are kept, as a card's clock
+ * takes it down long before more toasts than that arrive.
+ */
+const relayedActions = new Map<string, AppToastAction>();
+const RELAYED_ACTIONS_KEPT = 16;
+
+/**
+ * Forwards each toast the page raises to the host once (its area, words,
+ * clock and primary action, as the Tauri stack shows them), then drops it here.
+ */
 function ToastRelay({ relay }: { relay?: (entry: AppLogEntry) => boolean }) {
   const toasts = useAppToastsSnapshot();
+  useEffect(() => host().on("island:notify-action", (payload) => {
+    const id = (payload as { id: string }).id;
+    const action = relayedActions.get(id);
+    relayedActions.delete(id);
+    void action?.onClick();
+  }), []);
   useEffect(() => {
-    for (const { entry } of toasts) {
+    for (const { entry, options } of toasts) {
       if (relay?.(entry) ?? true) {
-        host().post("island:notify", { level: entry.level, title: entry.title, detail: entry.detail });
+        const action = options?.primaryAction;
+        if (action) {
+          relayedActions.set(entry.id, action);
+          for (const stale of relayedActions.keys()) {
+            if (relayedActions.size <= RELAYED_ACTIONS_KEPT) break;
+            relayedActions.delete(stale);
+          }
+        }
+        host().post("island:notify", {
+          level: entry.level,
+          source: entry.source,
+          title: entry.title,
+          detail: entry.detail,
+          timeoutMs: options?.timeoutMs ?? null,
+          action: action ? { id: entry.id, label: action.label } : null,
+        });
       }
       dismissAppToast(entry.id, false);
     }

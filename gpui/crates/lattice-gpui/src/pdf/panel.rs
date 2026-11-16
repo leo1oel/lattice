@@ -72,6 +72,16 @@ pub enum PdfEvent {
     OpenCitation(String),
     /// A note's card on the PDF asked something of it.
     Annotation(crate::annotations::AnnotationRequest),
+    /// A note made on this panel's PDF goes to Overleaf
+    /// (`PdfViewEvent::OverleafNote`).
+    OverleafNote {
+        id: u64,
+        path: String,
+        line: usize,
+        selection: String,
+        quote: String,
+        body: String,
+    },
     /// Export review PDF…, of this panel's PDF.
     ExportReview,
     /// An Outline row: open `path` at `line`, and show it in the PDF.
@@ -155,8 +165,10 @@ impl PdfPanel {
     }
 
     /// Whether the notes it was given offer Annotate.
-    pub fn annotatable(&self) -> Option<bool> {
-        self.notes.as_ref().map(|notes| notes.annotatable)
+    /// What this PDF knows of a linked project's Overleaf side (`None`
+    /// inside: not linked); `None` without a project's notes.
+    pub fn overleaf_notes(&self) -> Option<Option<&super::OverleafNotes>> {
+        self.notes.as_ref().map(|notes| notes.overleaf.as_ref())
     }
 
     /// The project's notes, drawn on the PDF.
@@ -369,9 +381,26 @@ impl PdfPanel {
             }),
             PdfViewEvent::OpenCitation(key) => cx.emit(PdfEvent::OpenCitation(key.clone())),
             PdfViewEvent::Annotation(request) => cx.emit(PdfEvent::Annotation(request.clone())),
+            PdfViewEvent::OverleafNote {
+                id,
+                path,
+                line,
+                selection,
+                quote,
+                body,
+            } => cx.emit(PdfEvent::OverleafNote {
+                id: *id,
+                path: path.clone(),
+                line: *line,
+                selection: selection.clone(),
+                quote: quote.clone(),
+                body: body.clone(),
+            }),
             PdfViewEvent::ExportReview => cx.emit(PdfEvent::ExportReview),
             PdfViewEvent::PlaceChanged(place) => self.remember_place(*place),
             PdfViewEvent::Action => self.detach(window, cx),
+            // The project's PDFs annotate their selection instead.
+            PdfViewEvent::SelectionOffered(_) => {}
         }
     }
 

@@ -120,6 +120,11 @@ libc = "0.2"
 block2 = "0.6"
 objc2 = "0.6"
 objc2-foundation = { version = "0.3", features = ["NSArray", "NSGeometry", "NSLocale", "NSRange", "NSString"] }
+# The internet's reachability, for the live channel to join again when the
+# network comes back (`overleaf/network.rs`); the versions reqwest already
+# brings in, so they add no crate.
+core-foundation = "0.9"
+system-configuration = "0.7"
 
 # The version Zed's gpui_windows already uses, so it adds no crate.
 [target.'cfg(target_os = "windows")'.dependencies]

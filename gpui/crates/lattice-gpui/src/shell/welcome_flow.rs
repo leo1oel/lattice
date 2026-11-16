@@ -142,7 +142,7 @@ impl Shell {
     }
 
     /// Say what the window is doing on the welcome screen, if it shows.
-    fn set_busy(&self, busy: Option<&str>, cx: &mut Context<Self>) {
+    pub(super) fn set_busy(&self, busy: Option<&str>, cx: &mut Context<Self>) {
         if let Some(welcome) = &self.lobby.welcome {
             welcome.update(cx, |welcome, cx| {
                 welcome.set_busy(busy.map(str::to_string), cx)
@@ -213,8 +213,10 @@ impl Shell {
             let Some(parent) = paths.into_iter().next() else {
                 return;
             };
-            this.update(cx, |this, cx| this.set_busy(Some("Creating project…"), cx))
-                .ok();
+            this.update(cx, |this, cx| {
+                this.set_busy(Some(t!("Creating project…")), cx)
+            })
+            .ok();
             let created = cx
                 .background_executor()
                 .spawn(async move { create_project(parent, name, &venue) })
@@ -248,7 +250,7 @@ impl Shell {
             );
             return;
         };
-        self.set_busy(Some("Preparing tutorial…"), cx);
+        self.set_busy(Some(t!("Preparing tutorial…")), cx);
         let parent = documents.join(TUTORIALS);
         cx.spawn_in(window, async move |this, cx| {
             let made = cx
@@ -313,7 +315,7 @@ impl Shell {
             let Some(parent) = parents.into_iter().next() else {
                 return;
             };
-            this.update(cx, |this, cx| this.set_busy(Some("Importing ZIP…"), cx))
+            this.update(cx, |this, cx| this.set_busy(Some(t!("Importing ZIP…")), cx))
                 .ok();
             let imported = cx
                 .background_executor()

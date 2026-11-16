@@ -142,7 +142,10 @@ pub enum LatexEvent {
     OverleafReject(String),
     /// A citation card's Open paper on `key`, at the page its cite's note
     /// names (`\cite[p.~5]{key}`).
-    OpenPaper { key: String, page: Option<u32> },
+    OpenPaper {
+        key: String,
+        page: Option<u32>,
+    },
     /// Why cited's Save: a citation reason on the file, new or replacing
     /// the one with its id, as the page made it.
     SaveReason(Box<EditorComment>),

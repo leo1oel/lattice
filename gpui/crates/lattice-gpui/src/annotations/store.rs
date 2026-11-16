@@ -111,19 +111,33 @@ fn author_id(cx: &App) -> String {
 }
 
 /// Who signs what this app writes on the project at `root`: its Git
-/// `user.name`, else the "Your name" setting (`resolveAuthorName`).
+/// `user.name`, else the Overleaf account signed in, else the "Your name"
+/// setting (`resolveAuthorName`).
 pub fn author(root: &Path, cx: &App) -> Author {
     let id = try_store(cx)
         .map(|store| store.read(cx).author_id.clone())
         .unwrap_or_else(|| "anonymous".into());
-    let git = git_name(root);
     let setting = crate::settings::get(cx).author_name.clone();
-    let name = [git.unwrap_or_default(), setting]
+    let name = [known_name(Some(root)).unwrap_or_default(), setting]
         .into_iter()
         .map(|name| name.trim().to_string())
         .find(|name| !name.is_empty())
         .unwrap_or_default();
     Author { id, name }
+}
+
+/// The name Git (for the project at `root`) or the Overleaf account signed
+/// in knows the writer by, which signs comments ahead of the "Your name"
+/// setting (`knownName` in `use-comment-author.ts`).
+pub fn known_name(root: Option<&Path>) -> Option<String> {
+    let trimmed = |name: Option<String>| {
+        name.map(|name| name.trim().to_string())
+            .filter(|name| !name.is_empty())
+    };
+    trimmed(root.and_then(git_name)).or_else(|| {
+        let status = crate::overleaf::account::status().ok()?;
+        trimmed(status.connected.then_some(status.name).flatten())
+    })
 }
 
 /// Git's `user.name` for `root`, read once per project.
@@ -490,6 +504,23 @@ impl AnnotationStore {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_projects_git_name_signs_ahead_of_the_setting() {
+        // use-comment-author.ts: Git's user.name for the project comes first.
+        let dir = tempfile::tempdir().unwrap();
+        let git = |args: &[&str]| {
+            std::process::Command::new("git")
+                .arg("-C")
+                .arg(dir.path())
+                .args(args)
+                .output()
+                .unwrap()
+        };
+        git(&["init", "--quiet"]);
+        git(&["config", "user.name", "  Ada Writer  "]);
+        assert_eq!(known_name(Some(dir.path())).as_deref(), Some("Ada Writer"));
+    }
 
     #[test]
     fn notes_number_after_the_highest_pin() {

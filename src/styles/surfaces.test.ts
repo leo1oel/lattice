@@ -187,7 +187,7 @@ describe("shared surface contracts", () => {
     expect(read("src/index.css")).not.toMatch(/shadow-plugin/)
     expect(read("src/App.css")).not.toMatch(/shadow-plugin/)
     const levelOf = (selector: string) =>
-      new RegExp(`^${selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:,\\n[^{]*| )\\{[^}]*box-shadow: var\\(--elevation-([a-z]+)\\)`, "m").exec(surfacesCss)?.[1]
+      new RegExp(`^${selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:,\\r?\\n[^{]*| )\\{[^}]*box-shadow: var\\(--elevation-([a-z]+)\\)`, "m").exec(surfacesCss)?.[1]
     expect(levelOf(".modal")).toBe("dialog")
     expect(levelOf(".settings-modal")).toBe("dialog")
     expect(levelOf(".app-toast")).toBe("floating")

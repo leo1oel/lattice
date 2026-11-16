@@ -15,6 +15,7 @@ use trellis::runtime::engine::ViewPlacement;
 use super::Shell;
 
 mod add_reference;
+pub(super) mod prewarm;
 mod writes;
 use crate::papers::{
     PapersEvent, PapersPanel,
@@ -41,6 +42,7 @@ impl Shell {
                 }
             }
             PapersEvent::Read(paper) => self.open_reader((**paper).clone(), window, cx),
+            PapersEvent::Likely(paper) => self.prewarm_paper(paper, window, cx),
             PapersEvent::ReadAt { paper, page } => {
                 self.open_reader_at((**paper).clone(), *page, window, cx)
             }
@@ -107,6 +109,11 @@ impl Shell {
                     |this, reader, event, window, cx| match event {
                         PaperReaderEvent::Show(view) => {
                             this.give_reader_text(reader, *view, window, cx)
+                        }
+                        PaperReaderEvent::OpenPath(path) => {
+                            if let Some(root) = this.root(cx) {
+                                this.open_path(root.join(path), None, window, cx);
+                            }
                         }
                     },
                 )

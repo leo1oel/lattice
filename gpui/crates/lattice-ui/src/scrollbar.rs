@@ -554,14 +554,13 @@ fn listen(
                     state.over_track = over_track;
                     changed = true;
                 }
-                if let (Some(drag), Some((_, geometry, bounds))) = (state.drag, track.as_ref()) {
-                    if event.pressed_button == Some(MouseButton::Left) {
-                        let start = along(axis, event.position, *bounds) - drag.grab;
-                        let scrolled =
-                            scroll_for_thumb(*geometry, start, viewport_len, content_len);
-                        handle.set_offset(with_scroll(axis, handle.offset(), scrolled));
-                        changed = true;
-                    }
+                if let (Some(drag), Some((_, geometry, bounds))) = (state.drag, track.as_ref())
+                    && event.pressed_button == Some(MouseButton::Left)
+                {
+                    let start = along(axis, event.position, *bounds) - drag.grab;
+                    let scrolled = scroll_for_thumb(*geometry, start, viewport_len, content_len);
+                    handle.set_offset(with_scroll(axis, handle.offset(), scrolled));
+                    changed = true;
                 }
             });
             if changed {

@@ -516,10 +516,10 @@ impl Engine {
         let stage = find_stage(self.doc.root.as_ref()).map(|s| s.id.clone());
         let floated = *to == DropTarget::Float;
         let tabbed = matches!(to, DropTarget::Tab { .. });
-        if floated && from != Region::Floating && stage.is_some() {
-            self.nav_include(&[stage.expect("checked")]);
+        if let Some(stage) = stage.filter(|_| floated && from != Region::Floating) {
+            self.nav_include(&[stage]);
         } else if !floated && !tabbed && from == Region::Floating {
-            self.nav_include(&[panel.id.clone()]);
+            self.nav_include(std::slice::from_ref(&panel.id));
         } else {
             self.ensure_framed_visible(&panel.selected);
         }
