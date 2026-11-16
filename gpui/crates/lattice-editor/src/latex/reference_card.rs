@@ -57,22 +57,21 @@ pub fn card_label(
 
 impl ReferenceCard {
     /// What the label names, its previews and Go to (`fillReferenceEntry`).
-    fn entry(
-        &self,
-        reference: Reference,
-        previews: ReferencePreviews,
-        window: &mut Window,
-        cx: &mut App,
-    ) -> gpui::Div {
+    fn entry(self, window: &mut Window, cx: &mut App) -> gpui::Div {
+        let Self {
+            reference,
+            previews,
+            context,
+        } = self;
         let palette = cx.palette().clone();
         let figure = previews
             .figure
             .as_deref()
-            .and_then(|path| preview_cards::figure_media(path, &self.context, cx));
+            .and_then(|path| preview_cards::figure_media(path, &context, cx));
         let equation = previews
             .equation
             .as_ref()
-            .map(|(body, macros)| preview_cards::equation(body, macros, &self.context, window, cx));
+            .map(|(body, macros)| preview_cards::equation(body, macros, &context, window, cx));
         let fact = previews
             .fact
             .map(|fact| preview_cards::compiled_line(fact, cx));
@@ -83,7 +82,7 @@ impl ReferenceCard {
             reference.title.clone()
         };
         let goto = {
-            let context = self.context.clone();
+            let context = context.clone();
             let (path, line) = (reference.path.clone(), reference.line);
             move |_: &gpui::ClickEvent, _: &mut Window, cx: &mut App| {
                 context.close(cx);
@@ -164,9 +163,10 @@ impl ReferenceCard {
 
 impl RenderOnce for ReferenceCard {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
-        let body = self.entry(self.reference.clone(), self.previews.clone(), window, cx);
+        let width = px(360.).min(self.context.max_width);
+        let body = self.entry(window, cx);
         card_surface(cx)
-            .w(px(360.).min(self.context.max_width))
+            .w(width)
             .pt(px(10.))
             .px(px(12.))
             .pb(px(11.))
