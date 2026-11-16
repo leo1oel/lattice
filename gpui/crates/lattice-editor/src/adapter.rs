@@ -97,7 +97,8 @@ pub struct LatticeEditor {
     blocks: HashMap<&'static str, HashSet<CustomBlockId>>,
     hover_providers: Vec<Rc<dyn HoverProvider>>,
     hover: Hover,
-    /// A keyboard card just closed: if focus was in it, the next frame
+    /// A keyboard card just closed: if focus was in it, or went nowhere
+    /// (the card scrolled out with its focused action), the next frame
     /// gives the editor the keyboard back (an edit or a caret move closes
     /// the card without a window to move focus with).
     refocus: Option<FocusHandle>,
@@ -623,7 +624,7 @@ impl Focusable for LatticeEditor {
 impl Render for LatticeEditor {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         if let Some(card) = self.refocus.take()
-            && card.contains_focused(window, cx)
+            && (card.contains_focused(window, cx) || window.focused(cx).is_none())
         {
             window.focus(&self.focus_handle(cx), cx);
         }
