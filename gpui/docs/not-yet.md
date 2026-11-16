@@ -19,7 +19,7 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] The paper reader's selection actions: Copy source link and Add to note, on the full text and on the original PDF.
 
-- [ ] The shortcut sheet's LaTeX keys the source editor does not bind yet (the citation card, the symbol palette, Proofread), which join the sheet's LaTeX group once bound.
+- [ ] The shortcut sheet's LaTeX keys the source editor does not bind yet (the symbol palette), which join the sheet's LaTeX group once bound.
 
 - [ ] Check references: ticking references to check only those (Select all, Check selected), and the reading-glass drawing of a settled report.
 

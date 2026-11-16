@@ -51,6 +51,7 @@ pub(crate) mod attention;
 mod bib_view;
 mod buffer_counts;
 mod card_context;
+pub(crate) mod citation_card;
 mod citations;
 pub(crate) mod definition;
 mod disk_sync;
@@ -734,6 +735,7 @@ impl Render for EditorPanel {
         let body = self.render_views(editor, status, bib, cx);
         let root = Self::latex_commands(div().key_context("LatticeEditor"), cx);
         let root = Self::definition_actions(Self::latex_input_actions(root, cx), cx);
+        let root = Self::citation_card_actions(root, cx);
         let root = Self::vim_ex_actions(Self::format_actions(root, cx), cx);
         Self::panel_actions(root, cx)
             .on_action(cx.listener(Self::deploy_search))

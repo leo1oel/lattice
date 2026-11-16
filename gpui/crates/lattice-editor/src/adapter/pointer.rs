@@ -6,14 +6,17 @@
 //! editor here. Targets the pointer rests on for [`HOVER_DELAY`] open their
 //! cards, one under another; the stack closes [`HOVER_GRACE`] after the
 //! pointer is off both the targets and the stack, on a key or an edit, or at
-//! once for other targets.
+//! once for other targets. A card opened from the keyboard
+//! ([`LatticeEditor::open_card_at`]) holds focus instead: the pointer leaves
+//! it be, and it closes on Escape, an edit, a caret move, or focus leaving it.
 
 use std::{ops::Range, rc::Rc};
 
 use gpui::{
-    Anchor as Corner, AnyElement, App, Bounds, Context, InteractiveElement as _, IntoElement,
-    ParentElement as _, Pixels, Point, SharedString, StatefulInteractiveElement as _, Styled as _,
-    Task, Window, anchored, canvas, deferred, div, point, px,
+    Anchor as Corner, AnyElement, App, Bounds, Context, Focusable as _, InteractiveElement as _,
+    IntoElement, ParentElement as _, Pixels, Point, SharedString, StatefulInteractiveElement as _,
+    Styled as _, Subscription, Task, Window, anchored, canvas, deferred, div, point,
+    prelude::FluentBuilder as _, px,
 };
 use language::{BufferSnapshot, ToOffset as _, ToPoint as _};
 use lattice_ui::components::{PopFrom, pop_in};
@@ -21,7 +24,10 @@ use lattice_ui::components::{PopFrom, pop_in};
 use super::{LatticeEditor, LatticeEditorEvent};
 use crate::{
     geometry, gutter,
-    hover::{HOVER_DELAY, HOVER_GRACE, HoverCard, HoverCardContext, HoverProvider, HoverTarget},
+    hover::{
+        HOVER_DELAY, HOVER_GRACE, HoverCard, HoverCardContext, HoverProvider, HoverTarget,
+        KEYBOARD_CARD_CONTEXT, KeyboardCard,
+    },
 };
 
 /// The gap between a card and the text it hovers over (the menus' 4px).
@@ -84,7 +90,22 @@ pub(super) enum Hover {
         /// The pointer, still by the shown targets, rests on another set of
         /// them: the stack becomes that set when this fires.
         next: Option<(Vec<Anchored>, Task<()>)>,
+        /// Opened from the keyboard: the card that holds focus, and the
+        /// listener that closes it when focus leaves.
+        keyboard: Option<(KeyboardCard, Subscription)>,
     },
+}
+
+impl Hover {
+    fn opened_from_keyboard(&self) -> bool {
+        matches!(
+            self,
+            Hover::Shown {
+                keyboard: Some(_),
+                ..
+            }
+        )
+    }
 }
 
 impl LatticeEditor {
@@ -112,6 +133,61 @@ impl LatticeEditor {
             self.painted.borrow_mut().card = None;
             cx.notify();
         }
+    }
+
+    /// Whether the cards shown were opened from the keyboard.
+    pub fn hover_from_keyboard(&self) -> bool {
+        self.hover.opened_from_keyboard()
+    }
+
+    /// Whether a card opened from the keyboard holds the window's focus.
+    pub fn hover_holds_focus(&self, window: &Window, cx: &App) -> bool {
+        match &self.hover {
+            Hover::Shown {
+                keyboard: Some((card, _)),
+                ..
+            } => card.focus.contains_focused(window, cx),
+            _ => false,
+        }
+    }
+
+    /// Open the `id` provider's card for the text at `offset` with focus in
+    /// it, as the Tauri app's ⌥⌘K opens the citation card at the caret
+    /// (`citationCardAtCursor`). False when that provider has no card there.
+    pub fn open_card_at(
+        &mut self,
+        offset: usize,
+        id: &str,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        let text = self.buffer.read(cx).snapshot();
+        let targets: Vec<Anchored> = self
+            .text_targets(&text, offset, cx)
+            .into_iter()
+            .filter(|target| target.id == id)
+            .collect();
+        if targets.is_empty() {
+            return false;
+        }
+        let focus = cx.focus_handle();
+        // Focus leaving the card (a click in the text, another pane) closes
+        // it, as the Tauri card closes on `focusout`.
+        let left = cx.on_focus_out(&focus, window, |this, _, _, cx| {
+            if this.hover.opened_from_keyboard() {
+                this.dismiss_hover(cx);
+            }
+        });
+        self.painted.borrow_mut().card = None;
+        self.hover = Hover::Shown {
+            targets,
+            over_card: false,
+            closing: None,
+            next: None,
+            keyboard: Some((KeyboardCard::new(focus), left)),
+        };
+        cx.notify();
+        true
     }
 
     pub(crate) fn request_open_location(
@@ -274,6 +350,9 @@ impl LatticeEditor {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if self.hover.opened_from_keyboard() {
+            return;
+        }
         let candidates = if self.editor.read(cx).has_visible_completions_menu() {
             Vec::new()
         } else {
@@ -363,6 +442,7 @@ impl LatticeEditor {
                 over_card: false,
                 closing: None,
                 next: None,
+                keyboard: None,
             };
             cx.notify();
         }
@@ -449,6 +529,7 @@ impl LatticeEditor {
             over_card,
             closing,
             next,
+            keyboard: None,
             ..
         } = &mut self.hover
         {
@@ -468,6 +549,7 @@ impl LatticeEditor {
             Hover::Shown {
                 over_card: false,
                 closing: None,
+                keyboard: None,
                 ..
             } => self.schedule_close(cx),
             _ => {}
@@ -479,10 +561,16 @@ impl LatticeEditor {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Option<AnyElement> {
-        let Hover::Shown { targets, .. } = &self.hover else {
+        let Hover::Shown {
+            targets, keyboard, ..
+        } = &self.hover
+        else {
             return None;
         };
-        if self.editor.read(cx).has_visible_completions_menu() {
+        let keyboard = keyboard.as_ref().map(|(card, _)| card.clone());
+        // A card opened from the keyboard takes focus from the editor, and
+        // the menu closes with it.
+        if keyboard.is_none() && self.editor.read(cx).has_visible_completions_menu() {
             return None;
         }
         let targets = targets.clone();
@@ -496,6 +584,7 @@ impl LatticeEditor {
             editor: cx.weak_entity(),
             max_width: (bounds.size.width - CARD_MARGIN).max(px(160.)),
             text: self.buffer.read(cx).snapshot(),
+            keyboard: keyboard.clone(),
         };
         // The stack stays inside the editor, as the Tauri app's tooltip space
         // keeps it: shifted left from its targets when it would cross the
@@ -578,6 +667,25 @@ impl LatticeEditor {
                             .id("lattice-hover")
                             .occlude()
                             .on_hover(hovered)
+                            .when_some(keyboard, |stack, keyboard| {
+                                let editor = cx.weak_entity();
+                                stack
+                                    .key_context(KEYBOARD_CARD_CONTEXT)
+                                    .track_focus(&keyboard.focus)
+                                    .on_key_down(move |event: &gpui::KeyDownEvent, window, cx| {
+                                        if event.keystroke.key == "escape"
+                                            && !event.keystroke.modifiers.modified()
+                                        {
+                                            cx.stop_propagation();
+                                            editor
+                                                .update(cx, |editor, cx| {
+                                                    editor.dismiss_hover(cx);
+                                                    window.focus(&editor.focus_handle(cx), cx);
+                                                })
+                                                .ok();
+                                        }
+                                    })
+                            })
                             .child(cards)
                             .child(record),
                     ),
