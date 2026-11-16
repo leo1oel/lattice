@@ -1436,7 +1436,7 @@ pub(super) static ENTRIES: &[Entry] = &[
         text: Text::Message("{path} is not a folder.", &[("path", Arg::Param(0))]),
     },
     Entry {
-        file: "overleaf/sync.rs",
+        file: "overleaf/sync/plan.rs",
         literal: "Sync pending file moves with Overleaf before comparing file contents.",
         text: Text::Message("Sync pending file moves with Overleaf before comparing file contents.", &[]),
     },
