@@ -59,10 +59,10 @@ pub(super) struct SymbolPalette {
     active: usize,
     scroll: ScrollHandle,
     /// The source's bounds, for its place, and the palette's height as
-    /// last drawn, which places it while its empty-state line (which wraps)
-    /// shows.
+    /// last drawn with nothing matching, which places it while its
+    /// empty-state line (which wraps) shows.
     view: Rc<Cell<Option<Bounds<Pixels>>>>,
-    height: Rc<Cell<Pixels>>,
+    height: Rc<Cell<Option<Pixels>>>,
     /// How many of the cells drawn last are settled: KaTeX's picture is
     /// in, or KaTeX cannot set the command (its name shows).
     drawn: Cell<usize>,
@@ -245,10 +245,15 @@ impl EditorPanel {
         };
         let palette = self.symbols.as_ref()?;
         let width = px(WIDTH).min((view.size.width - px(32.)).max(px(200.)));
+        let rem = window.rem_size();
         let height = if palette.shown.is_empty() {
-            palette.height.get()
+            palette.height.get().unwrap_or_else(|| {
+                symbol_palette_height(0, rem)
+                    + tokens::SPACING_3.to_pixels(rem)
+                    + tokens::LEADING_MICRO.to_pixels(rem)
+            })
         } else {
-            symbol_palette_height(palette.shown.len(), window.rem_size())
+            symbol_palette_height(palette.shown.len(), rem)
         };
         let below = view.bottom() - anchor.bottom() >= height + px(MARGIN)
             || anchor.top() - view.top() < height + px(MARGIN);
@@ -260,7 +265,7 @@ impl EditorPanel {
         } else {
             anchor.top() - px(MARGIN) - height - view.top()
         };
-        let body = self.symbol_palette_body(width, window, cx);
+        let body = self.symbol_palette_body(width, height, window, cx);
         let from = if below {
             PopFrom::Below
         } else {
@@ -285,6 +290,7 @@ impl EditorPanel {
     fn symbol_palette_body(
         &mut self,
         width: Pixels,
+        placed: Pixels,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
@@ -434,7 +440,12 @@ impl EditorPanel {
             })
             .child(
                 canvas(
-                    move |bounds, _, _| height_cell.set(bounds.size.height),
+                    move |bounds, window, _| {
+                        height_cell.set(empty.then_some(bounds.size.height));
+                        if empty && bounds.size.height != placed {
+                            window.on_next_frame(move |_, cx| cx.notify(panel));
+                        }
+                    },
                     |_, _, _, _| {},
                 )
                 .absolute()
@@ -446,9 +457,9 @@ impl EditorPanel {
     }
 }
 
-/// The palette's height with `shown` (some) cells: its padding, the search
-/// field and its margin, and the grid (up to its tallest), so it is placed
-/// right on the frame it opens.
+/// The palette's height with `shown` cells, less any empty-state line: its
+/// padding, the search field and its margin, and the grid (up to its
+/// tallest), so it is placed right on the frame it opens.
 fn symbol_palette_height(shown: usize, rem: Pixels) -> Pixels {
     let rows = shown.div_ceil(COLUMNS);
     let grid = px((rows as f32 * CELL_HEIGHT).min(GRID_MAX_HEIGHT));
