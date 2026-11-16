@@ -1,14 +1,15 @@
 # Patched upstream crates
 
-Five crates the app builds on are vendored here, each with Lattice's changes, and swapped in through the workspace manifest's `[patch]` tables.
+Six crates the app builds on are vendored here, each with Lattice's changes, and swapped in through the workspace manifest's `[patch]` tables.
 Each is upstream's source at an exact pin plus the diffs in this directory, nothing else; `script/check-patches` rebuilds them from upstream and fails on any difference (CI runs it), and `script/check-patches --write` rebuilds them after a diff is edited or a pin moves.
 
 | Crate | Upstream | Pin | License | Diffs |
 |---|---|---|---|---|
 | `gpui-fast/crates/gpui` | [longbridge/gpui-fast](https://github.com/longbridge/gpui-fast) `crates/gpui` | commit `bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa` | Apache-2.0 | `gpui-fast-vendoring.diff`, `gpui-fast-motion-and-type.diff`, `gpui-fast-interface-zoom.diff`, `gpui-fast-file-drop-modality.diff`, `gpui-fast-active-drag-type.diff` |
+| `gpui-fast/crates/gpui_apple` | the same repository's `crates/gpui_apple` (the Metal renderer and the Apple text system) | the same commit | Apache-2.0 | `gpui-fast-backdrop-blur.diff` |
 | `gpui-fast/crates/gpui_macos` | the same repository's `crates/gpui_macos` | the same commit | Apache-2.0 | `gpui-fast-lab-occlusion.diff`, `gpui-fast-overlay-first-mouse.diff`, `gpui-fast-lab-assume-key.diff` |
 | `gpui-component` | [crates.io `gpui-component`](https://crates.io/crates/gpui-component) (GPUI Kit's components) | 0.9.1, crate SHA-256 `e155c4914bd809d966660610d596f7b57c5cd38979ca2c132215057a91f23f03` | Apache-2.0 | `gpui-component-overlays.diff`, `gpui-component-lattice-hooks.diff` |
-| `gpui-base` | [crates.io `gpui-base`](https://crates.io/crates/gpui-base) (GPUI Kit's foundation, which `gpui-component` builds on) | 0.9.1, crate SHA-256 `f3e9ae5237737cfd110d0ff513fcd9c20f97d98ebabd0a73164068177f0aca4f` | Apache-2.0 | `gpui-base-popover-exit.diff` |
+| `gpui-base` | [crates.io `gpui-base`](https://crates.io/crates/gpui-base) (GPUI Kit's foundation, which `gpui-component` builds on) | 0.9.1, crate SHA-256 `f3e9ae5237737cfd110d0ff513fcd9c20f97d98ebabd0a73164068177f0aca4f` | Apache-2.0 | `gpui-base-popover-exit.diff`, `gpui-base-max-length.diff` |
 | `gpui-webview` | [crates.io `gpui-webview`](https://crates.io/crates/gpui-webview) (GPUI Kit's webview: the islands' native page) | 0.9.1, crate SHA-256 `6b355bcda56e128a7c2e27257653a6441ab792dcfbdae49c63ce329c846f4b5d` | Apache-2.0 | `gpui-webview-interface-zoom.diff` |
 
 What is copied: each crate's sources, manifest, build script, README and license (a copy of the repository's, which upstream links), without examples, benches and docs, and for the crates.io crates without their packaging files (`Cargo.lock`, `Cargo.toml.orig`); `gpui-base` keeps the tests and benches its manifest names.
@@ -16,8 +17,8 @@ The vendored copies cannot run their own tests where they sit (the gpui crate's 
 
 ## The diffs
 
-- **`gpui-fast-vendoring.diff`**: what it takes to build the two gpui-fast crates out of their repository.
-  `gpui-fast/Cargo.toml` is gpui-fast's workspace manifest, kept so the crates inherit exactly the dependencies and features they do upstream; its members are cut to the two vendored crates, every other gpui-fast crate it names is taken from gpui-fast's git repository at the pin, and its `[patch]` and `[profile]` tables (which only a root workspace reads) are dropped.
+- **`gpui-fast-vendoring.diff`**: what it takes to build the three gpui-fast crates out of their repository.
+  `gpui-fast/Cargo.toml` is gpui-fast's workspace manifest, kept so the crates inherit exactly the dependencies and features they do upstream; its members are cut to the three vendored crates, every other gpui-fast crate it names is taken from gpui-fast's git repository at the pin, and its `[patch]` and `[profile]` tables (which only a root workspace reads) are dropped.
   `crates/gpui/Cargo.toml` loses its `[[example]]` entries, whose files are not copied.
 - **`gpui-fast-lab-occlusion.diff`**: with `GPUI_LAB_IGNORE_OCCLUSION` set, a window renders as if visible when none of it is on screen (covered, or on a locked display): it is paced by the display's `CVDisplayLink` instead of a `CAMetalDisplayLink`, which stops for a layer that is not on screen, and reports itself visible. Lattice's perf lab measures WebKit the same way. Without the variable the crate behaves as upstream.
 - **`gpui-fast-lab-assume-key.diff`**: with `GPUI_LAB_ASSUME_KEY` set, every window acts as the key window of the active app, as GPUI's own test platforms make activation a flag: it reports itself active from the start and stays active when AppKit takes the key window from it (becoming key for real still runs as upstream, so what observes activation, such as a webview handing the keyboard back to GPUI's view, runs), activating a window only orders it forward among the app's windows, and activating the app does nothing.
@@ -39,6 +40,12 @@ The vendored copies cannot run their own tests where they sit (the gpui crate's 
   The platform keeps measuring in points: every event it delivers has its positions (and a pixel scroll delta) divided by `z` on the way in, the input method's caret and selection rectangles are multiplied by `z` on the way out (and the point it asks about divided), as are the window menu's position, the visual viewport and the platform's insets.
   Without a zoom set (1) the crate behaves as upstream.
   A native composition surface is placed from GPUI's device pixels, so it lands where its element is laid out; what a surface's owner puts inside it in points is that owner's to scale (`gpui-webview-interface-zoom.diff`).
+- **`gpui-fast-backdrop-blur.diff`** (`gpui` and `gpui_apple`): CSS's `backdrop-filter: blur()`, which the Tauri app's frosted popovers (`surfaces.css`) need (`fast/backdrop.rs` in each crate; upstream files get only hooks).
+  `Styled::backdrop_blur(radius, fallback)` and `Window::paint_backdrop_blur` put a backdrop in the scene before the element's shadows and background: a polychrome sprite whose texture id (`BACKDROP_TEXTURE_INDEX`) no atlas allocates, as scroll layer tiles and rounded clip groups are carried, so every copy, replay, translation, element scale and split of a scene carries it at its draw order, and no primitive's layout or `PrimitiveBatch` changes (`gpui_wgpu` builds as it is).
+  The sprite's tile holds the blur's standard deviation in device pixels (CSS's radius times the scale factor, so the interface zoom and an element scale scale it) and the fallback colour.
+  The Metal renderer, in each loop that draws a frame's batches (upstream's, `fast::paths` and `fast::rounded_clip`), ends the render pass at a backdrop's batch, copies the target's pixels under it with a margin of three standard deviations into a texture the size of that region, blurs it with `MPSImageGaussianBlur` (clamped at the region's edges, so it does not darken toward them), begins the pass again loading what it stored, and draws the blur back inside the rounded rectangle, the content mask and the enclosing rounded clips (`fast/backdrop.metal`).
+  Where the target's pixels are not what is under the backdrop, the rectangle is filled with the fallback colour instead: an overlay surface over native views, a scroll layer's tile (a scroll layer draws a backdrop over its tiles, as it does a path, so this is only a tile's own copy), the first frame of a layer whose drawables were framebuffer-only (it is asked for readable ones from then on), a device without Metal Performance Shaders, inside a `Window::paint_layer` (one draw order for everything, so the fallback is a quad there) and every platform but macOS and iOS.
+  Without a backdrop in the scene the crates behave as upstream.
 - **`gpui-base-popover-exit.diff`**: a popover that plays its way out.
   `Popover::exit(duration)` keeps the content drawn for that long after the popover closes, as it was, under a cover that takes its presses, with no focus, Escape or dismissal; `PopoverState::leaving()` tells the content builder how far into the exit it is, so Lattice's popovers draw their exit (`pop_out`) where the Tauri app's `popup-motion.css` plays one.
   Without `exit` the crate behaves as upstream.
@@ -58,7 +65,7 @@ The vendored copies cannot run their own tests where they sit (the gpui crate's 
     The default draws it, as upstream.
 - **`gpui-component-overlays.diff`**: GPUI Kit's notification and sheet layers are drawn `deferred`, as its dialogs already are. gpui-fast composes native views (a webview island) between a window's base content and its overlay surface, and only deferred draws reach the overlay surface, so without this a toast or a Kit sheet is covered by any webview under it.
 
-The new public API (`scaled`, `Scaled`, `TextStyle::letter_spacing`, `Styled::letter_spacing`, `Window::set_interface_zoom`, `Window::interface_zoom`, `App::has_active_drag_of`) is not gpui-fast's, which adds no public API without its maintainers' agreement; it is kept here, on the pin, until it is upstreamed or replaced.
+The new public API (`scaled`, `Scaled`, `TextStyle::letter_spacing`, `Styled::letter_spacing`, `Window::set_interface_zoom`, `Window::interface_zoom`, `App::has_active_drag_of`, `Styled::backdrop_blur`, `Window::paint_backdrop_blur`, `BackdropBlur`, `Backdrop`, `BACKDROP_TEXTURE_INDEX`, `is_backdrop_texture`) is not gpui-fast's, which adds no public API without its maintainers' agreement; it is kept here, on the pin, until it is upstreamed or replaced.
 
 ## Moving a pin
 
@@ -67,9 +74,10 @@ The new public API (`scaled`, `Scaled`, `TextStyle::letter_spacing`, `Styled::le
 3. Run the patch tests in a gpui-fast checkout at the new pin with the diffs applied; this is required, because a diff can still apply and build after upstream moved what it hooks into. From a directory holding the checkout as `gpui-fast/`:
 
    ```sh
-   for diff in gpui-fast-lab-occlusion gpui-fast-motion-and-type gpui-fast-overlay-first-mouse gpui-fast-interface-zoom gpui-fast-lab-assume-key; do git apply "<lattice>/gpui/patches/$diff.diff"; done
-   (cd gpui-fast && cargo test -p gpui --lib --features test-support,gpui_platform/runtime_shaders -- fast::scale fast::letter_spacing fast::interface_zoom)
+   for diff in gpui-fast-lab-occlusion gpui-fast-motion-and-type gpui-fast-overlay-first-mouse gpui-fast-interface-zoom gpui-fast-lab-assume-key gpui-fast-backdrop-blur; do git apply "<lattice>/gpui/patches/$diff.diff"; done
+   (cd gpui-fast && cargo test -p gpui --lib --features test-support,gpui_platform/runtime_shaders -- fast::scale fast::letter_spacing fast::interface_zoom fast::backdrop)
+   (cd gpui-fast && cargo test -p gpui_apple --lib --features runtime_shaders -- fast::backdrop)
    ```
 
-   `fast::scale` covers the transform of every primitive kind, nesting, the kept outer clip, and a view replayed inside a scale or drawn again inside a replayed one; `fast::letter_spacing` covers the spacing of clusters and marks and the measured width of tracked text; `fast::interface_zoom` covers the conversion of events and of the input method's rectangles, and a zoomed window's viewport and scale factor. CI's `gpui-patches` workflow runs the same.
+   `fast::scale` covers the transform of every primitive kind, nesting, the kept outer clip, and a view replayed inside a scale or drawn again inside a replayed one; `fast::letter_spacing` covers the spacing of clusters and marks and the measured width of tracked text; `fast::interface_zoom` covers the conversion of events and of the input method's rectangles, and a zoomed window's viewport and scale factor; `gpui`'s `fast::backdrop` covers a backdrop's draw order between what is under it and its element, and its blur under an element scale and the interface zoom, and `gpui_apple`'s draws backdrops headlessly and reads the pixels back (blurred inside the rounded rectangle and the content mask only, not darker at the edges, the fallback where the target cannot be read). CI's `gpui-patches` workflow runs the same.
 4. Build, run the workspace tests and the `e2e` scenario.

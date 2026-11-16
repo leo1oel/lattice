@@ -104,12 +104,12 @@ smallvec = "1"
 
 # Zed's GPUI family, replaced by gpui-fast. `util` stays Zed's: gpui-fast's
 # copy has its own `rel_path` types, which Zed's crates reject. GPUI itself
-# is the vendored, patched copy (patches/README.md).
+# and its Metal renderer are the vendored, patched copies (patches/README.md).
 [patch."https://github.com/zed-industries/zed"]
 gpui = { path = "patches/gpui-fast/crates/gpui" }
 bench_metrics = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
 collections = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
-gpui_apple = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
+gpui_apple = { path = "patches/gpui-fast/crates/gpui_apple" }
 gpui_ios = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
 gpui_linux = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
 gpui_macros = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
@@ -129,10 +129,11 @@ zlog = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5db
 ztracing = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
 ztracing_macro = { git = "https://github.com/longbridge/gpui-fast", rev = "bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa" }
 
-# gpui-fast's own crates name GPUI and its macOS platform by gpui-fast's
-# source; both are the vendored copies.
+# gpui-fast's own crates name GPUI, its Metal renderer and its macOS platform
+# by gpui-fast's source; all three are the vendored copies.
 [patch."https://github.com/longbridge/gpui-fast"]
 gpui = { path = "patches/gpui-fast/crates/gpui" }
+gpui_apple = { path = "patches/gpui-fast/crates/gpui_apple" }
 gpui_macos = { path = "patches/gpui-fast/crates/gpui_macos" }
 
 [patch.crates-io]

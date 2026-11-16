@@ -124,6 +124,9 @@ pub use color::*;
 pub use element::*;
 pub use elements::*;
 pub use executor::*;
+pub use fast::backdrop::{
+    BACKDROP_TEXTURE_INDEX, Backdrop, BackdropBlur, is_backdrop_texture,
+};
 pub use fast::composition::{
     ComposedScene, ComposedSceneLayer, CompositionSurfaceId, CompositionSurfaceKind,
     PlatformCompositionSurface, PlatformCompositionSurfaceContent, PlatformSurfaceAttachment,

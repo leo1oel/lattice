@@ -757,6 +757,22 @@ pub trait Styled: Sized {
         self
     }
 
+    /// Blurs what is painted under this element by `radius` before its
+    /// background is painted, as CSS's `backdrop-filter: blur(radius)` does;
+    /// where the renderer cannot read what is under it, the element's
+    /// rounded rectangle is filled with `fallback` instead.
+    fn backdrop_blur(
+        mut self,
+        radius: impl Into<crate::Pixels>,
+        fallback: impl Into<Hsla>,
+    ) -> Self {
+        self.style().backdrop_blur = Some(crate::BackdropBlur {
+            radius: radius.into(),
+            fallback: fallback.into(),
+        });
+        self
+    }
+
     /// Sets the grid columns of this element.
     fn grid_cols(mut self, cols: u16) -> Self {
         self.style().grid_cols = Some(GridTemplate {
