@@ -58,8 +58,11 @@ pub(super) struct SymbolPalette {
     shown: Vec<&'static PaletteSymbol>,
     active: usize,
     scroll: ScrollHandle,
-    /// The source's bounds, for its place.
+    /// The source's bounds, for its place, and the palette's height as
+    /// last drawn, which places it while its empty-state line (which wraps)
+    /// shows.
     view: Rc<Cell<Option<Bounds<Pixels>>>>,
+    height: Rc<Cell<Pixels>>,
     /// How many of the cells drawn last are settled: KaTeX's picture is
     /// in, or KaTeX cannot set the command (its name shows).
     drawn: Cell<usize>,
@@ -159,6 +162,7 @@ impl EditorPanel {
             active: 0,
             scroll: ScrollHandle::new(),
             view: Rc::default(),
+            height: Rc::default(),
             drawn: Cell::new(0),
             _subscription: subscription,
         });
@@ -241,7 +245,11 @@ impl EditorPanel {
         };
         let palette = self.symbols.as_ref()?;
         let width = px(WIDTH).min((view.size.width - px(32.)).max(px(200.)));
-        let height = symbol_palette_height(palette.shown.len(), window.rem_size());
+        let height = if palette.shown.is_empty() {
+            palette.height.get()
+        } else {
+            symbol_palette_height(palette.shown.len(), window.rem_size())
+        };
         let below = view.bottom() - anchor.bottom() >= height + px(MARGIN)
             || anchor.top() - view.top() < height + px(MARGIN);
         let left = (anchor.left() - view.left())
@@ -287,6 +295,7 @@ impl EditorPanel {
         let Some(state) = self.symbols.as_ref() else {
             return div().into_any_element();
         };
+        let height_cell = state.height.clone();
         let query = state.input.read(cx).value().trim().to_string();
         let mut drawn = 0;
         let cells: Vec<AnyElement> = state
@@ -420,29 +429,31 @@ impl EditorPanel {
                         .mt(tokens::SPACING_3)
                         .text_color(palette.text_secondary)
                         .text_size(tokens::TEXT_MICRO.to_pixels(rem))
-                        .line_height(tokens::LEADING_MICRO.to_pixels(rem))
-                        .truncate()
                         .child(t!("No symbol matches “{query}”.", query = query).to_string()),
                 )
             })
+            .child(
+                canvas(
+                    move |bounds, _, _| height_cell.set(bounds.size.height),
+                    |_, _, _, _| {},
+                )
+                .absolute()
+                .top_0()
+                .left_0()
+                .size_full(),
+            )
             .into_any_element()
     }
 }
 
-/// The palette's height with `shown` cells: its padding, the search field
-/// and its margin, the grid (up to its tallest), and the empty-state line
-/// when nothing matches, so it is placed right on the frame it opens.
+/// The palette's height with `shown` (some) cells: its padding, the search
+/// field and its margin, and the grid (up to its tallest), so it is placed
+/// right on the frame it opens.
 fn symbol_palette_height(shown: usize, rem: Pixels) -> Pixels {
     let rows = shown.div_ceil(COLUMNS);
     let grid = px((rows as f32 * CELL_HEIGHT).min(GRID_MAX_HEIGHT));
-    let empty = if shown == 0 {
-        tokens::SPACING_3.to_pixels(rem) + tokens::LEADING_MICRO.to_pixels(rem)
-    } else {
-        px(0.)
-    };
     tokens::SPACING_4.to_pixels(rem) * 2.
         + px(FIELD_HEIGHT)
         + tokens::SPACING_3.to_pixels(rem)
         + grid
-        + empty
 }
