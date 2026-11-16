@@ -375,6 +375,11 @@ Keep the previous checkout available until the upgrade audit passes.
    ```sh
    bun run --cwd apps/web test:browser -- src/components/ChatView.browser.tsx -t "Lattice's floating context bar"
    ```
+   Then run the regressions for a context handover: the note it leaves above the composer must not raise the Agent panel's reported minimum width, the handover row must wrap in a narrow panel, and a thread handed over to Droid must start a fresh session instead of resuming one Droid deleted:
+   ```sh
+   bun run --cwd apps/web test:browser -- src/components/chat/latticeComposerLayout.browser.tsx src/components/chat/ProviderHandoffDivider.browser.tsx
+   bun run --cwd apps/server test -- src/provider/Layers/DroidAdapter.resume.test.ts src/provider/Layers/ProviderService.test.ts
+   ```
    Then run the browser and unit regressions that keep a long draft's composer inside a short Agent panel:
    ```sh
    bun run --cwd apps/web test:browser -- src/components/ChatView.browser.tsx -t "short chat column"
