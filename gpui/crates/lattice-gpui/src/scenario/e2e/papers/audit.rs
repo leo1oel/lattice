@@ -207,7 +207,7 @@ impl Run {
         let (two, two_box) = self
             .audit_update(cx, |audit, _| audit.ticked())
             .unwrap_or_default();
-        self.papers_looks(cx, "papers-9-audit-selection").await?;
+        self.papers_looks(cx, "papers-7c-audit-selection").await?;
         self.audit_update(cx, |audit, cx| audit.press_select_all(cx));
         let (all, all_box) = self
             .audit_update(cx, |audit, _| audit.ticked())
@@ -309,7 +309,7 @@ impl Run {
             .audit_update(cx, |audit, _| audit.is_settled())
             .unwrap_or(false);
         let (open, queue) = self.audit_open(cx);
-        self.papers_looks(cx, "papers-10-audit-settled").await?;
+        self.papers_looks(cx, "papers-7d-audit-settled").await?;
         steps.check(
             "applying the last fix settles the report: the queue opens nothing and shows the reading glass",
             last.as_deref() == Some("vaswani2017attention") && settled && queue && open.is_none(),
