@@ -78,6 +78,43 @@ impl Run {
             knows_live && anchored && mock.rejected().is_empty(),
             json!({ "knows_live": knows_live, "sent": format!("{sent:?}"), "anchored": anchored, "comments": mock.comments("main.tex") }),
         );
+
+        // A collaborator changed the words since the build: the PDF's
+        // selection no longer reads as the quote SyncTeX mapped, so the note
+        // is refused in place and nothing reaches Overleaf.
+        const STALE: &str = "a PDF note whose words no longer read as its quote in Overleaf's live text is refused, and nothing is posted";
+        let before = mock.comments("main.tex").len();
+        let stale_quote = "words a collaborator has since removed";
+        let refused = self.with_window(cx, move |shell, window, cx| {
+            shell.update(cx, |shell, cx| {
+                let panel = shell.pdf().clone();
+                shell.post_pdf_note(
+                    &panel,
+                    0,
+                    "main.tex",
+                    line,
+                    stale_quote,
+                    stale_quote,
+                    "Never sent.",
+                    window,
+                    cx,
+                )
+            })
+        })?;
+        // Give a wrongly sent comment time to land before counting.
+        cx.background_executor()
+            .timer(Duration::from_secs(2))
+            .await;
+        let after = mock.comments("main.tex").len();
+        let says_changed = refused
+            .as_ref()
+            .err()
+            .is_some_and(|error| error.contains("source changed"));
+        steps.check(
+            STALE,
+            says_changed && after == before,
+            json!({ "refused": format!("{refused:?}"), "comments_before": before, "comments_after": after }),
+        );
         Ok(())
     }
 }
