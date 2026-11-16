@@ -15924,10 +15924,6 @@ msgid "The bibliography changed while resolving the citation. Retry the import."
 msgstr "解析引用时参考文献文件被修改了，请重新导入"
 
 #: src/platform/host-errors-papers.ts
-msgid "The bibliography changed while upgrading. Retry the operation."
-msgstr "升级时参考文献文件被修改了，请重试"
-
-#: src/platform/host-errors-papers.ts
 msgid "The bibliography entry changed after the preview. Scan it again."
 msgstr "预览之后这条参考文献已被修改，请重新检查"
 
