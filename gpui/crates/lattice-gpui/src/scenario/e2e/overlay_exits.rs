@@ -2,7 +2,8 @@
 //! `gpui-base-popover-exit.diff`): Enter on the import conflict dialog plays
 //! the dialog's exit before its answer arrives, and the answer then does;
 //! the status bar's word count popover, closed with Escape, plays its way
-//! out after it has closed.
+//! out after it has closed. Under Reduce Motion, Enter answers the dialog at
+//! once, after its key handler has returned (`ModalLayer::leave` defers it).
 
 use std::{
     cell::RefCell,
@@ -118,6 +119,39 @@ impl Run {
         );
         self.dispatch_key(cx, "escape").await?;
         self.pause(cx, Duration::from_millis(400)).await;
+
+        // Under Reduce Motion there is no exit to play, so the answer comes
+        // at once, but not from inside the dialog's own key handler: that
+        // handler is an update of the dialog, and the answer updates it
+        // again (it aborted the app with "already being updated").
+        let reduced: Answered = Rc::default();
+        let record = reduced.clone();
+        cx.update(|cx| {
+            cx.set_reduce_motion(true);
+            import_conflict::ask(
+                vec!["main.tex".into()],
+                String::new(),
+                move |choice, _, _| *record.borrow_mut() = Some((choice, Instant::now())),
+                cx,
+            )
+        });
+        self.pause(cx, Duration::from_millis(300)).await;
+        let pressed = Instant::now();
+        let dispatched = self.dispatch_key(cx, "enter").await;
+        self.pause(cx, Duration::from_millis(100)).await;
+        cx.update(|cx| cx.set_reduce_motion(false));
+        dispatched?;
+        let answer = *reduced.borrow();
+        let asking = cx.update(|cx| import_conflict::install(cx).read(cx).asking().is_some());
+        steps.check(
+            "under Reduce Motion, Enter on the import conflict dialog answers Keep both at once and closes it",
+            answer.map(|(choice, _)| choice) == Some(Some(NameConflict::KeepBoth)) && !asking,
+            json!({
+                "answer": answer.map(|(choice, _)| format!("{choice:?}")),
+                "answer_after_ms": answer.map(|(_, at)| at.duration_since(pressed).as_millis()),
+                "still_asking": asking,
+            }),
+        );
 
         // The popover: the word count's details, opened with a press on
         // the item and closed with Escape, draw their exit after closing.

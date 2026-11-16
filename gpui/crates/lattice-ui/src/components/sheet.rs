@@ -374,9 +374,9 @@ impl ModalLayer {
     /// Close the layer `id` from a button of its owner's (Cancel, Done,
     /// Import): its exit plays as Escape's does, the scrim fading and the
     /// surface sinking on the slow tier's exit, and `then` runs once it has,
-    /// as the owner's answer; at once under reduced motion. A second call
-    /// while the layer is leaving does nothing, and a layer that stopped
-    /// drawing under `id` during its exit gets no answer.
+    /// as the owner's answer; under reduced motion as soon as the caller
+    /// returns. A second call while the layer is leaving does nothing, and a
+    /// layer that stopped drawing under `id` during its exit gets no answer.
     pub fn leave(
         id: impl Into<ElementId>,
         window: &mut Window,
@@ -384,7 +384,10 @@ impl ModalLayer {
         then: impl FnOnce(&mut Window, &mut App) + 'static,
     ) {
         if cx.reduce_motion() {
-            then(window, cx);
+            // Deferred, never run here: the caller is often its owner's own
+            // handler (a key listener is an update of the owner), and `then`
+            // updates the owner again, which GPUI refuses with a panic.
+            window.defer(cx, then);
             return;
         }
         let key = (window.window_handle().window_id(), id.into());
