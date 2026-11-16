@@ -155,6 +155,15 @@ impl Run {
         self.key(cx, "f2")?;
         self.pause(cx, Duration::from_millis(200)).await;
         let opened = cx.update(|cx| self.shell.read(cx).workspace_renaming());
+        let field_value = |cx: &mut AsyncApp| {
+            cx.update(|cx| {
+                self.shell
+                    .read(cx)
+                    .rename_input()
+                    .map(|input| input.read(cx).value().to_string())
+            })
+        };
+        let original = field_value(cx);
 
         // A 30-character name pasted over the selected one keeps its first
         // 24, as an HTML `maxLength` field cuts a paste to the room left.
@@ -168,10 +177,22 @@ impl Run {
                 .rename_input()
                 .map(|input| input.read(cx).value().to_string())
         });
+        // The paste was cut before it applied, so it is one step of the
+        // field's history: ⌘Z gives the name back, then the paste again.
+        let undo = if cfg!(target_os = "macos") { "cmd-z" } else { "ctrl-z" };
+        self.key(cx, undo)?;
+        self.pause(cx, Duration::from_millis(200)).await;
+        let undone = field_value(cx);
+        let redo = if cfg!(target_os = "macos") { "cmd-shift-z" } else { "ctrl-shift-z" };
+        self.key(cx, redo)?;
+        self.pause(cx, Duration::from_millis(200)).await;
+        let redone = field_value(cx);
         steps.check(
-            "a name pasted into the rename field longer than 24 characters keeps its first 24",
-            field.as_deref() == Some("abcdefghijklmnopqrstuvwx"),
-            json!({ "pasted": pasted, "field": field }),
+            "a name pasted into the rename field longer than 24 characters keeps its first 24, and ⌘Z undoes the paste",
+            field.as_deref() == Some("abcdefghijklmnopqrstuvwx")
+                && undone == original
+                && redone.as_deref() == Some("abcdefghijklmnopqrstuvwx"),
+            json!({ "pasted": pasted, "field": field, "original": original, "undone": undone, "redone": redone }),
         );
 
         self.with_window(cx, move |shell, window, cx| {
