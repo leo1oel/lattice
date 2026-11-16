@@ -129,6 +129,114 @@ impl Run {
             shown.is_empty() && in_text && caret == plain && after == text,
             json!({ "shown": shown, "text_focused": in_text, "caret": caret, "text_unchanged": after == text }),
         );
+
+        // A pointer move over the text, away from the card, leaves a
+        // keyboard-opened card open (a hover card would close).
+        self.select(cx, &panel, key_at, key_at)?;
+        self.option_command_k(cx, native).await?;
+        let (_, far) = self
+            .text_point(cx, &panel, &lattice, "\\documentclass", 1)
+            .await?;
+        for dx in [3., 30., 60.] {
+            native::send_mouse(native, native::Mouse::Moved, point(far.left() + px(dx), far.center().y))?;
+            self.pause(cx, Duration::from_millis(150)).await;
+        }
+        self.pause(cx, Duration::from_millis(400)).await;
+        let (shown, keyboard, ..) = self.card_state(cx, &panel)?;
+        steps.check(
+            "a pointer move over the text away from the ⌥⌘K card leaves it open with the keyboard",
+            shown == ["citation"] && keyboard,
+            json!({ "shown": shown, "keyboard": keyboard }),
+        );
+        native::send_key(native, '\u{1b}', false)?;
+        self.pause(cx, Duration::from_millis(300)).await;
+
+        // Tab stays in the card: however often it is pressed, the card keeps
+        // the keyboard (the window root's focus_next would move it out).
+        self.select(cx, &panel, key_at, key_at)?;
+        self.option_command_k(cx, native).await?;
+        for _ in 0..6 {
+            native::send_chord(native, '\t', false, false, false)?;
+            self.pause(cx, Duration::from_millis(100)).await;
+        }
+        let (shown, keyboard, _, in_text, _) = self.card_state(cx, &panel)?;
+        steps.check(
+            "Tab pressed six times in the ⌥⌘K card keeps the keyboard in the card",
+            shown == ["citation"] && keyboard && !in_text,
+            json!({ "shown": shown, "keyboard": keyboard, "text_focused": in_text }),
+        );
+        native::send_key(native, '\u{1b}', false)?;
+        self.pause(cx, Duration::from_millis(300)).await;
+
+        // Tab from the last action wraps to the first: ⇧Tab (Copy key), Tab
+        // (back to the first), ⇧Tab (Copy key again), Return copies. Were Tab
+        // a no-op, the second ⇧Tab would land on Go to entry instead.
+        self.select(cx, &panel, key_at, key_at)?;
+        self.option_command_k(cx, native).await?;
+        cx.update(|cx| cx.write_to_clipboard(gpui::ClipboardItem::new_string(String::new())));
+        for shift in [true, false, true] {
+            native::send_chord(native, '\t', false, false, shift)?;
+            self.pause(cx, Duration::from_millis(150)).await;
+        }
+        native::send_key(native, '\n', false)?;
+        self.pause(cx, Duration::from_millis(300)).await;
+        let copied = cx.update(|cx| cx.read_from_clipboard().and_then(|item| item.text()));
+        let active_main = cx.update(|cx| {
+            self.shell
+                .read(cx)
+                .active_editor()
+                .is_some_and(|editor| editor.read(cx).relative() == "main.tex")
+        });
+        steps.check(
+            "in the ⌥⌘K card Tab from the last action wraps round to the first",
+            copied.as_deref() == Some("knuth1984") && active_main,
+            json!({ "copied": copied, "still_in_main": active_main }),
+        );
+        native::send_key(native, '\u{1b}', false)?;
+        self.pause(cx, Duration::from_millis(300)).await;
+
+        // An edit to the text closes the card.
+        self.select(cx, &panel, key_at, key_at)?;
+        self.option_command_k(cx, native).await?;
+        let (opened, ..) = self.card_state(cx, &panel)?;
+        let end = text.len();
+        self.with_window(cx, |_, window, cx| {
+            let inner = panel.read(cx).editor().clone();
+            inner.update(cx, |editor, cx| {
+                editor.change_selections(editor::SelectionEffects::default(), window, cx, |s| {
+                    s.select_ranges([editor::MultiBufferOffset(end)..editor::MultiBufferOffset(end)])
+                });
+                editor.insert("%", window, cx);
+            })
+        })?;
+        self.pause(cx, Duration::from_millis(300)).await;
+        let (shown, ..) = self.card_state(cx, &panel)?;
+        self.with_window(cx, |_, window, cx| {
+            let inner = panel.read(cx).editor().clone();
+            inner.update(cx, |editor, cx| editor.undo(&editor::actions::Undo, window, cx));
+        })?;
+        steps.check(
+            "an edit to the text closes the ⌥⌘K card",
+            opened == ["citation"] && shown.is_empty(),
+            json!({ "opened": opened, "shown": shown }),
+        );
+
+        // Outside a LaTeX file the key opens no card, even on a \cite.
+        let md = root.join("citation-card-check.md");
+        std::fs::write(&md, "See \\cite{knuth1984} here.\n")?;
+        let md_panel = self.open(cx, &md, Some(1))?;
+        self.pause(cx, Duration::from_millis(300)).await;
+        let md_text = cx.update(|cx| md_panel.read(cx).text_and_caret(cx).0);
+        let md_at = md_text.find("knuth1984").context("the md \\cite")? + 3;
+        self.select(cx, &md_panel, md_at, md_at)?;
+        self.option_command_k(cx, native).await?;
+        let (shown, ..) = self.card_state(cx, &md_panel)?;
+        let md_after = cx.update(|cx| md_panel.read(cx).text_and_caret(cx).0);
+        steps.check(
+            "⌥⌘K in a Markdown file opens no citation card, even on a \\cite key",
+            shown.is_empty() && md_after == md_text,
+            json!({ "shown": shown, "text_unchanged": md_after == md_text }),
+        );
         Ok(())
     }
 

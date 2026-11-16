@@ -37,6 +37,6 @@ A launch's reopen that takes longer than a second shows the welcome screen while
 `scenario/e2e/palette.rs`: the palette's leading groups, a command run from it leading the next opening, What's new's detail, a Settings row found and opened, a paper found by its year or a run inside its title but never one only cited, the Find in project fallback, and the keyboard back in the document afterwards.
 `scenario/e2e/palette_rows.rs`: a Markdown file's view rows and one switching it, Dark or Light PDF pages flipping the pages, the PDF window and Project panel rows, and no theme already in use.
 `scenario/e2e/export_zip.rs`: File › Export ZIP… beside Export for arXiv…, the palette row, and an export that holds an unsaved edit and leaves the build's output out.
-`scenario/e2e/shortcut_sheet.rs`: the sheet's groups and rows (alternatives, ranges, the Esc row), its filter by key and its empty result, and Escape in focus mode collapsing a selection first, then leaving it, and closing the palette without leaving it.
+`scenario/e2e/shortcut_sheet.rs`: the sheet's groups and rows (alternatives, ranges, the Esc row, the LaTeX group's ⌥⌘K and ⌥⌘P rows in the Tauri order), its filter by key and its empty result, and Escape in focus mode collapsing a selection first, then leaving it, and closing the palette without leaving it.
 The same module checks the focus bar's title centred on the window and its controls in order, the PDF toggle and Exit focus.
 It also checks Escape in the PDF with text selected clearing the selection first, then leaving focus mode.
