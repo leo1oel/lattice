@@ -3,7 +3,9 @@
 //! as `symbol-palette.test.ts` checks the Tauri app's, in `main.tex` with
 //! native keys: ⌥⌘M in the source opens it with the keyboard in its search
 //! and every maths command listed, KaTeX drawing every cell (how long that
-//! takes is in the detail); `leq` and Enter write `\leq` as it is in maths;
+//! takes is in the detail); ↓ seven times scrolls the grid to keep the
+//! highlighted cell, on the eighth row, in view; `leq` and Enter write
+//! `\leq` as it is in maths;
 //! outside maths `frac`, → ← and Enter write `$\frac{}{}$` with the caret
 //! in its first braces; a search that matches nothing says so, and Escape
 //! closes the palette with the keyboard back in the text. The buffer is put
@@ -100,6 +102,20 @@ impl Run {
                 "ms_to_draw_all": took.as_millis(),
                 "search_focused": search_focused,
             }),
+        );
+
+        // ↓ seven times: the highlight on the eighth row, scrolled into view.
+        for _ in 0..7 {
+            self.press(cx, crate::native::DOWN_ARROW, false).await?;
+            self.pause(cx, Duration::from_millis(60)).await;
+        }
+        self.pause(cx, Duration::from_millis(150)).await;
+        let active = self.palette_state(cx, &panel).map(|(_, active, _)| active);
+        let in_view = cx.update(|cx| panel.read(cx).symbol_palette_highlight_in_view());
+        steps.check(
+            "↓ seven times moves the highlight down seven rows of eight and scrolls the grid to keep it in view",
+            active == Some(7 * 8) && in_view == Some(true),
+            json!({ "active": active, "in_view": in_view }),
         );
 
         // `leq`, Enter: `\leq` as it is, in the equation.
