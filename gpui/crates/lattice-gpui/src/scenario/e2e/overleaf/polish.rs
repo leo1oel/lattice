@@ -84,22 +84,51 @@ impl Run {
             })
             .await;
         // What the typing saved to disk is ours and owed, so its push probes
-        // while hidden, and the sync that sends it leaves a push of its own
-        // writes owed; once those have settled, nothing does. They are
-        // waited for, not a fixed pause: when the push probes is set by the
-        // sync gap, so a pause let its sync fall in the window by phase.
-        self.wait_for(cx, Duration::from_secs(40), |shell, cx| {
-            let bridge = shell.read(cx).overleaf.read(cx);
-            !bridge.push_waiting() && !bridge.syncing()
-        })
-        .await;
-        let before = mock.requests(&probes);
-        self.pause(cx, Duration::from_secs(7)).await;
-        let hidden_probes = mock.requests(&probes) - before;
+        // while hidden, and the sync that sends it leaves pushes of its own
+        // writes owed, which the watcher reports over the next seconds. Only
+        // the time with neither a push waiting nor a sync running is
+        // counted, for 7 s of it: a settle wait before one window was
+        // satisfied before the typing's push was scheduled, or between a
+        // sync's end and the watcher's report of its writes, so those probes
+        // fell in the window by phase. A push probes only after its 2.5 s
+        // quiet period and a sync sets its flag before it asks anything, so
+        // a 50 ms sample never misses either; the poll's own probes, the
+        // ones a window off screen must not send, all land in the count.
+        let settled = |cx: &mut AsyncApp| {
+            self.with_window(cx, |shell, _, cx| {
+                let bridge = shell.read(cx).overleaf.read(cx);
+                !bridge.push_waiting() && !bridge.syncing()
+            })
+            .unwrap_or(false)
+        };
+        let mut hidden_probes = 0;
+        let mut quiet = Duration::ZERO;
+        let mut was_settled = settled(cx);
+        let mut seen = mock.requests(&probes);
+        let mut last = std::time::Instant::now();
+        let started = last;
+        while quiet < Duration::from_secs(7) && started.elapsed() < Duration::from_secs(45) {
+            self.pause(cx, Duration::from_millis(50)).await;
+            let now_settled = settled(cx);
+            let count = mock.requests(&probes);
+            if was_settled && now_settled {
+                hidden_probes += count - seen;
+                quiet += last.elapsed();
+            }
+            seen = count;
+            last = std::time::Instant::now();
+            was_settled = now_settled;
+        }
+        let measured = quiet >= Duration::from_secs(7);
         steps.check(
             "live mode probes Overleaf every 45 s while the channel carries documents, and not at all from a window off screen",
-            live_probes <= 1 && dropped && hidden_probes == 0,
-            json!({ "live": live_probes, "dropped": dropped, "hidden": hidden_probes }),
+            live_probes <= 1 && dropped && measured && hidden_probes == 0,
+            json!({
+                "live": live_probes,
+                "dropped": dropped,
+                "hidden": hidden_probes,
+                "settled_ms": quiet.as_millis() as u64,
+            }),
         );
 
         // Backing off between joins: coming forward joins now.
