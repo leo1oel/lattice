@@ -378,15 +378,10 @@ impl Run {
     }
 
     /// With `LATTICE_E2E_SHOTS` set, the window with its open menu, as
-    /// `name.png` in that folder, for a reviewer to look at.
+    /// `name.png` in that folder, for a reviewer to look at; a no-op off
+    /// macOS.
     async fn completion_shot(&self, cx: &mut AsyncApp, name: &str) {
-        let Some(dir) = std::env::var_os("LATTICE_E2E_SHOTS") else {
-            return;
-        };
-        let path = Path::new(&dir).join(format!("{name}.png"));
-        if let Err(error) = self.capture(cx, &path.to_string_lossy()).await {
-            log::warn!("no shot {name}: {error:#}");
-        }
+        self.snapshot(cx, name).await;
     }
 
     /// Build and wait for the result.
