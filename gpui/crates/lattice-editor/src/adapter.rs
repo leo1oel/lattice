@@ -653,11 +653,13 @@ impl Render for LatticeEditor {
             // Any key closes the card, as typing does in the Tauri app;
             // Escape also puts the caret card away. A card opened from the
             // keyboard holds focus and takes its own keys (Tab, Return,
-            // Escape); an edit or a caret move closes it.
+            // Escape), so its Escape leaves the caret card be; an edit or a
+            // caret move closes it.
             .capture_key_down(cx.listener(|this, event, _, cx| {
-                if !this.hover_from_keyboard() {
-                    this.dismiss_hover(cx);
+                if this.hover_from_keyboard() {
+                    return;
                 }
+                this.dismiss_hover(cx);
                 this.caret_card_key(event, cx);
             }))
             .capture_action(cx.listener(|this, _: &editor::actions::Fold, window, cx| {
