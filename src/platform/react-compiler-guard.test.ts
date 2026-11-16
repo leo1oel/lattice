@@ -158,8 +158,10 @@ describe("react compiler bailout guard", () => {
     try {
       output = execFileSync(
         process.execPath,
-        ["scripts/react-compiler-report.mjs", ...files],
-        { cwd: repo, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
+        // On stdin: every source file's path, together, is longer than a
+        // Windows command line may be.
+        ["scripts/react-compiler-report.mjs", "-"],
+        { cwd: repo, encoding: "utf8", input: files.join("\n"), stdio: ["pipe", "pipe", "pipe"] },
       ).toString();
     } catch (error) {
       // The report exits 1 whenever any bailouts exist; the ceilings below

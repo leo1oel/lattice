@@ -11,6 +11,11 @@
  * wires it into the test suite to keep the hot files at zero bailouts.
  *
  * Usage: node scripts/react-compiler-report.mjs [files...]
+ *        node scripts/react-compiler-report.mjs - < file-list
+ *
+ * With `-`, the files are read from stdin, one per line: the guard checks
+ * every source file, and their paths together exceed Windows' 32,767-character
+ * command line.
  */
 import fs from "node:fs";
 import { createRequire } from "node:module";
@@ -80,7 +85,10 @@ function compileErrors(relative) {
 }
 
 if (isMain(import.meta.url)) {
-  const files = process.argv.slice(2).length ? process.argv.slice(2) : GUARDED_FILES;
+  const args = process.argv.slice(2);
+  const files = args.length === 1 && args[0] === "-"
+    ? fs.readFileSync(0, "utf8").split(/\r?\n/).filter(Boolean)
+    : args.length ? args : GUARDED_FILES;
   let total = 0;
   for (const file of files) {
     const errors = compileErrors(file);
