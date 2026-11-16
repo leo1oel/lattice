@@ -2,7 +2,7 @@
 //! the list, over a hairline, the open finding's kind, its title in the
 //! reading type, its key, file and line, then the finding itself. With
 //! nothing open it says so, centred, as every empty panel does; a settled
-//! report opens nothing.
+//! report opens nothing and shows the research desk's reading glass.
 
 use gpui::{
     AnyElement, Context, InteractiveElement as _, IntoElement, ParentElement as _,
@@ -35,8 +35,12 @@ impl Audit {
             .border_l_1()
             .border_color(palette.line);
         let Some(index) = current else {
-            if self.entries.is_empty() || listing.settled(self.busy) {
+            if self.entries.is_empty() {
                 return pane.into_any_element();
+            }
+            // Nothing left to act on: the reading glass says the report is done.
+            if listing.settled(self.busy) {
+                return pane.child(self.clean_note(true, cx)).into_any_element();
             }
             return pane
                 .items_center()

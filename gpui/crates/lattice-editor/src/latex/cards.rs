@@ -12,10 +12,7 @@
 //!   when the library can open it; the title runs it, else Go to entry),
 //!   "Why cited", Go to entry and Copy key, which says "Copied" for a
 //!   moment;
-//! - a reference card: what the label names and the label, its title, its
-//!   source snippet and the file it is in; the title opens it there. A
-//!   figure's image, an equation set by KaTeX and the last build's number
-//!   are its previews (`preview_cards.rs`).
+//! - a reference card ([`super::reference_card`]).
 //!
 //! Both stand on the popover surface: the panel radius, the lifted surface,
 //! the popover elevation. The Tauri app frosts them (97% of the surface over
@@ -35,7 +32,7 @@ use std::{
 use gpui::{
     App, ClipboardItem, ElementId, FocusHandle, FontWeight, InteractiveElement as _, IntoElement,
     ParentElement as _, RenderOnce, SharedString, StatefulInteractiveElement as _, Styled as _,
-    WeakEntity, Window, div, prelude::FluentBuilder as _, px, relative,
+    WeakEntity, Window, div, prelude::FluentBuilder as _, px,
 };
 use language::BufferSnapshot;
 use lattice_i18n::t;
@@ -52,8 +49,8 @@ use super::{
 use crate::{
     ProjectIndex,
     hover::{HoverCardContext, HoverProvider, HoverTarget, NextCardAction, PreviousCardAction},
-    index::{Citation, Reference},
-    latex::{preview_cards, syntax},
+    index::Citation,
+    latex::syntax,
 };
 
 /// How long Copy key says "Copied".
@@ -216,7 +213,7 @@ pub(crate) fn reference_kind_label(kind: &str) -> &str {
 }
 
 /// CSS `text-transform: capitalize`: each word's first letter in capitals.
-fn capitalize(text: &str) -> String {
+pub(super) fn capitalize(text: &str) -> String {
     text.split(' ')
         .map(|word| {
             let mut chars = word.chars();
@@ -560,91 +557,6 @@ fn step_focus(handles: &[FocusHandle], by: isize, window: &mut Window, cx: &mut 
     window.focus(&handles[next as usize], cx);
 }
 
-/// A label's card.
-#[derive(IntoElement)]
-pub struct ReferenceCard {
-    pub reference: Reference,
-    pub context: HoverCardContext,
-    pub previews: preview_cards::ReferencePreviews,
-}
-
-impl RenderOnce for ReferenceCard {
-    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
-        let palette = cx.palette().clone();
-        let reference = self.reference;
-        let previews = self.previews;
-        let figure = previews
-            .figure
-            .as_deref()
-            .and_then(|path| preview_cards::figure_media(path, &self.context, cx));
-        let equation = previews
-            .equation
-            .as_ref()
-            .map(|(body, macros)| preview_cards::equation(body, macros, &self.context, window, cx));
-        let fact = previews
-            .fact
-            .map(|fact| preview_cards::compiled_line(fact, cx));
-        let editor_font = cx.lattice().fonts.editor.clone();
-        let heading = if reference.title.is_empty() {
-            reference.label.clone()
-        } else {
-            reference.title.clone()
-        };
-        let open = {
-            let context = self.context.clone();
-            let (path, line) = (reference.path.clone(), reference.line);
-            move |_: &gpui::ClickEvent, _: &mut Window, cx: &mut App| {
-                context.open_location(path.clone(), line, cx)
-            }
-        };
-        card_surface(cx)
-            .w(px(360.).min(self.context.max_width))
-            .pt(px(10.))
-            .px(px(12.))
-            .pb(px(11.))
-            .text_role(TextRole::Body, cx)
-            .children(figure)
-            .child(
-                div()
-                    .mb(px(5.))
-                    .text_color(palette.accent)
-                    .font_family(editor_font.clone())
-                    .text_size(lattice_ui::tokens::TEXT_MICRO)
-                    .child(format!(
-                        "{} {}",
-                        capitalize(reference_kind_label(&reference.kind)),
-                        reference.label
-                    )),
-            )
-            .child(
-                div()
-                    .id("reference-card-title")
-                    .text_size(lattice_ui::tokens::TEXT_CAPTION)
-                    .font_weight(FontWeight(650.))
-                    .line_height(relative(1.35))
-                    .cursor_pointer()
-                    .hover(|style| style.underline())
-                    .on_click(open)
-                    .child(heading),
-            )
-            .children(fact)
-            .map(|card| match equation {
-                Some(equation) => card.child(equation),
-                None if !reference.snippet.is_empty() => {
-                    card.child(preview_cards::source_block(reference.snippet.clone(), cx))
-                }
-                None => card,
-            })
-            .child(
-                div()
-                    .mt(px(6.))
-                    .text_color(palette.text_secondary)
-                    .text_size(lattice_ui::tokens::TEXT_MICRO)
-                    .child(reference.path.clone()),
-            )
-    }
-}
-
 /// The citation card for the key under the pointer.
 pub struct CitationCards {
     pub index: WeakEntity<ProjectIndex>,
@@ -684,43 +596,9 @@ impl HoverProvider for CitationCards {
     }
 }
 
-/// The reference card for the label under the pointer.
-pub struct ReferenceCards {
-    pub index: WeakEntity<ProjectIndex>,
-}
-
-impl HoverProvider for ReferenceCards {
-    fn target(&self, text: &BufferSnapshot, offset: usize, cx: &App) -> Option<HoverTarget> {
-        let (window, start) = around(text, offset);
-        let target = syntax::reference_target(&window, offset - start)?;
-        let index = self.index.upgrade()?;
-        let reference = index.read(cx).reference(&target.key)?.clone();
-        let weak = self.index.clone();
-        let body = std::cell::OnceCell::new();
-        Some(HoverTarget {
-            range: target.range.start + start..target.range.end + start,
-            id: "reference",
-            card: std::rc::Rc::new(move |context, _, cx| {
-                ReferenceCard {
-                    previews: preview_cards::ReferencePreviews::read(
-                        &reference,
-                        &body,
-                        &weak,
-                        &context.text,
-                        cx,
-                    ),
-                    reference: reference.clone(),
-                    context: context.clone(),
-                }
-                .into_any_element()
-            }),
-        })
-    }
-}
-
 /// The text within 800 bytes of `offset` each way (what `keyAt` scans),
 /// and where it starts.
-fn around(text: &BufferSnapshot, offset: usize) -> (String, usize) {
+pub(super) fn around(text: &BufferSnapshot, offset: usize) -> (String, usize) {
     let start = text.clip_offset(offset.saturating_sub(800), language::Bias::Right);
     let end = text.clip_offset((offset + 800).min(text.len()), language::Bias::Left);
     (text.text_for_range(start..end).collect(), start)

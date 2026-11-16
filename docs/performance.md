@@ -202,6 +202,20 @@ catching multiplies a count.
      layout from the probe itself.
 4. `__latticePerf.report()` dumps everything. Record the numbers in the
    pull request.
+5. **Memory growth in WebContent.** A rising `footprint` (WebKit Malloc) across
+   rebuilds is not by itself a leak: WebKit keeps garbage and caches until
+   the system asks for memory, and on a machine with room to spare that can
+   be hundreds of megabytes.
+   After the cycles, run `notifyutil -p org.WebKit.lowMemory` and sample
+   again a few seconds later: what comes back down was reclaimable, and only
+   what stays up is held.
+   In issue 1025's measurement (Playwright WebKit, 386-page PDF, rebuild and
+   scroll cycles), WebKit Malloc rose from 224 MB to 632 MB in six cycles on
+   both the in-place page swap and the full reload, and fell to 246 MB on the
+   notification.
+   To see what is held, diff Chromium heap snapshots of the same loop on the
+   mock-backend page (`?pdf=` and `?signatures=` drive real rebuilds through
+   the page swap).
 
 A table of measurements added to this document lands with its evidence: the
 raw runs under `docs/performance-data/` and a `measured` entry in

@@ -19,6 +19,13 @@ export type ProjectTabDragState = {
 const loadDragSession = chunk(() => import("./project-tab-drag-session"));
 const loadDrops = chunk(() => import("./project-tab-drop"));
 
+// Read through a helper so the cleanup below ends whichever drag is running
+// when the strip goes, not the one at setup, without an exhaustive-deps
+// suppression (the React Compiler skips any function that disables a rule).
+function endActiveDrag(active: ProjectTabDragState["active"]) {
+  active.current?.();
+}
+
 function projectTabDragPointer(event: ReactPointerEvent) {
   return event.pointerType === "mouse" && event.button === 0 && event.buttons === 1 && !event.ctrlKey;
 }
@@ -42,9 +49,7 @@ export function useProjectTabDrag(
     }
     return () => {
       disposed = true;
-      // End whichever drag is running when the strip goes, not the one at setup.
-      // eslint-disable-next-line react-hooks-js/exhaustive-deps
-      active.current?.();
+      endActiveDrag(active);
       stop?.();
     };
   }, [enabled, stripRef]);
@@ -89,7 +94,7 @@ export function useProjectTabDrag(
       let release: PointerEvent | undefined;
       const opts = { capture: true, signal: pending.signal };
       window.addEventListener("pointermove", (pointer) => { if (pointer.pointerId === pointerId) lastMove = pointer; }, opts);
-      window.addEventListener("pointerup", (pointer) => { if (pointer.pointerId === pointerId) release ??= pointer; }, opts);
+      window.addEventListener("pointerup", (pointer) => { if (pointer.pointerId === pointerId && !release) release = pointer; }, opts);
       void loadDragSession().then(({ beginProjectTabDrag }) => {
         pending.abort();
         if (state.active.current || !press.strip.isConnected) return;

@@ -1,7 +1,7 @@
 //! Finding things in the project: text search, replace, labels, references,
 //! TODOs and word counts.
 
-use super::{current_root, in_project, pinned_root, run_blocking};
+use super::{current_root, in_project, pinned_root, run_blocking, shared_scan};
 use crate::app_state::AppState;
 use crate::models::{ProjectSearchResult, SymbolOccurrence};
 use crate::project::{
@@ -80,14 +80,22 @@ pub async fn rename_symbol(
 pub async fn list_references(
     state: State<'_, AppState>, window: Window,
 ) -> Result<ReferenceIndex, String> {
-    in_project(&state, &window, "Reference scan", project::references).await
+    shared_scan(&state, &window, "Reference scan", |scans| &scans.references, project::references)
+        .await
 }
 
 #[tauri::command]
 pub async fn list_unused_symbols(
     state: State<'_, AppState>, window: Window,
 ) -> Result<UnusedSymbols, String> {
-    in_project(&state, &window, "Symbol scan", project::unused_symbols).await
+    shared_scan(
+        &state,
+        &window,
+        "Symbol scan",
+        |scans| &scans.unused_symbols,
+        project::unused_symbols,
+    )
+    .await
 }
 
 #[tauri::command]
@@ -101,12 +109,13 @@ pub async fn list_citation_usages(
 pub async fn list_todos(
     state: State<'_, AppState>, window: Window,
 ) -> Result<Vec<TodoHit>, String> {
-    in_project(&state, &window, "TODO scan", project::list_todos).await
+    shared_scan(&state, &window, "TODO scan", |scans| &scans.todos, project::list_todos).await
 }
 
 #[tauri::command]
 pub async fn count_project_words(
     state: State<'_, AppState>, window: Window,
 ) -> Result<WordCount, String> {
-    in_project(&state, &window, "Word count", texcount::count_project).await
+    shared_scan(&state, &window, "Word count", |scans| &scans.word_count, texcount::count_project)
+        .await
 }

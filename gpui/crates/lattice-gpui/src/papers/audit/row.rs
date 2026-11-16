@@ -1,8 +1,8 @@
 //! A reference's row and the headings over them (`.bibliography-audit-row`,
-//! `-group`, `-subgroup` in `bibliography-audit.css`): the status mark, the
-//! title over its key, file and line (with an inline reference's
-//! `\bibitem` tag and an applied fix's), what the check said and a
-//! publisher's notice; at the end Apply, below the queue's width while the
+//! `-group`, `-subgroup` in `bibliography-audit.css`): its checkbox
+//! (`selection.rs`), the status mark, the title over its key, file and line
+//! (with an inline reference's `\bibitem` tag and an applied fix's), what
+//! the check said and a publisher's notice; at the end Apply, below the queue's width while the
 //! finding is folded, and a chevron. The row lights under the pointer and
 //! while open; in the queue the open one takes the selected surface and its
 //! chevron stays put, while narrower it turns and the finding unfolds under
@@ -20,8 +20,10 @@ use lattice_ui::{
 
 use super::{Audit, Bucket, FixGroup, detail::BIBITEM, mark, queue::Listing};
 
-/// Where a row's text starts: its padding, the mark and the gap after it.
-pub(super) const TEXT_INSET: f32 = 8. + 18. + 8.;
+/// Where a row's text starts: its padding, the checkbox, the mark and the
+/// gaps after each (the hairline's `calc(var(--space-4) * 3 +
+/// var(--control-size-checkbox) + 18px)`).
+pub(super) const TEXT_INSET: f32 = 8. + 14. + 8. + 18. + 8.;
 
 impl Audit {
     /// A bucket's heading over its rows: its mark, name and count.
@@ -232,6 +234,7 @@ impl Audit {
             .py(px(10.))
             .cursor_pointer()
             .on_click(cx.listener(move |this, _, _, cx| this.toggle(index, cx)))
+            .child(self.row_check(index, cx))
             .child(mark::mark(
                 ("audit-mark", index),
                 bucket,
@@ -243,6 +246,7 @@ impl Audit {
             .child(actions);
         div()
             .id(("audit-row-box", index))
+            .group(super::selection::ROW_GROUP)
             .relative()
             .flex()
             .flex_col()

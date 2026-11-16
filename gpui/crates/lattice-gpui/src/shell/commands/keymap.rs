@@ -182,6 +182,12 @@ fn default_bindings() -> Vec<KeyBinding> {
             crate::shell::RenameEnvironment,
             Some(LATEX_FORMAT_KEYS),
         ),
+        // ⌥⌘M, the math symbol palette (`symbolPalette`).
+        KeyBinding::new(
+            m!("alt-m"),
+            crate::editor_panel::symbol_palette::InsertMathSymbol,
+            Some(LATEX_FORMAT_KEYS),
+        ),
         // Ctrl-M is no ⌘ key, so on every platform Vim's normal and visual
         // modes keep it as their next-line start.
         KeyBinding::new(

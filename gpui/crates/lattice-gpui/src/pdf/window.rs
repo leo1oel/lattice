@@ -210,6 +210,7 @@ fn forward(owner: &WeakEntity<PdfPanel>, event: &PdfViewEvent, cx: &mut App) {
         },
         PdfViewEvent::OpenCitation(key) => super::PdfEvent::OpenCitation(key.clone()),
         PdfViewEvent::Annotation(request) => super::PdfEvent::Annotation(request.clone()),
+        PdfViewEvent::ExportReview => super::PdfEvent::ExportReview,
         PdfViewEvent::PlaceChanged(place) => {
             owner.update(cx, |panel, _| panel.remember_place(*place));
             return;

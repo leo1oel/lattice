@@ -19,6 +19,9 @@
 //!   entry that changed since it was read; Apply all takes every fix that
 //!   only fills in or publishes the entry, leaving disputed values for the
 //!   writer. An inline reference is checked, never rewritten.
+//! - Ticking references offers Check selected, which checks only those
+//!   (`selection.rs`); a report with nothing left to act on shows the research
+//!   desk's reading glass.
 //! - The report is saved per project beside the app's other state, so it
 //!   comes back next time.
 
@@ -49,6 +52,7 @@ mod report;
 mod row;
 mod run;
 mod running;
+mod selection;
 mod summary;
 mod tabs;
 mod typeset;
@@ -111,6 +115,9 @@ pub struct Audit {
     pub(super) results: HashMap<usize, Finding>,
     pub(super) applied: HashSet<usize>,
     pub(super) kept: HashSet<usize>,
+    /// The references ticked for Check selected (`selected`); a fresh scan
+    /// renumbers them, so it clears them.
+    pub(super) selected: HashSet<usize>,
     pub(super) loading: bool,
     pub(super) busy: bool,
     pub(super) stopping: bool,
@@ -176,6 +183,7 @@ impl Audit {
             results: HashMap::new(),
             applied: HashSet::new(),
             kept: HashSet::new(),
+            selected: HashSet::new(),
             loading: true,
             busy: false,
             stopping: false,
@@ -441,6 +449,7 @@ impl Audit {
             .map(|file| (file.path.clone(), file.kind.to_string(), file.entries))
             .collect();
         self.issues = scan.issues;
+        self.selected.clear();
         let open = self.open.and_then(|index| {
             let key = audit_key(self.entries.get(index)?);
             let nth = self.entries[..index]

@@ -176,6 +176,10 @@ pub(super) const LATEX_ROWS: ActionTable = &[
         &[("lattice::ShowCitationCard", None)],
     ),
     (
+        n!("Insert a math symbol…"),
+        &[("lattice::InsertMathSymbol", None)],
+    ),
+    (
         n!("Proofread the selection"),
         &[("lattice_proofread::ProofreadSelection", None)],
     ),

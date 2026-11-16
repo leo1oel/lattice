@@ -29,7 +29,7 @@ pub(crate) mod terminal;
 pub(crate) mod windows;
 pub(crate) mod workspace;
 
-use crate::app_state::{AppState, Lease, ProjectLease};
+use crate::app_state::{AppState, Lease, ProjectLease, ProjectScans, SharedScan};
 use base64::{engine::general_purpose::STANDARD, Engine};
 use lattice_core::host::{Closed, EventSink, Sink, StreamBody};
 use std::path::{Path, PathBuf};
@@ -130,6 +130,22 @@ where
 {
     let root = current_root(state, window)?;
     run_blocking(label, move || task(&root)).await
+}
+
+/// Run one of the calling window's project's post-save scans (`which`) on
+/// the blocking pool, sharing a run with the requests that queued behind the
+/// one under way rather than starting another beside it.
+pub(crate) async fn shared_scan<T, F>(
+    state: &AppState, window: &Window, label: &'static str,
+    which: fn(&ProjectScans) -> &SharedScan<T>, task: F,
+) -> Result<T, String>
+where
+    T: Clone + Send + 'static,
+    F: FnOnce(&Path) -> Result<T, String> + Send + 'static,
+{
+    let root = current_root(state, window)?;
+    let project = state.project(&root);
+    which(&project.scans).run(|| run_blocking(label, move || task(&root))).await
 }
 
 /// Destination and contents of a file save sent as a raw IPC body. The
