@@ -41,6 +41,7 @@ mod traffic_lights;
 #[cfg(not(target_os = "macos"))]
 #[path = "traffic_lights_stub.rs"]
 mod traffic_lights;
+#[cfg(windows)]
 mod window_placement;
 #[cfg(target_os = "linux")]
 mod xlib_threads;
@@ -109,6 +110,7 @@ fn workspace_window(app: &AppHandle, label: &str, center: bool) -> tauri::Result
         });
     let builder = if center { builder.center() } else { builder };
     let window = title_bar::overlay(builder).build()?;
+    #[cfg(windows)]
     window_placement::keep_reachable(&window);
     traffic_lights::install_traffic_light_alignment(&window);
     macos_window::apply_window_material(&window, &macos_window::WindowMaterial::at_launch());

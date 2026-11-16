@@ -7,14 +7,16 @@
 //! x = 2552 has its bottom-left corner 8 pixels inside a 2560-pixel screen),
 //! so the plugin moves the window there and only a sliver of it shows.
 //! `keep_reachable` runs after the plugin has restored the window and moves a
-//! window whose title bar cannot be grabbed to the middle of the main screen.
+//! window whose title bar cannot be grabbed to the middle of the main screen's
+//! work area, clear of the taskbar.
+//!
+//! Windows only: there every monitor's origin and size share one physical
+//! desktop space, so physical frames compare directly. macOS reports each
+//! monitor's origin in its own pixel scale, and a window straddling a 1×/2×
+//! pair could be judged off screen and moved by mistake.
 
+use crate::pdf_window::{title_bar_on, Frame};
 use tauri::{PhysicalPosition, PhysicalSize, Runtime, WebviewWindow};
-
-/// The title bar's height, in points: what must stay on a screen to be grabbed.
-const TITLE_BAR: f64 = 28.0;
-/// How much of the title bar's width must stay on one screen, in points.
-const GRIP: f64 = 64.0;
 
 /// A frame in physical pixels: the window's outer top-left corner and its
 /// content size, as Tauri reports and sets them.
@@ -27,18 +29,17 @@ pub(crate) struct Rect {
 }
 
 /// Where `window` must move so its title bar can be grabbed, or None when it
-/// already can. `screens` lists the main screen first: an unreachable window
-/// goes there, centred, with its size kept within the screen.
+/// already can. `screens` are work areas, the main screen's first: an
+/// unreachable window goes there, centred, with its size kept within it. The
+/// reachability rule is `pdf_window`'s, in physical pixels at `scale`.
 pub(crate) fn correction(window: Rect, screens: &[Rect], scale: f64) -> Option<Rect> {
-    let bar = (TITLE_BAR * scale).round() as i64;
-    let grip = (GRIP * scale).round() as i64;
-    let reachable = screens.iter().any(|screen| {
-        let across =
-            (window.x + window.width).min(screen.x + screen.width) - window.x.max(screen.x);
-        let down = (window.y + bar).min(screen.y + screen.height) - window.y.max(screen.y);
-        across >= grip && down >= bar / 2
-    });
-    if reachable {
+    let frame = |rect: Rect| Frame {
+        x: rect.x as f64,
+        y: rect.y as f64,
+        width: rect.width as f64,
+        height: rect.height as f64,
+    };
+    if screens.iter().any(|screen| title_bar_on(frame(window), frame(*screen), scale)) {
         return None;
     }
     let screen = screens.first()?;
@@ -52,7 +53,7 @@ pub(crate) fn correction(window: Rect, screens: &[Rect], scale: f64) -> Option<R
     })
 }
 
-/// Moves `window` onto the main screen when the plugin restored it where its
+/// Moves `window` onto the main screen's work area when the plugin restored it where its
 /// title bar is out of reach. A maximized window follows its screen and is
 /// left alone, as is one whose geometry or screens cannot be read.
 pub(crate) fn keep_reachable<R: Runtime>(window: &WebviewWindow<R>) {
@@ -69,11 +70,12 @@ pub(crate) fn keep_reachable<R: Runtime>(window: &WebviewWindow<R>) {
         .iter()
         .map(|monitor| {
             let is_main = main.as_ref().is_some_and(|main| main.position() == monitor.position());
+            let area = monitor.work_area();
             let rect = Rect {
-                x: i64::from(monitor.position().x),
-                y: i64::from(monitor.position().y),
-                width: i64::from(monitor.size().width),
-                height: i64::from(monitor.size().height),
+                x: i64::from(area.position.x),
+                y: i64::from(area.position.y),
+                width: i64::from(area.size.width),
+                height: i64::from(area.size.height),
             };
             (is_main, rect)
         })
