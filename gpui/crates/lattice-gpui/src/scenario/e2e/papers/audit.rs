@@ -16,7 +16,7 @@
 use std::{path::Path, time::Duration};
 
 use anyhow::Result;
-use gpui::{AsyncApp, Keystroke};
+use gpui::{AsyncApp, Keystroke, Modifiers, point, px};
 use serde_json::{Value, json};
 
 use super::super::Steps;
@@ -174,7 +174,30 @@ impl Run {
         self.check_references_narrow(cx, steps).await?;
         self.check_references_selection(cx, steps).await?;
         self.check_references_settled(cx, steps).await?;
+        // The control for the guard above: with nothing ticked and nothing
+        // running, the same click outside closes the sheet.
+        let ticked_before = self
+            .audit_update(cx, |audit, _| audit.ticked().0.len())
+            .unwrap_or_default();
+        self.audit_click_outside(cx).await?;
+        let closed = cx.update(|cx| self.shell.read(cx).audit().is_none());
+        steps.check(
+            "with nothing ticked, the same click outside closes Check references",
+            ticked_before == 0 && closed,
+            json!({ "ticked_before": ticked_before, "closed": closed }),
+        );
         self.shortcut_sheet_references(cx, steps).await
+    }
+
+    /// A pointer click on the scrim at the window's left edge, beside the
+    /// centred sheet.
+    async fn audit_click_outside(&self, cx: &mut AsyncApp) -> Result<()> {
+        let height = self.with_window(cx, |_, window, _| f32::from(window.viewport_size().height))?;
+        self.click_with(cx, point(px(24.), px(height * 0.5)), Modifiers::default())
+            .await?;
+        self.pause(cx, Duration::from_millis(200)).await;
+        self.frame_after_input(cx).await?;
+        Ok(())
     }
 
     fn audit_update<R>(
@@ -208,6 +231,18 @@ impl Run {
             .audit_update(cx, |audit, _| audit.ticked())
             .unwrap_or_default();
         self.papers_looks(cx, "papers-7c-audit-selection").await?;
+        // A ticked selection survives a stray click on the scrim beside the
+        // sheet, as the Tauri sheet's `dirty` guard keeps it.
+        self.audit_click_outside(cx).await?;
+        let kept = cx.update(|cx| self.shell.read(cx).audit().is_some());
+        let (kept_ticks, _) = self
+            .audit_update(cx, |audit, _| audit.ticked())
+            .unwrap_or_default();
+        steps.check(
+            "a click outside Check references keeps the sheet open, and its ticks, while references are ticked",
+            kept && kept_ticks == picked,
+            json!({ "open": kept, "ticked": kept_ticks }),
+        );
         self.audit_update(cx, |audit, cx| audit.press_select_all(cx));
         let (all, all_box) = self
             .audit_update(cx, |audit, _| audit.ticked())
