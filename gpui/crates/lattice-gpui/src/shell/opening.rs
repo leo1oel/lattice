@@ -59,6 +59,7 @@ impl Shell {
         self.take_document_overlays(cx);
         // The editors of the project open before go with its arrangement.
         self.editors.clear();
+        self.documents.prewarm = Default::default();
         self.active_editor = None;
         self.queued_build = None;
         self.quiet_builds.cancel();

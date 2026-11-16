@@ -23,9 +23,17 @@ use crate::{
 
 const BLOG: &str = "# Attention, briefly\n\nA reading of the Transformer paper.\n";
 
-/// The smallest PDF PDFium opens (its cross-reference table is rebuilt on
-/// load): one blank 200pt page.
-const PDF: &[u8] = b"%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 200]>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n";
+/// A small PDF PDFium opens (its cross-reference table is rebuilt on load):
+/// one Letter page holding the paper's title and the full text's first
+/// sentence, in Helvetica, so a passage of either can be found on it.
+fn pdf() -> Vec<u8> {
+    let content = "BT /F1 12 Tf 72 720 Td (Attention Is All You Need) Tj 0 -24 Td (The dominant sequence transduction models are based on recurrent networks.) Tj ET";
+    format!(
+        "%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 792]/Resources<</Font<</F1 4 0 R>>>>/Contents 5 0 R>>endobj\n4 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\n5 0 obj<</Length {}>>stream\n{content}\nendstream\nendobj\ntrailer<</Root 1 0 R>>\n%%EOF\n",
+        content.len()
+    )
+    .into_bytes()
+}
 
 /// What the reading page draws, read from its DOM: the masthead's title,
 /// the editor in its reading form, KaTeX's formulas.
@@ -37,7 +45,7 @@ const PAGE: &str = "JSON.stringify({\
 
 impl Run {
     /// The reader in front, once it shows `view` drawn on its page.
-    async fn reader_drawn(
+    pub(super) async fn reader_drawn(
         &self,
         cx: &mut AsyncApp,
         view: ReaderView,
@@ -83,7 +91,7 @@ impl Run {
         bundle: &str,
     ) -> Result<()> {
         std::fs::write(root.join(bundle).join("blog.md"), BLOG)?;
-        std::fs::write(root.join(bundle).join("original.pdf"), PDF)?;
+        std::fs::write(root.join(bundle).join("original.pdf"), pdf())?;
         cx.update(|cx| papers.update(cx, |papers, cx| papers.reload(cx)));
         let listed = self
             .wait_for(cx, Duration::from_secs(15), |_, cx| {
@@ -219,6 +227,10 @@ impl Run {
             json!({}),
         );
         self.island_shot(cx, "paper-reader-pdf").await?;
+        if pdf_shown {
+            self.paper_pdf_actions(cx, steps, root, bundle, &reader)
+                .await?;
+        }
         self.with_window(cx, |_, window, cx| {
             reader.update(cx, |reader, cx| {
                 let view = reader.view();
@@ -231,6 +243,9 @@ impl Run {
             back,
             json!({}),
         );
+        self.paper_text_actions(cx, steps, root, bundle, &reader)
+            .await?;
+        self.paper_browser_failure(cx, steps, &reader).await?;
 
         self.press(cx, 'w', true).await?;
         Ok(())

@@ -20,10 +20,13 @@ use crate::{papers::model::Filter, scenario::Run};
 mod audit;
 mod cards;
 mod library;
+mod prewarm;
 // The reader's checks read its page from the webview island, which only
 // macOS has.
 #[cfg(target_os = "macos")]
 mod reader;
+#[cfg(target_os = "macos")]
+mod selection_actions;
 
 const BUNDLE: &str = ".research/papers/1706.03762";
 const ENTRY: &str = "\n@article{vaswani2017attention,\n  title = {Attention Is All You Need},\n  author = {Vaswani, Ashish and Shazeer, Noam and Parmar, Niki},\n  journal = {NeurIPS},\n  year = {2017},\n  eprint = {1706.03762}\n}\n";
@@ -188,6 +191,11 @@ impl Run {
         self.papers_library(cx, steps, &papers).await?;
         self.papers_citation_card(cx, steps).await?;
 
+        let reading = format!("{BUNDLE}/paper.md");
+        let warmed = self
+            .papers_prewarm(cx, steps, &papers, "Attention Is All You Need", &reading)
+            .await?;
+
         // A click opens the saved text in the paper's reader (its body under
         // the converter's front matter, which the visual editor leaves out),
         // and marks its row as the open one.
@@ -196,7 +204,6 @@ impl Run {
                 panel.open_titled("Attention Is All You Need", window, cx)
             })
         })?;
-        let reading = format!("{BUNDLE}/paper.md");
         let open = self
             .wait_for(cx, Duration::from_secs(5), |shell, cx| {
                 shell.read(cx).front_reader(cx).is_some_and(|(path, text)| {
@@ -215,6 +222,18 @@ impl Run {
             "a click on a saved paper opens it in its reader and marks its row as the open one",
             opened && open && marked.as_deref() == Some("1706.03762"),
             json!({ "opened": opened, "open": open, "reader": shown, "marked": marked }),
+        );
+        // The click found the text the pointer's rest readied.
+        let used = cx.update(|cx| {
+            self.shell
+                .read(cx)
+                .front_reader_panel(cx)
+                .and_then(|reader| reader.read(cx).editor().map(|editor| editor.entity_id()))
+        });
+        steps.check(
+            "the paper opens in its reader with the text readied while the pointer rested on its row",
+            warmed.is_some() && used == warmed,
+            json!({ "warmed": warmed.map(|id| id.as_u64()), "used": used.map(|id| id.as_u64()) }),
         );
         if open {
             // The paper reads in the Tauri app's visual editor, in Preview
@@ -417,7 +436,12 @@ impl Run {
             .await;
         let fetched = stages.iter().any(|stage| stage == "fulltext");
         let raised: Vec<String> = cx.update(|cx| {
-            notices.read(cx).titles().into_iter().map(|title| title.to_string()).collect()
+            notices
+                .read(cx)
+                .titles()
+                .into_iter()
+                .map(|title| title.to_string())
+                .collect()
         });
         let cited = bibliographies.iter().any(|(path, _)| {
             std::fs::read_to_string(path).is_ok_and(|text| text.contains("kingma2013vae"))
@@ -513,6 +537,11 @@ pub(super) const MODULE: super::registry::Module = super::registry::Module {
     covers: &[
         "gpui/crates/lattice-gpui/src/papers",
         "gpui/crates/lattice-gpui/src/shell/papers.rs",
+        "gpui/crates/lattice-gpui/src/shell/papers/",
+        // The opener whose refusal Papers reports, and the full text's
+        // selection actions' requests of the app.
+        "gpui/crates/lattice-gpui/src/opener.rs",
+        "gpui/crates/lattice-gpui/src/structured/markdown/paper_quotes.rs",
         // The paper reader's text and its reading form in the island.
         "gpui/crates/lattice-gpui/src/editor_panel/paper_text.rs",
         "gpui/islands/markdown/",

@@ -40,10 +40,13 @@ use lattice_ui::{
 
 use super::{model, row::tooltip};
 use crate::editor_panel::{DocumentView, EditorPanel, EditorPanelEvent};
-use crate::structured::{PaperPdfIdentity, PaperReading};
+use crate::structured::{PaperNoteIdentity, PaperPdfIdentity, PaperReading};
 
 mod pdf;
+pub mod quote_page;
+mod selection;
 use pdf::{PdfSource, ShownPdf, browser_url, pdf_source};
+pub use selection::QuoteAction;
 
 /// Which of the bundle's texts is on screen.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -83,6 +86,9 @@ pub enum PaperReaderEvent {
     /// The view asks for its text's editor: the shell makes it and hands it
     /// over with [`PaperReader::set_text`].
     Show(ReaderView),
+    /// Open a project file (project-relative): the note a passage was just
+    /// added to.
+    OpenPath(String),
 }
 
 /// A text the reader holds, and whether its masthead was last reported
@@ -107,6 +113,8 @@ pub struct PaperReader {
     /// dock tells the reader, which tells the editor on screen.
     active: bool,
     focus: FocusHandle,
+    /// Copy source link and Add to note, offered on the PDF's selection.
+    selecting: selection::Selecting,
 }
 
 impl EventEmitter<PanelEvent> for PaperReader {}
@@ -128,6 +136,7 @@ impl PaperReader {
             width: Rc::default(),
             active: false,
             focus: cx.focus_handle(),
+            selecting: Default::default(),
         }
     }
 
@@ -179,6 +188,12 @@ impl PaperReader {
                 url: self.paper.url.clone(),
                 has_local_pdf: self.paper.has_local_pdf,
             }),
+            note: PaperNoteIdentity {
+                arxiv_id: self.paper.arxiv_id.clone(),
+                citation_key: self.paper.citation_key.clone(),
+                has_full_text: self.paper.has_full_text,
+            },
+            quote_pdf: self.quote_pdf(),
         }
     }
 
@@ -274,8 +289,9 @@ impl PaperReader {
         cx.notify();
     }
 
-    /// Open the paper on the web.
-    fn open_in_browser(&self, cx: &mut App) {
+    /// Open the paper on the web (also for scenarios: the source label and
+    /// the browser button call it).
+    pub fn open_in_browser(&self, cx: &mut App) {
         if let Some(url) = browser_url(&self.paper) {
             model::open_link(&url, cx);
         }
@@ -569,10 +585,14 @@ impl PaperReader {
             if pdf.loading {
                 return placeholder(t!("Loading PDF…").into());
             }
+            let bar = self.quote_bar(cx);
             return div()
+                .relative()
                 .flex_1()
                 .min_h_0()
                 .child(pdf.view.clone())
+                .child(self.quote_bounds())
+                .children(bar)
                 .into_any_element();
         }
         match self.editor() {

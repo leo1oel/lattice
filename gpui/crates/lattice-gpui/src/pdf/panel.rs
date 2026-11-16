@@ -399,6 +399,8 @@ impl PdfPanel {
             PdfViewEvent::ExportReview => cx.emit(PdfEvent::ExportReview),
             PdfViewEvent::PlaceChanged(place) => self.remember_place(*place),
             PdfViewEvent::Action => self.detach(window, cx),
+            // The project's PDFs annotate their selection instead.
+            PdfViewEvent::SelectionOffered(_) => {}
         }
     }
 
