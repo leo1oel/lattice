@@ -3,10 +3,12 @@
 
 mod overleaf_realtime;
 mod pdf_windows;
+mod project_scans;
 
 use crate::{fs_watch, git, latex, live_preview, project, terminal, texlab};
 pub use overleaf_realtime::OverleafRealtimeState;
 pub use pdf_windows::{is_pdf_window, PdfWindows};
+pub use project_scans::{ProjectScans, SharedScan};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
@@ -72,6 +74,8 @@ pub struct ProjectResources {
     pub fs_watcher: Mutex<Option<fs_watch::ProjectWatcher>>,
     /// The rtex live preview, while the project's window has it on.
     pub live_preview: Mutex<Option<live_preview::Session>>,
+    /// The scans each save asks for, one run at a time per kind.
+    pub scans: ProjectScans,
 }
 
 /// How a command is serialized against the rest of its project's work.
