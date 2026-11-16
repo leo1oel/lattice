@@ -7,7 +7,8 @@
 //! lines, and painted as `research-art.css` paints it: paper in the surface
 //! it stands on, so it hides the lines behind it; the sides in the tertiary
 //! ink at 2.5%, 6% and 9.5%; the lines 1.15px wide whatever the size, the
-//! faint ones at 38% and the rest at 65%.
+//! faint ones at 38% and the rest at 65%. A dot is two half-circle arcs,
+//! traced as points along them.
 
 use std::sync::LazyLock;
 
@@ -33,6 +34,8 @@ const CARD_INDEX_SOURCE: &str =
     include_str!("../../../../src/components/ui/research-art-card-index.ts");
 const CATALOGUE_DRAWER_SOURCE: &str =
     include_str!("../../../../src/components/ui/research-art-catalogue-drawer.ts");
+const REFERENCE_CHECK_SOURCE: &str =
+    include_str!("../../../../src/components/ui/research-art-reference-check.ts");
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Tone {
@@ -60,6 +63,7 @@ static LETTER_RACK: LazyLock<Vec<ArtPath>> = LazyLock::new(|| parse(LETTER_RACK_
 static ANNOTATION_FLAGS: LazyLock<Vec<ArtPath>> = LazyLock::new(|| parse(ANNOTATION_FLAGS_SOURCE));
 static CARD_INDEX: LazyLock<Vec<ArtPath>> = LazyLock::new(|| parse(CARD_INDEX_SOURCE));
 static CATALOGUE_DRAWER: LazyLock<Vec<ArtPath>> = LazyLock::new(|| parse(CATALOGUE_DRAWER_SOURCE));
+static REFERENCE_CHECK: LazyLock<Vec<ArtPath>> = LazyLock::new(|| parse(REFERENCE_CHECK_SOURCE));
 
 /// The drawings ported so far, each read from the Tauri app's own module.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -80,6 +84,8 @@ pub enum Drawing {
     CardIndex,
     /// `CATALOGUE_DRAWER`: Add papers with nothing pasted yet.
     CatalogueDrawer,
+    /// `REFERENCE_CHECK`: a settled Check references report.
+    ReferenceCheck,
 }
 
 impl Drawing {
@@ -93,6 +99,7 @@ impl Drawing {
             Drawing::AnnotationFlags => &ANNOTATION_FLAGS,
             Drawing::CardIndex => &CARD_INDEX,
             Drawing::CatalogueDrawer => &CATALOGUE_DRAWER,
+            Drawing::ReferenceCheck => &REFERENCE_CHECK,
         }
     }
 }
@@ -100,7 +107,8 @@ impl Drawing {
 fn parse(source: &str) -> Vec<ArtPath> {
     let entry =
         Regex::new(r#"\["([a-z-]+)",\s*"([^"]+)"\]"#).expect("the art entry pattern compiles");
-    let command = Regex::new(r"([MLZ])\s*([-0-9.\s]*)").expect("the path command pattern compiles");
+    let command =
+        Regex::new(r"([MLZa])\s*([-0-9.\s]*)").expect("the path command pattern compiles");
     entry
         .captures_iter(source)
         .filter_map(|captures| {
@@ -128,6 +136,16 @@ fn parse(source: &str) -> Vec<ArtPath> {
                         }
                         continue;
                     }
+                    "a" => {
+                        if let Some((points, _)) = subpaths.last_mut() {
+                            for arc in numbers.as_chunks::<7>().0 {
+                                if let Some(&from) = points.last() {
+                                    points.extend(arc_points(from, *arc));
+                                }
+                            }
+                        }
+                        continue;
+                    }
                     _ => {}
                 }
                 if let Some(last) = subpaths.last_mut() {
@@ -141,6 +159,44 @@ fn parse(source: &str) -> Vec<ArtPath> {
                 }
             }
             Some(ArtPath { tone, subpaths })
+        })
+        .collect()
+}
+
+/// A relative circular arc (`a r r 0 large sweep dx dy`) from `from`, as
+/// points along it: the drawings' dots are two such half circles. SVG's
+/// endpoint form, worked back to the centre (SVG 1.1, F.6.5) with the radii
+/// equal and no rotation, which is all the drawings use.
+fn arc_points(from: Point<f32>, [r, _, _, large, sweep, dx, dy]: [f32; 7]) -> Vec<Point<f32>> {
+    use std::f32::consts::TAU;
+    let to = point(from.x + dx, from.y + dy);
+    let (hx, hy) = ((from.x - to.x) / 2., (from.y - to.y) / 2.);
+    let half = hx * hx + hy * hy;
+    if half == 0. || r == 0. {
+        return vec![to];
+    }
+    // A radius too small to span the ends grows until it does.
+    let r = r.max(half.sqrt());
+    let sign = if (large != 0.) == (sweep != 0.) {
+        -1.
+    } else {
+        1.
+    };
+    let factor = sign * ((r * r - half).max(0.) / half).sqrt();
+    let (cx, cy) = (factor * hy, -factor * hx);
+    let center = point(cx + (from.x + to.x) / 2., cy + (from.y + to.y) / 2.);
+    let start = (hy - cy).atan2(hx - cx);
+    let mut sweep_angle = (-hy - cy).atan2(-hx - cx) - start;
+    if sweep != 0. && sweep_angle < 0. {
+        sweep_angle += TAU;
+    } else if sweep == 0. && sweep_angle > 0. {
+        sweep_angle -= TAU;
+    }
+    let steps = 8;
+    (1..=steps)
+        .map(|step| {
+            let angle = start + sweep_angle * step as f32 / steps as f32;
+            point(center.x + r * angle.cos(), center.y + r * angle.sin())
         })
         .collect()
 }
@@ -210,6 +266,7 @@ mod tests {
             Drawing::MarginNotes,
             Drawing::ProofMarks,
             Drawing::LetterRack,
+            Drawing::ReferenceCheck,
         ] {
             let paths = drawing.paths();
             assert!(
@@ -220,5 +277,29 @@ mod tests {
             assert!(paths.iter().all(|path| !path.subpaths.is_empty()));
             assert!(paths.iter().any(|path| path.tone == Tone::Line));
         }
+    }
+
+    #[test]
+    fn a_dot_is_drawn_round_where_the_svg_puts_it() {
+        // `M71 61.9a0.45 0.45 0 1 0 0.9 0a0.45 0.45 0 1 0 -0.9 0Z`, one of
+        // the reading glass's dots: a circle of radius 0.45 about (71.45, 61.9).
+        let dots: Vec<&ArtPath> = Drawing::ReferenceCheck
+            .paths()
+            .iter()
+            .filter(|path| path.tone == Tone::Dot)
+            .collect();
+        let (points, closed) = dots
+            .iter()
+            .flat_map(|path| &path.subpaths)
+            .find(|(points, _)| points.first() == Some(&point(71., 61.9)))
+            .expect("the dot at (71, 61.9)");
+        assert!(*closed);
+        assert!(points.len() > 8, "{} points", points.len());
+        for p in points {
+            let distance = ((p.x - 71.45).powi(2) + (p.y - 61.9).powi(2)).sqrt();
+            assert!((distance - 0.45).abs() < 1e-3, "{p:?} is {distance} away");
+        }
+        // Both half circles: the dot reaches either side of its centre.
+        assert!(points.iter().any(|p| p.y < 61.6) && points.iter().any(|p| p.y > 62.2));
     }
 }

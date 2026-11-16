@@ -1,6 +1,7 @@
 //! Check references drawn (`bibliography-audit.css`): the verdict and its
 //! actions, what the check covered, a bar of the findings and the filters
-//! (`tabs.rs`), then the references grouped by what each asks of the writer,
+//! (`tabs.rs`) and, with references ticked, the selection (`selection.rs`),
+//! then the references grouped by what each asks of the writer,
 //! fixes under the kind of change they make (`row.rs`). At 800px and wider
 //! the list stands beside the finding it has open as a review queue
 //! (`pane.rs`); narrower, a finding unfolds under its row. The sheet holds
@@ -436,6 +437,12 @@ impl Render for Audit {
         if total > 0 && count(Bucket::Unchecked) < total {
             body.push(self.tabs(&listing, window, cx));
         }
+        if let Some(bar) = self.selection_bar(cx) {
+            body.push(bar);
+        }
+        if !self.queue && listing.settled(self.busy) {
+            body.push(self.clean_note(false, cx));
+        }
         if total > 0 {
             let list = self.list(&listing, current, cx);
             let findings = div().flex().flex_1().min_h_0().child(list);
@@ -456,7 +463,9 @@ impl Render for Audit {
             body,
             // No foot: the header's X closes it, as the Tauri sheet's does.
             actions: Vec::new(),
-            scrim_closes: !self.busy && !self.applying,
+            // A running check, fixes being written or a selection waiting to be
+            // checked survive a stray click outside (`dirty`).
+            scrim_closes: !self.busy && !self.applying && self.selected.is_empty(),
         }
         .render(window, cx, move |_, cx| {
             view.update(cx, |this, cx| this.close(cx)).ok();

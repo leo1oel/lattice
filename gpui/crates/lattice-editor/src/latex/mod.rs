@@ -2,10 +2,11 @@
 //! and the first of Lattice's LaTeX extensions, each on one extension point:
 //!
 //! - TexLab's diagnostics as marks and hover cards ([`diagnostics`]);
-//! - the citation card and the reference card ([`cards`]), with a figure's
-//!   image, an equation set by KaTeX and the last build's numbers, and the
-//!   figure card over an `\includegraphics` path ([`preview_cards`], drawn
-//!   through the app's [`previews`] host);
+//! - the citation card ([`cards`]) and the reference card
+//!   ([`reference_card`]), with a figure's image, an equation set by KaTeX
+//!   and the last build's numbers, and the figure card over an
+//!   `\includegraphics` path ([`preview_cards`], drawn through the app's
+//!   [`previews`] host);
 //! - the live preview of the math at the caret ([`math_preview`]), in a
 //!   `.tex` file;
 //! - command and citation completion ([`completions`]);
@@ -52,6 +53,7 @@ pub mod previews;
 pub mod project_completions;
 pub mod prose;
 pub mod protected;
+pub mod reference_card;
 pub mod region_edits;
 pub mod spelling;
 pub mod synctex_word;
@@ -127,7 +129,7 @@ pub fn attach(
         index: weak.clone(),
         library: editor.citation_slot(),
     }));
-    editor.add_hover_provider(Rc::new(cards::ReferenceCards {
+    editor.add_hover_provider(Rc::new(reference_card::ReferenceCards {
         index: weak.clone(),
     }));
     editor.add_hover_provider(Rc::new(preview_cards::GraphicsCards {

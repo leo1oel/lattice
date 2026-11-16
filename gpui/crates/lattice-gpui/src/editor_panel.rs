@@ -65,6 +65,7 @@ mod insert;
 pub(crate) mod latex_format;
 pub(crate) mod latex_input;
 mod latex_view;
+mod latex_visual_citations;
 mod latex_visual_events;
 mod margin_review;
 mod markdown_view;
