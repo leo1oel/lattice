@@ -12,7 +12,7 @@
 //! - the last build's `.aux` numbers a label (main.tex's `sec:method`, which
 //!   follows the introduction's section, is section 2 on page 1);
 //! - Go to on a reference card closes it and goes to the `\label`, and a
-//!   `\cref` naming several labels shows a section per label.
+//!   label in a `\cref` naming several shows its own card alone.
 //!
 //! The figure, the equation and their labels are written into the scratch
 //! project for this module and taken out after. With `LATTICE_E2E_SHOTS=DIR`
@@ -208,7 +208,8 @@ impl Run {
 
         self.figure_cards(cx, steps, root, &panel, &lattice).await?;
         self.equation_card(cx, steps, &panel, &lattice).await?;
-        self.reference_sections(cx, steps, &panel, &lattice).await?;
+        self.reference_card_source(cx, steps, &panel, &lattice)
+            .await?;
         Ok(())
     }
 
@@ -407,14 +408,13 @@ impl Run {
         Ok(())
     }
 
-    /// The reference card's actions and sections (`fillReferenceEntry`,
-    /// `referenceKeysCard`): Go to on the `\eqref`'s card closes it and puts
-    /// the caret on the `\label`'s line; resting on a label of
-    /// `\cref{fig:curve,eq:area,eq:nowhere}` opens one card with a section
-    /// per label, the figure's image and the equation in theirs and the
-    /// undefined label said as such, so it stands taller than the
-    /// equation's card alone.
-    async fn reference_sections(
+    /// The source reference card's action and its one label
+    /// (`fillReferenceEntry`, `referenceTooltips`): Go to on the `\eqref`'s
+    /// card closes it and puts the caret on the `\label`'s line; resting on
+    /// `eq:area` in `\cref{fig:curve,eq:area,eq:nowhere}` opens that label's
+    /// card alone, as tall as the `\eqref`'s, and resting on the undefined
+    /// `eq:nowhere` opens no reference card.
+    async fn reference_card_source(
         &self,
         cx: &mut AsyncApp,
         steps: &mut Steps,
@@ -474,21 +474,45 @@ impl Run {
             .text_point(cx, panel, lattice, "eq:area,eq:nowhere", 4)
             .await?;
         self.hover_at(cx, at.center()).await?;
-        let sections = self
-            .wait_for_card(cx, lattice, "reference")
-            .await
-            .and_then(|(_, bounds)| bounds);
-        self.card_looks(cx, "cref-sections-card").await;
-        let taller = matches!(
-            (single, sections),
-            (Some(single), Some(sections)) if sections.size.height > single.size.height + px(80.)
+        let shown = self.wait_for_card(cx, lattice, "reference").await;
+        let text = cx.update(|cx| panel.read(cx).text_and_caret(cx).0);
+        let span = shown
+            .as_ref()
+            .and_then(|(range, _)| text.get(range.clone()).map(str::to_string));
+        let cref = shown.and_then(|(_, bounds)| bounds);
+        self.card_looks(cx, "cref-source-card").await;
+        // The equation's card alone: as tall as the `\eqref`'s.
+        let alone = matches!(
+            (single, cref),
+            (Some(single), Some(cref)) if (cref.size.height - single.size.height).abs() < px(4.)
         );
+        self.card_park(cx)?;
+        self.pause(cx, Duration::from_millis(400)).await;
+
+        // A label nothing defines opens no reference card; its lint card speaks for it.
+        let (_, at) = self
+            .text_point(cx, panel, lattice, "eq:nowhere}", 4)
+            .await?;
+        self.hover_at(cx, at.center()).await?;
+        self.pause(cx, Duration::from_millis(900)).await;
+        let undefined: Vec<String> = cx.update(|cx| {
+            lattice
+                .read(cx)
+                .shown_hover(cx)
+                .into_iter()
+                .map(|(id, _)| id.to_string())
+                .collect()
+        });
         steps.check(
-            "resting on a label of \\cref{fig:curve,eq:area,eq:nowhere} opens one card with a section per label",
-            taller,
+            "resting on a label of \\cref{fig:curve,eq:area,eq:nowhere} shows that label's card alone, as the Tauri source card does, and an undefined one opens none",
+            span.as_deref() == Some("eq:area")
+                && alone
+                && !undefined.iter().any(|id| id == "reference"),
             json!({
+                "span": span,
                 "single": single.map(|card| f32::from(card.size.height)),
-                "sections": sections.map(|card| f32::from(card.size.height)),
+                "cref": cref.map(|card| f32::from(card.size.height)),
+                "undefined": undefined,
             }),
         );
         self.card_park(cx)?;

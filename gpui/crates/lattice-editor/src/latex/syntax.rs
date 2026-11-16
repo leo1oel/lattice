@@ -166,24 +166,15 @@ pub fn key_end(after: &str) -> usize {
 /// The comma-separated key under `position` in a citation or reference
 /// command.
 fn key_at(text: &str, pattern: &Regex, position: usize) -> Option<KeySpan> {
-    keys_at(text, pattern, position).map(|(key, _)| key)
-}
-
-/// The key under `position`, and every key of its command in the order
-/// written.
-fn keys_at(text: &str, pattern: &Regex, position: usize) -> Option<(KeySpan, Vec<KeySpan>)> {
     let start = floor_boundary(text, position.saturating_sub(800));
     let end = floor_boundary(text, (position + 800).min(text.len()));
     arguments_of(&text[start..end], pattern, start)
         .into_iter()
         .filter(|argument| position >= argument.start && position <= argument.end)
         .find_map(|argument| {
-            let keys = key_spans(&argument.content, argument.from);
-            let key = keys
-                .iter()
-                .find(|key| position >= key.range.start && position <= key.range.end)?
-                .clone();
-            Some((key, keys))
+            key_spans(&argument.content, argument.from)
+                .into_iter()
+                .find(|key| position >= key.range.start && position <= key.range.end)
         })
 }
 
@@ -202,13 +193,6 @@ pub fn citation_target(text: &str, position: usize) -> Option<KeySpan> {
 /// The label under `position` in a `\ref`-like command.
 pub fn reference_target(text: &str, position: usize) -> Option<KeySpan> {
     key_at(text, &REFERENCE, position)
-}
-
-/// The label under `position` in a `\ref`-like command, and every label the
-/// command names in the order written: `\cref{a,b}` names two (Visual mode's
-/// `chip.keys`).
-pub fn reference_command_target(text: &str, position: usize) -> Option<(KeySpan, Vec<KeySpan>)> {
-    keys_at(text, &REFERENCE, position)
 }
 
 /// The 1-based line of `key`'s entry in a bibliography source.
@@ -405,37 +389,6 @@ mod tests {
         assert_eq!(reference.key, "fig:model");
         assert_eq!(citation_target(text, 1), None);
         assert_eq!(reference_target(text, text.find("devlin").unwrap()), None);
-    }
-
-    #[test]
-    fn a_reference_command_names_its_labels_in_the_order_written() {
-        // Tauri's Visual mode fixture (`visual-hover.test.ts`).
-        let text =
-            r"See \cref{fig:case-failure,fig:cost}, \autoref{tab:main} and \Cref{ sec:a ,sec:b}.";
-        let (hovered, keys) =
-            reference_command_target(text, text.find("fig:cost").unwrap() + 2).expect("a label");
-        assert_eq!(hovered.key, "fig:cost");
-        let labels: Vec<&str> = keys.iter().map(|key| key.key.as_str()).collect();
-        assert_eq!(labels, ["fig:case-failure", "fig:cost"]);
-        assert_eq!(&text[keys[0].range.clone()], "fig:case-failure");
-        let (_, single) =
-            reference_command_target(text, text.find("tab:main").unwrap()).expect("a label");
-        assert_eq!(single.len(), 1);
-        let (hovered, spaced) =
-            reference_command_target(text, text.find("sec:a").unwrap()).expect("a label");
-        assert_eq!(hovered.key, "sec:a");
-        assert_eq!(
-            spaced
-                .iter()
-                .map(|key| key.key.as_str())
-                .collect::<Vec<_>>(),
-            ["sec:a", "sec:b"]
-        );
-        // The command's name is no label.
-        assert_eq!(
-            reference_command_target(text, text.find("cref").unwrap()),
-            None
-        );
     }
 
     #[test]
