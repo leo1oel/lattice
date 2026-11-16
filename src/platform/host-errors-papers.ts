@@ -72,12 +72,10 @@ export const PAPERS_HOST_ERRORS: readonly HostErrorEntry[] = [
   ["papers/import.rs", "Invalid citation entry.", () => t`Invalid citation entry.`],
   ["papers/import.rs", "Invalid citation key.", () => t`Invalid citation key.`],
 
-  // Editing the bibliography (papers/bibliography.rs, papers/upgrade.rs, ipc/bibliography.rs)
+  // Editing the bibliography (papers/bibliography.rs, papers/upgrade.rs, ipc/bibliography.rs). An
+  // upgrade's per-entry rejections (papers/upgrade/batch.rs) go to the Agent in its report, not as errors.
   ["papers/bibliography.rs", "Enter a citation key to remove.", () => t`Enter a citation key to remove.`],
   ["papers/bibliography.rs", "Citation key `{key}` is not in the primary bibliography.", ([key]) => t`Citation key \`${key}\` is not in the primary bibliography.`],
-  ["papers/upgrade.rs", "An automatic publication upgrade requires an independently verifiable DOI. Use citation review instead.", () => t`An automatic publication upgrade requires an independently verifiable DOI. Use citation review instead.`],
-  ["papers/upgrade.rs", "Publication metadata for '{key}' could not be independently confirmed.", ([key]) => t`Publication metadata for ''${key}'' could not be independently confirmed.`],
-  ["papers/upgrade.rs", "The bibliography changed while upgrading. Retry the operation.", () => t`The bibliography changed while upgrading. Retry the operation.`],
   ["papers/upgrade.rs", "An upgrade cannot add or remove citations.", () => t`An upgrade cannot add or remove citations.`],
   ["papers/upgrade.rs", "An upgrade must preserve the unique citation key '{key}'.", ([key]) => t`An upgrade must preserve the unique citation key ''${key}''.`],
   ["papers/upgrade.rs", "The upgrade changes the identity of '{key}'. No changes were saved.", ([key]) => t`The upgrade changes the identity of ''${key}''. No changes were saved.`],

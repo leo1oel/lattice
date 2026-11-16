@@ -2170,10 +2170,6 @@ msgstr "An & outside a table"
 msgid "an Agent task"
 msgstr "an Agent task"
 
-#: src/platform/host-errors-papers.ts
-msgid "An automatic publication upgrade requires an independently verifiable DOI. Use citation review instead."
-msgstr "An automatic publication upgrade requires an independently verifiable DOI. Use citation review instead."
-
 #: src/app/use-save-before-close.ts
 msgid "An edit could not be saved, so the window stayed open. Close or quit again to leave without it."
 msgstr "An edit could not be saved, so the window stayed open. Close or quit again to leave without it."
@@ -12506,10 +12502,6 @@ msgstr "Public daily quota exhausted"
 msgid "Public daily quota exhausted; subsequent Semantic Scholar queries skipped"
 msgstr "Public daily quota exhausted; subsequent Semantic Scholar queries skipped"
 
-#: src/platform/host-errors-papers.ts
-msgid "Publication metadata for ''{key}'' could not be independently confirmed."
-msgstr "Publication metadata for ''{key}'' could not be independently confirmed."
-
 #: src/papers/audit-messages.ts
 msgid "Publication metadata was verified, but the citation-health check was incomplete."
 msgstr "Publication metadata was verified, but the citation-health check was incomplete."
@@ -15922,10 +15914,6 @@ msgstr "The bibliography changed while removing {citationCommand} ({blocker}). T
 #: src/platform/host-errors-papers.ts
 msgid "The bibliography changed while resolving the citation. Retry the import."
 msgstr "The bibliography changed while resolving the citation. Retry the import."
-
-#: src/platform/host-errors-papers.ts
-msgid "The bibliography changed while upgrading. Retry the operation."
-msgstr "The bibliography changed while upgrading. Retry the operation."
 
 #: src/platform/host-errors-papers.ts
 msgid "The bibliography entry changed after the preview. Scan it again."

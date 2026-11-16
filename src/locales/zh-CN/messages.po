@@ -2170,10 +2170,6 @@ msgstr "表格外出现了 &"
 msgid "an Agent task"
 msgstr "1 个 Agent 任务"
 
-#: src/platform/host-errors-papers.ts
-msgid "An automatic publication upgrade requires an independently verifiable DOI. Use citation review instead."
-msgstr "自动升级为正式发表版本需要可独立核实的 DOI，请改用引用审查"
-
 #: src/app/use-save-before-close.ts
 msgid "An edit could not be saved, so the window stayed open. Close or quit again to leave without it."
 msgstr "有修改没能保存，窗口先不关闭。再关闭或退出一次会丢弃这处修改。"
@@ -12506,10 +12502,6 @@ msgstr "今日免费额度用完"
 msgid "Public daily quota exhausted; subsequent Semantic Scholar queries skipped"
 msgstr "今日免费额度用完，跳过 Semantic Scholar"
 
-#: src/platform/host-errors-papers.ts
-msgid "Publication metadata for ''{key}'' could not be independently confirmed."
-msgstr "无法独立核实“{key}”的发表信息"
-
 #: src/papers/audit-messages.ts
 msgid "Publication metadata was verified, but the citation-health check was incomplete."
 msgstr "发表信息已确认，但检查没全部完成"
@@ -15922,10 +15914,6 @@ msgstr "删除 {citationCommand} 时文献被改动（{blocker}），请重试"
 #: src/platform/host-errors-papers.ts
 msgid "The bibliography changed while resolving the citation. Retry the import."
 msgstr "解析引用时参考文献文件被修改了，请重新导入"
-
-#: src/platform/host-errors-papers.ts
-msgid "The bibliography changed while upgrading. Retry the operation."
-msgstr "升级时参考文献文件被修改了，请重试"
 
 #: src/platform/host-errors-papers.ts
 msgid "The bibliography entry changed after the preview. Scan it again."
