@@ -18,6 +18,18 @@ const REQUEST_EVENT: &str = "project-tab-move-request";
 #[derive(Default)]
 pub(crate) struct ProjectTabMoves(Mutex<HashMap<String, PendingMove>>);
 
+/// What the source page asks to move: `root` is the dragged tab, which is the
+/// window's active project only when it equals `source_root`.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ProjectTabMoveRequest {
+    id: String,
+    root: String,
+    source_root: String,
+    /// None detaches the tab into a new window.
+    target: Option<ProjectTabDestination>,
+}
+
 #[derive(Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ProjectTabDestination {
@@ -50,6 +62,22 @@ impl ProjectTabMoves {
         self.0.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
+    /// A destination window that closed or started loading a new page can no
+    /// longer answer, so its sources stop waiting instead of timing out.
+    pub(crate) fn reject_destination(&self, destination: &str) {
+        let mut pending = self.pending();
+        let ids: Vec<_> = pending
+            .iter()
+            .filter(|(_, request)| request.movement.destination == destination)
+            .map(|(id, _)| id.clone())
+            .collect();
+        for id in ids {
+            if let Some(request) = pending.remove(&id) {
+                let _ = request.reply.send(false);
+            }
+        }
+    }
+
     fn reject(&self, id: &str, destination: &str) {
         let mut pending = self.pending();
         if pending.get(id).is_some_and(|request| request.movement.destination == destination) {
@@ -61,7 +89,7 @@ impl ProjectTabMoves {
 }
 
 impl ProjectMove {
-    fn from_active_tab(&self) -> bool {
+    fn moves_active_tab(&self) -> bool {
         self.root == self.source_root
     }
 
@@ -78,7 +106,7 @@ impl ProjectMove {
     }
 
     fn claim_binding(&self, roots: &mut HashMap<String, PathBuf>) {
-        if self.from_active_tab() {
+        if self.moves_active_tab() {
             roots.remove(&self.source);
         }
         roots.insert(self.destination.clone(), self.root.clone());
@@ -93,7 +121,7 @@ async fn transfer_binding(
     still_pending: impl FnOnce() -> bool,
 ) -> Result<bool, String> {
     let mut roots_to_leave = Vec::new();
-    if movement.from_active_tab() {
+    if movement.moves_active_tab() {
         roots_to_leave.push(movement.root.as_path());
     }
     roots_to_leave.extend(destination_root);
@@ -105,8 +133,13 @@ async fn transfer_binding(
     }
     let mut roots = state.roots()?;
     movement.check_bindings(&roots, destination_root)?;
-    // The source's wait may have expired while a sync held a project lease.
-    // The caller keeps the request lock through this test and the binding.
+    // The source's wait may have expired, or the destination closed, while a
+    // sync held a project lease. `still_pending` removes the request, so a
+    // later `reject` finds nothing and the source keeps waiting for `answer`,
+    // which carries this transfer's real result. The request lock is not held
+    // past that removal; holding `roots` from here on is what keeps the claim
+    // atomic. Lock order: `roots`, then briefly the request map, never the
+    // reverse.
     if !still_pending() {
         return Ok(false);
     }
@@ -133,9 +166,9 @@ async fn transfer_binding(
 #[tauri::command]
 pub async fn move_project_tab(
     app: AppHandle, window: WebviewWindow, state: State<'_, AppState>,
-    moves: State<'_, ProjectTabMoves>, id: String, root: String, source_root: String,
-    target: Option<ProjectTabDestination>,
+    moves: State<'_, ProjectTabMoves>, request: ProjectTabMoveRequest,
 ) -> Result<bool, String> {
+    let ProjectTabMoveRequest { id, root, source_root, target } = request;
     if !crate::is_workspace_window(window.label()) {
         return Ok(false);
     }
@@ -145,12 +178,15 @@ pub async fn move_project_tab(
     let source_root = PathBuf::from(source_root);
 
     let Some(target) = target else {
-        let destination = free_project_window_label(&app, &state);
-        let movement = ProjectMove { source, source_root, root, destination };
         // Check the manifest before opening a native window so unreadable
         // projects report a failure in the original window.
-        let path = movement.root.clone();
+        let path = root.clone();
         run_blocking("Project opening", move || project::open(&path)).await?;
+        // Pick the label only after that await, so a window opened meanwhile
+        // can't take it. `check_bindings` still refuses one that appears while
+        // the transfer waits for project leases.
+        let destination = free_project_window_label(&app, &state);
+        let movement = ProjectMove { source, source_root, root, destination };
         transfer_binding(&state, &movement, None, || true).await?;
         return match crate::workspace_window(&app, &movement.destination, false) {
             Ok(created) => {
@@ -158,12 +194,17 @@ pub async fn move_project_tab(
                 Ok(true)
             }
             Err(error) => {
+                // Restore the binding. This is lossy rather than unsafe: what
+                // `transfer_binding` already stopped (the build, live preview,
+                // TexLab, realtime and, once the source lost its binding, its
+                // terminals) stays stopped, and the source page keeps its
+                // editor through `cancelProjectTransition`.
                 let source_exists = app.get_webview_window(&movement.source).is_some();
                 let mut roots = state.roots()?;
                 if roots.get(&movement.destination) == Some(&movement.root) {
                     roots.remove(&movement.destination);
                 }
-                if movement.from_active_tab() && source_exists {
+                if movement.moves_active_tab() && source_exists {
                     roots.entry(movement.source).or_insert(movement.source_root);
                 }
                 Err(format!("Could not open a new Lattice window: {error}"))
@@ -263,5 +304,40 @@ mod tests {
             2,
             "moving a suspended tab leaves the source's active project in place"
         );
+    }
+
+    fn waiting(moves: &ProjectTabMoves, id: &str, destination: &str) -> oneshot::Receiver<bool> {
+        let (reply, answer) = oneshot::channel();
+        let movement = ProjectMove {
+            source: "main".into(),
+            source_root: "/a".into(),
+            root: "/a".into(),
+            destination: destination.into(),
+        };
+        moves.pending().insert(id.into(), PendingMove { movement, reply });
+        answer
+    }
+
+    #[test]
+    fn a_closed_destination_refuses_only_the_tabs_dropped_on_it() {
+        let moves = ProjectTabMoves::default();
+        let mut closed = waiting(&moves, "one", "project-1");
+        let mut open = waiting(&moves, "two", "project-2");
+        moves.reject_destination("project-1");
+        assert_eq!(closed.try_recv(), Ok(false), "the source stops waiting at once");
+        assert!(open.try_recv().is_err(), "another window's drop still waits");
+        assert!(moves.pending().contains_key("two"));
+    }
+
+    #[test]
+    fn a_claimed_move_ignores_a_late_rejection() {
+        let moves = ProjectTabMoves::default();
+        let mut answer = waiting(&moves, "one", "project-1");
+        // `receive_project_tab`'s `still_pending` takes the request first.
+        let accepted = moves.pending().remove("one").unwrap();
+        moves.reject("one", "project-1");
+        moves.reject_destination("project-1");
+        accepted.reply.send(true).unwrap();
+        assert_eq!(answer.try_recv(), Ok(true));
     }
 }

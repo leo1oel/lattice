@@ -12,15 +12,11 @@ pub(crate) struct ProjectTabDragTarget {
     y: f64,
 }
 
-fn is_project_window(label: &str) -> bool {
-    label == "main" || label.starts_with("project-")
-}
-
 #[tauri::command]
 pub(crate) async fn project_tab_drag_target(
     app: AppHandle, window: WebviewWindow,
 ) -> Result<Option<ProjectTabDragTarget>, String> {
-    if !is_project_window(window.label()) {
+    if !crate::is_workspace_window(window.label()) {
         return Ok(None);
     }
     hit_project_window(&app, &window).await
@@ -42,7 +38,7 @@ async fn hit_project_window(
             // rectangles, which would let a covered strip take the drop.
             let number = NSWindow::windowNumberAtPoint_belowWindowWithWindowNumber(point, 0, main);
             host.webview_windows().into_iter().find_map(|(label, window)| {
-                if !is_project_window(&label) {
+                if !crate::is_workspace_window(&label) {
                     return None;
                 }
                 let address = crate::macos_window::ns_window_address(&window)?;
@@ -84,7 +80,7 @@ async fn hit_project_window(
     let mut hit = None;
     let mut ambiguous = false;
     for (label, window) in app.webview_windows() {
-        if !is_project_window(&label)
+        if !crate::is_workspace_window(&label)
             || !window.is_visible().unwrap_or(false)
             || window.is_minimized().unwrap_or(true)
         {

@@ -162,6 +162,8 @@ fn on_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
         git::clone::cancel(window.label());
         // Its page never released its deck leases, which block other decks.
         window.state::<presentation::PresentationRuntime>().forget_page(window.label());
+        // A tab dropped on this window waits for an answer it can't give now.
+        window.state::<ipc::project_tabs::ProjectTabMoves>().reject_destination(window.label());
         let state = window.state::<AppState>();
         state.release_window(window.label());
         let browser = window.state::<browser_host::BrowserHost>();
@@ -191,6 +193,10 @@ fn on_page_load<R: Runtime>(
         }
         if let Some(runtime) = webview.try_state::<presentation::PresentationRuntime>() {
             runtime.forget_page(webview.label());
+        }
+        // The page that would have answered a tab dropped on it is gone.
+        if let Some(moves) = webview.try_state::<ipc::project_tabs::ProjectTabMoves>() {
+            moves.reject_destination(webview.label());
         }
         // Nothing is left to draw a live preview that page had started, or
         // the terminals it had open.
