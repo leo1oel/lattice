@@ -51,8 +51,7 @@ pub fn note_form<T: 'static>(
     let palette = cx.palette().clone();
     let body = form.field.read(cx).value().to_string();
     let overleaf = form.overleaf;
-    let saveable =
-        form.ready && (!body.trim().is_empty() || (!overleaf && form.intent.is_some()));
+    let saveable = form.ready && (!body.trim().is_empty() || (!overleaf && form.intent.is_some()));
     let quote_text = form.quote.trim();
     let quote = div()
         .flex()
@@ -147,11 +146,11 @@ pub fn note_form<T: 'static>(
                     t!("Save")
                 },
             )
-                .variant(ButtonVariant::Tinted)
-                .size(ButtonSize::Compact)
-                .keys(save_keys)
-                .disabled(!saveable)
-                .on_click(cx.listener(move |this, _, window, cx| save(this, false, window, cx))),
+            .variant(ButtonVariant::Tinted)
+            .size(ButtonSize::Compact)
+            .keys(save_keys)
+            .disabled(!saveable)
+            .on_click(cx.listener(move |this, _, window, cx| save(this, false, window, cx))),
         )
         .when(!overleaf, |actions| {
             actions.child(

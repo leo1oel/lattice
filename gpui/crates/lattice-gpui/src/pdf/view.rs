@@ -122,7 +122,7 @@ pub struct PdfView {
     pub(super) focus_handle: FocusHandle,
     /// The window the view is in, to ask for and let go of page images
     /// outside a frame.
-    window: AnyWindowHandle,
+    pub(super) window: AnyWindowHandle,
     pub(super) engine: Result<Arc<PdfEngine>, SharedString>,
     doc: Option<DocId>,
     pub(super) source: Option<PathBuf>,

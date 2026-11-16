@@ -166,17 +166,26 @@ impl PdfView {
         &mut self,
         id: u64,
         answer: Result<(), SharedString>,
-        window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some(note) = self.annotating.composing.as_mut().filter(|note| note.id == id) else {
+        let Some(note) = self
+            .annotating
+            .composing
+            .as_mut()
+            .filter(|note| note.id == id)
+        else {
             return;
         };
         match answer {
             Ok(()) => {
                 self.annotating.composing = None;
                 self.selection = None;
-                window.focus(&self.focus_handle, cx);
+                let (focus, window) = (self.focus_handle.clone(), self.window);
+                cx.defer(move |cx| {
+                    window
+                        .update(cx, |_, window, cx| window.focus(&focus, cx))
+                        .ok();
+                });
             }
             Err(error) => note.error = Some(error),
         }
@@ -426,7 +435,9 @@ impl PdfView {
             return;
         };
         let body = note.field.read(cx).value().to_string();
-        let overleaf = self.notes_source().and_then(|source| source.overleaf.clone());
+        let overleaf = self
+            .notes_source()
+            .and_then(|source| source.overleaf.clone());
         let Some(note) = &mut self.annotating.composing else {
             return;
         };

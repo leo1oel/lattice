@@ -115,13 +115,12 @@ impl Shell {
         cx: &mut Context<Self>,
     ) -> Result<(), SharedString> {
         let view = panel.read(cx).live_view().clone();
-        let answer =
-            |answer: Result<(), SharedString>, window: &mut Window, cx: &mut Context<Self>| {
-                view.update(cx, |view, cx| {
-                    view.answer_overleaf_note(id, answer.clone(), window, cx)
-                });
-                answer
-            };
+        let answer = |answer: Result<(), SharedString>, cx: &mut Context<Self>| {
+            view.update(cx, |view, cx| {
+                view.answer_overleaf_note(id, answer.clone(), cx)
+            });
+            answer
+        };
         let name = std::path::Path::new(path)
             .file_name()
             .map(|name| name.to_string_lossy().into_owned())
@@ -136,19 +135,19 @@ impl Shell {
                     "{name} is opening live with Overleaf beside the PDF. Comment again once it has opened.",
                     name = name
                 );
-                return answer(Err(opening.into()), window, cx);
+                return answer(Err(opening.into()), cx);
             }
             NoteDestination::Offline | NoteDestination::Annotation => {
                 let error = t!(
                     "This file is not live with Overleaf right now. Reconnect before commenting."
                 );
-                return answer(Err(error.into()), window, cx);
+                return answer(Err(error.into()), cx);
             }
         }
         let Some(live) = self.overleaf.read(cx).live_text(path).map(str::to_string) else {
             let error =
                 t!("This file is not live with Overleaf right now. Reconnect before commenting.");
-            return answer(Err(error.into()), window, cx);
+            return answer(Err(error.into()), cx);
         };
         // Where the words stand in the live text now.
         let range = crate::pdf::source_anchor::source_range_for_pdf_text(&live, line, selection)
@@ -156,13 +155,13 @@ impl Shell {
         let Some(range) = range else {
             let stale =
                 t!("The source changed since the PDF was built. Build again, then annotate.");
-            return answer(Err(stale.into()), window, cx);
+            return answer(Err(stale.into()), cx);
         };
         let from = live[..range.start].encode_utf16().count() as i64;
         let (path, quote, body) = (path.to_string(), quote.to_string(), body.to_string());
         self.overleaf.update(cx, |bridge, cx| {
             bridge.add_comment(&path, from, quote, body, |_| {}, cx)
         });
-        answer(Ok(()), window, cx)
+        answer(Ok(()), cx)
     }
 }
