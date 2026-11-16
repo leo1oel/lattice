@@ -6,10 +6,6 @@ A feature that lands deletes its own line (only that line, so features landing s
 - [ ] Margin review's J/K walk between items.
 
 
-- [ ] Settings: the sections' product icons' hover gestures (they rest as the Tauri app's resting frames).
-
-- [ ] Settings: Editor & builds › Your name saying which Git or Overleaf name signs comments ahead of it.
-
 - [ ] Settings: App updates' automatic updates and Check for updates (the GPUI app shows its version and GitHub Releases).
 
 - [ ] The shortcut sheet's LaTeX keys the source editor does not bind yet (the citation card, Proofread), which join the sheet's LaTeX group once bound.
