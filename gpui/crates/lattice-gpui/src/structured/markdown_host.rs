@@ -14,7 +14,9 @@
 //!   `papers`);
 //! - a paper dragged from the Papers list over the page, which GPUI's drag
 //!   never makes WebKit's: its moves, where it left, and its drop, in the
-//!   page's pixels from its top left (`md:paper-drag`).
+//!   page's pixels from its top left (`md:paper-drag`; on a `.tex` file's
+//!   Visual page `tex:paper-drag`, which `gpui/islands/latex` replays the
+//!   same way).
 
 use gpui::{App, Bounds, Context, Pixels, Point};
 use serde_json::{Value, json};
@@ -89,7 +91,8 @@ impl StructuredDocument {
     }
 
     /// A paper's drag over the page: `phase` is `over`, `leave` or `drop`,
-    /// `at` in the page's pixels, `paper` its identity (`PaperDrag`).
+    /// `at` in the page's pixels, `paper` its identity (`PaperDrag`). A
+    /// `.tex` file's Visual page takes it as `tex:paper-drag`.
     pub fn paper_drag(
         &mut self,
         phase: &str,
@@ -99,7 +102,11 @@ impl StructuredDocument {
     ) {
         let (x, y) = at.map_or((0., 0.), |at| (f32::from(at.x), f32::from(at.y)));
         self.post(
-            "md:paper-drag",
+            if self.latex.is_some() {
+                "tex:paper-drag"
+            } else {
+                "md:paper-drag"
+            },
             json!({ "phase": phase, "x": x, "y": y, "paper": paper }),
             cx,
         );

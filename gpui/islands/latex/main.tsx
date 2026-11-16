@@ -51,6 +51,8 @@
  *   tex:library       { papers, openable, revision }   the library, the keys Open paper opens, the
  *                     citation scan's revision (also `doc:open`'s `library`)
  *   tex:reasons       { reasons, author }   the project's citation reasons, and who files one (also `doc:open`'s)
+ *   tex:paper-drag    { phase, x, y, paper }   a paper from the Papers list over the page, replayed
+ *                     for the source's paper drop (`shared/paper-drag.ts`, `src/editor/paper-drop.ts`)
  * Page to host:
  *   md:change         { source, base, join }  the whole file after an edit made against `base`;
  *                     `join` when the page's history counts it in the previous edit's undo group
@@ -112,6 +114,8 @@ import {
 } from "../../../src/overleaf/overleaf-editor-extensions";
 import { VisualMarginReview } from "./margin-review";
 import { citationLiveData, type CitationLibrary, type CitationReasons } from "./citations";
+import { paperDragReplay, type PaperDragMessage } from "../shared/paper-drag";
+import { paperDropExtension } from "../../../src/editor/paper-drop";
 import {
   NO_OVERLEAF_REVIEW, changeAuthorName, overleafChangeActions, overleafEditorComments, overleafThreadActions,
   overleafThreadOf, type OverleafReview,
@@ -120,7 +124,7 @@ import {
   INITIAL_STATE, reduce, type LatexOpen, type Locale, type Outline, type ProjectIndex, type Spelling, type Unused,
   type Annotations, type ViewState, type VisualModule,
 } from "./state";
-import type { FileNode } from "../../../src/app-types";
+import type { FileNode, PaperSummary } from "../../../src/app-types";
 
 /** Visual mode's module, as the source editor loads it (`latex-visual-switch.ts`): its own chunk. */
 const loadVisual = () => import("../../../src/editor/latex/visual/latex-visual");
@@ -138,6 +142,8 @@ let liveData: LatexEditorLiveData = {
   localMacros: [], graphicsRoots: [], projectPaths: [], spellingWords: [],
 };
 let editorView: EditorView | null = null;
+/** The library a dropped paper is looked up in, and the project it must be of (`paperDropExtension`). */
+let paperLibrary: { projectRoot: string; papers: readonly PaperSummary[] } = { projectRoot: "", papers: [] };
 /** The file as the page last had it, so the owner's echo is not a change. */
 let pageSource = "";
 /** Co-authors' carets and the file's annotations and Overleaf threads, read by their extensions when they run. */
@@ -247,6 +253,9 @@ function editorExtensions(visual: VisualModule, path: string, spellcheck: boolea
       ...overleafChangeActions,
     }),
     marginReviewExtension(),
+    // A paper from the Papers list cites where it is let go, as in the source
+    // (`tex:paper-drag` replays GPUI's drag as the page's own).
+    paperDropExtension(path, () => paperLibrary),
     editorCommentsExtension(path, {
       pinLabel,
       cards: commentCards,
@@ -320,6 +329,9 @@ function Latex() {
   const citationKeys = useMemo(() => index.citations.map((citation) => citation.key), [index.citations]);
   const projectRoot = opened?.projectRoot;
   const citationData = useMemo(() => citationLiveData(library, reasons), [library, reasons]);
+  useEffect(() => {
+    paperLibrary = { projectRoot: projectRoot ?? "", papers: library.papers };
+  }, [library, projectRoot]);
 
   // One object per change, so Visual mode's identity checks see what changed.
   useEffect(() => {
@@ -376,6 +388,7 @@ function Latex() {
 
   useEffect(() => {
     const bridge = host();
+    const replayPaperDrag = paperDragReplay();
     const stops = [
       bridge.on("doc:open", (payload) => {
         const open = payload as LatexOpen;
@@ -433,6 +446,7 @@ function Latex() {
       bridge.on("tex:annotations", (payload) => dispatch({ type: "annotations", annotations: payload as Annotations })),
       bridge.on("tex:overleaf", (payload) => dispatch({ type: "overleaf", overleaf: payload as OverleafReview })),
       bridge.on("tex:library", (payload) => dispatch({ type: "library", library: payload as CitationLibrary })),
+      bridge.on("tex:paper-drag", (payload) => replayPaperDrag(payload as PaperDragMessage)),
       bridge.on("tex:reasons", (payload) => dispatch({ type: "reasons", reasons: payload as CitationReasons })),
       bridge.on("md:presence", (payload) => {
         dispatch({ type: "presence", presence: (payload as { cursors: PresenceCursor[] }).cursors });

@@ -1,5 +1,5 @@
 //! A paper dragged from the Papers list into an editor (`papers/drag.rs`,
-//! `editor_panel/papers.rs`, `gpui/islands/markdown/paper-drag.ts`), with a
+//! `editor_panel/papers.rs`, `gpui/islands/shared/paper-drag.ts`), with a
 //! saved paper in the library (a bundle and its entry written into the
 //! scratch copy, as an import leaves them):
 //!
@@ -7,6 +7,9 @@
 //!   pointer, and let go there `~\citep{key}` goes in; dropped on a key of
 //!   a `\citep{…}` the key joins its list instead (the Tauri app's
 //!   `paper-drop.test.ts`);
+//! - over a `.tex` file's Visual page the page draws its drop caret after
+//!   the word under the pointer, and let go there `~\citep{key}` goes in,
+//!   as in the source (the Tauri app's Visual LaTeX is its source editor);
 //! - over a Markdown source it goes in at the pointer as an `@key` link to
 //!   the paper's reading file;
 //! - over the Markdown file's visual editor the page draws its drop cursor,
@@ -22,10 +25,15 @@ use std::{path::Path, time::Duration};
 
 use anyhow::{Context as _, Result};
 use gpui::{AsyncApp, Entity, Pixels, Point};
+use lattice_settings::LatexView;
 use serde_json::{Value, json};
 
 use super::{Steps, drops::PointerStep};
-use crate::{editor_panel::EditorPanel, papers::PapersPanel, scenario::Run};
+use crate::{
+    editor_panel::{EditorPanel, choose_latex_view},
+    papers::PapersPanel,
+    scenario::Run,
+};
 
 const BUNDLE: &str = ".research/papers/1706.03762";
 const ENTRY: &str = "\n@article{vaswani2017attention,\n  title = {Attention Is All You Need},\n  author = {Vaswani, Ashish and Shazeer, Noam},\n  journal = {NeurIPS},\n  year = {2017},\n  eprint = {1706.03762}\n}\n";
@@ -101,6 +109,10 @@ impl Run {
         let tex = self.open(cx, &root.join(LATEX_PATH), Some(1))?;
         self.pause(cx, Duration::from_millis(400)).await;
         self.paper_drag_latex(cx, steps, papers, &tex).await?;
+        cx.update(|cx| choose_latex_view(LatexView::Visual, cx));
+        let visual = self.paper_drag_latex_visual(cx, steps, papers, &tex).await;
+        cx.update(|cx| choose_latex_view(LatexView::Source, cx));
+        visual?;
 
         let notes = self.open(cx, &root.join(NOTES_PATH), None)?;
         let drawn = self
@@ -219,6 +231,79 @@ impl Run {
             "a paper dropped on a key of a \\citep joins its key list",
             text == merged,
             json!({ "text": text }),
+        );
+        Ok(())
+    }
+
+    /// The `.tex` file's Visual page: the drag is handed to the page, which
+    /// draws its drop caret after the word under the pointer and, let go,
+    /// cites there as the source does (the Tauri app's Visual LaTeX is its
+    /// source editor).
+    async fn paper_drag_latex_visual(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+        papers: &Entity<PapersPanel>,
+        tex: &Entity<EditorPanel>,
+    ) -> Result<()> {
+        const STEP: &str = "over a .tex file's Visual page a paper draws the page's drop caret after the word under the pointer, and let go goes in there as ~\\citep{key}";
+        let drawn = self
+            .wait_for(cx, Duration::from_secs(40), |_, cx| {
+                tex.read(cx)
+                    .latex_visual_document()
+                    .is_some_and(|document| document.read(cx).is_drawn())
+            })
+            .await;
+        let island = cx.update(|cx| {
+            tex.read(cx)
+                .latex_visual_document()
+                .and_then(|document| document.read(cx).island().cloned())
+        });
+        let Some(island) = island.filter(|_| drawn) else {
+            steps.check(STEP, false, json!({ "drawn": drawn }));
+            return Ok(());
+        };
+        self.pause(cx, Duration::from_millis(1500)).await;
+        // Inside "Prior", in the page's pixels.
+        let spot = self
+            .evaluate(
+                cx,
+                &island,
+                "(() => { const line = [...document.querySelectorAll('.cm-line')].find((node) => node.textContent.includes('Prior')); \
+                 if (!line) return JSON.stringify(null); const walker = document.createTreeWalker(line, NodeFilter.SHOW_TEXT); \
+                 let text; while ((text = walker.nextNode()) && !text.textContent.includes('Prior')); if (!text) return JSON.stringify(null); \
+                 const at = text.textContent.indexOf('Prior') + 2; const range = document.createRange(); \
+                 range.setStart(text, at); range.collapse(true); const rect = range.getBoundingClientRect(); \
+                 return JSON.stringify({ x: rect.left, y: rect.top + rect.height / 2 }); })()",
+            )
+            .await;
+        let page = cx.update(|cx| island.read(cx).bounds(cx));
+        let (Some(x), Some(y), Some(page)) = (spot["x"].as_f64(), spot["y"].as_f64(), page) else {
+            steps.check(
+                STEP,
+                false,
+                json!({ "spot": spot, "page": format!("{page:?}") }),
+            );
+            return Ok(());
+        };
+        let before = cx.update(|cx| tex.read(cx).text(cx));
+        let at = page.origin + gpui::point(gpui::px(x as f32), gpui::px(y as f32));
+        self.paper_hold(cx, papers, at).await?;
+        let cursor = self
+            .evaluate(
+                cx,
+                &island,
+                "JSON.stringify(!!document.querySelector('.cm-dropCursor'))",
+            )
+            .await;
+        self.island_shot(cx, "paper-drag-latex-visual").await?;
+        self.paper_release(cx, at).await?;
+        let expected = before.replacen("Prior", "Prior~\\citep{vaswani2017attention}", 1);
+        let text = self.paper_text(cx, tex, &expected).await;
+        steps.check(
+            STEP,
+            cursor == Value::Bool(true) && text == expected,
+            json!({ "cursor": cursor, "text": text }),
         );
         Ok(())
     }
@@ -370,6 +455,8 @@ pub(super) const MODULE: super::registry::Module = super::registry::Module {
         "gpui/crates/lattice-gpui/src/editor_panel/papers.rs",
         "gpui/crates/lattice-gpui/src/structured/markdown_host.rs",
         "gpui/islands/markdown/",
+        "gpui/islands/shared/paper-drag.ts",
+        "gpui/islands/latex/main.tsx",
     ],
     run: |run, cx, steps, fixture| Box::pin(run.paper_drag(cx, steps, &fixture.root)),
 };
