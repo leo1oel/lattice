@@ -1,9 +1,11 @@
 //! The e2e check of margin review's keyboard walk (`margin_review/walk.rs`),
-//! with native keys on main.tex's comments in Markers: "Review here" puts
-//! focus on the item by the caret with its card open, J goes to the next
-//! item in the text with its card following, K comes back, K again goes
-//! round to the last, Escape closes the card and leaves focus on its pip,
-//! and a second Escape gives the text the keyboard.
+//! with native keys on main.tex's comments in Markers: "Review here" from
+//! the first line puts focus on the first item with its card open, J goes to
+//! the next item in the text with its card following, K comes back, K again
+//! goes round to the last, Escape closes the card and leaves focus on its
+//! pip, and a second Escape gives the text the keyboard. The order expected
+//! is the stand-in Overleaf's: its open threads' and suggestions' positions
+//! in main.tex.
 
 use std::{path::Path, time::Duration};
 
@@ -12,7 +14,11 @@ use gpui::{AsyncApp, Focusable as _};
 use serde_json::json;
 
 use super::super::Steps;
-use crate::{editor_panel::MarginMode, native, scenario::Run};
+use crate::{
+    editor_panel::MarginMode,
+    native,
+    scenario::{Run, overleaf_mock::MockOverleaf},
+};
 
 /// The item with focus, the open card, and whether the text has focus.
 type WalkState = (Option<String>, Option<String>, bool);
@@ -22,6 +28,7 @@ impl Run {
         &self,
         cx: &mut AsyncApp,
         steps: &mut Steps,
+        mock: &MockOverleaf,
         root: &Path,
     ) -> Result<()> {
         let main = root.join("main.tex");
@@ -31,7 +38,7 @@ impl Run {
                 move |shell, window, cx| {
                     shell.update(cx, |shell, cx| {
                         shell.set_margin_mode(MarginMode::Markers, cx);
-                        let editor = shell.open_editor(&main, cx)?;
+                        let editor = shell.open_path(main, Some(1), window, cx)?;
                         window.focus(&editor.read(cx).editor().focus_handle(cx), cx);
                         Some(editor)
                     })
@@ -52,17 +59,25 @@ impl Run {
                 )
             })
         };
-        let keys = cx.update(|cx| editor.read(cx).margin_keys());
+        let mut items: Vec<(i64, String)> = mock
+            .comments("main.tex")
+            .into_iter()
+            .filter(|comment| mock.thread(&comment.thread_id).is_some_and(|(_, resolved)| !resolved))
+            .map(|comment| (comment.position, format!("comment:{}", comment.thread_id)))
+            .chain(
+                mock.changes("main.tex")
+                    .into_iter()
+                    .map(|change| (change.position, format!("change:{}", change.id))),
+            )
+            .collect();
+        items.sort();
+        let keys: Vec<String> = items.into_iter().map(|(_, key)| key).collect();
+        let (first, second, last) = (keys.first(), keys.get(1), keys.last());
         self.with_window(cx, |_, window, cx| {
             window.dispatch_action(Box::new(crate::shell::ReviewHere), cx)
         })?;
         self.pause(cx, Duration::from_millis(300)).await;
         let here = state(self, cx)?;
-        let start = here.0.clone().unwrap_or_default();
-        let at = keys.iter().position(|key| *key == start);
-        let step = |by: isize| {
-            at.map(|at| keys[(at as isize + by).rem_euclid(keys.len() as isize) as usize].clone())
-        };
         native::send_key(native, 'j', false)?;
         self.pause(cx, Duration::from_millis(300)).await;
         let next = state(self, cx)?;
@@ -72,13 +87,14 @@ impl Run {
         native::send_key(native, 'k', false)?;
         self.pause(cx, Duration::from_millis(300)).await;
         let before = state(self, cx)?;
-        let walked = keys.len() >= 2
-            && at.is_some()
-            && here.1.as_deref() == Some(start.as_str())
-            && next.0 == step(1)
-            && next.1 == step(1)
-            && back.0.as_deref() == Some(start.as_str())
-            && before.0 == step(-1)
+        let walked = keys.len() >= 3
+            && here.0.as_ref() == first
+            && here.1.as_ref() == first
+            && next.0.as_ref() == second
+            && next.1.as_ref() == second
+            && back.0.as_ref() == first
+            && before.0.as_ref() == last
+            && before.1.as_ref() == last
             && !next.2
             && !before.2;
         steps.check(

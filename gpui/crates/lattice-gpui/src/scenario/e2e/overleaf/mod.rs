@@ -443,7 +443,8 @@ impl Run {
         linked.overleaf_project_history(cx, steps, &mock).await?;
         linked.overleaf_polish(cx, steps, &mock).await?;
         let root = linked.root(cx).await?;
-        linked.overleaf_margin_walk(cx, steps, &root).await?;
+        linked.overleaf_margin_walk(cx, steps, &mock, &root)
+            .await?;
 
         // Settings › Overleaf.
         linked.with_window(cx, |shell, window, cx| {

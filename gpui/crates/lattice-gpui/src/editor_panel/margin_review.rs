@@ -40,8 +40,8 @@ use std::{
 use gpui::AnimationExt as _;
 use gpui::{
     AnyElement, Bounds, Context, InteractiveElement as _, IntoElement, ParentElement as _, Pixels,
-    Point, SharedString, StatefulInteractiveElement as _, Styled as _, Task, Window, canvas, div,
-    point, prelude::FluentBuilder as _, px,
+    Point, ScrollHandle, SharedString, StatefulInteractiveElement as _, Styled as _, Task, Window,
+    canvas, div, point, prelude::FluentBuilder as _, px,
 };
 use lattice_editor::remote_cursors::hue_color;
 use lattice_i18n::t;
@@ -67,6 +67,10 @@ const LANE: Pixels = px(36.);
 /// The text's measure, in columns, and the space after it.
 const MEASURE_COLUMNS: usize = 88;
 const MEASURE_PAD: Pixels = px(8.);
+/// The rail's first card among its children, after its heading and note,
+/// the index its scroll brings a card into view by.
+const RAIL_FIRST_CARD: usize = 2;
+
 /// Narrower than this, a pip opens the rail.
 const NARROW: Pixels = px(480.);
 const PIP: Pixels = px(14.);
@@ -122,6 +126,8 @@ pub(super) struct MarginState {
     /// pinned it (else the pointer opened it).
     open: Option<(String, bool)>,
     rail: bool,
+    /// The rail's scroll, which the walk keeps its focused card in.
+    rail_scroll: ScrollHandle,
     hover: Option<Task<()>>,
     /// Comments whose later replies are unfolded.
     unfolded: HashSet<String>,
@@ -664,12 +670,15 @@ impl EditorPanel {
         }
         let rail_width = (width * 0.78).clamp(px(240.).min(width), px(300.));
         let this = cx.weak_entity();
-        let mut list = div().flex().flex_col().gap(px(8.));
-        for item in &self.margin.items {
-            list = list.child(self.margin_card(item, CardVariant::Rail, cx));
-        }
+        let cards: Vec<AnyElement> = self
+            .margin
+            .items
+            .iter()
+            .map(|item| self.margin_card(item, CardVariant::Rail, cx))
+            .collect();
         let rail = div()
             .id("margin-review-rail")
+            .track_scroll(&self.margin.rail_scroll)
             .absolute()
             .top_0()
             .right_0()
@@ -719,7 +728,7 @@ impl EditorPanel {
                         "Comments and suggestions on the lines you can see. Scroll to see others."
                     )),
             )
-            .child(list);
+            .children(cards);
         // It arrives as the overlay drawers do (`drawer-in`): 24px in from the
         // edge it stands on, fading up, on the slow tier.
         if cx.reduce_motion() {

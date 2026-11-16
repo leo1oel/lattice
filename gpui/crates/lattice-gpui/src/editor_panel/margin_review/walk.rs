@@ -11,9 +11,11 @@
 //! `shell/commands/keymap.rs`), so they win over the window's own uses of
 //! the arrows and Escape while an item has focus, and never reach the text.
 
+use editor::display_map::ToDisplayPoint as _;
 use gpui::{App, Context, FocusHandle, Focusable as _, Window, actions, point};
+use language::Point;
 
-use super::MarginLayout;
+use super::{MarginLayout, RAIL_FIRST_CARD};
 use crate::editor_panel::EditorPanel;
 
 actions!(
@@ -116,15 +118,25 @@ impl EditorPanel {
         cx: &mut Context<Self>,
     ) {
         self.margin.focus_key = Some(key.to_string());
-        if let Some(offset) = self
+        if let Some((index, offset)) = self
             .margin
             .items
             .iter()
-            .find(|item| item.key == key)
-            .map(|item| item.offset)
+            .position(|item| item.key == key)
+            .map(|index| (index, self.margin.items[index].offset))
         {
-            let row = self.buffer.read(cx).snapshot().offset_to_point(offset).row as f64;
+            if self.margin.rail {
+                self.margin
+                    .rail_scroll
+                    .scroll_to_item(RAIL_FIRST_CARD + index);
+            }
+            let line = self.buffer.read(cx).snapshot().offset_to_point(offset).row;
             self.editor.update(cx, |editor, cx| {
+                let display = editor.snapshot(window, cx);
+                let row = Point::new(line, 0)
+                    .to_display_point(&display.display_snapshot)
+                    .row()
+                    .0 as f64;
                 let visible = editor.visible_line_count().unwrap_or(0.);
                 let position = editor.scroll_position(cx);
                 // As the Tauri walk does: a line above the view, or within
