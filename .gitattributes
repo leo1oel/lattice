@@ -7,6 +7,10 @@ src/locales/**/*.po merge=lingui-po
 
 # Included shell scripts retain their LF syntax in Windows checkouts too.
 *.sh text eol=lf
+# So do the Git hooks, which are shell scripts without the extension; knip
+# also reads them for the tools they run (lint-staged), and a CRLF line
+# names none.
+.husky/* text eol=lf
 
 # Both apps read the notices line by line; a Windows checkout keeps them LF
 # (the parsers accept CRLF too).

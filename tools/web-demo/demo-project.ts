@@ -15,10 +15,16 @@ import scaledDotProduct from "./content/figures/scaled-dot-product-attention.png
 import multiHead from "./content/figures/multi-head-attention.png?url";
 import sideBySide from "./content/figures/attention-figure-2.pdf?url";
 
-const tutorialText = import.meta.glob<string>(
+/**
+ * Text as Git stores it, and as the compiled PDF was built from it (see
+ * `stored` in scripts/web-demo-content.mjs): a Windows checkout has CRLF.
+ */
+const lf = (text: string) => text.replaceAll("\r\n", "\n");
+
+const tutorialText = Object.fromEntries(Object.entries(import.meta.glob<string>(
   ["../../src-tauri/templates/tutorial/**/*", "!**/figures/**"],
   { query: "?raw", import: "default", eager: true },
-);
+)).map(([path, text]) => [path, lf(text)]));
 
 const FIGURES: Array<[string, string]> = [
   ["figures/scaled-dot-product-attention.png", scaledDotProduct],
@@ -33,10 +39,10 @@ export async function demoTutorialFiles(): Promise<ProjectFiles> {
     if (text.split(find).length !== 2) throw new Error(`The demo's ${file} no longer holds the text content/overrides.json edits.`);
     files.set(file, text.replace(find, () => replace));
   }
-  files.set("figures/ATTRIBUTION.md", attribution);
+  files.set("figures/ATTRIBUTION.md", lf(attribution));
   await Promise.all(FIGURES.map(async ([path, url]) => {
     files.set(path, new Uint8Array(await (await fetch(url)).arrayBuffer()));
   }));
-  files.set("neurips.sty", neuripsStyle.replace("\\ProvidesPackage{neurips_2026}", "\\ProvidesPackage{neurips}"));
+  files.set("neurips.sty", lf(neuripsStyle).replace("\\ProvidesPackage{neurips_2026}", "\\ProvidesPackage{neurips}"));
   return files;
 }

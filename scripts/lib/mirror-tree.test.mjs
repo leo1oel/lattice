@@ -95,8 +95,9 @@ describe("mirrorTree", () => {
     chmodSync(path.join(source, "script/run"), 0o755);
     symlinkSync("script/run", path.join(source, "link"));
     mirrorTree(source, dest, ["script/run", "link"], manifest);
-    expect(readlinkSync(path.join(dest, "link"))).toBe("script/run");
-    expect(statSync(path.join(dest, "script/run")).mode & 0o111).not.toBe(0);
+    // Windows reads a link's target back with "\" and has no executable bit.
+    expect(readlinkSync(path.join(dest, "link")).replaceAll("\\", "/")).toBe("script/run");
+    if (process.platform !== "win32") expect(statSync(path.join(dest, "script/run")).mode & 0o111).not.toBe(0);
   });
 
   it("still deletes, on the next sync, a file an interrupted sync wrote", () => {

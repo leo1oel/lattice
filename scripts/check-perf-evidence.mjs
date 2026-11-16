@@ -43,7 +43,8 @@ const cellsOf = (line) => line.trim().replace(/^\|/, "").replace(/\|$/, "").spli
 
 /** Every pipe table in a Markdown file, with the heading it sits under. */
 export function markdownTables(text) {
-  const lines = text.split("\n");
+  // A Windows checkout has CRLF, and `(.*)$` would not match a heading's "\r".
+  const lines = text.split(/\r?\n/);
   const tables = [];
   let section = "";
   for (let index = 0; index < lines.length; index += 1) {
