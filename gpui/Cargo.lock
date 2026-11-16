@@ -6389,7 +6389,6 @@ dependencies = [
 [[package]]
 name = "gpui_apple"
 version = "0.1.0"
-source = "git+https://github.com/longbridge/gpui-fast?rev=bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa#bbf6dead71bb5dbfd3c3592f7a3d0137d5cf81aa"
 dependencies = [
  "anyhow",
  "async-task",

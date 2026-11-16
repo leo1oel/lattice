@@ -74,7 +74,7 @@ out="$work/patches"
 src="$work/gpui-fast-src"
 mkdir -p "$out/gpui-fast/crates"
 cp "$src/Cargo.toml" "$src/LICENSE-APACHE" "$out/gpui-fast/"
-for crate in gpui gpui_macos; do
+for crate in gpui gpui_apple gpui_macos; do
   mkdir -p "$out/gpui-fast/crates/$crate"
   (cd "$src/crates/$crate" && tar -cf - --exclude ./examples --exclude ./benches --exclude ./docs .) |
     (cd "$out/gpui-fast/crates/$crate" && tar -xf -)
@@ -91,7 +91,7 @@ for crate in gpui-component:$GPUI_COMPONENT_VERSION gpui-base:$GPUI_BASE_VERSION
 done
 
 # The diffs, in order.
-for diff in gpui-fast-vendoring gpui-fast-lab-occlusion gpui-fast-motion-and-type gpui-fast-overlay-first-mouse gpui-fast-interface-zoom gpui-fast-lab-assume-key gpui-fast-file-drop-modality gpui-fast-active-drag-type \
+for diff in gpui-fast-vendoring gpui-fast-lab-occlusion gpui-fast-motion-and-type gpui-fast-overlay-first-mouse gpui-fast-interface-zoom gpui-fast-lab-assume-key gpui-fast-file-drop-modality gpui-fast-active-drag-type gpui-fast-backdrop-blur \
   gpui-component-overlays gpui-component-lattice-hooks gpui-base-popover-exit gpui-base-max-length gpui-webview-interface-zoom; do
   git -C "$out" apply --whitespace=nowarn "$patches/$diff.diff"
 done

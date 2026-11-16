@@ -11,7 +11,9 @@
 //! overlaps; the tiles are rasterized from the rest. Each composited frame
 //! draws the overlay over the tiles, in drawing order, at the layer's
 //! translation: that is how the window draws it without a layer, path
-//! rasterization included.
+//! rasterization included. A backdrop (`fast::backdrop`) goes to the overlay
+//! as a path does: it blurs the pixels under it, which a tile, a piece of
+//! its layer, does not hold.
 //!
 //! The pixels come out as without a layer: on any pixel, the primitives
 //! drawing over it are drawn in the same order. One left in the tiles was
@@ -67,9 +69,10 @@ fn rank(primitive: &Primitive) -> u8 {
 pub(crate) fn split(
     operations: &[PaintOperation],
 ) -> Option<(Vec<PaintOperation>, Vec<Primitive>)> {
-    let painted_path = operations
-        .iter()
-        .any(|operation| matches!(operation, PaintOperation::Primitive(Primitive::Path(_))));
+    let painted_path = operations.iter().any(|operation| {
+        matches!(operation, PaintOperation::Primitive(primitive)
+            if matches!(primitive, Primitive::Path(_)) || crate::fast::backdrop::is_backdrop(primitive))
+    });
     if !painted_path {
         return None;
     }
@@ -101,6 +104,7 @@ pub(crate) fn split(
     for ((_, _, ix), primitive) in sequence {
         let reach = reach(primitive);
         if matches!(primitive, Primitive::Path(_))
+            || crate::fast::backdrop::is_backdrop(primitive)
             || union.is_some_and(|union| union.intersects(&reach))
                 && reaches.iter().any(|earlier| earlier.intersects(&reach))
         {

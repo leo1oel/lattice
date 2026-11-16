@@ -14,11 +14,17 @@
 //!   moment;
 //! - a reference card ([`super::reference_card`]).
 //!
-//! Both stand on the popover surface: the panel radius, the lifted surface,
-//! the popover elevation. The Tauri app frosts them (97% of the surface over
-//! a 14px backdrop blur); GPUI has no backdrop filter, and the 3% of page
-//! left unblurred reads as ghost text, so the surface is solid (the port
-//! plan's substitute for `backdrop-filter`).
+//! Both stand on the popover surface: the panel radius, the popover
+//! elevation, and the Tauri app's frosted surface (`surfaces.css`): 97% of
+//! the lifted surface over the page blurred by 14px (`backdrop_blur`, CSS's
+//! `backdrop-filter: blur(14px)`). Where the renderer cannot read the page
+//! under a card, the blur's fallback fills the card with the surface,
+//! opaque, since 3% of page left unblurred reads as ghost text. That is
+//! every card while the window holds a native surface anywhere (a webview
+//! island such as the Agent panel or a board, sheet or deck), even one not
+//! under the card: the cards are drawn deferred, and GPUI then draws all
+//! deferred content on its own surface above the native views, which cannot
+//! read the window's page.
 //!
 //! The library's facts, the uses and the actions that leave the card come
 //! from the host through the editor's [`CitationSlot`]; without one the
@@ -56,14 +62,17 @@ use crate::{
 /// How long Copy key says "Copied".
 const COPIED_FOR: Duration = Duration::from_millis(1600);
 
-/// The popover surface every card stands on.
+/// The popover surface every card stands on: the Tauri app's frosted
+/// popover, `color-mix(in srgb, var(--surface-elevated) 97%, transparent)`
+/// over `backdrop-filter: blur(14px)`.
 pub fn card_surface(cx: &App) -> gpui::Div {
     let palette = cx.palette();
     div()
         .flex()
         .flex_col()
         .rounded(px(10.))
-        .bg(palette.raised)
+        .backdrop_blur(px(14.), palette.raised.alpha(1.))
+        .bg(palette.raised.opacity(0.97))
         .shadow(Elevation::Popover.shadows(palette))
         .text_color(palette.text)
 }
