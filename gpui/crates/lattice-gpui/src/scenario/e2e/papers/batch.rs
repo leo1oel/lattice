@@ -1,6 +1,6 @@
 //! Add papers' batch, offline (pasted BibTeX entries resolve without a
-//! lookup): six references added at once are imported a few at a time,
-//! never more than four under way (`ADDS_AT_ONCE`), and every one lands in
+//! lookup): six references added at once are imported four at a time,
+//! exactly four under way at the peak (`ADDS_AT_ONCE`), and every one lands in
 //! the bibliography; and an arXiv paper pasted three ways (its id, its
 //! abstract page and its arXiv DOI) makes one card.
 
@@ -105,8 +105,8 @@ impl Run {
             .filter(|(key, _)| written.contains(key.as_str()))
             .count();
         steps.check(
-            "six papers added at once are imported at most four at a time, and all six land in the bibliography",
-            listed && landed && (1..=4).contains(&most) && keys == 6,
+            "six papers added at once are imported four at a time, and all six land in the bibliography",
+            listed && landed && most == 4 && keys == 6,
             json!({ "listed": listed, "landed": landed, "most_at_once": most, "keys_written": keys }),
         );
 
