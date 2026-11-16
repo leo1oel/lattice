@@ -75,6 +75,10 @@ export function changedFiles(base) {
 const HOST_ERROR_INPUTS = /^(src\/platform\/host-errors?-[a-z-]+\.ts|scripts\/gpui-host-errors\.mjs|gpui\/crates\/lattice-gpui\/src\/host_errors\/catalog\.rs)$/;
 // What the GPUI animated icons are written from, and the file they are.
 const ANIMATED_ICON_INPUTS = /^(src\/animated-icons\/.*|src\/styles\/app-shell\.css|scripts\/gpui-animated-icons\.mjs|gpui\/crates\/lattice-ui\/src\/animated_icon\/catalog\.rs)$/;
+// What the GPUI symbol palette's glyph table is written from (the
+// vocabulary's maths commands, set by the KaTeX the manifest and lockfile
+// pin), and the file it is.
+const SYMBOL_GLYPH_INPUTS = /^(package\.json|pnpm-lock\.yaml|scripts\/gpui-symbol-glyphs\.mjs|gpui\/crates\/lattice-editor\/src\/latex\/(vocabulary|symbol_glyphs)\.rs)$/;
 // The inputs mise.toml's `notices` task lists: the closures are read from the
 // installed trees, so the lockfiles and manifests are what moves them.
 const NOTICE_INPUTS = /^(package\.json|pnpm-lock\.yaml|src-tauri\/(lattice-core\/)?Cargo\.(toml|lock)|scripts\/generate-notices\.mjs|scripts\/lib\/(util|package-notices|license-classification|license-grouping|dependency-closures|upstream-licenses)\.mjs|(public\/)?licenses\/.*|THIRD_PARTY_NOTICES\.md)$/;
@@ -194,6 +198,10 @@ export function gateStages(files) {
     files.some((file) => ANIMATED_ICON_INPUTS.test(file))
       ? { name: "animated-icons", why: "GPUI animated icons against src/animated-icons", command: "node", args: ["scripts/gpui-animated-icons.mjs", "--check"], timeout: 120_000 }
       : { name: "animated-icons", skip: "no animated icon changed" },
+    // And its symbol palette's glyphs (`scripts/gpui-symbol-glyphs.mjs`).
+    files.some((file) => SYMBOL_GLYPH_INPUTS.test(file))
+      ? { name: "symbol-glyphs", why: "GPUI symbol palette glyphs against the vocabulary and KaTeX", command: "node", args: ["scripts/gpui-symbol-glyphs.mjs", "--check"], timeout: 60_000 }
+      : { name: "symbol-glyphs", skip: "no maths vocabulary or KaTeX changed" },
     files.some((file) => NOTICE_INPUTS.test(file))
       ? { name: "notices", why: "THIRD_PARTY_NOTICES.md against the installed trees", command: "pnpm", args: ["notices:check"], timeout: 120_000 }
       : { name: "notices", skip: "no lockfile, manifest or notice changed" },
