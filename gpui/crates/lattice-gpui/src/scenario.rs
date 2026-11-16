@@ -381,7 +381,15 @@ impl Run {
     /// `name.png` in that folder, for a reviewer to look at; a no-op off
     /// macOS.
     async fn completion_shot(&self, cx: &mut AsyncApp, name: &str) {
-        self.snapshot(cx, name).await;
+        #[cfg(target_os = "macos")]
+        if let Some(dir) = std::env::var_os("LATTICE_E2E_SHOTS") {
+            let path = std::path::Path::new(&dir).join(format!("{name}.png"));
+            if let Err(error) = self.capture(cx, &path.to_string_lossy()).await {
+                log::warn!("no shot {name}: {error:#}");
+            }
+        }
+        #[cfg(not(target_os = "macos"))]
+        let _ = (cx, name);
     }
 
     /// Build and wait for the result.
