@@ -107,9 +107,54 @@ pub(super) fn is_build_output_of(path: &str, is_source: impl Fn(&str) -> bool) -
 }
 
 /// Whether `path`, one of `files`, takes no part in sync: [`is_excluded`]
-/// says so, or it is the compiled PDF beside its source.
+/// says so, or it is the compiled PDF or a generated bibliography beside its
+/// source.
 pub(super) fn excluded_in<V>(files: &BTreeMap<String, V>, path: &str) -> bool {
-    is_excluded(path) || is_compiled_pdf(path, |source| files.contains_key(source))
+    is_excluded(path) || is_generated_beside_source(path, |source| files.contains_key(source))
+}
+
+/// Drops from an agreed table the files that take part in sync no longer
+/// ([`excluded_in`], or the build PDF). Dropped, not deleted: such a file
+/// the last sync agreed on stays where it is on both sides.
+pub(super) fn retain_syncable<V>(files: &mut BTreeMap<String, V>, build_pdf: &BuildPdf) {
+    let left_out: Vec<String> = files
+        .keys()
+        .filter(|path| excluded_in(files, path) || build_pdf.is(path))
+        .cloned()
+        .collect();
+    for path in left_out {
+        files.remove(&path);
+    }
+}
+
+/// What a build writes beside a `.tex` under a name only that `.tex` gives
+/// away ([`is_compiled_pdf`], [`is_generated_bibliography`]); `has` says
+/// whether the project holds a path.
+fn is_generated_beside_source(path: &str, has: impl Fn(&str) -> bool) -> bool {
+    is_compiled_pdf(path, &has) || is_generated_bibliography(path, &has)
+}
+
+/// Whether `path` is a `.bib` a package writes on every compile of the
+/// document beside it: achemso's (the ACS journals' class) `acs-main.bib`,
+/// which carries its style options as an `@Control` entry, or biblatex's
+/// BibTeX-backend `main-blx.bib`. Uploaded, it lands on Overleaf, whose own
+/// compile writes it to the output folder, never the project, so it only
+/// clutters the project there and comes back on every build here. A writer's
+/// `acs-refs.bib` with no `refs.tex` beside it is a source and syncs.
+fn is_generated_bibliography(path: &str, has: impl Fn(&str) -> bool) -> bool {
+    let (folder, name) = path.rsplit_once('/').map_or(("", path), |(folder, name)| (folder, name));
+    let Some(base) = name.strip_suffix(".bib") else {
+        return false;
+    };
+    let stem = base.strip_prefix("acs-").or_else(|| base.strip_suffix("-blx"));
+    stem.is_some_and(|stem| {
+        !stem.is_empty()
+            && has(&if folder.is_empty() {
+                format!("{stem}.tex")
+            } else {
+                format!("{folder}/{stem}.tex")
+            })
+    })
 }
 
 /// The files of a project snapshot that take part in sync.
@@ -286,7 +331,7 @@ pub(super) fn read_local_files(root: &Path) -> Result<LocalFiles, String> {
         };
         if is_excluded(&rel)
             || build_pdf.is(&rel)
-            || is_compiled_pdf(&rel, |source| disk_path(root, source).is_file())
+            || is_generated_beside_source(&rel, |source| disk_path(root, source).is_file())
         {
             continue;
         }
@@ -314,7 +359,9 @@ pub(super) fn local_files_changed(
     let local = read_local_files(root)?.files;
     let build_pdf = BuildPdf::of(root);
     let tracked_count = (state.files.keys())
-        .filter(|path| !is_excluded(path) && !build_pdf.is(path) && !live.contains(*path))
+        .filter(|path| {
+            !excluded_in(&state.files, path) && !build_pdf.is(path) && !live.contains(*path)
+        })
         .count();
     let local_count = local.keys().filter(|path| !live.contains(*path)).count();
     if tracked_count != local_count {
@@ -504,6 +551,44 @@ mod tests {
         let left_out: Vec<&str> =
             files.keys().map(String::as_str).filter(|path| excluded_in(&files, path)).collect();
         assert_eq!(left_out, ["Paper.PDF", "main.pdf"]);
+    }
+
+    /// achemso writes `acs-<jobname>.bib` (an `@Control` entry carrying the
+    /// style options) and biblatex's BibTeX backend `<jobname>-blx.bib` on
+    /// every compile; only the `.tex` beside one gives it away.
+    #[test]
+    fn a_bibliography_a_package_writes_for_its_document_is_left_out() {
+        let names = [
+            "main.tex",
+            "acs-main.bib",
+            "main-blx.bib",
+            "refs.bib",
+            "acs-refs.bib",
+            "acs-.bib",
+            "paper/article.tex",
+            "paper/acs-article.bib",
+            "paper/acs-main.bib",
+        ];
+        let files: BTreeMap<String, ()> = names.iter().map(|name| (name.to_string(), ())).collect();
+        let left_out: Vec<&str> =
+            files.keys().map(String::as_str).filter(|path| excluded_in(&files, path)).collect();
+        assert_eq!(left_out, ["acs-main.bib", "main-blx.bib", "paper/acs-article.bib"]);
+
+        // A table that agreed on one before this rule drops it, and keeps the rest.
+        let mut table = files.clone();
+        retain_syncable(&mut table, &BuildPdf::default());
+        assert!(!table.contains_key("acs-main.bib"));
+        assert!(table.contains_key("refs.bib") && table.contains_key("acs-refs.bib"));
+    }
+
+    #[test]
+    fn a_local_read_leaves_out_a_generated_bibliography() {
+        let dir = crate::test_support::TempDir::new("generated-bibliography");
+        dir.write("main.tex", "\\documentclass{achemso}");
+        dir.write("acs-main.bib", "@Control{achemso-control,}");
+        dir.write("refs.bib", "@article{a,}");
+        let local = read_local_files(&dir).unwrap();
+        assert_eq!(local.files.keys().collect::<Vec<_>>(), ["main.tex", "refs.bib"]);
     }
 
     /// Root figures sync both ways once the project is linked; the paper's

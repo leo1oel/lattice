@@ -88,6 +88,19 @@ pub(super) fn is_build_artifact(path: &Path) -> bool {
     let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
         return false;
     };
+    // A `.bib` a package writes on every compile of the document beside it:
+    // achemso's `acs-main.bib` (its style options as an `@Control` entry) and
+    // biblatex's BibTeX-backend `main-blx.bib`. Only that `.tex` gives one
+    // away; a writer's `acs-refs.bib` stays visible. Overleaf sync leaves the
+    // same files out (`is_generated_bibliography` in `overleaf/files.rs`).
+    if let Some(base) = name.strip_suffix(".bib") {
+        let stem = base.strip_prefix("acs-").or_else(|| base.strip_suffix("-blx"));
+        if stem.is_some_and(|stem| {
+            !stem.is_empty() && path.with_file_name(format!("{stem}.tex")).exists()
+        }) {
+            return true;
+        }
+    }
     let lowercased = name.to_ascii_lowercase();
     // latexmk renames instead of deleting whenever biber leaves behind a file
     // it cannot trust, so every artifact has a `-SAVE-ERROR` twin.
@@ -639,6 +652,11 @@ mod tests {
             // latexmk saves rather than deletes what it cannot trust.
             ("main.bbl-SAVE-ERROR", "stale"),
             ("main.toc", "contents"),
+            // achemso's and biblatex's per-document `.bib`s hide beside their
+            // `.tex`; a writer's bibliography named like one does not.
+            ("acs-main.bib", "@Control{achemso-control,}"),
+            ("main-blx.bib", "@Comment{biblatex}"),
+            ("acs-refs.bib", "@article{b,}"),
             // SyncTeX output, finished or still being written.
             ("main.synctex", "SyncTeX data"),
             ("main.synctex.gz", "SyncTeX data"),
@@ -652,7 +670,14 @@ mod tests {
         }
         // `open` is the desktop's refresh_project entry point.
         let files = open(&fixture.root).unwrap().files;
-        let visible = ["data.xml", "main.tex", "notes(busy)", "reading.pdf", "references.bib"];
+        let visible = [
+            "acs-refs.bib",
+            "data.xml",
+            "main.tex",
+            "notes(busy)",
+            "reading.pdf",
+            "references.bib",
+        ];
         assert_eq!(paths(&files), visible);
         assert!(fixture.path("main.synctex(busy)").exists(), "hiding must not delete it");
     }
