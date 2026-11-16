@@ -25,6 +25,14 @@ const NO_UNUSED_SYMBOLS: UnusedSymbols = { labels: [], citations: [] };
 const BIBLIOGRAPHY_WATCH_DELAY_MS = 400;
 
 /**
+ * The least time between two word counts that saves start. texcount re-reads
+ * the whole include tree in Perl, seconds on a thesis, and autosave fires on
+ * every pause in typing, so a run of saves is counted once when it starts and
+ * once more, at most this long after, for the text it ended on (issue 1025).
+ */
+export const SAVE_WORD_COUNT_INTERVAL_MS = 15_000;
+
+/**
  * Whether a burst the watcher reported may have changed the project's
  * bibliography: it names a .bib (one the tree does not show yet included), a
  * folder holding one the tree shows, or no exact set at all.
@@ -88,6 +96,8 @@ export function useProjectLibrary(state: ProjectState) {
   const [diskTodos, setDiskTodos] = useState<TodoHit[]>([]);
   const [projectWordCount, setProjectWordCount] = useState<WordCount | null>(null);
   const postSaveRefreshGenerationRef = useRef(0);
+  /** When a save last started a word count, and the count a later save left waiting for the interval. */
+  const saveWordCountRef = useRef<{ startedAt: number; timer?: number }>({ startedAt: -Infinity });
   const bibliographyRefreshGenerationRef = useRef(0);
 
   const historyScanRef = useRef(0);
@@ -263,6 +273,29 @@ export function useProjectLibrary(state: ProjectState) {
     };
   }, [projectRef, refreshBibliography, watchedRoot]);
 
+  /**
+   * Count `projectRoot`'s words for a save: at once when no save started a
+   * count in the last interval, else once when it ends, for every save until
+   * then. The count is the project's own scan, so a project switch in the
+   * meantime discards it as it does any other.
+   */
+  const countWordsAfterSave = useCallback((projectRoot: string) => {
+    const throttle = saveWordCountRef.current;
+    if (throttle.timer !== undefined) return;
+    const start = () => {
+      throttle.timer = undefined;
+      throttle.startedAt = Date.now();
+      if (projectRef.current?.root === projectRoot) void loadWordCount();
+    };
+    const wait = throttle.startedAt + SAVE_WORD_COUNT_INTERVAL_MS - Date.now();
+    if (wait <= 0) start();
+    else throttle.timer = window.setTimeout(start, wait);
+  }, [loadWordCount, projectRef]);
+  useEffect(() => () => {
+    window.clearTimeout(saveWordCountRef.current.timer);
+    saveWordCountRef.current = { startedAt: -Infinity };
+  }, [watchedRoot]);
+
   const refreshAfterSave = useCallback((projectRoot: string, wroteTex: boolean, wroteBib: boolean) => {
     const generation = ++postSaveRefreshGenerationRef.current;
     // An index whose last read failed is read again on any save, so the
@@ -274,28 +307,29 @@ export function useProjectLibrary(state: ProjectState) {
     if (readCitations) refreshCitations(projectRoot);
     // These replies share the scans' slots: a later scan of a kind supersedes
     // this refresh's result for it, and this refresh supersedes earlier ones.
+    // The backend runs each kind one at a time, so the scans of saves made
+    // while one is under way share a single rerun rather than piling up.
     const ownsProject = captureProjectScope();
     const currentUnused = claimScan(unusedSymbolsScanRef);
     const currentHistory = claimScan(historyScanRef);
     const currentTodos = claimScan(todoScanRef);
-    const currentWordCount = claimScan(wordCountScanRef);
     void Promise.allSettled([
       readReferences ? invoke<ReferenceIndex>("list_references") : Promise.resolve(null),
       invoke<UnusedSymbols>("list_unused_symbols"),
       invoke<HistoryItem[]>("list_history"),
       invoke<TodoHit[]>("list_todos"),
-      invoke<WordCount>("count_project_words"),
-    ] as const).then(([referenceResult, unusedResult, historyResult, todoResult, wordCountResult]) => {
+    ] as const).then(([referenceResult, unusedResult, historyResult, todoResult]) => {
       if (projectRef.current?.root !== projectRoot || !ownsProject() || generation !== postSaveRefreshGenerationRef.current) return;
       if (referenceResult.status === "fulfilled" && referenceResult.value) applyReferences(referenceResult.value);
       else if (referenceResult.status === "rejected") failIndex("references", referenceResult.reason);
       if (unusedResult.status === "fulfilled" && currentUnused()) setUnusedSymbols(unusedResult.value);
       if (historyResult.status === "fulfilled" && currentHistory()) setHistory(historyResult.value);
       if (todoResult.status === "fulfilled" && currentTodos()) setDiskTodos(todoResult.value);
-      if (wordCountResult.status === "fulfilled" && currentWordCount()) setProjectWordCount(wordCountResult.value);
     });
+    countWordsAfterSave(projectRoot);
   }, [
-    applyReferences, captureProjectScope, claimScan, failIndex, indexLoadRef, projectRef, refreshCitations,
+    applyReferences, captureProjectScope, claimScan, countWordsAfterSave, failIndex, indexLoadRef, projectRef,
+    refreshCitations,
   ]);
 
   /** Read the paper list again after a failed read, from the Papers panel's retry. */

@@ -3,7 +3,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import type { ProjectSnapshot } from "../app-types";
 import type { HistoryItem } from "../history/history-drawer";
-import { changesReachBibliography, useProjectLibrary } from "./use-project-library";
+import { changesReachBibliography, SAVE_WORD_COUNT_INTERVAL_MS, useProjectLibrary } from "./use-project-library";
 import { useProjectState } from "./use-project-state";
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
@@ -121,4 +121,46 @@ it("tells which watcher bursts may have changed the bibliography", () => {
   // A folder holding one was renamed or removed.
   expect(changesReachBibliography(["bib"], files)).toBe(true);
   expect(changesReachBibliography(["main.tex", "main.pdf", "bibliography.tex"], files)).toBe(false);
+});
+
+it("counts words for a run of saves when it starts and once after the interval, not on every save", async () => {
+  vi.useFakeTimers();
+  try {
+    const replies: Record<string, unknown> = {
+      list_references: { references: [], skipped: [] },
+      list_unused_symbols: { labels: [], citations: [] },
+      count_project_words: { text: 1, headers: 0, captions: 0, total: 1, source: "texcount" },
+    };
+    vi.mocked(invoke).mockImplementation((command) => Promise.resolve(replies[command] ?? []));
+    const view = renderLibrary();
+    enter(view, "/a");
+    const wordCounts = () => vi.mocked(invoke).mock.calls.filter(([command]) => command === "count_project_words").length;
+    const save = async () => {
+      await act(async () => {
+        view.result.current.library.refreshAfterSave("/a", true, false);
+        await vi.advanceTimersByTimeAsync(1_000);
+      });
+    };
+    await save();
+    expect(wordCounts()).toBe(1);
+    for (let index = 0; index < 5; index += 1) await save();
+    // Five more saves within the interval: the other scans ran for each, the count waits.
+    expect(wordCounts()).toBe(1);
+    expect(vi.mocked(invoke).mock.calls.filter(([command]) => command === "list_todos")).toHaveLength(6);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(SAVE_WORD_COUNT_INTERVAL_MS);
+    });
+    expect(wordCounts()).toBe(2);
+    expect(view.result.current.library.projectWordCount).not.toBeNull();
+
+    // A count left waiting when the writer switches projects is not started for either.
+    await save();
+    enter(view, "/b");
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(SAVE_WORD_COUNT_INTERVAL_MS * 2);
+    });
+    expect(wordCounts()).toBe(2);
+  } finally {
+    vi.useRealTimers();
+  }
 });
