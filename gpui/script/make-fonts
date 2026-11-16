@@ -128,6 +128,12 @@ def oblique(upright: TTFont, style: str, subfamily: str) -> TTFont:
             coords = glyph.coordinates
             for i, (x, y) in enumerate(coords):
                 coords[i] = (round(x + t * y), y)
+    hmtx = upright["hmtx"]
+    for name in upright.getGlyphOrder():
+        glyph = glyf[name]
+        if glyph.isComposite() or glyph.numberOfContours > 0:
+            glyph.recalcBounds(glyf)
+            hmtx[name] = (hmtx[name][0], glyph.xMin)
     for table in ("gvar", "HVAR", "fvar", "avar", "STAT", "DSIG"):
         if table in upright:
             del upright[table]
