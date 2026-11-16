@@ -83,9 +83,16 @@ impl Run {
                 shell.read(cx).overleaf.read(cx).channel() != ChannelStatus::Live
             })
             .await;
-        // What the typing saved to disk is ours and owed, so its push may
-        // still probe while hidden; once it has settled, nothing does.
-        self.pause(cx, Duration::from_secs(6)).await;
+        // What the typing saved to disk is ours and owed, so its push probes
+        // while hidden, and the sync that sends it leaves a push of its own
+        // writes owed; once those have settled, nothing does. They are
+        // waited for, not a fixed pause: when the push probes is set by the
+        // sync gap, so a pause let its sync fall in the window by phase.
+        self.wait_for(cx, Duration::from_secs(40), |shell, cx| {
+            let bridge = shell.read(cx).overleaf.read(cx);
+            !bridge.push_waiting() && !bridge.syncing()
+        })
+        .await;
         let before = mock.requests(&probes);
         self.pause(cx, Duration::from_secs(7)).await;
         let hidden_probes = mock.requests(&probes) - before;
