@@ -161,6 +161,11 @@ pub struct ImportResult {
     /// remains valid and is deliberately never rolled back.
     #[serde(default)]
     pub cancelled: bool,
+    /// For the Agent, in plain words: why the bibliography did not change
+    /// (the work was already cited, and with what it would take to update
+    /// it), or that lookups went around an exhausted shared service.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

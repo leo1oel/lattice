@@ -4,11 +4,24 @@
 use super::bibliography::{normalize_doi, parse_bibliography, parse_bibliography_fields_raw};
 use crate::commands;
 use crate::models::ResolvedCitation;
+use crate::ttl_cache::{TtlCache, DOI_RECORD_TTL};
+use std::sync::atomic::AtomicBool;
+use std::sync::LazyLock;
+use std::time::Duration;
+
+/// How long one lookup may run bibcite before it is stopped.
+const LOOKUP_TIMEOUT: Duration = Duration::from_secs(90);
+
+/// Recently resolved DOIs (`ttl_cache` says why a DOI may be replayed).
+static DOI_CITATIONS: LazyLock<TtlCache<ResolvedCitation>> = LazyLock::new(|| TtlCache::new(256));
 
 pub fn resolve_citation_query(query: &str) -> Result<ResolvedCitation, String> {
     let query = query.trim();
     if query.is_empty() {
         return Err("Enter a DOI, arXiv id, or paper title.".to_string());
+    }
+    if normalize_doi(query).is_some() {
+        return resolve_doi(query, LOOKUP_TIMEOUT, &AtomicBool::new(false));
     }
     if !query.starts_with("http://")
         && !query.starts_with("https://")
@@ -51,6 +64,35 @@ pub fn resolve_citation_query(query: &str) -> Result<ResolvedCitation, String> {
             }
         }
     }
+    resolve_identifier(query, LOOKUP_TIMEOUT, &AtomicBool::new(false))
+}
+
+/// The record of a DOI (bare or as a resolver URL), from the cache when it
+/// was resolved recently. `timeout` bounds the bibcite run a miss needs.
+pub(crate) fn resolve_doi(
+    query: &str, timeout: Duration, cancel: &AtomicBool,
+) -> Result<ResolvedCitation, String> {
+    let doi = normalize_doi(query).ok_or_else(|| format!("'{query}' is not a DOI."))?;
+    if let Some(hit) = DOI_CITATIONS.get(&doi) {
+        return Ok(hit);
+    }
+    let resolved = resolve_identifier(query, timeout, cancel)?;
+    // A choice between candidates is the writer's to make, every time.
+    if resolved.candidates.is_empty() {
+        DOI_CITATIONS.insert(doi, resolved.clone(), DOI_RECORD_TTL);
+    }
+    Ok(resolved)
+}
+
+#[cfg(test)]
+pub(crate) fn forget_doi_citations() {
+    DOI_CITATIONS.clear();
+}
+
+/// Resolve a DOI, arXiv id or URL: everything but a title search.
+fn resolve_identifier(
+    query: &str, timeout: Duration, cancel: &AtomicBool,
+) -> Result<ResolvedCitation, String> {
     if let Some(id) = crate::alphaxiv::paper_id_from_url(query) {
         if let Some(paper) = crate::alphaxiv::resolve_paper(&id)? {
             let raw = crate::papers::alphaxiv_bibtex(&paper)?;
@@ -62,7 +104,7 @@ pub fn resolve_citation_query(query: &str) -> Result<ResolvedCitation, String> {
         let raw = crate::citation_audit::prepare_import(&raw)?;
         return Ok(citation_from_bibtex(&raw, ""));
     }
-    let output = run_bibcite_get(query)?;
+    let output = run_bibcite_get(query, timeout, cancel)?;
     let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
     let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
     let result = parse_citation_resolution(&stdout, output.status.code(), &stderr)?;
@@ -149,13 +191,15 @@ fn citation_from_report(value: &serde_json::Value) -> Result<ResolvedCitation, S
     Ok(resolved)
 }
 
-fn run_bibcite_get(query: &str) -> Result<std::process::Output, String> {
-    let mut command = commands::BIBCITE.command()?;
-    command
-        .args(["get", "--json", query])
-        .output()
-        .map(|output| commands::redact_bibcite_output(&command, output))
-        .map_err(|error| crate::papers::uv_tool_spawn_error("bibcite", &error))
+fn run_bibcite_get(
+    query: &str, timeout: Duration, cancel: &AtomicBool,
+) -> Result<std::process::Output, String> {
+    let build = || {
+        let mut command = commands::BIBCITE.command()?;
+        command.args(["get", "--json", query]);
+        Ok(command)
+    };
+    commands::bibcite_output_routed(&build, timeout, cancel)
 }
 
 /// Fields [`ResolvedCitation`] names; everything else lands in `extra_fields`.

@@ -93,13 +93,15 @@ pub async fn remove_reference(
     .await
 }
 
+/// `deadline` is when the Agent stops waiting (the request's `expiresAt`,
+/// Unix milliseconds); an upgrade answers before it with what it finished.
 #[tauri::command]
 pub async fn agent_bibliography_mutation(
     state: State<'_, AppState>, window: Window, project_root: String,
-    mutation: AgentBibliographyMutation,
+    mutation: AgentBibliographyMutation, deadline: Option<u64>,
 ) -> Result<Value, String> {
     let root = scoped_root(&state, &window, &project_root)?;
-    run_blocking("The bibliography task", move || mutation.into_request()?.run(&root)).await
+    run_blocking("The bibliography task", move || mutation.run(&root, deadline)).await
 }
 
 fn audit_report_dir(app: &AppHandle) -> Result<PathBuf, String> {

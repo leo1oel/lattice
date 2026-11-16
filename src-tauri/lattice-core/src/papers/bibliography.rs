@@ -6,7 +6,7 @@
 //! the result has been checked and is committed through `commit_bibliography`
 //! or the citation transaction.
 
-use super::{ensure_success, uv_tool_spawn_error};
+use super::ensure_success;
 use crate::models::SymbolOccurrence;
 use crate::util::err;
 use crate::{commands, project};
@@ -14,7 +14,6 @@ use serde::Serialize;
 use serde_json::Value;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Mutex, PoisonError};
 use std::time::Duration;
@@ -90,30 +89,21 @@ impl Drop for ScratchBibliography {
 pub(super) fn run_bibcite_input(
     path: &Path, query: &str, supplied: bool, cancel: &AtomicBool,
 ) -> Result<String, String> {
-    let mut command = commands::BIBCITE.command()?;
-    command.arg("add").arg("--no-tidy").arg(path);
-    if supplied {
-        command.arg("--bibtex");
-    }
-    command.arg(query);
-    let output =
-        commands::bibcite_output_cancellable(&mut command, Duration::from_secs(60), cancel)?;
+    let build = || {
+        let mut command = commands::BIBCITE.command()?;
+        command.arg("add").arg("--no-tidy").arg(path);
+        if supplied {
+            command.arg("--bibtex");
+        }
+        command.arg(query);
+        Ok(command)
+    };
+    let output = commands::bibcite_output_routed(&build, Duration::from_secs(60), cancel)?;
     ensure_success("bibcite", &output)?;
     let report = String::from_utf8(output.stdout).map_err(err)?;
     serde_json::from_str::<Value>(&report)
         .map_err(|error| format!("bibcite returned an invalid JSON report: {error}"))?;
     Ok(report)
-}
-
-/// Run a bibcite subcommand to completion, with credentials redacted from
-/// whatever it prints.
-pub(super) fn run_bibcite(label: &str, command: &mut Command) -> Result<Vec<u8>, String> {
-    let output = command
-        .output()
-        .map(|output| commands::redact_bibcite_output(command, output))
-        .map_err(|error| uv_tool_spawn_error("bibcite", &error))?;
-    ensure_success(label, &output)?;
-    Ok(output.stdout)
 }
 
 pub(super) fn parse_report(stdout: &[u8]) -> Result<Value, String> {

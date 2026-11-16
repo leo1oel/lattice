@@ -75,8 +75,20 @@ impl ToolOverride {
     pub(super) fn set(tool: &crate::commands::UvTool, path: &Path) -> Self {
         let previous = std::env::var_os(tool.override_env);
         std::env::set_var(tool.override_env, path);
+        forget_literature_answers();
         Self { name: tool.override_env, previous }
     }
+}
+
+/// A remembered lookup answer belongs to the tool that gave it, and a
+/// public-service pause to the fixture that refused: tests that swap the tool
+/// start, and leave, with neither.
+#[cfg(unix)]
+fn forget_literature_answers() {
+    super::import::forget_resolved_dois();
+    super::upgrade::forget_checks();
+    crate::project::forget_doi_citations();
+    crate::commands::reset_public_service();
 }
 
 #[cfg(unix)]
@@ -86,6 +98,7 @@ impl Drop for ToolOverride {
             Some(value) => std::env::set_var(self.name, value),
             None => std::env::remove_var(self.name),
         }
+        forget_literature_answers();
     }
 }
 

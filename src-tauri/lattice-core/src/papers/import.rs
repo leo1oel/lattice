@@ -30,13 +30,22 @@ use super::web_citation::{
     alphaxiv_bibtex, merge_supplied_bibtex, resolve_web_citation, WebCitation,
 };
 use crate::papers::ImportResult;
+use crate::ttl_cache::{TtlCache, DOI_RECORD_TTL};
 use crate::util::err;
-use crate::{alphaxiv, project};
+use crate::{alphaxiv, commands, project};
 use serde_json::{json, Value};
 use std::fs;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::LazyLock;
 use uuid::Uuid;
+
+mod notes;
+
+/// What cite resolved for recently cited DOIs (`ttl_cache` says why a DOI
+/// may be replayed): an Agent that cites the same DOI again, or retries after
+/// a failed turn, does not spend the shared lookup budget twice.
+static RESOLVED_DOIS: LazyLock<TtlCache<Resolved>> = LazyLock::new(|| TtlCache::new(256));
 
 /// The JSON report an import returns, in bibcite's shape.
 pub(super) fn import_report(key: &str, source: &str, action: &str) -> String {
@@ -54,6 +63,7 @@ pub(super) fn cancelled(title: &str) -> ImportResult {
         already_imported: false,
         fetch_error: None,
         cancelled: true,
+        note: None,
     }
 }
 
@@ -177,6 +187,11 @@ pub fn import_reference(
         .find(|entry| entry.key.eq_ignore_ascii_case(&citation_key))
         .ok_or_else(|| "bibcite reported a key absent from its bibliography.".to_string())?;
     let title = super::title_or_key(resolved_entry.title.clone(), &citation_key);
+    let existing_note = already_imported
+        .then(|| entry_text(&merged.after, &citation_key))
+        .flatten()
+        .map(|existing| notes::already_cited(&citation_key, existing, Some(resolution.bibtex())));
+    let note = notes::join([existing_note, commands::public_service_note()]);
     // bibcite deliberately preserves an existing entry verbatim. If that old
     // record came from OpenReview without an eprint, retain the arXiv identity
     // found from the title so re-importing repairs the missing full text too.
@@ -186,6 +201,7 @@ pub fn import_reference(
         citation_output,
         already_imported,
         cancelled: false,
+        note,
         ..cancelled(&title)
     };
     let resolved = ImportResult { citation_key: Some(citation_key), ..resolved };
@@ -251,6 +267,8 @@ fn import_existing_arxiv_citation(
     let (arxiv_id, citation_key, entry_title) =
         existing_explicit_arxiv_citation(bibliography, query)?;
     let citation_output = import_report(&citation_key, "arxiv", "already-present");
+    let note = entry_text(bibliography, &citation_key)
+        .map(|existing| notes::already_cited(&citation_key, existing, None));
     let title = super::title_or_key(entry_title, &citation_key);
     if full_text == FullText::Skip {
         return Some(ImportResult {
@@ -259,6 +277,7 @@ fn import_existing_arxiv_citation(
             citation_output,
             already_imported: true,
             cancelled: false,
+            note,
             ..cancelled(&title)
         });
     }
@@ -275,7 +294,16 @@ fn import_existing_arxiv_citation(
         already_imported: true,
         fetch_error: fetched.err(),
         cancelled: cancel.load(Ordering::Acquire),
+        note,
     })
+}
+
+/// The text of the entry under `key` (any case).
+fn entry_text<'a>(bibliography: &'a str, key: &str) -> Option<&'a str> {
+    project::bibliography_entry_spans(bibliography)
+        .into_iter()
+        .find(|(candidate, _, _)| candidate.eq_ignore_ascii_case(key))
+        .map(|(_, start, end)| &bibliography[start..end])
 }
 
 /// Prefer an arXiv identity for a title before asking bibcite to choose the
@@ -315,6 +343,7 @@ fn bibcite_query_for_input(
 
 /// A resolved work, not yet merged: it merges into the bibliography as it is
 /// when the import commits, which may be after other imports committed.
+#[derive(Clone)]
 enum Resolved {
     /// A webpage's or alphaXiv's own entry, kept field for field.
     Supplied(String),
@@ -329,6 +358,13 @@ impl Resolved {
         match self {
             Self::Supplied(bibtex) => merge_supplied_bibtex(before, bibtex),
             Self::Entry { raw, key, .. } => merge_resolved_citation(before, raw, key),
+        }
+    }
+
+    /// The resolved record as BibTeX.
+    fn bibtex(&self) -> &str {
+        match self {
+            Self::Supplied(bibtex) | Self::Entry { raw: bibtex, .. } => bibtex,
         }
     }
 
@@ -356,7 +392,25 @@ impl Resolved {
 }
 
 /// Resolve `query` to exactly one checked entry, touching no bibliography.
+/// A DOI's resolution is replayed from `RESOLVED_DOIS` while it is fresh.
 fn resolve_citation(query: &str, cancel: &AtomicBool) -> Result<Resolved, String> {
+    let doi = project::normalize_doi(query);
+    if let Some(hit) = doi.as_deref().and_then(|doi| RESOLVED_DOIS.get(doi)) {
+        return Ok(hit);
+    }
+    let resolved = resolve_uncached(query, cancel)?;
+    if let Some(doi) = doi {
+        RESOLVED_DOIS.insert(doi, resolved.clone(), DOI_RECORD_TTL);
+    }
+    Ok(resolved)
+}
+
+#[cfg(test)]
+pub(super) fn forget_resolved_dois() {
+    RESOLVED_DOIS.clear();
+}
+
+fn resolve_uncached(query: &str, cancel: &AtomicBool) -> Result<Resolved, String> {
     if query.trim_start().starts_with('@') {
         // A chosen record keeps its identity; its fields are only verified.
         validate_resolved_identity("", query)?;
@@ -454,7 +508,15 @@ fn merge_resolved_citation(
         if same_id && !same_metadata {
             return Err(format!("Citation '{}' has the same identifier but conflicting metadata. Review it before importing.", entry.key));
         }
-        if same_metadata && (same_id || entry.year == incoming.year) {
+        // Without a shared id, the same title and authors in another year are
+        // another work (an edition, a yearly report), except a cited preprint
+        // and its later publication: citing the publication's DOI must not
+        // add the work twice. The answer says how to upgrade the entry.
+        if same_metadata
+            && (same_id
+                || entry.year == incoming.year
+                || super::upgrade::publishes(existing, raw.trim()))
+        {
             matches.push(entry);
         }
     }

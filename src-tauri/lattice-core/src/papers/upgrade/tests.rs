@@ -1,6 +1,16 @@
 use super::*;
 #[cfg(unix)]
 use crate::papers::test_support::{tool_lock, write_test_tool, TestProject, ToolOverride};
+#[cfg(unix)]
+mod deadline;
+
+/// The shell command a fake bibcite ends with: one matched entry's report.
+#[cfg(unix)]
+fn report_command(key: &str) -> String {
+    format!(
+        "printf '{{\"upgraded\": 1, \"matched\": 1, \"entries\": [{{\"key\": \"{key}\", \"matched\": true, \"venue\": \"Conference on Tests\", \"source\": \"dblp\"}}]}}\\n'"
+    )
+}
 
 /// A shared bibliography: a co-author's entry, a preprint, and an entry in
 /// another hand's style (bare numbers, a quoted note).
@@ -184,23 +194,29 @@ fn agent_upgrade_leaves_co_author_entries_byte_for_byte() {
   title = {Deep Residual Learning for Image Recognition},
   year = {2015}
 }";
-    let proposal = project.parent.write("proposal.bib", bibcite_rewrite(enriched));
+    // bibcite now sees each preprint alone, in its own scratch file; only
+    // he2015deep is one here.
+    let proposal = project.parent.write("proposal.bib", enriched);
     let tool = project.parent.join("bibcite");
     write_test_tool(
         &tool,
         &format!(
             "#!/bin/sh\nset -eu\n[ \"$1\" = upgrade ] && [ \"$2\" = --no-tidy ] || exit 23\n\
-             cp '{}' \"$3\"\nprintf '{{\"upgraded\": 1}}\\n'\n",
-            proposal.display()
+             grep -q '^@misc{{he2015deep,' \"$3\" && ! grep -q coauthor2020 \"$3\" || exit 24\n\
+             cp '{}' \"$3\"\n{}\n",
+            proposal.display(),
+            report_command("he2015deep"),
         ),
     );
     let _bibcite = ToolOverride::set(&commands::BIBCITE, &tool);
 
-    let preview = upgrade_bibliography(&project.root, true).unwrap();
+    let preview = upgrade_bibliography(&project.root, true, None).unwrap();
     assert!(!preview.changed);
+    assert_eq!(preview.report["entries"][0]["status"], "would_upgrade");
     assert_eq!(project.bibliography(), SHARED);
 
-    let result = upgrade_bibliography(&project.root, false).unwrap();
+    let result = upgrade_bibliography(&project.root, false, None).unwrap();
+    assert!(result.complete && result.pending.is_empty());
     assert!(result.changed);
     assert_eq!(result.report["upgraded"], 1);
     assert_eq!(

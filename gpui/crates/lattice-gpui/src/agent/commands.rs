@@ -261,7 +261,9 @@ fn project_command(root: &Path, command: &str, args: &Value) -> Result<Value, St
             let mutation = args.get("mutation").cloned().unwrap_or(Value::Null);
             let mutation: AgentBibliographyMutation = serde_json::from_value(mutation)
                 .map_err(|error| format!("Invalid bibliography request: {error}"))?;
-            mutation.into_request()?.run(&root)
+            // When the Agent stops waiting; an upgrade answers before it.
+            let deadline = args.get("deadline").and_then(Value::as_u64);
+            mutation.run(&root, deadline)
         }
         "remove_reference" => {
             let root = pinned(root, args, "the action could start")?;

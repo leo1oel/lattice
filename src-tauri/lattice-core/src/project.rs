@@ -79,7 +79,10 @@ pub(crate) use bibliography::{
     parse_bibliography_fields_syntax,
 };
 pub use build_pdf::default_root_pdf;
+#[cfg(test)]
+pub(crate) use citation_lookup::forget_doi_citations;
 pub use citation_lookup::resolve_citation_query;
+pub(crate) use citation_lookup::resolve_doi;
 pub use create::{create_tutorial, create_with_venue, Venue};
 pub use editable_figure::{
     figure_source_to_open, import_editable_figure, FigureManifest, FigureSourceOpening,

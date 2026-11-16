@@ -58,6 +58,20 @@ describe("agent bibliography host protocol", () => {
     expect(invoke).toHaveBeenCalledWith("agent_bibliography_mutation", {
       projectRoot: "/workspace/paper",
       mutation: { action: "cite", query: "Attention Is All You Need" },
+      deadline: request.expiresAt,
+    });
+  });
+
+  it("gives an upgrade the request's deadline so it answers before the Agent stops waiting", async () => {
+    vi.mocked(invoke).mockResolvedValue({ complete: false, pending: ["he2015deep"] });
+    const upgrade = { ...request, action: "upgrade_bibliography" as const, params: {} };
+
+    await expect(executeAgentBibliographyToolRequest(upgrade, () => "/workspace/paper")).resolves
+      .toMatchObject({ ok: true, result: { complete: false, pending: ["he2015deep"] } });
+    expect(invoke).toHaveBeenCalledWith("agent_bibliography_mutation", {
+      projectRoot: "/workspace/paper",
+      mutation: { action: "upgrade_bibliography" },
+      deadline: upgrade.expiresAt,
     });
   });
 

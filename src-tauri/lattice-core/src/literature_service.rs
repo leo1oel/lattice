@@ -31,6 +31,9 @@ pub(crate) fn request(
         Some("api.crossref.org") => Some("crossref"),
         _ => None,
     };
+    // While the service refuses (its shared daily budget spent), providers are
+    // asked directly instead, as bibcite is (`commands::public_service`).
+    let public = public && crate::commands::public_service_paused().is_none();
     if let Some(provider) = provider.filter(|_| public) {
         let params = parsed
             .query_pairs()
