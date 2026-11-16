@@ -102,9 +102,7 @@ impl Run {
             })
         })?;
         // Give a wrongly sent comment time to land before counting.
-        cx.background_executor()
-            .timer(Duration::from_secs(2))
-            .await;
+        cx.background_executor().timer(Duration::from_secs(2)).await;
         let after = mock.comments("main.tex").len();
         let says_changed = refused
             .as_ref()

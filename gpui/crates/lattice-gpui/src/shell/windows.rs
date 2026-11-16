@@ -655,33 +655,47 @@ impl Shell {
         self.save_layout(cx);
         let saved = self.save_before_leaving(cx);
         self._open_task = Some(cx.spawn_in(window, async move |this, cx| {
-            if let Some(saved) = saved
-                && !saved.await
-            {
-                return;
+            let saved = match saved {
+                Some(saved) => saved.await,
+                None => true,
+            };
+            if saved {
+                Self::enter_opened(&this, root, closing, cx).await;
             }
-            match crate::project::open(root.clone(), cx).await {
-                Ok(project) => {
-                    this.update_in(cx, |this, window, cx| {
-                        if this.overlay_writing(cx) {
-                            return;
-                        }
-                        this.set_project(project, window, cx);
-                        if let Some(closing) = closing {
-                            this.projects.retain(|p| p.root != closing);
-                        }
-                    })
-                    .ok();
-                }
-                Err(error) => {
-                    log::error!("could not open {}: {error}", root.display());
-                    cx.update(|_, cx| {
-                        crate::notices::error(t!("Could not open the project"), error, cx)
-                    })
-                    .ok();
-                }
-            }
+            // The welcome screen may say the project is opening (an Overleaf
+            // download's, `PickerEvent::Open`): the open has settled.
+            this.update(cx, |this, cx| this.set_busy(None, cx)).ok();
         }));
+    }
+
+    /// Open `root` with lattice-core and show it, or say why it could not be.
+    async fn enter_opened(
+        this: &gpui::WeakEntity<Self>,
+        root: PathBuf,
+        closing: Option<PathBuf>,
+        cx: &mut gpui::AsyncWindowContext,
+    ) {
+        match crate::project::open(root.clone(), cx).await {
+            Ok(project) => {
+                this.update_in(cx, |this, window, cx| {
+                    if this.overlay_writing(cx) {
+                        return;
+                    }
+                    this.set_project(project, window, cx);
+                    if let Some(closing) = closing {
+                        this.projects.retain(|p| p.root != closing);
+                    }
+                })
+                .ok();
+            }
+            Err(error) => {
+                log::error!("could not open {}: {error}", root.display());
+                cx.update(|_, cx| {
+                    crate::notices::error(t!("Could not open the project"), error, cx)
+                })
+                .ok();
+            }
+        }
     }
 
     /// Take `root` out of this window. The one shown goes once its right-hand

@@ -18,14 +18,6 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] The app updater's release channel (it ships off) and the outdated-version hint on a failure's notice.
 
-- [ ] Overleaf: the live channel joining again when the network comes back (it does when the window comes forward).
-
-- [ ] Overleaf: Review changes' "Could not render these changes" state.
-
-- [ ] Overleaf: the "Opening the Overleaf project…" transition when a downloaded project opens.
-
-- [ ] Overleaf: a compile after a resolved conflict (the watcher's build stands in).
-
 - [ ] Papers' hover prewarm of a paper the pointer is likely to open.
 
 - [ ] Papers' notice when the browser could not open an article (GPUI's opener reports no failure).
