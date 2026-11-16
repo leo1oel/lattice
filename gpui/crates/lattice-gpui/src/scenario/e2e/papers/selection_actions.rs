@@ -86,6 +86,11 @@ impl Run {
         reader: &Entity<PaperReader>,
     ) -> Result<()> {
         let Some(view) = cx.update(|cx| reader.read(cx).pdf_view()) else {
+            steps.check(
+                "the original PDF is shown for its selection actions",
+                false,
+                json!({}),
+            );
             return Ok(());
         };
         let notices = cx.update(crate::notices::install);
@@ -123,6 +128,11 @@ impl Run {
                 self.island_shot(cx, "paper-selection-actions-pdf").await?;
             }
             let Some(at) = cx.update(|cx| reader.read(cx).quote_action_center(action)) else {
+                steps.check(
+                    "the PDF's selection pill offers the action to click",
+                    false,
+                    json!({ "action": format!("{action:?}"), "offered": offered }),
+                );
                 return Ok(());
             };
             self.click_at(cx, at)?;
@@ -193,6 +203,11 @@ impl Run {
                 .and_then(|document| document.read(cx).island().cloned())
         });
         let Some(island) = island else {
+            steps.check(
+                "the full text's island is up for its selection actions",
+                false,
+                json!({}),
+            );
             return Ok(());
         };
         let notices = cx.update(crate::notices::install);
