@@ -41,6 +41,25 @@ impl EditorPanel {
         // popover's under the pointer; in a popover, bare on the popover's
         // own surface; in the rail, the panel's ground inside a hairline
         // that firms under the pointer.
+        // Beside its line or in the rail, the card is what the walk focuses
+        // (`walk.rs`); in a popover its pip is.
+        let card = match variant {
+            CardVariant::Wide | CardVariant::Rail => {
+                let focus = self.margin_focus(&item.key, variant == CardVariant::Rail, cx);
+                // Beside its line, the ring joins the card's own shadow.
+                let mut ring = lattice_ui::components::focus_ring(&palette, palette.panel);
+                if variant == CardVariant::Wide {
+                    ring.extend(Elevation::Raised.shadows(&palette));
+                }
+                card.track_focus(&focus)
+                    .when(
+                        variant == CardVariant::Wide && self.margin_roving(&item.key),
+                        |card| card.tab_index(0),
+                    )
+                    .focus_visible(move |style| style.shadow(ring.clone()))
+            }
+            CardVariant::Popover => card,
+        };
         let card = match variant {
             CardVariant::Wide => {
                 let lifted = Elevation::Popover.shadows(&palette);

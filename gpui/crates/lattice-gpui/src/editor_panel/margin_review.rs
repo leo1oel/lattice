@@ -26,7 +26,9 @@
 //! The window's mode (View › Margin review in the Tauri app, the palette's
 //! "Margin review: …" here) is Auto, Markers only or Off. A card's actions
 //! go out as the suggestion card's do (`ReviewAction`); replying opens the
-//! thread's composer in the collaboration panel.
+//! thread's composer in the collaboration panel. From a pip or card with
+//! focus, J and K (or the arrows) walk the items and Escape steps back out
+//! (`walk.rs`); "Review here" starts the walk at the caret (`here.rs`).
 
 use std::{
     cell::{Cell, RefCell},
@@ -54,6 +56,9 @@ use super::{
 
 mod cards;
 mod here;
+mod walk;
+
+pub use walk::{LeaveReviewItem, MARGIN_CONTEXT, NextReviewItem, PreviousReviewItem};
 
 /// The card's width, the gap before it and the lane after it.
 const CARD: Pixels = px(268.);
@@ -128,6 +133,10 @@ pub(super) struct MarginState {
     popover_height: Rc<Cell<Pixels>>,
     /// The lines of room under the last line (`ROOM_LAYER`), as last set.
     room: u32,
+    /// Each item's focus handles, by key (`walk.rs`), and the item focus
+    /// was last put on, which a Tab from outside reaches.
+    focus: RefCell<HashMap<String, gpui::FocusHandle>>,
+    focus_key: Option<String>,
     /// The layout last drawn, for scripted checks.
     pub layout: Option<MarginLayout>,
     /// Each item's card or pip bounds as last drawn, for scripted checks.
@@ -249,7 +258,29 @@ impl EditorPanel {
         let content_left = gutter;
         let painted = self.margin.painted.clone();
         painted.borrow_mut().clear();
-        let mut layer = div().absolute().top_0().left_0().size_full();
+        // Handles of items gone go with them.
+        {
+            let items = &self.margin.items;
+            self.margin.focus.borrow_mut().retain(|id, _| {
+                let key = id.strip_prefix("rail:").unwrap_or(id);
+                items.iter().any(|item| item.key == key)
+            });
+        }
+        let mut layer = div()
+            .absolute()
+            .top_0()
+            .left_0()
+            .size_full()
+            .key_context(MARGIN_CONTEXT)
+            .on_action(
+                cx.listener(|this, _: &NextReviewItem, window, cx| this.margin_walk(1, window, cx)),
+            )
+            .on_action(cx.listener(|this, _: &PreviousReviewItem, window, cx| {
+                this.margin_walk(-1, window, cx)
+            }))
+            .on_action(
+                cx.listener(|this, _: &LeaveReviewItem, window, cx| this.margin_leave(window, cx)),
+            );
         // Each item's line: its top and height in the view.
         let lines: Vec<(MarginItem, Pixels, Pixels)> = self
             .margin
@@ -485,12 +516,18 @@ impl EditorPanel {
         let hover = cx.weak_entity();
         let painted = self.margin.painted.clone();
         let painted_key = item.key.clone();
+        let focus = self.margin_focus(&item.key, false, cx);
+        let ring = lattice_ui::components::focus_ring(&palette, palette.panel);
         div()
             .id(SharedString::from(format!("margin-pip-{}", item.key)))
+            .track_focus(&focus)
+            .when(self.margin_roving(&item.key), |pip| pip.tab_index(0))
+            .focus_visible(move |style| style.shadow(ring.clone()))
             .absolute()
             .left(at.x - px(4.))
             .top(at.y - px(4.))
             .p(px(4.))
+            .rounded(px(9.))
             .cursor_pointer()
             .tooltip(move |_, cx| {
                 lattice_ui::components::LatticeTooltip::view(
@@ -539,6 +576,25 @@ impl EditorPanel {
                     ),
             )
             .into_any_element()
+    }
+
+    /// Whether `key` is the item a Tab from outside the layer reaches: the
+    /// one focus was last on, else the first (the Tauri layer's roving tab
+    /// stop).
+    fn margin_roving(&self, key: &str) -> bool {
+        let last = self
+            .margin
+            .focus_key
+            .as_deref()
+            .filter(|last| self.margin.items.iter().any(|item| item.key == *last));
+        match last {
+            Some(last) => last == key,
+            None => self
+                .margin
+                .items
+                .first()
+                .is_some_and(|item| item.key == key),
+        }
     }
 
     fn margin_toggle(&mut self, key: String, layout: MarginLayout, cx: &mut Context<Self>) {

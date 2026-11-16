@@ -119,6 +119,44 @@ fn default_bindings() -> Vec<KeyBinding> {
             crate::editor_panel::latex_format::WrapIfFalse,
             Some(LATEX_FORMAT_KEYS),
         ),
+        // Margin review's walk, from a pip or card that has focus
+        // (`overleaf-margin-review.tsx`'s `walk`): J or ↓ on, K or ↑ back,
+        // Escape back out.
+        KeyBinding::new(
+            "j",
+            crate::editor_panel::NextReviewItem,
+            Some(crate::editor_panel::MARGIN_CONTEXT),
+        ),
+        KeyBinding::new(
+            "shift-j",
+            crate::editor_panel::NextReviewItem,
+            Some(crate::editor_panel::MARGIN_CONTEXT),
+        ),
+        KeyBinding::new(
+            "down",
+            crate::editor_panel::NextReviewItem,
+            Some(crate::editor_panel::MARGIN_CONTEXT),
+        ),
+        KeyBinding::new(
+            "k",
+            crate::editor_panel::PreviousReviewItem,
+            Some(crate::editor_panel::MARGIN_CONTEXT),
+        ),
+        KeyBinding::new(
+            "shift-k",
+            crate::editor_panel::PreviousReviewItem,
+            Some(crate::editor_panel::MARGIN_CONTEXT),
+        ),
+        KeyBinding::new(
+            "up",
+            crate::editor_panel::PreviousReviewItem,
+            Some(crate::editor_panel::MARGIN_CONTEXT),
+        ),
+        KeyBinding::new(
+            "escape",
+            crate::editor_panel::LeaveReviewItem,
+            Some(crate::editor_panel::MARGIN_CONTEXT),
+        ),
         KeyBinding::new(
             m!("alt-k"),
             crate::editor_panel::citation_card::ShowCitationCard,
