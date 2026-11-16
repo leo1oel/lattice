@@ -1,0 +1,1539 @@
+diff --git a/gpui-fast/crates/gpui/src/fast/backdrop.rs b/gpui-fast/crates/gpui/src/fast/backdrop.rs
+new file mode 100644
+index 000000000..ede94cedc
+--- /dev/null
++++ b/gpui-fast/crates/gpui/src/fast/backdrop.rs
+@@ -0,0 +1,208 @@
++//! Backdrop blur: CSS's `backdrop-filter: blur(r)`, for the frosted popovers
++//! that hover over a page and let it show through, blurred.
++//!
++//! `Styled::backdrop_blur(radius, fallback)` asks for it on an element, and
++//! `Window::paint_backdrop_blur` paints it: before the element's shadows and
++//! background, the renderer blurs what is already drawn under the element's
++//! rounded rectangle, as a Gaussian whose standard deviation is `radius` (as
++//! CSS's is), and draws that back clipped to the rectangle and the content
++//! mask. The element's own background then goes over it, translucent.
++//!
++//! The scene carries a backdrop as a polychrome sprite whose texture id is
++//! [`BACKDROP_TEXTURE_INDEX`], an index no atlas allocates, as it carries
++//! scroll layer tiles and rounded clip groups. So everything that copies,
++//! replays, translates, scales, splits or reorders a scene's primitives (a
++//! retained view, a scroll layer's tiles, a rounded clip group, the window's
++//! composition surfaces) carries the backdrop along with the rest, at its
++//! draw order, and no primitive's layout changes. The sprite's `tile` holds
++//! what a sprite has no field for: the blur's standard deviation in device
++//! pixels (`padding`, as `f32` bits) and the fallback colour (`bounds`, the
++//! four `Rgba` channels as `f32` bits).
++//!
++//! The fallback colour is what a renderer fills the rounded rectangle with
++//! where it cannot read what is under it: a surface drawn over native views
++//! (whose pixels are not GPUI's), a scroll layer's tile (which holds only a
++//! piece of its layer), a renderer without a backdrop pass. A popover there
++//! is solid rather than showing its 3% of page unblurred, which reads as
++//! ghost text. Inside a `Window::paint_layer` everything shares one draw
++//! order and sprites draw after quads, so a backdrop painted there would
++//! cover the element it is under; the fallback is painted there instead, as
++//! a quad.
++
++use schemars::JsonSchema;
++use serde::{Deserialize, Serialize};
++
++use crate::{
++    AtlasTextureId, AtlasTextureKind, AtlasTile, Bounds, ContentMask, Corners, DevicePixels, Hsla,
++    Pixels, PolychromeSprite, Primitive, Rgba, ScaledPixels, Style, TileId, Window, point, quad,
++    size,
++};
++
++/// The texture index of a backdrop sprite. Atlases allocate indices from 0,
++/// scroll layer tiles take `0xF000_0000..0xF100_0000` and rounded clip groups
++/// the indices above those.
++pub const BACKDROP_TEXTURE_INDEX: u32 = 0xFF00_0000;
++
++/// An element's backdrop blur, as `Styled::backdrop_blur` sets it.
++#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
++pub struct BackdropBlur {
++    /// The Gaussian's standard deviation, CSS's `blur()` radius.
++    pub radius: Pixels,
++    /// What the element's rounded rectangle is filled with where the renderer
++    /// cannot read what is under it, usually the element's background made
++    /// opaque.
++    pub fallback: Hsla,
++}
++
++/// A backdrop the scene holds, decoded from its sprite, for a renderer.
++#[derive(Clone, Copy, Debug, PartialEq)]
++pub struct Backdrop {
++    /// The rectangle blurred and drawn back, in device pixels.
++    pub bounds: Bounds<ScaledPixels>,
++    /// Where it may draw.
++    pub content_mask: ContentMask<ScaledPixels>,
++    /// The rectangle's corner radii.
++    pub corner_radii: Corners<ScaledPixels>,
++    /// The Gaussian's standard deviation, in device pixels.
++    pub sigma: ScaledPixels,
++    /// What fills the rectangle where what is under it cannot be read.
++    pub fallback: Rgba,
++    /// The element's opacity.
++    pub opacity: f32,
++}
++
++/// Whether sprites of `texture` are backdrops.
++pub fn is_backdrop_texture(texture: AtlasTextureId) -> bool {
++    texture.index == BACKDROP_TEXTURE_INDEX && texture.kind == AtlasTextureKind::Polychrome
++}
++
++impl Backdrop {
++    /// The backdrop `sprite` stands for, if it is one.
++    pub fn decode(sprite: &PolychromeSprite) -> Option<Self> {
++        if !is_backdrop_texture(sprite.tile.texture_id) {
++            return None;
++        }
++        let channels = sprite.tile.bounds;
++        let channel = |bits: DevicePixels| f32::from_bits(bits.0 as u32);
++        Some(Self {
++            bounds: sprite.bounds,
++            content_mask: sprite.content_mask,
++            corner_radii: sprite.corner_radii,
++            sigma: ScaledPixels(f32::from_bits(sprite.tile.padding)),
++            fallback: Rgba {
++                r: channel(channels.origin.x),
++                g: channel(channels.origin.y),
++                b: channel(channels.size.width),
++                a: channel(channels.size.height),
++            },
++            opacity: sprite.opacity,
++        })
++    }
++
++    /// The sprite the scene carries this backdrop as.
++    pub fn sprite(&self) -> PolychromeSprite {
++        let channel = |value: f32| DevicePixels(value.to_bits() as i32);
++        PolychromeSprite {
++            order: 0,
++            pad: 0,
++            tile: AtlasTile {
++                texture_id: AtlasTextureId {
++                    index: BACKDROP_TEXTURE_INDEX,
++                    kind: AtlasTextureKind::Polychrome,
++                },
++                tile_id: TileId(0),
++                padding: self.sigma.0.to_bits(),
++                bounds: Bounds {
++                    origin: point(channel(self.fallback.r), channel(self.fallback.g)),
++                    size: size(channel(self.fallback.b), channel(self.fallback.a)),
++                },
++            },
++            grayscale: false.into(),
++            opacity: self.opacity,
++            bounds: self.bounds,
++            content_mask: self.content_mask,
++            corner_radii: self.corner_radii,
++        }
++    }
++}
++
++/// Whether `primitive` is a backdrop: something a scroll layer must draw
++/// over its composited tiles rather than into them, as it does a path.
++pub(crate) fn is_backdrop(primitive: &Primitive) -> bool {
++    matches!(primitive, Primitive::PolychromeSprite(sprite) if is_backdrop_texture(sprite.tile.texture_id))
++}
++
++/// Scales a backdrop's blur with the element transform that scales its
++/// bounds (`fast::scale`); other sprites are left as they are.
++pub(crate) fn scale_sigma(sprite: &mut PolychromeSprite, scale: f32) {
++    if is_backdrop_texture(sprite.tile.texture_id) {
++        let sigma = f32::from_bits(sprite.tile.padding) * scale;
++        sprite.tile.padding = sigma.to_bits();
++    }
++}
++
++/// Forwarded to by `Style::paint` before the element's shadows and
++/// background.
++pub(crate) fn paint(
++    style: &Style,
++    bounds: Bounds<Pixels>,
++    corner_radii: Corners<Pixels>,
++    window: &mut Window,
++) {
++    if let Some(blur) = style.backdrop_blur {
++        window.paint_backdrop_blur(bounds, corner_radii, blur);
++    }
++}
++
++impl Window {
++    /// Blurs what is painted under `bounds` so far by `blur.radius` (CSS's
++    /// `backdrop-filter: blur()`), drawn back inside its rounded corners and
++    /// the current content mask. Paint the element's translucent background
++    /// over it. Where the renderer cannot read what is under it, the
++    /// rectangle is filled with `blur.fallback` instead.
++    ///
++    /// This method should only be called as part of the paint phase of
++    /// element drawing.
++    pub fn paint_backdrop_blur(
++        &mut self,
++        bounds: Bounds<Pixels>,
++        corner_radii: Corners<Pixels>,
++        blur: BackdropBlur,
++    ) {
++        self.invalidator.debug_assert_paint();
++        if bounds.is_empty() {
++            return;
++        }
++        let opacity = self.element_opacity();
++        // Only Metal draws backdrops; elsewhere, and where every primitive
++        // shares one draw order, the fallback is an ordinary quad.
++        if !cfg!(any(target_os = "macos", target_os = "ios"))
++            || self.next_frame.scene.in_layer()
++            || blur.radius <= Pixels::ZERO
++        {
++            self.paint_quad(quad(
++                bounds,
++                corner_radii,
++                blur.fallback,
++                crate::Edges::default(),
++                crate::transparent_black(),
++                Default::default(),
++            ));
++            return;
++        }
++        let scale_factor = self.scale_factor();
++        let backdrop = Backdrop {
++            bounds: self.snap_bounds(bounds),
++            content_mask: self.snapped_content_mask(),
++            corner_radii: corner_radii.scale(scale_factor),
++            sigma: blur.radius.scale(scale_factor),
++            fallback: blur.fallback.to_rgb(),
++            opacity,
++        };
++        self.next_frame.scene.insert_primitive(backdrop.sprite());
++    }
++}
++
++#[cfg(test)]
++#[path = "backdrop_tests.rs"]
++mod tests;
+diff --git a/gpui-fast/crates/gpui/src/fast/backdrop_tests.rs b/gpui-fast/crates/gpui/src/fast/backdrop_tests.rs
+new file mode 100644
+index 000000000..b1022a167
+--- /dev/null
++++ b/gpui-fast/crates/gpui/src/fast/backdrop_tests.rs
+@@ -0,0 +1,239 @@
++use super::*;
++use crate::{
++    BoxShadow, Hsla, Point, PrimitiveBatch, Scene, TestAppContext, VisualTestContext, canvas, div,
++    fast::scale::SceneScale, hsla, prelude::*, px, scaled,
++};
++
++fn bounds(x: f32, y: f32, w: f32, h: f32) -> Bounds<ScaledPixels> {
++    Bounds {
++        origin: point(ScaledPixels(x), ScaledPixels(y)),
++        size: size(ScaledPixels(w), ScaledPixels(h)),
++    }
++}
++
++fn backdrop() -> Backdrop {
++    Backdrop {
++        bounds: bounds(100., 40., 200., 120.),
++        content_mask: ContentMask {
++            bounds: bounds(0., 0., 1000., 1000.),
++        },
++        corner_radii: Corners::all(ScaledPixels(20.)),
++        sigma: ScaledPixels(28.),
++        fallback: Rgba {
++            r: 0.25,
++            g: 0.5,
++            b: 0.75,
++            a: 1.,
++        },
++        opacity: 0.8,
++    }
++}
++
++const PAGE: Hsla = Hsla {
++    h: 0.,
++    s: 1.,
++    l: 0.5,
++    a: 1.,
++};
++
++fn raised() -> Hsla {
++    hsla(0.6, 0.2, 0.95, 1.)
++}
++
++/// A page at the top left, and a frosted card over part of it.
++struct Card {
++    scale: f32,
++}
++
++impl crate::Render for Card {
++    fn render(&mut self, _: &mut Window, _: &mut crate::Context<Self>) -> impl IntoElement {
++        let card = div()
++            .w(px(100.))
++            .h(px(60.))
++            .rounded(px(10.))
++            .shadow(vec![BoxShadow {
++                color: hsla(0., 0., 0., 0.2),
++                offset: point(px(0.), px(4.)),
++                blur_radius: px(12.),
++                spread_radius: px(0.),
++                inset: false,
++            }])
++            .bg(raised().opacity(0.97))
++            .backdrop_blur(px(14.), raised());
++        div()
++            .size_full()
++            .child(
++                div()
++                    .absolute()
++                    .top(px(0.))
++                    .left(px(0.))
++                    .w(px(200.))
++                    .h(px(100.))
++                    .bg(PAGE),
++            )
++            .child(
++                div()
++                    .absolute()
++                    .top(px(20.))
++                    .left(px(50.))
++                    .child(scaled(card).scale(self.scale).origin(point(0., 0.))),
++            )
++    }
++}
++
++/// What the rendered frame's batches draw, in order: `"page"` and `"card"`
++/// for the two backgrounds, `"shadow"`, `"backdrop"`, and the backdrops the
++/// scene holds.
++fn drawn(cx: &mut VisualTestContext) -> (Vec<&'static str>, Vec<Backdrop>, f32) {
++    cx.update(|window, _| {
++        let scene: &Scene = &window.rendered_frame.scene;
++        let mut drawn = Vec::new();
++        for batch in scene.batches() {
++            match batch {
++                PrimitiveBatch::Quads(range) => {
++                    for quad in &scene.quads[range] {
++                        let background = quad.background.solid;
++                        drawn.push(if background == PAGE { "page" } else { "card" });
++                    }
++                }
++                PrimitiveBatch::Shadows(_) => drawn.push("shadow"),
++                PrimitiveBatch::PolychromeSprites { texture_id, .. }
++                    if is_backdrop_texture(texture_id) =>
++                {
++                    drawn.push("backdrop")
++                }
++                _ => {}
++            }
++        }
++        let backdrops = scene
++            .polychrome_sprites
++            .iter()
++            .filter_map(Backdrop::decode)
++            .collect();
++        (drawn, backdrops, window.scale_factor())
++    })
++}
++
++#[test]
++fn a_backdrop_round_trips_through_its_sprite() {
++    let backdrop = backdrop();
++    let sprite = backdrop.sprite();
++    assert!(is_backdrop_texture(sprite.tile.texture_id));
++    assert_eq!(Backdrop::decode(&sprite), Some(backdrop));
++    // An atlas sprite is not a backdrop.
++    let mut atlas = sprite;
++    atlas.tile.texture_id.index = 3;
++    assert_eq!(Backdrop::decode(&atlas), None);
++}
++
++#[test]
++fn an_element_scale_scales_the_blur_with_the_bounds() {
++    let scale = SceneScale::about(
++        0.5,
++        point(ScaledPixels(100.), ScaledPixels(40.)),
++        Point::default(),
++        bounds(0., 0., 1000., 1000.),
++    );
++    let mut primitive = Primitive::PolychromeSprite(backdrop().sprite());
++    scale.map_primitive(&mut primitive);
++    let Primitive::PolychromeSprite(sprite) = primitive else {
++        unreachable!()
++    };
++    let scaled = Backdrop::decode(&sprite).unwrap();
++    assert_eq!(scaled.bounds, bounds(100., 40., 100., 60.));
++    assert_eq!(scaled.corner_radii, Corners::all(ScaledPixels(10.)));
++    assert_eq!(scaled.sigma, ScaledPixels(14.));
++    // What is not a length is left alone.
++    assert_eq!(scaled.fallback, backdrop().fallback);
++    assert_eq!(scaled.opacity, backdrop().opacity);
++}
++
++#[gpui::test]
++fn a_backdrop_is_drawn_over_what_is_under_it_and_under_its_element(cx: &mut TestAppContext) {
++    let (_, cx) = cx.add_window_view(|_, _| Card { scale: 1. });
++    cx.run_until_parked();
++    let (drawn, backdrops, scale_factor) = drawn(cx);
++    // The page is drawn, then blurred, then the card's shadow and its
++    // translucent background go over the blur.
++    assert_eq!(drawn, ["page", "backdrop", "shadow", "card"]);
++    let [backdrop] = backdrops[..] else {
++        panic!("one backdrop, got {backdrops:?}");
++    };
++    let device = |x: f32| x * scale_factor;
++    assert_eq!(
++        backdrop.bounds,
++        bounds(device(50.), device(20.), device(100.), device(60.))
++    );
++    assert_eq!(
++        backdrop.corner_radii,
++        Corners::all(ScaledPixels(device(10.)))
++    );
++    // CSS's blur radius is the Gaussian's standard deviation, in CSS pixels.
++    assert_eq!(backdrop.sigma, ScaledPixels(device(14.)));
++    assert_eq!(backdrop.fallback, raised().to_rgb());
++    assert_eq!(backdrop.opacity, 1.);
++}
++
++#[gpui::test]
++fn a_backdrop_follows_the_element_scale_and_the_interface_zoom(cx: &mut TestAppContext) {
++    let (view, cx) = cx.add_window_view(|_, _| Card { scale: 0.5 });
++    cx.run_until_parked();
++    let (_, backdrops, scale_factor) = drawn(cx);
++    let device = |x: f32| x * scale_factor;
++    assert_eq!(
++        backdrops[0].bounds,
++        bounds(device(50.), device(20.), device(50.), device(30.))
++    );
++    assert_eq!(backdrops[0].sigma, ScaledPixels(device(7.)));
++
++    // A zoomed window draws everything larger, the blur included.
++    cx.update(|window, cx| window.set_interface_zoom(1.5, cx));
++    view.update(cx, |view, cx| {
++        view.scale = 1.;
++        cx.notify();
++    });
++    cx.run_until_parked();
++    let (_, backdrops, zoomed) = drawn(cx);
++    assert_eq!(zoomed, scale_factor * 1.5);
++    assert_eq!(backdrops[0].sigma, ScaledPixels(14. * zoomed));
++    assert_eq!(backdrops[0].bounds.size.width, ScaledPixels(100. * zoomed));
++}
++
++#[gpui::test]
++fn inside_a_layer_a_backdrop_is_its_fallback_quad(cx: &mut TestAppContext) {
++    struct Layered;
++    impl crate::Render for Layered {
++        fn render(&mut self, _: &mut Window, _: &mut crate::Context<Self>) -> impl IntoElement {
++            canvas(
++                |_, _, _| {},
++                |bounds, _, window, _| {
++                    window.paint_layer(bounds, |window| {
++                        window.paint_backdrop_blur(
++                            Bounds {
++                                origin: bounds.origin,
++                                size: size(px(40.), px(30.)),
++                            },
++                            Corners::all(px(4.)),
++                            BackdropBlur {
++                                radius: px(14.),
++                                fallback: raised(),
++                            },
++                        );
++                    });
++                },
++            )
++            .size_full()
++        }
++    }
++
++    let (_, cx) = cx.add_window_view(|_, _| Layered);
++    cx.run_until_parked();
++    cx.update(|window, _| {
++        let scene = &window.rendered_frame.scene;
++        assert!(scene.polychrome_sprites.is_empty());
++        let [quad] = &scene.quads[..] else {
++            panic!("one quad, got {:?}", scene.quads);
++        };
++        assert_eq!(quad.background.solid, raised());
++    });
++}
+diff --git a/gpui-fast/crates/gpui/src/fast/layers/overlay.rs b/gpui-fast/crates/gpui/src/fast/layers/overlay.rs
+index 5cfda71c8..7e9569f39 100644
+--- a/gpui-fast/crates/gpui/src/fast/layers/overlay.rs
++++ b/gpui-fast/crates/gpui/src/fast/layers/overlay.rs
+@@ -11,7 +11,9 @@
+ //! overlaps; the tiles are rasterized from the rest. Each composited frame
+ //! draws the overlay over the tiles, in drawing order, at the layer's
+ //! translation: that is how the window draws it without a layer, path
+-//! rasterization included.
++//! rasterization included. A backdrop (`fast::backdrop`) goes to the overlay
++//! as a path does: it blurs the pixels under it, which a tile, a piece of
++//! its layer, does not hold.
+ //!
+ //! The pixels come out as without a layer: on any pixel, the primitives
+ //! drawing over it are drawn in the same order. One left in the tiles was
+@@ -67,9 +69,10 @@ fn rank(primitive: &Primitive) -> u8 {
+ pub(crate) fn split(
+     operations: &[PaintOperation],
+ ) -> Option<(Vec<PaintOperation>, Vec<Primitive>)> {
+-    let painted_path = operations
+-        .iter()
+-        .any(|operation| matches!(operation, PaintOperation::Primitive(Primitive::Path(_))));
++    let painted_path = operations.iter().any(|operation| {
++        matches!(operation, PaintOperation::Primitive(primitive)
++            if matches!(primitive, Primitive::Path(_)) || crate::fast::backdrop::is_backdrop(primitive))
++    });
+     if !painted_path {
+         return None;
+     }
+@@ -101,6 +104,7 @@ pub(crate) fn split(
+     for ((_, _, ix), primitive) in sequence {
+         let reach = reach(primitive);
+         if matches!(primitive, Primitive::Path(_))
++            || crate::fast::backdrop::is_backdrop(primitive)
+             || union.is_some_and(|union| union.intersects(&reach))
+                 && reaches.iter().any(|earlier| earlier.intersects(&reach))
+         {
+diff --git a/gpui-fast/crates/gpui/src/fast/mod.rs b/gpui-fast/crates/gpui/src/fast/mod.rs
+index 9fa70e445..791056959 100644
+--- a/gpui-fast/crates/gpui/src/fast/mod.rs
++++ b/gpui-fast/crates/gpui/src/fast/mod.rs
+@@ -15,6 +15,7 @@
+ //! root one by one, in `gpui.rs`.
+ 
+ pub(crate) mod a11y;
++pub(crate) mod backdrop;
+ pub(crate) mod composition;
+ pub(crate) mod dependencies;
+ pub(crate) mod dispatch;
+diff --git a/gpui-fast/crates/gpui/src/fast/scale.rs b/gpui-fast/crates/gpui/src/fast/scale.rs
+index cc264f985..30a094936 100644
+--- a/gpui-fast/crates/gpui/src/fast/scale.rs
++++ b/gpui-fast/crates/gpui/src/fast/scale.rs
+@@ -52,7 +52,7 @@ pub(crate) struct SceneScale {
+ impl SceneScale {
+     /// The scale by `scale` about `origin`, then moved by `offset`, inside
+     /// the content mask `clip`.
+-    fn about(
++    pub(crate) fn about(
+         scale: f32,
+         origin: Point<ScaledPixels>,
+         offset: Point<ScaledPixels>,
+@@ -127,7 +127,7 @@ impl SceneScale {
+         }
+     }
+ 
+-    fn map_primitive(&self, primitive: &mut Primitive) {
++    pub(crate) fn map_primitive(&self, primitive: &mut Primitive) {
+         match primitive {
+             Primitive::Shadow(shadow) => {
+                 shadow.bounds = self.map_bounds(shadow.bounds);
+@@ -170,6 +170,7 @@ impl SceneScale {
+                 sprite.bounds = self.map_bounds(sprite.bounds);
+                 self.map_mask(&mut sprite.content_mask);
+                 self.map_corners(&mut sprite.corner_radii);
++                crate::fast::backdrop::scale_sigma(sprite, self.scale);
+             }
+             Primitive::Surface(surface) => {
+                 surface.bounds = self.map_bounds(surface.bounds);
+diff --git a/gpui-fast/crates/gpui/src/gpui.rs b/gpui-fast/crates/gpui/src/gpui.rs
+index bd601548b..5f6bfbb82 100644
+--- a/gpui-fast/crates/gpui/src/gpui.rs
++++ b/gpui-fast/crates/gpui/src/gpui.rs
+@@ -124,6 +124,9 @@ pub use color::*;
+ pub use element::*;
+ pub use elements::*;
+ pub use executor::*;
++pub use fast::backdrop::{
++    BACKDROP_TEXTURE_INDEX, Backdrop, BackdropBlur, is_backdrop_texture,
++};
+ pub use fast::composition::{
+     ComposedScene, ComposedSceneLayer, CompositionSurfaceId, CompositionSurfaceKind,
+     PlatformCompositionSurface, PlatformCompositionSurfaceContent, PlatformSurfaceAttachment,
+diff --git a/gpui-fast/crates/gpui/src/scene.rs b/gpui-fast/crates/gpui/src/scene.rs
+index 22b0c4727..f61869b56 100644
+--- a/gpui-fast/crates/gpui/src/scene.rs
++++ b/gpui-fast/crates/gpui/src/scene.rs
+@@ -91,6 +91,11 @@ impl Scene {
+         self.paint_operations.push(PaintOperation::EndLayer);
+     }
+ 
++    /// Whether a layer is open, so that what is inserted shares its order.
++    pub(crate) fn in_layer(&self) -> bool {
++        !self.layer_stack.is_empty()
++    }
++
+     pub fn insert_primitive(&mut self, primitive: impl Into<Primitive>) {
+         let mut primitive = primitive.into();
+         crate::fast::scale::transform_primitive(self, &mut primitive);
+diff --git a/gpui-fast/crates/gpui/src/style.rs b/gpui-fast/crates/gpui/src/style.rs
+index a6eb102a7..2c297086c 100644
+--- a/gpui-fast/crates/gpui/src/style.rs
++++ b/gpui-fast/crates/gpui/src/style.rs
+@@ -291,6 +291,10 @@ pub struct Style {
+     /// Box shadow of the element
+     pub box_shadow: Vec<BoxShadow>,
+ 
++    /// The blur of what is painted under the element, CSS's
++    /// `backdrop-filter: blur()` (`fast::backdrop`)
++    pub backdrop_blur: Option<crate::BackdropBlur>,
++
+     /// The text style of this element
+     #[refineable]
+     pub text: TextStyleRefinement,
+@@ -713,6 +717,7 @@ impl Style {
+             .to_pixels(rem_size)
+             .clamp_radii_for_quad_size(bounds.size);
+ 
++        crate::fast::backdrop::paint(self, bounds, corner_radii, window);
+         window.paint_drop_shadows(bounds, corner_radii, &self.box_shadow);
+ 
+         let background_color = self.background.as_ref().and_then(Fill::color);
+@@ -811,6 +816,7 @@ impl Default for Style {
+             border_style: BorderStyle::default(),
+             corner_radii: Corners::default(),
+             box_shadow: Default::default(),
++            backdrop_blur: None,
+             text: TextStyleRefinement::default(),
+             mouse_cursor: None,
+             opacity: None,
+diff --git a/gpui-fast/crates/gpui/src/styled.rs b/gpui-fast/crates/gpui/src/styled.rs
+index b8336f19d..4d800d6ad 100644
+--- a/gpui-fast/crates/gpui/src/styled.rs
++++ b/gpui-fast/crates/gpui/src/styled.rs
+@@ -757,6 +757,22 @@ pub trait Styled: Sized {
+         self
+     }
+ 
++    /// Blurs what is painted under this element by `radius` before its
++    /// background is painted, as CSS's `backdrop-filter: blur(radius)` does;
++    /// where the renderer cannot read what is under it, the element's
++    /// rounded rectangle is filled with `fallback` instead.
++    fn backdrop_blur(
++        mut self,
++        radius: impl Into<crate::Pixels>,
++        fallback: impl Into<Hsla>,
++    ) -> Self {
++        self.style().backdrop_blur = Some(crate::BackdropBlur {
++            radius: radius.into(),
++            fallback: fallback.into(),
++        });
++        self
++    }
++
+     /// Sets the grid columns of this element.
+     fn grid_cols(mut self, cols: u16) -> Self {
+         self.style().grid_cols = Some(GridTemplate {
+diff --git a/gpui-fast/crates/gpui_apple/src/fast/backdrop.metal b/gpui-fast/crates/gpui_apple/src/fast/backdrop.metal
+new file mode 100644
+index 000000000..ec62a7f8b
+--- /dev/null
++++ b/gpui-fast/crates/gpui_apple/src/fast/backdrop.metal
+@@ -0,0 +1,76 @@
++
++// Backdrop blur (`fast/backdrop.rs`): draws a blurred copy of the target's
++// pixels back inside a rounded rectangle, or fills the rectangle with the
++// backdrop's fallback colour. Appended to the upstream shaders by
++// `fast/rounded_clip_shader.rs`, which also gives both fragments the
++// enclosing rounded clips.
++
++struct BackdropUniforms {
++  // The rectangle, then the content mask, as left, top, right, bottom in
++  // device pixels.
++  float4 bounds;
++  float4 clip;
++  // Top left, top right, bottom right, bottom left.
++  float4 radii;
++  float4 fallback;
++  float2 viewport;
++  // Where the blurred texture's first texel is in the target.
++  float2 source_origin;
++  float opacity;
++  float padding[3];
++};
++
++struct BackdropVarying {
++  float4 position [[position]];
++};
++
++vertex BackdropVarying backdrop_vertex(
++    uint vertex_id [[vertex_id]],
++    constant BackdropUniforms &uniforms [[buffer(0)]]) {
++  // Two triangles, (0, 1, 2) and (3, 4, 5), over the unit square.
++  float2 corner = float2(float(vertex_id == 1 || vertex_id == 4 || vertex_id == 5),
++                         float(vertex_id == 2 || vertex_id == 3 || vertex_id == 5));
++  float4 area = float4(max(uniforms.bounds.xy, uniforms.clip.xy),
++                       min(uniforms.bounds.zw, uniforms.clip.zw));
++  float2 pixel = mix(area.xy, area.zw, corner);
++  BackdropVarying out;
++  out.position = float4(pixel / uniforms.viewport * float2(2., -2.) + float2(-1., 1.), 0., 1.);
++  return out;
++}
++
++// How much of the pixel centred at `position` the rounded rectangle and the
++// content mask cover.
++float backdrop_coverage(float2 position, constant BackdropUniforms &uniforms) {
++  if (any(position < uniforms.clip.xy) || any(position > uniforms.clip.zw)) {
++    return 0.;
++  }
++  float2 half_size = (uniforms.bounds.zw - uniforms.bounds.xy) * 0.5;
++  float2 from_center = position - (uniforms.bounds.xy + half_size);
++  float radius = from_center.x < 0.
++      ? (from_center.y < 0. ? uniforms.radii.x : uniforms.radii.w)
++      : (from_center.y < 0. ? uniforms.radii.y : uniforms.radii.z);
++  radius = min(radius, min(half_size.x, half_size.y));
++  float2 corner = abs(from_center) - half_size + radius;
++  float distance = length(max(corner, 0.)) + min(max(corner.x, corner.y), 0.) - radius;
++  return saturate(0.5 - distance);
++}
++
++fragment float4 backdrop_blur_fragment(
++    BackdropVarying input [[stage_in]],
++    constant BackdropUniforms &uniforms [[buffer(0)]],
++    texture2d<float> blurred [[texture(0)]]) {
++  float coverage = backdrop_coverage(input.position.xy, uniforms) * uniforms.opacity;
++  uint2 texel = uint2(max(input.position.xy - uniforms.source_origin, float2(0.)));
++  texel = min(texel, uint2(blurred.get_width() - 1, blurred.get_height() - 1));
++  float4 color = blurred.read(texel);
++  // The target holds premultiplied colour; the pipeline blends straight.
++  float3 straight = color.a > 0. ? color.rgb / color.a : float3(0.);
++  return float4(straight, color.a * coverage);
++}
++
++fragment float4 backdrop_fill_fragment(
++    BackdropVarying input [[stage_in]],
++    constant BackdropUniforms &uniforms [[buffer(0)]]) {
++  float coverage = backdrop_coverage(input.position.xy, uniforms) * uniforms.opacity;
++  return float4(uniforms.fallback.rgb, uniforms.fallback.a * coverage);
++}
+diff --git a/gpui-fast/crates/gpui_apple/src/fast/backdrop.rs b/gpui-fast/crates/gpui_apple/src/fast/backdrop.rs
+new file mode 100644
+index 000000000..989102d63
+--- /dev/null
++++ b/gpui-fast/crates/gpui_apple/src/fast/backdrop.rs
+@@ -0,0 +1,438 @@
++//! Backdrop blur on Metal: the renderer's side of `gpui::fast::backdrop`,
++//! CSS's `backdrop-filter: blur()`.
++//!
++//! The scene carries a backdrop as a polychrome sprite with its own texture
++//! id, ordered like any other primitive, so it arrives here as a batch of
++//! its own after what is under it and before what goes over it. For each
++//! backdrop the frame's render pass is ended, the target's pixels under it,
++//! with a margin of three standard deviations, are copied into a scratch
++//! texture the size of that region and blurred into another by
++//! `MPSImageGaussianBlur` (clamping at the region's edges, so the blur does
++//! not darken toward them), and the pass is begun again, loading what it
++//! stored, to draw the blurred pixels back inside the backdrop's rounded
++//! rectangle and content mask (`backdrop.metal`).
++//!
++//! Where the target's pixels are not what the backdrop is over, its
++//! rectangle is filled with its fallback colour instead: an overlay surface
++//! drawn over native views (the pixels under it are the native views', not
++//! the surface's), a scroll layer's tile (a piece of its layer), a drawable
++//! the layer made framebuffer-only (not readable; the layer is asked for
++//! readable drawables from then on), or a device without Metal Performance
++//! Shaders.
++
++use std::{mem, ptr::NonNull};
++
++use anyhow::{Context as _, Result};
++use gpui::{Backdrop, DevicePixels, PolychromeSprite, Size};
++use objc2::{
++    msg_send,
++    rc::{Allocated, Retained},
++    runtime::{AnyClass, AnyObject, Bool, ProtocolObject},
++};
++use objc2_metal::{
++    MTLBlitCommandEncoder, MTLCommandBuffer, MTLCommandEncoder, MTLDevice, MTLLibrary, MTLOrigin,
++    MTLPixelFormat, MTLPrimitiveType, MTLRenderCommandEncoder, MTLRenderPipelineState, MTLSize,
++    MTLStorageMode, MTLTexture, MTLTextureDescriptor, MTLTextureUsage,
++};
++
++use crate::metal_renderer::{MetalRenderer, build_pipeline_state, new_command_encoder_for_texture};
++
++type Texture = Retained<ProtocolObject<dyn MTLTexture>>;
++type Encoder = Retained<ProtocolObject<dyn MTLRenderCommandEncoder>>;
++type Pipeline = Retained<ProtocolObject<dyn MTLRenderPipelineState>>;
++
++#[link(name = "MetalPerformanceShaders", kind = "framework")]
++unsafe extern "C" {
++    fn MPSSupportsMTLDevice(device: &ProtocolObject<dyn MTLDevice>) -> Bool;
++}
++
++/// `MPSImageEdgeModeClamp`: texels past the source's edge read as its edge.
++const EDGE_MODE_CLAMP: usize = 1;
++
++/// How many blur kernels, one per standard deviation, are kept.
++const MAX_KERNELS: usize = 8;
++
++/// The parameters `backdrop.metal` reads, in its `BackdropUniforms` layout.
++#[repr(C)]
++#[derive(Clone, Copy)]
++struct Uniforms {
++    bounds: [f32; 4],
++    clip: [f32; 4],
++    radii: [f32; 4],
++    fallback: [f32; 4],
++    viewport: [f32; 2],
++    source_origin: [f32; 2],
++    opacity: f32,
++    padding: [f32; 3],
++}
++
++/// The Metal performance shader kernel that blurs, by standard deviation.
++struct Kernel {
++    sigma: u32,
++    blur: Retained<AnyObject>,
++}
++
++/// The region of the target a backdrop samples, in whole device pixels.
++#[derive(Clone, Copy, Debug, PartialEq)]
++pub(crate) struct Region {
++    pub(crate) x: usize,
++    pub(crate) y: usize,
++    pub(crate) width: usize,
++    pub(crate) height: usize,
++}
++
++/// The renderer's backdrop state: the two pipelines, whether its target is
++/// what its backdrops are over, and the scratch textures and kernels it
++/// blurs with.
++pub(crate) struct Backdrops {
++    blur_pipeline: Pipeline,
++    fill_pipeline: Pipeline,
++    /// False for a renderer whose target is not what is under its backdrops:
++    /// an overlay surface over native views.
++    samples_target: bool,
++    /// True while scroll layer tiles are rasterized.
++    in_tiles: bool,
++    /// Whether the device runs Metal Performance Shaders, once asked.
++    supported: Option<bool>,
++    source: Option<Texture>,
++    blurred: Option<Texture>,
++    kernels: Vec<Kernel>,
++}
++
++impl Backdrops {
++    pub(crate) fn new(
++        device: &ProtocolObject<dyn MTLDevice>,
++        library: &ProtocolObject<dyn MTLLibrary>,
++    ) -> Result<Self> {
++        let format = MTLPixelFormat::BGRA8Unorm;
++        Ok(Self {
++            blur_pipeline: build_pipeline_state(
++                device,
++                library,
++                "backdrop_blur",
++                "backdrop_vertex",
++                "backdrop_blur_fragment",
++                format,
++            )?,
++            fill_pipeline: build_pipeline_state(
++                device,
++                library,
++                "backdrop_fill",
++                "backdrop_vertex",
++                "backdrop_fill_fragment",
++                format,
++            )?,
++            samples_target: true,
++            in_tiles: false,
++            supported: None,
++            source: None,
++            blurred: None,
++            kernels: Vec::new(),
++        })
++    }
++
++    /// Called for an overlay surface's renderer, which draws over native
++    /// views: its backdrops are filled.
++    pub(crate) fn fill_only(&mut self) {
++        self.samples_target = false;
++    }
++}
++
++/// Runs `f`, which rasterizes scroll layer tiles, with every backdrop filled.
++pub(crate) fn in_tiles<R>(
++    renderer: &mut MetalRenderer,
++    f: impl FnOnce(&mut MetalRenderer) -> R,
++) -> R {
++    let was = mem::replace(&mut renderer.fast_backdrop.in_tiles, true);
++    let result = f(renderer);
++    renderer.fast_backdrop.in_tiles = was;
++    result
++}
++
++/// Forwarded to for a batch of backdrop sprites by every loop that draws a
++/// frame's batches. Ends `encoder` to blur under each backdrop and returns
++/// the encoder that continues the pass; `rebind` restores what the loop had
++/// bound on its encoder (the rounded clips) on a new one.
++pub(crate) fn draw(
++    renderer: &mut MetalRenderer,
++    sprites: &[PolychromeSprite],
++    target: &ProtocolObject<dyn MTLTexture>,
++    viewport: Size<DevicePixels>,
++    command_buffer: &ProtocolObject<dyn MTLCommandBuffer>,
++    mut encoder: Encoder,
++    rebind: impl Fn(&ProtocolObject<dyn MTLRenderCommandEncoder>),
++) -> Result<Encoder> {
++    for backdrop in sprites.iter().filter_map(Backdrop::decode) {
++        let Some(region) = region(&backdrop, viewport) else {
++            continue;
++        };
++        let blurred = if can_sample(renderer, target) {
++            blur(
++                renderer,
++                &backdrop,
++                region,
++                target,
++                command_buffer,
++                &encoder,
++            )?
++        } else {
++            None
++        };
++        match blurred {
++            Some(blurred) => {
++                encoder = new_command_encoder_for_texture(command_buffer, target, viewport, None)?;
++                rebind(&encoder);
++                let origin = [region.x as f32, region.y as f32];
++                let uniforms = uniforms(&backdrop, viewport, origin);
++                encoder.setRenderPipelineState(&renderer.fast_backdrop.blur_pipeline);
++                // SAFETY: The texture slot is the one the fragment reads.
++                unsafe { encoder.setFragmentTexture_atIndex(Some(&blurred), 0) };
++                draw_rect(&encoder, &uniforms);
++            }
++            None => fill_one(renderer, &backdrop, viewport, &encoder),
++        }
++    }
++    Ok(encoder)
++}
++
++/// Fills each backdrop of `sprites` with its fallback colour, in `encoder`'s
++/// pass, for a target that never holds what is under a backdrop (a scroll
++/// layer's tile).
++pub(crate) fn fill(
++    renderer: &MetalRenderer,
++    sprites: &[PolychromeSprite],
++    viewport: Size<DevicePixels>,
++    encoder: &ProtocolObject<dyn MTLRenderCommandEncoder>,
++) {
++    for backdrop in sprites.iter().filter_map(Backdrop::decode) {
++        fill_one(renderer, &backdrop, viewport, encoder);
++    }
++}
++
++fn fill_one(
++    renderer: &MetalRenderer,
++    backdrop: &Backdrop,
++    viewport: Size<DevicePixels>,
++    encoder: &ProtocolObject<dyn MTLRenderCommandEncoder>,
++) {
++    let uniforms = uniforms(backdrop, viewport, [0., 0.]);
++    encoder.setRenderPipelineState(&renderer.fast_backdrop.fill_pipeline);
++    draw_rect(encoder, &uniforms);
++}
++
++/// Whether `target` holds what the backdrops drawn into it are over, and
++/// can be read.
++fn can_sample(renderer: &mut MetalRenderer, target: &ProtocolObject<dyn MTLTexture>) -> bool {
++    let state = &renderer.fast_backdrop;
++    if !state.samples_target || state.in_tiles {
++        return false;
++    }
++    if target.isFramebufferOnly() {
++        // A drawable is only readable when its layer was asked for that
++        // before handing it out; this frame fills, the next ones blur.
++        if let Some(layer) = &renderer.layer {
++            layer.setFramebufferOnly(false);
++        }
++        return false;
++    }
++    let device = renderer.device.clone();
++    *renderer
++        .fast_backdrop
++        .supported
++        .get_or_insert_with(|| device_blurs(&device))
++}
++
++/// Whether `device` runs Metal Performance Shaders, which blur.
++pub(crate) fn device_blurs(device: &ProtocolObject<dyn MTLDevice>) -> bool {
++    // SAFETY: The device is a live Metal device.
++    unsafe { MPSSupportsMTLDevice(device) }.as_bool()
++}
++
++/// The whole device pixels a backdrop samples: what of it is visible, grown
++/// by three standard deviations and cut to the viewport. `None` when none of
++/// it is visible.
++pub(crate) fn region(backdrop: &Backdrop, viewport: Size<DevicePixels>) -> Option<Region> {
++    let visible = backdrop.bounds.intersect(&backdrop.content_mask.bounds);
++    let (width, height) = (viewport.width.0 as f32, viewport.height.0 as f32);
++    let margin = (backdrop.sigma.0.max(0.) * 3.).ceil();
++    let left = (visible.left().0 - margin).floor().max(0.);
++    let top = (visible.top().0 - margin).floor().max(0.);
++    let right = (visible.right().0 + margin).ceil().min(width);
++    let bottom = (visible.bottom().0 + margin).ceil().min(height);
++    let shown = visible.size.width.0 > 0.
++        && visible.size.height.0 > 0.
++        && visible.left().0 < width
++        && visible.top().0 < height
++        && visible.right().0 > 0.
++        && visible.bottom().0 > 0.;
++    shown.then(|| Region {
++        x: left as usize,
++        y: top as usize,
++        width: (right - left) as usize,
++        height: (bottom - top) as usize,
++    })
++}
++
++/// What `backdrop.metal` draws with; `source_origin` is where the blurred
++/// texture's first texel lies in the target.
++fn uniforms(
++    backdrop: &Backdrop,
++    viewport: Size<DevicePixels>,
++    source_origin: [f32; 2],
++) -> Uniforms {
++    let b = backdrop.bounds;
++    let c = backdrop.content_mask.bounds;
++    let r = backdrop.corner_radii;
++    let f = backdrop.fallback;
++    Uniforms {
++        bounds: [b.left().0, b.top().0, b.right().0, b.bottom().0],
++        clip: [c.left().0, c.top().0, c.right().0, c.bottom().0],
++        radii: [
++            r.top_left.0,
++            r.top_right.0,
++            r.bottom_right.0,
++            r.bottom_left.0,
++        ],
++        fallback: [f.r, f.g, f.b, f.a],
++        viewport: [viewport.width.0 as f32, viewport.height.0 as f32],
++        source_origin,
++        opacity: backdrop.opacity,
++        padding: [0.; 3],
++    }
++}
++
++fn draw_rect(encoder: &ProtocolObject<dyn MTLRenderCommandEncoder>, uniforms: &Uniforms) {
++    let length = mem::size_of::<Uniforms>();
++    // SAFETY: Metal copies `length` bytes of the live uniforms into slot 0,
++    // which both stages read as `BackdropUniforms`, laid out alike.
++    unsafe {
++        encoder.setVertexBytes_length_atIndex(NonNull::from(uniforms).cast(), length, 0);
++        encoder.setFragmentBytes_length_atIndex(NonNull::from(uniforms).cast(), length, 0);
++        encoder.drawPrimitives_vertexStart_vertexCount(MTLPrimitiveType::Triangle, 0, 6);
++    }
++}
++
++/// Ends `encoder`, then copies `region` of `target` and blurs it. Returns
++/// the blurred texture, whose first texel is `region`'s top left corner, or
++/// `None`, with `encoder` still open, when there is nothing to blur with.
++fn blur(
++    renderer: &mut MetalRenderer,
++    backdrop: &Backdrop,
++    region: Region,
++    target: &ProtocolObject<dyn MTLTexture>,
++    command_buffer: &ProtocolObject<dyn MTLCommandBuffer>,
++    encoder: &ProtocolObject<dyn MTLRenderCommandEncoder>,
++) -> Result<Option<Texture>> {
++    let device = renderer.device.clone();
++    let format = target.pixelFormat();
++    let state = &mut renderer.fast_backdrop;
++    let (Some(source), Some(blurred), Some(kernel)) = (
++        scratch(&device, &mut state.source, region, format),
++        scratch(&device, &mut state.blurred, region, format),
++        kernel(&device, &mut state.kernels, backdrop.sigma.0),
++    ) else {
++        return Ok(None);
++    };
++
++    encoder.endEncoding();
++    let blit = command_buffer
++        .blitCommandEncoder()
++        .context("creating a backdrop's blit encoder")?;
++    // SAFETY: `region` lies within the target (it is cut to the viewport,
++    // the target's size) and `source` is exactly its size, in the target's
++    // pixel format.
++    unsafe {
++        blit.copyFromTexture_sourceSlice_sourceLevel_sourceOrigin_sourceSize_toTexture_destinationSlice_destinationLevel_destinationOrigin(
++            target,
++            0,
++            0,
++            MTLOrigin { x: region.x, y: region.y, z: 0 },
++            MTLSize { width: region.width, height: region.height, depth: 1 },
++            &source,
++            0,
++            0,
++            MTLOrigin { x: 0, y: 0, z: 0 },
++        );
++    }
++    blit.endEncoding();
++    // SAFETY: The kernel was made for this device; `source` is readable and
++    // `blurred` writable, both of one size and format.
++    unsafe {
++        let _: () = msg_send![
++            &*kernel,
++            encodeToCommandBuffer: command_buffer,
++            sourceTexture: &*source,
++            destinationTexture: &*blurred
++        ];
++    }
++    Ok(Some(blurred))
++}
++
++/// The scratch texture in `slot`, made again unless it is `region`'s size
++/// and `format`: the blur clamps at the texture's edges, so they must be the
++/// region's.
++fn scratch(
++    device: &ProtocolObject<dyn MTLDevice>,
++    slot: &mut Option<Texture>,
++    region: Region,
++    format: MTLPixelFormat,
++) -> Option<Texture> {
++    let fits = slot.as_ref().is_some_and(|texture| {
++        texture.width() == region.width
++            && texture.height() == region.height
++            && texture.pixelFormat() == format
++    });
++    if !fits {
++        let descriptor = MTLTextureDescriptor::new();
++        // SAFETY: The region is at least a pixel each way, and this
++        // describes a 2D texture.
++        unsafe {
++            descriptor.setWidth(region.width);
++            descriptor.setHeight(region.height);
++        }
++        descriptor.setPixelFormat(format);
++        descriptor.setUsage(MTLTextureUsage::ShaderRead | MTLTextureUsage::ShaderWrite);
++        descriptor.setStorageMode(MTLStorageMode::Private);
++        *slot = device.newTextureWithDescriptor(&descriptor);
++        if slot.is_none() {
++            log::error!("failed to allocate a {region:?} backdrop texture");
++        }
++    }
++    slot.clone()
++}
++
++/// The blur kernel for `sigma` device pixels, made on first use.
++fn kernel(
++    device: &ProtocolObject<dyn MTLDevice>,
++    kernels: &mut Vec<Kernel>,
++    sigma: f32,
++) -> Option<Retained<AnyObject>> {
++    let key = sigma.to_bits();
++    if let Some(kernel) = kernels.iter().find(|kernel| kernel.sigma == key) {
++        return Some(kernel.blur.clone());
++    }
++    let class = AnyClass::get(c"MPSImageGaussianBlur")?;
++    // SAFETY: `MPSImageGaussianBlur` is an `MPSUnaryImageKernel` whose
++    // designated initializer takes a device and a standard deviation in
++    // pixels; `edgeMode` is an `NSUInteger` property.
++    let blur: Retained<AnyObject> = unsafe {
++        let allocated: Allocated<AnyObject> = msg_send![class, alloc];
++        let blur: Option<Retained<AnyObject>> =
++            msg_send![allocated, initWithDevice: device, sigma: sigma];
++        let blur = blur?;
++        let _: () = msg_send![&*blur, setEdgeMode: EDGE_MODE_CLAMP];
++        blur
++    };
++    if kernels.len() >= MAX_KERNELS {
++        kernels.clear();
++    }
++    kernels.push(Kernel {
++        sigma: key,
++        blur: blur.clone(),
++    });
++    Some(blur)
++}
++
++#[cfg(test)]
++#[path = "backdrop_tests.rs"]
++mod tests;
+diff --git a/gpui-fast/crates/gpui_apple/src/fast/backdrop_tests.rs b/gpui-fast/crates/gpui_apple/src/fast/backdrop_tests.rs
+new file mode 100644
+index 000000000..a3e8d94d5
+--- /dev/null
++++ b/gpui-fast/crates/gpui_apple/src/fast/backdrop_tests.rs
+@@ -0,0 +1,187 @@
++//! Backdrops drawn by the headless renderer, read back pixel by pixel: the
++//! page under a backdrop blurred inside its rounded rectangle and nowhere
++//! else, without darkening at its edges, and the fallback colour where the
++//! renderer cannot read what is under it.
++
++use std::sync::Arc;
++
++use gpui::{
++    Backdrop, Bounds, ContentMask, Corners, DevicePixels, Hsla, Quad, Rgba, ScaledPixels, Scene,
++    Size, point, size,
++};
++use parking_lot::Mutex;
++
++use super::{device_blurs, region};
++use crate::metal_renderer::{InstanceBufferPool, MetalRenderer};
++
++const WIDTH: i32 = 200;
++const HEIGHT: i32 = 120;
++/// The page's stripes: this wide, black and white in turn.
++const STRIPE: f32 = 4.;
++
++fn sp(x: f32, y: f32, w: f32, h: f32) -> Bounds<ScaledPixels> {
++    Bounds {
++        origin: point(ScaledPixels(x), ScaledPixels(y)),
++        size: size(ScaledPixels(w), ScaledPixels(h)),
++    }
++}
++
++fn viewport() -> Size<DevicePixels> {
++    size(DevicePixels(WIDTH), DevicePixels(HEIGHT))
++}
++
++fn quad(bounds: Bounds<ScaledPixels>, color: Hsla) -> Quad {
++    Quad {
++        order: 0,
++        border_style: Default::default(),
++        bounds,
++        content_mask: ContentMask {
++            bounds: sp(0., 0., WIDTH as f32, HEIGHT as f32),
++        },
++        background: color.into(),
++        border_color: Default::default(),
++        corner_radii: Default::default(),
++        border_widths: Default::default(),
++    }
++}
++
++/// A backdrop at (40, 30), 120 × 60, with 20px corners and σ = 4.
++fn card() -> Backdrop {
++    Backdrop {
++        bounds: sp(40., 30., 120., 60.),
++        content_mask: ContentMask {
++            bounds: sp(0., 0., WIDTH as f32, HEIGHT as f32),
++        },
++        corner_radii: Corners::all(ScaledPixels(20.)),
++        sigma: ScaledPixels(4.),
++        fallback: Rgba {
++            r: 0.,
++            g: 0.,
++            b: 1.,
++            a: 1.,
++        },
++        opacity: 1.,
++    }
++}
++
++/// White, with black vertical stripes, and `backdrop` over it.
++fn page_under(backdrop: Backdrop) -> Scene {
++    let mut scene = Scene::default();
++    scene.insert_primitive(quad(sp(0., 0., WIDTH as f32, HEIGHT as f32), Hsla::white()));
++    let mut x = 0.;
++    while x < WIDTH as f32 {
++        scene.insert_primitive(quad(sp(x, 0., STRIPE, HEIGHT as f32), Hsla::black()));
++        x += STRIPE * 2.;
++    }
++    scene.insert_primitive(backdrop.sprite());
++    scene.finish();
++    scene
++}
++
++fn renderer() -> Option<MetalRenderer> {
++    let pool = Arc::new(Mutex::new(InstanceBufferPool::default()));
++    match MetalRenderer::new_headless(pool) {
++        Ok(renderer) => Some(renderer),
++        Err(error) => {
++            eprintln!("skipped: no Metal device ({error:#})");
++            None
++        }
++    }
++}
++
++/// A renderer whose device blurs, or `None` (the test then skips) on one
++/// without Metal Performance Shaders, such as a virtual machine's.
++fn blurring_renderer() -> Option<MetalRenderer> {
++    let renderer = renderer()?;
++    if !device_blurs(&renderer.device) {
++        eprintln!("skipped: the Metal device runs no Metal Performance Shaders");
++        return None;
++    }
++    Some(renderer)
++}
++
++/// The red channel of the pixel at (x, y), and the blue.
++fn at(pixels: &[u8], x: usize, y: usize) -> (u8, u8) {
++    let index = (y * WIDTH as usize + x) * 4;
++    (pixels[index], pixels[index + 2])
++}
++
++fn render(renderer: &mut MetalRenderer, scene: &Scene) -> Vec<u8> {
++    renderer
++        .render_scene_to_image(scene, viewport())
++        .expect("scene rendered")
++        .into_raw()
++}
++
++#[test]
++fn the_page_under_a_backdrop_is_blurred_inside_its_rounded_rectangle_only() {
++    let Some(mut renderer) = blurring_renderer() else {
++        return;
++    };
++    let pixels = render(&mut renderer, &page_under(card()));
++    // Inside, the stripes are blurred to an even grey, out to the edges: the
++    // blur reads the page around the rectangle too, so it does not darken
++    // toward them.
++    for x in [41, 60, 100, 158] {
++        let (red, _) = at(&pixels, x, 60);
++        assert!((115..=140).contains(&red), "({x}, 60) is {red}");
++    }
++    let (top_edge, _) = at(&pixels, 100, 31);
++    assert!((115..=140).contains(&top_edge), "(100, 31) is {top_edge}");
++    // Outside it, and in its rounded corners, the stripes are as drawn.
++    for (x, y) in [(10, 60), (100, 10), (41, 31), (158, 88)] {
++        let (red, _) = at(&pixels, x, y);
++        let black = (x as f32 / STRIPE) as usize % 2 == 0;
++        assert_eq!(red, if black { 0 } else { 255 }, "({x}, {y})");
++    }
++}
++
++#[test]
++fn a_backdrop_draws_only_inside_its_content_mask() {
++    let Some(mut renderer) = blurring_renderer() else {
++        return;
++    };
++    let mut backdrop = card();
++    backdrop.content_mask.bounds = sp(0., 0., 100., HEIGHT as f32);
++    let pixels = render(&mut renderer, &page_under(backdrop));
++    let (left, _) = at(&pixels, 60, 60);
++    assert!((115..=140).contains(&left), "(60, 60) is {left}");
++    for x in [101, 102, 140] {
++        let (red, _) = at(&pixels, x, 60);
++        let black = (x as f32 / STRIPE) as usize % 2 == 0;
++        assert_eq!(red, if black { 0 } else { 255 }, "({x}, 60)");
++    }
++}
++
++#[test]
++fn a_renderer_that_cannot_read_its_target_fills_the_fallback() {
++    let Some(mut renderer) = renderer() else {
++        return;
++    };
++    renderer.fast_backdrop.fill_only();
++    let pixels = render(&mut renderer, &page_under(card()));
++    assert_eq!(at(&pixels, 100, 60), (0, 255));
++    assert_eq!(at(&pixels, 41, 60), (0, 255));
++    // Its rounded corners keep the page: a black stripe at (41, 31).
++    assert_eq!(at(&pixels, 41, 31), (0, 0));
++}
++
++#[test]
++fn the_region_sampled_is_the_visible_rectangle_grown_by_three_sigma() {
++    let sampled = region(&card(), viewport()).unwrap();
++    assert_eq!(
++        (sampled.x, sampled.y, sampled.width, sampled.height),
++        (28, 18, 144, 84)
++    );
++    // Cut to the viewport.
++    let mut corner = card();
++    corner.bounds = sp(-20., -20., 50., 50.);
++    let sampled = region(&corner, viewport()).unwrap();
++    assert_eq!(
++        (sampled.x, sampled.y, sampled.width, sampled.height),
++        (0, 0, 42, 42)
++    );
++    // Nothing visible, nothing sampled.
++    corner.bounds = sp(300., 0., 50., 50.);
++    assert_eq!(region(&corner, viewport()), None);
++}
+diff --git a/gpui-fast/crates/gpui_apple/src/fast/composition.rs b/gpui-fast/crates/gpui_apple/src/fast/composition.rs
+index 9ecc4f5d4..bb8752096 100644
+--- a/gpui-fast/crates/gpui_apple/src/fast/composition.rs
++++ b/gpui-fast/crates/gpui_apple/src/fast/composition.rs
+@@ -16,9 +16,12 @@ use parking_lot::Mutex;
+ use crate::metal_renderer::{Context, InstanceBufferPool, MetalRenderer, Renderer};
+ 
+ /// A renderer for an overlay surface above `base`: transparent, on its own
+-/// layer, sharing `base`'s device and sprite atlas.
++/// layer, sharing `base`'s device and sprite atlas. What is under its
++/// backdrops is the native views', not its own, so they are filled.
+ pub(crate) fn new_overlay_renderer(context: Context, base: &Renderer) -> Result<Renderer> {
+-    new_sharing_atlas(base, context, true)
++    let mut renderer = new_sharing_atlas(base, context, true)?;
++    renderer.fast_backdrop.fill_only();
++    Ok(renderer)
+ }
+ 
+ /// A renderer on a new `CAMetalLayer` that draws with `base`'s device and
+diff --git a/gpui-fast/crates/gpui_apple/src/fast/layers/raster.rs b/gpui-fast/crates/gpui_apple/src/fast/layers/raster.rs
+index b9d6b6a44..d658f9c81 100644
+--- a/gpui-fast/crates/gpui_apple/src/fast/layers/raster.rs
++++ b/gpui-fast/crates/gpui_apple/src/fast/layers/raster.rs
+@@ -53,7 +53,9 @@ pub(crate) fn rasterize_tiles(renderer: &mut MetalRenderer, scene: &Scene) {
+         return;
+     }
+     cache.prepare(&renderer.device, TILE_FORMAT, &scene.layers, &planned);
+-    if let Err(error) = encode(renderer, scene, &planned) {
++    let encoded =
++        crate::fast::backdrop::in_tiles(renderer, |renderer| encode(renderer, scene, &planned));
++    if let Err(error) = encoded {
+         log::error!("failed to rasterize scroll layer tiles: {error:#}");
+         // The tiles this frame was to rasterize were not.
+         renderer.fast_layers.clear();
+@@ -251,6 +253,17 @@ fn draw_tile_scene(
+                     viewport_size,
+                     command_encoder,
+                 ),
++            // A tile is a piece of its layer, not what a backdrop is over.
++            PrimitiveBatch::PolychromeSprites { texture_id, range }
++                if gpui::is_backdrop_texture(texture_id) =>
++            {
++                crate::fast::backdrop::fill(
++                    renderer,
++                    &scene.polychrome_sprites[range],
++                    viewport_size,
++                    command_encoder,
++                )
++            }
+             PrimitiveBatch::PolychromeSprites { texture_id, range } => renderer
+                 .draw_polychrome_sprites(
+                     texture_id,
+diff --git a/gpui-fast/crates/gpui_apple/src/fast/mod.rs b/gpui-fast/crates/gpui_apple/src/fast/mod.rs
+index 76e3e5921..0a38f18dd 100644
+--- a/gpui-fast/crates/gpui_apple/src/fast/mod.rs
++++ b/gpui-fast/crates/gpui_apple/src/fast/mod.rs
+@@ -8,6 +8,7 @@
+ //! call to it. The logic itself — data structures, algorithms, bookkeeping,
+ //! tests — is written here, one file per topic.
+ 
++pub(crate) mod backdrop;
+ #[cfg(feature = "font-kit")]
+ pub(crate) mod color_bitmap_fonts;
+ pub(crate) mod composition;
+diff --git a/gpui-fast/crates/gpui_apple/src/fast/paths.rs b/gpui-fast/crates/gpui_apple/src/fast/paths.rs
+index 9537a4337..3e9a443ba 100644
+--- a/gpui-fast/crates/gpui_apple/src/fast/paths.rs
++++ b/gpui-fast/crates/gpui_apple/src/fast/paths.rs
+@@ -177,6 +177,19 @@ pub(crate) fn draw_primitives_to_texture(
+                     viewport_size,
+                     &command_encoder,
+                 ),
++            PrimitiveBatch::PolychromeSprites { texture_id, range }
++                if gpui::is_backdrop_texture(texture_id) =>
++            {
++                command_encoder = crate::fast::backdrop::draw(
++                    renderer,
++                    &scene.polychrome_sprites[range],
++                    texture,
++                    viewport_size,
++                    &command_buffer,
++                    command_encoder,
++                    |_| {},
++                )?;
++            }
+             PrimitiveBatch::PolychromeSprites { texture_id, range } => renderer
+                 .draw_polychrome_sprites(
+                     texture_id,
+diff --git a/gpui-fast/crates/gpui_apple/src/fast/rounded_clip.rs b/gpui-fast/crates/gpui_apple/src/fast/rounded_clip.rs
+index b6951bcf4..3ca583ed2 100644
+--- a/gpui-fast/crates/gpui_apple/src/fast/rounded_clip.rs
++++ b/gpui-fast/crates/gpui_apple/src/fast/rounded_clip.rs
+@@ -218,6 +218,21 @@ fn encode(
+             PrimitiveBatch::MonochromeSprites { texture_id, range } => {
+                 renderer.draw_monochrome_sprites(texture_id, range, bindings, viewport, &encoder)
+             }
++            PrimitiveBatch::PolychromeSprites { texture_id, range }
++                if gpui::is_backdrop_texture(texture_id) =>
++            {
++                let device = renderer.device.clone();
++                let clips: &[Clip] = clips;
++                encoder = crate::fast::backdrop::draw(
++                    renderer,
++                    &scene.polychrome_sprites[range],
++                    texture,
++                    viewport,
++                    commands,
++                    encoder,
++                    |encoder| bind(encoder, clips, &device),
++                )?;
++            }
+             PrimitiveBatch::PolychromeSprites { texture_id, range } => {
+                 if let Some(frame) = group(scene, texture_id) {
+                     let child = frame.content.scene().context("rounded clip content")?;
+diff --git a/gpui-fast/crates/gpui_apple/src/fast/rounded_clip_shader.rs b/gpui-fast/crates/gpui_apple/src/fast/rounded_clip_shader.rs
+index 26f6a9bbe..d1925b794 100644
+--- a/gpui-fast/crates/gpui_apple/src/fast/rounded_clip_shader.rs
++++ b/gpui-fast/crates/gpui_apple/src/fast/rounded_clip_shader.rs
+@@ -5,6 +5,9 @@
+ 
+ pub fn source(source: &str) -> String {
+     let mut source = source.to_owned();
++    // The backdrop shaders (`backdrop.rs`) are appended first, so that the
++    // enclosing rounded clips cut their fragments too.
++    source.push_str(include_str!("backdrop.metal"));
+     for name in [
+         "quad_fragment",
+         "shadow_fragment",
+@@ -13,6 +16,8 @@ pub fn source(source: &str) -> String {
+         "polychrome_sprite_fragment",
+         "path_sprite_fragment",
+         "surface_fragment",
++        "backdrop_blur_fragment",
++        "backdrop_fill_fragment",
+     ] {
+         let start = source
+             .find(&format!("fragment float4 {name}("))
+diff --git a/gpui-fast/crates/gpui_apple/src/metal_renderer.rs b/gpui-fast/crates/gpui_apple/src/metal_renderer.rs
+index ac98ee180..c846c9215 100644
+--- a/gpui-fast/crates/gpui_apple/src/metal_renderer.rs
++++ b/gpui-fast/crates/gpui_apple/src/metal_renderer.rs
+@@ -159,6 +159,7 @@ pub struct MetalRenderer {
+     #[cfg(any(test, feature = "bench-support", feature = "test-support"))]
+     headless_render_target: Option<Retained<ProtocolObject<dyn MTLTexture>>>,
+     pub(crate) fast_layers: crate::fast::layers::TileCache,
++    pub(crate) fast_backdrop: crate::fast::backdrop::Backdrops,
+ }
+ 
+ #[repr(C)]
+@@ -398,6 +399,7 @@ impl MetalRenderer {
+             "surface_fragment",
+             MTLPixelFormat::BGRA8Unorm,
+         )?;
++        let fast_backdrop = crate::fast::backdrop::Backdrops::new(&device, &library)?;
+ 
+         let command_queue = crate::fast::dynamic_textures::command_queue(&device)?;
+         let supports_shared_storage = cfg!(target_os = "ios") || is_apple_gpu;
+@@ -447,6 +449,7 @@ impl MetalRenderer {
+             #[cfg(any(test, feature = "bench-support", feature = "test-support"))]
+             headless_render_target: None,
+             fast_layers: crate::fast::layers::TileCache::default(),
++            fast_backdrop,
+         })
+     }
+ 
+@@ -938,6 +941,19 @@ impl MetalRenderer {
+                         viewport_size,
+                         &command_encoder,
+                     ),
++                PrimitiveBatch::PolychromeSprites { texture_id, range }
++                    if gpui::is_backdrop_texture(texture_id) =>
++                {
++                    command_encoder = crate::fast::backdrop::draw(
++                        self,
++                        &scene.polychrome_sprites[range],
++                        texture,
++                        viewport_size,
++                        &command_buffer,
++                        command_encoder,
++                        |_| {},
++                    )?;
++                }
+                 PrimitiveBatch::PolychromeSprites { texture_id, range } => self
+                     .draw_polychrome_sprites(
+                         texture_id,
+@@ -1586,7 +1602,7 @@ fn read_texture_to_image(texture: &ProtocolObject<dyn MTLTexture>) -> Result<Rgb
+     RgbaImage::from_raw(width, height, pixels).context("creating RGBA image from pixel data")
+ }
+ 
+-fn build_pipeline_state(
++pub(crate) fn build_pipeline_state(
+     device: &ProtocolObject<dyn MTLDevice>,
+     library: &ProtocolObject<dyn MTLLibrary>,
+     label: &str,

@@ -40,6 +40,12 @@ The vendored copies cannot run their own tests where they sit (the gpui crate's 
   The platform keeps measuring in points: every event it delivers has its positions (and a pixel scroll delta) divided by `z` on the way in, the input method's caret and selection rectangles are multiplied by `z` on the way out (and the point it asks about divided), as are the window menu's position, the visual viewport and the platform's insets.
   Without a zoom set (1) the crate behaves as upstream.
   A native composition surface is placed from GPUI's device pixels, so it lands where its element is laid out; what a surface's owner puts inside it in points is that owner's to scale (`gpui-webview-interface-zoom.diff`).
+- **`gpui-fast-backdrop-blur.diff`** (`gpui` and `gpui_apple`): CSS's `backdrop-filter: blur()`, which the Tauri app's frosted popovers (`surfaces.css`) need (`fast/backdrop.rs` in each crate; upstream files get only hooks).
+  `Styled::backdrop_blur(radius, fallback)` and `Window::paint_backdrop_blur` put a backdrop in the scene before the element's shadows and background: a polychrome sprite whose texture id (`BACKDROP_TEXTURE_INDEX`) no atlas allocates, as scroll layer tiles and rounded clip groups are carried, so every copy, replay, translation, element scale and split of a scene carries it at its draw order, and no primitive's layout or `PrimitiveBatch` changes (`gpui_wgpu` builds as it is).
+  The sprite's tile holds the blur's standard deviation in device pixels (CSS's radius times the scale factor, so the interface zoom and an element scale scale it) and the fallback colour.
+  The Metal renderer, in each loop that draws a frame's batches (upstream's, `fast::paths` and `fast::rounded_clip`), ends the render pass at a backdrop's batch, copies the target's pixels under it with a margin of three standard deviations into a texture the size of that region, blurs it with `MPSImageGaussianBlur` (clamped at the region's edges, so it does not darken toward them), begins the pass again loading what it stored, and draws the blur back inside the rounded rectangle, the content mask and the enclosing rounded clips (`fast/backdrop.metal`).
+  Where the target's pixels are not what is under the backdrop, the rectangle is filled with the fallback colour instead: an overlay surface over native views, a scroll layer's tile (a scroll layer draws a backdrop over its tiles, as it does a path, so this is only a tile's own copy), the first frame of a layer whose drawables were framebuffer-only (it is asked for readable ones from then on), a device without Metal Performance Shaders, inside a `Window::paint_layer` (one draw order for everything, so the fallback is a quad there) and every platform but macOS and iOS.
+  Without a backdrop in the scene the crates behave as upstream.
 - **`gpui-base-popover-exit.diff`**: a popover that plays its way out.
   `Popover::exit(duration)` keeps the content drawn for that long after the popover closes, as it was, under a cover that takes its presses, with no focus, Escape or dismissal; `PopoverState::leaving()` tells the content builder how far into the exit it is, so Lattice's popovers draw their exit (`pop_out`) where the Tauri app's `popup-motion.css` plays one.
   Without `exit` the crate behaves as upstream.
@@ -59,7 +65,7 @@ The vendored copies cannot run their own tests where they sit (the gpui crate's 
     The default draws it, as upstream.
 - **`gpui-component-overlays.diff`**: GPUI Kit's notification and sheet layers are drawn `deferred`, as its dialogs already are. gpui-fast composes native views (a webview island) between a window's base content and its overlay surface, and only deferred draws reach the overlay surface, so without this a toast or a Kit sheet is covered by any webview under it.
 
-The new public API (`scaled`, `Scaled`, `TextStyle::letter_spacing`, `Styled::letter_spacing`, `Window::set_interface_zoom`, `Window::interface_zoom`, `App::has_active_drag_of`) is not gpui-fast's, which adds no public API without its maintainers' agreement; it is kept here, on the pin, until it is upstreamed or replaced.
+The new public API (`scaled`, `Scaled`, `TextStyle::letter_spacing`, `Styled::letter_spacing`, `Window::set_interface_zoom`, `Window::interface_zoom`, `App::has_active_drag_of`, `Styled::backdrop_blur`, `Window::paint_backdrop_blur`, `BackdropBlur`, `Backdrop`, `BACKDROP_TEXTURE_INDEX`, `is_backdrop_texture`) is not gpui-fast's, which adds no public API without its maintainers' agreement; it is kept here, on the pin, until it is upstreamed or replaced.
 
 ## Moving a pin
 
@@ -68,9 +74,10 @@ The new public API (`scaled`, `Scaled`, `TextStyle::letter_spacing`, `Styled::le
 3. Run the patch tests in a gpui-fast checkout at the new pin with the diffs applied; this is required, because a diff can still apply and build after upstream moved what it hooks into. From a directory holding the checkout as `gpui-fast/`:
 
    ```sh
-   for diff in gpui-fast-lab-occlusion gpui-fast-motion-and-type gpui-fast-overlay-first-mouse gpui-fast-interface-zoom gpui-fast-lab-assume-key; do git apply "<lattice>/gpui/patches/$diff.diff"; done
-   (cd gpui-fast && cargo test -p gpui --lib --features test-support,gpui_platform/runtime_shaders -- fast::scale fast::letter_spacing fast::interface_zoom)
+   for diff in gpui-fast-lab-occlusion gpui-fast-motion-and-type gpui-fast-overlay-first-mouse gpui-fast-interface-zoom gpui-fast-lab-assume-key gpui-fast-backdrop-blur; do git apply "<lattice>/gpui/patches/$diff.diff"; done
+   (cd gpui-fast && cargo test -p gpui --lib --features test-support,gpui_platform/runtime_shaders -- fast::scale fast::letter_spacing fast::interface_zoom fast::backdrop)
+   (cd gpui-fast && cargo test -p gpui_apple --lib --features runtime_shaders -- fast::backdrop)
    ```
 
-   `fast::scale` covers the transform of every primitive kind, nesting, the kept outer clip, and a view replayed inside a scale or drawn again inside a replayed one; `fast::letter_spacing` covers the spacing of clusters and marks and the measured width of tracked text; `fast::interface_zoom` covers the conversion of events and of the input method's rectangles, and a zoomed window's viewport and scale factor. CI's `gpui-patches` workflow runs the same.
+   `fast::scale` covers the transform of every primitive kind, nesting, the kept outer clip, and a view replayed inside a scale or drawn again inside a replayed one; `fast::letter_spacing` covers the spacing of clusters and marks and the measured width of tracked text; `fast::interface_zoom` covers the conversion of events and of the input method's rectangles, and a zoomed window's viewport and scale factor; `gpui`'s `fast::backdrop` covers a backdrop's draw order between what is under it and its element, and its blur under an element scale and the interface zoom, and `gpui_apple`'s draws backdrops headlessly and reads the pixels back (blurred inside the rounded rectangle and the content mask only, not darker at the edges, the fallback where the target cannot be read). CI's `gpui-patches` workflow runs the same.
 4. Build, run the workspace tests and the `e2e` scenario.

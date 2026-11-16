@@ -177,6 +177,19 @@ pub(crate) fn draw_primitives_to_texture(
                     viewport_size,
                     &command_encoder,
                 ),
+            PrimitiveBatch::PolychromeSprites { texture_id, range }
+                if gpui::is_backdrop_texture(texture_id) =>
+            {
+                command_encoder = crate::fast::backdrop::draw(
+                    renderer,
+                    &scene.polychrome_sprites[range],
+                    texture,
+                    viewport_size,
+                    &command_buffer,
+                    command_encoder,
+                    |_| {},
+                )?;
+            }
             PrimitiveBatch::PolychromeSprites { texture_id, range } => renderer
                 .draw_polychrome_sprites(
                     texture_id,

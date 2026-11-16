@@ -159,6 +159,7 @@ pub struct MetalRenderer {
     #[cfg(any(test, feature = "bench-support", feature = "test-support"))]
     headless_render_target: Option<Retained<ProtocolObject<dyn MTLTexture>>>,
     pub(crate) fast_layers: crate::fast::layers::TileCache,
+    pub(crate) fast_backdrop: crate::fast::backdrop::Backdrops,
 }
 
 #[repr(C)]
@@ -398,6 +399,7 @@ impl MetalRenderer {
             "surface_fragment",
             MTLPixelFormat::BGRA8Unorm,
         )?;
+        let fast_backdrop = crate::fast::backdrop::Backdrops::new(&device, &library)?;
 
         let command_queue = crate::fast::dynamic_textures::command_queue(&device)?;
         let supports_shared_storage = cfg!(target_os = "ios") || is_apple_gpu;
@@ -447,6 +449,7 @@ impl MetalRenderer {
             #[cfg(any(test, feature = "bench-support", feature = "test-support"))]
             headless_render_target: None,
             fast_layers: crate::fast::layers::TileCache::default(),
+            fast_backdrop,
         })
     }
 
@@ -938,6 +941,19 @@ impl MetalRenderer {
                         viewport_size,
                         &command_encoder,
                     ),
+                PrimitiveBatch::PolychromeSprites { texture_id, range }
+                    if gpui::is_backdrop_texture(texture_id) =>
+                {
+                    command_encoder = crate::fast::backdrop::draw(
+                        self,
+                        &scene.polychrome_sprites[range],
+                        texture,
+                        viewport_size,
+                        &command_buffer,
+                        command_encoder,
+                        |_| {},
+                    )?;
+                }
                 PrimitiveBatch::PolychromeSprites { texture_id, range } => self
                     .draw_polychrome_sprites(
                         texture_id,
@@ -1586,7 +1602,7 @@ fn read_texture_to_image(texture: &ProtocolObject<dyn MTLTexture>) -> Result<Rgb
     RgbaImage::from_raw(width, height, pixels).context("creating RGBA image from pixel data")
 }
 
-fn build_pipeline_state(
+pub(crate) fn build_pipeline_state(
     device: &ProtocolObject<dyn MTLDevice>,
     library: &ProtocolObject<dyn MTLLibrary>,
     label: &str,

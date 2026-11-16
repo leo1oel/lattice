@@ -218,6 +218,21 @@ fn encode(
             PrimitiveBatch::MonochromeSprites { texture_id, range } => {
                 renderer.draw_monochrome_sprites(texture_id, range, bindings, viewport, &encoder)
             }
+            PrimitiveBatch::PolychromeSprites { texture_id, range }
+                if gpui::is_backdrop_texture(texture_id) =>
+            {
+                let device = renderer.device.clone();
+                let clips: &[Clip] = clips;
+                encoder = crate::fast::backdrop::draw(
+                    renderer,
+                    &scene.polychrome_sprites[range],
+                    texture,
+                    viewport,
+                    commands,
+                    encoder,
+                    |encoder| bind(encoder, clips, &device),
+                )?;
+            }
             PrimitiveBatch::PolychromeSprites { texture_id, range } => {
                 if let Some(frame) = group(scene, texture_id) {
                     let child = frame.content.scene().context("rounded clip content")?;

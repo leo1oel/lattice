@@ -5,6 +5,9 @@
 
 pub fn source(source: &str) -> String {
     let mut source = source.to_owned();
+    // The backdrop shaders (`backdrop.rs`) are appended first, so that the
+    // enclosing rounded clips cut their fragments too.
+    source.push_str(include_str!("backdrop.metal"));
     for name in [
         "quad_fragment",
         "shadow_fragment",
@@ -13,6 +16,8 @@ pub fn source(source: &str) -> String {
         "polychrome_sprite_fragment",
         "path_sprite_fragment",
         "surface_fragment",
+        "backdrop_blur_fragment",
+        "backdrop_fill_fragment",
     ] {
         let start = source
             .find(&format!("fragment float4 {name}("))

@@ -53,7 +53,9 @@ pub(crate) fn rasterize_tiles(renderer: &mut MetalRenderer, scene: &Scene) {
         return;
     }
     cache.prepare(&renderer.device, TILE_FORMAT, &scene.layers, &planned);
-    if let Err(error) = encode(renderer, scene, &planned) {
+    let encoded =
+        crate::fast::backdrop::in_tiles(renderer, |renderer| encode(renderer, scene, &planned));
+    if let Err(error) = encoded {
         log::error!("failed to rasterize scroll layer tiles: {error:#}");
         // The tiles this frame was to rasterize were not.
         renderer.fast_layers.clear();
@@ -251,6 +253,17 @@ fn draw_tile_scene(
                     viewport_size,
                     command_encoder,
                 ),
+            // A tile is a piece of its layer, not what a backdrop is over.
+            PrimitiveBatch::PolychromeSprites { texture_id, range }
+                if gpui::is_backdrop_texture(texture_id) =>
+            {
+                crate::fast::backdrop::fill(
+                    renderer,
+                    &scene.polychrome_sprites[range],
+                    viewport_size,
+                    command_encoder,
+                )
+            }
             PrimitiveBatch::PolychromeSprites { texture_id, range } => renderer
                 .draw_polychrome_sprites(
                     texture_id,

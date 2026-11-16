@@ -16,9 +16,12 @@ use parking_lot::Mutex;
 use crate::metal_renderer::{Context, InstanceBufferPool, MetalRenderer, Renderer};
 
 /// A renderer for an overlay surface above `base`: transparent, on its own
-/// layer, sharing `base`'s device and sprite atlas.
+/// layer, sharing `base`'s device and sprite atlas. What is under its
+/// backdrops is the native views', not its own, so they are filled.
 pub(crate) fn new_overlay_renderer(context: Context, base: &Renderer) -> Result<Renderer> {
-    new_sharing_atlas(base, context, true)
+    let mut renderer = new_sharing_atlas(base, context, true)?;
+    renderer.fast_backdrop.fill_only();
+    Ok(renderer)
 }
 
 /// A renderer on a new `CAMetalLayer` that draws with `base`'s device and

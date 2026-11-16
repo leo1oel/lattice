@@ -8,6 +8,7 @@
 //! call to it. The logic itself — data structures, algorithms, bookkeeping,
 //! tests — is written here, one file per topic.
 
+pub(crate) mod backdrop;
 #[cfg(feature = "font-kit")]
 pub(crate) mod color_bitmap_fonts;
 pub(crate) mod composition;
