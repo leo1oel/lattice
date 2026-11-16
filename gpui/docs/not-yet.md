@@ -15,7 +15,6 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] The shortcut sheet's LaTeX keys the source editor does not bind yet (the citation card, Proofread), which join the sheet's LaTeX group once bound.
 
-
 - [ ] The app updater's release channel (it ships off) and the outdated-version hint on a failure's notice.
 
 - [ ] Overleaf: the live channel joining again when the network comes back (it does when the window comes forward).

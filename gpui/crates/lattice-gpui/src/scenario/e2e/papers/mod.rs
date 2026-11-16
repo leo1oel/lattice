@@ -25,6 +25,7 @@ mod prewarm;
 // macOS has.
 #[cfg(target_os = "macos")]
 mod reader;
+#[cfg(target_os = "macos")]
 mod selection_actions;
 
 const BUNDLE: &str = ".research/papers/1706.03762";

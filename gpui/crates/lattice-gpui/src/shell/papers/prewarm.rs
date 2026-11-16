@@ -49,11 +49,6 @@ impl Shell {
         let Some(root) = self.root(cx) else {
             return;
         };
-        // An earlier project's texts are of no use any more.
-        self.documents
-            .prewarm
-            .warmed
-            .retain(|editor| editor.read(cx).path().starts_with(&root));
         if !model::readable(paper) || self.reader_of(&reader_key(&paper.arxiv_id), cx).is_some() {
             return;
         }
