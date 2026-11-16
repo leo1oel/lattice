@@ -11,7 +11,10 @@ WOFF2 files the Tauri app already ships (CoreText cannot read WOFF2).
   CSS's font-optical-sizing picks at 11-14px, in the four weights the
   interface uses, subset to Latin, Greek, Cyrillic and the punctuation,
   arrows, maths and keyboard symbols the interface draws. Chinese falls back
-  to PingFang SC, as in the Tauri app.
+  to PingFang SC, as in the Tauri app. Its Italic and Medium Italic are the
+  Regular and Medium slanted 14 degrees, the oblique WebKit synthesizes for
+  the Tauri app's italics (it loads no italic Inter), so the double-storey a
+  stays.
 
   Ioskeley Mono (OFL-1.1): ../src/assets/fonts/ioskeley-mono/*.woff2, unchanged
   but for the typographic family name, which groups its five faces.
@@ -29,6 +32,7 @@ LATTICE_PRIVATE_FONTS_DIR when the person building has them, as the Tauri
 build does.
 """
 
+import math
 import pathlib
 import sys
 import tempfile
@@ -44,6 +48,9 @@ IOSKELEY = ROOT.parent / "src" / "assets" / "fonts" / "ioskeley-mono"
 INSTRUMENT_SERIF = ROOT.parent / "node_modules" / "@fontsource" / "instrument-serif"
 
 WEIGHTS = {400: "Regular", 500: "Medium", 600: "SemiBold", 700: "Bold"}
+# The obliques: the upright each slants, and its style and subfamily names.
+OBLIQUES = {"Regular": ("Italic", "Italic"), "Medium": ("MediumItalic", "Medium Italic")}
+SLANT = 14.0
 UNICODES = [
     "U+0000-024F",  # Latin, Latin-1, Latin Extended A and B
     "U+0300-036F",  # combining marks
@@ -104,6 +111,47 @@ def inter(variable: pathlib.Path) -> None:
         )
         static["head"].macStyle = 1 if style == "Bold" else 0
         static.save(out / f"Inter-{style}.ttf")
+    inter_obliques(out)
+
+
+def oblique(upright: TTFont, style: str, subfamily: str) -> TTFont:
+    """Slant `upright` as WebKit synthesizes an oblique: every outline
+    skewed SLANT degrees about the baseline, named as its italic."""
+    t = math.tan(math.radians(SLANT))
+    glyf = upright["glyf"]
+    for name in upright.getGlyphOrder():
+        glyph = glyf[name]
+        if glyph.isComposite():
+            for component in glyph.components:
+                component.x = round(component.x + t * component.y)
+        elif glyph.numberOfContours > 0:
+            coords = glyph.coordinates
+            for i, (x, y) in enumerate(coords):
+                coords[i] = (round(x + t * y), y)
+    for table in ("gvar", "HVAR", "fvar", "avar", "STAT", "DSIG"):
+        if table in upright:
+            del upright[table]
+    for record in list(upright["name"].names):
+        if record.nameID in (1, 16):
+            record.string = "Inter"
+        elif record.nameID in (2, 17):
+            record.string = subfamily
+        elif record.nameID == 4:
+            record.string = f"Inter {subfamily}"
+        elif record.nameID == 6:
+            record.string = f"Inter-{style}"
+    upright["OS/2"].fsSelection = (upright["OS/2"].fsSelection | 0x01) & ~0x40
+    upright["head"].macStyle |= 0x02
+    upright["post"].italicAngle = -SLANT
+    upright["hhea"].caretSlopeRise = 1000
+    upright["hhea"].caretSlopeRun = round(1000 * t)
+    return upright
+
+
+def inter_obliques(out: pathlib.Path) -> None:
+    for upright, (style, subfamily) in OBLIQUES.items():
+        font = oblique(TTFont(out / f"Inter-{upright}.ttf"), style, subfamily)
+        font.save(out / f"Inter-{style}.ttf")
 
 
 def ioskeley() -> None:
