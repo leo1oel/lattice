@@ -39,6 +39,7 @@ mod native;
 #[path = "native_windows.rs"]
 mod native;
 mod notices;
+mod opener;
 mod outline;
 mod overleaf;
 mod paint_probe;

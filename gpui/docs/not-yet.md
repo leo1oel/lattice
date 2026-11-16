@@ -17,8 +17,6 @@ A feature that lands deletes its own line (only that line, so features landing s
 
 - [ ] Settings: App updates' automatic updates and Check for updates (the GPUI app shows its version and GitHub Releases).
 
-- [ ] The paper reader's selection actions: Copy source link and Add to note, on the full text and on the original PDF.
-
 - [ ] The shortcut sheet's LaTeX keys the source editor does not bind yet (the citation card, the symbol palette, Proofread), which join the sheet's LaTeX group once bound.
 
 - [ ] The app updater's release channel (it ships off) and the outdated-version hint on a failure's notice.
@@ -32,7 +30,3 @@ A feature that lands deletes its own line (only that line, so features landing s
 - [ ] Overleaf: a compile after a resolved conflict (the watcher's build stands in).
 
 - [ ] The workspace rename field's undo history surviving a keystroke past its 24 characters (the Kit input has no length limit that clips before an edit).
-
-- [ ] Papers' hover prewarm of a paper the pointer is likely to open.
-
-- [ ] Papers' notice when the browser could not open an article (GPUI's opener reports no failure).

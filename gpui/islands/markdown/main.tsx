@@ -52,6 +52,13 @@
  *   md:read           (request) { path } → text   a project file, for the page index
  *   md:load-asset     (request) { path } → url | null
  *   md:import-asset   (request) { base64, type } → project path | null
+ *   md:locate-quote   (request) { quote } → { page, first, last } | null   a passage of the paper's
+ *                     full text in its PDF, for the reader's Copy source link and Add to note
+ *
+ * A paper's text offers those two where a selection ends
+ * (`paper-selection-actions.tsx`, as the Tauri reader does); Add to note
+ * writes the paper's note through the Tauri commands `paper-notes.ts`
+ * invokes, which the owner answers for that note alone.
  */
 import "../shared/install";
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
@@ -62,7 +69,9 @@ import { paperDragReplay, type PaperDragMessage } from "./paper-drag";
 import "./markdown.css";
 import { ScrollArea } from "../../../src/components/ui/scroll-area";
 import { InlineMessage } from "../../../src/components/ui/inline-message";
-import { paperSourceCitation } from "../../../src/papers/paper-source";
+import { paperSourceCitation, type PaperSourceCitation } from "../../../src/papers/paper-source";
+import { PaperSelectionActions } from "../../../src/canvas/paper-selection-actions";
+import type { usePaperPdf } from "../../../src/canvas/use-paper-pdf";
 import { LatticeVisualMarkdownEditor } from "../../../src/editor/markdown/engine/lattice-visual-editor";
 import { MarkdownWorkspaceIndex } from "../../../src/editor/markdown/markdown-workspace-index";
 import type { VisualRevealTarget } from "../../../src/editor/markdown/visual-editor-props";
@@ -92,7 +101,40 @@ type PaperReading = {
   fullText: boolean;
   /** The paper's identity, when its reader can show its original PDF. */
   pdf: { arxivId: string; url: string | null; hasLocalPdf: boolean } | null;
+  /** What names the paper's note (`paperNotePath`) and links it back to the paper. */
+  note: { arxivId: string; citationKey: string | null; hasFullText: boolean };
 };
+
+/**
+ * The paper as the reader's selection actions read it
+ * (`paper-selection-actions.tsx`): its note's name, and its PDF for the
+ * passage's source link.
+ */
+function selectionPaper(paper: PaperReading): PaperSummary {
+  return {
+    arxivId: paper.note.arxivId,
+    citationKey: paper.note.citationKey ?? undefined,
+    title: paper.title,
+    hasFullText: paper.note.hasFullText,
+    hasBlog: false,
+    url: paper.pdf?.url ?? undefined,
+    hasLocalPdf: paper.pdf?.hasLocalPdf ?? false,
+  };
+}
+
+/**
+ * What the selection actions use of the reader's `usePaperPdf`: whether the
+ * paper has a PDF, and where in it a passage of the full text is, which the
+ * owner finds with PDFium (`md:locate-quote`).
+ */
+function selectionPdf(paper: PaperReading): ReturnType<typeof usePaperPdf> {
+  const pdf = {
+    pdfSource: paper.pdf ? { key: paper.pdf.arxivId } : null,
+    pdfView: null,
+    locateQuote: (quote: string) => host().request<PaperSourceCitation | null>("md:locate-quote", { quote }),
+  };
+  return pdf as unknown as ReturnType<typeof usePaperPdf>;
+}
 
 /**
  * A plain click on a source link into this paper's own PDF (a page, its
@@ -482,6 +524,12 @@ function Markdown() {
     if (reveal?.id === id) dispatch({ type: "reveal", reveal: null });
   }, [reveal]);
 
+  // Copy source link and Add to note where a selection in the full text
+  // ends, as the Tauri reader offers them over it.
+  const shellRef = useRef<HTMLDivElement | null>(null);
+  const paperForSelection = useMemo(() => (paper ? selectionPaper(paper) : null), [paper]);
+  const paperPdf = useMemo(() => (paper ? selectionPdf(paper) : null), [paper]);
+
   const masthead = Boolean(paper?.fullText);
   useEffect(() => { if (!masthead) setEligibility(null); }, [masthead]);
   // The reader's strip names the paper only while the masthead is off screen
@@ -506,6 +554,10 @@ function Markdown() {
 
   if (!opened || !ready) return null;
   return (
+    // The reader's shell (`.paper-reader-shell`): what the selection
+    // actions are placed in and kept inside. Always there, so a paper's
+    // reading arriving later does not mount the editor again.
+    <div ref={shellRef} style={{ position: "relative", display: "flex", flex: "1 1 0", minWidth: 0, minHeight: 0 }}>
     <ScrollArea
       className="markdown-preview"
       data-tour={paper ? "paper-reading-view" : "markdown-visual-editor"}
@@ -571,6 +623,17 @@ function Markdown() {
         />
       </Fragment>
     </ScrollArea>
+    {paperForSelection && paperPdf && (
+      <PaperSelectionActions
+        shellRef={shellRef}
+        paper={paperForSelection}
+        pdf={paperPdf}
+        overview={!paper?.fullText}
+        projectRoot={opened.projectRoot}
+        onOpenNote={onOpenProjectPath}
+      />
+    )}
+    </div>
   );
 }
 

@@ -22,7 +22,9 @@
 //!   `import_image_bytes`, as the Tauri app's `import_clipboard_image`;
 //! - the Tauri commands its modules invoke: web links and Zotero links to the
 //!   browser, the clipboard, and a link's preview card (lattice-core's
-//!   `link_preview`, on a thread of its own).
+//!   `link_preview`, on a thread of its own);
+//! - over a saved paper's text, its selection actions' lookup in the PDF
+//!   and their writes to the paper's note (`markdown/paper_quotes.rs`).
 
 use std::path::Path;
 
@@ -31,7 +33,10 @@ use lattice_core::models::FileNode;
 use serde_json::{Value, json};
 
 use super::{StructuredDocument, StructuredEvent};
+use crate::papers::reader::quote_page::QuotePdf;
 use crate::project::{Project, ProjectEvent};
+
+mod paper_quotes;
 
 /// What a Markdown file's visual editor asks of its panel.
 #[derive(Clone, Debug, PartialEq)]
@@ -81,6 +86,12 @@ pub struct PaperReading {
     /// The paper's identity, when its reader can show its original PDF, so
     /// a source link into that PDF opens it there.
     pub pdf: Option<PaperPdfIdentity>,
+    /// What names the paper's note (`paperNotePath`) and links it back to
+    /// the paper: Add to note on a passage of the full text writes there.
+    pub note: PaperNoteIdentity,
+    /// The PDF a passage of the full text is looked up in, for its page
+    /// (`locateQuote`): the one the reader shows.
+    pub quote_pdf: Option<QuotePdf>,
 }
 
 /// What `paperSourceCitation` reads of a paper to know its own PDF.
@@ -91,12 +102,25 @@ pub struct PaperPdfIdentity {
     pub has_local_pdf: bool,
 }
 
+/// What `paper-notes.ts` reads of a paper.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PaperNoteIdentity {
+    pub arxiv_id: String,
+    pub citation_key: Option<String>,
+    pub has_full_text: bool,
+}
+
 impl PaperReading {
     fn to_json(&self) -> Value {
         let pdf = self.pdf.as_ref().map(|pdf| {
             json!({ "arxivId": pdf.arxiv_id, "url": pdf.url, "hasLocalPdf": pdf.has_local_pdf })
         });
-        json!({ "title": self.title, "authors": self.authors, "fullText": self.full_text, "pdf": pdf })
+        let note = json!({
+            "arxivId": self.note.arxiv_id,
+            "citationKey": self.note.citation_key,
+            "hasFullText": self.note.has_full_text,
+        });
+        json!({ "title": self.title, "authors": self.authors, "fullText": self.full_text, "pdf": pdf, "note": note })
     }
 }
 
@@ -541,6 +565,7 @@ impl StructuredDocument {
                         .map(Value::String)
                 });
             }
+            "md:locate-quote" => self.locate_paper_quote(id, payload, cx),
             _ => return false,
         }
         true
@@ -593,8 +618,9 @@ impl StructuredDocument {
                         cx,
                     );
                 } else {
-                    cx.open_url(&url);
-                    self.respond(id, Ok(Value::Null), cx);
+                    // The page's own catch says when the system refused it.
+                    let opened = crate::opener::open_url(&url, cx).map(|()| Value::Null);
+                    self.respond(id, opened, cx);
                 }
             }
             "plugin:clipboard-manager|write_text" => {
@@ -628,7 +654,7 @@ impl StructuredDocument {
                 })
                 .detach();
             }
-            _ => return false,
+            _ => return self.invoke_paper_note(id, command, args, cx),
         }
         true
     }

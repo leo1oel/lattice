@@ -191,7 +191,7 @@ impl Run {
     }
 
     /// A drag on the PDF from `from` to `to`, as the pointer selects text.
-    fn select_pdf_words(
+    pub(super) fn select_pdf_words(
         &self,
         cx: &mut AsyncApp,
         from: Point<Pixels>,

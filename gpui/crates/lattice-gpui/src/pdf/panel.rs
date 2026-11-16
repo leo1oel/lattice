@@ -369,6 +369,8 @@ impl PdfPanel {
             PdfViewEvent::Annotation(request) => cx.emit(PdfEvent::Annotation(request.clone())),
             PdfViewEvent::PlaceChanged(place) => self.remember_place(*place),
             PdfViewEvent::Action => self.detach(window, cx),
+            // The project's PDFs annotate their selection instead.
+            PdfViewEvent::SelectionOffered(_) => {}
         }
     }
 

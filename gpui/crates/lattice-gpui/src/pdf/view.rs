@@ -65,7 +65,7 @@ use page_changes::changed_pages;
 pub(super) use pages::PageSlot;
 pub use place::ViewPlace;
 pub(super) use sync_mark::{SYNC_MARK_HOLD, SyncMark};
-pub use events::{PdfViewEvent, ToolbarAction};
+pub use events::{OfferedSelection, PdfViewEvent, ToolbarAction};
 pub(super) use {drafts::DraftField, search::FindState};
 
 use super::{

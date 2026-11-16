@@ -19,8 +19,8 @@ mod named_links;
 mod outline_menu;
 mod overflow;
 mod panel;
-mod review_marking;
 pub(crate) mod preferences;
+mod review_marking;
 mod sheet;
 pub(crate) mod source_anchor;
 mod text;
@@ -40,5 +40,6 @@ pub use panel::{PdfEvent, PdfPanel, PdfPanelKind, pdf_tab_label};
 pub use text::LinkTarget;
 pub use toolbar_hover::toolbar_section;
 pub use view::{
-    CitationLookup, CompoundSource, PdfNotes, PdfView, PdfViewEvent, ToolbarAction, ViewPlace,
+    CitationLookup, CompoundSource, OfferedSelection, PdfNotes, PdfView, PdfViewEvent,
+    ToolbarAction, ViewPlace,
 };

@@ -450,7 +450,7 @@ impl PapersPanel {
         } else if let Some(url) = model::link_url(paper) {
             // Only a web address: a shared bibliography's `file://` or
             // `smb://` url would have the system launch what it names.
-            model::open_link(&url, cx);
+            model::open_source(&url, cx);
         }
     }
 
@@ -594,7 +594,7 @@ impl PapersPanel {
                 if let Some(url) = self.fetching.fallbacks.remove(&key)
                     && self.navigations == claim
                 {
-                    cx.open_url(&url);
+                    model::open_source(&url, cx);
                 }
             }
         }

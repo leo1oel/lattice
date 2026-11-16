@@ -11,7 +11,7 @@
 
 use gpui::{Context, KeyDownEvent, Window};
 
-use super::{PapersPanel, model};
+use super::{PapersEvent, PapersPanel, model};
 
 /// Where the keyboard is in the list: a paper's row (`stop` 0) or one of
 /// its matched lines after it (1 on), the last of which may be "N more".
@@ -123,6 +123,16 @@ impl PapersPanel {
     fn move_to(&mut self, stop: KeyStop, window: &mut Window, cx: &mut Context<Self>) {
         if self.wide() && stop.stop == 0 {
             self.select(Some(stop.key.clone()), cx);
+        }
+        // The keyboard on a readable paper's row says it is likely to be
+        // opened, as the pointer does (the row's `onFocus`).
+        if stop.stop == 0
+            && let Some(paper) = self
+                .papers
+                .iter()
+                .find(|paper| model::paper_key(paper) == stop.key && model::readable(paper))
+        {
+            cx.emit(PapersEvent::Likely(Box::new(paper.clone())));
         }
         self.key_stop = Some(stop);
         self.reveal_stop = true;

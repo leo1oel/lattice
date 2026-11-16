@@ -101,10 +101,50 @@ pub fn openable_link(url: &str) -> bool {
 }
 
 /// Open `url` in the browser when it is `openable_link`; any other is
-/// ignored. Every link Papers opens goes through here.
+/// ignored. Every link Papers opens goes through here, and a browser that
+/// would not take it is reported as the Tauri app's Papers reports it
+/// (`openLink` in `paper-library.tsx`, `openInBrowser` in `use-paper-pdf.ts`).
 pub fn open_link(url: &str, cx: &mut gpui::App) {
+    if !openable_link(url) {
+        return;
+    }
+    if let Err(reason) = crate::opener::open_url(url, cx) {
+        use lattice_i18n::t;
+        crate::notices::show(
+            crate::notices::Notice::new(
+                lattice_ui::components::ToastLevel::Error,
+                t!("Could not open the article in your browser"),
+            )
+            .source(t!("Papers"))
+            .detail(reason),
+            cx,
+        );
+    }
+}
+
+/// Open a citation-health notice's link, as the Tauri app's row and
+/// inspector open it: a failure says nothing
+/// (`openUrl(noticeLink).catch(() => undefined)`).
+pub fn open_notice_link(url: &str, cx: &mut gpui::App) {
     if openable_link(url) {
-        cx.open_url(url);
+        crate::opener::open_url(url, cx).ok();
+    }
+}
+
+/// Open `url` in the browser when it is `openable_link`, a failure shown as
+/// its reason alone (`showError(toMessage(reason))`): a citation's source
+/// (`onOpenSource`) and a paper with nothing to download but its page
+/// (`fetchAndOpenPaper`).
+pub fn open_source(url: &str, cx: &mut gpui::App) {
+    if !openable_link(url) {
+        return;
+    }
+    if let Err(reason) = crate::opener::open_url(url, cx) {
+        crate::notices::show(
+            crate::notices::Notice::new(lattice_ui::components::ToastLevel::Error, reason)
+                .source(lattice_i18n::t!("App")),
+            cx,
+        );
     }
 }
 

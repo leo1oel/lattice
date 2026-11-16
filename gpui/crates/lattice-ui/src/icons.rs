@@ -170,6 +170,8 @@ lucide! {
     CIRCLE_DOT = "icons" / "circle-dot";
     IMAGES = "icons" / "images";
     LINK_2 = "icons" / "link-2";
+    /// The paper reader's Add to note (`paper-selection-actions.tsx`).
+    NOTEBOOK_PEN = "icons" / "notebook-pen";
     // Overleaf (src/overleaf/, canvas-toolbar.tsx).
     CLOUD_UPLOAD = "icons" / "cloud-upload";
     CLOUD_OFF = "icons" / "cloud-off";

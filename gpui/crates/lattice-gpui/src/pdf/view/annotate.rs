@@ -107,6 +107,9 @@ pub(in crate::pdf) struct Annotating {
     asked: u64,
     opened: u64,
     composer_bounds: CardBounds,
+    /// A PDF that takes no notes offers its selection to its host instead
+    /// ([`PdfView::set_offers_selection`]), which shows its own actions.
+    for_host: bool,
 }
 
 /// Where the text selected on `page` (0-based) at `point` came from.
@@ -153,11 +156,24 @@ impl PdfView {
         self.notes_source().is_some_and(|source| source.annotatable)
     }
 
+    /// Offer a drag's selection to the host (`SelectionOffered`) rather
+    /// than Annotate, as the paper reader does with Copy source link and
+    /// Add to note (`paper-selection-actions.tsx`); a PDF that takes notes
+    /// keeps Annotate.
+    pub fn set_offers_selection(&mut self, offers: bool) {
+        self.annotating.for_host = offers;
+    }
+
+    /// The selection is offered to the host rather than annotated.
+    fn offers_to_host(&self) -> bool {
+        self.annotating.for_host && !self.annotatable()
+    }
+
     /// A drag that selected text ended: offer Annotate where it ends, once
     /// the selection's text is read.
     pub(in crate::pdf) fn offer_annotate(&mut self, cx: &mut Context<Self>) {
         self.dismiss_offer(cx);
-        if !self.annotatable() {
+        if !self.annotatable() && !self.offers_to_host() {
             return;
         }
         let (Some(selection), Some(document)) = (
@@ -192,6 +208,10 @@ impl PdfView {
             return;
         };
         let point = (x0 + (x1 - x0).min(0.02 * width), (y0 + y1) / 2.);
+        // The host names the passage by words found once on its page.
+        let page_text = self
+            .offers_to_host()
+            .then(|| text.raw_text(0..text.chars.len()));
         let (scale, scroll) = (self.layout.scale, self.scroll_offset());
         let asked = self.annotating.asked;
         cx.spawn(async move |this, cx| {
@@ -201,6 +221,9 @@ impl PdfView {
                 if this.annotating.asked != asked || text.is_empty() {
                     return;
                 }
+                let end = rects
+                    .last()
+                    .and_then(|&[x0, y0, x1, y1]| this.page_box_on_window(page, (x0, y0, x1, y1)));
                 this.annotating.offer = Some(Offer {
                     selected: Selected {
                         page,
@@ -212,6 +235,14 @@ impl PdfView {
                     scale,
                     scroll,
                 });
+                if let (Some(page_text), Some(end)) = (page_text, end) {
+                    cx.emit(PdfViewEvent::SelectionOffered(Some(OfferedSelection {
+                        page,
+                        text: text.to_string(),
+                        page_text,
+                        end,
+                    })));
+                }
                 cx.notify();
             })
             .ok();
@@ -223,6 +254,9 @@ impl PdfView {
     pub(in crate::pdf) fn dismiss_offer(&mut self, cx: &mut Context<Self>) {
         self.annotating.asked += 1;
         if self.annotating.offer.take().is_some() {
+            if self.offers_to_host() {
+                cx.emit(PdfViewEvent::SelectionOffered(None));
+            }
             cx.notify();
         }
     }
@@ -251,7 +285,7 @@ impl PdfView {
 
     /// The project went away or stopped taking notes here.
     pub(in crate::pdf) fn end_annotating(&mut self) {
-        if !self.annotatable() {
+        if !self.annotatable() && !self.annotating.for_host {
             self.annotating.asked += 1;
             self.annotating.offer = None;
             self.annotating.composing = None;
@@ -266,7 +300,7 @@ impl PdfView {
         cx: &mut Context<Self>,
     ) -> Option<AnyElement> {
         let offer = self.annotating.offer.as_ref()?;
-        if offer.selected.page != page {
+        if offer.selected.page != page || self.offers_to_host() {
             return None;
         }
         let &(width, _) = self.page_sizes().get(page)?;
