@@ -1982,21 +1982,6 @@ pub(super) static ENTRIES: &[Entry] = &[
     },
     Entry {
         file: "papers/upgrade.rs",
-        literal: "An automatic publication upgrade requires an independently verifiable DOI. Use citation review instead.",
-        text: Text::Message("An automatic publication upgrade requires an independently verifiable DOI. Use citation review instead.", &[]),
-    },
-    Entry {
-        file: "papers/upgrade.rs",
-        literal: "Publication metadata for '{key}' could not be independently confirmed.",
-        text: Text::Message("Publication metadata for ''{key}'' could not be independently confirmed.", &[("key", Arg::Param(0))]),
-    },
-    Entry {
-        file: "papers/upgrade.rs",
-        literal: "The bibliography changed while upgrading. Retry the operation.",
-        text: Text::Message("The bibliography changed while upgrading. Retry the operation.", &[]),
-    },
-    Entry {
-        file: "papers/upgrade.rs",
         literal: "An upgrade cannot add or remove citations.",
         text: Text::Message("An upgrade cannot add or remove citations.", &[]),
     },
