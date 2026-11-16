@@ -75,6 +75,9 @@ pub(crate) struct MacComposition {
     /// Native identities, parents and sibling order, independent of geometry.
     view_order: Vec<(CompositionSurfaceId, usize, usize)>,
     native_views: Rc<Vec<usize>>,
+    /// Every surface above the base one, bottom to top: a GPUI surface's
+    /// backdrops blur the base frame except over the native views under it.
+    stacking: Vec<Stacked>,
     input_order: Rc<Vec<InputLayer>>,
     native_event: usize,
     pointer_capture: PointerCapture,
@@ -91,6 +94,7 @@ impl MacComposition {
             renderer_context,
             view_order: Vec::new(),
             native_views: Rc::new(Vec::new()),
+            stacking: Vec::new(),
             input_order: Rc::new(Vec::new()),
             native_event: 0,
             pointer_capture: PointerCapture::default(),
@@ -102,6 +106,12 @@ impl MacComposition {
             forwarding_scroll: false,
         }
     }
+}
+
+enum Stacked {
+    Gpui(CompositionSurfaceId),
+    /// A native or external view, and its container's `NSView`.
+    Native(Rc<dyn PlatformSurfaceAttachment>, usize),
 }
 
 enum InputLayer {
@@ -620,21 +630,36 @@ pub(crate) fn draw_composed(window_state: &Rc<Mutex<MacWindowState>>, scene: Com
         return;
     };
     let whole_scene = whole_scene_layer(scene.scene(), scene.layers());
+    let mut replayed = Vec::with_capacity(scene.layers().len());
     for (layer_index, layer) in scene.layers().iter().enumerate() {
-        let replayed_scene;
-        let surface_scene = match whole_scene {
-            Some((target_index, whole_scene)) if target_index == layer_index => whole_scene,
-            _ => {
-                replayed_scene = match scene.layer_scene(layer) {
-                    Ok(surface_scene) => surface_scene,
-                    Err(error) => {
-                        log::error!("replaying AppKit composition scene: {error:#}");
-                        return;
-                    }
-                };
-                &replayed_scene
-            }
-        };
+        replayed.push(match whole_scene {
+            Some((target_index, _)) if target_index == layer_index => None,
+            _ => match scene.layer_scene(layer) {
+                Ok(surface_scene) => Some(surface_scene),
+                Err(error) => {
+                    log::error!("replaying AppKit composition scene: {error:#}");
+                    return;
+                }
+            },
+        });
+    }
+    let surface_scene = |layer_index: usize| match &replayed[layer_index] {
+        Some(surface_scene) => surface_scene,
+        None => whole_scene.map(|(_, scene)| scene).unwrap_or(scene.scene()),
+    };
+    // The surfaces over the base one draw on layers of their own, so their
+    // backdrops blur the base frame, which is kept for them (it is drawn
+    // first, in the command queue they share).
+    let backdrops_over_base = scene.layers().iter().enumerate().any(|(index, layer)| {
+        layer.surface != base_surface
+            && surface_scene(index)
+                .polychrome_sprites
+                .iter()
+                .any(|sprite| gpui::is_backdrop_texture(sprite.tile.texture_id))
+    });
+    state.renderer.keep_frame_for_backdrops(backdrops_over_base);
+    for (layer_index, layer) in scene.layers().iter().enumerate() {
+        let surface_scene = surface_scene(layer_index);
         if layer.surface == base_surface {
             state.renderer.draw(surface_scene);
         } else if let Some(surface) = state.fast_composition.gpui_surfaces.get_mut(&layer.surface) {
@@ -643,7 +668,12 @@ pub(crate) fn draw_composed(window_state: &Rc<Mutex<MacWindowState>>, scene: Com
                 regions.clear();
                 regions.extend(scene.layer_hitboxes(layer).iter().cloned());
             }
+            let covered = native_bounds_under(&state.fast_composition.stacking, layer.surface);
+            surface
+                .renderer
+                .set_backdrop_frame(state.renderer.kept_frame(), covered);
             surface.renderer.draw(surface_scene);
+            surface.renderer.set_backdrop_frame(None, Vec::new());
         } else {
             log::error!(
                 "missing AppKit GPUI composition surface {:?}",
@@ -651,6 +681,30 @@ pub(crate) fn draw_composed(window_state: &Rc<Mutex<MacWindowState>>, scene: Com
             );
         }
     }
+    state.renderer.keep_frame_for_backdrops(false);
+}
+
+/// The bounds of the shown native views stacked under the GPUI surface
+/// `surface`, in window-content device pixels.
+fn native_bounds_under(
+    stacking: &[Stacked],
+    surface: CompositionSurfaceId,
+) -> Vec<Bounds<DevicePixels>> {
+    let mut covered = Vec::new();
+    for stacked in stacking {
+        match stacked {
+            Stacked::Gpui(id) if *id == surface => break,
+            Stacked::Gpui(_) => {}
+            Stacked::Native(attachment, view) => {
+                // SAFETY: The container view is retained by its attachment.
+                let hidden: Bool = unsafe { msg_send![*view as Id, isHiddenOrHasHiddenAncestor] };
+                if !hidden.as_bool() {
+                    covered.push(attachment.bounds());
+                }
+            }
+        }
+    }
+    covered
 }
 
 /// `present` supplies the current frame's scene after `Frame::finish`.
@@ -793,6 +847,17 @@ pub(crate) fn set_composition_order(
         .collect::<Result<Vec<_>>>()?;
 
     let views_by_id = views.iter().copied().collect::<FxHashMap<_, _>>();
+    lock.fast_composition.stacking = surfaces
+        .iter()
+        .filter(|surface| surface.id != base_surface)
+        .filter_map(|surface| match &surface.content {
+            PlatformCompositionSurfaceContent::Gpui => Some(Stacked::Gpui(surface.id)),
+            PlatformCompositionSurfaceContent::Native(attachment)
+            | PlatformCompositionSurfaceContent::ExternalGpu(attachment) => views_by_id
+                .get(&surface.id)
+                .map(|view| Stacked::Native(attachment.clone(), *view as usize)),
+        })
+        .collect();
 
     unsafe {
         let native_view = lock.native_view.as_ptr();

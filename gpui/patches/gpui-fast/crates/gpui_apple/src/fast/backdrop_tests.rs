@@ -1,7 +1,8 @@
 //! Backdrops drawn by the headless renderer, read back pixel by pixel: the
 //! page under a backdrop blurred inside its rounded rectangle and nowhere
-//! else, without darkening at its edges, and the fallback colour where the
-//! renderer cannot read what is under it.
+//! else, without darkening at its edges, an overlay surface's backdrop
+//! blurring the base surface's frame with the overlay over it, and the
+//! fallback colour where the renderer cannot read what is under it.
 
 use std::sync::Arc;
 
@@ -66,6 +67,14 @@ fn card() -> Backdrop {
 
 /// White, with black vertical stripes, and `backdrop` over it.
 fn page_under(backdrop: Backdrop) -> Scene {
+    let mut scene = striped_page();
+    scene.insert_primitive(backdrop.sprite());
+    scene.finish();
+    scene
+}
+
+/// White, with black vertical stripes, unfinished.
+fn striped_page() -> Scene {
     let mut scene = Scene::default();
     scene.insert_primitive(quad(sp(0., 0., WIDTH as f32, HEIGHT as f32), Hsla::white()));
     let mut x = 0.;
@@ -73,8 +82,6 @@ fn page_under(backdrop: Backdrop) -> Scene {
         scene.insert_primitive(quad(sp(x, 0., STRIPE, HEIGHT as f32), Hsla::black()));
         x += STRIPE * 2.;
     }
-    scene.insert_primitive(backdrop.sprite());
-    scene.finish();
     scene
 }
 
@@ -203,4 +210,61 @@ fn a_card_scaling_in_samples_regions_of_one_size() {
         })
         .collect();
     assert!(sizes.iter().all(|size| *size == sizes[0]), "{sizes:?}");
+}
+
+/// An overlay surface over the striped page: an opaque red pane on its left
+/// half, under the card's backdrop.
+fn overlay_over_page(covered: Vec<Bounds<DevicePixels>>) -> Option<Vec<u8>> {
+    let mut base = blurring_renderer()?;
+    base.keep_frame_for_backdrops(true);
+    let mut page = striped_page();
+    page.finish();
+    render(&mut base, &page);
+    let frame = base.kept_frame().expect("the base frame is kept");
+    let mut overlay = renderer()?;
+    // An overlay's layer is transparent: it starts each frame clear.
+    overlay.opaque = false;
+    overlay.fast_backdrop.fill_only();
+    overlay.set_backdrop_frame(Some(frame), covered);
+    let mut scene = Scene::default();
+    let red = Hsla {
+        h: 0.,
+        s: 1.,
+        l: 0.5,
+        a: 1.,
+    };
+    scene.insert_primitive(quad(sp(0., 0., 100., HEIGHT as f32), red));
+    scene.insert_primitive(card().sprite());
+    scene.finish();
+    Some(render(&mut overlay, &scene))
+}
+
+#[test]
+fn an_overlay_s_backdrop_blurs_the_base_frame_with_the_overlay_over_it() {
+    let Some(pixels) = overlay_over_page(Vec::new()) else {
+        return;
+    };
+    // Under the red pane the blur is the pane's red, not the page's stripes
+    // and not the fallback's blue.
+    assert_eq!(at(&pixels, 60, 60), (255, 0));
+    // Beside it, where the overlay is clear, the page's stripes blurred.
+    let (red, blue) = at(&pixels, 140, 60);
+    assert!((115..=140).contains(&red), "(140, 60) is {red}");
+    assert_eq!(red, blue, "(140, 60) is grey");
+    // Outside the card the overlay stays clear.
+    let index = (60 * WIDTH as usize + 180) * 4;
+    assert_eq!(pixels[index + 3], 0);
+}
+
+#[test]
+fn an_overlay_s_backdrop_over_a_native_view_fills_the_fallback() {
+    let view = Bounds {
+        origin: point(DevicePixels(150), DevicePixels(80)),
+        size: size(DevicePixels(40), DevicePixels(30)),
+    };
+    let Some(pixels) = overlay_over_page(vec![view]) else {
+        return;
+    };
+    // The view's pixels are its own, which the base frame does not hold.
+    assert_eq!(at(&pixels, 100, 60), (0, 255));
 }

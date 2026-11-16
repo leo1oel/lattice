@@ -49,6 +49,7 @@ const MAX_INSTANCE_BUFFER_SIZE: usize = 256 * 1024 * 1024;
 
 pub type Context = Arc<Mutex<InstanceBufferPool>>;
 pub type Renderer = MetalRenderer;
+pub use crate::fast::backdrop::BackdropFrame;
 
 pub fn new_renderer(
     context: self::Context,
@@ -693,6 +694,7 @@ impl MetalRenderer {
             viewport_size,
             &mut surface_textures,
         )?;
+        crate::fast::backdrop::frame_rendered(self, texture);
 
         let instance_buffer_pool = self.instance_buffer_pool.clone();
         let frame_resources = Cell::new(Some((writer.finish(), surface_textures)));
