@@ -77,7 +77,9 @@ impl Shell {
                 body,
             } => {
                 let panel = panel.clone();
-                self.post_pdf_note(&panel, *id, path, *line, selection, quote, body, window, cx);
+                // The note form is told how it went; the result is for the scenario.
+                let _ = self
+                    .post_pdf_note(&panel, *id, path, *line, selection, quote, body, window, cx);
             }
             PdfEvent::ExportReview => {
                 let view = panel.read(cx).live_view().clone();
