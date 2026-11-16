@@ -29,6 +29,7 @@ impl EditorPanel {
             document.update(cx, |document, cx| document.moved_to(relative, cx));
         }
         let left = std::mem::replace(&mut self.relative, relative);
+        self.place_moved(&left, cx);
         match &self.index_lint {
             Some(lint) => {
                 let relative = self.relative.clone();

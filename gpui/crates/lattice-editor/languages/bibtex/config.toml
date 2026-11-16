@@ -1,0 +1,11 @@
+name = "BibTeX"
+grammar = "bibtex"
+path_suffixes = ["bib"]
+line_comments = ["% "]
+autoclose_before = ";:.,=}])>"
+brackets = [
+    { start = "{", end = "}", close = true, newline = false },
+    { start = "(", end = ")", close = true, newline = false },
+    { start = "\"", end = "\"", close = true, newline = false, not_in = ["string"] },
+]
+word_characters = ["-", ":", "_"]

@@ -30,6 +30,8 @@ pub struct ProjectFacts {
     pub graphics_roots: Vec<String>,
     /// The commands and environments the other TeX sources define.
     pub macros: Vec<LocalMacro>,
+    /// What the project's TeX files and last build hold of chemnum.
+    pub compounds: super::compound_completion::CompoundFacts,
 }
 
 /// The facts as the sources and the host share them.
@@ -292,7 +294,7 @@ mod tests {
                 "notes.txt".into(),
             ],
             graphics_roots: vec!["figures".into()],
-            macros: Vec::new(),
+            ..Default::default()
         };
         let inputs = include_items(&facts, "input", "", "");
         assert_eq!(labels(&inputs), ["main.tex", "chapters/intro.tex"]);

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { Extension } from "@codemirror/state";
+import { Prec, type Extension } from "@codemirror/state";
 import { EditorView, ViewPlugin } from "@codemirror/view";
 import {
   EMPTY_EXTENSIONS,
@@ -59,10 +59,18 @@ function vimModeExtension(getCM: VimGetCM, onModeChange: (mode: string) => void)
 
 // Hoisted loaders: inline `import()` expressions inside a hook make the React
 // Compiler bail out of it (the same pattern App.tsx uses for lazy panels).
-const loadVimKeymapExtensions = (onVimModeChange: (mode: string) => void) => import("@replit/codemirror-vim")
-  .then((module) => {
+//
+// Vim must see a key before any keymap does: CodeMirror runs every
+// `keymap.of` binding, whatever its own precedence, from one keydown handler
+// placed where the first keymap appears, and the host's base setup puts one
+// ahead of these extensions. Without `Prec.highest`, LaTeX typing rules bound
+// to printable keys (`$` pairing math) ran in normal and visual mode, so `$`
+// inserted `$$` instead of moving to the end of the line (#1020). In insert
+// mode Vim passes unmapped keys on, so those rules still apply there.
+export const loadVimKeymapExtensions = (onVimModeChange: (mode: string) => void) => import("@replit/codemirror-vim")
+  .then((module): Extension[] => {
     defineVimExCommands(module.Vim);
-    return [module.vim({ status: false }), vimModeExtension(module.getCM, onVimModeChange)];
+    return [Prec.highest(module.vim({ status: false })), vimModeExtension(module.getCM, onVimModeChange)];
   });
 const loadEmacsKeymapExtensions = () => import("@replit/codemirror-emacs").then((module) => [module.emacs()]);
 
