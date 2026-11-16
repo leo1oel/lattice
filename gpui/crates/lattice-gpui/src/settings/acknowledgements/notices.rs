@@ -146,7 +146,14 @@ pub fn parse(markdown: &str) -> Notices {
     let mut fence: Option<(String, Vec<&str>)> = None;
     let mut copyrights_next = false;
 
-    for line in markdown[start..].split('\n') {
+    // A Windows checkout's CRLF copy reads as the LF one: each line loses
+    // its `\r`, which the `$`-anchored headings would otherwise never match
+    // and the license texts would carry (`split(/\r?\n/)` in the Tauri
+    // parser).
+    for line in markdown[start..]
+        .split('\n')
+        .map(|line| line.strip_suffix('\r').unwrap_or(line))
+    {
         if let Some((marker, lines)) = &mut fence {
             if line.starts_with(marker.as_str()) && line[marker.len()..].trim().is_empty() {
                 let block = lines.join("\n");
@@ -308,6 +315,28 @@ mod tests {
         let tauri = notices.packages.iter().find(|p| p.name == "tauri").unwrap();
         assert_eq!(groups_for(&notices, tauri).len(), 1);
         assert_eq!(registry_url(tauri), "https://crates.io/crates/tauri");
+    }
+
+    #[test]
+    fn a_crlf_copy_reads_as_the_lf_one() {
+        let read = |notices: &Notices| {
+            (
+                notices
+                    .packages
+                    .iter()
+                    .map(|p| format!("{}@{} {}", p.name, p.version, p.license))
+                    .collect::<Vec<_>>(),
+                notices
+                    .groups
+                    .iter()
+                    .map(|g| (g.title.clone(), g.text.clone(), g.copyrights.clone()))
+                    .collect::<Vec<_>>(),
+            )
+        };
+        let lf = parse(SAMPLE);
+        let crlf = parse(&SAMPLE.replace('\n', "\r\n"));
+        assert_eq!(lf.groups.len(), 2);
+        assert_eq!(read(&crlf), read(&lf));
     }
 
     #[test]

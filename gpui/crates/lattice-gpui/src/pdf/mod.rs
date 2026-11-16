@@ -10,8 +10,6 @@ mod clicked_word;
 /// compound completion reads them too.
 pub(crate) use lattice_editor::latex::compounds;
 mod comment_margin;
-pub(crate) mod review_place;
-pub(crate) mod review_sheet;
 mod dark;
 mod engine;
 mod find;
@@ -23,6 +21,8 @@ mod overflow;
 mod panel;
 pub(crate) mod preferences;
 mod review_marking;
+pub(crate) mod review_place;
+pub(crate) mod review_sheet;
 mod sheet;
 pub(crate) mod source_anchor;
 mod text;
