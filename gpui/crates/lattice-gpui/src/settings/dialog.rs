@@ -622,8 +622,7 @@ impl SettingsDialog {
     }
 
     pub(super) fn results(&self, cx: &App) -> Vec<Entry> {
-        let known = None;
-        let mut entries = search::entries(self.project.is_some(), known);
+        let mut entries = search::entries(self.project.is_some(), self.known_author.as_deref());
         if self
             .live_preview()
             .is_some_and(|live| live.read(cx).available())
