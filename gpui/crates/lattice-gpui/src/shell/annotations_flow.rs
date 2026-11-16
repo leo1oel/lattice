@@ -155,6 +155,7 @@ impl Shell {
     fn install_annotations(window: &mut Window, cx: &mut Context<Self>) -> Annotations {
         let shell = cx.weak_entity();
         let source_shell = shell.clone();
+        let pdf_shell = shell.clone();
         let host = PanelHost {
             project: Box::new(move |cx| {
                 let shell = shell.upgrade()?;
@@ -174,6 +175,7 @@ impl Shell {
                     .find(|editor| editor.read(cx).relative() == path)
                     .map(|editor| editor.read(cx).text(cx))
             }),
+            live_pdf: Box::new(move |cx| Some(pdf_shell.upgrade()?.read(cx).pdf().clone())),
         };
         let panel = cx.new(|cx| AnnotationsPanel::new(host, window, cx));
         let events = cx.subscribe_in(
@@ -184,6 +186,7 @@ impl Shell {
                     this.open_annotation(comment.path.clone(), comment.id.clone(), window, cx)
                 }
                 AnnotationsPanelEvent::OpenFile => this.toggle_quick_open(window, cx),
+                AnnotationsPanelEvent::ExportReviewPdf => this.open_review_sheet(None, window, cx),
             },
         );
         let view = cx.new(|cx| CommentsView {
