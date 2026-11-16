@@ -9,26 +9,50 @@
 //! text, with the changed values rewritten in place and new fields appended.
 //! No field the writer had is dropped. The ones bibcite would have removed
 //! are reported, so the agent can tell the writer, who decides.
+//!
+//! Each preprint is checked on its own (`batch`), so one entry's rejected
+//! proposal is reported for that entry instead of discarding the rest, and a
+//! deadline can stop the batch between entries: what was confirmed by then is
+//! saved, and the rest is reported pending for the next call.
 
-use super::bibliography::{parse_report, run_bibcite, ScratchBibliography};
 use super::citation::validate_resolved_identity;
 use crate::util::err;
 use crate::{commands, project};
+use batch::{Candidate, Outcome};
 use serde::Serialize;
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::collections::BTreeMap;
 use std::fs;
 use std::ops::Range;
 use std::path::Path;
+use std::time::{Duration, Instant};
+
+mod batch;
+
+#[cfg(test)]
+pub(super) use batch::forget_checks;
+pub(crate) use batch::{entry_fields, is_preprint, publishes};
+
+/// Kept free before the request's deadline for saving the result and
+/// answering it.
+const COMMIT_MARGIN: Duration = Duration::from_secs(4);
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UpgradeResult {
     pub dry_run: bool,
     pub changed: bool,
+    /// bibcite's report shape: `upgraded`, `matched`, and one row per
+    /// preprint with its `status`.
     pub report: Value,
     /// Per upgraded entry, the fields bibcite left out that were kept.
     pub retained_fields: Vec<RetainedFields>,
+    /// False when the deadline came before every preprint was checked.
+    pub complete: bool,
+    /// The preprints not checked yet; calling again continues with them.
+    pub pending: Vec<String>,
+    /// What happened, in words, for the Agent.
+    pub summary: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -39,58 +63,157 @@ pub struct RetainedFields {
 }
 
 /// Upgrade preprints to their publications. Only the agent asks for this, and
-/// its turn records the history entry itself.
-pub fn upgrade_bibliography(root: &Path, dry_run: bool) -> Result<UpgradeResult, String> {
+/// its turn records the history entry itself. With a `deadline`, the batch
+/// stops checking in time to answer before it (see `batch`).
+pub fn upgrade_bibliography(
+    root: &Path, dry_run: bool, deadline: Option<Instant>,
+) -> Result<UpgradeResult, String> {
     let manifest = project::read_manifest(root)?;
     let path = project::safe_path(root, &manifest.primary_bibliography)?;
     let before = fs::read_to_string(&path).unwrap_or_default();
-    let scratch = ScratchBibliography::new("lattice-upgrade", Some(&before))?;
-    let mut command = commands::BIBCITE.command()?;
-    command.arg("upgrade").arg("--no-tidy").arg(&scratch.path);
-    if dry_run {
-        command.arg("--dry-run");
+    let candidates = batch::candidates(&before);
+    let budget = deadline.map(|deadline| deadline.checked_sub(COMMIT_MARGIN).unwrap_or(deadline));
+    let mut outcomes = batch::check_all(&candidates, dry_run, budget);
+    let mut changed = false;
+    if !dry_run {
+        // The file may have changed during the lookups: apply each upgrade to
+        // the entry as it is now, and only if it is still the text checked.
+        let current = fs::read_to_string(&path).unwrap_or_default();
+        let mut after = current.clone();
+        for (candidate, outcome) in candidates.iter().zip(outcomes.iter_mut()) {
+            let Some(Outcome::Upgraded { entry, .. }) = outcome else { continue };
+            match replace_entry(&after, candidate, entry) {
+                Some(next) => after = next,
+                None => {
+                    *outcome = Some(Outcome::Rejected(
+                        "The entry changed while it was being upgraded. Retry.".into(),
+                    ))
+                }
+            }
+        }
+        if after != current {
+            validate_bibliography_upgrade(&current, &after)?;
+            fs::write(project::safe_path(root, &manifest.primary_bibliography)?, &after)
+                .map_err(err)?;
+            changed = true;
+        }
     }
-    let report = parse_report(&run_bibcite("bibcite", &mut command)?)?;
-    let proposed = scratch.read()?;
-    let (after, retained_fields) = if dry_run || proposed == before {
-        (before.clone(), Vec::new())
+    Ok(summarize(dry_run, changed, &candidates, &outcomes))
+}
+
+/// `bibliography` with `candidate`'s entry replaced by `entry`, or `None`
+/// when that entry is no longer exactly the text that was checked.
+fn replace_entry(bibliography: &str, candidate: &Candidate, entry: &str) -> Option<String> {
+    let spans: Vec<_> = project::bibliography_entry_spans(bibliography)
+        .into_iter()
+        .filter(|(key, _, _)| *key == candidate.key)
+        .collect();
+    let [(_, start, end)] = spans[..] else { return None };
+    (bibliography[start..end] == candidate.text)
+        .then(|| format!("{}{entry}{}", &bibliography[..start], &bibliography[end..]))
+}
+
+fn summarize(
+    dry_run: bool, changed: bool, candidates: &[Candidate], outcomes: &[Option<Outcome>],
+) -> UpgradeResult {
+    let mut rows = Vec::new();
+    let mut retained_fields = Vec::new();
+    let mut pending = Vec::new();
+    let mut counts: BTreeMap<&str, usize> = BTreeMap::new();
+    for (candidate, outcome) in candidates.iter().zip(outcomes) {
+        let mut row = json!({"key": candidate.key, "title": candidate.title});
+        let status = match outcome {
+            None => {
+                pending.push(candidate.key.clone());
+                "pending"
+            }
+            Some(Outcome::Upgraded { retained, venue, source, .. }) => {
+                row["venue"] = json!(venue);
+                row["source"] = json!(source);
+                if !retained.is_empty() {
+                    retained_fields.push(RetainedFields {
+                        key: candidate.key.clone(),
+                        fields: retained.clone(),
+                    });
+                }
+                if dry_run {
+                    "would_upgrade"
+                } else {
+                    "upgraded"
+                }
+            }
+            Some(Outcome::Current) => "current",
+            Some(Outcome::NoPublishedVersion) => "no_published_version",
+            Some(Outcome::Unavailable(reason)) => {
+                row["reason"] = json!(reason);
+                "sources_unavailable"
+            }
+            Some(Outcome::Rejected(reason)) => {
+                row["reason"] = json!(reason);
+                "rejected"
+            }
+        };
+        row["status"] = json!(status);
+        *counts.entry(status).or_default() += 1;
+        rows.push(row);
+    }
+    let count = |status: &str| counts.get(status).copied().unwrap_or(0);
+    let upgraded = count("upgraded") + count("would_upgrade");
+    let report = json!({
+        "upgraded": upgraded,
+        "matched": upgraded + count("current"),
+        "entries": rows,
+    });
+    let summary = summary_text(dry_run, candidates.len(), &counts, &pending);
+    UpgradeResult {
+        dry_run,
+        changed,
+        report,
+        retained_fields,
+        complete: pending.is_empty(),
+        pending,
+        summary,
+    }
+}
+
+fn summary_text(
+    dry_run: bool, total: usize, counts: &BTreeMap<&str, usize>, pending: &[String],
+) -> String {
+    if total == 0 {
+        return "The bibliography has no preprints to upgrade.".into();
+    }
+    let checked = total - pending.len();
+    let mut parts = Vec::new();
+    for (status, label) in [
+        ("upgraded", "upgraded"),
+        ("would_upgrade", "would be upgraded"),
+        ("current", "already match their publication"),
+        ("no_published_version", "have no published version yet"),
+        ("sources_unavailable", "could not be checked now (sources unavailable; retry later)"),
+        ("rejected", "were not changed because the proposal failed a safety check (see reason)"),
+    ] {
+        if let Some(count) = counts.get(status).filter(|count| **count > 0) {
+            parts.push(format!("{count} {label}"));
+        }
+    }
+    let mut text = if pending.is_empty() {
+        format!("Checked all {total} preprints: {}.", parts.join(", "))
     } else {
-        merge_upgrade(&before, &proposed)?
+        format!(
+            "Checked {checked} of {total} preprints before this request's time limit{}{}. \
+             {} saved; call upgrade_bibliography again to continue with the {} pending: {}.",
+            if parts.is_empty() { "" } else { ": " },
+            parts.join(", "),
+            if dry_run { "Nothing was" } else { "Upgrades so far are" },
+            pending.len(),
+            pending.join(", ")
+        )
     };
-    if after != before {
-        validate_bibliography_upgrade(&before, &after)?;
-        // Upgrade preserves old author fields, so agreement with its output
-        // is not independent evidence. Check each changed record at its DOI.
-        let old = project::parse_bibliography(&before);
-        for (key, start, end) in project::bibliography_entry_spans(&after) {
-            let Some(previous) = old.iter().find(|entry| entry.key == key) else {
-                continue;
-            };
-            let raw = &after[start..end];
-            let current = project::parse_bibliography(raw).remove(0);
-            if previous.doi == current.doi
-                && previous.title == current.title
-                && previous.year == current.year
-                && previous.venue == current.venue
-                && previous.authors == current.authors
-            {
-                continue;
-            }
-            let doi = current.doi.ok_or("An automatic publication upgrade requires an independently verifiable DOI. Use citation review instead.")?;
-            let verified = project::resolve_citation_query(&doi)?;
-            if !crate::citation_audit::metadata_identity_matches(raw, verified.bibtex.trim()) {
-                return Err(format!(
-                    "Publication metadata for '{key}' could not be independently confirmed."
-                ));
-            }
-        }
-        if fs::read_to_string(&path).map_err(err)? != before {
-            return Err("The bibliography changed while upgrading. Retry the operation.".into());
-        }
-        fs::write(project::safe_path(root, &manifest.primary_bibliography)?, &after)
-            .map_err(err)?;
+    if let Some(note) = commands::public_service_note() {
+        text.push(' ');
+        text.push_str(&note);
     }
-    Ok(UpgradeResult { dry_run, changed: after != before, report, retained_fields })
+    text
 }
 
 /// `before` with bibcite's proposed upgrades applied entry by entry: every

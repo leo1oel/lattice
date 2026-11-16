@@ -17,6 +17,7 @@ use papers::HistoryMode;
 use serde_json::{json, Value};
 use std::path::Path;
 use std::sync::atomic::AtomicBool;
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 /// One request from the sidecar's literature gateway.
 #[derive(serde::Deserialize)]
@@ -78,6 +79,27 @@ impl AgentBibliographyMutation {
             }
         })
     }
+
+    /// Perform the mutation for the project at `root`, as the host answers the
+    /// Agent's request. `deadline_ms` is when the Agent stops waiting for the
+    /// answer (the request's `expiresAt`, Unix milliseconds): an upgrade
+    /// returns what it finished before it, and reports the rest pending.
+    pub fn run(self, root: &Path, deadline_ms: Option<u64>) -> Result<Value, String> {
+        match self {
+            Self::UpgradeBibliography { dry_run } => {
+                let deadline = deadline_ms.map(instant_at_unix_ms);
+                to_json(papers::upgrade_bibliography(root, dry_run, deadline))
+            }
+            mutation => mutation.into_request()?.run(root),
+        }
+    }
+}
+
+/// The `Instant` at a wall-clock time in Unix milliseconds; a time already
+/// past is now.
+fn instant_at_unix_ms(unix_ms: u64) -> Instant {
+    let at = UNIX_EPOCH + Duration::from_millis(unix_ms);
+    Instant::now() + at.duration_since(SystemTime::now()).unwrap_or_default()
 }
 
 fn bounded_value(value: String, label: &str, max_chars: usize) -> Result<String, String> {
@@ -123,7 +145,7 @@ impl LiteratureRequest {
                 &AtomicBool::new(false),
             )),
             Self::UpgradeBibliography { dry_run } => {
-                to_json(papers::upgrade_bibliography(root, dry_run))
+                to_json(papers::upgrade_bibliography(root, dry_run, None))
             }
         }
     }
@@ -193,3 +215,6 @@ mod tests {
         assert!(bounded_value("x".repeat(513), "key", 512).is_err());
     }
 }
+
+#[cfg(test)]
+mod live_tests;

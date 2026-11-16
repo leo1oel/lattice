@@ -53,6 +53,8 @@ Daily counters survive Worker restarts; the response cache is in memory and can 
 The two `*_DAILY_QUOTA` variables in `wrangler.jsonc` are application safety budgets, not promises about the providers' own quotas.
 Anonymous IP limits do not authenticate desktop installations or prevent all abuse; the global budgets bound upstream consumption if third parties call the endpoint.
 Native and CLI fallback paths may still use other providers after a public lookup fails, so this is not a claim that the entire citation workflow is retry-free.
+When the service refuses bibcite with `daily_quota` or a rate limit, the desktop app stops routing through it until the next UTC midnight (two minutes for a rate limit), repeats that lookup once with bibcite querying Crossref and OpenAlex directly, and tells the Agent so (`commands/public_service.rs` in lattice-core).
+Resolved DOIs are cached in the app for a day, so a repeated cite of the same DOI spends no budget.
 
 ## Deploy and verify
 

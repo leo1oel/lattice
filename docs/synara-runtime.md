@@ -157,7 +157,10 @@ renamed. They are not all Lattice code:
 | iOS Simulator | 15 | `device_list`, `device_boot`, `device_configure`, `device_install`, `device_launch`, `device_open_url`, `device_tap`, `device_swipe`, `device_type`, `device_press_button`, `device_screenshot`, `device_describe_ui`, `device_scroll_to_element`, `device_wait`, `device_logs` | **Upstream**, from the fork's `deviceTools.ts`, and **not offered**. They are still in the fork's allowlist, but the fork builds them, and the panel's device dock, only for a host that sets `LATTICE_DEVICE_CONTROL_ENABLED=true`. Lattice sets nothing and removes any inherited value when it starts the sidecar (`AgentEnvironment::apply` in `src-tauri/lattice-core/src/synara/environment.rs`), so the Lattice catalog has 43 tools. |
 
 `cite` and `upgrade_bibliography` run with `HistoryMode::Defer`, so agent bibliography edits fold into
-Lattice's own transaction history instead of committing independently. A removal the writer confirms
+Lattice's own transaction history instead of committing independently.
+The fork's bibliography broker abandons a request after 30 seconds, so Lattice passes the request's `expiresAt` to `agent_bibliography_mutation` as `deadline`.
+`upgrade_bibliography` checks each preprint on its own, three at a time, saves what it confirmed before that deadline, and reports the rest as `pending` with `complete: false`; calling it again continues with them.
+`cite` never rewrites an entry the bibliography already has: its result carries a `note` saying the entry was left unchanged, which fields the resolved record differs in, and, for a preprint, that `upgrade_bibliography` applies the publication. A removal the writer confirms
 is recorded in History like one from the paper library.
 
 The agent panel receives every host-answered tool request (bibliography, canvas, spreadsheet, project

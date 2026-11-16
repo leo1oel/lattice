@@ -250,6 +250,7 @@ fn import_one(
             already_imported: true,
             fetch_error: None,
             cancelled: false,
+            note: None,
         }),
         None => core_papers::import_reference(
             &run.root,

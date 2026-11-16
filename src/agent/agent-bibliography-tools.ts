@@ -74,9 +74,12 @@ export function executeAgentBibliographyToolRequest(
     if (request.action === "remove_reference") {
       return requestAgentReferenceRemoval(request.params.key as string, request.workspaceRoot, current);
     }
+    // The deadline lets a long upgrade answer with what it finished, and
+    // the rest pending, before the Agent stops waiting at `expiresAt`.
     const result = await invoke<unknown>("agent_bibliography_mutation", {
       projectRoot: request.workspaceRoot,
       mutation: { action: request.action, ...request.params },
+      deadline: request.expiresAt,
     });
     const resultBytes = jsonBytes(result);
     if (!isRecord(result) || resultBytes === null || resultBytes > 384 * 1024) {

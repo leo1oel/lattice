@@ -8,6 +8,9 @@ use crate::papers::test_support::TestProject;
 #[cfg(unix)]
 use crate::papers::test_support::{fake_bibcite, tool_lock, write_test_tool, ToolOverride};
 
+#[cfg(unix)]
+mod agent_cite;
+
 fn import(root: &Path, input: &str) -> Result<ImportResult, String> {
     import_reference(
         root,
@@ -368,6 +371,8 @@ fn a_citation_resolved_against_an_old_bibliography_never_reverts_the_new_one() {
     let _bibcite = ToolOverride::set(&commands::BIBCITE, &tool);
     for mode in [HistoryMode::Record, HistoryMode::Defer] {
         project.write("references.bib", "");
+        // Each mode must run the slow resolver, not replay the DOI's answer.
+        forget_resolved_dois();
         let result = import_reference(
             &project.root,
             "10.1234/example",
