@@ -138,7 +138,11 @@ impl Run {
             .text_point(cx, &panel, &lattice, "\\documentclass", 1)
             .await?;
         for dx in [3., 30., 60.] {
-            native::send_mouse(native, native::Mouse::Moved, point(far.left() + px(dx), far.center().y))?;
+            native::send_mouse(
+                native,
+                native::Mouse::Moved,
+                point(far.left() + px(dx), far.center().y),
+            )?;
             self.pause(cx, Duration::from_millis(150)).await;
         }
         self.pause(cx, Duration::from_millis(400)).await;
@@ -195,30 +199,22 @@ impl Run {
         native::send_key(native, '\u{1b}', false)?;
         self.pause(cx, Duration::from_millis(300)).await;
 
-        // An edit to the text closes the card.
+        // An edit to the text closes the card, even one that leaves the caret
+        // be (a collaborator's, a reload), and the editor gets the keyboard
+        // back.
         self.select(cx, &panel, key_at, key_at)?;
         self.option_command_k(cx, native).await?;
         let (opened, ..) = self.card_state(cx, &panel)?;
         let end = text.len();
-        self.with_window(cx, |_, window, cx| {
-            let inner = panel.read(cx).editor().clone();
-            inner.update(cx, |editor, cx| {
-                editor.change_selections(editor::SelectionEffects::default(), window, cx, |s| {
-                    s.select_ranges([editor::MultiBufferOffset(end)..editor::MultiBufferOffset(end)])
-                });
-                editor.insert("%", window, cx);
-            })
-        })?;
+        let buffer = cx.update(|cx| panel.read(cx).lattice_editor().read(cx).buffer().clone());
+        buffer.update(cx, |buffer, cx| buffer.edit([(end..end, "%")], None, cx));
         self.pause(cx, Duration::from_millis(300)).await;
-        let (shown, ..) = self.card_state(cx, &panel)?;
-        self.with_window(cx, |_, window, cx| {
-            let inner = panel.read(cx).editor().clone();
-            inner.update(cx, |editor, cx| editor.undo(&editor::actions::Undo, window, cx));
-        })?;
+        let (shown, _, caret, editor_focused, _) = self.card_state(cx, &panel)?;
+        buffer.update(cx, |buffer, cx| buffer.edit([(end..end + 1, "")], None, cx));
         steps.check(
-            "an edit to the text closes the ⌥⌘K card",
-            opened == ["citation"] && shown.is_empty(),
-            json!({ "opened": opened, "shown": shown }),
+            "an edit to the text closes the ⌥⌘K card and gives the editor the keyboard back",
+            opened == ["citation"] && shown.is_empty() && caret == key_at && editor_focused,
+            json!({ "opened": opened, "shown": shown, "caret": caret, "editor_focused": editor_focused }),
         );
 
         // Outside a LaTeX file the key opens no card, even on a \cite.

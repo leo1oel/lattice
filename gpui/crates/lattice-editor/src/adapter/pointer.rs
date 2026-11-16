@@ -129,7 +129,13 @@ impl LatticeEditor {
     /// Close the cards, and forget targets the pointer was resting on.
     pub fn dismiss_hover(&mut self, cx: &mut Context<Self>) {
         if !matches!(self.hover, Hover::Idle) {
-            self.hover = Hover::Idle;
+            if let Hover::Shown {
+                keyboard: Some((card, _)),
+                ..
+            } = std::mem::replace(&mut self.hover, Hover::Idle)
+            {
+                self.refocus = Some(card.focus);
+            }
             self.painted.borrow_mut().card = None;
             cx.notify();
         }
@@ -153,7 +159,8 @@ impl LatticeEditor {
 
     /// Open the `id` provider's card for the text at `offset` with focus in
     /// it, as the Tauri app's ⌥⌘K opens the citation card at the caret
-    /// (`citationCardAtCursor`). False when that provider has no card there.
+    /// (`citationCardAtCursor`). False when that provider has no card there,
+    /// or its text is scrolled out of the editor (the card could not show).
     pub fn open_card_at(
         &mut self,
         offset: usize,
@@ -167,7 +174,7 @@ impl LatticeEditor {
             .into_iter()
             .filter(|target| target.id == id)
             .collect();
-        if targets.is_empty() {
+        if targets.is_empty() || self.visible_rect(&targets, window, cx).is_none() {
             return false;
         }
         let focus = cx.focus_handle();
@@ -309,6 +316,19 @@ impl LatticeEditor {
                 card,
             })
         })
+    }
+
+    /// The targets' rectangle while it is in the editor: targets scrolled
+    /// out of it take their cards with them.
+    fn visible_rect(
+        &self,
+        targets: &[Anchored],
+        window: &mut Window,
+        cx: &mut App,
+    ) -> Option<Bounds<Pixels>> {
+        let rect = self.targets_rect(targets, window, cx)?;
+        let bounds = self.painted.borrow().bounds?;
+        (rect.bottom() >= bounds.top() && rect.top() <= bounds.bottom()).then_some(rect)
     }
 
     /// The rectangle the targets' cards hang from: a gutter mark's line, or
@@ -574,12 +594,8 @@ impl LatticeEditor {
             return None;
         }
         let targets = targets.clone();
-        let rect = self.targets_rect(&targets, window, cx)?;
+        let rect = self.visible_rect(&targets, window, cx)?;
         let bounds = self.painted.borrow().bounds?;
-        // Targets scrolled out of the editor take their cards with them.
-        if rect.bottom() < bounds.top() || rect.top() > bounds.bottom() {
-            return None;
-        }
         let context = HoverCardContext {
             editor: cx.weak_entity(),
             max_width: (bounds.size.width - CARD_MARGIN).max(px(160.)),
