@@ -409,7 +409,11 @@ impl Shell {
                     }
                 });
                 if wrote_pdf {
-                    self.read_compounds(result.root_document.clone(), result.aux_folder.clone(), cx);
+                    self.read_compounds(
+                        result.root_document.clone(),
+                        result.aux_folder.clone(),
+                        cx,
+                    );
                 }
                 if result.success && !cancelled {
                     notices::dismiss(BUILD_FAILED_NOTICE, cx);

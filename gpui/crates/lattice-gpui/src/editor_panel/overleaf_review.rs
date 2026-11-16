@@ -82,11 +82,21 @@ pub enum ReviewAction {
     /// From a `.tex` file's Visual page, whose cards (the Tauri app's) write
     /// and confirm in place: reply `content` to a thread, reopen one, delete
     /// one the card has confirmed, edit or delete one message.
-    ReplyWith { thread: String, content: String },
+    ReplyWith {
+        thread: String,
+        content: String,
+    },
     Reopen(String),
     DeleteConfirmed(String),
-    EditMessage { thread: String, message: String, content: String },
-    DeleteMessage { thread: String, message: String },
+    EditMessage {
+        thread: String,
+        message: String,
+        content: String,
+    },
+    DeleteMessage {
+        thread: String,
+        message: String,
+    },
 }
 
 /// The suggestions shown, for the hover card, by byte range of the buffer

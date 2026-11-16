@@ -56,14 +56,11 @@ impl Run {
     /// With `LATTICE_E2E_SHOTS=DIR` (and the `offscreen-shots` feature)
     /// the window is saved as `DIR/<name>.png`, for a review of the look.
     async fn updater_shot(&self, cx: &mut AsyncApp, name: &str) {
-        let Some(dir) = std::env::var_os("LATTICE_E2E_SHOTS") else {
+        if std::env::var_os("LATTICE_E2E_SHOTS").is_none() {
             return;
-        };
-        self.pause(cx, Duration::from_millis(300)).await;
-        let path = std::path::Path::new(&dir).join(format!("{name}.png"));
-        if let Err(error) = self.capture(cx, &path.to_string_lossy()).await {
-            log::warn!("no shot {name}: {error:#}");
         }
+        self.pause(cx, Duration::from_millis(300)).await;
+        self.snapshot(cx, name).await;
     }
 
     async fn updater_checks(&self, cx: &mut AsyncApp, steps: &mut Steps) -> Result<()> {

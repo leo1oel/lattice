@@ -136,7 +136,12 @@ pub fn item(labels: WordCountLabels, scoped: bool, cx: &App) -> AnyElement {
         .trigger_with(move |_, _, _| trigger.into_any_element())
         .exit(popup_exit())
         .content(move |state, _, cx| {
-            popup_motion(state, "word-count-details", PopFrom::Below, details(&labels, cx))
+            popup_motion(
+                state,
+                "word-count-details",
+                PopFrom::Below,
+                details(&labels, cx),
+            )
         })
         .into_any_element()
 }

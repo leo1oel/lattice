@@ -204,27 +204,23 @@ pub fn comment_card_sized(
 ) -> AnyElement {
     let palette = cx.palette().clone();
     let indent = px(PIN + 6.);
-    let card = div()
-        .id("annotation-card")
-        .flex()
-        .flex_col()
-        .gap(SPACING_5);
+    let card = div().id("annotation-card").flex().flex_col().gap(SPACING_5);
     let mut card = match width {
         CardWidth::Within(max_width) => card
             .min_w(px(240.).min(max_width))
             .max_w(px(320.).min(max_width)),
         CardWidth::Filling => card.w_full().min_w_0(),
     }
-        .pt(SPACING_5)
-        .pb(SPACING_5)
-        .pr(SPACING_5)
-        .pl(SPACING_6)
-        .rounded(RADIUS_SURFACE)
-        .bg(palette.raised)
-        .shadow(Elevation::Popover.shadows(&palette))
-        .text_color(palette.text)
-        .text_role(TextRole::Body, cx)
-        .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation());
+    .pt(SPACING_5)
+    .pb(SPACING_5)
+    .pr(SPACING_5)
+    .pl(SPACING_6)
+    .rounded(RADIUS_SURFACE)
+    .bg(palette.raised)
+    .shadow(Elevation::Popover.shadows(&palette))
+    .text_color(palette.text)
+    .text_role(TextRole::Body, cx)
+    .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation());
     for (index, comment) in comments.iter().enumerate() {
         let id = comment.id.clone();
         let on_resolve = on.clone();

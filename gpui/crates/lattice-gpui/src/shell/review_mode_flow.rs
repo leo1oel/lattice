@@ -52,8 +52,12 @@ impl Shell {
         let modes = store::store(cx);
         let marked = cx.new(|_| MarkedPdf::default());
         let subscriptions = vec![
-            cx.observe_in(&modes, window, |this, _, window, cx| this.sync_marked_pdf(window, cx)),
-            cx.observe_in(&marked, window, |this, _, window, cx| this.show_marked_pdf(window, cx)),
+            cx.observe_in(&modes, window, |this, _, window, cx| {
+                this.sync_marked_pdf(window, cx)
+            }),
+            cx.observe_in(&marked, window, |this, _, window, cx| {
+                this.show_marked_pdf(window, cx)
+            }),
         ];
         ReviewFlow {
             marked,
@@ -140,14 +144,17 @@ impl Shell {
     /// Ask for the marked PDF while review mode wants it in this project's
     /// docked PDF panel, or stop asking.
     pub(super) fn sync_marked_pdf(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let wanted = self.root(cx).filter(|_| !self.pdf.read(cx).in_window()).and_then(|root| {
-            let store = store::try_store(cx)?;
-            let store = store.read(cx);
-            store.marked(&root).then(|| {
-                let revision = store.revision(&root);
-                (root, revision, self.parts.get::<ReviewFlow>().builds)
-            })
-        });
+        let wanted = self
+            .root(cx)
+            .filter(|_| !self.pdf.read(cx).in_window())
+            .and_then(|root| {
+                let store = store::try_store(cx)?;
+                let store = store.read(cx);
+                store.marked(&root).then(|| {
+                    let revision = store.revision(&root);
+                    (root, revision, self.parts.get::<ReviewFlow>().builds)
+                })
+            });
         let marked = self.parts.get::<ReviewFlow>().marked.clone();
         marked.update(cx, |marked, cx| marked.want(wanted, cx));
         self.show_marked_pdf(window, cx);
@@ -159,7 +166,11 @@ impl Shell {
         let marked = self.parts.get::<ReviewFlow>().marked.clone();
         let (shown, building, error) = {
             let marked = marked.read(cx);
-            (marked.shown().map(PathBuf::from), marked.building(), marked.error())
+            (
+                marked.shown().map(PathBuf::from),
+                marked.building(),
+                marked.error(),
+            )
         };
         self.pdf
             .update(cx, |panel, cx| panel.set_marking(building, error, cx));
@@ -169,7 +180,9 @@ impl Shell {
         }
         self.parts.get_mut::<ReviewFlow>().opened = shown.clone();
         match shown {
-            Some(path) => self.pdf.update(cx, |panel, cx| panel.open(path, window, cx)),
+            Some(path) => self
+                .pdf
+                .update(cx, |panel, cx| panel.open(path, window, cx)),
             None => {
                 let paper = self
                     .root(cx)

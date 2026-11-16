@@ -15,10 +15,7 @@
 //! text set on paper in the draft, the colours this document uses, the
 //! writer's own and the paper tones.
 
-use std::{
-    collections::BTreeMap,
-    path::PathBuf,
-};
+use std::{collections::BTreeMap, path::PathBuf};
 
 use gpui::{
     AnyElement, App, AppContext as _, Context, Entity, Global, Hsla, InteractiveElement as _,
@@ -55,12 +52,36 @@ pub struct Highlighter {
 
 pub fn highlighters() -> [Highlighter; 6] {
     [
-        Highlighter { hex: "#FFF1A6", meaning: t!("To check"), key: "1" },
-        Highlighter { hex: "#CFEFC6", meaning: t!("Keep"), key: "2" },
-        Highlighter { hex: "#D3E4FF", meaning: t!("Needs a citation"), key: "3" },
-        Highlighter { hex: "#FFD6E4", meaning: t!("Rewrite"), key: "4" },
-        Highlighter { hex: "#FFE2C2", meaning: t!("Question"), key: "5" },
-        Highlighter { hex: "#E6DBFF", meaning: t!("Idea"), key: "6" },
+        Highlighter {
+            hex: "#FFF1A6",
+            meaning: t!("To check"),
+            key: "1",
+        },
+        Highlighter {
+            hex: "#CFEFC6",
+            meaning: t!("Keep"),
+            key: "2",
+        },
+        Highlighter {
+            hex: "#D3E4FF",
+            meaning: t!("Needs a citation"),
+            key: "3",
+        },
+        Highlighter {
+            hex: "#FFD6E4",
+            meaning: t!("Rewrite"),
+            key: "4",
+        },
+        Highlighter {
+            hex: "#FFE2C2",
+            meaning: t!("Question"),
+            key: "5",
+        },
+        Highlighter {
+            hex: "#E6DBFF",
+            meaning: t!("Idea"),
+            key: "6",
+        },
     ]
 }
 
@@ -204,7 +225,12 @@ pub(super) struct PaletteState {
 }
 
 impl EditorPanel {
-    fn rename_highlighter(&mut self, hex: &'static str, window: &mut Window, cx: &mut Context<Self>) {
+    fn rename_highlighter(
+        &mut self,
+        hex: &'static str,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let prefs = prefs(cx).clone();
         let renamed = prefs.meanings.get(hex).cloned().unwrap_or_default();
         let placeholder = highlighters()
@@ -217,24 +243,34 @@ impl EditorPanel {
                 .default_value(renamed)
         });
         field.update(cx, |field, cx| field.focus(window, cx));
-        let sub = cx.subscribe_in(&field, window, move |this, field, event, window, cx| match event {
-            InputEvent::PressEnter { .. } | InputEvent::Blur => {
-                let value = field.read(cx).value().trim().chars().take(40).collect::<String>();
-                update(cx, |prefs| {
-                    if value.is_empty() {
-                        prefs.meanings.remove(hex);
-                    } else {
-                        prefs.meanings.insert(hex.to_string(), value);
+        let sub = cx.subscribe_in(
+            &field,
+            window,
+            move |this, field, event, window, cx| match event {
+                InputEvent::PressEnter { .. } | InputEvent::Blur => {
+                    let value = field
+                        .read(cx)
+                        .value()
+                        .trim()
+                        .chars()
+                        .take(40)
+                        .collect::<String>();
+                    update(cx, |prefs| {
+                        if value.is_empty() {
+                            prefs.meanings.remove(hex);
+                        } else {
+                            prefs.meanings.insert(hex.to_string(), value);
+                        }
+                    });
+                    this.toolbar.palette.renaming = None;
+                    if matches!(event, InputEvent::PressEnter { .. }) {
+                        this.refocus_palette(window, cx);
                     }
-                });
-                this.toolbar.palette.renaming = None;
-                if matches!(event, InputEvent::PressEnter { .. }) {
-                    this.refocus_palette(window, cx);
+                    cx.notify();
                 }
-                cx.notify();
-            }
-            _ => {}
-        });
+                _ => {}
+            },
+        );
         self.toolbar.palette.renaming = Some((hex, field, sub));
         cx.notify();
     }
@@ -263,7 +299,9 @@ pub(super) fn palette(
     let current_hex = current.as_ref().map(|color| color.to_ascii_uppercase());
     let surface = div()
         .id("highlight-palette")
-        .when_some(panel.toolbar.palette.focus.clone(), |this, focus| this.track_focus(&focus))
+        .when_some(panel.toolbar.palette.focus.clone(), |this, focus| {
+            this.track_focus(&focus)
+        })
         .occlude()
         .w(px(212.))
         .p(px(4.))
@@ -344,7 +382,11 @@ pub(super) fn palette(
                     }))
                     .child(chip)
                     .child(div().flex_1().min_w_0().child(Field::new(&field).compact()))
-                    .child(div().text_color(palette.text_secondary.opacity(0.7)).child("↩")),
+                    .child(
+                        div()
+                            .text_color(palette.text_secondary.opacity(0.7))
+                            .child("↩"),
+                    ),
             );
             continue;
         }
@@ -381,7 +423,9 @@ pub(super) fn palette(
                     if on {
                         this.child(Icon::CHECK.element(px(14.), palette.text))
                     } else if pen {
-                        this.child(Icon::HIGHLIGHTER.element(px(12.), palette.text_secondary.opacity(0.7)))
+                        this.child(
+                            Icon::HIGHLIGHTER.element(px(12.), palette.text_secondary.opacity(0.7)),
+                        )
                     } else {
                         this
                     }
@@ -391,13 +435,17 @@ pub(super) fn palette(
                         .min_w(px(8.))
                         .text_color(palette.text_secondary.opacity(0.7))
                         .child(item.key)
-                        .group_hover(SharedString::from(format!("highlighter-{}", item.key)), |style| {
-                            style.opacity(0.)
-                        }),
+                        .group_hover(
+                            SharedString::from(format!("highlighter-{}", item.key)),
+                            |style| style.opacity(0.),
+                        ),
                 )
                 .child(
                     div()
-                        .id(SharedString::from(format!("highlighter-rename-{}", item.key)))
+                        .id(SharedString::from(format!(
+                            "highlighter-rename-{}",
+                            item.key
+                        )))
                         .absolute()
                         .right(px(2.))
                         .top(px(3.))
@@ -408,9 +456,10 @@ pub(super) fn palette(
                         .rounded(px(4.))
                         .bg(palette.raised)
                         .invisible()
-                        .group_hover(SharedString::from(format!("highlighter-{}", item.key)), |style| {
-                            style.visible()
-                        })
+                        .group_hover(
+                            SharedString::from(format!("highlighter-{}", item.key)),
+                            |style| style.visible(),
+                        )
                         .hover(|this| this.bg(palette.hover))
                         .child(Icon::PENCIL_LINE.element(px(12.), palette.text_secondary))
                         .on_click(cx.listener(move |this, _, window, cx| {
@@ -462,7 +511,11 @@ pub(super) fn palette(
                 .hover(|this| this.bg(palette.hover))
                 .child(Icon::PLUS.element(px(12.), palette.text_secondary))
                 .tooltip(|_, cx| {
-                    lattice_ui::components::LatticeTooltip::view(SharedString::from(t!("Custom colour…")), None, cx)
+                    lattice_ui::components::LatticeTooltip::view(
+                        SharedString::from(t!("Custom colour…")),
+                        None,
+                        cx,
+                    )
                 })
                 .on_click(cx.listener(move |this, _, window, cx| {
                     this.open_custom(custom_current.clone(), window, cx)
@@ -486,7 +539,13 @@ pub(super) fn palette(
                     .text_size(px(12.))
                     .text_color(palette.text_secondary)
                     .hover(|this| this.bg(palette.accent_soft).text_color(palette.text))
-                    .child(div().w(px(28.)).flex().justify_center().child(Icon::ERASER.element(px(14.), palette.text_secondary)))
+                    .child(
+                        div()
+                            .w(px(28.))
+                            .flex()
+                            .justify_center()
+                            .child(Icon::ERASER.element(px(14.), palette.text_secondary)),
+                    )
                     .child(t!("Remove highlight"))
                     .on_click(cx.listener(|this, _, window, cx| {
                         this.toolbar_action(ToolbarAction::Unhighlight, window, cx)

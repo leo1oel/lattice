@@ -29,11 +29,25 @@ const LICENSED_FONTS: Record<string, string> = {
   "gpui/crates/lattice-ui/assets/fonts/inter/Inter-Medium.ttf": "OFL-1.1",
   "gpui/crates/lattice-ui/assets/fonts/inter/Inter-SemiBold.ttf": "OFL-1.1",
   "gpui/crates/lattice-ui/assets/fonts/inter/Inter-Bold.ttf": "OFL-1.1",
+  "gpui/crates/lattice-ui/assets/fonts/inter/Inter-Italic.ttf": "OFL-1.1",
+  "gpui/crates/lattice-ui/assets/fonts/inter/Inter-MediumItalic.ttf": "OFL-1.1",
   "gpui/crates/lattice-ui/assets/fonts/ioskeley-mono/IoskeleyMono-Regular.ttf": "OFL-1.1",
   "gpui/crates/lattice-ui/assets/fonts/ioskeley-mono/IoskeleyMono-Medium.ttf": "OFL-1.1",
   "gpui/crates/lattice-ui/assets/fonts/ioskeley-mono/IoskeleyMono-Bold.ttf": "OFL-1.1",
   "gpui/crates/lattice-ui/assets/fonts/ioskeley-mono/IoskeleyMono-Italic.ttf": "OFL-1.1",
   "gpui/crates/lattice-ui/assets/fonts/ioskeley-mono/IoskeleyMono-BoldItalic.ttf": "OFL-1.1",
+  // The reading-aid faces are the Latin subsets the Tauri app takes from
+  // @fontsource, unrenamed and unmodified apart from the format, each family's
+  // LICENSE-* file beside them. OpenDyslexic's OFL reserves its name, so a
+  // modified copy would have to be renamed.
+  "gpui/crates/lattice-ui/assets/fonts/reading-aids/atkinson-hyperlegible-latin-400-normal.ttf": "OFL-1.1",
+  "gpui/crates/lattice-ui/assets/fonts/reading-aids/atkinson-hyperlegible-latin-400-italic.ttf": "OFL-1.1",
+  "gpui/crates/lattice-ui/assets/fonts/reading-aids/atkinson-hyperlegible-latin-700-normal.ttf": "OFL-1.1",
+  "gpui/crates/lattice-ui/assets/fonts/reading-aids/atkinson-hyperlegible-latin-700-italic.ttf": "OFL-1.1",
+  "gpui/crates/lattice-ui/assets/fonts/reading-aids/opendyslexic-latin-400-normal.ttf": "OFL-1.1",
+  "gpui/crates/lattice-ui/assets/fonts/reading-aids/opendyslexic-latin-400-italic.ttf": "OFL-1.1",
+  "gpui/crates/lattice-ui/assets/fonts/reading-aids/opendyslexic-latin-700-normal.ttf": "OFL-1.1",
+  "gpui/crates/lattice-ui/assets/fonts/reading-aids/opendyslexic-latin-700-italic.ttf": "OFL-1.1",
 };
 
 /** Every path Git tracks or would add (untracked, not ignored). */

@@ -146,7 +146,10 @@ fn changed_runs(a: &[&str], b: &[&str], limit: usize) -> Vec<Run> {
                 old_len,
                 new_index,
                 new_len,
-            } => (old_index..old_index + old_len, new_index..new_index + new_len),
+            } => (
+                old_index..old_index + old_len,
+                new_index..new_index + new_len,
+            ),
         };
         match runs.last_mut() {
             Some(last) if last.a_to == old.start && last.b_to == new.start => {
@@ -186,7 +189,10 @@ pub fn hunks(base: &str, current: &str) -> Vec<Hunk> {
         head += 1;
     }
     let mut tail = 0;
-    while tail < a.len() - head && tail < b.len() - head && a[a.len() - 1 - tail] == b[b.len() - 1 - tail] {
+    while tail < a.len() - head
+        && tail < b.len() - head
+        && a[a.len() - 1 - tail] == b[b.len() - 1 - tail]
+    {
         tail += 1;
     }
     let a_middle = &a[head..a.len() - tail];
@@ -228,7 +234,9 @@ fn word_hunks(before: &str, after: &str, base_offset: usize, offset: usize, out:
         if out.len() > first
             && let Some(previous) = out.last_mut()
             && previous.to < hunk.from
-            && after[previous.to - offset..hunk.from - offset].chars().all(is_space)
+            && after[previous.to - offset..hunk.from - offset]
+                .chars()
+                .all(is_space)
         {
             previous.base_to = hunk.base_to;
             previous.to = hunk.to;
@@ -238,7 +246,8 @@ fn word_hunks(before: &str, after: &str, base_offset: usize, offset: usize, out:
     }
     // Two words replaced by one also match up a space either way round; the
     // space both sides keep is not part of the change.
-    let space_at = |text: &str, at: usize| text[at..].chars().next().is_some_and(char::is_whitespace);
+    let space_at =
+        |text: &str, at: usize| text[at..].chars().next().is_some_and(char::is_whitespace);
     for hunk in &mut out[first..] {
         while hunk.base_to > hunk.base_from && hunk.to > hunk.from {
             let (Some(x), Some(y)) = (
@@ -403,7 +412,11 @@ pub fn hunk_at(hunks: &[Hunk], at: usize, after: bool) -> Option<usize> {
     hunks
         .iter()
         .position(|hunk| hunk.from <= at && at <= hunk.to)
-        .or_else(|| after.then(|| hunks.iter().position(|hunk| hunk.from > at)).flatten())
+        .or_else(|| {
+            after
+                .then(|| hunks.iter().position(|hunk| hunk.from > at))
+                .flatten()
+        })
 }
 
 /// The change after (`forward`) or before the selection `from..to`,
@@ -450,7 +463,8 @@ mod tests {
     #[test]
     fn a_corrected_word_not_its_whole_line() {
         let base = "\\section{Intro}\nAttention lets a decoder look at encoder states.\nMore.\n";
-        let current = "\\section{Intro}\nAttention lets a decoder retrieve encoder states.\nMore.\n";
+        let current =
+            "\\section{Intro}\nAttention lets a decoder retrieve encoder states.\nMore.\n";
         let found = hunks(base, current);
         assert_eq!(found.len(), 1);
         assert_eq!(
@@ -520,7 +534,10 @@ mod tests {
     fn reject_all_goes_back_to_the_base() {
         let base = "Alpha beta.\n\nGamma delta.\n\nEpsilon.\n";
         let current = "Alpha BETA.\n\nGamma.\n\nEpsilon zeta.\n\nNew paragraph.\n";
-        assert_eq!(apply(current, &reject_all_edits(base, &hunks(base, current))), base);
+        assert_eq!(
+            apply(current, &reject_all_edits(base, &hunks(base, current))),
+            base
+        );
     }
 
     #[test]
@@ -556,7 +573,10 @@ mod tests {
         let (advanced, touched) = advanced_base(base, &hunks(base, before), &remote);
         assert!(touched);
         assert!(advanced.contains("very "));
-        let rejected = apply(&after, &reject_all_edits(&advanced, &hunks(&advanced, &after)));
+        let rejected = apply(
+            &after,
+            &reject_all_edits(&advanced, &hunks(&advanced, &after)),
+        );
         assert_eq!(rejected, advanced);
     }
 
@@ -572,7 +592,10 @@ mod tests {
         let after = apply(before, &remote);
         let (advanced, _) = advanced_base(base, &hunks(base, before), &remote);
         assert_eq!(advanced, "old cat.\n");
-        let rejected = apply(&after, &reject_all_edits(&advanced, &hunks(&advanced, &after)));
+        let rejected = apply(
+            &after,
+            &reject_all_edits(&advanced, &hunks(&advanced, &after)),
+        );
         assert_eq!(rejected, "old cat.\n");
     }
 
@@ -589,7 +612,10 @@ mod tests {
         let after = apply(before, &remote);
         let (advanced, _) = advanced_base(base, &found, &remote);
         assert_eq!(advanced, &base[found[0].from..]);
-        let rejected = apply(&after, &reject_all_edits(&advanced, &hunks(&advanced, &after)));
+        let rejected = apply(
+            &after,
+            &reject_all_edits(&advanced, &hunks(&advanced, &after)),
+        );
         assert_eq!(rejected, advanced);
     }
 

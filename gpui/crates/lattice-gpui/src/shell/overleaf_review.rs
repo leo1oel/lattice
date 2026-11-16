@@ -228,11 +228,13 @@ impl Shell {
             ReviewAction::DeleteConfirmed(thread) => self
                 .overleaf
                 .update(cx, |bridge, cx| bridge.delete_thread(thread, cx)),
-            ReviewAction::EditMessage { thread, message, content } => {
-                self.overleaf.update(cx, |bridge, cx| {
-                    bridge.edit_message(thread, message, content.clone(), |_| {}, cx)
-                })
-            }
+            ReviewAction::EditMessage {
+                thread,
+                message,
+                content,
+            } => self.overleaf.update(cx, |bridge, cx| {
+                bridge.edit_message(thread, message, content.clone(), |_| {}, cx)
+            }),
             ReviewAction::DeleteMessage { thread, message } => self
                 .overleaf
                 .update(cx, |bridge, cx| bridge.delete_message(thread, message, cx)),

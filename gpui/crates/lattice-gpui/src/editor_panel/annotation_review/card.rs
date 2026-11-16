@@ -12,7 +12,8 @@ use std::{collections::BTreeSet, rc::Rc};
 use gpui::{
     AnyElement, App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, Focusable,
     InteractiveElement as _, IntoElement, KeyDownEvent, ParentElement as _, Render, SharedString,
-    StatefulInteractiveElement as _, Styled as _, Subscription, Window, div, prelude::FluentBuilder as _, px,
+    StatefulInteractiveElement as _, Styled as _, Subscription, Window, div,
+    prelude::FluentBuilder as _, px,
 };
 use gpui_kit::component::input::{InputEvent, TextareaState};
 use lattice_core::project::EditorComment;
@@ -106,7 +107,12 @@ impl ReviewCard {
     fn reviewed(&self) -> Option<Review> {
         let proposal = self.proposal()?;
         let cite = self.comment.intent.as_deref() == Some("cite");
-        Some(super::reviewed(self.original(), proposal, &self.context, cite))
+        Some(super::reviewed(
+            self.original(),
+            proposal,
+            &self.context,
+            cite,
+        ))
     }
 
     /// Follow the annotation and the rounds as they are now.
@@ -121,7 +127,12 @@ impl ReviewCard {
         // A new proposal starts the choice over.
         let key = |comment: &EditorComment| {
             comment.revision.as_ref().map(|revision| {
-                (revision.round, revision.state.clone(), revision.text.clone(), revision.question.clone())
+                (
+                    revision.round,
+                    revision.state.clone(),
+                    revision.text.clone(),
+                    revision.question.clone(),
+                )
             })
         };
         let changed = key(&comment) != key(&self.comment);
@@ -145,7 +156,10 @@ impl ReviewCard {
     /// The passage the proposal was made for and the edits still chosen.
     pub fn chosen(&self) -> Option<(String, Vec<Edit>)> {
         let review = self.review.as_ref()?;
-        Some((self.original().to_string(), proofread::chosen_edits(review, &self.rejected)))
+        Some((
+            self.original().to_string(),
+            proofread::chosen_edits(review, &self.rejected),
+        ))
     }
 
     fn open_retry(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -156,7 +170,10 @@ impl ReviewCard {
         });
         field.update(cx, |field, cx| field.focus(window, cx));
         let subscription = cx.subscribe_in(&field, window, |this, field, event, window, cx| {
-            if let InputEvent::PressEnter { secondary: false, .. } = event {
+            if let InputEvent::PressEnter {
+                secondary: false, ..
+            } = event
+            {
                 let guidance = field.read(cx).value().to_string();
                 this.ask_again(guidance, window, cx);
             }
@@ -209,7 +226,11 @@ impl ReviewCard {
 
     fn key(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
         let keys = &event.keystroke;
-        let command = if cfg!(target_os = "macos") { keys.modifiers.platform } else { keys.modifiers.control };
+        let command = if cfg!(target_os = "macos") {
+            keys.modifiers.platform
+        } else {
+            keys.modifiers.control
+        };
         if self.retry.is_some() {
             // Typing in the field is not a command to the card; Esc leaves it.
             if keys.key == "escape" {
@@ -234,7 +255,11 @@ impl ReviewCard {
                 }
             }
             "down" | "up" if plain && self.total > 1 => {
-                cx.emit(ReviewEvent::Navigate(if keys.key == "down" { 1 } else { -1 }));
+                cx.emit(ReviewEvent::Navigate(if keys.key == "down" {
+                    1
+                } else {
+                    -1
+                }));
             }
             "escape" => cx.emit(ReviewEvent::Close),
             _ => return,
@@ -274,7 +299,11 @@ impl ReviewCard {
                         from: edit.from,
                         to: edit.to,
                         insert: edit.insert.clone(),
-                        status: if self.rejected.contains(&edit.id) { Status::Kept } else { Status::Applied },
+                        status: if self.rejected.contains(&edit.id) {
+                            Status::Kept
+                        } else {
+                            Status::Applied
+                        },
                         tag: None,
                         detail: None,
                     })
@@ -308,17 +337,26 @@ impl ReviewCard {
                     .flex_col()
                     .gap(px(8.))
                     .child(body)
-                    .when_some(revision.reason.clone().filter(|reason| !reason.trim().is_empty()), |this, reason| {
-                        this.child(
-                            div()
-                                .text_role(TextRole::Caption, cx)
-                                .text_color(palette.text_secondary)
-                                .child(t!("Agent: {0}", reason)),
-                        )
-                    })
+                    .when_some(
+                        revision
+                            .reason
+                            .clone()
+                            .filter(|reason| !reason.trim().is_empty()),
+                        |this, reason| {
+                            this.child(
+                                div()
+                                    .text_role(TextRole::Caption, cx)
+                                    .text_color(palette.text_secondary)
+                                    .child(t!("Agent: {0}", reason)),
+                            )
+                        },
+                    )
                     .into_any_element()
             }
-            (None, Some(revision)) if revision.state == "asked" => status(t!("The agent asks: {0}", revision.question.clone().unwrap_or_default())),
+            (None, Some(revision)) if revision.state == "asked" => status(t!(
+                "The agent asks: {0}",
+                revision.question.clone().unwrap_or_default()
+            )),
             _ => status(t!("This proposal has been decided.").to_string()),
         }
     }
@@ -362,7 +400,11 @@ impl ReviewCard {
                 .into_any_element();
         }
         if self.proposal().is_some() && !self.running {
-            let accept_keys = if cfg!(target_os = "macos") { "⌘↩" } else { "Ctrl+↩" };
+            let accept_keys = if cfg!(target_os = "macos") {
+                "⌘↩"
+            } else {
+                "Ctrl+↩"
+            };
             row = row
                 .child(
                     Button::new("review-accept", t!("Accept"))
@@ -391,7 +433,11 @@ impl ReviewCard {
         }
         if let Some(position) = self.position.filter(|_| self.total > 1) {
             let palette = cx.palette().clone();
-            let label = t!("{position} of {total}", position = position + 1, total = self.total);
+            let label = t!(
+                "{position} of {total}",
+                position = position + 1,
+                total = self.total
+            );
             // "2 of 5 ↓ next", as the Tauri app's ghost button reads.
             row = row.child(
                 div()
@@ -451,24 +497,30 @@ impl Render for ReviewCard {
                 .id("annotation-review-card")
                 .track_focus(&self.focus)
                 .on_key_down(cx.listener(Self::key))
-                .capture_action(cx.listener(|this, _: &editor::actions::NewlineBelow, _, cx| {
-                    this.command("accept", cx)
-                }))
+                .capture_action(
+                    cx.listener(|this, _: &editor::actions::NewlineBelow, _, cx| {
+                        this.command("accept", cx)
+                    }),
+                )
                 .capture_action(cx.listener(|this, _: &editor::actions::Backspace, _, cx| {
                     this.command("reject", cx)
                 }))
                 .capture_action(cx.listener(|this, _: &editor::actions::Delete, _, cx| {
                     this.command("reject", cx)
                 }))
-                .capture_action(cx.listener(|this, _: &zed_actions::editor::MoveDown, _, cx| {
-                    this.command("down", cx)
-                }))
+                .capture_action(
+                    cx.listener(|this, _: &zed_actions::editor::MoveDown, _, cx| {
+                        this.command("down", cx)
+                    }),
+                )
                 .capture_action(cx.listener(|this, _: &zed_actions::editor::MoveUp, _, cx| {
                     this.command("up", cx)
                 }))
-                .capture_action(cx.listener(|this, _: &editor::actions::Cancel, _, cx| {
-                    this.command("close", cx)
-                }))
+                .capture_action(
+                    cx.listener(|this, _: &editor::actions::Cancel, _, cx| {
+                        this.command("close", cx)
+                    }),
+                )
                 .max_w(px(760.))
                 .flex()
                 .flex_col()

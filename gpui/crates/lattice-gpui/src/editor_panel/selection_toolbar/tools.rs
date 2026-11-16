@@ -16,8 +16,16 @@ impl EditorPanel {
         let mut bar = div().flex().flex_wrap().items_center();
         let inline = [
             (format_toggle::InlineFormat::Bold, Icon::BOLD, t!("Bold")),
-            (format_toggle::InlineFormat::Italic, Icon::ITALIC, t!("Italic")),
-            (format_toggle::InlineFormat::Underline, Icon::UNDERLINE, t!("Underline")),
+            (
+                format_toggle::InlineFormat::Italic,
+                Icon::ITALIC,
+                t!("Italic"),
+            ),
+            (
+                format_toggle::InlineFormat::Underline,
+                Icon::UNDERLINE,
+                t!("Underline"),
+            ),
             (
                 format_toggle::InlineFormat::Strikethrough,
                 Icon::STRIKETHROUGH,
@@ -45,7 +53,9 @@ impl EditorPanel {
                 t!("Quote"),
                 Some(formats.quote),
                 false,
-                cx.listener(|this, _, window, cx| this.toolbar_action(ToolbarAction::Quote, window, cx)),
+                cx.listener(|this, _, window, cx| {
+                    this.toolbar_action(ToolbarAction::Quote, window, cx)
+                }),
                 cx,
             ));
         }
@@ -55,12 +65,18 @@ impl EditorPanel {
             t!("Annotate"),
             None,
             editable,
-            cx.listener(|this, _, window, cx| this.toolbar_action(ToolbarAction::Annotate, window, cx)),
+            cx.listener(|this, _, window, cx| {
+                this.toolbar_action(ToolbarAction::Annotate, window, cx)
+            }),
             cx,
         ));
         // The agent's Proofread and Polish, and Rewrite by an instruction.
         if self.can_proofread(cx) {
-            let proofread_keys = if cfg!(target_os = "macos") { "⌘⌥P" } else { "Ctrl+Alt+P" };
+            let proofread_keys = if cfg!(target_os = "macos") {
+                "⌘⌥P"
+            } else {
+                "Ctrl+Alt+P"
+            };
             bar = bar
                 .child(keyed_tool(
                     "latex-proofread",
@@ -69,7 +85,9 @@ impl EditorPanel {
                     Some(proofread_keys),
                     None,
                     false,
-                    cx.listener(|this, _, window, cx| this.start_proofread(Ask::Proofread, window, cx)),
+                    cx.listener(|this, _, window, cx| {
+                        this.start_proofread(Ask::Proofread, window, cx)
+                    }),
                     cx,
                 ))
                 .child(tool(
@@ -78,7 +96,9 @@ impl EditorPanel {
                     t!("Polish"),
                     None,
                     false,
-                    cx.listener(|this, _, window, cx| this.start_proofread(Ask::Polish, window, cx)),
+                    cx.listener(|this, _, window, cx| {
+                        this.start_proofread(Ask::Polish, window, cx)
+                    }),
                     cx,
                 ))
                 .child(tool(
@@ -166,10 +186,25 @@ impl EditorPanel {
             .cursor_pointer()
             .when(open, |this| this.bg(palette.accent_soft))
             .hover(|this| this.bg(palette.accent_soft))
-            .child(Icon::CHEVRON_DOWN.element(px(12.), if open { palette.text } else { palette.text_secondary }))
-            .tooltip(|_, cx| LatticeTooltip::view(SharedString::from(t!("Highlight color")), None, cx))
-            .on_click(cx.listener(|this, _, window, cx| this.open_menu(Menu::Highlight, window, cx)));
-        separated(div().flex().items_center().child(pen).child(caret), &palette).into_any_element()
+            .child(Icon::CHEVRON_DOWN.element(
+                px(12.),
+                if open {
+                    palette.text
+                } else {
+                    palette.text_secondary
+                },
+            ))
+            .tooltip(|_, cx| {
+                LatticeTooltip::view(SharedString::from(t!("Highlight color")), None, cx)
+            })
+            .on_click(
+                cx.listener(|this, _, window, cx| this.open_menu(Menu::Highlight, window, cx)),
+            );
+        separated(
+            div().flex().items_center().child(pen).child(caret),
+            &palette,
+        )
+        .into_any_element()
     }
 
     /// The Markdown toolbar's buttons.
@@ -200,7 +235,13 @@ impl EditorPanel {
             .child(current)
             .child(Icon::CHEVRON_DOWN.element(px(12.), palette.text.opacity(0.7)))
             .on_click(cx.listener(|this, _, window, cx| this.open_menu(Menu::Block, window, cx)));
-        let mut bar = div().flex().flex_wrap().items_center().gap(px(1.)).child(block).child(divider(&palette));
+        let mut bar = div()
+            .flex()
+            .flex_wrap()
+            .items_center()
+            .gap(px(1.))
+            .child(block)
+            .child(divider(&palette));
         if formats {
             let marks = [
                 (MdFormat::Bold, Icon::BOLD, t!("Bold")),
@@ -251,7 +292,9 @@ impl EditorPanel {
             Icon::MESSAGE_SQUARE_TEXT,
             t!("Annotate"),
             None,
-            cx.listener(|this, _, window, cx| this.toolbar_action(ToolbarAction::Annotate, window, cx)),
+            cx.listener(|this, _, window, cx| {
+                this.toolbar_action(ToolbarAction::Annotate, window, cx)
+            }),
             cx,
         ))
         .into_any_element()
@@ -302,7 +345,12 @@ pub(super) fn separated(element: gpui::Div, palette: &lattice_ui::palette::Palet
 }
 
 pub(super) fn divider(palette: &lattice_ui::palette::Palette) -> AnyElement {
-    div().w(px(1.)).h(px(16.)).mx(px(2.)).bg(palette.line).into_any_element()
+    div()
+        .w(px(1.))
+        .h(px(16.))
+        .mx(px(2.))
+        .bg(palette.line)
+        .into_any_element()
 }
 
 /// One LaTeX tool: a 28px button with its 14px icon, a tooltip, pressed
@@ -316,7 +364,16 @@ pub(super) fn tool(
     on_click: impl Fn(&gpui::ClickEvent, &mut Window, &mut App) + 'static,
     cx: &App,
 ) -> AnyElement {
-    keyed_tool(id, icon, label, None, pressed, separated_before, on_click, cx)
+    keyed_tool(
+        id,
+        icon,
+        label,
+        None,
+        pressed,
+        separated_before,
+        on_click,
+        cx,
+    )
 }
 
 /// A [`tool`] whose tooltip names its keys too.
@@ -343,7 +400,14 @@ pub(super) fn keyed_tool(
         .cursor_pointer()
         .when(on, |this| this.bg(palette.toolbar_active))
         .hover(|this| this.bg(palette.accent_soft))
-        .child(icon.element(px(14.), if on { palette.text } else { palette.text_secondary }))
+        .child(icon.element(
+            px(14.),
+            if on {
+                palette.text
+            } else {
+                palette.text_secondary
+            },
+        ))
         .tooltip(move |_, cx| {
             LatticeTooltip::view(SharedString::from(label), keys.map(SharedString::from), cx)
         })
@@ -379,7 +443,14 @@ pub(super) fn md_tool(
         .cursor_pointer()
         .when(on, |this| this.bg(palette.toolbar_active))
         .hover(|this| this.bg(palette.hover))
-        .child(icon.element(px(15.), if on { palette.text } else { palette.text_secondary }))
+        .child(icon.element(
+            px(15.),
+            if on {
+                palette.text
+            } else {
+                palette.text_secondary
+            },
+        ))
         .tooltip(move |_, cx| LatticeTooltip::view(SharedString::from(label), None, cx))
         .on_click(on_click)
         .into_any_element()

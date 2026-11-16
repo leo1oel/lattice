@@ -52,7 +52,10 @@ impl Shell {
                 Some(editor)
             }
             Err(error) => {
-                let root = self.project.as_ref().map(|project| project.read(cx).root().to_path_buf());
+                let root = self
+                    .project
+                    .as_ref()
+                    .map(|project| project.read(cx).root().to_path_buf());
                 super::open_failure::show(&error, root.as_deref(), path, cx);
                 None
             }
