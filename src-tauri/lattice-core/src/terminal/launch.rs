@@ -85,20 +85,66 @@ pub fn shell_cwd(root: &Path) -> PathBuf {
 /// (Overleaf projects are often named "[EMNLP] …"), so the folder is also set
 /// with `-LiteralPath` once the shell is up.
 pub fn set_location_script(dir: &Path) -> String {
-    format!("Set-Location -LiteralPath '{}'", dir.to_string_lossy().replace('\'', "''"))
+    format!("Set-Location -LiteralPath {}", powershell_quote(&dir.to_string_lossy()))
+}
+
+/// PowerShell reads the curly quotes `‘ ’ ‚ ‛` as `'` and `“ ” „` as `"`, so
+/// either delimiter can be closed early by text that looks harmless.
+const SINGLE_QUOTES: [char; 5] = ['\'', '\u{2018}', '\u{2019}', '\u{201A}', '\u{201B}'];
+const DOUBLE_QUOTES: [char; 4] = ['"', '\u{201C}', '\u{201D}', '\u{201E}'];
+
+/// `text` as one literal PowerShell string. Single quotes when the text has
+/// none (nothing is special inside them); double quotes when it has single
+/// quotes but no double ones, with `` ` `` and `$` escaped so nothing
+/// expands; and with both, single quotes again with each single-quote
+/// character doubled, which PowerShell reads as one.
+pub fn powershell_quote(text: &str) -> String {
+    if !text.contains(SINGLE_QUOTES) {
+        return format!("'{text}'");
+    }
+    let (delimiter, special): (char, &[char]) = if text.contains(DOUBLE_QUOTES) {
+        ('\'', &SINGLE_QUOTES)
+    } else {
+        ('"', &['`', '$'])
+    };
+    let mut quoted = String::with_capacity(text.len() + 8);
+    quoted.push(delimiter);
+    for c in text.chars() {
+        if special.contains(&c) {
+            quoted.push(if delimiter == '\'' { c } else { '`' });
+        }
+        quoted.push(c);
+    }
+    quoted.push(delimiter);
+    quoted
 }
 
 #[cfg(test)]
 mod set_location_tests {
-    use super::set_location_script;
+    use super::{powershell_quote, set_location_script};
     use std::path::Path;
 
     #[test]
-    fn brackets_stay_literal_and_quotes_are_doubled() {
+    fn brackets_stay_literal() {
         assert_eq!(
-            set_location_script(Path::new(r"C:\Docs\[EMNLP] Ada's thesis")),
-            r"Set-Location -LiteralPath 'C:\Docs\[EMNLP] Ada''s thesis'"
+            set_location_script(Path::new(r"C:\Docs\[EMNLP] thesis")),
+            r"Set-Location -LiteralPath 'C:\Docs\[EMNLP] thesis'"
         );
+    }
+
+    #[test]
+    fn text_with_single_quotes_is_double_quoted_without_expansion() {
+        assert_eq!(
+            set_location_script(Path::new(r"C:\Docs\[EMNLP] Ada’s $HOME `n thesis")),
+            "Set-Location -LiteralPath \"C:\\Docs\\[EMNLP] Ada’s `$HOME ``n thesis\""
+        );
+        assert_eq!(powershell_quote("Ada's ‘a’ ‚b‛"), "\"Ada's ‘a’ ‚b‛\"");
+    }
+
+    #[test]
+    fn text_with_both_quote_kinds_doubles_every_single_quote() {
+        assert_eq!(powershell_quote("Ada's “x” ’y‘ ‚z‛ $v"), "'Ada''s “x” ’’y‘‘ ‚‚z‛‛ $v'");
+        assert_eq!(powershell_quote("a\"b'c"), "'a\"b''c'");
     }
 }
 

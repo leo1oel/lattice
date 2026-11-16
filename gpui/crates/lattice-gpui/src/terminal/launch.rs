@@ -71,7 +71,7 @@ fn powershell_command(
     has_lang: bool,
     cwd: &Path,
 ) -> (String, Vec<String>) {
-    let quote = |text: &str| format!("'{}'", text.replace('\'', "''"));
+    let quote = lattice_core::terminal::powershell_quote;
     let mut remove: Vec<&str> = vec!["ZED_TERM", "ALACRITTY_WINDOW_ID", "WINDOWID"];
     remove.extend(launch.env_remove.iter().map(String::as_str));
     if !has_lang {
