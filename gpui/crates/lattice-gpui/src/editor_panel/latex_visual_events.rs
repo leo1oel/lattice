@@ -26,6 +26,9 @@
 //!   (`shell/overleaf_review.rs`), kept the same way; a thread card's asks
 //!   and a suggestion's Accept and Reject go out as the source's cards' do
 //!   ([`ReviewAction`]);
+//! - what its citation cards know beyond the bibliography and what they
+//!   ask, Open paper and Why cited, answered as the source's cards are
+//!   (`latex_visual_citations.rs`);
 //! - the page's edits grouped for ⌘Z as its own history groups them (the
 //!   host's CodeMirror `history()`, as in the Tauri app), so a word typed in
 //!   one go is undone at once however its keystrokes' edits arrive.
@@ -178,6 +181,11 @@ impl EditorPanel {
                     message: message.clone(),
                 }))
             }
+            LatexEvent::OpenPaper { key, page } => {
+                self.open_visual_citation(key, *page, window, cx)
+            }
+            LatexEvent::SaveReason(reason) => self.save_visual_reason((**reason).clone(), cx),
+            LatexEvent::DeleteReason(id) => self.delete_visual_reason(id, cx),
             LatexEvent::ReplyAnnotation { id, body } => {
                 let root = self.project_root(cx);
                 let author = store::author(&root, cx);
@@ -260,6 +268,8 @@ impl EditorPanel {
         self.forward_latex_annotations(cx);
         self.forward_latex_presence(cx);
         self.forward_latex_overleaf(cx);
+        self.forward_latex_reasons(cx);
+        self.forward_latex_library(false, cx);
     }
 
     /// Apply the page's edit in its own undo transaction, then group it as

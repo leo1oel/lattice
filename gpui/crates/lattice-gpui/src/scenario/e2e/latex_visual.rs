@@ -22,6 +22,8 @@
 //! - the strip's Find there opens the page's own search panel, its query
 //!   focused, and leaves the source's find bar (which Visual does not draw)
 //!   closed;
+//! - a citation chip's card shows the library's facts, and Why cited and
+//!   Open paper work from the page (`latex_visual_citations.rs`);
 //! - choosing Source again shows the source editor and hides the page.
 //!
 //! With `LATTICE_E2E_SHOTS=DIR` it saves the window as the screen composes
@@ -66,6 +68,8 @@ Some prose with \\textbf{bold words} and $x^2 + y^2$ in it.
 
 As argued before~\\cite{e2e-key}.
 
+Visual citations~\\cite{e2evisual2024}, and its fifth page~\\cite[p.~5]{e2evisual2024}.
+
 \\end{document}
 ";
 
@@ -99,8 +103,14 @@ impl Run {
             })
         });
         let path = root.join("e2e-visual.tex");
+        // The library's paper the document cites (`latex_visual_citations.rs`).
+        let cited = super::latex_visual_citations::CitedPaper::write(root)?;
+        let papers = cx.update(|cx| self.shell.read(cx).papers().clone());
+        cx.update(|cx| papers.update(cx, |papers, cx| papers.reload(cx)));
         let result = self.latex_visual_steps(cx, steps, &path).await;
         std::fs::remove_file(&path).ok();
+        cited.restore(root);
+        cx.update(|cx| papers.update(cx, |papers, cx| papers.reload(cx)));
         cx.update(|cx| crate::settings::update(cx, |settings| settings.auto_build_mode = builds));
         result
     }
@@ -140,6 +150,10 @@ impl Run {
             self.latex_visual_find(cx, steps, &panel, &island).await?;
             // ⌘⇧E and ⌘⌥R (`latex_visual_environment.rs`).
             self.latex_visual_environment(cx, steps, &panel, &island)
+                .await?;
+            // The citation chips' card, Why cited and Open paper, last: the
+            // paper opens in front of the page.
+            self.latex_visual_citations(cx, steps, &island, &path)
                 .await?;
         }
         // The choice is every .tex file's: back to Source for the rest of the run.
@@ -515,6 +529,7 @@ pub(super) const MODULE: super::registry::Module = super::registry::Module {
         "gpui/islands/latex/",
         "gpui/crates/lattice-gpui/src/shell/environment_flow.rs",
         "gpui/crates/lattice-gpui/src/editor_panel/latex_visual_events.rs",
+        "gpui/crates/lattice-gpui/src/editor_panel/latex_visual_citations.rs",
         "gpui/crates/lattice-webview/src/island/page_focus.rs",
         "src/editor/latex/visual/",
     ],

@@ -26,7 +26,8 @@
  * and their `\graphicspath`), its citations and labels (the labels of the
  * open file read from its own text, as `mergeReferences` has them), the
  * manuscript's root document and the last build, whose `.aux` the editor
- * reads through `read_project_file` to number what it draws.
+ * reads through `read_project_file` to number what it draws, and what its
+ * citation cards know beyond the bibliography (`citations.ts`).
  *
  * Host to page, beside the document protocol's `doc:open` (with
  * `projectRoot`, `files`, `texSources`, `index`, `rootDocument`, `build`),
@@ -47,6 +48,9 @@
  *                     file, for their marks and margin review (also `doc:open`'s `overleaf`)
  *   tex:environment   { rename, name }   the window's dialog's name: wrap the selection in that
  *                     environment, or rename the one at the caret (`rename`), as the canvas does
+ *   tex:library       { papers, openable, revision }   the library, the keys Open paper opens, the
+ *                     citation scan's revision (also `doc:open`'s `library`)
+ *   tex:reasons       { reasons, author }   the project's citation reasons, and who files one (also `doc:open`'s)
  * Page to host:
  *   md:change         { source, base, join }  the whole file after an edit made against `base`;
  *                     `join` when the page's history counts it in the previous edit's undo group
@@ -66,6 +70,9 @@
  *   tex:outline-jump  { path, line }    an outline rail row
  *   tex:open-annotation, tex:resolve-annotation  { id }   a note's pin, its card's Resolve
  *   tex:reply-annotation  { id, body }  its card's Reply
+ *   tex:open-paper    { key, page }     a citation card's Open paper, at the page its note names or null
+ *   tex:save-reason   { reason }        Why cited's Save: the reason, new or replacing the one with its id
+ *   tex:delete-reason { id }            Why cited's Remove
  *   md:load-asset     (request) { path } → url | null
  */
 import "../shared/install";
@@ -104,6 +111,7 @@ import {
   type PresenceCursor,
 } from "../../../src/overleaf/overleaf-editor-extensions";
 import { VisualMarginReview } from "./margin-review";
+import { citationLiveData, type CitationLibrary, type CitationReasons } from "./citations";
 import {
   NO_OVERLEAF_REVIEW, changeAuthorName, overleafChangeActions, overleafEditorComments, overleafThreadActions,
   overleafThreadOf, type OverleafReview,
@@ -282,7 +290,7 @@ function Latex() {
   const [state, dispatch] = useReducer(reduce, INITIAL_STATE);
   const {
     opened, source, settled, ready, files, texSources, index, rootDocument, build, assetRevision, visual, view,
-    spelling, unused, outline, annotations, presence, overleaf,
+    spelling, unused, outline, annotations, presence, overleaf, library, reasons,
   } = state;
   const { t } = useLingui();
   const texlab = opened?.texlab ?? false;
@@ -311,6 +319,7 @@ function Latex() {
   );
   const citationKeys = useMemo(() => index.citations.map((citation) => citation.key), [index.citations]);
   const projectRoot = opened?.projectRoot;
+  const citationData = useMemo(() => citationLiveData(library, reasons), [library, reasons]);
 
   // One object per change, so Visual mode's identity checks see what changed.
   useEffect(() => {
@@ -333,11 +342,12 @@ function Latex() {
       onAddSpellingWord: addSpellingWord,
       grammarIgnores: spelling.ignores,
       onIgnoreGrammar: ignoreGrammar,
+      ...citationData,
     };
     // Draw again from the new data, and lint against the new index.
     editorView?.dispatch({ effects: [latexVisualDataChanged.of(null), latexIndexChanged.of(null)] });
   }, [
-    build, citationKeys, graphicsRoots, index, katexMacros, localMacros, projectPaths, projectRoot, references,
+    build, citationData, citationKeys, graphicsRoots, index, katexMacros, localMacros, projectPaths, projectRoot, references,
     rootDocument, spelling, texlab, unused,
   ]);
   // A linked Overleaf project's threads on the file, as comments to mark.
@@ -422,6 +432,8 @@ function Latex() {
       bridge.on("tex:outline", (payload) => dispatch({ type: "outline", outline: payload as Outline })),
       bridge.on("tex:annotations", (payload) => dispatch({ type: "annotations", annotations: payload as Annotations })),
       bridge.on("tex:overleaf", (payload) => dispatch({ type: "overleaf", overleaf: payload as OverleafReview })),
+      bridge.on("tex:library", (payload) => dispatch({ type: "library", library: payload as CitationLibrary })),
+      bridge.on("tex:reasons", (payload) => dispatch({ type: "reasons", reasons: payload as CitationReasons })),
       bridge.on("md:presence", (payload) => {
         dispatch({ type: "presence", presence: (payload as { cursors: PresenceCursor[] }).cursors });
       }),

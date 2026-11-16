@@ -13,6 +13,7 @@ import type { PresenceCursor } from "../../../src/overleaf/overleaf-editor-exten
 import type { OutlineNode } from "../../../src/editor/latex/latex-outline";
 import type { FileNode } from "../../../src/app-types";
 import { NO_OVERLEAF_REVIEW, type OverleafReview } from "./margin-review-data";
+import { NO_LIBRARY, NO_REASONS, type CitationLibrary, type CitationReasons } from "./citations";
 
 export type Locale = "en" | "zh-CN";
 
@@ -44,6 +45,9 @@ export type LatexOpen = {
   annotations: Annotations | null;
   presence?: PresenceCursor[];
   overleaf?: OverleafReview | null;
+  /** The library and the citation reasons, for the citation cards (`citations.ts`). */
+  library?: CitationLibrary | null;
+  reasons?: CitationReasons | null;
   /** TexLab is installed: its completion, hovers and definitions join the editor's. */
   texlab: boolean;
 };
@@ -73,6 +77,8 @@ export type State = {
   annotations: Annotations;
   presence: PresenceCursor[];
   overleaf: OverleafReview;
+  library: CitationLibrary;
+  reasons: CitationReasons;
 };
 
 export type Action =
@@ -92,7 +98,9 @@ export type Action =
   | { type: "outline"; outline: Outline }
   | { type: "annotations"; annotations: Annotations }
   | { type: "presence"; presence: PresenceCursor[] }
-  | { type: "overleaf"; overleaf: OverleafReview };
+  | { type: "overleaf"; overleaf: OverleafReview }
+  | { type: "library"; library: CitationLibrary }
+  | { type: "reasons"; reasons: CitationReasons };
 
 const NO_INDEX: ProjectIndex = { citations: [], references: [], pending: true };
 const NO_SPELLING: Spelling = { enabled: false, words: [], ignores: { rules: [], sentences: [] } };
@@ -105,7 +113,7 @@ export const INITIAL_STATE: State = {
   opened: null, source: "", settled: "", ready: false, files: [], texSources: [], index: NO_INDEX,
   rootDocument: null, build: null, assetRevision: 0, visual: null, view: null,
   spelling: NO_SPELLING, unused: NO_UNUSED, outline: NO_OUTLINE, annotations: NO_ANNOTATIONS, presence: [],
-  overleaf: NO_OVERLEAF_REVIEW,
+  overleaf: NO_OVERLEAF_REVIEW, library: NO_LIBRARY, reasons: NO_REASONS,
 };
 
 export function reduce(state: State, action: Action): State {
@@ -127,6 +135,8 @@ export function reduce(state: State, action: Action): State {
         annotations: action.open.annotations ?? NO_ANNOTATIONS,
         presence: action.open.presence ?? [],
         overleaf: action.open.overleaf ?? NO_OVERLEAF_REVIEW,
+        library: action.open.library ?? NO_LIBRARY,
+        reasons: action.open.reasons ?? NO_REASONS,
       };
     case "source":
       return { ...state, source: action.source };
@@ -160,5 +170,9 @@ export function reduce(state: State, action: Action): State {
       return { ...state, presence: action.presence };
     case "overleaf":
       return { ...state, overleaf: action.overleaf };
+    case "library":
+      return { ...state, library: action.library };
+    case "reasons":
+      return { ...state, reasons: action.reasons };
   }
 }
