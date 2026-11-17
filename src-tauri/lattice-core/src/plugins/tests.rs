@@ -1,6 +1,8 @@
 //! The host end to end: a test plugin written in JavaScript, run by a real
 //! Node inside the real sandbox (macOS), and the store's install paths.
 
+#![cfg_attr(not(target_os = "macos"), allow(dead_code, unused_imports))]
+
 use super::broker::tests::MemorySecrets;
 use super::*;
 use crate::test_support::TempDir;
