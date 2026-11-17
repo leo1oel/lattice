@@ -183,8 +183,8 @@ mod tests {
                 "Remove-Item -LiteralPath 'Env:WINDOWID' -ErrorAction SilentlyContinue",
                 "Remove-Item -LiteralPath 'Env:LATTICE_PROJECT' -ErrorAction SilentlyContinue",
                 "Set-Item -LiteralPath 'Env:TERM_PROGRAM' -Value 'Lattice'",
-                "Set-Item -LiteralPath 'Env:TERM_PROGRAM_VERSION' -Value 'it''s 1.0'",
-                r"Set-Location -LiteralPath 'C:\Docs\[EMNLP] Ada''s thesis'",
+                "Set-Item -LiteralPath 'Env:TERM_PROGRAM_VERSION' -Value \"it's 1.0\"",
+                r#"Set-Location -LiteralPath "C:\Docs\[EMNLP] Ada's thesis""#,
             ]
         );
         let (_, args) = powershell_command(&launch, false, cwd);
