@@ -1,6 +1,7 @@
 //! Opening a folder as a project and keeping `.research/project.json` honest:
 //! root documents, compile roots, TeX magic comments, and project settings.
 
+use super::bibliography_target::follow_document_bibliography;
 use super::create::{default_brief, default_manifest, RESEARCH_GITIGNORE};
 use super::history::{
     prune_conversation_checkpoints, MAX_CHECKPOINTS_PER_SESSION, MAX_CHECKPOINT_BYTES,
@@ -64,7 +65,10 @@ pub fn open(root: &Path) -> Result<ProjectSnapshot, String> {
     wide_event::record("adopted", adopted);
     let mut manifest = if adopted { adopt_folder(&root)? } else { read_manifest(&root)? };
     let replaced = replace_missing_root(&root, &mut manifest);
-    if apply_tex_magic_comments(&root, &mut manifest)? || replaced {
+    let magic = apply_tex_magic_comments(&root, &mut manifest)?;
+    // After the root is settled: the bibliography is the one it uses.
+    let rebibliographed = follow_document_bibliography(&root, &mut manifest);
+    if magic || replaced || rebibliographed {
         write_manifest(&root, &manifest)?;
     }
     if manifest.schema_version < MANIFEST_SCHEMA_VERSION {
@@ -148,16 +152,10 @@ fn adopt_folder(root: &Path) -> Result<ProjectManifest, String> {
         }
         None => manifest.root_documents.clear(),
     }
-    if !root.join("references.bib").exists() {
-        if let Some(entry) = WalkDir::new(root)
-            .max_depth(3)
-            .into_iter()
-            .filter_map(Result::ok)
-            .find(|entry| entry.path().extension().is_some_and(|ext| ext == "bib"))
-        {
-            manifest.primary_bibliography =
-                entry.path().strip_prefix(root).map_err(err)?.to_string_lossy().replace('\\', "/");
-        }
+    // A default bibliography that is not there gives way to the folder's
+    // own, which `open` then picks (`follow_document_bibliography`).
+    if !root.join(&manifest.primary_bibliography).is_file() {
+        manifest.primary_bibliography.clear();
     }
     write_manifest(root, &manifest)?;
     if !root.join(".research/brief.md").exists() {

@@ -12,7 +12,7 @@
 //! (`src/agent/agent-reference-removal.ts`), and the deletion is the
 //! interface's `remove_reference` command, run once they agree.
 
-use crate::{literature, papers};
+use crate::{literature, papers, project};
 use papers::HistoryMode;
 use serde_json::{json, Value};
 use std::path::Path;
@@ -85,14 +85,29 @@ impl AgentBibliographyMutation {
     /// answer (the request's `expiresAt`, Unix milliseconds): an upgrade
     /// returns what it finished before it, and reports the rest pending.
     pub fn run(self, root: &Path, deadline_ms: Option<u64>) -> Result<Value, String> {
-        match self {
+        let result = match self {
             Self::UpgradeBibliography { dry_run } => {
                 let deadline = deadline_ms.map(instant_at_unix_ms);
                 to_json(papers::upgrade_bibliography(root, dry_run, deadline))
             }
             mutation => mutation.into_request()?.run(root),
+        }?;
+        with_bibliography(root, result)
+    }
+}
+
+/// The result naming the `.bib` file the mutation worked on, so the Agent
+/// knows where the entry is (and, when the document uses several, why that
+/// one) instead of looking for it in some other file.
+fn with_bibliography(root: &Path, mut result: Value) -> Result<Value, String> {
+    let target = project::citation_bibliography(root)?;
+    if let Some(object) = result.as_object_mut() {
+        object.insert("bibliography".into(), Value::String(target.path.clone()));
+        if let Some(note) = target.note() {
+            object.insert("bibliographyNote".into(), Value::String(note));
         }
     }
+    Ok(result)
 }
 
 /// The `Instant` at a wall-clock time in Unix milliseconds; a time already

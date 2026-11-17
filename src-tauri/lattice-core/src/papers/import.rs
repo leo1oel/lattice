@@ -22,10 +22,12 @@ use super::citation::{
     official_arxiv_citation, resolve_arxiv_title, unused_key, validate_resolved_identity,
     verify_title_citation,
 };
+use super::github_citation::{self, RepositoryCitation};
 use super::ids::{
     arxiv_base_id, explicit_arxiv_id, parse_arxiv_id, same_arxiv_work, validate_arxiv_id,
 };
 use super::is_web_url;
+use super::reference_search;
 use super::web_citation::{
     alphaxiv_bibtex, merge_supplied_bibtex, resolve_web_citation, WebCitation,
 };
@@ -81,7 +83,8 @@ pub fn import_reference(
     root: &Path, query: &str, history: HistoryMode, full_text: FullText, progress: &dyn Fn(&str),
     cancel: &AtomicBool,
 ) -> Result<ImportResult, String> {
-    let manifest = &project::read_manifest(root)?;
+    // The file the document compiles against, never an internal copy.
+    let bibliography = project::citation_bibliography(root)?.path;
     // A numeric AlphaXiv URL is still an arXiv work and should retain the
     // semantic HTML/source conversion and existing arXiv cache identity.
     let arxiv_url = alphaxiv::paper_id_from_url(query.trim())
@@ -94,7 +97,7 @@ pub fn import_reference(
     if cancel.load(Ordering::Acquire) {
         return Ok(cancelled(query));
     }
-    let bibliography_path = project::safe_path(root, &manifest.primary_bibliography)?;
+    let bibliography_path = project::safe_path(root, &bibliography)?;
     let before = if bibliography_path.exists() {
         fs::read_to_string(&bibliography_path).map_err(err)?
     } else {
@@ -109,17 +112,43 @@ pub fn import_reference(
     // from its text, so it is converted whatever `full_text` asks.
     if is_pdf_url(query) && alphaxiv::paper_id_from_url(query).is_none() {
         return super::import_pdf::import_pdf_citation(
-            root, manifest, query, history, progress, cancel,
+            root,
+            &bibliography,
+            query,
+            history,
+            progress,
+            cancel,
         );
     }
 
+    reference_search::refuse_single_word(query)?;
     progress("resolving");
+    // A repository's own citation, or one built from GitHub's metadata;
+    // never the GitHub page's generic metadata, which describes the site.
+    let repository = github_citation::repository_from_url(query);
+    let mut source_note = None;
+    let repository_resolution = match &repository {
+        Some(repository) => {
+            let citation = github_citation::resolve(repository)?;
+            source_note = Some(citation.note(repository));
+            Some(match citation {
+                RepositoryCitation::Supplied { bibtex, .. } => Resolved::Supplied(bibtex),
+                RepositoryCitation::Built { bibtex, key, .. } => Resolved::Entry {
+                    report: json!({"key": key, "source": "github", "action": "added"}),
+                    raw: bibtex,
+                    key,
+                },
+            })
+        }
+        None => None,
+    };
     let bibcite_query = bibcite_query_for_input(query, &resolve_arxiv_title);
     let preferred_arxiv = explicit_arxiv_id(&bibcite_query);
     // Sources that supply their own citation: a webpage's citation block or
     // metadata, or alphaXiv's suggested entry for an exact title.
     let mut web_error = None;
-    let supplied = if preferred_arxiv.is_some()
+    let supplied = if repository_resolution.is_some()
+        || preferred_arxiv.is_some()
         || project::normalize_doi(query).is_some()
         || query.starts_with('@')
     {
@@ -140,13 +169,37 @@ pub fn import_reference(
         return Ok(cancelled(query));
     }
     let mut rendered_page = None;
-    let resolution = if let Some(citation) = supplied {
+    let resolution = if let Some(resolution) = repository_resolution {
+        resolution
+    } else if let Some(citation) = supplied {
         rendered_page = citation.page;
         Resolved::Supplied(citation.bibtex)
     } else {
         let resolution = match resolve_citation(&bibcite_query, cancel) {
             Ok(resolution) => resolution,
             Err(_) if cancel.load(Ordering::Acquire) => return Ok(cancelled(query)),
+            // A title search reads a reference's authors and year as part of
+            // its title; Crossref's reference search reads them as they are.
+            Err(error) if reference_search::is_free_text(query) => {
+                match reference_search::find_reference_doi(query) {
+                    Ok(Some(doi)) => resolve_citation(&doi, cancel).map_err(|doi_error| {
+                        format!(
+                            "{doi_error}
+{error}"
+                        )
+                    })?,
+                    Ok(None) => return Err(reference_search::not_found(query, &error)),
+                    Err(search_error) => {
+                        return Err(reference_search::not_found(
+                            query,
+                            &format!(
+                                "{search_error}
+{error}"
+                            ),
+                        ))
+                    }
+                }
+            }
             Err(error) => {
                 return Err(match &web_error {
                     Some(web_error) => format!("{web_error}\n{error}"),
@@ -171,9 +224,7 @@ pub fn import_reference(
     // fetched (no HTML rendering, network trouble) is still a full citation,
     // and failing the import after bibcite already resolved the entry threw
     // the user's citation away over a download problem.
-    let merged = commit_merged(root, &manifest.primary_bibliography, history, &|before| {
-        resolution.merge(before)
-    })?;
+    let merged = commit_merged(root, &bibliography, history, &|before| resolution.merge(before))?;
     let citation_key = merged.key;
     let citation_output = resolution.report(&citation_key, merged.existed);
     // Whether the work was already cited, asked of the bibliography rather
@@ -191,7 +242,7 @@ pub fn import_reference(
         .then(|| entry_text(&merged.after, &citation_key))
         .flatten()
         .map(|existing| notes::already_cited(&citation_key, existing, Some(resolution.bibtex())));
-    let note = notes::join([existing_note, commands::public_service_note()]);
+    let note = notes::join([existing_note, source_note, commands::public_service_note()]);
     // bibcite deliberately preserves an existing entry verbatim. If that old
     // record came from OpenReview without an eprint, retain the arXiv identity
     // found from the title so re-importing repairs the missing full text too.
@@ -217,8 +268,10 @@ pub fn import_reference(
         // scraped. A DOI'd journal article also carries a `url`, but that is
         // a publisher landing page — paywall chrome, not the work — and every
         // scrape spends shared Firecrawl quota.
-        None if bibcite_report_field(&resolved.citation_output, "source").as_deref()
-            == Some("webpage") =>
+        // A repository's text is its code, not a paper to read.
+        None if repository.is_none()
+            && bibcite_report_field(&resolved.citation_output, "source").as_deref()
+                == Some("webpage") =>
         {
             let entry_url = resolved_entry.url.as_deref().filter(|url| is_web_url(url));
             entry_url.or(Some(query).filter(|typed| is_web_url(typed))).map(|page_url| {

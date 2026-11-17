@@ -118,3 +118,45 @@ fn citing_the_publication_of_a_cited_preprint_does_not_add_the_work_twice() {
     assert!(note.contains("differs in year, booktitle, doi, type;"), "{note}");
     assert!(note.contains("upgrade_bibliography replaces it with its published version"), "{note}");
 }
+
+/// A downloaded Overleaf project whose manifest an earlier version pointed
+/// at the sync base (`.research/overleaf-base/main.bib`): the cite lands in
+/// the `main.bib` that `main.tex` compiles against, the base copy is left
+/// alone, and the manifest follows.
+#[test]
+fn cite_writes_the_bibliography_the_document_uses_never_the_overleaf_base() {
+    let _lock = tool_lock();
+    let project = TestProject::new("");
+    let tool = project.parent.join("bibcite");
+    write_test_tool(
+        &tool,
+        r#"#!/bin/sh
+printf '@article{smith2024one, title={Paper one}, author={Smith, Alice}, journal={Journal of Tests}, year={2024}, doi={%s}}\n' "$4" > "$3"
+echo '{"key": "smith2024one", "source": "crossref", "action": "added"}'
+"#,
+    );
+    let _bibcite = ToolOverride::set(&commands::BIBCITE, &tool);
+    let main =
+        "\\documentclass{article}\n\\begin{document}\n\\bibliography{main}\n\\end{document}\n";
+    let root_document =
+        project::read_manifest(&project.root).unwrap().root_documents[0].path.clone();
+    for base in ["", ".research/overleaf-base/"] {
+        project.write(&format!("{base}{root_document}"), main);
+        project.write(&format!("{base}main.bib"), "");
+    }
+    let mut manifest = project::read_manifest(&project.root).unwrap();
+    manifest.primary_bibliography = ".research/overleaf-base/main.bib".into();
+    project::write_manifest(&project.root, &manifest).unwrap();
+
+    let cited = cite(&project.root, "10.5555/one").unwrap();
+
+    assert_eq!(cited.citation_key.as_deref(), Some("smith2024one"));
+    let main_bib = fs::read_to_string(project.root.join("main.bib")).unwrap();
+    assert!(main_bib.contains("@article{smith2024one,"), "{main_bib}");
+    assert_eq!(
+        fs::read_to_string(project.root.join(".research/overleaf-base/main.bib")).unwrap(),
+        ""
+    );
+    assert_eq!(project.bibliography(), "");
+    assert_eq!(project::read_manifest(&project.root).unwrap().primary_bibliography, "main.bib");
+}

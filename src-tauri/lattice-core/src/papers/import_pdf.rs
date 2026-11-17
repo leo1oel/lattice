@@ -6,7 +6,6 @@ use super::bibliography::{commit_merged, HistoryMode};
 use super::bundle::{fetch_web_bundle, PaperMetadata};
 use super::import::{cancelled, import_report};
 use super::web_citation::{merge_supplied_bibtex, pdf_citation_bibtex};
-use crate::models::ProjectManifest;
 use crate::papers::ImportResult;
 use crate::project;
 use crate::util::err;
@@ -18,8 +17,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 /// Import the report itself, enriching its citation from explicitly supplied
 /// metadata rather than treating a binary URL as an HTML webpage.
 pub(super) fn import_pdf_citation(
-    root: &Path, manifest: &ProjectManifest, url: &str, history: HistoryMode,
-    progress: &dyn Fn(&str), cancel: &AtomicBool,
+    root: &Path, bibliography: &str, url: &str, history: HistoryMode, progress: &dyn Fn(&str),
+    cancel: &AtomicBool,
 ) -> Result<ImportResult, String> {
     progress("fulltext");
     let url = bib_url(url);
@@ -47,9 +46,8 @@ pub(super) fn import_pdf_citation(
     // The download can take a minute, and the bibliography is the writer's
     // meanwhile: merge into the file as it is now, never as it was when the
     // import began (`commit_merged`).
-    let merged = commit_merged(root, &manifest.primary_bibliography, history, &|base| {
-        merge_supplied_bibtex(base, &raw)
-    })?;
+    let merged =
+        commit_merged(root, bibliography, history, &|base| merge_supplied_bibtex(base, &raw))?;
     let (key, already_imported) = (merged.key, merged.existed);
     Ok(ImportResult {
         citation_output: import_report(

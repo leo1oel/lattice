@@ -261,8 +261,8 @@ pub fn remove_reference(
     if key.is_empty() {
         return Err("Enter a citation key to remove.".to_string());
     }
-    let manifest = project::read_manifest(root)?;
-    let path = project::safe_path(root, &manifest.primary_bibliography)?;
+    let bibliography = project::citation_bibliography(root)?.path;
+    let path = project::safe_path(root, &bibliography)?;
     let before = fs::read_to_string(&path).unwrap_or_default();
     let (exact_key, start, end) = project::bibliography_entry_spans(&before)
         .into_iter()
@@ -280,7 +280,7 @@ pub fn remove_reference(
     } else {
         (Vec::new(), 0)
     };
-    file_edits.push((manifest.primary_bibliography.clone(), before, after));
+    file_edits.push((bibliography, before, after));
     let changes = file_edits
         .iter()
         .map(|(relative, before, after)| ReferenceFileChange {
