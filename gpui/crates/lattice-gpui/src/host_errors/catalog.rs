@@ -1477,13 +1477,13 @@ pub(super) static ENTRIES: &[Entry] = &[
     },
     Entry {
         file: "overleaf/sync/relocations.rs",
-        literal: "Your Overleaf role on this project is reviewer, which cannot move or rename files. Local moves have been kept; syncing resumes once the project owner gives you edit access or you move the files back.",
-        text: Text::Message("Your Overleaf role on this project is reviewer, which cannot move or rename files. Local moves have been kept; syncing resumes once the project owner gives you edit access or you move the files back.", &[]),
+        literal: "Your Overleaf role on this project is reviewer, which cannot move or rename files. Local moves have been kept; syncing resumes once the project owner gives you edit access.",
+        text: Text::Message("Your Overleaf role on this project is reviewer, which cannot move or rename files. Local moves have been kept; syncing resumes once the project owner gives you edit access.", &[]),
     },
     Entry {
         file: "overleaf/sync/relocations.rs",
-        literal: "Your Overleaf role on this project is view-only, which cannot move or rename files. Local moves have been kept; syncing resumes once the project owner gives you edit access or you move the files back.",
-        text: Text::Message("Your Overleaf role on this project is view-only, which cannot move or rename files. Local moves have been kept; syncing resumes once the project owner gives you edit access or you move the files back.", &[]),
+        literal: "Your Overleaf role on this project is view-only, which cannot move or rename files. Local moves have been kept; syncing resumes once the project owner gives you edit access.",
+        text: Text::Message("Your Overleaf role on this project is view-only, which cannot move or rename files. Local moves have been kept; syncing resumes once the project owner gives you edit access.", &[]),
     },
     Entry {
         file: "overleaf/sync/relocations.rs",

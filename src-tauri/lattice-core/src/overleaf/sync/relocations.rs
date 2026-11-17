@@ -49,10 +49,10 @@ pub fn sync_relocations(
             return Err("Waiting for Overleaf to confirm this account can edit the project before syncing moved files. Local moves have been kept.".to_string());
         }
         Permission::Review => {
-            return Err("Your Overleaf role on this project is reviewer, which cannot move or rename files. Local moves have been kept; syncing resumes once the project owner gives you edit access or you move the files back.".to_string());
+            return Err("Your Overleaf role on this project is reviewer, which cannot move or rename files. Local moves have been kept; syncing resumes once the project owner gives you edit access.".to_string());
         }
         Permission::ReadOnly => {
-            return Err("Your Overleaf role on this project is view-only, which cannot move or rename files. Local moves have been kept; syncing resumes once the project owner gives you edit access or you move the files back.".to_string());
+            return Err("Your Overleaf role on this project is view-only, which cannot move or rename files. Local moves have been kept; syncing resumes once the project owner gives you edit access.".to_string());
         }
     }
     let mut entities = entities.ok_or_else(|| {

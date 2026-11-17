@@ -236,22 +236,9 @@ pub fn record_relocation(root: &Path, from: &str, to: &str) -> Result<(), String
         return Ok(());
     }
     let mut state = load_state(root)?;
-    // Moving a file straight back undoes the move still waiting to go up, so
-    // nothing is left to replay. This is also how an account that may not
-    // move files on Overleaf gets its sync going again. A move that already
-    // knows its entity id may have reached Overleaf with its answer lost, so
-    // it stays and the reverse move is replayed after it.
-    let undoes_last = state
-        .pending_relocations
-        .last()
-        .is_some_and(|last| last.entity_id.is_none() && last.from == to && last.to == from);
-    if undoes_last {
-        state.pending_relocations.pop();
-    } else {
-        let relocation =
-            PendingRelocation { from: from.to_string(), to: to.to_string(), entity_id: None };
-        state.pending_relocations.push(relocation);
-    }
+    let relocation =
+        PendingRelocation { from: from.to_string(), to: to.to_string(), entity_id: None };
+    state.pending_relocations.push(relocation);
     save_state(root, &state)
 }
 

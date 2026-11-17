@@ -18676,12 +18676,12 @@ msgid "your Overleaf account"
 msgstr "your Overleaf account"
 
 #: src/platform/host-errors-overleaf.ts
-msgid "Your Overleaf role on this project is reviewer, which cannot move or rename files. Local moves have been kept; syncing resumes once the project owner gives you edit access or you move the files back."
-msgstr "Your Overleaf role on this project is reviewer, which cannot move or rename files. Local moves have been kept; syncing resumes once the project owner gives you edit access or you move the files back."
+msgid "Your Overleaf role on this project is reviewer, which cannot move or rename files. Local moves have been kept; syncing resumes once the project owner gives you edit access."
+msgstr "Your Overleaf role on this project is reviewer, which cannot move or rename files. Local moves have been kept; syncing resumes once the project owner gives you edit access."
 
 #: src/platform/host-errors-overleaf.ts
-msgid "Your Overleaf role on this project is view-only, which cannot move or rename files. Local moves have been kept; syncing resumes once the project owner gives you edit access or you move the files back."
-msgstr "Your Overleaf role on this project is view-only, which cannot move or rename files. Local moves have been kept; syncing resumes once the project owner gives you edit access or you move the files back."
+msgid "Your Overleaf role on this project is view-only, which cannot move or rename files. Local moves have been kept; syncing resumes once the project owner gives you edit access."
+msgstr "Your Overleaf role on this project is view-only, which cannot move or rename files. Local moves have been kept; syncing resumes once the project owner gives you edit access."
 
 #: src/app/use-overleaf-workspace.ts
 msgid "Your Overleaf session ended. Your edits stay on this Mac until you sign in"

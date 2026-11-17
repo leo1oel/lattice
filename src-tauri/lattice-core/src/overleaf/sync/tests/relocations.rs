@@ -143,11 +143,9 @@ fn relocation_never_overwrites_a_destination_or_writes_without_permission() {
 }
 
 /// The refusal says which role holds the move back, and an unknown role reads
-/// as a wait, not as missing write access. Moving the file back cancels the
-/// unsent move, which is how an account that may not move files on Overleaf
-/// gets its sync going again.
+/// as a wait, not as missing write access.
 #[test]
-fn a_held_move_names_the_role_and_moving_back_cancels_it() {
+fn a_held_move_names_the_role_that_holds_it() {
     let server = Mock::project(&[]).serve();
     let (config, root) = linked(&server, &[], &[("main.tex", b"base")]);
     let main = || Some(vec![entity("main-id", "main.tex", "doc")]);
@@ -165,25 +163,7 @@ fn a_held_move_names_the_role_and_moving_back_cancels_it() {
         assert!(sync_relocations(&config, &root, None).unwrap_err().contains(says));
     }
     assert_eq!(load_state(&root).unwrap().pending_relocations.len(), 1);
-
-    record_relocation(&root, "renamed.tex", "main.tex").unwrap();
-    assert!(load_state(&root).unwrap().pending_relocations.is_empty());
-    sync_relocations(&config, &root, main()).unwrap();
     assert!(server.recorded().iter().all(|r| r.method == "GET"));
-}
-
-/// A move that already knows its entity id may have reached Overleaf with
-/// its answer lost; moving back must replay after it, not erase it.
-#[test]
-fn moving_back_keeps_a_move_that_may_already_be_on_overleaf() {
-    let server = Mock::project(&[]).serve();
-    let (_config, root) = linked(&server, &[], &[("main.tex", b"base")]);
-    record_relocation(&root, "main.tex", "renamed.tex").unwrap();
-    edit_state(&root, |state| state.pending_relocations[0].entity_id = Some("main-id".into()));
-    record_relocation(&root, "renamed.tex", "main.tex").unwrap();
-    let pending = load_state(&root).unwrap().pending_relocations;
-    let moves: Vec<_> = pending.iter().map(|m| (m.from.as_str(), m.to.as_str())).collect();
-    assert_eq!(moves, [("main.tex", "renamed.tex"), ("renamed.tex", "main.tex")]);
 }
 
 #[test]
