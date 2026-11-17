@@ -458,7 +458,7 @@ fn resolve_citation(query: &str, cancel: &AtomicBool) -> Result<Resolved, String
     Ok(resolved)
 }
 
-#[cfg(test)]
+#[cfg(all(test, unix))]
 pub(super) fn forget_resolved_dois() {
     RESOLVED_DOIS.clear();
 }

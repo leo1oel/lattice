@@ -82,7 +82,7 @@ impl Outcome {
 /// Answers by entry text and mode (a preview skips the DOI confirmation).
 static CHECKED: LazyLock<TtlCache<Outcome>> = LazyLock::new(|| TtlCache::new(2048));
 
-#[cfg(test)]
+#[cfg(all(test, unix))]
 pub(crate) fn forget_checks() {
     CHECKED.clear();
 }
