@@ -60,7 +60,7 @@ The build stages a SHA-256-verified standalone Node with its redistribution
 license and the frozen Open Slide runtime. It does not need a Synara checkout
 and does not bundle its unavailable Agent server, Pandoc or uv. Interface fonts
 are open-licensed. No private fonts, signing secrets or product-license keys
-are loaded by the Windows workflow; tldraw uses its unlicensed mode without a key.
+are loaded by the Windows workflow.
 
 ## Host checks
 

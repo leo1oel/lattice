@@ -154,7 +154,6 @@ jobs:
         env:
           NODE_OPTIONS: --max-old-space-size=4096
           LATTICE_FIRECRAWL_KEY: ${{ env.IS_RELEASE == 'true' && secrets.LATTICE_FIRECRAWL_KEY || '' }}
-          VITE_TLDRAW_LICENSE_KEY: ${{ env.IS_RELEASE == 'true' && secrets.VITE_TLDRAW_LICENSE_KEY || '' }}
         run: pnpm tauri build --bundles appimage --config '{"bundle":{"createUpdaterArtifacts":false}}'
 
       - name: Locate the AppImage

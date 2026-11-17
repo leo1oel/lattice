@@ -226,7 +226,6 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ env.IS_RELEASE == 'true' && secrets.TAURI_SIGNING_PRIVATE_KEY || '' }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ env.IS_RELEASE == 'true' && secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || '' }}
           LATTICE_FIRECRAWL_KEY: ${{ env.IS_RELEASE == 'true' && secrets.LATTICE_FIRECRAWL_KEY || '' }}
-          VITE_TLDRAW_LICENSE_KEY: ${{ env.IS_RELEASE == 'true' && secrets.VITE_TLDRAW_LICENSE_KEY || '' }}
         run: |
           set -euo pipefail
           args=(--target "$TARGET" --bundles "app,dmg")

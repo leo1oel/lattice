@@ -53,20 +53,12 @@ framing, the `f7515eca` baseline, the test and lint snapshots, and a
 protected-file freeze that lapsed without ever being announced — is archived as
 [`adr/0003-overleaf-stage-baseline.md`](adr/0003-overleaf-stage-baseline.md).
 
-`tldraw-integration-plan.md` was removed: it was a pre-implementation plan for
-work that has since shipped (the whiteboard is `src/editor/board/board-editor.tsx` +
-`src/editor/board/board-store.ts`), and its central file reference,
-`src/tldraw-yjs-bridge.ts`, never existed. tldraw's licensing — the one part of
-it that was still live — is covered by
-[`../THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md), which is more current
-than the plan was (the plan described SDK 4.x; the repo pins `tldraw@5.2.5`).
-
 ## Related documents outside `docs/`
 
 | Path | Contents |
 | --- | --- |
 | [`../CODING_STANDARDS.md`](../CODING_STANDARDS.md) | Reviewer judgement no check enforces: transition ownership and performance-evidence comparability. |
 | [`../THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md) | Attribution and license notes for vendored and bundled third-party code. |
-| [`../LICENSE`](../LICENSE), [`../NOTICE`](../NOTICE) | Apache-2.0, with the tldraw SDK carved out under its own license. |
+| [`../LICENSE`](../LICENSE), [`../NOTICE`](../NOTICE) | Apache-2.0, with Trellis carved out under its own license. |
 | [`../literature-worker/README.md`](../literature-worker/README.md) | Checking the public literature proxy Worker; its operation is in [`public-literature-service.md`](public-literature-service.md). |
 | [GitHub Releases](https://github.com/leo1oel/lattice/releases) | **The changelog.** There is no `CHANGELOG.md`; each tag's release notes are generated from the commit range. See [`release-process.md`](release-process.md#where-the-changelog-lives). |

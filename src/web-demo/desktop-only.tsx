@@ -1,8 +1,8 @@
 /**
  * What the website's demo shows in place of the parts of Lattice that need
  * the Mac: the Agent (it drives the AI tools signed in there), the Git
- * workspace (the Agent's runtime serves it), whiteboards (tldraw is licensed
- * for the app, not the website) and Open Slide (a local server). Each is a card that says so and offers the download, standing in
+ * workspace (the Agent's runtime serves it), whiteboards (the board editor
+ * stays out of the demo's download) and Open Slide (a local server). Each is a card that says so and offers the download, standing in
  * the panel or tab the real surface would fill.
  *
  * Loaded only in the demo build (`import.meta.env.LATTICE_WEB_DEMO`), through

@@ -5,8 +5,8 @@ name: Web demo
 # folder with relative paths.
 #
 # - Run by hand (workflow_dispatch; pull requests no longer run it) it builds
-#   the chosen ref, runs the build's checks (no private font, no bench or
-#   tldraw code, the startup size), smoke-tests it in Chrome and uploads it as an artifact.
+#   the chosen ref, runs the build's checks (no private font, no bench
+#   code, the startup size), smoke-tests it in Chrome and uploads it as an artifact.
 # - After the Release workflow succeeds, the demo is built from that release's
 #   commit, so it always matches the version people download, and published
 #   to the website's gh-pages branch under demo/ (https://leo1oel.github.io/lattice/demo/).

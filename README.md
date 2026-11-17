@@ -76,7 +76,7 @@ Comments read as conversations with one colour per person, and margin review set
 
 <img src="docs/images/formats.webp" alt="The attention-map.tldr whiteboard open in the editor beside notes.md shown as a formatted Markdown document; the Project tree lists the same project's HTML page, spreadsheet and slides" width="900" />
 
-Markdown notes edited in blocks, tldraw whiteboards, interactive HTML pages and spreadsheets with formulas live in the same project as the paper.
+Markdown notes edited in blocks, Excalidraw whiteboards, interactive HTML pages and spreadsheets with formulas live in the same project as the paper.
 Slides are React decks powered by [Open Slide](https://github.com/open-slide/open-slide): edit them, comment on them, let the agent revise them, and present from Lattice.
 **Import files…** brings in anything else from your Mac.
 
@@ -128,7 +128,7 @@ Lattice stands on many open-source projects. The major ones:
 - [Open Slide](https://github.com/open-slide/open-slide), which powers presentations.
 - [Tiptap](https://github.com/ueberdosis/tiptap) and [CodeMirror](https://codemirror.net/), the rich-text and source editors.
 - [PDF.js](https://github.com/mozilla/pdf.js), the PDF viewer.
-- [tldraw](https://github.com/tldraw/tldraw), the whiteboard.
+- [Excalidraw](https://github.com/excalidraw/excalidraw), the whiteboard.
 - [Tauri](https://github.com/tauri-apps/tauri), the desktop shell.
 
 ## License
@@ -140,7 +140,4 @@ See [third-party notices](THIRD_PARTY_NOTICES.md) for component licenses and [Sy
 The GPUI preview app in [`gpui/`](gpui/) is a separate program under GPL-3.0-or-later ([`gpui/LICENSE`](gpui/LICENSE)), because it links Zed's GPL-3.0-or-later editor crates; a few of its parts are Apache-2.0, as [its README](gpui/README.md#license) lists.
 Everything outside `gpui/` stays Apache-2.0.
 
-Two components carry their own terms:
-
-- The whiteboard's tldraw SDK (`tldraw`, `@tldraw/editor`, `@tldraw/driver`) is source-available under the [tldraw license](public/licenses/tldraw-LICENSE.md), which requires a license key for production use. Release builds read that key from the `VITE_TLDRAW_LICENSE_KEY` repository secret at build time; it is not in this repository, so a build without the secret runs tldraw in its unlicensed, watermarked mode.
-- The workspace's panel layout, `@danfessler/trellis` (with `@danfessler/trellis-react`), is under its own non-commercial license with a commercial tier: see [its license](public/licenses/trellis-LICENSE.md), the [non-commercial terms](public/licenses/trellis-LICENSE-NONCOMMERCIAL.md) and the [commercial terms](public/licenses/trellis-LICENSE-COMMERCIAL.md). Those terms apply to anyone using Lattice: the free tier covers non-commercial use only, so use at a company or a for-profit organization needs a Trellis license from its author. Uses Trellis by DanFessler - github.com/DanFessler/trellis.
+One component carries its own terms: the workspace's panel layout, `@danfessler/trellis` (with `@danfessler/trellis-react`), is under its own non-commercial license with a commercial tier: see [its license](public/licenses/trellis-LICENSE.md), the [non-commercial terms](public/licenses/trellis-LICENSE-NONCOMMERCIAL.md) and the [commercial terms](public/licenses/trellis-LICENSE-COMMERCIAL.md). Those terms apply to anyone using Lattice: the free tier covers non-commercial use only, so use at a company or a for-profit organization needs a Trellis license from its author. Uses Trellis by DanFessler - github.com/DanFessler/trellis.
