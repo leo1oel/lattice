@@ -82,7 +82,7 @@ pub(crate) use bibliography::{
 };
 pub use bibliography_target::{citation_bibliography, BibliographyTarget};
 pub use build_pdf::default_root_pdf;
-#[cfg(test)]
+#[cfg(all(test, unix))]
 pub(crate) use citation_lookup::forget_doi_citations;
 pub use citation_lookup::resolve_citation_query;
 pub(crate) use citation_lookup::resolve_doi;
