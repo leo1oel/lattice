@@ -147,7 +147,7 @@ export const scenes = {
   },
   async board(env, theme) {
     const staged = await project(env, theme);
-    await openFile(staged.page, "attention-map.tldr");
+    await openFile(staged.page, "attention-map.excalidraw");
     await staged.page.waitForSelector(".board-editor-root .tl-shape", { timeout: 30_000 });
     await rest(staged.page, 3000);
     return staged;

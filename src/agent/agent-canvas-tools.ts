@@ -61,7 +61,7 @@ export function executeAgentCanvasToolRequest(request: AgentCanvasToolRequest): 
       throw toolError("The canvas request expired before execution.", "canvas_tool_expired");
     }
     // eslint-disable-next-line lingui/no-unlocalized-strings -- tool error returned to the Agent model
-    if (!activeAdapter) throw toolError("Open a .tldr canvas before using canvas tools.", "canvas_not_open");
+    if (!activeAdapter) throw toolError("Open a .excalidraw board before using canvas tools.", "canvas_not_open");
     return activeAdapter.adapter.execute(request.action, request.args);
   }, false);
 }

@@ -292,7 +292,7 @@ impl ImportPlan<'_> {
             !is_supported_asset(source) && classify_regular_file(source)? == ContentKind::Text;
         let kind = match extension(source).as_deref() {
             _ if !text => "binary",
-            Some("tldr") => "board",
+            Some("excalidraw" | "tldr") => "board",
             Some("lattice-sheet") => "spreadsheet",
             _ => "text",
         };

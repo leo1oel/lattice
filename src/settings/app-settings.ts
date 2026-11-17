@@ -403,7 +403,7 @@ const FILE_VIEW_SHAPES: Record<keyof FileViewState, Field> = {
     scrollTop: nonNegative,
     scrollLeft: nonNegative,
   }),
-  board: shape({ pageId: nonEmptyText, camera: shape({ x: finite, y: finite, z: positive }) }),
+  board: shape({ scrollX: finite, scrollY: finite, zoom: positive }),
   image: shape({ ...SCROLL, scale: positive }),
   // Older HTML views were saved before zoom existed; they open at 100%.
   html: shape({ ...SCROLL, scale: (value) => value === undefined ? 1 : positive(value) }),

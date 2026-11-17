@@ -44,7 +44,7 @@ function pack(mode: string, options: { stripComments?: boolean; mergeInputs?: bo
     files,
     totalBytes: files.reduce((sum, file) => sum + file.bytes, 0),
     sizeLimitBytes: 50_000_000,
-    leftOut: ["attention-demo.html", "attention-map.tldr", "notes.md", "references.bib", "results.lattice-sheet", "slides/"],
+    leftOut: ["attention-demo.html", "attention-map.excalidraw", "notes.md", "references.bib", "results.lattice-sheet", "slides/"],
     figures: files.filter((file) => /\.(pdf|png)$/.test(file.path)).map((file) => file.path),
     missing: [],
     miscased: [],

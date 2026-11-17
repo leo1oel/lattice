@@ -23,6 +23,7 @@ import babel from "@rolldown/plugin-babel";
 import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import { lingui, linguiTransformerBabelPreset } from "@lingui/vite-plugin";
 import tailwindcss from "@tailwindcss/vite";
+import { excalidrawAssetsPlugin } from "../../scripts/excalidraw-assets.ts";
 import { privateFontsPlugin } from "../../scripts/private-fonts.ts";
 import { reactCompilerSuppressionRules } from "../../scripts/react-compiler-suppressions.ts";
 
@@ -72,6 +73,7 @@ export default defineConfig({
       ],
     }),
     tailwindcss(),
+    excalidrawAssetsPlugin(),
     privateFontsPlugin(),
   ],
   resolve: {

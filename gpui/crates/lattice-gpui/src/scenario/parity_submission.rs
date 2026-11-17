@@ -56,7 +56,7 @@ fn bench_pack() -> ArxivPackage {
         size_limit_bytes: 50_000_000,
         left_out: [
             "attention-demo.html",
-            "attention-map.tldr",
+            "attention-map.excalidraw",
             "notes.md",
             "references.bib",
             "results.lattice-sheet",

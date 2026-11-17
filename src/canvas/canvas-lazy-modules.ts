@@ -33,7 +33,7 @@ export const markVisualMarkdownEditorWarmed = () => {
 };
 
 // The website's demo (src/web-demo/) has no whiteboard or Open Slide: it shows
-// a card saying they run on the Mac, and its build leaves tldraw out.
+// a card saying they run on the Mac, and its build leaves the board editor out.
 export const loadBoardEditorModule = chunk(() => (import.meta.env.LATTICE_WEB_DEMO
   ? import("../web-demo/desktop-only")
   : import("../editor/board/board-editor")));

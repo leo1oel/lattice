@@ -9,8 +9,22 @@ use std::collections::BTreeMap;
 /// The scene a new board starts from. `appState` holds only what Excalidraw
 /// keeps in a saved file; view state (scroll, zoom) is per user and never
 /// stored in it.
+pub const EMPTY_SCENE: &str = r##"{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "lattice",
+  "elements": [],
+  "appState": {
+    "gridSize": 20,
+    "gridStep": 5,
+    "gridModeEnabled": false,
+    "viewBackgroundColor": "#ffffff"
+  },
+  "files": {}
+}"##;
+
 pub fn empty_scene() -> String {
-    Scene::default().to_json()
+    EMPTY_SCENE.to_string()
 }
 
 #[derive(Clone, Debug, Serialize)]

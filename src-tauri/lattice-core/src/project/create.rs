@@ -84,7 +84,7 @@ const TUTORIAL_FILES: &[(&str, &[u8])] = &[
     tutorial_file!("main.tex"),
     tutorial_file!("notes.md"),
     tutorial_file!("attention-demo.html"),
-    tutorial_file!("attention-map.tldr"),
+    tutorial_file!("attention-map.excalidraw"),
     tutorial_file!("attention-results.lattice-sheet"),
     tutorial_file!("slides/understanding-attention/index.tsx"),
     tutorial_file!("project.toml"),

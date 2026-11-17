@@ -343,7 +343,7 @@ export function ProjectFileTree(props: ProjectFileTreeProps) {
     else if (type === "folder") creation.begin(directory(), "folder");
     else if (type === "import") props.onImportFiles(directory());
     else if (type === "spreadsheet") creation.begin("", "file", "lattice-sheet");
-    else if (type === "board") creation.begin("", "file", "tldr");
+    else if (type === "board") creation.begin("", "file", "excalidraw");
     else creation.begin("slides", "presentation");
   });
 

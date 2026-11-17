@@ -293,6 +293,8 @@
   --search-clear-height: 22px;
   --segmented-surface: var(--border-subtle);
   --segmented-selected-surface: var(--editor-bg);
+  /* The board's canvas ground: the editor sheet (src/editor/board/board-editor.css). */
+  --board-canvas-surface: var(--editor-bg);
   --segmented-selected-shadow: var(--elevation-raised-shadow);
   --segmented-tab-padding-inline: var(--space-5);
   --toolbar-height: 40px;

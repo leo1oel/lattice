@@ -198,7 +198,7 @@ impl Run {
                     .await?,
             ),
             Ok("board") => Some(
-                self.parity_open_structured(cx, "attention-map.tldr")
+                self.parity_open_structured(cx, "attention-map.excalidraw")
                     .await?,
             ),
             _ => None,

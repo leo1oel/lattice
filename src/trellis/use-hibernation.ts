@@ -8,7 +8,7 @@ export const HIBERNATE_AFTER_MS = 20_000;
 
 /** Boards, sheets and decks: expensive enough to unmount when their panel is off screen, and never drawn as a text snapshot. */
 export function isHeavyDocument(key: string) {
-  return key.toLocaleLowerCase().endsWith(".tldr") || isSpreadsheetPath(key) || isOpenSlideDeckPath(key);
+  return key.toLocaleLowerCase().endsWith(".excalidraw") || isSpreadsheetPath(key) || isOpenSlideDeckPath(key);
 }
 
 /**

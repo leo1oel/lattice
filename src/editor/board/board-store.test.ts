@@ -1,110 +1,79 @@
-import { describe, expect, it } from "vitest";
-import { createShapeId, toRichText, type TLCamera, type TLRecord, type TLShape } from "tldraw";
-import { createBoardStore, mergeExternalBoardSource, parseBoardRecords, pruneUnusedAssets, serializeBoard } from "./board-store";
-import tutorialBoard from "../../../src-tauri/templates/tutorial/attention-map.tldr?raw";
+import { describe, expect, it, vi } from "vitest";
+import { restoreElements } from "@excalidraw/excalidraw";
+import type { OrderedExcalidrawElement } from "@excalidraw/excalidraw/element/types";
+import type { AppState } from "@excalidraw/excalidraw/types";
+import tutorialBoard from "../../../src-tauri/templates/tutorial/attention-map.excalidraw?raw";
+import { mergeExternalElements, parseBoardScene, savedVersions, serializeBoardScene } from "./board-store";
 
-const createStore = () => createBoardStore("");
-
-function makeGeoShape(id: string, x = 0): TLShape {
-  return {
-    id: createShapeId(id), typeName: "shape", type: "geo", x, y: 0, rotation: 0, index: "a1",
-    parentId: "page:page", isLocked: false, opacity: 1, meta: {},
-    props: {
-      geo: "rectangle", dash: "draw", url: "", w: 100, h: 100, growY: 0, scale: 1, labelColor: "black",
-      color: "black", fill: "none", size: "m", font: "draw", align: "middle", verticalAlign: "middle",
-      richText: toRichText(""),
-    },
-  } as TLShape;
-}
-
-const makeCamera = () => ({ id: "camera:page:page", typeName: "camera", x: 1, y: 2, z: 3, meta: {} } as TLCamera);
-
-/** .tldr text for a default board holding `shapes`. */
-function boardSource(...shapes: TLShape[]): string {
-  const store = createStore();
-  store.put(shapes);
-  return serializeBoard(store.allRecords());
-}
-
-describe("serialize/parse round-trip", () => {
-  it("loads the editable attention diagram bundled with the tutorial", () => {
-    const shapes = parseBoardRecords(tutorialBoard)!.filter((record) => record.typeName === "shape");
-    expect(shapes).toHaveLength(16);
-    expect(shapes.map((shape) => shape.id)).toEqual(expect.arrayContaining(
-      ["query", "scores", "softmax", "weighted", "context"].map((id) => createShapeId(id)),
-    ));
-  });
-
-  it("round-trips document records through .tldr JSON", () => {
-    const store = createStore();
-    const shape = makeGeoShape("one");
-    store.put([shape, makeCamera()]);
-    const json = serializeBoard(store.allRecords());
-    const ids = parseBoardRecords(json)!.map((record) => record.id);
-    expect(ids).toEqual(expect.arrayContaining([shape.id, "page:page", "document:document"]));
-    // Ephemeral records never reach the file format.
-    expect(ids).not.toContain("camera:page:page");
-    expect(JSON.parse(json).tldrawFileFormatVersion).toBe(1);
-  });
-
-  it("produces byte-stable output independent of input order", () => {
-    const records = createStore().allRecords();
-    expect(serializeBoard([...records].reverse())).toBe(serializeBoard(records));
-  });
-
-  it.each(["not json", "", "{}"])("returns null for invalid input %j", (input) => {
-    expect(parseBoardRecords(input)).toBeNull();
-  });
-
-  it("drops unreferenced assets and keeps referenced ones", () => {
-    const asset = (id: string) => ({
-      id: `asset:${id}`,
-      typeName: "asset",
-      type: "image",
-      meta: {},
-      props: { w: 10, h: 10, name: "a.png", isAnimated: false, mimeType: "image/png", src: "assets/a.png" },
-    } as unknown as TLRecord);
-    const used = asset("used");
-    const shape = { ...makeGeoShape("img"), props: { ...makeGeoShape("img").props, assetId: used.id } } as TLRecord;
-    expect(pruneUnusedAssets([used, asset("orphan"), shape]).map((record) => record.id)).toEqual([used.id, shape.id]);
+// Excalidraw probes canvas filter support at import time, and the shared jsdom
+// setup returns no 2D context at all; give it one that answers the probe.
+vi.hoisted(() => {
+  Object.defineProperty(HTMLCanvasElement.prototype, "getContext", {
+    configurable: true, writable: true, value: () => ({ filter: "none" }),
   });
 });
 
-describe("createBoardStore", () => {
-  it("loads valid .tldr content and falls back to an empty store", () => {
-    expect(createBoardStore(boardSource(makeGeoShape("loaded"))).get(createShapeId("loaded"))).toBeDefined();
-    for (const source of ["", "{oops"]) {
-      expect(createBoardStore(source).allRecords().some((record) => record.typeName === "shape")).toBe(false);
-    }
+function rect(id: string, version: number, x = 0, isDeleted = false): OrderedExcalidrawElement {
+  const [element] = restoreElements([{
+    type: "rectangle", id, x, y: 0, width: 10, height: 10, version, versionNonce: version, isDeleted,
+  } as never], null);
+  return element;
+}
+
+const appState = {} as AppState;
+const byId = (elements: readonly OrderedExcalidrawElement[]) => Object.fromEntries(
+  elements.filter((element) => !element.isDeleted).map((element) => [element.id, element]),
+);
+
+describe("parseBoardScene", () => {
+  it("reads the tutorial's converted board", () => {
+    const scene = parseBoardScene(tutorialBoard)!;
+    const ids = scene.elements.map((element) => element.id);
+    expect(ids).toEqual(expect.arrayContaining(["query", "scores", "softmax", "weighted", "context", "context-label"]));
+    expect(scene.grid).toEqual({ gridSize: 20, gridStep: 5, gridModeEnabled: false });
+  });
+
+  it("treats an empty file as an empty board and refuses what is not a scene", () => {
+    expect(parseBoardScene("  ")).toEqual({ elements: [], files: {}, grid: { gridSize: 20, gridStep: 5, gridModeEnabled: false } });
+    expect(parseBoardScene("{")).toBeNull();
+    expect(parseBoardScene("{\"tldrawFileFormatVersion\":1,\"records\":[]}")).toBeNull();
   });
 });
 
-describe("mergeExternalBoardSource", () => {
-  it("applies external .tldr text as a remote-authoritative snapshot", () => {
-    const store = createStore();
-    const stale = makeGeoShape("stale");
-    const kept = makeGeoShape("kept", 10);
-    store.put([stale, kept]);
+describe("serializeBoardScene", () => {
+  it("writes the elements without deleted ones, and none of the per-user view", () => {
+    const json = serializeBoardScene(
+      [rect("kept", 2), rect("gone", 3, 0, true)],
+      { scrollX: 400, scrollY: -20, zoom: { value: 2 }, gridSize: 20, viewBackgroundColor: "transparent" } as never,
+      {},
+    );
+    const saved = JSON.parse(json);
+    expect(saved).toMatchObject({ type: "excalidraw", version: 2, source: "lattice" });
+    expect(saved.elements.map((element: { id: string }) => element.id)).toEqual(["kept"]);
+    expect(saved.appState).toEqual({ gridSize: 20, gridStep: 5, gridModeEnabled: false, viewBackgroundColor: "#ffffff" });
+    expect(parseBoardScene(json)!.elements.map((element) => element.id)).toEqual(["kept"]);
+  });
+});
 
-    expect(mergeExternalBoardSource(store, boardSource({ ...makeGeoShape("kept"), x: 999 }, makeGeoShape("added")))).toBe(true);
-    expect(store.get(stale.id)).toBeUndefined();
-    expect(store.get(createShapeId("added"))).toBeDefined();
-    expect(store.get(kept.id)).toMatchObject({ x: 999 });
+describe("mergeExternalElements", () => {
+  it("takes the file's copy of every element unchanged here, even an older one", () => {
+    const local = [rect("a", 5, 0), rect("b", 5, 0)];
+    const merged = byId(mergeExternalElements(local, [rect("a", 2, 100), rect("b", 9, 200)], savedVersions(local), appState));
+    expect(merged.a.x).toBe(100);
+    expect(merged.b.x).toBe(200);
   });
 
-  it("leaves ephemeral records untouched", () => {
-    const store = createStore();
-    store.put([makeCamera()]);
-    mergeExternalBoardSource(store, boardSource());
-    expect(store.get(makeCamera().id)).toMatchObject({ x: 1, y: 2 });
+  it("keeps an unsaved edit over an older copy in the file, and a new unsaved element", () => {
+    const saved = savedVersions([rect("a", 5)]);
+    const local = [rect("a", 6, 50), rect("fresh", 1, 10)];
+    const merged = byId(mergeExternalElements(local, [rect("a", 5, 100)], saved, appState));
+    expect(merged.a.x).toBe(50);
+    expect(merged.fresh.x).toBe(10);
   });
 
-  it("rejects invalid or empty input without touching the store", () => {
-    const store = createStore();
-    const shape = makeGeoShape("untouched");
-    store.put([shape]);
-    expect(mergeExternalBoardSource(store, "not json")).toBe(false);
-    expect(mergeExternalBoardSource(store, "")).toBe(false);
-    expect(store.get(shape.id)).toBeDefined();
+  it("drops what the file no longer has and adds what it gained", () => {
+    const local = [rect("a", 1), rect("b", 1)];
+    const merged = byId(mergeExternalElements(local, [rect("a", 1), rect("c", 1, 30)], savedVersions(local), appState));
+    expect(Object.keys(merged).sort()).toEqual(["a", "c"]);
   });
 });

@@ -21,15 +21,15 @@ function request(
 
 describe("agent project document host protocol", () => {
   it("strictly parses normalized board and spreadsheet requests", () => {
-    const board = request("figures/model.tldr", "board");
+    const board = request("figures/model.excalidraw", "board");
     const spreadsheet = request("data/results.lattice-sheet", "spreadsheet");
     expect(parseAgentProjectDocumentToolRequest(board)).toEqual(board);
     expect(parseAgentProjectDocumentToolRequest(spreadsheet)).toEqual(spreadsheet);
     expect(parseAgentProjectDocumentToolRequest({ ...board, version: 2 })).toBeNull();
     expect(parseAgentProjectDocumentToolRequest({ ...board, unexpected: true })).toBeNull();
-    expect(parseAgentProjectDocumentToolRequest(request("../model.tldr", "board"))).toBeNull();
+    expect(parseAgentProjectDocumentToolRequest(request("../model.excalidraw", "board"))).toBeNull();
     expect(parseAgentProjectDocumentToolRequest(request("model.lattice-sheet", "board"))).toBeNull();
-    expect(parseAgentProjectDocumentToolRequest(request("model.tldr", "spreadsheet"))).toBeNull();
+    expect(parseAgentProjectDocumentToolRequest(request("model.excalidraw", "spreadsheet"))).toBeNull();
   });
 
   it("creates and reports an opened document through the registered host callback", async () => {
@@ -49,16 +49,16 @@ describe("agent project document host protocol", () => {
   });
 
   it("rejects expired requests and a missing host without creating anything", async () => {
-    const expired = request("model.tldr", "board");
+    const expired = request("model.excalidraw", "board");
     expired.expiresAt = Date.now() - 1;
-    const createDocument = vi.fn(async () => "model.tldr");
+    const createDocument = vi.fn(async () => "model.excalidraw");
     await expect(executeAgentProjectDocumentToolRequest(expired, createDocument)).resolves.toMatchObject({
       ok: false,
       error: { code: "project_document_tool_expired" },
     });
     expect(createDocument).not.toHaveBeenCalled();
     await expect(executeAgentProjectDocumentToolRequest(
-      request("model.tldr", "board"),
+      request("model.excalidraw", "board"),
       null,
     )).resolves.toMatchObject({
       ok: false,

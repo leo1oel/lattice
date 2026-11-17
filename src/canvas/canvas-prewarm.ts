@@ -37,12 +37,7 @@ export async function prewarmProjectPreviewModules(paths: readonly string[]): Pr
   // The website's demo has no whiteboard, and fetches a sheet's editor (the
   // largest chunk) only when one is opened.
   if (!import.meta.env.LATTICE_WEB_DEMO) {
-    if (normalized.some((path) => path.endsWith(".tldr"))) {
-      work.push(Promise.all([loadBoardEditorModule(), import("../editor/board/board-store")]).then(([, board]) => {
-        // Initialize tldraw's schema/store machinery without mounting a canvas.
-        board.createBoardStore("");
-      }));
-    }
+    if (normalized.some((path) => path.endsWith(".excalidraw"))) work.push(loadBoardEditorModule());
     if (normalized.some(isSpreadsheetPath)) work.push(loadSpreadsheetEditorModule());
   }
   await Promise.allSettled(work);

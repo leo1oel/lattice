@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/excalidraw/excalidraw",
+  "commit": "a2ec2889babf7d2295469c6d90ebe77fae57df84",
+  "pinned": true,
+  "via": "the release tag `v0.18.1`",
+  "files": [
+    "LICENSE"
+  ]
+}

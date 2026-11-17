@@ -8,6 +8,7 @@ import { showFileOpenFailure } from "./file-open-failure";
 import { showError, showNotice } from "./notify";
 import { paperDocumentPath, preferredPaperView, readPaperDocuments, type PaperView } from "./paper-documents";
 import { readDocumentText } from "./read-document";
+import { excalidrawBoardFor, isTldrawBoardPath } from "./tldraw-board";
 import { modeOnLoad, withEditorFor } from "./document-view-modes";
 import {
   claimGenerations, ownerOf, publishDeferredEdits, recordNavigationTiming, type LoadOptions, type OpenClaim,
@@ -91,7 +92,7 @@ export function useDocumentOpens(store: DocumentStore, save: () => Promise<boole
   }, [navLockRef, recordNavigation]);
 
   /** Open a project file in the text editor, optionally at a 1-based line. */
-  const openFile = useCallback(async (path: string, options?: OpenFileOptions) => {
+  const openProjectFile = useCallback(async (path: string, options?: OpenFileOptions) => {
     const line = options?.line;
     const { project: current, file: activeFile, paper: openPaper, asset: openAsset } = renderedRef.current;
     const owner = ownerOf(renderedRef.current);
@@ -215,6 +216,18 @@ export function useDocumentOpens(store: DocumentStore, save: () => Promise<boole
     projectRef, pushNavigation, recordDiskVersion, renderedRef, requestLine, save, savedRef, setMode, setOpening, setTabsSettledRoot,
     showTab, textRef, viewStateRef,
   ]);
+
+  /** As openProjectFile; a tldraw board opens as the Excalidraw board converted from it. */
+  const openFile = useCallback(async (path: string, options?: OpenFileOptions) => {
+    if (!isTldrawBoardPath(path)) return openProjectFile(path, options);
+    const root = projectRef.current?.root;
+    if (!root) return;
+    const board = await excalidrawBoardFor(path, root).catch((reason: unknown) => {
+      showFileOpenFailure(reason, root, path);
+      return null;
+    });
+    if (board) await openProjectFile(board, options);
+  }, [openProjectFile, projectRef]);
 
   // The view each Paper was last shown in, by arXiv id, so reopening one keeps
   // the writer's choice while a Paper never opened starts on its full text.

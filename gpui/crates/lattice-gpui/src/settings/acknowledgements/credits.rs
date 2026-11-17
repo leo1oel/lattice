@@ -104,6 +104,14 @@ pub const CORE_SOFTWARE: &[Credit] = &[
         "@open-slide/core",
     ),
     licensed(
+        of(
+            credit("Excalidraw", "https://excalidraw.com"),
+            Npm,
+            "@excalidraw/excalidraw",
+        ),
+        "MIT",
+    ),
+    licensed(
         of(credit("tldraw", "https://tldraw.dev"), Npm, "tldraw"),
         "tldraw license",
     ),
