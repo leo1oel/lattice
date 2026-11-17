@@ -173,7 +173,9 @@ fn quote(path: &Path) -> Result<String, String> {
     Ok(format!("\"{}\"", text.replace('\\', "\\\\").replace('"', "\\\"")))
 }
 
-#[cfg(test)]
+// Windows refuses a folder name with a quote in it; the profile is only ever
+// used on macOS.
+#[cfg(all(test, unix))]
 mod tests {
     use super::*;
 
