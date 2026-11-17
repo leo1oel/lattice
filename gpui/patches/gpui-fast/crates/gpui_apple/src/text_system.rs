@@ -230,7 +230,7 @@ impl PlatformTextSystem for AppleTextSystem {
         // When font smoothing is enabled, CoreGraphics thickens glyph strokes by an amount that
         // depends on the foreground color's luminance. We replicate the logic used by CoreGraphics
         // to select between the different levels of dilation.
-        if !font_smoothing_allowed_by_user() {
+        if crate::fast::font_smoothing::NEVER_SMOOTH || !font_smoothing_allowed_by_user() {
             return 0;
         }
         let rgba: Rgba = color.into();
@@ -517,6 +517,7 @@ impl AppleTextSystemState {
             } else {
                 cx.set_gray_fill_color(0.0, 1.0);
             }
+            crate::fast::font_smoothing::turn_off(&cx);
             self.fonts[params.font_id.0]
                 .native_font()
                 .clone_with_font_size(f32::from(params.font_size) as CGFloat)

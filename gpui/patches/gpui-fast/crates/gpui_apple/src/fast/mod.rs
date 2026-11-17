@@ -15,6 +15,8 @@ pub(crate) mod composition;
 pub(crate) mod dynamic_textures;
 #[cfg(feature = "font-kit")]
 pub(crate) mod font_fallbacks;
+#[cfg(feature = "font-kit")]
+pub(crate) mod font_smoothing;
 pub(crate) mod layers;
 pub(crate) mod paths;
 pub(crate) mod rounded_clip;
