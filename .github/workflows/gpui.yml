@@ -87,9 +87,14 @@ jobs:
       - uses: actions/checkout@v7
       - run: script/check-patches
 
+  # The e2e scenario has grown to about 550 steps: some 6 minutes on a
+  # developer's Mac, and about 25 on the hosted runners (run 43979342348 was
+  # cut off at 10 minutes a little past step 200 on macOS). Each job's limit
+  # leaves room for a cold release build (about 30 minutes), the tests and a
+  # 45-minute e2e.
   macos:
     runs-on: macos-latest
-    timeout-minutes: 75
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v7
       # Installs the release gpui/rust-toolchain.toml pins.
@@ -139,7 +144,7 @@ jobs:
       - name: Build the island pages
         run: script/build-islands
       - name: e2e scenario
-        timeout-minutes: 10
+        timeout-minutes: 45
         env:
           GPUI_LAB_IGNORE_OCCLUSION: "1"
           LATTICE_E2E_FRAMELESS_SHOT: ${{ runner.temp }}/e2e-macos-frameless.png
@@ -192,7 +197,7 @@ jobs:
 
   windows:
     runs-on: windows-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
     defaults:
       run:
         shell: pwsh
@@ -270,11 +275,21 @@ jobs:
             ~\AppData\Local\MiKTeX
             ~\AppData\Roaming\MiKTeX
           key: ${{ steps.miktex-cache.outputs.cache-primary-key }}
+      # As on macOS: the island pages the board, spreadsheet, deck and
+      # Markdown checks open. Without them every island reported "The island
+      # pages are not built". Git Bash runs the script.
+      - name: Set up pnpm
+        uses: ./.github/actions/setup-pnpm
+      - name: Build the island pages
+        shell: bash
+        run: script/build-islands
       # The scenario posts window messages, so it needs no foreground window
       # or unlocked console; the runner's session gives GPUI a window, and
-      # Direct3D falls back to WARP without a GPU.
+      # Direct3D falls back to WARP without a GPU. The app gets 40 of the
+      # step's 45 minutes, so a scenario that hangs is killed here, with its
+      # log, rather than by the runner.
       - name: e2e scenario
-        timeout-minutes: 15
+        timeout-minutes: 45
         run: |
           $project = Join-Path $env:RUNNER_TEMP "e2e-project"
           $out = Join-Path $env:RUNNER_TEMP "e2e-windows.json"
@@ -284,7 +299,7 @@ jobs:
           $app = Start-Process -FilePath target/release/lattice-gpui.exe `
             -ArgumentList $project, "--scenario", "e2e", "--out", $out `
             -NoNewWindow -PassThru
-          if (-not $app.WaitForExit(600000)) { $app.Kill(); throw "the e2e scenario did not finish in 10 minutes" }
+          if (-not $app.WaitForExit(2400000)) { $app.Kill(); throw "the e2e scenario did not finish in 40 minutes" }
           Get-Content $out
           $result = Get-Content $out -Raw | ConvertFrom-Json
           if (-not $result.passed) { throw "the e2e scenario failed" }
