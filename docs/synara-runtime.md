@@ -67,6 +67,7 @@ On macOS, `SYNARA_PROCESS_PS_PATH` points to a shell launcher for the signed Lat
 The mode reads `KERN_PROC_ALL` directly under the existing bibliography sandbox; it must not copy `/bin/ps`, whose non-setuid copy can be killed on older macOS even when static signature verification passes.
 The supported `ps`-shaped queries return PID/parent relationships, opaque birth-time identities, or the state of one PID.
 A liveness check uses the same inspector to confirm the provider root was alive after descendant capture.
+A status query reflects Darwin's coarse kernel `p_stat`, so a sleeping process can show as `R`.
 A zombie status or an empty response does not establish liveness.
 A missing PID is a successful empty result; the pinned fork treats every nonzero host snapshot exit as unknown rather than proof of exit.
 The fork selects the host's opaque-identity protocol when `SYNARA_PROCESS_PS_PATH` is set and retains upstream's `lstart` identity checks for ordinary `ps`.

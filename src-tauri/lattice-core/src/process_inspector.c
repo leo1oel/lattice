@@ -11,8 +11,14 @@
 #include <stdlib.h>
 
 // Keep the values in sync with Rust's SnapshotMode.
-enum snapshot_mode { SNAPSHOT_TREE, SNAPSHOT_IDENTITIES, SNAPSHOT_STATUS };
+enum snapshot_mode {
+    SNAPSHOT_TREE = 0,
+    SNAPSHOT_IDENTITIES = 1,
+    SNAPSHOT_STATUS = 2,
+};
 
+// Darwin's p_stat is coarse: a sleeping process can report SRUN. These codes
+// let Synara confirm liveness and are not intended to reproduce ps states.
 static char process_status(int status) {
     switch (status) {
         case SIDL: return 'I';

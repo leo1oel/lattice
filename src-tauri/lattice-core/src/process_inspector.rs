@@ -19,10 +19,11 @@ unsafe extern "C" {
 
 #[derive(Debug, PartialEq, Eq)]
 #[repr(i32)]
+// Keep the ABI values in sync with enum snapshot_mode in process_inspector.c.
 enum SnapshotMode {
-    Tree,
-    Identities,
-    Status,
+    Tree = 0,
+    Identities = 1,
+    Status = 2,
 }
 
 fn query(args: &[String]) -> Result<(SnapshotMode, Vec<i32>), &'static str> {
