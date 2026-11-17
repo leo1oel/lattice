@@ -24,8 +24,28 @@ use serde_json::{Value, json};
 
 use super::{
     Run, Steps,
-    structured::{BOARD, SHEET, shape_count},
+    structured::{BOARD, SHEET},
 };
+
+/// How many shapes the Agent's canvas tools see in an `.excalidraw`: a label
+/// bound to a container is part of its container's shape
+/// (`src/agent/agent-canvas-excalidraw-adapter.ts`), as tldraw's text was.
+fn agent_shape_count(text: &str) -> usize {
+    serde_json::from_str::<Value>(text)
+        .ok()
+        .and_then(|file| {
+            file["elements"].as_array().map(|elements| {
+                elements
+                    .iter()
+                    .filter(|element| {
+                        element["isDeleted"] != true
+                            && !(element["type"] == "text" && element["containerId"].is_string())
+                    })
+                    .count()
+            })
+        })
+        .unwrap_or(0)
+}
 
 impl Run {
     /// Run `call`, a promise expression in the Agent's page, and wait at most
@@ -109,7 +129,7 @@ impl Run {
                 && envelope["type"] == "lattice:canvas-tool-result"
                 && envelope["id"] == "e2e-list"
                 && envelope["ok"] == true
-                && envelope["result"]["total"].as_u64() == Some(shape_count(BOARD) as u64)
+                && envelope["result"]["total"].as_u64() == Some(agent_shape_count(BOARD) as u64)
                 && !shapes.is_empty(),
             json!({ "opened": board.is_some(), "answer": listing }),
         );
@@ -128,8 +148,8 @@ impl Run {
             let panel = panel.clone();
             let left = self
                 .wait_for(cx, Duration::from_secs(5), |_, cx| {
-                    shape_count(&panel.read(cx).editor().read(cx).text(cx))
-                        == shape_count(BOARD) - 1
+                    agent_shape_count(&panel.read(cx).editor().read(cx).text(cx))
+                        == agent_shape_count(BOARD) - 1
                 })
                 .await;
             steps.check(
