@@ -90,7 +90,7 @@ pub(crate) fn paused() -> Option<Refusal> {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, unix))]
 pub(crate) fn reset() {
     *PAUSE.lock().unwrap_or_else(PoisonError::into_inner) = None;
 }
