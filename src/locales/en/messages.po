@@ -2330,7 +2330,7 @@ msgstr "Annotation deleted"
 #: src/canvas/document-canvas.tsx
 #: src/canvas/editor-status-bar.tsx
 #: src/pdf/pdf-annotations.tsx
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/trellis/trellis-titles.ts
 msgid "Annotations"
 msgstr "Annotations"
@@ -2426,6 +2426,7 @@ msgid "App updates"
 msgstr "App updates"
 
 #: src/app/palette-sections.ts
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 msgid "Appearance"
@@ -2966,12 +2967,12 @@ msgstr "Booktitle"
 msgid "Bottom / false"
 msgstr "Bottom / false"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-search-index.ts
 msgid "Bottom center"
 msgstr "Bottom center"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-search-index.ts
 msgid "Bottom right"
 msgstr "Bottom right"
@@ -6290,7 +6291,7 @@ msgstr "Endpoint"
 msgid "Endpoint removed."
 msgstr "Endpoint removed."
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-search-index.ts
 msgid "English"
 msgstr "English"
@@ -7224,7 +7225,7 @@ msgid "Git isn’t installed. Install the Xcode Command Line Tools, then try aga
 msgstr "Git isn’t installed. Install the Xcode Command Line Tools, then try again"
 
 #: src/canvas/canvas-toolbar.tsx
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 msgid "Git status and commit"
 msgstr "Git status and commit"
 
@@ -8269,17 +8270,17 @@ msgstr "Integrations"
 msgid "Interface"
 msgstr "Interface"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-search-index.ts
 msgid "Interface language"
 msgstr "Interface language"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-search-index.ts
 msgid "Interface size"
 msgstr "Interface size"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-search-index.ts
 msgid "Interface sounds"
 msgstr "Interface sounds"
@@ -9602,7 +9603,7 @@ msgstr "Match app"
 msgid "Match case"
 msgstr "Match case"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/theme-settings.tsx
 msgid "Match system"
 msgstr "Match system"
@@ -10921,7 +10922,7 @@ msgstr "Nothing to rerun"
 msgid "Nothing to show"
 msgstr "Nothing to show"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-search-index.ts
 msgid "Notification position"
 msgstr "Notification position"
@@ -11252,7 +11253,7 @@ msgstr "Open guided tutorial"
 #: src/app/use-command-table.ts
 #: src/canvas/canvas-toolbar.tsx
 #: src/plugins/plugin-text.ts
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 msgid "Open in browser"
 msgstr "Open in browser"
 
@@ -11561,6 +11562,7 @@ msgstr "Over arXiv’s size limit"
 #: src/app/palette-sections.ts
 #: src/canvas/status-save-state.tsx
 #: src/history/conflict-resolver.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 #: src/trellis/trellis-titles.ts
@@ -12591,7 +12593,7 @@ msgstr "Project find and replace"
 #: src/app/app-history-drawers.tsx
 #: src/canvas/canvas-toolbar.tsx
 #: src/history/history-drawer.tsx
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 msgid "Project history"
 msgstr "Project history"
 
@@ -14985,7 +14987,7 @@ msgstr "Similar title match"
 msgid "Similar to"
 msgstr "Similar to"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-search-index.ts
 msgid "Simplified Chinese"
 msgstr "Simplified Chinese"
@@ -17684,7 +17686,7 @@ msgstr "Tip"
 msgid "Title"
 msgstr "Title"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-search-index.ts
 msgid "Title bar tools"
 msgstr "Title bar tools"
@@ -17782,12 +17784,12 @@ msgstr "Tools"
 msgid "Top / true"
 msgstr "Top / true"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-search-index.ts
 msgid "Top center"
 msgstr "Top center"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-search-index.ts
 msgid "Top right"
 msgstr "Top right"

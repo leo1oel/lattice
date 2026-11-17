@@ -2330,7 +2330,7 @@ msgstr "已删除批注"
 #: src/canvas/document-canvas.tsx
 #: src/canvas/editor-status-bar.tsx
 #: src/pdf/pdf-annotations.tsx
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/trellis/trellis-titles.ts
 msgid "Annotations"
 msgstr "批注"
@@ -2426,6 +2426,7 @@ msgid "App updates"
 msgstr "更新"
 
 #: src/app/palette-sections.ts
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 msgid "Appearance"
@@ -2966,12 +2967,12 @@ msgstr "会议/书名"
 msgid "Bottom / false"
 msgstr "底元 / 假"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-search-index.ts
 msgid "Bottom center"
 msgstr "底部居中"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-search-index.ts
 msgid "Bottom right"
 msgstr "右下角"
@@ -6290,7 +6291,7 @@ msgstr "接口"
 msgid "Endpoint removed."
 msgstr "接口已删除。"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-search-index.ts
 msgid "English"
 msgstr "英文"
@@ -7224,7 +7225,7 @@ msgid "Git isn’t installed. Install the Xcode Command Line Tools, then try aga
 msgstr "未安装 Git。请先安装 Xcode 命令行工具，再重试"
 
 #: src/canvas/canvas-toolbar.tsx
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 msgid "Git status and commit"
 msgstr "Git 提交"
 
@@ -8269,17 +8270,17 @@ msgstr "服务连接"
 msgid "Interface"
 msgstr "界面"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-search-index.ts
 msgid "Interface language"
 msgstr "语言"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-search-index.ts
 msgid "Interface size"
 msgstr "界面大小"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-search-index.ts
 msgid "Interface sounds"
 msgstr "提示音"
@@ -9602,7 +9603,7 @@ msgstr "跟随应用"
 msgid "Match case"
 msgstr "区分大小写"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/theme-settings.tsx
 msgid "Match system"
 msgstr "跟随系统"
@@ -10921,7 +10922,7 @@ msgstr "无需重新编译"
 msgid "Nothing to show"
 msgstr "没有内容"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-search-index.ts
 msgid "Notification position"
 msgstr "通知位置"
@@ -11252,7 +11253,7 @@ msgstr "新手教程"
 #: src/app/use-command-table.ts
 #: src/canvas/canvas-toolbar.tsx
 #: src/plugins/plugin-text.ts
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 msgid "Open in browser"
 msgstr "在浏览器中打开"
 
@@ -11561,6 +11562,7 @@ msgstr "超出 arXiv 的大小限制"
 #: src/app/palette-sections.ts
 #: src/canvas/status-save-state.tsx
 #: src/history/conflict-resolver.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
 #: src/trellis/trellis-titles.ts
@@ -12591,7 +12593,7 @@ msgstr "全局替换"
 #: src/app/app-history-drawers.tsx
 #: src/canvas/canvas-toolbar.tsx
 #: src/history/history-drawer.tsx
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 msgid "Project history"
 msgstr "项目历史"
 
@@ -14985,7 +14987,7 @@ msgstr "标题相近"
 msgid "Similar to"
 msgstr "相似"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-search-index.ts
 msgid "Simplified Chinese"
 msgstr "简体中文"
@@ -17684,7 +17686,7 @@ msgstr "提示"
 msgid "Title"
 msgstr "标题"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-search-index.ts
 msgid "Title bar tools"
 msgstr "标题栏工具"
@@ -17782,12 +17784,12 @@ msgstr "工具"
 msgid "Top / true"
 msgstr "顶元 / 真"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-search-index.ts
 msgid "Top center"
 msgstr "顶部居中"
 
-#: src/settings/settings-dialog.tsx
+#: src/settings/appearance-settings-pane.tsx
 #: src/settings/settings-search-index.ts
 msgid "Top right"
 msgstr "右上角"
