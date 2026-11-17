@@ -12,18 +12,17 @@ use gpui::{anchored, deferred};
 use super::*;
 
 impl EditorPanel {
-    /// `trigger`, recording where it was drawn while `menu` is the open one,
-    /// so the menu is centred on it; a trigger that moved places it anew.
+    /// `trigger`, recording where it was drawn as `menu`'s, so the menu is
+    /// centred on it from the frame it opens in; a trigger that moved under
+    /// its open menu places the menu anew.
     pub(super) fn menu_trigger(
         &self,
         menu: Menu,
         trigger: impl IntoElement,
         cx: &Context<Self>,
     ) -> AnyElement {
-        if self.toolbar.menu != Some(menu) {
-            return trigger.into_any_element();
-        }
-        let cell = self.toolbar.trigger.clone();
+        let triggers = self.toolbar.triggers.clone();
+        let open = self.toolbar.menu == Some(menu);
         let panel = cx.entity_id();
         div()
             .relative()
@@ -31,7 +30,15 @@ impl EditorPanel {
             .child(
                 canvas(
                     move |bounds, window, _| {
-                        if cell.replace(Some(bounds)) != Some(bounds) {
+                        let mut triggers = triggers.borrow_mut();
+                        let moved = match triggers.iter_mut().find(|(at, _)| *at == menu) {
+                            Some((_, drawn)) => std::mem::replace(drawn, bounds) != bounds,
+                            None => {
+                                triggers.push((menu, bounds));
+                                true
+                            }
+                        };
+                        if open && moved {
                             window.on_next_frame(move |_, cx| cx.notify(panel));
                         }
                     },
@@ -45,22 +52,47 @@ impl EditorPanel {
             .into_any_element()
     }
 
-    /// The open `menu` over the toolbar drawn at `toolbar`, recording where
-    /// it was drawn in `areas`. Until its trigger and the menu itself have
-    /// been drawn once, it stands at the toolbar's left.
+    /// Where `menu`'s trigger was last drawn.
+    pub(super) fn menu_trigger_bounds(&self, menu: Menu) -> Option<Bounds<Pixels>> {
+        self.toolbar
+            .triggers
+            .borrow()
+            .iter()
+            .find(|(at, _)| *at == menu)
+            .map(|(_, bounds)| *bounds)
+    }
+
+    /// The open `menu` over the toolbar drawn at `toolbar`, in a window
+    /// `viewport` big, recording where it was drawn in `areas`. Before its
+    /// trigger has been drawn, it is centred on the toolbar.
     pub(super) fn menu_layer(
         &self,
         menu: AnyElement,
         toolbar: Bounds<Pixels>,
+        viewport: gpui::Size<Pixels>,
         areas: Rc<std::cell::RefCell<Vec<Bounds<Pixels>>>>,
         cx: &Context<Self>,
     ) -> AnyElement {
-        let trigger = self.toolbar.trigger.get().unwrap_or(toolbar);
-        let shift = self
+        let trigger = self
             .toolbar
-            .menu_size
-            .get()
-            .map_or(px(0.), |size| (trigger.size.width - size.width) / 2.);
+            .menu
+            .and_then(|menu| self.menu_trigger_bounds(menu))
+            .unwrap_or(toolbar);
+        // Centred by layout, in a box as wide as its trigger that it
+        // overflows evenly on both sides, so a menu that grows (the
+        // palette's custom colour view) stays centred in the same frame;
+        // its size as last drawn only keeps it inside the window, as Radix
+        // shifts one along its edge.
+        let shift = self.toolbar.menu_size.get().map_or(px(0.), |size| {
+            let left = trigger.center().x - size.width / 2.;
+            if left < px(0.) {
+                -left
+            } else if left + size.width > viewport.width {
+                viewport.width - (left + size.width)
+            } else {
+                px(0.)
+            }
+        });
         let size = self.toolbar.menu_size.clone();
         let panel = cx.entity_id();
         deferred(
@@ -69,26 +101,28 @@ impl EditorPanel {
                 .anchor(gpui::Anchor::BottomLeft)
                 .offset(gpui::point(shift, -px(GAP)))
                 .child(
-                    div().relative().child(menu).child(
-                        canvas(
-                            move |bounds, window, _| {
-                                areas.borrow_mut().push(bounds);
-                                // A new size (the palette's custom colour
-                                // view) centres it anew.
-                                if size.replace(Some(bounds.size)) != Some(bounds.size) {
-                                    window.on_next_frame(move |_, cx| cx.notify(panel));
-                                }
-                            },
-                            |_, _, _, _| {},
-                        )
-                        .absolute()
-                        .top_0()
-                        .left_0()
-                        .size_full(),
+                    div().w(trigger.size.width).flex().justify_center().child(
+                        div().flex_none().relative().child(menu).child(
+                            canvas(
+                                move |bounds, window, _| {
+                                    areas.borrow_mut().push(bounds);
+                                    if size.replace(Some(bounds.size)) != Some(bounds.size) {
+                                        window.on_next_frame(move |_, cx| cx.notify(panel));
+                                    }
+                                },
+                                |_, _, _, _| {},
+                            )
+                            .absolute()
+                            .top_0()
+                            .left_0()
+                            .size_full(),
+                        ),
                     ),
                 ),
         )
-        .with_priority(1)
+        // On the popups' layer, as the app's menus are, over a hover card
+        // (the Build button's) that may still stand where it opens.
+        .with_priority(gpui_kit::base::POPUP_PRIORITY)
         .into_any_element()
     }
 }
