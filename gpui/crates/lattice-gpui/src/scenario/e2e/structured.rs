@@ -366,25 +366,6 @@ impl Run {
         Ok(())
     }
 
-    pub(super) async fn close_panel(
-        &self,
-        cx: &mut AsyncApp,
-        panel: &Entity<EditorPanel>,
-    ) -> Result<()> {
-        self.with_window(cx, {
-            let panel = panel.clone();
-            move |shell, _, cx| {
-                let view = shell.read(cx).view_of_editor(&panel);
-                let workspace = shell.read(cx).workspace().clone();
-                if let Some(view) = view {
-                    workspace.update(cx, |workspace, cx| workspace.close(&[view], cx));
-                }
-            }
-        })?;
-        self.pause(cx, Duration::from_millis(200)).await;
-        Ok(())
-    }
-
     async fn board_island(&self, cx: &mut AsyncApp, steps: &mut Steps, root: &Path) -> Result<()> {
         let path = root.join("e2e-map.tldr");
         std::fs::write(&path, BOARD)?;
