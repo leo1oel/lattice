@@ -7,6 +7,7 @@ import type { ReferenceImport } from "./use-reference-import";
 import type { SynaraHost } from "./use-synara-host";
 import { useLoadingShell } from "./use-loading-shell";
 import { focusHistoryEntry } from "../history/history-focus";
+import { showBrowserPanel } from "../browser/link-destination";
 import { setGetStartedShown } from "../onboarding/get-started-progress";
 
 /** The tool drawers whose open state App itself keeps; comments and literature keep theirs in their own hooks. */
@@ -86,6 +87,10 @@ export function useToolDrawers({ trellis, synara, comments, references, comments
   }, [closeCommentsPanel, setOpen]);
 
   const open = useCallback((kind: TrellisToolKind, options: OpenToolOptions = {}) => {
+    if (kind === "browser") {
+      showBrowserPanel();
+      return;
+    }
     const reveal = () => {
       let panel = kind;
       if (kind === "comments" || kind === "overleaf") {

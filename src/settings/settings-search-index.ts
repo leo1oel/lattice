@@ -2,6 +2,7 @@ import { useLingui } from "@lingui/react/macro";
 import type { SettingsTab } from "../app-types";
 import { fontLicenseUrl } from "virtual:lattice-private-fonts-license";
 import { TIMELESS } from "./interface-font-credit";
+import { supportsBrowserPanel } from "../browser/link-destination";
 import { updatesItself } from "../telemetry/updates-itself";
 
 /**
@@ -62,6 +63,10 @@ export function useSettingsSearchIndex(hasProject: boolean, knownAuthorName: str
     { tab: "appearance", place: appearance, id: "code-theme", label: t`Code theme`, terms: `${t`Weft & Warp`} GitHub One Solarized Catppuccin Tokyo Night Dracula Nord Monokai ${t({ message: "syntax highlighting color scheme editor", comment: "Search words for the Code theme setting, space-separated" })}` },
     { tab: "appearance", place: appearance, id: "code-theme-variant", label: t`Light or dark`, terms: `${t`Code theme`} ${t`Match app`}` },
     { tab: "appearance", place: appearance, id: "titlebar-tools", label: t`Title bar tools` },
+    ...(supportsBrowserPanel() ? [
+      { tab: "browser", label: t`Browser`, place: t`General` },
+      { tab: "browser", place: t`Browser`, id: "link-destination", label: t`Open links in`, terms: `${t`Default browser`} ${t`Lattice panel`}` },
+    ] satisfies SettingsSearchEntry[] : []),
     { tab: "editor", label: editor, place: t`General` },
     { tab: "editor", place: editor, id: "editor-keymap", label: t`Editor keymap`, terms: `Vim Emacs ${t({ message: "shortcuts", comment: "Search words for the Editor keymap setting, space-separated" })}` },
     { tab: "editor", place: editor, id: "author-name", label: t`Your name`, terms: t`Comments`, description: t`Comments are signed ${knownAuthorName ?? ""}, from Git or Overleaf` },

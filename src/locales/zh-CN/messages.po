@@ -2290,7 +2290,7 @@ msgstr "已删除批注"
 #: src/canvas/document-canvas.tsx
 #: src/canvas/editor-status-bar.tsx
 #: src/pdf/pdf-annotations.tsx
-#: src/settings/settings-dialog.tsx
+#: src/settings/titlebar-tools-settings.tsx
 #: src/trellis/trellis-titles.ts
 msgid "Annotations"
 msgstr "批注"
@@ -2623,6 +2623,7 @@ msgstr "临时文件"
 msgid "Azure"
 msgstr "天蓝色"
 
+#: src/browser/browser-panel.tsx
 #: src/editor/insert/table-generator-dialog.tsx
 #: src/papers/zotero-browser.tsx
 msgid "Back"
@@ -2956,6 +2957,14 @@ msgstr "短音符示例"
 #: src/settings/settings-search-index.ts
 msgid "British English"
 msgstr "英式英语"
+
+#: src/browser/browser-panel.tsx
+#: src/settings/browser-settings.tsx
+#: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
+#: src/trellis/trellis-titles.ts
+msgid "Browser"
+msgstr "浏览器"
 
 #: src/platform/host-errors-workspace.ts
 msgid "Browser dialogs are only available to a browser workspace."
@@ -4829,6 +4838,10 @@ msgstr "无法建立 Overleaf 实时连接：{error}"
 msgid "Could not open the Overleaf sign-in window: {error}"
 msgstr "无法打开 Overleaf 登录窗口：{error}"
 
+#: src/browser/browser-panel.tsx
+msgid "Could not open the page in the Browser panel."
+msgstr "无法在浏览器面板中打开此页面。"
+
 #: src/platform/host-errors-workspace.ts
 msgid "Could not open the PDF in a new window: {error}"
 msgstr "无法在新窗口中打开 PDF：{error}"
@@ -5388,6 +5401,11 @@ msgstr "年份减一"
 #: src/settings/settings-dialog.tsx
 msgid "Default"
 msgstr "默认"
+
+#: src/settings/browser-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Default browser"
+msgstr "默认浏览器"
 
 #: src/settings/settings-search-index.ts
 msgid "Default provider"
@@ -6246,6 +6264,10 @@ msgstr "请输入模板名称和简短的版本号"
 msgid "Enter a valid arXiv id or URL."
 msgstr "请输入有效的 arXiv 编号或网址"
 
+#: src/browser/browser-panel.tsx
+msgid "Enter a web address"
+msgstr "输入网址"
+
 #: src/pdf/pdf-overflow-menu.tsx
 msgid "Enter a zoom percentage"
 msgstr "输入缩放百分比"
@@ -6975,6 +6997,10 @@ msgstr "公式"
 msgid "Formulas"
 msgstr "公式"
 
+#: src/browser/browser-panel.tsx
+msgid "Forward"
+msgstr "前进"
+
 #: src/app/use-command-table.ts
 msgctxt "Document history"
 msgid "Forward"
@@ -7124,7 +7150,7 @@ msgid "Git isn’t installed. Install the Xcode Command Line Tools, then try aga
 msgstr "未安装 Git。请先安装 Xcode 命令行工具，再重试"
 
 #: src/canvas/canvas-toolbar.tsx
-#: src/settings/settings-dialog.tsx
+#: src/settings/titlebar-tools-settings.tsx
 msgid "Git status and commit"
 msgstr "Git 提交"
 
@@ -8809,6 +8835,11 @@ msgstr "仅 Lattice"
 #: src/platform/host-errors-setup.ts
 msgid "Lattice only updates the BasicTeX it installs. In Terminal: {command}"
 msgstr "Lattice 只更新它安装的 BasicTeX。请在终端中运行：{command}"
+
+#: src/settings/browser-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Lattice panel"
+msgstr "Lattice 面板"
 
 #: src/onboarding/get-started-panel.tsx
 msgid "Lattice runs the one it finds on your PATH, the way Terminal does. Installed somewhere else? Set its path in Settings › Providers."
@@ -11095,9 +11126,13 @@ msgstr "新手教程"
 
 #: src/app/use-command-table.ts
 #: src/canvas/canvas-toolbar.tsx
-#: src/settings/settings-dialog.tsx
+#: src/settings/titlebar-tools-settings.tsx
 msgid "Open in browser"
 msgstr "在浏览器中打开"
+
+#: src/browser/browser-panel.tsx
+msgid "Open in default browser"
+msgstr "在默认浏览器中打开"
 
 #: src/editor/comments/annotation-rounds-dialog.tsx
 msgid "Open in History"
@@ -11134,6 +11169,11 @@ msgstr "打开邀请"
 #: src/project/paper-row.tsx
 msgid "Open link in browser"
 msgstr "在浏览器中打开链接"
+
+#: src/settings/browser-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Open links in"
+msgstr "链接打开方式"
 
 #: src/telemetry/app-log.tsx
 msgid "Open log folder"
@@ -11402,6 +11442,7 @@ msgstr "超出 arXiv 的大小限制"
 #: src/history/conflict-resolver.tsx
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
+#: src/settings/titlebar-tools-settings.tsx
 #: src/trellis/trellis-titles.ts
 msgid "Overleaf"
 msgstr "Overleaf"
@@ -12390,7 +12431,7 @@ msgstr "全局替换"
 #: src/app/app-history-drawers.tsx
 #: src/canvas/canvas-toolbar.tsx
 #: src/history/history-drawer.tsx
-#: src/settings/settings-dialog.tsx
+#: src/settings/titlebar-tools-settings.tsx
 msgid "Project history"
 msgstr "项目历史"
 
@@ -12901,6 +12942,10 @@ msgstr "松开即可放大"
 #: src/trellis/trellis-labels.ts
 msgid "Release to focus {title}"
 msgstr "松开放大{title}"
+
+#: src/browser/browser-panel.tsx
+msgid "Reload"
+msgstr "重新加载"
 
 #: src/history/conflict-resolver.tsx
 msgid "Reload conflicts"
@@ -17335,8 +17380,8 @@ msgstr "提示"
 msgid "Title"
 msgstr "标题"
 
-#: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
+#: src/settings/titlebar-tools-settings.tsx
 msgid "Title bar tools"
 msgstr "标题栏工具"
 
@@ -18333,6 +18378,10 @@ msgstr "警告"
 #: src/telemetry/app-log.tsx
 msgid "Warning"
 msgstr "警告"
+
+#: src/browser/browser-panel.tsx
+msgid "Web address"
+msgstr "网址"
 
 #: src/project/paper-library.tsx
 #: src/project/paper-row.tsx

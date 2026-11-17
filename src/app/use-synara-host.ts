@@ -1,7 +1,7 @@
 import { msg } from "@lingui/core/macro";
 import { useLingui } from "@lingui/react/macro";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { openUrl } from "@tauri-apps/plugin-opener";
+import { openAgentWebLink } from "../browser/link-destination";
 import type { ProjectSnapshot } from "../app-types";
 import { executeAgentBibliographyToolRequest, parseAgentBibliographyToolRequest } from "../agent/agent-bibliography-tools";
 import { executeAgentCanvasToolRequest, parseAgentCanvasToolRequest } from "../agent/agent-canvas-tools";
@@ -332,11 +332,7 @@ export function useSynaraHost({ project, projectRef, agentVisible, bridge, appea
         host.bridge.openProviderSettings(synaraSettingsTarget(data.target));
       },
       "synara:open-file": openNamedFile,
-      "synara:open-external": (data) => {
-        // WebKit does not hand an embedded frame's `_blank` navigation to the system browser.
-        const url = stringField(data.url);
-        if (/^https?:\/\//i.test(url)) void openUrl(url).catch(() => undefined);
-      },
+      "synara:open-external": (data) => openAgentWebLink(data.url, data.destination),
       [SYNARA_SAVE_VISUAL]: (data) => {
         const request = parseAgentVisualSave(data);
         if (request) saveAgentVisual(request);

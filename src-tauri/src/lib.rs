@@ -15,6 +15,8 @@ mod app_terminate;
 #[path = "app_terminate_stub.rs"]
 mod app_terminate;
 mod browser_host;
+#[cfg(target_os = "macos")]
+mod browser_panel;
 mod ipc;
 #[cfg(any(target_os = "linux", test))]
 mod linux_release_notice;
@@ -158,6 +160,8 @@ fn on_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
         window.state::<ipc::project_tabs::ProjectTabMoves>().reject_destination(window.label());
         let state = window.state::<AppState>();
         state.release_window(window.label());
+        #[cfg(target_os = "macos")]
+        browser_panel::forget(window.label());
         let browser = window.state::<browser_host::BrowserHost>();
         browser.activate_source(window.label(), &state);
         browser.hide_desktop_shell_if_browser_only(window.app_handle());
@@ -171,6 +175,8 @@ fn on_page_load<R: Runtime>(
     webview: &tauri::Webview<R>, payload: &tauri::webview::PageLoadPayload<'_>,
 ) {
     if payload.event() == tauri::webview::PageLoadEvent::Started {
+        #[cfg(target_os = "macos")]
+        browser_panel::forget(webview.label());
         // A PDF window's page shows its owner's project and owns none of this.
         if pdf_window::is_pdf_window(webview.label()) {
             return;
@@ -616,6 +622,8 @@ pub fn run() {
             ipc::agent::test_model_endpoint,
             ipc::diagnostics::collect_diagnostic_logs,
             ipc::diagnostics::save_problem_report,
+            #[cfg(target_os = "macos")]
+            browser_panel::browser_panel,
             browser_host::dialogs::browser_dialog_open,
             browser_host::dialogs::browser_dialog_save,
             macos_window::set_pdf_copy_text,

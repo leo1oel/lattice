@@ -15,6 +15,7 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
+import { supportsBrowserPanel } from "../browser/link-destination";
 import { Tip } from "../components/icon-tip";
 import { Keycaps } from "../components/ui/keycaps";
 import { agentEntryProps } from "../agent/agent-entry";
@@ -269,7 +270,7 @@ export const TrellisTitlebar = memo(function TrellisTitlebar({ controller, onSea
           <PanelToggles controller={controller} onShow={handOffFocus} />
           <DropdownMenuSeparator />
           <DropdownMenuLabel>{t`Tools`}</DropdownMenuLabel>
-          {TOOL_KINDS.map((kind) => (
+          {TOOL_KINDS.filter((kind) => kind !== "browser" || supportsBrowserPanel()).map((kind) => (
             <DropdownMenuItem key={kind} onSelect={() => showPanel(kind)}>{PANEL_ICONS[kind]}{title(kind)}</DropdownMenuItem>
           ))}
           <DropdownMenuSeparator />

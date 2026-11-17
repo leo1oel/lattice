@@ -2290,7 +2290,7 @@ msgstr "Annotation deleted"
 #: src/canvas/document-canvas.tsx
 #: src/canvas/editor-status-bar.tsx
 #: src/pdf/pdf-annotations.tsx
-#: src/settings/settings-dialog.tsx
+#: src/settings/titlebar-tools-settings.tsx
 #: src/trellis/trellis-titles.ts
 msgid "Annotations"
 msgstr "Annotations"
@@ -2623,6 +2623,7 @@ msgstr "Auxiliary files"
 msgid "Azure"
 msgstr "Azure"
 
+#: src/browser/browser-panel.tsx
 #: src/editor/insert/table-generator-dialog.tsx
 #: src/papers/zotero-browser.tsx
 msgid "Back"
@@ -2956,6 +2957,14 @@ msgstr "Breve accent example"
 #: src/settings/settings-search-index.ts
 msgid "British English"
 msgstr "British English"
+
+#: src/browser/browser-panel.tsx
+#: src/settings/browser-settings.tsx
+#: src/settings/settings-dialog.tsx
+#: src/settings/settings-search-index.ts
+#: src/trellis/trellis-titles.ts
+msgid "Browser"
+msgstr "Browser"
 
 #: src/platform/host-errors-workspace.ts
 msgid "Browser dialogs are only available to a browser workspace."
@@ -4829,6 +4838,10 @@ msgstr "Could not open the Overleaf realtime connection: {error}"
 msgid "Could not open the Overleaf sign-in window: {error}"
 msgstr "Could not open the Overleaf sign-in window: {error}"
 
+#: src/browser/browser-panel.tsx
+msgid "Could not open the page in the Browser panel."
+msgstr "Could not open the page in the Browser panel."
+
 #: src/platform/host-errors-workspace.ts
 msgid "Could not open the PDF in a new window: {error}"
 msgstr "Could not open the PDF in a new window: {error}"
@@ -5388,6 +5401,11 @@ msgstr "Decrement year"
 #: src/settings/settings-dialog.tsx
 msgid "Default"
 msgstr "Default"
+
+#: src/settings/browser-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Default browser"
+msgstr "Default browser"
 
 #: src/settings/settings-search-index.ts
 msgid "Default provider"
@@ -6246,6 +6264,10 @@ msgstr "Enter a template name and a short version."
 msgid "Enter a valid arXiv id or URL."
 msgstr "Enter a valid arXiv id or URL."
 
+#: src/browser/browser-panel.tsx
+msgid "Enter a web address"
+msgstr "Enter a web address"
+
 #: src/pdf/pdf-overflow-menu.tsx
 msgid "Enter a zoom percentage"
 msgstr "Enter a zoom percentage"
@@ -6975,6 +6997,10 @@ msgstr "Formula"
 msgid "Formulas"
 msgstr "Formulas"
 
+#: src/browser/browser-panel.tsx
+msgid "Forward"
+msgstr "Forward"
+
 #: src/app/use-command-table.ts
 msgctxt "Document history"
 msgid "Forward"
@@ -7124,7 +7150,7 @@ msgid "Git isn’t installed. Install the Xcode Command Line Tools, then try aga
 msgstr "Git isn’t installed. Install the Xcode Command Line Tools, then try again"
 
 #: src/canvas/canvas-toolbar.tsx
-#: src/settings/settings-dialog.tsx
+#: src/settings/titlebar-tools-settings.tsx
 msgid "Git status and commit"
 msgstr "Git status and commit"
 
@@ -8809,6 +8835,11 @@ msgstr "Lattice only"
 #: src/platform/host-errors-setup.ts
 msgid "Lattice only updates the BasicTeX it installs. In Terminal: {command}"
 msgstr "Lattice only updates the BasicTeX it installs. In Terminal: {command}"
+
+#: src/settings/browser-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Lattice panel"
+msgstr "Lattice panel"
 
 #: src/onboarding/get-started-panel.tsx
 msgid "Lattice runs the one it finds on your PATH, the way Terminal does. Installed somewhere else? Set its path in Settings › Providers."
@@ -11095,9 +11126,13 @@ msgstr "Open guided tutorial"
 
 #: src/app/use-command-table.ts
 #: src/canvas/canvas-toolbar.tsx
-#: src/settings/settings-dialog.tsx
+#: src/settings/titlebar-tools-settings.tsx
 msgid "Open in browser"
 msgstr "Open in browser"
+
+#: src/browser/browser-panel.tsx
+msgid "Open in default browser"
+msgstr "Open in default browser"
 
 #: src/editor/comments/annotation-rounds-dialog.tsx
 msgid "Open in History"
@@ -11134,6 +11169,11 @@ msgstr "Open invitation"
 #: src/project/paper-row.tsx
 msgid "Open link in browser"
 msgstr "Open link in browser"
+
+#: src/settings/browser-settings.tsx
+#: src/settings/settings-search-index.ts
+msgid "Open links in"
+msgstr "Open links in"
 
 #: src/telemetry/app-log.tsx
 msgid "Open log folder"
@@ -11402,6 +11442,7 @@ msgstr "Over arXiv’s size limit"
 #: src/history/conflict-resolver.tsx
 #: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
+#: src/settings/titlebar-tools-settings.tsx
 #: src/trellis/trellis-titles.ts
 msgid "Overleaf"
 msgstr "Overleaf"
@@ -12390,7 +12431,7 @@ msgstr "Project find and replace"
 #: src/app/app-history-drawers.tsx
 #: src/canvas/canvas-toolbar.tsx
 #: src/history/history-drawer.tsx
-#: src/settings/settings-dialog.tsx
+#: src/settings/titlebar-tools-settings.tsx
 msgid "Project history"
 msgstr "Project history"
 
@@ -12901,6 +12942,10 @@ msgstr "Release to focus"
 #: src/trellis/trellis-labels.ts
 msgid "Release to focus {title}"
 msgstr "Release to focus {title}"
+
+#: src/browser/browser-panel.tsx
+msgid "Reload"
+msgstr "Reload"
 
 #: src/history/conflict-resolver.tsx
 msgid "Reload conflicts"
@@ -17335,8 +17380,8 @@ msgstr "Tip"
 msgid "Title"
 msgstr "Title"
 
-#: src/settings/settings-dialog.tsx
 #: src/settings/settings-search-index.ts
+#: src/settings/titlebar-tools-settings.tsx
 msgid "Title bar tools"
 msgstr "Title bar tools"
 
@@ -18333,6 +18378,10 @@ msgstr "WARN"
 #: src/telemetry/app-log.tsx
 msgid "Warning"
 msgstr "Warning"
+
+#: src/browser/browser-panel.tsx
+msgid "Web address"
+msgstr "Web address"
 
 #: src/project/paper-library.tsx
 #: src/project/paper-row.tsx

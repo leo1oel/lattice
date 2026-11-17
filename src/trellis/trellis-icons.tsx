@@ -5,7 +5,7 @@
 import type { ReactNode } from "react";
 import {
   ArrowRightLeft, BookOpen, BookPlus, Bot, ClipboardCheck, Columns2, Copy, Crosshair, EyeOff, FileCheck, FileCode2,
-  FileText, FolderInput, FolderPlus, FolderTree, GitBranch, Hammer, History, Leaf, Library, ListChecks, ListTodo, Maximize2, MessageSquare,
+  FileText, FolderInput, FolderPlus, FolderTree, GitBranch, Globe, Hammer, History, Leaf, Library, ListChecks, ListTodo, Maximize2, MessageSquare,
   Minimize2, PenLine, PictureInPicture2, Pin, PinOff, Presentation, RefreshCw, RotateCw, Rows2, Search, Settings2, Shapes, Sparkles, Square, Table2,
   X, XCircle,
 } from "lucide-react";
@@ -54,6 +54,7 @@ export const PANEL_ICONS: Record<TrellisSingleton, ReactNode> = {
   todos: <ListTodo size={14} />,
   checklist: <ClipboardCheck size={14} />,
   start: <ListChecks size={14} />,
+  browser: <Globe size={14} />,
 };
 
 /**
