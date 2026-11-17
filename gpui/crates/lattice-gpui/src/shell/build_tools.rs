@@ -60,9 +60,12 @@ impl Shell {
             return;
         }
         self.cleaning = true;
+        // The open document's root, which Build would compile: not the last
+        // build's, which may be another root whose `.aux` this one reads.
+        let open_document = self.open_document(cx).map(|(path, _)| path);
         cx.spawn(async move |this, cx| {
             let cleaned = cx
-                .background_spawn(async move { latex::clean(&root) })
+                .background_spawn(async move { latex::clean(&root, open_document.as_deref()) })
                 .await;
             this.update(cx, |this, cx| {
                 this.cleaning = false;
