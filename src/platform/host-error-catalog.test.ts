@@ -117,6 +117,7 @@ describe("host error catalog", () => {
  * for every error written there, or `<file>: <literal>` for one.
  */
 const UNTRANSLATED: Record<string, string> = {
+  "browser_panel.rs": "the Browser panel shows a localized failure notice instead of the native diagnostic",
   "latex/figure_preview.rs": "answers the agent's figure-preview tool, which reads and acts on it",
   // The FlashTeX spike, behind a developer flag, ends quietly and logs why to the console.
   "flashtex_preview/": "the developer-only FlashTeX preview never shows its errors; it falls back to the normal build",
