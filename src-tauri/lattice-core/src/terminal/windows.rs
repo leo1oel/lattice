@@ -52,8 +52,13 @@ impl Session {
         let shell = login_shell();
         let name = shell.file_name().unwrap_or_default().to_string_lossy().into_owned();
         let mut command = CommandBuilder::new(&shell);
-        command.args(["-NoLogo", "-NoExit"]);
-        command.cwd(super::shell_cwd(&root));
+        // Windows PowerShell 5.1 treats `[`/`]` in its inherited working
+        // directory as wildcards and falls back to its own folder, so an
+        // Overleaf project named "[EMNLP] …" would open in System32. Start in
+        // the folder, then move there literally.
+        let cwd = super::shell_cwd(&root);
+        command.args(["-NoLogo", "-NoExit", "-Command", &super::set_location_script(&cwd)]);
+        command.cwd(&cwd);
         command.env("PATH", crate::commands::child_path());
         command.env("TERM", "xterm-256color");
         command.env("COLORTERM", "truecolor");
