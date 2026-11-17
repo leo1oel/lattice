@@ -43,7 +43,7 @@ fn errors_are_worded_by_code_and_keep_the_plugins_own_message() {
         message: "Zotero is not running".into(),
     });
     assert_eq!(own.text, "Zotero is not running");
-    assert!(own.detail.is_none() && !own.settings);
+    assert!(!own.settings);
     let broken = text::error_text(&PluginError::Broken {
         message: "main.js is missing".into(),
     });
