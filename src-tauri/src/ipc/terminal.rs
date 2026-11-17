@@ -16,8 +16,9 @@ use tauri::{Manager, Runtime, State, Webview, Window};
 /// longer paste.
 const MAX_WRITE_BYTES: usize = 256 * 1024;
 
-/// The calling window, once its page passed [`caller::check`].
-fn caller_window<R: Runtime>(
+/// The calling window, once its page passed [`caller::check`]. Plugins
+/// (ipc/plugins.rs) hold their callers to the same rule.
+pub(crate) fn caller_window<R: Runtime>(
     webview: &Webview<R>, request: &Request<'_>,
 ) -> Result<Window<R>, String> {
     let window = webview.window();
