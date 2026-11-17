@@ -12,7 +12,7 @@ export function findElement<T extends Element = HTMLElement>(selector: string, o
   }, options);
 }
 
-export const findFrame = (title = "Agent") => findElement<HTMLIFrameElement>(`iframe[title="${title}"]`);
+export const findFrame = (title = "Agent") => findElement<HTMLIFrameElement>(`iframe[title="${title}"]:not([hidden])`);
 
 /** The CodeMirror view mounted at `selector` right now. */
 export function editorViewAt(selector = ".cm-editor") {

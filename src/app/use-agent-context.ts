@@ -174,10 +174,10 @@ export function useAgentContext({ synara, project, papers, agentVisible, workspa
     [papers, project],
   );
   // Keep the agent's view of the host (context and paper library) current while it is on screen.
-  const { deliverable, latest, postMessage } = synara;
+  const { deliverable, setContextSnapshots, postMessage } = synara;
   useLayoutEffect(() => {
-    Object.assign(latest.current, { hostContext, paperLibrary });
-  }, [hostContext, latest, paperLibrary]);
+    setContextSnapshots(hostContext, paperLibrary);
+  }, [hostContext, paperLibrary, setContextSnapshots]);
   useEffect(() => {
     if (!hostContext || !deliverable) return;
     const frame = window.requestAnimationFrame(() => void postMessage(hostContext));

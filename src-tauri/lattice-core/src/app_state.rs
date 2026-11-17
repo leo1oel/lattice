@@ -25,6 +25,8 @@ pub struct AppState {
     /// resolves against the project of the window that sent it, or window A's
     /// next file write would land in whichever project window B opened last.
     pub roots: Mutex<HashMap<String, PathBuf>>,
+    /// Project roots retained by a window for its parked Agent frames.
+    background_agent_projects: Mutex<HashMap<String, HashSet<PathBuf>>>,
     /// Resources owned by an open project rather than by the process.
     projects: Mutex<HashMap<PathBuf, Arc<ProjectResources>>>,
     /// Process-wide backstop for Overleaf's ten-project-downloads-per-minute
@@ -114,6 +116,7 @@ impl AppState {
         }
         Self {
             roots: Mutex::new(roots),
+            background_agent_projects: Mutex::default(),
             projects: Mutex::default(),
             overleaf_download_started: Arc::default(),
             overleaf_logins: Arc::default(),
@@ -282,6 +285,41 @@ impl AppState {
         if let Ok(mut roots) = self.roots.lock() {
             roots.remove(label);
         }
+        if let Ok(mut projects) = self.background_agent_projects.lock() {
+            projects.remove(label);
+        }
+    }
+
+    /// Only a root currently bound to this window can acquire a background lease.
+    pub fn retain_background_agent_project(&self, label: &str, root: &Path) -> bool {
+        let Ok(roots) = self.roots.lock() else { return false };
+        if roots.get(label).is_none_or(|current| current != root) {
+            return false;
+        }
+        let Ok(mut projects) = self.background_agent_projects.lock() else { return false };
+        projects.entry(label.to_string()).or_default().insert(root.to_path_buf());
+        true
+    }
+
+    pub fn release_background_agent_project(&self, label: &str, root: &Path) {
+        let Ok(mut projects) = self.background_agent_projects.lock() else { return };
+        if let Some(owned) = projects.get_mut(label) {
+            owned.remove(root);
+            if owned.is_empty() {
+                projects.remove(label);
+            }
+        }
+    }
+
+    /// A new foreground owner takes precedence over any old parked frame.
+    pub fn has_background_agent_project(&self, label: &str, root: &Path) -> bool {
+        let Ok(roots) = self.roots.lock() else { return false };
+        if roots.iter().any(|(owner, current)| owner != label && current == root) {
+            return false;
+        }
+        self.background_agent_projects
+            .lock()
+            .is_ok_and(|projects| projects.get(label).is_some_and(|owned| owned.contains(root)))
     }
 
     /// Release a window whose creation failed and drop what only it held.
@@ -394,6 +432,31 @@ mod tests {
         // build project A already has running.
         assert!(Arc::ptr_eq(&state.project(&a).active_build, &state.project(&a).active_build));
         assert!(!Arc::ptr_eq(&state.project(&a).active_build, &state.project(&b).active_build));
+    }
+
+    #[test]
+    fn background_agent_leases_are_scoped_to_the_window_and_project() {
+        let state = AppState::from_environment();
+        let (a, b) = (Path::new("/project/a"), Path::new("/project/b"));
+        state.bind_window("main", a.to_path_buf()).unwrap();
+        assert!(!state.retain_background_agent_project("other", a));
+        assert!(!state.retain_background_agent_project("main", b));
+        assert!(state.retain_background_agent_project("main", a));
+
+        state.bind_window("main", b.to_path_buf()).unwrap();
+        assert!(state.has_background_agent_project("main", a));
+        assert!(!state.has_background_agent_project("other", a));
+        assert!(!state.has_background_agent_project("main", b));
+
+        state.bind_window("other", a.to_path_buf()).unwrap();
+        assert!(!state.has_background_agent_project("main", a));
+        state.release_window("other");
+        state.release_background_agent_project("main", a);
+        assert!(!state.has_background_agent_project("main", a));
+
+        assert!(state.retain_background_agent_project("main", b));
+        state.release_window("main");
+        assert!(!state.has_background_agent_project("main", b));
     }
 
     #[test]

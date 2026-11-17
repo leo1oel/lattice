@@ -2,9 +2,9 @@
  * The projects in this window ("Projects in this window"): the one live
  * project and the ones it was switched away from, shown as the title bar's
  * project tabs (`project-tabs.tsx`) once there are two. Only the active one is
- * open in the backend, which still binds one root per window; the others are
- * suspended, which costs nothing, and come back through the ordinary switch
- * (`switchProject`) with their tabs, places and parked editors.
+ * bound to the window's editor in the backend. The other projects keep their
+ * tabs, places and parked editors until the next switch. Their Agent sessions
+ * can continue from the project's own retained frame.
  *
  * Each page keeps its list through a reload. Desktop windows also save their
  * group and active root to the native app's session file for relaunch.

@@ -100,7 +100,8 @@ pub async fn agent_bibliography_mutation(
     state: State<'_, AppState>, window: Window, project_root: String,
     mutation: AgentBibliographyMutation, deadline: Option<u64>,
 ) -> Result<Value, String> {
-    let root = scoped_root(&state, &window, &project_root)?;
+    let root =
+        super::agent::agent_project_root(&state, &window, &project_root, "the action could start")?;
     run_blocking("The bibliography task", move || mutation.run(&root, deadline)).await
 }
 

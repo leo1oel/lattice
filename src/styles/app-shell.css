@@ -669,6 +669,7 @@ body.resizing-panels { cursor: col-resize; user-select: none; }
   transform: translateY(2px);
   transition: opacity var(--motion-moderate), transform var(--motion-moderate);
 }
+.synara-poc-frame[hidden] { display: none; }
 .synara-frame-shell[data-ready="true"] .synara-poc-frame {
   opacity: 1;
   transform: none;

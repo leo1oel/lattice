@@ -112,6 +112,7 @@ export function parseAgentSpreadsheetToolRequest(value: unknown): AgentSpreadshe
 
 export async function executeAgentSpreadsheetToolRequest(
   request: AgentSpreadsheetToolRequest,
+  isActive: () => boolean = () => true,
 ): Promise<AgentSpreadsheetToolResult> {
   // Released only after the reply is built, however the request ends.
   const held: { document?: AgentSpreadsheetDocument | null } = {};
@@ -122,11 +123,13 @@ export async function executeAgentSpreadsheetToolRequest(
       }
       const path = requestPath(request.args);
       const model = await loadAgentSpreadsheetModel();
+      if (!isActive()) throw toolError("Select this project tab in Lattice before using its spreadsheet.", "project_not_active");
       const registrations = [...(openDocuments.get(path) ?? [])];
       const document = held.document = registrations.find((registration) => registration.active)?.document
         ?? registrations.at(-1)?.document
         ?? await documentResolver?.(path)
         ?? null;
+      if (!isActive()) throw toolError("Select this project tab in Lattice before using its spreadsheet.", "project_not_active");
       if (!document) throw toolError(`Spreadsheet not found: ${path}`, "spreadsheet_not_found");
       const args = withoutRoutingFields(request.args);
       let result: unknown;

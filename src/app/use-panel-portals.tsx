@@ -152,6 +152,15 @@ export function usePanelPortals({
   });
 
   if (!project) return null;
+  const agentSurface = <TrellisAgentSurface
+    synara={synara}
+    projectRoot={project.root}
+    theme={theme}
+    appLocale={appLocale}
+    dropActive={tree.drops.agentPanel}
+    anchor={trellis.hosts.agent}
+    onPointerEnter={() => trellis.rememberPointerPanel(trellis.hosts.agent)}
+  />;
   return (
     <>
       {createPortal(
@@ -215,19 +224,15 @@ export function usePanelPortals({
       {createPortal(trellisActions.project, trellis.hosts.projectActions)}
       {createPortal(trellisActions.papers, trellis.hosts.papersActions)}
       {createPortal(trellisActions.agent, trellis.hosts.agentActions)}
-      {agentPresent && createPortal(
-        <PanelErrorBoundary name="agent" resetKey={project.root}>
-        <Suspense fallback={<div className="synara-frame-shell"><SynaraLoadingSurface thread waiting={synara.frameMounted} runtime={synara.runtime} onRetry={synara.retryAgent} /></div>}>
-          <TrellisAgentSurface
-            synara={synara}
-            projectRoot={project.root}
-            theme={theme}
-            appLocale={appLocale}
-            dropActive={tree.drops.agentPanel}
-          />
+      {(agentPresent || synara.frames.length > 0) && (
+        <PanelErrorBoundary name="agent" resetKey={project.root} host={trellis.hosts.agent}>
+        <Suspense fallback={createPortal(
+          <div className="synara-frame-shell"><SynaraLoadingSurface thread waiting={synara.frameMounted} runtime={synara.runtime} onRetry={synara.retryAgent} /></div>,
+          trellis.hosts.agent,
+        )}>
+          {import.meta.env.LATTICE_WEB_DEMO ? createPortal(agentSurface, trellis.hosts.agent) : agentSurface}
         </Suspense>
-        </PanelErrorBoundary>,
-        trellis.hosts.agent,
+        </PanelErrorBoundary>
       )}
       {createPortal(
         <OpeningOverlay documents={documents.store} />,

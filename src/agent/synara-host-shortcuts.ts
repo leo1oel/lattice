@@ -55,7 +55,7 @@ export function useSynaraHostShortcuts(origin: string | null) {
         frame.contentWindow.postMessage(shortcutsMessage(), origin);
         return;
       }
-      if (event.data.type !== SYNARA_HOST_SHORTCUT) return;
+      if (event.data.type !== SYNARA_HOST_SHORTCUT || frame.hidden) return;
       const press = forwardedPress(event.data);
       if (!press || !liveShortcuts.get().some((combo) => pressMatches(combo, press))) return;
       frame.dispatchEvent(new KeyboardEvent("keydown", { ...press, bubbles: true, cancelable: true, composed: true }));

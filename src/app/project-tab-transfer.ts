@@ -20,10 +20,10 @@ export type TransferDeps = {
   building: boolean;
   projectRef: { current: ProjectSnapshot | null };
   holdWindow: <T>(refused: T, task: () => Promise<T>) => Promise<T>;
-  startProjectTransition: () => Promise<boolean>;
+  startProjectTransition: (retainAgent?: boolean) => Promise<boolean>;
   cancelProjectTransition: () => void;
   enterProject: (snapshot: ProjectSnapshot) => Promise<void>;
-  forgetTransferredProject: () => void;
+  forgetTransferredProject: (hasNeighbour: boolean) => void;
   setMovingWorkspace: (moving: boolean) => void;
   setBusyLabel: (label: string | null) => void;
 };
