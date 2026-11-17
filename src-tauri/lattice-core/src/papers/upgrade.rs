@@ -29,7 +29,7 @@ use std::time::{Duration, Instant};
 
 mod batch;
 
-#[cfg(test)]
+#[cfg(all(test, unix))]
 pub(super) use batch::forget_checks;
 pub(crate) use batch::{entry_fields, is_preprint, publishes};
 

@@ -84,7 +84,7 @@ pub(crate) fn resolve_doi(
     Ok(resolved)
 }
 
-#[cfg(test)]
+#[cfg(all(test, unix))]
 pub(crate) fn forget_doi_citations() {
     DOI_CITATIONS.clear();
 }

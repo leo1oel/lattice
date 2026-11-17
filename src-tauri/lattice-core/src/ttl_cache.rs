@@ -61,7 +61,7 @@ impl<V: Clone> TtlCache<V> {
         entries.insert(key, (now + ttl, value));
     }
 
-    #[cfg(test)]
+    #[cfg(all(test, unix))]
     pub(crate) fn clear(&self) {
         self.entries.lock().unwrap_or_else(PoisonError::into_inner).clear();
     }
