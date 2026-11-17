@@ -9,17 +9,29 @@
 //! finish what it is doing (a diagnostics sync, the last ask) without
 //! holding a thread, and is dropped unasked once a later keystroke has
 //! asked again, so asks never pile up behind a slow TexLab.
+//!
+//! TexLab offers nothing for a word of prose, and it filters what it
+//! offers by the word typed, so a word it had nothing for has nothing
+//! however far it is typed while the text around it stays as it was. Such
+//! a word is not asked about again for a second (see [`Unanswered`]); past
+//! that it is, in case TexLab said nothing only because it was still
+//! reading the project, or before a new file or `.bib` entry. Each ask
+//! sends TexLab the whole file, which it parses again, so asking on every
+//! letter of prose cost TexLab about a tenth of a core while typing, and
+//! the app a frame for each answer.
 
 use std::{
+    ops::Range,
     path::Path,
     sync::{
-        Arc, LazyLock, TryLockError,
+        Arc, LazyLock, Mutex, TryLockError,
         atomic::{AtomicU64, Ordering},
     },
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use gpui::{App, Task, WeakEntity};
+use language::BufferSnapshot;
 use lattice_core::texlab::{DocumentAt, TexlabCompletionItem};
 use regex::Regex;
 
@@ -30,6 +42,9 @@ use crate::completion::{
 
 /// How often a waiting ask looks whether TexLab is free again.
 const POOL_RETRY: Duration = Duration::from_millis(20);
+
+/// How long TexLab's nothing for a word holds for that word typed further.
+const UNANSWERED_HOLDS: Duration = Duration::from_secs(1);
 
 static WORD: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"\\?[A-Za-z@*]*$").expect("the word pattern compiles"));
@@ -66,6 +81,48 @@ pub fn texlab_items(items: Vec<TexlabCompletionItem>, word: &str) -> Vec<Complet
         .collect()
 }
 
+/// The last word TexLab answered with nothing: the file and the text as
+/// they were asked about, and the word, which starts at `from`.
+pub struct Unanswered {
+    path: String,
+    text: BufferSnapshot,
+    from: usize,
+    word: String,
+    at: Instant,
+}
+
+impl Unanswered {
+    /// Whether `word`, starting at `from` in `text`, is this word typed
+    /// further with nothing else in the file changed, which TexLab would
+    /// have nothing for either.
+    fn covers(&self, path: &str, text: &BufferSnapshot, from: usize, word: &str) -> bool {
+        self.at.elapsed() < UNANSWERED_HOLDS
+            && self.path == path
+            && self.text.remote_id() == text.remote_id()
+            && self.from == from
+            && word.starts_with(&self.word)
+            && edits_within(
+                text.edits_since::<usize>(self.text.version())
+                    .map(|edit| (edit.old, edit.new)),
+                from..from + self.word.len(),
+                from..from + word.len(),
+            )
+    }
+}
+
+/// Whether each of `edits` (its range before and after) replaced text
+/// within `old` and left its text within `new`: the text outside the word,
+/// `old` before and `new` after, is as it was.
+fn edits_within(
+    edits: impl IntoIterator<Item = (Range<usize>, Range<usize>)>,
+    old: Range<usize>,
+    new: Range<usize>,
+) -> bool {
+    edits.into_iter().all(|(was, is)| {
+        was.start >= old.start && was.end <= old.end && is.start >= new.start && is.end <= new.end
+    })
+}
+
 /// TexLab's completions in one editor, for the file its diagnostics follow.
 pub struct TexlabCompletions {
     pub diagnostics: WeakEntity<TexlabDiagnostics>,
@@ -74,12 +131,30 @@ pub struct TexlabCompletions {
     /// Whether TexLab was installed when the editor opened, as the Tauri
     /// app decides once per editor.
     pub available: bool,
+    /// The last word TexLab had nothing for, until it answers another.
+    pub unanswered: Arc<Mutex<Option<Unanswered>>>,
 }
 
 impl TexlabCompletions {
     fn path(&self, cx: &App) -> Option<String> {
         let path = self.diagnostics.upgrade()?.read(cx).path().to_string();
         super::is_tex_source(Path::new(&path)).then_some(path)
+    }
+
+    /// Whether TexLab already had nothing for the word before the caret,
+    /// as typed so far.
+    fn known_unanswered(&self, query: &CompletionQuery, path: &str, start: usize) -> bool {
+        let Ok(unanswered) = self.unanswered.lock() else {
+            return false;
+        };
+        unanswered.as_ref().is_some_and(|unanswered| {
+            unanswered.covers(
+                path,
+                query.text,
+                query.before_start() + start,
+                &query.before[start..],
+            )
+        })
     }
 }
 
@@ -89,7 +164,13 @@ impl CompletionSource for TexlabCompletions {
     }
 
     fn asks_later(&self, query: &CompletionQuery, cx: &App) -> bool {
-        self.available && word_start(query.before).is_some() && self.path(cx).is_some()
+        if !self.available {
+            return false;
+        }
+        let (Some(start), Some(path)) = (word_start(query.before), self.path(cx)) else {
+            return false;
+        };
+        !self.known_unanswered(query, &path, start)
     }
 
     fn complete_later(
@@ -105,11 +186,18 @@ impl CompletionSource for TexlabCompletions {
         let word = query.before[start..].to_string();
         let from = query.before_start() + start;
         let offset = query.offset;
-        let text = query.text.text();
-        let line_start = text[..offset].rfind('\n').map_or(0, |at| at + 1);
-        let line = text[..line_start].matches('\n').count() as u32 + 1;
+        let caret = query.text.offset_to_point(offset);
+        let line = caret.row + 1;
         // TexLab counts UTF-16 units, from 1 as the Tauri app sends them.
-        let character = text[line_start..offset].encode_utf16().count() as u32 + 1;
+        let character = query
+            .text
+            .text_for_range(offset - caret.column as usize..offset)
+            .flat_map(str::encode_utf16)
+            .count() as u32
+            + 1;
+        // The file's text is copied for TexLab off the main thread.
+        let snapshot = query.text.clone();
+        let unanswered = self.unanswered.clone();
         let service = self.diagnostics.upgrade()?.read(cx).service().clone();
         let (root, pool) = service.read(cx).pool();
         let latest = self.latest.clone();
@@ -127,6 +215,7 @@ impl CompletionSource for TexlabCompletions {
                 }
                 executor.timer(POOL_RETRY).await;
             };
+            let text = snapshot.text();
             let at = DocumentAt {
                 path: &path,
                 text: Some(&text),
@@ -135,6 +224,16 @@ impl CompletionSource for TexlabCompletions {
                 character,
             };
             let items = pool.completion(&root, &at).ok()?;
+            drop(pool);
+            if let Ok(mut unanswered) = unanswered.lock() {
+                *unanswered = items.is_empty().then(|| Unanswered {
+                    path,
+                    text: snapshot,
+                    from,
+                    word: word.clone(),
+                    at: Instant::now(),
+                });
+            }
             Some(CompletionList {
                 range: from..offset,
                 items: texlab_items(items, &word),
@@ -155,6 +254,26 @@ mod tests {
             insert_text: insert.map(str::to_string),
             documentation: None,
         }
+    }
+
+    /// "quick" typed on from "qu", which TexLab had nothing for at 10: the
+    /// letters added after it keep the text around the word as it was; an
+    /// edit before the word, after the caret, or of the space before the
+    /// word does not, and TexLab is asked again.
+    #[test]
+    fn only_letters_added_to_the_word_keep_texlabs_nothing() {
+        let (old, new) = (10..12, 10..15);
+        assert!(edits_within([], old.clone(), new.clone()));
+        assert!(edits_within(
+            [(12..12, 12..13), (12..12, 13..15)],
+            old.clone(),
+            new.clone()
+        ));
+        assert!(edits_within([(11..12, 11..15)], old.clone(), new.clone()));
+        assert!(!edits_within([(3..3, 3..4)], old.clone(), new.clone()));
+        assert!(!edits_within([(12..12, 12..16)], old.clone(), new.clone()));
+        assert!(!edits_within([(9..10, 9..9)], old.clone(), new.clone()));
+        assert!(!edits_within([(20..21, 23..23)], old, new));
     }
 
     #[test]
