@@ -197,3 +197,27 @@ fn relocation_record_failure_rolls_back_the_local_move_and_manifest() {
     assert!(!root.join("chapters/main.tex").exists());
     assert_eq!(fs::read(root.join(".research/project.json")).unwrap(), manifest);
 }
+
+/// The reported failure: a writer moves a file while a realtime join that
+/// names no role (`Permission::Unknown`, as the GPUI channel records it) has
+/// just been recorded. The join must not erase the known editor role, so the
+/// move reaches Overleaf instead of failing as if the account lacked write
+/// access.
+#[test]
+fn a_role_less_join_does_not_hold_back_a_writers_move() {
+    let server = Mock::project(&[]).serve();
+    let (config, root) = linked(&server, &[("renamed.tex", b"base")], &[("main.tex", b"base")]);
+    assert_eq!(load_state(&root).unwrap().permission.as_deref(), Some("readAndWrite"));
+    crate::overleaf::set_realtime_metadata(
+        &root,
+        "root-folder-1",
+        crate::overleaf_rt::Permission::Unknown.as_str(),
+    )
+    .unwrap();
+    record_relocation(&root, "main.tex", "renamed.tex").unwrap();
+
+    sync_relocations(&config, &root, Some(vec![entity("main-id", "main.tex", "doc")])).unwrap();
+
+    assert_posts(&server, &[("/project/proj-1/doc/main-id/rename", json!({"name": "renamed.tex"}))]);
+    assert!(load_state(&root).unwrap().pending_relocations.is_empty());
+}

@@ -414,6 +414,12 @@ purpose.
   remote file mutations. `readOnly` and `Unknown` fail closed
   (`Permission::can_write` in `src-tauri/lattice-core/src/overleaf_rt/events.rs`); reviewers
   contribute only through tracked operations (`can_suggest`).
+  A realtime join that names no role keeps the role already recorded
+  (`set_realtime_metadata` in `src-tauri/lattice-core/src/overleaf/link.rs`), so
+  a missing role never downgrades a known editor; a role the join does name
+  replaces it, a downgrade included. A pending move held by the role says which
+  role holds it, and an unknown role reads as a wait for the join rather than
+  as missing write access (`overleaf/sync/relocations.rs`).
 - Tree changes are identified by remote entity id. A rename or move must not
   become delete-and-recreate — that severs comments, tracked changes and
   document history.
