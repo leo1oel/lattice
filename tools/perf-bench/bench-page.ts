@@ -35,6 +35,7 @@ import { BENCH_PAPERS, LIBRARY_PAPERS, LITERATURE_HITS } from "./bench-papers";
 import { rootsAnswer } from "./bench-roots";
 import { terminalAnswer } from "./bench-terminal";
 import { zoteroAnswer } from "./bench-zotero";
+import { pluginsAnswer } from "./bench-plugins";
 import type { ProjectDeadline, ProjectSnapshot, SubmissionItem } from "../../src/app-types";
 // app-settings has no side effects (its imports are type-only), so importing
 // its keys here runs no app code before the mock backend below is installed.
@@ -336,6 +337,8 @@ function answer(command: string, args: Args): unknown {
   // `?zotero=library` (or `long`, `missing`) stages a Zotero library with annotations (bench-zotero.ts).
   const zotero = zoteroAnswer(command, args, { params, files: () => current.files });
   if (zotero !== NOT_HANDLED) return zotero;
+  const plugin = pluginsAnswer(command, args, params, tauri.sendOnChannel);
+  if (plugin !== NOT_HANDLED) return plugin;
   const shell = terminalAnswer(command, args, () => current);
   if (shell !== NOT_HANDLED) return shell;
   const bibliography = bibliographyAnswer(command, args, {
