@@ -16,6 +16,8 @@ import {
   excalidrawLangCode, fittedView, mergeExternalElements, parseBoardScene, savedVersions, serializeBoardScene,
 } from "./board-store";
 import { useLatestRef } from "../../hooks/use-latest-ref";
+import { createExcalidrawAgentCanvasAdapter } from "../../agent/agent-canvas-excalidraw-adapter";
+import { registerAgentCanvasAdapter } from "../../agent/agent-canvas-tools";
 
 const SERIALIZE_DEBOUNCE_MS = 300;
 
@@ -85,6 +87,8 @@ const sceneVersion = (elements: readonly OrderedExcalidrawElement[], files: Bina
 );
 
 export function BoardEditor({
+  path,
+  active = true,
   source,
   onChange,
   onFlushPendingChange,
@@ -111,6 +115,7 @@ export function BoardEditor({
     scene: sceneVersion(initial.elements as OrderedExcalidrawElement[], initial.files ?? {}),
   });
   const timerRef = useRef<number | null>(null);
+  const agentRef = useRef<(() => void) | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<{ frame: number | null; last: BoardFileViewState | null }>({ frame: null, last: initialViewState ?? null });
 
@@ -143,7 +148,20 @@ export function BoardEditor({
     if (view.frame !== null) window.cancelAnimationFrame(view.frame);
     if (view.last) callbacksRef.current.onViewState?.(view.last);
     apiRef.current = null;
+    agentRef.current?.();
   }, [flushRef]);
+
+  // Only the focused board answers the Agent's canvas tools; it registers once
+  // Excalidraw hands over its API, and again when it gains focus or is renamed.
+  const registerAgent = () => {
+    agentRef.current?.();
+    const api = apiRef.current;
+    agentRef.current = active && api
+      ? registerAgentCanvasAdapter(path, createExcalidrawAgentCanvasAdapter(api, () => apiRef.current === api))
+      : null;
+  };
+  const registerAgentRef = useLatestRef(registerAgent);
+  useEffect(() => registerAgentRef.current(), [active, path, registerAgentRef]);
 
   const handleChange = (elements: readonly OrderedExcalidrawElement[], appState: AppState, files: BinaryFiles) => {
     const view = { scrollX: appState.scrollX, scrollY: appState.scrollY, zoom: appState.zoom.value };
@@ -207,6 +225,7 @@ export function BoardEditor({
         initialData={initial}
         excalidrawAPI={(api) => {
           apiRef.current = api;
+          registerAgentRef.current();
           // Without a view of its own, a board opens fitted to its content once
           // Excalidraw knows its size; Excalidraw's scrollToContent only centres.
           if (initialViewState || !initial.elements?.length) return;

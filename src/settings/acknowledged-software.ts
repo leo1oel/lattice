@@ -43,7 +43,6 @@ export const CORE_SOFTWARE: readonly Credit[] = [
   { name: "Node.js", url: "https://nodejs.org", license: "MIT", version: nodeVersion },
   { name: "Open Slide", url: "https://github.com/open-slide/open-slide", pkg: { closure: "presentation-runtime", name: "@open-slide/core" } },
   { name: "Excalidraw", url: "https://excalidraw.com", pkg: { closure: "npm", name: "@excalidraw/excalidraw" }, license: "MIT" },
-  { name: "tldraw", url: "https://tldraw.dev", pkg: { closure: "npm", name: "tldraw" }, license: "tldraw license" },
   { name: "Trellis", attribution: "Uses Trellis by DanFessler - github.com/DanFessler/trellis", url: "https://github.com/DanFessler/trellis", pkg: { closure: "npm", name: "@danfessler/trellis" }, license: "Trellis license" },
   { name: "Pierre Trees", url: "https://pierre.computer", pkg: { closure: "npm", name: "@pierre/trees" } },
   { name: "Pierre Diffs", url: "https://diffs.com", pkg: { closure: "npm", name: "@pierre/diffs" } },
