@@ -54,6 +54,8 @@ pub mod pdf_pages;
 mod platform_fs;
 #[cfg(windows)]
 mod platform_windows;
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+pub mod plugins;
 pub mod presentation;
 #[cfg(target_os = "macos")]
 pub mod process_inspector;

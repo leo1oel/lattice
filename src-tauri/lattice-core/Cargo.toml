@@ -104,6 +104,12 @@ notify = "8"
 scraper = "0.27"
 spellbook = "0.4.2"
 yaml-rust2 = { version = "0.10.4", default-features = false }
+# Plugin manifests (`lattice-plugin.toml`, plugins/manifest.rs); the version
+# both shells' dependency graphs already compile in.
+toml = { version = "0.9", default-features = false, features = ["parse", "serde", "std"] }
+# The plugin API's JSON Schema (plugins/schema.rs), generated from the
+# protocol types; already in both graphs.
+schemars = { version = "1", default-features = false, features = ["derive", "std"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 # Provider CLIs are ordinary child processes and do not use CFNetwork, so a
