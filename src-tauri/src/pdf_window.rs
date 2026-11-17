@@ -40,6 +40,18 @@ pub(crate) struct Frame {
     pub(crate) height: f64,
 }
 
+/// Whether enough of `window`'s title bar lies on `screen` to grab it: GRIP of
+/// its width and half of TITLE_BAR's height. `scale` converts those points
+/// into the frames' units: 1 for logical points, the window's scale factor
+/// for physical pixels. Shared with `window_placement` so the PDF window and
+/// the workspace windows apply one rule.
+pub(crate) fn title_bar_on(window: Frame, screen: Frame, scale: f64) -> bool {
+    let bar = TITLE_BAR * scale;
+    let across = (window.x + window.width).min(screen.x + screen.width) - window.x.max(screen.x);
+    let down = (window.y + bar).min(screen.y + screen.height) - window.y.max(screen.y);
+    across >= GRIP * scale && down >= bar / 2.0
+}
+
 /// The saved frame when enough of its title bar is still on an attached screen
 /// to grab it, its size kept within that screen. None when the screen it was
 /// on is gone (or the frame is nonsense): the window then opens centred on the
@@ -50,11 +62,7 @@ pub(crate) fn placement(saved: Frame, screens: &[Frame]) -> Option<Frame> {
     if !finite || saved.width <= 0.0 || saved.height <= 0.0 {
         return None;
     }
-    let screen = screens.iter().find(|screen| {
-        let across = (saved.x + saved.width).min(screen.x + screen.width) - saved.x.max(screen.x);
-        let down = (saved.y + TITLE_BAR).min(screen.y + screen.height) - saved.y.max(screen.y);
-        across >= GRIP && down >= TITLE_BAR / 2.0
-    })?;
+    let screen = screens.iter().find(|screen| title_bar_on(saved, **screen, 1.0))?;
     Some(Frame {
         width: saved.width.clamp(MIN_SIZE.0, screen.width.max(MIN_SIZE.0)),
         height: saved.height.clamp(MIN_SIZE.1, screen.height.max(MIN_SIZE.1)),
