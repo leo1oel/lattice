@@ -1,5 +1,7 @@
 //! Building an island's webview: its builder (the page, the asset protocol,
 //! the bridge and the navigation rules) and what the island keeps of it.
+//! On Windows the webview is built in a task, outside GPUI's updates
+//! (`crate::detached`).
 
 use anyhow::{Context as _, Result};
 use futures::{StreamExt as _, channel::mpsc};
@@ -14,28 +16,97 @@ use crate::{
     protocol,
 };
 
+/// A webview's builder, before the webview is built, with what the island
+/// keeps of it once it is.
+struct PendingWebView {
+    builder: wry::WebViewBuilder<'static>,
+    inbox: Inbox,
+    token: String,
+}
+
+/// A built webview, with what the island keeps of its builder.
+struct BuiltWebView {
+    webview: WebView,
+    inbox: Inbox,
+    token: String,
+}
+
+/// What the page's bridge sends: the sending frame's URL and the body.
+type Inbox = mpsc::UnboundedReceiver<(String, String)>;
+
 impl Island {
     pub(super) fn build(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.building = false;
         if !self.active || self.webview.is_some() {
             return;
         }
-        match self.build_webview(window, cx) {
-            Ok(()) => {
-                self.state = IslandState::Loading;
-                self.stats.builds += 1;
-                self.push_theme(cx);
-            }
-            Err(error) => {
-                log::error!("{}: {error:#}", self.config.name);
-                self.state = IslandState::Failed(format!("{error:#}"));
-            }
+        let pending = match self.webview_builder(window, cx) {
+            Ok(pending) => pending,
+            Err(error) => return self.finish_build(Err(error), window, cx),
+        };
+        #[cfg(not(target_os = "windows"))]
+        {
+            let PendingWebView {
+                builder,
+                inbox,
+                token,
+            } = pending;
+            let built = WebView::build(builder, window, cx)
+                .context("building the island's webview")
+                .map(|webview| BuiltWebView {
+                    webview,
+                    inbox,
+                    token,
+                });
+            self.finish_build(built, window, cx);
         }
-        cx.notify();
+        // WebView2 pumps the thread's messages while it builds, which must
+        // not happen inside this update (`detached.rs`): the task builds it
+        // in its own body, and the island stays `building` until then, so
+        // no frame starts another build.
+        #[cfg(target_os = "windows")]
+        {
+            let parent = match crate::detached::DetachedParent::of(window) {
+                Ok(parent) => parent,
+                Err(error) => return self.finish_build(Err(error), window, cx),
+            };
+            self.building = true;
+            cx.spawn_in(window, async move |this, cx| {
+                let PendingWebView {
+                    builder,
+                    inbox,
+                    token,
+                } = pending;
+                // The island (and its window) may have gone since this was
+                // queued; nothing is borrowed between these two updates.
+                if this.update(cx, |_, _| ()).is_err() {
+                    return;
+                }
+                let raw = parent.build(builder);
+                this.update_in(cx, |this, window, cx| {
+                    this.building = false;
+                    let built =
+                        raw.context("building the island's webview")
+                            .map(|raw| BuiltWebView {
+                                webview: WebView::new(raw, window, cx),
+                                inbox,
+                                token,
+                            });
+                    this.finish_build(built, window, cx);
+                })
+                .ok();
+            })
+            .detach();
+        }
     }
 
-    fn build_webview(&mut self, window: &mut Window, cx: &mut Context<Self>) -> Result<()> {
-        let (sender, mut receiver) = mpsc::unbounded::<(String, String)>();
+    /// The island's webview builder, with the bridge's channel and token.
+    fn webview_builder(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Result<PendingWebView> {
+        let (sender, inbox) = mpsc::unbounded::<(String, String)>();
         let served = self.served.clone();
         let frame_origins = self.frame_origins.clone();
         let token = bridge::new_token()?;
@@ -77,13 +148,49 @@ impl Island {
                 channel(rgba.a),
             ));
         }
-        let lab = lab_ignore_occlusion();
-        if lab {
+        if lab_ignore_occlusion() {
             builder = builder.with_background_throttling(wry::BackgroundThrottlingPolicy::Disabled);
         }
-        let webview =
-            WebView::build(builder, window, cx).context("building the island's webview")?;
-        if lab {
+        Ok(PendingWebView {
+            builder,
+            inbox,
+            token,
+        })
+    }
+
+    /// Take the built webview (or the failure to build it) into the island.
+    /// A webview built for an island hidden or already rebuilt meanwhile (a
+    /// build on Windows finishes later) is dropped: the next frame the
+    /// island is shown in builds it again.
+    fn finish_build(
+        &mut self,
+        built: Result<BuiltWebView>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        match built {
+            Ok(_) if !self.active || self.webview.is_some() => {}
+            Ok(built) => {
+                self.attach(built, window, cx);
+                self.state = IslandState::Loading;
+                self.stats.builds += 1;
+                self.push_theme(cx);
+            }
+            Err(error) => {
+                log::error!("{}: {error:#}", self.config.name);
+                self.state = IslandState::Failed(format!("{error:#}"));
+            }
+        }
+        cx.notify();
+    }
+
+    fn attach(&mut self, built: BuiltWebView, window: &mut Window, cx: &mut Context<Self>) {
+        let BuiltWebView {
+            webview,
+            mut inbox,
+            token,
+        } = built;
+        if lab_ignore_occlusion() {
             keep_drawing_when_occluded(&webview);
         }
         self.handle = Some(webview.handle());
@@ -110,7 +217,7 @@ impl Island {
             }
         }));
         self._inbox = Some(cx.spawn_in(window, async move |this, cx| {
-            while let Some((sender, body)) = receiver.next().await {
+            while let Some((sender, body)) = inbox.next().await {
                 if this
                     .update_in(cx, |this, window, cx| {
                         this.receive(&sender, &body, window, cx)
@@ -121,6 +228,5 @@ impl Island {
                 }
             }
         }));
-        Ok(())
     }
 }

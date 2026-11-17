@@ -26,5 +26,10 @@ wry = { package = "lb-wry", version = "=0.53.3" }
 objc2 = "0.6"
 objc2-foundation = { version = "0.3", features = ["NSGeometry"] }
 
+[target.'cfg(target_os = "windows")'.dependencies]
+# The window's native handle, to build WebView2 outside GPUI's updates
+# (`detached.rs`); Wry's own version.
+raw-window-handle = "0.6"
+
 [dev-dependencies]
 tempfile = "3"
