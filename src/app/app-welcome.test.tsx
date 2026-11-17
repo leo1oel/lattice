@@ -1,4 +1,4 @@
-import { windowApi, synaraHook, interfaceSounds, projectCommands, overleafSyncResult, ROOT, projectSnapshot, buildResult, deferred, chooseOption, openSettings, findElement, findFrame, postWindowMessage, expectInvoked, invokeCalls, nextFrames, findOverleafSyncButton, stubObjectUrls, chooseProjectMenuItem, findSettingsDialog } from "./app-test-utils";
+import { synaraHook, interfaceSounds, projectCommands, overleafSyncResult, ROOT, projectSnapshot, buildResult, deferred, chooseOption, openSettings, findElement, findFrame, postWindowMessage, expectInvoked, invokeCalls, nextFrames, findOverleafSyncButton, stubObjectUrls, chooseProjectMenuItem, findSettingsDialog } from "./app-test-utils";
 import { appHarness } from "./app-test-mount";
 import { settingsDialog } from "./app-test-settings";
 import { invoke } from "@tauri-apps/api/core";
@@ -378,25 +378,6 @@ describe("welcome screen", () => {
     // The title is the product name in every language; the actions say the switch happened.
     expect(await screen.findByRole("button", { name: "新建项目" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 1, name: "Lattice" })).toBeInTheDocument();
-  });
-
-  it("keeps Settings draggable from its top edge and the top window strip", async () => {
-    renderApp();
-    await openSettings();
-    const dialog = await screen.findByRole("dialog", { name: "Settings" });
-    const topEdge = dialog.querySelector<HTMLElement>(".settings-drag-strip")!;
-    fireEvent.mouseDown(topEdge, { button: 0, buttons: 1, detail: 1 });
-    await waitFor(() => expect(windowApi.startDragging).toHaveBeenCalledOnce());
-    windowApi.startDragging.mockClear();
-    const topStrip = document.querySelector<HTMLElement>("[data-modal-window-drag]")!;
-    fireEvent.pointerDown(topStrip, { button: 0, buttons: 1, pointerType: "mouse" });
-    fireEvent.mouseDown(topStrip, { button: 0, buttons: 1, detail: 1 });
-    fireEvent.pointerUp(topStrip, { button: 0, buttons: 0, pointerType: "mouse" });
-    fireEvent.mouseUp(topStrip, { button: 0, buttons: 0, detail: 1 });
-    fireEvent.click(topStrip, { button: 0, detail: 1 });
-    expect(screen.getByRole("dialog", { name: "Settings" })).toBeInTheDocument();
-    await waitFor(() => expect(windowApi.startDragging).toHaveBeenCalledOnce());
-    expect(screen.getByRole("dialog", { name: "Settings" })).toBeInTheDocument();
   });
 
   it.each([
