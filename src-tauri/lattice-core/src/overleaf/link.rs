@@ -284,13 +284,19 @@ pub fn set_realtime_metadata(
         return Err("Overleaf's project join returned no root folder id.".to_string());
     }
     let mut state = load_state(root)?;
-    if state.root_folder_id.as_deref() == Some(root_folder_id)
-        && state.permission.as_deref() == Some(permission)
-    {
+    // A join that names no role is no evidence the role changed: keep the one
+    // already recorded (the frontend's `overleaf_set_permission` follows the
+    // same rule). Overwriting a known editor role with "unknown" would hold
+    // every pending move back until some later join named the role again.
+    let permission = match Permission::parse(Some(permission)) {
+        Permission::Unknown => state.permission.clone(),
+        _ => Some(permission.to_string()),
+    };
+    if state.root_folder_id.as_deref() == Some(root_folder_id) && state.permission == permission {
         return Ok(());
     }
     state.root_folder_id = Some(root_folder_id.to_string());
-    state.permission = Some(permission.to_string());
+    state.permission = permission;
     save_state(root, &state)
 }
 

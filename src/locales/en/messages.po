@@ -7136,6 +7136,14 @@ msgstr "Git workspace"
 msgid "Git workspace didn’t load"
 msgstr "Git workspace didn’t load"
 
+#: src/platform/host-errors-papers.ts
+msgid "GitHub answered HTTP {status} for {url}."
+msgstr "GitHub answered HTTP {status} for {url}."
+
+#: src/platform/host-errors-papers.ts
+msgid "GitHub refused the request (its hourly limit for unauthenticated lookups is spent). Retry later, or cite the repository with its BibTeX."
+msgstr "GitHub refused the request (its hourly limit for unauthenticated lookups is spent). Retry later, or cite the repository with its BibTeX."
+
 #: src/settings/settings-dialog.tsx
 #: src/telemetry/linux-release-notice.ts
 msgid "GitHub Releases"
@@ -11616,10 +11624,6 @@ msgstr "Overleaf sync paused"
 #: src/platform/host-errors-overleaf.ts
 msgid "Overleaf turned this request away, though the session is still valid."
 msgstr "Overleaf turned this request away, though the session is still valid."
-
-#: src/platform/host-errors-overleaf.ts
-msgid "Overleaf write access is required to sync moved files. Local moves have been kept."
-msgstr "Overleaf write access is required to sync moved files. Local moves have been kept."
 
 #: src/app/overleaf-sync-summary.ts
 msgid "Overleaf: already up to date."
@@ -18301,6 +18305,10 @@ msgstr "Waiting for administrator approval…"
 msgid "Waiting for more data"
 msgstr "Waiting for more data"
 
+#: src/platform/host-errors-overleaf.ts
+msgid "Waiting for Overleaf to confirm this account can edit the project before syncing moved files. Local moves have been kept."
+msgstr "Waiting for Overleaf to confirm this account can edit the project before syncing moved files. Local moves have been kept."
+
 #: src/overleaf/overleaf-download-progress.ts
 msgid "Waiting for Overleaf to send it"
 msgstr "Waiting for Overleaf to send it"
@@ -18681,6 +18689,14 @@ msgstr "Your note on {name} did not reach Overleaf: its copy reads differently t
 #: src/overleaf/overleaf-connect.tsx
 msgid "your Overleaf account"
 msgstr "your Overleaf account"
+
+#: src/platform/host-errors-overleaf.ts
+msgid "Your Overleaf role on this project is reviewer, which cannot move or rename files. Local moves have been kept; syncing resumes once the project owner gives you edit access."
+msgstr "Your Overleaf role on this project is reviewer, which cannot move or rename files. Local moves have been kept; syncing resumes once the project owner gives you edit access."
+
+#: src/platform/host-errors-overleaf.ts
+msgid "Your Overleaf role on this project is view-only, which cannot move or rename files. Local moves have been kept; syncing resumes once the project owner gives you edit access."
+msgstr "Your Overleaf role on this project is view-only, which cannot move or rename files. Local moves have been kept; syncing resumes once the project owner gives you edit access."
 
 #: src/app/use-overleaf-workspace.ts
 msgid "Your Overleaf session ended. Your edits stay on this Mac until you sign in"

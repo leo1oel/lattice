@@ -142,6 +142,30 @@ fn relocation_never_overwrites_a_destination_or_writes_without_permission() {
     assert!(server.recorded().iter().all(|r| r.method == "GET"));
 }
 
+/// The refusal says which role holds the move back, and an unknown role reads
+/// as a wait, not as missing write access.
+#[test]
+fn a_held_move_names_the_role_that_holds_it() {
+    let server = Mock::project(&[]).serve();
+    let (config, root) = linked(&server, &[], &[("main.tex", b"base")]);
+    let main = || Some(vec![entity("main-id", "main.tex", "doc")]);
+    record_relocation(&root, "main.tex", "renamed.tex").unwrap();
+    for (permission, says) in [
+        (None, "Waiting for Overleaf to confirm"),
+        (Some("unknown"), "Waiting for Overleaf to confirm"),
+        (Some("review"), "role on this project is reviewer"),
+        (Some("readOnly"), "role on this project is view-only"),
+    ] {
+        edit_state(&root, |state| state.permission = permission.map(str::to_string));
+        let error = sync_relocations(&config, &root, main()).unwrap_err();
+        assert!(error.contains(says), "{permission:?}: {error}");
+        // Unknown is checked before the live tree, so it waits either way.
+        assert!(sync_relocations(&config, &root, None).unwrap_err().contains(says));
+    }
+    assert_eq!(load_state(&root).unwrap().pending_relocations.len(), 1);
+    assert!(server.recorded().iter().all(|r| r.method == "GET"));
+}
+
 #[test]
 fn relocation_moves_binary_files_to_root_and_leaves_new_files_for_upload() {
     let server = Mock::project(&[]).serve();
@@ -172,4 +196,28 @@ fn relocation_record_failure_rolls_back_the_local_move_and_manifest() {
     assert!(root.join("main.tex").exists());
     assert!(!root.join("chapters/main.tex").exists());
     assert_eq!(fs::read(root.join(".research/project.json")).unwrap(), manifest);
+}
+
+/// The reported failure: a writer moves a file while a realtime join that
+/// names no role (`Permission::Unknown`, as the GPUI channel records it) has
+/// just been recorded. The join must not erase the known editor role, so the
+/// move reaches Overleaf instead of failing as if the account lacked write
+/// access.
+#[test]
+fn a_role_less_join_does_not_hold_back_a_writers_move() {
+    let server = Mock::project(&[]).serve();
+    let (config, root) = linked(&server, &[("renamed.tex", b"base")], &[("main.tex", b"base")]);
+    assert_eq!(load_state(&root).unwrap().permission.as_deref(), Some("readAndWrite"));
+    crate::overleaf::set_realtime_metadata(
+        &root,
+        "root-folder-1",
+        crate::overleaf_rt::Permission::Unknown.as_str(),
+    )
+    .unwrap();
+    record_relocation(&root, "main.tex", "renamed.tex").unwrap();
+
+    sync_relocations(&config, &root, Some(vec![entity("main-id", "main.tex", "doc")])).unwrap();
+
+    assert_posts(&server, &[("/project/proj-1/doc/main-id/rename", json!({"name": "renamed.tex"}))]);
+    assert!(load_state(&root).unwrap().pending_relocations.is_empty());
 }

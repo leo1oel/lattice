@@ -1472,8 +1472,18 @@ pub(super) static ENTRIES: &[Entry] = &[
     },
     Entry {
         file: "overleaf/sync/relocations.rs",
-        literal: "Overleaf write access is required to sync moved files. Local moves have been kept.",
-        text: Text::Message("Overleaf write access is required to sync moved files. Local moves have been kept.", &[]),
+        literal: "Waiting for Overleaf to confirm this account can edit the project before syncing moved files. Local moves have been kept.",
+        text: Text::Message("Waiting for Overleaf to confirm this account can edit the project before syncing moved files. Local moves have been kept.", &[]),
+    },
+    Entry {
+        file: "overleaf/sync/relocations.rs",
+        literal: "Your Overleaf role on this project is reviewer, which cannot move or rename files. Local moves have been kept; syncing resumes once the project owner gives you edit access.",
+        text: Text::Message("Your Overleaf role on this project is reviewer, which cannot move or rename files. Local moves have been kept; syncing resumes once the project owner gives you edit access.", &[]),
+    },
+    Entry {
+        file: "overleaf/sync/relocations.rs",
+        literal: "Your Overleaf role on this project is view-only, which cannot move or rename files. Local moves have been kept; syncing resumes once the project owner gives you edit access.",
+        text: Text::Message("Your Overleaf role on this project is view-only, which cannot move or rename files. Local moves have been kept; syncing resumes once the project owner gives you edit access.", &[]),
     },
     Entry {
         file: "overleaf/sync/relocations.rs",
@@ -1874,6 +1884,16 @@ pub(super) static ENTRIES: &[Entry] = &[
         file: "papers/web_citation.rs",
         literal: "Invalid alphaXiv citation.",
         text: Text::Message("Invalid alphaXiv citation.", &[]),
+    },
+    Entry {
+        file: "papers/github_citation.rs",
+        literal: "GitHub refused the request (its hourly limit for unauthenticated lookups is spent). Retry later, or cite the repository with its BibTeX.",
+        text: Text::Message("GitHub refused the request (its hourly limit for unauthenticated lookups is spent). Retry later, or cite the repository with its BibTeX.", &[]),
+    },
+    Entry {
+        file: "papers/github_citation.rs",
+        literal: "GitHub answered HTTP {status} for {url}.",
+        text: Text::Message("GitHub answered HTTP {status} for {url}.", &[("status", Arg::Param(0)), ("url", Arg::Param(1))]),
     },
     Entry {
         file: "papers/citation.rs",

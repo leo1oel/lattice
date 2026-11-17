@@ -8,7 +8,7 @@ use crate::overleaf::api::{csrf_token, expect_success, http_client, json_str, se
 use crate::overleaf::files::{read_base_copy, remove_base_copy, write_base_copy};
 use crate::overleaf::link::{load_state, save_state, PAUSED};
 use crate::overleaf::review::HistoryFrom;
-use crate::overleaf_rt::EntityEntry;
+use crate::overleaf_rt::{EntityEntry, Permission};
 use crate::util::err;
 use reqwest::header::COOKIE;
 use serde_json::{json, Value};
@@ -36,11 +36,24 @@ pub fn sync_relocations(
     if state.paused {
         return Err(PAUSED.to_string());
     }
-    if !state.access().can_write() {
-        return Err(
-            "Overleaf write access is required to sync moved files. Local moves have been kept."
-                .to_string(),
-        );
+    // Only owners and editors may move entities on Overleaf. An unknown role
+    // is not a refusal: an older link, or a project reopened before the
+    // realtime join names this account's role, reads as unknown until that
+    // join records it, so say the sync is waiting rather than that the
+    // account lacks access. Either way the moves stay pending and content
+    // sync stops, since without the move a moved file would read as one
+    // deleted and one new.
+    match state.access() {
+        Permission::Owner | Permission::ReadAndWrite => {}
+        Permission::Unknown => {
+            return Err("Waiting for Overleaf to confirm this account can edit the project before syncing moved files. Local moves have been kept.".to_string());
+        }
+        Permission::Review => {
+            return Err("Your Overleaf role on this project is reviewer, which cannot move or rename files. Local moves have been kept; syncing resumes once the project owner gives you edit access.".to_string());
+        }
+        Permission::ReadOnly => {
+            return Err("Your Overleaf role on this project is view-only, which cannot move or rename files. Local moves have been kept; syncing resumes once the project owner gives you edit access.".to_string());
+        }
     }
     let mut entities = entities.ok_or_else(|| {
         "Waiting for Overleaf's live file tree before syncing moved files.".to_string()

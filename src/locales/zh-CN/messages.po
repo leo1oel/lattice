@@ -7136,6 +7136,14 @@ msgstr "Git 工作区"
 msgid "Git workspace didn’t load"
 msgstr "Git 没加载出来"
 
+#: src/platform/host-errors-papers.ts
+msgid "GitHub answered HTTP {status} for {url}."
+msgstr "GitHub 对 {url} 返回了 HTTP {status}。"
+
+#: src/platform/host-errors-papers.ts
+msgid "GitHub refused the request (its hourly limit for unauthenticated lookups is spent). Retry later, or cite the repository with its BibTeX."
+msgstr "GitHub 拒绝了请求（未登录查询的每小时额度已用完）。请稍后再试，或用该仓库的 BibTeX 引用它。"
+
 #: src/settings/settings-dialog.tsx
 #: src/telemetry/linux-release-notice.ts
 msgid "GitHub Releases"
@@ -11616,10 +11624,6 @@ msgstr "同步已暂停"
 #: src/platform/host-errors-overleaf.ts
 msgid "Overleaf turned this request away, though the session is still valid."
 msgstr "会话仍然有效，但 Overleaf 拒绝了这次请求"
-
-#: src/platform/host-errors-overleaf.ts
-msgid "Overleaf write access is required to sync moved files. Local moves have been kept."
-msgstr "同步移动的文件需要 Overleaf 写入权限，本地的移动已保留"
 
 #: src/app/overleaf-sync-summary.ts
 msgid "Overleaf: already up to date."
@@ -18301,6 +18305,10 @@ msgstr "等待你输入 Mac 密码…"
 msgid "Waiting for more data"
 msgstr "正在等待更多数据"
 
+#: src/platform/host-errors-overleaf.ts
+msgid "Waiting for Overleaf to confirm this account can edit the project before syncing moved files. Local moves have been kept."
+msgstr "正在等待 Overleaf 确认此账户可以编辑该项目，确认后再同步移动的文件。本地的移动已保留"
+
 #: src/overleaf/overleaf-download-progress.ts
 msgid "Waiting for Overleaf to send it"
 msgstr "正在等待 Overleaf 发送"
@@ -18681,6 +18689,14 @@ msgstr "你在 {name} 上的批注没有发到 Overleaf：Overleaf 上的这份�
 #: src/overleaf/overleaf-connect.tsx
 msgid "your Overleaf account"
 msgstr "你的 Overleaf 账户"
+
+#: src/platform/host-errors-overleaf.ts
+msgid "Your Overleaf role on this project is reviewer, which cannot move or rename files. Local moves have been kept; syncing resumes once the project owner gives you edit access."
+msgstr "你在此项目中的 Overleaf 角色是审阅者，无法移动或重命名文件。本地的移动已保留；项目所有者给你编辑权限后，同步会继续"
+
+#: src/platform/host-errors-overleaf.ts
+msgid "Your Overleaf role on this project is view-only, which cannot move or rename files. Local moves have been kept; syncing resumes once the project owner gives you edit access."
+msgstr "你在此项目中的 Overleaf 角色是只读，无法移动或重命名文件。本地的移动已保留；项目所有者给你编辑权限后，同步会继续"
 
 #: src/app/use-overleaf-workspace.ts
 msgid "Your Overleaf session ended. Your edits stay on this Mac until you sign in"
