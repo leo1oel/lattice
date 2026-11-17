@@ -230,7 +230,7 @@ fn forward(owner: &WeakEntity<PdfPanel>, event: &PdfViewEvent, cx: &mut App) {
             owner.update(cx, |panel, _| panel.remember_place(*place));
             return;
         }
-        PdfViewEvent::Action | PdfViewEvent::SelectionOffered(_) => return,
+        PdfViewEvent::Action | PdfViewEvent::Start | PdfViewEvent::SelectionOffered(_) => return,
     };
     owner.update(cx, |_, cx| cx.emit(event));
 }

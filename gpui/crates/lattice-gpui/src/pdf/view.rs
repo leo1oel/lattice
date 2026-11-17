@@ -63,7 +63,7 @@ pub use citation::CitationLookup;
 pub use compound::CompoundSource;
 pub use notes::{NoteDestination, OverleafNotes, PdfNotes, note_destination};
 
-pub use events::{OfferedSelection, PdfViewEvent, ToolbarAction};
+pub use events::{HostLoad, OfferedSelection, PdfViewEvent, ToolbarAction};
 use page_changes::changed_pages;
 pub(super) use pages::PageSlot;
 pub use place::ViewPlace;
@@ -181,6 +181,10 @@ pub struct PdfView {
     pub(super) saving: bool,
     pub(super) dark: bool,
     pub(super) action: Option<ToolbarAction>,
+    /// The host's control at the toolbar's start (`toolbarStart`).
+    pub(super) start: Option<ToolbarAction>,
+    /// A PDF the host is still getting (`PdfPreviewLoading`).
+    pub(super) host_load: HostLoad,
     pub(super) outline: Option<super::OutlineState>,
     pub(super) can_reveal: bool,
     pub(super) offers_build: bool,
@@ -315,6 +319,8 @@ impl PdfView {
             saving: false,
             dark: super::dark::enabled(),
             action: None,
+            start: None,
+            host_load: HostLoad::Ready,
             outline: None,
             can_reveal: false,
             offers_build: false,
@@ -351,6 +357,8 @@ impl PdfView {
         let Ok(engine) = self.engine.clone() else {
             return;
         };
+        // The host has the PDF now.
+        self.host_load = HostLoad::Ready;
         let reload = self.source.as_ref() == Some(&path) && self.document.is_some();
         if !reload {
             // Another file: what was shown goes at once.
@@ -442,6 +450,7 @@ impl PdfView {
         self.source = None;
         self.message = None;
         self.loading = false;
+        self.host_load = HostLoad::Ready;
         cx.notify();
     }
 

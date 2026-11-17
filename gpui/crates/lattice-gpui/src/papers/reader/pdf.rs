@@ -13,7 +13,7 @@ use lattice_ui::Icon;
 
 use super::{PaperReader, ReaderView};
 use crate::papers::model;
-use crate::pdf::{PdfView, PdfViewEvent};
+use crate::pdf::{HostLoad, PdfView, PdfViewEvent};
 
 /// Where the paper's original PDF is (`paperPdfSource`).
 #[derive(Clone, Debug, PartialEq)]
@@ -54,9 +54,7 @@ pub(super) struct ShownPdf {
     /// The 0-based page a source link asked for, shown once pages load.
     pending_page: Option<usize>,
     _loaded: Subscription,
-    /// Still being fetched from the web.
-    pub(super) loading: bool,
-    pub(super) error: Option<gpui::SharedString>,
+    /// The fetch from the web, while the viewer shows its loading state.
     _fetch: Option<Task<()>>,
     _events: Subscription,
 }
@@ -116,7 +114,9 @@ impl PaperReader {
         let view = cx.new(|cx| {
             let mut view = PdfView::new(window, cx);
             view.set_build(false, false, cx);
-            view.set_action(
+            // At the toolbar's start, before the page controls, as the Tauri
+            // reader's `toolbarStart`.
+            view.set_toolbar_start(
                 Some(crate::pdf::ToolbarAction {
                     label: back,
                     icon: Icon::ARROW_LEFT,
@@ -129,7 +129,7 @@ impl PaperReader {
             view
         });
         let events = cx.subscribe_in(&view, window, |this, _, event, window, cx| match event {
-            PdfViewEvent::Action => this.show(this.view, window, cx),
+            PdfViewEvent::Start => this.show(this.view, window, cx),
             PdfViewEvent::SelectionOffered(offered) => this.offer_quote(offered.clone(), cx),
             _ => {}
         });
@@ -151,8 +151,6 @@ impl PaperReader {
             source: source.clone(),
             pending_page: None,
             _loaded: loaded,
-            loading: false,
-            error: None,
             _fetch: None,
             _events: events,
         };
@@ -162,7 +160,9 @@ impl PaperReader {
                 view.update(cx, |view, cx| view.open(path, window, cx));
             }
             PdfSource::Remote(url) => {
-                shown.loading = true;
+                // The viewer stands in for the PDF while it comes: the way
+                // back alone in its toolbar, over the page's skeleton.
+                view.update(cx, |view, cx| view.set_host_load(HostLoad::Fetching, cx));
                 shown._fetch = Some(self.fetch_pdf(url.clone(), view, window, cx));
             }
         }
@@ -183,15 +183,19 @@ impl PaperReader {
         cx.spawn_in(window, async move |this, cx| {
             let fetched = cx.background_spawn(async move { cached_pdf(&url) }).await;
             this.update_in(cx, |this, window, cx| {
-                let Some(pdf) = this.pdf.as_mut().filter(|pdf| pdf.view == view) else {
+                if !this.pdf.as_ref().is_some_and(|pdf| pdf.view == view) {
                     return;
-                };
-                pdf.loading = false;
+                }
                 match fetched {
                     Ok(file) => view.update(cx, |view, cx| view.open(file, window, cx)),
                     Err(error) => {
                         log::warn!("paper PDF: {error}");
-                        pdf.error = Some(t!("Could not load PDF").into());
+                        view.update(cx, |view, cx| {
+                            view.set_host_load(
+                                HostLoad::Failed(t!("Could not load PDF").into()),
+                                cx,
+                            )
+                        });
                     }
                 }
                 cx.notify();

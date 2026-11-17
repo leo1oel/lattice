@@ -228,6 +228,8 @@ impl Run {
         );
         self.island_shot(cx, "paper-reader-pdf").await?;
         if pdf_shown {
+            self.paper_pdf_toolbar_start(cx, steps, root, bundle, &reader)
+                .await?;
             self.paper_pdf_actions(cx, steps, root, bundle, &reader)
                 .await?;
         }
@@ -248,6 +250,101 @@ impl Run {
         self.paper_browser_failure(cx, steps, &reader).await?;
 
         self.press(cx, 'w', true).await?;
+        Ok(())
+    }
+
+    /// The way back from the PDF stands at its toolbar's start, before
+    /// Previous page, as the Tauri reader's `toolbarStart` does, not among
+    /// the controls on the right; and while the PDF is still coming from
+    /// the web (staged here, as the scenario has no network) the toolbar
+    /// holds only the way back, over the page's skeleton, and then over
+    /// "Could not load PDF" when it did not come.
+    async fn paper_pdf_toolbar_start(
+        &self,
+        cx: &mut AsyncApp,
+        steps: &mut Steps,
+        root: &Path,
+        bundle: &str,
+        reader: &Entity<PaperReader>,
+    ) -> Result<()> {
+        let Some(view) = cx.update(|cx| reader.read(cx).pdf_view()) else {
+            steps.check("the reader's PDF has a viewer", false, json!({}));
+            return Ok(());
+        };
+        let (start_row, previous_row) = crate::pdf::toolbar_start_rows();
+        let rows = |cx: &mut AsyncApp| {
+            cx.update(|cx| {
+                view.read(cx)
+                    .toolbar_hover_snapshot(cx)
+                    .unwrap_or_default()
+                    .rows
+            })
+        };
+        let bounds_of = |rows: &[(usize, gpui::Bounds<gpui::Pixels>, bool)], row: usize| {
+            rows.iter()
+                .find(|(ix, _, _)| *ix == row)
+                .map(|(_, bounds, _)| *bounds)
+        };
+        self.pause(cx, Duration::from_millis(300)).await;
+        let loaded = rows(cx);
+        let start = bounds_of(&loaded, start_row);
+        let previous = bounds_of(&loaded, previous_row);
+        let before_pages = start
+            .zip(previous)
+            .is_some_and(|(start, previous)| start.right() <= previous.left());
+        steps.check(
+            "the reader's way back from the PDF stands at the toolbar's start, before Previous page, as the Tauri reader's toolbarStart does",
+            before_pages,
+            json!({
+                "start": start.map(|b| format!("{b:?}")),
+                "previous": previous.map(|b| format!("{b:?}")),
+                "rows": loaded.iter().map(|(ix, _, _)| *ix).collect::<Vec<_>>(),
+            }),
+        );
+
+        // Still coming from the web: the way back alone, over the skeleton.
+        self.with_window(cx, |_, window, cx| {
+            view.update(cx, |view, cx| {
+                view.close(window, cx);
+                view.set_host_load(crate::pdf::HostLoad::Fetching, cx);
+            })
+        })?;
+        self.pause(cx, Duration::from_millis(400)).await;
+        let fetching = rows(cx);
+        let only_start = fetching.len() == 1 && bounds_of(&fetching, start_row).is_some();
+        self.island_shot(cx, "paper-reader-pdf-loading").await?;
+        self.with_window(cx, |_, _, cx| {
+            view.update(cx, |view, cx| {
+                view.set_host_load(
+                    crate::pdf::HostLoad::Failed(lattice_i18n::t!("Could not load PDF").into()),
+                    cx,
+                )
+            })
+        })?;
+        self.pause(cx, Duration::from_millis(300)).await;
+        let failed = rows(cx);
+        let failed_only_start = failed.len() == 1 && bounds_of(&failed, start_row).is_some();
+        self.island_shot(cx, "paper-reader-pdf-failed").await?;
+        // The PDF arrives: the whole toolbar again.
+        let file = root.join(bundle).join("original.pdf");
+        self.with_window(cx, |_, window, cx| {
+            view.update(cx, |view, cx| view.open(file, window, cx))
+        })?;
+        let back = self
+            .wait_for(cx, Duration::from_secs(10), |_, cx| {
+                view.read(cx).page_count() == 1
+                    && *view.read(cx).host_load() == crate::pdf::HostLoad::Ready
+            })
+            .await;
+        steps.check(
+            "while the reader's PDF is still coming, its toolbar holds only the way back, over the skeleton and then over Could not load PDF, and the whole toolbar returns once it comes",
+            only_start && failed_only_start && back,
+            json!({
+                "fetching": fetching.iter().map(|(ix, _, _)| *ix).collect::<Vec<_>>(),
+                "failed": failed.iter().map(|(ix, _, _)| *ix).collect::<Vec<_>>(),
+                "back": back,
+            }),
+        );
         Ok(())
     }
 }
