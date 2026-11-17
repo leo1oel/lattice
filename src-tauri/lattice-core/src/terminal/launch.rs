@@ -102,11 +102,8 @@ pub fn powershell_quote(text: &str) -> String {
     if !text.contains(SINGLE_QUOTES) {
         return format!("'{text}'");
     }
-    let (delimiter, special): (char, &[char]) = if text.contains(DOUBLE_QUOTES) {
-        ('\'', &SINGLE_QUOTES)
-    } else {
-        ('"', &['`', '$'])
-    };
+    let (delimiter, special): (char, &[char]) =
+        if text.contains(DOUBLE_QUOTES) { ('\'', &SINGLE_QUOTES) } else { ('"', &['`', '$']) };
     let mut quoted = String::with_capacity(text.len() + 8);
     quoted.push(delimiter);
     for c in text.chars() {
