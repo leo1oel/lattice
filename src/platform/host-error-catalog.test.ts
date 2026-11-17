@@ -118,6 +118,9 @@ describe("host error catalog", () => {
  */
 const UNTRANSLATED: Record<string, string> = {
   "latex/figure_preview.rs": "answers the agent's figure-preview tool, which reads and acts on it",
+  // The FlashTeX spike, behind a developer flag, ends quietly and logs why to the console.
+  "flashtex_preview/": "the developer-only FlashTeX preview never shows its errors; it falls back to the normal build",
+  "ipc/flashtex_preview.rs": "the developer-only FlashTeX preview never shows its errors; it falls back to the normal build",
   "linux_release_notice.rs": "background release checks discard errors and retry silently",
   "research_env.rs": "the research environment answers the agent, never the interface",
   "research_env/": "the research environment answers the agent, never the interface",

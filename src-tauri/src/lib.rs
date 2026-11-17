@@ -51,11 +51,11 @@ use lattice_core::process_inspector;
 use lattice_core::test_support;
 use lattice_core::{
     agent_literature, app_identity, app_state, citation_audit, citation_health,
-    command_diagnostics, commands, diagnostic_logs, doctor, export, format_latex, fs_watch, git,
-    harper, http, latex, link_preview, literature, literature_credentials, live_preview,
-    model_endpoint, models, overleaf, overleaf_rt, paper_pdf_proxy, papers, pdf_pages,
-    presentation, project, research_env, review_pdf, spelling, synara, terminal, tex_setup,
-    texcount, texlab, util, wide_event, zotero,
+    command_diagnostics, commands, diagnostic_logs, doctor, export, flashtex_preview, format_latex,
+    fs_watch, git, harper, http, latex, link_preview, literature, literature_credentials,
+    live_preview, model_endpoint, models, overleaf, overleaf_rt, paper_pdf_proxy, papers,
+    pdf_pages, presentation, project, research_env, review_pdf, spelling, synara, terminal,
+    tex_setup, texcount, texlab, util, wide_event, zotero,
 };
 
 // Also the label Tauri gives the window declared in tauri.conf.json.
@@ -524,6 +524,13 @@ pub fn run() {
             ipc::live_preview::live_preview_stop,
             ipc::live_preview::live_preview_send,
             ipc::live_preview::live_preview_read_file,
+            ipc::flashtex_preview::flashtex_preview_status,
+            ipc::flashtex_preview::flashtex_preview_install,
+            ipc::flashtex_preview::flashtex_preview_start,
+            ipc::flashtex_preview::flashtex_preview_stop,
+            ipc::flashtex_preview::flashtex_preview_compile,
+            ipc::flashtex_preview::flashtex_preview_pdf,
+            ipc::flashtex_preview::flashtex_preview_sync,
             ipc::git::git_status,
             ipc::git::git_user_name,
             ipc::git::git_init,

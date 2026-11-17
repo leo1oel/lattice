@@ -10,6 +10,7 @@ pub(crate) mod bibliography;
 pub(crate) mod build;
 pub(crate) mod diagnostics;
 pub(crate) mod files;
+pub(crate) mod flashtex_preview;
 pub(crate) mod git;
 pub(crate) mod history;
 pub(crate) mod link_preview;

@@ -5,7 +5,7 @@ mod overleaf_realtime;
 mod pdf_windows;
 mod project_scans;
 
-use crate::{fs_watch, git, latex, live_preview, project, terminal, texlab};
+use crate::{flashtex_preview, fs_watch, git, latex, live_preview, project, terminal, texlab};
 pub use overleaf_realtime::OverleafRealtimeState;
 pub use pdf_windows::{is_pdf_window, PdfWindows};
 pub use project_scans::{ProjectScans, SharedScan};
@@ -74,6 +74,8 @@ pub struct ProjectResources {
     pub fs_watcher: Mutex<Option<fs_watch::ProjectWatcher>>,
     /// The rtex live preview, while the project's window has it on.
     pub live_preview: Mutex<Option<live_preview::Session>>,
+    /// The FlashTeX preview spike, while a developer has it on.
+    pub flashtex_preview: Mutex<Option<flashtex_preview::Session>>,
     /// The scans each save asks for, one run at a time per kind.
     pub scans: ProjectScans,
 }
@@ -209,6 +211,11 @@ impl AppState {
             if let Some(session) = session {
                 session.stop_and_wait();
             }
+            let flashtex =
+                project.flashtex_preview.lock().unwrap_or_else(PoisonError::into_inner).take();
+            if let Some(session) = flashtex {
+                session.stop_and_wait();
+            }
         }
     }
 
@@ -336,10 +343,15 @@ impl ProjectLease {
 }
 
 impl ProjectResources {
-    /// End the project's rtex session, if one runs. Safe to call when none does.
+    /// End the project's rtex and FlashTeX sessions, if they run. Safe to
+    /// call when none does.
     pub fn stop_live_preview(&self) {
         let session = self.live_preview.lock().unwrap_or_else(PoisonError::into_inner).take();
         if let Some(session) = session {
+            session.stop();
+        }
+        let flashtex = self.flashtex_preview.lock().unwrap_or_else(PoisonError::into_inner).take();
+        if let Some(session) = flashtex {
             session.stop();
         }
     }
