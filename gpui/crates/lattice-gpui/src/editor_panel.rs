@@ -117,6 +117,9 @@ use buffer_counts::TODO_SETTLE;
 /// How often the open file is checked for an edit made behind the editor.
 const DISK_POLL: Duration = Duration::from_millis(2500);
 
+/// How long a keystroke waits on the main thread for its reparse.
+const SYNC_PARSE_TIMEOUT: Duration = Duration::from_millis(5);
+
 /// The last write's outcome, for the status bar's save slot.
 #[derive(Clone, Debug, PartialEq)]
 pub enum SaveStatus {
@@ -302,6 +305,12 @@ impl EditorPanel {
         buffer.update(cx, |buffer, cx| {
             buffer.set_language_registry(registry);
             buffer.set_language(language, cx);
+            // Zed waits 1 ms for a keystroke's reparse and otherwise draws the
+            // key over the old tree and the parse in a frame of its own, the
+            // lines on screen highlighted twice; on a 240 KB paper more than
+            // half the reparses missed the 1 ms. Waiting a little longer
+            // draws each keystroke once.
+            buffer.set_sync_parse_timeout(Some(SYNC_PARSE_TIMEOUT));
         });
         let languaged = started.elapsed();
         let lattice = cx.new(|cx| LatticeEditor::new(buffer.clone(), window, cx));

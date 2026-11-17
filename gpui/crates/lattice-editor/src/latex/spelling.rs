@@ -12,6 +12,13 @@
 //! dropped. A finding touching masked syntax, or in a sentence the project
 //! ignores, is not shown.
 //!
+//! A document longer than [`WINDOW_THRESHOLD`] is checked only around the
+//! lines on screen, as the Tauri app's `harperLintWindow` checks it: the
+//! visible lines widened by [`WINDOW_MARGIN`] and snapped out to whole lines,
+//! checked again 350 ms after the view scrolls to other lines. A whole-file
+//! pass over a 240 KB paper took about two seconds of a core and a hundred
+//! megabytes of Harper's lints on every pause in typing.
+//!
 //! The card says what was found (in Simplified Chinese, the rule's name and
 //! description over Harper's sentence, translated when it has a known shape)
 //! and offers what the Tauri app offers: the first suggestion (Replace with
@@ -30,8 +37,9 @@ use std::{
     time::Duration,
 };
 
+use editor::{DisplayPoint, EditorEvent, display_map::DisplayRow};
 use gpui::{App, AppContext as _, Context, Entity, EventEmitter, Subscription, Task, WeakEntity};
-use language::{Anchor, Buffer, BufferEvent, ToOffset as _};
+use language::{Anchor, Buffer, BufferEvent, OffsetUtf16, Point, Rope, ToOffset as _};
 use lattice_core::{
     harper::{self, HarperDialect, HarperLintOut, HarperOptions, HarperProfile},
     spelling::{self, DictionaryState, SpellingLanguage},
@@ -54,6 +62,12 @@ pub use card::{describe, rule_label, rule_text};
 pub const LAYER: &str = "spelling";
 /// How long after the last edit the file is checked again.
 pub const LINT_DELAY: Duration = Duration::from_millis(350);
+/// Above this length (UTF-16 units, as CodeMirror counts a document), only
+/// the lines around the view are checked (`HARPER_WINDOW_THRESHOLD`).
+pub const WINDOW_THRESHOLD: usize = 120_000;
+/// The UTF-16 units checked above and below the lines on screen
+/// (`HARPER_WINDOW_MARGIN`).
+const WINDOW_MARGIN: usize = 2_000;
 
 /// How a file's prose is read.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -391,6 +405,9 @@ pub struct Spelling {
     shown: Rc<RefCell<Vec<Anchored>>>,
     /// Bumped by every pass, so an overtaken one is dropped.
     generation: u64,
+    /// The bytes the last pass of a long document checked: a scroll that
+    /// keeps the same lines around the view checks nothing again.
+    checked: Option<Range<usize>>,
     _lint: Option<Task<()>>,
     _subscriptions: Vec<Subscription>,
 }
@@ -417,11 +434,27 @@ impl Spelling {
                 buffer: buffer.downgrade(),
             });
             editor.update(cx, |editor, _| editor.add_hover_provider(cards));
-            let subscriptions = vec![cx.subscribe(&buffer, |this, _, event: &BufferEvent, cx| {
-                if matches!(event, BufferEvent::Edited { .. }) {
-                    this.schedule(LINT_DELAY, cx);
-                }
-            })];
+            let zed = editor.read(cx).editor().clone();
+            let subscriptions = vec![
+                cx.subscribe(&buffer, |this, _, event: &BufferEvent, cx| {
+                    if matches!(event, BufferEvent::Edited { .. }) {
+                        this.schedule(LINT_DELAY, cx);
+                    }
+                }),
+                // CodeMirror's linter runs again when a windowed document's
+                // viewport changes (`needsRefresh`).
+                cx.subscribe(&zed, |this, _, event: &EditorEvent, cx| {
+                    if !matches!(event, EditorEvent::ScrollPositionChanged { .. })
+                        || this.checked.is_none()
+                    {
+                        return;
+                    }
+                    let snapshot = this.buffer.read(cx).snapshot();
+                    if this.window(&snapshot, cx) != this.checked {
+                        this.schedule(LINT_DELAY, cx);
+                    }
+                }),
+            ];
             let mut this = Self {
                 editor: editor.downgrade(),
                 buffer,
@@ -431,6 +464,7 @@ impl Spelling {
                 input,
                 shown,
                 generation: 0,
+                checked: None,
                 _lint: None,
                 _subscriptions: subscriptions,
             };
@@ -474,6 +508,29 @@ impl Spelling {
             .collect()
     }
 
+    /// The lines on screen, widened by [`WINDOW_MARGIN`] and snapped out to
+    /// whole lines, as bytes of `snapshot`; `None` for a document short
+    /// enough to check whole (`harperLintWindow`).
+    fn window(&self, snapshot: &language::BufferSnapshot, cx: &mut App) -> Option<Range<usize>> {
+        let length = snapshot.offset_to_offset_utf16(snapshot.len()).0;
+        if length <= WINDOW_THRESHOLD {
+            return None;
+        }
+        let editor = self.editor.upgrade()?.read(cx).editor().clone();
+        let shown = editor.update(cx, |editor, cx| {
+            let display = editor.display_snapshot(cx);
+            let top = editor.scroll_position(cx).y.max(0.);
+            let rows = editor.visible_line_count().unwrap_or(0.);
+            let offset_at = |row: f64| {
+                let row = DisplayRow(row.floor() as u32).min(display.max_point().row());
+                let point = DisplayPoint::new(row, 0).to_point(&display);
+                display.buffer_snapshot().point_to_offset(point).0
+            };
+            offset_at(top)..offset_at(top + rows + 1.)
+        });
+        Some(lint_window(snapshot.as_rope(), shown))
+    }
+
     fn schedule(&mut self, delay: Duration, cx: &mut Context<Self>) {
         self.generation += 1;
         let generation = self.generation;
@@ -487,17 +544,20 @@ impl Spelling {
             if !delay.is_zero() {
                 cx.background_executor().timer(delay).await;
             }
-            let Ok((pass, snapshot)) = this.update(cx, |this, cx| {
+            let Ok((pass, snapshot, start)) = this.update(cx, |this, cx| {
                 let snapshot = this.buffer.read(cx).snapshot();
+                let window = this.window(&snapshot, cx);
+                this.checked = window.clone();
+                let window = window.unwrap_or(0..snapshot.len());
                 let pass = Pass {
-                    text: snapshot.text(),
+                    text: snapshot.text_for_range(window.clone()).collect(),
                     prose: prose.unwrap_or(Prose::Text),
                     root: this.root.clone(),
                     path: this.path.clone(),
                     store: this.store.clone(),
                     input: this.input.clone(),
                 };
-                (pass, snapshot)
+                (pass, snapshot, window.start)
             }) else {
                 return;
             };
@@ -513,10 +573,14 @@ impl Spelling {
                     Outcome::Findings(findings) => {
                         let anchored = findings
                             .into_iter()
-                            .map(|finding| Anchored {
-                                range: snapshot.anchor_before(finding.range.start)
-                                    ..snapshot.anchor_after(finding.range.end),
-                                finding,
+                            .map(|mut finding| {
+                                finding.range.start += start;
+                                finding.range.end += start;
+                                Anchored {
+                                    range: snapshot.anchor_before(finding.range.start)
+                                        ..snapshot.anchor_after(finding.range.end),
+                                    finding,
+                                }
                             })
                             .collect();
                         this.show(anchored, cx);
@@ -566,6 +630,23 @@ impl Spelling {
             };
         });
     }
+}
+
+/// `shown` (bytes of `text`) widened by [`WINDOW_MARGIN`] UTF-16 units on
+/// each side and snapped out to whole lines.
+fn lint_window(text: &Rope, shown: Range<usize>) -> Range<usize> {
+    if shown.end <= shown.start {
+        return 0..0;
+    }
+    let length = text.offset_to_offset_utf16(text.len()).0;
+    let from = text.offset_to_offset_utf16(shown.start).0;
+    let to = text.offset_to_offset_utf16(shown.end).0;
+    let from = text.offset_utf16_to_offset(OffsetUtf16(from.saturating_sub(WINDOW_MARGIN)));
+    let to = text.offset_utf16_to_offset(OffsetUtf16((to + WINDOW_MARGIN).min(length)));
+    let first = text.offset_to_point(from).row;
+    let last = text.offset_to_point(to).row;
+    text.point_to_offset(Point::new(first, 0))
+        ..text.point_to_offset(Point::new(last, text.line_len(last)))
 }
 
 #[cfg(test)]
@@ -637,6 +718,31 @@ mod tests {
         let mut ignored = pass(text, Prose::Text);
         ignored.input.ignored_sentences = vec![sentence_key(text)];
         assert!(flagged(text, run(ignored)).is_empty());
+    }
+
+    #[test]
+    fn a_long_document_is_checked_on_whole_lines_around_the_view() {
+        let line = "Some prose with é in it.\n";
+        let text = line.repeat(1_000);
+        let rope = Rope::from(text.as_str());
+        let row = |offset: usize| rope.offset_to_point(offset).row;
+        let at_row = |row: u32| rope.point_to_offset(Point::new(row, 0));
+
+        let shown = at_row(500)..at_row(520);
+        let window = lint_window(&rope, shown.clone());
+        assert_eq!(rope.offset_to_point(window.start).column, 0);
+        assert_eq!(window.end, at_row(row(window.end) + 1) - 1);
+        let margin = |a: usize, b: usize| {
+            rope.offset_to_offset_utf16(b).0 - rope.offset_to_offset_utf16(a).0
+        };
+        assert!(margin(window.start, shown.start) >= WINDOW_MARGIN);
+        assert!(margin(window.start, shown.start) < WINDOW_MARGIN + line.len());
+        assert!(margin(shown.end, window.end) >= WINDOW_MARGIN);
+        assert!(margin(shown.end, window.end) < WINDOW_MARGIN + line.len());
+
+        assert_eq!(lint_window(&rope, 0..at_row(3)).start, 0);
+        assert_eq!(lint_window(&rope, at_row(997)..text.len()).end, text.len());
+        assert_eq!(lint_window(&rope, 5..5), 0..0);
     }
 
     #[test]
