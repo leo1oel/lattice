@@ -25,6 +25,11 @@ use super::{
     selection::including,
 };
 
+/// How far the rows stand in from the panel's sides (`--space-5`: the
+/// section's left padding, the tree surface's right one); the scrollbar
+/// stands in the right one.
+const ROW_INSET: gpui::Pixels = px(12.);
+
 /// A row as a folder's motion draws it this frame: slid from where it was,
 /// its bottom still covered while the folder uncovers it, or, for the
 /// folder that closed, with the rows it hid under it being wiped.
@@ -142,7 +147,7 @@ impl Render for FileTreePanel {
             .flex()
             .flex_col()
             .pt(px(7.))
-            .px(px(12.))
+            .px(ROW_INSET)
             .capture_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
                 if event.keystroke.key == "escape" && this.naming.is_some() {
                     cx.stop_propagation();
@@ -444,9 +449,21 @@ impl Render for FileTreePanel {
                             ),
                     )
                     .children(pinned)
+                    // The bar stands in the panel's right gutter, flush with
+                    // its edge, as the app's does (`.project-section` has no
+                    // right padding and the surface's `padding-right` keeps
+                    // the rows off the bar), so it never covers a row's name.
                     .child(
-                        FluidScrollbar::vertical("file-tree-scrollbar", &scroll)
-                            .feel(ScrollbarFeel::LIST),
+                        div()
+                            .absolute()
+                            .top_0()
+                            .bottom_0()
+                            .left_0()
+                            .right(-ROW_INSET)
+                            .child(
+                                FluidScrollbar::vertical("file-tree-scrollbar", &scroll)
+                                    .feel(ScrollbarFeel::LIST),
+                            ),
                     ),
             )
             .into_any_element()
