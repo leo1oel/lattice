@@ -3,7 +3,7 @@ import { restoreElements } from "@excalidraw/excalidraw";
 import type { OrderedExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import type { AppState } from "@excalidraw/excalidraw/types";
 import tutorialBoard from "../../../src-tauri/templates/tutorial/attention-map.excalidraw?raw";
-import { mergeExternalElements, parseBoardScene, savedVersions, serializeBoardScene } from "./board-store";
+import { excalidrawLangCode, mergeExternalElements, parseBoardScene, savedVersions, serializeBoardScene } from "./board-store";
 
 // Excalidraw probes canvas filter support at import time, and the shared jsdom
 // setup returns no 2D context at all; give it one that answers the probe.
@@ -52,6 +52,12 @@ describe("serializeBoardScene", () => {
     expect(saved.elements.map((element: { id: string }) => element.id)).toEqual(["kept"]);
     expect(saved.appState).toEqual({ gridSize: 20, gridStep: 5, gridModeEnabled: false, viewBackgroundColor: "#ffffff" });
     expect(parseBoardScene(json)!.elements.map((element) => element.id)).toEqual(["kept"]);
+  });
+});
+
+describe("excalidrawLangCode", () => {
+  it("passes Lattice's locales through and falls back to English", () => {
+    expect(["en", "zh-CN", "xx"].map(excalidrawLangCode)).toEqual(["en", "zh-CN", "en"]);
   });
 });
 

@@ -1,4 +1,4 @@
-import { reconcileElements, restore, serializeAsJSON } from "@excalidraw/excalidraw";
+import { defaultLang, languages, reconcileElements, restore, serializeAsJSON } from "@excalidraw/excalidraw";
 import type { RemoteExcalidrawElement } from "@excalidraw/excalidraw/data/reconcile";
 import type { OrderedExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import type { AppState, BinaryFiles } from "@excalidraw/excalidraw/types";
@@ -104,5 +104,7 @@ export function mergeExternalElements(
   return reconcileElements(prepared, remote as readonly RemoteExcalidrawElement[], appState);
 }
 
-/** The Excalidraw interface language for a Lattice locale (Excalidraw names zh-CN the same way). */
-export const excalidrawLangCode = (locale: string) => (locale === "zh-CN" ? "zh-CN" : "en");
+/** The Excalidraw interface language for a Lattice locale, English when Excalidraw has none. */
+export const excalidrawLangCode = (locale: string) => (
+  languages.some((language) => language.code === locale) ? locale : defaultLang.code
+);
