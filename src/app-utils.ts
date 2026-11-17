@@ -190,7 +190,8 @@ export function stripFrontmatter(markdown: string): string {
 
 /** Controls that keep their own clicks rather than dragging or zooming the window. */
 const windowControlSelector = "button, input, select, textarea, a";
-let windowDragTimer: ReturnType<typeof setTimeout> | undefined;
+/** Ends the press armed by `beginWindowDrag`, if one is still waiting for a move. */
+let disarmWindowDrag: (() => void) | undefined;
 
 export function isWindowDragExcluded(target: EventTarget | null): boolean {
   if (!(target instanceof Element)) return false;
@@ -204,12 +205,28 @@ export function isWindowDragExcluded(target: EventTarget | null): boolean {
 export function beginWindowDrag(event: React.MouseEvent<HTMLElement>) {
   if (event.buttons !== 1 || event.detail > 1 || isWindowDragExcluded(event.target)) return;
   event.preventDefault();
-  clearTimeout(windowDragTimer);
-  // Delay drag so a second click can still register as a title-bar double-click.
-  windowDragTimer = setTimeout(() => {
-    windowDragTimer = undefined;
+  disarmWindowDrag?.();
+  // The native drag starts on the first move with the button still held, as
+  // AppKit's own title bar does. Starting it on the press would hand the
+  // gesture to AppKit's tracking loop, which swallows the mouseup, so a
+  // stationary click would never reach `dblclick` and the zoom would be lost.
+  // A fixed wait for the second click instead made every drag lag behind the
+  // cursor (#1063); a move is never part of a double-click, so nothing waits.
+  const move = (moved: MouseEvent) => {
+    disarm();
+    if ((moved.buttons & 1) === 0) return;
     void getCurrentWindow().startDragging();
-  }, 180);
+  };
+  const disarm = () => {
+    window.removeEventListener("mousemove", move, true);
+    window.removeEventListener("mouseup", disarm, true);
+    window.removeEventListener("blur", disarm);
+    if (disarmWindowDrag === disarm) disarmWindowDrag = undefined;
+  };
+  disarmWindowDrag = disarm;
+  window.addEventListener("mousemove", move, true);
+  window.addEventListener("mouseup", disarm, true);
+  window.addEventListener("blur", disarm);
 }
 
 /**
@@ -221,8 +238,7 @@ export function beginWindowDrag(event: React.MouseEvent<HTMLElement>) {
 export function titleBarDoubleClick(event: React.MouseEvent<HTMLElement>) {
   if (isWindowDragExcluded(event.target)) return;
   event.preventDefault();
-  clearTimeout(windowDragTimer);
-  windowDragTimer = undefined;
+  disarmWindowDrag?.();
   // Browser tabs have no window to zoom; the browser runtime ignores it.
   void invoke("title_bar_double_click").catch(() => undefined);
 }
