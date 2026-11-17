@@ -103,6 +103,7 @@ jieba-rs = "0.11"
 notify = "8"
 scraper = "0.27"
 spellbook = "0.4.2"
+yaml-rust2 = { version = "0.10.4", default-features = false }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 # Provider CLIs are ordinary child processes and do not use CFNetwork, so a

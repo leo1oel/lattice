@@ -160,6 +160,9 @@ renamed. They are not all Lattice code:
 Lattice's own transaction history instead of committing independently.
 The fork's bibliography broker abandons a request after 30 seconds, so Lattice passes the request's `expiresAt` to `agent_bibliography_mutation` as `deadline`.
 `upgrade_bibliography` checks each preprint on its own, three at a time, saves what it confirmed before that deadline, and reports the rest as `pending` with `complete: false`; calling it again continues with them.
+Every bibliography tool works on the `.bib` the root document uses, read from its `\bibliography{…}` or `\addbibresource{…}` (and the files it `\input`s) by `citation_bibliography` in `src-tauri/lattice-core/src/project/bibliography_target.rs`, and never on a file under a hidden folder such as Overleaf sync's `.research/overleaf-base/`; the result names it as `bibliography`, with a `bibliographyNote` when the document uses several.
+`cite` takes a GitHub repository URL to the repository's own citation (its `CITATION.cff`, else a BibTeX block in its README), else to an `@misc` built from its GitHub metadata (`src-tauri/lattice-core/src/papers/github_citation.rs`); its `note` says which.
+A single free-text word (an acronym, a dataset's name) is refused with what to give instead, and a reference written out with its authors and year is found through Crossref's bibliographic search and cited by its DOI (`src-tauri/lattice-core/src/papers/reference_search.rs`).
 `cite` never rewrites an entry the bibliography already has: its result carries a `note` saying the entry was left unchanged, which fields the resolved record differs in, and, for a preprint, that `upgrade_bibliography` applies the publication. A removal the writer confirms
 is recorded in History like one from the paper library.
 

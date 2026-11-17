@@ -29,12 +29,14 @@ mod bibliography;
 mod bundle;
 mod citation;
 mod convert;
+mod github_citation;
 mod ids;
 mod import;
 mod import_pdf;
 mod library;
 mod library_search;
 mod markdown;
+mod reference_search;
 mod search_index;
 #[cfg(test)]
 mod test_support;

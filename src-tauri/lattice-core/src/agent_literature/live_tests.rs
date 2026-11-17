@@ -84,3 +84,41 @@ fn live_cite_existing_preprint_by_id_and_title() {
         eprintln!("BIB AFTER:\n{}", std::fs::read_to_string(root.join("references.bib")).unwrap());
     }
 }
+
+/// An Overleaf download (CVPR layout): `main.tex` cites from `main.bib`, and
+/// the sync base holds a copy of both under `.research/overleaf-base/`.
+fn overleaf_project() -> (crate::test_support::TempDir, std::path::PathBuf) {
+    let parent = crate::test_support::TempDir::new("agent-overleaf");
+    let root = parent.join("cvpr");
+    let main = "\\documentclass{article}\n\\begin{document}\n{\\small\\bibliographystyle{ieeenat_fullname}\\bibliography{main}}\n\\end{document}\n";
+    for base in ["", ".research/overleaf-base/"] {
+        std::fs::create_dir_all(root.join(base)).unwrap();
+        std::fs::write(root.join(format!("{base}main.tex")), main).unwrap();
+        std::fs::write(root.join(format!("{base}main.bib")), "").unwrap();
+    }
+    crate::project::open(&root).unwrap();
+    (parent, root)
+}
+
+#[test]
+#[ignore = "live: calls bibcite and the public literature services"]
+fn live_cite_sources_into_an_overleaf_project() {
+    let queries = std::env::var("LATTICE_CITE_QUERIES").unwrap_or_else(|_| {
+        [
+            "RealWorldQA",
+            "https://github.com/nvidia-cosmos/cosmos-reason2",
+            "SPAR",
+            "Fiser Aslin 2002 Statistical learning of new visual feature combinations by infants",
+        ]
+        .join("\n")
+    });
+    let (_parent, root) = overleaf_project();
+    for query in queries.lines().filter(|query| !query.trim().is_empty()) {
+        let json = serde_json::json!({"action": "cite", "query": query}).to_string();
+        let (secs, result) = run(&root, &json);
+        eprintln!("CITE {query:?} elapsed={secs:.1}s\n{result:#?}");
+    }
+    eprintln!("main.bib:\n{}", std::fs::read_to_string(root.join("main.bib")).unwrap());
+    let base = std::fs::read_to_string(root.join(".research/overleaf-base/main.bib")).unwrap();
+    assert!(base.is_empty(), "the Overleaf base changed:\n{base}");
+}

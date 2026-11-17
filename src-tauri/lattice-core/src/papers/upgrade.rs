@@ -68,8 +68,8 @@ pub struct RetainedFields {
 pub fn upgrade_bibliography(
     root: &Path, dry_run: bool, deadline: Option<Instant>,
 ) -> Result<UpgradeResult, String> {
-    let manifest = project::read_manifest(root)?;
-    let path = project::safe_path(root, &manifest.primary_bibliography)?;
+    let bibliography = project::citation_bibliography(root)?.path;
+    let path = project::safe_path(root, &bibliography)?;
     let before = fs::read_to_string(&path).unwrap_or_default();
     let candidates = batch::candidates(&before);
     let budget = deadline.map(|deadline| deadline.checked_sub(COMMIT_MARGIN).unwrap_or(deadline));
@@ -93,8 +93,7 @@ pub fn upgrade_bibliography(
         }
         if after != current {
             validate_bibliography_upgrade(&current, &after)?;
-            fs::write(project::safe_path(root, &manifest.primary_bibliography)?, &after)
-                .map_err(err)?;
+            fs::write(project::safe_path(root, &bibliography)?, &after).map_err(err)?;
             changed = true;
         }
     }
