@@ -167,7 +167,7 @@ Plugin → Lattice:
 | `bibliography/entries` | `project-read: bibliography` | `{ file? }` → `{ files: [{ path, entries: [{ key, type, fields, line }], error? }] }`. Field names lower-cased, `@string` macros expanded |
 | `http/fetch` | the URL's origin in `network` | `{ url, method?, headers?, body? }` → `{ status, headers, body }`, bodies ≤ 4 MiB, 30 s |
 | `secrets/get` | the name in `secrets` | `{ name }` → `{ value? }` |
-| `log` (notification) | — | `{ level: "error"|"warn"|"info"|"debug", message }` |
+| `log` (notification) | — | `{ level, message }`, `level` one of `error`, `warn`, `info`, `debug` |
 | `progress` (notification) | — | `{ message, fraction? }`, shown while the command runs |
 
 Errors use JSON-RPC's codes plus `permissionDenied` (-32001),
