@@ -218,6 +218,9 @@ fn a_role_less_join_does_not_hold_back_a_writers_move() {
 
     sync_relocations(&config, &root, Some(vec![entity("main-id", "main.tex", "doc")])).unwrap();
 
-    assert_posts(&server, &[("/project/proj-1/doc/main-id/rename", json!({"name": "renamed.tex"}))]);
+    assert_posts(
+        &server,
+        &[("/project/proj-1/doc/main-id/rename", json!({"name": "renamed.tex"}))],
+    );
     assert!(load_state(&root).unwrap().pending_relocations.is_empty());
 }
