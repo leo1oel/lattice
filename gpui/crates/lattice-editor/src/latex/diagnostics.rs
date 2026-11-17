@@ -244,6 +244,7 @@ impl TexlabDiagnostics {
             diagnostics: diagnostics.downgrade(),
             latest: Default::default(),
             available: TexlabService::available(),
+            unanswered: Default::default(),
         };
         editor.update(cx, |editor, _| {
             editor.add_completion_source(Rc::new(completions))
