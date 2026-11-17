@@ -41,6 +41,7 @@ mod traffic_lights;
 #[cfg(not(target_os = "macos"))]
 #[path = "traffic_lights_stub.rs"]
 mod traffic_lights;
+mod window_labels;
 #[cfg(target_os = "linux")]
 mod xlib_threads;
 
@@ -60,21 +61,8 @@ use lattice_core::{
 // Also the label Tauri gives the window declared in tauri.conf.json.
 use app_state::{AppState, MAIN_WINDOW_LABEL};
 use tauri::{AppHandle, Manager, Runtime, WebviewWindow, WebviewWindowBuilder};
-
-/// A desktop window running Lattice's own page (`workspace_window`): the
-/// launch window or a project window, not a browser host, a presenter popup
-/// or the Overleaf sign-in page.
-pub(crate) fn is_workspace_window(label: &str) -> bool {
-    label == MAIN_WINDOW_LABEL
-        || label.strip_prefix("project-").is_some_and(|rest| !rest.is_empty())
-}
-
-/// Whether the window-state plugin remembers and restores the window
-/// `label`. Not a browser bridge, which must stay hidden (the plugin's restore
-/// shows it), nor a PDF window, placed per project instead (pdf_window.rs).
-fn window_state_tracks(label: &str) -> bool {
-    !label.starts_with("browser-") && !pdf_window::is_pdf_window(label)
-}
+pub(crate) use window_labels::is_workspace_window;
+use window_labels::window_state_tracks;
 
 /// Whether Lattice keeps running once its last window has closed. A Mac app
 /// outlives its windows until ⌘Q (the Dock icon opens a window again,
@@ -659,7 +647,7 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::{is_workspace_window, keeps_running_without_windows, window_state_tracks};
+    use super::keeps_running_without_windows;
 
     #[test]
     fn closing_the_last_window_leaves_lattice_running_on_a_mac() {
@@ -669,30 +657,10 @@ mod tests {
         assert!(keeps_running_without_windows(true));
     }
 
-    #[test]
-    fn workspace_windows_are_the_launch_and_project_windows() {
-        for label in ["main", "project-1", "project-12"] {
-            assert!(is_workspace_window(label), "{label}");
-        }
-        for label in ["project-", "browser-1", "overleaf-login", "presenter", "mainly"] {
-            assert!(!is_workspace_window(label), "{label}");
-        }
-    }
-
     /// The core reports its own `CARGO_PKG_VERSION` as Lattice's (user agents,
     /// the terminal, TexLab), so scripts/bump-version.mjs moves both.
     #[test]
     fn the_core_carries_the_app_version() {
         assert_eq!(lattice_core::VERSION, env!("CARGO_PKG_VERSION"));
-    }
-
-    #[test]
-    fn window_state_skips_bridge_and_pdf_windows() {
-        for label in ["main", "project-2"] {
-            assert!(window_state_tracks(label), "{label}");
-        }
-        for label in ["browser-1", "pdf-1"] {
-            assert!(!window_state_tracks(label), "{label}");
-        }
     }
 }
