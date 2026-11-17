@@ -81,7 +81,7 @@ export type CommandTableDeps = {
   buildPipeline: Pick<ReturnType<typeof useBuildPipeline>, "building" | "cleanAndRebuild" | "cleanProject" | "abortBuild" | "cycleDiagnostic">;
   compileAndShowPdf: Compile;
   syncTex: Pick<ReturnType<typeof useSyncTexNavigation>, "canForwardSync" | "revealSourceInPdf">;
-  agentContext: Pick<ReturnType<typeof useAgentContext>, "selectionSource" | "selection" | "selectionLines" | "editorPosition">;
+  agentContext: Pick<ReturnType<typeof useAgentContext>, "selectionSource" | "selection" | "selectionLines" | "editorPositionRef">;
   tools: Pick<ToolDrawers, "open">;
   tree: Pick<ReturnType<typeof useProjectTree>, "pasteClipboardImage">;
   referenceImport: Pick<ReferenceImport, "openAddSheet" | "rewriteBibliography">;

@@ -25,7 +25,7 @@ export function pluginPaletteHost({
   textDocument: boolean;
   /** The caret, and the selection when the editor owns one. */
   agentContext: {
-    editorPosition: EditorPosition | null;
+    editorPositionRef: { readonly current: EditorPosition | null };
     selectionSource: string | null;
     selection: string;
     selectionLines: AgentSelectionLines | null;
@@ -36,10 +36,10 @@ export function pluginPaletteHost({
   openSettings: () => void;
 }): PluginRunHost {
   const root = project?.root ?? null;
-  const { editorPosition } = agentContext;
   const selection = agentContext.selectionSource === "editor" ? { text: agentContext.selection, lines: agentContext.selectionLines } : null;
   const context = (): PluginPageContext | null => {
     if (!project) return null;
+    const editorPosition = agentContext.editorPositionRef.current;
     const file = editorPosition?.path || (textDocument ? activeFile : "");
     const cursorLine = editorPosition?.line ?? 1;
     return {

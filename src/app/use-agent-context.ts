@@ -12,6 +12,7 @@ import {
 import { buildAgentPaperLibrary } from "../agent/agent-paper-library";
 import type { OpenSlideContext } from "../editor/presentation/open-slide-bridge";
 import { thenUnlessDisposed, useRefState } from "./effect-helpers";
+import { useLatestRef } from "../hooks/use-latest-ref";
 import type { useSynaraHost } from "./use-synara-host";
 
 type SelectionImage = AgentHostSelectionImage & { source: AgentHostSurface };
@@ -188,5 +189,8 @@ export function useAgentContext({ synara, project, papers, agentVisible, workspa
     return () => window.cancelAnimationFrame(frame);
   }, [deliverable, paperLibrary, postMessage]);
 
-  return { selection, selectionSource, selectionLines, editorPosition, reportSelection, activateSurface, dismissSelection, resetSelection };
+  // A ref, not the value: the caret moves on every keystroke, and the
+  // palette's plugin commands read it only when one runs.
+  const editorPositionRef = useLatestRef(editorPosition);
+  return { selection, selectionSource, selectionLines, editorPositionRef, reportSelection, activateSurface, dismissSelection, resetSelection };
 }
