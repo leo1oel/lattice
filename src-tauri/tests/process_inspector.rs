@@ -49,6 +49,8 @@ fn signed_app_entrypoint_inspects_real_processes_inside_bibliography_sandbox() {
 
     let selected = sandboxed_snapshot(&["-p", &pid, "-o", "pid=,command="]);
     assert_eq!(selected, format!("{pid} {identity}\n"));
+    let status = sandboxed_snapshot(&["-p", &pid, "-o", "stat="]);
+    assert!(matches!(status.trim(), "I" | "R" | "S"), "owned sleep status: {status:?}");
 
     // Equal executable names are not identities: separate sleep instances
     // must differ, while repeated queries for the first instance stay equal.
@@ -66,6 +68,7 @@ fn signed_app_entrypoint_inspects_real_processes_inside_bibliography_sandbox() {
     child.0.wait().unwrap();
     let gone = sandboxed_snapshot(&["-p", &pid, "-o", "pid=,command="]);
     assert!(gone.is_empty(), "a reaped child must be absent");
+    assert!(sandboxed_snapshot(&["-p", &pid, "-o", "stat="]).is_empty());
 }
 
 #[test]
@@ -78,6 +81,7 @@ fn failed_snapshots_are_errors_not_a_successful_empty_process_table() {
     for (profile, args, (code, error)) in [
         (denied, vec!["-eo", "pid=,ppid=,command="], failed),
         (denied, vec!["-p", "1", "-o", "pid=,command="], failed),
+        (denied, vec!["-p", "1", "-o", "stat="], failed),
         // A malformed query must not launch the GUI either.
         (BIB_SANDBOX, vec!["-p", "not-a-pid", "-o", "pid=,command="], (2, "Invalid process IDs")),
     ] {

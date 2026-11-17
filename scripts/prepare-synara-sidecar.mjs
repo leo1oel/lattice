@@ -23,7 +23,7 @@ import { createHash } from "node:crypto";
 import { basename, delimiter, dirname, join, relative, resolve } from "node:path";
 import { codesign, signMachOTree, signingIdentity } from "./lib/codesign.mjs";
 import { pruneServerRuntime } from "./lib/synara-server-prune.mjs";
-import { capture, projectRoot, readJson, run, sha256, treeBytes, walkFiles, writeJson } from "./lib/util.mjs";
+import { capture, projectRoot, readJson, removePath, run, sha256, treeBytes, walkFiles, writeJson } from "./lib/util.mjs";
 import { NODE_RELEASES as TARGETS, prepareNodeRuntime } from "./lib/node-runtime.mjs";
 import { SYNARA_RUNTIME_INPUTS } from "./synara-runtime-inputs.mjs";
 import { patchCodexHostProcess } from "./synara-codex-host.mjs";
@@ -514,6 +514,12 @@ try {
   if (!deviceHelperTreeMatches(sourceDeviceHelperRoot, join(stageRoot, "server/dist/device-helper"))) {
     throw new Error("The staged Synara runtime is missing part of the iOS device helper source tree.");
   }
+  // Upstream's dependency smoke explicitly starts its language worker. Keep
+  // the compiler and standard library outside the package pruner but within
+  // Node's lookup path until the smoke finishes.
+  const smokeNodeModules = join(stageRoot, "node_modules");
+  mkdirSync(smokeNodeModules);
+  renameSync(join(stageRoot, "server/node_modules/typescript"), join(smokeNodeModules, "typescript"));
   const prunedBytes =
     replaceUnusedClaudeBinary(stageRoot) + pruneServerRuntime(stageRoot, { target, platform: release.platform })
     + stripNodeSymbols(stageRoot);
@@ -537,6 +543,7 @@ try {
       throw new Error(`The packaged runtime smoke did not report ${runtime} as an on-demand install.`);
     }
   }
+  const smokeDependencyBytes = removePath(smokeNodeModules);
   run(stagedNode, [join(stageRoot, "server/dist/index.mjs"), "--help"], { cwd: join(stageRoot, "server") });
   signMacRuntime(stageRoot);
   writeJson(join(stageRoot, "manifest.json"), {
@@ -553,7 +560,7 @@ try {
   });
   rmSync(runtimeRoot, { recursive: true, force: true });
   renameSync(stageRoot, runtimeRoot);
-  console.log(`Pruned ${(prunedBytes / 1024 / 1024).toFixed(1)} MB of unused runtime artifacts.`);
+  console.log(`Pruned ${((prunedBytes + smokeDependencyBytes) / 1024 / 1024).toFixed(1)} MB of unused runtime artifacts.`);
 } catch (error) {
   rmSync(stageRoot, { recursive: true, force: true });
   throw error;

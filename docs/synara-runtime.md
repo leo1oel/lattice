@@ -65,7 +65,10 @@ The fork records each write on the turn running in that project, through `/api/l
 In live sync mode, affected text files leave realtime editing, retain any unacknowledged OT operations until settled, and rejoin after reconciliation; manual sync mode does not upload automatically.
 On macOS, `SYNARA_PROCESS_PS_PATH` points to a shell launcher for the signed Lattice executable's `--lattice-process-snapshot` mode, which exits before Tauri starts.
 The mode reads `KERN_PROC_ALL` directly under the existing bibliography sandbox; it must not copy `/bin/ps`, whose non-setuid copy can be killed on older macOS even when static signature verification passes.
-The two supported `ps`-shaped queries return PID/parent relationships and opaque birth-time identities rather than command-line arguments.
+The supported `ps`-shaped queries return PID/parent relationships, opaque birth-time identities, or the state of one PID.
+A liveness check uses the same inspector to confirm the provider root was alive after descendant capture.
+A status query reflects Darwin's coarse kernel `p_stat`, so a sleeping process can show as `R`.
+A zombie status or an empty response does not establish liveness.
 A missing PID is a successful empty result; the pinned fork treats every nonzero host snapshot exit as unknown rather than proof of exit.
 The fork selects the host's opaque-identity protocol when `SYNARA_PROCESS_PS_PATH` is set and retains upstream's `lstart` identity checks for ordinary `ps`.
 This behavior and its regression tests now live in Synara's `processTreeController`, rather than a compiled-bundle staging patch; both its synchronous scan and the asynchronous teardown scan Synara 1.0.4 added use the host launcher.

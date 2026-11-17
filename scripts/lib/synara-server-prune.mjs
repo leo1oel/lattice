@@ -39,11 +39,6 @@ export function pruneServerRuntime(stageRoot, { target, platform }) {
     // embedded client highlights with its own bundled copies under dist/client.
     "node_modules/@shikijs/langs",
     "node_modules/@shikijs/themes",
-    // Only the native code editor's language worker loads the TypeScript
-    // compiler (assertOnlyLanguageWorkerLoadsTypeScript), and the server
-    // refuses that editor outside Synara Beta, while Lattice runs the Stable
-    // feature boundary.
-    "node_modules/typescript",
   ];
   assertServerNeverHighlights(distRoot);
   assertOnlyLanguageWorkerLoadsTypeScript(distRoot);
@@ -106,9 +101,9 @@ function assertServerNeverHighlights(distRoot) {
 /**
  * Synara 1.0.8 made `typescript` a production dependency for the native
  * editor's language worker (Stable too since 1.0.9). The embedded panel hands
- * files to Lattice's own editor and never starts that worker, so pruning it is
- * safe only while that worker is the one bundle importing it; loud on purpose,
- * like the Shiki check above.
+ * files to Lattice's own editor and never starts that worker. The staging
+ * script keeps TypeScript available for the dependency smoke, then removes it.
+ * That is safe only while the language worker is the one bundle importing it.
  */
 function assertOnlyLanguageWorkerLoadsTypeScript(distRoot) {
   const importers = readdirSync(distRoot).filter((entry) =>

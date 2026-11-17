@@ -8,9 +8,9 @@ measurements; re-run the commands rather than quoting them.
 
 ## The current pin
 
-The fork as a whole is **not** small. Measured on 2026-11-16 against upstream
+The fork as a whole is **not** small. Measured on 2026-11-18 against upstream
 `v1.5.2` (`83e0533b23099908ee14e4fecacd5ed702f4d453`), the current integration changes
-**874 files, +90,444 / −9,316 lines** (about 6,700 of the added lines are the zh-CN catalogs,
+**874 files, +90,466 / −9,317 lines** (about 6,700 of the added lines are the zh-CN catalogs,
 which upstream no longer ships). It carries embedded-workspace UI, a skills manager,
 source-control and provider-health surfaces, spreadsheet and canvas tool brokers, and their
 contracts. Treat "keep it in the seam" as the goal for new work. Re-measure after each sync:
@@ -263,7 +263,7 @@ With no selection the menu kept its unlifted position.
 This was not run in a real Lattice window, so WKWebView itself and Lattice's own relay of the selection were not exercised.
 The staged runtime is 175.3 MB.
 
-The current pin brings two fixes for a context handover (上下文移交) from one user report (fork `a22a21a4be53c751d2d05c79c6b0343c1f2afdc9`, [fork PR 31](https://github.com/leo1oel/synara/pull/31) and [fork PR 32](https://github.com/leo1oel/synara/pull/32)).
+The previous pin brought two fixes for a context handover (上下文移交) from one user report (fork `a22a21a4be53c751d2d05c79c6b0343c1f2afdc9`, [fork PR 31](https://github.com/leo1oel/synara/pull/31) and [fork PR 32](https://github.com/leo1oel/synara/pull/32)).
 After a handover the Agent panel could no longer be narrowed, and a thread handed over to Droid failed with "Invalid params: Unknown session identifier" and then showed "Thread is blocked by an earlier provider failure".
 - **The panel's minimum no longer grows after a handover (PR 31).** The composer reports the minimum Agent-panel width it needs (`synara:layout-metrics`), and `observeLatticeComposerLayout` (fork `apps/web/src/components/chat/latticeComposerLayout.ts`) measured the send button's inset against the first `.chat-composer-surface` in the form.
   The note a handover leaves above the composer shares that class, so the report asked for the frame's width plus the gap, and every resize raised Lattice's panel minimum again (to 720px in the report).
@@ -281,6 +281,12 @@ The release-staged sidecar of this pin was started with the environment Lattice 
 Neither fix was driven end to end through the staged sidecar, because raising the handover note needs a finished Claude turn and the Droid handover needs a provider turn or a command channel the production client does not expose.
 This was not run in a real Lattice window or against a real, authenticated Droid, so WKWebView, Lattice's own panel resizing and Factory's Droid itself were not exercised.
 The staged runtime is 175.3 MB.
+
+The current pin routes the provider liveness probe through Lattice's native process inspector on macOS (fork `581a0c09a735f8846c86963e53c2bbc8ab5f6163`, [fork PR 33](https://github.com/leo1oel/synara/pull/33)).
+When another Codex client holds the thread's writer, Codex rejects `thread/resume` before accepting a turn.
+The old probe ran system `ps` inside the bibliography sandbox, which denied it and left Synara without the liveness evidence it needed to settle the rejected delivery.
+The new probe uses the same inspector as descendant capture. A native test verifies the query inside the sandbox, and an isolated RPC fixture verifies that a writer conflict is a known rejection and that the original thread resumes after the writer is released.
+The embed and provider regressions pass on this pin. The staged runtime is 175.3 MB.
 
 ## Synara 0.9.1 compatibility
 
