@@ -1,0 +1,78 @@
+/* Plugins: the palette's run steps (plugin-run.tsx) and Settings › Plugins
+   (plugin-settings.tsx). Rows follow the palette's own (app-shell.css). */
+
+/* The input step: the plugin's name as a chip before the field. */
+.plugin-input-header { gap: var(--space-4); }
+.plugin-chip { flex: none; max-width: 40%; padding: var(--space-1) var(--space-4); border-radius: var(--radius-pill); background: var(--control-active-soft); color: var(--text-primary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-weight: var(--weight-medium); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plugin-input-header .ui-search-field { flex: 1 1 auto; min-width: 0; }
+
+.plugin-progress { padding: var(--space-6) var(--space-8); display: flex; align-items: center; gap: var(--space-4); color: var(--text-secondary); font-size: var(--type-body-size); line-height: var(--type-body-line-height); outline: none; }
+
+.plugin-run-header { position: relative; padding: var(--space-5) var(--space-8); display: flex; align-items: baseline; gap: var(--space-3); min-width: 0; font-size: var(--type-body-size); line-height: var(--type-body-line-height); }
+.plugin-run-header::after { content: ""; position: absolute; inset-inline: 0; bottom: 0; height: 1px; background: var(--border-subtle); }
+.plugin-run-name { flex: none; font-weight: var(--weight-medium); color: var(--text-primary); }
+.plugin-run-separator { flex: none; color: var(--text-tertiary); }
+.plugin-run-summary { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); }
+
+.plugin-results-scroll [data-slot="scroll-area-viewport"] { max-height: min(460px, 60vh); outline: none; }
+.plugin-results { padding: var(--space-3); display: grid; }
+.plugin-row { min-height: var(--row-height-compact); padding: var(--space-3) var(--space-5); border-radius: calc(var(--nested-radius, var(--radius-control)) * var(--nested-corner-smoothing, 1)); corner-shape: var(--nested-corner-shape, round); display: flex; align-items: center; gap: var(--space-4); min-width: 0; color: var(--text-primary); cursor: default; }
+.plugin-row[data-active] { background: var(--control-active-soft); }
+.plugin-row-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: var(--gap-tight); }
+.plugin-row-title { font-size: var(--type-body-size); line-height: var(--type-body-line-height); overflow-wrap: anywhere; }
+.plugin-row-muted { color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plugin-row-muted:empty { display: none; }
+.plugin-row-action { flex: none; }
+.plugin-badge { flex: none; }
+.plugin-file-header { padding: var(--space-5) var(--space-5) var(--space-2); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-weight: var(--weight-medium); overflow-wrap: anywhere; }
+.plugin-diagnostic-group:first-child .plugin-file-header { padding-top: var(--space-2); }
+.plugin-severity { flex: none; display: inline-flex; align-self: flex-start; padding-top: 3px; }
+.plugin-severity[data-severity="error"] { color: var(--status-danger); }
+.plugin-severity[data-severity="warning"] { color: var(--status-warning); }
+.plugin-severity[data-severity="info"] { color: var(--status-info); }
+
+.plugin-message-scroll [data-slot="scroll-area-viewport"] { max-height: min(460px, 60vh); outline: none; }
+.plugin-markdown { padding: var(--space-6) var(--space-8); color: var(--text-primary); font-size: var(--type-body-size); line-height: var(--type-body-line-height); overflow-wrap: anywhere; }
+.plugin-markdown > :first-child { margin-top: 0; }
+.plugin-markdown > :last-child { margin-bottom: 0; }
+.plugin-markdown :is(p, ul, ol, pre, blockquote) { margin: 0 0 var(--space-4); }
+.plugin-markdown :is(h3, h4, h5, h6) { margin: var(--space-6) 0 var(--space-3); font-size: var(--type-subtitle-size); line-height: var(--type-subtitle-line-height); font-weight: var(--type-subtitle-weight); }
+.plugin-markdown :is(ul, ol) { padding-inline-start: var(--space-8); }
+.plugin-markdown code { font-family: var(--editor-font); font-size: 0.92em; }
+.plugin-markdown pre { padding: var(--space-4); border-radius: var(--radius-control); background: var(--surface-panel); overflow-x: auto; }
+.plugin-markdown blockquote { padding-inline-start: var(--space-5); border-inline-start: 2px solid var(--border-subtle); color: var(--text-secondary); }
+.plugin-markdown a { color: inherit; text-underline-offset: var(--space-1); }
+
+.plugin-error { padding: var(--space-6) var(--space-8); display: grid; gap: var(--space-4); justify-items: start; }
+.plugin-stderr, .plugin-bib-entry { margin: 0; max-height: 180px; width: 100%; box-sizing: border-box; padding: var(--space-4); overflow: auto; border-radius: var(--radius-control); background: var(--surface-panel); color: var(--text-primary); font-family: var(--editor-font); font-size: var(--type-micro-size); line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.plugin-stderr { color: var(--text-secondary); }
+
+.plugin-confirm { padding: var(--space-6) var(--space-8); display: grid; gap: var(--space-4); }
+.plugin-confirm h2 { margin: 0; font-size: var(--type-subtitle-size); line-height: var(--type-subtitle-line-height); font-weight: var(--type-subtitle-weight); overflow-wrap: anywhere; }
+.plugin-confirm-scroll [data-slot="scroll-area-viewport"] { max-height: min(320px, 45vh); }
+.plugin-bib-diff { display: grid; gap: var(--space-2); }
+.plugin-bib-label { color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+.plugin-bib-entry[data-change="removed"] { background: var(--status-danger-soft); }
+.plugin-bib-entry[data-change="added"] { background: var(--status-success-soft); }
+.plugin-confirm .modal-actions { margin: 0; }
+
+/* Settings › Plugins */
+.plugin-settings-intro, .plugin-settings-empty { margin: 0; color: var(--text-secondary); font-size: var(--type-body-size); line-height: var(--type-body-line-height); }
+.plugin-install-form { padding: var(--space-4) var(--space-6); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: var(--space-3); align-items: center; }
+.plugin-card-version { color: var(--text-secondary); font-weight: var(--weight-regular, 400); }
+.plugin-card-head { padding: var(--space-5) var(--space-6); display: flex; align-items: flex-start; gap: var(--space-6); }
+.plugin-card-copy { flex: 1 1 auto; min-width: 0; display: grid; gap: var(--space-2); }
+.plugin-card-id { color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); overflow-wrap: anywhere; }
+.plugin-card-description { margin: 0; color: var(--text-primary); font-size: var(--type-body-size); line-height: var(--type-body-line-height); }
+.plugin-card-meta { margin: 0; display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-6); color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
+.plugin-card-source { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plugin-card-review { padding: 0 var(--space-6) var(--space-4); display: flex; align-items: center; gap: var(--space-4); }
+.plugin-card-permissions { padding: var(--space-4) var(--space-6); display: grid; gap: var(--space-2); }
+.plugin-card-label { color: var(--text-secondary); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); font-weight: var(--weight-medium); }
+.plugin-permissions { margin: 0; padding-inline-start: var(--space-8); display: grid; gap: var(--space-1); color: var(--text-primary); font-size: var(--type-body-size); line-height: var(--type-body-line-height); }
+.plugin-secret { padding: 0 0 var(--space-4); }
+.plugin-secret-controls { padding: 0 var(--space-6); display: flex; align-items: center; gap: var(--space-3); }
+.plugin-secret-controls .ui-input { flex: 1 1 auto; min-width: 0; }
+.plugin-card > .ui-settings-group-body > [data-slot="inline-message"], .plugin-card .ui-inline-message { margin: 0 var(--space-6) var(--space-4); }
+.plugin-card-actions { padding: var(--space-2) var(--space-6) var(--space-4); display: flex; justify-content: flex-end; }
+.plugin-permission-modal .plugin-permissions { margin-bottom: var(--space-6); }

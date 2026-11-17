@@ -29,6 +29,7 @@ import { beginWindowDrag, titleBarDoubleClick } from "../app-utils";
 import { OverleafSettingsSection } from "../overleaf/overleaf-connect";
 import { LiteratureSettings } from "./literature-settings";
 import { AppearanceSettingsPane } from "./appearance-settings-pane";
+import { PluginSettings } from "../plugins/plugin-settings";
 import { AcknowledgementsSettings } from "./acknowledgements-settings";
 import { DoctorSettings, type DoctorSettingsProps } from "./doctor-settings";
 import { SynaraSettingsPane } from "./synara-settings-pane";
@@ -148,6 +149,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
     { label: t`Integrations`, items: [
       { tab: "overleaf", label: t`Overleaf`, icon: "cloud-upload" },
       { tab: "literature", label: t`Literature services`, icon: "api-key" },
+      { tab: "plugins", label: t`Plugins`, icon: "package" },
     ] },
     { label: t`Diagnostics`, items: [
       { tab: "doctor", label: t`TeX doctor`, icon: "sparkle" },
@@ -261,6 +263,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
     editor: <EditorSettingsPane {...props} projectWordDraft={projectWordDraft} setProjectWordDraft={setProjectWordDraft} />,
     logs: <AppLogsSettings />,
     literature: <LiteratureSettings />,
+    plugins: <PluginSettings />,
     "model-endpoint": <ModelEndpointSettings openTab={props.setTab} />,
     environment: <AgentEnvironmentSettings runtime={props.synaraRuntime} />,
     overleaf: (
