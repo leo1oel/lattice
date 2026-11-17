@@ -12,6 +12,7 @@ impl Render for Shell {
         self.agent_follow_front(window, cx);
         // The revision rounds read the project and its open editors.
         self.sync_rounds(cx);
+        self.refresh_tab_texts(window, cx);
         let palette = cx.palette().clone();
         // The Emacs and Vim keymaps' bindings are loaded under a context of
         // their own (app.rs), which the shell carries while that keymap is

@@ -61,15 +61,22 @@ pub struct LatticeSkin {
     menu: Rc<RefCell<Option<Entity<ContextMenu<PanelMenu>>>>>,
     /// The window's shell, which takes what is dropped on a view.
     shell: gpui::WeakEntity<super::Shell>,
+    /// Each document tab's detail and tooltip, which the shell keeps.
+    texts: super::tab_names::TabTexts,
 }
 
 impl LatticeSkin {
-    pub fn new(views: Registry, shell: gpui::WeakEntity<super::Shell>) -> Self {
+    pub fn new(
+        views: Registry,
+        shell: gpui::WeakEntity<super::Shell>,
+        texts: super::tab_names::TabTexts,
+    ) -> Self {
         Self {
             views,
             tools: Rc::default(),
             menu: Rc::default(),
             shell,
+            texts,
         }
     }
 
@@ -184,8 +191,9 @@ fn add_entries(
 }
 
 /// A document tab's own items after the document's (`withTabItems`): Keep
-/// open on a preview, then Pin tab or Unpin tab, then a separator before
-/// the workspace's.
+/// open on a preview, then Pin tab or Unpin tab, then Copy path and Copy
+/// relative path for a file (not a Paper), then a separator before the
+/// workspace's.
 fn tab_items(menu: Menu, shell: &gpui::WeakEntity<super::Shell>, view: &str, cx: &App) -> Menu {
     let Some(this) = shell.upgrade() else {
         return menu;
@@ -209,13 +217,15 @@ fn tab_items(menu: Menu, shell: &gpui::WeakEntity<super::Shell>, view: &str, cx:
             shell.update(cx, |shell, cx| run(shell, &view, cx)).ok();
         })
     };
+    let key = super::trellis_layout::file_key(engine.view_record(view));
+    let root = shell_ref.root(cx);
     let mut menu = menu;
     if preview {
         menu = menu.item(item(t!("Keep open").to_string(), |shell, view, cx| {
             shell.keep_view(view, cx)
         }));
     }
-    menu.item(if pinned {
+    menu = menu.item(if pinned {
         item(t!("Unpin tab").to_string(), |shell, view, cx| {
             shell.pin_view(view, false, cx)
         })
@@ -223,8 +233,41 @@ fn tab_items(menu: Menu, shell: &gpui::WeakEntity<super::Shell>, view: &str, cx:
         item(t!("Pin tab").to_string(), |shell, view, cx| {
             shell.pin_view(view, true, cx)
         })
+    });
+    let copies = path_copies(&key, root.as_deref());
+    if !copies.is_empty() {
+        menu = menu.separator();
+        for (label, text) in copies {
+            menu = menu.item(copy_item(label, text));
+        }
+    }
+    menu.separator()
+}
+
+/// Copy path and Copy relative path for the document `key` names, each with
+/// the text it puts on the clipboard; none for a Paper's reader or a view
+/// that shows no document.
+fn path_copies(key: &str, root: Option<&std::path::Path>) -> Vec<(String, String)> {
+    if key.is_empty() || super::papers::is_reader_key(key) {
+        return Vec::new();
+    }
+    let absolute = root.map_or_else(
+        || key.to_string(),
+        |root| root.join(key).to_string_lossy().into_owned(),
+    );
+    vec![
+        (t!("Copy path").to_string(), absolute),
+        (t!("Copy relative path").to_string(), key.to_string()),
+    ]
+}
+
+/// A menu item that puts `text` on the clipboard and says so.
+fn copy_item(label: String, text: String) -> Item {
+    Item::new(label, move |_, cx| {
+        cx.write_to_clipboard(gpui::ClipboardItem::new_string(text.clone()));
+        crate::notices::copied(t!("Path copied"), cx);
     })
-    .separator()
+    .icon(Icon::COPY)
 }
 
 /// The items a panel's ⋯ menu leads with, for the view it shows: the
@@ -337,7 +380,17 @@ impl Skin for LatticeSkin {
         let palette = cx.palette().clone();
         let (_, surface) = self.surface(&panel.selected, &palette, cx);
         let look = self.look(&tab.view_id, cx);
-        let label = shaped_width(&tab.title, TextRole::BodyCompact, None, window, cx);
+        // A document's folders that set it apart from a namesake, and the
+        // path its tooltip names (`fileTabDetail`, `FileTabTip`), as the
+        // shell last worked them out: the workspace is being updated now.
+        let (detail, tooltip) = self.texts.get(&tab.view_id);
+        let label = shaped_width(
+            &lattice_ui::components::label_with_detail(&tab.title, detail.as_deref()),
+            TextRole::BodyCompact,
+            None,
+            window,
+            cx,
+        );
         let natural = TabFit::natural_width(label, tab.closable);
         let fit = if tab.icon_only {
             TabFit::IconOnly
@@ -364,6 +417,8 @@ impl Skin for LatticeSkin {
             surface,
         )
         .icon(tab_icon(look.icon, &palette))
+        .detail(detail.map(Into::into))
+        .tooltip(tooltip.map(Into::into))
         .selected(tab.selected)
         .strong(panel.focused)
         .dirty(look.dirty)
@@ -672,4 +727,31 @@ pub(crate) fn hash(s: &str) -> u64 {
     let mut h = std::collections::hash_map::DefaultHasher::new();
     s.hash(&mut h);
     h.finish()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::path_copies;
+    use std::path::Path;
+
+    #[test]
+    fn a_document_tab_copies_its_whole_path_and_its_path_in_the_project() {
+        assert_eq!(
+            path_copies("chapters/intro.tex", Some(Path::new("/p"))),
+            vec![
+                ("Copy path".to_string(), "/p/chapters/intro.tex".to_string()),
+                (
+                    "Copy relative path".to_string(),
+                    "chapters/intro.tex".to_string()
+                ),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_papers_reader_and_a_tool_have_no_path_to_copy() {
+        let reader = crate::shell::papers::reader_key("1706.03762");
+        assert!(path_copies(&reader, Some(Path::new("/p"))).is_empty());
+        assert!(path_copies("", Some(Path::new("/p"))).is_empty());
+    }
 }

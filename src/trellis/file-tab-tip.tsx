@@ -31,8 +31,11 @@ export function FileTabTip({ controller, ws }: { controller: TrellisController; 
     const root = ws.element;
     let timer: ReturnType<typeof setTimeout> | undefined;
     // The tab under the pointer. A press on it (a click, a drag, a right
-    // click's menu) puts its tip away until the pointer leaves it, as Radix does.
+    // click's menu) puts its tip away until the pointer goes to another tab,
+    // as Radix does: a menu opening over it re-enters the same tab when it
+    // turns off the page's pointer events, which must not bring the tip back.
     let hovered: HTMLElement | null = null;
+    let pressed: HTMLElement | null = null;
     let open = false;
     let closedAt = Number.NEGATIVE_INFINITY;
     const close = () => {
@@ -44,7 +47,7 @@ export function FileTabTip({ controller, ws }: { controller: TrellisController; 
     const show = (tab: HTMLElement) => {
       const view = tab.dataset.view ? ws.view(tab.dataset.view) : null;
       const text = view ? fileTabTipText(controller, String(view.params.key ?? "")) : "";
-      if (!text || !tab.isConnected) return;
+      if (!text || !tab.isConnected || tab === pressed || document.querySelector('[role="menu"]')) return;
       const rect = tab.getBoundingClientRect();
       open = true;
       setShown({ text, left: rect.left, top: rect.top, width: rect.width, height: rect.height });
@@ -55,7 +58,8 @@ export function FileTabTip({ controller, ws }: { controller: TrellisController; 
       const wasOpen = open;
       close();
       hovered = tab;
-      if (!tab || event.buttons) return;
+      if (tab && tab !== pressed) pressed = null;
+      if (!tab || event.buttons || tab === pressed) return;
       // Moving along the strip from one tab's tip, the next shows at once.
       const skip = wasOpen || performance.now() - closedAt < TIP_DELAY.skipDelayDuration;
       if (skip) show(tab);
@@ -69,7 +73,9 @@ export function FileTabTip({ controller, ws }: { controller: TrellisController; 
       close();
     };
     const onPress = () => {
-      if (hovered) close();
+      if (!hovered) return;
+      pressed = hovered;
+      close();
     };
     root.addEventListener("pointerover", onPointerOver, true);
     root.addEventListener("pointerout", onPointerOut, true);

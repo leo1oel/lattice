@@ -9,6 +9,8 @@ A quick look (a click on a tree row, a Quick open pick, a project search hit) op
 A preview is kept once it is edited, its tab is double-clicked or dragged, its tree row is double-clicked, Keep open or Pin tab is chosen in its menu, or it is opened any other way.
 Pin tab puts a pin in the tab's close slot until the pointer is over it, and a pinned tab is never replaced or closed to make room; Unpin tab takes it off.
 Both marks are the tab's params, saved with the layout.
+Two open documents with one file name each name, after the name in the secondary ink, the folders that tell them apart (`shell/tab_names.rs`, the Tauri app's `src/trellis/tab-names.ts`): the fewest parent folders, the same number for each, that differ between them ("chapters" and "appendix" for two `intro.tex`), a document at the project's top naming none.
+The pointer resting on a document's tab shows its path in the project in Lattice's tooltip (a Paper's tab, its whole title), and a document's tab menu has Copy path and Copy relative path after Pin tab, as the Project tree's menu has.
 A document opened into a strip without room for it closes the tabs the strip can spare, previews first, then the least recently used, never a pinned tab, the one opening, the one in front, one edited this session or a LaTeX root (one holding `\documentclass`); a strip with nothing to spare scrolls.
 
 ## In the e2e scenario
@@ -18,3 +20,5 @@ A native drag has a frame drawn before its press and after every event, since in
 The `narrow_window` module: a narrow window (`scenario/e2e/narrow_window.rs`): at the CI runner's 1015 px and at the window's least, in light and dark and in English and Simplified Chinese with a hidden panel's chip in the titlebar, no part of the titlebar is drawn over another or past the window's edge and the build chip keeps to its strip; then, with four documents in a strip, the window narrows from 1015 px to its least and the build chip keeps its mark alone before the strip gives it up.
 
 The `tab_policy` module (`scenario/e2e/tab_policy.rs`), with the platform's own pointer and key events: a tree row's click opening a preview tab and the next row's taking its place; a double-click on the row keeping it; an edit keeping a preview, and again once the edited document, saved and closed, comes back as a preview, which the next quick look then leaves; a pinned preview staying when the next quick look comes; and a strip out of room closing the tabs it can spare, never the pinned, edited, root or front one.
+
+The `same_name_tabs` module (`scenario/e2e/same_name_tabs.rs`): `chapters/intro.tex` and a scratch `appendix/intro.tex` opened side by side naming "chapters" and "appendix" with their paths as their tooltips while `main.tex` names nothing, then the pointer resting on one tab and a native right click on the other; with `LATTICE_E2E_SHOTS` set it saves the window with the tooltip up and with the menu open.

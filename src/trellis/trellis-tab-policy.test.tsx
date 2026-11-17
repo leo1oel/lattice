@@ -308,6 +308,18 @@ describe("a document tab", () => {
     await waitFor(() => expect(document.querySelector("[data-file-tab-tip]")).toBeNull());
   });
 
+  it("puts its tooltip away for a right click, even when the menu has the pointer re-enter the tab", async () => {
+    const { ws, viewOf } = await openProject(["main.tex", "chapters/intro.tex"]);
+    const tab = tabOf(ws, viewOf("chapters/intro.tex")!.id);
+    fireEvent.pointerOver(tab);
+    await waitFor(() => expect(document.querySelector("[data-file-tab-tip]")).not.toBeNull());
+    fireEvent.contextMenu(tab);
+    fireEvent.pointerOut(tab, { relatedTarget: document.body });
+    fireEvent.pointerOver(tab);
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 400)); });
+    expect(document.querySelector("[data-file-tab-tip]")).toBeNull();
+  });
+
   it("offers Copy path and Copy relative path in its menu", async () => {
     const { controller, viewOf } = await openProject(["main.tex", "chapters/intro.tex"]);
     const menu = withTabItems(controller, viewOf("chapters/intro.tex") as never, []);
