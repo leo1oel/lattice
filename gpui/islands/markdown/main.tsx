@@ -66,7 +66,6 @@ import { mount, activateLocale } from "../shared/boot";
 import { host } from "../shared/host";
 import { LineIndex, SplitScroll } from "./split-scroll";
 import { paperDragReplay, type PaperDragMessage } from "../shared/paper-drag";
-import "./markdown.css";
 import { ScrollArea } from "../../../src/components/ui/scroll-area";
 import { InlineMessage } from "../../../src/components/ui/inline-message";
 import { paperSourceCitation, type PaperSourceCitation } from "../../../src/papers/paper-source";
