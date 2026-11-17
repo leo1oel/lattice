@@ -2,32 +2,19 @@
 //! (docs/plugins.md, "Actions"): the project it runs in, read from the
 //! editor in front, and each verb done through the app's own path. A
 //! citation goes in at the caret of the LaTeX source in front, joining the
-//! citation the caret is in; a bibliography entry is shown and written only
-//! when the writer confirms it, through the project's history like every
-//! citation edit; a file opens at its line; a link opens in the browser;
+//! citation the caret is in; a bibliography entry, which the palette shows
+//! first, is written once the writer confirms it, through the project's
+//! history like every citation edit; a file opens at its line; a link opens in the browser;
 //! text goes to the clipboard.
 
 use editor::ToOffset as _;
-use gpui::{App, AppContext as _, ClipboardItem, Context, Window};
+use gpui::{App, AppContext as _, ClipboardItem, Context, Task, Window};
 use lattice_core::plugins::protocol::{Cursor, Selection};
 use lattice_core::plugins::{ActionKind, Position, ProjectInput};
 use lattice_i18n::t;
 
 use super::Shell;
-use crate::{
-    confirm::{self, Confirm},
-    notices,
-    plugins::actions::{self as bib, BibChange},
-};
-
-/// What an action left behind.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum Performed {
-    /// Done, or refused with a notice: the palette closes.
-    Done,
-    /// A confirmation is up (or about to be): the palette stays.
-    Confirming,
-}
+use crate::{notices, plugins::actions as bib};
 
 /// 1-based line and column (in characters) of byte `offset` of `text`.
 fn position(text: &str, offset: usize) -> Position {
@@ -86,40 +73,27 @@ impl Shell {
         Some(input)
     }
 
-    /// Do `action` for the writer.
+    /// Do `action` for the writer, once the palette has closed. The
+    /// bibliography writes are the palette's to ask about first
+    /// (`plugin_bib_target`, `write_plugin_bib`).
     pub(crate) fn perform_plugin_action(
         &mut self,
         action: ActionKind,
         window: &mut Window,
         cx: &mut Context<Self>,
-    ) -> Performed {
+    ) {
         match action {
-            ActionKind::InsertCitation { key } => {
-                self.insert_plugin_citation(&key, window, cx);
-                Performed::Done
-            }
-            ActionKind::AddBibEntry { bibtex, file } => {
-                self.confirm_bib_change(BibChange::Add { bibtex }, file, window, cx);
-                Performed::Confirming
-            }
-            ActionKind::ReplaceBibEntry { key, bibtex, file } => {
-                self.confirm_bib_change(BibChange::Replace { key, bibtex }, file, window, cx);
-                Performed::Confirming
-            }
+            ActionKind::InsertCitation { key } => self.insert_plugin_citation(&key, window, cx),
+            ActionKind::AddBibEntry { .. } | ActionKind::ReplaceBibEntry { .. } => {}
             ActionKind::Reveal { file, line } => {
                 if let Some(root) = self.root(cx) {
                     self.open_path(root.join(file), line, window, cx);
                 }
-                Performed::Done
             }
-            ActionKind::OpenUrl { url } => {
-                cx.open_url(&url);
-                Performed::Done
-            }
+            ActionKind::OpenUrl { url } => cx.open_url(&url),
             ActionKind::Copy { text } => {
                 cx.write_to_clipboard(ClipboardItem::new_string(text));
                 notices::copied(t!("Copied"), cx);
-                Performed::Done
             }
         }
     }
@@ -151,49 +125,102 @@ impl Shell {
         });
     }
 
-    /// Show the entry (or the change to one) and write it once the writer
-    /// confirms: the open editors are saved first, the text is read and the
-    /// change worked out off the main thread, and the write only lands on
-    /// the text the writer saw.
-    fn confirm_bib_change(
-        &mut self,
-        change: BibChange,
+    /// Where a bibliography action writes, and for an update the entry as
+    /// it is now: the plugin's file, else the project's bibliography, read
+    /// off the main thread. A problem comes back as the words to show.
+    pub(crate) fn plugin_bib_target(
+        &self,
         file: Option<String>,
+        replacing: Option<String>,
+        cx: &App,
+    ) -> Task<BibTarget> {
+        let Some(root) = self.root(cx) else {
+            return Task::ready(BibTarget::refused(String::new(), no_bibliography()));
+        };
+        cx.background_spawn(async move {
+            let found = file.or_else(|| {
+                lattice_core::project::citation_bibliography(&root)
+                    .ok()
+                    .map(|bibliography| bibliography.path)
+            });
+            let Some(file) = found else {
+                return BibTarget::refused(String::new(), no_bibliography());
+            };
+            let Some(key) = replacing else {
+                return BibTarget {
+                    file,
+                    before: None,
+                    error: None,
+                };
+            };
+            let source = match std::fs::read_to_string(root.join(&file)) {
+                Ok(source) => source,
+                Err(error) => {
+                    return BibTarget::refused(file, crate::host_errors::text(&error.to_string()));
+                }
+            };
+            match bib::find_entry(&source, &key) {
+                Ok(Some((text, _, _))) => BibTarget {
+                    file,
+                    before: Some(text),
+                    error: None,
+                },
+                Ok(None) => {
+                    let error = t!(
+                        "There is no entry “{key}” in {file}.",
+                        key = key,
+                        file = file
+                    );
+                    BibTarget::refused(file, error)
+                }
+                Err(error) => BibTarget::refused(file, error),
+            }
+        })
+    }
+
+    /// Write a bibliography change the writer confirmed: the open editors
+    /// saved first, the change worked out on the file as it is now, and the
+    /// write made through the project's history like every citation edit.
+    pub(crate) fn write_plugin_bib(
+        &mut self,
+        file: String,
+        change: BibChange,
         window: &mut Window,
         cx: &mut Context<Self>,
-    ) {
+    ) -> Task<Result<(), String>> {
         let Some(root) = self.root(cx) else {
-            return;
+            return Task::ready(Err(no_bibliography()));
         };
         let saved = self.save_editors(cx);
         cx.spawn_in(window, async move |this, cx| {
             if !saved.await {
-                cx.update(|_, cx| {
-                    notices::error(t!("Bibliography"), t!("Save the open file first."), cx)
-                })
-                .ok();
-                return;
+                return Err(t!("Save the open file first.").to_string());
             }
-            let read_root = root.clone();
-            let worked_out = cx
+            let written = cx
                 .background_spawn(async move {
-                    let relative = match file {
-                        Some(file) => file,
-                        None => lattice_core::project::citation_bibliography(&read_root)?.path,
+                    let before = std::fs::read_to_string(root.join(&file)).unwrap_or_default();
+                    let after = match &change {
+                        BibChange::Add { bibtex } => bib::append_entry(&before, bibtex.trim())?,
+                        BibChange::Replace { key, bibtex } => {
+                            bib::replace_entry(&before, key, bibtex)?
+                        }
                     };
-                    let path = read_root.join(&relative);
-                    let before = std::fs::read_to_string(&path).unwrap_or_default();
-                    let plan = bib::plan(&before, &change)?;
-                    Ok::<_, String>((relative, before, plan))
+                    let label = format!("Edit {file}");
+                    lattice_core::project::apply_citation_transaction_checked(
+                        &root,
+                        &label,
+                        vec![(file, before, after)],
+                    )
+                    .map(|_| ())
+                    .map_err(|error| crate::host_errors::text(&error.to_string()))
                 })
                 .await;
-            this.update_in(cx, |_, _, cx| match worked_out {
-                Ok((relative, before, plan)) => ask_bib_change(root, relative, before, plan, cx),
-                Err(error) => notices::error(t!("Bibliography"), error, cx),
-            })
-            .ok();
+            if written.is_ok() {
+                this.update(cx, |shell, cx| shell.bibliography_written(cx))
+                    .ok();
+            }
+            written
         })
-        .detach();
     }
 
     /// The bibliography changed on disk: the editors and Papers read it again.
@@ -205,83 +232,34 @@ impl Shell {
     }
 }
 
-fn ask_bib_change(
-    root: std::path::PathBuf,
-    relative: String,
-    before: String,
-    plan: bib::BibPlan,
-    cx: &mut Context<Shell>,
-) {
-    let (title, body, answer) = match &plan.replaced {
-        None => (
-            t!("Add this entry to {0}?", relative),
-            plan.after[before.trim_end().len()..].trim().to_string(),
-            t!("Add entry"),
-        ),
-        Some(replaced) => {
-            let entry_after = entry_text(&plan.after, &plan.key).unwrap_or_default();
-            (
-                t!("Update “{0}” in {1}?", plan.key, relative),
-                bib::diff_lines(replaced, &entry_after),
-                t!("Update entry"),
-            )
-        }
-    };
-    let shell = cx.entity().downgrade();
-    let key = plan.key.clone();
-    let after = plan.after.clone();
-    confirm::ask(
-        Confirm::new(title)
-            .body(body)
-            .confirm_label(answer)
-            .on_confirm(move |_, cx| {
-                let (root, relative, before, after, key) = (
-                    root.clone(),
-                    relative.clone(),
-                    before.clone(),
-                    after.clone(),
-                    key.clone(),
-                );
-                let shell = shell.clone();
-                let label = format!("Edit {relative}");
-                let shown = relative.clone();
-                let write = cx.background_spawn(async move {
-                    lattice_core::project::apply_citation_transaction_checked(
-                        &root,
-                        &label,
-                        vec![(relative, before, after)],
-                    )
-                });
-                cx.spawn(async move |cx| {
-                    let written = write.await;
-                    cx.update(|cx| match written {
-                        Ok(_) => {
-                            shell
-                                .update(cx, |shell, cx| shell.bibliography_written(cx))
-                                .ok();
-                            notices::show(
-                                notices::Notice::new(
-                                    lattice_ui::components::ToastLevel::Success,
-                                    t!("Saved “{0}” in {1}", key, shown),
-                                ),
-                                cx,
-                            );
-                        }
-                        Err(error) => notices::error(t!("Bibliography"), error, cx),
-                    });
-                })
-                .detach();
-            }),
-        cx,
-    );
+fn no_bibliography() -> String {
+    t!("This project has no bibliography to add to.").to_string()
 }
 
-/// The text of the entry `key` in `text`.
-fn entry_text(text: &str, key: &str) -> Option<String> {
-    let parsed = lattice_core::bib_document::parse(text).ok()?;
-    let entry = parsed
-        .entries
-        .iter()
-        .find(|entry| entry.key.eq_ignore_ascii_case(key))?;
-    Some(text[entry.from..entry.to].to_string())
+/// A bibliography change a plugin proposed.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum BibChange {
+    Add { bibtex: String },
+    Replace { key: String, bibtex: String },
+}
+
+/// Where a bibliography change goes (`Shell::plugin_bib_target`).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(crate) struct BibTarget {
+    /// Relative to the project root.
+    pub file: String,
+    /// The entry an update replaces, as it is now.
+    pub before: Option<String>,
+    /// Why it can't be done.
+    pub error: Option<String>,
+}
+
+impl BibTarget {
+    fn refused(file: String, error: String) -> Self {
+        Self {
+            file,
+            before: None,
+            error: Some(error),
+        }
+    }
 }

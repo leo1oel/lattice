@@ -1,14 +1,14 @@
 //! Settings › Integrations › Plugins (docs/plugins.md, `plugin-settings.tsx`
 //! in the Tauri app): install from a release URL with its SHA-256 or from a
-//! folder (for developing a plugin), then one card per plugin: its name,
-//! version, id, description, licence and source, a switch, what it may
-//! access in plain words, a field per secret it declares, and Remove.
+//! folder (for developing a plugin), then per plugin its name and version,
+//! its id, description, licence and source beside a switch, what it may
+//! access, a field per secret it declares with Save and Clear, and Remove.
 //!
 //! Turning a plugin on grants what its manifest asks for now, so it first
-//! asks, listing those permissions; so does a plugin that asks for more
-//! since it was turned on (`needsReview`). Off macOS plugins are listed but
-//! do not run, and the switches are dimmed. Every host call runs off the
-//! main thread; the palette's rows are read again after each change.
+//! asks, listing those permissions; so does Review… on a plugin that asks
+//! for more since it was turned on (`needsReview`). Off macOS plugins are
+//! listed but can't be turned on. Every host call runs off the main thread;
+//! the palette's rows are read again after each change.
 
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
@@ -19,10 +19,7 @@ use lattice_i18n::t;
 
 mod view;
 
-use super::{
-    controls::{self, Level, PageWidth},
-    dialog::SettingsDialog,
-};
+use super::{controls::PageWidth, dialog::SettingsDialog};
 use crate::{
     confirm::{self, Confirm},
     plugins::{self, text},
@@ -65,11 +62,11 @@ pub fn render(
 
 impl PluginsPane {
     fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let url = cx.new(|cx| {
-            InputState::new(window, cx).placeholder("https://example.org/plugin-1.0.0.zip")
+        let url = cx
+            .new(|cx| InputState::new(window, cx).placeholder(t!("Link to the .zip (https://…)")));
+        let sha256 = cx.new(|cx| {
+            InputState::new(window, cx).placeholder(t!("SHA-256 (64 hexadecimal characters)"))
         });
-        let sha256 =
-            cx.new(|cx| InputState::new(window, cx).placeholder(t!("SHA-256 of the .zip")));
         let mut subscriptions = Vec::new();
         for input in [&url, &sha256] {
             subscriptions.push(cx.subscribe(input, |this, _, event: &InputEvent, cx| {
@@ -123,6 +120,7 @@ impl PluginsPane {
                     if let Err(error) = done {
                         this.errors.insert(target.clone(), error);
                     } else if target == Target::Install && this.url_open {
+                        this.url_open = false;
                         this.url
                             .update(cx, |input, cx| input.set_value("", window, cx));
                         this.sha256
@@ -147,12 +145,31 @@ impl PluginsPane {
     fn adopt(&mut self, list: Vec<PluginInfo>, window: &mut Window, cx: &mut Context<Self>) {
         for plugin in &list {
             for secret in &plugin.secrets {
-                self.secrets
+                let input = self
+                    .secrets
                     .entry((plugin.id.clone(), secret.name.clone()))
-                    .or_insert_with(|| cx.new(|cx| InputState::new(window, cx).masked(true)));
+                    .or_insert_with(|| cx.new(|cx| InputState::new(window, cx).masked(true)))
+                    .clone();
+                let placeholder = if secret.saved {
+                    t!("Enter a replacement")
+                } else {
+                    t!("Paste the value")
+                };
+                input.update(cx, |input, cx| {
+                    input.set_placeholder(placeholder, window, cx)
+                });
             }
         }
         self.plugins = Some(list);
+    }
+
+    /// The URL form can install: a link, and a SHA-256 of 64 hexadecimal
+    /// characters.
+    fn url_valid(&self, cx: &gpui::App) -> bool {
+        let sha = self.sha256.read(cx).value().trim().to_string();
+        !self.url.read(cx).value().trim().is_empty()
+            && sha.len() == 64
+            && sha.chars().all(|c| c.is_ascii_hexdigit())
     }
 
     fn install_url(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -221,20 +238,11 @@ impl PluginsPane {
             );
             return;
         }
-        let lines = text::permission_lines(&plugin.permissions);
-        let body = format!(
-            "{}\n{}",
-            t!("It will be able to:"),
-            lines
-                .iter()
-                .map(|line| format!("• {line}"))
-                .collect::<Vec<_>>()
-                .join("\n")
-        );
         let pane = cx.entity().downgrade();
         confirm::ask(
-            Confirm::new(t!("Turn on “{0}”?", plugin.name))
-                .body(body)
+            Confirm::new(t!("Turn on {name}?", name = plugin.name))
+                .body(t!("It will be able to:"))
+                .list(text::permission_lines(&plugin.permissions))
                 .confirm_label(t!("Turn on"))
                 .on_confirm(move |window, cx| {
                     let id = id.clone();
@@ -257,8 +265,10 @@ impl PluginsPane {
         let id = plugin.id.clone();
         let pane = cx.entity().downgrade();
         confirm::ask(
-            Confirm::new(t!("Remove “{0}”?", plugin.name))
-                .body(t!("Its data and saved secrets are deleted too."))
+            Confirm::new(t!("Remove {name}?", name = plugin.name))
+                .body(t!(
+                    "Its commands leave the palette, and its data and saved secrets are deleted."
+                ))
                 .confirm_label(t!("Remove"))
                 .destructive()
                 .on_confirm(move |window, cx| {
@@ -296,6 +306,11 @@ impl PluginsPane {
         );
     }
 
+    /// Read the list again, as after a change made elsewhere.
+    pub fn reload(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.call(Target::Install, |_| Ok(()), window, cx);
+    }
+
     /// The installed plugins as last read, for a scenario.
     pub fn listed(&self) -> Vec<PluginInfo> {
         self.plugins.clone().unwrap_or_default()
@@ -308,14 +323,5 @@ impl PluginsPane {
     /// The install form's error, for a scenario.
     pub fn install_error(&self) -> Option<String> {
         self.errors.get(&Target::Install).cloned()
-    }
-
-    fn message(&self, target: &Target, cx: &gpui::App) -> Option<AnyElement> {
-        self.errors.get(target).map(|error| {
-            controls::block(
-                controls::inline_message(Level::Error, error.clone(), cx),
-                true,
-            )
-        })
     }
 }

@@ -2,12 +2,15 @@
 //! `src/plugins/plugin-run.tsx`): a command that asks for text turns
 //! the search row into its field, with the plugin's name in a chip before
 //! it and the manifest's placeholder (↩ runs, ⎋ goes back); a running
-//! command is one row, a spinner and the plugin's latest progress (⎋ stops
-//! it and closes); then its result under a header line: items, diagnostics
-//! grouped by file, or a message's Markdown, or the error, with Open
-//! Settings when Settings › Plugins can fix it. ↑↓ move, ↩ runs a row's
-//! first action (a diagnostic's: open its place), and the row in front or
-//! under the pointer shows its other actions as small buttons.
+//! command is the card's one row, the loader and the plugin's latest
+//! progress (⎋ stops it and closes); then the search row gives way to a
+//! header, "<Plugin> · <summary>", over the result: items, diagnostics
+//! grouped by file, a message's Markdown, or the error, with Open Settings
+//! when Settings › Plugins can fix it. ↑↓ move, ↩ runs a row's first
+//! action (a diagnostic's: open its place), and the row in front or under
+//! the pointer shows its other actions as small buttons. A bibliography
+//! action asks in the card first, showing the entry (or the entry now and
+//! after), and writes once the writer confirms; ⎋ goes back to the result.
 
 use futures::StreamExt as _;
 use gpui::{
@@ -17,17 +20,18 @@ use gpui::{
 use lattice_core::plugins::{
     ActionKind, CancelToken, CommandResult, InputKind, PluginCommand, RunRequest,
 };
+use lattice_i18n::t;
 use lattice_settings::SettingsTab;
-use lattice_ui::{
-    ActiveLattice as _, Icon, TextRole, TextRoleStyle as _, icons::ICON, shape,
-    tokens::FONT_WEIGHT_MEDIUM,
-};
+use lattice_ui::{ActiveLattice as _, TextRole, TextRoleStyle as _, tokens::FONT_WEIGHT_MEDIUM};
 
 use super::{CommandPaletteView, PaletteEvent};
-use crate::plugins::{
-    self, Update, markdown,
-    results::{self, Row},
-    text::{self, ErrorText},
+use crate::{
+    plugins::{
+        self, Update, markdown,
+        results::{self, Row},
+        text::{self, ErrorText},
+    },
+    shell::plugin_actions::{BibChange, BibTarget},
 };
 
 /// A run's token, cancelled when the step that holds it goes (the palette
@@ -56,7 +60,33 @@ pub(super) enum Step {
     Done {
         command: PluginCommand,
         outcome: Outcome,
+        /// A bibliography action being asked about.
+        confirm: Option<Box<BibConfirm>>,
     },
+}
+
+/// A bibliography action shown before it writes.
+pub(super) struct BibConfirm {
+    pub(super) change: BibChange,
+    pub(super) target: BibTarget,
+    /// The file is being read, or the change written.
+    pub(super) busy: bool,
+    /// The target has been read: the question can show.
+    pub(super) shown: bool,
+    _task: Option<Task<()>>,
+}
+
+impl BibConfirm {
+    /// The question: add this entry, or update one.
+    pub(super) fn title(&self) -> String {
+        let file = &self.target.file;
+        match &self.change {
+            BibChange::Add { .. } => t!("Add this entry to {file}?", file = file).to_string(),
+            BibChange::Replace { key, .. } => {
+                t!("Update “{key}” in {file}?", key = key, file = file).to_string()
+            }
+        }
+    }
 }
 
 pub(super) enum Outcome {
@@ -67,16 +97,6 @@ pub(super) enum Outcome {
         blocks: Vec<markdown::Block>,
     },
     Error(ErrorText),
-}
-
-impl Step {
-    fn command(&self) -> &PluginCommand {
-        match self {
-            Step::Input { command, .. }
-            | Step::Running { command, .. }
-            | Step::Done { command, .. } => command,
-        }
-    }
 }
 
 impl CommandPaletteView {
@@ -194,7 +214,11 @@ impl CommandPaletteView {
                     }
                     Err(error) => Outcome::Error(text::error_text(&error)),
                 };
-                self.plugin = Some(Step::Done { command, outcome });
+                self.plugin = Some(Step::Done {
+                    command,
+                    outcome,
+                    confirm: None,
+                });
                 self.result_scroll.scroll_to_item(0);
             }
         }
@@ -218,6 +242,18 @@ impl CommandPaletteView {
                 self.plugin = None;
                 cx.emit(PaletteEvent::Dismiss);
             }
+            (
+                Some(Step::Done {
+                    confirm: Some(confirm),
+                    ..
+                }),
+                _,
+            ) => match key {
+                "escape" if !confirm.busy => self.cancel_bib(cx),
+                "escape" => cx.emit(PaletteEvent::Dismiss),
+                "enter" => self.write_bib(window, cx),
+                _ => {}
+            },
             (Some(Step::Done { .. }), "escape") => cx.emit(PaletteEvent::Dismiss),
             (
                 Some(Step::Done {
@@ -284,8 +320,8 @@ impl CommandPaletteView {
         }
     }
 
-    /// Run an action of row `at`; the palette closes unless the action
-    /// asks the writer to confirm first.
+    /// Run an action of row `at`: the palette closes and the shell does
+    /// it, except a bibliography write, which the card asks about first.
     pub(super) fn plugin_act(
         &mut self,
         at: usize,
@@ -296,13 +332,29 @@ impl CommandPaletteView {
         let Some(action) = self.row_action(at, index) else {
             return;
         };
-        let confirms = matches!(
-            action,
-            ActionKind::AddBibEntry { .. } | ActionKind::ReplaceBibEntry { .. }
-        );
-        if !confirms {
-            cx.emit(PaletteEvent::Dismiss);
+        let change = match &action {
+            ActionKind::AddBibEntry { bibtex, file } => Some((
+                BibChange::Add {
+                    bibtex: bibtex.clone(),
+                },
+                file.clone(),
+                None,
+            )),
+            ActionKind::ReplaceBibEntry { key, bibtex, file } => Some((
+                BibChange::Replace {
+                    key: key.clone(),
+                    bibtex: bibtex.clone(),
+                },
+                file.clone(),
+                Some(key.clone()),
+            )),
+            _ => None,
+        };
+        if let Some((change, file, replacing)) = change {
+            self.ask_bib(change, file, replacing, cx);
+            return;
         }
+        cx.emit(PaletteEvent::Dismiss);
         let shell = self.shell.clone();
         window.defer(cx, move |window, cx| {
             shell
@@ -311,6 +363,100 @@ impl CommandPaletteView {
                 })
                 .ok();
         });
+    }
+
+    fn bib_confirm(&mut self) -> Option<&mut BibConfirm> {
+        match &mut self.plugin {
+            Some(Step::Done { confirm, .. }) => confirm.as_deref_mut(),
+            _ => None,
+        }
+    }
+
+    /// Read where `change` goes (and the entry it updates), then ask.
+    fn ask_bib(
+        &mut self,
+        change: BibChange,
+        file: Option<String>,
+        replacing: Option<String>,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(shell) = self.shell.upgrade() else {
+            return;
+        };
+        let target = shell.read(cx).plugin_bib_target(file, replacing, cx);
+        let task = cx.spawn(async move |this, cx| {
+            let target = target.await;
+            this.update(cx, |this, cx| {
+                if let Some(confirm) = this.bib_confirm() {
+                    confirm.target = target;
+                    confirm.busy = false;
+                    confirm.shown = true;
+                }
+                cx.notify();
+            })
+            .ok();
+        });
+        if let Some(Step::Done { confirm, .. }) = &mut self.plugin {
+            *confirm = Some(Box::new(BibConfirm {
+                change,
+                target: BibTarget::default(),
+                busy: true,
+                shown: false,
+                _task: Some(task),
+            }));
+        }
+        cx.notify();
+    }
+
+    /// Cancel, or ⎋: back to the result.
+    pub(super) fn cancel_bib(&mut self, cx: &mut Context<Self>) {
+        if let Some(Step::Done { confirm, .. }) = &mut self.plugin {
+            *confirm = None;
+        }
+        cx.notify();
+    }
+
+    /// Add entry or Update entry: write, then close; a failure stays in the
+    /// card.
+    pub(super) fn write_bib(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(shell) = self.shell.upgrade() else {
+            return;
+        };
+        let Some(confirm) = self.bib_confirm() else {
+            return;
+        };
+        let replacing = matches!(confirm.change, BibChange::Replace { .. });
+        if confirm.busy
+            || !confirm.shown
+            || confirm.target.file.is_empty()
+            || (replacing && confirm.target.before.is_none())
+        {
+            return;
+        }
+        confirm.busy = true;
+        confirm.target.error = None;
+        let (file, change) = (confirm.target.file.clone(), confirm.change.clone());
+        let written = shell.update(cx, |shell, cx| {
+            shell.write_plugin_bib(file, change, window, cx)
+        });
+        let task = cx.spawn(async move |this, cx| {
+            let written = written.await;
+            this.update(cx, |this, cx| match written {
+                Ok(()) => cx.emit(PaletteEvent::Dismiss),
+                Err(error) => {
+                    if let Some(confirm) = this.bib_confirm() {
+                        confirm.busy = false;
+                        confirm.target.error = Some(error);
+                    }
+                    cx.notify();
+                }
+            })
+            .ok();
+        });
+        if let Some(confirm) = self.bib_confirm() {
+            confirm._task = Some(task);
+        }
+        cx.notify();
     }
 
     pub(super) fn open_plugin_settings(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -325,43 +471,31 @@ impl CommandPaletteView {
         });
     }
 
-    /// The search row's content in a plugin step: the chip, then the field
-    /// (asking) or the command's title.
+    /// Whether the search row shows: only while the list or the command's
+    /// field is in it, not once a command runs.
+    pub(super) fn search_row_shown(&self) -> bool {
+        matches!(self.plugin, None | Some(Step::Input { .. }))
+    }
+
+    /// The input step's search row: the plugin's name in a chip, then the
+    /// field (`.plugin-input-header`).
     pub(super) fn plugin_search_row(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
-        let step = self.plugin.as_ref()?;
+        let Some(Step::Input { command, .. }) = &self.plugin else {
+            return None;
+        };
         let palette = cx.palette().clone();
-        let command = step.command();
         let chip = div()
             .flex_none()
-            .px(px(6.))
-            .h(px(20.))
-            .flex()
-            .items_center()
-            .rounded(px(6.))
+            .max_w(px(220.))
+            .px(px(8.))
+            .py(px(2.))
+            .rounded_full()
             .bg(palette.accent_soft)
-            .text_color(palette.accent)
+            .text_color(palette.text)
             .text_role(TextRole::Caption, cx)
             .font_weight(FONT_WEIGHT_MEDIUM)
+            .truncate()
             .child(SharedString::from(command.plugin_name.clone()));
-        let field = match step {
-            Step::Input { .. } => div()
-                .flex_1()
-                .text_role(TextRole::Body, cx)
-                .child(
-                    gpui_kit::component::input::Input::new(&self.input)
-                        .appearance(false)
-                        .bordered(false),
-                )
-                .into_any_element(),
-            _ => div()
-                .flex_1()
-                .min_w_0()
-                .truncate()
-                .text_role(TextRole::Body, cx)
-                .text_color(palette.text)
-                .child(SharedString::from(command.title.clone()))
-                .into_any_element(),
-        };
         Some(
             div()
                 .flex()
@@ -369,88 +503,124 @@ impl CommandPaletteView {
                 .gap(px(8.))
                 .flex_1()
                 .min_w_0()
-                .child(Icon::PUZZLE.element(ICON, palette.text_secondary))
                 .child(chip)
-                .child(field)
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w_0()
+                        .text_role(TextRole::Body, cx)
+                        .child(
+                            gpui_kit::component::input::Input::new(&self.input)
+                                .appearance(false)
+                                .bordered(false),
+                        ),
+                )
                 .into_any_element(),
         )
     }
 
-    /// The card's body in a plugin step after the search row.
+    /// Over a result, its confirmation or an error, in the search row's
+    /// place: the plugin's name, a dot, then the result's summary or the
+    /// command's title (`.plugin-run-header`).
+    pub(super) fn plugin_header(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
+        let Some(Step::Done {
+            command, outcome, ..
+        }) = &self.plugin
+        else {
+            return None;
+        };
+        let palette = cx.palette().clone();
+        let summary = match outcome {
+            Outcome::Result { result, .. } => results::summary(result),
+            Outcome::Error(_) => None,
+        }
+        .unwrap_or(&command.title);
+        Some(
+            div()
+                .flex()
+                .items_baseline()
+                .gap(px(6.))
+                .min_w_0()
+                .px(px(16.))
+                .py(px(10.))
+                .border_b_1()
+                .border_color(palette.line)
+                .text_role(TextRole::Body, cx)
+                .child(
+                    div()
+                        .flex_none()
+                        .font_weight(FONT_WEIGHT_MEDIUM)
+                        .text_color(palette.text)
+                        .child(SharedString::from(command.plugin_name.clone())),
+                )
+                .child(
+                    div()
+                        .flex_none()
+                        .text_color(palette.text_secondary)
+                        .child("·"),
+                )
+                .child(
+                    div()
+                        .min_w_0()
+                        .truncate()
+                        .text_color(palette.text_secondary)
+                        .child(SharedString::from(summary.to_string())),
+                )
+                .into_any_element(),
+        )
+    }
+
+    /// The card's body in a plugin step, under the search row or header.
     pub(super) fn plugin_body(
         &mut self,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Option<AnyElement> {
         let palette = cx.palette().clone();
-        let padded = || div().p(shape::PALETTE_LIST.inset);
         match self.plugin.as_ref()? {
             Step::Input { .. } => None,
             Step::Running {
                 command, progress, ..
             } => {
                 let message = progress
-                    .clone()
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|progress| !progress.is_empty())
+                    .map(str::to_string)
                     .unwrap_or_else(|| text::running(&command.title));
                 Some(
-                    padded()
+                    div()
+                        .id("plugin-progress")
+                        .flex()
+                        .items_center()
+                        .gap(px(8.))
+                        .px(px(16.))
+                        .py(px(12.))
+                        .text_role(TextRole::Body, cx)
+                        .text_color(palette.text_secondary)
+                        .child(crate::build::chip_mark::infinity_loader(
+                            "plugin-progress-loader",
+                            px(16.),
+                            &palette,
+                        ))
                         .child(
                             div()
-                                .id("plugin-progress")
-                                .flex()
-                                .items_center()
-                                .gap(px(8.))
-                                .min_h(px(28.))
-                                .px(px(10.))
-                                .py(px(6.))
-                                .child(lattice_ui::loading::loader(
-                                    "plugin-progress-spinner",
-                                    ICON,
-                                    palette.text_secondary,
-                                    cx,
-                                ))
-                                .child(
-                                    div()
-                                        .flex_1()
-                                        .min_w_0()
-                                        .truncate()
-                                        .text_role(TextRole::Body, cx)
-                                        .text_color(palette.text_secondary)
-                                        .child(SharedString::from(message)),
-                                ),
+                                .flex_1()
+                                .min_w_0()
+                                .truncate()
+                                .child(SharedString::from(message)),
                         )
                         .into_any_element(),
                 )
             }
-            Step::Done { command, outcome } => {
-                let summary = match outcome {
-                    Outcome::Result { result, .. } => results::summary(result),
-                    Outcome::Error(_) => None,
-                };
-                let header = text::result_header(&command.plugin_name, summary, &command.title);
-                let heading = div()
-                    .px(px(10.))
-                    .pt(px(4.))
-                    .pb(px(4.))
-                    .text_role(TextRole::Caption, cx)
-                    .font_weight(FONT_WEIGHT_MEDIUM)
-                    .text_color(palette.text_secondary)
-                    .truncate()
-                    .child(SharedString::from(header));
-                let body = match outcome {
-                    Outcome::Error(error) => self.error_view(error.clone(), cx),
-                    Outcome::Result { .. } => self.result_view(window, cx),
-                };
-                Some(
-                    div()
-                        .flex()
-                        .flex_col()
-                        .pt(shape::PALETTE_LIST.inset)
-                        .child(heading)
-                        .child(body)
-                        .into_any_element(),
-                )
-            }
+            Step::Done {
+                confirm: Some(confirm),
+                ..
+            } if confirm.shown => Some(self.confirm_view(cx)),
+            Step::Done { outcome, .. } => Some(match outcome {
+                Outcome::Error(error) => self.error_view(error.clone(), cx),
+                Outcome::Result { .. } => self.result_view(window, cx),
+            }),
         }
     }
 
@@ -470,6 +640,20 @@ impl CommandPaletteView {
                 outcome: Outcome::Error(error),
                 ..
             } => ("done", vec![("error".into(), error.text.clone())]),
+            Step::Done {
+                confirm: Some(confirm),
+                ..
+            } if confirm.shown => (
+                "confirm",
+                vec![(
+                    "confirm".into(),
+                    confirm
+                        .target
+                        .error
+                        .clone()
+                        .unwrap_or_else(|| confirm.title()),
+                )],
+            ),
             Step::Done {
                 outcome: Outcome::Result { result, rows, .. },
                 ..
@@ -551,5 +735,19 @@ impl CommandPaletteView {
         };
         self.plugin_act(at, index, window, cx);
         true
+    }
+
+    /// Type `text` in the input step without running it, for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub(crate) fn plugin_type(&mut self, text: &str, window: &mut Window, cx: &mut Context<Self>) {
+        self.input.update(cx, |input, cx| {
+            input.set_value(text.to_string(), window, cx)
+        });
+    }
+
+    /// Press the confirmation's answer, for a scenario.
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    pub(crate) fn plugin_confirm_accept(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.write_bib(window, cx);
     }
 }

@@ -507,6 +507,8 @@ impl Render for CommandPaletteView {
         }
         let in_project = self.in_project;
         let plugin_row = self.plugin_search_row(cx);
+        let plugin_header = self.plugin_header(cx);
+        let search_row = self.search_row_shown();
         let plugin_body = self.plugin_body(window, cx);
         let in_plugin = self.plugin.is_some();
         let empty = (self.shown.is_empty() && !in_plugin).then(|| {
@@ -541,25 +543,27 @@ impl Render for CommandPaletteView {
             .shadow(Elevation::Dialog.shadows(&palette))
             .overflow_hidden()
             .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-            .child(
-                div()
-                    .flex()
-                    .items_center()
-                    .gap(px(8.))
-                    .h(px(32. + 12.))
-                    .px(px(14.))
-                    .border_b_1()
-                    .border_color(palette.line)
-                    .map(|row| match plugin_row {
-                        Some(plugin_row) => row.child(plugin_row),
-                        None => {
-                            row.child(Icon::SEARCH.element(ICON, palette.text_secondary))
+            .when(search_row, |card| {
+                card.child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .gap(px(8.))
+                        .h(px(32. + 12.))
+                        .px(px(14.))
+                        .border_b_1()
+                        .border_color(palette.line)
+                        .map(|row| match plugin_row {
+                            Some(plugin_row) => row.child(plugin_row),
+                            None => row
+                                .child(Icon::SEARCH.element(ICON, palette.text_secondary))
                                 .child(div().flex_1().text_role(TextRole::Body, cx).child(
                                     Input::new(&self.input).appearance(false).bordered(false),
-                                ))
-                        }
-                    }),
-            )
+                                )),
+                        }),
+                )
+            })
+            .children(plugin_header)
             .children(empty)
             .children(plugin_body)
             .when(!self.shown.is_empty() && !in_plugin, |card| {

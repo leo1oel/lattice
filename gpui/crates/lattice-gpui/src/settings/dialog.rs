@@ -440,6 +440,14 @@ impl SettingsDialog {
             .update(cx, |surface, cx| surface.set_shown(shown, cx));
     }
 
+    /// Scroll the page to its end, for a scenario's screenshot.
+    #[cfg(target_os = "macos")]
+    pub fn scroll_to_end(&mut self, cx: &mut Context<Self>) {
+        let max = self.scroll.max_offset().y;
+        self.scroll.set_offset(point(px(0.), -max));
+        cx.notify();
+    }
+
     /// Open a section's page; Settings reopens on it next time.
     pub fn open_tab(&mut self, tab: SettingsTab, cx: &mut Context<Self>) {
         let tab = super::pages::drawn(tab);

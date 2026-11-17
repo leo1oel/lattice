@@ -6,8 +6,10 @@
 //! palette's Plugins section; a command that asks for text takes it in the
 //! palette and returns items, whose second action copies; a command without
 //! input returns diagnostics grouped by file, and Return on one opens its
-//! file at its line; a message renders; and a plugin's own error shows
-//! inline. Plugins run only on macOS, so the module does too.
+//! file at its line; a message renders; a plugin's own error shows
+//! inline; and Add to bibliography asks in the palette before it writes.
+//! With `LATTICE_E2E_SHOTS` it then takes the Tauri app's states
+//! (`plugin_shots.rs`). Plugins run only on macOS, so the module does too.
 
 use std::{path::Path, time::Duration};
 
@@ -110,7 +112,7 @@ impl Run {
         })
     }
 
-    async fn plugin_done(&self, cx: &mut AsyncApp) -> State {
+    pub(super) async fn plugin_done(&self, cx: &mut AsyncApp) -> State {
         self.wait_for(cx, Duration::from_secs(20), |shell, cx| {
             shell
                 .read(cx)
@@ -122,7 +124,7 @@ impl Run {
         self.plugin_state_now(cx)
     }
 
-    async fn plugin_shot(&self, cx: &mut AsyncApp, name: &str) {
+    pub(super) async fn plugin_shot(&self, cx: &mut AsyncApp, name: &str) {
         if std::env::var_os("LATTICE_E2E_SHOTS").is_none() {
             return;
         }
@@ -199,12 +201,17 @@ impl Run {
             })?;
         }
         self.pause(cx, Duration::from_millis(100)).await;
-        let body = cx.update(|cx| crate::confirm::install(cx).read(cx).question_body());
+        let (question, list) = cx.update(|cx| {
+            let host = crate::confirm::install(cx).read(cx);
+            (host.question(), host.question_list())
+        });
         steps.check(
             "turning a plugin on first asks, listing what it may access in plain words",
-            body.as_ref()
-                .is_some_and(|body| body.contains("Read the open file, selection and cursor")),
-            json!({ "body": body.map(|body| body.to_string()) }),
+            question.as_deref() == Some("Turn on Fixture?")
+                && list
+                    .iter()
+                    .any(|line| line.as_ref() == "Read the open file, selection and cursor"),
+            json!({ "question": question.map(|q| q.to_string()), "list": list.iter().map(|l| l.to_string()).collect::<Vec<_>>() }),
         );
         self.plugin_shot(cx, "plugins-confirm").await;
         self.with_window(cx, |_, window, cx| {
@@ -373,35 +380,47 @@ impl Run {
             }
         })?;
         let asked = self
-            .wait_for(cx, Duration::from_secs(10), |_, cx| {
-                crate::confirm::install(cx).read(cx).is_open()
+            .wait_for(cx, Duration::from_secs(10), |shell, cx| {
+                shell
+                    .read(cx)
+                    .palette_view()
+                    .and_then(|palette| palette.read(cx).plugin_state())
+                    .is_some_and(|(step, _)| step == "confirm")
             })
             .await;
-        let question = cx.update(|cx| crate::confirm::install(cx).read(cx).question());
+        let question = self
+            .plugin_state_now(cx)
+            .and_then(|(_, rows)| rows.first().map(|(_, text)| text.clone()));
         let untouched = std::fs::read_to_string(&bib).unwrap_or_default() == before;
-        let palette_stays = cx.update(|cx| self.shell.read(cx).palette_view().is_some());
         self.plugin_shot(cx, "plugins-bib-confirm").await;
-        self.with_window(cx, |_, window, cx| {
-            crate::confirm::install(cx).update(cx, |host, cx| host.accept(window, cx))
+        self.with_window(cx, |shell, window, cx| {
+            if let Some(palette) = shell.read(cx).palette_view() {
+                palette.update(cx, |palette, cx| palette.plugin_confirm_accept(window, cx));
+            }
         })?;
         let written = self
             .wait_for(cx, Duration::from_secs(10), |_, _| {
                 std::fs::read_to_string(&bib).is_ok_and(|text| text.contains("@book{dijkstra72,"))
             })
             .await;
+        self.pause(cx, Duration::from_millis(200)).await;
         let after = std::fs::read_to_string(&bib).unwrap_or_default();
+        let closed = cx.update(|cx| self.shell.read(cx).palette_view().is_none());
         steps.check(
-            "Add to bibliography shows the entry and writes it only once the writer confirms, keeping the file's entries",
+            "Add to bibliography asks in the palette with the entry, and writes it only once the writer confirms, keeping the file's entries",
             asked
                 && untouched
-                && palette_stays
                 && question.as_deref() == Some("Add this entry to references.bib?")
                 && written
+                && closed
                 && after.starts_with(before.trim_end()),
-            json!({ "asked": asked, "question": question.map(|q| q.to_string()), "untouched": untouched, "palette_stays": palette_stays, "written": written }),
+            json!({ "asked": asked, "question": question, "untouched": untouched, "written": written, "closed": closed }),
         );
         std::fs::write(&bib, &before)?;
         self.with_window(cx, |shell, window, cx| shell.update(cx, |shell, cx| shell.close_overlays(window, cx)))?;
+        if std::env::var_os("LATTICE_E2E_SHOTS").is_some() {
+            self.plugin_parity_shots(cx, root).await?;
+        }
         Ok(())
     }
 }

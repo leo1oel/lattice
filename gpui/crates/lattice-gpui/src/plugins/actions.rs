@@ -1,94 +1,78 @@
-//! What a plugin's bibliography actions change, worked out before the
-//! writer is asked (`shell/plugin_actions.rs` asks and writes): the file's
-//! next text, so the confirmation shows exactly what Save writes, and the
-//! write is checked against the text it was worked out from.
+//! The text edits behind a plugin's bibliography actions, as the Tauri
+//! app's (`src/plugins/plugin-bib.ts`, `appendBibEntry`): the palette
+//! shows the entry (or the entry as it is now beside the plugin's) and
+//! `shell/plugin_actions.rs` writes the change once the writer confirms,
+//! worked out again on the file as it is then.
 
 use lattice_core::bib_document;
 use lattice_i18n::t;
 
-/// A plugin's proposed change to a bibliography.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum BibChange {
-    Add { bibtex: String },
-    Replace { key: String, bibtex: String },
+/// The keys of the entries in `text`, as written.
+fn keys(text: &str) -> Vec<String> {
+    bib_document::parse(text)
+        .map(|parsed| parsed.entries.into_iter().map(|entry| entry.key).collect())
+        .unwrap_or_default()
 }
 
-/// The change worked out: the entry's key, the file's text after it, and
-/// the entry as it stands now (a replacement's `before`).
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct BibPlan {
-    pub key: String,
-    pub after: String,
-    pub replaced: Option<String>,
-}
-
-/// The key of the one entry `bibtex` holds (the host checked it holds one).
-pub fn entry_key(bibtex: &str) -> Option<String> {
-    let parsed = bib_document::parse(bibtex).ok()?;
-    parsed.entries.first().map(|entry| entry.key.clone())
-}
-
-/// `change` applied to the bibliography's `text`, or why it cannot be.
-pub fn plan(text: &str, change: &BibChange) -> Result<BibPlan, String> {
-    let parsed = bib_document::parse(text)
+/// Entry `key` (any case) as written in `source`, with where it is; an
+/// error when the file can't be read as BibTeX.
+pub fn find_entry(source: &str, key: &str) -> Result<Option<(String, usize, usize)>, String> {
+    let parsed = bib_document::parse(source)
         .map_err(|_| t!("The bibliography can’t be read, so nothing was changed.").to_string())?;
-    let find = |key: &str| {
-        parsed
-            .entries
-            .iter()
-            .find(|entry| entry.key.eq_ignore_ascii_case(key))
-    };
-    match change {
-        BibChange::Add { bibtex } => {
-            let key = entry_key(bibtex)
-                .ok_or_else(|| t!("The plugin’s entry can’t be read.").to_string())?;
-            if find(&key).is_some() {
-                return Err(t!("The bibliography already has an entry “{0}”.", key));
-            }
-            let entry = bibtex.trim();
-            let after = if text.trim_end().is_empty() {
-                format!("{entry}\n")
-            } else {
-                format!("{}\n\n{entry}\n", text.trim_end())
-            };
-            Ok(BibPlan {
-                key,
-                after,
-                replaced: None,
-            })
-        }
-        BibChange::Replace { key, bibtex } => {
-            let entry = find(key).ok_or_else(|| t!("The bibliography has no entry “{0}”.", key))?;
-            let before = &text[entry.from..entry.to];
-            let after = format!(
-                "{}{}{}",
-                &text[..entry.from],
-                bibtex.trim(),
-                &text[entry.to..]
-            );
-            Ok(BibPlan {
-                key: key.clone(),
-                after,
-                replaced: Some(before.to_string()),
-            })
-        }
-    }
+    Ok(parsed
+        .entries
+        .iter()
+        .find(|entry| entry.key.eq_ignore_ascii_case(key))
+        .map(|entry| {
+            (
+                source[entry.from..entry.to].to_string(),
+                entry.from,
+                entry.to,
+            )
+        }))
 }
 
-/// A replacement as lines the confirmation shows: removed lines with "−",
-/// added ones with "+", the rest as they are.
-pub fn diff_lines(before: &str, after: &str) -> String {
-    let diff = similar::TextDiff::from_lines(before, after);
-    let mut out = String::new();
-    for change in diff.iter_all_changes() {
-        let sign = match change.tag() {
-            similar::ChangeTag::Delete => "− ",
-            similar::ChangeTag::Insert => "+ ",
-            similar::ChangeTag::Equal => "  ",
-        };
-        out.push_str(sign);
-        out.push_str(change.value().trim_end_matches('\n'));
-        out.push('\n');
+/// `existing` with `entry` (one entry) appended after a blank line.
+pub fn append_entry(existing: &str, entry: &str) -> Result<String, String> {
+    let added = keys(entry);
+    let [key] = added.as_slice() else {
+        return Err(t!("Add exactly one bibliography entry at a time.").to_string());
+    };
+    if keys(existing)
+        .iter()
+        .any(|existing| existing.eq_ignore_ascii_case(key))
+    {
+        return Err(t!(
+            "Citation key ''{key}'' already exists. Choose a different key or edit the existing reference.",
+            key = key
+        ));
     }
-    out.trim_end().to_string()
+    let trimmed = existing.trim_end();
+    let terminated = if entry.ends_with('\n') {
+        entry.to_string()
+    } else {
+        format!("{entry}\n")
+    };
+    Ok(if trimmed.is_empty() {
+        terminated
+    } else {
+        format!("{trimmed}\n\n{terminated}")
+    })
+}
+
+/// `source` with entry `key` replaced by `bibtex`; an error when the entry
+/// is gone.
+pub fn replace_entry(source: &str, key: &str, bibtex: &str) -> Result<String, String> {
+    let Some((_, from, to)) = find_entry(source, key)? else {
+        return Err(t!(
+            "There is no entry “{key}” to update any more.",
+            key = key
+        ));
+    };
+    Ok(format!(
+        "{}{}{}",
+        &source[..from],
+        bibtex.trim(),
+        &source[to..]
+    ))
 }

@@ -347,25 +347,25 @@ pub fn entries(has_project: bool, known_author: Option<&str>) -> Vec<Entry> {
     let plugins = t!("Plugins");
     out.push(
         Entry::page(Plugins, plugins, t!("Integrations"))
-            .terms(t!("extension add-on command palette")),
+            .terms(t!("plugin extension add-on sandbox permissions")),
     );
     out.push(
         Entry::row(
             Plugins,
             plugins,
             "plugins-install-url",
-            t!("Install from URL"),
+            t!("Install from URL…"),
         )
-        .terms(format!("{} SHA-256 zip", t!("plugin"))),
+        .terms("SHA-256 zip"),
     );
     out.push(
         Entry::row(
             Plugins,
             plugins,
             "plugins-install-folder",
-            t!("Install from folder"),
+            t!("Install from folder…"),
         )
-        .terms(format!("{} {}", t!("plugin"), t!("developing"))),
+        .terms(t!("develop")),
     );
     out.push(Entry::page(Doctor, t!("TeX doctor"), t!("Diagnostics")));
     out.push(Entry::page(Logs, t!("Logs"), t!("Diagnostics")));

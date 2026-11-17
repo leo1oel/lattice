@@ -1,5 +1,5 @@
 //! The pure parts of plugins: the permissions' words, errors by code,
-//! result rows, Markdown blocks, and a bibliography change worked out.
+//! result rows, Markdown blocks, and the bibliography edits.
 
 use lattice_core::plugins::{
     Action, ActionKind, CommandResult, Diagnostic, Item, Permissions, PluginError, ProjectRead,
@@ -7,7 +7,7 @@ use lattice_core::plugins::{
 };
 
 use super::{
-    actions::{BibChange, diff_lines, plan},
+    actions::{append_entry, find_entry, replace_entry},
     markdown::{self, Block, Mark},
     results::{self, Row},
     text,
@@ -66,15 +66,12 @@ fn rows_and_labels_read_as_the_tauri_palette_writes_them() {
         text::command_label("Zotero search", "Search Zotero…"),
         "Zotero search: Search Zotero…"
     );
+    assert_eq!(text::running("Check"), "Running Check…");
     assert_eq!(
-        text::result_header("Bib check", Some("3 problems"), "Check"),
-        "Bib check · 3 problems"
+        text::place(Some(12), Some("duplicate-key")),
+        "line 12 · duplicate-key"
     );
-    assert_eq!(
-        text::result_header("Bib check", Some("  "), "Check"),
-        "Bib check · Check"
-    );
-    assert_eq!(text::running("Search Zotero…"), "Running Search Zotero…");
+    assert_eq!(text::place(None, Some("style")), "style");
     let titled = Action {
         title: Some("Copy key".into()),
         kind: ActionKind::Copy { text: "k".into() },
@@ -191,52 +188,29 @@ fn markdown_keeps_its_structure_and_never_renders_html() {
 }
 
 #[test]
-fn a_bibliography_change_is_worked_out_before_the_writer_is_asked() {
+fn a_bibliography_entry_is_appended_or_replaced_as_the_tauri_app_does() {
     let text = "@article{a,\n  title = {A},\n}\n";
-    let added = plan(
-        text,
-        &BibChange::Add {
-            bibtex: "@book{b, title = {B}}".into(),
-        },
-    )
-    .unwrap();
-    assert_eq!(added.key, "b");
     assert_eq!(
-        added.after,
+        append_entry(text, "@book{b, title = {B}}").unwrap(),
         "@article{a,\n  title = {A},\n}\n\n@book{b, title = {B}}\n"
     );
-    assert!(
-        plan(
-            text,
-            &BibChange::Add {
-                bibtex: "@misc{A, title={x}}".into()
-            }
-        )
-        .is_err()
-    );
-    let replaced = plan(
-        text,
-        &BibChange::Replace {
-            key: "a".into(),
-            bibtex: "@article{a,\n  title = {A2},\n}".into(),
-        },
-    )
-    .unwrap();
-    assert_eq!(replaced.after, "@article{a,\n  title = {A2},\n}\n");
     assert_eq!(
-        replaced.replaced.as_deref(),
+        append_entry("", "@book{b, title = {B}}\n").unwrap(),
+        "@book{b, title = {B}}\n"
+    );
+    assert!(append_entry(text, "@misc{A, title={x}}").is_err());
+    assert!(append_entry(text, "@misc{x,}\n@misc{y,}").is_err());
+    assert_eq!(
+        find_entry(text, "A")
+            .unwrap()
+            .map(|(entry, _, _)| entry)
+            .as_deref(),
         Some("@article{a,\n  title = {A},\n}")
     );
-    assert!(
-        plan(
-            text,
-            &BibChange::Replace {
-                key: "z".into(),
-                bibtex: "@misc{z,}".into()
-            }
-        )
-        .is_err()
+    assert_eq!(find_entry(text, "z").unwrap(), None);
+    assert_eq!(
+        replace_entry(text, "a", "@article{a,\n  title = {A2},\n}\n").unwrap(),
+        "@article{a,\n  title = {A2},\n}\n"
     );
-    let diff = diff_lines("a\nb\n", "a\nc\n");
-    assert_eq!(diff, "  a\n− b\n+ c");
+    assert!(replace_entry(text, "z", "@misc{z,}").is_err());
 }

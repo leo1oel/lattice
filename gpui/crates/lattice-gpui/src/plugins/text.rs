@@ -1,8 +1,8 @@
 //! The words plugins show that depend on what a plugin declares or returns:
 //! the permissions in plain language (Settings › Plugins' cards and the
-//! confirmation that turns a plugin on), an error by its code, an action's
-//! label, the palette's row and result header. The Tauri app words them
-//! the same (`src/plugins/plugin-text.ts`).
+//! question that turns a plugin on), an error by its code, an action's
+//! label. The Tauri app words them the same (`src/plugins/plugin-text.ts`),
+//! from the same catalog entries.
 
 use lattice_core::plugins::{Action, ActionKind, Permissions, PluginError, ProjectRead};
 use lattice_i18n::t;
@@ -21,13 +21,13 @@ pub fn permission_lines(permissions: &Permissions) -> Vec<String> {
         lines.push(t!("Read the project’s bibliography").to_string());
     }
     for port in &permissions.network_local {
-        lines.push(t!("Connect to localhost:{0}", port).to_string());
+        lines.push(t!("Connect to localhost:{port}", port = port).to_string());
     }
     for origin in &permissions.network {
-        lines.push(t!("Send requests to {0}", origin).to_string());
+        lines.push(t!("Send requests to {origin}", origin = origin).to_string());
     }
     for secret in &permissions.secrets {
-        lines.push(t!("Use the saved secret “{0}”", secret).to_string());
+        lines.push(t!("Use the saved secret “{name}”", name = secret).to_string());
     }
     if lines.is_empty() {
         lines.push(t!("No access beyond the project’s name").to_string());
@@ -39,14 +39,18 @@ pub fn permission_lines(permissions: &Permissions) -> Vec<String> {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ErrorText {
     pub text: String,
+    /// A crashed plugin's standard error, under the message.
+    pub stderr: Option<String>,
     /// Settings › Plugins can fix it: the palette offers to open it.
     pub settings: bool,
 }
 
-/// `error` in the interface language, by its code, with the host's or the
-/// plugin's own words where only they know what happened.
+/// `error` in the interface language, by its code, with the host's words
+/// (in the interface language too) or the plugin's own where only they
+/// know what happened.
 pub fn error_text(error: &PluginError) -> ErrorText {
     let settings = matches!(error, PluginError::Disabled | PluginError::NeedsReview);
+    let detail = |message: &str| crate::host_errors::text(message.trim());
     let text = match error {
         PluginError::Unavailable => t!("Plugins run only on macOS for now.").to_string(),
         PluginError::NotInstalled => t!("This plugin is no longer installed.").to_string(),
@@ -59,28 +63,40 @@ pub fn error_text(error: &PluginError) -> ErrorText {
         }
         PluginError::UnknownCommand => t!("This plugin no longer has this command.").to_string(),
         PluginError::Broken { message } => {
-            t!("The plugin is broken: {0}", message.trim()).to_string()
+            t!("The plugin is broken: {detail}", detail = detail(message)).to_string()
         }
-        PluginError::Launch { message } => {
-            t!("Couldn’t start the plugin: {0}", message.trim()).to_string()
-        }
+        PluginError::Launch { message } => t!(
+            "Couldn’t start the plugin: {detail}",
+            detail = detail(message)
+        )
+        .to_string(),
         PluginError::Timeout => t!("The plugin didn’t finish within 2 minutes.").to_string(),
         PluginError::Cancelled => t!("Cancelled.").to_string(),
         PluginError::Crashed { .. } => t!("The plugin stopped without an answer.").to_string(),
         PluginError::Protocol { message } => t!(
-            "The plugin sent something Lattice couldn’t read: {0}",
-            message.trim()
+            "The plugin sent something Lattice couldn’t read: {detail}",
+            detail = detail(message)
         )
         .to_string(),
         PluginError::UnsupportedApi { level } => t!(
-            "This plugin needs plugin API level {0}, which this Lattice doesn’t support.",
-            level
+            "This plugin needs plugin API level {level}, which this Lattice doesn’t support.",
+            level = level
         )
         .to_string(),
-        PluginError::Plugin { message } if !message.trim().is_empty() => message.trim().to_string(),
+        PluginError::Plugin { message } if !message.trim().is_empty() => detail(message),
         PluginError::Plugin { .. } => t!("The plugin failed.").to_string(),
     };
-    ErrorText { text, settings }
+    let stderr = match error {
+        PluginError::Crashed { stderr } if !stderr.trim().is_empty() => {
+            Some(stderr.trim().to_string())
+        }
+        _ => None,
+    };
+    ErrorText {
+        text,
+        stderr,
+        settings,
+    }
 }
 
 /// An action's button: the plugin's title, else Lattice's word for the verb.
@@ -88,7 +104,8 @@ pub fn action_label(action: &Action) -> String {
     if let Some(title) = action
         .title
         .as_deref()
-        .filter(|title| !title.trim().is_empty())
+        .map(str::trim)
+        .filter(|title| !title.is_empty())
     {
         return title.to_string();
     }
@@ -108,21 +125,16 @@ pub fn command_label(plugin: &str, title: &str) -> String {
     format!("{plugin}: {title}")
 }
 
-/// The line over a result: the plugin's name, then its summary or the
-/// command's title.
-pub fn result_header(plugin: &str, summary: Option<&str>, title: &str) -> String {
-    let what = summary
-        .filter(|summary| !summary.trim().is_empty())
-        .unwrap_or(title);
-    format!("{plugin} · {what}")
-}
-
 /// The progress row before the plugin says what it is doing.
 pub fn running(title: &str) -> String {
-    t!("Running {0}…", title.trim_end_matches('…')).to_string()
+    t!("Running {title}…", title = title).to_string()
 }
 
-/// A diagnostic's place: "line N".
-pub fn line(line: u32) -> String {
-    t!("line {0}", line).to_string()
+/// A diagnostic's place under its message: "line N · code".
+pub fn place(line: Option<u32>, code: Option<&str>) -> String {
+    line.map(|line| t!("line {line}", line = line).to_string())
+        .into_iter()
+        .chain(code.map(str::to_string))
+        .collect::<Vec<_>>()
+        .join(" · ")
 }
