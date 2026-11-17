@@ -29,7 +29,7 @@ pub const SCROLLBACK_LINES: usize = 5000;
 /// The program and arguments that run `launch`'s shell with its own
 /// environment, whatever Zed's terminal adds to the one it is given.
 #[cfg(unix)]
-fn command(launch: &lattice_core::terminal::ShellLaunch) -> (String, Vec<String>) {
+fn command(launch: &lattice_core::terminal::ShellLaunch, _cwd: &Path) -> (String, Vec<String>) {
     let mut args = Vec::new();
     let mut unset = |name: &str| {
         args.push("-u".to_string());
@@ -57,8 +57,8 @@ fn command(launch: &lattice_core::terminal::ShellLaunch) -> (String, Vec<String>
 }
 
 #[cfg(not(unix))]
-fn command(launch: &lattice_core::terminal::ShellLaunch) -> (String, Vec<String>) {
-    powershell_command(launch, std::env::var_os("LANG").is_some())
+fn command(launch: &lattice_core::terminal::ShellLaunch, cwd: &Path) -> (String, Vec<String>) {
+    powershell_command(launch, std::env::var_os("LANG").is_some(), cwd)
 }
 
 /// PowerShell has no `env` to start it through, so before its prompt it
@@ -69,8 +69,9 @@ fn command(launch: &lattice_core::terminal::ShellLaunch) -> (String, Vec<String>
 fn powershell_command(
     launch: &lattice_core::terminal::ShellLaunch,
     has_lang: bool,
+    cwd: &Path,
 ) -> (String, Vec<String>) {
-    let quote = |text: &str| format!("'{}'", text.replace('\'', "''"));
+    let quote = lattice_core::terminal::powershell_quote;
     let mut remove: Vec<&str> = vec!["ZED_TERM", "ALACRITTY_WINDOW_ID", "WINDOWID"];
     remove.extend(launch.env_remove.iter().map(String::as_str));
     if !has_lang {
@@ -99,6 +100,10 @@ fn powershell_command(
                 )
             }),
     );
+    // Windows PowerShell 5.1 reads `[` and `]` in its inherited working
+    // directory as wildcards and falls back to its own folder, so a project
+    // such as "[EMNLP] …" would open in System32. Move there literally.
+    script.push(lattice_core::terminal::set_location_script(cwd));
     let mut args = launch.args.clone();
     args.push("-Command".to_string());
     args.push(script.join("; "));
@@ -115,7 +120,10 @@ pub fn start(
 ) -> (String, Task<Result<TerminalBuilder>>) {
     let launch = lattice_core::terminal::shell_launch();
     let name = launch.name();
-    let (program, args) = command(&launch);
+    // The plain spelling of the canonical root: PowerShell will not start
+    // in a `\\?\` folder (lattice-core's `shell_cwd`).
+    let cwd = lattice_core::terminal::shell_cwd(root);
+    let (program, args) = command(&launch, &cwd);
     let mut env: HashMap<String, String> = HashMap::default();
     if let Some(home) = std::env::var_os("HOME") {
         env.insert("HOME".into(), home.to_string_lossy().into_owned());
@@ -123,9 +131,7 @@ pub fn start(
     #[cfg(not(unix))]
     env.extend(launch.env.iter().cloned());
     let task = TerminalBuilder::new(
-        // The plain spelling of the canonical root: PowerShell will not start
-        // in a `\\?\` folder (lattice-core's `shell_cwd`).
-        Some(lattice_core::terminal::shell_cwd(root)),
+        Some(cwd),
         terminal::TerminalMode::interactive_with_completion(exited),
         Shell::WithArguments {
             program,
@@ -163,7 +169,8 @@ mod tests {
             ],
             env_remove: vec!["LATTICE_PROJECT".into()],
         };
-        let (program, args) = powershell_command(&launch, true);
+        let cwd = Path::new(r"C:\Docs\[EMNLP] Ada's thesis");
+        let (program, args) = powershell_command(&launch, true, cwd);
         assert_eq!(program, "powershell.exe");
         assert_eq!(args[..3], ["-NoLogo", "-NoExit", "-Command"]);
         assert_eq!(args.len(), 4);
@@ -176,10 +183,11 @@ mod tests {
                 "Remove-Item -LiteralPath 'Env:WINDOWID' -ErrorAction SilentlyContinue",
                 "Remove-Item -LiteralPath 'Env:LATTICE_PROJECT' -ErrorAction SilentlyContinue",
                 "Set-Item -LiteralPath 'Env:TERM_PROGRAM' -Value 'Lattice'",
-                "Set-Item -LiteralPath 'Env:TERM_PROGRAM_VERSION' -Value 'it''s 1.0'",
+                "Set-Item -LiteralPath 'Env:TERM_PROGRAM_VERSION' -Value \"it's 1.0\"",
+                r#"Set-Location -LiteralPath "C:\Docs\[EMNLP] Ada's thesis""#,
             ]
         );
-        let (_, args) = powershell_command(&launch, false);
+        let (_, args) = powershell_command(&launch, false, cwd);
         assert!(args[3].contains("Remove-Item -LiteralPath 'Env:LANG'"));
     }
 
@@ -192,7 +200,7 @@ mod tests {
             env: vec![("TERM_PROGRAM".into(), "Lattice".into())],
             env_remove: vec!["LATTICE_PROJECT".into()],
         };
-        let (program, args) = command(&launch);
+        let (program, args) = command(&launch, Path::new("/project"));
         assert_eq!(program, "/usr/bin/env");
         let joined = args.join(" ");
         assert!(joined.contains("-u ZED_TERM"));
