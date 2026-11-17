@@ -18,6 +18,7 @@ mod alphaxiv;
 pub mod app_identity;
 pub mod app_state;
 pub mod bib_document;
+pub mod board;
 pub mod citation_audit;
 mod citation_batch;
 pub mod citation_health;

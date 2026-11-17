@@ -79,6 +79,17 @@ pub async fn create_project_entry(
     run_blocking("File creation", move || project::create_entry(&root, &path, &kind)).await
 }
 
+/// Convert a tldraw board (`.tldr`) into an `.excalidraw` beside it and
+/// return the new board's path; the original stays as it was.
+#[tauri::command]
+pub async fn convert_tldr_board(
+    state: State<'_, AppState>, window: Window, path: String, project_root: String,
+) -> Result<String, String> {
+    let _lease = state.structural_lease(&project_root, Lease::Shared).await;
+    let root = pinned_root(&state, &window, &project_root, "the board could be converted")?;
+    run_blocking("Board conversion", move || project::convert_tldr_board(&root, &path)).await
+}
+
 #[tauri::command]
 pub async fn create_open_slide_deck(
     state: State<'_, AppState>, window: Window, deck_id: String, project_root: String,

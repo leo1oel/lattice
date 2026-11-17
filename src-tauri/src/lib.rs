@@ -411,6 +411,7 @@ pub fn run() {
             ipc::files::read_project_file,
             ipc::files::write_project_file,
             ipc::files::create_project_entry,
+            ipc::files::convert_tldr_board,
             ipc::files::create_open_slide_deck,
             ipc::files::delete_project_entry,
             ipc::files::rename_project_entry,
